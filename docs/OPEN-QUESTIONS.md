@@ -107,6 +107,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Options: (a) drop now; (b) leave dormant until a removal batch; (c) keep therapy as a referral-only directory.
 - Recommend (b) then drop with the count-first pattern from `CLAUDE.md`; keep the address form only if lab home collection needs it.
 - Decision (founder, 2026-09-30): Leave dormant; drop in a later removal batch using the count-first pattern.
+- **RESOLVED 2026-10-07 (delivery part).** Home delivery is removed from the database and the code (PR #1017 code, migrations `20261007105824_oq261a_*` and `20261007153917_oq261_remove_home_delivery`, PR #1023; the old working label for this was "OQ-261", which was later reused for break-glass). Live counts before: 0 pharmacy orders, 0 delivery attempts, 4 partners with the default `delivery=true` and no fee. Dropped: `pharmacy_partners.delivery`/`delivery_fee_kobo`; `pharmacy_orders.delivery_address`/`estimated_delivery_at`/`delivery_confirmed_at`/`delivered_at`/`logistics_partner_id`/`fulfilment_method`; table `pharmacy_order_delivery_attempts`; the statuses `out_for_delivery`/`delivery_failed`/`delivered`; the three delivery enums; four delivery functions. **Kept dormant on purpose (founder 2026-10-07: logistics and direct pharmacy ordering are not in the MVP and must be easy to switch on once a partner exists):** `logistics_partners` (one inactive placeholder row) with its permissions, readers and admin screen, and `pharmacy_orders.courier_reference`/`courier_assigned_at`/`requires_cold_chain`. The patient's MVP route to medicine is the prescription PDF taken to a pharmacy of their choice. Switching logistics on later is a new migration (order-side columns and statuses) plus restoring the order-side hooks from the parent of #1017. `therapy_sessions` (the other half of OQ-16) is untouched.
 
 ## B. Structure and platform conflicts
 
@@ -1610,6 +1611,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-272 Delivery schema is still present (Part C.2 says no home delivery)
 - `fulfilment_method delivery`, `delivery_fee_kobo`, `logistics_partner_id`, delivery statuses and `pharmacy_order_delivery_attempts` remain (OQ-16 open). S28 is collection only and wires none of it.
 - Decision: open (founder), with OQ-16.
+- **RESOLVED 2026-10-07:** removed. See OQ-16 for exactly what went and what was kept.
 
 ### OQ-273 Not built in S28: price comparison, verified batches, pharmacist chat
 - Price comparison (8.9) needs per-pharmacy prices; `pharmacy_medications` has 0 rows and the spec puts it in Release 2. Verified-batch sourcing (8.11) needs a NAFDAC check (8.8), also Release 2. Pharmacist chat (8.12) is a new message thread between a patient and a pharmacist and needs its own decision (who moderates, what it may discuss, retention).
@@ -1730,6 +1732,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 
 ### OQ-281 Delivery data: hidden from patients, full removal still to do (S28d; extends OQ-16, OQ-272)
 - Live counts before the change: 0 pharmacy orders, 0 delivery attempts. The patient-facing `pharmacy_partner_directory` view no longer carries `delivery` or `delivery_fee_kobo`. **Not built, a separate task:** dropping `pharmacy_partners.delivery`/`delivery_fee_kobo`, the legacy order delivery columns, `pharmacy_order_delivery_attempts` and the dormant logistics screens (about fifteen web files).
+- **RESOLVED 2026-10-07:** that task is done (PR #1017 code, PR #1023 database). See OQ-16.
 
 ### OQ-282 The older pharmacist reads are audited and tagged (S28d; closes OQ-271)
 - `pharmacist_orders`, `pharmacist_order_allergies`, `pharmacist_order_medications`, `pharmacist_record_dispense` and `verify_prescription` now leave an audit row. `is_test` is on `pharmacy_orders`, `pharmacy_order_dispenses` and `medication_dispense_flags`, backfilled and stamped from the patient on every insert. The order alert to a pharmacy is the neutral in-app message (an email with no patient detail for a partner with no app login; never SMS). `verify_prescription` audits matches only: wrong-code probing is not audited or limited (open).

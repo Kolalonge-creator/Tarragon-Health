@@ -41,8 +41,8 @@ export default async function CoveragePage() {
   // now — see the 2026-08-03 self-arranged-fulfilment migrations). Filtering
   // on it alone would claim "partner-fulfilled services are live" in a state
   // where the checker below correctly says otherwise. Only a state with at
-  // least one currently-gated service (home sample collection, medication
-  // delivery — see gatedServices()) actually live belongs in this list.
+  // least one currently-gated service (home sample collection, see
+  // gatedServices()) actually live belongs in this list.
   const gated = gatedServices();
   const liveStates = coverage.filter((row) =>
     gated.some((service) => row.services[service]),
@@ -68,8 +68,9 @@ export default async function CoveragePage() {
             nothing on top.
           </p>
           <p className="mt-4 text-sm text-charcoal-ink/60">
-            What we do not yet do anywhere: collect a sample from your home,
-            or deliver medication to your door. Those still need a contracted
+            We do not deliver medication. Your doctor gives you a prescription
+            you can download, and you collect your medicine from a pharmacy you
+            choose. Collecting a sample from your home still needs a contracted
             partner in your state, and we&apos;d rather say so than imply
             otherwise.
           </p>
@@ -98,7 +99,7 @@ export default async function CoveragePage() {
         <SectionHeading
           eyebrow="Partner locations"
           title="Where our contracted partners are"
-          description="Most of this page is self-arranged, so it needs no partner at all. A contracted lab, home visit or delivery partner is the exception: a real relationship we hold, not just a listing. This map shows where those partners are, once we have one."
+          description="Most of this page is self-arranged, so it needs no partner at all. A contracted lab or home visit partner is the exception: a real relationship we hold, not just a listing. This map shows where those partners are, once we have one."
         />
         {mapsApiKey && partnerLocations.length > 0 && (
           <PartnerMap locations={partnerLocations} apiKey={mapsApiKey} />
@@ -128,8 +129,8 @@ export default async function CoveragePage() {
               </>
             ) : partnersKnown ? (
               <p className="text-sm text-charcoal-ink/70">
-                We haven&apos;t activated a contracted lab, home visit or
-                delivery partner yet. Check back, or{" "}
+                We haven&apos;t activated a contracted lab or home visit
+                partner yet. Check back, or{" "}
                 <Link href="/contact" className="underline">
                   ask us
                 </Link>{" "}
