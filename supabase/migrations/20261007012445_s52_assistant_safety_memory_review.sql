@@ -464,7 +464,7 @@ begin
     if v_to is not null then
       foreach c in array array['push', 'in_app', 'email'] loop
         insert into public.notifications (recipient_id, organisation_id, channel, template, payload, status, content_class, priority, source_table, source_id)
-        values (v_to, v_org, c::public.notification_channel, 'on_call_page', '{}'::jsonb, 'pending', 'non_clinical', 'critical',
+        values (v_to, v_org, c::public.notification_channel, 'on_call_page', jsonb_build_object('kind', 'assistant_crisis'), 'pending', 'non_clinical', 'critical',
                 case when v_task is not null then 'clinical_tasks' else 'ai_conversations' end, coalesce(v_task, p_conversation));
       end loop;
       v_notified := true;
@@ -735,6 +735,24 @@ begin
 end $$;
 revoke all on function public.assistant_review_record(uuid, text, text, text) from public, anon;
 grant execute on function public.assistant_review_record(uuid, text, text, text) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 7. A turn answered by CODE (a fixed refusal, a clarifying question, the emergency copy) is recorded with the model identifier none:code. It is
+--    not a sighting of a model, so the vendor-drift check (40.19) must not be fed it. The function is patched in place from its live definition
+--    (it is defined once, in 20260829094322) and the patch is asserted.
+-- ---------------------------------------------------------------------------
+do $$
+declare
+  d text;
+begin
+  d := pg_get_functiondef('private.record_ai_model_observation(uuid, text, uuid)'::regprocedure);
+  if d not like '%left(p_model_identifier, 5) = ''none:''%' then
+    d := replace(d, E'begin\n  select s.vendor_id into v_vendor',
+                 E'begin\n  if left(p_model_identifier, 5) = ''none:'' then return; end if; -- S52: code answered, no model to observe\n  select s.vendor_id into v_vendor');
+    if d not like '%left(p_model_identifier, 5) = ''none:''%' then raise exception 'S52: could not patch record_ai_model_observation'; end if;
+    execute d;
+  end if;
+end $$;
 
 -- ---------------------------------------------------------------------------
 -- Self-check

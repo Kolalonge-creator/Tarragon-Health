@@ -5,6 +5,7 @@ import { COACH_ACCESS_DENIED_REPLY, hasCoachAccess } from "./entitlement";
 import { ASSISTANT_NOT_OPEN_REPLY, isAssistantOpen } from "./guard";
 import { COACH_LIMIT_REACHED_REPLY, countMessagesToday, getCoachDailyLimit } from "./rate-limit";
 import { detectEmergencyKeywords, isSelfHarmMessage } from "./keyword-guardrail";
+import { classifyDoseRequest, screenSensitiveResultQuestion } from "./reply-screen";
 import { emitAssistantEvent } from "./events";
 import { buildEmergencyReply } from "./emergency-reply";
 import { COACH_UNAVAILABLE_REPLY, COACH_PROMPT_VERSION } from "./prompts";
@@ -80,6 +81,20 @@ interface CoachTurnOutcome {
  * this function reused the windowed slice as the base for saving, which
  * silently dropped everything older than the window on every single turn. */
 const CONTEXT_HISTORY_LIMIT = 20;
+
+/** True when code, not a model, produced this turn's answer (the graph never reached a model and did not degrade). */
+function answeredByCode(result: { modelId: string | null; degraded?: boolean }): boolean {
+  return result.modelId == null && result.degraded !== true;
+}
+
+/** Which deterministic screen answered, for the audit trail (a short fixed name, never the message). */
+function codeScreenName(message: string, result: { inputSnapshotForAudit?: Record<string, unknown> }): string {
+  if (result.inputSnapshotForAudit && "clarification" in result.inputSnapshotForAudit) return "clarifying_question";
+  if (detectEmergencyKeywords(message)) return "emergency_screen";
+  if (screenSensitiveResultQuestion(message)) return "inv04_sensitive_result_question";
+  if (classifyDoseRequest(message) !== "none") return "dose_request_refusal";
+  return "deterministic_screen";
+}
 
 /**
  * An emergency message that reaches the assistant while the assistant_enabled guard is closed (a stale screen, a direct call). No model,
@@ -291,7 +306,14 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
         modelIdentifier: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5",
         outputSummary: result.reply,
         safetyClassification: tier,
-        guardrailsTriggered: keywordEmergency ? ["emergency_keyword_escalation"] : [],
+        guardrailsTriggered: [
+          ...(keywordEmergency ? ["emergency_keyword_escalation"] : []),
+          ...(answeredByCode(result) ? [`answered_by_code:${codeScreenName(message, result)}`] : []),
+        ],
+        // No model was reached: a fixed refusal, a clarifying question or the emergency copy. Recorded as `none:code`, with no tokens or cost.
+        answeredByCode: answeredByCode(result),
+        inputTokenCount: answeredByCode(result) ? null : undefined,
+        outputTokenCount: answeredByCode(result) ? null : undefined,
         // A keyword-matched emergency never reaches the model at all: the
         // canned safety reply is substituted for whatever it would have said.
         // That is a guardrail suppressing output, which the audit trail

@@ -54,6 +54,11 @@ export interface GovernedRunOutcome<T> {
    */
   readonly blockedByGuardrail?: boolean;
   /**
+   * Set when CODE answered (a fixed refusal, a clarifying question, the emergency copy) and no model was reached. Recorded with the model
+   * identifier `none:code`, so no model, token or cost attribution is made and the vendor-drift check is not fed a model that never ran.
+   */
+  readonly answeredByCode?: boolean;
+  /**
    * Set when the AI path ran to completion but never actually reached the
    * model, and returned its own internally-degraded answer instead of
    * throwing. Logged as `fallback`, not `completed`.
@@ -156,7 +161,7 @@ export async function runGovernedAi<T>(
       // No model answered on the degraded path, so recording the identifier
       // it *would* have used would feed a model that never ran into
       // ai_vendor_model_observations' drift check (40.19).
-      modelIdentifier: degradedReason ? "none:fallback" : outcome.modelIdentifier,
+      modelIdentifier: degradedReason ? "none:fallback" : outcome.answeredByCode ? "none:code" : outcome.modelIdentifier,
       inputCategory,
       status,
       subjectProfileId,

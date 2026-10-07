@@ -13,9 +13,10 @@ import { EMERGENCY_SAFETY_REPLY } from "./prompts";
  */
 export async function buildEmergencyReply(
   deps: { supabase: SupabaseClient<Database>; service: SupabaseClient<Database> },
-  params: { profileId: string; conversationId: string; message: string; fixedReply?: string },
+  params: { profileId: string; conversationId: string; message: string; fixedReply?: string; selfHarmHint?: boolean },
 ): Promise<{ reply: string; selfHarm: boolean }> {
-  const selfHarm = isSelfHarmMessage(params.message);
+  // the keyword screen is the floor; the model's own flag can only add to it (same queue, same dedupe)
+  const selfHarm = isSelfHarmMessage(params.message) || params.selfHarmHint === true;
   const [paged, addendum] = await Promise.all([
     // the pager queues a durable row, waits a bounded time and keeps itself alive past the response (see emergency-page.ts)
     selfHarm ? pageOnCallForSelfHarm(deps.service, params.profileId, params.conversationId) : Promise.resolve(false),
