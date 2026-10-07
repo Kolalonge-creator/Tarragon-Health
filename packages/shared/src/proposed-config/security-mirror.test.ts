@@ -25,8 +25,16 @@ type Rules = {
 const live = () => getProposedConfig("security.rules").value as Rules;
 
 describe("security.rules mirrors the migration seeds", () => {
-  it("v2 is identical to the security_config v2 seed", () => {
-    expect(seed("_s39c_audited_record_access.sql", "security-rules-v2")).toEqual(live());
+  it("v3 is identical to the security_config v3 seed", () => {
+    expect(seed("_s39d_data_registry_purge_export.sql", "security-rules-v3")).toEqual(live());
+  });
+  it("v2 (S39c) is v3 without the export review clock", () => {
+    const { export_review_days: _omit, ...rest } = live() as Rules & { export_review_days: number };
+    void _omit;
+    expect(seed("_s39c_audited_record_access.sql", "security-rules-v2")).toEqual(rest);
+  });
+  it("the export review clock is 30 days", () => {
+    expect((live() as Rules & { export_review_days: number }).export_review_days).toBe(30);
   });
   it("v1 is still the S39 seed and its threshold is unchanged in v2", () => {
     expect(seed("_s39_security_hardening_round1.sql", "security-rules")).toEqual({ lookup_failure_alert_per_hour: live().lookup_failure_alert_per_hour });

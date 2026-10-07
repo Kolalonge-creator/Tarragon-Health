@@ -18,6 +18,8 @@ export interface AdminSearchEntry {
 
 /** Words an admin may use for a page whose title does not say it. Keyed by the path they match. */
 const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
+  ["/admin/access-review", "audit access log opened viewed record who looked privacy snooping retention delete export"],
+  ["/clinician/access-review", "audit access log opened viewed record who looked privacy snooping retention delete export"],
   ["/clinician/credentialing/expiry", "licence license mdcn indemnity expiry expires renewal renew grace suspended reinstate"],
   ["/clinician/credentialing/content", "training test scenarios questions modules approve content exam"],
   ["/clinician/credentialing", "doctor clinician onboarding application applicant apply verify verification mdcn folio credentials referees nysc approve"],
@@ -78,6 +80,7 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
 export const ADMIN_EXTRA_PAGES: AdminSearchEntry[] = [
   { label: "Licences and cover", href: "/admin/credentialing/expiry", group: "Clinician credentialing", hint: "Licence and indemnity expiry, grace periods, pause or reinstate access." },
   { label: "Task types and priorities", href: "/admin/task-types", group: "Clinical queue", hint: "The kinds of clinical work, how urgent each is and who may take it." },
+  { label: "Record access review", href: "/admin/access-review", group: "Security and privacy", hint: "Who opened which patient record, untied and after-hours openings, and the retention review." },
 ];
 
 /** The same, for the Chief Medical Officer, whose account role cannot open /admin. */
@@ -90,6 +93,7 @@ export const CMO_EXTRA_PAGES: AdminSearchEntry[] = [
   { label: "Result release policies", href: "/clinician/result-release-policies", group: "Clinical governance", hint: "Which abnormal results wait for a doctor before the patient sees them." },
   { label: "Safety concerns", href: "/clinician/quality/concerns", group: "Clinical governance", hint: "The speak-up inbox: replies, backup readers and reviews after a concern." },
   { label: "Titration protocols", href: "/clinician/titration-protocols", group: "Clinical sign-off", hint: "Write, check and approve the step table the dose suggestion tool reads." },
+  { label: "Record access review", href: "/clinician/access-review", group: "Security and privacy", hint: "Who opened which patient record, untied and after-hours openings, and the retention review." },
 ];
 
 export interface SettingsPageInput {
