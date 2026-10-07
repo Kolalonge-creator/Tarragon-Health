@@ -437,8 +437,8 @@ export function getNavSections(
                 // found them. See the countKey doc comment above.
                 { label: "Second opinions", href: "/clinician/second-opinions", icon: "inbox", countKey: "secondOpinionRequests" },
                 { label: "Prescription renewals", href: "/clinician/prescription-renewals", icon: "medication", countKey: "prescriptionRenewalRequests" },
-                // Problems a partner pharmacy raised on a prescription (S36h).
-                { label: "Pharmacy messages", href: "/clinician/pharmacy-flags", icon: "medication" },
+                // Questions a partner pharmacy asked about a prescription, and where each one has got to (S36h, S28).
+                { label: "Pharmacy questions", href: "/clinician/pharmacy", icon: "medication" },
                 { label: "Verified documents", href: "/clinician/verified-documents", icon: "inbox", countKey: "verifiedDocumentRequests" },
                 { label: "Senior case reviews", href: "/clinician/senior-case-reviews", icon: "escalation", countKey: "seniorCaseReviews" },
                 {
