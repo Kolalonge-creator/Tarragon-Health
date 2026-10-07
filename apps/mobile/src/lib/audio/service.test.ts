@@ -59,11 +59,24 @@ describe("the audio service", () => {
     const { service, played, issues, stops } = setup();
     const r = await service.playClips(["EMG-001"], "en");
     expect(r).toMatchObject({ played: true, lang: "en" });
-    expect(r.text).toMatch(/needs attention now/);
+    expect(r.text).toMatch(/need care now/);
     expect(played).toHaveLength(1);
     expect(played[0]).toEqual([{ kind: "bundled", module: expect.any(Number) }]);
     expect(stops()).toBe(1); // stops whatever was playing before starting
     expect(issues).toEqual([]);
+  });
+
+  it("says whether a clip would play, without reporting issues or playing anything", async () => {
+    const { service, played, issues } = setup();
+    expect(await service.canPlayClips(["EMG-001"], "en")).toBe(true);
+    expect(await service.canPlayClips(["TRI-001"], "en")).toBe(false); // not recorded or signed in this setup
+    expect(played).toEqual([]);
+    expect(issues).toEqual([]);
+  });
+
+  it("never offers audio when no engine is registered", async () => {
+    const { service } = setup({ engine: null });
+    expect(await service.canPlayClips(["EMG-001"], "en")).toBe(false);
   });
 
   it("stitches a blood pressure reading in order: lead-in, 148, over, 94", async () => {
@@ -87,7 +100,7 @@ describe("the audio service", () => {
     const { service, played } = setup({ ids: [] });
     const r = await service.playClips(["EMG-001"], "en");
     expect(r.played).toBe(false);
-    expect(r.text).toMatch(/needs attention now/);
+    expect(r.text).toMatch(/need care now/);
     expect(played).toEqual([]);
   });
 
@@ -136,11 +149,11 @@ describe("the bundled manifest in the app", () => {
     clearAudioIssues();
   });
 
-  it("loads, and maps triage codes to clips (and EMG-001L to none, as the list has no such clip)", () => {
+  it("loads, and maps triage codes to clips (EMG-001L comes from the wording file)", () => {
     expect(audioCatalogue()).not.toBeNull();
     expect(clipIdFor("EMG-001")).toBe("EMG-001");
     expect(clipIdFor("TRI-003")).toBe("TRI-003");
-    expect(clipIdFor("EMG-001L")).toBeNull();
+    expect(clipIdFor("EMG-001L")).toBe("EMG-001L");
     expect(clipIdFor("notify.triage.task_created")).toBeNull();
     expect(clipIdFor(null)).toBeNull();
   });
