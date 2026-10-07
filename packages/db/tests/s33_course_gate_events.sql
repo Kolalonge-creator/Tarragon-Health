@@ -132,10 +132,9 @@ begin
   -- to cover (published, no reviewer, so no credit) cannot be built any more; what is checked is that the credit shown is the real name.
   perform pg_temp.rec('a published lesson shows its named reviewer', 'Test reviewer', (select coalesce(reviewed_by_name, 'null') from public.learning_course('bp_care_course') where module_number = 1));
   perform pg_temp.back();
-  update public.health_education_content set reviewed_by_name = 'Dr Test Reviewer', reviewed_at = now(), clinician_reviewed = false where id = v_l1;
-  perform pg_temp.act(v_pat);
-  perform pg_temp.rec('a name without clinician_reviewed shows no credit', 'null', (select coalesce(reviewed_by_name, 'null') from public.learning_course('bp_care_course') where module_number = 1));
-  perform pg_temp.back();
+  -- (A published lesson cannot be un-marked as clinician-reviewed any more (S58b integrity), so "a name without the mark shows no credit" is no
+  -- longer a reachable state and is not asserted here.)
+  update public.health_education_content set reviewed_by_name = 'Dr Test Reviewer' where id = v_l1;
   update public.health_education_content set clinician_reviewed = true where id = v_l1;
   perform pg_temp.act(v_pat);
   perform pg_temp.rec('a complete review record shows the credit', 'Dr Test Reviewer', (select coalesce(reviewed_by_name, 'null') from public.learning_course('bp_care_course') where module_number = 1));
