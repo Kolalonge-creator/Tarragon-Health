@@ -63,13 +63,13 @@ export interface FailSafeInput {
 
 const EMPTY_SCREEN: RedFlagScreenResult = { hasFlag: false, fired: [], brokenRules: [], topCategory: null };
 
-class EngineTimeout extends Error {
+export class EngineTimeout extends Error {
   constructor() {
     super("engine timeout");
   }
 }
 
-async function withTimeout<T>(work: (signal: AbortSignal) => T | Promise<T>, ms: number): Promise<T> {
+export async function withTimeout<T>(work: (signal: AbortSignal) => T | Promise<T>, ms: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const controller = new AbortController();
   try {
@@ -88,7 +88,7 @@ async function withTimeout<T>(work: (signal: AbortSignal) => T | Promise<T>, ms:
   }
 }
 
-function degradedResult(reason: DegradedReason, capture: SymptomCapture, config: DegradedModeConfig): SafeTriageResult {
+export function degradedResult(reason: DegradedReason, capture: SymptomCapture, config: DegradedModeConfig): SafeTriageResult {
   let floor: RedFlagScreenResult = EMPTY_SCREEN;
   try {
     floor = evaluateBundledRedFlags(capture, { ignoreSeverityFloors: config.ignore_severity_floors });

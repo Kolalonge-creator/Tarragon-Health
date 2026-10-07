@@ -68,4 +68,30 @@ describe("PatientSummaryView", () => {
     render(<PatientSummaryView summary={{ ...base, readings: { window_days: 14, targets: [], rows: [{ ...row, cuff_type: "wrist" }, { ...row, measured_at: "2026-10-04T09:00:00Z", cuff_type: null }] } }} />);
     expect(screen.getAllByText("Wrist cuff")).toHaveLength(1);
   });
+
+  it("shows a symptom check summary the patient sent once it is tied to a booked consultation (S59)", () => {
+    render(
+      <PatientSummaryView
+        summary={{
+          ...base,
+          symptom_summaries: [
+            {
+              id: "s1",
+              sent_at: "2026-10-07T10:00:00Z",
+              appointment_id: "ap1",
+              payload: { complaint: "headache", complaint_label: "Headache", category: "urgent", onset: "gradual", severity: 6, associated_symptoms: ["fever"], questions: [{ prompt: "Has it lasted long?", answer: true }], red_flags_fired: [] },
+            },
+          ],
+        }}
+      />,
+    );
+    expect(screen.getByText("Symptom check summary")).toBeTruthy();
+    expect(screen.getByText(/Headache/)).toBeTruthy();
+    expect(screen.getByText(/Has it lasted long\?: yes/)).toBeTruthy();
+  });
+
+  it("shows no symptom summary section when there is none", () => {
+    render(<PatientSummaryView summary={{ ...base, symptom_summaries: [] }} />);
+    expect(screen.queryByText("Symptom check summary")).toBeNull();
+  });
 });

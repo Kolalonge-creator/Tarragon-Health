@@ -61,6 +61,7 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/clinician/symptom-reviews", "symptom check reviews review symptom checker patient asked care team look final diagnosis code icd agrees category triage accuracy"],
   ["/admin/partner-quality", "partner partners quality lab laboratory pharmacy clinic score licence expired expiry turnaround complaint complaints suspend pause reinstate removal new work sourcing nafdac verified distributor"],
   ["/admin/partner-settlements", "partner partners settlement settlements statement statements owed pay pharmacy clinic margin sponsor paid terms approve issue void bank reference month run drafts"],
+  ["/clinician/skin-photo-reviews", "photo reviews skin photo rash wound eye picture image patient sent care team look review next step message audited no automated score not a diagnosis"],
   ["/admin/go-live", "go live golive guard guards switch on off launch enable disable clinical operations consultations scribe prescribing payouts lab booking signup sign-up sign up cover proposed values config configuration confirm confirmation owner sign-off signoff founder cmo"],
   ["/admin/ops/go-live", "go live golive guard guards read only view operations ops status conditions switch"],
   ["/admin/ops/clinicians", "clinician roster doctors staff suspend pause competency competencies request ask clinical lead reinstate licence indemnity eligible status level"],

@@ -9,7 +9,9 @@
     ".": "./src/index.ts",
     "./types": "./src/types/index.ts",
     "./engine": "./src/engine/index.ts",
-    "./protocols": "./src/protocols/index.ts"
+    "./protocols": "./src/protocols/index.ts",
+    "./contract": "./src/adapter/contract-suite.ts",
+    "./adapter": "./src/adapter/symptom-engine.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

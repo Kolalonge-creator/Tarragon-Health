@@ -1109,3 +1109,5 @@ s55_weekly_lesson_and_members_creator_perk.sql
 s19c_pager_delivery_hardening.sql
 # S19c guard: the live legacy critical alert engine still excludes page notifications (definition and behaviour: a failed page notification gets no next hop, an ordinary critical one does), so a later create-or-replace of the engine cannot silently bring the SMS rung back for pages. Sabotage: the clause stripped from a copy must flip the behavioural check.
 s19c_legacy_engine_excludes_pages.sql
+# S59 (spec 12.1 to 12.7): symptom sessions view (no staff path), context that never returns pregnancy for someone acted for, audited staff read, the sent-by-choice summary that appears in the clinician patient summary only once a consultation is booked (acceptance test), skin photos (private bucket, per-patient storage RLS, consent, limits, retention, audited review, no score column). Sabotage: the linked-appointment filter removed, the storage policy widened, the table policy widened.
+s59_symptom_assessment_handoff_and_skin_photos.sql
