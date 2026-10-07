@@ -25,7 +25,7 @@ function formatDate(dateStr: string): string {
   });
 }
 
-const STATUS_TONE: Partial<Record<PharmacyOrderStatus, "green" | "amber" | "grey" | "red">> = {
+const STATUS_TONE: Record<PharmacyOrderStatus, "green" | "amber" | "grey" | "red"> = {
   pending_payment: "amber",
   payment_confirmed: "grey",
   requested: "grey",
@@ -37,7 +37,7 @@ const STATUS_TONE: Partial<Record<PharmacyOrderStatus, "green" | "amber" | "grey
 
 function StatusPill({ status }: { status: PharmacyOrderStatus }) {
   const colors = useLegacyColors();
-  const tone = STATUS_TONE[status] ?? "grey";
+  const tone = STATUS_TONE[status];
   const styles: Record<string, { bg: string; text: string }> = {
     green: { bg: colors.brandTint, text: colors.brandPressed },
     amber: { bg: colors.status.warnBg, text: colors.status.warn },
@@ -47,7 +47,7 @@ function StatusPill({ status }: { status: PharmacyOrderStatus }) {
   const s = styles[tone];
   return (
     <View style={{ backgroundColor: s.bg, borderRadius: 999, paddingVertical: 3, paddingHorizontal: 9 }}>
-      <Text style={{ fontSize: 11, fontWeight: "700", color: s.text }}>{PHARMACY_ORDER_STATUS_LABEL[status] ?? "In progress"}</Text>
+      <Text style={{ fontSize: 11, fontWeight: "700", color: s.text }}>{PHARMACY_ORDER_STATUS_LABEL[status]}</Text>
     </View>
   );
 }
