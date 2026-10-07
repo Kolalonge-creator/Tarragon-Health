@@ -22,13 +22,20 @@ export async function createUser(runId: string, label: string, opts: { role: Rol
   const admin = serviceClient();
   const email = `s85-${label}-${runId}@example.com`;
   const password = `S85-test-pw-${runId}-!Aa1`;
-  const { data, error } = await admin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: { full_name: opts.fullName ?? `[s85] ${label}` },
-  });
-  if (error || !data.user) throw error ?? new Error(`createUser ${label} returned no user`);
+  // Retry only a transient transport error (a stack that is still warming up or busy); a real refusal is thrown at once.
+  let data: Awaited<ReturnType<typeof admin.auth.admin.createUser>>["data"] | undefined;
+  let error: Awaited<ReturnType<typeof admin.auth.admin.createUser>>["error"] | null = null;
+  for (let attempt = 0; attempt < 6; attempt++) {
+    ({ data, error } = await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { full_name: opts.fullName ?? `[s85] ${label}` },
+    }));
+    if (!error || error.name !== "AuthRetryableFetchError") break;
+    await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)));
+  }
+  if (error || !data?.user) throw error ?? new Error(`createUser ${label} returned no user`);
   const id = data.user.id;
   // The profile row is created by a trigger when GoTrue inserts the user; wait for it, then set role, organisation and the
   // test flag with a direct update (user_metadata is never trusted for role or organisation).

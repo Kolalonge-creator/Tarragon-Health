@@ -33,7 +33,7 @@ export const J1: JourneyDef = {
     { id: "goal-blood-pressure", title: "Onboarding records the goal 'blood pressure'", pending: { owner: "S41", reason: "Module 1 onboarding goals are built in S41; the live onboarding asks a different first question and stores no goal list" } },
     { id: "risk-questionnaire-high-cv-risk", title: "Risk questionnaire places her at high cardiovascular risk", pending: { owner: "S45", reason: "Module 3 risk engine and questionnaire are S45" } },
     { id: "screening-calendar-essential-due", title: "Screening calendar shows the Essential screen due", pending: { owner: "S45", reason: "screening calendar and packages are S45" } },
-    { id: "order-created-for-screen", title: "Create an order for a screen as the patient (real session, pending payment)" },
+    { id: "order-created-for-screen", title: "Create an order for the paid product (the membership) as the patient (real session, pending payment)" },
     { id: "paystack-test-mode-payment", title: "Pay at checkout through Paystack test mode" },
     { id: "result-held-before-clinician-review", title: "An abnormal lab result is held: the patient cannot read it before a clinician releases it (INV-03)" },
     { id: "clinician-releases-result", title: "A clinician reviews and releases the held result; only then can the patient read it" },

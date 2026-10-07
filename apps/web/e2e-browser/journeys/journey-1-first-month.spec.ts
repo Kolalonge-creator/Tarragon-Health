@@ -4,7 +4,8 @@ import { J1, startJourney } from "../../../../packages/shared/src/journeys/journ
 import { drainBus, serviceClient } from "./harness/drain";
 import { journeyEnv, newRunId } from "./harness/env";
 import { finishJourney } from "./harness/report";
-import { createUser, newOrganisation, signIn } from "./harness/sessions";
+import { seedOnCallTeam } from "./harness/oncall";
+import { createUser, signIn } from "./harness/sessions";
 import { lit, sql, sqlRows, sqlValue } from "./harness/sql";
 
 /**
@@ -24,7 +25,7 @@ const CODE = "123456";
 const PASSWORD = "S85-first-month-pw-!Aa1";
 
 test.describe("Journey 1: a new user's first month", () => {
-  test.setTimeout(300_000);
+  test.setTimeout(900_000);
 
   test("spine: sign-up to first readings, the INV-03 hold, and the Care Circle", async ({ page }, testInfo) => {
     const run = startJourney(J1);
@@ -94,7 +95,7 @@ test.describe("Journey 1: a new user's first month", () => {
     await run.step("order-created-for-screen", async () => {
       const item = sqlRows<{ code: string }>(
         `select ci.code from public.catalog_items ci join public.prices p on p.catalog_item_id = ci.id
-          where ci.is_active order by ci.code limit 1`,
+          where ci.active order by ci.code limit 1`,
       )[0];
       expect(item, "the catalogue has no active priced item to order").toBeDefined();
       const res = await me.rpc("create_order", { p_code: item!.code, p_client_key: crypto.randomUUID() });
@@ -109,10 +110,47 @@ test.describe("Journey 1: a new user's first month", () => {
     }
 
     // ------------------------------------------------------------------ 8 and 9: INV-03, an abnormal result is held until a clinician releases it
-    // (see the lab result steps below, filled in once the S27 functions are exercised against the real database)
-    for (const id of ["result-held-before-clinician-review", "clinician-releases-result"]) {
-      if (!run.isResolved(id)) run.blocked(id, "not exercised yet");
-    }
+    const team = await seedOnCallTeam(runId, org);
+    sql(`insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, clinical_director_id)
+           values (${lit(org)}, ${lit(patientId)}, ${lit(team.primary.id)}, ${lit(team.cmo.id)});`);
+    let resultId: string | null = null;
+    const labClinician = await signIn(team.primary);
+    await run.step("result-held-before-clinician-review", async () => {
+      // a tied clinician submits a structured result for the patient with a raised creatinine
+      const sub = await labClinician.rpc("team_submit_lab_result", {
+        p_patient: patientId,
+        p_order: null,
+        p_panel: "membership_annual",
+        p_items: [
+          { analyte_code: "creatinine", value_numeric: 2.6, unit: "mg/dL" },
+          { analyte_code: "potassium", value_numeric: 4.2, unit: "mmol/L" },
+        ],
+      });
+      expect(sub.error, JSON.stringify(sub.error)).toBeNull();
+      resultId = JSON.stringify(sub.data).match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/)?.[0] ?? null;
+      expect(resultId, "no result id came back: " + JSON.stringify(sub.data)).not.toBeNull();
+      const state = sqlValue<string>(`select release_state::text from public.lab_results where id = ${lit(resultId!)}`);
+      expect(state, "an abnormal result must not be released on arrival").not.toBe("released");
+      // the patient's own session: no values, no item rows
+      const mine = await me.rpc("my_lab_results");
+      expect(mine.error, JSON.stringify(mine.error)).toBeNull();
+      expect(JSON.stringify(mine.data)).not.toMatch(/2\.6|creatinine/i);
+      const items = await me.from("lab_result_items").select("id", { count: "exact", head: true });
+      expect(items.count ?? 0, "the patient could read item rows of a held result").toBe(0);
+    });
+    await run.step("clinician-releases-result", async () => {
+      expect(resultId).not.toBeNull();
+      const rev = await labClinician.rpc("lab_result_for_review", { p_result: resultId, p_reason: "S85 journey review" });
+      expect(rev.error, JSON.stringify(rev.error)).toBeNull();
+      const rel = await labClinician.rpc("release_lab_result", { p_result: resultId, p_note: "S85 journey: reviewed" });
+      expect(rel.error, JSON.stringify(rel.error)).toBeNull();
+      expect(sqlValue<string>(`select release_state::text from public.lab_results where id = ${lit(resultId!)}`)).toBe("released");
+      const mine = await me.rpc("my_lab_results");
+      expect(JSON.stringify(mine.data)).toMatch(/creatinine|2\.6/i);
+      // the clinician's read was audited (INV-10)
+      const audited = Number(sqlValue<string>(`select count(*)::text from public.audit_log where actor_id = ${lit(team.primary.id)}`));
+      expect(audited).toBeGreaterThan(0);
+    });
 
     // ------------------------------------------------------------------ 11: daily readings graded through the bus
     await run.step("daily-readings-graded", async () => {

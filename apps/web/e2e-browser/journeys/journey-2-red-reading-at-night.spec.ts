@@ -26,7 +26,7 @@ const SYSTOLIC = 190; // a very high reading; what it grades as is the rule set'
 const DIASTOLIC = 120;
 
 test.describe("Journey 2: a red reading at night", () => {
-  test.setTimeout(240_000);
+  test.setTimeout(900_000);
 
   test("runs every step that can run today and declares the rest pending", async ({ page, context }, testInfo) => {
     const run = startJourney(J2);

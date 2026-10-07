@@ -97,7 +97,9 @@ export class JourneyRun {
     try {
       await fn();
     } catch (e) {
-      this.record(id, { status: "failed", reason: e instanceof Error ? e.message : String(e) });
+      // A matcher failure can carry hundreds of lines (an array diff); the report keeps the head, not the whole diff.
+      const text = (e instanceof Error ? e.message : String(e)).replace(/\u001b\[[0-9;]*m/g, "");
+      this.record(id, { status: "failed", reason: text.length > 700 ? `${text.slice(0, 700)} ...[truncated]` : text });
       return false;
     }
     this.record(id, { status: "passed" });

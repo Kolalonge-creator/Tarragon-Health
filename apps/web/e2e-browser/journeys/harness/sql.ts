@@ -23,7 +23,7 @@ export function sql(text: string): string {
 
 /** Run a select and get its rows back as objects. */
 export function sqlRows<T = Record<string, unknown>>(query: string): T[] {
-  const out = sql(`select coalesce(json_agg(t), '[]'::json) from (${query.replace(/;\s*$/, "")}) t;`);
+  const out = sql(`select coalesce(json_agg(q_), '[]'::json) from (${query.replace(/;\s*$/, "")}) q_;`);
   return JSON.parse(out) as T[];
 }
 
