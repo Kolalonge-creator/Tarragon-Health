@@ -38152,6 +38152,330 @@ export type Database = {
           },
         ]
       }
+      sleep_wind_down_plans: {
+        Row: {
+          lead_minutes: number
+          organisation_id: string
+          patient_id: string
+          reminder_enabled: boolean
+          steps: string[]
+          updated_at: string
+        }
+        Insert: {
+          lead_minutes?: number
+          organisation_id: string
+          patient_id: string
+          reminder_enabled?: boolean
+          steps?: string[]
+          updated_at?: string
+        }
+        Update: {
+          lead_minutes?: number
+          organisation_id?: string
+          patient_id?: string
+          reminder_enabled?: boolean
+          steps?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sleep_apnoea_screens: {
+        Row: {
+          answers: Json
+          config_version: number
+          created_at: string
+          cut_off_met: boolean | null
+          id: string
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+          signed: boolean
+          task_id: string | null
+          total: number
+          unsure_count: number
+        }
+        Insert: {
+          answers: Json
+          config_version: number
+          created_at?: string
+          cut_off_met?: boolean | null
+          id?: string
+          is_test?: boolean
+          organisation_id: string
+          patient_id: string
+          signed?: boolean
+          task_id?: string | null
+          total: number
+          unsure_count?: number
+        }
+        Update: {
+          answers?: Json
+          config_version?: number
+          created_at?: string
+          cut_off_met?: boolean | null
+          id?: string
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+          signed?: boolean
+          task_id?: string | null
+          total?: number
+          unsure_count?: number
+        }
+        Relationships: []
+      }
+      sleep_apnoea_screen_config: {
+        Row: {
+          config: Json
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          status: string
+          version: number
+        }
+        Insert: {
+          config: Json
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          status?: string
+          version: number
+        }
+        Update: {
+          config?: Json
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          status?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      media_sessions: {
+        Row: {
+          created_at: string
+          id: string
+          is_test: boolean
+          listened_seconds: number
+          media_id: string
+          organisation_id: string
+          patient_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          listened_seconds: number
+          media_id: string
+          organisation_id: string
+          patient_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          listened_seconds?: number
+          media_id?: string
+          organisation_id?: string
+          patient_id?: string
+        }
+        Relationships: []
+      }
+      media_library_config: {
+        Row: {
+          config: Json
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          status: string
+          version: number
+        }
+        Insert: {
+          config: Json
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          status?: string
+          version: number
+        }
+        Update: {
+          config?: Json
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          status?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      media_library: {
+        Row: {
+          audio_clip_id: string | null
+          audio_url: string | null
+          bytes: number | null
+          code: string
+          content_status: string
+          created_at: string
+          creator_id: string | null
+          downloadable: boolean
+          duration_seconds: number | null
+          exercise_type: string | null
+          id: string
+          is_active: boolean
+          is_placeholder: boolean
+          kind: string
+          language: string
+          next_review_due: string | null
+          reviewed_at: string | null
+          reviewed_by_name: string | null
+          script: Json | null
+          series: string
+          series_position: number
+          summary: string | null
+          title: string
+          updated_at: string
+          voice: string | null
+        }
+        Insert: {
+          audio_clip_id?: string | null
+          audio_url?: string | null
+          bytes?: number | null
+          code: string
+          content_status?: string
+          created_at?: string
+          creator_id?: string | null
+          downloadable?: boolean
+          duration_seconds?: number | null
+          exercise_type?: string | null
+          id?: string
+          is_active?: boolean
+          is_placeholder?: boolean
+          kind: string
+          language?: string
+          next_review_due?: string | null
+          reviewed_at?: string | null
+          reviewed_by_name?: string | null
+          script?: Json | null
+          series?: string
+          series_position?: number
+          summary?: string | null
+          title: string
+          updated_at?: string
+          voice?: string | null
+        }
+        Update: {
+          audio_clip_id?: string | null
+          audio_url?: string | null
+          bytes?: number | null
+          code?: string
+          content_status?: string
+          created_at?: string
+          creator_id?: string | null
+          downloadable?: boolean
+          duration_seconds?: number | null
+          exercise_type?: string | null
+          id?: string
+          is_active?: boolean
+          is_placeholder?: boolean
+          kind?: string
+          language?: string
+          next_review_due?: string | null
+          reviewed_at?: string | null
+          reviewed_by_name?: string | null
+          script?: Json | null
+          series?: string
+          series_position?: number
+          summary?: string | null
+          title?: string
+          updated_at?: string
+          voice?: string | null
+        }
+        Relationships: []
+      }
+      journal_synced_entries: {
+        Row: {
+          alg: string
+          ciphertext: string
+          client_entry_id: string
+          client_updated_at: string
+          created_at: string
+          id: string
+          is_test: boolean
+          iv: string
+          organisation_id: string
+          patient_id: string
+          updated_at: string
+        }
+        Insert: {
+          alg: string
+          ciphertext: string
+          client_entry_id: string
+          client_updated_at: string
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          iv: string
+          organisation_id: string
+          patient_id: string
+          updated_at?: string
+        }
+        Update: {
+          alg?: string
+          ciphertext?: string
+          client_entry_id?: string
+          client_updated_at?: string
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          iv?: string
+          organisation_id?: string
+          patient_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      journal_sync_settings: {
+        Row: {
+          enabled: boolean
+          enabled_at: string | null
+          organisation_id: string
+          patient_id: string
+          updated_at: string
+        }
+        Insert: {
+          enabled?: boolean
+          enabled_at?: string | null
+          organisation_id: string
+          patient_id: string
+          updated_at?: string
+        }
+        Update: {
+          enabled?: boolean
+          enabled_at?: string | null
+          organisation_id?: string
+          patient_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sleep_log_entries: {
         Row: {
           bedtime: string | null
@@ -38160,10 +38484,12 @@ export type Database = {
           duration_hours: number
           id: string
           logged_on: string
+          night_awakenings: number | null
           note: string | null
           organisation_id: string
           patient_id: string
           quality_rating: number | null
+          sleep_latency_minutes: number | null
           waketime: string | null
         }
         Insert: {
@@ -38173,10 +38499,12 @@ export type Database = {
           duration_hours: number
           id?: string
           logged_on?: string
+          night_awakenings?: number | null
           note?: string | null
           organisation_id: string
           patient_id: string
           quality_rating?: number | null
+          sleep_latency_minutes?: number | null
           waketime?: string | null
         }
         Update: {
@@ -38186,10 +38514,12 @@ export type Database = {
           duration_hours?: number
           id?: string
           logged_on?: string
+          night_awakenings?: number | null
           note?: string | null
           organisation_id?: string
           patient_id?: string
           quality_rating?: number | null
+          sleep_latency_minutes?: number | null
           waketime?: string | null
         }
         Relationships: [
@@ -44837,6 +45167,21 @@ export type Database = {
       unrelease_contact_recovery: { Args: { p_request: string }; Returns: boolean };
       sponsor_staff_programmes: { Args: Record<PropertyKey, never>; Returns: Json };
       triage_accuracy_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
+      confirm_sleep_apnoea_screen_config: { Args: { p_version: number }; Returns: undefined }
+      read_patient_sleep_screens_audited: { Args: { p_patient: string; p_reason?: string }; Returns: Json }
+      submit_sleep_apnoea_screen: { Args: { p_answers: Json }; Returns: Json }
+      get_sleep_apnoea_instrument: { Args: Record<PropertyKey, never>; Returns: Json }
+      save_wind_down_plan: { Args: { p_lead_minutes: number; p_reminder?: boolean; p_steps: string[] }; Returns: undefined }
+      delete_journal_entry: { Args: { p_client_entry_id: string }; Returns: undefined }
+      upsert_journal_entry: {
+        Args: { p_alg: string; p_ciphertext: string; p_client_entry_id: string; p_client_updated_at: string; p_iv: string }
+        Returns: undefined
+      }
+      set_journal_sync: { Args: { p_enabled: boolean }; Returns: Json }
+      media_library_readiness_report: { Args: Record<PropertyKey, never>; Returns: Json }
+      media_library_flag_expired: { Args: Record<PropertyKey, never>; Returns: number }
+      media_offline_manifest: { Args: Record<PropertyKey, never>; Returns: Json }
+      record_media_session: { Args: { p_listened_seconds: number; p_media: string }; Returns: string }
       lab_panel_definition: { Args: { p_panel: string }; Returns: Json };
       learning_search_gaps_report: {
         Args: never

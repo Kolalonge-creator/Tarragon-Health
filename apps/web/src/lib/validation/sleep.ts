@@ -22,7 +22,14 @@ export const DAYTIME_SLEEPINESS_LABELS: Record<number, string> = {
   3: "High chance",
 };
 
+/** A blank optional number field posts "", which z.coerce would turn into 0: treat blank as not given. */
+const optionalWhole = (max: number) =>
+  z.preprocess((v) => (v === "" || v === null || v === undefined ? undefined : v), z.coerce.number().int().min(0).max(max).optional());
+
 export const logSleepEntrySchema = z.object({
+  // Short diary fields (S57, 10.10): both optional.
+  sleep_latency_minutes: optionalWhole(600),
+  night_awakenings: optionalWhole(30),
   duration_hours: z.coerce.number().min(0).max(24),
   quality_rating: z.coerce.number().int().min(1).max(5).nullish(),
   bedtime: timeOnly,

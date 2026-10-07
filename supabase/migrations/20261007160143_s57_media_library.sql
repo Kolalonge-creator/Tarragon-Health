@@ -221,7 +221,8 @@ begin
   select * into v_pr from public.profiles where id = v_uid and role = 'patient';
   if not found then raise exception 'not authorised' using errcode = '42501'; end if;
   select * into v_m from public.media_library where id = p_media;
-  if not found or not private.media_is_servable(v_m.is_active, v_m.content_status, v_m.is_placeholder, v_m.next_review_due) then
+  if not found or not private.media_is_servable(v_m.is_active, v_m.content_status, v_m.is_placeholder, v_m.next_review_due)
+     or (v_m.kind in ('breathing', 'exercise') and not private.go_live_open_patient('wellbeing_library_clinical_scripts', v_uid)) then
     raise exception 'That item is not available' using errcode = '22023';
   end if;
   if p_listened_seconds is null or p_listened_seconds < 0 or p_listened_seconds > 14400 then raise exception 'bad length' using errcode = '22023'; end if;
