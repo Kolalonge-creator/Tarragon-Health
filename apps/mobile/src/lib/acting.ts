@@ -130,8 +130,11 @@ export interface ManagedDependant {
   firstName: string;
 }
 
-/** The dependants this account manages. A failed read is an empty list: it never blocks the person's own reminders. */
-export async function loadManagedDependants(userId: string): Promise<ManagedDependant[]> {
+/**
+ * The dependants this account manages. A failed read is NULL, not an empty list: "could not find out" must never read as "manages
+ * nobody", or a replan would quietly cancel the reminders it had already set for them.
+ */
+export async function loadManagedDependants(userId: string): Promise<ManagedDependant[] | null> {
   try {
     const people = await loadPeopleISupport(userId);
     return people
@@ -142,6 +145,6 @@ export async function loadManagedDependants(userId: string): Promise<ManagedDepe
         firstName: (p.fullName ?? "").trim().split(/\s+/)[0] || "them",
       }));
   } catch {
-    return [];
+    return null;
   }
 }

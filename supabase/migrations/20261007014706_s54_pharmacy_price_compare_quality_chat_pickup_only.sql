@@ -162,11 +162,13 @@ create or replace view public.pharmacy_medications_admin
   where private.is_admin() or private.has_permission('partners.pharmacies.manage'::text);
 
 -- ---------------------------------------------------------------------------
--- The name a price line is matched on: lower case, words only, any word with a digit (a strength) dropped. "Metformin 500 mg" and
+-- The name a price line is matched on: lower case, words only, any word with a digit (a strength) and any unit or form word
+-- (mg, ml, tablet, capsule and so on) dropped. "Metformin 500 mg" and
 -- "Metformin" are the same medicine; "Insulin glargine" and "Insulin aspart", or "Metformin XR", are not.
 create or replace function private.pharmacy_name_key(p_name text) returns text
 language sql immutable set search_path = '' as $$
-  select coalesce((select string_agg(w, ' ') from unnest(string_to_array(coalesce(private.normalise_term(p_name), ''), ' ')) w where w !~ '[0-9]'), '')
+  select coalesce((select string_agg(w, ' ') from unnest(string_to_array(coalesce(private.normalise_term(p_name), ''), ' ')) w
+                    where w !~ '[0-9]' and w not in ('mg', 'mcg', 'g', 'ml', 'iu', 'unit', 'units', 'tablet', 'tablets', 'tab', 'tabs', 'capsule', 'capsules', 'cap', 'caps', 'syrup', 'injection', 'inhaler', 'cream', 'drops', 'sachet')), '')
 $$;
 revoke all on function private.pharmacy_name_key(text) from public, anon, authenticated;
 
@@ -245,12 +247,15 @@ comment on function public.patient_price_compare(uuid) is
 --    policy at all: a clinician or an admin sees no chat). A pharmacist sees the patient's first name, the words, and the one medicine
 --    the thread names. Chat text never goes in a notification (INV-07).
 -- ---------------------------------------------------------------------------
--- Who may use a thread as the patient: the patient herself, or a caregiver acting for her with the pharmacy permission, unless she is an
--- adolescent (10 to 17): then only she herself, so a guardian can never read a young person's private medicine question.
+-- Who may use a thread as the patient: the patient herself, or the manager of a DEPENDANT account with the pharmacy permission (a child or
+-- an adult who cannot manage alone), unless she is an adolescent (10 to 17): then only she herself, so a guardian can never read a young
+-- person's private medicine question. A spouse or relative with an ordinary manage grant on an independent adult's profile has no access,
+-- because a medicine question can be about anything, including reproductive health.
 create or replace function private.pharmacist_chat_may_act(p_patient uuid) returns boolean
 language sql stable security definer set search_path = '' as $$
   select p_patient = (select auth.uid())
       or (private.can_act_for(p_patient, 'manage_pharmacy'::public.caregiver_permission)
+          and exists (select 1 from public.profiles dp where dp.id = p_patient and dp.is_dependent_account)
           and private.adolescent_age_band(p_patient) not in ('younger_adolescent', 'older_adolescent'))
 $$;
 revoke all on function private.pharmacist_chat_may_act(uuid) from public, anon, authenticated;
@@ -334,6 +339,7 @@ begin
     raise exception 'Thread not found' using errcode = '42501';
   end if;
   if t.status <> 'open' then raise exception 'thread_closed' using errcode = '22023'; end if;
+  if not private.pharmacy_partner_listable(t.pharmacy_partner_id) then raise exception 'pharmacy_not_available' using errcode = '22023'; end if;
   select count(*) into v_recent from public.pharmacist_chat_messages m
    where m.thread_id = t.id and m.sender_role = 'patient' and m.created_at > now() - interval '24 hours';
   if v_recent >= 30 then raise exception 'too_many_messages' using errcode = '22023'; end if;
@@ -418,7 +424,7 @@ language plpgsql security definer set search_path = '' as $$
 #variable_conflict use_column
 declare v_partner uuid := private.pharmacist_partner(); v_ids uuid[];
 begin
-  if v_partner is null then raise exception 'This action is for partner pharmacies' using errcode = '42501'; end if;
+  if v_partner is null or not private.pharmacy_partner_listable(v_partner) then raise exception 'This action is for partner pharmacies' using errcode = '42501'; end if;
   select coalesce(array_agg(x.id), '{}') into v_ids from (
     select t.id from public.pharmacist_chat_threads t where t.pharmacy_partner_id = v_partner order by t.last_message_at desc limit 100) x;
   if cardinality(v_ids) > 0 then
@@ -437,7 +443,7 @@ language plpgsql security definer set search_path = '' as $$
 #variable_conflict use_column
 declare v_partner uuid := private.pharmacist_partner(); t public.pharmacist_chat_threads%rowtype;
 begin
-  if v_partner is null then raise exception 'This action is for partner pharmacies' using errcode = '42501'; end if;
+  if v_partner is null or not private.pharmacy_partner_listable(v_partner) then raise exception 'This action is for partner pharmacies' using errcode = '42501'; end if;
   select * into t from public.pharmacist_chat_threads where id = p_thread and pharmacy_partner_id = v_partner;
   if not found then raise exception 'Thread not found' using errcode = '42501'; end if;
   perform private.log_audit('pharmacy.chat_opened', 'pharmacist_chat_threads', t.id, jsonb_build_object('pharmacy_partner_id', v_partner));
@@ -453,7 +459,7 @@ create or replace function public.pharmacist_chat_reply(p_thread uuid, p_body te
 language plpgsql security definer set search_path = '' as $$
 declare v_partner uuid := private.pharmacist_partner(); v_uid uuid := (select auth.uid()); t public.pharmacist_chat_threads%rowtype;
 begin
-  if v_partner is null then raise exception 'This action is for partner pharmacies' using errcode = '42501'; end if;
+  if v_partner is null or not private.pharmacy_partner_listable(v_partner) then raise exception 'This action is for partner pharmacies' using errcode = '42501'; end if;
   if p_body is null or char_length(btrim(p_body)) = 0 then raise exception 'write a reply' using errcode = '22023'; end if;
   select * into t from public.pharmacist_chat_threads where id = p_thread and pharmacy_partner_id = v_partner for update;
   if not found then raise exception 'Thread not found' using errcode = '42501'; end if;
@@ -473,7 +479,7 @@ create or replace function public.pharmacist_chat_escalate(p_thread uuid) return
 language plpgsql security definer set search_path = '' as $$
 declare v_partner uuid := private.pharmacist_partner(); t public.pharmacist_chat_threads%rowtype;
 begin
-  if v_partner is null then raise exception 'This action is for partner pharmacies' using errcode = '42501'; end if;
+  if v_partner is null or not private.pharmacy_partner_listable(v_partner) then raise exception 'This action is for partner pharmacies' using errcode = '42501'; end if;
   select * into t from public.pharmacist_chat_threads where id = p_thread and pharmacy_partner_id = v_partner for update;
   if not found then raise exception 'Thread not found' using errcode = '42501'; end if;
   if t.escalated_at is null then
@@ -489,7 +495,7 @@ create or replace function public.pharmacist_chat_close(p_thread uuid) returns b
 language plpgsql security definer set search_path = '' as $$
 declare v_partner uuid := private.pharmacist_partner();
 begin
-  if v_partner is null then raise exception 'This action is for partner pharmacies' using errcode = '42501'; end if;
+  if v_partner is null or not private.pharmacy_partner_listable(v_partner) then raise exception 'This action is for partner pharmacies' using errcode = '42501'; end if;
   update public.pharmacist_chat_threads set status = 'closed', closed_at = now() where id = p_thread and pharmacy_partner_id = v_partner and status = 'open';
   if not found then raise exception 'Thread not found' using errcode = '42501'; end if;
   perform private.log_audit('pharmacy.chat_closed', 'pharmacist_chat_threads', p_thread, jsonb_build_object('pharmacy_partner_id', v_partner));
@@ -558,6 +564,19 @@ revoke all on function public.medication_refill_pharmacy(uuid) from public, anon
 grant execute on function public.medication_refill_pharmacy(uuid) to authenticated;
 
 -- ---------------------------------------------------------------------------
+-- The older pay-through-Tarragon order path follows the same quality rule: an order cannot name an unlisted pharmacy.
+create or replace function private.enforce_listable_pharmacy_on_order() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if new.pharmacy_partner_id is not null and not private.pharmacy_partner_listable(new.pharmacy_partner_id) then
+    raise exception 'pharmacy_not_available' using errcode = '22023';
+  end if;
+  return new;
+end $$;
+revoke all on function private.enforce_listable_pharmacy_on_order() from public, anon, authenticated;
+create trigger pharmacy_orders_listable_pharmacy before insert on public.pharmacy_orders
+  for each row execute function private.enforce_listable_pharmacy_on_order();
+
 -- 6. D5: no home delivery. Pharmacy orders are pickup only. 0 rows to convert (see the header). The delivery tables and functions stay
 --    (OQ-16); nothing can create a delivery order, a courier assignment or a delivery fee any more.
 -- ---------------------------------------------------------------------------

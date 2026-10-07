@@ -116,6 +116,7 @@ begin
   perform pg_temp.setf('rx2', pg_temp.mkrx(v_org, v_pat, v_doc, '[{"drug":"Amlodipine","dose":"5 mg","quantity":"30 tablets"},{"drug":"Metformin","dose":"500 mg","quantity":"60 tablets"}]'::jsonb, 'signed'));
   perform pg_temp.setf('rx4', pg_temp.mkrx(v_org, v_pat, v_doc, '[{"drug":"Insulin glargine","dose":"100 units/ml","quantity":"5 pens"}]'::jsonb, 'signed'));
   perform pg_temp.setf('rx5', pg_temp.mkrx(v_org, v_pat, v_doc, '[{"drug":"Paracetamol","dose":"500 mg","quantity":"20 tablets"}]'::jsonb, 'signed'));
+  perform pg_temp.setf('rx6', pg_temp.mkrx(v_org, v_pat, v_doc, '[{"drug":"Amlodipine 5 mg tablets","dose":"5 mg","quantity":"30"}]'::jsonb, 'signed'));
   perform pg_temp.setf('rx3', pg_temp.mkrx(v_org, v_pat, v_doc, '[{"drug":"Amlodipine","dose":"2.5 mg","quantity":"30 tablets"}]'::jsonb, 'signed'));
 end $$;
 
@@ -224,6 +225,8 @@ select pg_temp.ck('C', 'C6b a different insulin is never priced (glargine is not
   pg_temp.q_as(pg_temp.f('pat'), format($q$select count(*)::text from public.patient_price_compare(%L)$q$, pg_temp.f('rx4'))));
 select pg_temp.ck('C', 'C6c a price line with no strength is not matched to a prescription that names a strength', '0',
   pg_temp.q_as(pg_temp.f('pat'), format($q$select count(*)::text from public.patient_price_compare(%L)$q$, pg_temp.f('rx5'))));
+select pg_temp.ck('C', 'C6d a name that carries the strength and a form word still matches (Amlodipine 5 mg tablets finds the same two pharmacies)', '2',
+  pg_temp.q_as(pg_temp.f('pat'), format($q$select count(*)::text from public.patient_price_compare(%L)$q$, pg_temp.f('rx6'))));
 select pg_temp.ck('C', 'C7 another patient is refused', 'ERR:42501', pg_temp.q_as(pg_temp.f('pat2'), format($q$select count(*)::text from public.patient_price_compare(%L)$q$, pg_temp.f('rx1'))));
 select pg_temp.ck('C', 'C8 a clinician is refused (no ranking, no prices for the prescriber)', 'ERR:42501', pg_temp.q_as(pg_temp.f('doc'), format($q$select count(*)::text from public.patient_price_compare(%L)$q$, pg_temp.f('rx1'))));
 select pg_temp.ck('C', 'C9 a pharmacist is refused', 'ERR:42501', pg_temp.q_as(pg_temp.f('phA'), format($q$select count(*)::text from public.patient_price_compare(%L)$q$, pg_temp.f('rx1'))));
@@ -248,8 +251,12 @@ select pg_temp.ck('D', 'D7 anon cannot read the tables', 'ERR:42501', pg_temp.an
 select pg_temp.ck('D', 'D8 no client can write the tables directly', 'ERR:42501', pg_temp.q_as(pg_temp.f('pat'), format($q$insert into public.pharmacist_chat_messages (thread_id, patient_id, sender_profile_id, sender_role, body) values (%L, %L, %L, 'patient', 'x') returning 'x'$q$, pg_temp.t('chat1'), pg_temp.f('pat'), pg_temp.f('pat'))));
 select pg_temp.ck('D', 'D9 the pharmacist of that pharmacy lists the thread with the first name only', 'S54|1',
   pg_temp.q_as(pg_temp.f('phA'), 'select patient_first_name || ''|'' || count(*)::text from public.pharmacist_chat_threads() group by patient_first_name'));
-select pg_temp.ck('D', 'D10 the other pharmacy''s pharmacist sees none and cannot read the thread', '0|ERR:42501',
+select pg_temp.ck('D', 'D10 the other pharmacy (not listed) cannot list or read the thread', 'ERR:42501|ERR:42501',
   pg_temp.q_as(pg_temp.f('phB'), 'select count(*)::text from public.pharmacist_chat_threads()') || '|' || pg_temp.q_as(pg_temp.f('phB'), format($q$select count(*)::text from public.pharmacist_chat_read(%L)$q$, pg_temp.t('chat1'))));
+update public.pharmacy_partners set nafdac_source_attested_at = now() where id = pg_temp.f('pB');
+select pg_temp.ck('D', 'D10b a LISTED other pharmacy''s pharmacist still sees none and cannot read the thread', '0|ERR:42501',
+  pg_temp.q_as(pg_temp.f('phB'), 'select count(*)::text from public.pharmacist_chat_threads()') || '|' || pg_temp.q_as(pg_temp.f('phB'), format($q$select count(*)::text from public.pharmacist_chat_read(%L)$q$, pg_temp.t('chat1'))));
+update public.pharmacy_partners set nafdac_source_attested_at = null where id = pg_temp.f('pB');
 select pg_temp.ck('D', 'D11 a clinician, a patient and anon cannot use the pharmacist functions', 'ERR:42501/ERR:42501/ERR:42501',
   pg_temp.q_as(pg_temp.f('doc'), 'select count(*)::text from public.pharmacist_chat_threads()') || '/' || pg_temp.q_as(pg_temp.f('pat'), format($q$select count(*)::text from public.pharmacist_chat_read(%L)$q$, pg_temp.t('chat1'))) || '/' ||
   pg_temp.anon_q('select count(*)::text from public.pharmacist_chat_threads()'));
@@ -284,6 +291,7 @@ begin
   v_guard := pg_temp.mkuser(v_org, 'guard', 'patient', 'S54 Guardian');
   v_teen := pg_temp.mkuser(v_org, 'teen', 'patient', 'S54 Teen');
   v_adult := pg_temp.mkuser(v_org, 'adultdep', 'patient', 'S54 Adult Dependant');
+  update public.profiles set is_dependent_account = true where id = v_adult;
   update public.profiles set date_of_birth = (current_date - interval '14 years')::date where id = v_teen;
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by, clinical_access, permissions)
     values (v_teen, v_guard, 'manage', v_teen, false, null), (v_adult, v_guard, 'manage', v_adult, false, null);
@@ -294,6 +302,12 @@ begin
     pg_temp.q_as(v_guard, format($q$select count(*)::text from public.patient_pharmacist_chat_threads() where thread_id = %L$q$, v_t1)) || '/' ||
     pg_temp.q_as(v_guard, format($q$select count(*)::text from public.pharmacist_chat_messages where thread_id = %L$q$, v_t1)));
   perform pg_temp.ck('D', 'D22c the young person reads her own thread', '1', pg_temp.q_as(v_teen, format($q$select count(*)::text from public.patient_pharmacist_chat_messages(%L)$q$, v_t1)));
+  -- an independent adult with an ordinary manage grant for a spouse or relative: no access to her chat
+  declare v_ind uuid := pg_temp.mkuser(v_org, 'indep', 'patient', 'S54 Independent Adult'); v_t3 text; begin
+    insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by, clinical_access, permissions) values (v_ind, v_guard, 'manage', v_ind, false, null);
+    v_t3 := pg_temp.q_as(v_ind, format($q$select (public.patient_start_pharmacist_chat(%L, null, 'Private', 'Hello')->>'thread_id')$q$, pg_temp.f('pA')));
+    perform pg_temp.ck('D', 'D22e a relative with an ordinary manage grant on an independent adult cannot read her chat', 'ERR:42501', pg_temp.q_as(v_guard, format($q$select count(*)::text from public.patient_pharmacist_chat_messages(%L)$q$, v_t3)));
+  end;
   perform pg_temp.ck('D', 'D22d the gate OPENS for an adult dependant: the guardian with the pharmacy permission reads that thread', '1', pg_temp.q_as(v_guard, format($q$select count(*)::text from public.patient_pharmacist_chat_messages(%L)$q$, v_t2)));
 end $$;
 select pg_temp.ck('D', 'D22 the chat lists only listable pharmacies to the patient', 'S54 Pharmacy A,S54 Pharmacy C',
@@ -306,6 +320,18 @@ do $$ declare i integer; r text; begin
   end loop;
   r := pg_temp.q_as(pg_temp.f('pat2'), format($q$select public.patient_start_pharmacist_chat(%L, null, 'Topic six', 'Hello')::text$q$, pg_temp.f('pA')));
   perform pg_temp.ck('D', 'D24 the sixth new thread in a day is refused', 'ERR:22023', r);
+end $$;
+
+-- a pharmacy that stops being listable takes no more messages and shows its pharmacists nothing
+update public.pharmacy_partners set license_expires_at = now() - interval '1 day' where id = pg_temp.f('pC');
+do $$ declare v_t text; begin
+  v_t := pg_temp.q_as(pg_temp.f('pat'), format($q$select (public.patient_start_pharmacist_chat(%L, null, 'Before it lapsed', 'Hello')->>'thread_id')$q$, pg_temp.f('pA')));
+  update public.pharmacy_partners set license_expires_at = now() - interval '1 day' where id = pg_temp.f('pA');
+  perform pg_temp.ck('D', 'D25 a patient message to a pharmacy that has just lapsed is refused', 'ERR:22023', pg_temp.q_as(pg_temp.f('pat'), format($q$select (public.patient_send_pharmacist_chat(%L, 'Still there?')->>'emergency')$q$, v_t)));
+  perform pg_temp.ck('D', 'D26 and its pharmacist can no longer read or list', 'ERR:42501/ERR:42501',
+    pg_temp.q_as(pg_temp.f('phA'), format($q$select count(*)::text from public.pharmacist_chat_read(%L)$q$, v_t)) || '/' || pg_temp.q_as(pg_temp.f('phA'), 'select count(*)::text from public.pharmacist_chat_threads()'));
+  update public.pharmacy_partners set license_expires_at = null where id = pg_temp.f('pA');
+  update public.pharmacy_partners set license_expires_at = null where id = pg_temp.f('pC');
 end $$;
 
 -- E. refill tied to the chosen pharmacy ----------------------------------------------------------------------------------------------
@@ -332,6 +358,8 @@ do $$ declare r text; begin
   exception when check_violation then r := '23514'; end;
   perform pg_temp.ck('F', 'F2 the constraint holds for the table owner too', '23514', r);
 end $$;
+select pg_temp.ck('F', 'F2b the older order path cannot name an unlisted pharmacy either', 'ERR:22023',
+  pg_temp.q_as(pg_temp.f('pat'), format($q$insert into public.pharmacy_orders (organisation_id, patient_id, pharmacy_partner_id, items, total_kobo, fulfilment_method) values (%L, %L, %L, '[{"drug_name":"Amlodipine 5 mg"}]', 100, 'pickup') returning 'x'$q$, pg_temp.f('org'), pg_temp.f('pat'), pg_temp.f('pB'))));
 select pg_temp.ck('F', 'F3 a pickup order still works', 'x',
   pg_temp.q_as(pg_temp.f('pat'), format($q$insert into public.pharmacy_orders (organisation_id, patient_id, pharmacy_partner_id, items, total_kobo, fulfilment_method) values (%L, %L, %L, '[{"drug_name":"Amlodipine 5 mg"}]', 100, 'pickup') returning 'x'$q$, pg_temp.f('org'), pg_temp.f('pat'), pg_temp.f('pA'))));
 

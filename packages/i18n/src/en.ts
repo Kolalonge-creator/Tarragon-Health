@@ -1867,6 +1867,7 @@ export const en = {
   "pharmprice.in_stock": "In stock",
   "pharmprice.low_stock": "Running low",
   "pharmprice.unavailable": "Not in stock now",
+  "pharmprice.some_unavailable": "Some items are not in stock now",
   "pharmprice.unknown_stock": "Stock not confirmed",
   "pharmprice.strength_unconfirmed": "Strength not confirmed",
   "pharmprice.verified": "Batch checked by Tarragon staff against the supplier paperwork",
