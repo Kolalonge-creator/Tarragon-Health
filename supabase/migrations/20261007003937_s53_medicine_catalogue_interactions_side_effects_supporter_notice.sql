@@ -410,6 +410,21 @@ begin
   execute v_new;
 end $$;
 
+-- The conditions a person may attest are a fixed list inside attest_go_live_condition; add this guard's one, again by editing the
+-- current definition in place (the list grows as sessions add guards; this keeps theirs).
+do $$
+declare
+  v_def text;
+  v_anchor text := $a$('public_signup_enabled', 'stage2_exit_criteria_met')$a$;
+begin
+  v_def := pg_get_functiondef('public.attest_go_live_condition(text,text,boolean,text)'::regprocedure);
+  if v_def like '%pharmacist_review_recorded%' then return; end if;
+  if position(v_anchor in v_def) = 0 then
+    raise exception 'attest_go_live_condition has no recognisable list; add (interaction_check_enabled, pharmacist_review_recorded) by hand';
+  end if;
+  execute replace(v_def, v_anchor, v_anchor || E',\n       (''interaction_check_enabled'', ''pharmacist_review_recorded'')');
+end $$;
+
 -- ---------------------------------------------------------------------------
 -- 4. Side-effect notes, carried to the next consultation (8.7)
 -- ---------------------------------------------------------------------------

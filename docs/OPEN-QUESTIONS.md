@@ -421,6 +421,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - The phone holds its own local notification at the dose time. The existing cron `medication-dose-reminders-every-15-min` also queues a push and an in-app notice for the same dose, up to 15 minutes later if nothing has been logged. The server copy is useful when a phone maker has stopped the local one (docs/research/S08.md section 3), but a phone where both work shows the patient two reminders for one dose. S08 only removed the medicine name from the server text (INV-07).
 - Options: (a) keep both: the server one is the backup for a killed local reminder (recommended until the real-device check shows how often local reminders are lost); (b) send the server one only to a patient whose phone has not reported a recent reminder plan (needs a new report from the phone); (c) drop the server dose reminder.
 - Blocks nothing in S08. Related: OQ-05, OQ-21.
+- Update 2026-10-07 (S53): kept as option (a). No change; still waiting for the real-device check.
 
 ### OQ-70 Local reminders are planned only for the device owner's own medicines (raised by S08)
 - A guardian who manages a dependant can view and log that person's doses, and the dependant's schedule is their own (8.15), but `replanDoseReminders` plans for the signed-in account only. Planning for dependants on the guardian's phone needs a neutral way to tell the doses apart without naming a medicine (a first name is not a condition, so INV-07 allows it) and a rule for which phone reminds, since the dependant may have their own.
@@ -429,6 +430,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-71 Other server notification templates still name a medicine (raised by S08)
 - S08 made `medication_dose_reminder` and `medication_refill_reminder` neutral and added a test (`packages/medicines/src/notification-wording.test.ts`). These still put `drug_name` in wording that reaches a push, an email or the in-app inbox: `medication_adherence_checkin`, `medication_review_due`, `medication_prescribed_patient`, `prescription_updated_patient`, `pharmacy_order_patient_confirmation`, `missed_dose_behavioural_nudge` (written by `private.route_missed_dose_reason`, whose wording is also a behavioural nudge the research would reject if it shames), and the `send-pending-notifications` lines that build text from `payload.drug_name`.
 - Options: (a) S13 (notifications framework with the INV-07 lint) owns all of them (recommended); (b) fix them now in S08 (touches the prescription flow, which S24 changes).
+- Resolved 2026-10-07 (checked by S53): S13 rewrote them. Live read-only check: no active `notification_template_locales` body or subject for `medication_adherence_checkin`, `medication_review_due`, `medication_prescribed_patient`, `prescription_updated_patient`, `pharmacy_order_patient_confirmation`, `medication_dose_reminder` or `medication_refill_reminder` carries a drug placeholder; `missed_dose_behavioural_nudge` has no active locale row. The database lint trigger now refuses a clinical placeholder.
 
 ### OQ-72 A skipped dose with a reason does not reach the care team as its own signal (raised by S08)
 - The phone records a skip with a short key in `medication_logs.reason` (`side_effect`, `felt_well`, `other`; "I do not have it" is logged as `not_available`). `private.route_missed_dose_reason` only reads `status = 'missed'` with `missed_reason`, so a skip because of a side effect is stored and visible in the dose log but does not raise a review task. `not_available` already counts toward the 3 and 6 missed-dose alerts.
@@ -1440,3 +1442,45 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - The AI-003 eval case `pidgin_language_fidelity` keeps one recorded failed result, so it stays as audit history (its runner no longer runs it).
 - Pidgin audio recordings or text-to-speech voices held outside this repository (a TTS account, a drive) are not touched by code and need deleting by hand.
 - Decision: open (CMO for the version; founder for outside assets).
+
+### OQ-290 S53 and S54 were built before the Stage 1 gate (S40) closed (raised by S53, recorded 2026-10-07)
+- The founder said on 2026-10-07: proceed anyway, build everything, switch nothing on. S53 and S54 follow that. Every go-live guard they add (`interaction_check_enabled`) is OFF; no dataset, review or sign-off is seeded as approved; the pharmacy and chat features stay behind existing guards and dormant modules.
+- Blocks: nothing. Reversal is simply leaving the guards off.
+- Decision (founder, 2026-10-07): build, do not switch on.
+
+### OQ-291 Partner commission columns were readable by every signed-in user, on pharmacy and on laboratory tables (raised by S53)
+- Found live 2026-10-07 (read-only): `pharmacy_medications` commission columns and the `commissions` ledger were readable by patients and clinicians. Fixed in the S53 pre-fix migration `20261007002834_*` (0 rows existed in both, so nothing had leaked). The same shape is still live on tables that DO hold rows: `lab_tests` (60 rows), `panel_bundles` (41), `screen_types` (38) expose `commission_rate` (and `commission_flat_kobo`, `commission_rate_type`) to every authenticated user, and `therapy_sessions.commission_kobo` is readable by the patient on their own sessions. This is the 8.16 rule ("clinicians never see which partner earns Tarragon more") applied to labs and therapy.
+- Options: (a) repeat the pharmacy pattern for these four tables (column grants plus an admin-only view), with the client reads switched to explicit columns (recommended, before any patient is let in); (b) leave labs and accept that partner margins are visible (conflicts with the same founder rule).
+- Blocks: nothing built. Not fixed in S53 because it touches the lab booking reads, outside this session.
+
+### OQ-292 Where the Nigerian medicine catalogue's real data comes from (raised by S53)
+- The seed is about 60 generic names with standard strengths and 29 brand names whose generic is beyond doubt. No NAFDAC number is present on any row and none was guessed; every row is `needs_pharmacist_review`. A real catalogue needs a licensed source or a pharmacist copying numbers from NAFDAC's register.
+- Options: (a) a pharmacist reviews and fills numbers from NAFDAC's register, row by row, through the admin screen (recommended, small); (b) license a dataset (cost and licence terms unknown); (c) keep the small seed.
+- Blocks: nothing. Search works on the seed.
+
+### OQ-293 A photo of a prescription is not read or stored (raised by S53)
+- The prescription photo was meant to be kept as reference only. No OCR was built (a wrong read of a dose is dangerous) and no photo upload for a medicine exists; the existing "consultation document link" for a specialist-started medicine is the only reference attachment.
+- Options: (a) a private storage bucket where the patient attaches a reference photo to a medicine, never read by a model and never copied into the medicine's fields (recommended); (b) leave the link field.
+
+### OQ-294 NAFDAC MAS short code and coverage need a human check before store publication (raised by S53)
+- Copy uses short code 38353 and "if your pack has a scratch panel". Public pages from 2010 to 2012 (safemedicines.org, outsourcing-pharma, Daily Trust, Dubawa) agree on 38353 and the scratch panel, and say coverage began with antimalarials and antibiotics. The 2026 state was not confirmed from a NAFDAC page. The wording is hedged and says the reply is NAFDAC's, not Tarragon's. NAFDAC also runs the Greenbook app; not used.
+- Decision: open (a person to confirm with NAFDAC; change the three `medicines.mas.*` strings if it differs).
+
+### OQ-295 The patient's interaction note on the medicines list is now behind the go-live guard (raised by S53)
+- Before S53 the patient list showed clinician-written rule text (including "stop one of them") to patients, live and with no signed dataset. S53 replaced it with the four fixed patient sentences and put it behind `interaction_check_enabled`, so patients see nothing there until a human signs dataset v1. The clinician medication safety panel is unchanged.
+- Options: (a) as built (recommended, matches D6); (b) leave the old note visible.
+
+### OQ-296 The phone has no pack-photo reader (raised by S53)
+- The pack reader is a web server action holding the model vendor key. The phone keeps its typed "check my pack" and the catalogue search; "fill from a photo" is web only.
+- Options: (a) a bearer-authenticated `/api/mobile/pack-read` route like `/api/mobile/health-samples`, governed the same way (recommended later); (b) leave.
+
+### OQ-297 Missed-dose and silence signals still do not reach the triage engine (OQ-89, restated by S53)
+- S53 did not duplicate S26. The signals (`medication_dose_missed`, `medication_adherence_low`, `medication_refill_due`) are emitted since S08; the engine grades them only for a care-pack patient, and no care-pack patient state exists yet. Nothing automatic changes a medicine.
+
+### OQ-298 The supporter missed-dose notice uses the older profile-access grant, not the Care Circle (raised by S53)
+- Consent is a `profile_access` grant with `clinical_access`, `view_medication` and `receive_alerts` named in the permission list (a grant with no list does not count). The newer Care Circle (S29) has five permissions and none for missed doses. One notice a day, in-app only, generic wording.
+- Options: (a) as built (recommended for now); (b) add a `missed_dose_notice` permission to the Care Circle and move the trigger there (touches S29's permission check and screens).
+
+### OQ-299 Side-effect notes: no "mark reviewed" screen yet and no task (raised by S53)
+- The clinician chart lists notes (audited read). `mark_side_effect_notes_reviewed` exists but nothing calls it; a note does not create a task or an alert (a person who is unwell uses the existing side-effect report and emergency steps).
+- Options: (a) add a "reviewed" button in the consultation room (recommended); (b) leave notes as read-only context.
