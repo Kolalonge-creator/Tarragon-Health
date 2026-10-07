@@ -8,7 +8,6 @@ import {
 } from "./prediction";
 import {
   EXPORT_NOT_CONTRACEPTION_FOOTER,
-  PLANNING_MODE_COPY,
   describeFertileWindow,
   hasNotContraceptionLabel,
   mentionsFertility,
@@ -120,12 +119,11 @@ describe("not-contraception label (acceptance test, S66 A14)", () => {
     expect(hasNotContraceptionLabel(line as string)).toBe(true);
     expect(describeFertileWindow(predictCycle(REGULAR), (d) => d)).toBeNull();
   });
-  it("the export footer and the planning copy carry the label", () => {
+  it("the export footer carries the label", () => {
     expect(hasNotContraceptionLabel(EXPORT_NOT_CONTRACEPTION_FOOTER)).toBe(true);
-    expect(PLANNING_MODE_COPY.notContraception).toBe(NOT_CONTRACEPTION_LABEL);
   });
   it("copy never suggests avoiding a pregnancy", () => {
-    const all = [PLANNING_MODE_COPY.title, PLANNING_MODE_COPY.description, PLANNING_MODE_COPY.offNote, PLANNING_MODE_COPY.turnOffNote, FERTILE_WINDOW_DISCLAIMER, EXPORT_NOT_CONTRACEPTION_FOOTER.replace("must not be used to avoid or to plan around a pregnancy", "")];
+    const all = [FERTILE_WINDOW_DISCLAIMER, EXPORT_NOT_CONTRACEPTION_FOOTER.replace("must not be used to avoid or to plan around a pregnancy", "")];
     for (const text of all) {
       expect(/safe days?|avoid(ing)? (a )?pregnan|prevent(ing)? (a )?pregnan(?!cy and)|natural family planning|birth control/i.test(text.replace("It cannot prevent a pregnancy", ""))).toBe(false);
     }

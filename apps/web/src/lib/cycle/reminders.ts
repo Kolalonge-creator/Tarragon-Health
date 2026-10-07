@@ -3,7 +3,11 @@ import { lagosDateString } from "@/lib/ai-coach/lagos-day";
 import { predictCycle, type CyclePrediction } from "@/lib/rules/cycle-prediction";
 
 /**
- * Daily period reminders.
+ * Daily cycle reminders (S66: discreet).
+ *
+ * The inbox preview is the same generic line for every reminder ("Your tracker has an update", see describe-in-app.ts), the payload
+ * carries only the date that anchors idempotency, and the prediction is run with planning mode OFF: this job can never produce, store or
+ * mention a fertile day (decision A14). The wording below that talks about "period" describes the job, not what the patient sees.
  *
  * Knowing a period is coming is half of what a cycle tracker is for, and it
  * is the half that only works if something reaches the patient without them
@@ -78,10 +82,8 @@ export function decideCycleReminder(
           kind: "period_late",
           template: "cycle_period_late",
           predictedDate,
-          payload: {
-            days_overdue: prediction.daysOverdue as number,
-            expected_date: predictedDate,
-          },
+          // S66: the payload keeps only what dedupe needs. How late, and how many days, are shown inside the private section.
+          payload: { expected_date: predictedDate },
         }
       : null;
   }
@@ -103,7 +105,7 @@ export function decideCycleReminder(
       kind: "period_due_soon",
       template: "cycle_period_due_soon",
       predictedDate,
-      payload: { days_until: daysUntil, expected_date: predictedDate },
+      payload: { expected_date: predictedDate },
     };
   }
 
@@ -206,6 +208,8 @@ export async function runCycleReminders(
       today,
       lifeStage,
       selfReportedCycleLengthDays: profile?.average_cycle_length_days ?? null,
+      // S66 (A14): a reminder never needs, and must never carry, a fertile window.
+      conceptionPlanning: false,
     });
 
     const reminder = decideCycleReminder(prediction, lifeStage);

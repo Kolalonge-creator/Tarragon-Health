@@ -1,4 +1,4 @@
-import { FERTILE_WINDOW_DISCLAIMER, NOT_CONTRACEPTION_LABEL, type CyclePrediction } from "./prediction";
+import { NOT_CONTRACEPTION_LABEL, type CyclePrediction } from "./prediction";
 
 /**
  * Wording and helpers for "planning a pregnancy" mode (S66, decisions A14 and 16.2).
@@ -9,21 +9,9 @@ import { FERTILE_WINDOW_DISCLAIMER, NOT_CONTRACEPTION_LABEL, type CyclePredictio
  *  3. Wording says "estimate". Never "safe days", never anything about avoiding a pregnancy.
  *  4. No push, email or in-app preview ever mentions a fertile day (see FERTILITY_WORDS and mentionsFertility, used by the INV-07 lint).
  *
- * All strings here are PROPOSED copy awaiting CMO review (docs/design/S66.md section 6).
+ * The patient-facing words (toggle, explanations) live in packages/i18n (cycle-copy.ts, pending CMO review). Only the engine's own label and
+ * the helpers that guarantee it is attached live here.
  */
-
-export const PLANNING_MODE_COPY = {
-  title: "Planning a pregnancy",
-  description:
-    "Turn this on only if you are trying to conceive. It adds an estimated fertile window and an ovulation test log to your tracker. It stays off unless you switch it on, and you can switch it off any time.",
-  onLabel: "Planning mode is on",
-  offLabel: "Planning mode is off",
-  notContraception: NOT_CONTRACEPTION_LABEL,
-  disclaimer: FERTILE_WINDOW_DISCLAIMER,
-  offNote: "Your estimated fertile days are hidden while planning mode is off.",
-  turnOffNote:
-    "Switching it off hides the estimate from every screen and export. Your logged days stay exactly as they are.",
-} as const;
 
 /** Words that mean a fertile day is being talked about. Lower case stems. Used by the notification lint and by tests. */
 export const FERTILITY_WORDS: readonly string[] = ["fertile", "fertility", "ovulat", "conceiv", "conception", "trying to"];

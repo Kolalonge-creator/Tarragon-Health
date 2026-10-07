@@ -1,4 +1,5 @@
 import { activeWording } from "./clinical-wording";
+import { cycleCopy } from "./cycle-copy";
 
 /**
  * English catalogue (v5 spec Section 12). Flat dot-keys, `{param}` placeholders.
@@ -2148,6 +2149,8 @@ export const en = {
   "payapprove.unnamed": "A clinician",
   "payapprove.truncated": "Showing {shown} of {total} drafts waiting. Approve some to see the rest.",
   "payapprove.mine": "This payout is yours, so someone else needs to approve it.",
+  // S66: private cycle section, planning mode, contraception education, menopause (proposed copy, CMO review pending: see cycle-copy.ts)
+  ...cycleCopy,
 } as const;
 
 export type MessageKey = keyof typeof en;
