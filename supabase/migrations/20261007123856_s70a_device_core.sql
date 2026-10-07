@@ -153,28 +153,28 @@ begin
   lim := v_cfg -> 'impossible';
   case r.vital_type::text
     when 'blood_pressure' then
-      if private.dev_out_of_range(r.systolic, lim -> 'systolic_mmhg') then v_reasons := v_reasons || 'systolic_range'; end if;
-      if private.dev_out_of_range(r.diastolic, lim -> 'diastolic_mmhg') then v_reasons := v_reasons || 'diastolic_range'; end if;
+      if private.dev_out_of_range(r.systolic, lim -> 'systolic_mmhg') then v_reasons := array_append(v_reasons, 'systolic_range'); end if;
+      if private.dev_out_of_range(r.diastolic, lim -> 'diastolic_mmhg') then v_reasons := array_append(v_reasons, 'diastolic_range'); end if;
       if coalesce((lim ->> 'systolic_must_exceed_diastolic')::boolean, false)
          and r.systolic is not null and r.diastolic is not null and r.systolic <= r.diastolic then
-        v_reasons := v_reasons || 'systolic_not_above_diastolic';
+        v_reasons := array_append(v_reasons, 'systolic_not_above_diastolic');
       end if;
-      if private.dev_out_of_range(r.pulse_bpm, lim -> 'pulse_bpm') then v_reasons := v_reasons || 'pulse_range'; end if;
+      if private.dev_out_of_range(r.pulse_bpm, lim -> 'pulse_bpm') then v_reasons := array_append(v_reasons, 'pulse_range'); end if;
     when 'pulse' then
-      if private.dev_out_of_range(r.pulse_bpm, lim -> 'pulse_bpm') then v_reasons := v_reasons || 'pulse_range'; end if;
+      if private.dev_out_of_range(r.pulse_bpm, lim -> 'pulse_bpm') then v_reasons := array_append(v_reasons, 'pulse_range'); end if;
     when 'spo2' then
-      if private.dev_out_of_range(r.spo2_pct, lim -> 'spo2_pct') then v_reasons := v_reasons || 'spo2_range'; end if;
-      if private.dev_out_of_range(r.pulse_bpm, lim -> 'pulse_bpm') then v_reasons := v_reasons || 'pulse_range'; end if;
+      if private.dev_out_of_range(r.spo2_pct, lim -> 'spo2_pct') then v_reasons := array_append(v_reasons, 'spo2_range'); end if;
+      if private.dev_out_of_range(r.pulse_bpm, lim -> 'pulse_bpm') then v_reasons := array_append(v_reasons, 'pulse_range'); end if;
     when 'temperature' then
-      if private.dev_out_of_range(r.temperature_c, lim -> 'temperature_c') then v_reasons := v_reasons || 'temperature_range'; end if;
+      if private.dev_out_of_range(r.temperature_c, lim -> 'temperature_c') then v_reasons := array_append(v_reasons, 'temperature_range'); end if;
     when 'glucose' then
-      if private.dev_out_of_range(r.glucose_mmol_l, lim -> 'glucose_mmol_l') then v_reasons := v_reasons || 'glucose_range'; end if;
+      if private.dev_out_of_range(r.glucose_mmol_l, lim -> 'glucose_mmol_l') then v_reasons := array_append(v_reasons, 'glucose_range'); end if;
     when 'weight' then
       -- only a known adult: a small child's weight is real, and an unknown age fails open (saved, never held)
       select extract(year from age(current_date, p.date_of_birth))::integer into v_age from public.profiles p where p.id = r.patient_id;
       if v_age is not null and v_age >= (v_cfg ->> 'adult_age_years')::integer
          and private.dev_out_of_range(r.weight_kg, lim -> 'weight_kg_adult') then
-        v_reasons := v_reasons || 'weight_range';
+        v_reasons := array_append(v_reasons, 'weight_range');
       end if;
     else null;
   end case;
@@ -207,7 +207,7 @@ comment on table public.vitals_readings_held is
 
 alter table public.vitals_readings_held enable row level security;
 create policy vitals_readings_held_select on public.vitals_readings_held for select to authenticated
-  using (patient_id = (select auth.uid()) or private.can_act_for(patient_id)
+  using (patient_id = (select auth.uid())
          or private.can_read_clinical(patient_id, 'vitals_readings'::public.care_access_category));
 revoke all on public.vitals_readings_held from public, anon, authenticated, service_role;
 grant select on public.vitals_readings_held to authenticated, service_role;
@@ -293,7 +293,7 @@ comment on table public.vitals_reading_links is
 
 alter table public.vitals_reading_links enable row level security;
 create policy vitals_reading_links_select on public.vitals_reading_links for select to authenticated
-  using (patient_id = (select auth.uid()) or private.can_act_for(patient_id)
+  using (patient_id = (select auth.uid())
          or private.can_read_clinical(patient_id, 'vitals_readings'::public.care_access_category));
 revoke all on public.vitals_reading_links from public, anon, authenticated, service_role;
 grant select on public.vitals_reading_links to authenticated, service_role;
@@ -684,7 +684,7 @@ comment on table public.device_rhythm_results is
 
 alter table public.device_rhythm_results enable row level security;
 create policy device_rhythm_results_select on public.device_rhythm_results for select to authenticated
-  using (patient_id = (select auth.uid()) or private.can_act_for(patient_id)
+  using (patient_id = (select auth.uid())
          or private.can_read_clinical(patient_id, 'vitals_readings'::public.care_access_category));
 revoke all on public.device_rhythm_results from public, anon, authenticated, service_role;
 grant select on public.device_rhythm_results to authenticated, service_role;
@@ -694,7 +694,9 @@ language sql stable set search_path = '' as $$
   select case
     when exists (select 1 from jsonb_array_elements_text(p_cfg -> 'label_map' -> 'inconclusive') w where lower(p_label) ~ ('\y' || w)) then 'inconclusive'
     when exists (select 1 from jsonb_array_elements_text(p_cfg -> 'label_map' -> 'irregular') w where lower(p_label) ~ ('\y' || w)) then 'irregular'
-    when exists (select 1 from jsonb_array_elements_text(p_cfg -> 'label_map' -> 'normal') w where lower(p_label) ~ ('\y' || w || '\y')) then 'normal'
+    -- "normal" only counts when nothing negates it: "not normal", "abnormal" and "unable to" fall through to review
+    when lower(p_label) !~ '\y(not|non|no|abnormal|unable)\y'
+         and exists (select 1 from jsonb_array_elements_text(p_cfg -> 'label_map' -> 'normal') w where lower(p_label) ~ ('\y' || w || '\y')) then 'normal'
     else 'other' end
 $$;
 
