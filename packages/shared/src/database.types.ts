@@ -42870,6 +42870,12 @@ export type Database = {
     Functions: {
       // S27 (lab results and release rules): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       bp_control_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
+      // S75 (outcome measures, CMO decision S-5): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
+      bp_control_report_day: { Args: { p_day: number; p_from?: string; p_to?: string }; Returns: Json };
+      clinician_mental_health_outcomes: { Args: { p_patient: string; p_reason: string }; Returns: Json };
+      mental_health_outcome_report: { Args: { p_day: number; p_from?: string; p_instrument: string; p_to?: string }; Returns: Json };
+      my_mental_health_outcomes: { Args: Record<PropertyKey, never>; Returns: Json };
+      outcome_measures_report: { Args: { p_day: number; p_from?: string; p_measure: string; p_to?: string }; Returns: Json };
       // S38c (monthly report and risk stratification): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       clinician_risk_worklist: { Args: { p_limit?: number }; Returns: Json };
       log_outcome_export: { Args: { p_from?: string; p_to?: string }; Returns: undefined };
