@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LoginForm } from "./login-form";
 import { GuardLeafMark } from "@/components/brand/guard-leaf-mark";
 import { getAuthLocale } from "@/lib/auth/auth-locale";
+import { sanitizeRedirect } from "@/lib/auth/redirect";
 
 export default async function LoginPage({
   searchParams,
@@ -10,6 +11,10 @@ export default async function LoginPage({
 }) {
   const { redirect } = await searchParams;
   const locale = await getAuthLocale();
+  // S69 (OQ-220): a join link opened while signed out must survive "Create an account" and the email-verification round trip, so the
+  // sanitised destination rides along to /signup, which already threads it into emailRedirectTo.
+  const safe = sanitizeRedirect(redirect);
+  const signupHref = safe ? `/signup?redirect=${encodeURIComponent(safe)}` : "/signup";
 
   return (
     <div className="flex flex-1 items-center justify-center bg-white px-4 py-12 sm:py-16">
@@ -35,7 +40,7 @@ export default async function LoginPage({
 
         <p className="text-center text-sm text-charcoal-ink/60">
           New here?{" "}
-          <Link href="/signup" className="font-medium text-brand-green hover:underline">
+          <Link href={signupHref} className="font-medium text-brand-green hover:underline">
             Create an account
           </Link>
         </p>
