@@ -155,6 +155,14 @@ begin
   perform pg_temp.ck('W9b an old lesson that was only opened does not block the lesson due this week',
     pg_temp.as_text(v_ps, $q$select code from public.weekly_micro_lesson()$q$) = 'wk-3');
 
+  -- a lesson that was reset and understood anew gets a new finish time
+  update public.health_education_progress set status = 'needs_review' where patient_id = v_pw and content_id = v_w1;
+  update public.health_education_progress set status = 'understood' where patient_id = v_pw and content_id = v_w1;
+  perform pg_temp.ck('W9c a lesson understood again after a reset is stamped as finished now (and a plain re-read does not restamp it)',
+    (select understood_at > now() - interval '1 minute' from public.health_education_progress where patient_id = v_pw and content_id = v_w1)
+    and (select understood_at <= now() - interval '5 days' from public.health_education_progress where patient_id = v_pw and content_id = v_w2));
+  update public.health_education_progress set understood_at = now() - interval '15 days' where patient_id = v_pw and content_id = v_w1;
+
   perform pg_temp.ck('W10 anon cannot call it', pg_temp.as_count(null, 'select count(*) from public.weekly_micro_lesson()') = -1);
   perform pg_temp.ck('W11 the daily function is gone', to_regprocedure('public.daily_micro_lesson()') is null);
 

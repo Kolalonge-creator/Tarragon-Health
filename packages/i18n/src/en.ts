@@ -604,7 +604,7 @@ export const en = {
   "today.recheck_bp": "Measure your blood pressure again",
   "today.kind.book_test": "Book a test",
   "today.kind.join_consultation": "Join your appointment",
-  "today.kind.read_lesson": "Read this week's lesson",
+  "today.kind.read_lesson": "Read your lesson",
   "today.kind.other": "A task from your care team",
   "today.due.anytime": "No due date",
   "today.due.overdue": "Overdue",
