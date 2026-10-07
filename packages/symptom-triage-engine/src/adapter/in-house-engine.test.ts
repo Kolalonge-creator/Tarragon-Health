@@ -54,9 +54,12 @@ describe("in-house engine", () => {
   it("the source scanner ignores comments but still finds a name after an unterminated comment, and stays fast on repeated openers", () => {
     expect(forbiddenModelOrNetworkUse("/* openai is fine in a comment */ const a = 1;")).toEqual([]);
     expect(forbiddenModelOrNetworkUse("// fetch( in a line comment\nconst a = 1;")).toEqual([]);
+    expect(forbiddenModelOrNetworkUse("const a = 1; // fetch( after code\nconst b = 2;")).toEqual([]);
+    expect(forbiddenModelOrNetworkUse("const url = 'https://x.test'; fetch(url);")).toContain("fetch");
     expect(forbiddenModelOrNetworkUse("/* never closed\nconst r = fetch(url);")).toContain("fetch");
     const started = Date.now();
     forbiddenModelOrNetworkUse("/*".repeat(50_000) + "a/*".repeat(50_000));
+    forbiddenModelOrNetworkUse("9//".repeat(100_000));
     expect(Date.now() - started).toBeLessThan(1000);
   });
 });
