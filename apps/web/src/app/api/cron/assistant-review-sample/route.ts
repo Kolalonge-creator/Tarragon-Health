@@ -11,7 +11,15 @@ export async function GET(request: Request): Promise<Response> {
     return new Response("Not authorised", { status: 401 });
   }
   const svc = createServiceRoleClient() as unknown as { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }> };
-  const { data, error } = await svc.rpc("assistant_sample_month", {});
-  if (error) return Response.json({ error: "sample_job_failed" }, { status: 500 });
-  return Response.json(data ?? {});
+  // Last month, and the month before it as a backfill: a run that failed last time is never skipped for good (the sampler is idempotent,
+  // so a month that was already drawn is left alone).
+  const lagosNow = new Date(Date.now() + 60 * 60 * 1000);
+  const firstOf = (monthsBack: number) => new Date(Date.UTC(lagosNow.getUTCFullYear(), lagosNow.getUTCMonth() - monthsBack, 1)).toISOString().slice(0, 10);
+  const results: unknown[] = [];
+  for (const month of [firstOf(2), firstOf(1)]) {
+    const { data, error } = await svc.rpc("assistant_sample_month", { p_month: month });
+    if (error) return Response.json({ error: "sample_job_failed", month }, { status: 500 });
+    results.push(data);
+  }
+  return Response.json({ months: results });
 }

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import {
   EMERGENCY_BUTTON_LABEL,
   EMERGENCY_GUIDANCE,
+  SELF_HARM_GUIDANCE,
   buildEmergencyAddendum,
   type EmergencyAddendumInput,
 } from "@tarragon/shared";
@@ -51,6 +52,12 @@ export function AssistantEmergencyButton() {
           <p className="font-medium">{EMERGENCY_GUIDANCE.title}</p>
           <ul className="list-disc space-y-1 pl-5">
             {EMERGENCY_GUIDANCE.lines.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+          <p className="font-medium">{SELF_HARM_GUIDANCE.title}</p>
+          <ul className="list-disc space-y-1 pl-5">
+            {SELF_HARM_GUIDANCE.lines.map((line) => (
               <li key={line}>{line}</li>
             ))}
           </ul>

@@ -115,8 +115,8 @@ begin
     values (v_org, v_pat, v_conv, 'chat_turn', 'replied', 'completed', v_int, (v_prev::timestamp at time zone 'Africa/Lagos') + interval '3 days'),
            (v_org, v_other, v_conv2, 'chat_turn', 'replied', 'completed', null, (v_prev::timestamp at time zone 'Africa/Lagos') + interval '4 days'),
            (v_org, v_real, v_conv3, 'chat_turn', 'replied', 'completed', null, (v_prev::timestamp at time zone 'Africa/Lagos') + interval '5 days');
-  insert into public.ai_safety_incidents (organisation_id, ai_system_id, interaction_id, reported_by, reporter_kind, category, description)
-    values (v_org, v_sys, v_int, v_pat, 'patient', 'incorrect_information', 'S52 proof: the patient reported this answer');
+  insert into public.ai_safety_incidents (organisation_id, ai_system_id, interaction_id, reported_by, reporter_kind, category, description, created_at)
+    values (v_org, v_sys, v_int, v_pat, 'patient', 'incorrect_information', 'S52 proof: the patient reported this answer', (v_prev::timestamp at time zone 'Africa/Lagos') + interval '6 days');
   update public.ai_interaction_log set flagged_for_review = true where id = v_int;
 end $$;
 

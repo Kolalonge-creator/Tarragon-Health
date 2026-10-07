@@ -176,6 +176,8 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
   // block below: append a canned reply, return normally, no thrown error.
   const hasAccess = await hasCoachAccess(supabase);
   if (!hasAccess) {
+    // A safety net, not a feature: a plan without the assistant still gets the emergency guidance and the escalation (INV-05, INV-06).
+    if (detectEmergencyKeywords(message)) return await emergencyWhileClosed({ ...params, conversationId });
     const now = new Date().toISOString();
     const userMessage: CoachChatMessage = { id: crypto.randomUUID(), role: "user", content: message, created_at: now };
     const assistantMessage: CoachChatMessage = {
@@ -202,6 +204,8 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
     getCoachDailyLimit(supabase),
   ]);
   if (messagesToday >= dailyLimit) {
+    // The same: running out of messages for the day never stands between a patient and the emergency guidance.
+    if (detectEmergencyKeywords(message)) return await emergencyWhileClosed({ ...params, conversationId });
     // Skip the graph entirely — the whole point is to avoid the Claude call,
     // not just decline to show its result.
     const now = new Date().toISOString();
