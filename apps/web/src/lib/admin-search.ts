@@ -18,6 +18,7 @@ export interface AdminSearchEntry {
 
 /** Words an admin may use for a page whose title does not say it. Keyed by the path they match. */
 const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
+  ["/clinician/worklists", "queue worklist inbox pending waiting results lab abnormal screening flags reviews vaccination therapy approvals shared pool"],
   ["/admin/access-review", "audit access log opened viewed record who looked privacy snooping retention delete export"],
   ["/clinician/access-review", "audit access log opened viewed record who looked privacy snooping retention delete export"],
   ["/clinician/credentialing/expiry", "licence license mdcn indemnity expiry expires renewal renew grace suspended reinstate"],
@@ -74,6 +75,7 @@ export const CMO_EXTRA_PAGES: AdminSearchEntry[] = [
   { label: "Task types and priorities", href: "/clinician/task-types", group: "Clinical queue", hint: "The kinds of clinical work, how urgent each is and who may take it." },
   { label: "Lifestyle coaching content", href: "/clinician/lpe-content-library", group: "Clinical governance", hint: "Review and approve the reference copy the AI Coach can draw on." },
   { label: "Result release policies", href: "/clinician/result-release-policies", group: "Clinical governance", hint: "Which abnormal results wait for a doctor before the patient sees them." },
+  { label: "Shared work queues", href: "/clinician/worklists", group: "Clinical queue", hint: "Open lab results, abnormal screening, lifestyle flags and reviews, therapy and vaccination items across the organisation." },
   { label: "Titration protocols", href: "/clinician/titration-protocols", group: "Clinical sign-off", hint: "Write, check and approve the step table the dose suggestion tool reads." },
   { label: "Record access review", href: "/clinician/access-review", group: "Security and privacy", hint: "Who opened which patient record, untied and after-hours openings, and the retention review." },
 ];

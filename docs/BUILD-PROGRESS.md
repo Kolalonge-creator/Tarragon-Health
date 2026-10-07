@@ -885,3 +885,9 @@ Found during the simulator pass (`docs/S06_SIMULATOR_CHECKLIST.md`).
 - **Decided by the founder**: no erasure of real data; test data deletable; international retention periods; export from the registry with a 30-day clock.
 - **Open**: OQ-284 (registry classification review), OQ-285 (export not yet behind the download route), OQ-283 (retention periods, counsel).
 - **Follow-ups**: wire `export_patient_data` into the download route; counsel on real-data erasure (Q5).
+
+## S39e: shared work queues under the care tie (2026-10-07, branch `s39e/worklists`, stacked on S39d)
+- **Built**: migration `20261007181500_s39e_worklists_and_work_counts.sql` (NOT yet applied). `clinical_worklist()` and `org_open_work_counts()`; `/clinician/worklists`; the admin caseload count reads through the counts function.
+- **Proof**: `s39e_worklists_and_work_counts.sql` role simulation (13 checks, 6 of 7 queues built as fixtures, sabotage flips); web tests pass.
+- **Found**: S39b hides pooled queue items from untied clinicians; all queues are empty today.
+- **Open**: therapy approvals not covered by a fixture; existing queue pages still show tied detail only; OQ-286 (labels reveal the kind of care). Review fixes: queue size and the 100 row cap are shown, coordinator is turned away, exact fixture set and real isolation check in the proof.
