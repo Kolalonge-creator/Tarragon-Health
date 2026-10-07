@@ -15,7 +15,7 @@ import { fetchOfflinePack, fetchPackStatus, type PackRow, type PackStatus } from
  * Offline lesson downloads (S55, spec 9.6). The patient opts in; the phone keeps text (and counts audio against the size cap,
  * see below) for in-date, published lessons only. Three rules, each tested in learning-pack.test.ts:
  *  1. An item past its review date is never shown, even with no signal: every read goes through readOffline(), which applies
- *     the same rule as the server (status review_due or review date today or earlier, Lagos day).
+ *     the same rule as the server (the item's own review date is today or earlier, Lagos day; a review_due flag alone does not expire it).
  *  2. On every refresh anything the server no longer serves (expired, unpublished, withdrawn) is deleted, and changed items are
  *     fetched again. A refresh that fails changes nothing except the purge of locally expired items, so a bad connection never
  *     empties the pack.

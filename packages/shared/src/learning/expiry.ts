@@ -4,17 +4,18 @@ export function lagosToday(now: Date = new Date()): string {
 }
 
 export interface ExpiryFields {
+  /** Accepted for callers that hold it, but NOT consulted: a review_due status is a flag, not expiry (OQ-F1-04). */
   readonly status?: string | null;
   /** YYYY-MM-DD, the authoritative review date. */
   readonly nextReviewDue?: string | null;
 }
 
 /**
- * The F1 rule, applied on the phone for content saved offline: an item is expired when its status is review_due or its
- * review date is today or earlier (Lagos). Items with no review date never time-expire. Mirrors
- * private.health_education_content_expired() in the database.
+ * The F1 rule, applied on the phone for content saved offline: an item is expired when its OWN review date is today or earlier
+ * (Lagos). Items with no review date never time-expire. A review_due status alone (a protocol version bump flags content for
+ * re-review) does NOT expire an item: it keeps being served until its own date, with a visible admin notice (OQ-F1-04).
+ * Mirrors private.health_education_content_expired() in the database.
  */
 export function isExpired(item: ExpiryFields, now: Date = new Date()): boolean {
-  if (item.status === "review_due") return true;
   return item.nextReviewDue != null && item.nextReviewDue <= lagosToday(now);
 }

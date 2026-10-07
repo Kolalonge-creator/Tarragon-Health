@@ -79,11 +79,11 @@ begin
   end if;
   raise notice 'PASS 1a: legal transition applied + audited';
 
-  -- F1: review_due content is NOT served (is_active false) until re-approved.
-  if (select is_active from public.health_education_content where id = v_content_id) then
-    raise exception 'FAIL: review_due content must NOT be is_active (F1 expiry gate)';
+  -- is_active still true for review_due (content stays visible while flagged).
+  if not (select is_active from public.health_education_content where id = v_content_id) then
+    raise exception 'FAIL: review_due content should remain is_active=true';
   end if;
-  raise notice 'PASS 1b: review_due is not served (is_active=false)';
+  raise notice 'PASS 1b: review_due keeps is_active=true';
 
   -- Illegal: review_due -> approved is not a legal edge.
   begin
