@@ -171,3 +171,16 @@ D-02 to D-04 are not defined in the spec.
 
 ### S21, 2026-10-06
 - Plan accepted (OQ-124 to OQ-131): merge S18 first, new authoritative `encounters` table, link-based Zoom with a server-owned video to audio to phone ladder (the phone step is Zoom's own dial-in, decided 2026-10-06, replacing a bridge through a second vendor), full refund 2 hours or more before, per-consultation in-app consent, adults only, NGN 10,000 a consultation.
+
+
+### CMO decisions on record access, retention, erasure and export, 2026-10-07
+Selected in chat by the Chief Medical Officer (the founder) from a list of options with guideline references. This is a governance record of the CMO's choices; it is not a legal opinion, and Nigerian counsel still confirms the points marked for counsel.
+1. **Sensitive records (sexual health, STI, HIV, mental health)**: keep on the open path, audited, weekly CMO review (the CMO chose this over the recommended tie for sexual health and HIV). Reproductive health stays closed to the open path. Counsel to confirm against the UK STI Directions 2000 equivalents, the HIV and AIDS (Anti-Discrimination) Act 2014 and the National Health Act 2014 (OQ-287).
+2. **Audit depth (OQ-282)**: opening-level log for everything plus a table-level access log for HIV, sexual health, mental health and reproductive records (to be built).
+3. **Patient access to the access log (OQ-281)**: not shown in the app; the DPO answers a request within 30 days (UK GDPR Art 12(3) and 15, NHS Care Record Guarantee; counsel confirms NDPA). A DPO report for one patient is to be built.
+4. **Access thresholds**: confirmed as proposed (8 hour window, 20 untied openings an hour, after hours 22:00 to 06:00 Lagos), review against real log data at 90 days. `security.rules` v4, status confirmed.
+5. **Retention (OQ-283)**: the UK and US periods confirmed (NHS Records Management Code 2021, HIPAA 164.316(b)(2) and 164.530(j)); counsel asked only whether a Nigerian rule requires longer. Config only: nothing is deleted automatically.
+6. **Erasure of real data (OQ-262)**: no erasure; restrict on request, with a written reason and anonymisation after the retention period subject to counsel (UK GDPR Art 17(3), NHS code, HIPAA). A record restriction flag is to be built.
+7. **Tied staff writes (OQ-279)**: apply now with the kill switch ready (S39g, applied 2026-10-07).
+8. **Export (OQ-285)**: next build is a FHIR style export plus a mobile download (UK GDPR Art 20, HIPAA 164.524).
+Also confirmed earlier today: registry classes (OQ-284), worklist labels left as they are (OQ-286), complete export after admin approval (OQ-285, built).

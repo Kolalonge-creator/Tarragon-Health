@@ -160,7 +160,7 @@ begin
 end $$;
 -- I. config -------------------------------------------------------------------------------------------------------------------------------------
 select pg_temp.ck('real', 'I1 the active config is version 2 with the window, the limit and no auto-delete of real data', 'true',
-  (select (version = 2 and config ? 'record_open_window_hours' and config ? 'untied_open_alert_per_hour' and (config -> 'retention' ->> 'real_data_auto_delete') = 'false'
+  (select (version >= 2 and config ? 'record_open_window_hours' and config ? 'untied_open_alert_per_hour' and (config -> 'retention' ->> 'real_data_auto_delete') = 'false'
            and (config -> 'retention' ->> 'adult_clinical_record_years_after_last_contact') = '8' and (config -> 'retention' ->> 'maternity_record_years') = '25')::text from public.security_config where is_active));
 
 -- SABOTAGE ---------------------------------------------------------------------------------------------------------------------------------------
