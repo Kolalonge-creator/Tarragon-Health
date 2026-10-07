@@ -150,9 +150,9 @@ export function LearnScreen({ userId, organisationId }: LearnScreenProps) {
       )}
 
       <DailyLessonCard patientId={userId} organisationId={organisationId} />
-      <LearnSearchCard onOpen={setOpenCode} />
-      {openCode ? <LessonViewer code={openCode} onClose={() => setOpenCode(null)} /> : null}
-      <DownloadsCard onOpen={setOpenCode} />
+      <LearnSearchCard userId={userId} onOpen={setOpenCode} />
+      {openCode ? <LessonViewer code={openCode} userId={userId} onClose={() => setOpenCode(null)} /> : null}
+      <DownloadsCard userId={userId} onOpen={setOpenCode} />
 
       {recommendations.length > 0 && (
         <View style={{ gap: 8 }}>
@@ -428,7 +428,7 @@ function EducationItemRow({
           {error && <ErrorText>{error}</ErrorText>}
 
           <ContentFeedbackRow contentId={item.content_id} userId={userId} organisationId={organisationId} />
-          <LessonFooter code={item.code} title={item.title} canShare={item.content_type === "article"} />
+          <LessonFooter code={item.code} title={item.title} />
         </View>
       )}
     </View>

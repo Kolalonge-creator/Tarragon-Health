@@ -17,12 +17,10 @@ import { ShareLessonButtons } from "./share-lesson-buttons";
 export function LearningItemFooter({
   code,
   title,
-  contentType,
   showNextStep = true,
 }: {
   code: string;
   title: string;
-  contentType: string;
   showNextStep?: boolean;
 }) {
   const { data: trust } = useHealthEducationItemTrust(code);
@@ -39,7 +37,8 @@ export function LearningItemFooter({
     creatorName: trust?.creator_name,
   });
   const actions = buildNextStep(trust?.self_care_action);
-  const canShare = !!trust?.share_enabled && contentType === "article";
+  // The server says whether the public link would actually open (article, shareable, reviewed, dated, in date): never offer a link that 404s.
+  const canShare = trust?.is_shareable === true;
 
   async function ask() {
     try {

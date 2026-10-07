@@ -178,12 +178,20 @@ begin
     pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('belle') where code = 's55-search-belle'$q$) = 1);
   perform pg_temp.ck('3c anon cannot search', pg_temp.as_count(null, $q$select count(*) from public.search_health_education('bp')$q$) = -1);
 
+  -- the log is OFF in the shipped config, and a type-ahead search never logs even when it is on
+  perform pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('quokka dental plan', 20, true)$q$);
+  perform pg_temp.ck('3c2 the zero-result log is off until confirmed: a submitted search with no result writes nothing',
+    not exists (select 1 from public.learning_search_gaps));
+  insert into public.learning_config (key, version, value)
+    select 'search_gap_log', 2, jsonb_set(private.learning_config('search_gap_log'), '{enabled}', 'true'::jsonb);
   perform pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('quokka dental plan')$q$);
-  perform pg_temp.as_count(v_pb, $q$select count(*) from public.search_health_education('Quokka dental plan!')$q$);
+  perform pg_temp.ck('3c3 with the log on, a type-ahead search (not submitted) still writes nothing', not exists (select 1 from public.learning_search_gaps));
+  perform pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('quokka dental plan', 20, true)$q$);
+  perform pg_temp.as_count(v_pb, $q$select count(*) from public.search_health_education('Quokka dental plan!', 20, true)$q$);
   perform pg_temp.ck('3d a zero-result phrase is logged once with a count of 2 across two patients',
     (select hit_count from public.learning_search_gaps where query_norm = 'quokka dental plan') = 2);
-  perform pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('my number is 08031234567')$q$);
-  perform pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('call me a@b.com')$q$);
+  perform pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('my number is 08031234567', 20, true)$q$);
+  perform pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('call me a@b.com', 20, true)$q$);
   perform pg_temp.ck('3e a phrase that looks like an identifier is never logged',
     not exists (select 1 from public.learning_search_gaps where query_norm like '%0803%' or query_norm like '%a b com%' or query_norm like '%call me%'));
   perform pg_temp.ck('3f the log has no patient, organisation or user column',
@@ -193,11 +201,11 @@ begin
   perform pg_temp.ck('3h a patient cannot call the admin report', pg_temp.as_try(v_pa, 'select * from public.learning_search_gaps_report()') = '42501');
   perform pg_temp.ck('3i the admin report hides a phrase below the configured count',
     pg_temp.as_count(v_admin, $q$select count(*) from public.learning_search_gaps_report() where query_norm = 'quokka dental plan'$q$) = 0);
-  perform pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('quokka dental plan')$q$);
+  perform pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('quokka dental plan', 20, true)$q$);
   perform pg_temp.ck('3j at the configured count the admin sees it',
     pg_temp.as_count(v_admin, $q$select count(*) from public.learning_search_gaps_report() where query_norm = 'quokka dental plan'$q$) = 1);
   insert into public.learning_search_gaps (query_norm, last_seen) values ('ancient phrase', current_date - 400);
-  perform pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('another unfindable phrase')$q$);
+  perform pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('another unfindable phrase', 20, true)$q$);
   perform pg_temp.ck('3k rows past the retention are deleted', not exists (select 1 from public.learning_search_gaps where query_norm = 'ancient phrase'));
 
   -- synonym matching is longest-first and non-overlapping: "high blood sugar" is about sugar, not blood pressure
@@ -211,22 +219,25 @@ begin
   perform pg_temp.ck('3n "high blood" on its own still finds the hypertension item',
     pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('my high blood') where code = 's55-search-htn'$q$) = 1);
   -- identifiers however they are spaced are never logged
-  perform pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('call 080 312 345 67')$q$);
+  perform pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('call 080 312 345 67', 20, true)$q$);
   perform pg_temp.ck('3o a phone number typed with spaces is not logged',
     not exists (select 1 from public.learning_search_gaps where query_norm like '%312%' or query_norm like '%080%'));
-  -- the log cannot grow without bound: at max_rows no new phrase is added, an existing one still counts
+  -- the log cannot grow without bound, and junk cannot blind it: at max_rows the lowest-count, oldest row makes room
   insert into public.learning_config (key, version, value)
-    select 'search_gap_log', 2, jsonb_set(private.learning_config('search_gap_log'), '{max_rows}', to_jsonb((select count(*) from public.learning_search_gaps)));
-  perform pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('brand new unfindable phrase')$q$);
-  perform pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('quokka dental plan')$q$);
-  perform pg_temp.ck('3p at max_rows a new phrase is not added', not exists (select 1 from public.learning_search_gaps where query_norm = 'brand new unfindable phrase'));
-  perform pg_temp.ck('3q ...but an existing phrase still counts', (select hit_count from public.learning_search_gaps where query_norm = 'quokka dental plan') >= 4);
-  delete from public.learning_config where key = 'search_gap_log' and version = 2;
+    select 'search_gap_log', 3, jsonb_set(private.learning_config('search_gap_log'), '{max_rows}', to_jsonb((select count(*) from public.learning_search_gaps)));
+  select count(*) into v_n from public.learning_search_gaps;
+  perform pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('brand new unfindable phrase', 20, true)$q$);
+  perform pg_temp.ck('3p at max_rows a new phrase still gets in', exists (select 1 from public.learning_search_gaps where query_norm = 'brand new unfindable phrase'));
+  perform pg_temp.ck('3q ...the table did not grow', (select count(*) from public.learning_search_gaps) = v_n);
+  perform pg_temp.ck('3q2 ...and the frequent phrase was kept while a count-1 phrase was evicted',
+    exists (select 1 from public.learning_search_gaps where query_norm = 'quokka dental plan'));
+  delete from public.learning_config where key = 'search_gap_log' and version = 3;
   -- the report ignores rows past the retention even before the next delete removes them
   insert into public.learning_search_gaps (query_norm, hit_count, last_seen) values ('stale but frequent', 9, current_date - 200);
   perform pg_temp.ck('3r the admin report hides a row past its retention',
     pg_temp.as_count(v_admin, $q$select count(*) from public.learning_search_gaps_report() where query_norm = 'stale but frequent'$q$) = 0);
   delete from public.learning_search_gaps where query_norm = 'stale but frequent';
+  delete from public.learning_config where key = 'search_gap_log' and version = 2;
 
   -- audience: an item with an age range is hidden from a patient outside it on every new reader (the feed's rule)
   v_id3 := pg_temp.mkitem('s55-age');
@@ -235,6 +246,10 @@ begin
   update public.profiles set date_of_birth = current_date - interval '20 years' where id = v_pa;
   perform pg_temp.ck('3s a 20 year old does not find a 40-and-over item', pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('quokka midlife') where code = 's55-age'$q$) = 0);
   perform pg_temp.ck('3t ...nor is it in their offline pack', pg_temp.as_count(v_pa, $q$select count(*) from public.learning_offline_pack() where code = 's55-age'$q$) = 0);
+  perform pg_temp.ck('3t2 ...it is not servable for pack status, cannot be saved, and has no trust record for that patient',
+    pg_temp.as_count(v_pa, $q$select count(*) from public.learning_pack_status(array['s55-age']) where servable$q$) = 0
+    and pg_temp.as_count(v_pa, $q$select (public.save_lesson_for_consultation('s55-age'))::int$q$) = 0
+    and pg_temp.as_count(v_pa, $q$select count(*) from public.health_education_item_trust(array['s55-age'])$q$) = 0);
   update public.profiles set date_of_birth = current_date - interval '50 years' where id = v_pa;
   perform pg_temp.ck('3u a 50 year old finds it', pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('quokka midlife') where code = 's55-age'$q$) = 1);
   update public.profiles set date_of_birth = null where id = v_pa;
@@ -325,9 +340,11 @@ begin
   perform pg_temp.ck('5z a clinician cannot reinstate', pg_temp.as_try(v_cu, format('select public.reinstate_learning_creator(%L, ''Registration query resolved'')', v_cr)) = '42501');
   v_s := pg_temp.as_try(v_admin, format('select public.reinstate_learning_creator(%L, ''Registration query resolved by the council'')', v_cr));
   perform pg_temp.ck('5aa an admin reinstates a suspended creator', v_s = 'ok');
-  perform pg_temp.ck('5aa2 ...to waiting for verification, not straight to verified',
-    (select status = 'pending_verification' and verified_by is null from public.learning_creators where id = v_cr));
+  perform pg_temp.ck('5aa2 ...back to invited with the old MDCN number and evidence cleared (they must send them again)',
+    (select status = 'invited' and verified_by is null and mdcn_number is null and credential_evidence is null and not indemnity_confirmed from public.learning_creators where id = v_cr));
   perform pg_temp.ck('5ab the credited item stays down until it is reviewed again', (select content_status = 'review_due' from public.health_education_content where code = 's55-credit'));
+  perform pg_temp.ck('5ab2 they cannot be verified again until they have sent credentials', pg_temp.as_try(v_admin2, format('select public.verify_learning_creator(%L)', v_cr)) = '22023');
+  perform pg_temp.ck('5ab3 they send new credentials', pg_temp.as_try(v_cc, $q$select public.submit_creator_credentials('MDCN12345', 'Register entry re-checked and new certificate on file', true)$q$) = 'ok');
   perform pg_temp.ck('5ac a different admin verifies them again', pg_temp.as_try(v_admin2, format('select public.verify_learning_creator(%L)', v_cr)) = 'ok');
   perform pg_temp.ck('5ad a verified creator cannot be reinstated (nothing to reinstate)', pg_temp.as_try(v_admin, format('select public.reinstate_learning_creator(%L, ''Registration query resolved by the council'')', v_cr)) = '22023');
   perform pg_temp.as_try(v_admin, format('select public.suspend_learning_creator(%L, ''Suspended again for the rest of the proof'')', v_cr));
@@ -379,6 +396,10 @@ begin
   update public.health_education_content set next_review_due = current_date + 60, reviewed_by_name = null where id = v_id;
   perform pg_temp.ck('7g4 an item with no named reviewer does not open for a signed-out reader',
     pg_temp.as_count(null, $q$select count(*) from public.learn_shared_article('s55-share-legacy')$q$) = 0);
+  perform pg_temp.ck('7g5 the apps are told it is shareable only when the link would open (same definition)',
+    pg_temp.as_count(v_pa, $q$select count(*) from public.health_education_item_trust(array['s55-search-htn']) where is_shareable$q$) = 1
+    and pg_temp.as_count(v_pa, $q$select count(*) from public.health_education_item_trust(array['s55-share-off']) where is_shareable$q$) = 0
+    and pg_temp.as_count(v_pa, $q$select count(*) from public.health_education_item_trust(array['s55-share-legacy']) where is_shareable$q$) = 0);
   update public.health_education_content set next_review_due = current_date - 1 where code = 's55-search-htn';
   perform pg_temp.ck('7h once past its review date the link no longer opens',
     pg_temp.as_count(null, $q$select count(*) from public.learn_shared_article('s55-search-htn')$q$) = 0);

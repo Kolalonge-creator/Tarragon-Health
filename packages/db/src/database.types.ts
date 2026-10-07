@@ -40304,12 +40304,12 @@ export type Database = {
           creator_name: string
           evidence_source: string
           is_micro_lesson: boolean
+          is_shareable: boolean
           lesson_action: string
           next_review_due: string
           reviewed_at: string
           reviewed_by_name: string
           self_care_action: string
-          share_enabled: boolean
           source_reference: string
         }[]
       }
@@ -41934,7 +41934,7 @@ export type Database = {
         Returns: undefined
       }
       search_health_education: {
-        Args: { p_limit?: number; p_query: string }
+        Args: { p_limit?: number; p_log?: boolean; p_query: string }
         Returns: {
           category: Database["public"]["Enums"]["health_education_category"]
           code: string

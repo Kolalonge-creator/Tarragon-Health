@@ -17,13 +17,23 @@ const STATUS_TEXT: Record<string, string> = {
 };
 
 export function CreatorCredentialsForm() {
-  const { data: me, isLoading } = useMyLearningCreator();
+  const { data: me, isLoading, isError, refetch } = useMyLearningCreator();
   const submit = useSubmitCreatorCredentials();
   const [mdcn, setMdcn] = useState("");
   const [evidence, setEvidence] = useState("");
   const [indemnity, setIndemnity] = useState(false);
 
   if (isLoading) return <p className="text-sm text-charcoal-ink/60">Loading…</p>;
+  if (isError) {
+    return (
+      <Card>
+        <CardContent className="space-y-2 py-6 text-sm">
+          <p>We could not load your creator record just now. This does not mean you were not invited.</p>
+          <Button size="sm" variant="outline" onClick={() => refetch()}>Try again</Button>
+        </CardContent>
+      </Card>
+    );
+  }
   if (!me) {
     return (
       <Card>

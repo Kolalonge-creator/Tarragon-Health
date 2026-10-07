@@ -15,13 +15,17 @@ export type DailyMicroLesson = Fn["daily_micro_lesson"]["Returns"][number];
 export type LearningSearchGap = Fn["learning_search_gaps_report"]["Returns"][number];
 export type LearningReadinessRow = Fn["learning_readiness_report"]["Returns"][number];
 
-export function useSearchHealthEducation(query: string) {
+/**
+ * `log` is true only for a search the person submitted (Enter or the Search button): the zero-result log never records the half-typed
+ * words of a type-ahead. The server still keeps the log off until it has been confirmed (config `enabled`).
+ */
+export function useSearchHealthEducation(query: string, log = false) {
   const q = query.trim();
   return useQuery({
-    queryKey: ["learning-search", q] as const,
+    queryKey: ["learning-search", q, log] as const,
     queryFn: async () => {
       const supabase = createClient();
-      const { data, error } = await supabase.rpc("search_health_education", { p_query: q, p_limit: 20 });
+      const { data, error } = await supabase.rpc("search_health_education", { p_query: q, p_limit: 20, p_log: log });
       if (error) throw error;
       return (data ?? []) as LearningSearchHit[];
     },

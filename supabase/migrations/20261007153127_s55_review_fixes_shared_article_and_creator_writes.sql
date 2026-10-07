@@ -27,21 +27,14 @@ as $$
     from public.health_education_content c
     left join public.learning_creators cr on cr.id = c.creator_id
    where c.code = p_code
-     and c.content_type = 'article'
-     and c.share_enabled
-     and c.clinician_reviewed
-     and c.reviewed_by_name is not null and char_length(btrim(c.reviewed_by_name)) >= 3
-     and c.reviewed_at is not null
-     and c.next_review_due is not null
-     and not c.is_placeholder
-     and private.health_education_is_servable(c.is_active, c.content_status, c.next_review_due);
+     and private.learning_item_is_shareable(c);
 $$;
 
 revoke insert, update, delete on public.learning_creators from authenticated;
 
--- 3. A suspended or declined creator had no way back. Reinstating does NOT restore trust: the creator returns to
---    "waiting for verification" and a different admin must verify again; their earlier content stays down (review_due)
---    until a clinician re-reviews and republishes it.
+-- 3. A suspended or declined creator had no way back. Reinstating does NOT restore trust: the creator returns to "invited" with
+--    the old MDCN number, evidence and indemnity cleared, so they must send credentials again and an admin must verify again;
+--    their earlier content stays down (review_due) until a clinician re-reviews and republishes it.
 create or replace function public.reinstate_learning_creator(p_id uuid, p_note text)
 returns void
 language plpgsql
@@ -62,11 +55,14 @@ begin
   if v_row.status not in ('suspended', 'declined') then
     raise exception 'Only a suspended or declined creator can be reinstated' using errcode = '22023';
   end if;
+  -- the earlier evidence may be why they were suspended or declined, so it is cleared and has to be sent again
   update public.learning_creators
-     set status = 'pending_verification', verified_by = null, verified_at = null, status_note = btrim(p_note)
+     set status = 'invited', mdcn_number = null, credential_evidence = null, indemnity_confirmed = false,
+         verified_by = null, verified_at = null, status_note = btrim(p_note)
    where id = p_id;
   insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
-    values (v_row.organisation_id, (select auth.uid()), 'learning_creator.reinstated', 'learning_creator', p_id, '{}'::jsonb);
+    values (v_row.organisation_id, (select auth.uid()), 'learning_creator.reinstated', 'learning_creator', p_id,
+            jsonb_build_object('from', v_row.status, 'note', btrim(p_note)));
 end;
 $$;
 revoke execute on function public.reinstate_learning_creator(uuid, text) from public;

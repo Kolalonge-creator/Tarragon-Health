@@ -7,6 +7,8 @@ jest.mock("./audio/manifest", () => ({ audioCatalogue: () => null }));
 
 import {
   autoRefreshDue,
+  ensurePackOwner,
+  type OwnerStorage,
   pickOfflineDailyLesson,
   purgeExpired,
   readOffline,
@@ -154,5 +156,60 @@ describe("automatic refresh throttle", () => {
     expect(autoRefreshDue("garbage", NOW)).toBe(true);
     expect(autoRefreshDue("2026-10-07T11:00:00Z", NOW)).toBe(false);
     expect(autoRefreshDue("2026-10-07T05:00:00Z", NOW)).toBe(true);
+  });
+});
+
+describe("withdrawal check is not throttled", () => {
+  it("download:false still removes a lesson the server no longer serves, and fetches no pack", async () => {
+    const store = new MemoryStore();
+    await store.put([stored("keep"), stored("withdrawn")]);
+    let packFetched = false;
+    const api: PackApi = {
+      fetchStatus: async () => [
+        { code: "keep", servable: true, content_version: 1, next_review_due: "2027-01-01" },
+        { code: "withdrawn", servable: false, content_version: 1, next_review_due: "2027-01-01" },
+      ],
+      fetchPack: async () => {
+        packFetched = true;
+        return [];
+      },
+    };
+    const res = await refreshPack({ store, api, config: CFG, now: NOW, download: false });
+    expect(res.ok).toBe(true);
+    expect(packFetched).toBe(false);
+    expect([...store.items.keys()]).toEqual(["keep"]);
+  });
+});
+
+describe("the pack belongs to one signed-in person", () => {
+  const owner = (initial: string | null): OwnerStorage & { value: string | null; refreshCleared: number } => {
+    const o = {
+      value: initial,
+      refreshCleared: 0,
+      get: async () => o.value,
+      set: async (id: string) => {
+        o.value = id;
+      },
+      clearLastRefresh: async () => {
+        o.refreshCleared += 1;
+      },
+    };
+    return o;
+  };
+  it("deletes another person's lessons and the refresh time when someone else signs in on the same phone", async () => {
+    const store = new MemoryStore();
+    await store.put([stored("adult-only")]);
+    const o = owner("adult-user");
+    expect(await ensurePackOwner("child-user", store, o)).toBe(true);
+    expect(store.items.size).toBe(0);
+    expect(o.value).toBe("child-user");
+    expect(o.refreshCleared).toBe(1);
+  });
+  it("keeps the lessons for the same person, and claims an unowned pack without deleting it", async () => {
+    const store = new MemoryStore();
+    await store.put([stored("a")]);
+    expect(await ensurePackOwner("u1", store, owner("u1"))).toBe(false);
+    expect(await ensurePackOwner("u1", store, owner(null))).toBe(false);
+    expect(store.items.size).toBe(1);
   });
 });

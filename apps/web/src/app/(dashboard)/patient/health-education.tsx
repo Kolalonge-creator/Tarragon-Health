@@ -361,7 +361,7 @@ function ContentDetailBody({
 
       <SetGoalFromLesson item={item} patientId={patientId} organisationId={organisationId} />
       <ContentFeedback contentId={item.content_id} patientId={patientId} organisationId={organisationId} />
-      <LearningItemFooter code={item.code} title={item.title} contentType={item.content_type} />
+      <LearningItemFooter code={item.code} title={item.title} />
     </div>
   );
 }

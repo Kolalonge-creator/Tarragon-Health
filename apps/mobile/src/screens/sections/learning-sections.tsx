@@ -16,11 +16,12 @@ import {
   type SearchHit,
 } from "@/lib/learning-centre";
 import {
+  bindPackToUser,
   isPackEnabled,
   pickOfflineDailyLesson,
   purgeExpired,
   readOffline,
-  refreshPack,
+  refreshPackNow,
   searchOffline,
   setPackEnabled,
   sqlitePackStore,
@@ -41,7 +42,7 @@ function useTr() {
  * authored; asking the care team and the urgent-help box are fixed copy. When the server cannot be reached, `fallback`
  * (a downloaded lesson) supplies the same facts.
  */
-export function LessonFooter({ code, title, canShare, fallback }: { code: string; title: string; canShare: boolean; fallback?: StoredLesson | null }) {
+export function LessonFooter({ code, title, fallback }: { code: string; title: string; fallback?: StoredLesson | null }) {
   const tr = useTr();
   const { colors } = useTheme();
   const [trust, setTrust] = useState<ItemTrust | null>(null);
@@ -69,7 +70,8 @@ export function LessonFooter({ code, title, canShare, fallback }: { code: string
   });
   const selfCare = trust?.self_care_action ?? fallback?.selfCareAction;
   const audioClip = trust?.audio_clip_id ?? fallback?.audioClipId ?? null;
-  const shareable = canShare && (trust?.share_enabled ?? false);
+  // The server says whether the public link would actually open; with no signal there is no link to offer.
+  const shareable = trust?.is_shareable === true;
 
   async function ask() {
     try {
@@ -159,9 +161,10 @@ export function DailyLessonCard({ patientId, organisationId }: { patientId: stri
       setOffline(null);
     } catch {
       setLesson(null);
+      await bindPackToUser(patientId);
       setOffline(pickOfflineDailyLesson(await readOffline(sqlitePackStore)));
     }
-  }, []);
+  }, [patientId]);
 
   useEffect(() => {
     void load().finally(() => setLoading(false));
@@ -233,7 +236,7 @@ export function DailyLessonCard({ patientId, organisationId }: { patientId: stri
               {result === "failed" ? <AppText variant="caption" tone="dangerText">{tr("learn.daily.save_failed")}</AppText> : null}
             </View>
           ) : null}
-          <LessonFooter code={source.code} title={source.title} canShare fallback={offline} />
+          <LessonFooter code={source.code} title={source.title} fallback={offline} />
         </View>
       )}
     </Card>
@@ -241,7 +244,7 @@ export function DailyLessonCard({ patientId, organisationId }: { patientId: stri
 }
 
 /** Search in everyday words. Online it asks the server (synonym table, zero-result log); with no signal it searches the downloads. */
-export function LearnSearchCard({ onOpen }: { onOpen: (code: string) => void }) {
+export function LearnSearchCard({ userId, onOpen }: { userId: string; onOpen: (code: string) => void }) {
   const tr = useTr();
   const { colors } = useTheme();
   const [raw, setRaw] = useState("");
@@ -258,6 +261,7 @@ export function LearnSearchCard({ onOpen }: { onOpen: (code: string) => void }) 
       searchLibrary(q)
         .then((r: SearchHit[]) => alive && setHits(r.map((h) => ({ code: h.code, title: h.title, summary: h.summary }))))
         .catch(async () => {
+          await bindPackToUser(userId);
           const local = searchOffline(await readOffline(sqlitePackStore), q);
           if (alive) setHits(local.map((l) => ({ code: l.code, title: l.title, summary: l.summary })));
         });
@@ -266,7 +270,7 @@ export function LearnSearchCard({ onOpen }: { onOpen: (code: string) => void }) 
       alive = false;
       clearTimeout(id);
     };
-  }, [raw]);
+  }, [raw, userId]);
 
   return (
     <Card style={{ gap: space.sm }}>
@@ -274,6 +278,9 @@ export function LearnSearchCard({ onOpen }: { onOpen: (code: string) => void }) 
       <TextInput
         value={raw}
         onChangeText={setRaw}
+        returnKeyType="search"
+        // A submitted search (not the half-typed words of a type-ahead) is the only one the zero-result log may record.
+        onSubmitEditing={() => raw.trim().length >= 2 && void searchLibrary(raw, true).catch(() => {})}
         placeholder={tr("learn.search.placeholder")}
         placeholderTextColor={colors.textSubtle}
         accessibilityLabel={tr("learn.search.title")}
@@ -292,7 +299,7 @@ export function LearnSearchCard({ onOpen }: { onOpen: (code: string) => void }) 
 }
 
 /** Offline downloads (spec 9.6): opt in, refresh on return to the app, remove. Lessons past their review date are never shown. */
-export function DownloadsCard({ onOpen }: { onOpen: (code: string) => void }) {
+export function DownloadsCard({ userId, onOpen }: { userId: string; onOpen: (code: string) => void }) {
   const tr = useTr();
   const [enabled, setEnabled] = useState(false);
   const [items, setItems] = useState<StoredLesson[]>([]);
@@ -300,9 +307,10 @@ export function DownloadsCard({ onOpen }: { onOpen: (code: string) => void }) {
   const [failed, setFailed] = useState(false);
 
   const reload = useCallback(async () => {
+    await bindPackToUser(userId);
     await purgeExpired(sqlitePackStore);
     setItems(await readOffline(sqlitePackStore));
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     void isPackEnabled().then(setEnabled);
@@ -314,7 +322,7 @@ export function DownloadsCard({ onOpen }: { onOpen: (code: string) => void }) {
     setFailed(false);
     await setPackEnabled(true);
     setEnabled(true);
-    const res = await refreshPack({ store: sqlitePackStore });
+    const res = await refreshPackNow();
     setFailed(!res.ok);
     await reload();
     setBusy(false);
@@ -346,25 +354,26 @@ export function DownloadsCard({ onOpen }: { onOpen: (code: string) => void }) {
 }
 
 /** A lesson opened from search or downloads: from the server when reachable, from the downloads otherwise. Never an expired one. */
-export function LessonViewer({ code, onClose }: { code: string; onClose: () => void }) {
+export function LessonViewer({ code, userId, onClose }: { code: string; userId: string; onClose: () => void }) {
   const tr = useTr();
-  const [view, setView] = useState<{ title: string; body: string; article: boolean; fallback: StoredLesson | null } | null | "gone">(null);
+  const [view, setView] = useState<{ title: string; body: string; fallback: StoredLesson | null } | null | "gone">(null);
 
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
         const d = await loadLessonDetail(code);
-        if (alive) setView(d ? { title: d.title, body: d.body, article: d.content_type === "article", fallback: null } : "gone");
+        if (alive) setView(d ? { title: d.title, body: d.body, fallback: null } : "gone");
       } catch {
+        await bindPackToUser(userId);
         const saved = (await readOffline(sqlitePackStore)).find((l) => l.code === code);
-        if (alive) setView(saved ? { title: saved.title, body: saved.body, article: true, fallback: saved } : "gone");
+        if (alive) setView(saved ? { title: saved.title, body: saved.body, fallback: saved } : "gone");
       }
     })();
     return () => {
       alive = false;
     };
-  }, [code]);
+  }, [code, userId]);
 
   if (view === null) return null;
   return (
@@ -376,7 +385,7 @@ export function LessonViewer({ code, onClose }: { code: string; onClose: () => v
         <>
           <AppText variant="title" heading>{view.title}</AppText>
           <AppText>{view.body}</AppText>
-          <LessonFooter code={code} title={view.title} canShare={view.article} fallback={view.fallback} />
+          <LessonFooter code={code} title={view.title} fallback={view.fallback} />
         </>
       )}
     </Card>

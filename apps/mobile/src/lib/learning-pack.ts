@@ -129,6 +129,8 @@ export async function refreshPack(deps: {
   config?: OfflinePackConfig;
   audioBytes?: (clipId: string) => number | null;
   now?: Date;
+  /** false: only check what is saved against the server (remove withdrawn or expired lessons); do not download the pack. */
+  download?: boolean;
 }): Promise<RefreshResult> {
   const now = deps.now ?? new Date();
   const api: PackApi = deps.api ?? { fetchPack: fetchOfflinePack, fetchStatus: fetchPackStatus };
@@ -157,6 +159,9 @@ export async function refreshPack(deps: {
       local = await store.list();
     }
 
+    if (deps.download === false) {
+      return { ok: true, added: 0, removed, refreshed, totalBytes: local.reduce((n, l) => n + l.textBytes, 0) };
+    }
     const rows = await api.fetchPack();
     const plan = planOfflinePack(
       rows.map((r) => ({
@@ -254,25 +259,66 @@ export async function setPackEnabled(on: boolean): Promise<void> {
 }
 
 const LAST_REFRESH_KEY = "@tarragon/learning-pack-last-refresh/v1";
-/** Engineering throttle (not a clinical value): returning to the app within this window does not re-download the pack. A manual press always refreshes. */
+const OWNER_KEY = "@tarragon/learning-pack-owner/v1";
+/** Engineering throttle (not a clinical value): the full pack download is not repeated on every return to the app. The withdrawal check is never throttled. */
 export const AUTO_REFRESH_MIN_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
-/** True when an automatic refresh is due: never refreshed, or the last one was long enough ago. Pure, so it can be tested. */
+/** True when an automatic full download is due: never refreshed, or the last one was long enough ago. Pure, so it can be tested. */
 export function autoRefreshDue(lastRefreshIso: string | null, now: Date = new Date()): boolean {
   if (!lastRefreshIso) return true;
   const last = Date.parse(lastRefreshIso);
   return Number.isNaN(last) || now.getTime() - last >= AUTO_REFRESH_MIN_INTERVAL_MS;
 }
 
-/** Called when the app returns to the foreground: refreshes only if the patient opted in and one is due. Never throws. */
-export async function refreshPackIfEnabled(): Promise<void> {
+/** The user the saved lessons belong to, so a shared phone never shows one person's (age-filtered) pack to the next. */
+export interface OwnerStorage {
+  get(): Promise<string | null>;
+  set(userId: string): Promise<void>;
+  clearLastRefresh(): Promise<void>;
+}
+
+/** If the saved lessons belong to someone else, delete them (and forget the refresh time) before anything is read. */
+export async function ensurePackOwner(userId: string, store: PackStore, owner: OwnerStorage): Promise<boolean> {
+  const current = await owner.get();
+  if (current === userId) return false;
+  if (current !== null) {
+    await store.clear();
+    await owner.clearLastRefresh();
+  }
+  await owner.set(userId);
+  return current !== null;
+}
+
+const asyncOwner: OwnerStorage = {
+  get: () => AsyncStorage.getItem(OWNER_KEY),
+  set: (id) => AsyncStorage.setItem(OWNER_KEY, id),
+  clearLastRefresh: () => AsyncStorage.removeItem(LAST_REFRESH_KEY),
+};
+
+/** Bind the on-phone pack to the signed-in user. Call before reading the downloads. */
+export function bindPackToUser(userId: string): Promise<boolean> {
+  return ensurePackOwner(userId, sqlitePackStore, asyncOwner);
+}
+
+/** Manual refresh from the Downloads card: always downloads, and records when. */
+export async function refreshPackNow(): Promise<RefreshResult> {
+  const res = await refreshPack({ store: sqlitePackStore });
+  if (res.ok) await AsyncStorage.setItem(LAST_REFRESH_KEY, new Date().toISOString());
+  return res;
+}
+
+/**
+ * Called when the app returns to the foreground. Only if the patient opted in. Locally expired lessons go every time (no network),
+ * and the check for lessons the server has withdrawn runs every time; only the full download waits for the throttle. Never throws.
+ */
+export async function refreshPackIfEnabled(userId: string): Promise<void> {
   try {
     if (!(await isPackEnabled())) return;
-    // Locally expired lessons go every time, with no network; the download itself is throttled.
+    await bindPackToUser(userId);
     await purgeExpired(sqlitePackStore);
-    if (!autoRefreshDue(await AsyncStorage.getItem(LAST_REFRESH_KEY))) return;
-    const res = await refreshPack({ store: sqlitePackStore });
-    if (res.ok) await AsyncStorage.setItem(LAST_REFRESH_KEY, new Date().toISOString());
+    const due = autoRefreshDue(await AsyncStorage.getItem(LAST_REFRESH_KEY));
+    const res = await refreshPack({ store: sqlitePackStore, download: due });
+    if (res.ok && due) await AsyncStorage.setItem(LAST_REFRESH_KEY, new Date().toISOString());
   } catch {
     // best effort: the downloads stay as they were
   }

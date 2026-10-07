@@ -57,13 +57,18 @@ function CreatorRow({ creator }: { creator: LearningCreator }) {
       </p>
       {creator.credential_evidence && <p className="text-xs text-charcoal-ink/70">Evidence: {creator.credential_evidence}</p>}
       {creator.status_note && <p className="text-xs text-charcoal-ink/60">Note: {creator.status_note}</p>}
+      {creator.status === "invited" && (
+        <p className="text-xs text-charcoal-ink/70">
+          Tell the clinician to open Learning creator credentials at /clinician/learning-creator (no notice is sent automatically). You can withdraw the invitation below.
+        </p>
+      )}
       <div className="flex flex-wrap items-end gap-2">
         {creator.status === "pending_verification" && (
           <Button size="sm" disabled={verify.isPending} onClick={() => verify.mutate({ id: creator.id })}>
             Verify (I have checked the MDCN register and the evidence)
           </Button>
         )}
-        {(creator.status === "verified" || creator.status === "pending_verification") && (
+        {(creator.status === "verified" || creator.status === "pending_verification" || creator.status === "invited") && (
           <>
             <div className="space-y-1">
               <Label htmlFor={`reason-${creator.id}`} className="text-xs">Reason (10+ characters)</Label>
@@ -73,9 +78,9 @@ function CreatorRow({ creator }: { creator: LearningCreator }) {
               size="sm"
               variant="outline"
               disabled={suspend.isPending || reason.trim().length < 10}
-              onClick={() => suspend.mutate({ id: creator.id, reason, decline: creator.status === "pending_verification" })}
+              onClick={() => suspend.mutate({ id: creator.id, reason, decline: creator.status !== "verified" })}
             >
-              {creator.status === "verified" ? "Suspend and take their content down" : "Decline"}
+              {creator.status === "verified" ? "Suspend and take their content down" : creator.status === "invited" ? "Withdraw the invitation" : "Decline"}
             </Button>
           </>
         )}

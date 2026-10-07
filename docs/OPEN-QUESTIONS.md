@@ -1499,8 +1499,9 @@ Four defects from `docs/design/S55-S60-build-plan.md` section 5, fixed ahead of 
 - Decision: open.
 
 ### OQ-S55-05 Zero-result search log and personal data
-- PROPOSED `learning.search_gap_log`: 60 characters, 6 words, shown to admins at 3 or more searches, deleted after 180 days; phrases with an at-sign or four or more digits are never kept; no user, organisation, device or time of day is stored. Free text can still hold a health phrase ("i have ..."), so the DPO should confirm this is acceptable as anonymous aggregate data, or choose a tighter rule (for example a fixed vocabulary only).
-- Known limits (code review): the count is searches, not distinct people, so one person repeating a phrase reaches the threshold alone; a name typed into the box (for example a person's name) is not detectable and would be stored as a phrase; no new phrase is added once 5,000 exist (`max_rows`). A fixed-vocabulary log would remove all three, at the cost of losing unknown words, which is the point of the log.
+- The log is built and **OFF** (`learning.search_gap_log` has `enabled: false`; a patient's search never writes a row). It also only ever records a search the person submitted (Enter or the Search button), never the half-typed words of a type-ahead. To switch it on, a new `search_gap_log` config version with `enabled: true` is needed, after the founder and the DPO confirm it.
+- PROPOSED rules once on: 60 characters, 6 words, shown to admins at 3 or more searches, deleted after 180 days, at most 5,000 rows (the lowest-count, oldest row makes room); phrases with an at-sign or five or more digits (however spaced) are never kept; no user, organisation, device or time of day is stored.
+- Known limits: the count is searches, not distinct people, so one person repeating a phrase reaches the threshold alone; a name or a health phrase typed into the box (for example "i have ...") is not detectable and would be stored. A fixed-vocabulary log would remove these, at the cost of losing unknown words, which is the point of the log. The DPO should decide whether free-text phrases are acceptable as anonymous aggregate data at all.
 - Decision: open (founder with the DPO).
 
 ### OQ-S55-06 235 seeded items have no review date, reviewer, source or self-care step
@@ -1525,7 +1526,7 @@ Four defects from `docs/design/S55-S60-build-plan.md` section 5, fixed ahead of 
 - Decision: informational.
 
 ### OQ-S55-11 Creators: no earnings, authoring or reinstatement beyond re-verification
-- A creator submits credentials at `/clinician/learning-creator`; an admin verifies, suspends (their published items go back to review) or reinstates (back to waiting for verification, never straight to verified). Items written by a creator are still entered through the admin content form until the Module 25 CMS exists (S80).
+- A creator submits credentials at `/clinician/learning-creator` (no notice is sent to an invited clinician automatically; the admin screen tells the admin to pass the page on, and an invitation can be withdrawn); an admin verifies, suspends (their published items go back to review) or reinstates (back to invited with the old MDCN number and evidence cleared, so they must send credentials again, never straight to verified). Items written by a creator are still entered through the admin content form until the Module 25 CMS exists (S80).
 - Decision: informational.
 
 ### OQ-S55-12 A failed lesson-event write opens one shared incident

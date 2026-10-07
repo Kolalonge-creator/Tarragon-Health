@@ -142,7 +142,8 @@ function AppContent() {
     const topUpReminders = () => void syncReminders().catch(() => {});
     // S55: downloaded lessons are refreshed on return to the app (only if the patient opted in): anything the server
     // no longer serves is deleted, changed lessons are fetched again.
-    const refreshLessons = () => void refreshPackIfEnabled();
+    const lessonUserId = session.user.id;
+    const refreshLessons = () => void refreshPackIfEnabled(lessonUserId);
     topUpReminders();
     refreshLessons();
     const sub = AppState.addEventListener("change", (next) => {

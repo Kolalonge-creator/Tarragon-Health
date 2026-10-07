@@ -39,13 +39,33 @@ $$;
 revoke execute on function private.learning_age_ok(integer, integer) from public;
 grant execute on function private.learning_age_ok(integer, integer) to authenticated, service_role;
 
+-- One definition of "this article may be opened from a shared link", used by the share function and by the flag the apps read to
+-- decide whether to offer Share at all (so the button is never shown for a link that would 404).
+create or replace function private.learning_item_is_shareable(c public.health_education_content)
+returns boolean
+language sql
+stable
+set search_path = ''
+as $$
+  select c.content_type = 'article'
+     and c.share_enabled
+     and c.clinician_reviewed
+     and c.reviewed_by_name is not null and char_length(btrim(c.reviewed_by_name)) >= 3
+     and c.reviewed_at is not null
+     and c.next_review_due is not null
+     and not c.is_placeholder
+     and private.health_education_is_servable(c.is_active, c.content_status, c.next_review_due);
+$$;
+revoke execute on function private.learning_item_is_shareable(public.health_education_content) from public;
+grant execute on function private.learning_item_is_shareable(public.health_education_content) to authenticated, service_role;
+
 -- ---------------------------------------------------------------------------
 -- Search with the synonym table (spec 9.3) and zero-result logging (no PHI)
 --
 -- Expansion picks NON-OVERLAPPING matches, longest phrase first (ties go to the later one, the head word), so "high blood sugar"
 -- expands the diabetes group ("blood sugar") and not the blood-pressure group ("high blood") that overlaps it.
 -- ---------------------------------------------------------------------------
-create or replace function public.search_health_education(p_query text, p_limit integer default 20)
+create or replace function public.search_health_education(p_query text, p_limit integer default 20, p_log boolean default false)
 returns table (
   content_id uuid, code text, title text, summary text,
   category public.health_education_category, content_type public.health_education_content_type,
@@ -142,9 +162,13 @@ begin
 
   select count(*) into v_found from pg_temp.learning_search_hits;
 
-  -- Zero-result log: anonymous phrase and count only. Skipped for anything that looks like an identifier (an at-sign, or five or
-  -- more digits anywhere in the phrase however they are spaced), and no new phrase is added once the table holds max_rows.
+  -- Zero-result log: anonymous phrase and count only. OFF until the founder and the DPO confirm it (config `enabled`, OQ-S55-05), and
+  -- only for a search the person submitted (p_log), never for the half-typed words of a type-ahead. Skipped for anything that looks
+  -- like an identifier (an at-sign, or five or more digits anywhere in the phrase however they are spaced). When the table holds
+  -- max_rows the least useful row (lowest count, then oldest) makes room, so junk cannot blind the log.
   if v_found = 0
+     and p_log
+     and coalesce((v_cfg ->> 'enabled')::boolean, false)
      and char_length(v_q) <= (v_cfg ->> 'max_query_chars')::integer
      and array_length(v_words, 1) <= (v_cfg ->> 'max_words')::integer
      and p_query !~ '@'
@@ -152,13 +176,15 @@ begin
     begin
       delete from public.learning_search_gaps
        where last_seen < (now() at time zone 'Africa/Lagos')::date - (v_cfg ->> 'retention_days')::integer;
-      if exists (select 1 from public.learning_search_gaps where query_norm = v_q)
-         or (select count(*) from public.learning_search_gaps) < (v_cfg ->> 'max_rows')::integer then
-        insert into public.learning_search_gaps as g (query_norm) values (v_q)
-        on conflict (query_norm) do update
-          set hit_count = g.hit_count + 1,
-              last_seen = (now() at time zone 'Africa/Lagos')::date;
+      if not exists (select 1 from public.learning_search_gaps where query_norm = v_q)
+         and (select count(*) from public.learning_search_gaps) >= (v_cfg ->> 'max_rows')::integer then
+        delete from public.learning_search_gaps
+         where query_norm = (select query_norm from public.learning_search_gaps order by hit_count, last_seen, query_norm limit 1);
       end if;
+      insert into public.learning_search_gaps as g (query_norm) values (v_q)
+      on conflict (query_norm) do update
+        set hit_count = g.hit_count + 1,
+            last_seen = (now() at time zone 'Africa/Lagos')::date;
     exception when others then
       -- planning telemetry only: the search itself must still answer. Not silent: it lands in the database log.
       raise warning 'learning search gap log failed: %', sqlerrm;
@@ -176,7 +202,7 @@ create or replace function public.health_education_item_trust(p_codes text[])
 returns table (
   code text, clinician_reviewed boolean, reviewed_by_name text, clinical_author_name text, reviewed_at timestamptz,
   next_review_due date, source_reference text, evidence_source text, creator_name text,
-  audio_clip_id text, self_care_action text, share_enabled boolean, is_micro_lesson boolean, lesson_action text
+  audio_clip_id text, self_care_action text, is_shareable boolean, is_micro_lesson boolean, lesson_action text
 )
 language sql
 stable
@@ -186,12 +212,13 @@ as $$
   select c.code, c.clinician_reviewed, c.reviewed_by_name, c.clinical_author_name, c.reviewed_at,
          c.next_review_due, c.source_reference, c.evidence_source,
          case when cr.status = 'verified' then cr.display_name end,
-         c.audio_clip_id, c.self_care_action, c.share_enabled, c.is_micro_lesson, c.lesson_action
+         c.audio_clip_id, c.self_care_action, private.learning_item_is_shareable(c), c.is_micro_lesson, c.lesson_action
     from public.health_education_content c
     left join public.learning_creators cr on cr.id = c.creator_id
    where (select auth.uid()) is not null
      and c.code = any (p_codes[1:100])
      and private.health_education_is_servable(c.is_active, c.content_status, c.next_review_due)
+     and private.learning_age_ok(c.min_age, c.max_age)
      and not c.is_placeholder;
 $$;
 
@@ -440,6 +467,7 @@ begin
   select organisation_id into v_org from public.profiles where id = v_me;
   select c.id into v_content from public.health_education_content c
    where c.code = p_code and not c.is_placeholder
+     and private.learning_age_ok(c.min_age, c.max_age)
      and private.health_education_is_servable(c.is_active, c.content_status, c.next_review_due);
   if v_content is null then
     return false;
@@ -516,11 +544,7 @@ as $$
     from public.health_education_content c
     left join public.learning_creators cr on cr.id = c.creator_id
    where c.code = p_code
-     and c.content_type = 'article'
-     and c.share_enabled
-     and c.clinician_reviewed
-     and not c.is_placeholder
-     and private.health_education_is_servable(c.is_active, c.content_status, c.next_review_due);
+     and private.learning_item_is_shareable(c);
 $$;
 
 -- ---------------------------------------------------------------------------
@@ -564,7 +588,7 @@ security definer
 set search_path = ''
 as $$
   select k.code,
-         coalesce(private.health_education_is_servable(c.is_active, c.content_status, c.next_review_due) and not c.is_placeholder, false),
+         coalesce(private.health_education_is_servable(c.is_active, c.content_status, c.next_review_due) and not c.is_placeholder and private.learning_age_ok(c.min_age, c.max_age), false),
          c.content_version, c.next_review_due
     from unnest(p_codes[1:300]) as k(code)
     left join public.health_education_content c on c.code = k.code
@@ -635,7 +659,7 @@ declare
   v_sig text;
 begin
   foreach v_sig in array array[
-    'public.search_health_education(text, integer)',
+    'public.search_health_education(text, integer, boolean)',
     'public.health_education_item_trust(text[])',
     'public.daily_micro_lesson()',
     'public.invite_learning_creator(uuid, text)',
@@ -652,6 +676,7 @@ begin
     'public.learning_readiness_report()',
     'private.health_education_progress_emit_events()',
     'private.learning_age_ok(integer, integer)',
+    'private.learning_item_is_shareable(public.health_education_content)',
     'private.health_education_publish_gate()'
   ] loop
     execute format('revoke execute on function %s from public', v_sig);
@@ -668,7 +693,7 @@ end $$;
 -- ---------------------------------------------------------------------------
 do $$
 begin
-  if has_function_privilege('anon', 'public.search_health_education(text, integer)', 'EXECUTE')
+  if has_function_privilege('anon', 'public.search_health_education(text, integer, boolean)', 'EXECUTE')
      or has_function_privilege('anon', 'public.daily_micro_lesson()', 'EXECUTE')
      or has_function_privilege('anon', 'public.learning_offline_pack()', 'EXECUTE')
      or has_function_privilege('anon', 'public.verify_learning_creator(uuid, text)', 'EXECUTE') then

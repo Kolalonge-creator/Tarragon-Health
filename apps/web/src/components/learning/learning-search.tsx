@@ -10,11 +10,14 @@ import { useSearchHealthEducation } from "@/lib/queries/learning-centre";
 export function LearningSearch() {
   const [raw, setRaw] = useState("");
   const [query, setQuery] = useState("");
+  const [submitted, setSubmitted] = useState("");
   useEffect(() => {
     const id = setTimeout(() => setQuery(raw), 350);
     return () => clearTimeout(id);
   }, [raw]);
   const { data, isLoading, isError } = useSearchHealthEducation(query);
+  // Only a search the person submitted can be written to the zero-result log; a type-ahead never is.
+  useSearchHealthEducation(submitted, true);
   const searched = query.trim().length >= 2;
 
   return (
@@ -23,6 +26,14 @@ export function LearningSearch() {
         <CardTitle className="text-base">{t("learn.search.title")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        <form
+          role="search"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setQuery(raw);
+            setSubmitted(raw);
+          }}
+        >
         <input
           type="search"
           value={raw}
@@ -32,6 +43,7 @@ export function LearningSearch() {
           maxLength={80}
           className="w-full rounded-lg border border-charcoal-ink/20 bg-white px-3 py-2 text-sm dark:border-night-ink/25 dark:bg-night-surface"
         />
+        </form>
         {searched && isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">…</p>}
         {searched && !isLoading && !isError && data && data.length === 0 && (
           <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{t("learn.search.none")}</p>

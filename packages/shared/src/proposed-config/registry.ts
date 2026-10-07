@@ -1337,7 +1337,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     key: "learning.search_gap_log",
     // S55 (spec 9.3): rules for the zero-result search log (no patient reference): longest phrase kept, most words, how many searches
     // before an admin sees a phrase, and retention. Live value is the `search_gap_log` row of `learning_config`. UNSIGNED.
-    value: { max_query_chars: 60, max_words: 6, min_count_to_show: 3, retention_days: 180, max_rows: 5000 },
+    value: { enabled: false, max_query_chars: 60, max_words: 6, min_count_to_show: 3, retention_days: 180, max_rows: 5000 },
     owner: "Founder",
     status: "proposed",
     version: 1,

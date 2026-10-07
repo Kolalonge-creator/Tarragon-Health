@@ -86,7 +86,7 @@ export function DailyLessonCard({ patientId, organisationId }: { patientId: stri
               </fieldset>
             )}
             {mark.isError && <p className="text-xs text-red-700 dark:text-red-300">{t("learn.daily.save_failed")}</p>}
-            <LearningItemFooter code={lesson.code} title={lesson.title} contentType="article" />
+            <LearningItemFooter code={lesson.code} title={lesson.title} />
           </div>
         )}
       </CardContent>

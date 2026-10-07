@@ -13,8 +13,9 @@ export type DailyLesson = Fn["daily_micro_lesson"]["Returns"][number];
 export type PackRow = Fn["learning_offline_pack"]["Returns"][number];
 export type PackStatus = Fn["learning_pack_status"]["Returns"][number];
 
-export async function searchLibrary(query: string): Promise<SearchHit[]> {
-  const { data, error } = await supabase.rpc("search_health_education", { p_query: query.trim(), p_limit: 20 });
+/** `log` is true only for a search the person submitted; a type-ahead never feeds the zero-result log. */
+export async function searchLibrary(query: string, log = false): Promise<SearchHit[]> {
+  const { data, error } = await supabase.rpc("search_health_education", { p_query: query.trim(), p_limit: 20, p_log: log });
   if (error) throw error;
   return data ?? [];
 }

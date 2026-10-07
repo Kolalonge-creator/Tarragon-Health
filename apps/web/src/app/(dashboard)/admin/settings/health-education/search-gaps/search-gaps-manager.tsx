@@ -17,7 +17,7 @@ export function SearchGapsManager() {
       <CardContent>
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
         {isError && <p className="text-sm text-red-600">Could not load the report.</p>}
-        {data && data.length === 0 && <p className="text-sm text-charcoal-ink/60">Nothing to show yet.</p>}
+        {data && data.length === 0 && <p className="text-sm text-charcoal-ink/60">Nothing to show yet. The log is switched off until the founder and the DPO confirm it (see the open question on the zero-result search log), and a phrase shows only after enough searches.</p>}
         {data && data.length > 0 && (
           <table className="w-full text-left text-sm">
             <thead>

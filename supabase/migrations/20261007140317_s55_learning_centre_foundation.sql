@@ -70,8 +70,8 @@ on conflict (key, version) do nothing;
 
 -- learning-search-gap-begin
 insert into public.learning_config (key, version, value, status, note) values
-('search_gap_log', 1, $json${"max_query_chars":60,"max_words":6,"min_count_to_show":3,"retention_days":180,"max_rows":5000}$json$::jsonb, 'proposed',
- 'Spec 9.3: zero-result searches are logged for content planning. No patient or organisation reference is stored; a phrase is shown to admins only once it has been searched at least min_count_to_show times (searches, not distinct people: see OQ-S55-05), and no new phrase is added once max_rows exist.')
+('search_gap_log', 1, $json${"enabled":false,"max_query_chars":60,"max_words":6,"min_count_to_show":3,"retention_days":180,"max_rows":5000}$json$::jsonb, 'proposed',
+ 'Spec 9.3: zero-result searches are logged for content planning. OFF (enabled false) until the founder and the DPO confirm it (OQ-S55-05); only a search the person submitted is ever logged. No patient or organisation reference is stored; a phrase is shown to admins only once it has been searched at least min_count_to_show times (searches, not distinct people: see OQ-S55-05), and no new phrase is added once max_rows exist.')
 on conflict (key, version) do nothing;
 -- learning-search-gap-end
 
