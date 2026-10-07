@@ -410,7 +410,6 @@ export function PharmaciesManager({ pharmacistLogins }: { pharmacistLogins: Phar
   const [city, setCity] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
-  const [delivery, setDelivery] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   return (
@@ -438,7 +437,6 @@ export function PharmaciesManager({ pharmacistLogins }: { pharmacistLogins: Phar
                   city: city || null,
                   contactPhone: phone || null,
                   contactEmail: email || null,
-                  delivery,
                   isActive: false,
                 },
                 {
@@ -449,7 +447,6 @@ export function PharmaciesManager({ pharmacistLogins }: { pharmacistLogins: Phar
                     setCity("");
                     setPhone("");
                     setEmail("");
-                    setDelivery(true);
                   },
                   onError: (err) => setError(err instanceof Error ? err.message : "Could not save"),
                 }
@@ -480,10 +477,6 @@ export function PharmaciesManager({ pharmacistLogins }: { pharmacistLogins: Phar
               <Label htmlFor="ph-email">Contact email</Label>
               <Input id="ph-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
-            <label className="flex items-center gap-2 text-sm text-charcoal-ink/80">
-              <input type="checkbox" checked={delivery} onChange={(e) => setDelivery(e.target.checked)} />
-              Offers delivery
-            </label>
             {error && <p className="text-sm text-red-600 sm:col-span-2">{error}</p>}
             <div className="sm:col-span-2">
               <Button type="submit" disabled={create.isPending}>
@@ -509,8 +502,7 @@ export function PharmaciesManager({ pharmacistLogins }: { pharmacistLogins: Phar
                 (ph.city ?? "").toLowerCase().includes(q) ||
                 (ph.state ?? "").toLowerCase().includes(q) ||
                 (ph.license_number ?? "").toLowerCase().includes(q) ||
-                (ph.license_type ?? "").toLowerCase().includes(q) ||
-                (ph.delivery && "delivery".includes(q))
+                (ph.license_type ?? "").toLowerCase().includes(q)
               }
               searchPlaceholder="Search pharmacies by name, city, state, or licence…"
               emptyMessage="No pharmacies yet."
@@ -520,7 +512,6 @@ export function PharmaciesManager({ pharmacistLogins }: { pharmacistLogins: Phar
                     <div className="flex flex-wrap items-center gap-2 text-sm">
                       <span className="font-medium text-charcoal-ink">{ph.name}</span>
                       <Badge variant={ph.is_active ? "green" : "grey"}>{ph.is_active ? "Active" : "Inactive"}</Badge>
-                      {ph.delivery && <Badge variant="blue">Delivery</Badge>}
                       <PartnerLicenseBadge expiresAt={ph.license_expires_at} />
                       {(ph.state || ph.city) && (
                         <span className="text-xs text-charcoal-ink/50">{[ph.city, ph.state].filter(Boolean).join(", ")}</span>
