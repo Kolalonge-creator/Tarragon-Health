@@ -1381,11 +1381,12 @@ begin
 end $patch$;
 
 insert into public.go_live_guards (key, label, blocks, condition_text, switch_role, enforced_in, not_enforced_in)
-values ('maternal_enabled', 'Pregnancy care (module 16)',
-        'Week-by-week content, antenatal schedule, baby movement counter, contraction timer and birth plan for patients',
-        'An approved obstetric protocol, an approved blood pressure rule set carrying the pregnancy rules, the regulator replies recorded, and the Chief Medical Officer pressing the switch.',
-        'cmo', '{}',
-        'Not enforced anywhere yet: S67 ships the guard and its conditions only. The screens are built behind it in a later pass, so switching it on or off changes nothing today.')
+values ('maternal_enabled', 'Maternal and child health (module 16)',
+        'Week-by-week content, antenatal schedule, baby movement counter, contraction timer and birth plan for patients; pregnancy blood pressure rules; postnatal checks, child malnutrition routing, the lifecycle and the breastfeeding log',
+        'An approved obstetric protocol, an approved blood pressure rule set carrying the pregnancy rules, paediatric growth routing signed by the CMO, the regulator replies recorded, and the Chief Medical Officer pressing the switch.',
+        'cmo',
+        array['child growth nutrition routing (alerts and paging)', 'breastfeeding_feed_log insert', 'record_lifecycle_event (pregnancy confirmed, delivery, loss, and the other confirmed events)'],
+        'S67 ships the pregnancy guard conditions only: the pregnancy screens are built behind it in a later pass, so the pregnancy side changes nothing today. Child growth z-scores, the growth chart and the EPDS crisis route are live today and stay outside this guard (a crisis answer is never held back). (Merged wording: S67 and S68 both seed this guard; S67 migrates first, S68b is on conflict do nothing.)')
 on conflict (key) do nothing;
 
 do $$
