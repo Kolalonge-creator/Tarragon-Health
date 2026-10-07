@@ -244,7 +244,7 @@ select pg_temp.ck('real', 'the notice carries no patient and no text', '0',
   (select count(*)::text from public.notifications where template = 'on_call_escalation' and payload::text <> '{}'));
 select pg_temp.ck('real', 'one class 1 task exists for the patient under the shared crisis key', '1',
   (select count(*)::text from public.clinical_tasks where patient_id = pg_temp.f('pat') and type = 'red_event_unacknowledged' and dedup_key = 'crisis:' || pg_temp.f('pat')));
-select pg_temp.ck('real', 'a page that reached someone marks its queue row done', '0',
+select pg_temp.ck('real', 'a page that reached only leadership (nobody on call) stays pending, so cover is found later', '1',
   (select count(*)::text from public.assistant_page_queue where conversation_id = pg_temp.f('conv') and done_at is null));
 select pg_temp.ck('real', 'a second page for the same conversation within hours does nothing', 'true',
   pg_temp.q_service(format($q$select (public.assistant_page_on_call(%L::uuid, %L::uuid) ->> 'already')$q$, pg_temp.f('pat'), pg_temp.f('conv'))));
@@ -255,7 +255,7 @@ select pg_temp.ck('real', 'a fresh queue row is not retried yet', '0',
 update public.assistant_page_queue set created_at = now() - interval '10 minutes' where conversation_id = pg_temp.f('conv2');
 select pg_temp.ck('real', 'the retry pages a cut-off page and reports it done', '1',
   pg_temp.q_service($q$select (public.assistant_page_retry_due(10) ->> 'done')$q$));
-select pg_temp.ck('real', 'and the queue row is done with one attempt', 'true:1',
+select pg_temp.ck('real', 'and, with nobody on call, the queue row stays pending after one attempt', 'false:1',
   (select (done_at is not null)::text || ':' || attempts::text from public.assistant_page_queue where conversation_id = pg_temp.f('conv2')));
 select pg_temp.ck('real', 'a patient cannot retry pages or queue one', 'ERR:42501',
   pg_temp.q_as(pg_temp.f('pat'), $q$select public.assistant_page_retry_due(10)::text$q$));

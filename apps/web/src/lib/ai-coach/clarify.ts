@@ -31,6 +31,8 @@ const GENERIC_READING = /\b(?:my|the) (?:result|results|reading|readings|numbers
 const READING_QUESTION = /\b(?:mean|means|ok|okay|normal|bad|good|high|low|wrong|explain)\b/i;
 const NAMED_READING = /\b(?:hba1c|a1c|glucose|sugar|cholesterol|bp|blood pressure|creatinine|potassium|sodium|weight|pulse|oxygen|spo2|temperature|ldl|hdl|triglycerides?)\b/i;
 
+const OBLIQUE_DISTRESS = /\b(?:can'?t|cannot|can not) (?:go on|take (?:it|this) any ?more|do (?:it|this) any ?more)\b|\bgive up\b|\bno point\b|\b(?:tired|sick) of (?:everything|life|living|it all)\b|\beverything to stop\b|\bhopeless\b|\bworthless\b|\ba burden\b|\bdisappear\b|\bnot (?:okay|ok)\b/i;
+
 function words(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length;
 }
@@ -43,6 +45,9 @@ export function decideClarification(input: { message: string; priorMessages: rea
   const message = input.message.trim();
   if (!message || words(message) > 10 || message.length > 90) return null;
   if (GREETING_OR_ANSWER.test(message)) return null;
+  // Oblique low-mood or giving-up wording is never answered with symptom questions: it goes to the model, whose own self-harm flag (INV-05) is
+  // the second net after the keyword screen. Over-matching here only means the model sees the message; it never loses a question that mattered.
+  if (OBLIQUE_DISTRESS.test(message)) return null;
 
   const recent = lastAssistantTurns(input.priorMessages, 2);
   // never twice in a row, and never question an answer to our own question
