@@ -169,7 +169,8 @@ language plpgsql
 set search_path = ''
 as $$
 begin
-  if new.status = 'understood' and new.understood_at is null then
+  -- stamped when the lesson becomes understood, and again if it was reset and is understood anew; untouched by later re-reads
+  if new.status = 'understood' and (tg_op = 'INSERT' or old.status is distinct from 'understood' or new.understood_at is null) then
     new.understood_at := now();
   end if;
   return new;
@@ -449,7 +450,8 @@ begin
     'private.learning_creator_locked(uuid)',
     'private.learning_content_locked(uuid)',
     'private.health_education_unlock_anchor(public.care_plan_condition)',
-    'private.health_education_progress_members_gate()'
+    'private.health_education_progress_members_gate()',
+    'private.health_education_progress_understood_at()'
   ] loop
     execute format('revoke execute on function %s from public', v_sig);
     execute format('revoke execute on function %s from anon', v_sig);
