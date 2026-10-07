@@ -1,7 +1,7 @@
 -- S53 pre-fix, spec 8.16: "Clinicians never see which pharmacy earns Tarragon more."
 -- Standing proof that the commission columns on pharmacy_medications and the commissions ledger are not readable by a patient, a
 -- clinician, a pharmacist or anon, while price and stock stay readable and admin / finance keep their access.
--- Migration: 20261007002834_s53_pre_8_16_commission_columns_off_the_patient_and_clinician_surface.sql
+-- Migration: 20261007210001_s53_pre_8_16_commission_columns_off_the_patient_and_clinician_surface.sql
 --
 -- Roles proved: patient, clinician, pharmacist (own partner), admin, finance (with and without commissions.view), anon.
 -- Sabotage: inside the same rolled-back transaction the old table-wide SELECT grant, the `using (true)` policy and the old

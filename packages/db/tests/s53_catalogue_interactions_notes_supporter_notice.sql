@@ -1,4 +1,4 @@
--- S53 proof (migration 20261007003937_s53_medicine_catalogue_interactions_side_effects_supporter_notice.sql).
+-- S53 proof (migration 20261007210002_s53_medicine_catalogue_interactions_side_effects_supporter_notice.sql).
 -- Rolled back; nothing is committed. Each role is tested, a role that must be refused is shown refused, and the sabotage step at
 -- the end removes the supporter-notice trigger and requires the positive supporter case to FAIL (so the test discriminates).
 --

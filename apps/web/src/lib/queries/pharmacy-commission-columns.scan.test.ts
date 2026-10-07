@@ -1,7 +1,7 @@
 /**
  * S53 pre-fix, spec 8.16: a standing scan. The commission columns (commission_rate, commission_rate_type, commission_flat_kobo)
  * are not readable by the database role patients, clinicians and pharmacists use (column grant, migration
- * 20261007002834). This test makes sure no client code reaches for them, or for `select("*")`, outside the finance and admin
+ * 20261007210001). This test makes sure no client code reaches for them, or for `select("*")`, outside the finance and admin
  * surfaces, so the next developer finds out at review time rather than as a production permission error.
  */
 import { readdirSync, readFileSync, statSync } from "fs";
