@@ -92,7 +92,7 @@ end $f$;
 
 do $$
 declare
-  v_org uuid; v_admin uuid; v_pw uuid; v_ps uuid; v_pm uuid; v_pn uuid; v_pe uuid; v_cc uuid; v_other uuid;
+  v_org uuid; v_admin uuid; v_pw uuid; v_ps uuid; v_po uuid; v_pm uuid; v_pn uuid; v_pe uuid; v_cc uuid; v_other uuid;
   v_cr uuid; v_w1 uuid; v_w2 uuid; v_w3 uuid; v_cm uuid; v_probe uuid; v_cart uuid; v_free uuid; v_n integer; v_t text;
   v_q constant text := '[{"question":"q","options":["a","b"],"answer_index":0}]';
 begin
@@ -147,6 +147,18 @@ begin
   perform pg_temp.ck('W9 a lesson over the configured minutes is not offered',
     pg_temp.as_count(v_pw, $q$select count(*) from public.weekly_micro_lesson() where code = 'wk-3'$q$) = 0);
   update public.health_education_content set estimated_minutes = 5 where id = v_w3;
+
+  -- onboarded two weeks ago, no progress yet: the week-3 lesson is due; finishing it (the first progress row) must not reset the clock
+  v_po := pg_temp.mkuser(v_org, 'old-onboarding', 'patient');
+  -- the onboarding-consent guard is not what is under test here
+  set local session_replication_role = replica;
+  update public.profiles set onboarding_completed_at = now() - interval '15 days' where id = v_po;
+  set local session_replication_role = origin;
+  perform pg_temp.ck('W9a a person onboarded two weeks ago starts on the week-3 lesson',
+    pg_temp.as_text(v_po, $q$select code from public.weekly_micro_lesson()$q$) = 'wk-3');
+  insert into public.health_education_progress (organisation_id, patient_id, content_id, status) values (v_org, v_po, v_w3, 'understood');
+  perform pg_temp.ck('W9a2 finishing their first-ever lesson does not reset the clock: it stays this week''s lesson, done',
+    pg_temp.as_text(v_po, $q$select code || ':' || completed_this_week::text from public.weekly_micro_lesson()$q$) = 'wk-3:true');
 
   -- a lesson that was only opened (status 'seen') in week 1 must not outrank the lesson that is due in week 3
   v_ps := pg_temp.mkuser(v_org, 'seen-only', 'patient');

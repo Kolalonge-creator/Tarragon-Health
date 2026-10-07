@@ -188,7 +188,9 @@ create trigger health_education_progress_understood_at
 -- safe floor, so no old lesson is counted as finished in the current programme week
 update public.health_education_progress set understood_at = created_at where status = 'understood' and understood_at is null;
 
--- Start of the person's current programme week for a track: the same anchor private.health_education_unlock_week() counts from.
+-- Start of the person's programme for a track. A condition track counts from its active care plan (as the drip engine does). The general
+-- track counts from the EARLIEST of onboarding and first engagement, so the clock never jumps back when a person finishes their first
+-- lesson (private.health_education_unlock_week(), which the feed uses, falls back to first engagement only when it comes first).
 create or replace function private.health_education_unlock_anchor(p_condition public.care_plan_condition)
 returns timestamptz
 language sql
@@ -201,8 +203,10 @@ as $$
       (select min(cp.created_at) from public.care_plans cp
         where cp.patient_id = (select auth.uid()) and cp.condition = p_condition and cp.status = 'active')
     end,
-    (select min(p.created_at) from public.health_education_progress p where p.patient_id = (select auth.uid())),
-    (select pr.onboarding_completed_at from public.profiles pr where pr.id = (select auth.uid())),
+    least(
+      (select min(p.created_at) from public.health_education_progress p where p.patient_id = (select auth.uid())),
+      (select pr.onboarding_completed_at from public.profiles pr where pr.id = (select auth.uid()))
+    ),
     now()
   );
 $$;
@@ -221,12 +225,10 @@ security definer
 set search_path = ''
 as $$
   with me as (select (select auth.uid()) as id),
-  cfg as (select coalesce((private.learning_config('micro_lesson') ->> 'max_minutes')::integer, 5) as max_minutes),
-  cand as (
-    select c.*,
-           private.health_education_unlock_week(c.condition) as w,
-           private.health_education_unlock_anchor(c.condition)
-             + (private.health_education_unlock_week(c.condition) - 1) * interval '7 days' as week_start,
+  -- no configured limit means no lesson is offered (the limit is a versioned value, never a literal here)
+  cfg as (select (private.learning_config('micro_lesson') ->> 'max_minutes')::integer as max_minutes),
+  base as (
+    select c.*, private.health_education_unlock_anchor(c.condition) as a,
            private.learning_creator_locked(c.creator_id) as locked
       from public.health_education_content c, cfg
      where (select id from me) is not null
@@ -235,9 +237,16 @@ as $$
        and c.estimated_minutes between 1 and cfg.max_minutes
        and (c.condition is null or c.condition in (select cp.condition from public.care_plans cp
                                                     where cp.patient_id = (select id from me) and cp.status = 'active'))
-       and (c.drip_week is null or c.drip_week <= private.health_education_unlock_week(c.condition))
        and private.learning_age_ok(c.min_age, c.max_age)
        and private.health_education_is_servable(c.is_active, c.content_status, c.next_review_due)
+  ),
+  weeks as (
+    select b.*, greatest(1, floor(extract(epoch from (now() - b.a)) / 604800.0)::integer + 1) as w from base b
+  ),
+  cand as (
+    select x.*, x.a + (x.w - 1) * interval '7 days' as week_start
+      from weeks x
+     where x.drip_week is null or x.drip_week <= x.w
   )
   select c.id, c.code, c.title, c.summary,
          case when c.locked then '' else c.body end,
