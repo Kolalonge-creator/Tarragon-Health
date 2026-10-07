@@ -129,3 +129,22 @@ export async function addSideEffectNote(medicationId: string, note: string): Pro
     return { error: e instanceof Error ? e.message : String(e) };
   }
 }
+
+export interface RefillPharmacy {
+  partnerName: string;
+  locationName: string | null;
+  address: string | null;
+}
+
+/** The pharmacy the person chose for this medicine's prescription (S54 8.10), or null when none was chosen or it cannot be read. */
+export async function loadRefillPharmacy(medicationId: string): Promise<RefillPharmacy | null> {
+  try {
+    const { data, error } = await supabase.rpc("medication_refill_pharmacy", { p_medication: medicationId });
+    if (error || !Array.isArray(data) || data.length === 0) return null;
+    const row = data[0] as { partner_name?: string | null; location_name?: string | null; address?: string | null };
+    if (!row.partner_name) return null;
+    return { partnerName: row.partner_name, locationName: row.location_name ?? null, address: row.address ?? null };
+  } catch {
+    return null;
+  }
+}

@@ -18,6 +18,7 @@ import { koboToNaira, type PharmacyOrderStatus } from "@tarragon/shared";
 import { PayForPharmacyOrderButton } from "@/components/pay-for-pharmacy-order-button";
 import { RedeemVoucherButton } from "@/components/redeem-voucher-button";
 import { DeliveryAddressForm } from "@/components/delivery-address-form";
+import { PHARMACY_DELIVERY_ENABLED } from "@/lib/pharmacy/pickup-only";
 import { DeliveryStatusTimeline } from "@/components/delivery-status-timeline";
 import { PharmacyOrderCostBreakdown } from "@/components/pharmacy-order-cost-breakdown";
 import { LoadErrorCard } from "@/components/ui/load-error-card";
@@ -226,18 +227,19 @@ export function PharmacyOrdersList({ patientId }: { patientId: string }) {
                     />
                   </>
                 )}
-                {order.fulfilment_method === "delivery" &&
+                {PHARMACY_DELIVERY_ENABLED &&
+                  order.fulfilment_method === "delivery" &&
                   order.status === "payment_confirmed" &&
                   !order.delivery_address && <DeliveryAddressForm orderId={order.id} />}
                 {order.status !== "pending_payment" && order.status !== "cancelled" && (
                   <OrderStatusTimeline order={order} />
                 )}
-                {order.status === "delivery_failed" && <DeliveryAddressForm orderId={order.id} />}
+                {PHARMACY_DELIVERY_ENABLED && order.status === "delivery_failed" && <DeliveryAddressForm orderId={order.id} />}
                 {order.status !== "pending_payment" && order.status !== "cancelled" && (
                   <PharmacyOrderCostBreakdown
                     items={items}
                     totalKobo={order.total_kobo}
-                    deliveryFeeKobo={order.logistics_partner?.delivery_fee_kobo ?? null}
+                    deliveryFeeKobo={PHARMACY_DELIVERY_ENABLED ? (order.logistics_partner?.delivery_fee_kobo ?? null) : null}
                     fulfilmentMethod={order.fulfilment_method}
                   />
                 )}

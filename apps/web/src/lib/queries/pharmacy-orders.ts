@@ -287,7 +287,6 @@ export function useCreatePharmacyOrder() {
       pharmacyPartnerId,
       medication,
       quantity,
-      fulfilmentMethod = "pickup",
       deliveryFeeKobo,
     }: {
       organisationId: string;
@@ -295,7 +294,7 @@ export function useCreatePharmacyOrder() {
       pharmacyPartnerId: string;
       medication: PharmacyMedication;
       quantity: number;
-      /** Delivery is model-ready but gated in the UI until logistics partners onboard — defaults to pickup. */
+      /** Pickup only (S54, D5). Kept in the signature so old callers compile; anything but pickup is ignored and the database refuses it. */
       fulfilmentMethod?: "pickup" | "delivery";
       /** The pharmacy's own flat fee (pharmacy_partners.delivery_fee_kobo) —
        * only added to the total when fulfilmentMethod is "delivery"; ignored
@@ -311,9 +310,9 @@ export function useCreatePharmacyOrder() {
         quantity,
         requires_cold_chain: medication.requires_cold_chain,
       };
-      const totalKobo =
-        medication.price_kobo * quantity +
-        (fulfilmentMethod === "delivery" ? (deliveryFeeKobo ?? 0) : 0);
+      // Pickup only (S54, D5): no delivery fee is ever added, whatever a caller passes.
+      void deliveryFeeKobo;
+      const totalKobo = medication.price_kobo * quantity;
       const { error } = await supabase.from("pharmacy_orders").insert({
         organisation_id: organisationId,
         patient_id: patientId,
@@ -321,7 +320,7 @@ export function useCreatePharmacyOrder() {
         items: [item],
         total_kobo: totalKobo,
         status: "pending_payment",
-        fulfilment_method: fulfilmentMethod,
+        fulfilment_method: "pickup",
         requires_cold_chain: medication.requires_cold_chain,
       });
       if (error) throw error;

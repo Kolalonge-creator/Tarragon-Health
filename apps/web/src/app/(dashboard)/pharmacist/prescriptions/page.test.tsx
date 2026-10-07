@@ -22,7 +22,8 @@ describe("pharmacist prescriptions page", () => {
     rpc.mockResolvedValue({ data: [row("sent")], error: null });
     const html = await render();
     expect(html).toContain("Flag a problem");
-    expect(html).toContain("AB12CD");
+    // S28: the pharmacy never sees the collection code in this list (it can only test one at the counter), so none is shown.
+    expect(html).not.toContain("AB12CD");
   });
   it("offers no flag form on a dispensed prescription", async () => {
     rpc.mockResolvedValue({ data: [row("dispensed")], error: null });

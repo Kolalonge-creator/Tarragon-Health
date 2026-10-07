@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useOrgLabOrders, type LabOrderWithDetails } from "@/lib/queries/lab-orders";
+import { PHARMACY_DELIVERY_ENABLED } from "@/lib/pharmacy/pickup-only";
 import { useOrgPharmacyOrders, type PharmacyOrderWithLogistics } from "@/lib/queries/pharmacy-orders";
 import {
   useMatchedHomeVisitProviders,
@@ -411,9 +412,10 @@ function PharmacyOrdersWorklist() {
                           <MarkFailedDeliveryForm orderId={order.id} />
                         </div>
                       )}
-                      {order.status === "delivery_failed" && <AssignLogisticsForm order={order} isRetry />}
+                      {PHARMACY_DELIVERY_ENABLED && order.status === "delivery_failed" && <AssignLogisticsForm order={order} isRetry />}
                     </div>
                   ) : (
+                    PHARMACY_DELIVERY_ENABLED &&
                     (order.status === "payment_confirmed" ||
                       order.status === "confirmed" ||
                       order.status === "dispensed") && <AssignLogisticsForm order={order} />

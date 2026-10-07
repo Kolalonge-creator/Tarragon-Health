@@ -24,6 +24,8 @@ import {
   useRejectPharmacyPartnerOnboarding,
   useVerifyPharmacyPartnerLocation,
   usePharmacyPartnerLocationsAdmin,
+  useAttestPharmacyNafdacSource,
+  useSetPharmacyMedicationVerifiedBatch,
   type PharmacyPartner,
   type PharmacistLoginRow,
 } from "@/lib/queries/partner-catalogues";
@@ -250,6 +252,7 @@ function AddPharmacyMedicationForm({ pharmacyId }: { pharmacyId: string }) {
 function PharmacyCommissionRates() {
   const { data: medications, isLoading } = useAllPharmacyMedications();
   const updateCommission = useUpdatePharmacyMedicationCommission();
+  const setVerifiedBatch = useSetPharmacyMedicationVerifiedBatch();
   const [savingId, setSavingId] = useState<string | null>(null);
   const [errorId, setErrorId] = useState<string | null>(null);
 
@@ -281,6 +284,18 @@ function PharmacyCommissionRates() {
                 Price ₦{koboToNaira(med.price_kobo).toLocaleString()}
               </span>
             </div>
+            <label className="flex items-center gap-2 text-xs text-charcoal-ink/80">
+              <input
+                type="checkbox"
+                checked={Boolean((med as { verified_batch?: boolean | null }).verified_batch)}
+                disabled={setVerifiedBatch.isPending}
+                onChange={(e) => setVerifiedBatch.mutate({ id: med.id, verified: e.target.checked })}
+              />
+              Batch checked against the supplier paperwork (shown to patients as &quot;checked by Tarragon staff&quot;; it does not prove a medicine is genuine)
+            </label>
+            {setVerifiedBatch.isError && setVerifiedBatch.variables?.id === med.id && (
+              <p className="text-xs text-red-600">That was refused: the pharmacy must have a verified licence and a recorded NAFDAC-source attestation, and you must be an admin or partner manager.</p>
+            )}
             <CommissionRateEditor
               idPrefix={`med-${med.id}`}
               value={{
@@ -303,6 +318,41 @@ function PharmacyCommissionRates() {
         ))}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * S54 8.11: partner quality rule. A pharmacy is listed and compared only with a verified, in-date licence AND this recorded
+ * attestation that it sources only from NAFDAC-registered suppliers. Tarragon cannot verify a batch itself; it records what was seen.
+ */
+function NafdacSourceControl({ pharmacy }: { pharmacy: PharmacyPartner }) {
+  const attest = useAttestPharmacyNafdacSource();
+  const [note, setNote] = useState("");
+  const attestedAt = (pharmacy as PharmacyPartner & { nafdac_source_attested_at?: string | null }).nafdac_source_attested_at;
+  return (
+    <div className="space-y-1.5 rounded-md bg-charcoal-ink/5 px-3 py-2 text-xs">
+      <p className="font-medium text-charcoal-ink">
+        NAFDAC-registered source:{" "}
+        {attestedAt ? `attested ${new Date(attestedAt).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos" })}` : "not attested (this pharmacy is not listed or compared yet)"}
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          aria-label={`What was seen for ${pharmacy.name}`}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Supplier names and the paperwork you saw"
+          className="h-9 min-w-[16rem] flex-1"
+        />
+        <Button
+          variant="outline"
+          disabled={attest.isPending || note.trim().length < 10}
+          onClick={() => attest.mutate({ partnerId: pharmacy.id, note: note.trim() }, { onSuccess: () => setNote("") })}
+        >
+          {attestedAt ? "Record again" : "Record attestation"}
+        </Button>
+      </div>
+      {attest.isError && <p className="text-red-600">That could not be saved. Only an admin or partner manager can record it.</p>}
+    </div>
   );
 }
 
@@ -520,7 +570,6 @@ export function PharmaciesManager({ pharmacistLogins }: { pharmacistLogins: Phar
                     <div className="flex flex-wrap items-center gap-2 text-sm">
                       <span className="font-medium text-charcoal-ink">{ph.name}</span>
                       <Badge variant={ph.is_active ? "green" : "grey"}>{ph.is_active ? "Active" : "Inactive"}</Badge>
-                      {ph.delivery && <Badge variant="blue">Delivery</Badge>}
                       <PartnerLicenseBadge expiresAt={ph.license_expires_at} />
                       {(ph.state || ph.city) && (
                         <span className="text-xs text-charcoal-ink/50">{[ph.city, ph.state].filter(Boolean).join(", ")}</span>
@@ -552,6 +601,7 @@ export function PharmaciesManager({ pharmacistLogins }: { pharmacistLogins: Phar
                     saving={updateLicense.isPending}
                     onSave={(next) => updateLicense.mutate({ id: ph.id, ...next })}
                   />
+                  <NafdacSourceControl pharmacy={ph} />
                   <PartnerLoginLinker pharmacy={ph} logins={pharmacistLogins} />
                   <AddPharmacyMedicationForm pharmacyId={ph.id} />
                 </div>

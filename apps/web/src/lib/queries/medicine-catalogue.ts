@@ -73,3 +73,17 @@ export function useAddSideEffectNote(patientId: string) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["side-effect-notes", patientId] }),
   });
 }
+
+/** The pharmacy chosen for this medicine's prescription, for "collect your next supply at X" (S54 8.10). Null: none chosen. */
+export function useRefillPharmacy(medicationId: string) {
+  return useQuery({
+    queryKey: ["refill-pharmacy", medicationId],
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+    queryFn: async (): Promise<{ partnerName: string; locationName: string | null } | null> => {
+      const { data, error } = await createClient().rpc("medication_refill_pharmacy", { p_medication: medicationId });
+      if (error || !data || data.length === 0 || !data[0].partner_name) return null;
+      return { partnerName: data[0].partner_name, locationName: data[0].location_name };
+    },
+  });
+}

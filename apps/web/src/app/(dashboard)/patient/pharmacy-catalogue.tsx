@@ -227,16 +227,10 @@ export function PharmacyCatalogue({
 
                   {canBook && isOpen && (
                     <div className="space-y-3 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
-                      {/* Fulfilment method — pickup live, delivery gated until partners onboard. */}
+                      {/* Pickup only (S54, D5): there is no delivery option to show. */}
                       <div className="flex flex-wrap items-center gap-2 text-xs">
                         <span className="rounded-full bg-brand-green px-3 py-1 font-medium text-white">
-                          Pickup
-                        </span>
-                        <span
-                          className="cursor-not-allowed rounded-full border border-charcoal-ink/20 dark:border-night-ink/25 px-3 py-1 text-charcoal-ink/40 dark:text-night-ink/50"
-                          title="Home delivery is coming soon"
-                        >
-                          Delivery · coming soon
+                          Collect at the pharmacy
                         </span>
                       </div>
 

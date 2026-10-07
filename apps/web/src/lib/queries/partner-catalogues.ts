@@ -862,3 +862,33 @@ export function useUpdateSpecialistProviderLicense() {
       qc.invalidateQueries({ queryKey: ["specialist-providers"] }),
   });
 }
+
+
+/**
+ * S54 8.11: record that a pharmacy sources only from NAFDAC-registered suppliers (what was seen goes in the note). Without it the
+ * pharmacy is never listed, compared or chosen. The database refuses anyone but an admin or partner manager and writes the audit row.
+ */
+export function useAttestPharmacyNafdacSource() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ partnerId, note }: { partnerId: string; note: string }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("attest_pharmacy_nafdac_source", { p_partner: partnerId, p_note: note });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pharmacy-partners"] }),
+  });
+}
+
+/** S54 8.11: a Tarragon admin or partner manager marks (or clears) a price line's batch as checked against the supplier paperwork. */
+export function useSetPharmacyMedicationVerifiedBatch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, verified }: { id: string; verified: boolean }) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("pharmacy_medications").update({ verified_batch: verified }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pharmacy-medications"] }),
+  });
+}
