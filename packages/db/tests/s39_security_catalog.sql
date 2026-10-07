@@ -195,10 +195,12 @@ begin
   -- (3) a view switched to owner rights
   create view public.s39_sabotage_view with (security_invoker = off) as select 1 as x;
   insert into results values ('sabotaged', 'SABOTAGE owner-rights view is caught', '', pg_temp.chk_owner_views());
-  -- (4) an open policy on a patient table: the sweep must see rows through it
-  create policy s39_sabotage_open on public.medication_logs for select to authenticated using (true);
+  -- (4) an open policy on a patient table: the sweep must see rows through it. The table needs a row about someone for the sweep to see (a fresh replay has
+  -- none), so one is made for the fixture patient (rolled back with everything else).
+  insert into public.patient_smoking_profiles (organisation_id, patient_id) select organisation_id, id from public.profiles where id = pg_temp.f('patient') on conflict do nothing;
+  create policy s39_sabotage_open on public.patient_smoking_profiles for select to authenticated using (true);
   insert into results values ('sabotaged', 'SABOTAGE open policy is caught by the role sweep', '', pg_temp.sweep('sabotaged'));
-  drop policy s39_sabotage_open on public.medication_logs;
+  drop policy s39_sabotage_open on public.patient_smoking_profiles;
 end $$;
 
 do $$
