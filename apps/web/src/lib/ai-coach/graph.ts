@@ -11,6 +11,7 @@ import {
   type CoachTier,
   type CoachSuggestedAction,
   type Database,
+  SELF_HARM_REPLY,
 } from "@tarragon/shared";
 import {
   COACH_SYSTEM_PROMPT,
@@ -19,7 +20,11 @@ import {
   EMERGENCY_SAFETY_REPLY,
   SYMPTOM_SUGGESTION_INTRO,
 } from "./prompts";
-import { detectEmergencyKeywords } from "./keyword-guardrail";
+import { detectEmergencyKeywords, isSelfHarmMessage } from "./keyword-guardrail";
+import { decideClarification } from "./clarify";
+import { emergencyAddendumFor } from "./nearest-hospital";
+import { pageOnCallForSelfHarm } from "./emergency-page";
+import { loadAssistantMemory, memoryContextLine } from "./memory";
 import {
   DOSE_REFUSAL_REPLY,
   SENSITIVE_RESULT_REPLY,
@@ -71,6 +76,8 @@ const CoachState = Annotation.Root({
   priorMessages: Annotation<CoachChatMessage[]>,
   tier: Annotation<CoachTier | null>({ reducer: (_prev, next) => next, default: () => null }),
   reply: Annotation<string>({ reducer: (_prev, next) => next, default: () => "" }),
+  /** S52 (INV-05): the emergency message was self-harm wording. Gets its own copy and an on-call page. */
+  selfHarm: Annotation<boolean>({ reducer: (_prev, next) => next, default: () => false }),
   /** §78.2 in-chat suggestion the model classified for this reply -- see
    * COACH_SUGGESTED_ACTIONS' doc comment for the full contract. */
   suggestedAction: Annotation<CoachSuggestedAction>({ reducer: (_prev, next) => next, default: () => "none" }),
@@ -296,6 +303,28 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
     return {};
   }
 
+  // S52 (7.11): a short question before answering a message too unclear to answer safely. Runs only after every safety screen above,
+  // so an emergency, a dose request or a sensitive-result question is never held up by it. No model call.
+  function clarify(state: CoachGraphState) {
+    const c = decideClarification({ message: state.incomingMessage, priorMessages: state.priorMessages });
+    if (!c) return {};
+    return {
+      tier: "routine" as const,
+      reply: c.reply,
+      suggestedAction: "none" as const,
+      inputSnapshotForAudit: { clarification: c.topic },
+    };
+  }
+
+  // S52 (7.8, INV-06): the emergency reply is the fixed copy, plus the nearest hospitals and the patient's own emergency contact read
+  // from data we hold (best effort, bounded; the fixed copy always stands alone). Self-harm wording gets its own copy.
+  async function emergencyContext(state: CoachGraphState) {
+    const selfHarm = isSelfHarmMessage(state.incomingMessage);
+    const base = selfHarm ? SELF_HARM_REPLY : state.reply;
+    const addendum = await emergencyAddendumFor(deps.supabase, state.profileId);
+    return { selfHarm, reply: addendum ? `${base}\n\n${addendum}` : base };
+  }
+
   async function llmTurn(state: CoachGraphState) {
     const context = await loadPatientContext(deps.supabase, state.profileId);
     const contextLines: string[] = [];
@@ -424,6 +453,11 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
     const activeProgramme = context.lifestyleProgrammes.find(
       (p) => p.status !== "paused" && !p.hasOpenRedFlag
     );
+    // S52 (7.12): the patient's own remembered goals and preferences, only with their consent and only while AI-020 is on.
+    const memoryLines = await loadAssistantMemory(deps.supabase);
+    const memoryContext = memoryContextLine(memoryLines);
+    if (memoryContext) contextLines.push(memoryContext);
+
     const lifestyleCandidates = activeProgramme
       ? await findRelevantLifestyleContent(deps.supabase, embedder, state.incomingMessage, {
           matchCount: 2,
@@ -587,6 +621,7 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
       const result = await structuredModel.invoke(messages);
 
       const inputSnapshot = {
+        memoryItemCount: memoryLines.length,
         contextLines,
         retrievedSourceIds,
         toolsCalled,
@@ -652,6 +687,8 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
           : "Escalated immediately via deterministic safety-keyword match, before any AI response",
       }
     );
+    // INV-05: a self-harm message also pages the on-call clinician now. In addition to the escalation above, never instead of it.
+    if (state.selfHarm) await pageOnCallForSelfHarm(deps.getServiceRoleSupabase(), state.profileId, state.conversationId);
     return { clinicianAlertId, escalationId, careMessageThreadId };
   }
 
@@ -682,30 +719,34 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
 
   return new StateGraph(CoachState)
     .addNode("keywordGuardrail", keywordGuardrail)
+    .addNode("clarify", clarify)
     .addNode("llmTurn", llmTurn)
+    .addNode("emergencyContext", emergencyContext)
     .addNode("escalate", escalate)
     .addNode("logReview", logReview)
     .addEdge(START, "keywordGuardrail")
     .addConditionalEdges(
       "keywordGuardrail",
       (state) => {
-        if (state.tier === "emergency") return "escalate";
+        if (state.tier === "emergency") return "emergencyContext";
         // A deterministic refusal (INV-04, dose) already has its reply: no model call. It flags the care team (clinician_review) or just ends (routine).
         if (state.tier === "clinician_review" && state.reply) return "logReview";
         if (state.reply) return "end";
-        return "llmTurn";
+        return "clarify";
       },
-      { escalate: "escalate", llmTurn: "llmTurn", logReview: "logReview", end: END }
+      { emergencyContext: "emergencyContext", clarify: "clarify", logReview: "logReview", end: END }
     )
+    .addConditionalEdges("clarify", (state) => (state.reply ? "end" : "llmTurn"), { llmTurn: "llmTurn", end: END })
     .addConditionalEdges(
       "llmTurn",
       (state) => {
-        if (state.tier === "emergency") return "escalate";
+        if (state.tier === "emergency") return "emergencyContext";
         if (state.tier === "clinician_review") return "logReview";
         return END;
       },
-      { escalate: "escalate", logReview: "logReview", [END]: END }
+      { emergencyContext: "emergencyContext", logReview: "logReview", [END]: END }
     )
+    .addEdge("emergencyContext", "escalate")
     .addEdge("escalate", END)
     .addEdge("logReview", END)
     .compile();

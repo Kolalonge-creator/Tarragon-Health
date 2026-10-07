@@ -6,6 +6,9 @@ import { ASSISTANT_NOT_OPEN_REPLY, isAssistantOpen } from "./guard";
 import { COACH_LIMIT_REACHED_REPLY, countMessagesToday, getCoachDailyLimit } from "./rate-limit";
 import { detectEmergencyKeywords, isSelfHarmMessage } from "./keyword-guardrail";
 import { emitAssistantEvent } from "./events";
+import { pageOnCallForSelfHarm } from "./emergency-page";
+import { emergencyAddendumFor } from "./nearest-hospital";
+import { SELF_HARM_REPLY } from "@tarragon/shared";
 import { COACH_UNAVAILABLE_REPLY, EMERGENCY_SAFETY_REPLY, COACH_PROMPT_VERSION } from "./prompts";
 import { logAiCoachEscalation } from "./escalate";
 import { AI_SYSTEMS, governedSystemPrompt, runGovernedAi } from "@/lib/ai-governance";
@@ -290,7 +293,12 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
         // would be far worse.
         console.error("ai-coach: emergency escalation failed on the fallback path", error);
       }
-      return { tier: "emergency", reply: EMERGENCY_SAFETY_REPLY, escalationId };
+      // S52: the same self-harm copy, nearest hospitals and on-call page as the live path, because none of it ever needed the model.
+      const selfHarm = isSelfHarmMessage(message);
+      if (selfHarm) await pageOnCallForSelfHarm(getServiceRoleSupabase(), profileId, threadId);
+      const addendum = await emergencyAddendumFor(supabase, profileId);
+      const base = selfHarm ? SELF_HARM_REPLY : EMERGENCY_SAFETY_REPLY;
+      return { tier: "emergency", reply: addendum ? `${base}\n\n${addendum}` : base, escalationId };
     },
   });
 
