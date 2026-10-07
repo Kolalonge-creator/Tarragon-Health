@@ -115,6 +115,10 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
       href: "/clinician/care-plan-review",
     };
   }
+  if (n.template === "pharmacy_flag_notice") {
+    // S36h: neutral by design (INV-07). Names no medicine, patient or reason; the detail is on the page.
+    return { text: "A pharmacy has raised something. Open your pharmacy messages", href: "/clinician/pharmacy-flags" };
+  }
   if (n.template === "health_reset_complete") {
     return {
       // Plans were retired 2026-09-02; the completed Reset is its own win now.
@@ -362,6 +366,12 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "written_question_received") {
     return { text: "Your care team has your message", href: "/patient/care" };
   }
+  if (n.template === "lab_result_corrected") {
+    return { text: "Your care team has updated something in your health record. Open the app to see what changed", href: "/patient/labs" };
+  }
+  if (n.template === "lab_result_ready") {
+    return { text: "Your care team has added something to your health record. Open the app to see it", href: "/patient/labs" };
+  }
   if (n.template === "written_question_answered") {
     return { text: "Your care team has replied. Open the app to read it", href: "/patient/care" };
   }
@@ -604,6 +614,31 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     // already the fully-resolved admin-facing sentence -- same
     // "no branching to reproduce" shape as clinician_alert_ack_timeout_*.
     return { text: String(payload.message ?? "A clinician's credentials need review"), href: "/admin" };
+  }
+  if (n.template === "circle_check_in") {
+    // From private.notify_circle_red_alert (S29): fixed neutral line for a supporter who holds red_alerts (INV-07).
+    return { text: "Someone in your Care Circle may need you. Please call them.", href: "/patient/supporting" };
+  }
+  if (n.template === "circle_joined") {
+    return { text: "Someone has joined your Care Circle", href: "/patient/care-circle" };
+  }
+  if (n.template === "circle_left") {
+    return { text: "Someone has left your Care Circle", href: "/patient/care-circle" };
+  }
+  if (n.template === "circle_expiring") {
+    return { text: "Someone's access to your Care Circle ends soon", href: "/patient/care-circle" };
+  }
+  if (n.template === "circle_expiring_soon") {
+    return { text: "Someone's access to your Care Circle ends in a few days. Renew it if you want them to keep it", href: "/patient/care-circle" };
+  }
+  if (n.template === "circle_pause_ended") {
+    return { text: "Your pause on sharing has ended. Your Care Circle can see what you chose to share again", href: "/patient/care-circle" };
+  }
+  if (n.template === "circle_gift_waiting") {
+    return { text: "Someone has paid for care for you. Open it to accept", href: "/patient/care-circle" };
+  }
+  if (n.template === "circle_paid_for_you") {
+    return { text: "Someone in your Care Circle has paid for your care", href: "/patient" };
   }
   if (n.template === "on_call_page") {
     // From private.page_notify (S19): fixed neutral line, never the patient or the reading (INV-07).

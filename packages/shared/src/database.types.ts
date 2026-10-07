@@ -14,6 +14,331 @@ export type Database = {
   }
   public: {
     Tables: {
+      clinician_bank_accounts: {
+        Row: {
+          account_last4: string
+          bank_code: string
+          bank_name: string
+          bank_verified_at: string | null
+          clinician_id: string
+          created_at: string
+          id: string
+          is_test: boolean
+          name_match: string
+          organisation_id: string
+          recipient_code: string | null
+          resolved_name: string
+          superseded_at: string | null
+          verified_name: string
+        }
+        Insert: {
+          account_last4: string
+          bank_code: string
+          bank_name: string
+          bank_verified_at?: string | null
+          clinician_id: string
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          name_match: string
+          organisation_id: string
+          recipient_code?: string | null
+          resolved_name: string
+          superseded_at?: string | null
+          verified_name: string
+        }
+        Update: {
+          account_last4?: string
+          bank_code?: string
+          bank_name?: string
+          bank_verified_at?: string | null
+          clinician_id?: string
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          name_match?: string
+          organisation_id?: string
+          recipient_code?: string | null
+          resolved_name?: string
+          superseded_at?: string | null
+          verified_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinician_bank_accounts_clinician_id_fkey"
+            columns: ["clinician_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinician_bank_accounts_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinician_tax_profiles: {
+        Row: {
+          clinician_id: string
+          contractor_status: string
+          note: string | null
+          organisation_id: string
+          registered_name: string | null
+          tin: string | null
+          updated_at: string
+          vat_registered: boolean
+        }
+        Insert: {
+          clinician_id: string
+          contractor_status?: string
+          note?: string | null
+          organisation_id: string
+          registered_name?: string | null
+          tin?: string | null
+          updated_at?: string
+          vat_registered?: boolean
+        }
+        Update: {
+          clinician_id?: string
+          contractor_status?: string
+          note?: string | null
+          organisation_id?: string
+          registered_name?: string | null
+          tin?: string | null
+          updated_at?: string
+          vat_registered?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinician_tax_profiles_clinician_id_fkey"
+            columns: ["clinician_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinician_tax_profiles_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payout_events: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          detail: string | null
+          from_state: string | null
+          id: number
+          payout_id: string
+          source: string
+          to_state: string
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          detail?: string | null
+          from_state?: string | null
+          id?: never
+          payout_id: string
+          source: string
+          to_state: string
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          detail?: string | null
+          from_state?: string | null
+          id?: never
+          payout_id?: string
+          source?: string
+          to_state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payout_events_payout_id_fkey"
+            columns: ["payout_id"]
+            isOneToOne: false
+            referencedRelation: "payouts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payout_transfers: {
+        Row: {
+          attempt: number
+          created_at: string
+          id: string
+          payout_id: string
+          paystack_transfer_code: string | null
+          reason: string | null
+          reference: string
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          attempt: number
+          created_at?: string
+          id?: string
+          payout_id: string
+          paystack_transfer_code?: string | null
+          reason?: string | null
+          reference: string
+          state?: string
+          updated_at?: string
+        }
+        Update: {
+          attempt?: number
+          created_at?: string
+          id?: string
+          payout_id?: string
+          paystack_transfer_code?: string | null
+          reason?: string | null
+          reference?: string
+          state?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payout_transfers_payout_id_fkey"
+            columns: ["payout_id"]
+            isOneToOne: false
+            referencedRelation: "payouts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payouts: {
+        Row: {
+          amount_kobo: number
+          approved_at: string | null
+          approved_by: string | null
+          bank_account_id: string | null
+          clinician_id: string
+          created_at: string
+          failure_reason: string | null
+          id: string
+          is_test: boolean
+          line_count: number
+          organisation_id: string
+          payouts_config_id: string
+          paystack_transfer_code: string | null
+          period_end: string
+          period_start: string
+          recipient_code: string | null
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          amount_kobo: number
+          approved_at?: string | null
+          approved_by?: string | null
+          bank_account_id?: string | null
+          clinician_id: string
+          created_at?: string
+          failure_reason?: string | null
+          id?: string
+          is_test?: boolean
+          line_count: number
+          organisation_id: string
+          payouts_config_id: string
+          paystack_transfer_code?: string | null
+          period_end: string
+          period_start: string
+          recipient_code?: string | null
+          state?: string
+          updated_at?: string
+        }
+        Update: {
+          amount_kobo?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          bank_account_id?: string | null
+          clinician_id?: string
+          created_at?: string
+          failure_reason?: string | null
+          id?: string
+          is_test?: boolean
+          line_count?: number
+          organisation_id?: string
+          payouts_config_id?: string
+          paystack_transfer_code?: string | null
+          period_end?: string
+          period_start?: string
+          recipient_code?: string | null
+          state?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payouts_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payouts_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payouts_clinician_id_fkey"
+            columns: ["clinician_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payouts_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payouts_payouts_config_id_fkey"
+            columns: ["payouts_config_id"]
+            isOneToOne: false
+            referencedRelation: "payouts_config"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payouts_config: {
+        Row: {
+          created_at: string
+          effective_from: string
+          id: string
+          is_active: boolean
+          rules: Json
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          effective_from: string
+          id?: string
+          is_active?: boolean
+          rules: Json
+          version: number
+        }
+        Update: {
+          created_at?: string
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          rules?: Json
+          version?: number
+        }
+        Relationships: []
+      }
       task_types: {
         Row: {
           claim_timeout_minutes: number
@@ -38886,6 +39211,39 @@ export type Database = {
         Update: never
         Relationships: []
       }
+      lab_panel_signoffs: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
       triage_protocols: {
         Row: {
           approved_at: string | null
@@ -41306,6 +41664,669 @@ export type Database = {
         }
         Relationships: []
       }
+      catalog_items: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          description_key: string
+          duration_days: number | null
+          grants_lead: boolean
+          id: string
+          included_keys: string[]
+          kind: string
+          name_key: string
+          note: string | null
+          organisation_id: string
+          updated_at: string
+          uses: number | null
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          description_key: string
+          duration_days?: number | null
+          grants_lead?: boolean
+          id?: string
+          included_keys?: string[]
+          kind: string
+          name_key: string
+          note?: string | null
+          organisation_id: string
+          updated_at?: string
+          uses?: number | null
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          description_key?: string
+          duration_days?: number | null
+          grants_lead?: boolean
+          id?: string
+          included_keys?: string[]
+          kind?: string
+          name_key?: string
+          note?: string | null
+          organisation_id?: string
+          updated_at?: string
+          uses?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_items_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entitlements: {
+        Row: {
+          acceptance: string
+          created_at: string
+          decided_at: string | null
+          ends_at: string | null
+          id: string
+          is_test: boolean
+          kind: string
+          order_id: string
+          organisation_id: string
+          patient_id: string
+          remaining_uses: number | null
+          reminded_at: string | null
+          starts_at: string
+          state: string
+        }
+        Insert: {
+          acceptance?: string
+          created_at?: string
+          decided_at?: string | null
+          ends_at?: string | null
+          id?: string
+          is_test?: boolean
+          kind: string
+          order_id: string
+          organisation_id: string
+          patient_id: string
+          remaining_uses?: number | null
+          reminded_at?: string | null
+          starts_at?: string
+          state?: string
+        }
+        Update: {
+          acceptance?: string
+          created_at?: string
+          decided_at?: string | null
+          ends_at?: string | null
+          id?: string
+          is_test?: boolean
+          kind?: string
+          order_id?: string
+          organisation_id?: string
+          patient_id?: string
+          remaining_uses?: number | null
+          reminded_at?: string | null
+          starts_at?: string
+          state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entitlements_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entitlements_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entitlements_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          amount_kobo: number
+          beneficiary_patient_id: string
+          buyer_profile_id: string
+          cancelled_at: string | null
+          catalog_item_id: string
+          checkout_url: string | null
+          client_key: string | null
+          components: Json
+          created_at: string
+          expires_at: string
+          failure_reason: string | null
+          fee_kobo: number | null
+          id: string
+          is_test: boolean
+          organisation_id: string
+          paid_at: string | null
+          paystack_reference: string
+          price_id: string
+          state: string
+          total_kobo: number | null
+          updated_at: string
+        }
+        Insert: {
+          amount_kobo: number
+          beneficiary_patient_id: string
+          buyer_profile_id: string
+          cancelled_at?: string | null
+          catalog_item_id: string
+          checkout_url?: string | null
+          client_key?: string | null
+          components?: Json
+          created_at?: string
+          expires_at?: string
+          failure_reason?: string | null
+          fee_kobo?: number | null
+          id?: string
+          is_test?: boolean
+          organisation_id: string
+          paid_at?: string | null
+          paystack_reference: string
+          price_id: string
+          state?: string
+          total_kobo?: number | null
+          updated_at?: string
+        }
+        Update: {
+          amount_kobo?: number
+          beneficiary_patient_id?: string
+          buyer_profile_id?: string
+          cancelled_at?: string | null
+          catalog_item_id?: string
+          checkout_url?: string | null
+          client_key?: string | null
+          components?: Json
+          created_at?: string
+          expires_at?: string
+          failure_reason?: string | null
+          fee_kobo?: number | null
+          id?: string
+          is_test?: boolean
+          organisation_id?: string
+          paid_at?: string | null
+          paystack_reference?: string
+          price_id?: string
+          state?: string
+          total_kobo?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_beneficiary_patient_id_fkey"
+            columns: ["beneficiary_patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_buyer_profile_id_fkey"
+            columns: ["buyer_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_catalog_item_id_fkey"
+            columns: ["catalog_item_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_price_id_fkey"
+            columns: ["price_id"]
+            isOneToOne: false
+            referencedRelation: "prices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          amount_kobo: number
+          created_at: string
+          event_key: string | null
+          fee_kobo: number
+          id: string
+          is_test: boolean
+          mismatch_reason: string | null
+          order_id: string
+          organisation_id: string
+          provider: string
+          provider_reference: string
+          raw: Json
+          source: string
+          status: string
+          total_kobo: number
+          verified_at: string
+        }
+        Insert: {
+          amount_kobo: number
+          created_at?: string
+          event_key?: string | null
+          fee_kobo?: number
+          id?: string
+          is_test?: boolean
+          mismatch_reason?: string | null
+          order_id: string
+          organisation_id: string
+          provider?: string
+          provider_reference: string
+          raw?: Json
+          source: string
+          status: string
+          total_kobo: number
+          verified_at?: string
+        }
+        Update: {
+          amount_kobo?: number
+          created_at?: string
+          event_key?: string | null
+          fee_kobo?: number
+          id?: string
+          is_test?: boolean
+          mismatch_reason?: string | null
+          order_id?: string
+          organisation_id?: string
+          provider?: string
+          provider_reference?: string
+          raw?: Json
+          source?: string
+          status?: string
+          total_kobo?: number
+          verified_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prices: {
+        Row: {
+          amount_kobo: number
+          catalog_item_id: string
+          components: Json
+          created_at: string
+          created_by: string | null
+          id: string
+          organisation_id: string
+          reason: string | null
+          valid_from: string
+          valid_to: string | null
+        }
+        Insert: {
+          amount_kobo: number
+          catalog_item_id: string
+          components?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          organisation_id: string
+          reason?: string | null
+          valid_from?: string
+          valid_to?: string | null
+        }
+        Update: {
+          amount_kobo?: number
+          catalog_item_id?: string
+          components?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          organisation_id?: string
+          reason?: string | null
+          valid_from?: string
+          valid_to?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prices_catalog_item_id_fkey"
+            columns: ["catalog_item_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prices_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prices_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      refunds: {
+        Row: {
+          amount_kobo: number
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          id: string
+          is_test: boolean
+          order_id: string
+          organisation_id: string
+          provider: string
+          provider_reference: string | null
+          provider_response: Json
+          reason: string
+          requested_by: string | null
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          amount_kobo: number
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          is_test?: boolean
+          order_id: string
+          organisation_id: string
+          provider?: string
+          provider_reference?: string | null
+          provider_response?: Json
+          reason: string
+          requested_by?: string | null
+          state?: string
+          updated_at?: string
+        }
+        Update: {
+          amount_kobo?: number
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          is_test?: boolean
+          order_id?: string
+          organisation_id?: string
+          provider?: string
+          provider_reference?: string | null
+          provider_response?: Json
+          reason?: string
+          requested_by?: string | null
+          state?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "refunds_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "refunds_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "refunds_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "refunds_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      care_circle_alert_acks: {
+        Row: {
+          acked_at: string
+          organisation_id: string
+          page_id: string
+          patient_id: string
+          supporter_id: string
+        }
+        Insert: {
+          acked_at?: string
+          organisation_id: string
+          page_id: string
+          patient_id: string
+          supporter_id: string
+        }
+        Update: {
+          acked_at?: string
+          organisation_id?: string
+          page_id?: string
+          patient_id?: string
+          supporter_id?: string
+        }
+        Relationships: []
+      }
+      care_circle_config: {
+        Row: {
+          created_at: string
+          effective_from: string
+          id: string
+          is_active: boolean
+          rules: Json
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          effective_from: string
+          id?: string
+          is_active?: boolean
+          rules: Json
+          version: number
+        }
+        Update: {
+          created_at?: string
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          rules?: Json
+          version?: number
+        }
+        Relationships: []
+      }
+      care_circle_invites: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          attempts: number
+          created_at: string
+          expires_at: string
+          grant_days: number
+          id: string
+          invitee_hash: string
+          invitee_hint: string
+          invitee_kind: string
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+          permissions: string[]
+          relationship: string
+          state: string
+          token_hash: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          attempts?: number
+          created_at?: string
+          expires_at: string
+          grant_days: number
+          id?: string
+          invitee_hash: string
+          invitee_hint: string
+          invitee_kind: string
+          is_test?: boolean
+          organisation_id: string
+          patient_id: string
+          permissions: string[]
+          relationship: string
+          state?: string
+          token_hash: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          attempts?: number
+          created_at?: string
+          expires_at?: string
+          grant_days?: number
+          id?: string
+          invitee_hash?: string
+          invitee_hint?: string
+          invitee_kind?: string
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+          permissions?: string[]
+          relationship?: string
+          state?: string
+          token_hash?: string
+        }
+        Relationships: []
+      }
+      care_circle_members: {
+        Row: {
+          alert_mode: string
+          created_at: string
+          expires_at: string
+          id: string
+          invite_id: string | null
+          is_test: boolean
+          notice_final_for: string | null
+          notice_first_for: string | null
+          organisation_id: string
+          patient_id: string
+          permissions: string[]
+          relationship: string
+          revoked_at: string | null
+          revoked_by: string | null
+          state: string
+          supporter_id: string
+          updated_at: string
+        }
+        Insert: {
+          alert_mode?: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          invite_id?: string | null
+          is_test?: boolean
+          notice_final_for?: string | null
+          notice_first_for?: string | null
+          organisation_id: string
+          patient_id: string
+          permissions: string[]
+          relationship: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          state?: string
+          supporter_id: string
+          updated_at?: string
+        }
+        Update: {
+          alert_mode?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          invite_id?: string | null
+          is_test?: boolean
+          notice_final_for?: string | null
+          notice_first_for?: string | null
+          organisation_id?: string
+          patient_id?: string
+          permissions?: string[]
+          relationship?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          state?: string
+          supporter_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      care_circle_pauses: {
+        Row: {
+          created_at: string
+          ended_notice_sent: boolean
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+          pause_alerts: boolean
+          paused_until: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          ended_notice_sent?: boolean
+          is_test?: boolean
+          organisation_id: string
+          patient_id: string
+          pause_alerts?: boolean
+          paused_until: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          ended_notice_sent?: boolean
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+          pause_alerts?: boolean
+          paused_until?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       allergies: {
@@ -41951,9 +42972,69 @@ export type Database = {
       }
     }
     Functions: {
+      lab_panel_definition: { Args: { p_panel: string }; Returns: Json };
+      liaison_recent_uploads: {
+        Args: Record<PropertyKey, never>;
+        Returns: { lab_result_id: string; received_at: string; order_number: string | null; patient_number: string | null; file_name: string | null; status: string }[];
+      };
+      patient_released_lab_results: { Args: { p_patient: string; p_reason: string }; Returns: Json };
+      lab_partner_mark_collected: { Args: { p_order: string }; Returns: undefined };
+      lab_partner_portal_orders: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          order_id: string;
+          order_number: string | null;
+          partner_reference: string | null;
+          status: string;
+          panel_code: string | null;
+          patient_name: string | null;
+          patient_number: string | null;
+          ordered_at: string;
+          sample_collected_at: string | null;
+          result_received: boolean;
+          latest_result_id: string | null;
+        }[];
+      };
+      lab_partner_submit_correction: {
+        Args: { p_corrects: string; p_file?: Json; p_items: Json; p_kind: string; p_order: string; p_panel: string; p_reason: string };
+        Returns: Json;
+      };
+      record_lab_disclosure_attempt: { Args: { p_note?: string; p_outcome: string; p_result: string }; Returns: Json };
+      sign_lab_panels: { Args: { p_id: string }; Returns: string };
+      withdraw_lab_result: { Args: { p_reason: string; p_result: string }; Returns: Json };
+      lab_partner_submit_result: { Args: { p_file?: Json; p_items: Json; p_order: string; p_panel: string }; Returns: Json };
+      lab_result_explain_allowed: { Args: { p_result: string }; Returns: boolean };
+      lab_result_file_path: { Args: { p_result: string }; Returns: string };
+      lab_result_for_review: { Args: { p_reason: string; p_result: string }; Returns: Json };
+      lab_results_review_queue: {
+        Args: Record<PropertyKey, never>;
+        Returns: { lab_result_id: string; patient_id: string; release_state: string; release_reason: string | null; received_at: string }[];
+      };
+      my_lab_results: { Args: Record<PropertyKey, never>; Returns: Json };
+      patient_add_lab_result: { Args: { p_file: Json }; Returns: Json };
+      record_lab_disclosure: { Args: { p_attested: boolean; p_method: string; p_note?: string; p_result: string }; Returns: Json };
+      release_lab_result: { Args: { p_note?: string; p_result: string }; Returns: Json };
+      team_submit_lab_result: { Args: { p_file?: Json; p_items: Json; p_order: string; p_panel: string; p_patient: string }; Returns: Json };
+      withhold_lab_result: { Args: { p_reason: string; p_result: string }; Returns: Json };
+      apply_payout_transfer_event: {
+        Args: {
+          p_event: string
+          p_reason?: string
+          p_reference: string
+          p_transfer_code: string
+        }
+        Returns: Json
+      }
       approve_fee_schedule: { Args: { p_id: string; p_note?: string }; Returns: Json }
+      approve_payout: { Args: { p_id: string }; Returns: Json }
+      attach_bank_recipient: {
+        Args: { p_account: string; p_recipient_code: string }
+        Returns: Json
+      }
+      build_payout_drafts_now: { Args: { p_force?: boolean }; Returns: number }
       create_fee_schedule_draft: { Args: { p_items?: Json; p_note?: string }; Returns: string }
       discard_fee_schedule_draft: { Args: { p_id: string }; Returns: undefined }
+      discard_payout_draft: { Args: { p_id: string }; Returns: undefined }
       earnings_admin_summary: {
         Args: { p_from?: string; p_include_test?: boolean; p_to?: string }
         Returns: {
@@ -41978,6 +43059,7 @@ export type Database = {
           task_type: string
         }[]
       }
+      go_live_guard_is_open: { Args: { p_key: string }; Returns: boolean }
       list_fee_schedules: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -41991,11 +43073,62 @@ export type Database = {
           version: number
         }[]
       }
+      list_payouts: {
+        Args: { p_state?: string }
+        Returns: {
+          amount_kobo: number
+          approved_at: string
+          bank_ready: boolean
+          clinician_id: string
+          clinician_name: string
+          created_at: string
+          failure_reason: string
+          id: string
+          line_count: number
+          period_end: string
+          period_start: string
+          reference: string
+          state: string
+        }[]
+      }
       my_earnings_summary: { Args: { p_from?: string; p_to?: string }; Returns: Json }
       my_fee_schedule: { Args: Record<PropertyKey, never>; Returns: Json }
+      my_payout_overview: { Args: never; Returns: Json }
+      payout_bank_check_allowed: { Args: never; Returns: undefined }
+      payout_prepare_send: { Args: { p_id: string }; Returns: Json }
+      payout_record_send: {
+        Args: {
+          p_error?: string
+          p_reference: string
+          p_status: string
+          p_transfer_code: string
+        }
+        Returns: Json
+      }
       post_earnings_adjustment: {
         Args: { p_amount_kobo: number; p_clinician: string; p_corrects?: string; p_reason: string; p_request_id?: string }
         Returns: string
+      }
+      record_bank_resolution: {
+        Args: {
+          p_bank_code: string
+          p_bank_name: string
+          p_clinician: string
+          p_last4: string
+          p_resolved_name: string
+        }
+        Returns: Json
+      }
+      retry_payout: { Args: { p_id: string }; Returns: Json }
+      save_my_tax_profile: {
+        Args: {
+          p_note?: string
+          p_registered_name: string
+          p_status: string
+          p_tin: string
+          p_vat: boolean
+        }
+        Returns: undefined
       }
       update_fee_schedule_draft: { Args: { p_id: string; p_items: Json; p_note?: string }; Returns: undefined }
       abnormal_result_dashboard_counts: {
@@ -42146,6 +43279,7 @@ export type Database = {
         Args: { p_broadcast_id: string }
         Returns: undefined
       }
+      admin_catalogue: { Args: never; Returns: Json };
       admin_create_institution_org: {
         Args: { p_name: string; p_type: string }
         Returns: string
@@ -42232,6 +43366,9 @@ export type Database = {
         Args: { p_bytes: number; p_consult: string; p_mime: string; p_path: string };
         Returns: string;
       };
+      cancel_order: { Args: { p_order: string }; Returns: boolean };
+      care_message_scope: { Args: { p_message: string }; Returns: Json };
+      catalogue: { Args: never; Returns: Json };
       close_referral: {
         Args: { p_care_plan_update_note: string; p_referral: string }
         Returns: undefined
@@ -42255,6 +43392,10 @@ export type Database = {
       create_note_amendment: {
         Args: { p_kind: string; p_original: string; p_reason: string };
         Returns: string;
+      };
+      create_order: {
+        Args: { p_beneficiary?: string; p_client_key?: string; p_code: string };
+        Returns: Json;
       };
       create_specialist_referral: {
         Args: {
@@ -42370,6 +43511,8 @@ export type Database = {
       my_held_call_tasks: { Args: Record<PropertyKey, never>; Returns: Json };
       my_note_index: { Args: Record<PropertyKey, never>; Returns: Json };
       my_note_requests: { Args: Record<PropertyKey, never>; Returns: Json };
+      my_membership: { Args: never; Returns: Json };
+      my_orders: { Args: never; Returns: Json };
       my_pending_auto_drafted_notes: {
         Args: never
         Returns: {
@@ -42393,6 +43536,8 @@ export type Database = {
       my_written_question_allowance: { Args: Record<PropertyKey, never>; Returns: Json };
       my_written_question_claims: { Args: Record<PropertyKey, never>; Returns: Json };
       my_written_questions: { Args: Record<PropertyKey, never>; Returns: Json };
+      open_care_attachment_audited: { Args: { p_attachment: string }; Returns: string };
+      open_care_thread_audited: { Args: { p_thread: string }; Returns: Json };
       open_patient_document_audited: {
         Args: { p_document: string; p_reason: string }
         Returns: string
@@ -42412,6 +43557,7 @@ export type Database = {
           state: string
         }[]
       }
+      order_for_checkout: { Args: { p_reference: string }; Returns: Json };
       patient_record_counts_for_merge: {
         Args: { p_patient: string }
         Returns: Json
@@ -44757,6 +45903,20 @@ export type Database = {
           phone_masked: string
         }[]
       }
+      set_catalog_item_active: {
+        Args: { p_active: boolean; p_code: string; p_reason: string };
+        Returns: undefined;
+      };
+      set_item_price: {
+        Args: {
+          p_amount_kobo: number;
+          p_code: string;
+          p_components: Json;
+          p_reason: string;
+          p_valid_from?: string;
+        };
+        Returns: string;
+      };
       set_lab_order_location: {
         Args: { p_location_id: string | null; p_order_id: string }
         Returns: undefined
@@ -46611,6 +47771,51 @@ export type Database = {
         Args: { p_patient_id: string }
         Returns: Json
       }
+      consume_entitlement: { Args: { p_entitlement: string }; Returns: Json }
+      decide_order_refund: {
+        Args: { p_approved: boolean; p_note?: string; p_refund: string }
+        Returns: Json
+      }
+      record_refund_provider_result: {
+        Args: {
+          p_reference?: string
+          p_refund: string
+          p_response?: Json
+          p_success: boolean
+        }
+        Returns: Json
+      }
+      request_order_refund: {
+        Args: { p_order: string; p_reason: string }
+        Returns: Json
+      }
+      revoke_entitlement: {
+        Args: { p_entitlement: string; p_reason?: string }
+        Returns: boolean
+      }
+      accept_care_circle_invite: { Args: { p_token: string }; Returns: Json };
+      cancel_care_circle_invite: { Args: { p_invite: string }; Returns: boolean };
+      circle_open_alerts: { Args: never; Returns: Json };
+      circle_ack_alert: { Args: { p_patient: string }; Returns: boolean };
+      circle_preview_member: { Args: { p_member: string }; Returns: Json };
+      circle_preview_permissions: { Args: { p_permissions: string[]; p_relationship?: string }; Returns: Json };
+      pause_care_circle: { Args: { p_pause_alerts?: boolean }; Returns: Json };
+      renew_care_circle_member: { Args: { p_member: string }; Returns: Json };
+      resume_care_circle: { Args: never; Returns: boolean };
+      set_circle_alert_mode: { Args: { p_mode: string; p_patient: string }; Returns: boolean };
+      circle_supporter_view: { Args: { p_patient: string }; Returns: Json };
+      circle_view_log: { Args: { p_limit?: number }; Returns: Json };
+      create_care_circle_invite: {
+        Args: { p_contact: string; p_grant_days?: number; p_kind: string; p_permissions: string[]; p_relationship: string };
+        Returns: Json;
+      };
+      my_care_circle: { Args: never; Returns: Json };
+      my_supported_people: { Args: never; Returns: Json };
+      preview_care_circle_invite: { Args: { p_token: string }; Returns: Json };
+      revoke_care_circle_member: { Args: { p_member: string }; Returns: boolean };
+      update_care_circle_member: { Args: { p_expires_at?: string; p_member: string; p_permissions: string[] }; Returns: boolean };
+      my_pending_gifts: { Args: never; Returns: Json };
+      respond_to_gifted_pack: { Args: { p_accept: boolean; p_entitlement: string }; Returns: Json };
     }
     Enums: {
       lab_integration_status: "api" | "hl7_fhir" | "file_exchange" | "structured_upload" | "manual"

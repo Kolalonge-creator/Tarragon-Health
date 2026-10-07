@@ -67,12 +67,15 @@ describe("the real admin menus", () => {
   it("finds the hand-granted Membership page (every console page needs a search entry)", () => {
     expect(top("membership")).toContain("/admin/memberships");
     expect(top("grant")).toContain("/admin/memberships");
+    expect(top("catalogue")).toContain("/admin/catalogue");
+    expect(top("price list")).toContain("/admin/catalogue");
   });
 
   it("finds the fees and earnings page (every console page needs a search entry)", () => {
     expect(top("fee schedule")).toContain("/admin/earnings");
     expect(top("payout")).toContain("/admin/earnings");
     expect(top("adjustment")).toContain("/admin/earnings");
+    expect(top("weekly payout")).toContain("/admin/payouts");
   });
 
   it("indexes a useful number of pages with no path twice", () => {
@@ -175,6 +178,7 @@ describe("the rota and lead clinicians are searchable (S18)", () => {
     const clinicianIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], []);
     expect(hit(clinicianIndex, "declare hours")).toContain("/clinician/rota");
     expect(hit(clinicianIndex, "my earnings")).toContain("/clinician/earnings");
+    expect(hit(clinicianIndex, "my payouts bank account")).toContain("/clinician/payouts");
   });
 });
 

@@ -412,6 +412,14 @@ jobs:
         working-directory: supabase/functions/paystack-webhook
         run: deno lint --no-config .
 
+      # S25: catalogue checkout (order-checkout, order-verify, order-reconcile) and the webhook's order branch.
+      - name: Test order functions
+        if: github.event_name != 'pull_request' || steps.changes.outputs.edge == 'true'
+        run: |
+          for d in order-checkout order-verify order-reconcile; do
+            (cd supabase/functions/$d && deno test --no-config . && deno lint --no-config .)
+          done
+
       # S03: the auth Send SMS hook. Clean under deno lint from day one, so it is widened in directory by directory.
       - name: Test auth SMS hook
         if: github.event_name != 'pull_request' || steps.changes.outputs.edge == 'true'

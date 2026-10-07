@@ -214,6 +214,7 @@ export async function approveAiSystemVersionAction(
 
   revalidatePath(PATH);
   revalidatePath(CLINICIAN_PATH);
+  revalidatePath("/clinician/clinical-signoff");
   return {
     success: parsed.data.deploy
       ? "Marked deployed."
@@ -257,6 +258,7 @@ export async function labelAiEvaluationCaseTierAction(
 
   revalidatePath(PATH);
   revalidatePath(CLINICIAN_PATH);
+  revalidatePath("/clinician/clinical-signoff");
   return { success: "Recorded. Once every case in this suite is labelled, it can be run against the coach." };
 }
 

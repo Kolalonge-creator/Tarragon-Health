@@ -23,9 +23,14 @@ export function CareCircleCard() {
           Name a next of kin we can reach if something urgent comes up, and keep your children&apos;s
           vaccination cards alongside your own.
         </p>
-        <Button asChild size="sm" variant="outline">
-          <Link href="/patient/family">Open</Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild size="sm" variant="outline">
+            <Link href="/patient/family">Open</Link>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <Link href="/patient/care-circle">Your Care Circle</Link>
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

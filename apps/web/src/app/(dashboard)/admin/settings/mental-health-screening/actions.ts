@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { refuseSupersededDraft } from "@/lib/clinical/refuse-superseded-draft";
 import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
 import { canAssignCases } from "@/lib/clinical/doctor-tier";
 
@@ -62,6 +63,7 @@ export async function createScreeningCadenceDraftAction(
 
   revalidatePath(REVALIDATE_PATH);
   revalidatePath(CLINICIAN_PATH);
+  revalidatePath("/clinician/clinical-signoff");
   return { success: true };
 }
 
@@ -74,9 +76,12 @@ export async function createScreeningCadenceDraftAction(
  */
 export async function signScreeningCadenceAction(versionId: string): Promise<SignScreeningCadenceState> {
   const supabase = await createClient();
+  const refused = await refuseSupersededDraft(supabase, "mental_health_screening_cadences", versionId);
+  if (refused) return { error: refused };
   const { error } = await supabase.rpc("sign_mental_health_screening_cadences", { p_id: versionId });
   if (error) return { error: error.message };
   revalidatePath(REVALIDATE_PATH);
   revalidatePath(CLINICIAN_PATH);
+  revalidatePath("/clinician/clinical-signoff");
   return { success: true };
 }
