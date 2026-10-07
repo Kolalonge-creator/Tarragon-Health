@@ -212,6 +212,9 @@ begin
   perform pg_temp.ck('the pure screen writes nothing', 'same_day_clinician',
     pg_temp.q_as(pg_temp.f('patB'), format($q$select (public.therapy_check_entry_screen('pain_back', %L::jsonb))->>'route'$q$, pg_temp.answers('pain_back', 'saddle_numbness')::text)));
   perform pg_temp.ck('...no row for patB', '0', (select count(*)::text from public.therapy_enrolments where patient_id = pg_temp.f('patB')));
+  perform pg_temp.enrol_as(pg_temp.f('patB'), 'cbt_i', pg_temp.answers('cbt_i', 'bipolar_or_mania') || '{"isi_total":10}'::jsonb);
+  perform pg_temp.ck('an education-only stop mixed with a red flag still waits for a clinician', 'clinician_review_pending',
+    pg_temp.enrol_as(pg_temp.f('patB'), 'cbt_i', pg_temp.answers('cbt_i')) ->> 'reason');
 end $$;
 
 -- 2. Mood: item 9 above zero is a crisis stop with a class 1 task and an urgent event; no helpline anywhere ---------------------------
@@ -288,7 +291,7 @@ begin
   perform pg_temp.ck('a positive re-check stops the programme and returns no content', 'stopped', s ->> 'status');
   perform pg_temp.ck('...no session text is in the answer', 'false', (s ? 'session')::text);
   perform pg_temp.ck('...the enrolment is stopped', 'stopped_exclusion', (select state from public.therapy_enrolments where id = e));
-  perform pg_temp.ck('...a same-day clinician task exists', '1', pg_temp.tasks_for(pg_temp.f('patB'), 'symptom_review'));
+  perform pg_temp.ck('...a same-day clinician task exists (plus the earlier cbt_i one)', '2', pg_temp.tasks_for(pg_temp.f('patB'), 'symptom_review'));
   perform pg_temp.ck('a missing re-check answer also stops (fail closed)', 'stopped',
     pg_temp.start_as(pg_temp.f('patB'), (pg_temp.enrol_as(pg_temp.f('patB'), 'ibs_hypnotherapy', pg_temp.answers('ibs_hypnotherapy')) ->> 'enrolment_id')::uuid, 1, '{}'::jsonb) ->> 'status');
 end $$;

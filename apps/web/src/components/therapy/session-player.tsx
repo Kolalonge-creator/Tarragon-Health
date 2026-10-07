@@ -49,12 +49,14 @@ export function TherapySessionPlayer({ enrolmentId, programmeCode, ordinal }: { 
   const [busy, setBusy] = useState(false);
   const [scores, setScores] = useState<Record<string, string>>({});
   const [scoreError, setScoreError] = useState(false);
+  const [saveError, setSaveError] = useState(false);
   const [diary, setDiary] = useState("");
   const [userId, setUserId] = useState<string | undefined>(undefined);
 
   const sendQueued = useCallback(async () => {
-    const { data: u } = await createClient().auth.getUser();
-    const me = u.user?.id;
+    // the local session: no network round trip, so the id is there when the connection is not
+    const { data: u } = await createClient().auth.getSession();
+    const me = u.session?.user.id;
     if (!me) return;
     setUserId(me);
     await flushQueue(deviceStore, async (item) => {
@@ -132,6 +134,7 @@ export function TherapySessionPlayer({ enrolmentId, programmeCode, ordinal }: { 
     }
     if (payload && isTherapyProgrammeCode(programmeCode) && validateScores(programmeCode, ordinal, payload) !== null) { setScoreError(true); return; }
     setScoreError(false);
+    setSaveError(false);
     setBusy(true);
     try {
       const { data, error } = await createClient().rpc("complete_therapy_session", { p_enrolment: enrolmentId, p_ordinal: ordinal, p_scores: payload ?? undefined });
@@ -141,7 +144,7 @@ export function TherapySessionPlayer({ enrolmentId, programmeCode, ordinal }: { 
         return;
       }
       if (outcome.kind === "not_active") { setView({ kind: "message", key: "therapy.player.not_active" }); return; }
-      if (error && classifyRpcError(error) === "permanent") { setScoreError(true); return; }
+      if (error && classifyRpcError(error) === "permanent") { setSaveError(true); return; }
       throw new Error("not saved");
     } catch {
       const queued = await enqueueCompletion(deviceStore, { userId, enrolmentId, ordinal, scores: payload, queuedAt: new Date().toISOString() });
@@ -244,6 +247,7 @@ export function TherapySessionPlayer({ enrolmentId, programmeCode, ordinal }: { 
             {scoreError && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{t("therapy.player.scores_needed")}</p>}
           </section>
         )}
+        {saveError && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{t("therapy.player.score_rejected")}</p>}
         {view.offlineCopy ? (
           <p className="text-sm" role="status">{t("therapy.player.read_only_copy")}</p>
         ) : (

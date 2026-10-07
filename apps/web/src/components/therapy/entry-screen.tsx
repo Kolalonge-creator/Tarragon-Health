@@ -37,7 +37,8 @@ export function TherapyEntryScreen({ code }: { code: string }) {
         const parsed = error ? null : readEntryQuestions(data);
         if (cancelled) return;
         if (parsed) {
-          setView(parsed.open ? { kind: "form", data: parsed, offline: false } : { kind: "closed" });
+          // the red-flag screen is not behind the go-live guard: the questions show, and the server says "not open yet" after a clean pass
+          setView(parsed.questions.length > 0 ? { kind: "form", data: parsed, offline: false } : { kind: "closed" });
           return;
         }
       } catch {
@@ -61,7 +62,7 @@ export function TherapyEntryScreen({ code }: { code: string }) {
       // no signal: the same rule on the device. A stop is shown at once; a pass cannot start a programme without the server.
       const local = evaluateEntryScreen(therapyExclusionRules(code), answers);
       setBusy(false);
-      setView(local.passed ? { kind: "error" } : { kind: "stopped", route: "offline_stop", taskFailed: false, noRules: local.noRules });
+      setView(local.passed ? { kind: "error" } : { kind: "stopped", route: local.route ?? "offline_stop", taskFailed: true, noRules: local.noRules });
       return;
     }
     try {

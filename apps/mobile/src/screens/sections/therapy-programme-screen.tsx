@@ -29,7 +29,7 @@ function Guidance({ route, taskFailed, onBack }: { route: TherapyRoute | "clinic
     <Card style={{ gap: 8 }}>
       <Text accessibilityRole="alert" style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t(`therapy.guidance.${key}_title` as MessageKey)}</Text>
       <MutedText>{t(`therapy.guidance.${key}` as MessageKey)}</MutedText>
-      {taskFailed && <MutedText>{t("therapy.guidance.task_failed")}</MutedText>}
+      {taskFailed ? <MutedText>{t("therapy.guidance.task_failed")}</MutedText> : (route === "crisis" || route === "same_day_clinician" || route === "medical_review_first") && <MutedText>{t("therapy.guidance.told")}</MutedText>}
       <SecondaryButton title={t("therapy.guidance.back")} onPress={onBack} />
     </Card>
   );
@@ -98,7 +98,7 @@ function Entry({ programme, onBack, onEnrolled }: { programme: ProgrammeRow; onB
     if (offline && isTherapyProgrammeCode(programme.code)) {
       const local = evaluateEntryScreen(therapyExclusionRules(programme.code), answers);
       setBusy(false);
-      setResult(local.passed ? "error" : { route: "offline_stop", taskFailed: false });
+      setResult(local.passed ? "error" : { route: local.route ?? "offline_stop", taskFailed: true });
       return;
     }
     const o = await enrol(programme.code, answers);
@@ -112,7 +112,7 @@ function Entry({ programme, onBack, onEnrolled }: { programme: ProgrammeRow; onB
   if (loading) return <ActivityIndicator />;
   if (result === "error" || !data) return <><ErrorText>{t("therapy.enrol.error")}</ErrorText><SecondaryButton title={t("therapy.guidance.back")} onPress={onBack} /></>;
   if (result) return <Guidance route={result.route} taskFailed={result.taskFailed} onBack={onBack} />;
-  if (!data.open) return <Guidance route={null} onBack={onBack} />;
+  if (data.questions.length === 0) return <Guidance route={null} onBack={onBack} />;
   return (
     <Card style={{ gap: 10 }}>
       <Text style={{ fontSize: 15, fontWeight: "700" }}>{programme.title}</Text>
@@ -139,6 +139,7 @@ function Player({ programme, enrolmentId, ordinal, onBack }: { programme: Progra
   const [diary, setDiary] = useState("");
   const [shared, setShared] = useState<boolean | null>(null);
   const [userId, setUserId] = useState<string | undefined>(undefined);
+  const [saveError, setSaveError] = useState(false);
 
   const sendQueued = useCallback(async () => {
     const me = await currentUserId();
@@ -197,7 +198,7 @@ function Player({ programme, enrolmentId, ordinal, onBack }: { programme: Progra
     const r = await completeSession(enrolmentId, ordinal, payload);
     if (r.kind === "ok") setView({ kind: "done", text: r.programmeCompleted ? "therapy.player.programme_done" : "therapy.player.done", paused: r.pausedForReview });
     else if (r.kind === "not_active") setView({ kind: "message", key: "therapy.player.not_active" });
-    else if (r.kind === "rejected") setScoreError(true);
+    else if (r.kind === "rejected") setSaveError(true);
     else {
       const queued = await enqueueCompletion(deviceStore, { userId, enrolmentId, ordinal, scores: payload, queuedAt: new Date().toISOString() });
       setView(queued ? { kind: "done", text: "therapy.player.saved_offline", paused: false } : { kind: "message", key: "therapy.player.finish_error" });
@@ -265,7 +266,8 @@ function Player({ programme, enrolmentId, ordinal, onBack }: { programme: Progra
         <MutedText>{t("therapy.player.read_only_copy")}</MutedText>
       ) : (
         <>
-          <PrimaryButton title={t("therapy.player.finish")} onPress={() => finish(s)} loading={busy} />
+          {saveError && <ErrorText>{t("therapy.player.score_rejected")}</ErrorText>}
+      <PrimaryButton title={t("therapy.player.finish")} onPress={() => finish(s)} loading={busy} />
           <SecondaryButton
             title={t("therapy.player.stop")}
             onPress={async () => {

@@ -3,8 +3,8 @@ import { classifyRpcError, readEnrolOutcome, readStartOutcome } from "./therapy-
 
 describe("therapy results", () => {
   it("a database rejection is permanent and a transport fault is retryable", () => {
-    for (const code of ["22023", "42501", "55000"]) expect(classifyRpcError({ code })).toBe("permanent");
-    for (const code of ["", "PGRST000", "08006", null, undefined]) expect(classifyRpcError({ code })).toBe("transport");
+    for (const code of ["22023", "42501"]) expect(classifyRpcError({ code })).toBe("permanent");
+    for (const code of ["55000", "", "PGRST000", "08006", null, undefined]) expect(classifyRpcError({ code })).toBe("transport");
     expect(classifyRpcError(null)).toBe("transport");
   });
   it("reads a stop with its task flag, and the cooldown reason", () => {

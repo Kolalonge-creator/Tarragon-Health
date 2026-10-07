@@ -20,7 +20,11 @@ export function TherapyGuidanceCard({ route, taskFailed = false, noRules = false
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-charcoal-ink/90 dark:text-night-ink/90">{t(`therapy.guidance.${key}` as MessageKey)}</p>
-        {taskFailed && <p className="text-sm font-medium">{t("therapy.guidance.task_failed")}</p>}
+        {taskFailed ? (
+          <p className="text-sm font-medium">{t("therapy.guidance.task_failed")}</p>
+        ) : (
+          (route === "crisis" || route === "same_day_clinician" || route === "medical_review_first") && <p className="text-sm font-medium">{t("therapy.guidance.told")}</p>
+        )}
         <Link href="/patient/programmes" className="text-sm font-medium text-brand-green dark:text-brand-green-bright underline">
           {t("therapy.guidance.back")}
         </Link>
