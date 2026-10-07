@@ -930,3 +930,5 @@ s75_a2_institution_aggregate_read_audit.sql
 s75_risk_never_gates_care.sql
 # S75 A5 (CMO S-21): the monthly report reaches a Care Circle supporter only when the patient turns on a per-supporter flag (off by default, so existing supporters lose the block until opted in); the flag never widens the weekly ticks; the preview follows it; only the patient can set it, a supporter, stranger and anon are refused; my_care_circle returns it. Sabotage: the block ignoring the flag.
 s75_a5_circle_monthly_share_flag.sql
+# S75 A6: clinical_response_report (admin and analyst only, audited; patient, clinician and anon refused): exact median and p90 to claim and to complete, open tasks past due and completed late, groups under the platform minimum withheld with no count, a measure under the minimum withheld alone, no overall total, test accounts never counted, pages and the data-quality strip, descriptive and not for publication. Sabotage: the test-account filter removed; the report must change.
+s75_a6_clinical_response_report.sql
