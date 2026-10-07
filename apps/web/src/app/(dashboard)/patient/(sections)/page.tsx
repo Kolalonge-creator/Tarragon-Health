@@ -22,7 +22,7 @@ import { SinceYouWereLastHere } from "@/app/(dashboard)/patient/since-you-were-l
 import { PaymentFailureBanner } from "@/app/(dashboard)/patient/payment-failure-banner";
 import { QuickActions } from "@/app/(dashboard)/patient/quick-actions";
 import { AskTarragonCard } from "@/app/(dashboard)/patient/ask-tarragon-card";
-import { DailyLessonCard } from "@/components/learning/daily-lesson-card";
+import { WeeklyLessonCard } from "@/components/learning/weekly-lesson-card";
 import { TodaysDoses } from "@/app/(dashboard)/patient/todays-doses";
 import { HealthResetCard } from "@/app/(dashboard)/patient/health-reset-card";
 import { WeeklyPlanCard } from "@/app/(dashboard)/patient/weekly-plan-card";
@@ -180,9 +180,9 @@ export default async function PatientOverviewPage() {
           result, and neither path depends on any existing record data. */}
       <AskTarragonCard patientId={subjectId} coachAccess={coachAccess} />
 
-      {/* S55: the daily micro-lesson (spec 9.2). Renders nothing when there is no in-date lesson. */}
+      {/* S55: this week's micro-lesson (spec 9.2). Renders nothing when there is no in-date lesson. */}
       {profile.organisation_id && !acting && (
-        <DailyLessonCard patientId={subjectId} organisationId={profile.organisation_id} />
+        <WeeklyLessonCard patientId={subjectId} organisationId={profile.organisation_id} />
       )}
 
       {/* On a genuinely empty account everything below this point can only
