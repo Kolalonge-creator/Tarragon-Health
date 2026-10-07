@@ -1781,3 +1781,198 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Fixed in S11g and S11h: (a) the older server alert path now follows the 200/130 decision once the rule set is APPROVED: the old emergency range with no red-flag symptom (and not in pregnancy or after a birth) raises the Priority 1 alert but no patient emergency record; a symptom keeps it an emergency, and a symptom answered after the reading opens the emergency record then (migration `20261006000812`, proof `s11g`, a no-op until approval). The 160/100 and 135/85 bands are unchanged, so a 165/105 reading still pages Priority 1 for a reading the engine would treat as amber: that is the S12 band alignment of OQ-67 and needs the CMO. (f) Tapping the reminder or the server push now opens the blood pressure screen, from closed or running, once per tap (`notification-tap.ts`). (d) The Pidgin for the question's buttons and the reminder is drafted in the catalogue; the emergency guidance, triage messages and symptom names stay in English until a native reviewer and the CMO sign them; the full list is `docs/PIDGIN-REVIEW-S11.md`.
 - Still owed: (e) Android: not run (no Java or emulator image on this machine); `SCHEDULE_EXACT_ALARM` is not declared (OQ-73), so a reminder can arrive minutes late in Doze and the server backup push covers it. The native Pidgin review itself.
 - Decision: pending (item e, and the Pidgin sign-off).
+
+## S66: menstrual and reproductive, private cycle section (raised 2026-10-07)
+Numbering: the last number used on another branch was OQ-327; S66 starts at OQ-330 (check for clashes when merging).
+
+### OQ-330 Sealed cycle data is never destroyed, and deletion on request sits beside "do not erase real data"
+- Conflict: decision C/B3 (patient-entered tracker data deletable on request, clinician-recorded data sealed 8 years then destroyed) versus the founder direction recorded with S39c (`real_data_auto_delete` false, do not erase real data).
+- Built: deletion is on request only, after a 14 day grace window (PROPOSED), with a counts-only receipt in `audit_log`. The destruction of SEALED data after the retention period is configuration only; no job exists.
+- Options: (a) keep as built and decide the destruction job later with counsel; (b) build the job now behind a switch. Recommend (a). Counsel to confirm the 8 years.
+
+### OQ-331 The new go-live guard cannot be switched on yet
+- `reproductive_content_enabled` was added OFF. `private.go_live_conditions` has no branch for it, so it reads "unknown guard, never satisfied". The function is replaced wholesale by every session that adds a guard (S37, S37b, S28c) and S67 to S69 are adding theirs, so replacing it from this base would drop another session's branch.
+- Options: (a) one later migration adds all new branches after S66 to S69 merge; (b) each session replaces it in merge order. Recommend (a). Needs: the CMO content-review condition (an attestation) for this guard.
+
+### OQ-332 Other reproductive tables are still read directly by staff, unaudited
+- The clinician Women's Health tab still reads `patient_pregnancy`, `antenatal_visits`, `postnatal_profiles`, `breast_symptom_reports` and `fertility_assessment_requests` straight from the tables (INV-10 gap). S66 moved only cycle and menopause rows to the audited function. Pregnancy and postnatal belong to S67 and S68. Recommend: those sessions extend `read_reproductive_pattern_report_audited` or add siblings that call `private.reproductive_staff_tied`.
+
+### OQ-333 PIN lock limits (founder to confirm the threat model)
+- The PIN guards a VIEW on the device. Server data is not behind it: someone holding an unlocked, signed-in session can still call the API. Web has PIN only (no WebAuthn biometric). A person with browser developer tools can clear the local record. Mobile lock not run on a real device. Confirm this is the intended protection (shared phone and over-the-shoulder), not protection against a device thief.
+
+### OQ-334 Discreet naming beyond notifications
+- Notification text, the dashboard tile ("Your tracker") and the locked screen are neutral. The page title "Your cycle", the sidebar "Women's Health", the Prevention card "Your cycle & life stage", the in-app link target `/patient/cycle` and the template keys `cycle_period_*` still name the topic. Decide whether to rename them or accept them.
+
+### OQ-335 Clinician report reason is a fixed phrase
+- `read_reproductive_pattern_report_audited` requires a reason of 10 or more characters (the S05f pattern). The Women's Health tab sends a fixed phrase because S39c's direction is "no reason to type". Confirm the function should drop the reason argument.
+
+### OQ-336 Danger-sign, contraception and menopause wording are proposed copy
+- All strings in `packages/i18n/src/cycle-copy.ts` (`CYCLE_COPY_REVIEW`, status `pending_cmo_review`), including the danger-sign thresholds ("every hour for several hours"), need CMO review; each [verify] in the CMO pack still has to be checked against its source.
+
+### OQ-337 Live policy drift under the new functions
+- Live RLS on the cycle tables uses `private.staff_may_read/write` (S39b, S39g) which `origin/main-dev` does not contain. S66 replaces no policy, so it works on both, but re-run the three S66 proofs after S39b to S39h merge.
+
+### OQ-370 Device capabilities need the CMO and an admin before anything switches on (raised by S70a)
+- Everything S70a built is off. Unsigned and PROPOSED: all numbers in `devices.plausibility`, `devices.dedupe`, `devices.cgm_events`, `devices.ecg_alert`, the two task types (class, due time, tier), the patient and safety wording, and "one working day" approximated as 1440 minutes.
+- Decision: pending the CMO (read the primary guideline text; the pack's evidence is secondary).
+
+### OQ-371 Go-live uses `platform_modules`, not `go_live_guards` (raised by S70a)
+- A `go_live_guards` row needs a branch in `private.go_live_conditions()`, a function every parallel session edits; a second `create or replace` would silently drop the other's branch. Seven `platform_modules` rows were used. Decide whether to move them to guards once S66 to S69 have merged.
+
+### OQ-372 The wearable Connect card is ungated (raised by S70a)
+- Spec asks for a per-connector flag. The card has been live since 2026-07-31; gating it would switch off a working feature, so it was not done. New connectors (S70b) should be born gated.
+
+### OQ-373 An extreme typed value above the typed limit (raised by S70a)
+- OQ-66 keeps manual limits at 60-260 / 30-160. With the hold on, a DEVICE or photo 270/130 is now saved and triaged, but a typed 270/130 is still refused on the phone. Decide whether typed entry should follow with a confirm step (OQ-66 option b).
+
+### OQ-374 A patient who insists an impossible number is real (raised by S70a)
+- `resolve_held_reading` allows `confirmed_as_shown`, which records the answer but still does not save or triage the value. Decide what a care team should see (a task? a device-fault report?). Today a held value is visible only to the person.
+
+### OQ-375 Photo and ECG recognition need a native build (raised by S70a)
+- No on-device text recogniser and no real-device test exist. Adding one needs a native module, a fresh EAS build and a `runtimeVersion` bump (now `0.1.0-native5`). The HealthKit ECG read adds an authorisation type and has never run on hardware. Which package is for the founder.
+
+### OQ-376 De-duplication side effects to review (raised by S70a)
+- A sensor sample within 5 minutes and 0.3 mmol/L of a finger-prick, in the same triage band, is linked instead of stored (one gap in a CGM trace). A better source arriving later replaces the row in place, so the row's `taken_at` becomes the better source's. Pregnant BP is never merged. Confirm both are acceptable.
+
+### OQ-377 Source badge coverage (raised by S70a)
+- The badge is on the web readings list and the phone BP history. Other phone lists (glucose, weight) and the clinician readings views were not found to list per-reading sources; check before calling "every UI" done.
+
+
+## S68: postnatal and child (Module 16, 3 of 3) (raised 2026-10-07)
+### OQ-350 Which pieces of S68 run only after the CMO signs (raised by S68)
+- Everything below is PROPOSED config in `maternal_child_config` and `packages/shared/src/proposed-config/registry.ts` (keys `maternal_child.*`), mirrored by `maternal-child-mirror.test.ts`. Nothing is signed. `maternal_enabled` stays OFF. Until it is on: a real child's malnutrition class is stored but raises no alert and pages nobody (the screen says follow-up is not switched on and to message the care team), the feed log and the lifecycle functions refuse a real person with "not open yet". Test accounts pass (S37 rule).
+- Decision: open (CMO signs the A6/A7 values; the founder or CMO flips the guard).
+### OQ-351 MUAC age range and the 12 hour "same-day" line (raised by S68)
+- Pack A7 says "MUAC under 115 mm" with no age range. WHO/UNICEF use 115 and 125 mm for 6 to 59 months; under 6 months MUAC is not a screening tool. The config applies MUAC from 6 to under 60 months (`muac_min_age_months`, `muac_max_age_months`) and treats weight-for-height z as the only rule below 6 months. "Same-day referral" is set as 12 hours (`sam_review_within_hours`). Both are proposals.
+- Decision: open (CMO).
+### OQ-352 WHO LMS source and licence (raised by S68; CMO pack question 5)
+- Data comes from the published WHO workbooks (URLs in each row's `source_url` and in the generator). The licence terms for redistributing them inside a product were not checked. Golden tests use the `anthro` package (a third-party port) for 0 to 5 years and an independent calculation from the WHO 2007 workbooks for 5 to 19 years.
+- Decision: open (CMO and counsel).
+### OQ-353 Plausibility ranges for head circumference and MUAC (raised by S68)
+- Weight-for-age (-6/+5), height-for-age (-6/+6), weight-for-height and BMI-for-age (-5/+5) follow the WHO Anthro documentation. Head circumference and MUAC-for-age use -5/+5 as an assumption. A flagged row is kept and still routed.
+- Decision: open (CMO).
+### OQ-354 EPDS cut-offs and the Nigerian validation range (raised by S68; pack A6)
+- 10 and 13 (review within a week, within 48 hours) are provisional. Nigerian studies are said to report 7 to 12 depending on language and period (not re-verified). Local audit after the first 200 screens, then adjust.
+- Decision: open (CMO).
+### OQ-355 When to prompt the EPDS (raised by S68)
+- `postnatal.checks.epds_prompt_windows` = week 6 is a proposal. The existing app opt-in (perinatal self-identification) is unchanged.
+- Decision: open (CMO).
+### OQ-356 Lifecycle stages, the loss path and its copy (raised by S68; founder items 8)
+- Stage names, transitions, the 90 day baby-content hold and the 400 day look-back are proposals (`lifecycle.rules`). The loss wording is a placeholder (`mch.life.loss_note`, `maternal_child_content.loss.gentle_path`); the founder or CMO writes it. The stage history keeps the fact that a confirmed loss event happened (no note) even after the note is deleted: confirm that is acceptable.
+- Decision: open (founder, CMO).
+### OQ-357 NDPA wording for sealed clinician data (raised by S68; pack B3)
+- Sealed for 8 years then destroyed is a proposal; counsel to confirm the period and the carve-out wording. Sealed means: clinician-recorded rows, a growth row that raised a nutrition alert or a trajectory alert, a baby check linked to an appointment.
+- Decision: open (counsel).
+### OQ-358 Deleting the loss note but not the stage fact (raised by S68)
+- `lifecycle_events` is append-only, so a deleted loss note leaves an event row `pregnancy_loss_recorded` with no note. A person who wants even that gone has no path. Options: (a) accept (recommended, it is the audit of a state change); (b) allow a redaction function that nulls the kind to a neutral value.
+- Decision: open.
+### OQ-359 Nothing schedules the deletion sweep (raised by S68)
+- `public.sweep_due_tracker_deletions()` (service role) exists and is not scheduled. Today a person completes their own deletion after the window. A cron entry needs the Vercel cron limit / pg_cron decision.
+- Decision: open.
+### OQ-360 NPHCDA schedule reconciliation not possible from the official source (raised by S68; pack A8)
+- The NPHCDA site (nphcda.gov.ng) was fetched and searched; no schedule table or document was reachable. The catalogue (`vaccination_catalog`, `child_*`, migration `20260723200847`) was therefore NOT edited. Points to check against the agency's current schedule document: (1) malaria vaccine (R21): press says 4 doses at 5, 6, 7 and about 15 months where phased in; the catalogue has no malaria row; (2) IPV: press says a second dose was added in 2021 at 14 weeks; the catalogue has one dose; (3) rotavirus doses, measles second dose at 15 months, MenA (and any newer meningococcal product), vitamin A, HPV single dose age. Reminders stay generic (INV-07) and no wording advises delaying a dose.
+- Decision: open (CMO or the immunisation lead supplies the schedule document).
+### OQ-361 `sponsor_care_report.last_clinical_review` can reflect a maternal or child alert date (raised by S68)
+- The function returns the latest date a clinician acknowledged ANY alert for the beneficiary. A review of a child growth alert or a postnatal wellbeing alert would move that date. It discloses no value, only that a review happened, but it can hint. Options: (a) accept; (b) exclude alerts whose title starts "Child growth check" or "Postnatal wellbeing" (a title match is brittle); (c) add an alert category column (a wider change).
+- Decision: open.
+### OQ-362 Staff reads of the new tables use `is_org_staff` today (raised by S68)
+- Until S39b (tied staff reads, #997) lands, any staff member of the organisation can read the S68 tables through `private.maternal_staff_may_read`, which is one function. S39b must register the nine new tables (growth columns, baby checks, feed log, lifecycle, loss records, deletion receipts) in `staff_read_scope` as tied and change that one function.
+- Decision: open (S39b follow-up).
+### OQ-363 Real-clinician paging for severe acute malnutrition does not use the S19 on-call page (raised by S68; INV-05)
+- The severe route uses the existing alert and `enqueue_critical_notification` loop (as the red-flag symptom handler does), not `create_red_page`, because that function takes a triage event from a BP rule set. A child nutrition triage rule set would be needed to feed the on-call page and its escalation timer.
+- Decision: open (CMO, S11/S19 owners).
+
+### OQ-340 BP-P1 routes every pregnant reading, wider than the wording of decision A1 (raised by S67)
+- CMO selection A1 says "any BP at or above 140/90 in pregnancy: amber, clinician same day". Rule BP-P1 (unchanged since S11) grades EVERY pregnant reading amber and opens a `referral_review` task (de-duplicated to one a week, due in 24 hours), so 118/76 is also amber and a 24 hour task is not "same day". Rule set v4 keeps this as it is and the tests record it (139/89 is amber by BP-P1).
+- Options: (a) keep, one weekly review task for every pregnant patient (recommended until the CMO signs, it never under-calls); (b) make BP-P1 fire only at 140/90 or more and make normal pregnant readings green with advice; (c) also shorten the task to "same day" (for example 8 hours). Needs the CMO.
+- Decision: open.
+
+### OQ-341 Kick counter: "normal not reached" and the drop factor are this build's reading of A3 (raised by S67)
+- A3 says: if normal is not reached, 10 movements are not felt in 2 hours, or there is a clear drop, show the card. Built: 10 in 120 minutes fixed; her personal normal is the median minutes-to-10 of her latest 5 finished sessions once she has 3; a clear drop is taking 2 times her normal (also applied while still counting); a "less movement than usual" button always shows the card. The 2 times factor and the 3 and 5 session counts are PROPOSED in `maternal.rules` and are this session's proposal, not a published figure.
+- Options: (a) CMO confirms or replaces the three numbers (recommended); (b) drop the personal-normal rule and keep only the fixed 10 in 2 hours plus the button.
+- Decision: open.
+
+### OQ-342 Risk flag vocabulary and who may set it (raised by S67)
+- `pregnancies.risk_flags` accepts any snake_case code (shape check only) and only staff can set it. The old `patient_pregnancy.high_risk` was writable by the patient; a patient write that sets it now fails because the history trigger refuses a patient-set flag. The CMO owns the list of codes (previous pre-eclampsia, chronic hypertension, and so on) and which ones prompt an earlier contact.
+- Options: (a) CMO supplies the list and it becomes a CHECK or lookup table (recommended); (b) keep free codes.
+- Decision: open.
+
+### OQ-343 Pregnancy content is empty and gated until the CMO reviews it (raised by S67)
+- `pregnancy_content` (week cards, nutrition, medicine safety, danger signs) has no rows and patients read only `cmo_reviewed` rows. No clinical text was written. The fixed default "Ask your care team before you take any medicine, including herbal ones" and the offline danger-sign labels are shipped as app strings (draft, flagged `draft_pending_cmo`). There is no write path yet: a content tool and the review action belong in the CMO sign-off hub.
+- Options: (a) CMO or a clinical writer drafts 40 week cards, nutrition and medicine pages, then reviews them (recommended); (b) ship the danger-sign guide only and leave week cards for a later release.
+- Decision: open.
+
+### OQ-344 S67 migrations and the proof script were NOT run (raised by S67)
+- The four migrations and `s67_pregnancy.sql` were written but not executed anywhere: the isolated local stack would not start ("all predefined address pools have been fully subnetted" from Docker), a use of another session's running stack was judged out of scope, and nothing may be applied to `koiplnmbgnqnbywhpjlf`. They were desk-checked only. Expect small fixes on the first real run.
+- Also not deployed: the engine change in `supabase/functions/_shared/clinical` (a fit or loss of consciousness shows the emergency guidance on a rejected reading) reaches the server only when the functions that import it are redeployed.
+- Options: (a) run the four migrations and the proof in a rolled-back transaction on a fresh local stack once Docker has room, then fix (recommended); (b) CI replay will do it on the PR.
+- Decision: open.
+
+### OQ-345 New pregnancy tables use `is_org_staff`, not the S39b tied-staff rule (raised by S67)
+- INV-12 says a clinician sees only patients they hold a task, lead or page for. S39b (#997) ties 128 tables to that rule but is not on this branch's base, so the new tables read staff access through one helper (`private.pregnancy_staff_may_read`). After S39b merges, retarget that one function and add the new tables to its list and to the S39b proof.
+- Options: (a) retarget the helper after S39b merges (recommended); (b) copy the S39b predicate into each policy now.
+- Decision: open.
+
+### OQ-346 Patient screens for the counter, timer, birth plan, week card and schedule are not built (raised by S67)
+- Built and tested: rules, storage, RLS, the offline outbox path, the phone's cached facts, the cards' wording, the offline danger guide and the PIN-lock seam. Not built: the web and mobile screens, the clinician view of sessions, the antenatal reminder notification template and cron, retiring the old `antenatal_booking` route, and wiring `maternal_enabled` into the screens. Nothing was run in a simulator or browser.
+- Options: (a) a short follow-up session builds the screens on top of the finished logic (recommended); (b) fold it into S68.
+- Decision: open.
+
+### OQ-347 Kick and contraction results are decided on the phone and trusted by the server (raised by S67)
+- The server stores the result the phone reached (same pure code as the tests) and turns a "go today" result into an emergency event. A tampered client could raise a false alert (a nuisance, limited to one an hour) or hide a real one (no worse than not using the counter). Re-deriving the result on the server from the stored movements and config version is possible with the same package.
+- Options: (a) accept for now (recommended); (b) add a server recheck that flags a mismatch for review.
+- Decision: open.
+
+## S69 (community cohorts and challenges): questions from OQ-380
+
+### OQ-380 Who may start a cohort? (raised by S69)
+- Built: any signed-in adult patient can start up to 3 cohorts (PROPOSED), name it and become its moderator. Nothing checks that "Grace Fellowship" is a real church or that the organiser speaks for it; a stranger could start a group with a convincing name and invite people.
+- Options: (a) as built plus admin freeze and report-and-remove (recommended while the module is off); (b) organisers are vetted by Tarragon before they can start a cohort; (c) a cohort only goes live after a second member joins and confirms.
+- Decision: open. Recommend (a) for the test period, (b) before real launch.
+
+### OQ-381 Residual re-identification: two published snapshots a few hours apart (raised by S69)
+- Floor of 10, leave-one-out at 30 percent, rounding to 10, a 12 hour delay and a band instead of a count are all PROPOSED. If one person withdraws consent between two published snapshots the total drops by about their share (up to 30 percent when the cap is reached); others who know who withdrew could read their contribution approximately. Cohorts of exactly 10 are the weakest case.
+- Options: raise the floor to 15 or 20; add a floor on cohort size to start a challenge; publish at most once a day; add small noise. The CMO, the DPO and counsel should choose, with the DPIA.
+- Decision: open. Values stay in `community_config` (versioned) so changing them needs no deploy.
+
+### OQ-382 What a member can see of other members (raised by S69)
+- Built: first names and roles, to members and moderator only. A moderator knows who they invited. A "workplace" cohort could be started by a manager; the employer account itself reads nothing, but a manager who is also a patient is a moderator like any other.
+- Options: initials instead of first names; hide names from other members and show only a count; forbid a person who is also an employer admin from moderating a workplace cohort.
+- Decision: open.
+
+### OQ-383 The effort-only rule depends on what is recorded (raised by S69)
+- The rule reads: active conditions whose name or ICD-10 code points to heart failure, kidney disease or an eating disorder, the pregnancy record, active medicines named as insulins, and a positive eating-disorder screen. Someone with an undiagnosed or unrecorded condition, a recent birth (the postnatal record is not read), or a differently worded condition name is not restricted. The CMO should confirm the list, the wording match, and whether the postnatal period and "history of" entries (a resolved condition is currently NOT restricted: `status = resolved` is skipped, which may be wrong for an eating disorder in recovery) should count.
+- Safety default kept: restricted people see "not available for you" and nothing else; the reason is never shown.
+- Decision: open (CMO).
+
+### OQ-384 Activity minutes have no wearable source yet (raised by S69)
+- The wearable tables carry steps but no active-minutes reading, so `activity_minutes` is self-reported (1 to 180 a day, 300 a week, WHO range). The plan says "consented wearables"; that waits for S70 and per-category consent (`consent_activity`).
+- Decision: open (S70).
+
+### OQ-385 Templates, consent text and counsel are all drafts (raised by S69)
+- The seven challenge templates are `proposed`; nothing is approved. The consent text version is `draft-1`. The go-live guard needs the CMO's signature on at least one template, a recorded DPIA and counsel's confirmation of the NDPA 2023 references [verify]. The templates carry no clinical claim beyond effort, but the CMO should read each label and the WHO 150 to 300 minute wording.
+- Decision: pending (CMO, DPO, counsel).
+
+### OQ-386 The go-live guard patches two shared functions (raised by S69)
+- `private.go_live_conditions` and `public.attest_go_live_condition` are redefined by several sessions. Migration s69b reads the current definition and inserts the community branch and two attestable codes, and fails loudly if its anchor text moved. It is stamped after every known redefinition (S28c, 20261007153917). A later session that pastes a whole copy of either function will drop the community branch unless it keeps it.
+- Decision: open (process). Add the community guard to the S37 guard list when S37 is next touched.
+
+### OQ-387 Test accounts open the community even when the module is off (raised by S69)
+- Same as the S37 consultations rule (a test account passes), so the whole flow can be proved before launch. A test account can only be in a test cohort. Say if you would rather have the module switch gate test accounts too.
+- Decision: open (recommend as built).
+
+### OQ-388 Care Circle 17.1 to 17.4: what was not changed (raised by S69)
+- OQ-220: the join link now survives "Create an account" on the sign-in page (not run end to end in a browser). Still open: the same-organisation rule, native app deep links for the join link, and whether Paystack's foreign-card setting is switched on so diaspora supporters can pay (cannot be checked from the repository).
+- Decision: open.
+
+### OQ-389 Moderator succession and co-moderators (raised by S69)
+- Only the person who starts a cohort is a moderator. The plan says lay moderators (a pastor's assistant, an estate chair) invite, remove and close; there is no function yet to make a second moderator. If the only moderator leaves, the cohort closes, so nobody is promoted by accident.
+- Decision: open. Recommend a "make moderator" action by the moderator, with the person's own yes.
+
+### OQ-390 Group audio (17.8) is schema only (raised by S69)
+- Deferred by the founder 2026-10-07. When it is built: S21 real-device testing, the Zoom plan limit (Meeting versus Webinar, about 20 people), a clinician host tied to every attendee (INV-12), no recording and no scribe (the table already forbids both), roster of first names that is audit-logged.
+- Decision: pending (founder, later).
+
+### OQ-391 The solo wellness challenge still shows its title in the app (raised by S69)
+- Fixed: the ending notice no longer names the challenge or progress (INV-07). The titles ("5-Day Vitals Streak") remain inside the app's own wellness screen, where they are not a notification. The template still carries a legacy `smsText` field; `private.patient_reminder_channel` never picks SMS, so INV-08 holds, but the field could be removed.
+- Decision: open (low).

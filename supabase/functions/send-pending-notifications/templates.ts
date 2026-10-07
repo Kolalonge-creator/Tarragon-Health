@@ -474,15 +474,11 @@ export const TEMPLATE_MAP: Record<
   // challenge_ending_nudges) — private.evaluate_wellness_challenges silently
   // expires it with no warning otherwise. Reminder only; logging progress and
   // claiming the reward always happen in-app.
-  wellness_challenge_ending: (payload) => {
-    const title = String(payload.challenge_title ?? "your challenge");
-    const progress = String(payload.progress ?? "0");
-    const target = String(payload.target ?? "0");
+  wellness_challenge_ending: () => {
+    // INV-07 (S69b): neutral. The payload is empty and nothing from it is echoed: no challenge title, no progress figure.
     const path = "/patient/wellness";
     return {
-      smsText:
-        `Hi, your "${title}" challenge ends in 24 hours and you're at ${progress}/${target}. ` +
-        `Finish it in the Tarragon Health app. Tarragon Health`,
+      smsText: `Hi, a challenge of yours ends soon. Finish it in the Tarragon Health app. Tarragon Health`,
       pushUrl: path,
     };
   },
@@ -1390,6 +1386,21 @@ export const TEMPLATE_MAP: Record<
         `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
         `</div>`,
       text: "Someone has left your Care Circle.\n\nOpen Tarragon Health to see your Care Circle.\n\nTarragon Health",
+    },
+  }),
+  community_update: () => ({
+    // S69 (INV-07): one generic notice for every community milestone. It names no cohort, metric, figure or condition.
+    smsText: "Your group has an update. Tarragon Health",
+    pushUrl: "/patient/community",
+    email: {
+      subject: "Your group has an update",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Your group has an update.</p>` +
+        `<p>Open Tarragon Health to see it. You can mute your group at any time.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Your group has an update.\n\nOpen Tarragon Health to see it. You can mute your group at any time.\n\nTarragon Health",
     },
   }),
   circle_expiring: () => ({

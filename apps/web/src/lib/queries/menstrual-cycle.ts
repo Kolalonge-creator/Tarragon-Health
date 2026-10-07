@@ -240,7 +240,9 @@ export interface UseCycleTrackerResult {
 export function useCycleTracker(
   patientId: string,
   lifeStage: ReproductiveLifeStage,
-  selfReportedCycleLengthDays: number | null
+  selfReportedCycleLengthDays: number | null,
+  /** S66 (A14): the patient's explicit "planning a pregnancy" switch. Off unless she turned it on. */
+  conceptionPlanning = false
 ): UseCycleTrackerResult {
   const cyclesQuery = useMenstrualCycles(patientId);
   const logsQuery = useMenstrualDailyLogs(patientId);
@@ -263,8 +265,9 @@ export function useCycleTracker(
       lifeStage,
       selfReportedCycleLengthDays,
       heavyFlowDates,
+      conceptionPlanning,
     });
-  }, [cycles, dailyLogs, today, lifeStage, selfReportedCycleLengthDays]);
+  }, [cycles, dailyLogs, today, lifeStage, selfReportedCycleLengthDays, conceptionPlanning]);
 
   // The most recent period counts as "open" only while it has no end date
   // AND started recently enough to still plausibly be running — otherwise a
@@ -295,8 +298,9 @@ export function useCycleTracker(
         today,
         expectedCycleLengthDays: prediction.expectedCycleLengthDays,
         averagePeriodDurationDays: prediction.stats.averagePeriodDurationDays,
+        conceptionPlanning,
       }),
-    [cycles, dailyLogs, today, prediction]
+    [cycles, dailyLogs, today, prediction, conceptionPlanning]
   );
 
   // Scoped to the current cycle on purpose: the previous cycle's luteal

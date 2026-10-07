@@ -15,6 +15,7 @@ import { PreventiveProgrammes } from "@/app/(dashboard)/patient/preventive-progr
 import { CancerScreeningCard } from "@/app/(dashboard)/patient/cancer-screening-card";
 import { CareProgrammeRecommendations } from "@/app/(dashboard)/patient/care-programme-recommendations";
 import { ReproductiveHealthCard } from "@/app/(dashboard)/patient/reproductive-health-card";
+import { PrivateSection } from "@/components/private-section/private-section";
 import { MensHealthCard } from "@/app/(dashboard)/patient/mens-health-card";
 import { RiskAssessmentForm } from "@/app/(dashboard)/patient/risk-assessment-form";
 import { RiskAssessmentDisplay } from "@/app/(dashboard)/patient/risk-assessment-display";
@@ -222,10 +223,13 @@ export default async function PreventionHubPage() {
               replaces left the cycle tracker with no entry point at all for
               the majority of accounts, which carry no recorded sex. */}
           {shouldOfferCycleTracking(subjectSex) && profile.organisation_id && (
-            <ReproductiveHealthCard
-              patientId={subjectId}
-              organisationId={profile.organisation_id}
-            />
+            // S66: life stage and cycle settings are private. Same lock as the tracker itself, so unlocking once opens both.
+            <PrivateSection accountId={profile.id} title="Your health tracker">
+              <ReproductiveHealthCard
+                patientId={subjectId}
+                organisationId={profile.organisation_id}
+              />
+            </PrivateSection>
           )}
           {profile.sex === "male" && <MensHealthCard patientId={subjectId} />}
         </div>

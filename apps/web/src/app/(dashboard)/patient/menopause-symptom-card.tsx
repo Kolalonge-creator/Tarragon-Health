@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 import { cn } from "@/lib/utils";
+import { t } from "@tarragon/i18n";
 
 import { formatPatientDate } from "@/lib/format-date";
 /**
@@ -53,10 +54,16 @@ export function MenopauseSymptomCard({ patientId }: { patientId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Menopause</CardTitle>
-        <CardDescription>Track symptoms so you and your care team can see patterns over time.</CardDescription>
+        <CardTitle>{t("menopause.title")}</CardTitle>
+        <CardDescription>{t("menopause.intro")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* S66 (A15): education only. No score and no advice about hormone treatment. Words are proposed copy awaiting CMO review. */}
+        <ul className="list-disc space-y-1 pl-5 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
+          <li>{t("menopause.education_1")}</li>
+          <li>{t("menopause.education_2")}</li>
+          <li>{t("menopause.education_3")}</li>
+        </ul>
         <form action={formAction} className="space-y-4">
           <div className="space-y-1.5">
             <Label>Symptoms today</Label>
@@ -102,9 +109,8 @@ export function MenopauseSymptomCard({ patientId }: { patientId: string }) {
             I&apos;ve had bleeding since menopause
           </label>
           {bleeding && (
-            <p className="text-xs text-amber-700 dark:text-amber-300">
-              Any bleeding after menopause always needs assessment. Reporting this notifies your
-              care team.
+            <p role="alert" className="text-sm font-medium text-amber-800 dark:text-amber-300">
+              {t("menopause.bleeding_urgent")}
             </p>
           )}
 

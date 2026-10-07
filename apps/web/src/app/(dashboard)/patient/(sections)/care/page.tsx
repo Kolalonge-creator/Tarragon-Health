@@ -32,6 +32,9 @@ export default async function PatientCarePage() {
   const { profile, subjectId, uiLanguage } = await getPatientDashboardContext();
   const supabase = await createClient();
   const coachAccess = await hasCoachAccess(supabase);
+  // S69: the community link shows only when community is open for this person (module and go-live guard, or a test account); a failed read hides it.
+  const { data: communityStatus } = await supabase.rpc("community_status");
+  const showCommunity = typeof communityStatus === "object" && communityStatus !== null && !Array.isArray(communityStatus) && communityStatus.open === true;
 
   return (
     <DashboardSection
@@ -91,7 +94,7 @@ export default async function PatientCarePage() {
           <SeniorCaseReviewCard patientId={subjectId} />
           {coachAccess && <AiCoachChat patientId={subjectId} />}
           <ServiceNavigationAssistant />
-          <CareCircleCard />
+          <CareCircleCard showCommunity={showCommunity} />
           <YourReferrals patientId={subjectId} />
           <NavigationRequests patientId={subjectId} />
         </div>

@@ -4,7 +4,7 @@ import * as BackgroundTask from "expo-background-task";
 import { supabase } from "./supabase";
 import { configureIOSBackgroundDelivery, subscribeToIOSHealthChanges } from "./healthkit";
 import { syncAppleHealth, syncHealthConnect } from "./health-sync";
-import { flushDeviceReadingsQueue } from "./offline-queue";
+import { flushDeviceReadingsQueue, flushPhotoReadingsQueue } from "./offline-queue";
 import { recordSyncError } from "./sync-diagnostics";
 import { flushOutbox } from "./outbox";
 import { syncReminders } from "./reminder-notifications";
@@ -69,6 +69,8 @@ TaskManager.defineTask(TASK_NAME, async () => {
     // reading queued by sync-screen.tsx after a failed upload; see
     // offline-queue.ts.
     const deviceReadingsFlush = await flushDeviceReadingsQueue();
+    // S70a: a photo reading the person confirmed while offline (offline-queue.ts). Best effort, like every flush here.
+    await flushPhotoReadingsQueue().catch(() => undefined);
 
     // Unconditional, unlike the platform-specific health sync below — the
     // offline vitals queue (offline-vitals-queue.ts) and the threshold

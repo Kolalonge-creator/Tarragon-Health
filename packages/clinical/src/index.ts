@@ -1,6 +1,6 @@
 export { grade, recheckWindowMinutes } from "./engine";
 export { validateInput, validateRuleSet } from "./validate";
-export { BP_CARE_V1, BP_CARE_V3 } from "./rules";
+export { BP_CARE_V1, BP_CARE_V3, BP_CARE_V4 } from "./rules";
 export { actionToString } from "./actions";
 export { summarise, expectationWithDefaults, type ResultSummary } from "./summary";
 export { TRIAGE_MESSAGE_KEYS, messageKeyFor } from "./messages";
@@ -12,3 +12,4 @@ export { screenWrittenQuestion, WRITTEN_QUESTION_DANGER_PHRASES, type WrittenQue
 export { proposeTitration, validateProtocolDefinition, proposalToChangeArgs, ProtocolDefinitionError } from "./titration";
 export { TITRATION_STOP_KEYS, TITRATION_LABEL_KEYS } from "./titration-messages";
 export type * from "./titration-types";
+export * from "./maternal";

@@ -4,6 +4,7 @@ import type { Database, TablesInsert } from "@tarragon/shared";
 import { assessBpControlBestEffort } from "@/lib/ml/assess-bp-control";
 import { assessHeartRateBestEffort } from "@/lib/vitals/assess-heart-rate";
 import { runBestEffort } from "@/lib/sentry/run-best-effort";
+import { anyDeviceModuleOn, readDeviceFlags } from "@/lib/devices/flags";
 import {
   consentDecisionFor,
   FULL_WEARABLE_CONSENT,
@@ -78,6 +79,9 @@ export interface IngestResult {
    * screening result event"). See the try/catch around the assessment calls
    * below for why this can't throw its way into `failed` instead. */
   safetyAssessmentFailed: boolean;
+  /** S70a: readings the database accepted without storing them in the record: held for the person to check (impossible value) or linked to a
+   * better source's reading already there (cross-source de-duplication). Only counted while one of those switches is on. Neither is an error. */
+  heldOrMerged?: number;
 }
 
 /**
@@ -195,9 +199,14 @@ export async function ingestReadings(
     });
   }
 
+  // S70a: with the plausibility hold or the de-duplication switch on, an insert can succeed and store nothing in the record, so "inserted"
+  // has to mean "landed". Off (today): the insert is exactly what it was.
+  const flags = await readDeviceFlags(svc);
+  const track = flags.device_plausibility_hold || flags.device_cross_source_dedupe;
   const vitalsOutcome = await insertDeduping(vitalsRows, (batch) =>
-    svc.from("vitals_readings").insert(batch)
+    track ? svc.from("vitals_readings").insert(batch).select("id") : svc.from("vitals_readings").insert(batch)
   );
+  if (track) result.heldOrMerged = vitalsOutcome.heldOrMerged;
   const wearableOutcome = await insertDeduping(wearableRows, (batch) =>
     svc.from("wearable_readings").insert(batch)
   );
@@ -289,6 +298,21 @@ export async function ingestReadings(
       );
       if (failed) result.safetyAssessmentFailed = true;
     }
+  }
+
+  // device.synced (S10 outbox): one event per connection per ten minutes. Never a reason to fail a sync that already stored its readings.
+  if (anyDeviceModuleOn(flags) && result.vitalsInserted + result.wearableInserted > 0) {
+    await runBestEffort(
+      async () => {
+        await svc.rpc("emit_device_synced", {
+          p_patient: target.patientId,
+          p_source: "wearable",
+          p_readings: result.vitalsInserted + result.wearableInserted,
+          p_ref: target.connectionId,
+        });
+      },
+      { action: "ingestReadings", stage: "device_synced_event", patientId: target.patientId, organisationId: target.organisationId }
+    );
   }
 
   // Last, so everything that DID land is committed, counted, bridged to the
@@ -402,16 +426,22 @@ interface DedupingOutcome {
   /** The first non-duplicate error, kept so the caller can put a real reason
    * in last_sync_error instead of a shrug. */
   error: InsertError | null;
+  /** S70a: rows the database took without storing them in the record (held or merged). Always 0 unless the insert returned its rows. */
+  heldOrMerged: number;
 }
 
 async function insertDeduping<Row>(
   rows: Row[],
-  insert: (batch: Row[]) => PromiseLike<{ error: InsertError | null }>
+  insert: (batch: Row[]) => PromiseLike<{ error: InsertError | null; data?: unknown[] | null }>
 ): Promise<DedupingOutcome> {
-  if (rows.length === 0) return { inserted: 0, duplicates: 0, failed: 0, error: null };
+  if (rows.length === 0) return { inserted: 0, duplicates: 0, failed: 0, error: null, heldOrMerged: 0 };
 
-  const { error } = await insert(rows);
-  if (!error) return { inserted: rows.length, duplicates: 0, failed: 0, error: null };
+  const { error, data } = await insert(rows);
+  if (!error) {
+    // When the insert handed its rows back (S70a, switches on), count what actually landed in the record.
+    const landed = Array.isArray(data) ? data.length : rows.length;
+    return { inserted: landed, duplicates: 0, failed: 0, error: null, heldOrMerged: rows.length - landed };
+  }
 
   // Retry row by row on ANY batch error, not only on 23505.
   //
@@ -427,15 +457,18 @@ async function insertDeduping<Row>(
   let inserted = 0;
   let duplicates = 0;
   let failed = 0;
+  let heldOrMerged = 0;
   let firstError: InsertError | null = null;
   for (const row of rows) {
-    const { error: rowError } = await insert([row]);
-    if (!rowError) inserted += 1;
-    else if (rowError.code === "23505") duplicates += 1;
+    const { error: rowError, data: rowData } = await insert([row]);
+    if (!rowError) {
+      if (Array.isArray(rowData) && rowData.length === 0) heldOrMerged += 1;
+      else inserted += 1;
+    } else if (rowError.code === "23505") duplicates += 1;
     else {
       failed += 1;
       firstError ??= rowError;
     }
   }
-  return { inserted, duplicates, failed, error: firstError };
+  return { inserted, duplicates, failed, error: firstError, heldOrMerged };
 }

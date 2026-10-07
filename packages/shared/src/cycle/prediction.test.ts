@@ -8,7 +8,7 @@ import {
   NORMAL_PERIOD_MAX_DAYS,
   type CyclePredictionInput,
   type ObservedPeriod,
-} from "./cycle-prediction";
+} from "./prediction";
 
 /** Builds a run of perfectly regular periods ending at `lastStart`. */
 function regularPeriods(
@@ -30,6 +30,9 @@ function input(overrides: Partial<CyclePredictionInput> = {}): CyclePredictionIn
     periods: [],
     today: "2026-09-02",
     lifeStage: "menstruating",
+    // The golden cases below exercise the whole engine, so planning mode is on unless a case says otherwise. The "planning mode is off"
+    // block at the end of the file proves the default (S66, decision A14).
+    conceptionPlanning: true,
     ...overrides,
   };
 }

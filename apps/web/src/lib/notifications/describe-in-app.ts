@@ -566,8 +566,8 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     return { text: "Time to log your vitals", href: "/patient/vitals" };
   }
   if (n.template === "wellness_challenge_ending") {
-    const title = String(payload.challenge_title ?? "Your challenge");
-    return { text: `${title} ends soon, keep going`, href: "/patient/wellness" };
+    // INV-07 (S69b): neutral, nothing from the payload is echoed
+    return { text: "Your challenge ends soon, keep going", href: "/patient/wellness" };
   }
   if (n.template === "second_condition_needs_upgrade") {
     // From private.ensure_medication_review() — the patient's second
@@ -619,6 +619,10 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "circle_check_in") {
     // From private.notify_circle_red_alert (S29): fixed neutral line for a supporter who holds red_alerts (INV-07).
     return { text: "Someone in your Care Circle may need you. Please call them.", href: "/patient/supporting" };
+  }
+  if (n.template === "community_update") {
+    // S69 (INV-07): one generic line for every community milestone; never a cohort name, metric, figure or condition.
+    return { text: "Your group has an update", href: "/patient/community" };
   }
   if (n.template === "circle_joined") {
     return { text: "Someone has joined your Care Circle", href: "/patient/care-circle" };
@@ -775,16 +779,10 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     n.template === "cycle_period_due_today" ||
     n.template === "cycle_period_late"
   ) {
-    // From lib/cycle/reminders.ts. Worded softly on purpose: an estimate
-    // that turns out to be wrong should read as a guess that missed, not as
-    // the app telling somebody something is wrong with them.
-    const days = Number(payload.days_overdue ?? 0);
-    const text =
-      n.template === "cycle_period_due_soon"
-        ? "Your period is expected in a couple of days"
-        : n.template === "cycle_period_due_today"
-          ? "Your period is expected around today"
-          : `Your period is ${days} days later than expected. Cycles shift for all sorts of reasons.`;
+    // From lib/cycle/reminders.ts. S66 (INV-07, decision A14): the inbox preview names nothing. A phone is read over shoulders and
+    // shared, so the text is the same for every cycle reminder and says only that the tracker has something. What it is, and the
+    // estimate behind it, is shown inside the private section after the PIN. The three template keys stay (they drive dedupe).
+    const text = "Your tracker has an update";
     return { text, href: "/patient/cycle" };
   }
   if (n.template === "finance_posting_failed") {

@@ -12,8 +12,11 @@ import { ContraceptionCard } from "@/app/(dashboard)/patient/contraception-card"
 import { AntenatalCard } from "@/app/(dashboard)/patient/antenatal-card";
 import { PregnancyRedFlagCheck } from "@/app/(dashboard)/patient/pregnancy-red-flag-check";
 import { PostnatalCard } from "@/app/(dashboard)/patient/postnatal-card";
+import { BabyChecksCard, FeedLogCard, LifecycleCard, TrackerDeletionCard } from "@/app/(dashboard)/patient/maternal-child-cards";
 import { BreastSymptomCard } from "@/app/(dashboard)/patient/breast-symptom-card";
 import { MenopauseSymptomCard } from "@/app/(dashboard)/patient/menopause-symptom-card";
+import { PrivateSection } from "@/components/private-section/private-section";
+import { CycleDangerSigns } from "@/app/(dashboard)/patient/cycle/cycle-danger-signs";
 import { FertilityRequestCard } from "@/app/(dashboard)/patient/fertility-request-card";
 import { formatPatientDate } from "@/lib/format-date";
 import { todayIsoDate } from "@/lib/queries/medications";
@@ -171,108 +174,125 @@ export default async function WomensHealthPage() {
       title="Women's Health"
       description="Prevention, reproductive health, pregnancy, postnatal care and long-term health, in one place."
     >
-      <Card>
-        <CardContent className="grid grid-cols-2 gap-4 py-4 sm:grid-cols-4">
-          <SummaryStat
-            label="Cycle"
-            value={
-              reproUnknown ? "Not available" : reproProfile?.last_period_date ? "Tracked" : "Not tracked"
-            }
-          />
-          {gestationalEstimate && (
-            <SummaryStat label="Antenatal" value={`Week ${gestationalEstimate.weeks}`} />
+      {/* S66: the whole section sits behind the private PIN (optional, on by default). What stays OUTSIDE it is emergency content only:
+          the danger signs, the pregnancy red-flag check and the "go to your nearest hospital" notice, none of which shows a personal figure. */}
+      <PrivateSection
+        accountId={profile.id}
+        title="Your health tracker"
+        outside={
+          <>
+            <CycleDangerSigns />
+            {activePregnancy && <PregnancyRedFlagCheck patientId={subjectId} />}
+          {pregnancyUnknown && (
+            <Card variant="soft">
+              <CardContent className="space-y-2 py-4 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
+                <p className="font-medium text-charcoal-ink dark:text-night-ink">
+                  We couldn&apos;t load your pregnancy record just now
+                </p>
+                <p>
+                  That is not the same as there being nothing there, so nothing below assumes either
+                  way. Please refresh and try again. If you are pregnant and something doesn&apos;t
+                  feel right, message your care team or go to your nearest hospital rather than
+                  waiting for this page.
+                </p>
+              </CardContent>
+            </Card>
           )}
-          <Link
-            href="/patient/prevention"
-            className="-m-1 rounded-md p-1 transition hover:bg-charcoal-ink/5 dark:hover:bg-night-ink/10"
-          >
+
+          </>
+        }
+      >
+        <Card>
+          <CardContent className="grid grid-cols-2 gap-4 py-4 sm:grid-cols-4">
             <SummaryStat
-              label="Next screening"
+              label="Cycle"
               value={
-                nextScreening
-                  ? `${nextScreening.screen_type?.name ?? "Screening"} · ${
-                      nextScreeningOverdue
-                        ? "Overdue"
-                        : formatPatientDate(nextScreening.due_date, { month: "short", day: "numeric" })
-                    }`
-                  : "No screening due"
-              }
-              valueClassName={
-                nextScreeningOverdue
-                  ? "text-red-600 dark:text-red-400"
-                  : "text-brand-green dark:text-brand-green-bright"
+                reproUnknown ? "Not available" : reproProfile?.last_period_date ? "Tracked" : "Not tracked"
               }
             />
-          </Link>
-        </CardContent>
-      </Card>
-
-      {profile.organisation_id && <ReproductiveHealthCard patientId={subjectId} organisationId={profile.organisation_id} />}
-
-      {reproUnknown && (
-        <Card variant="soft">
-          <CardContent className="space-y-2 py-4 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
-            <p className="font-medium text-charcoal-ink dark:text-night-ink">
-              We couldn&apos;t load your reproductive health profile just now
-            </p>
-            <p>
-              Your cycle, contraception and life stage are stored, we simply couldn&apos;t read
-              them on this page load. Anything below that depends on them is hidden rather than
-              guessed at. Please refresh and try again.
-            </p>
+            {gestationalEstimate && (
+              <SummaryStat label="Antenatal" value={`Week ${gestationalEstimate.weeks}`} />
+            )}
+            <Link
+              href="/patient/prevention"
+              className="-m-1 rounded-md p-1 transition hover:bg-charcoal-ink/5 dark:hover:bg-night-ink/10"
+            >
+              <SummaryStat
+                label="Next screening"
+                value={
+                  nextScreening
+                    ? `${nextScreening.screen_type?.name ?? "Screening"} · ${
+                        nextScreeningOverdue
+                          ? "Overdue"
+                          : formatPatientDate(nextScreening.due_date, { month: "short", day: "numeric" })
+                      }`
+                    : "No screening due"
+                }
+                valueClassName={
+                  nextScreeningOverdue
+                    ? "text-red-600 dark:text-red-400"
+                    : "text-brand-green dark:text-brand-green-bright"
+                }
+              />
+            </Link>
           </CardContent>
         </Card>
-      )}
 
-      {pregnancyUnknown && (
-        <Card variant="soft">
-          <CardContent className="space-y-2 py-4 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
-            <p className="font-medium text-charcoal-ink dark:text-night-ink">
-              We couldn&apos;t load your pregnancy record just now
-            </p>
-            <p>
-              That is not the same as there being nothing there, so nothing below assumes either
-              way. Please refresh and try again. If you are pregnant and something doesn&apos;t
-              feel right, message your care team or go to your nearest hospital rather than
-              waiting for this page.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+        {profile.organisation_id && <ReproductiveHealthCard patientId={subjectId} organisationId={profile.organisation_id} />}
 
-      {activePregnancy && (
-        <>
-          <AntenatalCard
-            patientId={subjectId}
-            lastMenstrualPeriodDate={activePregnancy.last_menstrual_period_date}
-            estimatedDueDate={activePregnancy.estimated_due_date}
-            highRisk={activePregnancy.high_risk}
+        {reproUnknown && (
+          <Card variant="soft">
+            <CardContent className="space-y-2 py-4 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
+              <p className="font-medium text-charcoal-ink dark:text-night-ink">
+                We couldn&apos;t load your reproductive health profile just now
+              </p>
+              <p>
+                Your cycle, contraception and life stage are stored, we simply couldn&apos;t read
+                them on this page load. Anything below that depends on them is hidden rather than
+                guessed at. Please refresh and try again.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {activePregnancy && (
+          <>
+            <AntenatalCard
+              patientId={subjectId}
+              lastMenstrualPeriodDate={activePregnancy.last_menstrual_period_date}
+              estimatedDueDate={activePregnancy.estimated_due_date}
+              highRisk={activePregnancy.high_risk}
+            />
+          </>
+        )}
+
+        {showPostnatal && <PostnatalCard patientId={subjectId} />}
+
+        {showContraception && (
+          <ContraceptionCard
+            initialMethod={reproProfile?.current_contraception_method ?? null}
+            cautionNote={contraceptionCautionNote(activeConditions)}
           />
-          <PregnancyRedFlagCheck patientId={subjectId} />
-        </>
-      )}
+        )}
 
-      {showPostnatal && <PostnatalCard patientId={subjectId} />}
+        {showFertility && <FertilityRequestCard patientId={subjectId} />}
 
-      {showContraception && (
-        <ContraceptionCard
-          initialMethod={reproProfile?.current_contraception_method ?? null}
-          cautionNote={contraceptionCautionNote(activeConditions)}
-        />
-      )}
+        {showPostnatal && <BabyChecksCard patientId={subjectId} />}
+        {showPostnatal && <FeedLogCard patientId={subjectId} organisationId={profile.organisation_id ?? null} />}
+        <LifecycleCard />
+        <TrackerDeletionCard patientId={subjectId} />
 
-      {showFertility && <FertilityRequestCard patientId={subjectId} />}
+        {showMenopause && <MenopauseSymptomCard patientId={subjectId} />}
+        {showMenopause && menopauseTreatmentCautionNote(activeConditions) && (
+          <Card>
+            <CardContent className="py-4 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
+              {menopauseTreatmentCautionNote(activeConditions)}
+            </CardContent>
+          </Card>
+        )}
 
-      {showMenopause && <MenopauseSymptomCard patientId={subjectId} />}
-      {showMenopause && menopauseTreatmentCautionNote(activeConditions) && (
-        <Card>
-          <CardContent className="py-4 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
-            {menopauseTreatmentCautionNote(activeConditions)}
-          </CardContent>
-        </Card>
-      )}
-
-      <BreastSymptomCard patientId={subjectId} />
+        <BreastSymptomCard patientId={subjectId} />
+      </PrivateSection>
     </DashboardSection>
   );
 }

@@ -88,8 +88,9 @@ const ACTIONS: readonly QuickAction[] = [
  */
 const CYCLE_ACTION: QuickAction = {
   icon: "family",
-  label: "Your cycle",
-  hint: "Log your period, see what's next",
+  // S66 (A14, privacy): the dashboard home is the screen most likely to be seen by somebody else, so the tile names nothing.
+  label: "Your tracker",
+  hint: "Log and see what's next",
   href: "/patient/cycle",
 };
 

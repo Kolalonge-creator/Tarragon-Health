@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
-  BP_CARE_V1,
+  BP_CARE_V4,
   recheckWindowMinutes,
   grade,
   messageKeyFor,
@@ -119,7 +119,7 @@ export async function loadDeviceRuleSet(): Promise<DeviceRuleSet> {
   } catch {
     // fall through to the bundled copy
   }
-  return { ruleSet: BP_CARE_V1, status: "draft" };
+  return { ruleSet: BP_CARE_V4, status: "draft" };
 }
 
 /**
@@ -310,7 +310,7 @@ export async function gradeOnDevice(req: DeviceTriageRequest): Promise<DeviceTri
   const now = new Date(nowMs).toISOString();
   // Both reads start together so the worst case is one budget, not two: a red result must show in under a second (INV-06).
   const [rules, ctx] = await Promise.all([
-    withBudget(loadDeviceRuleSet(), { ruleSet: BP_CARE_V1, status: "draft" as const }, CONTEXT_BUDGET_MS),
+    withBudget(loadDeviceRuleSet(), { ruleSet: BP_CARE_V4, status: "draft" as const }, CONTEXT_BUDGET_MS),
     withBudget<Omit<Context, "rules">>(
       loadContext(req.subjectId, req.userId ?? req.subjectId, nowMs),
       { history: [], target: { ...FALLBACK_TARGET }, pending: null, facts: { dateOfBirth: null, pregnant: false }, obstetric: null },

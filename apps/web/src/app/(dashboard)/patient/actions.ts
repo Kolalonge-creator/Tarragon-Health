@@ -1,5 +1,7 @@
 "use server";
 
+import { HELD_READING_COPY } from "@tarragon/shared";
+import { readDeviceFlags } from "@/lib/devices/flags";
 import { randomUUID } from "crypto";
 import * as Sentry from "@sentry/nextjs";
 import { revalidatePath } from "next/cache";
@@ -162,14 +164,30 @@ async function logVitalInner(data: VitalsReadingInput): Promise<LogVitalActionSt
     row = reading;
   }
 
-  const { error } = await supabase.from("vitals_readings").insert({
+  const insertQuery = supabase.from("vitals_readings").insert({
     ...row,
     taken_at: taken_at ? new Date(taken_at).toISOString() : undefined,
     patient_id: subjectId,
     organisation_id: profile.organisation_id,
   });
+  // S70a (18.9): with the plausibility hold on, the database can accept a typed value without storing it (a number that cannot be real is
+  // held for the person to check). That must never be reported as saved, so the rows come back and an empty answer is looked into.
+  // Off (today): exactly the old insert.
+  const holdFlags = await readDeviceFlags(supabase);
+  const watching = holdFlags.device_plausibility_hold || holdFlags.device_cross_source_dedupe;
+  const { error, data: storedRows } = watching ? await insertQuery.select("id") : await insertQuery.then((r) => ({ ...r, data: null }));
   if (error) {
     return { error: error.message };
+  }
+  if (watching && Array.isArray(storedRows) && storedRows.length === 0 && holdFlags.device_plausibility_hold) {
+    const { data: heldNow } = await supabase
+      .from("vitals_readings_held")
+      .select("id")
+      .eq("patient_id", subjectId)
+      .eq("state", "pending")
+      .gte("created_at", new Date(Date.now() - 60_000).toISOString())
+      .limit(1);
+    if (heldNow && heldNow.length > 0) return { error: HELD_READING_COPY.body };
   }
 
   // From here on the reading is durably saved. The assess*BestEffort helpers
