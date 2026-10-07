@@ -1535,3 +1535,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-344 Not run, and mobile gaps
 - No browser, device or real SMS run of any new screen. The mobile privacy screen's older consent list still has hard-coded English; the mobile app has no PDF download link. Sponsor wording, Care Circle consent text and the hand-over consent text await counsel.
 - Decision: open.
+
+### OQ-345 The OQ-53 rule on the older consent table exempts service and migration contexts
+- `patient_consents` now refuses a withdrawn row for a required version for any signed-in session (patient, clinician, admin). A context with no `auth.uid()` (service role, migrations, older proofs `s02` and `s04` that insert history as fixtures) is exempt, so a service-role code path could still write one. The new matrix table has no such exemption (proved for the table owner).
+- Decision: open (tighten when the older proofs are rewritten, or accept).

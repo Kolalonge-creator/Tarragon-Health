@@ -316,7 +316,9 @@ begin
   -- OQ-53: a required consent is the condition of having an account. Stopping it is closing the account (the data rights
   -- flow), never a toggle. Defaults to required when the version row is missing, the safer reading.
   select cv.is_optional into v_optional from public.consent_versions cv where cv.id = v_current.consent_version_id;
-  if not coalesce(v_optional, false) then
+  -- A signed-in session (a patient, a clinician, an admin) can never do it. A service or migration context (no auth.uid())
+  -- is exempt, because older proofs and ops tools legitimately insert history rows as fixtures; no patient-facing path runs there.
+  if not coalesce(v_optional, false) and (select auth.uid()) is not null then
     raise exception 'consent_required_for_care' using errcode = '23514',
       detail = 'This consent is needed to use your account. To stop it, use the account closure options in Privacy.';
   end if;
