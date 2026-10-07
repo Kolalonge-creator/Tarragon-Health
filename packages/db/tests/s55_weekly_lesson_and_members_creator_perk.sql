@@ -92,7 +92,7 @@ end $f$;
 
 do $$
 declare
-  v_org uuid; v_admin uuid; v_pw uuid; v_pm uuid; v_pn uuid; v_pe uuid; v_cc uuid; v_other uuid;
+  v_org uuid; v_admin uuid; v_pw uuid; v_ps uuid; v_pm uuid; v_pn uuid; v_pe uuid; v_cc uuid; v_other uuid;
   v_cr uuid; v_w1 uuid; v_w2 uuid; v_w3 uuid; v_cm uuid; v_probe uuid; v_cart uuid; v_free uuid; v_n integer; v_t text;
   v_q constant text := '[{"question":"q","options":["a","b"],"answer_index":0}]';
 begin
@@ -147,6 +147,13 @@ begin
   perform pg_temp.ck('W9 a lesson over the configured minutes is not offered',
     pg_temp.as_count(v_pw, $q$select count(*) from public.weekly_micro_lesson() where code = 'wk-3'$q$) = 0);
   update public.health_education_content set estimated_minutes = 5 where id = v_w3;
+
+  -- a lesson that was only opened (status 'seen') in week 1 must not outrank the lesson that is due in week 3
+  v_ps := pg_temp.mkuser(v_org, 'seen-only', 'patient');
+  insert into public.health_education_progress (organisation_id, patient_id, content_id, status, created_at)
+  values (v_org, v_ps, v_w1, 'seen', now() - interval '15 days');
+  perform pg_temp.ck('W9b an old lesson that was only opened does not block the lesson due this week',
+    pg_temp.as_text(v_ps, $q$select code from public.weekly_micro_lesson()$q$) = 'wk-3');
 
   perform pg_temp.ck('W10 anon cannot call it', pg_temp.as_count(null, 'select count(*) from public.weekly_micro_lesson()') = -1);
   perform pg_temp.ck('W11 the daily function is gone', to_regprocedure('public.daily_micro_lesson()') is null);
@@ -239,6 +246,10 @@ begin
     and pg_temp.as_count(null, $q$select count(*) from public.health_education_item_trust(array['cr-article'])$q$) = -1
     and pg_temp.as_count(null, 'select count(*) from public.learning_offline_pack()') = -1);
 
+  insert into public.health_education_translations (content_id, language, title, body) values (v_cart, 'en', 'T', 'TRANSLATED-BODY');
+  perform pg_temp.ck('M20a a locked lesson''s translation is hidden from a non-member and open to a Member',
+    pg_temp.as_count(v_pn, $q$select count(*) from public.health_education_translations$q$) = 0
+    and pg_temp.as_count(v_pm, $q$select count(*) from public.health_education_translations$q$) = 1);
   -- staff and the creator are not locked out
   perform pg_temp.ck('M20 the creator and an admin read the body',
     pg_temp.as_text(v_cc, $q$select body from public.health_education_content_detail('cr-article')$q$) = 'BODY-cr-article'
