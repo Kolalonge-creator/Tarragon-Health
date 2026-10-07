@@ -209,3 +209,28 @@ describe("the real Chief Medical Officer menu", () => {
     expect(hits).not.toContain("/admin/memberships");
   });
 });
+
+describe("Learning Centre admin pages (S55) are searchable", () => {
+  const idx = buildAdminSearchIndex([], []);
+  const top = (q: string) => searchAdminEntries(idx, q, 3).map((e) => e.href);
+
+  it("finds the creators page by what an admin would type", () => {
+    expect(top("creators")[0]).toBe("/admin/settings/health-education/creators");
+    expect(top("verify mdcn")[0]).toBe("/admin/settings/health-education/creators");
+  });
+  it("finds the readiness page", () => {
+    expect(top("placeholder")[0]).toBe("/admin/settings/health-education/readiness");
+    expect(top("review date")[0]).toBe("/admin/settings/health-education/readiness");
+  });
+  it("finds the zero-result search page", () => {
+    expect(top("no result")[0]).toBe("/admin/settings/health-education/search-gaps");
+    expect(top("synonyms")[0]).toBe("/admin/settings/health-education/search-gaps");
+  });
+});
+
+describe("Learning creator credentials page for clinicians (S55)", () => {
+  it("is findable by the Chief Medical Officer", () => {
+    const cmoIdx = buildAdminSearchIndex([], [], CMO_EXTRA_PAGES);
+    expect(searchAdminEntries(cmoIdx, "mdcn creator", 3).map((e) => e.href)[0]).toBe("/clinician/learning-creator");
+  });
+});

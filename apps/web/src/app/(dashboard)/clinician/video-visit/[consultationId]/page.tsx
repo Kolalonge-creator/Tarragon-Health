@@ -5,6 +5,7 @@ import { getCurrentClinicalStaff, getCurrentProfile } from "@/lib/auth/current-p
 import { hasPrescribingAuthority, isClinicalTier } from "@/lib/clinical/doctor-tier";
 import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
 import { ConsultationScreen } from "./consultation-screen";
+import { SavedLessonsCard } from "./saved-lessons-card";
 
 export default async function ClinicianVideoVisitPage({
   params,
@@ -53,6 +54,7 @@ export default async function ClinicianVideoVisitPage({
           </Link>
         )}
       </div>
+      <SavedLessonsCard patientId={consult.patient_id} consultationId={consult.id} />
       <ConsultationScreen
         consultationId={consult.id}
         organisationId={consult.organisation_id}

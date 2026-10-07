@@ -1681,6 +1681,61 @@ Four defects from `docs/design/S55-S60-build-plan.md` section 5, fixed ahead of 
 - Review round 2 (2026-10-07): the protocol-bump behaviour was changed from hidden-until-re-approved to flagged, visible notice, served until its own date (OQ-F1-04); the crisis `crisis.notified` marker no longer depends on the event or task step, so a replay after a partial failure never pages the same person twice; a five-minute retry sweep (`retry-crisis-follow-ups`) completes a failed crisis follow-up by itself (at most five errors per screen); trigger functions and the flag job had their PUBLIC execute revoked.
 - Accepted, recorded: the guard check on the web action answers for the signed-in person while the table checks the person acted for (only differs for a test account acting for a real dependant; the table is the gate). The AI coach medicine tool relies on RLS for expiry (patient sessions are covered; an admin session sees everything by design). The draft SLA's version is computed at apply time (highest plus one): re-check `max(version)` at apply. See OQ-F1-02, OQ-F1-03, OQ-F1-04.
 
+
+### OQ-S55-01 The spec says en and pcm; the product is English only (D-14)
+- Blocks: nothing built; the `learn` namespace is English only and `LOCALES` is `["en"]`.
+- Conflict: S55 asks for `learn` strings in en and pcm. Founder decision D-14 (2026-10-07, reverses D-13) removed Pidgin and every other language because unreviewed clinical translation is a safety risk.
+- Built: English only. The search synonym table still holds everyday Nigerian words people type ("belle", "agbo", "hot body", "high blood") because search expansion maps what patients type to clinical words; it is not a translation of any content.
+- Needed: the founder confirms the everyday words may stay in the PROPOSED synonym table (a new config version removes any). The CMO confirms each group.
+- Decision: open.
+
+### OQ-S55-02 Creator revenue share is not built
+- Blocks: paying any creator; the creator programme itself (invite, verify, credit, suspend) is built.
+- Needs: payment model (per item, per use, flat fee, none), who bears indemnity, whether creators contract with Tarragon, tax treatment (S30/S31 fee schedules and payouts exist for clinicians and may be the route). Credentialing evidence standard is also open: today an admin records what they sighted as free text next to the MDCN number.
+- Decision: open (founder, with counsel).
+
+### OQ-S55-03 Offline audio files are not downloaded on the phone
+- The pack stores text, counts each lesson's recording size (from the bundled S32 manifest) against the cap and records whether it fits (`withAudio`). The app has no file-download module and the S32 `post_signup` downloader is not built, so recordings are only played when bundled; otherwise the lesson shows its text. Adding a download module is a native change (new build and `runtimeVersion` bump, as for OQ-201). Web has no manifest audio playback (it plays an existing `audio_url`).
+- Decision: open (founder: when to ship the native module).
+
+### OQ-S55-04 Offline pack size cap
+- PROPOSED `learning.offline_pack`: 25 MB and 150 items per phone, audio on Wi-Fi only. Founder confirms (data cost, storage on 4 GB phones).
+- Decision: open.
+
+### OQ-S55-05 Zero-result search log and personal data
+- The log is built and **OFF** (`learning.search_gap_log` has `enabled: false`; a patient's search never writes a row). It also only ever records a search the person submitted (Enter or the Search button), never the half-typed words of a type-ahead. To switch it on, a new `search_gap_log` config version with `enabled: true` is needed, after the founder and the DPO confirm it.
+- PROPOSED rules once on: 60 characters, 6 words, shown to admins at 3 or more searches, deleted after 180 days, at most 5,000 rows (the lowest-count, oldest row makes room); phrases with an at-sign or five or more digits (however spaced) are never kept; no user, organisation, device or time of day is stored.
+- Known limits: the count is searches, not distinct people, so one person repeating a phrase reaches the threshold alone; a name or a health phrase typed into the box (for example "i have ...") is not detectable and would be stored. A fixed-vocabulary log would remove these, at the cost of losing unknown words, which is the point of the log. The DPO should decide whether free-text phrases are acceptable as anonymous aggregate data at all.
+- Decision: open (founder with the DPO).
+
+### OQ-S55-06 235 seeded items have no review date, reviewer, source or self-care step
+- The publish gate protects every new publication. The existing published items are grandfathered and listed in `/admin/settings/health-education/readiness`; none expires until a review date is set. This is clinical content work (the CMO or content owner), not an engineering fix. Until each item has a self-care step the template shows only the fixed actions for it.
+- The publish gate fires on the move INTO published. It cannot stop an admin clearing the reviewer, source or self-care step on an item that is already published, and the reviewer name is typed free text (not tied to the person who approved). A republish from review due passes once the date is moved forward; no new review is forced. These are design choices to confirm with the CMO.
+- Decision: open (CMO).
+
+### OQ-S55-07 Myth-busting series and daily lessons need clinical authors
+- Six DRAFT placeholders (titles and "needs a clinical author" only) sit in an inactive series. The topic list is a proposal. No micro-lesson exists yet (S33 BP course is not built), so the daily card draws nothing until clinicians author lessons. Nothing here can be published without a named clinical author and approval.
+- Decision: open (CMO).
+
+### OQ-S55-08 Saved lessons reach the clinician on the video visit screen only
+- "Ask your care team about this" saves the lesson; a clinician tied to the patient sees it on `/clinician/video-visit/<id>` (audited). The S21 consultation room and the in-app message thread do not show it yet.
+- Decision: open (product).
+
+### OQ-S55-09 A course completes only when every module is understood, including a module that has since expired
+- An expired module blocks `course.completed` until it is reviewed and republished. The alternative (complete over the in-date modules) could fire a completion event for a half-finished course. Chosen the strict reading; the founder can reverse it.
+- Decision: open.
+
+### OQ-S55-10 No consumer of lesson events yet; S47 Today screen not built
+- `lesson.completed` and `course.completed` are on the outbox for S58 (rewards). The daily card is a reusable component mounted on the patient dashboard, the Learn page and mobile Home; S47 can mount it on Today.
+- Decision: informational.
+
+### OQ-S55-11 Creators: no earnings, authoring or reinstatement beyond re-verification
+- A creator submits credentials at `/clinician/learning-creator` (no notice is sent to an invited clinician automatically; the admin screen tells the admin to pass the page on, and an invitation can be withdrawn); an admin verifies, suspends (their published items go back to review) or reinstates (back to invited with the old MDCN number and evidence cleared, so they must send credentials again, never straight to verified). Items written by a creator are still entered through the admin content form until the Module 25 CMS exists (S80).
+- Decision: informational.
+
+### OQ-S55-12 A failed lesson-event write opens one shared incident
+- If `lesson.completed` or `course.completed` cannot be written, the patient's progress is still saved, an `audit_log` row is written for each failure and one open sev1 incident covers all of them. A systematic failure therefore pages once, not once per patient. Confirm sev1 is the right class for a rewards-event failure (S58 is the only consumer, not built).
+- Decision: open.
 ### OQ-272 Emergency location versus "routes are never shared" (raised 2026-10-07, S48)
 - Spec 5.7 and the Module 5 acceptance test say routes are never shared; Part C bans public maps. The founder wants the patient to be locatable in an emergency, which is the opposite use of location data.
 - Options: (a) route recording stays private and a separate consented emergency-location feature is built (recommended, decision S48-1); (b) one recorder with a sharing switch (rejected: breaks the acceptance test); (c) no emergency location.
@@ -1739,3 +1794,9 @@ Four defects from `docs/design/S55-S60-build-plan.md` section 5, fixed ahead of 
 - Fixed in S11g and S11h: (a) the older server alert path now follows the 200/130 decision once the rule set is APPROVED: the old emergency range with no red-flag symptom (and not in pregnancy or after a birth) raises the Priority 1 alert but no patient emergency record; a symptom keeps it an emergency, and a symptom answered after the reading opens the emergency record then (migration `20261006000812`, proof `s11g`, a no-op until approval). The 160/100 and 135/85 bands are unchanged, so a 165/105 reading still pages Priority 1 for a reading the engine would treat as amber: that is the S12 band alignment of OQ-67 and needs the CMO. (f) Tapping the reminder or the server push now opens the blood pressure screen, from closed or running, once per tap (`notification-tap.ts`). (d) The Pidgin for the question's buttons and the reminder is drafted in the catalogue; the emergency guidance, triage messages and symptom names stay in English until a native reviewer and the CMO sign them; the full list is `docs/PIDGIN-REVIEW-S11.md`.
 - Still owed: (e) Android: not run (no Java or emulator image on this machine); `SCHEDULE_EXACT_ALARM` is not declared (OQ-73), so a reminder can arrive minutes late in Doze and the server backup push covers it. The native Pidgin review itself.
 - Decision: pending (item e, and the Pidgin sign-off).
+
+### OQ-INT-01 One emitter for lesson.completed and course.completed (found while stacking S55 on main-dev, 2026-10-07)
+- S33 (on main-dev) registers `lesson.completed` and `course.completed` with required keys `course_code`, `lesson_code`, `lesson_count` and emits them from `health_education_progress` for course lessons (completed means the teach-back was answered: `understood` or `needs_review`). S55 had registered the same two event types with other keys (`content_id`, `content_code`, `programme_id`, `programme_code`) and its own trigger, so every lesson would have failed the registered required-keys check, and S55's payload carried a content code that names a topic, which S33 deliberately avoids.
+- Resolved in the stack: S55 relies on S33's emitter and carries no second one (its unapplied migrations no longer register or emit the events); the S55 proof asserts S33's payload contract. S58 rewards award from the same event, and S58b's `bp_ten_day_micro` drafts no longer share the code `bp_care_course` with S33's 14-lesson course.
+- Not carried over, for a decision: S55's version wrote an audit row and opened ONE incident when an event write failed and never lost the patient's progress. S33's trigger has no such wrapper, so a failed event write raises and the progress insert fails. Decide whether S33's emitter should become best-effort with an incident (sev2 through `private.page_incident_sev`, added in S58b).
+- Decision: pending.

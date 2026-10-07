@@ -14103,6 +14103,7 @@ export type Database = {
       health_education_content: {
         Row: {
           approved_at: string | null
+          audio_clip_id: string | null
           audio_url: string | null
           author_name: string | null
           body: string
@@ -14115,13 +14116,17 @@ export type Database = {
           content_type: Database["public"]["Enums"]["health_education_content_type"]
           content_version: number
           created_at: string
+          creator_id: string | null
           drip_week: number | null
           embedding: string | null
           estimated_minutes: number | null
           evidence_source: string | null
           id: string
           is_active: boolean
+          is_micro_lesson: boolean
+          is_placeholder: boolean
           knowledge_check: Json | null
+          lesson_action: string | null
           max_age: number | null
           min_age: number | null
           min_risk_level: Database["public"]["Enums"]["risk_level"] | null
@@ -14132,6 +14137,8 @@ export type Database = {
           review_due_at: string | null
           reviewed_at: string | null
           reviewed_by_name: string | null
+          self_care_action: string | null
+          share_enabled: boolean
           sort_order: number
           source_reference: string | null
           summary: string | null
@@ -14140,11 +14147,11 @@ export type Database = {
           updated_at: string
           version: number
           video_url: string | null
-          audio_clip_id: string | null
           next_action: string | null
         }
         Insert: {
           approved_at?: string | null
+          audio_clip_id?: string | null
           audio_url?: string | null
           author_name?: string | null
           body: string
@@ -14157,13 +14164,17 @@ export type Database = {
           content_type?: Database["public"]["Enums"]["health_education_content_type"]
           content_version?: number
           created_at?: string
+          creator_id?: string | null
           drip_week?: number | null
           embedding?: string | null
           estimated_minutes?: number | null
           evidence_source?: string | null
           id?: string
           is_active?: boolean
+          is_micro_lesson?: boolean
+          is_placeholder?: boolean
           knowledge_check?: Json | null
+          lesson_action?: string | null
           max_age?: number | null
           min_age?: number | null
           min_risk_level?: Database["public"]["Enums"]["risk_level"] | null
@@ -14174,6 +14185,8 @@ export type Database = {
           review_due_at?: string | null
           reviewed_at?: string | null
           reviewed_by_name?: string | null
+          self_care_action?: string | null
+          share_enabled?: boolean
           sort_order?: number
           source_reference?: string | null
           summary?: string | null
@@ -14182,11 +14195,11 @@ export type Database = {
           updated_at?: string
           version?: number
           video_url?: string | null
-          audio_clip_id?: string | null
           next_action?: string | null
         }
         Update: {
           approved_at?: string | null
+          audio_clip_id?: string | null
           audio_url?: string | null
           author_name?: string | null
           body?: string
@@ -14199,13 +14212,17 @@ export type Database = {
           content_type?: Database["public"]["Enums"]["health_education_content_type"]
           content_version?: number
           created_at?: string
+          creator_id?: string | null
           drip_week?: number | null
           embedding?: string | null
           estimated_minutes?: number | null
           evidence_source?: string | null
           id?: string
           is_active?: boolean
+          is_micro_lesson?: boolean
+          is_placeholder?: boolean
           knowledge_check?: Json | null
+          lesson_action?: string | null
           max_age?: number | null
           min_age?: number | null
           min_risk_level?: Database["public"]["Enums"]["risk_level"] | null
@@ -14216,6 +14233,8 @@ export type Database = {
           review_due_at?: string | null
           reviewed_at?: string | null
           reviewed_by_name?: string | null
+          self_care_action?: string | null
+          share_enabled?: boolean
           sort_order?: number
           source_reference?: string | null
           summary?: string | null
@@ -14224,10 +14243,17 @@ export type Database = {
           updated_at?: string
           version?: number
           video_url?: string | null
-          audio_clip_id?: string | null
           next_action?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "health_education_content_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "learning_creators"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       health_education_content_status_history: {
         Row: {
@@ -14500,6 +14526,7 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean
+          kind: string
           sort_order: number
           title: string
           updated_at: string
@@ -14514,6 +14541,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          kind?: string
           sort_order?: number
           title: string
           updated_at?: string
@@ -14528,6 +14556,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          kind?: string
           sort_order?: number
           title?: string
           updated_at?: string
@@ -18306,6 +18335,192 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      learning_config: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          key: string
+          note: string | null
+          status: string
+          value: Json
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          key: string
+          note?: string | null
+          status?: string
+          value: Json
+          version: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          key?: string
+          note?: string | null
+          status?: string
+          value?: Json
+          version?: number
+        }
+        Relationships: []
+      }
+      learning_creators: {
+        Row: {
+          created_at: string
+          credential_evidence: string | null
+          display_name: string
+          id: string
+          indemnity_confirmed: boolean
+          invited_at: string
+          invited_by: string | null
+          mdcn_number: string | null
+          organisation_id: string
+          profile_id: string
+          status: string
+          status_note: string | null
+          updated_at: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          credential_evidence?: string | null
+          display_name: string
+          id?: string
+          indemnity_confirmed?: boolean
+          invited_at?: string
+          invited_by?: string | null
+          mdcn_number?: string | null
+          organisation_id: string
+          profile_id: string
+          status?: string
+          status_note?: string | null
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          credential_evidence?: string | null
+          display_name?: string
+          id?: string
+          indemnity_confirmed?: boolean
+          invited_at?: string
+          invited_by?: string | null
+          mdcn_number?: string | null
+          organisation_id?: string
+          profile_id?: string
+          status?: string
+          status_note?: string | null
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_creators_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_creators_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_creators_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_creators_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      learning_saved_for_consultation: {
+        Row: {
+          content_id: string
+          discussed_at: string | null
+          id: string
+          organisation_id: string
+          patient_id: string
+          saved_at: string
+        }
+        Insert: {
+          content_id: string
+          discussed_at?: string | null
+          id?: string
+          organisation_id: string
+          patient_id: string
+          saved_at?: string
+        }
+        Update: {
+          content_id?: string
+          discussed_at?: string | null
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          saved_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_saved_for_consultation_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "health_education_content"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_saved_for_consultation_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_saved_for_consultation_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      learning_search_gaps: {
+        Row: {
+          first_seen: string
+          hit_count: number
+          last_seen: string
+          query_norm: string
+        }
+        Insert: {
+          first_seen?: string
+          hit_count?: number
+          last_seen?: string
+          query_norm: string
+        }
+        Update: {
+          first_seen?: string
+          hit_count?: number
+          last_seen?: string
+          query_norm?: string
+        }
+        Relationships: []
       }
       lifestyle_barrier_reports: {
         Row: {
@@ -39114,6 +39329,15 @@ export type Database = {
         Args: { p_consultation_id: string }
         Returns: Json
       }
+      consultation_saved_lessons: {
+        Args: { p_patient: string }
+        Returns: {
+          code: string
+          discussed_at: string
+          saved_at: string
+          title: string
+        }[]
+      }
       convert_unit: {
         Args: { p_from_code: string; p_to_code: string; p_value: number }
         Returns: number
@@ -39234,6 +39458,27 @@ export type Database = {
           p_sponsor_profile_id: string
         }
         Returns: Json
+      }
+      daily_micro_lesson: {
+        Args: never
+        Returns: {
+          audio_clip_id: string
+          body: string
+          check_question: Json
+          code: string
+          completed_today: boolean
+          content_id: string
+          estimated_minutes: number
+          lesson_action: string
+          next_review_due: string
+          reviewed_at: string
+          reviewed_by_name: string
+          self_care_action: string
+          source_reference: string
+          status: Database["public"]["Enums"]["health_education_status"]
+          summary: string
+          title: string
+        }[]
       }
       data_retention_policy_summary: {
         Args: never
@@ -40027,6 +40272,25 @@ export type Database = {
           video_url: string
         }[]
       }
+      health_education_item_trust: {
+        Args: { p_codes: string[] }
+        Returns: {
+          audio_clip_id: string
+          clinical_author_name: string
+          clinician_reviewed: boolean
+          code: string
+          creator_name: string
+          evidence_source: string
+          is_micro_lesson: boolean
+          is_shareable: boolean
+          lesson_action: string
+          next_review_due: string
+          reviewed_at: string
+          reviewed_by_name: string
+          self_care_action: string
+          source_reference: string
+        }[]
+      }
       health_education_library: {
         Args: {
           p_category?: Database["public"]["Enums"]["health_education_category"]
@@ -40237,6 +40501,10 @@ export type Database = {
         }[]
       }
       invoice_letterhead_details: { Args: never; Returns: Json }
+      invite_learning_creator: {
+        Args: { p_display_name: string; p_profile: string }
+        Returns: string
+      }
       issue_screening_day_voucher: {
         Args: { p_beneficiary_profile_id: string; p_slot_id: string }
         Returns: Json
@@ -40293,6 +40561,72 @@ export type Database = {
           provider_id: string
           provider_name: string
           suppressed: boolean
+        }[]
+      }
+      learn_shared_article: {
+        Args: { p_code: string }
+        Returns: {
+          body: string
+          code: string
+          creator_name: string
+          estimated_minutes: number
+          evidence_source: string
+          next_review_due: string
+          reviewed_at: string
+          reviewed_by_name: string
+          self_care_action: string
+          source_reference: string
+          summary: string
+          title: string
+        }[]
+      }
+      learning_offline_pack: {
+        Args: never
+        Returns: {
+          audio_clip_id: string
+          body: string
+          category: Database["public"]["Enums"]["health_education_category"]
+          code: string
+          content_type: Database["public"]["Enums"]["health_education_content_type"]
+          content_version: number
+          creator_name: string
+          estimated_minutes: number
+          is_micro_lesson: boolean
+          knowledge_check: Json
+          lesson_action: string
+          next_review_due: string
+          reviewed_at: string
+          reviewed_by_name: string
+          self_care_action: string
+          source_reference: string
+          summary: string
+          text_bytes: number
+          title: string
+        }[]
+      }
+      learning_pack_status: {
+        Args: { p_codes: string[] }
+        Returns: {
+          code: string
+          content_version: number
+          next_review_due: string
+          servable: boolean
+        }[]
+      }
+      learning_readiness_report: {
+        Args: never
+        Returns: {
+          metric: string
+          n: number
+        }[]
+      }
+      learning_search_gaps_report: {
+        Args: never
+        Returns: {
+          first_seen: string
+          hit_count: number
+          last_seen: string
+          query_norm: string
         }[]
       }
       lift_provider_restriction: {
@@ -40419,6 +40753,10 @@ export type Database = {
       mark_result_document_action_completed: {
         Args: { p_document_id: string }
         Returns: undefined
+      }
+      mark_saved_lessons_discussed: {
+        Args: { p_patient: string }
+        Returns: number
       }
       match_health_education_content: {
         Args: {
@@ -41154,6 +41492,10 @@ export type Database = {
         Args: { p_activate?: boolean; p_kid: string; p_public_key_spki: string }
         Returns: undefined
       }
+      reinstate_learning_creator: {
+        Args: { p_id: string; p_note: string }
+        Returns: undefined
+      }
       reject_assisted_recovery: {
         Args: { p_reason: string; p_request: string }
         Returns: Json
@@ -41552,6 +41894,10 @@ export type Database = {
       }
       run_data_quality_scan: { Args: never; Returns: number }
       run_patient_duplicate_detection: { Args: never; Returns: number }
+      save_lesson_for_consultation: {
+        Args: { p_code: string }
+        Returns: boolean
+      }
       seal_health_passport: {
         Args: {
           p_content_digest: string
@@ -41562,6 +41908,21 @@ export type Database = {
           p_signed_payload: string
         }
         Returns: undefined
+      }
+      search_health_education: {
+        Args: { p_limit?: number; p_log?: boolean; p_query: string }
+        Returns: {
+          category: Database["public"]["Enums"]["health_education_category"]
+          code: string
+          content_id: string
+          content_type: Database["public"]["Enums"]["health_education_content_type"]
+          estimated_minutes: number
+          is_micro_lesson: boolean
+          rank: number
+          reviewed_by_name: string
+          summary: string
+          title: string
+        }[]
       }
       search_patient_ids_by_condition: {
         Args: { p_cap?: number; p_condition: string; p_scope?: string[] }
@@ -41949,6 +42310,10 @@ export type Database = {
       set_sexual_health_pin: { Args: { p_pin: string }; Returns: undefined }
       clear_sexual_health_pin: { Args: never; Returns: undefined }
       submit_draft_referral: { Args: { p_referral: string }; Returns: undefined }
+      submit_creator_credentials: {
+        Args: { p_evidence: string; p_indemnity: boolean; p_mdcn: string }
+        Returns: undefined
+      }
       submit_written_question: {
         Args: {
           p_category: string;
@@ -41987,6 +42352,10 @@ export type Database = {
         Returns: string
       }
       touch_last_active: { Args: never; Returns: undefined }
+      suspend_learning_creator: {
+        Args: { p_decline?: boolean; p_id: string; p_reason: string }
+        Returns: number
+      }
       translate_concept: {
         Args: { p_concept_id: string; p_target_system: string }
         Returns: {
@@ -42026,6 +42395,10 @@ export type Database = {
       }
       verify_clinical_staff_credential: {
         Args: { p_clinical_staff_id: string }
+        Returns: undefined
+      }
+      verify_learning_creator: {
+        Args: { p_id: string; p_note?: string }
         Returns: undefined
       }
       verify_prescription: {

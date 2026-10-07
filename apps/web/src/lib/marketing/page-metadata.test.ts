@@ -31,7 +31,7 @@ const TITLE_SUFFIX = ` | ${SITE.name}`;
  * Pages whose metadata is NOT a literal in their own file. Product pages read
  * `_content/products.ts` and the two B2B pages read `_content/b2b.ts` (both
  * scanned below in their own right); the resource article route builds its
- * metadata from the database row. Asserted as an exact set so a NEW page
+ * metadata from the database row, and so does a shared Learning Centre article. Asserted as an exact set so a NEW page
  * cannot quietly join it and skip the checks.
  */
 const METADATA_ELSEWHERE = [
@@ -40,6 +40,7 @@ const METADATA_ELSEWHERE = [
   "hmo/page.tsx",
   "hypertension/page.tsx",
   "labs/page.tsx",
+  "learn/[code]/page.tsx",
   "medication/page.tsx",
   "obesity/page.tsx",
   "parentcare/page.tsx",
