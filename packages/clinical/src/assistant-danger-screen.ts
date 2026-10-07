@@ -43,6 +43,9 @@ export const ASSISTANT_EXTRA_DANGER_PHRASES: readonly string[] = [
   "fainted", "fainting", "blacked out", "black out", "not responding", "seizing", "having a fit", "convuls*", "seizures",
   // overdose
   "too many tablets", "too many pills", "too many of my tablets", "too many of my pills", "took all my",
+  // a dosing mistake already made is an urgent report, never a dose-change request ("can I double my dose" is a different sentence)
+  "took double", "taken double", "took too much", "taken too much", "took extra", "took an extra", "took the wrong", "took twice", "taken twice",
+  "overdosed", "accidentally took", "swallowed the wrong",
 ];
 
 /** Each side is a list of alternatives; one word from each side anywhere in the message is an emergency. Whole words (`*` is a stem). */

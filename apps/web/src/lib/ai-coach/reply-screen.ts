@@ -18,6 +18,11 @@ const SENSITIVE_TERM = /\b(?:hiv|aids|hbsag|hbs\s*ag|hcv|hbv|hepatitis\s*[bc]|he
 const RESULT_WORD = /\b(?:result|results|test|tests|tested|positive|reactive|status|screen|screening|came back|report|reading|detected|viral load|cd4)\b/i;
 const POSITIVE_WORD = /\b(?:positive|reactive|detected|infected|have|has|living with)\b/i;
 
+/** True when any text names an HIV, hepatitis B or hepatitis C screening subject at all. Used to keep such text out of the model's hands. */
+export function mentionsSensitiveScreening(text: string): boolean {
+  return SENSITIVE_TERM.test(text);
+}
+
 /** True when the patient's own message asks about a screening result of this kind. Fail safe: a term plus any result word. */
 export function screenSensitiveResultQuestion(message: string): boolean {
   return SENSITIVE_TERM.test(message) && RESULT_WORD.test(message);

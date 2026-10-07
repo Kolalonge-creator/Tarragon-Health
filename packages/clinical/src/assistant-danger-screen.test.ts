@@ -71,6 +71,10 @@ describe("assistant danger screen (INV-01, one rule source)", () => {
     "I feel weak on one side",
     "numbness in my arm since morning",
     "my face is numb",
+    "I took double my insulin by mistake",
+    "I accidentally took double my insulin",
+    "I took twice my usual tablets this morning",
+    "my child took the wrong tablets",
   ])("flags %s", (m) => expect(screenAssistantMessage(m).redFlag).toBe(true));
 
   it.each([
@@ -85,6 +89,8 @@ describe("assistant danger screen (INV-01, one rule source)", () => {
     "what number do I call at the pharmacy",
     "my arm is warm and the alarm went off",
     "the new tablets are benefitting me",
+    "can I double my dose tonight",
+    "should I take extra water with my tablets",
   ])("does not flag %s", (m) => expect(screenAssistantMessage(m).redFlag).toBe(false));
 
   it("REGRESSION: every old private pattern positive is still flagged (nothing the old list caught is dropped)", () => {

@@ -1302,7 +1302,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // INV-04 (S51 pre-fix). Analyte-code tokens for screening analytes the assistant and the explainer must never read unless the
     // result is an explicit negative. Mirrored by public.ai_excluded_analyte_tokens in migration
     // *_s51_inv04_ai_never_reads_sensitive_results.sql; assistant-safety-mirror.test.ts pins the two together. The CMO confirms the list.
-    value: ["hiv", "hbsag", "hbs_ag", "hcv", "hepatitis", "hep_b", "hep_c", "hepb", "hepc"],
+    value: ["hiv", "hbsag", "hbs_ag", "hcv", "hepatitis", "hep_b", "hep_c", "hepb", "hepc", "hbv", "hbeag", "hbe_ag", "anti_hbc", "anti_hbs", "cd4", "viral_load", "p24", "aids", "retroviral"],
     owner: "CMO",
     status: "proposed",
     version: 1,

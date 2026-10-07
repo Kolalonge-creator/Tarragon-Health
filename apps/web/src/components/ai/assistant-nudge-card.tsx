@@ -13,10 +13,12 @@ export function AssistantNudgeCard() {
       <Link href={data.daily.target.path} className="inline-block text-xs text-brand-green dark:text-brand-green-bright underline">
         Open
       </Link>
-      <details className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
-        <summary className="cursor-pointer">Your week</summary>
-        <p className="pt-1">{data.weekly.text}</p>
-      </details>
+      {data.weekly ? (
+        <details className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
+          <summary className="cursor-pointer">Your week</summary>
+          <p className="pt-1">{data.weekly.text}</p>
+        </details>
+      ) : null}
     </div>
   );
 }

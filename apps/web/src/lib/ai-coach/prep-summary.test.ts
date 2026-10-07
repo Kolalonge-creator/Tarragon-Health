@@ -43,6 +43,18 @@ describe("pre-consultation summary (7.7)", () => {
     expect(out.changesSinceLastReview.newMedicines).toEqual(["Amlodipine"]);
   });
 
+  it("a failed count is not shown as zero: the line is left out of the draft", async () => {
+    const supabase = fakeSupabase({
+      appointments: { data: [{ scheduled_for: "2026-07-01T09:00:00Z" }], error: null },
+      vitals_readings: { data: null, error: { message: "rls" }, count: null },
+      symptoms: { data: null, error: { message: "rls" }, count: null },
+    });
+    const out = await prepareForAppointment(supabase, "p1", CONTEXT, now);
+    expect(out.changesSinceLastReview.readingsLogged).toBeNull();
+    expect(out.changesSinceLastReview.symptomsLogged).toBeNull();
+    expect(buildPrepDraft(out)).not.toMatch(/I logged 0/);
+  });
+
   it("says there is no earlier visit when none is on file, and still builds questions", async () => {
     const out = await prepareForAppointment(fakeSupabase({}), "p1", CONTEXT, now);
     expect(out.changesSinceLastReview.lastReviewAt).toBeNull();

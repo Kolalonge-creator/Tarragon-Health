@@ -137,7 +137,9 @@ function formatAppointmentPrep(summary: AppointmentPrepSummary): string {
   lines.push(
     "\nChanges since your last review: " +
       (ch.lastReviewAt
-        ? `since ${ch.lastReviewAt.slice(0, 10)} you logged ${ch.readingsLogged} reading(s) and ${ch.symptomsLogged} symptom note(s)` +
+        ? (ch.readingsLogged !== null && ch.symptomsLogged !== null
+            ? `since ${ch.lastReviewAt.slice(0, 10)} you logged ${ch.readingsLogged} reading(s) and ${ch.symptomsLogged} symptom note(s)`
+            : `since ${ch.lastReviewAt.slice(0, 10)}`) +
           (ch.newMedicines.length > 0 ? `, and started ${ch.newMedicines.join(", ")}.` : ".")
         : "no earlier completed visit is on file.")
   );

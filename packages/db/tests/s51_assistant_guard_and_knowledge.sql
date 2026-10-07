@@ -81,7 +81,7 @@ $$ select pg_temp.q_as(p_uid, format('select (x ->> %L) from jsonb_array_element
 
 -- Fixtures -------------------------------------------------------------------------------------------------------------------
 do $$
-declare v_org uuid; v_real uuid; v_test uuid;
+declare v_org uuid; v_real uuid; v_test uuid; v_rel uuid;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   perform pg_temp.setf('org', v_org);
@@ -94,6 +94,10 @@ begin
   perform pg_temp.setf('kb_noowner', pg_temp.kb('s51-noowner', null, now() + interval '90 days', true));
   perform pg_temp.setf('kb_nodate', pg_temp.kb('s51-nodate', 'Dr A. Obi', null, true));
   perform pg_temp.setf('kb_unreviewed', pg_temp.kb('s51-unrev', 'Dr A. Obi', now() + interval '90 days', false));
+  -- a draft: the content trigger forces is_active off, so a patient is never told anything about it
+  insert into public.health_education_content (code, title, body, clinician_reviewed, category, reviewed_by_name, review_due_at, content_status)
+    values ('s51-draft', 'S51 draft', 'body', true, 'medicines', 'Dr A. Obi', now() + interval '90 days', 'draft') returning id into v_rel;
+  perform pg_temp.setf('kb_draft', v_rel);
   -- a reviewed lpe block, owner from reviewed_by
   insert into public.lpe_content_blocks (key, title, body_md, clinician_reviewed, reviewed_by, reviewed_at, review_due_at, content_version)
     values ('s51_lpe_ok', 'S51 lpe', 'x', true, v_test, now(), now() + interval '60 days', 4);
@@ -197,6 +201,26 @@ select pg_temp.ck('real', 'the lint refuses a clinical word in the daily nudge t
   pg_temp.try_sql($q$insert into public.notification_template_locales (template_key, locale, channel, subject, body) values ('assistant_daily_nudge', 'en', 'email', 'Hello', 'Your blood pressure reading is ready')$q$));
 select pg_temp.ck('real', 'the shipped wording has no violation', '0',
   (select count(*)::text from public.notification_template_locales l where l.template_key like 'assistant_%' and cardinality(private.notification_text_violations(coalesce(l.subject, '') || ' ' || l.body)) > 0));
+
+-- 6b. The nudge queue: once per patient, template and day; preferences honoured; real templates only ---------------------------------------
+select pg_temp.ck('real', 'the first nudge for the day is queued', 'true',
+  pg_temp.q_service(format($q$select public.assistant_queue_nudge(%L::uuid, 'assistant_daily_nudge', date '2026-10-07')::text$q$, pg_temp.f('real'))));
+select pg_temp.ck('real', 'a repeated or overlapping run queues nothing more', 'false',
+  pg_temp.q_service(format($q$select public.assistant_queue_nudge(%L::uuid, 'assistant_daily_nudge', date '2026-10-07')::text$q$, pg_temp.f('real'))));
+select pg_temp.ck('real', 'the next day is a new nudge', 'true',
+  pg_temp.q_service(format($q$select public.assistant_queue_nudge(%L::uuid, 'assistant_daily_nudge', date '2026-10-08')::text$q$, pg_temp.f('real'))));
+select pg_temp.ck('real', 'only one row exists for that patient, template and day', '1',
+  (select count(*)::text from public.notifications where recipient_id = pg_temp.f('real') and template = 'assistant_daily_nudge' and payload ->> 'day' = '2026-10-07'));
+select pg_temp.ck('real', 'a template that is not an assistant one is refused', 'ERR:22023',
+  pg_temp.q_service(format($q$select public.assistant_queue_nudge(%L::uuid, 'written_question_answered', date '2026-10-07')::text$q$, pg_temp.f('real'))));
+select pg_temp.ck('real', 'a patient cannot call the queue', 'ERR:42501',
+  pg_temp.q_as(pg_temp.f('real'), format($q$select public.assistant_queue_nudge(%L::uuid, 'assistant_daily_nudge', date '2026-10-09')::text$q$, pg_temp.f('real'))));
+insert into public.patient_notification_preferences (organisation_id, patient_id, category, email_enabled, sms_enabled, push_enabled)
+  values (pg_temp.f('org'), pg_temp.f('test'), 'education_wellness', false, false, false);
+select pg_temp.ck('real', 'a patient who switched every wellness channel off is not nudged', 'false',
+  pg_temp.q_service(format($q$select public.assistant_queue_nudge(%L::uuid, 'assistant_daily_nudge', date '2026-10-07')::text$q$, pg_temp.f('test'))));
+select pg_temp.ck('real', 'a draft (inactive) content row is not described to a patient at all', '0',
+  pg_temp.q_as(pg_temp.f('real'), format($q$select jsonb_array_length(public.assistant_knowledge_sources(array[%L::uuid]))::text$q$, pg_temp.f('kb_draft'))));
 
 -- 7. Grants ---------------------------------------------------------------------------------------------------------------------
 select pg_temp.ck('real', 'authenticated cannot read assistant_config', 'ERR:42501', pg_temp.q_as(pg_temp.f('real'), 'select count(*)::text from public.assistant_config'));

@@ -15,11 +15,20 @@ const INFO_PATTERNS: RegExp[] = [
   /\b(?:side effects?|symptoms? of|causes? of|treatment for|signs? of)\b/i,
   /\bmean(?:s|ing)?\b/i,
   /\bshould i (?:worry|be worried|be concerned)\b/i,
+  /\b(?:is|are) (?:my|the|this|that|these|those)\b.{0,40}\b(?:normal|safe|ok|okay|bad|dangerous|serious|harmful|high|low)\b/i,
 ];
 
 const SCHEDULING_ONLY = /\b(?:when is|what time is|where is|how do i (?:book|log|add|change my appointment|reset|sign))\b/i;
 
+/** The patient asking WHAT THEIR OWN RECORD SAYS ("what is my last reading", "what medicines am I on"). The record tools answer these. */
+const RECORD_LOOKUP =
+  /\bmy (?:last|latest|recent|current|most recent|next|previous)\b|\bwhat (?:is|are) my (?:blood pressure|bp|weight|pulse|glucose|sugar|medications?|medicines|tablets|appointments?|readings?|results?|allergies|conditions|care plan)\b|\bwhat (?:medicines?|medications?|tablets?|pills?) am i on\b|\bwhat does my care plan (?:say|include|have|contain)\b/i;
+/** Words that ask for meaning, safety or advice. A record lookup that ALSO asks for these ("what does my last result mean") is informational. */
+const MEANING = /\b(?:mean|means|meaning|normal|safe|ok|okay|dangerous|serious|harmful|worry|worried|why|treat|treatment|manage|prevent|side effects?|symptoms? of|causes?)\b/i;
+
 export function looksLikeHealthInformationQuestion(message: string): boolean {
   if (SCHEDULING_ONLY.test(message)) return false;
-  return INFO_PATTERNS.some((re) => re.test(message));
+  if (!INFO_PATTERNS.some((re) => re.test(message))) return false;
+  if (RECORD_LOOKUP.test(message) && !MEANING.test(message)) return false;
+  return true;
 }

@@ -80,6 +80,52 @@ interface CoachTurnOutcome {
  * silently dropped everything older than the window on every single turn. */
 const CONTEXT_HISTORY_LIMIT = 20;
 
+/**
+ * An emergency message that reaches the assistant while the assistant_enabled guard is closed (a stale screen, a direct call). No model,
+ * no assistant: the fixed emergency copy, the clinician alert and escalation, the saved turn and the audit row, exactly what the
+ * kill-switch fallback does. Best effort on the writes, never on the copy.
+ */
+async function emergencyWhileClosed(params: RunCoachTurnParams): Promise<RunCoachTurnResult> {
+  const { supabase, getServiceRoleSupabase, profileId, organisationId, message } = params;
+  const { conversationId, fullMessages } = await resolveOrCreateConversation(supabase, organisationId, profileId, params.conversationId);
+  let escalationId: string | null = null;
+  try {
+    const escalation = await logAiCoachEscalation(supabase, getServiceRoleSupabase(), {
+      organisationId,
+      patientId: profileId,
+      conversationId,
+      triggerMessage: message,
+      recentMessages: [],
+      aiAction: "Escalated immediately via deterministic safety-keyword match while the assistant was not open",
+    });
+    escalationId = escalation.escalationId;
+  } catch (error) {
+    console.error("ai-coach: emergency escalation failed while the assistant was closed", error);
+  }
+  const now = new Date().toISOString();
+  const userMessage: CoachChatMessage = { id: crypto.randomUUID(), role: "user", content: message, created_at: now };
+  const assistantMessage: CoachChatMessage = { id: crypto.randomUUID(), role: "assistant", content: EMERGENCY_SAFETY_REPLY, tier: "emergency", created_at: now };
+  await appendMessages(supabase, conversationId, fullMessages, [userMessage, assistantMessage]);
+  await logAssistantTurn(getServiceRoleSupabase(), {
+    organisationId,
+    patientId: profileId,
+    conversationId,
+    interactionType: "chat_turn",
+    safetyClassification: "emergency",
+    escalationId,
+    finalAction: "escalation_created",
+    status: "completed",
+    inputSnapshot: { assistantGuard: "closed", guardrail: "emergency_keyword_escalation" },
+  });
+  await emitAssistantEvent(getServiceRoleSupabase(), organisationId, profileId, {
+    type: "assistant.red_flag_detected",
+    conversationId,
+    trigger: "keyword",
+    turnKey: assistantMessage.id,
+  });
+  return { conversationId, reply: EMERGENCY_SAFETY_REPLY, tier: "emergency", aiInteractionId: null, sources: [] };
+}
+
 /** Transport-agnostic AI Coach turn — takes a profile + message, runs the
  * LangGraph flow, and returns the reply. Callable from a server action
  * today and assumes nothing about how it was invoked.
@@ -97,6 +143,9 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
   // INV-14: the assistant_enabled go-live guard. Checked first, before anything is read or written, and it fails closed (an error
   // reading the guard is a closed guard). While it is off no model is reached, no conversation row is created and nothing is logged.
   if (!(await isAssistantOpen(supabase))) {
+    // The deterministic red-flag screen is a safety net, not a feature: it does not wait for the go-live guard. A message that matches it
+    // gets the fixed emergency guidance and the same escalation as ever, never "not open yet".
+    if (detectEmergencyKeywords(message)) return await emergencyWhileClosed(params);
     return {
       conversationId: params.conversationId ?? "",
       reply: ASSISTANT_NOT_OPEN_REPLY,

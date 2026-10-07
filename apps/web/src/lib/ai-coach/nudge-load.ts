@@ -4,7 +4,7 @@ import { loadPatientContext } from "./context";
 import { isAssistantOpen } from "./guard";
 import { buildDailyNudge, buildWeeklyReflection, type DailyNudge, type WeeklyReflection } from "./nudges";
 
-export type AssistantNudges = { open: false } | { open: true; daily: DailyNudge; weekly: WeeklyReflection };
+export type AssistantNudges = { open: false } | { open: true; daily: DailyNudge; weekly: WeeklyReflection | null };
 
 /** The patient's nudge and weekly reflection, built from their own data on request. Closed (and nothing read) while the guard is closed. */
 export async function loadAssistantNudges(supabase: SupabaseClient<Database>, profileId: string): Promise<AssistantNudges> {

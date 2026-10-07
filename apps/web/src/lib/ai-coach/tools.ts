@@ -13,6 +13,7 @@ import { z } from "zod3";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isAiExcludedAnalyte, type Database } from "@tarragon/shared";
 import { loadKnowledgeSources } from "./knowledge-sources";
+import { mentionsSensitiveScreening } from "./reply-screen";
 
 /**
  * Read-only record tools for the AI Coach — closes the structural gap
@@ -317,7 +318,11 @@ export function buildPatientRecordTools(supabase: SupabaseClient<Database>, pati
         if (args.subjectKey) query = query.eq("subject_key", args.subjectKey);
         const { data, error } = await query;
         if (error) return toolError("getCachedExplanations", error);
-        const safe = (data ?? []).filter((r) => r.explanation_text && !isAiExcludedAnalyte(r.subject_key, null));
+        // INV-04: screen the subject AND the text. An explanation keyed by a panel or a result id, or one written before this fix, is
+        // dropped if it names a screening subject anywhere.
+        const safe = (data ?? []).filter(
+          (r) => r.explanation_text && !isAiExcludedAnalyte(r.subject_key, null) && !mentionsSensitiveScreening(`${r.subject_key} ${r.explanation_text}`)
+        );
         if (safe.length === 0) return toJson({ explanations: [], note: "No explanation has been shown for this yet." });
         return toJson({
           explanations: safe.slice(0, 5).map((r) => ({ kind: r.kind, subject: r.subject_key, text: r.explanation_text })),
