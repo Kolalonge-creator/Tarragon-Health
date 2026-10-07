@@ -45925,6 +45925,7 @@ export type Database = {
       assistant_knowledge_sources: { Args: { p_ids: string[] }; Returns: Json }
       assistant_protocol_limits: { Args: Record<PropertyKey, never>; Returns: Json }
       go_live_guard_is_open: { Args: { p_key: string }; Returns: boolean }
+      sms_emergency_contact_open: { Args: never; Returns: boolean }
       learning_course: {
         Args: { p_programme_code: string }
         Returns: {
