@@ -11,7 +11,7 @@ import { tool, type StructuredToolInterface } from "@langchain/core/tools";
 // schema in this file; do not swap this back to the bare "zod" import.
 import { z } from "zod3";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@tarragon/shared";
+import { isAiExcludedAnalyte, type Database } from "@tarragon/shared";
 
 /**
  * Read-only record tools for the AI Coach — closes the structural gap
@@ -217,17 +217,21 @@ export function buildPatientRecordTools(supabase: SupabaseClient<Database>, pati
     async (args: z.infer<typeof getRecentLabResultsSchema>) => {
       try {
         const { limit } = args;
+        // INV-04: read ONLY the ai_readable_lab_readings view (screening analytes such as HIV, HBsAg and HCV that are not an
+        // explicit negative are filtered in the database), then filter again here as defence in depth. Never query the
+        // base table from the AI path: ai-path-sensitive-results.test.ts fails the build if anyone does.
         const { data, error } = await supabase
-          .from("lab_analyte_readings")
-          .select("code, value, unit, taken_at")
+          .from("ai_readable_lab_readings")
+          .select("code, value, value_text, unit, taken_at")
           .eq("patient_id", patientId)
           .order("taken_at", { ascending: false })
           .limit(Math.min(Math.max(limit ?? 10, 1), 30));
         if (error) return toolError("getRecentLabResults", error);
-        if (!data || data.length === 0) {
+        const safe = (data ?? []).filter((r) => !isAiExcludedAnalyte(r.code, r.value_text));
+        if (safe.length === 0) {
           return toJson({ results: [], note: "No lab results on file for this patient." });
         }
-        return toJson({ results: data });
+        return toJson({ results: safe });
       } catch (error) {
         return toolError("getRecentLabResults", error);
       }

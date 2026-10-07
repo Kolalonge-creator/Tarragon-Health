@@ -240,6 +240,7 @@ export * from "./ui-language";
 export * from "./clinical-tier";
 export * from "./specialist-type-options";
 export * from "./proposed-config";
+export * from "./assistant-safety";
 export * from "./consent-state";
 export * from "./notification-settings";
 export * from "./notification-diagnosis";

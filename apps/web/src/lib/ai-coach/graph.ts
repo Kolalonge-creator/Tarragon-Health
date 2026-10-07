@@ -19,6 +19,7 @@ import {
   SYMPTOM_SUGGESTION_INTRO,
 } from "./prompts";
 import { detectEmergencyKeywords } from "./keyword-guardrail";
+import { SENSITIVE_RESULT_REPLY, screenSensitiveResultQuestion, screenSensitiveResultReply } from "./reply-screen";
 import { matchSymptomClustersFromText } from "@/lib/symptom-check/symptom-clusters";
 import { loadPatientContext } from "./context";
 import { logAiCoachEscalation, logAiCoachReviewFlag } from "./escalate";
@@ -188,6 +189,11 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
   function keywordGuardrail(state: CoachGraphState) {
     if (detectEmergencyKeywords(state.incomingMessage)) {
       return { tier: "emergency" as const, reply: EMERGENCY_SAFETY_REPLY };
+    }
+    // INV-04: a question about an HIV / hepatitis B / hepatitis C result is never answered by the assistant, and the
+    // model is never reached. Fixed copy routes to the care team, and the care team is flagged (clinician_review).
+    if (screenSensitiveResultQuestion(state.incomingMessage)) {
+      return { tier: "clinician_review" as const, reply: SENSITIVE_RESULT_REPLY, suggestedAction: "none" as const };
     }
     return {};
   }
@@ -485,6 +491,21 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
           inputSnapshotForAudit: inputSnapshot,
         };
       }
+      // INV-04, third layer: a drafted reply that names a sensitive screening result is replaced, whatever the model did.
+      if (screenSensitiveResultReply(result.reply)) {
+        return {
+          tier: "clinician_review" as const,
+          reply: SENSITIVE_RESULT_REPLY,
+          suggestedAction: "none" as const,
+          modelId,
+          retrievedSourceIds,
+          knowledgeSourceUsed: [],
+          toolsCalled,
+          referralRequestClinicianAlertId,
+          referralRequestCareMessageThreadId,
+          inputSnapshotForAudit: { ...inputSnapshot, replyReplacedBy: "inv04_sensitive_result_screen" },
+        };
+      }
       return {
         tier: result.tier,
         reply: appendSymptomSuggestion(`${result.reply}\n\n${DISCLAIMER_LINE}`, state.incomingMessage),
@@ -570,8 +591,13 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
     .addEdge(START, "keywordGuardrail")
     .addConditionalEdges(
       "keywordGuardrail",
-      (state) => (state.tier === "emergency" ? "escalate" : "llmTurn"),
-      { escalate: "escalate", llmTurn: "llmTurn" }
+      (state) => {
+        if (state.tier === "emergency") return "escalate";
+        // A deterministic refusal (INV-04) already has its reply: flag the care team and stop, no model call.
+        if (state.tier === "clinician_review" && state.reply) return "logReview";
+        return "llmTurn";
+      },
+      { escalate: "escalate", llmTurn: "llmTurn", logReview: "logReview" }
     )
     .addConditionalEdges(
       "llmTurn",

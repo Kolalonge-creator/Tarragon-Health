@@ -1297,4 +1297,16 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S36e.md; docs/design/S17.md (reliability is a tie-break only)",
   },
+  {
+    key: "assistant.excluded_analytes",
+    // INV-04 (S51 pre-fix). Analyte-code tokens for screening analytes the assistant and the explainer must never read unless the
+    // result is an explicit negative. Mirrored by public.ai_excluded_analyte_tokens in migration
+    // *_s51_inv04_ai_never_reads_sensitive_results.sql; assistant-safety-mirror.test.ts pins the two together. The CMO confirms the list.
+    value: ["hiv", "hbsag", "hbs_ag", "hcv", "hepatitis", "hep_b", "hep_c", "hepb", "hepc"],
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/BUILD-SPEC-v5.md INV-04; docs/design/S51.md",
+  },
 ];
