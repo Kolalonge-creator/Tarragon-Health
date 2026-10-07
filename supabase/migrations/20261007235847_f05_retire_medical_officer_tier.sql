@@ -18,6 +18,18 @@ update public.task_types set min_doctor_tier = 'senior_medical_officer' where mi
 delete from public.clinical_tier_cost_rates where doctor_tier = 'medical_officer';
 update public.service_delivery_cost_model set delivered_by_tier = 'senior_medical_officer' where delivered_by_tier = 'medical_officer';
 
+-- alert_rules is governed config that names tiers as text, so it is versioned, not edited: a new active version with every
+-- medical_officer entry read as senior_medical_officer (the same pattern as the 2026-09 tier collapse). The CMO signs it with
+-- sign_alert_rules; until then it carries no approval stamp, exactly as the version it replaces did after the last collapse.
+insert into public.alert_rules (version, config, notes, is_active)
+select version + 1,
+       replace(config::text, '"medical_officer"', '"senior_medical_officer"')::jsonb,
+       'F-05 (2026-10-07): the Medical Officer tier is retired; every owner_tier, backup_tier and senior_tier that named it now names senior_medical_officer. Content otherwise unchanged from the version this supersedes. Awaiting CMO signature.',
+       true
+  from public.alert_rules where is_active and config::text like '%"medical_officer"%';
+update public.alert_rules set is_active = false
+ where is_active and id <> (select id from public.alert_rules order by version desc limit 1);
+
 do $$
 declare n integer;
 begin
@@ -32,6 +44,8 @@ begin
        + (select count(*) from public.service_delivery_cost_model where delivered_by_tier = 'medical_officer')
     into n;
   if n <> 0 then raise exception 'F-05: % rows still hold medical_officer', n; end if;
+  if exists (select 1 from public.alert_rules where is_active and config::text like '%"medical_officer"%') then raise exception 'F-05: the active alert_rules still names medical_officer'; end if;
+  if (select count(*) from public.alert_rules where is_active) <> 1 then raise exception 'F-05: alert_rules must have exactly one active version'; end if;
 end $$;
 
 -- 2. functions that name the retired value ---------------------------------------------------------------------------------------
@@ -44,7 +58,7 @@ begin
        and p.prosrc ~ '''medical_officer''' and p.proname <> 'doctor_tier_rank'
   loop
     v_def := pg_get_functiondef(r.oid);
-    v_new := regexp_replace(v_def, '''medical_officer''\s*,\s*', '', 'g');
+    v_new := regexp_replace(regexp_replace(v_def, '''medical_officer''\s*,\s*', '', 'g'), '\s*,\s*''medical_officer''', '', 'g');
     if v_new ~ '''medical_officer''' then raise exception 'F-05: % still names medical_officer after the rewrite', r.sig; end if;
     execute v_new;
   end loop;
