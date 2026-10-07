@@ -132,8 +132,8 @@ begin
     (select 'rows:' || count(*) from public.commissions where id = v_comm and status <> 'paid'), 'rows:1', null;
   insert into t_results select 'D admin reads the ledger',
     pg_temp.probe(v_admin, 'authenticated', format('select id from public.commissions where id = %L', v_comm)), 'rows:1', null;
-  insert into t_results select 'D anon reads no commissions (no policy for anon, so no rows)',
-    pg_temp.probe(null, 'anon', 'select id from public.commissions'), 'rows:0', null;
+  insert into t_results select 'D anon reads no commissions (S39 revoked anon table grants, so the read is denied outright)',
+    pg_temp.probe(null, 'anon', 'select id from public.commissions'), 'denied', null;
   -- a clinician cannot edit or delete the ledger either
   -- a clinician cannot edit or delete the ledger either (RLS filters the rows, so the statements succeed but touch nothing)
   perform set_config('request.jwt.claims', json_build_object('sub', v_clin, 'role', 'authenticated')::text, true);

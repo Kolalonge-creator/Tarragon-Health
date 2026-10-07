@@ -43,6 +43,9 @@ insert into allow values
   ('owner_view', 'public.diabetes_quality_metrics'), ('owner_view', 'public.hypertension_quality_metrics'), ('owner_view', 'public.lpe_programme_outcomes'),
   ('owner_view', 'public.obesity_quality_metrics'), ('owner_view', 'public.risk_model_drift_signal'), ('owner_view', 'public.risk_model_performance'),
   ('owner_view', 'public.risk_model_performance_by_subgroup'), ('owner_view', 'public.triage_safety_monitoring'),
+  -- S53 pre-fix 8.16: the admin-gated read of pharmacy medicines including commission columns; the view carries its own caller predicate
+  -- (admin, partner manager, owning pharmacist) and is revoked from anon and public, so owner rights are the point of it
+  ('owner_view', 'public.pharmacy_medications_admin'),
   -- public storage buckets (staff photos are shown on the public directory)
   ('public_bucket', 'clinical-staff-photos'),
   -- patient avatars: a random-named file under the person's own folder, shown by its stored public address; private bucket plus signed
