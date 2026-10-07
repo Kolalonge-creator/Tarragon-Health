@@ -11173,48 +11173,6 @@ export type Database = {
         }
         Relationships: []
       }
-      crisis_helplines: {
-        Row: {
-          created_at: string
-          hours_text: string | null
-          id: string
-          is_active: boolean
-          languages: string[]
-          last_verified_at: string | null
-          name: string
-          phone_e164: string | null
-          source_note: string
-          verification_note: string | null
-          verified_by: string | null
-        }
-        Insert: {
-          created_at?: string
-          hours_text?: string | null
-          id?: string
-          is_active?: boolean
-          languages?: string[]
-          last_verified_at?: string | null
-          name: string
-          phone_e164?: string | null
-          source_note: string
-          verification_note?: string | null
-          verified_by?: string | null
-        }
-        Update: {
-          created_at?: string
-          hours_text?: string | null
-          id?: string
-          is_active?: boolean
-          languages?: string[]
-          last_verified_at?: string | null
-          name?: string
-          phone_e164?: string | null
-          source_note?: string
-          verification_note?: string | null
-          verified_by?: string | null
-        }
-        Relationships: []
-      }
       cv_risk_config: {
         Row: {
           approved_at: string | null
@@ -48248,7 +48206,7 @@ export type Database = {
         }[]
       }
       approve_therapy_session: {
-        Args: { p_confirm?: boolean; p_session_id: string }
+        Args: { p_confirm?: boolean; p_scheduled_for?: string; p_session_id: string }
         Returns: Database["public"]["Tables"]["therapy_sessions"]["Row"]
       }
       corporate_wellbeing_cohort: { Args: { p_org: string }; Returns: Json }
@@ -48260,8 +48218,6 @@ export type Database = {
         Returns: Json
       }
       request_mental_health_handoff: { Args: { p_note?: string; p_screen?: string }; Returns: string }
-      unverify_crisis_helpline: { Args: { p_id: string; p_note: string }; Returns: undefined }
-      verify_crisis_helpline: { Args: { p_id: string; p_note: string; p_phone_e164: string }; Returns: undefined }
       count_care_threads_awaiting_reply: {
         Args: Record<PropertyKey, never>
         Returns: number

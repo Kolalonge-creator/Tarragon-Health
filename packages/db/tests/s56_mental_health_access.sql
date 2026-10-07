@@ -270,14 +270,26 @@ begin
   perform pg_temp.ck('...and 0 for a clinician without a tie', '0', pg_temp.q_as(pg_temp.f('docuntied'), 'select public.count_therapy_approvals_waiting()::text'));
   perform pg_temp.ck('a coordinator cannot list the queue', 'true', (pg_temp.q_as(pg_temp.f('coord'), 'select public.list_therapy_approvals_audited()::text') like 'ERR:not authorised%')::text);
   perform pg_temp.ck('a tied medical officer without prescribing authority cannot approve', 'true',
-    (pg_temp.q_as(pg_temp.f('doctied'), format('select public.approve_therapy_session(%L)::text', v_sess)) like 'ERR:not authorised%')::text);
-  perform pg_temp.ck('a tied coordinator cannot approve', 'true', (pg_temp.q_as(pg_temp.f('coord'), format('select public.approve_therapy_session(%L)::text', v_sess)) like 'ERR:not authorised%')::text);
-  perform pg_temp.ck('an admin cannot approve', 'true', (pg_temp.q_as(pg_temp.f('admin'), format('select public.approve_therapy_session(%L)::text', v_sess)) like 'ERR:not authorised%')::text);
-  update public.therapy_sessions set scheduled_for = now() + interval '1 day' where id = v_sess;  -- the RPC does not set a time (see OPEN-QUESTIONS)
+    (pg_temp.q_as(pg_temp.f('doctied'), format('select public.approve_therapy_session(%L, true, now() + interval ''1 day'')::text', v_sess)) is null)::text);
+  perform pg_temp.ck('a tied coordinator cannot approve', 'true', (pg_temp.q_as(pg_temp.f('coord'), format('select public.approve_therapy_session(%L, true, now() + interval ''1 day'')::text', v_sess)) is null)::text);
+  perform pg_temp.ck('an admin cannot approve', 'true', (pg_temp.q_as(pg_temp.f('admin'), format('select public.approve_therapy_session(%L, true, now() + interval ''1 day'')::text', v_sess)) is null)::text);
+  perform pg_temp.ck('...and every refusal of an approval is audited (it returns an empty row instead of raising, so the audit row survives)', '3',
+    (select count(*)::text from public.audit_log where action = 'staff.mental_health_read' and result = 'denied' and reason = 'attempted therapy approval' and subject_patient_id = v_pat));
+  perform pg_temp.ck('a confirm without a time is refused', 'true',
+    (pg_temp.q_as(pg_temp.f('smotied'), format('select public.approve_therapy_session(%L, true)::text', v_sess)) like 'ERR:Choose a time in the future%')::text);
+  perform pg_temp.ck('a confirm with a time in the past is refused', 'true',
+    (pg_temp.q_as(pg_temp.f('smotied'), format('select public.approve_therapy_session(%L, true, now() - interval ''1 hour'')::text', v_sess)) like 'ERR:Choose a time in the future%')::text);
+  perform pg_temp.ck('...and the request is still waiting after those refusals', 'awaiting_clinician_approval', (select status::text from public.therapy_sessions where id = v_sess));
+  perform pg_temp.ck('the queue read wrote one audit row for the patient served', '1',
+    (select count(*)::text from public.audit_log where action = 'staff.mental_health_read' and result = 'success' and reason = 'therapy approval queue' and subject_patient_id = v_pat and actor_id = pg_temp.f('doctied')) );
   perform pg_temp.ck('a senior clinician without a tie cannot approve', 'true',
-    (pg_temp.q_as(pg_temp.f('cmo'), format('select public.approve_therapy_session(%L)::text', v_sess)) like 'ERR:not authorised%')::text);
+    (pg_temp.q_as(pg_temp.f('cmo'), format('select public.approve_therapy_session(%L, true, now() + interval ''1 day'')::text', v_sess)) is null)::text);
   perform pg_temp.ck('a tied senior clinician with prescribing authority approves', 'confirmed',
-    pg_temp.q_as(pg_temp.f('smotied'), format('select (public.approve_therapy_session(%L, true)).status::text', v_sess)));
+    pg_temp.q_as(pg_temp.f('smotied'), format('select (public.approve_therapy_session(%L, true, now() + interval ''2 days'')).status::text', v_sess)));
+  perform pg_temp.ck('...and the time it proposed is the scheduled time (the table constraint no longer blocks a confirm)', 'true',
+    (select (scheduled_for > now() + interval '1 day')::text from public.therapy_sessions where id = v_sess));
+  perform pg_temp.ck('a decided request cannot be decided again', 'true',
+    (pg_temp.q_as(pg_temp.f('smotied'), format('select public.approve_therapy_session(%L, false)::text', v_sess)) like 'ERR:That request has already been decided%')::text);
   perform pg_temp.ck('...the approver is the session user', pg_temp.f('smotied')::text, (select approved_by::text from public.therapy_sessions where id = v_sess));
   perform pg_temp.ck('...and the decision is audited', '1', pg_temp.audit_n(pg_temp.f('smotied'), 'success')::text);
   perform pg_temp.act(v_pat);
@@ -306,8 +318,15 @@ begin
   insert into public.clinician_alerts (organisation_id, patient_id, level, status, title, detail, category, type_code)
     select pg_temp.f('org'), v_pat, 'clinician_review', 'open', 'Mental-health screen: moderate concern — PHQ9', 'Screen x scored 12 (moderate band)', category, type_code
       from public.clinician_alerts where patient_id = v_pat limit 1;
+  insert into public.clinician_alerts (organisation_id, patient_id, level, status, title, detail, category, type_code)
+    select pg_temp.f('org'), v_pat, 'clinician_review', 'open', 'AUDIT-C: hazardous alcohol use flagged', 'AUDIT-C total 9 crossed the hazardous-use threshold', category, type_code
+      from public.clinician_alerts where patient_id = v_pat limit 1;
+  insert into public.emergency_events (organisation_id, patient_id, source, trigger_detail, status)
+    values (pg_temp.f('org'), pg_temp.f('cgyes'), 'intake_screen', 'Wellbeing check-in: reported thoughts of self-harm (PHQ-9 item 9)', 'resolved');
   v_old := private.s56_neutralise_mental_health_text();
-  perform pg_temp.ck('the one-off rewrite neutralises a legacy alert', '1', v_old::text);
+  perform pg_temp.ck('the one-off rewrite neutralises a legacy mental-health alert, a legacy alcohol alert and a legacy emergency event', '3', v_old::text);
+  perform pg_temp.ck('...nothing names AUDIT-C any more', '0', (select count(*)::text from public.clinician_alerts where title ilike '%AUDIT%' or detail ilike '%AUDIT%'));
+  perform pg_temp.ck('...nor the self-harm words in an emergency event', '0', (select count(*)::text from public.emergency_events where trigger_detail ilike '%self-harm%'));
   -- sponsor: pays, patient chose activity, a mental-health alert is acknowledged
   insert into public.care_vouchers (organisation_id, voucher_number, kind, beneficiary_profile_id, purchaser_profile_id, face_value_kobo, amount_paid_kobo, status, activated_at, sku_code, service_product_id)
     select v_org, 'S56-' || substr(gen_random_uuid()::text, 1, 8), 'prepaid_service', v_pat, v_spons, 100000, 100000, 'active', now(), 'proof', id from public.service_products limit 1;
@@ -356,10 +375,13 @@ end $$;
 
 -- 6. Hand-off, crisis card -----------------------------------------------------------------------------------------------------
 do $$
-declare v_pat uuid := pg_temp.f('pat'); h uuid; r text; v_id uuid; v_pa text;
+declare v_pat uuid := pg_temp.f('pat'); h uuid; r text;
 begin
   h := pg_temp.q_as(v_pat, format($q$select public.request_mental_health_handoff(%L, 'I would like to talk to someone')::text$q$, pg_temp.f('screen_mod')))::uuid;
   perform pg_temp.ck('a patient hands off a screen to a consultation', 'true', (h is not null)::text);
+  perform pg_temp.ck('a second tap on the same screen returns the same hand-off', h::text,
+    pg_temp.q_as(v_pat, format($q$select public.request_mental_health_handoff(%L, 'again')::text$q$, pg_temp.f('screen_mod'))));
+  perform pg_temp.ck('...and does not raise a second task', '1', (select count(*)::text from public.clinical_tasks where dedup_key like 'mh_handoff:%' and patient_id = v_pat));
   perform pg_temp.ck('...a task is raised', 'admin_clinical', (select type from public.clinical_tasks where dedup_key = 'mh_handoff:' || h));
   r := pg_temp.q_as(pg_temp.f('doctied'), format($q$select public.read_patient_mental_health_audited(%L, 'reading the hand-off summary', array['handoffs'])::text$q$, v_pat));
   perform pg_temp.ck('the tied clinician reads the attached summary', 'phq9', r::jsonb -> 'handoffs' -> 0 -> 'summary' ->> 'instrument');
@@ -369,21 +391,39 @@ begin
 
   r := pg_temp.q_as(v_pat, 'select public.get_crisis_card()::text');
   perform pg_temp.ck('the card shows 112', '112', r::jsonb ->> 'emergency_number');
-  perform pg_temp.ck('no helpline is shown while none is verified', '0', jsonb_array_length(r::jsonb -> 'helplines')::text);
+  perform pg_temp.ck('the card carries no helpline at all (founder decision 2026-10-07)', 'false', (r::jsonb ? 'helplines')::text);
   perform pg_temp.ck('no callback figure is promised while the SLA is unconfirmed', 'true', ((r::jsonb) -> 'callback_sla_minutes' = 'null'::jsonb)::text);
-  select id into v_id from public.crisis_helplines where name = 'She Writes Woman';
-  perform pg_temp.ck('every seeded helpline starts unverified', '0', (select count(*)::text from public.crisis_helplines where last_verified_at is not null));
-  perform pg_temp.ck('a patient cannot verify', 'true', (pg_temp.try_as(v_pat, format($q$select public.verify_crisis_helpline(%L, '+2348008002000', 'phoned the line, a person answered')$q$, v_id)) like '%not authorised%')::text);
-  perform pg_temp.ck('a verification needs a how-verified note', 'true', (pg_temp.try_as(pg_temp.f('admin'), format($q$select public.verify_crisis_helpline(%L, '+2348008002000', 'ok')$q$, v_id)) like '%say how it was verified%')::text);
-  perform pg_temp.ck('the admin verifies after a phone call', 'ok', pg_temp.try_as(pg_temp.f('admin'), format($q$select public.verify_crisis_helpline(%L, '+2348008002000', 'phoned the line on 7 Oct, a person answered')$q$, v_id)));
-  perform pg_temp.ck('...the verification is audited', '1', (select count(*)::text from public.audit_log where action = 'crisis_helpline.verified' and entity_id = v_id));
-  r := pg_temp.q_as(v_pat, 'select public.get_crisis_card()::text');
-  perform pg_temp.ck('the verified line now shows', '1', jsonb_array_length(r::jsonb -> 'helplines')::text);
-  update public.crisis_helplines set last_verified_at = now() - interval '400 days' where id = v_id;
-  perform pg_temp.ck('a stale verification drops back to unverified', '0', jsonb_array_length((pg_temp.q_as(v_pat, 'select public.get_crisis_card()::text')::jsonb) -> 'helplines')::text);
-  perform pg_temp.ck('a patient cannot read the helpline table (candidates are staff only)', '0', pg_temp.cnt(v_pat, 'crisis_helplines'));
+  perform pg_temp.ck('there is no helpline table', 'true', (to_regclass('public.crisis_helplines') is null)::text);
+  perform pg_temp.ck('there is no helpline verify function', '0', (select count(*)::text from pg_proc where proname in ('verify_crisis_helpline', 'unverify_crisis_helpline')));
   perform pg_temp.ck('anon cannot reach the card', '42501', pg_temp.try_anon('select public.get_crisis_card()'));
-  perform pg_temp.setf('hl', v_id);
+end $$;
+
+-- 6b. The organisation-wide emergency page carries no wellbeing label and no patient name (INV-07, INV-12) -------------------------
+do $$
+declare v_pat uuid := pg_temp.f('pat'); v_org uuid := pg_temp.f('org'); v_product uuid; v_doc uuid := pg_temp.f('doctied'); v_ctl uuid;
+begin
+  select id into v_product from public.service_products where is_active and 'vitals_red_flag_doctor_escalation' = any(features) order by code limit 1;
+  if v_product is null then raise exception 'VACUOUS: no active service product carries the doctor-escalation feature'; end if;
+  update public.profiles set full_name = 'Probe Name Pat' where id = v_pat;   -- mkuser leaves full_name null (the auth trigger made the row first)
+  insert into public.service_purchases (organisation_id, patient_id, purchaser_profile_id, service_product_id, status, amount_kobo, currency, purchased_at, expires_at)
+    values (v_org, v_pat, v_pat, v_product, 'active', 1000000, 'NGN', now(), now() + interval '30 days');
+  insert into public.emergency_events (organisation_id, patient_id, source, trigger_detail, status)
+    values (v_org, v_pat, 'mental_health_screen', 'A check-in needs urgent follow-up', 'active');
+  perform pg_temp.ck('a clinician was paged for the mental-health emergency (the safety net still fires)', '1',
+    (select count(*)::text from public.notifications where recipient_id = v_doc and template = 'emergency_event_clinician_alert' and payload ->> 'source_label' = 'a check-in'));
+  perform pg_temp.ck('...no page carries the source name', '0',
+    (select count(*)::text from public.notifications where recipient_id = v_doc and template = 'emergency_event_clinician_alert' and payload ->> 'source_label' in ('mental_health_screen', 'intake_screen')));
+  perform pg_temp.ck('...nor the patient name', '0',
+    (select count(*)::text from public.notifications where recipient_id = v_doc and template = 'emergency_event_clinician_alert' and payload ->> 'patient_name' like 'Probe Name%'));
+  -- control, on a second entitled patient (the first already owns an open alert, which a second event would be attached to)
+  v_ctl := pg_temp.mkuser(v_org, 'ctl', 'patient');
+  update public.profiles set full_name = 'Probe Name Ctl' where id = v_ctl;
+  insert into public.service_purchases (organisation_id, patient_id, purchaser_profile_id, service_product_id, status, amount_kobo, currency, purchased_at, expires_at)
+    values (v_org, v_ctl, v_ctl, v_product, 'active', 1000000, 'NGN', now(), now() + interval '30 days');
+  insert into public.emergency_events (organisation_id, patient_id, source, trigger_detail, status)
+    values (v_org, v_ctl, 'bp_reading', 'proof control', 'active');
+  perform pg_temp.ck('control: a blood pressure emergency page still names its source and the patient', '1',
+    (select count(*)::text from public.notifications where recipient_id = v_doc and template = 'emergency_event_clinician_alert' and payload ->> 'source_label' = 'bp_reading' and payload ->> 'patient_name' = 'Probe Name Ctl'));
 end $$;
 
 -- 7. SABOTAGE: each protection removed must flip its checks ---------------------------------------------------------------------
@@ -392,14 +432,28 @@ create or replace function private.can_staff_read_mental_health(p_patient uuid) 
 create or replace function private.supporter_has_mental_health_consent(p_patient uuid, p_user uuid) returns boolean language sql stable security definer set search_path = '' as $$
   select exists (select 1 from public.profile_access pa where pa.profile_id = p_patient and pa.grantee_user_id = p_user) $$;
 create or replace function public.get_crisis_card() returns jsonb language sql stable security definer set search_path = '' as $$
-  select jsonb_build_object('emergency_number', '112', 'helplines', coalesce((select jsonb_agg(name) from public.crisis_helplines), '[]'::jsonb), 'callback_sla_minutes', null) $$;
+  select jsonb_build_object('emergency_number', '112', 'helplines', '[]'::jsonb, 'callback_sla_minutes', null) $$;
+do $$
+declare v_def text;
+begin
+  v_def := pg_get_functiondef('private.handle_emergency_event()'::regprocedure);
+  execute replace(replace(v_def, E'case when new.source::text in (\'mental_health_screen\', \'intake_screen\') then \'a check-in\' else new.source::text end', 'new.source::text'),
+    E'case when new.source::text in (\'mental_health_screen\', \'intake_screen\') then \'A patient\' else coalesce((select full_name from public.profiles where id = new.patient_id), \'A patient\') end',
+    E'coalesce((select full_name from public.profiles where id = new.patient_id), \'A patient\')');
+end $$;
 do $$
 begin
   perform pg_temp.sab('a staff member reads no screens directly', '0', pg_temp.cnt(pg_temp.f('docuntied'), 'mental_health_screens'));
   perform pg_temp.sab('a clinician without a tie is denied', 'denied',
     pg_temp.q_as(pg_temp.f('docuntied'), format($q$select (public.read_patient_mental_health_audited(%L, 'checking this chart today'))->>'status'$q$, pg_temp.f('pat'))));
   perform pg_temp.sab('a caregiver without the category reads nothing', '0', pg_temp.cnt(pg_temp.f('cgno'), 'wellbeing_checkins'));
-  perform pg_temp.sab('no unverified helpline is shown', '0', jsonb_array_length((pg_temp.q_as(pg_temp.f('pat'), 'select public.get_crisis_card()::text')::jsonb) -> 'helplines')::text);
+  insert into public.emergency_events (organisation_id, patient_id, source, trigger_detail, status)
+    values (pg_temp.f('org'), pg_temp.f('pat'), 'mental_health_screen', 'A check-in needs urgent follow-up', 'active');
+  perform pg_temp.sab('the organisation-wide page carries no wellbeing source name', '0',
+    (select count(*)::text from public.notifications where recipient_id = pg_temp.f('doctied') and template = 'emergency_event_clinician_alert' and payload ->> 'source_label' = 'mental_health_screen'));
+  perform pg_temp.sab('...and no patient name', '0',
+    (select count(*)::text from public.notifications where recipient_id = pg_temp.f('doctied') and template = 'emergency_event_clinician_alert' and payload ->> 'patient_name' like 'Probe Name%' and payload ->> 'source_label' = 'mental_health_screen'));
+  perform pg_temp.sab('the card carries no helpline at all', 'false', ((pg_temp.q_as(pg_temp.f('pat'), 'select public.get_crisis_card()::text')::jsonb) ? 'helplines')::text);
 end $$;
 
 do $$
@@ -411,7 +465,7 @@ begin
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 4 then raise exception 'VACUOUS TEST: the sabotage flipped % of 4 checks', v_caught; end if;
+  if v_caught < 6 then raise exception 'VACUOUS TEST: the sabotage flipped % of 6 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result

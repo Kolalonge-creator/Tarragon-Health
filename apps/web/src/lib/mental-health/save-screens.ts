@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json, TablesInsert } from "@tarragon/shared";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { flagHazardousAlcoholUse } from "@/lib/alcohol/escalate";
+import { runBestEffort } from "@/lib/sentry/run-best-effort";
 import { scorePhq9, scoreGad7, scoreAuditC, scoreEpds, EPDS_ITEM_COUNT } from "@/lib/rules/mental-health-screening";
 import type { MentalHealthScreenInput } from "@/lib/validation/mental-health-screen";
 
@@ -20,7 +21,12 @@ import type { MentalHealthScreenInput } from "@/lib/validation/mental-health-scr
  */
 export const CRISIS_EVENT_DETAIL = "A check-in needs urgent follow-up";
 
-export type SaveScreensResult = { ok: true; crisis: boolean } | { ok: false; error: string };
+/**
+ * `told` is true only when an emergency event for this crisis exists (the database trigger raised one, or the fallback below did), so
+ * the card never says "your care team has been told" on the strength of nothing. It is false when a crisis was flagged and no event
+ * could be raised: the card then shows the same go-to-the-nearest-hospital guidance without that promise.
+ */
+export type SaveScreensResult = { ok: true; crisis: boolean; told: boolean } | { ok: false; error: string };
 
 export async function saveMentalHealthScreens(args: {
   /** The signed-in user's own session (used for the profile read and the emergency event, under their RLS). */
@@ -65,6 +71,7 @@ export async function saveMentalHealthScreens(args: {
   if (insertError) return { ok: false, error: insertError.message };
 
   const crisis = phq9.crisis || epds?.crisis === true;
+  let told = false;
   if (crisis) {
     // Skip when the database trigger already raised an active event in the last hour (it does for every crisis row).
     const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
@@ -76,20 +83,28 @@ export async function saveMentalHealthScreens(args: {
       .in("source", ["mental_health_screen", "intake_screen"])
       .gte("created_at", since)
       .limit(1);
-    if (!existing || existing.length === 0) {
-      await supabase.from("emergency_events").insert({
-        patient_id: userId,
-        organisation_id: organisationId,
-        source: "intake_screen",
-        trigger_detail: CRISIS_EVENT_DETAIL,
-        status: "active",
-      });
+    if (existing && existing.length > 0) {
+      told = true;
+    } else {
+      // The database trigger is the primary route; this is the belt-and-braces one. A failure here must be seen (Sentry), never
+      // dropped: the screen itself is already saved and the patient still gets the crisis card, so it does not fail the request.
+      await runBestEffort(async () => {
+        const { error: eventError } = await supabase.from("emergency_events").insert({
+          patient_id: userId,
+          organisation_id: organisationId,
+          source: "intake_screen",
+          trigger_detail: CRISIS_EVENT_DETAIL,
+          status: "active",
+        });
+        if (eventError) throw new Error(`crisis emergency event could not be raised: ${eventError.message}`);
+        told = true;
+      }, { step: "crisis_emergency_event", userId });
     }
   }
 
-  // Alcohol referral pathway (spec 18.10): best-effort, never blocks the screen from saving.
+  // Alcohol referral pathway (spec 18.10): best-effort, never blocks the screen from saving, but a failure is reported.
   if (auditc.hazardous) {
-    await flagHazardousAlcoholUse(userId, organisationId, auditc.total).catch(() => undefined);
+    await runBestEffort(() => flagHazardousAlcoholUse(userId, organisationId), { step: "hazardous_alcohol_referral", userId });
   }
-  return { ok: true, crisis };
+  return { ok: true, crisis, told };
 }

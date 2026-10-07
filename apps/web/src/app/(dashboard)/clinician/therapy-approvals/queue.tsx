@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { koboToNaira } from "@tarragon/shared";
 import { createClient } from "@/lib/supabase/client";
@@ -65,13 +66,16 @@ function useAwaitingApproval() {
 function useDecide() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, confirm }: { id: string; confirm: boolean }) => {
+    mutationFn: async ({ id, confirm, scheduledFor }: { id: string; confirm: boolean; scheduledFor?: string }) => {
       const supabase = createClient();
-      const { error } = await supabase.rpc("approve_therapy_session", {
+      const { data, error } = await supabase.rpc("approve_therapy_session", {
         p_session_id: id,
         p_confirm: confirm,
+        ...(confirm && scheduledFor ? { p_scheduled_for: scheduledFor } : {}),
       });
       if (error) throw error;
+      // A refusal for lack of authority comes back as an empty row (so the attempt is audited), never as success.
+      if (!data || !(data as { id?: string | null }).id) throw new Error("You cannot decide this request.");
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["therapy", "awaiting-approval"] });
@@ -81,6 +85,9 @@ function useDecide() {
 
 function SessionRow({ session }: { session: Session }) {
   const decide = useDecide();
+  // The approving doctor proposes the time (the booking cannot be confirmed without one). datetime-local is in the doctor's own clock.
+  const [when, setWhen] = useState("");
+  const scheduledFor = when ? new Date(when).toISOString() : undefined;
 
   return (
     <li className="py-4">
@@ -120,7 +127,16 @@ function SessionRow({ session }: { session: Session }) {
           ) : null}
         </div>
 
-        <div className="flex shrink-0 gap-2">
+        <div className="flex shrink-0 flex-wrap items-end gap-2">
+          <label className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
+            Session time
+            <input
+              type="datetime-local"
+              value={when}
+              onChange={(e) => setWhen(e.target.value)}
+              className="mt-0.5 block rounded border border-charcoal-ink/20 bg-transparent px-2 py-1 text-sm dark:border-night-ink/30"
+            />
+          </label>
           <Button
             size="sm"
             variant="outline"
@@ -131,8 +147,8 @@ function SessionRow({ session }: { session: Session }) {
           </Button>
           <Button
             size="sm"
-            disabled={decide.isPending}
-            onClick={() => decide.mutate({ id: session.id, confirm: true })}
+            disabled={decide.isPending || !scheduledFor}
+            onClick={() => decide.mutate({ id: session.id, confirm: true, scheduledFor })}
           >
             {decide.isPending ? "Saving…" : "Approve"}
           </Button>

@@ -97,7 +97,7 @@ export function MentalHealthScreenForm({ patientId }: { patientId: string }) {
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
           <p>Your answers are saved and your care team can see them.</p>
-          {state.crisis && <CrisisCard told />}
+          {state.crisis && <CrisisCard told={state.told !== false} />}
         </CardContent>
       </Card>
     );

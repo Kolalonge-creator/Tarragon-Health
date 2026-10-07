@@ -1,10 +1,9 @@
 import { describe, expect, it } from "@jest/globals";
 import {
-  CRISIS_CARD_OFFLINE, changeOverTime, cleanWellbeingTags, isHelplineShowable, isValidSharedPhonePin, lagosDay, mergeMoodBpSleep,
+  CRISIS_CARD_OFFLINE, changeOverTime, cleanWellbeingTags, isValidSharedPhonePin, lagosDay, mergeMoodBpSleep,
   normaliseCrisisCard, pickHandoffScreen, SHARED_PHONE_NEUTRAL_TEXT, WELLBEING_TAGS,
 } from "./mental-health";
 
-const NOW = new Date("2026-10-07T12:00:00Z");
 
 describe("check-in tags", () => {
   it("keeps only known tags, once each, at most six", () => {
@@ -69,29 +68,23 @@ describe("crisis card", () => {
     expect(CRISIS_CARD_OFFLINE.helplines).toEqual([]);
     expect(CRISIS_CARD_OFFLINE.callbackSlaMinutes).toBeNull();
   });
-  it("shows a helpline only with a number and a recent verification", () => {
-    expect(isHelplineShowable(verified, NOW)).toBe(true);
-    expect(isHelplineShowable({ ...verified, last_verified_at: null }, NOW)).toBe(false);
-    expect(isHelplineShowable({ ...verified, phone_e164: null }, NOW)).toBe(false);
-    expect(isHelplineShowable({ ...verified, last_verified_at: "2025-01-01T00:00:00Z" }, NOW)).toBe(false);
-    expect(isHelplineShowable({ ...verified, last_verified_at: "not a date" }, NOW)).toBe(false);
-  });
-  it("drops an unverified helpline even if the server sent one", () => {
-    const card = normaliseCrisisCard({ emergency_number: "112", helplines: [verified, { ...verified, name: "Line B", last_verified_at: null }], callback_sla_minutes: null }, NOW);
-    expect(card.helplines.map((h) => h.name)).toEqual(["Line A"]);
+  it("never shows a helpline, even if the server or an old cached copy sends one", () => {
+    const card = normaliseCrisisCard({ emergency_number: "112", helplines: [verified], callback_sla_minutes: null });
+    expect(card.helplines).toEqual([]);
+    expect(card.emergencyNumber).toBe("112");
   });
   it("falls back to the bundled card on junk, never throws", () => {
     for (const junk of [null, undefined, 5, "x", [], { helplines: "no", emergency_number: "<script>" }]) {
-      const c = normaliseCrisisCard(junk, NOW);
+      const c = normaliseCrisisCard(junk);
       expect(c.emergencyNumber).toBe("112");
       expect(c.helplines).toEqual([]);
       expect(c.callbackSlaMinutes).toBeNull();
     }
   });
   it("passes a confirmed callback figure through only as a positive integer", () => {
-    expect(normaliseCrisisCard({ callback_sla_minutes: 30 }, NOW).callbackSlaMinutes).toBe(30);
-    expect(normaliseCrisisCard({ callback_sla_minutes: -1 }, NOW).callbackSlaMinutes).toBeNull();
-    expect(normaliseCrisisCard({ callback_sla_minutes: 1.5 }, NOW).callbackSlaMinutes).toBeNull();
+    expect(normaliseCrisisCard({ callback_sla_minutes: 30 }).callbackSlaMinutes).toBe(30);
+    expect(normaliseCrisisCard({ callback_sla_minutes: -1 }).callbackSlaMinutes).toBeNull();
+    expect(normaliseCrisisCard({ callback_sla_minutes: 1.5 }).callbackSlaMinutes).toBeNull();
   });
 });
 

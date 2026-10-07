@@ -1199,10 +1199,10 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   {
     key: "crisis.card",
     // The crisis card (function 10.3). Live values are the active row of `crisis_card_config`; a test fails on drift.
-    // emergency_number: the national emergency line (the card always also says go to the nearest hospital). helpline_reverify_days:
-    // a helpline verified longer ago than this drops back to unverified. callback_sla_minutes: the staffed callback time after a
-    // crisis flag; it is shown to a patient only once this row is confirmed, never while it is a draft.
-    value: { emergency_number: "112", helpline_reverify_days: 180, callback_sla_minutes: 30 },
+    // emergency_number: the national emergency line (the card always also says go to the nearest hospital now). No helplines: the founder
+    // decided 2026-10-07 that none are usable in Nigeria. callback_sla_minutes: the staffed callback time after a crisis flag; it is
+    // shown to a patient only once this row is confirmed, never while it is a draft.
+    value: { emergency_number: "112", callback_sla_minutes: 30 },
     owner: "CMO",
     status: "proposed",
     version: 1,

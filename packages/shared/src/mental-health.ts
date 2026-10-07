@@ -7,8 +7,8 @@
  *   - mood beside blood pressure and sleep, merged per Lagos calendar day (function 10.1)
  *   - change over time for a repeated questionnaire (function 10.2). It reports the raw difference only: calling a
  *     difference "reliable" or "clinically significant" is a clinical threshold the CMO has not signed, so none is applied.
- *   - the crisis card content that is bundled in the app binary (INV-06) and the rule that decides which helplines may be shown
- *     (function 10.3): only a helpline a human verified, and only while that verification is recent.
+ *   - the crisis card content that is bundled in the app binary (INV-06): the emergency number and the go-to-the-nearest-hospital
+ *     guidance (function 10.3). No helpline numbers (founder decision 2026-10-07).
  */
 
 export const WELLBEING_TAGS = ["work", "money", "family", "relationships", "health", "sleep", "grief", "faith", "exams", "loneliness", "other"] as const;
@@ -125,43 +125,23 @@ export const CRISIS_CARD_OFFLINE = {
   callbackSlaMinutes: null as number | null,
 } as const;
 
+/**
+ * Kept only so older callers still type-check. FOUNDER DECISION 2026-10-07: there are no usable crisis helplines in Nigeria, so the card
+ * never shows one and `helplines` is always empty. If helplines are added later, add a new verified-only gate with them (a number must
+ * never be shown unless a human has verified it) and a new card section; do not just start filling this list.
+ */
 export interface CrisisHelpline { name: string; phone_e164: string | null; hours_text: string | null; languages: string[]; last_verified_at: string | null }
 export interface CrisisCardData { emergencyNumber: string; helplines: CrisisHelpline[]; callbackSlaMinutes: number | null }
 
-/** Default re-verify age used only when the config row cannot be read. The live value is crisis_card_config.helpline_reverify_days. */
-export const FALLBACK_REVERIFY_DAYS = 180;
-
-/** A helpline may be shown only with a number and a verification that is not older than the re-verify age. */
-export function isHelplineShowable(h: CrisisHelpline, now: Date = new Date(), reverifyDays: number = FALLBACK_REVERIFY_DAYS): boolean {
-  if (!h.phone_e164 || !h.last_verified_at) return false;
-  const verified = Date.parse(h.last_verified_at);
-  if (!Number.isFinite(verified)) return false;
-  return now.getTime() - verified <= reverifyDays * 24 * 60 * 60 * 1000;
-}
-
 /**
  * Reads the get_crisis_card() response defensively. A malformed response, or no response, gives the bundled card: never an error
- * screen. Unverified or stale helplines are dropped here again, so a wrong server can never put an unverified number on screen.
+ * screen. Any helpline the server (or an old cached copy) sends is ignored, so no number other than the emergency number is ever shown.
  */
-export function normaliseCrisisCard(raw: unknown, now: Date = new Date()): CrisisCardData {
+export function normaliseCrisisCard(raw: unknown): CrisisCardData {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const number = typeof r.emergency_number === "string" && /^[0-9+]{3,15}$/.test(r.emergency_number) ? r.emergency_number : CRISIS_CARD_OFFLINE.emergencyNumber;
-  const list = Array.isArray(r.helplines) ? r.helplines : [];
-  const helplines: CrisisHelpline[] = [];
-  for (const item of list) {
-    if (!item || typeof item !== "object") continue;
-    const h = item as Record<string, unknown>;
-    const candidate: CrisisHelpline = {
-      name: typeof h.name === "string" ? h.name : "",
-      phone_e164: typeof h.phone_e164 === "string" ? h.phone_e164 : null,
-      hours_text: typeof h.hours_text === "string" ? h.hours_text : null,
-      languages: Array.isArray(h.languages) ? h.languages.filter((l): l is string => typeof l === "string") : [],
-      last_verified_at: typeof h.last_verified_at === "string" ? h.last_verified_at : null,
-    };
-    if (candidate.name && isHelplineShowable(candidate, now)) helplines.push(candidate);
-  }
   const sla = typeof r.callback_sla_minutes === "number" && Number.isInteger(r.callback_sla_minutes) && r.callback_sla_minutes > 0 ? r.callback_sla_minutes : null;
-  return { emergencyNumber: number, helplines, callbackSlaMinutes: sla };
+  return { emergencyNumber: number, helplines: [], callbackSlaMinutes: sla };
 }
 
 // ---- Shared-phone mode -------------------------------------------------------------------------------------------------
