@@ -1,15 +1,14 @@
 import { en } from "./en";
-import { pcm } from "./pcm";
 import type { MessageKey } from "./en";
 
-export const LOCALES = ["en", "pcm"] as const;
+export const LOCALES = ["en"] as const;
 export type Locale = (typeof LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = "en";
 
 export type { MessageKey };
-export { en, pcm };
+export { en };
 
-export const catalogues: Record<Locale, Record<MessageKey, string>> = { en, pcm };
+export const catalogues: Record<Locale, Record<MessageKey, string>> = { en };
 
 export type MessageParams = Record<string, string | number>;
 
