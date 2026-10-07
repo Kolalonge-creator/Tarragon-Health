@@ -35,7 +35,7 @@ import webpush from "npm:web-push@3.6.7";
 import { appUrl, substituteTemplatePlaceholders, TEMPLATE_MAP } from "./templates.ts";
 import type { TemplateRender } from "./templates.ts";
 import { describeViolations, lintRenderFn, lintText } from "../_shared/notifications/neutral.ts";
-import { decide, pushEnvelope } from "../_shared/notifications/delivery.ts";
+import { decide, emailEnvelope, pushEnvelope } from "../_shared/notifications/delivery.ts";
 import type { QuietSettings } from "../_shared/notifications/delivery.ts";
 
 const BATCH_SIZE = 50;
@@ -693,14 +693,13 @@ Deno.serve(async () => {
   // falls through to "send".
   const { data: preferenceRows } = await supabase
     .from("patient_notification_preferences")
-    .select("patient_id, category, email_enabled, sms_enabled, push_enabled")
+    .select("patient_id, category, email_enabled, push_enabled")
     .in("patient_id", recipientIds)
     .returns<
       Array<{
         patient_id: string;
         category: PreferenceCategory;
         email_enabled: boolean;
-        sms_enabled: boolean;
         push_enabled: boolean;
       }>
     >();
@@ -750,7 +749,7 @@ Deno.serve(async () => {
       case "email":
         return pref.email_enabled;
       case "sms":
-        return pref.sms_enabled;
+        return false; // INV-08: SMS is a verification code only; there is no patient SMS toggle any more (S42)
       case "push":
         return pref.push_enabled;
       default:
@@ -1008,8 +1007,13 @@ Deno.serve(async () => {
         failed++;
         continue;
       }
+      // S42 (1.16): a person who chose discreet mode gets fixed words in the subject and body, never the template's.
+      const envelope = emailEnvelope(
+        discreetById.get(row.recipient_id) === true,
+        render.email.subject, render.email.html, render.email.text ?? render.smsText,
+      );
       const emailResult = await sendEmail(
-        toEmail, render.email.subject, render.email.html, render.email.text ?? render.smsText, attachments,
+        toEmail, envelope.subject, envelope.html, envelope.text, discreetById.get(row.recipient_id) === true ? undefined : attachments,
       );
       await settle(emailResult);
       if (emailResult.ok) await recordEvent(row.id, "accepted", "resend", emailResult.messageId ?? null);

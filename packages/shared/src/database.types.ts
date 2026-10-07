@@ -10386,6 +10386,120 @@ export type Database = {
           },
         ]
       }
+      consent_bundle_cells: {
+        Row: {
+          bundle_code: string
+          data_type: string
+          purpose: string
+        }
+        Insert: {
+          bundle_code: string
+          data_type: string
+          purpose: string
+        }
+        Update: {
+          bundle_code?: string
+          data_type?: string
+          purpose?: string
+        }
+        Relationships: []
+      }
+      consent_bundles: {
+        Row: {
+          code: string
+          sort_order: number
+          text_key: string
+        }
+        Insert: {
+          code: string
+          sort_order: number
+          text_key: string
+        }
+        Update: {
+          code?: string
+          sort_order?: number
+          text_key?: string
+        }
+        Relationships: []
+      }
+      consent_matrix_cells: {
+        Row: {
+          data_type: string
+          policy_version: number
+          purpose: string
+          required_for_care: boolean
+          sensitive: boolean
+          sort_order: number
+          text_key: string
+          wording_status: string
+        }
+        Insert: {
+          data_type: string
+          policy_version?: number
+          purpose: string
+          required_for_care: boolean
+          sensitive?: boolean
+          sort_order: number
+          text_key: string
+          wording_status?: string
+        }
+        Update: {
+          data_type?: string
+          policy_version?: number
+          purpose?: string
+          required_for_care?: boolean
+          sensitive?: boolean
+          sort_order?: number
+          text_key?: string
+          wording_status?: string
+        }
+        Relationships: []
+      }
+      consent_matrix_events: {
+        Row: {
+          action: string
+          bundle_code: string | null
+          created_at: string
+          data_type: string
+          id: string
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+          policy_version: number
+          purpose: string
+          recorded_by: string
+          source: string
+        }
+        Insert: {
+          action: string
+          bundle_code?: string | null
+          created_at?: string
+          data_type: string
+          id?: string
+          is_test?: boolean
+          organisation_id: string
+          patient_id: string
+          policy_version: number
+          purpose: string
+          recorded_by: string
+          source: string
+        }
+        Update: {
+          action?: string
+          bundle_code?: string | null
+          created_at?: string
+          data_type?: string
+          id?: string
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+          policy_version?: number
+          purpose?: string
+          recorded_by?: string
+          source?: string
+        }
+        Relationships: []
+      }
       consent_versions: {
         Row: {
           body: string
@@ -11376,6 +11490,7 @@ export type Database = {
       }
       data_deletion_requests: {
         Row: {
+          anonymisation_summary: Json | null
           blocked_categories: string[]
           blocked_reason: string | null
           completed_at: string | null
@@ -11394,6 +11509,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          anonymisation_summary?: Json | null
           blocked_categories?: string[]
           blocked_reason?: string | null
           completed_at?: string | null
@@ -11412,6 +11528,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          anonymisation_summary?: Json | null
           blocked_categories?: string[]
           blocked_reason?: string | null
           completed_at?: string | null
@@ -11462,6 +11579,8 @@ export type Database = {
       }
       data_export_requests: {
         Row: {
+          artifact_generated_at: string | null
+          artifact_path: string | null
           created_at: string
           decision_note: string | null
           fulfilled_at: string | null
@@ -11477,6 +11596,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          artifact_generated_at?: string | null
+          artifact_path?: string | null
           created_at?: string
           decision_note?: string | null
           fulfilled_at?: string | null
@@ -11492,6 +11613,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          artifact_generated_at?: string | null
+          artifact_path?: string | null
           created_at?: string
           decision_note?: string | null
           fulfilled_at?: string | null
@@ -11665,6 +11788,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      dependant_handovers: {
+        Row: {
+          birthday_18: string
+          completed_at: string | null
+          consent_text_key: string | null
+          created_at: string
+          due_emitted_at: string | null
+          guardians_ended: number | null
+          guardians_kept: string[]
+          id: string
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+          state: string
+        }
+        Insert: {
+          birthday_18: string
+          completed_at?: string | null
+          consent_text_key?: string | null
+          created_at?: string
+          due_emitted_at?: string | null
+          guardians_ended?: number | null
+          guardians_kept?: string[]
+          id?: string
+          is_test?: boolean
+          organisation_id: string
+          patient_id: string
+          state?: string
+        }
+        Update: {
+          birthday_18?: string
+          completed_at?: string | null
+          consent_text_key?: string | null
+          created_at?: string
+          due_emitted_at?: string | null
+          guardians_ended?: number | null
+          guardians_kept?: string[]
+          id?: string
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+          state?: string
+        }
+        Relationships: []
       }
       dependent_transition_status: {
         Row: {
@@ -28212,7 +28380,6 @@ export type Database = {
           organisation_id: string
           patient_id: string
           push_enabled: boolean
-          sms_enabled: boolean
           updated_at: string
         }
         Insert: {
@@ -28223,7 +28390,6 @@ export type Database = {
           organisation_id: string
           patient_id: string
           push_enabled?: boolean
-          sms_enabled?: boolean
           updated_at?: string
         }
         Update: {
@@ -28234,7 +28400,6 @@ export type Database = {
           organisation_id?: string
           patient_id?: string
           push_enabled?: boolean
-          sms_enabled?: boolean
           updated_at?: string
         }
         Relationships: [
@@ -43181,6 +43346,21 @@ export type Database = {
         Returns: Json
       }
       retry_payout: { Args: { p_id: string }; Returns: Json }
+      apply_consent_bundle: { Args: { p_bundle: string }; Returns: Json }
+      complete_account_deletion: { Args: { p_request: string }; Returns: Json }
+      complete_dependant_handover: { Args: { p_keep?: string[] }; Returns: Json }
+      my_consent_matrix: { Args: never; Returns: Json }
+      my_consent_matrix_history: { Args: { p_limit?: number }; Returns: Json }
+      my_handover: { Args: never; Returns: Json }
+      research_export_roster: {
+        Args: never
+        Returns: { data_types: string[]; patient_id: string }[]
+      }
+      set_consent_cell: {
+        Args: { p_data_type: string; p_granted: boolean; p_purpose: string }
+        Returns: Json
+      }
+      withdraw_all_optional_consents: { Args: never; Returns: Json }
       save_onboarding_answers: {
         Args: { p_conditions: string[]; p_goals: string[] }
         Returns: Json

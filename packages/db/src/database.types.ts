@@ -25208,7 +25208,6 @@ export type Database = {
           organisation_id: string
           patient_id: string
           push_enabled: boolean
-          sms_enabled: boolean
           updated_at: string
         }
         Insert: {
@@ -25219,7 +25218,6 @@ export type Database = {
           organisation_id: string
           patient_id: string
           push_enabled?: boolean
-          sms_enabled?: boolean
           updated_at?: string
         }
         Update: {
@@ -25230,7 +25228,6 @@ export type Database = {
           organisation_id?: string
           patient_id?: string
           push_enabled?: boolean
-          sms_enabled?: boolean
           updated_at?: string
         }
         Relationships: [

@@ -68,7 +68,6 @@ export type PatientNotificationPreferenceRow = {
   patient_id: string;
   category: NotificationPreferenceCategory;
   email_enabled: boolean;
-  sms_enabled: boolean;
   push_enabled: boolean;
   created_at: string;
   updated_at: string;
@@ -80,7 +79,6 @@ type PatientNotificationPreferenceInsert = {
   patient_id: string;
   category: NotificationPreferenceCategory;
   email_enabled?: boolean;
-  sms_enabled?: boolean;
   push_enabled?: boolean;
   created_at?: string;
   updated_at?: string;
@@ -92,7 +90,6 @@ type PatientNotificationPreferenceUpdate = {
   patient_id?: string;
   category?: NotificationPreferenceCategory;
   email_enabled?: boolean;
-  sms_enabled?: boolean;
   push_enabled?: boolean;
   created_at?: string;
   updated_at?: string;
@@ -160,13 +157,12 @@ export interface UpdateNotificationPreferenceInput {
   organisationId: string;
   category: NotificationPreferenceCategory;
   emailEnabled: boolean;
-  smsEnabled: boolean;
   pushEnabled: boolean;
 }
 
 /** Upserts one (patient, category) row — the only way this table is ever
- * written from the UI. Every toggle change sends the full 3-channel state
- * for that category (the 2 unchanged channels merged with the 1 that just
+ * written from the UI. Every toggle change sends the full 2-channel state
+ * for that category (the unchanged channel merged with the one that just
  * flipped), never a partial row, so a row's absence-vs-presence stays a
  * clean "never touched this category" signal rather than a partially
  * filled-in one. */
@@ -183,7 +179,6 @@ export function useUpdateNotificationPreference() {
             organisation_id: input.organisationId,
             category: input.category,
             email_enabled: input.emailEnabled,
-            sms_enabled: input.smsEnabled,
             push_enabled: input.pushEnabled,
           },
           { onConflict: "patient_id,category" }

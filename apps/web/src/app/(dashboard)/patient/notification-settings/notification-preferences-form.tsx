@@ -24,12 +24,9 @@ const CATEGORY_LABEL: Record<NotificationPreferenceCategory, string> = {
   reputation_requests: "Review requests",
 };
 
-type Channel = "email" | "sms" | "push";
+type Channel = "email" | "push";
 
-// SMS is deliberately not rendered as a toggle: it is reserved for
-// verification codes and clinician paging, so a routine-notification toggle
-// would promise something it wouldn't do. The underlying column stays
-// untouched so a stored value is preserved, just not shown or editable.
+// There is no SMS toggle and no SMS column (S42, INV-08): SMS is for verification codes and clinician paging only.
 const CHANNELS: { key: Channel; label: string }[] = [
   { key: "email", label: "Email" },
   { key: "push", label: "Push" },
@@ -40,7 +37,6 @@ const CHANNELS: { key: Channel; label: string }[] = [
  * pre-create 8 rows per patient. */
 const ALL_CHANNELS_ON: Record<Channel, boolean> = {
   email: true,
-  sms: true,
   push: true,
 };
 
@@ -50,7 +46,6 @@ function togglesFromRow(
   if (!row) return ALL_CHANNELS_ON;
   return {
     email: row.email_enabled,
-    sms: row.sms_enabled,
     push: row.push_enabled,
   };
 }
@@ -84,7 +79,6 @@ export function NotificationPreferencesForm({
         organisationId,
         category,
         emailEnabled: next.email,
-        smsEnabled: next.sms,
         pushEnabled: next.push,
       },
       {
