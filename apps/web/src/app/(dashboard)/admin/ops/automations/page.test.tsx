@@ -24,7 +24,7 @@ describe("AutomationsPage", () => {
     expect(screen.getAllByText("Pause").length).toBe(2);
     expect(screen.getByText(/safety critical and cannot be paused/)).toBeTruthy();
     expect(screen.getByText(/scheduled by Vercel/)).toBeTruthy();
-    expect(screen.getAllByText("not recorded").length).toBe(3);
+    expect(screen.getAllByText(/Owner: not recorded/).length).toBe(3);
   });
   it("flags a job that is not in the registry", async () => {
     rpc.mockResolvedValue({ data: [{ ...base, job_name: "new-job", registered: false }], error: null });
