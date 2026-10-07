@@ -1927,6 +1927,18 @@ export const en = {
   "pharmacy.withdraw.done": "Done. This pharmacy can no longer see your prescription.",
   "pharmacy.error.not_current": "Your care team has changed or stopped this medicine, so it cannot be sent. Look for the newer prescription.",
   "pharmacy.error.not_permitted": "You do not have permission to do this for this person.",
+  "payapprove.title": "Payout approvals",
+  "payapprove.intro": "Weekly payout drafts waiting for approval. Approving only agrees the amount. The founder sends the money, and you cannot approve a payout that is yours.",
+  "payapprove.off": "Approval is switched off. You can read the drafts, but nothing can be approved until payouts are switched on from the go-live page.",
+  "payapprove.load_error": "The drafts could not be loaded. This is not the same as there being none.",
+  "payapprove.none": "No drafts are waiting.",
+  "payapprove.earnings": "{count} earnings, up to {date}",
+  "payapprove.no_bank": "No verified bank account yet, so this cannot be approved.",
+  "payapprove.approve": "Approve",
+  "payapprove.working": "Working...",
+  "payapprove.unnamed": "A clinician",
+  "payapprove.truncated": "Showing {shown} of {total} drafts waiting. Approve some to see the rest.",
+  "payapprove.mine": "This payout is yours, so someone else needs to approve it.",
 } as const;
 
 export type MessageKey = keyof typeof en;
