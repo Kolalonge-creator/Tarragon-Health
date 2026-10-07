@@ -928,3 +928,5 @@ s76_b1_competency_tests.sql
 s76_b2_mdcn_reverification.sql
 # S76 B3: queue second ordering key. A task created from a triage event takes severity red 3, amber 2, green 1 (none 0); within one class the more severe trigger is claimed first even when due later; priority class still wins; claim atomicity and retry unchanged; queue_next never mentions risk. Sabotage removes the key from the ordering and the severe task is no longer first.
 s76_b3_queue_trigger_severity.sql
+# S76 B4: task types by configuration. Admin and the CMO can propose a new task type (patient, ordinary clinician, anon refused); validation (existing code, class range, class 1 window, unknown competency, triage key already answered); the proposal is unconfirmed and audited and only the CMO confirms; ACCEPTANCE: a new type appears in the queue with its own class and queue_next claims it ahead of a lower class with no code change. Sabotage removes the guard and a patient can propose.
+s76_b4_task_type_by_configuration.sql
