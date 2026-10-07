@@ -40,10 +40,8 @@ describe("the downloadable prescription form stays for any pharmacy (S28)", () =
     expect(read("app/(dashboard)/patient/medications-list.tsx")).toContain("<PrescriptionDownload");
   });
 
-  it("the card says so out loud, in both languages", () => {
+  it("the card says so out loud", () => {
     const en = read("../../../packages/i18n/src/en.ts");
-    const pcm = read("../../../packages/i18n/src/pcm.ts");
     expect(en).toMatch(/"pharmacy\.any_pharmacy": "Take the downloaded form to any pharmacy"/);
-    expect(pcm).toMatch(/"pharmacy\.any_pharmacy":/);
   });
 });

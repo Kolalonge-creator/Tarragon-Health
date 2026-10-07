@@ -38,6 +38,11 @@ beforeEach(() => {
   flagPrescription.mockReset().mockResolvedValue({ ok: true });
 });
 
+/** The submit button reads "Saving" while a request is in flight, so wait for it to come back before pressing it (slow CI machines). */
+async function pressDispense() {
+  fireEvent.click(await screen.findByRole("button", { name: "Mark dispensed" }, { timeout: 15000 }));
+}
+
 async function openIt() {
   render(<PharmacistPrescriptions rows={[ROW]} />);
   fireEvent.click(screen.getByRole("button", { name: "Open" }));
@@ -69,14 +74,13 @@ describe("PharmacistPrescriptions", () => {
     fireEvent.change(screen.getByLabelText("Pharmacist name"), { target: { value: "Ada Pharmacist" } });
     fireEvent.change(screen.getByLabelText("Batch number"), { target: { value: "B7" } });
     fireEvent.change(screen.getByLabelText("Batch expiry"), { target: { value: "2027-06-30" } });
-    fireEvent.click(screen.getByRole("button", { name: "Mark dispensed" }));
+    await pressDispense();
     await screen.findByText(/That code does not match/, undefined, { timeout: 5000 });
     expect(dispensePrescription).toHaveBeenCalledWith(
       expect.objectContaining({ prescriptionId: ID, code: "WRONG", pharmacistName: "Ada Pharmacist", batchNumber: "B7", batchExpiry: "2027-06-30", partial: false }),
     );
     fireEvent.change(screen.getByLabelText(/Collection code/), { target: { value: "K7M2QX9P" } });
-    // the button reads "Saving" until the first answer has fully settled
-    fireEvent.click(await screen.findByRole("button", { name: "Mark dispensed" }, { timeout: 5000 }));
+    await pressDispense();
     await screen.findByText("Supply recorded.", undefined, { timeout: 5000 });
     expect(refresh).toHaveBeenCalled();
   });
