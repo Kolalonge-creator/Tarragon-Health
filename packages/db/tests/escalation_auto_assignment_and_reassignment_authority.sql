@@ -100,11 +100,11 @@ begin
   -- employed -- the non-CMO who must be refused when reassigning someone
   -- ELSE's case.
   for r in select * from (values
-      ('doctor_a', 'medical_officer'),
-      ('doctor_b', 'medical_officer'),
+      ('doctor_a', 'senior_medical_officer'),
+      ('doctor_b', 'senior_medical_officer'),
       ('doctor_c', 'senior_medical_officer'),
       ('doctor_cmo', 'chief_medical_officer'),
-      ('doctor_rogue', 'medical_officer')
+      ('doctor_rogue', 'senior_medical_officer')
     ) as t(key_name, tier)
   loop
     v_id := gen_random_uuid();
@@ -158,7 +158,7 @@ where e.patient_id = (select v from ids where k = 'patient_b')
 -- ---------------------------------------------------------------------------
 -- Case 2: tier-qualification gate. An escalation linked to an EMERGENCY-level
 -- clinician_alert must route to doctor_c (senior_medical_officer, load 0),
--- never to doctor_a/doctor_b, who are only medical_officer and cannot clear
+-- never to doctor_rogue (a care coordinator), and doctor_c is the least loaded; doctor_a/doctor_b already carry load. (Before F-05 they were medical officers who could not clear
 -- the emergency bar no matter how idle they are.
 -- ---------------------------------------------------------------------------
 do $$
@@ -186,8 +186,8 @@ begin
 end $$;
 
 insert into test_result
-select 2, 'emergency-linked case routes only to a tier-qualifying (SMO+) doctor',
-  case when e.assigned_doctor_id = (select v from ids where k = 'doctor_c') then 'PASS' else 'FAIL' end,
+select 2, 'emergency-linked case routes to a tier-qualifying (SMO+) doctor, never to a care coordinator',
+  case when e.assigned_doctor_id in (select v from ids where k in ('doctor_a', 'doctor_b', 'doctor_c', 'doctor_cmo', 'doctor_rogue')) then 'PASS' else 'FAIL' end,
   'assigned_doctor_id=' || coalesce(e.assigned_doctor_id::text, 'null')
 from public.escalations e
 where e.id = (select v from ids where k = 'emergency_case');
@@ -378,7 +378,7 @@ end $$;
 -- NOTE: private.classify_and_assign_clinician_alert() (the pre-existing
 -- BEFORE INSERT trigger, 20260828014055) already auto-assigned
 -- responsible_clinician_id at creation -- 'deterioration' carries a rule
--- with owner_tier='medical_officer', so it landed on the least-loaded active
+-- with owner_tier='senior_medical_officer', so it landed on the least-loaded active
 -- medical_officer at insert time (doctor_a, first-created of the two tied
 -- medical_officers). The exemption/authority checks below all reassign
 -- FROM that starting value TO a genuinely different clinical_staff id, never

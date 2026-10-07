@@ -85,7 +85,7 @@ function stubReviewOf(normalizedPayload: Record<string, unknown>, opts?: { staff
       eq: () => ({
         eq: () => ({
           maybeSingle: async () => ({
-            data: opts?.staffTier === undefined ? { doctor_tier: "medical_officer" } : opts.staffTier ? { doctor_tier: opts.staffTier } : null,
+            data: opts?.staffTier === undefined ? { doctor_tier: "senior_medical_officer" } : opts.staffTier ? { doctor_tier: opts.staffTier } : null,
           }),
         }),
       }),

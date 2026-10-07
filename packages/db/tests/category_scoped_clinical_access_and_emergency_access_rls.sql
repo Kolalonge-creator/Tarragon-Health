@@ -79,7 +79,7 @@ begin
     full_name = excluded.full_name;
 
   insert into public.clinical_staff (organisation_id, profile_id, full_name, doctor_tier, active, license_verified_at)
-  values (v_org_b, v_cross_clinician, 'CAT Test Cross Org Clinician', 'medical_officer', true, now());
+  values (v_org_b, v_cross_clinician, 'CAT Test Cross Org Clinician', 'senior_medical_officer', true, now());
   insert into public.clinical_staff (organisation_id, profile_id, full_name, doctor_tier, active, license_verified_at)
   values (v_org_a, v_home_director, 'CAT Test Home Director', 'chief_medical_officer', true, now());
 

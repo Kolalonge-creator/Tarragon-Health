@@ -57,7 +57,7 @@ begin
   end if;
 
   insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier)
-  values (v_org, v_doc, 'Continuous Note Test: Medical Officer Doctor', true, now(), 'medical_officer')
+  values (v_org, v_doc, 'Continuous Note Test: Medical Officer Doctor', true, now(), 'senior_medical_officer')
   on conflict (profile_id) do update
     set organisation_id = excluded.organisation_id, full_name = excluded.full_name,
         active = excluded.active, license_verified_at = excluded.license_verified_at,
