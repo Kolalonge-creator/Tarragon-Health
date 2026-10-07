@@ -267,9 +267,10 @@ describe("history and the rule set on the phone", () => {
     expect(await loadDeviceRuleSet()).toMatchObject({ status: "draft" });
   });
 
-  it("audio ids are manifest clip ids; a code with no recording and null both give none", () => {
+  it("audio ids are manifest clip ids; a code with no clip and null both give none", () => {
     expect(triageAudioId("TRI-001")).toBe("TRI-001");
-    expect(triageAudioId("EMG-001L")).toBeNull(); // the Audio Production List has no low-pressure clip (OQ-202)
+    expect(triageAudioId("EMG-001L")).toBe("EMG-001L"); // added from clinical-wording.json (OQ-202)
+    expect(triageAudioId("EMG-999")).toBeNull();
     expect(triageAudioId(null)).toBeNull();
   });
 });

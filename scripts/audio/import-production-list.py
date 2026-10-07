@@ -24,6 +24,9 @@ ROOT = Path(__file__).resolve().parents[2]
 W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 MANIFEST = ROOT / "audio" / "manifest.json"
 NUM_CSV = ROOT / "audio" / "source" / "TH-NUM-number-list.csv"
+# The words the CMO is asked to sign for the screen AND the voice (OQ-203): one source, so they cannot differ.
+# Until `signed` is set the voice says today's on-screen text, never the unsigned proposal.
+WORDING = ROOT / "packages" / "i18n" / "src" / "clinical-wording.json"
 TS_OUT = ROOT / "packages" / "i18n" / "src" / "audio-scripts.ts"
 
 # Section 4 of the list: who must review what. A group not named here needs brand review only.
@@ -114,6 +117,17 @@ def main():
     if len(args) != 1:
         raise SystemExit(__doc__)
     groups = parse(read_docx(args[0]))
+    wording = json.loads(WORDING.read_text())
+    spoken = {}
+    for cid, w in wording["codes"].items():
+        text = (w["proposed"] if wording["signed"] else w["current"])["body"]
+        for written, said in wording["spoken"].items():
+            text = text.replace(written, said)
+        spoken[cid] = text
+        rows = groups[cid.split("-")[0]]["rows"]
+        if not any(r[0] == cid for r in rows):
+            # Not in the Audio Production List v1.0 (EMG-001L, OQ-202): added from the wording file.
+            rows.append([cid, "Low reading with fainting", text, "", "Added from clinical-wording.json; not in the list"])
     prior = old_state()
     clips, scripts, num_words = [], {}, {}
 
@@ -125,6 +139,8 @@ def main():
             continue
         for cid, where, en, _ignored, notes in g["rows"]:
             clinical = code in CLINICAL_GROUPS or cid in HLP_CLINICAL
+            if cid in spoken:
+                en = spoken[cid]
             scripts[cid] = {"en": en}
             files = {"en": empty_file(cid, "en")}
             clip = {

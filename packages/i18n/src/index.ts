@@ -6,6 +6,7 @@ export const DEFAULT_LOCALE: Locale = "en";
 
 export type { MessageKey };
 export { en };
+export { activeWording, speakable, WORDING_CODES, WORDING_KEYS, WORDING_SIGNED, type WordingCode } from "./clinical-wording";
 
 export const catalogues: Record<Locale, Record<MessageKey, string>> = { en };
 

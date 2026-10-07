@@ -22,6 +22,7 @@ import { AppText, Badge, Button, Card, EmptyState, InlineAlert, LegacySheet, Lis
 import { SyncBanner } from "@/screens/sync-banner";
 import { MedicineCabinetScreen } from "@/screens/sections/medicine-cabinet-screen";
 import { CareChangeCard } from "@/screens/sections/care-change-card";
+import { PharmacyCollectionCard } from "@/screens/sections/pharmacy-collection-card";
 
 interface MedicationsScreenProps {
   patientId: string;
@@ -289,6 +290,8 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
 
       {/* A change is the patient's own yes, so it is not shown while acting for someone else. */}
       {ownsReminders ? <CareChangeCard /> : null}
+      {/* Sending a prescription to a pharmacy shares her record: her own act, so not while acting for someone else. */}
+      {ownsReminders ? <PharmacyCollectionCard /> : null}
 
       {ownsReminders && issues.length > 0 ? (
         <Card style={{ gap: space.sm }}>

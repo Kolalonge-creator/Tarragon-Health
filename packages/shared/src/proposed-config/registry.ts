@@ -1223,6 +1223,18 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S26.md; OQ-127",
   },
   {
+    key: "pharmacy.quality",
+    // Partner pharmacy quality rule (S28, spec 8.11). A pharmacy can be chosen for a collection only while its verified
+    // licence has at least this many days left. Live value: the active row of `pharmacy_quality_config`; a test fails if the
+    // migration seed and this value drift. PROPOSED by the build, never signed: the CMO owns the rule.
+    value: { min_licence_days_left: 30 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S28.md; docs/research/S28.md",
+  },
+  {
     key: "audio.bundled_max_bytes",
     value: 15000000,
     owner: "Founder",
