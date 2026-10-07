@@ -16,7 +16,8 @@ import { DiabetesDailyLog } from "@/app/(dashboard)/patient/diabetes-daily-log";
 import { DeviceSyncSupportCard } from "@/app/(dashboard)/patient/device-sync-support-card";
 import { GrowthTrackingCard } from "@/app/(dashboard)/patient/growth-tracking-card";
 import { SymptomTriageCheck } from "@/app/(dashboard)/patient/symptom-triage-check";
-import { listAvailablePresentingComplaints } from "@/app/(dashboard)/patient/symptom-triage-actions";
+import { getSymptomReviewTime, listAvailablePresentingComplaints } from "@/app/(dashboard)/patient/symptom-triage-actions";
+import { degradedModeConfig } from "@/lib/symptom-triage/safe-run";
 import { ComplicationStatus } from "@/app/(dashboard)/patient/complication-status";
 import { FootRiskStatus } from "@/app/(dashboard)/patient/foot-risk-status";
 import { WeeklySummaryCard } from "@/app/(dashboard)/patient/weekly-summary-card";
@@ -26,6 +27,8 @@ export default async function PatientVitalsPage() {
   const { profile, subjectId, subjectDateOfBirth, glucoseUnit } = await getPatientDashboardContext();
   const ageYears = ageFromDateOfBirth(subjectDateOfBirth);
   const presentingComplaints = await listAvailablePresentingComplaints();
+  // The stated review time is read from the signed SLA only when the checker is open (nothing to promise otherwise).
+  const reviewTime = presentingComplaints.length > 0 ? await getSymptomReviewTime() : ({ stated: false } as const);
 
   return (
     <DashboardSection
@@ -61,7 +64,12 @@ export default async function PatientVitalsPage() {
         organisationId={profile.organisation_id}
         ageYears={ageYears}
       />
-      <SymptomTriageCheck patientId={subjectId} presentingComplaints={presentingComplaints} />
+      <SymptomTriageCheck
+        patientId={subjectId}
+        presentingComplaints={presentingComplaints}
+        degradedConfig={degradedModeConfig()}
+        reviewTime={reviewTime}
+      />
 
       <VitalsHistory patientId={subjectId} />
       <VisitReportCard />

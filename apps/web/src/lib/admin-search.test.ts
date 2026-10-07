@@ -195,6 +195,24 @@ describe("the go-live guards are searchable (S37)", () => {
   });
 });
 
+describe("the symptom checker safety pages are searchable (S60)", () => {
+  const adminIndex = buildAdminSearchIndex(getNavSections("admin", null), []);
+  const cmoIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+  const hit = (idx: AdminSearchEntry[], q: string) => searchAdminEntries(idx, q, 8).map((e) => e.href);
+
+  it("finds the safety page by its words, for the admin and for the CMO", () => {
+    for (const q of ["symptom checker safety", "nafdac", "regulatory position", "accuracy audit", "counsel"]) {
+      expect(hit(adminIndex, q)).toContain("/admin/symptom-safety");
+      expect(hit(cmoIndex, q)).toContain("/clinician/symptom-safety");
+    }
+  });
+
+  it("finds the clinician review queue", () => {
+    const clinicianIndex = buildAdminSearchIndex(getNavSections("clinician", null), []);
+    expect(hit(clinicianIndex, "symptom check reviews")).toContain("/clinician/symptom-reviews");
+  });
+});
+
 describe("the real Chief Medical Officer menu", () => {
   const real = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
 

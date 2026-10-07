@@ -386,6 +386,8 @@ export function getNavSections(
               label: "Queue",
               items: [
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation", countKey: "escalations" },
+                // Symptom checks a patient asked the care team to look at, for patients the clinician holds a task for (S60).
+                { label: "Symptom check reviews", href: "/clinician/symptom-reviews", icon: "review" },
                 {
                   label: "Safeguarding",
                   href: "/clinician/safeguarding",
@@ -609,6 +611,8 @@ export function getNavSections(
                 { label: "Rota and lead clinicians", href: "/clinician/team-rota", icon: "caseload" },
                 // The go-live guards and the proposed values the CMO owns (S37). CMO only; the page redirects anyone below that tier.
                 { label: "Go-live guards", href: "/clinician/go-live", icon: "governance" },
+                // The symptom checker's regulatory position, accuracy audit and safety settings (S60). CMO only; the page redirects others.
+                { label: "Symptom checker safety", href: "/clinician/symptom-safety", icon: "governance" },
                 // Weekly payout drafts the CMO may approve (S36j, founder decision 2026-10-06). CMO only; the page redirects others. Sending stays with the admin.
                 { label: "Payout approvals", href: "/clinician/payout-approvals", icon: "governance" },
                 // Audits of completed clinical work and hand-back reviews (S36c). CMO only; the page redirects anyone below that tier.
@@ -704,6 +708,8 @@ export function getNavSections(
             { label: "Rota and lead clinicians", href: "/admin/rota", icon: "caseload" },
             // The go-live guards and the proposed values the founder owns (S37).
             { label: "Go-live guards", href: "/admin/go-live", icon: "governance" },
+            // The symptom checker's regulatory position, accuracy audit and safety settings (S60).
+            { label: "Symptom checker safety", href: "/admin/symptom-safety", icon: "governance" },
             // Grant or end a Membership by hand until checkout exists (S22b).
             { label: "Memberships", href: "/admin/memberships", icon: "members" },
             // What can be bought, its price and its history; switch an item on or off (S25).
