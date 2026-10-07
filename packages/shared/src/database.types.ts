@@ -43317,6 +43317,24 @@ export type Database = {
         Returns: Json
       };
       admin_pricing_overview: { Args: never; Returns: Json };
+      // S71: sponsor programmes, HMO eligibility, sponsor cover
+      available_hmos: { Args: never; Returns: Json };
+      my_hmo_eligibility: { Args: never; Returns: Json };
+      admin_hmo_checks_pending: { Args: never; Returns: Json };
+      request_hmo_eligibility: { Args: { p_hmo: string; p_member_number: string }; Returns: Json };
+      record_hmo_eligibility_result: { Args: { p_adapter: string; p_check: string; p_result: string }; Returns: Json };
+      ops_verify_hmo_eligibility: { Args: { p_check: string; p_eligible: boolean; p_member_number: string; p_note?: string }; Returns: Json };
+      admin_sponsor_programmes: { Args: never; Returns: Json };
+      admin_create_sponsor_programme: {
+        Args: {
+          p_budget_kobo: number; p_cohort_id: string; p_eligibility: string; p_hmo_check_valid_days: number; p_is_test?: boolean; p_item_codes: string[]
+          p_name: string; p_per_person_cap_kobo: number; p_reason: string; p_share_percent: number; p_sponsor_org: string; p_valid_from: string; p_valid_to: string
+        }
+        Returns: string
+      };
+      admin_set_sponsor_programme_status: { Args: { p_id: string; p_reason: string; p_status: string }; Returns: undefined };
+      admin_set_sponsor_programme_budget: { Args: { p_budget_kobo: number; p_id: string; p_reason: string }; Returns: undefined };
+      cancel_sponsor_entitlement: { Args: { p_order: string; p_reason: string }; Returns: Json };
       admin_create_price_book: { Args: { p_name: string; p_sponsor_org: string }; Returns: string };
       admin_set_price_book_status: { Args: { p_book: string; p_reason: string; p_status: string }; Returns: undefined };
       admin_set_price_book_entry: {

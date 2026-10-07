@@ -135,8 +135,11 @@ describe("MembershipShop", () => {
   it("S73: shows the quote's price and each line of the explanation instead of the catalogue price", () => {
     quote = { data: QUOTE };
     render(<MembershipShop locale="en" fee={FEE} go={assign} />);
-    expect(screen.getByText("₦90,000")).toBeTruthy();
-    expect(screen.getByRole("list", { name: "Price to you" }).textContent).toMatch(/Discount code.*-₦10,000/);
+    // S71 (19.7): the quote is laid out as the itemised checkout: the price, each reduction, the processing estimate, and a total that is their sum
+    const section = screen.getByRole("region", { name: "What you are paying for" });
+    expect(section.textContent).toMatch(/Price₦100,000/);
+    expect(section.textContent).toMatch(/Discount code-₦10,000/);
+    expect(section.textContent).toMatch(/Payment processing \(estimate\)about ₦/);
   });
 
   it("S73: sends the total it showed, so a changed price is refused instead of charged", async () => {

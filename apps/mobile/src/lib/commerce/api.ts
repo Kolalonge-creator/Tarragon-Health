@@ -1,10 +1,11 @@
 import type { QueryResult } from "../medications";
 import { supabase } from "../supabase";
-import { parseCatalogue, parseCheckout, parseMembership, parseOrders, parseVerify, type CatalogueItem, type MembershipState, type OrderRow } from "./parse";
+import { parseCatalogue, parseCheckout, parseCovered, parseMembership, parseOrders, parseVerify, type CatalogueItem, type MembershipState, type OrderRow } from "./parse";
 
 /** The patient side of S25 checkout. Only the item code and a retry key are ever sent; the price comes from the database. */
 export type CheckoutResult =
-  | { ok: true; reference: string; checkoutUrl: string }
+  | { ok: true; covered?: false; reference: string; checkoutUrl: string }
+  | { ok: true; covered: true; reference: string; sponsorName: string | null }
   | { ok: false; code: string };
 
 export async function loadCatalogue(): Promise<QueryResult<CatalogueItem[]>> {
@@ -39,6 +40,8 @@ export async function startCheckout(code: string, clientKey: string, beneficiary
   const body = { code, client_key: clientKey, ...(beneficiary ? { beneficiary } : {}) };
   const { data, error } = await supabase.functions.invoke("order-checkout", { body });
   if (error) return { ok: false, code: await errorCodeOf(error) };
+  const covered = parseCovered(data);
+  if (covered) return { ok: true, covered: true, ...covered };
   const parsed = parseCheckout(data);
   return parsed ? { ok: true, ...parsed } : { ok: false, code: "unknown" };
 }

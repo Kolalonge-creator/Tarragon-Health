@@ -1,5 +1,5 @@
 import { en } from "@tarragon/i18n";
-import { checkoutErrorKey, keepsRetryKey, orderStateKey, parseCatalogue, parseCheckout, parseMembership, parseOrders, parseVerify } from "./parse";
+import { checkoutErrorKey, keepsRetryKey, orderStateKey, parseCatalogue, parseCheckout, parseCovered, parseMembership, parseOrders, parseVerify } from "./parse";
 
 const mockInvoke = jest.fn();
 const mockRpc = jest.fn();
@@ -89,5 +89,28 @@ describe("api", () => {
     expect(await loadCatalogue()).toEqual({ ok: false, error: "boom" });
     expect(await loadMyOrders()).toEqual({ ok: false, error: "boom" });
     expect(await loadMembership()).toEqual({ ok: false, error: "boom" });
+  });
+});
+
+describe("S71 additions", () => {
+  it("a sponsor-covered order of 0 is a real row; a bare 0 is still a bad row", () => {
+    const o = { order_id: "o1", state: "paid", amount_kobo: 0, total_kobo: 0, name_key: "k", created_at: "2026-10-06T10:00:00Z", paid_at: "2026-10-06T10:00:00Z" };
+    expect(parseOrders([o])).toHaveLength(0);
+    const rows = parseOrders([{ ...o, sponsor_share_kobo: 500_000, sponsor_name: "Acme Ltd" }]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ sponsorShareKobo: 500_000, sponsorName: "Acme Ltd" });
+  });
+  it("reads a covered checkout reply, which has no link", () => {
+    expect(parseCovered({ covered: true, reference: "spo_x", sponsor_name: "Acme Ltd" })).toEqual({ reference: "spo_x", sponsorName: "Acme Ltd" });
+    expect(parseCovered({ reference: "spo_x" })).toBeNull();
+    expect(parseCheckout({ covered: true, reference: "spo_x" })).toBeNull();
+  });
+  it("maps the sponsor refusals to messages", () => {
+    expect(checkoutErrorKey("sponsor_budget_exhausted")).toBe("shop.error.sponsor_budget_exhausted");
+    expect(checkoutErrorKey("sponsor_payment_not_open")).toBe("shop.error.sponsor_payment_not_open");
+    expect(checkoutErrorKey("quote_changed")).toBe("shop.error.quote_changed");
+  });
+  it("accepts the home_kit kind", () => {
+    expect(parseCatalogue([{ ...item, kind: "home_kit", code: "home_kit_sample" }])).toHaveLength(1);
   });
 });

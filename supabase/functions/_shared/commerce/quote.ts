@@ -29,6 +29,12 @@ export interface Quote {
   /** null when no code was sent, false when the code cannot be used (the reason is never said). */
   readonly discountCodeOk: boolean | null;
   readonly rateLimited: boolean;
+  /** S71: the sponsor who covers part or all of it, by name ("Covered by ..."). null when no sponsor is involved. */
+  readonly sponsorName: string | null;
+  /** S71: true when a sponsor covers the whole price: there is then no payment step at all. */
+  readonly coveredInFull: boolean;
+  /** S71: a programme's budget could not cover the share, so the person is quoted the ordinary price. */
+  readonly sponsorBudgetShort: boolean;
 }
 
 const isInt = (v: unknown): v is number => typeof v === "number" && Number.isSafeInteger(v);
@@ -63,5 +69,9 @@ export function parseQuote(raw: unknown): Quote | null {
     lines: out,
     discountCodeOk: typeof r["discount_code_ok"] === "boolean" ? r["discount_code_ok"] : null,
     rateLimited: r["discount_error"] === "rate_limited",
+    sponsorName: typeof r["sponsor_name"] === "string" ? r["sponsor_name"] : null,
+    // derived from the numbers as well as the flag: covered in full means a sponsor share exists and nothing is left to pay
+    coveredInFull: sponsor > 0 && amountDue === 0,
+    sponsorBudgetShort: r["sponsor_budget_short"] === true,
   };
 }

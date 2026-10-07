@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { parseQuote, type Quote } from "@tarragon/commerce";
-import { checkoutReplySchema, parseCatalogue, parseMembership, parseOrders, verifyReplySchema } from "@/lib/commerce/model";
+import { checkoutReplySchema, hmoReplySchema, parseCatalogue, parseHmoChecks, parseHmoPlans, parseMembership, parseOrders, verifyReplySchema } from "@/lib/commerce/model";
 
 export const commerceKeys = {
   catalogue: ["commerce", "catalogue"] as const,
@@ -148,6 +148,48 @@ export function useVerifyOrder() {
     },
     onSuccess: (reply) => {
       if (reply.state === "paid") void qc.invalidateQueries({ queryKey: ["commerce"] });
+    },
+  });
+}
+
+/** The health plans (HMOs) with a Tarragon programme that this patient can check their membership with (S71, 19.6). */
+export function useHmoPlans() {
+  return useQuery({
+    queryKey: ["commerce", "hmo-plans"] as const,
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("available_hmos");
+      if (error) throw error;
+      return parseHmoPlans(data);
+    },
+  });
+}
+
+/** The patient's own health plan checks. The number is never returned, only the HMO name, the result and the dates. */
+export function useMyHmoChecks() {
+  return useQuery({
+    queryKey: ["commerce", "hmo-checks"] as const,
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("my_hmo_eligibility");
+      if (error) throw error;
+      return parseHmoChecks(data);
+    },
+  });
+}
+
+/** Asks the hmo-eligibility function to check a member number. The number is sent once, over TLS, and never stored in the clear. */
+export function useRequestHmoCheck() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { hmoId: string; memberNumber: string }) => {
+      const { data, error } = await createClient().functions.invoke("hmo-eligibility", { body: { hmo_id: input.hmoId, member_number: input.memberNumber } });
+      if (error) throw new CheckoutError(await errorCodeOf(error));
+      const parsed = hmoReplySchema.safeParse(data);
+      if (!parsed.success) throw new CheckoutError("unknown");
+      return parsed.data;
+    },
+    onSuccess: () => {
+      // a pass changes the quote for every item, so the quotes are asked again
+      void qc.invalidateQueries({ queryKey: ["commerce"] });
     },
   });
 }

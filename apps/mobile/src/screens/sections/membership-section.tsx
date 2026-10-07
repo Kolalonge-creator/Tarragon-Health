@@ -85,6 +85,14 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
       setBusy(null);
       return;
     }
+    // S71 (19.5): a sponsor pays the whole order. There is no payment page to open; the order is already paid.
+    if (r.covered) {
+      keys.current.delete(item.code);
+      setNotice("sponsor.done.body");
+      setBusy(null);
+      await refresh();
+      return;
+    }
     try {
       await WebBrowser.openBrowserAsync(r.checkoutUrl);
     } finally {
@@ -131,6 +139,8 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
         );
       })}
       {errorKey ? <ErrorText>{tr(errorKey)}</ErrorText> : null}
+      {/* a transfer or USSD payment that has not landed is "waiting for your bank", never a failure (S71, 19.2) */}
+      {notice === "shop.return.pending" ? <Text style={{ fontWeight: "700", color: colors.ink }}>{tr("shop.return.pending.title")}</Text> : null}
       {notice ? <MutedText>{tr(notice)}</MutedText> : null}
       <Card>
         <Text style={{ fontWeight: "700", color: colors.ink }}>{tr("shop.history.title")}</Text>
@@ -142,7 +152,7 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
               <MutedText>{lagos(o.paidAt ?? o.createdAt)}</MutedText>
             </View>
             <View style={{ alignItems: "flex-end" }}>
-              <Text style={{ color: colors.ink }}>{naira(o.totalKobo ?? o.amountKobo)}</Text>
+              <Text style={{ color: colors.ink }}>{o.amountKobo === 0 && o.sponsorShareKobo > 0 ? (o.sponsorName ? tr("sponsor.history_covered", { name: o.sponsorName }) : tr("sponsor.covered_generic")) : naira(o.totalKobo ?? o.amountKobo)}</Text>
               <MutedText>{tr(orderStateKey(o.state))}</MutedText>
             </View>
           </View>

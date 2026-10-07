@@ -6,7 +6,7 @@ import type { MessageKey } from "@tarragon/i18n";
  */
 export interface CatalogueItem {
   code: string;
-  kind: "consultation" | "care_pack" | "lab_panel" | "membership";
+  kind: "consultation" | "care_pack" | "lab_panel" | "membership" | "home_kit";
   nameKey: string;
   descriptionKey: string;
   includedKeys: string[];
@@ -20,13 +20,16 @@ export interface OrderRow {
   nameKey: string;
   createdAt: string;
   paidAt: string | null;
+  /** S71: what a sponsor covered, and who. A fully covered order has amount 0 and shows "Covered by ...", never a price. */
+  sponsorShareKobo: number;
+  sponsorName: string | null;
 }
 export interface MembershipState {
   isMember: boolean;
   endsAt: string | null;
 }
 
-const KINDS = ["consultation", "care_pack", "lab_panel", "membership"] as const;
+const KINDS = ["consultation", "care_pack", "lab_panel", "membership", "home_kit"] as const;
 const STATES = ["created", "paid", "failed", "refunded", "cancelled"] as const;
 const isObj = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);
 const isKobo = (x: unknown): x is number => typeof x === "number" && Number.isSafeInteger(x) && x >= 0;
@@ -52,10 +55,13 @@ export function parseOrders(data: unknown): OrderRow[] {
   for (const r of data) {
     if (!isObj(r)) continue;
     const state = STATES.find((s) => s === r["state"]);
-    if (!state || !str(r["order_id"]) || !isKobo(r["amount_kobo"]) || r["amount_kobo"] === 0 || !str(r["name_key"]) || !str(r["created_at"])) continue;
+    const sponsorShare = isKobo(r["sponsor_share_kobo"]) ? r["sponsor_share_kobo"] : 0;
+    // an order of 0 is real only when a sponsor covered it (S71); otherwise a zero amount is a bad row
+    if (!state || !str(r["order_id"]) || !isKobo(r["amount_kobo"]) || (r["amount_kobo"] === 0 && sponsorShare === 0) || !str(r["name_key"]) || !str(r["created_at"])) continue;
     out.push({
       orderId: r["order_id"], state, amountKobo: r["amount_kobo"], totalKobo: isKobo(r["total_kobo"]) ? r["total_kobo"] : null,
       nameKey: r["name_key"], createdAt: r["created_at"], paidAt: str(r["paid_at"]) ? r["paid_at"] : null,
+      sponsorShareKobo: sponsorShare, sponsorName: str(r["sponsor_name"]) ? r["sponsor_name"] : null,
     });
   }
   return out;
@@ -64,6 +70,12 @@ export function parseOrders(data: unknown): OrderRow[] {
 export function parseMembership(data: unknown): MembershipState {
   if (!isObj(data) || data["is_member"] !== true) return { isMember: false, endsAt: null };
   return { isMember: true, endsAt: str(data["ends_at"]) ? data["ends_at"] : null };
+}
+
+/** S71: a sponsor pays the whole order, so there is no checkout link and nothing to open. */
+export function parseCovered(data: unknown): { reference: string; sponsorName: string | null } | null {
+  if (!isObj(data) || data["covered"] !== true || !str(data["reference"])) return null;
+  return { reference: data["reference"], sponsorName: str(data["sponsor_name"]) ? data["sponsor_name"] : null };
 }
 
 export function parseCheckout(data: unknown): { reference: string; checkoutUrl: string } | null {
@@ -83,6 +95,10 @@ const ERROR_KEYS: Readonly<Record<string, MessageKey>> = {
   no_capacity: "shop.error.no_capacity", too_many_open_orders: "shop.error.too_many_open_orders", email_needed: "shop.error.email_needed",
   payment_unavailable: "shop.error.payment_unavailable", checkout_link_lost: "shop.error.checkout_link_lost", already_paid: "shop.error.already_paid",
   order_closed: "shop.error.order_closed", order_beneficiary_not_allowed: "shop.error.order_beneficiary_not_allowed", gift_item_not_allowed: "shop.error.gift_item_not_allowed",
+  // S73 and S71: the pricing engine and sponsor cover
+  membership_not_open: "shop.error.membership_not_open", quote_changed: "shop.error.quote_changed", sponsor_billing_not_open: "shop.error.sponsor_billing_not_open",
+  order_fully_covered: "shop.error.order_fully_covered", discount_code_invalid: "shop.error.discount_code_invalid", discount_code_rate_limited: "shop.error.discount_code_rate_limited",
+  sponsor_budget_exhausted: "shop.error.sponsor_budget_exhausted", sponsor_payment_not_open: "shop.error.sponsor_payment_not_open",
 };
 export function checkoutErrorKey(code: unknown): MessageKey {
   return (typeof code === "string" ? ERROR_KEYS[code] : undefined) ?? "shop.error.unknown";

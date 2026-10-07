@@ -25,7 +25,7 @@ const DISCOUNT = /^[A-Za-z0-9][A-Za-z0-9 -]{2,31}$/;
 const STATUS: Record<string, number> = {
   email_needed: 422, checkout_not_open: 409, item_not_available: 409, already_member: 409, no_capacity: 409, too_many_open_orders: 429,
   order_beneficiary_not_allowed: 403, gift_item_not_allowed: 403, order_not_authorised: 403,
-  membership_not_open: 409, quote_changed: 409, sponsor_billing_not_open: 409, order_fully_covered: 409, discount_code_invalid: 422, discount_code_rate_limited: 429, already_paid: 409, order_closed: 409, payment_unavailable: 502, checkout_link_lost: 409, unknown: 500,
+  membership_not_open: 409, quote_changed: 409, sponsor_billing_not_open: 409, order_fully_covered: 409, discount_code_invalid: 422, discount_code_rate_limited: 429, sponsor_budget_exhausted: 409, sponsor_payment_not_open: 409, already_paid: 409, order_closed: 409, payment_unavailable: 502, checkout_link_lost: 409, unknown: 500,
 };
 
 export async function handleCheckout(req: Request, deps: CheckoutDeps): Promise<Response> {
@@ -62,7 +62,7 @@ export async function handleCheckout(req: Request, deps: CheckoutDeps): Promise<
   const usePoints = b["use_points"];
   if (usePoints !== undefined && usePoints !== null && typeof usePoints !== "boolean") return Response.json({ error: "invalid_input" }, { status: 400 });
   const expected = b["expected_amount_kobo"];
-  if (expected !== undefined && expected !== null && (typeof expected !== "number" || !Number.isSafeInteger(expected) || expected <= 0)) {
+  if (expected !== undefined && expected !== null && (typeof expected !== "number" || !Number.isSafeInteger(expected) || expected < 0)) {
     return Response.json({ error: "invalid_input" }, { status: 400 });
   }
 
@@ -83,6 +83,8 @@ export async function handleCheckout(req: Request, deps: CheckoutDeps): Promise<
         orderId: d["order_id"], reference: d["reference"], amountKobo: d["amount_kobo"],
         state: typeof d["state"] === "string" ? d["state"] : "created",
         checkoutUrl: typeof d["checkout_url"] === "string" ? d["checkout_url"] : null,
+        // S71: a sponsor pays the whole order, so there is no payment step (the order is already paid)
+        ...(d["covered"] === true ? { covered: true, sponsorName: typeof d["sponsor_name"] === "string" ? d["sponsor_name"] : null } : {}),
       };
       return { ok: true, order };
     },
@@ -96,5 +98,7 @@ export async function handleCheckout(req: Request, deps: CheckoutDeps): Promise<
     ...(typeof expected === "number" ? { expectedAmountKobo: expected } : {}),
   });
   if (!r.ok) return Response.json({ error: r.code }, { status: STATUS[r.code] ?? 500 });
+  // Fully covered: no checkout link exists and none is asked for. The reply says so, with the sponsor's name for "Covered by ...".
+  if (r.covered) return Response.json({ covered: true, order_id: r.orderId, reference: r.reference, sponsor_name: r.sponsorName });
   return Response.json({ order_id: r.orderId, reference: r.reference, amount_kobo: r.amountKobo, checkout_url: r.checkoutUrl });
 }

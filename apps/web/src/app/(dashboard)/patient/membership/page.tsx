@@ -3,6 +3,7 @@ import type { FeeEstimateSchedule } from "@tarragon/commerce";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { PageHeader } from "@/components/ui/page-header";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { HmoEligibilityCard } from "./hmo-eligibility-card";
 import { MembershipShop } from "./membership-shop";
 
 export const metadata = { title: "Membership" };
@@ -16,6 +17,7 @@ export default async function MembershipPage() {
     <div className="space-y-6">
       <PageHeader title="Membership" icon={SEMANTIC_ICON.billing} backTo={{ href: "/patient", label: "Dashboard" }} />
       <MembershipShop locale={uiLanguage} fee={fee} />
+      <HmoEligibilityCard locale={uiLanguage} />
     </div>
   );
 }

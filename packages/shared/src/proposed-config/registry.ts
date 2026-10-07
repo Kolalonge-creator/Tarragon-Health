@@ -182,6 +182,33 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "paystack.com/pricing read 2026-10-06: local card and USSD 1.5% + NGN 100 (NGN 100 waived under NGN 2,500), capped at NGN 2,000; international 3.9% + NGN 100",
   },
   {
+    key: "commerce.processing_fee_estimate",
+    // v3 (S71, 19.4 and 19.7): adds the estimate for a card issued outside Nigeria, which a Care Circle supporter abroad will often use. Paystack lists
+    // 3.9 percent + NGN 100, uncapped, for international cards (the 2026-10-06 reading recorded in v2). The local figures are unchanged. Still only an
+    // ESTIMATE on screen, labelled as one: the exact fee is read from the verified payment. PROPOSED until the founder confirms it against the
+    // Paystack dashboard for this account.
+    value: { localBasisPoints: 150, flatKobo: 10_000, flatWaivedBelowKobo: 250_000, capKobo: 200_000, internationalBasisPoints: 390, internationalFlatKobo: 10_000 },
+    owner: "Founder",
+    status: "proposed",
+    version: 3,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S71.md; paystack.com/pricing as read 2026-10-06 (international 3.9% + NGN 100)",
+  },
+  {
+    key: "sponsor.rules",
+    // Sponsor-paid items and HMO eligibility (S71, module 19). Live values are the active row of `sponsor_config`; this entry mirrors it and a test
+    // fails if the migration seed and this value drift. hmo_checks_per_day: eligibility requests one person may make in 24 hours (abuse limit).
+    // member_number_min_length and member_number_max_length: the length a normalised HMO member number must have to be hashed at all (format only).
+    // The per-programme values (share, budget, per-person allowance, how many days an HMO pass stays valid) are DATA on each sponsor programme,
+    // set by an admin with a reason, never code.
+    value: { hmo_checks_per_day: 5, member_number_min_length: 4, member_number_max_length: 40 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S71.md; docs/DECISIONS.md S71-1; OQ-325",
+  },
+  {
     key: "privacy.transcript_retention",
     // Spec: "To confirm with counsel". null means no value exists yet; callers must treat it as unset.
     value: null,

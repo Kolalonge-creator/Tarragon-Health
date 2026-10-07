@@ -137,7 +137,7 @@ Deno.test("S73: without them nothing extra is sent (the older call is unchanged)
 
 Deno.test("S73: malformed extras are refused before anything is created", async () => {
   const { d, seen } = deps();
-  for (const bad of [{ discount_code: 5 }, { discount_code: "x" }, { discount_code: "a".repeat(40) }, { use_points: "yes" }, { expected_amount_kobo: 0 }, { expected_amount_kobo: 1.5 }, { expected_amount_kobo: "9" }]) {
+  for (const bad of [{ discount_code: 5 }, { discount_code: "x" }, { discount_code: "a".repeat(40) }, { use_points: "yes" }, { expected_amount_kobo: -1 }, { expected_amount_kobo: 1.5 }, { expected_amount_kobo: "9" }]) {
     const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, ...bad }), d);
     assertEquals(res.status, 400);
   }
@@ -154,5 +154,45 @@ Deno.test("S73: the new refusals have stable codes, and a code that cannot be us
     const { d } = deps({ rpc: () => ({ data: { order_id: null, error: msg }, error: null }) });
     const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, discount_code: "WELCOME26" }), d);
     assertEquals([res.status, (await res.json()).error], [status, msg]);
+  }
+});
+
+// ---- S71 -------------------------------------------------------------------------------------------------------------------
+Deno.test("S71 19.2: the hosted page is asked for card, bank transfer and USSD explicitly, never the dashboard defaults", async () => {
+  const { d, payments } = deps();
+  const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY }), d);
+  assertEquals(res.status, 200);
+  assertEquals(payments.channelsFor(REF), ["card", "bank_transfer", "ussd"]);
+});
+
+Deno.test("S71 19.5: a fully sponsor-covered order has no payment step: no link, no Paystack call, the sponsor named", async () => {
+  const { d, payments } = deps({
+    rpc: () => ({ data: { order_id: "o2", reference: "spo_0123456789abcdef0123456789abcdef", amount_kobo: 0, state: "paid", checkout_url: null, covered: true, sponsor_name: "Acme Ltd" }, error: null }),
+  });
+  const res = await handleCheckout(req({ code: "consultation_single", client_key: KEY, expected_amount_kobo: 0 }), d);
+  assertEquals(res.status, 200);
+  const j = await res.json();
+  assertEquals(j, { covered: true, order_id: "o2", reference: "spo_0123456789abcdef0123456789abcdef", sponsor_name: "Acme Ltd" });
+  assertEquals("checkout_url" in j, false);
+  // Paystack was never asked for anything
+  assertEquals((await payments.verifyTransaction("spo_0123456789abcdef0123456789abcdef")).ok, false);
+});
+
+Deno.test("S71: a covered order needs no email on file", async () => {
+  const { d } = deps({
+    whoami: () => Promise.resolve({ id: "u1", email: null }),
+    rpc: () => ({ data: { order_id: "o2", reference: "spo_0123456789abcdef0123456789abcdef", amount_kobo: 0, state: "paid", checkout_url: null, covered: true, sponsor_name: null }, error: null }),
+  });
+  const res = await handleCheckout(req({ code: "consultation_single", client_key: KEY }), d);
+  assertEquals(res.status, 200);
+  assertEquals((await res.json()).covered, true);
+});
+
+Deno.test("S71: the sponsor refusals have stable codes", async () => {
+  for (const code of ["sponsor_budget_exhausted", "sponsor_payment_not_open"]) {
+    const { d } = deps({ rpc: () => ({ data: null, error: { message: code } }) });
+    const res = await handleCheckout(req({ code: "consultation_single", client_key: KEY }), d);
+    assertEquals(res.status, 409);
+    assertEquals((await res.json()).error, code);
   }
 });
