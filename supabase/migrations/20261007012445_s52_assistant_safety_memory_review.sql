@@ -302,6 +302,17 @@ as $$
 $$;
 revoke all on function private.assistant_programme_member(uuid) from public, anon;
 
+-- A timestamp out of a stored message, or null when it is not one. A malformed row must never fail the whole daily job.
+create function private.assistant_safe_ts(p_text text) returns timestamptz
+language plpgsql immutable set search_path = ''
+as $$
+begin
+  return p_text::timestamptz;
+exception when others then
+  return null;
+end $$;
+revoke all on function private.assistant_safe_ts(text) from public, anon;
+
 create function public.assistant_detect_silence(p_now timestamptz default now()) returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
@@ -320,8 +331,9 @@ begin
       from public.ai_conversations c
       join public.profiles p on p.id = c.profile_id and p.role = 'patient' and p.is_active
       cross join lateral (
-        select max((m ->> 'created_at')::timestamptz) as at
-          from jsonb_array_elements(c.messages) m where m ->> 'role' = 'user') u
+        select max(private.assistant_safe_ts(m ->> 'created_at')) as at
+          from jsonb_array_elements(case when jsonb_typeof(c.messages) = 'array' then c.messages else '[]'::jsonb end) m
+         where jsonb_typeof(m) = 'object' and m ->> 'role' = 'user') u
      where u.at is not null
        -- only people the assistant is open to (the guard on, or an is_test account), and only programme members
        and private.go_live_open_patient('assistant_enabled', c.profile_id)
@@ -338,7 +350,7 @@ begin
            select 1 from public.notifications n
             where n.recipient_id = r.patient_id and n.template = 'assistant_reengage' and n.created_at > p_now - make_interval(days => v_cooldown)) then
         insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload)
-        values (r.organisation_id, r.patient_id, 'in_app', 'pending', 'assistant_reengage', jsonb_build_object('day', p_now::date));
+        values (r.organisation_id, r.patient_id, private.patient_reminder_channel(r.patient_id, false), 'pending', 'assistant_reengage', jsonb_build_object('day', p_now::date));
         v_reengaged := v_reengaged + 1;
       end if;
     end if;
@@ -500,18 +512,23 @@ declare
   v_reported integer;
   v_random integer;
 begin
-  -- every reported conversation: an incident against AI-001 whose interaction produced a turn this month, or an interaction flagged for review
+  -- every reported conversation: a safety incident filed THIS month against an answer the assistant gave (whenever that answer was given,
+  -- so a late report of last month's answer is not missed). Automatic flags alone are not "reported": they can still be drawn at random.
   insert into public.assistant_review_samples (organisation_id, month, conversation_id, patient_id, selection, incident_id, is_test)
   select t.organisation_id, v_month, t.conversation_id, t.patient_id, 'reported',
          (select i.id from public.ai_safety_incidents i where i.interaction_id = t.interaction_id order by i.created_at limit 1), coalesce(p.is_test, false)
     from public.ai_assistant_turns t
     join public.profiles p on p.id = t.patient_id
     join public.ai_interaction_log l on l.id = t.interaction_id
-   where t.created_at >= v_from and t.created_at < v_to and t.conversation_id is not null and t.interaction_id is not null
-     and (l.flagged_for_review or exists (select 1 from public.ai_safety_incidents i where i.interaction_id = t.interaction_id))
+   where t.conversation_id is not null and t.interaction_id is not null
+     and exists (select 1 from public.ai_safety_incidents i where i.interaction_id = t.interaction_id and i.created_at >= v_from and i.created_at < v_to)
   on conflict (month, conversation_id) do nothing;
   get diagnostics v_reported = row_count;
 
+  -- the random draw is made once per month: a re-run (a retried cron) never draws a second sample
+  if exists (select 1 from public.assistant_review_samples where month = v_month and selection = 'random') then
+    return jsonb_build_object('month', v_month, 'reported', v_reported, 'random', 0, 'already_drawn', true);
+  end if;
   insert into public.assistant_review_samples (organisation_id, month, conversation_id, patient_id, selection, is_test)
   select x.organisation_id, v_month, x.conversation_id, x.patient_id, 'random', x.is_test
     from (

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { ASSISTANT_LIMITS, EMERGENCY_BUTTON_LABEL, EMERGENCY_GUIDANCE, SELF_HARM_GUIDANCE } from "@tarragon/shared";
 import {
   REPORT_REASONS,
@@ -24,11 +24,11 @@ import { ErrorText, MutedText, SecondaryButton } from "@/ui/legacy-kit";
  * The emergency guidance is bundled in the app (INV-06): it shows at once with no signal, then the nearest hospitals and the patient's
  * own emergency contact are added when they can be read.
  */
-export function EmergencyBlock({ patientId, selfHarm = false }: { patientId: string; selfHarm?: boolean }) {
+export function EmergencyBlock({ patientId }: { patientId: string }) {
   const colors = useLegacyColors();
   const [open, setOpen] = useState(false);
   const [extra, setExtra] = useState("");
-  const guidance = selfHarm ? SELF_HARM_GUIDANCE : EMERGENCY_GUIDANCE;
+  const guidance = EMERGENCY_GUIDANCE;
 
   async function show() {
     setOpen(true);
@@ -56,6 +56,14 @@ export function EmergencyBlock({ patientId, selfHarm = false }: { patientId: str
               {guidance.title}
             </Text>
             {guidance.lines.map((line) => (
+              <Text key={line} style={{ fontSize: 15, color: colors.ink }}>
+                {line}
+              </Text>
+            ))}
+            <Text accessibilityRole="header" style={{ fontSize: 16, fontWeight: "700", color: colors.ink, marginTop: 8 }}>
+              {SELF_HARM_GUIDANCE.title}
+            </Text>
+            {SELF_HARM_GUIDANCE.lines.map((line) => (
               <Text key={line} style={{ fontSize: 15, color: colors.ink }}>
                 {line}
               </Text>
@@ -254,7 +262,19 @@ export function MemoryBlock() {
               }
             />
             <SecondaryButton title="Remove everything" onPress={() => void run(() => deleteAllMemory())} />
-            <SecondaryButton title="Switch the memory off" onPress={() => void run(() => setMemoryConsent(false))} />
+            <SecondaryButton
+              title="Switch the memory off"
+              onPress={() =>
+                Alert.alert(
+                  "Switch the memory off?",
+                  "This also removes everything it remembers. Export first if you want to keep a copy.",
+                  [
+                    { text: "Keep it on", style: "cancel" },
+                    { text: "Switch off and remove", style: "destructive", onPress: () => void run(() => setMemoryConsent(false)) },
+                  ],
+                )
+              }
+            />
           </View>
           {exported ? <Text selectable style={{ fontSize: 12, color: colors.ink }}>{exported}</Text> : null}
         </View>

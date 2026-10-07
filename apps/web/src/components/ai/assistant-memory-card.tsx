@@ -148,7 +148,12 @@ export function AssistantMemoryCard() {
               <Button type="button" size="sm" variant="outline" onClick={() => void run(() => deleteAllMemoryAction())}>
                 Remove everything
               </Button>
-              <Button type="button" size="sm" variant="ghost" onClick={() => void run(() => setMemoryConsentAction(false))}>
+              <Button type="button" size="sm" variant="ghost" onClick={() => {
+                  if (window.confirm("Switch the memory off? This also removes everything it remembers. Export first if you want a copy.")) {
+                    void run(() => setMemoryConsentAction(false));
+                  }
+                }}
+              >
                 Switch the memory off
               </Button>
             </div>

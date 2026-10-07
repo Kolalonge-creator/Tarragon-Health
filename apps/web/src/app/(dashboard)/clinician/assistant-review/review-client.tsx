@@ -45,6 +45,8 @@ export function AssistantReviewClient({ initial }: { initial: ReviewQueueRow[] }
     setConversation(null);
     setReason("");
     setNote("");
+    setVerdict("appropriate");
+    setCategory("none");
     await reload();
   }
 

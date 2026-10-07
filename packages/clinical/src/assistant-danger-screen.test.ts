@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { screenAssistantMessage, ASSISTANT_EXTRA_DANGER_PHRASES, ASSISTANT_DANGER_PAIRS } from "./assistant-danger-screen";
+import { screenAssistantMessage, isSelfHarmScreen, ASSISTANT_EXTRA_DANGER_PHRASES, ASSISTANT_DANGER_PAIRS } from "./assistant-danger-screen";
 import { WRITTEN_QUESTION_DANGER_PHRASES } from "./written-question-screen";
 
 /**
@@ -130,5 +130,19 @@ describe("assistant danger screen (INV-01, one rule source)", () => {
 
   it("uses a curly apostrophe like a phone keyboard", () => {
     expect(screenAssistantMessage("I don’t want to live like this").redFlag).toBe(true);
+  });
+
+  it("DRIFT: every phrase in either list that is about harming oneself is classified as self-harm (so it gets the on-call page)", () => {
+    const aboutSelfHarm = /suicid|kill (?:my|him|her|them)sel|(?:end|take)(?:s|ing|ed)? (?:my|his|her|their)(?: own)? life|want(?:s|ed)? to die|want to live|self.?harm|(?:cutting|hurting|harming) myself/;
+    const phrases = [...WRITTEN_QUESTION_DANGER_PHRASES, ...ASSISTANT_EXTRA_DANGER_PHRASES].filter((p) => aboutSelfHarm.test(p));
+    expect(phrases.length).toBeGreaterThan(10);
+    for (const p of phrases) {
+      const sentence = p.endsWith("*") ? `${p.slice(0, -1)}al` : p;
+      expect([sentence, isSelfHarmScreen(screenAssistantMessage(sentence))]).toEqual([sentence, true]);
+    }
+  });
+
+  it("does not call a heart or breathing emergency self-harm", () => {
+    expect(isSelfHarmScreen(screenAssistantMessage("crushing chest pain and I can't breathe"))).toBe(false);
   });
 });

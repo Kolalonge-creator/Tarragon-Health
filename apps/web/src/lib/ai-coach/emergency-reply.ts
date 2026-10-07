@@ -17,7 +17,13 @@ export async function buildEmergencyReply(
 ): Promise<{ reply: string; selfHarm: boolean }> {
   const selfHarm = isSelfHarmMessage(params.message);
   const [, addendum] = await Promise.all([
-    selfHarm && params.page ? pageOnCallForSelfHarm(deps.service, params.profileId, params.conversationId) : Promise.resolve(false),
+    // the page is bounded like the hospital lookup: the fixed copy never waits on a slow database
+    selfHarm && params.page
+      ? Promise.race([
+          pageOnCallForSelfHarm(deps.service, params.profileId, params.conversationId),
+          new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 4000)),
+        ])
+      : Promise.resolve(false),
     emergencyAddendumFor(deps.supabase, params.profileId),
   ]);
   const base = selfHarm ? SELF_HARM_REPLY : (params.fixedReply ?? EMERGENCY_SAFETY_REPLY);

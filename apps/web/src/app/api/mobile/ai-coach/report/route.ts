@@ -41,11 +41,25 @@ export async function POST(request: Request): Promise<NextResponse> {
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
 
+  // No id sent (the app was restarted, or the history came from the server): link the patient's most recent assistant answer, so the report
+  // still reaches the monthly review. Their own row only (RLS).
+  let interactionId = parsed.data.interactionId ?? null;
+  if (!interactionId) {
+    const { data: latest } = await supabase
+      .from("ai_assistant_turns")
+      .select("interaction_id")
+      .eq("patient_id", user.id)
+      .not("interaction_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    interactionId = latest?.interaction_id ?? null;
+  }
   const { error } = await supabase.rpc("report_ai_safety_incident", {
     p_system_code: "AI-001",
     p_category: parsed.data.category,
     p_description: parsed.data.description,
-    p_interaction_id: parsed.data.interactionId ?? undefined,
+    p_interaction_id: interactionId ?? undefined,
   });
   if (error) return NextResponse.json({ error: "We could not file that just now. Please try again." }, { status: 500 });
   return NextResponse.json({ success: true });
