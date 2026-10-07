@@ -44,6 +44,8 @@ begin
   if not private.has_required_consents(pat) then raise exception 'FAIL 1b: false after accepting every required purpose'; end if;
 
   -- 2. an optional current purpose the patient has not accepted does not gate
+  -- a research consent version now ships current (S83 fix); this proof makes its own, so demote the shipped one inside the rolled-back test
+  update public.consent_versions set is_current = false where consent_type = 'research' and is_current;
   insert into public.consent_versions (consent_type, version, title, body, is_current, is_optional)
     values ('research', 'proof-v1', 'Proof optional', 'proof body', true, true) returning id into v_opt;
   if not private.has_required_consents(pat) then raise exception 'FAIL 2: an unaccepted OPTIONAL purpose blocked has_required_consents'; end if;

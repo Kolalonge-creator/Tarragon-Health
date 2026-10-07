@@ -13,6 +13,10 @@
 
 begin;
 
+-- The prescribing guard (S37 enforcement) is off by default; this proof is about something else, so switch it on inside the rolled-back test.
+insert into public.go_live_guard_log (guard_key, action, actor_id, actor_role, note) select 'prescribing_enabled', 'switched_on', id, 'cmo', 'proof setup' from public.profiles limit 1;
+update public.go_live_guards set is_on = true, changed_at = now(), changed_by = (select id from public.profiles limit 1), change_note = 'proof setup' where key = 'prescribing_enabled';
+
 do $$
 declare
   v_org uuid;

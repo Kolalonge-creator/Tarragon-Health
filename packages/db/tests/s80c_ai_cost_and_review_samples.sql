@@ -10,6 +10,13 @@ begin
   select id into v_org from public.organisations limit 1;
   select id into v_pat from public.profiles where role = 'patient' and not coalesce(is_test,false) limit 1;
   select id, system_code into v_sys, v_code from public.ai_systems order by system_code limit 1;
+  if v_org is not null and v_pat is null then
+    -- a fresh database has no real (non-test) patient: make one
+    v_pat := gen_random_uuid();
+    insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+    values (v_pat, 's80c-real-patient@example.invalid', 'x', now(), '{}', '{}');
+    update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'S80c Real Patient', is_test = false where id = v_pat;
+  end if;
   if v_org is null or v_pat is null or v_sys is null then raise exception 'fixture missing'; end if;
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
   values (v_admin, 's80c-admin@example.invalid','x',now(),'{}','{}'), (v_cmo, 's80c-cmo@example.invalid','x',now(),'{}','{}'),
