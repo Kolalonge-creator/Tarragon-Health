@@ -68,6 +68,8 @@ describe("scan rules discriminate (sabotage)", () => {
     expect(ids('copy: "One-off payment, no auto-renewal."')).toEqual([]);
     expect(ids('copy: "Not contraception. This cannot prevent pregnancy." // Fertile window 3 to 8 May')).toEqual([]);
     expect(ids('const t = "Fertile window 3 to 8 May"; const l = "Not contraception";')).toEqual([]);
+    expect(ids('const t = "Fertile window 3 to 8 May"; <FertileWindowNotice />')).toEqual([]);
+    expect(ids('import { FERTILE_WINDOW_LABEL } from "@tarragon/i18n"; const t = "Fertile window";')).toEqual([]);
     expect(ids('type Channel = "sms" | "email";')).toEqual([]);
     expect(ids('await auth.verifyOtp({ phone, token, type: "sms" })')).toEqual([]);
   });

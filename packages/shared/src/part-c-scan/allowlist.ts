@@ -23,13 +23,8 @@ export const PART_C_ALLOWLIST: readonly PartCAllow[] = [
   { rule: "patient-sms", file: `${web}lib/notifications/send-patient-link.ts`, oq: "OQ-32", expires: EXP, reason: "virtual review join link by SMS; D3 removes it" },
   { rule: "patient-sms", file: `${web}app/(dashboard)/admin/settings/broadcasts/broadcast-composer.tsx`, oq: "OQ-32", expires: EXP, reason: "SMS broadcast channel; D3 removes it" },
   { rule: "patient-sms", file: `${web}app/(dashboard)/dashboard/corporate/roster-manager.tsx`, oq: "OQ-310", expires: EXP, reason: "employer roster invitation by SMS; not a verification code" },
-  // Fertile window shown without the 'Not contraception' label (D2, OQ-12 decided, not built)
-  { rule: "fertile-window-label", file: `${web}app/(dashboard)/patient/cycle/cycle-calendar.tsx`, oq: "OQ-12", expires: EXP, reason: "label and opt-in mode not built yet" },
-  { rule: "fertile-window-label", file: `${web}app/(dashboard)/patient/cycle/cycle-ring.tsx`, oq: "OQ-12", expires: EXP, reason: "label and opt-in mode not built yet" },
-  { rule: "fertile-window-label", file: `${web}app/(dashboard)/patient/cycle/cycle-tracker.tsx`, oq: "OQ-12", expires: EXP, reason: "label and opt-in mode not built yet" },
-  { rule: "fertile-window-label", file: `${web}lib/rules/cycle-reading.ts`, oq: "OQ-12", expires: EXP, reason: "patient-facing reason text names the fertile window" },
-  { rule: "fertile-window-label", file: `${web}lib/rules/cycle-thermal-shift.ts`, oq: "OQ-12", expires: EXP, reason: "temperature-based ovulation confirmation; review with D2" },
-  { rule: "fertile-window-label", file: "apps/mobile/src/screens/sections/cycle-screen.tsx", oq: "OQ-12", expires: EXP, reason: "label and opt-in mode not built yet on the phone" },
+  // Fertile window: the six `fertile-window-label` entries were removed by S85 D2 (OQ-12): opt-in "Planning a pregnancy"
+  // mode and the shared label are built on web and phone. Do not add one back; fix the screen.
   // Platform Credit was removed from the schema; one refund branch for a retired charge remains
   { rule: "stored-balance", file: "supabase/functions/paystack-webhook/handler.ts", oq: "OQ-309", expires: EXP, reason: "refund-and-reconcile branch for a retired platform_credit_topup charge" },
 ];
