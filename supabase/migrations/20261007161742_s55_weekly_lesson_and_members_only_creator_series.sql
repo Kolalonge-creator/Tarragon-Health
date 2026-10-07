@@ -63,6 +63,17 @@ as $$
   select private.learning_creator_locked_for(p_creator, (select auth.uid()));
 $$;
 
+-- By content id, for policies on tables that hang off a lesson (read as the owner so the content row's own visibility cannot hide the answer).
+create or replace function private.learning_content_locked(p_content uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce((select private.learning_creator_locked(c.creator_id) from public.health_education_content c where c.id = p_content), false);
+$$;
+
 -- ---------------------------------------------------------------------------
 -- 2. Admin switch (new version row, audited)
 -- ---------------------------------------------------------------------------
@@ -104,6 +115,12 @@ create policy health_education_content_select on public.health_education_content
        and (creator_id is null or not private.learning_creator_locked(creator_id)))
     or private.is_admin()
   );
+
+-- Translations carry a full body and were readable by any signed-in person (select using true): hide a locked lesson's too.
+drop policy if exists health_education_translations_select on public.health_education_translations;
+create policy health_education_translations_select on public.health_education_translations
+  for select to authenticated
+  using (not private.learning_content_locked(content_id));
 
 -- ---------------------------------------------------------------------------
 -- 4. A progress write on a locked lesson is refused
@@ -163,7 +180,7 @@ create trigger health_education_progress_understood_at
   before insert or update on public.health_education_progress
   for each row execute function private.health_education_progress_understood_at();
 -- existing finished rows: the best record of when is the last time they were opened
-update public.health_education_progress set understood_at = last_viewed_at where status = 'understood' and understood_at is null;
+update public.health_education_progress set understood_at = coalesce(last_viewed_at, created_at) where status = 'understood' and understood_at is null;
 
 -- Start of the person's current programme week for a track: the same anchor private.health_education_unlock_week() counts from.
 create or replace function private.health_education_unlock_anchor(p_condition public.care_plan_condition)
@@ -235,7 +252,7 @@ as $$
       on p.content_id = c.id and p.patient_id = (select id from me)
     left join public.learning_creators cr on cr.id = c.creator_id
    where (p.status is distinct from 'understood' or p.understood_at >= c.week_start)
-   order by (p.status = 'understood') desc nulls last,
+   order by coalesce(p.status = 'understood', false) desc,
             c.locked asc,
             (c.drip_week = c.w) desc nulls last,
             (c.condition is not null) desc,
@@ -431,6 +448,7 @@ begin
     'public.set_learning_creator_perk(boolean, text)',
     'private.learning_creator_locked_for(uuid, uuid)',
     'private.learning_creator_locked(uuid)',
+    'private.learning_content_locked(uuid)',
     'private.health_education_unlock_anchor(public.care_plan_condition)',
     'private.health_education_progress_members_gate()'
   ] loop
