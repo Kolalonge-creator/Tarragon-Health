@@ -38,7 +38,7 @@ function Row({ patientId, row, options }: { patientId: string; row: RoutingRow; 
   return (
     <li className="space-y-2 rounded-md border border-charcoal-ink/10 p-3">
       <p className="font-medium">{row.item_summary || "Prescription"}</p>
-      <p className="text-xs text-charcoal-ink/60">{waiting ? "Signed, waiting for the patient to choose where to collect" : "Sent to a pharmacy by the patient"}</p>
+      <p className="text-xs text-charcoal-ink/60">{waiting ? "Signed, waiting for the patient to choose where to collect" : row.suggestion_status === "lapsed" ? "Sent to a pharmacy" : "Sent to a pharmacy by the patient"}</p>
       {row.suggestion_id && row.suggestion_status ? (
         <div className="space-y-1 text-sm">
           <p>

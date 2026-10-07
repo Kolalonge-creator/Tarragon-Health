@@ -41,7 +41,12 @@ export async function withdrawSuggestionAction(_prev: SuggestState, formData: Fo
   if (!parsed.success) return { ok: false, message: "That did not work and nothing was changed." };
   if (!(await getCurrentUser())) return { ok: false, message: "Please sign in again." };
   const { data, error } = await loose(await createClient()).rpc("care_team_withdraw_pharmacy_suggestion", { p_suggestion: parsed.data.suggestionId });
-  if (error) return { ok: false, message: "Only the clinician who made the suggestion can withdraw it. Nothing was changed." };
+  if (error) {
+    return {
+      ok: false,
+      message: error.code === "42501" ? "Only the clinician who made the suggestion can withdraw it. Nothing was changed." : "That did not work and nothing was changed. Please try again.",
+    };
+  }
   revalidatePath(`/clinician/patients/${parsed.data.patientId}`);
   if (data === false) return { ok: false, message: "It was already settled, so there was nothing to withdraw." };
   return { ok: true, message: "Withdrawn. The patient no longer sees it." };

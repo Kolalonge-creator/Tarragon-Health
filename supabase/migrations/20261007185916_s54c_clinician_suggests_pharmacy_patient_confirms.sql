@@ -178,7 +178,7 @@ begin
            -- "city" is a summary and says nothing about a second branch somewhere else, so with several branches only the branch address counts.
            case when v_city is not null
                      and (v_state is null or private.pharmacy_place_key(l.state) is not distinct from v_state)
-                     and ((' ' || coalesce(private.normalise_term(l.address), '') || ' ') like ('% ' || v_city || ' %')
+                     and (position((' ' || v_city || ' ') in (' ' || coalesce(private.normalise_term(l.address), '') || ' ')) > 0
                           or (private.pharmacy_place_key(pp.city) = v_city
                               and (select count(*) from public.pharmacy_partner_locations x where x.pharmacy_partner_id = pp.id and x.is_active and x.verified_at is not null) = 1))
                 then 'same_city'
@@ -192,6 +192,8 @@ begin
     -- one verdict per item per pharmacy: unavailable (every matching row is out), in (some row in or low), unknown (a row with no stock flag), none (no row)
     select lo.pid, it.ord,
            case when not exists (select 1 from public.pharmacy_medications pm where pm.pharmacy_partner_id = lo.pid and pm.is_active) then 'no_catalogue'
+                -- an item with no recognisable name cannot be matched, so the honest answer is "not known", never "not in stock"
+                when it.nm = '' then 'no_catalogue'
                 when not exists (select 1 from public.pharmacy_medications pm
                                   where pm.pharmacy_partner_id = lo.pid and pm.is_active and it.nm <> ''
                                     and private.pharmacy_name_key(pm.drug_name) = it.nm
