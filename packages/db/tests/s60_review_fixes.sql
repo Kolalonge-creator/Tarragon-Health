@@ -69,6 +69,7 @@ begin
   if v_org is null then raise exception 'need an organisation to run this proof'; end if;
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
   v_p1 := pg_temp.mkuser(v_org, 'patient', 'patient');
+  insert into public.patient_memberships (organisation_id, patient_id, source, is_test, granted_by, grant_reason) values (v_org, v_p1, 'granted', true, v_p1, 'S59b: reviews are a Membership benefit');
   v_cg := pg_temp.mkuser(v_org, 'caregiver', 'patient');
   v_c1 := pg_temp.mkstaff(v_org, v_admin, 'tied', 'medical_officer');
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id) values (v_org, v_p1, v_c1);

@@ -80,6 +80,8 @@ begin
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
   v_p1 := pg_temp.mkuser(v_org, 'patient1', 'patient');
   v_p2 := pg_temp.mkuser(v_org, 'patient2', 'patient');
+  insert into public.patient_memberships (organisation_id, patient_id, source, is_test, granted_by, grant_reason) values (v_org, v_p1, 'granted', true, v_p1, 'S59b: reviews are a Membership benefit');
+  insert into public.patient_memberships (organisation_id, patient_id, source, is_test, granted_by, grant_reason) values (v_org, v_p2, 'granted', true, v_p2, 'S59b: reviews are a Membership benefit');
   v_c1 := pg_temp.mkstaff(v_org, v_admin, 'tied', 'medical_officer');
   v_c2 := pg_temp.mkstaff(v_org, v_admin, 'untied', 'medical_officer');
   v_cc := pg_temp.mkstaff(v_org, v_admin, 'coordinator', 'care_coordinator');

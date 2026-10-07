@@ -92,6 +92,31 @@ export const patientSummarySchema = z.object({
   allergies: z.array(z.object({ allergen: z.string(), reaction: z.string().nullable(), severity: z.string().nullable() })).optional(),
   conditions: z.array(z.object({ condition_name: z.string(), status: z.string(), severity: z.string().nullable() })).optional(),
   care_circle: z.object({ active_members: z.number() }).optional(),
+  /** S59 (spec 12.5): symptom check summaries the patient chose to send, tied to a consultation that is booked. */
+  symptom_summaries: z
+    .array(
+      z.object({
+        id: z.string(),
+        sent_at: z.string(),
+        appointment_id: z.string().nullable(),
+        payload: z
+          .object({
+            complaint: z.string(),
+            complaint_label: z.string(),
+            category: z.string(),
+            onset: z.string().nullable().optional(),
+            severity: z.number().nullable().optional(),
+            associated_symptoms: z.array(z.string()).optional(),
+            history: z.array(z.string()).optional(),
+            questions: z.array(z.object({ prompt: z.string().nullable(), answer: z.unknown() })).optional(),
+            red_flags_fired: z.array(z.string()).optional(),
+            answered_by_carer: z.boolean().optional(),
+            checked_at: z.string().optional(),
+          })
+          .passthrough(),
+      }),
+    )
+    .optional(),
 });
 export type PatientSummary = z.infer<typeof patientSummarySchema>;
 

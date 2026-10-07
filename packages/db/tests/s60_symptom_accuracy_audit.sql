@@ -81,6 +81,9 @@ begin
   end loop;
 end $f$;
 
+-- S59b: this proof uses children as fixtures (age bands, a carer's check for a child). The age gate itself is proven in s59b_children_members_and_closed_staff_read.sql, so it is switched off here (inside the rolled-back transaction only).
+alter table public.symptom_triage_assessments disable trigger symptom_triage_assessments_01_age_gate;
+
 do $$
 declare
   v_org uuid; v_admin uuid; v_cmo uuid; v_doc uuid;

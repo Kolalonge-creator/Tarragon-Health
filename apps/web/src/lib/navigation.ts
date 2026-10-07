@@ -388,6 +388,8 @@ export function getNavSections(
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation", countKey: "escalations" },
                 // Symptom checks a patient asked the care team to look at, for patients the clinician holds a task for (S60).
                 { label: "Symptom check reviews", href: "/clinician/symptom-reviews", icon: "review" },
+                // Photos patients sent for the care team to look at, for patients the clinician holds a task for (S59).
+                { label: "Photo reviews", href: "/clinician/skin-photo-reviews", icon: "review" },
                 {
                   label: "Safeguarding",
                   href: "/clinician/safeguarding",

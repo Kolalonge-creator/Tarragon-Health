@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   requestSymptomReview,
@@ -15,6 +16,7 @@ import {
   SEED_PATHWAYS,
   categoryAtLeast,
   evaluateBundledRedFlags,
+  nextTriageStep,
   runTriageFailSafe,
   type AnswerMap,
   type AnsweredQuestion,
@@ -23,9 +25,12 @@ import {
   type QuestionNode,
   type SymptomCapture,
   type TriageCategory,
+  type UrgencyLevel,
 } from "@tarragon/symptom-triage-engine";
 import { t, type MessageKey } from "@tarragon/i18n";
 import { NotADiagnosis } from "@/components/symptom/not-a-diagnosis";
+import { SymptomNextSteps, resultHeadline } from "./symptom-next-steps";
+import { SkinPhotoCard } from "./skin-photo-card";
 import { reviewTimeSentence } from "@/lib/symptom-triage/review-time";
 import { symptomOptionLabel } from "@/lib/symptom-triage/option-label";
 import { Button } from "@/components/ui/button";
@@ -50,8 +55,12 @@ type Stage =
       recorded: boolean;
       /** Worked out on this device, with no server (INV-06). */
       onDevice: boolean;
+      /** The six-level wording, only from a signed urgency map; null shows the four-category result alone. */
+      urgencyLevel: string | null;
+      forDependant: boolean;
     }
   | { step: "unavailable" }
+  | { step: "blocked"; reason: "under_18" | "dob_required" }
   | { step: "error"; message: string };
 
 type CaptureDraft = {
@@ -80,6 +89,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 
 function handleStepResult(result: SymptomTriageStepResult): Stage {
   if (result.status === "unavailable") return { step: "unavailable" };
+  if (result.status === "blocked") return { step: "blocked", reason: result.reason };
   if (result.status === "error") return { step: "error", message: result.error };
   if (result.status === "in_progress") {
     return {
@@ -99,6 +109,8 @@ function handleStepResult(result: SymptomTriageStepResult): Stage {
     degraded: result.degraded,
     recorded: result.recorded,
     onDevice: false,
+    urgencyLevel: result.urgencyLevel,
+    forDependant: result.forDependant,
   };
 }
 
@@ -119,6 +131,8 @@ async function resultOnDevice(capture: SymptomCapture, degraded: DegradedModeCon
     degraded: true,
     recorded: false,
     onDevice: true,
+    urgencyLevel: null,
+    forDependant: false,
   };
 }
 
@@ -146,6 +160,8 @@ export function SymptomTriageCheck({
   presentingComplaints,
   degradedConfig,
   reviewTime,
+  eligibility,
+  reviewEntitled,
 }: {
   patientId: string;
   presentingComplaints: PresentingComplaintOption[];
@@ -153,10 +169,15 @@ export function SymptomTriageCheck({
   degradedConfig: DegradedModeConfig;
   /** The stated review time from the active signed SLA, or not stated. */
   reviewTime: ReviewTime;
+  /** S59b: ok, or why the checker cannot run for this person (under 18, or no date of birth). "error" is treated as closed. */
+  eligibility: "ok" | "under_18" | "dob_required" | "error";
+  /** S59b: the person is a Member, so a clinician review can be requested. Free people see the message route instead. */
+  reviewEntitled: boolean;
 }) {
   const [stage, setStage] = useState<Stage>({ step: "pick_complaint" });
   const [pending, startTransition] = useTransition();
   const queryClient = useQueryClient();
+  const [complaintKey, setComplaintKey] = useState<string>("");
 
   if (presentingComplaints.length === 0) {
     // Closed: the go-live guard `symptom_checker_enabled` is off, or no protocol is signed yet. Never a
@@ -176,8 +197,32 @@ export function SymptomTriageCheck({
     );
   }
 
-  function pickComplaint(complaintKey: string) {
-    setStage({ step: "capture", complaintKey });
+  if (eligibility === "under_18" || eligibility === "dob_required") return <CheckerBlocked reason={eligibility} />;
+  if (eligibility === "error") {
+    // Whether this person may use the checker could not be read: say so calmly and point to the safe routes (never guess an age).
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Check a symptom</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{t("symptom.mobile.closed")}</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  /**
+   * Slow connections (spec 12.1): when the signed pathway is exactly the one bundled with the app (the server says so), the question
+   * walk runs on this device and the server is called ONCE, with every answer, at the end. The server still recomputes everything.
+   */
+  function bundledPathway(key: string) {
+    return presentingComplaints.find((c) => c.key === key)?.bundledCurrent ? SEED_PATHWAYS.find((p) => p.key === key) : undefined;
+  }
+
+  function pickComplaint(key: string) {
+    setComplaintKey(key);
+    setStage({ step: "capture", complaintKey: key });
   }
 
   function submitCapture(capture: CaptureDraft) {
@@ -195,8 +240,18 @@ export function SymptomTriageCheck({
         degraded: false,
         recorded: false,
         onDevice: true,
+        urgencyLevel: null,
+        forDependant: false,
       };
       setStage(shown);
+    }
+    const bundled = bundledPathway(capture.presentingComplaintKey);
+    if (bundled && shown === null) {
+      const step = nextTriageStep(bundled, {}, []);
+      if (!step.done) {
+        setStage({ step: "question", question: step.question, capture, answers: {}, questionLog: [] });
+        return;
+      }
     }
     startTransition(async () => {
       try {
@@ -219,6 +274,14 @@ export function SymptomTriageCheck({
 
   function submitAnswer(current: Extract<Stage, { step: "question" }>, value: boolean | string) {
     const answers = { ...current.answers, [current.question.key]: value };
+    const bundled = bundledPathway(current.capture.presentingComplaintKey);
+    if (bundled) {
+      const step = nextTriageStep(bundled, answers, current.questionLog);
+      if (!step.done) {
+        setStage({ ...current, question: step.question, answers });
+        return;
+      }
+    }
     startTransition(async () => {
       let next: Stage;
       try {
@@ -269,7 +332,11 @@ export function SymptomTriageCheck({
         {stage.step === "result" && (
           <div className="space-y-3">
             <Badge variant={CATEGORY_BADGE_VARIANT[stage.category]}>
-              {CATEGORY_LABEL[stage.category] ?? stage.category.replace(/_/g, " ")}
+              {resultHeadline(
+                stage.category as TriageCategory,
+                stage.urgencyLevel as UrgencyLevel | null,
+                CATEGORY_LABEL[stage.category] ?? stage.category.replace(/_/g, " "),
+              )}
             </Badge>
             {stage.degraded && (
               <div className="space-y-1 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status">
@@ -295,12 +362,23 @@ export function SymptomTriageCheck({
               </p>
             )}
             <NotADiagnosis />
-            {stage.assessmentId && <ReviewRequest assessmentId={stage.assessmentId} reviewTime={reviewTime} />}
+            {stage.assessmentId && reviewEntitled && <ReviewRequest assessmentId={stage.assessmentId} reviewTime={reviewTime} />}
+            {stage.assessmentId && !reviewEntitled && <MembersOnlyReview />}
+            <SymptomNextSteps
+              category={stage.category as TriageCategory}
+              urgencyLevel={stage.urgencyLevel as UrgencyLevel | null}
+              forDependant={stage.forDependant}
+              complaintKey={complaintKey}
+              assessmentId={stage.assessmentId}
+            />
+            {stage.category !== "emergency" && <SkinPhotoCard assessmentId={stage.assessmentId} />}
             <Button type="button" variant="outline" onClick={() => setStage({ step: "pick_complaint" })}>
               Check another symptom
             </Button>
           </div>
         )}
+
+        {stage.step === "blocked" && <CheckerBlocked reason={stage.reason} bare />}
 
         {stage.step === "unavailable" && (
           <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
@@ -419,7 +497,7 @@ function InitialCaptureForm({
 
 /** Ask the care team to look at the check (spec 12.10), with the stated time read from the signed SLA, or none. */
 function ReviewRequest({ assessmentId, reviewTime }: { assessmentId: string; reviewTime: ReviewTime }) {
-  const [state, setState] = useState<"idle" | "sending" | "requested" | "closed" | "error">("idle");
+  const [state, setState] = useState<"idle" | "sending" | "requested" | "closed" | "members" | "error">("idle");
   const [time, setTime] = useState<ReviewTime>(reviewTime);
   return (
     <div className="space-y-2 rounded-lg border border-charcoal-ink/10 p-3 dark:border-night-ink/15">
@@ -437,7 +515,7 @@ function ReviewRequest({ assessmentId, reviewTime }: { assessmentId: string; rev
               if (r.status === "requested") {
                 setTime(r.stated);
                 setState("requested");
-              } else setState(r.status === "unavailable" ? "closed" : "error");
+              } else setState(r.status === "unavailable" ? "closed" : r.status === "members_only" ? "members" : "error");
             } catch {
               setState("error");
             }
@@ -448,6 +526,7 @@ function ReviewRequest({ assessmentId, reviewTime }: { assessmentId: string; rev
       )}
       <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">{reviewTimeSentence(time)}</p>
       {state === "closed" && <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">{t("symptom.review.closed")}</p>}
+      {state === "members" && <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">{t("symptom.review.members_only")}</p>}
       {state === "error" && <p className="text-xs text-red-800">{t("symptom.review.error")}</p>}
     </div>
   );
@@ -491,5 +570,83 @@ function QuestionStep({
         </div>
       )}
     </div>
+  );
+}
+
+/** Free people see their result, the self-care steps and the message route; a clinician's look at a check is part of Membership. */
+function MembersOnlyReview() {
+  return (
+    <div className="space-y-1 rounded-lg border border-charcoal-ink/10 p-3 dark:border-night-ink/15">
+      <p className="text-sm text-charcoal-ink dark:text-night-ink">{t("symptom.review.members_only")}</p>
+      <Link href="/patient/membership" className="text-sm font-medium text-brand-green hover:underline">
+        {t("symptom.review.members_cta")}
+      </Link>
+    </div>
+  );
+}
+
+/** Where a carer's concern for a child is kept between this screen and the booking page: the browser tab only, never the address bar. */
+export const CARER_CONCERN_STORAGE_KEY = "tarragon.booking_reason";
+
+/**
+ * The checker is not available for this person: under 18 (until a paediatric protocol is signed) or no date of birth. A calm state, not
+ * an error: emergency guidance first, then the safe routes. A carer may book an ADULT consultation under their own account and put
+ * the child's concern in as a free-text note (consultations are adults only, OQ-129). The note travels in this browser tab's session
+ * storage, never in a URL, because it is health information.
+ */
+function CheckerBlocked({ reason, bare = false }: { reason: "under_18" | "dob_required"; bare?: boolean }) {
+  const [concern, setConcern] = useState("");
+  const title = reason === "under_18" ? "symptom.blocked.under18.title" : "symptom.blocked.dob.title";
+  const body = reason === "under_18" ? "symptom.blocked.under18.body" : "symptom.blocked.dob.body";
+  function rememberConcern() {
+    try {
+      const text = concern.trim().slice(0, 500);
+      if (text) window.sessionStorage.setItem(CARER_CONCERN_STORAGE_KEY, text);
+    } catch {
+      // storage can be blocked: the booking still works, just without the note
+    }
+  }
+  const inner = (
+    <div className="space-y-3" role="status">
+      <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{t(title as MessageKey)}</p>
+      <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">{t(body as MessageKey)}</p>
+      <div className="flex flex-wrap gap-3 text-sm">
+        <Link href="/patient/messages" className="font-medium text-brand-green hover:underline">
+          {t("symptom.blocked.message_cta")}
+        </Link>
+        {reason === "dob_required" && (
+          <Link href="/patient/profile" className="font-medium text-brand-green hover:underline">
+            {t("symptom.blocked.dob.cta")}
+          </Link>
+        )}
+      </div>
+      {reason === "under_18" && (
+        <div className="space-y-2 rounded-lg border border-charcoal-ink/10 p-3 dark:border-night-ink/15">
+          <Label htmlFor="carer-concern">{t("symptom.blocked.concern_label")}</Label>
+          <textarea
+            id="carer-concern"
+            value={concern}
+            maxLength={500}
+            rows={3}
+            onChange={(e) => setConcern(e.target.value)}
+            className="w-full rounded border border-charcoal-ink/20 bg-transparent p-2 text-sm"
+          />
+          <Link href="/patient/appointments" onClick={rememberConcern} className="text-sm font-medium text-brand-green hover:underline">
+            {t("symptom.blocked.book_cta")}
+          </Link>
+          <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">{t("symptom.blocked.book_note")}</p>
+        </div>
+      )}
+      <NotADiagnosis variant="short" />
+    </div>
+  );
+  if (bare) return inner;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Check a symptom</CardTitle>
+      </CardHeader>
+      <CardContent>{inner}</CardContent>
+    </Card>
   );
 }

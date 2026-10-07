@@ -78,6 +78,31 @@ export function PatientSummaryView({ summary, locale = "en" }: { summary: Patien
         </Card>
       )}
 
+      {s.symptom_summaries && s.symptom_summaries.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>{t("symptom.summary.clinician.title", locale)}</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <p className="text-xs text-charcoal-ink/60">{t("symptom.summary.clinician.sent_by_choice", locale)}</p>
+            {s.symptom_summaries.map((x) => (
+              <div key={x.id} className="space-y-1">
+                <p className="font-medium">
+                  {x.payload.complaint_label} <Badge variant={x.payload.category === "emergency" ? "red" : x.payload.category === "urgent" ? "amber" : "green"}>{x.payload.category.replace(/_/g, " ")}</Badge>
+                  <span className="ml-2 text-xs text-charcoal-ink/60">{dateTime(x.sent_at)}</span>
+                </p>
+                {x.payload.answered_by_carer && <p className="text-xs">{t("symptom.summary.clinician.carer", locale)}</p>}
+                <p>{[x.payload.onset, typeof x.payload.severity === "number" ? `${x.payload.severity}/10` : null, ...(x.payload.associated_symptoms ?? []), ...(x.payload.history ?? [])].filter(Boolean).map((v) => String(v).replace(/_/g, " ")).join(", ")}</p>
+                {(x.payload.questions ?? []).length > 0 && (
+                  <ul className="list-disc pl-4 text-charcoal-ink/80">
+                    {(x.payload.questions ?? []).map((q, i) => <li key={i}>{q.prompt}: {q.answer === true ? "yes" : q.answer === false ? "no" : String(q.answer ?? "")}</li>)}
+                  </ul>
+                )}
+                {(x.payload.red_flags_fired ?? []).length > 0 && <p className="text-red-800">{(x.payload.red_flags_fired ?? []).join("; ")}</p>}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       {s.readings && (
         <Card>
           <CardHeader><CardTitle>{t("summary.readings", locale)}</CardTitle></CardHeader>

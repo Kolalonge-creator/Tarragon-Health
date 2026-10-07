@@ -68,6 +68,12 @@ const sweating = {
   questionLog: [],
 } as unknown as Parameters<typeof stepSymptomTriage>[0];
 
+function openGuardEligible(status: string | null = "ok") {
+  rpc.mockImplementation(async (fn) =>
+    fn === "symptom_checker_eligibility" ? (status === null ? { data: null, error: { message: "down" } } : { data: { status }, error: null }) : { data: true, error: null },
+  );
+}
+
 beforeEach(() => {
   rpc.mockReset();
   assessmentInsert.mockReset();
@@ -76,7 +82,7 @@ beforeEach(() => {
   getActivePathway.mockReset();
   getActiveTriageProtocolConfig.mockReset();
   profileLookup = async () => ({ data: { organisation_id: "o1", state: "Lagos" } });
-  rpc.mockResolvedValue({ data: true, error: null }); // the guard is open
+  openGuardEligible(); // the guard is open and the person is an adult with a date of birth
   getActiveTriageProtocolConfig.mockResolvedValue({ config: { pathways: [chest] }, protocolVersion: 1 });
 });
 
@@ -192,5 +198,39 @@ describe("asking for a review", () => {
       fn === "request_symptom_review" ? { data: null, error: { message: "not found", code: "42501" } } : { data: true, error: null },
     );
     await expect(requestSymptomReview("11111111-1111-1111-1111-111111111111")).resolves.toEqual({ status: "unavailable" });
+  });
+});
+
+describe("children and date of birth (S59b)", () => {
+  it("control: an adult with a date of birth gets the normal result", async () => {
+    await expect(stepSymptomTriage(sweating)).resolves.toMatchObject({ status: "complete", category: "emergency" });
+  });
+
+  it("someone under 18 is refused with a calm blocked state, and nothing is recorded or raised", async () => {
+    openGuardEligible("under_18");
+    await expect(stepSymptomTriage(sweating)).resolves.toEqual({ status: "blocked", reason: "under_18" });
+    expect(assessmentInsert).not.toHaveBeenCalled();
+    expect(emergencyInsert).not.toHaveBeenCalled();
+  });
+
+  it("a missing date of birth is refused, never treated as an adult", async () => {
+    openGuardEligible("dob_required");
+    await expect(stepSymptomTriage(sweating)).resolves.toEqual({ status: "blocked", reason: "dob_required" });
+    expect(assessmentInsert).not.toHaveBeenCalled();
+  });
+
+  it("when eligibility cannot be read the check does not run (never a guessed age)", async () => {
+    openGuardEligible(null);
+    await expect(stepSymptomTriage(sweating)).resolves.toEqual({ status: "unavailable" });
+    expect(assessmentInsert).not.toHaveBeenCalled();
+  });
+});
+
+describe("a clinician review is for Members (S59b)", () => {
+  it("the database refusing with TM001 reads as members_only, not as closed", async () => {
+    rpc.mockImplementation(async (fn) =>
+      fn === "request_symptom_review" ? { data: null, error: { message: "membership_required", code: "TM001" } } : { data: true, error: null },
+    );
+    await expect(requestSymptomReview("11111111-1111-1111-1111-111111111111")).resolves.toEqual({ status: "members_only" });
   });
 });

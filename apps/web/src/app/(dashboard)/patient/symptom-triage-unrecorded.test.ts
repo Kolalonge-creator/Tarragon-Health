@@ -13,6 +13,7 @@ jest.mock("@sentry/nextjs", () => ({ captureException: (...a: unknown[]) => capt
 jest.mock("@/lib/supabase/server", () => ({
   createClient: jest.fn().mockResolvedValue({
     auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: "patient-1" } } }) },
+    rpc: async () => ({ data: { status: "ok" }, error: null }),
     from: () => ({ select: () => ({ eq: () => ({ single: async () => ({ data: { organisation_id: "org-1", state: "Lagos" } }) }) }) }),
   }),
 }));
