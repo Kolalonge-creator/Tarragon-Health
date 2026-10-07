@@ -1440,3 +1440,36 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - The AI-003 eval case `pidgin_language_fidelity` keeps one recorded failed result, so it stays as audit history (its runner no longer runs it).
 - Pidgin audio recordings or text-to-speech voices held outside this repository (a TTS account, a drive) are not touched by code and need deleting by hand.
 - Decision: open (CMO for the version; founder for outside assets).
+
+### OQ-290 Roster claim and org placement happen at INSERT, before any verification (OQ-41 and OQ-52 follow-up, found by S41)
+- New finding on top of OQ-41: `private.handle_new_user()` does more than mark the roster slot claimed. When an unverified sign-up's phone or email matches a pending roster row it also puts the new profile in the employer's organisation (`v_org_id := v_roster_org_id`) at INSERT. So an unverified account typed with a colleague's number is created inside that employer's organisation, not just a slot lost. Employers only see aggregates (I9), so no individual data leaks, but the profile counts in that organisation until someone removes it.
+- Why S41 did not fix it: moving the claim to the `phone_confirmed_at` / `email_confirmed_at` UPDATE means creating the profile in the default organisation and moving it on confirmation. Organisation is a guarded authority column and every `organisation_id` on a new account's rows must follow, so this is a core-trigger change that needs `/code-review ultra` and its own proof, which the build plan did not allocate to S41.
+- Recommendation: option (a) from OQ-41, plus a nightly cleanup of never-verified accounts older than 7 days (closes OQ-52 option (a) too). OQ-52 itself still needs a founder choice between its two options.
+- Decision: open.
+
+### OQ-291 The hosted confirmation email must carry the code for the optional email code box to work (raised by S41)
+- Built: `verifySignupEmail` / `resendSignupEmail` call `verifyOtp({ type: 'signup' })` and `resend({ type: 'signup' })`. The six-digit code only exists in the email if the Supabase "Confirm signup" template includes `{{ .Token }}`. That is a hosted dashboard setting (same class as OQ-44), not something code can change.
+- Until the template is edited the box shows, accepts a code that never arrives, and the link still works, so nothing breaks, but the box is useless. Do the template change before telling anyone the feature is live.
+- Decision: open (your action in the dashboard).
+
+### OQ-292 No canonical list of local government areas (raised by S41)
+- `profiles.lga` is free text, 2 to 60 characters, optional. The repository has no list of the 774 areas, and a typed area is not matched to `service_regions` or any partner geography.
+- Options: (a) keep free text and normalise later (current); (b) load an official LGA list as a reference table with state, and make the field a picker (recommended once a source is chosen, for example the National Bureau of Statistics list; needs a licence check and a state-spelling map to `service_regions`).
+- Decision: open.
+
+### OQ-293 Cohort codes: S41 stacks on S38e (PR #988); three seams left (raised by S41)
+- S38e already built spec 1.8 and is live in production but not on `main-dev`. S41 reuses it and creates no second code system. Until #988 merges, S41's onboarding code box calls `join_cohort` and, if the function is missing, shows "could not check the code just now".
+- (1) `programme_id` in the spec has no live equivalent: a cohort belongs to a sponsor organisation. Confirm one cohort per programme is acceptable, or add `programme_id` when programmes exist as rows.
+- (2) `join_cohort` does not emit the `cohort.joined` event. S41 registered the event type; the emit belongs inside `join_cohort` (one added line after the insert) and must be made when #988 is next touched.
+- (3) Entitlement creation from a sponsor programme waits for S26. A code gives eligibility only today; nothing is granted.
+- The concurrency acceptance test (`s41_cohort_max_uses_concurrent.sh`) prints SKIPPED, not PASS, on any database without `join_cohort`. It passed against the real S38e functions on a local database (5 of 5 places taken by 30 simultaneous claims, never 6; the lock-free control broke the limit). It will run for real on the first CI run after #988 merges.
+- Decision: open.
+
+### OQ-294 Mobile parity for onboarding answers, programme code and email code (raised by S41)
+- The mobile app has sign-up and sign-in screens but no onboarding flow, so there is no mobile place for the goal and condition step, the programme code box, or the email code box. The shared module (`@tarragon/shared` onboarding-answers) and the RPCs are ready for it.
+- Recommendation: build the mobile onboarding in S42 alongside the proxy flow and dependants, which also need it.
+- Decision: open.
+
+### OQ-295 Home cards from onboarding answers: wording and order need a product and CMO read (raised by S41)
+- The mapping from answers to Home cards (`focusFromAnswers`) is deterministic and changes only which existing cards lead, never a clinical rule. The goal and condition option wording ("A kidney condition", "A heart condition") and the order cards appear in are a product choice made without a clinician. The CMO should read the option list once; nothing here is signed or claims a clinical meaning.
+- Decision: open.
