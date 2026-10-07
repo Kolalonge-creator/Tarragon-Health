@@ -1529,6 +1529,43 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Options: (a) accept as built (recommended); (b) also ship BRE-03 now under its own name and a longer length once the CMO confirms the pace and the wording; (c) hold the exercise until the CMO confirms.
 - Decision: open.
 
+## S28: pharmacy partner, collection and dispensing (raised 2026-10-07)
+
+### OQ-270 Two prescription models, one supply count (decided)
+- The paper and QR path is keyed on `medications.public_token`; the routed path is keyed on `prescriptions.state`. A prescription could be supplied by the QR scan, the phone desk and the partner list.
+- **Decided 2026-10-07 (founder): one shared supply count.** All paths write `pharmacy_order_dispenses` and lock the same `medications` row. A PARTIAL partner supply is not counted by the partner path, but the QR and phone-desk paths count every row, so they can only refuse sooner, never supply more. Proved both ways in `s28_pharmacy_collection_and_dispensing.sql`. Known limit: after a partial partner supply the QR and phone-desk paths already count one supply (and the patient's supplies list shows it), so another pharmacy cannot supply the rest until the first completes; giving partial rows their own status in those paths is a follow-up.
+
+### OQ-271 Older pharmacist functions still read patient data with no audit row (INV-10)
+- `pharmacist_orders`, `pharmacist_order_medications` (the patient's whole active medicine list) and `pharmacist_order_allergies` belong to the dormant order model (0 orders). S28 makes the new prescription path audited and limited (the sent prescription, the patient's name and number, allergies, nothing else), but did not change the dormant order functions.
+- Options: (a) audit and narrow them when the order model is revived, or retire it (recommended: retire with OQ-173's legacy removal session); (b) audit now.
+- Decision: open (founder).
+
+### OQ-272 Delivery schema is still present (Part C.2 says no home delivery)
+- `fulfilment_method delivery`, `delivery_fee_kobo`, `logistics_partner_id`, delivery statuses and `pharmacy_order_delivery_attempts` remain (OQ-16 open). S28 is collection only and wires none of it.
+- Decision: open (founder), with OQ-16.
+
+### OQ-273 Not built in S28: price comparison, verified batches, pharmacist chat
+- Price comparison (8.9) needs per-pharmacy prices; `pharmacy_medications` has 0 rows and the spec puts it in Release 2. Verified-batch sourcing (8.11) needs a NAFDAC check (8.8), also Release 2. Pharmacist chat (8.12) is a new message thread between a patient and a pharmacist and needs its own decision (who moderates, what it may discuss, retention).
+- Options: (a) leave all three for Release 2 (recommended, as chosen); (b) chat first.
+- **Decided 2026-10-07 (founder): send, collection code, dispense, flags only.**
+
+### OQ-274 No pharmacy can receive a prescription until its licence is verified
+- 4 partner rows exist (Medplus, HealthPlus, Alpha, MedsPal), all inactive with unverified licences. The chooser offers only active partners with a verified, unexpired PCN licence and a verified location, so today it shows none, and the `prescribing_enabled` go-live guard stays off. Verifying a licence, adding locations and creating pharmacist logins are admin steps, not code.
+- **Decided 2026-10-07 (founder): switch on only when a real partner exists.** Until then the patient downloads the prescription PDF and takes it to any pharmacy (the existing path). Do not activate a partner without a verified licence (spec D.6).
+
+### OQ-275 One medicine per prescription
+- S24 signs one item per prescription (`issue_signed_prescription`), so a patient with three medicines chooses a pharmacy three times and gets three codes.
+- Options: (a) let the patient choose once for all her waiting prescriptions and get one code per pharmacy visit (recommended, next); (b) leave.
+- Decision: open (founder).
+
+### OQ-276 Controlled medicines and repeats at the counter
+- Signing hard-stops controlled medicines (an illustrative list, OQ-170). S28 adds no second check at the counter. After a full supply the prescription is `dispensed`, so an approved repeat is supplied through the existing QR and phone-desk path, not the partner list.
+- Options: (a) add a counter check against the controlled list and let the partner list handle approved repeats (recommended); (b) leave.
+- Decision: open (CMO).
+
+### OQ-277 Patient mobile screen and Pidgin review
+- The patient chooser and code are on the web only. The mobile app has no screen for it yet, and the Pidgin strings need a native reviewer.
+- Decision: open (founder).
 ### OQ-301 Overdue review hides a course lesson only; the older programme functions ignore lesson status (raised by S33)
 - Spec 9 says content past its review date is not served. S33 enforces that for the course lessons: `learning_course()` checks it on every read and an hourly job moves an overdue lesson back to clinical review. The rest of the library keeps today's rule (`review_due` is still served), because changing it hides content that is live now with no review date at all (0 of 235 rows have a date).
 - Found while building: `health_education_programme_detail` and `_programmes_list` check only that the programme is active, not the lesson's status, so any draft lesson inside an active programme is served on the web today. The course programme is therefore kept inactive for good and read only through `learning_course()`. The two older programmes are published content, so nothing leaks today.
@@ -1677,10 +1714,50 @@ Four defects from `docs/design/S55-S60-build-plan.md` section 5, fixed ahead of 
 - Clinician reads of the chart go through the audited function; the clinician `/clinician/tasks/[taskId]` page does not yet render the hand-off summary (the chart's wellbeing card does).
 - A clinician who is only a care coordinator (`doctor_tier = care_coordinator`) is refused mental-health reads even with a tie. Coordinators handle logistics; confirm.
 - Decision: open.
+### OQ-272 Emergency location versus "routes are never shared" (raised 2026-10-07, S48)
+- Spec 5.7 and the Module 5 acceptance test say routes are never shared; Part C bans public maps. The founder wants the patient to be locatable in an emergency, which is the opposite use of location data.
+- Options: (a) route recording stays private and a separate consented emergency-location feature is built (recommended, decision S48-1); (b) one recorder with a sharing switch (rejected: breaks the acceptance test); (c) no emergency location.
+- Needs before the guard can go on: written consent text, retention period, who may see the position and for how long, counsel's view under NDPA, and a decision on whether a red event may share without a fresh tap.
+- Decision: (a), 2026-10-07 (founder). Open parts: consent wording, retention, counsel review.
+
+### OQ-273 Silence line 7 days needs a new signed rule set (raised 2026-10-07, S11)
+- Decision S11-1 sets the silence line to 7 days. The live signed rule set `bp_care_triage` v1 uses 5, and rule sets are versioned, never edited.
+- Work: `bp_care_triage` v2 (rules, shared copy, device bundle, parity and fixture tests), registry `triage.silence_rule_days` v2, CMO signature. Spec safety case 7 (5 days) and `docs/BUILD-SPEC-v5.md` are not edited; this entry and S11-1 record the departure.
+- Decision: 7 days (founder, 2026-10-07). Build: open.
 ### OQ-252 (S34): size and cold-start targets conflict
 - The S34 prompt asks for under 40 MB and cold start under 3 seconds on a 2 GB Android phone. Spec D.1 and decision DG-1 (2026-10-02) superseded those targets: the floor is a 4 GB Android 10+ or iOS 16+ phone.
 - Options: (a) keep tracking the old numbers as PROPOSED budgets in config and fail CI only on growth (recommended); (b) set new targets for the 4 GB floor; (c) drop size budgets.
 - Decision (founder, 2026-10-07): no pass or fail targets for size or cold start. Build what is needed: the low-data setting, accessibility, and a size and start-time report that is tracked, never a gate. Numbers stay PROPOSED in versioned config for information only.
+
+### OQ-280 A repeat supply is a new send (DECIDED and built in S28c; raised in the first S28 build)
+- Founder 2026-10-07: a repeat is a new send. A collected prescription can be sent again, with a new code, only while the medicine still permits another supply (`private.supplies_remaining`: 1 plus clinician-approved repeats, never above 1 plus repeats allowed, minus complete, undisputed supplies). The old code stops working. The forward-only machine allows `dispensed` to `sent` only through the patient's own send function. A prescription already supplied some other way (QR check, phone desk) is no longer offered to a partner at all.
+
+### OQ-281 Delivery data: hidden from patients, full removal still to do (S28d; extends OQ-16, OQ-272)
+- Live counts before the change: 0 pharmacy orders, 0 delivery attempts. The patient-facing `pharmacy_partner_directory` view no longer carries `delivery` or `delivery_fee_kobo`. **Not built, a separate task:** dropping `pharmacy_partners.delivery`/`delivery_fee_kobo`, the legacy order delivery columns, `pharmacy_order_delivery_attempts` and the dormant logistics screens (about fifteen web files).
+
+### OQ-282 The older pharmacist reads are audited and tagged (S28d; closes OQ-271)
+- `pharmacist_orders`, `pharmacist_order_allergies`, `pharmacist_order_medications`, `pharmacist_record_dispense` and `verify_prescription` now leave an audit row. `is_test` is on `pharmacy_orders`, `pharmacy_order_dispenses` and `medication_dispense_flags`, backfilled and stamped from the patient on every insert. The order alert to a pharmacy is the neutral in-app message (an email with no patient detail for a partner with no app login; never SMS). `verify_prescription` audits matches only: wrong-code probing is not audited or limited (open).
+
+### OQ-283 Prices are not shown (DECIDED, founder 2026-10-07)
+- The collection flow shows no price and compares none. Prices return only when partner price data carries strength and form and is reliable. (The first S28 build compared by drug name; that code was not carried over.)
+
+### OQ-284 Structured questions only, no chat (DECIDED and built in S28c; closes the chat part of OQ-273)
+- A pharmacy asks the prescriber one of six fixed questions (`pharmacist_ask_prescriber`) and can report "cannot supply" (`pharmacist_report_out_of_stock`); the prescriber answers from three fixed replies (`answer_pharmacy_question`). No free text anywhere, so no chat liability. An answer never changes a signed prescription (INV-02). They ride on S36h's flag table (a new `question_code` column) and its `pharmacy_flag_review` task, so the clinical queue works as S36h built it.
+
+### OQ-285 A caregiver can choose a pharmacy for the patient (DECIDED and built on web in S28c)
+- A caregiver holding the existing `manage_pharmacy` permission (an unexpired `profile_access` manage grant) can choose, change, take back and renew the code for the patient. The database checks the permission on every call (`private.rx_patient`), the patient gets a neutral in-app update, the patient's access log records the caregiver (`acted_for`, `data_shared_pharmacy`) and the audit row says it was done for her. The explicit "Collect here" button is the consent. Mobile has no collection screen yet (OQ-277).
+
+### OQ-286 Refill reminder opens the Medicines screen (S28c)
+- The reminder stays neutral and opens Medicines, where each prescription carries "Choose where to collect"; a collected prescription that permits a repeat offers "Send again for your next supply". A deeper link straight to the chooser is not built.
+
+### OQ-287 Pharmacy collection needs the S37 go-live guard (DECIDED and built in S28c)
+- `private.pharmacy_collection_on()` is the S37 `prescribing_enabled` guard, closed by default: every patient choice, pharmacy list, counter check and supply, and every question refuses while it is off (the live S28 functions were open until this migration). Its conditions gain a licensed, verified pharmacy with a verified location (from the data), the collection rules confirmed by their owner (`pharmacy.collection_rules`, from the sign-off table) and the notification sender deployed (attested). Taking a prescription back, the downloadable form and the QR and phone-desk paths are never behind it.
+
+### OQ-288 The prescriber sees questions and where each prescription has got to (S28c, closes OQ-217 of the first build)
+- `/clinician/pharmacy` (nav and search entries) lists the fixed questions with their answers, where each prescription this clinician signed has got to, and S36h's earlier written messages (read only). Only the signer, only for a patient they are still tied to; one audited read per page view. `/clinician/pharmacy-flags` redirects there.
+
+### OQ-289 S36h's free-text flag function is still callable through the API (raised by S28c)
+- `public.pharmacist_flag_prescription(uuid, text, text)` takes free text up to 500 characters. No screen uses it any more (S28c removed the form and its server action). Recommended: revoke execute from `authenticated` and drop it with S36h's proof once nothing calls it. Not done because S36h's own proof exercises it and it was applied by another session.
 
 ### OQ-308 `health_education_translations` is now an empty, unused table that four SQL functions still join (raised by S33 English-only pass)
 - S33 added three columns to it and they were dropped again (migration `20261007123419_s33_course_english_only.sql`). The table itself stays, empty, because four older functions join it (see the remove-Pidgin migration). Dropping it needs those four functions rewritten from their live definitions.

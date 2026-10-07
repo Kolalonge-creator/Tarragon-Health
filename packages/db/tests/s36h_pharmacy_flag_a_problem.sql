@@ -116,10 +116,15 @@ begin
   perform pg_temp.setf('pA', v_pA);
 end $$;
 
+-- S28c: the pharmacy list sits behind the S37 prescribing guard (closed by default). This proof opens it the way the guard's own trigger allows.
+insert into public.go_live_guard_log (guard_key, action, actor_id, actor_role, note, conditions)
+  select 'prescribing_enabled', 'switched_on', id, 'admin', 'S36h proof', '[]'::jsonb from public.profiles order by created_at limit 1;
+update public.go_live_guards set is_on = true, changed_at = now(), changed_by = (select id from public.profiles order by created_at limit 1), change_note = 'S36h proof' where key = 'prescribing_enabled';
+
 -- 1. the pharmacy's own list: A has one sent and one dispensed (the draft and B's are not shown)
 insert into results values ('real', 'pharmacy A lists its two sent or dispensed prescriptions', '2', pg_temp.list_as(pg_temp.f('phA')));
 insert into results values ('real', 'pharmacy B lists only its own', '1', pg_temp.list_as(pg_temp.f('phB')));
-insert into results values ('real', 'a clinician cannot list pharmacy prescriptions', '0', pg_temp.list_as(pg_temp.f('doc')));
+insert into results values ('real', 'a clinician cannot list pharmacy prescriptions', 'ERR:42501', pg_temp.list_as(pg_temp.f('doc')));
 
 -- snapshot the prescription before any flag (3)
 insert into snap values ('rxA_before', pg_temp.rx_hash(pg_temp.f('rxA')));
