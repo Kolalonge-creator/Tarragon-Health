@@ -261,69 +261,6 @@ as $$
 $$;
 
 -- ---------------------------------------------------------------------------
--- lesson.completed / course.completed (S10 outbox). Ids only. Loud on failure.
--- ---------------------------------------------------------------------------
-create or replace function private.health_education_progress_emit_events()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  v_code text;
-  v_prog record;
-begin
-  if new.status <> 'understood' or (tg_op = 'UPDATE' and old.status = 'understood') then
-    return new;
-  end if;
-  begin
-    select c.code into v_code from public.health_education_content c where c.id = new.content_id;
-    perform private.emit_domain_event('lesson.completed', new.organisation_id,
-      jsonb_build_object('content_id', new.content_id, 'content_code', v_code),
-      'lesson.completed:' || new.patient_id || ':' || new.content_id, new.patient_id,
-      'health_education_content', new.content_id);
-
-    for v_prog in
-      select pr.id, pr.code
-        from public.health_education_programmes pr
-        join public.health_education_programme_modules m on m.programme_id = pr.id
-       where m.content_id = new.content_id and pr.is_active
-    loop
-      if not exists (
-        select 1 from public.health_education_programme_modules m2
-         where m2.programme_id = v_prog.id
-           and not exists (select 1 from public.health_education_progress p2
-                            where p2.patient_id = new.patient_id and p2.content_id = m2.content_id and p2.status = 'understood')
-      ) then
-        perform private.emit_domain_event('course.completed', new.organisation_id,
-          jsonb_build_object('programme_id', v_prog.id, 'programme_code', v_prog.code),
-          'course.completed:' || new.patient_id || ':' || v_prog.id, new.patient_id,
-          'health_education_programme', v_prog.id);
-      end if;
-    end loop;
-  exception when others then
-    insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
-      values (new.organisation_id, 'learning_event.error', 'health_education_progress', new.id,
-              jsonb_build_object('error', sqlerrm));
-    begin
-      perform private.page_incident(new.organisation_id, 'learning_event_failed',
-        'A learning completion event could not be written',
-        'A lesson or course completion event failed; see audit_log action learning_event.error (one open incident covers all of them). The patient''s progress itself was saved.');
-    exception when others then
-      -- the reporter itself failing must never undo the patient's progress; the audit row above is the record
-      raise warning 'learning completion event failure could not open an incident for progress %: %', new.id, sqlerrm;
-    end;
-  end;
-  return new;
-end;
-$$;
-
-drop trigger if exists health_education_progress_emit_events on public.health_education_progress;
-create trigger health_education_progress_emit_events
-  after insert or update of status on public.health_education_progress
-  for each row execute function private.health_education_progress_emit_events();
-
--- ---------------------------------------------------------------------------
 -- Creators (invite-only): invite, submit evidence, verify, suspend
 -- ---------------------------------------------------------------------------
 create or replace function public.invite_learning_creator(p_profile uuid, p_display_name text)
@@ -691,7 +628,6 @@ begin
     'public.learning_pack_status(text[])',
     'public.learning_search_gaps_report()',
     'public.learning_readiness_report()',
-    'private.health_education_progress_emit_events()',
     'private.learning_age_ok(integer, integer)',
     'private.learning_item_is_shareable(public.health_education_content)',
     'private.health_education_publish_gate()'
@@ -719,7 +655,8 @@ begin
   if not has_function_privilege('anon', 'public.learn_shared_article(text)', 'EXECUTE') then
     raise exception 'S55: the shared article function must be callable signed out';
   end if;
-  if not exists (select 1 from pg_trigger where tgname = 'health_education_progress_emit_events') then
-    raise exception 'S55: completion event trigger missing';
+  -- lesson.completed / course.completed come from S33's trigger on health_education_progress, which S55 relies on and does not duplicate
+  if not exists (select 1 from pg_trigger where tgname = 'health_education_progress_events' and not tgisinternal) then
+    raise exception 'S55: S33 completion event trigger missing';
   end if;
 end $$;

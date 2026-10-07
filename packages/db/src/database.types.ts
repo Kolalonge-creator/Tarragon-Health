@@ -14147,6 +14147,7 @@ export type Database = {
           updated_at: string
           version: number
           video_url: string | null
+          next_action: string | null
         }
         Insert: {
           approved_at?: string | null
@@ -14194,6 +14195,7 @@ export type Database = {
           updated_at?: string
           version?: number
           video_url?: string | null
+          next_action?: string | null
         }
         Update: {
           approved_at?: string | null
@@ -14241,6 +14243,7 @@ export type Database = {
           updated_at?: string
           version?: number
           video_url?: string | null
+          next_action?: string | null
         }
         Relationships: [
           {

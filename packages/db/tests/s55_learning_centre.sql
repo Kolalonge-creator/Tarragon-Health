@@ -274,21 +274,13 @@ begin
   insert into public.health_education_progress (organisation_id, patient_id, content_id, status) values (v_org, v_pa, v_id3, 'understood');
   perform pg_temp.ck('4d course.completed once the last module is understood',
     (select count(*) from public.domain_events where event_type = 'course.completed' and patient_id = v_pa) = 1);
-  perform pg_temp.ck('4e the payloads hold ids and a code only',
+  perform pg_temp.ck('4e the payloads hold course and lesson codes and a count only (S33 contract, no topic names)',
     not exists (select 1 from public.domain_events where patient_id = v_pa and event_type in ('lesson.completed', 'course.completed')
-                 and (select count(*) from jsonb_object_keys(payload) k where k not in ('content_id', 'content_code', 'programme_id', 'programme_code')) > 0));
+                 and (select count(*) from jsonb_object_keys(payload) k where k not in ('course_code', 'lesson_code', 'lesson_count')) > 0));
   perform pg_temp.ck('4f the events are marked test for a test patient',
     (select bool_and(is_test) from public.domain_events where patient_id = v_pa and event_type in ('lesson.completed', 'course.completed')));
-
-  -- a failing event write is loud, never silent, and never loses the patient's progress; repeated failures share one incident
-  update public.event_types set is_active = false where event_type = 'lesson.completed';
-  insert into public.health_education_progress (organisation_id, patient_id, content_id, status) values (v_org, v_pb, pg_temp.f('micro'), 'understood');
-  insert into public.health_education_progress (organisation_id, patient_id, content_id, status) values (v_org, v_pb, v_id3, 'understood');
-  perform pg_temp.ck('4g the progress is saved even though the event could not be written',
-    (select count(*) from public.health_education_progress where patient_id = v_pb and status = 'understood') = 2);
-  perform pg_temp.ck('4h each failure wrote an audit row', (select count(*) from public.audit_log where action = 'learning_event.error') = 2);
-  perform pg_temp.ck('4i ...and all failures share ONE open incident', (select count(*) from public.ops_incidents where external_reference = 'learning_event_failed' and status not in ('resolved', 'closed')) = 1);
-  update public.event_types set is_active = true where event_type = 'lesson.completed';
+  perform pg_temp.ck('4g S55 registers no second emitter of these events',
+    not exists (select 1 from pg_trigger where tgname = 'health_education_progress_emit_events'));
 
   -- ================= 5. creators =================
   perform pg_temp.ck('5a a patient cannot invite', pg_temp.as_try(v_pa, format('select public.invite_learning_creator(%L, ''X Name'')', v_cc)) = '42501');

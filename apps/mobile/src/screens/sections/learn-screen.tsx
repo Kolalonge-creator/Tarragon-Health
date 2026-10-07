@@ -28,6 +28,11 @@ import {
   type KnowledgeCheckQuestion,
 } from "@/lib/health-education";
 import { DailyLessonCard, DownloadsCard, LearnSearchCard, LessonFooter, LessonViewer } from "@/screens/sections/learning-sections";
+import { asLocale, t } from "@tarragon/i18n";
+import { useUiLanguage } from "@/lib/ui-language";
+import { AppText } from "@/ui/kit";
+import { BreathingScreen } from "@/screens/sections/breathing-screen";
+import { CourseCard, CourseScreen } from "@/screens/sections/course-screen";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
@@ -59,6 +64,7 @@ interface LearnScreenProps {
  * from-lesson).
  */
 export function LearnScreen({ userId, organisationId }: LearnScreenProps) {
+  const [view, setView] = useState<"library" | "course" | "breathing">("library");
   const colors = useLegacyColors();
   const textInputStyle = useTextInputStyle();
   const { scheme } = useTheme();
@@ -133,6 +139,9 @@ export function LearnScreen({ userId, organisationId }: LearnScreenProps) {
     );
   }
 
+  if (view === "course") return <CourseScreen userId={userId} organisationId={organisationId} onBack={() => setView("library")} />;
+  if (view === "breathing") return <BreathingScreen onBack={() => setView("library")} />;
+
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
       <View>
@@ -142,6 +151,9 @@ export function LearnScreen({ userId, organisationId }: LearnScreenProps) {
           topic, or start with what&apos;s recommended for you.
         </MutedText>
       </View>
+
+      <CourseCard onOpen={() => setView("course")} />
+      <BreathingCard onOpen={() => setView("breathing")} />
 
       {loadError && (
         <Card>
@@ -532,5 +544,17 @@ function ContentFeedbackRow({ contentId, userId, organisationId }: { contentId: 
         </Text>
       ))}
     </View>
+  );
+}
+
+/** "Three minute calm" (BRE-01): a small card above the library. Always available; it needs no course and no network. */
+function BreathingCard({ onOpen }: { onOpen: () => void }) {
+  const locale = asLocale(useUiLanguage());
+  return (
+    <Card style={{ gap: 8 }}>
+      <AppText variant="bodyStrong" heading>{t("breathing.title", locale)}</AppText>
+      <MutedText>{t("breathing.intro", locale)}</MutedText>
+      <PrimaryButton title={t("breathing.start", locale)} onPress={onOpen} />
+    </Card>
   );
 }

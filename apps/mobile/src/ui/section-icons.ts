@@ -1,4 +1,5 @@
 import {
+  CalendarDays,
   Accessibility,
   AlertCircle,
   Activity,
@@ -54,6 +55,8 @@ export const SECTION_ICONS: Record<SectionId, LucideIcon> = {
   myActions: CheckCheck,
   vitals: Activity,
   bpHistory: ListChecks,
+  monthlySummary: CalendarDays,
+  programmes: Users,
   medications: Pill,
   labs: FlaskConical,
   devices: Bluetooth,
