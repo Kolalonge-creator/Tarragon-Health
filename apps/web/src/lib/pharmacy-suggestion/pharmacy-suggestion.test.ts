@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const rpc = jest.fn();
-jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
+const revalidatePath = jest.fn();
+jest.mock("next/cache", () => ({ revalidatePath: (p: string) => revalidatePath(p) }));
 let user: { id: string } | null = { id: "u1" };
 jest.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ rpc }), getCurrentUser: async () => user }));
 
@@ -24,16 +25,25 @@ const form = { patientId: PAT, prescriptionId: RX, partnerId: P, locationId: L }
 
 beforeEach(() => {
   rpc.mockReset();
+  revalidatePath.mockReset();
   user = { id: "u1" };
 });
 
 describe("suggestPharmacyAction", () => {
   it("records a suggestion through the one database function and says nothing was sent", async () => {
-    rpc.mockResolvedValue({ data: S, error: null });
+    rpc.mockResolvedValue({ data: { suggestion_id: S, patient_id: PAT }, error: null });
     const r = await suggestPharmacyAction(undefined, fd(form));
+    expect(revalidatePath).toHaveBeenCalledWith(`/clinician/patients/${PAT}`);
     expect(rpc).toHaveBeenCalledWith("care_team_suggest_pharmacy", { p_prescription: RX, p_partner: P, p_location: L });
     expect(r?.ok).toBe(true);
     expect(r?.message).toMatch(/nothing is sent until the patient confirms/);
+  });
+  it("refreshes the chart of the patient the DATABASE names, not the one the form claims", async () => {
+    const OTHER = "99999999-9999-4999-8999-999999999999";
+    rpc.mockResolvedValue({ data: { suggestion_id: S, patient_id: OTHER }, error: null });
+    await suggestPharmacyAction(undefined, fd(form));
+    expect(revalidatePath).toHaveBeenCalledWith(`/clinician/patients/${OTHER}`);
+    expect(revalidatePath).not.toHaveBeenCalledWith(`/clinician/patients/${PAT}`);
   });
   it("never calls the database with a malformed id", async () => {
     const r = await suggestPharmacyAction(undefined, fd({ ...form, partnerId: "nope" }));
@@ -60,7 +70,7 @@ describe("suggestPharmacyAction", () => {
 
 describe("withdrawSuggestionAction", () => {
   it("withdraws only by id and says it worked", async () => {
-    rpc.mockResolvedValue({ data: true, error: null });
+    rpc.mockResolvedValue({ data: { withdrawn: true, patient_id: PAT }, error: null });
     const r = await withdrawSuggestionAction(undefined, fd({ patientId: PAT, suggestionId: S }));
     expect(rpc).toHaveBeenCalledWith("care_team_withdraw_pharmacy_suggestion", { p_suggestion: S });
     expect(r?.ok).toBe(true);
@@ -77,7 +87,7 @@ describe("withdrawSuggestionAction", () => {
     const failed = await withdrawSuggestionAction(undefined, fd({ patientId: PAT, suggestionId: S }));
     expect(failed?.message).toMatch(/Please try again/);
     expect(failed?.message).not.toMatch(/Only the clinician/);
-    rpc.mockResolvedValue({ data: false, error: null });
+    rpc.mockResolvedValue({ data: { withdrawn: false, patient_id: PAT }, error: null });
     const settled = await withdrawSuggestionAction(undefined, fd({ patientId: PAT, suggestionId: S }));
     expect(settled?.ok).toBe(false);
     expect(settled?.message).toMatch(/already settled/);

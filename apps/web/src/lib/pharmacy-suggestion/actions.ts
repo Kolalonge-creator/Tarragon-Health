@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { loose } from "@/lib/clinician/loose-client";
-import { suggestFormSchema, withdrawFormSchema } from "./model";
+import { suggestFormSchema, suggestResultSchema, withdrawFormSchema, withdrawResultSchema } from "./model";
 
 export type SuggestState = { ok: boolean; message: string } | undefined;
 
@@ -20,7 +20,7 @@ export async function suggestPharmacyAction(_prev: SuggestState, formData: FormD
   });
   if (!parsed.success) return { ok: false, message: "That did not work and nothing was changed." };
   if (!(await getCurrentUser())) return { ok: false, message: "Please sign in again." };
-  const { error } = await loose(await createClient()).rpc("care_team_suggest_pharmacy", {
+  const { data, error } = await loose(await createClient()).rpc("care_team_suggest_pharmacy", {
     p_prescription: parsed.data.prescriptionId,
     p_partner: parsed.data.partnerId,
     p_location: parsed.data.locationId,
@@ -31,7 +31,9 @@ export async function suggestPharmacyAction(_prev: SuggestState, formData: FormD
     if (error.message.includes("suggestion_not_open")) return { ok: false, message: "This prescription is no longer waiting for a pharmacy." };
     return { ok: false, message: "The suggestion was not saved. Nothing was sent." };
   }
-  revalidatePath(`/clinician/patients/${parsed.data.patientId}`);
+  // the patient to refresh comes from the database's answer, not from the form
+  const result = suggestResultSchema.safeParse(data);
+  if (result.success) revalidatePath(`/clinician/patients/${result.data.patient_id}`);
   return { ok: true, message: "Suggestion saved. The patient chooses; nothing is sent until the patient confirms." };
 }
 
@@ -47,7 +49,8 @@ export async function withdrawSuggestionAction(_prev: SuggestState, formData: Fo
       message: error.code === "42501" ? "Only the clinician who made the suggestion can withdraw it. Nothing was changed." : "That did not work and nothing was changed. Please try again.",
     };
   }
-  revalidatePath(`/clinician/patients/${parsed.data.patientId}`);
-  if (data === false) return { ok: false, message: "It was already settled, so there was nothing to withdraw." };
+  const result = withdrawResultSchema.safeParse(data);
+  if (result.success) revalidatePath(`/clinician/patients/${result.data.patient_id}`);
+  if (result.success && !result.data.withdrawn) return { ok: false, message: "It was already settled, so there was nothing to withdraw." };
   return { ok: true, message: "Withdrawn. The patient no longer sees it." };
 }

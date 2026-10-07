@@ -51,6 +51,9 @@ export const suggestFormSchema = z.object({
   locationId: z.string().uuid(),
 });
 export const withdrawFormSchema = z.object({ patientId: z.string().uuid(), suggestionId: z.string().uuid() });
+// What the database answers: the patient is taken from here to refresh the right chart.
+export const suggestResultSchema = z.object({ suggestion_id: z.string().uuid(), patient_id: z.string().uuid() });
+export const withdrawResultSchema = z.object({ withdrawn: z.boolean(), patient_id: z.string().uuid() });
 
 export const proximityLabel: Record<(typeof PROXIMITY)[number], string> = {
   same_city: "Same city as the patient",
@@ -68,6 +71,7 @@ export const statusLabel: Record<string, string> = {
   declined: "The patient said no thanks",
   chose_other: "The patient chose a different pharmacy",
   withdrawn: "Withdrawn",
+  expired: "It expired before the patient answered",
   unavailable: "That pharmacy can no longer be offered, so the patient is not being shown it",
   lapsed: "No longer needed",
 };

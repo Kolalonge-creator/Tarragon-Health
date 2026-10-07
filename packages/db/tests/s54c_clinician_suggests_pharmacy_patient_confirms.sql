@@ -145,6 +145,20 @@ begin
   update public.profiles set is_dependent_account = true, city = 'Ikeja', state = 'Lagos' where id = pg_temp.f('kid');
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id) values (v_org, pg_temp.f('kid'), v_doc);
   perform pg_temp.setf('rxkid', pg_temp.mkrx(v_org, pg_temp.f('kid'), v_doc, '[{"drug":"Amlodipine","dose":"5 mg","quantity":"30 tablets"}]'::jsonb, 'signed'));
+  perform pg_temp.setf('rx8', pg_temp.mkrx(v_org, v_pat, v_doc, '[{"drug":"Amlodipine","dose":"5 mg","quantity":"30 tablets"}]'::jsonb, 'signed'));
+  perform pg_temp.setf('rx9', pg_temp.mkrx(v_org, v_pat, v_doc, '[{"drug":"Amlodipine","dose":"5 mg","quantity":"30 tablets"}]'::jsonb, 'signed'));
+  perform pg_temp.setf('rx10', pg_temp.mkrx(v_org, v_pat, v_doc, '[{"drug":"Amlodipine","dose":"5 mg","quantity":"30 tablets"}]'::jsonb, 'signed'));
+  -- accounts whose role is NOT clinician but who hold a clinical doctor tier row: the allow-list must still refuse them
+  perform pg_temp.setf('odd_corporate_admin', pg_temp.mkuser(v_org, 'oddca', 'corporate_admin', 'S54c Odd corporate'));
+  perform pg_temp.setf('odd_hmo_admin', pg_temp.mkuser(v_org, 'oddhmo', 'hmo_admin', 'S54c Odd hmo'));
+  perform pg_temp.setf('odd_care_coordinator', pg_temp.mkuser(v_org, 'oddcc', 'care_coordinator', 'S54c Odd coordinator'));
+  perform pg_temp.setf('odd_analyst', pg_temp.mkuser(v_org, 'oddan', 'analyst', 'S54c Odd analyst'));
+  perform pg_temp.setf('odd_lab_liaison', pg_temp.mkuser(v_org, 'oddll', 'lab_liaison', 'S54c Odd liaison'));
+  perform pg_temp.mkstaff(v_org, pg_temp.f('odd_corporate_admin'), 'medical_officer', v_adm);
+  perform pg_temp.mkstaff(v_org, pg_temp.f('odd_hmo_admin'), 'medical_officer', v_adm);
+  perform pg_temp.mkstaff(v_org, pg_temp.f('odd_care_coordinator'), 'medical_officer', v_adm);
+  perform pg_temp.mkstaff(v_org, pg_temp.f('odd_analyst'), 'medical_officer', v_adm);
+  perform pg_temp.mkstaff(v_org, pg_temp.f('odd_lab_liaison'), 'medical_officer', v_adm);
   perform pg_temp.setf('rx7', pg_temp.mkrx(v_org, v_pat, v_doc, '[{"drug":"Amlodipine","dose":"5 mg","quantity":"30 tablets"}]'::jsonb, 'signed'));
   -- a patient whose city is her state (Lagos, Lagos): nearness must stay a state-level fact
   perform pg_temp.setf('lagos', pg_temp.mkuser(v_org, 'lagos', 'patient', 'S54c Lagos Patient'));
@@ -202,8 +216,11 @@ select pg_temp.ck('B', 'B3 an unlisted pharmacy (no NAFDAC attestation) cannot b
   pg_temp.q_as(pg_temp.f('doc'), format($q$select public.care_team_suggest_pharmacy(%L, %L, %L)::text$q$, pg_temp.f('rx1'), pg_temp.f('pB'), pg_temp.f('lB'))));
 select pg_temp.ck('B', 'B4 a branch that belongs to another pharmacy cannot be paired with this one', 'ERR:22023',
   pg_temp.q_as(pg_temp.f('doc'), format($q$select public.care_team_suggest_pharmacy(%L, %L, %L)::text$q$, pg_temp.f('rx1'), pg_temp.f('pA'), pg_temp.f('lC'))));
-select pg_temp.ck('B', 'B5 the tied clinician suggests A', 'true',
-  (pg_temp.q_as(pg_temp.f('doc'), format($q$select public.care_team_suggest_pharmacy(%L, %L, %L)::text$q$, pg_temp.f('rx1'), pg_temp.f('pA'), pg_temp.f('lA'))) ~ '^[0-9a-f-]{36}$')::text);
+do $$ begin
+  perform pg_temp.sett('b5', pg_temp.q_as(pg_temp.f('doc'), format($q$select public.care_team_suggest_pharmacy(%L, %L, %L)::text$q$, pg_temp.f('rx1'), pg_temp.f('pA'), pg_temp.f('lA'))));
+end $$;
+select pg_temp.ck('B', 'B5 the tied clinician suggests A and gets the suggestion id and the patient id back', 'true/true',
+  ((pg_temp.t('b5')::jsonb ->> 'suggestion_id') ~ '^[0-9a-f-]{36}$')::text || '/' || ((pg_temp.t('b5')::jsonb ->> 'patient_id') = pg_temp.f('pat')::text)::text);
 select pg_temp.ck('B', 'B6 a suggestion routes NOTHING: still signed, no pharmacy, no choice time, no collection code', 'signed/null/null/0',
   (select rx.state::text || '/' || coalesce(rx.pharmacy_partner_id::text, 'null') || '/' || coalesce(rx.chosen_by_patient_at::text, 'null') || '/' ||
           (select count(*)::text from public.prescription_collection_codes c where c.prescription_id = rx.id)
@@ -218,7 +235,7 @@ select pg_temp.ck('B', 'B8 an event with ids only went through the outbox, and t
 select pg_temp.ck('B', 'B9 the event payload carries only the prescription id', 'prescription_id',
   (select string_agg(k, ',') from (select distinct jsonb_object_keys(payload) k from public.domain_events where event_type = 'prescription.pharmacy_suggested' and aggregate_id = pg_temp.f('rx1')) z));
 do $$ begin
-  perform pg_temp.setf('sugg2', pg_temp.q_as(pg_temp.f('doc'), format($q$select public.care_team_suggest_pharmacy(%L, %L, %L)::text$q$, pg_temp.f('rx1'), pg_temp.f('pC'), pg_temp.f('lC')))::uuid);
+  perform pg_temp.setf('sugg2', (pg_temp.q_as(pg_temp.f('doc'), format($q$select public.care_team_suggest_pharmacy(%L, %L, %L)::text$q$, pg_temp.f('rx1'), pg_temp.f('pC'), pg_temp.f('lC')))::jsonb ->> 'suggestion_id')::uuid);
 end $$;
 select pg_temp.ck('B', 'B10 a second suggestion replaces the first (the first is withdrawn)', '1',
   (select count(*)::text from public.prescription_pharmacy_suggestions where prescription_id = pg_temp.f('rx1') and status = 'withdrawn'));
@@ -232,6 +249,10 @@ select pg_temp.ck('B', 'B13 the untied clinician, a pharmacist and another patie
   pg_temp.q_as(pg_temp.f('doc2'), format($q$select count(*)::text from public.care_team_prescriptions_for_routing(%L, 'Trying to look without being on the team')$q$, pg_temp.f('pat')))
   || '/' || pg_temp.q_as(pg_temp.f('phA'), format($q$select count(*)::text from public.care_team_prescriptions_for_routing(%L, 'A pharmacist trying to look')$q$, pg_temp.f('pat')))
   || '/' || pg_temp.q_as(pg_temp.f('pat2'), format($q$select count(*)::text from public.care_team_prescriptions_for_routing(%L, 'Another patient trying to look')$q$, pg_temp.f('pat'))));
+select pg_temp.ck('B', 'B13b repeated denied reads are recorded once an hour per clinician and patient, and accounts that can never be clinicians write none', '1/0/0',
+  (select count(*)::text from public.audit_log where actor_id = pg_temp.f('doc2') and subject_patient_id = pg_temp.f('pat') and result = 'denied' and event -> 'sections' ? 'pharmacy_suggestions')
+  || '/' || (select count(*)::text from public.audit_log where actor_id in (pg_temp.f('phA'), pg_temp.f('fin'), pg_temp.f('adm'), pg_temp.f('pat2'), pg_temp.f('coord')) and event -> 'sections' ? 'pharmacy_suggestions')
+  || '/' || (select count(*)::text from public.audit_log where actor_id = pg_temp.f('pat') and event -> 'sections' ? 'pharmacy_suggestions'));
 -- a prescription already sent cannot take a suggestion
 do $$ declare v_rx uuid := pg_temp.mkrx(pg_temp.f('org'), pg_temp.f('pat'), pg_temp.f('doc'), '[{"drug":"Amlodipine","dose":"5 mg"}]'::jsonb, 'signed'); begin
   update public.prescriptions set state = 'cancelled' where id = v_rx;
@@ -351,10 +372,10 @@ update public.pharmacy_partners set license_verified_at = now() where id = pg_te
 update public.care_team_assignment set clinical_director_id = pg_temp.f('doc2') where patient_id = pg_temp.f('pat');
 select pg_temp.ck('D', 'D12a a second tied clinician sees it as a colleague''s (not hers) and is still refused a withdraw', 'false/ERR:42501',
   pg_temp.q_as(pg_temp.f('doc2'), format($q$select suggested_by_me::text from public.care_team_prescriptions_for_routing(%L, 'Preparing to route this prescription') where prescription_id = %L$q$, pg_temp.f('pat'), pg_temp.f('rx5')))
-  || '/' || pg_temp.q_as(pg_temp.f('doc2'), format($q$select public.care_team_withdraw_pharmacy_suggestion(%L)::text$q$, (select id from public.prescription_pharmacy_suggestions where prescription_id = pg_temp.f('rx5') and status = 'pending'))));
+  || '/' || pg_temp.q_as(pg_temp.f('doc2'), format($q$select (public.care_team_withdraw_pharmacy_suggestion(%L) ->> 'withdrawn')$q$, (select id from public.prescription_pharmacy_suggestions where prescription_id = pg_temp.f('rx5') and status = 'pending'))));
 do $$ declare v_id uuid := (select id from public.prescription_pharmacy_suggestions where prescription_id = pg_temp.f('rx5') and status = 'pending'); begin
-  perform pg_temp.sett('w1', pg_temp.q_as(pg_temp.f('doc2'), format($q$select public.care_team_withdraw_pharmacy_suggestion(%L)::text$q$, v_id)));
-  perform pg_temp.sett('w2', pg_temp.q_as(pg_temp.f('doc'), format($q$select public.care_team_withdraw_pharmacy_suggestion(%L)::text$q$, v_id)));
+  perform pg_temp.sett('w1', pg_temp.q_as(pg_temp.f('doc2'), format($q$select (public.care_team_withdraw_pharmacy_suggestion(%L) ->> 'withdrawn')$q$, v_id)));
+  perform pg_temp.sett('w2', pg_temp.q_as(pg_temp.f('doc'), format($q$select (public.care_team_withdraw_pharmacy_suggestion(%L) ->> 'withdrawn')$q$, v_id)));
 end $$;
 select pg_temp.ck('D', 'D12 only the author withdraws: another clinician refused, the author succeeds, the patient then sees none', 'ERR:42501/true/0',
   pg_temp.t('w1') || '/' || pg_temp.t('w2') || '/' || pg_temp.q_as(pg_temp.f('pat'), format($q$select count(*)::text from public.patient_pharmacy_suggestion(%L)$q$, pg_temp.f('rx5'))));
@@ -367,6 +388,68 @@ do $$ begin
 end $$;
 select pg_temp.ck('D', 'D13 routing by anyone but the patient never records her as having accepted: the suggestion lapses', 'lapsed/true',
   (select status || '/' || (settled_by is null)::text from public.prescription_pharmacy_suggestions where prescription_id = pg_temp.f('rx7')));
+
+-- X. expiry (versioned rule) ---------------------------------------------------------------------------------------------------------------
+do $$ begin
+  perform pg_temp.q_as(pg_temp.f('doc'), format($q$select public.care_team_suggest_pharmacy(%L, %L, %L)::text$q$, pg_temp.f('rx8'), pg_temp.f('pA'), pg_temp.f('lA')));
+end $$;
+select pg_temp.ck('X', 'X1 the active rule carries the suggestion window (PROPOSED, 14 days) and a new suggestion expires that far ahead', '14/14',
+  (private.pharmacy_cfg() ->> 'suggestion_valid_days')
+  || '/' || (select extract(day from expires_at - suggested_at)::text from public.prescription_pharmacy_suggestions where prescription_id = pg_temp.f('rx8') and status = 'pending'));
+-- push it past its expiry
+update public.prescription_pharmacy_suggestions set suggested_at = now() - interval '15 days', expires_at = now() - interval '1 day' where prescription_id = pg_temp.f('rx8') and status = 'pending';
+select pg_temp.ck('X', 'X2 an expired suggestion cannot be accepted (and nothing is routed)', 'ERR:22023/signed',
+  pg_temp.q_as(pg_temp.f('pat'), format($q$select public.patient_accept_pharmacy_suggestion(%L)::text$q$, (select id from public.prescription_pharmacy_suggestions where prescription_id = pg_temp.f('rx8') and status = 'pending')))
+  || '/' || (select state::text from public.prescriptions where id = pg_temp.f('rx8')));
+do $$ begin
+  perform pg_temp.sett('x3', pg_temp.q_as(pg_temp.f('pat'), format($q$select count(*)::text from public.patient_pharmacy_suggestion(%L)$q$, pg_temp.f('rx8'))));
+end $$;
+select pg_temp.ck('X', 'X3 the patient is no longer shown it, and reading lapses it to expired', '0/expired',
+  pg_temp.t('x3') || '/' || (select status from public.prescription_pharmacy_suggestions where prescription_id = pg_temp.f('rx8')));
+-- a second, expired-but-not-yet-lapsed one is shown to the clinician as expired, not as waiting
+do $$ begin
+  perform pg_temp.q_as(pg_temp.f('doc'), format($q$select public.care_team_suggest_pharmacy(%L, %L, %L)::text$q$, pg_temp.f('rx9'), pg_temp.f('pA'), pg_temp.f('lA')));
+  update public.prescription_pharmacy_suggestions set suggested_at = now() - interval '15 days', expires_at = now() - interval '1 day' where prescription_id = pg_temp.f('rx9') and status = 'pending';
+end $$;
+select pg_temp.ck('X', 'X4 the clinician sees it as expired, not waiting for the patient', 'expired',
+  pg_temp.q_as(pg_temp.f('doc'), format($q$select suggestion_status from public.care_team_prescriptions_for_routing(%L, 'Preparing to route this prescription') where prescription_id = %L$q$, pg_temp.f('pat'), pg_temp.f('rx9'))));
+do $$ begin
+  perform pg_temp.sett('x5', pg_temp.q_as(pg_temp.f('doc'), format($q$select (public.care_team_suggest_pharmacy(%L, %L, %L) ->> 'suggestion_id') is not null$q$, pg_temp.f('rx9'), pg_temp.f('pC'), pg_temp.f('lC'))));
+end $$;
+select pg_temp.ck('X', 'X5 she can suggest again after expiry: the old one is expired, one new pending, and the patient is told again', 'true/expired/1/2',
+  pg_temp.t('x5')
+  || '/' || (select string_agg(status, ',' order by status) filter (where status <> 'pending') from public.prescription_pharmacy_suggestions where prescription_id = pg_temp.f('rx9'))
+  || '/' || (select count(*)::text from public.prescription_pharmacy_suggestions where prescription_id = pg_temp.f('rx9') and status = 'pending')
+  || '/' || (select count(*)::text from public.prescription_pharmacy_suggestions where prescription_id = pg_temp.f('rx9')));
+-- changing the rule is a new version, and the new window applies to the next suggestion
+update public.pharmacy_config set is_active = false where is_active;
+insert into public.pharmacy_config (version, is_active, config) values (900, true, '{"code_length": 8, "code_valid_days": 14, "max_wrong_attempts": 5, "suggestion_valid_days": 3}'::jsonb);
+do $$ begin
+  perform pg_temp.q_as(pg_temp.f('doc'), format($q$select public.care_team_suggest_pharmacy(%L, %L, %L)::text$q$, pg_temp.f('rx10'), pg_temp.f('pA'), pg_temp.f('lA')));
+end $$;
+select pg_temp.ck('X', 'X6 a new rule version (3 days) governs the next suggestion', '3',
+  (select extract(day from expires_at - suggested_at)::text from public.prescription_pharmacy_suggestions where prescription_id = pg_temp.f('rx10') and status = 'pending'));
+
+-- Y. allow-list ---------------------------------------------------------------------------------------------------------------------------
+do $$ declare u text; r text; v_res text := ''; begin
+  foreach u in array array['odd_corporate_admin', 'odd_hmo_admin', 'odd_care_coordinator', 'odd_analyst', 'odd_lab_liaison'] loop
+    update public.care_team_assignment set care_coordinator_id = pg_temp.f(u) where patient_id = pg_temp.f('pat');
+    r := pg_temp.q_as(pg_temp.f(u), format($q$select public.care_team_suggest_pharmacy(%L, %L, %L)::text$q$, pg_temp.f('rx10'), pg_temp.f('pC'), pg_temp.f('lC')));
+    v_res := v_res || r || '/' || pg_temp.q_as(pg_temp.f(u), format($q$select count(*)::text from public.care_team_prescriptions_for_routing(%L, 'Trying with an odd role')$q$, pg_temp.f('pat'))) || ',';
+  end loop;
+  perform pg_temp.sett('odd', v_res);
+end $$;
+select pg_temp.ck('Y', 'Y1 corporate_admin, hmo_admin, care_coordinator, analyst and lab_liaison accounts, each holding a clinical tier row and tied to the patient, are all refused', 'ERR:42501/0,ERR:42501/0,ERR:42501/0,ERR:42501/0,ERR:42501/0,', pg_temp.t('odd'));
+-- SABOTAGE: without the explicit role check the same care_coordinator account is let in (so Y1 would FAIL)
+do $$ begin
+  update public.care_team_assignment set care_coordinator_id = pg_temp.f('odd_care_coordinator') where patient_id = pg_temp.f('pat');
+  create or replace function private.may_suggest_pharmacy(p_patient uuid) returns boolean language sql stable security definer set search_path = '' as $f$
+    select (select auth.uid()) is not null
+       and exists (select 1 from public.profiles pt where pt.id = p_patient and pt.organisation_id is not null and private.is_clinical_tier(pt.organisation_id))
+       and private.clinician_has_patient_access(p_patient) $f$;
+  perform pg_temp.sett('sab', pg_temp.q_as(pg_temp.f('odd_care_coordinator'), format($q$select (public.care_team_suggest_pharmacy(%L, %L, %L) ->> 'suggestion_id') is not null$q$, pg_temp.f('rx10'), pg_temp.f('pC'), pg_temp.f('lC'))));
+end $$;
+select pg_temp.ck('Y', 'Y2 SABOTAGE: with the role check removed a care_coordinator-role account suggests a pharmacy (so Y1 would FAIL)', 'true', pg_temp.t('sab'));
 
 -- E. 8.16 standing checks ---------------------------------------------------------------------------------------------------------------
 select pg_temp.ck('E', 'E1 no clinician-facing function body names an earning, a margin, a payout or a price', '0',

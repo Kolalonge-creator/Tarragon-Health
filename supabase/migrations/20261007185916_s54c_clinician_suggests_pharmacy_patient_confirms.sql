@@ -16,6 +16,20 @@
 --   * A pharmacy cannot see a suggestion at all. Only after the patient confirms does the existing S28 path route the prescription.
 -- Live counts at write time: prescriptions 0, so no backfill and no data conversion.
 
+-- 0. Versioned rule (INV-16, PROPOSED, CMO and pharmacy lead): how long a suggestion stays open. Rules are new versions, never edits: the active
+--    row is replaced by version N+1 carrying the three S28 values unchanged plus the new one. Mirrored in packages/shared proposed-config
+--    (pharmacy.collection_rules v2) with a drift test.
+update public.pharmacy_config set is_active = false where is_active;
+-- pharmacy-rules-v2-begin
+insert into public.pharmacy_config (version, is_active, config)
+select coalesce(max(version), 1) + 1, true, $json$
+{"code_length": 8, "code_valid_days": 14, "max_wrong_attempts": 5, "suggestion_valid_days": 14}
+$json$::jsonb from public.pharmacy_config;
+
+create function private.pharmacy_suggestion_ttl_days() returns integer language sql stable security definer set search_path = '' as
+$$ select greatest(1, coalesce((private.pharmacy_cfg() ->> 'suggestion_valid_days')::integer, 14)) $$;
+revoke all on function private.pharmacy_suggestion_ttl_days() from public, anon, authenticated;
+
 -- 1. The suggestion record
 create table public.prescription_pharmacy_suggestions (
   id uuid primary key default gen_random_uuid(),
@@ -24,14 +38,16 @@ create table public.prescription_pharmacy_suggestions (
   patient_id uuid not null references public.profiles (id) on delete restrict,
   pharmacy_partner_id uuid not null references public.pharmacy_partners (id) on delete restrict,
   pharmacy_location_id uuid not null references public.pharmacy_partner_locations (id) on delete restrict,
-  status text not null default 'pending' check (status in ('pending', 'accepted', 'declined', 'chose_other', 'withdrawn', 'lapsed')),
+  status text not null default 'pending' check (status in ('pending', 'accepted', 'declined', 'chose_other', 'withdrawn', 'lapsed', 'expired')),
   source text not null default 'clinician' check (source = 'clinician'),
   recorded_by uuid not null references public.profiles (id) on delete restrict,
   suggested_at timestamptz not null default now(),
+  expires_at timestamptz not null,
   settled_at timestamptz,
   settled_by uuid references public.profiles (id) on delete restrict,
   is_test boolean not null default false,
-  check ((status = 'pending') = (settled_at is null))
+  check ((status = 'pending') = (settled_at is null)),
+  check (expires_at > suggested_at)
 );
 create unique index prescription_pharmacy_suggestions_one_pending on public.prescription_pharmacy_suggestions (prescription_id) where status = 'pending';
 create index prescription_pharmacy_suggestions_patient_idx on public.prescription_pharmacy_suggestions (patient_id, suggested_at desc);
@@ -63,10 +79,13 @@ on conflict (template_key, locale, channel) do nothing;
 -- 3. Helpers
 -- The acting clinician: a clinical tier in the patient's organisation AND tied to this patient (INV-12). Patients, care coordinators,
 -- pharmacists, finance and admin accounts are refused here.
+-- An explicit allow-list, not a deny-list: the account role must be `clinician` (the one account role every doctor tier uses), the person must
+-- hold a clinical doctor tier, and must be tied to the patient. A role added later (or corporate_admin, hmo_admin, care_coordinator, analyst,
+-- lab_liaison and so on) is refused until someone adds it here on purpose.
 create function private.may_suggest_pharmacy(p_patient uuid) returns boolean
 language sql stable security definer set search_path = '' as $$
   select (select auth.uid()) is not null
-     and not exists (select 1 from public.profiles me where me.id = (select auth.uid()) and me.role = 'patient')
+     and exists (select 1 from public.profiles me where me.id = (select auth.uid()) and me.role = 'clinician')
      and exists (select 1 from public.profiles pt
                   where pt.id = p_patient and pt.organisation_id is not null
                     and private.is_clinical_tier(pt.organisation_id))
@@ -84,6 +103,56 @@ language sql stable security definer set search_path = '' as $$
                         and (m.superseded_at is not null or not m.is_active or (m.expires_at is not null and m.expires_at < now())))
 $$;
 revoke all on function private.prescription_collectable(uuid) from public, anon, authenticated;
+
+-- Lapse path: a pending suggestion past its expiry becomes `expired`. Called by every read and by suggest, so no timer is needed and a stale
+-- row is never shown as waiting. (Accept refuses an expired one by itself; it cannot lapse the row because a refusal rolls back.)
+create function private.lapse_expired_pharmacy_suggestions(p_rx uuid default null) returns void
+language sql volatile security definer set search_path = '' as $$
+  update public.prescription_pharmacy_suggestions
+     set status = 'expired', settled_at = now()
+   where status = 'pending' and expires_at <= now() and (p_rx is null or prescription_id = p_rx)
+$$;
+revoke all on function private.lapse_expired_pharmacy_suggestions(uuid) from public, anon, authenticated;
+
+-- A denied read is evidence only when a real clinician-role account tried it (INV-10). Accounts whose role can never be a clinician write nothing,
+-- and one clinician asking about one patient is recorded once an hour, so a page that refreshes cannot flood the audit log.
+create function private.audit_pharmacy_denied(p_patient uuid, p_reason text) returns void
+language plpgsql volatile security definer set search_path = '' as $$
+begin
+  if (select auth.uid()) is null or not exists (select 1 from public.profiles where id = p_patient)
+     or not exists (select 1 from public.profiles me where me.id = (select auth.uid()) and me.role = 'clinician') then
+    return;
+  end if;
+  if exists (select 1 from public.audit_log a
+              where a.actor_id = (select auth.uid()) and a.subject_patient_id = p_patient and a.action = 'staff.chart_read' and a.result = 'denied'
+                and a.event -> 'sections' ? 'pharmacy_suggestions' and a.created_at > now() - interval '1 hour') then
+    return;
+  end if;
+  perform private.audit_chart_read(p_patient, array['pharmacy_suggestions'], p_reason, 'denied');
+end $$;
+revoke all on function private.audit_pharmacy_denied(uuid, text) from public, anon, authenticated;
+
+-- One matcher for "which pharmacy catalogue rows can supply each item of a prescription": the item's name key and the EXACT normalised strength
+-- (an item with no strength matches any strength, and says so through dose_given), restricted to listable pharmacies. The patient's price comparison
+-- (S54) and the clinician's stock flag below both call it, so they cannot disagree on whether a pharmacy carries a medicine. It returns row ids and
+-- the stock flag only; the price comparison joins its own price columns back by id.
+create function private.pharmacy_item_matches(p_items jsonb)
+returns table (ord bigint, pid uuid, med_id uuid, stock text, strength_confirmed boolean, dose_given boolean)
+language sql stable security definer set search_path = '' as $$
+  with items as (
+    select i.ord,
+           private.pharmacy_name_key(coalesce(i.item ->> 'drug', i.item ->> 'drug_name', i.item ->> 'name')) as nm,
+           regexp_replace(lower(coalesce(i.item ->> 'dose', i.item ->> 'strength', '')), '[^a-z0-9.%/]+', '', 'g') as dose_n
+      from jsonb_array_elements(p_items) with ordinality as i(item, ord)),
+  cat as materialized (
+    select pm.id, pm.pharmacy_partner_id as pid, private.pharmacy_name_key(pm.drug_name) as nk,
+           regexp_replace(lower(coalesce(pm.strength, '')), '[^a-z0-9.%/]+', '', 'g') as sn, pm.stock_status
+      from public.pharmacy_medications pm
+     where pm.is_active and private.pharmacy_partner_listable(pm.pharmacy_partner_id))
+  select it.ord, c.pid, c.id, coalesce(c.stock_status::text, 'unknown'), (c.sn = it.dose_n and it.dose_n <> ''), (it.dose_n <> '')
+    from items it join cat c on it.nm <> '' and c.nk = it.nm and (it.dose_n = '' or c.sn = it.dose_n)
+$$;
+revoke all on function private.pharmacy_item_matches(jsonb) from public, anon, authenticated;
 
 create function private.pharmacy_place_key(p text) returns text
 language sql immutable set search_path = '' as $$
@@ -103,12 +172,11 @@ begin
     raise exception 'a reason of at least 10 characters is required' using errcode = '22023';
   end if;
   if not private.may_suggest_pharmacy(p_patient) then
-    if exists (select 1 from public.profiles where id = p_patient) and not exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'patient') then
-      perform private.audit_chart_read(p_patient, array['pharmacy_suggestions'], p_reason, 'denied');
-    end if;
+    perform private.audit_pharmacy_denied(p_patient, p_reason);
     return;
   end if;
   perform private.audit_chart_read(p_patient, array['pharmacy_suggestions'], p_reason, 'success');
+  perform private.lapse_expired_pharmacy_suggestions();
   return query
     select rx.id, rx.state::text,
            coalesce((select string_agg(coalesce(i ->> 'drug', i ->> 'drug_name', i ->> 'name'), ', ')
@@ -128,7 +196,7 @@ begin
       left join public.pharmacy_partner_locations l on l.id = s.pharmacy_location_id
      where rx.patient_id = p_patient
        and ((rx.state = 'signed' and private.prescription_collectable(rx.id))
-            or (rx.state = 'sent' and s.id is not null and s.suggested_at > now() - interval '14 days'))
+            or (rx.state = 'sent' and s.id is not null and s.suggested_at > now() - make_interval(days => private.pharmacy_suggestion_ttl_days())))
      order by rx.signed_at desc nulls last
      limit 50;
 end $$;
@@ -143,35 +211,32 @@ language plpgsql security definer set search_path = '' as $$
 #variable_conflict use_column
 declare
   rx public.prescriptions%rowtype;
-  v_city text; v_state text; v_total integer;
+  v_city text; v_state text; v_total integer; v_items jsonb;
 begin
   if (select auth.uid()) is null then raise exception 'not authorised' using errcode = '42501'; end if;
   if p_reason is null or char_length(btrim(p_reason)) < 10 then
     raise exception 'a reason of at least 10 characters is required' using errcode = '22023';
   end if;
   if not private.may_suggest_pharmacy(p_patient) then
-    if exists (select 1 from public.profiles where id = p_patient) and not exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'patient') then
-      perform private.audit_chart_read(p_patient, array['pharmacy_suggestions'], p_reason, 'denied');
-    end if;
+    perform private.audit_pharmacy_denied(p_patient, p_reason);
     return;
   end if;
   select * into rx from public.prescriptions where id = p_prescription and patient_id = p_patient and state = 'signed';
   if not found or not private.prescription_collectable(rx.id)
      or exists (select 1 from public.profiles where id = p_patient and is_dependent_account) then
-    perform private.audit_chart_read(p_patient, array['pharmacy_suggestions'], p_reason, 'denied');
+    perform private.audit_pharmacy_denied(p_patient, p_reason);
     return;
   end if;
   perform private.audit_chart_read(p_patient, array['pharmacy_suggestions'], p_reason, 'success');
   select private.pharmacy_place_key(pr.city), private.pharmacy_place_key(pr.state) into v_city, v_state from public.profiles pr where pr.id = p_patient;
   if v_city is not null and (char_length(v_city) < 3 or v_city is not distinct from v_state) then v_city := null; end if;
-  v_total := coalesce(jsonb_array_length(rx.items), 0);
+  v_items := rx.items;
+  v_total := coalesce(jsonb_array_length(v_items), 0);
 
   return query
   with items as (
-    select i.ord,
-           private.pharmacy_name_key(coalesce(i.item ->> 'drug', i.item ->> 'drug_name', i.item ->> 'name')) as nm,
-           regexp_replace(lower(coalesce(i.item ->> 'dose', i.item ->> 'strength', '')), '[^a-z0-9.%/]+', '', 'g') as dose_n
-      from jsonb_array_elements(rx.items) with ordinality as i(item, ord)),
+    select i.ord, private.pharmacy_name_key(coalesce(i.item ->> 'drug', i.item ->> 'drug_name', i.item ->> 'name')) as nm
+      from jsonb_array_elements(v_items) with ordinality as i(item, ord)),
   loc as (
     select pp.id as pid, pp.name as pname, l.id as lid, l.name as lname, l.address as laddr, l.state as lstate,
            -- same city: the branch's own address names the patient's city, or the pharmacy has ONE branch and that is its city. A partner's single
@@ -188,28 +253,23 @@ begin
       from public.pharmacy_partners pp
       join public.pharmacy_partner_locations l on l.pharmacy_partner_id = pp.id and l.is_active and l.verified_at is not null
      where private.pharmacy_partner_listable(pp.id)),
+  matches as materialized (select * from private.pharmacy_item_matches(v_items)),
   per_item as (
-    -- one verdict per item per pharmacy: unavailable (every matching row is out), in (some row in or low), unknown (a row with no stock flag), none (no row)
+    -- one verdict per item per pharmacy, from the shared matcher: no_catalogue (nothing listed, or the item has no name: not known), none (a
+    -- catalogue that does not list this item), in (some row in stock or low), unknown (a row with no stock flag), out (every row out)
     select lo.pid, it.ord,
-           case when not exists (select 1 from public.pharmacy_medications pm where pm.pharmacy_partner_id = lo.pid and pm.is_active) then 'no_catalogue'
-                -- an item with no recognisable name cannot be matched, so the honest answer is "not known", never "not in stock"
-                when it.nm = '' then 'no_catalogue'
-                when not exists (select 1 from public.pharmacy_medications pm
-                                  where pm.pharmacy_partner_id = lo.pid and pm.is_active and it.nm <> ''
-                                    and private.pharmacy_name_key(pm.drug_name) = it.nm
-                                    and (it.dose_n = '' or regexp_replace(lower(coalesce(pm.strength, '')), '[^a-z0-9.%/]+', '', 'g') = it.dose_n)) then 'none'
-                when exists (select 1 from public.pharmacy_medications pm
-                              where pm.pharmacy_partner_id = lo.pid and pm.is_active and it.nm <> ''
-                                and private.pharmacy_name_key(pm.drug_name) = it.nm
-                                and (it.dose_n = '' or regexp_replace(lower(coalesce(pm.strength, '')), '[^a-z0-9.%/]+', '', 'g') = it.dose_n)
-                                and pm.stock_status::text in ('in_stock', 'low_stock')) then 'in'
-                when exists (select 1 from public.pharmacy_medications pm
-                              where pm.pharmacy_partner_id = lo.pid and pm.is_active and it.nm <> ''
-                                and private.pharmacy_name_key(pm.drug_name) = it.nm
-                                and (it.dose_n = '' or regexp_replace(lower(coalesce(pm.strength, '')), '[^a-z0-9.%/]+', '', 'g') = it.dose_n)
-                                and coalesce(pm.stock_status::text, 'unknown') = 'unknown') then 'unknown'
+           case when not cat.listed or it.nm = '' then 'no_catalogue'
+                when mm.n = 0 then 'none'
+                when mm.n_in > 0 then 'in'
+                when mm.n_unknown > 0 then 'unknown'
                 else 'out' end as verdict
-      from (select distinct pid from loc) lo cross join items it),
+      from (select distinct pid from loc) lo
+      cross join items it
+      cross join lateral (select exists (select 1 from public.pharmacy_medications pm where pm.pharmacy_partner_id = lo.pid and pm.is_active) as listed) cat
+      cross join lateral (select count(*) as n,
+                                 count(*) filter (where m.stock in ('in_stock', 'low_stock')) as n_in,
+                                 count(*) filter (where m.stock = 'unknown') as n_unknown
+                            from matches m where m.pid = lo.pid and m.ord = it.ord) mm),
   stock as (
     select pi.pid,
            case when bool_or(pi.verdict = 'no_catalogue') then 'unknown'
@@ -225,7 +285,7 @@ end $$;
 
 -- 6. Clinician: suggest one pharmacy. Replaces any earlier pending suggestion for the prescription. Routes nothing.
 create function public.care_team_suggest_pharmacy(p_prescription uuid, p_partner uuid, p_location uuid)
-returns uuid language plpgsql security definer set search_path = '' as $$
+returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
   rx public.prescriptions%rowtype; v_id uuid; v_uid uuid := (select auth.uid()); v_replaced boolean; v_pat uuid;
 begin
@@ -242,12 +302,14 @@ begin
         where l.id = p_location and l.pharmacy_partner_id = p_partner and l.is_active and l.verified_at is not null) then
     raise exception 'pharmacy_not_available' using errcode = '22023';
   end if;
+  perform private.lapse_expired_pharmacy_suggestions(rx.id);
   -- the patient is told once: replacing a pending suggestion changes the card she already has, it does not send a second notice
   v_replaced := exists (select 1 from public.prescription_pharmacy_suggestions where prescription_id = rx.id and status = 'pending');
   update public.prescription_pharmacy_suggestions set status = 'withdrawn', settled_at = now(), settled_by = v_uid
    where prescription_id = rx.id and status = 'pending';
-  insert into public.prescription_pharmacy_suggestions (organisation_id, prescription_id, patient_id, pharmacy_partner_id, pharmacy_location_id, recorded_by, suggested_at, is_test)
-  values (rx.organisation_id, rx.id, rx.patient_id, p_partner, p_location, v_uid, clock_timestamp(), rx.is_test)
+  insert into public.prescription_pharmacy_suggestions (organisation_id, prescription_id, patient_id, pharmacy_partner_id, pharmacy_location_id, recorded_by, suggested_at, expires_at, is_test)
+  values (rx.organisation_id, rx.id, rx.patient_id, p_partner, p_location, v_uid, clock_timestamp(),
+          clock_timestamp() + make_interval(days => private.pharmacy_suggestion_ttl_days()), rx.is_test)
   returning id into v_id;
   if not v_replaced then
     insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload)
@@ -257,34 +319,36 @@ begin
     'pharmacy_suggested:' || v_id, rx.patient_id, 'prescription', rx.id);
   perform private.log_audit('prescription.pharmacy_suggested', 'prescriptions', rx.id,
     jsonb_build_object('suggestion_id', v_id, 'pharmacy_partner_id', p_partner, 'pharmacy_location_id', p_location));
-  return v_id;
+  -- the patient id comes back so the screen refreshes the right chart without trusting the form
+  return jsonb_build_object('suggestion_id', v_id, 'patient_id', rx.patient_id);
 end $$;
 
 create function public.care_team_withdraw_pharmacy_suggestion(p_suggestion uuid)
-returns boolean language plpgsql security definer set search_path = '' as $$
+returns jsonb language plpgsql security definer set search_path = '' as $$
 declare s public.prescription_pharmacy_suggestions%rowtype; v_uid uuid := (select auth.uid());
 begin
   if v_uid is null then raise exception 'not authorised' using errcode = '42501'; end if;
   select * into s from public.prescription_pharmacy_suggestions where id = p_suggestion for update;
   if not found or s.recorded_by <> v_uid or not private.may_suggest_pharmacy(s.patient_id) then raise exception 'not authorised' using errcode = '42501'; end if;
-  if s.status <> 'pending' then return false; end if;
+  if s.status <> 'pending' then return jsonb_build_object('withdrawn', false, 'patient_id', s.patient_id); end if;
   update public.prescription_pharmacy_suggestions set status = 'withdrawn', settled_at = now(), settled_by = v_uid where id = s.id;
   perform private.log_audit('prescription.pharmacy_suggestion_withdrawn', 'prescriptions', s.prescription_id, jsonb_build_object('suggestion_id', s.id));
-  return true;
+  return jsonb_build_object('withdrawn', true, 'patient_id', s.patient_id);
 end $$;
 
 -- 7. Patient: the suggestion waiting for her, if any. Only while it can still be acted on (signed, pharmacy still listable).
 create function public.patient_pharmacy_suggestion(p_prescription uuid)
 returns table (suggestion_id uuid, partner_id uuid, partner_name text, location_id uuid, location_name text, address text, state text, suggested_at timestamptz)
-language plpgsql stable security definer set search_path = '' as $$
+language plpgsql volatile security definer set search_path = '' as $$
 begin
+  perform private.lapse_expired_pharmacy_suggestions(p_prescription);
   return query
     select s.id, pp.id, pp.name, l.id, l.name, l.address, l.state, s.suggested_at
       from public.prescription_pharmacy_suggestions s
       join public.prescriptions rx on rx.id = s.prescription_id
       join public.pharmacy_partners pp on pp.id = s.pharmacy_partner_id
       join public.pharmacy_partner_locations l on l.id = s.pharmacy_location_id
-     where s.prescription_id = p_prescription and s.patient_id = (select auth.uid()) and s.status = 'pending'
+     where s.prescription_id = p_prescription and s.patient_id = (select auth.uid()) and s.status = 'pending' and s.expires_at > now()
        and rx.state = 'signed' and private.prescription_collectable(rx.id) and private.pharmacy_partner_listable(pp.id) and l.is_active and l.verified_at is not null;
 end $$;
 
@@ -298,7 +362,8 @@ begin
   if v_rx is null then raise exception 'suggestion_not_open' using errcode = '22023'; end if;
   perform 1 from public.prescriptions where id = v_rx for update;
   select * into s from public.prescription_pharmacy_suggestions where id = p_suggestion and patient_id = (select auth.uid()) and status = 'pending' for update;
-  if not found then raise exception 'suggestion_not_open' using errcode = '22023'; end if;
+  -- S28's chooser is the patient herself only (patient_id = auth.uid()); acting-for is deliberately NOT wider here. An expired suggestion is refused.
+  if not found or s.expires_at <= now() then raise exception 'suggestion_not_open' using errcode = '22023'; end if;
   v_code := public.patient_choose_pharmacy(s.prescription_id, s.pharmacy_partner_id, s.pharmacy_location_id);
   return v_code;
 end $$;
@@ -383,4 +448,53 @@ begin
   if to_regprocedure('public.patient_choose_pharmacy(uuid,uuid,uuid)') is null then
     raise exception 'S54c: S28 patient_choose_pharmacy is required (this migration is stacked on S28)';
   end if;
+end $$;
+
+-- 10. The patient's price comparison (S54) now reads its matches from the shared matcher above. Same columns, same order, same refusals.
+create or replace function public.patient_price_compare(p_prescription uuid)
+returns table (partner_id uuid, partner_name text, location_id uuid, location_name text, state text, address text,
+               items_total integer, items_matched integer, total_kobo bigint, all_in_stock boolean, any_low_stock boolean,
+               all_verified_batch boolean, prices_updated_at timestamptz, lines jsonb)
+language plpgsql stable security definer set search_path = '' as $$
+#variable_conflict use_column
+declare
+  rx public.prescriptions%rowtype;
+  v_uid uuid := (select auth.uid());
+  v_total integer;
+begin
+  select * into rx from public.prescriptions where id = p_prescription and state in ('signed', 'sent');
+  if not found or v_uid is null
+     or not (rx.patient_id = v_uid or private.can_act_for(rx.patient_id, 'manage_pharmacy'::public.caregiver_permission)) then
+    raise exception 'Prescription not found' using errcode = '42501';
+  end if;
+  v_total := coalesce(jsonb_array_length(rx.items), 0);
+
+  return query
+  with cand as (
+    select mm.ord, mm.pid, pm.drug_name, pm.pack_size, pm.price_kobo, mm.stock, pm.verified_batch, pm.strength,
+           mm.strength_confirmed, mm.dose_given, coalesce(pm.stock_updated_at, pm.created_at) as updated
+      from private.pharmacy_item_matches(rx.items) mm
+      join public.pharmacy_medications pm on pm.id = mm.med_id),
+  best as (
+    -- one line per item per pharmacy: the cheapest row that is not out of stock, else the cheapest row
+    select distinct on (c.pid, c.ord) c.*
+      from cand c
+     order by c.pid, c.ord, (not c.strength_confirmed and c.dose_given), (c.stock = 'unavailable'), c.price_kobo, c.drug_name),
+  agg as (
+    select b.pid,
+           count(*)::integer as matched,
+           sum(b.price_kobo)::bigint as total,
+           bool_and(b.stock in ('in_stock', 'low_stock')) as all_in,
+           bool_or(b.stock = 'low_stock') as any_low,
+           bool_and(b.verified_batch) as all_vb,
+           min(b.updated) as upd,
+           jsonb_agg(jsonb_build_object('item', b.ord, 'drug', b.drug_name, 'pack', b.pack_size, 'price_kobo', b.price_kobo,
+                                        'stock', b.stock, 'verified_batch', b.verified_batch, 'strength_confirmed', b.strength_confirmed)
+                     order by b.ord) as lines
+      from best b group by b.pid)
+  select pp.id, pp.name, l.id, l.name, l.state, l.address, v_total, a.matched, a.total, a.all_in, a.any_low, a.all_vb, a.upd, a.lines
+    from agg a
+    join public.pharmacy_partners pp on pp.id = a.pid
+    join public.pharmacy_partner_locations l on l.pharmacy_partner_id = pp.id and l.is_active and l.verified_at is not null
+   order by a.matched desc, a.all_in desc, a.total asc, pp.name, l.name;
 end $$;
