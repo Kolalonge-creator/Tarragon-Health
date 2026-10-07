@@ -148,7 +148,7 @@ export function LabOrderTestChecklist({
               {STATUS_OPTIONS.map((opt) => {
                 const active = status === opt.value;
                 return (
-                  <Pressable
+                  <Pressable accessibilityRole="button" accessibilityState={{ selected: active }}
                     key={opt.value}
                     onPress={() => changeStatus(code, opt.value)}
                     style={({ pressed }) => ({

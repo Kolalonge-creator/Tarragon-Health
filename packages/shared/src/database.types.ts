@@ -16603,6 +16603,8 @@ export type Database = {
           updated_at: string
           version: number
           video_url: string | null
+          audio_clip_id: string | null
+          next_action: string | null
         }
         Insert: {
           approved_at?: string | null
@@ -16641,6 +16643,8 @@ export type Database = {
           updated_at?: string
           version?: number
           video_url?: string | null
+          audio_clip_id?: string | null
+          next_action?: string | null
         }
         Update: {
           approved_at?: string | null
@@ -16679,6 +16683,8 @@ export type Database = {
           updated_at?: string
           version?: number
           video_url?: string | null
+          audio_clip_id?: string | null
+          next_action?: string | null
         }
         Relationships: []
       }
@@ -42972,6 +42978,30 @@ export type Database = {
       }
     }
     Functions: {
+      // S27 (lab results and release rules): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
+      bp_control_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
+      // S38c (monthly report and risk stratification): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
+      clinician_risk_worklist: { Args: { p_limit?: number }; Returns: Json };
+      log_outcome_export: { Args: { p_from?: string; p_to?: string }; Returns: undefined };
+      my_monthly_reports: { Args: { p_limit?: number }; Returns: Json };
+      override_patient_risk: { Args: { p_days?: number; p_level: string; p_patient: string; p_reason: string }; Returns: Json };
+      risk_distribution_report: { Args: Record<PropertyKey, never>; Returns: Json };
+      // S38e (sponsor cohorts and triage accuracy): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
+      admin_close_sponsor_cohort: { Args: { p_cohort: string }; Returns: boolean };
+      admin_create_sponsor_cohort: { Args: { p_max_uses: number; p_name: string; p_sponsor_org: string; p_valid_from: string; p_valid_to: string }; Returns: Json };
+      admin_list_sponsor_cohorts: { Args: Record<PropertyKey, never>; Returns: Json };
+      clinician_triage_review_list: { Args: Record<PropertyKey, never>; Returns: Json };
+      join_cohort: { Args: { p_code: string }; Returns: Json };
+      leave_cohort: { Args: { p_cohort: string }; Returns: Json };
+      log_sponsor_export: { Args: { p_cohort: string; p_from?: string; p_to?: string }; Returns: undefined };
+      my_cohorts: { Args: Record<PropertyKey, never>; Returns: Json };
+      record_triage_review: { Args: { p_agreement: string; p_task: string }; Returns: Json };
+      set_cohort_reporting_consent: { Args: { p_cohort: string; p_granted: boolean }; Returns: Json };
+      sponsor_outcome_report: { Args: { p_cohort: string; p_from?: string; p_to?: string }; Returns: Json };
+      sponsor_staff_figures: { Args: { p_cohort: string }; Returns: Json };
+      log_sponsor_staff_export: { Args: { p_cohort: string }; Returns: Json };
+      sponsor_staff_programmes: { Args: Record<PropertyKey, never>; Returns: Json };
+      triage_accuracy_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       lab_panel_definition: { Args: { p_panel: string }; Returns: Json };
       liaison_recent_uploads: {
         Args: Record<PropertyKey, never>;
@@ -43060,6 +43090,28 @@ export type Database = {
         }[]
       }
       go_live_guard_is_open: { Args: { p_key: string }; Returns: boolean }
+      learning_course: {
+        Args: { p_programme_code: string }
+        Returns: {
+          audio_clip_id: string
+          body: string
+          check_score: number
+          check_total: number
+          content_code: string
+          content_id: string
+          estimated_minutes: number
+          knowledge_check: Json
+          language_served: string
+          module_number: number
+          next_action: string
+          next_review_due: string
+          reviewed_at: string
+          reviewed_by_name: string
+          status: Database["public"]["Enums"]["health_education_status"]
+          summary: string
+          title: string
+        }[]
+      }
       list_fee_schedules: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -49831,6 +49883,9 @@ export type Database = {
         | "lethargy"
         | "grunting_or_retractions"
         | "dehydration_signs"
+        | "weakness_or_numbness"
+        | "difficulty_speaking"
+        | "back_pain"
       therapy_modality: "video" | "audio" | "in_person"
       therapy_session_status: "requested" | "awaiting_clinician_approval" | "confirmed" | "completed" | "cancelled" | "no_show"
       timeline_event_type:
@@ -52337,6 +52392,9 @@ export const Constants = {
         "lethargy",
         "grunting_or_retractions",
         "dehydration_signs",
+        "weakness_or_numbness",
+        "difficulty_speaking",
+        "back_pain",
       ],
       therapy_modality: ["video", "audio", "in_person"],
       therapy_session_status: ["requested", "awaiting_clinician_approval", "confirmed", "completed", "cancelled", "no_show"],
