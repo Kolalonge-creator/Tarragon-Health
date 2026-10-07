@@ -48,6 +48,8 @@ export interface StartingSuggestionTarget {
   version: number;
   systolicBelow: number;
   diastolicBelow: number;
+  /** Older-adult bands (NICE NG136: 145/85 from 80). The highest band whose fromAgeYears is reached applies. */
+  ageBands?: readonly { fromAgeYears: number; systolicBelow: number; diastolicBelow: number }[];
 }
 
 export interface ReminderBehaviourConfig {
@@ -156,11 +158,33 @@ export function loadTrendDisplay(asOf?: string): TrendDisplayConfig {
 export function loadStartingSuggestionTarget(asOf?: string): StartingSuggestionTarget {
   const key = "bp.starting_suggestion_target";
   const { raw, version } = obj(key, asOf);
+  const bands = Array.isArray(raw.ageBands)
+    ? raw.ageBands.map((b: unknown, i: number) => {
+        const band = b as Raw;
+        const path = `${key}.ageBands[${i}]`;
+        return {
+          fromAgeYears: num(band, "fromAgeYears", path, 1),
+          systolicBelow: num(band, "systolicBelow", path, 1),
+          diastolicBelow: num(band, "diastolicBelow", path, 1),
+        };
+      })
+    : undefined;
   return {
     version,
     systolicBelow: num(raw, "systolicBelow", key, 1),
     diastolicBelow: num(raw, "diastolicBelow", key, 1),
+    ...(bands ? { ageBands: bands } : {}),
   };
+}
+
+/**
+ * The starting suggestion for this person's age. With no known age (or none of the bands reached) the base pair applies, so a
+ * missing date of birth can never produce a looser target than the under-80 one.
+ */
+export function suggestionForAge(target: StartingSuggestionTarget, ageYears: number | null): StartingSuggestionTarget {
+  if (ageYears === null || !target.ageBands) return target;
+  const band = [...target.ageBands].filter((b) => ageYears >= b.fromAgeYears).sort((a, b) => b.fromAgeYears - a.fromAgeYears)[0];
+  return band ? { ...target, systolicBelow: band.systolicBelow, diastolicBelow: band.diastolicBelow } : target;
 }
 
 export function loadReminderBehaviour(asOf?: string): ReminderBehaviourConfig {
