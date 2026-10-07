@@ -160,11 +160,11 @@ comment on table public.clinical_follow_ups is
 create function private.guard_clinical_follow_up() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
-  if coalesce(current_setting('tarragon.follow_up_write', true), '') = 'on' then
-    return new;
-  end if;
   if tg_op = 'DELETE' then
     raise exception 'a follow-up is never deleted: close it with an outcome' using errcode = '42501';
+  end if;
+  if coalesce(current_setting('tarragon.follow_up_write', true), '') = 'on' then
+    return new;
   end if;
   raise exception 'clinical_follow_ups change only through the follow-up functions' using errcode = '42501';
 end $$;
