@@ -92,8 +92,8 @@ declare v_org uuid; v_pA uuid; v_pB uuid; v_phA uuid; v_phB uuid; v_doc uuid; v_
         v_rxA uuid; v_rxB uuid; v_rxDraft uuid; v_rxDisp uuid;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
-  insert into public.pharmacy_partners (name, is_active) values ('S36h Pharmacy A', false) returning id into v_pA;
-  insert into public.pharmacy_partners (name, is_active) values ('S36h Pharmacy B', false) returning id into v_pB;
+  insert into public.pharmacy_partners (name, is_active, approved_at, license_verified_at, onboarding_status, nafdac_source_attested_at) values ('S36h Pharmacy A', true, now(), now(), 'activated', now()) returning id into v_pA;
+  insert into public.pharmacy_partners (name, is_active, approved_at, license_verified_at, onboarding_status, nafdac_source_attested_at) values ('S36h Pharmacy B', true, now(), now(), 'activated', now()) returning id into v_pB;
   v_phA := pg_temp.mkuser(v_org, 'phA', 'pharmacist', 'S36h Pharmacist A');
   v_phB := pg_temp.mkuser(v_org, 'phB', 'pharmacist', 'S36h Pharmacist B');
   update public.profiles set pharmacy_partner_id = v_pA where id = v_phA;
@@ -119,7 +119,8 @@ end $$;
 -- 1. the pharmacy's own list: A has one sent and one dispensed (the draft and B's are not shown)
 insert into results values ('real', 'pharmacy A lists its two sent or dispensed prescriptions', '2', pg_temp.list_as(pg_temp.f('phA')));
 insert into results values ('real', 'pharmacy B lists only its own', '1', pg_temp.list_as(pg_temp.f('phB')));
-insert into results values ('real', 'a clinician cannot list pharmacy prescriptions', '0', pg_temp.list_as(pg_temp.f('doc')));
+-- S28: the list function now refuses anyone who is not a partner pharmacy outright
+insert into results values ('real', 'a clinician cannot list pharmacy prescriptions', 'ERR:42501', pg_temp.list_as(pg_temp.f('doc')));
 
 -- snapshot the prescription before any flag (3)
 insert into snap values ('rxA_before', pg_temp.rx_hash(pg_temp.f('rxA')));

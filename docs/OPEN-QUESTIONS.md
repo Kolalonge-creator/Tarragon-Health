@@ -1531,7 +1531,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Decision: open (founder).
 
 ### OQ-311 No pharmacy can be compared yet, and prices are per pack (raised by S54)
-- Live: 4 partners, none active; `pharmacy_medications` has 0 rows. Real prices need a partner rate card entered by an admin. A price is per listed pack; the comparison sums one pack per prescribed item and says "about", it does not scale to the quantity written. Matching is by the medicine's first word and the exact strength; a strength nobody lists finds nothing rather than a price for another strength.
+- Live: 4 partners, none active; `pharmacy_medications` has 0 rows. Real prices need a partner rate card entered by an admin. A price is per listed pack; the comparison sums ONE pack of each item and says so ("for one pack of each item"), it does not scale to the quantity written. A pharmacy's "prices last updated" date is the oldest line's. Matching is by the medicine's first word and the exact strength; a strength nobody lists finds nothing rather than a price for another strength.
 - Options: (a) as built; (b) add a quantity-aware price (pack size parsing) once real rate cards exist (recommended then).
 
 ### OQ-312 main-dev carries the first S28 build, which conflicts with the live S28 (raised by S54)
@@ -1551,3 +1551,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-316 Dependants: the server's push and in-app dose reminders still go to the dependant's own account (raised by S54)
 - S54 fixes the guardian's phone (local reminders and the catch-up sheet, first name only in the text). The server job that queues push and in-app dose reminders still addresses the person whose medicine it is; a guardian who wants those too needs a rule for which phone reminds (OQ-70's last question).
 - Options: (a) leave (recommended until a real guardian asks); (b) also queue to a guardian with the manage grant.
+
+### OQ-317 A possible emergency in a pharmacist chat reaches the patient and the pharmacist, not the care team (raised by S54)
+- The patient's own screen shows the emergency steps at once, and the pharmacist sees a "possible emergency" flag on the list and the thread (a deterministic phrase screen, the same list the care messages use; no model). Nothing is raised to the care team because the care team does not read the chat by design. A guardian can read an ADULT dependant's thread (pharmacy permission) but never a 10 to 17 year old's (the same rule as adolescent confidentiality), and a caregiver starting a chat without naming a medicine starts it as themselves.
+- Options: (a) as built (recommended; the pharmacist is told to send the person to the emergency steps); (b) also raise a clinician alert from a flagged chat message (needs a decision on who answers a pharmacy's patient).

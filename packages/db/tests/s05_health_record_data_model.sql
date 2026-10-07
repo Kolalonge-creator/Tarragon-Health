@@ -97,8 +97,8 @@ begin
   values (v_org, v_pat, v_tied, now())
   on conflict (patient_id) do update set clinician_id = v_tied;
 
-  insert into public.pharmacy_partners (name, is_active) values ('S05 Pharmacy A', false) returning id into v_pp;
-  insert into public.pharmacy_partners (name, is_active) values ('S05 Pharmacy B', false) returning id into v_pp2;
+  insert into public.pharmacy_partners (name, is_active, approved_at, license_verified_at, onboarding_status, nafdac_source_attested_at) values ('S05 Pharmacy A', true, now(), now(), 'activated', now()) returning id into v_pp;
+  insert into public.pharmacy_partners (name, is_active, approved_at, license_verified_at, onboarding_status, nafdac_source_attested_at) values ('S05 Pharmacy B', true, now(), now(), 'activated', now()) returning id into v_pp2;
   update public.profiles set pharmacy_partner_id = v_pp  where id = v_ph;
   update public.profiles set pharmacy_partner_id = v_pp2 where id = v_ph2;
 
@@ -341,20 +341,19 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', v_ph, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
   select count(*) into v_n from public.prescriptions where id = v_rx;
-  if v_n <> 1 then raise exception 'FAIL 4q: the named partner did not see the prescription'; end if;
-  v_failed := false;
-  begin update public.prescriptions set items = '[]' where id = v_rx;
-  exception when others then v_failed := true; end;
-  if not v_failed then raise exception 'FAIL 4r: the pharmacist altered the signed items'; end if;
-  v_failed := false;
-  begin update public.prescriptions set pharmacy_partner_id = v_pp2, state = 'dispensed' where id = v_rx;
-  exception when others then v_failed := true; end;
-  if not v_failed then raise exception 'FAIL 4r2: the pharmacist rerouted the prescription to another partner'; end if;
+  -- S28: a pharmacy no longer reads prescriptions directly; it reaches one only through its audited functions (proved in s28_pharmacy_collection_and_dispensing.sql)
+  if v_n <> 0 then raise exception 'FAIL 4q: the named partner read a prescription directly (S28 closed that door)'; end if;
+  -- S28: the pharmacy has no direct write door either. Its updates match no row (the policies are gone), so nothing changes, and it supplies
+  -- only through pharmacist_dispense_prescription (proved in s28_pharmacy_collection_and_dispensing.sql).
+  update public.prescriptions set items = '[]' where id = v_rx;
+  update public.prescriptions set pharmacy_partner_id = v_pp2, state = 'dispensed' where id = v_rx;
   update public.prescriptions set state = 'dispensed' where id = v_rx;
   execute 'reset role';
-  if (select state from public.prescriptions where id = v_rx) <> 'dispensed' then
-    raise exception 'FAIL 4s: the named partner could not dispense (the gate does not open)';
+  if (select items <> '[]'::jsonb and state = 'sent' and pharmacy_partner_id <> v_pp2 from public.prescriptions where id = v_rx) is not true then
+    raise exception 'FAIL 4r: the pharmacist changed a prescription directly (S28 closed that door)';
   end if;
+  -- carry on with the row dispensed, as the owner, so the checks below keep their meaning
+  update public.prescriptions set state = 'dispensed' where id = v_rx;
 
   -- the author reads back her own row only within the inserting transaction; a later session no longer sees it directly
   perform set_config('request.jwt.claims', json_build_object('sub', v_tied, 'role', 'authenticated')::text, true);

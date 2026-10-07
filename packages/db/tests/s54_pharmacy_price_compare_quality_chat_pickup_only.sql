@@ -200,8 +200,9 @@ select pg_temp.ck('B', 'B5b ...and the flag is kept (the line was not edited)', 
 update public.pharmacy_partners set license_expires_at = null where id = pg_temp.f('pA');
 update public.pharmacy_medications set is_active = true where pharmacy_partner_id = pg_temp.f('pA') and strength = '5 mg';
 -- ...but changing what the flag vouches for clears it
-select pg_temp.ck('B', 'B6 an admin changing the price of a verified line clears the verified flag', 'x|false',
-  pg_temp.q_as(pg_temp.f('adm'), format($q$update public.pharmacy_medications set price_kobo = price_kobo + 1000 where pharmacy_partner_id = %L and strength = '5 mg' returning 'x'$q$, pg_temp.f('pA'))) || '|' ||
+select pg_temp.ck('B', 'B6 an admin can change the price of a verified line', 'x',
+  pg_temp.q_as(pg_temp.f('adm'), format($q$update public.pharmacy_medications set price_kobo = price_kobo + 1000 where pharmacy_partner_id = %L and strength = '5 mg' returning 'x'$q$, pg_temp.f('pA'))));
+select pg_temp.ck('B', 'B6b ...and that clears the verified flag (the check no longer applies to a different price)', 'false',
   (select verified_batch::text from public.pharmacy_medications where pharmacy_partner_id = pg_temp.f('pA') and strength = '5 mg'));
 update public.pharmacy_medications set price_kobo = 300000 where pharmacy_partner_id = pg_temp.f('pA') and strength = '5 mg';
 select pg_temp.ck('B', 'B7 an admin re-verifies it', 'x', pg_temp.q_as(pg_temp.f('adm'), format($q$update public.pharmacy_medications set verified_batch = true where pharmacy_partner_id = %L and strength = '5 mg' returning 'x'$q$, pg_temp.f('pA'))));
@@ -291,7 +292,7 @@ begin
   perform pg_temp.ck('D', 'D22a a guardian cannot read a young person''s thread', 'ERR:42501', pg_temp.q_as(v_guard, format($q$select count(*)::text from public.patient_pharmacist_chat_messages(%L)$q$, v_t1)));
   perform pg_temp.ck('D', 'D22b ...nor see it in the list, nor in the table', '0/0',
     pg_temp.q_as(v_guard, format($q$select count(*)::text from public.patient_pharmacist_chat_threads() where thread_id = %L$q$, v_t1)) || '/' ||
-    pg_temp.q_as(v_guard, 'select count(*)::text from public.pharmacist_chat_messages'));
+    pg_temp.q_as(v_guard, format($q$select count(*)::text from public.pharmacist_chat_messages where thread_id = %L$q$, v_t1)));
   perform pg_temp.ck('D', 'D22c the young person reads her own thread', '1', pg_temp.q_as(v_teen, format($q$select count(*)::text from public.patient_pharmacist_chat_messages(%L)$q$, v_t1)));
   perform pg_temp.ck('D', 'D22d the gate OPENS for an adult dependant: the guardian with the pharmacy permission reads that thread', '1', pg_temp.q_as(v_guard, format($q$select count(*)::text from public.patient_pharmacist_chat_messages(%L)$q$, v_t2)));
 end $$;
