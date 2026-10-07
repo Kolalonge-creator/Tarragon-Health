@@ -445,7 +445,7 @@ begin
      or pg_get_functiondef('public.care_team_suggest_pharmacy(uuid,uuid,uuid)'::regprocedure) ~* '\y(commission|margin|earn|payout|rate_bps|price_kobo)' then
     raise exception 'S54c: a clinician-facing function mentions an earning or a price';
   end if;
-  if to_regprocedure('public.patient_choose_pharmacy(uuid,uuid,uuid)') is null then
+  if to_regprocedure('public.patient_choose_pharmacy(uuid,uuid,uuid,uuid)') is null then
     raise exception 'S54c: S28 patient_choose_pharmacy is required (this migration is stacked on S28)';
   end if;
 end $$;
