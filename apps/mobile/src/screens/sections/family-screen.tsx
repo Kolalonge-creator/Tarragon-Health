@@ -463,6 +463,7 @@ function CareVisibilityCard({ followers, onChanged }: { followers: CareFollower[
         const name = follower.fullName ?? "Someone you have added";
         const open = openId === follower.grantId;
         const reproductiveHealthOn = follower.categories.includes("reproductive_health");
+        const mentalHealthOn = follower.categories.includes("mental_health");
         return (
           <View key={follower.grantId} style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10, gap: 8 }}>
             <Text onPress={() => setOpenId(open ? null : follower.grantId)} style={{ fontSize: 13, color: colors.ink }}>
@@ -506,6 +507,22 @@ function CareVisibilityCard({ followers, onChanged }: { followers: CareFollower[
                   <MutedText>
                     Kept separate on purpose: turning on everything else above leaves this untouched. Cycle,
                     pregnancy and related information stays private unless you choose to share it here too.
+                  </MutedText>
+                </View>
+                <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, backgroundColor: colors.card, padding: 10, gap: 4 }}>
+                  <Text
+                    onPress={() => (saving ? null : setAll(follower.grantId, toggled(follower.categories, "mental_health")))}
+                    style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}
+                  >
+                    <Text style={{ fontWeight: "700", color: mentalHealthOn ? colors.brandPressed : colors.faint }}>
+                      {mentalHealthOn ? "☑ " : "☐ "}
+                    </Text>
+                    Mental wellbeing
+                  </Text>
+                  <MutedText>
+                    Kept separate on purpose: turning on everything else above leaves this untouched. Your check-ins,
+                    questionnaire answers and any therapy bookings stay private unless you choose to share them here.
+                    You can turn this off at any time.
                   </MutedText>
                 </View>
                 <MutedText>Added {shortDate(follower.since)}.</MutedText>

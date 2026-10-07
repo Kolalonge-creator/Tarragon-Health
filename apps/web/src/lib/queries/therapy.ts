@@ -52,9 +52,14 @@ export function useMyTherapySessions() {
     queryKey: therapyKeys.mySessions,
     queryFn: async () => {
       const supabase = createClient();
+      // "My" sessions are filtered by the signed-in user explicitly: since S56 a Care Circle supporter holding the mental_health
+      // consent can also read the patient's rows, and those must never appear in the supporter's own list.
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) throw new Error("Not signed in");
       const { data, error } = await supabase
         .from("therapy_sessions")
         .select("*, provider:therapy_directory!inner(name, specialist_type)")
+        .eq("patient_id", userData.user.id)
         .order("requested_at", { ascending: false });
       if (error) throw error;
       return data;

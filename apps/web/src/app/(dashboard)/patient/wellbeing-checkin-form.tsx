@@ -9,7 +9,9 @@ import {
   wellbeingTrendKey,
   useWellbeingCheckinPreference,
 } from "@/lib/queries/wellbeing";
-import { WELLBEING_SCALE_QUESTIONS } from "@/lib/validation/wellbeing";
+import { WELLBEING_SCALE_QUESTIONS, wellbeingTagLabel } from "@/lib/validation/wellbeing";
+import { t } from "@tarragon/i18n";
+import { WELLBEING_TAGS } from "@tarragon/shared";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -77,6 +79,23 @@ export function WellbeingCheckinForm({ patientId }: { patientId: string }) {
           {WELLBEING_SCALE_QUESTIONS.map((q) => (
             <ScaleQuestion key={q.name} name={q.name} prompt={q.prompt} low={q.low} high={q.high} />
           ))}
+
+          <fieldset className="space-y-2">
+            <legend className="text-sm text-charcoal-ink dark:text-night-ink">
+              {t("mood.tags.title")} <span className="text-charcoal-ink/50 dark:text-night-ink/55">{t("mood.tags.optional")}</span>
+            </legend>
+            <div className="flex flex-wrap gap-1.5">
+              {WELLBEING_TAGS.map((tag) => (
+                <label
+                  key={tag}
+                  className="flex cursor-pointer items-center gap-1.5 rounded-full border border-charcoal-ink/15 dark:border-night-ink/20 px-3 py-1 text-xs text-charcoal-ink/80 dark:text-night-ink/80 has-[:checked]:border-brand-green has-[:checked]:bg-brand-green/5"
+                >
+                  <input type="checkbox" name="tags" value={tag} className="accent-[color:var(--brand-green,#0E7C52)]" />
+                  {wellbeingTagLabel(tag)}
+                </label>
+              ))}
+            </div>
+          </fieldset>
 
           <FormError id={checkinErrorId} message={state?.error} />
           <FormSuccess message={state?.success && "Check-in saved."} />

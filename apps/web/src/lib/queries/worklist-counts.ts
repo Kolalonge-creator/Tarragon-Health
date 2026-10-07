@@ -308,17 +308,14 @@ async function countOpenComplaints(supabase: Client) {
   return count ?? 0;
 }
 
-/** Exact same filter as therapy-approvals/queue.tsx's own psychiatry-request
- * query. Approving needs prescribing authority (a Senior Medical Officer+),
- * but the queue is visible to every tier -- see that page's own header
- * comment -- so the count is safe to show to every tier too. */
+/** The same set as therapy-approvals/queue.tsx: requests for patients this
+ * clinician holds a task for (S56, INV-12). A care coordinator gets 0 (the
+ * function returns 0 for them). */
 async function countTherapyApprovalsWaiting(supabase: Client) {
-  const { count, error } = await supabase
-    .from("therapy_sessions")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "awaiting_clinician_approval");
+  // S56: therapy bookings are per-patient (INV-12); the count is the requests this clinician holds a task for.
+  const { data, error } = await supabase.rpc("count_therapy_approvals_waiting");
   if (error) throw error;
-  return count ?? 0;
+  return typeof data === "number" ? data : 0;
 }
 
 /**
