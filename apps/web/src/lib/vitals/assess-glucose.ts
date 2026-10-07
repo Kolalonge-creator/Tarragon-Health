@@ -4,9 +4,11 @@ import type { Database } from "@tarragon/shared";
 import {
   classifyGlucose,
   suspectsType1,
+  GLUCOSE_THRESHOLDS,
   HYPERGLYCAEMIA_KINDS,
   type GlucoseFlag,
   type GlucoseFlagKind,
+  type GlucoseAssessmentInput,
   type KetoneUrineBand,
 } from "./glucose-red-flags";
 import { ageFromDateOfBirth } from "@tarragon/shared";
@@ -61,7 +63,7 @@ export async function assessGlucoseBestEffort(
 
   const { data: glucoseRows } = await supabase
     .from("vitals_readings")
-    .select("glucose_mmol_l, taken_at")
+    .select("glucose_mmol_l, taken_at, glucose_events")
     .eq("patient_id", patientId)
     .eq("vital_type", "glucose")
     .gte("taken_at", glucoseSince)
@@ -90,7 +92,7 @@ export async function assessGlucoseBestEffort(
     .eq("patient_id", patientId)
     .maybeSingle();
   const persistentHighThreshold =
-    target?.category === "relaxed" ? Math.max(14, (target.upper_target ?? 10) + 4) : undefined;
+    target?.category === "relaxed" ? Math.max(GLUCOSE_THRESHOLDS.persistentHigh, (target.upper_target ?? 10) + 4) : undefined;
 
   const flag = classifyGlucose(
     {
@@ -98,6 +100,8 @@ export async function assessGlucoseBestEffort(
       latestKetoneMmol: latestKetone?.ketones_mmol_l ?? null,
       latestKetoneUrine: (latestKetone?.ketone_urine as KetoneUrineBand | null) ?? null,
       recentGlucose,
+      // Danger events ticked with the newest reading (S61, Q5). Only the newest row's events count: an old event never re-fires.
+      glucoseEvents: (glucoseRows?.[0]?.glucose_events ?? []) as NonNullable<GlucoseAssessmentInput["glucoseEvents"]>,
     },
     { persistentHighThreshold },
   );

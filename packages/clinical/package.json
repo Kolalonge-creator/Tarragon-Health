@@ -9,7 +9,8 @@
     ".": "./src/index.ts",
     "./written-question-screen": "./src/written-question-screen.ts",
     "./lab-units": "./src/lab-units.ts",
-    "./titration": "./src/titration-entry.ts"
+    "./titration": "./src/titration-entry.ts",
+    "./pathways": "./src/pathways/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
