@@ -926,3 +926,5 @@ oq261_remove_home_delivery.sql
 s76_b1_competency_tests.sql
 # S76 B2: MDCN re-verification (S-18). Config v3 proposed and inactive so the sweep is inert; recording a check is reviewer only, never about yourself, append only, needs evidence or notes; not-found pauses access; with the cadence active an overdue clinician is noticed once and suspended, an audited licence grace spares them, due-soon is noticed once, a recorded check moves the due date; RLS. Sabotage removes the grace check and the spared clinician must be suspended.
 s76_b2_mdcn_reverification.sql
+# S76 B3: queue second ordering key. A task created from a triage event takes severity red 3, amber 2, green 1 (none 0); within one class the more severe trigger is claimed first even when due later; priority class still wins; claim atomicity and retry unchanged; queue_next never mentions risk. Sabotage removes the key from the ordering and the severe task is no longer first.
+s76_b3_queue_trigger_severity.sql
