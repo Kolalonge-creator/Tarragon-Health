@@ -27,6 +27,8 @@ NUM_CSV = ROOT / "audio" / "source" / "TH-NUM-number-list.csv"
 # The words the CMO is asked to sign for the screen AND the voice (OQ-203): one source, so they cannot differ.
 # Until `signed` is set the voice says today's on-screen text, never the unsigned proposal.
 WORDING = ROOT / "packages" / "i18n" / "src" / "clinical-wording.json"
+# Clips the list does not have yet, shaped like its rows (id, en, note). Move into the list at its next version.
+EXTRAS = ROOT / "audio" / "source" / "extra-clips.json"
 TS_OUT = ROOT / "packages" / "i18n" / "src" / "audio-scripts.ts"
 # Long-form scripts (BPC lessons, BRE-01), generated from packages/i18n/src/bpc-course.ts by `bpc-seed.test.ts`.
 LONG_FORM = ROOT / "audio" / "source" / "long-form-scripts.json"
@@ -190,6 +192,8 @@ def main():
                 "clinical": True, "legal": False, "language_neutral": True,
                 "files": {"shared": empty_file(cid, None)},
             })
+    for extra in json.loads(EXTRAS.read_text()) if EXTRAS.exists() else []:
+        num_rows[extra["id"]] = [extra["id"], "Added by S32", extra["en"], "", extra.get("note", "")]
     for cid, r in num_rows.items():
         if not re.match(r"^NUM-(D|P)\d\d$", cid) or cid == "NUM-P22":
             continue

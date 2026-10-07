@@ -39,6 +39,7 @@ import {
   InlineAlert,
   Icon,
   ListItem,
+  ListenButton,
   Screen,
   SegmentedControl,
   Skeleton,
@@ -47,7 +48,6 @@ import {
   useToast,
   type BadgeTone,
 } from "@/ui/kit";
-import { ListenButton } from "@/ui/ListenButton";
 import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
 import { MIN_READINGS_FOR_CHART, useTrendInsights } from "@/lib/use-trend-insights";
 import { TrendInsightsCard } from "@/screens/sections/trend-insights-card";
@@ -474,7 +474,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         {triageCard ? (
           <>
             <InlineAlert tone={triageCard.tone} message={triageCard.message} />
-            <ListenButton clipId={triageCard.audioId} lang={locale} />
+            {triageCard.audioId ? <ListenButton clipIds={[triageCard.audioId]} lang={locale} /> : null}
           </>
         ) : null}
         <Button title={tr("vitals.log.save")} onPress={handleSave} loading={saving} />
