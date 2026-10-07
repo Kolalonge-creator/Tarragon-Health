@@ -1,7 +1,7 @@
 import { runGateway } from "@/lib/integrations/gateway";
 import { fhirBundleSchema } from "@/lib/integrations/fhir/bundle-schema";
 import { parseFhirResourceEntry, FHIR_PARSER_VERSION } from "@/lib/integrations/fhir/parse-resource";
-import type { Database } from "@tarragon/shared";
+import type { Database, Json } from "@tarragon/shared";
 
 /**
  * POST /api/v1/fhir/import?patient_number=TH-000123 — Data Architecture Gaps
@@ -24,6 +24,11 @@ import type { Database } from "@tarragon/shared";
  * FHIR Patient resource, but this v1 route does not attempt to parse or
  * cross-check it -- the query param is the single source of truth for
  * which Tarragon patient a Bundle is for.
+ *
+ * S44 hardening: the whole write is one database call (`fhir_import_accept`) that checks the person's consent for this source system first and
+ * stores nothing without it (403 consent_required), keeps EVERY received resource as evidence in `external_records` (including types and
+ * entries that cannot be proposed), supersedes an older still-proposed copy of the same source resource, and emits one bus event.
+ * `x-fhir-source-system` is required. Observation units are checked and converted before anything is proposed (see lib/fhir/units.ts).
  *
  * Route path is /api/v1/fhir/import, not /api/integrations/fhir/import as
  * the original 2026-08-07 migration header guessed -- that guess predates
@@ -56,51 +61,30 @@ export async function POST(request: Request): Promise<Response> {
         return { status: 404, body: { error: "Patient not found in this organisation" } };
       }
 
-      const sourceSystem = req.headers.get("x-fhir-source-system")?.slice(0, 200) ?? null;
-      const bundleIdentifier = bundle.identifier?.value ?? bundle.id ?? null;
-
-      // Org-scoped dedupe (fhir_import_batches_org_bundle_idx) — a retry of
-      // the exact same Bundle identifier for this org is a clean no-op, not
-      // a duplicate batch full of duplicate proposals. This is a best-effort
-      // check, not the only defence against a duplicate — see the unique
-      // constraint handling around the insert below for the concurrent case.
-      if (bundleIdentifier) {
-        const { data: existingBatch } = await supabase
-          .from("fhir_import_batches")
-          .select("id, resource_counts, skip_reasons")
-          .eq("organisation_id", verified.organisationId)
-          .eq("fhir_bundle_identifier", bundleIdentifier)
-          .maybeSingle();
-        if (existingBatch) {
-          return {
-            status: 200,
-            body: {
-              batch_id: existingBatch.id,
-              already_processed: true,
-              resource_counts: existingBatch.resource_counts,
-              skip_reasons: existingBatch.skip_reasons,
-            },
-          };
-        }
+      const sourceSystem = req.headers.get("x-fhir-source-system")?.trim().slice(0, 120) ?? "";
+      if (!sourceSystem) {
+        return { status: 400, body: { error: "x-fhir-source-system header is required: say which system these records come from" } };
       }
+      const bundleIdentifier = bundle.identifier?.value ?? bundle.id ?? null;
 
       const resourceCounts: Record<string, number> = {};
       const skipReasons: { resourceType: string; reason: string }[] = [];
-      const proposals: {
-        resource_type: Database["public"]["Enums"]["fhir_import_resource_type"];
+      // One entry per resource received. A resource we can propose carries a normalised payload; every other one (an unsupported type, or one that
+      // failed to parse) is still kept as evidence in external_records, never silently dropped, and has no payload (stored_only).
+      const resources: {
+        resource_type: Database["public"]["Enums"]["fhir_import_resource_type"] | null;
+        fhir_resource_type: string;
         fhir_resource_id: string | null;
         raw_resource: unknown;
-        normalized_payload: Record<string, unknown>;
+        normalized_payload: Record<string, unknown> | null;
         parse_warnings: string[];
+        parser_version: number;
       }[] = [];
 
       for (const entry of bundle.entry) {
         const resource = entry.resource;
         if (!resource) {
-          // A structurally valid Bundle entry with no embedded resource
-          // (e.g. a reference-only transaction entry) is still recorded,
-          // never silently dropped — same invariant every other unsupported
-          // entry gets via skipReasons below.
+          // A structurally valid Bundle entry with no embedded resource (e.g. a reference-only transaction entry) is recorded, never dropped.
           resourceCounts["(no resource)"] = (resourceCounts["(no resource)"] ?? 0) + 1;
           skipReasons.push({ resourceType: "(no resource)", reason: "Bundle entry has no embedded resource" });
           continue;
@@ -110,97 +94,71 @@ export async function POST(request: Request): Promise<Response> {
         const parsed = await parseFhirResourceEntry(resource, supabase);
         if (!parsed.ok) {
           skipReasons.push(parsed.skip);
+          resources.push({
+            resource_type: null,
+            fhir_resource_type: resource.resourceType,
+            fhir_resource_id: resource.id ?? null,
+            raw_resource: resource,
+            normalized_payload: null,
+            parse_warnings: [parsed.skip.reason],
+            parser_version: FHIR_PARSER_VERSION,
+          });
           continue;
         }
-        proposals.push({
+        resources.push({
           resource_type: parsed.proposal.resourceType,
+          fhir_resource_type: resource.resourceType,
           fhir_resource_id: parsed.proposal.fhirResourceId,
           raw_resource: resource,
           normalized_payload: parsed.proposal.normalizedPayload,
           parse_warnings: parsed.proposal.parseWarnings,
+          parser_version: FHIR_PARSER_VERSION,
         });
       }
 
-      const { data: batch, error: batchError } = await supabase
-        .from("fhir_import_batches")
-        .insert({
-          organisation_id: verified.organisationId,
-          api_key_id: verified.keyId,
-          patient_id: patient.id,
-          source_system: sourceSystem,
-          fhir_bundle_identifier: bundleIdentifier,
-          raw_bundle: bundle as unknown as Database["public"]["Tables"]["fhir_import_batches"]["Insert"]["raw_bundle"],
-          resource_counts: resourceCounts,
-          skip_reasons: skipReasons,
-        })
-        .select("id")
-        .single();
-      if (batchError || !batch) {
-        // A unique-constraint violation (23505) here means a concurrent
-        // duplicate request won the race on fhir_bundle_identifier between
-        // our dedupe SELECT above and this INSERT — re-fetch and answer the
-        // same graceful already_processed shape the SELECT above would
-        // have, rather than surfacing a raw 500 for what is really a clean
-        // idempotent retry.
-        if (batchError?.code === "23505" && bundleIdentifier) {
-          const { data: raceWinner } = await supabase
-            .from("fhir_import_batches")
-            .select("id, resource_counts, skip_reasons")
-            .eq("organisation_id", verified.organisationId)
-            .eq("fhir_bundle_identifier", bundleIdentifier)
-            .maybeSingle();
-          if (raceWinner) {
-            return {
-              status: 200,
-              body: {
-                batch_id: raceWinner.id,
-                already_processed: true,
-                resource_counts: raceWinner.resource_counts,
-                skip_reasons: raceWinner.skip_reasons,
-              },
-            };
-          }
-        }
-        return { status: 500, body: { error: "Could not record this import batch" } };
+      // One atomic database call: the consent check, the batch, the proposals, the evidence rows and the bus event happen together or not at all.
+      // Consent is checked INSIDE the function, so nothing is stored for a person who has not allowed this source (spec 2.10, 2.11).
+      const { data: accepted, error: acceptError } = await supabase.rpc("fhir_import_accept", {
+        p_org: verified.organisationId,
+        p_api_key: verified.keyId,
+        p_patient: patient.id,
+        p_source: sourceSystem,
+        p_bundle_identifier: bundleIdentifier,
+        p_raw_bundle: bundle as unknown as Json,
+        p_counts: resourceCounts as unknown as Json,
+        p_skips: skipReasons as unknown as Json,
+        p_resources: resources as unknown as Json,
+      });
+      const result = (accepted ?? {}) as { status?: string; batch_id?: string; already_processed?: boolean; proposed_count?: number; stored_only_count?: number; resource_counts?: unknown; skip_reasons?: unknown };
+      if (acceptError) {
+        return { status: 500, body: { error: "Could not record this import. Nothing was saved; please retry the same request." } };
       }
-
-      if (proposals.length > 0) {
-        const { error: proposalsError } = await supabase.from("fhir_import_proposed_resources").insert(
-          proposals.map((p) => ({
-            batch_id: batch.id,
-            organisation_id: verified.organisationId,
-            patient_id: patient.id,
-            resource_type: p.resource_type,
-            fhir_resource_id: p.fhir_resource_id,
-            raw_resource: p.raw_resource as Database["public"]["Tables"]["fhir_import_proposed_resources"]["Insert"]["raw_resource"],
-            normalized_payload:
-              p.normalized_payload as Database["public"]["Tables"]["fhir_import_proposed_resources"]["Insert"]["normalized_payload"],
-            parse_warnings: p.parse_warnings as unknown as Database["public"]["Tables"]["fhir_import_proposed_resources"]["Insert"]["parse_warnings"],
-            parser_version: FHIR_PARSER_VERSION,
-          }))
-        );
-        if (proposalsError) {
-          // Do NOT leave the batch row committed on its own: a retry of the
-          // same bundleIdentifier would otherwise hit the dedupe check above
-          // and be told "already_processed" despite zero proposals ever
-          // having been written — silently losing every resource in the
-          // Bundle while reporting success. Roll the batch back (cascades
-          // to any proposals, though a single multi-row INSERT that failed
-          // wrote none) so a retry starts clean instead.
-          await supabase.from("fhir_import_batches").delete().eq("id", batch.id);
-          return {
-            status: 500,
-            body: { error: "Could not record the proposed resources from this Bundle — nothing was saved, please retry the same request." },
-          };
-        }
+      if (result.status === "consent_required") {
+        return { status: 403, body: { error: "consent_required", message: "This person has not allowed records from this source to be received. Nothing was stored." } };
+      }
+      if (result.status === "source_required") {
+        return { status: 400, body: { error: "x-fhir-source-system header is required" } };
+      }
+      if (result.status === "patient_not_found") {
+        return { status: 404, body: { error: "Patient not found in this organisation" } };
+      }
+      if (result.status !== "ok" || !result.batch_id) {
+        return { status: 500, body: { error: "Could not record this import" } };
+      }
+      if (result.already_processed) {
+        return {
+          status: 200,
+          body: { batch_id: result.batch_id, already_processed: true, resource_counts: result.resource_counts, skip_reasons: result.skip_reasons },
+        };
       }
 
       return {
         status: 200,
         body: {
-          batch_id: batch.id,
+          batch_id: result.batch_id,
           already_processed: false,
-          proposed_count: proposals.length,
+          proposed_count: result.proposed_count ?? 0,
+          stored_only_count: result.stored_only_count ?? 0,
           skipped_count: skipReasons.length,
           resource_counts: resourceCounts,
           skip_reasons: skipReasons,

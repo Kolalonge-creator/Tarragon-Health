@@ -1851,3 +1851,95 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-345 The OQ-53 rule on the older consent table exempts service and migration contexts
 - `patient_consents` now refuses a withdrawn row for a required version for any signed-in session (patient, clinician, admin). A context with no `auth.uid()` (service role, migrations, older proofs `s02` and `s04` that insert history as fixtures) is exempt, so a service-role code path could still write one. The new matrix table has no such exemption (proved for the table owner).
 - Decision: open (tighten when the older proofs are rewritten, or accept).
+
+## S43 (Health Passport part 1), raised 2026-10-07
+
+Numbered `OQ-S43-n` because other sessions are adding `OQ-nnn` entries in parallel and the numbers have already collided once (two `OQ-225`). Renumber when merging if the founder prefers.
+
+### OQ-S43-1 Applying the S43 migration pauses live vaccination reminders until the CMO signs schedule version 2
+- Blocks: apply order, and the CMO's sign-off. Live today: the daily cron `vaccination-reminders-daily` runs `private.queue_vaccination_reminders()`, which was never tied to the sign-off (the 2026-07-30 migration said so on purpose). A signed version 1 exists, written against the old catalogue (typhoid listed, HPV one dose at age 9). Zero vaccination records exist, so nobody is reminded of anything today.
+- Built: the function is renamed and wrapped; the wrapper does nothing unless the active signed sign-off carries a `schedule_config` (version 1 has none). Version 2 is inserted as an UNSIGNED draft (HPV two doses 26 weeks apart, typhoid excluded, R21 per-state, items marked V, NV or SEC from the CMO pack). I did not sign it and cannot.
+- Still open, not built: (a) the schedule generator (`generate-vaccination-schedule`) and the catalogue still use the old ages and still list typhoid, so a patient's due dates and the typhoid card entry follow the old catalogue until the signed config drives them; (b) the wrapper is all-or-nothing, so it does not filter an old typhoid schedule row (none exist yet); (c) the CMO's questions in section B of the sign-off pack (single or double HPV, MR, MenFive, R21 states) stand.
+- Options: (a) as built; (b) leave reminders running until v2 is signed (rejected: founder said no reminders until signed).
+- Decision: open. CMO signs version 2 with `public.sign_vaccination_schedule` (no screen for it exists in the sign-off hub yet; it is a database call today) and the founder decides whether the generator moves to the config in S44 or a follow-up.
+
+### OQ-S43-2 The S09 share function was broken for two of its sections, and what ships first
+- Found by exercising every section: `record_share_by_token` selected `glucose_mmol` (the column is `glucose_mmol_l`), so choosing the **vitals** section made every opening raise; the **lab results** section compared `report_status` to `'released'`, which is not a member of that enum, so it raised too. Zero shares existed, so nobody was affected. Both are fixed in `record_share_open`; the old name stays as a wrapper.
+- Apply order: schema first, then the web deploy. The new `/share/[token]` route and the patient screen call functions that only the migration adds. The already-deployed page keeps working through the wrapper (a PIN-protected link reads as not found to it).
+- `record_shares.token` is now null for every link (only a hash is stored), so a link can be shown once at creation and never again. Decision for the founder: acceptable? The alternative (keep plaintext) leaves live links readable to anyone with database access.
+- Decision: open.
+
+### OQ-S43-3 Direct staff reads that conflict with INV-10, found and deliberately not changed
+- `patient_timeline_select`, `lab_analyte_readings_select`, `vaccination_records_select` and `record_shares_org_staff_select` still admit `private.is_org_staff` directly. S05 listed the first three as its follow-up list; the share row is new to this review. New S43 tables (`procedures`, `emergency_card_fields`, `record_share_config`) have no staff read at all, and staff read procedures and family history only through `read_patient_history_audited`.
+- The timeline staff read also means a staff member can see a patient's `trust_tier`, `symptom_logged` and `procedure_recorded` rows without an audit entry.
+- Decision: open (the S05 follow-up owner).
+
+### OQ-S43-4 Mental health and reproductive health in share links and summaries: the exclusion is partial
+- The spec says these are excluded unless explicitly chosen. Built: they are not sections in the closed set, so no one can tick them by accident, and no explicit opt-in exists.
+- **The limit, found in review:** a medicine, condition or lab result inside a general section is not classified by what it is for. A contraceptive in the medicines list, or a pregnancy hormone result in the results list, WOULD be shared (and listed in the facility summary and readable by a caregiver who holds only the labs category). The screen copy now says so plainly instead of promising an exclusion it cannot make.
+- To close it: a CMO-signed tag list (which medicines and analytes are reproductive or mental health) applied in `record_share_open`, `patient_biomarker_*` and the summary, with the `reproductive_health` category and guardian rules. Do not build the tag list without the CMO.
+- An explicit opt-in section needs the same access-category checks and counsel on what a link holder may see.
+- Options: (a) leave them out entirely (as built); (b) add explicit sections after the access-category review.
+- Decision: open (founder and CMO, X7).
+
+### OQ-S43-5 Share defaults and link-preview bots
+- `record_share_config` version 1: 72 hour default, 720 hour ceiling, 5 PIN tries, 4 digit minimum. PROPOSED; the founder and CMO confirm (X7). Mirrored in the code registry as `record_share.defaults` with a test.
+- Risk: a messaging app that unfurls a link opens it, and on an unprotected link with a view cap that opening spends a view and is logged as an opening. A PIN stops a bot reading anything. Recommendation: say so beside the view cap, and prefer a PIN when a cap is set.
+- Decision: open.
+
+### OQ-S43-6 AI-018 (photo capture reading) is registered but off, and what turning it on needs
+- Registered in `ai_systems` as `draft`, not enabled, not runtime governed, with three guardrails; the go-live guard `document_capture_enabled` is off and **cannot be switched on yet**: its conditions are not defined in `private.go_live_conditions` (I did not restate that function because several branches change it). The code is in place and tested with a fake model; nothing has run against a real image.
+- To enable: evaluation suites passed and approved by the CMO; conditions added; vendor terms for patient document images confirmed (data processing counsel); `runtime_governed` flipped after the call site is deployed.
+- Collision risk: the code `AI-018` was chosen from the live registry on 2026-10-07; another branch may take it.
+- Decision: open (CMO, founder, counsel).
+
+### OQ-S43-7 What a confirmed photo reading is allowed to become
+- Built: confirmed fields stay on the document row, labelled "read from a photo, confirmed by you". They are not medicines, results or vitals and feed no alert, risk score or timeline value. A confirmed prescription line does not create a medication (INV-02 needs a clinician's signature).
+- Open: should a confirmed reading offer a clinician a one-tap "review and file" (reusing the lab and vaccination review queues)? Not built.
+- Decision: open.
+
+### OQ-S43-8 Smaller items
+- Vaccination reminder notifications put the vaccine name in the payload (INV-07 asks for no condition, reading or result in a notification). Existing behaviour, not changed.
+- Migration timestamps `20261007121906`, `...122142`, `...122358` were hand-picked after the latest file (`20261007120347`) because the local clock reads earlier than that file; live `list_migrations` showed no collision at the time. Check again before applying.
+- `packages/db/src/database.types.ts` is a stale copy (it lacks `record_shares`); only `packages/shared/src/database.types.ts` was spliced.
+- Not built in S43 though in the spec's screen list: mobile capture, trends, history and share screens; an in-app crop (the phone's own crop applies before upload); the lock-screen widget (needs a native build); a CMO sign-off screen for the immunisation schedule.
+- Part D.1 (offline-first): photo capture needs a connection to upload and read; it does not use the phone's write queue (S06), and there is no offline capture on the phone at all yet. A failed upload tells the person and keeps nothing half-saved.
+- Two older proofs hard-coded "seven go-live guards" (`s37_go_live_guards.sql`, `s36b_go_live_status_ops_read.sql`); they now count the live total, so the next guard added by any session does not break them.
+
+
+## S44 (interoperability, closes Module 2), raised 2026-10-07
+
+Numbered `OQ-S44-n` for the same reason as `OQ-S43-n`.
+
+### OQ-S44-1 Consent to exchange records with an outside system: placeholder wording, and S42's matrix
+- Built: `external_exchange_consents` (per named system, import, export or both, withdrawable, audited) with a wording KEY `consent.external_exchange.v1_placeholder`. The screen says plainly that the wording is a placeholder. No legal wording was written.
+- Found in review, not closed: the source name comes from the partner's own `x-fhir-source-system` header and the consent is matched by that name, so a partner holding an import-scoped key could name a system the person did consent to. The consent is not yet bound to the API key's partner (`api_keys.partner_integration_id`). Bind it before any real partner is issued an `fhir:import` key.
+- Open: counsel's wording; whether S42's consent matrix absorbs this table (it is a narrower, source-named consent) or keeps it alongside. Acting-for supporters cannot grant it (consent is personal).
+- Decision: open (counsel, founder).
+
+### OQ-S44-2 Lab structured push: guard conditions, mapping confirmation, LOINC codes
+- Built: `lab_structured_push_enabled` guard, OFF; it cannot be switched on until its conditions are added to `private.go_live_conditions` (not restated here, several branches change it). Mappings are proposed by an admin or lab liaison and confirmed only by the CMO through database functions; there is no screen for either yet. No lab mapping is seeded. The `fhir.mapping` lab analyte LOINC codes are PROPOSED (LDL omitted because direct and calculated LDL have different codes).
+- Open: who confirms in practice, a screen for it, the guard conditions, the first real laboratory and its codes and units. Non-linear conversions (HbA1c % to mmol/mol) are not supported and reject.
+- Decision: open (CMO, founder).
+
+### OQ-S44-3 Export scope: items inside general sections are not classified by purpose
+- Same limit as OQ-S43-4. Reproductive health and mental health are not sections, so they cannot be named, and the bundle's own tags say so; but a contraceptive in the medicines list or a pregnancy hormone in the results is exported. An explicit opt-in section needs a CMO-signed tag list and counsel. Not built.
+- Decision: open (CMO, counsel).
+
+### OQ-S44-4 Import: what is only stored, not filed
+- Every received resource is kept in `external_records`. Only Observation (importable vitals), AllergyIntolerance, MedicationStatement, MedicationRequest and Immunization can become proposals. Condition, DocumentReference, Patient and anything else is `stored_only`: a clinician sees it through the audited read but there is no one-tap file. Adding Condition or DocumentReference is a migration (the proposal enum is closed on purpose).
+- A partner now MUST send `x-fhir-source-system`; no partner has called the route yet.
+- Decision: open (founder, CMO).
+
+### OQ-S44-5 Health-store sync (HealthKit, Health Connect) now refuses without `wearable_device_data` consent
+- Found: nothing enforced that consent anywhere. Built: the route fails closed on both calls. Consequence: no wording or consent version for that type exists, so nobody can grant it, so device-local sync is refused until counsel's wording is published and S42's screen can record it. The mobile app shows its generic "could not sync" message for the 403; a clear message is not built. Nothing here has ever run on a real device.
+- Decision: open (counsel, founder: accept the pause, or allow the OS permission alone for now).
+
+### OQ-S44-6 Patient correction and removal (2.14)
+- Built: private notes, labels and a date on any item; correction requests naming an item. Not built: a patient delete or "entered in error" for vitals, medicines or allergies, because they feed alert, interaction and risk engines and removing one from those is a clinical decision. Staff tombstoning of clinician-sourced items is not built beyond the existing correction workflow and S43's tombstones for history.
+- Notes are not shown to staff and are not in the export, share link or summary.
+- Decision: open (CMO).
+
+### OQ-S44-7 Validation and environment gaps
+- The HAPI FHIR validator (Apache 2.0) was NOT run: the structural checks are our own schema and a round trip. Run it in CI before anything is sent to a real system.
+- Types: `packages/shared/src/database.types.ts` was spliced from a local generation (only this session's tables and functions; `p_bundle_identifier` made nullable by hand). Migration timestamps are hand-picked after the newest on the stacked branches (the local clock reads earlier); recheck live `list_migrations` before applying.

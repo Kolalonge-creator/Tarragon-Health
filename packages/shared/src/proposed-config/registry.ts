@@ -1761,4 +1761,223 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/DECISIONS.md S11-1; supabase/migrations/20261007152136_s11c_bp_care_triage_v3.sql",
   },
+  {
+    key: "pharmacy.quality",
+    // Partner pharmacy quality rule (S28, spec 8.11). A pharmacy can be chosen for a collection only while its verified
+    // licence has at least this many days left. Live value: the active row of `pharmacy_quality_config`; a test fails if the
+    // migration seed and this value drift. PROPOSED by the build, never signed: the CMO owns the rule.
+    value: { min_licence_days_left: 30 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S28.md; docs/research/S28.md",
+  },
+  {
+    key: "immunisation.schedule",
+    // The national immunisation schedule as versioned data (S43, spec 2.6). Registry version 1 mirrors sign-off row version 2 (the UNSIGNED draft): HPV is two doses
+    // six months apart and typhoid is not in the schedule (founder, 2026-10-07). It mirrors the draft row in
+    // `vaccination_schedule_signoffs` (version 2) and a test fails if they differ. Until the CMO signs it in the database
+    // (public.sign_vaccination_schedule) no due-date reminder is sent: private.queue_vaccination_reminders() does nothing
+    // without a signed schedule that carries this config. Items marked NV are not verified against a dated NPHCDA table.
+    value: {
+      status: "draft_unsigned",
+      country: "NG",
+      doses: [
+        {
+          vaccine: "BCG",
+          catalog_code: "child_bcg",
+          at_weeks: [0],
+          evidence: "V",
+        },
+        {
+          vaccine: "OPV",
+          catalog_code: "child_opv",
+          at_weeks: [0, 6, 10, 14],
+          evidence: "V",
+        },
+        {
+          vaccine: "Hepatitis B birth dose",
+          catalog_code: "child_hep_b_birth",
+          at_weeks: [0],
+          evidence: "V",
+          note: "birth-dose time limit not verified",
+        },
+        {
+          vaccine: "Pentavalent",
+          catalog_code: "child_penta",
+          at_weeks: [6, 10, 14],
+          evidence: "V",
+        },
+        {
+          vaccine: "Pneumococcal conjugate",
+          catalog_code: "child_pcv",
+          at_weeks: [6, 10, 14],
+          evidence: "V",
+        },
+        {
+          vaccine: "Rotavirus",
+          catalog_code: "child_rota",
+          at_weeks: [6, 10, 14],
+          evidence: "V",
+          note: "three doses in the pack; the live catalogue lists two",
+        },
+        {
+          vaccine: "IPV",
+          catalog_code: "child_ipv",
+          at_weeks: [6, 14],
+          evidence: "V",
+          note: "two doses in the pack; the live catalogue lists one",
+        },
+        {
+          vaccine: "Vitamin A",
+          catalog_code: null,
+          at_weeks: [26, 52],
+          evidence: "V",
+          note: "100,000 IU at 6 months, 200,000 IU at 12 months; no catalogue entry yet",
+        },
+        {
+          vaccine: "Measles 1",
+          catalog_code: "child_measles",
+          at_weeks: [39],
+          evidence: "V",
+        },
+        {
+          vaccine: "Yellow fever",
+          catalog_code: "child_yellow_fever",
+          at_weeks: [39],
+          evidence: "V",
+        },
+        {
+          vaccine: "Meningitis vaccine",
+          catalog_code: "child_men_a",
+          at_weeks: [39],
+          evidence: "NV",
+          note: "product (MenAfriVac or MenFive) and routine age not verified",
+        },
+        {
+          vaccine: "Measles 2",
+          catalog_code: "child_measles",
+          at_weeks: [65],
+          evidence: "V",
+          note: "whether this is now MR is not verified",
+        },
+        {
+          vaccine: "R21 malaria",
+          catalog_code: null,
+          at_months: [5, 6, 7, 15],
+          evidence: "SEC",
+          per_state_rollout: true,
+          note: "phased by state since 2 Dec 2024; availability is a per-state flag, never a national rule",
+        },
+        {
+          vaccine: "HPV",
+          catalog_code: "child_hpv_girls",
+          age_years: {
+            min: 9,
+            max: 13,
+          },
+          dose_count: 2,
+          dose_interval_weeks: 26,
+          evidence: "V",
+          note: "founder decision: two doses; secondary sources report single-dose policy since Oct 2023, the CMO confirms before signing",
+        },
+        {
+          vaccine: "Td in pregnancy",
+          catalog_code: null,
+          in_pregnancy: true,
+          min_doses: 2,
+          never_vaccinated_course_doses: 5,
+          evidence: "SEC",
+          note: "from papers, not an NPHCDA table",
+        },
+      ],
+      excluded: [
+        {
+          code: "typhoid",
+          reason: "founder decision 2026-10-07: not in the schedule",
+        },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S41-S45-cmo-signoff-pack.md section B; founder decisions 2026-10-07",
+  },
+  {
+    key: "record_share.defaults",
+    // Share link defaults (S43, spec 2.8; X7). Live values are the active row of `record_share_config`; this entry mirrors it
+    // and a test fails if they differ. 72 hours is the spec's default; 720 is the ceiling built in S09. The founder and the
+    // CMO confirm (the sensitive-data exclusion is structural, not configurable: mental health and reproductive health are
+    // not in the closed set of sections).
+    value: { default_hours: 72, max_hours: 720, max_pin_attempts: 5, min_pin_length: 4 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S41-S45-build-plan.md X7; spec section 2.8",
+  },
+  {
+    key: "fhir.mapping",
+    // FHIR export mapping (S44, spec 2.10). Identifiers, not thresholds, but they decide what an outside system believes a value means, so they
+    // are versioned data a human reviews, not code. The Nigeria Core and NPHCDA implementation guides are both still under development
+    // (docs/plans/S41-S45-build-plan.md section 6): `profiles` is empty on purpose and no profile URL is claimed. Adding one is a new version.
+    // A test fails if a vital's LOINC code here is not also an accepted import code for the same vital in `fhir_loinc_vital_type_mappings`,
+    // so what we export can always be read back. Lab analyte LOINC codes are PROPOSED (the CMO or lab informatics confirms them); an analyte
+    // with no entry is exported with Tarragon's own analyte code only, never a guessed LOINC.
+    value: {
+      ig_status: "nigeria_core_and_nphcda_under_development",
+      base_url: "https://tarragonhealth.ng/fhir",
+      profiles: {},
+      systems: {
+        loinc: "http://loinc.org",
+        ucum: "http://unitsofmeasure.org",
+        icd10: "http://hl7.org/fhir/sid/icd-10",
+        snomed: "http://snomed.info/sct",
+        observation_category: "http://terminology.hl7.org/CodeSystem/observation-category",
+        interpretation: "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+        condition_clinical: "http://terminology.hl7.org/CodeSystem/condition-clinical",
+        condition_verification: "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+        patient_number: "https://tarragonhealth.ng/fhir/identifier/patient-number",
+        lab_analyte: "https://tarragonhealth.ng/fhir/CodeSystem/lab-analyte",
+        vaccine: "https://tarragonhealth.ng/fhir/CodeSystem/vaccine",
+        document_type: "https://tarragonhealth.ng/fhir/CodeSystem/document-type",
+        record_source: "https://tarragonhealth.ng/fhir/CodeSystem/record-source",
+        data_quality: "https://tarragonhealth.ng/fhir/CodeSystem/data-quality",
+      },
+      vitals: {
+        blood_pressure: { loinc: "85354-9", display: "Blood pressure panel", systolic: "8480-6", diastolic: "8462-4" },
+        pulse: { loinc: "8867-4", display: "Heart rate" },
+        glucose: { loinc: "15074-8", display: "Glucose [Moles/volume] in Blood" },
+        weight: { loinc: "29463-7", display: "Body weight" },
+        temperature: { loinc: "8310-5", display: "Body temperature" },
+        spo2: { loinc: "59408-5", display: "Oxygen saturation in Arterial blood by Pulse oximetry" },
+        waist_circumference: { loinc: "56086-2", display: "Waist Circumference at umbilicus by Tape measure" },
+        respiratory_rate: { loinc: "9279-1", display: "Respiratory rate" },
+        peak_flow: { loinc: "33452-4", display: "Peak expiratory flow rate" },
+      },
+      lab_analyte_loinc: {
+        fasting_glucose: "1558-6",
+        hba1c: "4548-4",
+        creatinine: "2160-0",
+        potassium: "2823-3",
+        sodium: "2951-2",
+        total_cholesterol: "2093-3",
+        hdl_cholesterol: "2085-9",
+        triglycerides: "2571-8",
+        alt: "1742-6",
+        ast: "1920-8",
+        haemoglobin: "718-7",
+        wbc: "6690-2",
+        platelets: "777-3",
+        tsh: "3016-3",
+      },
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S41-S45-build-plan.md section 6; spec 2.10; docs/research/S44.md",
+  },
 ];

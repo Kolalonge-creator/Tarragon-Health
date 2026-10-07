@@ -51,6 +51,11 @@ export interface EmergencyCardPayload extends EmergencyClinicalFacts {
   issued_at: string;
   expires_at: string;
   source: string;
+  /**
+   * S43: the fields the person chose not to share, set by the database wrapper only when
+   * they have made a choice. Those keys are absent or empty in the facts above.
+   */
+  hidden_fields?: string[];
 }
 
 /** The URL a scanned QR code opens. */

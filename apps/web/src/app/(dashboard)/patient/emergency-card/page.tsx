@@ -9,6 +9,8 @@ import { NAV_ICON } from "@/lib/icons";
 import { emergencyCardQrSvg, emergencyCardUrl } from "@/lib/emergency/card";
 import { EmergencyCardControls } from "./emergency-card-controls";
 import { BloodAttestationForm } from "./blood-attestation-form";
+import { CardFieldsForm } from "./card-fields-form";
+import { choicesFromRow } from "@/lib/emergency/field-choices";
 
 /**
  * "Be the record they carry into any hospital."
@@ -52,6 +54,14 @@ export default async function EmergencyCardPage() {
   const { data: blood, error: bloodError } = await supabase
     .from("patient_blood_profile")
     .select("blood_group, genotype, genotype_note, provenance")
+    .eq("patient_id", user.id)
+    .maybeSingle();
+
+  const { data: fields } = await supabase
+    .from("emergency_card_fields")
+    .select(
+      "show_date_of_birth, show_sex, show_patient_number, show_allergies, show_medications, show_conditions, show_blood, show_emergency_contact, lock_screen_opt_in",
+    )
     .eq("patient_id", user.id)
     .maybeSingle();
 
@@ -124,6 +134,9 @@ export default async function EmergencyCardPage() {
           }
         />
       )}
+
+      {/* S43: the person chooses which details a stranger can see, on the printed card and the live link alike. */}
+      {acting ? null : <CardFieldsForm initial={choicesFromRow(fields)} />}
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         {/* THE DEFAULT: a printed card, no new exposure, nothing to consent to. */}

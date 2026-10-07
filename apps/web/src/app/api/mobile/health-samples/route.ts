@@ -8,6 +8,7 @@ import {
 } from "@/lib/validation/health-sample";
 import { ingestReadings, WearableIngestError, type IngestResult } from "@/lib/wearables/ingest";
 import type { NormalisedReading } from "@/lib/wearables/normalise";
+import { deviceDataConsentRefusal } from "@/lib/wearables/device-data-consent";
 
 /**
  * On-device health-store ingestion boundary for the Expo mobile app —
@@ -52,6 +53,8 @@ export async function GET(request: Request): Promise<NextResponse> {
   const provider = parseProvider(new URL(request.url).searchParams.get("provider"));
 
   const svc = createServiceRoleClient();
+  const refusal = await deviceDataConsentRefusal(svc, auth.userId);
+  if (refusal) return refusal;
   const { data } = await svc
     .from("wearable_connections")
     .select("sync_cursor, last_synced_at")
@@ -97,6 +100,9 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const provider = parsed.data.provider;
   const svc = createServiceRoleClient();
+  // S44 (spec 2.13): nothing is stored, and no connection is opened, unless the person's wearable_device_data consent is in force.
+  const refusal = await deviceDataConsentRefusal(svc, userId);
+  if (refusal) return refusal;
   const connection = await resolveOrCreateConnection(svc, userId, profile.organisation_id, provider);
   if (!connection) {
     return NextResponse.json({ error: "Could not open a health-store connection" }, { status: 500 });
