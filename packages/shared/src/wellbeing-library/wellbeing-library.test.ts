@@ -4,7 +4,7 @@ import { breathCycle, breathPositionAt, breathingProblem } from "./paced-breathi
 import { hoursInBed, weeklySleepFeedback } from "./sleep-feedback";
 import { downloadDecision, planPackRefresh } from "./download-policy";
 import { fromBase64, newJournalKey, openJournalEntry, sealJournalEntry, toBase64, type RandomBytes } from "./journal-crypto";
-import { SLEEP_SCREEN_ITEM_IDS, sleepScreenMessageKey } from "./sleep-screen";
+import { SLEEP_SCREEN_ITEM_IDS, sleepScreenAnswers, sleepScreenMessageKey, type SleepScreenItem } from "./sleep-screen";
 
 const bounds = (getProposedConfig("media_library.config").value as { breathing: { min_seconds: number; max_seconds: number; max_phase_seconds: number } }).breathing;
 const caps = (getProposedConfig("media_library.config").value as { download: { wifi_only: boolean; max_track_bytes: number; max_pack_bytes: number } }).download;
@@ -123,5 +123,26 @@ describe("sleep screen messages", () => {
   it("the item ids are exactly the configured ones", () => {
     const cfg = getProposedConfig("sleep.apnoea_screen").value as { items: { id: string }[] };
     expect(cfg.items.map((i) => i.id)).toEqual([...SLEEP_SCREEN_ITEM_IDS]);
+  });
+});
+
+describe("sleep screen answers", () => {
+  const items: SleepScreenItem[] = (getProposedConfig("sleep.apnoea_screen").value as unknown as { items: SleepScreenItem[] }).items;
+  const base = { snoring: "no", tired: "no", observed_pauses: "no", high_blood_pressure: "no", age_over_50: "no", sex_male: "no", height_cm: "170", weight_kg: "70", neck_cm: "36" };
+  it("builds numbers for measurements and keeps the yes/no words", () => {
+    expect(sleepScreenAnswers(items, base)).toEqual({ ok: true, answers: { snoring: "no", tired: "no", observed_pauses: "no", high_blood_pressure: "no", height_cm: 170, weight_kg: 70, age_over_50: "no", neck_cm: 36, sex_male: "no" } });
+  });
+  it("accepts not sure for each measurement, and a decimal comma", () => {
+    const r = sleepScreenAnswers(items, { ...base, neck_cm: "unsure", weight_kg: "68,5" });
+    expect(r).toMatchObject({ ok: true, answers: { neck_cm: "unsure", weight_kg: 68.5 } });
+  });
+  it("refuses blanks, text, and numbers outside a plausible range", () => {
+    for (const bad of [{ neck_cm: "" }, { neck_cm: "big" }, { height_cm: "5" }, { weight_kg: "9999" }, { snoring: undefined }, { sex_male: "maybe" }]) {
+      expect(sleepScreenAnswers(items, { ...base, ...bad }).ok).toBe(false);
+    }
+  });
+  it("never sends a derived category", () => {
+    const r = sleepScreenAnswers(items, base);
+    expect(r.ok && Object.keys(r.answers)).not.toContain("bmi");
   });
 });

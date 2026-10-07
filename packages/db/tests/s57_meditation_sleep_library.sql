@@ -261,7 +261,7 @@ begin
   perform pg_temp.ck('...and it cannot be republished without a new date', 'true', (pg_temp.pub(v_a, 'Dr Reviewer', 0) like '%next review date%')::text);
   perform pg_temp.ck('a patient cannot flag items', 'true', (pg_temp.q_as(pg_temp.f('pat'), 'select public.media_library_flag_expired()::text') like 'ERR:not authorised%')::text);
   perform pg_temp.ck('the readiness report is admin only', 'true', (pg_temp.q_as(pg_temp.f('pat'), 'select public.media_library_readiness_report()::text') like 'ERR:not authorised%')::text);
-  perform pg_temp.ck('the readiness report counts 12 placeholders', '12', (pg_temp.q_as(pg_temp.f('admin'), 'select public.media_library_readiness_report()::text')::jsonb ->> 'placeholders'));
+  perform pg_temp.ck('the readiness report counts 36 placeholders (12 structure rows and the 24 seeded draft scripts, S57b)', '36', (pg_temp.q_as(pg_temp.f('admin'), 'select public.media_library_readiness_report()::text')::jsonb ->> 'placeholders'));
 end $$;
 
 -- C. Journal ----------------------------------------------------------------------------------------------------------------------------
@@ -299,9 +299,9 @@ end $$;
 do $$
 declare v_pat uuid := pg_temp.f('pat'); v_real uuid := pg_temp.f('realpat'); r jsonb; rt text; yes jsonb; no jsonb; two jsonb; n integer;
 begin
-  yes := '{"snoring":"yes","tired":"yes","observed_pauses":"yes","high_blood_pressure":"yes","bmi_over_35":"yes","age_over_50":"yes","neck_large":"yes","sex_male":"yes"}';
-  no := '{"snoring":"no","tired":"no","observed_pauses":"no","high_blood_pressure":"no","bmi_over_35":"no","age_over_50":"no","neck_large":"no","sex_male":"no"}';
-  two := '{"snoring":"yes","tired":"yes","observed_pauses":"no","high_blood_pressure":"no","bmi_over_35":"no","age_over_50":"no","neck_large":"no","sex_male":"unsure"}';
+  yes := '{"snoring":"yes","tired":"yes","observed_pauses":"yes","high_blood_pressure":"yes","height_cm":160,"weight_kg":120,"age_over_50":"yes","neck_cm":45,"sex_male":"yes"}';
+  no := '{"snoring":"no","tired":"no","observed_pauses":"no","high_blood_pressure":"no","height_cm":175,"weight_kg":70,"age_over_50":"no","neck_cm":35,"sex_male":"no"}';
+  two := '{"snoring":"yes","tired":"yes","observed_pauses":"no","high_blood_pressure":"no","height_cm":175,"weight_kg":70,"age_over_50":"no","neck_cm":35,"sex_male":"no"}';
   perform pg_temp.ck('the seeded instrument is a draft, unsigned', '0', (select count(*)::text from public.sleep_apnoea_screen_config where status = 'confirmed'));
   perform pg_temp.ck('a real patient sees the questionnaire closed (guard off)', 'false', (pg_temp.q_as(v_real, 'select public.get_sleep_apnoea_instrument()::text')::jsonb ->> 'open'));
   perform pg_temp.ck('...and cannot submit', 'true', (pg_temp.q_as(v_real, format($q$select public.submit_sleep_apnoea_screen(%L::jsonb)::text$q$, yes)) like 'ERR:not open yet%')::text);
@@ -333,6 +333,24 @@ begin
   r := pg_temp.q_as(pg_temp.f('pat2'), format($q$select public.submit_sleep_apnoea_screen(%L::jsonb)::text$q$, two))::jsonb;
   perform pg_temp.ck('SIGNED: below the cut-off shows false and creates no task', 'false', r ->> 'cut_off_met');
   perform pg_temp.ck('...no task', '0', (select count(*)::text from public.clinical_tasks where dedup_key = 'sleep_apnoea:' || pg_temp.f('pat2')));
+  -- STOP-Bang scoring edges (S57b): BMI above 35 (not equal), neck 40 cm or more, unsure scores one point, bad numbers refused
+  -- (rows of one transaction share created_at, so each case clears the test patient's rows first and reads the one it made)
+  create or replace function pg_temp.score(p_extra jsonb) returns text language plpgsql as $f$
+  declare v_p uuid := pg_temp.f('pat2'); v_no jsonb := '{"snoring":"no","tired":"no","observed_pauses":"no","high_blood_pressure":"no","height_cm":175,"weight_kg":70,"age_over_50":"no","neck_cm":35,"sex_male":"no"}';
+  begin
+    delete from public.sleep_apnoea_screens where patient_id = v_p;
+    perform pg_temp.q_as(v_p, format($q$select public.submit_sleep_apnoea_screen(%L::jsonb)::text$q$, v_no || p_extra));
+    return (select total || '/' || unsure_count from public.sleep_apnoea_screens where patient_id = v_p);
+  end $f$;
+  perform pg_temp.ck('BMI exactly 35 does not score', '0/0', pg_temp.score('{"height_cm":100,"weight_kg":35}'));
+  perform pg_temp.ck('BMI above 35 scores one', '1/0', pg_temp.score('{"height_cm":100,"weight_kg":36}'));
+  perform pg_temp.ck('neck 40 cm scores one', '1/0', pg_temp.score('{"neck_cm":40}'));
+  perform pg_temp.ck('neck 39.9 cm does not score', '0/0', pg_temp.score('{"neck_cm":39.9}'));
+  perform pg_temp.ck('a neck and a weight not sure score one each', '2/2', pg_temp.score('{"neck_cm":"unsure","weight_kg":"unsure"}'));
+  perform pg_temp.ck('a yes/no not sure scores one', '1/1', pg_temp.score('{"sex_male":"unsure"}'));
+  perform pg_temp.ck('an impossible height is refused', 'true', (pg_temp.q_as(pg_temp.f('pat2'), format($q$select public.submit_sleep_apnoea_screen(%L::jsonb)::text$q$, no::jsonb || '{"height_cm":5}'::jsonb)) like 'ERR:check the numbers%')::text);
+  perform pg_temp.ck('a number given as text is refused', 'true', (pg_temp.q_as(pg_temp.f('pat2'), format($q$select public.submit_sleep_apnoea_screen(%L::jsonb)::text$q$, no::jsonb || '{"neck_cm":"big"}'::jsonb)) like 'ERR:check the numbers%')::text);
+  perform pg_temp.ck('a missing measurement is refused', 'true', (pg_temp.q_as(pg_temp.f('pat2'), format($q$select public.submit_sleep_apnoea_screen(%L::jsonb)::text$q$, no::jsonb - 'neck_cm')) like 'ERR:answer every question%')::text);
   perform pg_temp.guard('sleep_apnoea_screen_enabled', false);
   rt := pg_temp.q_as(v_real, format($q$select public.submit_sleep_apnoea_screen(%L::jsonb)::text$q$, yes));
   perform pg_temp.ck('SIGNED but guard OFF: a real patient cannot submit', 'true', (rt like 'ERR:not open yet%')::text);
@@ -410,7 +428,7 @@ begin
   -- (5) needs a confirmed instrument -> set it back to proposed, then submit all-yes as a test patient
   update public.sleep_apnoea_screen_config set status = 'proposed', confirmed_by = null, confirmed_at = null where version = 1;
   perform pg_temp.q_as(pg_temp.f('spons'), format($q$select public.submit_sleep_apnoea_screen(%L::jsonb)::text$q$,
-    '{"snoring":"yes","tired":"yes","observed_pauses":"yes","high_blood_pressure":"yes","bmi_over_35":"yes","age_over_50":"yes","neck_large":"yes","sex_male":"yes"}'));
+    '{"snoring":"yes","tired":"yes","observed_pauses":"yes","high_blood_pressure":"yes","height_cm":160,"weight_kg":120,"age_over_50":"yes","neck_cm":45,"sex_male":"yes"}'));
   perform pg_temp.sab('an unsigned instrument creates no task', '0', (select count(*)::text from public.clinical_tasks where dedup_key = 'sleep_apnoea:' || pg_temp.f('spons')));
 end $$;
 

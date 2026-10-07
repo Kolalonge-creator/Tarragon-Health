@@ -19,7 +19,7 @@ export default async function MediaLibrarySettingsPage() {
   const [items, report] = await Promise.all([
     supabase
       .from("media_library")
-      .select("id, code, kind, exercise_type, title, summary, series, series_position, language, voice, duration_seconds, bytes, audio_url, content_status, is_placeholder, is_active, reviewed_by_name, reviewed_at, next_review_due")
+      .select("id, code, kind, exercise_type, title, summary, series, series_position, language, voice, duration_seconds, bytes, audio_url, content_status, is_placeholder, is_active, reviewed_by_name, reviewed_at, next_review_due, script, faith_leader_reviewer_name, faith_leader_reviewer_role, faith_leader_reviewed_at")
       .order("series")
       .order("series_position"),
     supabase.rpc("media_library_readiness_report"),

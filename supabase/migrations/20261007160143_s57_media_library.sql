@@ -74,6 +74,11 @@ create table if not exists public.media_library (
   reviewed_by_name text,
   reviewed_at      date,
   next_review_due  date,
+  -- Faith-compatible reflection (S57b, founder decision 2026-10-07): the CMO writes the content and a NAMED faith leader reviews it.
+  -- Publishing a faith_reflection item needs these three as well as the clinical reviewer above. Other series leave them null.
+  faith_leader_reviewer_name text,
+  faith_leader_reviewer_role text,
+  faith_leader_reviewed_at   date,
   created_at       timestamptz not null default now(),
   updated_at       timestamptz not null default now(),
   constraint media_library_active_means_published check (not is_active or content_status = 'published'),
@@ -118,6 +123,12 @@ begin
   if new.next_review_due is null or new.next_review_due <= (now() at time zone 'Africa/Lagos')::date then
     raise exception 'Publishing needs a next review date in the future' using errcode = '23514';
   end if;
+  if new.series = 'faith_reflection' and (
+       new.faith_leader_reviewer_name is null or char_length(btrim(new.faith_leader_reviewer_name)) < 3
+       or new.faith_leader_reviewer_role is null or char_length(btrim(new.faith_leader_reviewer_role)) < 2
+       or new.faith_leader_reviewed_at is null) then
+    raise exception 'A faith-compatible reflection needs a named faith leader reviewer (name, role and date) as well as the clinical reviewer' using errcode = '23514';
+  end if;
   if new.kind in ('meditation', 'sleep_story', 'soundscape') then
     if coalesce(btrim(new.audio_url), '') = '' and coalesce(btrim(new.audio_clip_id), '') = '' then
       raise exception 'An audio item needs an audio file' using errcode = '23514';
@@ -126,7 +137,7 @@ begin
       raise exception 'An audio item needs its length and size' using errcode = '23514';
     end if;
   else
-    v_ok := new.script is not null and jsonb_typeof(new.script -> 'steps') = 'array' and jsonb_array_length(new.script -> 'steps') > 0;
+    v_ok := coalesce(new.script is not null and jsonb_typeof(new.script -> 'steps') = 'array' and jsonb_array_length(new.script -> 'steps') > 0, false);   -- coalesce: a script with no steps key is NULL here, and `if not NULL` would let it publish (S57b fix)
     if not v_ok then raise exception 'A script item needs at least one step' using errcode = '23514'; end if;
     if new.kind = 'breathing' then
       v_cfg := private.media_config() -> 'breathing';

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 import { breathPositionAt } from "@tarragon/shared";
 import { t, type MessageKey } from "@tarragon/i18n";
+import { refreshMediaDownloads } from "@/lib/offline-downloads";
 import { groupBySeries, loadLibrary, recordSession, scriptSteps, type LibraryItem } from "@/lib/calm-library";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
@@ -19,7 +20,11 @@ export function CalmLibraryCard() {
 
   const load = useCallback(async () => setItems(await loadLibrary()), []);
   useEffect(() => {
-    if (open && items === undefined) void load();
+    if (open && items === undefined) {
+      void load();
+      // Offline downloads (S57b): a no-op unless this build has the native modules AND the flag mobile_offline_downloads is on for this person.
+      void refreshMediaDownloads().catch(() => undefined);
+    }
   }, [open, items, load]);
 
   if (!open) {

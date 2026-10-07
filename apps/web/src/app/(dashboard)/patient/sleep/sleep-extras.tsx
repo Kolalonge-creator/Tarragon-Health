@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getProposedConfig, SLEEP_SCREEN_ITEM_IDS, sleepScreenMessageKey, weeklySleepFeedback, type SleepScreenAnswer, type SleepScreenResult } from "@tarragon/shared";
+import { getProposedConfig, SLEEP_SCREEN_ITEM_IDS, sleepScreenAnswers, sleepScreenMessageKey, weeklySleepFeedback, type SleepScreenItem, type SleepScreenResult } from "@tarragon/shared";
 import { t } from "@tarragon/i18n";
 import { createClient } from "@/lib/supabase/client";
 import { useSleepLogEntries } from "@/lib/queries/sleep";
@@ -147,10 +147,10 @@ function SleepScreenCard() {
     queryFn: async () => {
       const { data, error } = await createClient().rpc("get_sleep_apnoea_instrument");
       if (error) throw error;
-      return data as { open: boolean; signed?: boolean; items?: string[] };
+      return data as unknown as { open: boolean; signed?: boolean; items?: SleepScreenItem[] };
     },
   });
-  const [answers, setAnswers] = useState<Record<string, SleepScreenAnswer>>({});
+  const [answers, setAnswers] = useState<Record<string, string>>({});
   const [result, setResult] = useState<SleepScreenResult | null>(null);
   const [err, setErr] = useState<"incomplete" | "error" | null>(null);
   if (!inst.data?.open || !inst.data.items) return null;
@@ -158,8 +158,9 @@ function SleepScreenCard() {
 
   async function submit() {
     setErr(null);
-    if (items.some((id) => !answers[id])) return setErr("incomplete");
-    const { data, error } = await createClient().rpc("submit_sleep_apnoea_screen", { p_answers: answers });
+    const built = sleepScreenAnswers(items, answers);
+    if (!built.ok) return setErr("incomplete");
+    const { data, error } = await createClient().rpc("submit_sleep_apnoea_screen", { p_answers: built.answers });
     if (error) return setErr("error");
     setResult(data as unknown as SleepScreenResult);
   }
@@ -175,19 +176,44 @@ function SleepScreenCard() {
         ) : (
           <>
             <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{t("sleep.screen.intro")}</p>
-            {items.map((id) => {
+            {items.map(({ id, kind }) => {
               const known = (SLEEP_SCREEN_ITEM_IDS as readonly string[]).includes(id);
+              const fields = kind === "bmi" ? (["height_cm", "weight_kg"] as const) : kind === "neck_cm" ? (["neck_cm"] as const) : null;
               return (
                 <fieldset key={id} className="space-y-1">
                   <legend className="text-sm">{known ? t(`sleep.screen.item.${id}` as "sleep.screen.item.snoring") : id}</legend>
-                  <div className="flex gap-4">
-                    {(["yes", "no", "unsure"] as const).map((a) => (
-                      <label key={a} className="flex items-center gap-1 text-sm">
-                        <input type="radio" name={`sleep-${id}`} checked={answers[id] === a} onChange={() => setAnswers({ ...answers, [id]: a })} />
-                        {t(`sleep.screen.${a}` as const)}
-                      </label>
-                    ))}
-                  </div>
+                  {fields ? (
+                    <div className="flex flex-wrap items-end gap-4">
+                      {fields.map((k) => (
+                        <label key={k} className="flex flex-col gap-1 text-sm">
+                          {t(`sleep.screen.${k}` as "sleep.screen.height_cm")}
+                          <span className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              className="w-24 rounded border px-2 py-1"
+                              disabled={answers[k] === "unsure"}
+                              value={answers[k] === "unsure" ? "" : (answers[k] ?? "")}
+                              onChange={(e) => setAnswers({ ...answers, [k]: e.target.value })}
+                            />
+                            <label className="flex items-center gap-1">
+                              <input type="checkbox" checked={answers[k] === "unsure"} onChange={(e) => setAnswers({ ...answers, [k]: e.target.checked ? "unsure" : "" })} />
+                              {t("sleep.screen.unsure")}
+                            </label>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex gap-4">
+                      {(["yes", "no", "unsure"] as const).map((a) => (
+                        <label key={a} className="flex items-center gap-1 text-sm">
+                          <input type="radio" name={`sleep-${id}`} checked={answers[id] === a} onChange={() => setAnswers({ ...answers, [id]: a })} />
+                          {t(`sleep.screen.${a}` as const)}
+                        </label>
+                      ))}
+                    </div>
+                  )}
                 </fieldset>
               );
             })}

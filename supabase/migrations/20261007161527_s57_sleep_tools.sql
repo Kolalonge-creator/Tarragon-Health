@@ -72,8 +72,8 @@ revoke insert, update, delete, truncate on public.sleep_apnoea_screen_config fro
 grant select on public.sleep_apnoea_screen_config to authenticated;
 -- sleepscreen-v1-begin
 insert into public.sleep_apnoea_screen_config (version, status, config, notes, is_active)
-values (1, 'proposed', $json${"items":[{"id":"snoring","points":1},{"id":"tired","points":1},{"id":"observed_pauses","points":1},{"id":"high_blood_pressure","points":1},{"id":"bmi_over_35","points":1},{"id":"age_over_50","points":1},{"id":"neck_large","points":1},{"id":"sex_male","points":1}],"cut_off":3}$json$::jsonb,
-  'DRAFT, UNSIGNED (S57, 2026-10-07). Eight yes/no items in the build''s own wording and a cut-off, modelled on the published STOP-Bang idea but NOT verified against it. PROPOSED by the build, not a clinical decision: the CMO must read, amend or replace and then confirm. Until confirmed the questionnaire saves answers and does nothing else.', true)
+values (1, 'proposed', $json${"cut_off":3,"unsure_points":1,"items":[{"id":"snoring","kind":"yes_no","points":1},{"id":"tired","kind":"yes_no","points":1},{"id":"observed_pauses","kind":"yes_no","points":1},{"id":"high_blood_pressure","kind":"yes_no","points":1},{"id":"bmi","kind":"bmi","points":1,"above":35},{"id":"age_over_50","kind":"yes_no","points":1},{"id":"neck","kind":"neck_cm","points":1,"at_least":40},{"id":"sex_male","kind":"yes_no","points":1}]}$json$::jsonb,
+  'DRAFT, UNSIGNED (S57b redraft, 2026-10-07). Eight items following the published STOP-Bang tool (Chung et al.; see docs/research/S57b.md) in the build''s own plain wording: snoring, tired, observed pauses, blood pressure, BMI above 35 (computed from height and weight), age above 50, neck 40 cm or more, male. Cut-off 3 of 8. A "not sure" or missing measurement scores one point (unsure_points), the cautious reading. NOT verified: the licence to use the instrument (UHN), the neck threshold operator (original paper above 40 cm, the published form 40 cm or larger), the cut-off for a primary-care population. PROPOSED, owner CMO: read, amend or replace, then confirm. Until confirmed the questionnaire saves answers and does nothing else.', true)
 on conflict (version) do nothing;
 -- sleepscreen-v1-end
 
@@ -113,16 +113,31 @@ begin
   select * into v_cfg from public.sleep_apnoea_screen_config where is_active;
   if not found then return jsonb_build_object('open', false); end if;
   return jsonb_build_object('open', true, 'version', v_cfg.version, 'signed', v_cfg.status = 'confirmed',
-    'items', (select jsonb_agg(i ->> 'id') from jsonb_array_elements(v_cfg.config -> 'items') i));
+    'items', (select jsonb_agg(jsonb_build_object('id', i ->> 'id', 'kind', i ->> 'kind')) from jsonb_array_elements(v_cfg.config -> 'items') i));
 end $$;
 revoke all on function public.get_sleep_apnoea_instrument() from public, anon;
 grant execute on function public.get_sleep_apnoea_instrument() to authenticated;
+
+-- A measurement answer: a number inside a plausible range, or the word "unsure" (returned as null). Anything else is refused.
+create or replace function private.sleep_measure(p_answers jsonb, p_key text, p_min numeric, p_max numeric) returns numeric
+language plpgsql immutable set search_path = '' as $$
+declare v jsonb := p_answers -> p_key;
+begin
+  if v is null then raise exception 'answer every question' using errcode = '22023'; end if;
+  if jsonb_typeof(v) = 'string' and v #>> '{}' = 'unsure' then return null; end if;
+  if jsonb_typeof(v) <> 'number' or (v #>> '{}')::numeric < p_min or (v #>> '{}')::numeric > p_max then
+    raise exception 'check the numbers you entered' using errcode = '22023';
+  end if;
+  return (v #>> '{}')::numeric;
+end $$;
+revoke all on function private.sleep_measure(jsonb, text, numeric, numeric) from public, anon, authenticated;
 
 create or replace function public.submit_sleep_apnoea_screen(p_answers jsonb) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
   v_uid uuid := (select auth.uid()); v_pr public.profiles%rowtype; v_cfg public.sleep_apnoea_screen_config%rowtype;
-  v_signed boolean; v_total integer := 0; v_unsure integer := 0; v_met boolean; v_id uuid := gen_random_uuid(); v_task uuid; v_item jsonb; v_ans text; v_n integer := 0;
+  v_signed boolean; v_total integer := 0; v_unsure integer := 0; v_met boolean; v_id uuid := gen_random_uuid(); v_task uuid; v_item jsonb; v_ans text; v_keys integer := 0;
+  v_kind text; v_h numeric; v_w numeric; v_nk numeric; v_unsure_pts integer;
 begin
   if v_uid is null then raise exception 'not authorised' using errcode = '42501'; end if;
   select * into v_pr from public.profiles where id = v_uid and role = 'patient';
@@ -131,14 +146,39 @@ begin
   select * into v_cfg from public.sleep_apnoea_screen_config where is_active;
   if not found then raise exception 'no instrument' using errcode = '22023'; end if;
   if p_answers is null or jsonb_typeof(p_answers) <> 'object' then raise exception 'bad answers' using errcode = '22023'; end if;
+  v_unsure_pts := coalesce((v_cfg.config ->> 'unsure_points')::integer, 0);
+  -- Every configured item must be answered; the answer keys are the item id (yes_no), height_cm and weight_kg (bmi) or neck_cm (neck_cm).
+  -- A number outside a plausible range is refused; "unsure" is always allowed and scores unsure_points (the cautious reading).
   for v_item in select * from jsonb_array_elements(v_cfg.config -> 'items') loop
-    v_ans := p_answers ->> (v_item ->> 'id');
-    if v_ans is null or v_ans not in ('yes', 'no', 'unsure') then raise exception 'answer every question' using errcode = '22023'; end if;
-    if v_ans = 'yes' then v_total := v_total + (v_item ->> 'points')::integer; end if;
-    if v_ans = 'unsure' then v_unsure := v_unsure + 1; end if;
-    v_n := v_n + 1;
+    v_kind := v_item ->> 'kind';
+    if v_kind = 'yes_no' then
+      v_ans := p_answers ->> (v_item ->> 'id');
+      if v_ans is null or v_ans not in ('yes', 'no', 'unsure') then raise exception 'answer every question' using errcode = '22023'; end if;
+      v_keys := v_keys + 1;
+      if v_ans = 'yes' then v_total := v_total + (v_item ->> 'points')::integer;
+      elsif v_ans = 'unsure' then v_unsure := v_unsure + 1; v_total := v_total + v_unsure_pts; end if;
+    elsif v_kind = 'bmi' then
+      v_h := private.sleep_measure(p_answers, 'height_cm', 100, 230);
+      v_w := private.sleep_measure(p_answers, 'weight_kg', 25, 350);
+      v_keys := v_keys + 2;
+      if v_h is null or v_w is null then
+        v_unsure := v_unsure + 1; v_total := v_total + v_unsure_pts;
+      elsif v_w / ((v_h / 100.0) * (v_h / 100.0)) > (v_item ->> 'above')::numeric then
+        v_total := v_total + (v_item ->> 'points')::integer;
+      end if;
+    elsif v_kind = 'neck_cm' then
+      v_nk := private.sleep_measure(p_answers, 'neck_cm', 20, 80);
+      v_keys := v_keys + 1;
+      if v_nk is null then
+        v_unsure := v_unsure + 1; v_total := v_total + v_unsure_pts;
+      elsif v_nk >= (v_item ->> 'at_least')::numeric then
+        v_total := v_total + (v_item ->> 'points')::integer;
+      end if;
+    else
+      raise exception 'unknown item kind' using errcode = '22023';
+    end if;
   end loop;
-  if (select count(*) from jsonb_object_keys(p_answers)) <> v_n then raise exception 'unknown question' using errcode = '22023'; end if;
+  if (select count(*) from jsonb_object_keys(p_answers)) <> v_keys then raise exception 'unknown question' using errcode = '22023'; end if;
 
   v_signed := v_cfg.status = 'confirmed';
   v_met := case when v_signed then v_total >= (v_cfg.config ->> 'cut_off')::integer end;
