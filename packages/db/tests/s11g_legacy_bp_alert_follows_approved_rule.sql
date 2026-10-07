@@ -37,15 +37,19 @@ end $f$;
 
 do $$
 declare
-  v_org uuid; v_cmo uuid := gen_random_uuid(); v_product uuid; v_price bigint; v_v2 uuid; v_src text;
+  v_org uuid; v_cmo uuid := gen_random_uuid(); v_adm uuid; v_product uuid; v_price bigint; v_v2 uuid; v_src text;
   a uuid; b uuid; c uuid; d uuid; e uuid; f uuid; g uuid; h uuid; i uuid; j uuid; k uuid; r uuid;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   select id, price_kobo into v_product, v_price from public.service_products where 'vitals_red_flag_doctor_escalation' = any(features) order by code limit 1;
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data) values (v_cmo, 's11g-cmo@example.invalid', 'x', now(), '{}', '{}');
   insert into public.profiles (id, organisation_id, role, full_name, date_of_birth, is_test) values (v_cmo, v_org, 'clinician', 'S11g CMO', (current_date - interval '45 years')::date, true) on conflict (id) do update set is_test = true;
-  insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, active, license_verified_at, employment_type)
-    values (v_cmo, v_org, 'S11g CMO', 'chief_medical_officer', true, now(), 'employed') on conflict do nothing;
+  -- activation needs current indemnity cover or an exemption granted by someone else (clinical_staff trigger), so a second profile grants one
+  v_adm := gen_random_uuid();
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data) values (v_adm, 's11g-admin@example.invalid', 'x', now(), '{}', '{}');
+  insert into public.profiles (id, organisation_id, role, full_name, date_of_birth, is_test) values (v_adm, v_org, 'admin', 'S11g admin', (current_date - interval '45 years')::date, true) on conflict (id) do update set is_test = true;
+  insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, active, license_verified_at, employment_type, indemnity_exempt, indemnity_exempt_by)
+    values (v_cmo, v_org, 'S11g CMO', 'chief_medical_officer', true, now(), 'employed', true, v_adm) on conflict do nothing;
   select id into v_v2 from public.triage_rule_sets where code = 'bp_care_triage' and version = 2;
   if v_v2 is null then raise exception 'rule set v2 is missing'; end if;
 

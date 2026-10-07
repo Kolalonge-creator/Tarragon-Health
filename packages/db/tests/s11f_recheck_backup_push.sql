@@ -36,8 +36,9 @@ begin
   v_p := pg_temp.mkuser(v_org, 'patient', 'patient');
   v_p2 := pg_temp.mkuser(v_org, 'patient2', 'patient');
   v_cmo := pg_temp.mkuser(v_org, 'cmo', 'clinician');
-  insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, active, license_verified_at, employment_type)
-  values (v_cmo, v_org, 'S11f CMO', 'chief_medical_officer', true, now(), 'employed') on conflict do nothing;
+  -- activation needs current indemnity cover or an exemption granted by someone else (clinical_staff trigger), so an admin grants one
+  insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, active, license_verified_at, employment_type, indemnity_exempt, indemnity_exempt_by)
+  values (v_cmo, v_org, 'S11f CMO', 'chief_medical_officer', true, now(), 'employed', true, pg_temp.mkuser(v_org, 'admin', 'admin')) on conflict do nothing;
   select id into v_v2 from public.triage_rule_sets where code = 'bp_care_triage' and version = 2;
   if v_v2 is null then raise exception 'rule set v2 is missing'; end if;
 
