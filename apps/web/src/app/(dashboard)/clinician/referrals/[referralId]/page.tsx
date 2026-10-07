@@ -10,6 +10,7 @@ import type { SpecialistReferralWithDetails } from "@/lib/queries/specialist-ref
 import { REFERRAL_STATUS_BADGE } from "@/lib/worklist/referral-status-badge";
 import { ClinicalSummaryPanel } from "./clinical-summary-panel";
 import { AssignSpecialistProviderForm } from "./assign-specialist-provider-form";
+import { ReferralFacilityForm } from "./referral-facility-form";
 
 const ASSIGNABLE_STATUSES = ["pending", "waitlisted"] as const;
 
@@ -83,6 +84,12 @@ export default async function ReferralDetailPage({
               {koboToNaira(typedReferral.referral_fee_kobo ?? 0).toLocaleString()}
             </p>
           )}
+          <ReferralFacilityForm
+            referralId={typedReferral.id}
+            currentFacilityId={(typedReferral as unknown as { facility_id?: string | null }).facility_id ?? null}
+            currentFreeText={(typedReferral as unknown as { facility_name_text?: string | null }).facility_name_text ?? null}
+            signed={Boolean((typedReferral as unknown as { signed_at?: string | null }).signed_at)}
+          />
           {!typedReferral.specialist_provider &&
             ASSIGNABLE_STATUSES.includes(
               typedReferral.status as (typeof ASSIGNABLE_STATUSES)[number]

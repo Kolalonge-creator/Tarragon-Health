@@ -9,17 +9,20 @@ import {
   useJoinWaitingList,
   useEnsureAppointmentVideoConsultation,
   useGoLiveGuardOpen,
+  useMyBookingTerms,
   type AppointmentType,
 } from "@/lib/queries/appointments";
 import {
   APPOINTMENT_TYPE_LABELS,
   PATIENT_BOOKABLE_APPOINTMENT_TYPES,
   PAID_APPOINTMENT_PRODUCT_CODE,
+  PER_ITEM_APPOINTMENT_TYPES,
 } from "./appointment-labels";
+import { filterConsultSlots, NO_SLOT_FILTERS, slotFilterOptions, type ConsultSlot, type SlotFilters } from "@/lib/consultations/slots";
 import { CONSULTATIONS_GUARD } from "@/lib/go-live/constants";
 import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
 import { PaystackFeeNotice } from "@/components/billing/paystack-fee-notice";
-import { ConsultationRuleCard } from "@/components/consultation/consultation-rule";
+import { BookingTermsCard } from "@/components/consultation/booking-terms";
 import { t, type Locale } from "@tarragon/i18n";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -75,8 +78,23 @@ export function BookAppointment({
     id: string;
     productCode: string;
     slotStart: string;
+    /** The type that was held. The terms beside the pay button follow this, not whatever the picker shows now. */
+    appointmentType: AppointmentType;
   } | null>(null);
   const [isBuying, setIsBuying] = useState(false);
+  // S64 (15.1): narrow the open times by specialty, spoken language and sex. Price is shown, never filtered: there is one price.
+  const [filters, setFilters] = useState<SlotFilters>(NO_SLOT_FILTERS);
+  // S64 (Q23): dietitian and pharmacist visits are offered only while their price is set. Nothing is offered that cannot be booked.
+  const dietitianTerms = useMyBookingTerms("dietitian");
+  const pharmacistTerms = useMyBookingTerms("pharmacist");
+  const pickerTypes = PATIENT_BOOKABLE_APPOINTMENT_TYPES.filter(
+    (v) =>
+      !(PER_ITEM_APPOINTMENT_TYPES as readonly string[]).includes(v) ||
+      (v === "dietitian" ? dietitianTerms.data?.bookable : pharmacistTerms.data?.bookable) === true ||
+      v === appointmentType,
+  );
+  // S64 (15.7): the terms for the type being paid for. The pay button stays off until they have loaded, so nobody pays unseen.
+  const payTerms = useMyBookingTerms(pendingPaymentAppointment?.appointmentType ?? appointmentType);
 
   // S37 (INV-14): consultations stay closed until the clinical_operations_enabled guard is on. The database refuses a hold either
   // way; this keeps a patient from filling in a form that cannot work, and says so calmly.
@@ -90,6 +108,21 @@ export function BookAppointment({
     consultationMethod: consultationMethod || undefined,
     enabled: guard.data === true,
   });
+  const declaredTimeSlots = (slots ?? []).filter((x) => "languages" in x) as unknown as ConsultSlot[];
+  // the choices come from the unfiltered list; a chosen filter is also asked of the database, so a clinician beyond the first 200 open
+  // times is still found
+  const filterOptions = slotFilterOptions(declaredTimeSlots);
+  const hasFilters = filters.specialty !== "" || filters.language !== "" || filters.sex !== "";
+  const { data: filteredSlots } = useAvailableAppointmentSlots({
+    organisationId,
+    appointmentType,
+    patientId,
+    consultationMethod: consultationMethod || undefined,
+    filters,
+    enabled: guard.data === true && hasFilters && declaredTimeSlots.length > 0,
+  });
+  const filteredDeclared = (filteredSlots ?? []).filter((x) => "languages" in x) as unknown as ConsultSlot[];
+  const shownSlots = declaredTimeSlots.length > 0 ? filterConsultSlots(hasFilters ? filteredDeclared : declaredTimeSlots, filters) : (slots ?? []);
   const hold = useHoldAppointmentSlot();
   const confirm = useConfirmAppointmentBooking();
   const joinWaitingList = useJoinWaitingList();
@@ -182,6 +215,7 @@ export function BookAppointment({
           id: confirmed.id,
           productCode,
           slotStart: slot.slot_start,
+          appointmentType,
         });
         setMessage({
           tone: "success",
@@ -276,11 +310,12 @@ export function BookAppointment({
             <Select
               id="appointment-type"
               value={appointmentType}
-              onChange={(e) =>
-                setAppointmentType(e.target.value as AppointmentType)
-              }
+              onChange={(e) => {
+                setAppointmentType(e.target.value as AppointmentType);
+                setFilters(NO_SLOT_FILTERS);
+              }}
             >
-              {PATIENT_BOOKABLE_APPOINTMENT_TYPES.map((value) => (
+              {pickerTypes.map((value) => (
                 <option key={value} value={value}>
                   {APPOINTMENT_TYPE_LABELS[value]}
                 </option>
@@ -304,7 +339,45 @@ export function BookAppointment({
           </div>
         )}
 
-        {!closed && consultationMethod === "telemedicine" && <ConsultationRuleCard locale={locale} />}
+        {!closed && <BookingTermsCard appointmentType={appointmentType} locale={locale} />}
+
+        {!closed && declaredTimeSlots.length > 0 && (
+          <div className="space-y-2" role="group" aria-label={t("book.filter.title", locale)}>
+            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{t("book.card.price_same", locale)}</p>
+            <div className="flex flex-wrap gap-3">
+              {([
+                ["specialty", "book.filter.specialty", filterOptions.specialties],
+                ["language", "book.filter.language", filterOptions.languages],
+                ["sex", "book.filter.sex", filterOptions.sexes],
+              ] as const).map(([key, label, options]) =>
+                options.length > 1 || filters[key] !== "" ? (
+                  <div key={key} className="space-y-1">
+                    <label className="text-xs text-charcoal-ink/60 dark:text-night-ink/60" htmlFor={`slot-filter-${key}`}>
+                      {t(label, locale)}
+                    </label>
+                    <Select
+                      id={`slot-filter-${key}`}
+                      value={filters[key]}
+                      onChange={(e) => setFilters((f) => ({ ...f, [key]: e.target.value }))}
+                    >
+                      <option value="">{t("book.filter.any", locale)}</option>
+                      {options.map((o) => (
+                        <option key={o} value={o}>
+                          {key === "sex" ? (o === "female" ? t("book.filter.female", locale) : o === "male" ? t("book.filter.male", locale) : o) : o}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                ) : null,
+              )}
+            </div>
+            {(filters.specialty || filters.language || filters.sex) && (
+              <Button type="button" size="sm" variant="ghost" className="self-end" onClick={() => setFilters(NO_SLOT_FILTERS)}>
+                {t("book.filter.clear", locale)}
+              </Button>
+            )}
+          </div>
+        )}
 
         {message && (
           <p
@@ -325,12 +398,13 @@ export function BookAppointment({
               <Button
                 size="sm"
                 className="ml-auto"
-                disabled={isBuying}
+                disabled={isBuying || !payTerms.data?.bookable}
                 onClick={payForPendingAppointment}
               >
                 {isBuying ? "Redirecting to payment…" : "Pay to confirm"}
               </Button>
             </div>
+            <BookingTermsCard appointmentType={pendingPaymentAppointment.appointmentType} locale={locale} />
             <PaystackFeeNotice />
           </div>
         )}
@@ -341,10 +415,10 @@ export function BookAppointment({
           </p>
         )}
 
-        {!closed && !isLoading && slots && slots.length === 0 && (
+        {!closed && !isLoading && slots && (slots.length === 0 || shownSlots.length === 0) && (
           <div className="space-y-2">
             <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-              No open times in the next two weeks for this appointment type.
+              {slots.length === 0 ? "No open times in the next two weeks for this appointment type." : t("book.empty", locale)}
             </p>
             <Button
               variant="outline"
@@ -357,9 +431,9 @@ export function BookAppointment({
           </div>
         )}
 
-        {!closed && !isLoading && slots && slots.length > 0 && (
+        {!closed && !isLoading && slots && shownSlots.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
-            {slots.slice(0, 20).map((slot) => (
+            {shownSlots.slice(0, 20).map((slot) => (
               <li
                 key={`${slot.clinician_id}-${slot.slot_start}`}
                 className="flex flex-wrap items-center gap-2 py-2"
@@ -373,7 +447,14 @@ export function BookAppointment({
                     {slot.consultation_method === "telemedicine"
                       ? "Telemedicine"
                       : slot.location || "In person"}
+                    {slot.specialty ? ` · ${slot.specialty}` : ""}
+                    {slot.languages && slot.languages.length > 0 ? ` · ${slot.languages.join(", ")}` : ""}
                   </p>
+                  {slot.mdcn_number && slot.licence_checked_on && (
+                    <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                      {t("book.card.mdcn", locale, { number: slot.mdcn_number, date: formatPatientDateTime(slot.licence_checked_on, { day: "numeric", month: "short", year: "numeric" }) })}
+                    </p>
+                  )}
                 </div>
                 <Button
                   size="sm"

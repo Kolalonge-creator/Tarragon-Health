@@ -21,6 +21,7 @@ export const APPOINTMENT_TYPE_LABELS: Record<string, string> = {
   procedure: "Procedure",
   therapy: "Therapy session",
   result_interpretation: "Result Consultation",
+  pharmacist: "Pharmacist",
 };
 
 /** The only appointment types a patient can currently book for themselves,
@@ -29,7 +30,12 @@ export const APPOINTMENT_TYPE_LABELS: Record<string, string> = {
 export const PATIENT_BOOKABLE_APPOINTMENT_TYPES = [
   "telemedicine",
   "result_interpretation",
+  "dietitian",
+  "pharmacist",
 ] as const;
+
+/** S64 (Q23): priced per item. These two are offered in the picker only while the database says the product is priced and active. */
+export const PER_ITEM_APPOINTMENT_TYPES = ["dietitian", "pharmacist"] as const;
 
 /** Appointment types that carry a direct charge, satisfied by a pre-bought
  * single-use service_purchases credit — see the redemption logic inside
@@ -41,6 +47,8 @@ export const PATIENT_BOOKABLE_APPOINTMENT_TYPES = [
 export const PAID_APPOINTMENT_PRODUCT_CODE: Partial<Record<string, string>> = {
   telemedicine: "video_visit_credit",
   result_interpretation: "result_interpretation_credit",
+  dietitian: "dietitian_consult_credit",
+  pharmacist: "pharmacist_consult_credit",
 };
 
 export const APPOINTMENT_STATUS_LABELS: Record<

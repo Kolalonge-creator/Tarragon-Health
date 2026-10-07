@@ -1240,6 +1240,32 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S21.md; docs/research/S21.md",
   },
   {
+    key: "consultations.access",
+    // Who can be booked and when patients are reminded (S64, spec 15.1, 15.3, 15.9; CMO decisions Q19 and Q23, 2026-10-07).
+    //  perItemRoles: roles priced per visit (Q23). A role is offered only while its service_products row is active and priced.
+    //  perItemPriceKobo: null on purpose. No price has been set for either role (OQ-S64-1); the products are seeded inactive at 0 and the
+    //  database refuses to hold a slot for them until a price is set, so no price can be assumed from here.
+    //  reminderHoursBefore: the milestones the reminder job sends, mirrored by queue_appointment_reminders (a drift test compares them).
+    //  These are the three every visit can get (7 days only when booked 7 or more days ahead, inside a 160 to 168 hour window). A 72 hour
+    //  reminder for high-priority visits and a 15 minute one exist in the job and are older than S64.
+    //  The 24 hour reminder is the "one to two days" one. longLeadMilestone is sent only for a visit booked at least that far ahead.
+    //  intake: the limits on the patient's manual intake (mirrored by the table checks).
+    //  licenceRecheck: Q19, the registration number and checked-on date are shown only when a check is on record.
+    value: {
+      perItemRoles: ["dietitian", "pharmacist"],
+      perItemPriceKobo: null,
+      reminderHoursBefore: [168, 24, 2],
+      longLeadMilestone: "7d",
+      intake: { maxReasonChars: 500, maxAnswerChars: 400, maxAnswers: 5 },
+      licenceRecheck: { atOnboarding: true, annualRenewal: true, onComplaint: true },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S64.md; docs/plans/S61-S65-cmo-signoff-pack.md Q19, Q23",
+  },
+  {
     key: "scribe.transcript_retention_days",
     value: 90,
     owner: "Founder",

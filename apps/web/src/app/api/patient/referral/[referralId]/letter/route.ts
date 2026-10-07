@@ -38,6 +38,19 @@ export async function GET(
     .maybeSingle();
   if (!referral) return new Response("Not found", { status: 404 });
 
+  // S64 (15.6): a directory entry is preferred; the typed name is the fallback. Both come from the caller's own RLS-scoped session.
+  const { data: facilityRaw } = await supabase
+    .from("specialist_referrals" as never)
+    .select("facility_id, facility_name_text")
+    .eq("id" as never, referralId as never)
+    .maybeSingle();
+  const facilityRow = (facilityRaw ?? {}) as unknown as { facility_id?: string | null; facility_name_text?: string | null };
+  let facilityName: string | null = facilityRow.facility_name_text ?? null;
+  if (facilityRow.facility_id) {
+    const { data: facility } = await supabase.from("facilities").select("name").eq("id", facilityRow.facility_id).maybeSingle();
+    facilityName = facility?.name ?? facilityName;
+  }
+
   const { data: patient } = await supabase
     .from("profiles")
     .select("full_name, patient_number, date_of_birth, sex")
@@ -89,6 +102,7 @@ export async function GET(
     createdAt: referral.created_at,
     specialistType: referral.specialist_type,
     urgency: referral.urgency,
+    facilityName,
     reason: referral.referral_reason ?? summary.clinical_question ?? null,
     requestedService: referral.requested_service,
     interimPlan: referral.interim_management_plan,
