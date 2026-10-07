@@ -26,6 +26,9 @@
 -- changing S19's page model is out of scope for a fix-first set. Recorded in OPEN-QUESTIONS (OQ-F1-03): the on-call notice
 -- links to the On call page, and a dedicated crisis task type and notice (needs CMO confirmation) is a follow-up.
 --
+-- A RETRY SWEEP (private.retry_unhandled_crisis_follow_ups, pg_cron every five minutes) re-runs any crisis screen from the
+-- last two days that has no handled marker, at most five attempts, so a transient failure is not left to a human to notice.
+--
 -- COUNTS (not verified live; the dry run records them): mental_health_screens rows with crisis_flagged, and existing
 -- crisis tasks (none can exist). No backfill is run: only new crisis screens create tasks.
 
@@ -65,6 +68,7 @@ declare
   v_to uuid;
   v_n integer := 0;
   v_failed boolean := false;
+  v_notify_failed boolean := false;
   r record;
 begin
   select * into s from public.mental_health_screens where id = p_screen;
@@ -123,12 +127,15 @@ begin
     end if;
   exception when others then
     v_failed := true;
+    v_notify_failed := true;
     insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
       values (s.organisation_id, 'crisis_task.error', 'mental_health_screen', s.id, jsonb_build_object('step', 'notify', 'error', sqlerrm));
     perform private.page_incident(s.organisation_id, 'crisis_follow_up_failed:' || s.id, 'A priority follow-up could not be completed',
       'A priority wellbeing follow-up step failed; see audit_log action crisis_task.error. The emergency event itself was still raised.');
   end;
-  if not v_failed then
+  -- The marker depends on the NOTIFY step alone: a failure in the event or task step must not make a replay page
+  -- the same person a second time.
+  if not v_notify_failed then
     insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
       values (s.organisation_id, 'crisis.notified', 'mental_health_screen', s.id, '{}'::jsonb);
   end if;
@@ -174,7 +181,50 @@ create trigger mental_health_screens_crisis_task
   for each row when (new.crisis_flagged)
   execute function private.handle_mental_health_crisis();
 
--- 5. Self-check
+-- 5. Retry sweep. A failed follow-up writes no "handled" marker and opens an incident; without a retry the only
+-- remedy would be a person remembering to call raise_crisis_follow_up by hand. Every five minutes, any crisis-flagged
+-- screen from the last two days that is more than two minutes old, has no "handled" marker and has fewer than five
+-- recorded errors is run again. The marker logic makes a retry safe (no second page, one task, one event).
+create or replace function private.retry_unhandled_crisis_follow_ups()
+returns integer
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  r record;
+  v_n integer := 0;
+begin
+  for r in
+    select m.id
+      from public.mental_health_screens m
+     where m.crisis_flagged
+       and m.created_at > now() - interval '2 days'
+       and m.created_at < now() - interval '2 minutes'
+       and not exists (select 1 from public.audit_log a where a.action = 'crisis.handled' and a.entity_type = 'mental_health_screen' and a.entity_id = m.id)
+       and (select count(*) from public.audit_log a where a.action = 'crisis_task.error' and a.entity_type = 'mental_health_screen' and a.entity_id = m.id) < 5
+     order by m.created_at
+     limit 50
+  loop
+    begin
+      if private.raise_crisis_follow_up(r.id) then v_n := v_n + 1; end if;
+    exception when others then
+      insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+        select organisation_id, 'crisis_task.error', 'mental_health_screen', id, jsonb_build_object('step', 'retry', 'error', sqlerrm)
+          from public.mental_health_screens where id = r.id;
+    end;
+  end loop;
+  return v_n;
+end;
+$$;
+revoke all on function private.retry_unhandled_crisis_follow_ups() from public, anon, authenticated;
+grant execute on function private.retry_unhandled_crisis_follow_ups() to service_role;
+
+do $$
+begin
+  perform cron.unschedule(jobname) from cron.job where jobname = 'retry-crisis-follow-ups';
+  perform cron.schedule('retry-crisis-follow-ups', '*/5 * * * *', $c$select private.retry_unhandled_crisis_follow_ups()$c$);
+end $$;
+
+-- 6. Self-check
 do $$
 begin
   if not exists (select 1 from pg_trigger where tgrelid = 'public.mental_health_screens'::regclass and tgname = 'mental_health_screens_crisis_task') then
@@ -188,5 +238,11 @@ begin
   end if;
   if has_function_privilege('anon', 'private.raise_crisis_follow_up(uuid)', 'EXECUTE') or has_function_privilege('authenticated', 'private.raise_crisis_follow_up(uuid)', 'EXECUTE') then
     raise exception 'FAIL: raise_crisis_follow_up is callable by anon or authenticated';
+  end if;
+  if has_function_privilege('anon', 'private.retry_unhandled_crisis_follow_ups()', 'EXECUTE') or has_function_privilege('authenticated', 'private.retry_unhandled_crisis_follow_ups()', 'EXECUTE') then
+    raise exception 'FAIL: the crisis retry sweep is callable by anon or authenticated';
+  end if;
+  if not exists (select 1 from cron.job where jobname = 'retry-crisis-follow-ups') then
+    raise exception 'FAIL: the crisis retry sweep is not scheduled';
   end if;
 end $$;
