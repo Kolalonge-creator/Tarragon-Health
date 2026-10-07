@@ -1528,6 +1528,59 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Options: (a) accept as built (recommended); (b) also ship BRE-03 now under its own name and a longer length once the CMO confirms the pace and the wording; (c) hold the exercise until the CMO confirms.
 - Decision: open.
 
+## S39: security, privacy and compliance hardening (raised 2026-10-07)
+
+### OQ-260 Staff can read most patient tables directly, untied and unaudited (INV-10, INV-12)
+- Live check (read-only, simulated session): about 10 core tables are tied and audited (S05, S22e). On 226 other tables with a `patient_id`, the SELECT policy still contains `private.is_org_staff(organisation_id)`, so any active staff member of the organisation (including a care coordinator) can read them with no tie to the patient and no audit row. Worst: `scribe_transcripts` (staff can also delete), `patient_serology_status` (HIV, hepatitis status), mental health, therapy, sexual health and STI, reproductive and pregnancy tables, `clinical_encounters`. Next: labs, imaging, ECG, care plans, escalations, `patient_timeline`, medication reviews. A clinician with no tie read 1 of 1 serology rows and 1 encounter in the proof run.
+- Why not fixed in S39: moving 226 tables to tied-only breaks coordinator logistics, clinician queues and rosters that list untied patients, and jobs that read as staff. OQ-02 decided "tied only plus audited break-glass" but never decided coordinator scope or the roster and queue exceptions. `private.is_org_staff` is not edited (it gates about 110 surfaces).
+- Options: (a) tier 1 now (scribe transcripts, serology, mental health, therapy, sexual health, reproductive, encounters): replace the staff arm with `private.can_staff_read_clinical(patient_id, <category>)` and add audited read functions like `read_patient_chart_audited`; tier 2 (labs, imaging, ECG, care plans, escalations, timeline, medication reviews) in a second session after the coordinator scope is decided (recommended); (b) all 226 in one session; (c) leave as is until launch volume.
+- Also decide: coordinator scope (logistics tables only, no result or note bodies), the roster and queue exceptions (alerts, escalations, monitoring roster as tie-creating lists), and whether staff may delete `scribe_transcripts` (recommended: no, never).
+- **Decided 2026-10-07 (founder): tier 1 now, tier 2 later; then on 2026-10-07 the founder asked for BOTH tiers now (S39b).** The catalog test `s39_security_catalog.sql` does not sweep the admin role for this reason; add it once this is decided.
+
+### OQ-261 Break-glass: no route for a same-organisation clinician, no immediate CMO alert, no weekly review (INV-12)
+- `request_emergency_record_access` refuses a patient in the same organisation ("use the normal chart view"), which was right while in-org reads were org-wide. If OQ-260 makes reads tied-only, an untied in-org clinician needs a break-glass route. There is also no trigger alerting the CMO when a grant is made (only a 4-hourly nudge for grants near expiry) and no weekly review job. Zero grants have ever been made.
+- Options: (a) allow same-organisation grants with a reason, notify the CMO at once (a keyed in-app notice with no patient name or condition, INV-07), and add a weekly review summary (recommended, built together with OQ-260); (b) later.
+- Decision: open (founder, CMO).
+
+### OQ-262 No executable erasure or anonymisation path (spec section 13, NDPA)
+- Deletion is a request workflow (`data_deletion_requests`) that an admin marks completed; no function removes or anonymises anything. 289 public tables carry a `patient_id`; their foreign keys to `profiles` are 323 CASCADE, 263 SET NULL, 174 RESTRICT, 39 NO ACTION, so a naive profile delete would wipe records the law may require us to keep in some tables and be blocked in others. Only 20 of 295 patient tables are classified in `table_classifications`. `analytics.subjects` keeps the pseudonym link unless erased with the patient, and `outcome_snapshots` is append-only (blocks UPDATE, not DELETE).
+- Not built: what must be kept, for how long, and what anonymising a clinical record means are questions for Nigerian counsel (see `docs/legal/questions-for-nigerian-counsel-S39.md` Q5). Building before the answer risks deleting what must be kept.
+- Options: (a) after counsel answers, one session: classify every patient table (delete, anonymise, keep) in a tested registry, add `private.erase_patient`, delete the analytics pseudonym row, and add a CI test that a new patient table must be classified (recommended); (b) manual SQL runbook meanwhile.
+- Decision: open (founder, counsel).
+
+### OQ-263 Retention periods are all empty
+- `data_retention_policies` has a period only for marketing and analytics (36 months). Clinical records, audit trail, financial records, consent records and communications are NULL ("no confirmed statutory period"). No cron enforces even that one, nor OQ-108 (document purge) or OQ-195 (12-month bank-name clear).
+- Options: counsel sets the periods; then they go in versioned PROPOSED config and one nightly purge job writes an audit row (recommended). Until then NULL means keep, and the register says so.
+- Decision: open (counsel, CMO).
+
+### OQ-264 Data export: admin-gated, incomplete, no mobile download
+- `/api/patient/data-export` returns 403 until an admin fulfils a request, covers about 16 tables of 289 (missing all v5 tables such as outcome snapshots, consult messages, scribe notes, orders, entitlements, Care Circle grants, appointments), has no full-record PDF and no mobile download. Spec says export in JSON and PDF.
+- Options: (a) build the export from the same classified registry as OQ-262 so it covers every patient table, keep the admin review step as a 30-day clock (OQ-50 recommendation), add mobile (recommended); (b) self-serve instant export of the patient's own rows.
+- Decision: open (founder).
+
+### OQ-265 Patient avatars sit in a public bucket
+- `patient-avatars` is public; files are `<patient id>/<random uuid>.<ext>` and the profile stores the public address. Unlisted, but anyone given the address can open it for ever. Making it private means signed addresses at every place an avatar shows (about 6 renderers).
+- Options: (a) private bucket plus signed addresses (recommended once the console split finishes); (b) accept, since the address is unguessable and the patient chose the picture. Recorded in the catalog test allowlist until decided.
+- Decision: open (founder).
+
+### OQ-266 Production backups: PITR is off and no backup is listed
+- `supabase backups list` (read-only, 2026-10-07): `pitr_enabled: false`, `backups: []`. No restore has ever been tested; branching is unavailable on this plan so the DR spec's "restore on a branch" cannot be done. Storage files (lab documents, transcripts) are not covered by database backups.
+- Options: (a) upgrade to Pro and enable PITR, then restore into a scratch project and record RTO and RPO in `docs/BUSINESS_CONTINUITY_DR_SPEC.md` (recommended before any real patient data: this is the most serious operational gap found); (b) scheduled `pg_dump` plus bucket export to storage outside Nigeria.
+- **Decided 2026-10-07 (founder): upgrade to Pro, enable PITR, test a restore into a scratch project and record RTO and RPO.** The upgrade and the restore test are the founder's to do in the dashboard; not yet done.
+
+### OQ-267 Rate limits: Upstash never provisioned; payment, queue and mobile routes unlimited
+- Auth, SMS OTP and the prescription and passport doors are limited. In-memory fallback is used because Upstash was never provisioned (not coordinated across serverless instances). No request-rate limit found on `order-checkout`, `order-verify`, `queue-next`, `queue-handback` or the ~18 `/api/mobile/*` routes. `verify_prescription_public` can be called directly through the API, bypassing the page limit. S39 added counting and an alert on the emergency card and record share doors (not blocking: the emergency card must open).
+- Options: provision Upstash and add a shared per-user wrapper for the routes above; a small `rate_limit_hits` table for the edge functions (recommended).
+- Decision: open (founder).
+
+### OQ-268 Processor register, DPAs and vendor findings
+- `docs/PROCESSORS.md` is new. No signed DPA exists with any processor (Anthropic's is an unexecuted draft). Findings: Voyage AI, Twilio, Dojah, Vercel, Upstash and the HIBP check were missing from every register; the `vendor_assessments` seed still lists Stripe and WhatsApp as active; the Play Store text still names WhatsApp; Dojah receives a NIN or BVN in a GET query string; the Sentry scrubber covers emails and phones only and traces are sampled at 100%.
+- Options: (a) sign DPAs, fix the stale documents, move Dojah to a POST body if the provider allows, widen the scrubber and cut the trace rate (recommended); (b) defer.
+- Decision: open (founder, counsel).
+
+### OQ-269 Two live bugs found by the S39 proof and fixed (for the record, no decision needed)
+- `record_share_by_token` failed for any share that included the vitals section (a renamed column) or the lab results section (a status value that does not exist). Fixed in `20261007104237_s39_security_hardening_round1.sql` with a regression test. It shares lab results whose report status is final, corrected or amended; whether a lab result must also be clinician-released before it can be shared (INV-03) is for the CMO, since patients already read these rows directly.
+- Decision: informational; CMO to confirm the INV-03 point.
 ## S28: pharmacy partner, collection and dispensing (raised 2026-10-07)
 
 ### OQ-270 Two prescription models, one supply count (decided)
