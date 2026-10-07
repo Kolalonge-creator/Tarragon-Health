@@ -763,7 +763,8 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
--- 9b. S37 go-live guard (OQ-268). The prescribing guard gains the pharmacy conditions; the rest of the function is S37's, unchanged.
+-- 9b. S37 go-live guard (OQ-268). The prescribing guard gains the pharmacy conditions; the rest of each function is S37b's (the latest
+--     definition, which added the clinical safety case), unchanged. If S37 changes these again, this migration must be rebased on it.
 --     (create or replace of the whole function; the other six guards read exactly as before.)
 -- ---------------------------------------------------------------------------
 create or replace function private.go_live_conditions(p_key text, p_org uuid) returns jsonb
@@ -783,6 +784,7 @@ begin
       private.go_live_cond('tier2_clinician_active', 'At least one active tier 2 clinician',
         (select count(*) from public.clinical_staff where active and status = 'active' and credentialing_level >= 2 and is_test is not true) > 0, 'data',
         (select count(*) from public.clinical_staff where active and status = 'active' and credentialing_level >= 2 and is_test is not true) || ' active'),
+      private.go_live_cond('clinical_safety_case_current', 'A current clinical safety case and hazard log, signed off', private.go_live_attested(p_key, 'clinical_safety_case_current'), 'attestation', null),
       private.go_live_cond('admin_confirmation', 'Admin confirmation', true, 'switch', 'Given by an admin pressing the switch'));
   elsif p_key = 'on_call_cover_ok' then
     select count(*) into v_gaps from private.rota_gaps(p_org, now(), now() + interval '7 days');
@@ -811,9 +813,11 @@ begin
                    order by s.id desc limit 1), false), 'data', null),
       private.go_live_cond('notification_sender_deployed', 'The notification sender with the pharmacy messages is deployed',
         private.go_live_attested(p_key, 'notification_sender_deployed'), 'attestation', null),
+      private.go_live_cond('clinical_safety_case_current', 'A current clinical safety case and hazard log, signed off', private.go_live_attested(p_key, 'clinical_safety_case_current'), 'attestation', null),
       private.go_live_cond('clinical_lead_signoff', 'Clinical lead sign-off', true, 'switch', 'Given by the Chief Medical Officer pressing the switch'));
   elsif p_key = 'scribe_enabled' then
     return jsonb_build_array(
+      private.go_live_cond('clinical_safety_case_current', 'A current clinical safety case and hazard log, signed off', private.go_live_attested(p_key, 'clinical_safety_case_current'), 'attestation', null),
       private.go_live_cond('con001_legal_review_recorded', 'Legal review of consent text CON-001 recorded', private.go_live_attested(p_key, 'con001_legal_review_recorded'), 'attestation', null),
       private.go_live_cond('speech_provider_configured', 'A speech-to-text provider is configured', private.go_live_attested(p_key, 'speech_provider_configured'), 'attestation', null));
   elsif p_key = 'payouts_enabled' then
@@ -839,7 +843,9 @@ begin
   if not exists (select 1 from public.go_live_guards where key = p_key) then raise exception 'no such go-live guard: %', p_key using errcode = '22023'; end if;
   -- the conditions a person records (the rest are read from the data). A fixed list, so a broken data query cannot block recording one.
   if (p_key, p_code) not in (
-       ('lab_booking_enabled', 'results_flow_tested'), ('prescribing_enabled', 'notification_sender_deployed'),
+       ('clinical_operations_enabled', 'clinical_safety_case_current'), ('prescribing_enabled', 'clinical_safety_case_current'),
+       ('scribe_enabled', 'clinical_safety_case_current'), ('prescribing_enabled', 'notification_sender_deployed'),
+       ('lab_booking_enabled', 'results_flow_tested'),
        ('scribe_enabled', 'con001_legal_review_recorded'), ('scribe_enabled', 'speech_provider_configured'),
        ('payouts_enabled', 'fee_schedule_approved'), ('payouts_enabled', 'paystack_transfers_configured'),
        ('public_signup_enabled', 'stage2_exit_criteria_met')) then
@@ -847,6 +853,13 @@ begin
   end if;
   if p_met is null or length(btrim(coalesce(p_note, ''))) < 10 then
     raise exception 'say what was checked and by whom, in a sentence' using errcode = '22023';
+  end if;
+  -- the safety case is the safety officer's: an admin who is not the CMO cannot record it
+  if p_code = 'clinical_safety_case_current' and not private.credential_is_cmo() then
+    raise exception 'only the Chief Medical Officer can record the clinical safety case' using errcode = '42501';
+  end if;
+  if p_code = 'clinical_safety_case_current' and p_met and length(btrim(p_note)) < 25 then
+    raise exception 'name the safety case document, its version and who signed it' using errcode = '22023';
   end if;
   insert into public.go_live_attestations (guard_key, condition_code, met, note, attested_by)
   values (p_key, p_code, p_met, btrim(p_note), v_uid);

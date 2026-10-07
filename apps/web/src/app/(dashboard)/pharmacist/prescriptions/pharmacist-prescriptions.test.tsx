@@ -107,8 +107,10 @@ describe("PharmacistPrescriptions", () => {
     fireEvent.click(screen.getByRole("button", { name: /We cannot supply this/ }));
     await waitFor(() => expect(flagPrescription).toHaveBeenCalledWith({ prescriptionId: ID, kind: "out_of_stock" }), { timeout: 5000 });
     await screen.findByText("The patient has been asked to choose another pharmacy.", undefined, { timeout: 5000 });
-    fireEvent.click(screen.getByRole("button", { name: "Ask the prescriber a question" }));
-    const choice = screen.getByLabelText("What do you need to ask the prescriber?") as HTMLSelectElement;
+    const ask = screen.getByRole("button", { name: "Ask the prescriber a question" }) as HTMLButtonElement;
+    await waitFor(() => expect(ask.disabled).toBe(false), { timeout: 15000 }); // disabled while the earlier request settles
+    fireEvent.click(ask);
+    const choice = (await screen.findByLabelText("What do you need to ask the prescriber?", undefined, { timeout: 15000 })) as HTMLSelectElement;
     expect(choice.tagName).toBe("SELECT");
     expect(Array.from(choice.options).map((o) => o.value).filter(Boolean)).toEqual([
       "dose_unclear", "strength_unavailable", "substitute_needed", "allergy_or_interaction", "details_do_not_match", "call_me",

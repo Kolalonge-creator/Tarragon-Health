@@ -539,7 +539,7 @@ begin
   perform pg_temp.ck('...and the patient can still take a prescription back', 'true',
     (pg_temp.q_as(v_pat, format('select public.withdraw_prescription_from_pharmacy(%L)::text', rx_q))::jsonb ->> 'ok'));
   v_det := private.go_live_conditions('prescribing_enabled', v_org);
-  perform pg_temp.ck('the guard lists the pharmacy conditions', 'clinical_lead_signoff,notification_sender_deployed,pharmacy_licence_current,pharmacy_partner_active,pharmacy_quality_confirmed',
+  perform pg_temp.ck('the guard lists the pharmacy conditions', 'clinical_lead_signoff,clinical_safety_case_current,notification_sender_deployed,pharmacy_licence_current,pharmacy_partner_active,pharmacy_quality_confirmed',
     (select string_agg(c ->> 'code', ',' order by c ->> 'code') from jsonb_array_elements(v_det) c));
   perform pg_temp.ck('a current licence is met, the unconfirmed quality rules and the unattested sender are not', 'true|false|false',
     (select max((c ->> 'met')) filter (where c ->> 'code' = 'pharmacy_licence_current') || '|' ||
