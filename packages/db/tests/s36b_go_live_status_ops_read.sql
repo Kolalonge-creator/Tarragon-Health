@@ -60,11 +60,11 @@ begin
   perform pg_temp.setf('ops', v_ops); perform pg_temp.setf('admin', v_admin); perform pg_temp.setf('doc', v_doc); perform pg_temp.setf('pat', v_pat);
   select count(*) into v_n from public.go_live_guards;
   perform pg_temp.setf('n', gen_random_uuid());
-  insert into results values ('real', 'guards exist to be read', '7', v_n::text);
+  insert into results values ('real', 'guards exist to be read', (select count(*)::text from public.go_live_guards), v_n::text);
 end $$;
 
-insert into results values ('real', 'an ops holder reads all seven guards', '7', pg_temp.status_as(pg_temp.f('ops')));
-insert into results values ('real', 'admin still reads', '7', pg_temp.status_as(pg_temp.f('admin')));
+insert into results values ('real', 'an ops holder reads every guard', (select count(*)::text from public.go_live_guards), pg_temp.status_as(pg_temp.f('ops')));
+insert into results values ('real', 'admin still reads', (select count(*)::text from public.go_live_guards), pg_temp.status_as(pg_temp.f('admin')));
 insert into results values ('real', 'a plain clinician cannot read', 'ERR:42501', pg_temp.status_as(pg_temp.f('doc')));
 insert into results values ('real', 'a patient cannot read', 'ERR:42501', pg_temp.status_as(pg_temp.f('pat')));
 insert into results values ('real', 'ops cannot switch a guard on', 'ERR:42501',
@@ -85,7 +85,7 @@ begin
   v_def := replace(v_orig, 'and not private.has_permission(''ops.console.view'')', 'and true');
   if v_def = v_orig then raise exception 'SABOTAGE not applied'; end if;
   execute v_def;
-  insert into results values ('sabotaged', 'an ops holder reads all seven guards', '7', pg_temp.status_as(pg_temp.f('ops')));
+  insert into results values ('sabotaged', 'an ops holder reads every guard', (select count(*)::text from public.go_live_guards), pg_temp.status_as(pg_temp.f('ops')));
   execute v_orig;
 end $$;
 

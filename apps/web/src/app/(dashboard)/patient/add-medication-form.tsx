@@ -1,7 +1,20 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useAddMedication } from "@/lib/queries/medications";
+import { useAddMedication, useMedications } from "@/lib/queries/medications";
+import { useInteractionCheckOpen } from "@/lib/queries/medicine-catalogue";
+import { t } from "@tarragon/i18n";
+import {
+  canSubmitAddForm,
+  checkMedicineOnAdd,
+  prefillFromCatalogue,
+  type AddCheckFinding,
+  type AddFormPrefill,
+  type CatalogueEntry,
+} from "@tarragon/medicines";
+import { MedicineNameSuggestions } from "./medicine-name-suggestions";
+import { PackPhotoPrefill } from "./pack-photo-prefill";
+import { AddCheckPanel } from "./add-check-panel";
 import { checkMedicationSafetyAfterAdd } from "./actions";
 import { prescriptionDetailSchema, medicationSchema, type MedicationInput } from "@/lib/validation/medications";
 import { diabetesDrugSafety, type DrugSafetySeverity } from "@/lib/rules/diabetes-drug-safety";
@@ -38,6 +51,21 @@ export function AddMedicationForm({
   pregnant?: boolean;
 }) {
   const addMedication = useAddMedication();
+  // S53 (8.7): the interaction and duplication check runs on a patient's own add, only when its go-live guard is open. The list read is
+  // switched off for clinicians (their panel does its own audited read), so this adds no audit row on the clinician chart.
+  const interactionCheckOpen = useInteractionCheckOpen();
+  const existingMedications = useMedications(source === "patient" && interactionCheckOpen.data === true ? patientId : "");
+  // Do not let the add race the check: wait until the guard and (when it is open) the medicine list have answered, or failed.
+  const checkStillLoading =
+    source === "patient" && (interactionCheckOpen.isPending || (interactionCheckOpen.data === true && existingMedications.isPending));
+  // "could not find out" is different from "closed": say so rather than letting a failure read as a pass
+  const checkCouldNotRun = source === "patient" && (interactionCheckOpen.isError || (interactionCheckOpen.data === true && existingMedications.isError));
+  const [addFindings, setAddFindings] = useState<AddCheckFinding[] | null>(null);
+  const [pickedName, setPickedName] = useState<string | null>(null);
+  // S53 (8.1): a photo or catalogue prefill never saves on its own. A photo prefill needs the patient's "I checked it" tick.
+  const [prefilledFromPhoto, setPrefilledFromPhoto] = useState(false);
+  const [photoLowConfidence, setPhotoLowConfidence] = useState(false);
+  const [confirmedAgainstPack, setConfirmedAgainstPack] = useState(false);
   const [drugName, setDrugName] = useState("");
   const [dose, setDose] = useState("");
   const [frequency, setFrequency] = useState("");
@@ -96,7 +124,26 @@ export function AddMedicationForm({
     setScheduleTimes((prev) => prev.filter((t) => t !== time));
   }
 
+  function applyCataloguePick(entry: CatalogueEntry) {
+    const pre = prefillFromCatalogue(entry);
+    setDrugName(pre.drugName);
+    setPickedName(pre.drugName);
+    if (pre.strength) setDose(pre.strength);
+  }
+
+  function applyPackPrefill(pre: AddFormPrefill) {
+    setDrugName(pre.drugName);
+    setDose(pre.dose);
+    setPrefilledFromPhoto(true);
+    setPhotoLowConfidence(pre.lowConfidence);
+    setConfirmedAgainstPack(false);
+  }
+
   function resetForm() {
+    setAddFindings(null);
+    setPrefilledFromPhoto(false);
+    setPhotoLowConfidence(false);
+    setConfirmedAgainstPack(false);
     setDrugName("");
     setDose("");
     setFrequency("");
@@ -148,6 +195,11 @@ export function AddMedicationForm({
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    runSubmit(false);
+  }
+
+  /** `skipCheck` is set only by "Add it anyway": the form on screen is read again, never a snapshot of an earlier attempt. */
+  function runSubmit(skipCheck: boolean) {
     const parsed = medicationSchema.safeParse({
       drug_name: drugName,
       dose: dose || undefined,
@@ -180,6 +232,28 @@ export function AddMedicationForm({
     setSuccess(false);
 
     if (source === "patient") {
+      // Nothing is saved from a photo prefill until the patient has checked every field against the pack.
+      if (!canSubmitAddForm({ hasName: true, prefilledFromPhoto, confirmedAgainstPack })) {
+        setValidationError(t("medicines.pack.confirm"));
+        return;
+      }
+      // The interaction and duplication check (8.7). Advice only: it can pause the add to show a warning, never refuse it.
+      if (!skipCheck && interactionCheckOpen.data === true && existingMedications.data) {
+        const result = checkMedicineOnAdd(
+          parsed.data.drug_name,
+          existingMedications.data.map((m) => ({
+            id: m.id,
+            drugName: m.drug_name,
+            dose: m.dose,
+            prescriberName: m.prescriber_name,
+            source: m.source,
+          })),
+        );
+        if (result.findings.length > 0) {
+          setAddFindings(result.findings);
+          return;
+        }
+      }
       submitMedication(parsed.data);
       return;
     }
@@ -345,10 +419,34 @@ export function AddMedicationForm({
             <Input
               id="drug_name"
               value={drugName}
-              onChange={(event) => setDrugName(event.target.value)}
+              onChange={(event) => {
+                setDrugName(event.target.value);
+                setAddFindings(null);
+              }}
               required
               {...errorProps}
             />
+            {source === "patient" && (
+              <div className="space-y-2 pt-1">
+                <MedicineNameSuggestions query={drugName === pickedName ? "" : drugName} onPick={applyCataloguePick} />
+                <PackPhotoPrefill onPrefill={applyPackPrefill} />
+                {prefilledFromPhoto && (
+                  <div className="space-y-2 rounded-md border border-charcoal-ink/15 p-2 dark:border-night-ink/20">
+                    <p className="text-sm text-charcoal-ink dark:text-night-ink">{t("medicines.pack.prefilled")}</p>
+                    {photoLowConfidence && <p className="text-sm text-amber-800 dark:text-amber-300">{t("medicines.pack.low_confidence")}</p>}
+                    <label className="flex min-h-11 items-start gap-2 text-sm text-charcoal-ink dark:text-night-ink">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5 h-4 w-4"
+                        checked={confirmedAgainstPack}
+                        onChange={(event) => setConfirmedAgainstPack(event.target.checked)}
+                      />
+                      {t("medicines.pack.confirm")}
+                    </label>
+                  </div>
+                )}
+              </div>
+            )}
             {safetyNotes.length > 0 && (
               <div className="mt-1 space-y-1 rounded-md border border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/10 p-2.5">
                 <p className="text-xs font-medium text-charcoal-ink/80 dark:text-night-ink/80">
@@ -552,13 +650,31 @@ export function AddMedicationForm({
           )}
           <FormError id={errorId} message={displayError} />
           <FormSuccess message={success && "Medication added."} />
+          {source === "patient" && addFindings && addFindings.length > 0 ? (
+            <AddCheckPanel
+              findings={addFindings}
+              pending={addMedication.isPending}
+              onContinue={() => {
+                setAddFindings(null);
+                runSubmit(true);
+              }}
+            />
+          ) : null}
+          {source === "patient" && success ? (
+            <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
+              {t("medicines.mas.add_prompt")} {t("medicines.mas.caveat")}
+            </p>
+          ) : null}
           {success && allergyCheckSkipped ? (
             <p role="alert" className="text-sm text-amber-700">
               The allergy cross-check did not run: this patient&apos;s allergy list is not available to you. Check allergies with the care
               team before the patient takes this medicine.
             </p>
           ) : null}
-          <Button type="submit" disabled={addMedication.isPending}>
+          {checkCouldNotRun ? (
+            <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">{t("medicines.addcheck.not_checked")}</p>
+          ) : null}
+          <Button type="submit" disabled={addMedication.isPending || checkStillLoading}>
             {source === "clinician"
               ? "Continue to review"
               : addMedication.isPending

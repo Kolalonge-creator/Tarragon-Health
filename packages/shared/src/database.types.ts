@@ -6814,6 +6814,174 @@ export type Database = {
           },
         ]
       }
+      medicine_catalogue: {
+        Row: {
+          brand_name: string | null
+          created_at: string
+          generic_name: string
+          form: string | null
+          id: string
+          is_active: boolean
+          is_verified: boolean
+          nafdac_number: string | null
+          needs_pharmacist_review: boolean
+          source: string
+          strength: string | null
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          brand_name?: string | null
+          created_at?: string
+          generic_name: string
+          form?: string | null
+          id?: string
+          is_active?: boolean
+          is_verified?: boolean
+          nafdac_number?: string | null
+          needs_pharmacist_review?: boolean
+          source: string
+          strength?: string | null
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          brand_name?: string | null
+          created_at?: string
+          generic_name?: string
+          form?: string | null
+          id?: string
+          is_active?: boolean
+          is_verified?: boolean
+          nafdac_number?: string | null
+          needs_pharmacist_review?: boolean
+          source?: string
+          strength?: string | null
+          updated_at?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      interactions: {
+        Row: {
+          advice_key: string
+          created_at: string
+          dataset_version: number
+          drug_a: string
+          drug_b: string
+          id: string
+          kind: string
+          rule_code: string
+          severity: string
+          source: string
+          title: string
+        }
+        Insert: {
+          advice_key: string
+          created_at?: string
+          dataset_version: number
+          drug_a: string
+          drug_b: string
+          id?: string
+          kind: string
+          rule_code: string
+          severity: string
+          source: string
+          title: string
+        }
+        Update: {
+          advice_key?: string
+          created_at?: string
+          dataset_version?: number
+          drug_a?: string
+          drug_b?: string
+          id?: string
+          kind?: string
+          rule_code?: string
+          severity?: string
+          source?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      interaction_dataset_versions: {
+        Row: {
+          content_hash: string
+          created_at: string
+          rule_count: number
+          sign_note: string | null
+          signed_at: string | null
+          signed_by: string | null
+          status: string
+          summary_doc: string
+          version: number
+        }
+        Insert: {
+          content_hash: string
+          created_at?: string
+          rule_count: number
+          sign_note?: string | null
+          signed_at?: string | null
+          signed_by?: string | null
+          status?: string
+          summary_doc: string
+          version: number
+        }
+        Update: {
+          content_hash?: string
+          created_at?: string
+          rule_count?: number
+          sign_note?: string | null
+          signed_at?: string | null
+          signed_by?: string | null
+          status?: string
+          summary_doc?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      medication_side_effect_notes: {
+        Row: {
+          id: string
+          is_test: boolean
+          medication_id: string
+          note: string
+          noted_at: string
+          organisation_id: string
+          patient_id: string
+          recorded_by: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          source: string
+        }
+        Insert: {
+          id?: string
+          is_test?: boolean
+          medication_id: string
+          note: string
+          noted_at?: string
+          organisation_id?: string
+          patient_id?: string
+          recorded_by?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source?: string
+        }
+        Update: {
+          id?: string
+          is_test?: boolean
+          medication_id?: string
+          note?: string
+          noted_at?: string
+          organisation_id?: string
+          patient_id?: string
+          recorded_by?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source?: string
+        }
+        Relationships: []
+      }
       medication_supply: {
         Row: {
           count_source: string
@@ -42847,6 +43015,29 @@ export type Database = {
         }
         Relationships: []
       }
+      pharmacy_medications_admin: {
+        Row: {
+          commission_flat_kobo: number | null
+          commission_rate: number | null
+          commission_rate_type: string | null
+          created_at: string | null
+          drug_name: string | null
+          expected_restock_at: string | null
+          generic_equivalent_of: string | null
+          id: string | null
+          is_active: boolean | null
+          is_generic: boolean | null
+          pack_size: string | null
+          pharmacy_partner_id: string | null
+          pharmacy_partner_name: string | null
+          price_kobo: number | null
+          requires_cold_chain: boolean | null
+          stock_status: string | null
+          stock_updated_at: string | null
+          strength: string | null
+        }
+        Relationships: []
+      }
       pharmacy_partner_directory: {
         Row: {
           address: string | null
@@ -42868,6 +43059,12 @@ export type Database = {
       }
     }
     Functions: {
+      sign_interaction_dataset: { Args: { p_version: number; p_content_hash: string; p_note: string }; Returns: Json };
+      care_team_side_effect_notes: {
+        Args: { p_patient: string; p_reason: string };
+        Returns: { note_id: string; medication_id: string; drug_name: string; note: string; noted_at: string; reviewed_at: string | null }[];
+      };
+      mark_side_effect_notes_reviewed: { Args: { p_patient: string; p_note_ids: string[]; p_reason: string }; Returns: number };
       // S27 (lab results and release rules): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       bp_control_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       // S38c (monthly report and risk stratification): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.

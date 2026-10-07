@@ -458,19 +458,15 @@ export function useAllPharmacyMedications() {
     queryFn: async () => {
       const supabase = createClient();
       const { data, error } = await supabase
-        .from("pharmacy_medications")
-        .select("*, pharmacy_partners(name)")
+        .from("pharmacy_medications_admin")
+        .select("*")
         .order("drug_name");
       if (error) throw error;
-      return (data ?? []).map((row) => {
-        const { pharmacy_partners, ...rest } = row as typeof row & {
-          pharmacy_partners: { name: string } | null;
-        };
-        return {
-          ...rest,
-          pharmacy_partner_name: pharmacy_partners?.name ?? null,
-        };
-      }) as PharmacyMedication[];
+      // Owner-run admin view (S53 pre-fix 8.16): the only read path that carries the commission columns.
+      return (data ?? []).map((row) => ({
+        ...row,
+        pharmacy_partner_name: row.pharmacy_partner_name ?? null,
+      })) as PharmacyMedication[];
     },
   });
 }
