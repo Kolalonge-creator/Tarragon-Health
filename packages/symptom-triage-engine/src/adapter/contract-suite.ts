@@ -106,9 +106,25 @@ function stripBlockComments(source: string): string {
   return out;
 }
 
+/** Removes // comments (not the // in a URL such as https://), one line at a time with plain string search. */
+function stripLineComments(source: string): string {
+  return source
+    .split("\n")
+    .map((line) => {
+      let from = 0;
+      for (;;) {
+        const at = line.indexOf("//", from);
+        if (at === -1) return line;
+        if (at === 0 || line[at - 1] !== ":") return line.slice(0, at);
+        from = at + 1;
+      }
+    })
+    .join("\n");
+}
+
 /** Static half of INV-01: names that must not appear in an adapter's source. Returns the offending matches (empty is good). */
 export function forbiddenModelOrNetworkUse(source: string): string[] {
-  const code = stripBlockComments(source).replace(/(^|[^:])\/\/.*$/gm, "$1");
+  const code = stripLineComments(stripBlockComments(source));
   const patterns: [string, RegExp][] = [
     ["anthropic", /anthropic/i],
     ["openai", /openai/i],
