@@ -113,7 +113,7 @@ export function OperationsDashboard() {
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatTile icon={Stethoscope} label="Lab orders" value={formatNumber(orders?.lab.total ?? 0)} unit={`· ${orders?.lab.avg_turnaround_hours ?? 0}h avg`} />
-        <StatTile icon={Pill} label="Pharmacy orders" value={formatNumber(orders?.pharmacy.total ?? 0)} unit={`· ${orders?.pharmacy.dispensed ?? 0} dispensed`} />
+        <StatTile icon={Pill} label="Pharmacy orders" value={formatNumber(orders?.pharmacy.total ?? 0)} unit={orders?.pharmacy.dispensed != null ? `· ${orders.pharmacy.dispensed} dispensed` : undefined} />
         <StatTile icon={Send} label="Referrals" value={formatNumber(orders?.referral.total ?? 0)} unit={`· ${orders?.referral.confirmed ?? 0} confirmed`} />
       </div>
 

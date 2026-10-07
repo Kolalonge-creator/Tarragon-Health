@@ -32,7 +32,7 @@ const PHARMACY_ORDER_STATUS_BADGE: Partial<Record<PharmacyOrderStatus, { variant
   requested: { variant: "blue", label: "In progress" },
   confirmed: { variant: "blue", label: "In progress" },
   unavailable: { variant: "amber", label: "Medicine unavailable" },
-  dispensed: { variant: "blue", label: "Ready for collection" },
+  dispensed: { variant: "blue", label: "Dispensed" },
   cancelled: { variant: "grey", label: "Cancelled" },
 };
 

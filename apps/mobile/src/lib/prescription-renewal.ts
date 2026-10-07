@@ -98,7 +98,7 @@ export const PHARMACY_ORDER_STATUS_LABEL: Partial<Record<PharmacyOrderStatus, st
   requested: "In progress",
   confirmed: "In progress",
   unavailable: "Medicine unavailable",
-  dispensed: "Ready for collection",
+  dispensed: "Dispensed",
   cancelled: "Cancelled",
 };
 

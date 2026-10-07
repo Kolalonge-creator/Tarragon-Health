@@ -227,6 +227,10 @@ export function PharmacyCatalogue({
 
                   {canBook && isOpen && (
                     <div className="space-y-3 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
+                      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                        You collect your medicine from the pharmacy you choose.
+                      </p>
+
                       {/* Location control for nearest-first ordering. */}
                       <div className="flex flex-wrap items-center gap-2">
                         <Button
