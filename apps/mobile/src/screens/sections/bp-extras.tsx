@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { View } from "react-native";
 import type { MessageKey } from "@tarragon/i18n";
-import { BP_CHECKLIST_SYMPTOMS, type BpChecklistSymptom } from "@/lib/bp-checklist";
+import { checklistSymptomsFor, type BpChecklistSymptom } from "@/lib/bp-checklist";
 import type { HomeProtocolConfig } from "@/lib/s07-config";
 import { MIN_TARGET, radii, space, useTheme } from "@/ui/design";
 import { AppText, Button, Icon, PressableScale } from "@/ui/kit";
@@ -72,10 +72,13 @@ export function SymptomChecklist({
   tr,
   selected,
   onToggle,
+  obstetric = false,
 }: {
   tr: Tr;
   selected: readonly BpChecklistSymptom[];
   onToggle: (s: BpChecklistSymptom) => void;
+  /** S67: pregnant or in the first weeks after a birth, so the pregnancy danger signs are offered too. */
+  obstetric?: boolean;
 }) {
   const { colors } = useTheme();
   return (
@@ -87,7 +90,7 @@ export function SymptomChecklist({
         {tr("vitals.symptoms.hint")}
       </AppText>
       <View accessibilityLabel={tr("vitals.symptoms.group")} style={{ gap: space.xs }}>
-        {BP_CHECKLIST_SYMPTOMS.map((s) => {
+        {checklistSymptomsFor(obstetric).map((s) => {
           const checked = selected.includes(s);
           return (
             <PressableScale

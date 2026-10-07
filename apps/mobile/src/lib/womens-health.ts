@@ -153,6 +153,9 @@ export const PREGNANCY_DANGER_SIGNS = [
   "swelling_of_face_hands_with_headache",
   "waters_broken",
   "severe_vomiting",
+  // S67 (CMO selection A2, PROPOSED): immediate emergency, no reading needed.
+  "convulsion_or_fit",
+  "loss_of_consciousness",
 ] as const;
 export type PregnancyDangerSign = (typeof PREGNANCY_DANGER_SIGNS)[number];
 
@@ -165,6 +168,8 @@ export const PREGNANCY_DANGER_SIGN_LABEL: Record<PregnancyDangerSign, string> = 
   swelling_of_face_hands_with_headache: "Sudden swelling of face/hands with headache",
   waters_broken: "Waters broken",
   severe_vomiting: "Severe, persistent vomiting",
+  convulsion_or_fit: "A fit (convulsion)",
+  loss_of_consciousness: "Passing out",
 };
 
 function pregnancyDangerSignsSummary(signs: PregnancyDangerSign[]): string {

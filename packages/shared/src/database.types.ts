@@ -49750,6 +49750,9 @@ export type Database = {
         | "weakness_or_numbness"
         | "difficulty_speaking"
         | "back_pain"
+        | "convulsion"
+        | "loss_of_consciousness"
+        | "sudden_face_hand_swelling"
       therapy_modality: "video" | "audio" | "in_person"
       therapy_session_status: "requested" | "awaiting_clinician_approval" | "confirmed" | "completed" | "cancelled" | "no_show"
       timeline_event_type:
@@ -52247,6 +52250,9 @@ export const Constants = {
         "weakness_or_numbness",
         "difficulty_speaking",
         "back_pain",
+        "convulsion",
+        "loss_of_consciousness",
+        "sudden_face_hand_swelling",
       ],
       therapy_modality: ["video", "audio", "in_person"],
       therapy_session_status: ["requested", "awaiting_clinician_approval", "confirmed", "completed", "cancelled", "no_show"],

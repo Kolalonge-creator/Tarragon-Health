@@ -23,7 +23,17 @@ import { validateBpEntry, validateOtherEntry, type BpEntryError, type OtherEntry
  */
 export type BpChecklistSymptom = Extract<
   SymptomType,
-  "severe_headache" | "chest_pain" | "breathlessness" | "visual_disturbance" | "confusion" | "dizziness" | "palpitations"
+  | "severe_headache"
+  | "chest_pain"
+  | "breathlessness"
+  | "visual_disturbance"
+  | "confusion"
+  | "dizziness"
+  | "palpitations"
+  // S67 (pregnancy danger signs, CMO selection A2, PROPOSED): offered only while pregnant or just after a birth.
+  | "sudden_face_hand_swelling"
+  | "convulsion"
+  | "loss_of_consciousness"
 >;
 
 /** What the patient measured with (S12b). Optional; recorded on the reading so a trend from a wrist cuff is not read as an upper arm one. */
@@ -40,6 +50,14 @@ export const BP_CHECKLIST_SYMPTOMS: readonly BpChecklistSymptom[] = [
   "palpitations",
 ];
 
+/** Offered only to someone who is pregnant or in the first weeks after a birth (the pregnancy rules in rule set v4 read them). */
+export const PREGNANCY_CHECKLIST_SYMPTOMS: readonly BpChecklistSymptom[] = ["sudden_face_hand_swelling", "convulsion", "loss_of_consciousness"];
+
+/** The ticks shown on the form: the usual list, plus the pregnancy signs when `obstetric`. */
+export function checklistSymptomsFor(obstetric: boolean): readonly BpChecklistSymptom[] {
+  return obstetric ? [...BP_CHECKLIST_SYMPTOMS, ...PREGNANCY_CHECKLIST_SYMPTOMS] : BP_CHECKLIST_SYMPTOMS;
+}
+
 /** The ticks that bring up emergency guidance at once: the red-flag symptoms named for blood pressure in the spec (BP-R1). */
 export const RED_FLAG_CHECKLIST_SYMPTOMS: readonly BpChecklistSymptom[] = [
   "severe_headache",
@@ -47,6 +65,9 @@ export const RED_FLAG_CHECKLIST_SYMPTOMS: readonly BpChecklistSymptom[] = [
   "breathlessness",
   "visual_disturbance",
   "confusion",
+  // A convulsion or loss of consciousness in pregnancy is an emergency whatever the reading (BP-P6); the guidance never waits for numbers.
+  "convulsion",
+  "loss_of_consciousness",
 ];
 
 /**
@@ -102,7 +123,7 @@ export function planBpLog(input: BpLogInput, tickedSeverity: number): BpLogPlan 
   }
 
   // Each symptom once, in checklist order, ignoring anything that is not on the list.
-  const ticked = BP_CHECKLIST_SYMPTOMS.filter((s) => input.symptoms.includes(s));
+  const ticked = [...BP_CHECKLIST_SYMPTOMS, ...PREGNANCY_CHECKLIST_SYMPTOMS].filter((s) => input.symptoms.includes(s));
   return {
     ok: true,
     systolic: bp.systolic,
