@@ -367,7 +367,7 @@ function EducationItemRow({
   const [marking, setMarking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const questions = useMemo(() => parseKnowledgeCheck(item.knowledge_check), [item.knowledge_check]);
-  const membersOnly = useMembersOnly(item.code, open, !item.body);
+  const membersOnly = useMembersOnly(item.code, open, !item.body && !item.video_url && !item.audio_url);
 
   async function toggle() {
     const next = !open;

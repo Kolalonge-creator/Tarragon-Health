@@ -169,6 +169,10 @@ language plpgsql
 set search_path = ''
 as $$
 begin
+  -- a signed-in person never sets this column themselves: the server stamps it
+  if (select auth.uid()) is not null then
+    new.understood_at := case when tg_op = 'UPDATE' then old.understood_at else null end;
+  end if;
   -- stamped when the lesson becomes understood, and again if it was reset and is understood anew; untouched by later re-reads
   if new.status = 'understood' and (tg_op = 'INSERT' or old.status is distinct from 'understood' or new.understood_at is null) then
     new.understood_at := now();
