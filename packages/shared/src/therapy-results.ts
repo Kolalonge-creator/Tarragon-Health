@@ -155,11 +155,11 @@ export function readCompleteOutcome(raw: unknown): CompleteOutcome {
 }
 
 /**
- * Whether a failed programme call is worth retrying. The database raises 22023 (bad input), 42501 (not allowed) and 55000 (wrong state)
- * for answers it will always give again; those must be shown to the person, never queued. Anything else (no connection, a timeout, a server
+ * Whether a failed programme call is worth retrying. The database raises 22023 (bad input) and 42501 (not allowed)
+ * for answers it will always give again (55000, "not configured", can clear later and is retried); those must be shown to the person, never queued. Anything else (no connection, a timeout, a server
  * fault) is a transport problem and the call may be queued and sent again.
  */
 export function classifyRpcError(error: { code?: string | null } | null | undefined): "permanent" | "transport" {
   const code = error?.code ?? "";
-  return code === "22023" || code === "42501" || code === "55000" ? "permanent" : "transport";
+  return code === "22023" || code === "42501" ? "permanent" : "transport";
 }

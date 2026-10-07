@@ -700,8 +700,9 @@ begin
   -- a stop by the entry screen (crisis or a red flag) is not undone by answering the form again: a clinician looks first
   if exists (select 1 from public.therapy_enrolments x
               where x.patient_id = v_uid and x.programme_id = p.id and x.state in ('blocked', 'stopped_exclusion') and x.stop_reason in ('crisis', 'exclusion')
-                and x.exclusion_result::text not like '%education_only%'
-                and x.stopped_at > now() - make_interval(hours => coalesce((private.therapy_config() ->> 'reenrol_cooldown_hours')::integer, 72))) then
+                and exists (select 1 from jsonb_array_elements(x.exclusion_result -> 'stops') st where st ->> 'route' <> 'education_only')
+                -- no active config means the longest wait, never none (fail closed)
+                and x.stopped_at > now() - make_interval(hours => coalesce((private.therapy_config() ->> 'reenrol_cooldown_hours')::integer, 8760))) then
     return jsonb_build_object('enrolled', false, 'reason', 'clinician_review_pending');
   end if;
   if p.status in ('scaffold', 'held') then
@@ -746,6 +747,17 @@ begin
   if e.state <> 'active' then return jsonb_build_object('status', 'not_active', 'state', e.state); end if;
   if not private.go_live_open_patient(p.guard_key, v_uid) then return jsonb_build_object('status', 'not_open_yet'); end if;
   select count(*) into v_total from public.therapy_programme_sessions where programme_id = e.programme_id and version = e.programme_version;
+  -- every session is done but the programme was left open because the worsening check failed at the last one: check again, then close it
+  if e.completed_count >= v_total then
+    begin
+      perform private.therapy_assess_progress(e.id);
+    exception when others then
+      perform private.therapy_audit_error(e.organisation_id, e.id, 'assess', sqlerrm);
+      return jsonb_build_object('status', 'not_active', 'state', 'active');
+    end;
+    update public.therapy_enrolments set state = 'completed', stop_reason = 'completed', stopped_at = now() where id = e.id and state = 'active';
+    return jsonb_build_object('status', 'not_active', 'state', (select state from public.therapy_enrolments where id = e.id));
+  end if;
   if p_ordinal is null or p_ordinal < 1 or p_ordinal > v_total or p_ordinal > e.completed_count + 1 then
     raise exception 'that session is not open yet' using errcode = '22023';
   end if;

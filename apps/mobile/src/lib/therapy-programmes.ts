@@ -78,8 +78,9 @@ export async function completeSession(enrolmentId: string, ordinal: number, scor
 
 export async function currentUserId(): Promise<string | undefined> {
   try {
-    const { data } = await supabase.auth.getUser();
-    return data.user?.id;
+    // the local session: no network round trip, so the id is there when the connection is not
+    const { data } = await supabase.auth.getSession();
+    return data.session?.user.id;
   } catch {
     return undefined;
   }
