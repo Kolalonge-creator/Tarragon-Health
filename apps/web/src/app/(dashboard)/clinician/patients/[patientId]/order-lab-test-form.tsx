@@ -40,7 +40,7 @@ export function OrderLabTestForm({
   organisationId: string;
 }) {
   const { data: bundles, isLoading } = useLabCatalogue();
-  const { data: recentOrders } = usePatientLabOrders(patientId);
+  const { data: recentOrders, isError: ordersError } = usePatientLabOrders(patientId);
   const orderLabTest = useOrderLabTest();
   const [bundleId, setBundleId] = useState("");
   const [clinicalIndication, setClinicalIndication] = useState("");
@@ -62,7 +62,7 @@ export function OrderLabTestForm({
     );
   }, [bundle, recentOrders]);
 
-  const canSubmit = !!bundle && clinicalIndication.trim().length > 0 && !orderLabTest.isPending;
+  const canSubmit = !!bundle && clinicalIndication.trim().length > 0 && !orderLabTest.isPending && !ordersError;
 
   return (
     <Card>
@@ -91,6 +91,12 @@ export function OrderLabTestForm({
         {bundle?.preparation_instructions && (
           <p className="rounded-lg border border-blue-200 bg-blue-50 p-2.5 text-xs text-blue-900">
             {bundle.preparation_instructions}
+          </p>
+        )}
+        {ordersError && (
+          <p role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-900">
+            We could not load this patient&apos;s recent orders, so we cannot check for a duplicate test and ordering is paused.
+            Reload the page to try again.
           </p>
         )}
         {duplicateFindings.length > 0 && (
