@@ -11,6 +11,7 @@ export * from "./ai-coach-types";
 export * from "./device-readings";
 export * from "./health-record";
 export * from "./mental-health";
+export * from "./wellbeing-library";
 
 // Generated Supabase types: Database, Tables, TablesInsert, TablesUpdate,
 // Enums, Constants, Json. Single source of truth for the DB schema.

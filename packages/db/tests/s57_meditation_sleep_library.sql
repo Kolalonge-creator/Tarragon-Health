@@ -191,6 +191,12 @@ begin
   perform pg_temp.ck('a reviewed breathing item publishes', 'ok', pg_temp.pub(v_b));
   v_ex := pg_temp.mkitem('s57-exercise', 'exercise', $q$null, null, null, '{"steps":[{"text":"x"}]}'::jsonb$q$); perform pg_temp.setf('ex', v_ex);
   perform pg_temp.ck('a reviewed exercise publishes', 'ok', pg_temp.pub(v_ex));
+  -- the admin screen path: an authenticated admin (not the table owner) publishes through RLS and the definer gate
+  v_ex2 := pg_temp.mkitem('s57-br-admin', 'breathing', $q$200, null, null, '{"steps":[{"text":"x"}],"pattern":{"inhale_s":4,"hold_s":0,"exhale_s":6}}'::jsonb$q$);
+  perform pg_temp.ck('an authenticated admin publishes through RLS and the gate', 'ok',
+    pg_temp.try_as(pg_temp.f('admin'), format($q$update public.media_library set content_status = 'published', is_active = true, reviewed_by_name = 'Dr Reviewer', reviewed_at = current_date, next_review_due = current_date + 60 where id = %L$q$, v_ex2)));
+  perform pg_temp.ck('...and the same gate refuses an incomplete publish from the admin', 'true',
+    (pg_temp.try_as(pg_temp.f('admin'), format($q$update public.media_library set content_status = 'published', is_active = true where id = %L$q$, pg_temp.mkitem('s57-br-admin2', 'meditation', $q$600, 3000000, 'https://example.invalid/x.mp3', null$q$))) like '%named reviewer%')::text);
   perform pg_temp.ck('a non-admin cannot write the catalogue', 'true',
     (pg_temp.try_as(pg_temp.f('pat'), $q$insert into public.media_library (code, kind, title) values ('s57-x', 'meditation', 'x')$q$) like '%row-level security%')::text);
   perform pg_temp.ck('the CMO (not an admin) cannot write the catalogue', 'true',
@@ -212,6 +218,8 @@ begin
   perform pg_temp.ck('...and sees scripts once the guard is on', '1', pg_temp.q_as(pg_temp.f('realpat'), format('select count(*)::text from public.media_library where id = %L', v_ex)));
   perform pg_temp.guard('wellbeing_library_clinical_scripts', false);
 
+  perform pg_temp.ck('a real patient cannot record a session on a script while the guard is off', 'true',
+    (pg_temp.q_as(pg_temp.f('realpat'), format($q$select public.record_media_session(%L, 600)::text$q$, v_ex)) like 'ERR:That item is not available%')::text);
   -- sessions + event
   r := pg_temp.q_as(pg_temp.f('pat'), format($q$select public.record_media_session(%L, 600)::text$q$, v_a)); sid := r::uuid;
   perform pg_temp.ck('a patient records a session', 'true', (sid is not null)::text);

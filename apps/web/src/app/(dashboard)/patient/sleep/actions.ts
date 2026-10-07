@@ -69,6 +69,8 @@ export async function logSleepEntryAction(
     bedtime: parsed.data.bedtime ?? null,
     waketime: parsed.data.waketime ?? null,
     daytime_sleepiness: parsed.data.daytime_sleepiness ?? null,
+    sleep_latency_minutes: parsed.data.sleep_latency_minutes ?? null,
+    night_awakenings: parsed.data.night_awakenings ?? null,
     note: parsed.data.note ?? null,
   };
 

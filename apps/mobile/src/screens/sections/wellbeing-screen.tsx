@@ -6,6 +6,9 @@ import { t } from "@tarragon/i18n";
 import { CrisisCard } from "@/components/mental-health/crisis-card";
 import { MentalHealthHandoffCard } from "@/components/mental-health/handoff-card";
 import { MoodBesideReadings } from "@/components/mental-health/mood-beside-readings";
+import { CalmLibraryCard } from "@/components/wellbeing/calm-library-card";
+import { JournalCard } from "@/components/wellbeing/journal-card";
+import { SleepToolsCard } from "@/components/wellbeing/sleep-tools-card";
 import { HiddenCard, SharedPhoneSettings } from "@/components/mental-health/shared-phone-controls";
 import { useSharedPhone } from "@/lib/shared-phone";
 import { TherapyNetworkScreen } from "@/screens/sections/therapy-network-screen";
@@ -219,6 +222,12 @@ export function WellbeingScreen({ patientId, organisationId, onNavigate }: Wellb
         ) : (
           <SecondaryButton title="Take the full mental wellbeing check-in" onPress={() => setShowScreenForm(true)} />
         )}
+
+        <CalmLibraryCard />
+
+        <JournalCard patientId={patientId} />
+
+        <SleepToolsCard patientId={patientId} />
 
         <Card style={{ gap: 8 }}>
           <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Talk to someone</Text>

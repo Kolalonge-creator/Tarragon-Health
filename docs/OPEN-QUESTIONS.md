@@ -1509,3 +1509,37 @@ Four defects from `docs/design/S55-S60-build-plan.md` section 5, fixed ahead of 
 - Clinician reads of the chart go through the audited function; the clinician `/clinician/tasks/[taskId]` page does not yet render the hand-off summary (the chart's wellbeing card does).
 - A clinician who is only a care coordinator (`doctor_tier = care_coordinator`) is refused mental-health reads even with a tie. Coordinators handle logistics; confirm.
 - Decision: open.
+
+### OQ-S57-01 Library content, creators and what the build could not create (S57, 2026-10-07)
+- Built: the structure for the meditation and sleep library (`media_library`, publish gate, expiry read rule, series: intro, stress, grief, work, exams, faith-compatible reflection, sleep), 12 DRAFT placeholders (none servable), admin page `/admin/settings/media-library`. NO audio, script, prompt, spiritual text or clinical wording was written. Every real item needs an author, a named reviewer, a review date and, for audio, a recorded file with length and size.
+- Faith-compatible reflection ships as an empty series with a placeholder. Who may write or approve spiritual content, and whether it needs a faith-leader reviewer as well as the CMO, is a founder decision. Decision: open (founder, CMO).
+- S55 creators are not on this base. `media_library.creator_id` is a plain nullable uuid; the migration adds the foreign key and the "creator must be verified" check only if `learning_creators` exists when it runs (so S55 before S57 gives both). If S57 applies first, a follow-up migration must add the key. Creator pay or revenue share: not built (see OQ-S55-02).
+- Language: the column exists and defaults to English. D-14 removed Pidgin and local-language UI; "local-language content by Nigerian creators" (10.9) is therefore structure only. Decision: open (founder), whether creator-led audio in Yoruba, Igbo, Hausa or Pidgin is allowed under D-14.
+- The expiry flag job (`media_library_flag_expired`) is a function an admin can press; it is NOT scheduled. The read rule hides an expired item at once without it. A cron route calling it daily is a follow-up (the read rule makes it display-only).
+
+### OQ-S57-02 Snoring and sleepiness questionnaire is a DRAFT, unsigned, behind a guard that is off (S57)
+- `sleep_apnoea_screen_config` v1: eight yes/no items and a cut-off of 3, in the build's own wording, "STOP-Bang style" but NOT checked against the published tool. PROPOSED, owner CMO, unsigned. Two of the eight (body mass index above 35, neck size) are things many people do not know; "not sure" scores 0, which can under-flag; the CMO should decide whether to ask for height, weight and neck size and compute, or to score "not sure" differently.
+- Until the CMO confirms (`confirm_sleep_apnoea_screen_config`, CMO only, never called by the build), the questionnaire saves answers and shows no result and creates no task, even with the guard on (proved). With it signed AND guard `sleep_apnoea_screen_enabled` on AND the cut-off met it creates one `admin_clinical` task (existing type; the referral competency routes it). Guard conditions: instrument signed (data), referral cover confirmed (attestation).
+- There is no screen in the CMO sign-off hub for this instrument: confirming means calling the function. Adding a panel to `/clinician/clinical-signoff` is a follow-up. Changing items or the cut-off means inserting a new proposed version (SQL), then confirming it; no editor exists.
+- Staff read the answers only through `read_patient_sleep_screens_audited` (tie or break-glass, audited). The older `sleep_log_entries` and `patient_sleep_goals` tables still use org-wide staff reads (not moved, same as OQ-S56-01's list).
+- The older rule that raises a clinician alert for a very short night plus high sleepiness (`flagAbnormalSleep`) is unchanged.
+
+### OQ-S57-03 PROPOSED values the build chose (S57), all unsigned
+- `media_library_config` v1: download caps 5 MB a track and 50 MB a pack, Wi-Fi only; breathing length 3 to 5 minutes and no phase over 10 seconds; the smallest weekly sleep change worth mentioning (2 percentage points); a listen of 30 seconds counts as a session. The breathing PATTERN (seconds per phase) is not in config: it is set per item by the reviewer. The CMO or founder confirms or replaces them. Decision: open.
+- The guard `wellbeing_library_clinical_scripts` (exercises and breathing scripts) is OFF; conditions are two attestations (scripts reviewed, care-team and crisis note confirmed). A test account always passes.
+
+### OQ-S57-04 What is not built on the phone and why (S57)
+- Audio playback and file downloads on mobile need native modules (an audio engine, a network state probe, file storage), i.e. a new app build and a `runtimeVersion` bump (same wall as OQ-201). The phone shows the library, exercises, paced breathing in words, the private journal, the wind-down planner, the weekly view and the questionnaire; for an audio item it says audio plays on the web for now. The Wi-Fi and size-cap decision (`downloadDecision`, `planPackRefresh`, with a refresh that never empties the pack) is pure, shared and tested; `mayDownload` never assumes Wi-Fi without a probe, so nothing downloads. S55's offline pack is not on this base; when it merges, adopt it instead of this seam.
+- Web has no download (spec says downloads are a phone feature). S32's audio manifest is for bundled prompts, not creator audio, so `audio_clip_id` is an unused seam.
+- No wind-down reminder is offered: a local notification needs the permission flow and a build, and a control that does nothing would be a false promise. The `reminder_enabled` column stays false for a later session; the reminder's words should be fixed and name nothing.
+- Mobile sleep diary entry (latency, wakings) is not added to the phone's existing logging screen; the weekly view reads whatever the web diary stored.
+- S33 BRE-01 is not on this base: a minimal in-house paced breathing component (web, circle plus words, reduced-motion aware) and a words-only version on the phone are built. When S33 merges, replace the renderers and keep the data seam (the library item).
+
+### OQ-S57-05 Private journal: key custody and recovery (S57)
+- The key is generated on the device and never leaves it. A new phone, a cleared browser or a lost key means synced copies cannot be opened (the server holds only ciphertext). That is the privacy guarantee and also a loss risk. Options: accept (recommended; the screen says so), add a recovery phrase, or add a passphrase-derived key. Decision: open (founder).
+- On the web the key sits in IndexedDB next to the entries, so it protects against the server, backups and a casual look, not against someone controlling the browser profile. On the phone it is in the secure store.
+- Turning backup off deletes every server copy (proved). There is no staff, Care Circle or break-glass read path of any kind (proved). A person who asks Tarragon to "export my journal" gets nothing from the server by design; DSR handling (OQ about data rights) should say so.
+- Listening history (`media_sessions`) is patient-only and carries what the patient chose to open (for example a grief series). No staff or Care Circle path reads it. S58 rewards may use the `media.session_completed` event, which carries only the session id.
+
+### OQ-S57-06 Deferred and recorded only
+- 10.12 structured insomnia and anxiety programmes: deferred to Module 14 (S63) as planned. Nothing built.
