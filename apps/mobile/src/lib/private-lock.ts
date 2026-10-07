@@ -133,7 +133,7 @@ export function usePrivateLock(accountId: string): PrivateLockApi {
     if (lockoutSeconds <= 0) return;
     const id = setInterval(() => setLockoutSeconds((s) => Math.max(0, s - 1)), 1000);
     return () => clearInterval(id);
-  }, [lockoutSeconds > 0]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [lockoutSeconds > 0]);
 
   return {
     status,

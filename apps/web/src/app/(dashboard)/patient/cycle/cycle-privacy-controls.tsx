@@ -20,16 +20,28 @@ export function CyclePrivacyControls() {
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState(false);
 
-  const load = useCallback(async () => {
+  const fetchBoth = useCallback(async () => {
     const supabase = createClient();
     const [a, d] = await Promise.all([supabase.rpc("my_reproductive_access_log", { p_limit: 20 }), supabase.rpc("reproductive_tracker_deletion_status")]);
-    setAccess(a.error ? "failed" : parseAccessLog(a.data));
-    setDeletion(d.error ? "failed" : parseDeletionStatus(d.data));
+    return { access: a.error ? ("failed" as const) : parseAccessLog(a.data), deletion: d.error ? ("failed" as const) : parseDeletionStatus(d.data) };
   }, []);
+  const load = useCallback(async () => {
+    const r = await fetchBoth();
+    setAccess(r.access);
+    setDeletion(r.deletion);
+  }, [fetchBoth]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    let alive = true;
+    void fetchBoth().then((r) => {
+      if (!alive) return;
+      setAccess(r.access);
+      setDeletion(r.deletion);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [fetchBoth]);
 
   async function act(name: "request_reproductive_tracker_deletion" | "cancel_reproductive_tracker_deletion") {
     setBusy(true);
