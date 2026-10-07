@@ -3,7 +3,7 @@ import { ApiLabResultsSource, getLabResultsSource, ManualEntryLabResultsSource, 
 const ORDER = "11111111-1111-4111-8111-111111111111";
 const items = [{ analyte_code: "fasting_glucose", value_numeric: 88, unit: "mg/dL" }];
 const client = (result: { data: unknown; error: { message: string; code?: string } | null }) => {
-  const rpc = jest.fn(async () => result);
+  const rpc = jest.fn(async (..._a: unknown[]) => result);
   return { rpc, c: { rpc } as unknown as RpcClient };
 };
 
