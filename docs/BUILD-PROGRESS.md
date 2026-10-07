@@ -976,26 +976,26 @@ Not done: not applied to production, not pushed.
 
 - **Built**: rule set `bp_care_triage` version 2 (draft): BP-R2 retired; BP-X1 asks the emergency-symptom question at 200/130; BP-X2 (no symptom) is medicine, rest, recheck after 2 hours (window 4 hours); BP-A1 amber same-day task if still urgent or never rechecked; BP-A7 flags systolic under 90; BP-P3/P4 now cover the first 6 weeks after birth and BP-P5 an amber review at 150/100; red-flag list gains difficulty speaking, back pain; epigastric pain for pre-eclampsia. Engine: status `symptom_check_required`, action `ask_symptoms`, per-rule recheck timing, `symptomsAnswered` and `postpartum` inputs, `recheckWindowMinutes`. Phone: repeat window by timing, the form's checklist counts as the answer. Server: migrations `20261005233912` (v2 draft row) and `20261005234418` (context function and result recording), both applied to production after rolled-back runs of the S11 and S12 proofs; the edge function is still not deployed, so nothing on the server grades with v2 yet.
 - **Tests**: `packages/clinical` 205 (100 percent); fixtures 73 cases (new: safety case 2 flow, low, postpartum); mobile all passing (S12 device tests updated for the new case 2 behaviour, plus the 2 hour flow); DB proofs S11 and S12 pass with the new migrations.
-- **Open**: OQ-91. The decisions are recorded in `docs/DECISIONS.md` (S11c). Version 1 stays an unused draft.
+- **Open**: OQ-278. The decisions are recorded in `docs/DECISIONS.md` (S11c). Version 1 stays an unused draft.
 - **Worktree note**: this was done in a separate worktree (`../tarragon-s11c`, branch `s11c/cmo-bp-decisions`, from `s12/triage-wiring`) because another session had moved the shared checkout to the S12 branch.
 
 ## S11d: the emergency-symptom question screen (2026-10-05)
 
 - **Built**: `SymptomQuestionSheet` (full-screen modal over the blood pressure form; eight symptom checkboxes from the engine's red-flag group, "Yes, I have at least one" enabled once one is chosen, "No, none of these"; no skip, back button disabled; tick and checkbox state, never colour alone), `symptom-question.ts` (the list, `answerSymptomQuestion`: regrades the same reading at the same instant with the question answered, shows guidance first and saves the symptoms after), `shouldAskSymptomQuestion`, `symptomsAnswered` on `gradeOnDevice`, `gradedAtMs` on the result. The form shows the sheet only for the approved rule set; for a draft the older emergency stands and the engine's softer cards no longer sit beside it. Migration `20261005223007` adds `weakness_or_numbness`, `difficulty_speaking`, `back_pain` to `symptom_type` (applied; types spliced). New strings in English and Pidgin (Pidgin held as English, OQ-74).
 - **Tests**: 13 new (`s11d-symptom-question.test.ts`: list matches the engine and the enum and the labels; question asked, not at 199/129; yes saves danger rows, queues offline, still shows guidance if the phone cannot store; none starts the 2 hour wait; draft versus approved; a ticked red flag never softened; one hand sabotage fails a test); mobile 1220 passing; clinical 205; i18n 6.
-- **Open**: OQ-91 (updated). Nothing run on a device or simulator.
+- **Open**: OQ-278 (updated). Nothing run on a device or simulator.
 
 ## S11e: new emergency answers page, and a reminder for the 2 hour recheck (2026-10-05)
 
 - **Built**: migration `20261005224251` (applied after a rolled-back run): `weakness_or_numbness`, `difficulty_speaking` and `back_pain` are red flags at severity 6 and raise an urgent alert like the existing types; the function body is the live definition plus the three types. `recheck-reminder.ts`: one neutral local notification at reading time plus the rule set's wait (2 hours after a very high reading, 5 minutes otherwise), a private Android channel, replaced by a newer reading, cancelled when graded or cleared; permission asked once, from the save; never throws. New strings `notify.triage.recheck_due.*` (English; Pidgin held as English).
 - **Tests**: DB proof `s11e_new_symptom_answers_page.sql` (11 checks, registered in `ci.manifest`, with a sabotage that is caught); mobile 11 new (`s11e-recheck-reminder.test.ts`: time, replace, cancel on every resolution, no permission, ask once, past, library failure, INV-07 wording in both languages; one hand sabotage fails a test); mobile 1231 passing.
-- **Open**: OQ-91 updated (live 200/130 trigger, postpartum on the phone, no server push, not run on a device).
+- **Open**: OQ-278 updated (live 200/130 trigger, postpartum on the phone, no server push, not run on a device).
 
 ## S11f: server backup push, postpartum and pregnancy on the phone, and a look on a simulator (2026-10-05)
 
 - **Built**: migration `20261005235537` (applied after rolled-back proofs): `triage_pending_rechecks.backup_at` and `reminder_queued_at`; `record_triage_result` sets `backup_at` only for an approved rule set and a wait of at least `params.recheckBackupPush.minAfterMinutes`; a cron job every minute queues one neutral reminder per recheck (push, or in-app, plus an in-app copy; never email or SMS) while the recheck is pending and its window is open; the context function reads the postpartum window from the rule set. Rule set v2 draft gains `postpartum.windowDays` and `recheckBackupPush`. Edge function `send-pending-notifications` redeployed with the `triage_recheck_due` template. Phone: `obstetric-status.ts` (read, cache, offline use, window from the rule set) feeds `pregnant` and `postpartum` to the engine; the in-app inbox describes the notification neutrally.
 - **Tests**: DB proof `s11f_recheck_backup_push.sql` (15 checks, registered, with a sabotage that is caught), S11, S12 and S11e proofs re-run clean; mobile 14 new (`s11f-obstetric-status.test.ts`) and 1 added to `s11e`; mobile 1246 passing; clinical 205.
-- **Seen on a phone (iOS simulator)**: see OQ-91. Android not run.
+- **Seen on a phone (iOS simulator)**: see OQ-278. Android not run.
 
 ## S11g and S11h: the older alert path follows the CMO decision, tap to open, Pidgin list (2026-10-06)
 
