@@ -137,7 +137,7 @@ export function DirectorySearch({ locale }: { locale: Locale }) {
   const result = useDirectorySearch(args, submitted !== null);
   const set = <K extends keyof SearchFilters>(k: K, v: SearchFilters[K]) => setFilters((f) => ({ ...f, [k]: v }));
 
-  function useMyPlace(on: boolean) {
+  function toggleNearMe(on: boolean) {
     setLocError(false);
     if (!on) return set("near", null);
     navigator.geolocation?.getCurrentPosition(
@@ -171,7 +171,7 @@ export function DirectorySearch({ locale }: { locale: Locale }) {
           {t("directory.filter.open_now", locale)}
         </label>
         <label className={`flex items-center gap-2 ${TOUCH}`}>
-          <input type="checkbox" checked={filters.near !== null} onChange={(e) => useMyPlace(e.target.checked)} />
+          <input type="checkbox" checked={filters.near !== null} onChange={(e) => toggleNearMe(e.target.checked)} />
           {t("directory.filter.use_location", locale)}
         </label>
         <p className={`text-sm ${MUTED}`}>{t("directory.filter.location_note", locale)}</p>
