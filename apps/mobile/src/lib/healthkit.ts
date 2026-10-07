@@ -172,6 +172,14 @@ const PER_TYPE_LIMIT = 200;
  * patient never agreed to share in that volume. */
 export const INITIAL_WINDOW_DAYS = 30;
 
+/**
+ * The lazily loaded HealthKit module, or null (not iOS, Expo Go, or a build without the native module). Exported for the S70 ECG
+ * read (healthkit-ecg.ts) so it shares the one guard that keeps an eager Nitro binding from crashing app boot.
+ */
+export function getHealthkitModule(): typeof HealthkitPackage | null {
+  return loadHealthkit();
+}
+
 export function isHealthKitPlatform(): boolean {
   return Platform.OS === "ios";
 }

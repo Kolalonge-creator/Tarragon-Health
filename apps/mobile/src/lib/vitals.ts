@@ -1,6 +1,6 @@
 import { mgDlToMmolL } from "@tarragon/shared";
 import { supabase } from "./supabase";
-import type { VitalReadingPayload } from "./api";
+import type { PhotoCapturePayload, VitalReadingPayload } from "./api";
 import { classifyBpLevel, type BpLevel } from "./bp-classification";
 import { classifyGlucoseOffline, type GlucoseFlag } from "./glucose-red-flags";
 import { enqueueVitalReading, flushPendingVitals, getPendingVitals } from "./offline-vitals-queue";
@@ -134,6 +134,12 @@ export async function logOtherVital(
   payload: Exclude<VitalReadingPayload, { vital_type: "blood_pressure" }>,
   beneficiaryProfileId?: string
 ): Promise<LogVitalResult> {
+  return enqueueAndSync(payload, beneficiaryProfileId);
+}
+
+/** S70 (18.3): a reading confirmed from a photo of a device screen. Exactly the manual path (offline queue first, on-device red-flag
+ * check, same server triage); the only difference is the `capture_method: "photo"` label the server stores it with. */
+export async function logPhotoVital(payload: PhotoCapturePayload, beneficiaryProfileId?: string): Promise<LogVitalResult> {
   return enqueueAndSync(payload, beneficiaryProfileId);
 }
 

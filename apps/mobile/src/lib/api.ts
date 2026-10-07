@@ -51,6 +51,29 @@ export type VitalReadingPayload =
   | { vital_type: "temperature"; temperature_c: number; note?: string }
   | { vital_type: "spo2"; spo2_pct: number; note?: string };
 
+/** S70 (18.3): set when the patient typed or confirmed the numbers from a photo of a device screen. The photo itself never leaves
+ * the phone. The server stores such a reading as a device-source reading with a photo-confirmed label. */
+export type PhotoCapturePayload = VitalReadingPayload & { capture_method: "photo" };
+
+export interface PostDeviceEcgResult {
+  success: boolean;
+  /** True when the care team will review it. Never a rhythm name. */
+  review?: boolean;
+  error?: string;
+}
+
+/** S70 (18.6): report a personal ECG device's own classification. Only a device-flagged irregular or inconclusive result
+ * leads anywhere (a routine clinician task); nothing here reads the tracing. */
+export async function postDeviceEcgResult(payload: {
+  classification: "sinus_rhythm" | "irregular_rhythm" | "inconclusive" | "not_classified";
+  provider: string;
+  device_result_text?: string;
+  recorded_at: string;
+}): Promise<PostDeviceEcgResult> {
+  const result = await request<{ review?: boolean }>("/api/mobile/device-ecg", "POST", payload);
+  return result.ok ? { success: true, review: result.data?.review === true } : { success: false, error: result.error };
+}
+
 /** Goes through the API (not a direct client insert) so a dangerous reading
  * triggers the same red-flag/health-score reassessment a web-logged one
  * does; see apps/web/src/app/api/mobile/vitals/route.ts.

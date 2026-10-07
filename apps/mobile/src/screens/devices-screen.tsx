@@ -9,6 +9,7 @@ import { flushOfflineQueues, getPendingCount as getOfflineQueuePendingCount } fr
 import { supabase } from "@/lib/supabase";
 import { AppleHealthCard } from "@/screens/apple-health-card";
 import { AndroidHealthConnectCard } from "@/screens/android-health-connect-card";
+import { DevicesExtras } from "@/screens/devices-extras";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTheme } from "@/ui/design";
 import {
@@ -218,6 +219,8 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
           </Pressable>
         </View>
       ) : null}
+
+      <DevicesExtras />
 
       <AppleHealthCard />
       <AndroidHealthConnectCard />
