@@ -2,6 +2,8 @@
 
 Milestone / module: **Module 25**  |  Depends on: **S40**
 
+> **Decisions override (S75-S80 plan).** Read `docs/plans/S75-S80-cmo-decisions.md` first. Spec acceptance test "Unreviewed Pidgin clinical string blocks the release build": replaced by CMO decision S-15: unreviewed clinical copy blocks the release build (see docs/plans/S75-S80-cmo-decisions.md). The `translations` table and the Pidgin state machine are dropped (English only, D-14). `docs/BUILD-SPEC-v5.md` itself is never edited.
+
 Paste everything below the line into a fresh Claude Code session.
 
 ---
@@ -32,7 +34,7 @@ You are working on Tarragon Health. This session is **only** section S80: Module
 
 **Always (from CLAUDE.md and the spec, do not skip):**
 - The invariants in spec lines 83–105 override everything, including this prompt.
-- Values marked PROPOSED go in versioned configuration, never in code. Money is integer kobo. All user-facing strings go through `packages/i18n` (en, pcm). No em dashes in copy. Say "your care team", never "your doctor", "cure", "instant doctor" or "free healthcare".
+- Values marked PROPOSED go in versioned configuration, never in code. Money is integer kobo. All user-facing strings go through `packages/i18n` (en). No em dashes in copy. Say "your care team", never "your doctor", "cure", "instant doctor" or "free healthcare".
 - Never call a language model in the triage path. Never write AI output to the patient record without a clinician signature.
 - Reference platforms are for studying behaviour, functionality and design. Do not copy their code, text, content or visual design; build something similar but original. (CLAUDE.md rule 11 wins over the looser wording in spec line 20.)
 - If anything is unclear or conflicts with an invariant, write it in `docs/OPEN-QUESTIONS.md` and stop that piece of work.
