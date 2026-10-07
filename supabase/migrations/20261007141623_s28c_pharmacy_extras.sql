@@ -340,6 +340,12 @@ begin
   select * into rx from public.prescriptions where id = p_prescription and pharmacy_partner_id = v_partner;
   if not found then raise exception 'Prescription not found for this pharmacy' using errcode = '42501'; end if;
   if rx.state <> 'sent' then raise exception 'pharmacy_flag_not_open' using errcode = '22023'; end if;
+  -- the same question still waiting for an answer is not asked twice: a double click or a retry returns the question already there
+  select f.id into v_flag from public.prescription_pharmacy_flags f
+   where f.prescription_id = rx.id and f.pharmacy_partner_id = v_partner and f.question_code = p_question
+     and not exists (select 1 from public.prescription_flag_answers a where a.flag_id = f.id)
+   order by f.created_at desc limit 1;
+  if v_flag is not null then return v_flag; end if;
   begin
     v_task := private.create_clinical_task(rx.patient_id, 'pharmacy_flag_review', null, 'pharmacy_flag:' || rx.id);
   exception when others then
@@ -366,6 +372,11 @@ begin
   select * into rx from public.prescriptions where id = p_prescription and pharmacy_partner_id = v_partner;
   if not found then raise exception 'Prescription not found for this pharmacy' using errcode = '42501'; end if;
   if rx.state <> 'sent' then raise exception 'pharmacy_flag_not_open' using errcode = '22023'; end if;
+  -- reported once per send: a second press returns the report already there and tells nobody again
+  select f.id into v_flag from public.prescription_pharmacy_flags f
+   where f.prescription_id = rx.id and f.pharmacy_partner_id = v_partner and f.kind = 'out_of_stock' and f.created_at >= coalesce(rx.chosen_by_patient_at, rx.created_at)
+   order by f.created_at desc limit 1;
+  if v_flag is not null then return v_flag; end if;
   begin
     v_task := private.create_clinical_task(rx.patient_id, 'pharmacy_flag_review', null, 'pharmacy_flag:' || rx.id);
   exception when others then

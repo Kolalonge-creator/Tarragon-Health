@@ -108,6 +108,13 @@ begin
   return v;
 end $f$;
 -- the live collection code of a prescription (read as the owner; the API roles cannot read the table)
+-- the trigger itself, with no route flag: returns the sqlstate of the refusal ('ok' if it was allowed)
+create function pg_temp.try_state(p_rx uuid, p_state text) returns text language plpgsql as $f$
+begin
+  update public.prescriptions set state = p_state::public.prescription_state where id = p_rx;
+  return 'ok';
+exception when others then return sqlstate;
+end $f$;
 create function pg_temp.code_of(p_rx uuid) returns text language sql as $$ select code from public.prescription_collection_codes where prescription_id = p_rx $$;
 -- an unanswered question first (rows made in one transaction share a timestamp), else any
 create function pg_temp.flag_of(p_rx uuid) returns uuid language sql as $$ select f.id from public.prescription_pharmacy_flags f where f.prescription_id = p_rx and f.question_code is not null order by exists (select 1 from public.prescription_flag_answers a where a.flag_id = f.id), f.created_at desc limit 1 $$;
@@ -186,6 +193,9 @@ begin
   v_ov := pg_temp.q_as(v_doc, 'select public.prescriber_pharmacy_overview()::text')::jsonb;
   perform pg_temp.ck('real', '2g the signer sees the question as a fixed reason, with no patient contact detail', 'dose_unclear|false',
     ((select q ->> 'reason_code' from jsonb_array_elements(v_ov -> 'questions') q where q ->> 'question_id' = flag::text)) || '|' || ((v_ov -> 'questions' -> 0) ? 'phone')::text);
+  perform pg_temp.ck('real', '2g2 asking the same open question again returns the same one and tells nobody twice', 'true|1',
+    ((pg_temp.q_as(phA, format($q$select public.pharmacist_ask_prescriber(%L, 'dose_unclear')::text$q$, rx)) = flag::text)::text) || '|' ||
+    (select count(*)::text from public.notifications where recipient_id = v_doc and template = 'pharmacy_flag_notice'));
   perform pg_temp.ck('real', '2h the pharmacy shows one open question', '1', pg_temp.q_as(phA, format($q$select open_flags::text from public.pharmacist_prescriptions() where prescription_id = %L$q$, rx)));
   perform pg_temp.ck('real', '2i the patient cannot read the prescriber overview', 'ERR:42501', pg_temp.q_as(v_pat, 'select public.prescriber_pharmacy_overview()::text'));
   perform pg_temp.ck('real', '2j a clinician who did not sign it cannot answer', 'ERR:42501', pg_temp.q_as(v_doc2, format($q$select public.answer_pharmacy_question(%L, 'keep_as_written')::text$q$, flag)));
@@ -208,6 +218,8 @@ begin
   -- out of stock: a fixed notice, the patient is told and is shown that she needs another pharmacy
   perform pg_temp.ck('real', '2w out of stock: another pharmacy cannot report it', 'ERR:42501', pg_temp.q_as(phB, format($q$select public.pharmacist_report_out_of_stock(%L)::text$q$, rx)));
   perform pg_temp.ck('real', '2x out of stock is reported without text', 'true', (pg_temp.q_as(phA, format($q$select public.pharmacist_report_out_of_stock(%L)::text$q$, rx)) not like 'ERR:%')::text);
+  perform pg_temp.q_as(phA, format($q$select public.pharmacist_report_out_of_stock(%L)::text$q$, rx));
+  perform pg_temp.ck('real', '2x2 a second report is not a second flag', '1', (select count(*)::text from public.prescription_pharmacy_flags where prescription_id = rx and kind = 'out_of_stock'));
   perform pg_temp.ck('real', '2y the patient is shown she needs another pharmacy', 'true', pg_temp.q_as(v_pat, format($q$select other_pharmacy_needed::text from public.patient_prescription_collection(%L)$q$, rx)));
   -- a question cannot be answered once the prescription has left the pharmacy that asked
   perform pg_temp.q_as(phA, format($q$select public.pharmacist_ask_prescriber(%L, 'call_me')::text$q$, rx));
@@ -286,6 +298,9 @@ begin
   perform pg_temp.ck('real', '5j the old code no longer works', 'wrong_code', pg_temp.verify_as(phA, rx, code1));
   perform pg_temp.ck('real', '5k the second supply is recorded', 'recorded', pg_temp.disp_as(phA, rx, code2, false, null, 'PCN12345'));
   perform pg_temp.ck('real', '5l no third send is offered', 'ERR:22023', pg_temp.q_as(v_pat, format($q$select public.patient_choose_pharmacy(%L, %L, %L)$q$, rx, pA, lA)));
+  -- the state machine: without the patient's route flag nobody can push a collected prescription back to sent, or a waiting one back to signed
+  perform pg_temp.ck('real', '5m0 a collected prescription cannot go back to sent without the route flag', '23514',
+    (select pg_temp.try_state(rx, 'sent')));
   -- a prescription already supplied some other way (the QR check or the phone desk) is not offered to a partner at all
   rx2 := pg_temp.mkrx(v_org, v_pat, v_doc, 'ElsewhereDrug', 'signed');
   insert into public.pharmacy_order_dispenses (organisation_id, patient_id, medication_id, drug_name, source, recorded_via, dispensed_on)

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { useAskPrescriber, useDispensePrescription, usePrescriptionQuestions, useReportOutOfStock, useVerifyCollection } from "@/lib/pharmacy-collection/desk-queries";
 import { answerText, dispenseProblem, NOTE_MAX, NOTE_MIN, QUESTION_REASONS, questionText, type DeskVerification, type DispenseResult } from "@/lib/pharmacy-collection/model";
@@ -178,7 +179,7 @@ export function CollectionDesk({ prescriptionId }: { prescriptionId: string }) {
         </p>
       )}
       <Questions prescriptionId={prescriptionId} />
-      <p><a href="/pharmacist/prescriptions" className="text-sm font-semibold text-brand-green underline">Back to the list</a></p>
+      <p><Link href="/pharmacist/prescriptions" className="text-sm font-semibold text-brand-green underline">Back to the list</Link></p>
     </div>
   );
 }
