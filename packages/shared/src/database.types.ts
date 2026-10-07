@@ -34698,6 +34698,9 @@ export type Database = {
           is_active: boolean | null
           notes: string | null
           sources: Json
+          sources_confirmed_at: string | null
+          sources_confirmed_by: string | null
+          sources_confirmed_note: string | null
           status: string
           verify_against_source: boolean
           version: number
@@ -47458,6 +47461,10 @@ export type Database = {
         }
       }
       sign_clinical_config_version: { Args: { p_id: string }; Returns: string }
+      confirm_clinical_config_sources: {
+        Args: { p_id: string; p_note: string }
+        Returns: string
+      }
       record_independent_clinical_review: {
         Args: {
           p_config_version_id: string

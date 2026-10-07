@@ -19,6 +19,13 @@
 -- private.credential_is_cmo / private.is_admin live definitions were read with pg_get_functiondef on 2026-10-07,
 -- not trusted from migration files.
 --
+-- Sign guards, in order: CMO only; draft only; not older than a signed version; high-risk kinds need an approved
+-- independent review of the exact version; the CMO has confirmed the sources were checked
+-- (confirm_clinical_config_sources); no REQUIRED CMO-to-supply field is still null. Signing is serialised per kind
+-- with an advisory lock so two concurrent signs cannot both pass the stale check and retire the newer row.
+-- The private guard helpers have no EXECUTE for authenticated/anon/PUBLIC (they would otherwise let any
+-- signed-in user probe review state), and are reachable only through the definer RPCs.
+--
 -- anon: EXECUTE is revoked from PUBLIC (anon inherits through PUBLIC), then granted to authenticated only.
 
 create table public.clinical_config_versions (
@@ -35,7 +42,10 @@ create table public.clinical_config_versions (
   content               jsonb not null,
   sources               jsonb not null,
   verify_against_source boolean not null default true,
-  founder_position      text not null default 'CMO-approved 2026-10-07, pending independent review; not signed',
+  sources_confirmed_by  uuid references public.clinical_staff (id),
+  sources_confirmed_at  timestamptz,
+  sources_confirmed_note text,
+  founder_position     text not null default 'CMO-approved 2026-10-07, pending independent review; not signed',
   founder_position_date date not null default date '2026-10-07',
   notes                 text,
   status                text not null default 'draft' check (status in ('draft', 'active', 'retired')),
@@ -46,6 +56,9 @@ create table public.clinical_config_versions (
   unique (config_kind, version),
   check (jsonb_typeof(sources) = 'array' and jsonb_array_length(sources) > 0),
   check (jsonb_typeof(content) = 'object'),
+  -- The verify flag only clears together with who/when/why (confirm_clinical_config_sources).
+  check (verify_against_source
+      or (sources_confirmed_by is not null and sources_confirmed_at is not null and length(btrim(coalesce(sources_confirmed_note, ''))) > 0)),
   -- A draft is never signed; anything else always carries a signature.
   check ((status = 'draft' and approved_by is null and approved_at is null)
       or (status <> 'draft' and approved_by is not null and approved_at is not null))
@@ -164,11 +177,87 @@ as $$
   );
 $$;
 
-revoke all on function private.clinical_config_is_stale(uuid) from public;
-revoke all on function private.clinical_config_review_ok(uuid) from public;
-revoke all on function private.clinical_config_content_ok(text, jsonb) from public;
-revoke all on function private.clinical_config_kind_is_high_risk(text) from public;
-revoke all on function private.clinical_config_versions_freeze() from public;
+-- Fourth guard: the CMO has confirmed the source documents were opened (confirm_clinical_config_sources).
+create or replace function private.clinical_config_sources_ok(p_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (select 1 from public.clinical_config_versions v where v.id = p_id and not v.verify_against_source);
+$$;
+
+-- Fields that are REQUIRED to be supplied before signing (a null here is a CMO-to-supply gap). The
+-- fields the pack also leaves to the CMO but which the protocol works without are optional and are not
+-- listed: glp1 entry.ancestry_specific_lower_bmi_cutoffs (null = no lower cutoffs adopted) and
+-- hypertension risk_score.who_2019_cvd_chart_coefficients (the guard stays OFF without them).
+-- Mirrored by REQUIRED_CMO_FIELDS in packages/shared/src/clinical-config.ts.
+create or replace function private.clinical_config_required_unsupplied(p_kind text, p_content jsonb)
+returns text[]
+language sql
+immutable
+set search_path = ''
+as $$
+  select case p_kind
+    when 'glp1_readiness_protocol' then
+      case when coalesce(jsonb_typeof(p_content #> '{monitoring,stop_and_review_rule}'), 'null') <> 'string'
+                or length(btrim(p_content #>> '{monitoring,stop_and_review_rule}')) = 0
+           then array['monitoring.stop_and_review_rule'] else array[]::text[] end
+    else array[]::text[]
+  end;
+$$;
+
+-- Private helpers are reachable only through the definer RPCs: no PUBLIC, anon or authenticated EXECUTE
+-- (the schema default grants authenticated, which would let any signed-in user probe review state).
+revoke all on function private.clinical_config_is_stale(uuid) from public, anon, authenticated;
+revoke all on function private.clinical_config_review_ok(uuid) from public, anon, authenticated;
+revoke all on function private.clinical_config_sources_ok(uuid) from public, anon, authenticated;
+revoke all on function private.clinical_config_required_unsupplied(text, jsonb) from public, anon, authenticated;
+revoke all on function private.clinical_config_content_ok(text, jsonb) from public, anon, authenticated;
+revoke all on function private.clinical_config_kind_is_high_risk(text) from public, anon, authenticated;
+revoke all on function private.clinical_config_versions_freeze() from public, anon, authenticated;
+
+create or replace function public.confirm_clinical_config_sources(p_id uuid, p_note text)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_staff uuid;
+  v_kind text;
+  v_row public.clinical_config_versions%rowtype;
+begin
+  if not private.credential_is_cmo() then
+    raise exception 'not authorised: only the active Chief Medical Officer can confirm sources were checked' using errcode = '42501';
+  end if;
+  select cs.id into v_staff from public.clinical_staff cs
+   where cs.profile_id = (select auth.uid()) and cs.active and cs.status = 'active'
+     and cs.doctor_tier = 'chief_medical_officer' limit 1;
+  if p_note is null or length(btrim(p_note)) = 0 then
+    raise exception 'A note is required: say which source documents were opened' using errcode = '22023';
+  end if;
+  select * into v_row from public.clinical_config_versions where id = p_id for update;
+  if not found then
+    raise exception 'Clinical config version not found';
+  end if;
+  v_kind := v_row.config_kind;
+  if v_row.status <> 'draft' then
+    raise exception 'Sources can only be confirmed on a draft (this version is %)', v_row.status using errcode = '55000';
+  end if;
+  if not v_row.verify_against_source then
+    raise exception 'Sources were already confirmed for this version' using errcode = '55000';
+  end if;
+  update public.clinical_config_versions
+     set verify_against_source = false, sources_confirmed_by = v_staff,
+         sources_confirmed_at = now(), sources_confirmed_note = btrim(p_note)
+   where id = p_id;
+  perform private.log_audit('clinical_config_versions.sources_confirmed', 'clinical_config_versions', p_id,
+    jsonb_build_object('config_kind', v_kind, 'version', v_row.version, 'confirmed_by_clinical_staff', v_staff));
+  return p_id;
+end;
+$$;
 
 create or replace function public.record_independent_clinical_review(
   p_config_version_id uuid,
@@ -214,6 +303,8 @@ set search_path = ''
 as $$
 declare
   v_staff uuid;
+  v_kind text;
+  v_missing text[];
   v_row public.clinical_config_versions%rowtype;
 begin
   if not private.credential_is_cmo() then
@@ -223,10 +314,15 @@ begin
    where cs.profile_id = (select auth.uid()) and cs.active and cs.status = 'active'
      and cs.doctor_tier = 'chief_medical_officer' limit 1;
 
-  select * into v_row from public.clinical_config_versions where id = p_id for update;
-  if not found then
+  -- Serialise signing per kind BEFORE reading anything: two concurrent signs of different versions of one
+  -- kind could otherwise both pass the stale check and the later one would retire the newer active row.
+  select config_kind into v_kind from public.clinical_config_versions where id = p_id;
+  if v_kind is null then
     raise exception 'Clinical config version not found';
   end if;
+  perform pg_advisory_xact_lock(hashtextextended('clinical_config_versions:' || v_kind, 0));
+
+  select * into v_row from public.clinical_config_versions where id = p_id for update;
   if v_row.status <> 'draft' then
     raise exception 'Only a draft can be signed (this version is %)', v_row.status using errcode = '55000';
   end if;
@@ -236,6 +332,15 @@ begin
   end if;
   if private.clinical_config_kind_is_high_risk(v_row.config_kind) and not private.clinical_config_review_ok(p_id) then
     raise exception 'High-risk config % version % needs an approved independent clinical review for this exact version before it can be signed', v_row.config_kind, v_row.version
+      using errcode = '55000';
+  end if;
+  if not private.clinical_config_sources_ok(p_id) then
+    raise exception '% version % cannot be signed until the Chief Medical Officer confirms the source documents were checked', v_row.config_kind, v_row.version
+      using errcode = '55000';
+  end if;
+  v_missing := private.clinical_config_required_unsupplied(v_row.config_kind, v_row.content);
+  if cardinality(v_missing) > 0 then
+    raise exception '% version % still has required fields the CMO must supply: %', v_row.config_kind, v_row.version, array_to_string(v_missing, ', ')
       using errcode = '55000';
   end if;
 
@@ -253,6 +358,8 @@ $$;
 
 revoke all on function public.record_independent_clinical_review(uuid, text, text, timestamptz, text, text) from public;
 revoke all on function public.sign_clinical_config_version(uuid) from public;
+revoke all on function public.confirm_clinical_config_sources(uuid, text) from public;
+grant execute on function public.confirm_clinical_config_sources(uuid, text) to authenticated;
 grant execute on function public.record_independent_clinical_review(uuid, text, text, timestamptz, text, text) to authenticated;
 grant execute on function public.sign_clinical_config_version(uuid) to authenticated;
 
@@ -447,8 +554,15 @@ begin
     raise exception 'FAIL: a seeded row is active';
   end if;
   if has_function_privilege('anon', 'public.sign_clinical_config_version(uuid)', 'EXECUTE')
+     or has_function_privilege('anon', 'public.confirm_clinical_config_sources(uuid,text)', 'EXECUTE')
      or has_function_privilege('anon', 'public.record_independent_clinical_review(uuid,text,text,timestamptz,text,text)', 'EXECUTE') then
     raise exception 'FAIL: anon can execute a S88 RPC';
+  end if;
+  if has_function_privilege('authenticated', 'private.clinical_config_is_stale(uuid)', 'EXECUTE')
+     or has_function_privilege('authenticated', 'private.clinical_config_review_ok(uuid)', 'EXECUTE')
+     or has_function_privilege('authenticated', 'private.clinical_config_sources_ok(uuid)', 'EXECUTE')
+     or has_function_privilege('authenticated', 'private.clinical_config_required_unsupplied(text,jsonb)', 'EXECUTE') then
+    raise exception 'FAIL: authenticated can execute a private S88 guard helper';
   end if;
   if not has_function_privilege('authenticated', 'public.sign_clinical_config_version(uuid)', 'EXECUTE') then
     raise exception 'FAIL: authenticated cannot execute the sign RPC';

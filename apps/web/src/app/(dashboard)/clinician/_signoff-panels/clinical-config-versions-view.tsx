@@ -13,7 +13,34 @@ import {
   type ClinicalConfigVersionRow,
   type IndependentClinicalReviewRow,
 } from "@tarragon/shared";
-import { signClinicalConfigVersionAction, type SignClinicalConfigState } from "./clinical-config-actions";
+import { confirmClinicalConfigSourcesAction, signClinicalConfigVersionAction, type SignClinicalConfigState } from "./clinical-config-actions";
+
+function ConfirmSourcesControl({ versionId }: { versionId: string }) {
+  const [state, action, pending] = useActionState<SignClinicalConfigState, FormData>(
+    (_prev, formData) => confirmClinicalConfigSourcesAction(versionId, String(formData.get("note") ?? "")),
+    undefined
+  );
+  return (
+    <form action={action} className="mt-3 space-y-2">
+      <label htmlFor={`note-${versionId}`} className="block text-sm font-medium">
+        Which source documents did you open? (required)
+      </label>
+      <textarea
+        id={`note-${versionId}`}
+        name="note"
+        required
+        rows={2}
+        className="w-full rounded-md border border-mist-grey/60 p-2 text-sm"
+        placeholder="e.g. Opened the national hypertension guideline and ISH 2020 and checked every number."
+      />
+      <Button type="submit" size="sm" variant="outline" disabled={pending}>
+        {pending ? "Saving…" : "Confirm sources checked"}
+      </Button>
+      {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
+      {state?.success && <p className="text-sm text-brand-green">Recorded.</p>}
+    </form>
+  );
+}
 
 function SignControl({ row, reviews, highestSigned }: { row: ClinicalConfigVersionRow; reviews: IndependentClinicalReviewRow[]; highestSigned: number | null }) {
   const [state, action, pending] = useActionState<SignClinicalConfigState, FormData>(
@@ -101,10 +128,19 @@ export function ClinicalConfigVersionsView({
               <p>
                 Founder position: {row.founder_position} ({row.founder_position_date}).
               </p>
-              {row.verify_against_source && (
-                <p className="rounded-md border border-amber-300 bg-amber-50 p-2">
-                  Verify against source: confirm the guideline documents below were opened and every number checked
-                  before signing.
+              {row.verify_against_source ? (
+                <div className="rounded-md border border-amber-300 bg-amber-50 p-2">
+                  <p>
+                    Verify against source: confirm the guideline documents below were opened and every number checked.
+                    Signing is blocked until the Chief Medical Officer records that.
+                  </p>
+                  {row.status === "draft" && <ConfirmSourcesControl versionId={row.id} />}
+                </div>
+              ) : (
+                <p className="rounded-md border border-mist-grey/40 p-2">
+                  Sources confirmed checked
+                  {row.sources_confirmed_at ? ` on ${new Date(row.sources_confirmed_at).toLocaleDateString("en-GB")}` : ""}
+                  {row.sources_confirmed_note ? `: ${row.sources_confirmed_note}` : ""}
                 </p>
               )}
               {!contentOk && (

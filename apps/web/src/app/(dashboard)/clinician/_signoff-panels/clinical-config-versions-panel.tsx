@@ -19,7 +19,7 @@ export async function ClinicalConfigVersionsPanel() {
   const [versionsRes, reviewsRes] = await Promise.all([
     supabase
       .from("clinical_config_versions")
-      .select("id, config_kind, version, content, sources, verify_against_source, founder_position, founder_position_date, notes, status, approved_at")
+      .select("id, config_kind, version, content, sources, verify_against_source, sources_confirmed_at, sources_confirmed_note, founder_position, founder_position_date, notes, status, approved_at")
       .order("config_kind", { ascending: true })
       .order("version", { ascending: false }),
     supabase

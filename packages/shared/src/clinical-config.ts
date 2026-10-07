@@ -97,8 +97,8 @@ export const hypertensionCareGapRulesSchema = z.object({
     prevent_calculator: z.boolean(),
     total_risk: text,
     who_2019_cvd_chart_guard: text,
-    /** Null until the CMO supplies and signs the coefficients. */
-    who_2019_cvd_chart_coefficients: z.null(),
+    /** OPTIONAL: null until the CMO supplies the coefficients; the guard stays OFF without them, so signing is not blocked. */
+    who_2019_cvd_chart_coefficients: z.record(z.string(), z.unknown()).nullish(),
     who_2019_cvd_chart_coefficients_note: text,
   }),
   notifications: z.object({
@@ -114,8 +114,8 @@ export const glp1ReadinessProtocolSchema = z.object({
     bmi_min_with_weight_related_complication: z.number().positive(),
     min_months_behavioural_programme: z.number().int().positive(),
     not_pregnant: z.boolean(),
-    /** Null: left to the CMO in the pack. */
-    ancestry_specific_lower_bmi_cutoffs: z.null(),
+    /** OPTIONAL: null means no lower ancestry-specific cutoffs adopted (a CMO choice); the default cutoffs above still apply. */
+    ancestry_specific_lower_bmi_cutoffs: z.string().nullish(),
     ancestry_specific_lower_bmi_cutoffs_note: text,
   }),
   hard_stops: list,
@@ -125,8 +125,8 @@ export const glp1ReadinessProtocolSchema = z.object({
     gi_tolerability: z.boolean(),
     hypoglycaemia_checks_with: list,
     review_at_months: z.number().int().positive(),
-    /** Null: the pack names a stop-and-review rule but gives no text. */
-    stop_and_review_rule: z.null(),
+    /** REQUIRED before signing: the pack names a stop-and-review rule but gives no text. Null blocks the sign RPC. */
+    stop_and_review_rule: z.string().min(1).nullable(),
     stop_and_review_rule_note: text,
     contraception_counselling: z.boolean(),
   }),
@@ -218,6 +218,8 @@ export const clinicalConfigVersionRowSchema = z.object({
   content: z.unknown(),
   sources: z.unknown(),
   verify_against_source: z.boolean(),
+  sources_confirmed_at: z.string().nullable(),
+  sources_confirmed_note: z.string().nullable(),
   founder_position: text,
   founder_position_date: text,
   notes: z.string().nullable(),
@@ -252,7 +254,7 @@ export type ClinicalConfigSignState =
  * and a high-risk kind needs an approved independent review for this exact version.
  */
 export function clinicalConfigSignState(
-  row: Pick<ClinicalConfigVersionRow, "id" | "config_kind" | "version" | "status">,
+  row: Pick<ClinicalConfigVersionRow, "id" | "config_kind" | "version" | "status" | "verify_against_source" | "content">,
   reviews: readonly IndependentClinicalReviewRow[],
   highestSignedVersion: number | null,
 ): ClinicalConfigSignState {
@@ -269,5 +271,37 @@ export function clinicalConfigSignState(
       };
     }
   }
+  if (row.verify_against_source) {
+    return {
+      canSign: false,
+      reason: "The Chief Medical Officer must first confirm the source documents were checked (Confirm sources checked).",
+    };
+  }
+  const missing = requiredUnsuppliedFields(row.config_kind, row.content);
+  if (missing.length > 0) {
+    return { canSign: false, reason: `Required fields the CMO must supply are still empty: ${missing.join(", ")}.` };
+  }
   return { canSign: true };
+}
+
+/**
+ * Fields that must be supplied before signing (null blocks the sign RPC). The pack also leaves the GLP-1
+ * ancestry BMI cutoffs and the WHO 2019 chart coefficients to the CMO, but the protocol works without them,
+ * so they are optional in the shapes above and not listed. Mirrors private.clinical_config_required_unsupplied.
+ */
+export const REQUIRED_CMO_FIELDS: Partial<Record<ClinicalConfigKind, readonly (readonly string[])[]>> = {
+  glp1_readiness_protocol: [["monitoring", "stop_and_review_rule"]],
+};
+
+export function requiredUnsuppliedFields(kind: ClinicalConfigKind, content: unknown): string[] {
+  return (REQUIRED_CMO_FIELDS[kind] ?? [])
+    .filter((path) => {
+      let cur: unknown = content;
+      for (const key of path) {
+        if (typeof cur !== "object" || cur === null) return true;
+        cur = (cur as Record<string, unknown>)[key];
+      }
+      return typeof cur !== "string" || cur.trim().length === 0;
+    })
+    .map((path) => path.join("."));
 }

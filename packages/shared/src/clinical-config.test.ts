@@ -9,6 +9,7 @@ import {
   clinicalConfigSourcesSchema,
   isHighRiskClinicalConfigKind,
   parseClinicalConfigContent,
+  requiredUnsuppliedFields,
   type ClinicalConfigKind,
   type IndependentClinicalReviewRow,
 } from "./clinical-config";
@@ -81,7 +82,33 @@ describe("S88 clinical config content shapes", () => {
 });
 
 describe("clinicalConfigSignState", () => {
-  const draft = (kind: ClinicalConfigKind) => ({ id: "row-1", config_kind: kind, version: 1, status: "draft" as const });
+  const glpContent = (rule: string | null) => ({ monitoring: { stop_and_review_rule: rule }, entry: { ancestry_specific_lower_bmi_cutoffs: null } });
+  // Sources confirmed and the required field supplied, so each test isolates one guard.
+  const draft = (kind: ClinicalConfigKind) => ({
+    id: "row-1",
+    config_kind: kind,
+    version: 1,
+    status: "draft" as const,
+    verify_against_source: false,
+    content: kind === "glp1_readiness_protocol" ? glpContent("TEST ONLY") : {},
+  });
+
+  it("refuses while the sources are unconfirmed, naming the guard", () => {
+    const s = clinicalConfigSignState({ ...draft("field_nurse_visit_scope"), verify_against_source: true }, [], null);
+    expect(s).toEqual({ canSign: false, reason: expect.stringContaining("confirm the source documents") });
+  });
+
+  it("refuses while a required CMO-to-supply field is null, but not for the optional nulls", () => {
+    const blocked = clinicalConfigSignState({ ...draft("glp1_readiness_protocol"), content: glpContent(null) }, [review("row-1", "approved")], null);
+    expect(blocked).toEqual({ canSign: false, reason: expect.stringContaining("monitoring.stop_and_review_rule") });
+    expect(requiredUnsuppliedFields("glp1_readiness_protocol", glpContent("x"))).toEqual([]);
+    expect(requiredUnsuppliedFields("hypertension_care_gap_rules", { risk_score: { who_2019_cvd_chart_coefficients: null } })).toEqual([]);
+  });
+
+  it("the seeded GLP-1 row has exactly one required gap and the hypertension row none", () => {
+    expect(requiredUnsuppliedFields("glp1_readiness_protocol", seeds().glp1_readiness_protocol.content)).toEqual(["monitoring.stop_and_review_rule"]);
+    expect(requiredUnsuppliedFields("hypertension_care_gap_rules", seeds().hypertension_care_gap_rules.content)).toEqual([]);
+  });
 
   it("classifies high and medium risk kinds as the pack does", () => {
     expect(CLINICAL_CONFIG_KINDS.filter(isHighRiskClinicalConfigKind).sort()).toEqual(
