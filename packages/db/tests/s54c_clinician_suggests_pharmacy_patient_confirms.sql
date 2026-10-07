@@ -115,6 +115,9 @@ begin
   perform pg_temp.setf('lE', (select id from public.pharmacy_partner_locations where pharmacy_partner_id = pg_temp.f('pE')));
 
   v_adm := pg_temp.mkuser(v_org, 'adm', 'admin', 'S54c Admin'); perform pg_temp.setf('adm', v_adm);
+  -- S28c put collection behind the S37 prescribing guard (fail closed); this proof exercises the open path, so switch it on the way the guard's trigger allows (a log row, then the update)
+  insert into public.go_live_guard_log (guard_key, action, actor_id, actor_role, note, conditions) values ('prescribing_enabled', 'switched_on', v_adm, 'admin', 'S54c proof', '[]'::jsonb);
+  update public.go_live_guards set is_on = true, changed_at = now(), changed_by = v_adm, change_note = 'S54c proof' where key = 'prescribing_enabled';
   v_doc := pg_temp.mkuser(v_org, 'doc', 'clinician', 'S54c Prescriber'); perform pg_temp.setf('doc', v_doc);
   perform pg_temp.mkstaff(v_org, v_doc, 'senior_medical_officer', v_adm);
   perform pg_temp.setf('doc2', pg_temp.mkuser(v_org, 'doc2', 'clinician', 'S54c Untied Clinician'));
