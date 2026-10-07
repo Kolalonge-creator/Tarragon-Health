@@ -10,6 +10,8 @@
 --   4. A figure is frozen: a member who leaves after it was written does not change it, and the figure holds only aggregates (no member list or id).
 --   5. SABOTAGE: write-once trigger dropped (an update must then succeed); the ownership check removed from sponsor_staff_figures (another
 --      sponsor's staff must then read it). Both checks must flip.
+--   6. A month whose figure would differ by only a few people from the last published one is held back whole (and builds up until it can be
+--      published); the member list is never returned; an export by staff is audited first and refused alike for another sponsor.
 -- Wrapped in BEGIN/ROLLBACK; mints its own fixtures.
 -- ===========================================================================
 
@@ -36,7 +38,7 @@ declare
   v_org uuid := (select id from public.organisations order by created_at limit 1);
   v_sp uuid; v_sp2 uuid; v_clinic uuid; adm uuid; clin uuid; pat uuid; st uuid; st2 uuid; st_wrong uuid; st_off uuid;
   v_cohort uuid; v_cohort2 uuid; v_code text; v_r jsonb; v_r2 jsonb; v_n integer; v_txt text; p uuid; pts uuid[] := '{}'; i integer;
-  v_pay1 jsonb; v_pay2 jsonb; v_today date := (now() at time zone 'Africa/Lagos')::date; v_next date := (date_trunc('month', now() at time zone 'Africa/Lagos') + interval '1 month')::date;
+  v_pay1 jsonb; v_pay2 jsonb; v_next2 date := (date_trunc('month', now() at time zone 'Africa/Lagos') + interval '2 months')::date; v_next3 date := (date_trunc('month', now() at time zone 'Africa/Lagos') + interval '3 months')::date; v_h boolean; v_next4 date := (date_trunc('month', now() at time zone 'Africa/Lagos') + interval '4 months')::date; v_next5 date := (date_trunc('month', now() at time zone 'Africa/Lagos') + interval '5 months')::date; v_cc text; v_today date := (now() at time zone 'Africa/Lagos')::date; v_next date := (date_trunc('month', now() at time zone 'Africa/Lagos') + interval '1 month')::date;
   v_cur date := date_trunc('month', now() at time zone 'Africa/Lagos')::date; v_grace integer := (private.report_rule('grace_days') #>> '{}')::integer;
 begin
   update public.outcome_config set config = jsonb_set(config, '{min_cell}', '1') where is_active;
@@ -125,6 +127,7 @@ begin
   insert into s38f_results values ('3b the figure shows the joined and agreed counts (six of six) for the month', coalesce(v_r2 #>> '{months,0,figures,members,joined}', 'none') || '/' || coalesce(v_r2 #>> '{months,0,figures,members,agreed_to_share}', 'none'), '6/6',
     case when v_r2 #>> '{months,0,figures,members,joined}' = '6' and v_r2 #>> '{months,0,figures,members,agreed_to_share}' = '6' then 'PASS' else 'FAIL' end);
   v_pay1 := v_r2;
+  insert into s38f_results values ('3b2 the member set used for comparing months is the same people the figure counts', cardinality(private.sponsor_agreed_members(v_cohort))::text, '6', case when cardinality(private.sponsor_agreed_members(v_cohort)) = 6 then 'PASS' else 'FAIL' end);
   select count(*) into v_n from public.audit_log where action = 'sponsor.staff_viewed' and actor_id = st;
   insert into s38f_results values ('3c the read is audited', v_n::text, '1', case when v_n = 1 then 'PASS' else 'FAIL' end);
   -- another sponsor's staff, and a programme that does not exist, get the same refusal
@@ -158,12 +161,44 @@ begin
     case when (v_pay1 -> 'months' -> 0 -> 'figures') = (v_pay2 -> 'months' -> 0 -> 'figures') then 'PASS' else 'FAIL' end);
   insert into s38f_results values ('4b the figure holds no member id or list', (v_pay2::text ~* '(patient_id|"id")')::text, 'false', case when v_pay2::text !~* '(patient_id|"id")' then 'PASS' else 'FAIL' end);
 
+  -- one member left (pts[1], above): the next month's figure would differ by one person from the last published one, so it is held back whole
+  v_n := private.generate_sponsor_snapshots((v_next2 + v_grace)::timestamp at time zone 'Africa/Lagos' + interval '12 hours');
+  select held_back into v_h from public.sponsor_report_snapshots where cohort_id = v_cohort and period = v_next;
+  insert into s38f_results values ('4c a one-person change is held back (two published months cannot be subtracted)', coalesce(v_h::text, 'none'), 'true', case when v_h then 'PASS' else 'FAIL' end);
+  perform pg_temp.as_user(st); execute 'set local role authenticated';
+  v_pay2 := public.sponsor_staff_figures(v_cohort);
+  execute 'reset role';
+  insert into s38f_results values ('4d staff see the month as held back, with no figures and no member list', (v_pay2 #>> '{months,0,figures,held_back}') || '/' || ((v_pay2 #> '{months,0,figures}') ? 'members')::text || '/' || (v_pay2::text ~ 'member_set')::text, 'true/false/false',
+    case when v_pay2 #>> '{months,0,figures,held_back}' = 'true' and not ((v_pay2 #> '{months,0,figures}') ? 'members') and v_pay2::text !~ 'member_set' then 'PASS' else 'FAIL' end);
+  -- four more leave: against the last PUBLISHED figure five people now differ, enough to publish
+  for i in 2..5 loop
+    perform pg_temp.as_user(pts[i]); execute 'set local role authenticated'; perform public.leave_cohort(v_cohort); execute 'reset role';
+  end loop;
+  v_n := private.generate_sponsor_snapshots((v_next3 + v_grace)::timestamp at time zone 'Africa/Lagos' + interval '12 hours');
+  select held_back into v_h from public.sponsor_report_snapshots where cohort_id = v_cohort and period = v_next2;
+  insert into s38f_results values ('4e once enough has changed the figure is published again', coalesce(v_h::text, 'none'), 'false', case when v_h = false then 'PASS' else 'FAIL' end);
+
+  -- staff export: audited first, refused alike for another sponsor and a missing programme
+  perform pg_temp.as_user(st); execute 'set local role authenticated';
+  v_r := public.log_sponsor_staff_export(v_cohort);
+  execute 'reset role';
+  perform pg_temp.as_user(st2); execute 'set local role authenticated';
+  v_r2 := public.log_sponsor_staff_export(v_cohort);
+  execute 'reset role';
+  select count(*) into v_n from public.audit_log where action = 'sponsor.staff_exported' and actor_id = st;
+  insert into s38f_results values ('4f an export by own staff is audited; another sponsor gets {ok:false}', (v_r ->> 'ok') || '/' || v_n || '/' || v_r2::text, 'true/1/{"ok": false}',
+    case when v_r ->> 'ok' = 'true' and v_n = 1 and v_r2 = '{"ok": false}'::jsonb then 'PASS' else 'FAIL' end);
+  perform pg_temp.as_user(clin); execute 'set local role authenticated';
+  begin perform public.log_sponsor_staff_export(v_cohort); insert into s38f_results values ('4g a clinician cannot export', 'allowed', 'refused', 'FAIL');
+  exception when insufficient_privilege then insert into s38f_results values ('4g a clinician cannot export', 'refused', 'refused', 'PASS'); end;
+  execute 'reset role';
+
   -- =============================== 5. sabotage ===============================
   -- (a) the write-once trigger dropped: an update must then succeed
   execute 'drop trigger sponsor_snapshots_write_once on public.sponsor_report_snapshots';
   update public.sponsor_report_snapshots set payload = '{"x":1}'::jsonb where cohort_id = v_cohort;
   get diagnostics v_n = row_count;
-  insert into s38f_results values ('5a SABOTAGE: without the trigger a figure can be changed (2f would FAIL)', v_n::text, '1', case when v_n = 1 then 'PASS' else 'FAIL' end);
+  insert into s38f_results values ('5a SABOTAGE: without the trigger a figure can be changed (2f would FAIL)', v_n::text, '3 (all rows changed)', case when v_n >= 1 then 'PASS' else 'FAIL' end);
   -- (b) the ownership check removed: another sponsor's staff must then read it
   select pg_get_functiondef('public.sponsor_staff_figures(uuid)'::regprocedure) into v_txt;
   v_txt := replace(v_txt, 'where id = p_cohort and sponsor_org_id = v_org and not is_test', 'where id = p_cohort and not is_test');
@@ -172,7 +207,24 @@ begin
   perform pg_temp.as_user(st2); execute 'set local role authenticated';
   v_r2 := public.sponsor_staff_figures(v_cohort);
   execute 'reset role';
-  insert into s38f_results values ('5b SABOTAGE: without the ownership check another sponsor reads it (3d would FAIL)', jsonb_array_length(v_r2 -> 'months')::text, '1', case when v_r2 ->> 'ok' = 'true' and jsonb_array_length(v_r2 -> 'months') = 1 then 'PASS' else 'FAIL' end);
+  insert into s38f_results values ('5b SABOTAGE: without the ownership check another sponsor reads it (3d would FAIL)', jsonb_array_length(v_r2 -> 'months')::text, 'at least 1', case when v_r2 ->> 'ok' = 'true' and jsonb_array_length(v_r2 -> 'months') >= 1 then 'PASS' else 'FAIL' end);
+  -- (c) the hold removed. First show the hold applies: one new member since the last published figure holds the next month back.
+  select code into v_cc from public.sponsor_cohorts where id = v_cohort;
+  p := pg_temp.mkuser('patient');
+  perform pg_temp.as_user(p); execute 'set local role authenticated';
+  perform public.join_cohort(v_cc); perform public.set_cohort_reporting_consent(v_cohort, true);
+  execute 'reset role';
+  v_n := private.generate_sponsor_snapshots((v_next4 + v_grace)::timestamp at time zone 'Africa/Lagos' + interval '12 hours');
+  select held_back into v_h from public.sponsor_report_snapshots where cohort_id = v_cohort and period = v_next3;
+  insert into s38f_results values ('5c0 one new member since the last published figure holds the month back', coalesce(v_h::text, 'none'), 'true', case when v_h then 'PASS' else 'FAIL' end);
+  -- then take the hold out of the job: the same one-person change must now be published
+  select pg_get_functiondef('private.generate_sponsor_snapshots(timestamptz)'::regprocedure) into v_txt;
+  v_txt := replace(v_txt, 'v_held := v_diff between 1 and v_min - 1;', 'v_held := false;');
+  if v_txt = pg_get_functiondef('private.generate_sponsor_snapshots(timestamptz)'::regprocedure) then raise exception 'sabotage (c) did not change the function'; end if;
+  execute v_txt;
+  v_n := private.generate_sponsor_snapshots((v_next5 + v_grace)::timestamp at time zone 'Africa/Lagos' + interval '12 hours');
+  select held_back into v_h from public.sponsor_report_snapshots where cohort_id = v_cohort and period = v_next4;
+  insert into s38f_results values ('5c SABOTAGE: without the hold a one-person change is published (4c would FAIL)', coalesce(v_h::text, 'none'), 'false', case when v_h = false then 'PASS' else 'FAIL' end);
 end $$;
 
 select * from s38f_results order by check_name;

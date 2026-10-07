@@ -1493,6 +1493,7 @@ export const pcm: Record<MessageKey, string> = {
   "programme.share_unavailable": "Sharing never open. You fit still dey the programme.",
   "programme.leave": "Leave this programme",
   "programme.leave_note": "If you leave, sharing go stop too.",
+  "programme.own_only": "Programme na the person own choice. Open your own account to join or change one.",
   "programme.saved": "Saved.",
   "programme.error": "That one no work. Nothing change. Try again.",
 };

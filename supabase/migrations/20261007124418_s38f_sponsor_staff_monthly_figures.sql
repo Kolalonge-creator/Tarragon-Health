@@ -12,6 +12,9 @@
 -- never, small groups withheld whole, complementary suppression). Only the latest closed month is ever written, so a snapshot always reflects the
 -- consents as they stood when that month closed; older months are not rebuilt later from today's consents.
 --
+-- Held back: if the people behind a month's figure differ from those behind the last published figure by a small number, the month is published
+-- as 'held back' (reason small_change) and the comparison stays with the last published figure. That closes subtracting two months.
+--
 -- Every read by sponsor staff is written to the audit log. A programme that is not the caller's gets the same refusal as one that does not
 -- exist. Sponsor staff never see a member, a count of people below the minimum, a name or a list.
 
@@ -22,6 +25,9 @@ create table public.sponsor_report_snapshots (
   sponsor_org_id  uuid not null references public.organisations (id) on delete restrict,
   period          date not null check (period = date_trunc('month', period)::date),
   payload         jsonb not null,
+  -- The people the figure was drawn from, kept only to compare one month with the last published one. Never returned to anyone.
+  member_set      uuid[] not null default '{}',
+  held_back       boolean not null default false,
   generated_at    timestamptz not null default now(),
   unique (cohort_id, period)
 );
@@ -45,6 +51,19 @@ as $$
 $$;
 revoke all on function private.sponsor_staff_org() from public, anon, authenticated;
 
+-- The members a sponsor figure is drawn from: the same test as private.sponsor_report_aggregate (joined, still in, active, not a test account,
+-- agreed under the current text and consent still in force). The proof asserts the two agree.
+create function private.sponsor_agreed_members(p_cohort uuid) returns uuid[]
+language sql stable security definer set search_path = ''
+as $$
+  select coalesce(array_agg(pc.patient_id order by pc.patient_id), '{}')
+    from public.profile_cohorts pc join public.profiles p on p.id = pc.patient_id
+   where pc.cohort_id = p_cohort and pc.left_at is null and not pc.is_test and not coalesce(p.is_test, false) and p.is_active
+     and pc.reporting_consent and exists (select 1 from public.consent_versions v where v.id = pc.consent_version_id and v.is_current)
+     and private.sponsor_consent_in_force(pc.patient_id)
+$$;
+revoke all on function private.sponsor_agreed_members(uuid) from public, anon, authenticated;
+
 -- The monthly job: the latest closed month only, from the grace days until a week later, for programmes that existed and were valid in that month.
 create function private.generate_sponsor_snapshots(p_now timestamptz default now()) returns integer
 language plpgsql security definer set search_path = ''
@@ -54,7 +73,7 @@ declare
   v_grace integer := (private.report_rule('grace_days') #>> '{}')::integer;
   v_month date := (date_trunc('month', v_today) - interval '1 month')::date;
   v_end date := (date_trunc('month', v_today) - interval '1 day')::date;
-  c record; n integer := 0; v_failed integer := 0; v_last text;
+  c record; n integer := 0; v_failed integer := 0; v_last text; v_set uuid[]; v_prev uuid[]; v_diff integer; v_min integer; v_held boolean; v_payload jsonb;
 begin
   -- Only inside a short catch-up window after the grace days. Later than that the live data no longer describes the month that closed, so a
   -- gap is left rather than a figure that is mislabelled; a failing run opens an incident every day it fails.
@@ -66,8 +85,21 @@ begin
        and not exists (select 1 from public.sponsor_report_snapshots s where s.cohort_id = sc.id and s.period = v_month)
   loop
     begin
-      insert into public.sponsor_report_snapshots (organisation_id, cohort_id, sponsor_org_id, period, payload)
-      values (c.organisation_id, c.id, c.sponsor_org_id, v_month, private.sponsor_report_aggregate(c.id, null, v_end))
+      -- Two published months can be subtracted to expose the few people who changed between them. So when the people behind this month's
+      -- figure differ from those behind the last published figure by a small number (not none, not enough to hide among), this month is held
+      -- back whole; the comparison stays with the last published figure, so the difference builds up until it is large enough to publish.
+      v_set := private.sponsor_agreed_members(c.id);
+      select member_set into v_prev from public.sponsor_report_snapshots where cohort_id = c.id and not held_back order by period desc limit 1;
+      select greatest((private.outcome_rule('min_cell') #>> '{}')::integer, o.min_cohort_size) into v_min from public.organisations o where o.id = c.sponsor_org_id;
+      v_diff := case when v_prev is null then 0 else
+        (select count(*) from (select unnest(v_set) except select unnest(v_prev)) a)::integer + (select count(*) from (select unnest(v_prev) except select unnest(v_set)) b)::integer end;
+      v_held := v_diff between 1 and v_min - 1;
+      v_payload := case when v_held
+        then jsonb_build_object('held_back', true, 'reason', 'small_change', 'minimum', v_min,
+               'limitations', 'This month''s figure is held back because it would differ from the last published one by only a few people, which could reveal them. It will appear once enough has changed.')
+        else private.sponsor_report_aggregate(c.id, null, v_end) end;
+      insert into public.sponsor_report_snapshots (organisation_id, cohort_id, sponsor_org_id, period, payload, member_set, held_back)
+      values (c.organisation_id, c.id, c.sponsor_org_id, v_month, v_payload, v_set, v_held)
       on conflict (cohort_id, period) do nothing;
       n := n + 1;
     exception when others then
@@ -119,15 +151,33 @@ end $$;
 revoke all on function public.sponsor_staff_figures(uuid) from public, anon;
 grant execute on function public.sponsor_staff_figures(uuid) to authenticated;
 
+-- A file download of one programme's figures by sponsor staff: the access is written first and no file is given if it could not be (the
+-- web route calls this before building the file). Same refusal for another sponsor's programme and a missing one.
+create function public.log_sponsor_staff_export(p_cohort uuid) returns jsonb
+language plpgsql security definer set search_path = ''
+as $$
+declare v_org uuid := private.sponsor_staff_org();
+begin
+  if (select auth.uid()) is null or v_org is null then raise exception 'sponsor_not_authorised' using errcode = '42501'; end if;
+  if not exists (select 1 from public.sponsor_cohorts where id = p_cohort and sponsor_org_id = v_org and not is_test) then
+    perform private.log_audit('sponsor.staff_refused', 'sponsor_cohort', null, jsonb_build_object('asked_for', p_cohort));
+    return jsonb_build_object('ok', false);
+  end if;
+  perform private.log_audit('sponsor.staff_exported', 'sponsor_cohort', p_cohort, jsonb_build_object('format', 'csv'));
+  return jsonb_build_object('ok', true);
+end $$;
+revoke all on function public.log_sponsor_staff_export(uuid) from public, anon;
+grant execute on function public.log_sponsor_staff_export(uuid) to authenticated;
+
 do $$
 begin
   if has_table_privilege('authenticated', 'public.sponsor_report_snapshots', 'SELECT') or has_table_privilege('anon', 'public.sponsor_report_snapshots', 'SELECT') then
     raise exception 'S38f: sponsor_report_snapshots is readable directly';
   end if;
-  if has_function_privilege('anon', 'public.sponsor_staff_figures(uuid)', 'EXECUTE') or has_function_privilege('anon', 'public.sponsor_staff_programmes()', 'EXECUTE') then
+  if has_function_privilege('anon', 'public.sponsor_staff_figures(uuid)', 'EXECUTE') or has_function_privilege('anon', 'public.sponsor_staff_programmes()', 'EXECUTE') or has_function_privilege('anon', 'public.log_sponsor_staff_export(uuid)', 'EXECUTE') then
     raise exception 'S38f: anon can execute a sponsor staff function';
   end if;
-  if has_function_privilege('authenticated', 'private.generate_sponsor_snapshots(timestamptz)', 'EXECUTE') or has_function_privilege('authenticated', 'private.sponsor_staff_org()', 'EXECUTE') then
+  if has_function_privilege('authenticated', 'private.generate_sponsor_snapshots(timestamptz)', 'EXECUTE') or has_function_privilege('authenticated', 'private.sponsor_staff_org()', 'EXECUTE') or has_function_privilege('authenticated', 'private.sponsor_agreed_members(uuid)', 'EXECUTE') then
     raise exception 'S38f: a private helper is callable by users';
   end if;
 end $$;

@@ -49,6 +49,12 @@ describe("figureLines", () => {
     expect(figureLines({ ...full, members: { suppressed: false, joined: 40, agreed_to_share: 30 } })).toBeNull();
     expect(figureLines({ ...full, adherence_separate: { suppressed: false, n: 25 } })).toBeNull();
   });
+  it("words a held-back month as held back and shows no numbers", () => {
+    const lines = figureLines({ held_back: true, reason: "small_change", minimum: 20, limitations: "x" })!;
+    expect(lines).toHaveLength(1);
+    expect(lines[0].value).toContain("Held back");
+    expect(lines[0].value).not.toMatch(/\d/);
+  });
   it("rejects a payload with a missing section instead of inventing one", () => {
     expect(figureLines({ members: full.members })).toBeNull();
     expect(figureLines(null)).toBeNull();

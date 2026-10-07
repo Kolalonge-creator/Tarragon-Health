@@ -42993,6 +42993,7 @@ export type Database = {
       set_cohort_reporting_consent: { Args: { p_cohort: string; p_granted: boolean }; Returns: Json };
       sponsor_outcome_report: { Args: { p_cohort: string; p_from?: string; p_to?: string }; Returns: Json };
       sponsor_staff_figures: { Args: { p_cohort: string }; Returns: Json };
+      log_sponsor_staff_export: { Args: { p_cohort: string }; Returns: Json };
       sponsor_staff_programmes: { Args: Record<PropertyKey, never>; Returns: Json };
       triage_accuracy_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       lab_panel_definition: { Args: { p_panel: string }; Returns: Json };

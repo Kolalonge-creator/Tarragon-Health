@@ -50,7 +50,8 @@ function cell(v: string | number | null | undefined): string {
 const line = (...c: (string | number | null | undefined)[]) => c.map(cell).join(",");
 const W = (name: string, w: z.infer<typeof withheld>) => [line(name, "status", "withheld"), line(name, "reason", w.reason), line(name, "minimum_group_size", w.minimum)];
 
-export function sponsorReportToCsv(r: SponsorReport): string {
+/** The rows of the report file, header first. Each row is already escaped; none contains a line break outside a quoted cell. */
+export function sponsorReportRows(r: SponsorReport): string[] {
   const rows = [line("section", "item", "value"), line("report", "programme", r.cohort.name), line("report", "sponsor", r.cohort.sponsor), line("report", "minimum_group_size", r.minimum_cell),
     line("report", "range_from", r.range.from ?? "all"), line("report", "range_to", r.range.to ?? "all"), line("report", "generated_at", r.generated_at)];
   rows.push(...(r.members.suppressed ? W("members", r.members) : [line("members", "joined", r.members.joined), line("members", "agreed_to_share", r.members.agreed_to_share), line("members", "agreed_pct", r.members.agreed_pct)]));
@@ -65,5 +66,8 @@ export function sponsorReportToCsv(r: SponsorReport): string {
   const e = r.engagement_separate;
   rows.push(...(e.suppressed ? W("engagement_separate", e) : [line("engagement_separate", "people", e.n), line("engagement_separate", "logged_a_reading_in_30_days_pct", e.logged_a_reading_in_30_days_pct)]));
   rows.push(line("notes", "definition", r.definition), line("notes", "limitations", r.limitations), line("notes", "causal_claim", "none: this describes members who agreed to share and does not compare with a control group"));
-  return rows.join("\r\n") + "\r\n";
+  return rows;
+}
+export function sponsorReportToCsv(r: SponsorReport): string {
+  return sponsorReportRows(r).join("\r\n") + "\r\n";
 }

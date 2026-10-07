@@ -53,6 +53,8 @@ function withheld(f: Rec): string | null {
 
 /** The lines of one month, in the order the sponsor reads them. A figure the database withheld is worded as withheld, never as zero. */
 export function figureLines(f: unknown): FigureLine[] | null {
+  // A month the database held back (too few people changed since the last figure): say so, show nothing else for it.
+  if (isRec(f) && f.held_back === true) return [{ label: "This month", value: "Held back: only a few people changed since the last figure, so it is not shown yet" }];
   try {
     return strictLines(f);
   } catch {

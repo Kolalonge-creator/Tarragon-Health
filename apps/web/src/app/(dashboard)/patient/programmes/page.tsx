@@ -28,6 +28,9 @@ export default async function ProgrammesPage({ searchParams }: { searchParams: P
   const key = typeof sp.m === "string" ? MESSAGES[sp.m] : undefined;
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("my_cohorts");
+  // The text a person agrees to is the stored current version, shown word for word; sharing cannot be turned on if it cannot be read.
+  const { data: text } = await supabase.from("consent_versions").select("body").eq("consent_type", "sponsor_reporting").eq("is_current", true).limit(1).maybeSingle();
+  const consentBody = typeof text?.body === "string" && text.body.trim() !== "" ? text.body : null;
   const parsed = cohorts.safeParse(data);
   const list = error || !parsed.success ? null : parsed.data;
 
@@ -56,9 +59,9 @@ export default async function ProgrammesPage({ searchParams }: { searchParams: P
               <p className="text-sm">{t("programme.from", uiLanguage, { sponsor: c.sponsor })}</p>
               <section aria-labelledby={`share-${c.cohort_id}`} className="space-y-2">
                 <h2 id={`share-${c.cohort_id}`} className="font-medium">{t("programme.share_title", uiLanguage)}</h2>
-                <p className="text-sm">{t("programme.share_body", uiLanguage, { sponsor: c.sponsor })}</p>
+                <p className="text-sm">{consentBody ?? t("programme.share_body", uiLanguage, { sponsor: c.sponsor })}</p>
                 <p>{t(c.reporting_consent ? "programme.share_on" : "programme.share_off", uiLanguage)}</p>
-                {c.reporting_consent || c.consent_available ? (
+                {c.reporting_consent || (c.consent_available && consentBody) ? (
                   <form action={setSharingAction}>
                     <input type="hidden" name="cohortId" value={c.cohort_id} />
                     <input type="hidden" name="on" value={c.reporting_consent ? "0" : "1"} />

@@ -1492,6 +1492,7 @@ export const en = {
   "programme.share_unavailable": "Sharing is not open yet. You can still be in the programme.",
   "programme.leave": "Leave this programme",
   "programme.leave_note": "Leaving also stops any sharing.",
+  "programme.own_only": "A programme is the person's own choice. Open your own account to join or change one.",
   "programme.saved": "Saved.",
   "programme.error": "That did not work. Nothing was changed. Try again.",
 } as const;
