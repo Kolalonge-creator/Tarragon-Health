@@ -43311,6 +43311,26 @@ export type Database = {
       cancel_order: { Args: { p_order: string }; Returns: boolean };
       care_message_scope: { Args: { p_message: string }; Returns: Json };
       catalogue: { Args: never; Returns: Json };
+      catalogue_item: { Args: { p_code: string }; Returns: Json };
+      price_quote: {
+        Args: { p_beneficiary?: string; p_code: string; p_discount_code?: string; p_use_points?: boolean }
+        Returns: Json
+      };
+      admin_pricing_overview: { Args: never; Returns: Json };
+      admin_create_price_book: { Args: { p_name: string; p_sponsor_org: string }; Returns: string };
+      admin_set_price_book_status: { Args: { p_book: string; p_reason: string; p_status: string }; Returns: undefined };
+      admin_set_price_book_entry: {
+        Args: { p_book: string; p_item_code: string; p_rate_kobo: number; p_reason: string; p_sponsor_share_percent: number; p_valid_from?: string }
+        Returns: string
+      };
+      admin_set_discount_code_status: { Args: { p_id: string; p_reason: string; p_status: string }; Returns: undefined };
+      admin_create_discount_code: {
+        Args: {
+          p_code: string; p_cohort_id: string; p_fixed_kobo: number; p_item_codes: string[]; p_kind: string; p_max_discount_kobo: number
+          p_max_per_person: number; p_max_total_uses: number; p_note: string; p_percent: number; p_valid_from: string; p_valid_to: string
+        }
+        Returns: Json
+      };
       close_referral: {
         Args: { p_care_plan_update_note: string; p_referral: string }
         Returns: undefined
@@ -43336,7 +43356,14 @@ export type Database = {
         Returns: string;
       };
       create_order: {
-        Args: { p_beneficiary?: string; p_client_key?: string; p_code: string };
+        Args: {
+          p_beneficiary?: string
+          p_client_key?: string
+          p_code: string
+          p_discount_code?: string
+          p_expected_amount_kobo?: number
+          p_use_points?: boolean
+        };
         Returns: Json;
       };
       create_specialist_referral: {

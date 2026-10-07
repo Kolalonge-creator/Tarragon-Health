@@ -2,13 +2,14 @@
 
 import { useRef, useState } from "react";
 import { en, t, type Locale } from "@tarragon/i18n";
+import Link from "next/link";
 import { estimatedBreakdown, formatNaira, type FeeEstimateSchedule } from "@tarragon/commerce";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FormError } from "@/components/ui/form-error";
 import { formatPatientDate } from "@/lib/format-date";
 import { checkoutErrorKey, isMessageKey, orderStateKey, type CatalogueItem, type OrderRow } from "@/lib/commerce/model";
-import { CheckoutError, useCatalogue, useMyMembership, useMyOrders, useStartCheckout } from "@/lib/queries/commerce";
+import { CheckoutError, useCatalogue, useMyMembership, useMyOrders, useQuote, useStartCheckout } from "@/lib/queries/commerce";
 import { useSponsorableProfiles } from "@/lib/queries/care-access";
 import { RefundRequestDialog } from "./refund-request-dialog";
 
@@ -35,8 +36,17 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
   // One key per card, made on first use and kept, so a double tap or a retry after a dropped connection is the SAME order.
   const clientKey = useRef<string | null>(null);
   const [errorKey, setErrorKey] = useState<ReturnType<typeof checkoutErrorKey> | null>(null);
-  const b = estimatedBreakdown(item.amount_kobo, fee);
+  // S73: the database prices every order. What is shown is its quote; the catalogue price is only the fallback when no quote could be had.
+  const [codeInput, setCodeInput] = useState("");
+  const [appliedCode, setAppliedCode] = useState<string | null>(null);
+  const quoteQuery = useQuote({ code: item.code, ...(beneficiary ? { beneficiary } : {}), discountCode: appliedCode });
+  const quote = quoteQuery.data ?? null;
+  const shownKobo = quote?.amountDueKobo ?? item.amount_kobo;
+  const b = estimatedBreakdown(shownKobo, fee);
   const blocked = item.kind === "membership" && memberUntil !== null;
+  const codeFailed = appliedCode !== null && quote !== null && quote.discountCodeOk === false;
+  // a quote with only the list line has nothing to explain
+  const explainLines = quote !== null && quote.lines.some((l) => l.rule !== "list") ? quote.lines : null;
 
   async function pay() {
     // For someone else, say their name and what happens before any card is touched (S29c): they are asked to accept, and a no is a refund.
@@ -47,7 +57,12 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
     setErrorKey(null);
     clientKey.current ??= crypto.randomUUID();
     try {
-      const r = await start.mutateAsync({ code: item.code, clientKey: clientKey.current, ...(beneficiary ? { beneficiary } : {}) });
+      const r = await start.mutateAsync({
+        code: item.code, clientKey: clientKey.current, ...(beneficiary ? { beneficiary } : {}),
+        // the code the person applied, and the total they were shown: if the database now computes a different one it refuses instead of charging it
+        ...(appliedCode && !codeFailed ? { discountCode: appliedCode } : {}),
+        ...(quote !== null && !codeFailed ? { expectedAmountKobo: quote.amountDueKobo } : {}),
+      });
       go(r.checkout_url);
     } catch (e) {
       // A refusal is final for this tap; a fresh key is made next time. A network failure keeps the key so a retry is the same order.
@@ -73,6 +88,35 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
             ))}
           </ul>
         </section>
+        <p><Link href={`/patient/membership/${item.code}`} className="underline">{t("shop.see_included", locale)}</Link></p>
+        {explainLines ? (
+          <ul className="space-y-1" aria-label={t("quote.total", locale)}>
+            {explainLines.map((l) => (
+              <li key={l.rule} className="flex justify-between gap-3">
+                <span>{copy(l.labelKey, locale)}{l.reasonKey ? ` (${copy(l.reasonKey, locale)})` : ""}</span>
+                <span>{l.amountKobo < 0 ? "-" : ""}{"₦"}{formatNaira(Math.abs(l.amountKobo))}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {!blocked ? (
+          <div className="space-y-2">
+            <label htmlFor={`code-${item.code}`} className="block font-medium">{t("quote.code.label", locale)}</label>
+            <div className="flex gap-2">
+              <input
+                id={`code-${item.code}`} value={codeInput} onChange={(e) => setCodeInput(e.target.value)} autoComplete="off" autoCapitalize="characters" maxLength={32}
+                aria-describedby={`code-hint-${item.code}`} className={`${TOUCH} w-full rounded-md border border-input bg-background px-3 py-2`}
+              />
+              {appliedCode ? (
+                <Button type="button" variant="outline" className={TOUCH} onClick={() => { setAppliedCode(null); setCodeInput(""); }}>{t("quote.code.remove", locale)}</Button>
+              ) : (
+                <Button type="button" variant="outline" className={TOUCH} disabled={codeInput.trim().length < 3} onClick={() => setAppliedCode(codeInput.trim())}>{t("quote.code.apply", locale)}</Button>
+              )}
+            </div>
+            <p id={`code-hint-${item.code}`} className={`text-sm ${MUTED}`}>{t("quote.code.hint", locale)}</p>
+            {codeFailed ? <p role="status">{t(quote?.rateLimited ? "shop.error.discount_code_rate_limited" : "shop.error.discount_code_invalid", locale)}</p> : null}
+          </div>
+        ) : null}
         <dl className="space-y-1">
           <div className="flex justify-between"><dt>{t("pay.fee.price", locale)}</dt><dd><Naira kobo={b.priceKobo} /></dd></div>
           <div className="flex justify-between"><dt>{t("pay.fee.line", locale)}</dt><dd>{t("shop.fee.about", locale, { amount: `\u20A6${formatNaira(b.feeKobo)}` })}</dd></div>

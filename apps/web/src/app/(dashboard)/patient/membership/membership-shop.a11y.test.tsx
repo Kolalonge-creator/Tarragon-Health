@@ -18,6 +18,8 @@ const ITEM = {
 let catalogue: { data: unknown[]; isSuccess: boolean };
 let membership: { data: { is_member: boolean; ends_at: string | null; source: string | null } };
 let orders: { data: unknown[] };
+let quote: { data: unknown };
+const useQuoteSpy = jest.fn();
 const mutateAsync = jest.fn();
 jest.mock("@/lib/queries/commerce", () => {
   const actual = jest.requireActual("@/lib/queries/commerce");
@@ -27,6 +29,7 @@ jest.mock("@/lib/queries/commerce", () => {
     useMyMembership: () => membership,
     useMyOrders: () => orders,
     useStartCheckout: () => ({ mutateAsync, isPending: false }),
+    useQuote: (input: unknown) => { useQuoteSpy(input); return quote; },
   };
 });
 
@@ -39,6 +42,8 @@ beforeEach(() => {
   catalogue = { data: [ITEM], isSuccess: true };
   membership = { data: { is_member: false, ends_at: null, source: null } };
   orders = { data: [] };
+  quote = { data: null };
+  useQuoteSpy.mockReset();
   mutateAsync.mockReset();
   assign.mockReset();
 });
@@ -115,6 +120,60 @@ describe("MembershipShop", () => {
     catalogue = { data: [{ ...ITEM, name_key: "catalog.future.name", included_keys: ["catalog.future.incl.1"] }], isSuccess: true };
     render(<MembershipShop locale="en" fee={FEE} go={assign} />);
     expect(screen.queryByText(/catalog\.future/)).toBeNull();
+  });
+
+  // S73: the price shown is the database's quote
+  const line = (rule: string, amountKobo: number, runningKobo: number, extra: Record<string, unknown> = {}) => ({
+    rule, labelKey: `quote.line.${rule}`, amountKobo, runningKobo, applied: true, reasonKey: null, ...extra,
+  });
+  const QUOTE = {
+    itemCode: "membership_annual", listKobo: 10_000_000, amountDueKobo: 9_000_000, sponsorShareKobo: 0, discountKobo: 1_000_000, pointsApplied: 0,
+    pointsReductionKobo: 0, discountCodeOk: true, rateLimited: false,
+    lines: [line("list", 10_000_000, 10_000_000), line("discount_code", -1_000_000, 9_000_000)],
+  };
+
+  it("S73: shows the quote's price and each line of the explanation instead of the catalogue price", () => {
+    quote = { data: QUOTE };
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    expect(screen.getByText("₦90,000")).toBeTruthy();
+    expect(screen.getByRole("list", { name: "Price to you" }).textContent).toMatch(/Discount code.*-₦10,000/);
+  });
+
+  it("S73: sends the total it showed, so a changed price is refused instead of charged", async () => {
+    quote = { data: QUOTE };
+    mutateAsync.mockResolvedValue({ order_id: "o1", reference: "tho_x", amount_kobo: 9_000_000, checkout_url: "https://checkout.paystack.com/abc" });
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pay with Paystack" })));
+    expect(mutateAsync.mock.calls[0]![0]).toMatchObject({ code: "membership_annual", expectedAmountKobo: 9_000_000 });
+  });
+
+  it("S73: applying a code asks for a new quote with it, and sends it with the order", async () => {
+    mutateAsync.mockResolvedValue({ order_id: "o1", reference: "tho_x", amount_kobo: 9_000_000, checkout_url: "https://checkout.paystack.com/abc" });
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    fireEvent.change(screen.getByLabelText("Discount code"), { target: { value: "WELCOME26" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply code" }));
+    expect(useQuoteSpy).toHaveBeenLastCalledWith(expect.objectContaining({ code: "membership_annual", discountCode: "WELCOME26" }));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pay with Paystack" })));
+    expect(mutateAsync.mock.calls[0]![0]).toMatchObject({ discountCode: "WELCOME26" });
+    fireEvent.click(screen.getByRole("button", { name: "Remove code" }));
+    expect(useQuoteSpy).toHaveBeenLastCalledWith(expect.objectContaining({ discountCode: null }));
+  });
+
+  it("S73: a code that cannot be used is said so without saying why, and is not sent", async () => {
+    quote = { data: { ...QUOTE, discountCodeOk: false, discountKobo: 0, amountDueKobo: 10_000_000, lines: [line("list", 10_000_000, 10_000_000), line("discount_code", 0, 10_000_000, { applied: false, reasonKey: "quote.reason.code_unusable" })] } };
+    mutateAsync.mockResolvedValue({ order_id: "o1", reference: "tho_x", amount_kobo: 10_000_000, checkout_url: "https://checkout.paystack.com/abc" });
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    fireEvent.change(screen.getByLabelText("Discount code"), { target: { value: "NOPE1234" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply code" }));
+    expect(screen.getByRole("status").textContent).toBe("This code cannot be used.");
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pay with Paystack" })));
+    const arg = mutateAsync.mock.calls[0]![0] as Record<string, unknown>;
+    expect(arg.discountCode).toBeUndefined();
+  });
+
+  it("S73: links each item to its own what-is-included page", () => {
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    expect(screen.getByRole("link", { name: "See what is included" }).getAttribute("href")).toBe("/patient/membership/membership_annual");
   });
 
   // S29: pay for a loved one

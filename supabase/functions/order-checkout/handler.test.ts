@@ -120,3 +120,39 @@ Deno.test("S29c: paying for someone else with anything but the full yearly Membe
   const res = await handleCheckout(req({ code: "consult_single", client_key: KEY, beneficiary: PATIENT }), d);
   assertEquals([res.status, (await res.json()).error], [403, "gift_item_not_allowed"]);
 });
+
+// S73: the pricing engine. A discount code, a points wish and the total the person was shown are passed on; an amount never is.
+Deno.test("S73: a discount code, a points wish and the shown total go to create_order as parameters", async () => {
+  const { d, seen } = deps();
+  const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, discount_code: " welcome-26 ", use_points: true, expected_amount_kobo: 9_000_000 }), d);
+  assertEquals(res.status, 200);
+  assertEquals(seen.args, { p_code: "membership_annual", p_client_key: KEY, p_discount_code: "welcome-26", p_use_points: true, p_expected_amount_kobo: 9_000_000 });
+});
+
+Deno.test("S73: without them nothing extra is sent (the older call is unchanged)", async () => {
+  const { d, seen } = deps();
+  await handleCheckout(req({ code: "membership_annual", client_key: KEY, discount_code: null, use_points: false, expected_amount_kobo: null }), d);
+  assertEquals(seen.args, { p_code: "membership_annual", p_client_key: KEY });
+});
+
+Deno.test("S73: malformed extras are refused before anything is created", async () => {
+  const { d, seen } = deps();
+  for (const bad of [{ discount_code: 5 }, { discount_code: "x" }, { discount_code: "a".repeat(40) }, { use_points: "yes" }, { expected_amount_kobo: 0 }, { expected_amount_kobo: 1.5 }, { expected_amount_kobo: "9" }]) {
+    const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, ...bad }), d);
+    assertEquals(res.status, 400);
+  }
+  assertEquals(seen.args, undefined);
+});
+
+Deno.test("S73: the new refusals have stable codes, and a code that cannot be used comes back as a result, not an error", async () => {
+  for (const [msg, status, code] of [["quote_changed", 409, "quote_changed"], ["order_fully_covered", 409, "order_fully_covered"], ["sponsor_billing_not_open", 409, "sponsor_billing_not_open"], ["membership_not_open", 409, "membership_not_open"]] as const) {
+    const { d } = deps({ rpc: () => ({ data: null, error: { message: msg } }) });
+    const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY }), d);
+    assertEquals([res.status, (await res.json()).error], [status, code]);
+  }
+  for (const [msg, status] of [["discount_code_invalid", 422], ["discount_code_rate_limited", 429]] as const) {
+    const { d } = deps({ rpc: () => ({ data: { order_id: null, error: msg }, error: null }) });
+    const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, discount_code: "WELCOME26" }), d);
+    assertEquals([res.status, (await res.json()).error], [status, msg]);
+  }
+});

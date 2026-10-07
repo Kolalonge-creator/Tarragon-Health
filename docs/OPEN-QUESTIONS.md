@@ -1840,3 +1840,33 @@ Raised by the S70 to S75 review (`docs/research/S70-S75-review-and-build-plan.md
 ### OQ-327 Gaps found in the S70 to S75 review that need an owner
 - OQ-192 (any `profile_access` grantee can read and pay) is still open and must be fixed before any real caregiver grant. OQ-39 (56 older `analytics_*` RPCs ignore `is_test`) is still open. `device.synced` and `device.alert` are not in the S10 event catalogue. Withings, Samsung, inhaler sensors and `LabResultsSource` are not built. `partner_quality`, `partner.quality_breach`, `partner.settlement_due` and `settlement-run` are not built. Price quoting (`price-quote`, `price.changed`, `discount_codes`, `price_books`) is not built.
 - Decision: open; each is in the build plan.
+
+## S73 pricing engine (2026-10-07)
+
+### OQ-328 Sponsor coverage cannot be charged yet (raised by S73)
+- The quote computes a sponsor's share from the price book entry, but `create_order` refuses any order with a sponsor share (`sponsor_billing_not_open`): without S71's sponsor entitlement the share would never be collected or posted. S71 lifts this.
+- Decision: open (S71).
+
+### OQ-329 Hardship pricing is a seam (raised by S73, extends OQ-323)
+- `private.hardship_reduction()` returns 0. It must be replaced by Access Fund grants (S72); never by a self-declared discount.
+- Decision: waits for S72 and counsel.
+
+### OQ-330 Kobo conversion for wellness points still present (raised by S73; extends OQ-08 and OQ-321)
+- `redeem_wellness_points`, `wellness_points_config.points_to_kobo_rate`, `wellness_points_redemptions.kobo_credited` and the web, mobile and admin screens that use them were NOT removed: it touches three apps and the voucher path, and S72 owns it. The new fee-only points reduction is separate and OFF.
+- Decision: remove in S72.
+
+### OQ-331 Values in `pricing.rules` are unsigned guesses (raised by S73)
+- Points (100 points per step, 5,000 kobo per step, 5 steps, 50 percent of the service fee), minimum payable 10,000 kobo and 10 failed code tries an hour are PROPOSED, owner Founder. Points stay OFF until signed. Also decide whether a refund returns spent points (today it does not).
+- Decision: open.
+
+### OQ-332 Screens not built (raised by S73)
+- No mobile what-is-included screen and no admin screens for price books and discount codes (the audited functions and an overview exist and are tested). Mobile `loadQuote` is not wired.
+- Decision: open.
+
+### OQ-333 What-is-included page needs a login (raised by S73)
+- The page is behind patient sign-in, so a shared link asks the reader to sign in. A public version needs an anon-readable function, which conflicts with the no-anon rule for catalogue data.
+- Decision: open.
+
+### OQ-334 Migration stamp ahead of the clock (raised by S73)
+- main-dev holds migration stamps later than the real clock; the S73 file is stamped 20261007164447 (real time plus 4 hours) so it sorts after them. Pin the version to the filename when applying.
+- Decision: informational.

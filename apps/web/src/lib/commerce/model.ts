@@ -82,6 +82,12 @@ const ERROR_KEYS: Readonly<Record<string, MessageKey>> = {
   order_closed: "shop.error.order_closed",
   order_beneficiary_not_allowed: "shop.error.order_beneficiary_not_allowed",
   gift_item_not_allowed: "shop.error.gift_item_not_allowed",
+  membership_not_open: "shop.error.membership_not_open",
+  quote_changed: "shop.error.quote_changed",
+  sponsor_billing_not_open: "shop.error.sponsor_billing_not_open",
+  order_fully_covered: "shop.error.order_fully_covered",
+  discount_code_invalid: "shop.error.discount_code_invalid",
+  discount_code_rate_limited: "shop.error.discount_code_rate_limited",
 };
 /** The i18n key for a checkout error code from order-checkout. Anything unrecognised is the generic message. */
 export function checkoutErrorKey(code: unknown): MessageKey {

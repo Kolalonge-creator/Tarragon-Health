@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { parseQuote, type Quote } from "@tarragon/commerce";
 import { checkoutReplySchema, parseCatalogue, parseMembership, parseOrders, verifyReplySchema } from "@/lib/commerce/model";
 
 export const commerceKeys = {
@@ -18,6 +19,29 @@ export function useCatalogue() {
       if (error) throw error;
       return parseCatalogue(data);
     },
+  });
+}
+
+/**
+ * What the signed-in patient would pay for one item, with the database's own line-by-line explanation (S73). The database computes every
+ * number (public.price_quote, the same function create_order uses), so the figure shown is the figure charged. `null` data means "could not
+ * be worked out": the screen then falls back to the catalogue price and sends no expected total.
+ */
+export function useQuote(input: { code: string; beneficiary?: string; discountCode?: string | null; usePoints?: boolean }) {
+  return useQuery({
+    queryKey: ["commerce", "quote", input.code, input.beneficiary ?? null, input.discountCode ?? null, input.usePoints ?? false] as const,
+    queryFn: async (): Promise<Quote | null> => {
+      const { data, error } = await createClient().rpc("price_quote", {
+        p_code: input.code,
+        ...(input.beneficiary ? { p_beneficiary: input.beneficiary } : {}),
+        ...(input.discountCode ? { p_discount_code: input.discountCode } : {}),
+        ...(input.usePoints ? { p_use_points: true } : {}),
+      });
+      if (error) throw error;
+      return parseQuote(data);
+    },
+    staleTime: 30_000,
+    retry: false,
   });
 }
 
@@ -96,8 +120,13 @@ export class CheckoutError extends Error {
  */
 export function useStartCheckout() {
   return useMutation({
-    mutationFn: async (input: { code: string; clientKey: string; beneficiary?: string }) => {
-      const { data, error } = await createClient().functions.invoke("order-checkout", { body: { code: input.code, client_key: input.clientKey, beneficiary: input.beneficiary } });
+    mutationFn: async (input: { code: string; clientKey: string; beneficiary?: string; discountCode?: string; usePoints?: boolean; expectedAmountKobo?: number }) => {
+      const body = {
+        code: input.code, client_key: input.clientKey, beneficiary: input.beneficiary,
+        // S73: the total the person was shown; the database refuses the order if it now computes a different one
+        discount_code: input.discountCode, use_points: input.usePoints, expected_amount_kobo: input.expectedAmountKobo,
+      };
+      const { data, error } = await createClient().functions.invoke("order-checkout", { body });
       if (error) throw new CheckoutError(await errorCodeOf(error));
       const parsed = checkoutReplySchema.safeParse(data);
       if (!parsed.success) throw new CheckoutError("unknown");

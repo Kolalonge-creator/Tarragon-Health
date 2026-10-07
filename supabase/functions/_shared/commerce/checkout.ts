@@ -9,6 +9,8 @@ import type { OrderStore } from "./orders.ts";
 export const ORDER_ERROR_CODES = [
   "checkout_not_open", "item_not_available", "already_member", "no_capacity", "too_many_open_orders",
   "order_beneficiary_not_allowed", "gift_item_not_allowed", "order_not_authorised",
+  // S73: the pricing engine
+  "membership_not_open", "quote_changed", "sponsor_billing_not_open", "order_fully_covered", "discount_code_invalid", "discount_code_rate_limited",
 ] as const;
 export type OrderErrorCode = (typeof ORDER_ERROR_CODES)[number];
 
@@ -24,8 +26,14 @@ export interface CreatedOrder {
   readonly state: string;
   readonly checkoutUrl: string | null;
 }
+/** What a buyer can add to an order (S73). The amount is never one of them: `expectedAmountKobo` is the total the person was SHOWN, and a mismatch refuses the order. */
+export interface OrderExtras {
+  readonly discountCode?: string;
+  readonly usePoints?: boolean;
+  readonly expectedAmountKobo?: number;
+}
 export interface OrderCreator {
-  create(code: string, clientKey: string, beneficiary?: string): Promise<{ readonly ok: true; readonly order: CreatedOrder } | { readonly ok: false; readonly code: OrderErrorCode | "unknown" }>;
+  create(code: string, clientKey: string, beneficiary?: string, extras?: OrderExtras): Promise<{ readonly ok: true; readonly order: CreatedOrder } | { readonly ok: false; readonly code: OrderErrorCode | "unknown" }>;
 }
 
 export type StartCheckoutResult =
@@ -34,10 +42,15 @@ export type StartCheckoutResult =
 
 export async function startCheckout(
   deps: { readonly payments: PaymentProvider; readonly store: OrderStore; readonly orders: OrderCreator },
-  args: { readonly code: string; readonly clientKey: string; readonly email: string | null; readonly callbackUrl: string; readonly beneficiary?: string },
+  args: { readonly code: string; readonly clientKey: string; readonly email: string | null; readonly callbackUrl: string; readonly beneficiary?: string } & OrderExtras,
 ): Promise<StartCheckoutResult> {
   if (!args.email) return { ok: false, code: "email_needed" };
-  const created = await deps.orders.create(args.code, args.clientKey, args.beneficiary);
+  const extras: OrderExtras = {
+    ...(args.discountCode ? { discountCode: args.discountCode } : {}),
+    ...(args.usePoints ? { usePoints: true } : {}),
+    ...(args.expectedAmountKobo !== undefined ? { expectedAmountKobo: args.expectedAmountKobo } : {}),
+  };
+  const created = await deps.orders.create(args.code, args.clientKey, args.beneficiary, extras);
   if (!created.ok) return { ok: false, code: created.code };
   const o = created.order;
   if (o.state === "paid") return { ok: false, code: "already_paid" };

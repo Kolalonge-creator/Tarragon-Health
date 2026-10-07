@@ -413,9 +413,9 @@ begin
   insert into results values ('sabotaged', 'a paused circle gets no check-in request', '0', n::text);
 
   -- (c) the gift rule removed from create_order
-  select pg_get_functiondef('public.create_order(text, uuid, uuid)'::regprocedure) into d;
+  select pg_get_functiondef('public.create_order(text, uuid, uuid, text, boolean, bigint)'::regprocedure) into d;
   d := replace(d, 'not private.gift_item_allowed(it.kind::text, it.duration_days)', 'false');
-  if d = pg_get_functiondef('public.create_order(text, uuid, uuid)'::regprocedure) then raise exception 'sabotage (c) did not change the function'; end if;
+  if d = pg_get_functiondef('public.create_order(text, uuid, uuid, text, boolean, bigint)'::regprocedure) then raise exception 'sabotage (c) did not change the function'; end if;
   execute d;
   r := pg_temp.q_as(v_sc, format($q$select public.create_order('s29c_consult', gen_random_uuid(), %L)::text$q$, v_pat));
   insert into results values ('sabotaged', 'only the yearly Membership can be paid for someone else', 'true', (r like '%gift_item_not_allowed%')::text);
