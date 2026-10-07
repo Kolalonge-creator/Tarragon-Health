@@ -105,6 +105,11 @@ begin
   insert into public.care_circle_location_consents (patient_id, granted, text_version, changed_at)
   values (v_uid, p_granted, v_ver, now())
   on conflict (patient_id) do update set granted = excluded.granted, text_version = excluded.text_version, changed_at = now();
+  -- Withdrawing consent takes effect now: any location already attached to this person's recent alerts is deleted at once, not at the 24 hour sweep.
+  if not p_granted then
+    update public.care_circle_help_alerts set latitude = null, longitude = null, accuracy_m = null, location_purged_at = now()
+     where patient_id = v_uid and latitude is not null;
+  end if;
   perform private.log_care_access(v_uid, (case when p_granted then 'granted' else 'revoked' end)::public.care_access_event_kind, 'care_circle',
                                   jsonb_build_object('help_alert_location', true, 'text_version', v_ver), v_uid);
   return jsonb_build_object('granted', p_granted, 'text_version', v_ver);
@@ -149,7 +154,7 @@ begin
   v_share := coalesce(v_consent, false) and p_lat is not null and p_lng is not null and p_lat between -90 and 90 and p_lng between -180 and 180;
 
   insert into public.care_circle_help_alerts (organisation_id, patient_id, location_shared, latitude, longitude, accuracy_m, is_test)
-  values (v_org, v_uid, v_share, case when v_share then p_lat end, case when v_share then p_lng end, case when v_share then p_accuracy_m end, v_test)
+  values (v_org, v_uid, v_share, case when v_share then p_lat end, case when v_share then p_lng end, case when v_share and p_accuracy_m between 0 and 100000 then p_accuracy_m end, v_test)
   returning id into v_id;
 
   for r in

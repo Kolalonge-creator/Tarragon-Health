@@ -254,10 +254,10 @@ begin
     raise exception 'you have sent a lot of reports today; please try again tomorrow' using errcode = '54000';
   end if;
 
+  -- Two first reporters at the same moment must both land on the one open entry, so the insert is idempotent on the partial unique index.
+  insert into public.directory_reverification_queue (organisation_id, listing_table, listing_id) values (v_org, p_listing_table, p_listing_id)
+  on conflict (listing_table, listing_id) where closed_at is null do nothing;
   select * into v_q from public.directory_reverification_queue where listing_table = p_listing_table and listing_id = p_listing_id and closed_at is null;
-  if not found then
-    insert into public.directory_reverification_queue (organisation_id, listing_table, listing_id) values (v_org, p_listing_table, p_listing_id) returning * into v_q;
-  end if;
   insert into public.directory_listing_reports (queue_id, reporter_id, field, detail)
   values (v_q.id, v_uid, p_field, nullif(btrim(coalesce(p_detail, '')), ''))
   on conflict (queue_id, reporter_id) do nothing;
@@ -269,6 +269,8 @@ begin
       select p.id from public.profiles p where p.is_active and p.role = 'admin'
       union
       select p.id from public.profiles p join public.user_permission_grants g on g.profile_id = p.id and g.permission_key = 'ops.console.view' and g.revoked_at is null where p.is_active
+      union
+      select p.id from public.profiles p join public.role_permissions rp on rp.custom_role_id = p.custom_role_id and rp.permission_key = 'ops.console.view' where p.is_active
     loop
       insert into public.notifications (recipient_id, organisation_id, channel, template, payload, status, content_class)
       values (v_r.id, v_org, 'in_app', 'directory_reverify_now',

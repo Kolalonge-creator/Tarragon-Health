@@ -37,6 +37,7 @@ export function createMockPartnerCalendar(): PartnerCalendarProvider & MockPartn
   const slots = new Map<string, CalendarSlot[]>();
   const booked: PartnerCalendarBooking[] = [];
   const refs = new Map<string, string>();
+  const taken = new Map<string, CalendarSlot>();
   let failNext = false;
   const guard = (): ProviderResult<never> | null => {
     if (!failNext) return null;
@@ -70,7 +71,8 @@ export function createMockPartnerCalendar(): PartnerCalendarProvider & MockPartn
       const list = slots.get(input.facilityId) ?? [];
       const i = list.findIndex((s) => s.startsAt === input.startsAt);
       if (i < 0) return fail("conflict", "That slot is no longer open", false);
-      list.splice(i, 1);
+      const [slot] = list.splice(i, 1);
+      taken.set(input.bookingId, slot!);
       booked.push(input);
       const ref = `mock-cal-${booked.length}`;
       refs.set(input.bookingId, ref);
@@ -84,7 +86,8 @@ export function createMockPartnerCalendar(): PartnerCalendarProvider & MockPartn
       const [b] = booked.splice(i, 1);
       refs.delete(bookingId);
       const list = slots.get(b!.facilityId) ?? [];
-      list.push({ startsAt: b!.startsAt, endsAt: b!.startsAt });
+      list.push(taken.get(bookingId) ?? { startsAt: b!.startsAt, endsAt: b!.startsAt });
+      taken.delete(bookingId);
       slots.set(b!.facilityId, list);
       return ok({ cancelled: true });
     },

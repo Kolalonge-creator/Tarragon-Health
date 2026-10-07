@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatPatientDate } from "@/lib/format-date";
-import { EMPTY_FILTERS, hmoKey, nairaFromKobo, nhiaKey, searchArgs, tierKey, type DirectoryRow, type SearchFilters } from "@/lib/directory/model";
+import { detectMapsPlatform, EMPTY_FILTERS, hmoKey, nairaFromKobo, nhiaKey, searchArgs, tierKey, type DirectoryRow, type SearchFilters } from "@/lib/directory/model";
 import { DirectoryNotOpenError, useDirectorySearch, useReportListing, useRequestBooking } from "@/lib/queries/directory";
 
 const MUTED = "text-charcoal-ink/70 dark:text-night-ink/70";
@@ -82,7 +82,7 @@ function BookForm({ row, locale }: { row: DirectoryRow; locale: Locale }) {
   );
 }
 
-function Listing({ row, locale, platform }: { row: DirectoryRow; locale: Locale; platform: "ios" | "android" | "web" }) {
+function Listing({ row, locale, platform, hmoQuery }: { row: DirectoryRow; locale: Locale; platform: "ios" | "android" | "web"; hmoQuery: string }) {
   const [panel, setPanel] = useState<"none" | "report" | "book">("none");
   const tel = telHref(row.phone);
   const maps = directionsHref({ latitude: row.latitude, longitude: row.longitude, name: row.name, address: row.address }, platform);
@@ -101,7 +101,7 @@ function Listing({ row, locale, platform }: { row: DirectoryRow; locale: Locale;
         {row.open_now !== null ? <p className="text-sm">{row.open_now ? t("directory.open_now", locale) : t("directory.closed_now", locale)}</p> : null}
         {row.hours_text ? <p className={`text-sm ${MUTED}`}>{row.hours_text}</p> : null}
         <p className="text-sm">{price ? t("directory.price.per_item", locale, { amount: price }) : t("directory.price.unknown", locale)}</p>
-        {hmo ? <p className="text-sm">{t(hmo, locale, { hmo: row.accepts_hmo[0] ?? "" })}</p> : null}
+        {hmo ? <p className="text-sm">{t(hmo, locale, { hmo: hmoQuery })}</p> : null}
         {nhia ? <p className="text-sm">{t(nhia, locale)}</p> : null}
         {row.rating_count > 0 ? (
           <p className="text-sm">
@@ -122,18 +122,13 @@ function Listing({ row, locale, platform }: { row: DirectoryRow; locale: Locale;
   );
 }
 
-function detectPlatform(): "ios" | "android" | "web" {
-  if (typeof navigator === "undefined") return "web";
-  const ua = navigator.userAgent;
-  return /iPhone|iPad|iPod/i.test(ua) ? "ios" : /Android/i.test(ua) ? "android" : "web";
-}
-
 export function DirectorySearch({ locale }: { locale: Locale }) {
   const [filters, setFilters] = useState<SearchFilters>(EMPTY_FILTERS);
-  const [submitted, setSubmitted] = useState<SearchFilters | null>(null);
+  // The filters and the moment they were submitted travel together: "open now" must not re-key the query on every render.
+  const [submitted, setSubmitted] = useState<{ filters: SearchFilters; nowIso: string } | null>(null);
   const [locError, setLocError] = useState(false);
   // The place is held in memory for this search only. It is sent as an argument and never written anywhere.
-  const args = searchArgs(submitted ?? EMPTY_FILTERS, new Date().toISOString());
+  const args = searchArgs(submitted?.filters ?? EMPTY_FILTERS, submitted?.nowIso ?? "");
   const result = useDirectorySearch(args, submitted !== null);
   const set = <K extends keyof SearchFilters>(k: K, v: SearchFilters[K]) => setFilters((f) => ({ ...f, [k]: v }));
 
@@ -153,7 +148,7 @@ export function DirectorySearch({ locale }: { locale: Locale }) {
         className="grid gap-3 sm:grid-cols-2"
         onSubmit={(e) => {
           e.preventDefault();
-          setSubmitted(filters);
+          setSubmitted({ filters, nowIso: new Date().toISOString() });
         }}
       >
         {(["state", "service", "language", "hmo"] as const).map((k) => (
@@ -184,7 +179,7 @@ export function DirectorySearch({ locale }: { locale: Locale }) {
       {result.isSuccess && result.data.length === 0 ? <p role="status">{t("directory.none", locale)}</p> : null}
       <div className="space-y-3">
         {(result.data ?? []).map((row) => (
-          <Listing key={`${row.listing_table}-${row.listing_id}`} row={row} locale={locale} platform={detectPlatform()} />
+          <Listing key={`${row.listing_table}-${row.listing_id}`} row={row} locale={locale} platform={detectMapsPlatform()} hmoQuery={submitted?.filters.hmo.trim() ?? ""} />
         ))}
       </div>
     </div>

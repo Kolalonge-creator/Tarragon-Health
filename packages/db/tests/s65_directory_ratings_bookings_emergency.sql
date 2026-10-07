@@ -422,6 +422,21 @@ begin
     (select case when r like '%alert_id%' then
         location_shared::text || ',' || (latitude is null)::text || ',' || recipients_told::text end
        from public.care_circle_help_alerts where patient_id = v_pat order by created_at desc limit 1));
+  -- revoking takes effect at once: a location already attached to a recent alert is deleted, not left for the sweep
+  r := pg_temp.q_as(v_pat, $q$select public.set_circle_location_consent(true)::text$q$);
+  update public.care_circle_help_alerts set created_at = now() - interval '5 hours' where patient_id = v_pat;
+  r := pg_temp.q_as(v_pat, $q$select public.send_circle_help_alert(6.45, 3.39, 20)::text$q$);
+  perform pg_temp.ck('setup: a fresh alert holds a location', 'true',
+    (select (latitude is not null)::text from public.care_circle_help_alerts where patient_id = v_pat order by created_at desc limit 1));
+  r := pg_temp.q_as(v_pat, $q$select public.set_circle_location_consent(false)::text$q$);
+  perform pg_temp.ck('revoking consent deletes the location already attached to recent alerts at once', '0',
+    (select count(*)::text from public.care_circle_help_alerts where patient_id = v_pat and latitude is not null));
+  r := pg_temp.q_as(v_pat, $q$select public.set_circle_location_consent(true)::text$q$);
+  update public.care_circle_help_alerts set created_at = now() - interval '6 hours' where patient_id = v_pat;
+  perform pg_temp.ck('a nonsense accuracy value does not stop the alert', 'true',
+    (pg_temp.q_as(v_pat, $q$select public.send_circle_help_alert(6.45, 3.39, 999999999)::text$q$) like '%alert_id%')::text);
+  r := pg_temp.q_as(v_pat, $q$select public.set_circle_location_consent(false)::text$q$);
+  update public.care_circle_help_alerts set created_at = now() - interval '7 hours' where patient_id = v_pat;
   perform pg_temp.ck('a person who is not a test account cannot send the alert while the guard is off', 'ERR:55000', pg_temp.q_as(v_real, $q$select public.send_circle_help_alert()::text$q$));
   r := pg_temp.q_as(v_real, $q$select public.set_circle_location_consent(false)::text$q$);
   perform pg_temp.ck('but anyone can revoke location consent even with the guard off', 'ok',
@@ -496,7 +511,7 @@ begin
   d := replace(d, '''red_alerts'' = any (m.permissions)', 'true');
   if d = pg_get_functiondef('public.send_circle_help_alert(double precision, double precision, integer)'::regprocedure) then raise exception 'sabotage (c) did not change the function'; end if;
   execute d;
-  update public.care_circle_help_alerts set created_at = now() - interval '3 hours' where patient_id = v_pat;
+  delete from public.care_circle_help_alerts where patient_id = v_pat;   -- clear the per-day cap and the cooldown
   perform pg_temp.q_as(v_pat, $q$select public.send_circle_help_alert()::text$q$);
   select count(*) into n from public.notifications where recipient_id = v_sup2 and template = 'circle_help_tap';
   insert into results values ('sabotaged', 'a member without red_alerts gets no one-tap alert', '0', n::text);
@@ -506,7 +521,7 @@ begin
   d := replace(d, 'v_share := coalesce(v_consent, false) and', 'v_share := true and');
   if d = pg_get_functiondef('public.send_circle_help_alert(double precision, double precision, integer)'::regprocedure) then raise exception 'sabotage (d) did not change the function'; end if;
   execute d;
-  update public.care_circle_help_alerts set created_at = now() - interval '4 hours' where patient_id = v_pat;
+  delete from public.care_circle_help_alerts where patient_id = v_pat;
   perform pg_temp.q_as(v_pat, $q$select public.send_circle_help_alert(6.45, 3.39, 20)::text$q$);
   insert into results values ('sabotaged', 'no location is stored without consent', 'false',
     (select (latitude is not null)::text from public.care_circle_help_alerts where patient_id = v_pat order by created_at desc limit 1));

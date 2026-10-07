@@ -79,3 +79,10 @@ export function searchArgs(f: SearchFilters, nowIso: string): DirectoryArgs {
 export function isNotOpen(error: { code?: string } | null | undefined): boolean {
   return error?.code === "55000";
 }
+
+/** Which maps link to build. Server render and unknown agents get "web" (a geo: link a desktop browser ignores harmlessly). */
+export function detectMapsPlatform(): "ios" | "android" | "web" {
+  if (typeof navigator === "undefined") return "web";
+  const ua = navigator.userAgent;
+  return /iPhone|iPad|iPod/i.test(ua) ? "ios" : /Android/i.test(ua) ? "android" : "web";
+}

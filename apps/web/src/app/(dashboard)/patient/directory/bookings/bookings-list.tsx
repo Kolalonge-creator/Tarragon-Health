@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatPatientDate, formatPatientDateTime } from "@/lib/format-date";
-import { bookingStateKey, nairaFromKobo, ratingStatusKey, type MyBooking } from "@/lib/directory/model";
+import { bookingStateKey, detectMapsPlatform, nairaFromKobo, ratingStatusKey, type MyBooking } from "@/lib/directory/model";
 import { useMyBookings, useRespondBooking, useSubmitRating } from "@/lib/queries/directory";
 
 const TOUCH = "min-h-11";
@@ -39,7 +39,7 @@ function RateForm({ b, locale }: { b: MyBooking; locale: Locale }) {
 function Row({ b, locale }: { b: MyBooking; locale: Locale }) {
   const respond = useRespondBooking();
   const open = b.state === "requested" || b.state === "confirmed";
-  const maps = directionsHref({ latitude: b.latitude, longitude: b.longitude, name: b.facility_name, address: b.address }, "android");
+  const maps = directionsHref({ latitude: b.latitude, longitude: b.longitude, name: b.facility_name, address: b.address }, detectMapsPlatform());
   const tel = telHref(b.facility_phone);
   const price = nairaFromKobo(b.price_shown_kobo);
   const status = ratingStatusKey(b.rating_status);

@@ -23,14 +23,23 @@ function useLocationConsent(patientId: string) {
   });
 }
 
-/** The location is asked for from the browser ONLY inside the tap handler, and only when consent is on. Never on page load, never in the background. */
+/** The location is asked for from the browser ONLY inside the tap handler, and only when consent is on. Never on page load, never in the background.
+ * It must never hold the alert back: the browser's own timeout does not start until a permission prompt is answered, so a hard timer races it. */
 function currentPosition(): Promise<{ lat: number; lng: number; accuracy: number } | null> {
   return new Promise((resolve) => {
     if (!navigator.geolocation) return resolve(null);
+    const giveUp = setTimeout(() => resolve(null), 4_000);
     navigator.geolocation.getCurrentPosition(
-      (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: Math.round(p.coords.accuracy) }),
-      () => resolve(null),
-      { timeout: 8_000, maximumAge: 0 },
+      (p) => {
+        clearTimeout(giveUp);
+        const accuracy = Number.isFinite(p.coords.accuracy) ? Math.min(100_000, Math.max(0, Math.round(p.coords.accuracy))) : 0;
+        resolve({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy });
+      },
+      () => {
+        clearTimeout(giveUp);
+        resolve(null);
+      },
+      { timeout: 3_000, maximumAge: 0 },
     );
   });
 }

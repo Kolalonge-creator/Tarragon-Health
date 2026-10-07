@@ -6,6 +6,7 @@ import { directionsHref } from "@tarragon/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatPatientDateTime } from "@/lib/format-date";
+import { detectMapsPlatform } from "@/lib/directory/model";
 import { createClient } from "@/lib/supabase/client";
 
 interface HelpAlert { alert_id: string; sent_at: string; latitude: number | null; longitude: number | null }
@@ -14,7 +15,7 @@ interface HelpAlert { alert_id: string; sent_at: string; latitude: number | null
 export function HelpAlertView({ patientId, locale }: { patientId: string; locale: Locale }) {
   const q = useQuery({
     queryKey: ["care-circle", "help-alert", patientId],
-    refetchInterval: 60_000,
+    // No polling: every read of this alert is written to the care access log (INV-10), so a timer would fill the log. Focus refetch only.
     queryFn: async () => {
       const { data, error } = await createClient().rpc("circle_help_alert_view", { p_patient: patientId });
       if (error) throw new Error(error.message);
@@ -23,7 +24,7 @@ export function HelpAlertView({ patientId, locale }: { patientId: string; locale
   });
   const a = q.data;
   if (!a) return null;
-  const maps = directionsHref({ latitude: a.latitude, longitude: a.longitude }, "android");
+  const maps = directionsHref({ latitude: a.latitude, longitude: a.longitude }, detectMapsPlatform());
   return (
     <Card>
       <CardHeader><CardTitle>{t("circle.help.view.title", locale)}</CardTitle></CardHeader>
