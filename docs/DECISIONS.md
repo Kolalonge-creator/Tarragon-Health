@@ -26,6 +26,7 @@ Source: `docs/plans/S70-S75-cmo-signoff-pack.md` and `docs/research/S70-S75-revi
 - **S75-3: the triage dashboard is named "agreement", and no accuracy figure is published** until an outcome-linked study with a written design exists.
 - **S75-4: risk stratification stays deterministic,** with a monthly CMO fairness review (age band, sex, region, language). No ML model before 90 days of real snapshots.
 - **S75-5: minimum cell size stays 20 (30 for two attributes), enforced by one database function** on every aggregate surface. Counsel or the DPO still confirms the number (OQ-233).
+- **S75-6 (founder and CMO, 2026-10-07): the raised minimum-cell floors are accepted.** Corporate, payer and reproductive dashboards now suppress below 20 (previously 5 to 10), via the single `private.suppress_cell` rule. Counsel or the DPO still confirms the number (OQ-233, OQ-388).
 
 ## Design decisions, 2026-10-02
 
