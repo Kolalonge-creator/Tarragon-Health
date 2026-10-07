@@ -42916,6 +42916,85 @@ export type Database = {
         }
         Relationships: []
       }
+      lab_tests_admin: {
+        Row: {
+          code: string | null
+          commission_flat_kobo: number | null
+          commission_rate: number | null
+          commission_rate_type: Database["public"]["Enums"]["commission_rate_type"] | null
+          created_at: string | null
+          id: string | null
+          is_active: boolean | null
+          name: string | null
+          price_kobo: number | null
+          provider_id: string | null
+          turnaround_hours: number | null
+        }
+        Relationships: []
+      }
+      panel_bundles_admin: {
+        Row: {
+          category: Database["public"]["Enums"]["panel_bundle_category"] | null
+          clinical_protocol_ref: string | null
+          code: string | null
+          commission_flat_kobo: number | null
+          commission_rate: number | null
+          commission_rate_type: Database["public"]["Enums"]["commission_rate_type"] | null
+          created_at: string | null
+          description: string | null
+          id: string | null
+          is_active: boolean | null
+          is_screen_tier: boolean | null
+          name: string | null
+          preparation_instructions: string | null
+          price_kobo: number | null
+          review_discount_bp: number | null
+          self_bookable: boolean | null
+          test_codes: string[] | null
+          guidance_only: boolean | null
+          indicative_price_checked_on: string | null
+          indicative_price_kobo: number | null
+          indicative_price_source: string | null
+          where_to_get: string | null
+        }
+        Relationships: []
+      }
+      screen_types_admin: {
+        Row: {
+          age_from: number | null
+          age_to: number | null
+          category: string | null
+          clinical_basis: string | null
+          code: string | null
+          commission_rate: number | null
+          created_at: string | null
+          frequency_months: number | null
+          fulfilment_dormant: boolean | null
+          home_kit_available: boolean | null
+          id: string | null
+          is_active: boolean | null
+          is_optional: boolean | null
+          name: string | null
+          once_per_lifetime: boolean | null
+          price_kobo: number | null
+          price_source: | Database["public"]["Enums"]["screen_price_source"] | null
+          recommended_provider_type: | Database["public"]["Enums"]["organisation_type"] | null
+          reopens_on_exposure: boolean | null
+          sensitive: boolean | null
+          sex_applicability: Database["public"]["Enums"]["screen_applicability"] | null
+          specimen_type: string | null
+          preparation_instructions: string | null
+          units: string | null
+          reference_range_text: string | null
+          patient_explainer: string | null
+          guidance_only: boolean | null
+          indicative_price_checked_on: string | null
+          indicative_price_kobo: number | null
+          indicative_price_source: string | null
+          where_to_get: string | null
+        }
+        Relationships: []
+      }
       lab_provider_directory: {
         Row: {
           accreditation: string | null

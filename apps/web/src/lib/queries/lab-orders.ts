@@ -2,7 +2,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Database, Tables } from "@tarragon/shared";
 
-export type PanelBundle = Tables<"panel_bundles">;
+/**
+ * Track E 8.16: the commission columns are not readable by a patient, clinician or partner (column grant, migration
+ * 20261007105817), so this type and every client read of panel_bundles leave them out. `select("*")` on this table fails with a
+ * permission error by design; scan test lab-commission-columns.scan.test.ts holds the line. Admin screens read panel_bundles_admin.
+ */
+export type PanelBundle = Omit<Tables<"panel_bundles">, "commission_rate" | "commission_rate_type" | "commission_flat_kobo">;
+export const PANEL_BUNDLE_SAFE_COLUMNS =
+  "id, code, name, description, price_kobo, test_codes, is_active, created_at, self_bookable, review_discount_bp, is_screen_tier, preparation_instructions, category, clinical_protocol_ref, guidance_only, indicative_price_kobo, indicative_price_source, indicative_price_checked_on, where_to_get";
 
 /**
  * §56.4/§56.6 test-definition fields (specimen/prep/units/reference range/
@@ -51,7 +58,7 @@ export function useLabCatalogue() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("panel_bundles")
-        .select("*")
+        .select(PANEL_BUNDLE_SAFE_COLUMNS)
         .eq("is_active", true)
         .order("name", { ascending: true });
       if (error) throw error;
