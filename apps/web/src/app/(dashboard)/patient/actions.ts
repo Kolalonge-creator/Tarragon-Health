@@ -1268,6 +1268,9 @@ export async function alertEmergencyContactNow(eventId: string): Promise<Emergen
     patient_name: profile.full_name ?? "someone who lists you as their emergency contact",
   } as Json;
 
+  // The ONE named SMS exception (S85-D3, OQ-32): the dispatcher texts the contact "Tarragon: please call {name} now." only when the
+  // go-live guard sms_emergency_contact_enabled is on, and re-checks consent and this number against the profile. It also sends the
+  // contact push, email and in-app where they are a Tarragon account, so this alert never depends on live SMS (OQ-46).
   // notifications is queue-write only; the deployed dispatcher sends off-session.
   // recipient_id is the patient this emergency belongs to, not necessarily the caller.
   const serviceRole = createServiceRoleClient();

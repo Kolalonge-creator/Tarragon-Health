@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/client";
 import type { Enums, Json, Tables } from "@tarragon/shared";
 import type { BroadcastEmailContent } from "@/lib/broadcasts/render-email-template";
+import { assertNoSmsChannel } from "@/lib/notifications/sms-policy";
 
 export type NotificationBroadcast = Tables<"notification_broadcasts">;
 export type BroadcastAudience = Enums<"broadcast_audience">;
@@ -154,6 +155,7 @@ export function useSendBroadcast() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: SendBroadcastInput) => {
+      assertNoSmsChannel(input.channels);
       const supabase = createClient();
       const {
         data: { user },

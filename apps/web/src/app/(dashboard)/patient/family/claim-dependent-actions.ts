@@ -112,27 +112,9 @@ export async function claimDependentAccountAction(
     .eq("id", dependent_id);
   if (profileError) return { error: profileError.message };
 
-  await svc.from("notifications").insert({
-    recipient_id: dependent_id,
-    organisation_id: parent.organisation_id,
-    channel: "sms",
-    template: "dependent_account_claimed",
-    status: "pending",
-    content_class: "non_clinical",
-    payload: {
-      // Deliberately not "download the app" — there is no app-store listing
-      // yet (apps/mobile/eas.json has an empty production submit config), and
-      // pointing a patient at "download the app" instead sent them to the
-      // browser PWA (Add to Home Screen), a second, differently-styled icon
-      // alongside the real native app once one exists. app.tarragonhealth.ng
-      // is the one real place to log in today, on any phone, no install
-      // required.
-      message:
-        dependent.dependent_kind === "minor_child"
-          ? "You're 18. Your Tarragon record is now your own. Go to app.tarragonhealth.ng and use this number to set up your own login."
-          : "Someone has set up a Tarragon record for you and given you your own login. Go to app.tarragonhealth.ng and use this number to sign in.",
-    },
-  });
+  // No notification is queued. This used to text the person (INV-08: SMS is for verification codes and clinician paging only, S85-D3),
+  // and the template never had a renderer, so that row could not have been sent anyway. The person has no login yet, so there is
+  // no inbox to put a notice in and no email on record: the parent is told what to pass on, in the confirmation below.
 
   await svc.from("audit_log").insert({
     organisation_id: parent.organisation_id,
@@ -145,6 +127,6 @@ export async function claimDependentAccountAction(
   revalidatePath("/patient/family");
   revalidatePath("/patient");
   return {
-    message: `${dependent.full_name ?? "They"} can now claim their own account with that number. You'll keep the same access you have today until they decide otherwise.`,
+    message: `${dependent.full_name ?? "They"} can now claim their own account with that number. Please tell them to go to app.tarragonhealth.ng and sign in with it. You'll keep the same access you have today until they decide otherwise.`,
   };
 }
