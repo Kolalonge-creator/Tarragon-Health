@@ -48,6 +48,8 @@ async function openIt() {
   fireEvent.click(screen.getByRole("button", { name: "Open" }));
   fireEvent.click(screen.getByRole("button", { name: "Open prescription" }));
   await screen.findByText("Amlodipine, 5 mg", undefined, { timeout: 5000 });
+  // the buttons stay disabled until the opening request has fully settled; on a slow CI machine that is later than the text appearing
+  await waitFor(() => expect((screen.getByRole("button", { name: "Mark dispensed" }) as HTMLButtonElement).disabled).toBe(false), { timeout: 15000 });
 }
 
 describe("PharmacistPrescriptions", () => {
