@@ -371,7 +371,8 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   }
   // S28 pharmacy collection. Neutral by design (INV-07): never a medicine, a person or a collection code.
   if (n.template === "pharmacy_collection_waiting") {
-    return { text: "Something is waiting for you", href: "/pharmacist/prescriptions" };
+    // the pharmacist overview lists both waiting orders and prescriptions sent for collection
+    return { text: "Something is waiting for you", href: "/pharmacist" };
   }
   if (n.template === "pharmacy_collection_update") {
     return { text: "Your pharmacy has an update. Open the app to see it", href: "/patient/medications" };

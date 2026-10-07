@@ -230,7 +230,16 @@ begin
 
   -- S28b: neutral, in-app, to the pharmacy's own pharmacists. Names no person, number or medicine; the pharmacist opens the order in the app.
   if new.pharmacy_partner_id is not null then
-    perform private.rx_notify_pharmacy(new.pharmacy_partner_id, 'pharmacy_collection_waiting');
+    if exists (select 1 from public.profiles pr where pr.pharmacy_partner_id = new.pharmacy_partner_id and pr.role = 'pharmacist' and pr.is_active) then
+      perform private.rx_notify_pharmacy(new.pharmacy_partner_id, 'pharmacy_collection_waiting');
+    elsif v_pharmacy.contact_email is not null then
+      -- A partner with no login in the app must still hear about a paid order. Email only (never SMS, INV-08), and nothing about the
+      -- patient or the medicines: the payload carries placeholders in place of her name, number and items.
+      insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload)
+      values (new.organisation_id, new.patient_id, 'email', 'pending', 'pharmacy_order_pharmacy_alert',
+              jsonb_build_object('to_email', v_pharmacy.contact_email, 'pharmacy_name', v_pharmacy.name, 'patient_name', 'a patient',
+                                 'patient_number', null, 'order_number', new.order_number, 'items_summary', 'a new order'));
+    end if;
   end if;
   return new;
 end;

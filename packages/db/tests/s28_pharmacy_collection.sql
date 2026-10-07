@@ -642,8 +642,21 @@ begin
   alter table public.pharmacy_orders enable trigger pharmacy_orders_record_commission;
   perform pg_temp.ck('the pharmacy gets the neutral in-app notice for a new order', 'true',
     ((select count(*) from public.notifications where recipient_id = ph_a and template = 'pharmacy_collection_waiting' and channel = 'in_app') >= 1)::text);
-  perform pg_temp.ck('no pharmacy alert goes by SMS or email any more', '0',
-    (select count(*)::text from public.notifications where template = 'pharmacy_order_pharmacy_alert' and created_at >= now() - interval '1 minute'));
+  -- a partner with no login in the app still hears of a paid order, by a neutral email and never by SMS
+  update public.pharmacy_partners set contact_email = 'orders@pharmacy.example' where id = pa;
+  update public.profiles set pharmacy_partner_id = null where id in (ph_a, ph_a2);
+  alter table public.pharmacy_orders disable trigger pharmacy_orders_record_commission;
+  update public.pharmacy_orders set status = 'requested' where id = v_order;
+  update public.pharmacy_orders set status = 'payment_confirmed' where id = v_order;
+  alter table public.pharmacy_orders enable trigger pharmacy_orders_record_commission;
+  perform pg_temp.ck('a partner with no app login gets a neutral email and no SMS', '1|0|0',
+    (select count(*) filter (where channel = 'email' and payload ->> 'to_email' = 'orders@pharmacy.example')::text || '|' ||
+            count(*) filter (where channel = 'sms')::text || '|' ||
+            count(*) filter (where payload::text ilike '%Amlodipine%' or payload::text ilike '%S28 pat%')::text
+       from public.notifications where template = 'pharmacy_order_pharmacy_alert' and created_at >= now() - interval '1 minute'));
+  update public.profiles set pharmacy_partner_id = pa where id in (ph_a, ph_a2);
+  perform pg_temp.ck('no pharmacy alert goes by SMS any more (INV-08)', '0',
+    (select count(*)::text from public.notifications where template = 'pharmacy_order_pharmacy_alert' and channel = 'sms' and created_at >= now() - interval '1 minute'));
   perform pg_temp.ck('nothing sent to the pharmacy names the patient or the medicine', '0',
     (select count(*)::text from public.notifications where recipient_id in (ph_a, ph_a2) and (payload::text ilike '%Amlodipine%' or payload::text ilike '%S28 pat%')));
 end $$;
