@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, Text, TextInput, View } from "react-native";
-import { koboToNaira } from "@tarragon/shared";
+import { t } from "@tarragon/i18n";
 import {
   enrolInWellnessChallenge,
   loadMyChallengeEnrolments,
@@ -14,7 +14,6 @@ import {
   loadWellnessPointsLedger,
   markWellnessClassAttended,
   reasonLabel,
-  redeemWellnessPoints,
   registerForWellnessClass,
   type ChallengeEnrolment,
   type PatientWellnessBadge,
@@ -128,8 +127,7 @@ export function WellnessScreen({ patientId, organisationId, onNavigate }: Wellne
         <ScreenTitle>Wellness rewards</ScreenTitle>
         <MutedText>
           Small, everyday habits add up. Earn points for logging, learning, and finishing challenges,
-          collect badges along the way, and redeem points any time for a real reward voucher you can put
-          towards your care.
+          collect badges along the way, and use points at checkout to lower Tarragon's own fee on a payment.
         </MutedText>
       </View>
 
@@ -160,42 +158,13 @@ function PointsCard({
 }) {
   const colors = useLegacyColors();
   const { scheme } = useTheme();
-  const [amount, setAmount] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [redeemed, setRedeemed] = useState(false);
 
   const currentBalance = balance?.balance ?? 0;
 
-  async function submit() {
-    setError(null);
-    setMessage(null);
-    const points = Number(amount);
-    if (!points || points <= 0) {
-      setError("Enter a positive number of points.");
-      return;
-    }
-    setSubmitting(true);
-    const result = await redeemWellnessPoints(points);
-    setSubmitting(false);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    setMessage(`Redeemed: a ₦${koboToNaira(result.data.koboCredited ?? 0).toLocaleString()} reward voucher is now on your account.`);
-    setAmount("");
-    setRedeemed(true);
-    onChanged();
-  }
-
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Wellness points</Text>
-      <MutedText>
-        Earn points for logging vitals, meals, and check-ins, finishing lessons, and hitting challenges.
-        Redeem any time for a reward voucher you can put towards your care.
-      </MutedText>
+      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("points.card.title", "en")}</Text>
+      <MutedText>{t("points.card.body", "en")}</MutedText>
 
       <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6 }}>
         <Text style={{ fontSize: 28, fontWeight: "700", color: colors.ink }}>{currentBalance.toLocaleString()}</Text>
@@ -204,24 +173,7 @@ function PointsCard({
         </MutedText>
       </View>
 
-      <View style={{ gap: 8 }}>
-        <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>Redeem for a voucher</Text>
-        <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
-          value={amount}
-          onChangeText={setAmount}
-          placeholder="e.g. 100"
-          keyboardType="numeric"
-          style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, paddingHorizontal: 10, paddingVertical: 8, fontSize: 14, color: colors.ink }}
-        />
-        {error && <ErrorText>{error}</ErrorText>}
-        {message && <MutedText>{message}</MutedText>}
-        <SecondaryButton title="Redeem" onPress={submit} disabled={currentBalance <= 0} loading={submitting} />
-        {redeemed && (
-          <Text onPress={() => onNavigate("financialProfile")} style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed }}>
-            See your voucher in Your finances →
-          </Text>
-        )}
-      </View>
+      <MutedText>{t("points.card.how_to_use", "en")}</MutedText>
 
       {ledger.length > 0 && (
         <View style={{ gap: 4 }}>

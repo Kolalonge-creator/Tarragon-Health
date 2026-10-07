@@ -23,6 +23,9 @@ export interface OrderRow {
   /** S71: what a sponsor covered, and who. A fully covered order has amount 0 and shows "Covered by ...", never a price. */
   sponsorShareKobo: number;
   sponsorName: string | null;
+  /** S72: only the buyer can ask for a refund; refundState is the state of any refund already asked for. */
+  isBuyer: boolean;
+  refundState: string | null;
 }
 export interface MembershipState {
   isMember: boolean;
@@ -62,6 +65,7 @@ export function parseOrders(data: unknown): OrderRow[] {
       orderId: r["order_id"], state, amountKobo: r["amount_kobo"], totalKobo: isKobo(r["total_kobo"]) ? r["total_kobo"] : null,
       nameKey: r["name_key"], createdAt: r["created_at"], paidAt: str(r["paid_at"]) ? r["paid_at"] : null,
       sponsorShareKobo: sponsorShare, sponsorName: str(r["sponsor_name"]) ? r["sponsor_name"] : null,
+      isBuyer: r["is_buyer"] !== false, refundState: str(r["refund_state"]) ? r["refund_state"] : null,
     });
   }
   return out;
@@ -99,6 +103,9 @@ const ERROR_KEYS: Readonly<Record<string, MessageKey>> = {
   membership_not_open: "shop.error.membership_not_open", quote_changed: "shop.error.quote_changed", sponsor_billing_not_open: "shop.error.sponsor_billing_not_open",
   order_fully_covered: "shop.error.order_fully_covered", discount_code_invalid: "shop.error.discount_code_invalid", discount_code_rate_limited: "shop.error.discount_code_rate_limited",
   sponsor_budget_exhausted: "shop.error.sponsor_budget_exhausted", sponsor_payment_not_open: "shop.error.sponsor_payment_not_open",
+  // S72: paying from a supporter's link
+  request_not_found: "request.error.unknown", request_expired: "request.error.expired", request_cancelled: "request.error.cancelled", request_used: "request.error.used",
+  request_in_use: "request.error.in_use", request_own: "request.error.own", request_not_payable: "request.error.not_payable", request_order_mismatch: "request.error.not_payable",
 };
 export function checkoutErrorKey(code: unknown): MessageKey {
   return (typeof code === "string" ? ERROR_KEYS[code] : undefined) ?? "shop.error.unknown";

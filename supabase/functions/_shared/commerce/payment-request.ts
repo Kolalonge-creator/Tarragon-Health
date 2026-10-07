@@ -5,6 +5,8 @@
  *
  * INV-07: the link page and the share message carry only a generic item name and the amount. Never a condition, a reason or a person's health.
  */
+import type { Quote } from "./quote.ts";
+
 export const PAYMENT_REQUEST_CODE = /^pr_[A-Za-z0-9_-]{24}$/;
 export const isPaymentRequestCode = (v: unknown): v is string => typeof v === "string" && PAYMENT_REQUEST_CODE.test(v);
 
@@ -104,4 +106,16 @@ export function requestErrorKey(code: string): string {
     case "checkout_not_open": return "shop.error.checkout_not_open";
     default: return "request.error.unknown";
   }
+}
+
+/**
+ * The ordinary quote for a link page: the list price and nothing else (the supporter has no sponsor, code or points here), shaped as a Quote so the same
+ * itemised checkout (clinician or partner fee, Tarragon's fee, processing estimate, total) can be shown to the payer. The amount due equals the list price.
+ */
+export function previewQuote(itemCode: string, amountKobo: number): Quote {
+  return {
+    itemCode, listKobo: amountKobo, amountDueKobo: amountKobo, sponsorShareKobo: 0, discountKobo: 0, pointsApplied: 0, pointsReductionKobo: 0,
+    lines: [{ rule: "list", labelKey: "quote.line.list", amountKobo, runningKobo: amountKobo, applied: true, reasonKey: null }],
+    discountCodeOk: null, rateLimited: false, sponsorName: null, coveredInFull: false, sponsorBudgetShort: false,
+  };
 }

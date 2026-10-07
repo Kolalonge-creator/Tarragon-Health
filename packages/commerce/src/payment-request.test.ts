@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
+import { itemiseCheckout } from "../../../supabase/functions/_shared/commerce/itemised.ts";
 import {
-  isPaymentRequestCode, parseCreatedPaymentRequest, parsePaymentRequests, parsePreview, paymentRequestLink, previewMessageKey, requestErrorKey,
+  previewQuote, isPaymentRequestCode, parseCreatedPaymentRequest, parsePaymentRequests, parsePreview, paymentRequestLink, previewMessageKey, requestErrorKey,
 } from "../../../supabase/functions/_shared/commerce/payment-request.ts";
 
 const CODE = "pr_abcdefghijklmnopqrstuvwx";
@@ -54,5 +55,21 @@ describe("the rest", () => {
     expect(requestErrorKey("request_expired")).toBe("request.error.expired");
     expect(requestErrorKey("gift_item_not_allowed")).toBe("request.error.item_not_allowed");
     expect(requestErrorKey("whatever")).toBe("request.error.unknown");
+  });
+});
+
+describe("previewQuote and the payer's itemised fee", () => {
+  const fee = { localBasisPoints: 150, flatKobo: 10_000, flatWaivedBelowKobo: 250_000, capKobo: 200_000, internationalBasisPoints: 390, internationalFlatKobo: 10_000 };
+  it("shows the clinician or partner fee and Tarragon's fee separately, summing to the total with the processing estimate", () => {
+    const it = itemiseCheckout({ quote: previewQuote("proof_consult", 500_000), components: { partner_fee: 300_000, tarragon_service_fee: 200_000 }, fee });
+    expect(it).not.toBeNull();
+    expect(it!.split).toBe(true);
+    expect(it!.lines.map((l) => l.kind)).toEqual(["partner_fee", "tarragon_service_fee", "processing_estimate"]);
+    expect(it!.lines.reduce((a, l) => a + l.amountKobo, 0)).toBe(it!.totalKobo);
+  });
+  it("an item with no recorded split is one honest Price line", () => {
+    const it = itemiseCheckout({ quote: previewQuote("membership_annual", 10_000_000), components: {}, fee });
+    expect(it!.split).toBe(false);
+    expect(it!.lines[0]!.kind).toBe("price");
   });
 });

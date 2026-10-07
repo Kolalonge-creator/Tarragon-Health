@@ -9,6 +9,8 @@ import {
 import { fetchServicePriceOverrides } from "@/lib/marketing/plan-prices";
 import { servicePrice } from "@/app/(marketing)/_content/pricing";
 import { GuestCheckoutForm } from "./guest-checkout-form";
+import { isPaymentRequestCode } from "@tarragon/commerce";
+import { PaymentRequestView } from "./payment-request-view";
 
 export const metadata: Metadata = {
   title: "Buy a service — Tarragon Health",
@@ -30,6 +32,10 @@ export default async function GuestCheckoutPage({
   params: Promise<{ code: string }>;
 }) {
   const { code } = await params;
+  // S72 (19.13): a supporter's payment request link. Its code is unguessable and is not a product code; the page shows only a generic item and the price.
+  if (isPaymentRequestCode(code)) {
+    return <PaymentRequestView code={code} />;
+  }
   if (!isGuestCheckoutProductCode(code)) {
     notFound();
   }

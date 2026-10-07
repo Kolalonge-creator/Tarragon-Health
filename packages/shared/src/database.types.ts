@@ -41184,17 +41184,14 @@ export type Database = {
       wellness_points_config: {
         Row: {
           id: boolean
-          points_to_kobo_rate: number
           updated_at: string
         }
         Insert: {
           id?: boolean
-          points_to_kobo_rate?: number
           updated_at?: string
         }
         Update: {
           id?: boolean
-          points_to_kobo_rate?: number
           updated_at?: string
         }
         Relationships: []
@@ -41246,58 +41243,6 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      wellness_points_redemptions: {
-        Row: {
-          created_at: string
-          id: string
-          kobo_credited: number
-          organisation_id: string
-          patient_id: string
-          points_redeemed: number
-          voucher_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          kobo_credited: number
-          organisation_id: string
-          patient_id: string
-          points_redeemed: number
-          voucher_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          kobo_credited?: number
-          organisation_id?: string
-          patient_id?: string
-          points_redeemed?: number
-          voucher_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "wellness_points_redemptions_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wellness_points_redemptions_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wellness_points_redemptions_voucher_id_fkey"
-            columns: ["voucher_id"]
-            isOneToOne: false
-            referencedRelation: "care_vouchers"
             referencedColumns: ["id"]
           },
         ]
@@ -43317,6 +43262,24 @@ export type Database = {
         Returns: Json
       };
       admin_pricing_overview: { Args: never; Returns: Json };
+      // S72: Community Access Fund, payment requests, entitlements (19.8 to 19.13)
+      pledge_donation: { Args: { p_amount_kobo: number; p_item_code?: string }; Returns: Json };
+      cancel_my_donation: { Args: { p_id: string }; Returns: Json };
+      my_donations: { Args: never; Returns: Json };
+      my_access_fund_support: { Args: never; Returns: Json };
+      ops_confirm_donation_received: { Args: { p_bank_reference: string; p_id: string; p_note: string }; Returns: Json };
+      ops_approve_access_fund_grant: { Args: { p_ceiling_kobo: number; p_criterion: string; p_item_code: string; p_note: string; p_patient: string }; Returns: Json };
+      ops_cancel_access_fund_grant: { Args: { p_id: string; p_reason: string }; Returns: Json };
+      admin_access_fund_overview: { Args: never; Returns: Json };
+      expire_access_fund: { Args: never; Returns: Json };
+      access_fund_public_report: { Args: never; Returns: Json };
+      create_payment_request: { Args: { p_beneficiary?: string; p_item_code: string }; Returns: Json };
+      cancel_payment_request: { Args: { p_id: string }; Returns: Json };
+      my_payment_requests: { Args: never; Returns: Json };
+      payment_request_preview: { Args: { p_code: string; p_visitor: string }; Returns: Json };
+      create_request_order: { Args: { p_client_key?: string; p_code: string }; Returns: Json };
+      expire_payment_requests: { Args: never; Returns: number };
+      my_entitlements: { Args: never; Returns: Json };
       // S71: sponsor programmes, HMO eligibility, sponsor cover
       available_hmos: { Args: never; Returns: Json };
       my_hmo_eligibility: { Args: never; Returns: Json };
@@ -46656,7 +46619,6 @@ export type Database = {
         Returns: Json
       }
       redeem_referral_code: { Args: { p_code: string }; Returns: Json }
-      redeem_wellness_points: { Args: { p_points: number }; Returns: Json }
       refer_patient_to_specialist: {
         Args: {
           p_patient_id: string

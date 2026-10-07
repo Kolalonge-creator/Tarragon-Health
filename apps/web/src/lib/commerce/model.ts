@@ -38,6 +38,9 @@ export const orderRowSchema = z.object({
   // S71: what a sponsor covered, and who. A fully covered order has amount 0 and no payment.
   sponsor_share_kobo: kobo.optional().default(0),
   sponsor_name: z.string().nullable().optional().default(null),
+  // S72: whether the signed-in person is the buyer (only the buyer can ask for a refund), and the state of any refund asked for
+  is_buyer: z.boolean().optional().default(true),
+  refund_state: z.string().nullable().optional().default(null),
 });
 export type OrderRow = z.infer<typeof orderRowSchema>;
 
@@ -113,6 +116,15 @@ const ERROR_KEYS: Readonly<Record<string, MessageKey>> = {
   discount_code_rate_limited: "shop.error.discount_code_rate_limited",
   sponsor_budget_exhausted: "shop.error.sponsor_budget_exhausted",
   sponsor_payment_not_open: "shop.error.sponsor_payment_not_open",
+  // S72: paying from a supporter's link
+  request_not_found: "request.error.unknown",
+  request_expired: "request.error.expired",
+  request_cancelled: "request.error.cancelled",
+  request_used: "request.error.used",
+  request_in_use: "request.error.in_use",
+  request_own: "request.error.own",
+  request_not_payable: "request.error.not_payable",
+  request_order_mismatch: "request.error.not_payable",
 };
 
 const HMO_ERROR_KEYS: Readonly<Record<string, MessageKey>> = {

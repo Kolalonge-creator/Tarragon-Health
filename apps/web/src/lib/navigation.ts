@@ -247,6 +247,8 @@ export function getNavSections(
             { label: "My services", href: "/patient/subscription", icon: "billing" },
             // Buy the Membership or a care pack, see what is included and the price, and see your payments (S25).
             { label: "Membership", href: "/patient/membership", icon: "billing" },
+            // Send a link to someone who offered to help pay for the yearly Membership (S72).
+            { label: "Ask someone to pay", href: "/patient/payment-requests", icon: "billing" },
             { label: "Family", href: "/patient/family", icon: "family" },
             // Real feature a single-persona mock doesn't happen to show (that
             // patient supports nobody) — kept reachable rather than regressed.
@@ -708,6 +710,8 @@ export function getNavSections(
             { label: "Memberships", href: "/admin/memberships", icon: "members" },
             // What can be bought, its price and its history; switch an item on or off (S25).
             { label: "Catalogue and prices", href: "/admin/catalogue", icon: "billing" },
+            // Gifts to the Community Access Fund and the grants that pay for a named item for a named person (S72).
+            { label: "Community Access Fund", href: "/admin/access-fund", icon: "billing" },
             // Blood pressure control 90 days after joining: aggregate only, small numbers withheld (S38).
             { label: "Outcomes", href: "/admin/outcomes", icon: "analytics" },
             { label: "Risk fairness", href: "/admin/risk-fairness", icon: "analytics" },

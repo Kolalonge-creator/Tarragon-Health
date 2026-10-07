@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { en, t, type Locale } from "@tarragon/i18n";
+import { en, t, type Locale, type MessageKey } from "@tarragon/i18n";
 import Link from "next/link";
 import { estimatedBreakdown, formatNaira, itemiseCheckout, type FeeEstimateSchedule } from "@tarragon/commerce";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +15,16 @@ import { RefundRequestDialog } from "./refund-request-dialog";
 
 const MUTED = "text-charcoal-ink/70 dark:text-night-ink/70";
 const TOUCH = "min-h-11";
+
+/** The words for the state of a refund the person asked for (S72, 19.8). */
+function refundStateKey(state: string): MessageKey {
+  switch (state) {
+    case "completed": return "receipts.refund.completed";
+    case "rejected": return "receipts.refund.rejected";
+    case "failed": return "receipts.refund.failed";
+    default: return "receipts.refund.pending";
+  }
+}
 
 /** Catalogue copy keys come from the database. A key this build does not know shows nothing, never the raw key. */
 function copy(key: string, locale: Locale): string {
@@ -39,8 +49,14 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
   // S73: the database prices every order. What is shown is its quote; the catalogue price is only the fallback when no quote could be had.
   const [codeInput, setCodeInput] = useState("");
   const [appliedCode, setAppliedCode] = useState<string | null>(null);
+  // S72 (19.9): Health Points lower only Tarragon's own fee, for this one payment. The database works out whether any can be used; the choice is the person's.
+  const [usePoints, setUsePoints] = useState(false);
   const quoteQuery = useQuote({ code: item.code, ...(beneficiary ? { beneficiary } : {}), discountCode: appliedCode });
-  const quote = quoteQuery.data ?? null;
+  const pointsQuoteQuery = useQuote({ code: item.code, ...(beneficiary ? { beneficiary } : {}), discountCode: appliedCode, usePoints: true });
+  const pointsQuote = beneficiary === undefined ? (pointsQuoteQuery.data ?? null) : null;
+  const pointsLine = pointsQuote?.lines.find((l) => l.rule === "points" && l.applied) ?? null;
+  const pointsOn = usePoints && pointsLine !== null;
+  const quote = (pointsOn ? pointsQuote : (quoteQuery.data ?? null)) ?? null;
   const shownKobo = quote?.amountDueKobo ?? item.amount_kobo;
   const b = estimatedBreakdown(shownKobo, fee);
   const blocked = item.kind === "membership" && memberUntil !== null;
@@ -67,6 +83,7 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
         code: item.code, clientKey: clientKey.current, ...(beneficiary ? { beneficiary } : {}),
         // the code the person applied, and the total they were shown: if the database now computes a different one it refuses instead of charging it
         ...(appliedCode && !codeFailed ? { discountCode: appliedCode } : {}),
+        ...(pointsOn ? { usePoints: true } : {}),
         ...(quote !== null && !codeFailed ? { expectedAmountKobo: quote.amountDueKobo } : {}),
       });
       // a fully covered order comes back already paid, with no checkout link: nothing is opened and nothing is paid
@@ -172,6 +189,17 @@ function ItemCard({ item, locale, fee, memberUntil, go, beneficiary, beneficiary
                 <p className={`text-sm ${MUTED}`}>{t("shop.fee.estimate", locale)}</p>
               </>
             )}
+            {pointsLine !== null && pointsQuote !== null && !blocked ? (
+              <div className="space-y-1">
+                <label className={`${TOUCH} flex items-center gap-2 font-medium`}>
+                  <input type="checkbox" checked={usePoints} onChange={(e) => setUsePoints(e.target.checked)} aria-describedby={`points-hint-${item.code}`} className="h-5 w-5" />
+                  {t("checkout.points.label", locale)}
+                </label>
+                <p id={`points-hint-${item.code}`} className={`text-sm ${MUTED}`}>
+                  {t("checkout.points.saves", locale, { points: pointsQuote.pointsApplied, amount: `\u20A6${formatNaira(pointsQuote.pointsReductionKobo)}` })} {t("checkout.points.explain", locale)}
+                </p>
+              </div>
+            ) : null}
             {!blocked ? (
               <div className="space-y-2">
                 <label htmlFor={`code-${item.code}`} className="block font-medium">{t("quote.code.label", locale)}</label>
@@ -226,11 +254,12 @@ function History({ rows, locale }: { rows: OrderRow[]; locale: Locale }) {
                   <p className={`text-sm ${MUTED}`}>{formatPatientDate(o.paid_at ?? o.created_at)}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  {o.state === "paid" && o.amount_kobo > 0 && (
+                  {o.state === "paid" && o.amount_kobo > 0 && o.is_buyer && o.refund_state === null && (
                     <Button type="button" variant="outline" size="sm" onClick={() => setRefundTarget(o)}>
                       {t("refund.request.button", locale)}
                     </Button>
                   )}
+                  {o.refund_state !== null && <span className={`text-sm ${MUTED}`}>{t(refundStateKey(o.refund_state), locale)}</span>}
                   <div className="text-right">
                     {o.amount_kobo === 0 && o.sponsor_share_kobo > 0 ? <p>{o.sponsor_name ? t("sponsor.history_covered", locale, { name: o.sponsor_name }) : t("sponsor.covered_generic", locale)}</p> : <p><Naira kobo={o.total_kobo ?? o.amount_kobo} /></p>}
                     <p className={`text-sm ${MUTED}`}>{t(orderStateKey(o.state), locale)}</p>

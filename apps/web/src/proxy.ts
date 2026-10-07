@@ -83,6 +83,13 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
+  // A supporter's payment request link (S72, 19.13). The code in the path is the whole authorisation to see the generic item and price, the page needs no
+  // role (a signed-in visitor must land on it, not be bounced to a dashboard), and the code must never leave through a Referer header.
+  if (pathname.startsWith("/checkout/pr_")) {
+    response.headers.set("Referrer-Policy", "no-referrer");
+    return response;
+  }
+
   // The mobile app's WebView session bridge (apps/mobile/src/screens/
   // webview-screen.tsx) must run its own client-side setSession() exchange
   // and `next` redirect every time it's hit — authenticated or not. Without
