@@ -572,19 +572,6 @@ export const TEMPLATE_MAP: Record<
     smsText: "Your care team has added something to your health record. Open the Tarragon Health app to see it.",
     pushUrl: "/patient/labs",
   }),
-  // S28 pharmacy collection. In-app text only (INV-08: never SMS), neutral (INV-07): no medicine, person or collection code.
-  pharmacy_collection_waiting: () => ({
-    smsText: "Something is waiting for you in the Tarragon Health app.",
-    pushUrl: "/pharmacist/prescriptions",
-  }),
-  pharmacy_collection_update: () => ({
-    smsText: "Your pharmacy has an update. Open the Tarragon Health app to see it.",
-    pushUrl: "/patient/medications",
-  }),
-  pharmacy_collection_question: () => ({
-    smsText: "A pharmacy has a question for you. Open the Tarragon Health app to answer it.",
-    pushUrl: "/clinician",
-  }),
   written_question_answered: () => ({
     smsText: "Your care team has replied. Open the Tarragon Health app to read it.",
     pushUrl: "/patient/care",
