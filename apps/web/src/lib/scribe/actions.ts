@@ -6,6 +6,9 @@ import { MAX_SEGMENT_CHARS, MAX_TYPED_NOTES_CHARS, MIN_TYPED_NOTES_CHARS, parseT
 import { z } from "zod";
 
 // One definition of the context the model may see, used by both the recorded and the typed path.
+/** The only language the scribe records and drafts in. Stored as-is in the scribe tables. */
+const SCRIBE_LANGUAGE = "en-NG";
+
 const PatientContextSchema = z
   .object({
     age: z.number().int().min(0).max(130).optional(),
@@ -18,7 +21,6 @@ const RecordConsentSchema = z.object({
   patientId: z.string().uuid(),
   encounterNoteId: z.string().uuid().optional(),
   granted: z.boolean(),
-  language: z.enum(["en-NG", "pcm"]),
 });
 
 export async function recordScribeConsent(input: z.input<typeof RecordConsentSchema>) {
@@ -31,7 +33,7 @@ export async function recordScribeConsent(input: z.input<typeof RecordConsentSch
     patient_id: parsed.patientId,
     encounter_note_id: parsed.encounterNoteId ?? null,
     granted: parsed.granted,
-    language: parsed.language,
+    language: SCRIBE_LANGUAGE,
   } as Database["public"]["Tables"]["scribe_consents"]["Insert"];
 
   const { data, error } = await supabase
@@ -66,7 +68,6 @@ const AttachDraftSchema = z.object({
   encounterNoteId: z.string().uuid(),
   scribeConsentId: z.string().uuid(),
   patientSummary: z.string().max(4000),
-  patientSummaryLanguage: z.enum(["en-NG", "pcm"]),
 });
 
 /**
@@ -84,7 +85,7 @@ export async function attachScribeDraftToNote(input: z.input<typeof AttachDraftS
     p_note: parsed.encounterNoteId,
     p_consent: parsed.scribeConsentId,
     p_patient_summary: parsed.patientSummary,
-    p_summary_language: parsed.patientSummaryLanguage,
+    p_summary_language: SCRIBE_LANGUAGE,
   });
   if (error) throw new Error(error.message);
 }
@@ -104,7 +105,6 @@ const CallDraftSchema = z.object({
     )
     .min(1)
     .max(2000),
-  language: z.enum(["en-NG", "pcm"]),
   source: z.enum(["stt", "typed"]).default("stt"),
   patientContext: PatientContextSchema,
 });
@@ -138,7 +138,6 @@ export async function callScribeDraft(rawInput: z.input<typeof CallDraftSchema>)
 const DraftFromTextSchema = z.object({
   scribeConsentId: z.string().uuid(),
   encounterNoteId: z.string().uuid(),
-  language: z.enum(["en-NG", "pcm"]),
   text: z.string().min(MIN_TYPED_NOTES_CHARS).max(MAX_TYPED_NOTES_CHARS),
   patientContext: PatientContextSchema,
 });
@@ -152,7 +151,6 @@ export async function draftScribeFromText(input: z.input<typeof DraftFromTextSch
     scribeConsentId: parsed.scribeConsentId,
     encounterNoteId: parsed.encounterNoteId,
     segments,
-    language: parsed.language,
     source: "typed",
     patientContext: parsed.patientContext,
   });

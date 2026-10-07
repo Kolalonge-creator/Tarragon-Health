@@ -13,7 +13,7 @@ import {
   verifyPhoneCode,
 } from "@/lib/auth/auth-flow";
 import { checkNewPassword } from "@/lib/auth/password-verdict";
-import { useAuthLocale } from "@/lib/auth/use-auth-locale";
+import { DEFAULT_LOCALE } from "@tarragon/i18n";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
 import { ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
@@ -94,7 +94,7 @@ function PasswordField({
  * the emailed link still opens and completes fine in the device browser.
  */
 export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
-  const [locale] = useAuthLocale();
+  const locale = DEFAULT_LOCALE;
   const [tab, setTab] = useState<Tab>("phone");
   // E.164 number the code was (apparently) sent to. Same screen whether or
   // not the number is registered: recovery never reveals who has an account.
