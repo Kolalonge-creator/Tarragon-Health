@@ -57,7 +57,7 @@ export function draftFromRecognisedText(deviceKind: PhotoDeviceKind, lines: read
 
   switch (deviceKind) {
     case "blood_pressure": {
-      const ints = nums.filter((n) => Number.isInteger(n) && n >= 20 && n <= 320);
+      const ints = nums.filter((n) => Number.isInteger(n) && n >= 20 && n <= 999);
       const [sys, dia, pulse] = ints;
       if (sys !== undefined && dia !== undefined && sys <= dia) warnings.push("The top number should be bigger than the bottom number. Please check both.");
       return {
