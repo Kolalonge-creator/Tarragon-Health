@@ -1333,7 +1333,8 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Options: (a) allow same-organisation grants with a reason, notify the CMO at once (a keyed in-app notice with no patient name or condition, INV-07), and add a weekly review summary (recommended, built together with OQ-260); (b) later.
 - Decision: open (founder, CMO).
 
-### OQ-262 No executable erasure or anonymisation path (spec section 13, NDPA) (PARTLY DECIDED 2026-10-07, test data built in S39d)
+### OQ-262 No executable erasure or anonymisation path (spec section 13, NDPA) (DECIDED 2026-10-07 by the CMO: no erasure, restrict on request)
+- CMO decision: real data is never erased; on request the record is restricted, the patient gets a written reason, anonymisation after retention subject to counsel. Record restriction flag to build.
 - Decision (founder): do NOT erase real patient data, no path for it. Test data (`is_test`) can be deleted: built in S39d as `purge_test_account`. Real-data erasure stays open for counsel (Q5).
 - Deletion is a request workflow (`data_deletion_requests`) that an admin marks completed; no function removes or anonymises anything. 289 public tables carry a `patient_id`; their foreign keys to `profiles` are 323 CASCADE, 263 SET NULL, 174 RESTRICT, 39 NO ACTION, so a naive profile delete would wipe records the law may require us to keep in some tables and be blocked in others. Only 20 of 295 patient tables are classified in `table_classifications`. `analytics.subjects` keeps the pseudonym link unless erased with the patient, and `outcome_snapshots` is append-only (blocks UPDATE, not DELETE).
 - Not built: what must be kept, for how long, and what anonymising a clinical record means are questions for Nigerian counsel (see `docs/legal/questions-for-nigerian-counsel-S39.md` Q5). Building before the answer risks deleting what must be kept.
@@ -1391,12 +1392,14 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Options: (a) tie lab orders and the alert and escalation tables once unassigned-work visibility is designed (recommended); (b) leave.
 - Decision: open (founder, CMO).
 
-### OQ-281 May a patient ask who opened their record, and must they be told? (counsel)
+### OQ-281 May a patient ask who opened their record, and must they be told? (counsel) (DECIDED 2026-10-07 by the CMO: on request through the DPO)
+- CMO decision: not shown in the app; the DPO answers a request within 30 days. DPO report for one patient still to build; counsel confirms NDPA.
 - Founder direction: the patient is not told and need not know a doctor opened the record (NHS practice: the audit is background). Under the NDPA 2023 a patient may have a right to know who processed their data.
 - Options: (a) keep it hidden, answer a request from the DPO with the access log (recommended pending counsel); (b) show the patient their access history in the app.
 - Decision: open (counsel, DPO). Question 21 in `docs/legal/questions-for-nigerian-counsel-S39.md`.
 
-### OQ-282 The access log records the opening of a record, not each table read inside the window
+### OQ-282 The access log records the opening of a record, not each table read inside the window (DECIDED 2026-10-07 by the CMO: add a table-level log for sensitive categories)
+- CMO decision: keep the opening log and add a table-level access log for HIV, sexual health, mental health and reproductive records. To build.
 - `staff_record_opens` has one row per opening (who, which patient, when, tied or open, after hours), valid 8 hours. Reads of individual tables inside the window are not logged one by one, and a PostgREST GET runs read-only so a policy cannot write a row per read. Edits are covered by each table's own history where it has one (OQ-279).
 - Options: (a) keep the opening-level log (NHS legitimate-relationship practice, recommended); (b) add database request logging (pgaudit) shipped to a log store for per-query detail.
 - Decision: open (founder, CMO).
@@ -1422,3 +1425,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - `clinical_worklist()` returns the patient's name and a generic label such as "Therapy session awaiting approval" or "Abnormal screening result without follow-up" to every active clinician in the organisation. That reveals the kind of care (for example mental health) before anyone opens the record. Founder decision 2026-10-07: the queue shows the name and the item, opening is logged.
 - Options: (a) keep as decided; (b) show a neutral label ("Item awaiting review") for the therapy and screening queues and the kind only after opening (recommended if the CMO wants mental and sexual health treated as sensitive).
 - Decision: open (CMO, DPO).
+
+### OQ-287 Sexual health, STI and HIV records are on the open path (CMO choice, counsel to confirm)
+- The CMO chose to keep these on the open (audited) path. UK practice (the NHS STI Directions) and the Nigerian HIV and AIDS (Anti-Discrimination) Act 2014 treat them as specially confidential. Counsel should confirm the open path is lawful in Nigeria, and the table-level log (OQ-282) is the compensating control.
+- Decision: open (counsel). Revisit if counsel says a tie is required.

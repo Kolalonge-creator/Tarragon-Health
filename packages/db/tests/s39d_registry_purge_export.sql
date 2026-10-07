@@ -164,7 +164,7 @@ select pg_temp.ck('real', 'G1 a new export request is due in 30 days', 'true',
 select pg_temp.ck('real', 'G3 the clock follows the config, not a literal', 'true',
   (select (private.export_review_due() between now() + interval '29 days' and now() + interval '31 days')::text));
 select pg_temp.ck('real', 'G2 the active config is v3 with export_review_days 30', 'true',
-  (select (version = 3 and (config ->> 'export_review_days') = '30' and (config -> 'retention' ->> 'real_data_auto_delete') = 'false')::text from public.security_config where is_active));
+  (select (version >= 3 and (config ->> 'export_review_days') = '30' and (config -> 'retention' ->> 'real_data_auto_delete') = 'false')::text from public.security_config where is_active));
 
 -- SABOTAGE ---------------------------------------------------------------------------------------------------------------------------------------------------------
 do $$
@@ -176,7 +176,8 @@ begin
   execute v_def;
   perform pg_temp.as_user(pg_temp.f('ad'), format('select public.purge_test_account(%L)::text', v_victim));
   insert into results values ('sabotaged', 'SABOTAGE 1: without the is_test guard a real account is purged', '1', (select count(*)::text from public.profiles where id = v_victim));
-  select pg_get_functiondef('public.export_patient_data(uuid)'::regprocedure) into v_def;
+  -- since S39f the export body (and its credential filter) lives in private.export_patient_json
+  select pg_get_functiondef(coalesce(to_regprocedure('private.export_patient_json(uuid)'), 'public.export_patient_data(uuid)'::regprocedure)) into v_def;
   v_def := replace(v_def, 'where e.key !~* ''''token|secret|password|hash|api_key|passcode''''', 'where true');
   execute v_def;
   insert into results values ('sabotaged', 'SABOTAGE 2: without the credential filter a token appears in the export', 'false',

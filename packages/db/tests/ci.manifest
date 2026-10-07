@@ -888,3 +888,5 @@ s39e_worklists_and_work_counts.sql
 s39f_export_download_and_class_review.sql
 # S39g: staff writes on the tied tables need a tie or a logged opening. A tied clinician inserts, updates and deletes; an untied clinician cannot until open_patient_record, then can for that patient only; a coordinator, admin, other organisation and anon cannot; an opening never opens a reproductive table for writing; no tied write policy keeps the plain organisation-wide arm and patient arms are kept; the old text is backed up; the switches off give back the old write. Sabotage: staff_may_write always true; flips.
 s39g_tied_staff_writes.sql
+# S39h: a registry row whose table has been dropped must not break the export or the retention report; the registry names no missing table; config v4 is CMO confirmed with unchanged values. Sabotage: guard removed from the export; flips.
+s39h_registry_survives_dropped_tables.sql
