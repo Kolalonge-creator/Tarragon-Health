@@ -617,6 +617,8 @@ export function getNavSections(
                 { label: "Clinician roster", href: "/clinician/roster", icon: "members" },
                 // Queue and page times against their limits, on-call cover and reliability bands (S36e). CMO only; the page redirects others.
                 { label: "Reliability and SLA", href: "/clinician/reliability", icon: "caseload" },
+                // Claims, completed, hand-backs and time to complete per clinician, advisory only (S78c). CMO only; the page redirects others.
+                { label: "Clinician workload", href: "/clinician/workload", icon: "caseload" },
                 // Private safety concerns raised by clinicians, backup readers and retaliation reviews (S36i). CMO only; the page redirects others.
                 { label: "Safety concerns", href: "/clinician/quality/concerns", icon: "governance" },
                 // Grant or end a Membership by hand until checkout exists (S22b). CMO only; the page redirects others.

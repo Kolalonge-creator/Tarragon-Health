@@ -1002,6 +1002,8 @@ export const en = {
   "wq.title": "Ask your care team",
   "wq.intro": "Send your care team a written message. They reply in the app within {hours} hours. A written reply gives guidance, never a diagnosis. If your care team needs to make a diagnosis, they will call you.",
   "wq.window": "Reply within {hours} hours",
+  "wq.promise": "We aim to reply as quickly as we can. If we are running slower than usual, we will tell you here.",
+  "wq.emergency": "If this is urgent, or you feel very unwell, do not wait for a message. Go to your nearest emergency department or call emergency services now.",
   "wq.allowance.left": "{left} of {total} written messages left this month",
   "wq.allowance.none": "You have used your written messages for this month.",
   "wq.members_only": "Written messages to your care team are part of Membership.",

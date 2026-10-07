@@ -584,6 +584,11 @@ export const TEMPLATE_MAP: Record<
     smsText: "Sorry for the wait. Your message is still with the team. Open the Tarragon Health app.",
     pushUrl: "/patient/care",
   }),
+  // S78b: a reply or visit is running later than the target. In-app only; plain, no number, no condition, no name (INV-07, S-9).
+  response_slower_notice: () => ({
+    smsText: "We are taking longer than usual to get back to you. If this is urgent, please use emergency care now.",
+    pushUrl: "/patient/care",
+  }),
   written_question_call_planned: () => ({
     smsText: "Your care team will call you. Keep your phone close.",
     pushUrl: "/patient/care",

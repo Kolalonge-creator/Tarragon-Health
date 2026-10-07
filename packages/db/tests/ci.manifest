@@ -944,3 +944,9 @@ s76_b4_task_type_by_configuration.sql
 s76_b5_task_completed_event.sql
 # S76 B6: clinician_patient_summary gains a 30 day daily-average trend, the last 5 symptom checks (grade and date only) and document counts; one audit row naming the new sections; averages right; 45 day reading out; override used as the grade; no free text, document names or reproductive keys; untied clinician, patient and anon refused. Sabotage removes the denial branch and the untied clinician gets through.
 s76_b6_summary_additions.sql
+# S78a paging safety: with the outbox stopped the direct watchdog pages an unpaged red event (never shadow, test, inside the grace period or past the lookback), idempotent with the subscriber, grace read from the ACTIVE config; page.unacknowledged emitted once alongside page.escalated; the re-page of an acknowledged unclosed page is off by default and once-only when configured; paging_counts roles; sabotage removes the watchdog.
+s78a_paging_watchdog_and_repage.sql
+# S78b response times: no active config means the sweep reads and flags nothing (CMO decision S-9); an active version flags exactly the late written question, amber review and appointment start (not on-time, answered, started or test items), one breach, one sev3 incident per kind, one plain patient notice per cooldown with no number or condition, a neutral lead notice; idempotent; reads for lead and admin only; sabotage ignores the active flag.
+s78b_response_time_breach_path.sql
+# S78c workload dashboard and own reliability signal: the CMO reads claims, completed, hand-backs, median and p90 minutes and overdue (test clinicians excluded, by name, no patient reference, audited); administrator, clinician, patient and anon refused; a clinician sees only their own reliability counts; sabotage opens the gate.
+s78c_clinician_workload_and_own_reliability.sql
