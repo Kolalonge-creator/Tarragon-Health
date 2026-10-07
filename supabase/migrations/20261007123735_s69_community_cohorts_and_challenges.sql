@@ -510,7 +510,7 @@ begin
   values (pr.organisation_id, btrim(p_name), p_kind, pr.id, coalesce(pr.is_test, false)) returning id into v_id;
   insert into public.cohort_members (organisation_id, cohort_id, patient_id, role, consent_join_at, is_test)
   values (pr.organisation_id, v_id, pr.id, 'moderator', now(), coalesce(pr.is_test, false));
-  return jsonb_build_object('cohort_id', v_id);
+  return jsonb_build_object('ok', true, 'cohort_id', v_id);
 end $$;
 
 create function public.community_create_invite(p_cohort uuid) returns jsonb
@@ -840,7 +840,7 @@ begin
   end if;
   insert into public.challenges (organisation_id, cohort_id, template_code, template_version, metric, target_per_member, starts_on, ends_on, created_by, is_test)
   values (co.organisation_id, p_cohort, t.code, t.version, t.metric, t.target_per_member, p_starts_on, p_starts_on + p_days - 1, pr.id, co.is_test) returning id into v_id;
-  return jsonb_build_object('challenge_id', v_id);
+  return jsonb_build_object('ok', true, 'challenge_id', v_id);
 end $$;
 
 -- The challenge view. A CLOSED key set: label, dates, phase, one availability flag, and the cohort's own published total. There is no
@@ -939,7 +939,8 @@ begin
     values (pr.organisation_id, ch.id, pr.id, v_day, v_val, 'self_report')
     on conflict (challenge_id, patient_id, day) do update set value = excluded.value;
   end if;
-  return jsonb_build_object('ok', true);
+  -- "counted" is a yes or no about the caller's own effort so a logged metric with nothing to count is never reported as counted
+  return jsonb_build_object('ok', true, 'counted', exists (select 1 from public.challenge_participation where challenge_id = ch.id and patient_id = pr.id));
 end $$;
 
 -- Own status, booleans only.

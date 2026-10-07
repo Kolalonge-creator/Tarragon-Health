@@ -120,7 +120,7 @@ export function parsePreview(data: unknown): z.infer<typeof previewSchema> {
 }
 
 export const inviteMadeSchema = z.object({ token: z.string().min(20), expires_at: z.string() });
-export const okSchema = z.object({ ok: z.boolean(), reason: z.string().optional(), capped: z.boolean().optional(), cohort_id: z.string().optional() });
+export const okSchema = z.object({ ok: z.boolean(), reason: z.string().optional(), capped: z.boolean().optional(), counted: z.boolean().optional(), cohort_id: z.string().optional() });
 export function parseOk(data: unknown): z.infer<typeof okSchema> {
   const r = okSchema.safeParse(data);
   return r.success ? r.data : { ok: false };

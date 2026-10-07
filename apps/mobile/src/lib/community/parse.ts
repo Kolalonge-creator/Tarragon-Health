@@ -103,9 +103,9 @@ export function parsePreview(data: unknown): { ok: false } | { ok: true; name: s
   return o?.ok === true && name && kind ? { ok: true, name, kind } : { ok: false };
 }
 
-export function parseOk(data: unknown): { ok: boolean; reason: string | null; capped: boolean; cohortId: string | null } {
+export function parseOk(data: unknown): { ok: boolean; reason: string | null; capped: boolean; counted: boolean | null; cohortId: string | null } {
   const o = obj(data);
-  return { ok: o?.ok === true, reason: o ? str(o.reason) : null, capped: o?.capped === true, cohortId: o ? str(o.cohort_id) : null };
+  return { ok: o?.ok === true, reason: o ? str(o.reason) : null, capped: o?.capped === true, counted: o && typeof o.counted === "boolean" ? o.counted : null, cohortId: o ? str(o.cohort_id) : null };
 }
 
 export function parseInviteMade(data: unknown): { token: string; expiresAt: string } | null {

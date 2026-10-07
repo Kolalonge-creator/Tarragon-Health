@@ -2223,6 +2223,7 @@ export const en = {
   "community.challenge.add_today": "Add today",
   "community.challenge.minutes": "Minutes today",
   "community.challenge.counted": "Counted. Thank you.",
+  "community.challenge.nothing_yet": "Nothing to count yet. Do it first, then add it here.",
   "community.challenge.capped": "You have reached this week's limit.",
   "community.challenge.needs_consent": "Agree to add your effort to the group total first.",
   "community.unit.days": "days",

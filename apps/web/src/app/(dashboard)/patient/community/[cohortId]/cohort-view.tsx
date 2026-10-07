@@ -112,7 +112,7 @@ function ChallengeCard({ c, locale, consenting }: { c: Challenge; locale: Locale
               </Button>
             </form>
           )}
-          {result?.ok ? <p role="status" className="text-sm">{t(result.capped ? "community.challenge.capped" : "community.challenge.counted", locale)}</p> : null}
+          {result?.ok ? <p role="status" className="text-sm">{t(result.capped ? "community.challenge.capped" : result.counted === false ? "community.challenge.nothing_yet" : "community.challenge.counted", locale)}</p> : null}
           {result && !result.ok && result.reason === "not_available" ? <p className="text-sm">{t("community.challenge.unavailable", locale)}</p> : null}
           <FormError id={`contribute-error-${c.challenge_id}`} message={errText(contribute.error, locale)} />
         </div>

@@ -296,6 +296,15 @@ begin
   for v_i in 1..9 loop perform pg_temp.q_as(v_c_members[v_i], format('select public.contribute_to_challenge(%L::uuid, null, 30)::text', v_chC)); end loop;
   perform pg_temp.q_as(v_d_members[1], format('select public.contribute_to_challenge(%L::uuid, null, 180)::text', v_chD));
   for v_i in 2..11 loop perform pg_temp.q_as(v_d_members[v_i], format('select public.contribute_to_challenge(%L::uuid, null, 10)::text', v_chD)); end loop;
+  -- a logged metric counts only what is really logged: one member with a meal logged today, one with nothing
+  v_u := pg_temp.enrol(v_org, v_cc, v_mc, 'logger'); v_bad := pg_temp.enrol(v_org, v_cc, v_mc, 'nolog');
+  insert into public.nutrition_log_entries (organisation_id, patient_id, logged_at, meal_type, description) values (v_org, v_u, now(), 'lunch', 'yam');
+  v_chLog := (pg_temp.j(v_mc, format('select public.community_start_challenge(%L::uuid, %L, (now() at time zone %L)::date, 14)::text', v_cc, 'log_days', 'Africa/Lagos')) ->> 'challenge_id')::uuid;
+  perform pg_temp.ck('8 a logged metric: a member with a log today is counted', 'true', pg_temp.q_as(v_u, format('select (public.contribute_to_challenge(%L::uuid) ->> %L)', v_chLog, 'counted')));
+  perform pg_temp.ck('8 a logged metric: a member with nothing logged is told nothing was counted', 'false', pg_temp.q_as(v_bad, format('select (public.contribute_to_challenge(%L::uuid) ->> %L)', v_chLog, 'counted')));
+  perform pg_temp.ck('8 the logged metric stores a day count of 1, never a value from the log', '1', (select string_agg(value::text, ',') from public.challenge_participation where challenge_id = v_chLog));
+  perform private.log_audit('community.run_error', 'challenge', v_chLog, jsonb_build_object('stage', 'proof', 'sqlstate', 'XX000'));
+  perform pg_temp.ck('8 a run error is written to the audit log (never swallowed)', '1', (select count(*)::text from public.audit_log where action = 'community.run_error' and entity_id = v_chLog));
   perform pg_temp.ck('8 effort rows hold a count only (A has 12)', '12', (select count(*)::text from public.challenge_participation where challenge_id = v_chA));
   perform pg_temp.ck('8 a member reads only their own effort row', '1', pg_temp.q_as(v_first, $q$select count(*)::text from public.challenge_participation$q$));
   perform pg_temp.ck('8 the moderator reads only their own effort row (never the others)', '1', pg_temp.q_as(v_ma, $q$select count(*)::text from public.challenge_participation$q$));

@@ -63,7 +63,7 @@ function ChallengeCard({ c, contributing, onChanged }: { c: Challenge; contribut
     setBusy(false);
     if (!r.ok) setNote(r.errorKey);
     else if (!r.result.ok) setNote(r.result.reason === "consent_needed" ? "community.challenge.needs_consent" : "community.challenge.unavailable");
-    else { setNote(r.result.capped ? "community.challenge.capped" : "community.challenge.counted"); setMinutes(""); onChanged(); }
+    else { setNote(r.result.capped ? "community.challenge.capped" : r.result.counted === false ? "community.challenge.nothing_yet" : "community.challenge.counted"); setMinutes(""); onChanged(); }
   }
   const phaseKey: MessageKey = c.phase === "scheduled" ? "community.challenge.phase.scheduled" : c.phase === "active" ? "community.challenge.phase.active" : "community.challenge.phase.ended";
   return (
