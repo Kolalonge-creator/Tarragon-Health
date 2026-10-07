@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
 import type { QueryResult } from "./medications";
 import type { Tables } from "@tarragon/shared";
+import { pointsRuleLabel } from "@tarragon/i18n";
 
 /**
  * Wellness gamification (points, badges, challenges, classes). An engagement
@@ -29,21 +30,35 @@ export type WellnessClassRegistration = Tables<"wellness_class_registrations"> &
   wellness_classes: WellnessClass | null;
 };
 
-/** Reuses points-card.tsx's copy map verbatim. */
-export const REASON_LABEL: Record<string, string> = {
-  vitals_logged: "Logged a vitals reading",
-  meal_logged: "Logged a meal",
-  adherence_checkin_completed: "Answered a medication check-in",
-  education_lesson_completed: "Completed a lesson",
-  lpe_task_completed: "Completed a lifestyle task",
-  lpe_goal_achieved: "Achieved a lifestyle goal",
-  challenge_completed: "Completed a challenge",
-  wellness_class_attended: "Attended a class",
-  redeemed_to_voucher: "Redeemed (earlier rewards)",
-};
-
+/** Labels come from the shared `points.rule.*` catalogue (S58) so web and phone say the same thing. */
 export function reasonLabel(reason: string): string {
-  return REASON_LABEL[reason] ?? reason.replace(/_/g, " ");
+  return pointsRuleLabel(reason);
+}
+
+/** What `my_points_status()` returns. `tier` is null for a minor. */
+export interface MyPointsStatus {
+  balance: number;
+  lifetime_earned: number;
+  is_minor: boolean;
+  year_points?: number;
+  tier: string | null;
+  tier_from?: "this_year" | "last_year";
+  next_tier?: string | null;
+  points_to_next?: number | null;
+  leaderboards: boolean;
+}
+
+export type RewardRule = Tables<"reward_rules">;
+
+export async function loadMyPointsStatus(): Promise<MyPointsStatus | null> {
+  const { data } = await supabase.rpc("my_points_status");
+  return (data as unknown as MyPointsStatus | null) ?? null;
+}
+
+/** Active rules for "how you earn", verified clinical actions first. */
+export async function loadRewardRules(): Promise<RewardRule[]> {
+  const { data } = await supabase.from("reward_rules").select("*").eq("is_active", true).order("code");
+  return (data ?? []).sort((a, b) => Number(b.verified_action) - Number(a.verified_action) || a.code.localeCompare(b.code));
 }
 
 // ---------------------------------------------------------------------------

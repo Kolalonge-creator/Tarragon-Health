@@ -75,6 +75,7 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/settings/health-education/creators", "creator creators clinician author authors write writers invite verify verification mdcn credentials indemnity suspend learning content partner"],
   ["/admin/settings/health-education/readiness", "readiness review date reviewer source sources self care what can i do next placeholder placeholders myth myths myth-busting series draft expired expiry overdue learning article articles"],
   ["/admin/settings/health-education/search-gaps", "search searches no result zero results missing gaps synonyms words people type bp sugar belle plan content learn library"],
+  ["/admin/settings/reward-rules", "health points rewards rules earn earning points caps limits daily decay badges levels tiers redemption checkout discount leaderboard engagement gamification wellness"],
   ["/admin/refund-requests", "refund refunds money back guarantee claim order payment paystack reverse"],
 ];
 

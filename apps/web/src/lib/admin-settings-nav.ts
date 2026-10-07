@@ -276,6 +276,13 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         visible: adminOnly,
       },
       {
+        href: "/admin/settings/reward-rules",
+        label: "Health Points rules",
+        blurb: "What earns points, how much, the daily limits and how a change is versioned.",
+        icon: NAV_ICON.wellness,
+        visible: adminOnly,
+      },
+      {
         href: "/admin/settings/reproductive-health-analytics",
         label: "Reproductive health analytics",
         blurb: "Aggregate, de-identified profile and cycle-tracking stats for internal research.",

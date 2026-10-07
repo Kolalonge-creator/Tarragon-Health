@@ -1651,6 +1651,7 @@ Four defects from `docs/design/S55-S60-build-plan.md` section 5, fixed ahead of 
 - Options: (a) calm disabled state (built); (b) a Tarragon-funded discount-code path now, capped from config; (c) wait for S71/S72 checkout discounts.
 - Recommend (a) now, (c) next. The founder still needs to set the cap (`rewards.points_redemption_cap_kobo`, integer kobo, currently 0), who funds the discount, and whether a cap is a share of the item price or a fixed amount (S58 asks the same).
 - `private.issue_reward_voucher` is NOT removed: referral, prevention and promo-code rewards still use it. Whether those are also stored value under INV-09 is a separate question for OQ-07.
+- S58 built the capped checkout discount and kept it off; see OQ-S58-01 for what the founder must set.
 - Decision: open.
 
 ### OQ-F1-02 The signed escalation SLA (v7) has no `symptom_triage` pathway; the symptom checker cannot be switched on
@@ -1736,6 +1737,66 @@ Four defects from `docs/design/S55-S60-build-plan.md` section 5, fixed ahead of 
 ### OQ-S55-12 A failed lesson-event write opens one shared incident
 - If `lesson.completed` or `course.completed` cannot be written, the patient's progress is still saved, an `audit_log` row is written for each failure and one open sev1 incident covers all of them. A systematic failure therefore pages once, not once per patient. Confirm sev1 is the right class for a rewards-event failure (S58 is the only consumer, not built).
 - Decision: open.
+
+## S58 (Module 11, Rewards and engagement)
+
+### OQ-S58-01 Redemption is built but OFF: the founder must set the cap, the share and who funds it
+- `apply_points_discount(order, points)` and `release_points_discount(order)` exist and are tested; they refuse while `reward_config.points_redemption_cap_kobo` is 0 (it is). Proposed (unsigned): 1000 points per 10 percent (`points_per_percent` 100, `max_share_bps` 1000, `min_points` 100). Open: the kobo cap per order, whether Tarragon or a partner funds the discount, whether discounts apply to every catalogue kind.
+- S71/S72 must call `apply_points_discount` at checkout and `release_points_discount` when an order fails, is cancelled or expires (the order amount is immutable, so the checkout charges amount minus the redemption's `discount_kobo`). Until then nothing reaches it from the UI.
+- Decision: open (founder). Closes OQ-F1-01 once decided.
+
+### OQ-S58-02 Point values, caps, decay and tier thresholds are PROPOSED
+- All twelve rules are active at version 1 with status `proposed`; the five new ones (course, lab, review, screening, plus tier thresholds 400 / 1200 / 3000) are new proposals. The seven earlier rules keep the points the old triggers paid (10, 10, 15, 20, 15, 50, plus catalogue values). New per-day caps (e.g. lessons 3 a day) and the 100 points daily cap are new. An admin can change any rule from `/admin/settings/reward-rules` as a new proposed version.
+- Decision: open (founder).
+
+### OQ-S58-03 Plausible-range bounds for "no points for an implausible reading"
+- Proposed wide bounds (systolic 50 to 260, glucose 1 to 40 mmol/L, pulse 25 to 230, SpO2 50 to 100, temperature 30 to 43). They only decide whether a reading earns points; the triage path never reads them. A dangerous reading inside the bounds earns normally. CMO to confirm the bounds.
+- Decision: open (CMO).
+
+### OQ-S58-04 No refill reward yet
+- The plan lists "refill" as a verified action. No dependable refill-collected event exists (pharmacy fulfilment, S34 onward). The rule is not seeded; add it when a verified event exists. Self-reported screening completions (`screening_completions`) are deliberately not rewarded (a result row, `screening_results`, is the verified signal).
+- Decision: informational.
+
+### OQ-S58-05 The spendable balance never resets and levels only count the calendar year
+- Vitality-style "annual reset with status kept" is applied to the level counter only, so nobody loses spendable points (no loss framing). Points never expire. Alternative: an expiry date on points. Not chosen.
+- Decision: open (founder).
+
+### OQ-S58-06 Employer-funded reward pools (11.4) wait for Module 24
+- Only the aggregate-only seam (`rewards_participation_aggregate`, minimum group 10 proposed) is built. Design rules for S79: employer funds a pool, never sees a person (I9), per-person cap, the employer's pool pays for the discount at checkout, no individual status leaves Tarragon.
+- Decision: informational.
+
+### OQ-S58-07 Challenge and class points still come from the catalogue row
+- `challenge.completed` and `class.attended` are events; the points are read from the challenge or class itself (`points_source = catalogue`), still subject to caps and the daily limit. Class attendance is self-reported by the patient (existing behaviour), so it is the most gameable source; the daily limit and a per-day cap of 2 bound it.
+- Decision: open (product).
+
+### OQ-S58-08 A failed rewards event opens one shared incident
+- If a rewards event cannot be written the person's own record is saved, an `audit_log` row (`rewards_event.error`) is written and one open incident (`rewards_event_failed`) covers all of them. Founder decided 2026-10-07: sev3 (technical). Built in `20261007210417`; a lesson-event failure (S55-12) is sev2.
+- Decision: decided (sev3 rewards, sev2 lesson).
+
+### OQ-S58-09 Patient-facing notifications for points
+- None are sent (INV-07 by absence; no streak or missed-day message exists). If the founder later wants a "you earned points" notice it must be neutral and key-based.
+- Decision: informational.
+
+
+### OQ-S58b-01 Creator fee: one fee per item, not per version
+- The founder said a fixed fee per approved, published item, idempotent per item version. Built as ONE line per item (the reference is derived from the content id), so a republish, an edit that bumps `version`, or a re-review never pays again. Paying again for each reviewed version would let a creator earn by editing; if the founder wants a fee per reviewed version it needs a rule such as "only when a different reviewer signs the new version", which is a one-line change to `private.post_creator_item_earning`.
+- Decision: open (founder), default is one fee per item.
+
+### OQ-S58b-02 Who is a payable creator
+- Creators are invited clinician logins (S55). The S31 payout machinery pays only an active CONTRACTED `clinical_staff` row with a verified bank account, so a creator who is employed (salary, F-03) gets no line, and one without a verified bank account accrues lines that wait. The creator may not be the named reviewer of their own item (no line). No separate non-clinician creator payee was built.
+- Decision: open (founder) if non-clinician or externally contracted creators are wanted.
+
+### OQ-S58b-03 No clawback built for a later withdrawal
+- A line is earned when the item is published and reviewed. An item withdrawn or expired AFTER its line exists keeps the line (the work was done); an unpaid line can be reversed by an admin with a negative adjustment (existing S30 flow). Nothing is clawed back automatically.
+- Decision: open (founder).
+
+### OQ-S58b-04 The creator fee amount is not set
+- Nothing is seeded. Until the founder enters `Fee for each approved, published learning item` in the Fees and earnings page and approves the schedule, a creator line is written as a zero line flagged `no_fee_for_creator_item` (or waits, if no schedule is approved at all) and an admin corrects it by adjustment.
+- Decision: open (founder enters the amount; it is not a CMO item).
+
+### OQ-S58b-05 Seeded draft content
+- 10 myth scripts and 10 blood pressure micro-lessons from `docs/content/` are in the database as drafts. They are marked `is_placeholder` on purpose so a named clinical author must clear the flag first, in addition to the reviewer, date, source and self-care gates. The drafts' check questions have no answer options (the draft files give a question and an answer only); the clinical author writes the options, and the new published-integrity gate refuses to publish a micro-lesson without two options. The 6 older `myth-draft-0N` title-only placeholders remain; the CMO can retire them once the real drafts are approved. The CMO's checklist is in `docs/content/README.md`.
+- Decision: open (CMO).
 ### OQ-272 Emergency location versus "routes are never shared" (raised 2026-10-07, S48)
 - Spec 5.7 and the Module 5 acceptance test say routes are never shared; Part C bans public maps. The founder wants the patient to be locatable in an emergency, which is the opposite use of location data.
 - Options: (a) route recording stays private and a separate consented emergency-location feature is built (recommended, decision S48-1); (b) one recorder with a sharing switch (rejected: breaks the acceptance test); (c) no emergency location.

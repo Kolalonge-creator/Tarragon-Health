@@ -19,6 +19,7 @@ export const KIND_LABEL: Record<string, string> = {
   lead_month: "Lead clinician month",
   minimum_topup: "Pilot minimum top-up",
   adjustment: "Adjustment",
+  creator_item: "Learning item published",
 };
 
 const ERROR_WORDS: Record<string, string> = {
@@ -63,6 +64,8 @@ export type FeeItems = {
   consultation_share_pct: Record<ConsultationType, number>;
   consultation_reference_price_kobo?: Partial<Record<ConsultationType, number>>;
   pilot_minimum_per_declared_hour_kobo: number;
+  /** S58b: the fixed fee for one approved, published learning item. Absent means no fee is set yet. */
+  creator_item_published_fee_kobo?: number;
 };
 
 const wholePct = (max: number) => z.coerce.number().int().min(0).max(max);
@@ -83,6 +86,7 @@ export const feeItemsSchema: z.ZodType<FeeItems> = z.object({
   consultation_share_pct: z.object({ video: z.number().int().min(0).max(100), audio: z.number().int().min(0).max(100), phone: z.number().int().min(0).max(100) }),
   consultation_reference_price_kobo: z.object({ video: wholeKobo.optional(), audio: wholeKobo.optional(), phone: wholeKobo.optional() }).optional(),
   pilot_minimum_per_declared_hour_kobo: wholeKobo,
+  creator_item_published_fee_kobo: wholeKobo.optional(),
 });
 
 export type FormBuildResult = { ok: true; items: FeeItems } | { ok: false; error: string };
@@ -124,6 +128,8 @@ export function buildItemsFromForm(form: FormData, taskTypes: readonly string[])
   if (onCall === null || lead === null || minimum === null) {
     return { ok: false, error: "Please fill in the on-call shift fee, the lead fee and the pilot minimum (enter 0 for none)." };
   }
+  // Optional: blank leaves the key out, and a creator line is then flagged for correction rather than guessed.
+  const creatorFee = money("creator_item_fee");
   const share = {} as Record<ConsultationType, number>;
   const reference: Partial<Record<ConsultationType, number>> = {};
   for (const type of CONSULTATION_TYPES) {
@@ -139,6 +145,7 @@ export function buildItemsFromForm(form: FormData, taskTypes: readonly string[])
     lead_fee_per_patient_month_kobo: lead,
     consultation_share_pct: share,
     pilot_minimum_per_declared_hour_kobo: minimum,
+    ...(creatorFee !== null ? { creator_item_published_fee_kobo: creatorFee } : {}),
     ...(Object.keys(reference).length > 0 ? { consultation_reference_price_kobo: reference } : {}),
   };
   const checked = feeItemsSchema.safeParse(items);
@@ -219,6 +226,7 @@ export const scheduleRowsSchema = z.array(
 
 const REVIEW_WORDS: Record<string, string> = {
   no_fee_for_task_type: "This task type has no fee in the schedule. Post an adjustment with the agreed amount.",
+  no_fee_for_creator_item: "The schedule has no fee for a published learning item. Post an adjustment with the agreed amount.",
   no_price_basis: "There was no price to take the share of. Post an adjustment with the agreed amount.",
 };
 export const reviewWords = (code: string | null): string => (code ? (REVIEW_WORDS[code] ?? "This line needs a person to check it.") : "");
@@ -242,6 +250,8 @@ export function explainLine(row: Pick<LedgerRow, "kind" | "calculation">): strin
       return `Led this patient on ${num("active_days") ?? 0} days of the month. Fee ${kobo(num("lead_fee_kobo"))}.`;
     case "minimum_topup":
       return `Guarantee ${kobo(num("guarantee_kobo"))} for your declared hours, less ${kobo(num("earned_in_run_kobo"))} already earned in them.`;
+    case "creator_item":
+      return `Fixed fee for a learning item that was approved and published${typeof c.content_code === "string" ? ` (${c.content_code})` : ""}.`;
     case "adjustment":
       return typeof c.reason === "string" ? c.reason : "A correction added by operations.";
     default:

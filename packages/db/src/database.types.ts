@@ -27844,6 +27844,42 @@ export type Database = {
           },
         ]
       }
+      points_award_decisions: {
+        Row: {
+          decided_at: string
+          detail: string | null
+          event_id: string
+          ledger_id: string | null
+          outcome: string
+          patient_id: string
+          points: number
+          rule_code: string
+          rule_version: number
+        }
+        Insert: {
+          decided_at?: string
+          detail?: string | null
+          event_id: string
+          ledger_id?: string | null
+          outcome: string
+          patient_id: string
+          points?: number
+          rule_code: string
+          rule_version: number
+        }
+        Update: {
+          decided_at?: string
+          detail?: string | null
+          event_id?: string
+          ledger_id?: string | null
+          outcome?: string
+          patient_id?: string
+          points?: number
+          rule_code?: string
+          rule_version?: number
+        }
+        Relationships: []
+      }
       population_data_governance_gates: {
         Row: {
           attested_at: string | null
@@ -31482,6 +31518,135 @@ export type Database = {
             referencedColumns: ["code"]
           },
         ]
+      }
+      reward_config: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          key: string
+          note: string | null
+          status: string
+          value: Json
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          key: string
+          note?: string | null
+          status?: string
+          value: Json
+          version: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          key?: string
+          note?: string | null
+          status?: string
+          value?: Json
+          version?: number
+        }
+        Relationships: []
+      }
+      reward_redemptions: {
+        Row: {
+          created_at: string
+          discount_bps: number
+          discount_kobo: number
+          id: string
+          item_price_kobo: number
+          max_share_bps: number
+          order_id: string
+          organisation_id: string
+          patient_id: string
+          points: number
+          spend_ledger_id: string | null
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          discount_bps: number
+          discount_kobo: number
+          id?: string
+          item_price_kobo: number
+          max_share_bps: number
+          order_id: string
+          organisation_id: string
+          patient_id: string
+          points: number
+          spend_ledger_id?: string | null
+          state?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          discount_bps?: number
+          discount_kobo?: number
+          id?: string
+          item_price_kobo?: number
+          max_share_bps?: number
+          order_id?: string
+          organisation_id?: string
+          patient_id?: string
+          points?: number
+          spend_ledger_id?: string | null
+          state?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      reward_rules: {
+        Row: {
+          caps: Json
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          points: number
+          points_source: string
+          reward_kind: string
+          status: string
+          trigger_event: string
+          verified_action: boolean
+          version: number
+        }
+        Insert: {
+          caps?: Json
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          points: number
+          points_source?: string
+          reward_kind?: string
+          status?: string
+          trigger_event: string
+          verified_action?: boolean
+          version: number
+        }
+        Update: {
+          caps?: Json
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          points?: number
+          points_source?: string
+          reward_kind?: string
+          status?: string
+          trigger_event?: string
+          verified_action?: boolean
+          version?: number
+        }
+        Relationships: []
       }
       risk_assessment_responses: {
         Row: {
@@ -37352,6 +37517,8 @@ export type Database = {
         Row: {
           balance_after: number
           created_at: string
+          event_id: string | null
+          kind: string
           id: string
           organisation_id: string
           patient_id: string
@@ -37359,10 +37526,16 @@ export type Database = {
           reason: string
           source_id: string | null
           source_table: string | null
+          rule_code: string | null
+          rule_version: number | null
         }
         Insert: {
           balance_after: number
           created_at?: string
+          event_id?: string | null
+          kind?: string
+          rule_code?: string | null
+          rule_version?: number | null
           id?: string
           organisation_id: string
           patient_id: string
@@ -37374,6 +37547,10 @@ export type Database = {
         Update: {
           balance_after?: number
           created_at?: string
+          event_id?: string | null
+          kind?: string
+          rule_code?: string | null
+          rule_version?: number | null
           id?: string
           organisation_id?: string
           patient_id?: string
@@ -38458,6 +38635,10 @@ export type Database = {
         Args: { p_key_id: string }
         Returns: undefined
       }
+      admin_rewards_summary: {
+        Args: never
+        Returns: Json
+      }
       admin_run_duplicate_patient_sweep: { Args: never; Returns: undefined }
       admin_send_broadcast: {
         Args: { p_broadcast_id: string }
@@ -38479,6 +38660,10 @@ export type Database = {
           p_tier: string
         }
         Returns: string
+      }
+      admin_set_reward_rule: {
+        Args: { p_active: boolean; p_caps: Json; p_code: string; p_points: number }
+        Returns: number
       }
       admin_verify_pharmacy_partner_location: {
         Args: { p_location_id: string }
@@ -38847,6 +39032,10 @@ export type Database = {
       }
       apply_payer_programme_directive: {
         Args: { p_directive_id: string }
+        Returns: Json
+      }
+      apply_points_discount: {
+        Args: { p_order: string; p_points: number }
         Returns: Json
       }
       approve_ai_system_version: {
@@ -40834,6 +41023,10 @@ export type Database = {
           requester_first_name: string
         }[]
       }
+      my_points_status: {
+        Args: never
+        Returns: Json
+      }
       my_provider_performance: {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
@@ -41084,6 +41277,10 @@ export type Database = {
           p_state: string
         }
         Returns: undefined
+      }
+      points_award: {
+        Args: { p_event_id: string }
+        Returns: number
       }
       post_care_message: {
         Args: { p_body: string; p_thread_id: string }
@@ -41512,6 +41709,10 @@ export type Database = {
         Args: { p_request_id: string }
         Returns: undefined
       }
+      release_points_discount: {
+        Args: { p_order: string }
+        Returns: number
+      }
       report_ai_safety_incident: {
         Args: {
           p_category: Database["public"]["Enums"]["ai_incident_category"]
@@ -41883,6 +42084,10 @@ export type Database = {
       revoke_wearable_connection: {
         Args: { p_connection_id: string; p_reason?: string }
         Returns: undefined
+      }
+      rewards_participation_aggregate: {
+        Args: { p_from: string; p_org: string; p_to: string }
+        Returns: Json
       }
       rollback_clinical_rule: {
         Args: { p_reason: string; p_rule_key: string; p_to_version: number }

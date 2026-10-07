@@ -37,6 +37,12 @@ describe("fee items validation", () => {
   for (const c of fx.invalidItems) {
     it(`refuses ${c.name}`, () => expect(validateFeeItems({ ...fx.items, ...c.mutate }).length).toBeGreaterThan(0));
   }
+  it("accepts a whole-kobo creator item fee and refuses a fractional, negative or non-number one", () => {
+    expect(validateFeeItems({ ...fx.items, creator_item_published_fee_kobo: 250000 })).toEqual([]);
+    for (const bad of [1.5, -1, "250000", null]) {
+      expect(validateFeeItems({ ...fx.items, creator_item_published_fee_kobo: bad }).length).toBeGreaterThan(0);
+    }
+  });
   it("refuses a non-object and an array", () => {
     expect(validateFeeItems(null)).toEqual(["items must be an object"]);
     expect(validateFeeItems([])).toEqual(["items must be an object"]);

@@ -71,6 +71,12 @@ describe("the real admin menus", () => {
     expect(top("price list")).toContain("/admin/catalogue");
   });
 
+  it("finds the Health Points rules page (S58: every console page needs a search entry)", () => {
+    for (const q of ["health points", "rewards", "daily limits", "leaderboard"]) {
+      expect(searchAdminEntries(real, q, 8).map((e) => e.href)).toContain("/admin/settings/reward-rules");
+    }
+  });
+
   it("finds the fees and earnings page (every console page needs a search entry)", () => {
     expect(top("fee schedule")).toContain("/admin/earnings");
     expect(top("payout")).toContain("/admin/earnings");

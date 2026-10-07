@@ -14,7 +14,11 @@ export default {
     "^.+\\.ts$": ["ts-jest", { useESM: true, tsconfig: { module: "esnext", target: "ES2022", moduleResolution: "bundler", esModuleInterop: true, skipLibCheck: true } }],
   },
   testMatch: ["**/src/**/*.test.ts"],
-  collectCoverageFrom: ["<rootDir>/supabase/functions/_shared/event-bus/dispatch.ts"],
+  collectCoverageFrom: [
+    "<rootDir>/supabase/functions/_shared/event-bus/dispatch.ts",
+    "<rootDir>/supabase/functions/_shared/rewards/points-handler.ts",
+    "<rootDir>/supabase/functions/process-events/points-ports.ts",
+  ],
   coverageProvider: "v8",
   coverageThreshold: { global: { branches: 100, functions: 100, lines: 100, statements: 100 } },
 };

@@ -13,4 +13,5 @@ export function asLocale(value: unknown): Locale {
 
 export * from "./care-change";
 export * from "./audio-scripts";
+export * from "./points";
 export * from "./monthly-report";
