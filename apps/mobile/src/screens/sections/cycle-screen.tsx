@@ -7,6 +7,7 @@ import {
   loadCycleTracker,
   logPeriod,
   saveDailyLog,
+  setConceptionPlanningMode,
   type CycleTrackerData,
   type MenstrualFlowLevel,
   type MenstrualMood,
@@ -22,7 +23,12 @@ import {
   type CycleConfidence,
   type ReproductiveLifeStage,
 } from "@/lib/cycle-prediction";
+import { describeFertileWindow, NOT_CONTRACEPTION_LABEL } from "@tarragon/shared";
+import { t } from "@tarragon/i18n";
 import type { SectionId } from "@/lib/sections";
+import { PrivateSection } from "@/ui/private-section";
+import { CycleDangerSigns } from "@/ui/cycle-danger-signs";
+import { CyclePrivacyControls } from "@/ui/cycle-privacy-controls";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
@@ -150,7 +156,33 @@ function toggle<T>(list: T[], value: T): T[] {
   return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
 }
 
-export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScreenProps) {
+/**
+ * S66: the whole tracker sits behind the section PIN (optional, on by default, re-asked after backgrounding). The danger signs are the one
+ * thing that stays outside it: they hold no personal data and must be readable on a locked screen. The lock is keyed to the SIGNED-IN
+ * account, so a phone shared by two people keeps two PINs.
+ */
+export function CycleScreen(props: CycleScreenProps) {
+  const colors = useLegacyColors();
+  const [accountId, setAccountId] = useState(props.patientId);
+  useEffect(() => {
+    void supabase.auth.getUser().then(({ data }) => {
+      if (data.user?.id) setAccountId(data.user.id);
+    });
+  }, []);
+  return (
+    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
+      <View>
+        <ScreenTitle>Your cycle</ScreenTitle>
+      </View>
+      <PrivateSection accountId={accountId} title="Your tracker" outside={<CycleDangerSigns />}>
+        <CycleScreenBody {...props} />
+        {accountId === props.patientId && <CyclePrivacyControls />}
+      </PrivateSection>
+    </ScrollView>
+  );
+}
+
+function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenProps) {
   const colors = useLegacyColors();
   const textInputStyle = useTextInputStyle();
   const { scheme } = useTheme();
@@ -170,12 +202,12 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
     // recorded yet (the tracker itself is what somebody menstruating opens).
     const { data: profile } = await supabase
       .from("reproductive_health_profiles")
-      .select("life_stage, average_cycle_length_days")
+      .select("life_stage, average_cycle_length_days, conception_planning_mode")
       .eq("patient_id", patientId)
       .maybeSingle();
     const stage: ReproductiveLifeStage = (profile?.life_stage as ReproductiveLifeStage | null) ?? "menstruating";
 
-    const result = await loadCycleTracker(patientId, stage, profile?.average_cycle_length_days ?? null);
+    const result = await loadCycleTracker(patientId, stage, profile?.average_cycle_length_days ?? null, profile?.conception_planning_mode ?? false);
     if (!result.ok) {
       setError(result.error);
       return;
@@ -196,7 +228,7 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
 
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
+      <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 40 }}>
         <ActivityIndicator color={colors.brand} />
       </View>
     );
@@ -204,17 +236,16 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
 
   if (error || !tracker) {
     return (
-      <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
-        <ScreenTitle>Your cycle</ScreenTitle>
+      <View style={{ gap: 16 }}>
         <Card style={{ gap: 8 }}>
           <ErrorText>{error ?? "We could not load your cycle just now."}</ErrorText>
           <SecondaryButton title="Try again" onPress={() => { setLoading(true); refresh().finally(() => setLoading(false)); }} />
         </Card>
-      </ScrollView>
+      </View>
     );
   }
 
-  const { cycles, dailyLogs, prediction, openCycle, today } = tracker;
+  const { cycles, dailyLogs, prediction, openCycle, today, conceptionPlanning } = tracker;
   const hasHistory = cycles.length > 0;
   const selectedLog = dailyLogs.find((log) => log.log_date === selectedDate) ?? null;
   const canLogSelectedAsStart = selectedDate !== "" && selectedDate < today;
@@ -232,9 +263,8 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
+    <View style={{ gap: 16 }}>
       <View>
-        <ScreenTitle>Your cycle</ScreenTitle>
         <MutedText>
           Log your period and how you feel, and see what to expect next. Everything here is an
           estimate from your own history, not a diagnosis.
@@ -281,6 +311,19 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
         {actionError && <ErrorText>{actionError}</ErrorText>}
       </Card>
 
+      {/* ---------- Planning a pregnancy (off by default, S66 A14) ---------- */}
+      <Card style={{ gap: 8 }}>
+        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("cycle.planning.title")}</Text>
+        <MutedText>{t("cycle.planning.description")}</MutedText>
+        <Text style={{ fontSize: 13, color: colors.ink }}>{conceptionPlanning ? t("cycle.planning.on_label") : t("cycle.planning.off_label")}</Text>
+        <MutedText>{conceptionPlanning ? t("cycle.planning.turn_off_note") : t("cycle.planning.off_note")}</MutedText>
+        <SecondaryButton
+          title={conceptionPlanning ? t("cycle.planning.turn_off") : t("cycle.planning.turn_on")}
+          loading={actionPending}
+          onPress={() => withAction(() => setConceptionPlanningMode(!conceptionPlanning))}
+        />
+      </Card>
+
       {/* ---------- What to expect ---------- */}
       {hasHistory && (
         <Card style={{ gap: 10 }}>
@@ -303,19 +346,17 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
               )}
               <MutedText>{nextPeriodSummary(prediction)}</MutedText>
             </View>
-            <View style={{ flexBasis: "45%", flexGrow: 1 }}>
-              <MutedText>Estimated ovulation</MutedText>
-              <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>
-                {longDate(prediction.predictedOvulationDate)}
-              </Text>
-              {prediction.fertileWindowStart && (
-                <MutedText>
-                  Fertile window {shortDate(prediction.fertileWindowStart)} to {shortDate(prediction.fertileWindowEnd)}
-                </MutedText>
-              )}
-            </View>
+            {conceptionPlanning && (
+              <View style={{ flexBasis: "45%", flexGrow: 1 }}>
+                <MutedText>Estimated ovulation</MutedText>
+                <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>
+                  {longDate(prediction.predictedOvulationDate)}
+                </Text>
+                {describeFertileWindow(prediction, shortDate) && <MutedText>{describeFertileWindow(prediction, shortDate)}</MutedText>}
+              </View>
+            )}
           </View>
-          <Text style={{ fontSize: 11.5, color: colors.subtle }}>{FERTILE_WINDOW_DISCLAIMER}</Text>
+          {conceptionPlanning && <Text style={{ fontSize: 11.5, color: colors.subtle }}>{FERTILE_WINDOW_DISCLAIMER}</Text>}
         </Card>
       )}
 
@@ -355,6 +396,7 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
           existing={selectedLog}
           dateLabel={longDate(selectedDate)}
           onSaved={refresh}
+          planning={conceptionPlanning}
         />
       </Card>
 
@@ -439,7 +481,7 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
         Your cycle information is part of your health record. Your care team can see it; nobody
         else can. It plays no part in scoring your health risk.
       </Text>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -486,6 +528,7 @@ function DayLogForm({
   existing,
   dateLabel,
   onSaved,
+  planning,
 }: {
   patientId: string;
   organisationId: string;
@@ -493,6 +536,8 @@ function DayLogForm({
   existing: import("@/lib/cycle").MenstrualDailyLog | null;
   dateLabel: string;
   onSaved: () => Promise<void>;
+  /** S66 (A14): temperature and ovulation test belong to planning mode; hidden while off, saved values kept. */
+  planning: boolean;
 }) {
   const colors = useLegacyColors();
   const textInputStyle = useTextInputStyle();
@@ -575,6 +620,7 @@ function DayLogForm({
         ))}
       </View>
 
+      {planning && (<>
       <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Tracking ovulation? (optional)</Text>
       <View style={{ flexDirection: "row", gap: 10 }}>
         <View style={{ flex: 1, gap: 4 }}>
@@ -594,8 +640,9 @@ function DayLogForm({
       </View>
       <MutedText>
         Take your temperature before getting out of bed. A sustained rise suggests ovulation has
-        already happened, so it confirms rather than predicts.
+        already happened, so it confirms rather than predicts. {NOT_CONTRACEPTION_LABEL}
       </MutedText>
+      </>)}
 
       <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Anything else (optional)</Text>
       <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}

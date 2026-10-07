@@ -223,14 +223,16 @@ export function CycleRing({ prediction }: { prediction: CyclePrediction }) {
 }
 
 /** Shared legend, so the ring and the calendar always mean the same thing. */
-export function CycleLegend() {
-  const entries: { phase: CyclePhase; label: string }[] = [
+export function CycleLegend({ planning = false }: { planning?: boolean }) {
+  // S66 (A14): the fertile and ovulation entries exist only in planning mode, so the legend never names a fertile day while it is off.
+  const all: { phase: CyclePhase; label: string }[] = [
     { phase: "menstrual", label: "Period" },
-    { phase: "fertile", label: "Fertile window" },
-    { phase: "ovulation", label: "Ovulation" },
+    { phase: "fertile", label: "Fertile window (estimate)" },
+    { phase: "ovulation", label: "Ovulation (estimate)" },
     { phase: "luteal", label: "Luteal" },
     { phase: "follicular", label: "Follicular" },
   ];
+  const entries = planning ? all : all.filter((e) => e.phase !== "fertile" && e.phase !== "ovulation");
   return (
     <ul className="flex flex-wrap justify-center gap-x-4 gap-y-2">
       {entries.map((entry) => (

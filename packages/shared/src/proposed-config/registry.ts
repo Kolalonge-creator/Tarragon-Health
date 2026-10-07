@@ -1749,4 +1749,40 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/DECISIONS.md S11-1; supabase/migrations/20261007152136_s11c_bp_care_triage_v3.sql",
   },
+  // S66: private cycle section, deletion and clinician pattern report (decisions A13 to A15, B3, C)
+  {
+    key: "private_section.lock",
+    // The section lock for cycle and, later, pregnancy and other private sections (S66 builds it, S67 to S69 reuse it). It guards a view on
+    // the device; the server data is never behind it. on_by_default is the founder decision "optional, on by default" (the person may turn
+    // it off on purpose and is not asked again). pin_min_digits and pin_max_digits: allowed PIN length. free_attempts: wrong tries before
+    // the first lockout. lockout_seconds: the wait after each further wrong try (the last value repeats). relock_after_background_seconds:
+    // how long the app or tab may be away before the PIN is asked again. pbkdf2_iterations: work factor of the on-device PIN hash.
+    value: {
+      pin_min_digits: 4,
+      pin_max_digits: 6,
+      free_attempts: 5,
+      lockout_seconds: [30, 60, 300, 900, 3600],
+      relock_after_background_seconds: 30,
+      pbkdf2_iterations: 20000,
+      on_by_default: true,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S66.md; docs/plans/S66-S70-cmo-signoff-pack.md section C",
+  },
+  {
+    key: "reproductive_privacy.rules",
+    // Live values are the active row of `reproductive_privacy_config`; this entry mirrors it and a test fails if the migration seed and this
+    // value drift. deletion_grace_days: how long after a person asks to delete what they entered in the cycle and menopause trackers before
+    // it is removed, during which they can cancel (decision C). sealed_retention_years: how long data a clinician recorded or acted on is kept
+    // sealed before destruction, counsel to confirm (decision B3). report_window_months: how far back the clinician pattern report reads.
+    value: { deletion_grace_days: 14, sealed_retention_years: 8, report_window_months: 12 },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S66.md; docs/plans/S66-S70-cmo-signoff-pack.md B3 and C",
+  },
 ];

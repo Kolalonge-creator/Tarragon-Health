@@ -5,6 +5,9 @@ import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-
 import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { CycleTracker } from "@/app/(dashboard)/patient/cycle/cycle-tracker";
+import { CycleDangerSigns } from "@/app/(dashboard)/patient/cycle/cycle-danger-signs";
+import { CyclePrivacyControls } from "@/app/(dashboard)/patient/cycle/cycle-privacy-controls";
+import { PrivateSection } from "@/components/private-section/private-section";
 import type { ReproductiveLifeStage } from "@/lib/rules/cycle-prediction";
 
 export const metadata: Metadata = {
@@ -38,7 +41,7 @@ export default async function CyclePage() {
   const supabase = await createClient();
   const { data: reproductiveProfile } = await supabase
     .from("reproductive_health_profiles")
-    .select("life_stage, average_cycle_length_days")
+    .select("life_stage, average_cycle_length_days, conception_planning_mode")
     .eq("patient_id", subjectId)
     .maybeSingle();
 
@@ -51,22 +54,31 @@ export default async function CyclePage() {
       description="Log your period and how you feel, and see what to expect next. Everything here is an estimate from your own history, not a diagnosis."
       icon={SEMANTIC_ICON.family}
     >
-      {/* Every row written here carries an organisation_id, so without one
-          there is nothing to write to. Same guard the Prevention hub puts
-          around this card. */}
-      {profile.organisation_id ? (
-        <CycleTracker
-          patientId={subjectId}
-          organisationId={profile.organisation_id}
-          lifeStage={lifeStage}
-          selfReportedCycleLengthDays={reproductiveProfile?.average_cycle_length_days ?? null}
-        />
-      ) : (
-        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-          We need to finish setting up your account before you can track your cycle. Please
-          contact your care team.
-        </p>
-      )}
+      {/* S66: the whole tracker sits behind the section PIN (optional, on by default). The danger signs are the one thing that stays
+          outside it: they hold no personal data and must be readable on a locked screen. */}
+      <PrivateSection accountId={profile.id} title="Your tracker" outside={<CycleDangerSigns />}>
+        {/* Every row written here carries an organisation_id, so without one
+            there is nothing to write to. Same guard the Prevention hub puts
+            around this card. */}
+        {profile.organisation_id ? (
+          <div className="space-y-6">
+            <CycleTracker
+              patientId={subjectId}
+              organisationId={profile.organisation_id}
+              lifeStage={lifeStage}
+              selfReportedCycleLengthDays={reproductiveProfile?.average_cycle_length_days ?? null}
+              conceptionPlanning={reproductiveProfile?.conception_planning_mode ?? false}
+              canChangePlanning={subjectId === profile.id}
+            />
+            {subjectId === profile.id && <CyclePrivacyControls />}
+          </div>
+        ) : (
+          <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+            We need to finish setting up your account before you can track your cycle. Please
+            contact your care team.
+          </p>
+        )}
+      </PrivateSection>
 
       <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
         Trying to conceive, pregnant, postpartum or approaching menopause?{" "}

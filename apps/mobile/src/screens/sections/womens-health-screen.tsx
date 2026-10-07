@@ -49,6 +49,10 @@ import {
   type PregnancyDangerSign,
   type ReproductiveHealthProfile,
 } from "@/lib/womens-health";
+import { t } from "@tarragon/i18n";
+import { ContraceptionEducation } from "@/ui/contraception-education";
+import { PrivateSection } from "@/ui/private-section";
+import { CycleDangerSigns } from "@/ui/cycle-danger-signs";
 import type { SectionId } from "@/lib/sections";
 import { CycleScreen } from "@/screens/sections/cycle-screen";
 import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
@@ -120,6 +124,12 @@ interface WomensHealthScreenProps {
  * lib/womens-health.ts, or in lib/cycle.ts/cycle-screen.tsx.**
  */
 export function WomensHealthScreen({ patientId, organisationId, onNavigate }: WomensHealthScreenProps) {
+  const [accountId, setAccountId] = useState(patientId);
+  useEffect(() => {
+    void supabase.auth.getUser().then(({ data }) => {
+      if (data.user?.id) setAccountId(data.user.id);
+    });
+  }, []);
   const colors = useLegacyColors();
   const [loading, setLoading] = useState(true);
   const [sex, setSex] = useState<string | null>(null);
@@ -250,6 +260,20 @@ export function WomensHealthScreen({ patientId, organisationId, onNavigate }: Wo
         <MutedText>Prevention, reproductive health, pregnancy, postnatal care and long-term health, in one place.</MutedText>
       </View>
 
+      {/* S66: sits behind the same section PIN as the cycle tracker. Only emergency content stays outside it: the danger signs and the
+          pregnancy red-flag check. */}
+      <PrivateSection
+        accountId={accountId}
+        title="Your health tracker"
+        outside={
+          <>
+            <CycleDangerSigns />
+            {activePregnancy && <PregnancyRedFlagCheck patientId={patientId} organisationId={organisationId} />}
+          </>
+        }
+      >
+        <View style={{ gap: 16 }}>
+
       <Card style={{ flexDirection: "row", flexWrap: "wrap", gap: 14 }}>
         <View style={{ flexBasis: "30%", flexGrow: 1 }}>
           <MutedText>Cycle</MutedText>
@@ -324,7 +348,6 @@ export function WomensHealthScreen({ patientId, organisationId, onNavigate }: Wo
       {activePregnancy && (
         <>
           <AntenatalCard patientId={patientId} organisationId={organisationId} pregnancy={activePregnancy} onNavigate={onNavigate} />
-          <PregnancyRedFlagCheck patientId={patientId} organisationId={organisationId} />
         </>
       )}
 
@@ -350,6 +373,8 @@ export function WomensHealthScreen({ patientId, organisationId, onNavigate }: Wo
       )}
 
       <BreastSymptomCard patientId={patientId} organisationId={organisationId} />
+        </View>
+      </PrivateSection>
     </ScrollView>
   );
 }
@@ -506,6 +531,7 @@ function ContraceptionCard({
         Learn about your options, and let us know what you&apos;re currently using so your care team has the
         full picture.
       </MutedText>
+      <ContraceptionEducation />
       {cautionNote && <CautionNote text={cautionNote} />}
       <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={method} onChangeText={setMethod} placeholder="e.g. combined pill, implant, condoms, none" style={textInputStyle} />
       {error && <ErrorText>{error}</ErrorText>}
@@ -1053,8 +1079,8 @@ function MenopauseSymptomCard({ patientId, organisationId }: { patientId: string
         I&apos;ve had bleeding since menopause
       </Text>
       {bleeding && (
-        <Text style={{ fontSize: 12, color: colors.status.warn }}>
-          Any bleeding after menopause always needs assessment. Reporting this notifies your care team.
+        <Text accessibilityRole="alert" style={{ fontSize: 13, fontWeight: "700", color: colors.status.warn }}>
+          {t("menopause.bleeding_urgent")}
         </Text>
       )}
 

@@ -65,6 +65,11 @@ export interface CycleInsightsInput {
   /** Used to place a day into a phase; from the prediction engine. */
   expectedCycleLengthDays: number;
   averagePeriodDurationDays: number | null;
+  /**
+   * S66 (decision A14): true only in "planning a pregnancy" mode. When false (the default) no insight is placed in the "fertile" or
+   * "ovulation" phase, so the insights card can never state a fertile day by the back door.
+   */
+  conceptionPlanning?: boolean;
 }
 
 interface CycleWindow {
@@ -115,13 +120,16 @@ function percentile(values: number[], p: number): number {
 function phaseForDay(
   day: number,
   cycleLength: number,
-  periodDays: number
+  periodDays: number,
+  planning: boolean
 ): CyclePhase {
   if (day <= periodDays) return "menstrual";
   const luteal = Math.min(14, Math.max(8, cycleLength - 10));
   const ovulationDay = cycleLength - luteal;
-  if (day === ovulationDay) return "ovulation";
-  if (day >= ovulationDay - 5 && day <= ovulationDay + 1) return "fertile";
+  if (planning) {
+    if (day === ovulationDay) return "ovulation";
+    if (day >= ovulationDay - 5 && day <= ovulationDay + 1) return "fertile";
+  }
   if (day > ovulationDay) return "luteal";
   return "follicular";
 }
@@ -174,7 +182,7 @@ export function computeCycleInsights(input: CycleInsightsInput): CycleInsight[] 
       typicalStartDay: start,
       typicalEndDay: end,
       medianDay: mid,
-      phase: phaseForDay(mid, input.expectedCycleLengthDays, periodDays),
+      phase: phaseForDay(mid, input.expectedCycleLengthDays, periodDays, input.conceptionPlanning === true),
       frequency: cyclesWithIt / windows.length,
     });
   }

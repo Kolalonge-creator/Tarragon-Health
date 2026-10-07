@@ -7,7 +7,7 @@ import {
   THERMAL_SHIFT_DISCLAIMER,
   type ThermalShiftResult,
 } from "@/lib/rules/cycle-thermal-shift";
-import { PHASE_LABEL } from "@/lib/rules/cycle-prediction";
+import { NOT_CONTRACEPTION_LABEL, PHASE_LABEL } from "@/lib/rules/cycle-prediction";
 
 /**
  * What the logging was for: the app finally saying something back.
@@ -54,12 +54,15 @@ export function CycleInsightsCard({
   insights,
   thermalShift,
   hasAnyLogs,
+  planning = false,
 }: {
   insights: CycleInsight[];
   thermalShift: ThermalShiftResult;
   hasAnyLogs: boolean;
+  /** S66 (A14): temperature and ovulation confirmation are planning-mode content. */
+  planning?: boolean;
 }) {
-  const showThermal = thermalShift.reason !== "not_enough_readings" || hasAnyLogs;
+  const showThermal = planning && (thermalShift.reason !== "not_enough_readings" || hasAnyLogs);
 
   if (insights.length === 0 && !showThermal) return null;
 
@@ -106,7 +109,7 @@ export function CycleInsightsCard({
               {describeThermalShift(thermalShift)}
             </p>
             {thermalShift.detected && (
-              <p className="mt-1 text-xs text-charcoal-ink/55 dark:text-night-ink/60">{THERMAL_SHIFT_DISCLAIMER}</p>
+              <p className="mt-1 text-xs text-charcoal-ink/55 dark:text-night-ink/60">{THERMAL_SHIFT_DISCLAIMER} {NOT_CONTRACEPTION_LABEL}</p>
             )}
           </div>
         )}
