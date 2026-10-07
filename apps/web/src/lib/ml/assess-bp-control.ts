@@ -59,8 +59,10 @@ export async function assessBpControlBestEffort(
   const since = new Date(
     Date.now() - BP_READING_FETCH_WINDOW_DAYS * 24 * 60 * 60 * 1000
   ).toISOString();
+  // S70 (C1): the counted view, so one measurement seen from two sources (a Bluetooth cuff and Health Connect) is one reading in the
+  // control rate. Every row still ran its own red-flag trigger when it was inserted; this read only decides what counts.
   const { data: readings } = await supabase
-    .from("vitals_readings")
+    .from("vitals_readings_counted")
     .select("taken_at, systolic, diastolic")
     .eq("patient_id", patientId)
     .eq("vital_type", "blood_pressure")
@@ -71,9 +73,9 @@ export async function assessBpControlBestEffort(
 
   const assessment = await mlClient.bpControl({
     readings: readings
-      .filter((r) => r.systolic !== null && r.diastolic !== null)
+      .filter((r) => r.systolic !== null && r.diastolic !== null && r.taken_at !== null)
       .map((r) => ({
-        taken_at: r.taken_at,
+        taken_at: r.taken_at as string,
         systolic: r.systolic as number,
         diastolic: r.diastolic as number,
       })),

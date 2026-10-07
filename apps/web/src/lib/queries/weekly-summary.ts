@@ -13,7 +13,7 @@ export function useWeeklySummary(patientId: string) {
       const supabase = createClient();
       const since = new Date(Date.now() - 14 * 86_400_000).toISOString();
       const { data, error } = await supabase
-        .from("vitals_readings")
+        .from("vitals_readings_counted") // S70 (C1): count a measurement once
         .select(VISIT_REPORT_FIELDS)
         .eq("patient_id", patientId)
         .gte("taken_at", since)
@@ -21,7 +21,8 @@ export function useWeeklySummary(patientId: string) {
         .order("taken_at", { ascending: false })
         .limit(ROW_CAP);
       if (error) throw error;
-      const rows = data ?? [];
+      // The view's columns are all nullable in the generated types; a counted row always has its type and time.
+      const rows = (data ?? []).flatMap((r) => (r.vital_type !== null && r.taken_at !== null ? [{ ...r, vital_type: r.vital_type, taken_at: r.taken_at, validation_status: r.validation_status ?? "valid", source: r.source ?? "manual" }] : []));
       return buildWeeklySummary(rows, new Date(), { partial: rows.length >= ROW_CAP });
     },
     enabled: !!patientId,
