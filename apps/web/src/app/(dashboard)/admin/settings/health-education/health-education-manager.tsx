@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
+import { flaggedButStillLive, isPastReviewDate } from "@/lib/health-education/review-flags";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -58,7 +59,7 @@ const STATUS_BADGE: Record<HealthEducationContentStatus, { label: string; varian
   clinical_review: { label: "In clinical review", variant: "amber" },
   approved: { label: "Approved, not live", variant: "blue" },
   published: { label: "Live", variant: "green" },
-  review_due: { label: "Hidden, review due", variant: "amber" },
+  review_due: { label: "Live, review due", variant: "amber" },
   updated: { label: "Updated, needs re-review", variant: "amber" },
 };
 
@@ -296,7 +297,10 @@ function ContentRow({ item }: { item: HealthEducationContent }) {
   const updateContent = useUpdateHealthEducationContent();
   const [editing, setEditing] = useState(false);
   const [managing, setManaging] = useState(false);
-  const badge = STATUS_BADGE[item.content_status];
+  const hidden = isPastReviewDate(item) && (item.content_status === "published" || item.content_status === "review_due");
+  const badge = hidden
+    ? { label: "Hidden, review date passed", variant: "amber" as const }
+    : STATUS_BADGE[item.content_status];
   const nextStatuses = NEXT_STATUSES[item.content_status] ?? [];
 
   return (
@@ -354,6 +358,9 @@ function ContentRow({ item }: { item: HealthEducationContent }) {
           </Button>
         ))}
       </div>
+      {item.content_status === "review_due" && item.review_flag_reason && (
+        <p className="text-xs text-amber-700">{item.review_flag_reason}</p>
+      )}
       {setStatus.isError && <p className="text-xs text-red-600">{(setStatus.error as Error).message}</p>}
       {editing && (
         <div className="rounded-md bg-charcoal-ink/5 p-3">
@@ -396,7 +403,8 @@ export function HealthEducationManager() {
   const [categoryFilter, setCategoryFilter] = useState<HealthEducationCategory | "all">("all");
   const [showCreate, setShowCreate] = useState(false);
 
-  const liveCount = content?.filter((c) => c.is_active).length ?? 0;
+  const liveCount = content?.filter((c) => c.is_active && !isPastReviewDate(c)).length ?? 0;
+  const flagged = content ? flaggedButStillLive(content) : [];
   const filtered = content?.filter(
     (item) => categoryFilter === "all" || item.category === categoryFilter
   );
@@ -457,6 +465,26 @@ export function HealthEducationManager() {
               {createContent.isError && (
                 <p className="mt-2 text-xs text-red-600">{(createContent.error as Error).message}</p>
               )}
+            </div>
+          )}
+          {flagged.length > 0 && (
+            <div role="status" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+              <p className="font-medium">
+                {flagged.length} {flagged.length === 1 ? "item is" : "items are"} flagged for re-review and still live to patients.
+              </p>
+              <p className="mt-1 text-xs">
+                A clinical protocol changed version, so content on that condition needs a fresh clinical look. Nothing
+                was taken offline: each item keeps being shown until its own review date. Open an item to re-review it.
+              </p>
+              <ul className="mt-2 list-disc pl-5 text-xs">
+                {flagged.slice(0, 10).map((i) => (
+                  <li key={i.id}>
+                    {i.title}
+                    {i.next_review_due ? ` (live until ${i.next_review_due})` : " (no review date set)"}
+                  </li>
+                ))}
+                {flagged.length > 10 && <li>and {flagged.length - 10} more</li>}
+              </ul>
             </div>
           )}
           {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}

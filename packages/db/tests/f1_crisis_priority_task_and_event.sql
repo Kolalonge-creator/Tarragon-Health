@@ -10,6 +10,8 @@
 --   6. INV-07: no notice and no event payload carries a clinical word, a score or a name.
 --   7. Failure is loud, never silent, and never undoes the screen or the emergency event: with the task type switched off the
 --      screen still saves, an audit row and an open incident exist, and there is NO handled marker; once fixed, a replay completes it.
+--   7b. a replay never pages the same person twice even when another step failed first; the five-minute retry sweep completes
+--       a failed follow-up on its own (two minutes old or more) and stops after five recorded errors; it is not callable by anon/authenticated.
 --   SABOTAGE: with the trigger dropped a crisis screen creates no task (the trigger is what creates it).
 -- Wrapped in BEGIN/ROLLBACK; fails loudly with raise exception.
 begin;
@@ -53,7 +55,7 @@ declare
   v_org uuid; v_admin uuid; v_cmo uuid; v_p uuid; v_b uuid;
   pt1 uuid; pt2 uuid; pt3 uuid; pt4 uuid; pt5 uuid;
   s1 uuid; s2 uuid; s3 uuid; s4 uuid; s5 uuid; s6 uuid;
-  v_def text; pt6 uuid; s7 uuid;
+  v_def text; pt6 uuid; s7 uuid; pt7 uuid; pt8 uuid; s8 uuid; s9 uuid; s10 uuid; pt9 uuid;
   v_n integer; v_notes integer; v_task uuid; v_forbidden text := 'blood|pressure|hypertens|diabet|result|reading|glucose|medicine|dose|symptom|phq|score|depress|suicid|self-harm|F1C ';
 begin
   select id into v_org from public.organisations order by created_at limit 1;
@@ -63,7 +65,7 @@ begin
   v_p := pg_temp.mkdoc(v_org, v_admin, 'primary', 'senior_medical_officer');
   v_b := pg_temp.mkdoc(v_org, v_admin, 'backup', 'senior_medical_officer');
   pt1 := pg_temp.mkuser(v_org, 'p1', 'patient'); pt2 := pg_temp.mkuser(v_org, 'p2', 'patient'); pt3 := pg_temp.mkuser(v_org, 'p3', 'patient');
-  pt4 := pg_temp.mkuser(v_org, 'p4', 'patient'); pt5 := pg_temp.mkuser(v_org, 'p5', 'patient'); pt6 := pg_temp.mkuser(v_org, 'p6', 'patient');
+  pt4 := pg_temp.mkuser(v_org, 'p4', 'patient'); pt5 := pg_temp.mkuser(v_org, 'p5', 'patient'); pt6 := pg_temp.mkuser(v_org, 'p6', 'patient'); pt7 := pg_temp.mkuser(v_org, 'p7', 'patient'); pt8 := pg_temp.mkuser(v_org, 'p8', 'patient'); pt9 := pg_temp.mkuser(v_org, 'p9', 'patient');
   perform set_config('tarragon.lead_write', 'on', true);
   delete from public.on_call_rota where is_test;   -- no rota: nobody on call
   perform set_config('tarragon.lead_write', 'off', true);
@@ -143,6 +145,7 @@ begin
   update public.task_types set is_active = false where code = 'red_event_unacknowledged';
   s5 := pg_temp.screen(v_org, pt4, true);
   update public.task_types set is_active = true where code = 'red_event_unacknowledged';
+  select count(*) into v_notes from public.notifications where recipient_id = v_p and template = 'on_call_page';
   if not exists (select 1 from public.mental_health_screens where id = s5) then raise exception 'FAIL 7a: the patient screen was lost'; end if;
   if not exists (select 1 from public.emergency_events where patient_id = pt4 and source = 'mental_health_screen') then
     raise exception 'FAIL 7b: the emergency event was lost';
@@ -154,6 +157,52 @@ begin
   if exists (select 1 from public.audit_log where action = 'crisis.handled' and entity_id = s5) then raise exception 'FAIL 7e: a failed run was marked handled'; end if;
   if private.raise_crisis_follow_up(s5) is not true then raise exception 'FAIL 7f: a replay after the fix did not complete'; end if;
   if (select count(*) from public.clinical_tasks where patient_id = pt4) <> 1 then raise exception 'FAIL 7g: the replay did not create the task'; end if;
+  -- the task step failed but the clinician on call WAS told on the first run: the replay must not page them again
+  -- (review finding: the marker used to depend on every step, so a failed task step meant a second page)
+  if not exists (select 1 from public.audit_log where action = 'crisis.notified' and entity_id = s5) then
+    raise exception 'FAIL 7h: a notify that succeeded was not marked, so a replay would page twice';
+  end if;
+  if (select count(*) from public.notifications where recipient_id = v_p and template = 'on_call_page') <> v_notes then
+    raise exception 'FAIL 7i: the replay paged the clinician on call a second time';
+  end if;
+
+  -- 7b. the retry sweep completes a failed follow-up by itself, and stops after five recorded errors
+  update public.task_types set is_active = false where code = 'red_event_unacknowledged';
+  s8 := pg_temp.screen(v_org, pt7, true);
+  update public.task_types set is_active = true where code = 'red_event_unacknowledged';
+  if exists (select 1 from public.audit_log where action = 'crisis.handled' and entity_id = s8) then raise exception 'FAIL 7j: setup, screen already handled'; end if;
+  if private.retry_unhandled_crisis_follow_ups() <> 0 then raise exception 'FAIL 7k: the sweep touched a screen younger than two minutes'; end if;
+  update public.mental_health_screens set created_at = now() - interval '10 minutes' where id = s8;
+  if private.retry_unhandled_crisis_follow_ups() < 1 then raise exception 'FAIL 7l: the sweep did not complete a failed follow-up'; end if;
+  if not exists (select 1 from public.audit_log where action = 'crisis.handled' and entity_id = s8)
+     or (select count(*) from public.clinical_tasks where patient_id = pt7) <> 1 then
+    raise exception 'FAIL 7m: after the sweep the screen is not handled or has no task';
+  end if;
+  update public.task_types set is_active = false where code = 'red_event_unacknowledged';
+  s9 := pg_temp.screen(v_org, pt8, true);
+  update public.task_types set is_active = true where code = 'red_event_unacknowledged';
+  insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+    select v_org, 'crisis_task.error', 'mental_health_screen', s9, '{}'::jsonb from generate_series(1, 4);
+  update public.mental_health_screens set created_at = now() - interval '10 minutes' where id = s9;
+  if private.retry_unhandled_crisis_follow_ups() <> 0 then raise exception 'FAIL 7n: the sweep retried a screen that already has five errors'; end if;
+  if has_function_privilege('anon', 'private.retry_unhandled_crisis_follow_ups()', 'EXECUTE')
+     or has_function_privilege('authenticated', 'private.retry_unhandled_crisis_follow_ups()', 'EXECUTE') then
+    raise exception 'FAIL 7o: the retry sweep is callable by anon or authenticated';
+  end if;
+
+  -- SABOTAGE of 7i: put back the old marker rule (the marker depends on EVERY step) and repeat the scenario with a new
+  -- patient; the clinician on call must then be paged twice, so 7i can fail.
+  v_def := pg_get_functiondef('private.raise_crisis_follow_up(uuid)'::regprocedure);
+  if position('if not v_notify_failed then' in v_def) = 0 then raise exception 'FAIL setup: marker rule text not found'; end if;
+  execute replace(v_def, 'if not v_notify_failed then', 'if not v_failed then');
+  update public.task_types set is_active = false where code = 'red_event_unacknowledged';
+  s10 := pg_temp.screen(v_org, pt9, true);
+  update public.task_types set is_active = true where code = 'red_event_unacknowledged';
+  select count(*) into v_notes from public.notifications where recipient_id = v_p and template = 'on_call_page';
+  perform private.raise_crisis_follow_up(s10);
+  if (select count(*) from public.notifications where recipient_id = v_p and template = 'on_call_page') <= v_notes then
+    raise exception 'VACUOUS TEST: with the old marker rule a replay still did not page again, so 7i proves nothing';
+  end if;
 
   -- 8. even if the failure reporting itself is broken, the patient's screen and the emergency event still save
   v_def := pg_get_functiondef('private.page_incident(uuid, text, text, text)'::regprocedure);

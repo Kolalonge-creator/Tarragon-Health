@@ -80,7 +80,7 @@ export function FindASpecialistScreen({ patientId }: FindASpecialistScreenProps)
           {SPECIALIST_TYPES.map((t) => {
             const selected = t === specialistType;
             return (
-              <Pressable
+              <Pressable accessibilityRole="button" accessibilityState={{ selected }}
                 key={t}
                 onPress={() => setSpecialistType(t)}
                 style={{

@@ -70,6 +70,12 @@ export interface JoinTokenInput {
   /** Opaque participant id (a uuid). */
   readonly identity: string;
   readonly ttlSeconds: number;
+  /**
+   * How long a clinician's host key may live, in seconds (the `consultations.host_key` configuration). The key is only needed at the
+   * moment of joining, so it is kept as short as the caller allows; it never outlives the token or the room. Absent means "as long as
+   * the token", which is the older behaviour.
+   */
+  readonly hostKeyTtlSeconds?: number;
 }
 export interface JoinToken {
   readonly token: string;

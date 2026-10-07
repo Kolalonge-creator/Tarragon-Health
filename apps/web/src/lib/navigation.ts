@@ -188,6 +188,8 @@ export function getNavSections(
               primary: true,
               shortLabel: "Messages",
             },
+            { label: "Your month", href: "/patient/progress", icon: "analytics" },
+            { label: "Programmes", href: "/patient/programmes", icon: "members" },
             { label: "Appointments", href: "/patient/appointments", icon: "booking" },
           ],
         },
@@ -571,7 +573,13 @@ export function getNavSections(
                 // lib/clinical/doctor-tier.ts) — shown to every clinician tier
                 // per this file's own gating philosophy above; the page
                 // itself redirects/shows a friendly message for anyone else.
+                // Patients ordered by who may need a call first; only your own tied patients (S38c).
+                { label: "Risk worklist", href: "/clinician/risk-worklist", icon: "analytics" },
+                // Say whether the automatic grade was right for a task you completed; off until the CMO approves (S38e).
+                { label: "Review automatic grades", href: "/clinician/triage-review", icon: "review" },
                 { label: "Team caseload", href: "/clinician/team-caseload", icon: "analytics" },
+                // Chief Medical Officer only: how AI scribe drafts are used, and a random sample to check (S35c).
+                { label: "Scribe quality", href: "/clinician/scribe-quality", icon: "analytics" },
               ],
             },
             // Chief Medical Officer / Clinical Director governance surfaces
@@ -607,6 +615,8 @@ export function getNavSections(
                 { label: "Go-live guards", href: "/clinician/go-live", icon: "governance" },
                 // The symptom checker's regulatory position, accuracy audit and safety settings (S60). CMO only; the page redirects others.
                 { label: "Symptom checker safety", href: "/clinician/symptom-safety", icon: "governance" },
+                // Weekly payout drafts the CMO may approve (S36j, founder decision 2026-10-06). CMO only; the page redirects others. Sending stays with the admin.
+                { label: "Payout approvals", href: "/clinician/payout-approvals", icon: "governance" },
                 // Audits of completed clinical work and hand-back reviews (S36c). CMO only; the page redirects anyone below that tier.
                 { label: "Quality and safety", href: "/clinician/quality", icon: "review" },
                 // Every clinician with status, licence, competencies; decide competency grants and reinstatements, pause someone (S36d). CMO only; the page redirects others.
@@ -706,6 +716,13 @@ export function getNavSections(
             { label: "Memberships", href: "/admin/memberships", icon: "members" },
             // What can be bought, its price and its history; switch an item on or off (S25).
             { label: "Catalogue and prices", href: "/admin/catalogue", icon: "billing" },
+            // Blood pressure control 90 days after joining: aggregate only, small numbers withheld (S38).
+            { label: "Outcomes", href: "/admin/outcomes", icon: "analytics" },
+            { label: "Risk fairness", href: "/admin/risk-fairness", icon: "analytics" },
+            { label: "Export outcomes", href: "/admin/outcomes/export", icon: "analytics" },
+            // Programme codes for insurers, employers and NGOs, and their aggregate group figures (S38e).
+            { label: "Sponsors", href: "/admin/sponsors", icon: "members" },
+            { label: "Triage agreement", href: "/admin/triage-accuracy", icon: "analytics" },
             // Fee schedules, what contracted clinicians have earned, adjustments (S30).
             { label: "Fees and earnings", href: "/admin/earnings", icon: "analytics" },
             { label: "Payouts", href: "/admin/payouts", icon: "analytics" },

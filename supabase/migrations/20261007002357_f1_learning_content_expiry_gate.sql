@@ -11,9 +11,14 @@
 -- 03:00 job and forever after if the job failed.
 --
 -- THE ONE RULE (authoritative). An item is EXPIRED when
---     content_status = 'review_due'
---  OR next_review_due <= today (Africa/Lagos).
--- An item is SERVABLE when is_active AND NOT expired. `next_review_due` is the
+--     next_review_due <= today (Africa/Lagos).
+-- An item is SERVABLE when is_active AND NOT expired. A status of 'review_due' on its own does NOT
+-- expire an item (OQ-F1-04, decided in the F1 review, 2026-10-07): a protocol version bump flags the
+-- matching published items for re-review but they keep being served until THEIR OWN review date, so a
+-- protocol bump can never silently take education offline. The flag is made visible instead: the bump
+-- trigger stamps review_flagged_at / review_flag_reason on the item and the admin library shows a notice
+-- with every flagged item still live (see health-education-manager.tsx). The flag is cleared when the
+-- item leaves 'review_due'. An item past its date is hidden whatever its status. `next_review_due` is the
 -- authoritative review column. `review_due_at` is kept as a deprecated mirror
 -- (derived from next_review_due, Lagos midnight) so nothing that reads it breaks;
 -- a write to the legacy column alone is translated into next_review_due.
@@ -22,7 +27,9 @@
 --
 -- WHAT CHANGES
 --  * private.health_education_content_expired / _is_servable: the single rule.
---  * is_active trigger: 'review_due' no longer counts as active.
+--  * is_active trigger: unchanged meaning (published and review_due are active); expiry is the DATE only.
+--  * protocol-bump trigger: still flags published items review_due, now records WHY (review_flagged_at,
+--    review_flag_reason) so the admin notice can say it; nothing is hidden by the bump.
 --  * RLS read policy + every function that reads the table for patients, the AI
 --    coach retrieval RPCs, the recommend-on-result/medication triggers and the
 --    unlock nudge now apply the rule at READ time, so the 24h gap before the
@@ -52,9 +59,10 @@ language sql
 stable
 set search_path = ''
 as $$
-  select p_status = 'review_due'
-      or (p_next_review_due is not null
-          and p_next_review_due <= (now() at time zone 'Africa/Lagos')::date);
+  -- p_status is kept in the signature (callers, S55) but deliberately not consulted: a review_due FLAG is not
+  -- expiry. Only the item's own review date expires it (OQ-F1-04).
+  select p_next_review_due is not null
+     and p_next_review_due <= (now() at time zone 'Africa/Lagos')::date;
 $$;
 
 create or replace function private.health_education_is_servable(
@@ -71,6 +79,8 @@ as $$
      and not private.health_education_content_expired(p_status, p_next_review_due);
 $$;
 
+revoke execute on function private.health_education_flag_content_on_protocol_change() from public;
+revoke execute on function private.health_education_content_sync_is_active() from public;
 revoke execute on function private.health_education_content_expired(public.health_education_content_status, date) from public;
 revoke execute on function private.health_education_is_servable(boolean, public.health_education_content_status, date) from public;
 grant execute on function private.health_education_content_expired(public.health_education_content_status, date) to authenticated, service_role;
@@ -104,6 +114,8 @@ begin
 end;
 $$;
 
+revoke execute on function private.health_education_content_review_date_sync() from public;
+
 drop trigger if exists health_education_content_review_date_sync on public.health_education_content;
 create trigger health_education_content_review_date_sync
   before insert or update of next_review_due, review_due_at on public.health_education_content
@@ -119,29 +131,85 @@ update public.health_education_content
  where next_review_due is null and review_due_at is not null;
 
 -- ---------------------------------------------------------------------------
--- is_active: review_due is NOT served
+-- is_active: published AND review_due are active (a review flag is not an outage); expiry is by DATE.
+-- Also records why an item is flagged and clears the flag when it leaves review_due.
 -- ---------------------------------------------------------------------------
+alter table public.health_education_content
+  add column if not exists review_flagged_at timestamptz,
+  add column if not exists review_flag_reason text;
+
+comment on column public.health_education_content.review_flagged_at is
+  'When the item was flagged review_due (a protocol version bump or its own date passing). Null unless content_status = review_due. Drives the admin notice (F1, OQ-F1-04).';
+comment on column public.health_education_content.review_flag_reason is
+  'Why the item is flagged review_due, in words an admin can act on. Null unless content_status = review_due.';
+
 create or replace function private.health_education_content_sync_is_active()
 returns trigger
 language plpgsql
 set search_path = ''
 as $$
 begin
-  new.is_active := new.content_status = 'published';
+  new.is_active := new.content_status in ('published', 'review_due');
+  if new.content_status <> 'review_due' then
+    new.review_flagged_at := null;
+    new.review_flag_reason := null;
+  elsif new.review_flagged_at is null then
+    new.review_flagged_at := now();
+  end if;
   return new;
 end;
 $$;
 
 comment on column public.health_education_content.content_status is
-  'Governance lifecycle: draft -> clinical_review -> approved -> published -> review_due -> updated -> (back to clinical_review). is_active is true ONLY for published (F1: review_due is no longer served).';
+  'Governance lifecycle: draft -> clinical_review -> approved -> published -> review_due -> updated -> (back to clinical_review). is_active is true for published and review_due; a review_due item keeps being served until its own next_review_due date (F1, OQ-F1-04).';
 
 -- Re-derive is_active for the existing rows (trigger only fires on status writes).
 update public.health_education_content
-   set is_active = (content_status = 'published')
- where is_active is distinct from (content_status = 'published');
+   set is_active = (content_status in ('published', 'review_due'))
+ where is_active is distinct from (content_status in ('published', 'review_due'));
+
+-- The protocol-bump flag: same behaviour as before (published -> review_due), now with a visible reason.
+-- Nothing is hidden by a bump; the admin library shows a notice listing what was flagged.
+create or replace function private.health_education_flag_content_on_protocol_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_condition public.care_plan_condition;
+begin
+  if new.version_number <= 1 then
+    return new;
+  end if;
+
+  begin
+    v_condition := new.protocol_id::public.care_plan_condition;
+  exception when invalid_text_representation then
+    return new;
+  end;
+
+  with flagged as (
+    update public.health_education_content
+    set content_status = 'review_due',
+        review_flagged_at = now(),
+        review_flag_reason = format('Protocol %s moved to version %s. Re-review this item against the new protocol. It stays live until its own review date.',
+                                    new.protocol_id, new.version_number)
+    where condition = v_condition
+      and content_status in ('published')
+    returning id
+  )
+  insert into public.health_education_content_status_history (content_id, from_status, to_status, note)
+  select id, 'published', 'review_due',
+    format('Protocol %s bumped to version %s (approved %s): flagged for re-review, still served until its own review date', new.protocol_id, new.version_number, new.approved_at)
+  from flagged;
+
+  return new;
+end;
+$$;
 
 -- ---------------------------------------------------------------------------
--- Flag job: Lagos calendar day, and flag now so state matches the read rule
+-- Flag job: Lagos calendar day, and flag now so state matches the read rule (it records why)
 -- ---------------------------------------------------------------------------
 create or replace function private.health_education_flag_overdue_reviews()
 returns integer
@@ -154,7 +222,9 @@ declare
 begin
   with due as (
     update public.health_education_content
-    set content_status = 'review_due'
+    set content_status = 'review_due',
+        review_flagged_at = now(),
+        review_flag_reason = 'Its review date has passed. It is hidden from patients until a future review date is set and it is re-published.'
     where content_status = 'published'
       and next_review_due is not null
       and next_review_due <= (now() at time zone 'Africa/Lagos')::date
@@ -167,6 +237,9 @@ begin
   return v_count;
 end;
 $$;
+
+-- security definer, and the authenticated role can reach the private schema: only the owner and the cron job may run it
+revoke execute on function private.health_education_flag_overdue_reviews() from public, anon, authenticated;
 
 select private.health_education_flag_overdue_reviews();
 
@@ -245,7 +318,7 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
--- Self-check: no reader of the table is left filtering on bare is_active
+-- Self-check: no reader of the table is left filtering on bare is_active; a flag is not an outage
 -- ---------------------------------------------------------------------------
 do $$
 declare
@@ -269,6 +342,12 @@ begin
       raise exception 'F1 expiry gate not applied to %', v_sig;
     end if;
   end loop;
+  if private.health_education_content_expired('review_due', null) then
+    raise exception 'a review_due flag with no date must not expire an item (OQ-F1-04)';
+  end if;
+  if not private.health_education_content_expired('published', ((now() at time zone 'Africa/Lagos')::date)) then
+    raise exception 'an item whose review date is today must be expired';
+  end if;
   if has_function_privilege('anon', 'private.health_education_is_servable(boolean, public.health_education_content_status, date)', 'EXECUTE') then
     raise exception 'anon must not execute the servable helper';
   end if;

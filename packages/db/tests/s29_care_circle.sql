@@ -479,10 +479,10 @@ declare
   d text; r text; v_page uuid; n integer;
 begin
   -- (a) the weekly_bp_trend gate removed
-  -- (S29c moved the blocks into private.circle_view_blocks, which the supporter's page and the patient's preview both call)
-  select pg_get_functiondef('private.circle_view_blocks(uuid, text[])'::regprocedure) into d;
+  -- (S29c moved the blocks into private.circle_view_blocks, and S38d renamed that body to circle_view_blocks_core under a wrapper that adds the monthly block, so the sabotage targets the core; the body is where the blocks are gated, which the supporter's page and the patient's preview both call)
+  select pg_get_functiondef('private.circle_view_blocks_core(uuid, text[])'::regprocedure) into d;
   d := replace(d, '''weekly_bp_trend'' = any (p_permissions)', 'true');
-  if d = pg_get_functiondef('private.circle_view_blocks(uuid, text[])'::regprocedure) then raise exception 'sabotage (a) did not change the function'; end if;
+  if d = pg_get_functiondef('private.circle_view_blocks_core(uuid, text[])'::regprocedure) then raise exception 'sabotage (a) did not change the function'; end if;
   execute d;
   r := pg_temp.view_as(v_c, v_pat);   -- member C holds adherence_summary only
   insert into results values ('sabotaged', 'SAFETY CASE 21: a member without weekly_bp_trend gets no blood pressure block', 'false', (r like '%bp_trend%')::text);

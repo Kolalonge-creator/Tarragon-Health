@@ -20,9 +20,11 @@ import { getSymptomCheckerEligibility, getSymptomReviewEntitled, getSymptomRevie
 import { degradedModeConfig } from "@/lib/symptom-triage/safe-run";
 import { ComplicationStatus } from "@/app/(dashboard)/patient/complication-status";
 import { FootRiskStatus } from "@/app/(dashboard)/patient/foot-risk-status";
+import { WeeklySummaryCard } from "@/app/(dashboard)/patient/weekly-summary-card";
+import { VisitReportCard } from "@/app/(dashboard)/patient/visit-report-card";
 
 export default async function PatientVitalsPage() {
-  const { profile, subjectId, subjectDateOfBirth } = await getPatientDashboardContext();
+  const { profile, subjectId, subjectDateOfBirth, glucoseUnit } = await getPatientDashboardContext();
   const ageYears = ageFromDateOfBirth(subjectDateOfBirth);
   const presentingComplaints = await listAvailablePresentingComplaints();
   // The stated review time is read from the signed SLA only when the checker is open (nothing to promise otherwise).
@@ -39,6 +41,7 @@ export default async function PatientVitalsPage() {
       icon={SEMANTIC_ICON.bp}
     >
       <VitalsTrendChart patientId={subjectId} />
+      <WeeklySummaryCard patientId={subjectId} glucoseUnit={glucoseUnit} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Directly above the form someone logs a reading into, which is the
@@ -74,6 +77,7 @@ export default async function PatientVitalsPage() {
       />
 
       <VitalsHistory patientId={subjectId} />
+      <VisitReportCard />
       {/* Renders nothing unless the patient has an active diabetes care
           plan — see diabetes-daily-log.tsx for the gate. */}
       <DiabetesDailyLog patientId={subjectId} />
