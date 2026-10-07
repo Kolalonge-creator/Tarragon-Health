@@ -6,7 +6,7 @@
 --      learning_course; a patient sees an empty course.
 --   2. The gate: only a PUBLISHED lesson with a review date that has not passed is served (no date, a past date, a draft each
 --      return nothing); the programme must be active; a reviewer credit comes back only from a complete review record.
---   3. Language: a Pidgin row is served only when native_reviewed; editing it sends it back to needs_native_review.
+--   3. English only: the Pidgin plumbing is gone (columns, trigger, translation join); language_served is always 'en'.
 --   4. Edit rule: editing a course lesson's clinical text returns it to clinical_review, hidden, review cleared, logged; the same
 --      edit to a non-course row changes nothing (control).
 --   5. Sweep: a course lesson whose review date has passed is hidden and logged; a non-course row with a passed date is left alone.
@@ -62,7 +62,7 @@ $$ select count(*)::text from public.domain_events where event_type = p_type and
 
 do $$
 declare
-  v_org uuid; v_pat uuid; v_pcm uuid; v_admin uuid; v_prog uuid;
+  v_org uuid; v_pat uuid; v_pat2 uuid; v_admin uuid; v_prog uuid;
   v_l1 uuid; v_l2 uuid; v_l3 uuid; v_l4 uuid; v_other uuid; v_other_due uuid; v_other2 uuid;
   v_today date := pg_temp.lagos_today();
   v_n integer; v_row record; v_hist integer; v_ids uuid[];
@@ -71,7 +71,7 @@ begin
   if v_org is null then raise exception 'need an organisation to run this proof'; end if;
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
   v_pat := pg_temp.mkuser(v_org, 'patient', 'patient');
-  v_pcm := pg_temp.mkuser(v_org, 'patient-pcm', 'patient', 'pcm');
+  v_pat2 := pg_temp.mkuser(v_org, 'patient-two', 'patient');
   select id into v_prog from public.health_education_programmes where code = 'bp_care_course';
 
   -- 1. Shape ----------------------------------------------------------------------------------------------------
@@ -86,7 +86,7 @@ begin
   perform pg_temp.rec('every lesson has an audio clip id, one action and a teach-back question', '14',
     (select count(*)::text from public.health_education_content
       where topic_group_code = 'bp_care_course' and audio_clip_id ~ '^BPC-[0-9]{2}$' and next_action is not null and jsonb_array_length(knowledge_check) = 1));
-  perform pg_temp.rec('no Pidgin row is seeded while none is released', '0',
+  perform pg_temp.rec('no translation row is seeded (English only)', '0',
     (select count(*)::text from public.health_education_translations t join public.health_education_content c on c.id = t.content_id where c.topic_group_code = 'bp_care_course'));
   perform pg_temp.rec('anon cannot execute learning_course', 'false', has_function_privilege('anon', 'public.learning_course(text)', 'EXECUTE')::text);
   perform pg_temp.rec('anon is refused when it calls it', '42501', (select pg_temp.try('select * from public.learning_course(''bp_care_course'')') from (select pg_temp.act_anon()) x));
@@ -131,23 +131,15 @@ begin
   perform pg_temp.back();
   update public.health_education_content set next_review_due = v_today + 30 where id = v_l1;
 
-  -- 3. Language -------------------------------------------------------------------------------------------------
-  insert into public.health_education_translations (content_id, language, title, summary, body, knowledge_check, next_action)
-  values (v_l1, 'pcm', 'PCM TITLE', 'pcm summary', 'pcm body', '[{"question":"q","options":["a","b"],"answer_index":0}]'::jsonb, 'pcm action');
-  perform pg_temp.act(v_pcm);
-  perform pg_temp.rec('Pidgin that needs native review is not served: the learner gets English', 'en', (select language_served from public.learning_course('bp_care_course') where module_number = 1));
-  perform pg_temp.rec('...and the English title', 'What blood pressure is, and why it matters', (select title from public.learning_course('bp_care_course') where module_number = 1));
-  perform pg_temp.back();
-  update public.health_education_translations set review_state = 'native_reviewed' where content_id = v_l1 and language = 'pcm';
-  perform pg_temp.act(v_pcm);
-  perform pg_temp.rec('reviewed Pidgin is served to a Pidgin speaker', 'pcm', (select language_served from public.learning_course('bp_care_course') where module_number = 1));
-  perform pg_temp.rec('...with its own action and question', 'pcm action', (select next_action from public.learning_course('bp_care_course') where module_number = 1));
-  perform pg_temp.back();
+  -- 3. English only ---------------------------------------------------------------------------------------------
+  perform pg_temp.rec('the Pidgin columns are gone from translations', '0',
+    (select count(*)::text from information_schema.columns where table_schema = 'public' and table_name = 'health_education_translations' and column_name in ('knowledge_check', 'next_action', 'review_state')));
+  perform pg_temp.rec('the translation requeue trigger is gone', '0',
+    (select count(*)::text from pg_trigger where tgname = 'health_education_translations_requeue_on_edit' and not tgisinternal));
   perform pg_temp.act(v_pat);
-  perform pg_temp.rec('an English speaker still gets English', 'en', (select language_served from public.learning_course('bp_care_course') where module_number = 1));
+  perform pg_temp.rec('every lesson is served in English', 'en', (select language_served from public.learning_course('bp_care_course') where module_number = 1));
+  perform pg_temp.rec('...with the English title', 'What blood pressure is, and why it matters', (select title from public.learning_course('bp_care_course') where module_number = 1));
   perform pg_temp.back();
-  update public.health_education_translations set body = 'edited pcm body' where content_id = v_l1 and language = 'pcm';
-  perform pg_temp.rec('editing Pidgin text sends it back to needs_native_review', 'needs_native_review', (select review_state from public.health_education_translations where content_id = v_l1 and language = 'pcm'));
 
   -- 4. Edit rule ------------------------------------------------------------------------------------------------
   select count(*) into v_hist from public.health_education_content_status_history where content_id = v_l1;
@@ -221,10 +213,10 @@ begin
   -- 7. SABOTAGE -------------------------------------------------------------------------------------------------
   -- (a) the progress trigger dropped: finishing a lesson emits nothing, so the matching check flips
   drop trigger health_education_progress_events on public.health_education_progress;
-  perform pg_temp.act(v_pcm);
-  insert into public.health_education_progress (organisation_id, patient_id, content_id, status) values (v_org, v_pcm, v_l4, 'understood');
+  perform pg_temp.act(v_pat2);
+  insert into public.health_education_progress (organisation_id, patient_id, content_id, status) values (v_org, v_pat2, v_l4, 'understood');
   perform pg_temp.back();
-  insert into results values ('sabotaged', 'finishing the teach-back emits lesson.completed', '1', pg_temp.events('lesson.completed', v_pcm));
+  insert into results values ('sabotaged', 'finishing the teach-back emits lesson.completed', '1', pg_temp.events('lesson.completed', v_pat2));
   -- (b) the edit trigger dropped: an edited lesson stays published, so the matching check flips
   drop trigger health_education_content_requeue_on_edit on public.health_education_content;
   update public.health_education_content set content_status = 'published', clinician_reviewed = true, next_review_due = v_today + 30 where id = v_l4;

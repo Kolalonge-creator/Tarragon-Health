@@ -32,7 +32,6 @@ export interface CourseLesson {
   nextAction: string | null;
   estimatedMinutes: number;
   check: KnowledgeCheckQuestion | null;
-  languageServed: string;
   reviewedByName: string | null;
   nextReviewDue: string | null;
   status: "seen" | "understood" | "needs_review" | null;
@@ -51,7 +50,6 @@ export function parseLesson(row: CourseRow): CourseLesson {
     nextAction: row.next_action && row.next_action.trim() !== "" ? row.next_action : null,
     estimatedMinutes: row.estimated_minutes ?? 3,
     check: checks ? checks[0] : null,
-    languageServed: row.language_served ?? "en",
     // A credit needs a name AND a review date: one without the other is not a review record.
     reviewedByName: row.reviewed_by_name && row.reviewed_at ? row.reviewed_by_name : null,
     nextReviewDue: row.next_review_due,
@@ -69,4 +67,3 @@ export function summarise(lessons: readonly CourseLesson[]) {
 
 export const paragraphs = (body: string): string[] => body.split(/\n{2,}/).map((p) => p.trim()).filter((p) => p !== "");
 
-export const pidginComing = (uiLocale: string, l: Pick<CourseLesson, "languageServed">): boolean => uiLocale === "pcm" && l.languageServed !== "pcm";

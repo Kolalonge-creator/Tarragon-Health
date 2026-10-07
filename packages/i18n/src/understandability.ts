@@ -16,7 +16,6 @@ export interface PassRule {
 
 export interface SessionRow {
   readonly participant: string;
-  readonly language: string;
   readonly lesson: string;
   readonly recalledMessage: boolean;
   readonly namedAction: boolean;
@@ -28,7 +27,6 @@ export type Verdict = "pass" | "fail" | "too_few";
 
 export interface LessonScore {
   readonly lesson: string;
-  readonly language: string;
   readonly participants: number;
   readonly recalledMessage: number;
   readonly namedAction: number;
@@ -40,18 +38,16 @@ export interface LessonScore {
 }
 
 export function scoreLessons(rows: readonly SessionRow[], rule: PassRule): LessonScore[] {
-  // One row per participant per lesson and language: if a row is entered twice the last one wins, so a repeat can never
+  // One row per participant per lesson: if a row is entered twice the last one wins, so a repeat can never
   // raise a count above the number of people tested.
   const latest = new Map<string, SessionRow>();
-  for (const r of rows) latest.set(`${r.lesson}\u0000${r.language}\u0000${r.participant}`, r);
+  for (const r of rows) latest.set(`${r.lesson}\u0000${r.participant}`, r);
   const groups = new Map<string, SessionRow[]>();
   for (const r of latest.values()) {
-    const key = `${r.lesson}\u0000${r.language}`;
-    groups.set(key, [...(groups.get(key) ?? []), r]);
+    groups.set(r.lesson, [...(groups.get(r.lesson) ?? []), r]);
   }
   const out: LessonScore[] = [];
-  for (const [key, g] of groups) {
-    const [lesson, language] = key.split("\u0000");
+  for (const [lesson, g] of groups) {
     const participants = new Set(g.map((r) => r.participant)).size;
     const count = (f: (r: SessionRow) => boolean) => g.filter(f).length;
     const both = count((r) => r.recalledMessage && r.namedAction);
@@ -73,7 +69,6 @@ export function scoreLessons(rows: readonly SessionRow[], rule: PassRule): Lesso
     }
     out.push({
       lesson,
-      language,
       participants,
       recalledMessage: count((r) => r.recalledMessage),
       namedAction: count((r) => r.namedAction),
@@ -84,7 +79,7 @@ export function scoreLessons(rows: readonly SessionRow[], rule: PassRule): Lesso
       reasons,
     });
   }
-  return out.sort((a, b) => a.lesson.localeCompare(b.lesson) || a.language.localeCompare(b.language));
+  return out.sort((a, b) => a.lesson.localeCompare(b.lesson));
 }
 
 /** Percent of applicable items answered yes (PEMAT and the CDC Clear Communication Index both score this way). */
@@ -142,7 +137,6 @@ export function parseSessionCsv(text: string): SessionRow[] {
   };
   const ix = {
     participant: col("participant"),
-    language: col("language"),
     lesson: col("lesson"),
     recalled: col("recalled_message"),
     action: col("named_action"),
@@ -153,7 +147,6 @@ export function parseSessionCsv(text: string): SessionRow[] {
     const c = split(l);
     return {
       participant: c[ix.participant]?.trim() ?? "",
-      language: c[ix.language]?.trim().toLowerCase() ?? "",
       lesson: c[ix.lesson]?.trim() ?? "",
       recalledMessage: yes(c[ix.recalled] ?? ""),
       namedAction: yes(c[ix.action] ?? ""),

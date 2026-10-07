@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { lessonDone, paragraphs, parseLesson, pidginComing, summarise, type CourseRow } from "./course-model";
+import { lessonDone, paragraphs, parseLesson, summarise, type CourseRow } from "./course-model";
 
 const row = (over: Partial<CourseRow> = {}): CourseRow => ({
   module_number: 1,
@@ -46,10 +46,7 @@ describe("web course model", () => {
     expect(summarise([]).finished).toBe(false);
   });
 
-  it("splits paragraphs and says Pidgin is coming only when a Pidgin speaker is shown English", () => {
+  it("splits paragraphs", () => {
     expect(paragraphs("a\n\nb\n\n\n c ")).toEqual(["a", "b", "c"]);
-    expect(pidginComing("pcm", { languageServed: "en" })).toBe(true);
-    expect(pidginComing("pcm", { languageServed: "pcm" })).toBe(false);
-    expect(pidginComing("en", { languageServed: "en" })).toBe(false);
   });
 });

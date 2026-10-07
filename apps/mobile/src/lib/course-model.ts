@@ -20,8 +20,6 @@ export interface CourseLesson {
   readonly nextAction: string | null;
   readonly estimatedMinutes: number;
   readonly check: KnowledgeCheckQuestion | null;
-  /** The language the text was served in. English when a Pidgin version is not reviewed yet. */
-  readonly languageServed: string;
   /** Set only from a complete review record on the server. Never inferred here. */
   readonly reviewedByName: string | null;
   readonly reviewedAt: string | null;
@@ -60,7 +58,6 @@ export function parseLesson(row: CourseRow): CourseLesson {
     nextAction: row.next_action && row.next_action.trim() !== "" ? row.next_action : null,
     estimatedMinutes: row.estimated_minutes ?? 3,
     check: checks ? checks[0] : null,
-    languageServed: row.language_served ?? "en",
     // A credit needs a name AND a date: one without the other is not a review record.
     reviewedByName: row.reviewed_by_name && row.reviewed_at ? row.reviewed_by_name : null,
     reviewedAt: row.reviewed_by_name && row.reviewed_at ? row.reviewed_at : null,
@@ -93,9 +90,6 @@ export function summarise(lessons: readonly CourseLesson[]): CourseSummary {
 
 /** Lesson text is stored with blank lines between paragraphs. */
 export const paragraphs = (body: string): string[] => body.split(/\n{2,}/).map((p) => p.trim()).filter((p) => p !== "");
-
-/** Pidgin was asked for but the lesson is shown in English: say so quietly, never show unreviewed Pidgin. */
-export const pidginComing = (uiLocale: string, l: Pick<CourseLesson, "languageServed">): boolean => uiLocale === "pcm" && l.languageServed !== "pcm";
 
 /** The course card is shown only when the server returns at least one lesson (nothing published means nothing shown). */
 export const courseIsOpen = (lessons: readonly CourseLesson[]): boolean => lessons.length > 0;

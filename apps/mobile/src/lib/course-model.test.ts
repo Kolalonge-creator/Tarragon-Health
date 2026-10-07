@@ -5,7 +5,6 @@ import {
   nextSpeed,
   paragraphs,
   parseLesson,
-  pidginComing,
   summarise,
   type CourseRow,
 } from "./course-model";
@@ -34,7 +33,6 @@ describe("parseLesson", () => {
     expect(l.check).toEqual({ question: "Q?", options: ["a", "b", "c"], answer_index: 1 });
     expect(l.nextAction).toBe("Do a thing today.");
     expect(l.audioClipId).toBe("BPC-01");
-    expect(l.languageServed).toBe("en");
   });
 
   it("degrades a malformed question to no question rather than throwing", () => {
@@ -89,11 +87,6 @@ describe("small helpers", () => {
     expect(paragraphs("a\n\nb\n\n\n c ")).toEqual(["a", "b", "c"]);
   });
 
-  it("says Pidgin is coming only for a Pidgin speaker who is shown English", () => {
-    expect(pidginComing("pcm", { languageServed: "en" })).toBe(true);
-    expect(pidginComing("pcm", { languageServed: "pcm" })).toBe(false);
-    expect(pidginComing("en", { languageServed: "en" })).toBe(false);
-  });
 
   it("cycles playback speed and wraps", () => {
     expect(nextSpeed(0.75)).toBe(1);

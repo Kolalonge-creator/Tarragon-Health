@@ -27,14 +27,13 @@ const lesson = (n: number, over: Partial<CourseLesson> = {}): CourseLesson => ({
   nextAction: "Do one small thing today.",
   estimatedMinutes: 3,
   check: { question: "What is true?", options: ["One", "Two", "Three"], answer_index: 1 },
-  languageServed: "en",
   reviewedByName: null,
   nextReviewDue: null,
   status: null,
   ...over,
 });
 
-const ui = (lessons: CourseLesson[], locale: "en" | "pcm" = "en") => <BpCourse lessons={lessons} locale={locale} patientId="p" organisationId="o" />;
+const ui = (lessons: CourseLesson[]) => <BpCourse lessons={lessons} locale="en" patientId="p" organisationId="o" />;
 
 describe("BpCourse accessibility", () => {
   it("lists lessons with progress and no violations", async () => {
@@ -60,12 +59,11 @@ describe("BpCourse accessibility", () => {
     return screen.findByText(/Read the lesson once more/).then((el) => expect(el.textContent).not.toMatch(/fail|wrong/i));
   });
 
-  it("shows a reviewer credit only when there is a record, and says Pidgin is coming when English is served", () => {
-    const { rerender } = render(ui([lesson(1)], "pcm"));
+  it("shows a reviewer credit only when there is a record", () => {
+    const { rerender } = render(ui([lesson(1)]));
     fireEvent.click(screen.getByRole("button", { name: "Lesson 1" }));
     expect(screen.queryByText(/Reviewed by/)).toBeNull();
-    expect(screen.getByRole("status").textContent).toMatch(/Pidgin/);
-    rerender(ui([lesson(1, { reviewedByName: "Dr A" })], "en"));
+    rerender(ui([lesson(1, { reviewedByName: "Dr A" })]));
     expect(screen.getByText("Reviewed by Dr A")).toBeTruthy();
   });
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
 import { loadCourse, saveClarity, saveLessonResult } from "@/lib/course";
-import { courseIsOpen, lessonDone, paragraphs, pidginComing, summarise, type CourseLesson } from "@/lib/course-model";
+import { courseIsOpen, lessonDone, paragraphs, summarise, type CourseLesson } from "@/lib/course-model";
 import { scoreKnowledgeCheck } from "@/lib/health-education";
 import { getAudioService } from "@/lib/audio/service";
 import { useUiLanguage } from "@/lib/ui-language";
@@ -11,7 +11,7 @@ import { AppText, Badge, Button, Card, InlineAlert } from "@/ui/kit";
 
 type Tr = (key: MessageKey, params?: Record<string, string | number>) => string;
 
-function useTr(): { tr: Tr; locale: "en" | "pcm" } {
+function useTr(): { tr: Tr; locale: "en" } {
   const locale = asLocale(useUiLanguage());
   const tr = useCallback<Tr>((key, params) => t(key, locale, params), [locale]);
   return { tr, locale };
@@ -132,7 +132,7 @@ function LessonView({
   organisationId: string;
   onDone: () => Promise<void>;
 }) {
-  const { tr, locale } = useTr();
+  const { tr } = useTr();
   const [audioSoon, setAudioSoon] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [picked, setPicked] = useState<number | undefined>(undefined);
@@ -149,7 +149,7 @@ function LessonView({
     }
     setAudioSoon(false);
     setPlaying(true);
-    const spoken = await getAudioService().playClips([lesson.audioClipId], lesson.languageServed === "pcm" ? "pcm" : "en");
+    const spoken = await getAudioService().playClips([lesson.audioClipId], "en");
     setPlaying(false);
     // No recording yet (or not signed): the transcript below is the lesson. Say so once, calmly.
     if (!spoken.played) setAudioSoon(true);
@@ -173,7 +173,6 @@ function LessonView({
     <View style={{ gap: space.md }}>
       <AppText variant="label" tone="textMuted">{tr("course.lesson_n", { n: lesson.moduleNumber })} · {tr("course.minutes", { min: lesson.estimatedMinutes })}</AppText>
       <AppText variant="headline" heading>{lesson.title}</AppText>
-      {pidginComing(locale, lesson) && <InlineAlert tone="info" message={tr("lesson.pcm_coming")} />}
 
       <Button
         title={playing ? tr("lesson.pause") : tr("lesson.listen")}

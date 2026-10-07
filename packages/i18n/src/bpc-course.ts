@@ -11,9 +11,7 @@
  * Rules the lint test enforces (see bpc-course.test.ts): about 130 spoken words a minute so a lesson stays under
  * five minutes; short sentences; no dose, no medicine name, no mmHg figure, no claim about a herb; no banned words.
  *
- * Pidgin: `pcm` is present only where the lesson is about tone, food, movement or habit. Lessons about numbers,
- * medicines, side effects, herbal products and warning signs are HELD in English (OQ-19, OQ-87) and have no `pcm`
- * entry, so English is served. Every `pcm` entry is `needs_native_review`.
+ * English only (founder decision D-14, 2026-10-07): there is no second-language text.
  */
 export interface LessonCheck {
   readonly question: string;
@@ -37,10 +35,6 @@ export interface BpcLesson {
   /** Planned length in the production list, in minutes. */
   readonly briefMinutes: number;
   readonly en: LessonText;
-  /** Absent means "held in English". */
-  readonly pcm?: LessonText;
-  /** Why the Pidgin is held, when it is. */
-  readonly pcmHeldBecause?: string;
 }
 
 const paras = (...p: string[]): string => p.join("\n\n");
@@ -74,30 +68,11 @@ export const BPC_LESSONS: readonly BpcLesson[] = [
         answerIndex: 1,
       },
     },
-    pcm: {
-      title: "Wetin blood pressure be, and why e matter",
-      summary: "Two numbers wey show how hard your blood dey push inside your body.",
-      body: paras(
-        "Your heart dey pump blood go round your body inside pipe wey dem dey call blood vessel. Blood pressure na how hard the blood dey push the wall of those pipe.",
-        "One reading get two numbers. The number for top na the push every time your heart squeeze. The number for bottom na the push for between, when your heart dey rest. Both of dem matter.",
-        "If the push dey too high for many months and years, e dey slowly spoil the wall of your blood vessel. The spoil dey quiet. You fit no feel anything at all. As time dey go, e fit pain your heart, your kidney, your eye and the blood vessel for your head.",
-        "Good news be say dem fit bring blood pressure down and keep am steady. To dey check am for house, to dey take your medicine as dem agree, to chop small small salt and to dey move your body all dey help. You no need to do am perfect. Small steady step dey count.",
-        "This course short. Every lesson na just few minutes and e dey end with one small thing to try. You fit listen or read, and you fit come back to any lesson any time.",
-        "Your care team dey with you. If anything for this course no match wetin your care team don tell you, follow your care team and ask dem.",
-      ),
-      nextAction: "Find where your blood pressure machine dey, or ask your care team where you fit check am near you.",
-      check: {
-        question: "Wetin blood pressure dey measure?",
-        options: ["How fast your heart dey beat", "How hard blood dey push the wall of your blood vessel", "How much blood dey your body"],
-        answerIndex: 1,
-      },
-    },
   },
   {
     code: "BPC-02",
     slug: "bpc_02_measure_correctly_at_home",
     briefMinutes: 4,
-    pcmHeldBecause: "Measurement technique wording is clinical and carries numbers; English plus audio until signed.",
     en: {
       title: "How to measure your blood pressure correctly at home",
       summary: "Rest, sit well, use the right cuff, take two readings and write them down.",
@@ -122,7 +97,6 @@ export const BPC_LESSONS: readonly BpcLesson[] = [
     code: "BPC-03",
     slug: "bpc_03_understanding_numbers_and_target",
     briefMinutes: 3,
-    pcmHeldBecause: "Describes how readings are read and targets; held in English until the CMO signs the wording.",
     en: {
       title: "Understanding your numbers and your target",
       summary: "Your readings are a pattern over time, and your care team sets your own target.",
@@ -146,7 +120,6 @@ export const BPC_LESSONS: readonly BpcLesson[] = [
     code: "BPC-04",
     slug: "bpc_04_feeling_fine_with_high_pressure",
     briefMinutes: 3,
-    pcmHeldBecause: "Covers stopping tablets when well; safety wording held in English until signed.",
     en: {
       title: "Why you can feel fine with high blood pressure",
       summary: "High blood pressure usually has no feeling, so how you feel is not a good guide.",
@@ -170,7 +143,6 @@ export const BPC_LESSONS: readonly BpcLesson[] = [
     code: "BPC-05",
     slug: "bpc_05_your_medicines_every_day",
     briefMinutes: 4,
-    pcmHeldBecause: "Medicine guidance including missed doses; held in English until signed.",
     en: {
       title: "Your medicines: how they work and why every day",
       summary: "Blood pressure tablets work only while you keep taking them.",
@@ -194,7 +166,6 @@ export const BPC_LESSONS: readonly BpcLesson[] = [
     code: "BPC-06",
     slug: "bpc_06_side_effects_and_when_to_tell",
     briefMinutes: 3,
-    pcmHeldBecause: "Side effects and when to report them; held in English until signed.",
     en: {
       title: "Side effects: what is common, and when to tell your care team",
       summary: "Most side effects are mild, but tell your care team before you stop anything.",
@@ -238,25 +209,6 @@ export const BPC_LESSONS: readonly BpcLesson[] = [
         answerIndex: 1,
       },
     },
-    pcm: {
-      title: "Salt: where e dey hide for Naija food",
-      summary: "Plenty salt dey come from seasoning, no be from the salt wey you dey add.",
-      body: paras(
-        "If you chop too much salt, your body go hold water, and that one dey make blood pressure go up. Most of the salt wey we dey chop no come from the one wey we dey add for table. E dey inside the food already.",
-        "Look where salt dey hide. Maggi and seasoning powder dey salty well well, and plenty of us dey put two or three inside one pot. Indomie get salty sachet inside. Smoked meat, dry fish, sausage and canned food get plenty salt. Suya pepper and many ready mix dey salty. Bread too fit add up, because we dey chop am every time.",
-        "You no need to leave the food wey you love. Reduce am small small, so your mouth go get time to settle.",
-        "Try these small changes. Use one cube instead of two, then half cube, then see if you still need am. Put taste with fresh pepper, onion, garlic, ginger, tomato and leaf like scent leaf and thyme. Taste your food before you add salt. Cook fresh fish or meat pass the one wey dem salt. Comot salt from the table.",
-        "When you dey buy packet food, check the label and choose the one wey get less salt. You fit make soup and stew sweet without plenty salt.",
-        "Your mouth go change for few weeks. Food wey taste plain before go start to taste correct, and food wey too salty go start to taste too strong.",
-        "If you get kidney problem or heart failure, or your care team don give you advice about salt or water, follow that advice.",
-      ),
-      nextAction: "For your next meal, use one cube less than normal and put fresh pepper or onion for taste.",
-      check: {
-        question: "Where most of the salt for our food dey come from?",
-        options: ["Mostly the salt wey we dey add for table", "Mostly seasoning, cube and packet food", "Mostly fresh vegetable"],
-        answerIndex: 1,
-      },
-    },
   },
   {
     code: "BPC-08",
@@ -279,26 +231,6 @@ export const BPC_LESSONS: readonly BpcLesson[] = [
       check: {
         question: "Which plate is the better balance?",
         options: ["A mountain of rice with a little stew", "Half the plate vegetables, with a fist-sized portion of rice or swallow", "Only fruit for every meal"],
-        answerIndex: 1,
-      },
-    },
-    pcm: {
-      title: "How to chop for healthy blood pressure",
-      summary: "Swap wey still sweet: more vegetable, fruit and beans, and correct portion.",
-      body: paras(
-        "You no need expensive food to help your blood pressure. Normal Naija food fit work well if you change the balance for your plate.",
-        "Fill about half your plate with vegetable, like ugu, spinach, okra, garden egg and cabbage. Add fruit for the day, like orange, pawpaw, banana and watermelon. Dem dey give your body more of the things wey dey help am handle salt.",
-        "Try swaps wey still sweet. Use fresh pepper, onion, tomato and leaf instead of extra seasoning cube. Make soup with more vegetable and small less meat. Boil or roast plantain and yam instead of to fry dem. Take fruit instead of sweet snack.",
-        "Chop beans and other beans-family food more. Beans, moi moi and akara wey get less salt dey give you protein and fibre. Fish and egg good too. Choose fresh pass smoked or salted when you fit.",
-        "Watch how big the heap of rice, yam, swallow or bread be. These food no bad, but mountain of any of dem too much. Fist size of swallow or rice na good start, with more vegetable beside am.",
-        "Use less oil and less sugar. Fry small and boil, grill or steam more. Choose water pass sugar drink.",
-        "Change one thing at a time. Pick one swap this week and keep am. One change wey you keep better pass perfect plan wey you drop.",
-        "If you get kidney problem, or your care team give you special food plan, ask dem before you change wetin you dey chop. Some food wey good for most people need care for kidney problem.",
-      ),
-      nextAction: "For one meal today, make vegetable fill about half your plate.",
-      check: {
-        question: "Which plate balance better?",
-        options: ["Mountain of rice with small stew", "Half plate vegetable, with fist size of rice or swallow", "Only fruit for every meal"],
         answerIndex: 1,
       },
     },
@@ -326,25 +258,6 @@ export const BPC_LESSONS: readonly BpcLesson[] = [
         answerIndex: 1,
       },
     },
-    pcm: {
-      title: "How to move body pass without gym",
-      summary: "Waka, dance and house work all dey count. Start slow and add small small.",
-      body: paras(
-        "To dey move your body dey help your heart and your blood vessel, and e fit help bring your blood pressure down. You no need gym, special cloth or any money.",
-        "Good target for most big person na about thirty minutes of moderate movement for most days. Moderate mean say your heart dey beat faster and you dey breathe harder, but you still fit talk. You fit break am into pieces. Ten minutes three times for day count the same way.",
-        "To waka na the easiest place to start. Waka go shop, comot from bus one stop before, or waka round the compound when you dey talk for phone. Dance count. Sweep, fetch water, farm work and wash cloth by hand count too.",
-        "If you never move body for some time, start slow. Five or ten minutes na fine start. Add few minutes every week. Waka slow first before you start, and slow down for the end.",
-        "Choose cool time of the day, drink water, and wear shoe wey comfortable.",
-        "Stop and rest if your head dey spin, you dey breathe too hard or you no feel well. If your chest dey pain or press you, you dey breathe too hard well well or you faint, stop and use the emergency guidance for the app.",
-        "If you get heart problem or any health matter wey dey worry you, ask your care team how much movement correct for you before you start.",
-      ),
-      nextAction: "Waka for ten minutes today, for speed wey you still fit talk.",
-      check: {
-        question: "Which one count as to move body more?",
-        options: ["Only gym class wey you pay for", "Waka, dance and house work", "Only to run for far"],
-        answerIndex: 1,
-      },
-    },
   },
   {
     code: "BPC-10",
@@ -365,24 +278,6 @@ export const BPC_LESSONS: readonly BpcLesson[] = [
       check: {
         question: "Is smokeless tobacco, such as snuff, a safe way to avoid the effect on blood pressure?",
         options: ["Yes, it does not affect blood pressure", "No, it also raises blood pressure", "Only a small pinch is safe"],
-        answerIndex: 1,
-      },
-    },
-    pcm: {
-      title: "Alcohol, cigarette and blood pressure",
-      summary: "True talk, with first step wey small and easy to do.",
-      body: paras(
-        "This lesson na about alcohol and tobacco. No be to blame person. Plenty people see am hard to change, and to want help na normal.",
-        "Alcohol dey raise blood pressure, and the effect dey add up if you dey drink often. E fit also make some medicine no work well and add extra calories. If you dey drink, to drink less and less often better for your pressure. If you no dey drink, no need to start.",
-        "Every cigarette dey make your blood pressure and heart beat jump for small time. Cigarette also dey spoil the wall of your blood vessel direct. With high blood pressure, cigarette dey raise the chance of heart attack or stroke pass either one alone. Tobacco wey you no go smoke like snuff and chewing tobacco also dey raise blood pressure. To change go that one no be safe answer.",
-        "To quit hard and most people need more than one try. To try again no be say you fail. Na so most people dey succeed.",
-        "Practical first step na to reduce small. Skip one drink or one cigarette every day. Notice the time wey you want am pass, like after chop, with friends or when you dey stress, and plan another thing for that time, like short waka or glass of water.",
-        "Tell your care team if you dey drink or use tobacco. Dem no go judge you. Dem fit give you real support and plan with you.",
-      ),
-      nextAction: "Choose one small cut for this week, like one drink or one cigarette less every day, and write am down.",
-      check: {
-        question: "Snuff and chewing tobacco, e safe to avoid the effect on blood pressure?",
-        options: ["Yes, e no dey affect blood pressure", "No, e dey also raise blood pressure", "Only small pinch safe"],
         answerIndex: 1,
       },
     },
@@ -409,30 +304,11 @@ export const BPC_LESSONS: readonly BpcLesson[] = [
         answerIndex: 1,
       },
     },
-    pcm: {
-      title: "Stress, sleep and blood pressure",
-      summary: "Stress and bad sleep dey push pressure up. Slow breathing and good sleep habit dey help you come down.",
-      body: paras(
-        "When you dey stress, your body dey release hormone wey dey make your heart beat faster and your blood vessel tight. That one dey raise your blood pressure for small time. E good for real emergency. E no good when the stress na traffic, money wahala or long day wey dey go round and round.",
-        "Bad sleep dey do something like that. People wey no dey sleep well night after night dey get higher blood pressure. If person say you dey snore loud or you dey stop to breathe small when you sleep, tell your care team. Dem fit treat am.",
-        "You no fit remove all stress, and you no need to. Wetin dey help na to get correct way to come down. Some people dey pray or sit quiet. Some dey waka, talk to friend or listen calm music. To breathe slow for few minutes na something you fit do anywhere.",
-        "The app get short guided breathing exercise. Na calm moment, and plenty people dey find am helpful. E no replace your tablet or your reading. Keep to take your medicine and to check your pressure as you and your care team agree.",
-        "For better sleep, try to sleep and wake for about the same time every day. Keep the room dark and quiet. Put phone away for the last half hour. No drink tea, coffee or chop heavy food late for evening.",
-        "If stress, low mood or bad sleep dey affect you most days, tell your care team. Na health matter and dem fit help.",
-      ),
-      nextAction: "Try the three-minute breathing exercise for the app one time today, as you sit down.",
-      check: {
-        question: "Wetin true about the breathing exercise?",
-        options: ["E dey replace your tablet", "Na calm moment, and you dey continue to take your medicine", "You suppose do am as you stand for traffic"],
-        answerIndex: 1,
-      },
-    },
   },
   {
     code: "BPC-12",
     slug: "bpc_12_herbal_remedies_and_blood_pressure",
     briefMinutes: 3,
-    pcmHeldBecause: "Herbal products and medicines wording; held in English until signed.",
     en: {
       title: "Herbal remedies and blood pressure",
       summary: "Herbal mixtures are not a replacement for your medicines, and your care team needs to know what you take.",
@@ -456,7 +332,6 @@ export const BPC_LESSONS: readonly BpcLesson[] = [
     code: "BPC-13",
     slug: "bpc_13_warning_signs_that_need_urgent_care",
     briefMinutes: 3,
-    pcmHeldBecause: "Red-flag wording; held in English plus audio until the CMO signs it and a native speaker reviews it (INV-06).",
     en: {
       title: "Warning signs that need urgent care",
       summary: "Some signs mean act now. Call one one two or go to the nearest hospital emergency department.",
@@ -497,25 +372,6 @@ export const BPC_LESSONS: readonly BpcLesson[] = [
       check: {
         question: "After a week of travel your routine slipped. What is the best response?",
         options: ["Give up because you have failed", "Restart the next day and tell your care team if you need help", "Stop all readings for a month"],
-        answerIndex: 1,
-      },
-    },
-    pcm: {
-      title: "How to stay in control for life",
-      summary: "Wetin the next months and years go be like, and the check wey dey protect your kidney, heart and eye.",
-      body: paras(
-        "Well done say you reach the end of this course. To take care of your blood pressure na long road, and you don already dey on am.",
-        "For the first few months, you and your care team go find wetin work for you. E fit mean change of tablet or change of time. Na normal. Keep to send your readings so dem fit see the pattern.",
-        "After that, plenty people dey settle into steady routine. Keep to check your pressure, take your tablet every day, chop less salt, dey move your body, and keep the habit wey you don build.",
-        "Blood pressure fit hurt the kidney, the heart and the eye without any feeling, so keep to your regular check. Your care team go plan yearly check for these. Abeg no skip dem because you feel well.",
-        "Expect good days and harder days. Busy week, burial, wedding, festival or journey fit disturb your routine. If e happen, start again the next day. You never fail.",
-        "Ask for help early. Tell your care team when tablet dey finish, when side effect dey worry you or when life hard. Talk to your family so dem fit support you.",
-        "Keep this course. You fit come back to any lesson any time wey you want reminder.",
-      ),
-      nextAction: "Write down one habit from this course wey you go keep, and tell person for house wetin e be.",
-      check: {
-        question: "After one week of journey, your routine slip. Wetin be the best thing to do?",
-        options: ["Give up because you fail", "Start again the next day and tell your care team if you need help", "Stop all reading for one month"],
         answerIndex: 1,
       },
     },

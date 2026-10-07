@@ -32,7 +32,7 @@ if (scores.length === 0) {
 for (const s of scores) {
   const pct = (n) => (s.participants ? `${Math.round((n / s.participants) * 100)}%` : "-");
   console.log(
-    `${s.lesson.padEnd(8)} ${s.language.padEnd(4)} n=${String(s.participants).padEnd(3)} message ${pct(s.recalledMessage).padEnd(5)} action ${pct(s.namedAction).padEnd(5)} both ${pct(s.both).padEnd(5)} unsafe ${s.unsafe}  read-aloud ${s.interviewerRead}  => ${s.verdict.toUpperCase()}${s.reasons.length ? `  (${s.reasons.join("; ")})` : ""}`,
+    `${s.lesson.padEnd(8)} n=${String(s.participants).padEnd(3)} message ${pct(s.recalledMessage).padEnd(5)} action ${pct(s.namedAction).padEnd(5)} both ${pct(s.both).padEnd(5)} unsafe ${s.unsafe}  read-aloud ${s.interviewerRead}  => ${s.verdict.toUpperCase()}${s.reasons.length ? `  (${s.reasons.join("; ")})` : ""}`,
   );
 }
 process.exit(scores.some((s) => s.verdict === "fail") ? 1 : scores.some((s) => s.verdict === "too_few") ? 2 : 0);

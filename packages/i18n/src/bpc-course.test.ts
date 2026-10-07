@@ -36,17 +36,11 @@ function fkGrade(text: string): number {
   return 0.39 * (words.length / sentences.length) + 11.8 * (syl / words.length) - 15.59;
 }
 
-const lessonTexts = (): { code: string; lang: "en" | "pcm"; text: LessonText }[] =>
-  BPC_LESSONS.flatMap((l) => [
-    { code: l.code, lang: "en" as const, text: l.en },
-    ...(l.pcm ? [{ code: l.code, lang: "pcm" as const, text: l.pcm }] : []),
-  ]);
+const lessonTexts = (): { code: string; lang: "en"; text: LessonText }[] =>
+  BPC_LESSONS.map((l) => ({ code: l.code, lang: "en" as const, text: l.en }));
 
 const fullText = (t: LessonText): string =>
   [t.title, t.summary, t.body, t.nextAction, t.check.question, ...t.check.options].join("\n");
-
-/** Pidgin for these lessons is written (needs native review). The rest are held in English (OQ-19, OQ-87). */
-const PIDGIN_WRITTEN = ["BPC-01", "BPC-07", "BPC-08", "BPC-09", "BPC-10", "BPC-11", "BPC-14"];
 
 describe("BPC course source", () => {
   it("has the fourteen Release 1 lessons in order, none for the Release 3 pregnancy lesson", () => {
@@ -81,7 +75,7 @@ describe("BPC course source", () => {
     expect(problems).toEqual([]);
   });
 
-  it("contains no banned word, mmHg figure, medicine name, dose or herb claim, in either language", () => {
+  it("contains no banned word, mmHg figure, medicine name, dose or herb claim", () => {
     for (const { code, lang, text } of lessonTexts()) {
       const s = fullText(text);
       for (const re of BANNED) expect([code, lang, String(re), re.test(s)]).toEqual([code, lang, String(re), false]);
@@ -102,25 +96,8 @@ describe("BPC course source", () => {
     }
   });
 
-  it("writes Pidgin only for the planned lessons and holds the rest in English with a reason", () => {
-    expect(BPC_LESSONS.filter((l) => l.pcm).map((l) => l.code)).toEqual(PIDGIN_WRITTEN);
-    for (const l of BPC_LESSONS) {
-      if (l.pcm) {
-        expect(l.pcmHeldBecause).toBeUndefined();
-      } else {
-        expect([l.code, (l.pcmHeldBecause ?? "").length > 10]).toEqual([l.code, true]);
-      }
-    }
-  });
-
-  it("keeps each Pidgin lesson the same shape and meaning anchors as its English source", () => {
-    for (const l of BPC_LESSONS) {
-      if (!l.pcm) continue;
-      expect([l.code, l.pcm.body.split("\n\n").length]).toEqual([l.code, l.en.body.split("\n\n").length]);
-      expect(l.pcm.check.answerIndex).toBe(l.en.check.answerIndex);
-      // The care team reference and the emergency route must survive translation.
-      expect(/care team/i.test(l.pcm.body)).toBe(true);
-    }
+  it("has English text only: no second-language field on any lesson", () => {
+    for (const l of BPC_LESSONS) expect(Object.keys(l).sort()).toEqual(["briefMinutes", "code", "en", "slug"]);
   });
 
   it("routes the warning-signs lesson to emergency care and never tells the learner to wait", () => {

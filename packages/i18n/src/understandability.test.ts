@@ -4,7 +4,6 @@ import { parseSessionCsv, percentScore, scoreLessons, type PassRule, type Sessio
 const RULE: PassRule = { minParticipants: 10, minRecall: 0.8, maxUnsafe: 0 };
 const row = (p: number, over: Partial<SessionRow> = {}): SessionRow => ({
   participant: `P${p}`,
-  language: "en",
   lesson: "BPC-01",
   recalledMessage: true,
   namedAction: true,
@@ -45,10 +44,10 @@ describe("scoreLessons", () => {
     expect(scoreLessons(many(3, (i) => ({ unsafeMisunderstanding: i === 0 })), RULE)[0].verdict).toBe("fail");
   });
 
-  it("keeps lessons and languages apart and counts a participant once", () => {
-    const rows = [...many(10), ...many(10, () => ({ language: "pcm" })), ...many(10, () => ({ lesson: "BPC-02" })), row(1)];
+  it("keeps lessons apart and counts a participant once", () => {
+    const rows = [...many(10), ...many(10, () => ({ lesson: "BPC-02" })), row(1)];
     const scores = scoreLessons(rows, RULE);
-    expect(scores.map((s) => `${s.lesson}/${s.language}/${s.participants}`)).toEqual(["BPC-01/en/10", "BPC-01/pcm/10", "BPC-02/en/10"]);
+    expect(scores.map((s) => `${s.lesson}/${s.participants}`)).toEqual(["BPC-01/10", "BPC-02/10"]);
   });
 
   it("lets a repeated row replace, never add to, the participant's earlier one", () => {
@@ -77,24 +76,24 @@ describe("percentScore", () => {
 describe("parseSessionCsv", () => {
   const csv = [
     "# comment line",
-    "participant,language,site,lesson,recalled_message,named_action,unsafe_misunderstanding,interviewer_read,hard_word,notes",
-    'P1,EN,Lagos,BPC-01,Y,Y,N,N,,"said ""fine"", then more"',
-    "P2,pcm,Kano,BPC-01,yes,no,N,Y,pressure,",
+    "participant,site,lesson,recalled_message,named_action,unsafe_misunderstanding,interviewer_read,hard_word,notes",
+    'P1,Lagos,BPC-01,Y,Y,N,N,,"said ""fine"", then more"',
+    "P2,Kano,BPC-01,yes,no,N,Y,pressure,",
   ].join("\n");
 
   it("reads the sheet, including quoted commas and case", () => {
     const rows = parseSessionCsv(csv);
     expect(rows).toHaveLength(2);
-    expect(rows[0]).toMatchObject({ participant: "P1", language: "en", lesson: "BPC-01", recalledMessage: true, namedAction: true, unsafeMisunderstanding: false });
-    expect(rows[1]).toMatchObject({ language: "pcm", namedAction: false, interviewerRead: true });
+    expect(rows[0]).toMatchObject({ participant: "P1", lesson: "BPC-01", recalledMessage: true, namedAction: true, unsafeMisunderstanding: false });
+    expect(rows[1]).toMatchObject({ participant: "P2", namedAction: false, interviewerRead: true });
   });
 
   it("fails loudly if a column is missing, so a bad sheet cannot score as a pass", () => {
-    expect(() => parseSessionCsv("participant,language,lesson\nP1,en,BPC-01")).toThrow(/recalled_message/);
+    expect(() => parseSessionCsv("participant,lesson\nP1,BPC-01")).toThrow(/recalled_message/);
   });
 
   it("keeps a quoted note with a line break in one record", () => {
-    const rows = parseSessionCsv('participant,language,lesson,recalled_message,named_action,unsafe_misunderstanding,interviewer_read,notes\nP1,en,BPC-01,Y,Y,N,N,"line one\nline two"\nP2,en,BPC-01,Y,N,N,N,');
+    const rows = parseSessionCsv('participant,lesson,recalled_message,named_action,unsafe_misunderstanding,interviewer_read,notes\nP1,BPC-01,Y,Y,N,N,"line one\nline two"\nP2,BPC-01,Y,N,N,N,');
     expect(rows).toHaveLength(2);
     expect(rows[1]).toMatchObject({ participant: "P2", namedAction: false });
   });

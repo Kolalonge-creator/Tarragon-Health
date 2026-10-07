@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useMarkContentProgress, useSubmitContentFeedback } from "@/lib/queries/health-education";
 import { scoreKnowledgeCheck } from "@/lib/validation/health-education";
-import { lessonDone, paragraphs, pidginComing, summarise, type CourseLesson } from "./course-model";
+import { lessonDone, paragraphs, summarise, type CourseLesson } from "./course-model";
 
 const MUTED = "text-charcoal-ink/70 dark:text-night-ink/70";
 
@@ -150,11 +150,6 @@ function Lesson({
         </p>
         <h2 className="text-2xl font-semibold">{lesson.title}</h2>
       </div>
-      {pidginComing(locale, lesson) && (
-        <p role="status" className={`rounded-md bg-muted p-3 text-sm ${MUTED}`}>
-          {tr("lesson.pcm_coming")}
-        </p>
-      )}
       <Card>
         <CardHeader>
           <CardTitle className="text-sm">{tr("lesson.transcript")}</CardTitle>

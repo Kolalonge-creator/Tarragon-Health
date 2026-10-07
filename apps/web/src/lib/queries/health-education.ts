@@ -549,69 +549,6 @@ export function useSetTriggerMappingActive() {
 }
 
 // ---------------------------------------------------------------------------
-// Translations (§79.9) — admin authoring surface. Deliberately no
-// auto-translate: see 20260830015418_health_education_translations.sql for
-// why this is a human/clinical-team task, not something generated here.
-// ---------------------------------------------------------------------------
-export type HealthEducationTranslation = Tables<"health_education_translations">;
-export type HealthEducationLanguage = "pcm" | "yo" | "ha" | "ig";
-
-export const HEALTH_EDUCATION_LANGUAGE_LABELS: Record<HealthEducationLanguage, string> = {
-  pcm: "Nigerian Pidgin",
-  yo: "Yoruba",
-  ha: "Hausa",
-  ig: "Igbo",
-};
-
-export function useContentTranslations(contentId: string) {
-  return useQuery({
-    queryKey: ["health-education-translations", contentId] as const,
-    queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("health_education_translations")
-        .select("*")
-        .eq("content_id", contentId);
-      if (error) throw error;
-      return (data ?? []) as HealthEducationTranslation[];
-    },
-    enabled: !!contentId,
-  });
-}
-
-export function useUpsertTranslation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (translation: {
-      contentId: string;
-      language: HealthEducationLanguage;
-      title: string;
-      summary?: string | null;
-      body: string;
-      translatedBy?: string | null;
-    }) => {
-      const supabase = createClient();
-      const { error } = await supabase.from("health_education_translations").upsert(
-        {
-          content_id: translation.contentId,
-          language: translation.language,
-          title: translation.title,
-          summary: translation.summary ?? null,
-          body: translation.body,
-          translated_by: translation.translatedBy ?? null,
-          translated_at: new Date().toISOString(),
-        },
-        { onConflict: "content_id,language" }
-      );
-      if (error) throw error;
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["health-education-translations", variables.contentId] });
-    },
-  });
-}
-
-// ---------------------------------------------------------------------------
 // Named learning pathways (§79.6 — REVERSAL of locked decision, see
 // docs/archive/HEALTH_EDUCATION_PATHWAY_SPEC.md §1). health_education_programmes
 // / _programme_modules and their RPCs already existed live before this

@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 /**
  * Accessibility coverage for BRE-01 on the web: the safety card (shown before first use), the ready state with its three
- * length choices, and the safety card's wording in Pidgin. The running guide is a timer driven by the clock and is covered
+ * length choices. The running guide is a timer driven by the clock and is covered
  * by the pacer model's own tests in @tarragon/shared.
  */
 import { fireEvent, screen } from "@testing-library/react";
@@ -38,12 +38,6 @@ describe("BreathingExercise accessibility", () => {
     await expectNoA11yViolations(container);
   });
 
-  it("keeps the safety wording in English for a Pidgin speaker (held until signed)", () => {
-    renderWith("pcm");
-    expect(screen.getByText("Before you start")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "I have read this" })).toBeTruthy();
-  });
-
   it("says to keep taking medicines and never claims to lower blood pressure", () => {
     const { container } = renderWith("en");
     expect(container.textContent).toMatch(/Keep taking your medicines/);
@@ -52,6 +46,6 @@ describe("BreathingExercise accessibility", () => {
 });
 
 import { render } from "@testing-library/react";
-function renderWith(locale: "en" | "pcm") {
+function renderWith(locale: "en") {
   return render(<BreathingExercise locale={locale} />);
 }

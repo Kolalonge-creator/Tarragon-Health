@@ -115,6 +115,10 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
       href: "/clinician/care-plan-review",
     };
   }
+  if (n.template === "pharmacy_flag_notice") {
+    // S36h: neutral by design (INV-07). Names no medicine, patient or reason; the detail is on the page.
+    return { text: "A pharmacy has raised something. Open your pharmacy messages", href: "/clinician/pharmacy-flags" };
+  }
   if (n.template === "health_reset_complete") {
     return {
       // Plans were retired 2026-09-02; the completed Reset is its own win now.

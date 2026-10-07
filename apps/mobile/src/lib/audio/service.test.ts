@@ -6,17 +6,17 @@ import { clearAudioIssues, recentAudioIssues, reportAudioIssue } from "./issues"
 import { createCatalogue } from "@tarragon/audio";
 
 const SHA = "c".repeat(64);
-const sign = (clip: ManifestClip, key: string): Approval[] =>
-  [["brand"], clip.clinical ? ["clinical"] : [], clip.legal ? ["legal"] : [], key === "pcm" ? ["native_pidgin"] : []]
+const sign = (clip: ManifestClip): Approval[] =>
+  [["brand"], clip.clinical ? ["clinical"] : [], clip.legal ? ["legal"] : []]
     .flat()
     .map((review) => ({ review: review as Approval["review"], sha256: SHA, by: "Test Reviewer", on: "2026-10-06" }));
 
-/** The real manifest with the named clips recorded and signed (and held Pidgin released), as a finished clip looks. */
+/** The real manifest with the named clips recorded and signed as a finished clip looks. */
 function manifestWith(ids: readonly string[]): Manifest {
   const m = parseManifest(manifestJson);
   const set = new Set(ids);
   const signoffs = (Object.keys(PATTERN_CLIPS) as PhrasePattern[]).flatMap((pattern) =>
-    (["en", "pcm"] as const).map((lang) => ({ pattern, lang, by: "Test Clinician", on: "2026-10-06", clips: PATTERN_CLIPS[pattern].clips.map((id) => ({ id, sha256: SHA })) })),
+    (["en"] as const).map((lang) => ({ pattern, lang, by: "Test Clinician", on: "2026-10-06", clips: PATTERN_CLIPS[pattern].clips.map((id) => ({ id, sha256: SHA })) })),
   );
   return {
     ...m,
@@ -24,8 +24,8 @@ function manifestWith(ids: readonly string[]): Manifest {
     clips: m.clips.map((c) => {
       if (!set.has(c.id)) return c;
       const files: Record<string, ClipFile> = {};
-      for (const [k, f] of Object.entries(c.files)) files[k] = { ...(f as ClipFile), sha256: SHA, bytes: 1000, duration_ms: 3000, approvals: sign(c, k) };
-      return { ...c, files, pcm_text: c.pcm_text === "held_as_english" ? "reviewed" : c.pcm_text };
+      for (const [k, f] of Object.entries(c.files)) files[k] = { ...(f as ClipFile), sha256: SHA, bytes: 1000, duration_ms: 3000, approvals: sign(c) };
+      return { ...c, files };
     }),
   };
 }
@@ -59,11 +59,24 @@ describe("the audio service", () => {
     const { service, played, issues, stops } = setup();
     const r = await service.playClips(["EMG-001"], "en");
     expect(r).toMatchObject({ played: true, lang: "en" });
-    expect(r.text).toMatch(/needs attention now/);
+    expect(r.text).toMatch(/need care now/);
     expect(played).toHaveLength(1);
     expect(played[0]).toEqual([{ kind: "bundled", module: expect.any(Number) }]);
     expect(stops()).toBe(1); // stops whatever was playing before starting
     expect(issues).toEqual([]);
+  });
+
+  it("says whether a clip would play, without reporting issues or playing anything", async () => {
+    const { service, played, issues } = setup();
+    expect(await service.canPlayClips(["EMG-001"], "en")).toBe(true);
+    expect(await service.canPlayClips(["TRI-001"], "en")).toBe(false); // not recorded or signed in this setup
+    expect(played).toEqual([]);
+    expect(issues).toEqual([]);
+  });
+
+  it("never offers audio when no engine is registered", async () => {
+    const { service } = setup({ engine: null });
+    expect(await service.canPlayClips(["EMG-001"], "en")).toBe(false);
   });
 
   it("stitches a blood pressure reading in order: lead-in, 148, over, 94", async () => {
@@ -85,9 +98,9 @@ describe("the audio service", () => {
 
   it("with nothing recorded (today) every request is text only, and the app is unharmed", async () => {
     const { service, played } = setup({ ids: [] });
-    const r = await service.playClips(["EMG-001"], "pcm");
+    const r = await service.playClips(["EMG-001"], "en");
     expect(r.played).toBe(false);
-    expect(r.text).toMatch(/needs attention now/); // held Pidgin text is the English words
+    expect(r.text).toMatch(/need care now/);
     expect(played).toEqual([]);
   });
 
@@ -128,13 +141,6 @@ describe("the audio service", () => {
     expect((await service.playClips(["NAV-001"], "en")).played).toBe(false);
     expect(issues).toEqual(["clip_file_missing"]);
   });
-
-  it("follows the language asked for, per request, so a language switch needs no restart", async () => {
-    const { service, played } = setup({ ids: ["ONB-002"] });
-    expect((await service.playClips(["ONB-002"], "pcm")).lang).toBe("pcm");
-    expect((await service.playClips(["ONB-002"], "en")).lang).toBe("en");
-    expect(played).toHaveLength(2);
-  });
 });
 
 describe("the bundled manifest in the app", () => {
@@ -143,11 +149,11 @@ describe("the bundled manifest in the app", () => {
     clearAudioIssues();
   });
 
-  it("loads, and maps triage codes to clips (and EMG-001L to none, as the list has no such clip)", () => {
+  it("loads, and maps triage codes to clips (EMG-001L comes from the wording file)", () => {
     expect(audioCatalogue()).not.toBeNull();
     expect(clipIdFor("EMG-001")).toBe("EMG-001");
     expect(clipIdFor("TRI-003")).toBe("TRI-003");
-    expect(clipIdFor("EMG-001L")).toBeNull();
+    expect(clipIdFor("EMG-001L")).toBe("EMG-001L");
     expect(clipIdFor("notify.triage.task_created")).toBeNull();
     expect(clipIdFor(null)).toBeNull();
   });

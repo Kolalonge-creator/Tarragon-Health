@@ -24,9 +24,9 @@ function workspace() {
   const sign = (names: string[]) => {
     const m = JSON.parse(readFileSync(manifest, "utf8")) as { clips: { clinical: boolean; legal: boolean; files: Record<string, { file: string; sha256: string; approvals: unknown[] }> }[] };
     for (const c of m.clips)
-      for (const [key, f] of Object.entries(c.files))
+      for (const f of Object.values(c.files))
         if (names.includes(f.file)) {
-          const reviews = ["brand", ...(c.clinical ? ["clinical"] : []), ...(c.legal ? ["legal"] : []), ...(key === "pcm" ? ["native_pidgin"] : [])];
+          const reviews = ["brand", ...(c.clinical ? ["clinical"] : []), ...(c.legal ? ["legal"] : [])];
           f.approvals = reviews.map((review) => ({ review, sha256: f.sha256, by: "Test Reviewer", on: "2026-10-06" }));
         }
     writeFileSync(manifest, JSON.stringify(m));

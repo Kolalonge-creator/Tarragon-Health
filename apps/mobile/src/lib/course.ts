@@ -6,7 +6,7 @@ import type { QueryResult } from "./medications";
 export type LoadCourseResult = { ok: true; lessons: CourseLesson[] } | { ok: false };
 
 /**
- * One call returns the lessons this patient may see, in order, in their language (English until Pidgin is reviewed),
+ * One call returns the lessons this patient may see, in order, in English,
  * with progress. The server serves only published, in-date lessons, so an empty list means "not open", not an error.
  */
 export async function loadCourse(code: string = BP_COURSE_CODE): Promise<LoadCourseResult> {

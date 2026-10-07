@@ -8,7 +8,7 @@ import { BP_COURSE_CODE, parseLesson, type CourseRow } from "./course-model";
 
 /**
  * The blood pressure care course (S33). The database serves only published lessons whose review date has not passed, in
- * the patient's language (English until a Pidgin version has been reviewed), so an empty list means the course is not
+ * English, so an empty list means the course is not
  * open yet, never an error to show as one.
  */
 export default async function CoursePage() {

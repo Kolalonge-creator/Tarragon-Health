@@ -3,8 +3,8 @@
  * script, so the words are generated from the pace to keep them in step with the visual pacer. The pace is the PROPOSED
  * `breathing.bre01` value; this module takes it as arguments and never reads it itself.
  *
- * Draft, not signed. It carries stop-if-unwell wording, so it is treated as clinical: Pidgin is held as English until the
- * CMO signs the wording and a native speaker reviews it (OQ-19, OQ-87). Numbers are written as words (list section 3.5).
+ * Draft, not signed. It carries stop-if-unwell wording, so it is treated as clinical: the CMO signs the wording
+ * before it is recorded. English only (D-14). Numbers are written as words (list section 3.5).
  */
 export interface Bre01Pace {
   readonly inhaleSeconds: number;

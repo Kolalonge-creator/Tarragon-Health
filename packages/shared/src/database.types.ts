@@ -17121,9 +17121,6 @@ export type Database = {
           translated_at: string
           translated_by: string | null
           updated_at: string
-          knowledge_check: Json | null
-          next_action: string | null
-          review_state: string
         }
         Insert: {
           body: string
@@ -17136,9 +17133,6 @@ export type Database = {
           translated_at?: string
           translated_by?: string | null
           updated_at?: string
-          knowledge_check?: Json | null
-          next_action?: string | null
-          review_state?: string
         }
         Update: {
           body?: string
@@ -17151,9 +17145,6 @@ export type Database = {
           translated_at?: string
           translated_by?: string | null
           updated_at?: string
-          knowledge_check?: Json | null
-          next_action?: string | null
-          review_state?: string
         }
         Relationships: [
           {
