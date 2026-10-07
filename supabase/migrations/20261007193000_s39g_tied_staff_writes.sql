@@ -6,6 +6,7 @@
 --   * The write policies (INSERT, UPDATE, DELETE) of the tied tables that used private.is_org_staff(organisation_id) now use staff_may_write. The old policy text is saved
 --     in staff_read_policy_backup first. Server functions and triggers (SECURITY DEFINER) are unaffected: they were never subject to these policies.
 --   * Kill switch: platform_modules key tied_staff_writes. Off = the old organisation-wide write at once. private.is_org_staff is NOT edited.
+--   * Two tables are left organisation-wide for writes on purpose: prevention_campaign_enrolments and preventive_programme_enrolments (bulk enrolment from a registry).
 -- Workflow note: a clinician opens the patient (the chart does it, or the shared worklist link goes through the chart) and then acts; the opening lasts 8 hours.
 -- No data is changed. Applied with the version pinned to this filename.
 
@@ -36,7 +37,9 @@ do $do$
 declare
   s record; p record; v_new_q text; v_new_c text; v_n integer := 0; v_old constant text := 'private.is_org_staff(organisation_id)'; v_call text;
 begin
-  for s in select * from public.staff_read_scope where mode = 'tied' loop
+  -- campaign and programme enrolment is population-health administration done in bulk from a registry, not clinical content: its writes stay organisation-wide for staff
+  -- (the read stays tied). Found by the proof sweep: population_health_engine.
+  for s in select * from public.staff_read_scope where mode = 'tied' and table_name not in ('prevention_campaign_enrolments', 'preventive_programme_enrolments') loop
     v_call := format('private.staff_may_write(%s, organisation_id, %L::public.care_access_category)', s.patient_expr, s.category::text);
     for p in select * from pg_policies where schemaname = 'public' and tablename = s.table_name and cmd in ('INSERT', 'UPDATE', 'DELETE')
               and (coalesce(qual, '') like '%' || v_old || '%' or coalesce(with_check, '') like '%' || v_old || '%') loop
@@ -56,7 +59,7 @@ end $do$;
 do $$
 declare v_left integer;
 begin
-  select count(*) into v_left from pg_policies pp join public.staff_read_scope s on s.table_name = pp.tablename and s.mode = 'tied'
+  select count(*) into v_left from pg_policies pp join public.staff_read_scope s on s.table_name = pp.tablename and s.mode = 'tied' and s.table_name not in ('prevention_campaign_enrolments', 'preventive_programme_enrolments')
    where pp.schemaname = 'public' and pp.cmd in ('INSERT', 'UPDATE', 'DELETE')
      and (coalesce(pp.qual, '') like '%private.is_org_staff(organisation_id)%' or coalesce(pp.with_check, '') like '%private.is_org_staff(organisation_id)%');
   if v_left <> 0 then raise exception 'S39g: % tied write policies still use the plain organisation-wide staff check', v_left; end if;

@@ -216,6 +216,9 @@ begin
 
   -- 4. SABOTAGE -----------------------------------------------------------------------------------------------
   begin
+    -- the clinician is tied to this patient (S39g: a write needs a tie), so the patient-answer trigger is the only thing the sabotage removes
+    insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, assigned_at) values ((select organisation_id from public.profiles where id = v_adult2), v_adult2, v_docA, now())
+      on conflict (patient_id) do update set clinician_id = excluded.clinician_id;
     drop trigger scribe_consents_require_patient_answer on public.scribe_consents;
     perform pg_temp.act(v_docA);
     insert into results values ('sabotaged', 'a clinician cannot create a granted consent when the patient has not answered', '42501',

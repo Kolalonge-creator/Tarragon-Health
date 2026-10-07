@@ -113,7 +113,7 @@ select pg_temp.ck('real', 'W15 an opening never opens a reproductive table for w
      then pg_temp.as_user(pg_temp.f('b'), format('insert into public.reproductive_health_profiles (organisation_id, patient_id) values (%L, %L) returning patient_id::text', pg_temp.f('org'), pg_temp.f('u7'))) end));
 -- structure
 select pg_temp.ck('real', 'S1 no tied table keeps the plain organisation-wide staff arm on a write policy', '0',
-  (select count(*)::text from pg_policies pp join public.staff_read_scope s on s.table_name = pp.tablename and s.mode = 'tied'
+  (select count(*)::text from pg_policies pp join public.staff_read_scope s on s.table_name = pp.tablename and s.mode = 'tied' and s.table_name not in ('prevention_campaign_enrolments', 'preventive_programme_enrolments')
     where pp.schemaname = 'public' and pp.cmd in ('INSERT', 'UPDATE', 'DELETE') and (coalesce(pp.qual, '') like '%private.is_org_staff(organisation_id)%' or coalesce(pp.with_check, '') like '%private.is_org_staff(organisation_id)%')));
 select pg_temp.ck('real', 'S2 more than 150 write policies now use staff_may_write, and the patient arm is kept where there was one', 'true',
   ((select count(*) from pg_policies where schemaname = 'public' and cmd in ('INSERT', 'UPDATE', 'DELETE') and (qual like '%staff_may_write%' or with_check like '%staff_may_write%')) > 150
