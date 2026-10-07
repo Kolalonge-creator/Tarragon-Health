@@ -42972,6 +42972,7 @@ export type Database = {
       }
     }
     Functions: {
+      bp_control_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       lab_panel_definition: { Args: { p_panel: string }; Returns: Json };
       liaison_recent_uploads: {
         Args: Record<PropertyKey, never>;

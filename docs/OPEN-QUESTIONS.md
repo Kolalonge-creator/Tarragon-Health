@@ -872,6 +872,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
   - **Known exposure of the host key, to decide before real use.** The ZAK is the Zoom account owner's key, not the clinician's, and it is not bound to one meeting (only the SDK signature is). A clinician can read it from the server action's response in their own browser while it is valid (the token's lifetime, up to two hours) and, with the Zoom desktop client, could start any other meeting of that account if they knew its number (nine to eleven digits, not secret but not listed to them). Mitigations to choose between: one Zoom host user per clinician (so a ZAK only starts that clinician's own rooms), a short ZAK lifetime tied to the consultation, or no in-app hosting for clinicians (the clinician keeps the host link and only the patient uses the SDK). Until decided, keep the clinician on the link by leaving `ZOOM_SDK_KEY` set only where the patient-side in-app call is wanted, or accept the exposure for a closed pilot.
   - Other review notes, recorded not fixed: the in-app join, like the link, only records presence when `ZOOM_PRESENCE_WEBHOOK` is off or the webhook fires; rooms created before this change have no Nigerian dial-in numbers (settings are applied at creation); a clinician whose own connection fails is routed to the phone card like a patient (the ladder has one phone input); `SDK_TOKEN_SECONDS` and the webhook timestamp window are code constants, not registry values.
   - **Untested, and cannot be tested here (no SDK keys, Free Zoom plan, no live browser call):** that Component View renders correctly inside this Tailwind page (Tailwind's reset may need scoping, the box is `data-testid="call-root"`); that `join` is accepted with `customerKey` and a clinician ZAK; the units of `avg_loss` (assumed percent); whether the SDK needs anything the narrowed consultation CSP refuses (open the browser console on the first live call and look for violations: scripts are allowed from `source.zoom.us` only, with no blob scripts and no new frame source; the evidence for that is in `next.config.ts` and is from reading the 6.5.0 bundle, not from a run; a CSP block after a successful join does not trigger the link fallback, which only covers a failed join); the waiting-room flow (the patient waits on hold until the clinician admits them in Zoom's own participants panel); behaviour on a real weak network and a real dropped connection; the audio-only notice on real devices; whether Server-to-Server OAuth accepts the `me` alias on `/users/me/token` (the existing `createRoom` uses `/users/me/meetings` the same way; if Zoom wants the account owner's user id or email here, set it in the adapter); the Meeting SDK's minimum signature lifetime (believed to be about 30 minutes; our signature is capped at the room's end, so a join with less time left may be refused and fall back to the link). Treat the first live consultation as a test with a clinician watching, and read `encounter_events` afterwards.
+  - **Host key decision (founder, 2026-10-06: build the recommendation).** Zoom has no host token for a single meeting, so the key stays but its reach shrinks, in three steps: (1) **a dedicated host user.** Every consultation meeting is created under one dedicated, licensed, low-privilege Zoom user (`ZOOM_HOST_USER_ID`, a Zoom user id or email; unset means the app's own user, as before), so a leaked key can only start meetings as that user and never as the account owner; the key is requested for the user the meeting itself reports as its owner (`host_id`), so it can never disagree with how the room was made. (2) **A short, fresh key per join.** The server asks Zoom for the key only when the clinician joins, only for the clinician on their own consultation, inside the join window, with a lifetime from the versioned configuration `consultations.host_key` (`ttlSeconds` 300, PROPOSED) and never longer than the token or the room; a rejoin asks again; it is not stored or logged. (3) **An audit event before it leaves the server.** Each issue writes an append-only `host_key_issued` event on the encounter through a server-only function that names the clinician it was issued to (checked against the encounter's clinician at that moment, so a later reassignment cannot change who the record says; no key, empty payload). With a dedicated host user configured, a key is only ever minted for that user: a meeting made before it was set, or by another path, is refused (the room falls back to the link) rather than given the account owner's key, and if that write fails the key is not handed out and the room falls back to the link (migration `20261006215422_s21h_host_key_issued_audit_event.sql`; only the server can write the event, never a signed-in user). Not changed: the join LINK flow still hands the clinician Zoom's own host link (its start key lasts about two hours and cannot be shortened from here); one Zoom user per clinician (the strongest option) waits for more clinicians and licences. **To confirm on the live account:** that Zoom allows creating meetings for another user from the Server-to-Server app and which scopes that and the start-key call need (the exact scope names are unconfirmed), and Zoom's minimum and maximum for the key lifetime.
   - Mobile is unchanged (OQ-158): the Expo app has no SDK embed, so the automatic ladder is a web feature for now.
 
 ### OQ-158 Mobile Care flow (raised by S21)
@@ -1373,15 +1374,22 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - The app has no audio library (`expo-audio` or `expo-av`) and no file-system module for downloaded clips. Adding either is a native dependency: a new EAS build and a `runtimeVersion` bump (as OQ-73), and the OTA auto-publisher will skip the push.
 - S32 built the player as a port (`AudioEngine`, `DownloadedFiles` in `apps/mobile/src/lib/audio/service.ts`). With no engine registered every request shows its text and logs one `engine_unavailable` issue. No recording exists yet anyway, so nothing is lost today.
 - Options: (a) add `expo-audio` and `expo-file-system` in the next native build, with the first recordings (recommended); (b) add them now and cut a build for nothing to play.
+- Decision (founder, 2026-10-06): add `expo-audio` and `expo-file-system` and the player adapter now, with the `runtimeVersion` bump to `0.1.0-native6` held until the build is cut (decided 2026-10-07: build later, batched with other native work). Built in S32 (PR 961). Nothing plays until signed recordings exist. No build has been cut: do the bump and `eas build` together when there is more native work to batch.
 
 ### OQ-202 EMG-001L is not in the Audio Production List (raised by S32)
 - The triage engine (S11, OQ-87) emits `EMG-001L` for a low reading with fainting. The list has EMG-001 to EMG-013 and no low-pressure variant, so that guidance has text and no voice. A test lists this gap so closing it is a deliberate change.
 - Options: (a) the CMO writes the low-pressure script, it is added to the list and recorded (recommended); (b) play EMG-001 for it (wrong advice for a low reading, not recommended).
+- Decision: open.
+- Update 2026-10-07: EMG-001L is now a clip, added from `packages/i18n/src/clinical-wording.json` (today's text; the signed proposal replaces it only when the CMO signs). It still needs adding to the Audio Production List so it is recorded in order.
+
 
 ### OQ-203 The recorded scripts and the text on screen differ, so no Listen button is wired (raised by S32)
 - A voice must say what the screen says. They differ today. The list's EMG-001 says "call one one two or go to the nearest hospital emergency department"; S11's EMG-001 text prints no number (OQ-87, PR #785) and the list itself says to confirm 112 first. The list's TRI-002 is for care pack members and promises a reply within twenty-four hours; S11 uses TRI-002 for every amber. TRI-003 and TRI-005 differ in wording too.
 - S32 added the scripts as `AUDIO_SCRIPTS` (generated, the words each clip will say) beside the existing `triage.*` catalogue and changed neither. `triageAudioId` now returns the real clip id, but no screen shows a Listen button.
 - Options: (a) the CMO signs one wording per code, the catalogue and the list are made identical, then Listen buttons are wired to EMG and TRI (recommended); (b) the screen shows the list's script text whenever it plays the clip.
+- Decision: open.
+- Built 2026-10-07 (PR 989): one wording file (`clinical-wording.json`) feeds the screen text, the audio script and the manifest, and a test fails if they differ. **The proposal is gated**: until the CMO fills in `signed` (by, on, version) the app keeps saying today's text, so merging the code changes nothing a patient reads. The emergency modal now shows the EMG-001 or EMG-001L words with a Listen button when on-device triage chose them. A Listen button shows only when a signed recording and an audio engine exist. EMG-001 still prints no phone number (OQ-87); the 112 sentence waits for the CMO. "Your care team has been told" was dropped from the red text (untrue on Free plan and for unsynced readings). TRI-002: see OQ-251.
+- Signed 2026-10-07 by the founder on their own instruction, all seven codes (`signed` in `clinical-wording.json`): EMG-001 keeps no phone number (OQ-87 stays; "call 112" not added), TRI-002 without a review promise (OQ-251), EMG-001L added. This is the founder's sign-off, not a CMO signature; the CMO can re-sign by raising `version`. EMG-001L still has to be added to the Audio Production List document so it is recorded in order.
 
 ### OQ-204 Where post-sign-up and on-demand audio is hosted (raised by S32)
 - NAV, HLP, CON, SYS and REM download once after sign-up; RES downloads when first played. There is no bucket or CDN for them. Files are addressed by checksum (`fileUrl`), so any static host works.
@@ -1405,6 +1413,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Playback in silent mode, with headphones, during a call, or from the lock screen needs the native module (OQ-201).
 - Whether spoken triage makes the app regulated software in Nigeria is unconfirmed (NAFDAC, D.6). Ask counsel before the symptom clips (SYM) ship.
 - Voice input in Pidgin is out of scope until recognition meets a clinical accuracy bar (the best published Pidgin result was 29.6 percent word error rate).
+- Decision (founder, 2026-10-06): (1) blood pressure gets a unit clip, NUM-P24 "millimetres of mercury" (added in `audio/source/extra-clips.json`, clinical review required; until it is recorded and signed, blood pressure audio is text only); (2) emergency clips play in silent mode and take audio focus, everything else respects silent mode, no lock-screen controls and no background playback; (3) screen readers: English only, plain labels and a hint, no Pidgin language tagging. Still open: a real-device TalkBack and VoiceOver pass, regulatory status of spoken triage, and Pidgin voice input (out of scope).
 
 > Note: S29's Care Circle questions were renumbered from OQ-193 to OQ-198 to OQ-220 to OQ-225 (2026-10-07, founder choice, then moved again because S32 and S35 took OQ-201 onwards): S31's payout questions keep OQ-193 to OQ-200.
 
@@ -1426,6 +1435,43 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - **OQ-179 (explain gate): consumer built.** `canExplainLabResult()` plus a standing scan test that fails if AI or audio code reads structured results without it. Nothing needs it yet; S32 must call it.
 - **Competitor changes 1 to 4 built:** held sensitive results escalate to the CMO after 3 attempts or 72 hours, never released by default (`lab.release_policy`, PROPOSED); one neutral "under review" state with an expected time from `escalation_slas`; corrections and withdrawals as first-class, re-gated and notified neutrally; a "screening result, not a diagnosis" label for HIV, HBsAg and HCV Ab. Change 5 (the patient result card with a plain-language sentence) stays design only: it needs the CMO to approve the sentences.
 - **Not built:** a screen listing released results so a senior clinician can withdraw one (the function and the rule exist; only the page is missing). **OQ-182:** the thresholds 3 attempts and 72 hours are PROPOSED; the CMO should confirm them when signing.
+### OQ-230 Two blood pressure control definitions (raised by S38)
+- The July 2026 `bp_control` measure (for insurers and employers) is the most recent reading in a period under 140/90 for people covered the whole period. S38's `bp_control_90d` is the 7-day average 90 days after a person joined, against their own target, counting people who stopped logging as not controlled. They answer different questions and both stay, named apart; `bp_control_90d` is a new row in `outcome_measure_specs`. Nothing converts one into the other.
+- Options: (a) keep both, named apart (recommended); (b) retire the payer one in favour of the 90-day measure once a payer asks for it.
+- Decision: open (CMO).
+- **Decided 2026-10-07 (founder): keep both, named apart.**
+
+### OQ-231 Release 4 items not built (raised by S38)
+- Risk stratification (22.3, `risk_scores`, `risk-model`), the personal monthly progress report (22.5), the symptom-checker accuracy dashboard (22.4), sponsor dashboards and exportable pilot reports (22.6, 22.9) and clinician worklists ordered by risk are Release 4 in the spec. S38 builds the data they need (snapshots, the de-identified layer, the suppression rules) and the 90-day report only. The research is clear that a risk score must be deterministic, explained, used only to order outreach and never to deny care; that rule is recorded here for the session that builds it.
+- Decision: open (founder, when Release 4 is scheduled).
+- **Decided 2026-10-07 (founder): after 90 days of real snapshots.** Build the risk scores, the personal monthly report, the accuracy dashboard and sponsor exports once the first cohort reaches day 90, so they can be tested against real data.
+
+### OQ-232 Which readings count (raised by S38)
+- Readings flagged only for a missing arm or position are counted; readings flagged as a duplicate or a sudden change are not, until a clinician clears them. Counting every flagged reading would let duplicates and typing errors move the rate; counting none would make most home readings invisible. The share of readings held back is not yet reported.
+- Options: (a) as built (recommended); (b) count only fully valid readings; (c) count all and report the flagged share.
+- Decision: open (CMO).
+- **Decided 2026-10-07 (founder): as built.** Readings flagged only for a missing arm or position count; duplicates and sudden changes wait for a clinician. Reporting the share of readings held back is still a follow-up.
+
+### OQ-233 Smallest group shown (raised by S38)
+- Eleven is the usual rule in health reporting (and 20 when a cut uses two attributes). The Nigeria Data Protection Act and the NDPC's 2025 guidance require privacy by design but name no number that was found. Set in `outcome_config` v1 as PROPOSED, owner CMO, with counsel's view still needed before any figure leaves the company.
+- Decision: open (CMO and counsel).
+- **Decided 2026-10-07 (founder): raised to 20 now.** `outcome_config` v2 (applied to production as `20261006230528_s38b_min_cell_20.sql`): the smallest group shown is 20 and 30 for a cut by two attributes; the published measure `bp_control_90d` is spec v2 (minimum 20), v1 retired. Counsel should still confirm a figure before anything leaves the company.
+
+### OQ-234 Adherence at a past date uses today's medicine list (raised by S38)
+- S08's weekly adherence is computed from the person's current active medicines. A snapshot is taken within days of its window so the difference is small, but a medicine stopped or changed inside the window is not reconstructed. Adherence is stored beside BP and never used in the control figure.
+- Decision: open (CMO); fix by reading the medicine history once S24 records changes.
+- **Decided 2026-10-07 (founder): accept the approximation until S24 records medicine history.** Adherence stays beside BP, never inside the control figure.
+
+### OQ-270 Who joined, and from when (raised by S38; was numbered OQ-235, which S36g already used)
+- Day 0 is the earliest start of a Membership (purchased, voucher, employer or granted) or a care pack entitlement. A free user has no snapshots. Care pack and Membership are treated alike. If a person lets a membership lapse and joins again, day 0 stays the first start.
+- Decision: open (CMO).
+- **Decided 2026-10-07 (founder): the first Membership or care pack start, any source (purchased, voucher, employer, granted), is day 0.** A lapse and rejoin keeps the first start; free users have no snapshots.
+
+### OQ-271 Not applied, console home (raised by S38; was numbered OQ-236, which S36g already used)
+- The migration is not applied to production (apply before merging). The page is in `apps/web` (`/admin/outcomes`); S36 and S37 decide where the console version lives. The report is open to admins and the active CMO only; a clinical lead who is neither cannot see it yet.
+- Decision: open.
+- **Decided 2026-10-07 (founder): admins and the CMO, in `apps/web`, for now.** Clinical leads who are neither cannot open it yet; S36 and S37 decide the console version.
+
 
 ### S27f: three follow-ups (founder choices, 2026-10-06)
 - **Liaison view CLOSED:** the Lab Liaison sees a neutral list of the files they recorded (last 30 days): date, patient number, order, file name and one of two words, "waiting for review" or "reviewed". Never values, reasons, or whether a result was withheld.
@@ -1433,6 +1479,13 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - **Withdraw screen CLOSED (patient-scoped):** on a tied senior clinician's patient chart, "Released lab results" opens on a click (one audited read) and offers Withdraw with a required reason. There is deliberately no org-wide list.
 
 - **Gift window decided 2026-10-07 (founder): 14 days, with one reminder on day 7.** Built in migration `20261007101733_s29d_gift_window_14_days.sql` (care circle config version 3: `gift_decide_days` 14, `gift_remind_days` 7; the sweep declines past the window and reminds once).
+
+### OQ-251 TRI-002 promises a clinician review that Free plan patients do not get (raised by the OQ-203 wording work)
+- Today's TRI-002 text says "Your care team will review this and may contact you". Doctor escalation on patient-logged readings is a paid-plan feature (CLAUDE.md, 2026-08-10), so a Free plan patient can be told something that will not happen.
+- The draft in `clinical-wording.json` removes the promise (the proposed TRI-002 says rest, check again, go to hospital if unwell). TRI-002 and TRI-003 then say nearly the same thing.
+- Options: (a) the CMO signs the no-promise text for everyone (recommended); (b) keep the promise only for patients who have clinician review, which needs the triage result to say which text applies; (c) change nothing.
+- Decision (founder, 2026-10-07): option (a), the no-promise text for everyone. Signed.
+
 
 ### OQ-250 AI-017 version v1 still names Nigerian Pidgin (found 2026-10-07)
 - Blocks: nothing. The live `ai_system_versions` row for `AI-017` `v1` (an approved governance record) has `intended_population` reading "...in Nigerian English or Nigerian Pidgin, with a transcript good enough to read." Pidgin was removed on 2026-10-06 (#984), so the record no longer describes the system.
@@ -1451,3 +1504,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Decision S11-1 sets the silence line to 7 days. The live signed rule set `bp_care_triage` v1 uses 5, and rule sets are versioned, never edited.
 - Work: `bp_care_triage` v2 (rules, shared copy, device bundle, parity and fixture tests), registry `triage.silence_rule_days` v2, CMO signature. Spec safety case 7 (5 days) and `docs/BUILD-SPEC-v5.md` are not edited; this entry and S11-1 record the departure.
 - Decision: 7 days (founder, 2026-10-07). Build: open.
+### OQ-252 (S34): size and cold-start targets conflict
+- The S34 prompt asks for under 40 MB and cold start under 3 seconds on a 2 GB Android phone. Spec D.1 and decision DG-1 (2026-10-02) superseded those targets: the floor is a 4 GB Android 10+ or iOS 16+ phone.
+- Options: (a) keep tracking the old numbers as PROPOSED budgets in config and fail CI only on growth (recommended); (b) set new targets for the 4 GB floor; (c) drop size budgets.
+- Decision (founder, 2026-10-07): no pass or fail targets for size or cold start. Build what is needed: the low-data setting, accessibility, and a size and start-time report that is tracked, never a gate. Numbers stay PROPOSED in versioned config for information only.

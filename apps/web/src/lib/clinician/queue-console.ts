@@ -156,3 +156,18 @@ export function rankLeadPatients(leads: LeadPatient[]): LeadPatient[] {
       (a.first_name ?? "").localeCompare(b.first_name ?? ""),
   );
 }
+
+export type SlaState = { kind: "none" } | { kind: "overdue" } | { kind: "due"; minutes: number };
+
+/**
+ * How a task's due time reads: overdue, or minutes left. No warning threshold lives here: a colour change at some
+ * number of minutes would be a PROPOSED value and belongs in versioned config. The due time itself comes from the
+ * task (set from the signed task type), so this only reports it.
+ */
+export function slaState(dueAt: string | null | undefined, now: Date): SlaState {
+  if (!dueAt) return { kind: "none" };
+  const ms = new Date(dueAt).getTime() - now.getTime();
+  if (Number.isNaN(ms)) return { kind: "none" };
+  if (ms <= 0) return { kind: "overdue" };
+  return { kind: "due", minutes: Math.ceil(ms / 60_000) };
+}
