@@ -363,6 +363,10 @@ export function getNavSections(
               items: [
                 { label: "Operations console", href: "/admin/ops", icon: "operations" },
                 { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+                { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
+                { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
+                { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
+                { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
                 { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
                 { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },
               ],
@@ -429,6 +433,8 @@ export function getNavSections(
                 // found them. See the countKey doc comment above.
                 { label: "Second opinions", href: "/clinician/second-opinions", icon: "inbox", countKey: "secondOpinionRequests" },
                 { label: "Prescription renewals", href: "/clinician/prescription-renewals", icon: "medication", countKey: "prescriptionRenewalRequests" },
+                // Problems a partner pharmacy raised on a prescription (S36h).
+                { label: "Pharmacy messages", href: "/clinician/pharmacy-flags", icon: "medication" },
                 { label: "Verified documents", href: "/clinician/verified-documents", icon: "inbox", countKey: "verifiedDocumentRequests" },
                 { label: "Senior case reviews", href: "/clinician/senior-case-reviews", icon: "escalation", countKey: "seniorCaseReviews" },
                 {
@@ -554,6 +560,8 @@ export function getNavSections(
                 { label: "Hours and rota", href: "/clinician/rota", icon: "booking" },
                 // What a contracted clinician has earned, line by line, and the fee schedule that applies (S30).
                 { label: "Earnings", href: "/clinician/earnings", icon: "analytics" },
+                // The concerns this clinician raised and the replies to them (S36i). Their own only.
+                { label: "My concerns", href: "/clinician/my-concerns", icon: "review" },
                 { label: "Payouts", href: "/clinician/payouts", icon: "analytics" },
                 // Chief Medical Officer only (canAssignCases in
                 // lib/clinical/doctor-tier.ts) — shown to every clinician tier
@@ -593,6 +601,14 @@ export function getNavSections(
                 { label: "Rota and lead clinicians", href: "/clinician/team-rota", icon: "caseload" },
                 // The go-live guards and the proposed values the CMO owns (S37). CMO only; the page redirects anyone below that tier.
                 { label: "Go-live guards", href: "/clinician/go-live", icon: "governance" },
+                // Audits of completed clinical work and hand-back reviews (S36c). CMO only; the page redirects anyone below that tier.
+                { label: "Quality and safety", href: "/clinician/quality", icon: "review" },
+                // Every clinician with status, licence, competencies; decide competency grants and reinstatements, pause someone (S36d). CMO only; the page redirects others.
+                { label: "Clinician roster", href: "/clinician/roster", icon: "members" },
+                // Queue and page times against their limits, on-call cover and reliability bands (S36e). CMO only; the page redirects others.
+                { label: "Reliability and SLA", href: "/clinician/reliability", icon: "caseload" },
+                // Private safety concerns raised by clinicians, backup readers and retaliation reviews (S36i). CMO only; the page redirects others.
+                { label: "Safety concerns", href: "/clinician/quality/concerns", icon: "governance" },
                 // Grant or end a Membership by hand until checkout exists (S22b). CMO only; the page redirects others.
                 { label: "Memberships", href: "/clinician/memberships", icon: "members" },
                 // The AI governance console's two CMO-only actions (approving
@@ -641,6 +657,10 @@ export function getNavSections(
               items: [
                 { label: "Operations console", href: "/admin/ops", icon: "operations" },
                 { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+                { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
+                { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
+                { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
+                { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
               ],
             },
           ];
@@ -682,6 +702,10 @@ export function getNavSections(
             { label: "Fees and earnings", href: "/admin/earnings", icon: "analytics" },
             { label: "Payouts", href: "/admin/payouts", icon: "analytics" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+            { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
+                { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
+            { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
+            { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
             { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
             { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },
             { label: "Employers", href: "/admin/employers", icon: "corporate" },
@@ -710,6 +734,7 @@ export function getNavSections(
           items: [
             { label: "Overview", href: "/pharmacist", icon: "dashboard", exact: true },
             { label: "Orders", href: "/pharmacist/orders", icon: "pharmacy" },
+            { label: "Prescriptions sent to you", href: "/pharmacist/prescriptions", icon: "medication" },
             { label: "Verify a prescription", href: "/pharmacist/verify", icon: "approvals" },
             { label: "Dispensing history", href: "/pharmacist/history", icon: "audit" },
             { label: "Pharmacy profile", href: "/pharmacist/profile", icon: "settings" },
@@ -767,6 +792,10 @@ export function getNavSections(
           items: [
             { label: "Operations console", href: "/admin/ops", icon: "operations" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+            { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
+                { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
+            { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
+            { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
             { label: "Feature flags", href: "/admin/settings/feature-flags", icon: "flag" },
           ],
         },
@@ -809,6 +838,10 @@ export function getNavSections(
           items: [
             { label: "Operations console", href: "/admin/ops", icon: "operations" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+            { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
+                { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
+            { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
+            { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
           ],
         },
         {
