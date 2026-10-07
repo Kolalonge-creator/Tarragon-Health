@@ -9,7 +9,7 @@ import { SEMANTIC_ICON } from "@/lib/icons";
  * RequiresEntitlement('family_dashboard'); naming a next of kin and keeping a
  * young child's record are not things a person should have to buy.
  */
-export function CareCircleCard() {
+export function CareCircleCard({ showCommunity = false }: { showCommunity?: boolean }) {
   return (
     <Card>
       <CardHeader>
@@ -30,6 +30,11 @@ export function CareCircleCard() {
           <Button asChild size="sm" variant="outline">
             <Link href="/patient/care-circle">Your Care Circle</Link>
           </Button>
+          {showCommunity ? (
+            <Button asChild size="sm" variant="outline">
+              <Link href="/patient/community">Community groups</Link>
+            </Button>
+          ) : null}
         </div>
       </CardContent>
     </Card>
