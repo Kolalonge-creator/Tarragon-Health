@@ -900,3 +900,5 @@ f1_symptom_checker_go_live_guard.sql
 f1_crisis_priority_task_and_event.sql
 # S56: every mental-health table is per-patient (INV-12) with audited reads (INV-10): no staff direct read (tied, untied, coordinator, CMO, admin, finance, analyst, corporate, sponsor), caregiver consent hook (owner-only, revocable, no dependent bypass), neutral alert text, sponsor report, corporate aggregate with minimum cohort, therapy approval, follow-up guard, hand-off, crisis card helplines unverified by default. Sabotage: four protections removed, each flips.
 s56_mental_health_access.sql
+# S57: meditation and sleep library publish gate and expiry read rule (placeholder, reviewer, dates, payload, breathing bounds, change-after-review), script guard, offline manifest caps, patient-only sessions with an ids-only event, the journal (ciphertext, owner only, sync off deletes), the sleep questionnaire (an UNSIGNED instrument never creates a task, guard on or off; signed plus cut-off does; audited staff read), wind-down plan, diary bounds, no sleep score column, grants. Sabotage: five protections removed, each flips.
+s57_meditation_sleep_library.sql
