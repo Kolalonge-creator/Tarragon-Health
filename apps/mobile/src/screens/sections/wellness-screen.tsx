@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 import { t } from "@tarragon/i18n";
 import {
   enrolInWellnessChallenge,
@@ -26,8 +26,8 @@ import {
 } from "@/lib/wellness";
 import type { SectionId } from "@/lib/sections";
 import { radius, spacing } from "@/ui/theme";
-import { useLegacyColors, useTheme, placeholderColorFor } from "@/ui/design";
-import { Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
+import { useLegacyColors } from "@/ui/design";
+import { Card, ErrorText, MutedText, ScreenTitle } from "@/ui/legacy-kit";
 
 function classDateTime(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", {
@@ -71,7 +71,7 @@ interface WellnessScreenProps {
  * mutation is a plain RLS-scoped call or a SECURITY DEFINER RPC already
  * granted to authenticated.
  */
-export function WellnessScreen({ patientId, organisationId, onNavigate }: WellnessScreenProps) {
+export function WellnessScreen({ patientId, organisationId }: WellnessScreenProps) {
   const colors = useLegacyColors();
   const [loading, setLoading] = useState(true);
   const [balance, setBalance] = useState<WellnessPointsBalance | null>(null);
@@ -131,7 +131,7 @@ export function WellnessScreen({ patientId, organisationId, onNavigate }: Wellne
         </MutedText>
       </View>
 
-      <PointsCard balance={balance} ledger={ledger} onChanged={refresh} onNavigate={onNavigate} />
+      <PointsCard balance={balance} ledger={ledger} />
       <BadgesCard catalogue={badgeCatalogue} earned={myBadges} />
       <ChallengesCard catalogue={challengeCatalogue} enrolments={enrolments} onChanged={refresh} />
       <ClassesCard
@@ -145,19 +145,8 @@ export function WellnessScreen({ patientId, organisationId, onNavigate }: Wellne
   );
 }
 
-function PointsCard({
-  balance,
-  ledger,
-  onChanged,
-  onNavigate,
-}: {
-  balance: WellnessPointsBalance | null;
-  ledger: WellnessPointsLedgerEntry[];
-  onChanged: () => void;
-  onNavigate: (section: SectionId) => void;
-}) {
+function PointsCard({ balance, ledger }: { balance: WellnessPointsBalance | null; ledger: WellnessPointsLedgerEntry[] }) {
   const colors = useLegacyColors();
-  const { scheme } = useTheme();
 
   const currentBalance = balance?.balance ?? 0;
 

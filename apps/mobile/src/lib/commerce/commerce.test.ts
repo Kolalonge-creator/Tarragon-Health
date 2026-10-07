@@ -114,3 +114,77 @@ describe("S71 additions", () => {
     expect(parseCatalogue([{ ...item, kind: "home_kit", code: "home_kit_sample" }])).toHaveLength(1);
   });
 });
+
+// S72 ----------------------------------------------------------------------------------------------------------------------------
+import { createPaymentRequest, cancelPaymentRequest, loadEntitlements, loadPaymentRequests, loadQuote, requestRefund } from "./api";
+
+describe("S72 api: entitlements, quote with points, refunds, payment requests", () => {
+  beforeEach(() => { mockRpc.mockReset(); mockInvoke.mockReset(); });
+
+  it("sends the points wish and the total the person was shown with the checkout, and nothing else", async () => {
+    mockInvoke.mockResolvedValue({ data: { order_id: "o1", reference: "tho_x", amount_kobo: 475_000, checkout_url: "https://checkout.example/x" }, error: null });
+    await startCheckout("proof_consult", "key-1", undefined, { usePoints: true, expectedAmountKobo: 475_000 });
+    expect(mockInvoke).toHaveBeenCalledWith("order-checkout", { body: { code: "proof_consult", client_key: "key-1", use_points: true, expected_amount_kobo: 475_000 } });
+    mockInvoke.mockClear();
+    await startCheckout("proof_consult", "key-2");
+    expect(mockInvoke).toHaveBeenCalledWith("order-checkout", { body: { code: "proof_consult", client_key: "key-2" } });
+  });
+
+  it("asks for a quote with or without points and returns null when it cannot be worked out", async () => {
+    mockRpc.mockResolvedValueOnce({ data: { item_code: "c", list_kobo: 500_000, amount_due_kobo: 475_000, points_applied: 500, points_reduction_kobo: 25_000,
+      lines: [{ rule: "list", label_key: "quote.line.list", amount_kobo: 500_000, running_kobo: 500_000, applied: true, reason_key: null }, { rule: "points", label_key: "quote.line.points", amount_kobo: -25_000, running_kobo: 475_000, applied: true, reason_key: null }] }, error: null });
+    const q = await loadQuote("c", true);
+    expect(mockRpc).toHaveBeenCalledWith("price_quote", { p_code: "c", p_use_points: true });
+    expect(q?.amountDueKobo).toBe(475_000);
+    mockRpc.mockResolvedValueOnce({ data: null, error: { message: "x" } });
+    expect(await loadQuote("c")).toBeNull();
+    expect(mockRpc).toHaveBeenLastCalledWith("price_quote", { p_code: "c" });
+  });
+
+  it("reads entitlements with their source and days left", async () => {
+    mockRpc.mockResolvedValue({ data: [{ id: "e1", kind: "consultation_credit", state: "active", name_key: "k", remaining_uses: 3, days_left: null, source: "access_fund", sponsor_name: null, part_covered: false }], error: null });
+    const r = await loadEntitlements();
+    expect(r.ok && r.data[0]).toMatchObject({ remainingUses: 3, source: "access_fund" });
+    mockRpc.mockResolvedValue({ data: null, error: { message: "nope" } });
+    expect(await loadEntitlements()).toEqual({ ok: false, error: "nope" });
+  });
+
+  it("requests a refund through the existing database function and returns its word", async () => {
+    mockRpc.mockResolvedValue({ data: { result: "requested", refund_id: "r1" }, error: null });
+    expect(await requestRefund("o1", "I changed my mind")).toEqual({ result: "requested" });
+    expect(mockRpc).toHaveBeenCalledWith("request_order_refund", { p_order: "o1", p_reason: "I changed my mind" });
+    mockRpc.mockResolvedValue({ data: null, error: { message: "x" } });
+    expect(await requestRefund("o1", "I changed my mind")).toBeNull();
+    mockRpc.mockResolvedValue({ data: { result: 5 }, error: null });
+    expect(await requestRefund("o1", "I changed my mind")).toBeNull();
+  });
+
+  it("creates a payment request and returns the code once; a refusal keeps its stable code", async () => {
+    mockRpc.mockResolvedValue({ data: { request_id: "r1", code: "pr_abcdefghijklmnopqrstuvwx", expires_at: "2026-10-08T00:00:00Z" }, error: null });
+    const ok = await createPaymentRequest("membership_annual");
+    expect(ok).toEqual({ ok: true, request: { requestId: "r1", code: "pr_abcdefghijklmnopqrstuvwx", expiresAt: "2026-10-08T00:00:00Z" } });
+    expect(mockRpc).toHaveBeenCalledWith("create_payment_request", { p_item_code: "membership_annual" });
+    mockRpc.mockResolvedValue({ data: null, error: { message: "gift_item_not_allowed" } });
+    expect(await createPaymentRequest("consultation_single")).toEqual({ ok: false, code: "gift_item_not_allowed" });
+    mockRpc.mockResolvedValue({ data: { request_id: "r1", code: "bad", expires_at: "t" }, error: null });
+    expect(await createPaymentRequest("membership_annual")).toEqual({ ok: false, code: "unknown" });
+  });
+
+  it("lists and cancels requests", async () => {
+    mockRpc.mockResolvedValue({ data: [{ id: "r1", item_code: "membership_annual", name_key: "k", status: "open", created_at: "a", expires_at: "b", paid_at: null }], error: null });
+    const l = await loadPaymentRequests();
+    expect(l.ok && l.data).toHaveLength(1);
+    mockRpc.mockResolvedValue({ data: { result: "payment_in_progress" }, error: null });
+    expect(await cancelPaymentRequest("r1")).toBe("payment_in_progress");
+    mockRpc.mockResolvedValue({ data: null, error: { message: "x" } });
+    expect(await cancelPaymentRequest("r1")).toBe("unknown");
+  });
+
+  it("parses who the buyer is and the refund state, and maps a request refusal to its words", () => {
+    const o = { order_id: "o1", state: "paid", amount_kobo: 500_000, total_kobo: 500_150, name_key: "k", created_at: "2026-10-06T10:00:00Z", paid_at: null };
+    expect(parseOrders([{ ...o, is_buyer: false, refund_state: "pending" }])[0]).toMatchObject({ isBuyer: false, refundState: "pending" });
+    expect(parseOrders([o])[0]).toMatchObject({ isBuyer: true, refundState: null });
+    expect(checkoutErrorKey("request_expired")).toBe("request.error.expired");
+    expect(Object.hasOwn(en, checkoutErrorKey("request_in_use"))).toBe(true);
+  });
+});
