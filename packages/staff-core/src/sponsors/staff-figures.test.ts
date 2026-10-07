@@ -1,4 +1,4 @@
-import { isHeldBack, parseStaffFigures, parseStaffProgrammes, staffFiguresToCsv } from "./staff-figures";
+import { describeMonth, isHeldBack, parseStaffFigures, parseStaffProgrammes, staffFiguresToCsv } from "./staff-figures";
 
 const withheld = { suppressed: true, reason: "under_minimum", minimum: 20 };
 const report = {
@@ -44,5 +44,23 @@ describe("staffFiguresToCsv", () => {
   it("keeps a line break inside a quoted cell in one row", () => {
     const multi = parseStaffFigures({ ok: true, months: [{ period: "2026-09-01", generated_at: "x", figures: { ...report, definition: "line one\nline two" } }] })!;
     expect(staffFiguresToCsv(multi)).toContain('2026-09-01,notes,definition,"line one\nline two"');
+  });
+});
+
+describe("describeMonth", () => {
+  const months = parseStaffFigures({ ok: true, months: [{ period: "2026-09-01", generated_at: "x", figures: report }, { period: "2026-08-01", generated_at: "x", figures: held }] })!;
+  it("words a full month with withheld figures as withheld, never as zero", () => {
+    const d = describeMonth(months[0]);
+    expect(d.title).toBe("September 2026");
+    expect(d.heldBack).toBeNull();
+    expect(d.lines[0]).toBe("Members who agreed to share: 30 of 40 (75%)");
+    expect(d.lines[1]).toContain("Fewer than 20 people");
+    expect(d.lines.join(" ")).not.toMatch(/\b0%/);
+  });
+  it("words a held-back month as one sentence with no numbers", () => {
+    const d = describeMonth(months[1]);
+    expect(d.lines).toEqual([]);
+    expect(d.heldBack).toMatch(/^Held back/);
+    expect(d.heldBack).not.toMatch(/\d/);
   });
 });
