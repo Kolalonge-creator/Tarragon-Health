@@ -2,7 +2,10 @@
 -- Source: docs/content/ (drafted 2026-10-07, branch s55-60/content-drafts). Nothing here is clinical approval and nothing is published.
 --
 -- Rows affected: 20 new health_education_content rows (status draft, is_active false) and 1 new inactive programme
--- (bp_care_course) with 10 modules; 10 modules are added to the existing inactive myth_busting series. 0 existing rows change.
+-- (bp_ten_day_micro) with 10 modules; 10 modules are added to the existing inactive myth_busting series. 0 existing rows change.
+--
+-- The programme is deliberately NOT bp_care_course: S33 already seeded that code with its own 14 lessons, and these ten drafts must not be
+-- attached to (or counted in) the course patients see.
 --
 -- Why each row cannot reach a patient: content_status is 'draft' (so is_active is false), and is_placeholder is TRUE on purpose:
 -- the S55 publish gate refuses any placeholder, and clearing the flag needs a named clinical author and a body that does not start
@@ -14,7 +17,7 @@
 -- Pause markers in the drafted scripts are audio direction and are removed from the text body. No audio exists.
 
 insert into public.health_education_programmes (code, title, description, category, is_active, sort_order, kind)
-values ('bp_care_course', 'Blood pressure care course (10 days)',
+values ('bp_ten_day_micro', 'Blood pressure micro-lessons (10 days)',
         'DRAFT. Ten daily micro-lessons. INACTIVE until a clinical author has finalised and the Chief Medical Officer has approved every lesson.',
         'hypertension', false, 901, 'course')
 on conflict (code) do nothing;
@@ -24,7 +27,7 @@ declare
   v_myth uuid; v_bp uuid; v_id uuid; r record; v_new integer := 0;
 begin
   select id into v_myth from public.health_education_programmes where code = 'myth_busting';
-  select id into v_bp from public.health_education_programmes where code = 'bp_care_course';
+  select id into v_bp from public.health_education_programmes where code = 'bp_ten_day_micro';
   for r in select * from (values
   ('myth-01','myth',1,$q$'I would feel it if my blood pressure was high'$q$,$q$Here is a common thing people say. "I would feel it if my blood pressure was high."
 Let us look at that.

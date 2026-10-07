@@ -12,8 +12,9 @@
 --      paid by salary (F-03) so they get no line. An item that is withdrawn or expired before posting pays nothing.
 --    * Payment goes through the existing S31 weekly payout drafts and the second-person approval; nothing new moves money here.
 --    * RLS is unchanged: earnings_ledger_select lets a clinician read only their own lines and an admin read their organisation's.
--- 2. Incident severity: page_incident() always opens sev1/clinical. A lesson-event failure is now sev2 and a rewards-event failure
---    sev3 (technical), through page_incident_sev(); the patient's own write is still never undone.
+-- 2. Incident severity: page_incident() always opens sev1/clinical. A rewards-event failure is now sev3 (technical) and the creator
+--    earnings sweep failure sev2, through page_incident_sev(); the patient's own write is still never undone. (The lesson-event failure
+--    path belonged to S55's emitter, which S33's emitter replaced: see the note below.)
 --
 -- Rows affected: 0 (no ledger row exists with this kind; no incident is changed). Counts to record in the dry run:
 -- select count(*) from earnings_ledger where kind = 'creator_item'; select count(*) from health_education_content where creator_id is not null.
@@ -36,60 +37,10 @@ end;
 $$;
 revoke all on function private.page_incident_sev(uuid, text, text, text, text) from public, anon, authenticated;
 
-create or replace function private.health_education_progress_emit_events()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  v_code text;
-  v_prog record;
-begin
-  if new.status <> 'understood' or (tg_op = 'UPDATE' and old.status = 'understood') then
-    return new;
-  end if;
-  begin
-    select c.code into v_code from public.health_education_content c where c.id = new.content_id;
-    perform private.emit_domain_event('lesson.completed', new.organisation_id,
-      jsonb_build_object('content_id', new.content_id, 'content_code', v_code),
-      'lesson.completed:' || new.patient_id || ':' || new.content_id, new.patient_id,
-      'health_education_content', new.content_id);
-
-    for v_prog in
-      select pr.id, pr.code
-        from public.health_education_programmes pr
-        join public.health_education_programme_modules m on m.programme_id = pr.id
-       where m.content_id = new.content_id and pr.is_active
-    loop
-      if not exists (
-        select 1 from public.health_education_programme_modules m2
-         where m2.programme_id = v_prog.id
-           and not exists (select 1 from public.health_education_progress p2
-                            where p2.patient_id = new.patient_id and p2.content_id = m2.content_id and p2.status = 'understood')
-      ) then
-        perform private.emit_domain_event('course.completed', new.organisation_id,
-          jsonb_build_object('programme_id', v_prog.id, 'programme_code', v_prog.code),
-          'course.completed:' || new.patient_id || ':' || v_prog.id, new.patient_id,
-          'health_education_programme', v_prog.id);
-      end if;
-    end loop;
-  exception when others then
-    insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
-      values (new.organisation_id, 'learning_event.error', 'health_education_progress', new.id,
-              jsonb_build_object('error', sqlerrm));
-    begin
-      perform private.page_incident_sev(new.organisation_id, 'learning_event_failed', 'sev2',
-        'A learning completion event could not be written',
-        'A lesson or course completion event failed; see audit_log action learning_event.error (one open incident covers all of them). The patient''s progress itself was saved.');
-    exception when others then
-      -- the reporter itself failing must never undo the patient's progress; the audit row above is the record
-      raise warning 'learning completion event failure could not open an incident for progress %: %', new.id, sqlerrm;
-    end;
-  end;
-  return new;
-end;
-$$;
+-- The lesson and course completion events are S33's (private.learning_progress_events, 20261006193149): S55 no longer carries a second
+-- emitter, so there is nothing here to give a lower severity. S33's trigger raises on a failed event write, which stops the progress
+-- insert instead of opening an incident; whether that should become a best-effort write with a sev2 incident is recorded as a follow-up
+-- (docs/OPEN-QUESTIONS.md, integration note), not decided here.
 
 create or replace function private.rewards_emit(
   p_type text, p_patient uuid, p_payload jsonb, p_key text, p_agg_type text, p_agg_id uuid)

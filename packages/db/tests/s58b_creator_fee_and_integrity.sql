@@ -247,21 +247,18 @@ begin
   perform pg_temp.ck('5f the seeded drafts are not visible to a patient',
     pg_temp.as_val(v_pat, $q$select count(*)::text from public.health_education_content where code ~ '^(myth-(0[1-9]|10)|bp-lesson-(0[1-9]|10))$'$q$) = '0');
   perform pg_temp.ck('5g the new course and the myth series stay inactive',
-    not exists (select 1 from public.health_education_programmes where code in ('bp_care_course', 'myth_busting') and is_active));
-  perform pg_temp.ck('5h the myth series holds the 6 older placeholders plus 10 drafts, the course holds 10',
+    not exists (select 1 from public.health_education_programmes where code in ('bp_ten_day_micro', 'myth_busting') and is_active));
+  perform pg_temp.ck('5h the myth series holds the 6 older placeholders plus 10 drafts, the ten-day set holds 10 and S33''s course still holds its 14',
     (select count(*) from public.health_education_programme_modules m join public.health_education_programmes p on p.id = m.programme_id where p.code = 'myth_busting') = 16
-    and (select count(*) from public.health_education_programme_modules m join public.health_education_programmes p on p.id = m.programme_id where p.code = 'bp_care_course') = 10);
+    and (select count(*) from public.health_education_programme_modules m join public.health_education_programmes p on p.id = m.programme_id where p.code = 'bp_ten_day_micro') = 10
+    and (select count(*) from public.health_education_programme_modules m join public.health_education_programmes p on p.id = m.programme_id where p.code = 'bp_care_course') = 14);
 
   -- 6. SEVERITY --------------------------------------------------------------------------------------------------------------
-  update public.event_types set is_active = false where event_type in ('lesson.completed', 'vitals.logged');
-  insert into public.health_education_progress (organisation_id, patient_id, content_id, status) values (v_org, v_pat, v_i2, 'understood');
-  perform pg_temp.ck('6a a lesson-event failure opens a SEV2 incident', exists (select 1 from public.ops_incidents where external_reference = 'learning_event_failed' and severity = 'sev2' and status not in ('resolved', 'closed')));
-  perform pg_temp.ck('6b ...and not a sev1', not exists (select 1 from public.ops_incidents where external_reference = 'learning_event_failed' and severity = 'sev1'));
+  update public.event_types set is_active = false where event_type in ('vitals.logged');
   perform private.rewards_emit('vitals.logged', v_pat, '{"vitals_id":"x"}'::jsonb, gen_random_uuid()::text, 'vitals_readings', gen_random_uuid());
   perform pg_temp.ck('6c a rewards-event failure opens a SEV3 incident', exists (select 1 from public.ops_incidents where external_reference = 'rewards_event_failed' and severity = 'sev3' and status not in ('resolved', 'closed')));
   perform pg_temp.ck('6d ...and not a sev1 or sev2', not exists (select 1 from public.ops_incidents where external_reference = 'rewards_event_failed' and severity in ('sev1', 'sev2')));
-  perform pg_temp.ck('6e the patient''s own progress was saved', exists (select 1 from public.health_education_progress where patient_id = v_pat and content_id = v_i2 and status = 'understood'));
-  update public.event_types set is_active = true where event_type in ('lesson.completed', 'vitals.logged');
+  update public.event_types set is_active = true where event_type in ('vitals.logged');
 
   -- 7. POINTS NEVER EXPIRE; CLASS CAP -----------------------------------------------------------------------------------------
   perform pg_temp.ck('7a no points table has an expiry-like column',

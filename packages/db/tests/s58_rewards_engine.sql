@@ -409,7 +409,7 @@ begin
   values (v_p, 's58-sab@example.invalid', 'x', now(), '{}', '{}');
   insert into public.profiles (id, organisation_id, role, full_name, is_test) values (v_p, v_org, 'patient', 'S58 sab', true) on conflict (id) do update set is_test = true;
   begin
-    v_e := private.emit_domain_event('lesson.completed', v_org, '{"content_id":"00000000-0000-0000-0000-0000000000aa","content_code":"x"}', 'sab-1', v_p);
+    v_e := private.emit_domain_event('lesson.completed', v_org, '{"course_code":"x","lesson_code":"y"}', 'sab-1', v_p);
     perform private.points_award_event(v_e);
     -- strip both layers of replay protection out of the live function, then replay
     v_def := pg_get_functiondef('private.points_award_event(uuid)'::regprocedure);
