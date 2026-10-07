@@ -1753,3 +1753,37 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Fixed in S11g and S11h: (a) the older server alert path now follows the 200/130 decision once the rule set is APPROVED: the old emergency range with no red-flag symptom (and not in pregnancy or after a birth) raises the Priority 1 alert but no patient emergency record; a symptom keeps it an emergency, and a symptom answered after the reading opens the emergency record then (migration `20261006000812`, proof `s11g`, a no-op until approval). The 160/100 and 135/85 bands are unchanged, so a 165/105 reading still pages Priority 1 for a reading the engine would treat as amber: that is the S12 band alignment of OQ-67 and needs the CMO. (f) Tapping the reminder or the server push now opens the blood pressure screen, from closed or running, once per tap (`notification-tap.ts`). (d) The Pidgin for the question's buttons and the reminder is drafted in the catalogue; the emergency guidance, triage messages and symptom names stay in English until a native reviewer and the CMO sign them; the full list is `docs/PIDGIN-REVIEW-S11.md`.
 - Still owed: (e) Android: not run (no Java or emulator image on this machine); `SCHEDULE_EXACT_ALARM` is not declared (OQ-73), so a reminder can arrive minutes late in Doze and the server backup push covers it. The native Pidgin review itself.
 - Decision: pending (item e, and the Pidgin sign-off).
+
+## S64 (consultations gaps, 2026-10-07)
+
+Numbered `OQ-S64-n` because the file already repeats several plain OQ numbers; cite by title as well.
+
+### OQ-S64-1 Price of a dietitian visit and a pharmacist visit (raised by S64)
+- CMO Q23 decided these are priced per item, but no price was given. `dietitian_consult_credit` and `pharmacist_consult_credit` are seeded INACTIVE at 0 kobo. While inactive or unpriced the database refuses to hold a slot for either and lists none, and the booking picker does not offer them. Nothing is assumed.
+- Needed: a price for each (integer kobo), then activate both rows. Specialist bookings priced per item (also Q23) have no product or booking flow yet; that belongs to S65's directory half.
+- Decision: open (founder).
+
+### OQ-S64-2 How a dietitian or pharmacist is tiered and what they may read (raised by S64)
+- `clinical_staff.care_role` lets an admin onboard a dietitian or pharmacist, but the schema only offers doctor tiers. A CHECK forces a non-doctor role onto the `care_coordinator` tier so auto-assignment, prescribing and signing can never reach them. That tier is also non-clinical for chart reads, so a dietitian cannot yet see a patient's chart before a visit beyond what a tie or task grants (INV-12).
+- Options: (a) keep as built and grant the visit's own encounter notes and intake only (recommended), (b) a separate allied-health tier with its own read scope, which needs a CMO decision on what they may see.
+- Decision: open (CMO).
+
+### OQ-S64-3 Free-text intake is not screened for danger (raised by S64)
+- The manual intake takes the patient's own words. Nothing reads them for red flags (INV-01 allows only deterministic rules and none exists for free text here). The screen carries the standing "do not wait for your visit, go to the nearest hospital now" line instead, and the intake is read before the visit, not instead of triage. If the CMO wants deterministic keyword screening of the text, it needs a signed rule set first.
+- Decision: open (CMO).
+
+### OQ-S64-4 The older video-visit request path promises a full refund in cash (raised by S64)
+- `book-video-visit.tsx` (the `video_visit_requests` path S21 did not touch, OQ-132) still says "If nobody can take it, you get a full refund", and the unused string `refund.policy.consultation_cancel` says "Full refund if cancelled...". Both read as cash, which OQ-133 leaves undecided. S64 added the credit-based terms card to that path but did not rewrite its own copy (it is a different mechanism: a payment held before a doctor accepts).
+- Decision: open (founder), tied to OQ-133 and OQ-132.
+
+### OQ-S64-5 Re-check of a licence (Q19) is displayed, not scheduled (raised by S64)
+- Q19: re-check at onboarding, annually, and on complaint. The booking list shows the number and checked-on date only when `credential_verified_at` is on record, so a clinician with no check shows no number. There is still no job that flags a check older than a year or a complaint-triggered re-check; `license_expires_at` tracking (2026-08-27) covers expiry only.
+- Decision: open (CMO; a small follow-up job once the interval is signed).
+
+### OQ-S64-6 Scribe safety panel does not read the patient's recorded allergies and medicines (raised by S64)
+- The panel shows the allergy and medicine lines found in the AI draft first and requires one confirmation before signing. It does not display the patient's recorded allergy and medication lists beside them, so the clinician compares from the chart view. Showing both side by side needs an audited chart read inside the note editor.
+- Decision: open (build when the audited-read hook for the editor exists).
+
+### OQ-S64-7 Mobile (raised by S64)
+- Nothing in S64 was built or run in the Expo app: no booking filters, intake form or terms card on the phone. The consultation room on the phone is still unrun on a real device (OQ-158). The audio and phone fallback logic is covered by unit tests only.
+- Decision: open.

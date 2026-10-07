@@ -165,3 +165,33 @@ describe("consultation ladder", () => {
     });
   });
 });
+
+// S64 (15.2): the whole ladder in order, as one call goes through it. The pieces above are proved one at a time; this proves they
+// compose: video, then audio only on a sustained poor link, then a drop that outlasts the grace window, ending on the phone, with the
+// session clock never going negative and nothing moving the call off the phone afterwards. NOT run on a real phone (OQ-158).
+describe("the whole ladder in order (S64)", () => {
+  it("video, audio only, a drop past the grace window, then the phone, and the phone is final", () => {
+    const r = run([
+      good(0), poor(1), poor(2), poor(3), // sustained poor link: down to audio only, once
+      { kind: "lost", atMs: 10_000 }, // the connection drops
+      { kind: "tick", atMs: 10_000 + GRACE_MS }, // and does not come back inside the grace window
+      good(200_000), good(201_000), good(202_000), good(203_000), good(204_000), good(205_000), // a good link afterwards changes nothing
+    ]);
+    expect(r.actions.filter((a) => a !== null)).toEqual(["to_audio_only", "grace_started", "to_phone"]);
+    expect(r.state.mode).toBe("phone");
+    expect(remainingSessionMs(0, 30, r.state, 10_000 + GRACE_MS, policy)).toBeGreaterThanOrEqual(0);
+  });
+
+  it("the patient can ask for the phone from every mode, and it is always the end of the ladder", () => {
+    for (const start of [INITIAL_LADDER, downgraded()]) {
+      const s = stepLadder(start, { kind: "patient_requests_phone", atMs: 1_000 }, policy);
+      expect(s.state.mode).toBe("phone");
+      expect(run([poor(2_000), good(3_000), { kind: "lost", atMs: 4_000 }, { kind: "tick", atMs: 4_000 + GRACE_MS }], s.state).state.mode).toBe("phone");
+    }
+  });
+
+  it("a drop that recovers inside the grace window never reaches the phone", () => {
+    const r = run([poor(1), poor(2), poor(3), { kind: "lost", atMs: 5_000 }, { kind: "restored", atMs: 5_000 + GRACE_MS - 1_000 }, { kind: "tick", atMs: 5_000 + GRACE_MS + 1 }]);
+    expect(r.state.mode).toBe("audio_only");
+  });
+});
