@@ -58,6 +58,8 @@ export function useAvailableAppointmentSlots(params: {
   patientId?: string;
   from?: string;
   to?: string;
+  /** S64: narrow by specialty, spoken language or sex in the database, so the 200 slot cap applies to the narrowed list and not the whole market. Empty means any. */
+  filters?: { specialty: string; language: string; sex: string };
   enabled?: boolean;
 }) {
   const { enabled = true, ...rest } = params;
@@ -70,7 +72,10 @@ export function useAvailableAppointmentSlots(params: {
       // S64: a dietitian or pharmacist visit is booked from the same declared time, listed by role (the database lists nothing for a role whose product is unpriced)
       const role = CONSULT_ROLE_BY_TYPE[params.appointmentType as string];
       if (role) {
-        const { data: open, error: openError } = await supabase.rpc("list_bookable_consult_slots" as never, { p_from: params.from, p_to: params.to, p_patient: params.patientId, p_role: role } as never);
+        const { data: open, error: openError } = await supabase.rpc("list_bookable_consult_slots" as never, {
+          p_from: params.from, p_to: params.to, p_patient: params.patientId, p_role: role,
+          p_specialty: params.filters?.specialty || null, p_language: params.filters?.language || null, p_sex: params.filters?.sex || null,
+        } as never);
         if (openError) throw openError;
         return toConsultSlots(open as unknown as BookableConsultSlotRow[]) as AvailableAppointmentSlot[];
       }

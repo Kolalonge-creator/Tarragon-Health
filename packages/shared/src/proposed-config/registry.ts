@@ -1246,6 +1246,8 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     //  perItemPriceKobo: null on purpose. No price has been set for either role (OQ-S64-1); the products are seeded inactive at 0 and the
     //  database refuses to hold a slot for them until a price is set, so no price can be assumed from here.
     //  reminderHoursBefore: the milestones the reminder job sends, mirrored by queue_appointment_reminders (a drift test compares them).
+    //  These are the three every visit can get (7 days only when booked 7 or more days ahead, inside a 160 to 168 hour window). A 72 hour
+    //  reminder for high-priority visits and a 15 minute one exist in the job and are older than S64.
     //  The 24 hour reminder is the "one to two days" one. longLeadMilestone is sent only for a visit booked at least that far ahead.
     //  intake: the limits on the patient's manual intake (mirrored by the table checks).
     //  licenceRecheck: Q19, the registration number and checked-on date are shown only when a check is on record.

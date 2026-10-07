@@ -78,6 +78,8 @@ export function BookAppointment({
     id: string;
     productCode: string;
     slotStart: string;
+    /** The type that was held. The terms beside the pay button follow this, not whatever the picker shows now. */
+    appointmentType: AppointmentType;
   } | null>(null);
   const [isBuying, setIsBuying] = useState(false);
   // S64 (15.1): narrow the open times by specialty, spoken language and sex. Price is shown, never filtered: there is one price.
@@ -92,7 +94,7 @@ export function BookAppointment({
       v === appointmentType,
   );
   // S64 (15.7): the terms for the type being paid for. The pay button stays off until they have loaded, so nobody pays unseen.
-  const payTerms = useMyBookingTerms(appointmentType);
+  const payTerms = useMyBookingTerms(pendingPaymentAppointment?.appointmentType ?? appointmentType);
 
   // S37 (INV-14): consultations stay closed until the clinical_operations_enabled guard is on. The database refuses a hold either
   // way; this keeps a patient from filling in a form that cannot work, and says so calmly.
@@ -107,8 +109,20 @@ export function BookAppointment({
     enabled: guard.data === true,
   });
   const declaredTimeSlots = (slots ?? []).filter((x) => "languages" in x) as unknown as ConsultSlot[];
+  // the choices come from the unfiltered list; a chosen filter is also asked of the database, so a clinician beyond the first 200 open
+  // times is still found
   const filterOptions = slotFilterOptions(declaredTimeSlots);
-  const shownSlots = declaredTimeSlots.length > 0 ? filterConsultSlots(declaredTimeSlots, filters) : (slots ?? []);
+  const hasFilters = filters.specialty !== "" || filters.language !== "" || filters.sex !== "";
+  const { data: filteredSlots } = useAvailableAppointmentSlots({
+    organisationId,
+    appointmentType,
+    patientId,
+    consultationMethod: consultationMethod || undefined,
+    filters,
+    enabled: guard.data === true && hasFilters && declaredTimeSlots.length > 0,
+  });
+  const filteredDeclared = (filteredSlots ?? []).filter((x) => "languages" in x) as unknown as ConsultSlot[];
+  const shownSlots = declaredTimeSlots.length > 0 ? filterConsultSlots(hasFilters ? filteredDeclared : declaredTimeSlots, filters) : (slots ?? []);
   const hold = useHoldAppointmentSlot();
   const confirm = useConfirmAppointmentBooking();
   const joinWaitingList = useJoinWaitingList();
@@ -201,6 +215,7 @@ export function BookAppointment({
           id: confirmed.id,
           productCode,
           slotStart: slot.slot_start,
+          appointmentType,
         });
         setMessage({
           tone: "success",
@@ -335,7 +350,7 @@ export function BookAppointment({
                 ["language", "book.filter.language", filterOptions.languages],
                 ["sex", "book.filter.sex", filterOptions.sexes],
               ] as const).map(([key, label, options]) =>
-                options.length > 1 ? (
+                options.length > 1 || filters[key] !== "" ? (
                   <div key={key} className="space-y-1">
                     <label className="text-xs text-charcoal-ink/60 dark:text-night-ink/60" htmlFor={`slot-filter-${key}`}>
                       {t(label, locale)}
@@ -356,6 +371,11 @@ export function BookAppointment({
                 ) : null,
               )}
             </div>
+            {(filters.specialty || filters.language || filters.sex) && (
+              <Button type="button" size="sm" variant="ghost" className="self-end" onClick={() => setFilters(NO_SLOT_FILTERS)}>
+                {t("book.filter.clear", locale)}
+              </Button>
+            )}
           </div>
         )}
 
@@ -384,7 +404,7 @@ export function BookAppointment({
                 {isBuying ? "Redirecting to payment…" : "Pay to confirm"}
               </Button>
             </div>
-            <BookingTermsCard appointmentType={appointmentType} locale={locale} />
+            <BookingTermsCard appointmentType={pendingPaymentAppointment.appointmentType} locale={locale} />
             <PaystackFeeNotice />
           </div>
         )}

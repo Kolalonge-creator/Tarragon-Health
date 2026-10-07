@@ -22,7 +22,7 @@ export interface SafetyLine {
 
 const ALLERGY = /\b(allerg\w*|anaphyla\w*|intoleran\w*|hypersensitiv\w*|rash after|reaction to)\b/i;
 const MEDICINE =
-  /\b(medicin\w*|medicat\w*|tablets?|capsules?|syrup|inhalers?|injections?|insulin|dos(?:e|es|age|ing)|prescri\w*|drugs?|antibiotics?|paracetamol|ibuprofen|aspirin|amoxicillin|metformin|amlodipine|losartan|lisinopril|statins?|hctz|hydrochlorothiazide|artemether|lumefantrine|omeprazole|warfarin)\b|\d\s?(?:mg|mcg|ml|iu|units?)\b/i;
+  /\b\w*(?:statin|pril|sartan|olol|dipine|formin|gliptin|gliflozin|gliclazide|glimepiride|mycin|cillin|azole|floxacin|prazole|vir|tidine|semide|thiazide|mab)\b|\b(?:start|stop|switch|increase|reduce|continue|restart)(?:ed|ing)?\s+(?:on\s+)?\w+|\b(?:once|twice|three times)\s+(?:a\s+|per\s+)?(?:day|daily)\b|\b(?:at night|nightly|bd|tds|od)\b|\b(?:medicin\w*|medicat\w*|tablets?|capsules?|syrup|inhalers?|injections?|insulin|dos(?:e|es|age|ing)|prescri\w*|drugs?|antibiotics?|paracetamol|ibuprofen|aspirin|amoxicillin|metformin|amlodipine|losartan|lisinopril|statins?|hctz|hydrochlorothiazide|artemether|lumefantrine|omeprazole|warfarin)\b|\d\s?(?:mg|mcg|ml|iu|units?)\b/i;
 
 /** Splits on line breaks and on sentence ends, so one long paragraph still yields one line per statement. */
 function toLines(text: string): string[] {

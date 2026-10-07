@@ -34,4 +34,9 @@ describe("extractSafetyLines (S64, 15.4)", () => {
   it("a plain statement that no allergies are known is still shown, because a wrong denial is the dangerous line", () => {
     expect(extractSafetyLines({ history: "Denies any drug allergy." }).map((l) => l.kind)).toEqual(["allergy"]);
   });
+
+  it("also catches drugs it has no name for, by class ending and by a start/stop/switch with a frequency", () => {
+    const lines = extractSafetyLines({ plan: "Start atorvastatin at night.\nSwitch to gliclazide twice daily.\nBook a review." });
+    expect(lines.map((l) => l.text)).toEqual(["Start atorvastatin at night.", "Switch to gliclazide twice daily."]);
+  });
 });

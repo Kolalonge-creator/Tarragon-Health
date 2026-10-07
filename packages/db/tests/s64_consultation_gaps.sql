@@ -300,13 +300,18 @@ begin
   perform pg_temp.mkcredit(v_pat2, 'video_visit_credit');
   v_a_doc2 := pg_temp.book(v_pat2, v_docB, 'telemedicine', v_start + interval '5 days');
   v_a_short := pg_temp.book(v_pat2, v_docB, 'telemedicine', v_start + interval '5 days' + interval '60 minutes');
-  update public.appointments set created_at = now() - interval '5 days', scheduled_for = now() + interval '6 days', ends_at = now() + interval '6 days' + interval '30 minutes'
+  update public.appointments set created_at = now() - interval '5 days', scheduled_for = now() + interval '165 hours', ends_at = now() + interval '165 hours 30 minutes'
    where id = v_a_doc2;
-  update public.appointments set scheduled_for = now() + interval '6 days' + interval '2 hours', ends_at = now() + interval '6 days' + interval '2 hours 30 minutes'
+  update public.appointments set scheduled_for = now() + interval '167 hours' + interval '30 minutes', ends_at = now() + interval '168 hours'
    where id = v_a_short;
+  -- a long-ago booking that is now only 2 hours away (what the first run after a deploy or a cron outage would see)
+  update public.appointments set created_at = now() - interval '30 days', scheduled_for = now() + interval '2 hours', ends_at = now() + interval '2 hours 30 minutes'
+   where id = v_a_diet;
   perform private.queue_appointment_reminders();
   perform pg_temp.rec('the 7 day reminder is sent for the visit booked 7 or more days ahead', '1',
     (select count(*)::text from public.appointment_reminder_sends where appointment_id = v_a_doc2 and milestone = '7d'));
+  perform pg_temp.rec('and not for a visit booked long ago that is now only hours away (no stale reminder after a deploy)', '0',
+    (select count(*)::text from public.appointment_reminder_sends where appointment_id = v_a_diet and milestone = '7d'));
   perform pg_temp.rec('and not for the short-lead booking', '0',
     (select count(*)::text from public.appointment_reminder_sends where appointment_id = v_a_short and milestone = '7d'));
   perform pg_temp.rec('the reminder offers the confirm and cancel replies and names no clinical term', 'true/true/false',

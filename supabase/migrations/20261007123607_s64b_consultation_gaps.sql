@@ -458,8 +458,8 @@ grant execute on function public.my_booking_terms(text) to authenticated;
 create table public.consultation_intakes (
   id uuid primary key default gen_random_uuid(),
   organisation_id uuid not null references public.organisations (id) on delete restrict,
-  patient_id uuid not null references public.profiles (id) on delete restrict,
-  appointment_id uuid not null references public.appointments (id) on delete restrict,
+  patient_id uuid not null references public.profiles (id) on delete cascade,
+  appointment_id uuid not null references public.appointments (id) on delete cascade,
   state text not null default 'draft' check (state in ('draft', 'sent')),
   source text not null default 'manual' check (source in ('manual', 'symptom_checker')),
   source_ref uuid,
@@ -482,7 +482,8 @@ comment on table public.consultation_intakes is
 
 alter table public.consultation_intakes enable row level security;
 create policy consultation_intakes_patient_read on public.consultation_intakes for select to authenticated
-  using (patient_id = (select auth.uid()));
+  using (patient_id = (select auth.uid())
+         or private.can_act_for(patient_id, 'book_appointments'::public.caregiver_permission));
 grant select on public.consultation_intakes to authenticated;
 revoke insert, update, delete, truncate on public.consultation_intakes from authenticated, anon;
 
@@ -524,6 +525,8 @@ language plpgsql security definer set search_path = ''
 as $$
 begin
   if tg_op = 'DELETE' then
+    -- a real patient's intake is never deleted (the cascade from a profile or visit stops here too); a test account's rows can be purged (INV-13)
+    if old.is_test then return old; end if;
     raise exception 'a consultation intake cannot be deleted' using errcode = '42501';
   end if;
   if old.state = 'sent' then
@@ -777,13 +780,15 @@ create or replace function private.queue_appointment_reminders()
  SECURITY DEFINER
  SET search_path TO ''
 AS $function$
-  with milestones(milestone, hours_before, high_priority_only, long_lead_only) as (
+  with milestones(milestone, hours_before, high_priority_only, long_lead_only, min_hours_before) as (
     values
-      ('7d', 168.0, false, true),          -- S64: only for a visit that was booked 7 or more days ahead
-      ('72h', 72.0, true, false),
-      ('24h', 24.0, false, false),
-      ('2h', 2.0, false, false),
-      ('shortly_before', 0.25, false, false)
+      -- S64: sent only for a visit that was booked 7 or more days ahead, and only inside an 8 hour window (160 to 168 hours before), so
+      -- the first run after deploy, or after a cron outage, never sends a stale "7 days" reminder for a visit that is already close
+      ('7d', 168.0, false, true, 160.0),
+      ('72h', 72.0, true, false, null::numeric),
+      ('24h', 24.0, false, false, null::numeric),
+      ('2h', 2.0, false, false, null::numeric),
+      ('shortly_before', 0.25, false, false, null::numeric)
   ),
   due as (
     select
@@ -800,6 +805,7 @@ AS $function$
       and (not m.high_priority_only or a.is_high_priority)
       and (not m.long_lead_only or a.created_at <= a.scheduled_for - (m.hours_before * interval '1 hour'))
       and a.scheduled_for - now() <= (m.hours_before * interval '1 hour')
+      and (m.min_hours_before is null or a.scheduled_for - now() >= (m.min_hours_before * interval '1 hour'))
   ),
   inserted_state as (
     insert into public.appointment_reminder_sends (appointment_id, milestone)

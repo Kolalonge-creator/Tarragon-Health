@@ -34,6 +34,7 @@ describe("consultations.access mirrors the S64 migration", () => {
     const fn = /create or replace function private\.queue_appointment_reminders[\s\S]*?\$function\$;/.exec(sql)?.[0] ?? "";
     for (const h of v.reminderHoursBefore) expect(fn).toContain(`${h}.0`);
     expect(fn).toContain(`'${v.longLeadMilestone}'`);
+    expect(fn).toContain("160.0"); // the lower edge of the 7 day window, so a stale reminder is never sent after a deploy or outage
   });
 
   it("intake limits equal the table checks", () => {

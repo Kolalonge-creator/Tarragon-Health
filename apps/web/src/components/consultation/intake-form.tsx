@@ -31,7 +31,7 @@ interface StoredIntake {
 export function IntakeForm({ appointmentId, locale = "en" }: { appointmentId: string; locale?: Locale }) {
   const queryClient = useQueryClient();
   const key = ["consultations", "intake", appointmentId] as const;
-  const { data: stored, isLoading } = useQuery({
+  const { data: stored, isLoading, isError } = useQuery({
     queryKey: key,
     queryFn: async () => {
       const supabase = createClient();
@@ -79,6 +79,8 @@ export function IntakeForm({ appointmentId, locale = "en" }: { appointmentId: st
   });
 
   if (isLoading) return null;
+  // a failed read must never show an empty form: saving it would overwrite the stored draft with blank answers
+  if (isError) return <p role="alert" className="w-full text-sm text-red-600 dark:text-red-400">{t("intake.failed", locale)}</p>;
 
   if (stored?.state === "sent") {
     return (
