@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { refuseSupersededDraft } from "@/lib/clinical/refuse-superseded-draft";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 
 export type CreateResultReleasePolicyDraftState = { error?: string; success?: boolean } | undefined;
@@ -66,10 +67,17 @@ export async function signResultReleasePoliciesAction(
   versionId: string
 ): Promise<SignResultReleasePoliciesState> {
   const supabase = await createClient();
+  const refused = await refuseSupersededDraft(supabase, "result_release_policies", versionId);
+  if (refused) return { error: refused };
   const { error } = await supabase.rpc("sign_result_release_policies", {
     p_id: versionId,
   });
   if (error) return { error: error.message };
   revalidatePath("/admin/settings/result-release-policies");
+  // Also signed from the Chief Medical Officer's own pages, whose account cannot open /admin.
+  revalidatePath("/clinician/result-release-policies");
+  revalidatePath("/clinician/clinical-signoff");
+  revalidatePath("/clinician/clinical-signoff");
+  revalidatePath("/admin/settings/clinical-protocols");
   return { success: true };
 }

@@ -20,6 +20,8 @@ let waitingList: unknown[] | undefined;
 jest.mock("@/lib/queries/appointments", () => ({
   useMyUpcomingAppointments: () => ({ data: appointments, isLoading: false }),
   useMyWaitingListEntries: () => ({ data: waitingList }),
+  useMyUpcomingEncounters: () => ({ data: [] }),
+  useMyConsultationRule: () => ({ data: undefined }),
   useCancelAppointment: () => ({
     mutateAsync: jest.fn(async () => {
       throw new Error("Could not cancel that appointment right now.");

@@ -8,7 +8,7 @@
     "userInterfaceStyle": "automatic",
     "scheme": "tarragonhealth",
     "icon": "./assets/icon.png",
-    "runtimeVersion": "0.1.0-native4",
+    "runtimeVersion": "0.1.0-native5",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -45,8 +45,8 @@
       [
         "expo-image-picker",
         {
-          "cameraPermission": "TarragonHealth uses your camera to photograph a lab result so it can be read into your record.",
-          "photosPermission": "TarragonHealth accesses your photos so you can upload a lab result you've already photographed.",
+          "cameraPermission": "TarragonHealth uses your camera to photograph a lab result so it can be read into your record, and to take a photo to send with a written question to your care team.",
+          "photosPermission": "TarragonHealth accesses your photos so you can upload a lab result you've already photographed, or attach a photo to a written question to your care team.",
           "microphonePermission": false
         }
       ],

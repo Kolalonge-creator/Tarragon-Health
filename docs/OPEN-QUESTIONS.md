@@ -131,6 +131,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Options: (a) new strings go to `@tarragon/i18n`, old dictionary migrates later; (b) keep extending the old dictionary only.
 - Recommend (a), with the live clinical-copy boundary kept: a clinical Pidgin string needs clinician sign-off and a native-speaker review flag first.
 - Decision (founder, 2026-09-30): New strings go to `@tarragon/i18n`; old dictionary migrates later; clinical Pidgin needs clinician sign-off and native review first.
+- Superseded (2026-10-06): The Pidgin part is moot: Pidgin was removed 2026-10-06 (D-14). The rest of the i18n approach stands (English strings in `@tarragon/i18n`).
 
 ### OQ-20 Sentry on mobile and Edge Functions, secret scanning
 - Blocks: none urgent. Spec wants Sentry in app, console and functions. `apps/web` and `services/ml` have it; `apps/mobile` and all 7 Edge Functions do not; CI has no secret-scanning step.
@@ -374,6 +375,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - The eight `outbox.*` strings in `packages/i18n/src/pcm.ts` (waiting, stuck, rejected, held, retry, remove, confirm, saved on phone) were written by the build session. They carry no clinical meaning, but "it has not reached your care team" is a promise about care, and OQ-19 requires native review before clinical Pidgin ships.
 - Options: (a) a native Pidgin reviewer signs the eight strings before the next store build (recommended); (b) ship English only for these until reviewed.
 - Decision (founder, 2026-10-02): (a) a native Pidgin reviewer signs the eight `outbox.*` strings before the next store build.
+- Superseded (2026-10-06): Moot. Nigerian Pidgin was removed from the product on 2026-10-06 (D-14), so there is no `pcm` outbox wording to review.
 
 ### OQ-62 A dose logged offline for a medicine amended or stopped before sync (raised by S06)
 - A dose log records what the patient did, so it is sent as logged even if the care team has since amended or stopped that prescription. The row keeps its device time (inside the bounded window) and its medication id. A log for a medication the patient has since deleted is refused by the foreign key and shows as "could not be saved" with a support code.
@@ -384,6 +386,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - 66 new `vitals.*` strings in `packages/i18n/src/pcm.ts` were written by the build session (labels, errors, status words such as "E dey target" and "E pass target", the trend summary a screen reader reads). OQ-19 requires native review before clinical Pidgin ships, and these words carry clinical meaning.
 - Options: (a) a native Pidgin reviewer with clinician input signs the strings before the next store build (recommended; the same reviewer pass as OQ-61); (b) show English for the clinical status words until reviewed.
 - Decision: not yet asked.
+- Superseded (2026-10-06): Moot. Nigerian Pidgin was removed from the product on 2026-10-06 (D-14), so the `pcm` Vitals strings no longer exist.
 
 ### OQ-64 The monitoring-cover card's wording against the house voice (raised by design Phase 1)
 - The card shown on Vitals is headed "Nobody is alerted when one of your readings is dangerous" and its body contains an em dash. The house voice is warm with no fear-based urgency and no em dashes. The wording also implements a legal-accuracy rule (never imply an uncovered patient is unmonitored; the emergency safety net applies regardless of payment), so a rewrite is not a styling change.
@@ -437,6 +440,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 
 ### OQ-74 Pidgin wording for the S08 strings needs a native reviewer (raised by S08)
 - About 90 new keys (`medicines.notify.*`, `meds.*`) were written in English and a first Pidgin version. Same rule as OQ-61 and OQ-63: a native reviewer before the next store build. The reminder text and the skip reasons matter most.
+- Superseded (2026-10-06): Moot. Nigerian Pidgin was removed from the product on 2026-10-06 (D-14). The English wording and its clinical review stand.
 
 ### OQ-75 Adherence below the line: what the care team sees and when (raised by S08)
 - The weekly percentage is shown to the patient as a plain count with supportive wording and to tied clinicians as "doses marked taken". The `medication_adherence_low` signal fires once a week for a patient under 80 percent (the proposed line). The existing 3 and 6 missed-dose alerts still run separately. Whether the weekly signal should create a task, and the Chief Medical Officer's confirmation of 80 percent over 7 days, wait for S11 and S12; S08 never changes treatment or messages the patient about it.
@@ -474,6 +478,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - The blood pressure form now has an optional pulse, an optional symptom checklist (severe headache, chest pain, trouble breathing, vision change, confusion, dizziness, racing heartbeat) and a "Before you measure" guide. Decisions the build made that a clinician should own: (1) a tick is stored as a `symptoms` row at severity 6 (versioned config `bp.symptom_checklist`, PROPOSED), with the description "Ticked on the blood pressure form (not rated by the patient)", because the form does not ask the patient to rate it; 6 is the existing server paging line for chest pain, severe headache, vision change and confusion, and is below the line (8) for the other types, so ticking breathlessness, dizziness or palpitations records the symptom without paging (note: trouble breathing is on the red-flag list that shows the emergency guidance on the device, yet at severity 6 it does not page a clinician, so the patient is told to get help while the care team is not paged; the CMO may want a higher recorded severity for it); (2) ticking any of severe headache, chest pain, trouble breathing, vision change or confusion shows the bundled emergency guidance straight away on the device (no threshold, and it does not depend on the reading); (3) the technique steps (5 minute rest, 30 minutes with no caffeine, tobacco, exercise or food, two readings a minute apart) are PROPOSED values in `bp.home_protocol`. The Pidgin text for all 36 new `vitals.*` strings was written by the build session, as with OQ-63.
 - Options: (a) the Chief Medical Officer confirms or changes the severity, the red-flag list and the technique wording, and a native Pidgin reviewer signs the new strings, both before the next store build (recommended); (b) ship English only for the new strings until reviewed; (c) drop the "emergency guidance on a tick" and show the checklist as information only (leaves a ticked chest pain with no on-device guidance).
 - Decision (founder): pending.
+- Superseded (2026-10-06): The Pidgin part is moot (Pidgin removed 2026-10-06, D-14). The clinical review of the symptom list and technique wording stands.
 
 ### OQ-83 Weakness, numbness and trouble speaking cannot be recorded as a symptom (raised by S07)
 - The spec's red-flag list for blood pressure (BP-R1) includes weakness or numbness, but `symptom_type` has no value for it (the closest, "face/arm weakness or slurred speech", is a one-touch danger sign that writes an `emergency_events` row and only works online). The BP form therefore cannot log it with the other ticks. The form shows a fixed line instead: go to the nearest hospital now if you have weakness on one side, numbness or trouble speaking. Body position (an optional field the research suggested) is not captured either: there is no column for it.
@@ -532,6 +537,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-93 Pidgin notification text and local terms (raised by S13)
 - Notification templates are English only (locale-keyed, so `pcm` rows can be added). Pidgin settings strings (quiet hours, discreet mode) were written by the build session and need a native reviewer. A Pidgin template set would need its own forbidden words: "sugar" and "pressure" are common words for diabetes and hypertension. "sugar" and "pressure" are already on the English list.
 - Options: (a) add `pcm` template rows only after a native reviewer and the CMO approve them, and run the same lint (recommended); (b) keep notification text English only for now.
+- Superseded (2026-10-06): Moot. Pidgin was removed 2026-10-06 (D-14); notification templates stay English only and no `pcm` rows will be added.
 
 ### OQ-94 Free-text notification content cannot be linted by wording (raised by S13)
 - The lint checks fixed wording and placeholder NAMES, never values. Three paths put free text into a notification: `broadcast_announcement` (an admin writes subject and body), the LLM-personalised `message` in the lifestyle check-in (screened by `toneGuard`, not by the INV-07 term list), and `free_tier_reading_self_care_suggestion`, whose full text names the reading and now shows only "Something needs your attention" in the preview. The self-care text must stay readable in the app (confirm the card that shows it) because it is a safety message for a patient on the free plan.
@@ -629,6 +635,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Options: (a) before S23, score two or three engines on 30 minutes of real, consented Nigerian consultation audio (English and Pidgin) with a clinician checking drug names, then choose (recommended); (b) start with a general engine and make the clinician edit step the safety net.
 - Decision (founder): pending. Blocks S23.
 - Decision (founder, 2026-10-06): Wait until S23 to choose. Start now on a scoring set of about 30 minutes of consented, de-identified Nigerian consultation audio (English and Pidgin) with a clinician checking medicine names. Until then the scribe stays off and clinicians write notes.
+- Superseded (2026-10-06): The Pidgin part is moot (Pidgin removed 2026-10-06, D-14): the scribe is Nigerian English only (`en-NG`). Vendor scoring on Nigerian English stands.
 
 ### OQ-97 Paystack adapter: webhook secret, transfers and the older code (raised by S14)
 - (1) Paystack signs webhooks with the secret key; the live function reads `PAYSTACK_WEBHOOK_SECRET`. The adapter defaults to the secret key and takes a separate webhook secret only if configured. Confirm the live value before S25. (2) Transfers use `source: balance`. Paystack asks for an OTP on transfers unless it is switched off for the account; the adapter reports an OTP-pending transfer as `needs_attention` for a person to look at. Decide in S31 whether to disable the OTP. (3) Transfer references are validated as lower case letters, digits, dash and underscore, 16 to 50 characters, from Paystack's published rules; confirm in test mode. (4) The live client in `apps/web/src/lib/paystack` still allows GBP and USD and the plan-based subscription flow, which the 2026-09-02 pivot retired; the adapter is NGN only and one-off only. The live code was not changed. (5) The live refund path has no idempotency of its own, so the refund caller must dedupe by its own refund record (S26).
@@ -645,3 +652,918 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Decision (founder, 2026-10-06): Send from a subdomain (`mail.tarragonhealth.ng`) with SPF, DKIM and DMARC (`p=none` with reports for 2 to 4 weeks, then `quarantine`) before S27 sends partner email. From `Tarragon Health <care@mail.tarragonhealth.ng>` with a monitored Reply-To, not a no-reply address; every email points to the app. Staff email carries no patient name or reading, only a link into the console. Review the two PDF attachments (OQ-91) at the same time.
 - Checked 2026-10-06: `mail.tarragonhealth.ng` is verified in Resend (SPF and DKIM). DMARC `p=none` with reports to `dmarc@tarragonhealth.ng` was added in Cloudflare at `_dmarc.mail` and resolves. Still open: the `dmarc@` mailbox does not exist yet (the Zoho login used was not an admin), Resend shows no webhook yet (add it after the S13 migration is applied and `resend-webhook` is deployed), and `RESEND_FROM` and `RESEND_REPLY_TO` are not changed in production because the live sender already reads `RESEND_FROM` and its current value could not be read.
 - Done 2026-10-06 (by the build session): created the Resend webhook to `https://koiplnmbgnqnbywhpjlf.supabase.co/functions/v1/resend-webhook` listening for email.delivered, email.bounced, email.complained and email.failed. Its signing secret must be set as the `RESEND_WEBHOOK_SECRET` edge secret by the owner. The `resend-webhook` function is NOT deployed yet (only `send-pending-notifications` is), so Resend will show failed deliveries and retry until S13 is deployed. Done 2026-10-06: the Zoho Group "DMARC reports" (`dmarc@tarragonhealth.ng`, accepts mail from Everyone so outside report senders can reach it, member `kola.longe@tarragonhealth.ng`, no paid seat) now exists, so DMARC reports reach the founder. The Zoho org is "TarragonHealth", Mail Free plan, 3 users.
+
+### OQ-115 availability_blocks arrives in S17, minimal (raised by S17)
+- Spec 7.6 rejects a clinician with no current queue block, but S18 owns availability. S17 creates the table with declare and cancel only; a `declared` block counts. S18 adds the rota, confirmation and the minimum guarantee.
+- Decision (founder, 2026-10-06): accepted as recommended.
+
+### OQ-116 Who writes conflicts (raised by S17)
+- Clinician declares (pending until the CMO confirms or lifts, blocks offers meanwhile, capped at five pending); the CMO records one against a named clinician; a conflict_of_interest hand-back adds one. Only the CMO lifts, with a reason of at least 10 characters. S15's free-text declarations are not parsed.
+- Decision (founder, 2026-10-06): accepted. The CMO converts any S15 declarations by hand.
+
+### OQ-117 Hand-back reason codes (raised by S17)
+- S16 had `need_more_information` and `unavailable`; S17 changed the check to the spec's `needs_information` and `technical_problem` (table was empty).
+- Decision (founder, 2026-10-06): the spec's five.
+
+### OQ-118 Retry returns the existing claim (raised by S17)
+- Spec 7.6 says reject at the cap; S17 returns the held claim with `already_claimed: true` so a retry over a dropped connection is safe. Only protects a clinician whose cap is 1; above 1 a retry takes a second task.
+- Decision (founder, 2026-10-06): accepted. Revisit with a client request id if any clinician is given a cap above 1.
+
+### OQ-119 Lease extension and heartbeat (raised by S17)
+- One extension of the type's timeout, `queue_last_seen_at` on each call, no heartbeat. An expired claimant may reclaim the task. Without a heartbeat a silent expiry cannot be told from a power cut, so an expiry weighs 0.5 in the score and a person reviews patterns.
+- Decision (founder, 2026-10-06): accepted. A heartbeat is a later option.
+
+### OQ-120 Employed doctors and Next task (raised by S17)
+- An employed doctor takes work pushed to them with no queue block and may also pull from the pool once they declare one.
+- Decision (founder, 2026-10-06): both.
+
+### OQ-121 Starvation (raised by S17)
+- Strict class order then due time. Backstops: S16 escalates overdue tasks; `queue_health()` now reports the oldest open task per class. No aging rule.
+- Decision (founder, 2026-10-06): strict order.
+
+### OQ-122 Reliability numbers and queue limits need the CMO (raised by S17)
+- 90 day window, 30 day half-life, prior of 5 events at 0.8, weights (expiry 0.5, other hand-back 0.25, reasoned 0), cooling-off 3 in 10 minutes, hard cap 6 in 60 minutes, review flag above 3 in 7 days, one extension, five pending self-conflicts. All PROPOSED in `queue.claims`. The score only breaks ties (S18) and never gates a claim or changes pay.
+- Decision: open. CMO to confirm or change before S18 uses the score.
+
+### OQ-123 Test isolation (raised by S17)
+- A test clinician only sees test tasks and a real clinician never sees a test task.
+- Decision (founder, 2026-10-06): accepted.
+### OQ-124 No `pathway_enrolments` table exists; where does the lead live (raised by S18)
+- Spec 7.5 records `pathway_enrolments.lead_clinician_id`, but that table does not exist (RECONCILIATION.md: new table only if care-pack states are needed). The 12-week pack is a `service_purchases` row scoped to a `chronic_programme_enrolment`.
+- Options: (a) a `lead_assignments` table (current row plus history, end reasons, config version) anchored to the patient and optionally the purchase, mirrored into `care_team_assignment.clinician_id` in the same transaction (recommended); (b) build `pathway_enrolments` now.
+- Decision (founder, 2026-10-06): (a), as recommended. S18 built it.
+
+### OQ-125 Who may be a lead: spec says tier 2, F-05 collapsed tiers (raised by S18)
+- Spec 7.5 says "active tier 2 clinicians". F-05 and S16 say doctor tier is the only gate and `credentialing_level` is not used. The `lead_clinician` and `on_call` competencies carry `requires_level` 2.
+- Options: (a) lead pool = `lead_clinician` and `hypertension` competencies, active, eligible, doctor tier senior_medical_officer or chief_medical_officer; Medical Officer excluded (recommended); (b) any doctor tier with the competencies.
+- Decision (founder, 2026-10-06): (a), as recommended. S18 built it.
+
+### OQ-126 `order.paid` has no producer until S25 (raised by S18)
+- S18 registers the subscriber `lead.assign_on_order_paid` and a callable `assign_lead_clinician`, but nothing emits `order.paid` yet; care packs today are `service_purchases`.
+- Options: (a) subscriber now plus a clinical-lead and admin "assign lead" action for the pilot; S25 emits the event (recommended); (b) hook the existing purchase path now.
+- Decision (founder, 2026-10-06): (a), as recommended. S18 built it.
+
+### OQ-127 Capacity and cover gates are exposed, not wired (raised by S18)
+- Babylon lesson: sales must not outrun declared clinician capacity. S18 builds `lead_capacity_status()` and `rota_coverage_gaps()`; `on_call_cover_ok` has no implementation (S37), so S18 enables no gate (INV-14).
+- Options: (a) read functions only; S25 checkout and S37 guard wire them (recommended); (b) block the existing purchase path now.
+- Decision (founder, 2026-10-06): (a), as recommended. S18 built it.
+
+### OQ-128 Working-hours, rest and fatigue numbers need clinical review (raised by S18, OQ-112)
+- Defaults modelled on the NHS 2016 junior-doctor rules (11 hours rest, at most 7 consecutive shifts, at most 3 on-calls in 7 days) as configurable warnings with an override reason. They are not Nigerian norms.
+- Options: (a) ship as PROPOSED warnings, CMO to set values (recommended); (b) leave rest rules off until the CMO supplies numbers.
+- Decision (founder, 2026-10-06): (a), as recommended. S18 built it.
+
+### OQ-129 Patient wording when the lead changes, and whether the patient sees the lead's name (raised by S18)
+- Spec 7.5 step 3 says to show the patient "name and photo of the lead clinician". The live care team card (`apps/web/src/components/your-care-team.tsx`), `docs/CLINICAL_TRUST_MODEL_SPEC.md` section 2 and CLAUDE.md ("never describe it as one named doctor") say the opposite: no single doctor's name or photo appears ahead of a real review, and `care_team_assignment.clinician_id` is internal routing only. Reassignment must also be told to the patient.
+- Options: (a) keep the card as it is (no name), tell the patient in neutral words whenever their care team lead is set or changes, and keep `my_care_team_lead()` ready for the day the founder decides to show a name (recommended); (b) show the lead's name and photo as the spec says, which reverses the 2026-07-30 founder correction.
+- Decision (founder, 2026-10-06): (a), as recommended. S18 built it: the patient notices say "your care team lead", never a name; the card is untouched. Pidgin text needs a native reviewer.
+
+### OQ-130 Changing lead on request (raised by S18)
+- Not in the spec: a patient asking for a different lead, or a clinician asking to be released from a patient for a non-conflict reason.
+- Options: (a) clinical-lead-only action with a reason, audited, ending reason `patient_request` or `clinician_request` (recommended); (b) self-serve.
+- Decision (founder, 2026-10-06): (a), as recommended. S18 built it.
+
+### OQ-131 Chart access starts at acknowledgement, not at the page (raised by S19)
+- Spec INV-12 says a clinician sees patients for whom they hold "an on-call page". A paged clinician who has not answered has taken no responsibility, so S19 ties them to the chart only once they acknowledge.
+- Options: (a) access from acknowledgement (recommended, built); (b) access from the moment of the page, so a clinician can look before acknowledging.
+- Decision (founder, 2026-10-06): (a), as recommended. S19 built it.
+
+### OQ-132 What a red page should say to Care Circle supporters and the clinical lead's review (raised by S19)
+- The spec's red event table also notifies Care Circle members with `red_alerts` and creates an incident review task for the clinical lead. S19 builds the page and the escalation only.
+- Options: (a) Care Circle notices in S29 and the review task in S20 (recommended); (b) pull them into S19 now.
+- Decision (founder, 2026-10-06): (a), as recommended. S19 built it.
+
+### OQ-133 Acknowledgement targets and how long the lead is re-alerted (raised by S19)
+- 5 and 10 minutes (spec) and a 5 minute repeat of the lead alert are PROPOSED numbers with no Nigerian benchmark. No re-alert ever reaches a person after the clinical lead and ops if all of them are away.
+- Options: (a) ship the numbers, CMO to set them in `paging_config` (recommended); (b) add a third rung (a named deputy or the founder) with its own phone.
+- Decision (founder, 2026-10-06): (a), as recommended. S19 built it.
+
+### OQ-134 Contractor status and declared hours (raised by S18, second pass)
+- Declared availability blocks, a displayed weekly floor and a lead cap can look like control over a contractor (Hims lists contractor classification as a risk in its annual report; Wheel and Amwell Associates are 1099 contractors). Nigerian labour-law treatment of the freelance clinicians is not established here.
+- Options: (a) take Nigerian employment-law advice before contracted clinicians are onboarded, and keep the weekly floor a display only (recommended, built); (b) enforce a minimum now.
+- Decision (founder, 2026-10-06): (a), as recommended. S18 built it.
+- Superseded (2026-10-06): Moot. The scribe is English only (`en-NG`) since Pidgin was removed 2026-10-06 (D-14).
+
+### OQ-135 Strikes and a doctor's other job (raised by S18 and S19, second pass)
+- NARD issued an ultimatum effective 1 October 2026 and has struck or threatened in each recent quarter; public hospitals are moving towards biometric work-hour logging; dual jobs are common. A freelance resident could be unreachable inside their own shifts, and the rota assumes people are available when they declared it.
+- Options: (a) for now, rely on declared blocks and the backup, with the employed tier and the CMO as the last rung, and record the doctor's main-employer hours later using the existing availability rules (recommended); (b) add a strike-window switch that widens escalation, and a voice-call rung for the CMO tier only (D-12 currently allows push, in-console alarm and email only, so this needs a decision).
+- Decision (founder, 2026-10-06): (a), as recommended. S18 and S19 built it.
+
+### OQ-136 Acknowledgement targets are not clinically validated (raised by S19, second pass)
+- 5 and 10 minutes match vendor example defaults (PagerDuty, Opsgenie) and the Manchester Triage targets measure first clinical contact, not acknowledgement; the Joint Commission requires a written, measured time but sets none. No Nigerian benchmark was found.
+- Options: (a) ship the PROPOSED numbers, record them as policy and review the measured acknowledgement times from `paging_overview` after the pilot (recommended); (b) have the CMO set stricter numbers now.
+- Decision (founder, 2026-10-06): (a), as recommended. S19 built it.
+
+### OQ-124 S18 and S19 must merge before the S21 slot RPC (raised by S21)
+- S21 books from confirmed `bookable_consultations` blocks. `availability_blocks` is on main-dev (S17) but confirmation, rota and `clinician_offerable` are only on PR 931 (S18 and S19), which is open with merge conflicts.
+- Decision (founder, 2026-10-06): merge S18 first. S21 builds everything that does not read the rota first, and the slot RPC lands after PR 931.
+- Update (2026-10-06, later): S18 and S19's migrations are now applied to production (ledger rows exist) while PR 931 is not merged, so the database enforces S18's block rules (minimum 2 hours, no declaring over leave). S21's slot function reads confirmed `bookable_consultations` blocks and works with or without S18's code; the S21 proof makes its blocks 2 hours long so it holds either way. PR 931 is merge-blocked on CI, not on conflicts.
+
+### OQ-125 Authoritative encounters table (raised by S21, closes OQ-38)
+- Decision (founder, 2026-10-06): new authoritative `encounters` table. `clinical_encounters` stays as a synced projection so current readers keep working. `consultation_scribe_consents` (renamed 2026-10-06, see OQ-161), rooms and events hang off `encounters`.
+
+### OQ-126 How real the call is in S21 (raised by S21)
+- Decision (founder, 2026-10-06): link-based Zoom now (audio-first join, server-owned fallback ladder, in-app waiting room and consent), masked phone callback as the last step. An in-app SDK is a later session.
+
+### OQ-127 Cancellation and refund rule (raised by S21)
+- Decision (founder, 2026-10-06): full refund when the patient cancels 2 hours or more before. Inside 2 hours a small fixed retention (PROPOSED value in config). A clinician cancel or no-show is always a full refund or a free rebook. The rule is shown before the pay button.
+
+### OQ-128 Consent, transfer mechanism and MDCN text (raised by S21)
+- Decision (founder, 2026-10-06): per-consultation in-app consent is accepted for NDPA and GAID purposes, the transfer mechanism covering Supabase, Zoom and Claude is accepted, and the MDCN position on recording and AI is accepted. Recording stays off by default. Counsel has not reviewed these separately.
+
+### OQ-129 Consultations are for adults only (raised by S21)
+- Decision (founder, 2026-10-06): no video, audio or phone consultation for anyone under 18. Booking checks the patient's age server-side. A dependant under 18 cannot book. Written questions for minors are not decided and stay as they are today until the founder says otherwise.
+
+### OQ-130 Consultation price (raised by S21)
+- Decision (founder, 2026-10-06): NGN 10,000 (1,000,000 kobo) for a consultation, replacing the 5,000 placeholder on `video_visit_credit`. One price for video, audio and phone, so a fallback never changes what the patient paid. Result interpretation (10,000) and written question (2,500) are unchanged.
+
+### OQ-131 Zoom dial-in in Nigeria and the phone fallback (raised by S21; revised 2026-10-06)
+- Confirmed 2026-10-06 from Zoom's rates page: Nigeria has toll dial-in (needs the Audio Conferencing add-on, Zoom-provided numbers only) and call-out at about GBP 1.08 to 1.68 a minute, which is too dear for a NGN 10,000 consultation.
+- First decision (founder delegated the vendor, 2026-10-06): a Tarragon-owned number bridge on Africa's Talking Voice. Built, then **withdrawn the same day** by the founder: "instead of Africa's Talking, can we just turn off the Zoom video if the network is bad and people can still make the voice call."
+- **Decision (founder, 2026-10-06): the phone fallback is Zoom's own dial-in.** The person rings a Nigerian number Zoom publishes for the room and types the meeting id and passcode; they land in the same call as the clinician. No second vendor, no number of ours, no callback route, no table holding anyone's phone number, nothing rung from our side. The older "turn the camera off" half already exists: audio only is offered in the room and an audio-only rejoin comes in audio first. The Africa's Talking adapter, bridge store, callback route and `phone_bridges` table were removed (migration `20261006164657_s21f_drop_phone_bridges_use_vendor_dial_in.sql`; the table had 0 rows).
+- Built: `VideoProvider.dialIn` (Zoom reads the meeting's Nigerian numbers and phone passcode from the meeting each time and never stores them; rooms are created with `audio: both` and `global_dial_in_countries: [NG]`), a mock, `requestDialIn` in the room logic, and a "Join by phone call instead" card showing the number, meeting id and passcode with a tap-to-call link.
+- **To confirm on the live Zoom account before real use:** (1) the account has the Audio Conferencing add-on, otherwise Zoom lists no toll numbers and the room says "we could not find a phone number" (a safe failure, not a broken call); (2) the Nigerian numbers actually appear in `settings.global_dial_in_numbers` for a meeting created by the Server-to-Server app; (3) `pstn_password` is returned and a phone caller can get past the passcode prompt; (4) a phone caller waits in the waiting room and the host can admit them (they show as a call-in user or a masked number, which is why the clinician is told to expect that); (5) a call costs the patient only their normal carrier charge.
+- Consequences to accept: the patient pays the carrier for the call, the call is not private from the clinician's side in the way a bridge was (the clinician may see a masked number in the Zoom participant list), and we cannot see that someone dialled, so a consultation is never marked "on the phone" automatically (the in-app SDK, OQ-136, can). Open until the live checks above are done.
+
+### OQ-132 What a red page should say to Care Circle supporters and the clinical lead's review (raised by S19)
+- The spec's red event table also notifies Care Circle members with `red_alerts` and creates an incident review task for the clinical lead. S19 builds the page and the escalation only.
+- Options: (a) Care Circle notices in S29 and the review task in S20 (recommended); (b) pull them into S19 now.
+- Decision (founder, 2026-10-06): (a), as recommended. S19 built it.
+
+### OQ-133 Acknowledgement targets and how long the lead is re-alerted (raised by S19)
+- 5 and 10 minutes (spec) and a 5 minute repeat of the lead alert are PROPOSED numbers with no Nigerian benchmark. No re-alert ever reaches a person after the clinical lead and ops if all of them are away.
+- Options: (a) ship the numbers, CMO to set them in `paging_config` (recommended); (b) add a third rung (a named deputy or the founder) with its own phone.
+- Decision (founder, 2026-10-06): (a), as recommended. S19 built it.
+
+### OQ-134 Contractor status and declared hours (raised by S18, second pass)
+- Declared availability blocks, a displayed weekly floor and a lead cap can look like control over a contractor (Hims lists contractor classification as a risk in its annual report; Wheel and Amwell Associates are 1099 contractors). Nigerian labour-law treatment of the freelance clinicians is not established here.
+- Options: (a) take Nigerian employment-law advice before contracted clinicians are onboarded, and keep the weekly floor a display only (recommended, built); (b) enforce a minimum now.
+- Decision (founder, 2026-10-06): (a), as recommended. S18 built it.
+- Superseded (2026-10-06): Moot. The scribe is English only (`en-NG`) since Pidgin was removed 2026-10-06 (D-14).
+
+### OQ-135 Strikes and a doctor's other job (raised by S18 and S19, second pass)
+- NARD issued an ultimatum effective 1 October 2026 and has struck or threatened in each recent quarter; public hospitals are moving towards biometric work-hour logging; dual jobs are common. A freelance resident could be unreachable inside their own shifts, and the rota assumes people are available when they declared it.
+- Options: (a) for now, rely on declared blocks and the backup, with the employed tier and the CMO as the last rung, and record the doctor's main-employer hours later using the existing availability rules (recommended); (b) add a strike-window switch that widens escalation, and a voice-call rung for the CMO tier only (D-12 currently allows push, in-console alarm and email only, so this needs a decision).
+- Decision (founder, 2026-10-06): (a), as recommended. S18 and S19 built it.
+
+### OQ-136 Acknowledgement targets are not clinically validated (raised by S19, second pass)
+- 5 and 10 minutes match vendor example defaults (PagerDuty, Opsgenie) and the Manchester Triage targets measure first clinical contact, not acknowledgement; the Joint Commission requires a written, measured time but sets none. No Nigerian benchmark was found.
+- Options: (a) ship the PROPOSED numbers, record them as policy and review the measured acknowledgement times from `paging_overview` after the pilot (recommended); (b) have the CMO set stricter numbers now.
+- Decision (founder, 2026-10-06): (a), as recommended. S19 built it.
+
+### OQ-124 S18 and S19 must merge before the S21 slot RPC (raised by S21)
+- S21 books from confirmed `bookable_consultations` blocks. `availability_blocks` is on main-dev (S17) but confirmation, rota and `clinician_offerable` are only on PR 931 (S18 and S19), which is open with merge conflicts.
+- Decision (founder, 2026-10-06): merge S18 first. S21 builds everything that does not read the rota first, and the slot RPC lands after PR 931.
+- Update (2026-10-06, later): S18 and S19's migrations are now applied to production (ledger rows exist) while PR 931 is not merged, so the database enforces S18's block rules (minimum 2 hours, no declaring over leave). S21's slot function reads confirmed `bookable_consultations` blocks and works with or without S18's code; the S21 proof makes its blocks 2 hours long so it holds either way. PR 931 is merge-blocked on CI, not on conflicts.
+
+### OQ-125 Authoritative encounters table (raised by S21, closes OQ-38)
+- Decision (founder, 2026-10-06): new authoritative `encounters` table. `clinical_encounters` stays as a synced projection so current readers keep working. `consultation_scribe_consents` (renamed 2026-10-06, see OQ-161), rooms and events hang off `encounters`.
+
+### OQ-126 How real the call is in S21 (raised by S21)
+- Decision (founder, 2026-10-06): link-based Zoom now (audio-first join, server-owned fallback ladder, in-app waiting room and consent), masked phone callback as the last step. An in-app SDK is a later session.
+
+### OQ-127 Cancellation and refund rule (raised by S21)
+- Decision (founder, 2026-10-06): full refund when the patient cancels 2 hours or more before. Inside 2 hours a small fixed retention (PROPOSED value in config). A clinician cancel or no-show is always a full refund or a free rebook. The rule is shown before the pay button.
+
+### OQ-128 Consent, transfer mechanism and MDCN text (raised by S21)
+- Decision (founder, 2026-10-06): per-consultation in-app consent is accepted for NDPA and GAID purposes, the transfer mechanism covering Supabase, Zoom and Claude is accepted, and the MDCN position on recording and AI is accepted. Recording stays off by default. Counsel has not reviewed these separately.
+
+### OQ-129 Consultations are for adults only (raised by S21)
+- Decision (founder, 2026-10-06): no video, audio or phone consultation for anyone under 18. Booking checks the patient's age server-side. A dependant under 18 cannot book. Written questions for minors are not decided and stay as they are today until the founder says otherwise.
+
+### OQ-130 Consultation price (raised by S21)
+- Decision (founder, 2026-10-06): NGN 10,000 (1,000,000 kobo) for a consultation, replacing the 5,000 placeholder on `video_visit_credit`. One price for video, audio and phone, so a fallback never changes what the patient paid. Result interpretation (10,000) and written question (2,500) are unchanged.
+
+### OQ-131 Zoom dial-in in Nigeria and the phone bridge vendor (raised by S21)
+- Confirmed 2026-10-06 from Zoom's rates page: Nigeria has toll dial-in (needs the Audio Conferencing add-on, Zoom-provided numbers only) and call-out at about GBP 1.08 to 1.68 a minute, which is too dear for a NGN 10,000 consultation.
+- Options: (a) Tarragon-owned number bridge on Twilio Voice; (b) LiveKit SIP or a Nigerian carrier trunk; (c) Zoom toll dial-in only, patient pays carrier rate.
+- Recommend (a) behind an adapter with a mock, after checking NCC caller-ID rules with the carrier. Vendor choice is the founder's.
+- Decision (founder delegated the choice, 2026-10-06, "which one will work in Nigeria, easy to connect, cheap"): **Africa's Talking Voice**. Their published Nigerian rates are about NGN 15 to 20 a minute a leg; Twilio is about USD 0.23 a minute (roughly NGN 350), which makes a bridged half hour dearer than the NGN 10,000 consultation. The adapter, bridge store, protected callback route and a database table are built (`phone-africastalking.ts`, `phone_bridges`, `/api/voice/africastalking/[secret]`). **Not yet run against a live account.** Before real use: create the Africa's Talking account, buy a Nigerian Voice number, set AT_VOICE_* and the callback URL, run the sandbox, and confirm with them (1) the callback fields and that `clientRequestId` is echoed, (2) that a bridged call shows our number to both people, (3) the Nigerian caller-ID rule with the carrier, (4) that the Dial's `maxDuration` is honoured (else cap call length on the number in their dashboard), (5) whether they can sign callbacks or restrict them to their IP addresses (today the only credential is a secret in the callback URL, which Vercel logs), and (6) what they do when a callback reply is lost or retried (today a retry is rejected, so the clinician would not be dialled and the app would show the bridge as connected). Open until then.
+
+### OQ-132 Legacy video paths left alone in S21 (raised by S21)
+- `consult_availability_slots` with `video_visit_requests` (a second slot system, used by mobile) and the org-wide `video_consultations` read policy that exposes `host_start_url` to any org staff member each have about 8 call sites. Narrowing either now would blank live screens (the PR 789 failure).
+- Recommend: S21 leaves both, routes the new flow through `encounters` and issued join tokens, and a follow-up session inventories and migrates the call sites, then closes the policy.
+- Decision: open.
+
+### OQ-133 Cash refund of a cancelled consultation (raised by S21)
+- S21 returns the consultation credit when the patient cancels 2 hours or more before, or when a clinician cancels or does not attend. Returning money already paid to Paystack is refund work that belongs to S26 and is not built here (INV-09: no balance, no stored value).
+- Options: (a) credit returned, cash refund on request through S26; (b) cash refund automatically.
+- Recommend (a) now, (b) when S26 lands.
+- Decision: open.
+
+### OQ-134 Pidgin for the scribe consent prompt (raised by S21)
+- CON-001 is consent text. The i18n rules keep consent and legal text in one language until a clinician has signed off a translation, and `scribe_enabled` already needs legal review of CON-001 (spec 14). So the `consult.scribe.*` keys have English text in the Pidgin catalogue on purpose.
+- Options: (a) English only until legal review and a clinician-signed Pidgin translation exist (recommended); (b) ship a Pidgin draft now.
+- Decision: open.
+- Superseded (2026-10-06): Moot. The scribe is English only (`en-NG`) since Pidgin was removed 2026-10-06 (D-14).
+
+### OQ-135 Consultations are not behind a go-live guard yet (raised by S21)
+- INV-14 and spec 14 say the `clinical_operations_enabled` guard blocks consultations. The guard mechanism (`app_config.go_live`) is S37. Until then a consultation can be booked as soon as a clinician has bookable slots and the patient holds a credit.
+- Recommend: S37 wires the guard into `hold_appointment_slot` and `service_get_encounter_room`. Do not switch consultations on for real patients before then, or before the phone bridge vendor (OQ-131), the slot RPC (OQ-124) and the CMO's sign-off exist.
+- Decision (founder, 2026-10-06): build it now, so consultations cannot be switched on until the guard is satisfied. S37 built it: `clinical_operations_enabled` is wired into `hold_appointment_slot`, `confirm_appointment_booking`, `service_get_encounter_room` and the booking screen. It starts off and cannot be switched on until an approved hypertension protocol and an approved triage rule set exist (neither does today). The phone bridge (OQ-131) and the CMO's own sign-off of the consultation policy are still separate human steps; the guard does not check them (see OQ-180 follow-ups).
+
+### OQ-136 Automatic fallback needs the in-app call SDK (raised by S21)
+- With link-based Zoom the page cannot see call quality and Zoom's presence webhook cannot tell patient from clinician, so automatic downgrade to audio only and automatic phone callback on a dropped call cannot be built honestly in S21. The ladder and its clock are proved in code (`stepLadder`) and the manual steps work (audio-only join, "call me", no-show reporting).
+- Options: (a) a later session adds an in-app SDK (LiveKit or Zoom Video SDK, labels we control, client quality stats) and wires `stepLadder` to it; (b) accept manual fallback only.
+- **Decision (founder, 2026-10-06): option (a) with the Zoom Meeting SDK, not LiveKit** (same Zoom room, same dial-in numbers, same waiting room). Built in the follow-up on PR 942 (`docs/design/S21.md` section 9):
+  - The room joins inside the page with Component View, loaded from Zoom's CDN pinned to 6.5.0, only when the person taps join and only when `ZOOM_SDK_KEY` and `ZOOM_SDK_SECRET` are set. **Any** failure (keys unset, script blocked, unsupported browser, Zoom refusing the join, no host key) opens the existing link exactly as before; the room never depends on the SDK.
+  - The SDK's own signals drive the ladder with the real policy: `connection-change` (Reconnecting is a drop, Connected is the return, Closed is the call ending), `network-quality-change` (the vendor's 0 to 5 scale, only while the camera is on, only the person's own link) and `audio-statistic-data-change` (packet loss and round trip, thinned to one sample per interval). Thresholds are `video.audio_fallback` v2 (PROPOSED: 10 percent loss, 600 ms, one sample per 3 seconds); the reconnect grace is the consultation's own policy row.
+  - What the ladder now does on its own: `to_audio_only` records the mode change and tells the person to switch their camera off; `offer_video` asks the patient and never switches back by itself (only the patient's tap, and only the patient's client reports the return); a drop shows "your place is held for N seconds" and reports `reconnect_grace_started`; `to_phone` shows the existing dial-in card (numbers, meeting id, passcode) at once. The server still never marks a consultation "on the phone" itself, because it cannot see who dialled.
+  - **Finding that changes the wording of the brief: the web Meeting SDK has no programmatic camera control.** Neither Component View nor Client View declares a stop-video or start-video call (read from `embedded.d.ts` and `index.d.ts` of @zoom/meetingsdk 6.5.0). So "turn the camera off in the SDK" cannot be done by us: audio only is a recorded mode plus a clear instruction to the person, as it was for the link. Rooms are created with `participant_video: true`, so a patient who chose audio only can still publish video until they switch the camera off. A consequence: Zoom stops sending the network level once the camera is off, so the way back to an offer of video depends on the audio statistics.
+  - The clinician hosts: the SDK needs the meeting owner's host key (ZAK) to start as host (role 1). The adapter fetches it from Zoom (`GET /users/me/token?type=zak`, TTL equal to the join token) only for the clinician role and hands it to that one signed-in clinician; it needs the scope `user:read:zak` on the Server-to-Server app, and the Meeting SDK app must be in the same Zoom account (a Meeting SDK app joining another account's meetings needs an OBF token or ZAK from 23 February 2026; ours are all one account).
+  - **Known exposure of the host key, to decide before real use.** The ZAK is the Zoom account owner's key, not the clinician's, and it is not bound to one meeting (only the SDK signature is). A clinician can read it from the server action's response in their own browser while it is valid (the token's lifetime, up to two hours) and, with the Zoom desktop client, could start any other meeting of that account if they knew its number (nine to eleven digits, not secret but not listed to them). Mitigations to choose between: one Zoom host user per clinician (so a ZAK only starts that clinician's own rooms), a short ZAK lifetime tied to the consultation, or no in-app hosting for clinicians (the clinician keeps the host link and only the patient uses the SDK). Until decided, keep the clinician on the link by leaving `ZOOM_SDK_KEY` set only where the patient-side in-app call is wanted, or accept the exposure for a closed pilot.
+  - Other review notes, recorded not fixed: the in-app join, like the link, only records presence when `ZOOM_PRESENCE_WEBHOOK` is off or the webhook fires; rooms created before this change have no Nigerian dial-in numbers (settings are applied at creation); a clinician whose own connection fails is routed to the phone card like a patient (the ladder has one phone input); `SDK_TOKEN_SECONDS` and the webhook timestamp window are code constants, not registry values.
+  - **Untested, and cannot be tested here (no SDK keys, Free Zoom plan, no live browser call):** that Component View renders correctly inside this Tailwind page (Tailwind's reset may need scoping, the box is `data-testid="call-root"`); that `join` is accepted with `customerKey` and a clinician ZAK; the units of `avg_loss` (assumed percent); whether the SDK needs anything the narrowed consultation CSP refuses (open the browser console on the first live call and look for violations: scripts are allowed from `source.zoom.us` only, with no blob scripts and no new frame source; the evidence for that is in `next.config.ts` and is from reading the 6.5.0 bundle, not from a run; a CSP block after a successful join does not trigger the link fallback, which only covers a failed join); the waiting-room flow (the patient waits on hold until the clinician admits them in Zoom's own participants panel); behaviour on a real weak network and a real dropped connection; the audio-only notice on real devices; whether Server-to-Server OAuth accepts the `me` alias on `/users/me/token` (the existing `createRoom` uses `/users/me/meetings` the same way; if Zoom wants the account owner's user id or email here, set it in the adapter); the Meeting SDK's minimum signature lifetime (believed to be about 30 minutes; our signature is capped at the room's end, so a join with less time left may be refused and fall back to the link). Treat the first live consultation as a test with a clinician watching, and read `encounter_events` afterwards.
+  - **Host key decision (founder, 2026-10-06: build the recommendation).** Zoom has no host token for a single meeting, so the key stays but its reach shrinks, in three steps: (1) **a dedicated host user.** Every consultation meeting is created under one dedicated, licensed, low-privilege Zoom user (`ZOOM_HOST_USER_ID`, a Zoom user id or email; unset means the app's own user, as before), so a leaked key can only start meetings as that user and never as the account owner; the key is requested for the user the meeting itself reports as its owner (`host_id`), so it can never disagree with how the room was made. (2) **A short, fresh key per join.** The server asks Zoom for the key only when the clinician joins, only for the clinician on their own consultation, inside the join window, with a lifetime from the versioned configuration `consultations.host_key` (`ttlSeconds` 300, PROPOSED) and never longer than the token or the room; a rejoin asks again; it is not stored or logged. (3) **An audit event before it leaves the server.** Each issue writes an append-only `host_key_issued` event on the encounter through a server-only function that names the clinician it was issued to (checked against the encounter's clinician at that moment, so a later reassignment cannot change who the record says; no key, empty payload). With a dedicated host user configured, a key is only ever minted for that user: a meeting made before it was set, or by another path, is refused (the room falls back to the link) rather than given the account owner's key, and if that write fails the key is not handed out and the room falls back to the link (migration `20261006215422_s21h_host_key_issued_audit_event.sql`; only the server can write the event, never a signed-in user). Not changed: the join LINK flow still hands the clinician Zoom's own host link (its start key lasts about two hours and cannot be shortened from here); one Zoom user per clinician (the strongest option) waits for more clinicians and licences. **To confirm on the live account:** that Zoom allows creating meetings for another user from the Server-to-Server app and which scopes that and the start-key call need (the exact scope names are unconfirmed), and Zoom's minimum and maximum for the key lifetime.
+  - Mobile is unchanged (OQ-158): the Expo app has no SDK embed, so the automatic ladder is a web feature for now.
+
+### OQ-158 Mobile Care flow (raised by S21)
+- The consultation room and Care tab changes are on the web (responsive). The Expo app keeps its own older video-visit screens, which hand off to the Zoom app by link. A mobile consultation room needs an EAS dev-client build to check on a device, which this session could not do.
+- Recommend: a short mobile session after S21 merges: the waiting room, consent prompt and "call me" over the same RPCs, then device-tested. Decision: open.
+- **Built 2026-10-06 (founder decision: build it with unit tests, flag it as untested on a phone). NOT RUN ON A REAL PHONE, NOT RUN IN ANY SIMULATOR OR EMULATOR.** Patients only (clinicians stay on the web). In the Care area: a "Your consultations" card (`my_upcoming_encounters`) and a consultation room screen: waiting room (when it opens, whether the care team has joined, refresh every 10 seconds while live and the app is in the foreground, slower while offline), the AI note-taker question (`open_scribe_prompt` then `record_scribe_consent`; shown as saved only after both succeed), "Join with video" and "Join with audio only" (the link comes from the server and is handed to the Zoom app with `Linking.openURL`; never stored or logged), "Join by phone call instead" (Zoom dial-in number as a tap-to-call link, meeting id, passcode; held in memory for the screen only), "Tell us nobody came" (`mark_encounter_no_show`, the wait rule stays the server's), and the ended and cancelled states. Joining and dial-in go through two bearer-authenticated routes, `/api/mobile/consultations/join` and `/api/mobile/consultations/dial-in`, which call the same `joinConsultation` and `requestDialIn` as the web room. No database change was needed. All strings are in `packages/i18n` (en and pcm).
+- **What is proved and what is not.** Jest covers the routes (19 tests, including that a clinician or stranger is refused), the room state machine with the network mocked (polling floor, no overlap, background pause, offline, join, dial-in, scribe, no-show, link never kept), the database wrappers and the model. The mobile Jest setup has no component renderer, so the two screen files themselves (layout, the Zoom app hand-off, tap-to-call, accessibility labels read by VoiceOver or TalkBack, dark mode, large text) were never rendered anywhere. Before any release: build an EAS dev client, then on one iOS and one Android phone run join with video, join audio only, dial-in, the consent answer failing offline, and "nobody came". Android is the priority (the main user base), including a low-end device on a weak network.
+- **Needs the web deploy first.** The two routes live in `apps/web`, so the app cannot join or dial in until that is deployed. The list, the waiting room and the consent question work against the database alone. This change is JS only (no native config or `runtimeVersion` change), so it can ship over the air once a build with runtime 0.2.0 exists.
+- **Review fixes (2026-10-06):** join and dial-in are no longer retried blind after a timeout (a repeat would issue a second link or log a second ask); "the vendor is not set up" is an ordinary 200 answer with a reason code, so a gateway 503 is no longer read as "no phone number". Left as known: the two screens have no render test; polling a not-found consultation continues at the slower pace while the screen is open; a caregiver acting for someone cannot use the mobile room (the web room has the same rule).
+- Status: built, unverified on a device. Decision on release: open.
+
+### OQ-159 Clinician access after "Finish consultation" (raised by S21 review)
+- `complete_encounter` marks the appointment completed, as the older `set_video_consultation_call_state` already does. `private.clinician_has_patient_access` only ties a clinician to a patient through a live appointment (and the other clauses), so after Finish a clinician who is not on that patient's care list can no longer open the chart to write the note or prescribe (INV-12 is doing its job; the timing is the problem).
+- Options: (a) add one clause to `clinician_has_patient_access`: "my encounter with this patient ended in the last N hours" (recommended; the function is also being changed on the S19 branch, so this must be applied on top of whichever lands last, re-reading the live definition first); (b) keep the appointment `in_progress` until a signed note exists; (c) tell clinicians to finish last (done: the room says so).
+- **Decision (founder, 2026-10-06): until a signed note exists, capped at 72 hours** (the third option, with a cap). One clause on `private.clinician_has_patient_access` in migration `20261006183117_s21g_...` (the body repeats the live definition read on 2026-10-06 after S16 and S19, plus the clause): a clinician keeps the patient they finished a consultation with until a finalized note exists for that consultation (`clinical_encounter_notes.video_consultation_id` equals the encounter's), for at most `chartAccessAfterFinishMaxHours` (72, PROPOSED, consultation policy v2). The room's finish hint says so. Another clinician never gains access this way.
+
+### OQ-160 "Joined" is recorded when the link is issued, not when someone enters the call (raised by S21 review)
+- A person can no longer report their own join from the app; the server records it after checking the person and the join window. With link-based Zoom the server still cannot see anyone enter the call, so a clinician who requests the link and never enters still counts as joined and can defeat a no-show report.
+- **Decision (founder, 2026-10-06): real presence from Zoom's own webhook, with an identity that does not come from the client.** `POST /api/zoom/webhook` verifies Zoom's signature (the adapter's `parseWebhook`), maps `meeting.participant_joined` and `meeting.participant_left` to `service_record_join` and a `left` event, and answers Zoom's one-time URL challenge. The old "joined means the link was issued" path stays as the default and as the fallback for people who join by plain link or by phone.
+- **Spoofing and the display name.** The label is chosen by the client, so a patient could join as "clinician". The webhook therefore ignores the label for identity. Zoom's published webhook reference lists `customer_key` ("the participant's SDK identifier") on the participant object, and the Meeting SDK `join` takes a `customerKey`, so the server mints one per (encounter, role): `p` or `c` plus 34 hex characters of HMAC-SHA256(server secret, "tarragon.participant.v1:encounter:role"), 35 characters (kept short of 36 to be safe; the limit was not confirmed in Zoom's docs). Only a key that verifies for the encounter the room belongs to counts, and its role is the role it was minted for. Tests prove a patient calling themselves "clinician", a made-up key, a key from another consultation and a label with no key all record nothing or only the patient's own role (sabotage: trusting the label fails 6 checks).
+- **Residual weaknesses, stated plainly.** (1) A person who joins Zoom by plain link, by phone or from the Zoom app has no customer key and so proves nothing; they are never recorded by the webhook, only by the legacy path while it is on. **Consequence found in review, not new but now visible:** a patient who joins ONLY by phone dial-in (the very person the phone fallback is for) is not recorded as joined by anything, so the consultation never reaches in progress and the clinician could report them as absent after the wait. The dial-in path has never recorded a join (OQ-131: we cannot see who dialled). Options: record a join when the dial-in details are given (spoofable, like the old link path) only for a patient who is already on the consultation, or have the clinician confirm the caller in the room. Decide before real use. (2) A person can read their own key in their browser and pass it to someone else; that only lets someone present as that same role on that same encounter, never as the other person. (3) The key is deterministic per (encounter, role), so it does not expire by itself; the join window in `service_record_join` bounds it. (4) A webhook cannot say whether someone joined with video or audio, so the join is recorded with mode `unknown` (the `mode_changed` events carry the real mode). The room has a waiting room on, so a patient is first in the waiting room and `meeting.participant_joined` fires only when the clinician admits them; the waiting-room arrival event (`meeting.participant_joined_waiting_room`, which also carries `customer_key`) is therefore treated as arriving too, so a waiting patient counts as joined exactly as before and the clinician cannot report them absent. Subscribe the Zoom app to that event as well. Presence rows are not de-duplicated: a reconnect or a Zoom retry can add another `joined` row (harmless to the rules, which only ask whether one exists). (5) The URL-validation answer is an HMAC under the same secret that signs events, so on its own it would let anyone obtain a valid signature for a forged event body; the route therefore refuses a challenge that could be a signed message (a colon, whitespace or more than 256 characters; Zoom's real token alphabet is not documented, so this is a denylist), and `parseWebhook` now also refuses a validly signed event whose timestamp is more than five minutes from now (replay), both proved by tests. **The older `zoom-webhook` edge function had the same oracle (same secret, no check); it carries the same guard now (one shared helper, `isSafeWebhookChallenge`), but is NOT redeployed from here, and it still has no replay window (its signature check is older than this work and is not changed here): add the same five-minute check and redeploy it, or move the Zoom subscription to the new route.** Unverified: whether Zoom re-stamps `x-zm-request-timestamp` on a retried delivery; if it does not, a retry after five minutes is refused as stale (401) and presence for that event is lost, so watch the first live retries. (6) Webhook events are retried by Zoom on a non-2xx answer; the route answers 500 only for failures worth retrying and 200 for refusals the database will always repeat. (7) Zoom's published docs name `customer_key` on webhook participants, but an older forum request (closed 2021) asked for it on the join and left events; it was **not verified against a live event**. If a real event arrives without it, every key-less event is ignored and presence silently never records, which is why the switch below exists.
+- **The safe default and the switch.** Presence from the webhook turns on only with `ZOOM_PRESENCE_WEBHOOK=1`, set after the event subscription points at `/api/zoom/webhook` and the URL validation has succeeded and a real event with `customer_key` has been seen. Until then the in-app join records the join when the person is given the way in (the old behaviour), so a missing webhook can never leave two people in a call that the database thinks nobody entered (which would let one report the other as absent and return a credit). **To do:** the new route handles participant events only and ignores `meeting.started` and `meeting.ended`, which the older `zoom-webhook` edge function turns into `video_consultations` status changes, so moving an app's single subscription URL to the new route would stop those; Zoom delivers an app's events to the URLs on its event subscriptions; the older `zoom-webhook` edge function shares the secret token, so decide whether the new route is a second subscription on the same app or the edge function forwards to it. Looking up the room by `provider_room_id` is a scan of a small table; add an index if consultation volume makes it matter.
+- **Review fixes (2026-10-06, `/code-review high` on the SDK PR).** (1) **One subscription, both features:** Zoom takes one event-subscription URL per app, and it stays the older `zoom-webhook` edge function. That function now hands `meeting.participant_joined`, `..._joined_waiting_room` and `..._left` to `/api/zoom/webhook` unchanged (`forwardPresenceEvent`, with `APP_BASE_URL` already set as an edge secret), which verifies the signature itself; a 502 makes Zoom retry. Subscribe the app to those three events plus meeting started and ended and point it at the function, never at the route. The function used to key its audit row on the meeting only, so two people joining the same meeting collided and the second was dropped as a replay; participant events are now forwarded before that step. (2) **A present patient cannot be marked absent by a missing key:** the patient's join is still recorded when they are handed the way in (the link, the SDK, or the dial-in numbers), also with presence from the webhook on; only the clinician's join waits for the vendor, which is the case OQ-160 set out to close. Consequence: a patient who asks for a way in and never enters blocks the clinician's no-show report, exactly as the link flow always did. (3) **Silent failures show up:** an event for one of our consultations with no participant key is logged per event (so a vendor that never sends `customer_key` is visible), and a correctly signed event outside the 5 minute window is answered 200 and logged (new `stale_event` code) instead of 401, which Zoom counts as a failing endpoint. (4) **CSP:** on the consultation routes script and worker code may come only from `https://source.zoom.us/6.5.0/` (the pinned SDK path), not the whole host; the test fails if the version drifts from `ZOOM_SDK_VERSION`. Still true: `'unsafe-inline'` stays on these pages (the app's own inline scripts, until a nonce is added across the app), and the integrity hash covers only the first file, not what it loads. (5) **Still open, needs a decision:** the clinician's host key (ZAK) is not tied to one meeting (OQ-136).
+- Decision: closed once the live checks above pass; open until then.
+### OQ-137 Who are the backup readers for safety concerns (raised by S20)
+- Context: spec 7.8 says a concern goes to the clinical lead and cannot be seen by ops. "Ops" here is an admin account (OQ-24), and there is no superadmin role, so nobody can be a backup by role. If the lead is away, conflicted or is the subject, nothing else can read it.
+- Built: a named list (`safety_concern_readers`) that only the lead can add to. A concern nobody acknowledges within 48 hours (4 hours if the person marked it immediate) also becomes readable by them. A concern raised by the lead itself goes to them at once. With no one named, a neutral incident is opened so operations see that something is overdue, never what.
+- Recommendation: name the founder (as a person, not as an admin account) as the first backup reader, and a second senior reviewer when one is hired.
+- Decision (founder, 2026-10-06): the founder is the first backup reader, named as a person by the clinical lead (`add_safety_concern_backup_reader`), not by admin role. Add a second senior reviewer when hired. **Follow-up: the CMO calls the function once the migration is live.**
+
+### OQ-138 Who audits the chief medical officer's own tasks (raised by S20)
+- Context: the reviewer must be an eligible chief medical officer who is not the clinician. With one CMO, the CMO's own audits have no reviewer and stay unassigned (shown at the top of the lead's queue, and the nightly sweep retries).
+- Recommendation: a second senior reviewer once hired; until then accept unassigned, or the founder reviews them in the lead area.
+- Decision (founder, 2026-10-06): leave the CMO's own audits unassigned until a second senior reviewer exists. They show at the top of the lead's queue and the nightly sweep assigns them when a reviewer is added.
+
+### OQ-139 May a safety concern be anonymous (raised by S20)
+- Context: research (NHS Freedom to Speak Up) favours protected-but-named reporting because follow-up, feedback and the 12 month retaliation review all need an identity. A fully anonymous route cannot do those.
+- Built: named but protected (readable only by the raiser, the lead and named backup readers).
+- Recommendation: keep named but protected. Revisit only if clinicians say they will not use it.
+- Decision (founder, 2026-10-06): named but protected. No anonymous route.
+
+### OQ-140 The audit and speak-up numbers need the CMO (raised by S20)
+- Context: 10 percent random sample plus every red event and titration, one audit per clinician per month once they complete 3 tasks, reviewer cap 40 a month, 14 days to complete, 20 audited tasks for level 1, pass mark 85 with no critical miss, score bands 85 and 70, reliability weight 2, acknowledge within 48 hours (4 for immediate), respond within 14 days, 12 month retaliation window. All PROPOSED in `quality_config` (mirrored as `quality.audit`).
+- Recommendation: the CMO reviews the form items and the bands before the first real audit; changing any number is a new config version, never an edit.
+- Decision (founder, 2026-10-06): accepted as proposed for a start, pending the CMO's sign-off (`quality.audit` stays `proposed`; changing any number is a new config version).
+
+### OQ-141 Credential warning windows and the 31 December cluster (raised by S20)
+- Context: S15 warns at 90, 30 and 0 days. Research suggests 60, 30, 14 and 7 days plus a reminder from November, because MDCN annual licences cluster at the end of December (MDCN lists 31 December for renewal; verify the current rule, fee and CPD requirement before relying on it).
+- Not built here: this is S15's `credential_rule('notice_windows_days')` configuration, not S20's.
+- Recommendation: add a November reminder and a capacity check before 1 January once the roster is large enough for a cluster to matter.
+- Decision (2026-10-06): keep [90, 30, 0] for now. The mechanism already reads from `credentialing_config` via `credential_rule('notice_windows_days')`, so changing to [90, 60, 30, 14, 7, 0] is a one-row config update, not code. The November cluster reminder and a capacity-planning dashboard are worth adding once the roster is large enough for a 31 December cluster to create operational risk. Closed as configurable; reopen when the roster exceeds approximately 20 clinicians.
+
+### OQ-150 What makes a patient a Member (raised by S22, built in S22b)
+- The 2026-10-05 Membership has no checkout yet (S25). Until then a patient is a Member when `patient_memberships` has an active, in-date row, or still has the old `async_doctor_visit` plan feature. Only an admin (`/admin/members`) or the CMO (`/clinician/members`) can grant or end one, with a reason, audited; a dated membership lapses by itself. S25's checkout, a sponsor's Care Voucher and an employer's cohort should write the same table with source `purchase`, `voucher` or `employer`. The seam stays `private.patient_is_member(uuid)`. A grandfathered paid `async_consult_credit` still works for a non-Member. This reverses OQ-130 (the 2,500 per-question price): the per-question credit is no longer sold.
+
+### OQ-151 Written question allowance and window are PROPOSED (raised by S22)
+- 4 written questions per member per month, 24 hour window, 7 day free follow-up, up to 3 photos. All in `async_question.behaviour` v1, owner CMO. The founder asked the build to choose the allowance: four is about one a week beside 12 monthly calls, keeps a 24 hour window staffable, and a missed window returns the question. Review after the first month of real use. No rollover.
+
+### OQ-152 Notes: stored states and `body jsonb` (raised by S22)
+- Spec 4.3 wants `notes.state` and `body jsonb`. Live `clinical_encounter_notes` wins (OQ-23): `status` stays `draft` or `finalized`, and the S05 `public.notes` view derives `draft`, `signed`, `amended`. No `body jsonb`: the history, examination, assessment, diagnosis and plan columns already are the structured sections. A second stored state or a duplicate body would be two sources of truth.
+
+### OQ-153 NDPA correction deadlines and MDCN text-only limits (raised by S22)
+- Counsel to confirm the NDPA response deadline for a correction request on a clinical record and any clinical-record carve-out, and the primary MDCN telemedicine text on asynchronous advice (research read it only through secondary sources). The design does not depend on either: a correction is attached beside the note and never deletes; no written question ever produces a diagnosis (founder, 2026-10-06), a patient who needs one is called.
+
+### OQ-154 Written questions for under-18s (raised by S22, extends OQ-129)
+- Adults only. A minor's question is refused with a plain message. Whether a guardian may submit for a child is for the founder and CMO.
+
+### OQ-155 Patient access to signed notes reverses part of OQ-58 (raised by S22)
+- OQ-58 (2026-10-01) gave patients the published summary only. Founder decision 2026-10-06: summary by default, and the signed note on request once a clinician releases it, with a recorded withhold reason when not released, and CMO-only release for protected categories. OQ-58 is amended, not removed: nothing is released automatically.
+
+### OQ-156 Pidgin strings for S22 need a native reviewer (raised by S22, extends OQ-19)
+- Every new `pcm` string for written questions, the red-flag guidance shown before sending, the allowance and the release screens was written by the build session. The red-flag text is safety wording and must be reviewed with the CMO before the next store build.
+- Superseded (2026-10-06): Moot. Nigerian Pidgin was removed from the product on 2026-10-06 (D-14), so no S22 `pcm` strings exist to review.
+
+### OQ-157 Direct staff reads of `async_consults`, `care_messages` and summaries (raised by S22; closed by S22d and S22e)
+- Closed: `async_consults` (S22: staff read only through the audited, claim-tied function), `consultation_patient_summaries` (S22d: staff only through a tie to the patient).
+- Open, and a decision for the founder and CMO: `care_messages`, `care_message_threads` and `care_message_attachments` are the care team's shared inbox, readable by any org staff account (coordinators answer logistics there) and not audited per read (INV-10, INV-12). Options: (a) keep the inbox org-wide and add an audited "open thread" function so every read of message bodies is logged; (b) tie bodies to clinicians with a relationship to the patient (lead, claim, escalation, appointment) and let coordinators see only thread headers, which needs messages routed as tasks; (c) leave as is and record the decision. S22 recommends (a) as the smallest change that closes INV-10, and a separate decision on (b).
+- **Decided 2026-10-06 (founder): option (a).** The inbox stays org-wide. Built in S22e (migration `20261006171107_s22e_audited_care_inbox.sql`, PR #948, applied to production, merged): staff open a thread or attachment only through `open_care_thread_audited` or `open_care_attachment_audited`, which write an `audit_log` row (`care_thread.open`, `care_attachment.open`) once per person per thread per 10 minutes. Staff can still read thread headers and the draft text they review. The staff branch is gone from the `care_messages` and `care_message_attachments` select policies, and the AI draft's `input_snapshot` (last messages verbatim) is no longer readable by staff. Patients, supporters with messaging access and break-glass readers read as before. Known and accepted: clinician alert excerpts of a flagged message still carry up to 500 characters of text (needed to triage an emergency). Option (b), tying message bodies to clinicians with a relationship to the patient, is still a separate decision and is not made.
+
+### OQ-161 Two scribe consent records: patient answers in the app (S21) or the clinician records it (S23) (raised by S21)
+- S23 (AI scribe) was built in parallel and its migration `20261006112016_s23_scribe_consents.sql` is live. Its `public.scribe_consents` is keyed by `encounter_note_id`, is **written by the clinician** (an insert policy needs an active clinician and a trigger stamps them), and records `language`. S21's consent is **answered by the patient in the app** at the start of every consultation (`open_scribe_prompt`, `record_scribe_consent`, `scribe_may_start`), stored per encounter. INV-11 and spec 9.3 describe the patient's own answer (CON-001 shown in the patient app); the clinician-recorded model is what the Abridge suits allege is the weak point (consent typed by someone other than the patient).
+- To avoid a name collision S21's table is now `public.consultation_scribe_consents`. Two records of the same consent must not both exist: they can disagree.
+- Options: (a) the patient's in-app answer is the only consent. S23 starts transcription only when `scribe_may_start(encounter)` is true and writes its `scribe_consents` row from that answer (server-side, never from a clinician's click), keeping the table as the audit and retention record (recommended); (b) keep the clinician-recorded model and drop S21's prompt (not recommended: against INV-11 and the research); (c) both, with transcription needing both.
+- **Decision (founder, 2026-10-06): (a), as recommended.** The patient's in-app answer is the only consent. Built in migration `20261006183117_s21g_scribe_consent_patient_only_and_chart_access_after_finish.sql`: a granted `scribe_consents` row is accepted only while `scribe_may_start` is true for that clinician and patient (a live consultation the patient allowed in the app), is tied to that encounter by a new `encounter_id` stamped by trigger (the client cannot supply it), and the patient's withdrawal revokes the row and deletes its transcript in the same transaction. A recorded decline needs no precondition. S23's consent dialog no longer asks "I agree" for the patient: it starts the note-taker and says so when the patient has not allowed it; "Write the note myself" records nothing. S23's proof gained the patient-answer fixture. Consequences: a consultation that is not an S21 encounter (the older video-visit path) cannot use the scribe, because there is no in-app answer to read.
+### OQ-170 No ledger posting for catalogue orders yet (raised by S25)
+- v5 orders sit beside the live purchase tables and never touch `payment_transactions`, so none of the live finance posting triggers see them. A paid order is therefore not in the general ledger, the revenue-recognition views or the settlement reports. It is visible, not hidden: `payments` holds every verified payment with price, fee and total, and `orders.state` is the status. No money has moved through it (checkout is dormant).
+- Needs a finance decision before the module is switched on: accounts for Membership (deferred revenue over 12 months?) and care pack income, where the Paystack fee sits (the patient pays it; it is not income and not a cost), and the refund reversal. S26 (refunds) and S30 (earnings ledger) are the natural place.
+- Options: (a) a `finance_post_from_order` function that posts `payments` rows, built with the finance owner before go-live (recommended); (b) write a mirror row into `payment_transactions` so the live posting runs (rejected for now: it would also fire the service-purchase, voucher and fraud triggers, which read the same table).
+- **Resolved 2026-10-06 (founder: "fix this")**: built in the same migration. Same accounts as a live service pack, so the finance pages need nothing new: Membership or care pack, Dr 1020 / Cr 2000 for the PRICE and a straight-line schedule into 4020 over the access window; an item with no window, Dr 1020 / Cr 4100 at sale. The processing fee is the patient's and Paystack settles the price, so it is not posted. Test orders are never posted (INV-13). A posting failure never undoes a payment: it opens a financial incident and an hourly job retries. The refund reversal is S26. The finance owner should still read the accounts above before go-live; they are the ones the existing service-pack posting uses.
+
+### OQ-171 Paying for someone else is not open yet (raised by S25)
+- `orders` carries `buyer_profile_id` and `beneficiary_patient_id`, but `create_order` refuses any beneficiary other than the buyer (`order_beneficiary_not_allowed`) until S29 (Care Circle) defines who may pay for whom and what the supporter may see. Spec 19.4 and 19.5 (supporter pays, sponsor-paid shown as already paid) wait for it. `shop.paid_for_you` is already in the catalogue strings.
+- Decision: open, S29.
+
+### OQ-172 Care pack price and what is sold at launch (raised by S25)
+- The 2026-10-05 Membership (100,000 naira a year, 10,000,000 kobo) is founder-confirmed and seeded as `membership_annual`. The spec's 12,000 naira three-month BP care pack (spec line 696) is PROPOSED and seeded as `bp_care_pack_3m`. Both are seeded OFF. Do both exist at launch, or does the Membership replace the care pack? A Member who also buys a care pack would pay twice for overlapping clinician time. The lead-clinician capacity gate counts both.
+- Options: (a) launch with the Membership only and keep the care pack off (recommended: matches the 2026-10-05 pivot, "Free or Member, nothing in between"); (b) both on.
+- **Decided 2026-10-06 (founder): Membership only.** The care pack is no longer seeded; staff can add one later. Prices can be changed at `/admin/catalogue` with a reason; an order keeps the price it was made at.
+
+### OQ-173 Retired payment code paths are still reachable (raised by S25, extends OQ-97)
+- The OQ-97 decision said to delete the retired GBP/USD and plan-based paths in S25 "if unreachable". They are reachable: `handler.ts` still handles `subscription`, `add_on`, `sponsored_subscription` and the plan events, `apps/web/src/lib/paystack` still allows GBP and USD, and live rows in the older purchase tables depend on them. Removing them is a separate removal session with its own row count and `ship the code first, the schema second` order, not a side effect of a checkout build.
+- S25 added the v5 branch and left the legacy one untouched. Naira only holds for everything S25 built (`create_order` has no currency; the adapter and `record_order_payment` reject anything but NGN).
+- **Decided 2026-10-06 (founder): its own removal session after S26** (count live rows first, ship the code before the schema, prove with a rolled-back test).
+
+### OQ-174 Fee estimate is configuration, and its numbers are unverified (raised by S25, extends OQ-97)
+- Paystack has no fee-preview call, so the checkout shows an ESTIMATE labelled as one, from `commerce.processing_fee_estimate` (1.5 percent plus 100 naira, the 100 waived under 2,500 naira, cap 2,000 naira). The figures come from third-party summaries; the official pricing page could not be read when this was written. The exact fee is read from the verified payment and recorded on the order and receipt. Cards issued abroad cost more (reported 3.9 percent plus 100 naira, uncapped), so for those the estimate is too low; the screen says so (`pay.fee.international` exists, shown in the explanation block on web).
+- Still to confirm against Paystack test mode before go-live: the field names `requested_amount` and `fees` on verify and `charge.success` (OQ-97). If `requested_amount` is absent, the database records an `amount` mismatch rather than accepting a different total, so a genuine payment is held for a person, never lost silently.
+- Refunds and the fee (S26): recommended full refund when we cancel returns the fee, a patient-requested partial does not; Paystack reportedly keeps its processing fee on refunds, which would make a fee refund a Tarragon cost.
+- **Fee numbers confirmed 2026-10-06** against paystack.com/pricing: local card and USSD 1.5% + NGN 100 (NGN 100 waived under NGN 2,500), capped at NGN 2,000; international 3.9% + NGN 100. Registry entry is now v2, confirmed. At the 100,000 naira Membership price the local fee is NGN 1,600 (total NGN 101,600). Still open: the `requested_amount` and `fees` field names in test mode, and the refund-and-fee rule (S26).
+
+### OQ-175 Secrets and deploy steps for S25 (raised by S25)
+- Before the module can be tried against Paystack test mode: set `ORDER_RETURN_URL` and `ORDER_RECONCILE_SECRET` as function secrets, add the Vault secret `order_reconcile_secret` with the same value (the 5-minute cron fails closed with a 401 until both exist), deploy `order-checkout`, `order-verify`, `order-reconcile` and the updated `paystack-webhook`, then run one test-mode payment end to end and one replay from the Paystack dashboard. Nothing in S25 was deployed or applied to production by the build session.
+- Secrets and deploy done 2026-10-06. **Go-live order decided (founder):** merge PR 945, run one Paystack TEST-mode payment and one dashboard replay (the founder runs it with test keys in a local copy of the function secrets, with a published Paystack test card; the live key is never used), then a superadmin runs `set_platform_module('v5_checkout', true, '<why>')` and switches `membership_annual` on at `/admin/catalogue`. Nothing is switched on before that.
+### OQ-170 Medicine safety checks beyond allergy, duplicate and controlled (raised by S24)
+- Blocks: none. S24 enforces three checks at signing: a controlled medicine is a hard stop (no override), an allergy match or an empty allergy list or a duplicate active medicine needs the signer's stated reason. Drug-drug interaction, renal dosing, dose-range and drug-in-pregnancy checks need reference data this platform does not hold (a licensed interaction source and a CMO-approved dose table). The BP-class combination and pregnancy rules in `private.enforce_bp_prescribing_safety` still apply.
+- Options: (a) the CMO and a pharmacist choose the reference source and S24b loads it as versioned data (recommended); (b) licence a commercial interaction service; (c) leave as is.
+- Recommend (a). Until then the sign screen must not imply that an interaction check ran.
+
+### OQ-171 Titration step table and the first approved protocol (raised by S24)
+- Blocks: the "Suggest next step" button producing a proposal for a real patient. `public.protocols` has no row; the evaluator is built and tested on a placeholder marked draft with fictional drug names. The CMO writes the `htn_hearts_ng` definition (steps, thresholds, review window, adherence floor) and approves it. Until then the button answers "no approved step table yet" and a clinician proposes changes by hand.
+- Decision needed from the CMO: the step table content, and the proposed stop thresholds (minimum readings, adherence floor, review window, stale-readings limit) which are PROPOSED values inside the protocol, not code.
+
+### OQ-172 Who reviews an engine proposal, and when (raised by S24)
+- A proposal is a draft `care_plan_changes` row that the lead clinician sees in the patient's chart panel. There is no queue task for it because a new task type needs CMO sign-off (the S16b pattern). Options: (a) add a `titration_review` task type, class 3, created when an engine proposal is saved (recommended once the step table exists); (b) weekly digest to the lead; (c) leave it chart-only.
+
+### OQ-173 Caregivers, guardians and dependants confirming a change (raised by S24, extends OQ-70)
+- Only the patient can confirm or decline a signed change. A parent of a dependant, or a caregiver holding the medications permission, cannot, so a change for a dependant simply expires after the window. Decide whether a guardian may confirm for a child and whether a caregiver may confirm for an adult who cannot (and with what proof).
+
+### OQ-174 The confirm function acts as the signer for the length of the apply (raised by S24)
+- `confirm_care_plan_change` runs for the patient but, so that every existing medication trigger sees the signer's own act (attribution, the clinician allow-list, confirm-only, prescribing safety), it sets the transaction-local session claims to the signer and puts them back before returning. It runs only after the patient, signed state, expiry, re-check and signer authority checks, and fails closed if the signer has lost authority. The alternative is to teach each trigger a signed-change exception, which spreads the exception across eight triggers. Security review wanted before go-live.
+
+### OQ-175 Two copies of the controlled-medicine list (raised by S24)
+- `apps/web/src/lib/rules/controlled-substances.ts` (PDF guard, advisory text) and `private.prescription_safety_findings` (the new hard stop) hold the same illustrative list. It is not an NDLEA or NAFDAC schedule lookup. A pharmacist or the CMO should own one list; until then add a name in both places.
+
+### OQ-176 Service-role writes bypass the signed-medicine trigger (raised by S24)
+- The medicine signature trigger applies to API sessions (role `authenticated`). A server route using the service role, or a migration, is trusted code and is not stopped. No current route writes a clinician-source medicine that way (checked 2026-10-06); a code scan test is the follow-up that would keep it so.
+
+### OQ-177 What a consultation share is a share OF, inside the Membership (raised by S30)
+- D-11 says the consultation share is configurable, and spec 7.7 says `consultation_share_pct` by consultation type. But under the 2026-10-05 Membership model there is no per-consultation price: consultations are inside the 100,000 naira a year Membership, so a "percent of the price" has nothing to be a percent of. **Built**: the share applies to the paid purchase amount when the consultation has one; otherwise to an optional `consultation_reference_price_kobo` per type that the founder sets in the schedule; otherwise the line is a zero line flagged "no price basis" for an admin to correct with an adjustment (never skipped). **Recommendation**: set a reference price per type, or drop the share and pay consultations as a fixed fee per type like tasks (a small change: add the types to `task_types`). Decide which.
+
+### OQ-178 Fee sharing and the MDCN code (raised by S30; counsel needed)
+- The MDCN Code of Medical Ethics forbids fee splitting and payment for referrals (public text, not checked against the current official copy). A percentage of a consultation the clinician delivers themselves is pay for their own service, but whether MDCN reads a percentage of a price paid to Tarragon that way is a legal question. Percentages are configuration the founder sets, and may be set to 0 for every type. **Recommendation**: get a one-page opinion from Nigerian counsel before any non-zero share; until then set all three to 0 and use fixed fees only.
+
+### OQ-179 On-call shift fee: the backup, and being ready (raised by S30)
+- Spec 7.7 has one `on_call_shift_fee_kobo`. **Built**: it is paid to the primary when the shift ends; the backup is paid `backup_fee_pct` of it (PROPOSED 0, in `earnings_config`). The fee does not depend on the clinician being paged or acknowledging anything. **Decide**: should the backup be paid something, and should a shift where the primary was marked as not reachable (S19 escalation reached the backup) pay differently?
+
+### OQ-180 The pilot minimum can be earned by declaring hours and doing nothing (raised by S30)
+- **Built**: only confirmed, eligible blocks count; only the shortfall is paid; one top-up per merged run; contracted clinicians only. **Not built**: any check that the clinician actually took work while declared (claims that expired for inactivity, S17 reliability events, an empty queue is not their fault). **Decide** the rule, or accept the risk for the pilot and review the first month's top-ups by hand (the admin summary shows them as their own kind).
+
+### OQ-181 Work finished before the first schedule is approved (raised by S30)
+- There is no schedule in the database until the founder approves one. **Built**: a finished task or consultation waits (the admin page shows how many); once a schedule is approved the sweep posts them at the FIRST approved schedule and the line says `retroactive_first_schedule`. **Decide**: confirm that is the intent, or pay such early work by hand with adjustments.
+
+### OQ-182 The wait step is read at the final claim (raised by S30)
+- Spec 7.7 says the step depends on how much of the due window had passed. **Built**: measured when the clinician who finishes the task claimed it. If a task is handed back and someone else claims it, the second clinician's step includes the time the first one held it. **Decide**: keep (simple, and the next clinician is rewarded for clearing something old), or measure from the first time the task became available to anyone.
+
+### OQ-183 Staff screens use plain English in the page, not `packages/i18n` (raised by S30)
+- The S30 prompt says every user-facing string goes through `packages/i18n` (en, pcm). Every existing admin and clinician page in `apps/web` (members, rota, credentialing) uses inline English, so the two S30 pages match them. The i18n package is for patient-facing text. **Recommendation**: staff screens stay English (the platform decision for staff tools); confirm.
+
+### OQ-184 Refunds, tax and employed doctors who convert (raised by S30; deferred)
+- A refunded purchase does not reverse a consultation share automatically; an admin posts a negative adjustment. S26 (refunds) should call a reversal. Withholding tax is stored nowhere and calculated nowhere (D-09). A clinician who changes from `employed` to `contracted` earns lines only for work finished after the change and a clinician changed the other way keeps their old lines (each line records `employment_type` as at entry).
+
+### OQ-185 A late line can push a clinician past the pilot minimum (raised by S30)
+- The top-up for a run of declared hours is computed once, from the lines in the ledger when the run is processed (two hours after it ends). A line posted later for work done inside the run (a retried posting, work finished before any schedule existed, a retroactive first schedule) is not netted off, so the clinician can end with more than the guarantee. The amounts are small and visible. **Decide** whether to reverse and repost top-ups when a late line lands, or accept it for the pilot.
+### OQ-171 update (S24b, 2026-10-06): the CMO's screen for the step table now exists
+- `/clinician/titration-protocols` lets the Chief Medical Officer paste a definition, check it, save it as a draft and approve it (functions `save_protocol_draft` and `approve_protocol`, CMO only, audited). The build wrote no clinical content and approved nothing: the page starts empty. Until the CMO approves a definition for `htn_hearts_ng`, "Suggest next step" still says no approved step table.
+
+### OQ-174 update (S24b, 2026-10-06): reviewed and hardened; independent review still advisable
+- Review: `docs/security/S24-confirm-care-plan-change-review.md`. Changes: the signer must hold a currently verified, unexpired licence when the change is applied; a signed stop that matches no active medicine is sent back; the session identity is asserted to be the patient's again before any later write. Residual: the signer's tie is not re-checked at confirm time (CMO to confirm that reading), and the review was written by the build session, so an outside reviewer is still advisable.
+
+### OQ-170 No ledger posting for catalogue orders yet (raised by S25)
+- v5 orders sit beside the live purchase tables and never touch `payment_transactions`, so none of the live finance posting triggers see them. A paid order is therefore not in the general ledger, the revenue-recognition views or the settlement reports. It is visible, not hidden: `payments` holds every verified payment with price, fee and total, and `orders.state` is the status. No money has moved through it (checkout is dormant).
+- Needs a finance decision before the module is switched on: accounts for Membership (deferred revenue over 12 months?) and care pack income, where the Paystack fee sits (the patient pays it; it is not income and not a cost), and the refund reversal. S26 (refunds) and S30 (earnings ledger) are the natural place.
+- Options: (a) a `finance_post_from_order` function that posts `payments` rows, built with the finance owner before go-live (recommended); (b) write a mirror row into `payment_transactions` so the live posting runs (rejected for now: it would also fire the service-purchase, voucher and fraud triggers, which read the same table).
+- **Resolved 2026-10-06 (founder: "fix this")**: built in the same migration. Same accounts as a live service pack, so the finance pages need nothing new: Membership or care pack, Dr 1020 / Cr 2000 for the PRICE and a straight-line schedule into 4020 over the access window; an item with no window, Dr 1020 / Cr 4100 at sale. The processing fee is the patient's and Paystack settles the price, so it is not posted. Test orders are never posted (INV-13). A posting failure never undoes a payment: it opens a financial incident and an hourly job retries. The refund reversal is S26. The finance owner should still read the accounts above before go-live; they are the ones the existing service-pack posting uses.
+
+### OQ-171 Paying for someone else is not open yet (raised by S25)
+- `orders` carries `buyer_profile_id` and `beneficiary_patient_id`, but `create_order` refuses any beneficiary other than the buyer (`order_beneficiary_not_allowed`) until S29 (Care Circle) defines who may pay for whom and what the supporter may see. Spec 19.4 and 19.5 (supporter pays, sponsor-paid shown as already paid) wait for it. `shop.paid_for_you` is already in the catalogue strings.
+- Decision: open, S29.
+
+### OQ-172 Care pack price and what is sold at launch (raised by S25)
+- The 2026-10-05 Membership (100,000 naira a year, 10,000,000 kobo) is founder-confirmed and seeded as `membership_annual`. The spec's 12,000 naira three-month BP care pack (spec line 696) is PROPOSED and seeded as `bp_care_pack_3m`. Both are seeded OFF. Do both exist at launch, or does the Membership replace the care pack? A Member who also buys a care pack would pay twice for overlapping clinician time. The lead-clinician capacity gate counts both.
+- Options: (a) launch with the Membership only and keep the care pack off (recommended: matches the 2026-10-05 pivot, "Free or Member, nothing in between"); (b) both on.
+- **Decided 2026-10-06 (founder): Membership only.** The care pack is no longer seeded; staff can add one later. Prices can be changed at `/admin/catalogue` with a reason; an order keeps the price it was made at.
+
+### OQ-173 Retired payment code paths are still reachable (raised by S25, extends OQ-97)
+- The OQ-97 decision said to delete the retired GBP/USD and plan-based paths in S25 "if unreachable". They are reachable: `handler.ts` still handles `subscription`, `add_on`, `sponsored_subscription` and the plan events, `apps/web/src/lib/paystack` still allows GBP and USD, and live rows in the older purchase tables depend on them. Removing them is a separate removal session with its own row count and `ship the code first, the schema second` order, not a side effect of a checkout build.
+- S25 added the v5 branch and left the legacy one untouched. Naira only holds for everything S25 built (`create_order` has no currency; the adapter and `record_order_payment` reject anything but NGN).
+- **Decided 2026-10-06 (founder): its own removal session after S26** (count live rows first, ship the code before the schema, prove with a rolled-back test).
+
+### OQ-174 Fee estimate is configuration, and its numbers are unverified (raised by S25, extends OQ-97)
+- Paystack has no fee-preview call, so the checkout shows an ESTIMATE labelled as one, from `commerce.processing_fee_estimate` (1.5 percent plus 100 naira, the 100 waived under 2,500 naira, cap 2,000 naira). The figures come from third-party summaries; the official pricing page could not be read when this was written. The exact fee is read from the verified payment and recorded on the order and receipt. Cards issued abroad cost more (reported 3.9 percent plus 100 naira, uncapped), so for those the estimate is too low; the screen says so (`pay.fee.international` exists, shown in the explanation block on web).
+- Still to confirm against Paystack test mode before go-live: the field names `requested_amount` and `fees` on verify and `charge.success` (OQ-97). If `requested_amount` is absent, the database records an `amount` mismatch rather than accepting a different total, so a genuine payment is held for a person, never lost silently.
+- Refunds and the fee (S26): recommended full refund when we cancel returns the fee, a patient-requested partial does not; Paystack reportedly keeps its processing fee on refunds, which would make a fee refund a Tarragon cost.
+- **Fee numbers confirmed 2026-10-06** against paystack.com/pricing: local card and USSD 1.5% + NGN 100 (NGN 100 waived under NGN 2,500), capped at NGN 2,000; international 3.9% + NGN 100. Registry entry is now v2, confirmed. At the 100,000 naira Membership price the local fee is NGN 1,600 (total NGN 101,600). Still open: the `requested_amount` and `fees` field names in test mode, and the refund-and-fee rule (S26).
+
+### OQ-175 Secrets and deploy steps for S25 (raised by S25)
+- Before the module can be tried against Paystack test mode: set `ORDER_RETURN_URL` and `ORDER_RECONCILE_SECRET` as function secrets, add the Vault secret `order_reconcile_secret` with the same value (the 5-minute cron fails closed with a 401 until both exist), deploy `order-checkout`, `order-verify`, `order-reconcile` and the updated `paystack-webhook`, then run one test-mode payment end to end and one replay from the Paystack dashboard. Nothing in S25 was deployed or applied to production by the build session.
+- Secrets and deploy done 2026-10-06. **Go-live order decided (founder):** merge PR 945, run one Paystack TEST-mode payment and one dashboard replay (the founder runs it with test keys in a local copy of the function secrets, with a published Paystack test card; the live key is never used), then a superadmin runs `set_platform_module('v5_checkout', true, '<why>')` and switches `membership_annual` on at `/admin/catalogue`. Nothing is switched on before that.
+
+### OQ-176 Lab panel ranges and critical limits are unsigned (raised by S27)
+- `lab.panels` (registry, mirrored by `lab_panel_versions` v1) holds adult reference ranges and critical limits for the Essential and Annual Health Check panels, PROPOSED by the build, owner CMO. They are not adjusted for age, sex or pregnancy, and the lipid limits are desirable targets, not lab-printed ranges, so many results will wait for review.
+- Safe by design: a wrong range only adds reviews. An all-normal result is the only thing that auto-releases, and a result missing a required analyte is held too.
+- Needed from the CMO: sign the ranges and critical limits (a new `lab_panel_versions` row, never an edit); whether HIV, HBsAg and HCV Ab belong in the Annual Health Check at all (they are optional and entered only if ordered); how an indeterminate screening value is handled (the portal refuses it today and asks for a new sample).
+
+### OQ-177 The older partner PDF path conflicts with INV-03 (raised by S27)
+- `lab_partner_upload_result` and the `lab_result_documents` triggers (live since 2026-07-27) let a patient read a partner's PDF at once and send them a "result document available" notice, with no hold for abnormal values and no sensitive-positive rule. Left unchanged, as the session rules require; the new partner portal does not use it.
+- Recommended: point the old worklist upload at the new submit function (PDF only, held for review) and retire `lab_partner_upload_result` after counting live rows. Founder decision needed on timing.
+
+### OQ-178 Releasing a result does not complete its queue task (raised by S27)
+- `release_lab_result`, `record_lab_disclosure` and `withhold_lab_result` change the result, not the S16 task (`routine_result_review`, `critical_result_review`, `sensitive_result_disclosure`). The clinician still completes the task in the queue. Linking the two is a small follow-up once the Next-task console (S35) shows the task beside the result.
+
+### OQ-179 Audio and AI explanation layers must read `explain_allowed` (raised by S27)
+- `my_lab_results()` returns `explain_allowed = false` for a result with a sensitive positive and for a patient's own upload. The old AI summary on `lab_result_documents` and any future audio bundle (S32) do not read it yet. Before either is shown for a structured result, it must check this flag (INV-04).
+
+### OQ-180 Who may release a critical value (raised by S27)
+- A critical result creates a `critical_result_review` task for a senior doctor (class 2), but `release_lab_result` lets any eligible clinician tied to the patient release it. A positive HBsAg, HCV Ab or HIV needs a senior clinician by the database. Confirm with the CMO whether a critical result should need the same.
+
+### OQ-181 Free patients' own outside uploads wait without a reviewer (raised by S27 review)
+- Doctor time is a paid feature, so a Free patient's own upload creates no task (S27b). It stays held, and the patient is told it is waiting. A Member's upload makes a `routine_result_review` task. Decide whether Free patients should be told plainly that it will be looked at once they join, or whether the upload should be refused for them.
+- Also found: a clinician refused by the tie check raises, which rolls back the "denied" audit row (`lab_review_actor`). The refusal is still enforced, but not recorded. Fixing it means returning a result instead of raising; left for a follow-up that changes the shared pattern, not just this module.
+
+### S27c decisions (founder, 2026-10-06)
+- **OQ-176 (part):** HIV, HBsAg and HCV Ab BELONG in the Annual Health Check. They stay optional per order (entered only when the test was actually done with the patient's consent), and any positive follows INV-04. Ranges and critical limits are still unsigned by the CMO.
+- **OQ-177 CLOSED for the partner path:** `lab_partner_upload_result` and the old worklist upload now create a HELD result (S27c). Related, found while fixing it and not changed: the staff upload path for emailed results (`uploadResultDocumentForPatient`, Lab Liaison, clinician, admin) still writes a visible `lab_result_documents` row and notifies the patient at once. Same INV-03 class; needs its own decision.
+- **OQ-178 CLOSED:** release, disclosure and withhold close the linked task (completed when the acting clinician holds the claim, cancelled with a reason when unclaimed, left alone when claimed by someone else).
+- **OQ-179 PARTLY CLOSED:** one definition of "may be explained" in the database (`lab_result_explain_allowed`, also used by `my_lab_results`). No AI or audio path reads structured results today, so there is nothing yet to gate; S32 (audio) and any future AI summary must call it.
+- **OQ-180 CLOSED:** a critical value can be released only by a Senior Medical Officer or the CMO.
+- **Audit findings CLOSED:** a refused clinician now gets a returned refusal (the denied audit row commits); the review page opens a result only on click.
+### OQ-190 Should the platform send the Care Circle invite itself, by email? (raised by S29)
+- Today the patient shares the invite link from their own phone (share sheet or copy). INV-08 allows SMS only for sign-in codes and WhatsApp is removed, so no platform SMS or WhatsApp path exists. Email is an allowed channel, but `notifications` rows need a `recipient_id` (a profile) and an invitee may have no account yet.
+- Options: (a) keep patient-shared links only (recommended for now: no new send path, nothing to leak, works for a phone invite too); (b) add an edge function that emails an email-type invite through Resend with the neutral template "Someone invited you to their Care Circle" and the link, rate-limited per patient.
+- Recommendation: (a) for launch; revisit (b) if diaspora supporters turn out not to receive links reliably.
+- **Decided 2026-10-06 (founder): patient-shared links only.** No platform-sent invite email. Revisit if diaspora supporters turn out not to receive links reliably.
+
+### OQ-191 A paid-for care pack starts a lead assignment for a patient who did not ask for it (raised by S29)
+- Pay for a loved one lets a supporter holding `pay_for_care` buy a care pack, and a paid care pack triggers lead clinician assignment (S18) for the beneficiary like any care pack. The patient ticked `pay_for_care`, is told "someone has paid for your care" and can remove the supporter, but is not asked to accept the pack itself.
+- Options: (a) the tick is the consent; no further step (built); (b) a gifted care pack stays "waiting for you to accept" and assigns the lead only when the patient accepts in the app (needs an `accepted_at` on the entitlement and a screen).
+- Recommendation: (b) before the care pack is switched on for sale; (a) is fine while only the Membership is sold, because it assigns no lead.
+- **Decided 2026-10-06 (founder): yes, a gifted pack waits for the patient's acceptance.** Built in migration `*_s29b_gifted_care_pack_acceptance.sql`: a gift that grants a lead (care pack, Membership) is paid but pending; no Membership starts and no lead is asked for until the patient accepts (`respond_to_gifted_pack`); a decline refunds the payer through a finance incident (S26 builds refunds) and tells the payer nothing; an unanswered gift is swept as declined after `gift_decide_days` (30, PROPOSED). Proof `s29b_gifted_care_pack.sql`.
+
+### OQ-192 Several older read paths admit ANY profile_access grantee with no permission check (found by S29)
+- Found while deciding where Care Circle members live: `profiles_select` (the whole patient profile row), `booking_requests_select`, `vaccination_adverse_events_select`, `vaccination_card_extractions_select`, and the vaccination record and schedule updates admit any `profile_access` grantee, whatever `permissions` or categories they hold. For legacy family and caregiver grants that may be intended (a guardian of a child), but a caregiver with only `view_appointments` can read the patient's whole profile and booking requests.
+- S29 does not touch them: Care Circle members are stored in a separate table that none of these policies read, so the Circle is not affected. There are 0 `profile_access` rows live today.
+- Options: (a) leave until `profile_access` has real rows and the family flow is next reviewed; (b) tighten each to the matching category or permission now (a change to the RLS surface of several tables, to be proved with a simulated session and a control).
+- Recommendation: (b) in its own small session, before any real caregiver grant is created.
+
+### OQ-220 Supporters abroad: organisation, signup and the join link (raised by S29)
+- The Care Circle, like the older care-access guard, requires the supporter and the patient to share an `organisation_id`. A supporter signing up from the diaspora lands in the default organisation today, so it works, but only because there is one. Signing up from an invite link loses the link across the email-verification redirect (the user reopens it).
+- Not changed. If a second organisation or a distinct diaspora organisation is ever created, `accept_care_circle_invite` and `create_order` need an explicit cross-organisation rule.
+- Native app deep links for the join link are not built (the link opens the web page).
+
+### OQ-221 What a red alert tells a supporter, and who chose it (raised by S29, extends OQ-132)
+- A member holding `red_alerts` gets "Someone in your Care Circle may need you. Please call them." in the app and as push, for every ROOT page (red event), once. No condition, reading or grade is shown, but the message itself says something is wrong. The patient ticks it knowingly (the wording says "when my care team sees something urgent"), and can untick it any time.
+- To confirm with the founder and counsel: the NDPA basis (the patient's explicit consent, per tick), whether amber events should ever alert a supporter (built: red only), and whether a supporter abroad needs a second channel (built: push, in-app only; SMS is barred by INV-08).
+
+### OQ-222 Care Circle PROPOSED values and permission wording to confirm (raised by S29)
+- `care_circle.rules` v1 (PROPOSED, Founder): invite link lasts 72 hours, default access 365 days (choices of 30, 90, 365 offered), 5 invites a day per patient, 8 members, 5 wrong-account tries, 8 weekly averages. The five permission labels (`circle.perm.*`) are plain-language drafts; the Pidgin lines have not been reviewed by a native speaker.
+- Not signed off by anyone: confirm by publishing a v2 entry as `confirmed`.
+
+### OQ-223 The Care Circle contact hash has no secret pepper, and a payer can learn some state of the person they pay for (found by the S29 review)
+- `invitee_hash` is plain SHA-256 of the normalised phone or email. Nigerian mobile numbers are about 10^10 possibilities, so the hash is reversible by anyone who can read the table. A keyed hash (HMAC) needs a server secret outside the database (a Vault secret added by hand, like `order_reconcile_secret`), so it was not done in this build without the founder adding that secret. Until then the invitee contact is hashed, not protected.
+- `create_order` for a beneficiary raises `already_member` and `no_capacity`, which tells a payer holding only `pay_for_care` whether the patient already has a membership. Kept on purpose (the payer needs to know why a payment was refused); a single generic refusal for beneficiary orders is the stricter alternative.
+- Recommendation: add the Vault pepper and move to HMAC before real invites are made; keep the payer messages.
+- **Decided 2026-10-06 (founder): add the Vault secret.** Built: the S29 migration creates the Vault secret `care_circle_contact_pepper` (random per environment, if absent) and hashes invitee contacts with HMAC-SHA256 under it (`private.circle_contact_hash`); with no secret an invite fails closed (`circle_not_configured`). Rotating the secret makes every pending invite unusable. The payer-sees-membership-state message stays as it is.
+
+### OQ-192 addendum (2026-10-06): live `create_order` already let any `profile_access` grantee pay
+- S26's `create_order` (live since 2026-10-06) allows ANY `profile_access` grantee, whatever their permissions, to buy for the patient. The S29 `create_order` keeps that path (so nothing live changes) beside the Care Circle `pay_for_care` path, with the organisation and test-flag checks added to both. A gift that grants a lead now waits for the patient's yes whichever path paid. Tightening the older path to `manage_payments` is part of OQ-192.
+
+
+
+### OQ-180 Guards live in `go_live_guards`, not `platform_modules` (raised by S37; conflicts with OQ-18)
+- OQ-18 said go-live guards reuse `platform_modules`. `set_platform_module()` needs only a superadmin and a note, never evaluates a condition against data, and its row is updatable by the table owner. S37's requirement is a switch only a condition-evaluating function can flip, with who, when and why in an append-only log, provable even against the migration role. So S37 added `go_live_guards`, `go_live_guard_log` and `go_live_attestations` and left `platform_modules` untouched (it still serves the payer, provider-org, NGO and `v5_checkout` modules).
+- Options: (a) keep two mechanisms, `platform_modules` for dormant whole platforms and `go_live_guards` for clinical go-live (recommended; the two answer different questions); (b) later migrate the four `platform_modules` rows onto the guard table and retire it, which needs each module's RLS and route guards re-pointed.
+- Decision: open. Not blocking.
+
+### OQ-181 Test accounts pass the guard as a pair (raised by S37)
+- A booking where the patient and the clinician are both `is_test` passes `clinical_operations_enabled` (and the scribe start check passes `scribe_enabled`), so the consultation flow can be tried end to end with test accounts in the single production database before launch, and the existing DB proofs (all test accounts) keep their meaning. A real person is never reachable: `profiles.is_test` is changeable only by an admin or a service context.
+- Options: (a) keep the test-pair rule (recommended); (b) remove it and exercise consultations only after launch (not recommended: nothing could be tested first).
+- Decision: open.
+
+### OQ-182 A guard that is on is not switched off when its condition lapses (raised by S37)
+- If the only tier 2 clinician is suspended while consultations are on, the guard stays on and the dashboard shows a red notice. An automatic switch-off would close a live consultation service without a human decision, which is itself a patient-safety event; the existing rota gap alert and credential suspension already page people.
+- Options: (a) show the notice only (recommended; as built); (b) send the founder and the CMO an in-app notice when a guard drifts (small, additive follow-up); (c) auto-switch-off (not recommended).
+- Decision: open.
+
+### OQ-183 Attestations are one person's word (raised by S37)
+- Conditions the database cannot see (CON-001 legal review, speech provider configured, fee schedule approved, Paystack transfers configured, SYNLAB results flow tested, Stage 2 exit criteria) are recorded as attestations by an admin or the CMO with a note. No attestation exists; none was written by an agent. They are not verified by the system.
+- Options: (a) accept a single attester with a permanent record (recommended for a solo founder); (b) require two people (founder and CMO) for the clinical ones.
+- Decision: open.
+
+### OQ-184 Guards wired later, and what each still needs (raised by S37)
+- Not wired in S37 because each feature is either already live (and wiring would switch off running behaviour) or not on main-dev yet: `on_call_cover_ok` (care pack sales, not built), `lab_booking_enabled` (health check sales are live with SYNLAB active: wiring it now would stop them, so it needs a decision to either seed it on with the conditions recorded or leave it unwired), `prescribing_enabled` (S24 is PR 943), `payouts_enabled` (S30), `public_signup_enabled` (the pilot allow-list, `pilot_invites`), and the remainder of `clinical_operations_enabled`: "all clinical tasks" is live with S16 and left running; "care pack sales" is not built; the lab result consult request flow (`lab_result_consult_requests`, accept/reschedule/release functions) is live (one real cancelled request) and left running, so a real patient can still buy and book a result consult with the guard off. Wiring it is a founder decision because it would switch off a running flow; written questions (S22 `async_consults`) are likewise unguarded. Also not guarded: other places that create `video_consultations` and Zoom meetings directly (clinician escalation video, annual-review video, availability-slot video, the mobile health-check confirm-video-slot route) and `ensure_appointment_video_consultation`, which joins an already-booked appointment even after a switch-off. They need an inventory like OQ-132's before the guard can honestly be described as blocking every consultation; until then the dashboard lists exactly what is enforced. Also known: `reschedule_appointment`, the waiting-list functions (`join_waiting_list`, `offer_next_waiting_list_candidate`) `confirm_health_check_video_slot`, `ensure_appointment_video_consultation`, `mark_encounter_no_show` (a paused, paid consultation can still be marked a patient no-show, with no credit returned: the stop button needs a rule for bookings it interrupts) and the mutating room functions (`service_open_encounter_room`, `service_record_join`; the guard is read by the room view every caller goes through) still run while the guard is off (an offered hold is refused at confirm), the mobile `bookAppointment` shows the raw refusal text, and switching the guard off while people hold paid, confirmed bookings needs a decision on how they are told or refunded (the room says consultations are paused and that the care team will say what happens).
+- Recommend: each session that builds the feature wires its guard in the same PR, using `private.go_live_open(key, patient, clinician)` in the database function and `go_live_guard_is_open` in the client.
+- Decision: open.
+
+### OQ-187 The room view still enables the join buttons while the guard is off (raised by S37)
+- The room also still asks the patient to allow the AI note-taker while `scribe_enabled` is off (the answer is then refused with the generic save error), because the room view carries no scribe flag. `consultation_room_view` (S21c) feeds the room page and does not read the guard, so with the guard off the Join buttons can be enabled inside the join window and a press says consultations are paused; outside the window the page still says when the room opens. The refusal is correct (`service_get_encounter_room` and `joinConsultation`); the page text is not. Needs a one-line change to that view.
+- Decision: open.
+
+### OQ-186 The guard tables are deployment-wide, with no organisation_id (raised by S37)
+- CLAUDE.md says every table has `organisation_id`. A go-live guard is one fact for the whole deployment (like `platform_modules` and `platform_switches`, which carry none either), and the log, attestations and sign-offs are read through one global admin-or-CMO policy. If a second organisation is ever onboarded onto this production database, an admin of one could read the other's guard history and attestation notes.
+- Options: (a) accept as deployment-wide while there is one organisation (recommended; recorded in the migration header); (b) add `organisation_id` and scope the reads before a second organisation is onboarded.
+- Decision: open.
+
+### OQ-185 More conditions the guard does not check yet (raised by S37)
+- The spec lists three conditions for `clinical_operations_enabled`. The consultation flow also depends on the CMO's confirmation of `consultations.policy` and the other PROPOSED values it uses, a configured Zoom account with dial-in (S21f), and the scribe's `CON-001` text. The sign-off screen now records the first; nothing stops the guard being switched on while it is unconfirmed.
+- Options: (a) add "the consultation policy value is confirmed by the CMO" as a data condition once the CMO has used the screen (recommended; small); (b) leave it as a human check at switch-on.
+- Decision: open.
+
+## Raised by S35 (clinician area and patient summary)
+
+### OQ-209 The S35 screens are in `apps/web`, not `apps/console` (raised by S35)
+- The session plan put them in the console. The console serves only roles whose home is an extracted area, `clinician` is not, CLAUDE.md forbids widening it, and the other 215 clinician files are still in `apps/web`. Founder decision 2026-10-06: build under `/clinician` in `apps/web` now, as thin routes over shared components and package logic, so a later extraction is a move. Same answer as OQ-99 (credentialing).
+- Decision: decided (founder, 2026-10-06). Extraction itself stays S01d step 8.
+
+### OQ-210 The consultation room does not host the scribe or the patient summary (raised by S35)
+- The scribe panel, the note editor and signing live in the note editor (`clinical-encounter-notes-section.tsx`, reached from the video-visit page), which is where a draft becomes a signed note (INV-11). The consultation room links to it ("Notes, scribe and prescribing"). `consultation_room_view` returns no patient id, so the room cannot open the audited summary, and `consultation_prep_bundle` still keys on `video_consultations.id`, not `encounters.id` (S22 design says build on `clinical_encounters`).
+- Options: (a) add the patient id to the room view for the participating clinician only, then mount the summary and the scribe panel in the room (recommended, a small migration plus a component move); (b) leave the link.
+- Decision: open.
+
+### OQ-211 Two scribe consents (raised by S35)
+- `consultation_scribe_consents` (S21, answered by the patient, read by `scribe_may_start`) and `scribe_consents` (S23, inserted by the clinician, the only one `scribe-draft` and `attach_scribe_draft_to_note` check) are unrelated. The edge function never reads the patient-answered row, so a patient who declines in the room does not stop a clinician recording consent on their behalf. Spec 9.3 has the patient answering in the app.
+- Options: (a) make `scribe-draft` and the clinician insert require the patient's `granted` row for the same encounter (recommended; INV-11); (b) keep the clinician-recorded consent for phone consults where the patient has no room.
+- Decision: open.
+
+### OQ-212 Playwright for the clinician flows could not be written to run (raised by S35)
+- Next task, hand-back, claim timeout and scribe sign need a clinician, a competency, a queue availability block and a claimable task. Tasks are created by `private.create_clinical_task`, which the API cannot call, and `apps/web/e2e-browser` has only a service-role REST helper and no direct database connection. The scribe draft also needs the model key. These are covered at the database (`s17_queue_next`, `s23c`, `s35_clinician_patient_summary`) and in Jest, not in a browser.
+- Options: (a) give `e2e-browser` a `pg` connection helper to the local stack and add a seeded clinician fixture (recommended, its own session); (b) a test-only `public` seeding function behind the local-stack guard.
+- Decision: open.
+
+## Raised by S35c (scribe safety)
+
+### OQ-213 The facts stage lists medicines the draft stage may not write (raised by S35c)
+- The facts-to-confirm stage returns `medication_mentioned` facts (the exact words used) so the clinician can check them: medicine information is where audits of AI notes find most failures. Stage two still writes "Medication plan discussed with the clinician" and never names a medicine, so AI-017's guardrail `no_medication_names_or_doses` and INV-02 still hold for everything that reaches the note. The facts live only in the browser and are never stored.
+- Needs the CMO's reading: is listing a mentioned medicine for confirmation inside that guardrail? If not, drop the `medication_mentioned` type from `FACT_TYPES` and the eval case `facts_cover_safety_items` changes with it.
+- The new suite "AI-017 facts-to-confirm golden transcripts" (6 cases, required for release, threshold 100) is registered; no evaluation run exists and none was created. The two new prompts are not approved; AI-017 stays off.
+- Decision: open.
+
+### OQ-214 Language release needs a measured word error rate and a pass mark (raised by S35c)
+- `pnpm scribe-wer manifest.json` measures speech-to-text on consented recordings against checked transcripts, per language, with dropped negations and missed protected terms. It has no pass mark. The mark for switching a language on (Nigerian English, Pidgin) is a PROPOSED value for the CMO, and no consented audio has been collected (OQ-96, speech vendor undecided).
+- Options: (a) CMO proposes a maximum WER and a zero-tolerance rule for dropped negations, then it is added to the registry (recommended); (b) keep the scribe to typed notes only, with no speech-to-text, indefinitely.
+- Decision: open.
+
+### OQ-215 The signed hash detects change; it is not a signature (raised by S35c)
+- `signed_content_hash` is a plain sha256 of the signed text, stamped by trigger at finalize. It shows a stored note was altered afterwards; it does not prove who signed (the existing `finalized_by_staff` does) and nobody holds a key. A keyed or externally anchored signature is a larger decision.
+- Options: (a) keep the tamper check (recommended for now); (b) add a periodic job that re-checks every hash and raises an incident on a mismatch; (c) a keyed signature held outside the database.
+- Decision: open.
+
+### OQ-216 No live recording indicator exists because nothing records (raised by S35c)
+- The scribe takes pasted or typed notes only. The consent gate now shows the patient's three-state answer, but a live "recording" indicator with elapsed time and a stop button needs audio capture, which needs the speech vendor (OQ-96). Build it with that session.
+- Decision: open.
+
+### OQ-217 The amber warning window on the queue is 30 minutes (raised by S35c)
+- `queue.sla_warning` (registry, PROPOSED, CMO) turns a held task's due badge amber inside 30 minutes. Display only: it changes no deadline, routing or fee. The CMO confirms or changes it on the go-live sign-off screen.
+- Decision: open.
+### OQ-213 Admin patient search: rate limit and who may open (S36a)
+- Blocks: nothing. Live: `admin_patient_search` returns at most 25 rows and writes one audit row per search; exact email and phone digits are searchable, so a determined admin could probe whether an email is registered.
+- Options: (a) accept, since the caller is the single founder admin and every search is audited (recommended while there is one admin); (b) a per-hour search cap once a second admin or delegated support role exists; (c) widen to a `support.patient_lookup` permission for the support team (needs a decision on what support may see, since opening a record shows date of birth and email).
+- Decision: open. Recommend (a) now, (c) when support is staffed.
+
+### OQ-214 Directory freshness and re-verification cadence (S36, spec 25.3 and 25.9)
+- Blocks: the directory freshness build. Live: only licence-expiry notices exist for labs and pharmacies; no listing has a last-verified or next-due date. The research found no competitor that publishes a re-verification schedule.
+- Options: (a) 12 months for every partner, 6 months for pharmacies; (b) tie the interval to the partner's licence expiry; (c) risk-tiered by volume.
+- Decision: open. Needs the founder (partner terms) and the CMO (clinical partners). PROPOSED values live in versioned config, never in code.
+
+### OQ-215 Payout approval and the ops "prepare draft" half (S36, spec 9.4 and roles table)
+- Blocks: the payout screens. Live: S30 fee schedules and `earnings_ledger` exist with `payout_id` empty; S31 (payouts table, weekly draft job, Paystack transfers) is not built, so there is nothing to approve.
+- Options: (a) wait for S31 and build both halves there (recommended); (b) build a read-only "unpaid earnings by clinician" view for ops now (small, test accounts excluded).
+- Decision: open. Maker-checker (preparer and approver different people, enforced in the database) is the design in `docs/research/S36.md`.
+
+### OQ-216 Speak-up concerns screen (S20, S36)
+- Blocks: the clinician and lead screens for safety concerns. Live: the S20 functions exist; concerns are readable only by the person who raised them, the CMO and named backup readers, and never by operations. The founder is not yet a named backup reader (OQ-158).
+- Decision: open. Build only after the CMO names backup readers and reviews the wording shown to someone raising a concern. Not in S36.
+
+### OQ-220 Admin accounts can still reinstate a clinician directly (S36d, spec 9.4)
+- Blocks: nothing. Spec 9.4 says only the clinical lead reinstates. Live (S15, unchanged): `public.reinstate_clinician` admits an admin account or the CMO (`can_credential_review`); the S15 proof reinstates as an admin. The new roster gives operations (a delegated `clinical_staff.manage` holder) only a REQUEST door, and `decide_clinician_change` is CMO only (an admin account is refused). The /clinician/roster screen is the CMO's; /admin/ops/clinicians offers ops no reinstate button.
+- Options: (a) accept while the founder holds the only admin account (recommended); (b) tighten `reinstate_clinician` to the CMO and change the S15 proof, a one-line change to a shipped function.
+- Decision: open. Recommend (a) now, (b) when a second admin exists.
+
+### OQ-221 Role grants do not expire (S36d, spec roles table)
+- Blocks: showing a grant expiry. Live: `user_permission_grants` has no expiry column, so the history view shows "No expiry" for every grant. Adding one means changing `private.has_permission`, the most reused security function (it gates RLS on many tables).
+- Options: (a) accept; revoke by hand, the history shows who granted what and when (recommended now); (b) add `expires_at` and honour it in `has_permission`, with its own proof and a full re-run of the RLS tests.
+- Decision: open.
+
+### OQ-222 Ops cannot suspend through S15's own door (S36d)
+- Blocks: nothing. S15's `suspend_clinician` admits only admin or CMO; ops is a delegated permission, so `ops_suspend_clinician` (reason of 10+ characters, audited, runs S15's own internal suspend) was added for `clinical_staff.manage` holders. Decision wanted: should ops be allowed to suspend at all without the CMO, or only to request it? Suspension is the safe direction (it removes a clinician from queues), which is why it was allowed.
+- Decision: open. Recommend keep.
+
+### OQ-223 Competency request notice reaches admins and the CMO only (S36d)
+- Blocks: nothing. A request notifies reviewers (admin accounts and the active CMO) in app only; the requester is told in app when it is decided. No email, since the notice contains a clinician name.
+- Decision: open.
+
+### OQ-224 Roster is filtered to the caller's organisation (S36d)
+- Blocks: nothing. `clinician_roster` shows clinicians of the caller's own organisation (all of them if the caller has no organisation, as the cross-org superadmin pattern elsewhere). S15's `credentialing_expiry_overview` does not filter by organisation. Decide if the platform will ever run more than one clinical organisation.
+- Decision: open.
+### OQ-225 Display settings of the reliability and SLA dashboard (S36e)
+- Blocks: nothing; the dashboard works on the proposed values. Live in `reliability.dashboard` (PROPOSED, CMO owner): the rota gap view looks 7 days ahead; operations sees a score distribution only for a group of at least 5 clinicians; three neutral bands (85 and above, 70 to 84, under 70).
+- Options: confirm, or change the three numbers. A smaller minimum group lets operations see a distribution for a small team, which makes a score close to one person's own.
+- Decision: open. Needs the CMO (the sign-off screen at `/clinician/go-live` lists it).
+
+### OQ-226 Which "SLA" the lead means (S36e)
+- Blocks: whether to show more. Tasks are measured against each task's own due time (`clinical_tasks.due_at`, from the task type). Red-event pages are measured against the first escalation time in `paging_config` (5 minutes). The older `escalation_slas` (12 h critical result, 24 h abnormal result, for the alert ladder) is a different clock and is not on this page.
+- Options: (a) as built; (b) add the older result-contact clock as a third panel.
+- Decision: open. Needs the CMO.
+
+### OQ-227 Who sees a clinician's own reliability score (S36e)
+- Blocks: nothing. As built: only the CMO sees names with scores, listed by name and never by score. An administrator and an ops holder get aggregates and a distribution only (withheld below the minimum group). S17 lets the administrator read the raw events directly through its own RLS; this page does not widen that.
+- Decision: open. Needs the founder and the CMO: should the founder also see the named list?
+
+### OQ-228 No history or alert on this dashboard (S36e)
+- Blocks: trend and alerting. The page is a live snapshot (pages and hand-backs over the 90-day reliability window); it stores nothing and sends nothing. There is no daily snapshot table, no chart over time and no export.
+- Options: a daily snapshot job later (as S38 does for outcomes); a CSV export for the CMO (named data, audited).
+- Decision: open. Not built in S36e.
+
+### OQ-229 A new function instead of widening the S17/S18/S19 reads (S36e)
+- Blocks: nothing. `queue_health()` is administrator-only and not organisation-scoped; `rota_coverage_gaps()`, `on_call_cover_status()` and `paging_overview()` admit only the credential reviewer (admin or CMO), so none serves an ops holder. Widening four functions would have changed four gates; one new read function (`reliability_dashboard`, a new name so no overload risk) reads the same tables and the same gap rule (`private.rota_gaps`) for both doors. Consequence: the dashboard re-implements the "waiting" count; if S16 changes what counts as waiting, update both.
+- Decision: open. Reconcile when `queue_health()` is next touched.
+### OQ-235 Directory verification cadence is built as PROPOSED, not signed (S36g, refines OQ-214)
+- Blocks: calling the schedule final. Built: 12 months for every listing, 6 months for pharmacies, in `directory_verification_config` v1, mirrored as `directory.verification_cadence` (owner Founder, status proposed) with a drift test. No sign-off was created.
+- Options: keep (a) flat 12/6; (b) tie the due date to the partner's licence expiry; (c) risk tiers by volume. Changing it is a new config version, not a code change.
+- Decision: open. Founder for partner terms, CMO for clinical partners (labs, pharmacies, specialists).
+
+### OQ-236 What happens to a listing that stays overdue (S36g, spec 25.9)
+- Blocks: any escalation beyond the reminder. Built: the nightly job marks a past-due listing stale, tells ops once (re-reminds every 30 days), and the screen says "verification overdue". It never hides, deactivates or suspends a listing and never changes what patients see.
+- Options: (a) stay visible-only forever (current); (b) after a set number of overdue days, show patients a neutral "details last checked on" note; (c) require a person to pause the listing.
+- Decision: open. Needs the founder; (b) and (c) change a patient-facing surface and need a reviewed wording.
+
+### OQ-237 Who may record a verification (S36g)
+- Blocks: nothing. Built: the `partners.<kind>.manage` permission for that kind of listing (admin holds all); `ops.console.view` alone may read but not record, so an operations user needs the matching manage grant to do the check. Two-person checking (maker-checker) was not added.
+- Decision: open. Confirm this is the intended split, or whether ops should record without a manage grant.
+
+### OQ-238 Where the verification date shows to patients (S36g)
+- Blocks: nothing built. The date lives in `directory_freshness` and is shown only on the ops screen. Practo and Vezeeta show "verified" signals to patients; no copy for a patient-facing "last checked" line has been written or reviewed.
+- Decision: open. Needs the founder and wording review; public location views (`public_partner_locations`) are untouched.
+
+### OQ-239 Scope of the six listing kinds, and `is_test` (S36g)
+- Blocks: nothing. Covered: laboratories, pharmacies, specialists, facilities, home visit providers, delivery partners (every table that has a partner licence or directory row). Not covered: pharmacy and specialist branch rows (`pharmacy_partner_locations`, `specialist_provider_locations`), `network_partner_organisations`, `cgm_partners`. None of the six has an `is_test` column, so there is nothing to exclude; if test rows are ever added to them the list needs the filter.
+- Decision: open. Confirm whether branches should carry their own verification date.
+### OQ-240 Structured lab result entry: already built by S27, not rebuilt in S36h (spec 9.6)
+- Blocks: nothing. The S36h brief asked for structured partner result entry on `/lab-partner`. On `origin/main-dev` S27 (migrations `20261006173205` to `20261006222900`, PRs through #969) already ships it: `lab_panel_versions` (units, reference ranges, critical limits), `lab_results` with the `release_state` machine, `lab_result_items` with `sensitive_positive`, `lab_partner_portal_orders`, `lab_partner_submit_result` (own lab only, refuses `pending_payment` and `cancelled`, refuses a second result, corrections are a new entry), the `/lab-partner/results` page, and `packages/db/tests/s27_lab_results_release.sql` (anon, other lab, unpaid, double submit, INV-03/04 routing). The `s36/console-ops-lead-admin` stack does not contain S27 yet, so a second copy would have collided with it.
+- Options: (a) rely on S27 and re-verify on the merged tree (recommended); (b) build a parallel path (rejected: two writers of `release_state`).
+- Decision: open for the founder to confirm (a). When S36 and S27 meet on `main-dev`, check that the "Enter results" nav entry and `/lab-partner/results` appear and that S27's proof still passes.
+
+### OQ-241 Pharmacy flag task: class, due time and tier (S36h)
+- Blocks: nothing. The task type `pharmacy_flag_review` (version 1) was added with class 5, due in 1440 minutes, tier `medical_officer`, no competency. These are PROPOSED values held in the versioned `task_types` row. It is deliberately not `needs_confirmation` (a row awaiting confirmation blocks `approve_triage_rule_set`).
+- Options: (a) keep the proposal until the CMO reviews it on the task types page; (b) the CMO raises "out of stock" above "query".
+
+### OQ-242 Pharmacy flag: rate limit, repeat notices and resolving a flag (S36h)
+- Blocks: nothing. A pharmacist can flag the same prescription again; repeats merge into one live task but each one still creates a flag row and a notice. There is no cap and no "resolved" state; a flag is append only and the task is closed by the prescriber side.
+- Options: (a) cap flags per prescription per day and notify only on the first (recommended); (b) add a prescriber "reply to pharmacy" action (needs a notice that stays neutral).
+
+### OQ-243 Pharmacy flag text can name a medicine (S36h)
+- Blocks: nothing. The written reason is free text from the pharmacy and may name a medicine. It is stored in the flag row, never copied to a notification or the audit row, shown only on `/clinician/pharmacy-flags` (an audited read), and readable by the flagging pharmacy. The notice itself names nothing (INV-07, linted).
+- Decision: open; confirm this is acceptable PHI handling for a partner pharmacy.
+
+### OQ-244 Flag and the older pharmacy orders path (S36h)
+- Blocks: nothing. The existing `/pharmacist/orders` page works on `pharmacy_orders` (patient-placed orders; it already has "unavailable" and "flag dispense"). S36h flags the signed `prescriptions` sent to a pharmacy (spec 9.6). The two models are not merged here.
+- Decision: open; decide whether the two pharmacy flows should converge once S24 prescribing is in use.
+- Update (S36i): the founder said to build everything, so the screens exist (`/clinician/quality/concerns`, `/clinician/my-concerns`). No backup reader was named and no concern was seeded. See OQ-245 to OQ-247 for what is still open.
+
+### OQ-245 Backup readers have no screen (S36i, S20 section 2)
+- Blocks: a named backup reader opening the concerns inbox. Live: the S20 functions let a named reader (an active admin or clinician profile of the same organisation) read overdue concerns, but the page at `/clinician/quality/concerns` is Chief Medical Officer only, so a reader has no door. An admin-role reader would be reading concern text on an admin account, which sits badly with "never visible to ops or admin accounts".
+- Options: (a) readers must be clinician-role people and get the same page (the page shows only what the functions return; needs a "reader or lead" check, for instance the retaliation queue refusal as the probe); (b) keep the page lead-only and name readers only when the founder (OQ-158) has a clinician login; (c) restrict `add_safety_concern_backup_reader` to clinician-role profiles (an S20 rule change, so not done here).
+- Decision: open. Until decided the page is lead-only and the readers list on it offers active clinical staff only.
+
+### OQ-246 Wording shown to someone raising or answering a concern (S36i, OQ-216)
+- Blocks: calling the screen copy final. All `speakup.*` text (and the existing `concern.*` text) is PROPOSED. The CMO should read the intro lines, the notice lines, the "Operations see only a fixed line" sentence and the backup-reader explanation before go-live. The Pidgin file reuses English for most of these lines on purpose; no Pidgin was invented for safety wording.
+- Decision: open (CMO review).
+
+### OQ-247 No withdraw or reopen for a raiser (S36i, S20)
+- Blocks: nothing. A raiser can add notes to an open concern but cannot withdraw it, and a closed concern cannot be reopened (they raise a new one). The S20 functions have no withdraw or reopen. If the CMO wants either, it is a small additive function (and an S20 rule), so it is not added here.
+
+
+
+## Founder decisions recorded 2026-10-06 (after S36)
+- **OQ-215 (payouts): resolved by S31, not S36.** S31 (weekly payouts, approval, Paystack transfers, bank verification) was already merged and live when this was reconciled, with its own `payouts` table and `approve_payout`. The S36f payout draft build duplicated it and was removed from the branch before it was applied. Nothing from S36f is live.
+- **Who approves payouts when the founder is the only admin: admin or the Chief Medical Officer (founder, 2026-10-06).** Built by S36j (migration `20261007114253_s36j_cmo_may_approve_payouts.sql`, `/clinician/payout-approvals`): `approve_payout` now uses a new `private.payout_approver_org()` (admin or active CMO) and `payout_admin_org` was NOT widened, so the CMO still cannot build, discard, send, retry or list. Original note: the S31 `approve_payout` called `private.payout_admin_org()`, which admits `admin` only, and `payout_admin_org` is shared by the other payout admin functions, so widening it is a change to a money gate and needs its own migration and proof (a CMO may approve a draft they did not prepare and who is not the payee; self-approval stays refused). Follow-up for S31.
+- **OQ-230 (freelance means `contracted`): yes**, but moot for now because S36f was removed; the S31 build decides which clinicians it pays.
+- **OQ-245 (backup readers for safety concerns): none for now.** The founder is not named as a backup reader; the CMO alone reads concerns until a reader is chosen. The screen's add-reader button stays unused.
+- **Nigerian Pidgin removed from the platform (founder, 2026-10-06).** See the chore entry in `docs/BUILD-PROGRESS.md` and `docs/DECISIONS.md`. The Pidgin strings flagged for native review in S36d, S36e, S36g, S36h and S36i are therefore dropped, not reviewed.
+### OQ-193 Nigerian withholding tax on clinician payouts: what applies, and who is the payer (raised by S31, D-09)
+- Findings (public sources, not legal advice): the Deduction of Tax at Source (Withholding) Regulations 2024, effective 1 July 2024, replaced the 1997 rules; payments to a Nigerian company for professional, management, technical or consultancy services dropped from 10 percent to 5 percent, 10 percent to a non-resident, and the payer deducts, remits and issues a credit note. Treatment of an individual freelancer is different and depends on whether they are treated as self-employed or as an employee, and the Nigeria Tax Act 2025 (in force 2026) changed personal income tax bands and filing duties. Whether Tarragon's freelance clinicians are independent contractors or workers for tax and labour purposes is a legal question, and the answer decides whether PAYE or withholding applies.
+- What S31 does: stores TIN, contractor status (unknown, individual, company), registered business name and VAT registration per clinician; every statement and payout is gross. Nothing is deducted or calculated, as D-09 says.
+- Options: (a) ask Nigerian tax counsel for the status and rate per contractor type, then add a versioned, PROPOSED withholding rule and a deduction line on the statement (recommended; needs counsel); (b) keep paying gross and have each clinician self-assess (simple, but Tarragon may still owe the deduction as payer).
+- Decision: Decided 2026-10-06: ask Nigerian tax counsel first; payouts_enabled stays off until counsel confirms contractor status and rate, then a versioned withholding rule and credit note are added. Until decided, payouts go out gross; this is a compliance risk if payouts are switched on first.
+
+### OQ-194 Payouts are not posted to the general ledger (raised by S31)
+- The finance ledger posts patient payments and refunds from `payment_transactions`; nothing posts a clinician payout (expense and cash out) or the accrual when an earnings line is written. A transfer event is recorded in `payment_transactions` as an audit row and deliberately not processed into the journal.
+- Options: (a) post a journal entry when a payout is approved (Dr clinician fees, Cr payables) and another when `transfer.success` arrives (Dr payables, Cr cash), using the existing posting functions (recommended, a small follow-up with the finance owner); (b) leave payouts as a sub-ledger until accounts are set up for contractors.
+- Decision: Decided 2026-10-06: follow-up session with the finance owner (accrue on approval, clear cash on transfer.success).
+
+### OQ-195 Bank lookups keep the other person's name on a mismatch (raised by S31)
+- When the bank returns a different name, the row keeps `resolved_name` (a stranger's name) and the last four digits as evidence of why the account was refused. Rows are readable only by the clinician and admins.
+- Options: (a) keep for 12 months then null the name (recommended); (b) null it immediately and keep only "mismatch".
+- Decision: Decided 2026-10-06: keep 12 months, then clear the name (retention job is a follow-up; not yet built).
+
+### OQ-196 Paystack transfer settings that must be right before payouts go live (raised by S31)
+- Transfers need a funded Paystack balance and Paystack's "confirm transfers with OTP" switched off for API transfers, otherwise every payout waits for a person to type a code and shows as needs attention. The webhook URL must receive `transfer.success`, `transfer.failed` and `transfer.reversed`. None of this has been run against Paystack, test mode or live.
+- Options: (a) founder confirms the three settings and attests `paystack_transfers_configured` on the go-live page, then runs one real small payout to a test recipient (recommended); (b) skip the test payout (not recommended).
+- Decision: Decided 2026-10-06: the founder confirms the three Paystack settings and runs one small real payout, then attests paystack_transfers_configured.
+
+### OQ-197 A sent payout that never gets a webhook (raised by S31)
+- If Paystack's webhook is lost, a payout stays `sent`. There is no scheduled check yet that asks Paystack for the status of payouts that have been `sent` for more than an hour (the adapter has `verifyTransfer`); an admin cannot trigger one from the page either.
+- Options: (a) a small scheduled edge function that verifies old `sent` payouts and feeds the same `apply_payout_transfer_event` door (recommended; next session); (b) rely on Paystack retries.
+- Decision: Decided 2026-10-06: build the scheduled status check next session, before go-live.
+
+### OQ-198 The go-live dashboard still says payout sending is not built (raised by S31)
+- The `payouts_enabled` row in `go_live_guards` carries the S37 note "Payout sending is not built yet. Nothing is blocked by this guard today." Approve, send and retry now refuse while it is off, but the note is a guard row the trigger will not let a migration edit.
+- Options: (a) add a sanctioned way to update a guard's description text in a later S37 follow-up (recommended); (b) leave the note and rely on this entry.
+- Decision: Decided 2026-10-06: S37 follow-up adds a sanctioned way to update a guard's description.
+
+### OQ-199 Optional early cash-out for clinicians (raised by S31 competitor research)
+- Bolt and Uber Nigeria let drivers cash out early for a small fee once they have a clean record. Weekly stays the default. An early cash-out would pay out already-earned ledger lines on request, still after the verified-name check, with a small fee and an eligibility rule (for example a number of completed tasks).
+- Options: (a) not now; revisit after the first month of weekly payouts (recommended); (b) build it before launch.
+- Decision: Decided 2026-10-06: not now; weekly only, revisit after the first month of real payouts.
+
+### OQ-200 Downloadable payout statement, tax credit note and refund holdback (raised by S31 competitor research)
+- Deel-style platforms give a downloadable statement per payment; in Nigeria a withholding tax credit note is also needed once OQ-193 is decided. Stripe recommends holding back a balance against later reversals; a refund of a consultation share is a manual adjustment until S26.
+- Options: (a) a PDF statement per payout now and the credit note after OQ-193; no holdback until S26 (recommended); (b) all three together later.
+- Decision: Decided 2026-10-06: PDF statement per payout now, credit note after OQ-193, no holdback until S26.
+
+
+### OQ-201 The audio player is a native module and needs a new build (raised by S32)
+- The app has no audio library (`expo-audio` or `expo-av`) and no file-system module for downloaded clips. Adding either is a native dependency: a new EAS build and a `runtimeVersion` bump (as OQ-73), and the OTA auto-publisher will skip the push.
+- S32 built the player as a port (`AudioEngine`, `DownloadedFiles` in `apps/mobile/src/lib/audio/service.ts`). With no engine registered every request shows its text and logs one `engine_unavailable` issue. No recording exists yet anyway, so nothing is lost today.
+- Options: (a) add `expo-audio` and `expo-file-system` in the next native build, with the first recordings (recommended); (b) add them now and cut a build for nothing to play.
+- Decision (founder, 2026-10-06): add `expo-audio` and `expo-file-system` and the player adapter now, with the `runtimeVersion` bump to `0.1.0-native6` held until the build is cut (decided 2026-10-07: build later, batched with other native work). Built in S32 (PR 961). Nothing plays until signed recordings exist. No build has been cut: do the bump and `eas build` together when there is more native work to batch.
+
+### OQ-202 EMG-001L is not in the Audio Production List (raised by S32)
+- The triage engine (S11, OQ-87) emits `EMG-001L` for a low reading with fainting. The list has EMG-001 to EMG-013 and no low-pressure variant, so that guidance has text and no voice. A test lists this gap so closing it is a deliberate change.
+- Options: (a) the CMO writes the low-pressure script, it is added to the list and recorded (recommended); (b) play EMG-001 for it (wrong advice for a low reading, not recommended).
+- Decision: open.
+- Update 2026-10-07: EMG-001L is now a clip, added from `packages/i18n/src/clinical-wording.json` (today's text; the signed proposal replaces it only when the CMO signs). It still needs adding to the Audio Production List so it is recorded in order.
+
+
+### OQ-203 The recorded scripts and the text on screen differ, so no Listen button is wired (raised by S32)
+- A voice must say what the screen says. They differ today. The list's EMG-001 says "call one one two or go to the nearest hospital emergency department"; S11's EMG-001 text prints no number (OQ-87, PR #785) and the list itself says to confirm 112 first. The list's TRI-002 is for care pack members and promises a reply within twenty-four hours; S11 uses TRI-002 for every amber. TRI-003 and TRI-005 differ in wording too.
+- S32 added the scripts as `AUDIO_SCRIPTS` (generated, the words each clip will say) beside the existing `triage.*` catalogue and changed neither. `triageAudioId` now returns the real clip id, but no screen shows a Listen button.
+- Options: (a) the CMO signs one wording per code, the catalogue and the list are made identical, then Listen buttons are wired to EMG and TRI (recommended); (b) the screen shows the list's script text whenever it plays the clip.
+- Decision: open.
+- Built 2026-10-07 (PR 989): one wording file (`clinical-wording.json`) feeds the screen text, the audio script and the manifest, and a test fails if they differ. **The proposal is gated**: until the CMO fills in `signed` (by, on, version) the app keeps saying today's text, so merging the code changes nothing a patient reads. The emergency modal now shows the EMG-001 or EMG-001L words with a Listen button when on-device triage chose them. A Listen button shows only when a signed recording and an audio engine exist. EMG-001 still prints no phone number (OQ-87); the 112 sentence waits for the CMO. "Your care team has been told" was dropped from the red text (untrue on Free plan and for unsynced readings). TRI-002: see OQ-251.
+- Signed 2026-10-07 by the founder on their own instruction, all seven codes (`signed` in `clinical-wording.json`): EMG-001 keeps no phone number (OQ-87 stays; "call 112" not added), TRI-002 without a review promise (OQ-251), EMG-001L added. This is the founder's sign-off, not a CMO signature; the CMO can re-sign by raising `version`. EMG-001L still has to be added to the Audio Production List document so it is recorded in order.
+
+### OQ-204 Where post-sign-up and on-demand audio is hosted (raised by S32)
+- NAV, HLP, CON, SYS and REM download once after sign-up; RES downloads when first played. There is no bucket or CDN for them. Files are addressed by checksum (`fileUrl`), so any static host works.
+- Options: (a) a public Supabase Storage bucket `audio`, created when the first recordings are approved (recommended; non-personal content, no new table); (b) a CDN in front of it later.
+
+### OQ-205 First-use walkthroughs are an offer, and the app's tabs are not the list's tabs (raised by S32)
+- The list says NAV clips play "the first time a person opens each tab". S32 built `tourOffer` as an offer ("Listen to a short tour"), not autoplay, because a phone can be in a public place and discreet mode matters (D.3). The list's five tabs (Home, My Health, Care, Wellbeing, Family) also differ from the app's current sections, so NAV and HLP are mapped by name (`NAV_CLIPS`, `HLP_CLIPS`) but not wired to screens.
+- Options: (a) offer, not autoplay, wired when the S34 or S35 shell settles the tab names (recommended); (b) autoplay once per tab.
+
+### OQ-206 Smaller reconciliations in S32 (raised by S32)
+- The session prompt says "Safety case 22 area (audio present offline)". Spec 15.1 case 22 is "test accounts do not appear in metrics"; the offline-emergency case is 1 and the invariant is INV-06. S32 proved the audio side under INV-06 and case 1; nothing here touches case 22.
+- Steps between 601 and 999, and from 20,250 up, have no number clip; they get text only. Fractions are said to one decimal place (the meter's own precision), never rounded to a whole number.
+- The 40 MB app target was superseded (DG-1). S32 tracks the bundled-audio size against a PROPOSED 15 MB budget (`audio.bundled_max_bytes`); projected today: 13.1 MB without SYM, 13.9 MB with it. S34 owns the whole-app size.
+- SYM ships only with `--with-sym` on the ingest script (spec 8.8). Which build turns it on is a founder call once the symptom checker is in the mobile app.
+- Options: (a) accept all four as built (recommended); (b) change any of them.
+
+
+### OQ-207 Items from the competitor review that are not built yet (raised by S32)
+- Blood pressure has no unit clip in the Audio Production List (no "millimetres of mercury"), so a spoken reading is "148 over 94" with no unit. Every other reading has one. Options: (a) add a unit clip to the list and the NUM group (recommended); (b) accept no unit for blood pressure.
+- Screen readers (VoiceOver, TalkBack) will read Pidgin text in an English voice. Options: (a) test on real devices and decide per screen whether the label points to the bundled clip (recommended); (b) leave to the OS.
+- Playback in silent mode, with headphones, during a call, or from the lock screen needs the native module (OQ-201).
+- Whether spoken triage makes the app regulated software in Nigeria is unconfirmed (NAFDAC, D.6). Ask counsel before the symptom clips (SYM) ship.
+- Voice input in Pidgin is out of scope until recognition meets a clinical accuracy bar (the best published Pidgin result was 29.6 percent word error rate).
+- Decision (founder, 2026-10-06): (1) blood pressure gets a unit clip, NUM-P24 "millimetres of mercury" (added in `audio/source/extra-clips.json`, clinical review required; until it is recorded and signed, blood pressure audio is text only); (2) emergency clips play in silent mode and take audio focus, everything else respects silent mode, no lock-screen controls and no background playback; (3) screen readers: English only, plain labels and a hint, no Pidgin language tagging. Still open: a real-device TalkBack and VoiceOver pass, regulatory status of spoken triage, and Pidgin voice input (out of scope).
+
+> Note: S29's Care Circle questions were renumbered from OQ-193 to OQ-198 to OQ-220 to OQ-225 (2026-10-07, founder choice, then moved again because S32 and S35 took OQ-201 onwards): S31's payout questions keep OQ-193 to OQ-200.
+
+### OQ-224 When the patient pauses sharing, do check-in requests (red alerts) pause too? (raised by S29c)
+- "Pause all sharing" (7 days, silent to supporters, no reason) stops the supporter's page and lists. Whether it also holds back the neutral check-in request is a safety trade-off: a patient who feels watched wants everything off; a patient who pauses and then has a red event would have a family that is not asked to call. The patient's own care team's escalation is a different path and is never paused.
+- Built (after the review): the patient chooses, with a plain warning beside the tick, and the tick is OFF by default, so a plain pause hides the summary and leaves the check-in request on. Holding back check-in requests is an explicit opt-in. A request sent while they were held back is never shown after the pause ends. A pause always ends by itself after `pause_days` (7) and the patient is told once.
+- Options: (a) as built; (b) tick ON by default ("pause all" means all, less safe); (c) never pause check-in requests.
+- Recommendation: (a) with the CMO reading the warning wording; revisit if a real incident happens during a pause.
+- **Decided 2026-10-07 (founder): keep check-in requests on by default** (option a, as built). The CMO should still read the warning wording beside the tick.
+
+### OQ-225 Only the full yearly Membership can be paid for someone else (decided by the founder 2026-10-06, built by S29c)
+- Founder: "the gift should be someone paying for a full yearly membership". `create_order` now refuses any beneficiary order that is not a Membership of 365 days or more (`gift_item_not_allowed`), on both the Care Circle path and the older `profile_access` path (OQ-192). Single consultations, short memberships and care packs sold on their own cannot be gifted; a patient still buys those for themselves.
+- Checkout asks the payer to confirm the person's name, says the person is asked to accept it and that a no is a refund, and says the payer sees no health information.
+- Still open from OQ-191: the unanswered-gift window (`gift_decide_days`, 30 today; the plan suggests 14) is a founder number.
+
+### S27d: follow-ups built (founder, 2026-10-06, "fix all")
+- **OQ-176 (CMO ranges): built, NOT signed.** `lab_panel_signoffs` and `sign_lab_panels()` (CMO only), shown in the CMO signing hub and at `/clinician/lab-panels`. Until the CMO signs, nothing auto-releases: every result is held for review (fail closed). I did not and cannot sign for the CMO. Doctors will see every normal result in their queue until then; sign early.
+- **Staff emailed-result path: closed.** Staff uploads now create a HELD result; the older `lab_result_documents` table can no longer show a result to a patient or tell them about it before review (live rows: 0). The automatic number extraction no longer runs on an unreviewed staff file.
+- **OQ-179 (explain gate): consumer built.** `canExplainLabResult()` plus a standing scan test that fails if AI or audio code reads structured results without it. Nothing needs it yet; S32 must call it.
+- **Competitor changes 1 to 4 built:** held sensitive results escalate to the CMO after 3 attempts or 72 hours, never released by default (`lab.release_policy`, PROPOSED); one neutral "under review" state with an expected time from `escalation_slas`; corrections and withdrawals as first-class, re-gated and notified neutrally; a "screening result, not a diagnosis" label for HIV, HBsAg and HCV Ab. Change 5 (the patient result card with a plain-language sentence) stays design only: it needs the CMO to approve the sentences.
+- **Not built:** a screen listing released results so a senior clinician can withdraw one (the function and the rule exist; only the page is missing). **OQ-182:** the thresholds 3 attempts and 72 hours are PROPOSED; the CMO should confirm them when signing.
+### OQ-230 Two blood pressure control definitions (raised by S38)
+- The July 2026 `bp_control` measure (for insurers and employers) is the most recent reading in a period under 140/90 for people covered the whole period. S38's `bp_control_90d` is the 7-day average 90 days after a person joined, against their own target, counting people who stopped logging as not controlled. They answer different questions and both stay, named apart; `bp_control_90d` is a new row in `outcome_measure_specs`. Nothing converts one into the other.
+- Options: (a) keep both, named apart (recommended); (b) retire the payer one in favour of the 90-day measure once a payer asks for it.
+- Decision: open (CMO).
+- **Decided 2026-10-07 (founder): keep both, named apart.**
+
+### OQ-231 Release 4 items not built (raised by S38)
+- Risk stratification (22.3, `risk_scores`, `risk-model`), the personal monthly progress report (22.5), the symptom-checker accuracy dashboard (22.4), sponsor dashboards and exportable pilot reports (22.6, 22.9) and clinician worklists ordered by risk are Release 4 in the spec. S38 builds the data they need (snapshots, the de-identified layer, the suppression rules) and the 90-day report only. The research is clear that a risk score must be deterministic, explained, used only to order outreach and never to deny care; that rule is recorded here for the session that builds it.
+- Decision: open (founder, when Release 4 is scheduled).
+- **Decided 2026-10-07 (founder): after 90 days of real snapshots.** Build the risk scores, the personal monthly report, the accuracy dashboard and sponsor exports once the first cohort reaches day 90, so they can be tested against real data.
+
+### OQ-232 Which readings count (raised by S38)
+- Readings flagged only for a missing arm or position are counted; readings flagged as a duplicate or a sudden change are not, until a clinician clears them. Counting every flagged reading would let duplicates and typing errors move the rate; counting none would make most home readings invisible. The share of readings held back is not yet reported.
+- Options: (a) as built (recommended); (b) count only fully valid readings; (c) count all and report the flagged share.
+- Decision: open (CMO).
+- **Decided 2026-10-07 (founder): as built.** Readings flagged only for a missing arm or position count; duplicates and sudden changes wait for a clinician. Reporting the share of readings held back is still a follow-up.
+
+### OQ-233 Smallest group shown (raised by S38)
+- Eleven is the usual rule in health reporting (and 20 when a cut uses two attributes). The Nigeria Data Protection Act and the NDPC's 2025 guidance require privacy by design but name no number that was found. Set in `outcome_config` v1 as PROPOSED, owner CMO, with counsel's view still needed before any figure leaves the company.
+- Decision: open (CMO and counsel).
+- **Decided 2026-10-07 (founder): raised to 20 now.** `outcome_config` v2 (applied to production as `20261006230528_s38b_min_cell_20.sql`): the smallest group shown is 20 and 30 for a cut by two attributes; the published measure `bp_control_90d` is spec v2 (minimum 20), v1 retired. Counsel should still confirm a figure before anything leaves the company.
+
+### OQ-234 Adherence at a past date uses today's medicine list (raised by S38)
+- S08's weekly adherence is computed from the person's current active medicines. A snapshot is taken within days of its window so the difference is small, but a medicine stopped or changed inside the window is not reconstructed. Adherence is stored beside BP and never used in the control figure.
+- Decision: open (CMO); fix by reading the medicine history once S24 records changes.
+- **Decided 2026-10-07 (founder): accept the approximation until S24 records medicine history.** Adherence stays beside BP, never inside the control figure.
+
+### OQ-270 Who joined, and from when (raised by S38; was numbered OQ-235, which S36g already used)
+- Day 0 is the earliest start of a Membership (purchased, voucher, employer or granted) or a care pack entitlement. A free user has no snapshots. Care pack and Membership are treated alike. If a person lets a membership lapse and joins again, day 0 stays the first start.
+- Decision: open (CMO).
+- **Decided 2026-10-07 (founder): the first Membership or care pack start, any source (purchased, voucher, employer, granted), is day 0.** A lapse and rejoin keeps the first start; free users have no snapshots.
+
+### OQ-271 Not applied, console home (raised by S38; was numbered OQ-236, which S36g already used)
+- The migration is not applied to production (apply before merging). The page is in `apps/web` (`/admin/outcomes`); S36 and S37 decide where the console version lives. The report is open to admins and the active CMO only; a clinical lead who is neither cannot see it yet.
+- Decision: open.
+
+### OQ-274 Risk points and tier cut-offs (raised by S38c)
+- Every weight in `risk_config` v1 (for example 45 points for a 7-day average 20 or more above target, 40 for a red event, 50 for 10 days of silence; medium at 30, high at 60) is a PROPOSED starting value, not a clinical judgement. They only order outreach.
+- Options: (a) CMO reviews against the first month of real scores and the fairness report before the worklist is relied on (recommended); (b) CMO sets values now.
+- Decision: open (CMO).
+
+### OQ-275 Monthly report thresholds, and what the care team did (raised by S38c)
+- 3 readings for an average, a 5 mmHg change for "lower" or "higher", 2 grace days: PROPOSED. The report does not say what the care team did that month: counts of reviews or tasks would reveal that a task exists, including sensitive ones.
+- Options: (a) leave it out (as built); (b) add a count of released notes and answered messages only, after the CMO approves the list.
+- Decision: open (CMO).
+
+### OQ-276 Sharing the monthly report with the Care Circle (raised by S38c, closed by S38d)
+- Built once S29 merged (2026-10-06). No new permission and no sharing flag: a member with `weekly_bp_trend` sees, for up to three months, whether there were enough readings, the average (whole numbers), under or above target and the direction; a member with `adherence_summary` sees the share of medicines taken. With neither tick the block is absent (not shared, never zero). No target numbers, week split or reading counts are shared. The patient's own "see what they see" preview shows the same block. A paused circle, an expired or removed member sees none of it.
+- Decision: built as proposed; the founder can narrow it (for example monthly adherence only) by removing a part from `private.circle_monthly_block`.
+
+### OQ-277 Two risk tables with different jobs, worklist cost, who may read it (raised by S38c)
+- `risk_scores` (this build, a daily ordering aid) is separate from `risk_predictions` and `patient_risk_scores` (condition models). The worklist reads each patient's latest score and tests the clinician tie row by row; fine at pilot size, needs a tie-first query before thousands of patients. Only role `clinician` can open it; care coordinators cannot yet (their work is logistics, not ordering by risk).
+- Decision: open.
+- **Decided 2026-10-07 (founder): admins and the CMO, in `apps/web`, for now.** Clinical leads who are neither cannot open it yet; S36 and S37 decide the console version.
+
+
+### S27f: three follow-ups (founder choices, 2026-10-06)
+- **Liaison view CLOSED:** the Lab Liaison sees a neutral list of the files they recorded (last 30 days): date, patient number, order, file name and one of two words, "waiting for review" or "reviewed". Never values, reasons, or whether a result was withheld.
+- **Held corrections CLOSED:** a lab can replace a result that is still held. The held one is marked replaced at once, its review task is cancelled, and it can no longer be released or withheld (`lab_result_replaced`). The replacement goes through the same gate, the reviewer sees the kind and reason, and if the patient never saw the first result they get the normal release notice, not a "corrected" one. A claimed task held by another clinician is left to that clinician, who will find the release refused.
+- **Withdraw screen CLOSED (patient-scoped):** on a tied senior clinician's patient chart, "Released lab results" opens on a click (one audited read) and offers Withdraw with a required reason. There is deliberately no org-wide list.
+
+### OQ-254 Sponsor reporting built; what it still needs (raised by S38d, built by S38e)
+- Built: sponsor cohorts (programme codes), joining, per-programme consent to share group figures, the aggregate-only sponsor report and its audited CSV (admin or CMO only). Left: (a) counsel must approve the consent text, which is seeded as a DRAFT and not current, so no member can consent and no sponsor figure exists until then (OQ-256); (b) a sponsor's own staff cannot log in to see their figures; today an admin or the CMO reads them and hands over the file (OQ-258).
+- Decision: open (founder and counsel).
+
+### OQ-255 Triage accuracy built as agreement with the automatic grade (raised by S38d, built by S38e)
+- Built: an optional "was the grade right, should it have been higher, should it have been lower" field a clinician records after completing a task that came from an automatic grade, and an admin report of agreement (coverage first, small groups withheld, draft rule sets and test accounts left out). It measures agreement with the grade, not diagnostic accuracy; nothing records a final diagnosis. The capture is a platform switch, OFF until the CMO approves (OQ-257).
+- Decision: open (CMO).
+
+### OQ-256 The sponsor consent text needs counsel (raised by S38e)
+- `consent_versions` holds a DRAFT sponsor_reporting text (`2026-10-07-draft`, not current). The patient screen explains in plain words what a sponsor sees. Counsel should approve the legal text and the plain wording together, then the founder makes it current (until then sharing shows "not open yet").
+- Decision: open (counsel).
+
+### OQ-257 CMO approval to switch on triage grade reviews (raised by S38e)
+- The switch `triage_agreement_capture` is off. It adds an optional step for clinicians and shows no patient identity. The admin page asks for a tick and a written note of who approved it and when (at least 10 characters), kept with the switch and in the audit log; it is a record, not a verification, so the CMO's approval itself still has to be real.
+- Decision: open (CMO).
+
+### OQ-258 Sponsor staff access and a mobile way to join (raised by S38e)
+- A sponsor's own staff (employer or insurer admins) cannot see their group figures directly; that needs a role decision (the institutions aggregate-only rule, I9, already limits what they may ever see). Joining a programme with a code is on the web only; the mobile app has no join screen yet.
+- Decision (founder, 2026-10-07): sponsor staff are given access in the mobile app and see their figures there. Built as S38f on the existing institution logins (hmo_admin, corporate_admin, ngo_admin), no new role: see `docs/design/S38f.md`. Also built: web tab and file export for corporate and HMO admins, a Programmes screen for patients on the phone, and held-back months so two published months cannot be subtracted. Closed.
+
+### OQ-259 Sponsor snapshot housekeeping (raised by S38f review)
+- `sponsor_report_snapshots.member_set` stores every agreed member's id for every month so a month can be compared with the last published one. At very large programme sizes that is megabytes a month. Fix when it matters: keep the set only on the most recent published snapshot of each programme (a follow-up migration; none are needed while there are no programmes).
+- `sponsor_staff_figures` writes one audit row per programme per view, so a sponsor with several programmes writes several rows per page load. Fix when it matters: one list-and-figures call that audits once.
+- Decision: open (engineering), not urgent.
+- **Gift window decided 2026-10-07 (founder): 14 days, with one reminder on day 7.** Built in migration `20261007101733_s29d_gift_window_14_days.sql` (care circle config version 3: `gift_decide_days` 14, `gift_remind_days` 7; the sweep declines past the window and reminds once).
+
+### OQ-251 TRI-002 promises a clinician review that Free plan patients do not get (raised by the OQ-203 wording work)
+- Today's TRI-002 text says "Your care team will review this and may contact you". Doctor escalation on patient-logged readings is a paid-plan feature (CLAUDE.md, 2026-08-10), so a Free plan patient can be told something that will not happen.
+- The draft in `clinical-wording.json` removes the promise (the proposed TRI-002 says rest, check again, go to hospital if unwell). TRI-002 and TRI-003 then say nearly the same thing.
+- Options: (a) the CMO signs the no-promise text for everyone (recommended); (b) keep the promise only for patients who have clinician review, which needs the triage result to say which text applies; (c) change nothing.
+- Decision (founder, 2026-10-07): option (a), the no-promise text for everyone. Signed.
+
+
+### OQ-250 AI-017 version v1 still names Nigerian Pidgin (found 2026-10-07)
+- Blocks: nothing. The live `ai_system_versions` row for `AI-017` `v1` (an approved governance record) has `intended_population` reading "...in Nigerian English or Nigerian Pidgin, with a transcript good enough to read." Pidgin was removed on 2026-10-06 (#984), so the record no longer describes the system.
+- The record is approved and immutable by design; only the Chief Medical Officer can register a new version. Suggested `v2` wording for the CMO to enter and approve in the governance screen: "Consultations between a Tarragon clinician and a consenting adult patient, in Nigerian English, with a transcript good enough to read." No other field changes. Nothing was written to the registry by an agent.
+- The AI-003 eval case `pidgin_language_fidelity` keeps one recorded failed result, so it stays as audit history (its runner no longer runs it).
+- Pidgin audio recordings or text-to-speech voices held outside this repository (a TTS account, a drive) are not touched by code and need deleting by hand.
+- Decision: open (CMO for the version; founder for outside assets).
+
+### OQ-252 (S34): size and cold-start targets conflict
+- The S34 prompt asks for under 40 MB and cold start under 3 seconds on a 2 GB Android phone. Spec D.1 and decision DG-1 (2026-10-02) superseded those targets: the floor is a 4 GB Android 10+ or iOS 16+ phone.
+- Options: (a) keep tracking the old numbers as PROPOSED budgets in config and fail CI only on growth (recommended); (b) set new targets for the 4 GB floor; (c) drop size budgets.
+- Decision (founder, 2026-10-07): no pass or fail targets for size or cold start. Build what is needed: the low-data setting, accessibility, and a size and start-time report that is tracked, never a gate. Numbers stay PROPOSED in versioned config for information only.

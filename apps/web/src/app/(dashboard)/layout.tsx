@@ -1,25 +1,24 @@
 import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { AppShell } from "@/components/shell/app-shell";
-import { resolveUiLanguage } from "@tarragon/shared";
-import { getPidginEnabled } from "@/lib/language/pidgin-switch";
 import { MfaNudgeBanner } from "@/components/shell/mfa-nudge-banner";
 import { ConsentNudgeBanner } from "@/components/shell/consent-nudge-banner";
 import { PendingJobsBanner } from "@/components/shell/pending-jobs-banner";
+import { OnCallAlarm } from "@/components/paging/on-call-alarm";
+import { SafetyConcernButton } from "@/components/clinician/safety-concern";
 import { OfflineBanner } from "@/components/shell/offline-banner";
-import { AiGovernanceSignoffBanner } from "@/components/shell/ai-governance-signoff-banner";
+import { SigningHubBanner } from "@/components/shell/signing-hub-banner";
 import { getNavSections } from "@/lib/navigation";
 import { buildAdminSearchIndex, CMO_EXTRA_PAGES } from "@/lib/admin-search";
 import { getVisibleAdminSettingsTabs } from "@/lib/admin-settings-nav";
 import { isActiveChiefMedicalOfficer } from "@/lib/clinical/doctor-tier";
-import { readPendingAiGovernanceSignoff } from "@/lib/queries/pending-ai-governance-signoff";
+import { getCmoSigningHubForRequest } from "@/lib/queries/cmo-signing-hub-request";
 import { ROLE_DISPLAY_LABEL } from "@/lib/auth/roles";
 import { isEmbeddedInApp } from "@/lib/embedded-webview";
 import { cookies } from "next/headers";
 import { THEME_COOKIE, parseThemePreference } from "@/lib/theme";
 import { Providers } from "./providers";
 import { signOut } from "../auth/actions";
-import { updateUiLanguage } from "./patient/ui-language-actions";
 
 export default async function DashboardLayout({
   children,
@@ -40,9 +39,6 @@ export default async function DashboardLayout({
     )
     .eq("id", user.id)
     .single();
-
-  // Only patients ever see Pidgin; staff consoles are English, so skip the lookup for them.
-  const pidginEnabled = profile?.role === "patient" ? await getPidginEnabled() : false;
 
   // Supporter-only: they fund somebody else's care and receive none here.
   // Somebody who is BOTH keeps the full patient app, with People you support
@@ -68,13 +64,11 @@ export default async function DashboardLayout({
     isChiefMedicalOfficer = isActiveChiefMedicalOfficer(staff ?? null);
   }
 
-  // The two AI governance actions only an active Chief Medical Officer can
-  // close (see readPendingAiGovernanceSignoff's own comment for the full
-  // reachability history) — only read for someone who can actually act on
-  // them, same gating this file already applies to pendingJobItems below.
-  const aiGovernanceSignoff = isChiefMedicalOfficer
-    ? await readPendingAiGovernanceSignoff(supabase)
-    : null;
+  // Everything only an active Chief Medical Officer can sign (rules, governed
+  // configs, protocols, AI governance, coaching content, result release
+  // policy), read once for the banner that points at the sign-off hub. Only
+  // read for someone who can act on it, same gating as pendingJobItems below.
+  const signingHub = isChiefMedicalOfficer ? await getCmoSigningHubForRequest() : null;
 
   // "Notes to complete" (pending-jobs banner, doctor only) — the exact
   // {label, href, countKey} list navigation.ts's clinician nav already
@@ -161,12 +155,6 @@ export default async function DashboardLayout({
         // role) get the Warm Ivory ground the mobile app already ships;
         // staff and clinical consoles keep the white canvas.
         surface={profile?.role === "patient" ? "warm" : "default"}
-        // Patients only. Staff consoles stay English: the clinical vocabulary
-        // they work in has no Pidgin register, and a half-translated clinical
-        // console is a safety problem rather than an accessibility win.
-        uiLanguage={profile?.role === "patient" ? resolveUiLanguage(profile?.language, pidginEnabled) : "en"}
-        // The English/Pidgin toggle disappears while an admin has Pidgin switched off.
-        uiLanguageAction={profile?.role === "patient" && pidginEnabled ? updateUiLanguage : undefined}
         initialTheme={theme}
         signOutAction={signOut}
       >
@@ -182,14 +170,18 @@ export default async function DashboardLayout({
         {profile?.role === "patient" && profile?.onboarding_completed_at && (
           <ConsentNudgeBanner patientId={user.id} />
         )}
+        {/* The in-console alarm for a red event page (S19): clinicians only; it only ever reads the caller's own pages. */}
+        {profile?.role === "clinician" && <OnCallAlarm />}
+        {/* Always visible to a clinician (S35, spec 9.1): the safety concern report. */}
+        {profile?.role === "clinician" && <SafetyConcernButton />}
         {profile?.role === "clinician" && (
           <PendingJobsBanner jobs={pendingJobItems} staffId={clinicalStaffId} />
         )}
-        {aiGovernanceSignoff && (
-          <AiGovernanceSignoffBanner
-            pendingVersionApprovalCount={aiGovernanceSignoff.pendingVersionApprovalCount}
-            pendingClinicalAccuracyLabelCount={aiGovernanceSignoff.pendingClinicalAccuracyLabelCount}
-            failed={aiGovernanceSignoff.failed}
+        {signingHub && (
+          <SigningHubBanner
+            outstandingCount={signingHub.items.length}
+            liveUnsignedCount={signingHub.items.filter((i) => i.severity === "live_unsigned").length}
+            failed={signingHub.failed}
           />
         )}
         {children}

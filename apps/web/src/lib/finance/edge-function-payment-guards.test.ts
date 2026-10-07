@@ -24,7 +24,9 @@ describe("paystack-webhook signature verification", () => {
   const source = readFileSync(WEBHOOK, "utf8");
 
   it("compares the signature in constant time, not with ===", () => {
-    expect(source).toContain("function timingSafeEqual(");
+    // One shared constant-time comparison (_shared/integrations/crypto.ts), not a per-function copy.
+    expect(source).toContain('import { constantTimeEqual } from "../_shared/integrations/crypto.ts";');
+    expect(source).toContain("export const timingSafeEqual = constantTimeEqual;");
     expect(source).toContain("return timingSafeEqual(signatureHeader, expected);");
   });
 

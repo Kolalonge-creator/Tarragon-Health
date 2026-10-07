@@ -60,6 +60,9 @@ begin
   if v_pt is null or v_pt2 is null or v_staff1 is null then
     raise exception 'fixture lookup failed';
   end if;
+  -- S37: a video visit request is refused for a real patient, and accepted only by a test clinician for a test patient, while the
+  -- clinical_operations_enabled guard is off. These are fixtures in a transaction that is rolled back, so they are treated as test here.
+  update public.profiles set is_test = true where id in (v_pt, v_pt2, v_clin1);
 
   v_video_time := date_trunc('hour', now()) + interval '4 days' + interval '9 hours';
   v_free_time := date_trunc('hour', now()) + interval '4 days' + interval '14 hours';
@@ -73,6 +76,9 @@ begin
     (organisation_id, clinician_profile_id, slot_start, slot_end)
   values (v_org, v_clin1, v_video_time, v_video_time + interval '30 minutes')
   returning id into v_slot;
+
+  -- S21: a video visit is adults only and fails closed with no date of birth, so give the fixture patient one (rolled back).
+  update public.profiles set date_of_birth = (current_date - interval '40 years')::date where id = v_pt and date_of_birth is null;
 
   v_claims := json_build_object('sub', v_pt, 'role', 'authenticated')::text;
   perform set_config('request.jwt.claims', v_claims, true);

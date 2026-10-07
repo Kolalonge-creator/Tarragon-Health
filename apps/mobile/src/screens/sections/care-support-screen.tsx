@@ -1,19 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
-import { formatDoctorName } from "@/lib/doctor-name";
 import {
-  loadMyAsyncConsults,
-  submitAsyncConsult,
-  ASYNC_CONSULT_CATEGORIES,
-  ASK_A_DOCTOR_CREDIT_REQUIRED_MARKER,
   loadMyNavigationRequests,
   createNavigationRequest,
   submitNavigationRequestFeedback,
   NAVIGATION_REQUEST_CATEGORIES,
   NAVIGATION_REQUEST_CATEGORY_LABEL,
   NAVIGATION_REQUEST_STATUS_LABEL,
-  type AsyncConsultWithAnswerer,
   type NavigationRequest,
   type NavigationRequestCategory,
 } from "@/lib/care-support";
@@ -43,10 +37,14 @@ import {
   type HospitalAdmission,
   type ReferralItem,
 } from "@/lib/care";
+import { PatientNotesSection } from "./patient-notes-section";
+import { WrittenQuestionsSection } from "./written-questions-section";
+import { MembershipSection } from "./membership-section";
 import { SecondOpinionSection } from "./second-opinion-section";
 import { SeniorCaseReviewSection } from "./senior-case-review-section";
 import { VerifiedDocumentsSection } from "./verified-documents-section";
 import { VideoVisitBookingSection } from "./video-visit-booking-section";
+import { UpcomingConsultationsSection } from "./upcoming-consultations-section";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import {
   loadMyVouchers,
@@ -81,6 +79,8 @@ interface CareSupportScreenProps {
   /** Pushes the native "manage this visit" screen once a video-visit
    * request reaches 'accepted' — see home-shell.tsx's openVideoVisitId. */
   onOpenVideoVisit: (consultationId: string) => void;
+  /** Opens the S21 consultation room (OQ-158); see home-shell.tsx's openConsultationId. */
+  onOpenConsultation: (encounterId: string) => void;
 }
 
 /**
@@ -119,7 +119,7 @@ interface CareSupportScreenProps {
  * vouchers, wellness points, testimonials) that the web page itself treats
  * as lower priority than the content above.
  */
-export function CareSupportScreen({ patientId, organisationId, onOpenVideoVisit }: CareSupportScreenProps) {
+export function CareSupportScreen({ patientId, organisationId, onOpenVideoVisit, onOpenConsultation }: CareSupportScreenProps) {
   const colors = useLegacyColors();
   return (
     <ScrollView
@@ -131,6 +131,7 @@ export function CareSupportScreen({ patientId, organisationId, onOpenVideoVisit 
         <MutedText>Your care plan, reviews, and referrals.</MutedText>
       </View>
 
+      <UpcomingConsultationsSection onOpenConsultation={onOpenConsultation} />
       <CarePlanSection patientId={patientId} />
       <EscalationsSection patientId={patientId} />
       <ReferralsSection patientId={patientId} />
@@ -140,7 +141,9 @@ export function CareSupportScreen({ patientId, organisationId, onOpenVideoVisit 
         organisationId={organisationId}
         onOpenVideoVisit={onOpenVideoVisit}
       />
-      <AskADoctorSection patientId={patientId} organisationId={organisationId} />
+      <MembershipSection />
+      <WrittenQuestionsSection />
+      <PatientNotesSection />
       <SecondOpinionSection patientId={patientId} organisationId={organisationId} />
       <SeniorCaseReviewSection patientId={patientId} />
       <VerifiedDocumentsSection patientId={patientId} />
@@ -740,141 +743,6 @@ function AdmissionRow({
 }
 
 // ---------------------------------------------------------------------------
-// Ask a doctor — async written Q&A (unchanged from before this pass).
-// ---------------------------------------------------------------------------
-
-function AskADoctorSection({ patientId, organisationId }: { patientId: string; organisationId: string }) {
-  const colors = useLegacyColors();
-  const textInputStyle = useTextInputStyle();
-  const { scheme } = useTheme();
-  const [consults, setConsults] = useState<AsyncConsultWithAnswerer[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [category, setCategory] = useState(ASYNC_CONSULT_CATEGORIES[0].value);
-  const [question, setQuestion] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [needsCredit, setNeedsCredit] = useState(false);
-
-  const refresh = useCallback(async () => {
-    const result = await loadMyAsyncConsults(patientId);
-    if (result.ok) setConsults(result.data);
-  }, [patientId]);
-
-  useEffect(() => {
-    refresh().finally(() => setLoading(false));
-  }, [refresh]);
-
-  async function submit() {
-    if (question.trim().length < 10) {
-      setError("Tell us a little more so the doctor can actually help");
-      return;
-    }
-    setSubmitting(true);
-    setError(null);
-    setNeedsCredit(false);
-
-    const input = { patientId, organisationId, category, question: question.trim() };
-    const result = await submitAsyncConsult(input);
-
-    setSubmitting(false);
-    if (!result.ok) {
-      if (result.error.includes(ASK_A_DOCTOR_CREDIT_REQUIRED_MARKER)) {
-        setNeedsCredit(true);
-      } else {
-        setError(result.error);
-      }
-      return;
-    }
-    setQuestion("");
-    void refresh();
-  }
-
-  return (
-    <View style={{ gap: 10 }}>
-      <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Ask a doctor</Text>
-      <MutedText>
-        Send a written question and a doctor on your care team answers here, usually within 72
-        hours. Not for emergencies.
-      </MutedText>
-
-      {needsCredit && (
-        <Card style={{ gap: 8, backgroundColor: colors.brandTint }}>
-          <Text style={{ fontSize: 13, color: colors.brandPressed }}>
-            Ask a doctor isn&apos;t included on your current plan. Buy a one-off credit to send this question.
-          </Text>
-          <SecondaryButton
-            title="Buy a credit in the browser"
-            onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/care#ask-a-doctor`)}
-          />
-        </Card>
-      )}
-
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-        {ASYNC_CONSULT_CATEGORIES.map((c) => {
-          const selected = c.value === category;
-          return (
-            <Pressable
-              key={c.value}
-              onPress={() => setCategory(c.value)}
-              style={{
-                borderRadius: 999,
-                paddingVertical: 7,
-                paddingHorizontal: 12,
-                backgroundColor: selected ? colors.brand : colors.groupBg,
-              }}
-            >
-              <Text style={{ fontSize: 12, fontWeight: "600", color: selected ? "#FFFFFF" : colors.ink }}>
-                {c.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
-        value={question}
-        onChangeText={setQuestion}
-        placeholder="e.g. I've felt dizzy in the mornings since my dose changed. Is that expected?"
-        multiline
-        numberOfLines={3}
-        style={[textInputStyle, { minHeight: 70, textAlignVertical: "top" }]}
-      />
-      {error && <ErrorText>{error}</ErrorText>}
-      <PrimaryButton title="Send to my care team" onPress={submit} loading={submitting} />
-
-      {loading && <ActivityIndicator color={colors.brand} />}
-      {consults.length > 0 && (
-        <View style={{ gap: 10, marginTop: 4 }}>
-          {consults.map((c) => {
-            const answered = c.status === "answered" || c.status === "closed";
-            return (
-              <Card key={c.id} style={{ gap: 6 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                  <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink, flex: 1 }}>
-                    {c.question}
-                  </Text>
-                  <Badge tone={answered ? "brand" : "neutral"}>{answered ? "Answered" : "With your care team"}</Badge>
-                </View>
-                {answered && c.answer && (
-                  <>
-                    <Text style={{ fontSize: 13.5, color: colors.ink }}>{c.answer}</Text>
-                    {c.answerer && c.answered_at && (
-                      <MutedText>
-                        Answered by {formatDoctorName(c.answerer.full_name)} on {when(c.answered_at)}
-                      </MutedText>
-                    )}
-                  </>
-                )}
-              </Card>
-            );
-          })}
-        </View>
-      )}
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Need help — non-clinical navigation requests (unchanged from before this pass).
 // ---------------------------------------------------------------------------
 
@@ -935,7 +803,7 @@ function NeedHelpSection({ patientId }: { patientId: string }) {
             {NAVIGATION_REQUEST_CATEGORIES.map((c) => {
               const selected = c === category;
               return (
-                <Pressable
+                <Pressable accessibilityRole="button" accessibilityState={{ selected }}
                   key={c}
                   onPress={() => setCategory(c)}
                   style={{
@@ -995,13 +863,13 @@ function NeedHelpSection({ patientId }: { patientId: string }) {
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                   <MutedText>How did we do?</MutedText>
                   {[1, 2, 3, 4, 5].map((n) => (
-                    <Pressable
+                    <Pressable accessibilityRole="button" accessibilityLabel={`Rate ${n} out of 5`} hitSlop={4}
                       key={n}
                       onPress={() => void rate(r.id, n)}
                       style={{
-                        width: 26,
-                        height: 26,
-                        borderRadius: 13,
+                        width: 36,
+                        height: 36,
+                        borderRadius: 18,
                         borderWidth: 1,
                         borderColor: colors.border,
                         alignItems: "center",

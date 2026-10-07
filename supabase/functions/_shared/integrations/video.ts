@@ -20,6 +20,49 @@ export interface CreateRoomInput {
 export interface VideoRoom {
   readonly roomId: string;
   readonly expiresAtMs: number;
+  /** Recording is always off (S21, OQ-128). An adapter that cannot guarantee it must refuse to create the room. */
+  readonly recording: "off";
+}
+/** What the participant asks for on joining. A vendor link cannot always force it; see `audioOnlyEnforced`. */
+export type RequestedMedia = "video" | "audio_only";
+export interface JoinLinkInput {
+  readonly roomId: string;
+  readonly role: VideoRole;
+  readonly mediaMode: RequestedMedia;
+}
+export interface JoinLink {
+  /** Issued on demand and never stored: it can carry a passcode or a host key. */
+  readonly url: string;
+  readonly expiresAtMs: number;
+  readonly mediaMode: RequestedMedia;
+  /** True only when the vendor itself keeps the camera off. A plain meeting link cannot, so the app also tells the person. */
+  readonly audioOnlyEnforced: boolean;
+}
+/**
+ * The phone fallback (S21, OQ-131 revised): the same room, joined by an ordinary phone call to a number the vendor publishes, so it
+ * needs no data and no app. The person dials, enters the meeting id and passcode, and is in the same call as the clinician. Fetched
+ * from the vendor each time and never stored: the passcode is a credential for the room.
+ */
+export interface DialInNumber {
+  /** Two-letter country code. Only numbers for the country the patient is in are returned. */
+  readonly country: string;
+  /** E.164 where the vendor gives one, otherwise as published. Shown to the person; never logged. */
+  readonly number: string;
+  readonly city: string | null;
+  readonly kind: "toll" | "toll_free";
+}
+export interface DialIn {
+  readonly numbers: readonly DialInNumber[];
+  /** The id to type after dialling, digits only. */
+  readonly meetingId: string;
+  /** Keypad passcode for a phone caller, or null when the room needs none. */
+  readonly passcode: string | null;
+  readonly expiresAtMs: number;
+}
+export interface DialInInput {
+  readonly roomId: string;
+  /** Two-letter country code to list numbers for (Nigeria for this platform). */
+  readonly country: string;
 }
 export interface JoinTokenInput {
   readonly roomId: string;
@@ -27,15 +70,34 @@ export interface JoinTokenInput {
   /** Opaque participant id (a uuid). */
   readonly identity: string;
   readonly ttlSeconds: number;
+  /**
+   * How long a clinician's host key may live, in seconds (the `consultations.host_key` configuration). The key is only needed at the
+   * moment of joining, so it is kept as short as the caller allows; it never outlives the token or the room. Absent means "as long as
+   * the token", which is the older behaviour.
+   */
+  readonly hostKeyTtlSeconds?: number;
 }
 export interface JoinToken {
   readonly token: string;
   readonly expiresAtMs: number;
+  /**
+   * What the vendor's in-app SDK also needs to enter the room, fetched from the vendor each time and handed to the one
+   * signed-in person only. Never stored, never logged: both are credentials for the room.
+   * - `password`: the room's passcode, when it has one.
+   * - `zak`: the host start key. Only a clinician's token carries it (the clinician hosts), and it is short-lived.
+   */
+  readonly password?: string;
+  readonly zak?: string;
 }
 
+/**
+ * `role` on a participant event comes from the display label, which the person chose themselves, so it is only a hint.
+ * `customerKey` is the opaque value WE gave the person's SDK to join with (see consultation-call.ts); a vendor event that
+ * carries a key that verifies for the encounter is the only thing that proves who entered the call.
+ */
 export type VideoEvent =
-  | { readonly kind: "participant_joined"; readonly roomId: string; readonly role: VideoRole; readonly atMs: number }
-  | { readonly kind: "participant_left"; readonly roomId: string; readonly role: VideoRole; readonly atMs: number }
+  | { readonly kind: "participant_joined"; readonly roomId: string; readonly role: VideoRole; readonly atMs: number; readonly customerKey?: string }
+  | { readonly kind: "participant_left"; readonly roomId: string; readonly role: VideoRole; readonly atMs: number; readonly customerKey?: string }
   | {
       readonly kind: "quality";
       readonly roomId: string;
@@ -55,6 +117,13 @@ export interface VideoProvider {
    * authorisation: the caller must first check the signed-in user holds the clinician assignment for this encounter (INV-12).
    */
   joinToken(input: JoinTokenInput): Promise<ProviderResult<JoinToken>>;
+  /**
+   * The link-based join (S21, OQ-126): what a person opens when the vendor's app, not our own SDK, runs the call. Fetched
+   * from the vendor each time and never stored. The clinician's link is the host link; a patient's is not.
+   */
+  joinLink(input: JoinLinkInput): Promise<ProviderResult<JoinLink>>;
+  /** Numbers to ring into the same room by phone. `not_found` when the vendor offers none for the country (the app then says so). */
+  dialIn(input: DialInInput): Promise<ProviderResult<DialIn>>;
   endRoom(roomId: string, actingRole: VideoRole): Promise<ProviderResult<{ endedAtMs: number }>>;
   /**
    * In-process events for a room, for example connection quality reported by the vendor's client SDK on the device.

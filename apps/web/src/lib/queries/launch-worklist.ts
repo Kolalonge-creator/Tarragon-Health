@@ -131,7 +131,7 @@ export const WORKLIST_LABEL: Record<WorklistCountKey, string> = {
   openSafetyIncidents: "Safety incidents",
   openSafeguardingConcerns: "Safeguarding concerns",
   resultsInboxAwaitingAction: "Results inbox",
-  asyncConsults: "Async consults",
+  asyncConsults: "Written questions",
   secondOpinionRequests: "Second opinions",
   prescriptionRenewalRequests: "Prescription renewals",
   verifiedDocumentRequests: "Verified documents",

@@ -1,0 +1,260 @@
+import { z } from "zod";
+import { LAB_UNIT_CONVERSIONS, LabEntryError, toCanonicalUnit } from "@tarragon/clinical/lab-units";
+
+/**
+ * Shared pieces for structured lab results (S27): the file rule, the input schemas, the plain-words error mapping and
+ * the narrow parsers for what the database functions return. No server-only imports, so the actions, the screens and
+ * the tests read one definition.
+ */
+
+export const LAB_RESULT_BUCKET = "lab-results";
+export const LAB_RESULT_FILE_ACCEPT = "application/pdf,image/jpeg,image/png";
+const MAX_BYTES = 10 * 1024 * 1024;
+const MIME = new Set(["application/pdf", "image/jpeg", "image/png"]);
+export const LAB_RESULT_EXT: Record<string, string> = { "application/pdf": "pdf", "image/jpeg": "jpg", "image/png": "png" };
+
+export function validateLabResultFile(file: { type: string; size: number }): string | null {
+  if (!MIME.has(file.type)) return "Please choose a PDF, JPG or PNG.";
+  if (file.size <= 0) return "That file is empty.";
+  if (file.size > MAX_BYTES) return "That file is larger than 10 MB.";
+  return null;
+}
+
+/** One panel: the Membership annual blood test (there are no packages to choose between). */
+export const PANEL_CODES = ["membership_annual"] as const;
+export type PanelCode = (typeof PANEL_CODES)[number];
+export const PANEL_LABEL: Record<PanelCode, string> = { membership_annual: "Annual blood test" };
+
+const itemSchema = z
+  .object({
+    analyte_code: z.string().regex(/^[a-z][a-z0-9_]*$/),
+    value_numeric: z.number().finite().min(0).max(1_000_000).optional(),
+    value_text: z.enum(["positive", "negative"]).optional(),
+    unit: z.string().max(20).optional(),
+  })
+  .refine((i) => (i.value_numeric !== undefined) !== (i.value_text !== undefined), { message: "Each analyte needs exactly one value." });
+
+export const resultEntrySchema = z.object({
+  orderId: z.string().uuid(),
+  panel: z.enum(PANEL_CODES),
+  items: z.array(itemSchema).max(60),
+});
+export type ResultEntryItem = z.infer<typeof itemSchema>;
+
+/**
+ * A lab may print a value in another unit (glucose in mmol/L, creatinine in µmol/L, haemoglobin in g/L). The database judges
+ * every value in the panel's own unit and refuses any other, so a value in a known alternate unit is converted here first, and
+ * a unit nobody knows is refused with the plain message rather than guessed. An analyte this table does not know is passed
+ * through untouched, so the database gives its own unknown-analyte answer.
+ */
+export function toPanelUnits(items: ResultEntryItem[]): { items: ResultEntryItem[] } | { error: string } {
+  const out: ResultEntryItem[] = [];
+  for (const item of items) {
+    if (item.value_numeric === undefined || !(item.analyte_code in LAB_UNIT_CONVERSIONS)) {
+      out.push(item);
+      continue;
+    }
+    try {
+      const n = toCanonicalUnit(item.analyte_code, item.value_numeric, item.unit);
+      out.push({ analyte_code: item.analyte_code, value_numeric: n.value, unit: n.unit });
+    } catch (e) {
+      if (e instanceof LabEntryError) return { error: MESSAGES[e.code] ?? "That unit is not one we can read. Enter the value in the unit shown." };
+      throw e;
+    }
+  }
+  return { items: out };
+}
+
+export const disclosureSchema = z.object({
+  resultId: z.string().uuid(),
+  method: z.enum(["in_person", "phone", "video"]),
+  attested: z.literal(true, { message: "Please confirm you told the patient yourself." }),
+  note: z.string().trim().max(500).optional(),
+});
+
+export const withholdSchema = z.object({
+  resultId: z.string().uuid(),
+  reason: z.string().trim().min(5, "Please give a reason.").max(500),
+});
+
+export const DISCLOSURE_ATTEMPT_OUTCOMES = ["no_answer", "wrong_number", "asked_to_call_back", "declined_to_hear", "other"] as const;
+export const ATTEMPT_OUTCOME_LABEL: Record<(typeof DISCLOSURE_ATTEMPT_OUTCOMES)[number], string> = {
+  no_answer: "No answer",
+  wrong_number: "Wrong number",
+  asked_to_call_back: "Asked me to call back",
+  declined_to_hear: "Declined to hear it",
+  other: "Something else",
+};
+export const attemptSchema = z.object({
+  resultId: z.string().uuid(),
+  outcome: z.enum(DISCLOSURE_ATTEMPT_OUTCOMES),
+  note: z.string().trim().max(500).optional(),
+});
+export const CORRECTION_KINDS = ["corrected", "amended", "appended"] as const;
+export const correctionSchema = resultEntrySchema.extend({
+  correctsResultId: z.string().uuid(),
+  kind: z.enum(CORRECTION_KINDS),
+  reason: z.string().trim().min(5, "Please say what changed and why.").max(500),
+});
+
+export const releaseSchema = z.object({ resultId: z.string().uuid(), note: z.string().trim().max(500).optional() });
+
+const sexRangeSchema = z.object({ refLow: z.number().optional(), refHigh: z.number().optional() });
+
+export const panelDefinitionSchema = z.object({
+  panel_code: z.string(),
+  version: z.number(),
+  analytes: z.array(
+    z.object({
+      code: z.string(),
+      label: z.string(),
+      kind: z.enum(["numeric", "qualitative"]),
+      unit: z.string(),
+      refLow: z.number().optional(),
+      refHigh: z.number().optional(),
+      criticalLow: z.number().optional(),
+      criticalHigh: z.number().optional(),
+      bySex: z.object({ male: sexRangeSchema.optional(), female: sexRangeSchema.optional() }).optional(),
+      sensitive: z.boolean().optional(),
+      optional: z.boolean().optional(),
+    }),
+  ),
+});
+export type PanelDefinition = z.infer<typeof panelDefinitionSchema>;
+
+/**
+ * "Men 13 to 17.5, women 12 to 15.5" for an analyte with sex-specific ranges, or "" for one without. The CMO reads this before signing
+ * and the partner lab sees it beside the entry box, so a range that differs by sex is never hidden behind the general one.
+ */
+export function describeSexRanges(a: PanelDefinition["analytes"][number]): string {
+  if (!a.bySex) return "";
+  const side = (label: string, r: { refLow?: number; refHigh?: number } | undefined) => {
+    const low = r?.refLow ?? a.refLow ?? null;
+    const high = r?.refHigh ?? a.refHigh ?? null;
+    const text = formatRange(low, high, a.unit);
+    return text ? `${label} ${text}` : "";
+  };
+  return [side("men", a.bySex.male), side("women", a.bySex.female)].filter(Boolean).join(", ");
+}
+
+/** Analytes whose positive is a screening result, not a diagnosis (WHO: a reactive screen needs confirmation). */
+export const SCREENING_ANALYTES: ReadonlySet<string> = new Set(["hiv_screen", "hbsag", "hcv_ab"]);
+
+const myItemSchema = z.object({
+  analyte_code: z.string(),
+  value_numeric: z.number().nullable(),
+  value_text: z.string().nullable(),
+  unit: z.string(),
+  ref_low: z.number().nullable(),
+  ref_high: z.number().nullable(),
+  flag: z.enum(["normal", "low", "high", "critical", "positive", "negative"]),
+  sensitive_positive: z.boolean().optional(),
+});
+export const myLabResultsSchema = z.array(
+  z.object({
+    lab_result_id: z.string().uuid(),
+    received_at: z.string(),
+    panel_code: z.string().nullable(),
+    own_upload: z.boolean(),
+    // every held result is "under_review" (no hint of which one is sensitive or abnormal)
+    status: z.enum(["released", "under_review"]),
+    expected_by: z.string().nullable().optional(),
+    replaced: z.boolean().optional(),
+    correction_kind: z.string().nullable().optional(),
+    explain_allowed: z.boolean(),
+    has_file: z.boolean(),
+    items: z.array(myItemSchema),
+  }),
+);
+export type MyLabResult = z.infer<typeof myLabResultsSchema>[number];
+
+export const reviewResultSchema = z.object({
+  lab_result_id: z.string().uuid(),
+  patient_id: z.string().uuid(),
+  release_state: z.string(),
+  release_reason: z.string().nullable(),
+  panel_code: z.string().nullable(),
+  received_at: z.string(),
+  submitted_by_kind: z.string(),
+  file_path: z.string().nullable(),
+  items: z.array(myItemSchema.extend({ sensitive_positive: z.boolean() })),
+});
+export type ReviewResult = z.infer<typeof reviewResultSchema>;
+
+/** Plain-words messages for the stable error codes the database raises. Anything unknown gets the generic line. */
+const MESSAGES: Record<string, string> = {
+  lab_unit_mismatch: "That unit does not match the panel. Enter the value in the unit shown.",
+  lab_unknown_analyte: "That test is not part of this panel.",
+  lab_value_missing: "A value is missing.",
+  lab_value_not_recognised: "A screening result must be entered as positive or negative. Send an unclear one back for a new sample instead.",
+  lab_value_out_of_bounds: "A value is outside what can be entered.",
+  lab_duplicate_analyte: "A test was entered twice.",
+  lab_result_already_received: "A result was already received for this order.",
+  lab_order_not_payable_state: "This order is not ready for a result yet.",
+  lab_order_not_collectable: "This order cannot be marked collected now.",
+  lab_nothing_to_record: "Enter values or attach the report.",
+  lab_result_not_awaiting_review: "This result is not waiting for review.",
+  lab_result_not_for_disclosure: "This result does not need a personal disclosure.",
+  lab_disclosure_needs_attestation: "Choose how you told the patient and confirm it.",
+  lab_disclosure_needs_senior_clinician: "A senior clinician must record this disclosure.",
+  lab_critical_needs_senior_clinician: "A critical value can be released only by a senior clinician.",
+  lab_file_path_invalid: "That file could not be attached.",
+  lab_correction_needs_kind_and_reason: "Say what kind of change this is and why.",
+  lab_correction_target_invalid: "A correction cannot be sent for this result right now.",
+  lab_result_not_withdrawable: "This result cannot be withdrawn.",
+  lab_result_replaced: "This result was replaced by a corrected one, so it cannot be changed.",
+  lab_result_final: "This result is final and cannot be changed.",
+};
+
+export function describeLabError(error: { message?: string } | null | undefined, fallback = "That did not work. Please try again."): string {
+  const m = error?.message ?? "";
+  for (const [code, text] of Object.entries(MESSAGES)) if (m.includes(code)) return text;
+  if (m.includes("Not permitted") || m.includes("Order not found")) return "You do not have access to that.";
+  if (m.includes("A reason is required")) return "Please give a reason.";
+  return fallback;
+}
+
+export function formatRange(low: number | null, high: number | null, unit: string): string {
+  if (low !== null && high !== null) return `${low} to ${high} ${unit}`;
+  if (high !== null) return `up to ${high} ${unit}`;
+  if (low !== null) return `${low} or more ${unit}`;
+  return "";
+}
+
+/** The audit-safe refusal the review functions return instead of raising (so the denied audit row commits). */
+export function refusalOf(data: unknown): string | null {
+  if (data && typeof data === "object" && "error" in data && (data as { error: unknown }).error === "not_permitted") {
+    return "You do not have access to that.";
+  }
+  return null;
+}
+
+export const releasedResultsSchema = z.object({
+  results: z.array(
+    z.object({
+      lab_result_id: z.string().uuid(),
+      received_at: z.string(),
+      released_at: z.string().nullable(),
+      panel_code: z.string().nullable(),
+      order_number: z.string().nullable(),
+      submitted_by_kind: z.string(),
+      withdrawn: z.boolean(),
+      replaced: z.boolean(),
+      abnormal_count: z.number(),
+      item_count: z.number(),
+    }),
+  ),
+});
+export type ReleasedResultRow = z.infer<typeof releasedResultsSchema>["results"][number];
+
+export const liaisonUploadsSchema = z.array(
+  z.object({
+    lab_result_id: z.string().uuid(),
+    received_at: z.string(),
+    order_number: z.string().nullable(),
+    patient_number: z.string().nullable(),
+    file_name: z.string().nullable(),
+    status: z.enum(["waiting_for_review", "reviewed"]),
+  }),
+);
+export type LiaisonUploadRow = z.infer<typeof liaisonUploadsSchema>[number];

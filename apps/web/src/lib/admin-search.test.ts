@@ -64,6 +64,20 @@ describe("the real admin menus", () => {
     expect(top("promo")).toContain("/admin/promo-codes");
   });
 
+  it("finds the hand-granted Membership page (every console page needs a search entry)", () => {
+    expect(top("membership")).toContain("/admin/memberships");
+    expect(top("grant")).toContain("/admin/memberships");
+    expect(top("catalogue")).toContain("/admin/catalogue");
+    expect(top("price list")).toContain("/admin/catalogue");
+  });
+
+  it("finds the fees and earnings page (every console page needs a search entry)", () => {
+    expect(top("fee schedule")).toContain("/admin/earnings");
+    expect(top("payout")).toContain("/admin/earnings");
+    expect(top("adjustment")).toContain("/admin/earnings");
+    expect(top("weekly payout")).toContain("/admin/payouts");
+  });
+
   it("indexes a useful number of pages with no path twice", () => {
     expect(real.length).toBeGreaterThan(60);
     expect(new Set(real.map((e) => e.href)).size).toBe(real.length);
@@ -124,5 +138,74 @@ describe("searchAdminEntries", () => {
       { label: "Beta page", href: "/b", group: "G" },
     ];
     expect(searchAdminEntries(tie, "page").map((e) => e.href)).toEqual(["/a", "/b"]);
+  });
+});
+
+describe("task types are searchable (S16)", () => {
+  const cmoIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+  const hit = (idx: AdminSearchEntry[], q: string) => searchAdminEntries(idx, q, 8).map((e) => e.href);
+
+  it("finds the task types page by the code, its words or its name, for the admin and for the CMO", () => {
+    for (const q of ["adherence_follow_up", "adherence follow up", "task types", "priority queue", "silence check"]) {
+      expect(hit(index, q)).toContain("/admin/task-types");
+      expect(hit(cmoIndex, q)).toContain("/clinician/task-types");
+    }
+  });
+});
+
+describe("titration protocols are searchable (S24b)", () => {
+  const cmoIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+  it("finds the page by its words", () => {
+    for (const q of ["titration", "step table", "approve protocol", "hypertension", "blood pressure protocol", "protocol"]) {
+      expect(searchAdminEntries(cmoIndex, q, 10).map((e) => e.href)).toContain("/clinician/titration-protocols");
+    }
+  });
+});
+
+describe("the rota and lead clinicians are searchable (S18)", () => {
+  const adminIndex = buildAdminSearchIndex(getNavSections("admin", null), []);
+  const cmoIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+  const hit = (idx: AdminSearchEntry[], q: string) => searchAdminEntries(idx, q, 8).map((e) => e.href);
+
+  it("finds the rota page by its words, for the admin and for the CMO", () => {
+    for (const q of ["rota", "on call", "backup", "lead clinician", "cover gap"]) {
+      expect(hit(adminIndex, q)).toContain("/admin/rota");
+      expect(hit(cmoIndex, q)).toContain("/clinician/team-rota");
+    }
+  });
+
+  it("a clinician finds their own hours page", () => {
+    const clinicianIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], []);
+    expect(hit(clinicianIndex, "declare hours")).toContain("/clinician/rota");
+    expect(hit(clinicianIndex, "my earnings")).toContain("/clinician/earnings");
+    expect(hit(clinicianIndex, "my payouts bank account")).toContain("/clinician/payouts");
+  });
+});
+
+describe("the go-live guards are searchable (S37)", () => {
+  const adminIndex = buildAdminSearchIndex(getNavSections("admin", null), []);
+  const cmoIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+  const hit = (idx: AdminSearchEntry[], q: string) => searchAdminEntries(idx, q, 8).map((e) => e.href);
+
+  it("finds the guards page by its words, for the admin and for the CMO", () => {
+    for (const q of ["go live", "go-live guards", "guard", "switch on", "clinical operations", "proposed values", "sign-off"]) {
+      expect(hit(adminIndex, q)).toContain("/admin/go-live");
+      expect(hit(cmoIndex, q)).toContain("/clinician/go-live");
+    }
+  });
+});
+
+describe("the real Chief Medical Officer menu", () => {
+  const real = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+
+  it("finds the Memberships page for the admin by name", () => {
+    const adminReal = buildAdminSearchIndex(getNavSections("admin", null), []);
+    expect(searchAdminEntries(adminReal, "memberships").map((e) => e.href)).toContain("/admin/memberships");
+  });
+
+  it("finds the Members page at a path a clinician account can open", () => {
+    const hits = searchAdminEntries(real, "membership").map((e) => e.href);
+    expect(hits).toContain("/clinician/memberships");
+    expect(hits).not.toContain("/admin/memberships");
   });
 });

@@ -87,7 +87,7 @@ function DetailsForm({ app }: { app: MyApplication }) {
           <Field label="Specialties" hint="Separate with commas">
             <input name="specialties" defaultValue={d.specialties.join(", ")} className={fieldClass} />
           </Field>
-          <Field label="Languages you speak with patients" hint="Separate with commas, for example English, Yoruba, Pidgin">
+          <Field label="Languages you speak with patients" hint="Separate with commas, for example English, Yoruba, Hausa">
             <input name="languages" defaultValue={d.languages.join(", ")} className={fieldClass} required />
           </Field>
         </div>

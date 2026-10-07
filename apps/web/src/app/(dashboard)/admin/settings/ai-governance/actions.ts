@@ -8,6 +8,7 @@ import { AI_INCIDENT_CATEGORIES } from "@/lib/ai-governance";
 import { canAssignCases } from "@/lib/clinical/doctor-tier";
 import { runAiCoachGovernanceSuites, type EvalSuiteResult } from "@/lib/ai-governance/run-coach-eval-suites";
 import { runAiImagingReportEvalSuites } from "@/lib/ai-governance/run-imaging-eval-suites";
+import { runAiScribeEvalSuites } from "@/lib/ai-governance/run-scribe-eval-suites";
 
 const PATH = "/admin/settings/ai-governance";
 // The Chief Medical Officer's own reachable mirror of this console (a real
@@ -213,6 +214,7 @@ export async function approveAiSystemVersionAction(
 
   revalidatePath(PATH);
   revalidatePath(CLINICIAN_PATH);
+  revalidatePath("/clinician/clinical-signoff");
   return {
     success: parsed.data.deploy
       ? "Marked deployed."
@@ -256,6 +258,7 @@ export async function labelAiEvaluationCaseTierAction(
 
   revalidatePath(PATH);
   revalidatePath(CLINICIAN_PATH);
+  revalidatePath("/clinician/clinical-signoff");
   return { success: "Recorded. Once every case in this suite is labelled, it can be run against the coach." };
 }
 
@@ -318,16 +321,16 @@ export type RunEvalSuitesState =
  * action able to drive either without duplicating the ~100 lines of
  * permission-check / version-lookup / incremental-recording logic below.
  */
-const SUPPORTED_EVAL_SYSTEM_CODES = ["AI-001", "AI-016"] as const;
+const SUPPORTED_EVAL_SYSTEM_CODES = ["AI-001", "AI-016", "AI-017"] as const;
 type SupportedEvalSystemCode = (typeof SUPPORTED_EVAL_SYSTEM_CODES)[number];
 
 async function runSuitesForSystem(
   systemCode: SupportedEvalSystemCode,
   options: { onSuiteComplete?: (result: EvalSuiteResult, context: { aiSystemId: string }) => Promise<void> | void }
 ): Promise<{ aiSystemId: string; suites: EvalSuiteResult[] }> {
-  return systemCode === "AI-001"
-    ? runAiCoachGovernanceSuites(options)
-    : runAiImagingReportEvalSuites(options);
+  if (systemCode === "AI-001") return runAiCoachGovernanceSuites(options);
+  if (systemCode === "AI-017") return runAiScribeEvalSuites(options);
+  return runAiImagingReportEvalSuites(options);
 }
 
 const runEvalSuitesSchema = z.object({
@@ -397,7 +400,7 @@ export async function runAiEvalSuitesAction(
     .maybeSingle();
   if (versionError) return { error: `Could not resolve ${systemCode}'s current version: ${versionError.message}` };
 
-  const totalSuiteCount = systemCode === "AI-001" ? 4 : 1;
+  const totalSuiteCount = systemCode === "AI-001" ? 4 : systemCode === "AI-017" ? 2 : 1;
   const results: EvalSuiteSummary[] = [];
   let recordError: string | undefined;
 

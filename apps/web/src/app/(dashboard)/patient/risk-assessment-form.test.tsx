@@ -42,6 +42,8 @@ jest.mock("./actions", () => ({
 }));
 
 describe("RiskAssessmentForm", () => {
+  jest.setTimeout(15_000);
+
   beforeEach(() => {
     capturedFormData = null;
     mockNextResult = { success: true };

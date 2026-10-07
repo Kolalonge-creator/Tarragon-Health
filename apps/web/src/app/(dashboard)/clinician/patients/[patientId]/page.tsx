@@ -20,6 +20,7 @@ import { ScreeningResultForm } from "./screening-result-form";
 import { ScreenOrderResultsSection } from "./screen-order-results-section";
 import { ResultDocumentsSection } from "./result-documents-section";
 import { EcgReportDocumentsSection } from "./ecg-report-documents-section";
+import { ReleasedLabResultsWithdraw } from "./released-lab-results-withdraw";
 import { ImagingOrdersSection } from "./imaging-orders-section";
 import { MedicationSafetyPanel } from "./medication-safety-panel";
 import { CdsPanel } from "./cds-panel";
@@ -28,9 +29,11 @@ import { MedicationReconciliationPanel } from "./medication-reconciliation-panel
 import { MedicationEffectivenessCard } from "@/components/medication-effectiveness-card";
 import { MedicationRepeatRequestsPanel } from "./medication-repeat-requests-panel";
 import { MedicationChangeRequestsPanel } from "./medication-change-requests-panel";
+import { CarePlanChangesPanel } from "./care-plan-changes/care-plan-changes-panel";
 import { BloodProfileForm } from "./blood-profile-form";
 import { HealthTrendsCard } from "@/components/patient/health-trends-card";
 import { CareTeamForm } from "./care-team-form";
+import { DeclareConflictForm } from "@/components/rota/declare-conflict-form";
 import { HandOverCareSection } from "./hand-over-care-section";
 import { CareManagementPanel } from "./care-management-panel";
 import { OrderLabTestForm } from "./order-lab-test-form";
@@ -235,6 +238,7 @@ export default async function ClinicianPatientPage({
                 {patient.organisation_id && (
                   <CareTeamForm patientId={patient.id} organisationId={patient.organisation_id} />
                 )}
+                <DeclareConflictForm patientId={patient.id} />
                 <HandOverCareSection patientId={patient.id} />
                 <CareManagementPanel patientId={patient.id} organisationId={patient.organisation_id} />
               </>
@@ -272,6 +276,9 @@ export default async function ClinicianPatientPage({
                     reviewing this is the same class of act as amending a
                     prescription. */}
                 <MedicationChangeRequestsPanel patientId={patient.id} canReview={canPrescribe} />
+                {/* S24: signed care plan changes. Hidden for a Care Coordinator (logistics only);
+                    proposing and signing need prescribing authority, enforced in the DB. */}
+                {isClinicalTier(callerStaff) && <CarePlanChangesPanel patientId={patient.id} canAct={canPrescribe} />}
                 <MedicationsList
                   patientId={patient.id}
                   refillCoordinationEnabled
@@ -360,6 +367,7 @@ export default async function ClinicianPatientPage({
                 {/* Each uploaded document carries its own read-and-file panel
                     inline, so checking a value against the page is one glance. */}
                 <ResultDocumentsSection patientId={patient.id} />
+                {isClinicalTier(callerStaff) && <ReleasedLabResultsWithdraw patientId={patient.id} />}
                 <EcgReportDocumentsSection patientId={patient.id} />
                 <ImagingOrdersSection patientId={patient.id} canOrder={isClinicalTier(callerStaff)} />
                 <MentalHealthSummary patientId={patient.id} showScores />
