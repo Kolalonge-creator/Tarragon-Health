@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { consentStateFor } from "@tarragon/shared";
-import { withdrawConsentAction } from "./consent-actions";
+import { withdrawConsentAction, grantConsentAction } from "./consent-actions";
 import { CONSENT_TYPE_LABEL, useOutstandingConsentTypes } from "@/lib/queries/consent";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -110,6 +110,27 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
                           Withdraw
                         </Button>
                       )
+                    )}
+                    {optional && state !== "granted" && (
+                      <details className="max-w-xs text-xs">
+                        <summary className="cursor-pointer font-medium text-brand-green">Read and decide</summary>
+                        <div className="mt-2 space-y-2 rounded-lg border border-charcoal-ink/10 p-2 dark:border-night-ink/15">
+                          <p className="font-medium text-charcoal-ink dark:text-night-ink">{version.title}</p>
+                          <p className="text-charcoal-ink/80 dark:text-night-ink/80">{version.body}</p>
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={async () => {
+                              setWithdrawError(null);
+                              const result = await grantConsentAction(version.consent_type);
+                              if (result?.error) setWithdrawError(result.error);
+                              else void queryClient.invalidateQueries({ queryKey: ["patient-consents", patientId] });
+                            }}
+                          >
+                            I agree
+                          </Button>
+                        </div>
+                      </details>
                     )}
                     <Badge variant={badgeVariant}>{badgeText}</Badge>
                   </div>

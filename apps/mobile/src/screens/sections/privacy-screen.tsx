@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, Text, TextInput, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import {
@@ -7,6 +7,7 @@ import {
   createExportRequest,
   loadConnectedDevices,
   loadConsentStatus,
+  recordConsent,
   loadCorrectionRequests,
   loadDeletionRequests,
   loadExportRequests,
@@ -57,6 +58,10 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
   const [correctionRequests, setCorrectionRequests] = useState<DataRightsRequest[]>([]);
   const [deletionRequests, setDeletionRequests] = useState<DataRightsRequest[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Withdrawal takes two taps (the first arms it). Giving an optional consent is shown after the person has read the text.
+  const [confirmingWithdraw, setConfirmingWithdraw] = useState<string | null>(null);
+  const [reading, setReading] = useState<string | null>(null);
+  const [consentError, setConsentError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const [consentResult, deviceList, exportList, correctionList, deletionList] = await Promise.all([
@@ -115,7 +120,8 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
           <MutedText>Nothing to show yet.</MutedText>
         ) : (
           consents.map((c) => (
-            <View key={`${c.consentType}-${c.version}`} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}>
+            <Fragment key={`${c.consentType}-${c.version}`}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 13, color: colors.ink }}>{CONSENT_TYPE_LABEL[c.consentType] ?? c.consentType.replace(/_/g, " ")}</Text>
                 <MutedText>{c.accepted && c.acceptedAt
@@ -131,9 +137,46 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
               <Badge tone={c.accepted ? "brand" : "neutral"}>
                 {c.accepted ? "Accepted" : c.state === "withdrawn" ? "Withdrawn" : c.isOptional ? "Not shared" : "Outstanding"}
               </Badge>
+              {c.isOptional && c.accepted && (
+                <SecondaryButton
+                  title={confirmingWithdraw === c.consentType ? "Yes, withdraw" : "Withdraw"}
+                  onPress={async () => {
+                    setConsentError(null);
+                    if (confirmingWithdraw !== c.consentType) {
+                      setConfirmingWithdraw(c.consentType);
+                      return;
+                    }
+                    const result = await recordConsent(organisationId, userId, c.consentType, "withdrawn");
+                    setConfirmingWithdraw(null);
+                    if (!result.ok) setConsentError(result.error);
+                    else await refresh();
+                  }}
+                />
+              )}
+              {c.isOptional && !c.accepted && (
+                <SecondaryButton title={reading === c.consentType ? "Close" : "Read and decide"} onPress={() => setReading(reading === c.consentType ? null : c.consentType)} />
+              )}
             </View>
+            {reading === c.consentType && !c.accepted && (
+              <View style={{ gap: 8, paddingBottom: 8 }}>
+                <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink }}>{c.title}</Text>
+                <MutedText>{c.body}</MutedText>
+                <PrimaryButton
+                  title="I agree"
+                  onPress={async () => {
+                    setConsentError(null);
+                    const result = await recordConsent(organisationId, userId, c.consentType, "accepted");
+                    setReading(null);
+                    if (!result.ok) setConsentError(result.error);
+                    else await refresh();
+                  }}
+                />
+              </View>
+            )}
+            </Fragment>
           ))
         )}
+        {consentError && <ErrorText>{consentError}</ErrorText>}
       </Card>
 
       <Card style={{ gap: 8 }}>

@@ -936,3 +936,5 @@ s80c_ai_cost_and_review_samples.sql
 s81_research_governance.sql
 # INV-08: a pending sms or voice notification row is turned into a suppressed one at insert, whichever producer queued it, with the reason recorded; email and push rows are untouched; a row inserted already failed is not rewritten. Sabotage: the trigger dropped leaves a pending sms row pending.
 inv08_no_sms_or_voice_notifications.sql
+# Consent: research has exactly one current optional version whose text matches what the export gate does (never sold or licensed, ethics committee approval, no em dash); a patient session gives it and withdraws it as append-only rows and cannot write another patient's consent; private.research_eligible follows the consent state and the history stays. Sabotage: an eligibility test that ignores withdrawal still counts the withdrawn patient.
+consent_research_version.sql

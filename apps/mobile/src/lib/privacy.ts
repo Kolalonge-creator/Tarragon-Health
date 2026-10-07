@@ -1,4 +1,4 @@
-import { consentStateFor } from "@tarragon/shared";
+import { consentStateFor, type Enums } from "@tarragon/shared";
 import { supabase } from "./supabase";
 import type { QueryResult } from "./medications";
 
@@ -20,7 +20,10 @@ import type { QueryResult } from "./medications";
  * direction rather than re-implementing that switch mechanism.
  */
 export interface ConsentRow {
-  consentType: string;
+  consentType: Enums<"consent_type">;
+  /** The consent's own title and plain-language text, shown before a person decides. */
+  title: string;
+  body: string;
   version: string;
   /** True only while an acceptance of THIS version is in force; a later withdrawal ends it (mirrors the database). */
   accepted: boolean;
@@ -34,7 +37,7 @@ export async function loadConsentStatus(patientId: string): Promise<QueryResult<
   const [{ data: versions, error: versionsError }, { data: events, error: eventsError }] = await Promise.all([
     supabase
       .from("consent_versions")
-      .select("consent_type, version, is_optional")
+      .select("consent_type, version, is_optional, title, body")
       .eq("is_current", true)
       .order("consent_type", { ascending: true }),
     supabase.from("patient_consents").select("consent_type, version, accepted_at, action, created_at").eq("patient_id", patientId),
@@ -47,6 +50,8 @@ export async function loadConsentStatus(patientId: string): Promise<QueryResult<
     const record = (events ?? []).find((c) => c.consent_type === v.consent_type && c.version === v.version && c.action === "accepted");
     return {
       consentType: v.consent_type,
+      title: v.title,
+      body: v.body,
       version: v.version,
       accepted: state === "granted",
       state,
@@ -55,6 +60,39 @@ export async function loadConsentStatus(patientId: string): Promise<QueryResult<
     };
   });
   return { ok: true, data: rows };
+}
+
+/**
+ * Gives or withdraws an OPTIONAL consent for the signed-in person (S83 audit 1.4: the app could only show "Withdrawn", never do it).
+ * Append-only, like the web: one more patient_consents row against the CURRENT version; the database works out which acceptance a
+ * withdrawal ends. A required purpose is refused here on purpose: it is a decision about the account, handled under data rights.
+ */
+export async function recordConsent(
+  organisationId: string,
+  patientId: string,
+  consentType: Enums<"consent_type">,
+  action: "accepted" | "withdrawn",
+): Promise<QueryResult<null>> {
+  const { data: version, error: versionError } = await supabase
+    .from("consent_versions")
+    .select("id, version, is_optional")
+    .eq("consent_type", consentType)
+    .eq("is_current", true)
+    .maybeSingle();
+  if (versionError || !version) return { ok: false, error: "We could not find that consent." };
+  if (!version.is_optional) {
+    return { ok: false, error: "This one is needed to use your account. To stop it, use the data options below." };
+  }
+  const { error } = await supabase.from("patient_consents").insert({
+    organisation_id: organisationId,
+    patient_id: patientId,
+    consent_type: consentType,
+    consent_version_id: version.id,
+    version: version.version,
+    action,
+  });
+  if (error) return { ok: false, error: "We could not record that just now. Please try again." };
+  return { ok: true, data: null };
 }
 
 export interface ConnectedDevice {
