@@ -59,6 +59,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Options: (a) keep points non-monetary, remove the kobo conversion; (b) keep conversion; (c) remove points.
 - Recommend (a). Keeps engagement, removes the stored-value path.
 - Decision (founder, 2026-09-30): Keep points as non-monetary; remove the kobo conversion.
+- **Built by F1 (2026-10-07), not yet applied to production:** `redeem_wellness_points` now writes nothing and returns a calm refusal; `points_to_kobo_rate` is dropped; `wellness_points_redemptions` refuses any new row (history columns stay, nullable). Chosen option: a calm disabled state (no discount-code path) until S71/S72 build checkout discounts; the cap is PROPOSED config `rewards.points_redemption_cap_kobo` (0 = off). Live redemption and `Wellness reward` voucher counts were not verified from the repo (OQ-08 says 2 balance rows live); the dry run records them. See OQ-F1-01.
 
 ### OQ-09 Test-account flag (INV-13)
 - Blocks: S02, S37, S38. No `is_test` column exists on any public table; 45 test accounts were hard-deleted 2026-09-30.
@@ -1641,6 +1642,44 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - The AI-003 eval case `pidgin_language_fidelity` keeps one recorded failed result, so it stays as audit history (its runner no longer runs it).
 - Pidgin audio recordings or text-to-speech voices held outside this repository (a TTS account, a drive) are not touched by code and need deleting by hand.
 - Decision: open (CMO for the version; founder for outside assets).
+
+### F1: fix-first set (2026-10-07), on `s55-60/f1-fix-first`
+Four defects from `docs/design/S55-S60-build-plan.md` section 5, fixed ahead of S55 to S60. Nothing is applied to production; see the apply checklist in `docs/BUILD-PROGRESS.md` entry F1.
+
+### OQ-F1-01 Points redemption is switched off until checkout discounts exist (OQ-08)
+- Blocks: nothing urgent. Points keep accruing; they cannot be spent, converted or turned into a voucher.
+- Options: (a) calm disabled state (built); (b) a Tarragon-funded discount-code path now, capped from config; (c) wait for S71/S72 checkout discounts.
+- Recommend (a) now, (c) next. The founder still needs to set the cap (`rewards.points_redemption_cap_kobo`, integer kobo, currently 0), who funds the discount, and whether a cap is a share of the item price or a fixed amount (S58 asks the same).
+- `private.issue_reward_voucher` is NOT removed: referral, prevention and promo-code rewards still use it. Whether those are also stored value under INV-09 is a separate question for OQ-07.
+- Decision: open.
+
+### OQ-F1-02 The signed escalation SLA (v7) has no `symptom_triage` pathway; the symptom checker cannot be switched on
+- Blocks: switching on `symptom_checker_enabled`, and therefore all of Module 12 (S59, S60).
+- Why: `private.handle_symptom_triage_assessment()` calls `private.escalation_sla_minutes('symptom_triage', ...)`, which raises "No active escalation SLA configured", so an urgent or review-required assessment cannot be recorded against v7. v6 once carried the pathway as a draft, but v7 (the 12-hour screening change) was signed without it.
+- Built: the guard `symptom_checker_enabled` (seeded OFF, CMO switches it) with six conditions, two of them read from the data: a signed triage protocol, and the ACTIVE SLA carrying `symptom_triage` for both `urgent_escalation` and `clinician_review`. So the guard cannot be switched on until a signed SLA includes it. A DRAFT version (highest version plus one, unsigned, inactive) carries the pathway with proposed 60 minutes and 24 hours (values carried from draft v6, channels push then email now that WhatsApp is gone).
+- Needed from the founder or CMO: read the draft, confirm or change the two minutes, and sign it. Signing replaces the whole active config, so the signer also signs whatever the previous draft carried (for example `pulse_vitals_red_flag`). Also the four attestations: a NAFDAC and counsel position, an engine licence or internal validation, localisation sign-off, an accuracy baseline.
+- No agent signed or activated any SLA version.
+- Decision: open.
+
+### OQ-F1-03 Crisis flag reaches the queue and the on-call clinician, but not an S19 page row
+- Blocks: nothing. The emergency event and its older alert ladder were already live; F1 adds a class 1 task, an urgent `crisis.detected` event and a neutral notice.
+- Gap: `pages` rows are keyed to a graded triage event (a rule set), and the crisis route is deterministic with no approved rule set, so no page row, no 5 and 10 minute escalation ladder and no page acknowledgement exist for a crisis. The notice is the existing neutral `on_call_page` text and links to the On call page (which lists pages, not tasks), and the task uses the existing `red_event_unacknowledged` type (name is about page acknowledgement, not crisis).
+- Options: (a) as built; (b) a dedicated task type `crisis_follow_up` (CMO confirms it, like `adherence_follow_up`) and a dedicated notice that links to the queue; (c) let `pages` be created from a task or a crisis event (changes S19 and needs its proof re-run).
+- Recommend (b) then (c) with the S56 crisis card work.
+- Also open (already in the plan): who verifies the helpline list and the staffed callback time for a crisis flag.
+- Decision: open.
+
+### OQ-F1-04 Learning content past its review date is hidden; a protocol bump flags for review but never takes content offline
+- Decision (founder, 2026-10-07, recorded in the F1 review): no silent outage. A protocol version bump must NOT mass-hide published education. It flags the matching items `review_due` with a stamped reason (`review_flagged_at`, `review_flag_reason`), the admin library shows a visible notice listing every flagged item that is still live, and each item keeps being served until its OWN review date.
+- Built: one rule. An item is expired only when `next_review_due` (Lagos day) is today or earlier (a `review_due` status alone is a flag, not expiry); `next_review_due` is the authoritative column and `review_due_at` a deprecated mirror. Expired items are hidden at read time (table RLS and every patient and coach reader), flagged by the daily job, and cannot be republished until a future review date is set. The flag clears when an item leaves `review_due`.
+- Why this and not a mass hide: a protocol bump is a governance event about the protocol, not evidence that every article on the condition is now wrong; taking a whole condition's library offline overnight would be a silent clinical-service outage with nobody told. The cost is that flagged content stays visible while its re-review is pending; the notice and the review date bound that.
+- Open: the seeded library (235 published items locally) carries no review dates, so none of it ever expires today and a bump-flagged undated item is live until a clinician acts. The CMO or content owner needs to set a review date on each item. Whether a bump should also shorten an item's review date (for example to 30 days out) is a CMO call and is NOT done here.
+- Decision: built as above; the date policy is open (CMO).
+
+### F1 review notes (code-review high, 2026-10-07)
+- Fixed after review: crisis failure incidents are per screen (`crisis_follow_up_failed:<screen id>`); a replay after a partial failure does not notify twice (`crisis.notified` marker); orphaned education recommendations (content hidden by expiry) are dropped on web and mobile; the closed symptom checker card no longer prints an emergency number (numbers are an unconfirmed localisation fact); a database refusal (42501) on the symptom checker insert returns the calm unavailable state.
+- Review round 2 (2026-10-07): the protocol-bump behaviour was changed from hidden-until-re-approved to flagged, visible notice, served until its own date (OQ-F1-04); the crisis `crisis.notified` marker no longer depends on the event or task step, so a replay after a partial failure never pages the same person twice; a five-minute retry sweep (`retry-crisis-follow-ups`) completes a failed crisis follow-up by itself (at most five errors per screen); trigger functions and the flag job had their PUBLIC execute revoked.
+- Accepted, recorded: the guard check on the web action answers for the signed-in person while the table checks the person acted for (only differs for a test account acting for a real dependant; the table is the gate). The AI coach medicine tool relies on RLS for expiry (patient sessions are covered; an admin session sees everything by design). The draft SLA's version is computed at apply time (highest plus one): re-check `max(version)` at apply. See OQ-F1-02, OQ-F1-03, OQ-F1-04.
 
 ### OQ-272 Emergency location versus "routes are never shared" (raised 2026-10-07, S48)
 - Spec 5.7 and the Module 5 acceptance test say routes are never shared; Part C bans public maps. The founder wants the patient to be locatable in an emergency, which is the opposite use of location data.

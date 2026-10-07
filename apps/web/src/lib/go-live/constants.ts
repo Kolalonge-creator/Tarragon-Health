@@ -10,8 +10,12 @@ export const GUARD_KEYS = [
   "scribe_enabled",
   "payouts_enabled",
   "public_signup_enabled",
+  "symptom_checker_enabled",
 ] as const;
 export type GuardKey = (typeof GUARD_KEYS)[number];
+
+/** The guard the symptom checker is wired to (INV-14, F1). */
+export const SYMPTOM_CHECKER_GUARD: GuardKey = "symptom_checker_enabled";
 
 /** The guard the consultation flow is wired to (INV-14). */
 export const CONSULTATIONS_GUARD: GuardKey = "clinical_operations_enabled";

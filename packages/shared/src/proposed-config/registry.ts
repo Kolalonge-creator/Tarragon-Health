@@ -1464,6 +1464,20 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S36e.md; docs/design/S17.md (reliability is a tie-break only)",
   },
   {
+    key: "rewards.points_redemption_cap_kobo",
+    // F1 (OQ-08, founder decision 2026-09-30): wellness points are non-monetary and never convert to money or a
+    // voucher. The only future use of a point is a capped discount at checkout (S71/S72). This is the largest
+    // discount, in integer kobo, that one redemption may take off a single order. 0 means redemption is switched
+    // off, which is the state until the founder sets a cap and S71/S72 build the checkout path. Nothing may read
+    // this as a points-to-kobo rate.
+    value: 0,
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/OPEN-QUESTIONS.md OQ-08 and OQ-F1-01; docs/design/S55-S60-build-plan.md section 4.3",
+  },
+  {
     key: "breathing.bre01",
     value: {
       inhale_seconds: 4,
