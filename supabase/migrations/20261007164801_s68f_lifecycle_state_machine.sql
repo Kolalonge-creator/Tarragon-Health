@@ -45,7 +45,7 @@ create table public.lifecycle_events (
   cause            text not null check (cause in ('self_confirmed', 'clinician_recorded', 'pregnancy_record', 'postnatal_record')),
   recorded_by      uuid references public.profiles (id) on delete restrict,
   config_version   integer not null,
-  created_at       timestamptz not null default now()
+  created_at       timestamptz not null default clock_timestamp()
 );
 create index lifecycle_events_patient_idx on public.lifecycle_events (patient_id, created_at desc);
 

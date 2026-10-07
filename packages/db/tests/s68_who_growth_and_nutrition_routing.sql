@@ -87,7 +87,7 @@ end $f$;
 -- the guard, for the proof only: the real guard row can be switched by nobody but set_go_live_guard
 create function pg_temp.guard_state(p_on boolean) returns void language plpgsql as
 $f$ begin
-  execute format('create or replace function private.go_live_guard_on(p_key text) returns boolean language sql stable security definer set search_path = '''' as ''select %s''', p_on);
+  execute format('create or replace function private.go_live_guard_on(p_key text) returns boolean language sql stable security definer set search_path = '''' as ''select %s''', case when p_on then 'true' else 'false' end);
 end $f$;
 
 create temp table golden (sex text, age_days int, weight numeric, height numeric, muac numeric, pos text,
@@ -206,6 +206,7 @@ begin
     insert into public.child_growth_measurements (organisation_id, patient_id, measured_at, weight_kg, height_cm, muac_mm, measure_position)
     values (v_org, case g.sex when 'male' then v_boy else v_girl end, (v_dob + g.age_days)::timestamptz + interval '12 hours', g.weight, g.height, g.muac, g.pos)
     returning * into m;
+  select * into m from public.child_growth_measurements where id = m.id;
     foreach e in array array[1]::numeric[] loop null; end loop;
     if g.e_wfa is not null then v_cmp := v_cmp + 1; if m.weight_for_age_z is null or abs(m.weight_for_age_z - g.e_wfa) > 0.006 then v_bad := v_bad + 1; raise notice 'WFA % % d%: db % expected %', g.src, g.sex, g.age_days, m.weight_for_age_z, g.e_wfa; end if; end if;
     if g.e_lhfa is not null then v_cmp := v_cmp + 1; if m.height_for_age_z is null or abs(m.height_for_age_z - g.e_lhfa) > 0.006 then v_bad := v_bad + 1; raise notice 'HFA % % d%: db % expected %', g.src, g.sex, g.age_days, m.height_for_age_z, g.e_lhfa; end if; end if;
@@ -281,6 +282,7 @@ begin
 
   insert into public.child_growth_measurements (organisation_id, patient_id, measured_at, weight_kg, height_cm, muac_mm)
   values (v_org, v_t, now(), 6.2, 72, 108) returning * into m;
+  select * into m from public.child_growth_measurements where id = m.id;
   perform pg_temp.ck('severe MUAC is classed severe_acute', 'severe_acute', m.nutrition_class);
   perform pg_temp.ck('the config version used is on the row', '1', m.nutrition_config_version::text);
   select * into v_al from public.clinician_alerts where id = m.nutrition_alert_id;
@@ -298,6 +300,7 @@ begin
 
   c := pg_temp.mkchild(v_org, v_parent, 'mam_child', v_dob, 'male', true);
   insert into public.child_growth_measurements (organisation_id, patient_id, measured_at, muac_mm) values (v_org, c, now(), 120) returning * into m;
+  select * into m from public.child_growth_measurements where id = m.id;
   select * into v_al from public.clinician_alerts where id = m.nutrition_alert_id;
   perform pg_temp.ck('MUAC 120 mm is moderate', 'moderate_acute', m.nutrition_class);
   perform pg_temp.ck('...an amber review', 'clinician_review', v_al.level::text);
@@ -313,22 +316,27 @@ begin
   perform pg_temp.ck('a child of 5 years is not classed by MUAC', 'none', private.classify_nutrition(1900, 100, null, false, private.maternal_child_rules('growth.nutrition_routing')));
   c := pg_temp.mkchild(v_org, v_parent, 'thin_child', v_dob, 'male', true);
   insert into public.child_growth_measurements (organisation_id, patient_id, measured_at, weight_kg, height_cm) values (v_org, c, now(), 5.6, 74) returning * into m;
+  select * into m from public.child_growth_measurements where id = m.id;
   perform pg_temp.ck('a very low weight-for-height is severe by z alone', 'severe_acute', m.nutrition_class);
   c := pg_temp.mkchild(v_org, v_parent, 'well_child', v_dob, 'male', true);
   insert into public.child_growth_measurements (organisation_id, patient_id, measured_at, weight_kg, height_cm, muac_mm) values (v_org, c, now(), 10.0, 76, 150) returning * into m;
+  select * into m from public.child_growth_measurements where id = m.id;
   perform pg_temp.ck('a well child is none and raises nothing', 'none|', m.nutrition_class || '|' || coalesce(m.nutrition_alert_id::text, ''));
   c := pg_temp.mkchild(v_org, v_parent, 'odd_child', v_dob, 'male', true);
   insert into public.child_growth_measurements (organisation_id, patient_id, measured_at, weight_kg, height_cm, muac_mm) values (v_org, c, now(), 1.2, 76, 104) returning * into m;
+  select * into m from public.child_growth_measurements where id = m.id;
   select * into v_al from public.clinician_alerts where id = m.nutrition_alert_id;
   perform pg_temp.ck('an implausible reading is still routed, and the alert says to check it', 'true', (v_al.id is not null and v_al.detail like '%check the measurement%')::text);
 
   -- guard OFF, REAL child: class stored, no alert, nobody paged
   insert into public.child_growth_measurements (organisation_id, patient_id, measured_at, weight_kg, height_cm, muac_mm) values (v_org, v_r, now(), 6.2, 72, 108) returning * into m;
+  select * into m from public.child_growth_measurements where id = m.id;
   perform pg_temp.ck('guard off: a real child still gets the class stored', 'severe_acute', m.nutrition_class);
   perform pg_temp.ck('guard off: but no alert is raised', '0', (select count(*)::text from public.clinician_alerts where patient_id = v_r));
   perform pg_temp.ck('guard off: and nobody is paged', '0', (select count(*)::text from public.notifications where recipient_id = v_real and created_at > now() - interval '1 minute'));
   perform pg_temp.guard_state(true);
   insert into public.child_growth_measurements (organisation_id, patient_id, measured_at, weight_kg, height_cm, muac_mm) values (v_org, v_r, now() + interval '2 minutes', 6.2, 72, 108) returning * into m;
+  select * into m from public.child_growth_measurements where id = m.id;
   perform pg_temp.ck('guard on: a real child is routed', '1', (select count(*)::text from public.clinician_alerts where patient_id = v_r and level = 'urgent_escalation'));
   perform pg_temp.ck('guard on: a real clinician is paged for a real child', '1', (select count(*)::text from public.notifications where recipient_id = v_real and source_id = m.nutrition_alert_id));
   perform pg_temp.guard_state(false);
@@ -342,17 +350,20 @@ declare
 begin
   perform pg_temp.act(v_parent);
   insert into public.child_growth_measurements (organisation_id, patient_id, measured_at, weight_kg, source) values (v_org, v_t, now() + interval '3 minutes', 8.0, 'clinician_recorded') returning * into m;
+  select * into m from public.child_growth_measurements where id = m.id;
   perform pg_temp.back();
   perform pg_temp.ck('a parent entry is caregiver_entered whatever the client sent', 'caregiver_entered', m.source);
   perform pg_temp.ck('...with the parent as recorded_by', v_parent::text, m.recorded_by::text);
   v_teen := pg_temp.mkuser(v_org, 'teen', 'patient', (current_date - interval '16 years')::date, 'female');
   perform pg_temp.act(v_teen);
   insert into public.child_growth_measurements (organisation_id, patient_id, measured_at, weight_kg, height_cm) values (v_org, v_teen, now(), 55, 160) returning * into m;
+  select * into m from public.child_growth_measurements where id = m.id;
   perform pg_temp.back();
   perform pg_temp.ck('a self entry is patient_entered', 'patient_entered', m.source);
   perform pg_temp.ck('a 16 year old is scored on the 2007 reference', 'who-2007-v1', m.reference_version);
   perform pg_temp.act(v_clin);
   insert into public.child_growth_measurements (organisation_id, patient_id, measured_at, weight_kg, height_cm) values (v_org, v_t, now() + interval '4 minutes', 8.4, 70) returning * into m;
+  select * into m from public.child_growth_measurements where id = m.id;
   perform pg_temp.back();
   perform pg_temp.ck('a clinician entry is clinician_recorded', 'clinician_recorded', m.source);
   perform pg_temp.ck('a stranger cannot add a measurement for the child', 'true', (pg_temp.try_as(v_stranger, format('insert into public.child_growth_measurements (organisation_id, patient_id, weight_kg) values (%L, %L, 7)', v_org, v_t)) like '%row-level security%')::text);
@@ -393,6 +404,7 @@ declare v_org uuid := pg_temp.f('org'); v_parent uuid := pg_temp.f('parent'); c 
 begin
   c := pg_temp.mkchild(v_org, v_parent, 'sabotage_child', current_date - 400, 'male', true);
   insert into public.child_growth_measurements (organisation_id, patient_id, measured_at, weight_kg, height_cm, muac_mm) values (v_org, c, now(), 6.2, 72, 108) returning * into m;
+  select * into m from public.child_growth_measurements where id = m.id;
   insert into results values ('sabotaged', 'severe MUAC is classed severe_acute', 'severe_acute', coalesce(m.nutrition_class, 'null'));
 end $$;
 

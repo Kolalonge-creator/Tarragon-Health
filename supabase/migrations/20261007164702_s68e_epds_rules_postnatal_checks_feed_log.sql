@@ -108,11 +108,12 @@ create or replace function private.maternal_staff_may_read(p_patient uuid, p_org
 returns boolean language sql stable security definer set search_path = '' as $$
   select private.is_org_staff(p_org)
 $$;
--- A caregiver reads reproductive-category data only with an explicit category grant AND not for an adolescent (the S49 confidentiality gate).
+-- A caregiver reads reproductive-category data only with an explicit category grant AND the adolescent confidentiality gate (live signature read
+-- from 20260922183343: patient, grantee, domain 'sexual_reproductive_health'; an adolescent without a waiver is refused).
 create or replace function private.maternal_caregiver_may_read(p_patient uuid)
 returns boolean language sql stable security definer set search_path = '' as $$
   select private.can_read_clinical(p_patient, 'reproductive_health'::public.care_access_category)
-     and private.guardian_may_view_confidential_domain(p_patient)
+     and private.guardian_may_view_confidential_domain(p_patient, (select auth.uid()), 'sexual_reproductive_health')
 $$;
 
 -- ---------------------------------------------------------------------------
@@ -143,7 +144,7 @@ create index postnatal_baby_checks_patient_idx on public.postnatal_baby_checks (
 create index postnatal_baby_checks_org_idx on public.postnatal_baby_checks (organisation_id);
 create trigger postnatal_baby_checks_set_updated_at before update on public.postnatal_baby_checks for each row execute function private.set_updated_at();
 alter table public.postnatal_baby_checks enable row level security;
-revoke all on public.postnatal_baby_checks from public, anon;
+revoke all on public.postnatal_baby_checks from public, anon, authenticated;   -- default privileges hand authenticated delete too
 grant select, insert, update on public.postnatal_baby_checks to authenticated;
 create policy postnatal_baby_checks_select on public.postnatal_baby_checks for select to authenticated
   using (patient_id = (select auth.uid()) or private.maternal_staff_may_read(patient_id, organisation_id) or private.maternal_caregiver_may_read(patient_id));
@@ -214,7 +215,7 @@ create table public.breastfeeding_feed_log (
 create index breastfeeding_feed_log_patient_idx on public.breastfeeding_feed_log (patient_id, fed_at desc);
 create index breastfeeding_feed_log_org_idx on public.breastfeeding_feed_log (organisation_id);
 alter table public.breastfeeding_feed_log enable row level security;
-revoke all on public.breastfeeding_feed_log from public, anon;
+revoke all on public.breastfeeding_feed_log from public, anon, authenticated;   -- default privileges hand authenticated delete too
 grant select, insert, update on public.breastfeeding_feed_log to authenticated;   -- no delete: erasure is the audited S68g function only
 create policy breastfeeding_feed_log_select on public.breastfeeding_feed_log for select to authenticated
   using (patient_id = (select auth.uid()) or private.maternal_staff_may_read(patient_id, organisation_id) or private.maternal_caregiver_may_read(patient_id));
