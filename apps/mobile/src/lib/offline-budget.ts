@@ -31,3 +31,33 @@ export const OFFLINE_BUDGET = {
   /** Spec D.1: typical daily data use under 1 MB without media. */
   dailyBytesMax: 1_000_000,
 } as const;
+
+export type OfflineBudget = { [K in keyof typeof OFFLINE_BUDGET]: number };
+
+/**
+ * Low-data mode: smaller pulls for a patient on a slow or expensive
+ * connection. Only the read side shrinks. The outbox (the patient's own
+ * readings and anything urgent) is never throttled, and the local mirror
+ * retention is unchanged. PROPOSED engineering values, same status as the
+ * budget above.
+ */
+export const LOW_DATA_BUDGET: OfflineBudget = {
+  ...OFFLINE_BUDGET,
+  pullPageSize: 50,
+  maxPagesPerPull: 4,
+  initialPullDays: 30,
+  taskPullLimit: 50,
+  taskRecentLimit: 25,
+};
+
+let lowDataActive = false;
+
+/** Set by `low-data.ts` after reading the saved preference, and by the Settings toggle. */
+export function setLowDataActive(active: boolean): void {
+  lowDataActive = active;
+}
+
+/** The budget the pull code should use right now. */
+export function activeBudget(): OfflineBudget {
+  return lowDataActive ? LOW_DATA_BUDGET : OFFLINE_BUDGET;
+}

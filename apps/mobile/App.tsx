@@ -14,6 +14,7 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import logoMarkWhite from "./assets/logo-mark-white.png";
 import { readAppLockEnabled } from "@/lib/app-lock";
+import { loadLowDataPreference } from "@/lib/low-data";
 import { registerBackgroundHealthSync } from "@/lib/background-sync";
 import { registerPushToken } from "@/lib/push-registration";
 import { flushPendingVitals } from "@/lib/offline-vitals-queue";
@@ -124,6 +125,7 @@ function AppContent() {
   }, [retryToken]);
 
   useEffect(() => {
+    void loadLowDataPreference();
     readAppLockEnabled()
       .then((enabled) => setLockState(enabled ? "locked" : "unlocked"))
       .catch(() => setLockState("unlocked"));
