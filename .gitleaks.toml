@@ -21,3 +21,14 @@ regexes = [
 description = "public anon key"
 targetRules = ["jwt", "generic-api-key"]
 paths = ['''apps/mobile/eas\.json$''']
+
+# On-device storage and cache slot names in the mobile app, for example `const CACHE_KEY = "medicine-catalogue-v1"`. The generic-api-key rule
+# fires on any constant whose name ends in KEY next to a string; these are names of local storage slots, not credentials. Narrow on purpose:
+# only the generic rule, only mobile source files, and only a `const NAME_WITH_KEY = "plain.slot-name"` line.
+[[allowlists]]
+description = "mobile storage slot names"
+condition = "AND"
+targetRules = ["generic-api-key"]
+paths = ['''apps/mobile/src/.*\.(ts|tsx)$''']
+regexTarget = "line"
+regexes = ['''const [A-Z][A-Z0-9_]*KEY[A-Z0-9_]*(: string)? = ["'][A-Za-z0-9._:/-]+["'];?\s*$''']
