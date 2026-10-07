@@ -9,7 +9,9 @@
 --   5. The recreated functions keep their grants: authenticated and service_role can execute, anon and public cannot.
 --   6. A pharmacist updates their own profile with the eight-argument function (no delivery argument), and a pharmacist with no pharmacy is refused.
 --   7. The operations summary reports pharmacy orders as total and dispensed (no delivered key), and provider_org_pharmacy_order_queue returns no delivered_at.
---   8. SABOTAGE: a removed column added back, and the old nine-argument function recreated; each flips its check, so the checks are not vacuous.
+--   7b. (added with oq16_fix_pharmacist_profile_without_delivery) a pharmacist READS their own profile through pharmacist_profile(): one row, no delivery column.
+--       The delivery removal left this SQL-language function selecting the dropped column, which only fails when the function is called, so nothing but a call proves it.
+--   8. SABOTAGE: a removed column added back, the old nine-argument function recreated, and a delivery column put back on pharmacist_profile(); each flips its check, so the checks are not vacuous.
 begin;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
@@ -159,6 +161,20 @@ begin
     (pg_get_functiondef('public.analytics_operations_summary()'::regprocedure) ~* '''dispensed''')::text);
 end $$;
 
+-- ---- 7b. a pharmacist reads their own profile ------------------------------------------------------------------------------------------------
+create function pg_temp.profile_rows() returns text language plpgsql as
+$f$ declare n integer;
+begin
+  perform pg_temp.act((select v from fx where k = 'ph'));
+  begin select count(*) into n from public.pharmacist_profile(); exception when others then perform pg_temp.back(); return 'ERR:' || sqlstate; end;
+  perform pg_temp.back();
+  return n::text;
+end $f$;
+create function pg_temp.profile_has_delivery_column() returns text language sql as
+$$ select (pg_get_function_result('public.pharmacist_profile()'::regprocedure) ~* '\ydelivery\y')::text $$;
+insert into results select 'real', 'a pharmacist reads their own profile (the function resolves every column)', '1', pg_temp.profile_rows();
+insert into results select 'real', 'pharmacist_profile returns no delivery column', 'false', pg_temp.profile_has_delivery_column();
+
 -- ---- 8. SABOTAGE: each flips its check -------------------------------------------------------------------------------------------------------
 alter table public.pharmacy_orders add column delivered_at timestamptz;
 insert into results select 'sabotaged', 'no removed column is left (a column added back)', 'none', pg_temp.leftovers();
@@ -168,6 +184,23 @@ create function public.pharmacist_update_profile(p_name text, p_regions text[], 
 returns void language sql as $$ select 1 $$;
 insert into results select 'sabotaged', 'the old nine-argument pharmacist_update_profile is gone (recreated)', '0', pg_temp.old_profile_fn_count();
 drop function public.pharmacist_update_profile(text, text[], text, text, text, text, boolean, text, timestamptz);
+
+alter table public.pharmacy_partners add column delivery boolean;
+drop function public.pharmacist_profile();
+create function public.pharmacist_profile()
+returns table(name text, regions text[], city text, state text, contact_phone text, contact_email text, delivery boolean, license_number text, license_expires_at timestamptz)
+language sql stable security definer set search_path to '' as $$
+  select p.name, p.regions, p.city, p.state, p.contact_phone, p.contact_email, p.delivery, p.license_number, p.license_expires_at
+  from public.pharmacy_partners p where p.id = private.pharmacist_partner() $$;
+insert into results select 'sabotaged', 'pharmacist_profile returns no delivery column (one put back)', 'false', pg_temp.profile_has_delivery_column();
+drop function public.pharmacist_profile();
+alter table public.pharmacy_partners drop column delivery;
+create function public.pharmacist_profile()
+returns table(name text, regions text[], city text, state text, contact_phone text, contact_email text, license_number text, license_expires_at timestamptz)
+language sql stable security definer set search_path to '' as $$
+  select p.name, p.regions, p.city, p.state, p.contact_phone, p.contact_email, p.license_number, p.license_expires_at
+  from public.pharmacy_partners p where p.id = private.pharmacist_partner() $$;
+grant execute on function public.pharmacist_profile() to authenticated, service_role;
 
 -- the checks must also hold again after the sabotage is undone
 insert into results select 'real', 'after the sabotage is undone nothing removed is left', 'none', pg_temp.leftovers();
@@ -179,8 +212,8 @@ begin
     from results where phase = 'real' and expected is distinct from actual;
   if v_bad is not null then raise exception 'OQ-261 PROOF FAILED: %', v_bad; end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 2 then
-    raise exception 'VACUOUS TEST: the sabotage flipped % of 2 checks (%)', v_caught,
+  if v_caught < 3 then
+    raise exception 'VACUOUS TEST: the sabotage flipped % of 3 checks (%)', v_caught,
       (select string_agg(check_name || ' => ' || actual, '; ') from results where phase = 'sabotaged');
   end if;
 end $$;
