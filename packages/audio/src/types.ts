@@ -98,6 +98,7 @@ export type AudioIssueCode =
   | "phrase_not_signed"
   | "phrase_missing_severity"
   | "engine_unavailable"
+  | "playback_failed"
   | "manifest_invalid";
 
 export interface AudioIssue {
