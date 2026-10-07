@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/client";
 import { addOwnLabResult, getOwnResultFileUrl } from "@/lib/lab-results/structured-actions";
 import { formatRange, LAB_RESULT_FILE_ACCEPT, myLabResultsSchema, SCREENING_ANALYTES, type MyLabResult } from "@/lib/lab-results/structured";
 import { formatPatientDate } from "@/lib/format-date";
+import { guidanceForItem } from "@/lib/lab-results/guidance";
+import { ScreeningDisclaimer } from "@/components/screening-disclaimer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -81,6 +83,24 @@ function ResultCard({ r, locale }: { r: MyLabResult; locale: Locale }) {
           </tbody>
         </table>
       ) : null}
+      {released && r.items.length > 0 ? (
+        <ul className="mt-3 space-y-2" aria-label={t("labres.guide.title", locale)}>
+          {r.items.map((i) => {
+            const g = guidanceForItem(i, r.explain_allowed);
+            return (
+              <li key={`guide-${i.analyte_code}`} className="text-sm">
+                <p className="font-medium">{i.analyte_code.replace(/_/g, " ")}</p>
+                {g.explanationKey ? <p className={MUTED}>{t(g.explanationKey, locale)}</p> : null}
+                <p className={MUTED}>
+                  <span className="font-medium">{t("labres.next.title", locale)}: </span>
+                  {t(g.nextStepKey, locale)}
+                </p>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+      {released ? <ScreeningDisclaimer locale={locale} className="mt-2" /> : null}
       {released && r.items.some((i) => SCREENING_ANALYTES.has(i.analyte_code) && i.flag === "positive") ? (
         <p className={`mt-2 text-sm ${MUTED}`}>{t("labres.screening", locale)}</p>
       ) : null}

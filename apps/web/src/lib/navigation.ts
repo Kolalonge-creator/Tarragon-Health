@@ -256,6 +256,7 @@ export function getNavSections(
           label: "Your account",
           items: [
             { label: "Health Passport", href: "/patient/health-passport", icon: "passport" },
+            { label: "Yearly health report", href: "/patient/health-report", icon: "passport" },
             { label: "Your finances", href: "/patient/financial-profile", icon: "payables" },
             { label: "Receipts", href: "/patient/receipts", icon: "receipts" },
             {
@@ -507,6 +508,7 @@ export function getNavSections(
                   icon: "inbox",
                   countKey: "fhirProposedResourcesPending",
                 },
+                { label: "Yearly health reports", href: "/clinician/health-reports", icon: "carePlan" },
               ],
             },
             {

@@ -15063,6 +15063,129 @@ export type Database = {
           },
         ]
       }
+      health_report_config_versions: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      health_reports: {
+        Row: {
+          ai_draft: string | null
+          assigned_clinician_id: string | null
+          composed: Json
+          config_version_id: string
+          correction_note: string | null
+          created_at: string
+          document_id: string | null
+          id: string
+          inputs: Json
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+          priorities: Json
+          recorded_by: string | null
+          risk_instrument_version_id: string | null
+          signed_at: string | null
+          signed_by: string | null
+          signer_name: string | null
+          signer_registration: string | null
+          source: string
+          status: string
+          summary_source: string | null
+          summary_text: string | null
+          supersedes_id: string | null
+          updated_at: string
+          version: number
+          year: number
+        }
+        Insert: {
+          ai_draft?: string | null
+          assigned_clinician_id?: string | null
+          composed: Json
+          config_version_id: string
+          correction_note?: string | null
+          created_at?: string
+          document_id?: string | null
+          id?: string
+          inputs: Json
+          is_test?: boolean
+          organisation_id: string
+          patient_id: string
+          priorities?: Json
+          recorded_by?: string | null
+          risk_instrument_version_id?: string | null
+          signed_at?: string | null
+          signed_by?: string | null
+          signer_name?: string | null
+          signer_registration?: string | null
+          source?: string
+          status?: string
+          summary_source?: string | null
+          summary_text?: string | null
+          supersedes_id?: string | null
+          updated_at?: string
+          version?: number
+          year: number
+        }
+        Update: {
+          ai_draft?: string | null
+          assigned_clinician_id?: string | null
+          composed?: Json
+          config_version_id?: string
+          correction_note?: string | null
+          created_at?: string
+          document_id?: string | null
+          id?: string
+          inputs?: Json
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+          priorities?: Json
+          recorded_by?: string | null
+          risk_instrument_version_id?: string | null
+          signed_at?: string | null
+          signed_by?: string | null
+          signer_name?: string | null
+          signer_registration?: string | null
+          source?: string
+          status?: string
+          summary_source?: string | null
+          summary_text?: string | null
+          supersedes_id?: string | null
+          updated_at?: string
+          version?: number
+          year?: number
+        }
+        Relationships: []
+      }
       home_care_requests: {
         Row: {
           assigned_clinician_id: string | null
@@ -32083,6 +32206,51 @@ export type Database = {
           },
         ]
       }
+      screening_pathway_overrides: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          is_test: boolean
+          item_code: string
+          note: string
+          organisation_id: string
+          overridden_by: string
+          patient_id: string
+          reason_code: string
+          revoked_at: string | null
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          is_test?: boolean
+          item_code: string
+          note: string
+          organisation_id: string
+          overridden_by: string
+          patient_id: string
+          reason_code: string
+          revoked_at?: string | null
+          source?: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          is_test?: boolean
+          item_code?: string
+          note?: string
+          organisation_id?: string
+          overridden_by?: string
+          patient_id?: string
+          reason_code?: string
+          revoked_at?: string | null
+          source?: string
+        }
+        Relationships: []
+      }
       screening_results: {
         Row: {
           abnormal_flags: string[]
@@ -32686,33 +32854,96 @@ export type Database = {
           },
         ]
       }
+      sensitive_result_codes: {
+        Row: {
+          code: string
+          virus: string
+        }
+        Insert: {
+          code: string
+          virus: string
+        }
+        Update: {
+          code?: string
+          virus?: string
+        }
+        Relationships: []
+      }
+      serology_rule_versions: {
+        Row: {
+          code: string
+          config: Json
+          created_at: string
+          decision_ref: string | null
+          id: string
+          notes: string | null
+          status: string
+          threshold_approved_at: string | null
+          threshold_approved_by: string | null
+          version: number
+        }
+        Insert: {
+          code: string
+          config: Json
+          created_at?: string
+          decision_ref?: string | null
+          id?: string
+          notes?: string | null
+          status: string
+          threshold_approved_at?: string | null
+          threshold_approved_by?: string | null
+          version: number
+        }
+        Update: {
+          code?: string
+          config?: Json
+          created_at?: string
+          decision_ref?: string | null
+          id?: string
+          notes?: string | null
+          status?: string
+          threshold_approved_at?: string | null
+          threshold_approved_by?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
       serology_status_transitions: {
         Row: {
+          basis: string | null
           created_at: string
           from_status: string
           id: string
+          lab_result_item_id: string | null
           organisation_id: string
           patient_id: string
+          recorded_by: string | null
           screening_result_id: string | null
           to_status: string
           virus: string
         }
         Insert: {
+          basis?: string | null
           created_at?: string
           from_status: string
           id?: string
+          lab_result_item_id?: string | null
           organisation_id: string
           patient_id: string
+          recorded_by?: string | null
           screening_result_id?: string | null
           to_status: string
           virus: string
         }
         Update: {
+          basis?: string | null
           created_at?: string
           from_status?: string
           id?: string
+          lab_result_item_id?: string | null
           organisation_id?: string
           patient_id?: string
+          recorded_by?: string | null
           screening_result_id?: string | null
           to_status?: string
           virus?: string
@@ -39173,6 +39404,26 @@ export type Database = {
         Args: { p_trial_id: string }
         Returns: Json
       }
+      clinician_clear_hbv_immunity: {
+        Args: { p_note: string; p_patient: string }
+        Returns: boolean
+      }
+      clinician_get_health_report: {
+        Args: { p_id: string }
+        Returns: Database["public"]["Tables"]["health_reports"]["Row"]
+      }
+      clinician_health_report_queue: {
+        Args: never
+        Returns: { created_at: string; id: string; is_correction: boolean; patient_id: string; version: number; year: number }[]
+      }
+      clinician_list_pathway_overrides: {
+        Args: { p_patient: string }
+        Returns: Database["public"]["Tables"]["screening_pathway_overrides"]["Row"][]
+      }
+      clinician_record_hbv_immunity: {
+        Args: { p_basis: string; p_note: string; p_patient: string }
+        Returns: Json
+      }
       close_masked_call: {
         Args: { p_reason?: string; p_session_id: string }
         Returns: undefined
@@ -39357,6 +39608,10 @@ export type Database = {
         Returns: number
       }
       create_emergency_card: { Args: never; Returns: string }
+      correct_health_report: {
+        Args: { p_id: string; p_note: string }
+        Returns: string
+      }
       create_encounter_note: {
         Args: {
           p_assessment?: string
@@ -40335,6 +40590,14 @@ export type Database = {
         Args: { p_dob?: string; p_serial: string }
         Returns: Json
       }
+      health_report_candidates: {
+        Args: { p_limit?: number; p_year: number }
+        Returns: { patient_id: string }[]
+      }
+      health_report_collect: {
+        Args: { p_patient: string; p_year: number }
+        Returns: Json
+      }
       high_risk_patient_ids: {
         Args: never
         Returns: {
@@ -40781,6 +41044,10 @@ export type Database = {
       ops_today_summary: { Args: never; Returns: Json }
       override_clinical_rule_action: {
         Args: { p_action_id: string; p_reason: string }
+        Returns: string
+      }
+      override_pathway_suppression: {
+        Args: { p_item_code: string; p_note: string; p_patient: string; p_reason_code: string }
         Returns: string
       }
       patient_exists_cross_org: {
@@ -41281,6 +41548,10 @@ export type Database = {
         }
         Returns: Json
       }
+      record_health_report_draft: {
+        Args: { p_ai_draft?: string; p_composed: Json; p_inputs: Json; p_patient: string; p_priorities: Json; p_year: number }
+        Returns: string
+      }
       record_integration_delivery_result: {
         Args: {
           p_duration_ms: number
@@ -41385,6 +41656,10 @@ export type Database = {
       refresh_clinical_summary: {
         Args: { p_patient: string }
         Returns: undefined
+      }
+      refresh_health_report_draft: {
+        Args: { p_ai_draft?: string; p_composed: Json; p_inputs: Json; p_priorities: Json; p_report: string }
+        Returns: boolean
       }
       region_service_available: {
         Args: { p_service: string; p_state: string }
@@ -41778,6 +42053,10 @@ export type Database = {
         Args: { p_issuance_id: string; p_reason?: string }
         Returns: undefined
       }
+      revoke_pathway_override: {
+        Args: { p_override: string }
+        Returns: boolean
+      }
       revoke_wearable_connection: {
         Args: { p_connection_id: string; p_reason?: string }
         Returns: undefined
@@ -42120,6 +42399,14 @@ export type Database = {
       sign_cv_risk_config: { Args: { p_config_id: string }; Returns: string }
       sign_escalation_slas: { Args: { p_id: string }; Returns: string }
       sign_lpe_content_block: { Args: { p_block_id: string }; Returns: string }
+      sign_health_report: {
+        Args: { p_id: string; p_summary: string; p_summary_source: string }
+        Returns: string
+      }
+      sign_health_report_config: {
+        Args: { p_id: string }
+        Returns: string
+      }
       sign_mental_health_screening_cadences: {
         Args: { p_id: string }
         Returns: string

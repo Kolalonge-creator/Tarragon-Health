@@ -794,7 +794,7 @@ revoke all on function public.health_report_collect(uuid, integer) from public, 
 grant execute on function public.health_report_collect(uuid, integer) to service_role;
 
 -- The one writer of a new draft. Service role only; fails closed behind the guard (a test patient passes) and a signed settings version.
-create function public.record_health_report_draft(p_patient uuid, p_year integer, p_inputs jsonb, p_composed jsonb, p_priorities jsonb, p_ai_draft text)
+create function public.record_health_report_draft(p_patient uuid, p_year integer, p_inputs jsonb, p_composed jsonb, p_priorities jsonb, p_ai_draft text default null)
 returns uuid
 language plpgsql security definer set search_path = ''
 as $$
@@ -827,7 +827,7 @@ revoke all on function public.record_health_report_draft(uuid, integer, jsonb, j
 grant execute on function public.record_health_report_draft(uuid, integer, jsonb, jsonb, jsonb, text) to service_role;
 
 -- Re-fill an unsigned draft (used after a correction is opened, so the new version carries the corrected facts).
-create function public.refresh_health_report_draft(p_report uuid, p_inputs jsonb, p_composed jsonb, p_priorities jsonb, p_ai_draft text) returns boolean
+create function public.refresh_health_report_draft(p_report uuid, p_inputs jsonb, p_composed jsonb, p_priorities jsonb, p_ai_draft text default null) returns boolean
 language plpgsql security definer set search_path = ''
 as $$
 begin
@@ -837,6 +837,24 @@ begin
 end $$;
 revoke all on function public.refresh_health_report_draft(uuid, jsonb, jsonb, jsonb, text) from public, anon, authenticated;
 grant execute on function public.refresh_health_report_draft(uuid, jsonb, jsonb, jsonb, text) to service_role;
+
+-- Who the yearly build should consider: active patients with something to report on that year and no report for it yet (service role only).
+create function public.health_report_candidates(p_year integer, p_limit integer default 25) returns table (patient_id uuid)
+language sql stable security definer set search_path = ''
+as $$
+  select p.id
+    from public.profiles p
+   where p.role = 'patient' and p.is_active and p.organisation_id is not null
+     and not exists (select 1 from public.health_reports hr where hr.patient_id = p.id and hr.year = p_year)
+     and (exists (select 1 from public.lab_results r where r.patient_id = p.id and r.release_state = 'released'
+                    and r.released_at >= make_timestamptz(p_year, 1, 1, 0, 0, 0, 'Africa/Lagos') and r.released_at < make_timestamptz(p_year + 1, 1, 1, 0, 0, 0, 'Africa/Lagos'))
+          or exists (select 1 from public.vitals_readings v where v.patient_id = p.id and v.vital_type = 'blood_pressure'
+                    and v.taken_at >= make_timestamptz(p_year, 1, 1, 0, 0, 0, 'Africa/Lagos') and v.taken_at < make_timestamptz(p_year + 1, 1, 1, 0, 0, 0, 'Africa/Lagos')))
+   order by p.created_at
+   limit least(greatest(coalesce(p_limit, 25), 1), 100)
+$$;
+revoke all on function public.health_report_candidates(integer, integer) from public, anon, authenticated;
+grant execute on function public.health_report_candidates(integer, integer) to service_role;
 
 create function private.is_signing_clinician() returns boolean
 language sql stable security definer set search_path = ''

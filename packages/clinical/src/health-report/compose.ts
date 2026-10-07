@@ -185,7 +185,7 @@ export function composeHealthReport(facts: HealthReportFacts, config: HealthRepo
   const onTarget = items.filter((i) => i.state === "on_target").length;
   const needs = items.filter((i) => i.state === "needs_attention").length;
   const notMeasured = items.filter((i) => i.state === "not_measured" || i.state === "not_checked").length;
-  const summary =
+  const summary: ComposedReport["summary"] =
     onTarget + needs === 0
       ? { key: "report.summary.nothing_measured", params: { notMeasured } }
       : { key: "report.summary.default", params: { onTarget, needsAttention: needs, notMeasured } };
