@@ -316,6 +316,46 @@ begin
   perform pg_temp.ck('...and the calendar lists hepatitis B again', '1', (select count(*)::text from private.screening_due(q, v_set) d where d.screen_type_code = 'hep_b'));
 end $$;
 
+-- 4b. Hepatitis B immunity only from a RELEASED, non-withdrawn, non-superseded result (review fix) ---------------------------------------------
+create function pg_temp.held_result(p_pat uuid, p_items jsonb) returns uuid language plpgsql as
+$f$ declare v uuid; i jsonb;
+begin
+  insert into public.lab_results (organisation_id, patient_id, panel_code, panel_version_id, source, submitted_by_kind, release_state, received_at, is_test)
+  values (pg_temp.f('org'), p_pat, 'membership_annual', (select id from public.lab_panel_versions where panel_code = 'membership_annual' and is_active),
+          'portal_entry', 'partner', 'awaiting_review', now() - interval '1 day', true) returning id into v;
+  for i in select * from jsonb_array_elements(p_items) loop
+    insert into public.lab_result_items (lab_result_id, organisation_id, patient_id, analyte_code, value_numeric, value_text, unit, flag, sensitive_positive, is_test)
+    values (v, pg_temp.f('org'), p_pat, i ->> 'code', (i ->> 'num')::numeric, i ->> 'text', coalesce(i ->> 'unit', 'none'), i ->> 'flag', false, true);
+  end loop;
+  return v;
+end $f$;
+create function pg_temp.release_result(p_id uuid) returns void language sql as
+$$ update public.lab_results set release_state = 'released', released_at = now(), release_reason = 'proof', reviewed_by = pg_temp.f('doc') where id = p_id $$;
+create function pg_temp.hbv(p_pat uuid) returns text language sql as
+$$ select coalesce((select hbv_status::text from public.patient_serology_status where patient_id = p_pat), 'none') $$;
+do $$
+declare p uuid := pg_temp.mk('imm_rel', 30); q uuid := pg_temp.mk('imm_two', 30); r1 uuid; r2 uuid; r3 uuid; v_pos jsonb := '[{"code":"anti_hbs","text":"positive","unit":"none","flag":"positive"}]';
+begin
+  r1 := pg_temp.held_result(p, v_pos);
+  perform pg_temp.ck('a positive anti-HBs on a result that is NOT released sets no immunity', 'none', pg_temp.hbv(p));
+  perform pg_temp.release_result(r1);
+  perform pg_temp.ck('...releasing it records immunity', 'immune', pg_temp.hbv(p));
+  update public.lab_results set withdrawn_at = now(), withdrawn_by = pg_temp.f('doc'), withdrawn_reason = 'proof: entered on the wrong patient' where id = r1;
+  perform pg_temp.ck('withdrawing that result takes the lab-derived immunity back (no other valid basis)', 'unknown', pg_temp.hbv(p));
+  perform pg_temp.ck('...and routine HBsAg is offered again', 'none', pg_temp.excl(p, 'hep_b'));
+  -- two valid positives: withdrawing one keeps immunity
+  r1 := pg_temp.held_result(q, v_pos); perform pg_temp.release_result(r1);
+  r2 := pg_temp.held_result(q, v_pos); perform pg_temp.release_result(r2);
+  update public.lab_results set withdrawn_at = now(), withdrawn_by = pg_temp.f('doc'), withdrawn_reason = 'proof' where id = r1;
+  perform pg_temp.ck('control: another valid released positive keeps the immunity when one result is withdrawn', 'immune', pg_temp.hbv(q));
+  -- a superseded result likewise
+  r3 := pg_temp.held_result(pg_temp.mk('imm_sup', 30), v_pos); perform pg_temp.release_result(r3);
+  update public.lab_results set superseded_by = r2 where id = r3;
+  perform pg_temp.ck('a superseded positive does not leave immunity standing', 'unknown', (select hbv_status::text from public.patient_serology_status where patient_id = (select patient_id from public.lab_results where id = r3)));
+  -- a doctor-recorded immunity is not undone by a lab withdrawal
+  perform pg_temp.setf('imm_q', q);
+end $$;
+
 -- 5. Packages ---------------------------------------------------------------------------------------------------------------------------
 do $$
 begin
@@ -363,6 +403,17 @@ begin
   insert into results values ('sabotaged', 'an unknown criterion is refused', '22023', pg_temp.flag_as(pg_temp.f('plain'), pg_temp.f('plain'), 'because_i_said_so'));
 end $$;
 
+-- E: the release/withdrawal sync dropped. A withdrawn positive must then leave immunity standing (the real check flips).
+do $$
+declare p uuid := pg_temp.mk('sabE', 30); r uuid;
+begin
+  drop trigger lab_results_anti_hbs_sync on public.lab_results;
+  r := pg_temp.held_result(p, '[{"code":"anti_hbs","text":"positive","unit":"none","flag":"positive"}]');
+  update public.lab_results set release_state = 'released', released_at = now(), release_reason = 'proof', reviewed_by = pg_temp.f('doc') where id = r;
+  update public.lab_results set withdrawn_at = now(), withdrawn_by = pg_temp.f('doc'), withdrawn_reason = 'proof' where id = r;
+  insert into results values ('sabotaged', 'withdrawing that result takes the lab-derived immunity back (no other valid basis)', 'unknown', pg_temp.hbv(p));
+end $$;
+
 do $$
 declare v_bad integer; v_caught integer;
 begin
@@ -373,7 +424,7 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 4 then raise exception 'VACUOUS TEST: the sabotage flipped % of 4 checks', v_caught; end if;
+  if v_caught < 5 then raise exception 'VACUOUS TEST: the sabotage flipped % of 5 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result

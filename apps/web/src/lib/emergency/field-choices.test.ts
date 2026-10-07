@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { EmergencyClinicalFacts } from "./card";
-import { CARD_FIELDS, DEFAULT_CHOICES, MENTAL_HEALTH_PATTERN, MINIMAL_CHOICES, REPRODUCTIVE_PATTERN, applyCardFieldChoices, choicesFromRow, hiddenFields, rowFromChoices } from "./field-choices";
+import { CARD_FIELDS, DEFAULT_CHOICES, MENTAL_HEALTH_MEDICINE_PATTERN, MENTAL_HEALTH_PATTERN, MINIMAL_CHOICES, REPRODUCTIVE_MEDICINE_PATTERN, REPRODUCTIVE_PATTERN, applyCardFieldChoices, choicesFromRow, hiddenFields, rowFromChoices } from "./field-choices";
 
 const FACTS: EmergencyClinicalFacts = {
   full_name: "Ada Okafor",
@@ -31,6 +31,23 @@ describe("applyCardFieldChoices", () => {
     expect(applyCardFieldChoices(f, on).conditions).toEqual(["diabetes"]);
     expect(applyCardFieldChoices(f, { ...on, reproductive: true }).conditions).toEqual(["diabetes", "pregnancy"]);
     expect(applyCardFieldChoices(f, { ...on, mental_health: true }).conditions).toEqual(["diabetes", "major depression"]);
+  });
+
+  it("a reproductive or mental health MEDICINE is hidden unless its own switch is on (a contraceptive, an antidepressant)", () => {
+    const f = { ...FACTS, medications: [{ drug_name: "Metformin", dose: "500 mg", frequency: "daily" }, { drug_name: "Sertraline", dose: "50 mg", frequency: "daily" }, { drug_name: "Levonorgestrel", dose: null, frequency: null }] };
+    expect(applyCardFieldChoices(f, DEFAULT_CHOICES).medications.map((m) => m.drug_name)).toEqual(["Metformin"]);
+    expect(applyCardFieldChoices(f, { ...DEFAULT_CHOICES, mental_health: true }).medications.map((m) => m.drug_name)).toEqual(["Metformin", "Sertraline"]);
+    expect(applyCardFieldChoices(f, { ...DEFAULT_CHOICES, reproductive: true, mental_health: true }).medications).toHaveLength(3);
+    expect(applyCardFieldChoices(f, { ...DEFAULT_CHOICES, medications: false, reproductive: true, mental_health: true }).medications).toEqual([]);
+  });
+
+  it("the sensitive-medicine lists are identical on the web, on the phone and in the database function", () => {
+    const mobile = readFileSync(join(__dirname, "..", "..", "..", "..", "mobile", "src", "lib", "emergency.ts"), "utf8");
+    const sql = readFileSync(join(__dirname, "..", "..", "..", "..", "..", "supabase", "migrations", "20261008035104_s47_emergency_card_defaults.sql"), "utf8");
+    for (const re of [REPRODUCTIVE_MEDICINE_PATTERN, MENTAL_HEALTH_MEDICINE_PATTERN]) {
+      expect(mobile).toContain(re.source);
+      expect(sql).toContain(re.source);
+    }
   });
 
   it("the sensitive-condition lists are identical on the web, on the phone and in the database function", () => {

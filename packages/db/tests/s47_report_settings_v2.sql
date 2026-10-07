@@ -211,19 +211,35 @@ end $$;
 do $$
 declare a uuid := pg_temp.mkpatient('plain'); b uuid := pg_temp.mkpatient('diab'); c uuid := pg_temp.mkpatient('ckd'); d uuid := pg_temp.mkpatient('cvd');
         e uuid := pg_temp.mkpatient('resolved'); f uuid := pg_temp.mkpatient('byname'); g uuid := pg_temp.mkpatient('days');
+        x1 uuid := pg_temp.mkpatient('prediab'); x2 uuid := pg_temp.mkpatient('famhx'); x3 uuid := pg_temp.mkpatient('heat'); x4 uuid := pg_temp.mkpatient('gest'); x5 uuid := pg_temp.mkpatient('stage');
         j jsonb;
 begin
   perform pg_temp.cond(b, 'Type 2 diabetes mellitus', 'E11.9', 'active');
   perform pg_temp.cond(c, 'Chronic kidney disease stage 3', 'N18.3', 'controlled');
   perform pg_temp.cond(d, 'Ischaemic heart disease', 'I25.1', 'active');
   perform pg_temp.cond(e, 'Type 2 diabetes mellitus', 'E11.9', 'resolved');
-  perform pg_temp.cond(f, 'Diabetes (family doctor note)', null, 'uncontrolled');
+  perform pg_temp.cond(f, 'Type 2 diabetes mellitus', null, 'uncontrolled');
+  -- S47 review fix: not a substring match any more
+  perform pg_temp.cond(x1, 'Pre-diabetes', null, 'active');
+  perform pg_temp.cond(x2, 'Family history of diabetes', null, 'active');
+  perform pg_temp.cond(x3, 'Heatstroke', null, 'active');
+  perform pg_temp.cond(x4, 'Gestational diabetes', null, 'active');
+  perform pg_temp.cond(x5, 'Chronic kidney disease stage 3b', null, 'active');
   perform pg_temp.ck('control: a patient with no condition is in no higher-risk group', 'false,false,false,false', pg_temp.flags(pg_temp.hr(a)));
   perform pg_temp.ck('diabetes by ICD-10 prefix', 'true,false,false,false', pg_temp.flags(pg_temp.hr(b)));
   perform pg_temp.ck('kidney disease by ICD-10 prefix', 'false,true,false,false', pg_temp.flags(pg_temp.hr(c)));
   perform pg_temp.ck('cardiovascular disease by ICD-10 prefix', 'false,false,true,false', pg_temp.flags(pg_temp.hr(d)));
   perform pg_temp.ck('a resolved condition does not count', 'false,false,false,false', pg_temp.flags(pg_temp.hr(e)));
   perform pg_temp.ck('diabetes by name when no code is recorded', 'true,false,false,false', pg_temp.flags(pg_temp.hr(f)));
+  perform pg_temp.ck('pre-diabetes is not diabetes', 'false,false,false,false', pg_temp.flags(pg_temp.hr(x1)));
+  perform pg_temp.ck('family history of diabetes is not diabetes', 'false,false,false,false', pg_temp.flags(pg_temp.hr(x2)));
+  perform pg_temp.ck('heatstroke is not a stroke', 'false,false,false,false', pg_temp.flags(pg_temp.hr(x3)));
+  perform pg_temp.ck('gestational diabetes is not on the list', 'false,false,false,false', pg_temp.flags(pg_temp.hr(x4)));
+  perform pg_temp.ck('a staged kidney disease name still matches (anchored, not bare)', 'false,true,false,false', pg_temp.flags(pg_temp.hr(x5)));
+  perform pg_temp.ck('rejected blood pressure readings are excluded from the collector (current year and prior year)', '2',
+    (select (array_length(string_to_array(pg_get_functiondef('private.health_report_collect(uuid,integer)'::regprocedure), '<> ' || chr(39) || 'rejected' || chr(39)), 1) - 1)::text));
+  perform pg_temp.ck('the exclusion patterns are in the unsigned settings the CMO can see', 'true',
+    (select (config #> '{higherRiskCriteria,excludePatterns}' ? 'family history')::text from public.health_report_config_versions where version = 2));
   perform pg_temp.ck('INV-04: the flags carry no condition name or sensitive word', 'false',
     (pg_temp.hr(b)::text ~* 'type 2|mellitus|hiv|hbsag|hcv|hbv|hepatitis|hep_b|hep_c')::text);
   perform pg_temp.bp_days(g, 14, 5);
@@ -266,9 +282,18 @@ end $$;
 -- B: the higher-risk detector forced false. The diabetes patient must then come back false.
 do $$
 begin
-  create or replace function private.hr_has_condition(p_patient uuid, p_prefixes jsonb, p_names jsonb) returns boolean
+  create or replace function private.hr_has_condition(p_patient uuid, p_prefixes jsonb, p_names jsonb, p_exclude jsonb default '[]'::jsonb) returns boolean
     language sql stable security definer set search_path = '' as $f$ select false $f$;
   insert into results values ('sabotaged', 'diabetes by ICD-10 prefix', 'true,false,false,false', pg_temp.flags(pg_temp.hr(pg_temp.f('flagged_diab'))));
+end $$;
+-- D: the rejected-reading filter removed from the collector. The "rejected readings are excluded" check must flip.
+do $$
+declare v_def text;
+begin
+  v_def := replace(pg_get_functiondef('private.health_report_collect(uuid,integer)'::regprocedure), 'and coalesce(validation_status::text, ' || chr(39) || chr(39) || ') <> ' || chr(39) || 'rejected' || chr(39), '');
+  execute v_def;
+  insert into results values ('sabotaged', 'rejected blood pressure readings are excluded from the collector (current year and prior year)', '2',
+    (select (array_length(string_to_array(pg_get_functiondef('private.health_report_collect(uuid,integer)'::regprocedure), '<> ' || chr(39) || 'rejected' || chr(39)), 1) - 1)::text));
 end $$;
 -- C: a margin key put back into v2. The "no margin" check must then flip.
 do $$

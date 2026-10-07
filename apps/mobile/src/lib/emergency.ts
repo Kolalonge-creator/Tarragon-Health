@@ -2,6 +2,9 @@ import * as SecureStore from "expo-secure-store";
 import { supabase } from "./supabase";
 import { PLATFORM_URL } from "./platform-url";
 
+export const EMERGENCY_REPRODUCTIVE_MEDICINE_PATTERN = /(contracept|levonorgestrel|norethisterone|ethinylestradiol|medroxyprogesterone|depo.?provera|misoprostol|mifepristone|clomiphene)/i;
+export const EMERGENCY_MENTAL_HEALTH_MEDICINE_PATTERN = /(antidepress|sertraline|fluoxetine|citalopram|escitalopram|paroxetine|venlafaxine|mirtazapine|amitriptyline|lithium|risperidone|olanzapine|quetiapine|haloperidol|chlorpromazine|diazepam|lorazepam|alprazolam|clonazepam|bupropion)/i;
+
 export interface EmergencyContact {
   name: string;
   phone: string | null;
@@ -138,7 +141,10 @@ export function applyEmergencyFieldChoices(facts: EmergencyFacts, chosen: Emerge
     ...facts,
     hidden,
     allergies: row.show_allergies ? facts.allergies : [],
-    medications: row.show_medications ? facts.medications : [],
+    medications: row.show_medications
+      ? facts.medications.filter((m) =>
+          EMERGENCY_REPRODUCTIVE_MEDICINE_PATTERN.test(m.drugName) ? row.show_reproductive : EMERGENCY_MENTAL_HEALTH_MEDICINE_PATTERN.test(m.drugName) ? row.show_mental_health : true)
+      : [],
     conditions: row.show_conditions
       ? facts.conditions.filter((c) => (EMERGENCY_REPRODUCTIVE_PATTERN.test(c) ? row.show_reproductive : EMERGENCY_MENTAL_HEALTH_PATTERN.test(c) ? row.show_mental_health : true))
       : [],

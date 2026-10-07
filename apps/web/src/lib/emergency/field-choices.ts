@@ -116,6 +116,23 @@ export function hiddenFields(c: CardFieldChoices): CardField[] {
 export const REPRODUCTIVE_PATTERN = /(pregnan|antenatal|postnatal|fertil|contracepti|menstru|menopaus|reproduct|obstetric|gynae|gynec)/i;
 export const MENTAL_HEALTH_PATTERN = /(mental|depress|anxiet|psych|bipolar|schizo|suicid|self.?harm|ptsd|trauma|panic|mood)/i;
 
+/** Mirrors private.emergency_card_sensitive_medicine: a contraceptive or an antidepressant gives a reproductive or mental health matter away like a condition does. */
+export const REPRODUCTIVE_MEDICINE_PATTERN = /(contracept|levonorgestrel|norethisterone|ethinylestradiol|medroxyprogesterone|depo.?provera|misoprostol|mifepristone|clomiphene)/i;
+export const MENTAL_HEALTH_MEDICINE_PATTERN = /(antidepress|sertraline|fluoxetine|citalopram|escitalopram|paroxetine|venlafaxine|mirtazapine|amitriptyline|lithium|risperidone|olanzapine|quetiapine|haloperidol|chlorpromazine|diazepam|lorazepam|alprazolam|clonazepam|bupropion)/i;
+
+export function sensitiveMedicineKind(name: string): "reproductive" | "mental_health" | null {
+  if (REPRODUCTIVE_MEDICINE_PATTERN.test(name)) return "reproductive";
+  if (MENTAL_HEALTH_MEDICINE_PATTERN.test(name)) return "mental_health";
+  return null;
+}
+
+export function filterSensitiveMedicines<T extends { drug_name: string }>(medicines: readonly T[], c: Pick<CardFieldChoices, "reproductive" | "mental_health">): T[] {
+  return medicines.filter((m) => {
+    const kind = sensitiveMedicineKind(m.drug_name);
+    return kind === null || (kind === "reproductive" ? c.reproductive : c.mental_health);
+  });
+}
+
 export function sensitiveConditionKind(text: string): "reproductive" | "mental_health" | null {
   if (REPRODUCTIVE_PATTERN.test(text)) return "reproductive";
   if (MENTAL_HEALTH_PATTERN.test(text)) return "mental_health";
@@ -138,7 +155,7 @@ export function applyCardFieldChoices(facts: EmergencyClinicalFacts, c: CardFiel
     patient_number: c.patient_number ? facts.patient_number : null,
     emergency_contact: c.emergency_contact ? facts.emergency_contact : null,
     allergies: c.allergies ? facts.allergies : [],
-    medications: c.medications ? facts.medications : [],
+    medications: c.medications ? filterSensitiveMedicines(facts.medications, c) : [],
     conditions: c.conditions ? filterSensitiveConditions(facts.conditions, c) : [],
     blood: c.blood ? facts.blood : null,
   };

@@ -2189,21 +2189,25 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
         },
         "namePatterns": {
           "diabetes": [
-            "diabet"
+            "^(type [12] )?diabetes( mellitus)?( type [12])?$"
           ],
           "ckd": [
-            "chronic kidney",
-            "ckd"
+            "^(chronic kidney disease|ckd)( stage [1-5][ab]?)?$"
           ],
           "cvd": [
-            "coronary",
-            "myocardial infarction",
-            "angina",
-            "stroke",
-            "heart failure",
-            "peripheral arter"
+            "^(coronary (artery|heart) disease|ischaemic heart disease|ischemic heart disease|myocardial infarction|angina( pectoris)?|stroke|heart failure|peripheral arter(y|ial) disease)$"
           ]
         },
+        "excludePatterns": [
+          "pre.?diabet",
+          "family history",
+          "gestational",
+          "history of family",
+          "risk of",
+          "heat.?stroke",
+          "sunstroke",
+          "suspected"
+        ],
         "elevatedRiskTiers": [
           "high",
           "very_high"
@@ -2498,6 +2502,41 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       "hiddenReads": "not shared"
     },
     owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S47-decisions-applied.md",
+  },
+  {
+    key: "results.sensitive_code_patterns",
+    // Every spelling of an HIV, hepatitis B or hepatitis C analyte code (S47 review fix, INV-04). Live value is `sensitive_result_code_patterns`. The list is data so a new variant is a row. anti_hbs (the immunity titre) is deliberately not on it.
+    value: [
+      {
+        "pattern": "^hiv",
+        "virus": "hiv"
+      },
+      {
+        "pattern": "^(hbv|hbs|hbe|hbc|hbcore)",
+        "virus": "hbv"
+      },
+      {
+        "pattern": "^anti_?hb[ce]",
+        "virus": "hbv"
+      },
+      {
+        "pattern": "^(hep_?b|hepatitis_?b)",
+        "virus": "hbv"
+      },
+      {
+        "pattern": "^(hcv|anti_?hcv)",
+        "virus": "hcv"
+      },
+      {
+        "pattern": "^(hep_?c|hepatitis_?c)",
+        "virus": "hcv"
+      }
+    ],
+    owner: "CMO",
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-07",

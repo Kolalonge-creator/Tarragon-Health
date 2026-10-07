@@ -27,6 +27,11 @@ const responseSchema = z.object({
   composed: z.record(z.string(), z.unknown()),
 });
 
+/** A caregiver sees the blood pressure target number but never the reason it is lower (that would reveal a higher-risk group to someone who may only hold vitals access). */
+export function neutraliseTargets(c: ReportRow["composed"]): ReportRow["composed"] {
+  return { ...c, items: (c.items ?? []).map((i) => (i.target && i.target.source === "higher_risk" ? { ...i, target: { ...i.target, source: "report_settings" as const } } : i)) };
+}
+
 export interface CaregiverReport {
   readonly id: string;
   readonly firstName: string;
@@ -64,7 +69,7 @@ export async function getCaregiverReport(supabase: SupabaseClient<Database>, pat
     row: {
       year: r.year,
       version: r.version,
-      composed: r.composed as unknown as ReportRow["composed"],
+      composed: neutraliseTargets(r.composed as unknown as ReportRow["composed"]),
       summary_text: r.summary_text ?? "",
       signer_name: r.signer_name,
       signer_registration: r.signer_registration,

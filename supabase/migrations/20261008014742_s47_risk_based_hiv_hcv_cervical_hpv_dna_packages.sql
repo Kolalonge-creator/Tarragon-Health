@@ -260,13 +260,56 @@ language plpgsql security definer set search_path = ''
 as $$
 begin
   if lower(new.analyte_code) <> 'anti_hbs' then return new; end if;
-  -- S47 (decision 7): ONLY a laboratory-flagged positive records immunity. A numeric titre alone never does, whatever the threshold says;
-  -- the 10 mIU/mL figure is kept in the rule as a PROPOSED, unconfirmed hint for the doctor who records immunity by hand.
-  if new.flag = 'positive' then
+  -- S47 (decision 7): ONLY a laboratory-flagged positive on a RELEASED, non-withdrawn, non-superseded result records immunity. A numeric titre alone never
+  -- does, whatever the threshold says; the 10 mIU/mL figure is a PROPOSED, unconfirmed hint for the doctor who records immunity by hand.
+  -- (An item usually arrives before its result is released; lab_results_anti_hbs_sync below acts when the result is released.)
+  if new.flag = 'positive' and exists (select 1 from public.lab_results r where r.id = new.lab_result_id
+        and r.release_state = 'released' and r.withdrawn_at is null and r.superseded_by is null) then
     perform private.set_hbv_immune(new.patient_id, 'anti_hbs_positive', new.id, null);
   end if;
   return new;
 end $$;
+
+-- Release, withdrawal and supersession of the whole result re-evaluate the immune flag: a withdrawn or replaced positive must not leave it standing.
+create function private.lab_result_anti_hbs_sync() returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+declare it record; v_t record; v_cur text;
+begin
+  if new.release_state = 'released' and new.withdrawn_at is null and new.superseded_by is null then
+    for it in select id from public.lab_result_items where lab_result_id = new.id and lower(analyte_code) = 'anti_hbs' and flag = 'positive' loop
+      perform private.set_hbv_immune(new.patient_id, 'anti_hbs_positive', it.id, null);
+    end loop;
+    return new;
+  end if;
+  -- no longer valid: take back immunity that rests on THIS result, unless another valid basis exists
+  select t.* into v_t from public.serology_status_transitions t
+   where t.patient_id = new.patient_id and t.virus = 'hbv' and t.to_status::text = 'immune' and t.basis = 'anti_hbs_positive'
+     and t.lab_result_item_id in (select id from public.lab_result_items where lab_result_id = new.id)
+   order by t.created_at desc limit 1;
+  if not found then return new; end if;
+  select hbv_status::text into v_cur from public.patient_serology_status where patient_id = new.patient_id;
+  if v_cur is distinct from 'immune' then return new; end if;
+  if exists (select 1 from public.lab_result_items i join public.lab_results r on r.id = i.lab_result_id
+              where i.patient_id = new.patient_id and lower(i.analyte_code) = 'anti_hbs' and i.flag = 'positive' and r.id <> new.id
+                and r.release_state = 'released' and r.withdrawn_at is null and r.superseded_by is null) then
+    return new;
+  end if;
+  if exists (select 1 from public.serology_status_transitions t2
+              where t2.patient_id = new.patient_id and t2.virus = 'hbv' and t2.to_status::text = 'immune' and t2.basis like 'clinician:%'
+                and not exists (select 1 from public.serology_status_transitions t3 where t3.patient_id = new.patient_id and t3.virus = 'hbv'
+                                  and t3.basis = 'clinician_cleared' and t3.created_at > t2.created_at)) then
+    return new;
+  end if;
+  update public.patient_serology_status set hbv_status = coalesce(nullif(v_t.from_status::text, 'immune'), 'unknown')::public.hbv_status, updated_at = now()
+   where patient_id = new.patient_id;
+  insert into public.serology_status_transitions (organisation_id, patient_id, virus, from_status, to_status, basis, lab_result_item_id, recorded_by)
+    values (new.organisation_id, new.patient_id, 'hbv', 'immune', coalesce(nullif(v_t.from_status::text, 'immune'), 'unknown'), 'lab_result_no_longer_valid', v_t.lab_result_item_id, null);
+  return new;
+end $$;
+revoke all on function private.lab_result_anti_hbs_sync() from public, anon, authenticated;
+create trigger lab_results_anti_hbs_sync after update of release_state, withdrawn_at, superseded_by on public.lab_results
+  for each row execute function private.lab_result_anti_hbs_sync();
 
 create or replace function private.screening_due(p_patient uuid, p_rule_set uuid)
 returns table (screen_type_id uuid, screen_type_code text, due_date date, reason text)

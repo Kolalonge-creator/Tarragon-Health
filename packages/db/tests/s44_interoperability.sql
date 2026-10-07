@@ -316,8 +316,10 @@ begin
   perform pg_temp.ck('4f the person''s private note is never exported', 'false', (v_txt ~ 'PRIVATE-NOTE-44')::text);
   perform pg_temp.ck('4g manual and device vitals both exported with their source', 'device,manual',
     (select string_agg(distinct x ->> 'source', ',' order by x ->> 'source') from jsonb_array_elements(v_j -> 'vitals') x));
-  perform pg_temp.ck('4h reproductive health and mental health are named as excluded', 'reproductive_health,mental_health',
-    (select string_agg(x #>> '{}', ',' order by ord) from jsonb_array_elements(v_j -> 'excluded_domains') with ordinality t(x, ord)));
+  -- S47 review fix: excluded_domains used to be a fixed claim that nothing enforced. It now lists the domains actually withheld from THIS reader (a guardian of an
+  -- adolescent without a waiver, proved in s47b_review_fixes.sql). The person themselves is withheld nothing, and the export still says its classification is limited.
+  perform pg_temp.ck('4h excluded_domains is truthful: nothing is withheld from the person themselves, and the limits note stays', '0|true',
+    jsonb_array_length(v_j -> 'excluded_domains')::text || '|' || (v_j -> 'limits' ? 'items_inside_general_sections_are_not_classified_by_purpose')::text);
   perform pg_temp.ck('4i ...and cannot be asked for as a section', 'ERR:unknown section',
     pg_temp.q_as(v_pat, format($q$select public.fhir_export_snapshot(%L, array['reproductive_health'], null)::text$q$, v_pat)));
   perform pg_temp.ck('4j the export is logged for the person to see', '1|self',

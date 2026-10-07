@@ -13,19 +13,22 @@
 -- Timestamp: hand-picked later than every file on the integration branch (newest 20261007233237) and the newest live version read on
 -- 2026-10-07 (20261007231528).
 
-create or replace function private.hr_has_condition(p_patient uuid, p_prefixes jsonb, p_names jsonb) returns boolean
+create or replace function private.hr_has_condition(p_patient uuid, p_prefixes jsonb, p_names jsonb, p_exclude jsonb default '[]'::jsonb) returns boolean
 language sql stable security definer set search_path = ''
 as $$
+  -- S47 review fix: a code matches by ICD-10 prefix (the code, not a word), a name matches only an ANCHORED pattern from the unsigned settings, and an
+  -- exclusion pattern always wins (pre-diabetes, family history, gestational, heatstroke are not the condition). No bare substring match any more.
   select exists (
     select 1 from public.patient_conditions pc
      where pc.patient_id = p_patient
        and pc.status in ('active', 'controlled', 'uncontrolled')
+       and not (jsonb_typeof(p_exclude) = 'array' and exists (select 1 from jsonb_array_elements_text(p_exclude) e where lower(btrim(pc.condition_name)) ~* e))
        and (
          (jsonb_typeof(p_prefixes) = 'array' and exists (select 1 from jsonb_array_elements_text(p_prefixes) x where upper(coalesce(pc.icd10_code, '')) like upper(x) || '%'))
-         or (jsonb_typeof(p_names) = 'array' and exists (select 1 from jsonb_array_elements_text(p_names) y where lower(pc.condition_name) like '%' || lower(y) || '%'))
+         or (jsonb_typeof(p_names) = 'array' and exists (select 1 from jsonb_array_elements_text(p_names) y where lower(btrim(pc.condition_name)) ~* y))
        ))
 $$;
-revoke all on function private.hr_has_condition(uuid, jsonb, jsonb) from public, anon, authenticated;
+revoke all on function private.hr_has_condition(uuid, jsonb, jsonb, jsonb) from public, anon, authenticated;
 
 -- health-report-config-v2-begin
 insert into public.health_report_config_versions (version, notes, config) values (2,
@@ -44,10 +47,11 @@ insert into public.health_report_config_versions (version, notes, config) values
    "cvd": ["I20", "I21", "I22", "I23", "I24", "I25", "I50", "I63", "I64", "I65", "I66", "I69", "I70", "I73"]
   },
   "namePatterns": {
-   "diabetes": ["diabet"],
-   "ckd": ["chronic kidney", "ckd"],
-   "cvd": ["coronary", "myocardial infarction", "angina", "stroke", "heart failure", "peripheral arter"]
+   "diabetes": ["^(type [12] )?diabetes( mellitus)?( type [12])?$"],
+   "ckd": ["^(chronic kidney disease|ckd)( stage [1-5][ab]?)?$"],
+   "cvd": ["^(coronary (artery|heart) disease|ischaemic heart disease|ischemic heart disease|myocardial infarction|angina( pectoris)?|stroke|heart failure|peripheral arter(y|ial) disease)$"]
   },
+  "excludePatterns": ["pre.?diabet", "family history", "gestational", "history of family", "risk of", "heat.?stroke", "sunstroke", "suspected"],
   "elevatedRiskTiers": ["high", "very_high"]
  },
  "changeTolerancePct": 3,
@@ -78,11 +82,13 @@ begin
            'avgSystolic', round(avg(systolic), 1), 'avgDiastolic', round(avg(diastolic), 1),
            'days', count(distinct (taken_at at time zone 'Africa/Lagos')::date))
     into v_bp from public.vitals_readings
-   where patient_id = p_patient and vital_type = 'blood_pressure' and taken_at >= v_from and taken_at < v_to and systolic is not null and diastolic is not null;
+   where patient_id = p_patient and vital_type = 'blood_pressure' and taken_at >= v_from and taken_at < v_to and systolic is not null and diastolic is not null
+     and coalesce(validation_status::text, '') <> 'rejected';
   select jsonb_build_object('count', count(*), 'avgSystolic', round(avg(systolic), 1), 'avgDiastolic', round(avg(diastolic), 1),
            'days', count(distinct (taken_at at time zone 'Africa/Lagos')::date))
     into v_prior from public.vitals_readings
-   where patient_id = p_patient and vital_type = 'blood_pressure' and taken_at >= v_pfrom and taken_at < v_from and systolic is not null and diastolic is not null;
+   where patient_id = p_patient and vital_type = 'blood_pressure' and taken_at >= v_pfrom and taken_at < v_from and systolic is not null and diastolic is not null
+     and coalesce(validation_status::text, '') <> 'rejected';
   if (v_prior ->> 'count')::integer = 0 then v_prior := null; end if;
 
   select jsonb_build_object('manual', count(*) filter (where source = 'manual'), 'device', count(*) filter (where source = 'device'),
@@ -164,9 +170,9 @@ begin
   -- them: the signed active version, else the latest.
   select h.config into v_cfg from public.health_report_config_versions h order by (h.is_active and h.approved_by is not null) desc, h.version desc limit 1;
   select jsonb_build_object(
-      'diabetes', private.hr_has_condition(p_patient, v_cfg -> 'higherRiskCriteria' -> 'icd10Prefixes' -> 'diabetes', v_cfg -> 'higherRiskCriteria' -> 'namePatterns' -> 'diabetes'),
-      'ckd',      private.hr_has_condition(p_patient, v_cfg -> 'higherRiskCriteria' -> 'icd10Prefixes' -> 'ckd',      v_cfg -> 'higherRiskCriteria' -> 'namePatterns' -> 'ckd'),
-      'cvd',      private.hr_has_condition(p_patient, v_cfg -> 'higherRiskCriteria' -> 'icd10Prefixes' -> 'cvd',      v_cfg -> 'higherRiskCriteria' -> 'namePatterns' -> 'cvd'),
+      'diabetes', private.hr_has_condition(p_patient, v_cfg -> 'higherRiskCriteria' -> 'icd10Prefixes' -> 'diabetes', v_cfg -> 'higherRiskCriteria' -> 'namePatterns' -> 'diabetes', v_cfg -> 'higherRiskCriteria' -> 'excludePatterns'),
+      'ckd',      private.hr_has_condition(p_patient, v_cfg -> 'higherRiskCriteria' -> 'icd10Prefixes' -> 'ckd',      v_cfg -> 'higherRiskCriteria' -> 'namePatterns' -> 'ckd', v_cfg -> 'higherRiskCriteria' -> 'excludePatterns'),
+      'cvd',      private.hr_has_condition(p_patient, v_cfg -> 'higherRiskCriteria' -> 'icd10Prefixes' -> 'cvd',      v_cfg -> 'higherRiskCriteria' -> 'namePatterns' -> 'cvd', v_cfg -> 'higherRiskCriteria' -> 'excludePatterns'),
       'elevatedRisk', coalesce((v_risk ->> 'state') = 'assessed' and (v_risk ->> 'tier') in (
           select jsonb_array_elements_text(coalesce(v_cfg -> 'higherRiskCriteria' -> 'elevatedRiskTiers', '[]'::jsonb))), false))
     into v_flags;
@@ -225,5 +231,5 @@ do $$
 begin
   if exists (select 1 from public.health_report_config_versions where version = 2 and (is_active or approved_by is not null)) then raise exception 'S47 self-check: report settings v2 must be unsigned'; end if;
   if exists (select 1 from public.health_report_config_versions where config ? 'bpBorderlineMarginMmHg' and version = 2) then raise exception 'S47 self-check: the borderline margin must not exist in v2'; end if;
-  if has_function_privilege('anon', 'private.hr_has_condition(uuid,jsonb,jsonb)', 'EXECUTE') then raise exception 'S47 self-check: hr_has_condition reachable by anon'; end if;
+  if has_function_privilege('anon', 'private.hr_has_condition(uuid,jsonb,jsonb,jsonb)', 'EXECUTE') then raise exception 'S47 self-check: hr_has_condition reachable by anon'; end if;
 end $$;

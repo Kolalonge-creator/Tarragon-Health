@@ -56,6 +56,14 @@ export async function buildHealthReportDraft(
   const config = await loadConfig(service);
   if (!config) return { status: "refused", reason: "no_settings" };
 
+  // Ask BEFORE anything is collected or sent to a model: while the guard is off, the settings are unsigned or a draft is already waiting, no patient data
+  // goes to the AI drafter at all. (The writer below still checks everything again and stays the authority.)
+  const { data: allowed } = await service.rpc("health_report_build_allowed", { p_patient: params.patientId, p_year: params.year });
+  if (allowed && allowed !== "ok") {
+    const reason = allowed === "guard_off" || allowed === "settings_unsigned" || allowed === "draft_waiting" || allowed === "patient_not_found" ? allowed : "error";
+    return { status: "refused", reason };
+  }
+
   const { data: facts, error: collectError } = await service.rpc("health_report_collect", { p_patient: params.patientId, p_year: params.year });
   if (collectError || !facts) return { status: "refused", reason: "error", detail: collectError?.message };
 

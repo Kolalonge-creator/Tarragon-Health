@@ -113,4 +113,20 @@ describe("render model for a caregiver", () => {
     expect(m.sections.map((s) => s.id)).toContain("risk");
     expect(m.sections.map((s) => s.id)).not.toContain("withheld_note");
   });
+
+  it("a caregiver sees the target number but never the reason it is lower (review fix)", async () => {
+    const p = payload({ withheld: [] });
+    const bp = { id: "bp", kind: "bp", code: "blood_pressure", state: "needs_attention", value: 134, value2: 84, unit: "mmHg", readingCount: 14, readingDays: 6, tooFewReadings: false, minReadings: 12, borderline: true, recheckWeeks: 4,
+      target: { low: null, high: 130, high2: 80, source: "higher_risk" }, change: "no_comparison", previousValue: null, dateFrom: null, dateTo: null, reason: null, excess: 4 };
+    (p.composed as { items: unknown[] }).items = [bp];
+    const out = await getCaregiverReport(client(() => ({ data: p, error: null })), ID);
+    expect(out).not.toBeNull();
+    expect(JSON.stringify(out!.row.composed)).not.toContain("higher_risk");
+    const m = buildRenderModel(out!.row, out!.config, "self", [], out!.caregiver);
+    const text = JSON.stringify(m);
+    expect(text).toContain("Target: below 130/80 mmHg.");
+    expect(text).not.toContain("extra health risks");
+    // control: the same item rendered for the patient themselves does explain it
+    expect(JSON.stringify(buildRenderModel({ ...out!.row, composed: { ...out!.row.composed, items: [bp] as never } }, out!.config, "self"))).toContain("extra health risks");
+  });
 });

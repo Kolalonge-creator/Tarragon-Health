@@ -29,6 +29,20 @@ $$;
 -- sensitive-conditions-pattern-end
 revoke all on function private.emergency_card_sensitive_condition(text) from public, anon, authenticated;
 
+-- S47 review fix: a medicine can give away a reproductive or mental health matter just as a condition can (a contraceptive, an antidepressant). The medicines
+-- list on the card is filtered by this the same way the conditions list is. Mirrored in the web and phone code; a Jest test fails if the lists differ.
+-- sensitive-medicines-pattern-begin
+create function private.emergency_card_sensitive_medicine(p_text text) returns text
+language sql immutable set search_path = ''
+as $$
+  select case
+    when p_text ~* '(contracept|levonorgestrel|norethisterone|ethinylestradiol|medroxyprogesterone|depo.?provera|misoprostol|mifepristone|clomiphene)' then 'reproductive'
+    when p_text ~* '(antidepress|sertraline|fluoxetine|citalopram|escitalopram|paroxetine|venlafaxine|mirtazapine|amitriptyline|lithium|risperidone|olanzapine|quetiapine|haloperidol|chlorpromazine|diazepam|lorazepam|alprazolam|clonazepam|bupropion)' then 'mental_health'
+    else null end
+$$;
+-- sensitive-medicines-pattern-end
+revoke all on function private.emergency_card_sensitive_medicine(text) from public, anon, authenticated;
+
 create or replace function public.emergency_card_by_token(p_token text)
 returns jsonb
 language plpgsql
@@ -59,6 +73,15 @@ begin
   if not f.show_emergency_contact then v_full := v_full || jsonb_build_object('emergency_contact', null); v_hidden := array_append(v_hidden, 'emergency_contact'); end if;
   if not f.show_allergies then v_full := v_full || jsonb_build_object('allergies', '[]'::jsonb); v_hidden := array_append(v_hidden, 'allergies'); end if;
   if not f.show_medications then v_full := v_full || jsonb_build_object('medications', '[]'::jsonb); v_hidden := array_append(v_hidden, 'medications'); end if;
+  if f.show_medications then
+    -- the medicines list drops a reproductive or mental health medicine unless its own switch is on (the card then says those are not shared)
+    v_full := v_full || jsonb_build_object('medications', coalesce((
+      select jsonb_agg(m) from jsonb_array_elements(coalesce(v_full -> 'medications', '[]'::jsonb)) m
+       where case private.emergency_card_sensitive_medicine(m ->> 'drug_name')
+               when 'reproductive' then f.show_reproductive
+               when 'mental_health' then f.show_mental_health
+               else true end), '[]'::jsonb));
+  end if;
   if not f.show_conditions then
     v_full := v_full || jsonb_build_object('conditions', '[]'::jsonb); v_hidden := array_append(v_hidden, 'conditions');
   else
@@ -82,7 +105,7 @@ grant execute on function public.emergency_card_by_token(text) to anon, authenti
 do $$
 begin
   if not has_function_privilege('anon', 'public.emergency_card_by_token(text)', 'EXECUTE') then raise exception 'S47 self-check: emergency_card_by_token must stay anon-executable'; end if;
-  if has_function_privilege('anon', 'private.emergency_card_sensitive_condition(text)', 'EXECUTE') then raise exception 'S47 self-check: the classifier must not be callable by anon'; end if;
+  if has_function_privilege('anon', 'private.emergency_card_sensitive_medicine(text)', 'EXECUTE') or has_function_privilege('anon', 'private.emergency_card_sensitive_condition(text)', 'EXECUTE') then raise exception 'S47 self-check: the classifier must not be callable by anon'; end if;
   if (select column_default from information_schema.columns where table_schema = 'public' and table_name = 'emergency_card_fields' and column_name = 'show_conditions') <> 'false' then
     raise exception 'S47 self-check: conditions must default off';
   end if;

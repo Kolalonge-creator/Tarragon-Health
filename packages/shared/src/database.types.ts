@@ -47213,6 +47213,14 @@ export type Database = {
         Args: { p_dob?: string; p_serial: string }
         Returns: Json
       }
+      health_report_build_allowed: {
+        Args: { p_patient: string; p_year: number }
+        Returns: string
+      }
+      record_health_report_build_failure: {
+        Args: { p_patient: string; p_reason: string; p_year: number }
+        Returns: number
+      }
       health_report_candidates: {
         Args: { p_limit?: number; p_year: number }
         Returns: { patient_id: string }[]

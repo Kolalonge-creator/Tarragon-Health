@@ -2,7 +2,7 @@ import { describe, it, expect, jest } from "@jest/globals";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import { getProposedConfig } from "@tarragon/shared";
-import { composeHealthReport, type HealthReportFacts } from "@tarragon/clinical";
+import { composeHealthReport, shareableView, type HealthReportFacts } from "@tarragon/clinical";
 import { buildHealthReportDraft, parseReportConfig } from "./build";
 import { buildRenderModel, type ReportRow } from "./render-model";
 
@@ -22,7 +22,7 @@ const FACTS: HealthReportFacts = {
   questionnaires: [],
 };
 
-function fakeService(opts: { rpcError?: string; facts?: unknown }) {
+function fakeService(opts: { rpcError?: string; facts?: unknown; allowed?: string }) {
   const calls: { fn: string; args: Record<string, unknown> }[] = [];
   const service = {
     from: jest.fn((table: string) => {
@@ -34,6 +34,7 @@ function fakeService(opts: { rpcError?: string; facts?: unknown }) {
     }),
     rpc: jest.fn(async (fn: string, args: Record<string, unknown>) => {
       calls.push({ fn, args });
+      if (fn === "health_report_build_allowed") return { data: opts.allowed ?? "ok", error: null };
       if (fn === "health_report_collect") return { data: opts.facts ?? FACTS, error: null };
       if (opts.rpcError) return { data: null, error: { message: opts.rpcError } };
       return { data: "11111111-1111-1111-1111-111111111111", error: null };
@@ -53,6 +54,25 @@ describe("buildHealthReportDraft", () => {
     expect(JSON.stringify([write.args.p_composed, write.args.p_priorities])).not.toContain("A drafted paragraph.");
     expect((write.args.p_priorities as unknown[]).length).toBeLessThanOrEqual(3);
     expect((write.args.p_composed as { templateSummary: string }).templateSummary).toContain("on target");
+  });
+
+  it("requests NO AI draft and collects nothing while the guard is off, the settings are unsigned or a draft is waiting (review fix)", async () => {
+    for (const [allowed, reason] of [["guard_off", "guard_off"], ["settings_unsigned", "settings_unsigned"], ["draft_waiting", "draft_waiting"]] as const) {
+      const { service, calls } = fakeService({ allowed });
+      const drafter = jest.fn(async () => "never asked");
+      const out = await buildHealthReportDraft(service, { patientId: "p", year: 2026, draftSummary: drafter });
+      expect(out).toEqual({ status: "refused", reason });
+      expect(drafter).not.toHaveBeenCalled();
+      expect(calls.map((c) => c.fn)).not.toContain("health_report_collect");
+      expect(calls.map((c) => c.fn)).not.toContain("record_health_report_draft");
+    }
+  });
+
+  it("control: when the pre-check says ok the drafter is asked", async () => {
+    const { service } = fakeService({ allowed: "ok" });
+    const drafter = jest.fn(async () => "a draft");
+    await buildHealthReportDraft(service, { patientId: "p", year: 2026, draftSummary: drafter });
+    expect(drafter).toHaveBeenCalledTimes(1);
   });
 
   it("a failing AI drafter never blocks a report and leaves no draft text", async () => {
@@ -121,5 +141,19 @@ describe("the rendered report", () => {
   it("uses no em dash, no 'your doctor', no optimal range and no colour-only meaning in its text", () => {
     const text = flat(buildRenderModel(row, CONFIG));
     expect(text).not.toMatch(/—|your doctor|optimal|biological age|healthspan/i);
+  });
+
+  it("the lower higher-risk target is explained to the patient, but a shared copy shows only the number and never says why (review fix)", () => {
+    const hr = { ...FACTS, bpHigherRisk: { diabetes: true, ckd: false, cvd: false, elevatedRisk: false } };
+    const c = { ...composeHealthReport(hr, CONFIG, new Date("2026-12-01")), templateSummary: "x" };
+    const r: ReportRow = { ...row, composed: c };
+    const own = flat(buildRenderModel(r, CONFIG, "self"));
+    const shared = flat(buildRenderModel(r, CONFIG, "shared"));
+    expect(own).toContain("extra health risks");
+    expect(shared).not.toContain("extra health risks");
+    expect(shared).toContain("Target: below 130/80 mmHg.");
+    expect(JSON.stringify(shareableView(c, CONFIG).items)).not.toContain("higher_risk");
+    // control: the unshared composed report does still carry the source
+    expect(JSON.stringify(c.items)).toContain("higher_risk");
   });
 });

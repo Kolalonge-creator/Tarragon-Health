@@ -71,7 +71,7 @@ $$ insert into fx values (p, p_v) on conflict (k) do update set v = excluded.v $
 create function pg_temp.mkchild(p_label text, p_org uuid, p_birthday_days_ago integer) returns uuid language plpgsql as
 $f$ declare v uuid; g1 uuid; g2 uuid;
 begin
-  v := pg_temp.mkuser(p_org, p_label, 'patient', (current_date - interval '18 years' - make_interval(days => p_birthday_days_ago))::date);
+  v := pg_temp.mkuser(p_org, p_label, 'patient', ((now() at time zone 'Africa/Lagos')::date - interval '18 years' - make_interval(days => p_birthday_days_ago))::date);
   update public.profiles set is_dependent_account = true, dependent_kind = 'minor_child' where id = v;
   g1 := pg_temp.mkuser(p_org, p_label || '-g1', 'patient'); g2 := pg_temp.mkuser(p_org, p_label || '-g2', 'patient');
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by, created_at) values (v, g1, 'manage', g1, now() - interval '400 days'), (v, g2, 'manage', g2, now() - interval '400 days');   -- the guardians' era, long before the birthday
@@ -86,7 +86,7 @@ end $f$;
 create function pg_temp.notice_days(p_pat uuid) returns text language sql as
 $$ select coalesce((select string_agg((n.payload ->> 'day'), ',' order by n.created_at, (n.payload ->> 'day')::int) from public.notifications n where n.recipient_id = p_pat and n.template = 'dependant_handover_notice'), '') $$;
 create function pg_temp.at_day(p_pat uuid, p_day integer) returns void language sql as
-$$ update public.dependant_handovers set birthday_18 = current_date - (p_day - 1) where patient_id = p_pat $$;
+$$ update public.dependant_handovers set birthday_18 = (now() at time zone 'Africa/Lagos')::date - (p_day - 1) where patient_id = p_pat $$;
 
 do $$
 declare
@@ -115,7 +115,7 @@ begin
     (select bool_or(l.body ~* '\{\{\s*(condition|diagnosis|medicine|medication|result|reading)')::text from public.notification_template_locales l where l.template_key = 'dependant_handover_notice'));
   perform pg_temp.ck('the notice event carries an id and a day number only', 'day,handover_id',
     (select string_agg(k, ',' order by k) from (select distinct jsonb_object_keys(payload) k from public.domain_events e where e.event_type = 'dependant.handover_notice' and e.patient_id = a) x));
-  perform pg_temp.ck('my_handover shows the end date and the days left', '90,' || (current_date + 90)::text,
+  perform pg_temp.ck('my_handover shows the end date and the days left', '90,' || ((now() at time zone 'Africa/Lagos')::date + 90)::text,
     pg_temp.q_as(a, $q$select (public.my_handover() ->> 'days_left') || ',' || (public.my_handover() ->> 'access_ends_on')$q$));
   -- day 30
   perform pg_temp.at_day(a, 30); perform private.sweep_dependant_handovers();
@@ -163,12 +163,27 @@ begin
   -- ===== C: has their own login but never chose ========================================================================================
   c := pg_temp.mkchild('child-c', v_org, 100); c1 := pg_temp.f('child-c-g1'); c2 := pg_temp.f('child-c-g2');
   update public.profiles set is_dependent_account = false, dependent_kind = null where id = c;
-  insert into public.dependant_handovers (organisation_id, patient_id, birthday_18, is_test) values (v_org, c, current_date - 100, true);
+  insert into public.dependant_handovers (organisation_id, patient_id, birthday_18, is_test, notices_sent) values (v_org, c, (now() at time zone 'Africa/Lagos')::date - 100, true, array[1, 30, 60, 85]);   -- it HAS had its notices
   perform private.sweep_dependant_handovers();
   perform pg_temp.ck('child C never chose: every guardian ended when the grace ran out', 'expired,0',
     (select state from public.dependant_handovers where patient_id = c) || ',' || (select count(*)::text from public.profile_access where profile_id = c));
   perform pg_temp.ck('completing after expiry is refused', 'P0002', pg_temp.try_as(c, 'select public.complete_dependant_handover(''{}'')'));
 
+  -- ===== late row: the grace period had ALREADY run out before the sweep first saw it. Nothing ends silently. ================================
+  perform pg_temp.mkchild('child-late', v_org, 200);
+  perform private.ensure_dependant_handover(pg_temp.f('child-late'));
+  perform pg_temp.at_day(pg_temp.f('child-late'), 201);
+  perform private.sweep_dependant_handovers();
+  perform pg_temp.ck('late row: access did NOT end on the first sweep, a notice went out and a 30 day window was set', 'due,2,85,true',
+    (select state from public.dependant_handovers where patient_id = pg_temp.f('child-late')) || ',' || (select count(*)::text from public.profile_access where profile_id = pg_temp.f('child-late')) || ',' ||
+    pg_temp.notice_days(pg_temp.f('child-late')) || ',' || (select (expiry_not_before = (now() at time zone 'Africa/Lagos')::date + 30)::text from public.dependant_handovers where patient_id = pg_temp.f('child-late')));
+  perform pg_temp.ck('late row: the guardian can still read during the window', '1', pg_temp.vitals_seen_by(pg_temp.f('child-late-g1'), pg_temp.f('child-late')));
+  perform pg_temp.ck('late row: a second sweep the same day ends nothing and sends no second notice', 'due,2,85',
+    (select state from public.dependant_handovers where patient_id = pg_temp.f('child-late')) || ',' || (select count(*)::text from public.profile_access where profile_id = pg_temp.f('child-late')) || ',' || pg_temp.notice_days(pg_temp.f('child-late')));
+  update public.dependant_handovers set expiry_not_before = (now() at time zone 'Africa/Lagos')::date where patient_id = pg_temp.f('child-late');
+  perform private.sweep_dependant_handovers();
+  perform pg_temp.ck('late row: once the notice window has passed, access ends', 'expired,0',
+    (select state from public.dependant_handovers where patient_id = pg_temp.f('child-late')) || ',' || (select count(*)::text from public.profile_access where profile_id = pg_temp.f('child-late')));
   -- ===== privileges ========================================================================================================================
   perform pg_temp.ck('a session cannot run the sweep or the expiry', 'false,false',
     has_function_privilege('authenticated', 'private.sweep_dependant_handovers()', 'EXECUTE')::text || ',' || has_function_privilege('authenticated', 'private.expire_dependant_handover(uuid)', 'EXECUTE')::text);
@@ -209,6 +224,25 @@ begin
   insert into results values ('sabotaged', 'day 1 sends the first notice', '1', pg_temp.notice_days(f));
 end $$;
 
+-- D (review fix): the late-row protection removed. A row first seen after its grace has run out must then end silently (the real check flips).
+do $$
+declare v_org uuid; g uuid; g1 uuid; v_def text;
+begin
+  select id into v_org from public.organisations order by created_at limit 1;
+  update public.handover_config set grace_days = 90, notice_days = array[1, 30, 60, 85] where is_active;
+  create or replace function private.expire_dependant_handover(p_handover uuid) returns boolean language sql as $f$ select false $f$;
+  v_def := pg_get_functiondef('private.sweep_dependant_handovers()'::regprocedure);
+  v_def := replace(v_def, 'if cardinality(r.notices_sent) = 0 and r.expiry_not_before is null and v_today >= v_end then', 'if false then');
+  execute v_def;
+  g := pg_temp.mkchild('child-late2', v_org, 200); g1 := pg_temp.f('child-late2-g1');
+  perform private.ensure_dependant_handover(g);
+  perform pg_temp.at_day(g, 201);
+  perform private.sweep_dependant_handovers();
+  insert into results values ('sabotaged', 'late row: access did NOT end on the first sweep, a notice went out and a 30 day window was set', 'due,2,85,true',
+    (select state from public.dependant_handovers where patient_id = g) || ',' || (select count(*)::text from public.profile_access where profile_id = g) || ',' || pg_temp.notice_days(g) || ',' ||
+    coalesce((select (expiry_not_before is not null)::text from public.dependant_handovers where patient_id = g), 'null'));
+end $$;
+
 do $$
 declare v_bad integer; v_caught integer;
 begin
@@ -219,7 +253,7 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 3 then raise exception 'VACUOUS TEST: the sabotage flipped % of 3 checks', v_caught; end if;
+  if v_caught < 4 then raise exception 'VACUOUS TEST: the sabotage flipped % of 4 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result

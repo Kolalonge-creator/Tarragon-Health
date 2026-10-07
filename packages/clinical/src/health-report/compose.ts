@@ -243,6 +243,8 @@ export function shareableView(report: ComposedReport, config: HealthReportConfig
   const keep = (p: ReportPriority): boolean =>
     !(drop("risk") && p.category === "risk") &&
     !(drop("screening_reproductive") && p.category === "screening" && isReproductiveCode(p.id.replace("screening:", ""), report));
+  // the reason a target is lower would give away the higher-risk group, so a shared copy carries the number under the neutral source name
+  const neutral = (it: ReportItem): ReportItem => (it.target && it.target.source === "higher_risk" ? { ...it, target: { ...it.target, source: "report_settings" } } : it);
   return {
     ...report,
     risk: drop("risk") ? { state: "not_assessed" } : report.risk,
@@ -252,7 +254,7 @@ export function shareableView(report: ComposedReport, config: HealthReportConfig
       : report.screening,
     priorities: report.priorities.filter(keep),
     alsoWorthKnowing: report.alsoWorthKnowing.filter(keep),
-    items: drop("screening_reproductive") ? report.items.filter((i) => !(i.kind === "screening" && isReproductiveCode(i.code, report))) : report.items,
+    items: (drop("screening_reproductive") ? report.items.filter((i) => !(i.kind === "screening" && isReproductiveCode(i.code, report))) : report.items).map(neutral),
   };
 }
 

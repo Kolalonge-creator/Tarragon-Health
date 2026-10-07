@@ -78,7 +78,8 @@ function priorityBlock(p: ReportPriority, n: number): Block {
   };
 }
 
-function itemBlock(i: ReportItem, c: ComposedReport): Block {
+/** `reveal` is false for a shared copy and for a caregiver: they see the target NUMBER, never the reason it is lower (that would tell them the person is in a higher-risk group). */
+function itemBlock(i: ReportItem, c: ComposedReport, reveal = true): Block {
   const notes: string[] = [];
   let value = "";
   if (i.kind === "bp") {
@@ -87,7 +88,7 @@ function itemBlock(i: ReportItem, c: ComposedReport): Block {
     } else {
       value = `${fmt(i.value)}/${fmt(i.value2)} mmHg`;
       notes.push(t("report.bp.readings", "en", { count: i.readingCount, days: i.readingDays ?? 0, from: day(i.dateFrom), to: day(i.dateTo) }));
-      if (i.target?.high && i.target.high2) notes.push(t(i.target.source === "higher_risk" ? "report.bp.target_higher_risk" : "report.bp.target", "en", { sys: i.target.high, dia: i.target.high2 }));
+      if (i.target?.high && i.target.high2) notes.push(t(reveal && i.target.source === "higher_risk" ? "report.bp.target_higher_risk" : "report.bp.target", "en", { sys: i.target.high, dia: i.target.high2 }));
     }
   } else if (i.kind === "lab") {
     value = `${fmt(i.value)} ${i.unit ?? ""}`.trim();
@@ -144,7 +145,7 @@ export function buildRenderModel(
   }
 
   const bp = c.items.find((i) => i.kind === "bp");
-  if (bp) sections.push({ id: "bp", heading: t("report.section.bp", "en"), blocks: [itemBlock(bp, c)] });
+  if (bp) sections.push({ id: "bp", heading: t("report.section.bp", "en"), blocks: [itemBlock(bp, c, variant === "self" && !caregiver)] });
 
   const labs = c.items.filter((i) => i.kind === "lab");
   if (labs.length > 0) sections.push({ id: "labs", heading: t("report.section.labs", "en"), blocks: labs.map((i) => itemBlock(i, c)) });

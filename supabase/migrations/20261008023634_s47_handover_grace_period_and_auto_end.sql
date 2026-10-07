@@ -49,7 +49,8 @@ end $$;
 alter table public.dependant_handovers
   add column grace_days integer,
   add column notices_sent integer[] not null default '{}',
-  add column expired_at timestamptz;
+  add column expired_at timestamptz,
+  add column expiry_not_before date;
 alter table public.dependant_handovers
   add constraint dependant_handovers_state_check check (state in ('due', 'completed', 'expired')),
   add constraint dependant_handovers_closed_check check (
@@ -104,13 +105,14 @@ create or replace function private.sweep_dependant_handovers() returns integer
 language plpgsql security definer set search_path = ''
 as $$
 declare
+  v_today date := (now() at time zone 'Africa/Lagos')::date;
   r record; v_n integer := 0; v_cfg public.handover_config; v_day integer; v_send integer; v_end date; v_chan public.notification_channel;
 begin
   v_cfg := private.handover_setting();
   for r in
     select id from public.profiles
      where is_dependent_account and dependent_kind = 'minor_child' and date_of_birth is not null
-       and (date_of_birth + interval '18 years')::date <= current_date + 30
+       and (date_of_birth + interval '18 years')::date <= v_today + 30
   loop
     perform private.ensure_dependant_handover(r.id);
     v_n := v_n + 1;
@@ -119,19 +121,26 @@ begin
   if v_cfg.version is null then return v_n; end if;
 
   for r in
-    select h.id, h.patient_id, h.organisation_id, h.birthday_18, h.notices_sent
+    select h.id, h.patient_id, h.organisation_id, h.birthday_18, h.notices_sent, h.expiry_not_before
       from public.dependant_handovers h
-     where h.state = 'due' and current_date >= h.birthday_18
+     where h.state = 'due' and v_today >= h.birthday_18
   loop
     -- the guardian is view-only from the birthday, whatever the 03:30 job has or has not yet done
     update public.profile_access set permission_level = 'view' where profile_id = r.patient_id and permission_level = 'manage';
     update public.dependant_handovers set grace_days = coalesce(grace_days, v_cfg.grace_days) where id = r.id;
     v_end := r.birthday_18 + v_cfg.grace_days;
-    if current_date >= v_end then
+    -- A row that is first seen AFTER its grace period has already run out (a late backfill, a missed sweep) has had no notice at all. Nothing ends silently:
+    -- the notices go out now and access ends only once a 30 day notice window has passed.
+    if cardinality(r.notices_sent) = 0 and r.expiry_not_before is null and v_today >= v_end then
+      update public.dependant_handovers set expiry_not_before = v_today + 30 where id = r.id;
+      r.expiry_not_before := v_today + 30;
+    end if;
+    v_end := greatest(v_end, coalesce(r.expiry_not_before, v_end));
+    if v_today >= v_end then
       if private.expire_dependant_handover(r.id) then v_n := v_n + 1; end if;
       continue;
     end if;
-    v_day := (current_date - r.birthday_18) + 1;   -- day 1 is the 18th birthday
+    v_day := (v_today - r.birthday_18) + 1;   -- day 1 is the 18th birthday
     select max(d) into v_send from unnest(v_cfg.notice_days) d where d <= v_day and not (d = any (r.notices_sent));
     if v_send is not null then
       -- the latest missed notice goes out once; earlier missed ones are marked sent, not replayed
@@ -156,17 +165,17 @@ revoke all on function private.sweep_dependant_handovers() from public, anon, au
 create or replace function public.my_handover() returns jsonb
 language plpgsql stable security definer set search_path = ''
 as $$
-declare v_uid uuid := (select auth.uid()); h public.dependant_handovers%rowtype; v_grace integer;
+declare v_uid uuid := (select auth.uid()); h public.dependant_handovers%rowtype; v_grace integer; v_today date := (now() at time zone 'Africa/Lagos')::date;
 begin
   if v_uid is null then raise exception 'handover_not_authorised' using errcode = '42501'; end if;
   select * into h from public.dependant_handovers where patient_id = v_uid;
   if not found then return jsonb_build_object('pending', false); end if;
   v_grace := coalesce(h.grace_days, (private.handover_setting()).grace_days);
   return jsonb_build_object(
-    'pending', h.state = 'due' and current_date >= h.birthday_18,
+    'pending', h.state = 'due' and v_today >= h.birthday_18,
     'state', h.state, 'birthday_18', h.birthday_18, 'completed_at', h.completed_at, 'expired_at', h.expired_at,
-    'access_ends_on', case when h.state = 'due' and v_grace is not null then h.birthday_18 + v_grace end,
-    'days_left', case when h.state = 'due' and v_grace is not null then greatest((h.birthday_18 + v_grace) - current_date, 0) end,
+    'access_ends_on', case when h.state = 'due' and v_grace is not null then greatest(h.birthday_18 + v_grace, coalesce(h.expiry_not_before, h.birthday_18 + v_grace)) end,
+    'days_left', case when h.state = 'due' and v_grace is not null then greatest(greatest(h.birthday_18 + v_grace, coalesce(h.expiry_not_before, h.birthday_18 + v_grace)) - v_today, 0) end,
     'guardians', case when h.state = 'due' then coalesce((
         select jsonb_agg(jsonb_build_object('id', pa.grantee_user_id, 'first_name', split_part(coalesce(nullif(btrim(g.full_name), ''), 'Someone'), ' ', 1)) order by pa.created_at)
           from public.profile_access pa join public.profiles g on g.id = pa.grantee_user_id

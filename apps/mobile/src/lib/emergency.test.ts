@@ -130,6 +130,13 @@ describe("the person's chosen card fields (S43)", () => {
     expect(cached.hidden).toEqual(["conditions", "reproductive", "mental_health"]);
   });
 
+  it("a contraceptive or an antidepressant is hidden from the medicines list unless its own switch is on (the cache holds only what is shown)", async () => {
+    const facts = { fullName: "Ada", bloodGroup: null, genotype: null, allergies: [], conditions: [], medications: [{ drugName: "Metformin", dose: null, frequency: null }, { drugName: "Sertraline", dose: null, frequency: null }, { drugName: "Levonorgestrel", dose: null, frequency: null }], emergencyContact: null, cachedAt: "t" };
+    expect(applyEmergencyFieldChoices(facts, null).medications.map((m) => m.drugName)).toEqual(["Metformin"]);
+    expect(applyEmergencyFieldChoices(facts, { ...CHOICES, show_medications: true, show_mental_health: true }).medications.map((m) => m.drugName)).toEqual(["Metformin", "Sertraline"]);
+    expect(applyEmergencyFieldChoices(facts, { ...CHOICES, show_medications: true, show_reproductive: true, show_mental_health: true }).medications).toHaveLength(3);
+  });
+
   it("a shown conditions list still drops a reproductive or mental health entry unless its own switch is on", () => {
     const facts = { fullName: "Ada", bloodGroup: null, genotype: null, allergies: [], conditions: ["hypertension", "major depression", "pregnancy"], medications: [], emergencyContact: null, cachedAt: "t" };
     const shown = { ...CHOICES, show_conditions: true };

@@ -29,3 +29,12 @@ Counts stated in the migration headers: 0 withdrawn matrix consents, 0 emergency
 - A "borderline" blood pressure is now only possible when the target is stricter than the band (130/80 target, 134/84 reading). With the default 140/90 target, 134/84 is on target.
 - The scheduler's cervical rule is HPV DNA by method, but the calendar item is still the `cervical_smear` screen type: no new catalogue row was invented. The HPV DNA sale stays behind `hpv_dna_enabled`.
 - Not decided here: see `docs/OPEN-QUESTIONS.md`, section S47.
+
+## Review fixes (2026-10-08), what was edited and what was added
+
+Edited IN PLACE, because the migration was created on this branch and never applied: `20261008030051` (go-live: the two research export attestation pairs the first restatement dropped are back, and a proof compares all 16 live pairs), `20261008012315` (the report collector now skips rejected BP readings; condition matching is by ICD-10 prefix or an anchored name with an exclusion list, in the unsigned settings), `20261008014742` (anti-HBs immunity needs a released, non-withdrawn, non-superseded result and is taken back when that result is withdrawn or replaced), `20261008023634` (a hand-over row first seen after its grace has run out gets a 30 day notice window instead of ending silently; Africa/Lagos dates), `20261008035104` (emergency card medicines honour the reproductive and mental health switches).
+
+Added as NEW migrations, because they restate functions from the integration branch: `20261008044519_s47b_review_fixes` (phone key, anonymiser, INV-04 variants and legacy branches, FHIR adolescent gate) and `20261008051236_s47c_report_build_backoff_and_precheck`.
+
+Things worth knowing: the FHIR export classifies by name (a condition word or a medicine word), so it is best effort and says so in `limits`; a staff reader is not held to the guardian gate. The build route now asks `health_report_build_allowed` before any AI draft. The report no longer tells a shared copy or a caregiver why a target is lower, only the number.
+

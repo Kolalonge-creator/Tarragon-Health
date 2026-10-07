@@ -26,6 +26,7 @@ export async function GET(request: Request): Promise<Response> {
 
   const drafter = createAiSummaryDrafter(service);
   let created = 0;
+  let failed = 0;
   const refused: Record<string, number> = {};
   for (const patientId of todo) {
     const out = await buildHealthReportDraft(service, { patientId, year, draftSummary: drafter });
@@ -33,7 +34,13 @@ export async function GET(request: Request): Promise<Response> {
     else {
       refused[out.reason] = (refused[out.reason] ?? 0) + 1;
       if (out.reason === "guard_off" || out.reason === "settings_unsigned") break; // the guard is global: stop at the first refusal
+      // A persistently failing patient must not hold a slot for ever: record it so the candidate list puts them behind everyone, waits longer after each
+      // failure and drops them after 5 attempts. A draft that is simply waiting for a signature is not a failure.
+      if (out.reason !== "draft_waiting") {
+        await service.rpc("record_health_report_build_failure", { p_patient: patientId, p_year: year, p_reason: `${out.reason}${out.detail ? `: ${out.detail}` : ""}` });
+        failed += 1;
+      }
     }
   }
-  return Response.json({ year, considered: todo.length, created, refused });
+  return Response.json({ year, considered: todo.length, created, failed, refused });
 }

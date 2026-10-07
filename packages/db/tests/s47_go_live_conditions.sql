@@ -193,6 +193,17 @@ begin
   perform pg_temp.rec('the later live branches are kept in the function (research export, symptom checker, prescribing, scribe)', '7',
     (select count(*)::text from unnest(array['research_export_enabled', 'counsel_cross_border_cleared', 'dpo_registered', 'symptom_checker_enabled', 'symptom_triage_sla_signed', 'pharmacy_licence_current', 'con001_legal_review_recorded'])
         t where pg_get_functiondef('private.go_live_conditions(text,uuid)'::regprocedure) like '%' || t || '%'));
+  -- every (guard, code) pair of the LIVE attest_go_live_condition (captured read-only from koiplnmbgnqnbywhpjlf, 2026-10-07, 16 pairs) is still attestable
+  perform pg_temp.rec('every live attestation pair is still in the allow-list (16 captured from the live definition)', '16',
+    (select count(*)::text from unnest(array[
+       'clinical_operations_enabled|clinical_safety_case_current', 'prescribing_enabled|clinical_safety_case_current', 'scribe_enabled|clinical_safety_case_current',
+       'prescribing_enabled|notification_sender_deployed', 'lab_booking_enabled|results_flow_tested', 'scribe_enabled|con001_legal_review_recorded',
+       'scribe_enabled|speech_provider_configured', 'payouts_enabled|fee_schedule_approved', 'payouts_enabled|paystack_transfers_configured',
+       'public_signup_enabled|stage2_exit_criteria_met', 'research_export_enabled|counsel_cross_border_cleared', 'research_export_enabled|dpo_registered',
+       'symptom_checker_enabled|nafdac_position_recorded', 'symptom_checker_enabled|engine_licence_or_validation_recorded',
+       'symptom_checker_enabled|localisation_signoff_recorded', 'symptom_checker_enabled|accuracy_baseline_recorded']) pr
+      where pg_get_functiondef('public.attest_go_live_condition(text,text,boolean,text)'::regprocedure)
+            like '%(' || chr(39) || split_part(pr, '|', 1) || chr(39) || ', ' || chr(39) || split_part(pr, '|', 2) || chr(39) || ')%'));
   perform pg_temp.rec('an unknown key still fails closed', 'unknown_guard,false', pg_temp.codes('no_such_guard') || ',' || pg_temp.cond_met('no_such_guard', 'unknown_guard'));
   perform pg_temp.rec('the safe wrapper turns a broken query into a closed answer too', 'false',
     (select bool_and((c ->> 'met')::boolean)::text from jsonb_array_elements(private.go_live_conditions_safe('no_such_guard', null)) c));
@@ -201,6 +212,18 @@ end $$;
 
 -- 5. Sabotage --------------------------------------------------------------------------------------------------------------------------
 -- A: the safety case dropped from the HPV guard. The "asks for the clinical safety case" check must flip.
+-- B: the research pair removed from the attest function (the regression the review found). The pair count must then flip.
+do $$
+declare v_def text;
+begin
+  v_def := pg_get_functiondef('public.attest_go_live_condition(text,text,boolean,text)'::regprocedure);
+  v_def := replace(v_def, '(' || chr(39) || 'research_export_enabled' || chr(39) || ', ' || chr(39) || 'dpo_registered' || chr(39) || ')', '(' || chr(39) || 'x' || chr(39) || ', ' || chr(39) || 'x' || chr(39) || ')');
+  execute v_def;
+  insert into results values ('sabotaged', 'every live attestation pair is still in the allow-list (16 captured from the live definition)', '16',
+    (select count(*)::text from unnest(array['research_export_enabled|dpo_registered']) pr
+      where pg_get_functiondef('public.attest_go_live_condition(text,text,boolean,text)'::regprocedure)
+            like '%(' || chr(39) || split_part(pr, '|', 1) || chr(39) || ', ' || chr(39) || split_part(pr, '|', 2) || chr(39) || ')%'));
+end $$;
 do $$
 begin
   update public.go_live_guards set is_on = is_on where false;

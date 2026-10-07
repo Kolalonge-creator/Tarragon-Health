@@ -108,4 +108,33 @@ describe("S47 proposed config mirrors its migration seeds and stays proposed", (
     expect(v.on).toEqual(expect.arrayContaining(["blood", "allergies", "medications", "emergency_contact"]));
     expect(v.hiddenReads).toBe("not shared");
   });
+
+  it("results.sensitive_code_patterns is the pattern table seed, and matches the variants the review named but not the immunity titre", () => {
+    const sql = mig("_s47b_review_fixes.sql");
+    const body = /sensitive-code-patterns-begin\n([\s\S]*?)-- sensitive-code-patterns-end/.exec(sql)?.[1] ?? "";
+    const seed = [...body.matchAll(/\('([^']+)', '(hiv|hbv|hcv)'/g)].map((m) => ({ pattern: m[1], virus: m[2] }));
+    const e = getProposedConfig("results.sensitive_code_patterns");
+    expect(seed).toEqual(e.value);
+    expect(e.status).toBe("proposed");
+    const res = (e.value as { pattern: string }[]).map((p) => new RegExp(p.pattern));
+    const sensitive = (code: string) => res.some((r) => r.test(code.toLowerCase()));
+    for (const c of ["hiv", "hiv_rna", "hiv_p24", "hbsag", "hbs_ag", "hbv_dna", "hbeag", "anti_hbc", "hcv_rna", "anti_hcv", "hep_c", "hepatitis_b_core"]) expect(sensitive(c)).toBe(true);
+    for (const c of ["anti_hbs", "hba1c", "alt", "creatinine"]) expect(sensitive(c)).toBe(false);
+  });
+
+  it("report.settings v2 matches higher-risk names only exactly: pre-diabetes, family history and heatstroke are excluded", () => {
+    const v = getProposedConfig("report.settings").value as { higherRiskCriteria: { namePatterns: Record<string, string[]>; excludePatterns: string[] } };
+    const hit = (kind: string, name: string) => {
+      const n = name.toLowerCase().trim();
+      if (v.higherRiskCriteria.excludePatterns.some((p) => new RegExp(p, "i").test(n))) return false;
+      return v.higherRiskCriteria.namePatterns[kind]!.some((p) => new RegExp(p, "i").test(n));
+    };
+    expect(hit("diabetes", "Type 2 diabetes mellitus")).toBe(true);
+    expect(hit("diabetes", "Pre-diabetes")).toBe(false);
+    expect(hit("diabetes", "Family history of diabetes")).toBe(false);
+    expect(hit("diabetes", "Gestational diabetes")).toBe(false);
+    expect(hit("cvd", "Stroke")).toBe(true);
+    expect(hit("cvd", "Heatstroke")).toBe(false);
+    expect(hit("ckd", "Chronic kidney disease stage 3b")).toBe(true);
+  });
 });

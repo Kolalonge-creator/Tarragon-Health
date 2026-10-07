@@ -965,3 +965,7 @@ s47_share_cap_and_band_actions.sql
 s47_handover_grace.sql
 # S47: go-live conditions for the seven clinical guards; data conditions flip with data, attestation list, safety case CMO-only, no live branch regressed, unknown guard fails closed. Sabotage: three.
 s47_go_live_conditions.sql
+# S47b: review fixes (phone key, anonymiser closes public doors, INV-04 variants and legacy branches, FHIR adolescent gate, emergency card medicines). Sabotage: four.
+s47b_review_fixes.sql
+# S47c: the yearly report build backs off a failing patient (they go behind, wait, drop after 5) and asks before requesting an AI draft. Sabotage: three.
+s47c_report_build_backoff.sql

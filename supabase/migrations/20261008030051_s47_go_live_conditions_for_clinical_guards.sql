@@ -163,6 +163,7 @@ begin
        ('scribe_enabled', 'con001_legal_review_recorded'), ('scribe_enabled', 'speech_provider_configured'),
        ('payouts_enabled', 'fee_schedule_approved'), ('payouts_enabled', 'paystack_transfers_configured'),
        ('public_signup_enabled', 'stage2_exit_criteria_met'),
+       ('research_export_enabled', 'counsel_cross_border_cleared'), ('research_export_enabled', 'dpo_registered'),
        ('symptom_checker_enabled', 'nafdac_position_recorded'), ('symptom_checker_enabled', 'engine_licence_or_validation_recorded'),
        ('symptom_checker_enabled', 'localisation_signoff_recorded'), ('symptom_checker_enabled', 'accuracy_baseline_recorded'),
        -- S47
