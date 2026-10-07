@@ -162,24 +162,32 @@ end $$;
 
 -- 5. retention, response times, data quality -------------------------------------------------------------------------------------
 do $$
-declare adm uuid := pg_temp.f('admin'); big date := current_date - 130; small date := current_date - 230; r jsonb; v_org uuid := pg_temp.f('org'); p uuid; i integer; k integer; v_clin uuid[] := '{}'; c uuid;
+declare adm uuid := pg_temp.f('admin'); big date := current_date - 130; small date := current_date - 230; r jsonb; v_org uuid := pg_temp.f('org'); p uuid; i integer; k integer; v_clin uuid[] := '{}'; c uuid; v_item uuid; v_price uuid;
 begin
   r := pg_temp.rpt(adm, format($q$ select public.retention_completion_report(%L, %L)::text $q$, big, big));
   perform pg_temp.ck('5a retention: the large month is shown at day 90', 'false', coalesce((select b ->> 'suppressed' from jsonb_array_elements(r -> 'by_day') b where (b ->> 'day') = '90'), 'null'));
   r := pg_temp.rpt(adm, format($q$ select public.retention_completion_report(%L, %L)::text $q$, small, small));
   perform pg_temp.ck('5b retention: 4 people are withheld at every day', 'true', (select bool_and((b ->> 'suppressed')::boolean)::text from jsonb_array_elements(r -> 'by_day') b));
-  -- programme completion (S75-7): 22 members each hold an ended care pack; 15 fully used (state used), 3 expired with remaining_uses 0 (fully used), 2 expired with 2 left, 2 revoked
-  for i in 1 .. 22 loop
+  -- programme completion (S75-7): 24 members each hold an ended care pack; 15 state used, 7 expired with remaining_uses 0 (both fully used), 2 revoked (not counted)
+  v_item := gen_random_uuid(); v_price := gen_random_uuid();
+  insert into public.catalog_items (id, organisation_id, code, kind, name_key, description_key, duration_days, active) values (v_item, v_org, 's75_test_pack', 'care_pack', 's75.test.name', 's75.test.description', 30, true);
+  insert into public.prices (id, organisation_id, catalog_item_id, amount_kobo, components) values (v_price, v_org, v_item, 1000, '{}');
+  for i in 1 .. 24 loop
     p := (select patient_id from public.patient_memberships m join public.profiles pr on pr.id = m.patient_id where pr.full_name like 'S75a BIG%' and not pr.is_test order by m.patient_id offset i - 1 limit 1);
-    insert into public.orders (organisation_id, patient_id, status, total_kobo, currency) values (v_org, p, 'paid', 1000, 'NGN') returning id into c;
+    insert into public.orders (organisation_id, buyer_profile_id, beneficiary_patient_id, catalog_item_id, price_id, amount_kobo, fee_kobo, total_kobo, state, paid_at, paystack_reference)
+      values (v_org, p, p, v_item, v_price, 1000, 0, 1000, 'paid', now(), 's75-ref-' || i) returning id into c;
     insert into public.entitlements (organisation_id, patient_id, order_id, kind, starts_at, ends_at, state, remaining_uses)
       values (v_org, p, c, 'care_pack', now() - interval '120 days', now() - interval '10 days',
-              case when i <= 15 then 'used' when i <= 20 then 'expired' else 'revoked' end, case when i <= 15 then 0 when i <= 18 then 0 when i <= 20 then 2 else null end);
+              case when i <= 15 then 'used' when i <= 22 then 'expired' else 'revoked' end, case when i <= 22 then 0 else null end);
   end loop;
   r := pg_temp.rpt(adm, format($q$ select public.retention_completion_report(%L, %L)::text $q$, big, big));
-  perform pg_temp.ck('5d programme completion: 20 ended packs (revoked not counted), 18 fully used (15 used + 3 expired with nothing left), 2 expired with items left',
-    '20/18/90.0', (r #>> '{programme_completion,ended_entitlements}') || '/' || (r #>> '{programme_completion,fully_used}') || '/' || (r #>> '{programme_completion,fully_used_pct}'));
+  perform pg_temp.ck('5d programme completion: 22 ended entitlements (the 2 revoked are not counted), all 22 fully used (15 used + 7 expired with nothing left)',
+    '22/22/100.0', (r #>> '{programme_completion,ended_entitlements}') || '/' || (r #>> '{programme_completion,fully_used}') || '/' || (r #>> '{programme_completion,fully_used_pct}'));
   perform pg_temp.ck('5e the completion block says exactly what it counts', 'true', ((r #>> '{programme_completion,label}') ilike '%fully used%' and (r ->> 'definition') ilike '%fully used%')::text);
+  -- two of them expire with consultations left: that is a small category (2), so the whole completion figure is withheld, not shown as 90.9%
+  update public.entitlements set state = 'expired', remaining_uses = 2 where kind = 'care_pack' and state = 'revoked';
+  r := pg_temp.rpt(adm, format($q$ select public.retention_completion_report(%L, %L)::text $q$, big, big));
+  perform pg_temp.ck('5f items left unused: 2 not fully used is a small category, so the figure is withheld', 'true/small_cell', (r #>> '{programme_completion,suppressed}') || '/' || (r #>> '{programme_completion,reason}'));
   perform pg_temp.ck('5c retention is refused to a patient', 'ERR:outcomes_not_authorised', pg_temp.q_as(pg_temp.f('plain'), $q$ select public.retention_completion_report()::text $q$));
   for k in 1 .. 3 loop c := pg_temp.mkuser(v_org, 'DOC' || k, 'clinician', false);
     perform pg_temp.mkstaff(v_org, adm, c, 'medical_officer'); v_clin := v_clin || c; end loop;
