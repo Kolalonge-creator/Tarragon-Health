@@ -605,7 +605,7 @@ begin
 
   -- 8. Whole-surface checks -------------------------------------------------------------------------------
   perform pg_temp.rec('exactly one active credentialing config row', '1', (select count(*)::text from public.credentialing_config where is_active));
-  perform pg_temp.rec('seven competencies are seeded', '7', (select count(*)::text from public.competencies));
+  perform pg_temp.rec('ten competencies are seeded (seven from S15, plus maternal, mental_health and paediatrics from S76)', '10', (select count(*)::text from public.competencies));
   perform pg_temp.rec('the old notify-only sweeps are retired and the new one is scheduled', 'true,false,false',
     (exists (select 1 from cron.job where jobname = 'credential-expiry-sweep'))::text || ',' ||
     (exists (select 1 from cron.job where jobname = 'clinical-staff-license-lapse-notify'))::text || ',' ||

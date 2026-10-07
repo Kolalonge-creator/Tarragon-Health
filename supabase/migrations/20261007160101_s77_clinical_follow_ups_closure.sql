@@ -200,7 +200,7 @@ create function private.follow_up_actor_is_clinician(p_org uuid) returns boolean
 language sql stable security definer set search_path = '' as $$
   select (select auth.uid()) is not null
      and exists (select 1 from public.clinical_staff cs
-                  where cs.profile_id = (select auth.uid()) and cs.active and cs.organisation_id = p_org and cs.doctor_tier is not null)
+                  where cs.profile_id = (select auth.uid()) and cs.active and cs.organisation_id = p_org and cs.doctor_tier is not null and cs.doctor_tier <> 'care_coordinator')
 $$;
 revoke all on function private.follow_up_actor_is_clinician(uuid) from public, anon, authenticated;
 
@@ -230,7 +230,7 @@ begin
   end if;
   v_owner := coalesce(p_owner, v_uid);
   if v_owner <> v_uid and not exists (select 1 from public.clinical_staff cs
-       where cs.profile_id = v_owner and cs.active and cs.organisation_id = v_org and cs.doctor_tier is not null) then
+       where cs.profile_id = v_owner and cs.active and cs.organisation_id = v_org and cs.doctor_tier is not null and cs.doctor_tier <> 'care_coordinator') then
     raise exception 'the owner must be an active clinician' using errcode = '22023';
   end if;
   if (p_source_table is null) <> (p_source_id is null) then
