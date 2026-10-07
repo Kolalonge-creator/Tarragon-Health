@@ -34,7 +34,7 @@ export const PREVENTION_CATEGORY_LABEL: Record<PreventionCategory, string> = {
   general_health: "General health",
 };
 
-export type ItemStatus = "pending" | "booked" | "completed" | "overdue" | "cancelled" | "declined";
+export type ItemStatus = "pending" | "booked" | "completed" | "overdue" | "cancelled" | "declined" | "not_applicable";
 
 export interface PreventionItem {
   category: PreventionCategory;
@@ -68,7 +68,7 @@ export function computePreventionCompletion(items: PreventionItem[]): Prevention
     // Cancelled (system/admin-side void) and declined (the patient's own
     // informed choice) are both resolved, non-outstanding states — neither
     // should read as "needs attention" here.
-    if (item.status === "cancelled" || item.status === "declined") continue;
+    if (item.status === "cancelled" || item.status === "declined" || item.status === "not_applicable") continue;
     const list = byCategory.get(item.category) ?? [];
     list.push(item);
     byCategory.set(item.category, list);

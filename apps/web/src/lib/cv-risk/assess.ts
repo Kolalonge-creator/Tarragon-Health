@@ -134,8 +134,13 @@ export async function loadCvRiskAssessment(
   // PROVISIONAL_CV_RISK_CONFIG.population_note). Never overrides a real
   // SCORE2 result, and never written to patient_risk_scores — this is
   // point-of-care decision support the doctor confirms, not a stored score.
+  //
+  // S45: once the WHO 2019 chart instrument is switched on (go-live guard `risk_instrument_who2019_enabled`) the AFRO approximation is
+  // retired as an instrument of record and never shown. A failed guard lookup leaves it as it was (the approximation is the safer thing
+  // to keep showing than nothing, and it is labelled "not the official chart").
+  const whoLive = await supabase.rpc("go_live_guard_is_open", { p_key: "risk_instrument_who2019_enabled" });
   let afroEstimate: CvdRiskResult | null = null;
-  if (!riskRow.data) {
+  if (!riskRow.data && whoLive.data !== true) {
     const estimate = estimateCvdRiskBand({
       age,
       sex,

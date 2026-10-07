@@ -1297,4 +1297,84 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S36e.md; docs/design/S17.md (reliability is a tie-break only)",
   },
+  {
+    key: "risk.who_cvd_2019",
+    // WHO 2019 cardiovascular risk charts, Western sub-Saharan Africa (S45, function 3.2). Live value is the `config` of `risk_instrument_versions`
+    // (code who_cvd_2019_wssa); a test fails if the migration seed and this value drift. NO COEFFICIENTS are loaded (the paper's appendix was not
+    // obtained) so the instrument cannot score and cannot be signed. Bands and cut-offs come from docs/plans/S41-S45-cmo-signoff-pack.md.
+    // OQ-S45-1 and OQ-S45-2 ask the CMO to confirm the region mapping for Nigeria and the band-to-action table.
+    value: {
+          "instrument": "who_cvd_2019_wssa",
+          "regionLabel": "Western sub-Saharan Africa",
+          "regionCheckedForNigeria": false,
+          "coefficientsVerified": false,
+          "ageRange": {
+                "min": 40,
+                "max": 74
+          },
+          "bands": [
+                {
+                      "code": "lt5",
+                      "lowPct": 0,
+                      "highPct": 5,
+                      "tier": "low"
+                },
+                {
+                      "code": "5to10",
+                      "lowPct": 5,
+                      "highPct": 10,
+                      "tier": "low_moderate"
+                },
+                {
+                      "code": "10to20",
+                      "lowPct": 10,
+                      "highPct": 20,
+                      "tier": "moderate"
+                },
+                {
+                      "code": "20to30",
+                      "lowPct": 20,
+                      "highPct": 30,
+                      "tier": "high"
+                },
+                {
+                      "code": "ge30",
+                      "lowPct": 30,
+                      "highPct": null,
+                      "tier": "very_high"
+                }
+          ],
+          "nonLabFurtherAssessmentAtOrAbovePct": 10,
+          "treatmentAlreadyIndicated": {
+                "systolicAtOrAbove": 160,
+                "diastolicAtOrAbove": 100,
+                "establishedCvd": true
+          },
+          "knownDiabetes": "route_to_diabetes_pathway",
+          "models": {
+                "lab": {
+                      "male": null,
+                      "female": null
+                },
+                "non_lab": {
+                      "male": null,
+                      "female": null
+                }
+          },
+          "modelShape": "Each sex entry: { baselineSurvival: number, terms: [ { coef: number, factors: [ { var: age|sbp|smoker|diabetes|total_chol_mmol|bmi, center: number } ] } ] }. Risk = 1 - baselineSurvival ^ exp(sum of coef * product of (var - center)).",
+          "reassess": {
+                "afterDays": 365,
+                "majorChanges": [
+                      "new_chronic_condition",
+                      "smoking_status_change",
+                      "bp_at_or_above_160_100"
+                ]
+          }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S41-S45-cmo-signoff-pack.md section A; docs/design/S45.md",
+  },
 ];

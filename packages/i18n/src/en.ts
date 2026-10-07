@@ -1905,6 +1905,23 @@ export const en = {
   "payapprove.unnamed": "A clinician",
   "payapprove.truncated": "Showing {shown} of {total} drafts waiting. Approve some to see the rest.",
   "payapprove.mine": "This payout is yours, so someone else needs to approve it.",
+  "screening.state.open": "Not right for me",
+  "screening.state.choose": "What best describes it?",
+  "screening.state.declined": "I would rather not have this",
+  "screening.state.not_applicable": "This does not apply to me",
+  "screening.reason.already_done_elsewhere": "I already had this done elsewhere",
+  "screening.reason.not_relevant_to_me": "It is not relevant to me",
+  "screening.reason.medical_reason": "There is a medical reason",
+  "screening.reason.cost": "The cost",
+  "screening.reason.prefer_not_to_say": "I would rather not say",
+  "screening.reason.other": "Something else",
+  "screening.state.note_placeholder": "A few words for your care team (they can see this)",
+  "screening.state.note_required": "Please add a few words so your care team understands",
+  "screening.state.save": "Save",
+  "screening.state.saving": "Saving...",
+  "screening.state.saved_declined": "Marked as declined. Your care team can see this and follow up if needed.",
+  "screening.state.saved_not_applicable": "Marked as not applicable. You can bring it back any time.",
+  "screening.state.reopen": "Bring this back",
 } as const;
 
 export type MessageKey = keyof typeof en;
