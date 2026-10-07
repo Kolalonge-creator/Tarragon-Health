@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { dateParam, isShown, parseReport, pct, withheldText, type Cohort } from "@/lib/outcomes/bp-report";
+import { MeasuresSection } from "./measures-section";
 
 export const metadata = { title: "Outcomes" };
 export const dynamic = "force-dynamic";
@@ -137,6 +138,7 @@ export default async function AdminOutcomesPage({ searchParams }: { searchParams
           </section>
         </>
       )}
+      <MeasuresSection supabase={supabase} from={from} to={to} />
     </div>
   );
 }

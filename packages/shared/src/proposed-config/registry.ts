@@ -1015,6 +1015,74 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S38.md; spec 4.10 and Module 22; docs/research/S38.md",
   },
   {
+    key: "outcomes.measure_rules",
+    // Outcome measures added to S38's snapshots (S75, CMO decision S-5): HbA1c, weight, PHQ-9 and GAD-7, with the day-180 BP report.
+    // The database holds them as `outcome_config` v3, which is v2 plus this block. v3 is PROPOSED, UNSIGNED and INACTIVE: the live
+    // config stays v2 (`outcomes.snapshot_rules` v2 above stays the one in force) until the CMO activates v3. The migration seed and
+    // this value are checked against each other by a test. Every number is PROPOSED and owned by the CMO: the goals (HbA1c under 7.0
+    // percent or the care-plan target, weight down 5 percent or more, a 50 percent fall for response, below 5 for remission), the
+    // windows around each day within which the nearest result is used, and the lowest baseline for which response and remission
+    // are counted. PHQ-9 and GAD-7 are never shown to a sponsor (S-3, S-5).
+    value: {
+      bp_report_days: [90, 180],
+      measures: {
+        hba1c: {
+          days: [0, 90, 180],
+          goal_below_percent: 7.0,
+          use_care_plan_target: true,
+          valid_min: 3.0,
+          valid_max: 20.0,
+          baseline_before_days: 90,
+          baseline_after_days: 14,
+          followup_tolerance_days: 30,
+          definition: "HbA1c, as a percentage. Change is the value near the day minus the baseline value near joining. A person reached the goal when the value near the day is under 7.0 percent or at their own care-plan HbA1c target. The result nearest the day inside the window is used.",
+          limitations: "Only people with an HbA1c result are counted in the measure; a person with no result near a day is shown as no result, never as not improved. Results come from the lab results recorded on the platform, not from every lab a person may have used. A before and after view without a comparison group says nothing about cause.",
+        },
+        weight: {
+          days: [0, 30, 90, 180],
+          goal_loss_percent: 5.0,
+          valid_min: 20,
+          valid_max: 400,
+          min_age_years: 18,
+          baseline_before_days: 14,
+          baseline_after_days: 7,
+          followup_tolerance_days: 14,
+          definition: "Weight in kilograms. Change is the percent difference between the weight near the day and the baseline weight near joining. A person reached the goal when weight fell by 5 percent or more. The weight nearest the day inside the window is used. Adults only.",
+          limitations: "Only people who logged a weight are counted; a person with no weight near a day is shown as no result, never as not improved. Weight changes for many reasons, including pregnancy, illness and fluid; the measure is not a judgement of any person. A before and after view without a comparison group says nothing about cause.",
+        },
+        phq9: {
+          days: [0, 30, 90, 180],
+          max_score: 27,
+          response_fall_percent: 50,
+          remission_below: 5,
+          min_baseline_for_outcome: 5,
+          baseline_before_days: 14,
+          baseline_after_days: 14,
+          followup_tolerance_days: 21,
+          definition: "PHQ-9 total score only. Response is a fall of 50 percent or more from the baseline total. Remission is a total below 5. Both are counted only for people whose baseline total was 5 or more.",
+          limitations: "Only total scores are used; no answer to any single question is read. A screening score is not a diagnosis. People with no score near a day are shown as no result. Readable only by the person and by a clinician with a written reason; never shown to a sponsor.",
+        },
+        gad7: {
+          days: [0, 30, 90, 180],
+          max_score: 21,
+          response_fall_percent: 50,
+          remission_below: 5,
+          min_baseline_for_outcome: 5,
+          baseline_before_days: 14,
+          baseline_after_days: 14,
+          followup_tolerance_days: 21,
+          definition: "GAD-7 total score only. Response is a fall of 50 percent or more from the baseline total. Remission is a total below 5. Both are counted only for people whose baseline total was 5 or more.",
+          limitations: "A screening score is not a diagnosis. People with no score near a day are shown as no result. Readable only by the person and by a clinician with a written reason; never shown to a sponsor.",
+        },
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S75-outcome-measures.md; docs/plans/S75-S80-cmo-decisions.md S-5; ADA Standards of Care; DPP; Kroenke 2001",
+  },
+  {
     key: "quality.audit",
     // Clinical audits, tier 1 count, the audit form, reliability weight and the speak-up clocks (S20, spec 7.8). Live values are the
     // active row of `quality_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
