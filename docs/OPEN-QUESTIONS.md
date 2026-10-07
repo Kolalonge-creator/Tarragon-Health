@@ -1817,6 +1817,7 @@ Raised by the S70 to S75 review (`docs/research/S70-S75-review-and-build-plan.md
 ### OQ-321 Health Points at checkout and the leftover kobo conversion (raised by S72, function 19.9; finishes OQ-08)
 - Decided (S72-1): a single-use, order-bound reduction on Tarragon's own fee only. The kobo conversion (`wellness_points_redemptions.kobo_credited`, `points_to_kobo_rate`, `lib/queries/wellness.ts`, `patient/wellness/points-card.tsx`) is still on main-dev and is removed in the same session. Open: the points cost and cap per order (PROPOSED config).
 - Decision: decided; values pending.
+- Update (S72): the kobo conversion was removed (migration `20261007231742`); the checkout now offers the points choice on web and mobile. Values still pending (OQ-331); production count to re-verify (OQ-428).
 
 ### OQ-322 Instalments (raised by S72, function 19.10)
 - Decided (S72-2): not built. Reopen only on an explicit ask.
@@ -1851,10 +1852,12 @@ Raised by the S70 to S75 review (`docs/research/S70-S75-review-and-build-plan.md
 ### OQ-329 Hardship pricing is a seam (raised by S73, extends OQ-323)
 - `private.hardship_reduction()` returns 0. It must be replaced by Access Fund grants (S72); never by a self-declared discount.
 - Decision: waits for S72 and counsel.
+- Update (S72): answered differently, see OQ-423 (a grant uses the sponsor slot; this seam stays 0 on purpose).
 
 ### OQ-330 Kobo conversion for wellness points still present (raised by S73; extends OQ-08 and OQ-321)
 - `redeem_wellness_points`, `wellness_points_config.points_to_kobo_rate`, `wellness_points_redemptions.kobo_credited` and the web, mobile and admin screens that use them were NOT removed: it touches three apps and the voucher path, and S72 owns it. The new fee-only points reduction is separate and OFF.
 - Decision: remove in S72.
+- Update (S72): removed, count-first and fail-safe (OQ-428).
 
 ### OQ-331 Values in `pricing.rules` are unsigned guesses (raised by S73)
 - Points (100 points per step, 5,000 kobo per step, 5 steps, 50 percent of the service fee), minimum payable 10,000 kobo and 10 failed code tries an hour are PROPOSED, owner Founder. Points stay OFF until signed. Also decide whether a refund returns spent points (today it does not).
@@ -1922,3 +1925,54 @@ Raised by the S70 to S75 review (`docs/research/S70-S75-review-and-build-plan.md
 ### OQ-410 Two real sessions racing for the last of a budget were not exercised (raised by S71)
 - `sponsor_reserve` locks the programme row (`for update`) before checking the budget, and the proof shows the check, the per-person allowance and the release paths in one transaction. A true two-connection race (as `scripts/run-db-proofs.sh` allows with a `.sh` proof) was not written.
 - Decision: open (small follow-up).
+
+### OQ-420 Community Access Fund: the published reasons, limits and who approves are unsigned (raised by S72, function 19.11; extends OQ-323)
+- Built as PROPOSED, owner Founder and counsel (`access_fund.rules` v1, active row of `checkout_extras_config`): four published reasons (the cost is the main barrier, recent loss of income, supporting a dependant, referred by the care team), most one grant can cover 100,000 naira, a grant works for 60 days, smallest gift 1,000 naira, a pledge waits 14 days, at most 3 open pledges. Operations (admin) approve with a written reason; a second approver is not required (S72-3).
+- Needed: review of the wording of the reasons, and the numbers; whether the CMO or only admins approve; and the guard condition `grant_criteria_signed_off`. Nothing opens until these and counsel (OQ-323) are done.
+- Decision: open.
+
+### OQ-421 How restricted gifts and Fund-paid orders are accounted for (raised by S72, function 19.11)
+- No ledger entry is made for a donation or a grant. A donation is not revenue; it is a restricted gift held for a purpose, which needs a finance and counsel decision (a restricted-funds liability, who holds the money, tax and charity status). A Fund-paid order is booked by S71's path to account 1210 "Sponsor receivable", which is the wrong name for the Fund (the Fund owes nothing; it is Tarragon's own restricted money) and needs the same decision.
+- Guard condition `restricted_gift_accounting_decided` keeps this closed. Test orders are never posted (INV-13), so nothing wrong can post before the decision.
+- Decision: open (finance and counsel).
+
+### OQ-422 Swap the Fund's minimum-cell function when S75 merges (raised by S72)
+- S75 (`private.suppress_cell`) is not on this branch. The public report uses `private.fund_min_cell()`, which reads the same platform value (`outcome_config` min_cell, 20, S38b) and never lets it be below 2. When S75 lands, replace that one function's body with a call to the shared rule and keep the proof `s72_checkout_extras.sql` (it flips if the rule is weakened).
+- Decision: informational (follow-up at merge).
+
+### OQ-423 Hardship pricing is realised through the sponsor slot, not `hardship_reduction()` (raised by S72; answers OQ-329)
+- The S73 seam `private.hardship_reduction()` still returns 0 on purpose. A Fund grant covers part or all of one item through an `access_grant` sponsor programme (a ceiling, a reservation per order, the S71 ledger, refund and event paths). A reduction in the hardship slot could not be tied to one order, reserved against the grant or reversed on a refund, and the same money in two slots would be counted twice.
+- Consequence: the quote's line is the sponsor line ("Covered by Community Access Fund"), and a person who also has a price book gets the book, not the grant (the S71 rule that a price-book path wins). Confirm, or ask for a separate hardship line.
+- Decision: open (founder).
+
+### OQ-424 Payment request limits are unsigned (raised by S72, function 19.13)
+- `payment_requests.rules` v1 (PROPOSED, owner Founder): a link works 7 days, 5 open per person, 10 made a day, 30 link lookups an hour per visitor, 10 payment starts an hour per payer. The link page shows no name of the person who asked; showing a first name would tell a stranger holding a leaked link that a named person uses Tarragon, so it was left out. Confirm the numbers and that no name is wanted.
+- Decision: open.
+
+### OQ-425 Payment requests can only ask for the yearly Membership (raised by S72; extends decision S29c)
+- Founder decision S29c (2026-10-06) says nothing smaller than the full yearly Membership can be paid for someone else, so `create_payment_request` accepts only what `private.gift_item_allowed` allows. If one-off items ever return, the request follows with no change here. The request also cannot be paid when the person already has a Membership.
+- Decision: informational.
+
+### OQ-426 Donations are bank-transfer pledges; no Paystack, no bank details, no receipt (raised by S72, function 19.11)
+- By instruction no live Paystack call exists. A pledge gives a reference; the page says the team will email the bank account details. Not built: where those details come from, the email, a donor receipt or tax acknowledgement, and an online card donation. All wait for the counsel opinion (what the fund holder is) and a bank account in the right name.
+- Decision: open.
+
+### OQ-427 No patient self-application for the Fund; web-only donation screen (raised by S72, function 19.11)
+- Grants are approved by operations for a person (usually after the care team or a conversation). A screen where a person asks for help (and how that stays private and un-gameable) was not designed. The donation page and the operations screen are web only; mobile shows the person's support state through entitlements but has no donation screen.
+- Decision: open.
+
+### OQ-428 Re-verify the kobo-conversion counts before applying (raised by S72; finishes OQ-08, OQ-321, OQ-330)
+- The migration removes `redeem_wellness_points`, `wellness_points_redemptions` and `points_to_kobo_rate` after counting; it aborts with a message if any redemption belongs to a non-test patient. The expected real count is zero (S73 recorded none) but production was not queried. Reward vouchers already issued from earlier redemptions are not touched. Also still open from OQ-331: whether a refund returns the points an order spent (today it does not).
+- Decision: open (re-count before apply).
+
+### OQ-429 Memberships paid by a sponsor or the Fund are recorded with source `employer` (raised by S72)
+- `settle_sponsor_order` (S71) writes `patient_memberships.source = 'employer'` for any sponsor-covered Membership, including a Fund grant. The source is not shown to the person today (the entitlement card uses the order, not this field), but reports by source would mislabel it. Adding `sponsor` and `access_fund` values needs a constraint change.
+- Decision: open (small follow-up).
+
+### OQ-430 Other `{{...}}` strings never fill in (raised by S72)
+- The i18n helper fills `{name}` only. Four entitlement strings used `{{count}}` and printed "{3} use left"; S72 fixed those. `admin.refunds.confirm_approve` (`{{amount}}`) has the same fault and was left alone. A scan test for double braces would stop it recurring.
+- Decision: open (small follow-up).
+
+### OQ-431 Nothing schedules the two expiry functions; the new pages were not walked in a browser (raised by S72)
+- `expire_access_fund()` and `expire_payment_requests()` are safe to call often (admin or service role). Reads already treat an old pledge as lapsed and an old link as expired, and a grant past its date matches nothing, but the stored status changes only when one of these runs (a daily call from an existing cron route would do). Separately, the web and mobile screens were type-checked, linted and unit tested, and the new database functions proved, but no browser or phone walk-through, no Paystack test-key payment from a link, and no sign-up of a brand-new payer through `/login?redirect=` was run.
+- Decision: open (follow-up).
