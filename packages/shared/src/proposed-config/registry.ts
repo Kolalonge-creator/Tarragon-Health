@@ -1784,4 +1784,219 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/DECISIONS.md S11-1; supabase/migrations/20261007152136_s11c_bp_care_triage_v3.sql",
   },
+  // ---------------------------------------------------------------------------
+  // S61/S62: condition pathways. Every value below is a CMO decision-pack proposal
+  // (docs/plans/S61-S65-cmo-signoff-pack.md, 2026-10-07). None is confirmed. The
+  // pathway rule sets in packages/clinical/src/pathways are BUILT from these entries,
+  // so a number is never typed twice.
+  // ---------------------------------------------------------------------------
+  {
+    key: "diabetes.glucose_thresholds",
+    // Moved out of apps/web/src/lib/vitals/glucose-red-flags.ts and apps/mobile/src/lib/glucose-red-flags.ts (same numbers, v1 of the
+    // old files was "2026-09-01.1"). Q5: below severeHypo, or any neuro symptom or assisted event below hypoAlert, is red.
+    // hypoAlert is ADA Level 1 (3.9), severeHypo is ADA Level 2 (3.0). Counts and windowDays are the old pattern-flag constants.
+    // level2MedReviewCount: Q5 option A says two or more Level 2 or 3 events raise a medication review task.
+    value: {
+      severeHypo: 3.0,
+      hypoAlert: 3.9,
+      highForDka: 11.0,
+      veryHigh: 20.0,
+      persistentHigh: 14.0,
+      ketoneHigh: 3.0,
+      ketoneModerate: 1.5,
+      persistentHighMinCount: 3,
+      recurrentHypoMinCount: 2,
+      windowDays: 14,
+      treatCarbGrams: 15,
+      recheckMinutes: 15,
+      level2MedReviewCount: 2,
+      level2MedReviewWindowDays: 30,
+      insulinOrSulfonylureaDueMinutes: 240,
+      otherHypoFollowUpDueMinutes: 1440,
+      urgentReviewDueMinutes: 240,
+      routineReviewDueMinutes: 4320,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S61-S65-cmo-signoff-pack.md Q5, Q6; ADA hypoglycaemia levels (secondary summary, CMO to read the full Standards)",
+    guardPatterns: ["severeHypo\\s*[:=]\\s*3(\\.0)?\\b", "hypoAlert\\s*[:=]\\s*3\\.9\\b"],
+  },
+  {
+    key: "diabetes.reporting",
+    // Q7 option A. Reporting only: nothing here triggers a medicine change. Prediabetes uses the ADA lower fasting bound (WHO says 6.1)
+    // and is labelled as screening, not a diagnosis. Diagnosis cut-offs are shown for context and never graded by the engine.
+    value: {
+      hba1cIndividualisedTargetPct: 7,
+      hba1cReviewPct: 8,
+      timeInRangeTargetPct: 70,
+      rangeLowMmol: 3.9,
+      rangeHighMmol: 10.0,
+      timeBelowRangeMaxPct: 4,
+      timeBelowLowRangeMaxPct: 1,
+      timeBelowLowRangeMmol: 3.0,
+      prediabetesFastingMinMmol: 5.6,
+      prediabetesFastingMaxMmol: 6.9,
+      prediabetesHba1cMinPct: 5.7,
+      prediabetesHba1cMaxPct: 6.4,
+      diagnosisFastingMmol: 7.0,
+      diagnosisTwoHourMmol: 11.1,
+      diagnosisHba1cPct: 6.5,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S61-S65-cmo-signoff-pack.md Q7 option A",
+  },
+  {
+    key: "bp.pathway_rules",
+    // Q2 targets, Q3 severe tiering, Q4 home validation. Targets are set per patient by a clinician; these are the defaults.
+    // 180/110 with no symptom is amber (same-day contact); with any symptom in `severeSymptoms` it is red and pages on-call.
+    // The 200/130 phone question and the BP-R rules stay in bp_care_triage (a separate draft awaiting signature).
+    value: {
+      targetStandard: { systolic: 140, diastolic: 90 },
+      targetWithCvdDiabetesCkd: { systolic: 130, diastolic: 80 },
+      severe: { systolic: 180, diastolic: 110 },
+      severeSymptoms: ["chest_pain", "confusion", "breathlessness", "severe_headache", "visual_disturbance", "weakness_or_numbness", "difficulty_speaking", "seizure"],
+      amberContactDueMinutes: 1440,
+      homeValidation: { days: 7, readingsPerSession: 2, minGapMinutes: 1, sessions: ["morning", "evening"], discardFirstDays: 1, meanSystolic: 135, meanDiastolic: 85 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S61-S65-cmo-signoff-pack.md Q2, Q3, Q4 option A",
+  },
+  {
+    key: "pathways.weight",
+    // Q10 option A: WHO BMI cut-offs plus waist-to-height 0.5. Rewards consistency, never body size.
+    value: { bmiOverweight: 25, bmiObese: 30, waistToHeightRaised: 0.5, waistToHeightHigh: 0.6 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S61-S65-cmo-signoff-pack.md Q10 option A",
+  },
+  {
+    key: "pathways.asthma_copd",
+    // Q11 option A (the SpO2 line is the only part option B drops). Manual reliever log, no sensor.
+    value: { relieverUsesPerWeekFlag: 2, relieversPerYearFlag: 3, peakFlowRedBelowPctOfBest: 50, spo2RedBelowPct: 92, reviewDueMinutes: 1440 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S61-S65-cmo-signoff-pack.md Q11 option A; GINA 2025 control questions (not a GINA number for SpO2)",
+  },
+  {
+    key: "pathways.heart_failure",
+    // Q12 option A: weight up by more than weightGainKg in weightGainDays. Patient-facing guidance, not the primary guideline.
+    value: { weightGainKg: 2, weightGainDays: 3, reviewDueMinutes: 1440 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S61-S65-cmo-signoff-pack.md Q12 option A",
+  },
+  {
+    key: "pathways.ckd",
+    // Q12 option A (KDIGO 2024, secondary summary): refer on any one of these.
+    value: { referEgfrBelow: 30, referAcrMgPerG: 300, sustainedFallPct: 20, sustainedFallMlPerMin: 5, fallWindowDays: 365, reviewDueMinutes: 4320 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S61-S65-cmo-signoff-pack.md Q12 option A",
+  },
+  {
+    key: "pathways.cadence",
+    // 13.18: a weekly automated review, and a clinician review monthly while uncontrolled, quarterly once controlled. 13.16: complication
+    // check intervals (eye, foot, kidney) used to generate due dates; the live diabetes_complication_checks recheck cadence is untouched.
+    value: {
+      automatedReviewDays: 7,
+      clinicianReviewUncontrolledDays: 30,
+      clinicianReviewControlledDays: 90,
+      milestoneDueDays: { baseline: 0, first_review: 30, three_month_review: 90, six_month_review: 180 },
+      scheduledTestIntervalDays: { eye: 365, foot: 365, kidney: 365 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S62.md; spec 13.16, 13.18; Q1 (review monthly until controlled)",
+  },
+  {
+    key: "pathways.hypertension_step_table",
+    // DRAFT step table from CMO decision pack Q1 option A (Resolve to Save Lives, Nigeria protocol, May 2023; Nigeria national guideline
+    // 2023-2028). NEVER approved by an agent: it is seeded as a `protocols` row with status draft, and the evaluator only lets a draft
+    // drive a TEST patient's proposal. Drug names, doses and the supply list are for the CMO to confirm against the primary PDFs.
+    // One medicine per signed change, so "amlodipine 10 + losartan 100" is two signed steps (raise amlodipine, then raise losartan).
+    // The pack's "start at step 2 when 160/100 to 179/109" is NOT expressible in the one-item proposal format: see OQ in docs/OPEN-QUESTIONS.md.
+    // Women who could be pregnant: the evaluator already stops every proposal unless pregnancy is recorded as "no".
+    // Telmisartan 40/80 or amiloride-HCTZ may substitute where stocked: a clinician choice, named in the step rationale only.
+    value: {
+      code: "htn_rtsl_ng",
+      version: 1,
+      status: "draft",
+      params: {
+        minReadings: 4,
+        windowDays: 7,
+        minAdherencePercent: 80,
+        reviewWindowDays: 28,
+        staleAfterDays: 3,
+        requireValidated: true,
+        validation: { systolicMin: 60, systolicMax: 260, diastolicMin: 30, diastolicMax: 160 },
+      },
+      steps: [
+        {
+          id: "step_1_amlodipine_5",
+          label: "Start amlodipine 5 mg",
+          requires: [],
+          propose: { action: "start", item: { drugName: "Amlodipine", dose: "5 mg", frequency: "once daily", route: "oral", durationDays: 30, quantity: "30 tablets", repeatsAllowed: 0, indication: "Hypertension" } },
+          rationale: "Step 1 of the draft ladder. A clinician may substitute telmisartan or amiloride-hydrochlorothiazide where stocked.",
+        },
+        {
+          id: "step_2_add_losartan_50",
+          label: "Add losartan 50 mg",
+          requires: [{ drugName: "Amlodipine", dose: "5 mg" }],
+          propose: { action: "start", item: { drugName: "Losartan", dose: "50 mg", frequency: "once daily", route: "oral", durationDays: 30, quantity: "30 tablets", repeatsAllowed: 0, indication: "Hypertension" } },
+          rationale: "Step 2 of the draft ladder. Not for anyone who could be pregnant.",
+        },
+        {
+          id: "step_3a_raise_amlodipine_10",
+          label: "Raise amlodipine to 10 mg",
+          requires: [{ drugName: "Amlodipine", dose: "5 mg" }, { drugName: "Losartan", dose: "50 mg" }],
+          propose: { action: "change", changes: "Amlodipine", item: { drugName: "Amlodipine", dose: "10 mg", frequency: "once daily", route: "oral", durationDays: 30, quantity: "30 tablets", repeatsAllowed: 0, indication: "Hypertension" } },
+          rationale: "First half of step 3 of the draft ladder (amlodipine 10 mg with losartan 100 mg).",
+        },
+        {
+          id: "step_3b_raise_losartan_100",
+          label: "Raise losartan to 100 mg",
+          requires: [{ drugName: "Amlodipine", dose: "10 mg" }, { drugName: "Losartan", dose: "50 mg" }],
+          propose: { action: "change", changes: "Losartan", item: { drugName: "Losartan", dose: "100 mg", frequency: "once daily", route: "oral", durationDays: 30, quantity: "30 tablets", repeatsAllowed: 0, indication: "Hypertension" } },
+          rationale: "Second half of step 3 of the draft ladder.",
+        },
+        {
+          id: "step_4_add_hctz_25",
+          label: "Add hydrochlorothiazide 25 mg",
+          requires: [{ drugName: "Amlodipine", dose: "10 mg" }, { drugName: "Losartan", dose: "100 mg" }],
+          propose: { action: "start", item: { drugName: "Hydrochlorothiazide", dose: "25 mg", frequency: "once daily", route: "oral", durationDays: 30, quantity: "30 tablets", repeatsAllowed: 0, indication: "Hypertension" } },
+          rationale: "Step 4 of the draft ladder.",
+        },
+        {
+          id: "step_5_refer",
+          label: "Refer: not controlled on three medicines",
+          requires: [{ drugName: "Amlodipine", dose: "10 mg" }, { drugName: "Losartan", dose: "100 mg" }, { drugName: "Hydrochlorothiazide", dose: "25 mg" }],
+          propose: null,
+          rationale: "End of the draft ladder: refer.",
+        },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S61-S65-cmo-signoff-pack.md Q1 option A (RTSL Nigeria protocol May 2023); OQ-171",
+  },
 ];

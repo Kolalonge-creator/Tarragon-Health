@@ -20,6 +20,11 @@
 --   7. SABOTAGE: with the reader forced open a real patient gets through; with the guard trigger dropped the owner can
 --      switch a guard on directly. Both matching checks must flip.
 begin;
+-- S62: the ten pathway guards (seeded off) are proved in s61_s62_pathway_engine.sql; this proof is about the seven it was written for.
+delete from public.pathway_definitions;
+alter table public.go_live_guards disable trigger go_live_guards_guard;
+delete from public.go_live_guards where key like 'pathway\_%';
+alter table public.go_live_guards enable trigger go_live_guards_guard;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
 grant all on results to public;
