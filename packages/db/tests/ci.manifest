@@ -932,3 +932,5 @@ s76_b3_queue_trigger_severity.sql
 s76_b4_task_type_by_configuration.sql
 # S76 B5: clinician.task_completed is written beside clinical_task.completed, once per claim, ids and type only; no safety_concern event type exists and raising a concern writes no domain event and no audit row naming it (S20 protection, admin reads none). Sabotage removes the emit and the count changes.
 s76_b5_task_completed_event.sql
+# S76 B6: clinician_patient_summary gains a 30 day daily-average trend, the last 5 symptom checks (grade and date only) and document counts; one audit row naming the new sections; averages right; 45 day reading out; override used as the grade; no free text, document names or reproductive keys; untied clinician, patient and anon refused. Sabotage removes the denial branch and the untied clinician gets through.
+s76_b6_summary_additions.sql
