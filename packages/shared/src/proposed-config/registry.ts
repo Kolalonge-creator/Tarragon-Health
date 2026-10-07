@@ -47,7 +47,7 @@ const SPEC = "docs/BUILD-SPEC-v5.md Section 17";
 const FROM = "2026-09-30";
 
 export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
-{
+  {
     key: "paging.escalation_minutes",
     value: [5, 10],
     owner: "CMO",
@@ -56,7 +56,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: FROM,
     source: `${SPEC} (Page escalation times: 5 and 10 minutes)`,
   },
-{
+  {
     key: "triage.silence_rule_days",
     value: 5,
     owner: "CMO",
@@ -66,7 +66,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: `${SPEC} (Silence rule days)`,
     guardPatterns: ["silence\\w*\\s*[=:]\\s*5\\b"],
   },
-{
+  {
     key: "adherence.threshold",
     value: { percent: 80, windowDays: 7 },
     owner: "CMO",
@@ -76,7 +76,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: `${SPEC} (Adherence threshold: 80 percent over 7 days)`,
     guardPatterns: ["adherence\\w*\\s*(>=|<=|<|>)\\s*80\\b"],
   },
-{
+  {
     key: "clinician.min_practice_years_after_house_job",
     value: 2,
     owner: "CMO",
@@ -85,7 +85,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: FROM,
     source: `${SPEC} (Minimum practice years: 2 years after house job)`,
   },
-{
+  {
     key: "clinician.training_test",
     value: { passPercent: 80, allRedScenariosCorrect: true },
     owner: "CMO",
@@ -94,7 +94,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: FROM,
     source: `${SPEC} (Training test pass mark)`,
   },
-{
+  {
     key: "clinician.tier1_audited_task_count",
     value: 20,
     owner: "CMO",
@@ -103,7 +103,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: FROM,
     source: `${SPEC} (Tier 1 audited task count)`,
   },
-{
+  {
     key: "queue.handback_review_threshold",
     value: { moreThan: 3, windowDays: 7 },
     owner: "CMO",
@@ -112,7 +112,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: FROM,
     source: `${SPEC} (Hand-back review threshold: more than 3 in 7 days)`,
   },
-{
+  {
     key: "clinician.max_lead_patients",
     value: 60,
     owner: "CMO",
@@ -122,7 +122,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: `${SPEC} (Max lead patients per clinician)`,
     guardPatterns: ["maxLead\\w*\\s*[=:]\\s*60\\b"],
   },
-{
+  {
     key: "auth.phone_otp",
     // Spec 8.2: six-digit code, resend after 60 seconds, maximum 5 attempts per hour. Mirrored (not imported) by
     // supabase/functions/auth-send-sms-hook/handler.ts because a Deno function cannot import this package;
@@ -134,7 +134,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: FROM,
     source: `${SPEC.replace("Section 17", "Section 8.2")} (Verify: six-digit code, resend after 60 seconds, max 5 attempts per hour)`,
   },
-{
+  {
     key: "proxy.setup",
     // Spec 8.2 "Set up for my parent": the setup expires after 72 hours. The per-day cap on how many setups one person
     // may start is not in the spec; it is a PROPOSED abuse limit (each setup costs a verification code SMS). Mirrored
@@ -146,7 +146,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: FROM,
     source: `${SPEC.replace("Section 17", "Section 8.2")} (Set up for my parent: expires after 72 hours); maxPerDay is a proposed abuse limit, not from the spec`,
   },
-{
+  {
     key: "commerce.care_pack_price_kobo",
     // 12,000 naira pilot price, stored as integer kobo (INV-15).
     value: 1_200_000,
@@ -157,7 +157,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: `${SPEC} (12,000 naira care pack for the pilot)`,
     guardPatterns: ["\\b1[_,]?200[_,]?000\\b"],
   },
-{
+  {
     key: "commerce.processing_fee_estimate",
     // The estimate shown BEFORE payment for Paystack's processing fee on a local card or bank payment (S25, OQ-97): 1.5 percent
     // plus 100 naira, the 100 waived under 2,500 naira, capped at 2,000 naira. Paystack has no fee-preview call, so this is only an
@@ -170,7 +170,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S25.md section 2 item 7; docs/research/S25.md (Paystack pricing, unverified)",
   },
-{
+  {
     key: "commerce.processing_fee_estimate",
     // Confirmed against Paystack's published pricing on 2026-10-06 (v2). Still only an ESTIMATE on screen: Paystack has no fee-preview call,
     // international cards cost more (3.9% + NGN 100, uncapped), and the exact fee is read from the verified payment.
@@ -181,7 +181,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "paystack.com/pricing read 2026-10-06: local card and USSD 1.5% + NGN 100 (NGN 100 waived under NGN 2,500), capped at NGN 2,000; international 3.9% + NGN 100",
   },
-{
+  {
     key: "privacy.transcript_retention",
     // Spec: "To confirm with counsel". null means no value exists yet; callers must treat it as unset.
     value: null,
@@ -191,7 +191,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: FROM,
     source: `${SPEC} (Transcript retention: to confirm with counsel)`,
   },
-{
+  {
     key: "bp.home_protocol",
     // Home self-measurement routine (AHA/AMA, ISH, ESH, WHO HEARTS read for S07):
     // 2 readings at least 1 minute apart, morning and evening, 7 days. The 3-day minimum
@@ -213,7 +213,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-03",
     source: "docs/research/S07.md section 3",
   },
-{
+  {
     key: "bp.average_gate",
     // An average is shown only when one rule is met: at least `minDays` days that
     // each hold at least `minPerDay` readings, with at least `minReadings` readings
@@ -232,7 +232,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-03",
     source: "docs/research/S07.md section 3 (Omada averaging gate)",
   },
-{
+  {
     key: "bp.trend_display",
     // Fewer than `minReadingsForChart` readings in the window shows a list, not a
     // trend line; a gap of more than `gapBreakDays` days breaks the line.
@@ -243,7 +243,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-03",
     source: "docs/research/S07.md section 4",
   },
-{
+  {
     key: "bp.starting_suggestion_target",
     // Home target shown as a "starting suggestion, not yet confirmed" until a
     // clinician has set a personal target (who and when). Home guidelines differ
@@ -255,7 +255,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-03",
     source: "docs/research/S07.md section 3 (home thresholds differ by guideline)",
   },
-{
+  {
     key: "bp.symptom_checklist",
     // A symptom ticked on the blood pressure form is stored as a symptoms row. The form does
     // not ask the patient to rate it, so it is recorded at this severity, with a description
@@ -269,7 +269,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-04",
     source: "docs/design/S07.md section 3; supabase 20260905011852_symptom_red_flag_handler_pages_a_clinician.sql",
   },
-{
+  {
     key: "reminders.behaviour",
     value: { snoozeMinutes: 30, maxSnoozes: 3, missedAfterMinutes: 120, maxPending: 60, horizonDays: 14 },
     owner: "Founder",
@@ -278,7 +278,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-03",
     source: "docs/research/S07.md section 5 (MyTherapy snooze default; iOS 64 pending cap)",
   },
-{
+  {
     key: "reminders.behaviour",
     // v2 (S07 reminders, 2026-10-05): iOS keeps only 64 pending local notifications in total, and
     // two planners now share them: medicines (S08, `maxPending`) and blood pressure
@@ -292,7 +292,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-05",
     source: "docs/research/S07.md section 5 (iOS 64 pending cap); shared between S07 blood pressure and S08 medicine reminders",
   },
-{
+  {
     key: "streaks.rules",
     // Consecutive local days with at least one reading. A freeze is earned every
     // `freezeEarnEveryDays` days of a run, held up to `freezeCap`, and is shown as a
@@ -304,7 +304,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-03",
     source: "docs/research/S07.md section 6",
   },
-{
+  {
     key: "medicines.dose_rules",
     // Medicines (S08). The missed window, snooze limits and notification cap come from
     // `reminders.behaviour`, and the weekly percentage band from `adherence.threshold`;
@@ -341,7 +341,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-04",
     source: "docs/research/S08.md sections 2 and 5 (decision table rows 4, 5, 9, 15)",
   },
-{
+  {
     key: "medicines.dose_rules",
     // Medicines (S08). The missed window, snooze limits and notification cap come from
     // `reminders.behaviour`, and the weekly percentage band from `adherence.threshold`;
@@ -381,7 +381,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-05",
     source: "docs/research/S08.md sections 2 and 5 (decision table rows 4, 5, 9, 15)",
   },
-{
+  {
     key: "events.bus_rules",
     // Event bus (S10). The live values are the active row of `event_bus_config` (versioned in the database);
     // this entry mirrors it so the owner and the version are recorded with the other PROPOSED values.
@@ -402,7 +402,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-05",
     source: "docs/design/S10.md; docs/research/S10.md",
   },
-{
+  {
     key: "credentialing.rules",
     // Clinician credentialing (S15). The live values are the active row of `credentialing_config` (versioned in the
     // database); this entry mirrors it, and a test fails if the migration seed and this value drift apart. Keys are the
@@ -435,7 +435,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S15.md; docs/research/S15.md; spec 7.1 and 17",
   },
-{
+  {
     key: "credentialing.rules",
     // Version 2 (OQ-104, OQ-108): the same rules plus three. Both switches start off: no real account has a confirmed
     // phone yet and SMS is not live, so requiring one would stop every applicant, and the purge stays off until counsel
@@ -465,7 +465,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S15.md; OQ-104; OQ-108",
   },
-{
+  {
     key: "lab.release_policy",
     // Lab release policy (S27d). Live value is the active row of `lab_panel_signoffs`.config; a test fails if the migration seed and this
     // value drift. maxAttempts and escalateAfterHours are the founder's competitor-research follow-up: a held sensitive result that
@@ -488,7 +488,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/research/S27-competitors.md; docs/design/S27.md",
   },
-{
+  {
     key: "lab.panels",
     // Lab panels and release thresholds (S27). Live values are the active row of `lab_panel_versions`; a test fails if the
     // migration seed and this value drift. Adult reference and critical limits only, NOT signed: the CMO sets them (OQ-176).
@@ -749,7 +749,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S27.md; docs/research/S27.md; spec 4.4",
   },
-{
+  {
     key: "written_care.behaviour",
     // Written questions and clinical notes (S22). Live values are the active row of `written_care_config`; this entry mirrors
     // it and a test fails if the migration seed and this value drift. monthlyAllowance 4 was chosen by the build at the
@@ -777,7 +777,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S22.md; OQ-151; spec 7.3 async_question and 23.16",
   },
-{
+  {
     key: "care_change.behaviour",
     // Care plan changes (S24). Live values are the active row of `care_change_config`; this entry mirrors it and a test
     // fails if the migration seed and this value drift. A signed change waits confirmWindowDays for the patient before it
@@ -789,7 +789,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S24.md",
   },
-{
+  {
     key: "queue.rules",
     // Task queue rules (S16). Live values are the active row of `queue_config`; this entry mirrors it and a test fails
     // if the migration seed and this value drift. class3_promotion_window_minutes is spec 7.3 ("within 4 hours of its
@@ -801,7 +801,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S16.md; spec 7.3 and 7.4",
   },
-{
+  {
     key: "lead.rules",
     // Lead clinician, declared availability and on-call rota rules (S18, spec 7.2 and 7.5). Live values are the active row
     // of `lead_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
@@ -839,7 +839,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S18.md; docs/research/S18.md; spec 7.2, 7.5, 7.9",
   },
-{
+  {
     key: "paging.rules",
     // Red event paging (S19, spec 7.9). Live values are the active row of `paging_config`; this entry mirrors it and a test
     // fails if the migration seed and this value drift. escalation_minutes repeats paging.escalation_minutes: the backup is
@@ -854,7 +854,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S19.md; spec 7.9",
   },
-{
+  {
     key: "queue.claims",
     // Claim, hand-back and reliability rules (S17, spec 7.6 and 7.8). Live values are the active row of
     // `queue_claim_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
@@ -883,7 +883,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S17.md; spec 7.6 and 7.8",
   },
-{
+  {
     key: "queue.sla_warning",
     // When a held task's due time turns from blue to amber on the clinician queue and task screens (S35): this many minutes
     // before it is due. Display only: it changes no deadline, routing or fee. PROPOSED, CMO to confirm; the value on the
@@ -895,7 +895,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S35.md; docs/research/S35.md (OpenMRS keeps thresholds in data, not in the formatter)",
   },
-{
+  {
     key: "outcomes.snapshot_rules",
     // Outcome snapshots and the 90-day BP control report (S38, spec 4.10 and Module 22). Live values are the active row of
     // `outcome_config`; this entry mirrors it and a test fails if the migration seed and this value drift. Every number is PROPOSED
@@ -918,7 +918,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S38.md; spec 4.10 and Module 22; docs/research/S38.md",
   },
-{
+  {
     key: "outcomes.snapshot_rules",
     // v2 (2026-10-07): the smallest group shown raised from 11 to 20 by founder decision (OQ-233), 30 for a cut by two attributes,
     // until counsel confirms a figure. Same rules as v1 otherwise; v1 is kept so past snapshots can name the version they used.
@@ -938,7 +938,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/design/S38.md; spec 4.10 and Module 22; docs/research/S38.md",
   },
-{
+  {
     key: "quality.audit",
     // Clinical audits, tier 1 count, the audit form, reliability weight and the speak-up clocks (S20, spec 7.8). Live values are the
     // active row of `quality_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
@@ -992,7 +992,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S20.md; spec 7.8",
   },
-{
+  {
     key: "earnings.rules",
     // The rules around fees that are not money (S30, spec 7.7). Live values are the active row of `earnings_config`; this entry
     // mirrors it and a test fails if the migration seed and this value drift. The AMOUNTS are not here on purpose: fee schedule
@@ -1008,7 +1008,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S30.md; spec 7.7 and 17",
   },
-{
+  {
     key: "payouts.rules",
     // The rules of the weekly payout run (S31, spec 7.7). Live value is the active row of `payouts_config`; a test fails if the
     // migration seed and this value drift. The minimum is a floor below which earnings carry over to the next week.
@@ -1023,7 +1023,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S31.md; spec 7.7",
   },
-{
+  {
     key: "queue.task_types",
     // Task types and priority classes (S16, spec 7.3 and 7.4). Live values are the active `task_types` rows; this entry
     // mirrors them, and a test compares it with the migration seed. Each row: code, priority class (1 is first), default
@@ -1048,7 +1048,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S16.md; spec 7.3 and 7.4",
   },
-{
+  {
     key: "triage.bp_rule_set",
     // Blood pressure triage rules (S11). The thresholds themselves live in the rule set, `packages/clinical`
     // (`BP_CARE_V1`) and the `triage_rule_sets` row of the same code and version; this entry records the owner and
@@ -1061,7 +1061,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-05",
     source: "docs/design/S11.md; docs/BUILD-SPEC-v5.md Section 6.2; OQ-86, OQ-87",
   },
-{
+  {
     key: "triage.bp_rule_set",
     // Version 2 (CMO decisions 2026-10-05): at 200/130 the system asks the symptom question, then medicine, rest and a
     // 2 hour recheck (BP-R2 is retired); under 90 systolic is flagged; pregnancy and the 6 weeks after birth have their own lines.
@@ -1072,7 +1072,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-05",
     source: "docs/DECISIONS.md S11 CMO decisions; docs/research/S11-guidelines.md",
   },
-{
+  {
     key: "triage.wiring_rules",
     // Triage wiring (S12). These are copied into migration 20261005220819 (the SQL cannot read this registry), so a
     // change here needs a new migration. symptomLinkMinutes: a symptom ticked within this many minutes of a reading
@@ -1088,7 +1088,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-05",
     source: "docs/design/S12.md; OQ-88",
   },
-{
+  {
     key: "notifications.rules",
     // Notification framework (S13). The live values are the active row of `notification_rules_config` (versioned in the
     // database); this entry mirrors it so the owner and the version are recorded with the other PROPOSED values.
@@ -1108,7 +1108,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-05",
     source: "docs/design/S13.md; docs/research/S13.md",
   },
-{
+  {
     key: "notifications.rules",
     // v2 (S13b): adds pushFallback. One generic email when a routine push was accepted but not opened within afterMinutes
     // (240), for pushes no older than maxAgeHours (24), at most perRecipientPerDay (1) a day, batchSize (200) per 15 minute pass.
@@ -1126,7 +1126,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S13.md; docs/research/S13.md",
   },
-{
+  {
     key: "video.audio_fallback",
     // Video consultations (S14 interface, wired in S21). Connection quality arrives as a sample every few seconds.
     //  poorSamplesToDowngrade: that many poor samples in a row drop the call to audio only (one bad sample never does).
@@ -1140,7 +1140,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S14.md; docs/research/S14.md",
   },
-{
+  {
     key: "video.audio_fallback",
     // Version 2 (S21 follow-up, in-app Zoom Meeting SDK, OQ-136): the same three values plus what the SDK actually reports.
     // The SDK gives a network level (0 to 5, which the code reads on the vendor's own scale) while the camera is on, and audio
@@ -1158,7 +1158,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S21.md; docs/research/S21.md",
   },
-{
+  {
     key: "consultations.host_key",
     // The clinician's Zoom host key (S21 follow-up, OQ-136, founder decision 2026-10-06). A host key lets its holder start meetings as the
     // dedicated consultation host user, and it cannot be tied to one meeting, so it is kept short: minted fresh each time a clinician joins,
@@ -1172,7 +1172,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S21.md; docs/OPEN-QUESTIONS.md OQ-136",
   },
-{
+  {
     key: "consultations.policy",
     // Remote consultations (S21, founder decisions OQ-124 to OQ-131). Mirrored by consultation_policy_config v1 (a drift
     // test compares the two).
@@ -1211,7 +1211,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S21.md; docs/research/S21.md",
   },
-{
+  {
     key: "scribe.transcript_retention_days",
     value: 90,
     owner: "Founder",
@@ -1220,7 +1220,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S23.md",
   },
-{
+  {
     key: "scribe.claude_model",
     value: "claude-sonnet-5-5",
     owner: "Founder",
@@ -1229,7 +1229,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S23.md",
   },
-{
+  {
     key: "scribe.claude_max_tokens",
     value: 4096,
     owner: "Founder",
@@ -1238,7 +1238,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S23.md",
   },
-{
+  {
     key: "scribe.prompt_cache_ttl_seconds",
     value: 3600,
     owner: "Founder",
@@ -1247,7 +1247,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S23.md",
   },
-{
+  {
     key: "care_circle.rules",
     // Version 1 (S29, spec 4.7): the rules the Care Circle shipped with. Kept as history; version 2 (S29c) adds the 14 and 3 day
     // expiry notices, the pause length and what a supporter can do about a check-in request, and is the one in force.
@@ -1258,7 +1258,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S29.md; docs/research/S29.md; spec 4.7, 8.6",
   },
-{
+  {
     key: "care_circle.rules",
     // Care Circle (S29, spec 4.7). Live values are the active row of `care_circle_config`; this entry mirrors it and a test fails
     // if the migration seed and this value drift. invite_ttl_hours: how long an invite link works. default_grant_days: how long a
@@ -1272,7 +1272,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S29.md; docs/research/S29.md; docs/research/S29-ranked-design-plan.md; spec 4.7, 8.6",
   },
-{
+  {
     key: "care_circle.rules",
     // Care Circle (S29, spec 4.7). Live values are the active row of `care_circle_config`; this entry mirrors it and a test fails
     // if the migration seed and this value drift. invite_ttl_hours: how long an invite link works. default_grant_days: how long a
@@ -1286,7 +1286,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/design/S29.md; docs/research/S29.md; docs/research/S29-ranked-design-plan.md; spec 4.7, 8.6",
   },
-{
+  {
     key: "entitlements.expiry_reminder_days",
     // Days before an entitlement expires to send the CON-010 renewal reminder.
     value: 7,
@@ -1296,7 +1296,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S26.md; docs/research/S26.md",
   },
-{
+  {
     key: "refunds.cooling_off_days",
     // FCCPA consumer-protection cooling-off period: a patient may request a full refund within this window.
     value: 14,
@@ -1306,7 +1306,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S26.md; docs/research/S26.md",
   },
-{
+  {
     key: "refunds.consultation_cancel_grace_hours",
     // Full refund if consultation cancelled at least this many hours before start. Inside this window, the
     // cancellation retention applies. Clinician cancel or no-show is always a full refund regardless.
@@ -1317,7 +1317,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S26.md; OQ-127",
   },
-{
+  {
     key: "refunds.late_cancel_retention_kobo",
     // Fixed amount retained when a patient cancels a consultation inside the grace window. 0 = full refund
     // regardless. Clinician cancel is always full refund.
@@ -1328,7 +1328,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S26.md; OQ-127",
   },
-{
+  {
     key: "risk.stratification",
     // Risk points for ordering clinician outreach (S38c, Module 22.3). Live value is the active row of `risk_config`; a test fails if
     // the migration seed and this value drift. PROPOSED, owned by the CMO (OQ-274): every weight and tier cut-off. Points only order
@@ -1356,7 +1356,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S38c.md; docs/research/S38.md section 22.3",
   },
-{
+  {
     key: "reports.monthly",
     // The personal monthly progress report (S38c, Module 22.5). Live value is the active row of `monthly_report_config`; drift test.
     // PROPOSED, owned by the CMO (OQ-275): readings needed before any average or direction is shown, and the wait for late syncs.
@@ -1372,7 +1372,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S38c.md; docs/research/S38.md section 22.5",
   },
-{
+  {
     key: "audio.bundled_max_bytes",
     value: 15000000,
     owner: "Founder",
@@ -1382,7 +1382,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S32.md (about 13 MB projected for the bundled groups without SYM, 14 MB with it, at 48 kbps mono; the 40 MB whole-app target was superseded by DG-1)",
     guardPatterns: ["\\b15[_,]?000[_,]?000\\b"],
   },
-{
+  {
     key: "audio.mono_bitrate_kbps",
     value: 48,
     owner: "Founder",
@@ -1391,7 +1391,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "Audio Production List v1.0 section 3.3 (app copies at about 32 to 48 kbps mono; the upper end is used so the projection errs high)",
   },
-{
+  {
     key: "audio.speech_chars_per_minute",
     value: 900,
     owner: "Founder",
@@ -1400,7 +1400,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "Audio Production List v1.0 section 5 (about 900 characters per minute of continuous speech)",
   },
-{
+  {
     key: "audio.number_clip_seconds",
     value: 2,
     owner: "Founder",
@@ -1409,7 +1409,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S32.md (an estimate for one number clip; replace with the measured average once the number clips are recorded)",
   },
-{
+  {
     key: "directory.verification_cadence",
     // How often a partner or directory listing must be re-verified (S36g, spec 25.3 and 25.9; open question OQ-214/OQ-235). Live values
     // are the active row of `directory_verification_config`; this entry mirrors it and a test fails if the migration seed and this value
@@ -1426,7 +1426,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S36.md; spec 25.3, 25.9; OQ-214",
   },
-{
+  {
     key: "reliability.dashboard",
     // The reliability and SLA dashboard (S36e, spec 9.5 and 9.4). Display settings only: how far ahead the rota gap view looks, how many
     // clinicians a group must hold before the operations view may show a score distribution (a group of one or two is someone's own
@@ -1447,7 +1447,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S36e.md; docs/design/S17.md (reliability is a tie-break only)",
   },
-{
+  {
     key: "rewards.points_redemption_cap_kobo",
     // F1 (OQ-08, founder decision 2026-09-30): wellness points are non-monetary and never convert to money or a
     // voucher. The only future use of a point is a capped discount at checkout (S71/S72). This is the largest
@@ -1461,7 +1461,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/OPEN-QUESTIONS.md OQ-08 and OQ-F1-01; docs/design/S55-S60-build-plan.md section 4.3",
   },
-{
+  {
     key: "breathing.bre01",
     value: {
       inhale_seconds: 4,
@@ -1477,7 +1477,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S33.md section 5 and docs/research/S33.md section 4 (about six breaths a minute with a longer out-breath; the pace and length are the CMO's to confirm, and the exercise is never presented as a treatment)",
   },
-{
+  {
     key: "learning.understandability_pass_rule",
     value: { min_participants: 10, min_recall: 0.8, max_unsafe: 0 },
     owner: "CMO",
@@ -1486,7 +1486,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/research/S33.md section 5 (10 to 15 community participants per language; 80 percent give the message and name the action; any unsafe misunderstanding means rewrite and retest). Scoring: packages/i18n/src/understandability.ts",
   },
-{
+  {
     key: "bp.starting_suggestion_target",
     // v2 (CMO, 2026-10-07): aligned to NICE NG136 home (HBPM) averages, which is the only band the device can apply
     // on its own: under 80 years below 135/85; 80 years or more below 145/85. Tighter targets (type 2 diabetes with kidney,
@@ -1510,7 +1510,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "NICE NG136 (home average 135/85; 145/85 from age 80); NICE NG28 and NG203 (130/80 clinic, 125/75 home for ACR 70 or more); docs/clinical-signoff/STANDARDS-CROSS-CHECK-2026-10-07.md",
   },
-{
+  {
     key: "lab.panels",
     // v2 (2026-10-07): one Membership panel, sex-specific haemoglobin, creatinine and HDL ranges, limits re-checked against published
     // standards (docs/clinical-signoff/STANDARDS-CROSS-CHECK-2026-10-07.md). Mirrors the lab_panel_versions seed in
@@ -1712,7 +1712,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/clinical-signoff/STANDARDS-CROSS-CHECK-2026-10-07.md; WHO haemoglobin thresholds 2024; Royal College of Pathologists critical results",
   },
-{
+  {
     key: "triage.silence_rule_days",
     // v2 (decision S11-1, 2026-10-07): 7 days, not 5. Takes effect when the CMO approves bp_care_triage v3 in the database; the live rule set
     // carries its own copy of this number and stays at the earlier line until then. The rule set, not this entry, is what the engine reads.
@@ -1724,7 +1724,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/DECISIONS.md S11-1; OQ-273 (spec safety case 7 said 5 days)",
     guardPatterns: ["silence\\w*\\s*[=:]\\s*7\\b"],
   },
-{
+  {
     key: "triage.bp_rule_set",
     // v3 names bp_care_triage v3: the CMO's version 2 decisions plus the 7 day silence line. The database row is a draft until the CMO approves it.
     value: { code: "bp_care_triage", ruleSetVersion: 3, adultAgeYears: 18 },
@@ -1734,7 +1734,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/DECISIONS.md S11-1; supabase/migrations/20261007152136_s11c_bp_care_triage_v3.sql",
   },
-{
+  {
     key: "learning.micro_lesson",
     // S55 (spec 9.2): a daily lesson takes under five minutes, asks for one action and ends in one check question. Live value is the
     // active `micro_lesson` row of `learning_config`; a test fails if the migration seed and this value drift. UNSIGNED.
@@ -1745,7 +1745,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/design/S55.md; spec 9.2",
   },
-{
+  {
     key: "learning.offline_pack",
     // S55 (spec 9.6): the size cap for lessons kept on a phone, counted over text and audio together, and the item cap. Expired and
     // unpublished items are never included. Live value is the `offline_pack` row of `learning_config`. UNSIGNED.
@@ -1756,7 +1756,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/design/S55.md; spec 9.6; OQ-S55-04",
   },
-{
+  {
     key: "learning.search_gap_log",
     // S55 (spec 9.3): rules for the zero-result search log (no patient reference): longest phrase kept, most words, how many searches
     // before an admin sees a phrase, and retention. Live value is the `search_gap_log` row of `learning_config`. UNSIGNED.
@@ -1767,7 +1767,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/design/S55.md; spec 9.3; OQ-S55-05",
   },
-{
+  {
     key: "learning.search_synonyms",
     // S55 (spec 9.3): everyday and local words grouped so that any one finds the others. Search expansion only. Live value is the
     // `search_synonyms` row of `learning_config`; web, mobile and the database search all read it. UNSIGNED: the CMO confirms the groups,
