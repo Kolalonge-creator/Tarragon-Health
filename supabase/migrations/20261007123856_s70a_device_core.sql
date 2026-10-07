@@ -907,6 +907,18 @@ $$;
 revoke all on function public.device_target_for_reading(uuid) from public, anon;
 grant execute on function public.device_target_for_reading(uuid) to authenticated;
 
+-- The devices paired to people the caller manages, so a shared phone can list and open them (patient_devices is readable by its own person only).
+create or replace function public.devices_i_manage() returns table (
+  id uuid, patient_id uuid, person_name text, device_type public.patient_device_type, ble_device_id text, model text, nickname text, last_synced_at timestamptz)
+language sql stable security definer set search_path = '' as $$
+  select d.id, d.patient_id, p.full_name, d.device_type, d.ble_device_id, d.model, d.nickname, d.last_synced_at
+    from public.patient_devices d join public.profiles p on p.id = d.patient_id
+   where (select auth.uid()) is not null and d.status = 'active' and d.patient_id <> (select auth.uid()) and private.can_act_for(d.patient_id)
+   order by p.full_name, d.paired_at desc
+$$;
+revoke all on function public.devices_i_manage() from public, anon;
+grant execute on function public.devices_i_manage() to authenticated;
+
 -- ---------------------------------------------------------------------------
 -- 10c. 18.9 wrist SpO2 is informational only (A12). With the module on, an oxygen reading that arrives through a wearable or a phone health
 --      bridge is saved and shown but never opens an alert or an emergency on its own. A fingertip oximeter paired by Bluetooth (source device),
@@ -950,7 +962,7 @@ begin
     raise exception 'FAIL: authenticated can write a new table';
   end if;
   select count(*) into v_n from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-   where n.nspname = 'public' and p.proname in ('resolve_held_reading', 'report_device_synced', 'record_device_rhythm_result', 'review_device_catalog_entry', 'recommended_devices', 'pair_device_for', 'device_target_for_reading')
+   where n.nspname = 'public' and p.proname in ('resolve_held_reading', 'report_device_synced', 'record_device_rhythm_result', 'review_device_catalog_entry', 'recommended_devices', 'pair_device_for', 'device_target_for_reading', 'devices_i_manage')
      and (has_function_privilege('anon', p.oid, 'EXECUTE') or not has_function_privilege('authenticated', p.oid, 'EXECUTE'));
   if v_n <> 0 then raise exception 'FAIL: % new public function(s) with the wrong anon or authenticated execute', v_n; end if;
   if has_function_privilege('anon', 'public.emit_device_synced(uuid,text,integer,uuid)', 'EXECUTE') or has_function_privilege('authenticated', 'public.emit_device_synced(uuid,text,integer,uuid)', 'EXECUTE')

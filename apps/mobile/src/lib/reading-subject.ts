@@ -38,3 +38,15 @@ export async function loadReadingSubjects(selfId: string): Promise<ReadingSubjec
 export function ownersOfDevice(bleDeviceId: string, devices: readonly { ble_device_id: string; patient_id: string }[]): string[] {
   return [...new Set(devices.filter((d) => d.ble_device_id === bleDeviceId).map((d) => d.patient_id))];
 }
+
+/** A device paired to someone the signed-in person manages (from public.devices_i_manage). */
+export interface ManagedDevice {
+  id: string;
+  patientId: string;
+  personName: string;
+  deviceType: string;
+  bleDeviceId: string;
+  model: string | null;
+  nickname: string | null;
+  lastSyncedAt: string | null;
+}

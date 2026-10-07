@@ -399,6 +399,19 @@ begin
   perform pg_temp.rec('an unpaired device gets nothing', '0', (select count(*)::text from public.device_target_for_reading(v_dev2)));
   perform pg_temp.back();
 
+  perform pg_temp.act(v_cg);
+  perform pg_temp.rec('a supporter lists the devices of the people they manage, with the person''s name (two active devices; the unpaired one is left out)', 'S70a patient/2', (select max(person_name) || '/' || count(*) from public.devices_i_manage() where patient_id = v_pat));
+  perform pg_temp.back();
+  perform pg_temp.act(v_pat);
+  perform pg_temp.rec('the person''s own devices are not in that list', '0', (select count(*)::text from public.devices_i_manage()));
+  perform pg_temp.back();
+  perform pg_temp.act(v_viewer);
+  perform pg_temp.rec('a view-only supporter sees none', '0', (select count(*)::text from public.devices_i_manage()));
+  perform pg_temp.back();
+  perform pg_temp.act_anon();
+  perform pg_temp.rec('anon cannot list them', '42501', pg_temp.try('select * from public.devices_i_manage()'));
+  perform pg_temp.back();
+
   -- 8c. Wrist SpO2 is informational only
   select count(*) into v_before from public.emergency_events where patient_id = v_pat4;
   select count(*) into v_after from public.notifications where recipient_id = v_pat4;

@@ -43092,6 +43092,10 @@ export type Database = {
         Args: { p_device_id: string }
         Returns: { is_supporter: boolean; organisation_id: string; patient_id: string }[]
       }
+      devices_i_manage: {
+        Args: never
+        Returns: { ble_device_id: string; device_type: Database["public"]["Enums"]["patient_device_type"]; id: string; last_synced_at: string; model: string; nickname: string; patient_id: string; person_name: string }[]
+      }
       emit_device_synced: {
         Args: { p_patient: string; p_readings: number; p_ref?: string; p_source: string }
         Returns: string
