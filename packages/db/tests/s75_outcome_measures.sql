@@ -1,5 +1,5 @@
 -- ===========================================================================
--- Proof: 20261007124444_s75_outcome_measures_hba1c_weight_phq9_gad7.sql (S75 track D, CMO decision S-5; INV-10, INV-12, INV-13, INV-16).
+-- Proof: 20261007160003_s75_outcome_measures_hba1c_weight_phq9_gad7.sql (S75 track D, CMO decision S-5; INV-10, INV-12, INV-13, INV-16).
 --
 --   1. DORMANT UNTIL ACTIVATED: outcome_config v3 is inserted inactive and the active row is still v2; the measure job writes nothing and the
 --      measure reports refuse while v3 is inactive. The proof activates v3 only inside this transaction.
