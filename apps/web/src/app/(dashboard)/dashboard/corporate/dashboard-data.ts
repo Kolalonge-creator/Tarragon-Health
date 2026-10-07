@@ -4,7 +4,6 @@ import { getContractPerformance } from "@/lib/outcomes-contracts/get-contract-pe
 import { loadCohortAnalytics } from "@/lib/corporate/load-cohort-analytics";
 import { requireInstitutionAggregateAccess } from "@/lib/institutions/aggregate-access";
 import { loadAgeBandDistribution } from "@/lib/corporate/load-age-band-distribution";
-import { estimateCostAvoided } from "@/lib/care-gaps/estimate-cost-avoided";
 import { loadMedicationOutcomes } from "@/lib/outcomes/medication-outcomes";
 import { loadEngagementOutcomeCorrelation } from "@/lib/outcomes/engagement-outcome-correlation";
 import { loadVaccinationCoverage } from "@/lib/vaccination/load-coverage-analytics";
@@ -53,7 +52,6 @@ async function loadCorporateDashboardDataUncached() {
 
   const [
     ageBands,
-    costAvoided,
     medicationOutcomes,
     engagementOutcomes,
     vaccinationCoverage,
@@ -61,7 +59,6 @@ async function loadCorporateDashboardDataUncached() {
     departmentBreakdown,
   ] = await Promise.all([
     loadAgeBandDistribution(access.client, access.organisationId),
-    estimateCostAvoided(access.client, access.organisationId, analytics.abnormal_findings_count),
     loadMedicationOutcomes(access.client, access.organisationId),
     loadEngagementOutcomeCorrelation(access.client, access.organisationId, access.minCohortSize),
     loadVaccinationCoverage(access.client, access.organisationId, access.minCohortSize),
@@ -77,7 +74,6 @@ async function loadCorporateDashboardDataUncached() {
     analytics,
     contractPerformance,
     ageBands,
-    costAvoided,
     medicationOutcomes,
     engagementOutcomes,
     vaccinationCoverage,
