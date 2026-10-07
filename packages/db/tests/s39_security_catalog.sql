@@ -37,7 +37,7 @@ insert into allow values
   -- views that run with their owner's rights on purpose (each carries its own caller predicate, or is a public directory, or is not granted)
   ('owner_view', 'public.care_message_communication_log'), ('owner_view', 'public.clinical_staff_directory'),
   ('owner_view', 'public.lab_provider_directory'), ('owner_view', 'public.pharmacy_partner_directory'),
-  ('owner_view', 'public.specialist_directory'), ('owner_view', 'public.therapy_directory'),
+  ('owner_view', 'public.specialist_directory'), ('owner_view', 'public.therapy_directory'), ('owner_view', 'public.lab_tests_admin'), ('owner_view', 'public.panel_bundles_admin'), ('owner_view', 'public.screen_types_admin'),
   ('owner_view', 'analytics.v_outcome_snapshots'), ('owner_view', 'analytics.v_bp_control_90d_by_month'),
   -- S39b: organisation-level quality and safety aggregates (counts only, filtered to the caller's organisation staff)
   ('owner_view', 'public.diabetes_quality_metrics'), ('owner_view', 'public.hypertension_quality_metrics'), ('owner_view', 'public.lpe_programme_outcomes'),
