@@ -71,10 +71,10 @@ begin
   if v_clin_staff_id is null then
     insert into public.clinical_staff
       (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier)
-      values (v_org, v_clin_profile, 'Alert System Test Clinician', true, now(), 'medical_officer')
+      values (v_org, v_clin_profile, 'Alert System Test Clinician', true, now(), 'senior_medical_officer')
       returning id into v_clin_staff_id;
   else
-    update public.clinical_staff set doctor_tier = 'medical_officer', active = true where id = v_clin_staff_id;
+    update public.clinical_staff set doctor_tier = 'senior_medical_officer', active = true where id = v_clin_staff_id;
   end if;
 
   -- ---- Case 1: severity always derived from level, type_code fallback ----
@@ -106,7 +106,7 @@ begin
     case
       when v_responsible is not null and exists (
         select 1 from public.clinical_staff
-        where id = v_responsible and organisation_id = v_org and doctor_tier = 'medical_officer' and active
+        where id = v_responsible and organisation_id = v_org and doctor_tier = 'senior_medical_officer' and active
       ) then 'PASS'
       else 'FAIL'
     end,

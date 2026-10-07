@@ -954,6 +954,54 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S38.md; spec 4.10 and Module 22; docs/research/S38.md",
   },
   {
+    key: "security.rules",
+    // Security thresholds (S39). Live values are the active row of `security_config`; this entry mirrors it and a test fails if the
+    // migration seed and this value drift. PROPOSED, owned by the security owner (CMO until one is named): how many failed lookups on a
+    // public token door in one hour open a security incident. The answer to guessing is to see it, never to lock the door, because the
+    // emergency card must open for a stranger in an emergency.
+    value: { lookup_failure_alert_per_hour: 50 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S39.md; spec section 13",
+  },
+  {
+    key: "security.rules",
+    // Security thresholds (S39, S39c). Live values are the active row of `security_config`; this entry mirrors it and a test fails if the
+    // migration seed and this value drift. PROPOSED, owned by the security owner (CMO until one is named). v1 (S39): failed lookups on a public
+    // token door in one hour that open a security incident (the answer to guessing is to see it, never to lock the door). v2 (S39c): how long an
+    // opening of a patient record stays valid for an untied clinician, how many untied openings in an hour raise an incident, the after-hours
+    // band (Lagos hours), and the retention periods (NHS Records Management Code and HIPAA as references, counsel to confirm). Retention is
+    // config only: real_data_auto_delete is false, nothing deletes real patient data (founder, 2026-10-07).
+    value: {
+      lookup_failure_alert_per_hour: 50,
+      record_open_window_hours: 8,
+      untied_open_alert_per_hour: 20,
+      after_hours_start: 22,
+      after_hours_end: 6,
+      retention: {
+        adult_clinical_record_years_after_last_contact: 8,
+        child_record_until_age: 25,
+        child_record_until_age_if_seen_at_17: 26,
+        maternity_record_years: 25,
+        mental_health_years_after_last_contact: 20,
+        access_audit_log_years: 8,
+        consent_years_after_relationship_end: 6,
+        payments_ledger_years: 6,
+        operational_data_days_min: 90,
+        operational_data_days_max: 730,
+        real_data_auto_delete: false,
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S39c.md; spec section 13; founder direction 2026-10-07",
+  },
+
+  {
     key: "quality.audit",
     // Clinical audits, tier 1 count, the audit form, reliability weight and the speak-up clocks (S20, spec 7.8). Live values are the
     // active row of `quality_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
@@ -1061,6 +1109,31 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-06",
+    source: "docs/design/S16.md; spec 7.3 and 7.4",
+  },
+  {
+    key: "queue.task_types",
+    // Task types and priority classes (S16, spec 7.3 and 7.4). Live values are the active `task_types` rows; this entry
+    // mirrors them, and a test compares it with the migration seed. Each row: code, priority class (1 is first), default
+    // due minutes, minimum doctor tier, required competencies, lead window minutes (0 for none), claim timeout minutes,
+    // pushable (an employed doctor may be pushed it), creatable (false for a class reached only by promotion) and the
+    // triage task keys it answers. adherence_follow_up is not in the spec table (OQ-S16-1). v2 (F-05, 2026-10-07): the Medical Officer tier is retired, so every doctor task type has senior_medical_officer as its minimum; nothing else changed.
+    value: [
+      { code: "red_event_unacknowledged", priority_class: 1, default_due_minutes: 0, min_doctor_tier: "senior_medical_officer", required_competencies: ["on_call"], lead_window_minutes: 0, claim_timeout_minutes: 30, pushable: false, creatable: true, source_task_keys: [] },
+      { code: "critical_result_review", priority_class: 2, default_due_minutes: 120, min_doctor_tier: "senior_medical_officer", required_competencies: ["result_review"], lead_window_minutes: 0, claim_timeout_minutes: 30, pushable: false, creatable: true, source_task_keys: [] },
+      { code: "amber_bp_review_due_soon", priority_class: 3, default_due_minutes: 0, min_doctor_tier: "senior_medical_officer", required_competencies: ["hypertension"], lead_window_minutes: 0, claim_timeout_minutes: 30, pushable: false, creatable: false, source_task_keys: [] },
+      { code: "amber_bp_review", priority_class: 4, default_due_minutes: 1440, min_doctor_tier: "senior_medical_officer", required_competencies: ["hypertension"], lead_window_minutes: 240, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: ["urgent_bp_review", "bp_review", "low_bp_review"] },
+      { code: "symptom_review", priority_class: 5, default_due_minutes: 1440, min_doctor_tier: "senior_medical_officer", required_competencies: ["adult_general"], lead_window_minutes: 1440, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: [] },
+      { code: "titration_signoff", priority_class: 6, default_due_minutes: 2880, min_doctor_tier: "senior_medical_officer", required_competencies: ["prescribing", "hypertension"], lead_window_minutes: 2880, claim_timeout_minutes: 60, pushable: true, creatable: true, source_task_keys: [] },
+      { code: "async_question", priority_class: 7, default_due_minutes: 1440, min_doctor_tier: "senior_medical_officer", required_competencies: ["adult_general"], lead_window_minutes: 1440, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: [] },
+      { code: "routine_result_review", priority_class: 8, default_due_minutes: 2880, min_doctor_tier: "senior_medical_officer", required_competencies: ["result_review"], lead_window_minutes: 1440, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: [] },
+      { code: "admin_clinical", priority_class: 9, default_due_minutes: 4320, min_doctor_tier: "senior_medical_officer", required_competencies: [], lead_window_minutes: 1440, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: ["referral_review"] },
+      { code: "adherence_follow_up", priority_class: 8, default_due_minutes: 2880, min_doctor_tier: "care_coordinator", required_competencies: [], lead_window_minutes: 1440, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: ["adherence_review", "silence_check"] },
+    ],
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-07",
     source: "docs/design/S16.md; spec 7.3 and 7.4",
   },
   {
