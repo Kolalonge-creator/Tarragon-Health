@@ -574,6 +574,8 @@ export function getNavSections(
                 // Say whether the automatic grade was right for a task you completed; off until the CMO approves (S38e).
                 { label: "Review automatic grades", href: "/clinician/triage-review", icon: "review" },
                 { label: "Team caseload", href: "/clinician/team-caseload", icon: "analytics" },
+                // Chief Medical Officer only: how AI scribe drafts are used, and a random sample to check (S35c).
+                { label: "Scribe quality", href: "/clinician/scribe-quality", icon: "analytics" },
               ],
             },
             // Chief Medical Officer / Clinical Director governance surfaces

@@ -75,6 +75,18 @@
       "bundle_group": "post_signup",
       "reaches_phone": "Downloaded once after sign-up, then kept on the phone",
       "review": "Brand review"
+    },
+    "BPC": {
+      "title": "Blood pressure care course",
+      "bundle_group": "on_demand",
+      "reaches_phone": "Download on demand",
+      "review": "Clinical sign-off"
+    },
+    "BRE": {
+      "title": "Breathing exercises",
+      "bundle_group": "on_demand",
+      "reaches_phone": "Download on demand",
+      "review": "Wellbeing lead review"
     }
   },
   "phrase_signoffs": [],
@@ -915,6 +927,21 @@
     {"id":"SYS-008","group":"SYS","bundle_group":"post_signup","release":1,"clinical":false,"legal":false,"language_neutral":false,"files":{"en":{"history":[],"file":"TH-SYS-008-EN.mp3","sha256":null,"bytes":null,"duration_ms":null,"approvals":[]}},"script_hash":"25433bdac309a0aa"},
     {"id":"SYS-009","group":"SYS","bundle_group":"post_signup","release":1,"clinical":false,"legal":false,"language_neutral":false,"files":{"en":{"history":[],"file":"TH-SYS-009-EN.mp3","sha256":null,"bytes":null,"duration_ms":null,"approvals":[]}},"script_hash":"e691606e53209c19"},
     {"id":"SYS-010","group":"SYS","bundle_group":"post_signup","release":1,"clinical":false,"legal":false,"language_neutral":false,"files":{"en":{"history":[],"file":"TH-SYS-010-EN.mp3","sha256":null,"bytes":null,"duration_ms":null,"approvals":[]}},"script_hash":"1c568a5ca779e2da"},
-    {"id":"SYS-011","group":"SYS","bundle_group":"post_signup","release":1,"clinical":false,"legal":false,"language_neutral":false,"files":{"en":{"history":[],"file":"TH-SYS-011-EN.mp3","sha256":null,"bytes":null,"duration_ms":null,"approvals":[]}},"script_hash":"acf105c7821d6f35"}
+    {"id":"SYS-011","group":"SYS","bundle_group":"post_signup","release":1,"clinical":false,"legal":false,"language_neutral":false,"files":{"en":{"history":[],"file":"TH-SYS-011-EN.mp3","sha256":null,"bytes":null,"duration_ms":null,"approvals":[]}},"script_hash":"acf105c7821d6f35"},
+    {"id":"BPC-01","group":"BPC","bundle_group":"on_demand","release":1,"clinical":true,"legal":false,"language_neutral":false,"files":{"en":{"file":"TH-BPC-01-EN.mp3","sha256":null,"bytes":null,"duration_ms":null,"approvals":[],"history":[]}},"script_hash":"18aecd8001771c22"},
+    {"id":"BPC-02","group":"BPC","bundle_group":"on_demand","release":1,"clinical":true,"legal":false,"language_neutral":false,"files":{"en":{"file":"TH-BPC-02-EN.mp3","sha256":null,"bytes":null,"duration_ms":null,"approvals":[],"history":[]}},"script_hash":"1aa9dc9b9382b29e"},
+    {"id":"BPC-03","group":"BPC","bundle_group":"on_demand","release":1,"clinical":true,"legal":false,"language_neutral":false,"files":{"en":{"file":"TH-BPC-03-EN.mp3","sha256":null,"bytes":null,"duration_ms":null,"approvals":[],"history":[]}},"script_hash":"73049066a94a2ca1"},
+    {"id":"BPC-04","group":"BPC","bundle_group":"on_demand","release":1,"clinical":true,"legal":false,"language_neutral":false,"files":{"en":{"file":"TH-BPC-04-EN.mp3","sha256":null,"bytes":null,"duration_ms":null,"approvals":[],"history":[]}},"script_hash":"0d5de6a8e9410396"},
+    {"id":"BPC-05","group":"BPC","bundle_group":"on_demand","release":1,"clinical":true,"legal":false,"language_neutral":false,"files":{"en":{"file":"TH-BPC-05-EN.mp3","sha256":null,"bytes":null,"duration_ms":null,"approvals":[],"history":[]}},"script_hash":"8750379462589caa"},
+    {"id":"BPC-06","group":"BPC","bundle_group":"on_demand","release":1,"clinical":true,"legal":false,"language_neutral":false,"files":{"en":{"file":"TH-BPC-06-EN.mp3","sha256":null,"bytes":null,"duration_ms":null,"approvals":[],"history":[]}},"script_hash":"183492f872e10315"},
+    {"id":"BPC-07","group":"BPC","bundle_group":"on_demand","release":1,"clinical":true,"legal":false,"language_neutral":false,"files":{"en":{"file":"TH-BPC-07-EN.mp3","sha256":null,"bytes":null,"duration_ms":null,"approvals":[],"history":[]}},"script_hash":"1b41596db544391d"},
+    {"id":"BPC-08","group":"BPC","bundle_group":"on_demand","release":1,"clinical":true,"legal":false,"language_neutral":false,"files":{"en":{"file":"TH-BPC-08-EN.mp3","sha256":null,"bytes":null,"duration_ms":null,"approvals":[],"history":[]}},"script_hash":"6a175037d4674b43"},
+    {"id":"BPC-09","group":"BPC","bundle_group":"on_demand","release":1,"clinical":true,"legal":false,"language_neutral":false,"files":{"en":{"file":"TH-BPC-09-EN.mp3","sha256":null,"bytes":null,"duration_ms":null,"approvals":[],"history":[]}},"script_hash":"3d1ed6edd49e0bc3"},
+    {"id":"BPC-10","group":"BPC","bundle_group":"on_demand","release":1,"clinical":true,"legal":false,"language_neutral":false,"files":{"en":{"file":"TH-BPC-10-EN.mp3","sha256":null,"bytes":null,"duration_ms":null,"approvals":[],"history":[]}},"script_hash":"9672a70c9a1858f6"},
+    {"id":"BPC-11","group":"BPC","bundle_group":"on_demand","release":1,"clinical":true,"legal":false,"language_neutral":false,"files":{"en":{"file":"TH-BPC-11-EN.mp3","sha256":null,"bytes":null,"duration_ms":null,"approvals":[],"history":[]}},"script_hash":"f4712a4ed6ca7481"},
+    {"id":"BPC-12","group":"BPC","bundle_group":"on_demand","release":1,"clinical":true,"legal":false,"language_neutral":false,"files":{"en":{"file":"TH-BPC-12-EN.mp3","sha256":null,"bytes":null,"duration_ms":null,"approvals":[],"history":[]}},"script_hash":"1295eac85a138663"},
+    {"id":"BPC-13","group":"BPC","bundle_group":"on_demand","release":1,"clinical":true,"legal":false,"language_neutral":false,"files":{"en":{"file":"TH-BPC-13-EN.mp3","sha256":null,"bytes":null,"duration_ms":null,"approvals":[],"history":[]}},"script_hash":"68d89f59a938ce69"},
+    {"id":"BPC-14","group":"BPC","bundle_group":"on_demand","release":1,"clinical":true,"legal":false,"language_neutral":false,"files":{"en":{"file":"TH-BPC-14-EN.mp3","sha256":null,"bytes":null,"duration_ms":null,"approvals":[],"history":[]}},"script_hash":"d189022c04825a72"},
+    {"id":"BRE-01","group":"BRE","bundle_group":"on_demand","release":1,"clinical":true,"legal":false,"language_neutral":false,"files":{"en":{"file":"TH-BRE-01-EN.mp3","sha256":null,"bytes":null,"duration_ms":null,"approvals":[],"history":[]}},"script_hash":"d33075f6a4ce7e19"}
   ]
 }
