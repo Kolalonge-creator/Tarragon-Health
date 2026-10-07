@@ -3,7 +3,7 @@
 import * as Sentry from "@sentry/nextjs";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { phoneOtpVerifySchema, phoneSignupSchema, signupSchema } from "@/lib/validation/auth";
+import { emailOtpVerifySchema, phoneOtpVerifySchema, phoneSignupSchema, signupSchema } from "@/lib/validation/auth";
 import { checkNewPassword } from "@/lib/auth/check-new-password";
 import { authErrorKey } from "@tarragon/auth/auth-error-key";
 import { t, type Locale, type MessageKey } from "@tarragon/i18n";
@@ -24,6 +24,8 @@ export type SignupActionState =
       success?: boolean;
       step?: "verify";
       phone?: string;
+      /** The address the confirmation email went to, set after an email sign-up (S41). */
+      email?: string;
       redirectTo?: string;
       sentAt?: number;
       /**
@@ -158,7 +160,77 @@ export async function signUp(
     await redirectAfterLogin(supabase, user.id, redirectTo);
   }
 
-  return { success: true };
+  // `email` is echoed so the "check your email" state can offer the optional code box (S41, spec 1.4).
+  return { success: true, email: parsed.data.email, ...(redirectTo ? { redirectTo } : {}) };
+}
+
+/**
+ * Confirms the email with the six-digit code from the same email as the link (S41, spec 1.4). Always optional: the link keeps
+ * working, and nothing else in sign-up waits on this. Success creates the session, so the usual post-signup work runs.
+ */
+export async function verifySignupEmail(
+  _prevState: SignupActionState,
+  formData: FormData
+): Promise<SignupActionState> {
+  const locale = await getAuthLocale();
+  const parsed = emailOtpVerifySchema.safeParse({ email: formData.get("email"), token: formData.get("token") });
+  const email = formData.get("email")?.toString();
+  const redirectTo = sanitizeRedirect(formData.get("redirectTo")?.toString()) ?? undefined;
+  if (!parsed.success) {
+    return { error: t("auth.error.wrong_code", locale), field: "token", success: true, email, redirectTo };
+  }
+
+  // Same limits as the phone code: six digits is only a million guesses.
+  const limited = await checkAuthRateLimit(
+    "signup-email-verify",
+    parsed.data.email,
+    { limit: 20, windowSeconds: 300 },
+    { limit: 8, windowSeconds: 900 }
+  );
+  if (!limited.success) {
+    return { error: t("auth.error.rate_limited", locale), success: true, email: parsed.data.email, redirectTo };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.verifyOtp({ email: parsed.data.email, token: parsed.data.token, type: "signup" });
+  if (error || !data.user) {
+    return {
+      error: t(authErrorKey(error, "otp_verify"), locale),
+      field: "token",
+      success: true,
+      email: parsed.data.email,
+      redirectTo,
+    };
+  }
+
+  await backfillSignupMetadata(supabase, data.user, "verifySignupEmail");
+  await redirectAfterLogin(supabase, data.user.id, redirectTo);
+}
+
+/** Sends the confirmation email again (the link and the code come together). */
+export async function resendSignupEmail(
+  _prevState: SignupActionState,
+  formData: FormData
+): Promise<SignupActionState> {
+  const locale = await getAuthLocale();
+  const parsed = emailOtpVerifySchema.shape.email.safeParse(formData.get("email"));
+  const redirectTo = sanitizeRedirect(formData.get("redirectTo")?.toString()) ?? undefined;
+  if (!parsed.success) return { error: t("auth.error.generic", locale), success: true, redirectTo };
+
+  const limited = await checkAuthRateLimit(
+    "signup-email-resend",
+    parsed.data,
+    { limit: 10, windowSeconds: 3600 },
+    { limit: 3, windowSeconds: 3600 }
+  );
+  if (!limited.success) {
+    return { error: t("auth.error.rate_limited", locale), success: true, email: parsed.data, redirectTo };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resend({ type: "signup", email: parsed.data });
+  if (error) return { error: t(authErrorKey(error, "otp_send"), locale), success: true, email: parsed.data, redirectTo };
+  return { success: true, email: parsed.data, redirectTo, sentAt: Date.now() };
 }
 
 

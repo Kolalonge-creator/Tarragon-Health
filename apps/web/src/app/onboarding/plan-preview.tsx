@@ -2,6 +2,8 @@
 
 import { useRiskScores } from "@/lib/queries/risk-assessment";
 import { useCareProgrammeRecommendations } from "@/lib/queries/care-plan-recommendations";
+import { t, type MessageKey } from "@tarragon/i18n";
+import { planStepsFromAnswers, type OnboardingAnswers } from "@tarragon/shared";
 
 const RISK_LABEL: Record<string, { label: string; tone: string }> = {
   low: { label: "Low", tone: "text-brand-green" },
@@ -33,13 +35,15 @@ const CONDITION_LABEL: Record<string, string> = {
  * programme suggestions as pending care-team review — never as a doctor's
  * signed plan.
  */
-export function PlanPreview({ patientId }: { patientId: string }) {
+export function PlanPreview({ patientId, answers }: { patientId: string; answers?: OnboardingAnswers | null }) {
   const { data: scores } = useRiskScores(patientId);
   const { data: recommendations } = useCareProgrammeRecommendations(patientId);
 
   const hasScores = (scores ?? []).length > 0;
   const hasRecs = (recommendations ?? []).length > 0;
-  if (!hasScores && !hasRecs) return null;
+  if (!hasScores && !hasRecs && !answers) return null;
+  // S41 (spec 1.11): the first moves, built from the person's own answers. No price, no countdown, no promised result.
+  const answerSteps = answers ? planStepsFromAnswers(answers) : [];
 
   const topRisk = (scores ?? []).reduce<string | null>((acc, s) => {
     if (!s.tier) return acc;
@@ -53,6 +57,18 @@ export function PlanPreview({ patientId }: { patientId: string }) {
       <h2 className="font-heading text-lg font-semibold text-charcoal-ink">
         What your answers tell us
       </h2>
+      {answerSteps.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-charcoal-ink">{t("onb.plan.title")}</p>
+          <p className="text-xs text-charcoal-ink/60">{t("onb.plan.intro")}</p>
+          <ol className="list-decimal space-y-1 pl-5 text-sm text-charcoal-ink/80">
+            {answerSteps.map((step) => (
+              <li key={step}>{t(`onb.plan.${step}` as MessageKey)}</li>
+            ))}
+          </ol>
+          <p className="text-xs text-charcoal-ink/50">{t("onb.plan.note")}</p>
+        </div>
+      )}
       {risk && (
         <p className="text-sm text-charcoal-ink">
           Based on what you shared, your overall health risk today looks{" "}

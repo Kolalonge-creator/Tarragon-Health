@@ -1,3 +1,5 @@
+import { ConsentMatrixCard } from "@/screens/sections/consent-matrix-card";
+import { ProxyArrangementsCard } from "@/screens/sections/proxy-section";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, Text, TextInput, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
@@ -135,6 +137,10 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
           ))
         )}
       </Card>
+
+      <ConsentMatrixCard />
+
+      <ProxyArrangementsCard />
 
       <Card style={{ gap: 8 }}>
         <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Connected devices</Text>

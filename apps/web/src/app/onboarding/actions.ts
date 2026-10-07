@@ -10,6 +10,7 @@ import {
 } from "@/lib/validation/onboarding";
 import { verifyIdentity } from "@/lib/identity/provider";
 import { firstIssue } from "@/lib/validation/first-issue";
+import { answersFromRows, focusFromAnswers, validateOnboardingAnswers } from "@tarragon/shared";
 
 export type SaveDemographicsState =
   | { error?: string; field?: string; success?: boolean }
@@ -158,8 +159,21 @@ export async function completeOnboarding() {
   // phone/state/ref_code already use, so this needs no new column and no new
   // table. Anything unrecognised falls through to the normal dashboard, so a
   // stale or hand-typed value can never strand a new patient on a bad route.
-  const intent = user.user_metadata?.signup_intent;
-  if (intent === "health_check") redirect("/patient/prevention#health-check");
+  //
+  // S41: the person's own onboarding answers now lead. Someone who asked for a health check (and is not managing a
+  // condition) lands there; the auth-metadata intent stays only as the fallback for people who arrived from a marketing
+  // link and have no saved answers (an account made before S41, or a save that failed).
+  const { data: answerRows } = await supabase
+    .from("onboarding_answers")
+    .select("question_code, answer")
+    .eq("patient_id", user.id);
+  const answers = answersFromRows(answerRows);
+  if (answers) {
+    const first = focusFromAnswers(answers)[0];
+    if (first?.id === "health_check") redirect("/patient/prevention#health-check");
+  } else if (user.user_metadata?.signup_intent === "health_check") {
+    redirect("/patient/prevention#health-check");
+  }
 
   // A supporter's home is the people they support. Landing them on a dashboard
   // of empty prompts about their own vitals is the moment the product stops
@@ -277,4 +291,48 @@ export async function submitIdentityVerification(
   // Provider unavailable (unconfigured) or unreachable (transient error):
   // leave the request pending for a retry / ops resolution.
   return { status: result.reason === "unavailable" ? "unavailable" : "pending" };
+}
+
+export type SaveAnswersResult = { ok: true } | { ok: false; reason: "invalid" | "failed" };
+
+/**
+ * Saves the person's goal and condition choices (S41, spec 1.10) through `save_onboarding_answers`, which re-validates them
+ * (the check here is the same rule set, shared with the database) and records one audited row per question. Called once the
+ * terms are agreed, so a condition choice is never stored before the person has agreed to how it is used.
+ */
+export async function saveOnboardingAnswers(goals: string[], conditions: string[]): Promise<SaveAnswersResult> {
+  const v = validateOnboardingAnswers(goals, conditions);
+  if (!v.ok) return { ok: false, reason: "invalid" };
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+  const { error } = await supabase.rpc("save_onboarding_answers", {
+    p_goals: [...v.value.goals],
+    p_conditions: [...v.value.conditions],
+  });
+  return error ? { ok: false, reason: "failed" } : { ok: true };
+}
+
+export type JoinProgrammeResult = { status: "joined" | "already" | "bad_code" | "error" };
+
+/**
+ * Uses a programme code (S41, spec 1.8) by calling `join_cohort` (S38e). The code only records that the person joined: it
+ * gives no entitlement and shares nothing (see docs/design/S41.md, the S26 seam). Every failure of the code itself, whether
+ * unknown, expired, closed or full, comes back as the same `bad_code`, so the box cannot be used to probe which codes exist.
+ */
+export async function joinProgrammeCode(code: string): Promise<JoinProgrammeResult> {
+  const trimmed = code.trim();
+  if (trimmed.length < 4 || trimmed.length > 20) return { status: "bad_code" };
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+  const { data, error } = await supabase.rpc("join_cohort", { p_code: trimmed });
+  if (error) return { status: "error" };
+  const result = data as { ok?: boolean; status?: string } | null;
+  if (!result?.ok) return { status: "bad_code" };
+  return { status: result.status === "already" ? "already" : "joined" };
 }

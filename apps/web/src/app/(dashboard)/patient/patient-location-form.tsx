@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { t } from "@tarragon/i18n";
 import { updatePatientLocation } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +21,7 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 export function PatientLocationForm({
   initial,
 }: {
-  initial: { state: string | null; city: string | null; area: string | null };
+  initial: { state: string | null; city: string | null; area: string | null; lga?: string | null };
 }) {
   const [state, formAction, pending] = useActionState(updatePatientLocation, undefined);
   const router = useRouter();
@@ -71,6 +72,16 @@ export function PatientLocationForm({
                 name="area"
                 placeholder="e.g. Allen Avenue"
                 defaultValue={initial.area ?? ""}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="location-lga">{t("onb.lga.label")}</Label>
+              <Input
+                id="location-lga"
+                name="lga"
+                placeholder={t("onb.lga.placeholder")}
+                defaultValue={initial.lga ?? ""}
+                maxLength={60}
               />
             </div>
           </div>

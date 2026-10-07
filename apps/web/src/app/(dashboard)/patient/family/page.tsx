@@ -9,6 +9,8 @@ import { AddChildForm } from "./add-child-form";
 import { AddElderProxyForm } from "./add-elder-form";
 import { ProxySetupForm } from "./proxy-setup-form";
 import { ProxySetupList, type ProxySetupRow } from "./proxy-setup-list";
+import { ProxyArrangementsCard, type ProxyArrangement } from "./proxy-arrangements-card";
+import { HandoverGuardianCard, type UpcomingHandover } from "./handover-guardian-card";
 import { getAuthLocale } from "@/lib/auth/auth-locale";
 import { MaturedDependentBanner } from "./matured-dependent-banner";
 import { HouseholdOverview } from "./household-overview";
@@ -150,6 +152,25 @@ export default async function CareCirclePage() {
   }
   const locale = await getAuthLocale();
 
+  // Who set up access to THIS account (the parent's own view, always visible, with an instant way to end it) and which
+  // dependants this person manages that are about to turn 18. Both are RLS-scoped reads; a failure is reported, not hidden.
+  const [{ data: arrangementPayload, error: arrangementError }, { data: handoverRows, error: handoverError }] = await Promise.all([
+    supabase.rpc("my_proxy_arrangements"),
+    supabase
+      .from("dependant_handovers")
+      .select("patient_id, birthday_18, patient:profiles!dependant_handovers_patient_id_fkey(full_name)")
+      .eq("state", "due")
+      .neq("patient_id", profile.id),
+  ]);
+  if (arrangementError) Sentry.captureMessage("my_proxy_arrangements failed", { level: "warning", tags: { pg_code: arrangementError.code ?? "none" } });
+  if (handoverError) Sentry.captureMessage("dependant_handovers read failed", { level: "warning", tags: { pg_code: handoverError.code ?? "none" } });
+  const arrangements = (Array.isArray(arrangementPayload) ? arrangementPayload : []) as unknown as ProxyArrangement[];
+  const upcomingHandovers: UpcomingHandover[] = (handoverRows ?? []).map((h) => ({
+    patientId: h.patient_id,
+    name: (h as unknown as { patient?: { full_name: string | null } | null }).patient?.full_name?.split(" ")[0] ?? "They",
+    birthday18: h.birthday_18,
+  }));
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -166,6 +187,10 @@ export default async function CareCirclePage() {
       <HouseholdOverview />
 
       <MaturedDependentBanner />
+
+      <HandoverGuardianCard items={upcomingHandovers} />
+
+      <ProxyArrangementsCard arrangements={arrangements} />
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <div className="space-y-4">

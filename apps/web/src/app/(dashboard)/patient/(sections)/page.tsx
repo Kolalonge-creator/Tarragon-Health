@@ -21,6 +21,7 @@ import { ServiceStatusCard } from "@/app/(dashboard)/patient/service-status-card
 import { SinceYouWereLastHere } from "@/app/(dashboard)/patient/since-you-were-last-here-card";
 import { PaymentFailureBanner } from "@/app/(dashboard)/patient/payment-failure-banner";
 import { QuickActions } from "@/app/(dashboard)/patient/quick-actions";
+import { YourFocusCard } from "@/app/(dashboard)/patient/your-focus-card";
 import { AskTarragonCard } from "@/app/(dashboard)/patient/ask-tarragon-card";
 import { TodaysDoses } from "@/app/(dashboard)/patient/todays-doses";
 import { HealthResetCard } from "@/app/(dashboard)/patient/health-reset-card";
@@ -168,6 +169,10 @@ export default async function PatientOverviewPage() {
           Learn and Lifestyle coaching buttons (founder ask, 2026-08-12).
           Above the stat tiles deliberately: doing beats reading, and on a
           phone this row is what's on screen when the page opens. */}
+      <Suspense fallback={<CardSkeleton className="h-32" />}>
+        <YourFocusCard patientId={subjectId} acting={!!acting} />
+      </Suspense>
+
       <QuickActions showCycle={shouldOfferCycleTracking(subjectSex)} />
 
       {/* Prominent, single-screen "ask" entry point -- composes the already-

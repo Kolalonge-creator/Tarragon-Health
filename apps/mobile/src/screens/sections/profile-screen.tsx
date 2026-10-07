@@ -681,6 +681,7 @@ function DataPrivacySection({
         blocked_reason: null,
         status: "pending",
         decision_note: null,
+        anonymisation_summary: null,
         completed_at: null,
         completed_by: null,
         reviewed_at: null,

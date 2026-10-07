@@ -56,6 +56,8 @@ export async function GET(): Promise<Response> {
     correctionRequests,
     accessEvents,
     wearableConnections,
+    consentMatrixEvents,
+    onboardingAnswers,
   ] = await Promise.all([
     supabase.from("patient_consents").select("*").eq("patient_id", user.id),
     supabase.from("vitals_readings").select("*").eq("patient_id", user.id),
@@ -70,6 +72,8 @@ export async function GET(): Promise<Response> {
     supabase.from("data_correction_requests").select("*").eq("patient_id", user.id),
     supabase.from("care_access_events").select("*").eq("patient_id", user.id),
     supabase.from("wearable_connections").select("*").eq("patient_id", user.id),
+    supabase.from("consent_matrix_events").select("*").eq("patient_id", user.id),
+    supabase.from("onboarding_answers").select("*").eq("patient_id", user.id),
   ]);
 
   await supabase.rpc("log_patient_data_export", { p_scope: "data_export_dsar" });
@@ -87,6 +91,8 @@ export async function GET(): Promise<Response> {
     data_correction_requests: correctionRequests.data ?? [],
     care_access_events: accessEvents.data ?? [],
     wearable_connections: wearableConnections.data ?? [],
+    consent_matrix_events: consentMatrixEvents.data ?? [],
+    onboarding_answers: onboardingAnswers.data ?? [],
   };
 
   return new Response(JSON.stringify(exportPayload, null, 2), {

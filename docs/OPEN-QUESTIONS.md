@@ -1753,3 +1753,101 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Fixed in S11g and S11h: (a) the older server alert path now follows the 200/130 decision once the rule set is APPROVED: the old emergency range with no red-flag symptom (and not in pregnancy or after a birth) raises the Priority 1 alert but no patient emergency record; a symptom keeps it an emergency, and a symptom answered after the reading opens the emergency record then (migration `20261006000812`, proof `s11g`, a no-op until approval). The 160/100 and 135/85 bands are unchanged, so a 165/105 reading still pages Priority 1 for a reading the engine would treat as amber: that is the S12 band alignment of OQ-67 and needs the CMO. (f) Tapping the reminder or the server push now opens the blood pressure screen, from closed or running, once per tap (`notification-tap.ts`). (d) The Pidgin for the question's buttons and the reminder is drafted in the catalogue; the emergency guidance, triage messages and symptom names stay in English until a native reviewer and the CMO sign them; the full list is `docs/PIDGIN-REVIEW-S11.md`.
 - Still owed: (e) Android: not run (no Java or emulator image on this machine); `SCHEDULE_EXACT_ALARM` is not declared (OQ-73), so a reminder can arrive minutes late in Doze and the server backup push covers it. The native Pidgin review itself.
 - Decision: pending (item e, and the Pidgin sign-off).
+### OQ-290 Roster claim and org placement happen at INSERT, before any verification (OQ-41 and OQ-52 follow-up, found by S41)
+- New finding on top of OQ-41: `private.handle_new_user()` does more than mark the roster slot claimed. When an unverified sign-up's phone or email matches a pending roster row it also puts the new profile in the employer's organisation (`v_org_id := v_roster_org_id`) at INSERT. So an unverified account typed with a colleague's number is created inside that employer's organisation, not just a slot lost. Employers only see aggregates (I9), so no individual data leaks, but the profile counts in that organisation until someone removes it.
+- Why S41 did not fix it: moving the claim to the `phone_confirmed_at` / `email_confirmed_at` UPDATE means creating the profile in the default organisation and moving it on confirmation. Organisation is a guarded authority column and every `organisation_id` on a new account's rows must follow, so this is a core-trigger change that needs `/code-review ultra` and its own proof, which the build plan did not allocate to S41.
+- Recommendation: option (a) from OQ-41, plus a nightly cleanup of never-verified accounts older than 7 days (closes OQ-52 option (a) too). OQ-52 itself still needs a founder choice between its two options.
+- Decision: open.
+
+### OQ-291 The hosted confirmation email must carry the code for the optional email code box to work (raised by S41)
+- Built: `verifySignupEmail` / `resendSignupEmail` call `verifyOtp({ type: 'signup' })` and `resend({ type: 'signup' })`. The six-digit code only exists in the email if the Supabase "Confirm signup" template includes `{{ .Token }}`. That is a hosted dashboard setting (same class as OQ-44), not something code can change.
+- Until the template is edited the box shows, accepts a code that never arrives, and the link still works, so nothing breaks, but the box is useless. Do the template change before telling anyone the feature is live.
+- Decision: open (your action in the dashboard).
+
+### OQ-292 No canonical list of local government areas (raised by S41)
+- `profiles.lga` is free text, 2 to 60 characters, optional. The repository has no list of the 774 areas, and a typed area is not matched to `service_regions` or any partner geography.
+- Options: (a) keep free text and normalise later (current); (b) load an official LGA list as a reference table with state, and make the field a picker (recommended once a source is chosen, for example the National Bureau of Statistics list; needs a licence check and a state-spelling map to `service_regions`).
+- Decision: open.
+
+### OQ-293 Cohort codes: S41 stacks on S38e (PR #988); three seams left (raised by S41)
+- S38e already built spec 1.8 and is live in production but not on `main-dev`. S41 reuses it and creates no second code system. Until #988 merges, S41's onboarding code box calls `join_cohort` and, if the function is missing, shows "could not check the code just now".
+- (1) `programme_id` in the spec has no live equivalent: a cohort belongs to a sponsor organisation. Confirm one cohort per programme is acceptable, or add `programme_id` when programmes exist as rows.
+- (2) `join_cohort` does not emit the `cohort.joined` event. S41 registered the event type; the emit belongs inside `join_cohort` (one added line after the insert) and must be made when #988 is next touched.
+- (3) Entitlement creation from a sponsor programme waits for S26. A code gives eligibility only today; nothing is granted.
+- The concurrency acceptance test (`s41_cohort_max_uses_concurrent.sh`) prints SKIPPED, not PASS, on any database without `join_cohort`. It passed against the real S38e functions on a local database (5 of 5 places taken by 30 simultaneous claims, never 6; the lock-free control broke the limit). It will run for real on the first CI run after #988 merges.
+- Decision: open.
+
+### OQ-294 Mobile parity for onboarding answers, programme code and email code (raised by S41)
+- The mobile app has sign-up and sign-in screens but no onboarding flow, so there is no mobile place for the goal and condition step, the programme code box, or the email code box. The shared module (`@tarragon/shared` onboarding-answers) and the RPCs are ready for it.
+- Recommendation: build the mobile onboarding in S42 alongside the proxy flow and dependants, which also need it.
+- Decision: open.
+
+### OQ-295 Home cards from onboarding answers: wording and order need a product and CMO read (raised by S41)
+- The mapping from answers to Home cards (`focusFromAnswers`) is deterministic and changes only which existing cards lead, never a clinical rule. The goal and condition option wording ("A kidney condition", "A heart condition") and the order cards appear in are a product choice made without a clinician. The CMO should read the option list once; nothing here is signed or claims a clinical meaning.
+- Decision: open.
+
+## Raised by S42 (2026-10-07, numbered from 330 to avoid clashing with parallel sessions)
+
+### OQ-330 Consent wording is placeholder text: counsel must approve it (extends OQ-49)
+- Every matrix cell (20), every bundle, and the hand-over consent line use clearly marked draft wording in `packages/i18n` (`consent.matrix.*`, `consent.bundle.*`, `handover.consent_notice`); `consent_matrix_cells.wording_status = 'draft_pending_counsel'` and each matrix screen says so. No approved legal wording was invented.
+- Decision: open (counsel). When approved, set `wording_status = 'approved'` and replace the keys' text.
+
+### OQ-331 Should the care purpose be optional for reproductive and mental health data?
+- S42 marks all five care cells required (care needs the data a person chooses to add; sensitive types stay protected by the category-scoped access model, not by this switch). A person who does not want such data held asks for deletion or does not add it. A different answer (care optional for those two types) would mean the care team loses sight of data the person already entered.
+- Decision: open (founder, CMO, counsel).
+
+### OQ-332 Sponsor reporting is not wired because the sponsor report is on PR #988
+- `private.consent_in_force(patient, data_type, 'sponsor_reporting')` is the seam. When #988 merges, `sponsor_outcome_report` should also require it (and decide how `profile_cohorts.reporting_consent` relates to the matrix: recommend the matrix cell becomes the single source and the cohort flag a mirror).
+- Decision: open.
+
+### OQ-333 Which matrix cell gates which Care Circle block
+- Adherence summary and weekly BP trend are both mapped to vitals x Care Circle. Appointments, red alerts and pay-for-care carry no record content and are not data-type bound. No circle view shows reproductive, mental health or documents, so those cells are recorded but unused (the screen says so).
+- Decision: open (product, CMO).
+
+### OQ-334 No research export job exists; the roster is the only door
+- `research_export_roster()` (admin, audited, excludes test accounts and dependants) lists who agreed and for which data type. Any future export must be built from it. The older optional consent types in `patient_consents` (research, sponsor_reporting, care_circle_sharing) have no versions and are superseded by the matrix; recommend retiring them.
+- Decision: open.
+
+### OQ-335 Is the anonymiser enough to count as erasure?
+- It removes identity and sign-in and every personal row outside a retention category, and keeps clinical, audit, financial, consent and communications rows (no confirmed statutory period, so nothing is deleted). Date of birth is reduced to the year; `patient_number` is kept as the record key. Audit and correction trails may still hold earlier names. Completion stays admin-reviewed (OQ-50).
+- Decision: open (DPO and counsel).
+
+### OQ-336 The export has no stored file
+- `artifact_path` is a logical key stamped at fulfilment; JSON and PDF are rendered at download from the live record under the patient's own session, so nothing is parked in storage and a withdrawal made since is reflected. Two JSON routes still exist (`/api/patient/data-export`, `/json`).
+- Decision: open (founder: keep, or store a snapshot per request).
+
+### OQ-337 A young person who never signs in
+- Until they claim a login, the 03:30 job leaves the guardian at view only for ever. The spec rule (never exposed without consent) argues for an automatic end after N days. Also: dependants already claimed before this change have no hand-over row (the claim clears `dependent_kind`). Live counts today: 0 minors, 0 elder proxies, so nothing is affected yet.
+- Decision: open (founder).
+
+### OQ-338 Kept guardians
+- A guardian the young person keeps stays view only with no expiry. Recommend yearly re-confirmation.
+- Decision: open.
+
+### OQ-339 The elder-proxy downgrade that already ran
+- The old daily job treated every `is_dependent_account` row with a birthday over 18 as a child turning 18, so an elder proxy's `manage` grant was stepped to `view` on its first run. The job now covers `minor_child` only. Live count of affected elder grants: 0.
+- Decision: none needed today.
+
+### OQ-340 Category to permission mapping (closes OQ-51 in the safest direction)
+- Appointments and care plan, medicines, results and messages map to view or message permissions; vitals, vaccinations, reproductive health and history map to nothing; no acting permission is ever implied. The mapping needs a product and clinical read.
+- Decision: open.
+
+### OQ-341 The add-an-adult path (closes OQ-47 partly)
+- It now needs a recorded reason (cannot receive a code, or cannot set up themselves) and no longer reaches an adult's reproductive health through `manage`. Recommend removing it once the mobile and web "Set up for my parent" flow covers every case you care about.
+- Decision: open.
+
+### OQ-342 OQ-48 and the cooling-off
+- The dependent-claim flow no longer queues an SMS (INV-08); the person is told by whoever set it up and signs in with a code. Other patient SMS paths (OQ-32) are untouched. The cooling-off (30 days) is PROPOSED config `proxy.cooling_off`.
+- Decision: open (founder for the days).
+
+### OQ-343 Apply order and review
+- Apply the consent matrix, privacy centre, dependants and proxy migrations in file order. Apply the SMS-column migration only after the new `send-pending-notifications` function and the app builds are live. The new `account.created` trigger on `profiles` and `account.phone_verified` trigger on `auth.users` are on core tables and swallow their own errors by design: review them with `/code-review ultra` before production.
+- Decision: open.
+
+### OQ-344 Not run, and mobile gaps
+- No browser, device or real SMS run of any new screen. The mobile privacy screen's older consent list still has hard-coded English; the mobile app has no PDF download link. Sponsor wording, Care Circle consent text and the hand-over consent text await counsel.
+- Decision: open.
+
+### OQ-345 The OQ-53 rule on the older consent table exempts service and migration contexts
+- `patient_consents` now refuses a withdrawn row for a required version for any signed-in session (patient, clinician, admin). A context with no `auth.uid()` (service role, migrations, older proofs `s02` and `s04` that insert history as fixtures) is exempt, so a service-role code path could still write one. The new matrix table has no such exemption (proved for the table owner).
+- Decision: open (tighten when the older proofs are rewritten, or accept).
