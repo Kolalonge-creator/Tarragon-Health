@@ -47,7 +47,7 @@ const retentionDay = z.union([
 ]);
 export const retentionSchema = z.object({
   by_day: z.array(retentionDay),
-  programme_completion: z.union([withheld, z.object({ suppressed: z.literal(false), ended_care_packs: z.number().int(), ran_to_the_end: z.number().int(), ran_to_the_end_pct: z.number() })]),
+  programme_completion: z.union([withheld, z.object({ suppressed: z.literal(false), ended_entitlements: z.number().int(), fully_used: z.number().int(), fully_used_pct: z.number(), label: z.string() })]),
   definition: z.string(), limitations: z.string(), minimum_cell: z.number().int(),
 });
 export type RetentionReport = z.infer<typeof retentionSchema>;

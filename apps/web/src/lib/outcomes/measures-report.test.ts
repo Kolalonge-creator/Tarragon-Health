@@ -24,6 +24,10 @@ describe("the other reports", () => {
       programme_completion: { suppressed: true, reason: "under_minimum", minimum: 20 }, definition: "d", limitations: "l", minimum_cell: 20 });
     expect(r?.by_day).toHaveLength(2);
   });
+  it("reads programme completion as fully used, with its label", () => {
+    const r = parseRetention({ by_day: [], programme_completion: { suppressed: false, ended_entitlements: 30, fully_used: 21, fully_used_pct: 70, label: "fully used" }, definition: "d", limitations: "l", minimum_cell: 20 });
+    expect(r?.programme_completion).toMatchObject({ fully_used: 21 });
+  });
   it("reads response times and carries no clinician field", () => {
     const r = parseResponse({ range: { from: "2026-07-01", to: "2026-10-01" }, minimum_cell: 20, minimum_clinicians_per_tier: 3,
       by_priority_band: [{ priority_band: "soon", suppressed: false, tasks: 25, completed_pct: 100, completed_on_time_pct: 90, escalation_rate_pct: 8, handed_back_pct: 0, median_minutes_to_first_claim: 10, p90_minutes_to_first_claim: 40, median_minutes_to_completion: 55 }],

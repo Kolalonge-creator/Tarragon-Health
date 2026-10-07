@@ -47,18 +47,21 @@ begin
       else jsonb_build_object('suppressed', false, 'due', a.due, 'retained', a.retained, 'retained_pct', round(100.0 * a.retained / a.due, 1),
              'engaged_pct', case when private.suppress_cell(a.due, array[a.engaged, a.due - a.engaged]::bigint[], v_min) is null then round(100.0 * a.engaged / a.due, 1) end) end);
   end loop;
-  -- programme completion: finished care packs (12-week doctor-supported programme) that ended in the range. "Used" means the programme ran to its end;
-  -- expired or revoked means it did not. What counts as "complete" for sponsors is a founder and CMO choice (OQ-383).
-  select count(*) as ended, count(*) filter (where e.state = 'used') as used into v_comp
+  -- programme completion (decision S75-7, OQ-383): of the Memberships and care packs whose term has ended, the share that were FULLY USED: the entitlement is
+  -- marked used, or its term ended with no clinical item (consultation or test) left unused (remaining_uses = 0). Revoked entitlements (refunded or cancelled)
+  -- never finished a term and are not counted either way. An entitlement with no use count that simply expired is not fully used. This is an engagement
+  -- measure: it says whether people used what they had, not whether they improved.
+  select count(*) as ended, count(*) filter (where e.state = 'used' or (e.state = 'expired' and e.remaining_uses = 0)) as used into v_comp
     from public.entitlements e join _s75_people x on x.patient_id = e.patient_id
-   where e.kind = 'care_pack' and not e.is_test and e.state in ('used', 'expired', 'revoked');
+   where e.kind in ('membership', 'care_pack') and not e.is_test and e.state in ('used', 'expired');
   v_reason := private.suppress_cell(v_comp.ended, array[v_comp.used, v_comp.ended - v_comp.used]::bigint[], v_min);
   return jsonb_build_object(
     'family', 'retention_and_engagement', 'minimum_cell', v_min,
     'by_day', v_days,
     'programme_completion', case when v_reason is not null then jsonb_build_object('suppressed', true, 'reason', v_reason, 'minimum', v_min)
-      else jsonb_build_object('suppressed', false, 'ended_care_packs', v_comp.ended, 'ran_to_the_end', v_comp.used, 'ran_to_the_end_pct', round(100.0 * v_comp.used / v_comp.ended, 1)) end,
-    'definition', 'Retained: still holding an active membership or care pack on the day. Engaged: logged at least one reading in the 30 days ending on that day. Programme completion: care packs that have ended, and the share that ran to their end rather than expiring early or being revoked.',
+      else jsonb_build_object('suppressed', false, 'ended_entitlements', v_comp.ended, 'fully_used', v_comp.used, 'fully_used_pct', round(100.0 * v_comp.used / v_comp.ended, 1),
+             'label', 'Memberships and care packs whose term has ended that were fully used (every consultation and test item used)') end,
+    'definition', 'Retained: still holding an active membership or care pack on the day. Engaged: logged at least one reading in the 30 days ending on that day. Programme completion: of the Memberships and care packs whose term has ended, the share that were fully used, meaning every consultation and test item in them was used by the end of the term. Refunded or cancelled ones are not counted.',
     'limitations', 'These describe staying and logging, not health. They are never combined with a clinical outcome. A person who joined later is not yet due and is not counted. Not a ranking of anyone and never a reason to deny care.',
     'not_a_causal_claim', true, 'generated_at', now());
 end $$;

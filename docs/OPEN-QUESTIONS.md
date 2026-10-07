@@ -1804,8 +1804,9 @@ Raised by the S70 to S75 review (`docs/research/S70-S75-review-and-build-plan.md
 - Decision:
 
 ### OQ-383 What "programme completion" means (raised by S75c, function 22.2)
-- The report counts care packs that have ended and the share whose entitlement state is `used`, labelled exactly that. A sponsor-facing "completed the 12-week programme" needs a founder and CMO definition (for example a final review done), probably a new field.
-- Decision:
+- Decided (S75-7, founder and CMO, 2026-10-07): programme completion = the entitlement was fully used: every consultation and test item in the Membership or care pack is used, or the term ended with the clinical items used. Implemented in the retention report (`fully_used`, labelled exactly that), kept in the engagement family, never combined with a clinical outcome. Revoked (refunded or cancelled) entitlements are not counted either way.
+- Limitation: "fully used" reads each entitlement's own state and `remaining_uses`; sibling consultation or test entitlements bought in the same pack are not linked to it by the schema, so a pack whose items sit in separate entitlements may be under-counted. Revisit if S26 links them.
+- Decision: decided.
 
 ### OQ-384 CMO door for the fairness review (raised by S75c, decision S75-4)
 - `record_risk_fairness_review` works and is proven, but the CMO's clinician login cannot open `/admin/risk-fairness`, where the monthly list lives, so there is no button yet. Needs a `/clinician/...` page (the S36e and S37 two-door pattern). Also: who prepares the monthly note (OQ-317).

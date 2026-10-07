@@ -106,7 +106,7 @@ export default async function OutcomeMeasuresPage({ searchParams }: { searchPara
                   <li key={d.day}>Day {d.day}: {d.suppressed ? withheldWords("reason" in d ? d.reason : undefined) : `${d.retained} of ${d.due} still members (${pct(d.retained_pct)}); ${pct(d.engaged_pct) ?? "engagement withheld"} logged a reading in the last 30 days`}</li>
                 ))}
               </ul>
-              <p>Programme completion: {retention.programme_completion.suppressed ? withheldWords(retention.programme_completion.reason) : `${retention.programme_completion.ran_to_the_end} of ${retention.programme_completion.ended_care_packs} care packs that have ended ran to their end (${pct(retention.programme_completion.ran_to_the_end_pct)}).`}</p>
+              <p>Programme completion: {retention.programme_completion.suppressed ? withheldWords(retention.programme_completion.reason) : `${retention.programme_completion.fully_used} of ${retention.programme_completion.ended_entitlements} Memberships and care packs whose term has ended were fully used, every consultation and test item (${pct(retention.programme_completion.fully_used_pct)}). This is about using what people had, not about getting better.`}</p>
               <p className="text-sm">{retention.definition}</p>
               <p className="text-sm">{retention.limitations}</p>
             </>
