@@ -675,7 +675,12 @@ begin
     -- S36h's clinical-queue task for a pharmacy problem (repeat questions on one prescription merge into the live task), so the question
     -- reaches the queue as well as the signer. The task type is S36h's; a replay that has not yet created it simply skips this line.
     if exists (select 1 from public.task_types where code = 'pharmacy_flag_review') then
-      perform private.create_clinical_task(v_rx.patient_id, 'pharmacy_flag_review', null, 'pharmacy_flag:' || v_rx.id);
+      begin
+        perform private.create_clinical_task(v_rx.patient_id, 'pharmacy_flag_review', null, 'pharmacy_flag:' || v_rx.id);
+      exception when others then
+        -- The question and the signer's notice already stand; a queue that cannot take the task must not lose the question, but the failure is recorded, never silent.
+        perform private.log_audit('prescription.pharmacy_task_failed', 'prescriptions', v_rx.id, jsonb_build_object('sqlstate', sqlstate));
+      end;
     end if;
   end if;
   return jsonb_build_object('ok', true);
