@@ -500,10 +500,14 @@ begin
     );
   $sabotage$;
 
+  -- S39b: patient_timeline now needs a care relationship, so the organisation-wide read is switched back on (the tied-reads switch) for this
+  -- one probe, so that what is being sabotaged is is_org_staff itself.
+  update public.platform_modules set is_enabled = false where key = 'tied_staff_reads';
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', v_ngo_admin_a::text, 'role', 'authenticated')::text, true);
   select count(*) into v_n from public.patient_timeline where organisation_id = v_org_ngo_a;
   reset role;
+  update public.platform_modules set is_enabled = true where key = 'tied_staff_reads';
 
   if v_n = 0 then
     raise exception 'GAP: sabotaged is_org_staff (no ngo_admin exclusion) still reads zero own-org rows — this test would not have caught a missing exclusion';

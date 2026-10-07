@@ -1372,3 +1372,18 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-269 Two live bugs found by the S39 proof and fixed (for the record, no decision needed)
 - `record_share_by_token` failed for any share that included the vitals section (a renamed column) or the lab results section (a status value that does not exist). Fixed in `20261007104237_s39_security_hardening_round1.sql` with a regression test. It shares lab results whose report status is final, corrected or amended; whether a lab result must also be clinician-released before it can be shared (INV-03) is for the CMO, since patients already read these rows directly.
 - Decision: informational; CMO to confirm the INV-03 point.
+
+### OQ-278 Tied direct reads on the other tables are still not audited one by one (INV-10)
+- S39b closes who may read (a care relationship, break-glass or a support view) on 125 tables. About 10 core tables also write an audit row per read through their audited functions (S05, S22e), and opening a chart is audited. The other tied tables are read directly by tied staff with no per-read audit row.
+- Options: (a) add audited read functions table group by table group, starting with transcripts, serology, mental health, sexual and reproductive health (recommended); (b) rely on the chart-open audit.
+- Decision: open (founder, CMO).
+
+### OQ-279 Staff writes are still organisation-wide on the tied tables
+- S39b changes SELECT only. An untied staff member can still INSERT, UPDATE or DELETE rows on those tables by policy (they cannot see the result). Writes are done mostly by functions and triggers.
+- Options: (a) tie the write policies the same way in a follow-up once the read change has run for a while (recommended); (b) leave.
+- Decision: open (founder).
+
+### OQ-280 What S39b deliberately left organisation-wide (106 tables, listed with reasons in `staff_read_scope`)
+- Scheduling and work queues (appointments, alerts, escalations, emergency events, outreach, care-team assignment, case management), logistics (lab orders and specimens, pharmacy), billing, self-tracking and system rules. Several hold clinical detail (lab orders, alerts, escalations). They stay so coordinators can book and the on-call route can pick up unassigned work; tying them needs the work-queue design (S35, S36) first.
+- Options: (a) tie lab orders and the alert and escalation tables once unassigned-work visibility is designed (recommended); (b) leave.
+- Decision: open (founder, CMO).

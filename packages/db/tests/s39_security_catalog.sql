@@ -39,6 +39,10 @@ insert into allow values
   ('owner_view', 'public.lab_provider_directory'), ('owner_view', 'public.pharmacy_partner_directory'),
   ('owner_view', 'public.specialist_directory'), ('owner_view', 'public.therapy_directory'),
   ('owner_view', 'analytics.v_outcome_snapshots'), ('owner_view', 'analytics.v_bp_control_90d_by_month'),
+  -- S39b: organisation-level quality and safety aggregates (counts only, filtered to the caller's organisation staff)
+  ('owner_view', 'public.diabetes_quality_metrics'), ('owner_view', 'public.hypertension_quality_metrics'), ('owner_view', 'public.lpe_programme_outcomes'),
+  ('owner_view', 'public.obesity_quality_metrics'), ('owner_view', 'public.risk_model_drift_signal'), ('owner_view', 'public.risk_model_performance'),
+  ('owner_view', 'public.risk_model_performance_by_subgroup'), ('owner_view', 'public.triage_safety_monitoring'),
   -- public storage buckets (staff photos are shown on the public directory)
   ('public_bucket', 'clinical-staff-photos'),
   -- patient avatars: a random-named file under the person's own folder, shown by its stored public address; private bucket plus signed
