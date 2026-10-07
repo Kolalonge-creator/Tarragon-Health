@@ -1771,3 +1771,11 @@ Six reviewed package branches were merged into one branch, `s11-s15/integration`
 - **What caught it**: the queue watchdog opened sev1 stale-job incidents at 19:14:05 UTC (`queue_job_stale:expire-task-claims`, `queue-watchdog`, `sweep-clinical-tasks`) and `paging_engine_stale:sweep_pages` opened at 15:38:59 UTC, 38 minutes after the first failure. 112 incidents opened since 14:00 UTC are still open: sev2 `ops_alert:stale_cron:*` and `cron-failure:*` rows (opened 21:22 UTC) for jobs including chain-canary, sweep-unpaged-red-events, triage-recheck-sweep, triage-glucose-sweep and paging-health, plus the sev1 items above. They are for the CMO and ops to resolve; nothing was closed here.
 - **Limit that matters**: these incidents were raised by jobs running inside the database, and they appeared late (the queue ones about four hours into the outage). See OQ-452.
 - **Also open**: sev1 `red_outreach_task_type_unconfirmed` (opened 19:14:05 UTC), see the sign-off pack section 2b.
+
+## S63: digital therapy programmes, engine and Wave A (2026-10-07)
+
+- **Built (nothing applied to production, nothing signed)**: migration `20261007205452_s63_therapy_programmes_engine_and_wave_a.sql` (tables, per-patient RLS, fail-closed table-driven entry screen run at entry and every session, versioned frozen content, checkpoint scores, worsening pause with a review task, consent-gated audited clinician read, seven go-live guards OFF, DRAFT exclusion lists, DRAFT config); Wave A content drafts (24 sessions); THP audio keys (no audio); `programme-progress` bus handler; web and mobile screens; strings.
+- **Reused**: S56 tie and audited-read helpers, shared-phone gate, F1 crisis task path, S10 outbox, S16 tasks, S37 guards, S32 manifest types, BRE-01 pacer.
+- **Tests**: DB proof `s63_therapy_programmes.sql` (125 checks, 4 sabotages that flip) on an isolated local stack with the full migration history replayed; shared 214+ jest (entry screen per item, worsening, queue, content copy lint, config and seed mirrors); audio, queue handler tests; web, mobile typecheck; tracking scan extended.
+- **Not run**: no device run of the mobile screen or the web pages in a browser; no real audio; the `process-events` function is not redeployed; no `/code-review ultra`.
+- **Open**: OQ-S63-1 to OQ-S63-7 in `docs/OPEN-QUESTIONS.md`.

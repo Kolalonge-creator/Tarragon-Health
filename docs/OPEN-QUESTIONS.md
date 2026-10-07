@@ -3474,3 +3474,23 @@ All undecided on 2026-10-15. Each has options and a recommendation; the recommen
 - Options: (a) set `HEALTH_CHECK_SECRET` and point an outside uptime service (not hosted on the same Supabase project or the same Vercel account if possible) at `/api/health/deep` every minute, alerting on non-200, on `ok:false` and on no answer, to a phone that reaches a named person; (b) also add a second outside probe that calls the database through a separate path and checks `paging_heartbeats` and `cron.job_run_details` age; (c) rely on the in-database watchdog only.
 - Recommendation: (a) now, because it is a variable and a monitor, and (b) before the readiness gate and the unified red paging flag are switched on. It ties to the final fallback in decision S16-S20-10 (a named ops person phoning on-call). Owner: founder.
 - Decision: open.
+### OQ-S63-1 Table names and the existing `therapy_sessions` (raised by S63)
+- The spec's `programmes`/`programme_enrolments` collide with 13 tables, and `therapy_sessions` is already the S56 therapist booking table. S63 uses `therapy_programmes`, `therapy_programme_sessions`, `therapy_enrolments`. Confirm the naming. Decision: open.
+
+### OQ-S63-2 CMO must read, change or reject every S63 draft (raised by S63)
+- Wave A session text, the 12 exclusion lists (local items flagged unverified: continuous leakage, over-50 onset and night symptoms for IBS, pregnancy and alcohol or sedative dependence for CBT-I, TB, sickle cell bone pain and HIV for pain), the `therapy_programme_config` numbers (only PHQ-9 and GAD-7 worsening and the CBT-I floor are CMO values; due windows, pelvic floor dose, other thresholds and checkpoints were chosen by the build). The plan also listed prolapse symptoms and infection for pelvic floor; not added. Decision: open.
+
+### OQ-S63-3 Red-flag codes are not shown to the tied clinician without consent (raised by S63)
+- A same-day task says only that a programme was stopped. The clinician sees which red flag fired only if the patient shares progress. Confirm, or allow the codes in the task for safety. Decision: open.
+
+### OQ-S63-4 S56 crisis card shows 112; S63 shows no number (raised by S63)
+- CMO decision is no phone number anywhere. The S56 `CrisisCard` still shows the emergency number. Decide whether to align. Decision: open.
+
+### OQ-S63-5 Share-consent wording, and who resumes a paused programme (raised by S63)
+- Consent text version is `draft-1`, unreviewed. A tied non-coordinator clinician may resume a worsening-paused programme; confirm the tier. Decision: open.
+
+### OQ-S63-6 Audio and manifest (raised by S63)
+- Clips `THP-PAN01..` are named but not in `audio/manifest.json`: add via `source/extra-clips.json` and the importer when recordings are commissioned. Group THP needs a title and review entry. Decision: open.
+
+### OQ-S63-7 Mood crisis path reuses F1 task type, not `raise_crisis_follow_up` (raised by S63)
+- That function is keyed on a questionnaire row. The programme crisis route uses the same task type, page and notices keyed on the enrolment. Wave C remains a scaffold until S56 merges and the path is tested. Decision: open.
