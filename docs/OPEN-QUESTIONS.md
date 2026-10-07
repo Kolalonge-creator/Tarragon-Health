@@ -1753,3 +1753,33 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Fixed in S11g and S11h: (a) the older server alert path now follows the 200/130 decision once the rule set is APPROVED: the old emergency range with no red-flag symptom (and not in pregnancy or after a birth) raises the Priority 1 alert but no patient emergency record; a symptom keeps it an emergency, and a symptom answered after the reading opens the emergency record then (migration `20261006000812`, proof `s11g`, a no-op until approval). The 160/100 and 135/85 bands are unchanged, so a 165/105 reading still pages Priority 1 for a reading the engine would treat as amber: that is the S12 band alignment of OQ-67 and needs the CMO. (f) Tapping the reminder or the server push now opens the blood pressure screen, from closed or running, once per tap (`notification-tap.ts`). (d) The Pidgin for the question's buttons and the reminder is drafted in the catalogue; the emergency guidance, triage messages and symptom names stay in English until a native reviewer and the CMO sign them; the full list is `docs/PIDGIN-REVIEW-S11.md`.
 - Still owed: (e) Android: not run (no Java or emulator image on this machine); `SCHEDULE_EXACT_ALARM` is not declared (OQ-73), so a reminder can arrive minutes late in Doze and the server backup push covers it. The native Pidgin review itself.
 - Decision: pending (item e, and the Pidgin sign-off).
+
+## S66: menstrual and reproductive, private cycle section (raised 2026-10-07)
+Numbering: the last number used on another branch was OQ-327; S66 starts at OQ-330 (check for clashes when merging).
+
+### OQ-330 Sealed cycle data is never destroyed, and deletion on request sits beside "do not erase real data"
+- Conflict: decision C/B3 (patient-entered tracker data deletable on request, clinician-recorded data sealed 8 years then destroyed) versus the founder direction recorded with S39c (`real_data_auto_delete` false, do not erase real data).
+- Built: deletion is on request only, after a 14 day grace window (PROPOSED), with a counts-only receipt in `audit_log`. The destruction of SEALED data after the retention period is configuration only; no job exists.
+- Options: (a) keep as built and decide the destruction job later with counsel; (b) build the job now behind a switch. Recommend (a). Counsel to confirm the 8 years.
+
+### OQ-331 The new go-live guard cannot be switched on yet
+- `reproductive_content_enabled` was added OFF. `private.go_live_conditions` has no branch for it, so it reads "unknown guard, never satisfied". The function is replaced wholesale by every session that adds a guard (S37, S37b, S28c) and S67 to S69 are adding theirs, so replacing it from this base would drop another session's branch.
+- Options: (a) one later migration adds all new branches after S66 to S69 merge; (b) each session replaces it in merge order. Recommend (a). Needs: the CMO content-review condition (an attestation) for this guard.
+
+### OQ-332 Other reproductive tables are still read directly by staff, unaudited
+- The clinician Women's Health tab still reads `patient_pregnancy`, `antenatal_visits`, `postnatal_profiles`, `breast_symptom_reports` and `fertility_assessment_requests` straight from the tables (INV-10 gap). S66 moved only cycle and menopause rows to the audited function. Pregnancy and postnatal belong to S67 and S68. Recommend: those sessions extend `read_reproductive_pattern_report_audited` or add siblings that call `private.reproductive_staff_tied`.
+
+### OQ-333 PIN lock limits (founder to confirm the threat model)
+- The PIN guards a VIEW on the device. Server data is not behind it: someone holding an unlocked, signed-in session can still call the API. Web has PIN only (no WebAuthn biometric). A person with browser developer tools can clear the local record. Mobile lock not run on a real device. Confirm this is the intended protection (shared phone and over-the-shoulder), not protection against a device thief.
+
+### OQ-334 Discreet naming beyond notifications
+- Notification text, the dashboard tile ("Your tracker") and the locked screen are neutral. The page title "Your cycle", the sidebar "Women's Health", the Prevention card "Your cycle & life stage", the in-app link target `/patient/cycle` and the template keys `cycle_period_*` still name the topic. Decide whether to rename them or accept them.
+
+### OQ-335 Clinician report reason is a fixed phrase
+- `read_reproductive_pattern_report_audited` requires a reason of 10 or more characters (the S05f pattern). The Women's Health tab sends a fixed phrase because S39c's direction is "no reason to type". Confirm the function should drop the reason argument.
+
+### OQ-336 Danger-sign, contraception and menopause wording are proposed copy
+- All strings in `packages/i18n/src/cycle-copy.ts` (`CYCLE_COPY_REVIEW`, status `pending_cmo_review`), including the danger-sign thresholds ("every hour for several hours"), need CMO review; each [verify] in the CMO pack still has to be checked against its source.
+
+### OQ-337 Live policy drift under the new functions
+- Live RLS on the cycle tables uses `private.staff_may_read/write` (S39b, S39g) which `origin/main-dev` does not contain. S66 replaces no policy, so it works on both, but re-run the three S66 proofs after S39b to S39h merge.
