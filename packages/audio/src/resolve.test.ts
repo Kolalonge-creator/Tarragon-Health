@@ -87,8 +87,8 @@ describe("a stitched phrase is all or nothing", () => {
     const { d } = deps(withFinished("all"));
     const r = await resolvePhrase(reading(), "en", d);
     expect(r.complete).toBe(true);
-    expect(r.steps.map((s) => s.clipId)).toEqual(["NUM-P01", "NUM-148", "NUM-P02", "NUM-094", "TRI-003"]);
-    expect(r.steps.map((s) => s.key)).toEqual(["en", "shared", "en", "shared", "en"]);
+    expect(r.steps.map((s) => s.clipId)).toEqual(["NUM-P01", "NUM-148", "NUM-P02", "NUM-094", "NUM-P24", "TRI-003"]);
+    expect(r.steps.map((s) => s.key)).toEqual(["en", "shared", "en", "shared", "en", "en"]);
   });
 });
 
@@ -96,7 +96,7 @@ describe("a clinical reading is never spoken alone (design change from the compe
   it("refuses a blood pressure, glucose, pulse or HbA1c phrase with no triage sentence", async () => {
     const { d, issues } = deps(withFinished("all"));
     const r = await resolvePhrase(stitchBloodPressure(148, 94)!, "en", d);
-    expect(r).toMatchObject({ complete: false, steps: [], text: "Your blood pressure reading is 148 over 94" });
+    expect(r).toMatchObject({ complete: false, steps: [], text: "Your blood pressure reading is 148 over 94 millimetres of mercury" });
     expect(issues).toEqual([{ code: "phrase_missing_severity", clipId: null, lang: "en", detail: "bp" }]);
   });
 
@@ -146,7 +146,7 @@ describe("language", () => {
     const { d } = deps(withFinished("all"));
     const r = await resolvePhrase(reading(120, 80), "en", d);
     expect(r).toMatchObject({ complete: true, lang: "en" });
-    expect(r.steps.map((s) => s.key)).toEqual(["en", "shared", "en", "shared", "en"]);
+    expect(r.steps.map((s) => s.key)).toEqual(["en", "shared", "en", "shared", "en", "en"]);
   });
 });
 
