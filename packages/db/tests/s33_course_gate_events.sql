@@ -116,9 +116,6 @@ begin
   perform pg_temp.pub(v_l1, v_today + 30);     -- served
   perform pg_temp.pub(v_l2, null);             -- no review date
   perform pg_temp.pub(v_l3, v_today - 1);      -- date passed
-  -- the original fixture had no named reviewer on the published row (the publish gate now requires one at publication), so the check below
-  -- that no reviewer credit is shown without a review record keeps its meaning only if the name and date are cleared again afterwards
-  update public.health_education_content set reviewed_by_name = null, reviewed_at = null where id = v_l1;
   -- v_l4 stays draft
   -- The programme row stays inactive for good: learning_course checks every lesson, the older programme functions only check the row.
   perform pg_temp.act(v_pat);
@@ -131,7 +128,10 @@ begin
   perform pg_temp.rec('a lesson with no review date is not served', 'false', (pg_temp.served_codes() like '%bpc_02%')::text);
   perform pg_temp.rec('a lesson whose review date has passed is not served', 'false', (pg_temp.served_codes() like '%bpc_03%')::text);
   perform pg_temp.rec('a draft is not served', 'false', (pg_temp.served_codes() like '%bpc_04%')::text);
-  perform pg_temp.rec('no reviewer credit without a review record', 'null', (select coalesce(reviewed_by_name, 'null') from public.learning_course('bp_care_course') where module_number = 1));
+  -- A published item can no longer lose its named reviewer (S58b), so "no credit without a review record" is shown on the lesson that is
+  -- still a draft (no review record), and a published lesson shows the name it was published with.
+  perform pg_temp.rec('no reviewer credit without a review record', 'null', (select coalesce(reviewed_by_name, 'null') from public.learning_course('bp_care_course') where module_number = 4));
+  perform pg_temp.rec('a published lesson shows its named reviewer', 'Test reviewer', (select coalesce(reviewed_by_name, 'null') from public.learning_course('bp_care_course') where module_number = 1));
   perform pg_temp.back();
   update public.health_education_content set reviewed_by_name = 'Dr Test Reviewer', reviewed_at = now(), clinician_reviewed = false where id = v_l1;
   perform pg_temp.act(v_pat);
