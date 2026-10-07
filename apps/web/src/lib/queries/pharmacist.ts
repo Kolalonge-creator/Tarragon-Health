@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@tarragon/shared";
+import { PHARMACY_MEDICATION_SAFE_COLUMNS, type PharmacyMedication } from "@/lib/queries/pharmacy-orders";
 
 export type PharmacyPartnerLocation = Tables<"pharmacy_partner_locations">;
-export type PharmacyMedicationRow = Tables<"pharmacy_medications">;
+export type PharmacyMedicationRow = PharmacyMedication;
 
 /**
  * Pharmacist surface (Phase 8b). Every call goes through a SECURITY DEFINER
@@ -367,7 +368,7 @@ export function usePharmacistOwnMedications(partnerId: string | null | undefined
       const supabase = createClient();
       const { data, error } = await supabase
         .from("pharmacy_medications")
-        .select("*")
+        .select(PHARMACY_MEDICATION_SAFE_COLUMNS)
         .eq("pharmacy_partner_id", partnerId as string)
         .order("drug_name");
       if (error) throw error;

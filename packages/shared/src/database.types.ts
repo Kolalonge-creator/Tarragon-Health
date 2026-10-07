@@ -42949,6 +42949,29 @@ export type Database = {
         }
         Relationships: []
       }
+      pharmacy_medications_admin: {
+        Row: {
+          commission_flat_kobo: number | null
+          commission_rate: number | null
+          commission_rate_type: string | null
+          created_at: string | null
+          drug_name: string | null
+          expected_restock_at: string | null
+          generic_equivalent_of: string | null
+          id: string | null
+          is_active: boolean | null
+          is_generic: boolean | null
+          pack_size: string | null
+          pharmacy_partner_id: string | null
+          pharmacy_partner_name: string | null
+          price_kobo: number | null
+          requires_cold_chain: boolean | null
+          stock_status: string | null
+          stock_updated_at: string | null
+          strength: string | null
+        }
+        Relationships: []
+      }
       pharmacy_partner_directory: {
         Row: {
           address: string | null

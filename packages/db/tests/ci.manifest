@@ -890,3 +890,5 @@ governed_config_supersede_guard.sql
 remove_pidgin_english_only.sql
 # The platform switch mechanism on a throwaway key: an admin turns it off in one call (no note) and it reads false for a signed-in patient and a signed-out (anon) caller, back on restores it; a patient and anon cannot change it; each change is audited once; an unknown key reads false and cannot be written; sabotage clears the anon opt-in and the anon read must flip false.
 platform_switch_acl_and_audit.sql
+# S53 pre-fix 8.16: commission columns on pharmacy_medications and the commissions ledger are refused to patient, clinician, pharmacist, anon and finance without commissions.view; price and stock stay readable; admin view works; sabotage restores the old grant and policies and the leak must reappear.
+s53_commission_columns_not_readable_by_patient_or_clinician.sql
