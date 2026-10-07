@@ -130,8 +130,8 @@ begin
 
   -- 3 SABOTAGE: order by risk first
   execute replace(pg_get_functiondef('public.queue_next(text[])'::regprocedure),
-    $a$order by c.priority_class, (c.state <> 'offered_to_lead'), c.due_at, c.created_at$a$,
-    $b$order by coalesce((select max(rs.deterioration_risk) from public.risk_scores rs where rs.patient_id = ct.patient_id), 0) desc, c.priority_class, c.due_at, c.created_at$b$);
+    $a$order by c.priority_class, (c.state <> 'offered_to_lead'), ct.trigger_severity desc, c.due_at, c.created_at$a$,
+    $b$order by coalesce((select max(rs.deterioration_risk) from public.risk_scores rs where rs.patient_id = ct.patient_id), 0) desc, c.priority_class, ct.trigger_severity desc, c.due_at, c.created_at$b$);
   v_sab_plain := pg_temp.scenario(false);
   v_sab_risk := pg_temp.scenario(true);
   insert into s75a4_results values ('3 SABOTAGE: with queue_next ordering by risk the two runs differ (1b would FAIL)',

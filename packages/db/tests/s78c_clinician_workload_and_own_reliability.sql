@@ -76,10 +76,11 @@ begin
            now() - interval '2 days',
            now() - interval '2 days' + interval '30 minutes',
            case when i = 9 then null else now() - interval '2 days' + (case i when 1 then interval '10 minutes' when 2 then interval '20 minutes' when 3 then interval '100 minutes' when 4 then interval '5 minutes' when 5 then interval '5 minutes' else interval '5 minutes' end) end,
-           case when i = 4 then 'expired' when i = 9 then null when i in (7, 8) then 'handed_back' else 'completed' end;
+           case when i = 4 then 'expired' when i = 9 then null when i in (7, 8) then 'handed_back' else 'completed' end,
+           false;
   end loop;
   insert into public.task_handbacks (organisation_id, task_id, clinician_id, reason_code, is_test)
-    select v_org, task_id, clinician_id, 'unavailable', false from public.task_claims where clinician_id = v_a and end_reason = 'handed_back';
+    select v_org, task_id, clinician_id, 'technical_problem', false from public.task_claims where clinician_id = v_a and end_reason = 'handed_back';
   set local session_replication_role = origin;
 
   -- 1. The CMO's read -------------------------------------------------------------------------------------------------

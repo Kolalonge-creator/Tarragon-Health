@@ -226,7 +226,7 @@ do $$
 declare v_n integer; v_cnt integer;
 begin
   perform pg_temp.chk('1a v3 is inserted inactive and unsigned-by-code; the active row is still v2',
-    '3:false|2', (select is_active::text from public.outcome_config where version = 3) || '|' || (select version::text from public.outcome_config where is_active));
+    'false|2', (select is_active::text from public.outcome_config where version = 3) || '|' || (select version::text from public.outcome_config where is_active));
   perform pg_temp.chk('1a2 v3 carries the measures block and v2 does not', 'true|false',
     (select (config ? 'measures')::text from public.outcome_config where version = 3) || '|' || (select (config ? 'measures')::text from public.outcome_config where version = 2));
   perform pg_temp.chk('1a3 v3 is v2 plus the measures block: every S38 rule (days, windows, grace, target, min cells) is identical, so activating it changes no BP rule',

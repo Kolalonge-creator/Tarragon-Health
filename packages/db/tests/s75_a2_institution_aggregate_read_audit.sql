@@ -77,7 +77,7 @@ begin
 
   -- 6 SABOTAGE
   execute replace(pg_get_functiondef('public.log_institution_aggregate_read(uuid,text)'::regprocedure),
-    $a$if v_role is null$a$, $b$if false and v_role is null$b$);
+    $a$raise exception 'not authorised' using errcode = '42501';$a$, $b$null;$b$);
   perform set_config('request.jwt.claims', json_build_object('sub', pt, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
   begin

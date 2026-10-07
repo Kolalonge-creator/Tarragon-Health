@@ -34,7 +34,7 @@ declare k text;
 begin
   if jsonb_typeof(r) <> 'object' then return false; end if;
   foreach k in array array['written_question_minutes', 'amber_review_minutes', 'appointment_start_late_minutes', 'lookback_days', 'patient_notice_cooldown_hours'] loop
-    if not ((r ->> k) ~ '^[0-9]+$') or (r ->> k)::integer < 1 then return false; end if;
+    if (r ->> k) is null or (r ->> k) !~ '^[0-9]+$' or (r ->> k)::integer < 1 then return false; end if;
   end loop;
   return true;
 exception when others then
