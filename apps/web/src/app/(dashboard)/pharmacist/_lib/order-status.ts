@@ -11,13 +11,10 @@ export const STATUS_META: Record<string, { label: string; badge: BadgeProps["var
   confirmed: { label: "In progress", badge: "blue" },
   unavailable: { label: "Unavailable", badge: "amber" },
   dispensed: { label: "Dispensed", badge: "green" },
-  out_for_delivery: { label: "Dispensed", badge: "green" },
-  delivery_failed: { label: "Delivery failed", badge: "red" },
-  delivered: { label: "Dispensed", badge: "green" },
   cancelled: { label: "Cancelled", badge: "grey" },
 };
 
-const COMPLETE_STATUSES = new Set(["dispensed", "out_for_delivery", "delivery_failed", "delivered", "cancelled"]);
+const COMPLETE_STATUSES = new Set(["dispensed", "cancelled"]);
 const AWAITING_STATUSES = new Set(["pending_payment", "payment_confirmed", "requested"]);
 
 export function isOpenStatus(status: string): boolean {

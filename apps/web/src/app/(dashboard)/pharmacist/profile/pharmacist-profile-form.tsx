@@ -20,7 +20,6 @@ type FormState = {
   contactEmail: string;
   licenseNumber: string;
   licenseExpiresAt: string;
-  delivery: boolean;
 };
 
 function toFormState(profile: PharmacistProfile): FormState {
@@ -33,7 +32,6 @@ function toFormState(profile: PharmacistProfile): FormState {
     contactEmail: profile.contact_email ?? "",
     licenseNumber: profile.license_number ?? "",
     licenseExpiresAt: profile.license_expires_at ? profile.license_expires_at.slice(0, 10) : "",
-    delivery: profile.delivery,
   };
 }
 
@@ -73,7 +71,6 @@ function ProfileFormFields({ profile }: { profile: PharmacistProfile }) {
       state: form.state.trim(),
       contactPhone: form.contactPhone.trim(),
       contactEmail: form.contactEmail.trim(),
-      delivery: form.delivery,
       licenseNumber: form.licenseNumber.trim(),
       licenseExpiresAt: form.licenseExpiresAt || null,
     });
@@ -143,15 +140,6 @@ function ProfileFormFields({ profile }: { profile: PharmacistProfile }) {
               />
             </div>
           </div>
-
-          <label className="flex items-center gap-2 text-sm text-charcoal-ink/75">
-            <input
-              type="checkbox"
-              checked={form.delivery}
-              onChange={(e) => field("delivery")(e.target.checked)}
-            />
-            Offers delivery
-          </label>
 
           <div className="flex items-center gap-2.5">
             <Button onClick={handleSave} disabled={update.isPending || !form.name.trim()}>

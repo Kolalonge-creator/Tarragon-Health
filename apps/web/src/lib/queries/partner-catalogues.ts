@@ -345,7 +345,6 @@ export function useCreatePharmacyPartner() {
       city: string | null;
       contactPhone: string | null;
       contactEmail: string | null;
-      delivery: boolean;
       isActive: boolean;
     }) => {
       const supabase = createClient();
@@ -356,7 +355,6 @@ export function useCreatePharmacyPartner() {
         city: input.city,
         contact_phone: input.contactPhone,
         contact_email: input.contactEmail,
-        delivery: input.delivery,
         is_active: input.isActive,
       });
       if (error) throw error;
