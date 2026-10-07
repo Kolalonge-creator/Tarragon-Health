@@ -1750,7 +1750,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-310 The clinician does not send a prescription to a pharmacy; the patient chooses (raised by S54)
 - The S54 brief asked for a clinician "send to nearest partner pharmacy" writing `state = sent`, the pharmacy and the code. The founder decided on 2026-10-07 (S28) that the patient chooses a verified pharmacy herself, S28 moved the code to a patient-only table and stopped writing `prescriptions.collection_code`, and spec 8.16 says clinicians never see which pharmacy earns more. Doing it the brief's way would reverse a same-day founder decision, so it was not built. What the patient gets is the comparison before choosing, and the signed prescription to take anywhere.
 - Options: (a) as built (recommended); (b) a clinician "suggest a pharmacy" that only pre-selects it for the patient to confirm (stores a suggestion, never routes); (c) full clinician routing (reverses the S28 decision).
-- Decision: open (founder).
+- **Decision (founder, 2026-10-07): option (b), built in S54c.** The care team may suggest a pharmacy after signing; the patient confirms before anything is sent; S28 (patient chooses, code on a patient-only table) and spec 8.16 stay intact. See `docs/design/S54.md` section 6. Follow-ups: OQ-330 to OQ-332.
 
 ### OQ-311 No pharmacy can be compared yet, and prices are per pack (raised by S54)
 - Live: 4 partners, none active; `pharmacy_medications` has 0 rows. Real prices need a partner rate card entered by an admin. A price is per listed pack; the comparison sums ONE pack of each item and says so ("for one pack of each item"), it does not scale to the quantity written. A pharmacy's "prices last updated" date is the oldest line's. Matching is by the medicine's first word and the exact strength; a strength nobody lists finds nothing rather than a price for another strength.
@@ -1777,3 +1777,17 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-317 A possible emergency in a pharmacist chat reaches the patient and the pharmacist, not the care team (raised by S54)
 - The patient's own screen shows the emergency steps at once, and the pharmacist sees a "possible emergency" flag on the list and the thread (a deterministic phrase screen, the same list the care messages use; no model). Nothing is raised to the care team because the care team does not read the chat by design. Chat access: the patient herself, or the manager of a DEPENDANT account (a child or an adult dependant) with the pharmacy permission; never a 10 to 17 year old's thread, and never a relative with an ordinary manage grant on an independent adult (a medicine question can be about anything). A caregiver starting a chat without naming a medicine starts it as themselves, and the reply notice goes to the dependant's own account (a dependant with no login does not see it; the guardian finds it on the page). A pharmacy that stops being listed takes no more messages and its pharmacists see nothing.
 - Options: (a) as built (recommended; the pharmacist is told to send the person to the emergency steps); (b) also raise a clinician alert from a flagged chat message (needs a decision on who answers a pharmacy's patient).
+
+### OQ-330 Suggestion shows nearness as a tier, not a distance, and no opening hours (raised by S54c)
+- The clinician sees "same city" or "same state" as the patient, then name order. There is no kilometre distance because patients have no stored coordinates (only city and state text), and no "open or closed" because nothing in the database records opening hours (`pharmacy_partners` and `pharmacy_partner_locations` carry none). Both were asked for in the brief; neither can be shown truthfully today.
+- Options: (a) as built (recommended until real data exists); (b) add opening hours to branches (partner self-service, like availability) and an optional patient location (an explicit consent question, since it is personal data); (c) both.
+- Decision: open (founder).
+
+### OQ-331 The suggestion appears on the web chooser, not on the phone (raised by S54c)
+- The phone has no pharmacy chooser at all (OQ-277, OQ-315), so there is nothing to put the suggestion into. The patient still gets the generic in-app notice (it names nothing) and the web page shows "Your care team suggests X". Nothing depends on the notice. Adding the phone chooser would carry this with it.
+- Decision: open (founder), together with OQ-277.
+
+### OQ-332 A suggestion never expires, and only the patient can answer it (raised by S54c)
+- A pending suggestion stays until the patient accepts, declines or chooses elsewhere, the clinician withdraws it, or the prescription is cancelled or dispensed. There is no timeout and no chase. A relative holding a care-circle grant cannot accept for the patient, matching S28's chooser, which is patient-only (the price comparison alone allows a grant holder). A pharmacy that stops being listable disappears from the patient's card and cannot be accepted.
+- Options: (a) as built (recommended); (b) lapse after N days (needs a number from the CMO); (c) let a manager of a dependant account accept, as for pharmacist chat (OQ-317).
+- Decision: open (founder).
