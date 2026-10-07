@@ -127,6 +127,8 @@ export async function POST(request: Request): Promise<NextResponse> {
         connectionId: connection.id,
         organisationId: profile.organisation_id,
         patientId: userId,
+        provider,
+        syncKind: "health_store",
       },
       readings
     );

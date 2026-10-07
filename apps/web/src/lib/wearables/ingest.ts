@@ -4,6 +4,7 @@ import type { Database, TablesInsert } from "@tarragon/shared";
 import { assessBpControlBestEffort } from "@/lib/ml/assess-bp-control";
 import { assessHeartRateBestEffort } from "@/lib/vitals/assess-heart-rate";
 import { runBestEffort } from "@/lib/sentry/run-best-effort";
+import { recordDeviceSync, type SyncKind } from "./device-events";
 import {
   consentDecisionFor,
   FULL_WEARABLE_CONSENT,
@@ -38,6 +39,10 @@ export interface IngestTarget {
    * row and gates categories at the OS permission level instead) keeps its
    * existing behaviour untouched. */
   consent?: WearableConsent;
+  /** S70: when both are given, a finished batch records one `device.synced` event (ids and counts only). Optional so every older
+   * caller keeps its exact behaviour. */
+  provider?: string;
+  syncKind?: SyncKind;
 }
 
 export interface IngestResult {
@@ -289,6 +294,24 @@ export async function ingestReadings(
       );
       if (failed) result.safetyAssessmentFailed = true;
     }
+  }
+
+  // S70 `device.synced` (Module 18): one event per finished batch that stored something, counts only. Best effort: a bus problem
+  // never fails a sync whose readings are already safe. Runs before the failure is raised so a partly stored batch is still recorded.
+  if (target.provider && target.syncKind && result.vitalsInserted + result.wearableInserted > 0) {
+    const provider = target.provider;
+    const syncKind = target.syncKind;
+    await runBestEffort(
+      () =>
+        recordDeviceSync(svc, {
+          patientId: target.patientId,
+          provider,
+          sourceKind: syncKind,
+          readingCount: result.vitalsInserted + result.wearableInserted,
+          duplicateCount: duplicates,
+        }),
+      { action: "ingestReadings", stage: "device_synced_event", patientId: target.patientId, organisationId: target.organisationId }
+    );
   }
 
   // Last, so everything that DID land is committed, counted, bridged to the

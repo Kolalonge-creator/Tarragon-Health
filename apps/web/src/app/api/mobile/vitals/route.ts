@@ -15,6 +15,7 @@ import {
   GLUCOSE_RANGE,
 } from "@/lib/validation/vitals";
 import { mgDlToMmolL, type TablesInsert } from "@tarragon/shared";
+import { recordDeviceSync } from "@/lib/wearables/device-events";
 import { z } from "zod";
 
 /**
@@ -120,6 +121,13 @@ export async function POST(request: Request): Promise<NextResponse> {
   const clientReadingParsed = z.object({ client_reading_id: z.string().uuid().optional() }).safeParse(body);
   const clientReadingId = clientReadingParsed.success ? clientReadingParsed.data.client_reading_id : undefined;
 
+  // S70 (18.3): a reading the patient typed or confirmed after taking a photo of a device screen. The photo never reaches the
+  // server. It is stored as a device-source reading with a photo-confirmed label, so a patient cannot rewrite it later (the
+  // source lock), and it takes exactly the manual path for plausibility bounds and triage: same schema above, same red-flag
+  // triggers on insert, same assessors below.
+  const captureParsed = z.object({ capture_method: z.literal("photo").optional() }).safeParse(body);
+  const fromPhoto = captureParsed.success && captureParsed.data.capture_method === "photo";
+
   let subjectId = user.id;
   if (beneficiaryId) {
     const { data: allowed } = await supabase.rpc("can_act_for", { p_beneficiary: beneficiaryId });
@@ -169,6 +177,10 @@ export async function POST(request: Request): Promise<NextResponse> {
   // private.stamp_manual_vitals_timestamp. The phone's own clock goes in
   // client_recorded_at instead (S06); the trigger keeps it as the effective
   // time only inside the bounded offline window, else falls back to server time.
+  if (fromPhoto) {
+    row.source = "device";
+    row.photo_confirmed = true;
+  }
   row.taken_at = new Date().toISOString();
   row.client_recorded_at = taken_at ? new Date(taken_at).toISOString() : null;
   row.client_reading_id = clientReadingId ?? null;
@@ -184,6 +196,14 @@ export async function POST(request: Request): Promise<NextResponse> {
       return NextResponse.json({ success: true });
     }
     return NextResponse.json({ error: insertError.message }, { status: 500 });
+  }
+
+  if (fromPhoto) {
+    // `device.synced` for a photo-confirmed reading: counts only, best effort.
+    await runBestEffort(
+      () => recordDeviceSync(supabase, { patientId: subjectId, provider: "photo_capture", sourceKind: "photo", readingCount: 1 }),
+      { route: "api/mobile/vitals", stage: "device_synced_event", patientId: subjectId }
+    );
   }
 
   // From here on the reading is durably saved — every failure below is

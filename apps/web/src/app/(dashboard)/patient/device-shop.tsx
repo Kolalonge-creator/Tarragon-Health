@@ -6,6 +6,7 @@ import {
   type DeviceCatalogEntry,
 } from "@/lib/queries/device-catalog";
 import Link from "next/link";
+import { connectionLabel, isListable, MANUAL_ENTRY_FIRST, validationLabel } from "@tarragon/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const CATEGORY_ORDER: DeviceCatalogEntry["category"][] = [
@@ -30,7 +31,8 @@ export function DeviceShop() {
   const { data: catalogue, isLoading, isError } = useDeviceCatalog();
 
   const byCategory = new Map<DeviceCatalogEntry["category"], DeviceCatalogEntry[]>();
-  for (const device of catalogue ?? []) {
+  // S70 (C5): only a model that meets the listing rule is shown, even if a row somehow slipped past the database constraint.
+  for (const device of (catalogue ?? []).filter(isListable)) {
     const list = byCategory.get(device.category) ?? [];
     list.push(device);
     byCategory.set(device.category, list);
@@ -40,11 +42,15 @@ export function DeviceShop() {
     <div className="space-y-6">
       <Card>
         <CardContent className="space-y-2 pt-6 text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+          <p className="font-medium text-charcoal-ink dark:text-night-ink">{MANUAL_ENTRY_FIRST}</p>
           <p>
-            These are third-party devices Tarragon has clinically vetted for accuracy and app
-            compatibility. Tarragon doesn&apos;t sell or ship them itself, and doesn&apos;t earn
-            anything if you buy one. Get one from any retailer you trust, or log any reading by
-            hand in Vitals &amp; symptoms at any time, with any device.
+            These models have a published accuracy check and are sold in Nigeria by an authorised
+            distributor. Tarragon doesn&apos;t sell or ship them itself, and doesn&apos;t earn anything
+            if you buy one. Log any reading by hand in{" "}
+            <Link href="/patient/vitals" className="text-brand-green dark:text-brand-green-bright underline">
+              Vitals &amp; symptoms
+            </Link>{" "}
+            at any time, with any device.
           </p>
         </CardContent>
       </Card>
@@ -83,8 +89,13 @@ export function DeviceShop() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <span className="inline-flex items-center rounded-full bg-brand-green px-3 py-1 text-xs font-medium text-white">
-                      ✅ Works with Tarragon
+                      Meets the listing checks
                     </span>
+                    <ul className="space-y-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                      {validationLabel(device.validation_standard) && <li>{validationLabel(device.validation_standard)}</li>}
+                      <li>{connectionLabel(device.bluetooth_via)}</li>
+                      {device.distributor_name && <li>Sold by {device.distributor_name}</li>}
+                    </ul>
                     {device.description && (
                       <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{device.description}</p>
                     )}

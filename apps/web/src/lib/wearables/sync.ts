@@ -286,6 +286,8 @@ async function ingestFor(
         organisationId: connection.organisation_id,
         patientId: connection.patient_id,
         consent: consentFromConnection(connection),
+        provider: connection.provider,
+        syncKind: connection.provider === "dexcom" ? "cgm" : "wearable_cloud",
       },
       readings
     );

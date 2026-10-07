@@ -3,6 +3,7 @@ import { createBearerClient } from "@/lib/supabase/bearer";
 import { assessBpControlBestEffort } from "@/lib/ml/assess-bp-control";
 import { assessGlucoseBestEffort } from "@/lib/vitals/assess-glucose";
 import { runBestEffort } from "@/lib/sentry/run-best-effort";
+import { recordDeviceSync } from "@/lib/wearables/device-events";
 import { deviceReadingSchema } from "@/lib/validation/device-reading";
 import { mgDlToMmolL, type TablesInsert } from "@tarragon/shared";
 
@@ -138,6 +139,12 @@ export async function POST(request: Request): Promise<NextResponse> {
       connectivity_notified_at: null,
     })
     .eq("id", device_id);
+
+  // S70 `device.synced`: one reading from a paired Bluetooth device. Counts only; the database allows one per minute and provider.
+  await runBestEffort(
+    () => recordDeviceSync(supabase, { patientId: user.id, provider: "ble_clinical", sourceKind: "ble", readingCount: 1 }),
+    { route: "api/mobile/device-readings", stage: "device_synced_event", patientId: user.id }
+  );
 
   // From here on the reading is durably saved (and patient_devices already
   // updated above). assessBpControlBestEffort/assessGlucoseBestEffort are

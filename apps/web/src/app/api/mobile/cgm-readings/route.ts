@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createBearerClient } from "@/lib/supabase/bearer";
+import { recordDeviceSync } from "@/lib/wearables/device-events";
+import { runBestEffort } from "@/lib/sentry/run-best-effort";
 import { cgmReadingBatchSchema } from "@/lib/validation/cgm-reading";
 import { mgDlToMmolL, type TablesInsert } from "@tarragon/shared";
 
@@ -111,6 +113,12 @@ export async function POST(request: Request): Promise<NextResponse> {
   } else {
     return NextResponse.json({ error: batchError.message }, { status: 500 });
   }
+
+  // S70 `device.synced`: counts only, best effort (a bus problem never fails a stored batch).
+  await runBestEffort(
+    () => recordDeviceSync(supabase, { patientId: user.id, provider: "cgm_partner", sourceKind: "cgm", readingCount: inserted, duplicateCount: rows.length - inserted }),
+    { route: "api/mobile/cgm-readings", stage: "device_synced_event", patientId: user.id }
+  );
 
   return NextResponse.json({ success: true, inserted });
 }
