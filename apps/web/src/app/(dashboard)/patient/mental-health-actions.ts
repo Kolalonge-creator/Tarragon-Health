@@ -5,7 +5,7 @@ import { mentalHealthScreenSchema } from "@/lib/validation/mental-health-screen"
 import { saveMentalHealthScreens } from "@/lib/mental-health/save-screens";
 
 export type SubmitMentalHealthState =
-  | { error?: string; success?: boolean; crisis?: boolean }
+  | { error?: string; success?: boolean; crisis?: boolean; told?: boolean }
   | undefined;
 
 /**
@@ -30,5 +30,5 @@ export async function submitMentalHealthScreen(
 
   const result = await saveMentalHealthScreens({ userClient: supabase, userId: user.id, answers: parsed.data });
   if (!result.ok) return { error: result.error };
-  return { success: true, crisis: result.crisis };
+  return { success: true, crisis: result.crisis, told: result.told };
 }

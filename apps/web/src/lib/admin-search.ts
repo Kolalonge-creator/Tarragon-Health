@@ -56,7 +56,6 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/clinician/payouts", "my payouts weekly statement bank account verify name tax tin withholding contractor paid transfer"],
   ["/clinician/earnings", "my earnings earned pay paid statement ledger fee schedule per task consultation on call shift lead month minimum top up correction"],
   ["/clinician/on-call", "on call page paged priority case red event acknowledge alarm escalation"],
-  ["/admin/settings/crisis-helplines", "crisis helpline suicide self harm emergency 112 verify phone surpin mani she writes woman card mental wellbeing distress callback"],
   ["/admin/settings/clinical-staff", "doctor clinician staff mdcn roster verify"],
   ["/admin/settings/members", "users logins accounts roles permissions invite provision"],
   ["/admin/patients", "patient people customers find search lookup support investigate purchases"],

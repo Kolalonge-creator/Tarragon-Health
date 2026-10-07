@@ -136,7 +136,7 @@ create or replace function public.request_mental_health_handoff(p_screen uuid de
 returns uuid language plpgsql security definer set search_path = '' as $$
 declare
   v_uid uuid := (select auth.uid()); v_pr public.profiles%rowtype; v_s public.mental_health_screens%rowtype;
-  v_summary jsonb := '{}'::jsonb; v_id uuid := gen_random_uuid(); v_task uuid;
+  v_summary jsonb := '{}'::jsonb; v_id uuid := gen_random_uuid(); v_task uuid; v_dup uuid;
 begin
   if v_uid is null then raise exception 'not authorised' using errcode = '42501'; end if;
   select * into v_pr from public.profiles where id = v_uid and role = 'patient';
@@ -145,6 +145,9 @@ begin
   if p_screen is not null then
     select * into v_s from public.mental_health_screens where id = p_screen and patient_id = v_uid;
     if not found then raise exception 'unknown screen' using errcode = '22023'; end if;
+    -- a second tap on the same screen while a hand-off for it is still open returns that hand-off: one task, not two
+    select id into v_dup from public.mental_health_handoffs where patient_id = v_uid and screen_id = p_screen and state = 'open' order by created_at desc limit 1;
+    if v_dup is not null then return v_dup; end if;
     v_summary := jsonb_build_object('instrument', v_s.instrument, 'severity_band', v_s.severity_band, 'total_score', v_s.total_score, 'taken_at', v_s.created_at);
   end if;
   insert into public.mental_health_handoffs (id, organisation_id, patient_id, screen_id, summary, patient_note, is_test)

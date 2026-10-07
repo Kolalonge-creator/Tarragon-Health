@@ -10,10 +10,10 @@ import { Card } from "@/ui/legacy-kit";
 
 /**
  * The crisis card (function 10.3) on the phone. Same screen, no navigation, no model (INV-01), and it works with no signal (INV-06):
- * the emergency number and every sentence are bundled in the app (CRISIS_CARD_OFFLINE and the i18n catalogue), and the helpline list
- * from the server is cached on the device. A helpline is shown only when a human verified it recently; otherwise the card says helplines
- * are still being confirmed and points to the emergency number and the nearest hospital. normaliseCrisisCard drops an unverified or
- * stale line on this side as well, so a wrong server cannot put one on screen.
+ * the emergency number and every sentence are bundled in the app (CRISIS_CARD_OFFLINE and the i18n catalogue) and the last server copy
+ * is cached on the device. Founder decision 2026-10-07: there are no usable crisis helplines in Nigeria, so the card shows NO helpline
+ * number; it says go to the nearest hospital now and shows the emergency number (112, wording awaiting CMO approval). Helplines can be
+ * added later with their own verified-only gate; normaliseCrisisCard ignores any helpline an old cached copy still carries.
  */
 const CACHE_KEY = "tarragon.crisisCard.v1";
 
@@ -64,19 +64,6 @@ export function CrisisCard({ told = false }: { told?: boolean }) {
         <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>{t("crisis.hospital")}</Text>
         {link(t("crisis.hospital_map"), "https://www.google.com/maps/search/?api=1&query=nearest+hospital+emergency")}
         <Text style={{ fontSize: 12, color: colors.muted }}>{t("crisis.hospital_offline")}</Text>
-      </View>
-      <View style={{ gap: 4 }}>
-        <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>{t("crisis.helplines_title")}</Text>
-        {card.helplines.length === 0 ? (
-          <Text style={{ fontSize: 13.5, color: colors.ink }}>{t("crisis.helplines_unverified", "en", { number: card.emergencyNumber })}</Text>
-        ) : (
-          card.helplines.map((h) => (
-            <View key={h.name}>
-              {link(h.name, `tel:${h.phone_e164}`)}
-              {h.hours_text ? <Text style={{ fontSize: 12, color: colors.muted }}>{t("crisis.helpline_hours", "en", { hours: h.hours_text })}</Text> : null}
-            </View>
-          ))
-        )}
       </View>
       <Text style={{ fontSize: 12, color: colors.muted }}>{t("crisis.stay_with_someone")}</Text>
     </Card>

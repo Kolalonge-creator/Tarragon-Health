@@ -44,5 +44,5 @@ export async function POST(request: Request): Promise<NextResponse> {
     const status = result.error === "No organisation on file" ? 400 : 500;
     return NextResponse.json({ error: result.error }, { status });
   }
-  return NextResponse.json({ success: true, crisis: result.crisis });
+  return NextResponse.json({ success: true, crisis: result.crisis, told: result.told });
 }

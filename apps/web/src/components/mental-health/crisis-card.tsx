@@ -8,10 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 /**
  * The crisis card (function 10.3). Same screen, no navigation, no model (INV-01), and it works with no signal (INV-06): its content
- * is bundled (CRISIS_CARD_OFFLINE in @tarragon/shared plus the catalogue strings), and the helpline list from the server is cached on
- * this device. A helpline is shown only if a human verified it recently; otherwise the card says helplines are still being confirmed
- * and points to the emergency number and the nearest hospital. The card never shows a number it has not been told is verified, and
- * normaliseCrisisCard drops one again on this side if the server ever sent it.
+ * is bundled (CRISIS_CARD_OFFLINE in @tarragon/shared plus the catalogue strings) and the last server copy is cached on this device.
+ * Founder decision 2026-10-07: there are no usable crisis helplines in Nigeria, so the card shows NO helpline number. It tells the
+ * person to go to the nearest hospital now and shows the emergency number (112, wording awaiting CMO approval). Helplines can be added
+ * later with their own verified-only gate; normaliseCrisisCard ignores any helpline an old cached copy still carries.
  *
  * `told` is true when the screen has just raised a crisis, so the card can say the care team has been told.
  */
@@ -21,7 +21,7 @@ function readCache(): CrisisCardData | null {
   try {
     const raw = window.localStorage.getItem(CACHE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as { emergency_number?: string; helplines?: unknown; callback_sla_minutes?: unknown };
+    const parsed = JSON.parse(raw) as { emergency_number?: string; callback_sla_minutes?: unknown };
     return normaliseCrisisCard(parsed);
   } catch {
     return null;
@@ -79,22 +79,6 @@ export function CrisisCard({ told = false }: { told?: boolean }) {
             {t("crisis.hospital_map")}
           </a>
           <p className="text-xs text-charcoal-ink/65 dark:text-night-ink/65">{t("crisis.hospital_offline")}</p>
-        </div>
-
-        <div className="space-y-1">
-          <p className="font-medium">{t("crisis.helplines_title")}</p>
-          {card.helplines.length === 0 ? (
-            <p>{t("crisis.helplines_unverified", "en", { number: card.emergencyNumber })}</p>
-          ) : (
-            <ul className="space-y-1">
-              {card.helplines.map((h) => (
-                <li key={h.name}>
-                  <a href={`tel:${h.phone_e164}`} className="font-medium underline">{h.name}</a>
-                  {h.hours_text ? <span className="block text-xs">{t("crisis.helpline_hours", "en", { hours: h.hours_text })}</span> : null}
-                </li>
-              ))}
-            </ul>
-          )}
         </div>
 
         <p className="text-xs">{t("crisis.stay_with_someone")}</p>

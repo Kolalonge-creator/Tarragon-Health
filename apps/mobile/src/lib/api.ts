@@ -299,8 +299,8 @@ export type MentalHealthScreenAnswers = Record<string, number | boolean>;
  * second implementation of any of that logic. */
 export async function postMentalHealthScreen(
   answers: MentalHealthScreenAnswers
-): Promise<{ success?: boolean; crisis?: boolean; error?: string }> {
-  const result = await request<{ success?: boolean; crisis?: boolean }>(
+): Promise<{ success?: boolean; crisis?: boolean; told?: boolean; error?: string }> {
+  const result = await request<{ success?: boolean; crisis?: boolean; told?: boolean }>(
     "/api/mobile/mental-health-screen",
     "POST",
     answers

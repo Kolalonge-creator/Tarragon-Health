@@ -463,7 +463,7 @@ function MentalHealthScreenForm({ onDone }: { onDone: () => void }) {
   const [epds, setEpds] = useState<(number | null)[]>(Array(10).fill(null));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ crisis?: boolean } | null>(null);
+  const [result, setResult] = useState<{ crisis?: boolean; told?: boolean } | null>(null);
 
   async function submit() {
     setError(null);
@@ -487,7 +487,7 @@ function MentalHealthScreenForm({ onDone }: { onDone: () => void }) {
       setError(res.error);
       return;
     }
-    setResult({ crisis: res.crisis });
+    setResult({ crisis: res.crisis, told: res.told });
   }
 
   if (result) {
@@ -495,7 +495,7 @@ function MentalHealthScreenForm({ onDone }: { onDone: () => void }) {
       <Card style={{ gap: 8 }}>
         <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Thanks for checking in</Text>
         <MutedText>Your answers are saved and your care team can see them.</MutedText>
-        {result.crisis && <CrisisCard told />}
+        {result.crisis && <CrisisCard told={result.told !== false} />}
         <SecondaryButton title="Close" onPress={onDone} />
       </Card>
     );
