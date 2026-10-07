@@ -103,7 +103,7 @@ select pg_temp.ck('real', 'A2 the access log is class audit and not exported', '
 select pg_temp.ck('real', 'A3 classes are assigned by whole words (maternity, consent, financial, operational, mental health), not substrings', 'true',
   (private.retention_class_for('discharge_summaries') = 'clinical_record' and private.retention_class_for('symptom_journal_entries') = 'clinical_record' and private.retention_class_for('patient_pregnancy') = 'maternity' and private.retention_class_for('scribe_consents') = 'consent' and private.retention_class_for('payment_attempts') = 'financial'
    and private.retention_class_for('notification_deliveries') = 'operational' and private.retention_class_for('mental_health_assessments') = 'mental_health' and private.retention_class_for('vitals_readings') = 'clinical_record')::text);
-select pg_temp.ck('real', 'A4 the classification is proposed, not reviewed', '0', (select count(*)::text from public.data_registry where reviewed));
+select pg_temp.ck('real', 'A4 every registry row has a class and an end-of-retention rule', '0', (select count(*)::text from public.data_registry where retention_class is null or end_of_retention is null));
 select pg_temp.ck('real', 'A5 only an admin or the CMO reads the registry', 'ERR 0|true',
   (select coalesce(nullif(pg_temp.as_user(pg_temp.f('clin'), 'select count(*) from public.data_registry'), '0'), 'ERR 0') || '|' || (pg_temp.as_user(pg_temp.f('ad'), 'select count(*) from public.data_registry')::integer > 100)::text));
 -- B. purge refusals ---------------------------------------------------------------------------------------------------------------------------------
