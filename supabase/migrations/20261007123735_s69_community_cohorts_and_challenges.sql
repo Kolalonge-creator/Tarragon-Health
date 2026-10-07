@@ -999,55 +999,66 @@ create function private.community_run() returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
 declare
-  cfg jsonb := private.community_rules(); ch public.challenges%rowtype; s public.challenge_totals%rowtype; v_made integer := 0; v_announced integer := 0; v_purged integer; v_phase text; v_member record;
+  cfg jsonb := private.community_rules(); ch public.challenges%rowtype; s public.challenge_totals%rowtype; v_made integer := 0; v_announced integer := 0; v_errors integer := 0; v_purged integer; v_phase text; v_member record;
   v_on boolean := private.module_enabled('community_cohorts');
 begin
-  -- 1. snapshots: one every snapshot_every_hours while a challenge runs, and exactly one final one after it ends
+  -- 1. snapshots: one every snapshot_every_hours while a challenge runs, and exactly one final one after it ends. One bad challenge never
+  --    stops the others: its error is written to the audit log (a silent skip would look like "no total yet") and counted in the result.
   for ch in select h.* from public.challenges h join public.community_cohorts c on c.id = h.cohort_id
              where h.cancelled_at is null and c.state = 'active' and (c.is_test or v_on)
                and h.starts_on <= private.community_today() and h.ends_on >= private.community_today() - 3 loop
-    v_phase := private.community_phase(ch.starts_on, ch.ends_on, ch.cancelled_at);
-    if v_phase = 'active' then
-      if not exists (select 1 from public.challenge_totals where challenge_id = ch.id and as_of > now() - make_interval(hours => (cfg ->> 'snapshot_every_hours')::integer)) then
-        perform private.challenge_aggregate(ch.id, false); v_made := v_made + 1;
+    begin
+      v_phase := private.community_phase(ch.starts_on, ch.ends_on, ch.cancelled_at);
+      if v_phase = 'active' then
+        if not exists (select 1 from public.challenge_totals where challenge_id = ch.id and as_of > now() - make_interval(hours => (cfg ->> 'snapshot_every_hours')::integer)) then
+          perform private.challenge_aggregate(ch.id, false); v_made := v_made + 1;
+        end if;
+      elsif v_phase = 'ended' and not exists (select 1 from public.challenge_totals where challenge_id = ch.id and is_final) then
+        perform private.challenge_aggregate(ch.id, true); v_made := v_made + 1;
       end if;
-    elsif v_phase = 'ended' and not exists (select 1 from public.challenge_totals where challenge_id = ch.id and is_final) then
-      perform private.challenge_aggregate(ch.id, true); v_made := v_made + 1;
-    end if;
+    exception when others then
+      v_errors := v_errors + 1;
+      perform private.log_audit('community.run_error', 'challenge', ch.id, jsonb_build_object('stage', 'snapshot', 'sqlstate', sqlstate));
+    end;
   end loop;
 
   -- 2. announce milestones only once their snapshot is PUBLISHED, so a notice never arrives before the figure it is about
   for s in select t.* from public.challenge_totals t where t.announced_at is null and t.published_after <= now() and (t.goal_reached or t.is_final) loop
-    select * into ch from public.challenges where id = s.challenge_id;
-    if s.goal_reached and not exists (select 1 from public.challenge_totals e where e.challenge_id = s.challenge_id and e.goal_reached and e.announced_at is not null) then
-      perform private.emit_domain_event('challenge.progress', ch.organisation_id,
-        jsonb_build_object('challenge_id', ch.id, 'cohort_id', ch.cohort_id, 'kind', 'goal_reached'), 'challenge.progress:' || s.id,
-        case when ch.is_test then ch.created_by end, 'challenge', ch.id);
-      for v_member in select m.patient_id, m.organisation_id from public.cohort_members m
-                       where m.cohort_id = ch.cohort_id and m.state = 'active' and not m.muted and not private.community_is_off(m.patient_id) loop
-        perform private.community_notify(v_member.patient_id, v_member.organisation_id, 'challenge_totals', s.id);
-      end loop;
-      v_announced := v_announced + 1;
-    end if;
-    if s.is_final and ch.ended_announced_at is null then
-      perform private.emit_domain_event('challenge.progress', ch.organisation_id,
-        jsonb_build_object('challenge_id', ch.id, 'cohort_id', ch.cohort_id, 'kind', 'ended'), 'challenge.progress:ended:' || ch.id,
-        case when ch.is_test then ch.created_by end, 'challenge', ch.id);
-      for v_member in select m.patient_id, m.organisation_id from public.cohort_members m
-                       where m.cohort_id = ch.cohort_id and m.state = 'active' and not m.muted and not private.community_is_off(m.patient_id) loop
-        perform private.community_notify(v_member.patient_id, v_member.organisation_id, 'challenges', ch.id);
-      end loop;
-      update public.challenges set ended_announced_at = now() where id = ch.id;
-      v_announced := v_announced + 1;
-    end if;
-    update public.challenge_totals set announced_at = now() where id = s.id;
+    begin
+      select * into ch from public.challenges where id = s.challenge_id;
+      if s.goal_reached and not exists (select 1 from public.challenge_totals e where e.challenge_id = s.challenge_id and e.goal_reached and e.announced_at is not null) then
+        perform private.emit_domain_event('challenge.progress', ch.organisation_id,
+          jsonb_build_object('challenge_id', ch.id, 'cohort_id', ch.cohort_id, 'kind', 'goal_reached'), 'challenge.progress:' || s.id,
+          case when ch.is_test then ch.created_by end, 'challenge', ch.id);
+        for v_member in select m.patient_id, m.organisation_id from public.cohort_members m
+                         where m.cohort_id = ch.cohort_id and m.state = 'active' and not m.muted and not private.community_is_off(m.patient_id) loop
+          perform private.community_notify(v_member.patient_id, v_member.organisation_id, 'challenge_totals', s.id);
+        end loop;
+        v_announced := v_announced + 1;
+      end if;
+      if s.is_final and ch.ended_announced_at is null then
+        perform private.emit_domain_event('challenge.progress', ch.organisation_id,
+          jsonb_build_object('challenge_id', ch.id, 'cohort_id', ch.cohort_id, 'kind', 'ended'), 'challenge.progress:ended:' || ch.id,
+          case when ch.is_test then ch.created_by end, 'challenge', ch.id);
+        for v_member in select m.patient_id, m.organisation_id from public.cohort_members m
+                         where m.cohort_id = ch.cohort_id and m.state = 'active' and not m.muted and not private.community_is_off(m.patient_id) loop
+          perform private.community_notify(v_member.patient_id, v_member.organisation_id, 'challenges', ch.id);
+        end loop;
+        update public.challenges set ended_announced_at = now() where id = ch.id;
+        v_announced := v_announced + 1;
+      end if;
+      update public.challenge_totals set announced_at = now() where id = s.id;
+    exception when others then
+      v_errors := v_errors + 1;
+      perform private.log_audit('community.run_error', 'challenge', s.challenge_id, jsonb_build_object('stage', 'announce', 'sqlstate', sqlstate));
+    end;
   end loop;
 
   -- 3. retention: a member's own effort rows are kept only a short while after a challenge ends
   delete from public.challenge_participation cp using public.challenges h
    where cp.challenge_id = h.id and h.ends_on < private.community_today() - (cfg ->> 'participation_keep_days')::integer;
   get diagnostics v_purged = row_count;
-  return jsonb_build_object('snapshots', v_made, 'announced', v_announced, 'purged', v_purged);
+  return jsonb_build_object('snapshots', v_made, 'announced', v_announced, 'purged', v_purged, 'errors', v_errors);
 end $$;
 revoke all on function private.community_run() from public, anon, authenticated;
 

@@ -401,7 +401,7 @@ begin
   perform pg_temp.ck('12 every notice has an empty payload (no cohort, metric or figure)', '0', (select count(*)::text from public.notifications where template = 'community_update' and payload <> '{}'::jsonb));
   perform pg_temp.ck('12 only in_app and push channels are used', '2', (select count(distinct channel)::text from public.notifications where template = 'community_update'));
   perform pg_temp.ck('12 the notice is content class non_clinical', 'non_clinical', (select distinct content_class::text from public.notifications where template = 'community_update'));
-  perform private.community_run();
+  perform pg_temp.ck('12 the scheduled run reports no errors', '0', (private.community_run() ->> 'errors'));
   select count(*) into v_notif2 from public.notifications where template = 'community_update' and recipient_id = any (v_a_members);
   perform pg_temp.ck('12 running again sends nothing more (once per milestone)', v_notif::text, v_notif2::text);
 
