@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { finishContractionSession, finishKickSession, evaluateKickNow, kickCounterOffered } from "./pregnancy-sessions";
 
-const mockEnqueue = jest.fn(async (_input: unknown) => ({}));
+const mockEnqueue = jest.fn(async (input: unknown) => ({ input }));
 jest.mock("./outbox", () => ({ enqueue: (input: unknown) => mockEnqueue(input) }));
 jest.mock("./supabase", () => ({ supabase: {} }));
 
