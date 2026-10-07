@@ -1,13 +1,13 @@
 # S41-S46 integration
 
-Branch `integration/s41-s46`, built off `origin/main-dev` (c7edfd735, PR 986) on 2026-10-07 by merging three stacks locally. Nothing is pushed, no PR, no production migration applied, nothing signed. The S40 gate was waived by the founder for this session only.
+Branch `integration/s41-s46`, built off `origin/main-dev` (first c7edfd735, then merged again with 6fef31181, which added S39b and S39c) on 2026-10-07 by merging three stacks locally. Nothing is pushed, no PR, no production migration applied, nothing signed. The S40 gate was waived by the founder for this session only.
 
 ## Stacks merged
 
 - A: `s41/account-signin-consent` then `s42/consent-privacy-dependants`
 - B: `s43/health-passport` then `s44/interoperability`
 - C: `s45/risk-screening-packages`, `s46/results-and-health-report`, `s46c/report-routing-and-caregiver-read`
-- Not merged: PR 988 / s38c. Note that main-dev at c7edfd735 already carries `s38e_sponsor_cohorts` (`join_cohort` exists), so see the cohort proof note under Risks.
+- Not merged: PR 988 / s38c. main-dev already carries `s38e_sponsor_cohorts` (`join_cohort` exists), so the cohort concurrency proof RAN here and passed (30 callers, 5 places, never 6; the lock-free control broke the limit).
 
 ## Migration apply order (20 files, all new)
 
@@ -52,6 +52,23 @@ Apply with the CLI in this exact order, or pin each `schema_migrations.version` 
 - C (S45/S46) and B (S43) both add go-live guards, proposed-config keys and AI registrations: AI-018 is S43 document capture, AI-019 is S46 report summary, AI-017 stays the scribe on main-dev.
 - Go-live guard proofs (`s37_go_live_guards.sql`, `s36b_go_live_status_ops_read.sql`) count the original seven by key and compare everything else with the live total, so they do not hard-code a number of guards.
 
+## Integration breaks found by the proofs and fixed (none by weakening a check)
+
+1. S43 redefined `record_share_by_token` and dropped S39's failed-lookup counting. Fixed in the S43 migration: `record_share_open` now calls `private.log_public_lookup_failure('record_share')` on a miss, revoked or expired link, and also finds a legacy row by its plaintext token. `s39_security_catalog.sql` gained `public.record_share_open` in the reviewed anon list (anon by design: 256-bit token, PIN lock, view cap). `s39_public_lookup_failures.sql` sabotage steps re-pointed at the functions that now hold the logic (`emergency_card_full_by_token`, `record_share_open`); they still flip.
+2. S42 restated `private.circle_view_blocks`, silently dropping S38d's monthly block (S38d had renamed that function to `_core` and put a wrapper under the old name). The S42 migration now restates `circle_view_blocks_core`. `s38d_care_circle_monthly_and_notice.sql` and `s29_care_circle.sql` pass unchanged.
+3. S27g (on main-dev) left one lab panel, `membership_annual`, with five more required analytes. S44, S45 and S46 proofs used the deleted `essential` and `annual_health_check` panel codes. Proof fixtures updated to `membership_annual` (S44 also maps and pushes the five extra analytes: 17 mappings, 15 pushed items). No migration or app logic changed for this.
+4. S42 created `dependant_handovers` with `organisation_id`, `birthday_18` and a completed-state check; the S46c proof's stand-in row did not. Fixture updated to the real shape.
+5. `apps/mobile` correction-request row literal gained `item_id` and `item_table` (S44 columns).
+
+## Remaining risks and things not proven
+
+- `apps/web` Jest: 1 test fails and is NOT fixed: `src/lib/document-capture/no-other-readers.test.ts`. S44's `components/item-note.tsx` names `"patient_documents"` in a Set of annotatable table names (no query). The edit that would allow-list that file was blocked by the permission classifier; a person should decide between allow-listing the file in the test (with the reason) or moving the name list out of a string literal.
+- The database was NOT built with `supabase db reset`. The shared Docker host was out of network address pools (the CLI failed with "all predefined address pools have been fully subnetted"), so a plain `supabase/postgres` 17.6.1.167 container was used, with the auth, storage and realtime schemas taken from a sibling local stack's schema-only dump, the same grants, and every migration applied in file order, one transaction per file (same as the CLI). 1672 of 1672 migrations and the seed applied. Not run: the CLI's own bootstrap, the edge runtime, Studio.
+- Live `list_migrations` (read only) showed none of the 20 new or old file versions; newest live version seen was 20261007200000. New versions start at 20261007230154. Re-check before applying, other sessions keep adding.
+- Not run: any real device, Paystack, Zoom, edge function deploy, `/code-review`.
+- S39b (tied staff reads) merged cleanly; the new S42 to S46 tables were not individually re-audited against the 128-table tie beyond the grep that none use `is_org_staff`.
+- Still unsigned and off: the CVD instrument, the immunisation schedule, the consent wording keys (placeholders), AI-018 and AI-019 (registered disabled), all go-live guards.
+- The S42 `sms_enabled` drop must stay last and web must deploy first.
 ## Conflicts resolved
 
 - `docs/BUILD-PROGRESS.md`, `docs/OPEN-QUESTIONS.md`, `ci.manifest`, `en.ts`: union of both sides. No new duplicate `OQ-` headings were introduced (main-dev already had 48 duplicate headings from earlier sessions; untouched). S45 and S46 use `OQ-S45-n` / `OQ-S46-n`. No duplicate manifest lines, no duplicate i18n keys.
@@ -60,6 +77,3 @@ Apply with the CLI in this exact order, or pin each `schema_migrations.version` 
 - `system-codes.ts`: AI-018 and AI-019 both kept.
 - Mobile `profile-screen.tsx`: the local correction-request row literal gained `item_id` and `item_table` (added to the table by S44).
 
-## Remaining risks
-
-See the BUILD-PROGRESS integration entry for the test results. Items not proven are listed there and in the final report.

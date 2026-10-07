@@ -1230,3 +1230,9 @@ Founder waiver of the S40 gate applies (this session only); "Stage 1 complete" i
 - **Open questions**: OQ-S46-11 to OQ-S46-15; OQ-S46-7 resolved.
 - **Follow-ups**: CMO confirms the task type values; S42 merge makes the hand-over rule read the real table; no device or browser run of the new pages.
 
+
+- **Integration S41-S46** (2026-10-07, branch `integration/s41-s46`, local only; S40 gate waived by the founder for this session, "Stage 1 complete" is not claimed)
+  - **Built**: merged s42 (with s41), s44 (with s43) and s46c (with s45, s46) onto origin/main-dev 6fef31181; renumbered the 20 new migrations to 20261007230154 to 20261007233237 (the S42 sms drop last); fixed five real integration breaks (S43 share door vs S39 failure counting, S42 vs S38d circle block, S44 to S46 proofs vs the S27g single lab panel, S46c proof vs the real handover table, mobile row literal). Details and apply and deploy order in `docs/design/S41-S46-integration.md`.
+  - **Tests**: all 1672 migrations and the seed applied on a plain supabase/postgres 17.6.1.167 container (not `supabase db reset`: the host's Docker address pools were exhausted); full `ci.manifest` run 192 proofs, 191 passing at first full run after the fixes plus `s39_public_lookup_failures.sql` fixed and re-run alone and passing; the cohort concurrency proof ran and passed; `pnpm typecheck` 19 of 19; `pnpm lint` 0 errors; Jest shared 227, i18n 84, clinical 379, notifications 385, mobile 1550 all pass; web 4634 of 4635 (one failure, `document-capture/no-other-readers.test.ts`, left open on purpose, see the integration doc).
+  - **Open questions**: none new. No duplicate `OQ-` heading was introduced (48 duplicate headings already existed on main-dev).
+  - **Follow-ups**: decide the `item-note.tsx` allow-list; re-check live `list_migrations` before applying; apply in file order, web before the sms column drop.

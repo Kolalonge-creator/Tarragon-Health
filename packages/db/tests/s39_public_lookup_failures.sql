@@ -100,7 +100,8 @@ end $$;
 do $$
 declare v_def text; v_before integer; v_after integer;
 begin
-  select pg_get_functiondef('public.emergency_card_by_token(text)'::regprocedure) into v_def;
+  -- integration with S43: the public name is now a wrapper over the renamed full-card function, which holds the lookup and the failure log
+  select pg_get_functiondef('public.emergency_card_full_by_token(text)'::regprocedure) into v_def;
   v_def := replace(v_def, E'perform private.log_public_lookup_failure(''emergency_card'');\n    return null;', 'return null;');
   execute v_def;
   v_before := pg_temp.fails('emergency_card');
@@ -114,7 +115,8 @@ declare v_def text; v_msg text := 'no error'; v_tok text;
 begin
   -- sabotage 2: the old bad column put back; opening a share with vitals must fail again
   select token into v_tok from public.record_shares where 'vitals' = any(sections) order by created_at desc limit 1;
-  select pg_get_functiondef('public.record_share_by_token(text)'::regprocedure) into v_def;
+  -- integration with S43: record_share_by_token is now a wrapper over record_share_open, which holds the section queries
+  select pg_get_functiondef('public.record_share_open(text, text, boolean)'::regprocedure) into v_def;
   v_def := replace(v_def, 'vr.glucose_mmol_l,', 'vr.glucose_mmol,');
   execute v_def;
   begin perform public.record_share_by_token(v_tok); exception when others then v_msg := sqlerrm; end;
