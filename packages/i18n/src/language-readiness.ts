@@ -221,7 +221,8 @@ export function clipPairing(clip: ManifestClip, language: string, sourceLanguage
   const neutral = clip.language_neutral === true;
   const file = clip.files[neutral ? "shared" : language];
   if (!file) return { paired: false, reason: "no_file" };
-  if (file.sha256 === null || file.sha256 === undefined || file.bytes === null) return { paired: false, reason: "not_recorded" };
+  // A recording needs a real checksum and a byte count; a blank or missing value must not pair (and "" === "" would match an empty approval).
+  if (!file.sha256 || file.bytes === null || file.bytes === undefined || file.bytes <= 0) return { paired: false, reason: "not_recorded" };
   if (!neutral && language !== sourceLanguage && file.source_script_hash !== clip.script_hash) return { paired: false, reason: "script_changed" };
   const needed = ["brand", ...(clip.clinical ? ["clinical"] : []), ...(clip.legal ? ["legal"] : [])];
   for (const review of needed) {
@@ -328,6 +329,7 @@ export function formatCoverageReport(rows: readonly FeatureCoverage[]): string {
 
 export type GateCode =
   | "unknown_feature"
+  | "feature_empty"
   | "source_not_enabled_everywhere"
   | "status_too_low"
   | "key_missing"
@@ -383,6 +385,8 @@ export function checkLanguageGate(input: ReadinessInput): GateViolation[] {
         out.push({ language, feature, code: "status_too_low", detail: `status is ${entry.status}, a ${def.clinical ? "clinical" : "non-clinical"} feature needs ${need}` });
       }
       const keys = keysOfFeature(feature, Object.keys(source), registry.features);
+      // A feature that owns no key would pass every check below vacuously (the hash of nothing is constant).
+      if (keys.length === 0) out.push({ language, feature, code: "feature_empty", detail: "the feature owns no source key, so a sign-off would cover nothing" });
       const scoped: Catalogue = Object.fromEntries(keys.map((k) => [k, source[k]]));
       const parity = keyParity(scoped, own);
       if (parity.missing.length) out.push({ language, feature, code: "key_missing", detail: sample(parity.missing) });
@@ -475,7 +479,10 @@ export function parseLanguageRegistry(value: unknown): LanguageRegistry {
     if (!isRecord(raw) || !Array.isArray(raw.message_prefixes) || !Array.isArray(raw.audio_groups) || typeof raw.clinical !== "boolean") {
       throw new Error(`language registry: feature "${key}" is malformed`);
     }
-    features[key] = { message_prefixes: raw.message_prefixes.map(String), audio_groups: raw.audio_groups.map(String), clinical: raw.clinical };
+    if (![...raw.message_prefixes, ...raw.audio_groups].every((v) => typeof v === "string")) {
+      throw new Error(`language registry: feature "${key}" prefixes and audio groups must be strings`);
+    }
+    features[key] = { message_prefixes: raw.message_prefixes as string[], audio_groups: raw.audio_groups as string[], clinical: raw.clinical };
   }
   // Two features may not claim the same prefix or the same audio group: ownership would then depend on object order, and a
   // clinical key could end up gated as a plain one.
@@ -492,10 +499,10 @@ export function parseLanguageRegistry(value: unknown): LanguageRegistry {
     if (!isRecord(raw)) throw new Error(`language registry: ${where} must be an object`);
     return Object.fromEntries(
       Object.entries(raw).map(([feature, s]) => {
-        if (!isRecord(s) || typeof s.by !== "string" || typeof s.on !== "string" || typeof s.version !== "number" || typeof s.set_hash !== "string") {
+        if (!isRecord(s) || typeof s.by !== "string" || typeof s.on !== "string" || !Number.isInteger(s.version) || (s.version as number) < 1 || typeof s.set_hash !== "string") {
           throw new Error(`language registry: ${where}.${feature} is malformed`);
         }
-        return [feature, { by: s.by, on: s.on, version: s.version, set_hash: s.set_hash }];
+        return [feature, { by: s.by, on: s.on, version: s.version as number, set_hash: s.set_hash }];
       }),
     );
   };
@@ -507,7 +514,10 @@ export function parseLanguageRegistry(value: unknown): LanguageRegistry {
     languages[code] = {
       status: raw.status as LanguageStatus,
       source: raw.source === true,
-      enabled_for: raw.enabled_for.map(String),
+      enabled_for: raw.enabled_for.map((f) => {
+        if (typeof f !== "string") throw new Error(`language registry: ${code}.enabled_for must hold strings`);
+        return f;
+      }),
       native_review: signoffs(raw.native_review, `${code}.native_review`),
       clinician_signoff: signoffs(raw.clinician_signoff, `${code}.clinician_signoff`),
     };
