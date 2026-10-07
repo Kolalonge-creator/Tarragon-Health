@@ -90,8 +90,10 @@ begin
   perform pg_temp.back();
   if v_r <> 'ok' then raise exception 'FAIL 2a: a caregiver with a current grant could not request a review (%)', v_r; end if;
   -- the grant is revoked; the caregiver still "logged" the check but must now be refused, and so must a fresh request on another check
+  set local session_replication_role = replica;
   delete from public.profile_access_categories where profile_access_id = v_pa;
   delete from public.profile_access where id = v_pa;
+  set local session_replication_role = origin;
   v_a1 := pg_temp.assess(v_org, v_p1, 'urgent');
   update public.symptom_triage_assessments set logged_by_profile_id = v_cg where id = v_a1;
   perform pg_temp.act(v_cg);
@@ -107,13 +109,17 @@ begin
   v_def := pg_get_functiondef('public.request_symptom_review(uuid)'::regprocedure);
   execute replace(v_def, 'not (a.patient_id = v_uid or private.can_read_clinical(a.patient_id, ''medical_history''::public.care_access_category))',
                          '(a.patient_id <> v_uid and a.logged_by_profile_id is distinct from v_uid)');
+  set local session_replication_role = replica;
   delete from public.symptom_reviews where assessment_id = v_a1;
+  set local session_replication_role = origin;
   perform pg_temp.act(v_cg);
   v_r := pg_temp.try(format('select public.request_symptom_review(%L)', v_a1));
   perform pg_temp.back();
   if v_r <> 'ok' then raise exception 'VACUOUS TEST (finding 2): with the old rule restored the revoked caregiver was still refused (%)', v_r; end if;
   execute v_def;
+  set local session_replication_role = replica;
   delete from public.symptom_reviews where assessment_id = v_a1;
+  set local session_replication_role = origin;
 
   -- ===== finding 3: a malformed SLA config never raises, it reads as "no time stated" =====
   select version into v_ver from public.escalation_slas where notes like 'DRAFT, UNSIGNED (F1%' limit 1;
@@ -143,7 +149,9 @@ begin
   v_r := pg_temp.try(format('select public.request_symptom_review(%L)', v_a1));
   perform pg_temp.back();
   if v_r <> 'ok' then raise exception 'FAIL 3e: a malformed SLA config broke request_symptom_review (%)', v_r; end if;
+  set local session_replication_role = replica;
   delete from public.symptom_reviews where assessment_id = v_a1;
+  set local session_replication_role = origin;
   -- SABOTAGE: the old unguarded body must raise on a non-array config, proving the guard is what protects it
   update public.escalation_slas set config = '"just a string"'::jsonb where is_active;
   begin
@@ -164,14 +172,14 @@ begin
   -- ===== finding 8: "agrees" is judged against the category the patient was actually given =====
   v_a1 := pg_temp.assess(v_org, v_p1, 'urgent');
   update public.symptom_triage_assessments set override_category = 'emergency', override_reason = 'proof: clinician raised it',
-         overridden_by = v_c1, overridden_at = now() where id = v_a1;
+         overridden_by = (select id from public.clinical_staff where profile_id = v_c1), overridden_at = now() where id = v_a1;
   perform pg_temp.act(v_p1);
   perform public.request_symptom_review(v_a1);
   perform pg_temp.back();
   select id into v_rid from public.symptom_reviews where assessment_id = v_a1;
   perform pg_temp.act(v_c1);
   -- the override says emergency: agreeing while giving the ORIGINAL category (urgent) is not agreement
-  if pg_temp.try(format('select public.complete_symptom_review(%L, %L, %L, %L, true, %L)', v_rid, 'G43.9', 'x', 'urgent', 'A message long enough to pass.')) <> '22023' then
+  if pg_temp.try(format('select public.complete_symptom_review(%L, %L, %L, %L, true, %L)', v_rid, 'G43.9', 'Migraine', 'urgent', 'A message long enough to pass.')) <> '22023' then
     raise exception 'FAIL 8a: agrees=true was accepted against the checker category although an override applies';
   end if;
   v_j := public.complete_symptom_review(v_rid, 'G43.9', 'Migraine', 'emergency', true, 'A message long enough to pass.');
@@ -180,7 +188,7 @@ begin
   -- SABOTAGE: compare to the raw category again; the wrong-way agreement must then be accepted
   v_a1 := pg_temp.assess(v_org, v_p1, 'urgent');
   update public.symptom_triage_assessments set override_category = 'emergency', override_reason = 'proof: clinician raised it',
-         overridden_by = v_c1, overridden_at = now() where id = v_a1;
+         overridden_by = (select id from public.clinical_staff where profile_id = v_c1), overridden_at = now() where id = v_a1;
   perform pg_temp.act(v_p1);
   perform public.request_symptom_review(v_a1);
   perform pg_temp.back();
@@ -188,7 +196,7 @@ begin
   v_def := pg_get_functiondef('public.complete_symptom_review(uuid,text,text,public.triage_category,boolean,text,text)'::regprocedure);
   execute replace(v_def, 'coalesce(a.override_category, a.category)', 'a.category');
   perform pg_temp.act(v_c1);
-  v_r := pg_temp.try(format('select public.complete_symptom_review(%L, %L, %L, %L, true, %L)', v_rid, 'G43.9', 'x', 'urgent', 'A message long enough to pass.'));
+  v_r := pg_temp.try(format('select public.complete_symptom_review(%L, %L, %L, %L, true, %L)', v_rid, 'G43.9', 'Migraine', 'urgent', 'A message long enough to pass.'));
   perform pg_temp.back();
   if v_r <> 'ok' then raise exception 'VACUOUS TEST (finding 8): with the raw-category comparison restored the wrong agreement was still refused (%)', v_r; end if;
   execute v_def;
