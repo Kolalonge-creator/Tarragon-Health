@@ -1,3 +1,6 @@
+import { HELD_READING_COPY } from "@tarragon/shared";
+import { readDeviceFlags } from "@/lib/devices/flags";
+import { readOutcome } from "@/lib/devices/reading-outcome";
 import { NextResponse } from "next/server";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { runBestEffort } from "@/lib/sentry/run-best-effort";
@@ -184,6 +187,19 @@ export async function POST(request: Request): Promise<NextResponse> {
       return NextResponse.json({ success: true });
     }
     return NextResponse.json({ error: insertError.message }, { status: 500 });
+  }
+
+  // S70a (18.9): with the plausibility hold on, the database can accept a typed value without storing it (a number that cannot be real is
+  // held for the person to check). That must never be reported as saved. The phone's outbox reads a 4xx as "not accepted", which is the
+  // honest answer here. Only checked when the phone sent its idempotency key, which is how the row is found again.
+  if (clientReadingId) {
+    const flags = await readDeviceFlags(supabase);
+    if (flags.device_plausibility_hold) {
+      const outcome = await readOutcome(supabase, { patientId: subjectId, clientReadingId });
+      if (outcome.kind === "held") {
+        return NextResponse.json({ error: HELD_READING_COPY.body, held: true, held_id: outcome.heldId, reasons: outcome.reasons }, { status: 422 });
+      }
+    }
   }
 
   // From here on the reading is durably saved — every failure below is
