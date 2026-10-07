@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 import { t, type Locale } from "@tarragon/i18n";
-import { loadCollection, loadPharmacies, loadPriceCompare } from "@/lib/pharmacy-collection/load";
-import { choosePharmacyAction, newCodeAction } from "@/lib/pharmacy-collection/actions";
-import { asNotice, nairaFromKobo, stockKey, viewFor, type PharmacyOption, type PriceRow } from "@/lib/pharmacy-collection/model";
+import { loadCollection, loadPharmacies, loadPriceCompare, loadSuggestion } from "@/lib/pharmacy-collection/load";
+import { acceptSuggestionAction, choosePharmacyAction, declineSuggestionAction, newCodeAction } from "@/lib/pharmacy-collection/actions";
+import { asNotice, nairaFromKobo, stockKey, viewFor, type PharmacyOption, type PriceRow, type Suggestion } from "@/lib/pharmacy-collection/model";
 import { FlashClean } from "@/components/go-live/flash-clean";
 
 export const metadata = { title: "Collect your medicine" };
@@ -75,6 +75,33 @@ function Chooser({ id, options, locale }: { id: string; options: PharmacyOption[
 }
 
 /**
+ * S54c: the pharmacy the care team suggested. It is only a suggestion: it says so, nothing is sent until she presses the button, and the
+ * other ways (choose another, decline, take it anywhere) are always there. No price, ranking or earning is shown or implied here.
+ */
+function SuggestionCard({ id, suggestion, locale }: { id: string; suggestion: Suggestion; locale: Locale }) {
+  return (
+    <section aria-labelledby="suggestion-title" className="space-y-3 rounded-xl border border-brand-green/40 bg-emerald-50 p-4 dark:border-night-ink/25">
+      <h3 id="suggestion-title" className="font-semibold text-charcoal-ink">{t("pharmsuggest.title", locale, { pharmacy: suggestion.partner_name })}</h3>
+      <p className="text-sm text-charcoal-ink/70">{[suggestion.location_name, suggestion.address, suggestion.state].filter(Boolean).join(", ")}</p>
+      <p className="text-xs text-charcoal-ink/70">{t("pharmsuggest.hint", locale)}</p>
+      <div className="flex flex-wrap items-center gap-3">
+        <form action={acceptSuggestionAction}>
+          <input type="hidden" name="prescription" value={id} />
+          <input type="hidden" name="suggestion" value={suggestion.suggestion_id} />
+          <button type="submit" className={button}>{t("pharmsuggest.accept", locale)}</button>
+        </form>
+        <a href="#chooser" className="text-sm font-semibold text-clinical-navy underline">{t("pharmsuggest.another", locale)}</a>
+        <form action={declineSuggestionAction}>
+          <input type="hidden" name="prescription" value={id} />
+          <input type="hidden" name="suggestion" value={suggestion.suggestion_id} />
+          <button type="submit" className="text-sm text-charcoal-ink/70 underline">{t("pharmsuggest.decline", locale)}</button>
+        </form>
+      </div>
+    </section>
+  );
+}
+
+/**
  * S28 (spec 9.6, 8.9): the patient picks a verified pharmacy to collect a signed prescription from and reads her collection code.
  * Collection only, no delivery, no payment here (she pays the pharmacy). The database decides everything; this page only shows it.
  */
@@ -88,6 +115,8 @@ export default async function CollectPage({ params, searchParams }: { params: Pr
   const view = collection.ok && collection.data ? viewFor(collection.data) : null;
   const pharmacies = view === "choose" || view === "code" ? await loadPharmacies(prescriptionId) : null;
   const prices = view === "choose" ? await loadPriceCompare(prescriptionId) : null;
+  // A failed read of the suggestion just means the card is not shown: the patient can still choose or take the prescription anywhere.
+  const suggestion = view === "choose" ? await loadSuggestion(prescriptionId) : null;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -105,13 +134,14 @@ export default async function CollectPage({ params, searchParams }: { params: Pr
         <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-900">{t("pharmcollect.load_failed", locale)}</p>
       ) : view === "choose" ? (
         <section className="space-y-3">
+          {suggestion?.ok && suggestion.data ? <SuggestionCard id={prescriptionId} suggestion={suggestion.data} locale={locale} /> : null}
           <section className="space-y-2">
             <h3 className="font-semibold text-charcoal-ink">{t("pharmprice.title", locale)}</h3>
             <p className="text-xs text-charcoal-ink/60">{t("pharmprice.intro", locale)}</p>
             {prices?.ok ? <PriceCompare rows={prices.data} locale={locale} /> : <p className="text-sm text-charcoal-ink/70">{t("pharmprice.failed", locale)}</p>}
             <p className="text-sm text-charcoal-ink/70">{t("pharmprice.any_pharmacy", locale)}</p>
           </section>
-          <h3 className="font-semibold text-charcoal-ink">{t("pharmcollect.choose", locale)}</h3>
+          <h3 id="chooser" className="font-semibold text-charcoal-ink">{t("pharmcollect.choose", locale)}</h3>
           {pharmacies?.ok ? <Chooser id={prescriptionId} options={pharmacies.data} locale={locale} /> : <p role="alert" className="text-sm text-red-900">{t("pharmcollect.load_failed", locale)}</p>}
         </section>
       ) : view === "code" ? (

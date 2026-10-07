@@ -5,7 +5,7 @@ const redirect = jest.fn((url: string) => {
 jest.mock("next/navigation", () => ({ redirect: (u: string) => redirect(u) }));
 jest.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ rpc }) }));
 
-import { choosePharmacyAction, newCodeAction } from "./actions";
+import { acceptSuggestionAction, choosePharmacyAction, declineSuggestionAction, newCodeAction } from "./actions";
 
 const RX = "11111111-1111-4111-8111-111111111111";
 const P = "22222222-2222-4222-8222-222222222222";
@@ -54,6 +54,37 @@ describe("newCodeAction", () => {
   });
   it("sends a bad id home without calling the database", async () => {
     expect(await goes(newCodeAction(fd({ prescription: "x" })))).toBe("REDIRECT:/patient");
+    expect(rpc).not.toHaveBeenCalled();
+  });
+});
+
+const SG = "44444444-4444-4444-8444-444444444444";
+describe("suggestion actions (S54c)", () => {
+  it("accepting goes through the one database door by suggestion id and reports success without the code in the address", async () => {
+    rpc.mockResolvedValue({ data: "ABCD2345", error: null });
+    expect(await goes(acceptSuggestionAction(fd({ prescription: RX, suggestion: SG })))).toBe(`REDIRECT:/patient/pharmacy/collect/${RX}?n=chosen`);
+    expect(rpc).toHaveBeenCalledWith("patient_accept_pharmacy_suggestion", { p_suggestion: SG });
+  });
+  it("a closed suggestion or an unavailable pharmacy is a notice and changes nothing", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "suggestion_not_open", code: "22023" } });
+    expect(await goes(acceptSuggestionAction(fd({ prescription: RX, suggestion: SG })))).toBe(`REDIRECT:/patient/pharmacy/collect/${RX}?n=suggestion_not_open`);
+    rpc.mockResolvedValue({ data: null, error: { message: "pharmacy_not_available", code: "22023" } });
+    expect(await goes(acceptSuggestionAction(fd({ prescription: RX, suggestion: SG })))).toBe(`REDIRECT:/patient/pharmacy/collect/${RX}?n=pharmacy_not_available`);
+  });
+  it("declining closes the suggestion and sends nothing", async () => {
+    rpc.mockResolvedValue({ data: true, error: null });
+    expect(await goes(declineSuggestionAction(fd({ prescription: RX, suggestion: SG })))).toBe(`REDIRECT:/patient/pharmacy/collect/${RX}?n=suggestion_declined`);
+    expect(rpc).toHaveBeenCalledWith("patient_decline_pharmacy_suggestion", { p_suggestion: SG });
+    rpc.mockResolvedValue({ data: null, error: { message: "boom" } });
+    expect(await goes(declineSuggestionAction(fd({ prescription: RX, suggestion: SG })))).toBe(`REDIRECT:/patient/pharmacy/collect/${RX}?n=failed`);
+  });
+  it("declining a suggestion that was already settled says so, never that nothing was sent", async () => {
+    rpc.mockResolvedValue({ data: false, error: null });
+    expect(await goes(declineSuggestionAction(fd({ prescription: RX, suggestion: SG })))).toBe(`REDIRECT:/patient/pharmacy/collect/${RX}?n=suggestion_not_open`);
+  });
+  it("never calls the database with a malformed id", async () => {
+    expect(await goes(acceptSuggestionAction(fd({ prescription: RX, suggestion: "x" })))).toBe(`REDIRECT:/patient/pharmacy/collect/${RX}?n=failed`);
+    expect(await goes(declineSuggestionAction(fd({ prescription: "x", suggestion: SG })))).toBe("REDIRECT:/patient");
     expect(rpc).not.toHaveBeenCalled();
   });
 });
