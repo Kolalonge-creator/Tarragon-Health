@@ -1355,4 +1355,4 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 
 ### OQ-258 Sponsor staff access and a mobile way to join (raised by S38e)
 - A sponsor's own staff (employer or insurer admins) cannot see their group figures directly; that needs a role decision (the institutions aggregate-only rule, I9, already limits what they may ever see). Joining a programme with a code is on the web only; the mobile app has no join screen yet.
-- Decision: open (founder).
+- Decision (founder, 2026-10-07): sponsor staff are given access in the mobile app and see their figures there. Built as S38f on the existing institution logins (hmo_admin, corporate_admin, ngo_admin), no new role: see `docs/design/S38f.md`. Still open: a mobile join screen for patients (web only today); how admin creates a sponsor staff login (uses the existing institution-user flow, not re-checked in this pass); sponsor staff cannot export a file.

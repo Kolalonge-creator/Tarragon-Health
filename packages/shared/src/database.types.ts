@@ -42992,6 +42992,8 @@ export type Database = {
       record_triage_review: { Args: { p_agreement: string; p_task: string }; Returns: Json };
       set_cohort_reporting_consent: { Args: { p_cohort: string; p_granted: boolean }; Returns: Json };
       sponsor_outcome_report: { Args: { p_cohort: string; p_from?: string; p_to?: string }; Returns: Json };
+      sponsor_staff_figures: { Args: { p_cohort: string }; Returns: Json };
+      sponsor_staff_programmes: { Args: Record<PropertyKey, never>; Returns: Json };
       triage_accuracy_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       lab_panel_definition: { Args: { p_panel: string }; Returns: Json };
       liaison_recent_uploads: {
