@@ -13,7 +13,7 @@ import {
   verifyPhoneCode,
 } from "@/lib/auth/auth-flow";
 import { checkNewPassword } from "@/lib/auth/password-verdict";
-import { useAuthLocale } from "@/lib/auth/use-auth-locale";
+import { DEFAULT_LOCALE } from "@tarragon/i18n";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
 import { ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
@@ -94,7 +94,7 @@ function PasswordField({
  * the emailed link still opens and completes fine in the device browser.
  */
 export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
-  const [locale] = useAuthLocale();
+  const locale = DEFAULT_LOCALE;
   const [tab, setTab] = useState<Tab>("phone");
   // E.164 number the code was (apparently) sent to. Same screen whether or
   // not the number is registered: recovery never reveals who has an account.
@@ -330,7 +330,7 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
         animationType="fade"
         onRequestClose={() => setCountryPickerOpen(false)}
       >
-        <Pressable
+        <Pressable accessible={false}
           onPress={() => setCountryPickerOpen(false)}
           style={{ flex: 1, backgroundColor: inkAlpha(0.4), justifyContent: "flex-end" }}
         >
@@ -371,7 +371,7 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
 
 function TabButton({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   return (
-    <Pressable
+    <Pressable accessibilityRole="button" accessibilityState={{ selected: active }}
       onPress={onPress}
       style={{
         flex: 1,

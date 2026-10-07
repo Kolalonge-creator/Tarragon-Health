@@ -48,10 +48,4 @@ describe("GetStartedCard accessibility", () => {
       <GetStartedCard progress={NOTHING_DONE} acting="Amaka" />
     );
   });
-
-  it("has no axe violations in the Pidgin language branch", async () => {
-    await expectNoA11yViolations(
-      <GetStartedCard progress={NOTHING_DONE} language="pcm" />
-    );
-  });
 });

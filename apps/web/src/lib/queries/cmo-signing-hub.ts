@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
-import { readSignoffQueue, SEVERITY_RANK, type SignoffQueueItem } from "@/lib/queries/signoff-queue";
+import { readSignoffQueue, SEVERITY_RANK, type SettledConfig, type SignoffQueueItem } from "@/lib/queries/signoff-queue";
 import { readPendingAiGovernanceSignoff } from "@/lib/queries/pending-ai-governance-signoff";
 
 export type CmoSigningHub = {
@@ -11,6 +11,8 @@ export type CmoSigningHub = {
   failed: boolean;
   /** Which sources could not be read, by name, so the warning can say what is missing. */
   failedSources: string[];
+  /** Governed configurations whose live version is signed (for the "already signed" list). */
+  settledConfigs: SettledConfig[];
 };
 
 /** The key the merged clinical-rules line carries, so the page can attach the guided signing forms to it. */
@@ -41,6 +43,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
   const [queue, ai] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
+      settledConfigs: [] as SettledConfig[],
       failedSources: ["the sign-off queue"],
     })),
     readPendingAiGovernanceSignoff(supabase),
@@ -103,5 +106,5 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
 
   const failedSources = [...queue.failedSources, ...(ai.failed ? ["AI governance"] : [])];
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
-  return { items, failed: failedSources.length > 0, failedSources };
+  return { items, failed: failedSources.length > 0, failedSources, settledConfigs: queue.settledConfigs };
 }

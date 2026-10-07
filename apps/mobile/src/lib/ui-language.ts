@@ -1,70 +1,18 @@
-import { useEffect, useState } from "react";
-import { supabase } from "./supabase";
-import { resolveUiLanguage, DEFAULT_UI_LANGUAGE, t, type UiLanguage } from "@tarragon/shared";
-import { getPidginEnabled, PIDGIN_SWITCH_TTL_MS } from "./pidgin-switch";
+import { DEFAULT_UI_LANGUAGE, t, type UiLanguage } from "@tarragon/shared";
 
 /**
- * The signed-in patient's interface language — the native half of web's
- * UiLanguageProvider. Same dictionary, same boundary (wayfinding only; see
- * packages/shared/src/ui-language.ts).
- *
- * Cached in a module-level promise for the same reason as glucose-unit.ts:
- * the drawer, the tab bar and Overview each ask independently on one session,
- * and this changes only when the patient changes it.
+ * The interface language of the app. English only (founder decision 2026-10-06), so these helpers return a
+ * constant; they stay so the many screens that already call useUiLanguage() / useT() are unchanged.
  */
-let cached: Promise<UiLanguage> | null = null;
-let cachedAt = 0;
-
-async function fetchLanguage(): Promise<UiLanguage> {
-  try {
-    const { data: auth } = await supabase.auth.getUser();
-    const userId = auth.user?.id;
-    if (!userId) return DEFAULT_UI_LANGUAGE;
-    const { data } = await supabase
-      .from("profiles")
-      .select("language")
-      .eq("id", userId)
-      .maybeSingle();
-    // The platform-wide Pidgin kill switch wins over the saved choice.
-    return resolveUiLanguage(data?.language, await getPidginEnabled());
-  } catch {
-    // A failed preference lookup must never blank a label: fall back to the
-    // platform default rather than surfacing an error state.
-    return DEFAULT_UI_LANGUAGE;
-  }
-}
-
 export function getUiLanguage(): Promise<UiLanguage> {
-  // Re-read every few minutes so an admin switching Pidgin off reaches a phone
-  // that has been open for a while, not only after a restart.
-  if (!cached || Date.now() - cachedAt > PIDGIN_SWITCH_TTL_MS) {
-    cached = fetchLanguage();
-    cachedAt = Date.now();
-  }
-  return cached;
-}
-
-/** Call after the patient changes the setting, so the next read is not stale. */
-export function clearUiLanguageCache(): void {
-  cached = null;
+  return Promise.resolve(DEFAULT_UI_LANGUAGE);
 }
 
 export function useUiLanguage(): UiLanguage {
-  const [language, setLanguage] = useState<UiLanguage>(DEFAULT_UI_LANGUAGE);
-  useEffect(() => {
-    let active = true;
-    void getUiLanguage().then((l) => {
-      if (active) setLanguage(l);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
-  return language;
+  return DEFAULT_UI_LANGUAGE;
 }
 
 /** `t` bound to the active language, for call sites that only need the string. */
 export function useT(): (english: string) => string {
-  const language = useUiLanguage();
-  return (english: string) => t(english, language);
+  return (english: string) => t(english, DEFAULT_UI_LANGUAGE);
 }

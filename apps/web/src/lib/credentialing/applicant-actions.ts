@@ -174,7 +174,7 @@ export async function submitApplication(fd: FormData): Promise<void> {
   const back = safeReturnTo(fd.get("returnTo"), HOME);
   await run(back, async () => {
     await rpcVoid(await createClient(), "submit_clinician_application", { p_application: uuid.parse(text(fd, "applicationId")) });
-    return "Submitted. Your care team lead will check your documents and get in touch.";
+    return "Submitted. Our team will check your documents and get in touch.";
   });
 }
 
@@ -212,7 +212,7 @@ export async function submitTest(fd: FormData): Promise<void> {
     }
     const result = await rpcParsed(await createClient(), "submit_credential_test", { p_attempt: uuid.parse(attempt), p_answers: answers }, submitTestSchema);
     const note = result.passed
-      ? "You passed the test. Your care team lead will review your application next."
+      ? "You passed the test. Our team will review your application next."
       : result.safety_critical_missed > 0
         ? `Not passed this time. A safety-critical scenario was answered incorrectly. Attempts left: ${result.attempts_left}.`
         : `Not passed this time. Your score was ${result.score_percent} percent. Attempts left: ${result.attempts_left}.`;
