@@ -12,3 +12,4 @@ export { screenWrittenQuestion, WRITTEN_QUESTION_DANGER_PHRASES, type WrittenQue
 export { proposeTitration, validateProtocolDefinition, proposalToChangeArgs, ProtocolDefinitionError } from "./titration";
 export { TITRATION_STOP_KEYS, TITRATION_LABEL_KEYS } from "./titration-messages";
 export type * from "./titration-types";
+export { livePromptsForSegment, LIVE_RED_FLAG_RULE_ID, LIVE_RED_FLAG_RULE_VERSION, type LivePrompt } from "./live-redflag";

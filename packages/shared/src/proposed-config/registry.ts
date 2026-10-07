@@ -1736,4 +1736,16 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/DECISIONS.md S11-1; supabase/migrations/20261007152136_s11c_bp_care_triage_v3.sql",
   },
+  {
+    key: "follow_ups.rules",
+    // Loop closure (S77, spec 23.8, CMO decision S-20): an overdue order, referral, lab request or follow-up task goes to the lead clinician after
+    // 24 hours (routine) or 4 hours (a follow-up waiting on an abnormal result). Live values are the row of `clinical_follow_up_config`, which is born
+    // inactive and unsigned; the sweep escalates only when the CMO has signed it. A test fails if the migration seed and this value drift.
+    value: { routine_escalate_after_hours: 24, abnormal_escalate_after_hours: 4 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S75-S80-cmo-decisions.md S-20; spec 23.8; supabase/migrations/20261007155213_s77_clinical_follow_ups_closure.sql",
+  },
 ];
