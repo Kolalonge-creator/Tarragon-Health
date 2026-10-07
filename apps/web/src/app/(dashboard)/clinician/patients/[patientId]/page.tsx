@@ -24,6 +24,7 @@ import { EcgReportDocumentsSection } from "./ecg-report-documents-section";
 import { ReleasedLabResultsWithdraw } from "./released-lab-results-withdraw";
 import { ImagingOrdersSection } from "./imaging-orders-section";
 import { MedicationSafetyPanel } from "./medication-safety-panel";
+import { PharmacySuggestionPanel } from "./pharmacy-suggestion-panel";
 import { CdsPanel } from "./cds-panel";
 import { MedicationAdherenceHistory } from "./medication-adherence-history";
 import { SideEffectNotesPanel } from "./side-effect-notes-panel";
@@ -309,6 +310,8 @@ export default async function ClinicianPatientPage({
                 />
                 <MedicationAdherenceHistory patientId={patient.id} />
                 <SideEffectNotesPanel patientId={patient.id} />
+                {/* S54c: suggest a pharmacy for a signed prescription; the patient confirms. Clinical tiers only (a Care Coordinator never routes). */}
+                {isClinicalTier(callerStaff) && <PharmacySuggestionPanel patientId={patient.id} />}
                 {/* Pharmacy-authority-by-tier (master plan §4/§8): Tier 1 confirms/
                     continues existing prescriptions but has no new-prescribing
                     authority — the DB RLS policy is the real gate

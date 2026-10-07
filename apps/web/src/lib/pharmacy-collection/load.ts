@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { loose } from "@/lib/clinician/loose-client";
-import { collectionRowsSchema, pharmacyOptionsSchema, priceRowsSchema, type Collection, type PharmacyOption, type PriceRow } from "./model";
+import { collectionRowsSchema, pharmacyOptionsSchema, priceRowsSchema, suggestionRowsSchema, type Collection, type PharmacyOption, type PriceRow, type Suggestion } from "./model";
 
 /** `off` means the go-live guard is closed (S37): a calm "not open yet" rather than a failure. */
 export type Loaded<T> = { ok: true; data: T } | { ok: false; denied: boolean; off?: boolean };
@@ -33,4 +33,12 @@ export async function loadPriceCompare(prescription: string): Promise<Loaded<Pri
   if (error) return { ok: false, denied: error.code === "42501" };
   const parsed = priceRowsSchema.safeParse(data);
   return parsed.success ? { ok: true, data: parsed.data } : { ok: false, denied: false };
+}
+
+/** S54c: the pharmacy the care team suggested, if any. A failure is returned, never shown as "no suggestion". */
+export async function loadSuggestion(prescription: string): Promise<Loaded<Suggestion | null>> {
+  const { data, error } = await loose(await createClient()).rpc("patient_pharmacy_suggestion", { p_prescription: prescription });
+  if (error) return { ok: false, denied: error.code === "42501" };
+  const parsed = suggestionRowsSchema.safeParse(data);
+  return parsed.success ? { ok: true, data: parsed.data[0] ?? null } : { ok: false, denied: false };
 }
