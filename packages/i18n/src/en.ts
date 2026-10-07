@@ -1,3 +1,5 @@
+import { activeWording } from "./clinical-wording";
+
 /**
  * English catalogue (v5 spec Section 12). Flat dot-keys, `{param}` placeholders.
  *
@@ -39,7 +41,6 @@ export const en = {
   // S03: sign-up, verification, sign-in, recovery, biometric unlock.
   "auth.language.title": "Choose your language",
   "auth.language.en": "English",
-  "auth.language.pcm": "Pidgin",
   "auth.method.phone": "Phone",
   "auth.method.email": "Email",
   "auth.field.first_name": "First name",
@@ -446,7 +447,7 @@ export const en = {
   "drawer.sign_out": "Sign out",
   "drawer.expanded": "{group}, expanded",
   "drawer.collapsed": "{group}, collapsed",
-  // S08: medicines. Pidgin needs a native reviewer before the next store build (OQ-61 pattern).
+  // S08: medicines.
   "medicines.notify.title": "Care plan reminder",
   "medicines.notify.body": "Time for your care plan check. Open TarragonHealth to see what is due.",
   "medicines.notify.channel": "Care plan reminders",
@@ -540,7 +541,7 @@ export const en = {
   "meds.weekday.6": "Sat",
   "meds.confirm.title": "Check this medicine",
   "meds.confirm.body": "Check the name, strength, dose and times. If anything differs from what you were given, message your care team before you start.",
-  // S08b: flexible dose windows and the catch-up sheet. Pidgin needs a native reviewer (OQ-74).
+  // S08b: flexible dose windows and the catch-up sheet.
   "medicines.notify.follow_up_title": "Still open",
   "medicines.notify.follow_up_body": "Your care plan check is still open. No rush. Open TarragonHealth when you can.",
   "meds.window.title": "Flexible window",
@@ -711,20 +712,22 @@ export const en = {
   "reminders.permission.undetermined": "Allow notifications so reminders can reach you.",
   "reminders.saved": "Saved",
   // S11: triage messages. Notification keys (notify.*) never name a condition or a reading (INV-07).
-  "triage.emg_001.title": "Get help now",
-  "triage.emg_001.body": "Your reading and how you feel mean you need care now. Go to the nearest hospital, or ask someone to take you. Do not drive yourself. Tell them your blood pressure and your symptoms.",
-  "triage.emg_001l.title": "Sit or lie down, then get help",
-  "triage.emg_001l.body": "Sit or lie down now, and raise your legs if you can. Go to the nearest hospital, or ask someone to take you. Stand up slowly and do not drive yourself.",
-  "triage.tri_001.title": "Within your target",
-  "triage.tri_001.body": "Well done. Keep checking at the times you planned.",
-  "triage.tri_002.title": "Your care team will look at this",
-  "triage.tri_002.body": "Your care team will review this and may contact you. If you feel worse, go to the nearest hospital.",
-  "triage.tri_003.title": "A little above your target",
-  "triage.tri_003.body": "This is not an emergency. Rest, take your medicines as planned, and check again at your next time. If you feel unwell, go to the nearest hospital.",
-  "triage.tri_005.title": "Check again in 5 minutes",
-  "triage.tri_005.body": "Sit quietly for 5 minutes with your arm supported. Then measure once more and save it.",
-  "triage.tri_006.title": "That reading does not look right",
-  "triage.tri_006.body": "Check the numbers you typed, or measure again.",
+  "audio.listen": "Listen",
+  "audio.stop": "Stop",
+  "triage.emg_001.title": activeWording("EMG-001").title,
+  "triage.emg_001.body": activeWording("EMG-001").body,
+  "triage.emg_001l.title": activeWording("EMG-001L").title,
+  "triage.emg_001l.body": activeWording("EMG-001L").body,
+  "triage.tri_001.title": activeWording("TRI-001").title,
+  "triage.tri_001.body": activeWording("TRI-001").body,
+  "triage.tri_002.title": activeWording("TRI-002").title,
+  "triage.tri_002.body": activeWording("TRI-002").body,
+  "triage.tri_003.title": activeWording("TRI-003").title,
+  "triage.tri_003.body": activeWording("TRI-003").body,
+  "triage.tri_005.title": activeWording("TRI-005").title,
+  "triage.tri_005.body": activeWording("TRI-005").body,
+  "triage.tri_006.title": activeWording("TRI-006").title,
+  "triage.tri_006.body": activeWording("TRI-006").body,
   "notify.triage.task_created.title": "New task",
   "notify.triage.task_created.body": "A new task is waiting for you in TarragonHealth.",
   "share.title": "Share my records",
@@ -886,7 +889,6 @@ export const en = {
   "scribe.input.too_short": "Add a little more text to draft from.",
   "scribe.language.label": "Patient summary language",
   "scribe.language.en": "English",
-  "scribe.language.pcm": "Pidgin",
   "scribe.draft.use": "Use in note",
   "scribe.draft.use_help": "Fills the note fields below. Nothing is saved until you save or sign the note. Text already in a field is kept and the draft is added after it.",
   "scribe.draft.used": "Draft added to the note below. Review and edit it, then save or sign the note.",
@@ -980,8 +982,8 @@ export const en = {
   "consult.book.hold": "We are holding your slot for {minutes} minutes while you pay.",
   "consult.book.paid_unconfirmed": "Paid but not confirmed yet. Payments can take up to a day to settle. If a payment fails after your bank was charged, your bank returns it, usually within 24 hours.",
 
-  // S22: written questions and clinical notes. Pidgin written by the build session, needs a native reviewer (OQ-156);
-  // the red-flag text is safety wording and stays English until the CMO and a reviewer sign it (OQ-74 pattern).
+  // S22: written questions and clinical notes.
+  // The red-flag text is safety wording and needs CMO sign-off (OQ-74 pattern).
   "wq.title": "Ask your care team",
   "wq.intro": "Send your care team a written message. They reply in the app within {hours} hours. A written reply gives guidance, never a diagnosis. If your care team needs to make a diagnosis, they will call you.",
   "wq.window": "Reply within {hours} hours",
@@ -1128,7 +1130,7 @@ export const en = {
   "titration.label.inputs": "What this was worked out from",
   "titration.label.draft_note": "This is a draft for you to review. You can edit it, reject it with a reason, or sign it. The patient sees nothing until you sign.",
   "admin.members.title": "Members",
-  // S25: catalogue items and the checkout screens. Pidgin written by the build session, needs a native reviewer (OQ-156 pattern).
+  // S25: catalogue items and the checkout screens.
   "catalog.membership_annual.name": "Tarragon Membership",
   "catalog.membership_annual.description": "A year of care with your care team, on your phone. Medicines are not included: you take your prescription to any pharmacy and pay there.",
   "catalog.membership_annual.incl.1": "A yearly blood test, with your results held for your care team to review before you see them",
@@ -1181,7 +1183,7 @@ export const en = {
   "notes.withdrawn.reason": "Why: {reason}",
   "notes.withdrawn.explain": "The text is hidden. Ask your care team if you have questions.",
   "notes.withdrawn.on": "Withdrawn {date}",
-  // S25: catalogue items and the checkout screens. Pidgin written by the build session, needs a native reviewer (OQ-156 pattern).
+  // S25: catalogue items and the checkout screens.
   "circle.title": "Your Care Circle",
   "circle.intro": "Choose people you trust and exactly what each one can see. You can change or remove anyone at any time.",
   "circle.members.title": "People in your circle",
@@ -1359,7 +1361,7 @@ export const en = {
   "admin.refunds.note_placeholder": "Add a note (optional)",
   "admin.refunds.confirm_approve": "Approve this refund of {{amount}}? The money will be returned to the patient's card.",
   "admin.refunds.confirm_reject": "Decline this refund request?",
-  // S27: lab results. Pidgin written by the build session, needs a native reviewer (OQ-156).
+  // S27: lab results.
   "labres.title": "Your lab results",
   "labres.empty": "Nothing here yet. When your care team adds a result, you will see it here.",
   "labres.status.released": "Ready to read",
@@ -1921,6 +1923,18 @@ export const en = {
   "labres.replaced": "Replaced by a newer result",
   "labres.correction": "This is a corrected result. It replaces an earlier one.",
   "labres.screening": "This is a screening result. It is not a diagnosis, and your care team will tell you what happens next.",
+  "payapprove.title": "Payout approvals",
+  "payapprove.intro": "Weekly payout drafts waiting for approval. Approving only agrees the amount. The founder sends the money, and you cannot approve a payout that is yours.",
+  "payapprove.off": "Approval is switched off. You can read the drafts, but nothing can be approved until payouts are switched on from the go-live page.",
+  "payapprove.load_error": "The drafts could not be loaded. This is not the same as there being none.",
+  "payapprove.none": "No drafts are waiting.",
+  "payapprove.earnings": "{count} earnings, up to {date}",
+  "payapprove.no_bank": "No verified bank account yet, so this cannot be approved.",
+  "payapprove.approve": "Approve",
+  "payapprove.working": "Working...",
+  "payapprove.unnamed": "A clinician",
+  "payapprove.truncated": "Showing {shown} of {total} drafts waiting. Approve some to see the rest.",
+  "payapprove.mine": "This payout is yours, so someone else needs to approve it.",
 } as const;
 
 export type MessageKey = keyof typeof en;

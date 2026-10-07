@@ -4,7 +4,6 @@ import { render, screen } from "@testing-library/react";
 const rpc = jest.fn();
 jest.mock("next/navigation", () => ({ redirect: (p: string) => { throw new Error(`REDIRECT:${p}`); } }));
 jest.mock("@/lib/auth/current-profile", () => ({ getCurrentProfile: jest.fn().mockResolvedValue({ id: "me", language: "en" }) }));
-jest.mock("@/lib/language/pidgin-switch", () => ({ getPidginEnabled: jest.fn().mockResolvedValue(false) }));
 jest.mock("@/components/go-live/flash-clean", () => ({ FlashClean: () => null }));
 jest.mock("@/lib/supabase/server", () => ({ createClient: jest.fn().mockResolvedValue({ rpc: (...a: unknown[]) => rpc(...a) }) }));
 

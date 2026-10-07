@@ -6,7 +6,6 @@ const staff = jest.fn();
 jest.mock("next/navigation", () => ({ redirect: (u: string) => redirect(u) }));
 jest.mock("@/lib/auth/current-profile", () => ({ getCurrentClinicalStaff: () => staff(), getCurrentProfile: async () => ({ language: "en" }) }));
 jest.mock("@/lib/clinical/doctor-tier", () => ({ canAssignCases: (s: unknown) => s !== null }));
-jest.mock("@/lib/language/pidgin-switch", () => ({ getPidginEnabled: async () => false }));
 jest.mock("@/components/reliability/reliability-page", () => ({ ReliabilityPage: (p: { viewer: string }) => `viewer:${p.viewer}` }));
 
 import Page from "./page";

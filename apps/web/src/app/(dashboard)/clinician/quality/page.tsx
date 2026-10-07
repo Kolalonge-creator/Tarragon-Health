@@ -1,10 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { t } from "@tarragon/i18n";
-import { resolveUiLanguage } from "@tarragon/shared";
+import { DEFAULT_UI_LANGUAGE } from "@tarragon/shared";
 import { getCurrentClinicalStaff, getCurrentProfile } from "@/lib/auth/current-profile";
 import { canAssignCases } from "@/lib/clinical/doctor-tier";
-import { getPidginEnabled } from "@/lib/language/pidgin-switch";
 import { loadAuditQueue, loadHandbackQueue } from "@/lib/quality/load";
 import { asNotice, dueLabel, HANDBACK_OUTCOMES, itemLabel } from "@/lib/quality/model";
 import { closeHandbackReviewAction } from "@/lib/quality/actions";
@@ -27,7 +26,7 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
   const staff = await getCurrentClinicalStaff();
   if (!canAssignCases(staff)) redirect("/clinician");
   const profile = await getCurrentProfile();
-  const locale = resolveUiLanguage(profile?.language, await getPidginEnabled());
+  const locale = DEFAULT_UI_LANGUAGE;
   const notice = asNotice((await searchParams).n);
   const [audits, reviews] = await Promise.all([loadAuditQueue(), loadHandbackQueue()]);
   const open = audits.ok ? audits.data.filter((a) => dueLabel(a) !== "done") : [];

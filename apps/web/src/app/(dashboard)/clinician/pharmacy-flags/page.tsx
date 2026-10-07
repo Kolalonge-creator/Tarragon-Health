@@ -1,8 +1,7 @@
 import { t } from "@tarragon/i18n";
-import { resolveUiLanguage } from "@tarragon/shared";
+import { DEFAULT_UI_LANGUAGE } from "@tarragon/shared";
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
-import { getPidginEnabled } from "@/lib/language/pidgin-switch";
 import { loadPrescriberFlags } from "@/lib/pharmacy-flags/load";
 import { itemLine, kindKey } from "@/lib/pharmacy-flags/model";
 
@@ -20,7 +19,7 @@ export default async function PharmacyFlagsPage() {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
   if (profile.role !== "clinician") redirect("/clinician");
-  const locale = resolveUiLanguage(profile.language, await getPidginEnabled());
+  const locale = DEFAULT_UI_LANGUAGE;
   const flags = await loadPrescriberFlags();
 
   return (

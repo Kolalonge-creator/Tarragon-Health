@@ -17,7 +17,7 @@ const ops: Dashboard = {
   distribution: { clinicians: 6, min_group: 5, suppressed: false, scores: [95, 90, 80, 75, 60, 50] },
 };
 const lead: Dashboard = { ...ops, viewer: "lead", on_call: { primary: "Dr Ada", backup: null }, individuals: [{ name: "Dr Ada", tier: "senior_medical_officer", score: 91.4, events: 5, handbacks: 1 }] };
-const html = async (viewer: "lead" | "ops", locale: "en" | "pcm" = "en") => renderToStaticMarkup(await ReliabilityPage({ viewer, locale }));
+const html = async (viewer: "lead" | "ops", locale: "en" = "en") => renderToStaticMarkup(await ReliabilityPage({ viewer, locale }));
 
 describe("ReliabilityPage", () => {
   it("a failed read shows a load failure and no figures at all", async () => {
@@ -56,11 +56,5 @@ describe("ReliabilityPage", () => {
     const out = await html("ops");
     expect(out).toContain("at least 5 clinicians");
     expect(out).not.toContain("85 and above");
-  });
-  it("renders in Pidgin and holds no em dash", async () => {
-    result = { ok: true, data: lead };
-    const out = await html("lead", "pcm");
-    expect(out).toContain("Tasks wey dey wait");
-    expect(out).not.toContain("—");
   });
 });

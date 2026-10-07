@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { getProposedConfig } from "@tarragon/shared";
 import { applyRecording, rollbackRecording, bundleReport, fileUrl, filesInGroup, haveKey, planDownloads, projectedBundleBytes, type ProjectionParams } from "./bundle";
-import { audioLang, scriptText } from "./language";
+import { scriptText } from "./language";
 import { realManifest, SHA, withFinished } from "./test-helpers";
 import type { Lang, Manifest } from "./types";
 
@@ -17,26 +17,26 @@ describe("what ships in the app", () => {
     expect([...groups(on)].sort()).toEqual(["EMG", "NUM", "ONB", "SYM", "TRI"]);
   });
 
-  it("counts both languages for most clips and one file for each shared number clip", () => {
+  it("counts one file per clip and one for each shared number clip", () => {
     const r = bundleReport(m, off);
-    // ONB 18, EMG 13, TRI 8 in two languages; NUM-P and D clips (23) in two; 640 shared number clips.
-    expect(r.files).toBe((18 + 13 + 8 + 23) * 2 + 640);
-    expect(r.clips).toBe(18 + 13 + 8 + 23 + 640);
-    expect(bundleReport(m, on).files).toBe(r.files + 11 * 2);
+    // ONB 18, EMG 13, TRI 8; NUM-P and D clips (23); 640 shared number clips.
+    expect(r.files).toBe(18 + 14 + 8 + 23 + 640);
+    expect(r.clips).toBe(18 + 14 + 8 + 23 + 640);
+    expect(bundleReport(m, on).files).toBe(r.files + 11);
   });
 
   it("reports everything as not yet recorded today, with zero bytes", () => {
     const r = bundleReport(m, off);
     expect(r).toMatchObject({ recorded: 0, bytes: 0, pendingRecording: r.files });
-    expect(r.byGroup.EMG).toEqual({ files: 26, recorded: 0, bytes: 0 });
+    expect(r.byGroup.EMG).toEqual({ files: 14, recorded: 0, bytes: 0 });
   });
 
   it("adds up the bytes of what has been recorded, per group", () => {
     const r = bundleReport(withFinished(["EMG-001", "NUM-148"]), off);
-    expect(r.recorded).toBe(3);
-    expect(r.bytes).toBe(3 * 12_345);
-    expect(r.byGroup.EMG).toMatchObject({ recorded: 2, bytes: 24_690 });
-    expect(r.pendingRecording).toBe(r.files - 3);
+    expect(r.recorded).toBe(2);
+    expect(r.bytes).toBe(2 * 12_345);
+    expect(r.byGroup.EMG).toMatchObject({ recorded: 1, bytes: 12_345 });
+    expect(r.pendingRecording).toBe(r.files - 2);
   });
 });
 
@@ -45,9 +45,8 @@ describe("downloads after sign-up", () => {
   const ctx = { lang: "en" as Lang, signedUp: true, onWifi: true, lowData: false, have: new Set<string>() };
   const names = (c: typeof ctx) => planDownloads(m, c, off).map((r) => r.file.file).sort();
 
-  it("fetches recorded post-sign-up files in the person's language, on Wi-Fi", () => {
+  it("fetches recorded post-sign-up files on Wi-Fi", () => {
     expect(names(ctx)).toEqual(["TH-HLP-001-EN.mp3", "TH-NAV-001-EN.mp3", "TH-NAV-002-EN.mp3"]);
-    expect(names({ ...ctx, lang: "pcm" })).toEqual(["TH-HLP-001-PCM.mp3", "TH-NAV-001-PCM.mp3", "TH-NAV-002-PCM.mp3"]);
   });
 
   it("never fetches on mobile data, in low-data mode, or before sign-up (spec D.1)", () => {
@@ -79,7 +78,6 @@ describe("file locations and recordings", () => {
   it("records a master's checksum and size against its file name", () => {
     const next = applyRecording(realManifest(), "TH-EMG-001-EN.mp3", { sha256: SHA, bytes: 9000, durationMs: 21_000 }) as Manifest;
     expect(next.clips.find((c) => c.id === "EMG-001")!.files.en).toMatchObject({ sha256: SHA, bytes: 9000, duration_ms: 21_000, approvals: [] });
-    expect(next.clips.find((c) => c.id === "EMG-001")!.files.pcm!.sha256).toBeNull();
     expect(applyRecording(realManifest(), "TH-NOPE-001-EN.mp3", { sha256: SHA, bytes: 1, durationMs: null })).toBeNull();
   });
 
@@ -112,12 +110,6 @@ describe("file locations and recordings", () => {
 });
 
 describe("language", () => {
-  it("follows the app language, and is English while the Pidgin switch is off", () => {
-    expect(audioLang("pcm", true)).toBe("pcm");
-    expect(audioLang("pcm", false)).toBe("en");
-    expect(audioLang(undefined, true)).toBe("en");
-  });
-
   it("returns a clip's words, and nothing for an id with no script", () => {
     expect(scriptText("TRI-005", "en")).toMatch(/five minutes/);
     expect(scriptText("NUM-148", "en")).toBe("");

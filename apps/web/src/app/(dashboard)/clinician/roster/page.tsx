@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
-import { resolveUiLanguage } from "@tarragon/shared";
+import { DEFAULT_UI_LANGUAGE } from "@tarragon/shared";
 import { getCurrentClinicalStaff, getCurrentProfile } from "@/lib/auth/current-profile";
 import { canAssignCases } from "@/lib/clinical/doctor-tier";
-import { getPidginEnabled } from "@/lib/language/pidgin-switch";
 import { RosterPage } from "@/components/clinician-roster/roster-page";
 
 export const metadata = { title: "Clinician roster" };
@@ -13,6 +12,6 @@ export default async function LeadRoster({ searchParams }: { searchParams: Promi
   const staff = await getCurrentClinicalStaff();
   if (!canAssignCases(staff)) redirect("/clinician");
   const profile = await getCurrentProfile();
-  const locale = resolveUiLanguage(profile?.language, await getPidginEnabled());
+  const locale = DEFAULT_UI_LANGUAGE;
   return <RosterPage door="lead" locale={locale} noticeParam={(await searchParams).n} />;
 }

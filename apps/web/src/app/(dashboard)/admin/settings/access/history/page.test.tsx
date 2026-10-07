@@ -10,7 +10,6 @@ let loaded: unknown = { ok: true, data: { current: [], history: [], audit: [] } 
 jest.mock("next/navigation", () => ({ redirect: (u: string) => redirect(u) }));
 jest.mock("@/lib/auth/current-profile", () => ({ getCurrentProfile: async () => ({ id: "p", language: "en" }) }));
 jest.mock("@/lib/auth/permissions", () => ({ hasPermission: async () => allowed }));
-jest.mock("@/lib/language/pidgin-switch", () => ({ getPidginEnabled: async () => false }));
 jest.mock("@/lib/clinician-roster/load", () => ({ loadGrantsHistory: async () => loaded }));
 
 import GrantsHistoryPage from "./page";

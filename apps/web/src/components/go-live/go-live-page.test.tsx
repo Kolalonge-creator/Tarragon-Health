@@ -34,7 +34,7 @@ jest.mock("@/lib/go-live/actions", () => ({ attestConditionAction: async () => u
 
 import { GoLivePage } from "./go-live-page";
 
-const html = async (viewer: "admin" | "cmo" | "ops", locale: "en" | "pcm" = "en", extra: Record<string, unknown> = {}) =>
+const html = async (viewer: "admin" | "cmo" | "ops", locale: "en" = "en", extra: Record<string, unknown> = {}) =>
   renderToStaticMarkup(await GoLivePage({ viewer, locale, ...extra }));
 
 describe("GoLivePage", () => {
@@ -97,10 +97,10 @@ describe("GoLivePage", () => {
     expect(pagingBlock).toContain("Only the owner confirms this.");
   });
 
-  it("renders in Pidgin and shows a calm message when the guards cannot be loaded", async () => {
+  it("shows a calm message when the guards cannot be loaded", async () => {
     guardsOk = false;
-    const out = await html("admin", "pcm");
-    expect(out).toContain("We no fit load this now");
+    const out = await html("admin", "en");
+    expect(out).toContain("This could not be loaded just now");
     guardsOk = true;
   });
 

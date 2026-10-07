@@ -1,10 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { t } from "@tarragon/i18n";
-import { resolveUiLanguage } from "@tarragon/shared";
+import { DEFAULT_UI_LANGUAGE } from "@tarragon/shared";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { hasPermission } from "@/lib/auth/permissions";
-import { getPidginEnabled } from "@/lib/language/pidgin-switch";
 import { loadGrantsHistory } from "@/lib/clinician-roster/load";
 
 export const metadata = { title: "Who holds which access" };
@@ -22,7 +21,7 @@ export default async function GrantsHistoryPage() {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
   if (!(await hasPermission("users.permissions.grant"))) redirect("/admin/settings");
-  const locale = resolveUiLanguage(profile.language, await getPidginEnabled());
+  const locale = DEFAULT_UI_LANGUAGE;
   const res = await loadGrantsHistory();
 
   return (

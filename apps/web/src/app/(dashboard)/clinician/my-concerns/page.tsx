@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
 import { t } from "@tarragon/i18n";
-import { resolveUiLanguage } from "@tarragon/shared";
+import { DEFAULT_UI_LANGUAGE } from "@tarragon/shared";
 import { getCurrentClinicalStaff, getCurrentProfile } from "@/lib/auth/current-profile";
-import { getPidginEnabled } from "@/lib/language/pidgin-switch";
 import { loadMyConcerns } from "@/lib/concerns/load";
 import { asConcernNotice, deadlines, labelKey } from "@/lib/concerns/model";
 import { addToMyConcernAction } from "@/lib/concerns/actions";
@@ -23,7 +22,7 @@ const field = "mt-1 w-full rounded-lg border border-charcoal-ink/20 bg-white px-
 export default async function MyConcernsPage({ searchParams }: { searchParams: Promise<{ n?: string }> }) {
   if ((await getCurrentClinicalStaff()) === null) redirect("/clinician");
   const profile = await getCurrentProfile();
-  const locale = resolveUiLanguage(profile?.language, await getPidginEnabled());
+  const locale = DEFAULT_UI_LANGUAGE;
   const notice = asConcernNotice((await searchParams).n);
   const mine = await loadMyConcerns();
   const now = new Date().getTime();

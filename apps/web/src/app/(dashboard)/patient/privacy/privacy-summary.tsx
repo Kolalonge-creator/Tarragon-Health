@@ -16,7 +16,7 @@ const PURPOSES = [
 
 /**
  * Plain-language summary of what each consent means (v5 function 1.14). Text only for now: the audio for it (ONB-010)
- * is S32's, and Pidgin wording still needs a native reviewer (OQ-19).
+ * is S32's.
  */
 export function PrivacySummary({ locale }: { locale: Locale }) {
   return (

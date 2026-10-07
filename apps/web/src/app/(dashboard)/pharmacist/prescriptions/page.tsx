@@ -1,7 +1,6 @@
 import { t } from "@tarragon/i18n";
-import { resolveUiLanguage } from "@tarragon/shared";
+import { DEFAULT_UI_LANGUAGE } from "@tarragon/shared";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
-import { getPidginEnabled } from "@/lib/language/pidgin-switch";
 import { loadPharmacyPrescriptions } from "@/lib/pharmacy-flags/load";
 import { flagPrescriptionAction } from "@/lib/pharmacy-flags/actions";
 import { asNotice, FLAG_KINDS, itemLine, kindKey, REASON_MAX, REASON_MIN } from "@/lib/pharmacy-flags/model";
@@ -20,7 +19,7 @@ const field = "mt-1 w-full rounded-lg border border-charcoal-ink/20 bg-white px-
  */
 export default async function PharmacistPrescriptionsPage({ searchParams }: { searchParams: Promise<{ n?: string }> }) {
   const profile = await getCurrentProfile();
-  const locale = resolveUiLanguage(profile?.language, await getPidginEnabled());
+  const locale = DEFAULT_UI_LANGUAGE;
   const notice = asNotice((await searchParams).n);
   const rows = await loadPharmacyPrescriptions();
 
