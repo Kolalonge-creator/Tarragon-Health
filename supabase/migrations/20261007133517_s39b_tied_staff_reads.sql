@@ -6,8 +6,8 @@
 --     care team, open escalation or alert, live consultation, active clinical task, post-consult window, assigned referral), or holding an
 --     active break-glass grant, or an active support view-as session. A care coordinator never passes on a clinical table (logistics only).
 --     private.is_org_staff is NOT edited (it gates about 110 other surfaces).
---   * 120 tables (plus 5 keyed by profile or through a parent) have the staff arm of their SELECT policy switched from "any staff of the
---     organisation" to that check. Writes are not changed. The other 106 tables stay organisation-wide on purpose and are listed with a
+--   * 123 tables (plus 5 keyed by profile or through a parent) have the staff arm of their SELECT policy switched from "any staff of the
+--     organisation" to that check. Writes are not changed. The other 103 tables stay organisation-wide on purpose and are listed with a
 --     reason in staff_read_scope (scheduling, logistics, work queues that create the tie, billing, self-tracking, system rules).
 --   * the switch is a platform module row (tied_staff_reads). Turn it off and every rewritten policy behaves exactly as before; the old policy
 --     text is also kept in staff_read_policy_backup.
@@ -157,7 +157,7 @@ insert into public.staff_read_scope (table_name, mode, patient_expr, category, r
   ('vaccination_records', 'tied', 'profile_id', 'vaccinations', null),
   ('activity_log_entries', 'org', 'patient_id', 'medical_history', 'activity log'),
   ('adolescent_confidentiality_waivers', 'org', 'patient_id', 'medical_history', 'consent record'),
-  ('alcohol_consumption_logs', 'org', 'patient_id', 'medical_history', 'self-tracking'),
+  ('alcohol_consumption_logs', 'tied', 'patient_id', 'medical_history', null),
   ('alert_follow_up_tasks', 'org', 'patient_id', 'medical_history', 'work queue'),
   ('appointment_waiting_list', 'org', 'patient_id', 'medical_history', 'scheduling'),
   ('appointments', 'org', 'patient_id', 'medical_history', 'scheduling: coordinators book; ties derive from it'),
@@ -223,7 +223,7 @@ insert into public.staff_read_scope (table_name, mode, patient_expr, category, r
   ('navigation_requests', 'org', 'patient_id', 'medical_history', 'logistics'),
   ('nutrition_log_entries', 'org', 'patient_id', 'medical_history', 'self-tracking'),
   ('patient_activity_goals', 'org', 'patient_id', 'medical_history', 'self-set goals'),
-  ('patient_alcohol_goals', 'org', 'patient_id', 'medical_history', 'self-set goals'),
+  ('patient_alcohol_goals', 'tied', 'patient_id', 'medical_history', null),
   ('patient_challenge_enrolments', 'org', 'patient_id', 'medical_history', 'wellness programme'),
   ('patient_devices', 'org', 'patient_id', 'medical_history', 'device logistics'),
   ('patient_engagement_interventions', 'org', 'patient_id', 'medical_history', 'roster'),
@@ -249,7 +249,7 @@ insert into public.staff_read_scope (table_name, mode, patient_expr, category, r
   ('risk_reassessment_queue', 'org', 'patient_id', 'medical_history', 'work queue'),
   ('service_purchases', 'org', 'patient_id', 'medical_history', 'billing'),
   ('sleep_log_entries', 'org', 'patient_id', 'medical_history', 'self-tracking'),
-  ('smoking_check_ins', 'org', 'patient_id', 'medical_history', 'self-tracking'),
+  ('smoking_check_ins', 'tied', 'patient_id', 'medical_history', null),
   ('superseded_source_values', 'org', 'patient_id', 'medical_history', 'system'),
   ('support_tickets', 'org', 'patient_id', 'medical_history', 'support'),
   ('video_consultations', 'org', 'patient_id', 'medical_history', 'consultation logistics: creates ties'),
@@ -313,10 +313,10 @@ begin
       if p.cmd = 'SELECT' then
         execute format('create policy %I on public.%I for select to %s using (%s)', p.policyname, p.tablename, v_roles, v_new);
       else
-        execute format('create policy %I on public.%I for select to %s using (%s)', p.policyname || '_read', p.tablename, v_roles, v_new);
-        execute format('create policy %I on public.%I for insert to %s with check (%s)', p.policyname || '_ins', p.tablename, v_roles, coalesce(p.with_check, p.qual));
-        execute format('create policy %I on public.%I for update to %s using (%s) with check (%s)', p.policyname || '_upd', p.tablename, v_roles, p.qual, coalesce(p.with_check, p.qual));
-        execute format('create policy %I on public.%I for delete to %s using (%s)', p.policyname || '_del', p.tablename, v_roles, p.qual);
+        execute format('create policy %I on public.%I for select to %s using (%s)', left(p.policyname, 54) || '_read', p.tablename, v_roles, v_new);
+        execute format('create policy %I on public.%I for insert to %s with check (%s)', left(p.policyname, 54) || '_ins', p.tablename, v_roles, coalesce(p.with_check, p.qual));
+        execute format('create policy %I on public.%I for update to %s using (%s) with check (%s)', left(p.policyname, 54) || '_upd', p.tablename, v_roles, p.qual, coalesce(p.with_check, p.qual));
+        execute format('create policy %I on public.%I for delete to %s using (%s)', left(p.policyname, 54) || '_del', p.tablename, v_roles, p.qual);
       end if;
       v_n := v_n + 1;
     end loop;
@@ -332,6 +332,7 @@ declare v text;
 begin
   foreach v in array array['diabetes_quality_metrics', 'hypertension_quality_metrics', 'lpe_programme_outcomes', 'obesity_quality_metrics',
                            'risk_model_drift_signal', 'risk_model_performance', 'risk_model_performance_by_subgroup', 'triage_safety_monitoring'] loop
+    continue when to_regclass(format('public.%I', v)) is null;
     execute format('create or replace view public.%I with (security_invoker = off) as select * from (%s) q where private.is_org_staff(q.organisation_id) or (select auth.uid()) is null',
                    v, rtrim(pg_get_viewdef(format('public.%I', v)::regclass, true), ';'));
   end loop;
@@ -359,7 +360,11 @@ begin
     from pg_policies p join public.staff_read_scope s on s.table_name = p.tablename and s.mode = 'tied'
    where p.schemaname = 'public' and p.cmd in ('SELECT', 'ALL') and coalesce(p.qual, '') like '%private.is_org_staff(organisation_id)%';
   if v_left is not null then raise exception 'S39b: a tied table still has the plain staff read: %', v_left; end if;
-  if (select count(*) from public.staff_read_scope where mode = 'tied') <> 125 then raise exception 'S39b: expected 125 tied tables'; end if;
+  if (select count(*) from public.staff_read_scope where mode = 'tied') <> 128 then raise exception 'S39b: expected 128 tied tables'; end if;
+  if exists (select 1 from unnest(array['diabetes_quality_metrics','hypertension_quality_metrics','lpe_programme_outcomes','obesity_quality_metrics','risk_model_drift_signal','risk_model_performance','risk_model_performance_by_subgroup','triage_safety_monitoring']) v
+             where to_regclass('public.' || v) is not null and has_table_privilege('anon', 'public.' || v, 'SELECT')) then
+    raise exception 'S39b: anon can read an owner-rights quality view (the no-session bypass relies on anon having no grant)';
+  end if;
   if has_function_privilege('anon', 'private.staff_may_read(uuid,uuid,public.care_access_category)', 'EXECUTE') then raise exception 'S39b: anon can execute staff_may_read'; end if;
   if not exists (select 1 from pg_policies where tablename = 'scribe_transcripts' and policyname = 'scribe_transcripts_delete_staff' and qual like '%staff_may_read%') then raise exception 'S39b: the staff transcript delete is not tied'; end if;
 end $$;

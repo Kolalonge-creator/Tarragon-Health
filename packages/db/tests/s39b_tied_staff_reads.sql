@@ -1,6 +1,6 @@
 -- S39b proof: staff read patient records only through a care relationship (INV-12), both tiers (OQ-260).
 -- Migration *_s39b_tied_staff_reads.sql. One rolled-back transaction against real data: a real patient with the most records is the subject.
--- Proves, for EVERY table the scope registry marks as tied (125 of them):
+-- Proves, for EVERY table the scope registry marks as tied (128 of them):
 --   A. an untied clinician in the patient's own organisation reads nothing about any other person;
 --   B. a clinician tied through the care team reads exactly the patient's rows (the same count the table owner sees) and nobody else's;
 --   C. a care coordinator, even tied, reads none of the clinical tables, but still reads the logistics tables organisation-wide;
@@ -144,7 +144,7 @@ select pg_temp.ck('real', 'E3 with the grant ended the clinician is shut out aga
 -- G ---------------------------------------------------------------------------------------------------------------------------------------------
 select pg_temp.ck('real', 'G1 every patient table that has a staff read policy is in the scope registry', '', (
   select coalesce(string_agg(distinct p.tablename, ', '), '') from pg_policies p
-   where p.schemaname = 'public' and p.cmd in ('SELECT', 'ALL') and coalesce(p.qual, '') like '%private.is_org_staff(organisation_id)%'
+   where p.schemaname = 'public' and p.cmd in ('SELECT', 'ALL') and coalesce(p.qual, '') like '%is_org_staff(%'
      and exists (select 1 from information_schema.columns c where c.table_schema = 'public' and c.table_name = p.tablename and c.column_name = 'patient_id')
      and p.tablename not in (select table_name from public.staff_read_scope)));
 select pg_temp.ck('real', 'G2 a tied table has no plain organisation-wide staff read left', '', (
