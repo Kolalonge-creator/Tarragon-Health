@@ -359,7 +359,9 @@ end $$;
 create function pg_temp.push_items(p_glucose numeric, p_glucose_unit text) returns text language sql as
 $$ select '[{"loinc":"1558-6","value":' || p_glucose || ',"unit":"' || p_glucose_unit || '"},{"loinc":"4548-4","value":5.2,"unit":"%"},{"loinc":"2160-0","value":0.9,"unit":"mg/dL"},'
   || '{"loinc":"2823-3","value":4.1,"unit":"mmol/L"},{"loinc":"2951-2","value":140,"unit":"mmol/L"},{"loinc":"2093-3","value":170,"unit":"mg/dL"},'
-  || '{"loinc":"13457-7","value":100,"unit":"mg/dL"},{"loinc":"2085-9","value":55,"unit":"mg/dL"},{"loinc":"2571-8","value":110,"unit":"mg/dL"},{"loinc":"1742-6","value":24,"unit":"U/L"}]' $$;
+  || '{"loinc":"13457-7","value":100,"unit":"mg/dL"},{"loinc":"2085-9","value":55,"unit":"mg/dL"},{"loinc":"2571-8","value":110,"unit":"mg/dL"},{"loinc":"1742-6","value":24,"unit":"U/L"},'
+  || '{"loinc":"1920-8","value":22,"unit":"U/L"},{"loinc":"718-7","value":14,"unit":"g/dL"},{"loinc":"6690-2","value":6,"unit":"10^9/L"},'
+  || '{"loinc":"777-3","value":250,"unit":"10^9/L"},{"loinc":"3016-3","value":2,"unit":"mIU/L"}]' $$;
 create function pg_temp.push(p_uid uuid, p_order uuid, p_msg text, p_items text) returns text language sql as
 $$ select pg_temp.q_as(p_uid, format('select public.lab_partner_push_result(%L, %L, %L::jsonb)::text', p_order, p_msg, p_items)) $$;
 
@@ -376,11 +378,11 @@ begin
   update public.profiles set lab_provider_id = v_lab where id = v_labu;
   update public.profiles set lab_provider_id = v_lab2 where id = v_labu2;
   perform pg_temp.setf('lab', v_lab); perform pg_temp.setf('labu', v_labu); perform pg_temp.setf('labu2', v_labu2);
-  v_o1 := pg_temp.mkorder(v_org, v_pat2, v_lab, 'essential'); perform pg_temp.setf('o1', v_o1);
+  v_o1 := pg_temp.mkorder(v_org, v_pat2, v_lab, 'membership_annual'); perform pg_temp.setf('o1', v_o1);
 
   -- 5a. nothing is mapped yet: the whole push is rejected, nothing is stored
   v_j := pg_temp.push(v_labu, v_o1, 'msg-000001', pg_temp.push_items(88, 'mg/dL'))::jsonb;
-  perform pg_temp.ck('5a with no mappings the push is rejected as unmapped, listing the pairs', 'rejected|unmapped_item|10',
+  perform pg_temp.ck('5a with no mappings the push is rejected as unmapped, listing the pairs', 'rejected|unmapped_item|15',
     (v_j ->> 'status') || '|' || (v_j ->> 'reject_code') || '|' || jsonb_array_length(v_j -> 'unmapped')::text);
   perform pg_temp.ck('5b ...and no result exists for the order', '0', (select count(*)::text from public.lab_results where lab_order_id = v_o1));
 
@@ -388,12 +390,15 @@ begin
   for m in select * from (values ('fasting_glucose', '1558-6', 'mg/dL', 'mg/dL'), ('hba1c', '4548-4', '%', '%'), ('creatinine', '2160-0', 'mg/dL', 'mg/dL'),
        ('potassium', '2823-3', 'mmol/L', 'mmol/L'), ('sodium', '2951-2', 'mmol/L', 'mmol/L'), ('total_cholesterol', '2093-3', 'mg/dL', 'mg/dL'),
        ('ldl_cholesterol', '13457-7', 'mg/dL', 'mg/dL'), ('hdl_cholesterol', '2085-9', 'mg/dL', 'mg/dL'), ('triglycerides', '2571-8', 'mg/dL', 'mg/dL'),
-       ('alt', '1742-6', 'U/L', 'U/L')) t(a, l, u, p) loop
+       ('alt', '1742-6', 'U/L', 'U/L'),
+       -- integration with S27g: the one membership panel needs these five more before a push counts as complete (hiv, hbsag and hcv are optional)
+       ('ast', '1920-8', 'U/L', 'U/L'), ('haemoglobin', '718-7', 'g/dL', 'g/dL'), ('wbc', '6690-2', '10^9/L', '10^9/L'),
+       ('platelets', '777-3', '10^9/L', '10^9/L'), ('tsh', '3016-3', 'mIU/L', 'mIU/L')) t(a, l, u, p) loop
     perform pg_temp.q_as(v_admin, format($q$select public.propose_lab_code_mapping(%L, %L, %L, %L, %L)::text$q$, v_lab, m.l, m.u, m.a, m.p));
   end loop;
   perform pg_temp.q_as(v_admin, format($q$select public.propose_lab_code_mapping(%L, '1558-6', 'mmol/L', 'fasting_glucose', 'mg/dL', 18.016)::text$q$, v_lab));
   perform pg_temp.q_as(v_admin, format($q$select public.propose_lab_code_mapping(%L, '75622-1', '', 'hiv_screen', '')::text$q$, v_lab));
-  perform pg_temp.ck('5c eleven numeric mappings and one qualitative are proposed', '12', (select count(*)::text from public.lab_code_mappings where lab_provider_id = v_lab and status = 'proposed'));
+  perform pg_temp.ck('5c sixteen numeric mappings and one qualitative are proposed', '17', (select count(*)::text from public.lab_code_mappings where lab_provider_id = v_lab and status = 'proposed'));
   perform pg_temp.ck('5d a stored unit that is not the panel''s own is refused', 'ERR:lab_unit_mismatch',
     pg_temp.q_as(v_admin, format($q$select public.propose_lab_code_mapping(%L, '2160-0', 'umol/L', 'creatinine', 'umol/L', 1)::text$q$, v_lab)));
   perform pg_temp.ck('5e an analyte that is on no panel is refused', 'ERR:lab_unknown_analyte',
@@ -419,9 +424,9 @@ begin
   for m in select id from public.lab_code_mappings where lab_provider_id = v_lab loop
     perform pg_temp.q_as(v_cmo, format('select public.confirm_lab_code_mapping(%L)::text', m.id));
   end loop;
-  perform pg_temp.ck('5l the CMO confirms them all, with a name and a time', '12',
+  perform pg_temp.ck('5l the CMO confirms them all, with a name and a time', '17',
     (select count(*)::text from public.lab_code_mappings where lab_provider_id = v_lab and status = 'confirmed' and confirmed_by is not null and confirmed_at is not null));
-  perform pg_temp.ck('5m a lab sees its own mappings; another lab sees none', '12|0',
+  perform pg_temp.ck('5m a lab sees its own mappings; another lab sees none', '17|0',
     pg_temp.q_as(v_labu, 'select count(*)::text from public.lab_code_mappings') || '|' || pg_temp.q_as(v_labu2, 'select count(*)::text from public.lab_code_mappings'));
 
   -- 5n. ranges are not signed yet: an all-normal push is accepted but HELD
@@ -429,7 +434,7 @@ begin
   perform pg_temp.ck('5n an all-normal push against UNSIGNED ranges is received and held', 'received|held', (v_j ->> 'status') || '|' || (v_j ->> 'state'));
   select id into v_rid from public.lab_results where lab_order_id = v_o1;
   perform pg_temp.ck('5o ...it is not visible to the patient (INV-03)', '0', pg_temp.q_as(v_pat2, format('select count(*)::text from public.lab_results where id = %L', v_rid)));
-  perform pg_temp.ck('5p ...ten items stored in the panel unit', '10|mg/dL',
+  perform pg_temp.ck('5p ...fifteen items stored in the panel unit', '15|mg/dL',
     (select count(*)::text || '|' || (select unit from public.lab_result_items where lab_result_id = v_rid and analyte_code = 'creatinine') from public.lab_result_items where lab_result_id = v_rid));
   perform pg_temp.ck('5q the push is recorded, accepted, with the items exactly as received', 'accepted|1558-6',
     (select outcome || '|' || (items_received -> 0 ->> 'loinc') from public.lab_result_pushes where lab_provider_id = v_lab and message_id = 'msg-000003'));
@@ -438,7 +443,7 @@ begin
 
   -- 5s. the CMO signs the ranges; now a normal result is released
   perform pg_temp.q_as(v_cmo, format('select public.sign_lab_panels(%L)::text', (select id from public.lab_panel_signoffs where is_active)));
-  v_o2 := pg_temp.mkorder(v_org, v_pat, v_lab, 'essential');
+  v_o2 := pg_temp.mkorder(v_org, v_pat, v_lab, 'membership_annual');
   v_j := pg_temp.push(v_labu, v_o2, 'msg-000004', pg_temp.push_items(88, 'mg/dL'))::jsonb;
   select id into v_rid from public.lab_results where lab_order_id = v_o2;
   perform pg_temp.ck('5s an all-normal push against SIGNED ranges is released', 'received|released|released',
@@ -450,12 +455,12 @@ begin
     (pg_temp.push(v_labu, v_o2, 'msg-000005', pg_temp.push_items(88, 'mg/dL'))::jsonb ->> 'status') || '|' || (pg_temp.push(v_labu, v_o2, 'msg-000006', pg_temp.push_items(88, 'mg/dL'))::jsonb ->> 'reject_code'));
 
   -- 5w. unit conversion through a confirmed multiplier
-  v_o3 := pg_temp.mkorder(v_org, v_pat3, v_lab, 'essential');
+  v_o3 := pg_temp.mkorder(v_org, v_pat3, v_lab, 'membership_annual');
   v_j := pg_temp.push(v_labu, v_o3, 'msg-000007', pg_temp.push_items(5.0, 'mmol/L'))::jsonb;
   perform pg_temp.ck('5w glucose sent in mmol/L is converted with the confirmed multiplier and stored in mg/dL', '90.080000|mg/dL',
     (select value_numeric::text || '|' || unit from public.lab_result_items i join public.lab_results r on r.id = i.lab_result_id where r.lab_order_id = v_o3 and i.analyte_code = 'fasting_glucose'));
   -- an unmapped unit rejects the whole push
-  v_o4 := pg_temp.mkorder(v_org, v_pat2, v_lab, 'essential');
+  v_o4 := pg_temp.mkorder(v_org, v_pat2, v_lab, 'membership_annual');
   v_j := pg_temp.push(v_labu, v_o4, 'msg-000008', replace(pg_temp.push_items(88, 'mg/dL'), '"value":0.9,"unit":"mg/dL"', '"value":80,"unit":"umol/L"'))::jsonb;
   perform pg_temp.ck('5x one item in an unmapped unit rejects the whole push', 'rejected|unmapped_item|0',
     (v_j ->> 'status') || '|' || (v_j ->> 'reject_code') || '|' || (select count(*)::text from public.lab_results where lab_order_id = v_o4));
@@ -470,7 +475,7 @@ begin
   perform pg_temp.ck('5zb ...and the patient cannot see it', '0', pg_temp.q_as(v_pat2, format('select count(*)::text from public.lab_results where id = %L', v_rid)));
 
   -- 5zc. a reactive HIV screening result goes to a clinician (INV-04)
-  v_o5 := pg_temp.mkorder(v_org, v_pat, v_lab, 'annual_health_check');
+  v_o5 := pg_temp.mkorder(v_org, v_pat, v_lab, 'membership_annual');
   v_j := pg_temp.push(v_labu, v_o5, 'msg-000010', '[{"loinc":"75622-1","value_text":"Positive","unit":""}]')::jsonb;
   select id into v_rid from public.lab_results where lab_order_id = v_o5;
   perform pg_temp.ck('5zc a reactive HIV screen needs clinician disclosure and is never released', 'received|held|clinician_disclosure_required|true',
@@ -500,7 +505,7 @@ begin
   -- 5zl. INV-14: the go-live guard starts off, and a REAL (non-test) patient's order is refused while it is off; a test patient passes (5a to 5zd above)
   perform pg_temp.ck('5zl the lab push guard exists and starts off', 'false', (select is_on::text from public.go_live_guards where key = 'lab_structured_push_enabled'));
   update public.profiles set is_test = false where id = v_pat3;
-  v_o6 := pg_temp.mkorder(v_org, v_pat3, v_lab, 'essential'); perform pg_temp.setf('o6', v_o6);
+  v_o6 := pg_temp.mkorder(v_org, v_pat3, v_lab, 'membership_annual'); perform pg_temp.setf('o6', v_o6);
   v_j := pg_temp.push(v_labu, v_o6, 'msg-000016', pg_temp.push_items(88, 'mg/dL'))::jsonb;
   perform pg_temp.ck('5zm a real patient''s order is refused while the guard is off, and nothing is stored as a result', 'rejected|not_enabled|0',
     (v_j ->> 'status') || '|' || (v_j ->> 'reject_code') || '|' || (select count(*)::text from public.lab_results where lab_order_id = v_o6));

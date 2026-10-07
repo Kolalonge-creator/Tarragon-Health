@@ -298,7 +298,7 @@ declare v_org uuid := pg_temp.f('org'); yr integer := extract(year from now())::
 begin
   -- S42's table is not on this stack; a stand-in with the same columns is made for the proof when it is absent (rolled back with everything else)
   if to_regclass('public.dependant_handovers') is null then
-    create table public.dependant_handovers (patient_id uuid primary key, state text not null, guardians_kept uuid[] not null default '{}');
+    create table public.dependant_handovers (patient_id uuid primary key, organisation_id uuid, birthday_18 date, state text not null, completed_at timestamptz, guardians_ended integer, consent_text_key text, guardians_kept uuid[] not null default '{}');
     grant select on public.dependant_handovers to authenticated;
   end if;
   y19 := pg_temp.mkchild('y19', 19);
@@ -308,9 +308,10 @@ begin
   perform pg_temp.grant_to(y19, g1, 'view', array['vitals_readings', 'labs_results']);
   perform pg_temp.grant_to(y19, g2, 'view', array['vitals_readings', 'labs_results']);
   perform pg_temp.ck('turned 18 and no completed hand-over: the guardian reads nothing', 'P0002', pg_temp.report_of(g1, y19) ->> 'error');
-  insert into public.dependant_handovers (patient_id, state, guardians_kept) values (y19, 'due', array[g1]);
+  insert into public.dependant_handovers (organisation_id, patient_id, birthday_18, state, guardians_kept)
+  select p.organisation_id, y19, current_date, 'due', array[g1] from public.profiles p where p.id = y19;   -- the real S42 table needs both
   perform pg_temp.ck('a hand-over that is only due (not completed): still nothing', 'P0002', pg_temp.report_of(g1, y19) ->> 'error');
-  update public.dependant_handovers set state = 'completed' where patient_id = y19;
+  update public.dependant_handovers set state = 'completed', completed_at = now(), guardians_ended = 0, consent_text_key = 'placeholder.s46c.proof' where patient_id = y19;
   perform pg_temp.ck('CONTROL: completed and the young person kept this guardian: they read', 'bp,lab', pg_temp.kinds(pg_temp.report_of(g1, y19)));
   perform pg_temp.ck('completed but this guardian was not kept: nothing', 'P0002', pg_temp.report_of(g2, y19) ->> 'error');
   perform pg_temp.ck('the list follows the same rule (kept guardian sees the person, the other does not)', '1,0',

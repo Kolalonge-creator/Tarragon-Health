@@ -212,17 +212,22 @@ begin
   v_cfg := private.record_share_setting();
 
   -- the row lock serialises two simultaneous openings, so a view cap cannot be exceeded
-  select * into s from public.record_shares where token_hash = encode(extensions.digest(p_token, 'sha256'), 'hex') for update;
+  -- a legacy row that still carries its plaintext token (written before the hash existed) is found by that token too
+  select * into s from public.record_shares where token_hash = encode(extensions.digest(p_token, 'sha256'), 'hex') or token = p_token for update;
   if not found then
+    -- S39 (integration): every miss on the public door is counted, so a run of guesses raises the ops alarm; the answer a guesser sees is unchanged
+    perform private.log_public_lookup_failure('record_share');
     return jsonb_build_object('status', 'not_found');
   end if;
 
   if not s.is_active or s.revoked_at is not null then
     insert into public.record_share_lookups (share_id, outcome) values (s.id, 'revoked');
+    perform private.log_public_lookup_failure('record_share');
     return jsonb_build_object('status', 'gone', 'reason', 'revoked');
   end if;
   if s.expires_at <= now() then
     insert into public.record_share_lookups (share_id, outcome) values (s.id, 'expired');
+    perform private.log_public_lookup_failure('record_share');
     return jsonb_build_object('status', 'gone', 'reason', 'expired');
   end if;
   if s.max_views is not null and s.view_count >= s.max_views then

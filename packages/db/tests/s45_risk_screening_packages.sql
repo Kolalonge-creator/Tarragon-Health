@@ -372,7 +372,7 @@ begin
   o := pg_temp.mkorder(v_real, 'screen_essential', false);
   update public.lab_orders set status = 'payment_confirmed' where id = o;
   update public.lab_orders set status = 'sample_collected' where id = o;
-  r := pg_temp.q_as(pg_temp.f('lab'), format($q$select public.lab_partner_submit_result(%L, 'annual_health_check', %L::jsonb)::text$q$, o,
+  r := pg_temp.q_as(pg_temp.f('lab'), format($q$select public.lab_partner_submit_result(%L, 'membership_annual', %L::jsonb)::text$q$, o,
         pg_temp.items(0.9, ',{"analyte_code":"ast","value_numeric":20},{"analyte_code":"haemoglobin","value_numeric":14},{"analyte_code":"wbc","value_numeric":6},{"analyte_code":"platelets","value_numeric":250},{"analyte_code":"tsh","value_numeric":2},{"analyte_code":"hbsag","value_text":"positive"}')));
   perform pg_temp.ck('ACCEPTANCE INV-04: the submit worked', 'false', (r like 'ERR:%')::text);
   rid := (r::jsonb ->> 'lab_result_id')::uuid;

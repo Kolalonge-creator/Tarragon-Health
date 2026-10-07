@@ -357,8 +357,10 @@ select distinct m.organisation_id, m.patient_id, 'vitals', 'care_circle_sharing'
   from public.care_circle_members m join public.profiles p on p.id = m.patient_id
  where m.state = 'active';
 
--- circle_view_blocks restated with one added statement at the top (everything else is the S29c body, verbatim).
-CREATE OR REPLACE FUNCTION private.circle_view_blocks(p_patient uuid, p_permissions text[])
+-- The S29c body restated with one added statement at the top (everything else is verbatim). Integration with S38d: S38d renamed S29c's function
+-- to circle_view_blocks_core and put a wrapper (core + the monthly block) under the old name, so the change belongs on the core. Redefining the
+-- old name here would silently drop the monthly block from the Care Circle view.
+CREATE OR REPLACE FUNCTION private.circle_view_blocks_core(p_patient uuid, p_permissions text[])
  RETURNS jsonb
  LANGUAGE plpgsql
  STABLE SECURITY DEFINER
