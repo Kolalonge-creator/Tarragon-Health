@@ -18,10 +18,10 @@
     "test": "NODE_OPTIONS=--experimental-vm-modules jest"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.110.0",
+    "@supabase/supabase-js": "^2.117.2",
     "@tarragon/auth": "workspace:*",
     "@tarragon/shared": "workspace:*",
-    "zod": "^4.4.3"
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@jest/globals": "^30.4.1",
@@ -29,9 +29,9 @@
     "@types/node": "^20.19.43",
     "eslint": "^9",
     "jest": "^30.4.2",
-    "next": "16.3.3",
-    "react": "19.2.4",
-    "ts-jest": "^29.4.11",
+    "next": "16.3.8",
+    "react": "19.3.0",
+    "ts-jest": "^29.4.14",
     "typescript": "^5",
     "typescript-eslint": "^8"
   }
