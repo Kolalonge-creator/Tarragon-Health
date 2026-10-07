@@ -8,7 +8,7 @@ import { describeViolations, lintRenderFn, lintText } from "./index.ts";
 import { TEMPLATE_MAP } from "../../../supabase/functions/send-pending-notifications/templates.ts";
 import { describe as describeInApp } from "../../../apps/web/src/lib/notifications/describe-in-app.ts";
 
-const KEYS = ["circle_check_in", "circle_joined", "circle_left", "circle_expiring", "circle_expiring_soon", "circle_pause_ended", "circle_gift_waiting", "circle_paid_for_you", "monthly_report_ready"] as const;
+const KEYS = ["circle_check_in", "circle_joined", "circle_left", "circle_expiring", "circle_expiring_soon", "circle_pause_ended", "circle_gift_waiting", "circle_paid_for_you", "monthly_report_ready", "sponsor_figures_ready"] as const;
 const ctx = { notificationId: "n", recipientId: "r" };
 const payload = { patient_name: "Ada Obi", reading: "182/112", amount: "100000", payer: "Chidi", condition: "hypertension" };
 const LEAK = /Ada|Obi|182|112|100000|Chidi|hypertension/i;

@@ -25,13 +25,14 @@ const itemSchema = z.record(z.string(), z.unknown());
 export const pharmacyPrescriptionRowSchema = z.object({
   prescription_id: z.string().uuid(),
   state: z.enum(["sent", "dispensed"]),
-  collection_code: z.string().nullable(),
   sent_at: z.string().nullable(),
   dispensed_at: z.string().nullable(),
   patient_name: z.string().nullable(),
   patient_number: z.string().nullable(),
   items: z.array(itemSchema),
   open_flags: z.number(),
+  location_name: z.string().nullable(),
+  code_locked: z.boolean(),
 });
 export type PharmacyPrescriptionRow = z.infer<typeof pharmacyPrescriptionRowSchema>;
 export const pharmacyPrescriptionRowsSchema = z.array(pharmacyPrescriptionRowSchema);
