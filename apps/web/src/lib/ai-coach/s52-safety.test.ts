@@ -57,6 +57,20 @@ describe("the crisis path (7.8, INV-05, INV-06)", () => {
     expect(touched).not.toHaveBeenCalled();
   });
 
+  it("the escalation starts at once, never behind a slow hospital lookup", async () => {
+    logAiCoachEscalation.mockClear();
+    let release: (v: string) => void = () => undefined;
+    emergencyAddendumFor.mockImplementationOnce(() => new Promise<string>((resolve) => { release = resolve; }));
+    const { graph } = graphWith();
+    const running = graph.invoke({ ...base, incomingMessage: "I have crushing chest pain" });
+    await new Promise((r) => setTimeout(r, 20));
+    // the lookup is still pending, and the escalation has already been raised
+    expect(logAiCoachEscalation).toHaveBeenCalledTimes(1);
+    release("Hospitals we know of near you:\n- General Hospital Ikeja (Ikeja)");
+    const out = await running;
+    expect(out.reply).toContain("General Hospital Ikeja");
+  });
+
   it("the fixed copy stands alone when nothing about hospitals can be read (offline)", async () => {
     emergencyAddendumFor.mockResolvedValueOnce("");
     const { graph } = graphWith();

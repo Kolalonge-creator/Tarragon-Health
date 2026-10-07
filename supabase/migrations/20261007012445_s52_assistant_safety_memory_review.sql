@@ -33,7 +33,7 @@ select e.key, e.value, 1
  "silence": {"silence_days": 7, "reengage_after_days": 10, "reengage_cooldown_days": 30},
  "review": {"monthly_sample_size": 20},
  "memory": {"max_items": 30, "max_chars": 200, "consent_text_version": "mem-v1"},
- "paging": {"repeat_hours": 6, "no_cover_repeat_minutes": 30}
+ "paging": {"repeat_hours": 6, "no_cover_repeat_minutes": 30, "page_wait_ms": 4000, "hospital_lookup_ms": 2500}
 }$json$::jsonb) as e(key, value);
 -- assistant-config-s52-end
 
@@ -42,6 +42,22 @@ language sql stable security definer set search_path = ''
 as $$ select value from public.assistant_config where key = p_key $$;
 revoke all on function private.assistant_cfg(text) from public, anon;
 grant execute on function private.assistant_cfg(text) to authenticated, service_role;
+
+-- A PROPOSED text setting, with NO built-in fallback: a missing row or field is a loud error (see private.assistant_cfg_int in S51).
+create function private.assistant_cfg_text(p_key text, p_field text) returns text
+language plpgsql stable security definer set search_path = ''
+as $$
+declare
+  v text;
+begin
+  select value ->> p_field into v from public.assistant_config where key = p_key;
+  if v is null or btrim(v) = '' then
+    raise exception 'assistant_config % / % is missing: set it before this runs', p_key, p_field using errcode = '55000';
+  end if;
+  return v;
+end $$;
+revoke all on function private.assistant_cfg_text(text, text) from public, anon;
+grant execute on function private.assistant_cfg_text(text, text) to authenticated, service_role;
 
 -- ---------------------------------------------------------------------------
 -- 2. Register the memory as an AI system, DISABLED (the kill switch is real and starts off)
@@ -140,7 +156,7 @@ begin
     end if;
     if v_active is null then
       insert into public.assistant_memory_consents (organisation_id, patient_id, text_version, recorded_by, is_test)
-      values (v_org, v_uid, coalesce(private.assistant_cfg('memory') ->> 'consent_text_version', 'mem-v1'), v_uid, v_test)
+      values (v_org, v_uid, private.assistant_cfg_text('memory', 'consent_text_version'), v_uid, v_test)
       returning id into v_active;
       perform private.log_audit('assistant_memory.consent_granted', 'assistant_memory_consents', v_active, '{}'::jsonb);
     end if;
@@ -165,9 +181,9 @@ as $$
   select jsonb_build_object(
     'available', public.assistant_memory_available(),
     'consented', private.assistant_memory_consent_id((select auth.uid())) is not null,
-    'text_version', coalesce(private.assistant_cfg('memory') ->> 'consent_text_version', 'mem-v1'),
-    'max_items', coalesce((private.assistant_cfg('memory') ->> 'max_items')::integer, 30),
-    'max_chars', coalesce((private.assistant_cfg('memory') ->> 'max_chars')::integer, 200),
+    'text_version', private.assistant_cfg_text('memory', 'consent_text_version'),
+    'max_items', private.assistant_cfg_int('memory', 'max_items'),
+    'max_chars', private.assistant_cfg_int('memory', 'max_chars'),
     'items', (select count(*) from public.assistant_memory_items where patient_id = (select auth.uid())))
   where (select auth.uid()) is not null
 $$;
@@ -180,9 +196,8 @@ language plpgsql security definer set search_path = ''
 as $$
 declare
   v_uid uuid := (select auth.uid());
-  v_cfg jsonb := private.assistant_cfg('memory');
-  v_max_chars integer := coalesce((v_cfg ->> 'max_chars')::integer, 200);
-  v_max_items integer := coalesce((v_cfg ->> 'max_items')::integer, 30);
+  v_max_chars integer := private.assistant_cfg_int('memory', 'max_chars');
+  v_max_items integer := private.assistant_cfg_int('memory', 'max_items');
   v_consent uuid;
 begin
   if v_uid is null or new.patient_id is distinct from v_uid then
@@ -317,10 +332,9 @@ create function public.assistant_detect_silence(p_now timestamptz default now())
 language plpgsql security definer set search_path = ''
 as $$
 declare
-  v_cfg jsonb := private.assistant_cfg('silence');
-  v_silence integer := coalesce((v_cfg ->> 'silence_days')::integer, 7);
-  v_reengage integer := coalesce((v_cfg ->> 'reengage_after_days')::integer, 10);
-  v_cooldown integer := coalesce((v_cfg ->> 'reengage_cooldown_days')::integer, 30);
+  v_silence integer := private.assistant_cfg_int('silence', 'silence_days');
+  v_reengage integer := private.assistant_cfg_int('silence', 'reengage_after_days');
+  v_cooldown integer := private.assistant_cfg_int('silence', 'reengage_cooldown_days');
   r record;
   v_days integer;
   v_signals integer := 0;
@@ -368,6 +382,43 @@ grant execute on function public.assistant_detect_silence(timestamptz) to servic
 -- clinician on call (or the clinical lead and ops with an incident when nobody is); a failed step is audited and opens an incident and never
 -- blocks the patient's emergency copy. The S19 page rows hang off a graded triage event, and a shadow grade never pages (OQ-88), so this does
 -- not create one. The emergency escalation raised in the same turn keeps its own SLA ladder as the second line.
+-- The durable queue behind the page: a row is committed BEFORE the page is attempted, so a page that is cut off (serverless freeze, timeout,
+-- a crashed request) is found and retried. The page itself marks the row done when someone was really notified. No grants: service role only.
+create table public.assistant_page_queue (
+  id               uuid primary key default gen_random_uuid(),
+  organisation_id  uuid not null references public.organisations (id) on delete restrict,
+  patient_id       uuid not null references public.profiles (id) on delete cascade,
+  conversation_id  uuid not null references public.ai_conversations (id) on delete cascade,
+  attempts         integer not null default 0,
+  last_attempt_at  timestamptz,
+  done_at          timestamptz,
+  is_test          boolean not null default false,
+  created_at       timestamptz not null default now()
+);
+create index assistant_page_queue_pending_idx on public.assistant_page_queue (created_at) where done_at is null;
+comment on table public.assistant_page_queue is 'S52 (INV-05): one row per self-harm page that has been asked for. Pending until a page really reached someone; retried by assistant_page_retry_due().';
+alter table public.assistant_page_queue enable row level security;
+revoke all on public.assistant_page_queue from public, anon, authenticated;
+grant select, insert, update on public.assistant_page_queue to service_role;
+
+create function public.assistant_page_enqueue(p_patient uuid, p_conversation uuid) returns uuid
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  v_org uuid;
+  v_test boolean;
+  v_id uuid;
+begin
+  select organisation_id, coalesce(is_test, false) into v_org, v_test from public.profiles where id = p_patient;
+  if v_org is null then raise exception 'unknown patient' using errcode = '22023'; end if;
+  select id into v_id from public.assistant_page_queue where conversation_id = p_conversation and done_at is null order by created_at desc limit 1;
+  if v_id is not null then return v_id; end if;
+  insert into public.assistant_page_queue (organisation_id, patient_id, conversation_id, is_test) values (v_org, p_patient, p_conversation, v_test) returning id into v_id;
+  return v_id;
+end $$;
+revoke all on function public.assistant_page_enqueue(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.assistant_page_enqueue(uuid, uuid) to service_role;
+
 create function public.assistant_page_on_call(p_patient uuid, p_conversation uuid) returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
@@ -379,8 +430,8 @@ declare
   v_n integer := 0;
   v_failed boolean := false;
   v_notified boolean := false;
-  v_repeat integer := coalesce((private.assistant_cfg('paging') ->> 'repeat_hours')::integer, 6);
-  v_repeat_nc integer := coalesce((private.assistant_cfg('paging') ->> 'no_cover_repeat_minutes')::integer, 30);
+  v_repeat integer := private.assistant_cfg_int('paging', 'repeat_hours');
+  v_repeat_nc integer := private.assistant_cfg_int('paging', 'no_cover_repeat_minutes');
   c text;
   r record;
 begin
@@ -393,6 +444,7 @@ begin
   if exists (select 1 from public.audit_log a
               where a.action = 'assistant.on_call_paged' and a.entity_id = p_conversation
                 and a.created_at > now() - case when coalesce((a.event ->> 'no_cover')::boolean, false) then make_interval(mins => v_repeat_nc) else make_interval(hours => v_repeat) end) then
+    update public.assistant_page_queue set done_at = now() where conversation_id = p_conversation and done_at is null;
     return jsonb_build_object('paged', false, 'notified', true, 'already', true);
   end if;
 
@@ -444,6 +496,7 @@ begin
   end;
 
   if v_notified then
+    update public.assistant_page_queue set done_at = now() where conversation_id = p_conversation and done_at is null;
     insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
     values (v_org, null, 'assistant.on_call_paged', 'ai_conversations', p_conversation, jsonb_build_object('no_cover', v_to is null, 'task_id', v_task));
   end if;
@@ -451,6 +504,36 @@ begin
 end $$;
 revoke all on function public.assistant_page_on_call(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.assistant_page_on_call(uuid, uuid) to service_role;
+
+-- The retry (service role; the daily cron and the next emergency from the same patient): every page still pending after a couple of minutes
+-- is attempted again, up to five times. A page that keeps failing stays pending and visible to ops (the rows are never deleted).
+create function public.assistant_page_retry_due(p_limit integer default 50) returns jsonb
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  r record;
+  v_done integer := 0;
+  v_failed integer := 0;
+  v_res jsonb;
+begin
+  for r in
+    select q.id, q.patient_id, q.conversation_id from public.assistant_page_queue q
+     where q.done_at is null and q.attempts < 5 and q.created_at < now() - interval '2 minutes'
+       and (q.last_attempt_at is null or q.last_attempt_at < now() - interval '2 minutes')
+     order by q.created_at limit greatest(p_limit, 0)
+  loop
+    update public.assistant_page_queue set attempts = attempts + 1, last_attempt_at = now() where id = r.id;
+    begin
+      v_res := public.assistant_page_on_call(r.patient_id, r.conversation_id);
+      if coalesce((v_res ->> 'notified')::boolean, false) then v_done := v_done + 1; else v_failed := v_failed + 1; end if;
+    exception when others then
+      v_failed := v_failed + 1;
+    end;
+  end loop;
+  return jsonb_build_object('done', v_done, 'failed', v_failed);
+end $$;
+revoke all on function public.assistant_page_retry_due(integer) from public, anon, authenticated;
+grant execute on function public.assistant_page_retry_due(integer) to service_role;
 
 -- ---------------------------------------------------------------------------
 -- 6. Monthly clinical review (spec 7.13)
@@ -509,7 +592,7 @@ declare
                            date_trunc('month', (now() at time zone 'Africa/Lagos') - interval '1 month')::date);
   v_from timestamptz := v_month::timestamp at time zone 'Africa/Lagos';
   v_to timestamptz := (v_month + interval '1 month')::timestamp at time zone 'Africa/Lagos';
-  v_size integer := coalesce(p_size, (private.assistant_cfg('review') ->> 'monthly_sample_size')::integer, 20);
+  v_size integer := coalesce(p_size, private.assistant_cfg_int('review', 'monthly_sample_size'));
   v_reported integer;
   v_random integer;
 begin
@@ -519,9 +602,10 @@ begin
   select t.organisation_id, v_month, t.conversation_id, t.patient_id, 'reported',
          (select i.id from public.ai_safety_incidents i where i.interaction_id = t.interaction_id order by i.created_at limit 1), coalesce(p.is_test, false)
     from public.ai_assistant_turns t
-    join public.profiles p on p.id = t.patient_id
+    join public.profiles p on p.id = t.patient_id and not coalesce(p.is_test, false)
     join public.ai_interaction_log l on l.id = t.interaction_id
    where t.conversation_id is not null and t.interaction_id is not null
+     and not exists (select 1 from public.assistant_review_samples r where r.conversation_id = t.conversation_id and r.state = 'reviewed')
      and exists (select 1 from public.ai_safety_incidents i where i.interaction_id = t.interaction_id and i.reporter_kind = 'patient'
                     and i.created_at >= v_from and i.created_at < v_to)
   on conflict (month, conversation_id) do nothing;
@@ -547,9 +631,11 @@ begin
     from (
       select distinct on (t.conversation_id) t.organisation_id, t.conversation_id, t.patient_id, coalesce(p.is_test, false) as is_test
         from public.ai_assistant_turns t
-        join public.profiles p on p.id = t.patient_id
+        join public.profiles p on p.id = t.patient_id and not coalesce(p.is_test, false)
        where t.created_at >= v_from and t.created_at < v_to and t.conversation_id is not null and t.interaction_type = 'chat_turn'
          and not exists (select 1 from public.assistant_review_samples s where s.month = v_month and s.conversation_id = t.conversation_id)
+         -- never a conversation that has already been reviewed, in any month (the CMO's time is not spent twice on the same chat)
+         and not exists (select 1 from public.assistant_review_samples s where s.conversation_id = t.conversation_id and s.state = 'reviewed')
     ) x
    order by random()
    limit greatest(v_size, 0)
@@ -662,6 +748,9 @@ begin
   if has_function_privilege('authenticated', 'public.assistant_detect_silence(timestamptz)', 'EXECUTE') then raise exception 'authenticated can run the silence job'; end if;
   if has_function_privilege('authenticated', 'public.assistant_sample_month(date, integer)', 'EXECUTE') then raise exception 'authenticated can run the sampler'; end if;
   if has_function_privilege('authenticated', 'public.assistant_page_on_call(uuid, uuid)', 'EXECUTE') then raise exception 'authenticated can page on call'; end if;
+  if has_function_privilege('authenticated', 'public.assistant_page_enqueue(uuid, uuid)', 'EXECUTE') then raise exception 'authenticated can queue a page'; end if;
+  if has_function_privilege('authenticated', 'public.assistant_page_retry_due(integer)', 'EXECUTE') then raise exception 'authenticated can retry pages'; end if;
+  if has_table_privilege('authenticated', 'public.assistant_page_queue', 'SELECT') then raise exception 'authenticated can read the page queue'; end if;
   if has_table_privilege('authenticated', 'public.assistant_review_samples', 'INSERT') then raise exception 'authenticated can insert review samples'; end if;
   if has_table_privilege('anon', 'public.assistant_memory_items', 'SELECT') then raise exception 'anon can read memory items'; end if;
 end $$;

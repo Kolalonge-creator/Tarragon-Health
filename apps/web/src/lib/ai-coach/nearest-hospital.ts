@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  assistantPagingWaits,
   buildEmergencyAddendum,
   nearestHospitalsShown,
   normaliseState,
@@ -17,7 +18,6 @@ import {
  * BEST EFFORT and bounded: every read is guarded and the whole thing gives up after a short time. The fixed emergency copy never waits
  * on this, and an empty result is a normal result (the copy stands alone).
  */
-const READ_TIMEOUT_MS = 2500;
 
 async function read(supabase: SupabaseClient<Database>, patientId: string): Promise<EmergencyAddendumInput> {
   const { data: profile } = await supabase
@@ -28,15 +28,29 @@ async function read(supabase: SupabaseClient<Database>, patientId: string): Prom
   const state = normaliseState(profile?.state);
   let hospitals: EmergencyHospital[] = [];
   if (state) {
-    const { data } = await supabase
-      .from("facilities")
-      .select("name, city, address, contact_phone, verified, state")
-      .eq("type", "hospital")
-      .eq("is_active", true)
-      .ilike("state", `%${state.replace(/[%_\\]/g, "")}%`)
-      .order("name", { ascending: true })
-      .limit(500);
-    hospitals = rankHospitals(data ?? [], profile?.city, nearestHospitalsShown());
+    // Rank BEFORE any cap: the patient's own city is asked for by name (so it can never be cut off by an alphabetical limit), and the rest of
+    // the state is read verified-first, then rankHospitals orders the union (own city, verified, name). Each read is capped on its own.
+    const stateLike = `%${state.replace(/[%_\\]/g, "")}%`;
+    const base = () =>
+      supabase
+        .from("facilities")
+        .select("name, city, address, contact_phone, verified, state")
+        .eq("type", "hospital")
+        .eq("is_active", true)
+        .ilike("state", stateLike);
+    const city = (profile?.city ?? "").trim().replace(/[%_\\]/g, "");
+    const [own, others] = await Promise.all([
+      city ? base().ilike("city", city).order("verified", { ascending: false }).order("name", { ascending: true }).limit(100) : Promise.resolve({ data: [] }),
+      base().order("verified", { ascending: false }).order("name", { ascending: true }).limit(100),
+    ]);
+    const seen = new Set<string>();
+    const merged = [...(own.data ?? []), ...(others.data ?? [])].filter((h) => {
+      const key = `${h.name}|${h.city ?? ""}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    hospitals = rankHospitals(merged, profile?.city, nearestHospitalsShown());
   }
   return {
     hospitals,
@@ -52,7 +66,7 @@ export async function loadEmergencyContext(supabase: SupabaseClient<Database>, p
     return await Promise.race([
       read(supabase, patientId),
       new Promise<EmergencyAddendumInput>((resolve) => {
-        timer = setTimeout(() => resolve(empty), READ_TIMEOUT_MS);
+        timer = setTimeout(() => resolve(empty), assistantPagingWaits().hospitalLookupMs);
       }),
     ]);
   } catch {

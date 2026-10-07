@@ -19,7 +19,8 @@ const CATEGORIES = [
 const bodySchema = z.object({
   category: z.enum(CATEGORIES),
   description: z.string().trim().min(5, "Tell us a little about what was wrong. Even one sentence helps.").max(4000),
-  interactionId: z.string().uuid().nullable().optional(),
+  // required: a report is about ONE answer. Never guessed, never defaulted to the latest turn.
+  interactionId: z.string().uuid({ message: "Open the answer you want to report and try again." }),
 });
 
 export async function POST(request: Request): Promise<NextResponse> {
@@ -41,25 +42,15 @@ export async function POST(request: Request): Promise<NextResponse> {
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
 
-  // No id sent (the app was restarted, or the history came from the server): link the patient's most recent assistant answer, so the report
-  // still reaches the monthly review. Their own row only (RLS).
-  let interactionId = parsed.data.interactionId ?? null;
-  if (!interactionId) {
-    const { data: latest } = await supabase
-      .from("ai_assistant_turns")
-      .select("interaction_id")
-      .eq("patient_id", user.id)
-      .not("interaction_id", "is", null)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    interactionId = latest?.interaction_id ?? null;
-  }
+  // The answer being reported must be one of the caller's own (RLS-scoped read), so an id that is not theirs is refused rather than filed.
+  const { data: own } = await supabase.from("ai_assistant_turns").select("id").eq("interaction_id", parsed.data.interactionId).eq("patient_id", user.id).limit(1).maybeSingle();
+  if (!own) return NextResponse.json({ error: "We could not find that answer. Open the answer you want to report and try again." }, { status: 400 });
+  const interactionId = parsed.data.interactionId;
   const { error } = await supabase.rpc("report_ai_safety_incident", {
     p_system_code: "AI-001",
     p_category: parsed.data.category,
     p_description: parsed.data.description,
-    p_interaction_id: interactionId ?? undefined,
+    p_interaction_id: interactionId,
   });
   if (error) return NextResponse.json({ error: "We could not file that just now. Please try again." }, { status: 500 });
   return NextResponse.json({ success: true });

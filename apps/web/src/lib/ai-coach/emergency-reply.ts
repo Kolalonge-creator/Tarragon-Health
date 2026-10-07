@@ -9,7 +9,7 @@ import { EMERGENCY_SAFETY_REPLY } from "./prompts";
  * The one place an automatic emergency reply is built (S52, INV-05 and INV-06). Used by the live path, the assistant-closed path and the
  * kill-switch fallback so they cannot drift. Self-harm wording gets its own copy and the on-call page; the nearest hospitals are read at the
  * same time as the page (never one after the other) and are bounded, so a slow lookup cannot hold anything up for long.
- * `page` is false for the graph path, which pages after its own escalation.
+ * `page` says whether to page here (every path now does; the graph node runs the escalation at the same time, never behind this).
  */
 export async function buildEmergencyReply(
   deps: { supabase: SupabaseClient<Database>; service: SupabaseClient<Database> },
@@ -17,13 +17,8 @@ export async function buildEmergencyReply(
 ): Promise<{ reply: string; selfHarm: boolean }> {
   const selfHarm = isSelfHarmMessage(params.message);
   const [paged, addendum] = await Promise.all([
-    // the page is bounded like the hospital lookup: the fixed copy never waits on a slow database
-    selfHarm && params.page
-      ? Promise.race([
-          pageOnCallForSelfHarm(deps.service, params.profileId, params.conversationId),
-          new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 4000)),
-        ])
-      : Promise.resolve(false),
+    // the pager queues a durable row, waits a bounded time and keeps itself alive past the response (see emergency-page.ts)
+    selfHarm && params.page ? pageOnCallForSelfHarm(deps.service, params.profileId, params.conversationId) : Promise.resolve(false),
     emergencyAddendumFor(deps.supabase, params.profileId),
   ]);
   const base = selfHarm ? SELF_HARM_REPLY : (params.fixedReply ?? EMERGENCY_SAFETY_REPLY);

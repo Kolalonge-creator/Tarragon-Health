@@ -13,7 +13,9 @@ export async function GET(request: Request): Promise<Response> {
     return new Response("Not authorised", { status: 401 });
   }
   const svc = createServiceRoleClient() as unknown as { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }> };
+  // First, the safety net: any self-harm page that was cut off is attempted again (INV-05). Its result is reported, never hidden.
+  const retry = await svc.rpc("assistant_page_retry_due", {});
   const { data, error } = await svc.rpc("assistant_detect_silence", {});
-  if (error) return Response.json({ error: "silence_job_failed" }, { status: 500 });
-  return Response.json(data ?? {});
+  if (error || retry.error) return Response.json({ error: "silence_job_failed", retry: retry.error ? "failed" : "ok" }, { status: 500 });
+  return Response.json({ silence: data ?? {}, pageRetry: retry.data ?? {} });
 }
