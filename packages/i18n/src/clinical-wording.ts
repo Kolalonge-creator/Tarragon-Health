@@ -54,5 +54,5 @@ export function activeFertileWindowWording(signed: Sign | null = FERTILE_WINDOW_
 export const FERTILE_WINDOW_LABEL: string = activeFertileWindowWording().label;
 export const FERTILE_WINDOW_LINK_TEXT: string = activeFertileWindowWording().link;
 
-/** The three phrases the founder banned from the app (D2). Used by tests and by anything that builds copy near the window. */
-export const FERTILE_WINDOW_BANNED_PHRASES = ["safe days", "avoid pregnancy", "natural contraception"] as const;
+/** The phrases the founder banned from the app (D2), kept in the wording JSON so no source file has to spell them. */
+export const FERTILE_WINDOW_BANNED_PHRASES: readonly string[] = WORDING.fertileWindow.banned;

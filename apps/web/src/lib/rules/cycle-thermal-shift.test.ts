@@ -1,4 +1,10 @@
-import { detectThermalShift, type TemperatureReading } from "./cycle-thermal-shift";
+import { FERTILE_WINDOW_LABEL } from "@tarragon/i18n";
+import {
+  describeThermalShift,
+  detectThermalShift,
+  THERMAL_SHIFT_DISCLAIMER,
+  type TemperatureReading,
+} from "./cycle-thermal-shift";
 
 /** Readings starting 2026-08-01, one per day, from a list of temperatures. */
 function series(temps: number[], from = "2026-08-01"): TemperatureReading[] {
@@ -85,5 +91,24 @@ describe("detectThermalShift", () => {
       { date: "2026-08-10", temperature: Number.NaN },
     ];
     expect(detectThermalShift(withJunk).detected).toBe(true);
+  });
+});
+
+describe("temperature-based ovulation confirmation sits behind Planning a pregnancy (S85 D2)", () => {
+  const detected = () => detectThermalShift(series([36.3, 36.4, 36.3, 36.35, 36.3, 36.4, 36.7, 36.75, 36.8]));
+
+  it("shows nothing at all while the mode is off, for every result", () => {
+    for (const result of [detected(), detectThermalShift([]), detectThermalShift(series([36.3, 36.4, 36.3, 36.35, 36.3, 36.4, 36.45, 36.47, 36.5]))]) {
+      expect(describeThermalShift(result, false)).toBeNull();
+    }
+  });
+
+  it("describes the result while the mode is on", () => {
+    expect(describeThermalShift(detected(), true)).toMatch(/follows ovulation/);
+  });
+
+  it("the disclaimer carries the exact label and never calls it a contraceptive method", () => {
+    expect(THERMAL_SHIFT_DISCLAIMER).toContain(FERTILE_WINDOW_LABEL);
+    expect(THERMAL_SHIFT_DISCLAIMER).toContain("Not contraception. This cannot prevent pregnancy.");
   });
 });

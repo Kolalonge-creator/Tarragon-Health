@@ -1,5 +1,7 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { resolveSubjectId, assertNotActingFor } from "@/lib/acting/acting-for";
 import {
@@ -81,6 +83,36 @@ export async function saveContraceptionMethod(
     { onConflict: "patient_id" }
   );
   if (error) return { error: error.message };
+  return { success: true };
+}
+
+// --- Planning a pregnancy mode (S85 D2, OQ-12) -------------------------------
+
+const planningPregnancyModeSchema = z.object({ enabled: z.boolean() });
+
+/**
+ * Switches the opt-in "Planning a pregnancy" mode. It is off for everyone until this is called with `true`; the
+ * estimated ovulation days and temperature-based ovulation confirmation show only while it is on. Written to the person's own
+ * reproductive_health_profiles row, so the table's category-scoped policy decides whether a caregiver may do it (a
+ * caregiver needs the reproductive_health category and manage permission); this action adds nothing on top.
+ */
+export async function setPlanningPregnancyMode(input: { enabled: boolean }): Promise<WomensHealthActionState> {
+  const parsed = planningPregnancyModeSchema.safeParse(input);
+  if (!parsed.success) return { error: "Could not save that just now. Please try again." };
+
+  const ctx = await currentSubjectOrg();
+  if ("error" in ctx) return { error: ctx.error };
+
+  const { error } = await ctx.supabase.from("reproductive_health_profiles").upsert(
+    {
+      patient_id: ctx.subjectId,
+      organisation_id: ctx.organisationId,
+      planning_pregnancy_mode: parsed.data.enabled,
+    },
+    { onConflict: "patient_id" }
+  );
+  if (error) return { error: "Could not save that just now. Please try again." };
+  revalidatePath("/patient/cycle");
   return { success: true };
 }
 

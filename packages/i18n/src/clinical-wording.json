@@ -91,6 +91,11 @@
   "fertileWindow": {
     "note": "S85 D2 / OQ-12. The words every screen that shows the fertile window must carry. UNSIGNED: no `signed` record exists, nobody but the CMO adds one. `current` and `proposed` are the same founder-mandated text on purpose: a missing label is the unsafe state, so the label renders correctly whether or not the CMO has signed. Banned anywhere in the app: 'safe days', 'avoid pregnancy', 'natural contraception'.",
     "signed": null,
+    "banned": [
+      "safe days",
+      "avoid pregnancy",
+      "natural contraception"
+    ],
     "current": {
       "label": "Not contraception. This cannot prevent pregnancy.",
       "link": "Learn about contraception and talk to your care team."

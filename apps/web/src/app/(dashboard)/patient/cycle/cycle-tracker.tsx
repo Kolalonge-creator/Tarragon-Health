@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
+import { FERTILE_WINDOW_LABEL } from "@tarragon/i18n";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,10 +13,10 @@ import {
   useLogPeriod,
   useDeletePeriod,
 } from "@/lib/queries/menstrual-cycle";
+import { phaseDescription, phaseLabel } from "@/lib/rules/cycle-fertile-mode";
+import { setPlanningPregnancyMode } from "@/app/(dashboard)/patient/womens-health-actions";
 import {
   FERTILE_WINDOW_DISCLAIMER,
-  PHASE_DESCRIPTION,
-  PHASE_LABEL,
   type CycleClinicalFlag,
   type CyclePrediction,
   type ReproductiveLifeStage,
@@ -27,6 +28,7 @@ import { CycleInsightsCard } from "./cycle-insights-card";
 import { CycleLengthChart } from "./cycle-length-chart";
 import { CycleDayLog } from "./cycle-day-log";
 import { CycleLegend, CycleRing } from "./cycle-ring";
+import { FertileWindowNotice, PlanningModeSwitch } from "./fertile-window-notice";
 
 import { formatPatientDate } from "@/lib/format-date";
 /**
@@ -134,16 +136,37 @@ export function CycleTracker({
   organisationId,
   lifeStage,
   selfReportedCycleLengthDays,
+  initialPlanningMode,
 }: {
   patientId: string;
   organisationId: string;
   lifeStage: ReproductiveLifeStage;
   selfReportedCycleLengthDays: number | null;
+  /** The saved "Planning a pregnancy" choice. Anything but a real `true` is off (S85 D2). */
+  initialPlanningMode: boolean;
 }) {
+  // The fertile window and temperature-based ovulation confirmation show only while this is on. Optimistic, with a
+  // rollback if the save fails, so what the screen shows never gets ahead of what was saved for long.
+  const [planningMode, setPlanningMode] = useState(initialPlanningMode === true);
+  const [modePending, startModeTransition] = useTransition();
+  const [modeError, setModeError] = useState(false);
+  function changePlanningMode(next: boolean) {
+    setModeError(false);
+    setPlanningMode(next);
+    startModeTransition(async () => {
+      const result = await setPlanningPregnancyMode({ enabled: next });
+      if (result?.error) {
+        setPlanningMode(!next);
+        setModeError(true);
+      }
+    });
+  }
+
   const { cycles, dailyLogs, prediction, insights, thermalShift, openCycle, today, isLoading, error } = useCycleTracker(
     patientId,
     lifeStage,
-    selfReportedCycleLengthDays
+    selfReportedCycleLengthDays,
+    planningMode
   );
   const logPeriod = useLogPeriod();
   const endPeriod = useEndPeriod();
@@ -159,6 +182,7 @@ export function CycleTracker({
     phase: prediction.currentPhase,
     lifeStage,
     isIrregular: stats.regularity === "irregular",
+    planningMode,
   });
 
   if (isLoading) {
@@ -198,15 +222,22 @@ export function CycleTracker({
           <CardDescription>{prediction.confidenceReason}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
-          <CycleRing prediction={prediction} />
-          <CycleLegend />
+          <CycleRing prediction={prediction} planningMode={planningMode} />
+          <CycleLegend planningMode={planningMode} />
 
           {prediction.currentPhase !== "unknown" && (
             <p className="rounded-lg bg-soft-sage/50 dark:bg-brand-green/10 p-3 text-center text-sm text-charcoal-ink/80 dark:text-night-ink/80">
-              <span className="font-medium">{PHASE_LABEL[prediction.currentPhase]}.</span>{" "}
-              {PHASE_DESCRIPTION[prediction.currentPhase]}
+              <span className="font-medium">{phaseLabel(prediction.currentPhase, planningMode)}.</span>{" "}
+              {phaseDescription(prediction.currentPhase, planningMode)}
             </p>
           )}
+
+          <PlanningModeSwitch
+            enabled={planningMode}
+            pending={modePending}
+            error={modeError}
+            onChange={changePlanningMode}
+          />
 
           <div className="flex flex-wrap gap-2">
             {openCycle ? (
@@ -297,17 +328,24 @@ export function CycleTracker({
                     : undefined
                 }
               />
-              <Stat
-                label="Estimated ovulation"
-                value={longDate(prediction.predictedOvulationDate)}
-                hint={
-                  prediction.fertileWindowStart
-                    ? `Fertile window ${shortDate(prediction.fertileWindowStart)} to ${shortDate(prediction.fertileWindowEnd)}`
-                    : undefined
-                }
-              />
+              {planningMode && (
+                <Stat
+                  label="Estimated ovulation"
+                  value={longDate(prediction.predictedOvulationDate)}
+                  hint={
+                    prediction.fertileWindowStart
+                      ? `Fertile window ${shortDate(prediction.fertileWindowStart)} to ${shortDate(prediction.fertileWindowEnd)}`
+                      : undefined
+                  }
+                />
+              )}
             </div>
-            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{FERTILE_WINDOW_DISCLAIMER}</p>
+            {planningMode && (
+              <>
+                <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{FERTILE_WINDOW_DISCLAIMER}</p>
+                <FertileWindowNotice />
+              </>
+            )}
           </CardContent>
         </Card>
       )}
@@ -326,6 +364,7 @@ export function CycleTracker({
             cycles={cycles}
             dailyLogs={dailyLogs}
             prediction={prediction}
+            planningMode={planningMode}
             today={today}
             selectedDate={selectedDate}
             onSelectDate={setSelectedDate}
@@ -338,6 +377,7 @@ export function CycleTracker({
               organisationId={organisationId}
               date={selectedDate}
               existing={selectedLog}
+              planningMode={planningMode}
             />
           </div>
         </CardContent>
@@ -394,6 +434,7 @@ export function CycleTracker({
         insights={insights}
         thermalShift={thermalShift}
         hasAnyLogs={dailyLogs.length > 0}
+        planningMode={planningMode}
       />
 
       <CycleLengthChart stats={stats} />
@@ -424,6 +465,9 @@ export function CycleTracker({
                 </span>
               </Link>
             ))}
+            {planningMode && reading.some((item) => item.reason.includes(FERTILE_WINDOW_LABEL)) && (
+              <FertileWindowNotice />
+            )}
           </CardContent>
         </Card>
       )}

@@ -2153,7 +2153,7 @@ export const en = {
   "cycle.fertile_window.label": "Not contraception. This cannot prevent pregnancy.",
   "cycle.fertile_window.link": "Learn about contraception and talk to your care team.",
   "cycle.planning_mode.title": "Planning a pregnancy",
-  "cycle.planning_mode.description": "Off by default. Turn it on to see your estimated fertile window and ovulation. Your period prediction is always shown.",
+  "cycle.planning_mode.description": "Off by default. Turn it on if you are trying to conceive and want estimates of when you are most likely to. Your period prediction is always shown.",
   "cycle.planning_mode.on_note": "These are estimates and they can be wrong.",
   "cycle.planning_mode.saving": "Saving...",
   "cycle.planning_mode.error": "Could not save that just now. Please try again.",
