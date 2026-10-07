@@ -1787,3 +1787,33 @@ Raised by the S70 to S75 review (`docs/research/S70-S75-review-and-build-plan.md
 ### OQ-327 Gaps found in the S70 to S75 review that need an owner
 - OQ-192 (any `profile_access` grantee can read and pay) is still open and must be fixed before any real caregiver grant. OQ-39 (56 older `analytics_*` RPCs ignore `is_test`) is still open. `device.synced` and `device.alert` are not in the S10 event catalogue. Withings, Samsung, inhaler sensors and `LabResultsSource` are not built. `partner_quality`, `partner.quality_breach`, `partner.settlement_due` and `settlement-run` are not built. Price quoting (`price-quote`, `price.changed`, `discount_codes`, `price_books`) is not built.
 - Decision: open; each is in the build plan.
+
+## S70 (devices, wearables and data connections), 2026-10-07
+
+### OQ-340 Dedup tolerances, other windows and rank order (raised by S70, extends OQ-309)
+- The CMO pack fixes only BP 10 minutes and glucose 5 minutes. Drafted and unsigned: BP plus or minus 4 mmHg, glucose 0.6 mmol/L, weight 0.3 kg 10 minutes, temperature 0.3 C 5 minutes, SpO2 2 points 5 minutes, ranks device = photo = manual over cgm over wearable over fhir_import. Pulse is not deduplicated (continuous stream).
+- Decision: pending CMO signature of `devices.dedup_rules` v1.
+
+### OQ-341 Photo capture permission text and wrist-cuff wording (raised by S70, extends OQ-312)
+- `app.json` camera text only mentions lab results and written questions. Extending it is a native config change and needs the next EAS build. The "less reliable" wrist note wording and whether wrist devices are accepted are CMO items.
+- Decision: pending.
+
+### OQ-342 Remaining aggregates still count a duplicate twice (raised by S70, extends OQ-309)
+- Switched to the counted view: BP control assessment and the weekly summary. Not switched: S38 `compute_outcome_snapshot` and `bp_window_stats` (long SQL functions that should be regenerated from the live definition, not copied), the glucose assessor, visit-report PDF, AI coach context, mobile history and overview, data export. S38 already excludes a row flagged `duplicate_entry`, which covers identical values within two minutes only.
+- Decision: needs an owner; do before any sponsor-facing report.
+
+### OQ-343 Go-live guard device_alerts_enabled has no conditions (raised by S70)
+- `private.go_live_conditions` was last replaced in S28c; S70 did not replace it to avoid a merge conflict, so the guard shows the fail-closed "unknown_guard" condition and cannot be switched on. Suggested conditions: CMO signoff of `devices.cgm_events`, `devices.device_alert` and `devices.dedup_rules`; clinical safety case. After switching on, call `release_held_device_alerts()`.
+- Decision: S37 owner.
+
+### OQ-344 ECG patient wording and review window (raised by S70, extends OQ-311)
+- The app tells the patient only that their care team will take a look, and asks about chest pain, fainting or breathlessness (pointing at existing emergency guidance). Wording, the one working day window and whether the device's own result text may be shown to the patient are for the CMO.
+- Decision: pending.
+
+### OQ-345 A single CGM dropout under 3.0 already raises an emergency (raised by S70, extends OQ-310)
+- The glucose backstop trigger (20260807090308) fires on any glucose row under 3.0 mmol/L including CGM rows, so a compression low lasting one sample opens an emergency record. S70 did not change it (existing behaviour, patient safety direction). The CMO may want the sustained rule to replace it for sensor rows.
+- Decision: pending CMO.
+
+### OQ-346 Real devices and native pieces not exercised (raised by S70)
+- Not run: BLE with real hardware, HealthKit ECG read, Health Connect, the camera screen, any text recogniser (none installed; needs a native module, new EAS build, runtime version bump). Android emulator and EAS were unavailable.
+- Decision: owner needed for a device test day.
