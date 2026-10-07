@@ -3,6 +3,30 @@
 Append-only log of decisions that shape the v5 build. Newest section first. A change to a
 spec invariant (INV-01 to INV-16) needs a written founder decision here.
 
+## S70 to S75 planning, 2026-10-07 (founder and CMO, chosen in a chat prompt)
+
+Source: `docs/plans/S70-S75-cmo-signoff-pack.md` and `docs/research/S70-S75-review-and-build-plan.md`. These are decisions, **not clinical signatures**: no platform draft existed, so nothing was signed in the database. Each clinical item becomes a PROPOSED config draft when its session is built, and the CMO signs that draft in the sign-off screen after reading the primary guideline text (the pack's evidence is search summaries and recall, tagged accordingly). Open questions OQ-309 to OQ-327 hold the follow-ups.
+
+- **D-22 (recorded here for the first time; it existed only in the spec): the Tarragon wearable band is not purchasable until the pilot proves the care journey.** Nothing is built for it.
+- **S70-1: duplicate readings from two sources are linked and counted once.** A clinical device or manual entry outranks a wearable estimate. Both rows are kept.
+- **S70-2: CGM glucose gets sustained-event rules** (clinician task; severe-low safety copy at once). Thresholds are drafted later and signed by the CMO.
+- **S70-3: an irregular or inconclusive result from a personal ECG device creates a routine clinician task within one working day.** No diagnosis wording to the patient. Chest pain, fainting or breathlessness goes through existing red triage. The route is the existing report upload plus a HealthKit ECG classification read; no vendor API.
+- **S70-4: photo capture of any device screen is built, on-device text recognition first.** The patient confirms every number; saved as a patient-confirmed device reading and triaged like a manual one.
+- **S70-5: the recommended device list admits only validated models** (ValidateBP or published standard validation) that are NAFDAC-registered or sold by an authorised local distributor. The CMO owns the list. Tarragon sells nothing.
+- **S70-6: the paid two-week CGM programme: the CMO drafts the protocol; nothing is sold until sensor supply, a legal import route and a naira price exist.** Proposed eligibility: adults 18+, type 2 or prediabetes, not on insulin or a sulfonylurea, not pregnant.
+- **S71-1: HMO eligibility is an adapter per HMO with a manual operations check as the fallback;** only a hashed member number is stored. No capitation, no HMO billing (I8 stands).
+- **S72-1: Health Points may give a single-use reduction on Tarragon's own service fee only,** never a clinician or partner fee, never a balance, tied to one order. The kobo conversion is removed in the same session (finishes OQ-08).
+- **S72-2: no instalments (19.10).** Recorded as not built by decision. Reopen only on an explicit ask.
+- **S72-3: the Community Access Fund waits for a Nigerian counsel opinion;** a donation is a restricted gift tied to a named grant, never a user balance. Built with its switch off.
+- **S73-1: no `subscription_plans` rebuild.** The spec's acceptance test is met by an admin-only, audited enable toggle with a go-live guard on Membership. The six leftover Paystack Plan codes are disabled by the founder in the Paystack dashboard.
+- **S74-1: no device shop (21.5) and no `shop_orders`.** The device catalogue stays guidance, not commerce (founder decision of 2026-08-02 and migration `20260910011846` stand).
+- **S74-2: partner settlement runs only where Tarragon collects money and owes a partner** (sponsor-paid items, any pharmacy margin). Labs are owed nothing (D-06). Kept separate from S31 clinician payouts.
+- **S75-1: BP control keeps the 140/90 default** (own target overrides). This differs from the CMO pack's recommendation (home below 135/85, clinic below 140/90). Consequence: home readings, which run lower than clinic readings, are judged on the clinic threshold, so control may be overstated. Revisit before any sponsor-facing report.
+- **S75-2: outcome definitions for HbA1c, weight, PHQ-9 and GAD-7 are severity-banded with a caveat** and anyone scoring 20+ or with PHQ-9 item 9 above zero goes to existing mental-health follow-up, not a report.
+- **S75-3: the triage dashboard is named "agreement", and no accuracy figure is published** until an outcome-linked study with a written design exists.
+- **S75-4: risk stratification stays deterministic,** with a monthly CMO fairness review (age band, sex, region, language). No ML model before 90 days of real snapshots.
+- **S75-5: minimum cell size stays 20 (30 for two attributes), enforced by one database function** on every aggregate surface. Counsel or the DPO still confirms the number (OQ-233).
+
 ## Design decisions, 2026-10-02
 
 Answered in a prompt after the mobile design audit (`docs/design/MOBILE-DESIGN-AUDIT.md`). They settle DF-2 and set Phase 0 of the design plan.
