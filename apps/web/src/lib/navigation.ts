@@ -736,6 +736,7 @@ export function getNavSections(
             { label: "Vaccination schedule", href: "/admin/settings/vaccination-schedule", icon: "vaccination" },
             { label: "Escalation SLAs", href: "/admin/settings/escalation-slas", icon: "escalation" },
             { label: "AI governance", href: "/admin/settings/ai-governance", icon: "audit" },
+            { label: "AI cost", href: "/admin/settings/ai-governance/cost", icon: "audit" },
             { label: "Symptom triage protocols", href: "/admin/settings/triage-protocols", icon: "escalation" },
             { label: "Result release policies", href: "/admin/settings/result-release-policies", icon: "labs" },
             { label: "CV-risk (cholesterol) config", href: "/admin/settings/cv-risk-config", icon: "bp" },
