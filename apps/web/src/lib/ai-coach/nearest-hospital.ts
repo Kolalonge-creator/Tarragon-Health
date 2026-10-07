@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   assistantPagingWaits,
   buildEmergencyAddendum,
+  mergeHospitalReads,
   nearestHospitalsShown,
   normaliseState,
   rankHospitals,
@@ -43,14 +44,7 @@ async function read(supabase: SupabaseClient<Database>, patientId: string): Prom
       city ? base().ilike("city", city).order("verified", { ascending: false }).order("name", { ascending: true }).limit(100) : Promise.resolve({ data: [] }),
       base().order("verified", { ascending: false }).order("name", { ascending: true }).limit(100),
     ]);
-    const seen = new Set<string>();
-    const merged = [...(own.data ?? []), ...(others.data ?? [])].filter((h) => {
-      const key = `${h.name}|${h.city ?? ""}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-    hospitals = rankHospitals(merged, profile?.city, nearestHospitalsShown());
+    hospitals = rankHospitals(mergeHospitalReads(own.data, others.data), profile?.city, nearestHospitalsShown());
   }
   return {
     hospitals,

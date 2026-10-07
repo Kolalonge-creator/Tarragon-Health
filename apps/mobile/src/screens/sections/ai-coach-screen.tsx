@@ -62,6 +62,8 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
   const [access, setAccess] = useState<"checking" | "denied" | "not_open" | "granted">("checking");
   const [conversationId, setConversationId] = useState<string | undefined>(undefined);
   const [messages, setMessages] = useState<CoachChatMessage[]>([]);
+  // A report is about the LATEST assistant answer on screen, and only when that answer carries its own id (also after the app is reopened).
+  const reportableId = [...messages].reverse().find((m) => m.role === "assistant")?.interactionId ?? null;
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -69,7 +71,6 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
   const [handoff, setHandoff] = useState<"idle" | "pending" | "done" | "error">("idle");
   const [handoffError, setHandoffError] = useState<string | null>(null);
   // S51 (7.7, INV-11): the pre-visit draft. Editable, sent only when the patient presses Send, never written to the record.
-  const [lastInteractionId, setLastInteractionId] = useState<string | null>(null);
   const [nudge, setNudge] = useState<{ text: string; week: string; section: string } | null>(null);
   const [prepDraft, setPrepDraft] = useState<string | null>(null);
   const [prepState, setPrepState] = useState<"editing" | "sending" | "sent" | "error">("editing");
@@ -119,7 +120,6 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
         return;
       }
       setConversationId(result.conversationId);
-      setLastInteractionId(result.aiInteractionId ?? null);
       const conversation = await loadAiConversation(patientId);
       setMessages(conversation.messages);
       scrollToEnd();
@@ -397,7 +397,7 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
       <View style={{ paddingHorizontal: spacing.screen, paddingBottom: 6, gap: 6 }}>
         <MutedText>{COACH_DISCLAIMER}</MutedText>
         <LimitsBlock />
-        {messages.length > 0 ? <ReportBlock key={lastInteractionId ?? "none"} interactionId={lastInteractionId} /> : null}
+        {messages.length > 0 ? <ReportBlock key={reportableId ?? "none"} interactionId={reportableId} /> : null}
         <MemoryBlock />
       </View>
 

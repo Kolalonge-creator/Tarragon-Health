@@ -99,8 +99,28 @@ export function emergencyPhoneNumbers(): readonly EmergencyPhoneNumber[] {
 
 /** How long the emergency reply waits on the on-call page and on the hospital lookup (assistant.paging, PROPOSED). Read from config only. */
 export function assistantPagingWaits(): { pageWaitMs: number; hospitalLookupMs: number } {
-  const value = getProposedConfig("assistant.paging").value as unknown as { page_wait_ms: number; hospital_lookup_ms: number };
+  const value = getProposedConfig("assistant.paging").value as unknown as { page_wait_ms?: unknown; hospital_lookup_ms?: unknown };
+  const ok = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n) && n > 0;
+  // No built-in fallback: a missing or silly value is a loud error, not a 0 ms timer that quietly drops the hospitals or the "told" line.
+  if (!ok(value.page_wait_ms) || !ok(value.hospital_lookup_ms)) {
+    throw new Error("assistant.paging config needs positive page_wait_ms and hospital_lookup_ms");
+  }
   return { pageWaitMs: value.page_wait_ms, hospitalLookupMs: value.hospital_lookup_ms };
+}
+
+/** The own-city read and the state read, joined with each place once (name + city). Shared by web and mobile so the two cannot drift. */
+export function mergeHospitalReads<T extends { name: string; city: string | null }>(...lists: readonly (readonly T[] | null | undefined)[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const list of lists) {
+    for (const h of list ?? []) {
+      const key = `${h.name}|${h.city ?? ""}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(h);
+    }
+  }
+  return out;
 }
 
 export function nearestHospitalsShown(): number {

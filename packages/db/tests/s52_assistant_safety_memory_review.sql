@@ -268,6 +268,9 @@ delete from public.assistant_config where key = 'paging';
 select pg_temp.ck('real', 'a missing paging config row fails loudly instead of using a built-in window', 'ERR:55000',
   pg_temp.q_service(format($q$select public.assistant_page_on_call(%L::uuid, %L::uuid)::text$q$, pg_temp.f('pat'), pg_temp.f('conv3'))));
 insert into public.assistant_config (key, value, config_version) select key, value, config_version from paging_cfg_saved;
+insert into public.assistant_page_queue (organisation_id, patient_id, conversation_id) values (pg_temp.f('org'), pg_temp.f('pat'), pg_temp.f('conv3'));
+select pg_temp.ck('real', 'two pending queue rows for one conversation are refused', '23505',
+  pg_temp.try_sql(format($q$insert into public.assistant_page_queue (organisation_id, patient_id, conversation_id) values (%L, %L, %L)$q$, pg_temp.f('org'), pg_temp.f('pat'), pg_temp.f('conv3'))));
 select pg_temp.ck('real', 'a patient cannot page', 'ERR:42501', pg_temp.q_as(pg_temp.f('pat'), format($q$select public.assistant_page_on_call(%L::uuid, %L::uuid)::text$q$, pg_temp.f('pat'), pg_temp.f('conv'))));
 
 -- 7. Monthly review ---------------------------------------------------------------------------------------------------------------------
@@ -329,6 +332,7 @@ select pg_temp.ck('real', 'the review recorded is audited', '2', (select count(*
 -- 7b. The random draw never takes a test account (INV-13) or a conversation that was already reviewed ----------------------------------------
 create function pg_temp.prev2() returns date language sql as $$ select (pg_temp.prev() - interval '1 month')::date $$;
 create function pg_temp.prev3() returns date language sql as $$ select (pg_temp.prev() - interval '2 months')::date $$;
+create function pg_temp.prev4() returns date language sql as $$ select (pg_temp.prev() - interval '3 months')::date $$;
 do $$
 declare v_org uuid := pg_temp.f('org'); v_tst uuid; v_ok uuid; v_c1 uuid; v_c2 uuid; v_at timestamptz;
 begin
@@ -337,19 +341,34 @@ begin
   insert into public.ai_conversations (organisation_id, profile_id, messages) values (v_org, v_tst, '[]'::jsonb) returning id into v_c1;
   insert into public.ai_conversations (organisation_id, profile_id, messages) values (v_org, v_ok, '[]'::jsonb) returning id into v_c2;
   perform pg_temp.setf('tst_conv', v_c1); perform pg_temp.setf('ok_conv', v_c2);
-  foreach v_at in array array[(pg_temp.prev2()::timestamp at time zone 'Africa/Lagos') + interval '2 days', (pg_temp.prev3()::timestamp at time zone 'Africa/Lagos') + interval '2 days'] loop
+  foreach v_at in array array[(pg_temp.prev2()::timestamp at time zone 'Africa/Lagos') + interval '2 days', (pg_temp.prev3()::timestamp at time zone 'Africa/Lagos') + interval '2 days', (pg_temp.prev4()::timestamp at time zone 'Africa/Lagos') + interval '2 days'] loop
     insert into public.ai_assistant_turns (organisation_id, patient_id, conversation_id, interaction_type, final_action, status, created_at) values
       (v_org, v_tst, v_c1, 'chat_turn', 'replied', 'completed', v_at),
       (v_org, v_ok, v_c2, 'chat_turn', 'replied', 'completed', v_at),
       -- a conversation that was reviewed last month and is active again: never drawn again
       (v_org, (select patient_id from public.assistant_review_samples where conversation_id = pg_temp.f('conv')), pg_temp.f('conv'), 'chat_turn', 'replied', 'completed', v_at);
   end loop;
+  -- and a NEW answer in that already-reviewed chat, which its patient reports in the third month back
+  declare v_sys uuid; v_pt uuid; v_i uuid;
+  begin
+    select id into v_sys from public.ai_systems where system_code = 'AI-001';
+    select patient_id into v_pt from public.assistant_review_samples where conversation_id = pg_temp.f('conv');
+    insert into public.ai_interaction_log (organisation_id, ai_system_id, model_identifier, subject_profile_id, input_category, status)
+      values (v_org, v_sys, 'm', v_pt, 'patient_coach_message', 'completed') returning id into v_i;
+    insert into public.ai_assistant_turns (organisation_id, patient_id, conversation_id, interaction_type, final_action, status, interaction_id, created_at)
+      values (v_org, v_pt, pg_temp.f('conv'), 'chat_turn', 'replied', 'completed', v_i, (pg_temp.prev3()::timestamp at time zone 'Africa/Lagos') + interval '3 days');
+    insert into public.ai_safety_incidents (organisation_id, ai_system_id, interaction_id, reported_by, reporter_kind, category, description, created_at)
+      values (v_org, v_sys, v_i, v_pt, 'patient', 'incorrect_information', 'S52 proof: reported on a chat reviewed earlier', (pg_temp.prev3()::timestamp at time zone 'Africa/Lagos') + interval '4 days');
+  end;
 end $$;
 select pg_temp.q_service(format($q$select public.assistant_sample_month(%L::date, 50)::text$q$, pg_temp.prev2()));
 select pg_temp.ck('real', 'the draw takes the real patient only: not the test account, not a conversation already reviewed', '1:0:0',
   (select count(*) from public.assistant_review_samples where month = pg_temp.prev2() and conversation_id = pg_temp.f('ok_conv'))::text || ':' ||
   (select count(*) from public.assistant_review_samples where month = pg_temp.prev2() and conversation_id = pg_temp.f('tst_conv'))::text || ':' ||
   (select count(*) from public.assistant_review_samples where month = pg_temp.prev2() and conversation_id = pg_temp.f('conv'))::text);
+select pg_temp.q_service(format($q$select public.assistant_sample_month(%L::date, 50)::text$q$, pg_temp.prev3()));
+select pg_temp.ck('real', 'a patient report on a chat that was reviewed earlier still reaches the review', 'reported',
+  (select selection from public.assistant_review_samples where month = pg_temp.prev3() and conversation_id = pg_temp.f('conv')));
 
 select pg_temp.ck('real', 'erasure still works: deleting a sampled conversation is not blocked', 'ok',
   pg_temp.try_sql(format($q$delete from public.ai_conversations where id = %L$q$, pg_temp.f('conv'))));
@@ -379,9 +398,9 @@ begin
   d := replace(d, 'not coalesce(p.is_test, false)', 'true');
   execute d;
 end $f$;
-select pg_temp.q_service(format($q$select public.assistant_sample_month(%L::date, 50)::text$q$, pg_temp.prev3()));
+select pg_temp.q_service(format($q$select public.assistant_sample_month(%L::date, 50)::text$q$, pg_temp.prev4()));
 select pg_temp.ck('sabotaged', 'the draw never takes a test account', '0',
-  (select count(*)::text from public.assistant_review_samples where month = pg_temp.prev3() and conversation_id = pg_temp.f('tst_conv')));
+  (select count(*)::text from public.assistant_review_samples where month = pg_temp.prev4() and conversation_id = pg_temp.f('tst_conv')));
 
 do $$
 declare v_bad integer; v_caught integer;
