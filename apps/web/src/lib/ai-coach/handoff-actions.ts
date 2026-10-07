@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { buildCoachHandoffSummary } from "./handoff-summary";
 import { loadHandoffSnapshot } from "./escalate";
+import { sendApprovedPrepDraft, type SendPrepDraftResult } from "./send-prep-draft";
 
 const conversationIdSchema = z.string().uuid().optional();
 
@@ -71,4 +72,22 @@ export async function requestCareTeamHandoffAction(
   }
 
   return { success: true, threadId };
+}
+
+/** S51 (7.7): sends the pre-visit message the patient has edited and approved. See send-prep-draft.ts. */
+export async function sendApprovedPrepDraftAction(input: { text: string; conversationId?: string }): Promise<SendPrepDraftResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Not signed in" };
+  const { data: profile } = await supabase.from("profiles").select("organisation_id").eq("id", user.id).maybeSingle();
+  if (!profile?.organisation_id) return { success: false, error: "No organisation on file" };
+  return sendApprovedPrepDraft({
+    supabase,
+    getServiceRoleSupabase: createServiceRoleClient,
+    profileId: user.id,
+    organisationId: profile.organisation_id,
+    input,
+  });
 }

@@ -21374,6 +21374,7 @@ export type Database = {
         Row: {
           body_md: string
           clinician_reviewed: boolean
+          content_version: number
           condition: Database["public"]["Enums"]["care_plan_condition"] | null
           created_at: string
           embedding: string | null
@@ -21381,6 +21382,7 @@ export type Database = {
           key: string
           module: Database["public"]["Enums"]["lpe_module"] | null
           reading_level: string | null
+          review_due_at: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           title: string
@@ -21389,6 +21391,7 @@ export type Database = {
         Insert: {
           body_md: string
           clinician_reviewed?: boolean
+          content_version?: number
           condition?: Database["public"]["Enums"]["care_plan_condition"] | null
           created_at?: string
           embedding?: string | null
@@ -21396,6 +21399,7 @@ export type Database = {
           key: string
           module?: Database["public"]["Enums"]["lpe_module"] | null
           reading_level?: string | null
+          review_due_at?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           title: string
@@ -21404,6 +21408,7 @@ export type Database = {
         Update: {
           body_md?: string
           clinician_reviewed?: boolean
+          content_version?: number
           condition?: Database["public"]["Enums"]["care_plan_condition"] | null
           created_at?: string
           embedding?: string | null
@@ -21411,6 +21416,7 @@ export type Database = {
           key?: string
           module?: Database["public"]["Enums"]["lpe_module"] | null
           reading_level?: string | null
+          review_due_at?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           title?: string
@@ -43079,6 +43085,8 @@ export type Database = {
           task_type: string
         }[]
       }
+      assistant_knowledge_sources: { Args: { p_ids: string[] }; Returns: Json }
+      assistant_protocol_limits: { Args: Record<PropertyKey, never>; Returns: Json }
       go_live_guard_is_open: { Args: { p_key: string }; Returns: boolean }
       list_fee_schedules: {
         Args: Record<PropertyKey, never>

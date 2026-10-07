@@ -1309,4 +1309,16 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/BUILD-SPEC-v5.md INV-04; docs/design/S51.md",
   },
+  {
+    key: "assistant.go_live",
+    // S51: the go-live guard assistant_enabled needs at least this many reviewed, owned knowledge rows with a future review date.
+    // Mirrored by public.assistant_config (key go_live) in migration *_s51_assistant_guard_knowledge_events.sql. The CMO confirms the number.
+    value: { min_approved_kb_rows: 20 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S51.md; docs/BUILD-SPEC-v5.md B.7 (go-live guard assistant_enabled)",
+    guardPatterns: ["min_approved_kb_rows\\s*[=:]\\s*20\\b"],
+  },
 ];

@@ -1,6 +1,6 @@
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { createClient } from "@/lib/supabase/server";
-import { hasCoachAccess } from "@/lib/ai-coach/entitlement";
+import { isAssistantOffered } from "@/lib/ai-coach/offered";
 import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { RequiresEntitlement } from "@/components/requires-entitlement";
@@ -31,7 +31,7 @@ import { TestimonialForm } from "@/components/testimonial-form";
 export default async function PatientCarePage() {
   const { profile, subjectId, uiLanguage } = await getPatientDashboardContext();
   const supabase = await createClient();
-  const coachAccess = await hasCoachAccess(supabase);
+  const coachAccess = await isAssistantOffered(supabase);
 
   return (
     <DashboardSection

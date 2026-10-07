@@ -33,3 +33,14 @@ describe("isAiExcludedAnalyte (INV-04)", () => {
     expect(isAiExcludedAnalyte("creatinine", null)).toBe(false);
   });
 });
+
+describe("assistant.go_live mirrors the assistant_config seed", () => {
+  it("is identical to the go_live row", () => {
+    const file = readdirSync(MIGRATIONS).find((f) => f.endsWith("_s51_assistant_guard_knowledge_events.sql"));
+    if (!file) throw new Error("S51 migration not found");
+    const sql = readFileSync(join(MIGRATIONS, file), "utf8");
+    const match = /assistant-config-begin[\s\S]*?\$json\$([\s\S]*?)\$json\$/.exec(sql);
+    if (!match?.[1]) throw new Error("seed not found");
+    expect(JSON.parse(match[1])).toEqual(getProposedConfig("assistant.go_live").value);
+  });
+});

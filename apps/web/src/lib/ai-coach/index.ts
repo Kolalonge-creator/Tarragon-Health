@@ -1,9 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { CoachChatMessage, CoachSuggestedAction, CoachTier, Database } from "@tarragon/shared";
+import type { CoachChatMessage, CoachSource, CoachSuggestedAction, CoachTier, Database } from "@tarragon/shared";
 import { buildCoachGraph, type CoachGraphDeps } from "./graph";
 import { COACH_ACCESS_DENIED_REPLY, hasCoachAccess } from "./entitlement";
+import { ASSISTANT_NOT_OPEN_REPLY, isAssistantOpen } from "./guard";
 import { COACH_LIMIT_REACHED_REPLY, countMessagesToday, getCoachDailyLimit } from "./rate-limit";
-import { detectEmergencyKeywords } from "./keyword-guardrail";
+import { detectEmergencyKeywords, isSelfHarmMessage } from "./keyword-guardrail";
+import { emitAssistantEvent } from "./events";
 import { COACH_UNAVAILABLE_REPLY, EMERGENCY_SAFETY_REPLY, COACH_PROMPT_VERSION } from "./prompts";
 import { logAiCoachEscalation } from "./escalate";
 import { AI_SYSTEMS, governedSystemPrompt, runGovernedAi } from "@/lib/ai-governance";
@@ -31,6 +33,12 @@ export interface RunCoachTurnResult {
    * patient's "this was wrong" report (40.12) to the exact turn they mean.
    */
   aiInteractionId: string | null;
+  /** S51 (7.2, 7.9): the sources the reply drew on (reviewed content with owner, version and review date, the patient's own record). */
+  sources: CoachSource[];
+  /** The in-chat hand-off the reply offers (symptom checker, medicine education, ...). Absent for most turns. */
+  suggestedAction?: CoachSuggestedAction;
+  /** True only when the assistant_enabled guard is closed and nothing was run. */
+  notOpen?: boolean;
 }
 
 /** What the coach turn resolved to, before it is persisted to the thread. */
@@ -52,6 +60,8 @@ interface CoachTurnOutcome {
    * graph.ts's CoachState doc comment for why this is separate from
    * retrievedSourceIds. */
   readonly knowledgeSourceUsed?: string[];
+  /** S51: structured sources (graph.ts CoachState.sources). */
+  readonly sources?: CoachSource[];
   /** §78.2 in-chat suggestion the model classified for this reply, or
    * "none"/absent on the kill-switch fallback path. */
   readonly suggestedAction?: CoachSuggestedAction;
@@ -83,6 +93,19 @@ const CONTEXT_HISTORY_LIMIT = 20;
  */
 export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoachTurnResult> {
   const { supabase, getServiceRoleSupabase, profileId, organisationId, message } = params;
+
+  // INV-14: the assistant_enabled go-live guard. Checked first, before anything is read or written, and it fails closed (an error
+  // reading the guard is a closed guard). While it is off no model is reached, no conversation row is created and nothing is logged.
+  if (!(await isAssistantOpen(supabase))) {
+    return {
+      conversationId: params.conversationId ?? "",
+      reply: ASSISTANT_NOT_OPEN_REPLY,
+      tier: "routine",
+      aiInteractionId: null,
+      sources: [],
+      notOpen: true,
+    };
+  }
 
   const { conversationId, fullMessages } = await resolveOrCreateConversation(
     supabase,
@@ -117,7 +140,7 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
       finalAction: "declined",
       status: "access_denied",
     });
-    return { conversationId, reply: COACH_ACCESS_DENIED_REPLY, tier: "routine", aiInteractionId: null };
+    return { conversationId, reply: COACH_ACCESS_DENIED_REPLY, tier: "routine", aiInteractionId: null, sources: [] };
   }
 
   const [messagesToday, dailyLimit] = await Promise.all([
@@ -145,7 +168,7 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
       finalAction: "declined",
       status: "rate_limited",
     });
-    return { conversationId, reply: COACH_LIMIT_REACHED_REPLY, tier: "routine", aiInteractionId: null };
+    return { conversationId, reply: COACH_LIMIT_REACHED_REPLY, tier: "routine", aiInteractionId: null, sources: [] };
   }
 
   // Neither of the two short-circuits above is recorded in ai_interaction_log,
@@ -192,6 +215,7 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
           modelId: result.modelId,
           retrievedSourceIds: result.retrievedSourceIds,
           knowledgeSourceUsed: result.knowledgeSourceUsed,
+          sources: result.sources,
           suggestedAction: result.suggestedAction,
           clinicianAlertId: result.clinicianAlertId,
           referralRequestClinicianAlertId: result.referralRequestClinicianAlertId,
@@ -290,6 +314,7 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
       governed.value.knowledgeSourceUsed && governed.value.knowledgeSourceUsed.length > 0
         ? governed.value.knowledgeSourceUsed
         : undefined,
+    sources: governed.value.sources && governed.value.sources.length > 0 ? governed.value.sources : undefined,
     created_at: now,
   };
   await appendMessages(supabase, conversationId, fullMessages, [userMessage, assistantMessage]);
@@ -334,5 +359,26 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
     },
   });
 
-  return { conversationId, reply, tier, aiInteractionId: governed.interactionId };
+  // S51 events through the outbox. Best effort: the patient's turn never waits on, or fails because of, an event.
+  const svc = getServiceRoleSupabase();
+  const turnKey = assistantMessage.id;
+  const redFlagTrigger = keywordEmergency ? (isSelfHarmMessage(message) ? "self_harm" : "keyword") : tier === "emergency" ? "model" : null;
+  await Promise.all([
+    emitAssistantEvent(svc, organisationId, profileId, { type: "assistant.message", conversationId, tier, turnKey }),
+    redFlagTrigger
+      ? emitAssistantEvent(svc, organisationId, profileId, { type: "assistant.red_flag_detected", conversationId, trigger: redFlagTrigger, turnKey })
+      : Promise.resolve(true),
+    governed.value.suggestedAction === "symptom_check"
+      ? emitAssistantEvent(svc, organisationId, profileId, { type: "assistant.handoff", conversationId, target: "symptom_checker", turnKey })
+      : Promise.resolve(true),
+  ]);
+
+  return {
+    conversationId,
+    reply,
+    tier,
+    aiInteractionId: governed.interactionId,
+    sources: governed.value.sources ?? [],
+    suggestedAction: assistantMessage.suggestedAction,
+  };
 }

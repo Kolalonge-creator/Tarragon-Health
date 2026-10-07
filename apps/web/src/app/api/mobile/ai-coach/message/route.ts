@@ -3,6 +3,7 @@ import { createBearerClient } from "@/lib/supabase/bearer";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { coachMessageSchema } from "@/lib/validation/ai-coach";
 import { runCoachTurn } from "@/lib/ai-coach";
+import { ASSISTANT_NOT_OPEN_REPLY, isAssistantOpen } from "@/lib/ai-coach/guard";
 
 /**
  * Mobile equivalent of apps/web/.../patient/ai-coach-actions.ts's
@@ -41,6 +42,11 @@ export async function POST(request: Request): Promise<NextResponse> {
       { error: parsed.error.issues[0]?.message ?? "Invalid input" },
       { status: 400 }
     );
+  }
+
+  // INV-14: the assistant_enabled go-live guard. Fails closed, and runCoachTurn checks it again.
+  if (!(await isAssistantOpen(supabase))) {
+    return NextResponse.json({ success: false, error: ASSISTANT_NOT_OPEN_REPLY, code: "assistant_not_open" }, { status: 403 });
   }
 
   const { data: profile } = await supabase

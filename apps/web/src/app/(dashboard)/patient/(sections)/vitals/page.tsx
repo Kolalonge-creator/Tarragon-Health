@@ -58,7 +58,9 @@ export default async function PatientVitalsPage() {
         organisationId={profile.organisation_id}
         ageYears={ageYears}
       />
-      <SymptomTriageCheck patientId={subjectId} presentingComplaints={presentingComplaints} />
+      <div id="symptom-check" className="scroll-mt-24">
+        <SymptomTriageCheck patientId={subjectId} presentingComplaints={presentingComplaints} />
+      </div>
 
       <VitalsHistory patientId={subjectId} />
       {/* Renders nothing unless the patient has an active diabetes care

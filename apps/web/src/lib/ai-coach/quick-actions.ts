@@ -5,11 +5,13 @@ import {
   careTasksThisMonth,
   explainHealthRecord,
   prepareForAppointment,
+  buildPrepDraft,
   type AppointmentPrepSummary,
   type CareTasksThisMonth,
   type HealthRecordExplanation,
 } from "./composed-surfaces";
 import { COACH_ACCESS_DENIED_REPLY, hasCoachAccess } from "./entitlement";
+import { ASSISTANT_NOT_OPEN_REPLY, isAssistantOpen } from "./guard";
 import { logAssistantTurn } from "./audit";
 import { appendMessages, resolveOrCreateConversation } from "./conversation-store";
 
@@ -37,6 +39,14 @@ export interface RunQuickActionParams {
 export interface RunQuickActionResult {
   conversationId: string;
   reply: string;
+  /**
+   * S51 (7.7, INV-11): a draft the patient may edit and choose to send to their care team before a visit. Present only for the
+   * appointment-prep action. It lives in this response and the screen, never in the record, and is sent only by the patient's own
+   * action (sendApprovedPrepDraft).
+   */
+  draft?: string;
+  /** True only when the assistant_enabled guard is closed and nothing was run (same flag as runCoachTurn). */
+  notOpen?: boolean;
 }
 
 function formatHealthRecordExplanation(record: HealthRecordExplanation): string {
@@ -120,14 +130,33 @@ function formatAppointmentPrep(summary: AppointmentPrepSummary): string {
   lines.push(
     "\nMedication issues: " +
       (summary.medicationIssues.length > 0
-        ? summary.medicationIssues.map((m) => `${m.drugName} — ${m.issue}`).join("; ")
+        ? summary.medicationIssues.map((m) => `${m.drugName}, ${m.issue}`).join("; ")
         : "none flagged.")
+  );
+  const ch = summary.changesSinceLastReview;
+  lines.push(
+    "\nChanges since your last review: " +
+      (ch.lastReviewAt
+        ? `since ${ch.lastReviewAt.slice(0, 10)} you logged ${ch.readingsLogged} reading(s) and ${ch.symptomsLogged} symptom note(s)` +
+          (ch.newMedicines.length > 0 ? `, and started ${ch.newMedicines.join(", ")}.` : ".")
+        : "no earlier completed visit is on file.")
+  );
+  if (summary.questions.length > 0) {
+    lines.push("\nQuestions you could ask:\n" + summary.questions.map((q, i) => `${i + 1}. ${q}`).join("\n"));
+  }
+  lines.push(
+    "\nBelow is a draft message you can read, change and send to your care team before the visit. Nothing is sent unless you choose to send it, and it is not added to your record."
   );
   return lines.join("\n");
 }
 
 export async function runQuickAction(params: RunQuickActionParams): Promise<RunQuickActionResult> {
   const { supabase, getServiceRoleSupabase, profileId, organisationId, kind } = params;
+
+  // INV-14: closed guard, closed door. Checked before anything is read or written, and it fails closed.
+  if (!(await isAssistantOpen(supabase))) {
+    return { conversationId: params.conversationId ?? "", reply: ASSISTANT_NOT_OPEN_REPLY, notOpen: true };
+  }
 
   const { conversationId, fullMessages } = await resolveOrCreateConversation(
     supabase,
@@ -163,6 +192,7 @@ export async function runQuickAction(params: RunQuickActionParams): Promise<RunQ
   const context = await loadPatientContext(supabase, profileId);
 
   let reply: string;
+  let draft: string | undefined;
   switch (kind) {
     case "explain_record":
       reply = formatHealthRecordExplanation(explainHealthRecord(context));
@@ -171,7 +201,11 @@ export async function runQuickAction(params: RunQuickActionParams): Promise<RunQ
       reply = formatCareTasksThisMonth(await careTasksThisMonth(supabase, profileId, context));
       break;
     case "appointment_prep":
-      reply = formatAppointmentPrep(await prepareForAppointment(supabase, profileId, context));
+      {
+        const prep = await prepareForAppointment(supabase, profileId, context);
+        reply = formatAppointmentPrep(prep);
+        draft = buildPrepDraft(prep);
+      }
       break;
   }
 
@@ -198,7 +232,7 @@ export async function runQuickAction(params: RunQuickActionParams): Promise<RunQ
     inputSnapshot: { kind },
   });
 
-  return { conversationId, reply };
+  return { conversationId, reply, ...(draft ? { draft } : {}) };
 }
 
 function quickActionInteractionType(

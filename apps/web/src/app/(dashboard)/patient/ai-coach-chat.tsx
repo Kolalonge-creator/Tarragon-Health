@@ -16,6 +16,9 @@ import type { CoachSuggestedAction } from "@tarragon/shared";
 import { ReportAiAnswer } from "@/components/ai/report-ai-answer";
 import { CareTeamHandoffStatus } from "@/components/ai/care-team-handoff-status";
 import { AI_SYSTEMS } from "@/lib/ai-governance/system-codes";
+import { CoachSources } from "@/components/ai/coach-sources";
+import { PrepDraftEditor } from "@/components/ai/prep-draft-editor";
+import { AssistantNudgeCard } from "@/components/ai/assistant-nudge-card";
 
 import { formatPatientDateTime } from "@/lib/format-date";
 /**
@@ -30,6 +33,8 @@ const SUGGESTION_LINK: Record<Exclude<CoachSuggestedAction, "none">, { href: str
   care_plan_explanation: { href: "/patient/care#care-plan", label: "See your care plan" },
   appointment_prep: { href: "/patient/appointments", label: "See your appointments" },
   service_navigation: { href: "/patient/care#find-a-service", label: "Find a service" },
+  // S51 (7.6): new symptoms go to the symptom check, never to the model.
+  symptom_check: { href: "/patient/vitals#symptom-check", label: "Check your symptoms" },
 };
 
 const QUICK_ACTIONS = [
@@ -103,6 +108,7 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        <AssistantNudgeCard />
         <div className="max-h-80 space-y-2 overflow-y-auto rounded-md bg-charcoal-ink/5 dark:bg-night-ink/10 p-3">
           {messages.length === 0 && !sendMessage.isPending && (
             <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
@@ -122,6 +128,9 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
               >
                 {message.content}
               </div>
+              {message.role === "assistant" && message.sources && message.sources.length > 0 && (
+                <CoachSources sources={message.sources} />
+              )}
               <p
                 className={cn(
                   "text-[11px] text-charcoal-ink/40 dark:text-night-ink/50",
@@ -147,6 +156,14 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
           )}
           <div ref={scrollAnchorRef} />
         </div>
+
+        {quickAction.data?.success === true && quickAction.data.draft ? (
+          <PrepDraftEditor
+            key={quickAction.submittedAt}
+            initialText={quickAction.data.draft}
+            conversationId={quickAction.data.conversationId}
+          />
+        ) : null}
 
         {sendMessage.data?.success === false && (
           <p className="text-sm text-red-600 dark:text-red-300">{sendMessage.data.error}</p>

@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { LazyVitalsTrendChart } from "@/components/vitals-trend-chart-lazy";
 import { createClient } from "@/lib/supabase/server";
-import { hasCoachAccess } from "@/lib/ai-coach/entitlement";
+import { isAssistantOffered } from "@/lib/ai-coach/offered";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { shouldOfferCycleTracking } from "@/lib/patient/cycle-relevance";
 import { getPatientSummaryStats, getPatientPreventionStats } from "@/app/(dashboard)/patient/summary";
@@ -86,7 +86,7 @@ export default async function PatientOverviewPage() {
   // answer (it would render with the doctor/booking CTAs and a "report this
   // answer" control, same as any other reply).
   const supabase = await createClient();
-  const coachAccess = await hasCoachAccess(supabase);
+  const coachAccess = await isAssistantOffered(supabase);
 
   const greetingWord = getLagosGreetingWord();
   const actingSubject = acting ? (acting.fullName ? `${acting.fullName}'s` : "their") : null;

@@ -383,6 +383,8 @@ export interface CoachTurnResponse {
   reply?: string;
   tier?: "routine" | "clinician_review" | "emergency";
   aiInteractionId?: string | null;
+  /** S51 (7.7): a pre-visit message draft the patient may edit and send. Appointment prep only. */
+  draft?: string;
   error?: string;
 }
 
@@ -427,6 +429,32 @@ export async function postCoachHandoffToCareTeam(
     "POST",
     { conversationId }
   );
+  return result.ok ? result.data : { error: result.error };
+}
+
+export interface AssistantNudges {
+  success?: boolean;
+  daily?: { kind: string; text: string; target: { section: string; path: string } };
+  weekly?: { text: string };
+  error?: string;
+}
+
+/** S51 (7.5): today's one nudge and the weekly reflection. See apps/web/src/app/api/mobile/ai-coach/nudge/route.ts. */
+export async function getAssistantNudges(): Promise<AssistantNudges> {
+  const result = await request<AssistantNudges>("/api/mobile/ai-coach/nudge", "GET");
+  return result.ok ? result.data : { error: result.error };
+}
+
+/** S51 (7.7, INV-11): sends the pre-visit message the patient has read, edited and chosen to send. See
+ * apps/web/src/app/api/mobile/ai-coach/prep-draft/route.ts. */
+export async function postApprovedPrepDraft(
+  text: string,
+  conversationId?: string
+): Promise<{ success?: boolean; threadId?: string; error?: string }> {
+  const result = await request<{ success?: boolean; threadId?: string }>("/api/mobile/ai-coach/prep-draft", "POST", {
+    text,
+    conversationId,
+  });
   return result.ok ? result.data : { error: result.error };
 }
 

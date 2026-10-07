@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { hasCoachAccess } from "@/lib/ai-coach/entitlement";
+import { isAssistantOffered } from "@/lib/ai-coach/offered";
 import { SEMANTIC_ICON, type AppIconName, APP_ICON } from "@/lib/icons";
 
 type NextAction = {
@@ -170,7 +170,7 @@ async function resolveNextAction(patientId: string): Promise<NextAction> {
  */
 export async function NextBestAction({ patientId }: { patientId: string }) {
   const supabase = await createClient();
-  const [action, coachAccess] = await Promise.all([resolveNextAction(patientId), hasCoachAccess(supabase)]);
+  const [action, coachAccess] = await Promise.all([resolveNextAction(patientId), isAssistantOffered(supabase)]);
   const Icon = APP_ICON[action.icon] ?? SEMANTIC_ICON.preventive;
 
   return (

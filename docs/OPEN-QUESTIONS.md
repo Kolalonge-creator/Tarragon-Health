@@ -1440,3 +1440,41 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - The AI-003 eval case `pidgin_language_fidelity` keeps one recorded failed result, so it stays as audit history (its runner no longer runs it).
 - Pidgin audio recordings or text-to-speech voices held outside this repository (a TTS account, a drive) are not touched by code and need deleting by hand.
 - Decision: open (CMO for the version; founder for outside assets).
+
+
+## Raised by S51 (AI health assistant 1 of 2). Track B uses OQ-281 to OQ-299 so parallel sessions do not collide.
+
+### OQ-281 Stage 1 gate (S40) not closed; the assistant is built but switched off (raised by S51)
+- The founder said on 2026-10-07 to proceed anyway and build everything with nothing switched on. `assistant_enabled` is born off and every condition is unmet today. Recorded here so the override is on the record.
+- Decision: recorded, no action.
+
+### OQ-282 Positive screening rows are still readable by the patient on the base table (raised by S51)
+- INV-04 for the AI path is closed (views, token list, reply screens). The base table `lab_analyte_readings` still lets a patient read their own row, including a positive HIV, HBsAg or HCV value, because its RLS predates the release machinery (the same family as OQ-177 for `lab_result_documents`). S51 adds `lab_analyte_readings.sensitive_positive` (trigger-maintained) so a later policy can use it.
+- Options: (a) add the flag to the patient read policy so a flagged row is hidden until a clinician discloses (recommended, needs the CMO for the disclosure rule); (b) leave until the legacy path is retired.
+- Decision: open.
+
+### OQ-283 Knowledge base rows have no owner or review date today, so retrieval is inert (raised by S51)
+- Live (2026-10-07): 6 reviewed and active health education rows with a reviewer name and no review date; 58 lifestyle blocks marked reviewed with no review date. The assistant uses a row only with an owner, a version and a FUTURE review date, so retrieval returns nothing until the CMO sets dates. The guard needs at least 20 such rows (`assistant.go_live`, PROPOSED, CMO).
+- Options: (a) CMO sets owners and review dates on the reviewed rows and confirms the minimum (recommended); (b) lower the minimum for a pilot.
+- Decision: open (CMO).
+
+### OQ-284 Extra red-flag wording is PROPOSED; the written-question list is unchanged (raised by S51)
+- The assistant screen is the shared written-question list plus extra phrases and word pairs (`packages/clinical/src/assistant-danger-screen.ts`), which keeps everything the old private regex list caught and adds "arm numb" and similar. The written-question list and its database function (`private.screen_care_message_for_emergency`) were NOT widened; a drift test pins the base list.
+- Options: (a) CMO reviews the extra wording, then widen the written-question list and its function in one signed change (recommended); (b) keep two lists with the one-way drift test.
+- Decision: open (CMO).
+
+### OQ-285 The hand-off to the care team stays outside the assistant guard (raised by S51)
+- The brief named the three mobile ai-coach routes. The `handoff` route ("I want to speak to someone") and the new `prep-draft` send are deliberately not behind `assistant_enabled`: both are a patient writing to their own care team, which must not wait on an AI guard. Message and quick-action are guarded.
+- Decision: recorded; reverse only if the founder wants the whole assistant surface hidden.
+
+### OQ-286 `go_live_conditions` is patched in place (raised by S51)
+- Several sessions add a guard branch to `private.go_live_conditions`, and the live body already carries a condition (`clinical_safety_case_current`) that main-dev's files do not. S51 reads the live body, inserts one branch and re-creates it, with an assertion, instead of replacing the whole function. Other sessions should do the same.
+- Decision: recorded.
+
+### OQ-287 Model-polished nudge text and the INV-07 lint on the other free-text paths (raised by S51)
+- The daily nudge and weekly reflection are fully deterministic. A model-polished version would be a new AI call site (register in `ai_systems` first). AI-002 nudge text is now linted against the INV-07 term list (a hit falls back to the generic template). `broadcast_announcement` and the self-care suggestion text, the other two paths in OQ-94, are unchanged.
+- Decision: open (founder, whether polishing is wanted).
+
+### OQ-288 Dose screens will sometimes over-block (raised by S51)
+- The dose-change request screen and the dose-advice reply screen are regular expressions. Over-matching routes a patient to their care team with fixed copy; under-matching is the failure to avoid. The CMO should read the patterns in `apps/web/src/lib/ai-coach/reply-screen.ts` and the fixed refusal wording (PROPOSED).
+- Decision: open (CMO).
