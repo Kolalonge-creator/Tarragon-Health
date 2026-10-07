@@ -793,6 +793,30 @@ Found during the simulator pass (`docs/S06_SIMULATOR_CHECKLIST.md`).
 - **Open questions**: OQ-180 to OQ-185 (why not `platform_modules`; the test-pair rule; no auto switch-off on drift; one-person attestations; guards to wire later; the consultation policy confirmation as a future condition). OQ-135 answered.
 - **Follow-ups**: apply the migration before deploying (see `docs/design/S37.md` section 7); `database.types.ts` not spliced (the screens parse results with Zod); the mobile app's own older booking path will get the database refusal but has no client-side calm state (OQ-158); S36 console screens were not finished and the founder said to proceed, so the screens sit with the other staff pages in `apps/web`.
 
+## Competitor review: Report for your visit (2026-10-06, branch `feat/competitor-review-visit-report`)
+
+- **Built**: `/api/patient/visit-report/pdf?days=7|30|90`, `lib/visit-report` (pure `summariseReadings`, PDF document), and a card on `/patient/vitals`. Own readings only through the caller's RLS session; plain statistics, no thresholds; unvalidated readings excluded and counted; wearable estimates counted separately.
+- **Reused**: the react-pdf route pattern from lab results, `vitals_readings`.
+- **Review and plan**: `docs/COMPETITOR_REVIEW_AND_PLAN_2026-10.md` and two research files.
+- **Tests**: 12 Jest tests (summary, document tree, route auth and own-id read); typecheck and eslint clean; a real render was checked visually. No migration, no database change.
+- **Not done**: i18n strings, caregiver access, mobile button, browser click-through, `/code-review high`.
+
+## Competitor review: Weekly summary and Low-data mode (2026-10-06, same branch)
+
+- **Weekly summary (web)**: `lib/visit-report/weekly.ts` (this 7 days against the 7 before, Africa/Lagos calendar days, descriptive only), `useWeeklySummary` and `WeeklySummaryCard` on `/patient/vitals`. No verdicts, calm empty state, unvalidated readings excluded.
+- **Low-data mode (mobile)**: `LOW_DATA_BUDGET` and `activeBudget()` in `offline-budget.ts`; `lib/low-data.ts` (SecureStore preference, fails off on a bad value); loaded in `App.tsx`; toggle in Settings. Only the pull side shrinks (page 50, 4 pages a run, 30 days first pull, smaller task pulls). The outbox and local retention are unchanged. `offline-store.ts` and `task-source.ts` now read `activeBudget()`.
+- **Tests**: web 427 suites / 3,778 tests, shared 156, mobile 95 suites / 1,356, all passing; typecheck and eslint clean on touched files. New: 7 weekly model, 2 weekly card, 5 low-data.
+- **Not done**: mobile weekly card; optional weekly push; web low-data mode; data actually saved was not measured on a device; Settings text and the new cards are English only (i18n en/pcm still owed); no browser or device click-through; `/code-review high` not run yet.
+- **Note**: turning low-data off does not backfill the 30-day gap on an already-synced phone; a new phone after turning it on gets 30 days, not 90.
+
+## Competitor review: `/code-review high` pass (2026-10-06, same branch)
+
+- **Found and fixed (8)**: glucose was hard-coded mmol/L in the visit PDF and weekly card while the app default is mg/dL (now `formatGlucose` with the caller's unit); both queries ordered oldest first under a row cap, so a dense CGM or wearable feed would drop the newest readings (now newest first, with a note on the PDF and a skipped comparison on the card when capped); the PDF route now validates `?days` with Zod; shared column list and glucose labels; low-data preference could load after the first pull (now `ensureLowDataLoaded()` awaited in `pullChanges`).
+- **Regression tests added**: unit shown in mg/dL and mmol/L (sabotage-checked: forcing mmol/L makes it fail), truncation note, partial-week comparison withheld, newest-first query, `days` fallback, low-data load-before-pull.
+- **Tests**: web 427 suites / 3,786, mobile 95 suites / 1,357, shared unchanged; typecheck and eslint clean.
+- **Still not done**: mobile weekly card and weekly push (reminder-channel and quiet-hours rules undecided); web low-data mode; i18n (English only by decision); no browser or device click-through.
+
+
 ## S37b: clinical safety case condition on the clinical guards (2026-10-06, branch `s37/safety-case-reference`)
 
 - **Built**: migration `*_s37b_clinical_safety_case_condition.sql` re-creates `private.go_live_conditions` and `public.attest_go_live_condition` only. `clinical_operations_enabled`, `prescribing_enabled` and `scribe_enabled` now also need a recorded `clinical_safety_case_current` attestation (a note of 25+ characters naming the document, version and signer; only the CMO can record it, an admin who is not the CMO is refused, found by /code-review high). No table, grant or trigger changes. Nothing seeded or attested; no guard is on.
