@@ -1473,3 +1473,65 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-295 Home cards from onboarding answers: wording and order need a product and CMO read (raised by S41)
 - The mapping from answers to Home cards (`focusFromAnswers`) is deterministic and changes only which existing cards lead, never a clinical rule. The goal and condition option wording ("A kidney condition", "A heart condition") and the order cards appear in are a product choice made without a clinician. The CMO should read the option list once; nothing here is signed or claims a clinical meaning.
 - Decision: open.
+
+## Raised by S42 (2026-10-07, numbered from 330 to avoid clashing with parallel sessions)
+
+### OQ-330 Consent wording is placeholder text: counsel must approve it (extends OQ-49)
+- Every matrix cell (20), every bundle, and the hand-over consent line use clearly marked draft wording in `packages/i18n` (`consent.matrix.*`, `consent.bundle.*`, `handover.consent_notice`); `consent_matrix_cells.wording_status = 'draft_pending_counsel'` and each matrix screen says so. No approved legal wording was invented.
+- Decision: open (counsel). When approved, set `wording_status = 'approved'` and replace the keys' text.
+
+### OQ-331 Should the care purpose be optional for reproductive and mental health data?
+- S42 marks all five care cells required (care needs the data a person chooses to add; sensitive types stay protected by the category-scoped access model, not by this switch). A person who does not want such data held asks for deletion or does not add it. A different answer (care optional for those two types) would mean the care team loses sight of data the person already entered.
+- Decision: open (founder, CMO, counsel).
+
+### OQ-332 Sponsor reporting is not wired because the sponsor report is on PR #988
+- `private.consent_in_force(patient, data_type, 'sponsor_reporting')` is the seam. When #988 merges, `sponsor_outcome_report` should also require it (and decide how `profile_cohorts.reporting_consent` relates to the matrix: recommend the matrix cell becomes the single source and the cohort flag a mirror).
+- Decision: open.
+
+### OQ-333 Which matrix cell gates which Care Circle block
+- Adherence summary and weekly BP trend are both mapped to vitals x Care Circle. Appointments, red alerts and pay-for-care carry no record content and are not data-type bound. No circle view shows reproductive, mental health or documents, so those cells are recorded but unused (the screen says so).
+- Decision: open (product, CMO).
+
+### OQ-334 No research export job exists; the roster is the only door
+- `research_export_roster()` (admin, audited, excludes test accounts and dependants) lists who agreed and for which data type. Any future export must be built from it. The older optional consent types in `patient_consents` (research, sponsor_reporting, care_circle_sharing) have no versions and are superseded by the matrix; recommend retiring them.
+- Decision: open.
+
+### OQ-335 Is the anonymiser enough to count as erasure?
+- It removes identity and sign-in and every personal row outside a retention category, and keeps clinical, audit, financial, consent and communications rows (no confirmed statutory period, so nothing is deleted). Date of birth is reduced to the year; `patient_number` is kept as the record key. Audit and correction trails may still hold earlier names. Completion stays admin-reviewed (OQ-50).
+- Decision: open (DPO and counsel).
+
+### OQ-336 The export has no stored file
+- `artifact_path` is a logical key stamped at fulfilment; JSON and PDF are rendered at download from the live record under the patient's own session, so nothing is parked in storage and a withdrawal made since is reflected. Two JSON routes still exist (`/api/patient/data-export`, `/json`).
+- Decision: open (founder: keep, or store a snapshot per request).
+
+### OQ-337 A young person who never signs in
+- Until they claim a login, the 03:30 job leaves the guardian at view only for ever. The spec rule (never exposed without consent) argues for an automatic end after N days. Also: dependants already claimed before this change have no hand-over row (the claim clears `dependent_kind`). Live counts today: 0 minors, 0 elder proxies, so nothing is affected yet.
+- Decision: open (founder).
+
+### OQ-338 Kept guardians
+- A guardian the young person keeps stays view only with no expiry. Recommend yearly re-confirmation.
+- Decision: open.
+
+### OQ-339 The elder-proxy downgrade that already ran
+- The old daily job treated every `is_dependent_account` row with a birthday over 18 as a child turning 18, so an elder proxy's `manage` grant was stepped to `view` on its first run. The job now covers `minor_child` only. Live count of affected elder grants: 0.
+- Decision: none needed today.
+
+### OQ-340 Category to permission mapping (closes OQ-51 in the safest direction)
+- Appointments and care plan, medicines, results and messages map to view or message permissions; vitals, vaccinations, reproductive health and history map to nothing; no acting permission is ever implied. The mapping needs a product and clinical read.
+- Decision: open.
+
+### OQ-341 The add-an-adult path (closes OQ-47 partly)
+- It now needs a recorded reason (cannot receive a code, or cannot set up themselves) and no longer reaches an adult's reproductive health through `manage`. Recommend removing it once the mobile and web "Set up for my parent" flow covers every case you care about.
+- Decision: open.
+
+### OQ-342 OQ-48 and the cooling-off
+- The dependent-claim flow no longer queues an SMS (INV-08); the person is told by whoever set it up and signs in with a code. Other patient SMS paths (OQ-32) are untouched. The cooling-off (30 days) is PROPOSED config `proxy.cooling_off`.
+- Decision: open (founder for the days).
+
+### OQ-343 Apply order and review
+- Apply the consent matrix, privacy centre, dependants and proxy migrations in file order. Apply the SMS-column migration only after the new `send-pending-notifications` function and the app builds are live. The new `account.created` trigger on `profiles` and `account.phone_verified` trigger on `auth.users` are on core tables and swallow their own errors by design: review them with `/code-review ultra` before production.
+- Decision: open.
+
+### OQ-344 Not run, and mobile gaps
+- No browser, device or real SMS run of any new screen. The mobile privacy screen's older consent list still has hard-coded English; the mobile app has no PDF download link. Sponsor wording, Care Circle consent text and the hand-over consent text await counsel.
+- Decision: open.

@@ -82,7 +82,7 @@ describe("ConsentStatusPanel", () => {
 
   it("labels a stale (older-version) consent differently from a never-accepted one", () => {
     render(<ConsentStatusPanel patientId="patient-1" />);
-    expect(screen.getByText("A newer version is available — review needed")).toBeTruthy();
+    expect(screen.getByText("A newer version is available. Review needed.")).toBeTruthy();
     expect(screen.getByText(/Accepted 1 Jan 2026/)).toBeTruthy();
   });
 
