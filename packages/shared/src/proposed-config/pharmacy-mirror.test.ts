@@ -15,8 +15,14 @@ function seed(suffix: string, marker: string): unknown {
 }
 
 describe("pharmacy.collection_rules mirrors the migration seed", () => {
-  it("v1 is identical to the pharmacy_config v1 seed", () => {
-    expect(seed("_s28_pharmacy_collection_and_dispensing.sql", "pharmacy-rules")).toEqual(getProposedConfig("pharmacy.collection_rules").value);
+  it("the registry value is identical to the active pharmacy_config seed (v2, S54c)", () => {
+    expect(seed("_s54c_clinician_suggests_pharmacy_patient_confirms.sql", "pharmacy-rules-v2")).toEqual(getProposedConfig("pharmacy.collection_rules").value);
+  });
+  it("v2 keeps every S28 value unchanged and only adds the suggestion window", () => {
+    const v1 = seed("_s28_pharmacy_collection_and_dispensing.sql", "pharmacy-rules") as Record<string, number>;
+    const v2 = seed("_s54c_clinician_suggests_pharmacy_patient_confirms.sql", "pharmacy-rules-v2") as Record<string, number>;
+    for (const [k, v] of Object.entries(v1)) expect(v2[k]).toBe(v);
+    expect(v2.suggestion_valid_days).toBeGreaterThan(0);
   });
   it("the code is long enough to resist guessing and the lock comes before a guess can succeed", () => {
     const v = getProposedConfig("pharmacy.collection_rules").value as { code_length: number; code_valid_days: number; max_wrong_attempts: number };
