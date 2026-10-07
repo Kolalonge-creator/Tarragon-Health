@@ -1,0 +1,22 @@
+# S85: the one flow that needs no account, no password and no backend (so it can be run against any build, including one
+# pointed at nothing). Cold launch with cleared state lands on the sign-in screen (phone tab first, S03); the email tab
+# shows its fields. It proves the app starts, renders the first screen and that the selectors the other flows depend on
+# ("Use email", "Email", "Password", "Sign in") exist in the build under test.
+#
+# iOS bundle id. For an Android build change appId to com.tarragonhealth.app (see the README's platform note).
+appId: com.tarragonhealth.mobile
+name: Signed-out sign-in screen
+tags:
+  - smoke
+  - signed-out
+---
+- launchApp:
+    clearState: true
+# The launch splash can take up to two stacked 8 second gates (see login-to-overview.yaml), so wait generously.
+- extendedWaitUntil:
+    visible: "Use email"
+    timeout: 30000
+- tapOn: "Use email"
+- assertVisible: "Email"
+- assertVisible: "Password"
+- assertVisible: "Sign in"
