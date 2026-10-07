@@ -55,7 +55,7 @@ export default async function PatientWellbeingPage() {
             <p className="text-charcoal-ink/70 dark:text-night-ink/70">{t("library.intro")}</p>
             <div className="flex flex-wrap gap-4">
               <Link className="underline" href="/patient/wellbeing/library">{t("library.title")}</Link>
-              <Link className="underline" href="/patient/wellbeing/breathing">{t("breathing.title")}</Link>
+              <Link className="underline" href="/patient/wellbeing/breathing">{t("breathing.library_title")}</Link>
               <Link className="underline" href="/patient/wellbeing/journal">{t("journal.title")}</Link>
               <Link className="underline" href="/patient/sleep">Sleep</Link>
             </div>

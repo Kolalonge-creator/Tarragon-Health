@@ -44,6 +44,7 @@ declare
   v_to uuid;
   v_n integer := 0;
   v_failed boolean := false;
+  v_notify_failed boolean := false;
   r record;
 begin
   select * into s from public.mental_health_screens where id = p_screen;
@@ -102,12 +103,15 @@ begin
     end if;
   exception when others then
     v_failed := true;
+    v_notify_failed := true;
     insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
       values (s.organisation_id, 'crisis_task.error', 'mental_health_screen', s.id, jsonb_build_object('step', 'notify', 'error', sqlerrm));
     perform private.page_incident(s.organisation_id, 'crisis_follow_up_failed:' || s.id, 'A priority follow-up could not be completed',
       'A priority wellbeing follow-up step failed; see audit_log action crisis_task.error. The emergency event itself was still raised.');
   end;
-  if not v_failed then
+  -- The marker depends on the NOTIFY step alone: a failure in the event or task step must not make a replay page
+  -- the same person a second time. (Carried over from F1's review fix, which this function replaces.)
+  if not v_notify_failed then
     insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
       values (s.organisation_id, 'crisis.notified', 'mental_health_screen', s.id, '{}'::jsonb);
   end if;

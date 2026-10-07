@@ -76,7 +76,7 @@ export function PacedBreathing({ mediaId, pattern, totalSeconds, steps }: { medi
             style={{ transform: `scale(${running ? scale : 0.6})`, transition: "transform 200ms linear" }}
           />
         )}
-        <p className="text-xl font-medium">{running && pos.phase ? t(`breathing.phase.${pos.phase}` as MessageKey) : finished ? t("breathing.done") : ""}</p>
+        <p className="text-xl font-medium">{running && pos.phase ? t(`breathing.phase.${pos.phase}` as MessageKey) : finished ? t("breathing.library_done") : ""}</p>
         {running && <p className="text-sm tabular-nums">{pos.secondsLeft}</p>}
         {running && <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{t("breathing.time_left", "en", { n: pos.remainingSeconds })}</p>}
       </div>

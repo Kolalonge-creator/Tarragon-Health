@@ -33,7 +33,7 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
         ))}
       </nav>
       <div className="flex flex-wrap gap-3 text-sm">
-        <Link className="underline" href="/patient/wellbeing/breathing">{t("breathing.title")}</Link>
+        <Link className="underline" href="/patient/wellbeing/breathing">{t("breathing.library_title")}</Link>
         <Link className="underline" href="/patient/wellbeing/journal">{t("journal.title")}</Link>
       </div>
       <QuietTimer />

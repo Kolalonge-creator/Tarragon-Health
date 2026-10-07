@@ -16,7 +16,7 @@ export default async function BreathingPage() {
   const items = (all ?? []).filter((i) => i.kind === "breathing");
   return (
     <WellbeingShell>
-      <PageHeader title={t("breathing.title")} description={t("breathing.intro")} backTo={{ href: "/patient/wellbeing", label: "Wellbeing" }} />
+      <PageHeader title={t("breathing.library_title")} description={t("breathing.library_intro")} backTo={{ href: "/patient/wellbeing", label: "Wellbeing" }} />
       <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{t("breathing.safety")}</p>
       {all === null ? (
         <LoadFailure>{t("library.error")}</LoadFailure>

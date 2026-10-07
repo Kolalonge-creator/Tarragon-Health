@@ -637,6 +637,9 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "circle_gift_waiting") {
     return { text: "Someone has paid for care for you. Open it to accept", href: "/patient/care-circle" };
   }
+  if (n.template === "monthly_report_ready") {
+    return { text: "Your monthly summary is ready", href: "/patient/progress" };
+  }
   if (n.template === "circle_paid_for_you") {
     return { text: "Someone in your Care Circle has paid for your care", href: "/patient" };
   }

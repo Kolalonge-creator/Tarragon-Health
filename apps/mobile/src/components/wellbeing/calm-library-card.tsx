@@ -122,7 +122,7 @@ function Breathing({ item, steps }: { item: LibraryItem; steps: string[] }) {
     <View style={{ gap: 8 }}>
       {steps.map((s, i) => (<MutedText key={i}>{s}</MutedText>))}
       <Text accessibilityLiveRegion="polite" style={{ fontSize: 22, fontWeight: "700", color: colors.ink }}>
-        {running && pos.phase ? `${t(`breathing.phase.${pos.phase}` as MessageKey)} ${pos.secondsLeft}` : finished ? t("breathing.done") : ""}
+        {running && pos.phase ? `${t(`breathing.phase.${pos.phase}` as MessageKey)} ${pos.secondsLeft}` : finished ? t("breathing.library_done") : ""}
       </Text>
       {running ? (
         <SecondaryButton title={t("breathing.stop")} onPress={() => setRunning(false)} />
