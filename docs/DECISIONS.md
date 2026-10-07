@@ -194,3 +194,13 @@ D-02 to D-04 are not defined in the spec.
 - **Low reading:** only a systolic under 90 is flagged (BP-A7, amber 24 hour review, with no symptom; red with fainting, confusion or chest pain as before). 90 to 99 is not flagged.
 - **Postpartum:** the engine takes a `postpartum` input (first 6 weeks after a birth). It uses the pregnancy red lines (160/110, and 140/90 with a pre-eclampsia symptom) and an amber review at 150/100 (BP-P5).
 - These are rule set version 2 (draft, in `triage_rule_sets` next to the unused draft v1). Still a draft until the CMO signs it in the console (S37).
+
+### S85 to S87 planning, 2026-10-07 (founder selections, UNSIGNED)
+Source: `docs/plans/S85-S87-build-plan.md` and `docs/plans/S85-S87-cmo-signoff-pack.md` (exact wording and the list of guideline statements still to verify). Nothing below is signed. The CMO signs each item by name in chat after its draft row exists.
+- **S85-1 (D1): blood pressure of 180/120 or higher asks the emergency-symptom question** (today it is 200/130). A reported emergency symptom is RED; no symptom is AMBER with same-day clinician contact and a 2 hour recheck. Needs a new draft version of `bp_care_triage`; v1 and v2 are not edited.
+- **S85-2 (D2): the fertile window is hidden by default**, shown only in an opt-in "Planning a pregnancy" mode, always with "Not contraception. This cannot prevent pregnancy." (implements OQ-12).
+- **S85-3 (D3): SMS has one named exception** beyond verification codes and clinician paging: a content-free alert to the patient's own consented emergency contact when the patient triggers an emergency. Other patient SMS paths (push-failure fallback, dependent claim, broadcast channel, routine critical-result rung) are removed. Reverses part of C.2 and D-12, so it also needs the founder's explicit approval; the exception is not relied on until live delivery is proven.
+- **S86-1 (D4): languages stay English only (D-14).** Build a dormant, test-only-proven readiness framework; no language ships; spec D.8 is superseded. Future review standard: forward translation, back translation, reconciliation, native clinical review, CMO signature.
+- **S87-1: salaried clinicians.** Part C.2's last row is updated to match the 2026-09-30 decision (employed doctors are allowed). The code stays.
+- **S85-4: journey tests are built now**, with steps for unbuilt modules marked pending and counted. No journey is reported passing until none are pending and S40 has passed.
+- **Order:** S87 first, then S86, then S85.
