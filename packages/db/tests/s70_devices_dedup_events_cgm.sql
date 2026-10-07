@@ -73,9 +73,10 @@ begin
   a := pg_temp.bp(v_pat2, v_org, 'device', v_t, 120, 80);
   b := pg_temp.bp(v_pat2, v_org, 'wearable', v_t + interval '9 minutes', 123, 82);
   perform pg_temp.rec('C1 cuff then wearable: the later wearable row is the duplicate', 'true', (select (duplicate_id = b and canonical_id = a)::text from public.vitals_reading_links where patient_id = v_pat2));
-  -- a typed value from the same measurement: equal rank, the first stays canonical
-  c := pg_temp.bp(v_pat2, v_org, 'manual', v_t + interval '5 minutes', 121, 80);
-  perform pg_temp.rec('a typed value of the same measurement links to the cuff (equal rank, first wins)', '2', (select count(*)::text from public.vitals_reading_links where patient_id = v_pat2 and canonical_id = a));
+  -- a typed value from the same measurement (a manual row's time is stamped by the server, so the cuff row is placed just before now)
+  a := pg_temp.bp(v_real, v_org, 'device', clock_timestamp() - interval '2 minutes', 120, 80);
+  c := pg_temp.bp(v_real, v_org, 'manual', clock_timestamp(), 121, 80);
+  perform pg_temp.rec('a typed value of the same measurement links to the cuff (equal rank, first wins)', 'true', (select (duplicate_id = c and canonical_id = a)::text from public.vitals_reading_links where patient_id = v_real));
   -- photo-confirmed outranks wearable that arrived earlier
   a := pg_temp.bp(v_pat2, v_org, 'wearable', v_t + interval '2 hours', 140, 90);
   b := pg_temp.bp(v_pat2, v_org, 'device', v_t + interval '2 hours' + interval '4 minutes', 141, 90, true);
@@ -104,7 +105,9 @@ begin
   b := pg_temp.bp(v_pat, v_org, 'device', v_t + interval '20 hours' + interval '1 minute', 118, 76);
   alter table public.vitals_readings enable trigger vitals_readings_link_duplicate;
   perform pg_temp.rec('with the trigger off nothing is linked', '0', (select count(*)::text from public.vitals_reading_links where duplicate_id in (a, b)));
+  perform pg_temp.act(v_admin);
   perform public.sweep_unlinked_duplicates(30);
+  perform pg_temp.back();
   perform pg_temp.rec('the sweep links it', '1', (select count(*)::text from public.vitals_reading_links where duplicate_id in (a, b)));
 
   -- ===== CGM sustained events: synthetic traces, replayed =====
@@ -203,7 +206,9 @@ begin
   perform pg_temp.back();
 
   -- ===== release after the guard would open =====
+  perform pg_temp.act(v_admin);
   perform pg_temp.rec('release does nothing while the guard is off for a real patient', '0', (select public.release_held_device_alerts())::text);
+  perform pg_temp.back();
 
   -- ===== listing criteria =====
   insert into public.device_catalog (device_name, category, pairing_path) values ('S70 test cuff', 'blood_pressure', 'manual_only') returning id into a;
