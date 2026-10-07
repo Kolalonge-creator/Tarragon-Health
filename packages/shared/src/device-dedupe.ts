@@ -50,7 +50,8 @@ export function sourceClassOf(r: Pick<DedupeReading, "source" | "provider">, cfg
     case "cgm":
       return "vendor_cloud";
     case "wearable":
-      return r.provider && cfg.mirror_providers.includes(r.provider) ? "phone_mirror" : "vendor_cloud";
+      // the phone health bridges write a wearable reading with no connection and so no provider: that is a mirror too
+      return !r.provider || cfg.mirror_providers.includes(r.provider) ? "phone_mirror" : "vendor_cloud";
     case "photo_confirmed":
       return "photo_confirmed";
     case "manual":

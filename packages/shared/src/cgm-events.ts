@@ -49,19 +49,16 @@ export function evaluateCgmSustained(samples: readonly CgmSample[], loaded = loa
     if (!meets(rule, last.mmolL)) continue;
     let runStart = Date.parse(last.takenAt);
     let prev = runStart;
-    let ok = true;
     for (let i = sorted.length - 2; i >= 0; i--) {
       const s = sorted[i] as CgmSample;
       if (!meets(rule, s.mmolL)) break;
       const t = Date.parse(s.takenAt);
-      if (prev - t > config.max_gap_minutes * 60_000) {
-        ok = false;
-        break;
-      }
+      // a gap longer than the limit ends the run: what came before the sensor went quiet proves nothing
+      if (prev - t > config.max_gap_minutes * 60_000) break;
       runStart = t;
       prev = t;
     }
-    if (ok && Date.parse(last.takenAt) - runStart >= rule.minutes * 60_000) fired.push(rule);
+    if (Date.parse(last.takenAt) - runStart >= rule.minutes * 60_000) fired.push(rule);
   }
   return fired;
 }

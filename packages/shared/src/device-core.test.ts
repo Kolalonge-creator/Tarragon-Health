@@ -65,6 +65,7 @@ describe("de-duplication across sources", () => {
   it("classifies sources, with Apple Health and Health Connect as phone mirrors", () => {
     expect(sourceClassOf({ source: "device" })).toBe("ble_device");
     expect(sourceClassOf({ source: "wearable", provider: "oura" })).toBe("vendor_cloud");
+    expect(sourceClassOf({ source: "wearable" })).toBe("phone_mirror");
     expect(sourceClassOf({ source: "wearable", provider: "apple_health" })).toBe("phone_mirror");
     expect(sourceClassOf({ source: "wearable", provider: "android_health_connect" })).toBe("phone_mirror");
     expect(sourceClassOf({ source: "cgm" })).toBe("vendor_cloud");
