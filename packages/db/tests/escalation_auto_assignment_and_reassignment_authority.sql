@@ -100,8 +100,8 @@ begin
   -- employed -- the non-CMO who must be refused when reassigning someone
   -- ELSE's case.
   for r in select * from (values
-      ('doctor_a', 'care_coordinator'),
-      ('doctor_b', 'care_coordinator'),
+      ('doctor_a', 'senior_medical_officer'),
+      ('doctor_b', 'senior_medical_officer'),
       ('doctor_c', 'senior_medical_officer'),
       ('doctor_cmo', 'chief_medical_officer'),
       ('doctor_rogue', 'care_coordinator')
@@ -158,7 +158,7 @@ where e.patient_id = (select v from ids where k = 'patient_b')
 -- ---------------------------------------------------------------------------
 -- Case 2: tier-qualification gate. An escalation linked to an EMERGENCY-level
 -- clinician_alert must route to doctor_c (senior_medical_officer, load 0),
--- never to doctor_a/doctor_b, who are only medical_officer and cannot clear
+-- never to doctor_rogue (a care coordinator), and doctor_c is the least loaded; doctor_a/doctor_b already carry load. (Before F-05 they were medical officers who could not clear
 -- the emergency bar no matter how idle they are.
 -- ---------------------------------------------------------------------------
 do $$
