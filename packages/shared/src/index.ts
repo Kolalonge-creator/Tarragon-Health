@@ -9,6 +9,8 @@
 export * from "./ml-client";
 export * from "./ai-coach-types";
 export * from "./device-readings";
+export * from "./device-capture";
+export * from "./recommended-devices";
 export * from "./health-record";
 
 // Generated Supabase types: Database, Tables, TablesInsert, TablesUpdate,
