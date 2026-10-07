@@ -1443,7 +1443,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 
 ### OQ-274 No pharmacy can receive a prescription until its licence is verified
 - 4 partner rows exist (Medplus, HealthPlus, Alpha, MedsPal), all inactive with unverified licences. The chooser offers only active partners with a verified, unexpired PCN licence and a verified location, so today it shows none, and the `prescribing_enabled` go-live guard stays off. Verifying a licence, adding locations and creating pharmacist logins are admin steps, not code.
-- Decision: open (founder, pharmacy lead). Do not activate a partner without a verified licence (spec D.6).
+- **Decided 2026-10-07 (founder): switch on only when a real partner exists.** Until then the patient downloads the prescription PDF and takes it to any pharmacy (the existing path). Do not activate a partner without a verified licence (spec D.6).
 
 ### OQ-275 One medicine per prescription
 - S24 signs one item per prescription (`issue_signed_prescription`), so a patient with three medicines chooses a pharmacy three times and gets three codes.
