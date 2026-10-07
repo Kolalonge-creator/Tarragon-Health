@@ -80,10 +80,10 @@ begin
   returning id into v_lab_id;
 
   insert into public.pharmacy_partners
-    (name, delivery, regions, is_active, business_registration_number, compliance_owner_profile_id,
+    (name, regions, is_active, business_registration_number, compliance_owner_profile_id,
      onboarding_status, rejection_reason, license_type, license_number)
   values
-    ('Scoping Test Pharmacy', true, array['Lagos'], true, 'SCOPE_TEST_RC_1234567', v_admin,
+    ('Scoping Test Pharmacy', array['Lagos'], true, 'SCOPE_TEST_RC_1234567', v_admin,
      'activated', null, 'PCN', 'SCOPE-PHARM-0001')
   returning id into v_pharmacy_id;
 

@@ -32,10 +32,10 @@
 --   partner_statements / pharmacy_partner_statements (+ _lines): invoiced_total_kobo / expected_total_kobo / expected_kobo are what a
 --   partner invoices Tarragon. Policy is private.is_org_staff (care-team operations own recording partner invoices, by the design of
 --   20260821192256 and apps/web/src/lib/finance/partner-statement-access.ts). No patient or caregiver path. Narrowing it is a
---   product decision (clinician read of partner invoices), logged as OQ-330, not made here.
+--   product decision (clinician read of partner invoices), logged as OQ-340, not made here.
 --   specialist_referrals.referral_fee_kobo / payable_kobo: the patient price (copied from the specialist consultation fee).
 --   lab_providers.cost_basis*: admin or partners.labs.manage only. service_product_margins: security invoker over admin-only tables.
---   lab_refund_policies / pharmacy_refund_policies.partner_still_owed: a boolean per refund reason, readable by all (OQ-331).
+--   lab_refund_policies / pharmacy_refund_policies.partner_still_owed: a boolean per refund reason, readable by all (OQ-341).
 --
 -- HOW (same pattern as 20261007002834 and 20261007105817)
 --   A column REVOKE is a no-op under a table-level grant, so table-level SELECT is revoked from authenticated and anon, and SELECT

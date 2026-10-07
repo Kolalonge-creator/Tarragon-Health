@@ -1528,6 +1528,59 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Options: (a) accept as built (recommended); (b) also ship BRE-03 now under its own name and a longer length once the CMO confirms the pace and the wording; (c) hold the exercise until the CMO confirms.
 - Decision: open.
 
+## S39: security, privacy and compliance hardening (raised 2026-10-07)
+
+### OQ-260 Staff can read most patient tables directly, untied and unaudited (INV-10, INV-12)
+- Live check (read-only, simulated session): about 10 core tables are tied and audited (S05, S22e). On 226 other tables with a `patient_id`, the SELECT policy still contains `private.is_org_staff(organisation_id)`, so any active staff member of the organisation (including a care coordinator) can read them with no tie to the patient and no audit row. Worst: `scribe_transcripts` (staff can also delete), `patient_serology_status` (HIV, hepatitis status), mental health, therapy, sexual health and STI, reproductive and pregnancy tables, `clinical_encounters`. Next: labs, imaging, ECG, care plans, escalations, `patient_timeline`, medication reviews. A clinician with no tie read 1 of 1 serology rows and 1 encounter in the proof run.
+- Why not fixed in S39: moving 226 tables to tied-only breaks coordinator logistics, clinician queues and rosters that list untied patients, and jobs that read as staff. OQ-02 decided "tied only plus audited break-glass" but never decided coordinator scope or the roster and queue exceptions. `private.is_org_staff` is not edited (it gates about 110 surfaces).
+- Options: (a) tier 1 now (scribe transcripts, serology, mental health, therapy, sexual health, reproductive, encounters): replace the staff arm with `private.can_staff_read_clinical(patient_id, <category>)` and add audited read functions like `read_patient_chart_audited`; tier 2 (labs, imaging, ECG, care plans, escalations, timeline, medication reviews) in a second session after the coordinator scope is decided (recommended); (b) all 226 in one session; (c) leave as is until launch volume.
+- Also decide: coordinator scope (logistics tables only, no result or note bodies), the roster and queue exceptions (alerts, escalations, monitoring roster as tie-creating lists), and whether staff may delete `scribe_transcripts` (recommended: no, never).
+- **Decided 2026-10-07 (founder): tier 1 now, tier 2 later; then on 2026-10-07 the founder asked for BOTH tiers now (S39b).** The catalog test `s39_security_catalog.sql` does not sweep the admin role for this reason; add it once this is decided.
+
+### OQ-261 Break-glass: no route for a same-organisation clinician, no immediate CMO alert, no weekly review (INV-12)
+- `request_emergency_record_access` refuses a patient in the same organisation ("use the normal chart view"), which was right while in-org reads were org-wide. If OQ-260 makes reads tied-only, an untied in-org clinician needs a break-glass route. There is also no trigger alerting the CMO when a grant is made (only a 4-hourly nudge for grants near expiry) and no weekly review job. Zero grants have ever been made.
+- Options: (a) allow same-organisation grants with a reason, notify the CMO at once (a keyed in-app notice with no patient name or condition, INV-07), and add a weekly review summary (recommended, built together with OQ-260); (b) later.
+- Decision: open (founder, CMO).
+
+### OQ-262 No executable erasure or anonymisation path (spec section 13, NDPA)
+- Deletion is a request workflow (`data_deletion_requests`) that an admin marks completed; no function removes or anonymises anything. 289 public tables carry a `patient_id`; their foreign keys to `profiles` are 323 CASCADE, 263 SET NULL, 174 RESTRICT, 39 NO ACTION, so a naive profile delete would wipe records the law may require us to keep in some tables and be blocked in others. Only 20 of 295 patient tables are classified in `table_classifications`. `analytics.subjects` keeps the pseudonym link unless erased with the patient, and `outcome_snapshots` is append-only (blocks UPDATE, not DELETE).
+- Not built: what must be kept, for how long, and what anonymising a clinical record means are questions for Nigerian counsel (see `docs/legal/questions-for-nigerian-counsel-S39.md` Q5). Building before the answer risks deleting what must be kept.
+- Options: (a) after counsel answers, one session: classify every patient table (delete, anonymise, keep) in a tested registry, add `private.erase_patient`, delete the analytics pseudonym row, and add a CI test that a new patient table must be classified (recommended); (b) manual SQL runbook meanwhile.
+- Decision: open (founder, counsel).
+
+### OQ-263 Retention periods are all empty
+- `data_retention_policies` has a period only for marketing and analytics (36 months). Clinical records, audit trail, financial records, consent records and communications are NULL ("no confirmed statutory period"). No cron enforces even that one, nor OQ-108 (document purge) or OQ-195 (12-month bank-name clear).
+- Options: counsel sets the periods; then they go in versioned PROPOSED config and one nightly purge job writes an audit row (recommended). Until then NULL means keep, and the register says so.
+- Decision: open (counsel, CMO).
+
+### OQ-264 Data export: admin-gated, incomplete, no mobile download
+- `/api/patient/data-export` returns 403 until an admin fulfils a request, covers about 16 tables of 289 (missing all v5 tables such as outcome snapshots, consult messages, scribe notes, orders, entitlements, Care Circle grants, appointments), has no full-record PDF and no mobile download. Spec says export in JSON and PDF.
+- Options: (a) build the export from the same classified registry as OQ-262 so it covers every patient table, keep the admin review step as a 30-day clock (OQ-50 recommendation), add mobile (recommended); (b) self-serve instant export of the patient's own rows.
+- Decision: open (founder).
+
+### OQ-265 Patient avatars sit in a public bucket
+- `patient-avatars` is public; files are `<patient id>/<random uuid>.<ext>` and the profile stores the public address. Unlisted, but anyone given the address can open it for ever. Making it private means signed addresses at every place an avatar shows (about 6 renderers).
+- Options: (a) private bucket plus signed addresses (recommended once the console split finishes); (b) accept, since the address is unguessable and the patient chose the picture. Recorded in the catalog test allowlist until decided.
+- Decision: open (founder).
+
+### OQ-266 Production backups: PITR is off and no backup is listed
+- `supabase backups list` (read-only, 2026-10-07): `pitr_enabled: false`, `backups: []`. No restore has ever been tested; branching is unavailable on this plan so the DR spec's "restore on a branch" cannot be done. Storage files (lab documents, transcripts) are not covered by database backups.
+- Options: (a) upgrade to Pro and enable PITR, then restore into a scratch project and record RTO and RPO in `docs/BUSINESS_CONTINUITY_DR_SPEC.md` (recommended before any real patient data: this is the most serious operational gap found); (b) scheduled `pg_dump` plus bucket export to storage outside Nigeria.
+- **Decided 2026-10-07 (founder): upgrade to Pro, enable PITR, test a restore into a scratch project and record RTO and RPO.** The upgrade and the restore test are the founder's to do in the dashboard; not yet done.
+
+### OQ-267 Rate limits: Upstash never provisioned; payment, queue and mobile routes unlimited
+- Auth, SMS OTP and the prescription and passport doors are limited. In-memory fallback is used because Upstash was never provisioned (not coordinated across serverless instances). No request-rate limit found on `order-checkout`, `order-verify`, `queue-next`, `queue-handback` or the ~18 `/api/mobile/*` routes. `verify_prescription_public` can be called directly through the API, bypassing the page limit. S39 added counting and an alert on the emergency card and record share doors (not blocking: the emergency card must open).
+- Options: provision Upstash and add a shared per-user wrapper for the routes above; a small `rate_limit_hits` table for the edge functions (recommended).
+- Decision: open (founder).
+
+### OQ-268 Processor register, DPAs and vendor findings
+- `docs/PROCESSORS.md` is new. No signed DPA exists with any processor (Anthropic's is an unexecuted draft). Findings: Voyage AI, Twilio, Dojah, Vercel, Upstash and the HIBP check were missing from every register; the `vendor_assessments` seed still lists Stripe and WhatsApp as active; the Play Store text still names WhatsApp; Dojah receives a NIN or BVN in a GET query string; the Sentry scrubber covers emails and phones only and traces are sampled at 100%.
+- Options: (a) sign DPAs, fix the stale documents, move Dojah to a POST body if the provider allows, widen the scrubber and cut the trace rate (recommended); (b) defer.
+- Decision: open (founder, counsel).
+
+### OQ-269 Two live bugs found by the S39 proof and fixed (for the record, no decision needed)
+- `record_share_by_token` failed for any share that included the vitals section (a renamed column) or the lab results section (a status value that does not exist). Fixed in `20261007104237_s39_security_hardening_round1.sql` with a regression test. It shares lab results whose report status is final, corrected or amended; whether a lab result must also be clinician-released before it can be shared (INV-03) is for the CMO, since patients already read these rows directly.
+- Decision: informational; CMO to confirm the INV-03 point.
 ## S28: pharmacy partner, collection and dispensing (raised 2026-10-07)
 
 ### OQ-270 Two prescription models, one supply count (decided)
@@ -1701,27 +1754,27 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Still owed: (e) Android: not run (no Java or emulator image on this machine); `SCHEDULE_EXACT_ALARM` is not declared (OQ-73), so a reminder can arrive minutes late in Doze and the server backup push covers it. The native Pidgin review itself.
 - Decision: pending (item e, and the Pidgin sign-off).
 
-### OQ-330 Partner invoice totals are readable by care-team staff, clinicians included (raised by Track G)
+### OQ-340 Partner invoice totals are readable by care-team staff, clinicians included (raised by Track G)
 - `partner_statements`, `partner_statement_lines`, `pharmacy_partner_statements` and `pharmacy_partner_statement_lines` carry what a laboratory or pharmacy invoices Tarragon (`invoiced_total_kobo`, `expected_total_kobo`, per-line `expected_kobo`, the partner's cost per test). Their only policy is `private.is_org_staff`, so any clinician or care coordinator in the org can read and write them, and `match_partner_statement` / `match_pharmacy_partner_statement` / `approve_*_statement` are open to the same people. This is how the 2026-08-21 migration and `apps/web/src/lib/finance/partner-statement-access.ts` were designed (recording what a lab delivered is a care-team operations job, the finance role is deliberately excluded). No patient or caregiver path; 0 rows live. Track G did NOT change it because it would break that designed workflow.
 - Options: (a) leave it (care-team operations own partner invoices); (b) restrict read and write to admin plus a permission (for example `finance.vendors.manage`, which `approve_partner_statement` already requires on the write side) and move the recording screen to finance; (c) keep read for operations but hide the cost columns from clinicians with a column grant plus a view for finance.
 - Decision: open. Recommendation (b) or (c) before the first real partner invoice, because a clinician reading what a laboratory charges is the same class of exposure Track G just closed on orders.
 
-### OQ-331 Refund policy flags and notes are readable by every signed-in user (raised by Track G)
+### OQ-341 Refund policy flags and notes are readable by every signed-in user (raised by Track G)
 - `lab_refund_policies` and `pharmacy_refund_policies` have `select using (true)`: `partner_still_owed` (true means Tarragon keeps paying the partner on that refund reason, so the refund is Tarragon's loss) and a free-text `note`. No amount, so not fixed here.
 - Options: (a) leave (policy, not a figure); (b) restrict to staff and admin. Decision: open, low priority.
 
-### OQ-332 A patient can read the staff note on their own refund (raised by Track G)
+### OQ-342 A patient can read the staff note on their own refund (raised by Track G)
 - `lab_order_refunds.detail` and `pharmacy_order_refunds.detail` are free text typed by staff in `request_*_order_refund(p_detail)` and are readable by the order's patient through `*_patient_select`. A careless note ("we lose 40% on this") would reach the patient. Not a figure column, so not withheld.
 - Options: (a) add `detail` to the withheld list and expose a separate patient-facing reason; (b) a UI warning to staff. Decision: open.
 
-### OQ-333 Refunds can be raised and approved by any care-team user, including a clinician (raised by Track G)
+### OQ-343 Refunds can be raised and approved by any care-team user, including a clinician (raised by Track G)
 - `request_lab_order_refund`, `request_pharmacy_order_refund`, `approve_lab_order_refund` and `approve_pharmacy_order_refund` check only `private.is_org_staff`, so a clinician or care coordinator can raise and approve a refund and post the journal entry. Track G only stops them seeing the cost split in the response. No client calls these functions today (0 rows, no UI). Whether refunds should need finance authority is a controls decision. Related: the cost split is returned to admin and to any `commissions.view` holder, so that permission must stay with finance and admin.
 - Options: (a) add `finance.gl.post` or `finance.approvals.manage` to the approve functions and keep request for staff; (b) admin only. Decision: open, before a refund UI is built.
 
-### OQ-334 Any migration that adds a column to the four cost tables must also grant it (raised by Track G)
+### OQ-344 Any migration that adds a column to the four cost tables must also grant it (raised by Track G)
 - After Track G, `lab_orders`, `pharmacy_orders`, `lab_order_refunds` and `pharmacy_order_refunds` have column-level SELECT. A column added later is unreadable until granted (the safe default). The first draft of the migration missed `pharmacy_orders.is_test` (added by S28d, file `20261007141932`) because it carried an earlier stamp; the final file is stamped after the newest live version. The standing proof `g_partner_cost_columns_not_readable.sql` fails CI if any later migration adds a column without a grant.
 - Options: (a) rely on the proof (current); (b) a DDL event trigger that auto-grants new columns on these tables. Decision: open, (a) is in place.
 
-### OQ-335 Old web tabs lose two duplicate checks silently until reloaded (raised by Track G)
+### OQ-345 Old web tabs lose two duplicate checks silently until reloaded (raised by Track G)
 - An open tab from before the web deploy still calls `select *` on `lab_orders`; after the migration that returns a permission error. The lab and pharmacy lists show the error state (`listQueryState`), but the old clinician order form's duplicate-test warning and the old patient health-check booking's "already open" check treated an error as "no orders". The new code shows an alert instead. Old mobile builds are unaffected (they name their columns). Apply the migration after the web deploy and accept that a tab open across the deploy needs a reload.
 - Decision: open (lead's call on timing), no action needed beyond the apply order.

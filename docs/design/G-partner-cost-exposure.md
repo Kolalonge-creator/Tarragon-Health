@@ -39,12 +39,12 @@ Checked and left alone, with the reason:
 
 | Object | Finding |
 |---|---|
-| `partner_statements`, `partner_statement_lines`, `pharmacy_partner_statements`, `pharmacy_partner_statement_lines` | `invoiced_total_kobo` / `expected_*` are what a partner invoices Tarragon. Policy is `private.is_org_staff` (care-team operations record partner invoices by design, see `apps/web/src/lib/finance/partner-statement-access.ts`). No patient or caregiver path, 0 rows. Narrowing it is a product decision (OQ-330). |
-| `match_partner_statement`, `match_pharmacy_partner_statement` | Return invoice totals the caller can already read in the table. Same OQ-330. |
+| `partner_statements`, `partner_statement_lines`, `pharmacy_partner_statements`, `pharmacy_partner_statement_lines` | `invoiced_total_kobo` / `expected_*` are what a partner invoices Tarragon. Policy is `private.is_org_staff` (care-team operations record partner invoices by design, see `apps/web/src/lib/finance/partner-statement-access.ts`). No patient or caregiver path, 0 rows. Narrowing it is a product decision (OQ-340). |
+| `match_partner_statement`, `match_pharmacy_partner_statement` | Return invoice totals the caller can already read in the table. Same OQ-340. |
 | `specialist_referrals.referral_fee_kobo`, `payable_kobo` | The patient price (copied from the specialist consultation fee). Not a partner cost. |
 | `lab_providers.cost_basis*` | Select policy is admin or `partners.labs.manage`. |
 | `service_product_margins` | Security invoker over `service_delivery_cost_model` and `clinical_tier_cost_rates`, both admin-only. |
-| `lab_refund_policies.partner_still_owed`, `pharmacy_refund_policies.partner_still_owed` | A boolean per refund reason, readable by every signed-in user. Reveals policy, not an amount (OQ-331). |
+| `lab_refund_policies.partner_still_owed`, `pharmacy_refund_policies.partner_still_owed` | A boolean per refund reason, readable by every signed-in user. Reveals policy, not an amount (OQ-341). |
 | `home_visit_providers.home_visit_fee_kobo`, `logistics_partners.delivery_fee_kobo`, `pharmacy_partners.delivery_fee_kobo` | The fee a patient is shown for the service. |
 | `payments.fee_kobo` | The payment-processor fee on a payment. Not a partner cost; not looked at further here. |
 | `commissions`, `pharmacy_medications` | Fixed by the S53 pre-fix (`20261007002834`), not applied live yet. See apply order. |
@@ -52,7 +52,7 @@ Checked and left alone, with the reason:
 | Realtime | None of the four tables is in a publication (live `pg_publication_tables` is empty); Realtime does not apply column privileges, so the migration asserts this stays true. |
 
 Observation, not changed: `lab_order_refunds.detail` / `pharmacy_order_refunds.detail` is a free-text staff note that the patient can
-read on their own refund (OQ-332).
+read on their own refund (OQ-342).
 
 ## The fix
 
@@ -90,7 +90,7 @@ not affected by the revoke). If finance later needs a screen, add an owner-run v
   economics. Grant it to finance and admin only.
 - The client column lists are copies of the grant list (a Jest drift test compares them with the generated types, not with live).
   Moving the cost columns to a finance-only side table (OQ-320 option b) would remove both lists but is a larger schema change;
-  OQ-334 records the trade-off.
+  OQ-344 records the trade-off.
 
 ## Old clients (OQ-321 style)
 
