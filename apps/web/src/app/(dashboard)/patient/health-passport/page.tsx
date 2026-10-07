@@ -116,6 +116,7 @@ export default async function HealthPassportPage() {
             ["/patient/symptom-journal", "passport.nav.journal"],
             ["/patient/share-records", "passport.nav.share"],
             ["/patient/emergency-card", "passport.nav.emergency"],
+            ["/patient/data-exchange", "passport.nav.exchange"],
           ] as const
         ).map(([href, key]) => (
           <Link key={href} href={href} className="rounded-full border border-charcoal-ink/15 px-3 py-1 hover:bg-charcoal-ink/5 dark:border-night-ink/20">

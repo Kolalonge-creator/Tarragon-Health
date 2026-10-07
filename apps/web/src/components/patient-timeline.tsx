@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { isClinicalTier } from "@/lib/clinical/doctor-tier";
 import { DoctorNameLink } from "@/components/doctor-name-link";
 import { TimelineTrustTier } from "@/components/timeline-trust-tier";
+import { canAnnotate, ItemNote } from "@/components/item-note";
 
 /**
  * The shared unified activity timeline. Rendered on both the patient dashboard
@@ -126,7 +127,7 @@ function ActorAttribution({ actor }: { actor: TimelineEvent["actor"] }) {
 
 // The single per-event row, shared by both flat and grouped-by-month
 // rendering below so the two modes can never visually drift apart.
-function TimelineEventRow({ event, linkBasePath }: { event: TimelineEvent; linkBasePath?: string }) {
+function TimelineEventRow({ event, linkBasePath, allowNotes = false }: { event: TimelineEvent; linkBasePath?: string; allowNotes?: boolean }) {
   const style = EVENT_STYLE[event.event_type];
   const subpath = EVENT_LINK_SUBPATH[event.event_type];
   const href = linkBasePath && subpath ? `${linkBasePath}${subpath}` : null;
@@ -161,6 +162,7 @@ function TimelineEventRow({ event, linkBasePath }: { event: TimelineEvent; linkB
       ) : (
         body
       )}
+      {allowNotes && canAnnotate(event.source_table, event.source_id) ? <ItemNote table={event.source_table} id={event.source_id as string} /> : null}
     </li>
   );
 }
@@ -200,6 +202,7 @@ export function PatientTimeline({
   onLoadMore,
   hasMore = false,
   isLoadingMore = false,
+  allowNotes = false,
 }: {
   patientId: string;
   limit?: number;
@@ -225,6 +228,8 @@ export function PatientTimeline({
   /** Drives the "Load more" button's disabled/loading state while the next
    * page is in flight. Ignored when `onLoadMore` is omitted. */
   isLoadingMore?: boolean;
+  /** S44 (spec 2.14): shows "add a note" and "this looks wrong" on each item. Only the person's own timeline sets it; a clinician view never does. */
+  allowNotes?: boolean;
 }) {
   const { data, isLoading, isError } = usePatientTimeline(patientId, limit);
   const monthGroups = groupByMonth && data ? groupEventsByMonth(data) : null;
@@ -263,7 +268,7 @@ export function PatientTimeline({
                     <h3 className="mb-3 text-sm font-semibold text-charcoal-ink dark:text-night-ink">{group.label}</h3>
                     <ol className="relative space-y-5 border-l border-charcoal-ink/10 dark:border-night-ink/15 pl-5">
                       {group.events.map((event) => (
-                        <TimelineEventRow key={event.id} event={event} linkBasePath={linkBasePath} />
+                        <TimelineEventRow key={event.id} event={event} linkBasePath={linkBasePath} allowNotes={allowNotes} />
                       ))}
                     </ol>
                   </div>
@@ -272,7 +277,7 @@ export function PatientTimeline({
             ) : (
               <ol className="relative space-y-5 border-l border-charcoal-ink/10 dark:border-night-ink/15 pl-5">
                 {data.map((event) => (
-                  <TimelineEventRow key={event.id} event={event} linkBasePath={linkBasePath} />
+                  <TimelineEventRow key={event.id} event={event} linkBasePath={linkBasePath} allowNotes={allowNotes} />
                 ))}
               </ol>
             )}
