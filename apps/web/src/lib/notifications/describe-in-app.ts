@@ -651,6 +651,10 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     // From private.page_notify (S19): fixed neutral line, never the patient or the reading (INV-07).
     return { text: "A priority case is waiting for you", href: "/clinician/on-call" };
   }
+  if (n.template === "response_slower_notice") {
+    // S78b: fixed plain wording, no number, no condition (INV-07, CMO decision S-9).
+    return { text: "We are slower than usual. If this is urgent, please use emergency care now.", href: "/patient/care" };
+  }
   if (n.template === "on_call_unfinished") {
     return { text: "A priority case is acknowledged but still open", href: "/rota" };
   }

@@ -338,6 +338,8 @@ export function WrittenQuestionCard({ patientId, locale }: { patientId: string; 
                 : t("wq.allowance.none", locale)}
             </p>
             <p className={`text-xs ${MUTED}`}>{t("wq.window", locale, { hours })}</p>
+            <p className={`text-xs ${MUTED}`}>{t("wq.promise", locale)}</p>
+            <p className="text-xs font-medium text-charcoal-ink dark:text-night-ink">{t("wq.emergency", locale)}</p>
             <QuestionForm patientId={patientId} locale={locale} allowance={allowance} />
           </>
         )}

@@ -924,3 +924,5 @@ s28c_pharmacy_extras.sql
 oq261_remove_home_delivery.sql
 # S78a paging safety: with the outbox stopped the direct watchdog pages an unpaged red event (never shadow, test, inside the grace period or past the lookback), idempotent with the subscriber, grace read from the ACTIVE config; page.unacknowledged emitted once alongside page.escalated; the re-page of an acknowledged unclosed page is off by default and once-only when configured; paging_counts roles; sabotage removes the watchdog.
 s78a_paging_watchdog_and_repage.sql
+# S78b response times: no active config means the sweep reads and flags nothing (CMO decision S-9); an active version flags exactly the late written question, amber review and appointment start (not on-time, answered, started or test items), one breach, one sev3 incident per kind, one plain patient notice per cooldown with no number or condition, a neutral lead notice; idempotent; reads for lead and admin only; sabotage ignores the active flag.
+s78b_response_time_breach_path.sql
