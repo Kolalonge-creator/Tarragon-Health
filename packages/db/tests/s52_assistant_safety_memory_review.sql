@@ -232,6 +232,10 @@ select pg_temp.ck('real', 'the reengagement wording passes the INV-07 lint', '0'
 select pg_temp.ck('real', 'a patient cannot run the job', 'ERR:42501', pg_temp.q_as(pg_temp.f('pat'), 'select public.assistant_detect_silence(now())::text'));
 
 -- 6. On-call page for a self-harm message -----------------------------------------------------------------------------------------------
+select pg_temp.ck('real', 'a page is queued durably before it is attempted', 'ok',
+  case when pg_temp.q_service(format($q$select public.assistant_page_enqueue(%L::uuid, %L::uuid)::text$q$, pg_temp.f('pat'), pg_temp.f('conv'))) like 'ERR:%' then 'refused' else 'ok' end);
+select pg_temp.ck('real', 'queueing twice for the same conversation does not add a second pending row', '1',
+  pg_temp.n(format($q$select (select count(*) from public.assistant_page_queue where conversation_id = %L and done_at is null)::text from (select public.assistant_page_enqueue(%L::uuid, %L::uuid)) x$q$, pg_temp.f('conv'), pg_temp.f('pat'), pg_temp.f('conv'))));
 select pg_temp.ck('real', 'nobody on the rota: leadership is alerted and no_cover is reported', 'true',
   pg_temp.q_service(format($q$select (public.assistant_page_on_call(%L::uuid, %L::uuid) ->> 'no_cover')$q$, pg_temp.f('pat'), pg_temp.f('conv'))));
 select pg_temp.ck('real', 'the admin and CMO got the critical neutral escalation notice (3 channels each)', '6',
@@ -240,15 +244,35 @@ select pg_temp.ck('real', 'the notice carries no patient and no text', '0',
   (select count(*)::text from public.notifications where template = 'on_call_escalation' and payload::text <> '{}'));
 select pg_temp.ck('real', 'one class 1 task exists for the patient under the shared crisis key', '1',
   (select count(*)::text from public.clinical_tasks where patient_id = pg_temp.f('pat') and type = 'red_event_unacknowledged' and dedup_key = 'crisis:' || pg_temp.f('pat')));
+select pg_temp.ck('real', 'a page that reached someone marks its queue row done', '0',
+  (select count(*)::text from public.assistant_page_queue where conversation_id = pg_temp.f('conv') and done_at is null));
 select pg_temp.ck('real', 'a second page for the same conversation within hours does nothing', 'true',
   pg_temp.q_service(format($q$select (public.assistant_page_on_call(%L::uuid, %L::uuid) ->> 'already')$q$, pg_temp.f('pat'), pg_temp.f('conv'))));
+-- a page that was cut off: queued, never attempted, aged past two minutes; the retry finds it and pages
+select pg_temp.q_service(format($q$select public.assistant_page_enqueue(%L::uuid, %L::uuid)::text$q$, pg_temp.f('pat'), pg_temp.f('conv2')));
+select pg_temp.ck('real', 'a fresh queue row is not retried yet', '0',
+  pg_temp.n($q$select (public.assistant_page_retry_due(10) ->> 'done')$q$));
+update public.assistant_page_queue set created_at = now() - interval '10 minutes' where conversation_id = pg_temp.f('conv2');
+select pg_temp.ck('real', 'the retry pages a cut-off page and reports it done', '1',
+  pg_temp.q_service($q$select (public.assistant_page_retry_due(10) ->> 'done')$q$));
+select pg_temp.ck('real', 'and the queue row is done with one attempt', 'true:1',
+  (select (done_at is not null)::text || ':' || attempts::text from public.assistant_page_queue where conversation_id = pg_temp.f('conv2')));
+select pg_temp.ck('real', 'a patient cannot retry pages or queue one', 'ERR:42501',
+  pg_temp.q_as(pg_temp.f('pat'), $q$select public.assistant_page_retry_due(10)::text$q$));
 select pg_temp.q_service(format($q$select public.assistant_page_on_call(%L::uuid, %L::uuid)::text$q$, pg_temp.f('pat'), pg_temp.f('conv2')));
 select pg_temp.ck('real', 'still one live task after a second conversation', '1',
   (select count(*)::text from public.clinical_tasks where patient_id = pg_temp.f('pat') and type = 'red_event_unacknowledged' and dedup_key = 'crisis:' || pg_temp.f('pat')));
 select pg_temp.ck('real', 'the page is audited', '1', (select count(*)::text from public.audit_log where action = 'assistant.on_call_paged' and entity_id = pg_temp.f('conv')));
+create temp table paging_cfg_saved as select key, value, config_version from public.assistant_config where key = 'paging';
+delete from public.assistant_config where key = 'paging';
+select pg_temp.ck('real', 'a missing paging config row fails loudly instead of using a built-in window', 'ERR:55000',
+  pg_temp.q_service(format($q$select public.assistant_page_on_call(%L::uuid, %L::uuid)::text$q$, pg_temp.f('pat'), pg_temp.f('conv3'))));
+insert into public.assistant_config (key, value, config_version) select key, value, config_version from paging_cfg_saved;
 select pg_temp.ck('real', 'a patient cannot page', 'ERR:42501', pg_temp.q_as(pg_temp.f('pat'), format($q$select public.assistant_page_on_call(%L::uuid, %L::uuid)::text$q$, pg_temp.f('pat'), pg_temp.f('conv'))));
 
 -- 7. Monthly review ---------------------------------------------------------------------------------------------------------------------
+-- the first part draws from REAL patients: the two proof patients are switched to real for this section (the test rule is proved in 7b)
+update public.profiles set is_test = false where id in (pg_temp.f('pat'), pg_temp.f('other'));
 create function pg_temp.prev() returns date language sql as $$ select date_trunc('month', (now() at time zone 'Africa/Lagos') - interval '1 month')::date $$;
 select pg_temp.ck('real', 'the sampler takes the reported conversation and one random one', '{"month": "' || pg_temp.prev() || '", "random": 1, "reported": 1}',
   pg_temp.q_service(format($q$select public.assistant_sample_month(%L::date, 1)::text$q$, pg_temp.prev())));
@@ -301,6 +325,32 @@ select pg_temp.ck('real', 'the second sample: read, then an unsafe verdict opens
 select pg_temp.ck('real', 'unsafe with a note records and returns the incident', 'true',
   pg_temp.q_as(pg_temp.f('cmo'), format($q$select ((public.assistant_review_record(%L::uuid, 'unsafe', 'dose_or_medicine_advice', 'It suggested a different dose.') ->> 'incident_id') is not null)::text$q$, pg_temp.sample_other(pg_temp.f('conv')))));
 select pg_temp.ck('real', 'the review recorded is audited', '2', (select count(*)::text from public.audit_log where action = 'assistant_review.recorded' and actor_id = pg_temp.f('cmo')));
+
+-- 7b. The random draw never takes a test account (INV-13) or a conversation that was already reviewed ----------------------------------------
+create function pg_temp.prev2() returns date language sql as $$ select (pg_temp.prev() - interval '1 month')::date $$;
+create function pg_temp.prev3() returns date language sql as $$ select (pg_temp.prev() - interval '2 months')::date $$;
+do $$
+declare v_org uuid := pg_temp.f('org'); v_tst uuid; v_ok uuid; v_c1 uuid; v_c2 uuid; v_at timestamptz;
+begin
+  v_tst := pg_temp.mkuser(v_org, 'tst', 'patient', true);
+  v_ok := pg_temp.mkuser(v_org, 'okp', 'patient', false);
+  insert into public.ai_conversations (organisation_id, profile_id, messages) values (v_org, v_tst, '[]'::jsonb) returning id into v_c1;
+  insert into public.ai_conversations (organisation_id, profile_id, messages) values (v_org, v_ok, '[]'::jsonb) returning id into v_c2;
+  perform pg_temp.setf('tst_conv', v_c1); perform pg_temp.setf('ok_conv', v_c2);
+  foreach v_at in array array[(pg_temp.prev2()::timestamp at time zone 'Africa/Lagos') + interval '2 days', (pg_temp.prev3()::timestamp at time zone 'Africa/Lagos') + interval '2 days'] loop
+    insert into public.ai_assistant_turns (organisation_id, patient_id, conversation_id, interaction_type, final_action, status, created_at) values
+      (v_org, v_tst, v_c1, 'chat_turn', 'replied', 'completed', v_at),
+      (v_org, v_ok, v_c2, 'chat_turn', 'replied', 'completed', v_at),
+      -- a conversation that was reviewed last month and is active again: never drawn again
+      (v_org, (select patient_id from public.assistant_review_samples where conversation_id = pg_temp.f('conv')), pg_temp.f('conv'), 'chat_turn', 'replied', 'completed', v_at);
+  end loop;
+end $$;
+select pg_temp.q_service(format($q$select public.assistant_sample_month(%L::date, 50)::text$q$, pg_temp.prev2()));
+select pg_temp.ck('real', 'the draw takes the real patient only: not the test account, not a conversation already reviewed', '1:0:0',
+  (select count(*) from public.assistant_review_samples where month = pg_temp.prev2() and conversation_id = pg_temp.f('ok_conv'))::text || ':' ||
+  (select count(*) from public.assistant_review_samples where month = pg_temp.prev2() and conversation_id = pg_temp.f('tst_conv'))::text || ':' ||
+  (select count(*) from public.assistant_review_samples where month = pg_temp.prev2() and conversation_id = pg_temp.f('conv'))::text);
+
 select pg_temp.ck('real', 'erasure still works: deleting a sampled conversation is not blocked', 'ok',
   pg_temp.try_sql(format($q$delete from public.ai_conversations where id = %L$q$, pg_temp.f('conv'))));
 select pg_temp.ck('real', 'and its sample went with it', '0', (select count(*)::text from public.assistant_review_samples where conversation_id = pg_temp.f('conv')));
@@ -322,6 +372,16 @@ create or replace function public.assistant_review_queue() returns table (id uui
 language sql stable security definer set search_path = '' as
 $$ select s.id, s.month, s.selection, s.state, s.verdict, left(s.patient_id::text, 8), 0, s.selection = 'reported' from public.assistant_review_samples s $$;
 select pg_temp.ck('sabotaged', 'a clinician below CMO cannot open the queue', 'ERR:42501', pg_temp.q_as(pg_temp.f('doc'), 'select count(*)::text from public.assistant_review_queue()'));
+-- the sampler without its test-account exclusion must put the test conversation into the draw
+do $f$ declare d text;
+begin
+  d := pg_get_functiondef('public.assistant_sample_month(date,integer)'::regprocedure);
+  d := replace(d, 'not coalesce(p.is_test, false)', 'true');
+  execute d;
+end $f$;
+select pg_temp.q_service(format($q$select public.assistant_sample_month(%L::date, 50)::text$q$, pg_temp.prev3()));
+select pg_temp.ck('sabotaged', 'the draw never takes a test account', '0',
+  (select count(*)::text from public.assistant_review_samples where month = pg_temp.prev3() and conversation_id = pg_temp.f('tst_conv')));
 
 do $$
 declare v_bad integer; v_caught integer;
@@ -332,7 +392,7 @@ begin
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected is distinct from actual;
-  if v_caught < 2 then raise exception 'VACUOUS TEST: the sabotage flipped % of 2 checks', v_caught; end if;
+  if v_caught < 3 then raise exception 'VACUOUS TEST: the sabotage flipped % of 3 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result

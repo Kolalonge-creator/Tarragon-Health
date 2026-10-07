@@ -1588,3 +1588,12 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-297 AI-020 needs its governance criteria before it can be switched on (raised by S52)
 - AI-020 is registered disabled and the governance trigger refuses enabling it until evaluation, validation, guardrails and monitoring are in place (all outstanding). Memory therefore reads as "not switched on yet" to patients. No evaluation run, version approval or guardrail was seeded. Code AI-020 was chosen to avoid colliding with codes other sessions may take.
 - Decision: open (CMO).
+
+### OQ-298 How fast a cut-off self-harm page is retried (raised by S52 round 5)
+- The page is now durable: a queue row is committed first, the wait is bounded, a still-running page is kept alive past the response, and `assistant_page_retry_due()` re-attempts any page still pending. The retry runs from the daily `assistant-silence` cron and whenever the same patient triggers another emergency. Sub-daily crons are not available on the current Vercel plan, so a page cut off with no further message from that patient can wait up to a day for its retry.
+- Options: (a) accept, the emergency escalation on its own SLA ladder is the second line (recommended until a Pro plan or a database scheduler is chosen); (b) move the retry to a database scheduler (pg_cron) or a Railway worker.
+- Decision: open (founder, with the Vercel plan decision).
+
+### OQ-299 The daily nudge no longer reaches test accounts (raised by S51 round 5)
+- By coordinator instruction the nudge cron excludes `is_test` patients, so the nudge cannot be exercised end to end with a test account before `assistant_enabled` is on. It can be proved by the database proof (which stands in for the guard) and by calling `assistant_queue_nudge` directly.
+- Decision: open (founder).

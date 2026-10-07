@@ -99,6 +99,8 @@ export function ReportBlock({ interactionId }: { interactionId: string | null })
   const [error, setError] = useState<string | null>(null);
 
   if (state === "sent") return <MutedText>Thank you. Your care team has this. Someone will look at it.</MutedText>;
+  // A report is about ONE answer: it needs the id of the answer on screen, and is never attached to a guess.
+  if (!interactionId) return <MutedText>You can report an answer once the assistant has replied to you.</MutedText>;
   if (!open) {
     return (
       <Pressable accessibilityRole="button" onPress={() => setOpen(true)}>

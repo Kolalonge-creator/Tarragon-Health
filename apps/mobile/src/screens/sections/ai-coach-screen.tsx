@@ -397,7 +397,7 @@ export function AiCoachScreen({ patientId, onNavigate }: AiCoachScreenProps) {
       <View style={{ paddingHorizontal: spacing.screen, paddingBottom: 6, gap: 6 }}>
         <MutedText>{COACH_DISCLAIMER}</MutedText>
         <LimitsBlock />
-        {messages.length > 0 ? <ReportBlock interactionId={lastInteractionId} /> : null}
+        {messages.length > 0 ? <ReportBlock key={lastInteractionId ?? "none"} interactionId={lastInteractionId} /> : null}
         <MemoryBlock />
       </View>
 

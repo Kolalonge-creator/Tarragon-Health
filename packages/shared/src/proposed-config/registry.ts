@@ -1372,7 +1372,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     key: "assistant.paging",
     // S52 (INV-05): a self-harm page repeats for the same conversation no sooner than repeat_hours, or no_cover_repeat_minutes when nobody was
     // on call. Mirrored by assistant_config (key paging).
-    value: { repeat_hours: 6, no_cover_repeat_minutes: 30 },
+    value: { repeat_hours: 6, no_cover_repeat_minutes: 30, page_wait_ms: 4000, hospital_lookup_ms: 2500 },
     owner: "CMO",
     status: "proposed",
     version: 1,

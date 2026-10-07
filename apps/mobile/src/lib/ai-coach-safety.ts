@@ -24,15 +24,29 @@ export async function loadEmergencyContext(userId: string): Promise<EmergencyAdd
     const state = normaliseState(profile?.state);
     let hospitals: EmergencyAddendumInput["hospitals"] = [];
     if (state) {
-      const { data } = await supabase
-        .from("facilities")
-        .select("name, city, address, contact_phone, verified, state")
-        .eq("type", "hospital")
-        .eq("is_active", true)
-        .ilike("state", `%${state.replace(/[%_\\]/g, "")}%`)
-        .order("name", { ascending: true })
-        .limit(500);
-      hospitals = rankHospitals(data ?? [], profile?.city, nearestHospitalsShown());
+      // Rank BEFORE any cap: the patient's own city is asked for by name, the rest of the state is read verified-first, then rankHospitals
+      // orders the union. Each read is capped on its own, so an alphabetical limit can never cut off the patient's own city.
+      const stateLike = `%${state.replace(/[%_\\]/g, "")}%`;
+      const base = () =>
+        supabase
+          .from("facilities")
+          .select("name, city, address, contact_phone, verified, state")
+          .eq("type", "hospital")
+          .eq("is_active", true)
+          .ilike("state", stateLike);
+      const city = (profile?.city ?? "").trim().replace(/[%_\\]/g, "");
+      const [own, others] = await Promise.all([
+        city ? base().ilike("city", city).order("verified", { ascending: false }).order("name", { ascending: true }).limit(100) : Promise.resolve({ data: [] }),
+        base().order("verified", { ascending: false }).order("name", { ascending: true }).limit(100),
+      ]);
+      const seen = new Set<string>();
+      const merged = [...(own.data ?? []), ...(others.data ?? [])].filter((h) => {
+        const key = `${h.name}|${h.city ?? ""}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      hospitals = rankHospitals(merged, profile?.city, nearestHospitalsShown());
     }
     return { hospitals, contactName: profile?.emergency_contact_name?.trim() || null, contactPhone: profile?.emergency_contact_phone?.trim() || null };
   } catch {
@@ -61,7 +75,7 @@ export const REPORT_REASONS: { value: ReportCategory; label: string }[] = [
   { value: "other", label: "Something else" },
 ];
 
-export async function reportCoachAnswer(category: ReportCategory, description: string, interactionId: string | null) {
+export async function reportCoachAnswer(category: ReportCategory, description: string, interactionId: string) {
   return postCoachReport(category, description, interactionId);
 }
 

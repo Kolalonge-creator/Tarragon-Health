@@ -97,6 +97,12 @@ export function emergencyPhoneNumbers(): readonly EmergencyPhoneNumber[] {
   return list.filter((n) => typeof n.label === "string" && typeof n.number === "string" && n.number.trim() !== "");
 }
 
+/** How long the emergency reply waits on the on-call page and on the hospital lookup (assistant.paging, PROPOSED). Read from config only. */
+export function assistantPagingWaits(): { pageWaitMs: number; hospitalLookupMs: number } {
+  const value = getProposedConfig("assistant.paging").value as unknown as { page_wait_ms: number; hospital_lookup_ms: number };
+  return { pageWaitMs: value.page_wait_ms, hospitalLookupMs: value.hospital_lookup_ms };
+}
+
 export function nearestHospitalsShown(): number {
   const value = getProposedConfig("assistant.emergency").value as unknown as { nearestHospitalsShown?: number };
   return typeof value.nearestHospitalsShown === "number" && value.nearestHospitalsShown > 0 ? value.nearestHospitalsShown : 3;

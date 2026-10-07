@@ -436,7 +436,7 @@ export async function postCoachHandoffToCareTeam(
 export async function postCoachReport(
   category: string,
   description: string,
-  interactionId: string | null
+  interactionId: string
 ): Promise<{ success?: boolean; error?: string }> {
   const result = await request<{ success?: boolean }>("/api/mobile/ai-coach/report", "POST", { category, description, interactionId });
   return result.ok ? result.data : { error: result.error };
