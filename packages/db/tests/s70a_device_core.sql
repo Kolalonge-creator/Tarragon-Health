@@ -19,7 +19,7 @@
 --   9. Events: device.synced once per ten-minute bucket; device.alert carries ids, never a condition. Notification templates name no condition (INV-07).
 --  10. Roles: patient, a stranger, a caregiver with and without the category grant, a viewer, org staff, an unrelated clinician and a tied clinician see
 --      exactly what they see of vitals_readings itself, no more.
---  11. SABOTAGE: hold trigger dropped, de-duplication trigger dropped, CGM trigger dropped, rhythm classifier forced to normal. Each matching check must flip.
+--  11. SABOTAGE: hold trigger dropped, de-duplication trigger dropped, CGM trigger dropped, wrist-SpO2 condition forced open, rhythm classifier forced to normal. Each matching check must flip.
 begin;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
@@ -381,6 +381,42 @@ begin
   perform pg_temp.rec('a view-only supporter pairing for the person is refused', '42501', pg_temp.try(format('select public.pair_device_for(%L, ''bp_cuff'', ''X'', null)', v_pat)));
   perform pg_temp.back();
 
+  -- 8b. Whose reading is this? (shared phones)
+  perform pg_temp.act(v_cg);
+  perform pg_temp.rec('a supporter can post a reading to the device of the person they support', v_pat::text || '/true', (select patient_id::text || '/' || is_supporter from public.device_target_for_reading(v_dev2)));
+  perform pg_temp.back();
+  perform pg_temp.act(v_pat);
+  perform pg_temp.rec('the person posts to their own device', v_pat::text || '/false', (select patient_id::text || '/' || is_supporter from public.device_target_for_reading(v_dev2)));
+  perform pg_temp.back();
+  perform pg_temp.act(v_pat2);
+  perform pg_temp.rec('a stranger gets nothing for it', '0', (select count(*)::text from public.device_target_for_reading(v_dev2)));
+  perform pg_temp.back();
+  perform pg_temp.act(v_viewer);
+  perform pg_temp.rec('a view-only supporter gets nothing for it', '0', (select count(*)::text from public.device_target_for_reading(v_dev2)));
+  perform pg_temp.back();
+  update public.patient_devices set status = 'unpaired' where id = v_dev2;
+  perform pg_temp.act(v_pat);
+  perform pg_temp.rec('an unpaired device gets nothing', '0', (select count(*)::text from public.device_target_for_reading(v_dev2)));
+  perform pg_temp.back();
+
+  -- 8c. Wrist SpO2 is informational only
+  select count(*) into v_before from public.emergency_events where patient_id = v_pat4;
+  select count(*) into v_after from public.notifications where recipient_id = v_pat4;
+  select count(*) into v_n from public.clinician_alerts where patient_id = v_pat4;
+  perform pg_temp.vit(v_pat4, v_org, 'spo2', 'wearable', 2, null, null, null, null, null, null, 60);
+  perform pg_temp.rec('module off: a wrist SpO2 of 60 is triaged as it is today', 'true',
+    ((select count(*) from public.emergency_events where patient_id = v_pat4) + (select count(*) from public.notifications where recipient_id = v_pat4) + (select count(*) from public.clinician_alerts where patient_id = v_pat4) > v_before + v_after + v_n)::text);
+  perform pg_temp.module('device_wrist_spo2_informational', true, v_admin);
+  select count(*) into v_before from public.emergency_events where patient_id = v_pat3;
+  select count(*) into v_after from public.notifications where recipient_id = v_pat3;
+  select count(*) into v_n from public.clinician_alerts where patient_id = v_pat3;
+  perform pg_temp.vit(v_pat3, v_org, 'spo2', 'wearable', 2, null, null, null, null, null, null, 60);
+  perform pg_temp.rec('module on: a wrist SpO2 of 60 is saved and shown', '1', pg_temp.n_vitals(v_pat3, 'spo2'));
+  perform pg_temp.rec('...but opens no emergency, no alert and no notice on its own', '0', ((select count(*) from public.emergency_events where patient_id = v_pat3) + (select count(*) from public.notifications where recipient_id = v_pat3) + (select count(*) from public.clinician_alerts where patient_id = v_pat3) - v_before - v_after - v_n)::text);
+  perform pg_temp.vit(v_pat3, v_org, 'spo2', 'device', 30, null, null, null, null, null, null, 60, null, 'ox1');
+  perform pg_temp.rec('a Bluetooth fingertip oximeter reading of 60 still triages', 'true',
+    ((select count(*) from public.emergency_events where patient_id = v_pat3) + (select count(*) from public.notifications where recipient_id = v_pat3) + (select count(*) from public.clinician_alerts where patient_id = v_pat3) > v_before + v_after + v_n)::text);
+
   -- 9. Events ---------------------------------------------------------------------------------------------------
   perform pg_temp.act(v_pat);
   perform public.report_device_synced('oura', 12);
@@ -450,6 +486,14 @@ begin
   perform pg_temp.vit(v_pat5, v_org, 'glucose', 'cgm', 5, null, null, 2.5);
   perform pg_temp.vit(v_pat5, v_org, 'glucose', 'cgm', 0, null, null, 2.5);
   insert into results values ('sabotaged', '15 minutes under 3.0 makes ONE clinician task', '1', (select count(*)::text from public.clinical_tasks where patient_id = v_pat5 and type = 'cgm_glucose_review'));
+  -- (e) the wrist SpO2 condition forced open: a wrist reading triages again
+  create or replace function private.spo2_may_triage(p_source text) returns boolean language sql stable security definer set search_path = '' as $f$ select true $f$;
+  select count(*) into v_before from public.emergency_events where patient_id = v_pat5;
+  select count(*) into v_after from public.notifications where recipient_id = v_pat5;
+  select count(*) into v_n from public.clinician_alerts where patient_id = v_pat5;
+  perform pg_temp.vit(v_pat5, v_org, 'spo2', 'wearable', 2, null, null, null, null, null, null, 60);
+  insert into results values ('sabotaged', 'module on: a wrist SpO2 of 60 opens nothing on its own (sabotage count)', '0',
+    ((select count(*) from public.emergency_events where patient_id = v_pat5) + (select count(*) from public.notifications where recipient_id = v_pat5) + (select count(*) from public.clinician_alerts where patient_id = v_pat5) - v_before - v_after - v_n)::text);
   -- (d) rhythm classifier forced to normal: an irregular result makes no task
   create or replace function private.rhythm_category(p_label text, p_cfg jsonb) returns text language sql stable set search_path = '' as $f$ select 'normal'::text $f$;
   perform pg_temp.act(v_pat5);
@@ -468,8 +512,8 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected is distinct from actual;
-  if v_caught < 4 then
-    raise exception 'VACUOUS TEST: only % of 4 sabotage steps changed the matching check', v_caught;
+  if v_caught < 5 then
+    raise exception 'VACUOUS TEST: only % of 5 sabotage steps changed the matching check', v_caught;
   end if;
 end $$;
 

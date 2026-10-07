@@ -874,6 +874,39 @@ revoke all on function public.pair_device_for(uuid, public.patient_device_type, 
 grant execute on function public.pair_device_for(uuid, public.patient_device_type, text, text) to authenticated;
 
 -- ---------------------------------------------------------------------------
+-- 10b. Who a posted device reading belongs to (shared phones). A person's own device, or the device of someone they manage, else nothing.
+--      The caller (the device-readings route) then writes the reading for THAT person, logged by the caller.
+-- ---------------------------------------------------------------------------
+create or replace function public.device_target_for_reading(p_device_id uuid) returns table (patient_id uuid, organisation_id uuid, is_supporter boolean)
+language sql stable security definer set search_path = '' as $$
+  select d.patient_id, d.organisation_id, d.patient_id <> (select auth.uid())
+    from public.patient_devices d
+   where d.id = p_device_id and d.status = 'active' and (select auth.uid()) is not null
+     and (d.patient_id = (select auth.uid()) or private.can_act_for(d.patient_id))
+$$;
+revoke all on function public.device_target_for_reading(uuid) from public, anon;
+grant execute on function public.device_target_for_reading(uuid) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 10c. 18.9 wrist SpO2 is informational only (A12). With the module on, an oxygen reading that arrives through a wearable or a phone health
+--      bridge is saved and shown but never opens an alert or an emergency on its own. A fingertip oximeter paired by Bluetooth (source device),
+--      a photo of an oximeter, and a typed value are untouched. The trigger keeps its body: only its WHEN condition gains one test, and the
+--      test function must be executable by the inserting role (a trigger condition runs with the caller's privileges).
+-- ---------------------------------------------------------------------------
+create or replace function private.spo2_may_triage(p_source text) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select not (p_source = 'wearable' and private.module_enabled('device_wrist_spo2_informational'))
+$$;
+revoke all on function private.spo2_may_triage(text) from public, anon;
+grant execute on function private.spo2_may_triage(text) to authenticated, service_role;
+
+drop trigger vitals_readings_spo2_red_flag on public.vitals_readings;
+create trigger vitals_readings_spo2_red_flag
+  after insert on public.vitals_readings
+  for each row when (new.vital_type = 'spo2'::public.vital_type and private.spo2_may_triage(new.source::text))
+  execute function private.handle_spo2_reading_red_flag();
+
+-- ---------------------------------------------------------------------------
 -- 11. Assertions: the migration aborts if any of this is not true
 -- ---------------------------------------------------------------------------
 do $$
@@ -897,7 +930,7 @@ begin
     raise exception 'FAIL: authenticated can write a new table';
   end if;
   select count(*) into v_n from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-   where n.nspname = 'public' and p.proname in ('resolve_held_reading', 'report_device_synced', 'record_device_rhythm_result', 'review_device_catalog_entry', 'recommended_devices', 'pair_device_for')
+   where n.nspname = 'public' and p.proname in ('resolve_held_reading', 'report_device_synced', 'record_device_rhythm_result', 'review_device_catalog_entry', 'recommended_devices', 'pair_device_for', 'device_target_for_reading')
      and (has_function_privilege('anon', p.oid, 'EXECUTE') or not has_function_privilege('authenticated', p.oid, 'EXECUTE'));
   if v_n <> 0 then raise exception 'FAIL: % new public function(s) with the wrong anon or authenticated execute', v_n; end if;
   if (select count(*) from public.task_types where code in ('cgm_glucose_review', 'device_rhythm_review') and is_active) <> 2 then raise exception 'FAIL: task types missing'; end if;
@@ -905,5 +938,6 @@ begin
   if not exists (select 1 from pg_trigger where tgrelid = 'public.vitals_readings'::regclass and tgname = 'vitals_readings_a_hold_impossible') then raise exception 'FAIL: hold trigger missing'; end if;
   if not exists (select 1 from pg_trigger where tgrelid = 'public.vitals_readings'::regclass and tgname = 'vitals_readings_z_cross_source_dedupe') then raise exception 'FAIL: dedupe trigger missing'; end if;
   if not exists (select 1 from pg_trigger where tgrelid = 'public.vitals_readings'::regclass and tgname = 'vitals_readings_cgm_sustained') then raise exception 'FAIL: cgm trigger missing'; end if;
+  if not exists (select 1 from pg_trigger where tgrelid = 'public.vitals_readings'::regclass and tgname = 'vitals_readings_spo2_red_flag' and not tgisinternal) then raise exception 'FAIL: spo2 trigger missing'; end if;
   raise notice 'PASS: S70a device core installed (all new capabilities are off)';
 end $$;
