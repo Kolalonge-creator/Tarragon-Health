@@ -2,6 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   buildEmergencyAddendum,
   nearestHospitalsShown,
+  normaliseState,
+  rankHospitals,
   type Database,
   type EmergencyAddendumInput,
   type EmergencyHospital,
@@ -17,32 +19,6 @@ import {
  */
 const READ_TIMEOUT_MS = 2500;
 
-/** "Lagos State" and "lagos" are the same place. */
-export function normaliseState(state: string | null | undefined): string | null {
-  const s = (state ?? "").trim().toLowerCase().replace(/\s+state$/, "");
-  return s ? s : null;
-}
-
-export function rankHospitals(
-  rows: readonly { name: string; city: string | null; address: string | null; contact_phone: string | null; verified: boolean | null }[],
-  patientCity: string | null | undefined,
-  limit: number
-): EmergencyHospital[] {
-  const city = (patientCity ?? "").trim().toLowerCase();
-  return [...rows]
-    .sort((a, b) => {
-      const ca = city && (a.city ?? "").trim().toLowerCase() === city ? 0 : 1;
-      const cb = city && (b.city ?? "").trim().toLowerCase() === city ? 0 : 1;
-      if (ca !== cb) return ca - cb;
-      const va = a.verified ? 0 : 1;
-      const vb = b.verified ? 0 : 1;
-      if (va !== vb) return va - vb;
-      return a.name.localeCompare(b.name);
-    })
-    .slice(0, Math.max(limit, 0))
-    .map((r) => ({ name: r.name, city: r.city, address: r.address, phone: r.contact_phone }));
-}
-
 async function read(supabase: SupabaseClient<Database>, patientId: string): Promise<EmergencyAddendumInput> {
   const { data: profile } = await supabase
     .from("profiles")
@@ -57,8 +33,9 @@ async function read(supabase: SupabaseClient<Database>, patientId: string): Prom
       .select("name, city, address, contact_phone, verified, state")
       .eq("type", "hospital")
       .eq("is_active", true)
-      .ilike("state", `%${state.replace(/[%_]/g, "")}%`)
-      .limit(50);
+      .ilike("state", `%${state.replace(/[%_\\]/g, "")}%`)
+      .order("name", { ascending: true })
+      .limit(500);
     hospitals = rankHospitals(data ?? [], profile?.city, nearestHospitalsShown());
   }
   return {

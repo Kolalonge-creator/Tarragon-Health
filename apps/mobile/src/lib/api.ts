@@ -432,6 +432,16 @@ export async function postCoachHandoffToCareTeam(
   return result.ok ? result.data : { error: result.error };
 }
 
+/** S52 (7.9): "Report this answer". See apps/web/src/app/api/mobile/ai-coach/report/route.ts. */
+export async function postCoachReport(
+  category: string,
+  description: string,
+  interactionId: string | null
+): Promise<{ success?: boolean; error?: string }> {
+  const result = await request<{ success?: boolean }>("/api/mobile/ai-coach/report", "POST", { category, description, interactionId });
+  return result.ok ? result.data : { error: result.error };
+}
+
 export interface AssistantNudges {
   success?: boolean;
   daily?: { kind: string; text: string; target: { section: string; path: string } };

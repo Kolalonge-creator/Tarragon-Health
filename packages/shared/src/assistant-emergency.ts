@@ -10,7 +10,7 @@ import { getProposedConfig } from "./proposed-config";
  * the server sends.
  *
  * WORDING STATUS: every sentence below is PROPOSED wording. The self-harm copy in particular is a clinical document and needs the
- * Chief Medical Officer's sign-off before the assistant is switched on (OQ-289). Nothing here is marked approved. Plain, warm, no
+ * Chief Medical Officer's sign-off before the assistant is switched on (OQ-293). Nothing here is marked approved. Plain, warm, no
  * fear-based urgency, no em dash, "your care team" and never "your doctor".
  */
 export const EMERGENCY_BUTTON_LABEL = "Emergency";
@@ -21,18 +21,18 @@ export const EMERGENCY_GUIDANCE = {
   lines: [
     "Please go to the nearest hospital now, or ask someone near you to take you.",
     "If you can, bring someone with you and bring your medicines.",
-    "Your care team has been told so they can follow up with you.",
+    "You can also message your care team in the app at any time.",
   ],
 } as const;
 
-/** Self-harm gets its own, calmer copy. PROPOSED, awaiting the CMO (OQ-289). */
+/** Self-harm gets its own, calmer copy. PROPOSED, awaiting the CMO (OQ-293). */
 export const SELF_HARM_GUIDANCE = {
   title: "You do not have to face this alone",
   lines: [
     "I am really glad you told me. What you are feeling matters, and help is close.",
     "Please go to the nearest hospital now, or ask someone you trust to come and stay with you.",
     "If you have a person you trust, tell them how you are feeling right now.",
-    "A clinician on call has been told so that your care team can reach you.",
+    "I am letting your care team know, so someone can reach you.",
   ],
 } as const;
 
@@ -92,12 +92,46 @@ export interface EmergencyPhoneNumber {
 
 /** Numbers the CMO has put in configuration. Empty today: none is invented or hard-coded. */
 export function emergencyPhoneNumbers(): readonly EmergencyPhoneNumber[] {
-  const value = getProposedConfig<{ phoneNumbers?: readonly EmergencyPhoneNumber[] }>("assistant.emergency").value;
-  const list = (value as { phoneNumbers?: readonly EmergencyPhoneNumber[] }).phoneNumbers ?? [];
+  const value = getProposedConfig("assistant.emergency").value as unknown as { phoneNumbers?: readonly EmergencyPhoneNumber[] };
+  const list = value.phoneNumbers ?? [];
   return list.filter((n) => typeof n.label === "string" && typeof n.number === "string" && n.number.trim() !== "");
 }
 
 export function nearestHospitalsShown(): number {
-  const value = getProposedConfig<{ nearestHospitalsShown?: number }>("assistant.emergency").value as { nearestHospitalsShown?: number };
+  const value = getProposedConfig("assistant.emergency").value as unknown as { nearestHospitalsShown?: number };
   return typeof value.nearestHospitalsShown === "number" && value.nearestHospitalsShown > 0 ? value.nearestHospitalsShown : 3;
+}
+
+/** "Lagos State" and "lagos" are the same place. */
+export function normaliseState(state: string | null | undefined): string | null {
+  const s = (state ?? "").trim().toLowerCase().replace(/\s+state$/, "");
+  return s ? s : null;
+}
+
+export interface FacilityRow {
+  name: string;
+  city: string | null;
+  address: string | null;
+  contact_phone: string | null;
+  verified: boolean | null;
+}
+
+/**
+ * Nearest first, then verified, then by name. "Nearest" is the patient's own city, then the rest of their state: nobody is ranked by
+ * price or partnership. The web and the mobile app both rank with this one function.
+ */
+export function rankHospitals(rows: readonly FacilityRow[], patientCity: string | null | undefined, limit: number): EmergencyHospital[] {
+  const city = (patientCity ?? "").trim().toLowerCase();
+  return [...rows]
+    .sort((a, b) => {
+      const ca = city && (a.city ?? "").trim().toLowerCase() === city ? 0 : 1;
+      const cb = city && (b.city ?? "").trim().toLowerCase() === city ? 0 : 1;
+      if (ca !== cb) return ca - cb;
+      const va = a.verified ? 0 : 1;
+      const vb = b.verified ? 0 : 1;
+      if (va !== vb) return va - vb;
+      return a.name.localeCompare(b.name);
+    })
+    .slice(0, Math.max(limit, 0))
+    .map((r) => ({ name: r.name, city: r.city, address: r.address, phone: r.contact_phone }));
 }

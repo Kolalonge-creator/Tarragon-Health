@@ -1337,7 +1337,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     key: "assistant.emergency",
     // S52 (7.8, INV-06). Nigeria has no usable national crisis helpline, so `phoneNumbers` is EMPTY on purpose: the CMO adds a number
     // (a hospital line, a clinic desk) here and nowhere else, and it is shown only once set. `nearestHospitalsShown` is how many hospitals
-    // the emergency reply lists. The self-harm and emergency WORDING in packages/shared/src/assistant-emergency.ts is PROPOSED (OQ-289).
+    // the emergency reply lists. The self-harm and emergency WORDING in packages/shared/src/assistant-emergency.ts is PROPOSED (OQ-293).
     value: { nearestHospitalsShown: 3, phoneNumbers: [], selfHarmCopyStatus: "proposed_awaiting_cmo_signoff" },
     owner: "CMO",
     status: "proposed",
@@ -1356,6 +1356,17 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S52.md; docs/BUILD-SPEC-v5.md B.7 7.10",
+  },
+  {
+    key: "assistant.paging",
+    // S52 (INV-05): a self-harm page repeats for the same conversation no sooner than repeat_hours, or no_cover_repeat_minutes when nobody was
+    // on call. Mirrored by assistant_config (key paging).
+    value: { repeat_hours: 6, no_cover_repeat_minutes: 30 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S52.md; docs/BUILD-SPEC-v5.md INV-05",
   },
   {
     key: "assistant.review",

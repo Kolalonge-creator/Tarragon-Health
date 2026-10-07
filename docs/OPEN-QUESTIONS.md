@@ -1564,3 +1564,27 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - INV-04 now covers lab results, explanations and the reply. `patient_conditions` and `medications` rows are still passed to the model and to the pre-visit question list as written. A condition row that names HIV or hepatitis would be seen by the assistant.
 - Options: (a) filter those two reads with the same token list (recommended); (b) leave to the clinician's choice of what is recorded.
 - Decision: open (CMO).
+
+## Raised by S52 (AI health assistant 2 of 2)
+
+### OQ-293 The emergency and self-harm wording is PROPOSED, and no hotline exists (raised by S52)
+- The words in `packages/shared/src/assistant-emergency.ts` (the emergency guidance, the self-harm copy, the limits text) are written by a build session and are NOT signed. The self-harm copy is a clinical document. Nigeria has no usable national crisis helpline, so the copy points to the nearest hospital, the patient's emergency contact and the on-call page; `assistant.emergency.phoneNumbers` is empty on purpose and a number is shown only once the CMO adds one.
+- Options: (a) CMO reviews and signs the wording, and adds any hospital desk number to configuration (recommended); (b) counsel review for the self-harm copy.
+- Decision: open (CMO).
+
+### OQ-294 The self-harm on-call page is not an S19 page row (raised by S52)
+- S19 pages hang off a graded triage event, and a shadow grade (unapproved rule set, OQ-88) never pages. So a self-harm message raises the same class 1 task as the wellbeing-crisis fix (key `crisis:<patient>`), the neutral on-call notice, and the existing emergency escalation ladder as the second line, but no `pages` row and no S19 acknowledgement timer.
+- Options: (a) once a crisis rule set is approved, route assistant crisis through `create_red_page` too (recommended); (b) leave.
+- Decision: open.
+
+### OQ-295 Silence signal consumption by the triage engine (raised by S52)
+- `assistant.silence_detected` is written to the outbox. The triage engine's own silence trigger reads readings, not assistant messages, and a rule that reads this event needs the CMO's rule-set sign-off. Nothing consumes the event yet and it changes no treatment.
+- Decision: open (CMO, with the triage rule set).
+
+### OQ-296 Who may review (raised by S52)
+- Only the Chief Medical Officer can open the monthly review, in line with "the clinical lead can audit every conversation". A second reviewer (a senior clinician with a tie) would need a purpose-built grant. The reviewer page lives in `apps/web` under `/clinician`, not in the console (OQ-543).
+- Decision: open (CMO).
+
+### OQ-297 AI-020 needs its governance criteria before it can be switched on (raised by S52)
+- AI-020 is registered disabled and the governance trigger refuses enabling it until evaluation, validation, guardrails and monitoring are in place (all outstanding). Memory therefore reads as "not switched on yet" to patients. No evaluation run, version approval or guardrail was seeded. Code AI-020 was chosen to avoid colliding with codes other sessions may take.
+- Decision: open (CMO).

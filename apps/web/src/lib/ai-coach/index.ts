@@ -6,10 +6,8 @@ import { ASSISTANT_NOT_OPEN_REPLY, isAssistantOpen } from "./guard";
 import { COACH_LIMIT_REACHED_REPLY, countMessagesToday, getCoachDailyLimit } from "./rate-limit";
 import { detectEmergencyKeywords, isSelfHarmMessage } from "./keyword-guardrail";
 import { emitAssistantEvent } from "./events";
-import { pageOnCallForSelfHarm } from "./emergency-page";
-import { emergencyAddendumFor } from "./nearest-hospital";
-import { SELF_HARM_REPLY } from "@tarragon/shared";
-import { COACH_UNAVAILABLE_REPLY, EMERGENCY_SAFETY_REPLY, COACH_PROMPT_VERSION } from "./prompts";
+import { buildEmergencyReply } from "./emergency-reply";
+import { COACH_UNAVAILABLE_REPLY, COACH_PROMPT_VERSION } from "./prompts";
 import { logAiCoachEscalation } from "./escalate";
 import { AI_SYSTEMS, governedSystemPrompt, runGovernedAi } from "@/lib/ai-governance";
 import { logAssistantTurn } from "./audit";
@@ -105,9 +103,13 @@ async function emergencyWhileClosed(params: RunCoachTurnParams): Promise<RunCoac
   } catch (error) {
     console.error("ai-coach: emergency escalation failed while the assistant was closed", error);
   }
+  const { reply: emergencyReply, selfHarm } = await buildEmergencyReply(
+    { supabase, service: getServiceRoleSupabase() },
+    { profileId, conversationId, message, page: true },
+  );
   const now = new Date().toISOString();
   const userMessage: CoachChatMessage = { id: crypto.randomUUID(), role: "user", content: message, created_at: now };
-  const assistantMessage: CoachChatMessage = { id: crypto.randomUUID(), role: "assistant", content: EMERGENCY_SAFETY_REPLY, tier: "emergency", created_at: now };
+  const assistantMessage: CoachChatMessage = { id: crypto.randomUUID(), role: "assistant", content: emergencyReply, tier: "emergency", created_at: now };
   await appendMessages(supabase, conversationId, fullMessages, [userMessage, assistantMessage]);
   await logAssistantTurn(getServiceRoleSupabase(), {
     organisationId,
@@ -123,10 +125,10 @@ async function emergencyWhileClosed(params: RunCoachTurnParams): Promise<RunCoac
   await emitAssistantEvent(getServiceRoleSupabase(), organisationId, profileId, {
     type: "assistant.red_flag_detected",
     conversationId,
-    trigger: "keyword",
+    trigger: selfHarm ? "self_harm" : "keyword",
     turnKey: assistantMessage.id,
   });
-  return { conversationId, reply: EMERGENCY_SAFETY_REPLY, tier: "emergency", aiInteractionId: null, sources: [] };
+  return { conversationId, reply: emergencyReply, tier: "emergency", aiInteractionId: null, sources: [] };
 }
 
 /** Transport-agnostic AI Coach turn — takes a profile + message, runs the
@@ -343,11 +345,11 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
         console.error("ai-coach: emergency escalation failed on the fallback path", error);
       }
       // S52: the same self-harm copy, nearest hospitals and on-call page as the live path, because none of it ever needed the model.
-      const selfHarm = isSelfHarmMessage(message);
-      if (selfHarm) await pageOnCallForSelfHarm(getServiceRoleSupabase(), profileId, threadId);
-      const addendum = await emergencyAddendumFor(supabase, profileId);
-      const base = selfHarm ? SELF_HARM_REPLY : EMERGENCY_SAFETY_REPLY;
-      return { tier: "emergency", reply: addendum ? `${base}\n\n${addendum}` : base, escalationId };
+      const built = await buildEmergencyReply(
+        { supabase, service: getServiceRoleSupabase() },
+        { profileId, conversationId: threadId, message, page: true },
+      );
+      return { tier: "emergency", reply: built.reply, escalationId };
     },
   });
 
@@ -406,6 +408,7 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
     retrievedSourceIds: governed.value.retrievedSourceIds,
     clinicianAlertId: governed.value.clinicianAlertId ?? governed.value.referralRequestClinicianAlertId,
     escalationId: governed.value.escalationId,
+    interactionId: governed.interactionId,
     finalAction,
     status: governed.value.degraded ? "degraded" : "completed",
     errorMessage: governed.value.errorMessage,

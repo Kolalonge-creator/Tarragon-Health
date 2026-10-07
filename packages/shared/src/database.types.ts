@@ -939,6 +939,7 @@ export type Database = {
           final_action: string
           generated_at: string
           id: string
+          interaction_id: string | null
           input_snapshot: Json
           interaction_type: string
           model_id: string | null
@@ -958,6 +959,7 @@ export type Database = {
           final_action: string
           generated_at?: string
           id?: string
+          interaction_id?: string | null
           input_snapshot?: Json
           interaction_type: string
           model_id?: string | null
@@ -977,6 +979,7 @@ export type Database = {
           final_action?: string
           generated_at?: string
           id?: string
+          interaction_id?: string | null
           input_snapshot?: Json
           interaction_type?: string
           model_id?: string | null
@@ -3901,6 +3904,79 @@ export type Database = {
           },
         ];
       };
+      assistant_memory_consents: {
+        Row: {
+          created_at: string
+          granted_at: string
+          id: string
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+          recorded_by: string
+          revoked_at: string | null
+          source: string
+          text_version: string
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      assistant_memory_items: {
+        Row: {
+          consent_id: string
+          created_at: string
+          id: string
+          is_test: boolean
+          kind: string
+          organisation_id: string
+          patient_id: string
+          recorded_by: string
+          source: string
+          text: string
+          updated_at: string
+        }
+        Insert: {
+          consent_id?: string
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          kind: string
+          organisation_id?: string
+          patient_id: string
+          recorded_by?: string
+          source?: string
+          text: string
+          updated_at?: string
+        }
+        Update: {
+          kind?: string
+          text?: string
+        }
+        Relationships: []
+      }
+      assistant_review_samples: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          id: string
+          incident_id: string | null
+          is_test: boolean
+          issue_category: string | null
+          month: string
+          note: string | null
+          organisation_id: string
+          patient_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          selection: string
+          source: string
+          state: string
+          verdict: string | null
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
       audit_log: {
         Row: {
           action: string
@@ -43127,6 +43203,27 @@ export type Database = {
           task_type: string
         }[]
       }
+      assistant_memory_available: { Args: Record<PropertyKey, never>; Returns: boolean }
+      assistant_memory_delete_all: { Args: Record<PropertyKey, never>; Returns: number }
+      assistant_memory_export: { Args: Record<PropertyKey, never>; Returns: Json }
+      assistant_memory_for_prompt: { Args: Record<PropertyKey, never>; Returns: Json }
+      assistant_memory_set_consent: { Args: { p_granted: boolean }; Returns: Json }
+      assistant_memory_state: { Args: Record<PropertyKey, never>; Returns: Json }
+      assistant_review_queue: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          month: string
+          patient_ref: string
+          reported: boolean
+          selection: string
+          state: string
+          turns: number
+          verdict: string
+        }[]
+      }
+      assistant_review_read: { Args: { p_reason: string; p_sample: string }; Returns: Json }
+      assistant_review_record: { Args: { p_category: string; p_note?: string; p_sample: string; p_verdict: string }; Returns: Json }
       assistant_knowledge_sources: { Args: { p_ids: string[] }; Returns: Json }
       assistant_protocol_limits: { Args: Record<PropertyKey, never>; Returns: Json }
       go_live_guard_is_open: { Args: { p_key: string }; Returns: boolean }

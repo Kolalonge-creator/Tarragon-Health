@@ -57,7 +57,7 @@ describe("assistant.silence, .review and .memory mirror the S52 assistant_config
     const match = /assistant-config-s52-begin[\s\S]*?\$json\$([\s\S]*?)\$json\$/.exec(sql);
     if (!match?.[1]) throw new Error("seed not found");
     const seeded = JSON.parse(match[1]) as Record<string, unknown>;
-    for (const key of ["silence", "review", "memory"]) {
+    for (const key of ["silence", "review", "memory", "paging"]) {
       expect(seeded[key]).toEqual(getProposedConfig(`assistant.${key}`).value);
     }
   });
