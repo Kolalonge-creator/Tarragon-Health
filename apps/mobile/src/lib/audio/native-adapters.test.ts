@@ -242,6 +242,6 @@ describe("registering the phone's audio", () => {
     expect(() => registerAudio()).not.toThrow();
     const r = await getAudioService().playClips(["EMG-001"], "en");
     expect(r.played).toBe(false);
-    expect(r.text).toMatch(/needs attention now/);
+    expect(r.text).toMatch(/need care now/);
   });
 });

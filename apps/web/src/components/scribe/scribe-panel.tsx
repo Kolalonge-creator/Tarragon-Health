@@ -5,7 +5,6 @@ import { t } from "@tarragon/i18n";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ScribeConsentDialog } from "./consent-dialog";
 import { DraftReviewPanel, type DraftSection } from "./draft-review-panel";
@@ -13,7 +12,6 @@ import { draftScribeFromText, revokeScribeConsent } from "@/lib/scribe/actions";
 import { scribeErrorMessage } from "@/lib/scribe/error-messages";
 import { MAX_TYPED_NOTES_CHARS, MIN_TYPED_NOTES_CHARS } from "@/lib/scribe/parse-typed-notes";
 
-type Language = "en-NG" | "pcm";
 
 type ScribeState =
   | { step: "idle" }
@@ -31,7 +29,6 @@ export interface ScribeDraftResult {
   draft: DraftSection;
   patientSummary: string;
   consentId: string;
-  language: Language;
 }
 
 interface ScribePanelProps {
@@ -47,7 +44,6 @@ interface ScribePanelProps {
 
 export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseDraft }: ScribePanelProps) {
   const [state, setState] = useState<ScribeState>({ step: "idle" });
-  const [language, setLanguage] = useState<Language>("en-NG");
   const [text, setText] = useState("");
   const [, startTransition] = useTransition();
 
@@ -58,7 +54,6 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
         const result = await draftScribeFromText({
           scribeConsentId: consentId,
           encounterNoteId,
-          language,
           text,
           patientContext,
         });
@@ -87,13 +82,6 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
     case "idle":
       return (
         <div className="flex flex-wrap items-end gap-3">
-          <div>
-            <Label>{t("scribe.language.label", "en")}</Label>
-            <Select value={language} onChange={(e) => setLanguage(e.target.value as Language)}>
-              <option value="en-NG">{t("scribe.language.en", "en")}</option>
-              <option value="pcm">{t("scribe.language.pcm", "en")}</option>
-            </Select>
-          </div>
           <Button size="sm" variant="outline" onClick={() => setState({ step: "consent" })}>
             {t("scribe.start", "en")}
           </Button>
@@ -105,7 +93,6 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
         <ScribeConsentDialog
           patientId={patientId}
           encounterNoteId={encounterNoteId}
-          language={language}
           onConsented={(consentId) => setState({ step: "input", consentId })}
           onDeclined={() => setState({ step: "declined" })}
         />
@@ -155,7 +142,7 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
           draft={state.draft}
           patientSummary={state.patientSummary}
           onUse={(draft, patientSummary) => {
-            onUseDraft({ draft, patientSummary, consentId, language });
+            onUseDraft({ draft, patientSummary, consentId });
             setText("");
             setState({ step: "used" });
           }}

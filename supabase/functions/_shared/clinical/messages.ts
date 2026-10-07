@@ -1,7 +1,7 @@
 /**
  * Catalogue keys (in `@tarragon/i18n`) for each explanation code the engine can
  * return. The text itself lives in the catalogue so it can be translated and
- * reviewed; a test checks that every key here exists in English and Pidgin.
+ * reviewed; a test checks that every key here exists in English.
  */
 export interface MessageKeys {
   readonly title: string;

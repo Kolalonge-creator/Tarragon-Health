@@ -21,7 +21,7 @@ describe("bundled audio matches the manifest", () => {
     for (const name of Object.keys(BUNDLED_AUDIO)) {
       const hit = files.get(name);
       expect([name, hit?.clip.bundle_group]).toEqual([name, "bundled"]);
-      expect([name, playable(hit!.clip, hit!.key === "shared" ? "en" : (hit!.key as "en" | "pcm")).ok]).toEqual([name, true]);
+      expect([name, playable(hit!.clip, "en").ok]).toEqual([name, true]);
     }
   });
 

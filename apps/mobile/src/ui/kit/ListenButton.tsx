@@ -20,6 +20,24 @@ interface ListenButtonProps {
  */
 export function ListenButton({ clipIds, phrase, lang }: ListenButtonProps) {
   const [playing, setPlaying] = useState(false);
+  // Shown only when the words would really be spoken (recorded, signed off, an engine registered): no button that cannot work.
+  const [ready, setReady] = useState(false);
+  const ids = clipIds ?? phrase?.steps.map((st) => st.id) ?? [];
+  const idsKey = ids.join("|");
+  useEffect(() => {
+    let live = true;
+    setReady(false);
+    if (ids.length > 0) {
+      void getAudioService()
+        .canPlayClips(ids, lang)
+        .then((ok) => live && setReady(ok))
+        .catch(() => {});
+    }
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idsKey, lang]);
   const alive = useRef(true);
   // Only stop audio THIS button started: the service is shared, and another message (an emergency clip) may be playing.
   const mine = useRef(false);
@@ -60,5 +78,6 @@ export function ListenButton({ clipIds, phrase, lang }: ListenButtonProps) {
     }
   };
 
+  if (!ready) return null;
   return <Button title={label(playing ? "audio.stop" : "audio.listen")} onPress={onPress} variant="ghost" fullWidth={false} accessibilityHint={t("audio.listen_hint", "en")} />;
 }
