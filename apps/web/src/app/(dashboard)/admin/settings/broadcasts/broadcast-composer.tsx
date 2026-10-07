@@ -45,7 +45,6 @@ const AUDIENCES: { value: BroadcastAudience; label: string }[] = [
 const CHANNELS: { value: NotificationChannel; label: string }[] = [
   { value: "email", label: "Email" },
   { value: "in_app", label: "In-app" },
-  { value: "sms", label: "SMS" },
 ];
 
 const BAND_COLORS: { value: "green" | "navy" | "none"; label: string }[] = [
@@ -92,7 +91,7 @@ export function BroadcastComposer() {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [sentCount, setSentCount] = useState<number | null>(null);
   const [scheduledMessage, setScheduledMessage] = useState<string | null>(null);
-  // A broadcast cannot be recalled once queued: SMS/email leave the
+  // A broadcast cannot be recalled once queued: email leaves the
   // platform. Submit now validates and opens a recap of exactly what goes to
   // exactly whom; only the dialog's own button sends.
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -136,8 +135,8 @@ export function BroadcastComposer() {
   // Email design (variant A when A/B testing is on, the only design
   // otherwise): shown only when the email channel is checked. headline
   // defaults to the plain subject but is independently editable, so a
-  // broadcast can read differently in an inbox than it does over
-  // SMS.
+  // broadcast can read differently in an inbox than it does
+  // in the app.
   const [emailHeadline, setEmailHeadline] = useState("");
   const [emailImageUrl, setEmailImageUrl] = useState("");
   const [emailBandColor, setEmailBandColor] = useState<"green" | "navy" | "none">("none");
@@ -492,7 +491,7 @@ export function BroadcastComposer() {
                 required
               />
               <p className="text-xs text-charcoal-ink/50">
-                This goes out over email, SMS and in-app. Do not include a diagnosis, test result, or
+                This goes out over email and in-app. Do not include a diagnosis, test result, or
                 other clinical detail specific to a person. General announcements only.
               </p>
             </div>
@@ -631,7 +630,7 @@ export function BroadcastComposer() {
               </div>
               {isPartnerAudience && (
                 <p className="text-xs text-charcoal-ink/50">
-                  Partners are reached by email or SMS only; in-app is a patient channel.
+                  Partners are reached by email only; in-app is a patient channel.
                 </p>
               )}
             </div>
@@ -967,7 +966,7 @@ export function BroadcastComposer() {
         description={
           sendMode === "later"
             ? "It will be queued now and go out automatically once the scheduled time passes. You can cancel it any time before then."
-            : "This leaves the platform over email, SMS and in-app. It cannot be recalled, edited or unsent once queued."
+            : "This leaves the platform over email and in-app. It cannot be recalled, edited or unsent once queued."
         }
         confirmLabel={
           sendMode === "later"
@@ -1006,7 +1005,7 @@ export function BroadcastComposer() {
             every recipient will read before they become unrecallable. */}
         <div className="space-y-1 rounded-lg border border-charcoal-ink/10 p-3 dark:border-night-ink/15">
           <p className="text-xs uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/50">
-            What each recipient will see (in-app / SMS / plain email)
+            What each recipient will see (in-app / plain email)
           </p>
           <p className="text-sm font-medium">{title.trim()}</p>
           <p className="whitespace-pre-wrap text-sm text-charcoal-ink/80 dark:text-night-ink/80">

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { classifyExpoReceipt, decide, pushEnvelope, quietUntil, type DecideInput, type QuietSettings } from "./index.ts";
+import { classifyExpoReceipt, decide, pushEnvelope, quietUntil, smsPurpose, type DecideInput, type QuietSettings } from "./index.ts";
 
 const Q: QuietSettings = { enabled: true, start: "21:00", end: "07:00" };
 // Africa/Lagos is UTC+1: 22:00 Lagos is 21:00 UTC.
@@ -39,7 +39,7 @@ describe("quietUntil", () => {
 
 const base: DecideInput = {
   channel: "push", priority: "routine", nowMs: utc(10), quiet: Q, routinePushSentToday: 0, routinePushPerDay: 4,
-  wordingViolations: [], isClinicianPage: false,
+  wordingViolations: [], smsPurpose: "none", emergencyContactSmsOpen: false,
 };
 
 describe("decide", () => {
@@ -67,10 +67,38 @@ describe("decide", () => {
     expect(decide({ ...base, channel: "email", routinePushSentToday: 4 })).toEqual({ action: "send" });
     expect(decide({ ...base, priority: "critical", routinePushSentToday: 99 })).toEqual({ action: "send" });
   });
-  it("refuses sms that is not a clinician page (INV-08) and allows a page", () => {
+  it("refuses sms that has no allowed purpose (INV-08) and allows a clinician page", () => {
     expect(decide({ ...base, channel: "sms" })).toEqual({ action: "suppress", reason: "sms_not_allowed" });
-    expect(decide({ ...base, channel: "sms", isClinicianPage: true, nowMs: utc(21) })).toEqual({ action: "send" });
+    expect(decide({ ...base, channel: "sms", smsPurpose: "clinician_page", nowMs: utc(21) })).toEqual({ action: "send" });
     expect(decide({ ...base, channel: "voice", nowMs: utc(21) })).toEqual({ action: "send" });
+  });
+  it("a CRITICAL sms to a patient is refused: critical priority alone is no longer a reason to text (D3, OQ-92)", () => {
+    const purpose = smsPurpose({ template: "some_result_notice", priority: "critical", recipientRole: "patient" });
+    expect(purpose).toBe("none");
+    expect(decide({ ...base, channel: "sms", priority: "critical", smsPurpose: purpose })).toEqual({ action: "suppress", reason: "sms_not_allowed" });
+  });
+  it("the emergency-contact alert is held back while the go-live guard is closed, and goes (day or night) once it is open", () => {
+    const e: DecideInput = { ...base, channel: "sms", smsPurpose: "emergency_contact", nowMs: utc(21) };
+    expect(decide(e)).toEqual({ action: "suppress", reason: "sms_exception_off" });
+    expect(decide({ ...e, emergencyContactSmsOpen: true })).toEqual({ action: "send" });
+  });
+  it("the emergency-contact push is never deferred overnight or capped, whatever the guard says", () => {
+    const p: DecideInput = { ...base, channel: "push", smsPurpose: "emergency_contact", nowMs: utc(21), routinePushSentToday: 99 };
+    expect(decide(p)).toEqual({ action: "send" });
+  });
+});
+
+describe("smsPurpose", () => {
+  const row = { template: "x", priority: "routine" as const, recipientRole: "clinician" };
+  it("allows a page only for a CRITICAL row to a clinician", () => {
+    expect(smsPurpose({ ...row, priority: "critical" })).toBe("clinician_page");
+    expect(smsPurpose(row)).toBe("none");
+    for (const role of ["patient", "admin", "care_coordinator", "pharmacist", null, undefined]) {
+      expect(smsPurpose({ ...row, priority: "critical", recipientRole: role })).toBe("none");
+    }
+  });
+  it("names the emergency-contact template as its own purpose whoever the recipient is", () => {
+    expect(smsPurpose({ template: "emergency_contact_alert", priority: "routine", recipientRole: "patient" })).toBe("emergency_contact");
   });
 });
 

@@ -20,11 +20,12 @@
 // Channel priority: push is the default first channel platform-wide
 // (a legacy chat channel was removed, founder decision F-02 — the channels
 // are in-app, push and email; SMS remains for verification codes and
-// clinician paging). The difference between the two priorities is what
-// happens when push fails to SEND (not "goes unopened" — that's the
-// escalation engine's job, not this function's): routine rows fall back
-// inline to sms within this same pass (simple best-effort delivery, no
-// confirmation tracking needed); critical rows do NOT — a critical row's
+// clinician paging, plus ONE named exception, S85-D3: a content-free alert to a
+// patient's own consented emergency contact, behind the go-live guard
+// `sms_emergency_contact_enabled`). A failed push never falls back to sms (S13).
+// What happens when push fails to SEND (not "goes unopened" — that's the
+// escalation engine's job, not this function's): a routine row is retried and
+// then given up on; a critical row does NOT retry — a critical row's
 // failed send is picked up by
 // private.escalate_unconfirmed_critical_notifications() and turned into a
 // new, separately-tracked notification on the next ladder channel, so every
@@ -35,7 +36,8 @@ import webpush from "npm:web-push@3.6.7";
 import { appUrl, substituteTemplatePlaceholders, TEMPLATE_MAP } from "./templates.ts";
 import type { TemplateRender } from "./templates.ts";
 import { describeViolations, lintRenderFn, lintText } from "../_shared/notifications/neutral.ts";
-import { decide, pushEnvelope } from "../_shared/notifications/delivery.ts";
+import { decide, EMERGENCY_CONTACT_SMS_GUARD_KEY, EMERGENCY_CONTACT_TEMPLATE, pushEnvelope, refusedSmsOutcome, smsPurpose } from "../_shared/notifications/delivery.ts";
+import { checkEmergencyContactRow, checkFanoutRowConsent, confirmedPhoneMatches, guardIsOpen, planContactFanout } from "../_shared/notifications/emergency-contact.ts";
 import type { QuietSettings } from "../_shared/notifications/delivery.ts";
 
 const BATCH_SIZE = 50;
@@ -597,7 +599,7 @@ Deno.serve(async () => {
   }
 
   const recipientIds = [...new Set(rows.map((row) => row.recipient_id))];
-  const { data: profiles } = await supabase
+  const { data: profiles, error: profilesError } = await supabase
     .from("profiles")
     .select("id, phone, role, discreet_mode")
     .in("id", recipientIds)
@@ -720,20 +722,19 @@ Deno.serve(async () => {
     for (const o of originals ?? []) originalTemplateById.set(o.id, o.template);
   }
 
-  // SMS (Termii sender-ID approval) is off the founder's near-term plan
-  // (CLAUDE.md, 2026-09-15) and had a confirmed 0% live success rate as of
-  // 2026-09-18 — every attempt is a guaranteed failure against a real
-  // provider, for no patient benefit, that also pollutes the
-  // failure/reconciliation data with noise indistinguishable from a
-  // genuine outage. Routine rows on this channel are suppressed before
-  // ever reaching the provider call. Critical rows are deliberately
-  // UNAFFECTED — private.escalate_unconfirmed_critical_notifications()
-  // depends on a real, timely `failed` status to advance push -> email
-  // -> sms -> exhausted, and channelAllowed() already never gates a
-  // critical row for any reason; this must stay that way.
-  function platformDisabledChannel(row: NotificationRow): boolean {
-    if (row.priority === "critical") return false;
-    return row.channel === "sms";
+  // SMS policy (INV-08, D-12, S85-D3). Through this queue SMS exists for two things only: a page to a clinician (a critical row for
+  // a clinician) and the content-free emergency-contact alert, which also waits for the go-live guard. Everything else is refused
+  // before any provider call, in the loop below. Live SMS has never delivered (OQ-46), so a refusal costs no one a message.
+  // The guard is read once per run; an unreadable or missing row is OFF (fail closed).
+  let emergencyContactSmsOpen = false;
+  if (rows.some((r) => r.channel === "sms" && r.template === EMERGENCY_CONTACT_TEMPLATE)) {
+    const { data: guardRow, error: guardError } = await supabase
+      .from("go_live_guards")
+      .select("is_on")
+      .eq("key", EMERGENCY_CONTACT_SMS_GUARD_KEY)
+      .maybeSingle<{ is_on: boolean }>();
+    if (guardError) console.error("emergency-contact SMS guard unreadable, treating as off:", guardError.message);
+    emergencyContactSmsOpen = guardIsOpen(guardError, guardRow);
   }
 
   function channelAllowed(row: NotificationRow): boolean {
@@ -777,6 +778,8 @@ Deno.serve(async () => {
   const routineByRecipient = new Map<string, NotificationRow[]>();
   for (const row of rows) {
     if (row.priority !== "routine") continue;
+    // An alert the patient raised for their emergency contact is never folded into a digest (nor are its copies for the contact).
+    if (row.template === EMERGENCY_CONTACT_TEMPLATE) continue;
     const list = routineByRecipient.get(row.recipient_id) ?? [];
     list.push(row);
     routineByRecipient.set(row.recipient_id, list);
@@ -811,14 +814,62 @@ Deno.serve(async () => {
     }
   }
 
+  // S85-D3: reaches an emergency contact who is also a Tarragon account (matched on a CONFIRMED phone number) by push, email and
+  // in-app, so the alert does not depend on live SMS. Returns a short outcome that is written onto the SMS row's last_error, so a
+  // missing alert is visible and never reported as sent. Idempotent per SMS row: a unique index backs the check-then-insert.
+  async function fanOutToContact(row: NotificationRow, contactPhone: string, patientName: string | null): Promise<string> {
+    try {
+      const { data: already, error: alreadyError } = await supabase
+        .from("notifications")
+        .select("id")
+        .eq("template", EMERGENCY_CONTACT_TEMPLATE)
+        .eq("payload->>source_notification_id", row.id)
+        .limit(1);
+      if (alreadyError) throw new Error(alreadyError.message);
+      if ((already ?? []).length > 0) return "contact copies already queued";
+      const { data: matches, error: matchError } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("phone", contactPhone)
+        .neq("id", row.recipient_id)
+        .limit(5)
+        .returns<Array<{ id: string }>>();
+      if (matchError) throw new Error(matchError.message);
+      // Only a profile whose auth phone is the same number AND confirmed counts. Ambiguity (a shared family number) alerts nobody
+      // by push or email, and says so.
+      const confirmed: Array<{ id: string; email: string | null }> = [];
+      for (const m of matches ?? []) {
+        const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(m.id);
+        if (authError) throw new Error(authError.message);
+        if (confirmedPhoneMatches(authUser?.user, contactPhone)) confirmed.push({ id: m.id, email: authUser?.user?.email ?? null });
+      }
+      if (confirmed.length === 0) return "contact is not a Tarragon account with a confirmed number, no push or email sent";
+      if (confirmed.length > 1) return "more than one account has this confirmed number, no push or email sent";
+      const planned = planContactFanout({
+        sourceNotificationId: row.id,
+        organisationId: row.organisation_id,
+        patientName,
+        patientId: row.recipient_id,
+        contact: confirmed[0],
+      });
+      let queued = 0;
+      for (const p of planned) {
+        const { error } = await supabase.from("notifications").insert({ ...p, status: "pending" });
+        if (!error) queued++;
+        else if (error.code !== "23505") throw new Error(error.message); // 23505: another run already queued this copy
+        else queued++;
+      }
+      return `contact copies queued (${queued} of ${planned.length})`;
+    } catch (e) {
+      console.error("emergency-contact fan-out failed:", e);
+      await recordEvent(row.id, "failed", "system", null, { reason: "contact_fanout_failed", detail: String(e).slice(0, 200) });
+      return "contact push and email could not be queued, see the delivery events";
+    }
+  }
+
   for (const row of rows) {
     if (foldedIds.has(row.id)) continue;
 
-    if (platformDisabledChannel(row)) {
-      await suppress(row.id, "sms deprioritised platform-wide, no provider approval yet");
-      suppressed++;
-      continue;
-    }
     if (!channelAllowed(row)) {
       await suppress(row.id, "patient turned off this channel for this category");
       suppressed++;
@@ -872,6 +923,65 @@ Deno.serve(async () => {
         retried++;
       }
     };
+
+    // SMS purpose gate. A refused critical row is marked FAILED, not suppressed: private.escalate_unconfirmed_critical_notifications()
+    // advances (or, at the last rung, raises the exhausted-ladder alarm to the admins) only on a failed row, so a quiet suppression
+    // here would end a patient's ladder with nobody told. A refused routine row is suppressed with its reason on the row.
+    let fanoutOutcome = "";
+    if (row.channel === "sms" && profilesError) {
+      // The role lookup failed, so the purpose of this SMS cannot be known. Leave the row pending for the next run rather than
+      // refusing (or sending) a page on a guess.
+      console.error("profiles lookup failed, leaving sms rows pending:", profilesError.message);
+      continue;
+    }
+    if (row.channel === "sms") {
+      const purpose = smsPurpose({ template: row.template, priority: row.priority, recipientRole: roleById.get(row.recipient_id) });
+      if (purpose === "none") {
+        const reason = "sms is for verification codes, clinician paging and the guarded emergency-contact alert only";
+        if (refusedSmsOutcome(row.priority) === "fail") {
+          await markFailed(reason);
+          await recordEvent(row.id, "failed", "system", null, { reason: "sms_not_allowed", template: row.template });
+          failed++;
+        } else {
+          await suppress(row.id, reason);
+          await recordEvent(row.id, "suppressed_cap", "system", null, { reason: "sms_not_allowed", template: row.template });
+          suppressed++;
+        }
+        continue;
+      }
+      if (purpose === "emergency_contact") {
+        // Never message a contact without the patient's recorded consent, re-checked here against the live profile, and only at the
+        // number the patient has on file now (a stale queued row for a changed number must not text the old one).
+        const { data: owner } = await supabase
+          .from("profiles")
+          .select("full_name, emergency_contact_phone, emergency_contact_consent")
+          .eq("id", row.recipient_id)
+          .maybeSingle<{ full_name: string | null; emergency_contact_phone: string | null; emergency_contact_consent: boolean | null }>();
+        const toPhoneOnRow = typeof row.payload?.to_phone === "string" ? row.payload.to_phone : null;
+        if (!toPhoneOnRow || checkEmergencyContactRow(owner ?? null, toPhoneOnRow) !== "ok") {
+          await suppress(row.id, "emergency contact consent or number no longer matches the patient's profile");
+          await recordEvent(row.id, "suppressed_cap", "system", null, { reason: "contact_consent_or_number_mismatch" });
+          suppressed++;
+          continue;
+        }
+        // Push, email and in-app to the contact where they are also a Tarragon account. These never wait for the SMS guard.
+        fanoutOutcome = await fanOutToContact(row, toPhoneOnRow, owner?.full_name ?? null);
+      }
+    }
+    // The copies for the contact (push, email) are re-checked against the patient's consent at their own send time too.
+    if (row.channel !== "sms" && row.template === EMERGENCY_CONTACT_TEMPLATE && typeof row.payload?.patient_id === "string") {
+      const { data: patient } = await supabase
+        .from("profiles")
+        .select("emergency_contact_consent")
+        .eq("id", row.payload.patient_id)
+        .maybeSingle<{ emergency_contact_consent: boolean | null }>();
+      if (checkFanoutRowConsent(patient ?? null) !== "ok") {
+        await suppress(row.id, "the patient withdrew emergency contact consent before this was sent");
+        await recordEvent(row.id, "suppressed_cap", "system", null, { reason: "contact_consent_withdrawn" });
+        suppressed++;
+        continue;
+      }
+    }
 
     // Scoped to exactly one template, same pattern as the PDF-attachment
     // special case below: the Trustpilot business profile doesn't exist yet
@@ -941,7 +1051,8 @@ Deno.serve(async () => {
       routinePushSentToday: pushSentToday.get(row.recipient_id) ?? 0,
       routinePushPerDay,
       wordingViolations: wordingViolationsFor(row.template, row.channel, dbBody),
-      isClinicianPage: row.priority === "critical" || roleById.get(row.recipient_id) === "clinician",
+      smsPurpose: smsPurpose({ template: row.template, priority: row.priority, recipientRole: roleById.get(row.recipient_id) }),
+      emergencyContactSmsOpen,
     });
     if (decision.action === "block") {
       await markFailed(`blocked: INV-07 wording (${decision.violations.slice(0, 3).join(", ")})`);
@@ -950,7 +1061,14 @@ Deno.serve(async () => {
       continue;
     }
     if (decision.action === "suppress") {
-      await suppress(row.id, decision.reason === "daily_cap" ? "daily push cap reached; the in-app copy stands" : "sms is for verification codes and clinician paging only");
+      await suppress(
+        row.id,
+        decision.reason === "daily_cap"
+          ? "daily push cap reached; the in-app copy stands"
+          : decision.reason === "sms_exception_off"
+            ? `emergency-contact SMS is switched off (go-live guard sms_emergency_contact_enabled)${fanoutOutcome ? `; ${fanoutOutcome}` : ""}`
+            : "sms is for verification codes and clinician paging only",
+      );
       await recordEvent(row.id, "suppressed_cap", "system", null, { reason: decision.reason });
       suppressed++;
       continue;

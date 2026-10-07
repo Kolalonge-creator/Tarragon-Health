@@ -221,6 +221,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Decision (founder, 2026-09-30): Remove all patient-facing SMS in its own session (count first, then remove), as the follow-on to OQ-05.
 
 ## D. Raised by S01d (staff console split)
+- **Built 2026-10-07 (S85-D3, awaiting the founder's explicit approval because it reverses part of C.2):** the push-failure fallback was already gone (S13); the join-link helper `send-patient-link.ts` is deleted (the virtual-review call already told the patient in the app, and the button copy no longer says SMS); the SMS option is gone from the broadcast composer and from the employer announcement screen, and both senders refuse an `sms` channel; the dependent-claim row is gone (OQ-48); the sender refuses every SMS that is not a clinician page or the one named exception. The exception is a content-free alert to the patient's own consented emergency contact, exact text "Tarragon: please call {name} now.", and it stays OFF behind the go-live guard `sms_emergency_contact_enabled` (conditions: live delivery proven, founder approval recorded; OQ-46). The contact also gets push, email and in-app when they are a Tarragon account. The 59 active SMS templates and the patient SMS preference toggle are not touched here (OQ-331).
 
 ### OQ-33 `lab-liaison` and `lab-partner` cannot move until the lab result stack is a package (raised by S01d)
 - Finding: both areas call `lib/lab-results/actions.ts` (the server actions patients and partners both use to upload and replace lab results). That file imports `lib/lab-reports/extraction-actions`, the AI extraction path, which imports the whole `lib/ai-governance` module (registry, audit, kill switch). The area itself is 2 to 7 files; its real dependency closure is about 25 more files, and one of them is a registered AI call site.
@@ -307,6 +308,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-48 The dependent-claim flow sends an SMS that is not a verification code (raised by S04)
 - `claimDependentAccountAction` inserts a `notifications` row on channel `sms` (`dependent_account_claimed`), which INV-08 forbids (SMS is for verification codes only). Extends OQ-32; S04 does not change it.
 - Decision:
+- **Resolved in code 2026-10-07 (S85-D3):** `claimDependentAccountAction` no longer queues any notification. The template never had a renderer, so that row could not have been sent. The person has no login or email yet, so the confirmation shown to the parent now says what to pass on (go to app.tarragonhealth.ng and sign in with that number).
 
 ### OQ-49 Optional consent types have no approved wording (raised by S04)
 - `consent_versions` has rows only for the three original types. S04 adds the plumbing (`is_required`, withdrawal-aware logic, history) and seeds the optional purposes with `text_key`s, but the legal text (English) and the Pidgin equivalents need your approval and a native reviewer (OQ-19) before they are shown as real consent.
@@ -533,6 +535,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-92 Critical rows can still be sent by SMS in the escalation ladder (raised by S13)
 - INV-08 limits SMS to verification codes, and D-12 allows clinician paging. `private.escalate_unconfirmed_critical_notifications()` can also move a PATIENT-facing critical alert to `sms` as the last hop, and the sender lets any critical row through. S13 leaves this alone so a safety alert is never silenced, and refuses every routine SMS.
 - Options: (a) keep, because live SMS has never delivered (76 failed, 0 sent) and the hop is a no-op until a sender ID exists; (b) end the patient ladder at email and in-app and keep SMS for clinicians only (recommended, needs the CMO to confirm the ladder); (c) leave as is and re-check when a sender ID is approved.
+- **Resolved in code 2026-10-07 (S85-D3), signed ladder untouched:** the sender no longer treats "critical" as a reason to text. A critical SMS is allowed only for a recipient whose role is `clinician`; for anyone else it is marked failed (not suppressed) so the ladder still reaches its exhausted-ladder alarm to the admins instead of ending quietly. The signed `escalation_slas` rows still name `sms` as a rung; see OQ-330 for the CMO-signed change. A clinician phone call for an unreached patient is a task, not an SMS; no task is created by this change (OQ-331).
 
 ### OQ-93 Pidgin notification text and local terms (raised by S13)
 - Notification templates are English only (locale-keyed, so `pcm` rows can be added). Pidgin settings strings (quiet hours, discreet mode) were written by the build session and need a native reviewer. A Pidgin template set would need its own forbidden words: "sugar" and "pressure" are common words for diabetes and hypertension. "sugar" and "pressure" are already on the English list.
@@ -1753,3 +1756,40 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Fixed in S11g and S11h: (a) the older server alert path now follows the 200/130 decision once the rule set is APPROVED: the old emergency range with no red-flag symptom (and not in pregnancy or after a birth) raises the Priority 1 alert but no patient emergency record; a symptom keeps it an emergency, and a symptom answered after the reading opens the emergency record then (migration `20261006000812`, proof `s11g`, a no-op until approval). The 160/100 and 135/85 bands are unchanged, so a 165/105 reading still pages Priority 1 for a reading the engine would treat as amber: that is the S12 band alignment of OQ-67 and needs the CMO. (f) Tapping the reminder or the server push now opens the blood pressure screen, from closed or running, once per tap (`notification-tap.ts`). (d) The Pidgin for the question's buttons and the reminder is drafted in the catalogue; the emergency guidance, triage messages and symptom names stay in English until a native reviewer and the CMO sign them; the full list is `docs/PIDGIN-REVIEW-S11.md`.
 - Still owed: (e) Android: not run (no Java or emulator image on this machine); `SCHEDULE_EXACT_ALARM` is not declared (OQ-73), so a reminder can arrive minutes late in Doze and the server backup push covers it. The native Pidgin review itself.
 - Decision: pending (item e, and the Pidgin sign-off).
+
+### OQ-309 The Paystack webhook still has a refund branch for a retired Platform Credit charge (raised by S87)
+- Blocks: nothing. `supabase/functions/paystack-webhook/handler.ts` (around line 756) handles `metadata.kind = "platform_credit_topup"` by refunding and reconciling. Platform Credit was removed from the schema on 2026-09-30 (0 balances, 0 ledger entries, 0 top-ups), so the branch can only fire for a charge started before removal.
+- Options: (a) keep the branch for 30 days as a safety net, then delete it; (b) delete it now.
+- Recommend (a), then delete and remove the Part C allowlist entry. Deploy order: code first, nothing in the schema depends on it.
+- Decision: pending.
+
+### OQ-310 Employer roster invitations can be sent by SMS (raised by S87)
+- Blocks: nothing. `dashboard/corporate/roster-manager.tsx` offers an "SMS" invitation channel for roster members. It is not a verification code or clinician paging, so it is outside the SMS rule (OQ-05, D3 draft of 2026-10-07).
+- Options: (a) remove the SMS channel and invite by email or a link the employer shares; (b) keep as a named exception.
+- Recommend (a). Decision: pending, with D3.
+- **Decision (founder, 2026-10-07, D3): remove it.** Done in code (S85-D3): the "Invite by SMS" button is gone, the hook only accepts `email`, and a member with only a phone number sees "share your organisation code". The database function `employer_invite_roster_member` still accepts `'sms'` as a channel label (it only issues a token and sends nothing); narrowing it is a later schema change after this code is deployed (OQ-331).
+
+### OQ-311 Part C.2 says clinicians are freelance only; the platform allows employed doctors (raised by S87)
+- Blocks: nothing. The code models `employment_type` (employed or contracted) and four earnings screens say "paid by salary". The founder decision of 2026-09-30 allows employed doctors (pushed tasks) next to freelancers (pull from the pool).
+- Decision (founder, 2026-10-07): update the spec row to match; keep the code. The spec file itself is never edited, so the change is recorded here and in `docs/DECISIONS.md` (S87-1) and the Part C audit treats this row as resolved.
+
+### OQ-312 Dormant schema that Part C mentions, found live on 2026-10-07 (raised by S87)
+- Counted live: `subscription_plans` 13 rows, `subscriptions` 0, `subscription_add_ons` 0, `logistics_partners` 1, `wellness_points_balances` 2 (points, not money). The `payment_provider` enum still holds `wallet` and `stripe` labels. `commission_type.delivery`, `pharmacy_refund_reason.delivery_failed` and `medication_access_barrier_reason.delivery_unavailable` remain after OQ-261.
+- Options: (a) leave as dormant history; (b) one removal migration per removal-pattern in CLAUDE.md (count rows, delete enum values, assertion block, proof, then code first).
+- Recommend (b) for the enum labels (zero rows) and the subscription tables, after OQ-97's code removal. Decision: pending.
+- Not yet verified in S87: employer or institution reporting never exposes reproductive, pregnancy or mental health data (C.1); the scribe patient summary is never patient-visible without a clinician signature (INV-11); `escalation_slas` v8 still names a WhatsApp hop (OQ-198's ladder, normalised to email at read time).
+
+### OQ-330 The CMO-signed escalation ladders still name sms (raised by S85-D3)
+- `escalation_slas` v8 (signed) lists `sms` as a rung (urgent and emergency ladders, and the built-in default push, email, sms). D3 allows SMS only for clinician paging. In code, the sender now refuses SMS to anyone who is not a clinician and records the refusal, so nothing reaches a patient by SMS regardless of the row. An agent must not edit a signed row.
+- Options: (a) the CMO signs a v9 that removes `sms` from every patient-facing ladder and names the clinician phone-call task instead (recommended); (b) leave the row and rely on the code refusal.
+- Decision:
+
+### OQ-331 Loose ends of the SMS removal that need their own decision (raised by S85-D3)
+- (1) `patient_notification_preferences.sms_enabled` and the patient settings toggle still exist, but nothing sends a patient SMS now; hide the toggle or leave it. (2) 59 active SMS template rows in `notification_template_locales`, most now unreachable. (3) `employer_invite_roster_member` and the `employer_invite_channel` enum still allow `'sms'`. (4) "A clinician phone call is a task": no task is created when an unreached critical patient notice runs out of rungs; today the admins get the exhausted-ladder alarm. Build the S16 task or accept the alarm.
+- Options: (a) one removal migration per CLAUDE.md pattern for (1) to (3), after this code is deployed, and an S16 task rule for (4) (recommended); (b) leave.
+- Decision:
+
+### OQ-332 The emergency-contact SMS exception: switching it on (raised by S85-D3)
+- The guard `sms_emergency_contact_enabled` is born off and needs two recorded attestations before an admin can switch it on: live SMS delivery proven (Termii sender ID approved, DND route active, a real message received on a real handset: OQ-46) and the founder's explicit approval of D3. Until then the contact is sent push, email and in-app if they are a Tarragon account, and the SMS row is suppressed with its reason on the row. A contact who is not a Tarragon account (the usual case, the profile holds only name and phone) currently gets nothing until the guard is on: consider collecting an email for the contact. The patient button now says plainly that the text cannot go yet and does not mark the contact as notified. The automatic path (the 10-minute trigger in `emergency_escalation.sql`) still sets `contact_notified_at` when it queues the row, so a patient screen can still read "alerted" there; fixing that needs a migration to the trigger (set it only when a copy was actually queued or the guard is on). Also: the exhausted-ladder alarm reaches only `profiles` with role `admin`; with none, a refused patient hop ends with a failure row and no in-app alarm. Delivery events reuse the `suppressed_cap` name for policy refusals because the event list is a CHECK constraint (widening it is a migration).
+- Options: (a) approve D3, prove live delivery, then switch on (recommended); (b) also add a contact email field so the exception is not the only route; (c) drop the exception.
+- Decision:

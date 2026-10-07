@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { assertNoSmsChannel } from "@/lib/notifications/sms-policy";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@tarragon/shared";
 
@@ -81,6 +82,7 @@ export function useCreateAndSendAnnouncement(organisationId: string) {
       location_id?: string | null;
       channels: string[];
     }) => {
+      assertNoSmsChannel(input.channels);
       const supabase = createClient();
       const { data: inserted, error: insertError } = await supabase
         .from("employer_announcements")

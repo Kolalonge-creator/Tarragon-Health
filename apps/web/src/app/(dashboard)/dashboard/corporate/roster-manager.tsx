@@ -127,7 +127,7 @@ export function RosterManager({
         </CardTitle>
         <CardDescription>
           Add by phone or email; they&apos;re attached the moment they sign up (or immediately, with
-          &quot;Attach now&quot;), invited by email/SMS, or can join themselves with your organisation code.
+          &quot;Attach now&quot;), invited by email, or can join themselves with your organisation code.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -287,21 +287,11 @@ export function RosterManager({
                             Invite by email
                           </Button>
                         )}
-                        {member.phone && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            disabled={inviteMember.isPending}
-                            onClick={() =>
-                              inviteMember.mutate(
-                                { rosterId: member.id, channel: "sms" },
-                                { onSuccess: (token) => setInviteResult({ id: member.id, token }) }
-                              )
-                            }
-                          >
-                            Invite by SMS
-                          </Button>
+                        {!member.email && (
+                          <p className="w-full text-xs text-charcoal-ink/60">
+                            No email on file. Add one to invite by email, or share your organisation code so they can join
+                            themselves.
+                          </p>
                         )}
                       </>
                     )}
