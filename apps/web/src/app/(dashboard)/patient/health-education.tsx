@@ -310,10 +310,10 @@ function ContentDetailBody({
   const audioUrl = "audio_url" in item ? item.audio_url : null;
   // A creator series lesson for someone who is not a Member: the server has already withheld the body, the video, the audio and the
   // check. Show only the footer (credit and the calm Membership note) and none of the lesson controls.
-  // While the answer is on its way, an item whose body came back empty is treated as locked (core lessons always have a body),
-  // so the lesson controls never flash up for a lesson the person cannot open.
-  const { data: trust, isLoading: trustLoading } = useHealthEducationItemTrust(item.code);
-  if (trust?.members_only === true || (trustLoading && !item.body)) {
+  // An item whose body came back empty is treated as locked (core lessons always have a body) until the server says otherwise, so
+  // the lesson controls never show for a lesson the person cannot open, whether the answer is slow, failed or missing.
+  const { data: trust } = useHealthEducationItemTrust(item.code);
+  if (trust?.members_only === true || (!item.body && !item.video_url && !audioUrl && trust?.members_only !== false)) {
     return (
       <div className="space-y-4 pt-1">
         <LearningItemFooter code={item.code} title={item.title} showNextStep={false} />

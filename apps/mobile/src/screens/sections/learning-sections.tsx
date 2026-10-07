@@ -61,11 +61,12 @@ export function MembersOnlyNote({ creatorName }: { creatorName?: string | null }
 export function useMembersOnly(code: string, enabled = true, startLocked = false): boolean {
   // startLocked: the lesson came back with an empty body (core lessons always have one), so treat it as locked until the server answers
   const [locked, setLocked] = useState(startLocked);
+  useEffect(() => setLocked(startLocked), [code, startLocked]);
   useEffect(() => {
     if (!enabled) return;
     let alive = true;
     loadItemTrust(code)
-      .then((r) => alive && setLocked(r?.members_only === true))
+      .then((r) => alive && setLocked(r ? r.members_only === true : startLocked))
       .catch(() => alive && setLocked(startLocked));
     return () => {
       alive = false;
