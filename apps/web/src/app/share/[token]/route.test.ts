@@ -55,10 +55,27 @@ describe("GET /share/[token]", () => {
     expect(await res.text()).toContain("Ada Okafor");
   });
 
+  it("a GET is a preview: it never opens the record, so a link unfurler or mail scanner spends no view", async () => {
+    openShare.mockResolvedValue({ status: "ready", views_left: 2 });
+    const res = await GET(new Request("https://app.test"), ctx);
+    expect(openShare).toHaveBeenCalledWith(TOKEN, null, false);
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain('<form method="post"');
+    expect(html).not.toContain("Ada Okafor");
+  });
+
+  it("a POST is the deliberate opening and commits", async () => {
+    openShare.mockResolvedValue({ status: "ok", record: { full_name: "Ada Okafor", shared_at: "2026-10-01T00:00:00Z", expires_at: "2026-10-04T00:00:00Z", sections: [] } });
+    const res = await POST(post({}), ctx);
+    expect(openShare).toHaveBeenCalledWith(TOKEN, null, true);
+    expect(await res.text()).toContain("Ada Okafor");
+  });
+
   it("a plain GET never carries a PIN", async () => {
     openShare.mockResolvedValue({ status: "pin_required" });
     await GET(new Request(`https://app.test/share/${TOKEN}?pin=1234`), ctx);
-    expect(openShare).toHaveBeenCalledWith(TOKEN, null);
+    expect(openShare).toHaveBeenCalledWith(TOKEN, null, false);
   });
 });
 
@@ -66,14 +83,14 @@ describe("POST /share/[token]", () => {
   it("passes the PIN from the form body", async () => {
     openShare.mockResolvedValue({ status: "pin_wrong", attempts_left: 4 });
     const res = await POST(post({ pin: " 4821 " }), ctx);
-    expect(openShare).toHaveBeenCalledWith(TOKEN, "4821");
+    expect(openShare).toHaveBeenCalledWith(TOKEN, "4821", true);
     expect(res.status).toBe(401);
   });
 
   it("treats a body that is not a form as no PIN", async () => {
     openShare.mockResolvedValue({ status: "pin_required" });
     const res = await POST(new Request(`https://app.test/share/${TOKEN}`, { method: "POST", body: "not a form", headers: { "content-type": "text/plain" } }), ctx);
-    expect(openShare).toHaveBeenCalledWith(TOKEN, null);
+    expect(openShare).toHaveBeenCalledWith(TOKEN, null, true);
     expect(res.status).toBe(401);
   });
 });

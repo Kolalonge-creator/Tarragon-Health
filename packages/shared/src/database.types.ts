@@ -43339,7 +43339,7 @@ export type Database = {
         }[]
       }
       record_share_open: {
-        Args: { p_pin?: string; p_token: string }
+        Args: { p_commit?: boolean; p_pin?: string; p_token: string }
         Returns: Json
       }
       patient_biomarker_list: { Args: { p_patient?: string }; Returns: Json }

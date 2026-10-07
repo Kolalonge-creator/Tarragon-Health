@@ -154,7 +154,8 @@ create trigger patient_documents_ocr_columns_guard
   before insert or update on public.patient_documents
   for each row execute function private.enforce_patient_document_ocr_columns();
 
--- Timeline row for a document: the tier says whether values were read from the photo and are still unconfirmed.
+-- Timeline row for a document upload: the photo itself, entered by the patient. What was READ from it gets its own rows later (suggested, then
+-- confirmed or not kept), because the timeline is append-only and an upload row stamped "unconfirmed" would stay that way forever.
 create or replace function private.timeline_from_patient_document()
 returns trigger
 language plpgsql
@@ -170,7 +171,6 @@ begin
     new.created_at,
     private.timeline_staff_from_profile(new.uploaded_by, new.organisation_id),
     jsonb_build_object('document_type', new.document_type, 'source', new.source)
-      || case when new.ocr_state = 'pending' then jsonb_build_object('trust_tier', 'ocr_unconfirmed') else '{}'::jsonb end
   );
   return new;
 end;
@@ -215,18 +215,20 @@ begin
   if d.ocr_state is distinct from 'pending' then
     raise exception 'document is not waiting for a reading' using errcode = '22023';
   end if;
-  -- INV-14: the feature is off until its guard is on (a test patient may exercise it).
-  if not private.go_live_open_patient('document_capture_enabled', d.patient_id) then
-    raise exception 'document capture is not open' using errcode = '55000';
-  end if;
-
   perform set_config('tarragon.document_ocr', 'on', true);
+  -- Recording that a reading FAILED stores nothing and needs no guard: it is how a photo stops waiting when the guard has closed.
   if p_failed then
     update public.patient_documents
        set ocr_state = 'failed', ocr_text = null, extracted = null, ocr_model_id = nullif(btrim(p_model), '')
      where id = p_document;
     perform set_config('tarragon.document_ocr', 'off', true);
     return jsonb_build_object('state', 'failed');
+  end if;
+
+  -- INV-14: storing suggestions is off until the guard is on (a test patient may exercise it).
+  if not private.go_live_open_patient('document_capture_enabled', d.patient_id) then
+    perform set_config('tarragon.document_ocr', 'off', true);
+    raise exception 'document capture is not open' using errcode = '55000';
   end if;
 
   if p_extracted is null or jsonb_typeof(p_extracted) <> 'object' or jsonb_typeof(p_extracted -> 'fields') <> 'array' then
@@ -252,6 +254,10 @@ begin
          ocr_model_id = nullif(btrim(p_model), '')
    where id = p_document;
 
+  -- the one honest "unconfirmed" row: values were read and wait for the person (a later row says what happened to them)
+  perform private.record_timeline_event(d.organisation_id, d.patient_id, 'document_uploaded', 'patient_documents', d.id,
+    'Details read from your photo', 'Waiting for you to confirm them', now(), null,
+    jsonb_build_object('document_type', d.document_type, 'trust_tier', 'ocr_unconfirmed'));
   perform private.emit_domain_event('document.ocr_suggested', d.organisation_id,
     jsonb_build_object('document_id', d.id), 'document.ocr_suggested:' || d.id::text, d.patient_id, 'patient_document', d.id);
   perform set_config('tarragon.document_ocr', 'off', true);
@@ -347,6 +353,12 @@ begin
   update public.patient_documents
      set ocr_state = 'rejected', ocr_text = null, extracted = null, ocr_model_id = null
    where id = p_document;
+  -- the earlier "waiting for you" row stays (history), and this one says what happened to it
+  if d.ocr_state = 'suggested' then
+    perform private.record_timeline_event(d.organisation_id, d.patient_id, 'document_uploaded', 'patient_documents', d.id,
+      'Details from your photo not kept', 'You chose not to keep them', now(), null,
+      jsonb_build_object('document_type', d.document_type));
+  end if;
   insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event, subject_patient_id)
   values (d.organisation_id, v_uid, 'document.ocr_rejected', 'patient_documents', d.id, '{}'::jsonb, d.patient_id);
   perform set_config('tarragon.document_ocr', 'off', true);

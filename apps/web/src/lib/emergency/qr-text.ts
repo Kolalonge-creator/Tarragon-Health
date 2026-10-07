@@ -1,4 +1,5 @@
 import type { EmergencyClinicalFacts } from "./card";
+import type { CardField } from "./field-choices";
 
 /**
  * The offline card's QR carries PLAIN, HUMAN-READABLE TEXT — never a URL, and
@@ -82,13 +83,19 @@ function fitList(prefix: string, items: string[], budget: number): string {
  * fact of the set (allergies and current medicines are what change what a
  * stranger does in the next ten minutes; a condition label rarely does).
  */
-export function buildEmergencyQrText(facts: EmergencyClinicalFacts, printedOn: string): string {
+export function buildEmergencyQrText(facts: EmergencyClinicalFacts, printedOn: string, hidden: readonly CardField[] = []): string {
+  // A detail the patient chose not to share is SAID to be not shared. It is never written as "none recorded", which reads as "has none".
+  const NOT_SHARED = "NOT SHARED by the patient, ask";
   const fixedLines: string[] = ["TARRAGONHEALTH EMERGENCY CARD"];
   fixedLines.push(`Name: ${facts.full_name ?? "Not recorded"}`);
-  if (facts.date_of_birth) {
+  if (hidden.includes("date_of_birth")) {
+    fixedLines.push("DOB: not shared");
+  } else if (facts.date_of_birth) {
     fixedLines.push(`DOB: ${facts.date_of_birth}${facts.sex ? ` (${facts.sex})` : ""}`);
   }
-  if (facts.blood?.blood_group || facts.blood?.genotype) {
+  if (hidden.includes("blood")) {
+    fixedLines.push(`Blood: ${NOT_SHARED}`);
+  } else if (facts.blood?.blood_group || facts.blood?.genotype) {
     const confirmed = facts.blood.provenance === "lab_document";
     const bloodBits = [
       facts.blood.blood_group ?? null,
@@ -99,7 +106,9 @@ export function buildEmergencyQrText(facts: EmergencyClinicalFacts, printedOn: s
     fixedLines.push(`Blood: ${bloodBits} (${confirmed ? "lab-confirmed" : "patient-reported, unconfirmed"})`);
   }
 
-  const contactLine = facts.emergency_contact?.name
+  const contactLine = hidden.includes("emergency_contact")
+    ? `Contact: ${NOT_SHARED}`
+    : facts.emergency_contact?.name
     ? `Contact: ${[
         facts.emergency_contact.name,
         facts.emergency_contact.relationship ? `(${facts.emergency_contact.relationship})` : null,
@@ -119,20 +128,26 @@ export function buildEmergencyQrText(facts: EmergencyClinicalFacts, printedOn: s
   let remaining = QR_TEXT_BYTE_BUDGET - byteLength(mustSurvive.join("\n"));
 
   const allergyItems = facts.allergies.map((a) => `${a.allergen}${a.severity ? ` (${a.severity})` : ""}`);
-  const allergyLine = fitList("Allergies: ", allergyItems, Math.max(remaining, 0));
+  const allergyLine = hidden.includes("allergies") ? `Allergies: ${NOT_SHARED}` : fitList("Allergies: ", allergyItems, Math.max(remaining, 0));
   remaining -= byteLength(allergyLine) + 1;
 
   const medicationItems = facts.medications.map((m) => `${m.drug_name}${m.dose ? ` ${m.dose}` : ""}`);
-  const medicineLine =
-    medicationItems.length > 0 ? fitList("Medicines: ", medicationItems, Math.max(remaining, 0)) : null;
+  const medicineLine = hidden.includes("medications")
+    ? `Medicines: ${NOT_SHARED}`
+    : medicationItems.length > 0
+      ? fitList("Medicines: ", medicationItems, Math.max(remaining, 0))
+      : null;
   if (medicineLine) remaining -= byteLength(medicineLine) + 1;
 
   // Conditions is dropped entirely, not truncated to nothing, once there is
   // essentially no room left — the least essential fact goes first, per the
   // priority order above.
   const conditionItems = facts.conditions.map((c) => c.replace(/_/g, " "));
-  const conditionsLine =
-    conditionItems.length > 0 && remaining > 20 ? fitList("Conditions: ", conditionItems, remaining) : null;
+  const conditionsLine = hidden.includes("conditions")
+    ? `Conditions: ${NOT_SHARED}`
+    : conditionItems.length > 0 && remaining > 20
+      ? fitList("Conditions: ", conditionItems, remaining)
+      : null;
 
   return [
     ...fixedLines,

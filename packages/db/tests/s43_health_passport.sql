@@ -136,8 +136,8 @@ begin
   values (v_org, v_pat, 'previous_hospital_record', v_pat || '/s43-a.jpg', 'patient', 'pending') returning id into v_d1;
   perform pg_temp.back();
   perform pg_temp.setf('d1', v_d1);
-  perform pg_temp.ck('2a a document awaiting a reading is tier ocr_unconfirmed', 'ocr_unconfirmed',
-    (select trust_tier from public.patient_timeline where source_id = v_d1 and source_table = 'patient_documents'));
+  perform pg_temp.ck('2a the upload row is the photo itself, tier patient (what is read from it gets its own rows)', 'patient',
+    (select trust_tier from public.patient_timeline where source_id = v_d1 and source_table = 'patient_documents' and title = 'Document added to your record'));
   perform pg_temp.ck('2b the upload emitted document.uploaded', '1',
     (select count(*)::text from public.domain_events where event_type = 'document.uploaded' and aggregate_id = v_d1));
   perform pg_temp.ck('2c a patient cannot insert a document with suggested values', 'true',
@@ -166,6 +166,9 @@ begin
   perform pg_temp.ck('2m an empty key is dropped and every field starts as suggested (a claimed "confirmed" is overwritten)', '2:2',
     (select jsonb_array_length(extracted -> 'fields') || ':' || count(*) filter (where f ->> 'state' = 'suggested') from public.patient_documents d, jsonb_array_elements(d.extracted -> 'fields') f where d.id = v_d1 group by d.extracted));
   perform pg_temp.ck('2n an unknown confidence becomes low', 'low', (select f ->> 'confidence' from public.patient_documents d, jsonb_array_elements(d.extracted -> 'fields') f where d.id = v_d1 and f ->> 'key' = 'wbc'));
+  perform pg_temp.ck('2oa suggestions get one honest unconfirmed row', 'ocr_unconfirmed:1',
+    (select trust_tier from public.patient_timeline where source_id = v_d1 and title = 'Details read from your photo') || ':'
+    || (select count(*)::text from public.patient_timeline where source_id = v_d1 and title = 'Details read from your photo'));
   perform pg_temp.ck('2o document.ocr_suggested emitted', '1', (select count(*)::text from public.domain_events where event_type = 'document.ocr_suggested' and aggregate_id = v_d1));
   perform pg_temp.ck('2p a second reading is refused (not pending)', 'true',
     (pg_temp.try_service(format($q$select public.record_document_suggestion(%L, 'again', '{"fields":[]}', 'm', false)$q$, v_d1)) like '%not waiting%')::text);
@@ -206,6 +209,8 @@ begin
        || ':' || (select count(*) from public.clinician_alerts where patient_id = v_pat)
        || ':' || (select count(*) from public.lab_analyte_readings where patient_id = v_pat)
        || ':' || (select count(*) from public.vitals_readings where patient_id = v_pat and source::text not in ('manual', 'device'))));
+  perform pg_temp.ck('2afa rejecting a suggestion adds a row saying nothing was kept, tier patient', 'patient',
+    (select trust_tier from public.patient_timeline where source_id = v_d2 and title = 'Details from your photo not kept'));
   perform pg_temp.ck('2af no confirmed timeline entry exists for the rejected document', '0',
     (select count(*)::text from public.patient_timeline where source_id = v_d2 and title = 'Details confirmed from your photo'));
   perform pg_temp.ck('2ag rejecting twice is refused', 'true',
@@ -219,6 +224,16 @@ begin
   perform pg_temp.try_service(format($q$select public.record_document_suggestion(%L, null, null, 'm', true)$q$, v_d3));
   perform pg_temp.ck('2ai a failed reading holds nothing', 'failed:true:true',
     (select ocr_state || ':' || (ocr_text is null)::text || ':' || (extracted is null)::text from public.patient_documents where id = v_d3));
+  -- a photo whose reading cannot run (guard closed for a real patient) can still be marked failed, so it never waits forever
+  perform pg_temp.act(v_pat);
+  insert into public.patient_documents (organisation_id, patient_id, document_type, file_path, source, ocr_state)
+  values (v_org, v_pat, 'other', v_pat || '/s43-d.jpg', 'patient', 'pending') returning id into v_s2;
+  perform pg_temp.back();
+  update public.profiles set is_test = false where id = v_pat;
+  perform pg_temp.try_service(format($q$select public.record_document_suggestion(%L, null, null, 'm', true)$q$, v_s2));
+  perform pg_temp.ck('2aia failing a reading needs no open guard, so a photo never waits forever (a real patient, guard closed)', 'failed',
+    (select ocr_state from public.patient_documents where id = v_s2));
+  update public.profiles set is_test = true where id = v_pat;
   -- nothing else reads the suggestions: no function outside this module touches the reading columns of patient_documents
   perform pg_temp.ck('2aj only the S43 functions read ocr_text or extracted of patient_documents', '',
     coalesce((select string_agg(p.proname, ',' order by p.proname) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -352,14 +367,19 @@ begin
   values (gen_random_uuid(), v_org, v_pat, 'api', 'partner', 'released', now(), 'RES-001', now(), v_admin, 'wrong patient') returning id into v_s2;
   insert into public.lab_result_items (lab_result_id, organisation_id, patient_id, analyte_code, value_numeric, unit, flag, sensitive_positive)
   values (v_s2, v_org, v_pat, 'LDL', 8.8, 'mmol/L', 'high', false);
+  -- a released result that a later one replaced (a correction): the old one must not appear in a share or a trend
+  insert into public.lab_results (id, organisation_id, patient_id, source, submitted_by_kind, release_state, released_at, release_reason, superseded_by)
+  values (gen_random_uuid(), v_org, v_pat, 'api', 'partner', 'released', now() - interval '20 days', 'RES-001', v_cat) returning id into v_s2;
+  insert into public.lab_result_items (lab_result_id, organisation_id, patient_id, analyte_code, value_numeric, unit, flag, sensitive_positive)
+  values (v_s2, v_org, v_pat, 'LDL', 7.7, 'mmol/L', 'high', false);
   set local session_replication_role = origin;
   insert into public.procedures (organisation_id, patient_id, name, approximate_year, is_test) values (v_org, v_pat, 'Tonsillectomy', 2005, true);
 
   v_j := public.record_share_open(v_tok);
   perform pg_temp.ck('5k a clean opening returns ok with the record', 'ok', v_j ->> 'status');
   perform pg_temp.ck('5l the lab section no longer raises and shows final legacy readings and one released item', '4', jsonb_array_length(v_j -> 'record' -> 'lab_results')::text);
-  perform pg_temp.ck('5m a held, a withdrawn and a sensitive positive item are absent, a preliminary reading is absent', '0',
-    (select count(*)::text from jsonb_array_elements(v_j -> 'record' -> 'lab_results') x where x ->> 'code' in ('HIV') or (x ->> 'value')::numeric in (9.9, 8.8, 99)));
+  perform pg_temp.ck('5m a held, a withdrawn, a replaced and a sensitive positive item are absent, a preliminary reading is absent', '0',
+    (select count(*)::text from jsonb_array_elements(v_j -> 'record' -> 'lab_results') x where x ->> 'code' in ('HIV') or (x ->> 'value')::numeric in (9.9, 8.8, 99, 7.7)));
   perform pg_temp.ck('5n the procedures section is present', '2', jsonb_array_length(v_j -> 'record' -> 'procedures')::text);
   perform pg_temp.ck('5o a tombstoned procedure is absent', '0', (select count(*)::text from jsonb_array_elements(v_j -> 'record' -> 'procedures') x where x ->> 'name' = 'Hernia repair'));
   perform pg_temp.ck('5p the opening is logged and counted', '1:viewed:1',
@@ -370,6 +390,24 @@ begin
   perform pg_temp.ck('5r anon can open a link', 'ok', pg_temp.q_anon(format($q$select (public.record_share_open(%L) ->> 'status')$q$, v_tok)));
   perform pg_temp.ck('5s an unknown token is not_found and logs no attempt row', 'not_found',
     (public.record_share_open(repeat('b', 64)) ->> 'status'));
+  -- PREVIEW: what a plain GET does (a link-preview bot or mail scanner must not spend a view or read a record)
+  v_j := pg_temp.q_as(v_pat, $q$select public.create_record_share(array['vitals'], 24, null, 1)::text$q$)::jsonb;
+  v_t := public.record_share_open(v_j ->> 'token', null, false)::text;
+  perform pg_temp.ck('5pa a preview of a live link says ready and returns no record', 'ready:false',
+    (v_t::jsonb ->> 'status') || ':' || (v_t::jsonb ? 'record')::text);
+  perform pg_temp.ck('5pb a preview spends no view and logs no opening', '0:0',
+    (select view_count::text from public.record_shares where id = (v_j ->> 'id')::uuid) || ':'
+    || (select count(*)::text from public.record_share_lookups where share_id = (v_j ->> 'id')::uuid and outcome = 'viewed'));
+  perform public.record_share_open(v_j ->> 'token', null, false); perform public.record_share_open(v_j ->> 'token', null, false);
+  perform pg_temp.ck('5pc many previews still leave the one allowed view for a person', 'ok',
+    public.record_share_open(v_j ->> 'token') ->> 'status');
+  perform pg_temp.ck('5pd and that one deliberate opening then closes the link', 'gone:view_cap',
+    (public.record_share_open(v_j ->> 'token') ->> 'status') || ':' || (public.record_share_open(v_j ->> 'token') ->> 'reason'));
+  v_j := pg_temp.q_as(v_pat, $q$select public.create_record_share(array['vitals'], 24, '5555')::text$q$)::jsonb;
+  perform pg_temp.ck('5pe a preview of a PIN link asks for the PIN and shows nothing', 'pin_required',
+    public.record_share_open(v_j ->> 'token', '5555', false) ->> 'status');
+  perform pg_temp.ck('5pf a preview never checks or counts a PIN', '0',
+    (select pin_failed_attempts::text from public.record_shares where id = (v_j ->> 'id')::uuid));
   perform pg_temp.ck('5t the old function name still works for a clean opening and returns the bare record', 'true',
     ((public.record_share_by_token(v_tok) ? 'full_name'))::text);
 
@@ -379,8 +417,11 @@ begin
   perform pg_temp.ck('5u an expired link is gone (the route answers 410)', 'gone:expired', (v_j ->> 'status') || ':' || (v_j ->> 'reason'));
   perform pg_temp.ck('5v the expired attempt is logged against the link', '1',
     (select count(*)::text from public.record_share_lookups where share_id = pg_temp.f('share') and outcome = 'expired'));
+  v_t := public.record_share_open(v_tok, null, false)::text;
+  perform pg_temp.ck('5va a PREVIEW of an expired link is gone too, and is logged', 'gone:2',
+    (v_t::jsonb ->> 'status') || ':' || (select count(*)::text from public.record_share_lookups where share_id = pg_temp.f('share') and outcome = 'expired'));
   perform pg_temp.ck('5w an expired link returns no record', 'false', (v_j ? 'record')::text);
-  perform pg_temp.ck('5x the patient sees the attempt', '1',
+  perform pg_temp.ck('5x the patient sees both attempts (the person and the preview)', '2',
     pg_temp.q_as(v_pat, format($q$select count(*)::text from public.record_share_lookups where share_id = %L and outcome = 'expired'$q$, pg_temp.f('share'))));
   perform pg_temp.ck('5y the other patient does not', '0',
     pg_temp.q_as(v_pat2, format($q$select count(*)::text from public.record_share_lookups where share_id = %L$q$, pg_temp.f('share'))));
@@ -457,13 +498,13 @@ begin
     (pg_temp.q_as(v_pat, $q$select jsonb_array_length(public.patient_biomarker_trend('LDL') -> 'points')::text$q$)));
   perform pg_temp.ck('7l the sensitive positive analyte has no trend', '0', (pg_temp.q_as(v_pat, $q$select jsonb_array_length(public.patient_biomarker_trend('HIV') -> 'points')::text$q$)));
   perform pg_temp.ck('7m the list names the analytes the person has', 'true',
-    (pg_temp.q_as(v_pat, $q$select (public.patient_biomarker_list()::text like '%hba1c%' and public.patient_biomarker_list()::text like '%LDL%')::text$q$)));
+    (pg_temp.q_as(v_pat, $q$select (public.patient_biomarker_list()::text like '%hba1c%' and public.patient_biomarker_list()::text like '%ldl%')::text$q$)));
 
   perform pg_temp.ck('7n the list carries the lab''s own range for the latest result (the doctor summary reads it)', 'true:true',
     pg_temp.q_as(v_pat, $q$select ((x ->> 'latest_ref_low')::numeric = 20 and (x ->> 'latest_ref_high')::numeric = 38)::text || ':' || (x ->> 'latest_unit' = 'mmol/mol')::text
        from jsonb_array_elements(public.patient_biomarker_list()) x where x ->> 'code' = 'hba1c'$q$));
   perform pg_temp.ck('7o the list never carries the sensitive positive analyte', '0',
-    pg_temp.q_as(v_pat, $q$select count(*)::text from jsonb_array_elements(public.patient_biomarker_list()) x where x ->> 'code' = 'HIV'$q$));
+    pg_temp.q_as(v_pat, $q$select count(*)::text from jsonb_array_elements(public.patient_biomarker_list()) x where lower(x ->> 'code') = 'hiv'$q$));
 
   -- ===== 8. vaccination =========================================================================================================
   select id into v_cat from public.vaccination_catalog where is_active order by code limit 1;
@@ -511,7 +552,7 @@ begin
       'public.revoke_record_share(uuid)', 'public.patient_biomarker_list(uuid)', 'public.patient_biomarker_trend(text, uuid, date)', 'public.vaccination_schedule_status()',
       'public.emergency_card_full_by_token(text)']) fn where has_function_privilege('anon', fn::regprocedure, 'EXECUTE')), ''));
   perform pg_temp.ck('9b the share door and the card wrapper are the anon-callable ones', 'true:true:true',
-    has_function_privilege('anon', 'public.record_share_open(text, text)', 'EXECUTE')::text || ':' || has_function_privilege('anon', 'public.record_share_by_token(text)', 'EXECUTE')::text
+    has_function_privilege('anon', 'public.record_share_open(text, text, boolean)', 'EXECUTE')::text || ':' || has_function_privilege('anon', 'public.record_share_by_token(text)', 'EXECUTE')::text
     || ':' || has_function_privilege('anon', 'public.emergency_card_by_token(text)', 'EXECUTE')::text);
   perform pg_temp.ck('9c RLS is on for every new table', '0',
     (select count(*)::text from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relname in ('procedures', 'emergency_card_fields', 'record_share_config') and not c.relrowsecurity));
@@ -533,6 +574,11 @@ begin
   update public.vaccination_schedules set reminder_stage = null where patient_id = v_pat;
   select count(*) into v_n from public.notifications where recipient_id = v_pat and template like 'vaccination_%';
   perform private.queue_vaccination_reminders_when_signed();
+  -- D. a preview that commits (a GET that behaves like a deliberate opening) spends a view: the 5pb check would fail
+  v_j := pg_temp.q_as(v_pat, $q$select public.create_record_share(array['vitals'], 24, null, 5)::text$q$)::jsonb;
+  perform public.record_share_open(v_j ->> 'token', null, true);
+  insert into results values ('sabotaged', '5pb a preview spends no view', '0',
+    (select view_count::text from public.record_shares where id = (v_j ->> 'id')::uuid));
   insert into results values ('sabotaged', '8k reminders while unsigned', '0',
     ((select count(*) from public.notifications where recipient_id = v_pat and template like 'vaccination_%') - v_n)::text);
 end $$;
@@ -552,7 +598,7 @@ begin
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), E'\n  ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 3 then raise exception 'VACUOUS TEST: the sabotage flipped % of 3 checks', v_caught; end if;
+  if v_caught < 4 then raise exception 'VACUOUS TEST: the sabotage flipped % of 4 checks', v_caught; end if;
 end $$;
 
 

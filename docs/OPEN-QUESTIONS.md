@@ -1532,8 +1532,11 @@ Numbered `OQ-S43-n` because other sessions are adding `OQ-nnn` entries in parall
 - The timeline staff read also means a staff member can see a patient's `trust_tier`, `symptom_logged` and `procedure_recorded` rows without an audit entry.
 - Decision: open (the S05 follow-up owner).
 
-### OQ-S43-4 Letting a person put mental health or reproductive health in a share link on purpose
-- The spec says these are excluded unless explicitly chosen. Built: they are not members of the closed section set, so they are off and cannot be added by accident. No explicit opt-in exists. Building one means new access-category checks (`reproductive_health` break-glass and guardian rules apply) and counsel on what a link holder may see.
+### OQ-S43-4 Mental health and reproductive health in share links and summaries: the exclusion is partial
+- The spec says these are excluded unless explicitly chosen. Built: they are not sections in the closed set, so no one can tick them by accident, and no explicit opt-in exists.
+- **The limit, found in review:** a medicine, condition or lab result inside a general section is not classified by what it is for. A contraceptive in the medicines list, or a pregnancy hormone result in the results list, WOULD be shared (and listed in the facility summary and readable by a caregiver who holds only the labs category). The screen copy now says so plainly instead of promising an exclusion it cannot make.
+- To close it: a CMO-signed tag list (which medicines and analytes are reproductive or mental health) applied in `record_share_open`, `patient_biomarker_*` and the summary, with the `reproductive_health` category and guardian rules. Do not build the tag list without the CMO.
+- An explicit opt-in section needs the same access-category checks and counsel on what a link holder may see.
 - Options: (a) leave them out entirely (as built); (b) add explicit sections after the access-category review.
 - Decision: open (founder and CMO, X7).
 

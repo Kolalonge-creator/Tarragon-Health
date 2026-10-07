@@ -14,11 +14,12 @@ import { loadEmergencyDatasetForPatient } from "@/lib/emergency/dataset";
  * `buildDoctorSummary` is pure: it turns gathered rows into the printed lines.
  */
 
-export type Provenance = "patient" | "clinician_confirmed" | "laboratory" | "device" | "imported";
+export type Provenance = "patient" | "clinician_confirmed" | "care_plan" | "laboratory" | "device" | "imported";
 
 export const PROVENANCE_LABEL: Record<Provenance, string> = {
   patient: "entered by the patient",
   clinician_confirmed: "confirmed by a clinician",
+  care_plan: "from the patient's care plan",
   laboratory: "from a laboratory",
   device: "from a device (estimate)",
   imported: "imported from another record",
@@ -40,6 +41,8 @@ export interface DoctorSummary {
 
 export interface DoctorSummaryInput {
   facts: EmergencyClinicalFacts;
+  /** Medicines with who stands behind each: a signed prescription is a clinician's; a medicine the patient added is the patient's. Falls back to the card's list, all patient-entered. */
+  medications?: { name: string; dose: string | null; frequency: string | null; prescribed: boolean }[];
   vitals: { vitalType: string; text: string; takenAt: string; source: string }[];
   labs: { code: string; text: string; takenAt: string; range: string | null; flag: string | null }[];
   vaccinations: { name: string; doseNumber: number | null; givenAt: string | null; verified: boolean }[];
@@ -98,13 +101,18 @@ export function buildDoctorSummary(input: DoctorSummaryInput): DoctorSummary {
       key: "medications",
       title: "Current medicines",
       emptyText: "None recorded",
-      lines: facts.medications.map((m) => ({ text: m.drug_name, detail: [m.dose, m.frequency].filter(Boolean).join(", ") || null, provenance: "patient" as Provenance })),
+      lines: (input.medications ?? facts.medications.map((m) => ({ name: m.drug_name, dose: m.dose, frequency: m.frequency, prescribed: false }))).map((m) => ({
+        text: m.name,
+        detail: [m.dose, m.frequency].filter(Boolean).join(", ") || null,
+        provenance: (m.prescribed ? "clinician_confirmed" : "patient") as Provenance,
+      })),
     },
     {
       key: "conditions",
       title: "Ongoing conditions",
       emptyText: "None recorded",
-      lines: facts.conditions.map((c) => ({ text: humanise(c), detail: null, provenance: "clinician_confirmed" as Provenance })),
+      // a condition here is one the patient's care plan is organised around; that is not the same as a clinician having confirmed a diagnosis, so it says so
+      lines: facts.conditions.map((c) => ({ text: humanise(c), detail: null, provenance: "care_plan" as Provenance })),
     },
     {
       key: "vitals",
@@ -159,26 +167,35 @@ export function buildDoctorSummary(input: DoctorSummaryInput): DoctorSummary {
   };
 }
 
-const MAX_PER_SECTION = { vitals: 8, labs: 12, vaccinations: 15, procedures: 10, family: 10 } as const;
+const MAX_PER_SECTION = { labs: 12, vaccinations: 15, procedures: 10, family: 10 } as const;
 
 /** Gathers everything through the person's own session (RLS), then builds the summary. */
 export async function getDoctorSummary(supabase: SupabaseClient<Database>, patientId: string): Promise<DoctorSummary> {
-  const [facts, vitalsRes, labsRes, vaccRes, procRes, famRes] = await Promise.all([
+  const VITAL_TYPES = ["blood_pressure", "glucose", "weight", "pulse", "temperature", "spo2"] as const;
+  const [facts, medsRes, labsRes, vaccRes, procRes, famRes, ...vitalRows] = await Promise.all([
     loadEmergencyDatasetForPatient(supabase, patientId),
-    supabase.from("vitals_readings").select("vital_type, systolic, diastolic, glucose_mmol_l, weight_kg, pulse_bpm, temperature_c, spo2_pct, source, taken_at").eq("patient_id", patientId).order("taken_at", { ascending: false }).limit(60),
+    supabase.from("medications").select("drug_name, dose, frequency, prescription_id").eq("patient_id", patientId).eq("is_active", true).order("drug_name"),
     // The same released-only, non-sensitive results the trends screen reads (INV-03, INV-04), with the laboratory's own range.
     supabase.rpc("patient_biomarker_list", { p_patient: patientId }),
     supabase.from("immunisations").select("vaccine_code, dose_number, given_at, verified").eq("patient_id", patientId).order("given_at", { ascending: false }).limit(MAX_PER_SECTION.vaccinations),
     supabase.from("procedures").select("name, performed_on, approximate_year, verified_by_clinician").eq("patient_id", patientId).is("removed_at", null).order("created_at", { ascending: false }).limit(MAX_PER_SECTION.procedures),
     supabase.from("family_history").select("condition_name, relationship, verified_by_clinician").eq("patient_id", patientId).is("removed_at", null).limit(MAX_PER_SECTION.family),
+    // The latest reading of EACH type, one small query per type: a patient who logs blood pressure daily must still see their weight and glucose.
+    ...VITAL_TYPES.map((vt) =>
+      supabase
+        .from("vitals_readings")
+        .select("vital_type, systolic, diastolic, glucose_mmol_l, weight_kg, pulse_bpm, temperature_c, spo2_pct, source, taken_at")
+        .eq("patient_id", patientId)
+        .eq("vital_type", vt)
+        .order("taken_at", { ascending: false })
+        .limit(1)
+    ),
   ]);
 
-  // latest per vital type
-  const seen = new Set<string>();
   const vitals: DoctorSummaryInput["vitals"] = [];
-  for (const v of vitalsRes.data ?? []) {
-    if (seen.has(v.vital_type)) continue;
-    seen.add(v.vital_type);
+  for (const res of vitalRows) {
+    const v = res.data?.[0];
+    if (!v) continue;
     const text =
       v.vital_type === "blood_pressure" ? `${v.systolic}/${v.diastolic} mmHg`
       : v.vital_type === "glucose" ? `${v.glucose_mmol_l} mmol/L`
@@ -188,7 +205,6 @@ export async function getDoctorSummary(supabase: SupabaseClient<Database>, patie
       : v.vital_type === "spo2" ? `${v.spo2_pct}%`
       : "";
     if (text) vitals.push({ vitalType: v.vital_type, text, takenAt: v.taken_at, source: String(v.source) });
-    if (vitals.length >= MAX_PER_SECTION.vitals) break;
   }
 
   type LabListItem = {
@@ -215,6 +231,7 @@ export async function getDoctorSummary(supabase: SupabaseClient<Database>, patie
 
   return buildDoctorSummary({
     facts,
+    medications: (medsRes.data ?? []).map((m) => ({ name: m.drug_name, dose: m.dose, frequency: m.frequency, prescribed: m.prescription_id !== null })),
     vitals,
     labs,
     vaccinations: (vaccRes.data ?? []).map((v) => ({ name: v.vaccine_code ? humaniseCode(v.vaccine_code) : "Vaccine", doseNumber: v.dose_number, givenAt: v.given_at, verified: v.verified === true })),

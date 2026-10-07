@@ -22,6 +22,8 @@ export interface EmergencyFacts {
   conditions: string[];
   medications: EmergencyMedication[];
   emergencyContact: EmergencyContact | null;
+  /** Details the person chose not to put on the card (S43). Shown as "not shared", never as "none". Absent in an older cache. */
+  hidden?: ("allergies" | "medications" | "conditions" | "blood" | "emergency_contact")[];
   cachedAt: string;
 }
 
@@ -106,8 +108,15 @@ export interface EmergencyFieldChoicesRow {
 /** Removes what the person chose not to show (S43, spec 2.7). The web card and the live link apply the same choices. */
 export function applyEmergencyFieldChoices(facts: EmergencyFacts, row: EmergencyFieldChoicesRow | null): EmergencyFacts {
   if (!row) return facts;
+  const hidden: NonNullable<EmergencyFacts["hidden"]> = [];
+  if (!row.show_allergies) hidden.push("allergies");
+  if (!row.show_medications) hidden.push("medications");
+  if (!row.show_conditions) hidden.push("conditions");
+  if (!row.show_blood) hidden.push("blood");
+  if (!row.show_emergency_contact) hidden.push("emergency_contact");
   return {
     ...facts,
+    hidden,
     allergies: row.show_allergies ? facts.allergies : [],
     medications: row.show_medications ? facts.medications : [],
     conditions: row.show_conditions ? facts.conditions : [],

@@ -82,8 +82,8 @@ begin
                (array_agg(p.ref_low order by p.taken_at desc))[1] latest_ref_low,
                (array_agg(p.ref_high order by p.taken_at desc))[1] latest_ref_high,
                (array_agg(p.ref_text order by p.taken_at desc))[1] latest_ref_text
-          from (select i.analyte_code code from public.lab_result_items i where i.patient_id = v_patient
-                union select l.code from public.lab_analyte_readings l where l.patient_id = v_patient) codes
+          from (select lower(i.analyte_code) code from public.lab_result_items i where i.patient_id = v_patient
+                union select lower(l.code) from public.lab_analyte_readings l where l.patient_id = v_patient) codes
           cross join lateral private.biomarker_points(v_patient, codes.code) p
          group by codes.code) c), '[]'::jsonb);
 end;

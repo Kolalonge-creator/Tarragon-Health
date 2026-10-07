@@ -19,7 +19,8 @@ jest.mock("@/lib/supabase/server", () => ({
     rpc: (...args: unknown[]) => rpc(...args),
   }),
 }));
-jest.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => ({ service: true }) }));
+const serviceRpc = jest.fn();
+jest.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => ({ service: true, rpc: (...args: unknown[]) => serviceRpc(...args) }) }));
 const runDocumentCapture = jest.fn();
 jest.mock("./run", () => ({
   DOCUMENT_CAPTURE_GUARD: "document_capture_enabled",
@@ -33,6 +34,7 @@ const DOC = "11111111-1111-4111-8111-111111111111";
 beforeEach(() => {
   getCurrentUser.mockReset().mockResolvedValue({ id: "p1" });
   rpc.mockReset();
+  serviceRpc.mockReset().mockResolvedValue({ data: null, error: null });
   maybeSingle.mockReset().mockResolvedValue({ data: { id: DOC, patient_id: "p1", ocr_state: "pending" } });
   runDocumentCapture.mockReset().mockResolvedValue({ status: "suggested", fieldCount: 2, message: "Check each detail." });
 });
@@ -63,6 +65,8 @@ describe("requestDocumentReadingAction", () => {
     expect(out).toMatchObject({ success: true, status: "closed" });
     expect(rpc).toHaveBeenCalledWith("go_live_guard_is_open", { p_key: "document_capture_enabled" });
     expect(runDocumentCapture).not.toHaveBeenCalled();
+    // the photo stops waiting: the reading is marked failed (no guard needed), holding nothing
+    expect(serviceRpc).toHaveBeenCalledWith("record_document_suggestion", expect.objectContaining({ p_document: DOC, p_failed: true, p_extracted: {} }));
   });
 
   it("fails closed when the guard check itself errors", async () => {
@@ -75,7 +79,7 @@ describe("requestDocumentReadingAction", () => {
     rpc.mockResolvedValue({ data: true, error: null });
     const out = await requestDocumentReadingAction(DOC);
     expect(out).toMatchObject({ success: true, status: "suggested" });
-    expect(runDocumentCapture).toHaveBeenCalledWith({ service: true }, DOC);
+    expect(runDocumentCapture).toHaveBeenCalledWith(expect.objectContaining({ service: true }), DOC);
   });
 
   it("surfaces a failed reading as an error with the by-hand message", async () => {

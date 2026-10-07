@@ -145,6 +145,8 @@ export async function runDocumentCapture(
   if (error) {
     // 55000 is the capture guard being closed for this patient: nothing was stored.
     if (error.code === "55000") {
+      // Mark the reading failed (no guard needed) so the photo does not wait forever; the photo itself is kept.
+      await recordFailure("Reading from photos is not open yet. Your photo is saved.");
       return { status: "closed", fieldCount: 0, message: "Reading from photos is not open yet. Your photo is saved." };
     }
     console.error("document-capture: could not record suggestions", error);

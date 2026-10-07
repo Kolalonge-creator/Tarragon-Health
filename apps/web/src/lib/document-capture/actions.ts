@@ -35,7 +35,16 @@ export async function requestDocumentReadingAction(documentId: string): Promise<
 
   const { data: open } = await supabase.rpc("go_live_guard_is_open", { p_key: DOCUMENT_CAPTURE_GUARD });
   if (open !== true) {
-    // Closed: keep the photo, ask for nothing from a model. The patient types the details in by hand.
+    // Closed: keep the photo, ask for nothing from a model. Mark the reading failed (it needs no open guard) so the photo
+    // does not wait forever; the patient types any details in by hand.
+    await createServiceRoleClient().rpc("record_document_suggestion", {
+      p_document: id.data,
+      p_ocr_text: "",
+      p_extracted: {},
+      p_model: "none",
+      p_failed: true,
+    });
+    revalidatePath("/patient/documents");
     return { success: true, status: "closed", message: "Reading from photos is not open yet. Your photo is saved." };
   }
 

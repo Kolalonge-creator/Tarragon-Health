@@ -121,6 +121,14 @@ describe("the person's chosen card fields (S43)", () => {
     expect(facts.emergencyContact).not.toBeNull();
   });
 
+  it("records which details were hidden so the card can say not shared instead of none", async () => {
+    seed({ emergency_card_fields: CHOICES });
+    const facts = await loadEmergencyFacts("patient-1");
+    expect(facts.hidden).toEqual(["medications", "conditions", "emergency_contact"]);
+    const cached = JSON.parse((await SecureStore.getItemAsync(CACHE_KEY)) ?? "null");
+    expect(cached.hidden).toEqual(["medications", "conditions", "emergency_contact"]);
+  });
+
   it("applyEmergencyFieldChoices keeps the name and never mutates its input", () => {
     const facts = { fullName: "Ada", bloodGroup: "O+", genotype: "AA", allergies: [], conditions: ["x"], medications: [], emergencyContact: null, cachedAt: "t" };
     const out = applyEmergencyFieldChoices(facts, { ...CHOICES, show_blood: false });

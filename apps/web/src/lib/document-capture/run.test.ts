@@ -135,10 +135,11 @@ describe("runDocumentCapture", () => {
     expect((await runDocumentCapture(service, "d1", { extract: jest.fn() })).status).toBe("failed");
   });
 
-  it("reports a closed guard (55000) and stores nothing", async () => {
-    const { service } = makeService({ rpcError: { code: "55000", message: "document capture is not open" } });
+  it("reports a closed guard (55000), stores no suggestions, and marks the reading failed so the photo does not wait forever", async () => {
+    const { service, rpc } = makeService({ rpcError: { code: "55000", message: "document capture is not open" } });
     const out = await runDocumentCapture(service, "d1", { extract: async () => SUGGESTED });
     expect(out.status).toBe("closed");
+    expect(rpc).toHaveBeenLastCalledWith("record_document_suggestion", expect.objectContaining({ p_failed: true, p_extracted: {} }));
   });
 
   it("never throws, even if the governed wrapper itself throws: the photo is kept and the reading is recorded as failed", async () => {

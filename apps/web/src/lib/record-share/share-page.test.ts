@@ -13,6 +13,7 @@ const RECORD: SharedRecord = {
 describe("httpStatusFor", () => {
   const cases: [ShareOpenResult, number][] = [
     [{ status: "ok", record: RECORD }, 200],
+    [{ status: "ready", views_left: 2 }, 200],
     [{ status: "gone", reason: "expired" }, 410],
     [{ status: "gone", reason: "revoked" }, 410],
     [{ status: "gone", reason: "view_cap" }, 410],
@@ -32,6 +33,10 @@ describe("parseOpenResult", () => {
     expect(parseOpenResult({ status: "gone", reason: "view_cap" })).toEqual({ status: "gone", reason: "view_cap" });
     expect(parseOpenResult({ status: "pin_wrong", attempts_left: 3 })).toEqual({ status: "pin_wrong", attempts_left: 3 });
     expect(parseOpenResult({ status: "ok", record: RECORD })).toEqual({ status: "ok", record: RECORD });
+  });
+  it("reads a preview", () => {
+    expect(parseOpenResult({ status: "ready", views_left: 2 })).toEqual({ status: "ready", views_left: 2 });
+    expect(parseOpenResult({ status: "ready" })).toEqual({ status: "ready", views_left: null });
   });
   it("reads anything unrecognised as not found, the safe direction", () => {
     expect(parseOpenResult(null)).toEqual({ status: "not_found" });
@@ -90,6 +95,15 @@ describe("renderSharePage", () => {
     };
     const html = renderSharePage({ status: "ok", record: rec }, "t".repeat(64));
     expect(html.match(/class="ok"/g)).toHaveLength(1);
+  });
+
+  it("a preview shows no record, a button that posts, and how many views are left", () => {
+    const token = "ab".repeat(32);
+    const html = renderSharePage({ status: "ready", views_left: 1 }, token);
+    expect(html).toContain(`<form method="post" action="/share/${token}">`);
+    expect(html).toContain("<button");
+    expect(html).not.toContain("Ada");
+    expect(html).toMatch(/1 more views allowed/);
   });
 
   it("an expired link shows no record and says it has ended", () => {

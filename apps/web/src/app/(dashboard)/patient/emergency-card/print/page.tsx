@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { getActingFor } from "@/lib/acting/acting-for";
 import { loadEmergencyDatasetForPatient } from "@/lib/emergency/dataset";
-import { applyCardFieldChoices, choicesFromRow } from "@/lib/emergency/field-choices";
+import { applyCardFieldChoices, choicesFromRow, hiddenFields } from "@/lib/emergency/field-choices";
 import { buildEmergencyQrText } from "@/lib/emergency/qr-text";
 import { emergencyTextQrSvg } from "@/lib/emergency/qr-render";
 import { EmergencyCardBody } from "@/components/emergency/emergency-card-body";
@@ -52,14 +52,16 @@ export default async function EmergencyCardPrintPage() {
       .eq("patient_id", user.id)
       .maybeSingle(),
   ]);
-  const facts = applyCardFieldChoices(fullFacts, choicesFromRow(fieldsRow));
+  const choices = choicesFromRow(fieldsRow);
+  const facts = applyCardFieldChoices(fullFacts, choices);
+  const hidden = hiddenFields(choices);
 
   const printedOn = new Date().toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
     day: "numeric",
     month: "short",
     year: "numeric",
   });
-  const qrText = buildEmergencyQrText(facts, printedOn);
+  const qrText = buildEmergencyQrText(facts, printedOn, hidden);
   const qrSvg = await emergencyTextQrSvg(qrText);
 
   return (
@@ -82,6 +84,7 @@ export default async function EmergencyCardPrintPage() {
 
       <EmergencyCardBody
         facts={facts}
+        hidden={hidden}
         headerLabel="Emergency health card"
         headerSubline={`Printed ${printedOn}`}
         qrSlot={

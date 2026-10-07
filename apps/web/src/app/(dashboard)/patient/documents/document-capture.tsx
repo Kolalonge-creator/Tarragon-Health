@@ -41,6 +41,7 @@ export function DocumentCapture({
 }) {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
+  const camera = useRef<HTMLInputElement>(null);
   const [type, setType] = useState<DocumentCaptureType>("prescription");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -88,6 +89,7 @@ export function DocumentCapture({
         setMessage(t("passport.documents.saved_no_reading", locale));
       }
       if (input.current) input.current.value = "";
+      if (camera.current) camera.current.value = "";
       router.refresh();
     });
   }
@@ -113,11 +115,24 @@ export function DocumentCapture({
             ))}
           </Select>
         </div>
+        {/* Two doors: the camera (which many phones open straight into the camera and nothing else) and the file chooser,
+            so a PDF or a photo already in the gallery can still be added. */}
+        <input
+          ref={camera}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="sr-only"
+          id="doc-camera"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) upload(f);
+          }}
+        />
         <input
           ref={input}
           type="file"
           accept={ACCEPT}
-          capture="environment"
           className="sr-only"
           id="doc-file"
           onChange={(e) => {
@@ -125,9 +140,14 @@ export function DocumentCapture({
             if (f) upload(f);
           }}
         />
-        <Button type="button" disabled={pending} onClick={() => input.current?.click()} className="w-full sm:w-auto">
-          {pending ? t("passport.documents.working", locale) : t("passport.documents.choose", locale)}
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button type="button" disabled={pending} onClick={() => camera.current?.click()} className="w-full sm:w-auto">
+            {pending ? t("passport.documents.working", locale) : t("passport.documents.take_photo", locale)}
+          </Button>
+          <Button type="button" variant="outline" disabled={pending} onClick={() => input.current?.click()} className="w-full sm:w-auto">
+            {t("passport.documents.choose_file", locale)}
+          </Button>
+        </div>
         {error && (
           <p role="alert" className="text-sm text-red-700">
             {error}

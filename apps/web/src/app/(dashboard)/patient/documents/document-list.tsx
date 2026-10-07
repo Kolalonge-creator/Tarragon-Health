@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { confirmDocumentFieldsAction, rejectDocumentReadingAction } from "@/lib/document-capture/actions";
+import { confirmDocumentFieldsAction, rejectDocumentReadingAction, requestDocumentReadingAction } from "@/lib/document-capture/actions";
 import { decisionsForRpc, summariseDecisions, type FieldDecision, type SuggestedField } from "@/lib/document-capture/suggestions";
 import { t, type Locale, type MessageKey } from "@tarragon/i18n";
 
@@ -115,6 +115,41 @@ function SuggestionReview({ row, canConfirm, locale }: { row: DocumentRow; canCo
   );
 }
 
+/** A photo that is still waiting: the person can ask again, or decide it should not be read. It never waits with no way out. */
+function PendingActions({ row, canConfirm, locale }: { row: DocumentRow; canConfirm: boolean; locale: Locale }) {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  function run(action: () => Promise<{ error?: string }>) {
+    setError(null);
+    startTransition(async () => {
+      const res = await action();
+      if (res.error) setError(res.error);
+      router.refresh();
+    });
+  }
+  return (
+    <div className="mt-2 space-y-2">
+      <p className="text-xs text-charcoal-ink/65 dark:text-night-ink/65">{t("passport.documents.state.pending", locale)}</p>
+      {error && (
+        <p role="alert" className="text-xs text-red-700">
+          {error}
+        </p>
+      )}
+      {canConfirm && (
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" size="sm" disabled={pending} onClick={() => run(() => requestDocumentReadingAction(row.id))}>
+            {t("passport.documents.read_now", locale)}
+          </Button>
+          <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => rejectDocumentReadingAction(row.id))}>
+            {t("passport.documents.not_now", locale)}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function DocumentList({ rows, canConfirm, locale }: { rows: DocumentRow[]; canConfirm: boolean; locale: Locale }) {
   return (
     <Card>
@@ -143,7 +178,7 @@ export function DocumentList({ rows, canConfirm, locale }: { rows: DocumentRow[]
                   )}
                 </div>
                 {row.ocrState === "suggested" && <SuggestionReview row={row} canConfirm={canConfirm} locale={locale} />}
-                {row.ocrState === "pending" && <p className="mt-2 text-xs text-charcoal-ink/65 dark:text-night-ink/65">{t("passport.documents.state.pending", locale)}</p>}
+                {row.ocrState === "pending" && <PendingActions row={row} canConfirm={canConfirm} locale={locale} />}
                 {row.ocrState === "confirmed" && (
                   <div className="mt-3 space-y-1">
                     <p className="text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">{t("passport.documents.state.confirmed", locale)}</p>

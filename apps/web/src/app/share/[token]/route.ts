@@ -10,6 +10,9 @@ import { httpStatusFor, renderSharePage, shareHeaders } from "@/lib/record-share
  * a link that needs a PIN answers 401, a locked one 423, an unknown one 404.
  * The PIN is read from a POST body, never from the URL.
  *
+ * GET IS A PREVIEW, POST OPENS. A messaging app unfurling a pasted link, or a mail scanner, only GETs. A GET therefore never counts a view and
+ * never returns a record: it answers whether the link is live (with a button) or needs a PIN. The record is returned only to a POST.
+ *
  * Opening a link is the audited event: record_share_open writes the lookup row,
  * counts the view under a row lock (so a view cap cannot be exceeded by two
  * simultaneous openings) and emits share_link.accessed. No clinical value is
@@ -19,14 +22,15 @@ import { httpStatusFor, renderSharePage, shareHeaders } from "@/lib/record-share
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-async function respond(token: string, pin: string | null): Promise<Response> {
-  const result = await openShare(token, pin);
+async function respond(token: string, pin: string | null, commit: boolean): Promise<Response> {
+  const result = await openShare(token, pin, commit);
   return new Response(renderSharePage(result, token), { status: httpStatusFor(result), headers: shareHeaders() });
 }
 
 export async function GET(_req: Request, ctx: { params: Promise<{ token: string }> }): Promise<Response> {
   const { token } = await ctx.params;
-  return respond(token, null);
+  // A GET is only a preview: link unfurlers and mail scanners GET, and must not spend a view or read a record.
+  return respond(token, null, false);
 }
 
 export async function POST(req: Request, ctx: { params: Promise<{ token: string }> }): Promise<Response> {
@@ -39,5 +43,6 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
   } catch {
     pin = null;
   }
-  return respond(token, pin);
+  // Only a deliberate POST (the Open button, or the PIN form) opens the record.
+  return respond(token, pin, true);
 }

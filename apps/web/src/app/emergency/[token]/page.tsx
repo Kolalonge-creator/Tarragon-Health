@@ -4,6 +4,7 @@ import type { Database } from "@tarragon/shared";
 import type { EmergencyCardPayload } from "@/lib/emergency/card";
 import { EmergencyCardBody } from "@/components/emergency/emergency-card-body";
 import { t, type MessageKey } from "@tarragon/i18n";
+import { knownHiddenFields } from "@/lib/emergency/field-choices";
 
 /**
  * The card a stranger doctor reads at 2am, when a patient has explicitly opted
@@ -94,11 +95,13 @@ export default async function EmergencyCardPage({
     medications: card.medications ?? [],
     conditions: card.conditions ?? [],
   };
-  const hidden = (card.hidden_fields ?? []).map((f) => t(`ecf.field.${f}` as MessageKey)).filter((s) => !s.startsWith("ecf.field."));
+  const hiddenKeys = knownHiddenFields(card.hidden_fields);
+  const hidden = hiddenKeys.map((f) => t(`ecf.field.${f}` as MessageKey));
 
   return (
     <EmergencyCardBody
       facts={facts}
+      hidden={hiddenKeys}
       headerLabel="Emergency health card"
       headerSubline={`Issued ${formatDate(card.issued_at)} · Valid until ${formatDate(card.expires_at)}`}
       footer={

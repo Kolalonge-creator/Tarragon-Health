@@ -106,3 +106,12 @@ export function applyCardFieldChoices(facts: EmergencyClinicalFacts, c: CardFiel
     blood: c.blood ? facts.blood : null,
   };
 }
+
+/** What a card says where the person chose not to share a detail. Never "None recorded": that reads as "has none". */
+export const NOT_SHARED_TEXT = "Not shared by the patient. Ask the patient or their family.";
+
+/** Narrows whatever list a payload or a row gave to the known field names. */
+export function knownHiddenFields(value: unknown): CardField[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((v): v is CardField => typeof v === "string" && (CARD_FIELDS as readonly string[]).includes(v));
+}

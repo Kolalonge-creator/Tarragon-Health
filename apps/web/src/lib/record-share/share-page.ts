@@ -16,6 +16,8 @@ import { t, type MessageKey } from "@tarragon/i18n";
 
 export type ShareOpenResult =
   | { status: "ok"; record: SharedRecord }
+  /** A plain GET (a preview): the link is live and needs no PIN. Nothing was counted and nothing is shown until a person presses the button. */
+  | { status: "ready"; views_left?: number | null }
   | { status: "gone"; reason: "expired" | "revoked" | "view_cap" }
   | { status: "pin_required" }
   | { status: "pin_wrong"; attempts_left?: number }
@@ -66,6 +68,7 @@ export interface SharedRecord {
 export function httpStatusFor(r: ShareOpenResult): number {
   switch (r.status) {
     case "ok":
+    case "ready":
       return 200;
     case "gone":
       return 410;
@@ -148,6 +151,11 @@ function msg(key: MessageKey, params?: Record<string, string>): string {
 function stateBody(r: Exclude<ShareOpenResult, { status: "ok" }>, token: string): string {
   const brand = `<p class="brand">TarragonHealth</p>`;
   switch (r.status) {
+    case "ready":
+      // Opening is a deliberate act: a POST from this button. A link-preview bot or mail scanner only ever GETs, so it reads nothing and spends no view.
+      return `${brand}<h1>${msg("share.public.ready_title")}</h1><p class="muted">${msg("share.public.ready_body")}</p>${
+        typeof r.views_left === "number" ? `<p class="muted">${msg("share.public.views_left", { count: String(Math.max(r.views_left, 0)) })}</p>` : ""
+      }<form method="post" action="/share/${esc(encodeURIComponent(token))}"><button type="submit">${msg("share.public.ready_button")}</button></form>`;
     case "gone":
       return `${brand}<h1>${msg("share.public.gone_title")}</h1><p class="muted">${msg(`share.public.gone.${r.reason}` as MessageKey)}</p>`;
     case "locked":
@@ -304,6 +312,8 @@ export function parseOpenResult(data: unknown): ShareOpenResult {
       return d.record && typeof d.record === "object" ? { status: "ok", record: d.record as SharedRecord } : { status: "not_found" };
     case "gone":
       return { status: "gone", reason: d.reason === "revoked" || d.reason === "view_cap" ? d.reason : "expired" };
+    case "ready":
+      return { status: "ready", views_left: typeof d.views_left === "number" ? d.views_left : null };
     case "pin_required":
       return { status: "pin_required" };
     case "pin_wrong":

@@ -82,7 +82,7 @@ export function DoctorSummaryDocument({ summary }: { summary: DoctorSummary }) {
         ))}
 
         <Text style={styles.footer} fixed>
-          This is a summary the patient chose to share. It is not a complete medical record and may be out of date. Lines marked entered by the patient have not been checked by a clinician. It does not replace your own assessment. Mental health and reproductive health records are never included.
+          This is a summary the patient chose to share. It is not a complete medical record and may be out of date. Lines marked entered by the patient have not been checked by a clinician. It does not replace your own assessment. Records kept in the reproductive health and mental health areas are not included; a medicine or result the patient chose to list is listed whatever it is for.
         </Text>
       </Page>
     </Document>

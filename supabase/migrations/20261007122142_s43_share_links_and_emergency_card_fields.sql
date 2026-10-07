@@ -11,9 +11,13 @@
 --   * Optional PIN (stored with crypt/bf, never returned), locked after the configured number of wrong tries.
 --   * Optional view cap, counted under a row lock so two simultaneous openings cannot both take the last view.
 --   * Every outcome is logged against the link (record_share_lookups.outcome): viewed, expired, revoked, view_cap, pin_wrong, locked. The patient sees them.
---   * record_share_open(token, pin) returns a status the web route turns into 200, 401 (pin), 410 (expired, revoked, view cap) or 404.
---   * Two sections added (procedures, family_history). Mental health and reproductive data are NOT in the closed set, so they are off by default and
---     cannot be added by accident (a CHECK refuses them). Letting a patient opt them in explicitly is a decision recorded in OQ-S43.
+--   * record_share_open(token, pin, commit) returns a status the web route turns into 200, 401 (pin), 410 (expired, revoked, view cap), 423 (locked) or 404.
+--     A plain GET calls it with commit = false (a PREVIEW: nothing counted, nothing shown), so a link-preview bot or mail scanner cannot spend a view or read
+--     a record; only a deliberate POST (a button, or the PIN form) commits.
+--   * Two sections added (procedures, family_history). Mental health and reproductive health are NOT sections in the closed set, so they are off by default and
+--     cannot be added by accident (a CHECK refuses them). LIMIT, stated plainly: medicines, conditions and results that a person chooses to share are not
+--     classified by what they are for, so a contraceptive in the medicines section or a pregnancy test in the results section would be shared. Classifying them
+--     needs a CMO-signed tag list (OQ-S43-4). Letting a patient opt the sections in explicitly is also recorded there.
 --   * BUG FIXED: the S09 vitals section selected vr.glucose_mmol, a column that does not exist (it is glucose_mmol_l), so choosing the vitals section made every
 --     opening raise. Found by this session's proof by exercising the section the S09 proof never opened. The output key stays glucose_mmol for the public page.
 --   * BUG FIXED: the S09 lab_results section compared report_status to 'released', which is not a member of lab_report_status, so choosing that
@@ -188,7 +192,7 @@ $$;
 -- ---------------------------------------------------------------------------
 -- 4. record_share_open: the one door for a link, anon-callable, returns a status
 -- ---------------------------------------------------------------------------
-create or replace function public.record_share_open(p_token text, p_pin text default null)
+create or replace function public.record_share_open(p_token text, p_pin text default null, p_commit boolean default true)
 returns jsonb
 language plpgsql
 security definer
@@ -228,6 +232,17 @@ begin
   if s.locked_at is not null then
     insert into public.record_share_lookups (share_id, outcome) values (s.id, 'locked');
     return jsonb_build_object('status', 'locked');
+  end if;
+
+  -- PREVIEW (p_commit = false): what a plain GET of the link does. A messaging app or mail scanner that unfurls a link must not spend a view or
+  -- read a record. Nothing is counted and no data is returned: only whether the link is live and whether it needs a PIN. A link that has ended
+  -- is still reported (and the attempt logged) above, exactly as for a person.
+  if not p_commit then
+    if s.pin_hash is not null then
+      return jsonb_build_object('status', 'pin_required');
+    end if;
+    return jsonb_build_object('status', 'ready', 'expires_at', s.expires_at,
+                              'views_left', case when s.max_views is null then null else s.max_views - s.view_count end);
   end if;
 
   if s.pin_hash is not null then
@@ -290,7 +305,7 @@ begin
                  'reference_range_text', case when i.ref_low is not null or i.ref_high is not null then concat_ws(' to ', i.ref_low::text, i.ref_high::text) end,
                  'abnormal_flag', i.flag, 'taken_at', r.released_at, 'laboratory', null) as j
           from public.lab_result_items i join public.lab_results r on r.id = i.lab_result_id
-         where i.patient_id = s.patient_id and r.release_state = 'released' and r.withdrawn_at is null and not i.sensitive_positive
+         where i.patient_id = s.patient_id and r.release_state = 'released' and r.withdrawn_at is null and r.superseded_by is null and not i.sensitive_positive
         union all
         select lr.taken_at,
                jsonb_build_object('code', lr.code, 'value', lr.value, 'value_text', lr.value_text, 'unit', lr.unit,
@@ -340,7 +355,7 @@ set search_path = ''
 as $$
 declare v jsonb;
 begin
-  v := public.record_share_open(p_token, null);
+  v := public.record_share_open(p_token, null, true);
   if v ->> 'status' = 'ok' then
     return v -> 'record';
   end if;
@@ -352,8 +367,8 @@ revoke all on function public.create_record_share(text[], integer, text, integer
 grant execute on function public.create_record_share(text[], integer, text, integer) to authenticated;
 revoke all on function public.revoke_record_share(uuid) from public, anon;
 grant execute on function public.revoke_record_share(uuid) to authenticated;
-revoke all on function public.record_share_open(text, text) from public;
-grant execute on function public.record_share_open(text, text) to anon, authenticated;
+revoke all on function public.record_share_open(text, text, boolean) from public;
+grant execute on function public.record_share_open(text, text, boolean) to anon, authenticated;
 revoke all on function public.record_share_by_token(text) from public;
 grant execute on function public.record_share_by_token(text) to anon, authenticated;
 
@@ -441,7 +456,7 @@ begin
      or has_function_privilege('anon', 'public.revoke_record_share(uuid)', 'EXECUTE') then
     raise exception 'S43 self-check: anon can create or revoke a share';
   end if;
-  if not has_function_privilege('anon', 'public.record_share_open(text, text)', 'EXECUTE') then
+  if not has_function_privilege('anon', 'public.record_share_open(text, text, boolean)', 'EXECUTE') then
     raise exception 'S43 self-check: record_share_open must be anon-executable';
   end if;
   if has_function_privilege('anon', 'public.emergency_card_full_by_token(text)', 'EXECUTE')

@@ -51,6 +51,28 @@ describe("buildDoctorSummary", () => {
     for (const sec of s.sections) for (const l of sec.lines) expect(PROVENANCE_LABEL[l.provenance]).toBeTruthy();
   });
 
+  it("a medicine is tied to a clinician only when a prescription stands behind it", () => {
+    const s = buildDoctorSummary(
+      input({
+        medications: [
+          { name: "Metformin", dose: "500 mg", frequency: "twice daily", prescribed: true },
+          { name: "Herbal tea", dose: null, frequency: null, prescribed: false },
+        ],
+      })
+    );
+    expect(section(s, "medications").lines.map((l) => l.provenance)).toEqual(["clinician_confirmed", "patient"]);
+  });
+
+  it("without a prescription link every medicine reads as entered by the patient", () => {
+    expect(section(buildDoctorSummary(input()), "medications").lines[0].provenance).toBe("patient");
+  });
+
+  it("an ongoing condition is from the care plan, never claimed as a clinician's confirmed diagnosis", () => {
+    const lines = section(buildDoctorSummary(input()), "conditions").lines;
+    expect(lines.every((l) => l.provenance === "care_plan")).toBe(true);
+    expect(PROVENANCE_LABEL.care_plan).toMatch(/care plan/);
+  });
+
   it("says None recorded rather than leaving a section out", () => {
     const s = buildDoctorSummary(input({ facts: { ...FACTS, allergies: [], medications: [], conditions: [] } }));
     expect(section(s, "allergies").lines).toEqual([]);

@@ -28,9 +28,11 @@ function fmt(value: string): string {
  * safe); this page only reads. It shows the person's own entries only.
  */
 export default async function SymptomJournalPage() {
-  const { uiLanguage } = await getPatientDashboardContext();
+  const { uiLanguage, acting } = await getPatientDashboardContext();
   const supabase = await createClient();
-  const { data } = await supabase.rpc("patient_symptom_journal", { p_limit: 100 });
+  // The journal read is the signed-in person's own (it is keyed on who is signed in). While acting for someone else it would show the
+  // helper's own entries under the other person's name, so it is not offered there.
+  const { data } = acting ? { data: [] } : await supabase.rpc("patient_symptom_journal", { p_limit: 100 });
   const rows = (data ?? []) as unknown as JournalRow[];
 
   return (
@@ -41,7 +43,9 @@ export default async function SymptomJournalPage() {
         icon={NAV_ICON.review}
         description={t("journal.description", uiLanguage)}
       />
-      {rows.length === 0 ? (
+      {acting ? (
+        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{t("journal.own_only", uiLanguage)}</p>
+      ) : rows.length === 0 ? (
         <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{t("journal.none", uiLanguage)}</p>
       ) : (
         <ul className="space-y-3">
