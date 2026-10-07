@@ -460,8 +460,19 @@ begin
   insert into public.emergency_cards (patient_id, organisation_id, token, expires_at) values (v_pat, v_org, v_card, now() + interval '30 days');
   insert into public.patient_allergies (organisation_id, patient_id, allergen, reaction, severity, source) values (v_org, v_pat, 'S43 penicillin', 'hives', 'severe', 'patient');
   v_j := public.emergency_card_by_token(v_card);
-  perform pg_temp.ck('6a with no choice made the card is unchanged (allergies present, nothing hidden)', 'true:false',
-    (jsonb_array_length(v_j -> 'allergies') >= 1)::text || ':' || (v_j ? 'hidden_fields')::text);
+  -- S47 (emergency card defaults): with no choice made the DEFAULTS apply, not everything. On: allergies, medicines, blood group and genotype, contacts.
+  -- Off until chosen: conditions or diagnoses, anything reproductive or mental health. Hidden fields are listed so every surface can say "not shared".
+  perform pg_temp.ck('6a with no choice made the defaults apply: allergies present, three details not shared', 'true:conditions,mental_health,reproductive',
+    (jsonb_array_length(v_j -> 'allergies') >= 1)::text || ':' || (select string_agg(h, ',' order by h) from jsonb_array_elements_text(v_j -> 'hidden_fields') h));
+  perform pg_temp.ck('6a2 ...and blood, medicines and the contact are not hidden by default', 'false,false,false,false',
+    (v_j -> 'hidden_fields' ? 'blood')::text || ',' || (v_j -> 'hidden_fields' ? 'medications')::text || ',' || (v_j -> 'hidden_fields' ? 'emergency_contact')::text || ',' || (v_j -> 'hidden_fields' ? 'allergies')::text);
+  perform pg_temp.ck('6a3 ...conditions read empty (not shared), never "none recorded"', '0',
+    jsonb_array_length(v_j -> 'conditions')::text);
+  perform pg_temp.ck('6a4 the column defaults match: conditions, reproductive and mental health off; blood, allergies, medicines, contact on', 'false,false,false|true,true,true,true',
+    (select string_agg(column_default, ',' order by column_name) from information_schema.columns where table_schema = 'public' and table_name = 'emergency_card_fields' and column_name in ('show_conditions', 'show_reproductive', 'show_mental_health'))
+    || '|' || (select string_agg(column_default, ',' order by column_name) from information_schema.columns where table_schema = 'public' and table_name = 'emergency_card_fields' and column_name in ('show_blood', 'show_allergies', 'show_medications', 'show_emergency_contact')));
+  perform pg_temp.ck('6a5 the classifier calls pregnancy reproductive, depression mental health, hypertension neither', 'reproductive,mental_health,none',
+    coalesce(private.emergency_card_sensitive_condition('pregnancy'), 'none') || ',' || coalesce(private.emergency_card_sensitive_condition('major depression'), 'none') || ',' || coalesce(private.emergency_card_sensitive_condition('hypertension'), 'none'));
   perform pg_temp.act(v_pat);
   insert into public.emergency_card_fields (patient_id, organisation_id, show_date_of_birth, show_sex, show_patient_number, show_allergies, show_medications, show_conditions, show_blood, show_emergency_contact)
   values (v_pat, v_org, false, false, false, true, false, false, false, true);
@@ -579,6 +590,11 @@ begin
   perform public.record_share_open(v_j ->> 'token', null, true);
   insert into results values ('sabotaged', '5pb a preview spends no view', '0',
     (select view_count::text from public.record_shares where id = (v_j ->> 'id')::uuid));
+  -- E (S47): the wrapper made to show everything when no choice exists (the old behaviour). The "defaults apply" check must then flip.
+  create or replace function public.emergency_card_by_token(p_token text) returns jsonb language sql security definer set search_path = '' as
+    $f$ select public.emergency_card_full_by_token(p_token) $f$;
+  insert into results values ('sabotaged', '6a with no choice made the defaults apply: allergies present, three details not shared', 'true:conditions,mental_health,reproductive',
+    'true:' || coalesce((select string_agg(h, ',' order by h) from jsonb_array_elements_text(coalesce(public.emergency_card_by_token(v_card) -> 'hidden_fields', '[]'::jsonb)) h), 'nothing'));
   insert into results values ('sabotaged', '8k reminders while unsigned', '0',
     ((select count(*) from public.notifications where recipient_id = v_pat and template like 'vaccination_%') - v_n)::text);
 end $$;
@@ -598,7 +614,7 @@ begin
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), E'\n  ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 4 then raise exception 'VACUOUS TEST: the sabotage flipped % of 4 checks', v_caught; end if;
+  if v_caught < 5 then raise exception 'VACUOUS TEST: the sabotage flipped % of 5 checks', v_caught; end if;
 end $$;
 
 

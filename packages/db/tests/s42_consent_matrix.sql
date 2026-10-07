@@ -75,7 +75,15 @@ begin
 
   -- 1. shape
   perform pg_temp.ck('matrix is 5 x 4', '20', (select count(*)::text from public.consent_matrix_cells));
-  perform pg_temp.ck('five required cells, all care', '5|care', (select count(*)::text || '|' || min(purpose) from public.consent_matrix_cells where required_for_care));
+  -- S47: required_for_care applies ONLY to vitals and documents; reproductive, mental health and device data are optional per use
+  perform pg_temp.ck('two required cells, all care: vitals and documents only', '2|care|documents,vitals',
+    (select count(*)::text || '|' || min(purpose) || '|' || string_agg(data_type, ',' order by data_type) from public.consent_matrix_cells where required_for_care));
+  perform pg_temp.ck('S47: reproductive, mental health and device data care cells are optional and asked on first use', '3|on_first_use',
+    (select count(*)::text || '|' || min(consent_timing) from public.consent_matrix_cells where purpose = 'care' and not required_for_care));
+  perform pg_temp.ck('S47: they are off until the person grants them (asked on first use)', 'false,false,false',
+    private.consent_in_force(v_a, 'reproductive', 'care')::text || ',' || private.consent_in_force(v_a, 'mental_health', 'care')::text || ',' || private.consent_in_force(v_a, 'device_data', 'care')::text);
+  perform pg_temp.ck('S47: the matrix payload says when each cell is asked', '3',
+    pg_temp.q_as(v_a, $q$select count(*)::text from jsonb_array_elements(public.my_consent_matrix() -> 'cells') c where c ->> 'consent_timing' = 'on_first_use'$q$));
   perform pg_temp.ck('no bundle holds a sensitive type', '0', (select count(*)::text from public.consent_bundle_cells where data_type in ('reproductive', 'mental_health')));
   perform pg_temp.ck('no bundle adds a care cell', '0', (select count(*)::text from public.consent_bundle_cells where purpose = 'care'));
   perform pg_temp.ck('wording is draft until counsel approves', '20', (select count(*)::text from public.consent_matrix_cells where wording_status = 'draft_pending_counsel'));
@@ -107,15 +115,27 @@ begin
   perform pg_temp.ck('required withdrawal refused by the RPC', '23514', pg_temp.try_as(v_a, $q$select public.set_consent_cell('vitals', 'care', false)$q$));
   begin
     insert into public.consent_matrix_events (organisation_id, patient_id, data_type, purpose, action, policy_version, source, recorded_by)
-    values (v_org, v_a, 'reproductive', 'care', 'withdrawn', 1, 'patient', v_a);
+    values (v_org, v_a, 'documents', 'care', 'withdrawn', 1, 'patient', v_a);
     insert into results values ('real', 'owner insert of a required withdrawal', '23514', 'accepted');
   exception when others then
     insert into results values ('real', 'owner insert of a required withdrawal', '23514', sqlstate);
   end;
+  -- S47: asked on first use, withdrawable, and withdrawing stops that feature only
+  perform pg_temp.ck('S47: the person is asked for reproductive health when they first use it, and grants it', 'ok', pg_temp.try_as(v_a, $q$select public.set_consent_cell('reproductive', 'care', true)$q$));
+  perform pg_temp.ck('S47: feature state says on and asked before', 'true,true', pg_temp.q_as(v_a, $q$select (public.feature_consent_state('reproductive') ->> 'on') || ',' || (public.feature_consent_state('reproductive') ->> 'asked_before')$q$));
+  perform pg_temp.ck('S47: a feature that is not optional-per-use is refused by the state function', '22023', pg_temp.try_as(v_a, $q$select public.feature_consent_state('vitals')$q$));
+  perform pg_temp.ck('S47: they withdraw reproductive health (this used to be refused)', 'ok', pg_temp.try_as(v_a, $q$select public.set_consent_cell('reproductive', 'care', false)$q$));
+  perform pg_temp.ck('S47: ...that feature is off, the rest of care is not touched', 'false,true,true',
+    private.consent_in_force(v_a, 'reproductive', 'care')::text || ',' || private.consent_in_force(v_a, 'vitals', 'care')::text || ',' || private.consent_in_force(v_a, 'documents', 'care')::text);
+  perform pg_temp.ck('S47: mental health and device data can be granted and withdrawn the same way', 'ok,ok,ok,ok',
+    pg_temp.try_as(v_a, $q$select public.set_consent_cell('mental_health', 'care', true)$q$) || ',' || pg_temp.try_as(v_a, $q$select public.set_consent_cell('mental_health', 'care', false)$q$) || ',' ||
+    pg_temp.try_as(v_a, $q$select public.set_consent_cell('device_data', 'care', true)$q$) || ',' || pg_temp.try_as(v_a, $q$select public.set_consent_cell('device_data', 'care', false)$q$));
+  perform pg_temp.ck('S47: vitals and documents care withdrawal is still refused', '23514,23514',
+    pg_temp.try_as(v_a, $q$select public.set_consent_cell('vitals', 'care', false)$q$) || ',' || pg_temp.try_as(v_a, $q$select public.set_consent_cell('documents', 'care', false)$q$));
   perform pg_temp.ck('A withdraws every optional cell', 'ok', pg_temp.try_as(v_a, $q$select public.withdraw_all_optional_consents()$q$));
   perform pg_temp.ck('no optional cell left in force', '0',
     (select count(*)::text from public.consent_matrix_cells c where not c.required_for_care and private.consent_in_force(v_a, c.data_type, c.purpose)));
-  perform pg_temp.ck('all five care cells still in force', '5',
+  perform pg_temp.ck('both required care cells (vitals, documents) still in force', '2',
     (select count(*)::text from public.consent_matrix_cells c where c.required_for_care and private.consent_in_force(v_a, c.data_type, c.purpose)));
 
   -- 4. who can read and write
@@ -191,6 +211,16 @@ begin
   perform pg_temp.ck('bp block gone, appointments stay', 'false|true', (v_blocks ? 'bp_trend')::text || '|' || (v_blocks ? 'appointments')::text);
 end $$;
 
+-- SABOTAGE C (S47): reproductive health care made required again. Withdrawing it must then be refused (the real check, which expects ok, flips).
+update public.consent_matrix_cells set required_for_care = true where data_type = 'reproductive' and purpose = 'care';
+do $$
+declare v_a uuid := pg_temp.f('a');
+begin
+  perform pg_temp.try_as(v_a, $q$select public.set_consent_cell('reproductive', 'care', true)$q$);
+  insert into results values ('sabotaged', 'S47: they withdraw reproductive health (this used to be refused)', 'ok', pg_temp.try_as(v_a, $q$select public.set_consent_cell('reproductive', 'care', false)$q$));
+end $$;
+update public.consent_matrix_cells set required_for_care = false where data_type = 'reproductive' and purpose = 'care';
+
 -- 9. SABOTAGE A: the rule trigger is gone. A required withdrawal must then be accepted (the real check flips).
 drop trigger consent_matrix_events_rule on public.consent_matrix_events;
 do $$
@@ -199,7 +229,7 @@ begin
   select id into v_org from public.organisations order by created_at limit 1;
   begin
     insert into public.consent_matrix_events (organisation_id, patient_id, data_type, purpose, action, policy_version, source, recorded_by)
-    values (v_org, v_a, 'mental_health', 'care', 'withdrawn', 1, 'patient', v_a);
+    values (v_org, v_a, 'documents', 'care', 'withdrawn', 1, 'patient', v_a);
     insert into results values ('sabotaged', 'required withdrawal refused', '23514', 'accepted');
   exception when others then
     insert into results values ('sabotaged', 'required withdrawal refused', '23514', sqlstate);
@@ -225,7 +255,7 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 2 then raise exception 'VACUOUS TEST: the sabotage flipped % of 2 checks', v_caught; end if;
+  if v_caught < 3 then raise exception 'VACUOUS TEST: the sabotage flipped % of 3 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result

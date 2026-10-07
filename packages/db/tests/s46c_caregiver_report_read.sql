@@ -119,7 +119,7 @@ $$ select jsonb_array_length(coalesce(j -> 'composed' -> p_key, '[]'::jsonb))::t
 create function pg_temp.full_composed() returns jsonb language sql as
 $$ select '{"schema":1,"year":2026,
  "items":[
-  {"id":"bp","kind":"bp","code":"bp","state":"on_target","value":120,"value2":80,"readingCount":5},
+  {"id":"bp","kind":"bp","code":"bp","state":"on_target","value":120,"value2":80,"readingCount":14,"readingDays":6},
   {"id":"lab:alt","kind":"lab","code":"alt","state":"needs_attention","value":70,"readingCount":1},
   {"id":"screening:cervical_smear","kind":"screening","code":"cervical_smear","state":"needs_attention","value":null,"readingCount":0}],
  "priorities":[
@@ -134,7 +134,7 @@ $$ select '{"schema":1,"year":2026,
  "questionnaires":[{"type":"phq9","level":"mild","at":"2026-04-01"}],
  "devices":{"manual":5,"device":0,"wearable":0},
  "weight":{"latestKg":70,"latestAt":"2026-05-01","count":2},
- "statementKey":"report.statement.not_rule_out","statementApprovedByCmo":false,"minBpReadings":3}'::jsonb $$;
+ "statementKey":"report.statement.not_rule_out","statementApprovedByCmo":false,"minBpReadings":12,"minBpDays":3}'::jsonb $$;
 
 -- Fixtures ---------------------------------------------------------------------------------------------------------------------
 do $$

@@ -174,7 +174,9 @@ do $$
 declare p uuid; hbv uuid; ser text; docs uuid := pg_temp.f('doc'); v_item uuid;
 begin
   perform pg_temp.ck('exactly one serology rule version is active', '1', (select count(*)::text from public.serology_rule_versions where status = 'active'));
-  perform pg_temp.ck('the active one is the spec rule (version 2)', '2', (select version::text from public.serology_rule_versions where status = 'active'));
+  -- S47 (decision 8): version 3 (risk-based HIV and hepatitis C) replaced version 2 as the active rule; version 2 is kept as legacy
+  perform pg_temp.ck('the active one is the S47 risk-based rule (version 3)', '3', (select version::text from public.serology_rule_versions where status = 'active'));
+  perform pg_temp.ck('version 2 (annual for everyone) is kept as legacy', 'legacy', (select status from public.serology_rule_versions where version = 2));
   perform pg_temp.ck('version 1 documents the old once-ever behaviour and is kept', 'legacy',
     (select status from public.serology_rule_versions where version = 1 and config -> 'hep_b' ->> 'oncePerLifetime' = 'true' and config -> 'hep_c' ->> 'oncePerLifetime' = 'true'));
   perform pg_temp.ck('the anti-HBs threshold starts unconfirmed by the CMO', 'false', private.anti_hbs_threshold_confirmed()::text);
@@ -249,7 +251,11 @@ begin
   update public.serology_rule_versions set threshold_approved_by = v_cmo_staff, threshold_approved_at = now() where status = 'active';
   perform pg_temp.ck('(control) once the CMO confirms the threshold it reads as confirmed', 'true', private.anti_hbs_threshold_confirmed()::text);
   perform pg_temp.mkresult(p3, now(), '[{"code":"anti_hbs","num":50,"unit":"mIU/mL","flag":"normal"}]'::jsonb);
-  perform pg_temp.ck('(control) a titre at or above the confirmed threshold records immunity', 'immune',
+  -- S47 (decision 7): even a CMO-confirmed threshold does not let a numeric titre set immunity on its own. Only a laboratory flag or a doctor does.
+  perform pg_temp.ck('S47: a titre above a CONFIRMED threshold still never sets immunity on its own', 'hbv_negative',
+    (select hbv_status::text from public.patient_serology_status where patient_id = p3));
+  perform pg_temp.mkresult(p3, now(), '[{"code":"anti_hbs","text":"positive","unit":"none","flag":"positive"}]'::jsonb);
+  perform pg_temp.ck('(control) a laboratory-flagged positive does record immunity', 'immune',
     (select hbv_status::text from public.patient_serology_status where patient_id = p3));
   update public.serology_rule_versions set threshold_approved_by = null, threshold_approved_at = null where status = 'active';
 
@@ -558,11 +564,11 @@ declare p uuid;
 begin
   p := pg_temp.mkpatient('sabA');
   perform pg_temp.sresult(p, 'hep_c', 'normal', interval '14 months');
-  update public.serology_rule_versions set status = 'legacy' where version = 2;
+  update public.serology_rule_versions set status = 'legacy' where version = 3;
   update public.serology_rule_versions set status = 'active' where version = 1;
   insert into results values ('sabotaged', 'ACCEPTANCE: hepatitis C older than a year is due again (it stays annual, no longer once-ever)', 'none', pg_temp.excl(p, 'hep_c'));
   update public.serology_rule_versions set status = 'legacy' where version = 1;
-  update public.serology_rule_versions set status = 'active' where version = 2;
+  update public.serology_rule_versions set status = 'active' where version = 3;
 end $$;
 -- B: the INV-04 trigger dropped. An AI explanation row for HIV must then be accepted.
 do $$

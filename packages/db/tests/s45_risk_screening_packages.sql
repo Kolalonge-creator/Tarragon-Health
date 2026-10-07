@@ -326,8 +326,9 @@ declare v_f uuid := pg_temp.f('fpat'); v_real uuid := pg_temp.f('real'); v_m uui
 begin
   perform pg_temp.ck('the essential package shows a price, its tests and a rate card before checkout', 'true',
     (pg_temp.q_as(v_real, $q$select (price_kobo > 0 and cardinality(test_codes) > 0 and jsonb_array_length(rate_card) = cardinality(test_codes))::text from public.list_screening_packages() where code = 'essential'$q$)));
-  perform pg_temp.ck('...and says it holds sensitive tests (HIV), so release rules apply', 'true',
-    pg_temp.q_as(v_real, $q$select includes_sensitive::text from public.list_screening_packages() where code = 'essential'$q$));
+  -- S47 (decision 14): no blood-borne virus test is bundled for everyone, so the tier packages hold no sensitive test any more
+  perform pg_temp.ck('...and (S47) holds no HIV or hepatitis test: those come by risk and history, not for everyone', 'false',
+    pg_temp.q_as(v_real, $q$select (includes_sensitive or test_codes && array['hiv','hep_b','hep_c'])::text from public.list_screening_packages() where code = 'essential'$q$));
   perform pg_temp.ck('HPV DNA is not available to a real patient while its guard is off', 'false|not_available_yet',
     pg_temp.q_as(v_real, $q$select eligible || '|' || ineligible_reason from public.list_screening_packages() where code = 'hpv_dna'$q$));
   perform pg_temp.ck('HPV DNA needs a positive-result pathway and a guard, both recorded', 'true|hpv_dna_enabled',
@@ -358,13 +359,13 @@ begin
   -- every live bundle is guidance_only today (never billed, so no order can be placed); open them inside this rolled-back proof only
   update public.panel_bundles set guidance_only = false where code in ('screen_essential', 'single_hba1c', 'blood_borne_virus_screen');
   perform pg_temp.ck('a partner-site order with HIV in the bundle is unaffected', 'ok',
-    pg_temp.try_sql(format('select pg_temp.mkorder(%L, ''screen_essential'', false)', v_real)));
+    pg_temp.try_sql(format('select pg_temp.mkorder(%L, ''blood_borne_virus_screen'', false)', v_real)));
   perform pg_temp.ck('home collection of a bundle holding HIV is refused', 'P0001',
-    pg_temp.try_sql(format('select pg_temp.mkorder(%L, ''screen_essential'', true)', v_real)));
+    pg_temp.try_sql(format('select pg_temp.mkorder(%L, ''blood_borne_virus_screen'', true)', v_real)));
   perform pg_temp.ck('home collection of a bundle with no sensitive test is allowed', 'ok',
     pg_temp.try_sql(format('select pg_temp.mkorder(%L, ''single_hba1c'', true)', v_real)));
   perform pg_temp.ck('a test patient can exercise the flow (test pair rule)', 'ok',
-    pg_temp.try_sql(format('select pg_temp.mkorder(%L, ''screen_essential'', true)', v_test)));
+    pg_temp.try_sql(format('select pg_temp.mkorder(%L, ''blood_borne_virus_screen'', true)', v_test)));
   perform pg_temp.ck('blood-borne virus screen at home is refused too', 'P0001',
     pg_temp.try_sql(format('select pg_temp.mkorder(%L, ''blood_borne_virus_screen'', true)', v_real)));
 
@@ -425,7 +426,7 @@ declare v_real uuid := pg_temp.f('real2');
 begin
   drop trigger lab_orders_zz_home_sensitive_kit_guard on public.lab_orders;
   insert into results values ('sabotaged', 'home collection of a bundle holding HIV is refused', 'P0001',
-    pg_temp.try_sql(format('select pg_temp.mkorder(%L, ''screen_essential'', true)', v_real)));
+    pg_temp.try_sql(format('select pg_temp.mkorder(%L, ''blood_borne_virus_screen'', true)', v_real)));
 end $$;
 
 do $$
