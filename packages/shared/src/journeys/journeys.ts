@@ -105,6 +105,7 @@ export const J4: JourneyDef = {
     { id: "institution-reads-no-patient-rows", title: "A real institution session reads zero rows from every patient table, with a control that the rows exist" },
     { id: "institution-view-aggregates-only", title: "The institution's own view returns aggregates only: no ids, no names, no lists" },
     { id: "small-cells-suppressed", title: "A cohort below the minimum cell is withheld whole, and a cut that would expose a small cell is suppressed" },
+    { id: "aggregate-figures-over-300-people", title: "A real aggregate figure is produced over the 300 (rates, counts) and still carries no individual" },
     { id: "no-reproductive-or-mental-health", title: "No reproductive health or mental health figure or row reaches the institution, though such rows exist" },
     { id: "clinician-without-tie-reads-nothing", title: "A real clinician session with no task, lead or page reads none of the cohort's records (INV-12)" },
     { id: "patient-reads-own-control", title: "Control: a real patient session reads their own rows, so empty results elsewhere are not an empty fixture" },
