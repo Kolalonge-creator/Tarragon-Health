@@ -961,7 +961,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // emergency card must open for a stranger in an emergency.
     value: { lookup_failure_alert_per_hour: 50 },
     owner: "CMO",
-    status: "superseded",
+    status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S39.md; spec section 13",
