@@ -1528,6 +1528,21 @@ export const TEMPLATE_MAP: Record<
       text: "Someone in your Care Circle has paid for care for you.\n\nOpen Tarragon Health to accept it. Nothing starts until you say yes.\n\nTarragon Health",
     },
   }),
+  // S38c: the monthly progress summary is ready. Fixed neutral copy: no condition, reading, number or name (INV-07); the payload is never echoed.
+  monthly_report_ready: () => ({
+    smsText: "Your monthly summary is ready. Open Tarragon Health. Tarragon Health",
+    pushUrl: "/patient/progress",
+    email: {
+      subject: "Your monthly summary is ready",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Your monthly summary is ready.</p>` +
+        `<p>Open Tarragon Health to see it.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Your monthly summary is ready.\n\nOpen Tarragon Health to see it.\n\nTarragon Health",
+    },
+  }),
   circle_paid_for_you: () => ({
     smsText: "Someone has paid for your care. Open Tarragon Health. Tarragon Health",
     pushUrl: "/patient",
