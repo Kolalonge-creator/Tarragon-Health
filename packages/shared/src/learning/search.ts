@@ -20,19 +20,36 @@ export function loadSynonymGroups(asOf?: string): readonly SynonymGroup[] {
 }
 
 /**
- * The phrase itself plus every term in any group that contains a whole word or phrase from it. Mirrors the
- * expansion in public.search_health_education(), so a phone searching its downloads finds what the server would.
+ * The phrase itself plus every term of each synonym group matched by the query. Matches are whole words, non-overlapping and
+ * longest first (a tie goes to the later one, the head word), so "high blood sugar" expands the diabetes group ("blood sugar")
+ * and not the blood-pressure group ("high blood") that overlaps it. Mirrors public.search_health_education(), so a phone
+ * searching its downloads finds what the server would.
  */
 export function expandSearchTerms(query: string, groups: readonly SynonymGroup[] = loadSynonymGroups()): string[] {
   const q = normaliseQuery(query);
   if (q.length < 2) return [];
-  const padded = ` ${q} `;
-  const out = new Set<string>([q]);
-  for (const group of groups) {
-    if (group.terms.some((t) => padded.includes(` ${normaliseQuery(t)} `))) {
-      for (const t of group.terms) out.add(normaliseQuery(t));
+  const words = q.split(" ");
+  const spans: { gi: number; s: number; e: number; len: number }[] = [];
+  groups.forEach((group, gi) => {
+    for (const term of group.terms) {
+      const tw = normaliseQuery(term).split(" ");
+      for (let i = 0; i + tw.length <= words.length; i++) {
+        if (tw.every((w, k) => words[i + k] === w)) spans.push({ gi, s: i, e: i + tw.length - 1, len: tw.length });
+      }
     }
+  });
+  spans.sort((a, b) => b.len - a.len || b.e - a.e || a.s - b.s);
+  const covered = new Array<boolean>(words.length).fill(false);
+  const chosen = new Set<number>();
+  for (const sp of spans) {
+    let free = true;
+    for (let k = sp.s; k <= sp.e; k++) if (covered[k]) free = false;
+    if (!free) continue;
+    for (let k = sp.s; k <= sp.e; k++) covered[k] = true;
+    chosen.add(sp.gi);
   }
+  const out = new Set<string>([q]);
+  for (const gi of chosen) for (const t of groups[gi]!.terms) out.add(normaliseQuery(t));
   return [...out];
 }
 

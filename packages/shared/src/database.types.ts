@@ -43458,6 +43458,10 @@ export type Database = {
         Returns: Json
       }
       retry_payout: { Args: { p_id: string }; Returns: Json }
+      reinstate_learning_creator: {
+        Args: { p_id: string; p_note: string }
+        Returns: undefined
+      }
       save_lesson_for_consultation: {
         Args: { p_code: string }
         Returns: boolean

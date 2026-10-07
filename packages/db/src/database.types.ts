@@ -41516,6 +41516,10 @@ export type Database = {
         Args: { p_activate?: boolean; p_kid: string; p_public_key_spki: string }
         Returns: undefined
       }
+      reinstate_learning_creator: {
+        Args: { p_id: string; p_note: string }
+        Returns: undefined
+      }
       reject_assisted_recovery: {
         Args: { p_reason: string; p_request: string }
         Returns: Json

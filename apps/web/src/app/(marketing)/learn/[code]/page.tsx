@@ -1,12 +1,16 @@
+import { cache } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { t } from "@tarragon/i18n";
 import { buildTrustLine } from "@tarragon/shared";
 import { Section } from "../../_components/section";
-import { loadSharedArticle } from "@/lib/marketing/learn-data";
+import { loadSharedArticle as loadSharedArticleUncached } from "@/lib/marketing/learn-data";
 import { absoluteUrl } from "@/lib/marketing/site";
 import { ShareLessonButtons } from "@/components/learning/share-lesson-buttons";
+
+// One database read per request even though both generateMetadata and the page need the article.
+const loadSharedArticle = cache(loadSharedArticleUncached);
 
 // A shared link is for one reader, never listed or indexed. It is rendered per request so an article that expires or is
 // withdrawn stops resolving at once instead of waiting for a cache to turn over.

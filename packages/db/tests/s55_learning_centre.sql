@@ -17,7 +17,8 @@
 --   7. SHARE LINK: anon opens a published, reviewed article; not a faq, not share-disabled, not unreviewed, not a placeholder, not expired; the
 --      returned columns carry no patient data.
 --   8. OFFLINE PACK: lists servable items only; pack status flags removed items.
---   SABOTAGE: publish gate dropped (an incomplete item publishes) and synonym config deactivated (bp misses); each must flip a check.
+--   SABOTAGE: publish gate dropped (an incomplete item publishes), synonym config deactivated (bp misses) and the audience gate neutered
+--   (a 20 year old finds a 40-and-over item); each must flip a check.
 begin;
 
 create temp table results(n serial, check_name text, ok boolean) on commit drop;
@@ -199,6 +200,46 @@ begin
   perform pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('another unfindable phrase')$q$);
   perform pg_temp.ck('3k rows past the retention are deleted', not exists (select 1 from public.learning_search_gaps where query_norm = 'ancient phrase'));
 
+  -- synonym matching is longest-first and non-overlapping: "high blood sugar" is about sugar, not blood pressure
+  v_id2 := pg_temp.mkitem('s55-search-dm');
+  update public.health_education_content set title = 'Living with diabetes', body = 'Diabetes affects your blood glucose.' where id = v_id2;
+  perform pg_temp.publish(v_id2);
+  perform pg_temp.ck('3l "high blood sugar" finds the diabetes item',
+    pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('high blood sugar') where code = 's55-search-dm'$q$) = 1);
+  perform pg_temp.ck('3m ...and does not drag in the hypertension-only item through the overlapping "high blood"',
+    pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('high blood sugar') where code = 's55-search-htn'$q$) = 0);
+  perform pg_temp.ck('3n "high blood" on its own still finds the hypertension item',
+    pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('my high blood') where code = 's55-search-htn'$q$) = 1);
+  -- identifiers however they are spaced are never logged
+  perform pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('call 080 312 345 67')$q$);
+  perform pg_temp.ck('3o a phone number typed with spaces is not logged',
+    not exists (select 1 from public.learning_search_gaps where query_norm like '%312%' or query_norm like '%080%'));
+  -- the log cannot grow without bound: at max_rows no new phrase is added, an existing one still counts
+  insert into public.learning_config (key, version, value)
+    select 'search_gap_log', 2, jsonb_set(private.learning_config('search_gap_log'), '{max_rows}', to_jsonb((select count(*) from public.learning_search_gaps)));
+  perform pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('brand new unfindable phrase')$q$);
+  perform pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('quokka dental plan')$q$);
+  perform pg_temp.ck('3p at max_rows a new phrase is not added', not exists (select 1 from public.learning_search_gaps where query_norm = 'brand new unfindable phrase'));
+  perform pg_temp.ck('3q ...but an existing phrase still counts', (select hit_count from public.learning_search_gaps where query_norm = 'quokka dental plan') >= 4);
+  delete from public.learning_config where key = 'search_gap_log' and version = 2;
+  -- the report ignores rows past the retention even before the next delete removes them
+  insert into public.learning_search_gaps (query_norm, hit_count, last_seen) values ('stale but frequent', 9, current_date - 200);
+  perform pg_temp.ck('3r the admin report hides a row past its retention',
+    pg_temp.as_count(v_admin, $q$select count(*) from public.learning_search_gaps_report() where query_norm = 'stale but frequent'$q$) = 0);
+  delete from public.learning_search_gaps where query_norm = 'stale but frequent';
+
+  -- audience: an item with an age range is hidden from a patient outside it on every new reader (the feed's rule)
+  v_id3 := pg_temp.mkitem('s55-age');
+  update public.health_education_content set title = 'Quokka midlife checkup', body = 'Quokka midlife checkup guidance.', min_age = 40, is_micro_lesson = false where id = v_id3;
+  perform pg_temp.publish(v_id3);
+  update public.profiles set date_of_birth = current_date - interval '20 years' where id = v_pa;
+  perform pg_temp.ck('3s a 20 year old does not find a 40-and-over item', pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('quokka midlife') where code = 's55-age'$q$) = 0);
+  perform pg_temp.ck('3t ...nor is it in their offline pack', pg_temp.as_count(v_pa, $q$select count(*) from public.learning_offline_pack() where code = 's55-age'$q$) = 0);
+  update public.profiles set date_of_birth = current_date - interval '50 years' where id = v_pa;
+  perform pg_temp.ck('3u a 50 year old finds it', pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('quokka midlife') where code = 's55-age'$q$) = 1);
+  update public.profiles set date_of_birth = null where id = v_pa;
+  perform pg_temp.ck('3v an unknown age is not restricted (as in the feed)', pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('quokka midlife') where code = 's55-age'$q$) = 1);
+
   -- ================= 4. events =================
   insert into public.health_education_programmes (code, title, is_active, kind) values ('s55-course', 'S55 course', true, 'course') returning id into v_prog;
   v_id3 := pg_temp.mkitem('s55-course-l2'); perform pg_temp.publish(v_id3);
@@ -223,6 +264,16 @@ begin
                  and (select count(*) from jsonb_object_keys(payload) k where k not in ('content_id', 'content_code', 'programme_id', 'programme_code')) > 0));
   perform pg_temp.ck('4f the events are marked test for a test patient',
     (select bool_and(is_test) from public.domain_events where patient_id = v_pa and event_type in ('lesson.completed', 'course.completed')));
+
+  -- a failing event write is loud, never silent, and never loses the patient's progress; repeated failures share one incident
+  update public.event_types set is_active = false where event_type = 'lesson.completed';
+  insert into public.health_education_progress (organisation_id, patient_id, content_id, status) values (v_org, v_pb, pg_temp.f('micro'), 'understood');
+  insert into public.health_education_progress (organisation_id, patient_id, content_id, status) values (v_org, v_pb, v_id3, 'understood');
+  perform pg_temp.ck('4g the progress is saved even though the event could not be written',
+    (select count(*) from public.health_education_progress where patient_id = v_pb and status = 'understood') = 2);
+  perform pg_temp.ck('4h each failure wrote an audit row', (select count(*) from public.audit_log where action = 'learning_event.error') = 2);
+  perform pg_temp.ck('4i ...and all failures share ONE open incident', (select count(*) from public.ops_incidents where external_reference = 'learning_event_failed' and status not in ('resolved', 'closed')) = 1);
+  update public.event_types set is_active = true where event_type = 'lesson.completed';
 
   -- ================= 5. creators =================
   perform pg_temp.ck('5a a patient cannot invite', pg_temp.as_try(v_pa, format('select public.invite_learning_creator(%L, ''X Name'')', v_cc)) = '42501');
@@ -249,6 +300,9 @@ begin
   v_s := pg_temp.as_try(v_admin2, format('select public.verify_learning_creator(%L)', v_cr));
   perform pg_temp.ck('5o a different admin verifies', v_s = 'ok');
   perform pg_temp.ck('5p the creator row is verified with a verifier', (select status = 'verified' and verified_by = v_admin2 from public.learning_creators where id = v_cr));
+  perform pg_temp.ck('5p2 not even an admin can write a creator row directly (every change goes through the audited functions)',
+    pg_temp.as_try(v_admin, format('update public.learning_creators set status_note = ''direct'' where id = %L', v_cr)) = '42501'
+    and pg_temp.as_try(v_admin, format('insert into public.learning_creators (organisation_id, profile_id, display_name, status) values (%L, %L, ''Direct'', ''invited'')', v_org, v_cu)) = '42501');
   -- credit appears only while verified
   v_id := pg_temp.mkitem('s55-credit');
   update public.health_education_content set creator_id = v_cr where id = v_id;
@@ -267,6 +321,16 @@ begin
   v_id := pg_temp.mkitem('s55-credit2');
   update public.health_education_content set creator_id = v_cr where id = v_id;
   perform pg_temp.ck('5x an item credited to a suspended creator cannot publish', pg_temp.publish(v_id) = '23514');
+  perform pg_temp.ck('5y a short note is refused on reinstate', pg_temp.as_try(v_admin, format('select public.reinstate_learning_creator(%L, ''no'')', v_cr)) = '22023');
+  perform pg_temp.ck('5z a clinician cannot reinstate', pg_temp.as_try(v_cu, format('select public.reinstate_learning_creator(%L, ''Registration query resolved'')', v_cr)) = '42501');
+  v_s := pg_temp.as_try(v_admin, format('select public.reinstate_learning_creator(%L, ''Registration query resolved by the council'')', v_cr));
+  perform pg_temp.ck('5aa an admin reinstates a suspended creator', v_s = 'ok');
+  perform pg_temp.ck('5aa2 ...to waiting for verification, not straight to verified',
+    (select status = 'pending_verification' and verified_by is null from public.learning_creators where id = v_cr));
+  perform pg_temp.ck('5ab the credited item stays down until it is reviewed again', (select content_status = 'review_due' from public.health_education_content where code = 's55-credit'));
+  perform pg_temp.ck('5ac a different admin verifies them again', pg_temp.as_try(v_admin2, format('select public.verify_learning_creator(%L)', v_cr)) = 'ok');
+  perform pg_temp.ck('5ad a verified creator cannot be reinstated (nothing to reinstate)', pg_temp.as_try(v_admin, format('select public.reinstate_learning_creator(%L, ''Registration query resolved by the council'')', v_cr)) = '22023');
+  perform pg_temp.as_try(v_admin, format('select public.suspend_learning_creator(%L, ''Suspended again for the rest of the proof'')', v_cr));
   perform pg_temp.setf('unverified_item', v_id);
 
   -- ================= 6. save for consultation =================
@@ -305,6 +369,16 @@ begin
   perform pg_temp.ck('7f an unknown code does not open', pg_temp.as_count(null, $q$select count(*) from public.learn_shared_article('nope')$q$) = 0);
   perform pg_temp.ck('7g the shared columns carry no patient data',
     not exists (select 1 from pg_proc p, unnest(p.proargnames) a where p.proname = 'learn_shared_article' and (a like '%patient%' or a like '%user%' or a like '%organisation%')));
+  -- a grandfathered item (published before the gate existed: no review date) is not opened for a signed-out reader
+  v_id := pg_temp.mkitem('s55-share-legacy'); perform pg_temp.publish(v_id);
+  perform pg_temp.ck('7g2 a reviewed, dated article opens before it loses its review details',
+    pg_temp.as_count(null, $q$select count(*) from public.learn_shared_article('s55-share-legacy')$q$) = 1);
+  update public.health_education_content set next_review_due = null where id = v_id;
+  perform pg_temp.ck('7g3 an undated (grandfathered) item does not open for a signed-out reader',
+    pg_temp.as_count(null, $q$select count(*) from public.learn_shared_article('s55-share-legacy')$q$) = 0);
+  update public.health_education_content set next_review_due = current_date + 60, reviewed_by_name = null where id = v_id;
+  perform pg_temp.ck('7g4 an item with no named reviewer does not open for a signed-out reader',
+    pg_temp.as_count(null, $q$select count(*) from public.learn_shared_article('s55-share-legacy')$q$) = 0);
   update public.health_education_content set next_review_due = current_date - 1 where code = 's55-search-htn';
   perform pg_temp.ck('7h once past its review date the link no longer opens',
     pg_temp.as_count(null, $q$select count(*) from public.learn_shared_article('s55-search-htn')$q$) = 0);
@@ -336,6 +410,11 @@ begin
   update public.learning_config set is_active = false where key = 'search_synonyms';
   perform pg_temp.ck('S2 sabotage: without the synonym table "bp" misses the item (the table is what finds it)',
     pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('BP') where code = 's55-search-htn'$q$) = 0);
+  -- (iii) the audience gate neutered: the 40-and-over item is then found by a 20 year old (the gate is what hides it)
+  update public.profiles set date_of_birth = current_date - interval '20 years' where id = v_pa;
+  create or replace function private.learning_age_ok(p_min integer, p_max integer) returns boolean language sql stable as $f$ select true $f$;
+  perform pg_temp.ck('S3 sabotage: with the audience gate neutered a 20 year old finds the 40-and-over item',
+    pg_temp.as_count(v_pa, $q$select count(*) from public.search_health_education('quokka midlife') where code = 's55-age'$q$) = 1);
   raise notice 'PASS: S55 learning centre, % checks', (select count(*) from results);
 end $$;
 

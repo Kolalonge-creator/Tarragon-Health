@@ -27,6 +27,10 @@ export function useSearchHealthEducation(query: string) {
     },
     enabled: q.length >= 2,
     staleTime: 60_000,
+    // A zero-result search is written to the planning log, so a silent refetch (window focus, reconnect) would count the same
+    // person's one search again and push a phrase over the admin threshold on its own.
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 }
 
@@ -146,5 +150,42 @@ export function useLearningReadiness() {
       if (error) throw error;
       return (data ?? []) as LearningReadinessRow[];
     },
+  });
+}
+
+export function useReinstateLearningCreator() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, note }: { id: string; note: string }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("reinstate_learning_creator", { p_id: id, p_note: note });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: learningCreatorsKey }),
+  });
+}
+
+/** The signed-in clinician's own creator record, if an admin invited them (RLS: they read only their own row). */
+export function useMyLearningCreator() {
+  return useQuery({
+    queryKey: ["learning-creator-me"] as const,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.from("learning_creators").select("*").maybeSingle();
+      if (error) throw error;
+      return (data ?? null) as LearningCreator | null;
+    },
+  });
+}
+
+export function useSubmitCreatorCredentials() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ mdcn, evidence, indemnity }: { mdcn: string; evidence: string; indemnity: boolean }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("submit_creator_credentials", { p_mdcn: mdcn, p_evidence: evidence, p_indemnity: indemnity });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["learning-creator-me"] }),
   });
 }

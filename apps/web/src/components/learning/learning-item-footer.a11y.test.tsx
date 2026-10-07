@@ -65,7 +65,7 @@ describe("LearningItemFooter", () => {
     mutateAsync.mockResolvedValueOnce(true);
     render(<LearningItemFooter code="htn-basics" title="Basics" contentType="article" />);
     fireEvent.click(screen.getByRole("button", { name: "Ask your care team about this" }));
-    await waitFor(() => expect(screen.getByText(/Your care team can see it at your next consultation/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/Your care team will be able to see it when you next have a consultation/)).toBeTruthy());
     expect(mutateAsync).toHaveBeenCalledWith("htn-basics");
   });
 
@@ -74,7 +74,7 @@ describe("LearningItemFooter", () => {
     render(<LearningItemFooter code="htn-basics" title="Basics" contentType="article" />);
     fireEvent.click(screen.getByRole("button", { name: "Ask your care team about this" }));
     await waitFor(() => expect(screen.getByText(/could not save that just now/i)).toBeTruthy());
-    expect(screen.queryByText(/can see it at your next consultation/)).toBeNull();
+    expect(screen.queryByText(/will be able to see it when you next have a consultation/)).toBeNull();
   });
 
   it("offers sharing only for a shareable article", () => {

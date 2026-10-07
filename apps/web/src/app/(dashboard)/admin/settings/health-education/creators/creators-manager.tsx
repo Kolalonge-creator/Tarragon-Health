@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   useInviteLearningCreator,
   useLearningCreators,
+  useReinstateLearningCreator,
   useSuspendLearningCreator,
   useVerifyLearningCreator,
   type LearningCreator,
@@ -40,9 +41,10 @@ function useClinicianProfiles() {
 function CreatorRow({ creator }: { creator: LearningCreator }) {
   const verify = useVerifyLearningCreator();
   const suspend = useSuspendLearningCreator();
+  const reinstate = useReinstateLearningCreator();
   const [reason, setReason] = useState("");
   const badge = STATUS[creator.status];
-  const error = (verify.error ?? suspend.error) as Error | null;
+  const error = (verify.error ?? suspend.error ?? reinstate.error) as Error | null;
 
   return (
     <li className="space-y-2 py-3">
@@ -71,13 +73,24 @@ function CreatorRow({ creator }: { creator: LearningCreator }) {
               size="sm"
               variant="outline"
               disabled={suspend.isPending || reason.trim().length < 10}
-              onClick={() => suspend.mutate({ id: creator.id, reason })}
+              onClick={() => suspend.mutate({ id: creator.id, reason, decline: creator.status === "pending_verification" })}
             >
               {creator.status === "verified" ? "Suspend and take their content down" : "Decline"}
             </Button>
           </>
         )}
       </div>
+      {(creator.status === "suspended" || creator.status === "declined") && (
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="space-y-1">
+            <Label htmlFor={`back-${creator.id}`} className="text-xs">Reinstate: note (10+ characters). They must be verified again.</Label>
+            <Input id={`back-${creator.id}`} value={reason} onChange={(e) => setReason(e.target.value)} className="h-8 w-64 text-xs" />
+          </div>
+          <Button size="sm" variant="outline" disabled={reinstate.isPending || reason.trim().length < 10} onClick={() => reinstate.mutate({ id: creator.id, note: reason })}>
+            Reinstate to waiting for verification
+          </Button>
+        </div>
+      )}
       {error && <p className="text-xs text-red-600">{error.message}</p>}
       {suspend.isSuccess && <p className="text-xs text-charcoal-ink/60">{suspend.data} published item(s) taken down for re-review.</p>}
     </li>

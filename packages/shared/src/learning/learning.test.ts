@@ -18,6 +18,13 @@ describe("search synonyms", () => {
     expect(expandSearchTerms("bpm")).toEqual(["bpm"]);
     expect(expandSearchTerms("sugar")).not.toContain("hypertension");
   });
+  it("picks the longest non-overlapping match, so one ambiguous word does not pull in another condition", () => {
+    const hs = expandSearchTerms("high blood sugar");
+    expect(hs).toEqual(expect.arrayContaining(["diabetes", "glucose"]));
+    expect(hs).not.toContain("hypertension");
+    expect(expandSearchTerms("insulin injection")).not.toContain("vaccine");
+    expect(expandSearchTerms("high blood")).toContain("hypertension");
+  });
   it("is empty for a one-letter query", () => expect(expandSearchTerms("a")).toEqual([]));
   it("finds a body-only match through a synonym and ranks title above body", () => {
     const items = [

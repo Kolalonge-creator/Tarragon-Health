@@ -70,8 +70,8 @@ on conflict (key, version) do nothing;
 
 -- learning-search-gap-begin
 insert into public.learning_config (key, version, value, status, note) values
-('search_gap_log', 1, $json${"max_query_chars":60,"max_words":6,"min_count_to_show":3,"retention_days":180}$json$::jsonb, 'proposed',
- 'Spec 9.3: zero-result searches are logged for content planning. No patient or organisation reference is stored; a phrase is shown to admins only once it has been typed by at least min_count_to_show searches.')
+('search_gap_log', 1, $json${"max_query_chars":60,"max_words":6,"min_count_to_show":3,"retention_days":180,"max_rows":5000}$json$::jsonb, 'proposed',
+ 'Spec 9.3: zero-result searches are logged for content planning. No patient or organisation reference is stored; a phrase is shown to admins only once it has been searched at least min_count_to_show times (searches, not distinct people: see OQ-S55-05), and no new phrase is added once max_rows exist.')
 on conflict (key, version) do nothing;
 -- learning-search-gap-end
 
@@ -85,11 +85,11 @@ insert into public.learning_config (key, version, value, status, note) values
   {"terms":["drug","drugs","medicine","medicines","medication","tablets","pills"]},
   {"terms":["kidney","kidneys","kidney disease","ckd"]},
   {"terms":["hot body","fever","high temperature"]},
-  {"terms":["weight","overweight","belly fat","obesity","fat"]},
+  {"terms":["weight","overweight","belly fat","obesity"]},
   {"terms":["sleep","insomnia","cannot sleep","sleeping"]},
   {"terms":["salt","sodium"]},
   {"terms":["exercise","workout","walking","physical activity"]},
-  {"terms":["vaccine","vaccines","vaccination","injection","immunisation","immunization"]},
+  {"terms":["vaccine","vaccines","vaccination","immunisation","immunization"]},
   {"terms":["tired","fatigue","weak body"]},
   {"terms":["herb","herbs","herbal","local medicine","agbo"]}
 ]$json$::jsonb, 'proposed',

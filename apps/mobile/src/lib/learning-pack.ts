@@ -174,15 +174,17 @@ export async function refreshPack(deps: {
     const keep = new Set(plan.chosen.map((c) => c.item.code));
     const have = new Set(local.map((l) => l.code));
     const drop = local.filter((l) => !keep.has(l.code)).map((l) => l.code);
-    if (drop.length) {
-      await store.remove(drop);
-      removed += drop.length;
-    }
     const toWrite = plan.chosen
       .map((c) => ({ row: byCode.get(c.item.code), withAudio: c.withAudio }))
       .filter((x): x is { row: PackRow; withAudio: boolean } => x.row !== undefined)
       .map((x) => toStored(x.row, x.withAudio, now));
+    // Write the new pack first and delete what no longer fits second: if the write fails (storage full) the old lessons are
+    // still there, so a failed refresh really does change nothing more than the local expiry purge.
     await store.put(toWrite);
+    if (drop.length) {
+      await store.remove(drop);
+      removed += drop.length;
+    }
     return {
       ok: true,
       added: toWrite.filter((w) => !have.has(w.code)).length,
@@ -251,10 +253,26 @@ export async function setPackEnabled(on: boolean): Promise<void> {
   if (!on) await sqlitePackStore.clear();
 }
 
-/** Called when the app returns to the foreground: refreshes only if the patient opted in. Never throws. */
+const LAST_REFRESH_KEY = "@tarragon/learning-pack-last-refresh/v1";
+/** Engineering throttle (not a clinical value): returning to the app within this window does not re-download the pack. A manual press always refreshes. */
+export const AUTO_REFRESH_MIN_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
+/** True when an automatic refresh is due: never refreshed, or the last one was long enough ago. Pure, so it can be tested. */
+export function autoRefreshDue(lastRefreshIso: string | null, now: Date = new Date()): boolean {
+  if (!lastRefreshIso) return true;
+  const last = Date.parse(lastRefreshIso);
+  return Number.isNaN(last) || now.getTime() - last >= AUTO_REFRESH_MIN_INTERVAL_MS;
+}
+
+/** Called when the app returns to the foreground: refreshes only if the patient opted in and one is due. Never throws. */
 export async function refreshPackIfEnabled(): Promise<void> {
   try {
-    if (await isPackEnabled()) await refreshPack({ store: sqlitePackStore });
+    if (!(await isPackEnabled())) return;
+    // Locally expired lessons go every time, with no network; the download itself is throttled.
+    await purgeExpired(sqlitePackStore);
+    if (!autoRefreshDue(await AsyncStorage.getItem(LAST_REFRESH_KEY))) return;
+    const res = await refreshPack({ store: sqlitePackStore });
+    if (res.ok) await AsyncStorage.setItem(LAST_REFRESH_KEY, new Date().toISOString());
   } catch {
     // best effort: the downloads stay as they were
   }

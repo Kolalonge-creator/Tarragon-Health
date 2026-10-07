@@ -63,6 +63,7 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/data-rights", "gdpr ndpa privacy deletion erasure access request"],
   ["/admin/promo-codes", "discount coupon voucher"],
   ["/admin/leads", "enquiries prospects contact form"],
+  ["/clinician/learning-creator", "creator author write writing learning centre articles invited mdcn credentials evidence indemnity verify"],
   ["/admin/settings/health-education/creators", "creator creators clinician author authors write writers invite verify verification mdcn credentials indemnity suspend learning content partner"],
   ["/admin/settings/health-education/readiness", "readiness review date reviewer source sources self care what can i do next placeholder placeholders myth myths myth-busting series draft expired expiry overdue learning article articles"],
   ["/admin/settings/health-education/search-gaps", "search searches no result zero results missing gaps synonyms words people type bp sugar belle plan content learn library"],
@@ -89,6 +90,7 @@ export const CMO_EXTRA_PAGES: AdminSearchEntry[] = [
   { label: "Lifestyle coaching content", href: "/clinician/lpe-content-library", group: "Clinical governance", hint: "Review and approve the reference copy the AI Coach can draw on." },
   { label: "Result release policies", href: "/clinician/result-release-policies", group: "Clinical governance", hint: "Which abnormal results wait for a doctor before the patient sees them." },
   { label: "Safety concerns", href: "/clinician/quality/concerns", group: "Clinical governance", hint: "The speak-up inbox: replies, backup readers and reviews after a concern." },
+  { label: "Learning creator credentials", href: "/clinician/learning-creator", group: "Learning Centre", hint: "If you were invited to write for the Learning Centre, send your MDCN number and evidence." },
   { label: "Titration protocols", href: "/clinician/titration-protocols", group: "Clinical sign-off", hint: "Write, check and approve the step table the dose suggestion tool reads." },
 ];
 

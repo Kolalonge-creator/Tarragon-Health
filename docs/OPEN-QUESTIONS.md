@@ -1500,10 +1500,12 @@ Four defects from `docs/design/S55-S60-build-plan.md` section 5, fixed ahead of 
 
 ### OQ-S55-05 Zero-result search log and personal data
 - PROPOSED `learning.search_gap_log`: 60 characters, 6 words, shown to admins at 3 or more searches, deleted after 180 days; phrases with an at-sign or four or more digits are never kept; no user, organisation, device or time of day is stored. Free text can still hold a health phrase ("i have ..."), so the DPO should confirm this is acceptable as anonymous aggregate data, or choose a tighter rule (for example a fixed vocabulary only).
+- Known limits (code review): the count is searches, not distinct people, so one person repeating a phrase reaches the threshold alone; a name typed into the box (for example a person's name) is not detectable and would be stored as a phrase; no new phrase is added once 5,000 exist (`max_rows`). A fixed-vocabulary log would remove all three, at the cost of losing unknown words, which is the point of the log.
 - Decision: open (founder with the DPO).
 
 ### OQ-S55-06 235 seeded items have no review date, reviewer, source or self-care step
 - The publish gate protects every new publication. The existing published items are grandfathered and listed in `/admin/settings/health-education/readiness`; none expires until a review date is set. This is clinical content work (the CMO or content owner), not an engineering fix. Until each item has a self-care step the template shows only the fixed actions for it.
+- The publish gate fires on the move INTO published. It cannot stop an admin clearing the reviewer, source or self-care step on an item that is already published, and the reviewer name is typed free text (not tied to the person who approved). A republish from review due passes once the date is moved forward; no new review is forced. These are design choices to confirm with the CMO.
 - Decision: open (CMO).
 
 ### OQ-S55-07 Myth-busting series and daily lessons need clinical authors
@@ -1521,3 +1523,11 @@ Four defects from `docs/design/S55-S60-build-plan.md` section 5, fixed ahead of 
 ### OQ-S55-10 No consumer of lesson events yet; S47 Today screen not built
 - `lesson.completed` and `course.completed` are on the outbox for S58 (rewards). The daily card is a reusable component mounted on the patient dashboard, the Learn page and mobile Home; S47 can mount it on Today.
 - Decision: informational.
+
+### OQ-S55-11 Creators: no earnings, authoring or reinstatement beyond re-verification
+- A creator submits credentials at `/clinician/learning-creator`; an admin verifies, suspends (their published items go back to review) or reinstates (back to waiting for verification, never straight to verified). Items written by a creator are still entered through the admin content form until the Module 25 CMS exists (S80).
+- Decision: informational.
+
+### OQ-S55-12 A failed lesson-event write opens one shared incident
+- If `lesson.completed` or `course.completed` cannot be written, the patient's progress is still saved, an `audit_log` row is written for each failure and one open sev1 incident covers all of them. A systematic failure therefore pages once, not once per patient. Confirm sev1 is the right class for a rewards-event failure (S58 is the only consumer, not built).
+- Decision: open.

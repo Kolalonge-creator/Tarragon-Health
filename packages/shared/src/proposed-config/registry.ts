@@ -1337,7 +1337,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     key: "learning.search_gap_log",
     // S55 (spec 9.3): rules for the zero-result search log (no patient reference): longest phrase kept, most words, how many searches
     // before an admin sees a phrase, and retention. Live value is the `search_gap_log` row of `learning_config`. UNSIGNED.
-    value: { max_query_chars: 60, max_words: 6, min_count_to_show: 3, retention_days: 180 },
+    value: { max_query_chars: 60, max_words: 6, min_count_to_show: 3, retention_days: 180, max_rows: 5000 },
     owner: "Founder",
     status: "proposed",
     version: 1,
@@ -1358,11 +1358,11 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
         { terms: ["drug", "drugs", "medicine", "medicines", "medication", "tablets", "pills"] },
         { terms: ["kidney", "kidneys", "kidney disease", "ckd"] },
         { terms: ["hot body", "fever", "high temperature"] },
-        { terms: ["weight", "overweight", "belly fat", "obesity", "fat"] },
+        { terms: ["weight", "overweight", "belly fat", "obesity"] },
         { terms: ["sleep", "insomnia", "cannot sleep", "sleeping"] },
         { terms: ["salt", "sodium"] },
         { terms: ["exercise", "workout", "walking", "physical activity"] },
-        { terms: ["vaccine", "vaccines", "vaccination", "injection", "immunisation", "immunization"] },
+        { terms: ["vaccine", "vaccines", "vaccination", "immunisation", "immunization"] },
         { terms: ["tired", "fatigue", "weak body"] },
         { terms: ["herb", "herbs", "herbal", "local medicine", "agbo"] },
       ],

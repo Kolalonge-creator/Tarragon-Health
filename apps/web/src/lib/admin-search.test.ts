@@ -227,3 +227,10 @@ describe("Learning Centre admin pages (S55) are searchable", () => {
     expect(top("synonyms")[0]).toBe("/admin/settings/health-education/search-gaps");
   });
 });
+
+describe("Learning creator credentials page for clinicians (S55)", () => {
+  it("is findable by the Chief Medical Officer", () => {
+    const cmoIdx = buildAdminSearchIndex([], [], CMO_EXTRA_PAGES);
+    expect(searchAdminEntries(cmoIdx, "mdcn creator", 3).map((e) => e.href)[0]).toBe("/clinician/learning-creator");
+  });
+});

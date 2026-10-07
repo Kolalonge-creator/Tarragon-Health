@@ -20,8 +20,30 @@ $$;
 revoke execute on function private.learning_norm(text) from public;
 grant execute on function private.learning_norm(text) to authenticated, service_role;
 
+-- Audience gate used by the new readers, the same rule health_education_feed applies: an item with an age range is hidden
+-- from a caller whose age is known and outside it (an unknown age is not restricted, as in the feed).
+create or replace function private.learning_age_ok(p_min integer, p_max integer)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select (p_min is null and p_max is null)
+      or coalesce(
+           (select (p_min is null or a >= p_min) and (p_max is null or a <= p_max)
+              from (select private.patient_age_years((select auth.uid())) as a) x
+             where a is not null),
+           true);
+$$;
+revoke execute on function private.learning_age_ok(integer, integer) from public;
+grant execute on function private.learning_age_ok(integer, integer) to authenticated, service_role;
+
 -- ---------------------------------------------------------------------------
 -- Search with the synonym table (spec 9.3) and zero-result logging (no PHI)
+--
+-- Expansion picks NON-OVERLAPPING matches, longest phrase first (ties go to the later one, the head word), so "high blood sugar"
+-- expands the diabetes group ("blood sugar") and not the blood-pressure group ("high blood") that overlaps it.
 -- ---------------------------------------------------------------------------
 create or replace function public.search_health_education(p_query text, p_limit integer default 20)
 returns table (
@@ -38,6 +60,10 @@ declare
   v_cfg    jsonb := private.learning_config('search_gap_log');
   v_syn    jsonb := coalesce(private.learning_config('search_synonyms'), '[]'::jsonb);
   v_q      text;
+  v_words  text[];
+  v_cover  boolean[];
+  v_groups integer[] := '{}';
+  v_span   record;
   v_terms  text[];
   v_tsq    tsquery;
   v_one    tsquery;
@@ -52,18 +78,36 @@ begin
   if char_length(v_q) < 2 then
     return;
   end if;
+  v_words := string_to_array(v_q, ' ');
+  v_cover := array_fill(false, array[cardinality(v_words)]);
+
+  for v_span in
+    with terms as (
+      select g.ord::integer as gi, string_to_array(private.learning_norm(x.term), ' ') as tw
+        from jsonb_array_elements(v_syn) with ordinality g(val, ord)
+        cross join lateral jsonb_array_elements_text(g.val -> 'terms') x(term)
+    )
+    select t.gi, i as s, i + cardinality(t.tw) - 1 as e, cardinality(t.tw) as len
+      from terms t
+      cross join generate_series(1, cardinality(v_words)) i
+     where i + cardinality(t.tw) - 1 <= cardinality(v_words)
+       and v_words[i:i + cardinality(t.tw) - 1] = t.tw
+     order by len desc, e desc, s
+  loop
+    if not (true = any (v_cover[v_span.s:v_span.e])) then
+      v_cover[v_span.s:v_span.e] := array_fill(true, array[v_span.e - v_span.s + 1]);
+      v_groups := v_groups || v_span.gi;
+    end if;
+  end loop;
 
   select array_agg(distinct t) into v_terms
   from (
     select v_q as t
     union
-    select x.term
-      from jsonb_array_elements(v_syn) g
-      cross join lateral jsonb_array_elements_text(g -> 'terms') x(term)
-     where exists (
-       select 1 from jsonb_array_elements_text(g -> 'terms') m(term)
-        where (' ' || v_q || ' ') like ('% ' || m.term || ' %')
-     )
+    select private.learning_norm(x.term)
+      from jsonb_array_elements(v_syn) with ordinality g(val, ord)
+      cross join lateral jsonb_array_elements_text(g.val -> 'terms') x(term)
+     where g.ord::integer = any (v_groups)
   ) s;
 
   foreach v_term in array v_terms loop
@@ -90,6 +134,7 @@ begin
     from public.health_education_content c
    where private.health_education_is_servable(c.is_active, c.content_status, c.next_review_due)
      and not c.is_placeholder
+     and private.learning_age_ok(c.min_age, c.max_age)
      and (
        (v_tsq is not null and to_tsvector('english'::regconfig, (((coalesce(c.title, '') || ' ') || coalesce(c.summary, '')) || ' ') || coalesce(c.body, '')) @@ v_tsq)
        or exists (select 1 from unnest(v_terms) t where (' ' || private.learning_norm(c.title) || ' ') like ('% ' || t || ' %'))
@@ -97,18 +142,23 @@ begin
 
   select count(*) into v_found from pg_temp.learning_search_hits;
 
+  -- Zero-result log: anonymous phrase and count only. Skipped for anything that looks like an identifier (an at-sign, or five or
+  -- more digits anywhere in the phrase however they are spaced), and no new phrase is added once the table holds max_rows.
   if v_found = 0
      and char_length(v_q) <= (v_cfg ->> 'max_query_chars')::integer
-     and array_length(string_to_array(v_q, ' '), 1) <= (v_cfg ->> 'max_words')::integer
+     and array_length(v_words, 1) <= (v_cfg ->> 'max_words')::integer
      and p_query !~ '@'
-     and p_query !~ '[0-9]{4,}' then
+     and char_length(regexp_replace(p_query, '[^0-9]', '', 'g')) < 5 then
     begin
-      insert into public.learning_search_gaps as g (query_norm) values (v_q)
-      on conflict (query_norm) do update
-        set hit_count = g.hit_count + 1,
-            last_seen = (now() at time zone 'Africa/Lagos')::date;
       delete from public.learning_search_gaps
        where last_seen < (now() at time zone 'Africa/Lagos')::date - (v_cfg ->> 'retention_days')::integer;
+      if exists (select 1 from public.learning_search_gaps where query_norm = v_q)
+         or (select count(*) from public.learning_search_gaps) < (v_cfg ->> 'max_rows')::integer then
+        insert into public.learning_search_gaps as g (query_norm) values (v_q)
+        on conflict (query_norm) do update
+          set hit_count = g.hit_count + 1,
+              last_seen = (now() at time zone 'Africa/Lagos')::date;
+      end if;
     exception when others then
       -- planning telemetry only: the search itself must still answer. Not silent: it lands in the database log.
       raise warning 'learning search gap log failed: %', sqlerrm;
@@ -173,6 +223,7 @@ as $$
    where (select id from me) is not null
      and c.is_micro_lesson
      and not c.is_placeholder
+     and private.learning_age_ok(c.min_age, c.max_age)
      and private.health_education_is_servable(c.is_active, c.content_status, c.next_review_due)
      and (p.status is distinct from 'understood' or p.last_viewed_at >= (select t from day0))
    order by (p.status = 'understood') desc nulls last,
@@ -227,9 +278,9 @@ begin
     insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
       values (new.organisation_id, 'learning_event.error', 'health_education_progress', new.id,
               jsonb_build_object('error', sqlerrm));
-    perform private.page_incident(new.organisation_id, 'learning_event_failed:' || new.id,
+    perform private.page_incident(new.organisation_id, 'learning_event_failed',
       'A learning completion event could not be written',
-      'A lesson completion event failed; see audit_log action learning_event.error. The patient''s progress itself was saved.');
+      'A lesson or course completion event failed; see audit_log action learning_event.error (one open incident covers all of them). The patient''s progress itself was saved.');
   end;
   return new;
 end;
@@ -499,6 +550,7 @@ as $$
    where (select auth.uid()) is not null
      and c.content_type in ('article', 'faq', 'audio')
      and not c.is_placeholder
+     and private.learning_age_ok(c.min_age, c.max_age)
      and private.health_education_is_servable(c.is_active, c.content_status, c.next_review_due)
    order by c.is_micro_lesson desc, c.sort_order, c.code
    limit coalesce((private.learning_config('offline_pack') ->> 'max_items')::integer, 150);
@@ -537,6 +589,7 @@ begin
     select g.query_norm, g.hit_count, g.first_seen, g.last_seen
       from public.learning_search_gaps g
      where g.hit_count >= (private.learning_config('search_gap_log') ->> 'min_count_to_show')::integer
+       and g.last_seen >= (now() at time zone 'Africa/Lagos')::date - (private.learning_config('search_gap_log') ->> 'retention_days')::integer
      order by g.hit_count desc, g.last_seen desc
      limit 200;
 end;
@@ -598,6 +651,7 @@ begin
     'public.learning_search_gaps_report()',
     'public.learning_readiness_report()',
     'private.health_education_progress_emit_events()',
+    'private.learning_age_ok(integer, integer)',
     'private.health_education_publish_gate()'
   ] loop
     execute format('revoke execute on function %s from public', v_sig);

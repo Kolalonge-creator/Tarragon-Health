@@ -11,7 +11,17 @@ import { Button } from "@/components/ui/button";
 export async function SavedLessonsCard({ patientId, consultationId }: { patientId: string; consultationId: string }) {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("consultation_saved_lessons", { p_patient: patientId });
-  if (error || !data || data.length === 0) return null;
+  if (error) {
+    // Not silent: an empty card and a failed read look the same to the clinician, and the patient asked for this to be raised.
+    return (
+      <Card>
+        <CardContent className="pt-4 text-sm text-charcoal-ink/70">
+          We could not load the lessons this patient saved to talk about. Please refresh the page; if it keeps failing, ask the patient directly.
+        </CardContent>
+      </Card>
+    );
+  }
+  if (!data || data.length === 0) return null;
   const waiting = data.filter((l) => !l.discussed_at);
 
   async function markDiscussed() {

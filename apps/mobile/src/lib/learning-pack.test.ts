@@ -6,6 +6,7 @@ jest.mock("./supabase", () => ({ supabase: {} }));
 jest.mock("./audio/manifest", () => ({ audioCatalogue: () => null }));
 
 import {
+  autoRefreshDue,
   pickOfflineDailyLesson,
   purgeExpired,
   readOffline,
@@ -78,6 +79,27 @@ describe("refresh on reconnect", () => {
     expect([...store.items.keys()]).toEqual(["keep"]);
   });
 
+  it("a refresh that cannot write the new pack keeps the lessons already saved", async () => {
+    const store = new MemoryStore();
+    await store.put([stored("old-a"), stored("old-b")]);
+    const failing: PackStore = {
+      list: () => store.list(),
+      put: async () => { throw new Error("disk full"); },
+      remove: (codes) => store.remove(codes),
+      clear: () => store.clear(),
+    };
+    const api: PackApi = {
+      fetchStatus: async () => [
+        { code: "old-a", servable: true, content_version: 1, next_review_due: "2027-01-01" },
+        { code: "old-b", servable: true, content_version: 1, next_review_due: "2027-01-01" },
+      ],
+      fetchPack: async () => [row("brand-new")],
+    };
+    const res = await refreshPack({ store: failing, api, config: CFG, now: NOW });
+    expect(res.ok).toBe(false);
+    expect([...store.items.keys()].sort()).toEqual(["old-a", "old-b"]);
+  });
+
   it("never downloads an expired or over-cap item, and drops one that no longer fits", async () => {
     const store = new MemoryStore();
     await store.put([stored("was-fine", { textBytes: 100 })]);
@@ -123,5 +145,14 @@ describe("shared link", () => {
   it("points at the public site with the content code only", () => {
     expect(sharedArticleUrl("htn-basics", "https://app.tarragonhealth.ng")).toBe("https://tarragonhealth.ng/learn/htn-basics");
     expect(sharedArticleUrl("a b", "https://app.tarragonhealth.ng/")).toBe("https://tarragonhealth.ng/learn/a%20b");
+  });
+});
+
+describe("automatic refresh throttle", () => {
+  it("refreshes when never refreshed or long ago, not on every return to the app", () => {
+    expect(autoRefreshDue(null, NOW)).toBe(true);
+    expect(autoRefreshDue("garbage", NOW)).toBe(true);
+    expect(autoRefreshDue("2026-10-07T11:00:00Z", NOW)).toBe(false);
+    expect(autoRefreshDue("2026-10-07T05:00:00Z", NOW)).toBe(true);
   });
 });
