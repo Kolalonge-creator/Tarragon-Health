@@ -15,7 +15,12 @@ import type {
  *   - no "on target" without a recorded value inside the target window;
  *   - a blood pressure summary below the minimum reading count says "too few readings to judge", it never passes or fails;
  *   - at most three priorities (config.maxPriorities, itself capped at three here); the rest go to "also worth knowing";
- *   - borderline is shown as borderline with a recheck interval and is never "on target";
+ *   - borderline is shown as borderline with a recheck interval and is never "on target". There is NO margin (S47, decision 3): for blood pressure it
+ *     means above the target but still inside the guideline high-normal band (130-139 / 80-89); a lab value is only ever judged by its own laboratory's
+ *     range or flag;
+ *   - the target is comorbidity-aware (S47, decision 1): default below 140/90, the lower one when the facts say the patient is in the higher-risk
+ *     group, and a care-plan target overrides both;
+ *   - a blood pressure verdict needs both the minimum readings and the minimum number of distinct days, and always says what it rests on;
  *   - compare to the patient's own previous year only, never to other people, and never convert a unit.
  */
 
@@ -27,8 +32,10 @@ function item(partial: Partial<ReportItem> & Pick<ReportItem, "id" | "kind" | "c
     value2: null,
     unit: null,
     readingCount: 0,
+    readingDays: null,
     tooFewReadings: false,
     minReadings: null,
+    minDays: null,
     borderline: false,
     recheckWeeks: null,
     target: null,
@@ -53,26 +60,45 @@ function hasRange(p: LabPoint): boolean {
   return p.refLow !== null || p.refHigh !== null;
 }
 
+function inHighNormalBand(sys: number, dia: number, band: NonNullable<HealthReportConfig["bpHighNormalBand"]>): boolean {
+  return sys < band.systolicBelow && dia < band.diastolicBelow && (sys >= band.systolicFrom || dia >= band.diastolicFrom);
+}
+
 function composeBp(f: HealthReportFacts, cfg: HealthReportConfig): ReportItem {
   const { bp } = f;
-  const base = { id: "bp", kind: "bp" as const, code: "blood_pressure", unit: "mmHg", minReadings: cfg.minBpReadings, dateFrom: bp.firstAt, dateTo: bp.lastAt };
+  const minDays = cfg.minBpDays ?? 1;
+  const base = {
+    id: "bp",
+    kind: "bp" as const,
+    code: "blood_pressure",
+    unit: "mmHg",
+    minReadings: cfg.minBpReadings,
+    minDays,
+    dateFrom: bp.firstAt,
+    dateTo: bp.lastAt,
+  };
   if (bp.count === 0 || bp.avgSystolic === null || bp.avgDiastolic === null) {
-    return item({ ...base, state: "not_measured", reason: "no_readings", readingCount: 0 });
+    return item({ ...base, state: "not_measured", reason: "no_readings", readingCount: 0, readingDays: 0 });
   }
-  if (bp.count < cfg.minBpReadings) {
-    return item({ ...base, state: "not_measured", reason: "too_few_readings", tooFewReadings: true, readingCount: bp.count });
+  const days = bp.days ?? 0;
+  if (bp.count < cfg.minBpReadings || days < minDays) {
+    return item({ ...base, state: "not_measured", reason: "too_few_readings", tooFewReadings: true, readingCount: bp.count, readingDays: days });
   }
   const careTeam = f.bpCareTeamTarget;
-  const sysT = careTeam?.systolicBelow ?? cfg.bpTarget.systolicBelow;
-  const diaT = careTeam?.diastolicBelow ?? cfg.bpTarget.diastolicBelow;
-  const source = careTeam ? ("care_team" as const) : ("report_settings" as const);
+  const hr = f.bpHigherRisk;
+  const higherRisk = !!hr && (hr.diabetes || hr.ckd || hr.cvd || hr.elevatedRisk) && !!cfg.bpTargetHigherRisk;
+  const defaultTarget = higherRisk && cfg.bpTargetHigherRisk ? cfg.bpTargetHigherRisk : cfg.bpTarget;
+  const sysT = careTeam?.systolicBelow ?? defaultTarget.systolicBelow;
+  const diaT = careTeam?.diastolicBelow ?? defaultTarget.diastolicBelow;
+  const source = careTeam ? ("care_team" as const) : higherRisk ? ("higher_risk" as const) : ("report_settings" as const);
   const excessNow = Math.max(bp.avgSystolic - sysT, bp.avgDiastolic - diaT);
   const above = excessNow >= 0;
-  const borderlineAbove = above && excessNow <= cfg.bpBorderlineMarginMmHg;
+  // borderline = above the target but still only in the guideline high-normal band; there is no margin
+  const borderlineAbove = above && !!cfg.bpHighNormalBand && inHighNormalBand(bp.avgSystolic, bp.avgDiastolic, cfg.bpHighNormalBand);
 
   let change: ReportChange = "no_comparison";
   let previousValue: number | null = null;
-  if (f.bpPrior && f.bpPrior.count >= cfg.minBpReadings && f.bpPrior.avgSystolic !== null && f.bpPrior.avgDiastolic !== null) {
+  if (f.bpPrior && f.bpPrior.count >= cfg.minBpReadings && (f.bpPrior.days ?? 0) >= minDays && f.bpPrior.avgSystolic !== null && f.bpPrior.avgDiastolic !== null) {
     previousValue = f.bpPrior.avgSystolic;
     const excessPrev = Math.max(f.bpPrior.avgSystolic - sysT, f.bpPrior.avgDiastolic - diaT);
     const tolerance = (cfg.changeTolerancePct / 100) * sysT;
@@ -86,6 +112,7 @@ function composeBp(f: HealthReportFacts, cfg: HealthReportConfig): ReportItem {
     value: bp.avgSystolic,
     value2: bp.avgDiastolic,
     readingCount: bp.count,
+    readingDays: days,
     borderline: borderlineAbove,
     recheckWeeks: borderlineAbove ? cfg.recheckWeeks : null,
     target: { low: null, high: sysT, high2: diaT, source },
@@ -121,16 +148,13 @@ function composeLab(l: HealthReportFacts["labs"][number], cfg: HealthReportConfi
   if (excess === 0 && !abnormalFlag) {
     return item({ ...base, state: "on_target", target, change, previousValue });
   }
-  // outside the lab's own range, or the lab flagged it: needs attention; a small excess is borderline with a recheck interval, never pass or fail
-  const borderline = excess > 0 && excess <= cfg.labBorderlineMarginPct && p.flag !== "critical";
+  // outside the lab's own range, or the lab itself flagged it: needs attention. There is no borderline margin for a lab value (S47, decision 3).
   return item({
     ...base,
     state: "needs_attention",
     target,
     change,
     previousValue,
-    borderline,
-    recheckWeeks: borderline ? cfg.recheckWeeks : null,
     excess: Math.max(excess, abnormalFlag ? 0.01 : 0),
   });
 }
@@ -162,7 +186,7 @@ export function composeHealthReport(facts: HealthReportFacts, config: HealthRepo
     } else if (bp.state === "needs_attention") {
       candidates.push({ rank: 50, sort: 0, p: { id: "bp", category: "bp", action: "report.priority.bp_borderline.action", why: "report.priority.bp_borderline.why", whoHelps: "report.who.you_and_care_team", when: win.bp, params: { weeks: config.recheckWeeks } } });
     } else if (bp.state === "not_measured") {
-      candidates.push({ rank: 60, sort: 0, p: { id: "bp", category: "bp", action: "report.priority.bp_more_readings.action", why: "report.priority.bp_more_readings.why", whoHelps: "report.who.you", when: win.bp, params: { min: config.minBpReadings, count: bp.readingCount } } });
+      candidates.push({ rank: 60, sort: 0, p: { id: "bp", category: "bp", action: "report.priority.bp_more_readings.action", why: "report.priority.bp_more_readings.why", whoHelps: "report.who.you", when: win.bp, params: { min: config.minBpReadings, count: bp.readingCount, minDays: config.minBpDays ?? 1, days: bp.readingDays ?? 0 } } });
     }
   }
   if (facts.risk.state === "assessed" && (facts.risk.tier === "high" || facts.risk.tier === "very_high")) {
@@ -170,9 +194,9 @@ export function composeHealthReport(facts: HealthReportFacts, config: HealthRepo
   }
   for (const i of items.filter((x) => x.kind === "lab" && x.state === "needs_attention")) {
     candidates.push({
-      rank: i.borderline ? 55 : 30,
+      rank: 30,
       sort: -i.excess,
-      p: { id: i.id, category: "lab", action: i.borderline ? "report.priority.lab_borderline.action" : "report.priority.lab.action", why: "report.priority.lab.why", whoHelps: "report.who.care_team", when: win.lab, params: { code: i.code, weeks: config.recheckWeeks } },
+      p: { id: i.id, category: "lab", action: "report.priority.lab.action", why: "report.priority.lab.why", whoHelps: "report.who.care_team", when: win.lab, params: { code: i.code, weeks: config.recheckWeeks } },
     });
   }
   for (const d of overdue) {
@@ -206,6 +230,7 @@ export function composeHealthReport(facts: HealthReportFacts, config: HealthRepo
     statementKey: config.statementKey,
     statementApprovedByCmo: config.statementApprovedByCmo,
     minBpReadings: config.minBpReadings,
+    minBpDays: config.minBpDays ?? 1,
   };
 }
 

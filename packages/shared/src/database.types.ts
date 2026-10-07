@@ -10868,6 +10868,8 @@ export type Database = {
       }
       consent_matrix_cells: {
         Row: {
+          consent_timing: string
+
           data_type: string
           policy_version: number
           purpose: string
@@ -10878,6 +10880,8 @@ export type Database = {
           wording_status: string
         }
         Insert: {
+          consent_timing: string
+
           data_type: string
           policy_version?: number
           purpose: string
@@ -10888,6 +10892,8 @@ export type Database = {
           wording_status?: string
         }
         Update: {
+          consent_timing?: string
+
           data_type?: string
           policy_version?: number
           purpose?: string
@@ -13383,6 +13389,10 @@ export type Database = {
           show_date_of_birth: boolean
           show_emergency_contact: boolean
           show_medications: boolean
+
+          show_mental_health: boolean
+
+          show_reproductive: boolean
           show_patient_number: boolean
           show_sex: boolean
           updated_at: string
@@ -13397,6 +13407,10 @@ export type Database = {
           show_date_of_birth?: boolean
           show_emergency_contact?: boolean
           show_medications?: boolean
+
+          show_mental_health?: boolean
+
+          show_reproductive?: boolean
           show_patient_number?: boolean
           show_sex?: boolean
           updated_at?: string
@@ -13411,6 +13425,10 @@ export type Database = {
           show_date_of_birth?: boolean
           show_emergency_contact?: boolean
           show_medications?: boolean
+
+          show_mental_health?: boolean
+
+          show_reproductive?: boolean
           show_patient_number?: boolean
           show_sex?: boolean
           updated_at?: string
@@ -34995,6 +35013,8 @@ export type Database = {
         Row: {
           created_at: string
           default_hours: number
+
+          default_max_views: number | null
           is_active: boolean
           max_hours: number
           max_pin_attempts: number
@@ -35006,6 +35026,8 @@ export type Database = {
         Insert: {
           created_at?: string
           default_hours: number
+
+          default_max_views: number | null
           is_active?: boolean
           max_hours: number
           max_pin_attempts: number
@@ -35017,6 +35039,8 @@ export type Database = {
         Update: {
           created_at?: string
           default_hours?: number
+
+          default_max_views?: number | null
           is_active?: boolean
           max_hours?: number
           max_pin_attempts?: number

@@ -74,7 +74,8 @@ export function ShareControls({ patientId, locale = "en" }: { patientId: string;
   const [selectedSections, setSelectedSections] = useState<Set<RecordShareSection>>(new Set());
   const [expiry, setExpiry] = useState("default");
   const [pin, setPin] = useState("");
-  const [maxViews, setMaxViews] = useState("");
+  // null = the person has not typed a number, so the configured default (S47: 10) is pre-filled
+  const [maxViews, setMaxViews] = useState<string | null>(null);
   const [created, setCreated] = useState<CreatedShare | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,6 +90,8 @@ export function ShareControls({ patientId, locale = "en" }: { patientId: string;
     });
   }, []);
 
+  const shownViews = maxViews ?? (config?.default_max_views != null ? String(config.default_max_views) : "");
+
   const handleCreate = useCallback(async () => {
     if (selectedSections.size === 0) return;
     setError(null);
@@ -97,16 +100,16 @@ export function ShareControls({ patientId, locale = "en" }: { patientId: string;
         sections: Array.from(selectedSections),
         expiresInHours: expiry === "default" ? undefined : Number.parseInt(expiry, 10),
         pin: pin.trim() || undefined,
-        maxViews: maxViews.trim() ? Number.parseInt(maxViews, 10) : undefined,
+        maxViews: shownViews.trim() ? Number.parseInt(shownViews, 10) : undefined,
       });
       setCreated(result);
       setSelectedSections(new Set());
       setPin("");
-      setMaxViews("");
+      setMaxViews(null);
     } catch {
       setError(t("healthhistory.error", locale));
     }
-  }, [selectedSections, expiry, pin, maxViews, createShare, locale]);
+  }, [selectedSections, expiry, pin, shownViews, createShare, locale]);
 
   const copy = useCallback(async (token: string) => {
     try {
@@ -165,7 +168,7 @@ export function ShareControls({ patientId, locale = "en" }: { patientId: string;
               <Label htmlFor="share-max" className="text-sm">
                 {t("share.max_views.label", locale)}
               </Label>
-              <Input id="share-max" inputMode="numeric" maxLength={4} value={maxViews} onChange={(e) => setMaxViews(e.target.value.replace(/\D/g, ""))} placeholder="1-1000" />
+              <Input id="share-max" inputMode="numeric" maxLength={4} value={shownViews} onChange={(e) => setMaxViews(e.target.value.replace(/\D/g, ""))} placeholder="1-1000" />
             </div>
           </div>
 

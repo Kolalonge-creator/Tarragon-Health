@@ -1,3 +1,4 @@
+import { bandActionText } from "@/lib/cv-risk/band-actions";
 import { t, type MessageKey } from "@tarragon/i18n";
 import { shareableView, type ComposedReport, type HealthReportConfig, type ReportItem, type ReportPriority, type ReportState } from "@tarragon/clinical";
 
@@ -82,11 +83,11 @@ function itemBlock(i: ReportItem, c: ComposedReport): Block {
   let value = "";
   if (i.kind === "bp") {
     if (i.state === "not_measured") {
-      notes.push(i.tooFewReadings ? t("report.bp.too_few", "en", { min: c.minBpReadings, count: i.readingCount }) : t("report.bp.none", "en"));
+      notes.push(i.tooFewReadings ? t("report.bp.too_few", "en", { min: c.minBpReadings, minDays: c.minBpDays, count: i.readingCount, days: i.readingDays ?? 0 }) : t("report.bp.none", "en"));
     } else {
       value = `${fmt(i.value)}/${fmt(i.value2)} mmHg`;
-      notes.push(t("report.bp.readings", "en", { count: i.readingCount, from: day(i.dateFrom), to: day(i.dateTo) }));
-      if (i.target?.high && i.target.high2) notes.push(t("report.bp.target", "en", { sys: i.target.high, dia: i.target.high2 }));
+      notes.push(t("report.bp.readings", "en", { count: i.readingCount, days: i.readingDays ?? 0, from: day(i.dateFrom), to: day(i.dateTo) }));
+      if (i.target?.high && i.target.high2) notes.push(t(i.target.source === "higher_risk" ? "report.bp.target_higher_risk" : "report.bp.target", "en", { sys: i.target.high, dia: i.target.high2 }));
     }
   } else if (i.kind === "lab") {
     value = `${fmt(i.value)} ${i.unit ?? ""}`.trim();
@@ -136,7 +137,7 @@ export function buildRenderModel(
     sections.push({
       id: "risk",
       heading: t("report.section.risk", "en"),
-      blocks: [p(t("report.risk.assessed", "en", { band: t(TIER_KEY[c.risk.tier] ?? "report.risk.tier.moderate", "en") })), ...(basedOn ? [p(t("report.risk.based_on", "en", { items: basedOn }))] : [])],
+      blocks: [p(t("report.risk.assessed", "en", { band: t(TIER_KEY[c.risk.tier] ?? "report.risk.tier.moderate", "en") })), ...(bandActionText(c.risk.bandCode) ? [p(bandActionText(c.risk.bandCode) as string)] : []), ...(basedOn ? [p(t("report.risk.based_on", "en", { items: basedOn }))] : [])],
     });
   } else if (variant === "self") {
     sections.push({ id: "risk", heading: t("report.section.risk", "en"), blocks: [p(t("report.risk.not_assessed", "en"))] });

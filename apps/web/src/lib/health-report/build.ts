@@ -17,9 +17,10 @@ import { composeHealthReport, type ComposedReport, type HealthReportConfig, type
 const configSchema = z.object({
   maxPriorities: z.number().int().min(1),
   minBpReadings: z.number().int().min(1),
+  minBpDays: z.number().int().min(1).optional(),
   bpTarget: z.object({ systolicBelow: z.number(), diastolicBelow: z.number() }),
-  bpBorderlineMarginMmHg: z.number().min(0),
-  labBorderlineMarginPct: z.number().min(0),
+  bpTargetHigherRisk: z.object({ systolicBelow: z.number(), diastolicBelow: z.number() }).optional(),
+  bpHighNormalBand: z.object({ systolicFrom: z.number(), systolicBelow: z.number(), diastolicFrom: z.number(), diastolicBelow: z.number() }).optional(),
   changeTolerancePct: z.number().min(0),
   recheckWeeks: z.number().int().min(1),
   priorityWindows: z.object({ bp: z.string(), lab: z.string(), screening: z.string(), risk: z.string() }),

@@ -16,21 +16,30 @@ export const CARD_FIELDS = [
   "conditions",
   "blood",
   "emergency_contact",
+  "reproductive",
+  "mental_health",
 ] as const;
 export type CardField = (typeof CARD_FIELDS)[number];
 
 export type CardFieldChoices = Record<CardField, boolean> & { lock_screen_opt_in: boolean };
 
-/** What the card shows before the person has chosen anything: unchanged from before this feature. */
+/**
+ * What the card shows before the person has chosen anything (S47, chat decision 2026-10-07). ON: blood group and genotype, allergies, current medicines,
+ * emergency contacts (and the identity lines the card always carried). OFF until chosen: ongoing conditions or diagnoses, and anything reproductive or mental
+ * health. The live link (database wrapper), the printed page, the QR text and the phone's offline card all start from this, and a hidden detail is said to be
+ * "not shared", never "none recorded".
+ */
 export const DEFAULT_CHOICES: CardFieldChoices = {
   date_of_birth: true,
   sex: true,
   patient_number: true,
   allergies: true,
   medications: true,
-  conditions: true,
+  conditions: false,
   blood: true,
   emergency_contact: true,
+  reproductive: false,
+  mental_health: false,
   lock_screen_opt_in: false,
 };
 
@@ -44,6 +53,8 @@ export const MINIMAL_CHOICES: CardFieldChoices = {
   conditions: false,
   blood: true,
   emergency_contact: true,
+  reproductive: false,
+  mental_health: false,
   lock_screen_opt_in: false,
 };
 
@@ -56,6 +67,8 @@ export interface CardFieldsRow {
   show_conditions: boolean;
   show_blood: boolean;
   show_emergency_contact: boolean;
+  show_reproductive: boolean;
+  show_mental_health: boolean;
   lock_screen_opt_in: boolean;
 }
 
@@ -70,6 +83,8 @@ export function choicesFromRow(row: CardFieldsRow | null | undefined): CardField
     conditions: row.show_conditions,
     blood: row.show_blood,
     emergency_contact: row.show_emergency_contact,
+    reproductive: row.show_reproductive,
+    mental_health: row.show_mental_health,
     lock_screen_opt_in: row.lock_screen_opt_in,
   };
 }
@@ -84,12 +99,34 @@ export function rowFromChoices(c: CardFieldChoices): CardFieldsRow {
     show_conditions: c.conditions,
     show_blood: c.blood,
     show_emergency_contact: c.emergency_contact,
+    show_reproductive: c.reproductive,
+    show_mental_health: c.mental_health,
     lock_screen_opt_in: c.lock_screen_opt_in,
   };
 }
 
 export function hiddenFields(c: CardFieldChoices): CardField[] {
   return CARD_FIELDS.filter((f) => !c[f]);
+}
+
+/**
+ * Mirrors private.emergency_card_sensitive_condition (migration 20261008035104_s47_emergency_card_defaults.sql); a Jest test fails if the two lists differ.
+ * A condition that looks reproductive or mental health is removed from a shown list unless its own switch is on.
+ */
+export const REPRODUCTIVE_PATTERN = /(pregnan|antenatal|postnatal|fertil|contracepti|menstru|menopaus|reproduct|obstetric|gynae|gynec)/i;
+export const MENTAL_HEALTH_PATTERN = /(mental|depress|anxiet|psych|bipolar|schizo|suicid|self.?harm|ptsd|trauma|panic|mood)/i;
+
+export function sensitiveConditionKind(text: string): "reproductive" | "mental_health" | null {
+  if (REPRODUCTIVE_PATTERN.test(text)) return "reproductive";
+  if (MENTAL_HEALTH_PATTERN.test(text)) return "mental_health";
+  return null;
+}
+
+export function filterSensitiveConditions(conditions: readonly string[], c: Pick<CardFieldChoices, "reproductive" | "mental_health">): string[] {
+  return conditions.filter((x) => {
+    const kind = sensitiveConditionKind(x);
+    return kind === null || (kind === "reproductive" ? c.reproductive : c.mental_health);
+  });
 }
 
 /** Removes what the person chose not to show. The name is always kept: a card with no name identifies no one. */
@@ -102,7 +139,7 @@ export function applyCardFieldChoices(facts: EmergencyClinicalFacts, c: CardFiel
     emergency_contact: c.emergency_contact ? facts.emergency_contact : null,
     allergies: c.allergies ? facts.allergies : [],
     medications: c.medications ? facts.medications : [],
-    conditions: c.conditions ? facts.conditions : [],
+    conditions: c.conditions ? filterSensitiveConditions(facts.conditions, c) : [],
     blood: c.blood ? facts.blood : null,
   };
 }

@@ -90,6 +90,7 @@ export function EmergencyCardScreen({ patientId }: EmergencyCardScreenProps) {
           value={notShared("allergies") ?? (facts.allergies.length > 0 ? facts.allergies.map((a) => a.allergen).join(", ") : "None on file")}
         />
         <FactRow label="Conditions" value={notShared("conditions") ?? (facts.conditions.length > 0 ? facts.conditions.join(", ") : "None on file")} />
+        <FactRow label="Reproductive and mental health" value={notShared("reproductive") ?? notShared("mental_health") ?? "Not on file"} />
         <FactRow
           label="Emergency contact"
           value={

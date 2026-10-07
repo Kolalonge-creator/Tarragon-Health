@@ -118,7 +118,13 @@ export function buildEmergencyQrText(facts: EmergencyClinicalFacts, printedOn: s
         .join(" ")}`
     : null;
 
-  const footerLines = [`Printed: ${printedOn}`, "Not a substitute for clinical assessment."];
+  // S47: reproductive and mental health details are off until chosen; the card SAYS they are not shared (one short line, kept in the must-survive set)
+  const sensitiveNotShared = [hidden.includes("reproductive") ? "reproductive health" : null, hidden.includes("mental_health") ? "mental health" : null].filter(Boolean);
+  const footerLines = [
+    ...(sensitiveNotShared.length > 0 ? [`Not shared: ${sensitiveNotShared.join(", ")}`] : []),
+    `Printed: ${printedOn}`,
+    "Not a substitute for clinical assessment.",
+  ];
 
   // Reserve bytes for everything that must survive unabridged BEFORE handing
   // out whatever's left to the truncatable lists — this is the fix for the bug

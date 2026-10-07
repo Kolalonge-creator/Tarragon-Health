@@ -22,11 +22,12 @@ function matrix(on: Array<[string, string]> = []): ConsentMatrix {
       CONSENT_PURPOSES.map((purpose) => ({
         data_type,
         purpose,
-        required_for_care: purpose === "care",
+        required_for_care: purpose === "care" && (data_type === "vitals" || data_type === "documents"),
+        consent_timing: purpose === "care" && !(data_type === "vitals" || data_type === "documents") ? "on_first_use" : "at_account",
         sensitive: data_type === "reproductive" || data_type === "mental_health",
         text_key: `consent.matrix.${data_type}.${purpose}`,
         wording_status: "draft_pending_counsel" as const,
-        granted: purpose === "care" || on.some(([d, p]) => d === data_type && p === purpose),
+        granted: (purpose === "care" && (data_type === "vitals" || data_type === "documents")) || on.some(([d, p]) => d === data_type && p === purpose),
         changed_at: null,
       })),
     ),
@@ -57,9 +58,11 @@ describe("ConsentMatrixPanel", () => {
   it("advanced view: needed-for-care cells show a badge and no switch", () => {
     render(<ConsentMatrixPanel matrix={matrix()} history={[]} />);
     fireEvent.click(screen.getByRole("button", { name: /every choice/i }));
-    expect(screen.getAllByText(/needed for your care/i)).toHaveLength(5);
-    // 15 optional cells, each with a Turn on button; no care cell has one
-    expect(screen.getAllByRole("button", { name: /^turn on$/i })).toHaveLength(15);
+    expect(screen.getAllByText(/needed for your care/i)).toHaveLength(2);
+    // S47: 18 optional cells (15 non-care + the three optional-per-use care cells), each with a Turn on button; vitals and documents care have none
+    expect(screen.getAllByRole("button", { name: /^turn on$/i })).toHaveLength(18);
+    // the three optional-per-use cells say they are asked on first use and that turning off stops that feature only
+    expect(screen.getAllByText(/We ask when you first use this/i)).toHaveLength(3);
   });
 
   it("turning an optional cell off takes two taps", async () => {

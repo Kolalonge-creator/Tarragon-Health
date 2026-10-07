@@ -23,7 +23,7 @@ export interface EmergencyFacts {
   medications: EmergencyMedication[];
   emergencyContact: EmergencyContact | null;
   /** Details the person chose not to put on the card (S43). Shown as "not shared", never as "none". Absent in an older cache. */
-  hidden?: ("allergies" | "medications" | "conditions" | "blood" | "emergency_contact")[];
+  hidden?: ("allergies" | "medications" | "conditions" | "blood" | "emergency_contact" | "reproductive" | "mental_health")[];
   cachedAt: string;
 }
 
@@ -59,10 +59,10 @@ export async function loadEmergencyFacts(patientId: string): Promise<EmergencyFa
         .eq("patient_id", patientId)
         .eq("is_active", true)
         .order("drug_name"),
-      // S43: the details the person chose to put on their card. No row means nothing was chosen, so nothing is hidden.
+      // S43/S47: the details the person chose to put on their card. No row means nothing was chosen, so the DEFAULTS apply (conditions, reproductive and mental health off).
       supabase
         .from("emergency_card_fields")
-        .select("show_allergies, show_medications, show_conditions, show_blood, show_emergency_contact")
+        .select("show_allergies, show_medications, show_conditions, show_blood, show_emergency_contact, show_reproductive, show_mental_health")
         .eq("patient_id", patientId)
         .maybeSingle(),
     ]);
@@ -103,23 +103,45 @@ export interface EmergencyFieldChoicesRow {
   show_conditions: boolean;
   show_blood: boolean;
   show_emergency_contact: boolean;
+  /** S47: off until chosen. Absent in a row read before the column existed, which counts as off. */
+  show_reproductive?: boolean;
+  show_mental_health?: boolean;
 }
 
+/** What the card shows before the person has chosen anything (S47). Mirrors DEFAULT_CHOICES on the web and the column defaults in the database. */
+export const DEFAULT_EMERGENCY_FIELD_CHOICES: Required<EmergencyFieldChoicesRow> = {
+  show_allergies: true,
+  show_medications: true,
+  show_conditions: false,
+  show_blood: true,
+  show_emergency_contact: true,
+  show_reproductive: false,
+  show_mental_health: false,
+};
+
+/** Mirrors private.emergency_card_sensitive_condition; a web Jest test fails if these drift from the migration. */
+export const EMERGENCY_REPRODUCTIVE_PATTERN = /(pregnan|antenatal|postnatal|fertil|contracepti|menstru|menopaus|reproduct|obstetric|gynae|gynec)/i;
+export const EMERGENCY_MENTAL_HEALTH_PATTERN = /(mental|depress|anxiet|psych|bipolar|schizo|suicid|self.?harm|ptsd|trauma|panic|mood)/i;
+
 /** Removes what the person chose not to show (S43, spec 2.7). The web card and the live link apply the same choices. */
-export function applyEmergencyFieldChoices(facts: EmergencyFacts, row: EmergencyFieldChoicesRow | null): EmergencyFacts {
-  if (!row) return facts;
+export function applyEmergencyFieldChoices(facts: EmergencyFacts, chosen: EmergencyFieldChoicesRow | null): EmergencyFacts {
+  const row = { ...DEFAULT_EMERGENCY_FIELD_CHOICES, ...(chosen ?? {}) };
   const hidden: NonNullable<EmergencyFacts["hidden"]> = [];
   if (!row.show_allergies) hidden.push("allergies");
   if (!row.show_medications) hidden.push("medications");
   if (!row.show_conditions) hidden.push("conditions");
   if (!row.show_blood) hidden.push("blood");
   if (!row.show_emergency_contact) hidden.push("emergency_contact");
+  if (!row.show_reproductive) hidden.push("reproductive");
+  if (!row.show_mental_health) hidden.push("mental_health");
   return {
     ...facts,
     hidden,
     allergies: row.show_allergies ? facts.allergies : [],
     medications: row.show_medications ? facts.medications : [],
-    conditions: row.show_conditions ? facts.conditions : [],
+    conditions: row.show_conditions
+      ? facts.conditions.filter((c) => (EMERGENCY_REPRODUCTIVE_PATTERN.test(c) ? row.show_reproductive : EMERGENCY_MENTAL_HEALTH_PATTERN.test(c) ? row.show_mental_health : true))
+      : [],
     bloodGroup: row.show_blood ? facts.bloodGroup : null,
     genotype: row.show_blood ? facts.genotype : null,
     emergencyContact: row.show_emergency_contact ? facts.emergencyContact : null,

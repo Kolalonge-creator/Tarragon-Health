@@ -9,7 +9,7 @@ jest.mock("@/lib/supabase/server", () => ({
   createClient: jest.fn().mockImplementation(async () => ({ rpc: (...args: unknown[]) => rpcMock(...args) })),
 }));
 
-import { applyConsentBundleAction, setConsentCellAction, withdrawAllOptionalConsentsAction } from "./consent-matrix-actions";
+import { applyConsentBundleAction, grantFeatureConsentAction, setConsentCellAction, withdrawAllOptionalConsentsAction } from "./consent-matrix-actions";
 
 beforeEach(() => rpcMock.mockReset().mockResolvedValue({ data: { ok: true }, error: null }));
 
@@ -34,6 +34,23 @@ describe("setConsentCellAction", () => {
   it("reports any other failure instead of pretending it worked", async () => {
     rpcMock.mockResolvedValue({ data: null, error: { message: "boom" } });
     expect((await setConsentCellAction({ dataType: "vitals", purpose: "research", granted: false }))?.error).toMatch(/could not save/i);
+  });
+});
+
+describe("grantFeatureConsentAction (S47: asked on first use)", () => {
+  it("grants only the care cell of one optional-per-use data type, through the person's own session", async () => {
+    for (const dataType of ["reproductive", "mental_health", "device_data"]) {
+      rpcMock.mockClear();
+      expect(await grantFeatureConsentAction({ dataType })).toEqual({ ok: true });
+      expect(rpcMock).toHaveBeenCalledWith("set_consent_cell", { p_data_type: dataType, p_purpose: "care", p_granted: true });
+    }
+  });
+
+  it("refuses a data type that is required for care or does not exist, without calling the database", async () => {
+    expect((await grantFeatureConsentAction({ dataType: "vitals" }))?.error).toBeTruthy();
+    expect((await grantFeatureConsentAction({ dataType: "documents" }))?.error).toBeTruthy();
+    expect((await grantFeatureConsentAction({ dataType: "weather" }))?.error).toBeTruthy();
+    expect(rpcMock).not.toHaveBeenCalled();
   });
 });
 

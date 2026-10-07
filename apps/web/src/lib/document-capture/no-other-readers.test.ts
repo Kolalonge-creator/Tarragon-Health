@@ -16,6 +16,9 @@ const ALLOWED = [
   join("lib", "document-capture") + "/",
   join("app", "(dashboard)", "patient", "documents") + "/",
 ];
+// Exactly one file is allowed by name. S44's item-note.tsx lists "patient_documents" in a Set of table names a note may be attached to; it
+// builds no query and reads no row of that table. Allowing the one file (not its folder) keeps the guard strict for every other file.
+const ALLOWED_FILES = [join("components", "item-note.tsx")];
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -34,9 +37,17 @@ describe("patient_documents readers", () => {
     const offenders = walk(SRC)
       .map((f) => ({ f, rel: relative(SRC, f) }))
       .filter(({ rel }) => !ALLOWED.some((a) => rel.startsWith(a)))
+      .filter(({ rel }) => !ALLOWED_FILES.includes(rel))
       .filter(({ f }) => /["'`]patient_documents["'`]/.test(readFileSync(f, "utf8")))
       .map(({ rel }) => rel);
     expect(offenders).toEqual([]);
+  });
+
+  it("the named exception is real, is one file, and queries nothing", () => {
+    const src = readFileSync(join(SRC, ALLOWED_FILES[0]), "utf8");
+    expect(ALLOWED_FILES).toHaveLength(1);
+    expect(/["'`]patient_documents["'`]/.test(src)).toBe(true);
+    expect(/\.from\(\s*["'`]patient_documents["'`]/.test(src)).toBe(false);
   });
 
   it("the allow-list is real (the capture module does read the table)", () => {

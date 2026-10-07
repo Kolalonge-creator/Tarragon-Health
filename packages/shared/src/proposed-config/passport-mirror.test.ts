@@ -1,12 +1,11 @@
 import { describe, expect, it } from "@jest/globals";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getProposedConfig } from "./index";
 
 const MIGRATIONS = join(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..", "..", "supabase", "migrations");
 const SCHEDULE_MIGRATION = "20261007230645_s43_biomarker_trends_and_vaccination_schedule.sql";
-const SHARE_MIGRATION = "20261007230508_s43_share_links_and_emergency_card_fields.sql";
 
 function seededSchedule(): { status: string; doses: Record<string, unknown>[]; excluded: { code: string }[] } {
   const sql = readFileSync(join(MIGRATIONS, SCHEDULE_MIGRATION), "utf8");
@@ -46,18 +45,20 @@ describe("immunisation.schedule mirrors the draft sign-off row", () => {
   });
 });
 
-describe("record_share.defaults mirrors record_share_config version 1", () => {
+describe("record_share.defaults mirrors record_share_config version 2 (S47)", () => {
   it("is identical", () => {
-    const sql = readFileSync(join(MIGRATIONS, SHARE_MIGRATION), "utf8");
-    const m = /insert into public\.record_share_config[^;]*?values \((\d+), (\d+), (\d+), (\d+), (\d+),/.exec(sql);
-    if (!m) throw new Error("record_share_config seed not found");
-    expect({ default_hours: Number(m[2]), max_hours: Number(m[3]), max_pin_attempts: Number(m[4]), min_pin_length: Number(m[5]) }).toEqual(getProposedConfig("record_share.defaults").value);
-    expect(Number(m[1])).toBe(1);
+    const sql = readFileSync(join(MIGRATIONS, readdirSync(MIGRATIONS).find((f) => f.endsWith("_s47_share_view_cap_and_risk_band_actions.sql")) ?? ""), "utf8");
+    const m = /insert into public\.record_share_config \([^)]*\)\s*values \((\d+), (\d+), (\d+), (\d+), (\d+), (\d+),/.exec(sql);
+    if (!m) throw new Error("record_share_config v2 seed not found");
+    expect({ default_hours: Number(m[2]), max_hours: Number(m[3]), max_pin_attempts: Number(m[4]), min_pin_length: Number(m[5]), default_max_views: Number(m[6]) }).toEqual(getProposedConfig("record_share.defaults").value);
+    expect(Number(m[1])).toBe(2);
   });
 
-  it("defaults to 72 hours, as the spec says, and is proposed until the founder and CMO confirm", () => {
+  it("defaults to 72 hours with a view cap of 10 and a 30 day maximum, and is proposed until the founder and CMO confirm", () => {
     const e = getProposedConfig("record_share.defaults");
-    expect((e.value as { default_hours: number }).default_hours).toBe(72);
+    const v = e.value as { default_hours: number; max_hours: number; default_max_views: number };
+    expect([v.default_hours, v.max_hours, v.default_max_views]).toEqual([72, 720, 10]);
     expect(e.status).toBe("proposed");
+    expect(e.version).toBe(2);
   });
 });

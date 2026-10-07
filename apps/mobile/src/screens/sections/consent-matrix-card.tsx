@@ -120,6 +120,9 @@ export function ConsentMatrixCard() {
                     )}
                   </View>
                   <MutedText>{t(key(cell.text_key))}</MutedText>
+                  {cell.consent_timing === "on_first_use" && (
+                    <MutedText>{`${t("consent.matrix.asked_on_first_use")} ${t("consent.matrix.off_stops_feature_only")}`}</MutedText>
+                  )}
                   {!cell.required_for_care &&
                     (cell.granted ? (
                       armed === armKey ? (

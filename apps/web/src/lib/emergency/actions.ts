@@ -42,6 +42,8 @@ const fieldChoicesSchema = z.object({
   conditions: z.boolean(),
   blood: z.boolean(),
   emergency_contact: z.boolean(),
+  reproductive: z.boolean(),
+  mental_health: z.boolean(),
   lock_screen_opt_in: z.boolean(),
 });
 

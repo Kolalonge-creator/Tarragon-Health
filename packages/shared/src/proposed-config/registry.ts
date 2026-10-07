@@ -2134,6 +2134,121 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/research/health-report-study.md; docs/design/S46.md",
   },
   {
+    key: "report.settings",
+    // Yearly Tarragon Health Report settings (S46 function 3.15, updated by S47). Live value is the `config` of `health_report_config_versions` v2
+    // (v1, the S46 placeholder with the 5 mmHg / 5 percent margins, is superseded and stays unsigned in the table), UNSIGNED. The chat selections of
+    // 2026-10-07 are loaded here as values; they are not a signature (OQ-S46-3). Guideline-based: the BP targets, the high-normal band, the minimum
+    // 12 readings over 3 days. Tarragon PRODUCT RULES, not guideline facts: maxPriorities, changeTolerancePct, recheckWeeks, priorityWindows,
+    // trendMinPoints, trendYears (listed in `productRules`). There is no borderline margin. A test fails if the migration seed and this value drift.
+    value: {
+      "maxPriorities": 3,
+      "minBpReadings": 12,
+      "minBpDays": 3,
+      "bpTarget": {
+        "systolicBelow": 140,
+        "diastolicBelow": 90
+      },
+      "bpTargetHigherRisk": {
+        "systolicBelow": 130,
+        "diastolicBelow": 80
+      },
+      "bpHighNormalBand": {
+        "systolicFrom": 130,
+        "systolicBelow": 140,
+        "diastolicFrom": 80,
+        "diastolicBelow": 90
+      },
+      "higherRiskCriteria": {
+        "icd10Prefixes": {
+          "diabetes": [
+            "E10",
+            "E11",
+            "E12",
+            "E13",
+            "E14"
+          ],
+          "ckd": [
+            "N18"
+          ],
+          "cvd": [
+            "I20",
+            "I21",
+            "I22",
+            "I23",
+            "I24",
+            "I25",
+            "I50",
+            "I63",
+            "I64",
+            "I65",
+            "I66",
+            "I69",
+            "I70",
+            "I73"
+          ]
+        },
+        "namePatterns": {
+          "diabetes": [
+            "diabet"
+          ],
+          "ckd": [
+            "chronic kidney",
+            "ckd"
+          ],
+          "cvd": [
+            "coronary",
+            "myocardial infarction",
+            "angina",
+            "stroke",
+            "heart failure",
+            "peripheral arter"
+          ]
+        },
+        "elevatedRiskTiers": [
+          "high",
+          "very_high"
+        ]
+      },
+      "changeTolerancePct": 3,
+      "recheckWeeks": 4,
+      "priorityWindows": {
+        "bp": "within 4 weeks",
+        "lab": "within 4 weeks",
+        "screening": "within 3 months",
+        "risk": "within 4 weeks"
+      },
+      "trendMinPoints": 2,
+      "trendYears": 3,
+      "productRules": [
+        "maxPriorities",
+        "changeTolerancePct",
+        "recheckWeeks",
+        "priorityWindows",
+        "trendMinPoints",
+        "trendYears"
+      ],
+      "guidelineBasis": [
+        "bpTarget",
+        "bpTargetHigherRisk",
+        "bpHighNormalBand",
+        "minBpReadings",
+        "minBpDays"
+      ],
+      "statementKey": "report.statement.not_rule_out",
+      "statementApprovedByCmo": false,
+      "shareExcludedSections": [
+        "screening_reproductive",
+        "risk",
+        "questionnaires"
+      ]
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S41-S46-cmo-decisions-2026-10-07.md decisions 1 to 6; docs/research/health-report-study.md; docs/design/S46.md; docs/design/S47-decisions-applied.md",
+  },
+  {
     key: "screening.serology_rules",
     // Hepatitis and HIV repeat rules (S46, function 3.12; founder decision 2026-10-07, the spec rule wins). Live value is `serology_rule_versions` v2 (registry version 1 is this entry's own).
     // The anti-HBs threshold is PROPOSED and unconfirmed (OQ-S46-2). Version 1 (legacy once-ever) is documented in the migration header.
@@ -2164,5 +2279,228 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/plans/S41-S45-build-plan.md X2; docs/design/S46.md",
+  },
+  {
+    key: "record_share.defaults",
+    // Share link defaults, version 2 (S47, chat selections 2026-10-07, NOT a signature). Live value is the active row of `record_share_config` v2: 72 hour default expiry, 30 day (720 hour) maximum lifetime, optional PIN, default view cap 10, instant revoke. Sensitive sections stay out unless chosen (the closed set has no mental or reproductive health and no section is pre-selected). Version 1 stays in history.
+    value: {
+      "default_hours": 72,
+      "max_hours": 720,
+      "max_pin_attempts": 5,
+      "min_pin_length": 4,
+      "default_max_views": 10
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S41-S46-cmo-decisions-2026-10-07.md; docs/design/S47-decisions-applied.md",
+  },
+  {
+    key: "screening.serology_rules",
+    // Hepatitis and HIV repeat rules, version 2 (S47): HIV and hepatitis C are RISK-BASED, offered yearly to people who qualify; hepatitis B stops on recorded immunity unless a new exposure is on record; the anti-HBs threshold (10 mIU/mL) is PROPOSED and unconfirmed and a numeric titre alone never sets immunity. Live value is `serology_rule_versions` v3 (active). The risk lists are unverified against the Nigeria 2023 HIV guideline (interval NOT read).
+    value: {
+      "hiv": {
+        "repeatMonths": 12,
+        "suppressWithinInterval": false,
+        "riskBased": true
+      },
+      "hep_c": {
+        "repeatMonths": 12,
+        "suppressWithinInterval": true,
+        "riskBased": true
+      },
+      "hep_b": {
+        "repeatMonths": 12,
+        "suppressWithinInterval": true,
+        "stopsWhenHbvStatus": [
+          "immune"
+        ],
+        "immunityTest": "anti_hbs",
+        "reopensOnNewExposure": true
+      },
+      "antiHbs": {
+        "thresholdMiuPerMl": 10,
+        "thresholdStatus": "proposed_unconfirmed",
+        "numericTitreAloneSetsImmunity": false
+      },
+      "riskCriteria": {
+        "hcv": [
+          "transfusion_or_transplant",
+          "injecting_drug_use",
+          "haemodialysis",
+          "contact_with_infected_person",
+          "healthcare_sharps_exposure",
+          "liver_disease_or_raised_enzymes",
+          "living_with_hiv",
+          "tattoo_or_scarification",
+          "men_who_have_sex_with_men",
+          "sex_work",
+          "prison_history"
+        ],
+        "hiv": [
+          "ongoing_risk",
+          "sexually_active_adult"
+        ]
+      },
+      "riskCriteriaSource": {
+        "hcv": "Nigeria FMOH 2016 hepatitis guideline risk list (read); WHO risk groups (search snippet only)",
+        "hiv": "Product wording of 'ongoing risk or sexually active adult'. The Nigeria 2023 HIV guideline retest interval was NOT read.",
+        "evidence": "unverified"
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S41-S46-cmo-decisions-2026-10-07.md decisions 7 and 8; docs/design/S47-decisions-applied.md",
+  },
+  {
+    key: "screening.cervical_hpv_dna",
+    // Cervical screening by HPV DNA at ages 35 and 45 (S47 decision 13). Live value is the cervical_smear rule of `screening_rule_sets` v3 (UNSIGNED). Women living with HIV are flagged to the care team and not auto-scheduled by this rule. The HPV DNA sale stays behind hpv_dna_enabled. Milestone window and ages are unverified against the national cervical screening guideline text, which was not read.
+    value: {
+      "code": "cervical_smear",
+      "method": "hpv_dna",
+      "sex": "female",
+      "ageFrom": 35,
+      "ageTo": 49,
+      "ageMilestones": [
+        35,
+        45
+      ],
+      "milestoneWindowYears": 5,
+      "frequencyMonths": null,
+      "oncePerLifetime": false,
+      "isOptional": false,
+      "autoSchedule": true,
+      "excludeWhenHiv": true
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S41-S46-cmo-decisions-2026-10-07.md decision 13; docs/design/S47-decisions-applied.md",
+  },
+  {
+    key: "risk.band_actions",
+    // What each cardiovascular risk band leads to (S47, chat selections, NOT a signature). Live value is the `bandActions` of risk_instrument_versions v2 (UNSIGNED; the WHO instrument itself stays OFF, coefficients missing). The app never prescribes (INV-02): the actions say review. Thresholds are NOT verified against WHO PEN / HEARTS.
+    value: {
+      "appPrescribes": false,
+      "thresholdsStatus": "unverified_against_who_pen_hearts",
+      "bands": {
+        "lt5": {
+          "copyKey": "risk.action.lt5",
+          "lifestyleAdvice": true,
+          "reassessMonths": 12
+        },
+        "5to10": {
+          "copyKey": "risk.action.5to10",
+          "lifestyleAdvice": true,
+          "bpCheckEveryMonths": 6
+        },
+        "10to20": {
+          "copyKey": "risk.action.10to20",
+          "careTeamReviewWithinWeeks": 4,
+          "recheckEveryMonths": 3,
+          "doctorDecidesAboutMedicines": true
+        },
+        "20to30": {
+          "copyKey": "risk.action.20to30",
+          "doctorReviewWithinWeeks": 2,
+          "recheckEveryMonths": 3
+        },
+        "ge30": {
+          "copyKey": "risk.action.ge30",
+          "doctorReviewWithinWeeks": 1
+        }
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S41-S46-cmo-decisions-2026-10-07.md; docs/design/S47-decisions-applied.md",
+  },
+  {
+    key: "handover.grace_days",
+    // Hand-over at 18 (S47 decision 6): guardian view-only for a 90 day grace period, notices on days 1, 30, 60 and 85, and guardian access ENDS automatically at the end of the grace period unless the young person chose a guardian to keep. Live value is the active row of `handover_config` v1 (PROPOSED).
+    value: {
+      "grace_days": 90,
+      "notice_days": [
+        1,
+        30,
+        60,
+        85
+      ]
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S41-S46-cmo-decisions-2026-10-07.md; docs/design/S47-decisions-applied.md",
+  },
+  {
+    key: "privacy.retention",
+    // Account deletion stance (S47): anonymise, keep the clinical record. Deletion stays admin-reviewed. The retention PERIOD is NOT decided and is deliberately null: the privacy summary says the clinical record is kept for a stated retention period without inventing a number. Wording is a placeholder pending counsel.
+    value: {
+      "stance": "anonymise_keep_clinical_record",
+      "retentionPeriodYears": null,
+      "retentionPeriodStatus": "unconfirmed",
+      "statementKey": "privacy.retention.statement",
+      "wordingStatus": "draft_pending_counsel",
+      "deletionRequest": "admin_reviewed"
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S41-S46-cmo-decisions-2026-10-07.md; docs/design/S47-decisions-applied.md",
+  },
+  {
+    key: "consent.required_for_care",
+    // Consent matrix policy (S47, chat decision): required_for_care applies ONLY to vitals and documents. Reproductive health, mental health and device data are optional per use for the care purpose: asked when the person first uses the feature, withdrawable, and withdrawing stops that feature only. Live value is `consent_matrix_cells` after migration 20261008032719. Counsel wording stays a placeholder.
+    value: {
+      "requiredForCare": [
+        "vitals",
+        "documents"
+      ],
+      "optionalPerUse": [
+        "reproductive",
+        "mental_health",
+        "device_data"
+      ],
+      "withdrawalStops": "that_feature_only"
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S47-decisions-applied.md",
+  },
+  {
+    key: "emergency_card.defaults",
+    // Emergency card defaults (S47, chat decision). ON: blood group and genotype, allergies, current medicines, emergency contacts (and the identity lines the card always carried). OFF until chosen: ongoing conditions or diagnoses, reproductive health, mental health. The live link, the printed page, the QR text and the phone's offline card agree; a hidden detail reads 'not shared'.
+    value: {
+      "on": [
+        "blood",
+        "allergies",
+        "medications",
+        "emergency_contact",
+        "date_of_birth",
+        "sex",
+        "patient_number"
+      ],
+      "off": [
+        "conditions",
+        "reproductive",
+        "mental_health"
+      ],
+      "hiddenReads": "not shared"
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S47-decisions-applied.md",
   },
 ];

@@ -45,7 +45,8 @@ const payload = (over: Record<string, unknown> = {}) => ({
     weight: null,
     statementKey: "report.statement.not_rule_out",
     statementApprovedByCmo: false,
-    minBpReadings: 3,
+    minBpReadings: 12,
+    minBpDays: 3,
   },
   ...over,
 });

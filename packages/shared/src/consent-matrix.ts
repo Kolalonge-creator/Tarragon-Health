@@ -13,8 +13,10 @@ export type ConsentPurpose = (typeof CONSENT_PURPOSES)[number];
 export interface ConsentCell {
   data_type: ConsentDataType;
   purpose: ConsentPurpose;
-  /** True only for the care purpose: it cannot be withdrawn, and turning an optional cell off never touches it. */
+  /** True only for the care purpose and (S47) only for vitals and documents: it cannot be withdrawn, and turning an optional cell off never touches it. */
   required_for_care: boolean;
+  /** S47: "on_first_use" = optional per use (reproductive health, mental health, device data): asked when the feature is first used; withdrawing stops that feature only. */
+  consent_timing: "at_account" | "on_first_use";
   sensitive: boolean;
   text_key: string;
   wording_status: "draft_pending_counsel" | "approved";
@@ -48,6 +50,7 @@ export function parseConsentMatrix(payload: unknown): ConsentMatrix | null {
       data_type: c.data_type,
       purpose: c.purpose,
       required_for_care: c.required_for_care,
+      consent_timing: c.consent_timing === "on_first_use" ? "on_first_use" : "at_account",
       sensitive: c.sensitive === true,
       text_key: String(c.text_key ?? ""),
       wording_status: c.wording_status === "approved" ? "approved" : "draft_pending_counsel",

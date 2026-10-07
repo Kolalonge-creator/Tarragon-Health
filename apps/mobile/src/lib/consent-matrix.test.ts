@@ -6,7 +6,7 @@ import { applyConsentBundle, loadConsentMatrix, loadConsentMatrixHistory, setCon
 beforeEach(() => mockRpc.mockReset());
 
 const cell = (data_type: string, purpose: string) => ({
-  data_type, purpose, required_for_care: purpose === "care", sensitive: false, text_key: `consent.matrix.${data_type}.${purpose}`, wording_status: "draft_pending_counsel", granted: purpose === "care", changed_at: null,
+  data_type, purpose, required_for_care: purpose === "care", consent_timing: "at_account" as const, sensitive: false, text_key: `consent.matrix.${data_type}.${purpose}`, wording_status: "draft_pending_counsel", granted: purpose === "care", changed_at: null,
 });
 
 describe("consent matrix on the phone", () => {

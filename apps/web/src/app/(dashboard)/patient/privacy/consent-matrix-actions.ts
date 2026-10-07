@@ -54,6 +54,23 @@ export async function applyConsentBundleAction(input: unknown): Promise<ConsentM
   return { ok: true };
 }
 
+const featureSchema = z.object({ dataType: z.enum(["reproductive", "mental_health", "device_data"]) });
+
+/**
+ * S47: asked the first time a person uses a feature that handles reproductive health, mental health or device data. Grants only the CARE cell of that one
+ * data type (consent_timing = on_first_use); everything else in the matrix is untouched. Declining is simply not calling this: nothing is recorded, the feature
+ * stays off, and the rest of care is unaffected. Withdrawal later is the same switch in the privacy centre.
+ */
+export async function grantFeatureConsentAction(input: unknown): Promise<ConsentMatrixActionState> {
+  const parsed = featureSchema.safeParse(input);
+  if (!parsed.success) return { error: t("consent.matrix.error.generic") };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_consent_cell", { p_data_type: parsed.data.dataType, p_purpose: "care", p_granted: true });
+  if (error) return { error: messageFor(error) };
+  revalidatePath("/patient/privacy");
+  return { ok: true };
+}
+
 /** One tap back to the essentials. Required cells are not touched, so care is not affected. */
 export async function withdrawAllOptionalConsentsAction(): Promise<ConsentMatrixActionState> {
   const supabase = await createClient();

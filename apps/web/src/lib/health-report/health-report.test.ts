@@ -10,7 +10,7 @@ const CONFIG = parseReportConfig(getProposedConfig("report.settings").value);
 
 const FACTS: HealthReportFacts = {
   year: 2026,
-  bp: { count: 8, firstAt: "2026-02-01T00:00:00Z", lastAt: "2026-10-01T00:00:00Z", avgSystolic: 150, avgDiastolic: 96 },
+  bp: { count: 14, days: 6, firstAt: "2026-02-01T00:00:00Z", lastAt: "2026-10-01T00:00:00Z", avgSystolic: 150, avgDiastolic: 96 },
   bpPrior: null,
   bpCareTeamTarget: null,
   weight: null,
@@ -91,7 +91,9 @@ describe("the rendered report", () => {
   it("always carries the fixed screening statement, the emergency signs and a words-plus-symbol state for each item", () => {
     const m = buildRenderModel(row, CONFIG);
     const text = flat(m);
-    expect(text).toContain("do not rule out disease");
+    expect(text).toContain("It is not a diagnosis");
+    expect(text).toContain("whatever this report says");
+    expect(text).toContain("Call 112");
     expect(m.sections.map((s) => s.id)).toEqual(expect.arrayContaining(["summary", "priorities", "cannot_tell", "emergency"]));
     const items = m.sections.flatMap((s) => s.blocks).filter((b) => b.kind === "item");
     expect(items.length).toBeGreaterThan(0);

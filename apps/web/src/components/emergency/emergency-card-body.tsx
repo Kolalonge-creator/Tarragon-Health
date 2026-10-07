@@ -143,6 +143,11 @@ export function EmergencyCardBody({
           </p>
         )}
       </Section>
+      {(isHidden("reproductive") || isHidden("mental_health")) && (
+        <Section title="Reproductive and mental health">
+          <p className="text-sm font-medium text-charcoal-ink/80">{NOT_SHARED_TEXT}</p>
+        </Section>
+      )}
 
       <Section title="Emergency contact">
         {isHidden("emergency_contact") ? (

@@ -132,6 +132,11 @@ export function ConsentMatrixPanel({ matrix, history }: { matrix: ConsentMatrix;
                         <div>
                           <p className="text-sm text-charcoal-ink dark:text-night-ink">{t(key(`consent.purpose.${purpose}`))}</p>
                           <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{t(key(cell.text_key))}</p>
+                          {cell.consent_timing === "on_first_use" && (
+                            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                              {t("consent.matrix.asked_on_first_use")} {t("consent.matrix.off_stops_feature_only")}
+                            </p>
+                          )}
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
                           {cell.required_for_care ? (

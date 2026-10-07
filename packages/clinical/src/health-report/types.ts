@@ -6,10 +6,15 @@
 
 export interface HealthReportConfig {
   readonly maxPriorities: number;
+  /** Guideline-based (Nigeria Hypertension Guideline 2023-2028, WHO 2021): at least this many home readings on at least `minBpDays` distinct days. */
   readonly minBpReadings: number;
+  readonly minBpDays?: number;
+  /** Default target: "below 140/90". */
   readonly bpTarget: { readonly systolicBelow: number; readonly diastolicBelow: number };
-  readonly bpBorderlineMarginMmHg: number;
-  readonly labBorderlineMarginPct: number;
+  /** Lower target for diabetes, kidney disease, known cardiovascular disease or a high cardiovascular risk band. A care-plan target overrides both. */
+  readonly bpTargetHigherRisk?: { readonly systolicBelow: number; readonly diastolicBelow: number };
+  /** The guideline "high-normal" category. This is the ONLY borderline there is: no margin exists, and a lab value is judged by its own laboratory range. */
+  readonly bpHighNormalBand?: { readonly systolicFrom: number; readonly systolicBelow: number; readonly diastolicFrom: number; readonly diastolicBelow: number };
   readonly changeTolerancePct: number;
   readonly recheckWeeks: number;
   readonly priorityWindows: { readonly bp: string; readonly lab: string; readonly screening: string; readonly risk: string };
@@ -31,8 +36,10 @@ export interface LabPoint {
 
 export interface HealthReportFacts {
   readonly year: number;
-  readonly bp: { readonly count: number; readonly firstAt: string | null; readonly lastAt: string | null; readonly avgSystolic: number | null; readonly avgDiastolic: number | null };
-  readonly bpPrior: { readonly count: number; readonly avgSystolic: number | null; readonly avgDiastolic: number | null } | null;
+  readonly bp: { readonly count: number; readonly days?: number; readonly firstAt: string | null; readonly lastAt: string | null; readonly avgSystolic: number | null; readonly avgDiastolic: number | null };
+  readonly bpPrior: { readonly count: number; readonly days?: number; readonly avgSystolic: number | null; readonly avgDiastolic: number | null } | null;
+  /** Booleans only, computed in the database from the problem list and the risk band. Never carries a condition name. */
+  readonly bpHigherRisk?: { readonly diabetes: boolean; readonly ckd: boolean; readonly cvd: boolean; readonly elevatedRisk: boolean };
   readonly bpCareTeamTarget: { readonly systolicBelow: number; readonly diastolicBelow: number; readonly setBy: string } | null;
   readonly weight: { readonly latestKg: number | null; readonly latestAt: string | null; readonly count: number } | null;
   readonly devices: { readonly manual: number; readonly device: number; readonly wearable: number };
@@ -61,11 +68,14 @@ export interface ReportItem {
   readonly value2: number | null;
   readonly unit: string | null;
   readonly readingCount: number;
+  /** Distinct days the readings were taken on (blood pressure only). */
+  readonly readingDays?: number | null;
   readonly tooFewReadings: boolean;
   readonly minReadings: number | null;
+  readonly minDays?: number | null;
   readonly borderline: boolean;
   readonly recheckWeeks: number | null;
-  readonly target: { readonly low: number | null; readonly high: number | null; readonly high2: number | null; readonly source: "lab_reference" | "care_team" | "report_settings" } | null;
+  readonly target: { readonly low: number | null; readonly high: number | null; readonly high2: number | null; readonly source: "lab_reference" | "care_team" | "report_settings" | "higher_risk" } | null;
   readonly change: ReportChange;
   readonly previousValue: number | null;
   readonly dateFrom: string | null;
@@ -102,4 +112,5 @@ export interface ComposedReport {
   readonly statementKey: string;
   readonly statementApprovedByCmo: boolean;
   readonly minBpReadings: number;
+  readonly minBpDays: number;
 }

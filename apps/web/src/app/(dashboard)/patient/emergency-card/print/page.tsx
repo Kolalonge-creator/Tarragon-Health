@@ -47,7 +47,7 @@ export default async function EmergencyCardPrintPage() {
     supabase
       .from("emergency_card_fields")
       .select(
-        "show_date_of_birth, show_sex, show_patient_number, show_allergies, show_medications, show_conditions, show_blood, show_emergency_contact, lock_screen_opt_in",
+        "show_date_of_birth, show_sex, show_patient_number, show_allergies, show_medications, show_conditions, show_blood, show_emergency_contact, show_reproductive, show_mental_health, lock_screen_opt_in",
       )
       .eq("patient_id", user.id)
       .maybeSingle(),

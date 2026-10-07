@@ -54,7 +54,7 @@ export type RecordShareAttempt = {
   looked_up_at: string;
 };
 
-export type RecordShareConfig = { default_hours: number; max_hours: number; min_pin_length: number };
+export type RecordShareConfig = { default_hours: number; max_hours: number; min_pin_length: number; default_max_views: number | null };
 
 export function useRecordShares(patientId: string) {
   return useQuery({
@@ -100,7 +100,7 @@ export function useRecordShareConfig() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("record_share_config")
-        .select("default_hours, max_hours, min_pin_length")
+        .select("default_hours, max_hours, min_pin_length, default_max_views")
         .eq("is_active", true)
         .maybeSingle();
       if (error) throw error;

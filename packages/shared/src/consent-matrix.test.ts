@@ -46,16 +46,32 @@ describe("the lists mirror the migration (drift fails here)", () => {
   });
 });
 
+describe("S47: required for care is only vitals and documents", () => {
+  it("parses when each cell is asked and keeps the three sensitive care cells optional", () => {
+    const m = parseConsentMatrix(payload);
+    expect(m).not.toBeNull();
+    const care = (m?.cells ?? []).filter((c) => c.purpose === "care");
+    expect(care.filter((c) => c.required_for_care).map((c) => c.data_type).sort()).toEqual(["documents", "vitals"]);
+    expect(care.filter((c) => c.consent_timing === "on_first_use").map((c) => c.data_type).sort()).toEqual(["device_data", "mental_health", "reproductive"]);
+  });
+
+  it("treats an unknown timing as asked with the account (never as optional-per-use)", () => {
+    const m = parseConsentMatrix({ cells: [{ data_type: "vitals", purpose: "care", granted: true, required_for_care: true, consent_timing: "later" }], bundles: [] });
+    expect(m?.cells[0]?.consent_timing).toBe("at_account");
+  });
+});
+
 const payload = {
   cells: CONSENT_DATA_TYPES.flatMap((data_type) =>
     CONSENT_PURPOSES.map((purpose) => ({
       data_type,
       purpose,
-      required_for_care: purpose === "care",
+      required_for_care: purpose === "care" && (data_type === "vitals" || data_type === "documents"),
+      consent_timing: purpose === "care" && !(data_type === "vitals" || data_type === "documents") ? "on_first_use" : "at_account",
       sensitive: data_type === "reproductive" || data_type === "mental_health",
       text_key: `consent.matrix.${data_type}.${purpose}`,
       wording_status: "draft_pending_counsel",
-      granted: purpose === "care",
+      granted: purpose === "care" && (data_type === "vitals" || data_type === "documents"),
       changed_at: null,
     })),
   ),
