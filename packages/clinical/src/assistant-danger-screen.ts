@@ -42,7 +42,7 @@ export const ASSISTANT_EXTRA_DANGER_PHRASES: readonly string[] = [
   // loss of consciousness and seizure
   "fainted", "fainting", "blacked out", "black out", "not responding", "seizing", "having a fit", "convuls*", "seizures",
   // overdose
-  "too many tablets", "too many pills", "too many of my tablets", "too many of my pills", "took all my",
+  "too many tablets", "too many pills", "too many of my tablets", "too many of my pills",
   // a dosing mistake already made is an urgent report, never a dose-change request ("can I double my dose" is a different sentence)
   "took double", "taken double", "took too much", "taken too much", "took extra tablet", "took extra pill", "took extra dose", "took an extra tablet",
   "took an extra pill", "took an extra dose", "took the wrong", "took twice", "taken twice", "wont stop bleeding",

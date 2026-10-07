@@ -393,7 +393,7 @@ begin
   if exists (select 1 from public.audit_log a
               where a.action = 'assistant.on_call_paged' and a.entity_id = p_conversation
                 and a.created_at > now() - case when coalesce((a.event ->> 'no_cover')::boolean, false) then make_interval(mins => v_repeat_nc) else make_interval(hours => v_repeat) end) then
-    return jsonb_build_object('paged', false, 'already', true);
+    return jsonb_build_object('paged', false, 'notified', true, 'already', true);
   end if;
 
   begin
@@ -447,7 +447,7 @@ begin
     insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
     values (v_org, null, 'assistant.on_call_paged', 'ai_conversations', p_conversation, jsonb_build_object('no_cover', v_to is null, 'task_id', v_task));
   end if;
-  return jsonb_build_object('paged', v_notified and v_to is not null, 'no_cover', v_to is null, 'task_id', v_task, 'failed', v_failed);
+  return jsonb_build_object('paged', v_notified and v_to is not null, 'notified', v_notified, 'no_cover', v_to is null, 'task_id', v_task, 'failed', v_failed);
 end $$;
 revoke all on function public.assistant_page_on_call(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.assistant_page_on_call(uuid, uuid) to service_role;
