@@ -49855,6 +49855,9 @@ export type Database = {
         | "lethargy"
         | "grunting_or_retractions"
         | "dehydration_signs"
+        | "weakness_or_numbness"
+        | "difficulty_speaking"
+        | "back_pain"
       therapy_modality: "video" | "audio" | "in_person"
       therapy_session_status: "requested" | "awaiting_clinician_approval" | "confirmed" | "completed" | "cancelled" | "no_show"
       timeline_event_type:
@@ -52361,6 +52364,9 @@ export const Constants = {
         "lethargy",
         "grunting_or_retractions",
         "dehydration_signs",
+        "weakness_or_numbness",
+        "difficulty_speaking",
+        "back_pain",
       ],
       therapy_modality: ["video", "audio", "in_person"],
       therapy_session_status: ["requested", "awaiting_clinician_approval", "confirmed", "completed", "cancelled", "no_show"],
