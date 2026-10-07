@@ -137,6 +137,17 @@ grant execute on function public.confirm_lab_code_mapping(uuid) to authenticated
 grant execute on function public.retire_lab_code_mapping(uuid) to authenticated;
 
 -- ---------------------------------------------------------------------------
+-- 2b. The go-live guard (INV-14). It starts OFF and cannot be switched on until its conditions are defined in private.go_live_conditions
+--     (I did not restate that function: several branches change it; OQ-S44-2).
+-- ---------------------------------------------------------------------------
+insert into public.go_live_guards (key, label, blocks, condition_text, switch_role, enforced_in, not_enforced_in)
+select 'lab_structured_push_enabled', 'Structured lab results by push', 'A partner laboratory pushing coded results through the API',
+       'At least one laboratory has CMO-confirmed code mappings, the lab panel ranges are signed, and the laboratory contract names this channel', 'cmo',
+       array['lab_partner_push_result'],
+       'Switching it on needs its conditions added to private.go_live_conditions first; until then it reports "no defined condition" and cannot be switched on. A pair of test accounts passes the guard.'
+where not exists (select 1 from public.go_live_guards where key = 'lab_structured_push_enabled');
+
+-- ---------------------------------------------------------------------------
 -- 3. The lab's door
 -- ---------------------------------------------------------------------------
 create or replace function public.lab_partner_push_result(p_order uuid, p_message_id text, p_items jsonb) returns jsonb
@@ -176,7 +187,10 @@ begin
 
   select is_test into v_test from public.profiles where id = o.patient_id;
 
-  if o.panel_code is null then v_reject := 'panel_required';
+  -- INV-14: a clinical feature is only live once its go-live guard is on (a test patient passes, so the flow can be exercised end to end first)
+  if not private.go_live_open_patient('lab_structured_push_enabled', o.patient_id) then
+    v_reject := 'not_enabled';
+  elsif o.panel_code is null then v_reject := 'panel_required';
   elsif exists (select 1 from public.lab_results r where r.lab_order_id = p_order and r.release_state <> 'withheld' and r.superseded_by is null) then
     v_reject := 'result_already_received';
   end if;
@@ -233,5 +247,8 @@ begin
   end if;
   if has_function_privilege('anon', 'public.lab_partner_push_result(uuid, text, jsonb)', 'EXECUTE') then
     raise exception 'S44 assertion: anon can push lab results';
+  end if;
+  if exists (select 1 from public.go_live_guards where key = 'lab_structured_push_enabled' and is_on) then
+    raise exception 'S44 assertion: the lab push guard must start off';
   end if;
 end $$;

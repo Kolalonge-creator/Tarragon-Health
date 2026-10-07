@@ -1563,3 +1563,41 @@ Numbered `OQ-S43-n` because other sessions are adding `OQ-nnn` entries in parall
 - Not built in S43 though in the spec's screen list: mobile capture, trends, history and share screens; an in-app crop (the phone's own crop applies before upload); the lock-screen widget (needs a native build); a CMO sign-off screen for the immunisation schedule.
 - Part D.1 (offline-first): photo capture needs a connection to upload and read; it does not use the phone's write queue (S06), and there is no offline capture on the phone at all yet. A failed upload tells the person and keeps nothing half-saved.
 - Two older proofs hard-coded "seven go-live guards" (`s37_go_live_guards.sql`, `s36b_go_live_status_ops_read.sql`); they now count the live total, so the next guard added by any session does not break them.
+
+
+## S44 (interoperability, closes Module 2), raised 2026-10-07
+
+Numbered `OQ-S44-n` for the same reason as `OQ-S43-n`.
+
+### OQ-S44-1 Consent to exchange records with an outside system: placeholder wording, and S42's matrix
+- Built: `external_exchange_consents` (per named system, import, export or both, withdrawable, audited) with a wording KEY `consent.external_exchange.v1_placeholder`. The screen says plainly that the wording is a placeholder. No legal wording was written.
+- Found in review, not closed: the source name comes from the partner's own `x-fhir-source-system` header and the consent is matched by that name, so a partner holding an import-scoped key could name a system the person did consent to. The consent is not yet bound to the API key's partner (`api_keys.partner_integration_id`). Bind it before any real partner is issued an `fhir:import` key.
+- Open: counsel's wording; whether S42's consent matrix absorbs this table (it is a narrower, source-named consent) or keeps it alongside. Acting-for supporters cannot grant it (consent is personal).
+- Decision: open (counsel, founder).
+
+### OQ-S44-2 Lab structured push: guard conditions, mapping confirmation, LOINC codes
+- Built: `lab_structured_push_enabled` guard, OFF; it cannot be switched on until its conditions are added to `private.go_live_conditions` (not restated here, several branches change it). Mappings are proposed by an admin or lab liaison and confirmed only by the CMO through database functions; there is no screen for either yet. No lab mapping is seeded. The `fhir.mapping` lab analyte LOINC codes are PROPOSED (LDL omitted because direct and calculated LDL have different codes).
+- Open: who confirms in practice, a screen for it, the guard conditions, the first real laboratory and its codes and units. Non-linear conversions (HbA1c % to mmol/mol) are not supported and reject.
+- Decision: open (CMO, founder).
+
+### OQ-S44-3 Export scope: items inside general sections are not classified by purpose
+- Same limit as OQ-S43-4. Reproductive health and mental health are not sections, so they cannot be named, and the bundle's own tags say so; but a contraceptive in the medicines list or a pregnancy hormone in the results is exported. An explicit opt-in section needs a CMO-signed tag list and counsel. Not built.
+- Decision: open (CMO, counsel).
+
+### OQ-S44-4 Import: what is only stored, not filed
+- Every received resource is kept in `external_records`. Only Observation (importable vitals), AllergyIntolerance, MedicationStatement, MedicationRequest and Immunization can become proposals. Condition, DocumentReference, Patient and anything else is `stored_only`: a clinician sees it through the audited read but there is no one-tap file. Adding Condition or DocumentReference is a migration (the proposal enum is closed on purpose).
+- A partner now MUST send `x-fhir-source-system`; no partner has called the route yet.
+- Decision: open (founder, CMO).
+
+### OQ-S44-5 Health-store sync (HealthKit, Health Connect) now refuses without `wearable_device_data` consent
+- Found: nothing enforced that consent anywhere. Built: the route fails closed on both calls. Consequence: no wording or consent version for that type exists, so nobody can grant it, so device-local sync is refused until counsel's wording is published and S42's screen can record it. The mobile app shows its generic "could not sync" message for the 403; a clear message is not built. Nothing here has ever run on a real device.
+- Decision: open (counsel, founder: accept the pause, or allow the OS permission alone for now).
+
+### OQ-S44-6 Patient correction and removal (2.14)
+- Built: private notes, labels and a date on any item; correction requests naming an item. Not built: a patient delete or "entered in error" for vitals, medicines or allergies, because they feed alert, interaction and risk engines and removing one from those is a clinical decision. Staff tombstoning of clinician-sourced items is not built beyond the existing correction workflow and S43's tombstones for history.
+- Notes are not shown to staff and are not in the export, share link or summary.
+- Decision: open (CMO).
+
+### OQ-S44-7 Validation and environment gaps
+- The HAPI FHIR validator (Apache 2.0) was NOT run: the structural checks are our own schema and a round trip. Run it in CI before anything is sent to a real system.
+- Types: `packages/shared/src/database.types.ts` was spliced from a local generation (only this session's tables and functions; `p_bundle_identifier` made nullable by hand). Migration timestamps are hand-picked after the newest on the stacked branches (the local clock reads earlier); recheck live `list_migrations` before applying.

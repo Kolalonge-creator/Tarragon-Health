@@ -367,7 +367,7 @@ do $$
 declare
   v_org uuid := pg_temp.f('org'); v_admin uuid := pg_temp.f('admin'); v_cmo uuid := pg_temp.f('cmo'); v_doc uuid := pg_temp.f('doc');
   v_pat uuid := pg_temp.f('pat'); v_pat2 uuid := pg_temp.f('pat2'); v_pat3 uuid := pg_temp.f('pat3');
-  v_lab uuid; v_lab2 uuid; v_labu uuid; v_labu2 uuid; v_o1 uuid; v_o2 uuid; v_o3 uuid; v_o4 uuid; v_o5 uuid; v_m uuid; v_t text; v_j jsonb; v_rid uuid;
+  v_lab uuid; v_lab2 uuid; v_labu uuid; v_labu2 uuid; v_o1 uuid; v_o2 uuid; v_o3 uuid; v_o4 uuid; v_o5 uuid; v_o6 uuid; v_m uuid; v_t text; v_j jsonb; v_rid uuid;
   m record; v_n integer;
 begin
   insert into public.lab_providers (name, is_active) values ('S44 Lab A', false) returning id into v_lab;
@@ -496,6 +496,15 @@ begin
   perform pg_temp.ck('5zk a lab cannot write a mapping or a push row directly', 'true|true',
     (pg_temp.q_as(v_labu, format($q$insert into public.lab_code_mappings (lab_provider_id, loinc_code, analyte_code) values (%L, '1111-1', 'creatinine')$q$, v_lab)) like 'ERR:permission denied%')::text || '|' ||
     (pg_temp.q_as(v_labu, format($q$delete from public.lab_result_pushes where lab_provider_id = %L$q$, v_lab)) like 'ERR:permission denied%')::text);
+
+  -- 5zl. INV-14: the go-live guard starts off, and a REAL (non-test) patient's order is refused while it is off; a test patient passes (5a to 5zd above)
+  perform pg_temp.ck('5zl the lab push guard exists and starts off', 'false', (select is_on::text from public.go_live_guards where key = 'lab_structured_push_enabled'));
+  update public.profiles set is_test = false where id = v_pat3;
+  v_o6 := pg_temp.mkorder(v_org, v_pat3, v_lab, 'essential'); perform pg_temp.setf('o6', v_o6);
+  v_j := pg_temp.push(v_labu, v_o6, 'msg-000016', pg_temp.push_items(88, 'mg/dL'))::jsonb;
+  perform pg_temp.ck('5zm a real patient''s order is refused while the guard is off, and nothing is stored as a result', 'rejected|not_enabled|0',
+    (v_j ->> 'status') || '|' || (v_j ->> 'reject_code') || '|' || (select count(*)::text from public.lab_results where lab_order_id = v_o6));
+  update public.profiles set is_test = true where id = v_pat3;
 end $$;
 
 -- ===== 6. grants ==============================================================================================================
@@ -547,6 +556,11 @@ begin
   create or replace function private.can_staff_read_clinical(p_patient uuid, p_category public.care_access_category) returns boolean language sql stable as $f$ select true $f$;
   insert into results values ('sabotaged', '4q an untied clinician exports (tie defeated)', 'denied',
     (pg_temp.q_as(v_doc2, format($q$select public.fhir_export_snapshot(%L, null, 'S44 proof: sabotage run')::text$q$, v_pat))::jsonb) ->> 'status');
+  -- E. the go-live guard always open: a real patient's order is no longer refused (so check 5zm would fail)
+  update public.profiles set is_test = false where id = v_pat3;
+  create or replace function private.go_live_open_patient(p_key text, p_patient uuid) returns boolean language sql stable as $f$ select true $f$;
+  insert into results values ('sabotaged', '5zm a real patient''s order with the guard off (guard defeated)', 'rejected',
+    (pg_temp.push(pg_temp.f('labu'), pg_temp.f('o6'), 'msg-000017', pg_temp.push_items(88, 'mg/dL'))::jsonb) ->> 'status');
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FLIPPED' end as result
@@ -563,7 +577,7 @@ begin
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), E'\n  ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 4 then raise exception 'VACUOUS TEST: the sabotage flipped % of 4 checks', v_caught; end if;
+  if v_caught < 5 then raise exception 'VACUOUS TEST: the sabotage flipped % of 5 checks', v_caught; end if;
 end $$;
 
 rollback;
