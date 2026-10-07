@@ -6,7 +6,7 @@
  * the screen — and the small amount of shaping loadEmergencyFacts does.
  */
 import * as SecureStore from "expo-secure-store";
-import { loadCachedEmergencyFacts, loadEmergencyFacts } from "./emergency";
+import { applyEmergencyFieldChoices, loadCachedEmergencyFacts, loadEmergencyFacts } from "./emergency";
 import { supabase } from "./supabase";
 
 jest.mock("./supabase", () => ({ supabase: { from: jest.fn() } }));
@@ -95,5 +95,38 @@ describe("loadCachedEmergencyFacts", () => {
   it("degrades to null on a corrupted cache instead of throwing on the emergency screen", async () => {
     await SecureStore.setItemAsync(CACHE_KEY, "{ truncated");
     await expect(loadCachedEmergencyFacts()).resolves.toBeNull();
+  });
+});
+
+describe("the person's chosen card fields (S43)", () => {
+  const CHOICES = { show_allergies: true, show_medications: false, show_conditions: false, show_blood: true, show_emergency_contact: false };
+
+  it("hides what was not chosen, on the screen and in the offline cache", async () => {
+    seed({ emergency_card_fields: CHOICES });
+    const facts = await loadEmergencyFacts("patient-1");
+    expect(facts.allergies).toHaveLength(1);
+    expect(facts.bloodGroup).toBe("O+");
+    expect(facts.conditions).toEqual([]);
+    expect(facts.medications).toEqual([]);
+    expect(facts.emergencyContact).toBeNull();
+    const cached = JSON.parse((await SecureStore.getItemAsync(CACHE_KEY)) ?? "null");
+    expect(cached.conditions).toEqual([]);
+    expect(cached.emergencyContact).toBeNull();
+  });
+
+  it("changes nothing when no choice has been made", async () => {
+    seed();
+    const facts = await loadEmergencyFacts("patient-1");
+    expect(facts.conditions).toEqual(["hypertension", "type_2_diabetes"]);
+    expect(facts.emergencyContact).not.toBeNull();
+  });
+
+  it("applyEmergencyFieldChoices keeps the name and never mutates its input", () => {
+    const facts = { fullName: "Ada", bloodGroup: "O+", genotype: "AA", allergies: [], conditions: ["x"], medications: [], emergencyContact: null, cachedAt: "t" };
+    const out = applyEmergencyFieldChoices(facts, { ...CHOICES, show_blood: false });
+    expect(out.fullName).toBe("Ada");
+    expect(out.bloodGroup).toBeNull();
+    expect(out.genotype).toBeNull();
+    expect(facts.bloodGroup).toBe("O+");
   });
 });

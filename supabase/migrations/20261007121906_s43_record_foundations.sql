@@ -278,6 +278,9 @@ begin
   if p_fields is null or jsonb_typeof(p_fields) <> 'array' then
     raise exception 'say which fields you confirm' using errcode = '22023';
   end if;
+  if jsonb_array_length(p_fields) > 80 then
+    raise exception 'too many fields' using errcode = '22023';
+  end if;
   select * into d from public.patient_documents where id = p_document and patient_id = v_uid for update;
   if not found then
     raise exception 'document not found' using errcode = 'P0002';
@@ -438,7 +441,12 @@ begin
     return new;
   end if;
   if tg_op = 'INSERT' then
-    new.source := 'patient';
+    -- a patient writing their own row is the patient source; any other signed-in writer is the clinician source (today's policies admit no
+    -- such direct insert, S05f closed it, so this is defence in depth); a context with no signed-in user (service role, migrations) keeps
+    -- what it set. A row is never verified by its own insert.
+    if (select auth.uid()) is not null then
+      new.source := case when (select auth.uid()) = new.patient_id then 'patient' else 'clinician' end;
+    end if;
     new.recorded_by := coalesce((select auth.uid()), new.recorded_by);
     new.verified_by_clinician := false; new.verified_by := null; new.verified_at := null;
     new.removed_at := null; new.removed_by := null; new.removal_reason := null;

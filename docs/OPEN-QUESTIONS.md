@@ -1508,3 +1508,54 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - The S34 prompt asks for under 40 MB and cold start under 3 seconds on a 2 GB Android phone. Spec D.1 and decision DG-1 (2026-10-02) superseded those targets: the floor is a 4 GB Android 10+ or iOS 16+ phone.
 - Options: (a) keep tracking the old numbers as PROPOSED budgets in config and fail CI only on growth (recommended); (b) set new targets for the 4 GB floor; (c) drop size budgets.
 - Decision (founder, 2026-10-07): no pass or fail targets for size or cold start. Build what is needed: the low-data setting, accessibility, and a size and start-time report that is tracked, never a gate. Numbers stay PROPOSED in versioned config for information only.
+
+
+## S43 (Health Passport part 1), raised 2026-10-07
+
+Numbered `OQ-S43-n` because other sessions are adding `OQ-nnn` entries in parallel and the numbers have already collided once (two `OQ-225`). Renumber when merging if the founder prefers.
+
+### OQ-S43-1 Applying the S43 migration pauses live vaccination reminders until the CMO signs schedule version 2
+- Blocks: apply order, and the CMO's sign-off. Live today: the daily cron `vaccination-reminders-daily` runs `private.queue_vaccination_reminders()`, which was never tied to the sign-off (the 2026-07-30 migration said so on purpose). A signed version 1 exists, written against the old catalogue (typhoid listed, HPV one dose at age 9). Zero vaccination records exist, so nobody is reminded of anything today.
+- Built: the function is renamed and wrapped; the wrapper does nothing unless the active signed sign-off carries a `schedule_config` (version 1 has none). Version 2 is inserted as an UNSIGNED draft (HPV two doses 26 weeks apart, typhoid excluded, R21 per-state, items marked V, NV or SEC from the CMO pack). I did not sign it and cannot.
+- Still open, not built: (a) the schedule generator (`generate-vaccination-schedule`) and the catalogue still use the old ages and still list typhoid, so a patient's due dates and the typhoid card entry follow the old catalogue until the signed config drives them; (b) the wrapper is all-or-nothing, so it does not filter an old typhoid schedule row (none exist yet); (c) the CMO's questions in section B of the sign-off pack (single or double HPV, MR, MenFive, R21 states) stand.
+- Options: (a) as built; (b) leave reminders running until v2 is signed (rejected: founder said no reminders until signed).
+- Decision: open. CMO signs version 2 with `public.sign_vaccination_schedule` (no screen for it exists in the sign-off hub yet; it is a database call today) and the founder decides whether the generator moves to the config in S44 or a follow-up.
+
+### OQ-S43-2 The S09 share function was broken for two of its sections, and what ships first
+- Found by exercising every section: `record_share_by_token` selected `glucose_mmol` (the column is `glucose_mmol_l`), so choosing the **vitals** section made every opening raise; the **lab results** section compared `report_status` to `'released'`, which is not a member of that enum, so it raised too. Zero shares existed, so nobody was affected. Both are fixed in `record_share_open`; the old name stays as a wrapper.
+- Apply order: schema first, then the web deploy. The new `/share/[token]` route and the patient screen call functions that only the migration adds. The already-deployed page keeps working through the wrapper (a PIN-protected link reads as not found to it).
+- `record_shares.token` is now null for every link (only a hash is stored), so a link can be shown once at creation and never again. Decision for the founder: acceptable? The alternative (keep plaintext) leaves live links readable to anyone with database access.
+- Decision: open.
+
+### OQ-S43-3 Direct staff reads that conflict with INV-10, found and deliberately not changed
+- `patient_timeline_select`, `lab_analyte_readings_select`, `vaccination_records_select` and `record_shares_org_staff_select` still admit `private.is_org_staff` directly. S05 listed the first three as its follow-up list; the share row is new to this review. New S43 tables (`procedures`, `emergency_card_fields`, `record_share_config`) have no staff read at all, and staff read procedures and family history only through `read_patient_history_audited`.
+- The timeline staff read also means a staff member can see a patient's `trust_tier`, `symptom_logged` and `procedure_recorded` rows without an audit entry.
+- Decision: open (the S05 follow-up owner).
+
+### OQ-S43-4 Letting a person put mental health or reproductive health in a share link on purpose
+- The spec says these are excluded unless explicitly chosen. Built: they are not members of the closed section set, so they are off and cannot be added by accident. No explicit opt-in exists. Building one means new access-category checks (`reproductive_health` break-glass and guardian rules apply) and counsel on what a link holder may see.
+- Options: (a) leave them out entirely (as built); (b) add explicit sections after the access-category review.
+- Decision: open (founder and CMO, X7).
+
+### OQ-S43-5 Share defaults and link-preview bots
+- `record_share_config` version 1: 72 hour default, 720 hour ceiling, 5 PIN tries, 4 digit minimum. PROPOSED; the founder and CMO confirm (X7). Mirrored in the code registry as `record_share.defaults` with a test.
+- Risk: a messaging app that unfurls a link opens it, and on an unprotected link with a view cap that opening spends a view and is logged as an opening. A PIN stops a bot reading anything. Recommendation: say so beside the view cap, and prefer a PIN when a cap is set.
+- Decision: open.
+
+### OQ-S43-6 AI-018 (photo capture reading) is registered but off, and what turning it on needs
+- Registered in `ai_systems` as `draft`, not enabled, not runtime governed, with three guardrails; the go-live guard `document_capture_enabled` is off and **cannot be switched on yet**: its conditions are not defined in `private.go_live_conditions` (I did not restate that function because several branches change it). The code is in place and tested with a fake model; nothing has run against a real image.
+- To enable: evaluation suites passed and approved by the CMO; conditions added; vendor terms for patient document images confirmed (data processing counsel); `runtime_governed` flipped after the call site is deployed.
+- Collision risk: the code `AI-018` was chosen from the live registry on 2026-10-07; another branch may take it.
+- Decision: open (CMO, founder, counsel).
+
+### OQ-S43-7 What a confirmed photo reading is allowed to become
+- Built: confirmed fields stay on the document row, labelled "read from a photo, confirmed by you". They are not medicines, results or vitals and feed no alert, risk score or timeline value. A confirmed prescription line does not create a medication (INV-02 needs a clinician's signature).
+- Open: should a confirmed reading offer a clinician a one-tap "review and file" (reusing the lab and vaccination review queues)? Not built.
+- Decision: open.
+
+### OQ-S43-8 Smaller items
+- Vaccination reminder notifications put the vaccine name in the payload (INV-07 asks for no condition, reading or result in a notification). Existing behaviour, not changed.
+- Migration timestamps `20261007121906`, `...122142`, `...122358` were hand-picked after the latest file (`20261007120347`) because the local clock reads earlier than that file; live `list_migrations` showed no collision at the time. Check again before applying.
+- `packages/db/src/database.types.ts` is a stale copy (it lacks `record_shares`); only `packages/shared/src/database.types.ts` was spliced.
+- Not built in S43 though in the spec's screen list: mobile capture, trends, history and share screens; an in-app crop (the phone's own crop applies before upload); the lock-screen widget (needs a native build); a CMO sign-off screen for the immunisation schedule.
+- Two older proofs hard-coded "seven go-live guards" (`s37_go_live_guards.sql`, `s36b_go_live_status_ops_read.sql`); they now count the live total, so the next guard added by any session does not break them.

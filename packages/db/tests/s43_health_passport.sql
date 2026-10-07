@@ -292,6 +292,9 @@ begin
     pg_temp.q_as(v_pat, format($q$with d as (delete from public.family_history where id = %L returning 1) select count(*)::text from d$q$, v_fh)));
   perform pg_temp.ck('3ab a patient can hard-delete their own unverified row', '1',
     pg_temp.q_as(v_pat, format($q$with d as (delete from public.family_history where id = %L returning 1) select count(*)::text from d$q$, v_fh2)));
+  -- (a direct staff insert into family_history is closed by S05f's policy, so there is no staff insert path to prove here)
+  perform pg_temp.ck('3af an enormous confirm list is refused before any work', 'true',
+    (pg_temp.try_as(v_pat, format($q$select public.confirm_document_extraction(%L, (select jsonb_agg(jsonb_build_object('key', 'k' || g, 'accept', true)) from generate_series(1, 90) g))$q$, v_d1)) like '%too many fields%')::text);
   perform pg_temp.q_as(v_pat, format($q$select public.remove_history_item('family_history', %L)$q$, v_fh));
   perform pg_temp.ck('3ac a removed family history row is hidden from the patient and kept for staff', '0:1',
     pg_temp.q_as(v_pat, format($q$select count(*)::text from public.family_history where id = %L$q$, v_fh)) || ':' || (select count(*)::text from public.family_history where id = v_fh and removed_at is not null));
@@ -455,6 +458,12 @@ begin
   perform pg_temp.ck('7l the sensitive positive analyte has no trend', '0', (pg_temp.q_as(v_pat, $q$select jsonb_array_length(public.patient_biomarker_trend('HIV') -> 'points')::text$q$)));
   perform pg_temp.ck('7m the list names the analytes the person has', 'true',
     (pg_temp.q_as(v_pat, $q$select (public.patient_biomarker_list()::text like '%hba1c%' and public.patient_biomarker_list()::text like '%LDL%')::text$q$)));
+
+  perform pg_temp.ck('7n the list carries the lab''s own range for the latest result (the doctor summary reads it)', 'true:true',
+    pg_temp.q_as(v_pat, $q$select ((x ->> 'latest_ref_low')::numeric = 20 and (x ->> 'latest_ref_high')::numeric = 38)::text || ':' || (x ->> 'latest_unit' = 'mmol/mol')::text
+       from jsonb_array_elements(public.patient_biomarker_list()) x where x ->> 'code' = 'hba1c'$q$));
+  perform pg_temp.ck('7o the list never carries the sensitive positive analyte', '0',
+    pg_temp.q_as(v_pat, $q$select count(*)::text from jsonb_array_elements(public.patient_biomarker_list()) x where x ->> 'code' = 'HIV'$q$));
 
   -- ===== 8. vaccination =========================================================================================================
   select id into v_cat from public.vaccination_catalog where is_active order by code limit 1;

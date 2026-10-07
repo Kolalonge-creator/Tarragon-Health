@@ -28,23 +28,24 @@ export default async function DocumentsPage() {
     supabase.rpc("go_live_guard_is_open", { p_key: DOCUMENT_CAPTURE_GUARD }),
   ]);
 
-  const rows: DocumentRow[] = [];
-  for (const d of docs ?? []) {
-    let photoUrl: string | null = null;
-    if (isOwn) {
-      const { data: signed } = await supabase.storage.from("patient-documents").createSignedUrl(d.file_path, 600);
-      photoUrl = signed?.signedUrl ?? null;
-    }
-    rows.push({
-      id: d.id,
-      documentType: d.document_type,
-      filename: d.original_filename,
-      createdAt: d.created_at,
-      ocrState: d.ocr_state,
-      fields: (d.extracted as { fields?: DocumentRow["fields"] } | null)?.fields ?? [],
-      photoUrl,
-    });
-  }
+  const rows: DocumentRow[] = await Promise.all(
+    (docs ?? []).map(async (d) => {
+      let photoUrl: string | null = null;
+      if (isOwn) {
+        const { data: signed } = await supabase.storage.from("patient-documents").createSignedUrl(d.file_path, 600);
+        photoUrl = signed?.signedUrl ?? null;
+      }
+      return {
+        id: d.id,
+        documentType: d.document_type,
+        filename: d.original_filename,
+        createdAt: d.created_at,
+        ocrState: d.ocr_state,
+        fields: (d.extracted as { fields?: DocumentRow["fields"] } | null)?.fields ?? [],
+        photoUrl,
+      };
+    })
+  );
 
   return (
     <div className="space-y-6">

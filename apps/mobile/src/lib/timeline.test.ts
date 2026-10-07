@@ -1,4 +1,4 @@
-import { loadPatientTimeline } from "./timeline";
+import { loadPatientTimeline, trustTierLabel } from "./timeline";
 import { supabase } from "./supabase";
 
 jest.mock("./supabase", () => ({ supabase: { from: jest.fn() } }));
@@ -76,5 +76,18 @@ describe("loadPatientTimeline", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.data[0].actor).toBeNull();
+  });
+});
+
+describe("trustTierLabel (S43)", () => {
+  it("says every known tier in plain words", () => {
+    expect(trustTierLabel("patient")).toBe("Entered by you");
+    expect(trustTierLabel("ocr_unconfirmed")).toBe("Read from a photo, not yet confirmed");
+    expect(trustTierLabel("lab_pushed")).toBe("From the lab");
+  });
+  it("says nothing for a tier it does not know, never a guess", () => {
+    expect(trustTierLabel("doctor")).toBeNull();
+    expect(trustTierLabel(null)).toBeNull();
+    expect(trustTierLabel(undefined)).toBeNull();
   });
 });
