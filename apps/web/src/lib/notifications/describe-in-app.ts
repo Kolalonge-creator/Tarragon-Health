@@ -656,6 +656,16 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     // From private.page_notify (S19): fixed neutral line, never the patient or the reading (INV-07).
     return { text: "A priority case is waiting for you", href: "/clinician/on-call" };
   }
+  if (n.template === "assistant_daily_nudge") {
+    // S51: generic by design (INV-07): no condition, reading or medicine is ever named.
+    return { text: "Your check-in for today is ready", href: "/patient/care" };
+  }
+  if (n.template === "assistant_weekly_reflection") {
+    return { text: "Your look back at this week is ready", href: "/patient/care" };
+  }
+  if (n.template === "assistant_reengage") {
+    return { text: "It has been a little while. Your assistant is here whenever you have a question", href: "/patient/care" };
+  }
   if (n.template === "on_call_unfinished") {
     return { text: "A priority case is acknowledged but still open", href: "/rota" };
   }
