@@ -9,6 +9,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { afterEdit, canUseDraft, isEmptySection, setConfirmed, unconfirmed, type Confirmations, type DraftSectionKey } from "@/lib/scribe/draft-review";
 
+const WARNING_KEYS = {
+  uncited_text: "scribe.warning.uncited_text",
+  unknown_fact_id: "scribe.warning.unknown_fact_id",
+  number_not_in_facts: "scribe.warning.number_not_in_facts",
+  empty_but_cited: "scribe.warning.empty_but_cited",
+} as const;
+
+function warningText(w: { section: string; kind: string; detail?: string }): string {
+  const key = WARNING_KEYS[w.kind as keyof typeof WARNING_KEYS];
+  return key ? t(key, "en", { section: w.section, detail: w.detail ?? "" }) : `${w.section}: ${w.kind}`;
+}
+
 export interface DraftSection {
   history: string;
   examination: string;
@@ -20,6 +32,8 @@ export interface DraftSection {
 interface DraftReviewPanelProps {
   draft: DraftSection;
   patientSummary: string;
+  /** Deterministic checks the server ran on a draft written from confirmed facts (uncited text, unknown ids, invented numbers). */
+  warnings?: readonly { section: string; kind: string; detail?: string }[];
   onUse: (draft: DraftSection, patientSummary: string) => void;
   onDiscard: () => void;
 }
@@ -28,7 +42,7 @@ interface DraftReviewPanelProps {
  * The AI draft, held in the browser only. "Use in note" hands it to the note form, which is where the clinician edits,
  * saves and signs it. Nothing is written to the patient record from here (INV-11).
  */
-export function DraftReviewPanel({ draft, patientSummary, onUse, onDiscard }: DraftReviewPanelProps) {
+export function DraftReviewPanel({ draft, patientSummary, warnings = [], onUse, onDiscard }: DraftReviewPanelProps) {
   const [fields, setFields] = useState({ ...draft, patientSummary });
   const [confirmed, setConfirmedState] = useState<Confirmations>({});
   const [edited, setEdited] = useState<Partial<Record<DraftSectionKey, boolean>>>({});
@@ -52,6 +66,16 @@ export function DraftReviewPanel({ draft, patientSummary, onUse, onDiscard }: Dr
         </div>
         <p className="text-xs text-charcoal-ink/50">{t("scribe.draft.disclaimer", "en")}</p>
         <p className="rounded-md bg-amber-50 p-2 text-xs text-charcoal-ink">{t("scribe.review.look_for", "en")}</p>
+        {warnings.length > 0 && (
+          <div role="status" className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-charcoal-ink">
+            <p className="font-medium">{t("scribe.warning.heading", "en")}</p>
+            <ul className="list-disc pl-4">
+              {warnings.map((w, i) => (
+                <li key={`${w.section}-${w.kind}-${i}`}>{warningText(w)}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         {sections.map(({ key, label }) => (

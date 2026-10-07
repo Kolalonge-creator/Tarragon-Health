@@ -19,7 +19,9 @@ import { Badge } from "@/components/ui/badge";
 import { PatientIdentityConfirm } from "@/components/patient-identity-confirm";
 import { ConsultationFollowUpsPanel } from "./consultation-follow-ups-panel";
 import { ScribePanel, type ScribeDraftResult } from "@/components/scribe";
-import { attachScribeDraftToNote } from "@/lib/scribe/actions";
+import { attachScribeDraftToNote, recordScribeReview } from "@/lib/scribe/actions";
+import { draftHash, sectionOutcomes } from "@/lib/scribe/review-record";
+import { t } from "@tarragon/i18n";
 import { useScribeAvailable } from "@/lib/scribe/use-scribe-available";
 import { scribeErrorMessage } from "@/lib/scribe/error-messages";
 import { createNoteAmendment, setNoteProtected, withdrawNoteAsEnteredInError } from "./note-actions";
@@ -474,6 +476,36 @@ function DraftNoteCard({
     }
   }
 
+  /**
+   * Just before signing: records what the clinician did with each section of the AI draft (per-section outcome and a hash
+   * of the draft as generated, no text). Fails closed: if it cannot be recorded the note is not signed.
+   */
+  async function recordReviewBeforeSign(): Promise<boolean> {
+    if (!scribe) return true;
+    try {
+      await recordScribeReview({
+        noteId: note.id,
+        consentId: scribe.consentId,
+        model: scribe.modelId,
+        promptVersion: scribe.promptVersion,
+        draftHash: await draftHash(scribe.original),
+        source: scribe.source,
+        sections: sectionOutcomes(scribe.original, {
+          history: fields.history,
+          examination: fields.examinationFindings,
+          assessment: fields.assessment,
+          plan: fields.plan,
+          followUp: fields.followUpInstructions,
+          patientSummary: scribe.patientSummary,
+        }),
+      });
+      return true;
+    } catch (err) {
+      setScribeError(`${t("scribe.review.record_failed", "en")} ${scribeErrorMessage(err)}`);
+      return false;
+    }
+  }
+
   const noteFieldsPayload = () => ({
     reason_for_encounter: fields.reasonForEncounter.trim(),
     history: fields.history.trim() || null,
@@ -592,6 +624,7 @@ function DraftNoteCard({
                   } catch {
                     return;
                   }
+                  if (!(await recordReviewBeforeSign())) return;
                 }
                 finalize.mutate({
                   noteId: note.id,
