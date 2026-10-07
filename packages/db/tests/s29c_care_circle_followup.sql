@@ -373,7 +373,7 @@ begin
     (pg_temp.q_as(v_sc, format($q$select public.create_order('s29c_short', gen_random_uuid(), %L)::text$q$, v_pat)) like '%gift_item_not_allowed%')::text);
   perform pg_temp.ck('C can pay for the full yearly Membership', 'true',
     (pg_temp.q_as(v_sc, format($q$select public.create_order('s29c_year', gen_random_uuid(), %L)::text$q$, v_pat)) like '%"reference"%')::text);
-  insert into public.profile_access (profile_id, grantee_user_id, granted_by, permission_level) values (v_pat, v_other, v_pat, 'view');
+  insert into public.profile_access (profile_id, grantee_user_id, granted_by, permission_level, permissions) values (v_pat, v_other, v_pat, 'manage', array['manage_payments']::public.caregiver_permission[]);
   perform pg_temp.ck('the older family grant is held to the same rule', 'true',
     (pg_temp.q_as(v_other, format($q$select public.create_order('s29c_consult', gen_random_uuid(), %L)::text$q$, v_pat)) like '%gift_item_not_allowed%')::text);
   delete from public.profile_access where profile_id = v_pat and grantee_user_id = v_other;

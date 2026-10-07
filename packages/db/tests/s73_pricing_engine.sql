@@ -564,6 +564,10 @@ begin
   -- the guard also stops a REAL (non-test) patient from buying while it is off, even if the item is on
   v_real := pg_temp.mkuser(pg_temp.f('org'), 'real', 'patient');
   perform pg_temp.owner_sql(format($q$update public.profiles set is_test = false where id = %L$q$, v_real));
+  -- S71 (OQ-184): a real patient also needs the catalogue checkout guard; open it here (its own proof is s71_checkout_core.sql)
+  perform pg_temp.try_as(v_admin, $q$select public.attest_go_live_condition('checkout_enabled', 'paystack_channels_verified', true, 'Proof run: channels tried with the test key')$q$);
+  perform pg_temp.try_as(v_admin, $q$select public.attest_go_live_condition('checkout_enabled', 'refund_path_tested', true, 'Proof run: refund tested end to end')$q$);
+  perform pg_temp.ck('admin opens the catalogue checkout guard', 'ok', pg_temp.try_as(v_admin, $q$select public.set_go_live_guard('checkout_enabled', true, 'Proof run: conditions met')$q$));
   perform pg_temp.ck('with the guard on a real patient can be quoted for the Membership', '10000000', pg_temp.qa(v_real, 'membership_annual'));
   perform pg_temp.ck('a Membership quote has no itemised split, so no floor and no points', '0', (pg_temp.qj(v_real, 'membership_annual') ->> 'floor_kobo'));
   perform pg_temp.ck('switching the guard off needs only an admin and no paperwork', 'ok', pg_temp.try_as(v_admin, $q$select public.set_go_live_guard('membership_billing_enabled', false, 'Proof run: stopping sales')$q$));
