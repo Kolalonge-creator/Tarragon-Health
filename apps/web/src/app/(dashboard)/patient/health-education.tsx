@@ -43,6 +43,10 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { obesityLabelTitleCase } from "@/lib/copy/condition-language";
 
+import { LearningItemFooter } from "@/components/learning/learning-item-footer";
+import { DailyLessonCard } from "@/components/learning/daily-lesson-card";
+import { LearningSearch } from "@/components/learning/learning-search";
+
 const CONDITION_LABEL: Record<string, string> = {
   hypertension: "Blood pressure",
   diabetes: "Diabetes",
@@ -357,6 +361,7 @@ function ContentDetailBody({
 
       <SetGoalFromLesson item={item} patientId={patientId} organisationId={organisationId} />
       <ContentFeedback contentId={item.content_id} patientId={patientId} organisationId={organisationId} />
+      <LearningItemFooter code={item.code} title={item.title} contentType={item.content_type} />
     </div>
   );
 }
@@ -858,6 +863,8 @@ export function HealthEducationLibrary({
 
   return (
     <div className={cn("space-y-6")}>
+      <DailyLessonCard patientId={patientId} organisationId={organisationId} />
+      <LearningSearch />
       <RecommendationsBanner patientId={patientId} />
 
       {firstCondition && (

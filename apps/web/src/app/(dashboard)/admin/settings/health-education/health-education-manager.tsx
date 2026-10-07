@@ -22,6 +22,8 @@ import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useLearningCreators } from "@/lib/queries/learning-centre";
+import { parseKnowledgeCheck } from "@/lib/validation/health-education";
 
 const CONDITION_LABEL: Record<string, string> = {
   hypertension: "Blood pressure",
@@ -117,6 +119,11 @@ function ContentForm({
   pending: boolean;
 }) {
   const [form, setForm] = useState<HealthEducationContentInput>(initial);
+  const { data: creators } = useLearningCreators();
+  const firstCheck = parseKnowledgeCheck(initial.knowledge_check)?.[0];
+  const [checkQuestion, setCheckQuestion] = useState(firstCheck?.question ?? "");
+  const [checkOptions, setCheckOptions] = useState(firstCheck?.options.join("\n") ?? "");
+  const [checkAnswer, setCheckAnswer] = useState(firstCheck ? String(firstCheck.answer_index + 1) : "1");
 
   function set<K extends keyof HealthEducationContentInput>(key: K, value: HealthEducationContentInput[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -126,7 +133,11 @@ function ContentForm({
     <form
       onSubmit={(e: FormEvent) => {
         e.preventDefault();
-        onSubmit(form);
+        const options = checkOptions.split("\n").map((o) => o.trim()).filter(Boolean);
+        const withCheck: HealthEducationContentInput = form.is_micro_lesson && checkQuestion.trim() && options.length >= 2
+          ? { ...form, knowledge_check: [{ question: checkQuestion.trim(), options, answer_index: Math.max(0, Math.min(options.length - 1, Number(checkAnswer) - 1)) }] }
+          : { ...form, knowledge_check: undefined };
+        onSubmit(withCheck);
       }}
       className="space-y-3"
     >
@@ -249,6 +260,62 @@ function ContentForm({
           />
         </div>
       </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="space-y-1">
+          <Label htmlFor="content_reviewer">Clinical reviewer (name, required to publish)</Label>
+          <Input id="content_reviewer" value={form.reviewed_by_name ?? ""} onChange={(e) => set("reviewed_by_name", e.target.value || null)} />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="content_clinical_author">Clinical author (name)</Label>
+          <Input id="content_clinical_author" value={form.clinical_author_name ?? ""} onChange={(e) => set("clinical_author_name", e.target.value || null)} />
+        </div>
+        <div className="space-y-1 sm:col-span-2">
+          <Label htmlFor="content_self_care">What can I do next? Self-care step (required to publish)</Label>
+          <Input id="content_self_care" value={form.self_care_action ?? ""} onChange={(e) => set("self_care_action", e.target.value || null)} />
+          <p className="text-xs text-charcoal-ink/60">Asking the care team, booking and the urgent-help box are added by the template and cannot be edited here.</p>
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="content_audio_clip">Audio clip id (S32 manifest, optional)</Label>
+          <Input id="content_audio_clip" className="font-mono text-xs" placeholder="LSN-001" value={form.audio_clip_id ?? ""} onChange={(e) => set("audio_clip_id", e.target.value || null)} />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="content_creator">Credited creator (verified clinicians only)</Label>
+          <Select id="content_creator" value={form.creator_id ?? ""} onChange={(e) => set("creator_id", e.target.value || null)}>
+            <option value="">None</option>
+            {(creators ?? []).filter((c) => c.status === "verified").map((c) => (
+              <option key={c.id} value={c.id}>{c.display_name}</option>
+            ))}
+          </Select>
+        </div>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={form.share_enabled ?? true} onChange={(e) => set("share_enabled", e.target.checked)} />
+          Patients may share this article by link
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={form.is_micro_lesson ?? false} onChange={(e) => set("is_micro_lesson", e.target.checked)} />
+          Daily micro-lesson (under five minutes, one action, one check question)
+        </label>
+      </div>
+      {form.is_micro_lesson && (
+        <div className="space-y-2 rounded-md border border-charcoal-ink/10 p-3">
+          <div className="space-y-1">
+            <Label htmlFor="content_lesson_action">The one action</Label>
+            <Input id="content_lesson_action" value={form.lesson_action ?? ""} onChange={(e) => set("lesson_action", e.target.value || null)} />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="content_check_q">The one check question</Label>
+            <Input id="content_check_q" value={checkQuestion} onChange={(e) => setCheckQuestion(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="content_check_opts">Answer options (one per line, at least two)</Label>
+            <Textarea id="content_check_opts" rows={3} value={checkOptions} onChange={(e) => setCheckOptions(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="content_check_ans">Correct option number</Label>
+            <Input id="content_check_ans" type="number" min={1} value={checkAnswer} onChange={(e) => setCheckAnswer(e.target.value)} />
+          </div>
+        </div>
+      )}
       <div className="space-y-1">
         <Label htmlFor="content_summary">Summary (optional)</Label>
         <Input id="content_summary" value={form.summary ?? ""} onChange={(e) => set("summary", e.target.value || null)} />
@@ -341,13 +408,18 @@ function ContentRow({ item }: { item: HealthEducationContent }) {
           </Button>
         </div>
       </div>
+      {item.is_placeholder && (
+        <p className="text-xs font-medium text-amber-800">
+          Draft placeholder, needs a clinical author. It cannot be published until a clinical author is named and the placeholder text is replaced.
+        </p>
+      )}
       <div className="flex flex-wrap gap-2">
         {nextStatuses.map((n) => (
           <Button
             key={n.status}
             size="sm"
             variant="outline"
-            disabled={setStatus.isPending}
+            disabled={setStatus.isPending || (item.is_placeholder && n.status !== "draft")}
             onClick={() => setStatus.mutate({ id: item.id, status: n.status })}
           >
             {n.label}
@@ -373,6 +445,16 @@ function ContentRow({ item }: { item: HealthEducationContent }) {
               author_name: item.author_name,
               source_reference: item.source_reference,
               next_review_due: item.next_review_due,
+              reviewed_by_name: item.reviewed_by_name,
+              clinical_author_name: item.clinical_author_name,
+              evidence_source: item.evidence_source,
+              self_care_action: item.self_care_action,
+              audio_clip_id: item.audio_clip_id,
+              is_micro_lesson: item.is_micro_lesson,
+              lesson_action: item.lesson_action,
+              share_enabled: item.share_enabled,
+              creator_id: item.creator_id,
+              knowledge_check: item.knowledge_check,
             }}
             submitLabel="Save changes"
             pending={updateContent.isPending}
@@ -420,6 +502,15 @@ export function HealthEducationManager() {
                 </Link>
                 <Link href="/admin/settings/health-education/analytics" className="text-brand-green hover:underline">
                   Analytics →
+                </Link>
+                <Link href="/admin/settings/health-education/creators" className="text-brand-green hover:underline">
+                  Creators →
+                </Link>
+                <Link href="/admin/settings/health-education/readiness" className="text-brand-green hover:underline">
+                  Content readiness →
+                </Link>
+                <Link href="/admin/settings/health-education/search-gaps" className="text-brand-green hover:underline">
+                  Searches with no result →
                 </Link>
               </div>
             </div>

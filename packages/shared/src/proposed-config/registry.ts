@@ -1311,4 +1311,66 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/OPEN-QUESTIONS.md OQ-08 and OQ-F1-01; docs/design/S55-S60-build-plan.md section 4.3",
   },
+  {
+    key: "learning.micro_lesson",
+    // S55 (spec 9.2): a daily lesson takes under five minutes, asks for one action and ends in one check question. Live value is the
+    // active `micro_lesson` row of `learning_config`; a test fails if the migration seed and this value drift. UNSIGNED.
+    value: { max_minutes: 5, check_questions: 1 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S55.md; spec 9.2",
+  },
+  {
+    key: "learning.offline_pack",
+    // S55 (spec 9.6): the size cap for lessons kept on a phone, counted over text and audio together, and the item cap. Expired and
+    // unpublished items are never included. Live value is the `offline_pack` row of `learning_config`. UNSIGNED.
+    value: { max_total_bytes: 25000000, max_items: 150, audio_wifi_only: true },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S55.md; spec 9.6; OQ-S55-04",
+  },
+  {
+    key: "learning.search_gap_log",
+    // S55 (spec 9.3): rules for the zero-result search log (no patient reference): longest phrase kept, most words, how many searches
+    // before an admin sees a phrase, and retention. Live value is the `search_gap_log` row of `learning_config`. UNSIGNED.
+    value: { max_query_chars: 60, max_words: 6, min_count_to_show: 3, retention_days: 180 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S55.md; spec 9.3; OQ-S55-05",
+  },
+  {
+    key: "learning.search_synonyms",
+    // S55 (spec 9.3): everyday and local words grouped so that any one finds the others. Search expansion only. Live value is the
+    // `search_synonyms` row of `learning_config`; web, mobile and the database search all read it. UNSIGNED: the CMO confirms the groups,
+    // and the founder confirms whether the Nigerian everyday words stay (OQ-S55-01).
+    value: {
+      groups: [
+        { terms: ["bp", "blood pressure", "pressure", "high blood", "hypertension", "bp reading"] },
+        { terms: ["sugar", "diabetes", "blood sugar", "glucose", "sugar level", "high sugar"] },
+        { terms: ["belle", "pregnancy", "pregnant", "antenatal", "expecting"] },
+        { terms: ["heart", "cardiac"] },
+        { terms: ["drug", "drugs", "medicine", "medicines", "medication", "tablets", "pills"] },
+        { terms: ["kidney", "kidneys", "kidney disease", "ckd"] },
+        { terms: ["hot body", "fever", "high temperature"] },
+        { terms: ["weight", "overweight", "belly fat", "obesity", "fat"] },
+        { terms: ["sleep", "insomnia", "cannot sleep", "sleeping"] },
+        { terms: ["salt", "sodium"] },
+        { terms: ["exercise", "workout", "walking", "physical activity"] },
+        { terms: ["vaccine", "vaccines", "vaccination", "injection", "immunisation", "immunization"] },
+        { terms: ["tired", "fatigue", "weak body"] },
+        { terms: ["herb", "herbs", "herbal", "local medicine", "agbo"] },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S55.md; spec 9.3; OQ-S55-01",
+  },
 ];

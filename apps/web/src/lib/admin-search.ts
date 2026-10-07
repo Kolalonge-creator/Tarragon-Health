@@ -63,6 +63,9 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/data-rights", "gdpr ndpa privacy deletion erasure access request"],
   ["/admin/promo-codes", "discount coupon voucher"],
   ["/admin/leads", "enquiries prospects contact form"],
+  ["/admin/settings/health-education/creators", "creator creators clinician author authors write writers invite verify verification mdcn credentials indemnity suspend learning content partner"],
+  ["/admin/settings/health-education/readiness", "readiness review date reviewer source sources self care what can i do next placeholder placeholders myth myths myth-busting series draft expired expiry overdue learning article articles"],
+  ["/admin/settings/health-education/search-gaps", "search searches no result zero results missing gaps synonyms words people type bp sugar belle plan content learn library"],
   ["/admin/refund-requests", "refund refunds money back guarantee claim order payment paystack reverse"],
 ];
 
@@ -70,6 +73,11 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
 export const ADMIN_EXTRA_PAGES: AdminSearchEntry[] = [
   { label: "Licences and cover", href: "/admin/credentialing/expiry", group: "Clinician credentialing", hint: "Licence and indemnity expiry, grace periods, pause or reinstate access." },
   { label: "Task types and priorities", href: "/admin/task-types", group: "Clinical queue", hint: "The kinds of clinical work, how urgent each is and who may take it." },
+  { label: "Learning creators", href: "/admin/settings/health-education/creators", group: "Health education library", hint: "Invite clinician creators, verify their MDCN number and evidence, suspend and take their content down." },
+  { label: "Learning content readiness", href: "/admin/settings/health-education/readiness", group: "Health education library", hint: "Published items missing a reviewer, date, source or self-care step, and draft placeholders." },
+  { label: "Searches with no result", href: "/admin/settings/health-education/search-gaps", group: "Health education library", hint: "What patients searched for in the Learn library and did not find." },
+  { label: "Health education feedback", href: "/admin/settings/health-education/feedback", group: "Health education library", hint: "Patient reports that a learning item is wrong or unclear." },
+  { label: "Health education analytics", href: "/admin/settings/health-education/analytics", group: "Health education library", hint: "Views, completion and quiz results per learning item." },
 ];
 
 /** The same, for the Chief Medical Officer, whose account role cannot open /admin. */

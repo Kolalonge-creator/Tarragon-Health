@@ -28,10 +28,17 @@ begin
   end if;
 
   -- A published item with a FUTURE review date (owner insert; the status trigger sets is_active).
+  -- (S55: the publish gate now also needs a named reviewer, a source, a self-care action and, for a micro-lesson,
+  -- its one action and one check question; this item is a shared-article micro-lesson so every S55 reader is covered.)
   insert into public.health_education_content
-    (code, title, body, category, content_status, clinician_reviewed, next_review_due)
+    (code, title, body, category, content_status, clinician_reviewed, next_review_due,
+     reviewed_by_name, reviewed_at, source_reference, self_care_action,
+     is_micro_lesson, lesson_action, estimated_minutes, knowledge_check)
   values ('f1-proof-expiry', 'F1 proof item', 'Body text for the F1 expiry proof.', 'getting_started',
-          'published', true, v_today + 30)
+          'published', true, v_today + 30,
+          'Dr Proof Reviewer', now(), 'F1 proof source', 'Take one proof step today.',
+          true, 'Do the one proof action', 3,
+          '[{"question":"Proof question?","options":["a","b"],"answer_index":0}]'::jsonb)
   returning id into v_id;
   if not (select is_active from public.health_education_content where id = v_id) then
     raise exception 'FAIL setup: published item should be is_active';
@@ -47,7 +54,20 @@ begin
   select count(*) into v_n from public.health_education_content_detail('f1-proof-expiry');
   if v_n <> 1 then raise exception 'FAIL 1c: detail does not return a servable item'; end if;
   select coalesce(sum(item_count), 0) into v_cat_live from public.health_education_category_counts() where category = 'getting_started';
+  -- S55 readers serve it while it is in date (the gate must OPEN as well as close)
+  select count(*) into v_n from public.search_health_education('F1 proof item') where code = 'f1-proof-expiry';
+  if v_n <> 1 then raise exception 'FAIL 1d: search does not find a servable item'; end if;
+  select count(*) into v_n from public.health_education_item_trust(array['f1-proof-expiry']);
+  if v_n <> 1 then raise exception 'FAIL 1e: trust lookup does not return a servable item'; end if;
+  select count(*) into v_n from public.daily_micro_lesson() where code = 'f1-proof-expiry';
+  if v_n <> 1 then raise exception 'FAIL 1f: the daily lesson card does not offer a servable micro-lesson'; end if;
+  select count(*) into v_n from public.learning_offline_pack() where code = 'f1-proof-expiry';
+  if v_n <> 1 then raise exception 'FAIL 1g: the offline pack omits a servable item'; end if;
   reset role;
+  set local role anon;
+  select count(*) into v_n from public.learn_shared_article('f1-proof-expiry');
+  reset role;
+  if v_n <> 1 then raise exception 'FAIL 1h: a shared link does not open a servable article'; end if;
 
   -- ---------------- 2. Date passes, cron has NOT run: status published, is_active still true --------------
   update public.health_education_content set next_review_due = v_today - 1 where id = v_id;
@@ -90,6 +110,28 @@ begin
   select count(*) into v_n from public.health_education_content where id = v_id;
   if v_n <> 1 then raise exception 'FAIL 2e: admin lost sight of an expired item'; end if;
   reset role;
+
+  -- ---------------- 2g. S55 readers: the same expired item is invisible on every new reader ----------------
+  perform set_config('request.jwt.claims', json_build_object('sub', v_patient, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into v_n from public.search_health_education('F1 proof item') where code = 'f1-proof-expiry';
+  if v_n <> 0 then raise exception 'FAIL 2g-1: search still returns an expired item'; end if;
+  select count(*) into v_n from public.health_education_item_trust(array['f1-proof-expiry']);
+  if v_n <> 0 then raise exception 'FAIL 2g-2: trust lookup still returns an expired item'; end if;
+  select count(*) into v_n from public.daily_micro_lesson() where code = 'f1-proof-expiry';
+  if v_n <> 0 then raise exception 'FAIL 2g-3: the daily lesson card still offers an expired lesson'; end if;
+  select count(*) into v_n from public.learning_offline_pack() where code = 'f1-proof-expiry';
+  if v_n <> 0 then raise exception 'FAIL 2g-4: the offline pack still includes an expired item'; end if;
+  select count(*) into v_n from public.learning_pack_status(array['f1-proof-expiry']) where servable;
+  if v_n <> 0 then raise exception 'FAIL 2g-5: pack status still says an expired item is servable'; end if;
+  if public.save_lesson_for_consultation('f1-proof-expiry') then
+    raise exception 'FAIL 2g-6: an expired lesson could be saved for a consultation';
+  end if;
+  reset role;
+  set local role anon;
+  select count(*) into v_n from public.learn_shared_article('f1-proof-expiry');
+  reset role;
+  if v_n <> 0 then raise exception 'FAIL 2g-7: a shared link still opens an expired article'; end if;
 
   -- ---------------- 3. Flag job moves it to review_due; no longer is_active --------------------------------
   v_flagged := private.health_education_flag_overdue_reviews();

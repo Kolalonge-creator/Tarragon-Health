@@ -27,6 +27,7 @@ import {
   type HealthEducationReadingLevel,
   type KnowledgeCheckQuestion,
 } from "@/lib/health-education";
+import { DailyLessonCard, DownloadsCard, LearnSearchCard, LessonFooter, LessonViewer } from "@/screens/sections/learning-sections";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
@@ -74,6 +75,7 @@ export function LearnScreen({ userId, organisationId }: LearnScreenProps) {
   const [query, setQuery] = useState("");
   const [readingLevel, setReadingLevel] = useState<HealthEducationReadingLevel | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [openCode, setOpenCode] = useState<string | null>(null);
 
   const refreshTop = useCallback(async () => {
     const [feedData, locked, counts, recs, condition] = await Promise.all([
@@ -146,6 +148,11 @@ export function LearnScreen({ userId, organisationId }: LearnScreenProps) {
           <ErrorText>{loadError}</ErrorText>
         </Card>
       )}
+
+      <DailyLessonCard patientId={userId} organisationId={organisationId} />
+      <LearnSearchCard onOpen={setOpenCode} />
+      {openCode ? <LessonViewer code={openCode} onClose={() => setOpenCode(null)} /> : null}
+      <DownloadsCard onOpen={setOpenCode} />
 
       {recommendations.length > 0 && (
         <View style={{ gap: 8 }}>
@@ -421,6 +428,7 @@ function EducationItemRow({
           {error && <ErrorText>{error}</ErrorText>}
 
           <ContentFeedbackRow contentId={item.content_id} userId={userId} organisationId={organisationId} />
+          <LessonFooter code={item.code} title={item.title} canShare={item.content_type === "article"} />
         </View>
       )}
     </View>

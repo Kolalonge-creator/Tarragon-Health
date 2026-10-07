@@ -239,6 +239,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
           patientName={acting?.fullName ?? patientName}
           onNavigate={handleSelect}
           onOpenVideoVisit={setOpenVideoVisitId}
+          organisationId={acting ? undefined : organisationId}
         />
       ),
     vitals: () => <VitalsScreen patientId={subjectId} beneficiaryProfileId={acting?.profileId} />,
