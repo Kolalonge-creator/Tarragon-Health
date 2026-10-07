@@ -1440,3 +1440,9 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - The AI-003 eval case `pidgin_language_fidelity` keeps one recorded failed result, so it stays as audit history (its runner no longer runs it).
 - Pidgin audio recordings or text-to-speech voices held outside this repository (a TTS account, a drive) are not touched by code and need deleting by hand.
 - Decision: open (CMO for the version; founder for outside assets).
+
+### OQ-272 Emergency location versus "routes are never shared" (raised 2026-10-07, S48)
+- Spec 5.7 and the Module 5 acceptance test say routes are never shared; Part C bans public maps. The founder wants the patient to be locatable in an emergency, which is the opposite use of location data.
+- Options: (a) route recording stays private and a separate consented emergency-location feature is built (recommended, decision S48-1); (b) one recorder with a sharing switch (rejected: breaks the acceptance test); (c) no emergency location.
+- Needs before the guard can go on: written consent text, retention period, who may see the position and for how long, counsel's view under NDPA, and a decision on whether a red event may share without a fresh tap.
+- Decision: (a), 2026-10-07 (founder). Open parts: consent wording, retention, counsel review.

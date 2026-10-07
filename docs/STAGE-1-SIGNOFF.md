@@ -13,13 +13,13 @@ Stage 1 (S01 to S39) is not all on main-dev. As of this draft:
 | EMG/TRI wording (PR 989) | draft, conflicting | Must not merge before the CMO signs the wording. |
 | S33 BP course and breathing (PR 982) | open, CI green | None known; merge. |
 | S34 low data, accessibility, size report (PR 994) | open, built 2026-10-07 | CI result pending. Supersedes docs-only PR 966 (close 966). |
-| S35b scribe draft review (PR 967) | open, base branch already merged | Retarget to main-dev. Replay failure was a proof inserting into `care_circle_members` before S29 existed on its base; the table is on main-dev now, so re-run after rebase. |
-| S35c scribe safety (PR 975) | open, stacked on 967 | Same stale base, plus a real failure: `s23b_ai017_governance_scaffolding.sql` expects 7 dedicated eval cases and finds 13. The proof or the cases must be reconciled. |
+| S35b scribe draft review (PR 967) | open | Retargeted to main-dev and main-dev merged in 2026-10-07 (English-only conflict resolved: Pidgin strings dropped, English kept). CI re-running. |
+| S35c scribe safety (PR 975) | open, stacked on 967 | The `s23b` proof expected 7 required AI-017 eval cases and found 13: S35c deliberately adds a six-case facts-to-confirm suite, so the proof was stale. Updated to 13 on the branch. Still stacked on 967: merge 967 first, then merge main-dev into 975 (it conflicts on i18n, `consent-dialog.tsx`, the manifest and docs). |
 | S36 console operations (PR 987) | merged 2026-10-06 | Done. |
-| S37b guard safety cases (PR 971) | open, CI red | `config-panels.test.ts` expects a panel for `lab_panel_signoffs`; the branch predates that panel. Rebase onto main-dev, re-run. |
-| S38 outcome snapshots (PR 968) | open, CI red | Two failures: the same panel test (rebase), and a real proof failure in `s38_independent_review.sql` check 1c: "day 90 controlled, config version recorded (INV-16)" expected `controlled/2`, got `controlled/1`. Needs a fix, not a rebase. |
-| S38c and S38d monthly report and risk (PR 988) | draft, stacked on 968, replay failed | After 968. |
-| S39 security hardening (PR 986) | open, stacked on 968, CI red | Three failures: panel test (rebase); gitleaks flags `const ACK_KEY = "..."` (rename or add a narrow allowlist after checking it is not a secret); migration replay died on a GitHub rate limit while installing the Supabase CLI (re-run). |
+| S37b guard safety cases (PR 971) | open | Panel test failure was a stale base. main-dev merged in 2026-10-07 (one docs conflict kept both entries); web suite 4,142 pass locally; CI re-running. |
+| S38 outcome snapshots (PR 968) | open | Was red on the sign-off hub panel test (stale base). Fixed 2026-10-07 by merging main-dev; full web suite 4,149 pass locally; CI re-running. Also two open-question numbers renumbered (OQ-270, OQ-271) because S36g already used OQ-235 and OQ-236. |
+| S38c to S38e monthly report, risk, sponsor report (PR 988) | draft, stacked on 968 | The check 1c proof failure (`s38_independent_review.sql`, expected `controlled/2`, got `controlled/1`) belonged to this PR, not 968, and is already fixed on its newest commit (migration replay green). Merges after 968. |
+| S39 security hardening (PR 986) | open; retargeted to main-dev but still contains S38, so merge 968 first | Fixed 2026-10-07: S38 and main-dev merged in; gitleaks flagged `ACK_KEY = "breathing.safety_ack.v1"` from S33's breathing screen, an on-device storage key name and not a secret, so the exact string is allowlisted in `.gitleaks.toml`; the replay failure was a GitHub rate limit. CI re-running. |
 | S21h Zoom host key (PR 973) | open, CI green | Merge. |
 
 Also open, outside Stage 1 proper: PR 979 (competitor review, visit report, weekly summary). PR 994 carries its mobile low-data diff unchanged, so the two will not conflict.
@@ -27,8 +27,8 @@ Also open, outside Stage 1 proper: PR 979 (competitor review, visit report, week
 ### Recommended merge order
 1. Close PR 966 (docs-only prep, content is inside 994).
 2. Independent and green: 982 (S33), 973 (S21h).
-3. Fix, then merge: 971 (S37b, rebase), 968 (S38, fix check 1c). Then retarget 988 and 986 to main-dev, rebase, fix gitleaks on 986, re-run, merge 968 first then 986 then 988.
-4. 967 then 975 (retarget, rebase, reconcile the AI-017 case count).
+3. Fixed and re-running CI, merge when green: 971 (S37b), then 968 (S38), then 986 (S39), then 988 (S38c to S38e).
+4. 967, then merge main-dev into 975 and merge it. #982 (S33) now conflicts with main-dev and needs a rebase before it merges.
 5. 980 (S32b) and 990 (S28): rebase, re-run CI, merge. 994 (S34) any time after CI is green. 979 whenever the founder wants it.
 6. 989 (EMG/TRI wording): only after the CMO signs.
 7. Then run section 3 below.
@@ -74,7 +74,7 @@ Result column is blank on purpose until the matrix is run. "Proof" is where a te
 | 19 | Abandoned task returns after timeout, reliability updated | M4 | `s17_queue_next.sql`, `s20_quality_and_safety.sql` | not run |
 | 20 | Amber notification text has no condition or reading | M3 | `s13_notifications_framework.sql`, INV-07 lint test | not run |
 | 21 | Supporter without `weekly_bp_trend` cannot see readings via any API | M8 | `s29_care_circle.sql` | not run |
-| 22 | Test accounts absent from metrics and payouts | M10 | S38 proofs (PR 968, currently failing check 1c) | not run |
+| 22 | Test accounts absent from metrics and payouts | M10 | S38 proofs (PR 968, and `s38_independent_review.sql` in PR 988) | not run |
 | 23 | Proxy sees nothing until the parent confirms | M1 | `s04_proxy_setup.sql` | not run |
 | 24 | Replayed payment webhook creates one entitlement | M6 | `s25_catalogue_orders_payments.sql`, `s26_entitlements_lifecycle_and_refunds.sql` | not run |
 | 25 | Care pack does not auto-renew, reminder 7 days before | M6 | `s26_entitlements_lifecycle_and_refunds.sql` | not run |
