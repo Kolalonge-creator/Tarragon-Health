@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { t, type Locale, type MessageKey, type MessageParams } from "@tarragon/i18n";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatKobo } from "@/lib/format-money";
 import type { PharmacyOption } from "@/lib/pharmacy-collection/collection";
 import type { CollectionPrescription } from "@/lib/pharmacy-collection/load";
 import { loadPharmacyOptions, reroutePharmacy, sendToPharmacy, withdrawFromPharmacy } from "@/lib/pharmacy-collection/actions";
@@ -14,7 +13,7 @@ const MUTED = "text-charcoal-ink/70 dark:text-night-ink/70";
 
 /**
  * "Collect your medicines from a pharmacy" (S28, spec 8.9). One row per signed prescription. The patient chooses a partner
- * pharmacy (prices for what was prescribed, stock, no delivery), ticks that she agrees to share it, and gets a collection
+ * pharmacy (stock as the pharmacy lists it, no price, no delivery), ticks that she agrees to share it, and gets a collection
  * code to show at the counter. Collection only: there is no delivery option anywhere on this card (Part C.2). The
  * downloaded form stays available for any pharmacy.
  */
@@ -72,21 +71,13 @@ function Chooser({
     });
   }
 
-  function priceLine(o: PharmacyOption): string {
-    if (o.items_priced === 0) return tr("pharmacy.price.none");
-    const amount = formatKobo(o.total_kobo);
-    return o.items_priced === o.items_total
-      ? tr("pharmacy.price.total", { amount })
-      : tr("pharmacy.price.partial", { amount, priced: o.items_priced, total: o.items_total });
-  }
-
   return (
     <div className="space-y-3 rounded-md border border-charcoal-ink/10 p-3 dark:border-night-ink/15">
       {loading && <p className={`text-sm ${MUTED}`}>{tr("pharmacy.loading")}</p>}
       {!loading && options && options.length === 0 && <p className="text-sm">{tr("pharmacy.none")}</p>}
       {options && options.length > 0 && (
         <>
-          <p className={`text-xs ${MUTED}`}>{tr("pharmacy.compare.note")}</p>
+          <p className={`text-xs ${MUTED}`}>{tr("pharmacy.stock.note")}</p>
           <fieldset className="space-y-2">
             <legend className="sr-only">{tr("pharmacy.choose")}</legend>
             {options.map((o) => (
@@ -102,7 +93,6 @@ function Chooser({
                   <span className="space-y-0.5">
                     <span className="block text-sm font-medium">{o.name}</span>
                     <span className={`block text-xs ${MUTED}`}>{[o.area, o.city].filter(Boolean).join(", ")}</span>
-                    <span className="block text-sm">{priceLine(o)}</span>
                     <span className={`block text-xs ${MUTED}`}>
                       {tr(`pharmacy.stock.${o.stock}` as MessageKey)}
                       {o.is_preferred ? `. ${tr("pharmacy.preferred")}` : ""}
@@ -152,17 +142,18 @@ function Row({ prescription, locale, beneficiaryId }: { prescription: Collection
   const sent = mine !== null && mine.sent;
   const waiting = prescription.state === "sent" && sent;
   const dispensed = prescription.state === "dispensed" && sent;
+  const repeatable = prescription.state === "dispensed" && prescription.canRepeat;
 
   return (
     <li className="space-y-3 py-4">
       <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{prescription.medicines.join(", ")}</p>
 
-      {prescription.state === "signed" && !open && (
+      {(prescription.state === "signed" || repeatable) && !open && (
         <Button type="button" className="min-h-11" onClick={() => setOpen(true)}>
-          {tr("pharmacy.choose")}
+          {repeatable ? tr("pharmacy.repeat") : tr("pharmacy.choose")}
         </Button>
       )}
-      {prescription.state === "signed" && open && (
+      {(prescription.state === "signed" || repeatable) && open && (
         <Chooser prescription={prescription} locale={locale} mode="send" beneficiaryId={beneficiaryId} onDone={() => setOpen(false)} />
       )}
 

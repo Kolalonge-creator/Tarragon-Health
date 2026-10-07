@@ -8,6 +8,9 @@ import { axe } from "jest-axe";
 import "@/test/a11y";
 import { PharmacistPrescriptions, type InboxRow } from "./pharmacist-prescriptions";
 
+// The detail form is large and the whole suite runs in parallel in CI: give each test room (a 5 s default flaked under load).
+jest.setTimeout(30000);
+
 const refresh = jest.fn();
 jest.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 

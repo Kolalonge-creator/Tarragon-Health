@@ -26,14 +26,14 @@ function wire(available: unknown, rows: unknown, mine: unknown = { data: MINE, e
 const yes = { data: true, error: null };
 const no = { data: false, error: null };
 const list = (...r: object[]) => ({ data: r, error: null });
-const row = (id: string, state: string, current = true, items: unknown = [{ drug_name: "Amlodipine" }]) => ({ prescription_id: id, state, items, signed_at: "2026-10-01T00:00:00Z", is_current: current });
+const row = (id: string, state: string, current = true, items: unknown = [{ drug_name: "Amlodipine" }], remaining = 1) => ({ prescription_id: id, state, items, signed_at: "2026-10-01T00:00:00Z", is_current: current, supplies_remaining: remaining });
 
 beforeEach(() => rpc.mockReset());
 
 describe("loadMyCollection", () => {
   it("offers a current signed prescription when collection is available", async () => {
     wire(yes, list(row(A, "signed")));
-    await expect(loadMyCollection()).resolves.toEqual({ ok: true, available: true, prescriptions: [{ id: A, state: "signed", medicines: ["Amlodipine"], pharmacy: null }] });
+    await expect(loadMyCollection()).resolves.toEqual({ ok: true, available: true, prescriptions: [{ id: A, state: "signed", medicines: ["Amlodipine"], pharmacy: null, canRepeat: false }] });
   });
 
   it("never offers a prescription whose medicine was changed or stopped", async () => {
@@ -93,5 +93,25 @@ describe("loadMyCollection", () => {
     await expect(loadMyCollection("9d8c7b6a-1e2f-4a3b-8c4d-5e6f7a8b9c0d")).resolves.toEqual({ ok: false });
     wire(yes, { data: null, error: { message: "not_permitted_for_this_person" } });
     await expect(loadMyCollection()).resolves.toEqual({ ok: false });
+  });
+
+  it("a collected prescription with a supply left can be sent again (a repeat is a new send)", async () => {
+    wire(yes, list(row(A, "dispensed")), { data: { ...MINE, state: "dispensed", collection_code: null }, error: null });
+    const r = await loadMyCollection();
+    expect(r.ok && r.prescriptions[0]?.canRepeat).toBe(true);
+  });
+
+  it("...not when no supply is left, the medicine changed, or collection is off", async () => {
+    for (const [avail, r] of [[yes, row(A, "dispensed", true, undefined, 0)], [yes, row(A, "dispensed", false)], [no, row(A, "dispensed")]] as const) {
+      wire(avail, list(r), { data: { ...MINE, state: "dispensed", collection_code: null }, error: null });
+      const out = await loadMyCollection();
+      expect(out.ok && out.prescriptions[0]?.canRepeat).toBe(false);
+    }
+  });
+
+  it("a signed prescription already supplied elsewhere (QR or phone desk) is not offered", async () => {
+    wire(yes, list(row(A, "signed", true, undefined, 0)));
+    const r = await loadMyCollection();
+    expect(r.ok && r.prescriptions).toEqual([]);
   });
 });

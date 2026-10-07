@@ -7,6 +7,8 @@ export type CollectionPrescription = {
   state: "signed" | "sent" | "dispensed";
   medicines: string[];
   pharmacy: MyPharmacy | null;
+  /** A collected prescription that the medicine still permits another supply of (a repeat). It is sent again as a new send. */
+  canRepeat: boolean;
 };
 export type CollectionLoad = { ok: true; available: boolean; prescriptions: CollectionPrescription[] } | { ok: false };
 
@@ -15,6 +17,7 @@ const RowSchema = z.object({
   state: z.enum(["signed", "sent", "dispensed"]),
   items: z.unknown(),
   is_current: z.boolean(),
+  supplies_remaining: z.number().int().nonnegative(),
 });
 
 /**
@@ -40,7 +43,8 @@ export async function loadMyCollection(beneficiaryId?: string): Promise<Collecti
 
   const rows: CollectionPrescription[] = [];
   for (const row of parsed.data) {
-    if (row.state === "signed" && !(available === true && row.is_current)) continue;
+    // A prescription already supplied elsewhere (the QR check or the phone desk) has no supply left to send: not offered.
+    if (row.state === "signed" && !(available === true && row.is_current && row.supplies_remaining > 0)) continue;
     let pharmacy: MyPharmacy | null = null;
     if (row.state !== "signed") {
       const { data: mine, error: mineError } = await supabase.rpc("my_prescription_pharmacy", { p_prescription: row.prescription_id, ...who });
@@ -48,7 +52,8 @@ export async function loadMyCollection(beneficiaryId?: string): Promise<Collecti
       pharmacy = parseMyPharmacy(mine);
       if (!pharmacy) return { ok: false };
     }
-    rows.push({ id: row.prescription_id, state: row.state, medicines: medicineNames(row.items), pharmacy });
+    const canRepeat = row.state === "dispensed" && available === true && row.is_current && row.supplies_remaining > 0;
+    rows.push({ id: row.prescription_id, state: row.state, medicines: medicineNames(row.items), pharmacy, canRepeat });
   }
   return { ok: true, available: available === true, prescriptions: rows };
 }

@@ -33,11 +33,12 @@ describe("loadPharmacyOptions", () => {
   it("returns the parsed options and asks the database for this prescription only", async () => {
     rpc.mockResolvedValue({
       data: [{ pharmacy_partner_id: PARTNER, name: "A", address: null, city: "Lagos", state: "Lagos", area: "Yaba", latitude: null, longitude: null,
-        items_total: 1, items_priced: 1, total_kobo: 380000, stock: "in_stock", is_preferred: false }],
+        stock: "in_stock", is_preferred: false }],
       error: null,
     });
     const r = await loadPharmacyOptions(RX);
-    expect(r.ok && r.options[0]?.total_kobo).toBe(380000);
+    expect(r.ok && r.options[0]?.stock).toBe("in_stock");
+    expect(JSON.stringify(r)).not.toMatch(/kobo|price/i); // no price is ever carried (OQ-234)
     expect(rpc).toHaveBeenCalledWith("pharmacies_for_prescription", { p_prescription: RX });
   });
 

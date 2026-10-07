@@ -116,6 +116,8 @@ begin
       or (old.state = 'sent'   and new.state in ('dispensed', 'cancelled'))
       -- S28: the patient takes it back from the pharmacy. Only the definer function (flag on) may do this, and it clears the routing.
       or (v_routing and old.state = 'sent' and new.state = 'signed')
+      -- S28 (OQ-230): a repeat supply is a new send. Only the patient's send function (flag on) may take a collected prescription back to sent.
+      or (v_routing and old.state = 'dispensed' and new.state = 'sent')
     ) then
       raise exception 'invalid prescription state change % -> %', old.state, new.state using errcode = '23514';
     end if;
@@ -149,7 +151,7 @@ begin
                            or new.sent_at is distinct from old.sent_at))
        or new.cancelled_at is distinct from old.cancelled_at
        or new.recorded_by is distinct from old.recorded_by or new.source is distinct from old.source
-       or (new.dispensed_at is distinct from old.dispensed_at and old.dispensed_at is not null) then
+       or (not v_routing and new.dispensed_at is distinct from old.dispensed_at and old.dispensed_at is not null) then
       raise exception 'only the prescriber can change routing or pickup details' using errcode = '42501';
     end if;
   end if;
@@ -197,6 +199,17 @@ create function private.prescription_is_current(p_prescription uuid) returns boo
        and (m.expires_at is null or m.expires_at > now()))
 $$;
 revoke all on function private.prescription_is_current(uuid) from public, anon, authenticated;
+
+-- How many further complete supplies the medicine permits right now: the permitted number (1 plus clinician-approved repeats, never more
+-- than 1 plus repeats_allowed) minus the complete supplies already recorded by a pharmacy. The same counting pharmacy_mark_dispensed uses.
+create function private.supplies_remaining(p_prescription uuid) returns integer language sql stable security definer set search_path = '' as $$
+  select coalesce((
+    select greatest(least(1 + (select count(*) from public.medication_repeat_requests r where r.medication_id = m.id and r.status = 'approved')::integer,
+                          1 + coalesce(m.repeats_allowed, 0))
+           - (select count(*) from public.pharmacy_order_dispenses d where d.medication_id = m.id and d.source = 'pharmacy' and not coalesce(d.is_partial, false))::integer, 0)
+      from public.medications m where m.prescription_id = p_prescription and m.is_active and m.superseded_at is null limit 1), 0)
+$$;
+revoke all on function private.supplies_remaining(uuid) from public, anon, authenticated;
 
 create function private.new_collection_code() returns text language plpgsql volatile set search_path = '' as $$
 declare
@@ -281,8 +294,7 @@ on conflict do nothing;
 create function public.pharmacies_for_prescription(p_prescription uuid, p_beneficiary uuid default null)
 returns table (
   pharmacy_partner_id uuid, name text, address text, city text, state text, area text,
-  latitude double precision, longitude double precision,
-  items_total integer, items_priced integer, total_kobo bigint, stock text, is_preferred boolean)
+  latitude double precision, longitude double precision, stock text, is_preferred boolean)
 language plpgsql stable security definer set search_path = '' as $$
 #variable_conflict use_column
 declare
@@ -291,20 +303,24 @@ declare
   v_pref uuid;
 begin
   if not private.pharmacy_collection_on() then raise exception 'pharmacy_collection_off' using errcode = '55000'; end if;
-  select * into v_rx from public.prescriptions where id = p_prescription and patient_id = v_pat and state in ('signed', 'sent');
+  select * into v_rx from public.prescriptions where id = p_prescription and patient_id = v_pat and state in ('signed', 'sent', 'dispensed');
   if not found then raise exception 'prescription_not_found' using errcode = '42501'; end if;
   if not private.prescription_is_current(p_prescription) then raise exception 'prescription_not_current' using errcode = '22023'; end if;
+  -- Sending needs a supply still permitted: a collected prescription can be sent again only as a repeat, and one already supplied elsewhere
+  -- (the QR check or the phone desk) is not offered to a partner at all.
+  if v_rx.state in ('signed', 'dispensed') and private.supplies_remaining(p_prescription) < 1 then raise exception 'prescription_not_sendable' using errcode = '22023'; end if;
   select pharmacy_partner_id into v_pref from public.patient_pharmacy_preference where patient_id = v_pat;
 
+  -- No price is shown or returned: the partner price lists match on a drug name only, and a wrong price is worse than none (OQ-234).
+  -- Stock is how the pharmacy itself lists it; the screen says to confirm at the counter.
   return query
   with items as (
     select private.normalise_term(it ->> 'drug_name') as term from jsonb_array_elements(v_rx.items) it
   ), pharm as (
     select pp.id, pp.name, pp.address, pp.city, pp.state, pp.area, pp.latitude, pp.longitude
       from public.pharmacy_partners pp where private.pharmacy_choosable(pp.id)
-  ), priced as (
-    select ph.id as partner_id, i.term,
-           min(pm.price_kobo) as price_kobo,
+  ), listed as (
+    select ph.id as partner_id,
            max(case pm.stock_status when 'unavailable' then 3 when 'low_stock' then 2 when 'in_stock' then 1 end) as stock_rank
       from pharm ph cross join items i
       left join public.pharmacy_medications pm
@@ -312,12 +328,9 @@ begin
      group by ph.id, i.term
   )
   select ph.id, ph.name, ph.address, ph.city, ph.state, ph.area, ph.latitude, ph.longitude,
-         (select count(*)::integer from items),
-         count(pr.price_kobo)::integer,
-         coalesce(sum(pr.price_kobo), 0)::bigint,
-         case coalesce(max(pr.stock_rank), 0) when 3 then 'unavailable' when 2 then 'low_stock' when 1 then 'in_stock' else 'unknown' end,
+         case coalesce(max(l.stock_rank), 0) when 3 then 'unavailable' when 2 then 'low_stock' when 1 then 'in_stock' else 'unknown' end,
          ph.id = v_pref
-    from pharm ph left join priced pr on pr.partner_id = ph.id
+    from pharm ph left join listed l on l.partner_id = ph.id
    group by ph.id, ph.name, ph.address, ph.city, ph.state, ph.area, ph.latitude, ph.longitude
    order by (ph.id = v_pref) desc, ph.name;
 end $$;
@@ -348,11 +361,12 @@ begin
 
   select * into v_rx from public.prescriptions where id = p_prescription and patient_id = v_pat for update;
   if not found then raise exception 'prescription_not_found' using errcode = '42501'; end if;
-  if p_event = 'sent' and v_rx.state <> 'signed' then raise exception 'prescription_not_sendable' using errcode = '22023'; end if;
+  if p_event = 'sent' and v_rx.state not in ('signed', 'dispensed') then raise exception 'prescription_not_sendable' using errcode = '22023'; end if;
   if p_event = 'rerouted' and v_rx.state <> 'sent' then raise exception 'prescription_not_waiting' using errcode = '22023'; end if;
   if p_event = 'rerouted' and v_rx.pharmacy_partner_id = p_partner then raise exception 'same_pharmacy' using errcode = '22023'; end if;
   if v_rx.signed_by is null or v_rx.signed_at is null then raise exception 'prescription_not_signed' using errcode = '22023'; end if;
   if not private.prescription_is_current(p_prescription) then raise exception 'prescription_not_current' using errcode = '22023'; end if;
+  if p_event = 'sent' and private.supplies_remaining(p_prescription) < 1 then raise exception 'prescription_not_sendable' using errcode = '22023'; end if;
   if not private.pharmacy_choosable(p_partner) then raise exception 'pharmacy_not_available' using errcode = '22023'; end if;
   select name into v_name from public.pharmacy_partners where id = p_partner;
 
@@ -363,7 +377,8 @@ begin
     begin
       update public.prescriptions
          set state = 'sent', pharmacy_partner_id = p_partner, collection_code = v_code,
-             sent_at = case when p_event = 'sent' then now() else sent_at end
+             sent_at = case when p_event = 'sent' then now() else sent_at end,
+             dispensed_at = null
        where id = p_prescription;
       exit;
     exception when unique_violation then
@@ -451,16 +466,16 @@ end $$;
 -- The patient's list for the Medicines screen. Reads only her own rows, whether or not collection is on (a code she holds must stay
 -- visible), and says whether each is still current so a replaced or stopped medicine is never offered for sending.
 create function public.my_collection_prescriptions(p_beneficiary uuid default null)
-returns table (prescription_id uuid, state text, items jsonb, signed_at timestamptz, is_current boolean)
+returns table (prescription_id uuid, state text, items jsonb, signed_at timestamptz, is_current boolean, supplies_remaining integer)
 language plpgsql stable security definer set search_path = '' as $$
 #variable_conflict use_column
 declare v_pat uuid := private.rx_patient(p_beneficiary);
 begin
   return query
-  select rx.id, rx.state::text, rx.items, rx.signed_at, private.prescription_is_current(rx.id)
+  select rx.id, rx.state::text, rx.items, rx.signed_at, private.prescription_is_current(rx.id), private.supplies_remaining(rx.id)
     from public.prescriptions rx
    where rx.patient_id = v_pat and rx.state in ('signed', 'sent', 'dispensed') and rx.signed_at >= now() - interval '90 days'
-   order by rx.signed_at desc limit 10;
+   order by rx.signed_at desc limit 30;
 end $$;
 
 -- ---------------------------------------------------------------------------

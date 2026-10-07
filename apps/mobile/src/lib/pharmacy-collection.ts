@@ -13,14 +13,18 @@ export type PharmacyOption = {
   id: string;
   name: string;
   place: string;
-  itemsTotal: number;
-  itemsPriced: number;
-  totalKobo: number;
   stock: Stock;
   isPreferred: boolean;
 };
 export type MyPharmacy = { sent: false } | { sent: true; state: string; pharmacyName: string; code: string | null; needsOther: boolean };
-export type CollectionPrescription = { id: string; state: "signed" | "sent" | "dispensed"; medicines: string[]; pharmacy: MyPharmacy | null };
+export type CollectionPrescription = {
+  id: string;
+  state: "signed" | "sent" | "dispensed";
+  medicines: string[];
+  pharmacy: MyPharmacy | null;
+  /** Collected, and the medicine still permits another supply (a repeat): it is sent again as a new send. */
+  canRepeat: boolean;
+};
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const STOCKS: readonly string[] = ["in_stock", "low_stock", "unavailable", "unknown"];
@@ -30,11 +34,10 @@ export function parseOptions(data: unknown): PharmacyOption[] | null {
   const out: PharmacyOption[] = [];
   for (const row of data) {
     if (!isObj(row)) return null;
-    const { pharmacy_partner_id: id, name, area, city, items_total, items_priced, total_kobo, stock, is_preferred } = row;
-    if (typeof id !== "string" || typeof name !== "string" || typeof items_total !== "number" || typeof items_priced !== "number" ||
-        typeof total_kobo !== "number" || typeof stock !== "string" || !STOCKS.includes(stock) || typeof is_preferred !== "boolean") return null;
+    const { pharmacy_partner_id: id, name, area, city, stock, is_preferred } = row;
+    if (typeof id !== "string" || typeof name !== "string" || typeof stock !== "string" || !STOCKS.includes(stock) || typeof is_preferred !== "boolean") return null;
     out.push({
-      id, name, itemsTotal: items_total, itemsPriced: items_priced, totalKobo: total_kobo, stock: stock as Stock, isPreferred: is_preferred,
+      id, name, stock: stock as Stock, isPreferred: is_preferred,
       place: [area, city].filter((p): p is string => typeof p === "string" && p !== "").join(", "),
     });
   }
@@ -82,10 +85,11 @@ export async function loadCollection(): Promise<LoadResult> {
 
   const rows: CollectionPrescription[] = [];
   for (const row of data) {
-    if (!isObj(row) || typeof row.prescription_id !== "string" || typeof row.is_current !== "boolean") return { ok: false, offline: false };
+    if (!isObj(row) || typeof row.prescription_id !== "string" || typeof row.is_current !== "boolean" || typeof row.supplies_remaining !== "number") return { ok: false, offline: false };
     const state = row.state;
     if (state !== "signed" && state !== "sent" && state !== "dispensed") return { ok: false, offline: false };
-    if (state === "signed" && !(avail.data === true && row.is_current)) continue;
+    // already supplied elsewhere (QR check or phone desk): nothing left to send, so not offered
+    if (state === "signed" && !(avail.data === true && row.is_current && row.supplies_remaining > 0)) continue;
     let pharmacy: MyPharmacy | null = null;
     if (state !== "signed") {
       const mine = await supabase.rpc("my_prescription_pharmacy", { p_prescription: row.prescription_id });
@@ -93,7 +97,8 @@ export async function loadCollection(): Promise<LoadResult> {
       pharmacy = parseMine(mine.data);
       if (!pharmacy) return { ok: false, offline: false };
     }
-    rows.push({ id: row.prescription_id, state, medicines: medicineNames(row.items), pharmacy });
+    const canRepeat = state === "dispensed" && avail.data === true && row.is_current && row.supplies_remaining > 0;
+    rows.push({ id: row.prescription_id, state, medicines: medicineNames(row.items), pharmacy, canRepeat });
   }
   return { ok: true, available: avail.data === true, prescriptions: rows };
 }
@@ -129,9 +134,4 @@ export async function withdrawFromPharmacy(prescriptionId: string): Promise<{ ok
   if (error) return { ok: false, key: errorKey(error.message, isOfflineError(error)) };
   if (!isObj(data) || data.ok !== true) return { ok: false, key: "pharmacy.error" };
   return { ok: true, key: "pharmacy.withdraw.done" };
-}
-
-/** ₦3,800.00 from kobo, same fixed two decimals as the web app. */
-export function formatNaira(kobo: number): string {
-  return `₦${(kobo / 100).toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }

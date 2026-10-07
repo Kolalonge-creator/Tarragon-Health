@@ -10,6 +10,7 @@ import { expectNoA11yViolations } from "@/test/a11y";
 import { PharmacyCollectionCard } from "./pharmacy-collection-card";
 import type { CollectionPrescription } from "@/lib/pharmacy-collection/load";
 
+jest.setTimeout(30000); // the suite runs in parallel in CI; the 5 s default flaked under load
 const refresh = jest.fn();
 jest.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 
@@ -26,12 +27,13 @@ jest.mock("@/lib/pharmacy-collection/actions", () => ({
 
 const OPTION = {
   pharmacy_partner_id: "5c1d9f1e-8a2b-4d37-9c64-2e7b6a1d3f90", name: "Yaba Pharmacy", address: null, city: "Lagos", state: "Lagos", area: "Yaba",
-  items_total: 2, items_priced: 1, total_kobo: 380000, stock: "low_stock" as const, is_preferred: true,
+  stock: "low_stock" as const, is_preferred: true,
 };
-const signed: CollectionPrescription = { id: "rx1", state: "signed", medicines: ["Amlodipine"], pharmacy: null };
+const signed: CollectionPrescription = { id: "rx1", state: "signed", medicines: ["Amlodipine"], pharmacy: null, canRepeat: false };
 const waiting: CollectionPrescription = {
   id: "rx2", state: "sent", medicines: ["Losartan"],
   pharmacy: { sent: true, state: "sent", pharmacy_name: "Yaba Pharmacy", pharmacy_area: "Yaba", collection_code: "K7M2QX9P", needs_other_pharmacy: false },
+  canRepeat: false,
 };
 
 beforeEach(() => {
@@ -101,13 +103,36 @@ describe("PharmacyCollectionCard", () => {
     }
   });
 
-  it("shows the price for the items it could price, honestly, and the stock", async () => {
+  it("shows stock as the pharmacy lists it and no price at all (OQ-234)", async () => {
     render(<PharmacyCollectionCard prescriptions={[signed]} locale="en" />);
     fireEvent.click(screen.getByRole("button", { name: "Choose a pharmacy" }));
-    await screen.findByText(/1 of 2 items/, undefined, { timeout: 5000 });
-    expect(screen.getByText(/₦3,800\.00/)).toBeTruthy();
-    expect(screen.getByText(/Running low/)).toBeTruthy();
+    await screen.findByText(/Running low/, undefined, { timeout: 5000 });
+    expect(screen.getByText(/confirm the medicine and the price at the counter/)).toBeTruthy();
     expect(screen.getByText(/Where you collected last time/)).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/₦|\bNGN\b|Price not listed/);
+  });
+
+  it("a collected prescription with a supply left offers 'send again', as a new send", async () => {
+    const collected: CollectionPrescription = {
+      id: "rx3", state: "dispensed", medicines: ["Amlodipine"], canRepeat: true,
+      pharmacy: { sent: true, state: "dispensed", pharmacy_name: "Yaba Pharmacy", pharmacy_area: "Yaba", collection_code: null, needs_other_pharmacy: false },
+    };
+    render(<PharmacyCollectionCard prescriptions={[collected]} locale="en" />);
+    fireEvent.click(screen.getByRole("button", { name: "Send again for your next supply" }));
+    await screen.findByText("Yaba Pharmacy", undefined, { timeout: 5000 });
+    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(screen.getByRole("button", { name: "Send to this pharmacy" }));
+    await waitFor(() => expect(sendToPharmacy).toHaveBeenCalledWith({ prescriptionId: "rx3", partnerId: OPTION.pharmacy_partner_id, consent: true }), { timeout: 5000 });
+    expect(reroutePharmacy).not.toHaveBeenCalled();
+  });
+
+  it("a collected prescription with no supply left does not offer it again", () => {
+    const done: CollectionPrescription = {
+      id: "rx4", state: "dispensed", medicines: ["Amlodipine"], canRepeat: false,
+      pharmacy: { sent: true, state: "dispensed", pharmacy_name: "Yaba Pharmacy", pharmacy_area: "Yaba", collection_code: null, needs_other_pharmacy: false },
+    };
+    render(<PharmacyCollectionCard prescriptions={[done]} locale="en" />);
+    expect(screen.queryByRole("button", { name: "Send again for your next supply" })).toBeNull();
   });
 
   it("says plainly when no pharmacy is open", async () => {

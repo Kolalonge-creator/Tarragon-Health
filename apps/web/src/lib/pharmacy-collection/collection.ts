@@ -16,9 +16,6 @@ const PharmacyOptionSchema = z.object({
   city: z.string().nullable(),
   state: z.string().nullable(),
   area: z.string().nullable(),
-  items_total: z.number().int().nonnegative(),
-  items_priced: z.number().int().nonnegative(),
-  total_kobo: z.number().int().nonnegative(),
   stock: StockSchema,
   is_preferred: z.boolean(),
 });

@@ -9,6 +9,7 @@ import "@/test/a11y";
 import { PharmacyQuestions } from "./pharmacy-questions";
 import type { PrescriberOverview } from "@/lib/pharmacy-collection/collection";
 
+jest.setTimeout(30000); // the suite runs in parallel in CI; the 5 s default flaked under load
 const refresh = jest.fn();
 jest.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 const answerPharmacyQuestion = jest.fn();

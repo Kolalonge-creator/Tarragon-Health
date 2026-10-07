@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import { View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
 import {
-  formatNaira,
   loadCollection,
   loadOptions,
   sendToPharmacy,
@@ -15,8 +14,8 @@ import { space } from "@/ui/design";
 import { AppText, Button, Card, InlineAlert, PressableScale } from "@/ui/kit";
 
 /**
- * "Collect your medicines from a pharmacy" (S28) on the Medicines tab. Choose a partner pharmacy (prices for what was
- * prescribed, stock, no delivery), tick that you agree to share it, and get a code to show at the counter. Needs a
+ * "Collect your medicines from a pharmacy" (S28) on the Medicines tab. Choose a partner pharmacy (stock as it lists it,
+ * no price, no delivery), tick that you agree to share it, and get a code to show at the counter. Needs a
  * connection and is never queued. The downloaded form for any pharmacy stays on the web and is mentioned, not replaced.
  */
 function Chooser({ prescription, mode, onDone }: { prescription: CollectionPrescription; mode: "send" | "reroute"; onDone: () => void }) {
@@ -32,8 +31,12 @@ function Chooser({ prescription, mode, onDone }: { prescription: CollectionPresc
     let alive = true;
     void loadOptions(prescription.id).then((r) => {
       if (!alive) return;
-      if (r.ok) setOptions(r.options);
-      else setMessage(r.key);
+      if (r.ok) {
+        setOptions(r.options);
+        // the last pharmacy is ticked already, so a repeat is one tap and the consent tick
+        const usual = r.options.find((o) => o.isPreferred);
+        if (usual) setChosen(usual.id);
+      } else setMessage(r.key);
     });
     return () => {
       alive = false;
@@ -53,32 +56,24 @@ function Chooser({ prescription, mode, onDone }: { prescription: CollectionPresc
     }
   }
 
-  const price = (o: PharmacyOption) =>
-    o.itemsPriced === 0
-      ? tr("pharmacy.price.none")
-      : o.itemsPriced === o.itemsTotal
-        ? tr("pharmacy.price.total", { amount: formatNaira(o.totalKobo) })
-        : tr("pharmacy.price.partial", { amount: formatNaira(o.totalKobo), priced: o.itemsPriced, total: o.itemsTotal });
-
   return (
     <View style={{ gap: space.sm }}>
       {options === null && message === null ? <AppText variant="caption" tone="textMuted">{tr("pharmacy.loading")}</AppText> : null}
       {options && options.length === 0 ? <AppText variant="body">{tr("pharmacy.none")}</AppText> : null}
       {options && options.length > 0 ? (
         <>
-          <AppText variant="caption" tone="textMuted">{tr("pharmacy.compare.note")}</AppText>
+          <AppText variant="caption" tone="textMuted">{tr("pharmacy.stock.note")}</AppText>
           {options.map((o) => (
             <PressableScale
               key={o.id}
               onPress={() => setChosen(o.id)}
               accessibilityRole="radio"
               accessibilityState={{ selected: chosen === o.id, checked: chosen === o.id }}
-              accessibilityLabel={`${o.name}. ${o.place}. ${price(o)}. ${tr(`pharmacy.stock.${o.stock}` as MessageKey)}`}
+              accessibilityLabel={`${o.name}. ${o.place}. ${tr(`pharmacy.stock.${o.stock}` as MessageKey)}`}
             >
               <Card style={{ gap: 2, borderWidth: chosen === o.id ? 2 : 0 }}>
                 <AppText variant="bodyStrong">{o.name}</AppText>
                 {o.place ? <AppText variant="caption" tone="textMuted">{o.place}</AppText> : null}
-                <AppText variant="body">{price(o)}</AppText>
                 <AppText variant="caption" tone="textMuted">
                   {`${tr(`pharmacy.stock.${o.stock}` as MessageKey)}${o.isPreferred ? `. ${tr("pharmacy.preferred")}` : ""}`}
                 </AppText>
@@ -129,8 +124,12 @@ function Row({ prescription, reload }: { prescription: CollectionPrescription; r
   return (
     <View style={{ gap: space.sm }}>
       <AppText variant="bodyStrong">{prescription.medicines.join(", ")}</AppText>
-      {prescription.state === "signed" ? (
-        open ? <Chooser prescription={prescription} mode="send" onDone={done} /> : <Button title={tr("pharmacy.choose")} onPress={() => setOpen(true)} />
+      {prescription.state === "signed" || (prescription.state === "dispensed" && prescription.canRepeat) ? (
+        open ? (
+          <Chooser prescription={prescription} mode="send" onDone={done} />
+        ) : (
+          <Button title={prescription.state === "dispensed" ? tr("pharmacy.repeat") : tr("pharmacy.choose")} onPress={() => setOpen(true)} />
+        )
       ) : null}
       {prescription.state === "sent" && mine?.sent ? (
         <View style={{ gap: space.xs }}>
