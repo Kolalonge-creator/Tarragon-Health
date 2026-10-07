@@ -14,6 +14,8 @@ import {
 import { makePagingHandler, PAGING_HANDLER_KEY } from "../_shared/queue/paging-handler.ts";
 import { PARTNER_WEBHOOK_HANDLER_KEY, makePartnerWebhookHandler } from "../_shared/event-bus/partner-webhook-handler.ts";
 import { makeProgrammeProgressHandler, PROGRAMME_PROGRESS_HANDLER_KEY } from "../_shared/programme/progress-handler.ts";
+import { makePointsHandler, POINTS_HANDLER_KEY } from "../_shared/rewards/points-handler.ts";
+import { pointsPorts } from "./points-ports.ts";
 import { leadPorts, pagingPorts, partnerWebhookPorts, programmeProgressPorts, queuePorts } from "./queue-ports.ts";
 import { coveragePorts, triagePorts, type RpcClient } from "./triage-ports.ts";
 
@@ -28,5 +30,6 @@ export function buildHandlers(client: RpcClient): HandlerRegistry {
     [PAGING_HANDLER_KEY]: makePagingHandler(pagingPorts(client)),
     [PARTNER_WEBHOOK_HANDLER_KEY]: makePartnerWebhookHandler(partnerWebhookPorts(client)),
     [PROGRAMME_PROGRESS_HANDLER_KEY]: makeProgrammeProgressHandler(programmeProgressPorts(client)),
+    [POINTS_HANDLER_KEY]: makePointsHandler(pointsPorts(client)),
   };
 }

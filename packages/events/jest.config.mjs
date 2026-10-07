@@ -18,6 +18,8 @@ export default {
     "<rootDir>/supabase/functions/_shared/event-bus/dispatch.ts",
     "<rootDir>/supabase/functions/_shared/event-bus/partner-webhook-handler.ts",
     "<rootDir>/supabase/functions/_shared/integrations/webhook-signature.ts",
+    "<rootDir>/supabase/functions/_shared/rewards/points-handler.ts",
+    "<rootDir>/supabase/functions/process-events/points-ports.ts",
   ],
   coverageProvider: "v8",
   coverageThreshold: { global: { branches: 100, functions: 100, lines: 100, statements: 100 } },

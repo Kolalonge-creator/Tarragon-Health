@@ -1237,3 +1237,10 @@ s39h_registry_survives_dropped_tables.sql
 fu_rota_gap_and_credential_followups.sql
 # S63: digital therapy programmes. Every exclusion item (81, table-driven) refuses enrolment and fails closed; ACCEPTANCE saddle numbness blocks with a clinician task; PHQ-9 item 9 above zero is a crisis stop (class 1 task, urgent event); screen re-run every session; scores at checkpoints only; worsening pauses and raises one review task (idempotent for the bus handler); a version change never alters an enrolled patient's content and an approved version is frozen (INV-16); per-patient RLS for patient, other patient, tied and untied clinician, coordinator, CMO, admin, finance, analyst, corporate, anon; consent-gated audited clinician read, revoked at once; guards off. Sabotage: staff policy added, guard trigger dropped, content freeze dropped, screen always passes; each flips.
 s63_therapy_programmes.sql
+
+# --- Added 2026-10-07 (S58) -------------------------------------------------
+# Module 11 Rewards and engagement: characterisation of the pre-existing award core (still true), then the full engine proof
+# (idempotent replay, no body metrics, plausible readings only, red flow first, caps/decay, tiers, grace, capped checkout discount,
+# append-only ledger, aggregate-only employer seam, roles) with three sabotage steps.
+s58_points_characterisation.sql
+s58_rewards_engine.sql
