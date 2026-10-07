@@ -79,7 +79,7 @@ describe("symptom text", () => {
 });
 
 describe("the emergency pack", () => {
-  afterEach(() => jest.restoreAllMocks());
+  afterEach(() => { jest.restoreAllMocks(); });
 
   it("loads and answers with no network at all (INV-06)", () => {
     const fetchSpy = jest.spyOn(globalThis, "fetch").mockImplementation(() => { throw new Error("network used"); });

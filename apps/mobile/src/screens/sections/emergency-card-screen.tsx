@@ -10,6 +10,7 @@ import {
 } from "@/lib/emergency";
 import { spacing } from "@/ui/theme";
 import { lightPalette, useLegacyColors } from "@/ui/design";
+import { EmergencyPackView } from "@/screens/emergency-pack-view";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 
 interface EmergencyCardScreenProps {
@@ -128,6 +129,8 @@ export function EmergencyCardScreen({ patientId }: EmergencyCardScreenProps) {
           </>
         )}
       </Card>
+
+      <EmergencyPackView />
     </ScrollView>
   );
 }

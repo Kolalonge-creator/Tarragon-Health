@@ -1,4 +1,5 @@
-import { mgDlToMmolL } from "@tarragon/shared";
+import { getProposedConfig, mgDlToMmolL } from "@tarragon/shared";
+import { deviceRedFlags, type DeviceRedRules } from "@tarragon/clinical";
 import { supabase } from "./supabase";
 import type { VitalReadingPayload } from "./api";
 import { classifyBpLevel, type BpLevel } from "./bp-classification";
@@ -191,6 +192,19 @@ export async function classifyVitalOffline(payload: VitalReadingPayload): Promis
     if (flag.tier === "emergency") return { severity: "emergency", detail: flag.detail };
     if (flag.tier === "urgent") return { severity: "urgent", detail: flag.detail };
     return null;
+  }
+  // S65 (INV-06): pulse, SpO2 and temperature are classified on the phone too, from the same versioned thresholds the database uses
+  // (vitals.device_red_rules, kept equal to the SQL classifiers by a parity test). Emergency band = the full-screen guidance; red band = the banner.
+  if (payload.vital_type === "pulse" || payload.vital_type === "spo2" || payload.vital_type === "temperature") {
+    const rules = getProposedConfig("vitals.device_red_rules").value as unknown as DeviceRedRules;
+    const flags = deviceRedFlags(
+      { pulse_bpm: payload.vital_type === "pulse" ? payload.pulse_bpm : null, spo2_pct: payload.vital_type === "spo2" ? payload.spo2_pct : null, temperature_c: payload.vital_type === "temperature" ? payload.temperature_c : null },
+      rules,
+    );
+    const worst = flags[0];
+    const label = payload.vital_type === "pulse" ? "Heart rate" : payload.vital_type === "spo2" ? "Oxygen level" : "Temperature";
+    if (worst?.level === "emergency") return { severity: "emergency", detail: `${label} reading is in the danger range.` };
+    if (worst?.level === "red") return { severity: "urgent", detail: `${label} reading is far from the safe range. Your care team will review it today.` };
   }
   return null;
 }

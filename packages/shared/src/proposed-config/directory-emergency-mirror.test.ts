@@ -34,6 +34,6 @@ describe("S65 versioned config mirrors the migration seeds", () => {
     for (const k of ["directory.access_rules", "emergency.pack", "vitals.device_red_rules", "care_circle.help_alert"]) {
       expect(getProposedConfig(k).status).toBe("proposed");
     }
-    expect(getProposedConfig<{ signed: unknown }>("emergency.pack").value.signed).toBeNull();
+    expect((getProposedConfig("emergency.pack").value as { signed: unknown }).signed).toBeNull();
   });
 });

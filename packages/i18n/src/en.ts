@@ -2250,7 +2250,7 @@ export const en = {
   "circle.help.consent.turn_on": "Turn on",
   "circle.help.consent.turn_off": "Turn off",
   "circle.help.consent.error": "That could not be saved. Please try again.",
-  "circle.help.view.title": "{name} asked you for help",
+  "circle.help.view.title": "Someone you support asked for you",
   "circle.help.view.location": "Where they were when they tapped",
   "circle.help.view.open_maps": "Open in maps",
   "circle.help.view.no_location": "They did not share a location. Please call them.",

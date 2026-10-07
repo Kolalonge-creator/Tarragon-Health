@@ -27,6 +27,7 @@ import { FormError, fieldErrorId } from "@/components/ui/form-error";
 import { koboToNaira, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
 
 import { formatPatientDateTime } from "@/lib/format-date";
+import { ClinicianLicenceLine } from "@/components/clinician-licence-line";
 function formatSlot(iso: string): string {
   return formatPatientDateTime(iso, {
     weekday: "short",
@@ -315,6 +316,7 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
                 </Button>
               ))}
             </div>
+            <ClinicianLicenceLine profileId={(slots ?? []).find((s) => s.id === selectedSlot)?.clinician_profile_id} locale="en" />
             <input type="hidden" name="slot_id" value={selectedSlot} />
             <Button type="submit" disabled={!selectedSlot || isPending}>
               {isPending

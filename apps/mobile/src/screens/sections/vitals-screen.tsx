@@ -676,10 +676,9 @@ function OtherVitalCard({
         break;
     }
 
-    // Only glucose has an offline red-flag path today (see classifyVitalOffline):
-    // weight, temperature, SpO2 and pulse still get the offline write queue below,
-    // just no on-device guidance or banner.
-    const flag = type === "glucose" ? await classifyVitalOffline(payload) : null;
+    // Glucose, pulse, SpO2 and temperature have an on-device red-flag path (see classifyVitalOffline, S65);
+    // weight still just gets the offline write queue below.
+    const flag = type !== "weight" ? await classifyVitalOffline(payload) : null;
     if (flag?.severity === "emergency") onEmergency(flag.detail, false);
     if (flag?.severity === "urgent") setUrgentBanner(flag.detail);
 

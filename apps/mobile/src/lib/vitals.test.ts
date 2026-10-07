@@ -66,6 +66,18 @@ describe("classifyVitalOffline", () => {
     ).resolves.toBeNull();
   });
 
+  it("S65: pulse, SpO2 and temperature are classified on the device with the server's bands", async () => {
+    await expect(classifyVitalOffline({ vital_type: "pulse", pulse_bpm: 160 })).resolves.toMatchObject({ severity: "emergency" });
+    await expect(classifyVitalOffline({ vital_type: "pulse", pulse_bpm: 130 })).resolves.toMatchObject({ severity: "urgent" });
+    await expect(classifyVitalOffline({ vital_type: "pulse", pulse_bpm: 72 })).resolves.toBeNull();
+    await expect(classifyVitalOffline({ vital_type: "spo2", spo2_pct: 88 })).resolves.toMatchObject({ severity: "emergency" });
+    await expect(classifyVitalOffline({ vital_type: "spo2", spo2_pct: 92 })).resolves.toMatchObject({ severity: "urgent" });
+    await expect(classifyVitalOffline({ vital_type: "spo2", spo2_pct: 93 })).resolves.toBeNull();
+    await expect(classifyVitalOffline({ vital_type: "temperature", temperature_c: 40.2 })).resolves.toMatchObject({ severity: "emergency" });
+    await expect(classifyVitalOffline({ vital_type: "temperature", temperature_c: 39.1 })).resolves.toMatchObject({ severity: "urgent" });
+    await expect(classifyVitalOffline({ vital_type: "temperature", temperature_c: 37.0 })).resolves.toBeNull();
+  });
+
   it("names the actual reading back to the patient", async () => {
     const flag = await classifyVitalOffline({ vital_type: "blood_pressure", systolic: 210, diastolic: 130 });
     expect(flag?.detail).toContain("210/130");
@@ -95,8 +107,7 @@ describe("classifyVitalOffline", () => {
 
   it("has nothing to say about vitals it has no offline rule for", async () => {
     await expect(classifyVitalOffline({ vital_type: "weight", weight_kg: 74 })).resolves.toBeNull();
-    await expect(classifyVitalOffline({ vital_type: "spo2", spo2_pct: 82 })).resolves.toBeNull();
-    await expect(classifyVitalOffline({ vital_type: "pulse", pulse_bpm: 180 })).resolves.toBeNull();
+    // S65 closed the pulse, SpO2 and temperature gap (INV-06): those now have an on-device rule, so only weight is silent.
   });
 
   /**

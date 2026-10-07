@@ -72,6 +72,9 @@ export function EmergencyGuidanceModal({
           </View>
 
           <ScrollView contentContainerStyle={{ padding: spacing.screen, gap: 14 }}>
+            <Text accessibilityRole="header" style={{ fontSize: 18, fontWeight: "700", color: colors.ink }}>
+              {t("emergency.first_line", "en")}
+            </Text>
             {wordingCode ? (
               <>
                 <Text style={{ fontSize: 15, lineHeight: 22, color: colors.ink, fontWeight: "700" }}>
