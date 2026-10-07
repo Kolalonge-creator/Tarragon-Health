@@ -79,11 +79,20 @@ begin
   end if;
   raise notice 'PASS 1a: legal transition applied + audited';
 
-  -- is_active still true for review_due (content stays visible while flagged).
+  -- is_active is still derived true for review_due (the status flag is unchanged). Whether a patient is SERVED the row is
+  -- a separate rule since S55 D4: a row is hidden once its next_review_due has passed, regardless of status or is_active
+  -- (see s55_content_past_review_date_not_served.sql). A review_due row with no date, as here, is still served.
   if not (select is_active from public.health_education_content where id = v_content_id) then
     raise exception 'FAIL: review_due content should remain is_active=true';
   end if;
   raise notice 'PASS 1b: review_due keeps is_active=true';
+  -- S55 D4: a review_due row whose date has passed is NOT served even though is_active is true.
+  update public.health_education_content set next_review_due = current_date - 1 where id = v_content_id;
+  if private.health_education_review_in_date((select next_review_due from public.health_education_content where id = v_content_id)) then
+    raise exception 'FAIL: a past review date must not be servable';
+  end if;
+  update public.health_education_content set next_review_due = null where id = v_content_id;
+  raise notice 'PASS 1b2: past review date is not servable (D4)';
 
   -- Illegal: review_due -> approved is not a legal edge.
   begin
