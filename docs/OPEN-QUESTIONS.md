@@ -1605,6 +1605,16 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Pidgin audio recordings or text-to-speech voices held outside this repository (a TTS account, a drive) are not touched by code and need deleting by hand.
 - Decision: open (CMO for the version; founder for outside assets).
 
+### OQ-272 Emergency location versus "routes are never shared" (raised 2026-10-07, S48)
+- Spec 5.7 and the Module 5 acceptance test say routes are never shared; Part C bans public maps. The founder wants the patient to be locatable in an emergency, which is the opposite use of location data.
+- Options: (a) route recording stays private and a separate consented emergency-location feature is built (recommended, decision S48-1); (b) one recorder with a sharing switch (rejected: breaks the acceptance test); (c) no emergency location.
+- Needs before the guard can go on: written consent text, retention period, who may see the position and for how long, counsel's view under NDPA, and a decision on whether a red event may share without a fresh tap.
+- Decision: (a), 2026-10-07 (founder). Open parts: consent wording, retention, counsel review.
+
+### OQ-273 Silence line 7 days needs a new signed rule set (raised 2026-10-07, S11)
+- Decision S11-1 sets the silence line to 7 days. The live signed rule set `bp_care_triage` v1 uses 5, and rule sets are versioned, never edited.
+- Work: `bp_care_triage` v2 (rules, shared copy, device bundle, parity and fixture tests), registry `triage.silence_rule_days` v2, CMO signature. Spec safety case 7 (5 days) and `docs/BUILD-SPEC-v5.md` are not edited; this entry and S11-1 record the departure.
+- Decision: 7 days (founder, 2026-10-07). Build: open.
 ### OQ-252 (S34): size and cold-start targets conflict
 - The S34 prompt asks for under 40 MB and cold start under 3 seconds on a 2 GB Android phone. Spec D.1 and decision DG-1 (2026-10-02) superseded those targets: the floor is a 4 GB Android 10+ or iOS 16+ phone.
 - Options: (a) keep tracking the old numbers as PROPOSED budgets in config and fail CI only on growth (recommended); (b) set new targets for the 4 GB floor; (c) drop size budgets.
