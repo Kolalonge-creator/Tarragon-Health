@@ -790,13 +790,16 @@ export async function handleWebhookRequest(
             // INV-08 (decision D-12): no SMS goes out for this. The reservation is activated and the claim link is shown to the sponsor
             // on their Supporting page (invite_token is readable only by the sponsor who paid), who gives it to the person themselves.
             // Nothing here needs a text-message provider.
-            await supabase.from("audit_log").insert({
+            const { error: auditError } = await supabase.from("audit_log").insert({
+              organisation_id: reservation.organisation_id,
               actor_id: null,
               action: "sponsored_service_reservation.invite_ready",
               entity_type: "sponsored_service_reservations",
               entity_id: reservation.id,
               event: { delivery: "sponsor_shares_link" },
             });
+            // The payment is already processed and must stay so; a missing audit row is logged loudly, never swallowed.
+            if (auditError) console.error("paystack-webhook: could not record invite_ready", { reservationId: reservation.id, error: auditError.message });
           }
         } else {
           // Exhaustiveness: CheckoutKind has exactly 10 members and every one

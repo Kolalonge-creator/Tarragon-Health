@@ -115,7 +115,7 @@ describe("provisionMemberAction caller scope", () => {
       expect(createUser).toHaveBeenCalledTimes(1);
       expect(createUser).toHaveBeenCalledWith(
         expect.objectContaining({
-          app_metadata: { role: "clinician", organisation_id: ORG_A },
+          app_metadata: { role: "clinician", organisation_id: ORG_A, signup_exempt: "true" },
         })
       );
       expect(auditInsert).toHaveBeenCalledWith(
@@ -144,7 +144,7 @@ describe("provisionMemberAction caller scope", () => {
 
       expect(result?.error).toBeUndefined();
       expect(createUser).toHaveBeenCalledWith(
-        expect.objectContaining({ app_metadata: { role: "admin", organisation_id: null } })
+        expect.objectContaining({ app_metadata: { role: "admin", organisation_id: null, signup_exempt: "true" } })
       );
     });
 

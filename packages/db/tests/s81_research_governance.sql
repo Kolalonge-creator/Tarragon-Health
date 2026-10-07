@@ -7,7 +7,7 @@ do $$
 declare
   v_org uuid; v_admin uuid := gen_random_uuid(); v_cmo uuid := gen_random_uuid(); v_pat uuid;
   v_ver uuid; v_bp text; v_ts text;
-  v_good uuid[] := '{}'; v_withdrawn uuid; v_noresearch uuid; v_test uuid; v_nodp uuid; v_u uuid;
+  v_good uuid[] := '{}'; v_withdrawn uuid; v_noresearch uuid; v_test uuid; v_nodp uuid; v_u uuid; v_future uuid; v_rare uuid; v_future_hash text; v_res2 jsonb;
   v_p uuid; v_p2 uuid; v_ok boolean; v_res jsonb; v_n int; v_status public.research_protocol_status; v_i int;
   v_fields text[] := array['pathway_code','day','bp_status','adherence_pct','enrolment_month','computed_month'];
 begin
@@ -25,23 +25,26 @@ begin
   insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, active, credential_type, credential_number, indemnity_exempt, indemnity_exempt_by, verified_by, license_verified_at)
   values (v_cmo, v_org, 'S81 CMO', 'chief_medical_officer', true, 'MDCN', 'S81-CMO', true, v_admin, v_admin, now());
 
-  -- 25 consenting real (non-test) patients, plus four who must never appear
-  for v_i in 1..29 loop
+  -- 25 consenting real (non-test) patients, plus four who must never appear, one who agreed only TOMORROW (data from before that must not
+  -- be released) and one with a rare enrolment month (that month must be released empty)
+  for v_i in 1..31 loop
     v_u := gen_random_uuid();
     insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
     values (v_u, 's81-p' || v_i || '@example.invalid','x',now(),'{}','{}');
     update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'S81 P' || v_i, is_test = (v_i = 28) where id = v_u;
     insert into analytics.subjects (patient_id) values (v_u);
     insert into public.outcome_snapshots (organisation_id, patient_id, pathway_code, day, anchor_date, window_start, window_end, bp_avg_7d_sys, bp_avg_7d_dia, bp_readings_7d, bp_status, controlled, target_sys, target_dia, target_source, adherence_pct, adherence_doses_due, config_version, is_test)
-    values (v_org, v_u, 'bp', 30, current_date - 30, current_date - 7, current_date, 138, 86, 5, v_bp, false, 130, 80, v_ts, 80, 10, 1, false);
+    values (v_org, v_u, 'bp', 30, case when v_i = 31 then current_date - 400 else current_date - 30 end, current_date - 7, current_date, 138, 86, 5, v_bp, false, 130, 80, v_ts, 80, 10, 1, false);
     if v_i <= 25 then v_good := v_good || v_u; end if;
     if v_i = 26 then v_withdrawn := v_u; end if;
     if v_i = 27 then v_noresearch := v_u; end if;
     if v_i = 28 then v_test := v_u; end if;
     if v_i = 29 then v_nodp := v_u; end if;
+    if v_i = 30 then v_future := v_u; end if;
+    if v_i = 31 then v_rare := v_u; end if;
     -- consents: data_processing for all but v_nodp; research for all but v_noresearch and v_nodp
     if v_i <> 29 then insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action, created_at) values (v_org, v_u, 'data_processing', v_ver, '1', 'accepted', now() - interval '2 days'); end if;
-    if v_i not in (27, 29) then insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action, created_at) values (v_org, v_u, 'research', v_ver, '1', 'accepted', now() - interval '2 days'); end if;
+    if v_i not in (27, 29) then insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action, created_at) values (v_org, v_u, 'research', v_ver, '1', 'accepted', case when v_i = 30 then now() + interval '1 day' else now() - interval '2 days' end); end if;
     if v_i = 26 then insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action, created_at) values (v_org, v_u, 'research', v_ver, '1', 'withdrawn', now() - interval '1 day'); end if;
   end loop;
 
@@ -112,7 +115,13 @@ begin
   reset role;
 
   -- contents: exactly the 25 consenting patients, none of the four, no identifiers, re-keyed
-  if jsonb_array_length(v_res->'rows') <> 25 then raise exception 'FAIL: expected 25 rows, got %', jsonb_array_length(v_res->'rows'); end if;
+  if jsonb_array_length(v_res->'rows') <> 26 then raise exception 'FAIL: expected 26 rows (25 plus the rare-month patient; not the one who agreed tomorrow), got %', jsonb_array_length(v_res->'rows'); end if;
+  -- data from before consent is not released: the patient who agrees only tomorrow is absent
+  v_future_hash := encode(extensions.digest((select subject_key::text from analytics.subjects where patient_id = v_future) || ':' || v_p::text, 'sha256'), 'hex');
+  if exists (select 1 from jsonb_array_elements(v_res->'rows') r where r->>'participant' = v_future_hash) then raise exception 'FAIL: data recorded before consent was released'; end if;
+  -- a month shared by fewer than the minimum is released empty: exactly the one rare enrolment month, and no computed month (all share one)
+  if (select count(*) from jsonb_array_elements(v_res->'rows') r where r->>'enrolment_month' is null) <> 1 then raise exception 'FAIL: the rare enrolment month was not blanked exactly once'; end if;
+  if exists (select 1 from jsonb_array_elements(v_res->'rows') r where r->>'computed_month' is null) then raise exception 'FAIL: a common computed month was blanked'; end if;
   if (v_res::text) like '%organisation_id%' or (v_res::text) like '%subject_key%' or (v_res::text) like '%patient_id%' then raise exception 'FAIL: an identifier field is in the export'; end if;
   if ((v_res->'rows')::text) ~ '[0-9a-f]{8}-[0-9a-f]{4}-' then raise exception 'FAIL: a uuid is in the released rows'; end if;
   if exists (select 1 from jsonb_array_elements(v_res->'rows') r where length(r->>'participant') <> 64) then raise exception 'FAIL: participant is not a hash'; end if;
@@ -121,8 +130,17 @@ begin
   -- the participant key is per protocol: it is not the analytics subject key
   if exists (select 1 from jsonb_array_elements(v_res->'rows') r join analytics.subjects s on encode(extensions.digest(s.subject_key::text, 'sha256'), 'hex') = r->>'participant') then raise exception 'FAIL: participant key is not protocol-specific'; end if;
 
+  -- control: it is the consent DATE that keeps the late consenter out. Move their consent into the past and their data appears; put it back.
+  update public.patient_consents set created_at = now() - interval '3 days' where patient_id = v_future and consent_type = 'research';
+  perform set_config('request.jwt.claims', json_build_object('sub', v_cmo, 'role','authenticated')::text, true);
+  set local role authenticated;
+  v_res2 := public.run_research_export(v_p);
+  reset role;
+  if jsonb_array_length(v_res2->'rows') <> 27 then raise exception 'FAIL: moving the consent into the past did not bring the data in (got % rows), so the timing rule is not what excluded it', jsonb_array_length(v_res2->'rows'); end if;
+  update public.patient_consents set created_at = now() + interval '1 day' where patient_id = v_future and consent_type = 'research';
+
   -- audit, event, no stored data
-  if not exists (select 1 from public.research_exports where id = (v_res->>'export_id')::uuid and row_count = 25 and participant_count = 25 and content_sha256 = v_res->>'sha256') then raise exception 'FAIL: export record missing or wrong'; end if;
+  if not exists (select 1 from public.research_exports where id = (v_res->>'export_id')::uuid and row_count = 26 and participant_count = 26 and content_sha256 = v_res->>'sha256') then raise exception 'FAIL: export record missing or wrong'; end if;
   if not exists (select 1 from public.audit_log where action = 'research_export.created' and entity_id = (v_res->>'export_id')::uuid) then raise exception 'FAIL: export not audited'; end if;
   if not exists (select 1 from public.domain_events where event_type = 'research_export.created' and (payload->>'export_id')::uuid = (v_res->>'export_id')::uuid) then raise exception 'FAIL: research_export.created not emitted'; end if;
   if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'research_exports' and (column_name ~* 'price|fee|licen|amount|kobo|payload|data')) then raise exception 'FAIL: research_exports has a price or data column'; end if;
@@ -133,8 +151,8 @@ begin
   set local role authenticated;
   v_res := public.run_research_export(v_p);
   reset role;
-  if jsonb_array_length(v_res->'rows') <> 24 then raise exception 'FAIL: a patient who withdrew is still exported (got % rows)', jsonb_array_length(v_res->'rows'); end if;
-  for v_i in 2..6 loop
+  if jsonb_array_length(v_res->'rows') <> 25 then raise exception 'FAIL: a patient who withdrew is still exported (got % rows)', jsonb_array_length(v_res->'rows'); end if;
+  for v_i in 2..7 loop
     insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action, created_at) values (v_org, v_good[v_i], 'research', v_ver, '1', 'withdrawn', now());
   end loop;
   perform set_config('request.jwt.claims', json_build_object('sub', v_cmo, 'role','authenticated')::text, true);
@@ -166,17 +184,19 @@ begin
   if not (select is_negative_result from public.research_evaluations where id = v_u) then raise exception 'FAIL: negative result not stored'; end if;
   raise notice 'PASS: eligibility, approval, frozen protocol, dark guard, export contents and audit, minimum participants, evaluation lock, refusals';
 
-  -- SABOTAGE: an eligibility test that ignores withdrawal exports the withdrawn patient
+  -- DEFENCE IN DEPTH: the export also joins the live consent state, so even an eligibility test that ignores withdrawal cannot release a
+  -- withdrawn patient. Sabotage the eligibility test and show the withdrawn patient is STILL absent (or the export refuses).
   create or replace function private.research_eligible(p_patient uuid, p_protocol uuid default null) returns boolean language sql stable security definer set search_path = '' as $f$
     select not coalesce((select pr.is_test from public.profiles pr where pr.id = p_patient), true)
   $f$;
   perform set_config('request.jwt.claims', json_build_object('sub', v_cmo, 'role','authenticated')::text, true);
   set local role authenticated;
-  v_res := public.run_research_export(v_p);
+  begin v_res := public.run_research_export(v_p); v_ok := true; exception when others then v_ok := false; end;
   reset role;
-  select count(*) into v_n from jsonb_array_elements(v_res->'rows');
-  if v_n <= 24 then raise exception 'sabotage did not export the withdrawn or unconsented patients, the test would not discriminate (got %)', v_n; end if;
-  raise notice 'PASS: sabotage confirmed (% rows with no consent test)', v_n;
+  if v_ok and exists (select 1 from jsonb_array_elements(v_res->'rows') r where r->>'participant' = encode(extensions.digest((select subject_key::text from analytics.subjects where patient_id = v_withdrawn) || ':' || v_p::text, 'sha256'), 'hex')) then
+    raise exception 'FAIL: with a broken eligibility test a withdrawn patient was released, so the second layer is missing';
+  end if;
+  raise notice 'PASS: defence in depth confirmed (a broken eligibility test still cannot release a withdrawn patient)';
 end $$;
 
 rollback;

@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildJobs, parseNumberCsv, parseScripts } from "./generate-elevenlabs.mjs";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { buildJobs, isRendered, parseNumberCsv, parseScripts } from "./generate-elevenlabs.mjs";
 
 test("parseScripts reads one clip per line and unescapes newlines and quotes", () => {
   const src = [
@@ -32,4 +35,13 @@ test("buildJobs finds words from scripts, numbers and extras, and reports a clip
     ["NUM-P24", "TH-NUM-P24-EN.mp3", "millimetres of mercury"],
   ]);
   assert.deepEqual(missing, ["XXX-001"]);
+});
+
+test("isRendered: missing and truncated files are not rendered, a real-sized file is", () => {
+  const dir = mkdtempSync(join(tmpdir(), "audio-"));
+  assert.equal(isRendered(join(dir, "none.mp3")), false);
+  writeFileSync(join(dir, "partial.mp3"), Buffer.alloc(200));
+  assert.equal(isRendered(join(dir, "partial.mp3")), false);
+  writeFileSync(join(dir, "ok.mp3"), Buffer.alloc(4096));
+  assert.equal(isRendered(join(dir, "ok.mp3")), true);
 });

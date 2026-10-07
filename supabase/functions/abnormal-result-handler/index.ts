@@ -42,9 +42,8 @@
 // interpretation is optional/advisory only — the rule-based condition
 // inference the trigger already did is sufficient for the upgrade to fire.
 //
-// INV-08: this function makes no external call at all; every alert is a queued notification.
-// timeout and never throws past its boundary; missing credentials degrade to
-// a recorded audit_log failure, never a crash and never a silent drop.
+// INV-08: this function makes no external call at all; every alert is a queued notification, and a failure to queue one is written to
+// audit_log, never a crash and never a silent drop.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -261,7 +260,9 @@ Deno.serve(async (req) => {
           p_template: "abnormal_result_clinician_alert",
           p_payload: { patient_name: patientName, condition_label: conditionLabel },
           p_pathway: "screening_abnormal_result",
-          p_alert_tier: "urgent_escalation",
+          // The payload does not carry result_status, so use the TIGHTER ladder (emergency, a critical result): early contact on a
+          // non-critical result costs nothing, the reverse breaches the SLA (the same rule the old fallback followed).
+          p_alert_tier: "emergency",
           p_source_table: "screening_results",
           p_source_id: screeningResultId,
         })

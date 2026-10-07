@@ -1618,7 +1618,7 @@ export const TEMPLATE_MAP: Record<
         `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
         `<p>Your care team would like a quick call. Open the Tarragon Health app to join.</p>` +
         `<p style="color:#5b6b78;font-size:13px">The call link is in the app, after you sign in. We never send it by text message.</p>` +
-        `<p style="color:#5b6b78;font-size:13px">&mdash; Tarragon Health</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
         `</div>`,
       text: "Your care team would like a quick call. Open the Tarragon Health app to join. The call link is in the app, after you sign in. We never send it by text message.",
     },

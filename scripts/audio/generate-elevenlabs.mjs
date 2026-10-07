@@ -18,7 +18,7 @@
  *
  * The API key is read from the environment only and is never written to a file or printed.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -69,6 +69,12 @@ function loadJobs() {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/** A clip counts as rendered only if its file is a real, non-trivial MP3: an interrupted run must never leave a partial file that later runs skip. */
+export function isRendered(path) {
+  if (!existsSync(path)) return false;
+  return statSync(path).size >= 1024;
+}
+
 async function render(job, voice, apiKey, cfg) {
   const url = `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voice)}?output_format=${encodeURIComponent(cfg.output_format)}`;
   for (let attempt = 1; attempt <= 4; attempt += 1) {
@@ -109,7 +115,7 @@ async function main() {
   const { jobs, missing } = loadJobs();
   if (missing.length) console.warn(`No words found for ${missing.length} clip(s), skipped: ${missing.slice(0, 8).join(", ")}${missing.length > 8 ? ", ..." : ""}`);
   const wanted = jobs.filter((j) => only.length === 0 || only.some((o) => j.id === o || j.group === o));
-  const todo = wanted.filter((j) => !existsSync(join(outDir, j.file)));
+  const todo = wanted.filter((j) => !isRendered(join(outDir, j.file)));
   const chars = todo.reduce((n, j) => n + j.text.length, 0);
   console.log(`${wanted.length} clips selected, ${wanted.length - todo.length} already rendered, ${todo.length} to render, ${chars.toLocaleString()} characters (about ${chars.toLocaleString()} ElevenLabs credits).`);
   if (dry) return;
@@ -122,7 +128,11 @@ async function main() {
   let done = 0;
   for (const job of todo.slice(0, limit)) {
     const audio = await render(job, voice, apiKey, cfg);
-    writeFileSync(join(outDir, job.file), audio);
+    if (audio.length < 1024) throw new Error(`ElevenLabs returned an unusually small file for ${job.id}; nothing was kept.`);
+    // Write to a temporary name and rename, so a killed run never leaves a half-written master under the real name.
+    const final = join(outDir, job.file);
+    writeFileSync(final + ".part", audio);
+    renameSync(final + ".part", final);
     done += 1;
     if (done % 10 === 0 || done === Math.min(todo.length, limit)) console.log(`rendered ${done} of ${Math.min(todo.length, limit)} (${job.id})`);
     await sleep(150);

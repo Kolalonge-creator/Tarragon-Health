@@ -82,6 +82,17 @@ begin
   reset role;
   if v_ok then raise exception 'FAIL: a single-use phone invite was used twice'; end if;
 
+  -- 5b. an UNVERIFIED phone typed into user metadata (the email form) can never borrow a phone invite
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role','authenticated')::text, true);
+  set local role authenticated;
+  v_inv := public.create_signup_invite('phone', '+2348077778888', 'Metadata phone must not match');
+  v_id := (v_inv ->> 'id')::uuid;
+  reset role;
+  begin insert into auth.users (id, email, encrypted_password, raw_app_meta_data, raw_user_meta_data) values (gen_random_uuid(), 'borrower@example.invalid', 'x', '{}', '{"phone":"+2348077778888"}'); v_ok := true;
+  exception when others then v_ok := false; end;
+  if v_ok then raise exception 'FAIL: an unverified metadata phone borrowed a phone invite'; end if;
+  if (select uses from public.signup_invites where id = v_id) <> 0 then raise exception 'FAIL: the borrowed attempt consumed the invite'; end if;
+
   -- 6. an email invite matches regardless of case
   
   insert into auth.users (id, email, encrypted_password, raw_app_meta_data, raw_user_meta_data) values (gen_random_uuid(), 'pilot.user@example.invalid', 'x', '{}', '{}');
@@ -134,6 +145,11 @@ begin
   
   insert into auth.users (id, phone, encrypted_password, raw_app_meta_data, raw_user_meta_data) values (gen_random_uuid(), '2348033334444', 'x', '{}', '{}');
   reset role;
+
+  -- 10b. ... but only the VERIFIED phone identity: the same number typed into user metadata on the email path does not pass
+  begin insert into auth.users (id, email, encrypted_password, raw_app_meta_data, raw_user_meta_data) values (gen_random_uuid(), 'sponsor-borrower@example.invalid', 'x', '{}', '{"phone":"+2348033334444"}'); v_ok := true;
+  exception when others then v_ok := false; end;
+  if v_ok then raise exception 'FAIL: an unverified metadata phone passed the sponsor-paid carve-out'; end if;
 
   -- 11. the kind pre-check answers without consuming
   select uses into v_n from public.signup_invites where id = v_email_id;

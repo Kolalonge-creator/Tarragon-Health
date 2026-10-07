@@ -104,7 +104,8 @@ export async function signUp(
   }
 
   // Invite-only sign-up (the database enforces it; this just says so kindly before GoTrue is asked).
-  const gate = await checkSignupGate({ phone: parsed.data.phone, email: parsed.data.email, inviteCode: parsed.data.inviteCode });
+  // Email only: the phone typed on this form is not verified, so it can never satisfy a phone invite.
+  const gate = await checkSignupGate({ email: parsed.data.email, inviteCode: parsed.data.inviteCode });
   if (!gate.allowed) {
     return { error: t("signup.invite_required", await getAuthLocale()), field: "inviteCode", values };
   }

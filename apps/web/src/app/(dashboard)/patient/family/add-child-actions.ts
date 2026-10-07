@@ -53,7 +53,7 @@ export async function addChildDependentAction(
   const { data: created, error: createError } = await svc.auth.admin.createUser({
     email: syntheticEmail,
     email_confirm: true,
-    app_metadata: { role: "patient", organisation_id: parent.organisation_id },
+    app_metadata: { role: "patient", organisation_id: parent.organisation_id, signup_exempt: "true" },
     user_metadata: { full_name },
   });
   if (createError || !created.user) {
