@@ -18,7 +18,7 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^20.19.43",
     "eslint": "^9",
-    "jest": "^30.4.2",
+    "jest": "^30.5.2",
     "ts-jest": "^29.4.11",
     "typescript": "^5",
     "typescript-eslint": "^8",
