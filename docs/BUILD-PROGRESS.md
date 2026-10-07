@@ -891,3 +891,8 @@ Found during the simulator pass (`docs/S06_SIMULATOR_CHECKLIST.md`).
 - **Proof**: `s39e_worklists_and_work_counts.sql` role simulation (13 checks, 6 of 7 queues built as fixtures, sabotage flips); web tests pass.
 - **Found**: S39b hides pooled queue items from untied clinicians; all queues are empty today.
 - **Open**: therapy approvals not covered by a fixture; existing queue pages still show tied detail only; OQ-286 (labels reveal the kind of care). Review fixes: queue size and the 100 row cap are shown, coordinator is turned away, exact fixture set and real isolation check in the proof.
+
+## S39f: the complete export reaches the patient; CMO class confirmation (2026-10-07, branch `s39f/export-and-class-review`, stacked on S39e)
+- **Built**: migration `20261007190000_s39f_export_download_and_class_review.sql` (NOT yet applied). `private.export_patient_json` (one body for admin and patient), `export_my_data()` (a patient, only after an admin fulfilled a request within 30 days, audited), `/api/patient/data-export` now uses it; registry classes confirmed by the CMO with six corrections, all 302 rows reviewed.
+- **Proof**: `s39f_export_download_and_class_review.sql` (14 checks, sabotage flips); S39d proof A4 updated; web test 3 pass.
+- **Decided**: OQ-283 follow UK and US standards; OQ-284 confirmed; OQ-285 built (mobile download still to do).
