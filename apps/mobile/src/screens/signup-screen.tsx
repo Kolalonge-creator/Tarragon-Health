@@ -441,7 +441,7 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
         animationType="fade"
         onRequestClose={() => setCountryPickerOpen(false)}
       >
-        <Pressable
+        <Pressable accessibilityRole="button" accessibilityLabel="Close"
           onPress={() => setCountryPickerOpen(false)}
           style={{ flex: 1, backgroundColor: inkAlpha(0.4), justifyContent: "flex-end" }}
         >
@@ -480,7 +480,7 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
         animationType="fade"
         onRequestClose={() => setStatePickerOpen(false)}
       >
-        <Pressable
+        <Pressable accessibilityRole="button" accessibilityLabel="Close"
           onPress={() => setStatePickerOpen(false)}
           style={{ flex: 1, backgroundColor: inkAlpha(0.4), justifyContent: "flex-end" }}
         >

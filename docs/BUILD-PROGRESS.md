@@ -925,3 +925,11 @@ Found during the simulator pass (`docs/S06_SIMULATOR_CHECKLIST.md`).
 - **Built:** English-only product (Pidgin first, then Yoruba, Hausa and Igbo too; D-14 in `docs/DECISIONS.md`, reverses D-13). Deleted `packages/i18n/src/pcm.ts`, the language chooser/switch UI on web and mobile, the admin Languages page and the mobile/web Pidgin kill-switch readers; scribe language is `en-NG` only; migration `20261006222924_remove_nigerian_pidgin_english_only.sql` (NOT applied to production yet) narrows every language/locale CHECK to English and deletes the `pidgin_language` switch and the unused Pidgin scribe eval case.
 - **Tests:** DB proof `remove_pidgin_english_only.sql` (registered in `ci.manifest`, includes a sabotage control); typecheck clean across 18 packages; jest passes for web, mobile, i18n, shared, integrations, clinical, medicines, notifications, auth.
 - **Follow-up:** `health_education_translations` is empty and unused but kept, because four SQL functions still join it; drop it after rewriting them. The `useT`/`useUiLanguage` no-op wrappers (about 50 hook sites on web and mobile) remain as thin plumbing.
+
+## S34: low-data mode, accessibility, size report (2026-10-07, branch `s34b/low-data-a11y-build`)
+- **Built**: `media-policy.ts` and `useLowData()`; low-data change notifications; every touchable now has a screen-reader role (16 fixed, 1 undersized rating control padded to 44 points); `a11y-scan.test.ts`; `size-report.mjs` (report only, OQ-227). Carries PR 979's mobile low-data diff unchanged.
+- **Reused**: the design kit (labels, roles, 48 point Button, reduce motion, 200 percent text cap), S32 audio bundle planner's low-data rule, `profiles.low_data_mode` (not written yet).
+- **Tests**: mobile jest 1,398 pass (99 suites), `tsc --noEmit` clean, eslint 0 errors. Scan sabotaged once and failed as it should.
+- **Not measured (no device)**: cold start, installed size, memory, logging speed, font scale at 200 percent, TalkBack and VoiceOver reading order.
+- **Open questions**: 0 new. OQ-227 answered (no targets).
+- **Follow-ups**: S32b audio player must call `mediaDecision`; add netinfo in the DG-6 native build; decide whether to mirror the preference to `profiles.low_data_mode`.

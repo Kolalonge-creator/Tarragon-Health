@@ -54,7 +54,21 @@ let lowDataActive = false;
 
 /** Set by `low-data.ts` after reading the saved preference, and by the Settings toggle. */
 export function setLowDataActive(active: boolean): void {
+  if (lowDataActive === active) return;
   lowDataActive = active;
+  for (const listener of [...lowDataListeners]) listener();
+}
+
+const lowDataListeners = new Set<() => void>();
+
+/** For `useLowData()`: tells a screen when the switch flips so it can drop or restore media. */
+export function subscribeLowData(listener: () => void): () => void {
+  lowDataListeners.add(listener);
+  return () => void lowDataListeners.delete(listener);
+}
+
+export function isLowDataActive(): boolean {
+  return lowDataActive;
 }
 
 /** The budget the pull code should use right now. */

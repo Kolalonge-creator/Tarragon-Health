@@ -803,7 +803,7 @@ function NeedHelpSection({ patientId }: { patientId: string }) {
             {NAVIGATION_REQUEST_CATEGORIES.map((c) => {
               const selected = c === category;
               return (
-                <Pressable
+                <Pressable accessibilityRole="button" accessibilityState={{ selected }}
                   key={c}
                   onPress={() => setCategory(c)}
                   style={{
@@ -863,7 +863,7 @@ function NeedHelpSection({ patientId }: { patientId: string }) {
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                   <MutedText>How did we do?</MutedText>
                   {[1, 2, 3, 4, 5].map((n) => (
-                    <Pressable
+                    <Pressable accessibilityRole="button" accessibilityLabel={`Rate ${n} out of 5`} hitSlop={9}
                       key={n}
                       onPress={() => void rate(r.id, n)}
                       style={{
