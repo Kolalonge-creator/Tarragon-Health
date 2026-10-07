@@ -25371,6 +25371,64 @@ export type Database = {
           },
         ]
       }
+      onboarding_answers: {
+        Row: {
+          answer: Json
+          answered_at: string
+          id: string
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+          question_code: string
+          recorded_by: string
+          source: string
+        }
+        Insert: {
+          answer: Json
+          answered_at?: string
+          id?: string
+          is_test?: boolean
+          organisation_id: string
+          patient_id: string
+          question_code: string
+          recorded_by: string
+          source?: string
+        }
+        Update: {
+          answer?: Json
+          answered_at?: string
+          id?: string
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+          question_code?: string
+          recorded_by?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_answers_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_answers_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_answers_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ops_incident_sla_targets: {
         Row: {
           ack_minutes: number
@@ -31888,6 +31946,7 @@ export type Database = {
           is_test: boolean
           lab_provider_id: string | null
           language: string
+          lga: string | null
           low_data_mode: boolean
           majority_review_at: string | null
           marketing_opt_in: boolean
@@ -31942,6 +32001,7 @@ export type Database = {
           is_test?: boolean
           lab_provider_id?: string | null
           language?: string
+          lga?: string | null
           low_data_mode?: boolean
           majority_review_at?: string | null
           marketing_opt_in?: boolean
@@ -31996,6 +32056,7 @@ export type Database = {
           is_test?: boolean
           lab_provider_id?: string | null
           language?: string
+          lga?: string | null
           low_data_mode?: boolean
           majority_review_at?: string | null
           marketing_opt_in?: boolean
@@ -43120,6 +43181,11 @@ export type Database = {
         Returns: Json
       }
       retry_payout: { Args: { p_id: string }; Returns: Json }
+      save_onboarding_answers: {
+        Args: { p_conditions: string[]; p_goals: string[] }
+        Returns: Json
+      }
+      join_cohort: { Args: { p_code: string }; Returns: Json }
       save_my_tax_profile: {
         Args: {
           p_note?: string
