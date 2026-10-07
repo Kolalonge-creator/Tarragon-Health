@@ -124,6 +124,9 @@ export async function stepSymptomTriage(input: SymptomTriageStepInput): Promise<
     .select("id")
     .single();
 
+  // 42501: the database closed the door (the guard, for the person being acted for). Same calm state as the screen.
+  if (insertError?.code === "42501") return { status: "unavailable" };
+
   if (insertError || !inserted) {
     return { status: "error", error: insertError?.message ?? "Could not record the assessment" };
   }

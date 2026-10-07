@@ -148,7 +148,7 @@ begin
     raise exception 'FAIL 7b: the emergency event was lost';
   end if;
   if not exists (select 1 from public.audit_log where action = 'crisis_task.error' and entity_id = s5) then raise exception 'FAIL 7c: the failure was not audited'; end if;
-  if not exists (select 1 from public.ops_incidents where external_reference = 'crisis_follow_up_failed' and status not in ('resolved', 'closed')) then
+  if not exists (select 1 from public.ops_incidents where external_reference = 'crisis_follow_up_failed:' || s5 and status not in ('resolved', 'closed')) then
     raise exception 'FAIL 7d: the failure opened no incident';
   end if;
   if exists (select 1 from public.audit_log where action = 'crisis.handled' and entity_id = s5) then raise exception 'FAIL 7e: a failed run was marked handled'; end if;

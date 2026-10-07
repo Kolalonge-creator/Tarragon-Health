@@ -105,7 +105,7 @@ export function SymptomTriageCheck({
         <CardContent>
           <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             The symptom checker is not open yet. If something is worrying you, use the emergency check above or
-            message your care team. If you think it is an emergency, call 112 or go to the nearest hospital now.
+            message your care team. If you think it is an emergency, go to the nearest hospital now.
           </p>
         </CardContent>
       </Card>

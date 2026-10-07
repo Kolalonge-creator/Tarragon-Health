@@ -83,7 +83,7 @@ begin
     v_failed := true;
     insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
       values (s.organisation_id, 'crisis_task.error', 'mental_health_screen', s.id, jsonb_build_object('step', 'event', 'error', sqlerrm));
-    perform private.page_incident(s.organisation_id, 'crisis_follow_up_failed', 'A priority follow-up could not be completed',
+    perform private.page_incident(s.organisation_id, 'crisis_follow_up_failed:' || s.id, 'A priority follow-up could not be completed',
       'A priority wellbeing follow-up step failed; see audit_log action crisis_task.error. The emergency event itself was still raised.');
   end;
 
@@ -94,11 +94,13 @@ begin
     v_failed := true;
     insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
       values (s.organisation_id, 'crisis_task.error', 'mental_health_screen', s.id, jsonb_build_object('step', 'task', 'error', sqlerrm));
-    perform private.page_incident(s.organisation_id, 'crisis_follow_up_failed', 'A priority follow-up could not be completed',
+    perform private.page_incident(s.organisation_id, 'crisis_follow_up_failed:' || s.id, 'A priority follow-up could not be completed',
       'A priority wellbeing follow-up step failed; see audit_log action crisis_task.error. The emergency event itself was still raised.');
   end;
 
-  -- (c) reach a person: the clinician on call, else the clinical lead and ops plus an incident
+  -- (c) reach a person: the clinician on call, else the clinical lead and ops plus an incident.
+  -- Once per screen: a replay after a partial failure must not page the same person twice.
+  if not exists (select 1 from public.audit_log where action = 'crisis.notified' and entity_type = 'mental_health_screen' and entity_id = s.id) then
   begin
     v_to := private.page_recipient(s.organisation_id, v_test);
     if v_to is not null then
@@ -123,9 +125,14 @@ begin
     v_failed := true;
     insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
       values (s.organisation_id, 'crisis_task.error', 'mental_health_screen', s.id, jsonb_build_object('step', 'notify', 'error', sqlerrm));
-    perform private.page_incident(s.organisation_id, 'crisis_follow_up_failed', 'A priority follow-up could not be completed',
+    perform private.page_incident(s.organisation_id, 'crisis_follow_up_failed:' || s.id, 'A priority follow-up could not be completed',
       'A priority wellbeing follow-up step failed; see audit_log action crisis_task.error. The emergency event itself was still raised.');
   end;
+  if not v_failed then
+    insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+      values (s.organisation_id, 'crisis.notified', 'mental_health_screen', s.id, '{}'::jsonb);
+  end if;
+  end if;
 
   if not v_failed then
     insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
@@ -151,7 +158,7 @@ exception when others then
   begin
     insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
       values (new.organisation_id, 'crisis_task.error', 'mental_health_screen', new.id, jsonb_build_object('step', 'trigger', 'error', sqlerrm));
-    perform private.page_incident(new.organisation_id, 'crisis_follow_up_failed', 'A priority follow-up could not be completed',
+    perform private.page_incident(new.organisation_id, 'crisis_follow_up_failed:' || new.id, 'A priority follow-up could not be completed',
       'A priority wellbeing follow-up step failed; see audit_log action crisis_task.error. The emergency event itself was still raised.');
   exception when others then
     raise warning 'crisis follow-up could not even be reported for screen %: %', new.id, sqlerrm;
