@@ -19,7 +19,7 @@ const MIGRATION = join(
   "..",
   "supabase",
   "migrations",
-  "20261007121539_s41_onboarding_answers_and_lga.sql",
+  "20261007230154_s41_onboarding_answers_and_lga.sql",
 );
 
 function sqlCodes(question: string): string[] {

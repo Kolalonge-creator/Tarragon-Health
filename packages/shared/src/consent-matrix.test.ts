@@ -14,8 +14,8 @@ import {
 } from "./consent-matrix";
 
 const MIGRATIONS = join(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..", "supabase", "migrations");
-const MATRIX_SQL = readFileSync(join(MIGRATIONS, "20261007131712_s42_consent_matrix.sql"), "utf8");
-const HANDOVER_SQL = readFileSync(join(MIGRATIONS, "20261007135419_s42_dependants_handover_and_permissions.sql"), "utf8");
+const MATRIX_SQL = readFileSync(join(MIGRATIONS, "20261007230822_s42_consent_matrix.sql"), "utf8");
+const HANDOVER_SQL = readFileSync(join(MIGRATIONS, "20261007231450_s42_dependants_handover_and_permissions.sql"), "utf8");
 
 describe("the lists mirror the migration (drift fails here)", () => {
   it("data types and purposes match the check constraints", () => {

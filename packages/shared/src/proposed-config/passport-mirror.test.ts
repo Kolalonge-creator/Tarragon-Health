@@ -5,8 +5,8 @@ import { fileURLToPath } from "node:url";
 import { getProposedConfig } from "./index";
 
 const MIGRATIONS = join(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..", "..", "supabase", "migrations");
-const SCHEDULE_MIGRATION = "20261007122358_s43_biomarker_trends_and_vaccination_schedule.sql";
-const SHARE_MIGRATION = "20261007122142_s43_share_links_and_emergency_card_fields.sql";
+const SCHEDULE_MIGRATION = "20261007230645_s43_biomarker_trends_and_vaccination_schedule.sql";
+const SHARE_MIGRATION = "20261007230508_s43_share_links_and_emergency_card_fields.sql";
 
 function seededSchedule(): { status: string; doses: Record<string, unknown>[]; excluded: { code: string }[] } {
   const sql = readFileSync(join(MIGRATIONS, SCHEDULE_MIGRATION), "utf8");

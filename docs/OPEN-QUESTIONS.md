@@ -1900,7 +1900,7 @@ Numbered `OQ-S43-n` because other sessions are adding `OQ-nnn` entries in parall
 
 ### OQ-S43-8 Smaller items
 - Vaccination reminder notifications put the vaccine name in the payload (INV-07 asks for no condition, reading or result in a notification). Existing behaviour, not changed.
-- Migration timestamps `20261007121906`, `...122142`, `...122358` were hand-picked after the latest file (`20261007120347`) because the local clock reads earlier than that file; live `list_migrations` showed no collision at the time. Check again before applying.
+- Migration timestamps `20261007230331`, `...122142`, `...122358` were hand-picked after the latest file (`20261007120347`) because the local clock reads earlier than that file; live `list_migrations` showed no collision at the time. Check again before applying.
 - `packages/db/src/database.types.ts` is a stale copy (it lacks `record_shares`); only `packages/shared/src/database.types.ts` was spliced.
 - Not built in S43 though in the spec's screen list: mobile capture, trends, history and share screens; an in-app crop (the phone's own crop applies before upload); the lock-screen widget (needs a native build); a CMO sign-off screen for the immunisation schedule.
 - Part D.1 (offline-first): photo capture needs a connection to upload and read; it does not use the phone's write queue (S06), and there is no offline capture on the phone at all yet. A failed upload tells the person and keeps nothing half-saved.

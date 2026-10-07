@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "@jest/globals";
 import { en } from "./index";
 
-const SQL = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "supabase", "migrations", "20261007131712_s42_consent_matrix.sql"), "utf8");
+const SQL = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "supabase", "migrations", "20261007230822_s42_consent_matrix.sql"), "utf8");
 const TYPES = ["vitals", "reproductive", "mental_health", "documents", "device_data"];
 const PURPOSES = ["care", "care_circle_sharing", "research", "sponsor_reporting"];
 

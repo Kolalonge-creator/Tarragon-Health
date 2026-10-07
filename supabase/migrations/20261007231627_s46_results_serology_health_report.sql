@@ -1,7 +1,7 @@
 -- S46: Module 3 part 2 (functions 3.11 to 3.16): pathway suppression override, hepatitis B immunity logic, INV-04 explainer guard, yearly Health Report.
 --
 -- Founder waiver of the S40 gate recorded 2026-10-07 for this session. Timestamp note: stamped by hand to sort after the newest file on the stacked branch
--- (20261007131904, S45); live list_migrations was read first (latest live version 20261007124418, no collision).
+-- (20261007231136, S45); live list_migrations was read first (latest live version 20261007124418, no collision).
 --
 -- !!! BEHAVIOUR CHANGE, FLAGGED ON PURPOSE (3.12, founder decision 2026-10-07: the spec rule wins) !!!
 -- OLD (live since 2026-08-21, founder "Know Your Basics, once, ever"): hep_b and hep_c carry screen_types.once_per_lifetime = true, so once a result is on

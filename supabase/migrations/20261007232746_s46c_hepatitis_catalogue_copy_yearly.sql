@@ -2,7 +2,7 @@
 --
 -- The Know Your Basics bundle description (20260821191743, rewritten 20260821192511 and 20260911203129) still told patients that
 -- hepatitis B and C are done once and that they would never be asked to pay again. That stopped being true when the S46 serology
--- rule became active (20261007141207): hepatitis C is tested yearly, hepatitis B yearly until a positive anti-HBs is recorded.
+-- rule became active (20261007231627): hepatitis C is tested yearly, hepatitis B yearly until a positive anti-HBs is recorded.
 -- Blood group and genotype stay once for life. This rewrites the live copy only. No behaviour changes here: the exclusion
 -- function and the pricing whitelist already follow the S46 rule. No em dashes.
 --
