@@ -930,3 +930,5 @@ s76_b2_mdcn_reverification.sql
 s76_b3_queue_trigger_severity.sql
 # S76 B4: task types by configuration. Admin and the CMO can propose a new task type (patient, ordinary clinician, anon refused); validation (existing code, class range, class 1 window, unknown competency, triage key already answered); the proposal is unconfirmed and audited and only the CMO confirms; ACCEPTANCE: a new type appears in the queue with its own class and queue_next claims it ahead of a lower class with no code change. Sabotage removes the guard and a patient can propose.
 s76_b4_task_type_by_configuration.sql
+# S76 B5: clinician.task_completed is written beside clinical_task.completed, once per claim, ids and type only; no safety_concern event type exists and raising a concern writes no domain event and no audit row naming it (S20 protection, admin reads none). Sabotage removes the emit and the count changes.
+s76_b5_task_completed_event.sql
