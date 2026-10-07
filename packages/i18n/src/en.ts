@@ -1,4 +1,5 @@
 import { activeWording } from "./clinical-wording";
+import { maternalChild } from "./maternal-child";
 
 /**
  * English catalogue (v5 spec Section 12). Flat dot-keys, `{param}` placeholders.
@@ -18,6 +19,7 @@ export const en = {
   "common.cancel": "Cancel",
   "common.try_again": "Try again",
   "common.back": "Back",
+  ...maternalChild,
   "console.login.title": "Staff sign-in",
   "console.login.subtitle": "Sign in to the TarragonHealth console.",
   "console.login.email": "Email",
