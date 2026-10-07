@@ -142,7 +142,7 @@ begin
 end $$;
 
 -- as the untied clinician: direct reads are tied, the worklist is not
-select pg_temp.ck('real', 'W0 the fixture was built for at least four of the seven queues (the rest are listed in W9)', 'true', ((select count(*) from built where ok) >= 4)::text);
+select pg_temp.ck('real', 'W0 exactly these six queues are built as fixtures (therapy approvals cannot be, see W9)', 'abnormal_screening,annual_check_reviews,lab_results,lifestyle_flags,lifestyle_reviews,vaccination_verification', (select string_agg(kind, ',' order by kind) from built where ok));
 select pg_temp.ck('real', 'W2 every built queue lists the untied patient''s open item for the untied clinician', '',
   (select coalesce(string_agg(b.kind, ','), '') from built b where b.ok
      and pg_temp.as_user(pg_temp.f('b'), format('select count(*) from public.clinical_worklist() w where w.kind = %L and w.item_id = %L', b.kind, b.untied_item)) <> '1'));
@@ -152,7 +152,7 @@ select pg_temp.ck('real', 'W3 ...and the tied patient''s item too', '',
 select pg_temp.ck('real', 'W4 a closed item is not listed', '',
   (select coalesce(string_agg(b.kind, ','), '') from built b where b.ok and b.closed_item is not null
      and pg_temp.as_user(pg_temp.f('b'), format('select count(*) from public.clinical_worklist() w where w.item_id = %L', b.closed_item)) <> '0'));
-select pg_temp.ck('real', 'W5 the answer carries only name, number, kind, label and date', 'kind,item_id,patient_id,patient_name,patient_number,item_label,item_date',
+select pg_temp.ck('real', 'W5 the answer carries only name, number, kind, label, date and the queue size', 'kind,item_id,patient_id,patient_name,patient_number,item_label,item_date,kind_total',
   (select array_to_string(p.proargnames, ',') from pg_proc p where p.proname = 'clinical_worklist' and p.pronamespace = 'public'::regnamespace));
 select pg_temp.ck('real', 'W6 another organisation''s items never appear', '0',
   pg_temp.as_user(pg_temp.f('b'), format('select count(*) from public.clinical_worklist() w where w.patient_id = %L', pg_temp.f('p3'))));
@@ -169,9 +169,10 @@ select pg_temp.ck('real', 'C2 a clinician gets the same totals', 'true',
   (pg_temp.as_user(pg_temp.f('b'), 'select count(*) from public.org_open_work_counts()')::integer = 8)::text);
 select pg_temp.ck('real', 'C3 a coordinator, a patient and anon are refused the counts', 'ERR 42501|ERR 42501|ERR 42501',
   (pg_temp.as_user(pg_temp.f('co'), 'select count(*) from public.org_open_work_counts()') || '|' || pg_temp.as_user(pg_temp.f('p1'), 'select count(*) from public.org_open_work_counts()') || '|' || pg_temp.as_anon('select count(*) from public.org_open_work_counts()')));
-select pg_temp.ck('real', 'C4 the other organisation''s items are not in this organisation''s totals', 'true',
-  (select (pg_temp.as_user(pg_temp.f('ox'), 'select coalesce(sum(n), 0) from public.org_open_work_counts()')::integer
-           < pg_temp.as_user(pg_temp.f('ad'), 'select sum(n) from public.org_open_work_counts()')::integer + 1000)::text));
+select pg_temp.ck('real', 'C4 another organisation''s clinician sees only their own organisation''s totals (one lab item, one screening item)', '1|1',
+  (pg_temp.as_user(pg_temp.f('ox'), 'select n from public.org_open_work_counts() where kind = ''lab_results''') || '|' || pg_temp.as_user(pg_temp.f('ox'), 'select n from public.org_open_work_counts() where kind = ''abnormal_screening''')));
+select pg_temp.ck('real', 'C5 the queue size is the true total', 'true',
+  (pg_temp.as_user(pg_temp.f('b'), 'select min(kind_total) from public.clinical_worklist() where kind = ''lab_results''')::integer >= 2)::text);
 -- W9: honest account of what could not be fixtured
 select pg_temp.ck('real', 'W9 queues whose fixture could not be built (named, not skipped)', coalesce((select string_agg(kind || ': ' || err, '; ') from built where not ok), ''), coalesce((select string_agg(kind || ': ' || err, '; ') from built where not ok), ''));
 

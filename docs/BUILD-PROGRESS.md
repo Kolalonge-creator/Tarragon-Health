@@ -890,4 +890,4 @@ Found during the simulator pass (`docs/S06_SIMULATOR_CHECKLIST.md`).
 - **Built**: migration `20261007181500_s39e_worklists_and_work_counts.sql` (NOT yet applied). `clinical_worklist()` and `org_open_work_counts()`; `/clinician/worklists`; the admin caseload count reads through the counts function.
 - **Proof**: `s39e_worklists_and_work_counts.sql` role simulation (13 checks, 6 of 7 queues built as fixtures, sabotage flips); web tests pass.
 - **Found**: S39b hides pooled queue items from untied clinicians; all queues are empty today.
-- **Open**: therapy approvals not covered by a fixture; existing queue pages still show tied detail only.
+- **Open**: therapy approvals not covered by a fixture; existing queue pages still show tied detail only; OQ-286 (labels reveal the kind of care). Review fixes: queue size and the 100 row cap are shown, coordinator is turned away, exact fixture set and real isolation check in the proof.

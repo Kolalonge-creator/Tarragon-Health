@@ -24,6 +24,7 @@ export interface WorklistItem {
   patient_number: string | null;
   item_label: string;
   item_date: string | null;
+  kind_total: number | string;
 }
 
 export const WORKLIST_TITLES: Record<WorklistKind, string> = {
@@ -37,13 +38,19 @@ export const WORKLIST_TITLES: Record<WorklistKind, string> = {
 };
 export const WORKLIST_ORDER = Object.keys(WORKLIST_TITLES) as WorklistKind[];
 
-export type WorklistResult = { ok: true; groups: { kind: WorklistKind; items: WorklistItem[] }[] } | { ok: false; message: string };
+export type WorklistResult = { ok: true; groups: { kind: WorklistKind; items: WorklistItem[]; total: number }[] } | { ok: false; message: string };
 
 export async function loadWorklist(client: unknown): Promise<WorklistResult> {
   const { data, error } = await (client as Rpc).rpc("clinical_worklist");
   if (error) return { ok: false, message: error.message };
   const rows = Array.isArray(data) ? (data as WorklistItem[]) : [];
-  return { ok: true, groups: WORKLIST_ORDER.map((kind) => ({ kind, items: rows.filter((r) => r.kind === kind) })) };
+  return {
+    ok: true,
+    groups: WORKLIST_ORDER.map((kind) => {
+      const items = rows.filter((r) => r.kind === kind);
+      return { kind, items, total: items.length > 0 ? Number(items[0].kind_total) : 0 };
+    }),
+  };
 }
 
 /** Organisation totals for one queue (counts only), for admin pages that have no care tie. */

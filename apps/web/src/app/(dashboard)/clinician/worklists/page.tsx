@@ -11,7 +11,8 @@ export const dynamic = "force-dynamic";
 /** The shared queues across the organisation: who, what and when only. The detail opens in the patient's chart, which is logged. */
 export default async function ClinicianWorklists() {
   const staff = await getCurrentClinicalStaff();
-  if (!staff) redirect("/clinician");
+  // a care coordinator is logistics only and has no clinical worklist
+  if (!staff || staff.doctor_tier === "care_coordinator") redirect("/clinician");
   const supabase = await createClient();
   const result = await loadWorklist(supabase);
   return (
@@ -27,8 +28,9 @@ export default async function ClinicianWorklists() {
       ) : (
         result.groups.map((g) => (
           <Card key={g.kind}>
-            <CardHeader><CardTitle>{WORKLIST_TITLES[g.kind]} ({g.items.length})</CardTitle></CardHeader>
+            <CardHeader><CardTitle>{WORKLIST_TITLES[g.kind]} ({g.total})</CardTitle></CardHeader>
             <CardContent>
+              {g.total > g.items.length ? <p className="mb-2 text-xs text-charcoal-ink/60">Showing the oldest {g.items.length} of {g.total}.</p> : null}
               {g.items.length === 0 ? (
                 <p className="text-sm text-charcoal-ink/60">Nothing waiting.</p>
               ) : (
