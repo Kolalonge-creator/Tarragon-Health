@@ -1750,7 +1750,7 @@ Built on top of F1; nothing applied to production; `symptom_checker_enabled` sta
 - Decision: recorded, no action needed.
 
 ### OQ-S60-12 The go-live function patches are string replacements (follow-up from the PR #1003 review)
-- `20261007131744_s60_regulatory_position_and_guard_wiring.sql` patches two live function bodies (`public.attest_go_live_condition`, `private.go_live_conditions`) with `replace()` on a marker, as F1 did, and raises if a marker is missing. That fails loudly rather than silently, but it is brittle: a later edit to either function can break a replay, and each new record-backed condition adds another patch.
+- `20261007142457_s60_regulatory_position_and_guard_wiring.sql` patches two live function bodies (`public.attest_go_live_condition`, `private.go_live_conditions`) with `replace()` on a marker, as F1 did, and raises if a marker is missing. That fails loudly rather than silently, but it is brittle: a later edit to either function can break a replay, and each new record-backed condition adds another patch.
 - Proper fix: a small data-driven table (`go_live_condition_evidence`: guard key, condition code, a SQL-free evidence kind such as `exists_row:regulatory_positions:clearing`) read by one generic check inside the two functions, so a new record-backed condition is a row, not a function rewrite. Not done here because it rewrites both functions wholesale and re-proves every S37 and F1 guard proof; that is its own PR.
 - Decision: open (engineering follow-up, no founder input).
 ### OQ-272 Emergency location versus "routes are never shared" (raised 2026-10-07, S48)
