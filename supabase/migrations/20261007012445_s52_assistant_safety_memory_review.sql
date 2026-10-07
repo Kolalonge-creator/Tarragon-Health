@@ -338,7 +338,7 @@ begin
   for r in
     select c.profile_id as patient_id, c.organisation_id, max(u.at) as last_at
       from public.ai_conversations c
-      join public.profiles p on p.id = c.profile_id and p.role = 'patient' and p.is_active
+      join public.profiles p on p.id = c.profile_id and p.role = 'patient' and p.is_active and not coalesce(p.is_test, false)
       cross join lateral (
         select max(private.assistant_safe_ts(m ->> 'created_at')) as at
           from jsonb_array_elements(case when jsonb_typeof(c.messages) = 'array' then c.messages else '[]'::jsonb end) m
