@@ -6,6 +6,7 @@ import { endOfLagosDay, run, safeReturnTo, text, uuid } from "./action-helpers";
 import { paragraphsToContent, parseOptions } from "./content";
 import { CredentialingError, rpcParsed, rpcVoid } from "./rpc";
 import { COMPETENCY_CODES } from "./labels";
+import { licenceVerificationSchema, toVerificationRpcArgs } from "./licence-verification";
 
 /**
  * Reviewer (admin or Chief Medical Officer) and CMO-only actions (S15). The screens decide who sees which button;
@@ -147,6 +148,22 @@ export async function renewCredential(fd: FormData): Promise<void> {
       p_document: uuid.parse(text(fd, "documentId")),
     });
     return "Renewal recorded.";
+  });
+}
+
+export async function recordLicenceVerification(fd: FormData): Promise<void> {
+  await run(back(fd), async () => {
+    const parsed = licenceVerificationSchema.parse({
+      staffId: text(fd, "staffId"),
+      folio: text(fd, "folio"),
+      result: text(fd, "result"),
+      evidenceDocumentId: text(fd, "documentId") || null,
+      notes: text(fd, "notes"),
+    });
+    await call("record_licence_verification", toVerificationRpcArgs(parsed));
+    return parsed.result === "good_standing" || parsed.result === "conditions"
+      ? "Register check recorded."
+      : "Register check recorded. Access has been paused.";
   });
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 import { formatWaiting, nextPollMs, pageHeadline, pagesNeedingAction, POLL_QUIET_MS, POLL_RINGING_MS } from "./alarm";
-import { activePagesSchema, pagingOverviewSchema, READINESS_ITEMS, readinessOverviewSchema, myReadinessSchema, type ActivePage } from "./schemas";
+import { activePagesSchema, pagingCountsSchema, pagingOverviewSchema, READINESS_ITEMS, readinessOverviewSchema, myReadinessSchema, type ActivePage } from "./schemas";
 
 const id = "11111111-1111-4111-8111-111111111111";
 const page = (over: Partial<ActivePage> = {}): ActivePage => ({
@@ -62,5 +62,16 @@ describe("on-call readiness checklist (S19b)", () => {
     expect(myReadinessSchema.parse({ version: 1, items: ["a"], confirmed_at: null, on_call_clinician: true }).confirmed_at).toBeNull();
     expect(readinessOverviewSchema.parse([{ clinician_id: id, name: "A", ready: false, confirmed_at: null }])).toHaveLength(1);
     expect(() => readinessOverviewSchema.parse([{ clinician_id: "x", name: "A", ready: false, confirmed_at: null }])).toThrow();
+  });
+});
+
+describe("paging counts (S78a)", () => {
+  const good = { days: 30, pages: 4, acknowledged: 3, escalated_to_backup: 1, escalated_to_lead: 1, no_cover: 0, overrides: 1, repaged: 0, created_by_watchdog: 1 };
+  it("parses the database answer", () => {
+    expect(pagingCountsSchema.parse(good)).toEqual(good);
+  });
+  it("refuses a missing or negative count rather than showing zero", () => {
+    expect(pagingCountsSchema.safeParse({ ...good, overrides: undefined }).success).toBe(false);
+    expect(pagingCountsSchema.safeParse({ ...good, pages: -1 }).success).toBe(false);
   });
 });
