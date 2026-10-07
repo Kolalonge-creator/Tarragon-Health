@@ -926,3 +926,5 @@ oq261_remove_home_delivery.sql
 s78a_paging_watchdog_and_repage.sql
 # S78b response times: no active config means the sweep reads and flags nothing (CMO decision S-9); an active version flags exactly the late written question, amber review and appointment start (not on-time, answered, started or test items), one breach, one sev3 incident per kind, one plain patient notice per cooldown with no number or condition, a neutral lead notice; idempotent; reads for lead and admin only; sabotage ignores the active flag.
 s78b_response_time_breach_path.sql
+# S78c workload dashboard and own reliability signal: the CMO reads claims, completed, hand-backs, median and p90 minutes and overdue (test clinicians excluded, by name, no patient reference, audited); administrator, clinician, patient and anon refused; a clinician sees only their own reliability counts; sabotage opens the gate.
+s78c_clinician_workload_and_own_reliability.sql
