@@ -1701,5 +1701,5 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Still owed: (e) Android: not run (no Java or emulator image on this machine); `SCHEDULE_EXACT_ALARM` is not declared (OQ-73), so a reminder can arrive minutes late in Doze and the server backup push covers it. The native Pidgin review itself.
 - Decision: pending (item e, and the Pidgin sign-off).
 
-### OQ-309 Where the CMO signs a language registry change (raised by S86)
+### OQ-313 Where the CMO signs a language registry change (raised by S86)
 The S86 gate refuses to enable a language unless the registry (`i18n.language_registry`) carries a native review and, for clinical features, a CMO signature fingerprinting the exact text. No screen or RPC exists for the CMO to produce or publish that, and none is needed while English is the only language (D-14). Before any language returns, decide: add it to `/clinician/clinical-signoff` (the hub that already signs triage and risk sets) or keep it a reviewed pull request. Also decide who the native reviewer is per language. Not built; recommended: the sign-off hub, with the hash computed server side.

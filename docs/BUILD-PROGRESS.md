@@ -1137,5 +1137,5 @@ Not done: not applied to production, not pushed.
 - **Built**: `packages/i18n/src/language-readiness.ts` (pure: key parity, string set fingerprint, audio pairing, coverage report, gate, picker rule, fallback, registry parser); registry config `i18n.language_registry` v1 (English only) in the PROPOSED-config registry; `pnpm --filter @tarragon/i18n language-report`; `AudioScript` generalised; `import-production-list.py --languages` and `ingest-recordings.mjs --languages` (default `en`, production output unchanged).
 - **Reused**: the clinical-wording signed pattern, the audio manifest approvals and script hash, the PROPOSED-config registry. No third review mechanism.
 - **Proof**: dry run with a test-only stub language `xx` (never in production config): missing key fails, unsigned string cannot be enabled, fallback to English works, picker hides it, audio hash mismatch fails pairing, plus a sabotage (one edited word makes the signature stale). Ingest script proven on a scratch manifest.
-- **Not built**: any UI (no language picker exists), a CMO screen to sign a registry (OQ-309), language-matched consultation (S64, the recommended path). The Python importer edit was compile checked only (its source document is not in the repo).
-- **Follow-ups**: OQ-309.
+- **Not built**: any UI (no language picker exists), a CMO screen to sign a registry (OQ-313), language-matched consultation (S64, the recommended path). The Python importer edit was compile checked only (its source document is not in the repo).
+- **Follow-ups**: OQ-313.

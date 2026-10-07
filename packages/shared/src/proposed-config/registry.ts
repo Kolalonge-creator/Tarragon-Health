@@ -960,7 +960,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // the CMO's signature per string set recorded as `set_hash` in `native_review` and `clinician_signoff` (the fingerprint of the
     // English and translated text signed). `enabled_for` lists the features a language is switched on for; the gate in
     // packages/i18n/src/language-readiness.ts refuses any entry whose keys, signatures or audio clips are not complete. Adding
-    // a language is a new version of this entry, published by the CMO (the sign-off route is OQ-309; until it exists, a reviewed
+    // a language is a new version of this entry, published by the CMO (the sign-off route is OQ-313; until it exists, a reviewed
     // pull request, and a build must never type a signature or a hash). The source
     // language needs no review or recording (a missing clip shows its text, spec 8.8) and `status` is not used for it.
     value: {
