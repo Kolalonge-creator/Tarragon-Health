@@ -332,7 +332,7 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
     });
     const built = buildEmergencyReply(
       { supabase: deps.supabase, service: deps.getServiceRoleSupabase() },
-      { profileId: state.profileId, conversationId: state.conversationId, message: state.incomingMessage, fixedReply: state.reply, page: true },
+      { profileId: state.profileId, conversationId: state.conversationId, message: state.incomingMessage, fixedReply: state.reply },
     );
     const [esc, reply] = await Promise.allSettled([escalation, built]);
     if (esc.status === "rejected") throw esc.reason;

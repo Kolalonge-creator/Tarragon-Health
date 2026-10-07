@@ -28,7 +28,7 @@ describe("the on-call page is durable and honest", () => {
   it("queues first, then pages, and returns true only when someone was notified", async () => {
     const { svc, calls } = client(async () => ({ data: { notified: true }, error: null }));
     expect(await pageOnCallForSelfHarm(svc, "p1", "c1")).toBe(true);
-    expect(calls.map((c) => c.fn)).toEqual(["assistant_page_enqueue", "assistant_page_on_call"]);
+    expect(calls.map((c) => c.fn).slice(0, 2)).toEqual(["assistant_page_enqueue", "assistant_page_on_call"]);
   });
 
   it("a page that reached nobody is not reported as told", async () => {
@@ -49,7 +49,8 @@ describe("the on-call page is durable and honest", () => {
     const pending = pageOnCallForSelfHarm(svc, "p1", "c1");
     await jest.advanceTimersByTimeAsync(5000);
     expect(await pending).toBe(false);
-    expect(after).toHaveBeenCalledTimes(1);
+    // one keep-alive for the slow page, one for the sweep of any other cut-off page
+    expect(after).toHaveBeenCalledTimes(2);
     jest.useRealTimers();
   });
 

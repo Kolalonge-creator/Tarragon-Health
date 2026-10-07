@@ -10,7 +10,7 @@ type Rpc = (fn: string, args: Record<string, unknown>) => Promise<{ data: unknow
  * nobody is. It runs IN ADDITION to the emergency escalation the same turn already raises (clinician alert, escalation, care thread).
  *
  * DURABLE, not hopeful: (1) a small queue row is committed FIRST (assistant_page_enqueue), so a page that is cut off, frozen or times out
- * is found and retried (assistant_page_retry_due, run by the daily cron and by the next emergency from the same patient); (2) the page is
+ * is found and retried (assistant_page_retry_due, run by every later self-harm page and by the daily cron); (2) the page is
  * awaited for a bounded time (assistant.paging page_wait_ms) so the reply can say "someone has been told" only when that is true; (3) if it
  * is still running when the wait ends, it is kept alive past the response with Next's after(). The page marks its queue row done itself.
  *
@@ -47,6 +47,15 @@ export async function pageOnCallForSelfHarm(
       return false;
     }
   })();
+
+  // Every page also sweeps any OTHER page that was cut off earlier (best effort, after the response; the daily cron is the last line).
+  try {
+    after(async () => {
+      await rpc("assistant_page_retry_due", {}).catch(() => undefined);
+    });
+  } catch {
+    // not inside a request
+  }
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   const first = await Promise.race([

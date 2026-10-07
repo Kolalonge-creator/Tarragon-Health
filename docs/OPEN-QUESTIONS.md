@@ -1590,7 +1590,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Decision: open (CMO).
 
 ### OQ-298 How fast a cut-off self-harm page is retried (raised by S52 round 5)
-- The page is now durable: a queue row is committed first, the wait is bounded, a still-running page is kept alive past the response, and `assistant_page_retry_due()` re-attempts any page still pending. The retry runs from the daily `assistant-silence` cron and whenever the same patient triggers another emergency. Sub-daily crons are not available on the current Vercel plan, so a page cut off with no further message from that patient can wait up to a day for its retry.
+- The page is now durable: a queue row is committed first, the wait is bounded, a still-running page is kept alive past the response, and `assistant_page_retry_due()` re-attempts any page still pending. The retry runs from the daily `assistant-silence` cron and after every later self-harm page (any patient). Sub-daily crons are not available on the current Vercel plan, so a page cut off with no further message from that patient can wait up to a day for its retry if no other self-harm page happens first.
 - Options: (a) accept, the emergency escalation on its own SLA ladder is the second line (recommended until a Pro plan or a database scheduler is chosen); (b) move the retry to a database scheduler (pg_cron) or a Railway worker.
 - Decision: open (founder, with the Vercel plan decision).
 

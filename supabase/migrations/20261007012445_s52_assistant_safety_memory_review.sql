@@ -396,6 +396,7 @@ create table public.assistant_page_queue (
   created_at       timestamptz not null default now()
 );
 create index assistant_page_queue_pending_idx on public.assistant_page_queue (created_at) where done_at is null;
+create unique index assistant_page_queue_one_pending on public.assistant_page_queue (conversation_id) where done_at is null;
 comment on table public.assistant_page_queue is 'S52 (INV-05): one row per self-harm page that has been asked for. Pending until a page really reached someone; retried by assistant_page_retry_due().';
 alter table public.assistant_page_queue enable row level security;
 revoke all on public.assistant_page_queue from public, anon, authenticated;
@@ -411,9 +412,12 @@ declare
 begin
   select organisation_id, coalesce(is_test, false) into v_org, v_test from public.profiles where id = p_patient;
   if v_org is null then raise exception 'unknown patient' using errcode = '22023'; end if;
-  select id into v_id from public.assistant_page_queue where conversation_id = p_conversation and done_at is null order by created_at desc limit 1;
-  if v_id is not null then return v_id; end if;
-  insert into public.assistant_page_queue (organisation_id, patient_id, conversation_id, is_test) values (v_org, p_patient, p_conversation, v_test) returning id into v_id;
+  insert into public.assistant_page_queue (organisation_id, patient_id, conversation_id, is_test) values (v_org, p_patient, p_conversation, v_test)
+  on conflict (conversation_id) where done_at is null do nothing
+  returning id into v_id;
+  if v_id is null then
+    select id into v_id from public.assistant_page_queue where conversation_id = p_conversation and done_at is null;
+  end if;
   return v_id;
 end $$;
 revoke all on function public.assistant_page_enqueue(uuid, uuid) from public, anon, authenticated;
@@ -439,6 +443,8 @@ begin
   if v_org is null then raise exception 'unknown patient' using errcode = '22023'; end if;
   -- two messages at once never page twice: the second waits for the first, then sees its marker
   perform pg_advisory_xact_lock(hashtext('assistant_page:' || p_conversation::text));
+  -- a page in flight is not found "due" by the retry for a couple of minutes
+  update public.assistant_page_queue set last_attempt_at = now() where conversation_id = p_conversation and done_at is null;
   -- once per conversation per window: a patient who keeps writing is not paged every message (the task merges them). A page that found
   -- nobody on call is retried sooner (the rota may have cover by then); a page that failed to send leaves no marker at all.
   if exists (select 1 from public.audit_log a
@@ -605,7 +611,6 @@ begin
     join public.profiles p on p.id = t.patient_id and not coalesce(p.is_test, false)
     join public.ai_interaction_log l on l.id = t.interaction_id
    where t.conversation_id is not null and t.interaction_id is not null
-     and not exists (select 1 from public.assistant_review_samples r where r.conversation_id = t.conversation_id and r.state = 'reviewed')
      and exists (select 1 from public.ai_safety_incidents i where i.interaction_id = t.interaction_id and i.reporter_kind = 'patient'
                     and i.created_at >= v_from and i.created_at < v_to)
   on conflict (month, conversation_id) do nothing;

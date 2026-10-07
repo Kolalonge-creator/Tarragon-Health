@@ -2,6 +2,7 @@ import {
   buildEmergencyAddendum,
   nearestHospitalsShown,
   normaliseState,
+  mergeHospitalReads,
   rankHospitals,
   type EmergencyAddendumInput,
 } from "@tarragon/shared";
@@ -39,14 +40,7 @@ export async function loadEmergencyContext(userId: string): Promise<EmergencyAdd
         city ? base().ilike("city", city).order("verified", { ascending: false }).order("name", { ascending: true }).limit(100) : Promise.resolve({ data: [] }),
         base().order("verified", { ascending: false }).order("name", { ascending: true }).limit(100),
       ]);
-      const seen = new Set<string>();
-      const merged = [...(own.data ?? []), ...(others.data ?? [])].filter((h) => {
-        const key = `${h.name}|${h.city ?? ""}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-      hospitals = rankHospitals(merged, profile?.city, nearestHospitalsShown());
+      hospitals = rankHospitals(mergeHospitalReads(own.data, others.data), profile?.city, nearestHospitalsShown());
     }
     return { hospitals, contactName: profile?.emergency_contact_name?.trim() || null, contactPhone: profile?.emergency_contact_phone?.trim() || null };
   } catch {

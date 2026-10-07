@@ -90,6 +90,11 @@ async function emergencyWhileClosed(params: RunCoachTurnParams): Promise<RunCoac
   const { supabase, getServiceRoleSupabase, profileId, organisationId, message } = params;
   const { conversationId, fullMessages } = await resolveOrCreateConversation(supabase, organisationId, profileId, params.conversationId);
   let escalationId: string | null = null;
+  // Started together with the escalation, never after it: the on-call queue row and page do not wait behind a slow escalation write.
+  const builtReply = buildEmergencyReply(
+    { supabase, service: getServiceRoleSupabase() },
+    { profileId, conversationId, message },
+  );
   try {
     const escalation = await logAiCoachEscalation(supabase, getServiceRoleSupabase(), {
       organisationId,
@@ -103,10 +108,7 @@ async function emergencyWhileClosed(params: RunCoachTurnParams): Promise<RunCoac
   } catch (error) {
     console.error("ai-coach: emergency escalation failed while the assistant was closed", error);
   }
-  const { reply: emergencyReply, selfHarm } = await buildEmergencyReply(
-    { supabase, service: getServiceRoleSupabase() },
-    { profileId, conversationId, message, page: true },
-  );
+  const { reply: emergencyReply, selfHarm } = await builtReply;
   const now = new Date().toISOString();
   const userMessage: CoachChatMessage = { id: crypto.randomUUID(), role: "user", content: message, created_at: now };
   const assistantMessage: CoachChatMessage = { id: crypto.randomUUID(), role: "assistant", content: emergencyReply, tier: "emergency", created_at: now };
@@ -328,6 +330,11 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
       }
 
       let escalationId: string | null = null;
+      // Started together with the escalation, never after it (queue row, on-call page and hospitals do not wait behind it).
+      const builtReply = buildEmergencyReply(
+        { supabase, service: getServiceRoleSupabase() },
+        { profileId, conversationId: threadId, message },
+      );
       try {
         const escalation = await logAiCoachEscalation(supabase, getServiceRoleSupabase(), {
           organisationId,
@@ -349,10 +356,7 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
         console.error("ai-coach: emergency escalation failed on the fallback path", error);
       }
       // S52: the same self-harm copy, nearest hospitals and on-call page as the live path, because none of it ever needed the model.
-      const built = await buildEmergencyReply(
-        { supabase, service: getServiceRoleSupabase() },
-        { profileId, conversationId: threadId, message, page: true },
-      );
+      const built = await builtReply;
       return { tier: "emergency", reply: built.reply, escalationId };
     },
   });
@@ -365,6 +369,8 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
     role: "assistant",
     content: reply,
     tier,
+    // the id of the answer, so a patient can report exactly this answer later (also after the app is reopened)
+    interactionId: governed.interactionId ?? undefined,
     suggestedAction:
       governed.value.suggestedAction && governed.value.suggestedAction !== "none"
         ? governed.value.suggestedAction

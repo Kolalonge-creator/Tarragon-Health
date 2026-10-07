@@ -14,8 +14,13 @@ export async function GET(request: Request): Promise<Response> {
   }
   const svc = createServiceRoleClient() as unknown as { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }> };
   // First, the safety net: any self-harm page that was cut off is attempted again (INV-05). Its result is reported, never hidden.
-  const retry = await svc.rpc("assistant_page_retry_due", {});
-  const { data, error } = await svc.rpc("assistant_detect_silence", {});
-  if (error || retry.error) return Response.json({ error: "silence_job_failed", retry: retry.error ? "failed" : "ok" }, { status: 500 });
-  return Response.json({ silence: data ?? {}, pageRetry: retry.data ?? {} });
+  const [retry, silence] = await Promise.allSettled([svc.rpc("assistant_page_retry_due", {}), svc.rpc("assistant_detect_silence", {})]);
+  const retryOk = retry.status === "fulfilled" && !retry.value.error;
+  const silenceOk = silence.status === "fulfilled" && !silence.value.error;
+  const body = {
+    silence: silence.status === "fulfilled" ? (silence.value.data ?? {}) : {},
+    pageRetry: retry.status === "fulfilled" ? (retry.value.data ?? {}) : {},
+    ...(retryOk && silenceOk ? {} : { error: "silence_job_failed", retryOk, silenceOk }),
+  };
+  return Response.json(body, { status: retryOk && silenceOk ? 200 : 500 });
 }
