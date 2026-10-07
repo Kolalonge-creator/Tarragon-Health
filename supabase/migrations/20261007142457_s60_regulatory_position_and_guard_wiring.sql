@@ -1,3 +1,7 @@
+-- ORDER NOTE (integration, 2026-10-07): this file was 20261007131744. It patches private.go_live_conditions (and two other live bodies) by
+-- text, and S28c (20261007141623, already live) replaces go_live_conditions as a whole, which on a fresh replay would drop what this file
+-- inserts. It now sorts after S28c and after F1's guard migration (20261007142011) so a replay and the live project patch the same text.
+-- Nothing was applied under the old version.
 -- S60 part 3 of 3: the recorded regulatory position (spec 12.13) and the wiring of the symptom_checker_enabled attestations (F1)
 -- to real records.
 --
