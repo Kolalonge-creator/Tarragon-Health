@@ -900,3 +900,10 @@ f1_symptom_checker_go_live_guard.sql
 f1_crisis_priority_task_and_event.sql
 # S55: Learning Centre. Publish gate (named reviewer, source, future review date, self-care "What can I do next?" action, verified creator, micro-lesson shape), six draft placeholders that can never publish, search with the synonym table and a PHI-free zero-result log (no user column, identifier-like phrases skipped, retention, shown to admins only past a count), lesson.completed/course.completed once with ids only, invite-only verified creators (suspension takes their items down), save-for-consultation (own rows only, tied clinician read audited, untied denied audit), signed-out share link for reviewed in-date articles only, offline pack and refresh status. Expiry acceptance for every new reader is in f1_learning_content_expiry_gate.sql. Sabotage: publish gate dropped, synonym table deactivated.
 s55_learning_centre.sql
+
+# --- Added 2026-10-07 (S58) -------------------------------------------------
+# Module 11 Rewards and engagement: characterisation of the pre-existing award core (still true), then the full engine proof
+# (idempotent replay, no body metrics, plausible readings only, red flow first, caps/decay, tiers, grace, capped checkout discount,
+# append-only ledger, aggregate-only employer seam, roles) with three sabotage steps.
+s58_points_characterisation.sql
+s58_rewards_engine.sql

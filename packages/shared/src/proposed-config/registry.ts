@@ -1312,6 +1312,106 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/OPEN-QUESTIONS.md OQ-08 and OQ-F1-01; docs/design/S55-S60-build-plan.md section 4.3",
   },
   {
+    key: "rewards.plausible_ranges",
+    // S58 (spec Module 11). Live value is the `plausible_ranges` row of `reward_config`; rewards-mirror.test.ts fails if the two drift. UNSIGNED.
+    // A logged reading outside these bounds is treated as a device or typing error and earns no points. Wide on purpose: a dangerous reading is still plausible and still earns normally; the triage path never reads this.
+    value: {"systolic": [50, 260], "diastolic": [30, 160], "glucose_mmol_l": [1, 40], "pulse_bpm": [25, 230], "temperature_c": [30, 43], "spo2_pct": [50, 100], "ketones_mmol_l": [0, 15], "respiratory_rate_bpm": [4, 60], "peak_flow_l_min": [50, 900]},
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S58.md; docs/design/S55-S60-build-plan.md section 4.3",
+  },
+  {
+    key: "rewards.daily_points_cap",
+    // S58 (spec Module 11). Live value is the `daily_points_cap` row of `reward_config`; rewards-mirror.test.ts fails if the two drift. UNSIGNED.
+    // Most points one person can earn in a Lagos day across all rules, so effort stays steady and nothing can be farmed.
+    value: {"points": 100},
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S58.md; docs/design/S55-S60-build-plan.md section 4.3",
+  },
+  {
+    key: "rewards.minor_age_years",
+    // S58 (spec Module 11). Live value is the `minor_age_years` row of `reward_config`; rewards-mirror.test.ts fails if the two drift. UNSIGNED.
+    // Under this age: fixed rewards only, no tiers shown as a contest, no redemption. No variable or chance-based reward exists at any age.
+    value: {"years": 18},
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S58.md; docs/design/S55-S60-build-plan.md section 4.3",
+  },
+  {
+    key: "rewards.tiers",
+    // S58 (spec Module 11). Live value is the `tiers` row of `reward_config`; rewards-mirror.test.ts fails if the two drift. UNSIGNED.
+    // Yearly tiers. The year counter resets each 1 January (Lagos); earned status carries through the next year, so a tier is never taken away mid-year. The spendable balance never resets.
+    value: {"timezone": "Africa/Lagos", "carry_status_next_year": true, "tiers": [{"key": "sprout", "min": 0}, {"key": "leaf", "min": 400}, {"key": "branch", "min": 1200}, {"key": "canopy", "min": 3000}]},
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S58.md; docs/design/S55-S60-build-plan.md section 4.3",
+  },
+  {
+    key: "rewards.streak_grace",
+    // S58 (spec Module 11). Live value is the `streak_grace` row of `reward_config`; rewards-mirror.test.ts fails if the two drift. UNSIGNED.
+    // A consistency badge tolerates this many quiet days inside its window. A streak is only ever a badge condition: no counter shows a reset and nothing notifies a missed day.
+    value: {"window_days": 7, "missed_days_allowed": 1},
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S58.md; docs/design/S55-S60-build-plan.md section 4.3",
+  },
+  {
+    key: "rewards.leaderboards",
+    // S58 (spec Module 11). Live value is the `leaderboards` row of `reward_config`; rewards-mirror.test.ts fails if the two drift. UNSIGNED.
+    // Off by default. No ranking or comparison with other people exists in the product.
+    value: {"enabled": false},
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S58.md; docs/design/S55-S60-build-plan.md section 4.3",
+  },
+  {
+    key: "rewards.redemption",
+    // S58 (spec Module 11). Live value is the `redemption` row of `reward_config`; rewards-mirror.test.ts fails if the two drift. UNSIGNED.
+    // Checkout discount only. Points buy a PERCENTAGE of one order (points_per_percent points per 1 percent), never more than max_share_bps of the item price, so no points-to-naira rate exists anywhere (INV-09).
+    value: {"max_share_bps": 1000, "points_per_percent": 100, "min_points": 100},
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S58.md; docs/design/S55-S60-build-plan.md section 4.3",
+  },
+  {
+    key: "rewards.employer_aggregate",
+    // S58 (spec Module 11). Live value is the `employer_aggregate` row of `reward_config`; rewards-mirror.test.ts fails if the two drift. UNSIGNED.
+    // Module 24 seam: an employer-style report shows counts only and suppresses any group smaller than this (I9: aggregate only).
+    value: {"min_group": 10},
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S58.md; docs/design/S55-S60-build-plan.md section 4.3",
+  },
+  {
+    key: "rewards.rules",
+    // S58 (spec 11.1): what earns Health Points, by rule code, with caps and decay. Live value is the active `reward_rules` version 1
+    // seed; rewards-mirror.test.ts parses the migration marker. No rule may reference weight, BMI or any body metric (CHECK constraint).
+    // Points are not clinical, so the founder owns them; every rule is UNSIGNED and an admin changes one as a new proposed version.
+    value: [{"code": "vitals_logged", "trigger_event": "vitals.logged", "points": 10, "caps": {"per_day": 1}}, {"code": "meal_logged", "trigger_event": "meal.logged", "points": 10, "caps": {"per_day": 1}}, {"code": "adherence_checkin_completed", "trigger_event": "adherence.checkin_answered", "points": 15, "caps": {"per_day": 1}}, {"code": "education_lesson_completed", "trigger_event": "lesson.completed", "points": 20, "caps": {"per_day": 3}}, {"code": "lpe_task_completed", "trigger_event": "lifestyle.task_completed", "points": 15, "caps": {"per_day": 1}}, {"code": "lpe_goal_achieved", "trigger_event": "lifestyle.goal_achieved", "points": 50}, {"code": "challenge_completed", "trigger_event": "challenge.completed", "points": 0, "points_source": "catalogue"}, {"code": "wellness_class_attended", "trigger_event": "class.attended", "points": 0, "points_source": "catalogue", "caps": {"per_day": 2}}, {"code": "course_completed", "trigger_event": "course.completed", "points": 40, "caps": {"lifetime": 20}, "verified_action": true}, {"code": "lab_done", "trigger_event": "lab_result.released", "points": 30, "caps": {"per_day": 1, "decay": [{"upto": 2, "pct": 100}, {"upto": 6, "pct": 50}, {"pct": 25}]}, "verified_action": true}, {"code": "review_attended", "trigger_event": "encounter.completed", "points": 40, "caps": {"per_day": 1, "decay": [{"upto": 1, "pct": 100}, {"upto": 4, "pct": 50}, {"pct": 25}]}, "verified_action": true}, {"code": "screening_done", "trigger_event": "screening.completed", "points": 40, "caps": {"per_day": 2, "decay": [{"upto": 2, "pct": 100}, {"upto": 6, "pct": 50}, {"pct": 25}]}, "verified_action": true}],
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S58.md; supabase/migrations/20261007170413_s58_rewards_foundation.sql",
+  },
+  {
     key: "learning.micro_lesson",
     // S55 (spec 9.2): a daily lesson takes under five minutes, asks for one action and ends in one check question. Live value is the
     // active `micro_lesson` row of `learning_config`; a test fails if the migration seed and this value drift. UNSIGNED.
