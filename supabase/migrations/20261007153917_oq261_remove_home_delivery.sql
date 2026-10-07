@@ -32,6 +32,23 @@
 -- change is marked OQ-261. Ship the app code first: nothing in the code may read or write a dropped column when this runs.
 
 -- ---------------------------------------------------------------------------
+-- 00. Count-first guard: nothing below converts data, so refuse to run if any delivery row has appeared since the counts in the header.
+-- ---------------------------------------------------------------------------
+do $$
+declare v_attempts bigint; v_orders bigint; v_fees bigint; v_templates bigint;
+begin
+  select count(*) into v_attempts from public.pharmacy_order_delivery_attempts;
+  select count(*) into v_orders from public.pharmacy_orders
+   where status::text in ('out_for_delivery', 'delivery_failed', 'delivered') or fulfilment_method::text = 'delivery'
+      or delivery_address is not null or logistics_partner_id is not null or delivered_at is not null;
+  select count(*) into v_fees from public.pharmacy_partners where delivery_fee_kobo is not null;
+  select count(*) into v_templates from public.notifications where template in ('pharmacy_order_out_for_delivery', 'pharmacy_order_delivered', 'pharmacy_order_delivery_failed') and status = 'pending';
+  if v_attempts > 0 or v_orders > 0 or v_fees > 0 or v_templates > 0 then
+    raise exception 'OQ-261: delivery data exists (attempts %, orders %, partner fees %, pending delivery notices %); convert it deliberately first', v_attempts, v_orders, v_fees, v_templates;
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------------------
 -- 0. The patient-facing directory view must not depend on the columns being dropped. Live already has it without delivery (the rebuilt S28
 --    did that); a fresh replay of main-dev may still carry them, so rebuild it only when it does (same column list as live, same grants).
 -- ---------------------------------------------------------------------------
