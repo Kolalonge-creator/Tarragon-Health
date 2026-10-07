@@ -890,4 +890,7 @@ governed_config_supersede_guard.sql
 remove_pidgin_english_only.sql
 # The platform switch mechanism on a throwaway key: an admin turns it off in one call (no note) and it reads false for a signed-in patient and a signed-out (anon) caller, back on restores it; a patient and anon cannot change it; each change is audited once; an unknown key reads false and cannot be written; sabotage clears the anon opt-in and the anon read must flip false.
 platform_switch_acl_and_audit.sql
+# S55 D4: library, feed, detail, programme detail, counts, direct table read (RLS) and the AI coach lexical retrieval never serve content whose review date has passed (the due date itself is hidden); admin still sees it; the overdue cron still flags it; anon is refused. Sabotage: the date helper always true; three checks must flip.
 s55_content_past_review_date_not_served.sql
+# S55 Learning Centre: next-step publish gate, lesson length (module and content), null-gated reviewer credit, CMO-only alias review and alias search, creators (verified-only apply, approval, submission into review, Members lock, self-review refused, loses verification), public share, this-week lesson, offline re-check. Sabotage: publish gate, alias guard and creator gate triggers dropped; each matching check must flip.
+s55_learning_centre_governance.sql
