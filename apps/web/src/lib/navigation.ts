@@ -718,6 +718,10 @@ export function getNavSections(
             // Fee schedules, what contracted clinicians have earned, adjustments (S30).
             { label: "Fees and earnings", href: "/admin/earnings", icon: "analytics" },
             { label: "Payouts", href: "/admin/payouts", icon: "analytics" },
+            // How each laboratory, pharmacy and clinic is doing; pause or reinstate from new work (S74).
+            { label: "Partner quality", href: "/admin/partner-quality", icon: "governance" },
+            // What Tarragon owes a pharmacy or clinic from money it collected; labs are never on it (S74).
+            { label: "Partner settlements", href: "/admin/partner-settlements", icon: "billing" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
             { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
                 { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
@@ -754,6 +758,10 @@ export function getNavSections(
             { label: "Prescriptions sent to you", href: "/pharmacist/prescriptions", icon: "medication" },
             { label: "Verify a prescription", href: "/pharmacist/verify", icon: "approvals" },
             { label: "Dispensing history", href: "/pharmacist/history", icon: "audit" },
+            // S74: patient messages, partner statements, and the quality and sourcing check (module 21).
+            { label: "Patient messages", href: "/pharmacist/messages", icon: "messages" },
+            { label: "Statements", href: "/pharmacist/statements", icon: "billing" },
+            { label: "Quality and sourcing", href: "/pharmacist/quality", icon: "governance" },
             { label: "Pharmacy profile", href: "/pharmacist/profile", icon: "settings" },
           ],
         },
@@ -765,6 +773,8 @@ export function getNavSections(
             { label: "Dashboard", href: "/lab-partner", icon: "dashboard", exact: true },
             // S27: structured result entry (spec 9.6).
             { label: "Enter results", href: "/lab-partner/results", icon: "labs" },
+            // S74: the laboratory's own quality check (turnaround, complaints, licence).
+            { label: "Your quality check", href: "/lab-partner/quality", icon: "governance" },
           ],
         },
       ];
