@@ -8,12 +8,12 @@ describe("audio scripts (the words a clip says)", () => {
 
   it("has no empty script", () => {
     expect(entries.length).toBeGreaterThan(150);
-    for (const [id, s] of entries) expect([id, s.en.trim() !== "", s.pcm.trim() !== ""]).toEqual([id, true, true]);
+    for (const [id, s] of entries) expect([id, s.en.trim() !== ""]).toEqual([id, true]);
   });
 
   it("contains no banned word, no dash and no abbreviation a voice could misread (list section 3.5)", () => {
     for (const [id, s] of entries) {
-      for (const lang of ["en", "pcm"] as const) {
+      for (const lang of ["en"] as const) {
         for (const re of BANNED) expect([id, lang, re.test(s[lang])]).toEqual([id, lang, false]);
       }
     }

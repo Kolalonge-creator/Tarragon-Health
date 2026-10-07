@@ -75,6 +75,13 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         visible: anyOf("users.provision", "users.roles.assign", "users.permissions.grant", "roles.manage"),
       },
       {
+        href: "/admin/settings/access/history",
+        label: "Access history",
+        blurb: "Read only: who holds which capability now, and every grant and removal.",
+        icon: NAV_ICON.members,
+        visible: anyOf("users.permissions.grant"),
+      },
+      {
         href: "/admin/settings/clinical-staff",
         label: "Clinical staff",
         blurb: "Add and verify every MDCN/NMCN-credentialed doctor.",
@@ -380,13 +387,6 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         blurb: "Turn a feature on or off platform-wide without a deploy.",
         icon: NAV_ICON.flag,
         visible: anyOf("feature_flags.manage"),
-      },
-      {
-        href: "/admin/settings/language",
-        label: "Languages",
-        blurb: "One-click switch to turn Pidgin off everywhere and show English only.",
-        icon: NAV_ICON.settings,
-        visible: adminOnly,
       },
       {
         href: "/admin/settings/platform-modules",

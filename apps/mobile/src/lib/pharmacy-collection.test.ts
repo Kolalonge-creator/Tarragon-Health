@@ -130,7 +130,7 @@ describe("loadOptions and sendToPharmacy", () => {
   });
 });
 
-describe("a repeat supply is a new send (OQ-230)", () => {
+describe("a repeat supply is a new send (OQ-260)", () => {
   const A = "0b8f6d0e-3c1a-4f3e-9a52-1d6f6a9f7c11";
   const MINE = { sent: true, state: "dispensed", pharmacy_name: "A", collection_code: null, needs_other_pharmacy: false };
   const row = (state: string, remaining: number, current = true) => ({ prescription_id: A, state, items: [{ drug_name: "Amlodipine" }], signed_at: "2026-10-01T00:00:00Z", is_current: current, supplies_remaining: remaining });

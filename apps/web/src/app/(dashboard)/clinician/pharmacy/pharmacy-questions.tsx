@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { answerPharmacyQuestion } from "@/lib/pharmacy-collection/actions";
 import { ANSWER_TEXT, answerText, questionText, type PrescriberOverview } from "@/lib/pharmacy-collection/collection";
+import { itemLine, kindKey, type PrescriberFlagRow } from "@/lib/pharmacy-flags/model";
+import { t } from "@tarragon/i18n";
 
 function when(iso: string | null): string {
   return iso ? new Date(iso).toLocaleString("en-NG", { timeZone: "Africa/Lagos", dateStyle: "medium", timeStyle: "short" }) : "";
@@ -66,7 +68,7 @@ function QuestionRow({ q }: { q: Question }) {
   );
 }
 
-export function PharmacyQuestions({ overview }: { overview: PrescriberOverview }) {
+export function PharmacyQuestions({ overview, earlier }: { overview: PrescriberOverview; earlier?: PrescriberFlagRow[] | null }) {
   const open = overview.questions.filter((q) => !q.answered_at);
   const answered = overview.questions.filter((q) => q.answered_at);
   return (
@@ -113,6 +115,36 @@ export function PharmacyQuestions({ overview }: { overview: PrescriberOverview }
           <p className="mt-3 text-xs text-charcoal-ink/70">A patient may also take the downloaded prescription to any other pharmacy. That is not shown here.</p>
         </CardContent>
       </Card>
+      {earlier === null && (
+        <p role="alert" className="text-sm text-red-700">
+          The earlier written messages from pharmacies could not be loaded just now.
+        </p>
+      )}
+      {earlier && earlier.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Earlier written messages from pharmacies</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-2 text-xs text-charcoal-ink/70">Read only. Pharmacies now ask from a fixed list, above.</p>
+            <ul className="divide-y divide-charcoal-ink/10">
+              {earlier.map((f) => (
+                <li key={f.flag_id} className="space-y-1 py-3">
+                  <p className="text-sm font-medium">
+                    {f.patient_name ?? "-"}: {f.items.map((it) => itemLine(it)).join(", ")}
+                  </p>
+                  <p className="text-sm">
+                    {t(kindKey(f.kind), "en")}: {f.reason}
+                  </p>
+                  <p className="text-xs text-charcoal-ink/60">
+                    {f.pharmacy_name ?? "-"}, {when(f.created_at)}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

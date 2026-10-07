@@ -6,7 +6,7 @@ const record = jest.fn();
 jest.mock("@/lib/scribe/actions", () => ({ recordScribeConsent: (...a: unknown[]) => record(...a) }));
 
 const PATIENT = "11111111-1111-4111-8111-111111111111";
-const props = { patientId: PATIENT, language: "en-NG" as const };
+const props = { patientId: PATIENT };
 
 beforeEach(() => jest.clearAllMocks());
 

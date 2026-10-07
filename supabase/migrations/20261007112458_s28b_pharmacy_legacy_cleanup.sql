@@ -1,14 +1,14 @@
--- S28b: the three older pharmacy gaps S28 raised (OQ-231, OQ-232), decided by the founder 2026-10-07.
---   OQ-231 Delivery data is no longer readable by patients. Part C.2: collection only, no home delivery. Live counts before this
+-- S28b: the three older pharmacy gaps S28 raised (OQ-261, OQ-262), decided by the founder 2026-10-07.
+--   OQ-261 Delivery data is no longer readable by patients. Part C.2: collection only, no home delivery. Live counts before this
 --          change (checked 2026-10-07): 0 pharmacy_orders, 0 delivery attempts. The patient-facing directory view stops carrying
 --          `delivery` and `delivery_fee_kobo`. The columns and the dormant logistics screens are removed in a separate pass (see the
 --          progress note): that is a feature removal across about fifteen files, not a read-path fix.
---   OQ-232 The older pharmacist reads are audited (INV-10), the three legacy tables carry is_test (INV-13), and the order alert to a
+--   OQ-262 The older pharmacist reads are audited (INV-10), the three legacy tables carry is_test (INV-13), and the order alert to a
 --          pharmacy is the neutral in-app message instead of an SMS and an email that named the patient (INV-07, INV-08).
 -- Live bodies of every replaced function were read with pg_get_functiondef on 2026-10-07; each change is marked S28b.
 
 -- ---------------------------------------------------------------------------
--- 1. OQ-231: the directory view without delivery
+-- 1. OQ-261: the directory view without delivery
 -- ---------------------------------------------------------------------------
 drop view public.pharmacy_partner_directory;
 create view public.pharmacy_partner_directory
@@ -24,7 +24,7 @@ grant select on public.pharmacy_partner_directory to authenticated;
 grant select on public.pharmacy_partner_directory to service_role;
 
 -- ---------------------------------------------------------------------------
--- 2. OQ-232 (INV-13): is_test on the three older tables, stamped from the patient
+-- 2. OQ-262 (INV-13): is_test on the three older tables, stamped from the patient
 -- ---------------------------------------------------------------------------
 alter table public.pharmacy_orders add column is_test boolean not null default false;
 alter table public.pharmacy_order_dispenses add column is_test boolean not null default false;
@@ -46,7 +46,7 @@ create trigger pharmacy_order_dispenses_stamp_is_test before insert on public.ph
 create trigger medication_dispense_flags_stamp_is_test before insert on public.medication_dispense_flags for each row execute function private.stamp_pharmacy_is_test();
 
 -- ---------------------------------------------------------------------------
--- 3. OQ-232 (INV-10): the older pharmacist reads leave an audit row
+-- 3. OQ-262 (INV-10): the older pharmacist reads leave an audit row
 -- ---------------------------------------------------------------------------
 create or replace function public.pharmacist_orders()
 returns table(order_id uuid, order_number text, status text, patient_name text, patient_number text, items jsonb, requested_at timestamp with time zone,
@@ -129,6 +129,27 @@ begin
 end;
 $$;
 
+-- S36h's pharmacist_prescriptions() (the list behind the screen S28 replaced) returned patient name and number with no audit row. Same rows,
+-- same columns, now audited like every other pharmacist read. The screen no longer calls it; the function stays for any other caller.
+create or replace function public.pharmacist_prescriptions()
+returns table (prescription_id uuid, state text, collection_code text, sent_at timestamptz, dispensed_at timestamptz,
+               patient_name text, patient_number text, items jsonb, open_flags integer)
+language plpgsql security definer set search_path = '' as $$
+#variable_conflict use_column
+declare v_partner uuid := private.pharmacist_partner();
+begin
+  if v_partner is null then return; end if;
+  perform private.log_audit('pharmacist.prescriptions_read', 'prescriptions', null, jsonb_build_object('pharmacy_partner_id', v_partner));
+  return query
+  select rx.id, rx.state::text, rx.collection_code, rx.sent_at, rx.dispensed_at, p.full_name, p.patient_number, rx.items,
+         (select count(*)::integer from public.prescription_pharmacy_flags f where f.prescription_id = rx.id)
+    from public.prescriptions rx
+    join public.profiles p on p.id = rx.patient_id
+   where rx.pharmacy_partner_id = v_partner and rx.state in ('sent', 'dispensed')
+   order by coalesce(rx.sent_at, rx.created_at) desc
+   limit 200;
+end $$;
+
 -- verify_prescription was STABLE; an audited read cannot be. The returned columns and the rule that only a pharmacist gets an answer are unchanged.
 create or replace function public.verify_prescription(p_rx_number text, p_verification_code text)
 returns table(drug_name text, dose text, frequency text, route text, quantity text, duration_days integer, repeats_allowed integer, repeats_used integer, indication text,
@@ -180,7 +201,7 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- 4. OQ-232 (INV-07, INV-08): the order alert to a pharmacy is the neutral in-app message
+-- 4. OQ-262 (INV-07, INV-08): the order alert to a pharmacy is the neutral in-app message
 --    Before: an SMS and an email naming the patient, her number and the medicines. Now: one in-app notice to the pharmacy's pharmacists.
 --    The patient's own confirmations are unchanged.
 -- ---------------------------------------------------------------------------

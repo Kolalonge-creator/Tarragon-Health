@@ -103,7 +103,7 @@ describe("PharmacyCollectionCard", () => {
     }
   });
 
-  it("shows stock as the pharmacy lists it and no price at all (OQ-234)", async () => {
+  it("shows stock as the pharmacy lists it and no price at all (OQ-264)", async () => {
     render(<PharmacyCollectionCard prescriptions={[signed]} locale="en" />);
     fireEvent.click(screen.getByRole("button", { name: "Choose a pharmacy" }));
     await screen.findByText(/Running low/, undefined, { timeout: 5000 });
@@ -178,11 +178,6 @@ describe("PharmacyCollectionCard", () => {
     for (const el of [...screen.queryAllByRole("button"), ...screen.queryAllByRole("radio"), ...screen.queryAllByRole("checkbox")]) {
       expect(`${el.textContent} ${el.getAttribute("aria-label") ?? ""}`).not.toMatch(/deliver/i);
     }
-  });
-
-  it("speaks Pidgin when asked", () => {
-    render(<PharmacyCollectionCard prescriptions={[signed]} locale="pcm" />);
-    expect(screen.getByRole("button", { name: "Pick pharmacy" })).toBeTruthy();
   });
 
   it("has no axe violations while waiting", async () => {

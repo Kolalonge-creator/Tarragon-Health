@@ -38,7 +38,7 @@ describe("loadPharmacyOptions", () => {
     });
     const r = await loadPharmacyOptions(RX);
     expect(r.ok && r.options[0]?.stock).toBe("in_stock");
-    expect(JSON.stringify(r)).not.toMatch(/kobo|price/i); // no price is ever carried (OQ-234)
+    expect(JSON.stringify(r)).not.toMatch(/kobo|price/i); // no price is ever carried (OQ-264)
     expect(rpc).toHaveBeenCalledWith("pharmacies_for_prescription", { p_prescription: RX });
   });
 

@@ -146,9 +146,9 @@ describe("safety case 5: an implausible reading is rejected with TRI-006, never 
     expect(await listOutbox()).toHaveLength(0);
   });
 
-  it("the TRI-006 text exists in English and Pidgin", () => {
+  it("the TRI-006 text exists in English", () => {
     expect(t("triage.tri_006.title", "en")).toMatch(/does not look right/);
-    expect(t("triage.tri_006.body", "pcm").length).toBeGreaterThan(0);
+    expect(t("triage.tri_006.body", "en").length).toBeGreaterThan(0);
   });
 });
 
@@ -353,8 +353,7 @@ describe("the stale guidance warning (S12b)", () => {
     expect(await rulesMayBeStale(NOW)).toBe(true);
   });
 
-  it("the warning text exists in English and Pidgin and points to the nearest hospital", () => {
+  it("the warning text exists in English and points to the nearest hospital", () => {
     expect(t("triage.stale.rules", "en")).toMatch(/nearest hospital/);
-    expect(t("triage.stale.rules", "pcm")).toMatch(/nearest hospital/);
   });
 });

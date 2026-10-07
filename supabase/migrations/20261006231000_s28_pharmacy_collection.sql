@@ -116,7 +116,7 @@ begin
       or (old.state = 'sent'   and new.state in ('dispensed', 'cancelled'))
       -- S28: the patient takes it back from the pharmacy. Only the definer function (flag on) may do this, and it clears the routing.
       or (v_routing and old.state = 'sent' and new.state = 'signed')
-      -- S28 (OQ-230): a repeat supply is a new send. Only the patient's send function (flag on) may take a collected prescription back to sent.
+      -- S28 (OQ-260): a repeat supply is a new send. Only the patient's send function (flag on) may take a collected prescription back to sent.
       or (v_routing and old.state = 'dispensed' and new.state = 'sent')
     ) then
       raise exception 'invalid prescription state change % -> %', old.state, new.state using errcode = '23514';
@@ -311,7 +311,7 @@ begin
   if v_rx.state in ('signed', 'dispensed') and private.supplies_remaining(p_prescription) < 1 then raise exception 'prescription_not_sendable' using errcode = '22023'; end if;
   select pharmacy_partner_id into v_pref from public.patient_pharmacy_preference where patient_id = v_pat;
 
-  -- No price is shown or returned: the partner price lists match on a drug name only, and a wrong price is worse than none (OQ-234).
+  -- No price is shown or returned: the partner price lists match on a drug name only, and a wrong price is worse than none (OQ-264).
   -- Stock is how the pharmacy itself lists it; the screen says to confirm at the counter.
   return query
   with items as (
@@ -615,7 +615,7 @@ begin
     return jsonb_build_object('ok', false, 'reason', 'no_supply_available');
   end if;
   -- The pharmacist records what was handed over: batch and expiry are required, and an out-of-date batch is never recorded as supplied.
-  -- This is the pharmacy's own record. Tarragon does not check that a batch is genuine and says so (OQ-233).
+  -- This is the pharmacy's own record. Tarragon does not check that a batch is genuine and says so (OQ-263).
   if v_batch is null or p_batch_expiry is null then
     return jsonb_build_object('ok', false, 'reason', 'batch_required');
   end if;
@@ -672,11 +672,16 @@ begin
     perform private.rx_notify(v_rx.patient_id, v_rx.organisation_id, 'pharmacy_collection_update');
   else
     perform private.rx_notify(v_rx.signed_by, v_rx.organisation_id, 'pharmacy_collection_question', jsonb_build_object('prescription_id', p_prescription));
+    -- S36h's clinical-queue task for a pharmacy problem (repeat questions on one prescription merge into the live task), so the question
+    -- reaches the queue as well as the signer. The task type is S36h's; a replay that has not yet created it simply skips this line.
+    if exists (select 1 from public.task_types where code = 'pharmacy_flag_review') then
+      perform private.create_clinical_task(v_rx.patient_id, 'pharmacy_flag_review', null, 'pharmacy_flag:' || v_rx.id);
+    end if;
   end if;
   return jsonb_build_object('ok', true);
 end $$;
 
--- The prescriber's one view (OQ-239): the pharmacy's open questions with the fixed answers, and where each prescription they signed
+-- The prescriber's one view (OQ-269): the pharmacy's open questions with the fixed answers, and where each prescription they signed
 -- has got to (waiting at a pharmacy, supplied). Only prescriptions this clinician signed AND is still tied to the patient of (INV-12),
 -- and one audited read (INV-10) however many rows come back. The pharmacy's name is shown; no patient contact detail is.
 create function public.prescriber_pharmacy_overview()
@@ -753,7 +758,7 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
--- 9b. S37 go-live guard (OQ-238). The prescribing guard gains the pharmacy conditions; the rest of the function is S37's, unchanged.
+-- 9b. S37 go-live guard (OQ-268). The prescribing guard gains the pharmacy conditions; the rest of the function is S37's, unchanged.
 --     (create or replace of the whole function; the other six guards read exactly as before.)
 -- ---------------------------------------------------------------------------
 create or replace function private.go_live_conditions(p_key text, p_org uuid) returns jsonb

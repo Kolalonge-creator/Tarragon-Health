@@ -201,7 +201,7 @@ declare v_pat uuid := pg_temp.f('pat'); rx uuid := pg_temp.f('rx1'); r text;
 begin
   perform pg_temp.ck('the list shows both approved pharmacies and not the expired licence', 'S28 Pharmacy A,S28 Pharmacy B',
     pg_temp.q_as(v_pat, format($q$select string_agg(name, ',' order by name) from public.pharmacies_for_prescription(%L) where name like 'S28 %%'$q$, rx)));
-  perform pg_temp.ck('the list carries no price at all (OQ-234)', '0',
+  perform pg_temp.ck('the list carries no price at all (OQ-264)', '0',
     (select count(*)::text from pg_proc p, unnest(p.proargnames) n
       where p.proname = 'pharmacies_for_prescription' and (n ~* 'price' or n ~* 'kobo' or n ~* 'priced')));
   perform pg_temp.ck('A reports the worst stock across its listings (low stock)', 'low_stock',
@@ -279,6 +279,8 @@ begin
   perform pg_temp.q_as(ph_a, format($q$select public.pharmacy_flag_prescription(%L, 'query_to_prescriber', 'dose_unclear')::text$q$, rx1));
   perform pg_temp.ck('the signer got one neutral notice about the question', '1',
     (select count(*)::text from public.notifications where recipient_id = v_doc and template = 'pharmacy_collection_question'));
+  perform pg_temp.ck('the question also reaches the clinical queue as one pharmacy_flag_review task (S36h)', '1',
+    (select count(*)::text from public.clinical_tasks where patient_id = v_pat and type = 'pharmacy_flag_review'));
   perform pg_temp.ck('the signer sees the question as a fixed reason', 'dose_unclear|false',
     (pg_temp.q_as(v_doc, 'select public.prescriber_pharmacy_overview()::text')::jsonb -> 'questions' -> 0 ->> 'reason_code') || '|' ||
     ((pg_temp.q_as(v_doc, 'select public.prescriber_pharmacy_overview()::text')::jsonb -> 'questions' -> 0) ? 'phone')::text);
@@ -548,7 +550,7 @@ begin
     (select (c ->> 'met') from jsonb_array_elements(private.go_live_conditions('prescribing_enabled', v_org)) c where c ->> 'code' = 'pharmacy_licence_current'));
   update public.pharmacy_partners set license_expires_at = current_date + 365 where is_active;
   perform pg_temp.guard(true);
-  -- F. A repeat supply is a new send (OQ-230): collected, then only while a further supply is permitted
+  -- F. A repeat supply is a new send (OQ-260): collected, then only while a further supply is permitted
   declare rx_r uuid; v_med_r uuid; v_code_r text;
   begin
     rx_r := pg_temp.mkrx(v_doc, v_pat, 'Hydrochlorothiazide', 1);

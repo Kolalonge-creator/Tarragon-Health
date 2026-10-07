@@ -1271,4 +1271,42 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-06",
     source: "docs/design/S32.md (an estimate for one number clip; replace with the measured average once the number clips are recorded)",
   },
+  {
+    key: "directory.verification_cadence",
+    // How often a partner or directory listing must be re-verified (S36g, spec 25.3 and 25.9; open question OQ-214/OQ-235). Live values
+    // are the active row of `directory_verification_config`; this entry mirrors it and a test fails if the migration seed and this value
+    // drift. UNSIGNED: no founder or CMO confirmation exists. A listing past its date is only marked "verification overdue"; nothing is
+    // ever hidden or suspended automatically.
+    value: {
+      default_months: 12,
+      due_soon_days: 30,
+      by_listing_table: { pharmacy_partners: 6 },
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S36.md; spec 25.3, 25.9; OQ-214",
+  },
+  {
+    key: "reliability.dashboard",
+    // The reliability and SLA dashboard (S36e, spec 9.5 and 9.4). Display settings only: how far ahead the rota gap view looks, how many
+    // clinicians a group must hold before the operations view may show a score distribution (a group of one or two is someone's own
+    // score), and the three neutral score bands used to group clinicians. Reliability stays advisory (S17): bands are for reading
+    // the spread, not for ranking anyone, and nothing here suspends or changes pay. OQ-225 asks the CMO to confirm these.
+    value: {
+      gap_days: 7,
+      min_group: 5,
+      bands: [
+        { key: "a", min: 85 },
+        { key: "b", min: 70 },
+        { key: "c", min: 0 },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S36e.md; docs/design/S17.md (reliability is a tie-break only)",
+  },
 ];

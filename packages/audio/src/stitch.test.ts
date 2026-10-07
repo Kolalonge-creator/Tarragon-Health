@@ -17,7 +17,7 @@ import {
 import { realManifest } from "./test-helpers";
 
 const ids = (p: Phrase | null) => p?.steps.map((s) => s.id);
-const say = (p: Phrase | null, lang: "en" | "pcm" = "en") => (p ? phraseText(p, lang, scriptText) : null);
+const say = (p: Phrase | null, lang: "en" = "en") => (p ? phraseText(p, lang, scriptText) : null);
 
 describe("NUM stitching", () => {
   it("builds the spec's example: NUM-P01 + NUM-148 + NUM-P02 + NUM-094", () => {
@@ -88,10 +88,6 @@ describe("NUM stitching", () => {
     expect(stitchSteps(20300)).toBeNull();
     expect(stitchSteps(-5)).toBeNull();
     expect(stitchSteps(Number.NaN)).toBeNull();
-  });
-
-  it("says the Pidgin lead-in text for the same phrase (held as English until signed)", () => {
-    expect(say(stitchBloodPressure(148, 94), "pcm")).toBe("Your blood pressure reading is 148 over 94");
   });
 
   it("only ever names clips that exist in the manifest, for every value the kit can say", () => {
