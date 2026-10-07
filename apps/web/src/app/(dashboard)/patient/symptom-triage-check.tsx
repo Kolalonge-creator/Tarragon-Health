@@ -15,6 +15,7 @@ import {
   SEED_PATHWAYS,
   categoryAtLeast,
   evaluateBundledRedFlags,
+  nextTriageStep,
   runTriageFailSafe,
   type AnswerMap,
   type AnsweredQuestion,
@@ -23,9 +24,12 @@ import {
   type QuestionNode,
   type SymptomCapture,
   type TriageCategory,
+  type UrgencyLevel,
 } from "@tarragon/symptom-triage-engine";
 import { t, type MessageKey } from "@tarragon/i18n";
 import { NotADiagnosis } from "@/components/symptom/not-a-diagnosis";
+import { SymptomNextSteps, resultHeadline } from "./symptom-next-steps";
+import { SkinPhotoCard } from "./skin-photo-card";
 import { reviewTimeSentence } from "@/lib/symptom-triage/review-time";
 import { symptomOptionLabel } from "@/lib/symptom-triage/option-label";
 import { Button } from "@/components/ui/button";
@@ -50,6 +54,9 @@ type Stage =
       recorded: boolean;
       /** Worked out on this device, with no server (INV-06). */
       onDevice: boolean;
+      /** The six-level wording, only from a signed urgency map; null shows the four-category result alone. */
+      urgencyLevel: string | null;
+      forDependant: boolean;
     }
   | { step: "unavailable" }
   | { step: "error"; message: string };
@@ -99,6 +106,8 @@ function handleStepResult(result: SymptomTriageStepResult): Stage {
     degraded: result.degraded,
     recorded: result.recorded,
     onDevice: false,
+    urgencyLevel: result.urgencyLevel,
+    forDependant: result.forDependant,
   };
 }
 
@@ -119,6 +128,8 @@ async function resultOnDevice(capture: SymptomCapture, degraded: DegradedModeCon
     degraded: true,
     recorded: false,
     onDevice: true,
+    urgencyLevel: null,
+    forDependant: false,
   };
 }
 
@@ -157,6 +168,7 @@ export function SymptomTriageCheck({
   const [stage, setStage] = useState<Stage>({ step: "pick_complaint" });
   const [pending, startTransition] = useTransition();
   const queryClient = useQueryClient();
+  const [complaintKey, setComplaintKey] = useState<string>("");
 
   if (presentingComplaints.length === 0) {
     // Closed: the go-live guard `symptom_checker_enabled` is off, or no protocol is signed yet. Never a
@@ -176,8 +188,17 @@ export function SymptomTriageCheck({
     );
   }
 
-  function pickComplaint(complaintKey: string) {
-    setStage({ step: "capture", complaintKey });
+  /**
+   * Slow connections (spec 12.1): when the signed pathway is exactly the one bundled with the app (the server says so), the question
+   * walk runs on this device and the server is called ONCE, with every answer, at the end. The server still recomputes everything.
+   */
+  function bundledPathway(key: string) {
+    return presentingComplaints.find((c) => c.key === key)?.bundledCurrent ? SEED_PATHWAYS.find((p) => p.key === key) : undefined;
+  }
+
+  function pickComplaint(key: string) {
+    setComplaintKey(key);
+    setStage({ step: "capture", complaintKey: key });
   }
 
   function submitCapture(capture: CaptureDraft) {
@@ -195,8 +216,18 @@ export function SymptomTriageCheck({
         degraded: false,
         recorded: false,
         onDevice: true,
+        urgencyLevel: null,
+        forDependant: false,
       };
       setStage(shown);
+    }
+    const bundled = bundledPathway(capture.presentingComplaintKey);
+    if (bundled && shown === null) {
+      const step = nextTriageStep(bundled, {}, []);
+      if (!step.done) {
+        setStage({ step: "question", question: step.question, capture, answers: {}, questionLog: [] });
+        return;
+      }
     }
     startTransition(async () => {
       try {
@@ -219,6 +250,14 @@ export function SymptomTriageCheck({
 
   function submitAnswer(current: Extract<Stage, { step: "question" }>, value: boolean | string) {
     const answers = { ...current.answers, [current.question.key]: value };
+    const bundled = bundledPathway(current.capture.presentingComplaintKey);
+    if (bundled) {
+      const step = nextTriageStep(bundled, answers, current.questionLog);
+      if (!step.done) {
+        setStage({ ...current, question: step.question, answers });
+        return;
+      }
+    }
     startTransition(async () => {
       let next: Stage;
       try {
@@ -269,7 +308,11 @@ export function SymptomTriageCheck({
         {stage.step === "result" && (
           <div className="space-y-3">
             <Badge variant={CATEGORY_BADGE_VARIANT[stage.category]}>
-              {CATEGORY_LABEL[stage.category] ?? stage.category.replace(/_/g, " ")}
+              {resultHeadline(
+                stage.category as TriageCategory,
+                stage.urgencyLevel as UrgencyLevel | null,
+                CATEGORY_LABEL[stage.category] ?? stage.category.replace(/_/g, " "),
+              )}
             </Badge>
             {stage.degraded && (
               <div className="space-y-1 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status">
@@ -296,6 +339,14 @@ export function SymptomTriageCheck({
             )}
             <NotADiagnosis />
             {stage.assessmentId && <ReviewRequest assessmentId={stage.assessmentId} reviewTime={reviewTime} />}
+            <SymptomNextSteps
+              category={stage.category as TriageCategory}
+              urgencyLevel={stage.urgencyLevel as UrgencyLevel | null}
+              forDependant={stage.forDependant}
+              complaintKey={complaintKey}
+              assessmentId={stage.assessmentId}
+            />
+            {stage.category !== "emergency" && <SkinPhotoCard assessmentId={stage.assessmentId} />}
             <Button type="button" variant="outline" onClick={() => setStage({ step: "pick_complaint" })}>
               Check another symptom
             </Button>

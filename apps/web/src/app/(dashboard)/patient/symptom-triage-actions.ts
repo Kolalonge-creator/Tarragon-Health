@@ -5,10 +5,12 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { resolveSubjectId } from "@/lib/acting/acting-for";
 import { getActivePathway, getActiveTriageProtocolConfig, isSymptomCheckerOpen } from "@/lib/symptom-triage/protocol";
 import { runSymptomCheck } from "@/lib/symptom-triage/safe-run";
+import { parseCheckContext } from "@/lib/symptom-triage/context";
+import { getProposedConfig } from "@tarragon/shared";
 import * as Sentry from "@sentry/nextjs";
 import { runBestEffort } from "@/lib/sentry/run-best-effort";
 import { symptomTriageStepSchema, type SymptomTriageStepInput } from "@/lib/validation/symptom-triage";
-import { nextTriageStep } from "@tarragon/symptom-triage-engine";
+import { SEED_PATHWAYS, nextTriageStep } from "@tarragon/symptom-triage-engine";
 import type { PresentingComplaintProtocol, QuestionNode } from "@tarragon/symptom-triage-engine";
 import type { Json } from "@tarragon/shared";
 
@@ -34,14 +36,18 @@ import type { Json } from "@tarragon/shared";
  * used only when the trigger path itself is what failed).
  */
 
-export type PresentingComplaintOption = { key: string; label: string };
+export type PresentingComplaintOption = { key: string; label: string; /** The signed pathway is exactly the bundled copy, so the question walk may run on the device. */ bundledCurrent: boolean };
 
 /** For the complaint-picker step — only pathways in the currently SIGNED config. */
 export async function listAvailablePresentingComplaints(): Promise<PresentingComplaintOption[]> {
   if (!(await isSymptomCheckerOpen())) return [];
   const active = await getActiveTriageProtocolConfig();
   if (!active) return [];
-  return active.config.pathways.map((p) => ({ key: p.key, label: p.label }));
+  return active.config.pathways.map((p) => ({
+    key: p.key,
+    label: p.label,
+    bundledCurrent: JSON.stringify(SEED_PATHWAYS.find((s) => s.key === p.key) ?? null) === JSON.stringify(p),
+  }));
 }
 
 export type SymptomTriageStepResult =
@@ -61,6 +67,10 @@ export type SymptomTriageStepResult =
       assessmentId: string | null;
       /** True when the engine could not answer and the result is the fail-toward-escalation one. */
       degraded: boolean;
+      /** The six-level wording, only when a SIGNED urgency map exists; null means show the four-category result only. */
+      urgencyLevel: string | null;
+      /** The checker is for a child (answered by a parent or carer): the screen leaves out the consultation booking (adults only). */
+      forDependant: boolean;
       /** False when the check could not be saved; the screen says so. */
       recorded: boolean;
     };
@@ -125,7 +135,20 @@ export async function stepSymptomTriage(input: SymptomTriageStepInput): Promise<
     active = null;
   }
 
-  const result = await runSymptomCheck({ pathway: active?.pathway ?? null, capture, answers, questionLog, state: subject?.state ?? null });
+  // What the record says (age, pregnancy, conditions, medicines, readings): only ever tightens. If it cannot be read the check
+  // still runs with nothing known, which can only mean fewer layers apply, never a lower result.
+  let context = parseCheckContext(null);
+  if (subject) {
+    try {
+      const supabase = await createClient();
+      const windowDays = Number(getProposedConfig("symptom.context_window_days").value);
+      const { data } = await supabase.rpc("symptom_check_context", { p_subject: subject.subjectId, p_window_days: windowDays });
+      context = parseCheckContext(data);
+    } catch (e) {
+      Sentry.captureException(e, { extra: { where: "symptom_check_context" } });
+    }
+  }
+  const result = await runSymptomCheck({ pathway: active?.pathway ?? null, capture, answers, questionLog, state: subject?.state ?? null, context });
 
   if (result.nextQuestion) {
     return {
@@ -163,6 +186,8 @@ export async function stepSymptomTriage(input: SymptomTriageStepInput): Promise<
     clinicianReviewRequired: result.clinicianReviewRequired,
     safetyNetMessageKey: result.safetyNetMessageKey,
     degraded: result.degraded,
+    urgencyLevel: result.urgencyLevel as string | null,
+    forDependant: subject !== null && subject.userId !== subject.subjectId,
   };
 
   if (subject === null) {
@@ -190,6 +215,12 @@ export async function stepSymptomTriage(input: SymptomTriageStepInput): Promise<
       clinician_review_required: result.clinicianReviewRequired,
       safety_net_message_key: result.safetyNetMessageKey,
       rationale: result.rationale,
+      engine: result.engine,
+      engine_version: result.engineVersion,
+      inputs_used: result.inputsPresent as unknown as Json,
+      raised_by: result.raisedBy,
+      urgency_level: result.urgencyLevel,
+      urgency_map_version: result.urgencyMapVersion,
     })
     .select("id")
     .single();

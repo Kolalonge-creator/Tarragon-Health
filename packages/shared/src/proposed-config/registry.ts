@@ -1391,4 +1391,144 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/design/S60.md section 6; spec 12.12; docs/OPEN-QUESTIONS.md OQ-S60-05",
   },
+  {
+    key: "symptom.urgency_map",
+    // S59 (spec 12.4): the six urgency levels, DERIVED from the four triage categories. The four-category result stays the source
+    // of truth and what every escalation keys off; this table only decides what extra wording a screen may show. It is an UNSIGNED
+    // DRAFT: while status is "draft" (or the map fails its validity check: total, monotone, emergency maps to the top level) no
+    // level is derived and the screen shows only the four-category result. The CMO decides every row. `review_required` rows apply
+    // when a clinician has been asked to look at the result.
+    value: {
+      status: "draft",
+      clinical_sign_off: null,
+      rows: [
+        { category: "emergency", qualifier: "any", level: "emergency_now" },
+        { category: "urgent", qualifier: "any", level: "doctor_within_24_hours" },
+        { category: "urgent", qualifier: "review_required", level: "doctor_today" },
+        { category: "routine", qualifier: "any", level: "doctor_within_days" },
+        { category: "self_management", qualifier: "any", level: "self_care" },
+        { category: "self_management", qualifier: "review_required", level: "see_pharmacist" },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S59.md section 3; spec 12.4; docs/OPEN-QUESTIONS.md OQ-S59-02",
+  },
+  {
+    key: "symptom.context_tightening",
+    // S59 (spec 12.2 and 12.6): what the health record already says (age, sex, pregnancy, known conditions, medicines, recent
+    // readings) can only RAISE an urgency, as a minimum category, never lower or replace one. Every entry is an UNSIGNED DRAFT
+    // (status "draft", no sign-off): the engine ignores an entry until it is "signed_off" with a named signer and date, so shipping
+    // this changes nothing for any patient. The drug names, thresholds, ages and categories below are placeholders for the CMO to
+    // confirm or replace, not clinical advice. Reading thresholds live HERE, never in code.
+    value: {
+      entries: [
+        {
+          id: "pregnancy_severe_symptom",
+          label: "Pregnant and a severe symptom",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder pregnancy branch (spec 12.6). The CMO chooses the complaints, the severity and the category." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { pregnant: true, min_severity: 6, complaint_keys: ["headache", "chest_pain", "breathlessness", "abdominal_pain"] },
+          minimum_category: "urgent",
+        },
+        {
+          id: "pregnancy_headache_with_vision_change",
+          label: "Pregnant with a headache and a change in vision",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder. The CMO confirms the symptom keys and the category." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { pregnant: true, complaint_keys: ["headache"], any_associated_symptom: ["visual_disturbance", "vision_loss"] },
+          minimum_category: "emergency",
+        },
+        {
+          id: "young_child_danger_sign",
+          label: "A young child with a general danger sign",
+          provenance: { source: "UNVERIFIED DRAFT", note: "IMCI-style general danger signs. The CMO sets the age band (the 4 here is a placeholder) and confirms the category." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { age_max: 4, any_associated_symptom: ["convulsions", "unable_to_drink_or_feed", "vomits_everything", "lethargic_or_unconscious"] },
+          minimum_category: "emergency",
+        },
+        {
+          id: "blood_thinner_with_headache",
+          label: "Taking a blood thinner and a headache",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder drug names and severity. The CMO confirms which medicines count and the category." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { any_medicine: ["warfarin", "rivaroxaban", "apixaban", "dabigatran"], complaint_keys: ["headache"], min_severity: 4 },
+          minimum_category: "urgent",
+        },
+        {
+          id: "high_bp_reading_with_symptom",
+          label: "A recent very high blood pressure reading and a symptom",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder threshold (systolic). The CMO confirms the threshold, the look-back window and the category." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { reading_at_least: { key: "systolic", value: 180 }, complaint_keys: ["headache", "chest_pain", "breathlessness"] },
+          minimum_category: "urgent",
+        },
+        {
+          id: "low_oxygen_reading",
+          label: "A recent low oxygen reading",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder threshold. The CMO confirms the threshold, the look-back window and the category." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { reading_at_most: { key: "spo2_pct", value: 92 } },
+          minimum_category: "urgent",
+        },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S59.md section 3; spec 12.2 and 12.6; docs/OPEN-QUESTIONS.md OQ-S59-03",
+  },
+  {
+    key: "symptom.dependant_policy",
+    // S59 (spec 12.6): a check answered by a parent or carer for a child. Until the CMO signs paediatric pathways, a child is run
+    // through the signed adult pathways, so a result for a known child is never lower than this category and always asks a clinician
+    // to look. It can only raise. A person whose age is unknown is not matched (an extra input never lowers a result). Live now
+    // (proposed, not yet confirmed by the CMO).
+    value: { max_age_years: 17, minimum_category: "routine", clinician_review_required: true },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S59.md section 4; spec 12.6; docs/OPEN-QUESTIONS.md OQ-S59-04",
+  },
+  {
+    key: "symptom.skin_photo_policy",
+    // S59 (spec 12.7): photos of a visible problem for a clinician to look at. Never scored or classified. Limits and retention. The
+    // live value is the active row of `skin_photo_policy_config` (the storage bucket limits are set from it too); a test fails if
+    // the migration seed and this value drift. Retention counts from submission while unreviewed and from the review once reviewed.
+    // The deletion job is not built (OQ-S59-07): until it runs, `retention_until` records when a photo is due to go.
+    value: {
+      max_bytes: 4000000,
+      allowed_types: ["image/jpeg", "image/png"],
+      max_open_per_patient: 5,
+      retention_days_unreviewed: 30,
+      retention_days_after_review: 90,
+      signed_url_seconds: 60,
+    },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S59.md section 6; spec 12.7; docs/OPEN-QUESTIONS.md OQ-S59-07",
+  },
+  {
+    key: "symptom.context_window_days",
+    // S59 (spec 12.2): how far back a reading from the health record counts as "recent" for the context layer. Whole days, 1 to 90
+    // (the database clamps it). The CMO confirms it alongside the context entries.
+    value: 14,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S59.md section 3; spec 12.2; docs/OPEN-QUESTIONS.md OQ-S59-03",
+  },
 ];

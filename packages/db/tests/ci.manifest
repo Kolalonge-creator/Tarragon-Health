@@ -904,3 +904,5 @@ s60_symptom_reviews_rls_and_audit.sql
 s60_symptom_accuracy_audit.sql
 # S60 (spec 12.13): the recorded regulatory position and the F1 attestations wired to records. Admin or CMO only, append-only, a NAFDAC attestation refused without a determined position and a baseline attestation refused without a baseline report, the dashboard shows what the record says. Sabotage: the check skipped, the refused attestation must succeed.
 s60_regulatory_position_and_guard_wiring.sql
+# S59 (spec 12.1 to 12.7): symptom sessions view (no staff path), context that never returns pregnancy for someone acted for, audited staff read, the sent-by-choice summary that appears in the clinician patient summary only once a consultation is booked (acceptance test), skin photos (private bucket, per-patient storage RLS, consent, limits, retention, audited review, no score column). Sabotage: the linked-appointment filter removed, the storage policy widened, the table policy widened.
+s59_symptom_assessment_handoff_and_skin_photos.sql
