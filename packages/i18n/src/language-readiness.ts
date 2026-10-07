@@ -170,7 +170,6 @@ const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1
 export interface KeyParity {
   readonly missing: readonly string[];
   readonly empty: readonly string[];
-  readonly extra: readonly string[];
   readonly placeholder_mismatch: readonly string[];
 }
 
@@ -185,8 +184,7 @@ export function keyParity(source: Catalogue, other: Catalogue): KeyParity {
     else if (value.trim() === "") empty.push(key);
     else if (placeholders(value) !== placeholders(text)) mismatch.push(key);
   }
-  const extra = Object.keys(other).filter((k) => !(k in source));
-  return { missing, empty, extra, placeholder_mismatch: mismatch };
+  return { missing, empty, placeholder_mismatch: mismatch };
 }
 
 /** Fingerprint of one feature's string set: the English source and the language's text for every key. */
@@ -198,7 +196,13 @@ export function stringSetHash(feature: string, source: Catalogue, other: Catalog
 }
 
 export function signoffMatches(signoff: StringSetSignoff | undefined, expectedHash: string): boolean {
-  return signoff !== undefined && signoff.by.trim() !== "" && signoff.on.trim() !== "" && signoff.set_hash === expectedHash;
+  return (
+    signoff !== undefined &&
+    signoff.by.trim() !== "" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(signoff.on) &&
+    signoff.version >= 1 &&
+    signoff.set_hash === expectedHash
+  );
 }
 
 // ---------------------------------------------------------------- audio pairing
@@ -217,7 +221,7 @@ export function clipPairing(clip: ManifestClip, language: string, sourceLanguage
   const neutral = clip.language_neutral === true;
   const file = clip.files[neutral ? "shared" : language];
   if (!file) return { paired: false, reason: "no_file" };
-  if (file.sha256 === null || file.sha256 === undefined) return { paired: false, reason: "not_recorded" };
+  if (file.sha256 === null || file.sha256 === undefined || file.bytes === null) return { paired: false, reason: "not_recorded" };
   if (!neutral && language !== sourceLanguage && file.source_script_hash !== clip.script_hash) return { paired: false, reason: "script_changed" };
   const needed = ["brand", ...(clip.clinical ? ["clinical"] : []), ...(clip.legal ? ["legal"] : [])];
   for (const review of needed) {
@@ -332,6 +336,7 @@ export type GateCode =
   | "placeholder_mismatch"
   | "native_review_missing_or_stale"
   | "clinician_signoff_missing_or_stale"
+  | "signers_not_independent"
   | "audio_unpaired";
 
 export interface GateViolation {
@@ -394,6 +399,11 @@ export function checkLanguageGate(input: ReadinessInput): GateViolation[] {
         out.push({ language, feature, code: "clinician_signoff_missing_or_stale", detail: "no CMO signature of the current text" });
       }
 
+      const nativeBy = entry.native_review[feature]?.by.trim().toLowerCase();
+      if (def.clinical && nativeBy !== undefined && nativeBy === entry.clinician_signoff[feature]?.by.trim().toLowerCase()) {
+        out.push({ language, feature, code: "signers_not_independent", detail: "the native reviewer and the CMO signature carry the same name" });
+      }
+
       const bad = clipsOfFeature(feature, manifest, registry.features)
         .map((c) => ({ id: c.id, result: clipPairing(c, language, registry.source_language) }))
         .filter((c) => !c.result.paired)
@@ -412,6 +422,7 @@ export function checkLanguageGate(input: ReadinessInput): GateViolation[] {
  */
 export function pickerLanguages(registry: LanguageRegistry): string[] {
   const features = Object.keys(registry.features);
+  if (features.length === 0) return [registry.source_language];
   return Object.entries(registry.languages)
     .filter(([, e]) => features.every((f) => e.enabled_for.includes(f)))
     .map(([code]) => code)
@@ -465,6 +476,16 @@ export function parseLanguageRegistry(value: unknown): LanguageRegistry {
       throw new Error(`language registry: feature "${key}" is malformed`);
     }
     features[key] = { message_prefixes: raw.message_prefixes.map(String), audio_groups: raw.audio_groups.map(String), clinical: raw.clinical };
+  }
+  // Two features may not claim the same prefix or the same audio group: ownership would then depend on object order, and a
+  // clinical key could end up gated as a plain one.
+  const claimed = new Map<string, string>();
+  for (const [key, def] of Object.entries(features)) {
+    for (const claim of [...def.message_prefixes.map((p) => `prefix:${p}`), ...def.audio_groups.map((g) => `audio:${g}`)]) {
+      const owner = claimed.get(claim);
+      if (owner !== undefined) throw new Error(`language registry: "${claim}" is claimed by both "${owner}" and "${key}"`);
+      claimed.set(claim, key);
+    }
   }
   const signoffs = (raw: unknown, where: string): Record<string, StringSetSignoff> => {
     if (raw === undefined) return {};

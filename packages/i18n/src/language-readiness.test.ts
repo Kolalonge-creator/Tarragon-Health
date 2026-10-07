@@ -162,13 +162,13 @@ function readyStub(): { input: ReadinessInput; text: Catalogue; manifestClips: M
     clip("EMG-001", "EMG", { files: { en: { sha256: null, approvals: [] }, xx: { sha256: sha, bytes: 10, source_script_hash: "h-EMG-001", approvals: approvals(["brand", "clinical"]) } } }),
     clip("ONB-001", "ONB", { files: { en: { sha256: null, approvals: [] }, xx: { sha256: sha, bytes: 10, source_script_hash: "h-ONB-001", approvals: approvals(["brand"]) } } }),
   ];
-  const sign = (feature: "safety" | "ui") => ({ by: "test CMO", on: "2026-01-01", version: 1, set_hash: stringSetHash(feature, SOURCE, text, FEATURES) });
+  const sign = (feature: "safety" | "ui", by = "test CMO") => ({ by, on: "2026-01-01", version: 1, set_hash: stringSetHash(feature, SOURCE, text, FEATURES) });
   const registry: LanguageRegistry = {
     source_language: "en",
     features: FEATURES,
     languages: {
       en: { status: "draft", source: true, enabled_for: ["safety", "ui"], native_review: {}, clinician_signoff: {} },
-      xx: { status: "clinician_signed", enabled_for: ["safety", "ui"], native_review: { safety: sign("safety"), ui: sign("ui") }, clinician_signoff: { safety: sign("safety") } },
+      xx: { status: "clinician_signed", enabled_for: ["safety", "ui"], native_review: { safety: sign("safety", "test native reviewer"), ui: sign("ui", "test native reviewer") }, clinician_signoff: { safety: sign("safety") } },
     },
   };
   return { input: { registry, catalogues: { en: SOURCE, xx: text }, manifest: { clips: manifestClips } }, text, manifestClips };
@@ -216,6 +216,33 @@ describe("language gate: dry run with a stub language", () => {
     expect(codes(withInput(input, { registry: unsignedClinical }))).toEqual(["safety:clinician_signoff_missing_or_stale"]);
     const unreviewed: LanguageRegistry = { ...registry, languages: { ...registry.languages, xx: { ...xx, native_review: {} } } };
     expect(codes(withInput(input, { registry: unreviewed })).sort()).toEqual(["safety:native_review_missing_or_stale", "ui:native_review_missing_or_stale"]);
+  });
+
+  it("rejects a signature with a bad date or version, and one signer playing both roles", () => {
+    const { input } = readyStub();
+    const xx = input.registry.languages.xx;
+    const good = xx.clinician_signoff.safety;
+    const badDate: LanguageRegistry = { ...input.registry, languages: { ...input.registry.languages, xx: { ...xx, clinician_signoff: { safety: { ...good, on: "soon" } } } } };
+    expect(codes(withInput(input, { registry: badDate }))).toEqual(["safety:clinician_signoff_missing_or_stale"]);
+    const badVersion: LanguageRegistry = { ...input.registry, languages: { ...input.registry.languages, xx: { ...xx, clinician_signoff: { safety: { ...good, version: 0 } } } } };
+    expect(codes(withInput(input, { registry: badVersion }))).toEqual(["safety:clinician_signoff_missing_or_stale"]);
+    const same: LanguageRegistry = { ...input.registry, languages: { ...input.registry.languages, xx: { ...xx, native_review: { ...xx.native_review, safety: { ...xx.native_review.safety, by: "Test CMO" } } } } };
+    expect(codes(withInput(input, { registry: same }))).toEqual(["safety:signers_not_independent"]);
+  });
+
+  it("rejects a registry where two features claim the same prefix or audio group, and shows no picker for zero features", () => {
+    const f = { message_prefixes: ["a."], audio_groups: ["ONB"], clinical: false };
+    const en = { status: "draft", source: true, enabled_for: [] };
+    expect(() => parseLanguageRegistry({ source_language: "en", features: { one: f, two: { ...f, audio_groups: [] } }, languages: { en } })).toThrow(/prefix:a\./);
+    expect(() => parseLanguageRegistry({ source_language: "en", features: { one: f, two: { ...f, message_prefixes: ["b."] } }, languages: { en } })).toThrow(/audio:ONB/);
+    const { input } = readyStub();
+    expect(pickerLanguages({ ...input.registry, features: {} })).toEqual(["en"]);
+  });
+
+  it("treats a recording with no byte count as not recorded", () => {
+    const { manifestClips } = readyStub();
+    const [emg] = manifestClips;
+    expect(clipPairing({ ...emg, files: { xx: { ...emg.files.xx!, bytes: null } } }, "xx", "en").reason).toBe("not_recorded");
   });
 
   it("holds a clinical feature to clinician_signed status and a plain one to native_reviewed", () => {

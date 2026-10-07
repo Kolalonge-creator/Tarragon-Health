@@ -52,6 +52,18 @@ function duration(file) {
   }
 }
 
+// Files of a language not named in --languages are never deleted by a run that skips them: refuse BEFORE anything is written,
+// instead of dropping signed audio.
+{
+  const skipped = new Set();
+  for (const clip of manifest.clips) for (const [key, f] of Object.entries(clip.files)) if (!languages.has(key)) skipped.add(f.file);
+  const present = existsSync(assetsDir) ? readdirSync(assetsDir).filter((n) => skipped.has(n)) : [];
+  if (present.length > 0) {
+    console.error(`assets folder holds files for a language not named in --languages (${present.slice(0, 3).join(", ")}); pass every bundled language, for example --languages en,xx`);
+    process.exit(2);
+  }
+}
+
 const byFile = new Map();
 for (const clip of manifest.clips) for (const [key, f] of Object.entries(clip.files)) if (languages.has(key)) byFile.set(f.file, { clip, key, f });
 
@@ -114,14 +126,6 @@ for (const clip of manifest.clips) {
     shipped.push(f.file);
     bytes += f.bytes;
   }
-}
-// Files of a language not named in --languages are never deleted by a run that skips them: refuse instead of dropping signed audio.
-const skipped = new Set();
-for (const clip of manifest.clips) for (const [key, f] of Object.entries(clip.files)) if (!languages.has(key)) skipped.add(f.file);
-const protectedFiles = readdirSync(assetsDir).filter((n) => skipped.has(n));
-if (protectedFiles.length > 0) {
-  console.error(`assets folder holds files for a language not named in --languages (${protectedFiles.slice(0, 3).join(", ")}); pass every bundled language, for example --languages en,xx`);
-  process.exit(2);
 }
 for (const name of readdirSync(assetsDir)) if (!shipped.includes(name)) rmSync(join(assetsDir, name));
 const rel = (file) => join("../../../assets/audio", file);
