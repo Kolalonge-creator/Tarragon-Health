@@ -250,3 +250,9 @@ export * from "./cycle";
 
 // S66: the reusable private-section lock (PIN or biometric, device-held), used by cycle now and by pregnancy and other private sections later.
 export * from "./private-section";
+// S70a (Module 18): device plausibility, cross-source de-duplication, photo capture, CGM sustained events, DeviceSource interface.
+export * from "./device-plausibility";
+export * from "./device-dedupe";
+export * from "./photo-reading";
+export * from "./cgm-events";
+export * from "./device-source";

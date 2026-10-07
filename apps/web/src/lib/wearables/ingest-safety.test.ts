@@ -145,7 +145,8 @@ describe("a denied consent category never disables a red-flag classifier", () =>
     const { svc, selected } = fakeSvc();
     await ingestReadings(svc, target, [build("hrv_ms", 42)]);
 
-    expect(selected).toHaveLength(0);
+    // (the Module 18 switch read is not an assessment read)
+    expect(selected.filter((table) => table !== "platform_modules")).toHaveLength(0);
   });
 
   it("still writes a weight to vitals_readings when weight consent is off", async () => {

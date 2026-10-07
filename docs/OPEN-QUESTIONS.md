@@ -1811,3 +1811,29 @@ Numbering: the last number used on another branch was OQ-327; S66 starts at OQ-3
 
 ### OQ-337 Live policy drift under the new functions
 - Live RLS on the cycle tables uses `private.staff_may_read/write` (S39b, S39g) which `origin/main-dev` does not contain. S66 replaces no policy, so it works on both, but re-run the three S66 proofs after S39b to S39h merge.
+
+### OQ-370 Device capabilities need the CMO and an admin before anything switches on (raised by S70a)
+- Everything S70a built is off. Unsigned and PROPOSED: all numbers in `devices.plausibility`, `devices.dedupe`, `devices.cgm_events`, `devices.ecg_alert`, the two task types (class, due time, tier), the patient and safety wording, and "one working day" approximated as 1440 minutes.
+- Decision: pending the CMO (read the primary guideline text; the pack's evidence is secondary).
+
+### OQ-371 Go-live uses `platform_modules`, not `go_live_guards` (raised by S70a)
+- A `go_live_guards` row needs a branch in `private.go_live_conditions()`, a function every parallel session edits; a second `create or replace` would silently drop the other's branch. Seven `platform_modules` rows were used. Decide whether to move them to guards once S66 to S69 have merged.
+
+### OQ-372 The wearable Connect card is ungated (raised by S70a)
+- Spec asks for a per-connector flag. The card has been live since 2026-07-31; gating it would switch off a working feature, so it was not done. New connectors (S70b) should be born gated.
+
+### OQ-373 An extreme typed value above the typed limit (raised by S70a)
+- OQ-66 keeps manual limits at 60-260 / 30-160. With the hold on, a DEVICE or photo 270/130 is now saved and triaged, but a typed 270/130 is still refused on the phone. Decide whether typed entry should follow with a confirm step (OQ-66 option b).
+
+### OQ-374 A patient who insists an impossible number is real (raised by S70a)
+- `resolve_held_reading` allows `confirmed_as_shown`, which records the answer but still does not save or triage the value. Decide what a care team should see (a task? a device-fault report?). Today a held value is visible only to the person.
+
+### OQ-375 Photo and ECG recognition need a native build (raised by S70a)
+- No on-device text recogniser and no real-device test exist. Adding one needs a native module, a fresh EAS build and a `runtimeVersion` bump (now `0.1.0-native5`). The HealthKit ECG read adds an authorisation type and has never run on hardware. Which package is for the founder.
+
+### OQ-376 De-duplication side effects to review (raised by S70a)
+- A sensor sample within 5 minutes and 0.3 mmol/L of a finger-prick, in the same triage band, is linked instead of stored (one gap in a CGM trace). A better source arriving later replaces the row in place, so the row's `taken_at` becomes the better source's. Pregnant BP is never merged. Confirm both are acceptable.
+
+### OQ-377 Source badge coverage (raised by S70a)
+- The badge is on the web readings list and the phone BP history. Other phone lists (glucose, weight) and the clinician readings views were not found to list per-reading sources; check before calling "every UI" done.
+
