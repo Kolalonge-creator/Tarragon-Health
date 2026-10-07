@@ -319,8 +319,13 @@ begin
   update public.health_education_content set creator_id = v_cr where id = v_id3;
   perform pg_temp.publish(v_id3);
   update public.health_education_content set content_status = 'review_due' where id = v_id3;
+  -- creator content is a members-only perk (S55 weekly follow-up): the patient is made a Member for this check only, so it still
+  -- proves the flag itself does not withdraw the item; the membership is removed again straight after.
+  insert into public.patient_memberships (organisation_id, patient_id, source, state, starts_at, ends_at, is_test)
+  select organisation_id, id, 'purchase', 'active', now() - interval '1 day', now() + interval '30 days', true from public.profiles where id = v_pa;
   perform pg_temp.ck('5q2 a flagged (review_due) item is still served to a patient',
     pg_temp.as_count(v_pa, format('select count(*) from public.health_education_content where id = %L', v_id3)) = 1);
+  delete from public.patient_memberships where patient_id = v_pa;
   perform set_config('request.jwt.claims', json_build_object('sub', v_pa, 'role', 'authenticated')::text, true);
   set local role authenticated;
   select count(*) into v_n from public.health_education_item_trust(array['s55-credit']) where creator_name = 'Dr Creator Name';
