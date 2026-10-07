@@ -2,6 +2,7 @@ import { flushOutbox } from "@/lib/outbox";
 import { syncReminders } from "@/lib/reminder-notifications";
 import { clearLocalMirror } from "@/lib/offline-store";
 import { clearAllDrafts } from "@/lib/drafts";
+import { purgeAllDownloads } from "@/lib/offline-downloads";
 import { FONT_ASSETS, ThemeProvider, useTheme } from "@/ui/design";
 import { ToastProvider } from "@/ui/kit";
 import { useEffect, useRef, useState } from "react";
@@ -100,6 +101,8 @@ function AppContent() {
         // unsent logs must survive sign-out and go out when their owner is back.
         void clearLocalMirror().catch(() => {});
         void clearAllDrafts();
+        // Offline audio downloads (S57b) belong to the previous account's session: delete them all, flag or no flag.
+        void purgeAllDownloads().catch(() => {});
       }
       if (event === "SIGNED_IN" && newSession?.user.id && postSignInFor.current !== newSession.user.id) {
         const userId = newSession.user.id;

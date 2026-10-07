@@ -220,6 +220,13 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         visible: adminOnly,
       },
       {
+        href: "/admin/settings/media-library",
+        label: "Calm and sleep library",
+        blurb: "Manage meditations, sleep stories, soundscapes, breathing and exercises. Each needs a named reviewer and review dates before patients see it.",
+        icon: SEMANTIC_ICON.mood,
+        visible: adminOnly,
+      },
+      {
         href: "/admin/settings/provider-quality-policy",
         label: "Provider quality policy",
         blurb: "Metric targets, the credential expiry ladder, and intervention triggers behind provider quality.",

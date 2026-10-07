@@ -1,0 +1,47 @@
+code,title,series,minutes,estimated_runtime_minutes,status,word_count,kind
+med-intro-01,A first three minutes,intro,4,4.0,DRAFT,237,meditation
+med-intro-02,A short body scan,intro,4.5,4.5,DRAFT,225,meditation
+med-intro-03,Listening to the sounds around you,intro,4,3.9,DRAFT,180,meditation
+med-stress-01,Letting the shoulders drop,stress,5,5.1,DRAFT,241,meditation
+med-stress-02,A pause in the go-slow,stress,3.5,3.7,DRAFT,176,meditation
+med-grief-01,Sitting with a heavy heart,grief,6,6.0,DRAFT,313,meditation
+med-grief-02,Remembering with thanks,grief,5.5,5.4,DRAFT,245,meditation
+med-work-01,A reset between tasks,work,3.5,3.3,DRAFT,157,meditation
+med-work-02,Ending the workday,work,4,4.2,DRAFT,185,meditation
+med-exams-01,Calm before the exam,exams,4,3.9,DRAFT,172,meditation
+med-faith-01,"A quiet reflection, in your own words",faith_reflection,6,5.9,DRAFT,258,meditation
+med-faith-02,A reflection of thanks,faith_reflection,4,4.1,DRAFT,191,meditation
+sleep-story-01,"Rain on the zinc roof, Ibadan",sleep,10,10.0,DRAFT,334,sleep_story
+sleep-story-02,A slow canoe near Calabar,sleep,10.5,10.3,DRAFT,310,sleep_story
+sleep-story-03,"Harmattan evening, Jos",sleep,9.5,9.6,DRAFT,277,sleep_story
+sleep-story-04,The farm road after harvest,sleep,9,9.2,DRAFT,265,sleep_story
+sleep-story-05,"The market after closing, Kano",sleep,8.5,8.4,DRAFT,260,sleep_story
+sleep-story-06,A lamp-lit veranda in the Enugu hills,sleep,9,9.2,DRAFT,244,sleep_story
+sleep-winddown-01,Winding down in ten steps,sleep,8,8.0,DRAFT,276,sleep_story
+sleep-winddown-02,A slow count down through the body,sleep,7.5,7.4,DRAFT,155,sleep_story
+breath-01,Slow belly breathing,breathing,3.5,3.6,DRAFT,182,breathing
+breath-02,A longer breath out,breathing,3.5,3.3,DRAFT,207,breathing
+breath-03,"Five in, five out",breathing,3.5,3.5,DRAFT,226,breathing
+breath-04,Desk breaks: breathe and soften,breathing,3,2.8,DRAFT,151,breathing
+breath-05,Breathing before sleep,breathing,4.5,4.5,DRAFT,154,breathing
+breath-06,Settling after a hard conversation,breathing,4,3.8,DRAFT,186,breathing
+myth-01,"""I would feel it if my blood pressure was high""",myth-busting,2,2.2,DRAFT,253,myth
+myth-02,"""If I had diabetes, I would know""",myth-busting,2,2.0,DRAFT,231,myth
+myth-03,"""Herbal means natural, so it is safe""",myth-busting,2.5,2.3,DRAFT,269,myth
+myth-04,"""I feel fine, so I can stop my medicine""",myth-busting,2,2.2,DRAFT,260,myth
+myth-05,"""I only need to check my pressure when I have a headache""",myth-busting,2,2.2,DRAFT,261,myth
+myth-06,"""Seasoning cubes are not salt""",myth-busting,2,2.1,DRAFT,249,myth
+myth-07,"""Bitter leaf will bring my sugar down""",myth-busting,2,2.0,DRAFT,234,myth
+myth-08,"""Diabetes comes from eating too many sweets""",myth-busting,2,2.0,DRAFT,235,myth
+myth-09,"""A fast is fine as long as I take my tablets""",myth-busting,2,2.2,DRAFT,255,myth
+myth-10,"""My care team does not need to know about my herbal drink""",myth-busting,2,2.1,DRAFT,252,myth
+bp-lesson-01,Day 1: Measure it the right way,bp-care-course,2,2.0,DRAFT,235,micro_lesson
+bp-lesson-02,Day 2: Pick a regular time,bp-care-course,2,2.0,DRAFT,229,micro_lesson
+bp-lesson-03,Day 3: Write it down or log it,bp-care-course,2,1.8,DRAFT,212,micro_lesson
+bp-lesson-04,Day 4: Tie your medicine to a habit,bp-care-course,2,2.0,DRAFT,239,micro_lesson
+bp-lesson-05,Day 5: Cut back on seasoning cubes,bp-care-course,2,1.9,DRAFT,227,micro_lesson
+bp-lesson-06,Day 6: A ten minute walk,bp-care-course,1.5,1.7,DRAFT,202,micro_lesson
+bp-lesson-07,Day 7: Do not run out,bp-care-course,2,1.9,DRAFT,219,micro_lesson
+bp-lesson-08,Day 8: When to message your care team,bp-care-course,1.5,1.7,DRAFT,197,micro_lesson
+bp-lesson-09,Day 9: Tell your care team what else you take,bp-care-course,2,1.8,DRAFT,213,micro_lesson
+bp-lesson-10,Day 10: Five minutes of calm,bp-care-course,2,2.0,DRAFT,229,micro_lesson
