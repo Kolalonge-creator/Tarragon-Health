@@ -2130,6 +2130,8 @@ export const en = {
   "programme.share_unavailable": "Sharing is not open yet. You can still be in the programme.",
   "programme.leave": "Leave this programme",
   "programme.leave_note": "Leaving also stops any sharing.",
+  "programme.sponsor_sees_title": "What your sponsor sees and never sees",
+  "programme.sponsor_sees_body": "Your sponsor sees counts of how many people are enrolled and how many have joined, how many are taking part, and overall averages for groups of at least {minimum} people. They never see your name, your readings, your results, your mental health, women's health or pregnancy information, or anything about you personally.",
   "programme.own_only": "A programme is the person's own choice. Open your own account to join or change one.",
   "programme.saved": "Saved.",
   "programme.error": "That did not work. Nothing was changed. Try again.",
