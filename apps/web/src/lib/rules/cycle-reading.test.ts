@@ -20,6 +20,7 @@ describe("suggestCycleReading", () => {
     for (const phase of ["fertile", "ovulation"] as const) {
       const reading = suggestCycleReading({ phase, lifeStage: "menstruating", isIrregular: false, planningMode: true });
       expect(reading[0].reason).toContain(FERTILE_WINDOW_LABEL);
+      expect(reading[0].namesFertileWindow).toBe(true);
     }
   });
 

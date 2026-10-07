@@ -33,7 +33,7 @@ export const WORDING_KEYS: Readonly<Record<WordingCode, string>> = Object.fromEn
 ) as Record<WordingCode, string>;
 
 /**
- * S85 D2 / OQ-12: the words every screen that shows the fertile window (or a temperature-based ovulation confirmation)
+ * S85 D2 / OQ-12: the words every screen that shows estimated fertile days (or a temperature-based ovulation confirmation)
  * must carry. Same gate as above, separate record: `fertileWindow.signed` is null until the CMO signs, and a build never
  * sets it. `current` and `proposed` are the same founder-mandated text on purpose. A missing label is the unsafe state, so
  * the label renders correctly whether or not the CMO has signed.

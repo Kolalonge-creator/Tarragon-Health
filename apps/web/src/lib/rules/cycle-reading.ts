@@ -21,6 +21,8 @@ export interface CycleReading {
   title: string;
   /** Why it is being offered right now, in the patient's terms. */
   reason: string;
+  /** True when the reason names the fertile window, so the screen must show the label with it (S85 D2). */
+  namesFertileWindow?: boolean;
 }
 
 /** Content that applies regardless of phase, keyed by an observed situation. */
@@ -47,11 +49,13 @@ const PHASE_READING: Record<CyclePhase, CycleReading | null> = {
     code: "women-fertility-basics",
     title: "Fertility basics: what affects it",
     reason: `You are in your estimated fertile window. ${FERTILE_WINDOW_LABEL}`,
+    namesFertileWindow: true,
   },
   ovulation: {
     code: "women-fertility-basics",
     title: "Fertility basics: what affects it",
     reason: `Ovulation is estimated around now. ${FERTILE_WINDOW_LABEL}`,
+    namesFertileWindow: true,
   },
   luteal: {
     code: "women-menstrual-cycle",

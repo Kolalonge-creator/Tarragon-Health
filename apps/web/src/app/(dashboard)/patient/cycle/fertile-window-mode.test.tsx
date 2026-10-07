@@ -89,7 +89,7 @@ function assertLabelled(root: HTMLElement) {
   }
 }
 
-const NEVER_WHILE_OFF = /fertile window|estimated ovulation|suggests ovulation|safe days|avoid pregnancy|natural contraception/i;
+const NEVER_WHILE_OFF = /fertile|ovulat|luteal|safe days|avoid pregnancy|natural contraception/i;
 
 describe("the label itself", () => {
   it("is the founder's exact wording, with a link", () => {
@@ -207,7 +207,9 @@ describe("with Planning a pregnancy OFF (the default) the window is not shown an
     card.unmount();
 
     const log = render(withQuery(<CycleDayLog patientId="p1" organisationId="o1" date={today} existing={null} planningMode={false} />));
-    expect(log.container.textContent).not.toMatch(/suggests ovulation|confirms rather than predicts/i);
+    // The whole temperature and ovulation-test block is gone, not just its explanation.
+    expect(log.container.textContent).not.toMatch(/ovulat|temperature|fertile/i);
+    expect(log.container.querySelector("#cycle-bbt")).toBeNull();
   });
 
   it("the whole tracker: period prediction stays, the window and its label do not", async () => {
@@ -230,6 +232,21 @@ describe("the switch", () => {
   const tracker = (initial: boolean) =>
     withQuery(<CycleTracker patientId="p1" organisationId="o1" lifeStage="menstruating" selfReportedCycleLengthDays={null} initialPlanningMode={initial} />);
 
+  it("turning it on waits for the save: nothing is shown until it is stored", async () => {
+    let finish: (value: { success: true }) => void = () => {};
+    mockedAction.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    render(tracker(false));
+    await screen.findByText("What to expect");
+    fireEvent.click(screen.getByRole("switch", { name: "Planning a pregnancy" }));
+    await waitFor(() => expect(mockedAction).toHaveBeenCalledWith({ enabled: true }));
+    // saving, not saved: still hidden
+    expect(screen.queryByText("Estimated ovulation")).toBeNull();
+    expect(screen.queryByTestId("fertile-window-notice")).toBeNull();
+    finish({ success: true });
+    expect(await screen.findByText("Estimated ovulation")).toBeTruthy();
+    expect(screen.getAllByTestId("fertile-window-notice").length).toBeGreaterThanOrEqual(4);
+  });
+
   it("turning it on saves it, shows the window and the label", async () => {
     render(tracker(false));
     await screen.findByText("What to expect");
@@ -249,14 +266,35 @@ describe("the switch", () => {
     expect(screen.queryByTestId("fertile-window-notice")).toBeNull();
   });
 
-  it("a failed save puts it back to off, with an error, rather than leaving the window showing", async () => {
+  it("a failed save leaves it off, with an error, and the window is never shown", async () => {
     mockedAction.mockResolvedValue({ error: "Could not save that just now. Please try again." });
     render(tracker(false));
     await screen.findByText("What to expect");
     fireEvent.click(screen.getByRole("switch", { name: "Planning a pregnancy" }));
     expect((await screen.findByRole("alert")).textContent).toContain("Could not save that just now");
     expect(screen.queryByText("Estimated ovulation")).toBeNull();
+    expect(screen.queryByTestId("fertile-window-notice")).toBeNull();
     expect(screen.getByRole("switch", { name: "Planning a pregnancy" }).getAttribute("aria-checked")).toBe("false");
+  });
+
+  it("a save that THROWS (network, server error) is a failed save: still off, with an error", async () => {
+    mockedAction.mockRejectedValue(new Error("network"));
+    render(tracker(false));
+    await screen.findByText("What to expect");
+    fireEvent.click(screen.getByRole("switch", { name: "Planning a pregnancy" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("Could not save that just now");
+    expect(screen.queryByText("Estimated ovulation")).toBeNull();
+    expect(screen.getByRole("switch", { name: "Planning a pregnancy" }).getAttribute("aria-checked")).toBe("false");
+  });
+
+  it("turning it off hides everything at once and stays hidden even if the save fails", async () => {
+    mockedAction.mockResolvedValue({ error: "Could not save that just now. Please try again." });
+    render(tracker(true));
+    await screen.findByText("Estimated ovulation");
+    fireEvent.click(screen.getByRole("switch", { name: "Planning a pregnancy" }));
+    await waitFor(() => expect(screen.queryByText("Estimated ovulation")).toBeNull());
+    expect((await screen.findByRole("alert")).textContent).toContain("Could not save that just now");
+    expect(screen.queryByTestId("fertile-window-notice")).toBeNull();
   });
 });
 

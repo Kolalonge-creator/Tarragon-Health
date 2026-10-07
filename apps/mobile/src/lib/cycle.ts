@@ -257,12 +257,20 @@ export async function loadPlanningMode(patientId: string): Promise<boolean> {
   }
 }
 
-/** Saves the choice on the person's own reproductive_health_profiles row. RLS (category-scoped) decides who may. */
+/**
+ * Saves the choice on the person's own reproductive_health_profiles row. It is a personal choice, so only the person
+ * themselves makes it: when the screen is open for someone being supported (patientId is not the signed-in user) it is
+ * refused, even though the table's category-scoped policy would admit a caregiver with manage plus the category.
+ */
 export async function savePlanningMode(input: {
   patientId: string;
   organisationId: string;
   enabled: boolean;
 }): Promise<QueryResult<null>> {
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user || auth.user.id !== input.patientId) {
+    return { ok: false, error: "Only you can switch Planning a pregnancy on or off. It cannot be changed for someone you support." };
+  }
   const { error } = await supabase.from("reproductive_health_profiles").upsert(
     {
       patient_id: input.patientId,

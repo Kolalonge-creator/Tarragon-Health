@@ -238,20 +238,23 @@ end $$;
 do $$
 declare
   v_adult uuid := (select v from s85_fixture where k = 'adult');
-  v_refused boolean := false;
+  v_seen bigint := 0;
+  v_mode boolean;
 begin
   perform set_config('request.jwt.claims', json_build_object('role', 'anon')::text, true);
   set local role anon;
   begin
-    perform 1 from public.reproductive_health_profiles where patient_id = v_adult;
+    select count(*) into v_seen from public.reproductive_health_profiles where patient_id = v_adult;
+    update public.reproductive_health_profiles set planning_pregnancy_mode = true where patient_id = v_adult;
   exception when insufficient_privilege then
-    v_refused := true;
+    v_seen := 0; -- refused outright is also fine
   end;
   reset role;
-  insert into s85_result values ('anon cannot read the table', 'anon', v_refused::text, 'true',
-    case when v_refused then 'PASS' else 'FAIL' end);
-  if not v_refused then
-    raise exception 'LEAK: anon can read reproductive_health_profiles';
+  select planning_pregnancy_mode into v_mode from public.reproductive_health_profiles where patient_id = v_adult;
+  insert into s85_result values ('anon sees no row and changes nothing', 'anon', format('%s/%s', v_seen, v_mode), '0/false',
+    case when v_seen = 0 and v_mode = false then 'PASS' else 'FAIL' end);
+  if v_seen <> 0 or v_mode then
+    raise exception 'LEAK: anon can read or change reproductive_health_profiles';
   end if;
 end $$;
 
@@ -278,6 +281,44 @@ begin
   end if;
 
   drop policy s85_sabotage_open_update on public.reproductive_health_profiles;
+end $$;
+
+-- 10. The shape the apps actually send: INSERT ... ON CONFLICT DO UPDATE (the WITH CHECK of both policies applies).
+do $$
+declare
+  v_adult uuid := (select v from s85_fixture where k = 'adult');
+  v_g uuid := (select v from s85_fixture where k = 'no_category_manager');
+  v_org uuid := (select v from s85_fixture where k = 'org');
+  v_mode boolean;
+begin
+  update public.reproductive_health_profiles set planning_pregnancy_mode = false where patient_id = v_adult;
+
+  -- caregiver without the category, upsert shape: refused, value unchanged
+  perform set_config('request.jwt.claims', json_build_object('sub', v_g::text, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  begin
+    insert into public.reproductive_health_profiles (patient_id, organisation_id, planning_pregnancy_mode)
+    values (v_adult, v_org, true)
+    on conflict (patient_id) do update set planning_pregnancy_mode = excluded.planning_pregnancy_mode;
+  exception when others then null;
+  end;
+  reset role;
+  select planning_pregnancy_mode into v_mode from public.reproductive_health_profiles where patient_id = v_adult;
+  insert into s85_result values ('upsert shape: no-category caregiver refused', 'no_category_manager', v_mode::text, 'false',
+    case when v_mode = false then 'PASS' else 'FAIL' end);
+  if v_mode then raise exception 'LEAK: upsert by a no-category caregiver changed the mode'; end if;
+
+  -- the patient, upsert shape: works
+  perform set_config('request.jwt.claims', json_build_object('sub', v_adult::text, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  insert into public.reproductive_health_profiles (patient_id, organisation_id, planning_pregnancy_mode)
+  values (v_adult, v_org, true)
+  on conflict (patient_id) do update set planning_pregnancy_mode = excluded.planning_pregnancy_mode;
+  reset role;
+  select planning_pregnancy_mode into v_mode from public.reproductive_health_profiles where patient_id = v_adult;
+  insert into s85_result values ('upsert shape: the patient can switch it on', 'patient (self)', v_mode::text, 'true',
+    case when v_mode then 'PASS' else 'FAIL' end);
+  if not v_mode then raise exception 'REGRESSION: the patient upsert did not store the mode'; end if;
 end $$;
 
 select check_name, role, observed, expected, verdict from s85_result order by verdict desc, check_name, role;

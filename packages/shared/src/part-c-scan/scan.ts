@@ -63,7 +63,8 @@ export const PART_C_RULES: readonly PartCRule[] = [
     reason:
       "any file that shows a fertile window must also carry the words 'Not contraception', or render the one shared label (FERTILE_WINDOW_LABEL / FertileWindowNotice, S85 D2). Whether a screen renders it is proved by the screen tests, not by this scan.",
     whenFile: /fertile window/i,
-    requireFile: /not contraception|FERTILE_WINDOW_LABEL|FertileWindowNotice/i,
+    // Not an import alone: the label must be rendered (`<FertileWindowNotice`) or used as text (`{FERTILE_WINDOW_LABEL}`).
+    requireFile: /not contraception|<FertileWindowNotice|\{FERTILE_WINDOW_LABEL\}/i,
   },
   {
     id: "patient-sms",

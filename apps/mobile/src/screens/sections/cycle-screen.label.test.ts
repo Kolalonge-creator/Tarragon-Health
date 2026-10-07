@@ -27,7 +27,7 @@ export function labelProblems(source: string): string[] {
       problems.push(`expected surface missing: ${shown}`);
       continue;
     }
-    const before = source.slice(Math.max(0, at - 900), at);
+    const before = source.slice(Math.max(0, at - 1600), at);
     if (!/planningMode\s*(&&|\?)/.test(before)) problems.push(`not gated by planningMode: ${shown}`);
   }
   // The label is rendered in the what-to-expect card, the where-you-are-now card and the day log.

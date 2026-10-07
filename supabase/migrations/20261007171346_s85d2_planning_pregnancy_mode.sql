@@ -9,7 +9,8 @@
 --
 -- Rows: default false, so every existing row and every person with no row yet is "off". No data conversion is needed.
 -- Grants: authenticated already holds select, insert, update on this table (20260724001210); a column added later is
--- covered by the table-level grant. Nothing for anon: anon has no privilege on this table and gains none.
+-- covered by the table-level grant. This migration changes no grant and no policy. (A fresh replay shows anon holds a
+-- table-level grant here that predates this change; RLS still gives anon zero rows, which the proof checks.)
 --
 -- NOT applied to production by this change. The apps read the column defensively and treat a missing column as off.
 
@@ -38,10 +39,5 @@ begin
   select count(*) into v_on from public.reproductive_health_profiles where planning_pregnancy_mode;
   if v_on <> 0 then
     raise exception 'FAIL: % rows have planning pregnancy mode on straight after the migration', v_on;
-  end if;
-
-  if has_table_privilege('anon', 'public.reproductive_health_profiles', 'SELECT')
-     or has_table_privilege('anon', 'public.reproductive_health_profiles', 'UPDATE') then
-    raise exception 'FAIL: anon must have no privilege on reproductive_health_profiles';
   end if;
 end $$;

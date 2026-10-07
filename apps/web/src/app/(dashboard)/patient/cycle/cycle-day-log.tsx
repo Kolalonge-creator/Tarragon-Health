@@ -210,7 +210,11 @@ export function CycleDayLog({
 
       {/* Optional, and only meaningful to somebody actively tracking
           ovulation, so it sits after the everyday fields rather than
-          greeting everyone who opens the form. */}
+          greeting everyone who opens the form. S85 D2: temperature and
+          ovulation-test logging is fertility tracking, so it appears only
+          while "Planning a pregnancy" is on. Values already saved for the day
+          are kept (the state below is seeded from them) when it is off. */}
+      {planningMode && (
       <fieldset>
         <legend className="mb-2 text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">
           Tracking ovulation? (optional)
@@ -251,11 +255,11 @@ export function CycleDayLog({
           </div>
         </div>
         <p className="mt-1.5 text-[11px] text-charcoal-ink/50 dark:text-night-ink/55">
-          Take your temperature before getting out of bed.
-          {planningMode ? ` ${THERMAL_SHIFT_EXPLAINER}` : ""}
+          Take your temperature before getting out of bed. {THERMAL_SHIFT_EXPLAINER}
         </p>
-        {planningMode && <FertileWindowNotice className="mt-2" />}
+        <FertileWindowNotice className="mt-2" />
       </fieldset>
+      )}
 
       <div className="space-y-1.5">
         <label htmlFor="cycle-notes" className="text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">

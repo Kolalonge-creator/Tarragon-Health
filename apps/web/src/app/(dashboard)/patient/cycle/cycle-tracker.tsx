@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { FERTILE_WINDOW_LABEL } from "@tarragon/i18n";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -145,18 +144,27 @@ export function CycleTracker({
   /** The saved "Planning a pregnancy" choice. Anything but a real `true` is off (S85 D2). */
   initialPlanningMode: boolean;
 }) {
-  // The fertile window and temperature-based ovulation confirmation show only while this is on. Optimistic, with a
-  // rollback if the save fails, so what the screen shows never gets ahead of what was saved for long.
+  // The fertile window and temperature-based ovulation confirmation show only while this is on.
+  // Turning it ON waits for the save: the window is never shown on the strength of a choice that was not stored.
+  // Turning it OFF hides everything at once and stays hidden even if the save fails (with a message), because
+  // hidden is the safe state. A save that throws counts as a failed save.
   const [planningMode, setPlanningMode] = useState(initialPlanningMode === true);
   const [modePending, startModeTransition] = useTransition();
   const [modeError, setModeError] = useState(false);
   function changePlanningMode(next: boolean) {
     setModeError(false);
-    setPlanningMode(next);
+    if (!next) setPlanningMode(false);
     startModeTransition(async () => {
-      const result = await setPlanningPregnancyMode({ enabled: next });
-      if (result?.error) {
-        setPlanningMode(!next);
+      let saved = false;
+      try {
+        const result = await setPlanningPregnancyMode({ enabled: next });
+        saved = !result?.error;
+      } catch {
+        saved = false;
+      }
+      if (saved) {
+        setPlanningMode(next);
+      } else {
         setModeError(true);
       }
     });
@@ -465,7 +473,7 @@ export function CycleTracker({
                 </span>
               </Link>
             ))}
-            {planningMode && reading.some((item) => item.reason.includes(FERTILE_WINDOW_LABEL)) && (
+            {planningMode && reading.some((item) => item.namesFertileWindow) && (
               <FertileWindowNotice />
             )}
           </CardContent>

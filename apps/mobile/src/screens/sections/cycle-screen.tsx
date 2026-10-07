@@ -168,20 +168,28 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
   const [modePending, setModePending] = useState(false);
   const [modeError, setModeError] = useState(false);
 
+  // Turning it ON waits for the save and shows the window only once the prediction is rebuilt with it. Turning it OFF
+  // hides everything at once and stays hidden even if the save fails (with a message): hidden is the safe state.
   async function changePlanningMode(next: boolean) {
     setModeError(false);
     setModePending(true);
-    const result = await savePlanningMode({ patientId, organisationId, enabled: next });
+    if (!next) setPlanningMode(false);
+    let saved = false;
+    try {
+      saved = (await savePlanningMode({ patientId, organisationId, enabled: next })).ok;
+    } catch {
+      saved = false;
+    }
     setModePending(false);
-    if (!result.ok) {
+    if (!saved) {
       setModeError(true);
       return;
     }
-    // Reload so the prediction is rebuilt from the saved choice, never from a guess.
-    await refresh();
+    // Rebuild from the choice just saved (not a fresh read, which would turn a read hiccup into a silent switch-off).
+    await refresh(next);
   }
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (modeOverride?: boolean) => {
     setActionError(null);
     // Same query shape as web's CyclePage: read the patient's self-reported
     // life stage + average cycle length to seed the prediction, defaulting
@@ -194,8 +202,7 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
       .maybeSingle();
     const stage: ReproductiveLifeStage = (profile?.life_stage as ReproductiveLifeStage | null) ?? "menstruating";
     // Off unless the person switched on "Planning a pregnancy" (S85 D2); any read problem also means off.
-    const mode = await loadPlanningMode(patientId);
-    setPlanningMode(mode);
+    const mode = modeOverride ?? (await loadPlanningMode(patientId));
 
     const result = await loadCycleTracker(patientId, stage, profile?.average_cycle_length_days ?? null, mode);
     if (!result.ok) {
@@ -203,6 +210,8 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
       return;
     }
     setError(null);
+    // The mode and the prediction built with it change together, so a screen never pairs one with the other's.
+    setPlanningMode(mode);
     setTracker(result.data);
     setSelectedDate((prev) => prev || result.data.today);
   }, [patientId]);
@@ -666,28 +675,31 @@ function DayLogForm({
         ))}
       </View>
 
-      <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Tracking ovulation? (optional)</Text>
-      <View style={{ flexDirection: "row", gap: 10 }}>
-        <View style={{ flex: 1, gap: 4 }}>
-          <MutedText>Waking temperature (°C)</MutedText>
-          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={bbt} onChangeText={setBbt} placeholder="36.50" keyboardType="decimal-pad" style={textInputStyle} />
-        </View>
-      </View>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-        {OVULATION_TEST_OPTIONS.map((option) => (
-          <Chip
-            key={option.value}
-            label={option.label}
-            active={ovulationTest === option.value}
-            onPress={() => setOvulationTest(ovulationTest === option.value ? null : option.value)}
-          />
-        ))}
-      </View>
-      <MutedText>
-        Take your temperature before getting out of bed.
-        {planningMode ? ` ${THERMAL_SHIFT_EXPLAINER}` : ""}
-      </MutedText>
-      {planningMode && <FertileWindowNotice onNavigate={onNavigate} />}
+      {/* S85 D2: temperature and ovulation-test logging is fertility tracking, so it appears only while "Planning a
+          pregnancy" is on. Values already saved for the day are kept (the state above is seeded from them). */}
+      {planningMode && (
+        <>
+          <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Tracking ovulation? (optional)</Text>
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <View style={{ flex: 1, gap: 4 }}>
+              <MutedText>Waking temperature (°C)</MutedText>
+              <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={bbt} onChangeText={setBbt} placeholder="36.50" keyboardType="decimal-pad" style={textInputStyle} />
+            </View>
+          </View>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+            {OVULATION_TEST_OPTIONS.map((option) => (
+              <Chip
+                key={option.value}
+                label={option.label}
+                active={ovulationTest === option.value}
+                onPress={() => setOvulationTest(ovulationTest === option.value ? null : option.value)}
+              />
+            ))}
+          </View>
+          <MutedText>Take your temperature before getting out of bed. {THERMAL_SHIFT_EXPLAINER}</MutedText>
+          <FertileWindowNotice onNavigate={onNavigate} />
+        </>
+      )}
 
       <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Anything else (optional)</Text>
       <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}

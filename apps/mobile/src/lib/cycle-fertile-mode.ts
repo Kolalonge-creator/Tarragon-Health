@@ -37,12 +37,17 @@ export function applyPlanningMode(prediction: CyclePrediction, planningMode: boo
   };
 }
 
+/** Off: any phase that is not a period or unknown reads as "between periods", even if a stale prediction still carries one of the hidden ones. */
+function betweenPeriods(phase: CyclePhase, planningMode: boolean): boolean {
+  return !planningMode && (phase === "follicular" || WINDOW_PHASES.has(phase));
+}
+
 export function phaseLabel(phase: CyclePhase, planningMode: boolean): string {
-  if (!planningMode && phase === "follicular") return en["cycle.between_periods.label"];
+  if (betweenPeriods(phase, planningMode)) return en["cycle.between_periods.label"];
   return PHASE_LABEL[phase];
 }
 
 export function phaseDescription(phase: CyclePhase, planningMode: boolean): string {
-  if (!planningMode && phase === "follicular") return en["cycle.between_periods.description"];
+  if (betweenPeriods(phase, planningMode)) return en["cycle.between_periods.description"];
   return PHASE_DESCRIPTION[phase];
 }

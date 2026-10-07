@@ -89,16 +89,23 @@ export async function saveContraceptionMethod(
 // --- Planning a pregnancy mode (S85 D2, OQ-12) -------------------------------
 
 const planningPregnancyModeSchema = z.object({ enabled: z.boolean() });
+const NO_CAREGIVER_PLANNING_MODE_MESSAGE =
+  "Only you can switch Planning a pregnancy on or off. It cannot be changed for someone you support.";
 
 /**
  * Switches the opt-in "Planning a pregnancy" mode. It is off for everyone until this is called with `true`; the
  * estimated ovulation days and temperature-based ovulation confirmation show only while it is on. Written to the person's own
- * reproductive_health_profiles row, so the table's category-scoped policy decides whether a caregiver may do it (a
- * caregiver needs the reproductive_health category and manage permission); this action adds nothing on top.
+ * reproductive_health_profiles row. The table's category-scoped policy would admit a caregiver with manage plus the
+ * reproductive_health category, but this is a personal choice, so the action refuses acting-for writes outright.
  */
 export async function setPlanningPregnancyMode(input: { enabled: boolean }): Promise<WomensHealthActionState> {
   const parsed = planningPregnancyModeSchema.safeParse(input);
   if (!parsed.success) return { error: "Could not save that just now. Please try again." };
+
+  // A personal choice about whether the window is shown: only the person themselves makes it, never someone acting for
+  // them, even a caregiver the table's policy would admit. Checked before anything is resolved or written.
+  const guardError = await assertNotActingFor(NO_CAREGIVER_PLANNING_MODE_MESSAGE);
+  if (guardError) return guardError;
 
   const ctx = await currentSubjectOrg();
   if ("error" in ctx) return { error: ctx.error };

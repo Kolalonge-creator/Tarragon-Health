@@ -24,9 +24,10 @@ jest.mock("@/lib/supabase/server", () => ({
 }));
 
 const resolveSubjectId = jest.fn();
+const assertNotActingFor = jest.fn();
 jest.mock("@/lib/acting/acting-for", () => ({
   resolveSubjectId: (id: string) => resolveSubjectId(id),
-  assertNotActingFor: jest.fn(),
+  assertNotActingFor: (message: string) => assertNotActingFor(message),
 }));
 jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
 
@@ -40,6 +41,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   authGetUser.mockResolvedValue({ data: { user: { id: CALLER } } });
   resolveSubjectId.mockResolvedValue(SUBJECT);
+  assertNotActingFor.mockResolvedValue(null);
   profilesSingle.mockResolvedValue({ data: { organisation_id: ORG } });
   profileUpsert.mockResolvedValue({ error: null });
 });
@@ -77,6 +79,14 @@ describe("setPlanningPregnancyMode", () => {
     const result = await setPlanningPregnancyMode({ enabled: true });
     expect(result?.error).toBe("Could not save that just now. Please try again.");
     expect(result?.error).not.toMatch(/row-level|policy|reproductive/i);
+  });
+
+  it("refuses when acting for someone else, before resolving or writing anything", async () => {
+    assertNotActingFor.mockImplementation(async (message: string) => ({ error: message }));
+    const result = await setPlanningPregnancyMode({ enabled: true });
+    expect(result?.error).toMatch(/Only you can switch Planning a pregnancy/);
+    expect(resolveSubjectId).not.toHaveBeenCalled();
+    expect(profileUpsert).not.toHaveBeenCalled();
   });
 
   it("does nothing when signed out", async () => {

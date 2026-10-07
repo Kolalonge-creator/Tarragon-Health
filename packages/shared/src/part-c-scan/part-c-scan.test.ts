@@ -69,7 +69,11 @@ describe("scan rules discriminate (sabotage)", () => {
     expect(ids('copy: "Not contraception. This cannot prevent pregnancy." // Fertile window 3 to 8 May')).toEqual([]);
     expect(ids('const t = "Fertile window 3 to 8 May"; const l = "Not contraception";')).toEqual([]);
     expect(ids('const t = "Fertile window 3 to 8 May"; <FertileWindowNotice />')).toEqual([]);
-    expect(ids('import { FERTILE_WINDOW_LABEL } from "@tarragon/i18n"; const t = "Fertile window";')).toEqual([]);
+    expect(ids('const t = "Fertile window"; const r = `${x} ${FERTILE_WINDOW_LABEL}`;')).toEqual([]);
+    expect(ids('const t = "Fertile window"; <Text>{FERTILE_WINDOW_LABEL}</Text>')).toEqual([]);
+    // an import alone is not a label on screen
+    expect(ids('import { FertileWindowNotice } from "./n"; const t = "Fertile window";')).toContain("fertile-window-label");
+    expect(ids('import { FERTILE_WINDOW_LABEL } from "@tarragon/i18n"; const t = "Fertile window";')).toContain("fertile-window-label");
     expect(ids('type Channel = "sms" | "email";')).toEqual([]);
     expect(ids('await auth.verifyOtp({ phone, token, type: "sms" })')).toEqual([]);
   });
