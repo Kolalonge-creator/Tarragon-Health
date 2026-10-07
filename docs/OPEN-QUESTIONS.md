@@ -1446,3 +1446,8 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Options: (a) route recording stays private and a separate consented emergency-location feature is built (recommended, decision S48-1); (b) one recorder with a sharing switch (rejected: breaks the acceptance test); (c) no emergency location.
 - Needs before the guard can go on: written consent text, retention period, who may see the position and for how long, counsel's view under NDPA, and a decision on whether a red event may share without a fresh tap.
 - Decision: (a), 2026-10-07 (founder). Open parts: consent wording, retention, counsel review.
+
+### OQ-273 Silence line 7 days needs a new signed rule set (raised 2026-10-07, S11)
+- Decision S11-1 sets the silence line to 7 days. The live signed rule set `bp_care_triage` v1 uses 5, and rule sets are versioned, never edited.
+- Work: `bp_care_triage` v2 (rules, shared copy, device bundle, parity and fixture tests), registry `triage.silence_rule_days` v2, CMO signature. Spec safety case 7 (5 days) and `docs/BUILD-SPEC-v5.md` are not edited; this entry and S11-1 record the departure.
+- Decision: 7 days (founder, 2026-10-07). Build: open.
