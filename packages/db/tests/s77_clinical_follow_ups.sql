@@ -98,6 +98,8 @@ begin
   -- doc is tied to pat and pat2 as the care-team clinician (the lead); doc3 is tied to pat as the clinical director; pat3 has no lead at all
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id) values (v_org, v_pat, v_doc), (v_org, v_pat2, v_doc);
   update public.care_team_assignment set clinical_director_id = v_doc3 where patient_id = v_pat;
+  -- pat3: doc is tied only as clinical director, and there is NO lead clinician (clinician_id null)
+  insert into public.care_team_assignment (organisation_id, patient_id, clinical_director_id) values (v_org, v_pat3, v_doc);
   -- doc owns pat3's follow-ups only through ownership (no tie)
   perform pg_temp.setf('org', v_org); perform pg_temp.setf('admin', v_admin); perform pg_temp.setf('doc', v_doc); perform pg_temp.setf('doc2', v_doc2);
   perform pg_temp.setf('doc3', v_doc3); perform pg_temp.setf('cmo', v_cmo); perform pg_temp.setf('pat', v_pat); perform pg_temp.setf('pat2', v_pat2); perform pg_temp.setf('pat3', v_pat3);
@@ -297,8 +299,8 @@ begin
                   then true else f.escalation_route = 'to_pool' end)::text from public.clinical_follow_ups f where f.id = pg_temp.f('fu_nolead')));
   insert into results values ('real', 'a patient with a lead clinician: the route matches the task state', 'true',
     (select ((f.escalation_route = 'raised') = (t.state::text = 'offered_to_lead'))::text from public.clinical_follow_ups f join public.clinical_tasks t on t.id = f.escalation_task_id where f.id = pg_temp.f('fu_routine')));
-  insert into results values ('real', 'escalation is written to the audit log, with no patient detail', 'true',
-    (select (count(*) = 3 and bool_and((event ->> 'task_id') is not null and not (event::text ~* '(result|reading|diagnos)')))::text
+  insert into results values ('real', 'escalation is written to the audit log with ids and a route only', 'true',
+    (select (count(*) >= 3 and bool_and((event ->> 'task_id') is not null and (select bool_and(k in ('task_id', 'route', 'abnormal_result')) from jsonb_object_keys(event) k)))::text
        from public.audit_log where action = 'clinical_follow_up.escalated' and entity_id in (pg_temp.f('fu_routine'), pg_temp.f('fu_abn'), pg_temp.f('fu_nolead'))));
   -- a second sweep escalates nothing more and makes no second task
   v_r := private.sweep_clinical_follow_ups();

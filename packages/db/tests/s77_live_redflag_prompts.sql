@@ -88,8 +88,9 @@ begin
   v_doc := pg_temp.mkdoc(v_org, 'doc', v_admin, 'senior_medical_officer');
   v_doc2 := pg_temp.mkdoc(v_org, 'doc2', v_admin, 'senior_medical_officer');
   v_pat := pg_temp.mkuser(v_org, 'realpat', 'patient');
-  update public.profiles set is_test = false where id = v_pat;      -- a real (non-test) patient: no test-pair bypass
-  v_tpat := pg_temp.mkuser(v_org, 'testpat', 'patient');            -- a test patient: with a test clinician the test-pair bypass applies
+  update public.profiles set is_test = false, date_of_birth = date '1985-01-01' where id = v_pat;      -- a real (non-test) patient: no test-pair bypass
+  v_tpat := pg_temp.mkuser(v_org, 'testpat', 'patient');
+  update public.profiles set date_of_birth = date '1985-01-01' where id = v_tpat;            -- a test patient: with a test clinician the test-pair bypass applies
   insert into public.encounters (organisation_id, patient_id, clinician_id, type, status, scheduled_at, started_at, policy_version, is_test)
     values (v_org, v_pat, v_doc, 'video', 'in_progress', now(), now(), 1, false) returning id into v_e1;   -- real patient, consent granted
   insert into public.encounters (organisation_id, patient_id, clinician_id, type, status, scheduled_at, started_at, policy_version, is_test)

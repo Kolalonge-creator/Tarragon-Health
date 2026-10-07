@@ -1875,6 +1875,6 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-07",
-    source: "docs/plans/S75-S80-cmo-decisions.md S-20; spec 23.8; supabase/migrations/20261007155213_s77_clinical_follow_ups_closure.sql",
+    source: "docs/plans/S75-S80-cmo-decisions.md S-20; spec 23.8; supabase/migrations/20261007160101_s77_clinical_follow_ups_closure.sql",
   },
 ];
