@@ -1554,3 +1554,13 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - The INV-04 token list covers HIV, hepatitis B and C and the neighbouring markers a lab reports for them (hepatitis B DNA, antigen and antibody markers, CD4, viral load, p24), all PROPOSED. Syphilis, other STI tests, pregnancy tests and genetic results are NOT on it: that is a clinical and legal decision, not a coding one.
 - Options: (a) CMO and counsel decide the list and it is changed in one place (`assistant.excluded_analytes` plus `ai_excluded_analyte_tokens`, kept in step by a test) (recommended); (b) widen now to every STI marker.
 - Decision: open (CMO and counsel).
+
+### OQ-291 Nudges reach patients who used the assistant once, whatever their plan now (raised by S51, from the code review)
+- The daily nudge cron and the mobile `/nudge` route check the go-live guard, role and active status, not entitlement, because `has_ai_coach_access()` answers only for the signed-in person. A patient whose access later lapsed would still get a generic "your check-in is ready" note. The note names nothing and the guard is off today.
+- Options: (a) a service-role access check function used by the cron and the nudge route (recommended before the guard is switched on); (b) accept.
+- Decision: open.
+
+### OQ-292 The conditions and medicines lists reach the model and the visit draft unfiltered (raised by S51, from the code review)
+- INV-04 now covers lab results, explanations and the reply. `patient_conditions` and `medications` rows are still passed to the model and to the pre-visit question list as written. A condition row that names HIV or hepatitis would be seen by the assistant.
+- Options: (a) filter those two reads with the same token list (recommended); (b) leave to the clinician's choice of what is recorded.
+- Decision: open (CMO).

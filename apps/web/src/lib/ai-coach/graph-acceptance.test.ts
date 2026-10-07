@@ -50,6 +50,10 @@ describe("INV-04: the assistant never discusses a sensitive result", () => {
       expect(out.modelId).toBeNull();
       expect(touched).not.toHaveBeenCalled();
       expect(logAiCoachReviewFlag).toHaveBeenCalled();
+      // the patient's words are not copied into the alert queue (every clinician on the worklist could read it)
+      const arg = (logAiCoachReviewFlag.mock.calls.at(-1) as unknown as [unknown, { triggerMessage: string }])[1];
+      expect(arg.triggerMessage).not.toBe(incomingMessage);
+      expect(arg.triggerMessage).not.toMatch(/hiv|hepatitis|hbsag/i);
     }
   );
 });

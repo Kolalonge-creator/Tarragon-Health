@@ -59,7 +59,7 @@ as $$
              'owner', nullif(btrim(coalesce(h.reviewed_by_name, h.clinical_author_name, h.author_name)), ''),
              'version', coalesce(h.content_version, h.version, 1),
              'review_due_at', coalesce(h.review_due_at, h.next_review_due::timestamptz),
-             'retrievable', coalesce(h.clinician_reviewed and h.is_active
+             'retrievable', coalesce(h.clinician_reviewed and h.is_active and h.content_status = 'published'
                             and nullif(btrim(coalesce(h.reviewed_by_name, h.clinical_author_name, h.author_name)), '') is not null
                             and coalesce(h.review_due_at, h.next_review_due::timestamptz) > now(), false)) as j
       from public.health_education_content h where h.id = any (p_ids) and h.is_active
@@ -114,7 +114,7 @@ declare
 begin
   select count(*) into v_kb from (
     select 1 from public.health_education_content h
-     where h.clinician_reviewed and h.is_active
+     where h.clinician_reviewed and h.is_active and h.content_status = 'published'
        and nullif(btrim(coalesce(h.reviewed_by_name, h.clinical_author_name, h.author_name)), '') is not null
        and coalesce(h.review_due_at, h.next_review_due::timestamptz) > now()
     union all

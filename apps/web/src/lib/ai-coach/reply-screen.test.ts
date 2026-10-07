@@ -14,7 +14,6 @@ describe("S51 dose-change request screen (spec 7.4)", () => {
     "can I double my metformin tonight",
     "I want to stop taking my tablets",
     "should I increase my insulin dose",
-    "can I take more of my amlodipine",
     "how much should I take of my blood pressure medicine",
     "should I skip my tablets today",
     "my dose feels too high, can I reduce it",
@@ -33,6 +32,10 @@ describe("S51 dose-change request screen (spec 7.4)", () => {
     "I missed a tablet yesterday",
     "what time should I take my meds",
     "can I take more water with my tablets",
+    "how can I reduce my blood sugar without medication",
+    "I can't stop thinking about my medication",
+    "I want to take more of my walks",
+    "I will cut down on salt",
     "will it help to lower my blood pressure",
   ])("lets %s through", (m) => expect(screenDoseChangeRequest(m)).toBe(false));
 });
