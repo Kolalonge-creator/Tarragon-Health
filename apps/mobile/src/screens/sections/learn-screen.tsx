@@ -27,16 +27,12 @@ import {
   type HealthEducationReadingLevel,
   type KnowledgeCheckQuestion,
 } from "@/lib/health-education";
-<<<<<<< HEAD
 import { WeeklyLessonCard, DownloadsCard, LearnSearchCard, LessonFooter, LessonViewer, useMembersOnly } from "@/screens/sections/learning-sections";
-=======
-import { DailyLessonCard, DownloadsCard, LearnSearchCard, LessonFooter, LessonViewer } from "@/screens/sections/learning-sections";
 import { asLocale, t } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
 import { AppText } from "@/ui/kit";
 import { BreathingScreen } from "@/screens/sections/breathing-screen";
 import { CourseCard, CourseScreen } from "@/screens/sections/course-screen";
->>>>>>> origin/s55-60/s55-learning-centre
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";

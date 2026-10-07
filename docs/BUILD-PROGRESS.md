@@ -1080,7 +1080,6 @@ Found during the simulator pass (`docs/S06_SIMULATOR_CHECKLIST.md`).
   3. `20261007153127_s55_review_fixes_shared_article_and_creator_writes.sql` (code review fixes: shared link needs reviewer and date, no direct creator writes, reinstate).
   - Functions to deploy: none. Ship web and mobile code with the migrations (the admin form writes the new columns); a mobile OTA is JS only, no new native module.
   - Who signs what: nobody has signed anything. The CMO confirms the synonym groups, micro-lesson limits and the six myth topics; the founder confirms the offline cap, the search log rules (with the DPO), the creator payment model and whether the everyday Nigerian words stay (OQ-S55-01).
-<<<<<<< HEAD
 
 ## S55 follow-up: weekly pacing and the members-only creator perk (stacked on #1005)
 - **Source**: two founder decisions (2026-10-07) patched on top of PR #1005 (branch `s55-60/s55-learning-centre`). Design `docs/design/S55.md` section 8. Open questions OQ-S55-13 and OQ-S55-14. Founder waived the S40 gate; nothing is switched on; nothing applied live.
@@ -1088,7 +1087,6 @@ Found during the simulator pass (`docs/S06_SIMULATOR_CHECKLIST.md`).
 - **Tests**: `packages/db/tests/s55_weekly_lesson_and_members_creator_perk.sql` (49 checks, registered in `ci.manifest`, two sabotage steps); `f1_learning_content_expiry_gate.sql` updated to the weekly function (still passes); Jest: footer, weekly card, share page, share loader, mobile offline pick, config mirror.
 - **Apply to production**: after #1005's three migrations, `list_migrations` first, explicit transaction with version pinned to the filename. Ship web and mobile with it. No function deploy. Nothing signed.
 
-=======
 ## S34: low-data mode, accessibility, size report (2026-10-07, branch `s34b/low-data-a11y-build`)
 - **Built**: `media-policy.ts` and `useLowData()`; low-data change notifications; every touchable now has a screen-reader role (16 fixed, 1 undersized rating control padded to 44 points); `a11y-scan.test.ts`; `size-report.mjs` (report only, OQ-252). Carries PR 979's mobile low-data diff unchanged.
 - **Reused**: the design kit (labels, roles, 48 point Button, reduce motion, 200 percent text cap), S32 audio bundle planner's low-data rule, `profiles.low_data_mode` (not written yet).
@@ -1171,4 +1169,3 @@ Not done: not applied to production, not pushed.
 - **Proof**: `oq261_remove_home_delivery.sql` (23 checks, 2 sabotages that flip) in `ci.manifest`; replay of `main-dev` plus the migration passes on an isolated local stack; the three proofs and the seed that inserted the dropped columns were updated.
 - **Applied to production 2026-10-07**: app code (#1017) deployed first, then `oq261a` (additive overload, version 20261007105824) and `oq261_remove_home_delivery` (version pinned to 20261007153917); guard counts were zero, in-transaction assertions passed, live state re-verified afterwards (7-value status enum, delivery columns/table/functions gone, `logistics_partners` and the courier and cold-chain columns kept, anon cannot execute). Generated types spliced by hand in `packages/shared` and `packages/db` (production types include other branches' schema, so no wholesale regeneration); the `Partial<Record>` status maps went back to exhaustive `Record`.
 - **Left**: the deployed `send-pending-notifications` edge function still carries the three removed delivery templates until it is redeployed (harmless, nothing queues them); `docs/PHARMACY_ENGINE_SPEC.md` and the archive still describe the delivery columns; old mobile builds that still select `fulfilment_method` would fail on the orders screen (OTA publishes the new code to `preview`; no production iOS distribution exists yet).
->>>>>>> origin/s55-60/s55-learning-centre

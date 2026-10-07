@@ -1736,7 +1736,6 @@ Four defects from `docs/design/S55-S60-build-plan.md` section 5, fixed ahead of 
 ### OQ-S55-12 A failed lesson-event write opens one shared incident
 - If `lesson.completed` or `course.completed` cannot be written, the patient's progress is still saved, an `audit_log` row is written for each failure and one open sev1 incident covers all of them. A systematic failure therefore pages once, not once per patient. Confirm sev1 is the right class for a rewards-event failure (S58 is the only consumer, not built).
 - Decision: open.
-<<<<<<< HEAD
 
 ### OQ-S55-13 Weekly pacing replaces the daily lesson card (founder decision 2026-10-07)
 - The founder prefers weekly lessons. `daily_micro_lesson()` is replaced by `weekly_micro_lesson()`: one lesson per programme week, chosen with the existing drip engine (`drip_week` against `private.health_education_unlock_week(condition)`, per-condition clocks), each at most the `micro_lesson` config minutes (5, PROPOSED). A lesson finished this week stays shown as done until the programme week turns over; an unfinished earlier lesson is offered only when nothing newer is due. Copy says "This week's lesson" on web (dashboard, Learn) and mobile (Home, Learn); the generic Today task label `today.kind.read_lesson` now reads "Read your lesson" (it is not tied to the weekly lesson). Events `lesson.completed` and `course.completed` are unchanged. The `micro_lesson` config key keeps its name (it describes the lesson shape, not the cadence).
@@ -1753,7 +1752,6 @@ Four defects from `docs/design/S55-S60-build-plan.md` section 5, fixed ahead of 
 - The weekly clock: a condition track counts from its active care plan; the general track counts from the earlier of onboarding and first engagement, so finishing a first lesson never resets it. The feed's own unlock week (`private.health_education_unlock_week`) still falls back to first engagement only, so for a person who onboarded long before their first lesson the feed can unlock fewer lessons than the weekly card offers; decide whether the feed should use the same anchor.
 - Decision: founder decided the perk; (a), (b) and (c) open.
 - Recorded in review, not changed: re-taking an old lesson (fail then pass) restamps its finish time and counts as done this week; the mobile single-lesson viewer shows only the title if the lock lookup fails; the perk switch is not sign-off gated beyond an admin and a reason.
-=======
 ### OQ-272 Emergency location versus "routes are never shared" (raised 2026-10-07, S48)
 - Spec 5.7 and the Module 5 acceptance test say routes are never shared; Part C bans public maps. The founder wants the patient to be locatable in an emergency, which is the opposite use of location data.
 - Options: (a) route recording stays private and a separate consented emergency-location feature is built (recommended, decision S48-1); (b) one recorder with a sharing switch (rejected: breaks the acceptance test); (c) no emergency location.
@@ -1818,4 +1816,3 @@ Four defects from `docs/design/S55-S60-build-plan.md` section 5, fixed ahead of 
 - Resolved in the stack: S55 relies on S33's emitter and carries no second one (its unapplied migrations no longer register or emit the events); the S55 proof asserts S33's payload contract. S58 rewards award from the same event, and S58b's `bp_ten_day_micro` drafts no longer share the code `bp_care_course` with S33's 14-lesson course.
 - Not carried over, for a decision: S55's version wrote an audit row and opened ONE incident when an event write failed and never lost the patient's progress. S33's trigger has no such wrapper, so a failed event write raises and the progress insert fails. Decide whether S33's emitter should become best-effort with an incident (sev2 through `private.page_incident_sev`, added in S58b).
 - Decision: pending.
->>>>>>> origin/s55-60/s55-learning-centre
