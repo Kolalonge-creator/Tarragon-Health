@@ -81,7 +81,7 @@ export function LimitsBlock() {
   const [open, setOpen] = useState(false);
   return (
     <View style={{ gap: 4 }}>
-      <Pressable accessibilityRole="button" onPress={() => setOpen((v) => !v)}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${open ? "Hide" : "Show"}: ${ASSISTANT_LIMITS.title}`} onPress={() => setOpen((v) => !v)}>
         <MutedText>{open ? "Hide: " : "Show: "}{ASSISTANT_LIMITS.title}</MutedText>
       </Pressable>
       {open ? ASSISTANT_LIMITS.lines.map((l) => <MutedText key={l}>{l}</MutedText>) : null}
@@ -176,7 +176,7 @@ export function MemoryBlock() {
 
   if (!state) return null;
   const header = (
-    <Pressable accessibilityRole="button" onPress={() => setOpen((v) => !v)}>
+    <Pressable accessibilityRole="button" accessibilityLabel={`${open ? "Hide" : "Show"}: What I remember about you`} onPress={() => setOpen((v) => !v)}>
       <MutedText>{open ? "Hide: " : "Show: "}What I remember about you</MutedText>
     </Pressable>
   );
