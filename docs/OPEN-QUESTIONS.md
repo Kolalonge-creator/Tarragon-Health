@@ -1203,6 +1203,31 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Options: (a) give `e2e-browser` a `pg` connection helper to the local stack and add a seeded clinician fixture (recommended, its own session); (b) a test-only `public` seeding function behind the local-stack guard.
 - Decision: open.
 
+## Raised by S35c (scribe safety)
+
+### OQ-213 The facts stage lists medicines the draft stage may not write (raised by S35c)
+- The facts-to-confirm stage returns `medication_mentioned` facts (the exact words used) so the clinician can check them: medicine information is where audits of AI notes find most failures. Stage two still writes "Medication plan discussed with the clinician" and never names a medicine, so AI-017's guardrail `no_medication_names_or_doses` and INV-02 still hold for everything that reaches the note. The facts live only in the browser and are never stored.
+- Needs the CMO's reading: is listing a mentioned medicine for confirmation inside that guardrail? If not, drop the `medication_mentioned` type from `FACT_TYPES` and the eval case `facts_cover_safety_items` changes with it.
+- The new suite "AI-017 facts-to-confirm golden transcripts" (6 cases, required for release, threshold 100) is registered; no evaluation run exists and none was created. The two new prompts are not approved; AI-017 stays off.
+- Decision: open.
+
+### OQ-214 Language release needs a measured word error rate and a pass mark (raised by S35c)
+- `pnpm scribe-wer manifest.json` measures speech-to-text on consented recordings against checked transcripts, per language, with dropped negations and missed protected terms. It has no pass mark. The mark for switching a language on (Nigerian English, Pidgin) is a PROPOSED value for the CMO, and no consented audio has been collected (OQ-96, speech vendor undecided).
+- Options: (a) CMO proposes a maximum WER and a zero-tolerance rule for dropped negations, then it is added to the registry (recommended); (b) keep the scribe to typed notes only, with no speech-to-text, indefinitely.
+- Decision: open.
+
+### OQ-215 The signed hash detects change; it is not a signature (raised by S35c)
+- `signed_content_hash` is a plain sha256 of the signed text, stamped by trigger at finalize. It shows a stored note was altered afterwards; it does not prove who signed (the existing `finalized_by_staff` does) and nobody holds a key. A keyed or externally anchored signature is a larger decision.
+- Options: (a) keep the tamper check (recommended for now); (b) add a periodic job that re-checks every hash and raises an incident on a mismatch; (c) a keyed signature held outside the database.
+- Decision: open.
+
+### OQ-216 No live recording indicator exists because nothing records (raised by S35c)
+- The scribe takes pasted or typed notes only. The consent gate now shows the patient's three-state answer, but a live "recording" indicator with elapsed time and a stop button needs audio capture, which needs the speech vendor (OQ-96). Build it with that session.
+- Decision: open.
+
+### OQ-217 The amber warning window on the queue is 30 minutes (raised by S35c)
+- `queue.sla_warning` (registry, PROPOSED, CMO) turns a held task's due badge amber inside 30 minutes. Display only: it changes no deadline, routing or fee. The CMO confirms or changes it on the go-live sign-off screen.
+- Decision: open.
 ### OQ-213 Admin patient search: rate limit and who may open (S36a)
 - Blocks: nothing. Live: `admin_patient_search` returns at most 25 rows and writes one audit row per search; exact email and phone digits are searchable, so a determined admin could probe whether an email is registered.
 - Options: (a) accept, since the caller is the single founder admin and every search is audited (recommended while there is one admin); (b) a per-hour search cap once a second admin or delegated support role exists; (c) widen to a `support.patient_lookup` permission for the support team (needs a decision on what support may see, since opening a record shows date of birth and email).
@@ -1374,6 +1399,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - The app has no audio library (`expo-audio` or `expo-av`) and no file-system module for downloaded clips. Adding either is a native dependency: a new EAS build and a `runtimeVersion` bump (as OQ-73), and the OTA auto-publisher will skip the push.
 - S32 built the player as a port (`AudioEngine`, `DownloadedFiles` in `apps/mobile/src/lib/audio/service.ts`). With no engine registered every request shows its text and logs one `engine_unavailable` issue. No recording exists yet anyway, so nothing is lost today.
 - Options: (a) add `expo-audio` and `expo-file-system` in the next native build, with the first recordings (recommended); (b) add them now and cut a build for nothing to play.
+- Decision (founder, 2026-10-06): add `expo-audio` and `expo-file-system` and the player adapter now, with the `runtimeVersion` bump to `0.1.0-native6` held until the build is cut (decided 2026-10-07: build later, batched with other native work). Built in S32 (PR 961). Nothing plays until signed recordings exist. No build has been cut: do the bump and `eas build` together when there is more native work to batch.
 
 ### OQ-202 EMG-001L is not in the Audio Production List (raised by S32)
 - The triage engine (S11, OQ-87) emits `EMG-001L` for a low reading with fainting. The list has EMG-001 to EMG-013 and no low-pressure variant, so that guidance has text and no voice. A test lists this gap so closing it is a deliberate change.
@@ -1412,6 +1438,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Playback in silent mode, with headphones, during a call, or from the lock screen needs the native module (OQ-201).
 - Whether spoken triage makes the app regulated software in Nigeria is unconfirmed (NAFDAC, D.6). Ask counsel before the symptom clips (SYM) ship.
 - Voice input in Pidgin is out of scope until recognition meets a clinical accuracy bar (the best published Pidgin result was 29.6 percent word error rate).
+- Decision (founder, 2026-10-06): (1) blood pressure gets a unit clip, NUM-P24 "millimetres of mercury" (added in `audio/source/extra-clips.json`, clinical review required; until it is recorded and signed, blood pressure audio is text only); (2) emergency clips play in silent mode and take audio focus, everything else respects silent mode, no lock-screen controls and no background playback; (3) screen readers: English only, plain labels and a hint, no Pidgin language tagging. Still open: a real-device TalkBack and VoiceOver pass, regulatory status of spoken triage, and Pidgin voice input (out of scope).
 
 > Note: S29's Care Circle questions were renumbered from OQ-193 to OQ-198 to OQ-220 to OQ-225 (2026-10-07, founder choice, then moved again because S32 and S35 took OQ-201 onwards): S31's payout questions keep OQ-193 to OQ-200.
 
@@ -1468,6 +1495,24 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-271 Not applied, console home (raised by S38; was numbered OQ-236, which S36g already used)
 - The migration is not applied to production (apply before merging). The page is in `apps/web` (`/admin/outcomes`); S36 and S37 decide where the console version lives. The report is open to admins and the active CMO only; a clinical lead who is neither cannot see it yet.
 - Decision: open.
+
+### OQ-274 Risk points and tier cut-offs (raised by S38c)
+- Every weight in `risk_config` v1 (for example 45 points for a 7-day average 20 or more above target, 40 for a red event, 50 for 10 days of silence; medium at 30, high at 60) is a PROPOSED starting value, not a clinical judgement. They only order outreach.
+- Options: (a) CMO reviews against the first month of real scores and the fairness report before the worklist is relied on (recommended); (b) CMO sets values now.
+- Decision: open (CMO).
+
+### OQ-275 Monthly report thresholds, and what the care team did (raised by S38c)
+- 3 readings for an average, a 5 mmHg change for "lower" or "higher", 2 grace days: PROPOSED. The report does not say what the care team did that month: counts of reviews or tasks would reveal that a task exists, including sensitive ones.
+- Options: (a) leave it out (as built); (b) add a count of released notes and answered messages only, after the CMO approves the list.
+- Decision: open (CMO).
+
+### OQ-276 Sharing the monthly report with the Care Circle (raised by S38c, closed by S38d)
+- Built once S29 merged (2026-10-06). No new permission and no sharing flag: a member with `weekly_bp_trend` sees, for up to three months, whether there were enough readings, the average (whole numbers), under or above target and the direction; a member with `adherence_summary` sees the share of medicines taken. With neither tick the block is absent (not shared, never zero). No target numbers, week split or reading counts are shared. The patient's own "see what they see" preview shows the same block. A paused circle, an expired or removed member sees none of it.
+- Decision: built as proposed; the founder can narrow it (for example monthly adherence only) by removing a part from `private.circle_monthly_block`.
+
+### OQ-277 Two risk tables with different jobs, worklist cost, who may read it (raised by S38c)
+- `risk_scores` (this build, a daily ordering aid) is separate from `risk_predictions` and `patient_risk_scores` (condition models). The worklist reads each patient's latest score and tests the clinician tie row by row; fine at pilot size, needs a tie-first query before thousands of patients. Only role `clinician` can open it; care coordinators cannot yet (their work is logistics, not ordering by risk).
+- Decision: open.
 - **Decided 2026-10-07 (founder): admins and the CMO, in `apps/web`, for now.** Clinical leads who are neither cannot open it yet; S36 and S37 decide the console version.
 
 
@@ -1518,6 +1563,30 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Options: (a) cache the last course payload on the phone for reading offline (small, recommended before launch); (b) leave it for Release 2 with the full Learning Centre.
 - Decision: open.
 
+### OQ-254 Sponsor reporting built; what it still needs (raised by S38d, built by S38e)
+- Built: sponsor cohorts (programme codes), joining, per-programme consent to share group figures, the aggregate-only sponsor report and its audited CSV (admin or CMO only). Left: (a) counsel must approve the consent text, which is seeded as a DRAFT and not current, so no member can consent and no sponsor figure exists until then (OQ-256); (b) a sponsor's own staff cannot log in to see their figures; today an admin or the CMO reads them and hands over the file (OQ-258).
+- Decision: open (founder and counsel).
+
+### OQ-255 Triage accuracy built as agreement with the automatic grade (raised by S38d, built by S38e)
+- Built: an optional "was the grade right, should it have been higher, should it have been lower" field a clinician records after completing a task that came from an automatic grade, and an admin report of agreement (coverage first, small groups withheld, draft rule sets and test accounts left out). It measures agreement with the grade, not diagnostic accuracy; nothing records a final diagnosis. The capture is a platform switch, OFF until the CMO approves (OQ-257).
+- Decision: open (CMO).
+
+### OQ-256 The sponsor consent text needs counsel (raised by S38e)
+- `consent_versions` holds a DRAFT sponsor_reporting text (`2026-10-07-draft`, not current). The patient screen explains in plain words what a sponsor sees. Counsel should approve the legal text and the plain wording together, then the founder makes it current (until then sharing shows "not open yet").
+- Decision: open (counsel).
+
+### OQ-257 CMO approval to switch on triage grade reviews (raised by S38e)
+- The switch `triage_agreement_capture` is off. It adds an optional step for clinicians and shows no patient identity. The admin page asks for a tick and a written note of who approved it and when (at least 10 characters), kept with the switch and in the audit log; it is a record, not a verification, so the CMO's approval itself still has to be real.
+- Decision: open (CMO).
+
+### OQ-258 Sponsor staff access and a mobile way to join (raised by S38e)
+- A sponsor's own staff (employer or insurer admins) cannot see their group figures directly; that needs a role decision (the institutions aggregate-only rule, I9, already limits what they may ever see). Joining a programme with a code is on the web only; the mobile app has no join screen yet.
+- Decision (founder, 2026-10-07): sponsor staff are given access in the mobile app and see their figures there. Built as S38f on the existing institution logins (hmo_admin, corporate_admin, ngo_admin), no new role: see `docs/design/S38f.md`. Also built: web tab and file export for corporate and HMO admins, a Programmes screen for patients on the phone, and held-back months so two published months cannot be subtracted. Closed.
+
+### OQ-259 Sponsor snapshot housekeeping (raised by S38f review)
+- `sponsor_report_snapshots.member_set` stores every agreed member's id for every month so a month can be compared with the last published one. At very large programme sizes that is megabytes a month. Fix when it matters: keep the set only on the most recent published snapshot of each programme (a follow-up migration; none are needed while there are no programmes).
+- `sponsor_staff_figures` writes one audit row per programme per view, so a sponsor with several programmes writes several rows per page load. Fix when it matters: one list-and-figures call that audits once.
+- Decision: open (engineering), not urgent.
 - **Gift window decided 2026-10-07 (founder): 14 days, with one reminder on day 7.** Built in migration `20261007101733_s29d_gift_window_14_days.sql` (care circle config version 3: `gift_decide_days` 14, `gift_remind_days` 7; the sweep declines past the window and reminds once).
 
 ### OQ-251 TRI-002 promises a clinician review that Free plan patients do not get (raised by the OQ-203 wording work)

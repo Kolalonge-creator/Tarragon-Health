@@ -121,6 +121,7 @@ export const AUDIO_SCRIPTS: Readonly<Record<string, AudioScript>> = {
   "NUM-P20": { en: "days in a row." },
   "NUM-P21": { en: "Today you have walked" },
   "NUM-P23": { en: "steps." },
+  "NUM-P24": { en: "millimetres of mercury" },
   "ONB-001": { en: "Welcome to Tarragon Health. To continue in English, tap English." },
   "ONB-002": { en: "Welcome to Tarragon Health. We help you know your health, manage it every day, and get a clinician when you need one. Setting up takes about five minutes." },
   "ONB-003": { en: "Enter your phone number or your email address. You will use it to sign in." },
