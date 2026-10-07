@@ -42336,6 +42336,343 @@ export type Database = {
         }
         Relationships: []
       }
+      // S63 (digital therapy programmes): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
+      therapy_enrolments: {
+        Row: {
+          id: string
+          organisation_id: string
+          patient_id: string
+          programme_id: string
+          programme_version: number
+          exclusion_list_version: number
+          state: string
+          stop_reason: string | null
+          baseline_score: number | null
+          current_score: number | null
+          exclusion_result: Json
+          source: string
+          recorded_by: string | null
+          is_test: boolean
+          completed_count: number
+          started_at: string
+          stopped_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organisation_id: string
+          patient_id: string
+          programme_id: string
+          programme_version: number
+          exclusion_list_version: number
+          state: string
+          stop_reason?: string | null
+          baseline_score?: number | null
+          current_score?: number | null
+          exclusion_result?: Json
+          source?: string
+          recorded_by?: string | null
+          is_test?: boolean
+          completed_count?: number
+          started_at?: string
+          stopped_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          programme_id?: string
+          programme_version?: number
+          exclusion_list_version?: number
+          state?: string
+          stop_reason?: string | null
+          baseline_score?: number | null
+          current_score?: number | null
+          exclusion_result?: Json
+          source?: string
+          recorded_by?: string | null
+          is_test?: boolean
+          completed_count?: number
+          started_at?: string
+          stopped_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      therapy_exclusion_list_versions: {
+        Row: {
+          programme_code: string
+          version: number
+          status: string
+          confirmed_by: string | null
+          confirmed_at: string | null
+          created_by: string | null
+          note: string | null
+          created_at: string
+        }
+        Insert: {
+          programme_code: string
+          version: number
+          status?: string
+          confirmed_by?: string | null
+          confirmed_at?: string | null
+          created_by?: string | null
+          note?: string | null
+          created_at?: string
+        }
+        Update: {
+          programme_code?: string
+          version?: number
+          status?: string
+          confirmed_by?: string | null
+          confirmed_at?: string | null
+          created_by?: string | null
+          note?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      therapy_exclusion_rules: {
+        Row: {
+          id: string
+          programme_code: string
+          list_version: number
+          ordinal: number
+          item_code: string
+          question: string
+          kind: string
+          threshold: number | null
+          route: string
+          unverified: boolean
+        }
+        Insert: {
+          id?: string
+          programme_code: string
+          list_version: number
+          ordinal: number
+          item_code: string
+          question: string
+          kind: string
+          threshold?: number | null
+          route: string
+          unverified?: boolean
+        }
+        Update: {
+          id?: string
+          programme_code?: string
+          list_version?: number
+          ordinal?: number
+          item_code?: string
+          question?: string
+          kind?: string
+          threshold?: number | null
+          route?: string
+          unverified?: boolean
+        }
+        Relationships: []
+      }
+      therapy_programme_config: {
+        Row: {
+          version: number
+          config: Json
+          notes: string | null
+          is_active: boolean
+          created_at: string
+        }
+        Insert: {
+          version: number
+          config: Json
+          notes?: string | null
+          is_active?: boolean
+          created_at?: string
+        }
+        Update: {
+          version?: number
+          config?: Json
+          notes?: string | null
+          is_active?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
+      therapy_programme_sessions: {
+        Row: {
+          id: string
+          programme_id: string
+          version: number
+          ordinal: number
+          title: string
+          kind: string
+          text_body: string
+          audio_clip_id: string | null
+          duration_seconds: number
+          audio_bytes: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          programme_id: string
+          version: number
+          ordinal: number
+          title: string
+          kind: string
+          text_body: string
+          audio_clip_id?: string | null
+          duration_seconds: number
+          audio_bytes?: number | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          programme_id?: string
+          version?: number
+          ordinal?: number
+          title?: string
+          kind?: string
+          text_body?: string
+          audio_clip_id?: string | null
+          duration_seconds?: number
+          audio_bytes?: number | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      therapy_programme_versions: {
+        Row: {
+          programme_id: string
+          version: number
+          review_state: string
+          approved_by: string | null
+          approved_at: string | null
+          note: string | null
+          created_at: string
+        }
+        Insert: {
+          programme_id: string
+          version: number
+          review_state?: string
+          approved_by?: string | null
+          approved_at?: string | null
+          note?: string | null
+          created_at?: string
+        }
+        Update: {
+          programme_id?: string
+          version?: number
+          review_state?: string
+          approved_by?: string | null
+          approved_at?: string | null
+          note?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      therapy_programmes: {
+        Row: {
+          id: string
+          code: string
+          wave: string
+          title: string
+          summary: string
+          status: string
+          guard_key: string
+          current_version: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          code: string
+          wave: string
+          title: string
+          summary: string
+          status: string
+          guard_key: string
+          current_version?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          code?: string
+          wave?: string
+          title?: string
+          summary?: string
+          status?: string
+          guard_key?: string
+          current_version?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
+      therapy_session_progress: {
+        Row: {
+          id: string
+          organisation_id: string
+          patient_id: string
+          enrolment_id: string
+          ordinal: number
+          started_at: string
+          completed_at: string | null
+          scores: Json | null
+          is_test: boolean
+        }
+        Insert: {
+          id?: string
+          organisation_id: string
+          patient_id: string
+          enrolment_id: string
+          ordinal: number
+          started_at?: string
+          completed_at?: string | null
+          scores?: Json | null
+          is_test?: boolean
+        }
+        Update: {
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          enrolment_id?: string
+          ordinal?: number
+          started_at?: string
+          completed_at?: string | null
+          scores?: Json | null
+          is_test?: boolean
+        }
+        Relationships: []
+      }
+      therapy_share_consents: {
+        Row: {
+          enrolment_id: string
+          organisation_id: string
+          patient_id: string
+          shared: boolean
+          text_version: string
+          granted_at: string | null
+          revoked_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          enrolment_id: string
+          organisation_id: string
+          patient_id: string
+          shared: boolean
+          text_version?: string
+          granted_at?: string | null
+          revoked_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          enrolment_id?: string
+          organisation_id?: string
+          patient_id?: string
+          shared?: boolean
+          text_version?: string
+          granted_at?: string | null
+          revoked_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       allergies: {
@@ -47806,6 +48143,20 @@ export type Database = {
         Returns: Json
       }
       request_mental_health_handoff: { Args: { p_note?: string; p_screen?: string }; Returns: string }
+      // S63 (digital therapy programmes)
+      approve_therapy_programme_version: { Args: { p_note?: string; p_programme_code: string; p_version: number }; Returns: Json }
+      complete_therapy_session: { Args: { p_enrolment: string; p_ordinal: number; p_scores?: Json }; Returns: Json }
+      confirm_therapy_exclusion_list: { Args: { p_programme_code: string; p_version: number }; Returns: Json }
+      enrol_in_therapy_programme: { Args: { p_answers: Json; p_programme_code: string }; Returns: Json }
+      get_therapy_entry_questions: { Args: { p_programme_code: string }; Returns: Json }
+      read_therapy_progress_audited: { Args: { p_patient: string; p_reason?: string }; Returns: Json }
+      resume_therapy_enrolment: { Args: { p_enrolment: string; p_reason: string }; Returns: Json }
+      save_therapy_exclusion_list: { Args: { p_note?: string; p_programme_code: string; p_rules: Json }; Returns: Json }
+      set_therapy_progress_sharing: { Args: { p_enrolment: string; p_share: boolean }; Returns: Json }
+      start_therapy_session: { Args: { p_enrolment: string; p_ordinal: number; p_recheck: Json }; Returns: Json }
+      stop_therapy_enrolment: { Args: { p_enrolment: string }; Returns: Json }
+      therapy_check_entry_screen: { Args: { p_answers: Json; p_programme_code: string }; Returns: Json }
+      therapy_run_progress: { Args: { p_enrolment: string }; Returns: Json }
       count_care_threads_awaiting_reply: {
         Args: Record<PropertyKey, never>
         Returns: number

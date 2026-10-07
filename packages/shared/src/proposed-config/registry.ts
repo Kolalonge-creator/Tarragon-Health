@@ -14,6 +14,8 @@
  * thresholds 6.2, task due windows 7.3, lead windows and claim timeouts 7.4)
  * are deliberately absent: the sessions that build them add them here.
  */
+import { THERAPY_EXCLUSION_LISTS, THERAPY_PROGRAMME_CONFIG } from "./therapy-config-data";
+
 export type ConfigOwner = "CMO" | "Founder" | "Founder and counsel";
 export type ConfigStatus = "proposed" | "confirmed";
 
@@ -1330,6 +1332,31 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S56.md; spec 10.3",
+  },
+  // S63: digital therapy programmes. DRAFT, unsigned: the CMO confirms or replaces both entries by publishing a higher version.
+  {
+    key: "therapy.exclusion_lists",
+    // Per programme: the entry questions and red flags that stop it (14.9). Live values are the rows of `therapy_exclusion_rules`
+    // at list version 1; a test fails if the migration seed and this value drift. Items with unverified: true are local Nigerian
+    // additions that stay draft until the CMO confirms them (Q16). An empty list (pulmonary_rehab) fails closed. The build never signs a list.
+    value: THERAPY_EXCLUSION_LISTS as unknown as ConfigValue,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S63.md; docs/plans/S61-S65-cmo-signoff-pack.md Q13 to Q16; NICE NG123 and CG61 style exclusions",
+  },
+  {
+    key: "therapy.programme_config",
+    // Task due windows, outcome instruments, checkpoint sessions, worsening thresholds and the CBT-I and pelvic floor settings.
+    // Live values are the active row of `therapy_programme_config`; a test fails on drift. phq9 and gad7 worsening values and the CBT-I
+    // floor are CMO decisions (Q14, Q15); every other number was chosen by the build so the engine can run and is for the CMO to replace.
+    value: THERAPY_PROGRAMME_CONFIG as unknown as ConfigValue,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S63.md; docs/plans/S61-S65-cmo-signoff-pack.md Q14, Q15",
   },
   // S26: entitlements lifecycle, care pack expiry, refunds
   {
