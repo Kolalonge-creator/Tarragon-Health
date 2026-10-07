@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { t } from "@tarragon/i18n";
 import { FormError, fieldErrorId } from "@/components/ui/form-error";
 
 /** mutationFn throws the raw Postgrest error object on failure (see
@@ -140,6 +141,16 @@ export function DataRightsPanel({
                     <Badge variant={STATUS_BADGE[r.status] ?? "grey"}>
                       {r.status.replace(/_/g, " ")}
                     </Badge>
+                    {r.status === "fulfilled" && (
+                      <span className="flex items-center gap-2 text-xs">
+                        <a className="underline underline-offset-2" href="/api/patient/data-export/pdf">
+                          {t("privacy.export.download_pdf")}
+                        </a>
+                        <a className="underline underline-offset-2" href="/api/patient/data-export">
+                          {t("privacy.export.download_json")}
+                        </a>
+                      </span>
+                    )}
                   </div>
                 </li>
               ))}

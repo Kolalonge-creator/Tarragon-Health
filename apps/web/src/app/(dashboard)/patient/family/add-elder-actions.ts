@@ -44,7 +44,7 @@ export async function addElderProxyDependentAction(
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid details" };
   }
-  const { full_name, phone, relationship, date_of_birth, sex } = parsed.data;
+  const { full_name, phone, relationship, date_of_birth, sex, reason } = parsed.data;
 
   const proxy = await getCurrentProfile();
   if (!proxy) return { error: "Not signed in" };
@@ -124,7 +124,7 @@ export async function addElderProxyDependentAction(
     action: "profile.elder_proxy_consent_attested",
     entity_type: "profiles",
     entity_id: elderId,
-    event: { relationship, confirmed_consent: true },
+    event: { relationship, confirmed_consent: true, reason },
   });
 
   const age = ageFromDateOfBirth(date_of_birth);

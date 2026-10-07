@@ -9,6 +9,7 @@ import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthLocale } from "@/lib/auth/auth-locale";
 import { ProxyConfirmationCard } from "@/app/(dashboard)/patient/family/proxy-confirmation-card";
+import { HandoverCard, type HandoverGuardian } from "@/app/(dashboard)/patient/family/handover-card";
 
 /**
  * Shared chrome for the patient dashboard's routed sections (Overview,
@@ -42,8 +43,19 @@ export default async function PatientSectionsLayout({
   const [
     { profile, acting, subjectId, subjectDateOfBirth, subjectHasEmergencyContact, glucoseUnit },
     { data: pendingProxySetups, error: proxySetupsError },
+    { data: handover, error: handoverError },
     locale,
-  ] = await Promise.all([getPatientDashboardContext(), supabase.rpc("my_pending_proxy_setups"), getAuthLocale()]);
+  ] = await Promise.all([
+    getPatientDashboardContext(),
+    supabase.rpc("my_pending_proxy_setups"),
+    supabase.rpc("my_handover"),
+    getAuthLocale(),
+  ]);
+  if (handoverError) {
+    Sentry.captureMessage("my_handover failed", { level: "warning", tags: { pg_code: handoverError.code ?? "none" } });
+  }
+  // The young person's own hand-over (v5 1.18): shown only to them, only after their 18th birthday, never while acting for someone.
+  const handoverState = (handover ?? null) as { pending?: boolean; guardians?: HandoverGuardian[] } | null;
   if (proxySetupsError) {
     Sentry.captureMessage("my_pending_proxy_setups failed", { level: "warning", tags: { pg_code: proxySetupsError.code ?? "none" } });
   }
@@ -58,6 +70,8 @@ export default async function PatientSectionsLayout({
       roleLabel={acting ? "Acting for them" : "Patient"}
     >
       <ProxyConfirmationCard setups={pendingProxySetups ?? []} locale={locale} />
+
+      {!acting && handoverState?.pending === true && <HandoverCard guardians={handoverState.guardians ?? []} />}
 
       {/* Whose account this is must never be in doubt. It sits above the
           safety surfaces because mistaking one person's record for another is

@@ -147,6 +147,18 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: `${SPEC.replace("Section 17", "Section 8.2")} (Set up for my parent: expires after 72 hours); maxPerDay is a proposed abuse limit, not from the spec`,
   },
   {
+    key: "proxy.cooling_off",
+    // S42, OQ-48 (coercion safeguard): after a parent ends an arrangement that someone else set up for them, that person cannot
+    // start a new setup for the same number for this many days. The parent can still invite them again from their own account.
+    // The spec gives no number; this is a PROPOSED value. SQL caps it at 365 and defaults to 30 when none is passed.
+    value: { days: 30 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: FROM,
+    source: "S42 safeguard (OQ-48): not from the spec; proposed",
+  },
+  {
     key: "commerce.care_pack_price_kobo",
     // 12,000 naira pilot price, stored as integer kobo (INV-15).
     value: 1_200_000,

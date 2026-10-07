@@ -242,5 +242,6 @@ export * from "./clinical-tier";
 export * from "./specialist-type-options";
 export * from "./proposed-config";
 export * from "./consent-state";
+export * from "./consent-matrix";
 export * from "./notification-settings";
 export * from "./notification-diagnosis";

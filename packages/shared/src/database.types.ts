@@ -7273,6 +7273,36 @@ export type Database = {
           },
         ];
       };
+      proxy_access_endings: {
+        Row: {
+          blocks_until: string
+          ended_at: string
+          id: string
+          is_test: boolean
+          organisation_id: string
+          parent_id: string
+          proxy_id: string
+        }
+        Insert: {
+          blocks_until: string
+          ended_at?: string
+          id?: string
+          is_test?: boolean
+          organisation_id: string
+          parent_id: string
+          proxy_id: string
+        }
+        Update: {
+          blocks_until?: string
+          ended_at?: string
+          id?: string
+          is_test?: boolean
+          organisation_id?: string
+          parent_id?: string
+          proxy_id?: string
+        }
+        Relationships: []
+      }
       proxy_setups: {
         Row: {
           confirmed_at: string | null
@@ -43361,6 +43391,11 @@ export type Database = {
         Returns: Json
       }
       withdraw_all_optional_consents: { Args: never; Returns: Json }
+      end_proxy_access: {
+        Args: { p_block_days?: number; p_grant: string }
+        Returns: Json
+      }
+      my_proxy_arrangements: { Args: never; Returns: Json }
       save_onboarding_answers: {
         Args: { p_conditions: string[]; p_goals: string[] }
         Returns: Json
