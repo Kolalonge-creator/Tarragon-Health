@@ -48,7 +48,15 @@ export interface DeviceSyncWindow {
 }
 export type DeviceSyncResult =
   | { ok: true; readings: DeviceSourceReading[] }
-  | { ok: false; error: string; retryable: boolean };
+  | {
+      ok: false;
+      error: string;
+      retryable: boolean;
+      /** Why, for a caller that must treat the reasons differently (a source that cannot be pulled is not an error; a missing token is skipped quietly). */
+      code?: "not_pullable" | "no_token" | "provider_error";
+      /** The original exception for "provider_error", so a caller that always rethrew keeps rethrowing the same thing. */
+      cause?: unknown;
+    };
 
 export type DeviceRevokeResult = { ok: true } | { ok: false; error: string };
 
