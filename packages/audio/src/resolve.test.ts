@@ -32,7 +32,7 @@ describe("emergency and triage clips with no network (INV-06, safety case 1 area
     const { d } = deps(manifest);
     const r = await resolveClips(["EMG-001"], "en", d);
     expect(r.text).toBe(scriptText("EMG-001", "en"));
-    expect(r.text).toMatch(/needs attention now/);
+    expect(r.text).toMatch(/need care now/);
   });
 });
 
@@ -63,11 +63,11 @@ describe("a missing clip shows the text and logs a non-fatal issue (spec 8.8)", 
     expect(issues).toEqual([{ code: "clip_file_missing", clipId: "EMG-001", lang: "en", detail: "TH-EMG-001-EN.mp3" }]);
   });
 
-  it("an id the manifest does not know (for example EMG-001L, which the list does not have)", async () => {
+  it("an id the manifest does not know", async () => {
     const { d, issues } = deps(withFinished("all"));
-    const r = await resolveClips(["EMG-001L"], "en", d);
+    const r = await resolveClips(["EMG-999"], "en", d);
     expect(r).toMatchObject({ complete: false, text: "" });
-    expect(issues).toEqual([{ code: "clip_unknown", clipId: "EMG-001L", lang: "en" }]);
+    expect(issues).toEqual([{ code: "clip_unknown", clipId: "EMG-999", lang: "en" }]);
   });
 });
 

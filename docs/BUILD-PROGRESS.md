@@ -792,6 +792,12 @@ Found during the simulator pass (`docs/S06_SIMULATOR_CHECKLIST.md`).
 - **Open questions**: OQ-180 to OQ-185 (why not `platform_modules`; the test-pair rule; no auto switch-off on drift; one-person attestations; guards to wire later; the consultation policy confirmation as a future condition). OQ-135 answered.
 - **Follow-ups**: apply the migration before deploying (see `docs/design/S37.md` section 7); `database.types.ts` not spliced (the screens parse results with Zod); the mobile app's own older booking path will get the database refusal but has no client-side calm state (OQ-158); S36 console screens were not finished and the founder said to proceed, so the screens sit with the other staff pages in `apps/web`.
 
+## S37b: clinical safety case condition on the clinical guards (2026-10-06, branch `s37/safety-case-reference`)
+
+- **Built**: migration `*_s37b_clinical_safety_case_condition.sql` re-creates `private.go_live_conditions` and `public.attest_go_live_condition` only. `clinical_operations_enabled`, `prescribing_enabled` and `scribe_enabled` now also need a recorded `clinical_safety_case_current` attestation (a note of 25+ characters naming the document, version and signer; only the CMO can record it, an admin who is not the CMO is refused, found by /code-review high). No table, grant or trigger changes. Nothing seeded or attested; no guard is on.
+- **Why**: live review (`docs/research/S37.md`) against the DCB0129 discipline; our guards had no link to a safety case or hazard log.
+- **Tests**: `s37_go_live_guards.sql` extended (117 checks, 0 failures) run as migration plus proof in one rolled-back transaction against the PRODUCTION project (no disposable database exists, see CLAUDE.md known gaps); nothing persisted. The new check discriminates: the extended proof fails against the schema without the migration (the condition cannot be attested).
+- **Not done**: the safety case is not tied to a document version or invalidated when a protocol changes (review finding, follow-up); migration NOT applied to production (apply before merging, pin version to the filename). The hazard log and safety case themselves do not exist yet; the CMO writes them. Dashboard labels come from the database, so no screen change.
 
 ## S35: clinician area and patient summary (2026-10-06, branch `s35/console-clinician-area`)
 
@@ -933,3 +939,16 @@ Found during the simulator pass (`docs/S06_SIMULATOR_CHECKLIST.md`).
 - **Not measured (no device)**: cold start, installed size, memory, logging speed, font scale at 200 percent, TalkBack and VoiceOver reading order.
 - **Open questions**: 0 new. OQ-227 answered (no targets).
 - **Follow-ups**: S32b audio player must call `mediaDecision`; add netinfo in the DG-6 native build; decide whether to mirror the preference to `profiles.low_data_mode`.
+## S36j: CMO may approve payouts
+
+Founder decision 2026-10-06: when the founder is the only admin, the Chief Medical Officer may also approve payouts.
+
+- Built: migration `20261007114253_s36j_cmo_may_approve_payouts.sql` adds `private.payout_approver_org()` (admin or active CMO), restates `public.approve_payout(uuid)` unchanged except for that check (one overload; the audit row now carries `approver_role`; `payout_events.source` stays `admin` because its CHECK has no `cmo`), and adds `public.payout_approval_queue()` (drafts only, no test clinicians, no bank data). `payout_admin_org` is untouched, so build, discard, send, retry and list stay admin only. A CMO who is the payee still cannot approve (payout_self_approval).
+- Screens: `/clinician/payout-approvals` (CMO door via `canAssignCases`), server action `approvePayoutAsCmo` using the signed-in session, nav and search entries, i18n keys `payapprove.*` in `en.ts`. The admin payouts page is unchanged.
+- Tests: DB proof `packages/db/tests/s36j_cmo_may_approve_payouts.sql` (41 checks plus a sabotage that flips 2), registered in `ci.manifest`; unchanged `s31_weekly_payouts.sql` (89 pass) and `s37_go_live_guards.sql` (113 pass); Jest for the action and page model; full web Jest 470 suites / 4140 tests; tsc, eslint and i18n tests clean.
+- Applied to production 2026-10-07 after a rolled-back dry run (`schema_migrations` row pinned to the filename; `payouts_enabled` guard is off so no money can move). Not done: no real-browser run of the new page. Migration timestamp is a hand-picked non-round value after the latest file (20261007101733) because the local clock reads earlier than that file.
+
+## S36k: payout approval follow-ups
+Built: migration `20261007120347_s36k_payout_approval_followups.sql` (the local clock read earlier than S36j's 20261007114253, so the stamp was set by hand to sort after it). `payout_events.source` now also allows `cmo` (named constraint `payout_events_source_check`); `approve_payout(uuid)` restated exactly as in S36j with only the event call passing `v_role`, so a CMO approval records `cmo` and an admin one `admin` (no code reads that column). `payout_approval_queue()` dropped and recreated with `is_mine` and `total_waiting`. Page: a truncation note (`payapprove.truncated`) and a disabled Approve with a reason for the caller's own draft (`payapprove.mine`, blockedReason `mine`).
+Reused: the S36j proof, extended (no new file) with source, is_mine, total_waiting and constraint checks plus a second sabotage. Tests: s36j proof, s31 and s37 proofs pass on a fresh `db reset`; apps/web tsc clean, 470 jest suites / 4142 tests pass, i18n tests pass.
+Not done: not applied to production, not pushed.
