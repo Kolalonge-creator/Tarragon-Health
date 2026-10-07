@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
+import { lagosToday } from "@/lib/format-date";
 import { parseReport } from "@/lib/outcomes/bp-report";
 import { reportToCsv } from "@/lib/outcomes/export-csv";
 
@@ -10,8 +11,6 @@ export const dynamic = "force-dynamic";
 const plainDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((v) => !Number.isNaN(new Date(`${v}T00:00:00Z`).getTime()));
 const input = z.object({ from: plainDate.optional(), to: plainDate.optional() });
 
-/** Africa/Lagos has no daylight saving: UTC+1 all year. */
-const lagosToday = () => new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 10);
 
 /**
  * The aggregate pilot report as a file (S38d). The same report as /admin/outcomes, so the same aggregate-only, small-groups-withheld

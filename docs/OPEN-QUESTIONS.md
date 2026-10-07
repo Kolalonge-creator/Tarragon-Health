@@ -1337,12 +1337,22 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - **Held corrections CLOSED:** a lab can replace a result that is still held. The held one is marked replaced at once, its review task is cancelled, and it can no longer be released or withheld (`lab_result_replaced`). The replacement goes through the same gate, the reviewer sees the kind and reason, and if the patient never saw the first result they get the normal release notice, not a "corrected" one. A claimed task held by another clinician is left to that clinician, who will find the release refused.
 - **Withdraw screen CLOSED (patient-scoped):** on a tied senior clinician's patient chart, "Released lab results" opens on a click (one audited read) and offers Withdraw with a required reason. There is deliberately no org-wide list.
 
-### OQ-254 Sponsor dashboards and sponsor exports are blocked on missing pieces (raised by S38d)
-- Module 22.6 and 22.9 need a sponsor, the people who joined through that sponsor, and each person's `sponsor_reporting` consent. None exist yet: cohort codes and `profile_cohorts` (spec 1.8) and sponsor programmes (Module 25) are not built, and there is no consent type row wired to a report. The company-level export (`/admin/outcomes/export`) is built and audited; a per-sponsor version would be the same aggregate with a cohort filter, a minimum group size, and only for people who gave `sponsor_reporting` consent.
-- Options: (a) build cohort codes and the sponsor consent first, then the sponsor report on top (recommended); (b) hand the company-level file to a sponsor by hand with counsel's agreement.
-- Decision: open (founder).
+### OQ-254 Sponsor reporting built; what it still needs (raised by S38d, built by S38e)
+- Built: sponsor cohorts (programme codes), joining, per-programme consent to share group figures, the aggregate-only sponsor report and its audited CSV (admin or CMO only). Left: (a) counsel must approve the consent text, which is seeded as a DRAFT and not current, so no member can consent and no sponsor figure exists until then (OQ-256); (b) a sponsor's own staff cannot log in to see their figures; today an admin or the CMO reads them and hands over the file (OQ-258).
+- Decision: open (founder and counsel).
 
-### OQ-255 The symptom-checker accuracy dashboard has no ground truth to measure against (raised by S38d)
-- Module 22.4 compares the checker's grade with a clinician's final judgement. Nothing records that judgement: `clinical_tasks.outcome` is free-form per task type and holds no "agree or change the grade" field. A dashboard built now would show volume by grade, not accuracy, and calling it accuracy would be wrong.
-- Options: (a) add one required, small field when a clinician completes a triage-graded task ("grade was right", "should have been higher", "should have been lower", with a reason) so accuracy can be measured by age, sex and state; this changes the clinician's workflow, so the CMO should decide (recommended); (b) leave 22.4 until the CMO decides.
+### OQ-255 Triage accuracy built as agreement with the automatic grade (raised by S38d, built by S38e)
+- Built: an optional "was the grade right, should it have been higher, should it have been lower" field a clinician records after completing a task that came from an automatic grade, and an admin report of agreement (coverage first, small groups withheld, draft rule sets and test accounts left out). It measures agreement with the grade, not diagnostic accuracy; nothing records a final diagnosis. The capture is a platform switch, OFF until the CMO approves (OQ-257).
 - Decision: open (CMO).
+
+### OQ-256 The sponsor consent text needs counsel (raised by S38e)
+- `consent_versions` holds a DRAFT sponsor_reporting text (`2026-10-07-draft`, not current). The patient screen explains in plain words what a sponsor sees. Counsel should approve the legal text and the plain wording together, then the founder makes it current (until then sharing shows "not open yet").
+- Decision: open (counsel).
+
+### OQ-257 CMO approval to switch on triage grade reviews (raised by S38e)
+- The switch `triage_agreement_capture` is off. It adds an optional step for clinicians and shows no patient identity. The admin page asks for a tick and a written note of who approved it and when (at least 10 characters), kept with the switch and in the audit log; it is a record, not a verification, so the CMO's approval itself still has to be real.
+- Decision: open (CMO).
+
+### OQ-258 Sponsor staff access and a mobile way to join (raised by S38e)
+- A sponsor's own staff (employer or insurer admins) cannot see their group figures directly; that needs a role decision (the institutions aggregate-only rule, I9, already limits what they may ever see). Joining a programme with a code is on the web only; the mobile app has no join screen yet.
+- Decision: open (founder).

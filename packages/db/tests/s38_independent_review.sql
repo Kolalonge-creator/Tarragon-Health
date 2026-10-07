@@ -112,8 +112,9 @@ begin
     v_row.bp_status || '/' || coalesce(v_row.controlled::text, 'null') || '/' || coalesce(v_row.bp_avg_7d_sys::text, 'null'), 'insufficient_data/null/null',
     case when v_row.bp_status = 'insufficient_data' and v_row.controlled is null and v_row.bp_avg_7d_sys is null then 'PASS' else 'FAIL' end);
   select * into v_row from public.outcome_snapshots where patient_id = v_a and day = 90;
-  insert into s38i_results values ('1c A day 90 controlled, config version recorded (INV-16)',
-    v_row.bp_status || '/' || v_row.config_version, 'controlled/1', case when v_row.bp_status = 'controlled' and v_row.config_version = 1 then 'PASS' else 'FAIL' end);
+  insert into s38i_results values ('1c A day 90 controlled, the active config version is recorded (INV-16)',
+    v_row.bp_status || '/' || v_row.config_version, 'controlled/' || (select version from public.outcome_config where is_active),
+    case when v_row.bp_status = 'controlled' and v_row.config_version = (select version from public.outcome_config where is_active) then 'PASS' else 'FAIL' end);
   select count(*) into v_n from public.outcome_snapshots where patient_id = v_a and day = 180;
   insert into s38i_results values ('1d day 180 not written before it is due', v_n::text, '0', case when v_n = 0 then 'PASS' else 'FAIL' end);
   select adherence_status into v_txt from public.outcome_snapshots where patient_id = v_a and day = 0;

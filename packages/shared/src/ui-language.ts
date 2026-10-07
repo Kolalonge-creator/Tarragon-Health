@@ -60,6 +60,7 @@ const PIDGIN: Record<string, string> = {
   "Overview": "Home",
   "My actions": "Wetin you suppose do",
   "Your month": "Your month",
+  "Programmes": "Programmes",
   "Vitals & symptoms": "Your body readings",
   "Medications": "Your medicine",
   "Labs & results": "Test results",
