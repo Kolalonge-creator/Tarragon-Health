@@ -15,13 +15,16 @@ export async function pageOnCallForSelfHarm(
   conversationId: string,
 ): Promise<boolean> {
   try {
-    const rpc = (svc as unknown as { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ error: { message: string } | null }> }).rpc.bind(svc);
-    const { error } = await rpc("assistant_page_on_call", { p_patient: patientId, p_conversation: conversationId });
+    const rpc = (svc as unknown as { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }> }).rpc.bind(svc);
+    const { data, error } = await rpc("assistant_page_on_call", { p_patient: patientId, p_conversation: conversationId });
     if (error) {
       console.error("ai-coach: on-call page for a self-harm message failed", error.message);
       return false;
     }
-    return true;
+    // Read what the database says it did: true only when someone (the clinician on call, or the clinical lead and ops) was really notified.
+    const result = (data ?? {}) as { notified?: boolean; failed?: boolean };
+    if (result.notified !== true) console.error("ai-coach: on-call page for a self-harm message reached nobody", JSON.stringify(result));
+    return result.notified === true;
   } catch (error) {
     console.error("ai-coach: on-call page for a self-harm message threw", error);
     return false;
