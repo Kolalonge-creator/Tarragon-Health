@@ -926,3 +926,5 @@ oq261_remove_home_delivery.sql
 s75_a1_fee_at_risk_freeze.sql
 # S75 A2: institution aggregate reads are audited (one row per reader, organisation, surface and day, holding only surface, day and role); another organisation's admin, a patient, a clinician and anon are refused and write nothing; a platform admin may log; free-text labels refused. Sabotage: the role check removed; a patient must then write a row.
 s75_a2_institution_aggregate_read_audit.sql
+# S75 A4 (CMO S-6): a risk score never gates care. The queue's eligible set and claim order for the same five tasks are identical with and without high risk_scores and risk_predictions rows on the least urgent patients and equal to the plain (class, due) order; the queue functions never mention a risk table. Sabotage: queue_next redefined to order by risk; the two runs must then differ.
+s75_risk_never_gates_care.sql
