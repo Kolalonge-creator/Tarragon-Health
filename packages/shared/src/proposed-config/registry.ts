@@ -1,3 +1,5 @@
+import { DEVICE_RED_RULES, EMERGENCY_PACK } from "./emergency-pack";
+
 /**
  * Versioned configuration for values the v5 spec marks PROPOSED (Section 17).
  *
@@ -1748,5 +1750,66 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 3,
     effectiveFrom: "2026-10-07",
     source: "docs/DECISIONS.md S11-1; supabase/migrations/20261007152136_s11c_bp_care_triage_v3.sql",
+  },
+  {
+    key: "directory.access_rules",
+    // S65 (CMO decisions Q21, Q22, Q23, 2026-10-07): how long a listing may go unverified before patient search leaves it out (twice its
+    // cadence), when two reports force re-verification, the ratings moderation target and the booking reminder times. Mirrors the active row of
+    // `directory_verification_config` (version 2); a test fails if the migration seed and this value drift. UNSIGNED: the Q21 intervals are [U].
+    value: {
+      default_months: 12,
+      due_soon_days: 30,
+      by_listing_table: { pharmacy_partners: 6 },
+      visibility: {
+        cadence_days: { emergency_hospital: 90, pharmacy_24h: 90, clinic: 180, lab: 180, other: 365 },
+        hide_multiple: 2,
+        reports_to_reverify: 2,
+        reports_per_person_per_day: 10,
+      },
+      ratings: {
+        moderation_target_hours: 72,
+        min_ratings_to_show_average: 3,
+        hold_terms: ["diagnos", "misdiagnos", "prescri", "wrong medicine", "wrong drug", "treatment plan", "doctor was wrong", "the doctor", "clinical judgement"],
+      },
+      booking: { reminder_minutes_before: [10080, 1440, 120], min_lead_minutes: 60, max_days_ahead: 90 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S65.md; docs/plans/S61-S65-cmo-signoff-pack.md Q21 to Q23",
+  },
+  {
+    key: "emergency.pack",
+    // The offline emergency content pack (S65, INV-06). DRAFT: `signed` is null and an agent never sets it. No telephone number of any kind
+    // (CMO decision Q18). Mirrors `emergency_pack_config` version 1; a test fails if they drift.
+    value: EMERGENCY_PACK as unknown as ConfigValue,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S65.md; CMO decisions Q17 and Q18",
+  },
+  {
+    key: "vitals.device_red_rules",
+    // Thresholds the phone evaluates itself for pulse, SpO2 and temperature (INV-06). They copy the live SQL classifiers; a parity test
+    // reads the migrations and fails if either side moves. Not new clinical thresholds.
+    value: DEVICE_RED_RULES as unknown as ConfigValue,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "supabase/migrations/20260829140000_pulse_red_flag_engine.sql; 20260807090139_spo2_red_flag_engine.sql; 20260807090237_temperature_red_flag_engine.sql",
+  },
+  {
+    key: "care_circle.help_alert",
+    // The patient's one-tap "I need you" alert to their Care Circle (S65, Q20). Cooldown stops an accidental double tap from becoming two alerts;
+    // a shared location is deleted after location_keep_hours. Mirrors `care_circle_help_alert_config` version 1.
+    value: { cooldown_minutes: 10, max_per_day: 5, location_keep_hours: 24, consent_text_version: 1 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S65.md; CMO decision Q20",
   },
 ];

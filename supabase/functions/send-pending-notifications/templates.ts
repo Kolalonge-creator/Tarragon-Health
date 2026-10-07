@@ -1364,6 +1364,36 @@ export const TEMPLATE_MAP: Record<
       text: "Someone in your Care Circle may need you now.\n\nPlease call them, then open Tarragon Health to see what you can do.\n\nTarragon Health",
     },
   }),
+  // S65 (INV-07): the patient's own one-tap "I need you". Fixed wording, nothing from the payload, no location, no name, no condition.
+  circle_help_tap: () => ({
+    smsText: "Someone in your Care Circle has asked for you. Open Tarragon Health. Tarragon Health",
+    pushUrl: "/patient/supporting",
+    email: {
+      subject: "Someone in your Care Circle is asking for you",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Someone in your Care Circle has asked for you.</p>` +
+        `<p>Please call them, then open Tarragon Health to see what you can do.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Someone in your Care Circle has asked for you.\n\nPlease call them, then open Tarragon Health to see what you can do.\n\nTarragon Health",
+    },
+  }),
+  // S65: a reminder for a booked visit. Names no facility, service, condition or time; the app shows the details and the I come / I cancel buttons.
+  facility_booking_reminder: () => ({
+    smsText: "You have a visit coming up. Open Tarragon Health. Tarragon Health",
+    pushUrl: "/patient/directory/bookings",
+    email: {
+      subject: "You have a visit coming up",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>You have a visit coming up.</p>` +
+        `<p>Open Tarragon Health to see the details and tell us whether you are coming.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "You have a visit coming up.\n\nOpen Tarragon Health to see the details and tell us whether you are coming.\n\nTarragon Health",
+    },
+  }),
   circle_joined: () => ({
     smsText: "Someone has joined your Care Circle. Tarragon Health",
     pushUrl: "/patient",

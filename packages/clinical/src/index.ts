@@ -12,3 +12,4 @@ export { screenWrittenQuestion, WRITTEN_QUESTION_DANGER_PHRASES, type WrittenQue
 export { proposeTitration, validateProtocolDefinition, proposalToChangeArgs, ProtocolDefinitionError } from "./titration";
 export { TITRATION_STOP_KEYS, TITRATION_LABEL_KEYS } from "./titration-messages";
 export type * from "./titration-types";
+export { classifyPulse, classifySpo2, classifyTemperature, deviceRedFlags, needsHospitalNow, emergencyForText, activeEmergencyPack, emergencyFacilitiesForState, topicByKey, findNumbersInPack, type DeviceLevel, type DeviceRedRules, type DeviceReading, type DeviceFlag, type PackLike, type ActiveEmergencyPack } from "./emergency-pack";
