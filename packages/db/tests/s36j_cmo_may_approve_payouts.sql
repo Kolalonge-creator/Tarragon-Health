@@ -4,6 +4,8 @@
 --   3. An ordinary clinician, finance, analyst, care coordinator, a suspended CMO, a patient and anon are refused (approve and the queue).
 --   4. The CMO may NOT build, discard, prepare a send, retry or list payouts (payout_not_authorised): those stay admin only.
 --   5. The queue lists only drafts, never a test clinician (INV-13), and exposes no bank data.
+--   5b. (S36k) payout_events.source is 'cmo' for a CMO approval and 'admin' for an admin one; the queue marks the caller's own draft
+--       is_mine and total_waiting equals the real count of waiting drafts; the source check allows 'cmo'.
 --   6. SABOTAGE: the approver check put back to admin only; the CMO checks must flip.
 begin;
 
@@ -176,6 +178,16 @@ begin
   select string_agg(a, ',') into v_cols from (select unnest(proargnames) a from pg_proc where proname = 'payout_approval_queue' and pronamespace = 'public'::regnamespace) s;
   perform pg_temp.ck('the queue exposes no bank data', 'false', (v_cols ~ '(account|recipient|last4|number|resolved|bank_name|code)')::text);
 
+  -- S36k: is_mine and total_waiting
+  perform pg_temp.ck('the CMO''s own draft is marked is_mine', 'true', pg_temp.q_as(v_cmo, format('select is_mine from public.payout_approval_queue() where id = %L', v_pc)));
+  perform pg_temp.ck('another payee''s draft is not is_mine', 'false', pg_temp.q_as(v_cmo, format('select is_mine from public.payout_approval_queue() where id = %L', v_pa)));
+  perform pg_temp.ck('for the admin no draft is is_mine', '0', pg_temp.q_as(v_admin, 'select count(*) from public.payout_approval_queue() where is_mine'));
+  perform pg_temp.ck('total_waiting equals the real count of waiting drafts', (select count(*)::text from public.payouts p where p.organisation_id = v_org and p.state = 'draft' and not p.is_test
+      and not exists (select 1 from public.profiles pr where pr.id = p.clinician_id and pr.is_test)),
+    pg_temp.q_as(v_cmo, 'select max(total_waiting) from public.payout_approval_queue()'));
+  perform pg_temp.ck('total_waiting is at least the rows returned', 'true', pg_temp.q_as(v_cmo, 'select (min(total_waiting) >= count(*))::text from public.payout_approval_queue()'));
+  perform pg_temp.ck('the source check allows cmo', 'true', (select (pg_get_constraintdef(oid) ~ 'cmo')::text from pg_constraint where conname = 'payout_events_source_check' and conrelid = 'public.payout_events'::regclass));
+
   -- the CMO may not do anything else with payouts
   perform pg_temp.ck('the CMO cannot build drafts', 'payout_not_authorised', pg_temp.try_as(v_cmo, 'select public.build_payout_drafts_now()'));
   perform pg_temp.ck('the CMO cannot discard a draft', 'payout_not_authorised', pg_temp.try_as(v_cmo, format('select public.discard_payout_draft(%L)', v_pe)));
@@ -192,17 +204,18 @@ begin
   perform pg_temp.ck('...approved by the CMO, with recipient', format('approved/%s/RCP_a', v_cmo), (select state || '/' || approved_by || '/' || recipient_code from public.payouts where id = v_pa));
   perform pg_temp.ck('...the earnings are linked once', '1/180000', (select count(*) || '/' || sum(amount_kobo) from public.earnings_ledger where payout_id = v_pa));
   perform pg_temp.ck('...audit row says approver_role cmo', 'cmo', (select event ->> 'approver_role' from public.audit_log where entity_id = v_pa and action = 'payout.approved'));
-  perform pg_temp.ck('...the event source stays admin', 'admin', (select source from public.payout_events where payout_id = v_pa and to_state = 'approved'));
+  perform pg_temp.ck('...the event source is cmo (S36k)', 'cmo', (select source from public.payout_events where payout_id = v_pa and to_state = 'approved'));
   perform pg_temp.ck('a second approval is refused', 'payout_not_a_draft', pg_temp.try_as(v_cmo, format('select public.approve_payout(%L)', v_pa)));
   perform pg_temp.ck('the approved draft leaves the queue', '3', pg_temp.q_as(v_cmo, 'select count(*) from public.payout_approval_queue()'));
   perform pg_temp.ck('an admin still approves E''s payout', 'ok', pg_temp.try_as(v_admin, format('select public.approve_payout(%L)', v_pe)));
+  perform pg_temp.ck('...the admin approval event source is admin (S36k)', 'admin', (select source from public.payout_events where payout_id = v_pe and to_state = 'approved'));
   perform pg_temp.ck('...audit row says approver_role admin', 'admin', (select event ->> 'approver_role' from public.audit_log where entity_id = v_pe and action = 'payout.approved'));
   perform pg_temp.ck('the CMO still cannot send an approved payout', 'payout_not_authorised', pg_temp.try_as(v_cmo, format('select public.payout_prepare_send(%L)', v_pe)));
   perform pg_temp.ck('exactly one approve_payout overload', '1', (select count(*) from pg_proc where proname = 'approve_payout' and pronamespace = 'public'::regnamespace)::text);
   perform pg_temp.ck('payout_admin_org is still admin only', 'false', (pg_get_functiondef('private.payout_admin_org()'::regprocedure) ~ 'credential_is_cmo')::text);
 end $$;
 
--- SABOTAGE: the approver check put back to the admin only helper; the CMO checks must flip -------------------------------------------
+-- SABOTAGE B: the approver check put back to the admin only helper; the CMO checks must flip -------------------------------------------
 do $$
 declare v_def text;
 begin
@@ -220,6 +233,21 @@ begin
   insert into results values ('sabotaged', 'the CMO reads the queue', 'ok', r);
 end $$;
 
+-- SABOTAGE A (S36k, runs after B): the event source hard-coded to admin again; a CMO approval must then record admin, not cmo.
+do $$
+declare v_def text;
+begin
+  -- from the state left by sabotage B: approver check restored, event source hard-coded to admin
+  v_def := replace(pg_get_functiondef('public.approve_payout(uuid)'::regprocedure), 'private.payout_admin_org()', 'private.payout_approver_org()');
+  execute replace(v_def, 'v_uid, v_role, null', 'v_uid, ''admin'', null');
+end $$;
+do $$
+declare v_cmo uuid := pg_temp.f('cmo'); v_pf uuid := pg_temp.f('pf'); r text;
+begin
+  r := pg_temp.try_as(v_cmo, format('select public.approve_payout(%L)', v_pf));
+  insert into results values ('sabotaged', 'the CMO approval event source is cmo', 'cmo', (select source from public.payout_events where payout_id = v_pf and to_state = 'approved'));
+end $$;
+
 do $$
 declare v_bad integer; v_caught integer;
 begin
@@ -230,7 +258,7 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 2 then raise exception 'VACUOUS TEST: the sabotage flipped % of 2 checks', v_caught; end if;
+  if v_caught < 3 then raise exception 'VACUOUS TEST: the sabotage flipped % of 3 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result

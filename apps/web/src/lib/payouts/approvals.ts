@@ -15,18 +15,29 @@ export const approvalRowSchema = z.object({
   bank_ready: z.boolean(),
   state: z.string(),
   created_at: z.string(),
+  is_mine: z.boolean(),
+  total_waiting: z.number().int(),
 });
 export const approvalRowsSchema = z.array(approvalRowSchema);
 export type ApprovalRow = z.infer<typeof approvalRowSchema>;
 
 export type ApprovalLoad = { ok: true; rows: ApprovalRow[] } | { ok: false };
 
-export type ApprovalRowModel = ApprovalRow & { canApprove: boolean; blockedReason: "guard_off" | "no_bank" | null };
+export type ApprovalRowModel = ApprovalRow & { canApprove: boolean; blockedReason: "guard_off" | "mine" | "no_bank" | null };
 
-/** What the page shows. The Approve button is disabled when approval is switched off or the payee has no verified bank. The database checks both again. */
+/**
+ * What the page shows. The Approve button is disabled when approval is switched off, the draft is the caller's own (the database refuses
+ * self approval), or the payee has no verified bank. The database checks all of these again.
+ */
 export function buildApprovalModel(rows: ApprovalRow[], guardOpen: boolean): ApprovalRowModel[] {
   return rows.map((r) => {
-    const blockedReason = !guardOpen ? "guard_off" : !r.bank_ready ? "no_bank" : null;
+    const blockedReason = !guardOpen ? "guard_off" : r.is_mine ? "mine" : !r.bank_ready ? "no_bank" : null;
     return { ...r, canApprove: blockedReason === null, blockedReason };
   });
+}
+
+/** How many drafts are waiting in all, when the list was cut at the database's row cap. Null when everything is shown. */
+export function truncatedTotal(rows: ApprovalRow[]): number | null {
+  const total = rows.reduce((m, r) => Math.max(m, r.total_waiting), 0);
+  return total > rows.length ? total : null;
 }

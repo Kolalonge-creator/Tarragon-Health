@@ -6,7 +6,7 @@ import { canAssignCases } from "@/lib/clinical/doctor-tier";
 import { createClient } from "@/lib/supabase/server";
 import { loose } from "@/lib/clinician/loose-client";
 import { formatKobo } from "@/lib/format-money";
-import { approvalRowsSchema, buildApprovalModel, type ApprovalLoad } from "@/lib/payouts/approvals";
+import { approvalRowsSchema, buildApprovalModel, truncatedTotal, type ApprovalLoad } from "@/lib/payouts/approvals";
 import { CmoApproveButton } from "@/components/payouts/cmo-approve-button";
 
 export const metadata = { title: "Payout approvals" };
@@ -28,6 +28,7 @@ export default async function PayoutApprovalsPage() {
   const guardKnown = !guard.error;
   const guardOpen = guardKnown && guard.data === true;
   const rows = load.ok ? buildApprovalModel(load.rows, guardOpen) : [];
+  const total = load.ok ? truncatedTotal(load.rows) : null;
 
   return (
     <div className="space-y-6">
@@ -45,12 +46,15 @@ export default async function PayoutApprovalsPage() {
       ) : rows.length === 0 ? (
         <p className="text-sm text-charcoal-ink/70">{t("payapprove.none", locale)}</p>
       ) : (
+        <div className="space-y-3">
+        {total !== null && <p role="status" className="text-sm text-charcoal-ink/70">{t("payapprove.truncated", locale, { shown: rows.length, total })}</p>}
         <ul className="grid gap-2">
           {rows.map((r) => (
             <li key={r.id} className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-charcoal-ink/10 bg-white p-3 text-sm dark:border-night-ink/15 dark:bg-night-card">
               <div>
                 <p className="font-medium text-charcoal-ink">{r.clinician_name ?? t("payapprove.unnamed", locale)}</p>
                 <p className="text-xs text-charcoal-ink/60">{t("payapprove.earnings", locale, { count: r.line_count, date: r.period_end })}</p>
+                {r.blockedReason === "mine" && <p className="text-xs text-charcoal-ink/60">{t("payapprove.mine", locale)}</p>}
                 {r.blockedReason === "no_bank" && <p className="text-xs text-red-600">{t("payapprove.no_bank", locale)}</p>}
               </div>
               <div className="flex items-start gap-3">
@@ -60,6 +64,7 @@ export default async function PayoutApprovalsPage() {
             </li>
           ))}
         </ul>
+        </div>
       )}
     </div>
   );

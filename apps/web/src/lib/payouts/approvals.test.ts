@@ -1,4 +1,4 @@
-import { approvalRowsSchema, buildApprovalModel, type ApprovalRow } from "./approvals";
+import { approvalRowsSchema, buildApprovalModel, truncatedTotal, type ApprovalRow } from "./approvals";
 
 const row = (over: Partial<ApprovalRow> = {}): ApprovalRow => ({
   id: "11111111-1111-4111-8111-111111111111",
@@ -10,6 +10,8 @@ const row = (over: Partial<ApprovalRow> = {}): ApprovalRow => ({
   bank_ready: true,
   state: "draft",
   created_at: "2026-10-05T07:05:00Z",
+  is_mine: false,
+  total_waiting: 1,
   ...over,
 });
 
@@ -22,8 +24,19 @@ describe("payout approval page model", () => {
     const m = buildApprovalModel([row(), row({ bank_ready: false })], false);
     expect(m.every((r) => !r.canApprove && r.blockedReason === "guard_off")).toBe(true);
   });
+  it("blocks the caller's own draft with its own reason, but guard off still wins", () => {
+    expect(buildApprovalModel([row({ is_mine: true })], true)[0]).toMatchObject({ canApprove: false, blockedReason: "mine" });
+    expect(buildApprovalModel([row({ is_mine: true })], false)[0]).toMatchObject({ blockedReason: "guard_off" });
+    expect(buildApprovalModel([row({ is_mine: true, bank_ready: false })], true)[0].blockedReason).toBe("mine");
+  });
+  it("reports a total only when more drafts wait than are shown", () => {
+    expect(truncatedTotal([row({ total_waiting: 1 })])).toBeNull();
+    expect(truncatedTotal([])).toBeNull();
+    expect(truncatedTotal([row({ total_waiting: 250 }), row({ total_waiting: 250 })])).toBe(250);
+  });
   it("parses what the database returns and rejects a malformed row", () => {
     expect(approvalRowsSchema.safeParse([row()]).success).toBe(true);
     expect(approvalRowsSchema.safeParse([{ ...row(), amount_kobo: 1.5 }]).success).toBe(false);
+    expect(approvalRowsSchema.safeParse([{ ...row(), is_mine: undefined }]).success).toBe(false);
   });
 });

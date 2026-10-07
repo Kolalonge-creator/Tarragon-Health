@@ -1903,6 +1903,8 @@ export const en = {
   "payapprove.approve": "Approve",
   "payapprove.working": "Working...",
   "payapprove.unnamed": "A clinician",
+  "payapprove.truncated": "Showing {shown} of {total} drafts waiting. Approve some to see the rest.",
+  "payapprove.mine": "This payout is yours, so someone else needs to approve it.",
 } as const;
 
 export type MessageKey = keyof typeof en;
