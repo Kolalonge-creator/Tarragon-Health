@@ -900,3 +900,5 @@ s41_cohort_max_uses_concurrent.sh
 s42_consent_matrix.sql
 # S42 account deletion anonymiser: admin only, approved request only, once; identity and login closed, non-retained personal rows removed, wearable tokens nulled, clinical rows and consent history kept; summary, event and audit written. Sabotage: everything marked retained, and the admin check removed; both must flip.
 s42_account_deletion_anonymiser.sql
+# S42 dependants: hand-over at 18 (sweep emits handover_due once; guardian reads before; completion needs own login and the birthday; guardians not chosen lose access and read zero rows, the chosen one keeps view only; stranger, guardian, anon, repeat and unknown id refused; counts-only event), OQ-47 elder proxy never implies reproductive health (minor child unchanged), OQ-51 category to permission mapping and sync (unrestricted grants untouched), daily job leaves elder proxy at manage. Sabotage: exclusion removed, mapping emptied; both must flip.
+s42_dependants_handover.sql
