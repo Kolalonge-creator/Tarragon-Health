@@ -2,7 +2,7 @@
 /**
  * Record approved ElevenLabs masters in the audio manifest and bundle the ones the app ships.
  *
- *   node scripts/audio/ingest-recordings.mjs <folder of TH-*.mp3> [--with-sym] [--manifest f] [--assets-dir d] [--map f]
+ *   node scripts/audio/ingest-recordings.mjs <folder of TH-*.mp3> [--with-sym] [--languages en] [--manifest f] [--assets-dir d] [--map f]
  *
  * For every file in the folder whose name is in `audio/manifest.json`: records its sha256, size and (when ffprobe is
  * installed) duration. A re-recorded file (a different checksum) moves its old recording and sign-offs to `history` and starts
@@ -25,11 +25,15 @@ const flag = (name, fallback) => {
   return i >= 0 ? args[i + 1] : fallback;
 };
 const withSym = args.includes("--with-sym");
-const VALUE_FLAGS = new Set(["--manifest", "--assets-dir", "--map"]);
+const VALUE_FLAGS = new Set(["--manifest", "--assets-dir", "--map", "--languages"]);
+// Only these languages are recorded and bundled. English only today (decision D-14): a file for any other language is
+// ignored until the signed language registry (`i18n.language_registry`, S86) lists it and the caller passes it here.
+// `shared` (whole-number clips used by every language) is always allowed.
+const languages = new Set([...flag("--languages", "en").split(","), "shared"]);
 const positional = args.filter((a, i) => !a.startsWith("--") && !VALUE_FLAGS.has(args[i - 1]));
 const dir = positional[0];
 if (!dir) {
-  console.error("usage: ingest-recordings.mjs <folder> [--with-sym] [--manifest f] [--assets-dir d] [--map f]");
+  console.error("usage: ingest-recordings.mjs <folder> [--with-sym] [--languages en] [--manifest f] [--assets-dir d] [--map f]");
   process.exit(2);
 }
 const manifestPath = resolve(flag("--manifest", join(ROOT, "audio/manifest.json")));
@@ -49,7 +53,7 @@ function duration(file) {
 }
 
 const byFile = new Map();
-for (const clip of manifest.clips) for (const [key, f] of Object.entries(clip.files)) byFile.set(f.file, { clip, key, f });
+for (const clip of manifest.clips) for (const [key, f] of Object.entries(clip.files)) if (languages.has(key)) byFile.set(f.file, { clip, key, f });
 
 const unknown = [];
 let updated = 0;
@@ -61,7 +65,7 @@ for (const name of readdirSync(dir).filter((n) => n.endsWith(".mp3")).sort()) {
   }
   const path = join(dir, name);
   const sha256 = createHash("sha256").update(readFileSync(path)).digest("hex");
-  const { f } = hit;
+  const { f, clip } = hit;
   if (f.sha256 !== sha256) {
     // The replaced recording keeps its sign-offs in history (so it can be restored); the new one starts unsigned.
     if (f.sha256 !== null) f.history = [{ sha256: f.sha256, bytes: f.bytes, duration_ms: f.duration_ms, approvals: f.approvals }, ...(f.history ?? [])];
@@ -69,15 +73,21 @@ for (const name of readdirSync(dir).filter((n) => n.endsWith(".mp3")).sort()) {
     f.duration_ms = null;
   }
   f.history ??= [];
+  // A new or replaced non-English recording is recorded against the English script the clip has now (the importer already
+  // drops every file when that script changes), so a later script change can be told apart from this recording.
+  if (hit.key !== "en" && hit.key !== "shared" && f.sha256 !== sha256) f.source_script_hash = clip.script_hash;
   f.sha256 = sha256;
   f.bytes = statSync(path).size;
   f.duration_ms = duration(path) ?? f.duration_ms;
   updated += 1;
 }
 
-// A file is playable only when every review it needs is signed (same rule as `playable` in packages/audio).
+// A file is playable only when every review it needs is signed (same rule as `playable` in packages/audio, which is English only
+// at runtime and so has no source script check; the extra check below applies only to a language other than English).
 const required = (clip, key) => ["brand", ...(clip.clinical ? ["clinical"] : []), ...(clip.legal ? ["legal"] : [])];
-const playable = (clip, key, f) => f.sha256 !== null && f.bytes !== null && required(clip, key).every((r) => f.approvals.some((a) => a.review === r && a.sha256 === f.sha256));
+// A non-English recording must also name the English script it was made from, so a changed script unpairs it (S86).
+const fromCurrentScript = (clip, key, f) => key === "en" || key === "shared" || f.source_script_hash === clip.script_hash;
+const playable = (clip, key, f) => f.sha256 !== null && f.bytes !== null && fromCurrentScript(clip, key, f) && required(clip, key).every((r) => f.approvals.some((a) => a.review === r && a.sha256 === f.sha256));
 
 // Compact manifest: header pretty-printed, one clip per line (matches import-production-list.py).
 const head = JSON.stringify({ ...manifest, clips: undefined }, null, 2);
@@ -93,7 +103,7 @@ const missing = [];
 for (const clip of manifest.clips) {
   if (clip.bundle_group !== "bundled" || (clip.group === "SYM" && !withSym)) continue;
   for (const [key, f] of Object.entries(clip.files)) {
-    if (!playable(clip, key, f)) continue;
+    if (!languages.has(key) || !playable(clip, key, f)) continue;
     const src = join(dir, f.file);
     const dest = join(assetsDir, f.file);
     if (existsSync(src)) copyFileSync(src, dest);

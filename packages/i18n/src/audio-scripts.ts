@@ -6,6 +6,8 @@
  */
 export interface AudioScript {
   readonly en: string;
+  /** Other languages (S86), by code. Added only through the signed language registry; none exists today. */
+  readonly other?: Readonly<Record<string, string>>;
 }
 
 export const AUDIO_SCRIPTS: Readonly<Record<string, AudioScript>> = {

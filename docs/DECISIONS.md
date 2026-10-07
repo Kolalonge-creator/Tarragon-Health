@@ -179,6 +179,10 @@ D-02 to D-04 are not defined in the spec.
 - **If another language ever returns:** it needs a native reviewer and a clinician-signed translation process before any string ships.
 - OQ-19 (Pidgin part), 61, 63, 74, 82 (Pidgin part), 93, 96 (Pidgin part), 134 and 156 are marked moot in `docs/OPEN-QUESTIONS.md`. No open question concerned Yoruba, Hausa or Igbo review.
 
+### S86 languages framework, 2026-10-07
+- **S86-1: spec D.8 ("add yo, ha, ig") is superseded by D-14.** The product stays English only. S86 builds the process and checks for adding a language in dormant form (versioned registry config `i18n.language_registry`, coverage report, a gate, a picker rule) and proves them with a test-only stub language. No language ships, no database constraint is widened, no migration. The shared rules text "(en, pcm)" in the session prompts is stale for the same reason.
+- **Return conditions (from D-14), as a checklist:** native reviewer; forward translation; independent back translation; reconciliation; native clinical review of each string set; CMO signature per string set; audio recorded only after signature; then enablement per feature by a new signed registry version. Nothing is switched on by a build.
+
 ### S46 to S50 planning, 2026-10-07 (founder)
 - **S46-1: hepatitis B immunity uses anti-HBs as a clinician add-on to the annual blood draw.** HBsAg stays part of the annual check. When HBsAg is negative and immunity is unknown, the lab adds anti-HBs once to that same draw, set by the clinician and never chosen by the patient (there are no packages any more: the Membership includes an annual blood test and review). A result at or above the CMO-signed threshold marks the patient immune and retires the annual HBsAg. HIV and hepatitis C stay annual. The threshold and wording go in the CMO-signed lab-panel and screening-rule configuration. Built in S46a.
 - **S46-2: the yearly Health Report is assembled without any AI model in version 1.**

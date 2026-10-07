@@ -136,12 +136,36 @@ def clean_review(text):
     return "Brand review" if text.strip() == f"{retired} review" else text
 
 
+# The languages the manifest carries a file entry for. English only today (decision D-14). Another language is added only
+# after the signed language registry (`i18n.language_registry`, S86) lists it, by passing `--languages en,xx`; the script
+# then creates empty (unrecorded, unsigned) entries for it and never marks anything approved. The default is the list
+# already in the manifest. NOTE: the runtime parser in packages/audio still accepts English only on purpose; widening its
+# `Lang` belongs in the same pull request that adds a language to the registry.
+LANGUAGES = ["en"]
+
+
+def language_files(clip_id):
+    return {lang: empty_file(clip_id, lang) for lang in LANGUAGES}
+
+
 def empty_file(clip_id, lang):
     return {"file": file_name(clip_id, lang), "sha256": None, "bytes": None, "duration_ms": None, "approvals": [], "history": []}
 
 
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    global LANGUAGES
+    argv = sys.argv[1:]
+    # Default: keep the languages the manifest already has, so a plain re-run never drops a language's files.
+    LANGUAGES = old_manifest().get("languages", ["en"])
+    if "--languages" in argv:
+        i = argv.index("--languages")
+        if i + 1 >= len(argv):
+            raise SystemExit("--languages needs a value, for example --languages en,xx")
+        LANGUAGES = argv[i + 1].split(",")
+        if LANGUAGES[0] != "en":
+            raise SystemExit("--languages must start with the source language en")
+        del argv[i:i + 2]
+    args = [a for a in argv if not a.startswith("--")]
     if len(args) != 1:
         raise SystemExit(__doc__)
     docx_items = read_docx(args[0])
@@ -171,7 +195,7 @@ def main():
             if cid in spoken:
                 en = spoken[cid]
             scripts[cid] = {"en": en}
-            files = {"en": empty_file(cid, "en")}
+            files = language_files(cid)
             clip = {
                 "id": cid, "group": code,
                 "bundle_group": "on_demand" if cid in RELEASE_3 else bg,
@@ -201,7 +225,7 @@ def main():
         clips.append({
             "id": cid, "group": "NUM", "bundle_group": "bundled", "release": 1,
             "clinical": True, "legal": False, "language_neutral": False,
-            "files": {"en": empty_file(cid, "en")},
+            "files": language_files(cid),
         })
 
     # Long-form clips (BPC lessons, BRE-01): scripts come from the lesson source, not the list (which holds briefs only).
@@ -218,7 +242,7 @@ def main():
             clips.append({
                 "id": cid, "group": code, "bundle_group": group_meta[code]["bundle_group"], "release": 1,
                 "clinical": code == "BPC" or cid in CLINICAL_LONG_FORM, "legal": False, "language_neutral": False,
-                "files": {"en": empty_file(cid, "en")},
+                "files": language_files(cid),
             })
 
     # Wording changed since the last run: the audio no longer matches, so drop file facts and approvals.
@@ -237,7 +261,7 @@ def main():
         "schema_version": 1,
         "source": {"document": "Tarragon Health ElevenLabs Audio Production List", "version": "1.0", "date": "2026-09-29",
                    "number_list": "audio/source/TH-NUM-number-list.csv"},
-        "languages": ["en"],
+        "languages": LANGUAGES,
         "groups": group_meta,
         # Whole-phrase clinical sign-offs are added by a person; the import keeps whatever is there.
         "phrase_signoffs": old_manifest().get("phrase_signoffs", []),
@@ -276,6 +300,8 @@ def write_ts(scripts):
         " */",
         "export interface AudioScript {",
         "  readonly en: string;",
+        "  /** Other languages (S86), by code. Added only through the signed language registry; none exists today. */",
+        "  readonly other?: Readonly<Record<string, string>>;",
         "}",
         "",
         "export const AUDIO_SCRIPTS: Readonly<Record<string, AudioScript>> = {",
