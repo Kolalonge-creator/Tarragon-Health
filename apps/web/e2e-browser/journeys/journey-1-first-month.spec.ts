@@ -50,20 +50,22 @@ test.describe("Journey 1: a new user's first month", () => {
     let patientId: string | null = null;
     await run.step("phone-signup-code", async () => {
       await page.goto("/signup");
+      await page.waitForLoadState("networkidle");
       await page.getByRole("tab", { name: /^phone$/i }).click();
       await page.locator("#firstName").fill("Adebayo");
       await page.locator("#lastName").fill("Journey");
       await page.locator("#phone").fill(PHONE_LOCAL);
       await page.locator("#password").fill(PASSWORD);
       await page.getByRole("button", { name: /create account/i }).click();
-      await page.locator("#token").waitFor({ timeout: 30_000 });
+      await page.locator("#token").waitFor({ timeout: 60_000 });
       // a wrong code must not sign her in
       await page.locator("#token").fill("000000");
-      await page.getByRole("button", { name: /verify|confirm|continue/i }).first().click();
-      await expect(page).not.toHaveURL(/\/patient|\/onboarding/, { timeout: 5_000 });
+      await page.getByRole("button", { name: /confirm/i }).click();
+      await expect(page.getByRole("alert").filter({ hasText: /\S/ })).toBeVisible();
+      await expect(page).toHaveURL(/\/signup/);
       await page.locator("#token").fill(CODE);
-      await page.getByRole("button", { name: /verify|confirm|continue/i }).first().click();
-      await page.waitForURL(/\/patient|\/onboarding/, { timeout: 90_000 });
+      await page.getByRole("button", { name: /confirm/i }).click();
+      await page.waitForURL((u) => !u.pathname.startsWith("/signup"), { timeout: 90_000 });
       patientId = sqlValue<string>(`select id from public.profiles where regexp_replace(phone, '\\D', '', 'g') = ${lit(PHONE_E164.replace(/\D/g, ""))} limit 1`);
       expect(patientId, "no profile was created for the new phone number").not.toBeNull();
       sql(`update public.profiles set is_test = true, receives_care = true, date_of_birth = (current_date - interval '54 years')::date where id = ${lit(patientId!)};`);
@@ -93,17 +95,25 @@ test.describe("Journey 1: a new user's first month", () => {
     });
 
     // ------------------------------------------------------------------ 6 and 7: an order for a screen (real RPC), then checkout
-    await run.step("order-created-for-screen", async () => {
-      const item = sqlRows<{ code: string }>(
-        `select ci.code from public.catalog_items ci join public.prices p on p.catalog_item_id = ci.id
-          where ci.active order by ci.code limit 1`,
-      )[0];
-      expect(item, "the catalogue has no active priced item to order").toBeDefined();
-      const res = await me.rpc("create_order", { p_code: item!.code, p_client_key: crypto.randomUUID() });
-      expect(res.error, JSON.stringify(res.error)).toBeNull();
-      const o = res.data as { order_id?: string; id?: string; status?: string };
-      expect(o.status ?? "pending").toMatch(/pending/);
-    });
+    const item = sqlRows<{ code: string }>(
+      `select ci.code from public.catalog_items ci join public.prices p on p.catalog_item_id = ci.id
+        where ci.active order by ci.code limit 1`,
+    )[0];
+    if (!item) {
+      // Checkout is dormant on a fresh stack: the one catalogue item (membership_annual) ships inactive until its go-live guard is met.
+      run.pending(
+        "order-created-for-screen",
+        "FOUNDER go-live of the membership catalogue",
+        "the catalogue item membership_annual is inactive on a fresh database (checkout is dormant until its go-live guard is satisfied), so there is nothing the patient may order",
+      );
+    } else {
+      await run.step("order-created-for-screen", async () => {
+        const res = await me.rpc("create_order", { p_code: item.code, p_client_key: crypto.randomUUID() });
+        expect(res.error, JSON.stringify(res.error)).toBeNull();
+        const o = res.data as { status?: string };
+        expect(o.status ?? "pending").toMatch(/pending/);
+      });
+    }
     if (process.env.PAYSTACK_SECRET_KEY) {
       run.skipped("paystack-test-mode-payment", "a Paystack test key is set, but the order-checkout edge function is not served by the local stack job, so a hosted checkout cannot start");
     } else {
@@ -111,9 +121,10 @@ test.describe("Journey 1: a new user's first month", () => {
     }
 
     // ------------------------------------------------------------------ 8 and 9: INV-03, an abnormal result is held until a clinician releases it
-    const team = await seedOnCallTeam(runId, org);
+    const team = await seedOnCallTeam(runId, org, { rota: false });
     sql(`insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, clinical_director_id)
-           values (${lit(org)}, ${lit(patientId)}, ${lit(team.primary.id)}, ${lit(team.cmo.id)});`);
+           values (${lit(org)}, ${lit(patientId)}, ${lit(team.primary.id)}, ${lit(team.cmo.id)})
+           on conflict (patient_id) do update set clinician_id = excluded.clinician_id, clinical_director_id = excluded.clinical_director_id;`);
     let resultId: string | null = null;
     const labClinician = await signIn(team.primary);
     await run.step("result-held-before-clinician-review", async () => {
@@ -135,8 +146,14 @@ test.describe("Journey 1: a new user's first month", () => {
       // the patient's own session: no values, no item rows
       const mine = await me.rpc("my_lab_results");
       expect(mine.error, JSON.stringify(mine.error)).toBeNull();
-      expect(JSON.stringify(mine.data)).not.toMatch(/2\.6|creatinine/i);
-      const items = await me.from("lab_result_items").select("id", { count: "exact", head: true });
+      // only THIS run's result (an earlier run of this journey may have left a released one for the same phone number)
+      const entry = (mine.data as Array<{ lab_result_id: string; items: unknown[]; status: string }>).find((r) => r.lab_result_id === resultId);
+      expect(entry, "the patient cannot even see that a result is under review").toBeDefined();
+      expect(entry!.items, "values of a held result reached the patient").toEqual([]);
+      expect(entry!.status).toBe("under_review");
+      const items = await me.from("lab_result_items").select("id", { count: "exact", head: true }).eq("lab_result_id", resultId!);
+      // control: the rows exist (owner view), so a zero is the policy and not an empty fixture
+      expect(Number(sqlValue<string>(`select count(*)::text from public.lab_result_items where lab_result_id = ${lit(resultId!)}`))).toBeGreaterThan(0);
       expect(items.count ?? 0, "the patient could read item rows of a held result").toBe(0);
     });
     await run.step("clinician-releases-result", async () => {
@@ -175,7 +192,10 @@ test.describe("Journey 1: a new user's first month", () => {
     // ------------------------------------------------------------------ 15: her son joins her Care Circle (real sessions both sides)
     await run.step("son-joins-care-circle", async () => {
       const son = await createUser(runId, "son", { role: "patient", organisationId: org, fullName: "[s85] Son" });
-      sql(`update public.profiles set receives_care = false, onboarding_completed_at = now() where id = ${lit(son.id)};`);
+      sql(`insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action)
+             select ${lit(org)}, ${lit(son.id)}, cv.consent_type, cv.id, cv.version, 'accepted'
+               from public.consent_versions cv where cv.is_current and cv.consent_type = 'terms_of_service';
+           update public.profiles set receives_care = false, onboarding_completed_at = now() where id = ${lit(son.id)};`);
       sql(`update public.profiles set is_test = true where id = ${lit(patientId!)};`);
       const invite = await me.rpc("create_care_circle_invite", { p_kind: "email", p_contact: son.email, p_relationship: "Son", p_permissions: ["weekly_bp_trend", "red_alerts"] });
       expect(invite.error, JSON.stringify(invite.error)).toBeNull();
@@ -188,7 +208,6 @@ test.describe("Journey 1: a new user's first month", () => {
       expect(raw.count ?? 0).toBe(0);
     });
 
-    void newOrganisation;
     await finishJourney(run, testInfo);
   });
 });

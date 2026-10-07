@@ -34,7 +34,8 @@ function staffInsert(orgId: string, adminId: string, userId: string, label: stri
   `;
 }
 
-export async function seedOnCallTeam(runId: string, orgId: string): Promise<OnCallTeam> {
+export async function seedOnCallTeam(runId: string, orgId: string, opts: { rota?: boolean } = {}): Promise<OnCallTeam> {
+  const withRota = opts.rota ?? true;
   const admin = await createUser(runId, "ops-admin", { role: "admin", organisationId: orgId });
   const cmo = await createUser(runId, "cmo", { role: "clinician", organisationId: orgId });
   const primary = await createUser(runId, "oncall-primary", { role: "clinician", organisationId: orgId });
@@ -44,11 +45,15 @@ export async function seedOnCallTeam(runId: string, orgId: string): Promise<OnCa
     ${staffInsert(orgId, admin.id, cmo.id, "cmo", "chief_medical_officer")}
     ${staffInsert(orgId, admin.id, primary.id, "primary", "senior_medical_officer")}
     ${staffInsert(orgId, admin.id, backup.id, "backup", "senior_medical_officer")}
-    select set_config('request.jwt.claims', json_build_object('sub', ${lit(cmo.id)}, 'role', 'authenticated')::text, true);
+    ${
+      withRota
+        ? `select set_config('request.jwt.claims', json_build_object('sub', ${lit(cmo.id)}, 'role', 'authenticated')::text, true);
     select set_config('request.jwt.claim.role', 'authenticated', true);
     set local role authenticated;
     select public.set_on_call_rota(now() - interval '1 minute', now() + interval '10 hours', ${lit(primary.id)}, ${lit(backup.id)}, null);
-    reset role;
+    reset role;`
+        : ""
+    }
     commit;
   `);
   return { admin, cmo, primary, backup };
