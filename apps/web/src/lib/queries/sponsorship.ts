@@ -539,6 +539,8 @@ export type SponsoredReservation = {
   status: "pending_payment" | "invited" | "claimed" | "expired" | "cancelled";
   createdAt: string;
   claimedAt: string | null;
+  /** The claim link secret. Only the sponsor who paid can read it (row level security), and only while the reservation is waiting. */
+  inviteToken: string | null;
 };
 
 /**
@@ -558,7 +560,7 @@ export function useSponsoredReservations() {
       const { data, error } = await supabase
         .from("sponsored_service_reservations")
         .select(
-          "id, recipient_first_name, recipient_phone, amount_kobo, status, created_at, claimed_at, service_products(name)"
+          "id, recipient_first_name, recipient_phone, amount_kobo, status, created_at, claimed_at, invite_token, service_products(name)"
         )
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -572,6 +574,7 @@ export function useSponsoredReservations() {
         status: row.status,
         createdAt: row.created_at,
         claimedAt: row.claimed_at,
+        inviteToken: row.status === "invited" ? row.invite_token : null,
       }));
     },
   });

@@ -217,47 +217,6 @@ export function intervalToMs(interval: string | null): number {
 }
 
 /**
- * A duplicate of send-pending-notifications/index.ts's sendTermiiSms, not a
- * shared import: Edge Functions in this repo each deploy standalone (no
- * `_shared/` directory exists between them yet), and this is the one place
- * that must send an SMS to someone with NO profile row at all — the
- * `notifications` table demands a non-null recipient_id, which cannot exist
- * yet for a sponsored_service_reservations recipient until they claim, so
- * the queue that every other notification goes through cannot carry this
- * one. Best-effort and never throws: a failed SMS must not fail the
- * payment's own activation, which has already happened in the DB by the
- * time this runs.
- */
-async function sendReservationInviteSms(toPhone: string, text: string): Promise<{ ok: boolean; error?: string }> {
-  const apiKey = Deno.env.get("TERMII_API_KEY");
-  if (!apiKey) return { ok: false, error: "TERMII_API_KEY not configured" };
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
-  try {
-    const res = await fetch("https://api.ng.termii.com/api/sms/send", {
-      method: "POST",
-      signal: controller.signal,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        api_key: apiKey,
-        to: toPhone,
-        from: "Tarragon",
-        sms: text,
-        type: "plain",
-        channel: "generic",
-      }),
-    });
-    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "unknown error" };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-/**
  * Every label public.payment_transaction_type actually carries. The insert
  * below used to write `event.event` verbatim, which meant any event name
  * Postgres did not recognise made the whole INSERT fail with 22P02 — and the
@@ -828,21 +787,16 @@ export async function handleWebhookRequest(
           } else {
             await markProcessed({ organisation_id: reservation.organisation_id });
 
-            const claimUrl = `${Deno.env.get("APP_BASE_URL") ?? "https://app.tarragonhealth.ng"}/claim/${reservation.invite_token}`;
-            const smsResult = await sendReservationInviteSms(
-              reservation.recipient_phone,
-              `Hi ${reservation.recipient_first_name}, someone paid for care for you on Tarragon Health. Claim it: ${claimUrl}`,
-            );
-            if (!smsResult.ok) {
-              // The reservation itself is correctly activated regardless —
-              // this only means the recipient has to be told some other
-              // way. Logged, not a markFailed(): the payment_transactions
-              // row already reflects a genuine success above.
-              console.error("paystack-webhook: reservation invite SMS failed", {
-                reservationId: reservation.id,
-                error: smsResult.error,
-              });
-            }
+            // INV-08 (decision D-12): no SMS goes out for this. The reservation is activated and the claim link is shown to the sponsor
+            // on their Supporting page (invite_token is readable only by the sponsor who paid), who gives it to the person themselves.
+            // Nothing here needs a text-message provider.
+            await supabase.from("audit_log").insert({
+              actor_id: null,
+              action: "sponsored_service_reservation.invite_ready",
+              entity_type: "sponsored_service_reservations",
+              entity_id: reservation.id,
+              event: { delivery: "sponsor_shares_link" },
+            });
           }
         } else {
           // Exhaustiveness: CheckoutKind has exactly 10 members and every one

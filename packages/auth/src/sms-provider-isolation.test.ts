@@ -56,8 +56,6 @@ describe("INV-08: the SMS provider is reachable only through the auth hook", () 
   const LEGACY_DIRECT_TERMII = [
     "apps/web/src/lib/notifications/send-patient-link.ts", // patient join-link SMS (OQ-32)
     "apps/web/src/lib/status/check-dependencies.ts", // reads the key to report "configured", sends nothing
-    "supabase/functions/abnormal-result-handler/index.ts", // clinician paging (OQ-05, D-12)
-    "supabase/functions/paystack-webhook/handler.ts", // sponsor invite SMS (OQ-32)
     "supabase/functions/send-pending-notifications/index.ts", // push-failure fallback and templates (OQ-32)
   ];
 

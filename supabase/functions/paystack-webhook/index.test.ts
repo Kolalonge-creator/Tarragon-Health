@@ -429,7 +429,7 @@ Deno.test({
 });
 
 Deno.test({
-  name: "charge.success (sponsored_service_reservation): a genuinely trigger-activated reservation is marked processed and an invite SMS is attempted (best-effort — TERMII_API_KEY unset here, so it fails without a network call)",
+  name: "charge.success (sponsored_service_reservation): a genuinely trigger-activated reservation is marked processed, no SMS is sent (INV-08), and an invite_ready audit row records that the sponsor shares the link",
   permissions: { env: ["PAYSTACK_WEBHOOK_SECRET", "TERMII_API_KEY", "APP_BASE_URL"] },
   async fn() {
     const client = newClient();
@@ -459,6 +459,9 @@ Deno.test({
     const txn = client.rows("payment_transactions")[0];
     assertExists(txn.processed_at);
     assertEquals(txn.organisation_id, "org-1");
+    const audit = client.rows("audit_log").filter((r) => r.action === "sponsored_service_reservation.invite_ready");
+    assertEquals(audit.length, 1);
+    assertEquals(audit[0].entity_id, "resv-1");
   },
 });
 
