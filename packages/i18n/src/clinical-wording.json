@@ -1,5 +1,10 @@
 {
-  "signed": null,
+  "signed": {
+    "by": "Kola Longe, founder",
+    "on": "2026-10-07",
+    "version": 1,
+    "note": "Founder sign-off recorded on the founder's own instruction in chat, all seven codes as in EMG-TRI-proposed-wording.md: no phone number in EMG-001 (OQ-87 stays), TRI-002 without a review promise (OQ-251), EMG-001L added. Not a CMO signature; the CMO may re-sign by raising `version`."
+  },
   "note": "Until `signed` is filled in by the CMO (as {\"by\": \"name\", \"on\": \"YYYY-MM-DD\", \"version\": n}), the app shows and says `current` (today's text). `proposed` is the draft in docs/clinical-wording/EMG-TRI-proposed-wording.md (OQ-203). Nobody but the CMO sets `signed`. EMG-001 prints no phone number (OQ-87); the 'call 112' sentence waits for the CMO to confirm the number.",
   "spoken": {
     "5 minutes": "five minutes"
