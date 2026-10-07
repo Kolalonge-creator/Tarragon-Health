@@ -36,7 +36,6 @@ export function ListenButton({ clipIds, phrase, lang }: ListenButtonProps) {
     return () => {
       live = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idsKey, lang]);
   const alive = useRef(true);
   // Only stop audio THIS button started: the service is shared, and another message (an emergency clip) may be playing.
