@@ -18,6 +18,8 @@
  */
 import { LabEntryError } from "./lab-release";
 
+export { LabEntryError };
+
 export type LabUnitConversion = {
   /** The unit label as the panel stores it. */
   canonical: string;

@@ -1,10 +1,11 @@
 "use client";
 
 import { useActionState, useMemo, useState, useTransition } from "react";
-import { acceptedUnits } from "@tarragon/clinical";
+import { acceptedUnits } from "@tarragon/clinical/lab-units";
 import { markOrderCollected, submitPartnerCorrection, submitPartnerResult } from "@/lib/lab-results/structured-actions";
 import {
   CORRECTION_KINDS,
+  describeSexRanges,
   formatRange,
   LAB_RESULT_FILE_ACCEPT,
   PANEL_CODES,
@@ -170,7 +171,7 @@ function EntryForm({ order, panels, correctsId }: { order: PortalOrder; panels: 
         <div className="grid gap-3 sm:grid-cols-2">
           {def.analytes.map((a) => {
             const id = `${order.order_id}-${a.code}`;
-            const range = a.kind === "numeric" ? formatRange(a.refLow ?? null, a.refHigh ?? null, a.unit) : "";
+            const range = a.kind === "numeric" ? [formatRange(a.refLow ?? null, a.refHigh ?? null, a.unit), describeSexRanges(a)].filter(Boolean).join(" · ") : "";
             return (
               <div key={a.code}>
                 <Label htmlFor={id}>

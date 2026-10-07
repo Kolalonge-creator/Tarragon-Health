@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { LAB_UNIT_CONVERSIONS, LabEntryError, toCanonicalUnit } from "@tarragon/clinical";
+import { LAB_UNIT_CONVERSIONS, LabEntryError, toCanonicalUnit } from "@tarragon/clinical/lab-units";
 
 /**
  * Shared pieces for structured lab results (S27): the file rule, the input schemas, the plain-words error mapping and
@@ -99,6 +99,8 @@ export const correctionSchema = resultEntrySchema.extend({
 
 export const releaseSchema = z.object({ resultId: z.string().uuid(), note: z.string().trim().max(500).optional() });
 
+const sexRangeSchema = z.object({ refLow: z.number().optional(), refHigh: z.number().optional() });
+
 export const panelDefinitionSchema = z.object({
   panel_code: z.string(),
   version: z.number(),
@@ -112,12 +114,28 @@ export const panelDefinitionSchema = z.object({
       refHigh: z.number().optional(),
       criticalLow: z.number().optional(),
       criticalHigh: z.number().optional(),
+      bySex: z.object({ male: sexRangeSchema.optional(), female: sexRangeSchema.optional() }).optional(),
       sensitive: z.boolean().optional(),
       optional: z.boolean().optional(),
     }),
   ),
 });
 export type PanelDefinition = z.infer<typeof panelDefinitionSchema>;
+
+/**
+ * "Men 13 to 17.5, women 12 to 15.5" for an analyte with sex-specific ranges, or "" for one without. The CMO reads this before signing
+ * and the partner lab sees it beside the entry box, so a range that differs by sex is never hidden behind the general one.
+ */
+export function describeSexRanges(a: PanelDefinition["analytes"][number]): string {
+  if (!a.bySex) return "";
+  const side = (label: string, r: { refLow?: number; refHigh?: number } | undefined) => {
+    const low = r?.refLow ?? a.refLow ?? null;
+    const high = r?.refHigh ?? a.refHigh ?? null;
+    const text = formatRange(low, high, a.unit);
+    return text ? `${label} ${text}` : "";
+  };
+  return [side("men", a.bySex.male), side("women", a.bySex.female)].filter(Boolean).join(", ");
+}
 
 /** Analytes whose positive is a screening result, not a diagnosis (WHO: a reactive screen needs confirmation). */
 export const SCREENING_ANALYTES: ReadonlySet<string> = new Set(["hiv_screen", "hbsag", "hcv_ab"]);
