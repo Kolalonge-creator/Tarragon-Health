@@ -18,6 +18,8 @@ import {
   PAID_APPOINTMENT_PRODUCT_CODE,
 } from "./appointment-labels";
 import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
+import { BookingTermsCard } from "@/components/consultation/booking-terms";
+import { IntakeForm } from "@/components/consultation/intake-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -183,6 +185,16 @@ export function MyAppointmentsList({ patientId, locale = "en" }: { patientId: st
                       </Button>
                     )}
                   </div>
+                  {/* S64 (15.7): the price and cancel rule sit beside the pay button, so nobody pays without seeing them */}
+                  {appt.status === "booked" && PAID_APPOINTMENT_PRODUCT_CODE[appt.appointment_type] && (
+                    <div className="w-full">
+                      <BookingTermsCard appointmentType={appt.appointment_type} />
+                    </div>
+                  )}
+                  {/* S64 (15.3): the patient's own intake, for a consultation that has not happened yet */}
+                  {appt.consultation_method === "telemedicine" && ["booked", "confirmed", "checked_in"].includes(appt.status) && (
+                    <IntakeForm appointmentId={appt.id} />
+                  )}
                 </li>
               );
             })}

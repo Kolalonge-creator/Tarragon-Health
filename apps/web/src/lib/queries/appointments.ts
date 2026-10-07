@@ -20,6 +20,19 @@ export type AvailableAppointmentSlot = {
   slot_end: string;
   consultation_method: ConsultationMethod;
   location: string | null;
+  /** S64: present on slots from the declared-time list (doctor, dietitian, pharmacist), absent on the older rules engine. */
+  specialty?: string | null;
+  languages?: string[];
+  sex?: string | null;
+  mdcn_number?: string | null;
+  licence_checked_on?: string | null;
+};
+
+/** Appointment types booked from clinician-declared time, and the role of the person who takes them (S64). */
+const CONSULT_ROLE_BY_TYPE: Record<string, "doctor" | "dietitian" | "pharmacist"> = {
+  telemedicine: "doctor",
+  dietitian: "dietitian",
+  pharmacist: "pharmacist",
 };
 
 export const appointmentKeys = {
@@ -54,8 +67,10 @@ export function useAvailableAppointmentSlots(params: {
     queryFn: async () => {
       const supabase = createClient();
       // S21 (OQ-124): a consultation is booked only from time a clinician has declared and the rota has confirmed.
-      if (params.appointmentType === "telemedicine") {
-        const { data: open, error: openError } = await supabase.rpc("list_bookable_consult_slots" as never, { p_from: params.from, p_to: params.to, p_patient: params.patientId } as never);
+      // S64: a dietitian or pharmacist visit is booked from the same declared time, listed by role (the database lists nothing for a role whose product is unpriced)
+      const role = CONSULT_ROLE_BY_TYPE[params.appointmentType as string];
+      if (role) {
+        const { data: open, error: openError } = await supabase.rpc("list_bookable_consult_slots" as never, { p_from: params.from, p_to: params.to, p_patient: params.patientId, p_role: role } as never);
         if (openError) throw openError;
         return toConsultSlots(open as unknown as BookableConsultSlotRow[]) as AvailableAppointmentSlot[];
       }
@@ -136,6 +151,31 @@ export function useMyConsultationRule() {
       const { data, error } = await supabase.rpc("my_consultation_rule" as never, {} as never);
       if (error) throw error;
       return data as unknown as ConsultationRule;
+    },
+  });
+}
+
+/** S64 (15.7): price, cancel rule and refund basis for ANY bookable type, read before the patient pays. `price_kobo` is null while a type is unpriced. */
+export type BookingTerms = {
+  appointment_type: string;
+  price_kobo: number | null;
+  bookable: boolean;
+  cancel_window_hours: number;
+  late_cancel_credit_returned: boolean;
+  refund_basis: "credit";
+  min_age_years: number;
+  policy_version: number;
+};
+
+export function useMyBookingTerms(appointmentType: string) {
+  return useQuery({
+    queryKey: ["consultations", "terms", appointmentType] as const,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("my_booking_terms" as never, { p_appointment_type: appointmentType } as never);
+      if (error) throw error;
+      return data as unknown as BookingTerms | null;
     },
   });
 }

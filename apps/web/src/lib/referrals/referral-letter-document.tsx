@@ -15,7 +15,7 @@ import {
   PDF_BRAND_GREEN,
   PDF_CLINICAL_NAVY,
 } from "@/lib/pdf/pdf-brand";
-import { specialistTypeNoun } from "@tarragon/shared";
+import { referralDestination } from "./referral-destination";
 
 registerPdfFonts();
 
@@ -39,6 +39,8 @@ export interface ReferralLetterData {
   createdAt: string;
   specialistType: string;
   urgency: string | null;
+  /** S64 (15.6): the named destination (a directory entry's name, or the typed fallback). Null leaves the letter's original wording. */
+  facilityName: string | null;
   reason: string | null;
   requestedService: string | null;
   interimPlan: string | null;
@@ -278,14 +280,8 @@ export function ReferralLetterDocument({ data }: { data: ReferralLetterData }) {
         )}
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            To: any {specialistTypeNoun(data.specialistType)} the patient chooses
-          </Text>
-          <Text style={styles.muted}>
-            This patient has not been booked with a named specialist. They are
-            free to attend whichever clinic suits them and will settle that
-            clinic&apos;s fee directly.
-          </Text>
+          <Text style={styles.sectionTitle}>{referralDestination(data.specialistType, data.facilityName).title}</Text>
+          <Text style={styles.muted}>{referralDestination(data.specialistType, data.facilityName).note}</Text>
         </View>
 
         <View style={styles.section}>
