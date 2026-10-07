@@ -95,9 +95,18 @@ begin
   v_flagged := private.health_education_flag_overdue_reviews();
   if v_flagged < 1 then raise exception 'FAIL 3a: flag job did not flag the expired item (%)', v_flagged; end if;
   select content_status into v_status from public.health_education_content where id = v_id;
-  if v_status <> 'review_due' or (select is_active from public.health_education_content where id = v_id) then
-    raise exception 'FAIL 3b: flagged item should be review_due and not active (got %)', v_status;
+  if v_status <> 'review_due' then
+    raise exception 'FAIL 3b: flagged item should be review_due (got %)', v_status;
   end if;
+  if not exists (select 1 from public.health_education_content where id = v_id and review_flagged_at is not null and review_flag_reason is not null) then
+    raise exception 'FAIL 3c: the flag job did not record why the item was flagged';
+  end if;
+  -- review_due is still is_active (a flag is not an outage), but this item is past ITS OWN date so it stays hidden
+  perform set_config('request.jwt.claims', json_build_object('sub', v_patient, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select count(*) into v_n from public.health_education_content where id = v_id;
+  reset role;
+  if v_n <> 0 then raise exception 'FAIL 3d: a review_due item past its own date is still readable'; end if;
 
   -- ---------------- 4. Republish guard: cannot publish while the date is still in the past ----------------
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
@@ -127,6 +136,103 @@ begin
        is distinct from ((v_today + 10)::timestamp at time zone 'Africa/Lagos') then
     raise exception 'FAIL 5b: review_due_at is not the mirror of next_review_due';
   end if;
+
+  -- ---------------- 7. OQ-F1-04: a protocol bump flags for review but takes NOTHING offline ---------------------
+  -- Two items on the bumped condition: one with a future date, one with no date at all. A third is already past
+  -- its own date and must stay hidden. A protocol_versions row (version > 1) is inserted as the owner.
+  declare
+    v_staff uuid;
+    v_cmo uuid;
+    v_org uuid;
+    v_future uuid;
+    v_undated uuid;
+    v_pastdue uuid;
+    v_other uuid;
+    v_ver integer;
+  begin
+    -- a protocol version can only be signed by the org's active Chief Medical Officer: make one (fixture) and act as them
+    select organisation_id into v_org from public.profiles where id = v_admin;
+    v_cmo := gen_random_uuid();
+    insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+    values (v_cmo, 'f1-bump-cmo-' || v_cmo || '@example.invalid', 'x', now(), '{}', '{}');
+    insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test, language)
+    values (v_cmo, v_org, 'clinician', 'F1 bump cmo', '+23480' || lpad((random() * 99999999)::int::text, 8, '0'), (current_date - interval '45 years')::date, true, 'en')
+    on conflict (id) do nothing;
+    insert into public.clinical_staff (organisation_id, profile_id, full_name, credential_type, credential_number, active, status,
+        license_verified_at, verified_by, doctor_tier, employment_type, credentialing_level, indemnity_exempt, indemnity_exempt_by, is_test)
+    values (v_org, v_cmo, 'F1 bump cmo', 'MDCN', 'F1-BUMP-' || substr(v_cmo::text, 1, 8), true, 'active', now(), v_admin,
+        'chief_medical_officer', 'contracted', 2, true, v_admin, true)
+    returning id into v_staff;
+    insert into public.health_education_content (code, title, body, category, condition, content_status, clinician_reviewed, next_review_due)
+    values ('f1-bump-future', 'F1 bump future', 'Body.', 'getting_started', 'hypertension', 'published', true, v_today + 40) returning id into v_future;
+    insert into public.health_education_content (code, title, body, category, condition, content_status, clinician_reviewed)
+    values ('f1-bump-undated', 'F1 bump undated', 'Body.', 'getting_started', 'hypertension', 'published', true) returning id into v_undated;
+    insert into public.health_education_content (code, title, body, category, condition, content_status, clinician_reviewed, next_review_due)
+    values ('f1-bump-pastdue', 'F1 bump past due', 'Body.', 'getting_started', 'hypertension', 'published', true, v_today + 5) returning id into v_pastdue;
+    update public.health_education_content set next_review_due = v_today - 2 where id = v_pastdue;
+    insert into public.health_education_content (code, title, body, category, condition, content_status, clinician_reviewed)
+    values ('f1-bump-other', 'F1 bump other condition', 'Body.', 'getting_started', 'diabetes', 'published', true) returning id into v_other;
+
+    select coalesce(max(version_number), 0) + 2 into v_ver from public.protocol_versions where protocol_id = 'hypertension' and organisation_id = v_org;
+    perform set_config('request.jwt.claims', json_build_object('sub', v_cmo, 'role', 'authenticated')::text, true);
+    insert into public.protocol_versions (organisation_id, protocol_id, version_number, title, change_summary, content, approved_by)
+    values (v_org, 'hypertension', v_ver, 'F1 proof bump', 'F1 proof', '{}'::jsonb, v_staff);
+    perform set_config('request.jwt.claims', '', true);
+
+    if (select count(*) from public.health_education_content where id in (v_future, v_undated) and content_status = 'review_due' and is_active
+          and review_flagged_at is not null and review_flag_reason like 'Protocol hypertension moved to version %') <> 2 then
+      raise exception 'FAIL 7a: the bump did not flag the dated and undated items review_due with a visible reason, still active';
+    end if;
+    if (select content_status from public.health_education_content where id = v_other) <> 'published'
+       or (select review_flagged_at from public.health_education_content where id = v_other) is not null then
+      raise exception 'FAIL 7b: an unrelated condition was flagged';
+    end if;
+
+    -- patients keep reading both flagged items (no silent outage); the past-due one stays hidden
+    perform set_config('request.jwt.claims', json_build_object('sub', v_patient, 'role', 'authenticated')::text, true);
+    set local role authenticated;
+    select count(*) into v_n from public.health_education_content where id in (v_future, v_undated);
+    reset role;
+    if v_n <> 2 then raise exception 'FAIL 7c: a protocol bump took flagged education offline (% of 2 readable)', v_n; end if;
+    perform set_config('request.jwt.claims', json_build_object('sub', v_patient, 'role', 'authenticated')::text, true);
+    set local role authenticated;
+    select count(*) into v_n from public.health_education_library(null) where content_id in (v_future, v_undated);
+    reset role;
+    if v_n <> 2 then raise exception 'FAIL 7d: the library dropped flagged items after a bump (%)', v_n; end if;
+    perform set_config('request.jwt.claims', json_build_object('sub', v_patient, 'role', 'authenticated')::text, true);
+    set local role authenticated;
+    select count(*) into v_n from public.health_education_content where id = v_pastdue;
+    reset role;
+    if v_n <> 0 then raise exception 'FAIL 7e: an item past its own date became readable'; end if;
+
+    -- the flag clears when the item leaves review_due
+    perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
+    set local role authenticated;
+    perform public.set_health_education_content_status(v_future, 'updated', 're-reviewed');
+    reset role;
+    if exists (select 1 from public.health_education_content where id = v_future and (review_flagged_at is not null or review_flag_reason is not null)) then
+      raise exception 'FAIL 7f: the review flag was not cleared when the item left review_due';
+    end if;
+
+    -- the flag job's revoke is real: nobody outside the database owner may run it
+    if has_function_privilege('authenticated', 'private.health_education_flag_overdue_reviews()', 'EXECUTE')
+       or has_function_privilege('anon', 'private.health_education_flag_overdue_reviews()', 'EXECUTE') then
+      raise exception 'FAIL 7g: the flag job is callable by anon or authenticated';
+    end if;
+
+    -- SABOTAGE (OQ-F1-04): make the status itself expire items, as the first F1 draft did; the bump must then hide them.
+    create or replace function private.health_education_content_expired(
+      p_status public.health_education_content_status, p_next_review_due date)
+    returns boolean language sql stable set search_path = '' as $f$
+      select p_status = 'review_due' or (p_next_review_due is not null and p_next_review_due <= (now() at time zone 'Africa/Lagos')::date) $f$;
+    perform set_config('request.jwt.claims', json_build_object('sub', v_patient, 'role', 'authenticated')::text, true);
+    set local role authenticated;
+    select count(*) into v_n from public.health_education_content where id = v_undated;
+    reset role;
+    if v_n <> 0 then
+      raise exception 'VACUOUS TEST (7): with status-based expiry a flagged item is still readable, so 7c proves nothing';
+    end if;
+  end;
 
   -- ---------------- 6. SABOTAGE: neuter the rule; the expired item must be served again --------------------
   update public.health_education_content set next_review_due = v_today - 1 where id = v_id;

@@ -32,7 +32,7 @@ describe("emergency and triage clips with no network (INV-06, safety case 1 area
     const { d } = deps(manifest);
     const r = await resolveClips(["EMG-001"], "en", d);
     expect(r.text).toBe(scriptText("EMG-001", "en"));
-    expect(r.text).toMatch(/needs attention now/);
+    expect(r.text).toMatch(/need care now/);
   });
 });
 
@@ -63,11 +63,11 @@ describe("a missing clip shows the text and logs a non-fatal issue (spec 8.8)", 
     expect(issues).toEqual([{ code: "clip_file_missing", clipId: "EMG-001", lang: "en", detail: "TH-EMG-001-EN.mp3" }]);
   });
 
-  it("an id the manifest does not know (for example EMG-001L, which the list does not have)", async () => {
+  it("an id the manifest does not know", async () => {
     const { d, issues } = deps(withFinished("all"));
-    const r = await resolveClips(["EMG-001L"], "en", d);
+    const r = await resolveClips(["EMG-999"], "en", d);
     expect(r).toMatchObject({ complete: false, text: "" });
-    expect(issues).toEqual([{ code: "clip_unknown", clipId: "EMG-001L", lang: "en" }]);
+    expect(issues).toEqual([{ code: "clip_unknown", clipId: "EMG-999", lang: "en" }]);
   });
 });
 
@@ -87,8 +87,8 @@ describe("a stitched phrase is all or nothing", () => {
     const { d } = deps(withFinished("all"));
     const r = await resolvePhrase(reading(), "en", d);
     expect(r.complete).toBe(true);
-    expect(r.steps.map((s) => s.clipId)).toEqual(["NUM-P01", "NUM-148", "NUM-P02", "NUM-094", "TRI-003"]);
-    expect(r.steps.map((s) => s.key)).toEqual(["en", "shared", "en", "shared", "en"]);
+    expect(r.steps.map((s) => s.clipId)).toEqual(["NUM-P01", "NUM-148", "NUM-P02", "NUM-094", "NUM-P24", "TRI-003"]);
+    expect(r.steps.map((s) => s.key)).toEqual(["en", "shared", "en", "shared", "en", "en"]);
   });
 });
 
@@ -96,7 +96,7 @@ describe("a clinical reading is never spoken alone (design change from the compe
   it("refuses a blood pressure, glucose, pulse or HbA1c phrase with no triage sentence", async () => {
     const { d, issues } = deps(withFinished("all"));
     const r = await resolvePhrase(stitchBloodPressure(148, 94)!, "en", d);
-    expect(r).toMatchObject({ complete: false, steps: [], text: "Your blood pressure reading is 148 over 94" });
+    expect(r).toMatchObject({ complete: false, steps: [], text: "Your blood pressure reading is 148 over 94 millimetres of mercury" });
     expect(issues).toEqual([{ code: "phrase_missing_severity", clipId: null, lang: "en", detail: "bp" }]);
   });
 
@@ -146,7 +146,7 @@ describe("language", () => {
     const { d } = deps(withFinished("all"));
     const r = await resolvePhrase(reading(120, 80), "en", d);
     expect(r).toMatchObject({ complete: true, lang: "en" });
-    expect(r.steps.map((s) => s.key)).toEqual(["en", "shared", "en", "shared", "en"]);
+    expect(r.steps.map((s) => s.key)).toEqual(["en", "shared", "en", "shared", "en", "en"]);
   });
 });
 

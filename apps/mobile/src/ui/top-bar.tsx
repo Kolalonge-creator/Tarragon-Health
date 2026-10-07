@@ -257,7 +257,7 @@ function DropdownModal({
   const colors = useLegacyColors();
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
-      <Pressable accessibilityRole="button" onPress={onClose} style={{ flex: 1 }}>
+      <Pressable accessible={false} onPress={onClose} style={{ flex: 1 }}>
         <View
           style={{
             position: "absolute",
@@ -274,7 +274,7 @@ function DropdownModal({
             overflow: "hidden",
           }}
         >
-          <Pressable onPress={(e) => e.stopPropagation()}>{children}</Pressable>
+          <Pressable accessible={false} onPress={(e) => e.stopPropagation()}>{children}</Pressable>
         </View>
       </Pressable>
     </Modal>

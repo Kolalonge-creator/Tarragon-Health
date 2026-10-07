@@ -23,7 +23,10 @@ export const CONTEXT_FIELDS = [
   "adherence.percent7d",
   "silence.days",
   "pathway.carePack",
+  "symptoms.answered",
   "pregnant",
+  "postpartum",
+  "obstetric",
   "age",
 ] as const;
 
@@ -88,7 +91,10 @@ export function buildContext(input: TriageInput, ruleSet: RuleSet): Context {
     "adherence.percent7d": trigger.type === "adherence" ? trigger.percent7d : null,
     "silence.days": silenceFrom === null ? null : lagosDaysBetween(toMs(silenceFrom), nowMs),
     "pathway.carePack": input.pathway.state === "care_pack_active",
+    "symptoms.answered": observation ? observation.symptomsAnswered === true || observation.symptoms.length > 0 : null,
     pregnant: input.pregnant,
+    postpartum: input.postpartum === true,
+    obstetric: input.pregnant || input.postpartum === true,
     age: input.ageYears,
   };
 }
