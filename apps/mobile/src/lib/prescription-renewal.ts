@@ -29,7 +29,6 @@ import type { Enums } from "@tarragon/shared";
  */
 
 export type PharmacyOrderStatus = Enums<"pharmacy_order_status">;
-export type PharmacyFulfilmentMethod = Enums<"pharmacy_fulfilment_method">;
 
 export interface PharmacyOrderItem {
   medication_id: string;
@@ -51,11 +50,10 @@ export interface PharmacyOrderListItem {
    * returns null, matching PayForPharmacyOrderButton's own fallback. */
   payableKobo: number;
   requestedAt: string;
-  fulfilmentMethod: PharmacyFulfilmentMethod;
 }
 
 const PHARMACY_ORDER_SELECT =
-  "id, order_number, status, items, total_kobo, payable_kobo, requested_at, fulfilment_method";
+  "id, order_number, status, items, total_kobo, payable_kobo, requested_at";
 
 /** Patient's own pharmacy_orders, newest first — RLS (patient_id = auth.uid())
  * scopes it, the same plain client read every other native screen's own-data
@@ -78,7 +76,6 @@ export async function getPharmacyOrders(patientId: string): Promise<QueryResult<
         totalKobo: row.total_kobo,
         payableKobo: row.payable_kobo ?? row.total_kobo,
         requestedAt: row.requested_at,
-        fulfilmentMethod: row.fulfilment_method,
       })),
     };
   } catch (e) {
@@ -95,16 +92,13 @@ export function pharmacyOrderItemsSummary(items: PharmacyOrderItem[]): string {
  * (tone names differ — this app's Pill only has green/amber/grey/red, not
  * web's five-colour Badge — so "blue"-toned web statuses map to the closest
  * native tone rather than growing a sixth Pill colour for one screen). */
-export const PHARMACY_ORDER_STATUS_LABEL: Record<PharmacyOrderStatus, string> = {
+export const PHARMACY_ORDER_STATUS_LABEL: Partial<Record<PharmacyOrderStatus, string>> = {
   pending_payment: "Awaiting payment",
   payment_confirmed: "Booking confirmed",
   requested: "In progress",
   confirmed: "In progress",
   unavailable: "Medicine unavailable",
   dispensed: "Dispensed",
-  out_for_delivery: "Out for delivery",
-  delivery_failed: "Delivery attempt failed",
-  delivered: "Delivered",
   cancelled: "Cancelled",
 };
 

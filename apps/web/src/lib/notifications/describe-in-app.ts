@@ -500,16 +500,6 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     const pharmacy = String(payload.pharmacy_name ?? "the pharmacy");
     return { text: `Your order is ready for collection at ${pharmacy}`, href: "/patient/medications" };
   }
-  if (n.template === "pharmacy_order_out_for_delivery") {
-    const courier = String(payload.courier_name ?? "your courier");
-    return { text: `Your order is out for delivery with ${courier}`, href: "/patient/medications" };
-  }
-  if (n.template === "pharmacy_order_delivered") {
-    return { text: "Your order has been delivered", href: "/patient/medications" };
-  }
-  if (n.template === "pharmacy_order_delivery_failed") {
-    return { text: "A delivery attempt for your order was unsuccessful", href: "/patient/medications" };
-  }
   if (n.template === "pharmacy_order_unavailable") {
     const pharmacy = String(payload.pharmacy_name ?? "the pharmacy");
     return { text: `${pharmacy} could not complete your order`, href: "/patient/medications" };

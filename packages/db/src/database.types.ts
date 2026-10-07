@@ -40767,7 +40767,6 @@ export type Database = {
           p_city: string
           p_contact_email: string
           p_contact_phone: string
-          p_delivery: boolean
           p_license_expires_at: string
           p_license_number: string
           p_name: string
