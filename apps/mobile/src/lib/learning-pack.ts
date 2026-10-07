@@ -81,9 +81,42 @@ export async function purgeExpired(store: PackStore, now: Date = new Date()): Pr
   return gone;
 }
 
-/** Today's lesson from the downloads, for when the server cannot be reached: the first in-date micro-lesson. */
-export function pickOfflineDailyLesson(items: readonly StoredLesson[], now: Date = new Date()): StoredLesson | null {
-  return items.find((l) => l.isMicroLesson && !isExpired({ nextReviewDue: l.nextReviewDue }, now)) ?? null;
+/**
+ * This week's lesson from the downloads, for when the server cannot be reached. The phone cannot work out the programme week
+ * without the server, so it keeps the one the server last chose (`lastCode`) and shows that while it is still downloaded and in
+ * date; with none remembered it shows the first in-date micro-lesson. Never an expired one, never more than one lesson.
+ */
+export function pickOfflineWeeklyLesson(items: readonly StoredLesson[], now: Date = new Date(), lastCode?: string | null): StoredLesson | null {
+  const ok = (l: StoredLesson) => l.isMicroLesson && !isExpired({ nextReviewDue: l.nextReviewDue }, now);
+  return (lastCode ? items.find((l) => l.code === lastCode && ok(l)) : undefined) ?? items.find(ok) ?? null;
+}
+
+const WEEKLY_CODE_KEY = "tarragon.learning.weekly_code.v1";
+
+/** Remember which lesson the server chose for this person this week, so the offline card shows the same one. A storage failure is harmless. */
+export async function rememberWeeklyLessonCode(patientId: string, code: string): Promise<void> {
+  try {
+    await AsyncStorage.setItem(`${WEEKLY_CODE_KEY}.${patientId}`, code);
+  } catch {
+    // the offline card then falls back to the first in-date micro-lesson
+  }
+}
+
+/** Forget the remembered lesson (the server said nothing is due this week), so a later offline card does not show an old one. */
+export async function forgetWeeklyLessonCode(patientId: string): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(`${WEEKLY_CODE_KEY}.${patientId}`);
+  } catch {
+    // harmless
+  }
+}
+
+export async function recallWeeklyLessonCode(patientId: string): Promise<string | null> {
+  try {
+    return await AsyncStorage.getItem(`${WEEKLY_CODE_KEY}.${patientId}`);
+  } catch {
+    return null;
+  }
 }
 
 /** Search the downloads with the same synonym table the server uses. */

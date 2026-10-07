@@ -8,6 +8,7 @@ import { Section } from "../../_components/section";
 import { loadSharedArticle as loadSharedArticleUncached } from "@/lib/marketing/learn-data";
 import { absoluteUrl } from "@/lib/marketing/site";
 import { ShareLessonButtons } from "@/components/learning/share-lesson-buttons";
+import { MembersOnlyPrompt } from "@/components/learning/members-only-prompt";
 
 // One database read per request even though both generateMetadata and the page need the article.
 const loadSharedArticle = cache(loadSharedArticleUncached);
@@ -52,7 +53,13 @@ export default async function SharedArticlePage({ params }: { params: Promise<{ 
           {trust.nextReview && <p>{t("learn.trust.next_review", "en", { date: trust.nextReview })}</p>}
           {trust.sources && <p>{t("learn.trust.sources", "en", { sources: trust.sources })}</p>}
         </div>
-        <div className="mt-6 whitespace-pre-line text-base leading-relaxed text-charcoal-ink/90">{article.body}</div>
+        {article.membersOnly ? (
+          <div className="mt-6">
+            <MembersOnlyPrompt creatorName={article.creatorName} />
+          </div>
+        ) : (
+          <div className="mt-6 whitespace-pre-line text-base leading-relaxed text-charcoal-ink/90">{article.body}</div>
+        )}
         {article.selfCareAction && (
           <section className="mt-6 rounded-xl bg-brand-green/5 p-4">
             <h2 className="text-sm font-semibold text-charcoal-ink">{t("learn.next.title")}</h2>

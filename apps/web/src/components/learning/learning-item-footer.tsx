@@ -7,6 +7,7 @@ import { buildNextStep, buildTrustLine } from "@tarragon/shared";
 import { Button } from "@/components/ui/button";
 import { useHealthEducationItemTrust, useSaveLessonForConsultation } from "@/lib/queries/learning-centre";
 import { absoluteUrl } from "@/lib/marketing/site";
+import { MembersOnlyPrompt } from "./members-only-prompt";
 import { ShareLessonButtons } from "./share-lesson-buttons";
 
 /**
@@ -58,6 +59,8 @@ export function LearningItemFooter({
         {line.sources && <p>{t("learn.trust.sources", "en", { sources: line.sources })}</p>}
         {line.incomplete && <p>{t("learn.trust.pending")}</p>}
       </div>
+
+      {trust?.members_only === true && <MembersOnlyPrompt creatorName={trust.creator_name} />}
 
       {showNextStep && (
         <section aria-labelledby={`next-${code}`} className="space-y-2 rounded-xl bg-brand-green/5 p-3 dark:bg-brand-green/10">

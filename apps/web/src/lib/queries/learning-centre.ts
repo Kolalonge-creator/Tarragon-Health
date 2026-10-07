@@ -4,14 +4,14 @@ import type { Database } from "@tarragon/shared";
 
 /**
  * Learning Centre (S55, Module 9). Search with the synonym table, the trust and "What can I do next?" facts
- * for an item, the daily micro-lesson card, "ask your care team" saves, and the admin creator/report reads.
+ * for an item, the weekly micro-lesson card, "ask your care team" saves, and the admin creator/report reads.
  * Every call is an RLS-scoped or SECURITY DEFINER RPC that applies the review-date rule on the server; nothing
  * here decides what is servable.
  */
 type Fn = Database["public"]["Functions"];
 export type LearningSearchHit = Fn["search_health_education"]["Returns"][number];
 export type LearningItemTrust = Fn["health_education_item_trust"]["Returns"][number];
-export type DailyMicroLesson = Fn["daily_micro_lesson"]["Returns"][number];
+export type WeeklyMicroLesson = Fn["weekly_micro_lesson"]["Returns"][number];
 export type LearningSearchGap = Fn["learning_search_gaps_report"]["Returns"][number];
 export type LearningReadinessRow = Fn["learning_readiness_report"]["Returns"][number];
 
@@ -51,16 +51,16 @@ export function useHealthEducationItemTrust(code: string) {
   });
 }
 
-export const dailyLessonKey = (patientId: string) => ["learning-daily-lesson", patientId] as const;
+export const weeklyLessonKey = (patientId: string) => ["learning-weekly-lesson", patientId] as const;
 
-export function useDailyMicroLesson(patientId: string) {
+export function useWeeklyMicroLesson(patientId: string) {
   return useQuery({
-    queryKey: dailyLessonKey(patientId),
+    queryKey: weeklyLessonKey(patientId),
     queryFn: async () => {
       const supabase = createClient();
-      const { data, error } = await supabase.rpc("daily_micro_lesson");
+      const { data, error } = await supabase.rpc("weekly_micro_lesson");
       if (error) throw error;
-      return ((data ?? []) as DailyMicroLesson[])[0] ?? null;
+      return ((data ?? []) as WeeklyMicroLesson[])[0] ?? null;
     },
     enabled: !!patientId,
   });

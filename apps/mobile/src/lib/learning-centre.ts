@@ -9,7 +9,7 @@ import type { Database } from "@tarragon/shared";
 type Fn = Database["public"]["Functions"];
 export type SearchHit = Fn["search_health_education"]["Returns"][number];
 export type ItemTrust = Fn["health_education_item_trust"]["Returns"][number];
-export type DailyLesson = Fn["daily_micro_lesson"]["Returns"][number];
+export type WeeklyLesson = Fn["weekly_micro_lesson"]["Returns"][number];
 export type PackRow = Fn["learning_offline_pack"]["Returns"][number];
 export type PackStatus = Fn["learning_pack_status"]["Returns"][number];
 
@@ -26,8 +26,8 @@ export async function loadItemTrust(code: string): Promise<ItemTrust | null> {
   return data?.[0] ?? null;
 }
 
-export async function loadDailyLesson(): Promise<DailyLesson | null> {
-  const { data, error } = await supabase.rpc("daily_micro_lesson");
+export async function loadWeeklyLesson(): Promise<WeeklyLesson | null> {
+  const { data, error } = await supabase.rpc("weekly_micro_lesson");
   if (error) throw error;
   return data?.[0] ?? null;
 }
