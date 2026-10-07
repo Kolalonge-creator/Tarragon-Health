@@ -1136,6 +1136,12 @@ Not done: not applied to production, not pushed.
 - **Tests**: DB proof `s11g_legacy_bp_alert_follows_approved_rule.sql` (12 checks, with a sabotage that is caught), plus the older BP, S05f, S11e, S12 and S11f proofs re-run clean; mobile 8 new (`s11h-notification-tap.test.ts`); i18n 6, clinical 205. Correction: the earlier note that the S11f proof was registered in `ci.manifest` was wrong; `s11f` and `s11g` are registered now.
 - **Open**: OQ-91 (Android, the 160/100 band, the native Pidgin review).
 
+## Track E: lab, screening and therapy commission columns off the signed-in surface (2026-10-07)
+
+- **Built**: migration `20261007105817` revokes table SELECT and grants safe-column SELECT on `lab_tests`, `panel_bundles`, `screen_types` and `therapy_sessions`; owner-run admin views `lab_tests_admin`, `panel_bundles_admin`, `screen_types_admin` for admin, `partners.labs.manage` and `commissions.view`; assertion block that also fails on any ungranted non-commission column. Web and mobile reads switched to explicit columns (`PANEL_BUNDLE_SAFE_COLUMNS`, `LAB_TEST_SAFE_COLUMNS`, `THERAPY_SESSION_SAFE_COLUMNS`), admin screen reads `panel_bundles_admin`; `PanelBundle`, `LabTestRow`, `TherapySession` types omit the commission columns. Live counts: 60/10, 42/6, 38/21, 0/0 (rows / carrying a commission). Design note `docs/design/E-lab-commission-exposure.md`.
+- **Reused**: the S53 pre-fix pattern (`cbbbf4a64`), the `pharmacy-commission-columns.scan.test.ts` shape.
+- **Tests**: DB proof `e_lab_screen_therapy_commission_columns_not_readable.sql` (137 checks across 12 roles plus anon, 5 sabotage checks, registered in `ci.manifest`); web scan test `lab-commission-columns.scan.test.ts`.
+- **Open**: OQ-320 (partner cost and refund margin columns), OQ-321 (old mobile builds), OQ-322 (apply order with the S53 pre-fix).
 
 
 ## S38g: email and push notice to sponsor staff that a figure is ready (2026-10-07)

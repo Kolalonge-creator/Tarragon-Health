@@ -3,7 +3,10 @@ import { createClient } from "@/lib/supabase/client";
 import type { Tables, Enums } from "@tarragon/shared";
 
 export type TherapyProvider = Tables<"therapy_directory">;
-export type TherapySession = Tables<"therapy_sessions">;
+/** Track E 8.16: commission_kobo is not readable by the patient or a clinician (column grant); explicit columns only. */
+export type TherapySession = Omit<Tables<"therapy_sessions">, "commission_kobo">;
+export const THERAPY_SESSION_SAFE_COLUMNS =
+  "id, organisation_id, patient_id, provider_id, status, modality, requested_at, scheduled_for, completed_at, cancelled_at, cancelled_reason, fee_kobo, payment_provider_ref, approved_by, approved_at, clinician_alert_id, patient_note, created_at, updated_at";
 
 /**
  * The verified therapy network.
@@ -54,7 +57,7 @@ export function useMyTherapySessions() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("therapy_sessions")
-        .select("*, provider:therapy_directory!inner(name, specialist_type)")
+        .select(`${THERAPY_SESSION_SAFE_COLUMNS}, provider:therapy_directory!inner(name, specialist_type)`)
         .order("requested_at", { ascending: false });
       if (error) throw error;
       return data;

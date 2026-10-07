@@ -3,7 +3,10 @@ import type { QueryResult } from "./medications";
 import type { Tables, Enums } from "@tarragon/shared";
 
 export type TherapyProvider = Tables<"therapy_directory">;
-export type TherapySession = Tables<"therapy_sessions">;
+/** Track E 8.16: commission_kobo is not readable by the patient (column grant); explicit columns only. */
+export type TherapySession = Omit<Tables<"therapy_sessions">, "commission_kobo">;
+const THERAPY_SESSION_SAFE_COLUMNS =
+  "id, organisation_id, patient_id, provider_id, status, modality, requested_at, scheduled_for, completed_at, cancelled_at, cancelled_reason, fee_kobo, payment_provider_ref, approved_by, approved_at, clinician_alert_id, patient_note, created_at, updated_at";
 
 /**
  * Mirrors apps/web/src/lib/queries/therapy.ts. Reads public.therapy_directory,
@@ -33,7 +36,7 @@ export async function loadTherapyDirectory(filters?: {
 export async function loadMyTherapySessions(): Promise<QueryResult<TherapySession[]>> {
   const { data, error } = await supabase
     .from("therapy_sessions")
-    .select("*, provider:therapy_directory!inner(name, specialist_type)")
+    .select(`${THERAPY_SESSION_SAFE_COLUMNS}, provider:therapy_directory!inner(name, specialist_type)`)
     .order("requested_at", { ascending: false });
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: (data ?? []) as TherapySession[] };

@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { koboToNaira } from "@tarragon/shared";
 import { createClient } from "@/lib/supabase/client";
+import { THERAPY_SESSION_SAFE_COLUMNS } from "@/lib/queries/therapy";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -52,7 +53,7 @@ function useAwaitingApproval() {
       const { data, error } = await supabase
         .from("therapy_sessions")
         .select(
-          "*, patient:profiles!therapy_sessions_patient_id_fkey(full_name, patient_number), provider:therapy_directory(name, specialist_type)"
+          `${THERAPY_SESSION_SAFE_COLUMNS}, patient:profiles!therapy_sessions_patient_id_fkey(full_name, patient_number), provider:therapy_directory(name, specialist_type)`
         )
         .eq("status", "awaiting_clinician_approval")
         .order("requested_at", { ascending: true });
