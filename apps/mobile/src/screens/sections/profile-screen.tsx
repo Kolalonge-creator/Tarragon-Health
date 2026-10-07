@@ -639,6 +639,8 @@ function DataPrivacySection({
         id: `local-${Date.now()}`,
         organisation_id: organisationId,
         patient_id: userId,
+        item_id: null,
+        item_table: null,
         record_description: recordDescription,
         what_is_wrong: whatIsWrong,
         requested_change: requestedChange || null,
