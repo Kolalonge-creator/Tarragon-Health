@@ -843,6 +843,44 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S18.md; docs/research/S18.md; spec 7.2, 7.5, 7.9",
   },
   {
+    key: "lead.rules",
+    // Lead clinician, declared availability and on-call rota rules (S18, spec 7.2 and 7.5). Live values are the active row
+    // of `lead_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
+    // max_lead_patients repeats clinician.max_lead_patients. lead_min_doctor_tier and required_competencies: who may lead
+    // (founder decision F-05: doctor tier is the gate; OQ-125). block_min_hours: the shortest declared block. rota_*, gap_alert_hours,
+    // min_eligible_on_call: the rota and when uncovered hours raise an incident. fatigue_* and post_call_*: NHS-derived warnings
+    // and rest (the 2016 doctors in training contract FAQ: 11 hours rest, 72 hours in 168, at most 3 rostered on-calls and 4 long shifts in 7 days), PROPOSED and not Nigerian norms, CMO to set (OQ-128); v2 (CMO, 2026-10-07) lowers the weekly hours warning from 72 to 48, the EU Working Time Directive average; a rota override needs a written reason of
+    // override_reason_min_chars. contracted_needs_declared_hours: a contracted clinician is offered work only inside declared hours. contracted_min_declared_hours_per_week: the pilot floor shown to a contracted clinician (a pilot value in the published Amwell programme is 10 hours; displayed, not enforced). swap_urgent_hours: a swap on a shift starting within this many hours applies on acceptance and is audited, so urgent cover never waits for a reviewer.
+    value: {
+      max_lead_patients: 60,
+      lead_min_doctor_tier: "senior_medical_officer",
+      required_competencies: ["lead_clinician", "hypertension"],
+      block_min_hours: 2,
+      minimum_guarantee_kinds: ["queue", "on_call"],
+      rota_max_shift_hours: 24,
+      rota_horizon_days: 14,
+      gap_alert_hours: 48,
+      min_eligible_on_call: 2,
+      fatigue_min_rest_hours: 11,
+      fatigue_max_consecutive_days: 7,
+      fatigue_max_shifts_per_7_days: 3,
+      fatigue_max_hours_per_7_days: 48,
+      fatigue_long_shift_hours: 10,
+      fatigue_max_long_shifts_per_7_days: 4,
+      post_call_rest_hours: 8,
+      post_call_rest_min_shift_hours: 8,
+      contracted_needs_declared_hours: true,
+      contracted_min_declared_hours_per_week: 10,
+      swap_urgent_hours: 4,
+      override_reason_min_chars: 10,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S18.md; docs/research/S18.md; spec 7.2, 7.5, 7.9",
+  },
+  {
     key: "paging.rules",
     // Red event paging (S19, spec 7.9). Live values are the active row of `paging_config`; this entry mirrors it and a test
     // fails if the migration seed and this value drift. escalation_minutes repeats paging.escalation_minutes: the backup is
