@@ -928,3 +928,5 @@ s75_a1_fee_at_risk_freeze.sql
 s75_a2_institution_aggregate_read_audit.sql
 # S75 A4 (CMO S-6): a risk score never gates care. The queue's eligible set and claim order for the same five tasks are identical with and without high risk_scores and risk_predictions rows on the least urgent patients and equal to the plain (class, due) order; the queue functions never mention a risk table. Sabotage: queue_next redefined to order by risk; the two runs must then differ.
 s75_risk_never_gates_care.sql
+# S75 A5 (CMO S-21): the monthly report reaches a Care Circle supporter only when the patient turns on a per-supporter flag (off by default, so existing supporters lose the block until opted in); the flag never widens the weekly ticks; the preview follows it; only the patient can set it, a supporter, stranger and anon are refused; my_care_circle returns it. Sabotage: the block ignoring the flag.
+s75_a5_circle_monthly_share_flag.sql
