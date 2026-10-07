@@ -140,6 +140,17 @@ begin
   insert into public.medications (organisation_id, patient_id, drug_name, dose, quantity, repeats_allowed, source, is_active, prescription_id)
   values (v_org, v_pat, 'Amlodipine', '5 mg', '30 tablets', 0, 'clinician', false, v_rx6);
   perform pg_temp.setf('rx6', v_rx6);
+  -- a dependant (a child account nobody logs into) with a signed prescription
+  perform pg_temp.setf('kid', pg_temp.mkuser(v_org, 'kid', 'patient', 'S54c Dependant'));
+  update public.profiles set is_dependent_account = true, city = 'Ikeja', state = 'Lagos' where id = pg_temp.f('kid');
+  insert into public.care_team_assignment (organisation_id, patient_id, clinician_id) values (v_org, pg_temp.f('kid'), v_doc);
+  perform pg_temp.setf('rxkid', pg_temp.mkrx(v_org, pg_temp.f('kid'), v_doc, '[{"drug":"Amlodipine","dose":"5 mg","quantity":"30 tablets"}]'::jsonb, 'signed'));
+  perform pg_temp.setf('rx7', pg_temp.mkrx(v_org, v_pat, v_doc, '[{"drug":"Amlodipine","dose":"5 mg","quantity":"30 tablets"}]'::jsonb, 'signed'));
+  -- a patient whose city is her state (Lagos, Lagos): nearness must stay a state-level fact
+  perform pg_temp.setf('lagos', pg_temp.mkuser(v_org, 'lagos', 'patient', 'S54c Lagos Patient'));
+  update public.profiles set city = 'Lagos', state = 'Lagos' where id = pg_temp.f('lagos');
+  insert into public.care_team_assignment (organisation_id, patient_id, clinician_id) values (v_org, pg_temp.f('lagos'), v_doc);
+  perform pg_temp.setf('rxlagos', pg_temp.mkrx(v_org, pg_temp.f('lagos'), v_doc, '[{"drug":"Amlodipine","dose":"5 mg","quantity":"30 tablets"}]'::jsonb, 'signed'));
 end $$;
 
 \o /dev/null
@@ -233,6 +244,13 @@ select pg_temp.ck('B', 'B15 a prescription whose medicine is no longer live cann
   pg_temp.q_as(pg_temp.f('doc'), format($q$select public.care_team_suggest_pharmacy(%L, %L, %L)::text$q$, pg_temp.f('rx6'), pg_temp.f('pA'), pg_temp.f('lA')))
   || '/' || pg_temp.q_as(pg_temp.f('doc'), format($q$select count(*)::text from public.care_team_prescriptions_for_routing(%L, 'Preparing to route this prescription') where prescription_id = %L$q$, pg_temp.f('pat'), pg_temp.f('rx6')))
   || '/' || pg_temp.q_as(pg_temp.f('doc'), format($q$select count(*)::text from public.care_team_pharmacy_options(%L, %L, 'Preparing to route this prescription')$q$, pg_temp.f('pat'), pg_temp.f('rx6'))));
+select pg_temp.ck('B', 'B17 a dependant account gets no suggestion (nobody can confirm it), offers no options, and the routing list says the patient cannot confirm', 'ERR:22023/0/false',
+  pg_temp.q_as(pg_temp.f('doc'), format($q$select public.care_team_suggest_pharmacy(%L, %L, %L)::text$q$, pg_temp.f('rxkid'), pg_temp.f('pA'), pg_temp.f('lA')))
+  || '/' || pg_temp.q_as(pg_temp.f('doc'), format($q$select count(*)::text from public.care_team_pharmacy_options(%L, %L, 'Preparing to route this prescription')$q$, pg_temp.f('kid'), pg_temp.f('rxkid')))
+  || '/' || pg_temp.q_as(pg_temp.f('doc'), format($q$select patient_can_confirm::text from public.care_team_prescriptions_for_routing(%L, 'Preparing to route this prescription') where prescription_id = %L$q$, pg_temp.f('kid'), pg_temp.f('rxkid'))));
+select pg_temp.ck('B', 'B18 a patient whose city is her state gets state-level nearness only (no branch is called same city)', 'same_state,same_state,same_state,same_state',
+  (select string_agg(x ->> 'proximity', ',') from jsonb_array_elements(
+     pg_temp.q_as(pg_temp.f('doc'), format($q$select coalesce(jsonb_agg(to_jsonb(o)), '[]')::text from public.care_team_pharmacy_options(%L, %L, 'Preparing to route this prescription') o$q$, pg_temp.f('lagos'), pg_temp.f('rxlagos')))::jsonb) x));
 select pg_temp.ck('B', 'B16 the author sees her own suggestion flagged as hers', 'true',
   pg_temp.q_as(pg_temp.f('doc'), format($q$select suggested_by_me::text from public.care_team_prescriptions_for_routing(%L, 'Preparing to route this prescription') where prescription_id = %L$q$, pg_temp.f('pat'), pg_temp.f('rx1'))));
 
@@ -340,6 +358,15 @@ do $$ declare v_id uuid := (select id from public.prescription_pharmacy_suggesti
 end $$;
 select pg_temp.ck('D', 'D12 only the author withdraws: another clinician refused, the author succeeds, the patient then sees none', 'ERR:42501/true/0',
   pg_temp.t('w1') || '/' || pg_temp.t('w2') || '/' || pg_temp.q_as(pg_temp.f('pat'), format($q$select count(*)::text from public.patient_pharmacy_suggestion(%L)$q$, pg_temp.f('rx5'))));
+
+-- a prescriber (or any non-patient route) moving the prescription to a pharmacy never records the suggestion as the patient's choice
+do $$ begin
+  perform pg_temp.q_as(pg_temp.f('doc'), format($q$select public.care_team_suggest_pharmacy(%L, %L, %L)::text$q$, pg_temp.f('rx7'), pg_temp.f('pC'), pg_temp.f('lC')));
+  -- the table owner stands in for the prescriber path: no patient flag is set, so this is routing by staff
+  update public.prescriptions set state = 'sent', pharmacy_partner_id = pg_temp.f('pC'), pharmacy_location_id = pg_temp.f('lC') where id = pg_temp.f('rx7');
+end $$;
+select pg_temp.ck('D', 'D13 routing by anyone but the patient never records her as having accepted: the suggestion lapses', 'lapsed/true',
+  (select status || '/' || (settled_by is null)::text from public.prescription_pharmacy_suggestions where prescription_id = pg_temp.f('rx7')));
 
 -- E. 8.16 standing checks ---------------------------------------------------------------------------------------------------------------
 select pg_temp.ck('E', 'E1 no clinician-facing function body names an earning, a margin, a payout or a price', '0',
