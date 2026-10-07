@@ -429,6 +429,7 @@ declare
   v_n integer := 0;
   v_failed boolean := false;
   v_notified boolean := false;
+  v_prev_nc boolean;
   v_repeat integer := private.assistant_cfg_int('paging', 'repeat_hours');
   v_repeat_nc integer := private.assistant_cfg_int('paging', 'no_cover_repeat_minutes');
   c text;
@@ -442,10 +443,16 @@ begin
   update public.assistant_page_queue set last_attempt_at = now() where conversation_id = p_conversation and done_at is null;
   -- once per conversation per window: a patient who keeps writing is not paged every message (the task merges them). A page that found
   -- nobody on call is retried sooner (the rota may have cover by then); a page that failed to send leaves no marker at all.
-  if exists (select 1 from public.audit_log a
-              where a.action = 'assistant.on_call_paged' and a.entity_id = p_conversation
-                and a.created_at > now() - case when coalesce((a.event ->> 'no_cover')::boolean, false) then make_interval(mins => v_repeat_nc) else make_interval(hours => v_repeat) end) then
-    update public.assistant_page_queue set done_at = now() where conversation_id = p_conversation and done_at is null;
+  select coalesce((a.event ->> 'no_cover')::boolean, false) into v_prev_nc
+    from public.audit_log a
+   where a.action = 'assistant.on_call_paged' and a.entity_id = p_conversation
+     and a.created_at > now() - case when coalesce((a.event ->> 'no_cover')::boolean, false) then make_interval(mins => v_repeat_nc) else make_interval(hours => v_repeat) end
+   order by a.created_at desc limit 1;
+  if found then
+    -- a page that reached the on-call clinician is done; one that only reached leadership (nobody on call) stays pending so cover is found later
+    if not v_prev_nc then
+      update public.assistant_page_queue set done_at = now() where conversation_id = p_conversation and done_at is null;
+    end if;
     return jsonb_build_object('paged', false, 'notified', true, 'already', true);
   end if;
 
@@ -497,7 +504,10 @@ begin
   end;
 
   if v_notified then
-    update public.assistant_page_queue set done_at = now() where conversation_id = p_conversation and done_at is null;
+    -- done only when the clinician on call was paged; leadership-only (no cover) leaves the row pending for the retry
+    if v_to is not null then
+      update public.assistant_page_queue set done_at = now() where conversation_id = p_conversation and done_at is null;
+    end if;
     insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
     values (v_org, null, 'assistant.on_call_paged', 'ai_conversations', p_conversation, jsonb_build_object('no_cover', v_to is null, 'task_id', v_task));
   end if;

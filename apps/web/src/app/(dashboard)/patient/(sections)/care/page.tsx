@@ -21,6 +21,7 @@ import { LifestyleProgressSummary } from "@/app/(dashboard)/patient/lifestyle-pr
 import { YourReferrals } from "@/components/your-referrals";
 import { NavigationRequests } from "@/app/(dashboard)/patient/navigation-requests";
 import { AiCoachChat } from "@/app/(dashboard)/patient/ai-coach-chat";
+import { AssistantEmergencyButton } from "@/components/ai/assistant-emergency-button";
 import { ServiceNavigationAssistant } from "@/app/(dashboard)/patient/service-navigation-assistant";
 import { CareCircleCard } from "@/app/(dashboard)/patient/care-circle-card";
 import { CareVouchersCard } from "@/components/care-vouchers-card";
@@ -89,7 +90,7 @@ export default async function PatientCarePage() {
               none of its own. */}
           <VerifiedDocumentsCard patientId={subjectId} />
           <SeniorCaseReviewCard patientId={subjectId} />
-          {coachAccess && <AiCoachChat patientId={subjectId} />}
+          {coachAccess ? <AiCoachChat patientId={subjectId} /> : <AssistantEmergencyButton />}
           <ServiceNavigationAssistant />
           <CareCircleCard />
           <YourReferrals patientId={subjectId} />
