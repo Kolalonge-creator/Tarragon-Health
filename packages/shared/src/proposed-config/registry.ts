@@ -247,8 +247,6 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/research/S07.md section 4",
   },
   {
-  },
-  {
     key: "bp.starting_suggestion_target",
     // Home target shown as a "starting suggestion, not yet confirmed" until a
     // clinician has set a personal target (who and when). Home guidelines differ
@@ -1366,6 +1364,8 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-06",
     source: "docs/research/S33.md section 5 (10 to 15 community participants per language; 80 percent give the message and name the action; any unsafe misunderstanding means rewrite and retest). Scoring: packages/i18n/src/understandability.ts",
+  },
+  {
     key: "bp.starting_suggestion_target",
     // v2 (CMO, 2026-10-07): aligned to NICE NG136 home (HBPM) averages, which is the only band the device can apply
     // on its own: under 80 years below 135/85; 80 years or more below 145/85. Tighter targets (type 2 diabetes with kidney,
