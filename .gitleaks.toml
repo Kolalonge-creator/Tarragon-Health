@@ -11,6 +11,8 @@ paths = [
 ]
 regexes = [
   '''sk_test_[A-Za-z0-9_.]*YOURS_HERE''',
+  # S33 breathing screen: ACK_KEY is the name of an on-device storage slot ("breathing.safety_ack.v1"), not a credential.
+  '''breathing\.safety_ack\.v1''',
 ]
 
 # The Supabase anon key in apps/mobile/eas.json is public by design (row-level security is the protection). Allowed for the JWT rules in
