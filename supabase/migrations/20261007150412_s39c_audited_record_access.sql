@@ -115,6 +115,8 @@ begin
                   else v_hour >= coalesce((v_cfg ->> 'after_hours_start')::integer, 22) and v_hour < coalesce((v_cfg ->> 'after_hours_end')::integer, 6) end;
   v_basis := case when private.clinician_has_patient_access(p_patient) then 'tied' else 'open' end;
 
+  -- serialise concurrent first openings of the same pair so they cannot both write a row
+  perform pg_advisory_xact_lock(hashtextextended(v_me::text || p_patient::text, 0));
   -- a second opening inside a live window is the same visit: no new row
   select * into v_live from public.staff_record_opens
    where staff_id = v_me and patient_id = p_patient and expires_at > now() order by opened_at desc limit 1;

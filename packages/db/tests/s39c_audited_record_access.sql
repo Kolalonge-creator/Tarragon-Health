@@ -115,6 +115,13 @@ do $$ begin
 end $$;
 select pg_temp.ck('real', 'D7 an open window never reaches the reproductive tables', '0',
   pg_temp.as_user(pg_temp.f('c1'), format('select count(*) from public.reproductive_health_profiles where patient_id = %L', pg_temp.f('pat'))));
+-- D8: a deactivated clinician's live window closes at once
+update public.clinical_staff set active = false where profile_id = pg_temp.f('c1');
+select pg_temp.ck('real', 'D8 a deactivated clinician reads nothing inside a live window', '0',
+  pg_temp.as_user(pg_temp.f('c1'), format('select count(*) from public.patient_serology_status where patient_id = %L', pg_temp.f('pat'))));
+update public.clinical_staff set active = true where profile_id = pg_temp.f('c1');
+select pg_temp.ck('real', 'D9 ...and reads again when reactivated', '1',
+  pg_temp.as_user(pg_temp.f('c1'), format('select count(*) from public.patient_serology_status where patient_id = %L', pg_temp.f('pat'))));
 -- E. window expiry ----------------------------------------------------------------------------------------------------------------------------
 alter table public.staff_record_opens disable trigger staff_record_opens_no_change;
 update public.staff_record_opens set expires_at = now() - interval '1 minute' where staff_id = pg_temp.f('c1');

@@ -119,9 +119,23 @@ export default async function ClinicianPatientPage({
   }
 
   // S39c: opening the chart writes the append-only access log and grants the window in which an untied clinician can read the tied
-  // tables below. It must run before those reads. A logging failure is surfaced in the server log, never hidden.
+  // tables below. It must run before those reads. If it fails the page says so instead of showing empty sections.
   const opened = await openPatientRecord(supabase, patient.id);
-  if (opened.status === "failed") console.error("Failed to open the patient record", opened.message);
+  if (opened.status === "failed") {
+    console.error("Failed to open the patient record", opened.message);
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>This record could not be opened</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-charcoal-ink/60">
+            The opening could not be recorded, so the record is not shown. Try again in a moment. Nothing was changed.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   // Read-access audit: a trigger can log who changed a patient row, but not who merely
   // opened it — this is the one explicit read-logging call site on the platform so far
