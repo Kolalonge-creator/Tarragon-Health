@@ -712,8 +712,6 @@ export const en = {
   "reminders.permission.undetermined": "Allow notifications so reminders can reach you.",
   "reminders.saved": "Saved",
   // S11: triage messages. Notification keys (notify.*) never name a condition or a reading (INV-07).
-  "audio.listen": "Listen",
-  "audio.stop": "Stop",
   "triage.emg_001.title": activeWording("EMG-001").title,
   "triage.emg_001.body": activeWording("EMG-001").body,
   "triage.emg_001l.title": activeWording("EMG-001L").title,
@@ -1897,6 +1895,9 @@ export const en = {
   "labres.replaced": "Replaced by a newer result",
   "labres.correction": "This is a corrected result. It replaces an earlier one.",
   "labres.screening": "This is a screening result. It is not a diagnosis, and your care team will tell you what happens next.",
+  "audio.listen": "Listen",
+  "audio.stop": "Stop",
+  "audio.listen_hint": "Plays this message aloud. The words stay on the screen.",
   "payapprove.title": "Payout approvals",
   "payapprove.intro": "Weekly payout drafts waiting for approval. Approving only agrees the amount. The founder sends the money, and you cannot approve a payout that is yours.",
   "payapprove.off": "Approval is switched off. You can read the drafts, but nothing can be approved until payouts are switched on from the go-live page.",
