@@ -1355,10 +1355,10 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
         {
           id: "lassa_season_fever",
           label: "Fever in the dry season in a high-risk state",
-          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder. The CMO must name the season, the states and the source (for example national disease control centre guidance) before this is signed." },
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder. The CMO must name the season, the STATES (this draft names none, so it would apply nationwide if signed as written) and the source (for example national disease control centre guidance) before this is signed." },
           status: "draft",
           clinical_sign_off: null,
-          applies_when: { months: [11, 12, 1, 2, 3, 4], states: [], any_associated_symptom: ["fever"] },
+          applies_when: { months: [11, 12, 1, 2, 3, 4], any_associated_symptom: ["fever"] },
           minimum_category: "urgent",
         },
         {

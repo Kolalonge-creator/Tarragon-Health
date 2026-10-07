@@ -29,6 +29,7 @@ jest.mock("@/lib/supabase/server", () => ({
 jest.mock("@/lib/supabase/service-role", () => ({
   createServiceRoleClient: () => ({
     from: (table: string) => ({
+      select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: table === "profiles" ? { organisation_id: "o1" } : null }) }) }),
       insert: (row: Record<string, unknown>) => {
         if (table === "emergency_events") {
           const r = emergencyInsert(row);
@@ -126,7 +127,7 @@ describe("chest pain with sweating returns emergency even if the engine fails", 
     expect(emergencyInsert).toHaveBeenCalledTimes(1);
   });
 
-  it("when the person's profile cannot be read the patient still gets the emergency (reported, not recorded), never an error", async () => {
+  it("when the person's profile cannot be read the patient still gets the emergency, and the emergency event is still raised (organisation found with the service role)", async () => {
     getActivePathway.mockResolvedValue({ pathway: chest, protocolVersion: 1 });
     profileLookup = async () => {
       throw new Error("profile lookup failed");
@@ -135,6 +136,8 @@ describe("chest pain with sweating returns emergency even if the engine fails", 
     expect(r).toMatchObject({ status: "complete", category: "emergency", recorded: false, assessmentId: null });
     expect(captureException).toHaveBeenCalled();
     expect(assessmentInsert).not.toHaveBeenCalled();
+    expect(emergencyInsert).toHaveBeenCalledTimes(1);
+    expect(emergencyInsert.mock.calls[0]?.[0]).toMatchObject({ source: "symptom_triage", organisation_id: "o1", patient_id: "u1" });
   });
 
   it("a broken engine with no red flag is urgent with human review, never reassurance", async () => {

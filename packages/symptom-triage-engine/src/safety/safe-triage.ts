@@ -133,8 +133,11 @@ export async function runTriageFailSafe(input: FailSafeInput): Promise<SafeTriag
 
   // 3. The floor can only raise. While a question is still pending no category is decided, but a fired floor ends the walk.
   const first = floor.fired[0];
+  // While a question is pending, only an EMERGENCY floor ends the walk: an urgent floor leaves it running, because a later answer may
+  // still raise the result to emergency, and the floor is applied again to the final result (it is recomputed on every call).
   const floorRaises =
-    floor.topCategory !== null && (result.nextQuestion !== undefined || mostUrgentCategory(floor.topCategory, result.category) !== result.category);
+    floor.topCategory !== null &&
+    (result.nextQuestion !== undefined ? floor.topCategory === "emergency" : mostUrgentCategory(floor.topCategory, result.category) !== result.category);
   if (floorRaises && floor.topCategory && first) {
     return {
       ...result,

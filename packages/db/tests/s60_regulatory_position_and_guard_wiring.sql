@@ -57,7 +57,7 @@ end $f$;
 
 do $$
 declare
-  v_org uuid; v_admin uuid; v_cmo uuid; v_doc uuid; v_pat uuid; v_id1 uuid; v_id2 uuid; v_r text; v_j jsonb; v_def text; v_cond jsonb;
+  v_org uuid; v_admin uuid; v_cmo uuid; v_doc uuid; v_pat uuid; v_id1 uuid; v_id2 uuid; v_id3 uuid; v_r text; v_j jsonb; v_def text; v_cond jsonb;
   v_pos text := 'Counsel advises the checker is decision support that routes people to care, provided it is labelled as such. (proof fixture)';
 begin
   select organisation_id into v_org from public.profiles where organisation_id is not null group by organisation_id order by count(*) desc limit 1;
@@ -136,20 +136,32 @@ begin
   end if;
   perform pg_temp.back();
 
-  -- the CMO records the determined position; it supersedes the first
+  -- counsel finds it IS a regulated device and it is not registered: recorded, but not clearance
+  perform pg_temp.act(v_admin);
+  v_id3 := public.record_regulatory_position('symptom_checker', v_pos, 'regulated_medical_device_not_registered', 'A Counsel', 'Counsel LLP', current_date - 2, 'DEC-S60-1b');
+  perform pg_temp.back();
+  perform pg_temp.act(v_cmo);
+  if pg_temp.try(format('select public.attest_go_live_condition(%L, %L, true, %L)', 'symptom_checker_enabled', 'nafdac_position_recorded', 'Attesting on an unregistered regulated device (proof)')) <> '22023' then
+    raise exception 'FAIL 4f2: attested on a regulated device that is not registered';
+  end if;
+  perform pg_temp.back();
+  select c into v_cond from jsonb_array_elements(private.go_live_conditions('symptom_checker_enabled', v_org)) c where c ->> 'code' = 'nafdac_position_recorded';
+  if (v_cond ->> 'met')::boolean then raise exception 'FAIL 4f3: an unregistered regulated device reads as met'; end if;
+
+  -- the CMO records the determined position; it supersedes the previous one
   perform pg_temp.act(v_cmo);
   v_id2 := public.record_regulatory_position('symptom_checker', v_pos, 'decision_support_not_a_device', 'A Counsel', 'Counsel LLP', current_date - 1, 'DEC-S60-2');
   perform pg_temp.back();
-  if (select supersedes_id from public.regulatory_positions where id = v_id2) is distinct from v_id1 then raise exception 'FAIL 2a: the new position does not supersede the previous one'; end if;
+  if (select supersedes_id from public.regulatory_positions where id = v_id2) is distinct from v_id3 then raise exception 'FAIL 2a: the new position does not supersede the previous one'; end if;
   if pg_temp.try(format('update public.regulatory_positions set position_text = %L where id = %L', repeat('x', 60), v_id2)) <> '42501' then raise exception 'FAIL 2b: a position could be edited'; end if;
   if pg_temp.try(format('delete from public.regulatory_positions where id = %L', v_id2)) <> '42501' then raise exception 'FAIL 2c: a position could be deleted'; end if;
 
   -- 3. read access
   perform pg_temp.act(v_admin);
-  if pg_temp.scalar('select count(id) from public.regulatory_positions') <> '2' then raise exception 'FAIL 3a: the admin cannot read positions'; end if;
+  if pg_temp.scalar('select count(id) from public.regulatory_positions') <> '3' then raise exception 'FAIL 3a: the admin cannot read positions'; end if;
   perform pg_temp.back();
   perform pg_temp.act(v_cmo);
-  if pg_temp.scalar('select count(id) from public.regulatory_positions') <> '2' then raise exception 'FAIL 3b: the CMO cannot read positions'; end if;
+  if pg_temp.scalar('select count(id) from public.regulatory_positions') <> '3' then raise exception 'FAIL 3b: the CMO cannot read positions'; end if;
   perform pg_temp.back();
   foreach v_r in array array['patient', 'doctor'] loop
     perform pg_temp.act(case v_r when 'patient' then v_pat else v_doc end);
@@ -172,8 +184,16 @@ begin
   -- 5. the dashboard shows what the record says
   if v_cond ->> 'detail' not like '%A Counsel%' or v_cond ->> 'detail' not like '%decision support%' then raise exception 'FAIL 5: the dashboard detail does not show the record: %', v_cond; end if;
 
-  -- the baseline: refused, then a baseline report exists, then allowed
+  -- the baseline: an EMPTY report is not a baseline, so the attestation is still refused; then a real baseline exists; then allowed
   perform private.run_symptom_accuracy_audit(v_org, (date_trunc('month', now()) - interval '1 month')::date, true, v_admin);
+  if exists (select 1 from public.symptom_accuracy_reports where organisation_id = v_org and is_baseline) then raise exception 'FAIL 4i0: an empty report became a baseline'; end if;
+  perform pg_temp.act(v_cmo);
+  if pg_temp.try(format('select public.attest_go_live_condition(%L, %L, true, %L)', 'symptom_checker_enabled', 'accuracy_baseline_recorded', 'Attesting on an empty report (proof)')) <> '22023' then
+    raise exception 'FAIL 4i1: the baseline attestation was accepted on an empty report';
+  end if;
+  perform pg_temp.back();
+  insert into public.symptom_accuracy_reports (organisation_id, period_start, period_end, config_version, is_baseline, includes_test_accounts, reviewed_total, cells)
+  values (v_org, date '2020-01-01', date '2020-02-01', (select version from public.symptom_accuracy_config where is_active), true, true, 12, '[]');
   perform pg_temp.act(v_cmo);
   if pg_temp.try(format('select public.attest_go_live_condition(%L, %L, true, %L)', 'symptom_checker_enabled', 'accuracy_baseline_recorded', 'Baseline report exists and was read (proof fixture)')) <> 'ok' then
     raise exception 'FAIL 4i: the baseline attestation was refused although a baseline report exists';

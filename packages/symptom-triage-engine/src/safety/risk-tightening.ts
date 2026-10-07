@@ -29,13 +29,13 @@ export const riskEntrySchema = z
     clinical_sign_off: z.object({ by: z.string().min(1), at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }).strict().nullable(),
     applies_when: z
       .object({
-        /** 1 to 12. Empty or absent means every month. */
-        months: z.array(z.number().int().min(1).max(12)).optional(),
-        /** Nigerian state names as held on the profile. Empty or absent means everywhere. */
-        states: z.array(z.string().min(1)).optional(),
-        complaint_keys: z.array(z.string().min(1)).optional(),
-        any_associated_symptom: z.array(z.string().min(1)).optional(),
-        any_history: z.array(z.string().min(1)).optional(),
+        /** 1 to 12. Absent means every month; present means at least one (an empty list is refused, so "everywhere" is never written by accident). */
+        months: z.array(z.number().int().min(1).max(12)).min(1).optional(),
+        /** Nigerian state names as held on the profile. Absent means everywhere; present means at least one. */
+        states: z.array(z.string().min(1)).min(1).optional(),
+        complaint_keys: z.array(z.string().min(1)).min(1).optional(),
+        any_associated_symptom: z.array(z.string().min(1)).min(1).optional(),
+        any_history: z.array(z.string().min(1)).min(1).optional(),
       })
       .strict(),
     /** The most this entry can do: raise a result to AT LEAST this category. */

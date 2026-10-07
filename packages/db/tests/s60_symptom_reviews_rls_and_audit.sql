@@ -72,7 +72,7 @@ end $f$;
 do $$
 declare
   v_org uuid; v_admin uuid; v_p1 uuid; v_p2 uuid; v_c1 uuid; v_c2 uuid; v_cc uuid;
-  v_a1 uuid; v_a2 uuid; v_task uuid; v_rev jsonb; v_rev2 jsonb; v_rid uuid; v_r text; v_n integer; v_j jsonb; v_ver integer;
+  v_a1 uuid; v_a2 uuid; v_task uuid; v_task2 uuid; v_rid2 uuid; v_rev jsonb; v_rev2 jsonb; v_rid uuid; v_r text; v_n integer; v_j jsonb; v_ver integer;
 begin
   select organisation_id into v_org from public.profiles where organisation_id is not null group by organisation_id order by count(*) desc limit 1;
   if v_org is null then raise exception 'need an organisation to run this proof'; end if;
@@ -184,6 +184,17 @@ begin
     raise exception 'FAIL 5l: the allowed read was not audited with its reason';
   end if;
 
+  -- 5m. completing WITHOUT a tie is returned as 'denied' (not raised: a raise would roll the audit row back) and the attempt is recorded
+  perform pg_temp.act(v_c2);
+  v_j := public.complete_symptom_review(v_rid, 'G43.9', 'Migraine', 'urgent', false, 'A message long enough to pass.');
+  perform pg_temp.back();
+  if v_j ->> 'status' <> 'denied' or (v_j ->> 'ok')::boolean then raise exception 'FAIL 5m: an untied clinician completing was not returned as denied: %', v_j; end if;
+  if not exists (select 1 from public.audit_log where actor_id = v_c2 and action = 'staff.chart_read' and subject_patient_id = v_p1 and result = 'denied'
+                  and reason like 'attempted to complete%') then
+    raise exception 'FAIL 5n: the denied completion attempt was not recorded';
+  end if;
+  if (select status from public.symptom_reviews where id = v_rid) <> 'requested' then raise exception 'FAIL 5o: a denied completion changed the review'; end if;
+
   -- 6. completion. The clinician also holds the claim on the task (as queue_next would have made it), so completing the review finishes it.
   select task_id into v_task from public.symptom_reviews where id = v_rid;
   perform private.apply_task_transition(v_task, 'claimed', 'clinician', v_c1, 'claimed', v_c1, now() + interval '30 minutes');
@@ -227,6 +238,19 @@ begin
   v_rev := public.request_symptom_review(v_a2);
   perform pg_temp.back();
   if (v_rev ->> 'stated_minutes')::integer <> 1440 or (v_rev ->> 'due_at') is null then raise exception 'FAIL 3g: the stated time was not stored from the SLA: %', v_rev; end if;
+
+  -- 6j. completed by a DIFFERENT clinician than the one holding the claim: the task is cancelled with a reason, the live claim is ended, no error is recorded
+  select r.id, r.task_id into v_rid2, v_task2 from public.symptom_reviews r where r.assessment_id = v_a2;
+  if v_task2 is null then raise exception 'FAIL 6j0: the second review has no task'; end if;
+  perform private.apply_task_transition(v_task2, 'claimed', 'clinician', v_c2, 'claimed', v_c2, now() + interval '30 minutes');
+  insert into public.task_claims (organisation_id, task_id, clinician_id, expires_at, is_test) values (v_org, v_task2, v_c2, now() + interval '30 minutes', true);
+  perform pg_temp.act(v_c1);
+  v_j := public.complete_symptom_review(v_rid2, 'G43.9', 'Tension headache', 'routine', true, 'Your care team looked at this and suggests an appointment.');
+  perform pg_temp.back();
+  if v_j ->> 'ok' <> 'true' then raise exception 'FAIL 6j: completion failed: %', v_j; end if;
+  if (select state::text from public.clinical_tasks where id = v_task2) <> 'cancelled' then raise exception 'FAIL 6k: the other clinician''s task was left open after the review was done'; end if;
+  if exists (select 1 from public.task_claims where task_id = v_task2 and ended_at is null) then raise exception 'FAIL 6l: the other clinician''s claim is still live'; end if;
+  if exists (select 1 from public.audit_log where action = 'symptom_review.task_complete_error' and entity_id = v_rid2) then raise exception 'FAIL 6m: closing the task reported an error'; end if;
 
   -- SABOTAGE (a): drop the completed-row guard; the same edit must now succeed
   drop trigger symptom_reviews_00_guard on public.symptom_reviews;

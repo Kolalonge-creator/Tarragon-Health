@@ -75,6 +75,8 @@ export async function runSymptomCheck(input: SafeRunInput): Promise<SafeRunResul
     ...result,
     category,
     clinicianReviewRequired: true,
+    // the old key's wording belongs to the old, lower category: an unknown key falls back to the new category's own copy
+    safetyNetMessageKey: "risk.raised",
     rationale: `${result.rationale} | raised to ${category} by the prevalence layer: ${tightened.raisedBy.join(", ")}`,
     raisedByRisk: tightened.raisedBy,
   };

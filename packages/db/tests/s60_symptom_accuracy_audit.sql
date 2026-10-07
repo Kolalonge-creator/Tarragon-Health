@@ -92,6 +92,11 @@ begin
   select organisation_id into v_org from public.profiles where organisation_id is not null group by organisation_id order by count(*) desc limit 1;
   if v_org is null then raise exception 'need an organisation to run this proof'; end if;
   if not exists (select 1 from public.triage_protocols) then raise exception 'fixture: need a triage_protocols row'; end if;
+  -- an EMPTY month is recorded but is never the baseline: it must not satisfy the go-live condition (and must not use up the baseline)
+  v_rt := private.run_symptom_accuracy_audit(v_org, (date_trunc('month', now()) - interval '6 month')::date, false, null);
+  if (select is_baseline from public.symptom_accuracy_reports where id = v_rt) or (select reviewed_total from public.symptom_accuracy_reports where id = v_rt) <> 0 then
+    raise exception 'FAIL 1g: an empty month became the baseline';
+  end if;
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
   v_cmo := pg_temp.mkstaff(v_org, v_admin, 'cmo', 'chief_medical_officer');
   v_doc := pg_temp.mkstaff(v_org, v_admin, 'doctor', 'medical_officer');
@@ -113,7 +118,7 @@ begin
   if private.run_symptom_accuracy_audit_monthly() < 1 then raise exception 'FAIL 1a: the monthly job produced no report for an organisation with reviews'; end if;
   select * into v_rep from public.symptom_accuracy_reports where organisation_id = v_org and period_start = v_m1 and not includes_test_accounts;
   if v_rep.id is null then raise exception 'FAIL 1b: no report for the previous month'; end if;
-  if not v_rep.is_baseline then raise exception 'FAIL 1c: the first report is not marked as the baseline'; end if;
+  if not v_rep.is_baseline then raise exception 'FAIL 1c: the first report with data is not marked as the baseline (an earlier empty month must not take it)'; end if;
   v_r1 := v_rep.id;
   if private.run_symptom_accuracy_audit(v_org, v_m1, false, null) <> v_r1 then raise exception 'FAIL 1d: a second run made a different report'; end if;
   if (select count(*) from public.symptom_accuracy_reports where organisation_id = v_org and period_start = v_m1) <> 1 then raise exception 'FAIL 1e: a second run duplicated the report'; end if;

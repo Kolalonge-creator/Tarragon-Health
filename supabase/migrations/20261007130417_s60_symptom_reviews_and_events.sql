@@ -17,6 +17,10 @@
 -- INV-14: the checker stays behind go-live guard symptom_checker_enabled (OFF). request_symptom_review refuses with 42501 while the
 -- guard is closed for that patient (test accounts excepted, the S37 rule), so no review can be started on a closed checker.
 --
+-- ENTITLEMENT (open, OQ-S60-10): request_symptom_review creates a clinical task for any patient the guard lets through, with no plan or
+-- Membership check, because the Membership pivot (2026-10-05) has not yet said who may ask for a clinician's time on a symptom check.
+-- It is harmless while the checker is OFF; the founder decides before it opens.
+--
 -- ROWS AFFECTED: none changed. New table, two new event types. symptom_triage_assessments gains one AFTER INSERT trigger (no backfill:
 -- an event is written only for new assessments).
 -- GRANT NOTE: new tables get an `authenticated` default grant, so this revokes it and grants only the columns a patient may read.
@@ -301,9 +305,10 @@ begin
   if not found then raise exception 'unknown review' using errcode = '22023'; end if;
   if r.status = 'completed' then raise exception 'this review is already complete' using errcode = '22023'; end if;
   -- INV-12: only a clinician tied to this patient. A denied attempt is audited.
+  -- Returned, not raised: a raise would roll the denied audit row back with it and the attempt would not be recorded.
   if not private.clinician_has_patient_access(r.patient_id) then
     perform private.audit_chart_read(r.patient_id, array['symptom_review'], 'attempted to complete a symptom review without a tie', 'denied');
-    raise exception 'you do not hold a task for this patient' using errcode = '42501';
+    return jsonb_build_object('ok', false, 'status', 'denied');
   end if;
   if p_agrees is null or p_clinician_category is null or p_final_code is null or p_patient_message is null then
     raise exception 'agreement, your category, a final diagnosis code and a message for the patient are all needed' using errcode = '22023';
@@ -325,16 +330,24 @@ begin
     jsonb_build_object('review_id', r.id, 'assessment_id', r.assessment_id), 'symptom_review.completed:' || r.id,
     r.patient_id, 'symptom_review', r.id, 'normal');
 
-  -- finish the work item when this clinician holds its claim (a tie from another route simply has no claim to finish)
-  -- The review is the clinical record and is already saved; a failure to close the work item must not undo it, but it is never silent.
-  if r.task_id is not null and exists (select 1 from public.task_claims c where c.task_id = r.task_id and c.clinician_id = v_uid and c.ended_at is null) then
+  -- Close the work item. The review is the clinical record and is already saved, so a failure here must not undo it, but it is never
+  -- silent. The clinician who holds the claim completes the task. If the review was finished by another clinician on the care team
+  -- (the task unclaimed, or claimed by someone else) the task is cancelled with that reason and any live claim ended, so nobody is
+  -- later asked to review something already reviewed.
+  if r.task_id is not null then
     begin
-      perform public.queue_complete(r.task_id, jsonb_build_object('symptom_review', r.id));
+      if exists (select 1 from public.task_claims c where c.task_id = r.task_id and c.clinician_id = v_uid and c.ended_at is null) then
+        perform public.queue_complete(r.task_id, jsonb_build_object('symptom_review', r.id));
+      elsif (select t.state::text from public.clinical_tasks t where t.id = r.task_id) in ('created', 'offered_to_lead', 'open', 'claimed', 'escalated') then
+        update public.task_claims set ended_at = now(), end_reason = 'cancelled' where task_id = r.task_id and ended_at is null;
+        perform private.apply_task_transition(r.task_id, 'cancelled', 'lead', v_uid,
+          'Symptom review completed by another clinician on the care team (review ' || r.id || ')');
+      end if;
     exception when others then
       insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
         values (r.organisation_id, v_uid, 'symptom_review.task_complete_error', 'symptom_review', r.id, jsonb_build_object('task_id', r.task_id, 'error', sqlerrm));
       perform private.page_incident(r.organisation_id, 'symptom_review_task_not_closed:' || r.id, 'A completed symptom review left its task open',
-        'The review was saved but its clinical task could not be completed; see audit_log action symptom_review.task_complete_error.');
+        'The review was saved but its clinical task could not be closed; see audit_log action symptom_review.task_complete_error.');
     end;
   end if;
   perform private.log_audit('symptom_review.completed', 'symptom_review', r.id, jsonb_build_object('agrees', p_agrees));

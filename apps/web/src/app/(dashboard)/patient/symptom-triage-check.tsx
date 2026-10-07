@@ -203,7 +203,12 @@ export function SymptomTriageCheck({
         const result = await stepSymptomTriage({ capture, answers: {}, questionLog: [] });
         // closed or unavailable never replaces an on-device emergency
         const next = handleStepResult(result);
-        setStage(keepMoreUrgent(shown, next));
+        const final = keepMoreUrgent(shown, next);
+        setStage(final);
+        // the emergency dialog should appear at once, not on its next poll (a capture can now complete as emergency or urgent)
+        if (final.step === "result" && (final.category === "emergency" || final.category === "urgent")) {
+          queryClient.invalidateQueries({ queryKey: activeEmergencyKey(patientId) });
+        }
       } catch {
         // no server: the answer is worked out here, and it can only be as safe or safer than silence
         const fallback = await resultOnDevice(capture as SymptomCapture, degradedConfig);

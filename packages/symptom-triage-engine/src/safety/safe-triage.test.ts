@@ -175,3 +175,60 @@ describe("the floor can only raise the engine's answer", () => {
     expect(Date.now() - t0).toBeLessThan(1000);
   });
 });
+
+describe("a pending question is only ended by an emergency floor", () => {
+  const pending = (): ReturnType<EngineFn> => ({
+    category: "self_management",
+    clinicianReviewRequired: false,
+    safetyNetMessageKey: "",
+    rationale: "",
+    redFlagScreen: { hasFlag: false, fired: [], brokenRules: [], topCategory: null },
+    questionsAsked: [],
+    nextQuestion: { type: "question", key: "q1", kind: "boolean", prompt: "Anything else?", onYes: "a", onNo: "b" },
+  });
+
+  it("an emergency floor ends the walk with the emergency (the patient is not asked more questions first)", async () => {
+    const r = await runTriageFailSafe({
+      pathway: pathway("chest_pain"),
+      capture: capture({ presentingComplaintKey: "chest_pain", severity: 7, associatedSymptoms: ["sweating"] }),
+      answers: {},
+      degraded: DEGRADED,
+      engine: pending,
+    });
+    expect(r.category).toBe("emergency");
+    expect(r.nextQuestion).toBeUndefined();
+  });
+
+  it("an urgent floor lets the walk continue, so a later answer can still raise it to emergency", async () => {
+    const r = await runTriageFailSafe({
+      pathway: pathway("headache"),
+      capture: capture({ presentingComplaintKey: "headache", severity: 6, relevantHistory: ["pregnant"] }),
+      answers: {},
+      degraded: DEGRADED,
+      engine: pending,
+    });
+    expect(r.nextQuestion).toBeDefined();
+    expect(r.floorRaised).toBe(false);
+  });
+
+  it("...and the urgent floor still raises the FINAL result when the engine then answers lower", async () => {
+    const lower: EngineFn = () => ({
+      category: "self_management",
+      clinicianReviewRequired: false,
+      safetyNetMessageKey: "headache.self_mild",
+      rationale: "mild",
+      redFlagScreen: { hasFlag: false, fired: [], brokenRules: [], topCategory: null },
+      questionsAsked: [],
+    });
+    const r = await runTriageFailSafe({
+      pathway: pathway("headache"),
+      capture: capture({ presentingComplaintKey: "headache", severity: 6, relevantHistory: ["pregnant"] }),
+      answers: {},
+      degraded: DEGRADED,
+      engine: lower,
+    });
+    expect(r.category).toBe("urgent");
+    expect(r.floorRaised).toBe(true);
+  });
+});
+

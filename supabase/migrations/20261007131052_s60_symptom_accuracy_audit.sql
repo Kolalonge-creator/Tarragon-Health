@@ -9,15 +9,18 @@
 -- that measurement can be added without a backfill.
 --
 -- WHAT IT REFUSES TO DO.
---   * No figure is ever publishable: `publishable` is a column with a CHECK that it is false. The first report per organisation
---     is a BASELINE (is_baseline), recorded for the go-live guard, and is not an accuracy claim. Publishing a number needs an
---     independent local validation and a founder decision, which would change this constraint in a reviewed migration.
+--   * No figure is ever publishable: `publishable` is a column with a CHECK that it is false. The first report that has something in
+--     it, per basis, is the BASELINE (is_baseline; an empty month is recorded but is never the baseline), recorded for the go-live
+--     guard, and is not an accuracy claim. Publishing a number needs an independent local validation and a founder decision, which
+--     would change this constraint in a reviewed migration.
 --   * Small cells are suppressed (fewer reviewed cases than the configured minimum: counts and rates become null), and when
 --     exactly one cell of a dimension is suppressed the smallest remaining cell is suppressed with it, so a suppressed cell
 --     cannot be recovered by subtracting from the overall figure.
 --   * Test accounts are excluded (INV-13). Only an admin or the CMO may deliberately include them, to build a pre-launch
 --     validation baseline from clinician-reviewed test sessions; that report is marked includes_test_accounts and the founder
 --     decides whether it may satisfy the guard (OQ-S60-04). The scheduled job never includes them.
+--   * It measures what the checker said (symptom_triage_assessments.category), not a clinician's later override of it: the question is how
+--     the checker itself performed.
 --   * Aggregates only: no patient id, name or note is stored in a report (INV-12). The report is readable by an admin or the CMO.
 --
 -- CONFIG. public.symptom_accuracy_config is versioned (INV-16); the active row is read at run time and its version is stored on
@@ -113,8 +116,11 @@ returns uuid
 language plpgsql security definer set search_path = ''
 as $$
 declare
-  v_start date := date_trunc('month', p_month)::date;
-  v_end date := (date_trunc('month', p_month) + interval '1 month')::date;
+  v_start date := date_trunc('month', p_month::timestamp)::date;
+  v_end date := (date_trunc('month', p_month::timestamp) + interval '1 month')::date;
+  -- month boundaries are Africa/Lagos midnights, whatever the session time zone
+  v_start_ts timestamptz := (date_trunc('month', p_month::timestamp)) at time zone 'Africa/Lagos';
+  v_end_ts timestamptz := (date_trunc('month', p_month::timestamp) + interval '1 month') at time zone 'Africa/Lagos';
   cfg public.symptom_accuracy_config%rowtype;
   v_min integer;
   v_conf numeric;
@@ -142,7 +148,7 @@ begin
       coalesce((select (b ->> 0) || '-' || (b ->> 1)
                   from jsonb_array_elements(v_bands) b
                  where p.date_of_birth is not null
-                   and extract(year from age(r.reviewed_at::date, p.date_of_birth))::integer between (b ->> 0)::integer and (b ->> 1)::integer
+                   and extract(year from age((r.reviewed_at at time zone 'Africa/Lagos')::date, p.date_of_birth))::integer between (b ->> 0)::integer and (b ->> 1)::integer
                  limit 1), 'unknown') as age_band,
       coalesce(p.sex::text, 'unknown') as sex,
       coalesce(nullif(btrim(p.state), ''), 'unknown') as region
@@ -150,7 +156,7 @@ begin
     join public.symptom_triage_assessments a on a.id = r.assessment_id
     join public.profiles p on p.id = r.patient_id
     where r.organisation_id = p_org and r.status = 'completed'
-      and r.reviewed_at >= v_start and r.reviewed_at < v_end
+      and r.reviewed_at >= v_start_ts and r.reviewed_at < v_end_ts
       and (p_include_test or (not r.is_test and not coalesce(p.is_test, false)))
   ),
   dims as (
@@ -192,7 +198,10 @@ begin
     (organisation_id, period_start, period_end, config_version, is_baseline, includes_test_accounts, reviewed_total, cells, generated_by)
   values
     (p_org, v_start, v_end, cfg.version,
-     not exists (select 1 from public.symptom_accuracy_reports x where x.organisation_id = p_org),
+     -- the baseline is the first report that has something in it, per basis (real accounts, or test accounts deliberately included).
+     -- An empty month is recorded but is never the baseline: an empty record must not read as a baseline in the go-live condition.
+     v_total > 0 and not exists (select 1 from public.symptom_accuracy_reports x
+                                  where x.organisation_id = p_org and x.is_baseline and x.includes_test_accounts = p_include_test),
      p_include_test, v_total, v_cells, p_by)
   on conflict (organisation_id, period_start, includes_test_accounts) do nothing
   returning id into v_id;
@@ -209,7 +218,9 @@ create or replace function private.run_symptom_accuracy_audit_monthly() returns 
 language plpgsql security definer set search_path = ''
 as $$
 declare
-  v_month date := (date_trunc('month', now()) - interval '1 month')::date;
+  v_month date := (date_trunc('month', now() at time zone 'Africa/Lagos') - interval '1 month')::date;
+  v_from timestamptz := (date_trunc('month', now() at time zone 'Africa/Lagos') - interval '1 month') at time zone 'Africa/Lagos';
+  v_to timestamptz := date_trunc('month', now() at time zone 'Africa/Lagos') at time zone 'Africa/Lagos';
   r record;
   v_n integer := 0;
 begin
@@ -218,7 +229,7 @@ begin
       from public.symptom_reviews s
       join public.profiles p on p.id = s.patient_id
      where s.status = 'completed' and not s.is_test and not coalesce(p.is_test, false)
-       and s.reviewed_at >= v_month and s.reviewed_at < (v_month + interval '1 month')
+       and s.reviewed_at >= v_from and s.reviewed_at < v_to
   loop
     begin
       perform private.run_symptom_accuracy_audit(r.organisation_id, v_month, false, null);
@@ -248,7 +259,7 @@ begin
     raise exception 'only an admin or the Chief Medical Officer can run the audit' using errcode = '42501';
   end if;
   if p_month is null then raise exception 'say which month' using errcode = '22023'; end if;
-  if date_trunc('month', p_month) >= date_trunc('month', now()) then
+  if date_trunc('month', p_month::timestamp) >= date_trunc('month', now() at time zone 'Africa/Lagos') then
     raise exception 'choose a month that has finished' using errcode = '22023';
   end if;
   v_id := private.run_symptom_accuracy_audit(private.caller_org(), p_month, coalesce(p_include_test, false), v_uid);

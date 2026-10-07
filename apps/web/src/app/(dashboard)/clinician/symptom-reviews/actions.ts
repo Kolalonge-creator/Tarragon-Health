@@ -35,7 +35,7 @@ export async function completeSymptomReviewAction(formData: FormData): Promise<v
   if (!parsed.success) redirect(`${BASE}?review=${encodeURIComponent(String(formData.get("review") ?? ""))}&r=input`);
   const v = parsed.data;
   const supabase = await createClient();
-  const { error } = await supabase.rpc("complete_symptom_review", {
+  const { data, error } = await supabase.rpc("complete_symptom_review", {
     p_review: v.review,
     p_final_code: v.code,
     p_final_label: v.label ?? "",
@@ -44,6 +44,8 @@ export async function completeSymptomReviewAction(formData: FormData): Promise<v
     p_patient_message: v.message,
     p_internal_note: v.note,
   });
+  // A refusal for lack of a held task is RETURNED by the database (so its audit row survives), not raised.
+  if (!error && (data as { status?: string } | null)?.status === "denied") redirect(`${BASE}?review=${v.review}&r=denied`);
   if (error) redirect(`${BASE}?review=${v.review}&r=${error.code === "42501" ? "denied" : error.code === "22023" || error.code === "23514" ? "invalid" : "error"}`);
   revalidatePath(BASE);
   redirect(`${BASE}?r=done`);

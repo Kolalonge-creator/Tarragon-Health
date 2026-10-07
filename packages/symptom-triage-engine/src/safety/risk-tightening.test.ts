@@ -69,6 +69,12 @@ describe("risk tightening can only raise a category", () => {
     expect(applyRiskTightening("urgent", ctx(), "garbage").category).toBe("urgent");
   });
 
+  it("an empty list in a condition is refused, so 'everywhere' or 'every month' is never written by accident", () => {
+    for (const k of ["months", "states", "complaint_keys", "any_associated_symptom", "any_history"]) {
+      expect(riskTighteningConfigSchema.safeParse({ entries: [entry({ applies_when: { [k]: [] } })] }).success).toBe(false);
+    }
+  });
+
   it("season, state and symptom conditions narrow when an entry applies", () => {
     const seasonal = { entries: [entry({ applies_when: { months: [12, 1, 2], any_associated_symptom: ["fever"] } })] };
     expect(applyRiskTightening("routine", ctx({ month: 1 }), seasonal).category).toBe("urgent");

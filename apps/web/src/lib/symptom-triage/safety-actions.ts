@@ -22,7 +22,7 @@ async function viewerOf(raw: FormDataEntryValue | null): Promise<keyof typeof PA
 
 const positionSchema = z.object({
   text: z.string().trim().min(40).max(4000),
-  classification: z.enum(["decision_support_not_a_device", "regulated_medical_device", "not_yet_determined"]),
+  classification: z.enum(["decision_support_not_a_device", "regulated_medical_device_registered", "regulated_medical_device_not_registered", "not_yet_determined"]),
   counsel: z.string().trim().min(3).max(200),
   firm: z.string().trim().max(200).optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),

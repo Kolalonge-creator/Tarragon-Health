@@ -66,17 +66,26 @@ export type SymptomTriageStepResult =
     };
 
 type Subject = { userId: string; subjectId: string; organisationId: string; state: string | null };
+/** The person is known but their profile row could not be read: the check cannot be recorded, an emergency can still be raised. */
+type KnownPerson = { userId: string; subjectId: string };
 
-async function resolveSubject(): Promise<Subject | { error: string }> {
+async function resolveSubject(): Promise<{ subject: Subject | null; person: KnownPerson | null }> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in" };
+  if (!user) return { subject: null, person: null };
+  // Not guarded on purpose: if who is being acted for cannot be resolved, guessing could raise an emergency for the wrong person.
   const subjectId = await resolveSubjectId(user.id);
-  const { data: profile } = await supabase.from("profiles").select("organisation_id, state").eq("id", subjectId).single();
-  if (!profile?.organisation_id) return { error: "No organisation on file" };
-  return { userId: user.id, subjectId, organisationId: profile.organisation_id, state: profile.state ?? null };
+  const person: KnownPerson = { userId: user.id, subjectId };
+  let profile: { organisation_id: string | null; state: string | null } | null = null;
+  try {
+    profile = (await supabase.from("profiles").select("organisation_id, state").eq("id", subjectId).single()).data;
+  } catch {
+    profile = null; // the person is still known: an emergency can be raised without it
+  }
+  if (!profile?.organisation_id) return { subject: null, person };
+  return { subject: { userId: user.id, subjectId, organisationId: profile.organisation_id, state: profile.state ?? null }, person };
 }
 
 /**
@@ -98,9 +107,15 @@ export async function stepSymptomTriage(input: SymptomTriageStepInput): Promise<
   if (!(await isSymptomCheckerOpen())) return { status: "unavailable" };
 
   // Who the check is for. If this cannot be read the patient STILL gets their answer (it is worked out from what they ticked,
-  // not from their profile); it just cannot be recorded. Fail toward escalation: never an error instead of an emergency.
-  const resolved = await resolveSubject().catch(() => ({ error: "lookup failed" }) as const);
-  const subject: Subject | null = "error" in resolved ? null : resolved;
+  // not from their profile); it just cannot be recorded, and an emergency is still raised if the person is known. Fail toward
+  // escalation: never an error instead of an emergency.
+  let who: { subject: Subject | null; person: KnownPerson | null } = { subject: null, person: null };
+  try {
+    who = await resolveSubject();
+  } catch {
+    who = { subject: null, person: null };
+  }
+  const subject = who.subject;
 
   // The protocol may be unreadable (a database error): that is a degraded run, not a reason to say nothing.
   let active: { pathway: PresentingComplaintProtocol; protocolVersion: number } | null = null;
@@ -151,13 +166,11 @@ export async function stepSymptomTriage(input: SymptomTriageStepInput): Promise<
   };
 
   if (subject === null) {
-    Sentry.captureException(new Error(`symptom check could not be recorded (${result.category}): subject lookup failed`), {
-      extra: { complaintKey: capture.presentingComplaintKey, category: result.category },
-    });
+    await escalateUnrecorded(who.person, null, capture.presentingComplaintKey, result.category, "subject lookup failed");
     return { ...complete, assessmentId: null, recorded: false };
   }
   if (protocolVersion === null) {
-    await escalateUnrecorded(subject, capture.presentingComplaintKey, result.category, "no protocol version available");
+    await escalateUnrecorded(subject, subject, capture.presentingComplaintKey, result.category, "no protocol version available");
     return { ...complete, assessmentId: null, recorded: false };
   }
 
@@ -186,7 +199,7 @@ export async function stepSymptomTriage(input: SymptomTriageStepInput): Promise<
 
   if (insertError || !inserted) {
     // The patient keeps their answer. The failure is loud (Sentry) and an emergency is still raised.
-    await escalateUnrecorded(subject, capture.presentingComplaintKey, result.category, insertError?.message ?? "no row returned");
+    await escalateUnrecorded(subject, subject, capture.presentingComplaintKey, result.category, insertError?.message ?? "no row returned");
     return { ...complete, assessmentId: null, recorded: false };
   }
 
@@ -198,25 +211,38 @@ export async function stepSymptomTriage(input: SymptomTriageStepInput): Promise<
  * written, so that a failure to record never means that nobody is told. An urgent result that cannot be recorded is reported
  * only: the patient has been told to get care soon and to message their care team (the screen says so).
  */
-async function escalateUnrecorded(subject: Subject, complaintKey: string, category: string, why: string): Promise<void> {
+async function escalateUnrecorded(
+  person: KnownPerson | null,
+  subject: Subject | null,
+  complaintKey: string,
+  category: string,
+  why: string,
+): Promise<void> {
   Sentry.captureException(new Error(`symptom check could not be recorded (${category}): ${why}`), {
-    extra: { complaintKey, category, subject: subject.subjectId },
+    extra: { complaintKey, category, subject: person?.subjectId ?? null },
   });
-  if (category !== "emergency") return;
+  if (category !== "emergency" || !person) return;
   await runBestEffort(
     async () => {
       const service = createServiceRoleClient();
+      let organisationId = subject?.organisationId ?? null;
+      if (!organisationId) {
+        // the profile could not be read with the person's own session: try once more with the service role, for the one write that matters
+        const { data } = await service.from("profiles").select("organisation_id").eq("id", person.subjectId).maybeSingle();
+        organisationId = data?.organisation_id ?? null;
+      }
+      if (!organisationId) throw new Error("emergency event fallback: no organisation for the person");
       const { error } = await service.from("emergency_events").insert({
-        organisation_id: subject.organisationId,
-        patient_id: subject.subjectId,
+        organisation_id: organisationId,
+        patient_id: person.subjectId,
         source: "symptom_triage",
         trigger_detail: `Symptom triage (${complaintKey}): emergency result that could not be recorded as an assessment (${why})`,
         status: "active",
-        logged_by_profile_id: subject.userId === subject.subjectId ? null : subject.userId,
+        logged_by_profile_id: person.userId === person.subjectId ? null : person.userId,
       });
       if (error) throw new Error(`emergency event fallback failed: ${error.message}`);
     },
-    { complaintKey, subject: subject.subjectId },
+    { complaintKey, subject: person.subjectId },
   );
 }
 

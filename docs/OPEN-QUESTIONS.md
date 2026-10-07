@@ -1524,10 +1524,24 @@ Built on top of F1; nothing applied to production; `symptom_checker_enabled` sta
 - Decision: open (CMO).
 
 ### OQ-S60-09 Smaller follow-ups from S60
-- The bundled red-flag floor is a frozen copy of the signed v1 rules (parity-tested against the database seed fixture). When the CMO signs a later protocol that changes a red flag, the bundled copy and its parity test must be updated in the same change, or the floor will lag. It can only raise an answer, so a lag means a missed addition, not a false alarm.
+- The bundled red-flag floor is a frozen copy of the signed v1 rules (parity-tested against the database seed fixture). When the CMO signs a later protocol that changes a red flag, the bundled copy and its parity test must be updated in the same change. A lag cuts both ways: a NEW red flag would be missed by the floor (the engine still catches it), and a RELAXED or removed rule would keep firing from the floor in every client and on the server, because the floor can only raise. A protocol that relaxes a rule therefore needs the bundle updated first.
 - No notification is sent when a review completes (a neutral template needs content approval, INV-07); the patient sees the state and the clinician's message in the app.
 - The clinician review screen opens the audited read with a fixed reason; each open or refresh writes an audit row.
 - The final diagnosis code is typed and shape-checked (ICD-10 pattern), not picked from a licensed code list.
 - The stated review time reuses the `clinician_review` tier of the `symptom_triage` SLA (draft: 24 hours); the CMO should confirm that is the right tier for a patient-requested review.
 - There is no mobile checker screen. The on-device floor is exposed as `apps/mobile/src/lib/symptom-red-flags.ts` for a future one.
 - Decision: open (CMO for the first four, founder for the rest).
+
+### OQ-S60-10 Who may ask for a clinician's time on a symptom check
+- `request_symptom_review` creates a `symptom_review` clinical task for any patient the guard lets through, with no plan or Membership check. CLAUDE.md says the free tier consumes no doctor time, and the 2026-10-05 Membership pivot has not said who may ask a clinician to look at a symptom check (spec 12.10 says "optional doctor review within a stated time"). Harmless while the checker is OFF.
+- Options: (a) any patient (as built; the review time is the SLA's, so the cost is the clinical team's); (b) Members only, with Free patients shown the care-team message route; (c) a per-month allowance. Needs the founder's answer before the checker opens.
+- Decision: open (founder).
+
+### OQ-S60-11 Details settled by the S60 review (recorded so they are not re-asked)
+- The accuracy audit measures what the checker said (`category`), not a clinician's later override of the assessment: the question is how the checker itself performed.
+- A baseline is the first report that has something in it, per basis (real accounts, or test accounts deliberately included). An empty month is recorded but is never the baseline, so an empty record cannot satisfy the go-live condition.
+- A regulatory position satisfies the go-live condition only when its classification is "decision support, not a device" or "regulated device, registered". "Not yet determined" and "regulated device, not registered" are recorded but are not clearance.
+- A prevalence entry cannot carry an empty list in a condition (the schema refuses it), so "everywhere" and "every month" are written by leaving the condition out, deliberately. The shipped Lassa draft names no states, so it would apply nationwide if signed as written; the CMO must name them (OQ-S60-03).
+- Months for the audit are Africa/Lagos months, and the audit job runs at 03:30 UTC on the 2nd.
+- A refusal to complete a review (no held task) is returned by the database as `denied` rather than raised, so the audit row of the attempt is kept.
+- Decision: recorded, no action needed.

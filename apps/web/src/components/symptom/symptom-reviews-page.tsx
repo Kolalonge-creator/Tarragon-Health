@@ -39,7 +39,10 @@ export async function SymptomReviewsPage({ reviewId, outcome }: { reviewId?: str
 
   let detail: Detail | null = null;
   if (reviewId && /^[0-9a-f-]{36}$/i.test(reviewId)) {
-    const read = await supabase.rpc("read_symptom_review_audited", { p_review: reviewId, p_reason: t("symptom.clinician.reason") });
+    const read = await supabase.rpc("read_symptom_review_audited", {
+      p_review: reviewId,
+      p_reason: `${t("symptom.clinician.reason")} (${reviewId.slice(0, 8)})`,
+    });
     detail = read.error ? { status: "denied" } : (read.data as unknown as Detail);
   }
 
@@ -107,6 +110,9 @@ export async function SymptomReviewsPage({ reviewId, outcome }: { reviewId?: str
           </dl>
           <NotADiagnosis variant="short" />
 
+          {detail.review.review_status === "completed" ? (
+            <p role="status" className="border-t border-charcoal-ink/10 pt-3 text-sm">{t("symptom.clinician.form.done")}</p>
+          ) : (
           <form action={completeSymptomReviewAction} className="space-y-3 border-t border-charcoal-ink/10 pt-3">
             <h3 className="text-sm font-semibold text-charcoal-ink">{t("symptom.clinician.form.title")}</h3>
             <input type="hidden" name="review" value={detail.review.id} />
@@ -139,6 +145,7 @@ export async function SymptomReviewsPage({ reviewId, outcome }: { reviewId?: str
             </label>
             <button type="submit" className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white">{t("symptom.clinician.form.submit")}</button>
           </form>
+          )}
         </section>
       )}
     </div>

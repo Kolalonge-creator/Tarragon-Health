@@ -445,7 +445,8 @@ begin
   -- S60: two symptom_checker_enabled attestations need a record behind them (a determined regulatory position, a baseline report); fixtures:
   insert into public.regulatory_positions (organisation_id, topic, position_text, classification, counsel_name, position_date, attached_by, is_test)
   values (v_org, 'symptom_checker', 'Proof fixture: counsel advises the checker is decision support, labelled as such.', 'decision_support_not_a_device', 'S37 proof counsel', current_date, v_admin, true);
-  perform private.run_symptom_accuracy_audit(v_org, (date_trunc('month', now()) - interval '1 month')::date, true, v_admin);
+  insert into public.symptom_accuracy_reports (organisation_id, period_start, period_end, config_version, is_baseline, includes_test_accounts, reviewed_total, cells)
+  values (v_org, date '2020-01-01', date '2020-02-01', (select version from public.symptom_accuracy_config where is_active), true, true, 12, '[]');
   perform pg_temp.act(v_admin);
   perform pg_temp.rec('every attestation condition the dashboard lists can be attested', '0',
     (select count(*)::text from jsonb_array_elements(public.go_live_guard_status()) g, jsonb_array_elements(g -> 'conditions') c

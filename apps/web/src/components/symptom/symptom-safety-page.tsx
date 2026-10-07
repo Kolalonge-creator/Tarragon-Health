@@ -105,7 +105,7 @@ export async function SymptomSafetyPage({ viewer, outcome }: { viewer: "admin" |
           <label className="block text-sm">
             {t("symptom.safety.position.classification")}
             <select name="classification" required defaultValue="not_yet_determined" className={field}>
-              {(["decision_support_not_a_device", "regulated_medical_device", "not_yet_determined"] as const).map((c) => (
+              {(["decision_support_not_a_device", "regulated_medical_device_registered", "regulated_medical_device_not_registered", "not_yet_determined"] as const).map((c) => (
                 <option key={c} value={c}>{t(`symptom.safety.class.${c}` as MessageKey)}</option>
               ))}
             </select>
