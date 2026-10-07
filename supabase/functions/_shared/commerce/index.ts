@@ -4,3 +4,6 @@ export * from "./checkout.ts";
 export * from "./quote.ts";
 export * from "./itemised.ts";
 export * from "./supabase-store.ts";
+export * from "./entitlements.ts";
+export * from "./payment-request.ts";
+export * from "./fund.ts";

@@ -13,6 +13,8 @@ export const ORDER_ERROR_CODES = [
   "membership_not_open", "quote_changed", "sponsor_billing_not_open", "order_fully_covered", "discount_code_invalid", "discount_code_rate_limited",
   // S71: sponsor-paid items and HMO eligibility
   "sponsor_budget_exhausted", "sponsor_payment_not_open",
+  // S72: payment requests (the supporter's link)
+  "request_not_found", "request_expired", "request_cancelled", "request_used", "request_in_use", "request_own", "request_not_payable", "request_order_mismatch",
 ] as const;
 
 /**

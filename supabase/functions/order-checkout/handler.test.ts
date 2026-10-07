@@ -196,3 +196,33 @@ Deno.test("S71: the sponsor refusals have stable codes", async () => {
     assertEquals((await res.json()).error, code);
   }
 });
+
+// S72 (19.13): paying from a payment request
+const PR = "pr_abcdefghijklmnopqrstuvwx";
+
+Deno.test("a payment request calls create_request_order with ONLY the request code and the retry key", async () => {
+  let called = "";
+  const { d, seen } = deps({ rpc: (fn) => { called = fn; return { data: { order_id: "o1", reference: REF, amount_kobo: 10_000_000, state: "created", checkout_url: null }, error: null }; } });
+  const res = await handleCheckout(req({ payment_request: PR, client_key: KEY, amount_kobo: 1, code: "consultation_single" }), d);
+  assertEquals(res.status, 200);
+  assertEquals(called, "create_request_order");
+  assertEquals(seen.args, { p_code: PR, p_client_key: KEY });
+});
+
+Deno.test("a payment request refuses a beneficiary, a discount code and points, and a malformed code", async () => {
+  const { d } = deps();
+  assertEquals((await handleCheckout(req({ payment_request: PR, client_key: KEY, beneficiary: "11111111-2222-4333-8444-555555555555" }), d)).status, 400);
+  assertEquals((await handleCheckout(req({ payment_request: PR, client_key: KEY, discount_code: "SPRING26" }), d)).status, 400);
+  assertEquals((await handleCheckout(req({ payment_request: PR, client_key: KEY, use_points: true }), d)).status, 400);
+  assertEquals((await handleCheckout(req({ payment_request: "pr_short", client_key: KEY }), d)).status, 400);
+  assertEquals((await handleCheckout(req({ payment_request: "../x", client_key: KEY }), d)).status, 400);
+});
+
+Deno.test("the request refusals map to stable codes and statuses", async () => {
+  for (const [msg, status, code] of [["request_expired", 410, "request_expired"], ["request_used", 410, "request_used"], ["request_cancelled", 410, "request_cancelled"],
+                                      ["request_not_found", 404, "request_not_found"], ["request_in_use", 409, "request_in_use"], ["request_own", 403, "request_own"]] as const) {
+    const { d } = deps({ rpc: () => ({ data: null, error: { message: msg } }) });
+    const res = await handleCheckout(req({ payment_request: PR, client_key: KEY }), d);
+    assertEquals([res.status, (await res.json()).error], [status, code]);
+  }
+});

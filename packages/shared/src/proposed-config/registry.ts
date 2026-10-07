@@ -209,6 +209,39 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S71.md; docs/DECISIONS.md S71-1; OQ-325",
   },
   {
+    key: "access_fund.rules",
+    // Community Access Fund (S72, function 19.11). Live values are the `access_fund` object of the active row of `checkout_extras_config`; this entry
+    // mirrors it and a test fails if the migration seed and this value drift. min_donation_kobo: smallest pledge. max_grant_kobo: the most one grant can
+    // cover. grant_valid_days: how long an approved grant can be used. pledge_valid_days: how long a pledge waits for the bank transfer.
+    // max_open_pledges: pledges one donor may have waiting. criteria: the PUBLISHED reasons operations may cite when approving a grant (keys; the words are
+    // in packages/i18n). None of this is signed: the criteria need review and counsel is needed on the legal vehicle (OQ-323) before the guard can open.
+    value: {
+      min_donation_kobo: 100_000,
+      max_grant_kobo: 10_000_000,
+      grant_valid_days: 60,
+      pledge_valid_days: 14,
+      max_open_pledges: 3,
+      criteria: ["care_cost_is_a_barrier", "recent_loss_of_income", "supporting_a_dependant", "referred_by_the_care_team"],
+    },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S72.md; docs/DECISIONS.md S72-3; OQ-323; OQ-420",
+  },
+  {
+    key: "payment_requests.rules",
+    // Payment requests (S72, function 19.13). The `payment_requests` object of the active `checkout_extras_config` row. expiry_days: how long a link works.
+    // max_open_per_person and creates_per_day: how many a person may have open and make in a day. lookups_per_hour: how many times one visitor may open
+    // links in an hour (identified by a hash the website makes, never an address). payments_per_hour: how many times one payer may start paying from a link.
+    value: { expiry_days: 7, max_open_per_person: 5, creates_per_day: 10, lookups_per_hour: 30, payments_per_hour: 10 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S72.md; OQ-424",
+  },
+  {
     key: "privacy.transcript_retention",
     // Spec: "To confirm with counsel". null means no value exists yet; callers must treat it as unset.
     value: null,

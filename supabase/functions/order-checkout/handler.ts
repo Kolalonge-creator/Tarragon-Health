@@ -19,11 +19,13 @@ export interface CheckoutDeps {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CODE = /^[a-z][a-z0-9_]{2,63}$/;
+const REQUEST_CODE = /^pr_[A-Za-z0-9_-]{24}$/;
 /** A discount code as a person types it: letters and digits, spaces or dashes between groups. The database normalises it. */
 const DISCOUNT = /^[A-Za-z0-9][A-Za-z0-9 -]{2,31}$/;
 
 const STATUS: Record<string, number> = {
   email_needed: 422, checkout_not_open: 409, item_not_available: 409, already_member: 409, no_capacity: 409, too_many_open_orders: 429,
+  request_not_found: 404, request_expired: 410, request_cancelled: 410, request_used: 410, request_in_use: 409, request_own: 403, request_not_payable: 409, request_order_mismatch: 409,
   order_beneficiary_not_allowed: 403, gift_item_not_allowed: 403, order_not_authorised: 403,
   membership_not_open: 409, quote_changed: 409, sponsor_billing_not_open: 409, order_fully_covered: 409, discount_code_invalid: 422, discount_code_rate_limited: 429, sponsor_budget_exhausted: 409, sponsor_payment_not_open: 409, already_paid: 409, order_closed: 409, payment_unavailable: 502, checkout_link_lost: 409, unknown: 500,
 };
@@ -43,9 +45,17 @@ export async function handleCheckout(req: Request, deps: CheckoutDeps): Promise<
     return Response.json({ error: "invalid_input" }, { status: 400 });
   }
   const b = (typeof body === "object" && body !== null ? body : {}) as Record<string, unknown>;
-  if (typeof b["code"] !== "string" || !CODE.test(b["code"]) || typeof b["client_key"] !== "string" || !UUID.test(b["client_key"])) {
+  // S72 (19.13): a supporter paying from a payment request sends the request's code INSTEAD of an item code. The item, the person and the price all come
+  // from the request in the database; nothing the client sends can change what is bought or for whom.
+  const requestCode = b["payment_request"];
+  if (requestCode !== undefined && requestCode !== null && (typeof requestCode !== "string" || !REQUEST_CODE.test(requestCode))) {
     return Response.json({ error: "invalid_input" }, { status: 400 });
   }
+  const viaRequest = typeof requestCode === "string";
+  if (typeof b["client_key"] !== "string" || !UUID.test(b["client_key"]) || (!viaRequest && (typeof b["code"] !== "string" || !CODE.test(b["code"])))) {
+    return Response.json({ error: "invalid_input" }, { status: 400 });
+  }
+  if (viaRequest && (b["beneficiary"] != null || b["discount_code"] != null || b["use_points"] != null)) return Response.json({ error: "invalid_input" }, { status: 400 });
   // S29 pay for a loved one: an optional beneficiary. The database decides whether the caller may pay for them (an unexpired
   // Care Circle membership holding pay_for_care); this only checks the shape. The payer pays with their own card and email.
   const beneficiary = b["beneficiary"];
@@ -68,12 +78,12 @@ export async function handleCheckout(req: Request, deps: CheckoutDeps): Promise<
 
   const orders: OrderCreator = {
     async create(code, clientKey, ben, extras) {
-      const args: Record<string, unknown> = { p_code: code, p_client_key: clientKey };
+      const args: Record<string, unknown> = { p_code: viaRequest ? requestCode : code, p_client_key: clientKey };
       if (ben) args["p_beneficiary"] = ben;
       if (extras?.discountCode) args["p_discount_code"] = extras.discountCode;
       if (extras?.usePoints) args["p_use_points"] = true;
       if (extras?.expectedAmountKobo !== undefined) args["p_expected_amount_kobo"] = extras.expectedAmountKobo;
-      const { data, error } = await deps.rpcAsUser(auth, "create_order", args);
+      const { data, error } = await deps.rpcAsUser(auth, viaRequest ? "create_request_order" : "create_order", args);
       if (error) return { ok: false, code: mapOrderError(error.message) };
       const d = data as Record<string, unknown> | null;
       // a code that cannot be used comes back as a result, not an error, so the failed try is kept by the database
@@ -91,7 +101,7 @@ export async function handleCheckout(req: Request, deps: CheckoutDeps): Promise<
   };
 
   const r = await startCheckout({ payments: deps.payments, store: deps.store, orders }, {
-    code: b["code"], clientKey: b["client_key"], email: me.email, callbackUrl: deps.returnUrl,
+    code: viaRequest ? "payment_request" : (b["code"] as string), clientKey: b["client_key"], email: me.email, callbackUrl: deps.returnUrl,
     ...(typeof beneficiary === "string" ? { beneficiary } : {}),
     ...(typeof discount === "string" ? { discountCode: discount.trim() } : {}),
     ...(usePoints === true ? { usePoints: true } : {}),

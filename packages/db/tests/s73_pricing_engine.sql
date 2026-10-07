@@ -479,8 +479,9 @@ begin
   perform pg_temp.ck('the balance is unchanged by a replay', '200', (select balance::text from public.wellness_points_balances where patient_id = v_p));
   perform pg_temp.ck('the spend is in the ledger with the order as its source', '-500',
     (select points::text from public.wellness_points_ledger where patient_id = v_p and reason = 'applied_to_order' and source_id = v_id));
-  perform pg_temp.ck('points are never turned into money: spending them on an order creates no redemption or voucher row', '0',
-    (select count(*)::text from public.wellness_points_redemptions where patient_id = v_p));
+  -- S72 removed the kobo conversion (redeem_wellness_points and wellness_points_redemptions): there is nothing left that could turn points into money
+  perform pg_temp.ck('points are never turned into money: the redemption table is gone and spending them on an order creates no voucher row', 'false,0',
+    (to_regclass('public.wellness_points_redemptions') is not null)::text || ',' || (select count(*)::text from public.care_vouchers where beneficiary_profile_id = v_p));
   -- two more seeded quote == charge scenarios with points on
   insert into public.wellness_points_balances (patient_id, organisation_id, balance, lifetime_earned)
   select u, pg_temp.f('org'), 700, 700 from (select pg_temp.mkuser(pg_temp.f('org'), 'pts2', 'patient') as u) x;
