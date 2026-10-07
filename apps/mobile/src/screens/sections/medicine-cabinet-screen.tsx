@@ -4,7 +4,19 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as WebBrowser from "expo-web-browser";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
-import { parseScheduleSpec, validatePillCount, type FoodNote, type ScheduleSpec } from "@tarragon/medicines";
+import {
+  catalogueLabel,
+  checkMedicineOnAdd,
+  parseScheduleSpec,
+  prefillFromCatalogue,
+  searchCatalogue,
+  validatePillCount,
+  type AddCheckFinding,
+  type CatalogueEntry,
+  type FoodNote,
+  type ScheduleSpec,
+} from "@tarragon/medicines";
+import { addSideEffectNote, loadInteractionCheckOpen, loadMedicineCatalogue } from "@/lib/medicine-catalogue";
 import { useUiLanguage } from "@/lib/ui-language";
 import {
   addMedication,
@@ -217,7 +229,7 @@ export function MedicineCabinetScreen({ patientId, organisationId }: MedicineCab
 
       <PharmacyOrdersSection patientId={patientId} />
 
-      <AddMedicationSection patientId={patientId} onAdded={load} />
+      <AddMedicationSection patientId={patientId} existing={medications} onAdded={load} />
 
       {checkinsError || checkins.length > 0 ? (
         <View style={{ gap: 10 }}>
@@ -409,6 +421,8 @@ function MedicationCard({
       ) : null}
       {requestError ? <ErrorText>{requestError}</ErrorText> : null}
 
+      <SideEffectNoteSection medicationId={medication.id} />
+
       {collectOpen ? (
         <View style={{ gap: 8, marginTop: 6, backgroundColor: colors.groupBg, borderRadius: radius.control, padding: 10 }}>
           <View>
@@ -425,6 +439,7 @@ function MedicationCard({
               placeholderTextColor={colors.subtle}
             />
           </View>
+          <MutedText>{`${tr("medicines.mas.collect_prompt")} ${tr("medicines.mas.caveat")}`}</MutedText>
           {collectError ? <ErrorText>{collectError}</ErrorText> : null}
           <View style={{ flexDirection: "row", gap: 8 }}>
             <View style={{ flex: 1 }}>
@@ -565,7 +580,7 @@ const DOSE_TIME_PRESETS: { label: string; time: string }[] = [
   { label: "Evening", time: "20:00" },
 ];
 
-function AddMedicationSection({ patientId, onAdded }: { patientId: string; onAdded: () => Promise<void> }) {
+function AddMedicationSection({ patientId, existing, onAdded }: { patientId: string; existing: MedicationCabinetItem[]; onAdded: () => Promise<void> }) {
   const { scheme } = useTheme();
   const colors = useLegacyColors();
   const [open, setOpen] = useState(false);
@@ -582,6 +597,20 @@ function AddMedicationSection({ patientId, onAdded }: { patientId: string; onAdd
   const [success, setSuccess] = useState(false);
   const locale = asLocale(useUiLanguage());
   const tr = (key: MessageKey, params?: Record<string, string | number>) => t(key, locale, params);
+  // S53: catalogue suggestions (8.2) and the interaction and duplication check (8.7, behind its go-live guard).
+  const [catalogue, setCatalogue] = useState<CatalogueEntry[]>([]);
+  const [findings, setFindings] = useState<AddCheckFinding[] | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    void loadMedicineCatalogue().then((rows) => {
+      if (alive) setCatalogue(rows);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [open]);
+  const suggestions = searchCatalogue(catalogue, drugName, 5);
   const [kind, setKind] = useState<ScheduleKind>("daily");
   const [intervalDays, setIntervalDays] = useState("2");
   const [weekdays, setWeekdays] = useState<number[]>([]);
@@ -598,7 +627,14 @@ function AddMedicationSection({ patientId, onAdded }: { patientId: string; onAdd
     setScheduleTimes((prev) => prev.filter((t) => t !== time));
   }
 
+  function pickSuggestion(entry: CatalogueEntry) {
+    const pre = prefillFromCatalogue(entry);
+    setDrugName(pre.drugName);
+    if (pre.strength) setDose(pre.strength);
+  }
+
   function resetForm() {
+    setFindings(null);
     setDrugName("");
     setDose("");
     setFrequency("");
@@ -642,7 +678,7 @@ function AddMedicationSection({ patientId, onAdded }: { patientId: string; onAdd
     return parsed.ok ? { spec: parsed.spec } : { error: tr("meds.schedule.invalid") };
   }
 
-  async function submit() {
+  async function submit(skipCheck = false) {
     setError(null);
     setSuccess(false);
     const name = drugName.trim();
@@ -656,6 +692,19 @@ function AddMedicationSection({ patientId, onAdded }: { patientId: string; onAdd
       return;
     }
     setPending(true);
+    // The check only advises: it can pause the add to show a warning, never refuse it (spec 8.7).
+    if (!skipCheck && (await loadInteractionCheckOpen())) {
+      const check = checkMedicineOnAdd(
+        name,
+        existing.map((m) => ({ id: m.id, drugName: m.drug_name, dose: m.dose, prescriberName: m.prescriber_name, source: m.source })),
+      );
+      if (check.findings.length > 0) {
+        setFindings(check.findings);
+        setPending(false);
+        return;
+      }
+    }
+    setFindings(null);
     const result = await addMedication(patientId, {
       scheduleSpec: built.spec ?? undefined,
       drugName: name,
@@ -684,11 +733,30 @@ function AddMedicationSection({ patientId, onAdded }: { patientId: string; onAdd
         {!open ? <SmallGhostButton title="+ Add" onPress={() => setOpen(true)} /> : null}
       </View>
       {success && !open ? <MutedText>Medication added.</MutedText> : null}
+      {success && !open ? <MutedText>{`${tr("medicines.mas.add_prompt")} ${tr("medicines.mas.caveat")}`}</MutedText> : null}
       {open ? (
         <Card style={{ gap: 10 }}>
           <View>
             <MutedText>Drug name</MutedText>
-            <TextInput keyboardAppearance={scheme} value={drugName} onChangeText={setDrugName} style={inputStyle(colors)} placeholderTextColor={colors.subtle} />
+            <TextInput keyboardAppearance={scheme} value={drugName} onChangeText={setDrugName} style={inputStyle(colors)} placeholderTextColor={colors.subtle} accessibilityLabel={tr("medicines.search.label")} />
+            {suggestions.length > 0 ? (
+              <View style={{ marginTop: 6, gap: 4 }}>
+                {suggestions.map(({ entry }) => (
+                  <Pressable
+                    key={entry.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={catalogueLabel(entry)}
+                    onPress={() => pickSuggestion(entry)}
+                    style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 10, borderRadius: radius.control, backgroundColor: colors.groupBg }}
+                  >
+                    <Text style={{ fontSize: 14, color: colors.ink }}>{catalogueLabel(entry)}</Text>
+                  </Pressable>
+                ))}
+                <MutedText>{tr("medicines.search.unverified")}</MutedText>
+              </View>
+            ) : drugName.trim().length >= 2 && catalogue.length > 0 ? (
+              <MutedText>{tr("medicines.search.none")}</MutedText>
+            ) : null}
           </View>
           <View style={{ flexDirection: "row", gap: 8 }}>
             <View style={{ flex: 1 }}>
@@ -847,9 +915,22 @@ function AddMedicationSection({ patientId, onAdded }: { patientId: string; onAdd
           ) : null}
           <MutedText>{tr("meds.confirm.body")}</MutedText>
           {error ? <ErrorText>{error}</ErrorText> : null}
+          {findings && findings.length > 0 ? (
+            <View accessibilityRole="alert" style={{ gap: 8, padding: 10, borderRadius: radius.control, backgroundColor: colors.groupBg }}>
+              <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{tr("medicines.addcheck.title")}</Text>
+              {findings.map((f, i) => (
+                <View key={`${f.adviceKey}-${i}`} style={{ gap: 2 }}>
+                  <MutedText>{[...new Set(f.drugNames)].join(" · ")}</MutedText>
+                  <Text style={{ fontSize: 14, color: colors.ink }}>{tr(f.adviceKey)}</Text>
+                </View>
+              ))}
+              <MutedText>{tr("medicines.addcheck.limits")}</MutedText>
+              <SecondaryButton title={tr("medicines.addcheck.continue")} onPress={() => void submit(true)} disabled={pending} />
+            </View>
+          ) : null}
           <View style={{ flexDirection: "row", gap: 8 }}>
             <View style={{ flex: 1 }}>
-              <PrimaryButton title={pending ? "Saving…" : "Add medication"} onPress={submit} disabled={pending} />
+              <PrimaryButton title={pending ? "Saving…" : "Add medication"} onPress={() => void submit()} disabled={pending} />
             </View>
             <View style={{ flex: 1 }}>
               <SecondaryButton title="Cancel" onPress={() => setOpen(false)} disabled={pending} />
@@ -1073,6 +1154,62 @@ function CheckMyPackSection({ medications }: { medications: MedicationCabinetIte
           </View>
         ) : null}
       </Card>
+    </View>
+  );
+}
+
+/**
+ * Side effects to share (spec 8.7): a short note in the person's own words that the care team sees at the next consultation.
+ * It changes no medicine, dose or schedule and raises no alert; a person who feels very unwell is pointed at the emergency steps.
+ */
+function SideEffectNoteSection({ medicationId }: { medicationId: string }) {
+  const { scheme } = useTheme();
+  const colors = useLegacyColors();
+  const locale = asLocale(useUiLanguage());
+  const tr = (key: MessageKey) => t(key, locale);
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState("");
+  const [pending, setPending] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState(false);
+
+  async function save() {
+    setPending(true);
+    setError(false);
+    const result = await addSideEffectNote(medicationId, note);
+    setPending(false);
+    if (result.error) {
+      setError(true);
+      return;
+    }
+    setNote("");
+    setSaved(true);
+    setOpen(false);
+  }
+
+  if (!open) {
+    return (
+      <View style={{ gap: 4 }}>
+        <SmallGhostButton title={tr("medicines.sideeffect.add")} onPress={() => { setSaved(false); setOpen(true); }} />
+        {saved ? <MutedText>{tr("medicines.sideeffect.saved")}</MutedText> : null}
+      </View>
+    );
+  }
+  return (
+    <View style={{ gap: 8, marginTop: 6, backgroundColor: colors.groupBg, borderRadius: radius.control, padding: 10 }}>
+      <MutedText>{tr("medicines.sideeffect.title")}</MutedText>
+      <MutedText>{tr("medicines.sideeffect.hint")}</MutedText>
+      <TextInput keyboardAppearance={scheme} value={note} onChangeText={setNote} maxLength={500} multiline style={inputStyle(colors)} placeholderTextColor={colors.subtle} accessibilityLabel={tr("medicines.sideeffect.title")} />
+      <MutedText>{tr("medicines.sideeffect.urgent")}</MutedText>
+      {error ? <ErrorText>We could not save that just now. Please try again.</ErrorText> : null}
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        <View style={{ flex: 1 }}>
+          <PrimaryButton title={pending ? "Saving…" : tr("medicines.sideeffect.add")} onPress={() => void save()} disabled={pending || note.trim().length === 0} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <SecondaryButton title="Cancel" onPress={() => setOpen(false)} disabled={pending} />
+        </View>
+      </View>
     </View>
   );
 }

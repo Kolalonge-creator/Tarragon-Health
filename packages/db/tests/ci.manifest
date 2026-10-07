@@ -892,3 +892,5 @@ remove_pidgin_english_only.sql
 platform_switch_acl_and_audit.sql
 # S53 pre-fix 8.16: commission columns on pharmacy_medications and the commissions ledger are refused to patient, clinician, pharmacist, anon and finance without commissions.view; price and stock stay readable; admin view works; sabotage restores the old grant and policies and the leak must reappear.
 s53_commission_columns_not_readable_by_patient_or_clinician.sql
+# S53: catalogue (patient read, no patient write, no seeded NAFDAC number), dataset v1 draft/sign gate (wrong hash, tamper, frozen, CMO only), side-effect notes (own, stranger, clinician direct, audited tied read, untied denied), supporter notice (consent, one a day, neutral, never blocks a dose log); sabotage removes the trigger.
+s53_catalogue_interactions_notes_supporter_notice.sql
