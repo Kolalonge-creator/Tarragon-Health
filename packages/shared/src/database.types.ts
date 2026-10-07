@@ -22778,6 +22778,7 @@ export type Database = {
           created_at: string
           flag_type: Database["public"]["Enums"]["medication_flag_type"]
           id: string
+          is_test: boolean
           medication_id: string | null
           note: string
           organisation_id: string
@@ -22795,6 +22796,7 @@ export type Database = {
           created_at?: string
           flag_type: Database["public"]["Enums"]["medication_flag_type"]
           id?: string
+          is_test?: boolean
           medication_id?: string | null
           note: string
           organisation_id: string
@@ -22812,6 +22814,7 @@ export type Database = {
           created_at?: string
           flag_type?: Database["public"]["Enums"]["medication_flag_type"]
           id?: string
+          is_test?: boolean
           medication_id?: string | null
           note?: string
           organisation_id?: string
@@ -29855,6 +29858,7 @@ export type Database = {
           disputed_at: string | null
           disputed_by: string | null
           dispute_note: string | null
+          is_test: boolean
           pharmacist_registration_verified: boolean
           dispensed_on: string
           drug_name: string
@@ -29888,6 +29892,7 @@ export type Database = {
           disputed_at?: string | null
           disputed_by?: string | null
           dispute_note?: string | null
+          is_test?: boolean
           pharmacist_registration_verified?: boolean
           dispensed_on?: string
           drug_name: string
@@ -29921,6 +29926,7 @@ export type Database = {
           disputed_at?: string | null
           disputed_by?: string | null
           dispute_note?: string | null
+          is_test?: boolean
           pharmacist_registration_verified?: boolean
           dispensed_on?: string
           drug_name?: string
@@ -30104,6 +30110,7 @@ export type Database = {
           estimated_fulfilment_at: string | null
           fulfilment_method: Database["public"]["Enums"]["pharmacy_fulfilment_method"]
           id: string
+          is_test: boolean
           items: Json
           logistics_partner_id: string | null
           order_number: string | null
@@ -30152,6 +30159,7 @@ export type Database = {
           estimated_fulfilment_at?: string | null
           fulfilment_method?: Database["public"]["Enums"]["pharmacy_fulfilment_method"]
           id?: string
+          is_test?: boolean
           items?: Json
           logistics_partner_id?: string | null
           order_number?: string | null
@@ -30200,6 +30208,7 @@ export type Database = {
           estimated_fulfilment_at?: string | null
           fulfilment_method?: Database["public"]["Enums"]["pharmacy_fulfilment_method"]
           id?: string
+          is_test?: boolean
           items?: Json
           logistics_partner_id?: string | null
           order_number?: string | null
@@ -42954,8 +42963,6 @@ export type Database = {
           address: string | null
           area: string | null
           city: string | null
-          delivery: boolean | null
-          delivery_fee_kobo: number | null
           id: string | null
           is_active: boolean | null
           latitude: number | null
@@ -43011,6 +43018,41 @@ export type Database = {
         Returns: { lab_result_id: string; patient_id: string; release_state: string; release_reason: string | null; received_at: string }[];
       };
       my_lab_results: { Args: Record<PropertyKey, never>; Returns: Json };
+      // S28 (pharmacy collection): spliced by hand, see CLAUDE.md on why the generator is not used
+      pharmacies_for_prescription: {
+        Args: { p_beneficiary?: string; p_prescription: string };
+        Returns: {
+          pharmacy_partner_id: string; name: string; address: string | null; city: string | null; state: string | null; area: string | null;
+          latitude: number | null; longitude: number | null; stock: string; is_preferred: boolean;
+        }[];
+      };
+      pharmacy_collection_available: { Args: Record<PropertyKey, never>; Returns: boolean };
+      my_collection_prescriptions: {
+        Args: { p_beneficiary?: string };
+        Returns: { prescription_id: string; state: string; items: Json; signed_at: string | null; is_current: boolean; supplies_remaining: number }[];
+      };
+      withdraw_prescription_from_pharmacy: { Args: { p_beneficiary?: string; p_prescription: string }; Returns: Json };
+      pharmacy_flag_prescription: { Args: { p_kind: string; p_reason?: string; p_prescription: string }; Returns: Json };
+      prescriber_pharmacy_overview: { Args: Record<PropertyKey, never>; Returns: Json };
+      answer_pharmacy_question: { Args: { p_answer: string; p_question: string }; Returns: Json };
+      pharmacy_inbox: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          prescription_id: string; collection_code: string | null; state: string; sent_at: string | null; dispensed_at: string | null;
+          first_name: string | null; medicine_count: number; has_open_flag: boolean; is_test: boolean;
+        }[];
+      };
+      pharmacy_mark_dispensed: {
+        Args: {
+          p_batch_expiry?: string; p_batch_number?: string; p_collection_code: string; p_is_partial?: boolean; p_note?: string;
+          p_pharmacist_name: string; p_pharmacist_registration?: string; p_prescription: string; p_quantity_supplied?: string;
+        };
+        Returns: Json;
+      };
+      pharmacy_prescription_detail: { Args: { p_prescription: string }; Returns: Json };
+      my_prescription_pharmacy: { Args: { p_beneficiary?: string; p_prescription: string }; Returns: Json };
+      reroute_prescription_pharmacy: { Args: { p_beneficiary?: string; p_consent: boolean; p_partner: string; p_prescription: string }; Returns: Json };
+      send_prescription_to_pharmacy: { Args: { p_beneficiary?: string; p_consent: boolean; p_partner: string; p_prescription: string }; Returns: Json };
       patient_add_lab_result: { Args: { p_file: Json }; Returns: Json };
       record_lab_disclosure: { Args: { p_attested: boolean; p_method: string; p_note?: string; p_result: string }; Returns: Json };
       release_lab_result: { Args: { p_note?: string; p_result: string }; Returns: Json };
