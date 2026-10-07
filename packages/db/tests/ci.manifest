@@ -907,3 +907,4 @@ s55_learning_centre.sql
 # append-only ledger, aggregate-only employer seam, roles) with three sabotage steps.
 s58_points_characterisation.sql
 s58_rewards_engine.sql
+s58b_creator_fee_and_integrity.sql

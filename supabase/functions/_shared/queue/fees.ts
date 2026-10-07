@@ -25,6 +25,8 @@ export interface FeeItems {
   consultation_share_pct: Record<ConsultationType, number>;
   consultation_reference_price_kobo?: Partial<Record<ConsultationType, number>>;
   pilot_minimum_per_declared_hour_kobo: number;
+  /** S58b: fixed fee for one approved, published learning item. Optional: absent means no fee is set (a line is flagged). */
+  creator_item_published_fee_kobo?: number;
 }
 export interface EarningsRules {
   lead_month: { min_active_days: number };
@@ -40,10 +42,13 @@ const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "obj
 export function validateFeeItems(items: unknown): string[] {
   if (!isObject(items)) return ["items must be an object"];
   const errors: string[] = [];
-  const allowed = new Set(["task_types", "on_call_shift_fee_kobo", "lead_fee_per_patient_month_kobo", "consultation_share_pct", "consultation_reference_price_kobo", "pilot_minimum_per_declared_hour_kobo"]);
+  const allowed = new Set(["task_types", "on_call_shift_fee_kobo", "lead_fee_per_patient_month_kobo", "consultation_share_pct", "consultation_reference_price_kobo", "pilot_minimum_per_declared_hour_kobo", "creator_item_published_fee_kobo"]);
   for (const k of Object.keys(items)) if (!allowed.has(k)) errors.push(`unknown key ${k}`);
   for (const k of ["on_call_shift_fee_kobo", "lead_fee_per_patient_month_kobo", "pilot_minimum_per_declared_hour_kobo"]) {
     if (!isKobo(items[k])) errors.push(`${k} must be a whole number of kobo, zero or more`);
+  }
+  if (items.creator_item_published_fee_kobo !== undefined && !isKobo(items.creator_item_published_fee_kobo)) {
+    errors.push("creator_item_published_fee_kobo must be a whole number of kobo, zero or more");
   }
   const share = items.consultation_share_pct;
   if (!isObject(share) || Object.keys(share).length !== CONSULTATION_TYPES.length || !CONSULTATION_TYPES.every((t) => isPct(share[t], 100))) {

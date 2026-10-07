@@ -73,6 +73,11 @@ export function FeeScheduleForm({ taskTypes, start, draftId, note }: { taskTypes
         <div><Label htmlFor={`${key}-lead`}>Lead fee per patient per month (naira)</Label><Input id={`${key}-lead`} name="lead_fee" inputMode="decimal" defaultValue={naira(start?.lead_fee_per_patient_month_kobo)} /></div>
         <div><Label htmlFor={`${key}-min`}>Pilot minimum per declared hour (naira)</Label><Input id={`${key}-min`} name="pilot_minimum" inputMode="decimal" defaultValue={naira(start?.pilot_minimum_per_declared_hour_kobo)} /></div>
       </div>
+      <div className="max-w-sm">
+        <Label htmlFor={`${key}-creator`}>Fee for each approved, published learning item (naira, optional)</Label>
+        <Input id={`${key}-creator`} name="creator_item_fee" inputMode="decimal" defaultValue={naira(start?.creator_item_published_fee_kobo)} />
+        <p className="mt-1 text-xs text-charcoal-ink/60">Paid once per item to a contracted clinician who created it. Left blank, those lines are flagged for you to correct.</p>
+      </div>
       <div className="grid gap-3 sm:grid-cols-3">
         {CONSULTATION_TYPES.map((type) => (
           <div key={type} className="space-y-2 rounded-md border border-charcoal-ink/10 p-3">

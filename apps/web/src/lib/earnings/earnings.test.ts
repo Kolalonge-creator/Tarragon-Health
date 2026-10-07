@@ -27,6 +27,21 @@ function form(over: Record<string, string> = {}): FormData {
   return f;
 }
 
+describe("creator item fee (S58b)", () => {
+  it("is left out when the box is blank, so a line is flagged rather than guessed", () => {
+    const r = buildItemsFromForm(form({ creator_item_fee: "" }), TYPES);
+    expect(r.ok && "creator_item_published_fee_kobo" in r.items).toBe(false);
+  });
+  it("turns naira into whole kobo", () => {
+    const r = buildItemsFromForm(form({ creator_item_fee: "2,500" }), TYPES);
+    expect(r.ok && r.items.creator_item_published_fee_kobo).toBe(250000);
+  });
+  it("labels and explains the new line kind", () => {
+    expect(explainLine({ kind: "creator_item", calculation: { content_code: "myth-01" } })).toContain("myth-01");
+    expect(reviewWords("no_fee_for_creator_item")).toContain("no fee");
+  });
+});
+
 describe("buildItemsFromForm", () => {
   it("turns naira into whole kobo and keeps the steps", () => {
     const r = buildItemsFromForm(form(), TYPES);

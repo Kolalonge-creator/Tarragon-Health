@@ -1569,10 +1569,30 @@ Four defects from `docs/design/S55-S60-build-plan.md` section 5, fixed ahead of 
 - Decision: open (product).
 
 ### OQ-S58-08 A failed rewards event opens one shared incident
-- If a rewards event cannot be written the person's own record is saved, an `audit_log` row (`rewards_event.error`) is written and one open incident (`rewards_event_failed`) covers all of them. Confirm severity and whether ops wants it.
-- Decision: open.
+- If a rewards event cannot be written the person's own record is saved, an `audit_log` row (`rewards_event.error`) is written and one open incident (`rewards_event_failed`) covers all of them. Founder decided 2026-10-07: sev3 (technical). Built in `20261007210417`; a lesson-event failure (S55-12) is sev2.
+- Decision: decided (sev3 rewards, sev2 lesson).
 
 ### OQ-S58-09 Patient-facing notifications for points
 - None are sent (INV-07 by absence; no streak or missed-day message exists). If the founder later wants a "you earned points" notice it must be neutral and key-based.
 - Decision: informational.
 
+
+### OQ-S58b-01 Creator fee: one fee per item, not per version
+- The founder said a fixed fee per approved, published item, idempotent per item version. Built as ONE line per item (the reference is derived from the content id), so a republish, an edit that bumps `version`, or a re-review never pays again. Paying again for each reviewed version would let a creator earn by editing; if the founder wants a fee per reviewed version it needs a rule such as "only when a different reviewer signs the new version", which is a one-line change to `private.post_creator_item_earning`.
+- Decision: open (founder), default is one fee per item.
+
+### OQ-S58b-02 Who is a payable creator
+- Creators are invited clinician logins (S55). The S31 payout machinery pays only an active CONTRACTED `clinical_staff` row with a verified bank account, so a creator who is employed (salary, F-03) gets no line, and one without a verified bank account accrues lines that wait. The creator may not be the named reviewer of their own item (no line). No separate non-clinician creator payee was built.
+- Decision: open (founder) if non-clinician or externally contracted creators are wanted.
+
+### OQ-S58b-03 No clawback built for a later withdrawal
+- A line is earned when the item is published and reviewed. An item withdrawn or expired AFTER its line exists keeps the line (the work was done); an unpaid line can be reversed by an admin with a negative adjustment (existing S30 flow). Nothing is clawed back automatically.
+- Decision: open (founder).
+
+### OQ-S58b-04 The creator fee amount is not set
+- Nothing is seeded. Until the founder enters `Fee for each approved, published learning item` in the Fees and earnings page and approves the schedule, a creator line is written as a zero line flagged `no_fee_for_creator_item` (or waits, if no schedule is approved at all) and an admin corrects it by adjustment.
+- Decision: open (founder enters the amount; it is not a CMO item).
+
+### OQ-S58b-05 Seeded draft content
+- 10 myth scripts and 10 blood pressure micro-lessons from `docs/content/` are in the database as drafts. They are marked `is_placeholder` on purpose so a named clinical author must clear the flag first, in addition to the reviewer, date, source and self-care gates. The drafts' check questions have no answer options (the draft files give a question and an answer only); the clinical author writes the options, and the new published-integrity gate refuses to publish a micro-lesson without two options. The 6 older `myth-draft-0N` title-only placeholders remain; the CMO can retire them once the real drafts are approved. The CMO's checklist is in `docs/content/README.md`.
+- Decision: open (CMO).

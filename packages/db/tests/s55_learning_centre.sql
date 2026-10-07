@@ -148,7 +148,7 @@ begin
   perform pg_temp.setf('micro', v_id);
 
   -- ================= 2. placeholders =================
-  select count(*) into v_n from public.health_education_content where is_placeholder and content_status = 'draft' and not is_active;
+  select count(*) into v_n from public.health_education_content where is_placeholder and code like 'myth-draft-%' and content_status = 'draft' and not is_active;
   perform pg_temp.ck('2a six draft placeholders exist and none is active', v_n = 6);
   perform pg_temp.ck('2b the myth series programme is inactive', (select not is_active and kind = 'series' from public.health_education_programmes where code = 'myth_busting'));
   perform pg_temp.ck('2c a patient reads none of the placeholders',
@@ -406,7 +406,10 @@ begin
   update public.health_education_content set next_review_due = null where id = v_id;
   perform pg_temp.ck('7g3 an undated (grandfathered) item does not open for a signed-out reader',
     pg_temp.as_count(null, $q$select count(*) from public.learn_shared_article('s55-share-legacy')$q$) = 0);
+  -- S58b: the integrity trigger now refuses clearing a reviewer on a published item, so a legacy row (published before it existed) is simulated with it off
+  alter table public.health_education_content disable trigger health_education_published_integrity;
   update public.health_education_content set next_review_due = current_date + 60, reviewed_by_name = null where id = v_id;
+  alter table public.health_education_content enable trigger health_education_published_integrity;
   perform pg_temp.ck('7g4 an item with no named reviewer does not open for a signed-out reader',
     pg_temp.as_count(null, $q$select count(*) from public.learn_shared_article('s55-share-legacy')$q$) = 0);
   perform pg_temp.ck('7g5 the apps are told it is shareable only when the link would open (same definition)',
