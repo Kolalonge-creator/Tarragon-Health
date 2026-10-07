@@ -39,7 +39,21 @@ export const GOVERNED_CONFIG_TABLES = [
     slug: "vaccination-schedule",
   },
   { table: "lab_panel_signoffs", title: "Lab ranges and release policy", slug: "lab-panels" },
+  {
+    // S88: six kinds in one ledger, one live row PER KIND, so it does not follow the single-live-row
+    // shape of the rest. Read through its own branch below; its page is the sign-off hub itself.
+    table: "clinical_config_versions",
+    title: "Clinical config drafts (S88)",
+    slug: "clinical-config-versions",
+  },
 ] as const;
+
+/** Tables that hold one live row per kind rather than one live row in total. */
+export const MULTI_KIND_CONFIG_TABLES: readonly string[] = ["clinical_config_versions"];
+
+/** The page a table's checklist line links to; the multi-kind ledger has no page of its own. */
+const hrefSlug = (def: { table: string; slug: string }) =>
+  MULTI_KIND_CONFIG_TABLES.includes(def.table) ? "clinical-signoff" : def.slug;
 
 export type GovernedConfigSignoff = {
   table: string;
@@ -74,7 +88,26 @@ export async function readGovernedConfigSignoff(
 ): Promise<GovernedConfigSignoff[]> {
   const results = await Promise.all(
     GOVERNED_CONFIG_TABLES.map(async (def) => {
-      const href = `${basePath}/${def.slug}`;
+      const href = `${basePath}/${hrefSlug(def)}`;
+
+      if (def.table === "clinical_config_versions") {
+        // Signed only when EVERY kind has a signed live version; a kind with only drafts is unsigned, never green.
+        const res = await supabase.from("clinical_config_versions").select("config_kind, version, status, approved_by");
+        if (res.error || !Array.isArray(res.data)) {
+          return { table: def.table, title: def.title, href, version: null, signed: false };
+        }
+        const live = res.data.filter((r) => r.status === "active");
+        const kinds = new Set(res.data.map((r) => r.config_kind));
+        const signedKinds = new Set(live.filter((r) => r.approved_by).map((r) => r.config_kind));
+        return {
+          table: def.table,
+          title: def.title,
+          href,
+          version: live.length > 0 ? Math.max(...live.map((r) => r.version)) : null,
+          signed: kinds.size > 0 && signedKinds.size === kinds.size,
+        };
+      }
+
       const { data, error } = await supabase
         .from(def.table)
         .select("version, approved_by")

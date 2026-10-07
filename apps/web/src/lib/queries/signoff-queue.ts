@@ -183,6 +183,36 @@ export async function readSignoffQueue(
     });
   }
 
+  // S88 clinical config drafts: one ledger, one live row PER KIND, so it is not in VERSIONED_TABLES
+  // (singleLiveRow would call six live rows corruption). One line for all outstanding drafts.
+  sources.push({
+    name: "clinical_config_versions",
+    run: async () => {
+      const { data, error } = await supabase
+        .from("clinical_config_versions")
+        .select("config_kind, version, status, approved_at");
+      if (error) fail("clinical_config_versions", error.message);
+      const rows = (data ?? []) as { config_kind: string; version: number; status: string; approved_at: string | null }[];
+      const highestSigned = new Map<string, number>();
+      for (const r of rows) {
+        if (r.approved_at) highestSigned.set(r.config_kind, Math.max(highestSigned.get(r.config_kind) ?? 0, r.version));
+      }
+      // A draft older than a signed version is history, not work (the sign RPC refuses it).
+      const waiting = rows.filter((r) => r.status === "draft" && r.version > (highestSigned.get(r.config_kind) ?? 0));
+      if (waiting.length === 0) return [];
+      return [
+        {
+          key: "versioned_draft:clinical_config_versions",
+          title: "Clinical config drafts (S88)",
+          detail: `${waiting.length} drafted clinical config${waiting.length === 1 ? "" : "s"} waiting for the Chief Medical Officer: ${[...new Set(waiting.map((w) => w.config_kind))].sort().join(", ")}. High-risk ones also need an approved independent clinical review.`,
+          href: `${basePath}/clinical-signoff`,
+          severity: "draft_pending" as const,
+          count: waiting.length,
+        },
+      ];
+    },
+  });
+
   sources.push({
     name: "protocol_drafts",
     run: async () => {

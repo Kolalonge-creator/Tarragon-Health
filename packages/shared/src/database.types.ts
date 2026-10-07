@@ -34685,6 +34685,59 @@ export type Database = {
           },
         ]
       }
+      clinical_config_versions: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config_kind: string
+          content: Json
+          created_at: string
+          founder_position: string
+          founder_position_date: string
+          id: string
+          is_active: boolean | null
+          notes: string | null
+          sources: Json
+          status: string
+          verify_against_source: boolean
+          version: number
+        }
+        Insert: never
+        Update: never
+        Relationships: [
+          {
+            foreignKeyName: "clinical_config_versions_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      independent_clinical_reviews: {
+        Row: {
+          config_version_id: string
+          created_at: string
+          id: string
+          mdcn_number: string
+          note: string | null
+          outcome: string
+          recorded_by: string
+          reviewed_at: string
+          reviewer_name: string
+        }
+        Insert: never
+        Update: never
+        Relationships: [
+          {
+            foreignKeyName: "independent_clinical_reviews_config_version_id_fkey"
+            columns: ["config_version_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_config_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       result_release_policies: {
         Row: {
           approved_at: string | null
@@ -47403,6 +47456,18 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      sign_clinical_config_version: { Args: { p_id: string }; Returns: string }
+      record_independent_clinical_review: {
+        Args: {
+          p_config_version_id: string
+          p_mdcn_number: string
+          p_note?: string
+          p_outcome: string
+          p_reviewed_at: string
+          p_reviewer_name: string
+        }
+        Returns: string
       }
       sign_result_release_policies: { Args: { p_id: string }; Returns: string }
       sign_risk_questionnaire_config: {
