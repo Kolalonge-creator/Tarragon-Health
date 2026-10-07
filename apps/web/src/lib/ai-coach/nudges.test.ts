@@ -88,10 +88,10 @@ describe("Lagos day", () => {
 });
 
 describe("nudge recipients and the generic notification wording (INV-07)", () => {
-  it("a real patient is reached only when the guard is open; a test patient always", () => {
+  it("a real patient is reached only when the guard is open; a test patient never", () => {
     expect(eligibleForAssistantNudge({ guardOpen: false, role: "patient", isActive: true, isTest: false })).toBe(false);
     expect(eligibleForAssistantNudge({ guardOpen: true, role: "patient", isActive: true, isTest: false })).toBe(true);
-    expect(eligibleForAssistantNudge({ guardOpen: false, role: "patient", isActive: true, isTest: true })).toBe(true);
+    expect(eligibleForAssistantNudge({ guardOpen: false, role: "patient", isActive: true, isTest: true })).toBe(false);
     expect(eligibleForAssistantNudge({ guardOpen: true, role: "clinician", isActive: true, isTest: false })).toBe(false);
     expect(eligibleForAssistantNudge({ guardOpen: true, role: "patient", isActive: false, isTest: false })).toBe(false);
   });

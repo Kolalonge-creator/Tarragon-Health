@@ -47,4 +47,12 @@ describe("assistant.go_live mirrors the assistant_config seed", () => {
     if (!match?.[1]) throw new Error("seed not found");
     expect(JSON.parse(match[1])).toEqual(getProposedConfig("assistant.go_live").value);
   });
+  it("the nudges row mirrors assistant.nudges", () => {
+    const file = readdirSync(MIGRATIONS).find((f) => f.endsWith("_s51_assistant_guard_knowledge_events.sql"));
+    if (!file) throw new Error("S51 migration not found");
+    const sql = readFileSync(join(MIGRATIONS, file), "utf8");
+    const match = /\('nudges', \$json\$([\s\S]*?)\$json\$/.exec(sql);
+    if (!match?.[1]) throw new Error("nudges seed not found");
+    expect(JSON.parse(match[1])).toEqual(getProposedConfig("assistant.nudges").value);
+  });
 });

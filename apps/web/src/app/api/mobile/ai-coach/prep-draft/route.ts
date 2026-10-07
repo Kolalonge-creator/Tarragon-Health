@@ -5,8 +5,8 @@ import { sendApprovedPrepDraft } from "@/lib/ai-coach/send-prep-draft";
 
 /**
  * Mobile equivalent of handoff-actions.ts's sendApprovedPrepDraftAction (S51, 7.7). The patient has read, edited and chosen to send
- * the pre-visit message; this opens the care thread on THEIR session. Deliberately not behind the assistant_enabled guard: it is a
- * patient writing to their own care team, which never waits on an AI guard.
+ * the pre-visit message; this opens the care thread on THEIR session. Behind the assistant_enabled guard (checked inside
+ * sendApprovedPrepDraft) and refuses a conversation that is not the caller's own.
  */
 export async function POST(request: Request): Promise<NextResponse> {
   const accessToken = request.headers.get("authorization")?.match(/^Bearer (.+)$/)?.[1];

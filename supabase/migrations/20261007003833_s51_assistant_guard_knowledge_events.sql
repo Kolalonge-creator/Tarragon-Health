@@ -29,11 +29,29 @@ comment on table public.assistant_config is
 
 -- assistant-config-begin
 insert into public.assistant_config (key, value, config_version) values
-  ('go_live', $json${"min_approved_kb_rows": 20}$json$::jsonb, 1);
+  ('go_live', $json${"min_approved_kb_rows": 20}$json$::jsonb, 1),
+  ('nudges', $json${"recent_days": 30, "max_per_run": 2000}$json$::jsonb, 1);
 -- assistant-config-end
 
 alter table public.assistant_config enable row level security;
 revoke all on public.assistant_config from public, anon, authenticated;
+
+-- The ONLY way database code reads a PROPOSED setting: there is no built-in fallback. A missing row or field is a loud error (a function
+-- that needs a setting must never quietly run on a number nobody signed), so a broken config fails closed and is seen.
+create function private.assistant_cfg_int(p_key text, p_field text) returns integer
+language plpgsql stable security definer set search_path = ''
+as $$
+declare
+  v text;
+begin
+  select value ->> p_field into v from public.assistant_config where key = p_key;
+  if v is null or v !~ '^[0-9]+$' then
+    raise exception 'assistant_config % / % is missing or not a whole number: set it before this runs', p_key, p_field using errcode = '55000';
+  end if;
+  return v::integer;
+end $$;
+revoke all on function private.assistant_cfg_int(text, text) from public, anon;
+grant execute on function private.assistant_cfg_int(text, text) to authenticated, service_role;
 
 -- ---------------------------------------------------------------------------
 -- 3. KB metadata on lpe_content_blocks (health_education_content already has version, reviewer and review dates)
@@ -108,7 +126,7 @@ create or replace function private.go_live_conditions_assistant(p_org uuid)
 returns jsonb
 language plpgsql stable security definer set search_path = '' as $$
 declare
-  v_min integer := coalesce((select (value ->> 'min_approved_kb_rows')::integer from public.assistant_config where key = 'go_live'), 20);
+  v_min integer := private.assistant_cfg_int('go_live', 'min_approved_kb_rows');
   v_kb integer;
   v_runs integer;
 begin
@@ -213,6 +231,36 @@ begin
 end $$;
 revoke all on function public.assistant_queue_nudge(uuid, text, date) from public, anon, authenticated;
 grant execute on function public.assistant_queue_nudge(uuid, text, date) to service_role;
+
+-- Who the daily nudge may go to (service role, the nudge cron). Recent users of the assistant only (a conversation in the last recent_days),
+-- real patients only (is_test never gets a nudge), only while the guard is on, only those who actually have the assistant on their plan,
+-- never someone who switched every wellness channel off, most recently active first and never more than max_per_run.
+create function public.assistant_nudge_candidates() returns table (patient_id uuid)
+language plpgsql stable security definer set search_path = ''
+as $$
+declare
+  v_days integer := private.assistant_cfg_int('nudges', 'recent_days');
+  v_max integer := private.assistant_cfg_int('nudges', 'max_per_run');
+begin
+  if not private.go_live_guard_on('assistant_enabled') then return; end if;
+  return query
+    select r.profile_id
+      from (select c.profile_id, max(c.updated_at) as last_at
+              from public.ai_conversations c
+             where c.updated_at > now() - make_interval(days => v_days)
+             group by c.profile_id) r
+      join public.profiles p on p.id = r.profile_id and p.role = 'patient' and p.is_active and not coalesce(p.is_test, false)
+     where coalesce(
+             (select a.enabled from public.ai_coach_access_rules a where a.organisation_id = p.organisation_id and a.patient_id = p.id),
+             (select a.enabled from public.ai_coach_access_rules a where a.organisation_id = p.organisation_id and a.patient_id is null),
+             private.patient_has_feature_access(p.id, 'ai_coach'))
+       and not exists (select 1 from public.patient_notification_preferences pr
+                        where pr.patient_id = p.id and pr.category = 'education_wellness' and not (pr.email_enabled or pr.sms_enabled or pr.push_enabled))
+     order by r.last_at desc
+     limit v_max;
+end $$;
+revoke all on function public.assistant_nudge_candidates() from public, anon, authenticated;
+grant execute on function public.assistant_nudge_candidates() to service_role;
 
 -- ---------------------------------------------------------------------------
 -- Self-check
