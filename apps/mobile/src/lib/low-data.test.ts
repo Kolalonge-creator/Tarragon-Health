@@ -5,7 +5,7 @@ jest.mock("expo-secure-store", () => ({
 }));
 
 import { LOW_DATA_KEY, ensureLowDataLoaded, loadLowDataPreference, resetLowDataLoadedForTests, readLowDataEnabled, writeLowDataEnabled } from "./low-data";
-import { LOW_DATA_BUDGET, OFFLINE_BUDGET, activeBudget, setLowDataActive } from "./offline-budget";
+import { LOW_DATA_BUDGET, OFFLINE_BUDGET, activeBudget, isLowDataActive, setLowDataActive, subscribeLowData } from "./offline-budget";
 
 beforeEach(() => {
   mockStore.clear();
@@ -51,5 +51,19 @@ describe("preference", () => {
     expect(activeBudget()).toBe(OFFLINE_BUDGET); // saved choice not read yet
     await ensureLowDataLoaded();
     expect(activeBudget()).toBe(LOW_DATA_BUDGET);
+  });
+});
+
+describe("low-data subscription", () => {
+  it("tells listeners when the switch flips, and not when it is set to the same value", () => {
+    const calls: boolean[] = [];
+    const off = subscribeLowData(() => calls.push(isLowDataActive()));
+    setLowDataActive(true);
+    setLowDataActive(true);
+    setLowDataActive(false);
+    off();
+    setLowDataActive(true);
+    expect(calls).toEqual([true, false]);
+    setLowDataActive(false);
   });
 });

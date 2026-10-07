@@ -115,6 +115,10 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
       href: "/clinician/care-plan-review",
     };
   }
+  if (n.template === "pharmacy_flag_notice") {
+    // S36h: neutral by design (INV-07). Names no medicine, patient or reason; the detail is on the page.
+    return { text: "A pharmacy has raised something. Open your pharmacy messages", href: "/clinician/pharmacy-flags" };
+  }
   if (n.template === "health_reset_complete") {
     return {
       // Plans were retired 2026-09-02; the completed Reset is its own win now.
@@ -632,6 +636,9 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   }
   if (n.template === "circle_gift_waiting") {
     return { text: "Someone has paid for care for you. Open it to accept", href: "/patient/care-circle" };
+  }
+  if (n.template === "monthly_report_ready") {
+    return { text: "Your monthly summary is ready", href: "/patient/progress" };
   }
   if (n.template === "circle_paid_for_you") {
     return { text: "Someone in your Care Circle has paid for your care", href: "/patient" };

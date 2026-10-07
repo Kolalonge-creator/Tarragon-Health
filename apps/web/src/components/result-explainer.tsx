@@ -20,7 +20,7 @@ import type { ExplainerKind } from "@/lib/patient-explainer/snapshot";
  *
  * ENGLISH ONLY (founder decision, 2026-08-03). The read-aloud control and the
  * language switcher that used to live here are gone: the browser Web Speech
- * API barely covers Yoruba/Hausa/Igbo, has no Nigerian Pidgin voice at all,
+ * API barely covers Yoruba/Hausa/Igbo and has no usable Nigerian-language voice,
  * and shipping a half-working version of either was worse than shipping
  * neither. The DB still carries `profiles.language` and a `language` column on
  * the explanation cache, so this is re-openable the day a real TTS vendor and

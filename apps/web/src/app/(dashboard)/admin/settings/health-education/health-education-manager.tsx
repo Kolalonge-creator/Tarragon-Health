@@ -8,15 +8,11 @@ import {
   useUpdateHealthEducationContent,
   useSetHealthEducationContentStatus,
   useContentStatusHistory,
-  useContentTranslations,
-  useUpsertTranslation,
   HEALTH_EDUCATION_CATEGORIES,
-  HEALTH_EDUCATION_LANGUAGE_LABELS,
   type HealthEducationContent,
   type HealthEducationCategory,
   type HealthEducationContentStatus,
   type HealthEducationContentInput,
-  type HealthEducationLanguage,
 } from "@/lib/queries/health-education";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -269,18 +265,11 @@ function ContentForm({
 }
 
 /**
- * History & translations (§79.9/§79.11): the transition audit trail plus
- * per-language content — everything the inline status buttons above don't
- * cover. Collapsed by default so the catalogue list stays scannable.
+ * History (§79.11): the transition audit trail the inline status buttons above
+ * don't show. Collapsed by default so the catalogue list stays scannable.
  */
-function HistoryAndTranslations({ item }: { item: HealthEducationContent }) {
+function ContentHistory({ item }: { item: HealthEducationContent }) {
   const { data: history } = useContentStatusHistory(item.id);
-  const { data: translations } = useContentTranslations(item.id);
-  const upsertTranslation = useUpsertTranslation();
-
-  const [translationLang, setTranslationLang] = useState<HealthEducationLanguage>("pcm");
-  const [translationTitle, setTranslationTitle] = useState("");
-  const [translationBody, setTranslationBody] = useState("");
 
   return (
     <div className="space-y-4 rounded-md border border-charcoal-ink/10 bg-charcoal-ink/[0.02] p-3">
@@ -297,71 +286,6 @@ function HistoryAndTranslations({ item }: { item: HealthEducationContent }) {
           </ul>
         </div>
       )}
-
-      <div className="space-y-2">
-        <p className="text-xs font-medium text-charcoal-ink/60">
-          Translations (§79.9): human-authored only, never auto-generated
-        </p>
-        {translations && translations.length > 0 && (
-          <ul className="text-xs text-charcoal-ink/60">
-            {translations.map((t) => (
-              <li key={t.id}>
-                {HEALTH_EDUCATION_LANGUAGE_LABELS[t.language as HealthEducationLanguage]}: {t.title}
-              </li>
-            ))}
-          </ul>
-        )}
-        <div className="flex flex-wrap items-center gap-2">
-          <Select
-            aria-label="Translation language"
-            className="h-8 w-40 text-xs"
-            value={translationLang}
-            onChange={(e) => setTranslationLang(e.target.value as HealthEducationLanguage)}
-          >
-            {Object.entries(HEALTH_EDUCATION_LANGUAGE_LABELS).map(([code, label]) => (
-              <option key={code} value={code}>
-                {label}
-              </option>
-            ))}
-          </Select>
-          <Input
-            className="h-8 w-56 text-xs"
-            placeholder="Translated title"
-            value={translationTitle}
-            onChange={(e) => setTranslationTitle(e.target.value)}
-          />
-        </div>
-        <textarea
-          className="w-full rounded-md border border-charcoal-ink/15 p-2 text-xs"
-          rows={3}
-          placeholder="Translated body"
-          value={translationBody}
-          onChange={(e) => setTranslationBody(e.target.value)}
-        />
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!translationTitle.trim() || !translationBody.trim() || upsertTranslation.isPending}
-          onClick={() =>
-            upsertTranslation.mutate(
-              {
-                contentId: item.id,
-                language: translationLang,
-                title: translationTitle.trim(),
-                body: translationBody.trim(),
-              },
-              {
-                onSuccess: () => {
-                  setTranslationTitle("");
-                  setTranslationBody("");
-                },
-              }
-            )
-          }
-        >
-          Save translation
-        </Button>
-      </div>
     </div>
   );
 }
@@ -461,7 +385,7 @@ function ContentRow({ item }: { item: HealthEducationContent }) {
           )}
         </div>
       )}
-      {managing && <HistoryAndTranslations item={item} />}
+      {managing && <ContentHistory item={item} />}
     </li>
   );
 }

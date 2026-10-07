@@ -17,12 +17,12 @@ import {
 import { realManifest } from "./test-helpers";
 
 const ids = (p: Phrase | null) => p?.steps.map((s) => s.id);
-const say = (p: Phrase | null, lang: "en" | "pcm" = "en") => (p ? phraseText(p, lang, scriptText) : null);
+const say = (p: Phrase | null, lang: "en" = "en") => (p ? phraseText(p, lang, scriptText) : null);
 
 describe("NUM stitching", () => {
   it("builds the spec's example: NUM-P01 + NUM-148 + NUM-P02 + NUM-094", () => {
-    expect(ids(stitchBloodPressure(148, 94))).toEqual(["NUM-P01", "NUM-148", "NUM-P02", "NUM-094"]);
-    expect(say(stitchBloodPressure(148, 94))).toBe("Your blood pressure reading is 148 over 94");
+    expect(ids(stitchBloodPressure(148, 94))).toEqual(["NUM-P01", "NUM-148", "NUM-P02", "NUM-094", "NUM-P24"]);
+    expect(say(stitchBloodPressure(148, 94))).toBe("Your blood pressure reading is 148 over 94 millimetres of mercury");
   });
 
   it("zero-pads clip ids and accepts both ends of the kit (0 and 600)", () => {
@@ -62,7 +62,7 @@ describe("NUM stitching", () => {
   });
 
   it("says a weekly average with an optional comparison", () => {
-    expect(ids(stitchWeeklyBloodPressureAverage(138, 86))).toEqual(["NUM-P12", "NUM-138", "NUM-P02", "NUM-086"]);
+    expect(ids(stitchWeeklyBloodPressureAverage(138, 86))).toEqual(["NUM-P12", "NUM-138", "NUM-P02", "NUM-086", "NUM-P24"]);
     expect(ids(stitchWeeklyBloodPressureAverage(138, 86, "higher"))?.at(-1)).toBe("NUM-P13");
     expect(ids(stitchWeeklyBloodPressureAverage(138, 86, "lower"))?.at(-1)).toBe("NUM-P14");
     expect(ids(stitchWeeklyBloodPressureAverage(138, 86, "same"))?.at(-1)).toBe("NUM-P15");
@@ -88,10 +88,6 @@ describe("NUM stitching", () => {
     expect(stitchSteps(20300)).toBeNull();
     expect(stitchSteps(-5)).toBeNull();
     expect(stitchSteps(Number.NaN)).toBeNull();
-  });
-
-  it("says the Pidgin lead-in text for the same phrase (held as English until signed)", () => {
-    expect(say(stitchBloodPressure(148, 94), "pcm")).toBe("Your blood pressure reading is 148 over 94");
   });
 
   it("only ever names clips that exist in the manifest, for every value the kit can say", () => {

@@ -450,13 +450,6 @@ export default async function AdminPage() {
           visible: isSuperAdmin,
         },
         {
-          href: "/admin/settings/language",
-          label: "Languages",
-          blurb: "One-click switch: turn Pidgin off everywhere, English only",
-          icon: NAV_ICON.settings,
-          visible: isSuperAdmin,
-        },
-        {
           href: "/admin/settings/platform-modules",
           label: "Platform modules",
           blurb: "Activate the payer or provider-organisation platform",
