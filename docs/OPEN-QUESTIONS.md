@@ -1453,12 +1453,12 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Decision: open (CMO); fix by reading the medicine history once S24 records changes.
 - **Decided 2026-10-07 (founder): accept the approximation until S24 records medicine history.** Adherence stays beside BP, never inside the control figure.
 
-### OQ-235 Who joined, and from when (raised by S38)
+### OQ-270 Who joined, and from when (raised by S38; was numbered OQ-235, which S36g already used)
 - Day 0 is the earliest start of a Membership (purchased, voucher, employer or granted) or a care pack entitlement. A free user has no snapshots. Care pack and Membership are treated alike. If a person lets a membership lapse and joins again, day 0 stays the first start.
 - Decision: open (CMO).
 - **Decided 2026-10-07 (founder): the first Membership or care pack start, any source (purchased, voucher, employer, granted), is day 0.** A lapse and rejoin keeps the first start; free users have no snapshots.
 
-### OQ-236 Not applied, console home (raised by S38)
+### OQ-271 Not applied, console home (raised by S38; was numbered OQ-236, which S36g already used)
 - The migration is not applied to production (apply before merging). The page is in `apps/web` (`/admin/outcomes`); S36 and S37 decide where the console version lives. The report is open to admins and the active CMO only; a clinical lead who is neither cannot see it yet.
 - Decision: open.
 - **Decided 2026-10-07 (founder): admins and the CMO, in `apps/web`, for now.** Clinical leads who are neither cannot open it yet; S36 and S37 decide the console version.
