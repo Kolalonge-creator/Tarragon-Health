@@ -31,7 +31,7 @@ begin
   v_verifier := v_admin;
   insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, active, credential_type, credential_number, indemnity_exempt, indemnity_exempt_by, verified_by, license_verified_at)
   values (v_cmo, v_org, 'S80 CMO', 'chief_medical_officer', true, 'MDCN', 'S80-CMO-1', true, v_verifier, v_verifier, now()),
-         (v_mo,  v_org, 'S80 MO', 'medical_officer', true, 'MDCN', 'S80-MO-1', true, v_verifier, v_verifier, now());
+         (v_mo,  v_org, 'S80 MO', 'senior_medical_officer', true, 'MDCN', 'S80-MO-1', true, v_verifier, v_verifier, now());
 
   insert into public.health_education_content (code, title, body, category)
   values ('s80-proof-1','S80 proof','body',v_cat) returning id into v_c;
@@ -51,7 +51,7 @@ begin
   exception when others then insert into _r values('admin','approve',false); end;
   reset role;
 
-  -- GATE: a non-CMO clinician may not touch it at all
+  -- GATE: a non-CMO clinician (a senior doctor; the Medical Officer tier is retired) may not touch it at all
   perform set_config('request.jwt.claims', json_build_object('sub', v_mo, 'role','authenticated')::text, true);
   set local role authenticated;
   begin perform public.set_health_education_content_status(v_c,'approved'); insert into _r values('mo','approve',true);
