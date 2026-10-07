@@ -41417,6 +41417,7 @@ export type Database = {
         }
         Returns: string
       }
+      report_unrecorded_symptom_check: { Args: { p_category: string; p_patient: string }; Returns: Json }
       request_assisted_recovery: {
         Args: {
           p_identity_checks: Json

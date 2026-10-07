@@ -46081,6 +46081,7 @@ export type Database = {
         Args: { p_reason: string; p_review_id: string }
         Returns: undefined
       }
+      report_unrecorded_symptom_check: { Args: { p_category: string; p_patient: string }; Returns: Json }
       search_patient_ids_by_condition: {
         Args: { p_cap?: number; p_condition: string; p_scope?: string[] }
         Returns: {

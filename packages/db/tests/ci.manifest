@@ -904,3 +904,5 @@ s60_symptom_reviews_rls_and_audit.sql
 s60_symptom_accuracy_audit.sql
 # S60 (spec 12.13): the recorded regulatory position and the F1 attestations wired to records. Admin or CMO only, append-only, a NAFDAC attestation refused without a determined position and a baseline attestation refused without a baseline report, the dashboard shows what the record says. Sabotage: the check skipped, the refused attestation must succeed.
 s60_regulatory_position_and_guard_wiring.sql
+# S60 review fixes (PR #1003): an urgent result that could not be recorded raises a neutral incident and task (service role only); a review request follows the current read grant (revoked caregiver refused); a malformed or huge SLA config never raises; "agrees" is judged against the effective (override) category. Sabotage for each: the old rule or unguarded form restored, the test must flip.
+s60_review_fixes.sql

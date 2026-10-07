@@ -38,11 +38,17 @@ export interface SafeTriageResult extends TriageRunResult {
   floorRaised: boolean;
 }
 
+/**
+ * An engine adapter. The optional fifth argument is an AbortSignal that is aborted when the run times out, so an async engine
+ * (a licensed adapter making a network call) can cancel its own work instead of running on after the caller has moved on.
+ * Backward compatible: an engine written with four parameters is still assignable and simply ignores the signal.
+ */
 export type EngineFn = (
   pathway: PresentingComplaintProtocol,
   capture: SymptomCapture,
   answers: AnswerMap,
   questionLog: AnsweredQuestion[],
+  signal?: AbortSignal,
 ) => TriageRunResult | Promise<TriageRunResult>;
 
 export interface FailSafeInput {
@@ -63,13 +69,18 @@ class EngineTimeout extends Error {
   }
 }
 
-async function withTimeout<T>(work: () => T | Promise<T>, ms: number): Promise<T> {
+async function withTimeout<T>(work: (signal: AbortSignal) => T | Promise<T>, ms: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
+  const controller = new AbortController();
   try {
     return await Promise.race([
-      (async () => work())(),
+      (async () => work(controller.signal))(),
       new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new EngineTimeout()), ms);
+        timer = setTimeout(() => {
+          // abort first so the engine can stop, then fail the run
+          controller.abort(new EngineTimeout());
+          reject(new EngineTimeout());
+        }, ms);
       }),
     ]);
   } finally {
@@ -124,7 +135,7 @@ export async function runTriageFailSafe(input: FailSafeInput): Promise<SafeTriag
   const engine: EngineFn = input.engine ?? ((p, c, a, q) => runTriage(p, c, a, q));
   let result: TriageRunResult;
   try {
-    result = await withTimeout(() => engine(pathway, capture, answers, questionLog), degraded.engine_timeout_ms);
+    result = await withTimeout((signal) => engine(pathway, capture, answers, questionLog, signal), degraded.engine_timeout_ms);
   } catch (e) {
     return degradedResult(e instanceof EngineTimeout ? "engine_timeout" : "engine_error", capture, degraded);
   }
@@ -147,7 +158,8 @@ export async function runTriageFailSafe(input: FailSafeInput): Promise<SafeTriag
       rationale: `Bundled red-flag floor fired: ${floor.fired.map((f) => f.key).join(", ")}`,
       redFlagScreen: floor,
       nextQuestion: undefined,
-      questionsAsked: [],
+      // keep what the engine really asked: the record shows the questions the patient answered before the floor ended the walk
+      questionsAsked: result.questionsAsked,
       degraded: false,
       floorRaised: true,
     };

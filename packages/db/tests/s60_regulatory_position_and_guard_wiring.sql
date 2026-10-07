@@ -77,15 +77,43 @@ begin
   end loop;
   if has_function_privilege('anon', 'public.record_regulatory_position(text,text,text,text,text,date,text)', 'EXECUTE') then raise exception 'FAIL 1b: anon can execute record_regulatory_position'; end if;
   perform pg_temp.act(v_admin);
-  if pg_temp.try(format('select public.record_regulatory_position(%L, %L, %L, %L, null, current_date, null)', 'symptom_checker', 'too short', 'decision_support_not_a_device', 'A Counsel')) <> '23514' then
+  if pg_temp.try(format('select public.record_regulatory_position(%L, %L, %L, %L, null, current_date, ''DOC-S60'')', 'symptom_checker', 'too short', 'decision_support_not_a_device', 'A Counsel')) <> '23514' then
     raise exception 'FAIL 1c: a one-line position was accepted';
   end if;
-  if pg_temp.try(format('select public.record_regulatory_position(%L, %L, %L, %L, null, current_date + 5, null)', 'symptom_checker', v_pos, 'decision_support_not_a_device', 'A Counsel')) <> '23514' then
+  if pg_temp.try(format('select public.record_regulatory_position(%L, %L, %L, %L, null, current_date + 5, ''DOC-S60'')', 'symptom_checker', v_pos, 'decision_support_not_a_device', 'A Counsel')) <> '23514' then
     raise exception 'FAIL 1d: a future-dated position was accepted';
   end if;
   if pg_temp.try(format('select public.record_regulatory_position(%L, %L, %L, null, null, current_date, null)', 'symptom_checker', v_pos, 'decision_support_not_a_device')) <> '22023' then
     raise exception 'FAIL 1e: a position with no counsel was accepted';
   end if;
+  -- 1f. a position that CLEARS the checker needs the reference of the written opinion (finding 5)
+  foreach v_r in array array['decision_support_not_a_device', 'regulated_medical_device_registered'] loop
+    if pg_temp.try(format('select public.record_regulatory_position(%L, %L, %L, %L, null, current_date, null)', 'symptom_checker', v_pos, v_r, 'A Counsel')) <> '22023' then
+      raise exception 'FAIL 1f: a clearing position (%) was recorded with no document reference', v_r;
+    end if;
+    if pg_temp.try(format('select public.record_regulatory_position(%L, %L, %L, %L, null, current_date, %L)', 'symptom_checker', v_pos, v_r, 'A Counsel', '  ')) <> '22023' then
+      raise exception 'FAIL 1f2: a clearing position (%) was recorded with a blank document reference', v_r;
+    end if;
+  end loop;
+  perform pg_temp.back();
+  -- 1g. the table itself refuses it too (a write that bypasses the function)
+  if pg_temp.try(format('insert into public.regulatory_positions (organisation_id, topic, position_text, classification, counsel_name, position_date, attached_by) values (%L, %L, %L, %L, %L, current_date, %L)',
+        v_org, 'symptom_checker', v_pos, 'decision_support_not_a_device', 'A Counsel', v_admin)) <> '23514' then
+    raise exception 'FAIL 1g: the table accepted a clearing position with no document reference';
+  end if;
+  -- SABOTAGE (rolled back with a subtransaction): with the constraint and the function check removed, a clearing position with no
+  -- document is accepted, so the checks above would have failed for the right reason only.
+  begin
+    alter table public.regulatory_positions drop constraint regulatory_positions_clearing_needs_document;
+    v_def := pg_get_functiondef('public.record_regulatory_position(text, text, text, text, text, date, text)'::regprocedure);
+    execute replace(v_def, 'char_length(btrim(coalesce(p_document_ref, ''''))) < 3', 'false');
+    perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
+    perform public.record_regulatory_position('symptom_checker', v_pos, 'decision_support_not_a_device', 'A Counsel', null, current_date, null);
+    raise exception 'sabotage_accepted';
+  exception when others then
+    if sqlerrm = 'sabotage_accepted' then null;
+    else raise exception 'VACUOUS TEST: with the document checks removed the clearing position was still refused (%)', sqlerrm; end if;
+  end;
   perform pg_temp.back();
 
   -- 4a. nothing recorded yet: attestations that need a record are refused; the others are not

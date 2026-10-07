@@ -18,6 +18,9 @@
 -- This replaces two live function bodies by string replacement, exactly as F1 did, and FAILS LOUDLY if a marker is not found
 -- (a drifted definition). Re-read both definitions with pg_get_functiondef before applying.
 --
+-- A position that clears the checker (decision support, or a registered device) must carry the reference of the written opinion it rests on
+-- (a CHECK constraint and the recording function both enforce it); an unsupported claim of clearance cannot be recorded.
+--
 -- ROWS AFFECTED: one go_live_guards row (symptom_checker_enabled) gains one entry in enforced_in. New table (empty). Two function definitions patched.
 
 create table public.regulatory_positions (
@@ -37,7 +40,11 @@ create table public.regulatory_positions (
   attached_by     uuid not null references public.profiles (id) on delete restrict,
   attached_at     timestamptz not null default clock_timestamp(),
   supersedes_id   uuid references public.regulatory_positions (id) on delete restrict,
-  is_test         boolean not null default false
+  is_test         boolean not null default false,
+  -- A position that clears the checker to launch must point at the written opinion it rests on. Without it the guard condition
+  -- would read met on the strength of a typed sentence alone.
+  constraint regulatory_positions_clearing_needs_document
+    check (classification not in ('decision_support_not_a_device', 'regulated_medical_device_registered') or document_ref is not null)
 );
 create index regulatory_positions_topic_idx on public.regulatory_positions (organisation_id, topic, attached_at desc);
 alter table public.regulatory_positions enable row level security;
@@ -74,6 +81,9 @@ begin
   if p_topic is null or p_position_text is null or p_classification is null or p_counsel_name is null or p_position_date is null then
     raise exception 'the position text, its classification, the counsel and the date are all needed' using errcode = '22023';
   end if;
+  if p_classification in ('decision_support_not_a_device', 'regulated_medical_device_registered') and char_length(btrim(coalesce(p_document_ref, ''))) < 3 then
+    raise exception 'a position that clears the checker needs the reference of the written opinion it rests on' using errcode = '22023';
+  end if;
   select id into v_prev from public.regulatory_positions where organisation_id = v_org and topic = p_topic order by attached_at desc, id desc limit 1;
   insert into public.regulatory_positions
     (organisation_id, topic, position_text, classification, counsel_name, counsel_firm, position_date, document_ref, attached_by, supersedes_id, is_test)
@@ -100,9 +110,9 @@ begin
   v_new := replace(v_def,
     E'  if p_met is null or length(btrim(coalesce(p_note, ''''))) < 10 then',
     E'  if p_met is true and p_key = ''symptom_checker_enabled'' and p_code = ''nafdac_position_recorded'' and coalesce((\n' ||
-    E'       select rp.classification in (''decision_support_not_a_device'', ''regulated_medical_device_registered'') from public.regulatory_positions rp\n' ||
+    E'       select rp.classification in (''decision_support_not_a_device'', ''regulated_medical_device_registered'') and rp.document_ref is not null from public.regulatory_positions rp\n' ||
     E'        where rp.topic = ''symptom_checker'' and rp.organisation_id = private.caller_org() order by rp.attached_at desc, rp.id desc limit 1), false) is not true then\n' ||
-    E'    raise exception ''record the regulatory position first (the position, its classification, the counsel and the date; a position that is not yet determined, or a regulated device that is not registered, does not count), then attest'' using errcode = ''22023'';\n' ||
+    E'    raise exception ''record the regulatory position first (the position, its classification, the counsel, the date and, for a clearing position, the opinion reference; a position that is not yet determined, or a regulated device that is not registered, does not count), then attest'' using errcode = ''22023'';\n' ||
     E'  end if;\n' ||
     E'  if p_met is true and p_key = ''symptom_checker_enabled'' and p_code = ''accuracy_baseline_recorded'' and not exists (\n' ||
     E'       select 1 from public.symptom_accuracy_reports r where r.is_baseline and r.organisation_id = private.caller_org()) then\n' ||
@@ -118,7 +128,7 @@ begin
   v_def := pg_get_functiondef('private.go_live_conditions(text, uuid)'::regprocedure);
   v_new := replace(v_def,
     'private.go_live_attested(p_key, ''nafdac_position_recorded''), ''attestation'', null)',
-    '(private.go_live_attested(p_key, ''nafdac_position_recorded'') and coalesce((select rp.classification in (''decision_support_not_a_device'', ''regulated_medical_device_registered'') from public.regulatory_positions rp where rp.topic = ''symptom_checker'' and (p_org is null or rp.organisation_id = p_org) order by rp.attached_at desc, rp.id desc limit 1), false)), ''attestation'',' ||
+    '(private.go_live_attested(p_key, ''nafdac_position_recorded'') and coalesce((select rp.classification in (''decision_support_not_a_device'', ''regulated_medical_device_registered'') and rp.document_ref is not null from public.regulatory_positions rp where rp.topic = ''symptom_checker'' and (p_org is null or rp.organisation_id = p_org) order by rp.attached_at desc, rp.id desc limit 1), false)), ''attestation'',' ||
     E'\n        (select ''Latest record: '' || rp.position_date || '', counsel '' || rp.counsel_name || '', '' || replace(rp.classification, ''_'', '' '') from public.regulatory_positions rp where rp.topic = ''symptom_checker'' and (p_org is null or rp.organisation_id = p_org) order by rp.attached_at desc, rp.id desc limit 1))');
   if v_new = v_def then
     raise exception 'S60: go_live_conditions nafdac marker not found (definition drifted)';
