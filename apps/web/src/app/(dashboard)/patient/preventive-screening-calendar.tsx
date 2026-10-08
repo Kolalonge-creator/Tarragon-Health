@@ -1,5 +1,6 @@
 "use client";
 
+import { ScreeningDisclaimer } from "@/components/screening-disclaimer";
 import { useState } from "react";
 import { useScreeningSchedules } from "@/lib/queries/screening";
 import { todayIsoDate } from "@/lib/queries/medications";
@@ -163,6 +164,7 @@ export function PreventiveScreeningCalendar({
             })}
           </ul>
         )}
+        <ScreeningDisclaimer className="mt-3" />
       </CardContent>
     </Card>
   );

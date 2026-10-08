@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { consentStateFor } from "@tarragon/shared";
+import { t } from "@tarragon/i18n";
 import { withdrawConsentAction } from "./consent-actions";
 import { CONSENT_TYPE_LABEL, useOutstandingConsentTypes } from "@/lib/queries/consent";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,12 +49,12 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Your consent</CardTitle>
-        <CardDescription>What you&apos;ve agreed to, by category.</CardDescription>
+        <CardTitle>{t("consent.status.title")}</CardTitle>
+        <CardDescription>{t("consent.status.subtitle")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {versions.length === 0 ? (
-          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Nothing to show yet.</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">{t("consent.status.empty")}</p>
         ) : (
           <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
             {versions.map((version) => {
@@ -69,17 +70,23 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
               const optional = version.is_optional === true;
               const subtitle =
                 state === "granted" && record
-                  ? `Accepted ${formatDate(record.accepted_at)} · v${version.version}`
+                  ? t("consent.status.accepted_on", "en", { date: formatDate(record.accepted_at), version: version.version })
                   : state === "older_version"
-                    ? "A newer version is available — review needed"
+                    ? t("consent.status.older_version")
                     : state === "withdrawn"
-                      ? "You withdrew this. Nothing is shared under it."
+                      ? t("consent.status.withdrawn_note")
                       : optional
-                        ? "Not shared"
-                        : "Not yet recorded";
+                        ? t("consent.status.not_shared")
+                        : t("consent.status.not_recorded");
               const badgeVariant = state === "granted" ? "green" : state === "older_version" ? "amber" : "grey";
               const badgeText =
-                state === "granted" ? "Accepted" : state === "withdrawn" ? "Withdrawn" : optional ? "Not shared" : "Outstanding";
+                state === "granted"
+                  ? t("consent.status.badge.accepted")
+                  : state === "withdrawn"
+                    ? t("consent.status.badge.withdrawn")
+                    : optional
+                      ? t("consent.status.badge.not_shared")
+                      : t("consent.status.badge.outstanding");
               return (
                 <li key={version.id} className="flex items-center justify-between gap-3 py-3">
                   <div>
@@ -103,11 +110,11 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
                             else void queryClient.invalidateQueries({ queryKey: ["patient-consents", patientId] });
                           }}
                         >
-                          Yes, withdraw
+                          {t("consent.status.withdraw_confirm")}
                         </Button>
                       ) : (
                         <Button type="button" size="sm" variant="outline" onClick={() => setConfirmingWithdraw(version.consent_type)}>
-                          Withdraw
+                          {t("consent.status.withdraw")}
                         </Button>
                       )
                     )}
@@ -128,14 +135,14 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
         {accepted.length > 0 && (
           <details className="text-sm">
             <summary className="cursor-pointer text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">
-              Consent history
+              {t("consent.status.history")}
             </summary>
             <ul className="mt-2 space-y-1">
               {[...accepted]
                 .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
                 .map((c) => (
                   <li key={c.id} className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
-                    {formatDate(c.created_at)} · {c.action === "withdrawn" ? "Withdrew" : "Accepted"} {consentTypeLabel(c.consent_type)} · v{c.version}
+                    {formatDate(c.created_at)} · {c.action === "withdrawn" ? t("consent.status.history.withdrew") : t("consent.status.history.accepted")} {consentTypeLabel(c.consent_type)} · v{c.version}
                   </li>
                 ))}
             </ul>
@@ -146,11 +153,11 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
           <div className="flex flex-col items-start gap-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
               {outstandingTypes.length === 1
-                ? "One consent item needs your review."
-                : `${outstandingTypes.length} consent items need your review.`}
+                ? t("consent.status.review_one")
+                : t("consent.status.review_many", "en", { count: outstandingTypes.length })}
             </p>
             <Button type="button" size="sm" onClick={() => setReviewing(true)}>
-              Review and accept
+              {t("consent.status.review_button")}
             </Button>
           </div>
         )}
@@ -159,10 +166,8 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
           <div className="space-y-2">
             <ConsentStep
               onlyTypes={outstandingTypes}
-              description="Review and accept the item(s) below to keep your consent up to date. Nothing else on your account changes."
-              agreementLabel={`I have read and agree to the ${outstandingTypes
-                .map(consentTypeLabel)
-                .join(", ")} consent above.`}
+              description={t("consent.status.review_intro")}
+              agreementLabel={t("consent.status.review_agree", "en", { types: outstandingTypes.map(consentTypeLabel).join(", ") })}
               onComplete={() => {
                 setReviewing(false);
                 void queryClient.invalidateQueries({ queryKey: ["patient-consents", patientId] });
@@ -173,7 +178,7 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
               onClick={() => setReviewing(false)}
               className="text-xs font-medium text-charcoal-ink/60 underline underline-offset-2 hover:no-underline dark:text-night-ink/60"
             >
-              Not now
+              {t("consent.status.not_now")}
             </button>
           </div>
         )}

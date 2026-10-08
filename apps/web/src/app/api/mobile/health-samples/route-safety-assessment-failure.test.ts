@@ -39,6 +39,7 @@ const connectionMaybeSingle = jest.fn();
 const connectionUpdateEq = jest.fn();
 jest.mock("@/lib/supabase/service-role", () => ({
   createServiceRoleClient: () => ({
+    rpc: () => Promise.resolve({ data: true, error: null }),
     from: (table: string) => {
       if (table === "wearable_connections") {
         return {

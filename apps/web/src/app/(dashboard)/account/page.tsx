@@ -134,7 +134,7 @@ export default async function AccountPage() {
       {isPatient && (
         <div className="space-y-2">
           <PatientLocationForm
-            initial={{ state: profile.state, city: profile.city, area: profile.area }}
+            initial={{ state: profile.state, city: profile.city, area: profile.area, lga: profile.lga }}
           />
           <p className="text-xs text-charcoal-ink/50">
             Emergency contact, next of kin, and how we explain results to you stay on your

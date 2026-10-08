@@ -123,6 +123,25 @@ export const AI_SYSTEMS = {
     // OQ-96's STT vendor scoring is complete.
     failClosedIfGovernanceUnavailable: true,
   },
+  documentCapture: {
+    code: "AI-018",
+    // Reads a photo of a patient's own paper result, prescription or discharge
+    // summary into suggestions the patient confirms field by field (S43,
+    // spec 2.3). Nothing it reads enters the record until confirmed and
+    // nothing it reads reaches escalation or risk. Moderate risk, but it
+    // renders clinical content on the patient's own record path, so it fails
+    // closed like AI-003 and AI-012: the fallback (type the details by hand)
+    // costs nothing. Registered DISABLED (draft, not runtime_governed) and
+    // behind the document_capture_enabled go-live guard.
+    failClosedIfGovernanceUnavailable: true,
+  },
+  healthReportSummaryDraft: {
+    code: "AI-019",
+    // Drafts the one-paragraph summary of a yearly Health Report for a clinician to edit and sign (S46). Moderate risk but stricter than the
+    // rule on the same reasoning as AI-003: it produces patient-facing wording on a care record path, and the fallback (the deterministic template
+    // paragraph) costs nothing. AI-018 is taken on the S43 branch (document capture). Registered DISABLED.
+    failClosedIfGovernanceUnavailable: true,
+  },
 } as const;
 
 export type AiSystemKey = keyof typeof AI_SYSTEMS;

@@ -13,6 +13,7 @@ import {
   type ResultSnapshot,
 } from "./snapshot";
 import { AI_SYSTEMS, governedSystemPrompt, runGovernedAi } from "@/lib/ai-governance";
+import { isSensitiveResultCode } from "@/lib/lab-results/guidance";
 
 const explanationSchema = z.object({ explanation: z.string() });
 
@@ -128,6 +129,8 @@ export async function generatePatientExplanation(
   /** Injectable for tests; defaults to a real Claude client. */
   model?: ChatAnthropic
 ): Promise<ExplainerResult> {
+  // INV-04 (second line, the first is the server action and the third is a database trigger): no model call and no row for a sensitive result.
+  if (params.kind === "lab_analyte" && isSensitiveResultCode(params.subjectKey)) return { status: "failed" };
   if (params.kind === "medication") {
     return generateMedicationExplanation(supabase, getServiceRoleSupabase, params, model);
   }

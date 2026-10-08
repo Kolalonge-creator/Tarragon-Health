@@ -25,7 +25,7 @@ const PAGE_SIZE = 10;
  * on the hook (see lib/queries/patient-timeline.ts) means growing the limit
  * never blanks the already-rendered list while the next page loads.
  */
-export function TimelineClient({ patientId }: { patientId: string }) {
+export function TimelineClient({ patientId, allowNotes = false }: { patientId: string; allowNotes?: boolean }) {
   const [pagesLoaded, setPagesLoaded] = useState(1);
   const limit = pagesLoaded * PAGE_SIZE;
 
@@ -45,6 +45,7 @@ export function TimelineClient({ patientId }: { patientId: string }) {
       onLoadMore={() => setPagesLoaded((n) => n + 1)}
       hasMore={hasMore}
       isLoadingMore={isFetching}
+      allowNotes={allowNotes}
     />
   );
 }

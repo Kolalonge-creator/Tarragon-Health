@@ -1,3 +1,4 @@
+import { t, type MessageKey } from "@tarragon/i18n";
 import { supabase } from "./supabase";
 import type { QueryResult } from "./medications";
 import type { Tables, Enums } from "@tarragon/shared";
@@ -110,7 +111,17 @@ export const TIMELINE_EVENT_STYLE: Record<TimelineEventType, { dot: string; labe
   dependent_account_transitioned: { dot: "#12324B", label: "Account access" },
   vitals_recorded: { dot: "#16A34A", label: "Vitals" },
   prescription_signed: { dot: "#12324B", label: "Prescription" },
+  symptom_logged: { dot: "#D97706", label: "Symptom" },
+  procedure_recorded: { dot: "#12324B", label: "Procedure" },
 };
+
+// Who stands behind an item (S43, spec 2.1). The database derives the tier (patient_timeline.trust_tier); this only says it in words.
+// An unknown tier says nothing rather than guessing.
+const TRUST_TIERS = ["lab_pushed", "clinician", "device", "patient", "ocr_unconfirmed", "ocr_confirmed", "imported", "system"] as const;
+export function trustTierLabel(tier: string | null | undefined): string | null {
+  if (typeof tier !== "string" || !(TRUST_TIERS as readonly string[]).includes(tier)) return null;
+  return t(`passport.tier.${tier}` as MessageKey);
+}
 
 // Belt-and-braces only, same reasoning as the web component's humaniseSummary:
 // private.record_timeline_event() strips underscores at write time, this just

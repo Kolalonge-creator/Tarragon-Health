@@ -288,6 +288,7 @@ export async function updatePatientLocation(
     state: formData.get("state") ?? undefined,
     city: formData.get("city") ?? undefined,
     area: formData.get("area") ?? undefined,
+    lga: formData.get("lga") ?? undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
@@ -309,10 +310,13 @@ export async function updatePatientLocation(
       state: norm(parsed.data.state),
       city: norm(parsed.data.city),
       area: norm(parsed.data.area),
+      // Only touched when the form carried the field, so an older form never wipes a saved area.
+      ...(parsed.data.lga !== undefined ? { lga: norm(parsed.data.lga) } : {}),
     })
     .eq("id", user.id);
   if (error) {
-    return { error: error.message };
+    // Never the raw database string: it names columns and constraints and says nothing a person can act on.
+    return { error: "We could not save your location just now. Please try again." };
   }
 
   return { success: true };

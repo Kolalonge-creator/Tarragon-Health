@@ -32,7 +32,7 @@ insert into allow values
   -- public RPCs anon may execute (token or serial verified, or public catalogue); each is rate-limited or carries no personal data
   ('anon_fn', 'public.public_service_coverage'), ('anon_fn', 'public.public_response_commitments'), ('anon_fn', 'public.public_partner_locations'),
   ('anon_fn', 'public.emergency_card_by_token'), ('anon_fn', 'public.health_passport_by_serial'), ('anon_fn', 'public.verify_payer_board_report'),
-  ('anon_fn', 'public.public_price_list'), ('anon_fn', 'public.record_share_by_token'), ('anon_fn', 'public.platform_switch_is_on'),
+  ('anon_fn', 'public.public_price_list'), ('anon_fn', 'public.record_share_by_token'), ('anon_fn', 'public.record_share_open'), ('anon_fn', 'public.platform_switch_is_on'),
   ('anon_fn', 'public.verify_prescription_public'), ('anon_fn', 'public.record_prescription_supply_public'),
   -- views that run with their owner's rights on purpose (each carries its own caller predicate, or is a public directory, or is not granted)
   ('owner_view', 'public.care_message_communication_log'), ('owner_view', 'public.clinical_staff_directory'),

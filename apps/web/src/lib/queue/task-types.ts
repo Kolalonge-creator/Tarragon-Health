@@ -31,6 +31,7 @@ export const TASK_TYPE_LABEL: Readonly<Record<string, string>> = {
   routine_result_review: "Routine result review",
   admin_clinical: "Referral letters and repeat prescriptions",
   adherence_follow_up: "Adherence follow-up (missed doses or silence)",
+  health_report_signoff: "Yearly health report sign-off",
 };
 
 export const TIER_LABEL: Readonly<Record<TaskTypeRow["min_doctor_tier"], string>> = {

@@ -73,6 +73,21 @@ export function pushEnvelope(discreet: boolean, body: string, maxChars = 160): {
   return { title: "Tarragon Health", body: trimmed };
 }
 
+/**
+ * The envelope for an email (S42, function 1.16). Discreet mode sends fixed words: no brand in the subject, no topic, no
+ * link text from the template. A person on a shared phone sees "New message" and nothing else until they open the app.
+ */
+export function emailEnvelope(
+  discreet: boolean,
+  subject: string,
+  html: string,
+  text: string,
+): { subject: string; html: string; text: string } {
+  if (!discreet) return { subject, html, text };
+  const line = "You have a new message. Open the app to read it.";
+  return { subject: "New message", html: `<p>${line}</p>`, text: line };
+}
+
 export interface ExpoReceipt { readonly status?: string; readonly message?: string; readonly details?: { readonly error?: string } }
 export type ReceiptOutcome = { readonly event: "delivered" } | { readonly event: "token_dead" } | { readonly event: "failed"; readonly reason: string };
 

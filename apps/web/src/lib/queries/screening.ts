@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@tarragon/shared";
 import type { LogScreeningCompletionInput } from "@/lib/validation/screening-completion";
-import type { DeclineScreeningInput } from "@/lib/validation/screening-decline";
+import type { ScreeningStateInput } from "@/lib/validation/screening-decline";
 import {
   acceptOptionalScreeningSchema,
   type AcceptOptionalScreeningInput,
@@ -92,29 +92,21 @@ export function useLogScreeningCompletion() {
 }
 
 /**
- * Patient declines a recommended screening, with a reason. Writes through
- * the patient's own RLS-scoped session (screening_schedules_update already
- * permits the owning patient to update their own row); the DB CHECK
- * constraint screening_schedules_declined_requires_reason keeps status and
- * declined_at/declined_reason consistent, and
- * private.block_screening_schedule_after_decline stops the recommendation
- * engine or any refresh trigger from silently reopening this screen type
- * afterwards.
+ * Close a recommended screening as declined or not applicable, with a stored reason, so the reminder ladder and the
+ * care-coordinator overdue queue stop asking about it. The patient can bring it back with `reopen_screening`.
  */
-export function useDeclineScreeningSchedule() {
+export function useSetScreeningState() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: DeclineScreeningInput & { patientId: string }): Promise<void> => {
+    mutationFn: async (input: ScreeningStateInput & { patientId: string }): Promise<void> => {
       const supabase = createClient();
-      const { error } = await supabase
-        .from("screening_schedules")
-        .update({
-          status: "declined",
-          declined_at: new Date().toISOString(),
-          declined_reason: input.reason,
-        })
-        .eq("id", input.schedule_id)
-        .eq("patient_id", input.patientId);
+      // One database function so the reason is stored with the state and a later run never re-creates the item (S45, function 3.5).
+      const { error } = await supabase.rpc("set_screening_state", {
+        p_schedule: input.schedule_id,
+        p_state: input.state,
+        p_reason_code: input.reason_code,
+        p_note: input.note,
+      });
       if (error) throw error;
     },
     onSuccess: (_data, variables) => {

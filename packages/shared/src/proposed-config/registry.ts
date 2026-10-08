@@ -147,6 +147,18 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: `${SPEC.replace("Section 17", "Section 8.2")} (Set up for my parent: expires after 72 hours); maxPerDay is a proposed abuse limit, not from the spec`,
   },
   {
+    key: "proxy.cooling_off",
+    // S42, OQ-48 (coercion safeguard): after a parent ends an arrangement that someone else set up for them, that person cannot
+    // start a new setup for the same number for this many days. The parent can still invite them again from their own account.
+    // The spec gives no number; this is a PROPOSED value. SQL caps it at 365 and defaults to 30 when none is passed.
+    value: { days: 30 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: FROM,
+    source: "S42 safeguard (OQ-48): not from the spec; proposed",
+  },
+  {
     key: "commerce.care_pack_price_kobo",
     // 12,000 naira pilot price, stored as integer kobo (INV-15).
     value: 1_200_000,
@@ -1808,5 +1820,751 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 3,
     effectiveFrom: "2026-10-07",
     source: "docs/DECISIONS.md S11-1; supabase/migrations/20261007152136_s11c_bp_care_triage_v3.sql",
+  },
+  {
+    key: "pharmacy.quality",
+    // Partner pharmacy quality rule (S28, spec 8.11). A pharmacy can be chosen for a collection only while its verified
+    // licence has at least this many days left. Live value: the active row of `pharmacy_quality_config`; a test fails if the
+    // migration seed and this value drift. PROPOSED by the build, never signed: the CMO owns the rule.
+    value: { min_licence_days_left: 30 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S28.md; docs/research/S28.md",
+  },
+  {
+    key: "immunisation.schedule",
+    // The national immunisation schedule as versioned data (S43, spec 2.6). Registry version 1 mirrors sign-off row version 2 (the UNSIGNED draft): HPV is two doses
+    // six months apart and typhoid is not in the schedule (founder, 2026-10-07). It mirrors the draft row in
+    // `vaccination_schedule_signoffs` (version 2) and a test fails if they differ. Until the CMO signs it in the database
+    // (public.sign_vaccination_schedule) no due-date reminder is sent: private.queue_vaccination_reminders() does nothing
+    // without a signed schedule that carries this config. Items marked NV are not verified against a dated NPHCDA table.
+    value: {
+      status: "draft_unsigned",
+      country: "NG",
+      doses: [
+        {
+          vaccine: "BCG",
+          catalog_code: "child_bcg",
+          at_weeks: [0],
+          evidence: "V",
+        },
+        {
+          vaccine: "OPV",
+          catalog_code: "child_opv",
+          at_weeks: [0, 6, 10, 14],
+          evidence: "V",
+        },
+        {
+          vaccine: "Hepatitis B birth dose",
+          catalog_code: "child_hep_b_birth",
+          at_weeks: [0],
+          evidence: "V",
+          note: "birth-dose time limit not verified",
+        },
+        {
+          vaccine: "Pentavalent",
+          catalog_code: "child_penta",
+          at_weeks: [6, 10, 14],
+          evidence: "V",
+        },
+        {
+          vaccine: "Pneumococcal conjugate",
+          catalog_code: "child_pcv",
+          at_weeks: [6, 10, 14],
+          evidence: "V",
+        },
+        {
+          vaccine: "Rotavirus",
+          catalog_code: "child_rota",
+          at_weeks: [6, 10, 14],
+          evidence: "V",
+          note: "three doses in the pack; the live catalogue lists two",
+        },
+        {
+          vaccine: "IPV",
+          catalog_code: "child_ipv",
+          at_weeks: [6, 14],
+          evidence: "V",
+          note: "two doses in the pack; the live catalogue lists one",
+        },
+        {
+          vaccine: "Vitamin A",
+          catalog_code: null,
+          at_weeks: [26, 52],
+          evidence: "V",
+          note: "100,000 IU at 6 months, 200,000 IU at 12 months; no catalogue entry yet",
+        },
+        {
+          vaccine: "Measles 1",
+          catalog_code: "child_measles",
+          at_weeks: [39],
+          evidence: "V",
+        },
+        {
+          vaccine: "Yellow fever",
+          catalog_code: "child_yellow_fever",
+          at_weeks: [39],
+          evidence: "V",
+        },
+        {
+          vaccine: "Meningitis vaccine",
+          catalog_code: "child_men_a",
+          at_weeks: [39],
+          evidence: "NV",
+          note: "product (MenAfriVac or MenFive) and routine age not verified",
+        },
+        {
+          vaccine: "Measles 2",
+          catalog_code: "child_measles",
+          at_weeks: [65],
+          evidence: "V",
+          note: "whether this is now MR is not verified",
+        },
+        {
+          vaccine: "R21 malaria",
+          catalog_code: null,
+          at_months: [5, 6, 7, 15],
+          evidence: "SEC",
+          per_state_rollout: true,
+          note: "phased by state since 2 Dec 2024; availability is a per-state flag, never a national rule",
+        },
+        {
+          vaccine: "HPV",
+          catalog_code: "child_hpv_girls",
+          age_years: {
+            min: 9,
+            max: 13,
+          },
+          dose_count: 2,
+          dose_interval_weeks: 26,
+          evidence: "V",
+          note: "founder decision: two doses; secondary sources report single-dose policy since Oct 2023, the CMO confirms before signing",
+        },
+        {
+          vaccine: "Td in pregnancy",
+          catalog_code: null,
+          in_pregnancy: true,
+          min_doses: 2,
+          never_vaccinated_course_doses: 5,
+          evidence: "SEC",
+          note: "from papers, not an NPHCDA table",
+        },
+      ],
+      excluded: [
+        {
+          code: "typhoid",
+          reason: "founder decision 2026-10-07: not in the schedule",
+        },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S41-S45-cmo-signoff-pack.md section B; founder decisions 2026-10-07",
+  },
+  {
+    key: "record_share.defaults",
+    // Share link defaults (S43, spec 2.8; X7). Live values are the active row of `record_share_config`; this entry mirrors it
+    // and a test fails if they differ. 72 hours is the spec's default; 720 is the ceiling built in S09. The founder and the
+    // CMO confirm (the sensitive-data exclusion is structural, not configurable: mental health and reproductive health are
+    // not in the closed set of sections).
+    value: { default_hours: 72, max_hours: 720, max_pin_attempts: 5, min_pin_length: 4 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S41-S45-build-plan.md X7; spec section 2.8",
+  },
+  {
+    key: "fhir.mapping",
+    // FHIR export mapping (S44, spec 2.10). Identifiers, not thresholds, but they decide what an outside system believes a value means, so they
+    // are versioned data a human reviews, not code. The Nigeria Core and NPHCDA implementation guides are both still under development
+    // (docs/plans/S41-S45-build-plan.md section 6): `profiles` is empty on purpose and no profile URL is claimed. Adding one is a new version.
+    // A test fails if a vital's LOINC code here is not also an accepted import code for the same vital in `fhir_loinc_vital_type_mappings`,
+    // so what we export can always be read back. Lab analyte LOINC codes are PROPOSED (the CMO or lab informatics confirms them); an analyte
+    // with no entry is exported with Tarragon's own analyte code only, never a guessed LOINC.
+    value: {
+      ig_status: "nigeria_core_and_nphcda_under_development",
+      base_url: "https://tarragonhealth.ng/fhir",
+      profiles: {},
+      systems: {
+        loinc: "http://loinc.org",
+        ucum: "http://unitsofmeasure.org",
+        icd10: "http://hl7.org/fhir/sid/icd-10",
+        snomed: "http://snomed.info/sct",
+        observation_category: "http://terminology.hl7.org/CodeSystem/observation-category",
+        interpretation: "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+        condition_clinical: "http://terminology.hl7.org/CodeSystem/condition-clinical",
+        condition_verification: "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+        patient_number: "https://tarragonhealth.ng/fhir/identifier/patient-number",
+        lab_analyte: "https://tarragonhealth.ng/fhir/CodeSystem/lab-analyte",
+        vaccine: "https://tarragonhealth.ng/fhir/CodeSystem/vaccine",
+        document_type: "https://tarragonhealth.ng/fhir/CodeSystem/document-type",
+        record_source: "https://tarragonhealth.ng/fhir/CodeSystem/record-source",
+        data_quality: "https://tarragonhealth.ng/fhir/CodeSystem/data-quality",
+      },
+      vitals: {
+        blood_pressure: { loinc: "85354-9", display: "Blood pressure panel", systolic: "8480-6", diastolic: "8462-4" },
+        pulse: { loinc: "8867-4", display: "Heart rate" },
+        glucose: { loinc: "15074-8", display: "Glucose [Moles/volume] in Blood" },
+        weight: { loinc: "29463-7", display: "Body weight" },
+        temperature: { loinc: "8310-5", display: "Body temperature" },
+        spo2: { loinc: "59408-5", display: "Oxygen saturation in Arterial blood by Pulse oximetry" },
+        waist_circumference: { loinc: "56086-2", display: "Waist Circumference at umbilicus by Tape measure" },
+        respiratory_rate: { loinc: "9279-1", display: "Respiratory rate" },
+        peak_flow: { loinc: "33452-4", display: "Peak expiratory flow rate" },
+      },
+      lab_analyte_loinc: {
+        fasting_glucose: "1558-6",
+        hba1c: "4548-4",
+        creatinine: "2160-0",
+        potassium: "2823-3",
+        sodium: "2951-2",
+        total_cholesterol: "2093-3",
+        hdl_cholesterol: "2085-9",
+        triglycerides: "2571-8",
+        alt: "1742-6",
+        ast: "1920-8",
+        haemoglobin: "718-7",
+        wbc: "6690-2",
+        platelets: "777-3",
+        tsh: "3016-3",
+      },
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S41-S45-build-plan.md section 6; spec 2.10; docs/research/S44.md",
+  },
+  {
+    key: "risk.who_cvd_2019",
+    // WHO 2019 cardiovascular risk charts, Western sub-Saharan Africa (S45, function 3.2). Live value is the `config` of `risk_instrument_versions`
+    // (code who_cvd_2019_wssa); a test fails if the migration seed and this value drift. NO COEFFICIENTS are loaded (the paper's appendix was not
+    // obtained) so the instrument cannot score and cannot be signed. Bands and cut-offs come from docs/plans/S41-S45-cmo-signoff-pack.md.
+    // OQ-S45-1 and OQ-S45-2 ask the CMO to confirm the region mapping for Nigeria and the band-to-action table.
+    value: {
+          "instrument": "who_cvd_2019_wssa",
+          "regionLabel": "Western sub-Saharan Africa",
+          "regionCheckedForNigeria": false,
+          "coefficientsVerified": false,
+          "ageRange": {
+                "min": 40,
+                "max": 74
+          },
+          "bands": [
+                {
+                      "code": "lt5",
+                      "lowPct": 0,
+                      "highPct": 5,
+                      "tier": "low"
+                },
+                {
+                      "code": "5to10",
+                      "lowPct": 5,
+                      "highPct": 10,
+                      "tier": "low_moderate"
+                },
+                {
+                      "code": "10to20",
+                      "lowPct": 10,
+                      "highPct": 20,
+                      "tier": "moderate"
+                },
+                {
+                      "code": "20to30",
+                      "lowPct": 20,
+                      "highPct": 30,
+                      "tier": "high"
+                },
+                {
+                      "code": "ge30",
+                      "lowPct": 30,
+                      "highPct": null,
+                      "tier": "very_high"
+                }
+          ],
+          "nonLabFurtherAssessmentAtOrAbovePct": 10,
+          "treatmentAlreadyIndicated": {
+                "systolicAtOrAbove": 160,
+                "diastolicAtOrAbove": 100,
+                "establishedCvd": true
+          },
+          "knownDiabetes": "route_to_diabetes_pathway",
+          "models": {
+                "lab": {
+                      "male": null,
+                      "female": null
+                },
+                "non_lab": {
+                      "male": null,
+                      "female": null
+                }
+          },
+          "modelShape": "Each sex entry: { baselineSurvival: number, terms: [ { coef: number, factors: [ { var: age|sbp|smoker|diabetes|total_chol_mmol|bmi, center: number } ] } ] }. Risk = 1 - baselineSurvival ^ exp(sum of coef * product of (var - center)).",
+          "reassess": {
+                "afterDays": 365,
+                "majorChanges": [
+                      "new_chronic_condition",
+                      "smoking_status_change",
+                      "bp_at_or_above_160_100"
+                ]
+          }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S41-S45-cmo-signoff-pack.md section A; docs/design/S45.md",
+  },
+  {
+    key: "report.settings",
+    // Yearly Tarragon Health Report settings (S46, function 3.15). Live value is the `config` of `health_report_config_versions` v1, UNSIGNED. Every
+    // number is a placeholder for the CMO (OQ-S46-3); the BP target, margins and windows are not clinical decisions made by an agent. A test fails if
+    // the migration seed and this value drift.
+    value: {
+          "maxPriorities": 3,
+          "minBpReadings": 3,
+          "bpTarget": {
+                    "systolicBelow": 140,
+                    "diastolicBelow": 90
+          },
+          "bpBorderlineMarginMmHg": 5,
+          "labBorderlineMarginPct": 5,
+          "changeTolerancePct": 3,
+          "recheckWeeks": 4,
+          "priorityWindows": {
+                    "bp": "within 4 weeks",
+                    "lab": "within 4 weeks",
+                    "screening": "within 3 months",
+                    "risk": "within 4 weeks"
+          },
+          "trendMinPoints": 2,
+          "trendYears": 3,
+          "statementKey": "report.statement.not_rule_out",
+          "statementApprovedByCmo": false,
+          "shareExcludedSections": [
+                    "screening_reproductive",
+                    "risk",
+                    "questionnaires"
+          ]
+},
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/research/health-report-study.md; docs/design/S46.md",
+  },
+  {
+    key: "report.settings",
+    // Yearly Tarragon Health Report settings (S46 function 3.15, updated by S47). Live value is the `config` of `health_report_config_versions` v2
+    // (v1, the S46 placeholder with the 5 mmHg / 5 percent margins, is superseded and stays unsigned in the table), UNSIGNED. The chat selections of
+    // 2026-10-07 are loaded here as values; they are not a signature (OQ-S46-3). Guideline-based: the BP targets, the high-normal band, the minimum
+    // 12 readings over 3 days. Tarragon PRODUCT RULES, not guideline facts: maxPriorities, changeTolerancePct, recheckWeeks, priorityWindows,
+    // trendMinPoints, trendYears (listed in `productRules`). There is no borderline margin. A test fails if the migration seed and this value drift.
+    value: {
+      "maxPriorities": 3,
+      "minBpReadings": 12,
+      "minBpDays": 3,
+      "bpTarget": {
+        "systolicBelow": 140,
+        "diastolicBelow": 90
+      },
+      "bpTargetHigherRisk": {
+        "systolicBelow": 130,
+        "diastolicBelow": 80
+      },
+      "bpHighNormalBand": {
+        "systolicFrom": 130,
+        "systolicBelow": 140,
+        "diastolicFrom": 80,
+        "diastolicBelow": 90
+      },
+      "higherRiskCriteria": {
+        "icd10Prefixes": {
+          "diabetes": [
+            "E10",
+            "E11",
+            "E12",
+            "E13",
+            "E14"
+          ],
+          "ckd": [
+            "N18"
+          ],
+          "cvd": [
+            "I20",
+            "I21",
+            "I22",
+            "I23",
+            "I24",
+            "I25",
+            "I50",
+            "I63",
+            "I64",
+            "I65",
+            "I66",
+            "I69",
+            "I70",
+            "I73"
+          ]
+        },
+        "namePatterns": {
+          "diabetes": [
+            "^(type [12] )?diabetes( mellitus)?( type [12])?$"
+          ],
+          "ckd": [
+            "^(chronic kidney disease|ckd)( stage [1-5][ab]?)?$"
+          ],
+          "cvd": [
+            "^(coronary (artery|heart) disease|ischaemic heart disease|ischemic heart disease|myocardial infarction|angina( pectoris)?|stroke|heart failure|peripheral arter(y|ial) disease)$"
+          ]
+        },
+        "excludePatterns": [
+          "pre.?diabet",
+          "family history",
+          "gestational",
+          "history of family",
+          "risk of",
+          "heat.?stroke",
+          "sunstroke",
+          "suspected"
+        ],
+        "elevatedRiskTiers": [
+          "high",
+          "very_high"
+        ]
+      },
+      "changeTolerancePct": 3,
+      "recheckWeeks": 4,
+      "priorityWindows": {
+        "bp": "within 4 weeks",
+        "lab": "within 4 weeks",
+        "screening": "within 3 months",
+        "risk": "within 4 weeks"
+      },
+      "trendMinPoints": 2,
+      "trendYears": 3,
+      "productRules": [
+        "maxPriorities",
+        "changeTolerancePct",
+        "recheckWeeks",
+        "priorityWindows",
+        "trendMinPoints",
+        "trendYears"
+      ],
+      "guidelineBasis": [
+        "bpTarget",
+        "bpTargetHigherRisk",
+        "bpHighNormalBand",
+        "minBpReadings",
+        "minBpDays"
+      ],
+      "statementKey": "report.statement.not_rule_out",
+      "statementApprovedByCmo": false,
+      "shareExcludedSections": [
+        "screening_reproductive",
+        "risk",
+        "questionnaires"
+      ]
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S41-S46-cmo-decisions-2026-10-07.md decisions 1 to 6; docs/research/health-report-study.md; docs/design/S46.md; docs/design/S47-decisions-applied.md",
+  },
+  {
+    key: "screening.serology_rules",
+    // Hepatitis and HIV repeat rules (S46, function 3.12; founder decision 2026-10-07, the spec rule wins). Live value is `serology_rule_versions` v2 (registry version 1 is this entry's own).
+    // The anti-HBs threshold is PROPOSED and unconfirmed (OQ-S46-2). Version 1 (legacy once-ever) is documented in the migration header.
+    value: {
+          "hiv": {
+                    "repeatMonths": 12,
+                    "suppressWithinInterval": false
+          },
+          "hep_c": {
+                    "repeatMonths": 12,
+                    "suppressWithinInterval": true
+          },
+          "hep_b": {
+                    "repeatMonths": 12,
+                    "suppressWithinInterval": true,
+                    "stopsWhenHbvStatus": [
+                              "immune"
+                    ],
+                    "immunityTest": "anti_hbs"
+          },
+          "antiHbs": {
+                    "thresholdMiuPerMl": 10,
+                    "thresholdStatus": "proposed_unsigned"
+          }
+},
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S41-S45-build-plan.md X2; docs/design/S46.md",
+  },
+  {
+    key: "record_share.defaults",
+    // Share link defaults, version 2 (S47, chat selections 2026-10-07, NOT a signature). Live value is the active row of `record_share_config` v2: 72 hour default expiry, 30 day (720 hour) maximum lifetime, optional PIN, default view cap 10, instant revoke. Sensitive sections stay out unless chosen (the closed set has no mental or reproductive health and no section is pre-selected). Version 1 stays in history.
+    value: {
+      "default_hours": 72,
+      "max_hours": 720,
+      "max_pin_attempts": 5,
+      "min_pin_length": 4,
+      "default_max_views": 10
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S41-S46-cmo-decisions-2026-10-07.md; docs/design/S47-decisions-applied.md",
+  },
+  {
+    key: "screening.serology_rules",
+    // Hepatitis and HIV repeat rules, version 2 (S47): HIV and hepatitis C are RISK-BASED, offered yearly to people who qualify; hepatitis B stops on recorded immunity unless a new exposure is on record; the anti-HBs threshold (10 mIU/mL) is PROPOSED and unconfirmed and a numeric titre alone never sets immunity. Live value is `serology_rule_versions` v3 (active). The risk lists are unverified against the Nigeria 2023 HIV guideline (interval NOT read).
+    value: {
+      "hiv": {
+        "repeatMonths": 12,
+        "suppressWithinInterval": false,
+        "riskBased": true
+      },
+      "hep_c": {
+        "repeatMonths": 12,
+        "suppressWithinInterval": true,
+        "riskBased": true
+      },
+      "hep_b": {
+        "repeatMonths": 12,
+        "suppressWithinInterval": true,
+        "stopsWhenHbvStatus": [
+          "immune"
+        ],
+        "immunityTest": "anti_hbs",
+        "reopensOnNewExposure": true
+      },
+      "antiHbs": {
+        "thresholdMiuPerMl": 10,
+        "thresholdStatus": "proposed_unconfirmed",
+        "numericTitreAloneSetsImmunity": false
+      },
+      "riskCriteria": {
+        "hcv": [
+          "transfusion_or_transplant",
+          "injecting_drug_use",
+          "haemodialysis",
+          "contact_with_infected_person",
+          "healthcare_sharps_exposure",
+          "liver_disease_or_raised_enzymes",
+          "living_with_hiv",
+          "tattoo_or_scarification",
+          "men_who_have_sex_with_men",
+          "sex_work",
+          "prison_history"
+        ],
+        "hiv": [
+          "ongoing_risk",
+          "sexually_active_adult"
+        ]
+      },
+      "riskCriteriaSource": {
+        "hcv": "Nigeria FMOH 2016 hepatitis guideline risk list (read); WHO risk groups (search snippet only)",
+        "hiv": "Product wording of 'ongoing risk or sexually active adult'. The Nigeria 2023 HIV guideline retest interval was NOT read.",
+        "evidence": "unverified"
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S41-S46-cmo-decisions-2026-10-07.md decisions 7 and 8; docs/design/S47-decisions-applied.md",
+  },
+  {
+    key: "screening.cervical_hpv_dna",
+    // Cervical screening by HPV DNA at ages 35 and 45 (S47 decision 13). Live value is the cervical_smear rule of `screening_rule_sets` v3 (UNSIGNED). Women living with HIV are flagged to the care team and not auto-scheduled by this rule. The HPV DNA sale stays behind hpv_dna_enabled. Milestone window and ages are unverified against the national cervical screening guideline text, which was not read.
+    value: {
+      "code": "cervical_smear",
+      "method": "hpv_dna",
+      "sex": "female",
+      "ageFrom": 35,
+      "ageTo": 49,
+      "ageMilestones": [
+        35,
+        45
+      ],
+      "milestoneWindowYears": 5,
+      "frequencyMonths": null,
+      "oncePerLifetime": false,
+      "isOptional": false,
+      "autoSchedule": true,
+      "excludeWhenHiv": true
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S41-S46-cmo-decisions-2026-10-07.md decision 13; docs/design/S47-decisions-applied.md",
+  },
+  {
+    key: "risk.band_actions",
+    // What each cardiovascular risk band leads to (S47, chat selections, NOT a signature). Live value is the `bandActions` of risk_instrument_versions v2 (UNSIGNED; the WHO instrument itself stays OFF, coefficients missing). The app never prescribes (INV-02): the actions say review. Thresholds are NOT verified against WHO PEN / HEARTS.
+    value: {
+      "appPrescribes": false,
+      "thresholdsStatus": "unverified_against_who_pen_hearts",
+      "bands": {
+        "lt5": {
+          "copyKey": "risk.action.lt5",
+          "lifestyleAdvice": true,
+          "reassessMonths": 12
+        },
+        "5to10": {
+          "copyKey": "risk.action.5to10",
+          "lifestyleAdvice": true,
+          "bpCheckEveryMonths": 6
+        },
+        "10to20": {
+          "copyKey": "risk.action.10to20",
+          "careTeamReviewWithinWeeks": 4,
+          "recheckEveryMonths": 3,
+          "doctorDecidesAboutMedicines": true
+        },
+        "20to30": {
+          "copyKey": "risk.action.20to30",
+          "doctorReviewWithinWeeks": 2,
+          "recheckEveryMonths": 3
+        },
+        "ge30": {
+          "copyKey": "risk.action.ge30",
+          "doctorReviewWithinWeeks": 1
+        }
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S41-S46-cmo-decisions-2026-10-07.md; docs/design/S47-decisions-applied.md",
+  },
+  {
+    key: "handover.grace_days",
+    // Hand-over at 18 (S47 decision 6): guardian view-only for a 90 day grace period, notices on days 1, 30, 60 and 85, and guardian access ENDS automatically at the end of the grace period unless the young person chose a guardian to keep. Live value is the active row of `handover_config` v1 (PROPOSED).
+    value: {
+      "grace_days": 90,
+      "notice_days": [
+        1,
+        30,
+        60,
+        85
+      ]
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S41-S46-cmo-decisions-2026-10-07.md; docs/design/S47-decisions-applied.md",
+  },
+  {
+    key: "privacy.retention",
+    // Account deletion stance (S47): anonymise, keep the clinical record. Deletion stays admin-reviewed. The retention PERIOD is NOT decided and is deliberately null: the privacy summary says the clinical record is kept for a stated retention period without inventing a number. Wording is a placeholder pending counsel.
+    value: {
+      "stance": "anonymise_keep_clinical_record",
+      "retentionPeriodYears": null,
+      "retentionPeriodStatus": "unconfirmed",
+      "statementKey": "privacy.retention.statement",
+      "wordingStatus": "draft_pending_counsel",
+      "deletionRequest": "admin_reviewed"
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S41-S46-cmo-decisions-2026-10-07.md; docs/design/S47-decisions-applied.md",
+  },
+  {
+    key: "consent.required_for_care",
+    // Consent matrix policy (S47, chat decision): required_for_care applies ONLY to vitals and documents. Reproductive health, mental health and device data are optional per use for the care purpose: asked when the person first uses the feature, withdrawable, and withdrawing stops that feature only. Live value is `consent_matrix_cells` after migration 20261008032719. Counsel wording stays a placeholder.
+    value: {
+      "requiredForCare": [
+        "vitals",
+        "documents"
+      ],
+      "optionalPerUse": [
+        "reproductive",
+        "mental_health",
+        "device_data"
+      ],
+      "withdrawalStops": "that_feature_only"
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S47-decisions-applied.md",
+  },
+  {
+    key: "emergency_card.defaults",
+    // Emergency card defaults (S47, chat decision). ON: blood group and genotype, allergies, current medicines, emergency contacts (and the identity lines the card always carried). OFF until chosen: ongoing conditions or diagnoses, reproductive health, mental health. The live link, the printed page, the QR text and the phone's offline card agree; a hidden detail reads 'not shared'.
+    value: {
+      "on": [
+        "blood",
+        "allergies",
+        "medications",
+        "emergency_contact",
+        "date_of_birth",
+        "sex",
+        "patient_number"
+      ],
+      "off": [
+        "conditions",
+        "reproductive",
+        "mental_health"
+      ],
+      "hiddenReads": "not shared"
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S47-decisions-applied.md",
+  },
+  {
+    key: "results.sensitive_code_patterns",
+    // Every spelling of an HIV, hepatitis B or hepatitis C analyte code (S47 review fix, INV-04). Live value is `sensitive_result_code_patterns`. The list is data so a new variant is a row. anti_hbs (the immunity titre) is deliberately not on it.
+    value: [
+      {
+        "pattern": "^hiv",
+        "virus": "hiv"
+      },
+      {
+        "pattern": "^(hbv|hbs|hbe|hbc|hbcore)",
+        "virus": "hbv"
+      },
+      {
+        "pattern": "^anti_?hb[ce]",
+        "virus": "hbv"
+      },
+      {
+        "pattern": "^(hep_?b|hepatitis_?b)",
+        "virus": "hbv"
+      },
+      {
+        "pattern": "^(hcv|anti_?hcv)",
+        "virus": "hcv"
+      },
+      {
+        "pattern": "^(hep_?c|hepatitis_?c)",
+        "virus": "hcv"
+      }
+    ],
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S47-decisions-applied.md",
   },
 ];

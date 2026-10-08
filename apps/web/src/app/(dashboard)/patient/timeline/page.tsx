@@ -13,7 +13,7 @@ import { TimelineClient } from "./timeline-client";
  * separately, from the Health Summary page.
  */
 export default async function PatientTimelinePage() {
-  const { subjectId } = await getPatientDashboardContext();
+  const { subjectId, profile } = await getPatientDashboardContext();
 
   return (
     <div className="space-y-6">
@@ -23,7 +23,7 @@ export default async function PatientTimelinePage() {
         icon={NAV_ICON.audit}
         description="Every lab result, medication change, screening, and care-team update on your record, grouped by month."
       />
-      <TimelineClient patientId={subjectId} />
+      <TimelineClient patientId={subjectId} allowNotes={subjectId === profile.id} />
     </div>
   );
 }

@@ -69,6 +69,9 @@ export function EmergencyCardScreen({ patientId }: EmergencyCardScreenProps) {
     );
   }
 
+  const notShared = (field: NonNullable<typeof facts.hidden>[number]): string | null =>
+    facts.hidden?.includes(field) ? "Not shared by the patient" : null;
+
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 14 }}>
       <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>Emergency card</Text>
@@ -79,19 +82,22 @@ export function EmergencyCardScreen({ patientId }: EmergencyCardScreenProps) {
         <Text style={{ fontWeight: "700", fontSize: 18, color: "#fff" }}>
           {facts.fullName ?? "—"}
         </Text>
-        <FactRow label="Blood group" value={facts.bloodGroup ?? "Not on file"} />
-        <FactRow label="Genotype" value={facts.genotype ?? "Not on file"} />
+        {/* A detail the person chose not to share says so. It never reads "None on file": a stranger would take that as "has none". */}
+        <FactRow label="Blood group" value={notShared("blood") ?? facts.bloodGroup ?? "Not on file"} />
+        <FactRow label="Genotype" value={notShared("blood") ?? facts.genotype ?? "Not on file"} />
         <FactRow
           label="Allergies"
-          value={facts.allergies.length > 0 ? facts.allergies.map((a) => a.allergen).join(", ") : "None on file"}
+          value={notShared("allergies") ?? (facts.allergies.length > 0 ? facts.allergies.map((a) => a.allergen).join(", ") : "None on file")}
         />
-        <FactRow label="Conditions" value={facts.conditions.length > 0 ? facts.conditions.join(", ") : "None on file"} />
+        <FactRow label="Conditions" value={notShared("conditions") ?? (facts.conditions.length > 0 ? facts.conditions.join(", ") : "None on file")} />
+        <FactRow label="Reproductive and mental health" value={notShared("reproductive") ?? notShared("mental_health") ?? "Not on file"} />
         <FactRow
           label="Emergency contact"
           value={
-            facts.emergencyContact
+            notShared("emergency_contact") ??
+            (facts.emergencyContact
               ? `${facts.emergencyContact.name}${facts.emergencyContact.phone ? " · " + facts.emergencyContact.phone : ""}`
-              : "Not on file"
+              : "Not on file")
           }
         />
       </View>

@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { isClinicalTier } from "@/lib/clinical/doctor-tier";
 import { DoctorNameLink } from "@/components/doctor-name-link";
+import { TimelineTrustTier } from "@/components/timeline-trust-tier";
+import { canAnnotate, ItemNote } from "@/components/item-note";
 
 /**
  * The shared unified activity timeline. Rendered on both the patient dashboard
@@ -49,6 +51,8 @@ const EVENT_STYLE: Record<TimelineEventType, { dot: string; label: string }> = {
   dependent_account_transitioned: { dot: "bg-clinical-navy dark:bg-blue-400", label: "Account access" },
   vitals_recorded: { dot: "bg-green-600", label: "Vitals" },
   prescription_signed: { dot: "bg-clinical-navy dark:bg-blue-400", label: "Prescription" },
+  symptom_logged: { dot: "bg-amber-500", label: "Symptom" },
+  procedure_recorded: { dot: "bg-clinical-navy dark:bg-blue-400", label: "Procedure" },
 };
 
 // Where each event type's "open it" destination lives, relative to
@@ -79,6 +83,8 @@ const EVENT_LINK_SUBPATH: Partial<Record<TimelineEventType, string>> = {
   document_uploaded: "/health-summary",
   vitals_recorded: "/vitals",
   prescription_signed: "/medications",
+  symptom_logged: "/symptom-journal",
+  procedure_recorded: "/health-history",
 };
 
 // Belt-and-braces only — private.record_timeline_event() now strips
@@ -121,7 +127,7 @@ function ActorAttribution({ actor }: { actor: TimelineEvent["actor"] }) {
 
 // The single per-event row, shared by both flat and grouped-by-month
 // rendering below so the two modes can never visually drift apart.
-function TimelineEventRow({ event, linkBasePath }: { event: TimelineEvent; linkBasePath?: string }) {
+function TimelineEventRow({ event, linkBasePath, allowNotes = false }: { event: TimelineEvent; linkBasePath?: string; allowNotes?: boolean }) {
   const style = EVENT_STYLE[event.event_type];
   const subpath = EVENT_LINK_SUBPATH[event.event_type];
   const href = linkBasePath && subpath ? `${linkBasePath}${subpath}` : null;
@@ -139,6 +145,7 @@ function TimelineEventRow({ event, linkBasePath }: { event: TimelineEvent; linkB
       </div>
       {event.summary && <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{humaniseSummary(event.summary)}</p>}
       <ActorAttribution actor={event.actor} />
+      <TimelineTrustTier tier={event.trust_tier} />
     </>
   );
 
@@ -155,6 +162,7 @@ function TimelineEventRow({ event, linkBasePath }: { event: TimelineEvent; linkB
       ) : (
         body
       )}
+      {allowNotes && canAnnotate(event.source_table, event.source_id) ? <ItemNote table={event.source_table} id={event.source_id as string} /> : null}
     </li>
   );
 }
@@ -194,6 +202,7 @@ export function PatientTimeline({
   onLoadMore,
   hasMore = false,
   isLoadingMore = false,
+  allowNotes = false,
 }: {
   patientId: string;
   limit?: number;
@@ -219,6 +228,8 @@ export function PatientTimeline({
   /** Drives the "Load more" button's disabled/loading state while the next
    * page is in flight. Ignored when `onLoadMore` is omitted. */
   isLoadingMore?: boolean;
+  /** S44 (spec 2.14): shows "add a note" and "this looks wrong" on each item. Only the person's own timeline sets it; a clinician view never does. */
+  allowNotes?: boolean;
 }) {
   const { data, isLoading, isError } = usePatientTimeline(patientId, limit);
   const monthGroups = groupByMonth && data ? groupEventsByMonth(data) : null;
@@ -257,7 +268,7 @@ export function PatientTimeline({
                     <h3 className="mb-3 text-sm font-semibold text-charcoal-ink dark:text-night-ink">{group.label}</h3>
                     <ol className="relative space-y-5 border-l border-charcoal-ink/10 dark:border-night-ink/15 pl-5">
                       {group.events.map((event) => (
-                        <TimelineEventRow key={event.id} event={event} linkBasePath={linkBasePath} />
+                        <TimelineEventRow key={event.id} event={event} linkBasePath={linkBasePath} allowNotes={allowNotes} />
                       ))}
                     </ol>
                   </div>
@@ -266,7 +277,7 @@ export function PatientTimeline({
             ) : (
               <ol className="relative space-y-5 border-l border-charcoal-ink/10 dark:border-night-ink/15 pl-5">
                 {data.map((event) => (
-                  <TimelineEventRow key={event.id} event={event} linkBasePath={linkBasePath} />
+                  <TimelineEventRow key={event.id} event={event} linkBasePath={linkBasePath} allowNotes={allowNotes} />
                 ))}
               </ol>
             )}

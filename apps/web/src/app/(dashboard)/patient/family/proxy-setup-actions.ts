@@ -59,6 +59,7 @@ export async function startProxySetupAction(_prev: ProxySetupState, formData: Fo
   if (error) {
     if (error.message.includes("proxy_setup_rate_limited")) return { error: t("proxy.setup.error.rate_limited", locale) };
     if (error.message.includes("your own number")) return { error: t("proxy.setup.error.own_number", locale) };
+    if (error.message.includes("proxy_setup_cooling_off")) return { error: t("proxy.setup.error.cooling_off", locale) };
     Sentry.captureMessage("create_proxy_setup rejected", { level: "warning", tags: { pg_code: error.code ?? "none" } });
     return { error: t("proxy.setup.error.invalid", locale) };
   }
