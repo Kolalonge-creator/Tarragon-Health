@@ -29,6 +29,9 @@ $$;
 -- sensitive-conditions-pattern-end
 revoke all on function private.emergency_card_sensitive_condition(text) from public, anon, authenticated;
 
+-- Only UNAMBIGUOUS drugs are auto-filtered. A drug with a common non-mental-health or non-reproductive use (diazepam, lorazepam, clonazepam, alprazolam, amitriptyline,
+-- lithium, misoprostol, bupropion, mirtazapine, chlorpromazine, haloperidol) is NOT filtered: it stays on the list, because hiding a benzodiazepine or a seizure medicine
+-- from a responder is the greater risk. Whatever IS withheld is counted on the card (medicines_not_shown) so a responder knows the list is incomplete.
 -- S47 review fix: a medicine can give away a reproductive or mental health matter just as a condition can (a contraceptive, an antidepressant). The medicines
 -- list on the card is filtered by this the same way the conditions list is. Mirrored in the web and phone code; a Jest test fails if the lists differ.
 -- sensitive-medicines-pattern-begin
@@ -36,8 +39,8 @@ create function private.emergency_card_sensitive_medicine(p_text text) returns t
 language sql immutable set search_path = ''
 as $$
   select case
-    when p_text ~* '(contracept|levonorgestrel|norethisterone|ethinylestradiol|medroxyprogesterone|depo.?provera|misoprostol|mifepristone|clomiphene)' then 'reproductive'
-    when p_text ~* '(antidepress|sertraline|fluoxetine|citalopram|escitalopram|paroxetine|venlafaxine|mirtazapine|amitriptyline|lithium|risperidone|olanzapine|quetiapine|haloperidol|chlorpromazine|diazepam|lorazepam|alprazolam|clonazepam|bupropion)' then 'mental_health'
+    when p_text ~* '(contracept|levonorgestrel|norethisterone|ethinylestradiol|medroxyprogesterone|depo.?provera|mifepristone|clomiphene)' then 'reproductive'
+    when p_text ~* '(antidepress|sertraline|fluoxetine|citalopram|escitalopram|paroxetine|venlafaxine|risperidone|olanzapine|quetiapine)' then 'mental_health'
     else null end
 $$;
 -- sensitive-medicines-pattern-end
@@ -54,6 +57,7 @@ declare
   v_patient uuid;
   f public.emergency_card_fields%rowtype;
   v_hidden text[] := '{}';
+  v_total integer; v_kept jsonb;
 begin
   v_full := public.emergency_card_full_by_token(p_token);   -- does the lookup, the audit row and the patient notice, exactly as before
   if v_full is null then
@@ -74,13 +78,15 @@ begin
   if not f.show_allergies then v_full := v_full || jsonb_build_object('allergies', '[]'::jsonb); v_hidden := array_append(v_hidden, 'allergies'); end if;
   if not f.show_medications then v_full := v_full || jsonb_build_object('medications', '[]'::jsonb); v_hidden := array_append(v_hidden, 'medications'); end if;
   if f.show_medications then
-    -- the medicines list drops a reproductive or mental health medicine unless its own switch is on (the card then says those are not shared)
-    v_full := v_full || jsonb_build_object('medications', coalesce((
+    -- the medicines list drops a reproductive or mental health medicine unless its own switch is on, and COUNTS what it withheld (no names)
+    v_total := jsonb_array_length(coalesce(v_full -> 'medications', '[]'::jsonb));
+    v_kept := coalesce((
       select jsonb_agg(m) from jsonb_array_elements(coalesce(v_full -> 'medications', '[]'::jsonb)) m
        where case private.emergency_card_sensitive_medicine(m ->> 'drug_name')
                when 'reproductive' then f.show_reproductive
                when 'mental_health' then f.show_mental_health
-               else true end), '[]'::jsonb));
+               else true end), '[]'::jsonb);
+    v_full := v_full || jsonb_build_object('medications', v_kept, 'medicines_not_shown', v_total - jsonb_array_length(v_kept));
   end if;
   if not f.show_conditions then
     v_full := v_full || jsonb_build_object('conditions', '[]'::jsonb); v_hidden := array_append(v_hidden, 'conditions');

@@ -12245,6 +12245,66 @@ export type Database = {
           },
         ]
       }
+      profile_access_ended: {
+        Row: {
+          categories: Database["public"]["Enums"]["care_access_category"][]
+          clinical_access: boolean
+          ended_at: string
+          ended_reason: string
+          expires_at: string | null
+          grantee_user_id: string
+          granted_by: string | null
+          handover_id: string | null
+          id: string
+          is_test: boolean
+          organisation_id: string
+          original_created_at: string
+          permission_level: Database["public"]["Enums"]["profile_access_level"]
+          permissions: Database["public"]["Enums"]["caregiver_permission"][] | null
+          profile_id: string
+          restorable_until: string
+          restored_at: string | null
+        }
+        Insert: {
+          categories?: Database["public"]["Enums"]["care_access_category"][]
+          clinical_access?: boolean
+          ended_at?: string
+          ended_reason: string
+          expires_at?: string | null
+          grantee_user_id: string
+          granted_by?: string | null
+          handover_id?: string | null
+          id?: string
+          is_test?: boolean
+          organisation_id: string
+          original_created_at: string
+          permission_level: Database["public"]["Enums"]["profile_access_level"]
+          permissions?: Database["public"]["Enums"]["caregiver_permission"][] | null
+          profile_id: string
+          restorable_until: string
+          restored_at?: string | null
+        }
+        Update: {
+          categories?: Database["public"]["Enums"]["care_access_category"][]
+          clinical_access?: boolean
+          ended_at?: string
+          ended_reason?: string
+          expires_at?: string | null
+          grantee_user_id?: string
+          granted_by?: string | null
+          handover_id?: string | null
+          id?: string
+          is_test?: boolean
+          organisation_id?: string
+          original_created_at?: string
+          permission_level?: Database["public"]["Enums"]["profile_access_level"]
+          permissions?: Database["public"]["Enums"]["caregiver_permission"][] | null
+          profile_id?: string
+          restorable_until?: string
+          restored_at?: string | null
+        }
+        Relationships: []
+      }
       dependant_handovers: {
         Row: {
           birthday_18: string
@@ -12252,6 +12312,10 @@ export type Database = {
           consent_text_key: string | null
           created_at: string
           due_emitted_at: string | null
+          extended_once: boolean
+          last_notice_error: string | null
+          notice_failures: number
+          restorable_until: string | null
           guardians_ended: number | null
           guardians_kept: string[]
           id: string
@@ -12266,6 +12330,10 @@ export type Database = {
           consent_text_key?: string | null
           created_at?: string
           due_emitted_at?: string | null
+          extended_once?: boolean
+          last_notice_error?: string | null
+          notice_failures?: number
+          restorable_until?: string | null
           guardians_ended?: number | null
           guardians_kept?: string[]
           id?: string
@@ -12280,6 +12348,10 @@ export type Database = {
           consent_text_key?: string | null
           created_at?: string
           due_emitted_at?: string | null
+          extended_once?: boolean
+          last_notice_error?: string | null
+          notice_failures?: number
+          restorable_until?: string | null
           guardians_ended?: number | null
           guardians_kept?: string[]
           id?: string
@@ -26776,6 +26848,7 @@ export type Database = {
           id: string
           is_active: boolean
           is_screen_tier: boolean
+          legacy_tier: boolean
           name: string
           preparation_instructions: string | null
           price_kobo: number
@@ -26800,6 +26873,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_screen_tier?: boolean
+          legacy_tier?: boolean
           name: string
           preparation_instructions?: string | null
           price_kobo?: number
@@ -26824,6 +26898,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_screen_tier?: boolean
+          legacy_tier?: boolean
           name?: string
           preparation_instructions?: string | null
           price_kobo?: number
@@ -44700,6 +44775,9 @@ export type Database = {
       my_consent_matrix: { Args: never; Returns: Json }
       my_consent_matrix_history: { Args: { p_limit?: number }; Returns: Json }
       my_handover: { Args: never; Returns: Json }
+      device_data_consent_in_force: { Args: { p_patient: string }; Returns: boolean }
+      feature_consent_state: { Args: { p_data_type: string }; Returns: Json }
+      restore_ended_guardian_access: { Args: { p_ended: string }; Returns: Json }
       research_export_roster: {
         Args: never
         Returns: { data_types: string[]; patient_id: string }[]

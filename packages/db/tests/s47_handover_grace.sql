@@ -8,6 +8,9 @@
 --      (a simulated guardian JWT reads ZERO rows afterwards, ONE row before), is audited, emits one expired event with counts only, and closes the row.
 --   3. A young person who did choose (complete_dependant_handover) keeps exactly the guardian they ticked, view-only, after day 90; the others are gone.
 --   4. The emergency card is untouched by the expiry. Completing after expiry is refused. The sweep and the expiry are not callable by a session.
+--   4b. (review fixes) The end is SOFT: the guardian grant is archived with its categories (restorable by the young person for 30 days, never by a guardian, never after the
+--   window), Care Circle seats for the same people are revoked, nothing is hard-deleted. A failed notice is not marked sent, counts, retries and opens an ops incident after two in a
+--   row, and access never ends before a notice was queued. A record with no login of its own is extended once and never ended automatically.
 --   5. SABOTAGE: the expiry made a no-op, the grace stretched to a year, and the notice days emptied; the matching checks must flip.
 begin;
 
@@ -90,6 +93,7 @@ $$ update public.dependant_handovers set birthday_18 = (now() at time zone 'Afri
 
 do $$
 declare
+  v_orig_channel text;
   v_org uuid; a uuid; a1 uuid; a2 uuid; b uuid; b1 uuid; b2 uuid; c uuid; c1 uuid; c2 uuid; n integer; v_end date;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
@@ -128,14 +132,37 @@ begin
   -- on day 20 the young person lets someone in themselves (a grant made after the birthday, not a guardian's)
   perform pg_temp.setf('own-choice', pg_temp.mkuser(v_org, 'own-choice', 'patient'));
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by, created_at) values (a, pg_temp.f('own-choice'), 'view', a, now());
+  insert into public.care_circle_members (organisation_id, patient_id, supporter_id, relationship, permissions, expires_at)
+    values (v_org, a, a1, 'parent', array['appointments'], now() + interval '1 year');
   perform pg_temp.at_day(a, 89); perform private.sweep_dependant_handovers();
   perform pg_temp.ck('CONTROL day 89: still inside the grace, nothing ended, guardian still reads', 'due,3,1',
     (select state from public.dependant_handovers where patient_id = a) || ',' || (select count(*)::text from public.profile_access where profile_id = a) || ',' || pg_temp.vitals_seen_by(a1, a));
   -- day 90: the grace has run out
+  update public.profiles set is_dependent_account = false, dependent_kind = null where id = a;   -- the young person activated their own login
   perform pg_temp.at_day(a, 91); perform private.sweep_dependant_handovers();
   perform pg_temp.ck('once the 90 day grace has run out: access ENDS automatically (the guardians go, the person they let in themselves stays)', 'expired,1,2',
     (select state from public.dependant_handovers where patient_id = a) || ',' || (select count(*)::text from public.profile_access where profile_id = a) || ',' || (select guardians_ended::text from public.dependant_handovers where patient_id = a));
   perform pg_temp.ck('a simulated guardian JWT now reads ZERO rows (it read one before)', '0|0', pg_temp.vitals_seen_by(a1, a) || '|' || pg_temp.vitals_seen_by(a2, a));
+  perform pg_temp.ck('SOFT end: nothing was hard-deleted, both grants sit in the archive with their category and a 30 day restore window', '2,2,true',
+    (select count(*)::text from public.profile_access_ended where profile_id = a) || ',' || (select coalesce(sum(cardinality(categories)), 0)::text from public.profile_access_ended where profile_id = a) || ',' ||
+    (select bool_and(restorable_until between now() + interval '29 days' and now() + interval '31 days')::text from public.profile_access_ended where profile_id = a));
+  perform pg_temp.ck('the guardian''s Care Circle seat on that record is revoked in the same step', 'revoked',
+    (select state from public.care_circle_members where patient_id = a and supporter_id = a1));
+  perform pg_temp.ck('a guardian cannot read the archive of their own ended access', '0', pg_temp.q_as(a1, format('select count(*)::text from public.profile_access_ended where profile_id = %L', a)));
+  perform pg_temp.ck('...nor restore it', 'P0002', pg_temp.try_as(a1, format('select public.restore_ended_guardian_access(%L)', (select id from public.profile_access_ended where profile_id = a and grantee_user_id = a1))));
+  perform pg_temp.ck('the young person sees who ended and until when', '2,true',
+    pg_temp.q_as(a, $q$select jsonb_array_length(public.my_handover() -> 'ended_guardians')::text || ',' || ((public.my_handover() ->> 'restorable_until') is not null)::text$q$));
+  perform pg_temp.ck('the young person restores guardian one', 'ok',
+    pg_temp.try_as(a, format('select public.restore_ended_guardian_access(%L)', (select id from public.profile_access_ended where profile_id = a and grantee_user_id = a1))));
+  perform pg_temp.ck('...back as view only, with the category', 'view,1',
+    (select permission_level::text from public.profile_access where profile_id = a and grantee_user_id = a1) || ',' ||
+    (select count(*)::text from public.profile_access_categories c join public.profile_access pa on pa.id = c.profile_access_id where pa.profile_id = a and pa.grantee_user_id = a1));
+  perform pg_temp.ck('...and that guardian reads again (a simulated guardian JWT: zero before, one after)', '1', pg_temp.vitals_seen_by(a1, a));
+  perform pg_temp.ck('...the other guardian stays ended (control)', '0', pg_temp.vitals_seen_by(a2, a));
+  perform pg_temp.ck('restoring twice is refused', '23505', pg_temp.try_as(a, format('select public.restore_ended_guardian_access(%L)', (select id from public.profile_access_ended where profile_id = a and grantee_user_id = a1))));
+  update public.profile_access_ended set restorable_until = now() - interval '1 day' where profile_id = a and grantee_user_id = a2;
+  perform pg_temp.ck('after the 30 days the window is closed', '23514', pg_temp.try_as(a, format('select public.restore_ended_guardian_access(%L)', (select id from public.profile_access_ended where profile_id = a and grantee_user_id = a2))));
+  perform pg_temp.ck('a stranger cannot restore someone else''s ended access', 'P0002', pg_temp.try_as(pg_temp.f('own-choice'), format('select public.restore_ended_guardian_access(%L)', (select id from public.profile_access_ended where profile_id = a and grantee_user_id = a2))));
   perform pg_temp.ck('a person the young person let in AFTER the birthday is theirs to keep: still there, untouched', '1,view',
     (select count(*)::text || ',' || min(permission_level::text) from public.profile_access where profile_id = a and grantee_user_id = pg_temp.f('own-choice')));
   perform pg_temp.ck('one expired event, counts only', '1,guardians_ended|handover_id',
@@ -180,10 +207,47 @@ begin
   perform pg_temp.ck('late row: the guardian can still read during the window', '1', pg_temp.vitals_seen_by(pg_temp.f('child-late-g1'), pg_temp.f('child-late')));
   perform pg_temp.ck('late row: a second sweep the same day ends nothing and sends no second notice', 'due,2,85',
     (select state from public.dependant_handovers where patient_id = pg_temp.f('child-late')) || ',' || (select count(*)::text from public.profile_access where profile_id = pg_temp.f('child-late')) || ',' || pg_temp.notice_days(pg_temp.f('child-late')));
+  update public.profiles set is_dependent_account = false, dependent_kind = null where id = pg_temp.f('child-late');   -- they have activated a login by now
   update public.dependant_handovers set expiry_not_before = (now() at time zone 'Africa/Lagos')::date where patient_id = pg_temp.f('child-late');
   perform private.sweep_dependant_handovers();
   perform pg_temp.ck('late row: once the notice window has passed, access ends', 'expired,0',
     (select state from public.dependant_handovers where patient_id = pg_temp.f('child-late')) || ',' || (select count(*)::text from public.profile_access where profile_id = pg_temp.f('child-late')));
+  -- ===== a notice that cannot be written (review fix) ========================================================================================
+  perform pg_temp.mkchild('child-fail', v_org, 120);
+  perform private.ensure_dependant_handover(pg_temp.f('child-fail'));
+  update public.profiles set is_dependent_account = false, dependent_kind = null where id = pg_temp.f('child-fail');
+  perform pg_temp.at_day(pg_temp.f('child-fail'), 121);
+    v_orig_channel := pg_get_functiondef('private.patient_reminder_channel(uuid,boolean)'::regprocedure);
+  create or replace function private.patient_reminder_channel(p_recipient uuid, p_allow_email boolean default true) returns public.notification_channel language plpgsql as $f$ begin raise exception 'channel lookup down'; end $f$;
+  perform private.sweep_dependant_handovers();
+  perform pg_temp.ck('failed notice: not marked sent, the failure is counted with its reason, and access did NOT end', '0,1,true,due,2',
+    (select cardinality(notices_sent)::text || ',' || notice_failures::text || ',' || (last_notice_error like '%channel lookup down%')::text || ',' || state || ',' || (select count(*)::text from public.profile_access where profile_id = pg_temp.f('child-fail')) from public.dependant_handovers where patient_id = pg_temp.f('child-fail')));
+  perform pg_temp.ck('failed once: no ops incident yet', '0', (select count(*)::text from public.ops_incidents where external_reference = 'handover-notice:' || (select id::text from public.dependant_handovers where patient_id = pg_temp.f('child-fail'))));
+  perform private.sweep_dependant_handovers();
+  perform pg_temp.ck('failed twice in a row: an ops incident is open, still no notice marked sent, still no end', '1,0,2,due',
+    (select count(*)::text from public.ops_incidents where external_reference = 'handover-notice:' || (select id::text from public.dependant_handovers where patient_id = pg_temp.f('child-fail'))) || ',' ||
+    (select cardinality(notices_sent)::text || ',' || notice_failures::text || ',' || state from public.dependant_handovers where patient_id = pg_temp.f('child-fail')));
+  execute v_orig_channel;   -- the real function is put back
+  perform private.sweep_dependant_handovers();
+  perform pg_temp.ck('control: once the write works the notice is queued, the counter clears, and the 30 day window is still ahead', '4,0,due',
+    (select cardinality(notices_sent)::text || ',' || notice_failures::text || ',' || state from public.dependant_handovers where patient_id = pg_temp.f('child-fail')));
+  update public.dependant_handovers set expiry_not_before = (now() at time zone 'Africa/Lagos')::date where patient_id = pg_temp.f('child-fail');
+  perform private.sweep_dependant_handovers();
+  perform pg_temp.ck('...and only then, with a notice queued, does access end', 'expired,0', (select state from public.dependant_handovers where patient_id = pg_temp.f('child-fail')) || ',' || (select count(*)::text from public.profile_access where profile_id = pg_temp.f('child-fail')));
+
+  -- ===== a record with no login of its own is never ended automatically =========================================================================
+  perform pg_temp.mkchild('child-nologin', v_org, 100);
+  perform private.ensure_dependant_handover(pg_temp.f('child-nologin'));
+  update public.dependant_handovers set notices_sent = array[1, 30, 60, 85] where patient_id = pg_temp.f('child-nologin');   -- it has had its notices
+  perform private.sweep_dependant_handovers();
+  perform pg_temp.ck('no login: extended ONCE by 30 days, not ended, guardian still reads, an ops incident is open', 'due,true,2,1,1',
+    (select state || ',' || extended_once::text from public.dependant_handovers where patient_id = pg_temp.f('child-nologin')) || ',' || (select count(*)::text from public.profile_access where profile_id = pg_temp.f('child-nologin')) || ',' ||
+    pg_temp.vitals_seen_by(pg_temp.f('child-nologin-g1'), pg_temp.f('child-nologin')) || ',' ||
+    (select count(*)::text from public.ops_incidents where external_reference = 'handover-no-login:' || (select id::text from public.dependant_handovers where patient_id = pg_temp.f('child-nologin'))));
+  update public.dependant_handovers set expiry_not_before = (now() at time zone 'Africa/Lagos')::date - 1 where patient_id = pg_temp.f('child-nologin');
+  perform private.sweep_dependant_handovers();
+  perform pg_temp.ck('...and after the extension it is STILL not ended automatically', 'due,2',
+    (select state from public.dependant_handovers where patient_id = pg_temp.f('child-nologin')) || ',' || (select count(*)::text from public.profile_access where profile_id = pg_temp.f('child-nologin')));
   -- ===== privileges ========================================================================================================================
   perform pg_temp.ck('a session cannot run the sweep or the expiry', 'false,false',
     has_function_privilege('authenticated', 'private.sweep_dependant_handovers()', 'EXECUTE')::text || ',' || has_function_privilege('authenticated', 'private.expire_dependant_handover(uuid)', 'EXECUTE')::text);
@@ -192,6 +256,9 @@ begin
 end $$;
 
 -- Sabotage ---------------------------------------------------------------------------------------------------------------------------------
+create temp table orig_fn(name text primary key, def text) on commit drop;
+grant all on orig_fn to public;
+insert into orig_fn values ('expire', pg_get_functiondef('private.expire_dependant_handover(uuid)'::regprocedure)), ('sweep', pg_get_functiondef('private.sweep_dependant_handovers()'::regprocedure));
 -- A: the expiry made a no-op. A guardian must then still read after day 90 (the real check flips).
 do $$
 declare v_org uuid; d uuid; d1 uuid;
@@ -230,17 +297,53 @@ declare v_org uuid; g uuid; g1 uuid; v_def text;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   update public.handover_config set grace_days = 90, notice_days = array[1, 30, 60, 85] where is_active;
-  create or replace function private.expire_dependant_handover(p_handover uuid) returns boolean language sql as $f$ select false $f$;
+  execute (select def from orig_fn where name = 'expire');   -- the real expiry, so the protection under test is the only thing between the row and its end
+  execute (select def from orig_fn where name = 'sweep');
   v_def := pg_get_functiondef('private.sweep_dependant_handovers()'::regprocedure);
   v_def := replace(v_def, 'if cardinality(r.notices_sent) = 0 and r.expiry_not_before is null and v_today >= v_end then', 'if false then');
   execute v_def;
   g := pg_temp.mkchild('child-late2', v_org, 200); g1 := pg_temp.f('child-late2-g1');
   perform private.ensure_dependant_handover(g);
+  update public.profiles set is_dependent_account = false, dependent_kind = null where id = g;
   perform pg_temp.at_day(g, 201);
   perform private.sweep_dependant_handovers();
   insert into results values ('sabotaged', 'late row: access did NOT end on the first sweep, a notice went out and a 30 day window was set', 'due,2,85,true',
     (select state from public.dependant_handovers where patient_id = g) || ',' || (select count(*)::text from public.profile_access where profile_id = g) || ',' || pg_temp.notice_days(g) || ',' ||
     coalesce((select (expiry_not_before is not null)::text from public.dependant_handovers where patient_id = g), 'null'));
+end $$;
+
+-- E (review fix): the "no login" protection removed. A record with no login must then end (the real check flips).
+do $$
+declare v_org uuid; g uuid; v_def text;
+begin
+  select id into v_org from public.organisations order by created_at limit 1;
+  update public.handover_config set grace_days = 90, notice_days = array[1, 30, 60, 85] where is_active;
+  execute (select def from orig_fn where name = 'expire');   -- the real expiry, so the protection under test is the only thing between the row and its end
+  execute (select def from orig_fn where name = 'sweep');
+  g := pg_temp.mkchild('child-sabE', v_org, 100);
+  perform private.ensure_dependant_handover(g);
+  update public.dependant_handovers set notices_sent = array[1, 30, 60, 85] where patient_id = g;
+  v_def := replace(pg_get_functiondef('private.sweep_dependant_handovers()'::regprocedure), 'if coalesce(v_dependant, false) then', 'if false then');
+  execute v_def;
+  perform private.sweep_dependant_handovers();
+  insert into results values ('sabotaged', 'no login: extended ONCE by 30 days, not ended, guardian still reads, an ops incident is open', 'due,true,2,1,1',
+    (select state || ',' || extended_once::text from public.dependant_handovers where patient_id = g) || ',x,x,x');
+end $$;
+-- F: the failure handler made silent (marks nothing, counts nothing). The failure counter check must flip.
+do $$
+declare v_org uuid; g uuid; v_def text;
+begin
+  select id into v_org from public.organisations order by created_at limit 1;
+  g := pg_temp.mkchild('child-sabF', v_org, 120);
+  perform private.ensure_dependant_handover(g);
+  update public.profiles set is_dependent_account = false, dependent_kind = null where id = g;
+  perform pg_temp.at_day(g, 121);
+  v_def := replace(pg_get_functiondef('private.sweep_dependant_handovers()'::regprocedure), 'update public.dependant_handovers set notice_failures = notice_failures + 1,', 'update public.dependant_handovers set notice_failures = notice_failures,');
+  execute v_def;
+  create or replace function private.patient_reminder_channel(p_recipient uuid, p_allow_email boolean default true) returns public.notification_channel language plpgsql as $f$ begin raise exception 'channel lookup down'; end $f$;
+  perform private.sweep_dependant_handovers();
+  insert into results values ('sabotaged', 'failed notice: not marked sent, the failure is counted with its reason, and access did NOT end', '0,1,true,due,2',
+    (select cardinality(notices_sent)::text || ',' || notice_failures::text || ',x,' || state || ',x' from public.dependant_handovers where patient_id = g));
 end $$;
 
 do $$
@@ -253,7 +356,7 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 4 then raise exception 'VACUOUS TEST: the sabotage flipped % of 4 checks', v_caught; end if;
+  if v_caught < 6 then raise exception 'VACUOUS TEST: the sabotage flipped % of 6 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result

@@ -367,10 +367,10 @@ begin
   insert into public.lab_providers (name, is_active) values ('S46 Lab', false) returning id into v_lab;
   v_labuser := pg_temp.mkuser(pg_temp.f('org'), 'lab', 'lab_partner', 'male', 40);
   update public.profiles set lab_provider_id = v_lab where id = v_labuser;
-  update public.panel_bundles set guidance_only = false where code in ('screen_essential');
+  update public.panel_bundles set guidance_only = false where code in ('single_hba1c');
   insert into public.lab_orders (organisation_id, patient_id, provider_id, fulfilment, status, origin, ordered_by, clinical_indication, payment_confirmed_at, panel_bundle_id, excluded_test_codes)
   values (pg_temp.f('org'), v_real, v_lab, 'partner', 'pending_payment', 'clinically_triggered', (select id from public.clinical_staff where profile_id = pg_temp.f('doc')), 'S46 proof order',
-          now() - interval '1 hour', (select id from public.panel_bundles where code = 'screen_essential'), '[]'::jsonb)
+          now() - interval '1 hour', (select id from public.panel_bundles where code = 'single_hba1c'), '[]'::jsonb)
   returning id into o;
   update public.lab_orders set status = 'payment_confirmed' where id = o;
   update public.lab_orders set status = 'sample_collected' where id = o;

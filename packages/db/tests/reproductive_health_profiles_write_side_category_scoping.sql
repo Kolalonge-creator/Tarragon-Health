@@ -76,6 +76,10 @@ begin
     on conflict (id) do update
       set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name,
           date_of_birth = excluded.date_of_birth;
+
+    -- S47d: reproductive health records are written only after the person has said yes (the fixture says it for them)
+    insert into public.consent_matrix_events (organisation_id, patient_id, data_type, purpose, action, policy_version, source, recorded_by, is_test)
+    values (v_org, (select v from rhpw_fixture where k = r.key_name), 'reproductive', 'care', 'granted', 2, 'patient', (select v from rhpw_fixture where k = r.key_name), false);
   end loop;
 end $$;
 

@@ -969,3 +969,7 @@ s47_go_live_conditions.sql
 s47b_review_fixes.sql
 # S47c: the yearly report build backs off a failing patient (they go behind, wait, drop after 5) and asks before requesting an AI draft. Sabotage: three.
 s47c_report_build_backoff.sql
+# S47d: optional-per-use consents are enforced at write (reproductive, mental health, device data) with simulated sessions, one source of truth for device data. Sabotage: three.
+s47d_optional_consent_enforced.sql
+# S47e: the two-tier model: legacy bundles cannot be bought, no imaging copy, Membership at 12,000,000 kobo as a new price version, preventive alerts ungated for a free patient. Sabotage: three.
+s47_two_tier_model.sql

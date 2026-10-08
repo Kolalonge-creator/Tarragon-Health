@@ -324,6 +324,9 @@ end $$;
 do $$
 declare v_f uuid := pg_temp.f('fpat'); v_real uuid := pg_temp.f('real'); v_m uuid := pg_temp.f('mpat');
 begin
+  -- S47e: the four old tier packages are switched off in production (the screen tiers are legacy); the listing is exercised here with 'essential' switched back on inside this rolled-back proof
+  perform pg_temp.ck('(S47e) the old tier packages are switched off as shipped', '0', (select count(*)::text from public.screening_packages where code in ('essential', 'preventive', 'full_screen', 'annual_health_check') and is_active));
+  update public.screening_packages set is_active = true where code = 'essential';
   perform pg_temp.ck('the essential package shows a price, its tests and a rate card before checkout', 'true',
     (pg_temp.q_as(v_real, $q$select (price_kobo > 0 and cardinality(test_codes) > 0 and jsonb_array_length(rate_card) = cardinality(test_codes))::text from public.list_screening_packages() where code = 'essential'$q$)));
   -- S47 (decision 14): no blood-borne virus test is bundled for everyone, so the tier packages hold no sensitive test any more
@@ -357,7 +360,7 @@ do $$
 declare v_real uuid := pg_temp.f('real'); v_test uuid := pg_temp.f('mpat'); o uuid; r text; rid uuid;
 begin
   -- every live bundle is guidance_only today (never billed, so no order can be placed); open them inside this rolled-back proof only
-  update public.panel_bundles set guidance_only = false where code in ('screen_essential', 'single_hba1c', 'blood_borne_virus_screen');
+  update public.panel_bundles set guidance_only = false where code in ('single_hba1c', 'blood_borne_virus_screen');
   perform pg_temp.ck('a partner-site order with HIV in the bundle is unaffected', 'ok',
     pg_temp.try_sql(format('select pg_temp.mkorder(%L, ''blood_borne_virus_screen'', false)', v_real)));
   perform pg_temp.ck('home collection of a bundle holding HIV is refused', 'P0001',
@@ -370,7 +373,8 @@ begin
     pg_temp.try_sql(format('select pg_temp.mkorder(%L, ''blood_borne_virus_screen'', true)', v_real)));
 
   -- INV-04: an order from a package, a reactive hepatitis B surface antigen, the S27 release rule
-  o := pg_temp.mkorder(v_real, 'screen_essential', false);
+  -- S47e: the old screening packages are legacy and cannot be ordered; any bundle exercises the same release rule
+  o := pg_temp.mkorder(v_real, 'single_hba1c', false);
   update public.lab_orders set status = 'payment_confirmed' where id = o;
   update public.lab_orders set status = 'sample_collected' where id = o;
   r := pg_temp.q_as(pg_temp.f('lab'), format($q$select public.lab_partner_submit_result(%L, 'membership_annual', %L::jsonb)::text$q$, o,

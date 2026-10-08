@@ -310,15 +310,21 @@ declare p uuid := pg_temp.mkpatient('card'); tok text; j jsonb;
 begin
   tok := pg_temp.mkcard(p);
   perform pg_temp.mkmed(p, 'Sertraline'); perform pg_temp.mkmed(p, 'Levonorgestrel'); perform pg_temp.mkmed(p, 'Metformin');
+  perform pg_temp.mkmed(p, 'Diazepam'); perform pg_temp.mkmed(p, 'Lithium'); perform pg_temp.mkmed(p, 'Misoprostol'); perform pg_temp.mkmed(p, 'Amitriptyline');
   j := public.emergency_card_by_token(tok);
-  perform pg_temp.ck('default card: an antidepressant and a contraceptive are hidden, metformin stays', 'Metformin', pg_temp.names(j, 'medications', 'drug_name'));
-  perform pg_temp.ck('...and the card says those two are not shared', 'true,true', (j -> 'hidden_fields' ? 'mental_health')::text || ',' || (j -> 'hidden_fields' ? 'reproductive')::text);
+  perform pg_temp.ck('default card: an unambiguous antidepressant and contraceptive are hidden', 'false,false',
+    (pg_temp.names(j, 'medications', 'drug_name') like '%Sertraline%')::text || ',' || (pg_temp.names(j, 'medications', 'drug_name') like '%Levonorgestrel%')::text);
+  perform pg_temp.ck('ambiguous drugs (diazepam, lithium, misoprostol, amitriptyline) STAY shown, with metformin', 'Amitriptyline,Diazepam,Lithium,Metformin,Misoprostol', pg_temp.names(j, 'medications', 'drug_name'));
+  perform pg_temp.ck('the card counts what it withheld, without names', '2', (j ->> 'medicines_not_shown'));
+  perform pg_temp.ck('...and the count appears nowhere with a name', 'false', ((j - 'medications')::text ~* 'sertraline|levonorgestrel')::text);
+  perform pg_temp.ck('...and the card says those two matters are not shared', 'true,true', (j -> 'hidden_fields' ? 'mental_health')::text || ',' || (j -> 'hidden_fields' ? 'reproductive')::text);
   insert into public.emergency_card_fields (patient_id, organisation_id, show_mental_health) values (p, pg_temp.f('org'), true);
   j := public.emergency_card_by_token(tok);
-  perform pg_temp.ck('control: with show_mental_health on the antidepressant appears, the contraceptive still does not', 'Metformin,Sertraline|true',
-    pg_temp.names(j, 'medications', 'drug_name') || '|' || (j -> 'hidden_fields' ? 'reproductive')::text);
+  perform pg_temp.ck('control: with show_mental_health on the antidepressant appears and the count drops to one', 'true,1',
+    ((pg_temp.names(j, 'medications', 'drug_name')) like '%Sertraline%')::text || ',' || (j ->> 'medicines_not_shown'));
   update public.emergency_card_fields set show_reproductive = true where patient_id = p;
-  perform pg_temp.ck('control: with both on all three appear', 'Levonorgestrel,Metformin,Sertraline', pg_temp.names(public.emergency_card_by_token(tok), 'medications', 'drug_name'));
+  j := public.emergency_card_by_token(tok);
+  perform pg_temp.ck('control: with both on nothing is withheld and the count is 0', '7,0', jsonb_array_length(j -> 'medications')::text || ',' || (j ->> 'medicines_not_shown'));
   update public.emergency_card_fields set show_medications = false where patient_id = p;
   perform pg_temp.ck('medicines switched off: none, whatever the other switches say', 'none', pg_temp.names(public.emergency_card_by_token(tok), 'medications', 'drug_name'));
 end $$;
@@ -371,6 +377,20 @@ begin
   insert into results values ('sabotaged', 'guardian of a 15-year-old, no waiver: only the ordinary condition', 'Hypertension', pg_temp.names(j, 'conditions', 'condition_name'));
 end $$;
 
+-- E: the "not shown" count taken off the card, and an ambiguous drug put back into the filter. Both card checks must flip.
+do $$
+declare p uuid := pg_temp.mkpatient('sabE'); tok text; v_def text; j jsonb;
+begin
+  tok := pg_temp.mkcard(p); perform pg_temp.mkmed(p, 'Sertraline'); perform pg_temp.mkmed(p, 'Diazepam');
+  v_def := pg_get_functiondef('public.emergency_card_by_token(text)'::regprocedure);
+  v_def := replace(v_def, ', ' || chr(39) || 'medicines_not_shown' || chr(39) || ', v_total - jsonb_array_length(v_kept)', '');
+  execute v_def;
+  create or replace function private.emergency_card_sensitive_medicine(p_text text) returns text language sql immutable as $f$ select case when p_text ~* 'sertraline|diazepam' then 'mental_health' end $f$;
+  j := public.emergency_card_by_token(tok);
+  insert into results values ('sabotaged', 'the card counts what it withheld, without names', '2', coalesce(j ->> 'medicines_not_shown', 'absent'));
+  insert into results values ('sabotaged', 'ambiguous drugs (diazepam, lithium, misoprostol, amitriptyline) STAY shown, with metformin', 'Amitriptyline,Diazepam,Lithium,Metformin,Misoprostol', pg_temp.names(j, 'medications', 'drug_name'));
+end $$;
+
 do $$
 declare v_bad integer; v_caught integer;
 begin
@@ -381,7 +401,7 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 4 then raise exception 'VACUOUS TEST: the sabotage flipped % of 4 checks', v_caught; end if;
+  if v_caught < 5 then raise exception 'VACUOUS TEST: the sabotage flipped % of 5 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result

@@ -235,16 +235,18 @@ update public.panel_bundles
   set test_codes = array['hba1c', 'lipid_panel', 'psa', 'cervical_smear', 'hiv', 'hep_b', 'hep_c'],
       description = 'Everything in the Annual Health Check plus HIV, Hepatitis B, and Hepatitis C screening. Doctor-reviewed.'
   where code = 'health_check_comprehensive'
-    and not ('hep_c' = any(test_codes));
+    and not ('hep_c' = any(test_codes))
+    and not legacy_tier;
 
 -- Self-bookable set (migrations 20260723150205 + 20260723164727 +
 -- 20260724020715): the three Health Check packages plus the WHO-essential
 -- confidential screenings (cervical smear per the WHO 90-70-90 elimination
 -- strategy, HIV, Hep B, Hep C) plus blood group & genotype. Deliberately NOT
 -- a general wellness catalogue — PSA stays package-only per WHO guidance;
--- everything else stays clinician-originated.
+-- everything else stays clinician-originated. S47e: annual_health_check is a legacy
+-- tier bundle (replaced by Membership) and must never be made bookable again.
 update public.panel_bundles set self_bookable = true
-  where code in ('annual_health_check', 'single_cervical_smear', 'single_hiv', 'single_hep_b', 'single_hep_c', 'single_blood_group_genotype');
+  where code in ('single_cervical_smear', 'single_hiv', 'single_hep_b', 'single_hep_c', 'single_blood_group_genotype');
 
 -- ---------------------------------------------------------------------------
 -- pharmacy_partners
