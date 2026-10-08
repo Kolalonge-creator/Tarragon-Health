@@ -1,3 +1,4 @@
+import { t } from "@tarragon/i18n";
 import { BLOOD_PROVENANCE, GENOTYPE_NOTE, type EmergencyClinicalFacts } from "@/lib/emergency/card";
 import { NOT_SHARED_TEXT, type CardField } from "@/lib/emergency/field-choices";
 
@@ -117,7 +118,7 @@ export function EmergencyCardBody({
       <Section title="Current medicines">
         {isHidden("medications") ? (
           <p className="text-sm font-medium text-charcoal-ink/80">{NOT_SHARED_TEXT}</p>
-        ) : facts.medications.length === 0 ? (
+        ) : facts.medications.length === 0 && !(facts.medicines_not_shown && facts.medicines_not_shown > 0) ? (
           <p className="text-sm text-charcoal-ink/70">None recorded.</p>
         ) : (
           <ul className="space-y-1">
@@ -128,6 +129,11 @@ export function EmergencyCardBody({
                 {m.frequency ? <span className="text-charcoal-ink/70"> · {m.frequency}</span> : null}
               </li>
             ))}
+            {facts.medicines_not_shown && facts.medicines_not_shown > 0 ? (
+              <li className="text-sm font-medium text-charcoal-ink/80">
+                {t(facts.medicines_not_shown === 1 ? "ecf.medicines_not_shown_one" : "ecf.medicines_not_shown_many", "en", { count: String(facts.medicines_not_shown) })}
+              </li>
+            ) : null}
           </ul>
         )}
       </Section>

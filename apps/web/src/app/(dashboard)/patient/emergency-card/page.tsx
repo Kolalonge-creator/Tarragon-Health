@@ -10,7 +10,9 @@ import { emergencyCardQrSvg, emergencyCardUrl } from "@/lib/emergency/card";
 import { EmergencyCardControls } from "./emergency-card-controls";
 import { BloodAttestationForm } from "./blood-attestation-form";
 import { CardFieldsForm } from "./card-fields-form";
-import { choicesFromRow } from "@/lib/emergency/field-choices";
+import { applyCardFieldChoices, choicesFromRow, hiddenFields } from "@/lib/emergency/field-choices";
+import { loadEmergencyDatasetForPatient } from "@/lib/emergency/dataset";
+import { EmergencyCardPreview } from "@/components/emergency/emergency-card-preview";
 
 /**
  * "Be the record they carry into any hospital."
@@ -64,6 +66,10 @@ export default async function EmergencyCardPage() {
     )
     .eq("patient_id", user.id)
     .maybeSingle();
+
+  // S47d: the preview is built from the same facts and the same choices as the printed card and the live link
+  const previewChoices = choicesFromRow(fields);
+  const previewFacts = acting ? null : applyCardFieldChoices(await loadEmergencyDatasetForPatient(supabase, user.id), previewChoices);
 
   const { data: lookups, error: lookupsError } = active
     ? await supabase
@@ -137,6 +143,7 @@ export default async function EmergencyCardPage() {
 
       {/* S43: the person chooses which details a stranger can see, on the printed card and the live link alike. */}
       {acting ? null : <CardFieldsForm initial={choicesFromRow(fields)} />}
+      {previewFacts ? <EmergencyCardPreview facts={previewFacts} hidden={hiddenFields(previewChoices)} /> : null}
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         {/* THE DEFAULT: a printed card, no new exposure, nothing to consent to. */}

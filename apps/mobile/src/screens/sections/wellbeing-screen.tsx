@@ -1,3 +1,4 @@
+import { FeatureConsentGate } from "@/ui/feature-consent-gate";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ActivityIndicator, Modal, ScrollView, Text, TextInput, View } from "react-native";
 import { postMentalHealthScreen } from "@/lib/api";
@@ -186,7 +187,9 @@ export function WellbeingScreen({ patientId, organisationId, onNavigate }: Wellb
       <MentalHealthSummaryCard screens={screens} />
 
       {showScreenForm ? (
-        <MentalHealthScreenForm onDone={() => { setShowScreenForm(false); void refresh(); }} />
+        <FeatureConsentGate dataType="mental_health">
+          <MentalHealthScreenForm onDone={() => { setShowScreenForm(false); void refresh(); }} />
+        </FeatureConsentGate>
       ) : (
         <SecondaryButton title="Take the full mental wellbeing check-in" onPress={() => setShowScreenForm(true)} />
       )}

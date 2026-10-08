@@ -128,6 +128,14 @@ export async function ingestReadings(
   };
   if (readings.length === 0) return result;
 
+  // S47d: the consent matrix cell device_data x care is the one switch for storing device data. The database refuses these writes without it
+  // (trigger), so check first and say so plainly instead of letting every batch fail as a database error. A failed check counts as no consent.
+  const consentCheck = await svc.rpc("device_data_consent_in_force", { p_patient: target.patientId });
+  if (consentCheck.error || consentCheck.data !== true) {
+    result.deniedByConsent = readings.length;
+    return result;
+  }
+
   const consent = target.consent ?? FULL_WEARABLE_CONSENT;
   const admitted: AdmittedReading[] = [];
   for (const item of readings) {

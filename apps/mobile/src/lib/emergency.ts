@@ -2,8 +2,8 @@ import * as SecureStore from "expo-secure-store";
 import { supabase } from "./supabase";
 import { PLATFORM_URL } from "./platform-url";
 
-export const EMERGENCY_REPRODUCTIVE_MEDICINE_PATTERN = /(contracept|levonorgestrel|norethisterone|ethinylestradiol|medroxyprogesterone|depo.?provera|misoprostol|mifepristone|clomiphene)/i;
-export const EMERGENCY_MENTAL_HEALTH_MEDICINE_PATTERN = /(antidepress|sertraline|fluoxetine|citalopram|escitalopram|paroxetine|venlafaxine|mirtazapine|amitriptyline|lithium|risperidone|olanzapine|quetiapine|haloperidol|chlorpromazine|diazepam|lorazepam|alprazolam|clonazepam|bupropion)/i;
+export const EMERGENCY_REPRODUCTIVE_MEDICINE_PATTERN = /(contracept|levonorgestrel|norethisterone|ethinylestradiol|medroxyprogesterone|depo.?provera|mifepristone|clomiphene)/i;
+export const EMERGENCY_MENTAL_HEALTH_MEDICINE_PATTERN = /(antidepress|sertraline|fluoxetine|citalopram|escitalopram|paroxetine|venlafaxine|risperidone|olanzapine|quetiapine)/i;
 
 export interface EmergencyContact {
   name: string;
@@ -24,6 +24,8 @@ export interface EmergencyFacts {
   allergies: { allergen: string; reaction: string | null; severity: string | null }[];
   conditions: string[];
   medications: EmergencyMedication[];
+  /** S47d: how many reproductive or mental health medicines were left off because that switch is off. A count only, never a name. */
+  medicinesNotShown?: number;
   emergencyContact: EmergencyContact | null;
   /** Details the person chose not to put on the card (S43). Shown as "not shared", never as "none". Absent in an older cache. */
   hidden?: ("allergies" | "medications" | "conditions" | "blood" | "emergency_contact" | "reproductive" | "mental_health")[];
@@ -137,14 +139,17 @@ export function applyEmergencyFieldChoices(facts: EmergencyFacts, chosen: Emerge
   if (!row.show_emergency_contact) hidden.push("emergency_contact");
   if (!row.show_reproductive) hidden.push("reproductive");
   if (!row.show_mental_health) hidden.push("mental_health");
+  const shownMedicines = row.show_medications
+    ? facts.medications.filter((m) =>
+        EMERGENCY_REPRODUCTIVE_MEDICINE_PATTERN.test(m.drugName) ? row.show_reproductive : EMERGENCY_MENTAL_HEALTH_MEDICINE_PATTERN.test(m.drugName) ? row.show_mental_health : true)
+    : [];
+  const withheld = row.show_medications ? facts.medications.length - shownMedicines.length : 0;
   return {
     ...facts,
     hidden,
     allergies: row.show_allergies ? facts.allergies : [],
-    medications: row.show_medications
-      ? facts.medications.filter((m) =>
-          EMERGENCY_REPRODUCTIVE_MEDICINE_PATTERN.test(m.drugName) ? row.show_reproductive : EMERGENCY_MENTAL_HEALTH_MEDICINE_PATTERN.test(m.drugName) ? row.show_mental_health : true)
-      : [],
+    medications: shownMedicines,
+    medicinesNotShown: withheld > 0 ? withheld : undefined,
     conditions: row.show_conditions
       ? facts.conditions.filter((c) => (EMERGENCY_REPRODUCTIVE_PATTERN.test(c) ? row.show_reproductive : EMERGENCY_MENTAL_HEALTH_PATTERN.test(c) ? row.show_mental_health : true))
       : [],

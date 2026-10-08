@@ -1,3 +1,4 @@
+import { FeatureConsentGate } from "@/components/consent/feature-consent-gate";
 import Link from "next/link";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { DashboardSection } from "@/components/ui/dashboard-section";
@@ -33,7 +34,9 @@ export default async function PatientWellbeingPage() {
         <WellbeingCheckinForm patientId={subjectId} />
         <div className="space-y-4">
           <MentalHealthSummary patientId={subjectId} />
-          <MentalHealthScreenForm patientId={subjectId} />
+          <FeatureConsentGate dataType="mental_health" onBehalfOf={subjectId !== profile.id}>
+            <MentalHealthScreenForm patientId={subjectId} />
+          </FeatureConsentGate>
         </div>
       </div>
 

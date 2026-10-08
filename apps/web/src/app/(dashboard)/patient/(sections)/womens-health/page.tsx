@@ -15,6 +15,7 @@ import { PostnatalCard } from "@/app/(dashboard)/patient/postnatal-card";
 import { BreastSymptomCard } from "@/app/(dashboard)/patient/breast-symptom-card";
 import { MenopauseSymptomCard } from "@/app/(dashboard)/patient/menopause-symptom-card";
 import { FertilityRequestCard } from "@/app/(dashboard)/patient/fertility-request-card";
+import { FeatureConsentGate } from "@/components/consent/feature-consent-gate";
 import { formatPatientDate } from "@/lib/format-date";
 import { todayIsoDate } from "@/lib/queries/medications";
 
@@ -207,6 +208,7 @@ export default async function WomensHealthPage() {
         </CardContent>
       </Card>
 
+      <FeatureConsentGate dataType="reproductive" onBehalfOf={subjectId !== profile.id}>
       {profile.organisation_id && <ReproductiveHealthCard patientId={subjectId} organisationId={profile.organisation_id} />}
 
       {reproUnknown && (
@@ -273,6 +275,7 @@ export default async function WomensHealthPage() {
       )}
 
       <BreastSymptomCard patientId={subjectId} />
+      </FeatureConsentGate>
     </DashboardSection>
   );
 }

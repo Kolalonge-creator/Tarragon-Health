@@ -5,6 +5,7 @@ import { mentalHealthScreenSchema } from "@/lib/validation/mental-health-screen"
 import { scorePhq9, scoreGad7, scoreAuditC, scoreEpds, EPDS_ITEM_COUNT } from "@/lib/rules/mental-health-screening";
 import { flagHazardousAlcoholUse } from "@/lib/alcohol/escalate";
 import type { Json, TablesInsert } from "@tarragon/shared";
+import { friendlyDbError, isFeatureConsentError } from "@/lib/consent/feature-consent-error";
 
 /**
  * Mobile equivalent of apps/web/.../patient/mental-health-actions.ts's
@@ -124,7 +125,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
   const { error: insertError } = await service.from("mental_health_screens").insert(rows);
   if (insertError) {
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
+    return NextResponse.json({ error: friendlyDbError(insertError.message), code: isFeatureConsentError(insertError.message) ? "consent_required" : undefined }, { status: isFeatureConsentError(insertError.message) ? 403 : 500 });
   }
 
   const crisis = phq9.crisis || epds?.crisis === true;

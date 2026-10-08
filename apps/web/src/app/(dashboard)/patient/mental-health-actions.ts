@@ -12,6 +12,7 @@ import {
 } from "@/lib/rules/mental-health-screening";
 import { flagHazardousAlcoholUse } from "@/lib/alcohol/escalate";
 import type { Json, TablesInsert } from "@tarragon/shared";
+import { friendlyDbError } from "@/lib/consent/feature-consent-error";
 
 export type SubmitMentalHealthState =
   | { error?: string; success?: boolean; crisis?: boolean }
@@ -131,7 +132,7 @@ export async function submitMentalHealthScreen(
     });
   }
   const { error: insertError } = await service.from("mental_health_screens").insert(rows);
-  if (insertError) return { error: insertError.message };
+  if (insertError) return { error: friendlyDbError(insertError.message) };
 
   // Self-harm → emergency pathway (§18.2). Inserted under the patient's own
   // session (their emergency_events_insert RLS allows it), mirroring

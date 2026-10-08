@@ -1,5 +1,5 @@
 /**
- * S44 (spec 2.13): the on-device health-store route stores nothing, and opens no connection, for a person whose wearable_device_data consent is
+ * S44 (spec 2.13): the on-device health-store route stores nothing, and opens no connection, for a person whose device data consent (matrix cell device_data x care) is
  * not in force. The consent lookup is the database's (`consent_in_force`, proved in packages/db/tests/s44_interoperability.sql: none, accepted,
  * withdrawn); this proves the route obeys it on both its calls and fails closed when the lookup itself fails.
  */
@@ -36,7 +36,7 @@ function post(): Request {
   });
 }
 
-describe("health-samples route: wearable_device_data consent", () => {
+describe("health-samples route: device data consent (matrix cell device_data x care)", () => {
   beforeEach(() => {
     getUser.mockResolvedValue({ data: { user: { id: "patient-1" } }, error: null });
     rpc.mockReset();
@@ -49,7 +49,7 @@ describe("health-samples route: wearable_device_data consent", () => {
     const res = await POST(post());
     expect(res.status).toBe(403);
     expect(((await res.json()) as { error: string }).error).toBe("consent_required");
-    expect(rpc).toHaveBeenCalledWith("consent_in_force", { p_patient: "patient-1", p_type: "wearable_device_data" });
+    expect(rpc).toHaveBeenCalledWith("device_data_consent_in_force", { p_patient: "patient-1" });
     expect(fromService).not.toHaveBeenCalled();
     expect(ingestReadings).not.toHaveBeenCalled();
   });

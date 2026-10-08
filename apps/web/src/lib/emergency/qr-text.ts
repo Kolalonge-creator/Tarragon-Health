@@ -138,11 +138,16 @@ export function buildEmergencyQrText(facts: EmergencyClinicalFacts, printedOn: s
   remaining -= byteLength(allergyLine) + 1;
 
   const medicationItems = facts.medications.map((m) => `${m.drug_name}${m.dose ? ` ${m.dose}` : ""}`);
+  // S47d: a medicine left off because it is a reproductive or mental health medicine is COUNTED, never named and never silently dropped
+  const withheldMedicines = facts.medicines_not_shown && facts.medicines_not_shown > 0 ? facts.medicines_not_shown : 0;
+  const withheldNote = withheldMedicines > 0 ? `${withheldMedicines} more not shown by the patient, ask` : "";
   const medicineLine = hidden.includes("medications")
     ? `Medicines: ${NOT_SHARED}`
     : medicationItems.length > 0
-      ? fitList("Medicines: ", medicationItems, Math.max(remaining, 0))
-      : null;
+      ? fitList("Medicines: ", medicationItems, Math.max(remaining - byteLength(withheldNote) - 3, 0)) + (withheldNote ? `; ${withheldNote}` : "")
+      : withheldNote
+        ? `Medicines: ${withheldNote}`
+        : null;
   if (medicineLine) remaining -= byteLength(medicineLine) + 1;
 
   // Conditions is dropped entirely, not truncated to nothing, once there is

@@ -1,3 +1,4 @@
+import { FeatureConsentGate } from "@/ui/feature-consent-gate";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { supabase } from "@/lib/supabase";
@@ -119,7 +120,7 @@ interface WomensHealthScreenProps {
  * reproductive-health safety notes before changing anything here, in
  * lib/womens-health.ts, or in lib/cycle.ts/cycle-screen.tsx.**
  */
-export function WomensHealthScreen({ patientId, organisationId, onNavigate }: WomensHealthScreenProps) {
+function WomensHealthScreenInner({ patientId, organisationId, onNavigate }: WomensHealthScreenProps) {
   const colors = useLegacyColors();
   const [loading, setLoading] = useState(true);
   const [sex, setSex] = useState<string | null>(null);
@@ -1161,5 +1162,14 @@ function FertilityRequestCard({
         </View>
       )}
     </Card>
+  );
+}
+
+/** S47d: the screen opens only once the person has said yes to reproductive health data; until then it asks. */
+export function WomensHealthScreen(props: Parameters<typeof WomensHealthScreenInner>[0]) {
+  return (
+    <FeatureConsentGate dataType="reproductive" title="Women's Health">
+      <WomensHealthScreenInner {...props} />
+    </FeatureConsentGate>
   );
 }

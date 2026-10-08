@@ -116,9 +116,14 @@ export function hiddenFields(c: CardFieldChoices): CardField[] {
 export const REPRODUCTIVE_PATTERN = /(pregnan|antenatal|postnatal|fertil|contracepti|menstru|menopaus|reproduct|obstetric|gynae|gynec)/i;
 export const MENTAL_HEALTH_PATTERN = /(mental|depress|anxiet|psych|bipolar|schizo|suicid|self.?harm|ptsd|trauma|panic|mood)/i;
 
-/** Mirrors private.emergency_card_sensitive_medicine: a contraceptive or an antidepressant gives a reproductive or mental health matter away like a condition does. */
-export const REPRODUCTIVE_MEDICINE_PATTERN = /(contracept|levonorgestrel|norethisterone|ethinylestradiol|medroxyprogesterone|depo.?provera|misoprostol|mifepristone|clomiphene)/i;
-export const MENTAL_HEALTH_MEDICINE_PATTERN = /(antidepress|sertraline|fluoxetine|citalopram|escitalopram|paroxetine|venlafaxine|mirtazapine|amitriptyline|lithium|risperidone|olanzapine|quetiapine|haloperidol|chlorpromazine|diazepam|lorazepam|alprazolam|clonazepam|bupropion)/i;
+/**
+ * Mirrors private.emergency_card_sensitive_medicine: a contraceptive or an antidepressant gives a reproductive or mental health matter away like a condition does.
+ * Deliberately NARROW (S47d review): only medicines that are almost only used for that purpose. A drug with other common uses (misoprostol, diazepam, lorazepam,
+ * amitriptyline, lithium, mirtazapine, bupropion, haloperidol, chlorpromazine, alprazolam, clonazepam) is never hidden, because withholding it from a responder is
+ * the greater risk. Whatever IS withheld is counted on the card, never named.
+ */
+export const REPRODUCTIVE_MEDICINE_PATTERN = /(contracept|levonorgestrel|norethisterone|ethinylestradiol|medroxyprogesterone|depo.?provera|mifepristone|clomiphene)/i;
+export const MENTAL_HEALTH_MEDICINE_PATTERN = /(antidepress|sertraline|fluoxetine|citalopram|escitalopram|paroxetine|venlafaxine|risperidone|olanzapine|quetiapine)/i;
 
 export function sensitiveMedicineKind(name: string): "reproductive" | "mental_health" | null {
   if (REPRODUCTIVE_MEDICINE_PATTERN.test(name)) return "reproductive";
@@ -148,14 +153,17 @@ export function filterSensitiveConditions(conditions: readonly string[], c: Pick
 
 /** Removes what the person chose not to show. The name is always kept: a card with no name identifies no one. */
 export function applyCardFieldChoices(facts: EmergencyClinicalFacts, c: CardFieldChoices): EmergencyClinicalFacts {
+  const shownMedicines = c.medications ? filterSensitiveMedicines(facts.medications, c) : [];
+  const withheld = c.medications ? facts.medications.length - shownMedicines.length : 0;
   return {
     ...facts,
+    medicines_not_shown: withheld > 0 ? withheld : undefined,
     date_of_birth: c.date_of_birth ? facts.date_of_birth : null,
     sex: c.sex ? facts.sex : null,
     patient_number: c.patient_number ? facts.patient_number : null,
     emergency_contact: c.emergency_contact ? facts.emergency_contact : null,
     allergies: c.allergies ? facts.allergies : [],
-    medications: c.medications ? filterSensitiveMedicines(facts.medications, c) : [],
+    medications: shownMedicines,
     conditions: c.conditions ? filterSensitiveConditions(facts.conditions, c) : [],
     blood: c.blood ? facts.blood : null,
   };

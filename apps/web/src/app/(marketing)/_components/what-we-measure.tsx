@@ -42,6 +42,16 @@ interface MeasureCategory {
   items: MeasureItem[];
 }
 
+/**
+ * Two-tier model (founder, 2026-10-08): Free is technology only, Membership includes one yearly blood test. The old Core / Advanced / Comprehensive screens are no
+ * longer sold, so these badges say who decides, not which package. Nothing here is imaging: imaging is not part of Membership.
+ */
+const TIER_LABELS: Record<Tier, string> = {
+  Core: "In the yearly blood test",
+  Advanced: "Added by your care team, by age and sex",
+  Comprehensive: "Added by your care team, if your history calls for it",
+};
+
 const TIER_STYLES: Record<Tier, string> = {
   Core: "bg-soft-sage text-deep-forest",
   Advanced: "bg-brand-green/15 text-deep-forest",
@@ -183,18 +193,6 @@ const WHAT_WE_MEASURE: MeasureCategory[] = [
         frequency: "Every 2 years",
         tier: "Advanced",
       },
-      {
-        name: "Breast Imaging: ultrasound under 40, mammography 40+",
-        explanation: "Catching breast cancer at the stage it's most treatable.",
-        frequency: "Every 2 years",
-        tier: "Comprehensive",
-      },
-      {
-        name: "Prostate Ultrasound (men 50+)",
-        explanation: "A closer look when PSA or symptoms suggest it's needed.",
-        frequency: "Every 2 years",
-        tier: "Comprehensive",
-      },
     ],
   },
   {
@@ -249,7 +247,7 @@ export function WhatWeMeasure() {
       <div className="mb-6 flex flex-wrap justify-center gap-3 text-xs font-medium">
         {(["Core", "Advanced", "Comprehensive"] as Tier[]).map((tier) => (
           <span key={tier} className={cn("rounded-full px-3 py-1", TIER_STYLES[tier])}>
-            {tier} Screen
+            {TIER_LABELS[tier]}
           </span>
         ))}
       </div>

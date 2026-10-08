@@ -89,6 +89,22 @@ export function EmergencyCardScreen({ patientId }: EmergencyCardScreenProps) {
           label="Allergies"
           value={notShared("allergies") ?? (facts.allergies.length > 0 ? facts.allergies.map((a) => a.allergen).join(", ") : "None on file")}
         />
+        <FactRow
+          label="Current medicines"
+          value={
+            notShared("medications") ??
+            ([
+              facts.medications.length > 0 ? facts.medications.map((m) => m.drugName).join(", ") : facts.medicinesNotShown ? "" : "None on file",
+              facts.medicinesNotShown
+                ? facts.medicinesNotShown === 1
+                  ? "1 medicine is not shown by the patient. Ask the patient or their family."
+                  : `${facts.medicinesNotShown} medicines are not shown by the patient. Ask the patient or their family.`
+                : "",
+            ]
+              .filter(Boolean)
+              .join(" "))
+          }
+        />
         <FactRow label="Conditions" value={notShared("conditions") ?? (facts.conditions.length > 0 ? facts.conditions.join(", ") : "None on file")} />
         <FactRow label="Reproductive and mental health" value={notShared("reproductive") ?? notShared("mental_health") ?? "Not on file"} />
         <FactRow

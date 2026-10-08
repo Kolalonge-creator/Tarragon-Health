@@ -1,3 +1,4 @@
+import { FeatureConsentGate } from "@/ui/feature-consent-gate";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -219,8 +220,10 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
         </View>
       ) : null}
 
-      <AppleHealthCard />
-      <AndroidHealthConnectCard />
+      <FeatureConsentGate dataType="device_data">
+        <AppleHealthCard />
+        <AndroidHealthConnectCard />
+      </FeatureConsentGate>
 
       <View style={{ gap: 10 }}>
         <SectionLabel>Paired devices</SectionLabel>

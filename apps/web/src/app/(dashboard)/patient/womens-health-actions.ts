@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { resolveSubjectId, assertNotActingFor } from "@/lib/acting/acting-for";
+import { friendlyDbError } from "@/lib/consent/feature-consent-error";
 import {
   breastSymptomReportSchema,
   menopauseSymptomLogSchema,
@@ -80,7 +81,7 @@ export async function saveContraceptionMethod(
     },
     { onConflict: "patient_id" }
   );
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error.message) };
   return { success: true };
 }
 
@@ -109,7 +110,7 @@ export async function setLastMenstrualPeriod(
     },
     { onConflict: "patient_id" }
   );
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error.message) };
   return { success: true };
 }
 
@@ -150,7 +151,7 @@ export async function reportPregnancyDangerSymptoms(
     trigger_detail: pregnancyDangerSignsSummary(parsed.data.signs as PregnancyDangerSign[]),
     status: "active",
   });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error.message) };
   return { success: true };
 }
 
@@ -179,7 +180,7 @@ export async function reportBreastSymptoms(
     duration_note: parsed.data.duration_note,
     notes: parsed.data.notes,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error.message) };
   return { success: true };
 }
 
@@ -211,7 +212,7 @@ export async function logMenopauseSymptoms(
     postmenopausal_bleeding: parsed.data.postmenopausal_bleeding,
     notes: parsed.data.notes,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error.message) };
   return { success: true };
 }
 
@@ -236,7 +237,7 @@ export async function requestFertilityAssessment(
     trying_duration_months: parsed.data.trying_duration_months,
     concern_notes: parsed.data.concern_notes,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error.message) };
   return { success: true };
 }
 
@@ -270,7 +271,7 @@ export async function recordDelivery(
     { patient_id: ctx.subjectId, organisation_id: ctx.organisationId, is_pregnant: false },
     { onConflict: "patient_id" }
   );
-  if (pregnancyError) return { error: pregnancyError.message };
+  if (pregnancyError) return { error: friendlyDbError(pregnancyError.message) };
 
   const { error } = await ctx.supabase.from("postnatal_profiles").insert({
     patient_id: ctx.subjectId,
@@ -279,7 +280,7 @@ export async function recordDelivery(
     delivery_mode: parsed.data.delivery_mode,
     complications: parsed.data.complications,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error.message) };
   return { success: true };
 }
 
@@ -312,6 +313,6 @@ export async function logPostnatalCheckin(
     contraception_discussed: parsed.data.contraception_discussed,
     completed_at: new Date().toISOString(),
   });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyDbError(error.message) };
   return { success: true };
 }

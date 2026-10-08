@@ -35,8 +35,7 @@ const ALL_BANDS: AgeBand[] = ["18-24", "25-39", "40-49", "50-plus"];
  * pricing.ts. Standalone self-booking is only offered for the
  * WHO-priority confidential screens, blood group & genotype, and the
  * Annual Health Check ladder itself; prostate and colorectal screening
- * are part of Advanced Screen, breast imaging is part of Comprehensive
- * Screen, or otherwise ordered by a doctor — never a bare self-service
+ * and breast imaging are ordered by a doctor when age and history call for it (none is part of the Membership blood test) — never a bare self-service
  * SKU, so their "book it" step says that plainly rather than overclaiming.
  */
 export const SCREENINGS: ScreeningItem[] = [
@@ -109,11 +108,11 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Book it",
-        body: "Included as part of Comprehensive Screen or arranged directly by your doctor if your history calls for it sooner, rather than sold as a stand-alone booking.",
+        body: "Arranged by your care team when your age or history calls for it. It is not part of the Membership blood test and is not sold as a stand-alone booking.",
       },
       {
         title: "Test day",
-        body: "An imaging order (ultrasound if you're under 40, mammography from 40), which you take to any imaging facility near you. You pay them directly, at their price, and upload the result yourself, just like the rest of Comprehensive Screen.",
+        body: "An imaging order (ultrasound if you're under 40, mammography from 40), which you take to any imaging facility near you. You pay them directly, at their price, and upload the result yourself so your care team can read it with you.",
       },
       {
         title: "Results & what's next",

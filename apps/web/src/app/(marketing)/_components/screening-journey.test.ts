@@ -63,6 +63,6 @@ describe("recommendedScreenings", () => {
     const prostate = SCREENINGS.find((item) => item.id === "prostate")!;
     const breast = SCREENINGS.find((item) => item.id === "breast")!;
     expect(prostate.steps[1].body).toContain("not sold as a stand-alone test");
-    expect(breast.steps[1].body).toContain("rather than sold as a stand-alone booking");
+    expect(breast.steps[1].body).toContain("not sold as a stand-alone booking");
   });
 });

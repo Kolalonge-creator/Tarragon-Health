@@ -47,7 +47,7 @@ describe("MembershipShop", () => {
   it("shows the item, what is included, the price and an estimated fee labelled as an estimate", async () => {
     render(<MembershipShop locale="en" fee={FEE} go={assign} />);
     expect(screen.getByText("Tarragon Membership")).toBeTruthy();
-    expect(screen.getByText(/A video call with your care team every month/)).toBeTruthy();
+    expect(screen.getByText(/A video call with your care team about once a month/)).toBeTruthy();
     expect(screen.getByText("₦100,000")).toBeTruthy();
     expect(screen.getAllByText(/about ₦/).length).toBe(2);
     expect(screen.getByText(/estimate/i)).toBeTruthy();

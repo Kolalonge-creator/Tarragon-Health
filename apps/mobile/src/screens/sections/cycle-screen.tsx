@@ -1,3 +1,4 @@
+import { FeatureConsentGate } from "@/ui/feature-consent-gate";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, Text, TextInput, View } from "react-native";
 import { supabase } from "@/lib/supabase";
@@ -150,7 +151,7 @@ function toggle<T>(list: T[], value: T): T[] {
   return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
 }
 
-export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScreenProps) {
+function CycleScreenInner({ patientId, organisationId, onNavigate }: CycleScreenProps) {
   const colors = useLegacyColors();
   const textInputStyle = useTextInputStyle();
   const { scheme } = useTheme();
@@ -612,5 +613,14 @@ function DayLogForm({
         {saved && !submitting && <MutedText>Saved</MutedText>}
       </View>
     </View>
+  );
+}
+
+/** S47d: the screen opens only once the person has said yes to reproductive health data; until then it asks. */
+export function CycleScreen(props: Parameters<typeof CycleScreenInner>[0]) {
+  return (
+    <FeatureConsentGate dataType="reproductive" title="Your cycle">
+      <CycleScreenInner {...props} />
+    </FeatureConsentGate>
   );
 }

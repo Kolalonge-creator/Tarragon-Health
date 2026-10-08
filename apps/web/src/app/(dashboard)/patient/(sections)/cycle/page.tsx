@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
+import { FeatureConsentGate } from "@/components/consent/feature-consent-gate";
 import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { CycleTracker } from "@/app/(dashboard)/patient/cycle/cycle-tracker";
@@ -54,6 +55,7 @@ export default async function CyclePage() {
       {/* Every row written here carries an organisation_id, so without one
           there is nothing to write to. Same guard the Prevention hub puts
           around this card. */}
+      <FeatureConsentGate dataType="reproductive" onBehalfOf={subjectId !== profile.id}>
       {profile.organisation_id ? (
         <CycleTracker
           patientId={subjectId}
@@ -67,6 +69,7 @@ export default async function CyclePage() {
           contact your care team.
         </p>
       )}
+      </FeatureConsentGate>
 
       <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
         Trying to conceive, pregnant, postpartum or approaching menopause?{" "}

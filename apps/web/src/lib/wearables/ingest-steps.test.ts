@@ -22,6 +22,8 @@ function fakeSvc(rpcResult: unknown = true) {
   const svc = {
     from: () => ({ insert: async () => ({ error: null }) }),
     rpc: jest.fn(async (fn: string, args: Record<string, unknown>) => {
+      // S47d: the device-data consent check is not what these tests count; it answers yes
+      if (fn === "device_data_consent_in_force") return { data: true, error: null };
       rpcCalls.push({ fn, args });
       return { data: rpcResult, error: null };
     }),
@@ -152,5 +154,34 @@ describe("consent gating (53.3/53.4)", () => {
 
     expect(rpcCalls).toHaveLength(1);
     expect(result.deniedByConsent).toBe(0);
+  });
+});
+
+describe("device data consent (S47d)", () => {
+  it("stores nothing and counts every reading as denied when the matrix consent is not in force", async () => {
+    const inserts: string[] = [];
+    const svc = {
+      from: (t: string) => ({
+        insert: async () => {
+          inserts.push(t);
+          return { error: null };
+        },
+      }),
+      rpc: jest.fn(async (fn: string) => ({ data: fn === "device_data_consent_in_force" ? false : true, error: null })),
+    } as unknown as SupabaseClient<Database>;
+    const result = await ingestReadings(svc, target, [steps(9412, "2026-08-12T18:00:00.000Z"), steps(100, "2026-08-12T19:00:00.000Z", "x2")]);
+    expect(result.deniedByConsent).toBe(2);
+    expect(result.wearableInserted + result.vitalsInserted + result.stepDaysRecorded).toBe(0);
+    expect(inserts).toHaveLength(0);
+  });
+
+  it("fails closed when the consent lookup itself fails", async () => {
+    const svc = {
+      from: () => ({ insert: async () => ({ error: null }) }),
+      rpc: jest.fn(async () => ({ data: null, error: { message: "down" } })),
+    } as unknown as SupabaseClient<Database>;
+    const result = await ingestReadings(svc, target, [steps(9412, "2026-08-12T18:00:00.000Z")]);
+    expect(result.deniedByConsent).toBe(1);
+    expect(result.wearableInserted).toBe(0);
   });
 });

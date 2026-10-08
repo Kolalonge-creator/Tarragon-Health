@@ -199,27 +199,22 @@ export default function AnnualHealthCheckPage() {
 
       <Section>
         <SectionHeading
-          eyebrow="Pick your level"
-          title="Three tiers, one discipline"
-          description="Each tier includes everything in the one before it, and every one ends with a doctor talking you through your results."
+          eyebrow="Two levels"
+          title="Free, or Membership"
+          description="The app is free. Membership adds a yearly blood test and a doctor who follows up with you about once a month. Both levels get reminders when a screening is due."
         />
-        <div className="mx-auto grid max-w-4xl gap-6 sm:grid-cols-3">
+        <div className="mx-auto grid max-w-4xl gap-6 sm:grid-cols-2">
           {[
             {
-              name: "Core Screen",
-              price: "You pay the lab, once",
-              body: "A full cardiometabolic and organ-baseline workup (HbA1c, full lipid panel, full blood count, liver/kidney/thyroid function, urinalysis) plus HIV, Hepatitis B, and Hepatitis C screening, genotype and blood group (once), and a 15-minute doctor video consult to walk through your results.",
+              name: "Free",
+              price: "No charge",
+              body: "The app: record your readings, keep your results and medicines in one place, and get a reminder when a screening is due. Nothing here uses a doctor's time.",
+            },
+            {
+              name: "Membership",
+              price: "120,000 naira a year",
+              body: "One annual blood test (HbA1c, full lipid panel, full blood count, liver, kidney and thyroid function, urinalysis, and the screening tests your care team judges you need), your results reviewed by your doctor, and a doctor who follows up with you about once a month. Medicines and imaging are not included.",
               highlight: true,
-            },
-            {
-              name: "Advanced Screen",
-              price: "You pay the lab, once",
-              body: "Everything in Core Screen, plus the cancer screening that fits your age and sex (cervical screening or PSA), an ECG, and a personalised screening calendar.",
-            },
-            {
-              name: "Comprehensive Screen",
-              price: "You pay the lab, once",
-              body: "Everything in Advanced Screen, plus imaging.",
             },
           ].map((tier) => (
             <div
@@ -248,12 +243,12 @@ export default function AnnualHealthCheckPage() {
         <div className="mx-auto mt-8 max-w-3xl rounded-xl border border-dashed border-charcoal-ink/15 bg-white/60 p-6 text-center">
           <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">Coming soon</p>
           <h3 className="mt-1 font-heading text-lg font-semibold text-charcoal-ink">
-            Full Panel: more biomarkers, on top of any tier
+            Full Panel: more biomarkers, on top of Membership
           </h3>
           <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">
             Vitamin D, B12 &amp; folate, iron studies, hs-CRP, a coagulation profile, and an
             age/sex-appropriate tumour marker screen, added to your next check as a one-time
-            upgrade. We&apos;re holding it back until a Clinical Director signs off the exact
+            upgrade for Members. We&apos;re holding it back until a Clinical Director signs off the exact
             panel.
           </p>
           <p className="mt-3 text-sm text-charcoal-ink/60">
