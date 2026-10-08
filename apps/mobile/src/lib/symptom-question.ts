@@ -5,7 +5,7 @@ import { gradeOnDevice, type DeviceTriage } from "./triage-device";
 /**
  * The emergency-symptom question (CMO decision, 2026-10-05; rule BP-X1, text TRI-008).
  *
- * A reading of 200/130 or more is not graded until the patient says whether they have any emergency symptom:
+ * A reading at or above the rule set's question line (params.extreme: 200/130 in version 3, 180/120 in the draft version 4) is not graded until the patient says whether they have any emergency symptom:
  * "yes" is graded red (BP-R1: emergency guidance and an immediate page), "none" starts the rest and 2 hour recheck
  * (BP-X2). This file holds the two pure pieces the sheet needs: the list it shows and the answer.
  * No language model is ever consulted (INV-01); the grading is the same engine the server runs.

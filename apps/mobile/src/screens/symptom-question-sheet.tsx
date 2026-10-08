@@ -10,7 +10,7 @@ type Tr = (key: MessageKey, params?: Record<string, string | number>) => string;
 /**
  * The emergency-symptom question for a very high reading (TRI-008, rule BP-X1).
  *
- * Shown over the blood pressure form after a reading of 200/130 or more, before it is graded. The reading is already
+ * Shown over the blood pressure form after a reading at or above the rule set's question line (params.extreme: 200/130 in the approved version 3, 180/120 in the draft version 4), before it is graded. The reading is already
  * being saved behind it; this only decides what the patient is told next. Two answers, nothing to skip:
  *  - "Yes, I have at least one" (enabled once a symptom is chosen): the symptoms are saved and the emergency guidance shows.
  *  - "No, none of these": medicine, rest and a recheck after 2 hours.

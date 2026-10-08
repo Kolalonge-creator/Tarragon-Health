@@ -142,7 +142,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   const [rulesStale, setRulesStale] = useState(false);
   const [symptomOpen, setSymptomOpen] = useState(false);
   const [guidance, setGuidance] = useState<GuidanceState | null>(null);
-  // The emergency-symptom question for a reading of 200/130 or more (TRI-008): the reading it is about, until answered.
+  // The emergency-symptom question for a reading at or above the rule set's question line (params.extreme: 200/130 in the approved version 3, 180/120 in the draft version 4) (TRI-008): the reading it is about, until answered.
   const [question, setQuestion] = useState<{ systolic: number; diastolic: number; gradedAtMs: number } | null>(null);
   const [questionBusy, setQuestionBusy] = useState(false);
   const [questionFailed, setQuestionFailed] = useState(false);

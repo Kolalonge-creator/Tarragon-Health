@@ -1809,4 +1809,16 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/DECISIONS.md S11-1; supabase/migrations/20261007152136_s11c_bp_care_triage_v3.sql",
   },
+  {
+    key: "triage.bp_rule_set",
+    // v4 names bp_care_triage v4, a DRAFT (founder decision D1, 2026-10-07): the emergency-symptom question from 180/120 instead of 200/130.
+    // The database row is a draft and the CMO has NOT signed it. The CMO still decides: whether "severe or new headache" is one symptom or two,
+    // whether 180/110 should be the trigger, and the recheck window (params.proposedForCmo in the rule set).
+    value: { code: "bp_care_triage", ruleSetVersion: 4, adultAgeYears: 18 },
+    owner: "CMO",
+    status: "proposed",
+    version: 4,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S85-D1.md; supabase/migrations/20261007211437_s85d1_bp_care_triage_v4_draft_180_120.sql",
+  },
 ];
