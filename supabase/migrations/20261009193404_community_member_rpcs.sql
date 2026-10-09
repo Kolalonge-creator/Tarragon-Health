@@ -246,7 +246,7 @@ declare
   v_group uuid;
 begin
   if v_uid is null then raise exception 'sign in required' using errcode = '28000'; end if;
-  select group_id into v_group from public.community_posts where id = p_post_id;
+  select group_id into v_group from public.community_posts where id = p_post_id and state = 'visible';
   if v_group is null or not private.community_reader_ok(v_group, v_uid) then return jsonb_build_object('ok', false, 'reason', 'not_a_member'); end if;
   return jsonb_build_object('ok', true, 'replies', coalesce((
     select jsonb_agg(jsonb_build_object(
@@ -341,7 +341,7 @@ begin
   if p_client_request_id is not null then
     select * into v_existing from public.community_posts where author_profile_id = v_uid and client_request_id = p_client_request_id;
     if found then
-      return jsonb_build_object('status', case v_existing.state when 'visible' then 'published' else 'held' end, 'post_id', v_existing.id, 'repeat', true);
+      return private.community_replay_result(v_existing);
     end if;
   end if;
 
@@ -396,7 +396,7 @@ begin
     returning id into v_post_id;
   exception when unique_violation then
     select * into v_existing from public.community_posts where author_profile_id = v_uid and client_request_id = p_client_request_id;
-    return jsonb_build_object('status', case v_existing.state when 'visible' then 'published' else 'held' end, 'post_id', v_existing.id, 'repeat', true);
+    return private.community_replay_result(v_existing);
   end;
 
   if v_action = 'safety' then
@@ -417,6 +417,18 @@ begin
   return jsonb_build_object('status', 'published', 'post_id', v_post_id);
 end $$;
 
+-- What a retried request is told: the same answer the first attempt got, including the safety card for a withheld post.
+create or replace function private.community_replay_result(po public.community_posts) returns jsonb
+language sql immutable set search_path = '' as $$
+  select case
+    when po.state = 'visible' then jsonb_build_object('status', 'published', 'post_id', po.id, 'repeat', true)
+    when exists (select 1 from unnest(po.hold_reason_codes) c where c like 'safety:%')
+      then jsonb_build_object('status', 'withheld',
+             'safety_kind', (select substr(c, 8) from unnest(po.hold_reason_codes) c where c like 'safety:%' limit 1),
+             'post_id', po.id, 'repeat', true)
+    else jsonb_build_object('status', 'held', 'post_id', po.id, 'repeat', true) end
+$$;
+
 create or replace function public.community_edit_post(p_post_id uuid, p_body text)
 returns jsonb language plpgsql volatile security definer set search_path = '' as $$
 declare
@@ -430,11 +442,14 @@ declare
   v_class text;
   v_codes text[];
   v_apc integer;
+  v_nb integer;
 begin
   if v_uid is null then raise exception 'sign in required' using errcode = '28000'; end if;
   select * into po from public.community_posts where id = p_post_id for update;
   if not found or po.author_profile_id is distinct from v_uid then return jsonb_build_object('status', 'refused', 'reason', 'not_yours'); end if;
   if po.state not in ('visible', 'held') then return jsonb_build_object('status', 'refused', 'reason', 'not_editable'); end if;
+  -- a post withheld for safety is the reviewer's to decide; editing it would wipe the safety marker
+  if exists (select 1 from unnest(po.hold_reason_codes) c where c like 'safety:%') then return jsonb_build_object('status', 'refused', 'reason', 'not_editable'); end if;
   if po.created_at < now() - make_interval(mins => private.community_cfg_int('edit_window_minutes')) then
     return jsonb_build_object('status', 'refused', 'reason', 'edit_window_over');
   end if;
@@ -443,6 +458,12 @@ begin
   v_body := btrim(coalesce(p_body, ''));
   if v_body = '' then return jsonb_build_object('status', 'refused', 'reason', 'empty'); end if;
   if length(v_body) > private.community_cfg_int('post_max_chars') then return jsonb_build_object('status', 'refused', 'reason', 'too_long'); end if;
+  -- the same cool-down as a new post: editing is not a way to keep probing the filter
+  if exists (select 1 from public.community_moderation_events e
+              where e.member_profile_id = v_uid and e.action = 'cooldown_started'
+                and e.created_at > now() - make_interval(mins => (private.community_cfg() #>> '{block_cooldown,cooldown_minutes}')::int)) then
+    return jsonb_build_object('status', 'refused', 'reason', 'cooling_down');
+  end if;
 
   v_scan := private.community_scan(v_body);
   if v_scan ->> 'decision' = 'unavailable' then return jsonb_build_object('status', 'refused', 'reason', 'not_ready'); end if;
@@ -455,6 +476,12 @@ begin
 
   if v_action = 'block' then
     perform private.community_log_event(po.group_id, po.id, v_uid, 'blocked', v_uid, v_class, v_scan -> 'hits');
+    select count(*) into v_nb from public.community_moderation_events e
+     where e.member_profile_id = v_uid and e.action = 'blocked'
+       and e.created_at > now() - make_interval(mins => (private.community_cfg() #>> '{block_cooldown,window_minutes}')::int);
+    if v_nb >= (private.community_cfg() #>> '{block_cooldown,max_blocks}')::int then
+      perform private.community_log_event(po.group_id, null, v_uid, 'cooldown_started', null, 'repeated_blocks', '[]'::jsonb);
+    end if;
     return jsonb_build_object('status', 'blocked', 'reason', v_class);
   end if;
 
@@ -565,7 +592,7 @@ end $$;
 -- ---------------------------------------------------------------------------
 revoke all on function
   private.community_log_event(uuid, uuid, uuid, text, uuid, text, jsonb), private.community_new_handle(uuid), private.community_pick_avatar(),
-  private.community_reader_ok(uuid, uuid), private.community_posting_gate(uuid, uuid), private.community_scan_outcome(jsonb, integer)
+  private.community_reader_ok(uuid, uuid), private.community_posting_gate(uuid, uuid), private.community_scan_outcome(jsonb, integer), private.community_replay_result(public.community_posts)
 from public, anon, authenticated, service_role;
 
 revoke all on function

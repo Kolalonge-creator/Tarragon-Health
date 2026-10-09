@@ -46,7 +46,12 @@ export function GroupView({
   const [muted, setMuted] = useState(membership.status !== "none" && membership.notifications_muted);
   const [controlNote, setControlNote] = useState<Parameters<typeof t>[0] | null>(null);
 
-  const refresh = () => router.refresh();
+  // Older posts loaded by "show older" would go stale after an edit or delete, so a refresh starts the list again.
+  const refresh = () => {
+    setOlder([]);
+    setHasMore(initialHasMore);
+    router.refresh();
+  };
   const isMember = membership.status === "active";
   const readOnly = group.status === "read_only";
   const canPost = isMember && !readOnly && membership.rules_current;

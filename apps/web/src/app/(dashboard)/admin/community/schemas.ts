@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 /** Input rules for the admin forms. Limits that are PROPOSED configuration live in the database and are enforced there, not here. */
-export const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-export const TOPIC_CODE = /^[a-z0-9]+(_[a-z0-9]+)*$/;
+export const SLUG = /^(?=[a-z0-9-]{4,60}$)[a-z0-9]+(-[a-z0-9]+)*$/;
+export const TOPIC_CODE = /^[a-z](?=[a-z0-9_]{2,40}$)[a-z0-9]*(_[a-z0-9]+)*$/;
 
 const uuid = z.string().uuid();
 const blankToNull = (v: unknown) => (typeof v === "string" && v.trim() === "" ? null : v);
@@ -12,17 +12,17 @@ export const RULE_CLASSES = ["contact", "contact_platform", "commerce", "cure_cl
 export const DETECTORS = ["phone_digits", "email", "url", "handle"] as const;
 
 export const createGroupSchema = z.object({
-  name: z.string().trim().min(2, "Please give the group a name.").max(120),
-  slug: z.string().trim().regex(SLUG, "The address can use lowercase letters, numbers and hyphens only."),
-  description: z.string().trim().max(1000),
+  name: z.string().trim().min(3, "Please give the group a name of at least 3 letters.").max(80),
+  slug: z.string().trim().regex(SLUG, "The address needs 4 to 60 lowercase letters, numbers and hyphens."),
+  description: z.string().trim().max(600),
   topic_code: z.string().trim().min(1, "Please choose a topic."),
   rules_text: z.string().trim().min(1, "Please write the group rules."),
 });
 export const editGroupSchema = z.object({
   id: uuid,
   slug: z.string().trim().regex(SLUG),
-  name: z.string().trim().min(2, "Please give the group a name.").max(120),
-  description: z.string().trim().max(1000),
+  name: z.string().trim().min(3, "Please give the group a name of at least 3 letters.").max(80),
+  description: z.string().trim().max(600),
   topic_code: z.string().trim().min(1, "Please choose a topic."),
   rules_text: z.string().trim().min(1, "Please write the group rules."),
 });
@@ -52,7 +52,7 @@ export const ruleSaveSchema = z
     version: z.coerce.number().int().positive(),
     class: z.enum(RULE_CLASSES),
     kind: z.enum(["regex", "detector"]),
-    pattern: z.string().trim().min(1, "Please give a pattern.").max(500),
+    pattern: z.string().trim().min(1, "Please give a pattern.").max(400),
     action: z.enum(["block", "hold"]),
   })
   .refine((v) => v.kind !== "detector" || (DETECTORS as readonly string[]).includes(v.pattern), {

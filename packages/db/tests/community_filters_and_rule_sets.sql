@@ -132,7 +132,14 @@ begin
     ('ok', 'I take 1 tablet at 8 and 1 at 20 every day', 'allow'), ('ok', '2026 10 09 was my last review', 'allow'),
     ('ok', 'I never skip my tablets', 'allow'), ('ok', 'my doctor told me to continue my insulin', 'allow'),
     ('ok', 'I stopped adding salt and it helped', 'allow'), ('ok', 'reduce salt in your food', 'allow'),
-    ('ok', 'Thanks everyone, this group is kind', 'allow');
+    ('ok', 'Thanks everyone, this group is kind', 'allow'),
+    -- review fix: lists of health numbers and prices are not phone numbers
+    ('ok', 'hba1c 6.5 6.8 7.1 7.4 7.0 6.9', 'allow'), ('ok', 'fasting 5.6 6.1 7.2 5.9 6.3', 'allow'),
+    ('ok', 'steps this week 10000 12000 9000', 'allow'), ('ok', 'cost was 15000 20000 naira', 'allow'),
+    ('ok', '2000 2500 3000', 'allow'),
+    -- review fix: bracket and parenthesis link tricks, and a plus number
+    ('url', 'go to evil[.]com', 'block'), ('url', 'evil (dot) com', 'block'), ('url', 'evil{.}com', 'block'),
+    ('phone', '+44 7700 900123', 'block'), ('phone', '1234567890123', 'block');
   for r in select * from fx order by kind, txt loop
     perform pg_temp.rec(r.kind || ': ' || left(r.txt, 60), r.expected, private.community_scan(r.txt) ->> 'decision');
   end loop;

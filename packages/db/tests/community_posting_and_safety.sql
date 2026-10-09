@@ -385,6 +385,41 @@ begin
   perform pg_temp.rec('a reviewed note is shown with the reviewer''s real name', 'COM doc2', (v_j -> 'pinned' -> 0 ->> 'reviewed_by_name'));
   perform pg_temp.rec('...and when it was reviewed', 'true', ((v_j -> 'pinned' -> 0 ->> 'reviewed_at') is not null)::text);
 
+  -- 12b. Code-review fixes ------------------------------------------------------------------------------------------------------------------------
+  -- a safety-withheld post that also holds a phone number: releasing it must not publish the number
+  if not exists (select 1 from public.community_staff where profile_id = v_rev and scope = 'safety_reviewer' and revoked_at is null) then
+    perform pg_temp.asj(v_admin, format($q$select public.community_admin_grant_staff(%L, 'safety_reviewer', null)$q$, v_rev));
+  end if;
+  v_req := gen_random_uuid();
+  v_j := pg_temp.sub(v_p6, v_g, 'a test crisis phrase, call me on 08031234567', null, v_req);
+  perform pg_temp.rec('safety outranks the contact block (post is withheld)', 'withheld', (v_j ->> 'status'));
+  v_post := (v_j ->> 'post_id')::uuid;
+  v_j := pg_temp.sub(v_p6, v_g, 'a test crisis phrase, call me on 08031234567', null, v_req);
+  perform pg_temp.rec('a retried request is still told it was withheld', 'withheld', (v_j ->> 'status'));
+  perform pg_temp.rec('...with the same kind, so the right card shows', 'self_harm', (v_j ->> 'safety_kind'));
+  perform pg_temp.rec('a safety-withheld post cannot be edited by its author', 'not_editable',
+    (pg_temp.asj(v_p6, format($q$select public.community_edit_post(%L, 'herbal tea')$q$, v_post)) ->> 'reason'));
+  select id into v_sig from public.community_safety_signals where post_id = v_post;
+  perform pg_temp.rec('a release that would publish contact details is refused', 'still_blocked',
+    (pg_temp.asj(v_rev, format($q$select public.community_safety_decide(%L, 'release')$q$, v_sig)) ->> 'reason'));
+  perform pg_temp.rec('...and the post stays held', 'held', (select state from public.community_posts where id = v_post));
+  -- replies to a post that is no longer visible are not returned
+  v_j := pg_temp.sub(v_p3, v_g, 'a parent post that will be removed');
+  v_post2 := (v_j ->> 'post_id')::uuid;
+  perform pg_temp.sub(v_p2, v_g, 'a reply to it', v_post2);
+  perform pg_temp.rec('replies are returned while the parent is visible', 'true',
+    (jsonb_array_length(pg_temp.asj(v_p2, format('select public.community_replies(%L)', v_post2)) -> 'replies') > 0)::text);
+  update public.community_posts set state = 'removed' where id = v_post2;
+  perform pg_temp.rec('replies of a removed parent are not returned', 'not_a_member',
+    (pg_temp.asj(v_p2, format('select public.community_replies(%L)', v_post2)) ->> 'reason'));
+  -- an unpin still works after the clinician who wrote the note has left
+  update public.clinical_staff set active = false where profile_id = v_doc;
+  perform pg_temp.rec('a note can be unpinned after its author has left', 'ok',
+    (pg_temp.asj(v_admin, format('select public.community_admin_unpin(%L)', v_pin)) ->> 'status'));
+  -- grants go only to accounts that have a queue screen
+  perform pg_temp.rec('moderation is not granted to an admin account', '42501',
+    pg_temp.try(format($q$insert into public.community_staff (profile_id, scope, granted_by) values (%L, 'moderator', %L)$q$, v_admin, v_admin)));
+
   -- 13. SABOTAGE -------------------------------------------------------------------------------------------------------------------------------------------
   -- (a) the scan lets everything through: a phone number must no longer be blocked
   create or replace function private.community_scan(p_body text) returns jsonb language sql stable as $s$ select jsonb_build_object('decision', 'allow', 'version', 1, 'hits', '[]'::jsonb) $s$;

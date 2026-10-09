@@ -520,6 +520,10 @@ create index community_pinned_group_idx on public.community_pinned_content (grou
 create or replace function private.community_pinned_guard() returns trigger
 language plpgsql set search_path = '' as $$
 begin
+  -- Unpinning, or any change that leaves author and reviewer alone, must still work after a clinician has left.
+  if tg_op = 'UPDATE' and new.authored_by is not distinct from old.authored_by and new.reviewed_by is not distinct from old.reviewed_by then
+    return new;
+  end if;
   if not exists (select 1 from public.clinical_staff where profile_id = new.authored_by and active) then
     raise exception 'pinned group content is written by an active clinician' using errcode = '42501';
   end if;
@@ -555,8 +559,8 @@ begin
     raise exception 'a community staff grant is revoked, never deleted' using errcode = '42501';
   end if;
   if tg_op = 'INSERT' then
-    if not exists (select 1 from public.profiles where id = new.profile_id and is_active and role in ('admin', 'care_coordinator')) then
-      raise exception 'community moderation is granted to an active admin or care coordinator account' using errcode = '42501';
+    if not exists (select 1 from public.profiles where id = new.profile_id and is_active and role = 'care_coordinator') then
+      raise exception 'community moderation is granted to an active care coordinator account' using errcode = '42501';
     end if;
     if not exists (select 1 from public.profiles where id = new.granted_by and is_active and role = 'admin') then
       raise exception 'only an admin grants community moderation' using errcode = '42501';

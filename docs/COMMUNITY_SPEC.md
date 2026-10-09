@@ -497,3 +497,23 @@ Known limits and follow-ups (none blocks Phase 1; all are visible here on purpos
 
 Nothing is open for Phase 1 design. `OQ-COM-01` to `OQ-COM-10` are all decided. What is owed before go-live is a
 list of in-system acts by named people (section 8), not design questions.
+
+## 10b. Independent review (2026-10-09) and what changed
+
+An independent whole-branch review found 14 issues. Fixed, each with a standing check that fails when the fix is reverted:
+a safety-withheld post is rescanned before release and cannot be published with contact details in it; a retried
+request for a withheld post still gets the safety card; editing a safety-withheld post is refused; edits obey the
+cool-down and count toward it; replies of a removed or held parent are not returned; a pinned note can be unpinned after
+its author has left; phone detection no longer blocks lists of readings or prices (decimals are numbers, long runs need a
+real phone shape, `+` numbers are caught); `evil[.]com` style links are caught; moderation is granted only to care
+coordinator accounts, because those have the queue screen; sanction notices record their real source table; admin form
+limits match the database; "show older" no longer shows stale posts after an edit or delete.
+
+Left open, for decision or later work:
+- **Unmask is not tied to a safety signal.** COM-6 says identity is revealed only when a post suggests danger. The RPC
+  checks admin, reason length and a daily cap, not a signal, and notifies the CMO only (the spec also names the DPO). Decide
+  whether to require an open or recent signal for the handle and whether the DPO is a recipient.
+- **Purge is not scheduled.** `community_purge_expired` needs a daily job (service role) before go-live, or removed
+  posts keep their text.
+- **Notification templates are not registered** in `notification_templates` and the sender does not render them; notices are
+  in-app only. Register them before relying on the registry check.

@@ -139,7 +139,7 @@ begin
   values (po.author_profile_id, case when coalesce(p_platform_wide, false) then null else po.group_id end, p_kind, v_ends, btrim(p_reason_code), v_uid, po.id)
   returning id into v_id;
   perform private.community_log_event(po.group_id, po.id, po.author_profile_id, 'sanction_' || p_kind, v_uid, btrim(p_reason_code), '[]'::jsonb);
-  perform private.community_notify(po.author_profile_id, 'community_sanction_notice', v_id);
+  perform private.community_notify(po.author_profile_id, 'community_sanction_notice', v_id, 'community_sanctions');
   return jsonb_build_object('status', 'ok', 'sanction', p_kind);
 end $$;
 
@@ -177,6 +177,12 @@ begin
   v_status := case p_decision when 'release' then 'released' when 'keep_withheld' then 'kept_withheld' when 'close' then 'closed' else null end;
   if v_status is null then return jsonb_build_object('status', 'refused', 'reason', 'bad_decision'); end if;
   if p_decision = 'release' then
+    -- The post was stored because of its safety language; it may also hold contact details, which are never published.
+    -- (the scan's overall decision is "safety" for such a post, so look for any blocking rule among the hits)
+    if exists (select 1 from jsonb_array_elements(private.community_scan((select po.body from public.community_posts po where po.id = s.post_id)) -> 'hits') h where h ->> 'action' = 'block')
+       or private.community_scan((select po.body from public.community_posts po where po.id = s.post_id)) ->> 'decision' = 'unavailable' then
+      return jsonb_build_object('status', 'refused', 'reason', 'still_blocked');
+    end if;
     update public.community_posts set state = 'visible', hold_reason_codes = '{}' where id = s.post_id and state in ('held', 'auto_hidden');
   end if;
   update public.community_safety_signals set status = v_status, handled_by = v_uid, handled_at = now() where id = s.id;

@@ -423,6 +423,7 @@ const STAFF_REFUSED: Readonly<Record<string, string>> = {
   reason_needed: "Please give a reason.",
   hours_needed: "Please say how many hours (1 to 8760).",
   bad_decision: "That choice is not available.",
+  still_blocked: "This post also contains contact details, so it cannot be published. Keep it withheld or close it.",
   bad_kind: "That sanction is not available.",
   already_handled: "Someone else has already handled this.",
   already_closed: "This post is already closed.",

@@ -107,6 +107,9 @@ declare
   singles integer;
 begin
   v := private.community_digit_view(p_norm);
+  -- a decimal such as 6.5 or 7.25 is a measurement, not a phone number; a chain such as 0.8.0.3 is not matched (it is a dodge)
+  v := regexp_replace(v, '(^|[^0-9.])[0-9]+\.[0-9]{1,2}(?![0-9]|\.[0-9])', '\1 ', 'g');
+  if v ~ '\+\s?[0-9][0-9 ._()-]{8,}[0-9]' then return true; end if;     -- an international number written with a plus
   for m in select regexp_matches(v, '[0-9](?:[0-9 ._()*+-]*[0-9])?', 'g') loop
     d := regexp_replace(m[1], '[^0-9]', '', 'g');
     tot := length(d);
@@ -115,7 +118,8 @@ begin
     select coalesce(max(length(x)), 0), count(*) filter (where length(x) = 1) into mx, singles from unnest(g) as x;
     if tot >= 10 and d ~ '^0[789][01]' then return true; end if;        -- a Nigerian mobile written nationally
     if tot >= 12 and d ~ '^234[789][01]' then return true; end if;      -- ... or internationally
-    if tot >= 10 and mx >= 4 then return true; end if;                  -- an account number or a long number in blocks
+    if mx >= 10 then return true; end if;                               -- an account number or a long unbroken number
+    if tot between 10 and 13 and mx <= 4 and cardinality(g) >= 3 and (m[1] ~ '[-._()]' or (cardinality(g) = 3 and (select min(length(x)) from unnest(g) as x) <= 3)) then return true; end if;  -- a number in short blocks, with separators or an uneven last block
     if singles >= 8 then return true; end if;                           -- digits spaced apart to dodge the filter
   end loop;
   return false;
@@ -141,6 +145,8 @@ declare
   tok text;
   h text;
 begin
+  -- "evil[.]com", "evil(dot)com", "evil {.} com" are the same link
+  p_norm := regexp_replace(p_norm, '\s?[\[({]\s?(?:\.|dot)\s?[\])}]\s?', '.', 'g');
   -- "example dot com" written out can never be allow-listed
   if p_norm ~ '\y[a-z0-9-]+\s+dot\s+(?:com|ng|org|net|co)\y' then return true; end if;
   for m in
@@ -254,7 +260,7 @@ $$;
 
 -- One quiet in-app notice, fixed text chosen by the template key, no group name, no handle, no excerpt (INV-07).
 -- Skipped when the recipient already has an unread notice of the same kind from the last ten minutes.
-create or replace function private.community_notify(p_recipient uuid, p_template text, p_source uuid) returns void
+create or replace function private.community_notify(p_recipient uuid, p_template text, p_source uuid, p_source_table text default 'community_posts') returns void
 language plpgsql security definer set search_path = '' as $$
 begin
   if p_recipient is null then return; end if;
@@ -265,7 +271,7 @@ begin
     return;
   end if;
   insert into public.notifications (organisation_id, recipient_id, channel, template, payload, content_class, source_table, source_id)
-  select p.organisation_id, p.id, 'in_app', p_template, '{}'::jsonb, 'non_clinical', 'community_posts', p_source
+  select p.organisation_id, p.id, 'in_app', p_template, '{}'::jsonb, 'non_clinical', p_source_table, p_source
     from public.profiles p where p.id = p_recipient and p.is_active;
 end $$;
 
@@ -279,5 +285,5 @@ revoke all on function
   private.community_detect_url(text, jsonb), private.community_scan(text),
   private.community_is_moderator(uuid), private.community_is_safety_reviewer(),
   private.community_adult(uuid), private.community_active_sanction(uuid, uuid),
-  private.community_notify(uuid, text, uuid)
+  private.community_notify(uuid, text, uuid, text)
 from public, anon, authenticated, service_role;
