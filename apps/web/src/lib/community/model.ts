@@ -25,6 +25,8 @@ export const groupSummarySchema = z.object({
   status: z.enum(["active", "read_only"]),
   member_count: z.number().int().nonnegative(),
   my_status: z.enum(["none", "pending", "active", "left", "suspended", "banned"]),
+  /** The group has reached its size cap (Phase 2). Absent from an older database. */
+  full: z.boolean().optional(),
 });
 export type GroupSummary = z.infer<typeof groupSummarySchema>;
 
@@ -54,6 +56,7 @@ export const membershipSchema = z.discriminatedUnion("status", [
     avatar_code: z.string(),
     rules_current: z.boolean(),
     notifications_muted: z.boolean(),
+    digest_opt_in: z.boolean().optional(),
   }),
 ]);
 export type Membership = z.infer<typeof membershipSchema>;
@@ -73,9 +76,14 @@ export const groupViewSchema = z.discriminatedUnion("found", [
       rules_text: z.string(),
       rules_version: z.number().int(),
       join_mode: z.enum(["open", "request", "invite"]),
+      full: z.boolean().optional(),
     }),
     membership: membershipSchema,
     pinned: z.array(pinnedNoteSchema),
+    /** Staff who chose to show a name. A role label and a name they typed; never an account id. */
+    team: z.array(z.object({ display_name: z.string(), scope: z.enum(["moderator", "safety_reviewer"]) })).default([]),
+    /** Short lines the team shows at the top of the group for a while. */
+    prompts: z.array(z.object({ id: z.string(), body: z.string() })).default([]),
     limits: z.object({ post_max_chars: z.number().int().positive(), edit_window_minutes: z.number().int().nonnegative() }),
   }),
 ]);
@@ -181,6 +189,7 @@ const HELD_KEYS = {
   contact_platform: "community.compose.held.contact_platform",
   abuse: "community.compose.held.abuse",
   spam: "community.compose.held.spam",
+  eating_disorder: "community.compose.held.eating_disorder",
 } as const satisfies Record<string, MessageKey>;
 
 const JOIN_REFUSED_KEYS = {
@@ -191,6 +200,7 @@ const JOIN_REFUSED_KEYS = {
   not_allowed: "community.join.refused.not_allowed",
   not_open_yet: "community.join.refused.not_open_yet",
   adults_only: "community.join.refused.adults_only",
+  group_full: "community.join.refused.group_full",
 } as const satisfies Record<string, MessageKey>;
 
 function lookup<T extends Record<string, MessageKey>>(table: T, key: string | undefined, fallback: MessageKey): MessageKey {
@@ -427,6 +437,17 @@ const STAFF_REFUSED: Readonly<Record<string, string>> = {
   bad_kind: "That sanction is not available.",
   already_handled: "Someone else has already handled this.",
   already_closed: "This post is already closed.",
+  not_your_appeal_to_decide: "You made the original decision, so another moderator needs to decide this appeal.",
+  already_decided: "This appeal has already been decided.",
+  your_own_decision: "You made this decision, so another moderator needs to check it.",
+  already_reviewed: "This has already been checked.",
+  choose_one: "Please choose whether you agree.",
+  note_too_long: "Please keep the note under 500 characters.",
+  bad_name: "Use letters, spaces, commas, full stops, hyphens and apostrophes only, 2 to 40 characters. No numbers.",
+  bad_cap: "A group size cap is a whole number from 10 to 100000, or empty for no cap.",
+  text_not_allowed: "That text has a phone number, email, link or other wording the community filters refuse. Please rewrite it.",
+  bad_length: "Please write between 5 and 300 characters.",
+  bad_window: "The end time must be after the start time.",
   no_such_post: "That post is no longer there.",
   no_such_member: "No member matches that name in this group.",
   no_such_group: "That group no longer exists.",
@@ -445,3 +466,105 @@ const STAFF_REFUSED: Readonly<Record<string, string>> = {
 };
 export const staffRefusalText = (reason: string | undefined): string =>
   (reason !== undefined && Object.hasOwn(STAFF_REFUSED, reason) ? STAFF_REFUSED[reason] : undefined) ?? "That could not be done. Please try again.";
+
+// ---------------------------------------------------------------------------
+// Phase 2: hiding one person, appeals (patient side)
+// ---------------------------------------------------------------------------
+/** People the member has hidden in one group. A handle and the row id needed to show them again; nothing else. */
+export const hiddenListSchema = z.discriminatedUnion("ok", [
+  z.object({ ok: z.literal(false), reason: z.string() }),
+  z.object({ ok: z.literal(true), hidden: z.array(z.object({ id: z.string(), handle: z.string() })) }),
+]);
+export type HiddenList = z.infer<typeof hiddenListSchema>;
+
+export const APPEAL_STATUSES = ["open", "upheld", "overturned"] as const;
+export const myActionsSchema = z.object({
+  open: z.boolean(),
+  removed_posts: z.array(
+    z.object({
+      post_id: z.string(),
+      group_name: z.string(),
+      removed_at: z.string().nullable(),
+      reason_code: z.string().nullable(),
+      appeal_status: z.enum(APPEAL_STATUSES).nullable(),
+      can_appeal: z.boolean(),
+    }),
+  ),
+  sanctions: z.array(
+    z.object({
+      sanction_id: z.string(),
+      kind: z.enum(["warning", "mute", "suspend", "ban"]),
+      group_name: z.string().nullable(),
+      starts_at: z.string(),
+      ends_at: z.string().nullable(),
+      reason_code: z.string(),
+      overturned: z.boolean(),
+      appeal_status: z.enum(APPEAL_STATUSES).nullable(),
+      can_appeal: z.boolean(),
+    }),
+  ),
+});
+export type MyActions = z.infer<typeof myActionsSchema>;
+
+const APPEAL_REFUSED_KEYS = {
+  reason_length: "community.appeals.refused.reason_length",
+  already_appealed: "community.appeals.refused.already_appealed",
+  not_appealable: "community.appeals.refused.not_appealable",
+  not_open_yet: "community.appeals.refused.not_appealable",
+} as const satisfies Record<string, MessageKey>;
+/** The message for a refused appeal. Total, like the others. */
+export function appealRefusalKey(reason: string | undefined): MessageKey {
+  return lookup(APPEAL_REFUSED_KEYS, reason, "community.appeals.refused.other");
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2: staff side (plain English in the page, as the other staff screens)
+// ---------------------------------------------------------------------------
+export const appealQueueSchema = z.object({
+  items: z.array(
+    z.object({
+      appeal_id: z.string(),
+      kind: z.enum(["removal", "sanction"]),
+      group_name: z.string(),
+      created_at: z.string(),
+      member_says: z.string(),
+      original_reason_code: z.string().nullable(),
+      sanction_kind: z.string().nullable(),
+      author_handle: z.string().nullable(),
+      body: z.string().nullable(),
+    }),
+  ),
+});
+export type AppealItem = z.infer<typeof appealQueueSchema>["items"][number];
+
+export const sampleQueueSchema = z.object({
+  items: z.array(
+    z.object({
+      sample_id: z.string(),
+      decision: z.enum(["approved", "removed"]),
+      group_name: z.string(),
+      author_handle: z.string().nullable(),
+      body: z.string().nullable(),
+      reason_code: z.string().nullable(),
+      created_at: z.string(),
+    }),
+  ),
+});
+export type SampleItem = z.infer<typeof sampleQueueSchema>["items"][number];
+
+export const qualitySummarySchema = z.object({
+  waiting: z.number().int(),
+  reviewed_30d: z.number().int(),
+  disagreed_30d: z.number().int(),
+  appeals_open: z.number().int(),
+  appeals_overturned_30d: z.number().int(),
+  appeals_decided_30d: z.number().int(),
+});
+export type QualitySummary = z.infer<typeof qualitySummarySchema>;
+
+export const promptsAdminSchema = z.object({
+  prompts: z.array(
+    z.object({ id: z.string(), body: z.string(), show_from: z.string(), show_until: z.string().nullable(), showing: z.boolean() }),
+  ),
+});
+export type PromptRow = z.infer<typeof promptsAdminSchema>["prompts"][number];

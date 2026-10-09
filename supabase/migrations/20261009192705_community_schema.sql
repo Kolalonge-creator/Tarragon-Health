@@ -93,6 +93,8 @@ create table public.community_groups (
   sensitivity            text not null default 'standard' check (sensitivity in ('standard', 'sensitive')),
   join_mode              text not null default 'open' check (join_mode in ('open', 'request', 'invite')),
   min_age                integer not null default 18,
+  -- Soft size cap: a full group refuses new joins (an admin raises it, or opens a sibling group). Null means no cap.
+  member_cap             integer check (member_cap is null or member_cap between 10 and 100000),
   status                 text not null default 'draft' check (status in ('draft', 'active', 'read_only', 'archived')),
   -- Declared staffed hours (Africa/Lagos), used by the new-member rule. Shape is validated by the scan function, not here.
   moderated_hours        jsonb,
@@ -196,6 +198,8 @@ create table public.community_memberships (
   -- of the text the member saw is recorded.
   consent_version        text not null,
   consented_at           timestamptz not null default now(),
+  -- Opt-in weekly digest: one fixed in-app notice, never the group name (INV-07).
+  digest_opt_in          boolean not null default false,
   joined_at              timestamptz not null default now(),
   left_at                timestamptz,
   muted_until            timestamptz,
@@ -263,6 +267,10 @@ begin
      -- The author link may become null (the account was deleted: ON DELETE SET NULL fires this trigger) but never change to someone else.
      or (new.author_profile_id is not null and new.author_profile_id is distinct from old.author_profile_id) then
     raise exception 'a community post''s group, author, handle, parent and time never change' using errcode = '42501';
+  end if;
+  -- The one way back: a moderator's removal overturned on appeal (the appeal function sets this for its own transaction only).
+  if old.state = 'removed' and new.state = 'visible' and coalesce(current_setting('community.restore_on_appeal', true), '') = 'on' then
+    return new;
   end if;
   if old.state in ('removed', 'deleted_by_author') and new.state not in ('removed', 'deleted_by_author') then
     raise exception 'a removed post stays removed' using errcode = '42501';
@@ -377,7 +385,7 @@ create unique index community_filter_rule_sets_one_active on public.community_fi
 create table public.community_filter_rules (
   id               bigint generated always as identity primary key,
   rule_set_version integer not null references public.community_filter_rule_sets (version) on delete restrict,
-  class            text not null check (class in ('contact', 'contact_platform', 'commerce', 'cure_claim', 'medicine_instruction', 'abuse', 'spam', 'self_harm', 'emergency')),
+  class            text not null check (class in ('contact', 'contact_platform', 'commerce', 'cure_claim', 'medicine_instruction', 'abuse', 'spam', 'eating_disorder', 'self_harm', 'emergency')),
   -- detector: a named procedural detector (phone_digits, email, url, handle). regex: a Postgres regular expression run on the normalised text.
   kind             text not null check (kind in ('detector', 'regex')),
   pattern          text not null check (length(pattern) between 1 and 400),
@@ -546,7 +554,9 @@ create table public.community_staff (
   group_id   uuid references public.community_groups (id) on delete restrict,
   granted_by uuid references public.profiles (id) on delete set null,
   granted_at timestamptz not null default now(),
-  revoked_at timestamptz
+  revoked_at timestamptz,
+  -- Opt-in: a first name or a role label the staff member chooses to show members ("Ada, community moderator"). Null shows nothing.
+  display_name text check (display_name is null or length(btrim(display_name)) between 2 and 40)
 );
 create unique index community_staff_active_uniq on public.community_staff (profile_id, scope, coalesce(group_id, '00000000-0000-0000-0000-000000000000'::uuid)) where revoked_at is null;
 create index community_staff_lookup_idx on public.community_staff (profile_id) where revoked_at is null;
@@ -585,6 +595,70 @@ create trigger community_staff_guard before insert or update or delete on public
   for each row execute function private.community_staff_guard();
 
 -- ---------------------------------------------------------------------------
+-- 7b. Phase 2: hiding one person, appeals, quality sampling, group prompts
+-- ---------------------------------------------------------------------------
+-- A member hides one author inside one group. Private to the viewer; the author is never told. Gone with either account.
+create table public.community_hidden_authors (
+  id         uuid primary key default gen_random_uuid(),
+  viewer_id  uuid not null references public.profiles (id) on delete cascade,
+  author_id  uuid not null references public.profiles (id) on delete cascade,
+  group_id   uuid not null references public.community_groups (id) on delete cascade,
+  handle     text not null,
+  created_at timestamptz not null default now(),
+  unique (viewer_id, author_id, group_id),
+  constraint community_hidden_not_self check (viewer_id <> author_id)
+);
+
+-- A member's appeal of a removal or a sanction. Decided by a moderator who did not make the original decision.
+create table public.community_appeals (
+  id           uuid primary key default gen_random_uuid(),
+  profile_id   uuid references public.profiles (id) on delete set null,
+  kind         text not null check (kind in ('removal', 'sanction')),
+  post_id      uuid references public.community_posts (id) on delete set null,
+  sanction_id  uuid references public.community_sanctions (id) on delete set null,
+  group_id     uuid references public.community_groups (id) on delete restrict,
+  reason       text not null check (length(btrim(reason)) between 10 and 1000),
+  status       text not null default 'open' check (status in ('open', 'upheld', 'overturned')),
+  decided_by   uuid references public.profiles (id) on delete restrict,
+  decided_at   timestamptz,
+  decision_note text check (decision_note is null or length(decision_note) <= 500),
+  created_at   timestamptz not null default now(),
+  constraint community_appeals_decided check ((status = 'open') = (decided_at is null))
+);
+create unique index community_appeals_one_open_post on public.community_appeals (post_id) where status = 'open' and post_id is not null;
+create unique index community_appeals_one_open_sanction on public.community_appeals (sanction_id) where status = 'open' and sanction_id is not null;
+create index community_appeals_open_idx on public.community_appeals (created_at) where status = 'open';
+
+-- A share of moderator decisions is re-checked by a second moderator. The sample is picked when the decision is made.
+create table public.community_mod_samples (
+  id          uuid primary key default gen_random_uuid(),
+  post_id     uuid references public.community_posts (id) on delete set null,
+  group_id    uuid not null references public.community_groups (id) on delete restrict,
+  decision    text not null check (decision in ('approved', 'removed')),
+  decided_by  uuid references public.profiles (id) on delete set null,
+  created_at  timestamptz not null default now(),
+  reviewed_by uuid references public.profiles (id) on delete set null,
+  reviewed_at timestamptz,
+  agrees      boolean,
+  note        text check (note is null or length(note) <= 500),
+  constraint community_samples_reviewed check ((reviewed_at is null) = (agrees is null))
+);
+create index community_mod_samples_open_idx on public.community_mod_samples (created_at) where reviewed_at is null;
+
+-- A short line the team shows at the top of a group for a period (a welcome, a weekly question). Not a post, not a reply target.
+create table public.community_group_prompts (
+  id         uuid primary key default gen_random_uuid(),
+  group_id   uuid not null references public.community_groups (id) on delete cascade,
+  body       text not null check (length(btrim(body)) between 5 and 300),
+  show_from  timestamptz not null default now(),
+  show_until timestamptz,
+  created_by uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now(),
+  constraint community_prompts_window check (show_until is null or show_until > show_from)
+);
+create index community_group_prompts_idx on public.community_group_prompts (group_id, show_from desc);
+
+-- ---------------------------------------------------------------------------
 -- 8. Lock everything down. RLS on, no policy (default deny), no table privilege for anyone but the owner.
 -- ---------------------------------------------------------------------------
 do $$
@@ -595,7 +669,8 @@ begin
     'community_config', 'community_topics', 'community_groups', 'community_memberships', 'community_posts',
     'community_reactions', 'community_reports', 'community_sanctions', 'community_moderation_events',
     'community_filter_rule_sets', 'community_filter_rules', 'community_safety_signals',
-    'community_pinned_content', 'community_staff']
+    'community_pinned_content', 'community_staff',
+    'community_hidden_authors', 'community_appeals', 'community_mod_samples', 'community_group_prompts']
   loop
     execute format('alter table public.%I enable row level security', t);
     execute format('revoke all on public.%I from public, anon, authenticated, service_role', t);
@@ -623,7 +698,8 @@ begin
     'community_config', 'community_topics', 'community_groups', 'community_memberships', 'community_posts',
     'community_reactions', 'community_reports', 'community_sanctions', 'community_moderation_events',
     'community_filter_rule_sets', 'community_filter_rules', 'community_safety_signals',
-    'community_pinned_content', 'community_staff']
+    'community_pinned_content', 'community_staff',
+    'community_hidden_authors', 'community_appeals', 'community_mod_samples', 'community_group_prompts']
   loop
     if not (select relrowsecurity from pg_class where oid = ('public.' || t)::regclass) then
       raise exception 'community self-check: RLS is off on %', t;

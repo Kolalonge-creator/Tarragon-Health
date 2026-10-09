@@ -69,6 +69,7 @@ begin
              'id', g.id, 'slug', g.slug, 'name', g.name, 'description', g.description,
              'topic_code', g.topic_code, 'topic_label', t.label, 'status', g.status,
              'member_count', (select count(*) from public.community_memberships m where m.group_id = g.id and m.status = 'active'),
+             'full', (g.member_cap is not null and (select count(*) from public.community_memberships m where m.group_id = g.id and m.status = 'active') >= g.member_cap),
              'my_status', coalesce((select m.status from public.community_memberships m where m.group_id = g.id and m.profile_id = v_uid), 'none'))
            order by t.sort_order, g.name)
       from public.community_groups g
@@ -84,6 +85,9 @@ declare
   m public.community_memberships;
   v_topic text;
   v_pinned jsonb;
+  v_team jsonb;
+  v_prompts jsonb;
+  v_full boolean;
 begin
   if v_uid is null then raise exception 'sign in required' using errcode = '28000'; end if;
   if not private.go_live_open_patient('community', v_uid) then return jsonb_build_object('found', false, 'reason', 'not_open_yet'); end if;
@@ -102,16 +106,31 @@ begin
     into v_pinned
     from public.community_pinned_content pc
    where pc.group_id = g.id and pc.unpinned_at is null and pc.reviewed_by is not null and pc.reviewed_at is not null;
+  -- Who moderates: only staff who chose to show a name (their opt-in), and only those whose grant covers this group.
+  select coalesce(jsonb_agg(jsonb_build_object('display_name', x.display_name, 'scope', x.scope) order by x.scope, x.display_name), '[]'::jsonb)
+    into v_team
+    from (select distinct s.display_name, s.scope
+            from public.community_staff s
+            join public.profiles p on p.id = s.profile_id and p.is_active and p.role = 'care_coordinator'
+           where s.revoked_at is null and s.display_name is not null and (s.group_id is null or s.group_id = g.id)) x;
+  select coalesce(jsonb_agg(jsonb_build_object('id', gp.id, 'body', gp.body) order by gp.show_from desc), '[]'::jsonb)
+    into v_prompts
+    from (select * from public.community_group_prompts q
+           where q.group_id = g.id and q.show_from <= now() and (q.show_until is null or q.show_until > now())
+           order by q.show_from desc limit 3) gp;
+  v_full := g.member_cap is not null and (select count(*) from public.community_memberships mm where mm.group_id = g.id and mm.status = 'active') >= g.member_cap;
   return jsonb_build_object(
     'found', true,
     'group', jsonb_build_object('id', g.id, 'slug', g.slug, 'name', g.name, 'description', g.description, 'topic_code', g.topic_code,
                                 'topic_label', v_topic, 'status', g.status, 'rules_text', g.rules_text, 'rules_version', g.rules_version,
-                                'join_mode', g.join_mode),
+                                'join_mode', g.join_mode, 'full', v_full),
     'membership', case when m.group_id is null then jsonb_build_object('status', 'none') else jsonb_build_object(
                      'status', m.status, 'handle', m.handle, 'avatar_code', m.avatar_code,
                      'rules_current', (m.rules_accepted_version = g.rules_version),
-                     'notifications_muted', m.notifications_muted) end,
+                     'notifications_muted', m.notifications_muted, 'digest_opt_in', m.digest_opt_in) end,
     'pinned', v_pinned,
+    'team', v_team,
+    'prompts', v_prompts,
     -- The app reads limits from here and never carries a copy: they are PROPOSED values in the versioned configuration.
     'limits', jsonb_build_object('post_max_chars', private.community_cfg_int('post_max_chars'),
                                  'edit_window_minutes', private.community_cfg_int('edit_window_minutes')));
@@ -138,6 +157,10 @@ begin
   if g.join_mode <> 'open' then return jsonb_build_object('status', 'refused', 'reason', 'by_invitation'); end if;
   if p_rules_version is distinct from g.rules_version then return jsonb_build_object('status', 'refused', 'reason', 'rules_changed', 'rules_version', g.rules_version); end if;
   if p_consent is not true then return jsonb_build_object('status', 'refused', 'reason', 'consent_needed'); end if;
+  if g.member_cap is not null
+     and (select count(*) from public.community_memberships mm where mm.group_id = g.id and mm.status = 'active') >= g.member_cap then
+    return jsonb_build_object('status', 'refused', 'reason', 'group_full');
+  end if;
   if private.community_active_sanction(v_uid, g.id) in ('ban', 'suspend') then return jsonb_build_object('status', 'refused', 'reason', 'not_allowed'); end if;
 
   v_consent := private.community_cfg() ->> 'consent_version';
@@ -218,6 +241,7 @@ begin
       left join public.community_memberships m on m.group_id = po.group_id and m.profile_id = po.author_profile_id
      where po.group_id = p_group_id and po.parent_post_id is null
        and (po.state = 'visible' or (po.author_profile_id = v_uid and po.state in ('held', 'auto_hidden')))
+       and not exists (select 1 from public.community_hidden_authors h where h.viewer_id = v_uid and h.author_id = po.author_profile_id and h.group_id = po.group_id)
        and (p_before is null or po.created_at < p_before)
      order by po.created_at desc
      limit v_limit + 1)
@@ -234,6 +258,7 @@ begin
     select 1 from public.community_posts po
      where po.group_id = p_group_id and po.parent_post_id is null
        and (po.state = 'visible' or (po.author_profile_id = v_uid and po.state in ('held', 'auto_hidden')))
+       and not exists (select 1 from public.community_hidden_authors h where h.viewer_id = v_uid and h.author_id = po.author_profile_id and h.group_id = po.group_id)
        and (p_before is null or po.created_at < p_before)
      limit v_limit + 1) c;
   return jsonb_build_object('ok', true, 'posts', v_posts, 'has_more', v_more);
@@ -257,6 +282,7 @@ begin
       from public.community_posts r
       left join public.community_memberships m on m.group_id = r.group_id and m.profile_id = r.author_profile_id
      where r.parent_post_id = p_post_id
+       and not exists (select 1 from public.community_hidden_authors h where h.viewer_id = v_uid and h.author_id = r.author_profile_id and h.group_id = r.group_id)
        and (r.state = 'visible' or (r.author_profile_id = v_uid and r.state in ('held', 'auto_hidden')))), '[]'::jsonb));
 end $$;
 
@@ -410,6 +436,7 @@ begin
   end if;
 
   if p_parent_id is not null and v_parent.author_profile_id is not null and v_parent.author_profile_id <> v_uid
+     and not exists (select 1 from public.community_hidden_authors h where h.viewer_id = v_parent.author_profile_id and h.author_id = v_uid and h.group_id = p_group_id)
      and exists (select 1 from public.community_memberships m
                   where m.group_id = p_group_id and m.profile_id = v_parent.author_profile_id and m.status = 'active' and not m.notifications_muted) then
     perform private.community_notify(v_parent.author_profile_id, 'community_reply', v_post_id);
@@ -584,6 +611,9 @@ begin
   update public.community_posts set body = '[removed]'
    where state in ('removed', 'deleted_by_author') and body <> '[removed]' and removed_at < now() - make_interval(days => v_days);
   get diagnostics v_n = row_count;
+  -- what a member wrote in an appeal is kept for the same window after it is decided
+  update public.community_appeals set reason = '[removed after retention]'
+   where status <> 'open' and decided_at < now() - make_interval(days => v_days) and reason <> '[removed after retention]';
   return v_n;
 end $$;
 

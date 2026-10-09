@@ -1,7 +1,7 @@
 -- Community proof 2 of 3: access and isolation (migrations *_community_schema.sql, *_community_member_rpcs.sql, *_community_staff_admin_rpcs.sql).
 --
 -- Proves, in one rolled-back transaction:
---   1. All fourteen community tables are RPC-only: RLS on, no policy, and no client role (anon, authenticated, service_role)
+--   1. All eighteen community tables are RPC-only: RLS on, no policy, and no client role (anon, authenticated, service_role)
 --      holds any privilege on any of them. The default privilege that grants new tables to authenticated is neutralised.
 --   2. Function privileges: anon and PUBLIC execute nothing; signed-in users execute every public function (each checks its own
 --      authority); the purge is for the service role only; no private helper is callable by a client.
@@ -131,8 +131,8 @@ begin
   perform pg_temp.asj(v_admin, 'select public.community_admin_rule_set_activate(1)');
 
   -- 1. Every community table is unreachable from every client role -------------------------------------------------------
-  perform pg_temp.rec('there are fourteen community tables', '14', (select count(*)::text from pg_tables where schemaname = 'public' and tablename like 'community\_%'));
-  perform pg_temp.rec('RLS is on for every community table', '14',
+  perform pg_temp.rec('there are eighteen community tables', '18', (select count(*)::text from pg_tables where schemaname = 'public' and tablename like 'community\_%'));
+  perform pg_temp.rec('RLS is on for every community table', '18',
     (select count(*)::text from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relname like 'community\_%' and c.relkind = 'r' and c.relrowsecurity));
   perform pg_temp.rec('no community table has a policy (RPC-only)', '0', (select count(*)::text from pg_policies where schemaname = 'public' and tablename like 'community\_%'));
   for r in select tablename as t from pg_tables where schemaname = 'public' and tablename like 'community\_%' loop
@@ -172,11 +172,13 @@ begin
   perform pg_temp.rec('PUBLIC holds execute on no community function', 'none',
     coalesce((select string_agg(p.proname, ',') from pg_proc p join pg_namespace n on n.oid = p.pronamespace
        where n.nspname in ('public', 'private') and p.proname like 'community\_%' and coalesce(p.proacl::text, '') ~ '(^\{|,)=X'), 'none'));
-  perform pg_temp.rec('a signed-in user can execute every public community function except the purge', 'none',
+  perform pg_temp.rec('a signed-in user can execute every public community function except the two scheduled jobs', 'none',
     coalesce((select string_agg(p.proname, ',') from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-       where n.nspname = 'public' and p.proname like 'community\_%' and p.proname <> 'community_purge_expired' and not has_function_privilege('authenticated', p.oid, 'EXECUTE')), 'none'));
+       where n.nspname = 'public' and p.proname like 'community\_%' and p.proname not in ('community_purge_expired', 'community_send_digests') and not has_function_privilege('authenticated', p.oid, 'EXECUTE')), 'none'));
   perform pg_temp.rec('a signed-in user cannot execute the purge', 'false', has_function_privilege('authenticated', 'public.community_purge_expired()', 'EXECUTE')::text);
   perform pg_temp.rec('only the service role may run the purge', 'true', has_function_privilege('service_role', 'public.community_purge_expired()', 'EXECUTE')::text);
+  perform pg_temp.rec('only the service role may run the digest job', 'true,false',
+    has_function_privilege('service_role', 'public.community_send_digests()', 'EXECUTE')::text || ',' || has_function_privilege('authenticated', 'public.community_send_digests()', 'EXECUTE')::text);
   perform pg_temp.rec('a signed-in user can execute no private community function', 'none',
     coalesce((select string_agg(p.proname, ',') from pg_proc p join pg_namespace n on n.oid = p.pronamespace
        where n.nspname = 'private' and p.proname like 'community\_%' and has_function_privilege('authenticated', p.oid, 'EXECUTE')

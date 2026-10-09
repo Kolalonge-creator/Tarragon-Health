@@ -143,16 +143,16 @@ begin
   perform pg_temp.joined(v_p1, v_g); perform pg_temp.joined(v_p2, v_g); perform pg_temp.joined(v_p3, v_g); perform pg_temp.joined(v_p4, v_g);
   perform pg_temp.joined(v_p5, v_g); perform pg_temp.joined(v_p6, v_g); perform pg_temp.joined(v_p7, v_g);
 
-  -- 1. A new member is pre-moderated for the first three posts, then publishes ------------------------------------------------
-  for v_n in 1..3 loop
+  -- 1. A new member is pre-moderated for the first post (the configured number), then publishes ------------------------------------------------
+  for v_n in 1..1 loop
     v_j := pg_temp.sub(v_p1, v_g, 'Post number ' || v_n || ' from a new member');
     perform pg_temp.rec('new member post ' || v_n || ' is held for a moderator', 'held', (v_j ->> 'status'));
     perform pg_temp.asj(v_mod, format($q$select public.community_mod_decide(%L, 'approve', null)$q$, v_j ->> 'post_id'));
   end loop;
-  perform pg_temp.rec('three approvals are counted', '3', (select approved_post_count::text from public.community_memberships where group_id = v_g and profile_id = v_p1));
+  perform pg_temp.rec('one approval is counted', '1', (select approved_post_count::text from public.community_memberships where group_id = v_g and profile_id = v_p1));
   v_j := pg_temp.sub(v_p1, v_g, 'Now I post without waiting');
   v_post := (v_j ->> 'post_id')::uuid;
-  perform pg_temp.rec('after three approved posts a post publishes at once', 'published', (v_j ->> 'status'));
+  perform pg_temp.rec('after the approved first post a post publishes at once', 'published', (v_j ->> 'status'));
   update public.community_memberships set approved_post_count = 10 where group_id = v_g and profile_id in (v_p2, v_p3, v_p4, v_p5, v_p6, v_p7);
 
   -- 2. A retry with the same request id is the same post --------------------------------------------------------------------------

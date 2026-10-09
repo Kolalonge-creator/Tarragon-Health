@@ -1812,14 +1812,16 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   {
     key: "community.rules",
     // Community groups (decisions COM-1 to COM-10, docs/COMMUNITY_SPEC.md). Live values are the active row of `community_config`; this entry mirrors it
-    // and community-mirror.test.ts fails if the migration seed and this value drift. PROPOSED: post length, the three posts a new member waits for, rate
+    // and community-mirror.test.ts fails if the migration seed and this value drift. PROPOSED: post length, the first post a new member waits for (lowered from three to one in the Phase 2 review: Mayo Connect posts at once, so we measure first-post drop-off and can raise it again), rate
     // limits, the cool-down after repeated blocked attempts, the number of reporters that hides a post, how long a removed post's text is kept, and the
     // limits on the unmask. The retention figure and the consent version are counsel's (OQ-COM-06); the rest are the founder's and the CMO's.
     // A change is a NEW version here AND a new community_config row; the old one is never edited.
     value: {
       post_max_chars: 2000,
       edit_window_minutes: 15,
-      new_member_premoderated_posts: 3,
+      new_member_premoderated_posts: 1,
+      appeal_window_days: 14,
+      quality_sample_pct: 10,
       rate_posts_per_hour: 6,
       rate_posts_per_day: 30,
       block_cooldown: {"max_blocks": 3, "window_minutes": 10, "cooldown_minutes": 60},

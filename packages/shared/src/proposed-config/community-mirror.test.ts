@@ -18,6 +18,8 @@ interface CommunityRules {
   post_max_chars: number;
   edit_window_minutes: number;
   new_member_premoderated_posts: number;
+  appeal_window_days: number;
+  quality_sample_pct: number;
   rate_posts_per_hour: number;
   rate_posts_per_day: number;
   block_cooldown: { max_blocks: number; window_minutes: number; cooldown_minutes: number };

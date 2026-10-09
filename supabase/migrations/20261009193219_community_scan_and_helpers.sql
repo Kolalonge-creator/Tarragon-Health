@@ -251,6 +251,7 @@ language sql stable security definer set search_path = '' as $$
    where s.profile_id = p_profile
      and (s.group_id is null or s.group_id = p_group)
      and s.kind in ('mute', 'suspend', 'ban')
+     and s.appeal_state <> 'overturned'
      and s.starts_at <= now()
      and (s.ends_at is null or s.ends_at > now())
      and s.appeal_state <> 'overturned'

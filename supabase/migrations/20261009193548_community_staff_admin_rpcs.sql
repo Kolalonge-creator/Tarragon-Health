@@ -86,9 +86,11 @@ begin
     update public.community_posts set state = 'visible', hold_reason_codes = '{}' where id = po.id;
     update public.community_reports set status = 'dismissed', resolved_by = v_uid, resolved_at = now() where post_id = po.id and status = 'open';
     perform private.community_log_event(po.group_id, po.id, po.author_profile_id, 'approved', v_uid, null, '[]'::jsonb);
+    perform private.community_maybe_sample(po.id, po.group_id, 'approved', v_uid);
     if po.state = 'held' and po.parent_post_id is not null then
       select * into v_parent from public.community_posts where id = po.parent_post_id;
       if v_parent.author_profile_id is not null and v_parent.author_profile_id is distinct from po.author_profile_id
+         and not exists (select 1 from public.community_hidden_authors h where h.viewer_id = v_parent.author_profile_id and h.author_id = po.author_profile_id and h.group_id = po.group_id)
          and exists (select 1 from public.community_memberships m
                       where m.group_id = po.group_id and m.profile_id = v_parent.author_profile_id and m.status = 'active' and not m.notifications_muted) then
         perform private.community_notify(v_parent.author_profile_id, 'community_reply', po.id);
@@ -105,7 +107,18 @@ begin
     update public.community_reports set status = 'upheld', resolved_by = v_uid, resolved_at = now() where post_id = po.id and status = 'open';
     perform private.community_log_event(po.group_id, po.id, po.author_profile_id, 'removed', v_uid, btrim(p_reason_code), '[]'::jsonb);
     perform private.community_notify(po.author_profile_id, 'community_post_removed', po.id);
+    perform private.community_maybe_sample(po.id, po.group_id, 'removed', v_uid);
     return jsonb_build_object('status', 'removed');
+  elsif p_decision = 'send_to_safety' then
+    -- A moderator who is worried about a member hands the post to a safety reviewer; from then on only a reviewer sees it.
+    if po.state not in ('held', 'visible', 'auto_hidden') then return jsonb_build_object('status', 'refused', 'reason', 'already_closed'); end if;
+    update public.community_posts set state = 'held', hold_reason_codes = array['safety:reviewer_concern'] where id = po.id;
+    if not exists (select 1 from public.community_safety_signals sg where sg.post_id = po.id and sg.status in ('open', 'in_review')) then
+      insert into public.community_safety_signals (group_id, post_id, author_profile_id, kind)
+      values (po.group_id, po.id, po.author_profile_id, 'reviewer_concern');
+    end if;
+    perform private.community_log_event(po.group_id, po.id, po.author_profile_id, 'sent_to_safety', v_uid, 'moderator_concern', '[]'::jsonb);
+    return jsonb_build_object('status', 'sent_to_safety');
   end if;
   return jsonb_build_object('status', 'refused', 'reason', 'bad_decision');
 end $$;

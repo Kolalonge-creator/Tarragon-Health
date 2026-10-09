@@ -98,7 +98,9 @@ insert into public.community_config (version, is_active, params) values (1, true
 {
   "post_max_chars": 2000,
   "edit_window_minutes": 15,
-  "new_member_premoderated_posts": 3,
+  "new_member_premoderated_posts": 1,
+  "appeal_window_days": 14,
+  "quality_sample_pct": 10,
   "rate_posts_per_hour": 6,
   "rate_posts_per_day": 30,
   "block_cooldown": { "max_blocks": 3, "window_minutes": 10, "cooldown_minutes": 60 },
@@ -163,6 +165,12 @@ insert into public.community_filter_rules (rule_set_version, class, kind, patter
   (1, 'medicine_instruction', 'regex', '\y(?:stop|quit|skip|abandon|throw away)\y (?:taking |using )?(?:your |ur |the |all |those |these )?(?:drugs?|tablets?|pills?|medicines?|medication|insulin|metformin|amlodipine|lisinopril|losartan|glibenclamide|nifedipine)\y', 'hold', 'Telling others to stop a medicine (second person; "I skip my tablets" is not matched)'),
   (1, 'medicine_instruction', 'regex', '\y(?:don''?t|do not) take\y (?:your |ur |the |any |those |these )?(?:drugs?|tablets?|pills?|medicines?|medication|insulin|metformin|amlodipine|lisinopril|losartan|glibenclamide|nifedipine)\y', 'hold', 'Telling others not to take a medicine'),
   (1, 'medicine_instruction', 'regex', '\y(?:increase|double|reduce|cut) (?:your|the|ur) (?:dose|dosage|tablets?)\y', 'hold', 'Telling others to change a dose'),
+  -- Disordered-eating watch (hold, never safety: only the CMO writes safety rules). A moderator sees these and can hand a post to a safety reviewer.
+  -- Deliberately leaves out "water pills" (a normal blood pressure medicine), "skip a meal" and "not eating" (everyday diabetes talk).
+  (1, 'eating_disorder', 'regex', '\y(?:starv(?:e|es|ed|ing) (?:myself|me)|make myself (?:throw up|vomit|sick)|(?:throw|throwing|threw) up (?:on purpose|after (?:eating|meals?))|purg(?:e|ing|ed) (?:after|my food|my meals?)|binge and purge)\y', 'hold', 'Self-induced vomiting and starving: a moderator looks and can send it to a safety reviewer'),
+  (1, 'eating_disorder', 'regex', '\y(?:laxatives?|diet pills?|slimming (?:tea|pills?)|appetite suppressants?|fat burners?)\y', 'hold', 'Weight-loss products often used in disordered eating'),
+  (1, 'eating_disorder', 'regex', '\y(?:pro ?ana|pro ?mia|thinspo|bulimi[ac]|anorexi[ac]|eating disorder)\y', 'hold', 'Eating-disorder vocabulary'),
+  (1, 'eating_disorder', 'regex', '\y(?:stopped eating|only eat(?:ing)? (?:once a day|[0-9]{3,4} calories)|hate my body|disgusted (?:by|with) (?:my body|myself)|fasting for [0-9]+ days)\y', 'hold', 'Signs of restriction or body distress'),
   (1, 'abuse', 'regex', '\y(?:i will|i''?ll|i''?m going to|im going to) (?:kill|beat|hurt|find) (?:you|u)\y|\yi know where you live\y', 'hold', 'Threats'),
   (1, 'spam', 'regex', 'a{10,}|b{10,}|c{10,}|d{10,}|e{10,}|f{10,}|g{10,}|h{10,}|i{10,}|j{10,}|k{10,}|l{10,}|m{10,}|n{10,}|o{10,}|p{10,}|q{10,}|r{10,}|s{10,}|t{10,}|u{10,}|v{10,}|w{10,}|x{10,}|y{10,}|z{10,}|0{10,}|1{10,}|2{10,}|3{10,}|4{10,}|5{10,}|6{10,}|7{10,}|8{10,}|9{10,}|!{10,}|\?{10,}|\.{10,}|-{10,}|\y(?:click here|free money|make money|investment opportunity|forex|bitcoin|crypto)\y', 'hold', 'Spam: a character repeated ten or more times, and get-rich-quick wording (no backreference: they are very slow in this regex engine)');
 
