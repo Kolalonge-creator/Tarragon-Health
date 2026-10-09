@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { toResult } from "@/components/community/staff-rpc";
+import { DRILL_NOTES_MAX, DRILL_REQUIRED_STEPS, DRILL_STEPS } from "@/components/community/drill-steps";
 import type { StaffActionResult } from "@/components/community/staff-types";
 
 /**
@@ -126,3 +127,36 @@ export async function reviewPinAction(input: unknown): Promise<StaffActionResult
   if (result.ok) revalidatePath(PATH);
   return result;
 }
+
+const drillSchema = z
+  .object({
+    passed: z.boolean(),
+    notes: z.string().trim().max(DRILL_NOTES_MAX).optional(),
+    steps: z
+      .array(z.object({ step: z.enum(DRILL_STEPS), ok: z.boolean() }))
+      .length(DRILL_STEPS.length),
+  })
+  .refine((v) => !v.passed || v.steps.slice(0, DRILL_REQUIRED_STEPS).every((s) => s.ok), { message: "a pass needs the first steps" });
+
+/** Records one run of the safety drill. Only the Chief Medical Officer is allowed; the database checks that. */
+export async function recordDrillAction(input: unknown): Promise<StaffActionResult> {
+  const parsed = drillSchema.safeParse(input);
+  if (!parsed.success) return INVALID;
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("community_record_tabletop", {
+    p_passed: parsed.data.passed,
+    p_steps: parsed.data.steps,
+    ...(parsed.data.notes ? { p_notes: parsed.data.notes } : {}),
+  });
+  const result = toResult(data, error, { ok: "Recorded. The drill has been added to the list of runs." }, {
+    "42501": "Only the Chief Medical Officer can record a drill.",
+  });
+  if (result.ok) {
+    revalidatePath(PATH);
+    revalidatePath("/admin/community/drill");
+    revalidatePath("/clinician/community/drill");
+  }
+  return result;
+}
+
+export const ANSWER_MIN = 5;

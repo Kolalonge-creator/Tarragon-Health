@@ -66,19 +66,17 @@ export function Composer({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [inputKey, setInputKey] = useState(0);
 
-  useEffect(() => {
-    if (!file || typeof URL.createObjectURL !== "function") {
-      setPreviewUrl(null);
-      return;
-    }
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url);
-    return () => {
-      if (typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(url);
-    };
-  }, [file]);
+  const previewRef = useRef<string | null>(null);
+  const revoke = () => {
+    if (previewRef.current && typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(previewRef.current);
+    previewRef.current = null;
+  };
+  // Release the preview if the box goes away with a picture still chosen.
+  useEffect(() => revoke, []);
 
   function clearPicture() {
+    revoke();
+    setPreviewUrl(null);
     setFile(null);
     setInputKey((k) => k + 1);
   }
@@ -92,6 +90,10 @@ export function Composer({
       return;
     }
     setMessage(null);
+    revoke();
+    const url = typeof URL.createObjectURL === "function" ? URL.createObjectURL(picked) : null;
+    previewRef.current = url;
+    setPreviewUrl(url);
     setFile(picked);
   }
 

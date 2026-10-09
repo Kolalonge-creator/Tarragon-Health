@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { appealQueueSchema, modQueueSchema, safetyQueueSchema, sampleQueueSchema } from "@/lib/community/model";
+import { appealQueueSchema, modQueueSchema, modRecentSchema, safetyQueueSchema, sampleQueueSchema } from "@/lib/community/model";
 import { getCommunityStaffContext } from "@/components/community/staff-rpc";
 import { ModerationQueue } from "@/components/community/moderation-queue";
+import { RecentPosts } from "@/components/community/recent-posts";
 import { SafetyQueue } from "@/components/community/safety-queue";
 import { AppealQueue } from "@/components/community/appeal-queue";
 import { SampleQueue } from "@/components/community/sample-queue";
 import { DisplayNameForm } from "@/components/community/display-name-form";
 import {
-  appealDecideAction, modDecideAction, modSanctionAction, safetyDecideAction, sampleReviewAction, setDisplayNameAction,
+  appealDecideAction, modDecideAction, modRecentAction, modRemoveRecentAction, modSanctionAction, safetyDecideAction, sampleReviewAction, setDisplayNameAction,
 } from "@/components/community/staff-actions";
 
 export const metadata = { title: "Community" };
@@ -30,9 +31,9 @@ export default async function CareCoordinatorCommunityPage({ searchParams }: { s
     );
   }
 
-  type Tab = "moderation" | "appeals" | "second_look" | "safety";
+  type Tab = "moderation" | "recent" | "appeals" | "second_look" | "safety";
   const allowed: Tab[] = [
-    ...(ctx.is_moderator ? (["moderation", "appeals", "second_look"] as const) : []),
+    ...(ctx.is_moderator ? (["moderation", "recent", "appeals", "second_look"] as const) : []),
     ...(ctx.is_safety_reviewer ? (["safety"] as const) : []),
   ];
   const requested = (await searchParams).tab;
@@ -50,6 +51,11 @@ export default async function CareCoordinatorCommunityPage({ searchParams }: { s
     const parsed = modQueueSchema.safeParse(data);
     content =
       error || !parsed.success ? failed : <ModerationQueue items={parsed.data.items} onDecide={modDecideAction} onSanction={modSanctionAction} />;
+  } else if (tab === "recent") {
+    const { data, error } = await supabase.rpc("community_mod_recent", {});
+    const parsed = modRecentSchema.safeParse(data);
+    content =
+      error || !parsed.success ? failed : <RecentPosts initial={parsed.data.items} onLoadOlder={modRecentAction} onRemove={modRemoveRecentAction} />;
   } else if (tab === "appeals") {
     const { data, error } = await supabase.rpc("community_appeal_queue");
     const parsed = appealQueueSchema.safeParse(data);
@@ -64,11 +70,18 @@ export default async function CareCoordinatorCommunityPage({ searchParams }: { s
     content = error || !parsed.success ? failed : <SafetyQueue items={parsed.data.items} onDecide={safetyDecideAction} />;
   }
 
-  const LABEL: Record<Tab, string> = { moderation: "Moderation queue", appeals: "Appeals", second_look: "Second look", safety: "Safety" };
+  const LABEL: Record<Tab, string> = { moderation: "Moderation queue", recent: "All recent posts", appeals: "Appeals", second_look: "Second look", safety: "Safety" };
   const tabs = allowed.map((key) => ({ key, label: LABEL[key] }));
 
   return (
     <div className="space-y-4">
+      <section aria-label="On duty" className="rounded-lg border border-charcoal-ink/15 bg-warm-ivory p-4 text-sm text-charcoal-ink">
+        <p className="font-medium">On duty</p>
+        <p>
+          The moderation team covers every hour of the week, so someone is always on duty. Items that members have reported come first. After
+          that, new items are listed oldest first, so the one that has waited longest is near the top. Pictures are checked here before the group sees them.
+        </p>
+      </section>
       {tabs.length > 1 && (
         <nav aria-label="Community sections" className="flex flex-wrap gap-2">
           {tabs.map((t) => (

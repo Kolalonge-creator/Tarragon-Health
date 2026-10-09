@@ -60,6 +60,7 @@ const POST: FeedPost = {
   reply_count: 1,
   i_supported: false,
   pending_review: false,
+  answers: [],
 };
 const MINE: FeedPost = { ...POST, id: "p2", author_handle: "Warm Fig", is_mine: true, body: "Thank you all.", reply_count: 0 };
 const PENDING: FeedPost = { ...MINE, id: "p3", pending_review: true, body: "Waiting one" };
@@ -72,6 +73,7 @@ const view = (membership: Extract<GroupViewData, { found: true }>["membership"],
   pinned: [{ id: "n1", title: "Salt and you", body: "A short reviewed note.", reviewed_at: "2026-10-01T09:00:00Z", reviewed_by_name: "Dr Ada Obi" }],
   team: [],
   prompts: [],
+  qa: null,
   limits: { post_max_chars: MAX, edit_window_minutes: 15 },
 });
 const MEMBER = { status: "active" as const, handle: "Warm Fig", avatar_code: "sun", rules_current: true, notifications_muted: false };

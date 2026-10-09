@@ -6,6 +6,7 @@ import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { holdReasonLabel, type ModItem } from "@/lib/community/model";
 import { formatWhen } from "./staff-format";
+import { PictureChecklist, PostPicture } from "./post-picture";
 import {
   REMOVE_REASONS,
   SANCTION_KINDS,
@@ -14,7 +15,7 @@ import {
   type StaffActionResult,
 } from "./staff-types";
 
-type Mode = "idle" | "remove" | "sanction" | "sanction_confirm" | "safety_confirm";
+type Mode = "idle" | "approve_confirm" | "remove" | "sanction" | "sanction_confirm" | "safety_confirm";
 
 const reasonLabel = (code: string): string => REMOVE_REASONS.find((r) => r.code === code)?.label ?? "Another reason";
 
@@ -41,6 +42,8 @@ function ModerationCard({
   const hoursNumber = Number(hours);
   const hoursValid = Number.isInteger(hoursNumber) && hoursNumber >= 1 && hoursNumber <= 8760;
 
+  const imageId = typeof item.image_id === "string" && item.image_id !== "" ? item.image_id : null;
+  const hasPicture = imageId !== null;
   const hasEatingDisorder = item.reasons.includes("eating_disorder");
   const why: string[] = item.reasons.map((c) => (c === "eating_disorder" ? "Possible eating-disorder wording" : holdReasonLabel(c)));
   if (item.report_count > 0) why.push(`Reported ${item.report_count} ${item.report_count === 1 ? "time" : "times"}`);
@@ -94,7 +97,16 @@ function ModerationCard({
         </time>
       </div>
 
+      {imageId !== null && <PostPicture imageId={imageId} label="Picture waiting to be checked" />}
+
       <p className="whitespace-pre-wrap break-words rounded-md bg-warm-ivory p-3 text-sm text-charcoal-ink">{item.body}</p>
+
+      {hasPicture && (
+        <>
+          <PictureChecklist />
+          <p className="text-sm font-medium text-charcoal-ink">Approving makes this picture visible to the whole group.</p>
+        </>
+      )}
 
       <div className="text-sm text-charcoal-ink/80">
         <p className="font-medium">Why this is here</p>
@@ -118,7 +130,11 @@ function ModerationCard({
 
       {mode === "idle" && (
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" disabled={busy} onClick={() => run(() => callbacks.onDecide({ postId: item.post_id, decision: "approve" }))}>
+          <Button
+            size="sm"
+            disabled={busy}
+            onClick={() => (hasPicture ? setMode("approve_confirm") : run(() => callbacks.onDecide({ postId: item.post_id, decision: "approve" })))}
+          >
             Approve
           </Button>
           <Button size="sm" variant="outline" disabled={busy} onClick={() => setMode("remove")}>
@@ -131,6 +147,23 @@ function ModerationCard({
             Send to a safety reviewer
           </Button>
         </div>
+      )}
+
+      {mode === "approve_confirm" && (
+        <fieldset className="space-y-2 rounded-md border border-charcoal-ink/15 p-3">
+          <legend className="px-1 text-sm font-medium">Approve this picture</legend>
+          <p className="text-sm text-charcoal-ink/80">
+            Approving makes this picture visible to the whole group. Only approve it if it passes the checklist above.
+          </p>
+          <div className="flex gap-2">
+            <Button size="sm" disabled={busy} onClick={() => run(() => callbacks.onDecide({ postId: item.post_id, decision: "approve" }))}>
+              Yes, approve the picture
+            </Button>
+            <Button size="sm" variant="ghost" disabled={busy} onClick={close}>
+              Cancel
+            </Button>
+          </div>
+        </fieldset>
       )}
 
       {mode === "safety_confirm" && (

@@ -52,7 +52,7 @@ import { AppealsList } from "./appeals/appeals-list";
 
 type Found = Extract<GroupViewData, { found: true }>;
 const NOW = new Date().toISOString();
-const POST: FeedPost = { id: "p1", author_handle: "Quiet Heron", author_avatar: "leaf", is_mine: false, body: "Hello.", created_at: NOW, edited_at: null, support_count: 0, reply_count: 0, i_supported: false, pending_review: false };
+const POST: FeedPost = { id: "p1", author_handle: "Quiet Heron", author_avatar: "leaf", is_mine: false, body: "Hello.", created_at: NOW, edited_at: null, support_count: 0, reply_count: 0, i_supported: false, pending_review: false, answers: [] };
 const MINE: FeedPost = { ...POST, id: "p2", author_handle: "Warm Fig", is_mine: true };
 const MEMBER = { status: "active" as const, handle: "Warm Fig", avatar_code: "sun", rules_current: true, notifications_muted: false, digest_opt_in: false };
 const view = (over: Partial<Found> = {}, group: Partial<Found["group"]> = {}): Found => ({
@@ -62,6 +62,7 @@ const view = (over: Partial<Found> = {}, group: Partial<Found["group"]> = {}): F
   pinned: [],
   team: [],
   prompts: [],
+  qa: null,
   limits: { post_max_chars: 500, edit_window_minutes: 15 },
   ...over,
 });

@@ -1,7 +1,8 @@
+import Link from "next/link";
 import { CommunityNav, LoadFailed } from "../community-nav";
 import { loadGroups, loadStaff, loadStaffCandidates, requireAdmin } from "../load";
 import { GrantStaffForm, RevokeStaffForm } from "../staff-forms";
-import { card, h1, h2 } from "../ui";
+import { card, h1, h2, link } from "../ui";
 
 export const metadata = { title: "Community moderators" };
 export const dynamic = "force-dynamic";
@@ -19,6 +20,10 @@ export default async function CommunityStaffPage() {
       <CommunityNav />
       <p className="max-w-3xl text-sm text-charcoal-ink/70">
         A moderator sees post text and community names, but never who a member is. A safety reviewer sees posts flagged for emergency or self-harm language. These permissions are given to care coordinator accounts only. The database refuses to give them to an admin account.
+      </p>
+      <p className="max-w-3xl text-sm text-charcoal-ink/70">
+        To count towards the 24/7 rota, a permission must cover <strong>all groups</strong>. A permission for one group does not count. Set each person&apos;s shifts on the{" "}
+        <Link href="/admin/community/rota" className={link}>moderator rota page</Link>.
       </p>
       {!staff.ok ? (
         <LoadFailed what="The permissions" />

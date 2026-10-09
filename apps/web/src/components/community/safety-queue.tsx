@@ -4,6 +4,7 @@ import { useId, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import type { SafetyItem } from "@/lib/community/model";
 import { formatWhen } from "./staff-format";
+import { PostPicture } from "./post-picture";
 import type { SafetyCallbacks, StaffActionResult } from "./staff-types";
 
 const KIND_LABEL: Record<SafetyItem["kind"], string> = {
@@ -29,6 +30,7 @@ function SafetyCard({ item, busy, run, onDecide }: { item: SafetyItem; busy: boo
           {formatWhen(item.created_at)}
         </time>
       </div>
+      {typeof item.image_id === "string" && item.image_id !== "" && <PostPicture imageId={item.image_id} label="Picture attached to this post" />}
       <p className="whitespace-pre-wrap break-words rounded-md bg-warm-ivory p-3 text-sm text-charcoal-ink">{item.body}</p>
       {!confirmRelease ? (
         <div className="flex flex-wrap gap-2">

@@ -172,7 +172,7 @@ export async function modRecentAction(input: unknown): Promise<RecentPage> {
   if (!parsed.success) return { ok: false, message: INVALID.message };
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("community_mod_recent", {
-    p_before: new Date(parsed.data.before).toISOString(),
+    p_before: parsed.data.before,
     ...(parsed.data.groupId !== undefined ? { p_group_id: parsed.data.groupId } : {}),
   });
   if (error) return { ok: false, message: failureMessage(error) };

@@ -1,5 +1,6 @@
 import { CommunityNav, LoadFailed } from "../community-nav";
 import { CreateGroupForm, EditGroupForm, GroupStatusButtons, SetGroupCapForm } from "../group-forms";
+import { GroupImagesForm } from "../image-forms";
 import { loadGroups, loadTopics, requireAdmin } from "../load";
 import { card, h1, h2, warn } from "../ui";
 
@@ -64,6 +65,7 @@ export default async function CommunityGroupsPage() {
                   )}
                   {g.status !== "archived" && <EditGroupForm group={g} topics={allTopicOptions} />}
                   {g.status !== "archived" && <SetGroupCapForm id={g.id} name={g.name} memberCount={g.member_count} cap={g.member_cap} />}
+                  {g.status !== "archived" && <GroupImagesForm id={g.id} name={g.name} current={g.images_allowed} topicNeedsCmoRules={g.requires_cmo_rules} />}
                   <GroupStatusButtons id={g.id} slug={g.slug} status={g.status} name={g.name} />
                 </div>
               </details>

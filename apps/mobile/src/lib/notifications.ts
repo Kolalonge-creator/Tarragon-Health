@@ -1,3 +1,4 @@
+import { t, type MessageKey } from "@tarragon/i18n";
 import { supabase } from "./supabase";
 import type { SectionId } from "./sections";
 
@@ -86,12 +87,30 @@ export function describeNotification(n: InAppNotification): { text: string; sect
       const on = String(payload.expires_on ?? "soon");
       return { text: `${label} runs out on ${on}. Buy it again to keep it going.`, section: "services" };
     }
+    // Community notices (docs/COMMUNITY_SPEC.md). Fixed, identity-free text chosen by the template alone: never a group, a handle or an
+    // excerpt, whatever the payload carries (INV-07). Title and body, as on web. A tap opens Community.
+    case "community_reply":
+      return { text: communityNotice("community.notice.reply.title", "community.notice.reply.body"), section: "community" };
+    case "community_post_removed":
+      return { text: communityNotice("community.notice.removed.title", "community.notice.removed.body"), section: "community" };
+    case "community_sanction_notice":
+      return { text: communityNotice("community.notice.sanction.title", "community.notice.sanction.body"), section: "community" };
+    case "community_appeal_result":
+      return { text: communityNotice("community.notice.appeal.title", "community.notice.appeal.body"), section: "community" };
+    case "community_digest":
+      return { text: communityNotice("community.notice.digest.title", "community.notice.digest.body"), section: "community" };
+    case "community_qa_answer":
+      return { text: communityNotice("community.notice.qa.title", "community.notice.qa.body"), section: "community" };
     default:
       return {
         text: n.template ? n.template.split("_").join(" ") : "You have a new notification",
         section: null,
       };
   }
+}
+
+function communityNotice(title: MessageKey, body: MessageKey): string {
+  return `${t(title, "en")}. ${t(body, "en")}`;
 }
 
 export function relativeTime(iso: string): string {
