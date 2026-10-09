@@ -163,6 +163,30 @@ export async function submitPost(input: unknown): Promise<SubmitActionResult> {
   return { ok: true, outcome };
 }
 
+const AskInput = z.object({ groupId: Uuid, sessionId: Uuid, body: z.string().trim().min(1), clientRequestId: Uuid });
+
+/**
+ * Sends a question to the doctors of an open question session. The database checks the session is open, the member's limit and the
+ * same text filters as any post; the reply is turned into a message by composeOutcome() (qa_closed and qa_limit are mapped there).
+ */
+export async function askQuestion(input: unknown): Promise<SubmitActionResult> {
+  const parsed = AskInput.safeParse(input);
+  if (!parsed.success) return { ok: false, key: "community.compose.refused.empty" };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("community_ask_question", {
+    p_group_id: parsed.data.groupId,
+    p_session_id: parsed.data.sessionId,
+    p_body: parsed.data.body,
+    p_client_request_id: parsed.data.clientRequestId,
+  });
+  if (error) return { ok: false, key: FAILED };
+  const result = submitResultSchema.safeParse(data);
+  if (!result.success) return { ok: false, key: FAILED };
+  const outcome = composeOutcome(result.data);
+  if (outcome.kind === "published" || outcome.kind === "held") refresh();
+  return { ok: true, outcome };
+}
+
 export async function editPost(input: unknown): Promise<SubmitActionResult> {
   const parsed = z.object({ postId: Uuid, body: z.string().trim().min(1) }).safeParse(input);
   if (!parsed.success) return { ok: false, key: "community.compose.refused.empty" };

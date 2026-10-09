@@ -854,6 +854,8 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "community_unmask_notice") return communityNotice("community.notice.unmask.title", "community.notice.unmask.body", "/clinician");
   if (n.template === "community_digest") return communityNotice("community.notice.digest.title", "community.notice.digest.body", "/patient/community");
   if (n.template === "community_appeal_result") return communityNotice("community.notice.appeal.title", "community.notice.appeal.body", "/patient/community/appeals");
+  if (n.template === "community_qa_answer") return communityNotice("community.notice.qa.title", "community.notice.qa.body", "/patient/community");
+  if (n.template === "community_overdue") return communityNotice("community.notice.overdue.title", "community.notice.overdue.body", "/dashboard/care-coordinator/community");
   return { text: "You have an update", href: "/patient" };
 }
 

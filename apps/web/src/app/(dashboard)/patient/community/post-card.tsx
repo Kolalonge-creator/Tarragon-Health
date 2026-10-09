@@ -22,6 +22,8 @@ export function PostCard({
   maxChars,
   editWindowMinutes,
   canPost,
+  imagesAllowed = false,
+  qaStatus = null,
   isReply = false,
   onChanged,
   onHidden,
@@ -34,6 +36,10 @@ export function PostCard({
   editWindowMinutes: number;
   /** True when the member is active in an open (not read-only) group. */
   canPost: boolean;
+  /** True when the group allows one picture per post (then replies may carry one too). */
+  imagesAllowed?: boolean;
+  /** Status of the group's question session, so an unanswered question can say so only while it is still open. */
+  qaStatus?: "upcoming" | "open" | "closed" | null;
   isReply?: boolean;
   onChanged: () => void;
   /** Called after the member hid this person; defaults to onChanged. */
@@ -115,6 +121,12 @@ export function PostCard({
 
       {post.pending_review ? <p className="rounded-md bg-soft-sage p-2 text-sm dark:bg-brand-green/20">{t("community.post.pending", locale)}</p> : null}
 
+      {post.qa_session_id ? (
+        <p>
+          <span className="inline-flex min-h-8 items-center rounded-md bg-soft-sage px-2 text-sm font-medium dark:bg-brand-green/20">{t("community.qa.question_badge", locale)}</span>
+        </p>
+      ) : null}
+
       {editing ? (
         <Composer
           locale={locale}
@@ -130,6 +142,37 @@ export function PostCard({
       ) : (
         <p className="whitespace-pre-line break-words leading-relaxed">{post.body}</p>
       )}
+
+      {post.image ? (
+        <div className="space-y-1">
+          {/* A plain image in a link-free box: the file is served by /api/community/images/{id}, which checks the viewer. */}
+          {/* eslint-disable-next-line @next/next/no-img-element -- a private, access-checked route; next/image cannot fetch it with the member's cookies */}
+          <img
+            src={`/api/community/images/${post.image.id}`}
+            width={post.image.width}
+            height={post.image.height}
+            loading="lazy"
+            alt={t("community.image.alt", locale)}
+            className="h-auto max-h-96 w-auto max-w-full rounded-md object-contain"
+          />
+          {post.is_mine && post.pending_review ? <p className={`text-sm ${MUTED}`}>{t("community.image.waiting", locale)}</p> : null}
+        </div>
+      ) : null}
+
+      {post.qa_session_id && post.answers.length > 0 ? (
+        <div className="space-y-2">
+          {post.answers.map((a) => (
+            <section key={a.id} className="space-y-1 rounded-md border-l-4 border-brand-green bg-soft-sage p-3 dark:bg-brand-green/20" aria-label={t("community.qa.answer_by", locale, { name: a.doctor_name })}>
+              <p className="font-medium">{t("community.qa.answer_by", locale, { name: a.doctor_name })}</p>
+              <p className="whitespace-pre-line break-words leading-relaxed">{a.body}</p>
+              <p className={`text-sm ${MUTED}`}>
+                <time dateTime={a.created_at}>{formatPatientDateTime(a.created_at)}</time>
+              </p>
+            </section>
+          ))}
+        </div>
+      ) : null}
+      {post.qa_session_id && post.answers.length === 0 && qaStatus === "open" ? <p className={`text-sm ${MUTED}`}>{t("community.qa.no_answers", locale)}</p> : null}
 
       <div className="flex flex-wrap items-center gap-2">
         {!post.pending_review ? (
@@ -182,6 +225,7 @@ export function PostCard({
               maxChars={maxChars}
               editWindowMinutes={editWindowMinutes}
               canPost={canPost}
+              imagesAllowed={imagesAllowed}
               isReply
               onChanged={() => {
                 void fetchReplies();
@@ -207,6 +251,7 @@ export function PostCard({
                 onChanged();
               }}
               onSafety={onSafety}
+              picture={imagesAllowed ? { groupId, parentId: post.id } : undefined}
             />
           ) : null}
         </div>

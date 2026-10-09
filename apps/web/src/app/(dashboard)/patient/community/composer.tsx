@@ -1,12 +1,17 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { t, type Locale, type MessageKey } from "@tarragon/i18n";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { MUTED, TOUCH } from "./styles";
+import { composeOutcome, submitResultSchema } from "@/lib/community/model";
 import type { SubmitActionResult } from "./community-actions";
+
+/** The picture limits the screen checks before sending anything. The server checks again from the file's own bytes. */
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const IMAGE_TYPES = ["image/jpeg", "image/png"];
 
 /** A fresh id for one attempt. A retry of the SAME attempt reuses it, so the database can tell it is not a second post. */
 function newRequestId(): string {
@@ -36,6 +41,7 @@ export function Composer({
   placeholder,
   initialText = "",
   onClose,
+  picture,
 }: {
   locale: Locale;
   maxChars: number;
@@ -48,12 +54,61 @@ export function Composer({
   initialText?: string;
   /** Called after a successful edit so the editor can close. */
   onClose?: () => void;
+  /** Present only when the group allows pictures and the member can post: turns on the "Add a picture" control. */
+  picture?: { groupId: string; parentId: string | null };
 }) {
   const [text, setText] = useState(initialText);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<MessageKey | null>(null);
   const requestId = useRef<string | null>(null);
   const id = useId();
+  const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [inputKey, setInputKey] = useState(0);
+
+  useEffect(() => {
+    if (!file || typeof URL.createObjectURL !== "function") {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => {
+      if (typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(url);
+    };
+  }, [file]);
+
+  function clearPicture() {
+    setFile(null);
+    setInputKey((k) => k + 1);
+  }
+
+  function onPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const picked = e.target.files?.[0] ?? null;
+    if (!picked) return;
+    if (!IMAGE_TYPES.includes(picked.type) || picked.size > MAX_IMAGE_BYTES || picked.size === 0) {
+      clearPicture();
+      setMessage("community.compose.refused.bad_image");
+      return;
+    }
+    setMessage(null);
+    setFile(picked);
+  }
+
+  /** Sends the post and its picture as one multipart request. Returns the same shape as the server action. */
+  async function uploadWithPicture(body: string, clientRequestId: string, image: File, target: { groupId: string; parentId: string | null }): Promise<SubmitActionResult> {
+    const form = new FormData();
+    form.set("group_id", target.groupId);
+    if (target.parentId) form.set("parent_id", target.parentId);
+    form.set("body", body);
+    form.set("client_request_id", clientRequestId);
+    form.set("image", image);
+    const response = await fetch("/api/community/images", { method: "POST", body: form, credentials: "same-origin" });
+    const json: unknown = await response.json().catch(() => null);
+    const parsed = submitResultSchema.safeParse(json);
+    if (!parsed.success) return { ok: false, key: "community.compose.refused.other" };
+    return { ok: true, outcome: composeOutcome(parsed.data) };
+  }
 
   const used = text.length;
   const tooLong = used > maxChars;
@@ -67,7 +122,7 @@ export function Composer({
     requestId.current ??= newRequestId();
     let result: SubmitActionResult;
     try {
-      result = await submit(text, requestId.current);
+      result = file && picture ? await uploadWithPicture(text, requestId.current, file, picture) : await submit(text, requestId.current);
     } catch {
       // Could not reach the server: keep the text and the same request id so pressing Post again cannot double-post.
       setPending(false);
@@ -84,6 +139,7 @@ export function Composer({
     const outcome = result.outcome;
     if (outcome.kind === "safety") {
       setText("");
+      clearPicture();
       setMessage(null);
       onSafety(outcome.safety);
       return;
@@ -91,6 +147,7 @@ export function Composer({
     setMessage(outcome.message);
     if (outcome.kind === "published" || outcome.kind === "held") {
       setText("");
+      clearPicture();
       onPublished();
       onClose?.();
     }
@@ -111,13 +168,44 @@ export function Composer({
         aria-invalid={tooLong}
         className="min-h-24"
       />
+      {picture ? (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Label htmlFor={`${id}-image`} className={`inline-flex ${TOUCH} cursor-pointer items-center rounded-md border px-4 text-sm font-medium focus-within:ring-2 focus-within:ring-brand-green`}>
+              {t("community.image.add", locale)}
+            </Label>
+            <input
+              key={inputKey}
+              id={`${id}-image`}
+              type="file"
+              accept="image/jpeg,image/png"
+              className="sr-only"
+              aria-describedby={`${id}-image-help`}
+              disabled={pending}
+              onChange={onPick}
+            />
+            {file ? (
+              <Button type="button" variant="ghost" className={TOUCH} onClick={clearPicture} disabled={pending}>
+                {t("community.image.remove", locale)}
+              </Button>
+            ) : null}
+          </div>
+          <p id={`${id}-image-help`} className={`text-sm ${MUTED}`}>
+            {t("community.image.help", locale)}
+          </p>
+          {file && previewUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- a local object URL preview; next/image cannot optimise it
+            <img src={previewUrl} alt={t("community.image.alt", locale)} className="max-h-48 max-w-full rounded-md object-contain" />
+          ) : null}
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p id={`${id}-count`} className={`text-sm ${tooLong ? "font-semibold" : MUTED}`}>
           {t("community.post.counter", locale, { used, max: maxChars })}
           {tooLong ? ` - ${t("community.compose.refused.too_long", locale)}` : ""}
         </p>
         <Button type="submit" className={TOUCH} disabled={pending || empty || tooLong}>
-          {pending ? t("community.post.posting", locale) : t(submitLabel, locale)}
+          {pending ? t(file ? "community.image.uploading" : "community.post.posting", locale) : t(submitLabel, locale)}
         </Button>
       </div>
       <p role="status" aria-live="polite" className="text-sm">

@@ -27,6 +27,8 @@ describe("community inbox notices", () => {
     ["community_sanction_notice", "A change to your Community access. A moderator has made a change to your access. Open Community for more.", "/patient/community"],
     ["community_digest", "Something new in Community. There are new conversations in your groups. Open Community to read them.", "/patient/community"],
     ["community_appeal_result", "Your request has an answer. A moderator has looked at your request for a second look. Open Community to see it.", "/patient/community/appeals"],
+    ["community_qa_answer", "A doctor answered your question. Open Community to read the answer.", "/patient/community"],
+    ["community_overdue", "Community work is waiting. Something in the Community queue has waited longer than it should. Please open the queue.", "/dashboard/care-coordinator/community"],
     ["community_unmask_notice", "A community name was looked up. An admin looked up who is behind a community name. The reason is in the audit log.", "/clinician"],
   ])("%s", (template, text, href) => {
     expect(describeNotice({ template, payload: { group: "secret", handle: "Quiet Heron" } })).toEqual({ text, href });

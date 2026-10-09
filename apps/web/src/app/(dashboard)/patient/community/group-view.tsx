@@ -12,6 +12,7 @@ import { Composer } from "./composer";
 import { JoinSection } from "./join-section";
 import { PostCard } from "./post-card";
 import { SafetyCard } from "./safety-card";
+import { QaCard } from "./qa-card";
 import { HiddenAuthors, type HiddenAuthor } from "./hidden-authors";
 import { AvatarBadge } from "./avatar-badge";
 import { MUTED, TOUCH } from "./styles";
@@ -45,7 +46,7 @@ export function GroupView({
   locale: Locale;
 }) {
   const router = useRouter();
-  const { group, membership, pinned, limits, team, prompts } = view;
+  const { group, membership, pinned, limits, team, prompts, qa } = view;
   const [safety, setSafety] = useState<"emergency" | "self_harm" | null>(null);
   const [joining, setJoining] = useState(false);
   const [older, setOlder] = useState<FeedPost[]>([]);
@@ -138,6 +139,8 @@ export function GroupView({
         <p className="leading-relaxed">{group.description}</p>
         {readOnly ? <p className="font-medium">{t("community.group.read_only", locale)}</p> : null}
       </section>
+
+      {qa ? <QaCard qa={qa} groupId={group.id} locale={locale} canAsk={canPost} onSafety={setSafety} onAsked={refresh} /> : null}
 
       <section aria-labelledby="community-rules-title" className="space-y-2 rounded-xl border p-4">
         <h3 id="community-rules-title" className="font-medium">
@@ -258,6 +261,7 @@ export function GroupView({
             submit={(body, clientRequestId) => submitPost({ groupId: group.id, parentId: null, body, clientRequestId })}
             onPublished={refresh}
             onSafety={setSafety}
+            picture={group.images_allowed === true ? { groupId: group.id, parentId: null } : undefined}
           />
         </section>
       ) : null}
@@ -274,6 +278,8 @@ export function GroupView({
               maxChars={limits.post_max_chars}
               editWindowMinutes={limits.edit_window_minutes}
               canPost={canPost}
+              imagesAllowed={group.images_allowed === true}
+              qaStatus={qa ? qa.status : null}
               onChanged={refresh}
               onHidden={() => {
                 setControlNote("community.post.hide_done");

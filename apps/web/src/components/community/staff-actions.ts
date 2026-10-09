@@ -3,9 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { staffRefusalText } from "@/lib/community/model";
-import { toResult } from "./staff-rpc";
-import { DISPLAY_NAME_PATTERN, NOTE_MAX, REMOVE_REASON_CODES, SANCTION_KIND_CODES, type StaffActionResult } from "./staff-types";
+import { modRecentSchema, staffRefusalText } from "@/lib/community/model";
+import { failureMessage, toResult } from "./staff-rpc";
+import {
+  DISPLAY_NAME_PATTERN, NOTE_MAX, RECENT_REMOVE_REASON_CODES, REMOVE_REASON_CODES, SANCTION_KIND_CODES, type RecentPage, type StaffActionResult,
+} from "./staff-types";
 
 /**
  * Moderator and safety-reviewer actions. Shared by the care coordinator page and (later) the admin area. Every input is validated
@@ -155,6 +157,43 @@ export async function setDisplayNameAction(input: unknown): Promise<StaffActionR
   const result = toResult(data, error, {
     ok: cleared ? "Done. Members will not see a name for you." : "Saved. Members will see this name and your role.",
   });
+  if (result.ok) refresh();
+  return result;
+}
+
+const recentSchema = z.object({
+  before: z.string().refine((v) => !Number.isNaN(new Date(v).getTime()), { message: "bad time" }),
+  groupId: z.string().uuid().optional(),
+});
+
+/** The next page of live posts, older than `before`. Moderators only; the database checks that. */
+export async function modRecentAction(input: unknown): Promise<RecentPage> {
+  const parsed = recentSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: INVALID.message };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("community_mod_recent", {
+    p_before: new Date(parsed.data.before).toISOString(),
+    ...(parsed.data.groupId !== undefined ? { p_group_id: parsed.data.groupId } : {}),
+  });
+  if (error) return { ok: false, message: failureMessage(error) };
+  const page = modRecentSchema.safeParse(data);
+  if (!page.success) return { ok: false, message: "That could not be done. Please try again." };
+  return { ok: true, items: page.data.items };
+}
+
+const removeRecentSchema = z.object({ postId: z.string().uuid(), reasonCode: z.enum(RECENT_REMOVE_REASON_CODES) });
+
+/** Takes down a live post that does not belong. The member is told it was taken down. */
+export async function modRemoveRecentAction(input: unknown): Promise<StaffActionResult> {
+  const parsed = removeRecentSchema.safeParse(input);
+  if (!parsed.success) return INVALID;
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("community_mod_decide", {
+    p_post_id: parsed.data.postId,
+    p_decision: "remove",
+    p_reason_code: parsed.data.reasonCode,
+  });
+  const result = toResult(data, error, { removed: "Removed. The member has been told their post was taken down." });
   if (result.ok) refresh();
   return result;
 }

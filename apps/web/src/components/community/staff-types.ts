@@ -2,6 +2,8 @@
  * Shared shapes for the Community staff screens. Importable from client components (no server code here).
  * A staff action always answers with plain English: `message` is safe to show, never raw database text.
  */
+import type { ModRecentItem } from "@/lib/community/model";
+
 export interface StaffActionResult {
   ok: boolean;
   message: string;
@@ -27,12 +29,30 @@ export const SANCTION_KINDS = [
 export type SanctionKind = (typeof SANCTION_KINDS)[number]["code"];
 export const SANCTION_KIND_CODES = SANCTION_KINDS.map((k) => k.code) as [SanctionKind, ...SanctionKind[]];
 
+/** Plain reasons for taking down a live post from the "All recent posts" list. The database keeps the code as short text (2 to 40 characters). */
+export const RECENT_REMOVE_REASONS = [
+  { code: "off_topic", label: "Off topic" },
+  { code: "unwanted", label: "Unwanted" },
+  { code: "selling", label: "Selling" },
+  { code: "contact_details", label: "Contact details" },
+  { code: "unkind", label: "Unkind" },
+  { code: "other", label: "Other" },
+] as const;
+export type RecentRemoveReasonCode = (typeof RECENT_REMOVE_REASONS)[number]["code"];
+export const RECENT_REMOVE_REASON_CODES = RECENT_REMOVE_REASONS.map((r) => r.code) as [RecentRemoveReasonCode, ...RecentRemoveReasonCode[]];
+
 export type ModDecision = "approve" | "remove" | "send_to_safety";
 export type SafetyDecision = "release" | "keep_withheld" | "close";
 
 export interface ModerationCallbacks {
   onDecide: (input: { postId: string; decision: ModDecision; reasonCode?: string }) => Promise<StaffActionResult>;
   onSanction: (input: { postId: string; kind: SanctionKind; reasonCode: string; hours?: number }) => Promise<StaffActionResult>;
+}
+/** One page of live posts, or a plain-English reason it could not be loaded. */
+export type RecentPage = { ok: true; items: ModRecentItem[] } | { ok: false; message: string };
+export interface RecentCallbacks {
+  onLoadOlder: (input: { before: string; groupId?: string }) => Promise<RecentPage>;
+  onRemove: (input: { postId: string; reasonCode: RecentRemoveReasonCode }) => Promise<StaffActionResult>;
 }
 export interface SafetyCallbacks {
   onDecide: (input: { signalId: string; decision: SafetyDecision }) => Promise<StaffActionResult>;
