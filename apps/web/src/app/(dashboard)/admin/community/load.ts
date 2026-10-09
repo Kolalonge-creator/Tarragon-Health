@@ -7,6 +7,7 @@ import {
   adminGroupSchema, adminTopicsSchema, adminStaffSchema, ruleSetsSchema, rulesSchema, pinnedAdminSchema, overviewSchema,
   qualitySummarySchema, promptsAdminSchema, coverageSchema, shiftsAdminSchema, tabletopRunsSchema, qaAdminListSchema,
 } from "@/lib/community/model";
+import { dpoListSchema, unmaskCandidatesSchema } from "@/components/community/unmask-shared";
 import { getRpcClient } from "./rpc";
 
 export type Loaded<T> = { ok: true; data: T } | { ok: false };
@@ -43,6 +44,8 @@ export const loadCoverage = () => load("community_coverage", coverageSchema);
 export const loadShifts = () => load("community_admin_shifts", shiftsAdminSchema);
 export const loadTabletopRuns = () => load("community_tabletop_runs", tabletopRunsSchema);
 export const loadQaList = () => load("community_admin_qa_list", qaAdminListSchema);
+export const loadUnmaskCandidates = () => load("community_unmask_candidates", unmaskCandidatesSchema);
+export const loadDpo = () => load("community_admin_dpo", dpoListSchema);
 export const loadPrompts = (groupId: string) => load("community_admin_prompts", promptsAdminSchema, { p_group_id: groupId });
 export const loadPinned = (groupId: string) => load("community_admin_pinned", pinnedAdminSchema, { p_group_id: groupId });
 
@@ -100,4 +103,19 @@ export async function loadDoctorCandidates(): Promise<Loaded<DoctorCandidate[]>>
 export function hasPassed(iso: string): boolean {
   const t = new Date(iso).getTime();
   return !Number.isNaN(t) && t <= Date.now();
+}
+
+export type DpoCandidate = { id: string; full_name: string | null; role: string };
+
+/** Active staff accounts who could be named as the data protection officer, read through the signed-in admin's own session. */
+export async function loadDpoCandidates(): Promise<Loaded<DpoCandidate[]>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, full_name, role")
+    .in("role", ["admin", "clinician", "care_coordinator"])
+    .eq("is_active", true)
+    .order("full_name", { ascending: true });
+  if (error || !data) return { ok: false };
+  return { ok: true, data: data.map((r) => ({ id: r.id, full_name: r.full_name, role: r.role })) };
 }

@@ -23,6 +23,7 @@ const BY_MESSAGE: ReadonlyArray<readonly [RegExp, string]> = [
   [/(granted to )?an active (admin or )?care coordinator account/i, "Only an active care coordinator account can be given a community permission. Admin accounts cannot."],
   [/only an admin grants/i, "Only an admin can give or end these permissions."],
   [/admins only|admins and the Chief Medical Officer only/i, "Only an admin can do that."],
+  [/admins, the Chief Medical Officer and doctors only/i, "This is for doctors, the Chief Medical Officer and admins."],
   [/sign in required/i, "Please sign in again."],
 ];
 

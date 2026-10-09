@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CommunityNav, LoadFailed } from "../community-nav";
-import { loadGroups, loadStaff, loadStaffCandidates, requireAdmin } from "../load";
+import { loadDpo, loadDpoCandidates, loadGroups, loadStaff, loadStaffCandidates, requireAdmin } from "../load";
+import { NameDpoForm, RemoveDpoForm } from "../dpo-forms";
 import { GrantStaffForm, RevokeStaffForm } from "../staff-forms";
 import { card, h1, h2, link } from "../ui";
 
@@ -12,7 +13,7 @@ const when = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { timeZo
 
 export default async function CommunityStaffPage() {
   await requireAdmin();
-  const [staff, groups, candidates] = await Promise.all([loadStaff(), loadGroups(), loadStaffCandidates()]);
+  const [staff, groups, candidates, dpo, dpoCandidates] = await Promise.all([loadStaff(), loadGroups(), loadStaffCandidates(), loadDpo(), loadDpoCandidates()]);
   const groupList = groups.ok ? groups.data.groups.map((g) => ({ id: g.id, name: g.name })) : [];
   return (
     <div className="space-y-8">
@@ -55,6 +56,28 @@ export default async function CommunityStaffPage() {
       <section aria-labelledby="grant" className={card}>
         <h2 id="grant" className={h2}>Give a permission</h2>
         <div className="mt-3 max-w-2xl"><GrantStaffForm candidates={candidates.ok ? candidates.data : null} groups={groupList} /></div>
+      </section>
+      <section aria-labelledby="dpo" className={card}>
+        <h2 id="dpo" className={h2}>Data protection officer</h2>
+        <p className="mt-2 max-w-3xl text-sm text-charcoal-ink/70">
+          The data protection officer is told every time a member&apos;s name is looked up, along with the Chief Medical Officer. The community cannot go live until one is named.
+        </p>
+        {!dpo.ok ? (
+          <div className="mt-3"><LoadFailed what="The data protection officer" /></div>
+        ) : dpo.data.dpo.length === 0 ? (
+          <p className="mt-3 text-sm font-medium text-amber-900">No one is named yet. Name someone below.</p>
+        ) : (
+          <ul className="mt-3 space-y-2 text-sm">
+            {dpo.data.dpo.map((d) => (
+              <li key={d.profile_id} className="flex flex-wrap items-center gap-3">
+                <span className="font-medium">{d.name ?? "Unnamed"}</span>
+                <span className="text-charcoal-ink/70">named {when(d.set_at)}</span>
+                <RemoveDpoForm id={d.profile_id} who={d.name ?? "this person"} />
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="mt-4 max-w-2xl"><NameDpoForm candidates={dpoCandidates.ok ? dpoCandidates.data : null} /></div>
       </section>
     </div>
   );

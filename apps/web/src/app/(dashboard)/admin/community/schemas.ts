@@ -65,11 +65,6 @@ export const hostsSchema = z.object({
   version: z.coerce.number().int().positive(),
   hosts: z.string().transform((s) => s.split(/[\s,]+/).map((h) => h.trim().toLowerCase()).filter(Boolean)),
 });
-export const unmaskSchema = z.object({
-  group_id: uuid,
-  handle: z.string().trim().min(1, "Please enter the community name.").max(80),
-  reason: z.string().trim().min(1, "Please write the reason."),
-});
 export const unpinSchema = z.object({ id: uuid, group_id: uuid });
 
 /** Group size cap: empty means no limit, otherwise a whole number from 10 to 100000 (the database limits). */

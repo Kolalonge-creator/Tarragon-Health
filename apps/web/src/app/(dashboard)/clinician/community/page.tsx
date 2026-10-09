@@ -180,6 +180,9 @@ export default async function ClinicianCommunityPage({ searchParams }: { searchP
             Doctor question sessions
           </Link>
         )}
+        <Link href="/clinician/community/unmask" className="font-medium text-brand-green underline">
+          Look up a member (safety concerns only)
+        </Link>
         {ctx.is_cmo && (
           <Link href="/clinician/community/drill" className="font-medium text-brand-green underline">
             Safety drill

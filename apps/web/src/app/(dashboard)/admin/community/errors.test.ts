@@ -16,6 +16,9 @@ describe("friendlyDbError", () => {
     expect(t).not.toMatch(/granted to/);
     expect(friendlyDbError({ code: "42501", message: "only an admin grants community moderation" })).toBe("Only an admin can give or end these permissions.");
   });
+  it("explains who may look a member up", () => {
+    expect(friendlyDbError({ code: "42501", message: "admins, the Chief Medical Officer and doctors only" })).toBe("This is for doctors, the Chief Medical Officer and admins.");
+  });
   it("never echoes unknown database text", () => {
     const raw = 'duplicate key value violates unique constraint "community_groups_slug_key"';
     for (const code of ["23505", "XX000", undefined, "42501", "23514"]) {

@@ -3,12 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { staffRefusalText, outcomeSchema } from "@/lib/community/model";
+import { runUnmask } from "@/components/community/unmask-shared";
 import { friendlyDbError } from "./errors";
 import { getRpcClient } from "./rpc";
 import type { ActionState } from "./state";
 import {
   createGroupSchema, editGroupSchema, groupStatusSchema, topicSchema, grantSchema, revokeSchema, versionSchema, newDraftSchema,
-  ruleSaveSchema, ruleDeleteSchema, hostsSchema, unmaskSchema, unpinSchema, groupCapSchema, savePromptSchema, endPromptSchema,
+  ruleSaveSchema, ruleDeleteSchema, hostsSchema, unpinSchema, groupCapSchema, savePromptSchema, endPromptSchema,
 } from "./schemas";
 
 /**
@@ -134,23 +135,35 @@ export async function activateRuleSetAction(_prev: ActionState, f: FormData): Pr
   return { ok: r?.ok ?? false, message: r?.message ?? GENERIC };
 }
 
-const unmaskReplySchema = z.object({ status: z.string(), reason: z.string().optional(), profile_id: z.string().optional(), full_name: z.string().nullable().optional() }).passthrough();
-
 /** The one place a member's name is resolved. The reply is returned once to the page that asked and is not stored anywhere by us. */
 export async function unmaskAction(_prev: ActionState, f: FormData): Promise<ActionState> {
-  const p = unmaskSchema.safeParse({ group_id: text(f, "group_id"), handle: text(f, "handle"), reason: text(f, "reason") });
+  const client = await getRpcClient();
+  return runUnmask(client, { group_id: text(f, "group_id"), handle: text(f, "handle"), reason: text(f, "reason") }, friendlyDbError, true);
+}
+
+const dpoSchema = z.object({ profile_id: z.string().uuid("Please choose a person."), on: z.boolean() });
+
+/** An admin names, or stops naming, the data protection officer who is told of every lookup. */
+export async function setDpoAction(_prev: ActionState, f: FormData): Promise<ActionState> {
+  const pasted = text(f, "profile_id_pasted").trim();
+  const p = dpoSchema.safeParse({ profile_id: pasted || text(f, "profile_id"), on: text(f, "on") === "true" });
   if (!p.success) return { ok: false, message: firstIssue(p.error) };
   const client = await getRpcClient();
-  const { data, error } = await client.rpc("community_admin_unmask", { p_group_id: p.data.group_id, p_handle: p.data.handle, p_reason: p.data.reason });
+  const { data, error } = await client.rpc("community_admin_set_dpo", { p_profile_id: p.data.profile_id, p_on: p.data.on });
   if (error) return { ok: false, message: friendlyDbError(error) };
-  const parsed = unmaskReplySchema.safeParse(data);
+  const parsed = outcomeSchema.safeParse(data);
   if (!parsed.success) return { ok: false, message: GENERIC };
-  if (parsed.data.status === "refused") return { ok: false, message: staffRefusalText(parsed.data.reason) };
-  if (parsed.data.status !== "ok" || !parsed.data.profile_id) return { ok: false, message: GENERIC };
+  if (parsed.data.status === "refused") {
+    return { ok: false, message: parsed.data.reason === "no_such_member" ? "That person does not have an active account." : staffRefusalText(parsed.data.reason) };
+  }
+  if (parsed.data.status !== "ok") return { ok: false, message: GENERIC };
+  revalidatePath(`${BASE}/staff`);
+  revalidatePath(BASE);
   return {
     ok: true,
-    message: "The lookup was recorded in the audit log with your written reason, without the member's name, and the Chief Medical Officer has been told.",
-    result: { profile_id: parsed.data.profile_id, full_name: parsed.data.full_name ?? null },
+    message: p.data.on
+      ? "Named as the data protection officer. They are told every time a member's name is looked up."
+      : "No longer named as a data protection officer for the community.",
   };
 }
 

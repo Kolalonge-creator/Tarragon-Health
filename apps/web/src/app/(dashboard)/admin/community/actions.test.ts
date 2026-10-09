@@ -5,7 +5,7 @@ jest.mock("next/cache", () => ({ revalidatePath: (p: string) => mockRevalidate(p
 
 import {
   createGroupAction, editGroupAction, setGroupStatusAction, saveTopicAction, grantStaffAction, revokeStaffAction, saveRuleAction,
-  deleteRuleAction, saveHostsAction, activateRuleSetAction, unmaskAction, unpinAction, newDraftAction, setGroupCapAction, savePromptAction, endPromptAction,
+  deleteRuleAction, saveHostsAction, activateRuleSetAction, unmaskAction, setDpoAction, unpinAction, newDraftAction, setGroupCapAction, savePromptAction, endPromptAction,
 } from "./actions";
 
 const U = "11111111-1111-4111-8111-111111111111";
@@ -86,28 +86,63 @@ describe("community admin actions", () => {
   });
 
   describe("unmask", () => {
+    const REASON = "Safety review of a flagged post";
     it("returns the identity once on success, with the audit wording", async () => {
       mockRpc.mockResolvedValue({ data: { status: "ok", profile_id: U, full_name: "Ada Obi" }, error: null });
-      const r = await unmaskAction(undefined, form({ group_id: G, handle: "calm-heron", reason: "Safety review of a flagged post" }));
+      const r = await unmaskAction(undefined, form({ group_id: G, handle: "calm-heron", reason: REASON }));
       expect(r?.ok).toBe(true);
       expect(r?.result).toEqual({ profile_id: U, full_name: "Ada Obi" });
-      expect(r?.message).toMatch(/Chief Medical Officer has been told/);
+      expect(r?.message).toMatch(/Chief Medical Officer and the data protection officer have been told/);
       expect(r?.message).not.toContain("Ada");
     });
-    it("shows the short-reason and daily-limit refusals in plain English", async () => {
+    it("shows each refusal in plain English", async () => {
       mockRpc.mockResolvedValue({ data: { status: "refused", reason: "reason_too_short" }, error: null });
-      expect((await unmaskAction(undefined, form({ group_id: G, handle: "h", reason: "x" })))?.message).toMatch(/too short/);
+      expect((await unmaskAction(undefined, form({ group_id: G, handle: "h", reason: REASON })))?.message).toMatch(/too short/);
       mockRpc.mockResolvedValue({ data: { status: "refused", reason: "daily_limit" }, error: null });
-      const r = await unmaskAction(undefined, form({ group_id: G, handle: "h", reason: "x" }));
+      const r = await unmaskAction(undefined, form({ group_id: G, handle: "h", reason: REASON }));
       expect(r?.message).toMatch(/today's limit/);
       expect(r?.result).toBeUndefined();
+      mockRpc.mockResolvedValue({ data: { status: "refused", reason: "no_safety_signal" }, error: null });
+      const n = await unmaskAction(undefined, form({ group_id: G, handle: "h", reason: REASON }));
+      expect(n?.ok).toBe(false);
+      expect(n?.message).toMatch(/no recent safety concern about that name in that group/);
+      expect(n?.message).not.toMatch(/no_safety_signal/);
+    });
+    it("refuses a reason under 20 characters before calling the database", async () => {
+      const r = await unmaskAction(undefined, form({ group_id: G, handle: "h", reason: "too short" }));
+      expect(r?.ok).toBe(false);
+      expect(r?.message).toMatch(/at least 20/);
+      expect(mockRpc).not.toHaveBeenCalled();
     });
     it("validates input and never leaks raw errors", async () => {
-      expect((await unmaskAction(undefined, form({ group_id: "bad", handle: "h", reason: "r" })))?.ok).toBe(false);
+      expect((await unmaskAction(undefined, form({ group_id: "bad", handle: "h", reason: REASON })))?.ok).toBe(false);
       expect(mockRpc).not.toHaveBeenCalled();
       mockRpc.mockResolvedValue({ data: null, error: { code: "XX000", message: "select full_name from profiles failed" } });
-      const r = await unmaskAction(undefined, form({ group_id: G, handle: "h", reason: "r" }));
+      const r = await unmaskAction(undefined, form({ group_id: G, handle: "h", reason: REASON }));
       expect(r?.message).not.toMatch(/profiles|select/);
+      mockRpc.mockResolvedValue({ data: null, error: { code: "42501", message: "admins, the Chief Medical Officer and doctors only" } });
+      expect((await unmaskAction(undefined, form({ group_id: G, handle: "h", reason: REASON })))?.message).toBe("This is for doctors, the Chief Medical Officer and admins.");
+    });
+  });
+
+  describe("data protection officer", () => {
+    it("names and removes, validating the id first", async () => {
+      expect((await setDpoAction(undefined, form({ profile_id: "nope", on: "true" })))?.ok).toBe(false);
+      expect(mockRpc).not.toHaveBeenCalled();
+      mockRpc.mockResolvedValue({ data: { status: "ok" }, error: null });
+      const r = await setDpoAction(undefined, form({ profile_id: U, on: "true" }));
+      expect(r?.ok).toBe(true);
+      expect(mockRpc).toHaveBeenCalledWith("community_admin_set_dpo", { p_profile_id: U, p_on: true });
+      await setDpoAction(undefined, form({ profile_id: "", profile_id_pasted: U, on: "false" }));
+      expect(mockRpc).toHaveBeenLastCalledWith("community_admin_set_dpo", { p_profile_id: U, p_on: false });
+    });
+    it("explains refusals and hides raw database text", async () => {
+      mockRpc.mockResolvedValue({ data: { status: "refused", reason: "no_such_member" }, error: null });
+      expect((await setDpoAction(undefined, form({ profile_id: U, on: "true" })))?.message).toBe("That person does not have an active account.");
+      mockRpc.mockResolvedValue({ data: null, error: { code: "42501", message: "admins only" } });
+      expect((await setDpoAction(undefined, form({ profile_id: U, on: "true" })))?.message).toBe("Only an admin can do that.");
+      mockRpc.mockResolvedValue({ data: null, error: { code: "XX000", message: "insert into community_dpo failed" } });
+      expect((await setDpoAction(undefined, form({ profile_id: U, on: "true" })))?.message).not.toMatch(/insert|community_dpo/);
     });
   });
 });
