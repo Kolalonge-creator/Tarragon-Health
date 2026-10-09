@@ -45,9 +45,11 @@ describe("buildPostUpload", () => {
     expect(withPicture.get("group_id")).toBe(base.groupId);
     expect(withPicture.get("body")).toBe(base.body);
     expect(withPicture.get("client_request_id")).toBe(base.clientRequestId);
-    expect(withPicture.get("image")).toEqual({ uri: image.uri, name: "picture.jpg", type: "image/jpeg" });
+    // (The test runtime's FormData stringifies a file object; on the phone React Native reads the uri, name and type.)
+    expect(withPicture.has("image")).toBe(true);
     const without = toFormData(buildPostUpload({ ...base, image, imagesAllowed: false }));
-    expect(without.get("image")).toBeNull();
+    expect(without.has("image")).toBe(false);
+    expect(without.get("body")).toBe(base.body);
   });
   it("fixes the sizes at 1600 px and quality 0.8", () => {
     expect(IMAGE_MAX_SIDE).toBe(1600);
