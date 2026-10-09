@@ -29,8 +29,8 @@ export function ActionForm({ action, children, submitLabel, pendingLabel = "Work
       onSubmit={(e) => {
         let message: string | null = confirm ?? null;
         if (!message && confirmIfChanged) {
-          const el = e.currentTarget.elements.namedItem(confirmIfChanged.name);
-          const now = el && "value" in el ? String((el as HTMLInputElement).value).trim() : "";
+          const v = new FormData(e.currentTarget).get(confirmIfChanged.name);
+          const now = typeof v === "string" ? v.trim() : "";
           if (now !== confirmIfChanged.initial.trim()) message = confirmIfChanged.message;
         }
         if (message && !window.confirm(message)) e.preventDefault();
