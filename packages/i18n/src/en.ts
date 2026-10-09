@@ -2315,6 +2315,8 @@ export const en = {
   "community.appeals.refused.already_appealed": "You have already asked for a second look at this.",
   "community.appeals.refused.not_appealable": "This can no longer be appealed.",
   "community.appeals.refused.other": "That could not be sent. Please try again.",
+  "community.appeals.refused.safety": "We cannot take that here. If you are thinking of harming yourself, or you feel unwell, please message your care team in the app, or go to your nearest hospital now.",
+  "community.appeals.refused.contact_details": "Please take out any phone numbers, emails or links and send it again.",
 } as const;
 
 export type MessageKey = keyof typeof en;

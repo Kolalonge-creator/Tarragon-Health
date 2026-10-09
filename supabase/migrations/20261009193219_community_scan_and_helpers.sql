@@ -254,7 +254,6 @@ language sql stable security definer set search_path = '' as $$
      and s.appeal_state <> 'overturned'
      and s.starts_at <= now()
      and (s.ends_at is null or s.ends_at > now())
-     and s.appeal_state <> 'overturned'
    order by case s.kind when 'ban' then 1 when 'suspend' then 2 else 3 end
    limit 1
 $$;

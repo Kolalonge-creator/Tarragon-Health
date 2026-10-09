@@ -103,7 +103,8 @@ begin
      where m.digest_opt_in and m.status = 'active' and not m.notifications_muted
        and exists (select 1 from public.community_posts p
                     where p.group_id = m.group_id and p.state = 'visible' and p.created_at > now() - interval '7 days'
-                      and p.author_profile_id is distinct from m.profile_id)
+                      and p.author_profile_id is distinct from m.profile_id
+                      and not exists (select 1 from public.community_hidden_authors h where h.viewer_id = m.profile_id and h.author_id = p.author_profile_id and h.group_id = p.group_id))
   loop
     continue when not private.go_live_open_patient('community', r.profile_id) or not private.community_adult(r.profile_id);
     continue when exists (select 1 from public.notifications n where n.recipient_id = r.profile_id and n.template = 'community_digest' and n.created_at > now() - interval '6 days');
@@ -164,10 +165,11 @@ begin
   -- the same filters as a member's post: no phone number, email or outside link, even from staff
   v_scan := private.community_scan(v_body);
   if v_scan ->> 'decision' = 'unavailable' then return jsonb_build_object('status', 'refused', 'reason', 'not_ready'); end if;
-  if v_scan ->> 'decision' in ('block', 'safety') then return jsonb_build_object('status', 'refused', 'reason', 'text_not_allowed'); end if;
+  if v_scan ->> 'decision' <> 'allow' then return jsonb_build_object('status', 'refused', 'reason', 'text_not_allowed'); end if;
   if p_show_until is not null and p_show_until <= coalesce(p_show_from, now()) then return jsonb_build_object('status', 'refused', 'reason', 'bad_window'); end if;
   insert into public.community_group_prompts (group_id, body, show_from, show_until, created_by)
   values (p_group_id, v_body, coalesce(p_show_from, now()), p_show_until, v_uid) returning id into v_id;
+  perform private.community_log_event(p_group_id, v_id, null, 'prompt_saved', v_uid, null, '[]'::jsonb);
   return jsonb_build_object('status', 'ok', 'id', v_id);
 end $$;
 
@@ -192,6 +194,7 @@ begin
   if not found then return jsonb_build_object('status', 'refused', 'reason', 'not_found'); end if;
   if not private.community_can_prompt(p.group_id) then raise exception 'admins, the Chief Medical Officer and moderators of this group only' using errcode = '42501'; end if;
   -- a prompt that has barely started (or not started) is simply removed; a running one is ended now
+  perform private.community_log_event(p.group_id, p.id, null, 'prompt_ended', (select auth.uid()), null, '[]'::jsonb);
   if p.show_from > now() - interval '1 minute' then
     delete from public.community_group_prompts where id = p_id;
   else
@@ -242,15 +245,26 @@ declare
   po public.community_posts;
   s public.community_sanctions;
   v_id uuid;
+  v_scan jsonb;
 begin
   if v_uid is null then raise exception 'sign in required' using errcode = '28000'; end if;
   if not private.go_live_open_patient('community', v_uid) or not private.community_adult(v_uid) then return jsonb_build_object('status', 'refused', 'reason', 'not_open_yet'); end if;
   if length(v_reason) not between 10 and 1000 then return jsonb_build_object('status', 'refused', 'reason', 'reason_length'); end if;
+  -- What a member writes here reaches a moderator, so it gets the same checks as a post: no contact details are stored, and a person in
+  -- distress is pointed to help instead of having their words filed in a moderator queue.
+  v_scan := private.community_scan(v_reason);
+  if exists (select 1 from jsonb_array_elements(v_scan -> 'hits') h where h ->> 'action' = 'safety') then
+    return jsonb_build_object('status', 'refused', 'reason', 'safety');
+  end if;
+  if exists (select 1 from jsonb_array_elements(v_scan -> 'hits') h where h ->> 'action' = 'block') then
+    return jsonb_build_object('status', 'refused', 'reason', 'contact_details');
+  end if;
   if p_kind = 'removal' then
     select * into po from public.community_posts where id = p_target_id;
     if not found or po.author_profile_id is distinct from v_uid or po.state <> 'removed' or po.removed_by is null
        or po.removed_at < now() - make_interval(days => v_days)
-       or exists (select 1 from unnest(po.hold_reason_codes) c where c like 'safety:%') then
+       or exists (select 1 from unnest(po.hold_reason_codes) c where c like 'safety:%')
+       or exists (select 1 from public.community_safety_signals sg where sg.post_id = po.id) then
       return jsonb_build_object('status', 'refused', 'reason', 'not_appealable');
     end if;
     if exists (select 1 from public.community_appeals a where a.post_id = po.id) then return jsonb_build_object('status', 'refused', 'reason', 'already_appealed'); end if;
@@ -281,15 +295,16 @@ begin
   if not private.community_is_moderator() then raise exception 'community moderators only' using errcode = '42501'; end if;
   return jsonb_build_object('items', coalesce((
     select jsonb_agg(jsonb_build_object(
-             'appeal_id', a.id, 'kind', a.kind, 'group_name', g.name, 'created_at', a.created_at, 'member_says', a.reason,
+             'appeal_id', a.id, 'kind', a.kind, 'group_name', coalesce(g.name, 'All groups'), 'created_at', a.created_at, 'member_says', a.reason,
              'original_reason_code', coalesce(po.removed_reason_code, s.reason_code), 'sanction_kind', s.kind,
              'author_handle', po.author_handle, 'body', case when po.body = '[removed]' then null else po.body end) order by a.created_at)
       from public.community_appeals a
-      join public.community_groups g on g.id = a.group_id
+      left join public.community_groups g on g.id = a.group_id
       left join public.community_posts po on po.id = a.post_id
       left join public.community_sanctions s on s.id = a.sanction_id
      where a.status = 'open' and private.community_is_moderator(a.group_id)
-       and coalesce(po.removed_by, s.issued_by) is distinct from v_uid), '[]'::jsonb));
+       and coalesce(po.removed_by, s.issued_by) is distinct from v_uid
+       and a.profile_id is distinct from v_uid), '[]'::jsonb));
 end $$;
 
 create or replace function public.community_appeal_decide(p_id uuid, p_decision text, p_note text default null) returns jsonb
@@ -310,14 +325,19 @@ begin
   if length(coalesce(p_note, '')) > 500 then return jsonb_build_object('status', 'refused', 'reason', 'note_too_long'); end if;
   select * into po from public.community_posts where id = a.post_id;
   select * into s from public.community_sanctions where id = a.sanction_id;
-  if coalesce(po.removed_by, s.issued_by) is not distinct from v_uid then
+  if coalesce(po.removed_by, s.issued_by) is not distinct from v_uid or a.profile_id is not distinct from v_uid then
     return jsonb_build_object('status', 'refused', 'reason', 'not_your_appeal_to_decide');
   end if;
   v_status := case p_decision when 'overturn' then 'overturned' else 'upheld' end;
   if v_status = 'overturned' then
     if a.post_id is not null and po.state = 'removed' then
+      -- a reversal brings the text back for everyone, so it is checked again against today's rules: contact details and safety wording never go live this way
+      if exists (select 1 from jsonb_array_elements(private.community_scan(po.body) -> 'hits') h where h ->> 'action' in ('block', 'safety'))
+         or private.community_scan(po.body) ->> 'decision' = 'unavailable' then
+        return jsonb_build_object('status', 'refused', 'reason', 'still_blocked');
+      end if;
       perform set_config('community.restore_on_appeal', 'on', true);
-      update public.community_posts set state = 'visible', removed_at = null, removed_by = null, removed_reason_code = null where id = po.id;
+      update public.community_posts set state = 'visible', removed_at = null, removed_by = null, removed_reason_code = null, hold_reason_codes = '{}' where id = po.id;
       perform set_config('community.restore_on_appeal', 'off', true);
     end if;
   end if;
@@ -350,7 +370,8 @@ begin
               join public.community_groups g on g.id = sm.group_id
               left join public.community_posts po on po.id = sm.post_id
              where sm.reviewed_at is null and sm.decided_by is distinct from v_uid and private.community_is_moderator(sm.group_id)
-               and (po.id is null or not exists (select 1 from unnest(po.hold_reason_codes) c where c like 'safety:%'))
+               and po.id is not null and po.state in ('visible', 'removed') and po.author_profile_id is distinct from v_uid
+               and not exists (select 1 from public.community_safety_signals sg where sg.post_id = po.id)
              order by sm.created_at limit 20) x), '[]'::jsonb));
 end $$;
 
@@ -366,6 +387,10 @@ begin
   if not private.community_is_moderator(sm.group_id) then raise exception 'community moderators only' using errcode = '42501'; end if;
   if sm.reviewed_at is not null then return jsonb_build_object('status', 'refused', 'reason', 'already_reviewed'); end if;
   if sm.decided_by is not distinct from v_uid then return jsonb_build_object('status', 'refused', 'reason', 'your_own_decision'); end if;
+  if exists (select 1 from public.community_safety_signals sg where sg.post_id = sm.post_id)
+     or exists (select 1 from public.community_posts po where po.id = sm.post_id and (po.author_profile_id is not distinct from v_uid or po.state not in ('visible', 'removed'))) then
+    return jsonb_build_object('status', 'refused', 'reason', 'not_found');
+  end if;
   if p_agrees is null then return jsonb_build_object('status', 'refused', 'reason', 'choose_one'); end if;
   if length(coalesce(p_note, '')) > 500 then return jsonb_build_object('status', 'refused', 'reason', 'note_too_long'); end if;
   update public.community_mod_samples set reviewed_by = v_uid, reviewed_at = now(), agrees = p_agrees, note = nullif(btrim(coalesce(p_note, '')), '') where id = sm.id;

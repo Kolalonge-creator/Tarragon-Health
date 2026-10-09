@@ -514,6 +514,8 @@ const APPEAL_REFUSED_KEYS = {
   already_appealed: "community.appeals.refused.already_appealed",
   not_appealable: "community.appeals.refused.not_appealable",
   not_open_yet: "community.appeals.refused.not_appealable",
+  safety: "community.appeals.refused.safety",
+  contact_details: "community.appeals.refused.contact_details",
 } as const satisfies Record<string, MessageKey>;
 /** The message for a refused appeal. Total, like the others. */
 export function appealRefusalKey(reason: string | undefined): MessageKey {

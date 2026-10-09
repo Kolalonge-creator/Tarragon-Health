@@ -556,3 +556,16 @@ Left open, for decision or later work:
 | Buddy pairing | **Needs a decision.** COM-10 says no direct messages ever; structured pairing with fixed prompts is a new feature to approve. |
 | Images or voice notes | **Needs a written founder decision** (default: not built). |
 | Sensitive groups | **Needs a decision** (COM-2: none at launch). |
+
+### 13a. Independent review of Phase 2 (2026-10-09), fixed
+
+Appeals against a platform-wide sanction were invisible to every moderator (fixed); appeal text is now filtered like a post (contact
+details refused, crisis wording pointed to help and never filed); group prompts refuse held wording as well as blocked; a reversed
+removal is re-checked against today's rules and cannot publish contact details; a moderator cannot decide their own appeal or sample
+their own post; sampled posts that ever had a safety signal, or were deleted by their author, stay out of the sample queue; the digest
+ignores hidden authors; the roster shows moderators only (not safety reviewers); prompt create/end are logged; joins to a group are
+serialised so the size cap holds.
+
+Left as known limits: a second appeal result within 10 minutes can be merged into one unread notice (the appeals page is the record);
+the Phase 1 and Phase 2 migrations are edited in place and have never been applied anywhere, so they must be applied together as one
+batch (the live project had no community objects when last checked).

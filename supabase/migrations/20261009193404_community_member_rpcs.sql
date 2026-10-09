@@ -112,7 +112,7 @@ begin
     from (select distinct s.display_name, s.scope
             from public.community_staff s
             join public.profiles p on p.id = s.profile_id and p.is_active and p.role = 'care_coordinator'
-           where s.revoked_at is null and s.display_name is not null and (s.group_id is null or s.group_id = g.id)) x;
+           where s.revoked_at is null and s.scope = 'moderator' and s.display_name is not null and (s.group_id is null or s.group_id = g.id)) x;
   select coalesce(jsonb_agg(jsonb_build_object('id', gp.id, 'body', gp.body) order by gp.show_from desc), '[]'::jsonb)
     into v_prompts
     from (select * from public.community_group_prompts q
@@ -152,7 +152,7 @@ begin
   if v_uid is null then raise exception 'sign in required' using errcode = '28000'; end if;
   if not private.go_live_open_patient('community', v_uid) then return jsonb_build_object('status', 'refused', 'reason', 'not_open_yet'); end if;
   if not private.community_adult(v_uid) then return jsonb_build_object('status', 'refused', 'reason', 'adults_only'); end if;
-  select * into g from public.community_groups where id = p_group_id for share;
+  select * into g from public.community_groups where id = p_group_id for update;
   if not found or g.status <> 'active' or g.sensitivity <> 'standard' then return jsonb_build_object('status', 'refused', 'reason', 'group_closed'); end if;
   if g.join_mode <> 'open' then return jsonb_build_object('status', 'refused', 'reason', 'by_invitation'); end if;
   if p_rules_version is distinct from g.rules_version then return jsonb_build_object('status', 'refused', 'reason', 'rules_changed', 'rules_version', g.rules_version); end if;

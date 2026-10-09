@@ -109,7 +109,7 @@ declare
   v_org uuid; v_admin uuid; v_cmo uuid; v_mod uuid; v_mod2 uuid; v_rev uuid;
   v_p1 uuid; v_p2 uuid; v_p3 uuid; v_p4 uuid; v_p5 uuid; v_p6 uuid;
   v_g uuid; v_j jsonb; v_post uuid; v_post2 uuid; v_reply uuid; v_n integer; v_id uuid; v_hid uuid; v_sanc uuid; v_sample uuid; v_team jsonb;
-  v_extra uuid; v_slug text;
+  v_extra uuid; v_slug text; v_pw uuid; v_mod3 uuid;
 begin
   select id into v_org from public.organisations order by id limit 1;
   if v_org is null then insert into public.organisations (name) values ('community proof org') returning id into v_org; end if;
@@ -304,6 +304,46 @@ begin
   update public.community_sanctions set created_at = now() - interval '30 days' where profile_id = v_p4;
   insert into public.community_sanctions (profile_id, group_id, kind, reason_code, issued_by, created_at) values (v_p4, v_g, 'warning', 'other', v_mod, now() - interval '30 days') returning id into v_sanc;
   perform pg_temp.rec('an old sanction is outside the appeal window', 'not_appealable', (pg_temp.asj(v_p4, format($q$select public.community_appeal('sanction', %L, 'This was a long time ago but still.')$q$, v_sanc)) ->> 'reason'));
+
+  -- 7b. Review fixes: appeal text is filtered, a platform-wide sanction can be appealed, a moderator cannot decide their own appeal ------------
+  v_pw := pg_temp.mkuser(v_org, 'pw', 'patient');
+  perform pg_temp.joined(v_pw, v_g);
+  update public.community_memberships set approved_post_count = 10 where group_id = v_g and profile_id = v_pw;
+  v_mod3 := pg_temp.mkuser(v_org, 'mod3', 'care_coordinator');
+  perform pg_temp.asj(v_admin, format($q$select public.community_admin_grant_staff(%L, 'moderator', %L)$q$, v_mod3, v_g));
+  v_j := pg_temp.sub(v_pw, v_g, 'A post that gets a platform-wide ban');
+  perform pg_temp.asj(v_admin, format($q$select public.community_mod_sanction(%L, 'suspend', 'harassment', 24, true)$q$, v_j ->> 'post_id'));
+  select id into v_sanc from public.community_sanctions where profile_id = v_pw and group_id is null;
+  perform pg_temp.rec('an appeal with a phone number is refused', 'contact_details',
+    (pg_temp.asj(v_pw, format($q$select public.community_appeal('sanction', %L, 'Please call me on 08031234567 about this')$q$, v_sanc)) ->> 'reason'));
+  perform pg_temp.rec('an appeal with crisis wording is pointed to help, not filed', 'safety',
+    (pg_temp.asj(v_pw, format($q$select public.community_appeal('sanction', %L, 'this is a test crisis phrase honestly')$q$, v_sanc)) ->> 'reason'));
+  perform pg_temp.rec('a platform-wide sanction can be appealed', 'ok',
+    (pg_temp.asj(v_pw, format($q$select public.community_appeal('sanction', %L, 'I think this was a misunderstanding of my joke.')$q$, v_sanc)) ->> 'status'));
+  select id into v_id from public.community_appeals where sanction_id = v_sanc;
+  perform pg_temp.rec('...and a moderator sees it', 'true',
+    (exists (select 1 from jsonb_array_elements(pg_temp.asj(v_mod2, 'select public.community_appeal_queue()') -> 'items') x where x ->> 'appeal_id' = v_id::text and x ->> 'group_name' = 'All groups'))::text);
+  -- a moderator who is also a member cannot decide their own appeal
+  perform pg_temp.joined(v_mod2, v_g);
+  update public.community_memberships set approved_post_count = 10 where group_id = v_g and profile_id = v_mod2;
+  v_j := pg_temp.sub(v_mod2, v_g, 'A post by a person who also moderates');
+  perform pg_temp.asj(v_mod, format($q$select public.community_mod_decide(%L, 'remove', 'off_topic')$q$, v_j ->> 'post_id'));
+  perform pg_temp.asj(v_mod2, format($q$select public.community_appeal('removal', %L, 'I should not have been removed here.')$q$, v_j ->> 'post_id'));
+  select id into v_id from public.community_appeals where post_id = (v_j ->> 'post_id')::uuid;
+  perform pg_temp.rec('a moderator does not see their own appeal', 'false',
+    (exists (select 1 from jsonb_array_elements(pg_temp.asj(v_mod2, 'select public.community_appeal_queue()') -> 'items') x where x ->> 'appeal_id' = v_id::text))::text);
+  perform pg_temp.rec('...and cannot decide it', 'not_your_appeal_to_decide', (pg_temp.asj(v_mod2, format($q$select public.community_appeal_decide(%L, 'overturn', null)$q$, v_id)) ->> 'reason'));
+  -- reversing a removal re-checks the text against today's rules
+  update public.community_posts set body = 'actually call me on 08031234567' where id = (v_j ->> 'post_id')::uuid;
+  perform pg_temp.rec('a reversal that would publish a phone number is refused', 'still_blocked',
+    (pg_temp.asj(v_mod3, format($q$select public.community_appeal_decide(%L, 'overturn', null)$q$, v_id)) ->> 'reason'));
+  perform pg_temp.rec('...and the post stays removed', 'removed', (select state from public.community_posts where id = (v_j ->> 'post_id')::uuid));
+  -- prompts: held wording is refused too, and the safety team is not named to members
+  perform pg_temp.rec('a prompt with medicine-stopping wording is refused', 'text_not_allowed',
+    (pg_temp.asj(v_admin, format($q$select public.community_admin_save_prompt(%L, 'You should stop taking your tablets and try tea')$q$, v_g)) ->> 'reason'));
+  perform pg_temp.asj(v_rev, $q$select public.community_set_my_display_name('Sam, safety')$q$);
+  perform pg_temp.rec('a safety reviewer''s name is not shown to members', '0',
+    (jsonb_array_length(pg_temp.asj(v_p1, format('select public.community_get_group(%L)', v_slug)) -> 'team'))::text);
 
   -- 8. Quality sampling ----------------------------------------------------------------------------------------------------------------------
   update public.community_config set is_active = false where is_active;
