@@ -3,7 +3,7 @@ const rpc = jest.fn();
 jest.mock("@/lib/supabase/server", () => ({ createClient: jest.fn().mockResolvedValue({ rpc: (...a: unknown[]) => rpc(...a) }) }));
 
 import { revalidatePath } from "next/cache";
-import { appealDecideAction, modDecideAction, modSanctionAction, safetyDecideAction, sampleReviewAction, setDisplayNameAction } from "./staff-actions";
+import { appealDecideAction, modDecideAction, modRecentAction, modRemoveRecentAction, modSanctionAction, safetyDecideAction, sampleReviewAction, setDisplayNameAction } from "./staff-actions";
 
 const POST = "11111111-1111-4111-8111-111111111111";
 const SIGNAL = "22222222-2222-4222-8222-222222222222";
@@ -230,5 +230,64 @@ describe("setDisplayNameAction", () => {
     expect((await setDisplayNameAction({ name: "Ada" })).message).toMatch(/letters, spaces/);
     rpc.mockResolvedValue({ data: null, error: { code: "42501", message: "community staff only" } });
     expect((await setDisplayNameAction({ name: "Ada" })).message).toBe("You do not have permission to do that.");
+  });
+});
+
+describe("modRecentAction", () => {
+  const item = {
+    post_id: POST, group_id: SIGNAL, group_name: "Calm", author_handle: "QuietHeron42", is_reply: false, body: "Hello", state: "visible",
+    created_at: "2026-10-09T10:00:00.123456+00:00", image_id: null,
+  };
+  it("asks for the page older than the last post, passing the time through unchanged", async () => {
+    rpc.mockResolvedValue({ data: { items: [item] }, error: null });
+    const r = await modRecentAction({ before: "2026-10-09T10:00:00.123456+00:00" });
+    expect(r).toEqual({ ok: true, items: [item] });
+    expect(rpc).toHaveBeenCalledWith("community_mod_recent", { p_before: "2026-10-09T10:00:00.123456+00:00" });
+  });
+  it("passes a group when one is given", async () => {
+    rpc.mockResolvedValue({ data: { items: [] }, error: null });
+    await modRecentAction({ before: "2026-10-09T10:00:00Z", groupId: SIGNAL });
+    expect(rpc).toHaveBeenCalledWith("community_mod_recent", { p_before: "2026-10-09T10:00:00Z", p_group_id: SIGNAL });
+  });
+  it("rejects bad input before any call", async () => {
+    expect((await modRecentAction({ before: "not a time" })).ok).toBe(false);
+    expect((await modRecentAction({ before: "2026-10-09T10:00:00Z", groupId: "x" })).ok).toBe(false);
+    expect((await modRecentAction(null)).ok).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("never shows database text", async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: "XX000", message: "relation community_posts exploded" } });
+    const r = await modRecentAction({ before: "2026-10-09T10:00:00Z" });
+    expect(r).toEqual({ ok: false, message: "That could not be done. Please try again." });
+  });
+  it("refuses a reply of the wrong shape", async () => {
+    rpc.mockResolvedValue({ data: { items: [{ post_id: 1 }] }, error: null });
+    expect((await modRecentAction({ before: "2026-10-09T10:00:00Z" })).ok).toBe(false);
+  });
+  it("explains a permission refusal in plain English", async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: "42501", message: "community moderators only" } });
+    expect(await modRecentAction({ before: "2026-10-09T10:00:00Z" })).toEqual({ ok: false, message: "You do not have permission to do that." });
+  });
+});
+
+describe("modRemoveRecentAction", () => {
+  it("removes a live post with one of the plain reasons", async () => {
+    rpc.mockResolvedValue({ data: { status: "removed" }, error: null });
+    const r = await modRemoveRecentAction({ postId: POST, reasonCode: "off_topic" });
+    expect(r.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith("community_mod_decide", { p_post_id: POST, p_decision: "remove", p_reason_code: "off_topic" });
+    expect(revalidatePath).toHaveBeenCalled();
+  });
+  it("rejects a missing or made-up reason before any call", async () => {
+    expect((await modRemoveRecentAction({ postId: POST })).ok).toBe(false);
+    expect((await modRemoveRecentAction({ postId: POST, reasonCode: "because" })).ok).toBe(false);
+    expect((await modRemoveRecentAction({ postId: "x", reasonCode: "unkind" })).ok).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("sends a post that belongs to the safety reviewers back with a plain refusal", async () => {
+    rpc.mockResolvedValue({ data: { status: "refused", reason: "safety_reviewer_only" }, error: null });
+    const r = await modRemoveRecentAction({ postId: POST, reasonCode: "other" });
+    expect(r).toEqual({ ok: false, message: "Only a safety reviewer can handle this one." });
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

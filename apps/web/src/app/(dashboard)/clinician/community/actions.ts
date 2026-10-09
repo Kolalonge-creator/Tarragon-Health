@@ -158,5 +158,3 @@ export async function recordDrillAction(input: unknown): Promise<StaffActionResu
   }
   return result;
 }
-
-export const ANSWER_MIN = 5;

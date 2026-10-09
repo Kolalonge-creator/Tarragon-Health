@@ -174,6 +174,18 @@ export default async function ClinicianCommunityPage({ searchParams }: { searchP
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Community</h1>
         <p className="text-sm text-charcoal-ink/60">Group rules, safety rules and notes for the community groups.</p>
       </div>
+      <nav aria-label="More community pages" className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+        {ctx.is_clinician && (
+          <Link href="/clinician/community/qa" className="font-medium text-brand-green underline">
+            Doctor question sessions
+          </Link>
+        )}
+        {ctx.is_cmo && (
+          <Link href="/clinician/community/drill" className="font-medium text-brand-green underline">
+            Safety drill
+          </Link>
+        )}
+      </nav>
       {cmoBlock}
       {notesBlock}
     </div>

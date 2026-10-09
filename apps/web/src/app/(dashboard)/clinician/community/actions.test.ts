@@ -7,6 +7,7 @@ import {
   approveGroupRulesAction,
   deleteSafetyRuleAction,
   pinNoteAction,
+  recordDrillAction,
   reviewPinAction,
   saveSafetyRuleAction,
 } from "./actions";
@@ -113,5 +114,46 @@ describe("notes", () => {
     rpc.mockResolvedValue({ data: { status: "ok" }, error: null });
     expect((await reviewPinAction({ id: NOTE })).ok).toBe(true);
     expect((await reviewPinAction({ id: "no" })).ok).toBe(false);
+  });
+});
+
+describe("recordDrillAction", () => {
+  const STEPS = [
+    "Post the Chief Medical Officer's signed test self-harm phrase in a live group, as a test member.",
+    "Confirm the post is withheld from the group and the member sees the self-harm card.",
+    "Confirm the post is in the safety queue and not in the moderator queue.",
+    "Confirm a safety reviewer can see it and a moderator cannot.",
+    "Confirm the member's own emergency button works (it is never automatic) and that nothing was sent to the member's contacts without a tap.",
+    "Confirm the overdue notice reaches the safety reviewer if the post is left for 30 minutes (or write in the notes why you skipped this step).",
+  ];
+  const steps = (oks: boolean[]) => STEPS.map((step, i) => ({ step, ok: oks[i] }));
+  it("records a pass with the ticked steps and the notes", async () => {
+    rpc.mockResolvedValue({ data: { status: "ok" }, error: null });
+    const r = await recordDrillAction({ passed: true, notes: " all fine ", steps: steps([true, true, true, true, true, false]) });
+    expect(r.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith("community_record_tabletop", {
+      p_passed: true,
+      p_steps: steps([true, true, true, true, true, false]),
+      p_notes: "all fine",
+    });
+  });
+  it("records a failure with a step missing", async () => {
+    rpc.mockResolvedValue({ data: { status: "ok" }, error: null });
+    expect((await recordDrillAction({ passed: false, steps: steps([true, false, false, false, false, false]) })).ok).toBe(true);
+  });
+  it("refuses a pass with one of the first five steps unticked, before any call", async () => {
+    expect((await recordDrillAction({ passed: true, steps: steps([true, true, false, true, true, true]) })).ok).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("refuses invented steps, a missing step, and notes over 2000 characters", async () => {
+    expect((await recordDrillAction({ passed: false, steps: [{ step: "made up", ok: true }] })).ok).toBe(false);
+    expect((await recordDrillAction({ passed: false, steps: steps([true, true, true, true, true, true]).slice(0, 5) })).ok).toBe(false);
+    expect((await recordDrillAction({ passed: false, notes: "x".repeat(2001), steps: steps([true, true, true, true, true, true]) })).ok).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("tells anyone but the Chief Medical Officer so, without database text", async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: "42501", message: "the Chief Medical Officer only" } });
+    const r = await recordDrillAction({ passed: false, steps: steps([false, false, false, false, false, false]) });
+    expect(r).toEqual({ ok: false, message: "Only the Chief Medical Officer can record a drill." });
   });
 });

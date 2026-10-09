@@ -249,7 +249,7 @@ begin
              'id', g.id, 'slug', g.slug, 'name', g.name, 'description', g.description, 'topic_code', g.topic_code, 'topic_label', t.label,
              'requires_cmo_rules', t.requires_cmo_rules, 'rules_text', g.rules_text, 'rules_version', g.rules_version,
              'rules_approved', (g.rules_approved_version is not null and g.rules_approved_version = g.rules_version),
-             'rules_approved_at', g.rules_approved_at, 'join_mode', g.join_mode, 'member_cap', g.member_cap, 'status', g.status, 'created_at', g.created_at,
+             'rules_approved_at', g.rules_approved_at, 'join_mode', g.join_mode, 'member_cap', g.member_cap, 'images_allowed', g.images_allowed, 'status', g.status, 'created_at', g.created_at,
              'member_count', (select count(*) from public.community_memberships m where m.group_id = g.id and m.status = 'active'),
              'held_posts', (select count(*) from public.community_posts po where po.group_id = g.id and po.state in ('held', 'auto_hidden')),
              'open_reports', (select count(*) from public.community_reports r join public.community_posts po on po.id = r.post_id where po.group_id = g.id and r.status = 'open'),

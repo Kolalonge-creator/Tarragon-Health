@@ -354,6 +354,7 @@ begin
   return jsonb_build_object('sessions', coalesce((
     select jsonb_agg(jsonb_build_object(
              'series_id', x.series_id, 'title', x.title, 'intro', x.intro, 'opens_at', x.opens_at, 'closes_at', x.closes_at,
+             'answer_until', x.closes_at + make_interval(mins => v_grace),
              'can_answer', (now() >= x.opens_at and now() < x.closes_at + make_interval(mins => v_grace)),
              'questions', x.questions, 'unanswered', x.unanswered) order by x.opens_at desc)
       from (select q.series_id, min(q.title) as title, min(q.intro) as intro, min(q.opens_at) as opens_at, min(q.closes_at) as closes_at,
