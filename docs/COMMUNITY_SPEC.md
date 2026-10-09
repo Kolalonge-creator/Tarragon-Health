@@ -517,3 +517,42 @@ Left open, for decision or later work:
   posts keep their text.
 - **Notification templates are not registered** in `notification_templates` and the sender does not render them; notices are
   in-app only. Register them before relying on the registry check.
+
+## 13. Phase 2 as built, and Phase 3 status (2026-10-09)
+
+### Built in Phase 2 (database proofs in `community_phase2_controls.sql`, 95 checks, sabotage-verified)
+
+| Item | What it does | Notes |
+|---|---|---|
+| Hide one author | A member hides a person inside one group; their posts and replies vanish from that member's feed only, they are never told, reply notices from them stop. Undo any time. | Private to the viewer. Lost with either account. Cap 200 per member. |
+| Search | Groups by name, description or topic. **No post search**, by design (a post archive is a record of who said what). | Recommendations by condition are not built: they would couple a member's profile to a group. |
+| Group size cap | `member_cap` per group (10 to 100000, null = none). A full group refuses new joins and says so. | Admin sets it. Answers the "large groups feel harsh" finding with a decision the team can tune per group. |
+| Moderator roster | Staff choose a display name (e.g. "Ada, community moderator"); members see names and roles at the top of the group. Nothing shows until they choose. | Letters only (no digits), 2 to 40 characters; no ids. |
+| Group prompts | A short team line at the top of a group for a period (a welcome, a weekly question). Same filters as a post. | This is the newcomer welcome. |
+| Newcomer friction | Pre-moderation lowered from 3 posts to **1** (config `new_member_premoderated_posts`). | A recommendation, not a signed decision: measure first-post drop-off and the held-post wait, change the number in a new config version. |
+| Appeals | A member asks for a second look at a removal or a sanction within 14 days (`appeal_window_days`), once. A moderator who did not make the original decision decides. Reversing restores the post or lifts the sanction. | Safety-withheld posts are not appealable (a reviewer decided them). A removed post can come back only through this path. |
+| Quality sampling | 10% (`quality_sample_pct`) of moderator approve/remove decisions are re-checked by a different moderator; the CMO sees waiting, checked and disagreement counts. | Safety posts never enter the sample. |
+| Eating-disorder watch | Four HOLD rules (class `eating_disorder`) in draft v1, plus a moderator action "send to a safety reviewer". | The CMO's own safety wording is `docs/community/CMO_SAFETY_TERMS_PROPOSAL.md`. |
+| Weekly digest | Opt-in per group, one fixed in-app notice a week, never the group name. | The job `community_send_digests()` is service-role only and **not scheduled**. |
+
+### Phase 2 items not built, and why
+
+| Item | Why not |
+|---|---|
+| AI second pass (4.6) | Needs a registered `ai_systems` row, a `runGovernedAi()` call site, an evaluation run and prompt/knowledge approvals, which are a human's judgement and must not be seeded. Do it as its own governed piece. |
+| Programme-linked groups | Needs the 12-week programme enrolment model (separate tables) and a cohort-start rule. Needs its own spec; nothing in Community blocks it. |
+| Clinician "ask us anything" windows | Conflicts with "Tarragon Free consumes no doctor time" (CLAUDE.md). A paid-plan flow is a product decision first. |
+| Care-team task from a flagged emergency post | Needs counsel-approved consent (OQ-COM-06) and contradicts COM-5 (no promise of clinician review) until decided. |
+| Mobile screens | `apps/mobile` needs a device build to verify; the patient web screens and the RPCs are the contract it would use. |
+| Peer moderators | OQ-COM-08 decided no at launch. |
+
+### Phase 3 status (each item needs a decision or a dependency that does not exist yet)
+
+| Item | Status |
+|---|---|
+| Hand-off to S69 private cohorts | **Blocked: S69 / Module 17 is not built.** The moderation tables are already generic, so nothing needs changing here. |
+| Sponsor and NGO groups | **Needs a decision.** COM-7 says institutions see nothing. Any sponsor reporting (even counts) reverses that. |
+| Live clinician audio sessions | **Needs a decision and the product rule for who pays for doctor time.** Not built. |
+| Buddy pairing | **Needs a decision.** COM-10 says no direct messages ever; structured pairing with fixed prompts is a new feature to approve. |
+| Images or voice notes | **Needs a written founder decision** (default: not built). |
+| Sensitive groups | **Needs a decision** (COM-2: none at launch). |
