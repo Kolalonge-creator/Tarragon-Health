@@ -6,7 +6,6 @@ import {
   pinnedAdminSchema,
   ruleSetsSchema,
   rulesSchema,
-  type AdminGroup,
   type RuleSet,
 } from "@/lib/community/model";
 import { getCommunityStaffContext } from "@/components/community/staff-rpc";
