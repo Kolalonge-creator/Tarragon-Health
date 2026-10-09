@@ -1,0 +1,13 @@
+export const btn = "rounded-lg px-4 py-2 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green disabled:opacity-50";
+export const btnPrimary = `${btn} bg-brand-green text-white`;
+export const btnQuiet = `${btn} border border-charcoal-ink/25 bg-white text-charcoal-ink`;
+export const btnDanger = `${btn} border border-red-400 bg-white text-red-800`;
+export const field = "mt-1 w-full rounded-lg border border-charcoal-ink/20 bg-white px-3 py-2 text-sm text-charcoal-ink dark:border-night-ink/25";
+export const label = "block text-sm font-medium text-charcoal-ink";
+export const help = "mt-1 text-xs text-charcoal-ink/70";
+export const card = "rounded-xl border border-charcoal-ink/15 bg-white p-4";
+export const h1 = "font-heading text-2xl font-semibold tracking-tight text-charcoal-ink sm:text-3xl";
+export const h2 = "font-heading text-xl font-semibold text-charcoal-ink";
+export const link = "font-medium text-brand-green underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green";
+export const notice = "rounded-xl border p-3 text-sm";
+export const warn = `${notice} border-amber-300 bg-amber-50 text-amber-900`;

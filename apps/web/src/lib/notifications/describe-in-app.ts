@@ -1,3 +1,4 @@
+import { t, type MessageKey } from "@tarragon/i18n";
 /** The two fields the copy depends on. `InAppNotification` (lib/queries/notifications.ts) satisfies it, and keeping it
  * structural lets the INV-07 lint in packages/notifications render every case without loading the web app. */
 export interface InAppNotificationInput {
@@ -845,5 +846,15 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
       href: "/",
     };
   }
+  // Community notices (docs/COMMUNITY_SPEC.md section 7). The payload is empty by design (no group, handle or excerpt can reach a
+  // lock screen), so each line is fixed copy. The first three go to the member and open Community; the unmask notice goes to the CMO.
+  if (n.template === "community_reply") return communityNotice("community.notice.reply.title", "community.notice.reply.body", "/patient/community");
+  if (n.template === "community_post_removed") return communityNotice("community.notice.removed.title", "community.notice.removed.body", "/patient/community");
+  if (n.template === "community_sanction_notice") return communityNotice("community.notice.sanction.title", "community.notice.sanction.body", "/patient/community");
+  if (n.template === "community_unmask_notice") return communityNotice("community.notice.unmask.title", "community.notice.unmask.body", "/clinician");
   return { text: "You have an update", href: "/patient" };
+}
+
+function communityNotice(title: MessageKey, body: MessageKey, href: string): { text: string; href: string } {
+  return { text: `${t(title)}. ${t(body)}`, href };
 }

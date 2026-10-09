@@ -1,0 +1,39 @@
+/**
+ * Shared shapes for the Community staff screens. Importable from client components (no server code here).
+ * A staff action always answers with plain English: `message` is safe to show, never raw database text.
+ */
+export interface StaffActionResult {
+  ok: boolean;
+  message: string;
+}
+
+export const REMOVE_REASONS = [
+  { code: "selling", label: "Selling or promoting" },
+  { code: "medical_advice", label: "Medical advice or telling others to change a medicine" },
+  { code: "harassment", label: "Harassment or abuse" },
+  { code: "privacy", label: "Shares private details" },
+  { code: "contact_details", label: "Contact details or moving the chat elsewhere" },
+  { code: "other", label: "Another reason" },
+] as const;
+export type RemoveReasonCode = (typeof REMOVE_REASONS)[number]["code"];
+export const REMOVE_REASON_CODES = REMOVE_REASONS.map((r) => r.code) as [RemoveReasonCode, ...RemoveReasonCode[]];
+
+export const SANCTION_KINDS = [
+  { code: "warning", label: "Warning", timed: false },
+  { code: "mute", label: "Mute (cannot post for a while)", timed: true },
+  { code: "suspend", label: "Suspend (cannot use the group for a while)", timed: true },
+  { code: "ban", label: "Ban from this group", timed: false },
+] as const;
+export type SanctionKind = (typeof SANCTION_KINDS)[number]["code"];
+export const SANCTION_KIND_CODES = SANCTION_KINDS.map((k) => k.code) as [SanctionKind, ...SanctionKind[]];
+
+export type ModDecision = "approve" | "remove";
+export type SafetyDecision = "release" | "keep_withheld" | "close";
+
+export interface ModerationCallbacks {
+  onDecide: (input: { postId: string; decision: ModDecision; reasonCode?: string }) => Promise<StaffActionResult>;
+  onSanction: (input: { postId: string; kind: SanctionKind; reasonCode: string; hours?: number }) => Promise<StaffActionResult>;
+}
+export interface SafetyCallbacks {
+  onDecide: (input: { signalId: string; decision: SafetyDecision }) => Promise<StaffActionResult>;
+}

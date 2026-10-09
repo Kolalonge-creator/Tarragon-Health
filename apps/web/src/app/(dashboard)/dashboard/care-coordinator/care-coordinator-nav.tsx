@@ -18,11 +18,12 @@ const TABS = [
  * Coordinator Portal" design's sidebar-of-sections, adapted to this app's
  * in-page top-tab convention (the global sidebar already carries the role,
  * per lib/navigation.ts). */
-export function CareCoordinatorNav() {
+export function CareCoordinatorNav({ showCommunity = false }: { showCommunity?: boolean }) {
   const pathname = usePathname();
+  const tabs = showCommunity ? [...TABS, { href: "/dashboard/care-coordinator/community", label: "Community", exact: false }] : TABS;
   return (
     <nav className="flex flex-wrap gap-1 border-b border-charcoal-ink/10">
-      {TABS.map((tab) => {
+      {tabs.map((tab) => {
         const active = tab.exact ? pathname === tab.href : pathname.startsWith(tab.href);
         return (
           <Link
