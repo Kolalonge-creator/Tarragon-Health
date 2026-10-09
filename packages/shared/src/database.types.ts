@@ -42874,6 +42874,7 @@ export type Database = {
       clinician_risk_worklist: { Args: { p_limit?: number }; Returns: Json };
       community_admin_cancel_qa: { Args: { p_series_id: string }; Returns: Json }
       community_admin_create_qa: { Args: { p_title: string; p_intro: string; p_opens_at: string; p_closes_at: string; p_doctor_ids: string[]; p_group_ids: string[] }; Returns: Json }
+      community_admin_dpo: { Args: never; Returns: Json }
       community_admin_end_prompt: { Args: { p_id: string }; Returns: Json }
       community_admin_grant_staff: { Args: { p_profile_id: string; p_scope: string; p_group_id?: string }; Returns: Json }
       community_admin_groups: { Args: never; Returns: Json }
@@ -42893,6 +42894,7 @@ export type Database = {
       community_admin_save_group: { Args: { p_id: string; p_name: string; p_slug: string; p_description: string; p_topic_code: string; p_rules_text: string; p_join_mode?: string; p_status?: string }; Returns: Json }
       community_admin_save_prompt: { Args: { p_group_id: string; p_body: string; p_show_from?: string; p_show_until?: string }; Returns: Json }
       community_admin_save_topic: { Args: { p_code: string; p_label: string; p_description?: string; p_sort_order?: number; p_is_active?: boolean; p_requires_cmo_rules?: boolean }; Returns: Json }
+      community_admin_set_dpo: { Args: { p_profile_id: string; p_on: boolean }; Returns: Json }
       community_admin_set_group_cap: { Args: { p_id: string; p_cap: number | null }; Returns: Json }
       community_admin_set_group_images: { Args: { p_id: string; p_on: boolean }; Returns: Json }
       community_admin_set_shifts: { Args: { p_staff_id: string; p_shifts: Json }; Returns: Json }
@@ -42929,6 +42931,7 @@ export type Database = {
       community_mod_queue: { Args: { p_group_id?: string }; Returns: Json }
       community_mod_sanction: { Args: { p_post_id: string; p_kind: string; p_reason_code: string; p_hours?: number; p_platform_wide?: boolean }; Returns: Json }
       community_notify_overdue: { Args: never; Returns: number }
+      community_orphan_files: { Args: never; Returns: Json }
       community_overdue_work: { Args: never; Returns: Json }
       community_purge_expired: { Args: never; Returns: number }
       community_qa_answer: { Args: { p_post_id: string; p_body: string }; Returns: Json }
@@ -42953,6 +42956,7 @@ export type Database = {
       community_submit_post_with_image: { Args: { p_group_id: string; p_parent_id: string; p_body: string; p_client_request_id: string; p_storage_path: string; p_mime: string; p_size: number; p_width: number; p_height: number }; Returns: Json }
       community_tabletop_runs: { Args: never; Returns: Json }
       community_unhide_author: { Args: { p_id: string }; Returns: Json }
+      community_unmask_candidates: { Args: never; Returns: Json }
       log_outcome_export: { Args: { p_from?: string; p_to?: string }; Returns: undefined };
       my_monthly_reports: { Args: { p_limit?: number }; Returns: Json };
       override_patient_risk: { Args: { p_days?: number; p_level: string; p_patient: string; p_reason: string }; Returns: Json };

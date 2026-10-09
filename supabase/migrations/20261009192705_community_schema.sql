@@ -740,6 +740,13 @@ create table public.community_qa_answers (
 );
 create index community_qa_answers_question_idx on public.community_qa_answers (question_post_id) where removed_at is null;
 
+-- The person who is told whenever a community name is unmasked (the data protection officer). Set by an admin.
+create table public.community_dpo (
+  profile_id uuid primary key references public.profiles (id) on delete cascade,
+  set_by     uuid references public.profiles (id) on delete set null,
+  set_at     timestamptz not null default now()
+);
+
 -- ---------------------------------------------------------------------------
 -- 8. Lock everything down. RLS on, no policy (default deny), no table privilege for anyone but the owner.
 -- ---------------------------------------------------------------------------
@@ -753,7 +760,7 @@ begin
     'community_filter_rule_sets', 'community_filter_rules', 'community_safety_signals',
     'community_pinned_content', 'community_staff',
     'community_hidden_authors', 'community_appeals', 'community_mod_samples', 'community_group_prompts',
-    'community_post_images', 'community_shifts', 'community_tabletop_runs', 'community_qa_sessions', 'community_qa_doctors', 'community_qa_answers']
+    'community_post_images', 'community_shifts', 'community_tabletop_runs', 'community_qa_sessions', 'community_qa_doctors', 'community_qa_answers', 'community_dpo']
   loop
     execute format('alter table public.%I enable row level security', t);
     execute format('revoke all on public.%I from public, anon, authenticated, service_role', t);
@@ -783,7 +790,7 @@ begin
     'community_filter_rule_sets', 'community_filter_rules', 'community_safety_signals',
     'community_pinned_content', 'community_staff',
     'community_hidden_authors', 'community_appeals', 'community_mod_samples', 'community_group_prompts',
-    'community_post_images', 'community_shifts', 'community_tabletop_runs', 'community_qa_sessions', 'community_qa_doctors', 'community_qa_answers']
+    'community_post_images', 'community_shifts', 'community_tabletop_runs', 'community_qa_sessions', 'community_qa_doctors', 'community_qa_answers', 'community_dpo']
   loop
     if not (select relrowsecurity from pg_class where oid = ('public.' || t)::regclass) then
       raise exception 'community self-check: RLS is off on %', t;

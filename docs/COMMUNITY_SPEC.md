@@ -510,9 +510,8 @@ coordinator accounts, because those have the queue screen; sanction notices reco
 limits match the database; "show older" no longer shows stale posts after an edit or delete.
 
 Left open, for decision or later work:
-- **Unmask is not tied to a safety signal.** COM-6 says identity is revealed only when a post suggests danger. The RPC
-  checks admin, reason length and a daily cap, not a signal, and notifies the CMO only (the spec also names the DPO). Decide
-  whether to require an open or recent signal for the handle and whether the DPO is a recipient.
+- **Unmask** (fixed 2026-10-09, COM-19): needs a recent safety concern about that handle (30 days), is limited to admins, the CMO and active
+  doctors, and tells the CMO and the named DPO. See section 15.
 - **Purge is not scheduled.** `community_purge_expired` needs a daily job (service role) before go-live, or removed
   posts keep their text.
 - **Notification templates are not registered** in `notification_templates` and the sender does not render them; notices are
@@ -609,3 +608,16 @@ community migrations; proof `packages/db/tests/community_images_ops_qa.sql`.
 ### Mobile (COM-18)
 - Native screens in `apps/mobile` using the same RPCs and the picture routes with the bearer token. See the mobile agent's notes in the commit for what could not be
   run here (no device build). Any native permission change needs a `runtimeVersion` bump.
+
+## 15. Closing the known limits (2026-10-09)
+
+- **Unmask (COM-19).** `community_admin_unmask` refuses with `no_safety_signal` unless the member has a safety signal in that group within
+  `unmask.signal_window_days` (30). Callers: admin, CMO, active senior/CMO-tier doctor (`private.community_can_unmask`); never a moderator or
+  safety reviewer. `community_unmask_candidates()` lists the concerns (handle, group, kind, words, no account id). The CMO and every DPO in
+  `community_dpo` get the fixed `community_unmask_notice`; an admin names the DPO (`community_admin_set_dpo`); go-live condition `dpo_named`.
+- **Mobile emergency button.** `POST /api/mobile/community-emergency` (bearer) records an emergency for the signed-in person and messages their
+  saved contact through the shared `lib/emergency/alert-contact.ts` (the web action uses the same code). Runs only on the person's tap; no post text.
+- **Stray files.** `community_orphan_files()` (service role) lists files in the bucket a day old that no post refers to; the daily job removes them.
+- **Mobile photo permission wording.** The `expo-image-picker` `photosPermission` string in `apps/mobile/app.json` now mentions Community pictures. It is a
+  native-config change: it reaches phones only with the next native build. `runtimeVersion` stays `0.1.0-native5` on purpose (founder decision 2026-10-07: bump to
+  `0.1.0-native6` in the build commit, batched with the audio work), so the bump and `eas build` happen when that build is cut.

@@ -1832,7 +1832,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       block_cooldown: {"max_blocks": 3, "window_minutes": 10, "cooldown_minutes": 60},
       auto_hide_report_threshold: 3,
       removed_body_retention_days: 90,
-      unmask: {"min_reason_chars": 20, "max_per_day": 5},
+      unmask: {"min_reason_chars": 20, "max_per_day": 5, "signal_window_days": 30},
       consent_version: "DRAFT-UNAPPROVED",
       feed_page_size: 20,
       max_page_size: 50,

@@ -4,7 +4,7 @@ jest.mock("../supabase", () => ({
   supabase: { rpc: (...args: unknown[]) => mockRpc(...args), auth: { getSession: () => mockGetSession() } },
 }));
 
-import { deletePost, getAccessToken, hideAuthor, joinGroup, loadFeed, reactToPost, reportPost, searchGroups, submitAppeal, submitPost, uploadPostWithImage } from "./api";
+import { deletePost, getAccessToken, hideAuthor, joinGroup, loadFeed, reactToPost, reportPost, searchGroups, submitAppeal, submitPost, uploadPostWithImage, alertEmergencyContactFromCard } from "./api";
 import { buildPostUpload } from "./upload";
 
 const ok = (data: unknown) => ({ data, error: null, status: 200 });
@@ -160,5 +160,35 @@ describe("pictures", () => {
 
     globalThis.fetch = jest.fn().mockRejectedValue(new TypeError("Network request failed")) as unknown as typeof fetch;
     expect(await uploadPostWithImage(upload, "tok")).toEqual({ kind: "failed", definite: false });
+  });
+});
+
+describe("alertEmergencyContactFromCard", () => {
+  const originalFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+  it("does nothing without a session", async () => {
+    global.fetch = jest.fn() as unknown as typeof fetch;
+    expect(await alertEmergencyContactFromCard(null)).toBe("failed");
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+  it("posts once with the bearer token and sends no post text", async () => {
+    const fetchMock = jest.fn(async () => ({ ok: true, json: async () => ({ ok: true, contact: "sent" }) }));
+    global.fetch = fetchMock as unknown as typeof fetch;
+    expect(await alertEmergencyContactFromCard("tok")).toBe("sent");
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toContain("/api/mobile/community-emergency");
+    expect(init.method).toBe("POST");
+    expect(init.body).toBeUndefined();
+    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer tok");
+  });
+  it("tells a missing contact apart from a failure", async () => {
+    global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ ok: true, contact: "not_sent" }) })) as unknown as typeof fetch;
+    expect(await alertEmergencyContactFromCard("tok")).toBe("not_sent");
+    global.fetch = jest.fn(async () => ({ ok: false, json: async () => ({}) })) as unknown as typeof fetch;
+    expect(await alertEmergencyContactFromCard("tok")).toBe("failed");
+    global.fetch = jest.fn(async () => { throw new Error("offline"); }) as unknown as typeof fetch;
+    expect(await alertEmergencyContactFromCard("tok")).toBe("failed");
   });
 });

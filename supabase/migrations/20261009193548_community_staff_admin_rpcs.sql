@@ -356,15 +356,45 @@ end $$;
 -- 5. The one place a pseudonym is resolved (COM-6)
 -- ---------------------------------------------------------------------------
 -- Admin only, a written reason, limited per day, written to audit_log, and announced to the Chief Medical Officer.
+-- Who may look up the person behind a handle: an admin, the Chief Medical Officer, or an active doctor (COM-6). Never a moderator or a
+-- safety reviewer: they hand a concern to one of these people.
+create or replace function private.community_can_unmask() returns boolean
+language sql stable security definer set search_path = '' as $$
+  select private.is_admin() or private.credential_is_cmo()
+      or exists (select 1 from public.clinical_staff cs where cs.profile_id = (select auth.uid()) and cs.active and cs.doctor_tier in ('senior_medical_officer', 'chief_medical_officer'))
+$$;
+
+-- The safety concerns a person who may unmask can act on: a post that was withheld for emergency or self-harm wording, or reported as
+-- "someone may be in danger", in the last N days (config unmask.signal_window_days). A handle, the group, what kind, and the words.
+create or replace function public.community_unmask_candidates() returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if (select auth.uid()) is null then raise exception 'sign in required' using errcode = '28000'; end if;
+  if not private.community_can_unmask() then raise exception 'admins, the Chief Medical Officer and doctors only' using errcode = '42501'; end if;
+  return jsonb_build_object('items', coalesce((
+    select jsonb_agg(jsonb_build_object(
+             'signal_id', s.id, 'group_id', s.group_id, 'group_name', g.name, 'author_handle', po.author_handle, 'kind', s.kind,
+             'status', s.status, 'created_at', s.created_at, 'body', po.body) order by s.created_at desc)
+      from public.community_safety_signals s
+      join public.community_posts po on po.id = s.post_id
+      join public.community_groups g on g.id = s.group_id
+     where s.created_at > now() - make_interval(days => (private.community_cfg() #>> '{unmask,signal_window_days}')::int)
+       and po.author_profile_id is not null), '[]'::jsonb));
+end $$;
+
+-- Unmask a handle. ONLY while that member has a recent safety concern in that group, and only for the people named above (COM-6).
+-- The reason is written down, the lookup is rate-limited, and the CMO and the DPO are told with a fixed notice.
 create or replace function public.community_admin_unmask(p_group_id uuid, p_handle text, p_reason text)
 returns jsonb language plpgsql volatile security definer set search_path = '' as $$
 declare
   v_uid uuid := (select auth.uid());
   m public.community_memberships;
   v_name text;
+  v_kind text;
   r record;
 begin
-  if not private.is_admin() then raise exception 'admins only' using errcode = '42501'; end if;
+  if v_uid is null then raise exception 'sign in required' using errcode = '28000'; end if;
+  if not private.community_can_unmask() then raise exception 'admins, the Chief Medical Officer and doctors only' using errcode = '42501'; end if;
   if length(btrim(coalesce(p_reason, ''))) < (private.community_cfg() #>> '{unmask,min_reason_chars}')::int then
     return jsonb_build_object('status', 'refused', 'reason', 'reason_too_short');
   end if;
@@ -374,18 +404,52 @@ begin
   end if;
   select * into m from public.community_memberships where group_id = p_group_id and lower(handle) = lower(btrim(p_handle));
   if not found then return jsonb_build_object('status', 'refused', 'reason', 'no_such_member'); end if;
+  select s.kind into v_kind
+    from public.community_safety_signals s
+   where s.group_id = p_group_id and s.author_profile_id = m.profile_id
+     and s.created_at > now() - make_interval(days => (private.community_cfg() #>> '{unmask,signal_window_days}')::int)
+   order by s.created_at desc limit 1;
+  if v_kind is null then return jsonb_build_object('status', 'refused', 'reason', 'no_safety_signal'); end if;
   select full_name into v_name from public.profiles where id = m.profile_id;
   -- WHO was looked up is recorded ONLY in the private moderation log (no client role can read it). audit_log is readable by every staff member
   -- of the organisation (audit_log_select uses is_org_staff) and by the analytics and finance audit screens, so it gets the handle, the
-  -- group and the reason and NEVER the member's id: otherwise any clinician could turn a handle back into a person.
-  perform private.community_log_event(p_group_id, null, m.profile_id, 'unmasked', v_uid, 'admin_unmask', '[]'::jsonb);
-  perform private.log_audit('community_unmask', 'community_group', p_group_id, jsonb_build_object('handle', m.handle, 'reason', btrim(p_reason)));
-  for r in select cs.profile_id as pid, p.organisation_id as org from public.clinical_staff cs join public.profiles p on p.id = cs.profile_id
-            where cs.active and cs.doctor_tier = 'chief_medical_officer' and p.is_active loop
+  -- group, the kind of concern and the reason and NEVER the member's id: otherwise any clinician could turn a handle back into a person.
+  perform private.community_log_event(p_group_id, null, m.profile_id, 'unmasked', v_uid, 'safety_' || v_kind, '[]'::jsonb);
+  perform private.log_audit('community_unmask', 'community_group', p_group_id, jsonb_build_object('handle', m.handle, 'concern', v_kind, 'reason', btrim(p_reason)));
+  for r in select x.pid, x.org from (
+             select cs.profile_id as pid, p.organisation_id as org from public.clinical_staff cs join public.profiles p on p.id = cs.profile_id
+              where cs.active and cs.doctor_tier = 'chief_medical_officer' and p.is_active
+             union
+             select d.profile_id, p.organisation_id from public.community_dpo d join public.profiles p on p.id = d.profile_id where p.is_active) x loop
     insert into public.notifications (organisation_id, recipient_id, channel, template, payload, content_class, source_table, source_id)
     values (r.org, r.pid, 'in_app', 'community_unmask_notice', '{}'::jsonb, 'non_clinical', 'community_groups', p_group_id);
   end loop;
   return jsonb_build_object('status', 'ok', 'profile_id', m.profile_id, 'full_name', v_name);
+end $$;
+
+-- The data protection officer is told of every unmask. An admin names them.
+create or replace function public.community_admin_set_dpo(p_profile_id uuid, p_on boolean) returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+begin
+  if (select auth.uid()) is null then raise exception 'sign in required' using errcode = '28000'; end if;
+  if not private.is_admin() then raise exception 'admins only' using errcode = '42501'; end if;
+  if coalesce(p_on, false) then
+    if not exists (select 1 from public.profiles where id = p_profile_id and is_active) then return jsonb_build_object('status', 'refused', 'reason', 'no_such_member'); end if;
+    insert into public.community_dpo (profile_id, set_by) values (p_profile_id, (select auth.uid())) on conflict do nothing;
+  else
+    delete from public.community_dpo where profile_id = p_profile_id;
+  end if;
+  perform private.community_log_event(null, null, null, case when coalesce(p_on, false) then 'dpo_named' else 'dpo_removed' end, (select auth.uid()), null, '[]'::jsonb);
+  return jsonb_build_object('status', 'ok');
+end $$;
+
+create or replace function public.community_admin_dpo() returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if (select auth.uid()) is null then raise exception 'sign in required' using errcode = '28000'; end if;
+  if not private.community_can_configure() then raise exception 'admins and the Chief Medical Officer only' using errcode = '42501'; end if;
+  return jsonb_build_object('dpo', coalesce((select jsonb_agg(jsonb_build_object('profile_id', d.profile_id, 'name', p.full_name, 'set_at', d.set_at) order by d.set_at)
+                                                from public.community_dpo d join public.profiles p on p.id = d.profile_id), '[]'::jsonb));
 end $$;
 
 -- ---------------------------------------------------------------------------
@@ -585,7 +649,7 @@ end $$;
 -- 8. Privileges: every public community function is callable by signed-in users only (each checks its own authority);
 --    anon and PUBLIC are revoked (anon inherits execute through PUBLIC, so the revoke names public).
 -- ---------------------------------------------------------------------------
-revoke all on function private.community_can_configure() from public, anon, authenticated, service_role;
+revoke all on function private.community_can_configure(), private.community_can_unmask() from public, anon, authenticated, service_role;
 
 do $$
 declare
@@ -598,7 +662,7 @@ begin
        'community_staff_context', 'community_mod_queue', 'community_mod_decide', 'community_mod_sanction',
        'community_safety_queue', 'community_safety_decide', 'community_admin_topics', 'community_admin_save_topic',
        'community_admin_groups', 'community_admin_save_group', 'community_cmo_approve_group_rules',
-       'community_admin_staff', 'community_admin_grant_staff', 'community_admin_revoke_staff', 'community_admin_unmask',
+       'community_admin_staff', 'community_admin_grant_staff', 'community_admin_revoke_staff', 'community_admin_unmask', 'community_unmask_candidates', 'community_admin_set_dpo', 'community_admin_dpo',
        'community_admin_rule_sets', 'community_admin_rules', 'community_admin_rule_set_create', 'community_admin_rule_save',
        'community_admin_rule_delete', 'community_admin_rule_set_params', 'community_admin_rule_set_activate',
        'community_clinician_pin', 'community_clinician_review_pin', 'community_admin_unpin', 'community_admin_pinned', 'community_note_groups',

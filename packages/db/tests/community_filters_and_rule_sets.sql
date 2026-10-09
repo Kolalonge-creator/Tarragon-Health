@@ -147,7 +147,7 @@ begin
   -- The guard's conditions: the community branch exists, an older branch survived the in-place patch, and an unknown key fails closed.
   -- If a later migration replaces private.go_live_conditions() from an old copy, THIS check fails in CI.
   perform pg_temp.rec('go_live_conditions has a community branch', 'moderation_team_named', (private.go_live_conditions('community', null) -> 0 ->> 'code'));
-  perform pg_temp.rec('...with nine conditions', '9', (jsonb_array_length(private.go_live_conditions('community', null)))::text);
+  perform pg_temp.rec('...with ten conditions', '10', (jsonb_array_length(private.go_live_conditions('community', null)))::text);
   perform pg_temp.rec('...none of them met on a fresh database', '0', (select count(*)::text from jsonb_array_elements(private.go_live_conditions('community', null)) c where (c ->> 'met')::boolean and c ->> 'source' <> 'switch'));
   perform pg_temp.rec('an older guard''s conditions survived', 'stage2_exit_criteria_met', (private.go_live_conditions('public_signup_enabled', null) -> 0 ->> 'code'));
   perform pg_temp.rec('an unknown key still fails closed', 'unknown_guard', (private.go_live_conditions('no_such_guard', null) -> 0 ->> 'code'));

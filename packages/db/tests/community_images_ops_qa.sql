@@ -278,6 +278,24 @@ begin
   perform pg_temp.rec('a safety reviewer who is not a moderator cannot release a picture', 'picture_needs_moderator',
     (pg_temp.asj(v_rev, format($q$select public.community_safety_decide(%L, 'release')$q$, (select id from public.community_safety_signals where post_id = v_post2))) ->> 'reason'));
 
+  -- stray files: an upload that no post refers to is listed for the daily job once it is a day old
+  create schema if not exists storage;
+  create table storage.objects (bucket_id text, name text, created_at timestamptz default now());
+  insert into storage.objects (bucket_id, name, created_at) values
+    ('community-images', v_g::text || '/' || v_p1::text || '/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.jpg', now() - interval '3 days'),
+    ('community-images', v_g::text || '/' || v_p1::text || '/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb.jpg', now()),
+    ('community-images', (select storage_path from public.community_post_images limit 1), now() - interval '3 days');
+  perform pg_temp.rec('a day-old file with no post is listed for removal', 'true',
+    (public.community_orphan_files() ? (v_g::text || '/' || v_p1::text || '/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.jpg'))::text);
+  perform pg_temp.rec('a fresh upload is left alone (its post may still be arriving)', 'false',
+    (public.community_orphan_files() ? (v_g::text || '/' || v_p1::text || '/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb.jpg'))::text);
+  perform pg_temp.rec('a file that a post refers to is never listed', 'false',
+    (public.community_orphan_files() ? (select storage_path from public.community_post_images limit 1))::text);
+  perform pg_temp.rec('a signed-in user cannot list stray files', '42501', pg_temp.try('set local role authenticated; select public.community_orphan_files()'));
+  perform pg_temp.back();
+  drop table storage.objects;
+  drop schema storage;
+
   -- 3. Overdue work ----------------------------------------------------------------------------------------------------------------------
   update public.community_safety_signals set created_at = now() - interval '2 hours' where post_id = v_post2;
   perform pg_temp.rec('an old safety item is counted overdue', 'true', ((public.community_overdue_work() ->> 'safety_overdue')::int >= 1)::text);

@@ -34,11 +34,12 @@ describe("community housekeeping", () => {
       if (fn === "community_images_due") return { data: [{ id: A, path: "g/a.jpg" }, { id: B, path: "g/b.jpg" }], error: null };
       if (fn === "community_images_mark_deleted") return { data: 1, error: null };
       if (fn === "community_send_digests") return { data: 2, error: null };
+      if (fn === "community_orphan_files") return { data: ["g/u/stray.jpg"], error: null };
       return { data: null, error: { message: "unexpected" } };
     });
     remove.mockImplementation(async ([p]) => (p === "g/b.jpg" ? { error: { message: "network down" } } : { error: null }));
     const res = await GET(authorised);
-    expect(await res.json()).toMatchObject({ purged_posts: 4, images_due: 2, images_removed: 1, images_failed: 1, digests: 2 });
+    expect(await res.json()).toMatchObject({ purged_posts: 4, images_due: 2, images_removed: 1, images_failed: 1, digests: 2, orphans_found: 1, orphans_removed: 1 });
     expect(rpc).toHaveBeenCalledWith("community_images_mark_deleted", { p_ids: [A] });
   });
 

@@ -79,6 +79,23 @@ begin
   return v_n;
 end $$;
 
+-- Files in the bucket that no post refers to, older than a day (an upload whose post was never saved, or whose answer was lost).
+-- The daily job removes them. Reads storage.objects where it exists.
+create or replace function public.community_orphan_files() returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare
+  v jsonb;
+begin
+  if to_regclass('storage.objects') is null then return '[]'::jsonb; end if;
+  execute $q$
+    select coalesce(jsonb_agg(o.name), '[]'::jsonb)
+      from (select name from storage.objects
+             where bucket_id = 'community-images' and created_at < now() - interval '1 day'
+               and not exists (select 1 from public.community_post_images i where i.storage_path = storage.objects.name)
+             order by created_at limit 200) o$q$ into v;
+  return v;
+end $$;
+
 -- Pictures can be turned on per group by an admin or the CMO. Never for a topic whose rules need the CMO's approval (weight loss):
 -- before-and-after photographs are a known harm there.
 create or replace function public.community_admin_set_group_images(p_id uuid, p_on boolean) returns jsonb
@@ -462,13 +479,13 @@ begin
   for r in
     select p.oid::regprocedure as sig, p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public' and p.proname in (
-       'community_image_ref', 'community_image_precheck', 'community_images_due', 'community_images_mark_deleted', 'community_admin_set_group_images', 'community_mod_recent',
+       'community_image_ref', 'community_image_precheck', 'community_orphan_files', 'community_images_due', 'community_images_mark_deleted', 'community_admin_set_group_images', 'community_mod_recent',
        'community_coverage', 'community_admin_shifts', 'community_admin_set_shifts', 'community_record_tabletop', 'community_tabletop_runs',
        'community_overdue_work', 'community_notify_overdue', 'community_admin_create_qa', 'community_admin_cancel_qa', 'community_admin_qa_list',
        'community_admin_remove_answer', 'community_qa_doctor_sessions', 'community_qa_doctor_questions', 'community_qa_answer')
   loop
     execute format('revoke all on function %s from public, anon, authenticated, service_role', r.sig);
-    if r.proname in ('community_images_due', 'community_images_mark_deleted', 'community_overdue_work', 'community_notify_overdue') then
+    if r.proname in ('community_orphan_files', 'community_images_due', 'community_images_mark_deleted', 'community_overdue_work', 'community_notify_overdue') then
       execute format('grant execute on function %s to service_role', r.sig);
     else
       execute format('grant execute on function %s to authenticated', r.sig);

@@ -1,18 +1,17 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, findNodeHandle, View } from "react-native";
 import { radii, space, useTheme } from "@/ui/design";
 import { useT } from "@/lib/ui-language";
 import { AppText, Button } from "@/ui/kit";
 import { useCopy } from "./common";
+import { alertEmergencyContactFromCard, getAccessToken } from "@/lib/community/api";
 
 /**
  * Shown INSTEAD of a post when the words suggested an emergency or that the person may be thinking of harming themselves. The post was
- * not published and nothing was kept. The tone is care, never rejection. Nothing here is sent anywhere by itself.
- *
- * The web card has an "Alert my emergency contact" button that creates an emergency event and messages the saved contact through the
- * server. The phone has no equivalent call for that (it needs a server-side send), so here the emergency button OPENS the app's own
- * Emergency card screen, on the person's tap only. It never runs on its own, because a phrase match cannot tell "my chest is tight now"
- * from "my mum had chest pain last year" (docs/COMMUNITY_SPEC.md 4.4).
+ * not published and nothing was kept. The tone is care, never rejection. Nothing here is sent anywhere by itself: "Alert my emergency
+ * contact" runs only on the person's own tap (a phrase match cannot tell "my chest is tight now" from "my mum had chest pain last
+ * year", docs/COMMUNITY_SPEC.md 4.4). It records an emergency, messages the saved contact through the server, and then opens the app's own
+ * Emergency card, which confirms the alert or says what is missing.
  */
 export function SafetyCard({
   kind,
@@ -29,6 +28,14 @@ export function SafetyCard({
   const tr = useT();
   const { colors } = useTheme();
   const ref = useRef<View>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function alertContact() {
+    setBusy(true);
+    await alertEmergencyContactFromCard(await getAccessToken());
+    setBusy(false);
+    onOpenEmergency();
+  }
 
   // Moves screen-reader focus to the card so it is met before anything else on the screen.
   useEffect(() => {
@@ -50,7 +57,7 @@ export function SafetyCard({
       </AppText>
       <AppText variant="bodyLarge">{copy(emergency ? "community.safety.emergency.body" : "community.safety.self_harm.body")}</AppText>
       {emergency ? (
-        <Button title={tr("Emergency card")} onPress={onOpenEmergency} accessibilityHint="Opens your emergency card, with your contact and the hospital guidance." />
+        <Button title={copy("community.safety.emergency.contact")} onPress={() => void alertContact()} disabled={busy} accessibilityHint={tr("Messages your saved emergency contact now and opens your emergency card.")} />
       ) : (
         <Button title={copy("community.safety.self_harm.care_team")} onPress={onOpenMessages} />
       )}

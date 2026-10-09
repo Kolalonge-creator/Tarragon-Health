@@ -1,7 +1,7 @@
 -- Community proof 2 of 3: access and isolation (migrations *_community_schema.sql, *_community_member_rpcs.sql, *_community_staff_admin_rpcs.sql).
 --
 -- Proves, in one rolled-back transaction:
---   1. All twenty-four community tables are RPC-only: RLS on, no policy, and no client role (anon, authenticated, service_role)
+--   1. All twenty-five community tables are RPC-only: RLS on, no policy, and no client role (anon, authenticated, service_role)
 --      holds any privilege on any of them. The default privilege that grants new tables to authenticated is neutralised.
 --   2. Function privileges: anon and PUBLIC execute nothing; signed-in users execute every public function (each checks its own
 --      authority); the purge is for the service role only; no private helper is callable by a client.
@@ -96,7 +96,7 @@ do $$
 declare
   v_org uuid; v_admin uuid; v_cmo uuid; v_mod uuid; v_mod2 uuid; v_rev uuid; v_doc uuid; v_cc uuid;
   v_p1 uuid; v_p2 uuid; v_p3 uuid; v_real uuid; v_minor uuid; v_edge uuid; v_young uuid; v_nodob uuid; v_dep uuid; v_merged uuid;
-  v_g uuid; v_g2 uuid; v_gw uuid; v_rules integer; v_j jsonb; v_post uuid; v_post2 uuid; v_handle text; v_n integer; t text; r record;
+  v_g uuid; v_g2 uuid; v_gw uuid; v_rules integer; v_j jsonb; v_post uuid; v_post2 uuid; v_handle text; v_n integer; t text; r record; v_post_for_signal uuid; v_dpo uuid;
   v_staffroles text[] := array['hmo_admin', 'corporate_admin', 'pharmacist', 'finance', 'analyst', 'lab_partner', 'payer_admin', 'provider_org_staff', 'ngo_admin', 'lab_liaison'];
   v_role text; v_u uuid; v_ok boolean; v_keys text; v_staff_id uuid;
 begin
@@ -131,8 +131,8 @@ begin
   perform pg_temp.asj(v_admin, 'select public.community_admin_rule_set_activate(1)');
 
   -- 1. Every community table is unreachable from every client role -------------------------------------------------------
-  perform pg_temp.rec('there are twenty-four community tables', '24', (select count(*)::text from pg_tables where schemaname = 'public' and tablename like 'community\_%'));
-  perform pg_temp.rec('RLS is on for every community table', '24',
+  perform pg_temp.rec('there are twenty-five community tables', '25', (select count(*)::text from pg_tables where schemaname = 'public' and tablename like 'community\_%'));
+  perform pg_temp.rec('RLS is on for every community table', '25',
     (select count(*)::text from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relname like 'community\_%' and c.relkind = 'r' and c.relrowsecurity));
   perform pg_temp.rec('no community table has a policy (RPC-only)', '0', (select count(*)::text from pg_policies where schemaname = 'public' and tablename like 'community\_%'));
   for r in select tablename as t from pg_tables where schemaname = 'public' and tablename like 'community\_%' loop
@@ -174,7 +174,7 @@ begin
        where n.nspname in ('public', 'private') and p.proname like 'community\_%' and coalesce(p.proacl::text, '') ~ '(^\{|,)=X'), 'none'));
   perform pg_temp.rec('a signed-in user can execute every public community function except the two scheduled jobs', 'none',
     coalesce((select string_agg(p.proname, ',') from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-       where n.nspname = 'public' and p.proname like 'community\_%' and p.proname not in ('community_purge_expired', 'community_send_digests', 'community_images_due', 'community_images_mark_deleted', 'community_overdue_work', 'community_notify_overdue') and not has_function_privilege('authenticated', p.oid, 'EXECUTE')), 'none'));
+       where n.nspname = 'public' and p.proname like 'community\_%' and p.proname not in ('community_purge_expired', 'community_send_digests', 'community_orphan_files', 'community_images_due', 'community_images_mark_deleted', 'community_overdue_work', 'community_notify_overdue') and not has_function_privilege('authenticated', p.oid, 'EXECUTE')), 'none'));
   perform pg_temp.rec('a signed-in user cannot execute the purge', 'false', has_function_privilege('authenticated', 'public.community_purge_expired()', 'EXECUTE')::text);
   perform pg_temp.rec('only the service role may run the purge', 'true', has_function_privilege('service_role', 'public.community_purge_expired()', 'EXECUTE')::text);
   perform pg_temp.rec('only the service role may run the digest job', 'true,false',
@@ -341,8 +341,29 @@ begin
   perform pg_temp.rec('a revoked moderator loses access', '42501', (pg_temp.asj(v_mod2, 'select public.community_mod_queue(null)') ->> 'error'));
 
   -- 9. The one place a name is revealed ----------------------------------------------------------------------------------------------
-  perform pg_temp.rec('unmask: the CMO is not an admin', '42501', (pg_temp.asj(v_cmo, format($q$select public.community_admin_unmask(%L, %L, 'a long enough reason to be accepted')$q$, v_g, v_handle)) ->> 'error'));
+  v_dpo := pg_temp.mkuser(v_org, 'dpo', 'care_coordinator');
+  perform pg_temp.rec('unmask: a moderator or reviewer-level account is refused', '42501', (pg_temp.asj(v_mod, format($q$select public.community_admin_unmask(%L, %L, 'a long enough reason to be accepted')$q$, v_g, v_handle)) ->> 'error'));
   perform pg_temp.rec('unmask: a short reason is refused', 'reason_too_short', (pg_temp.asj(v_admin, format($q$select public.community_admin_unmask(%L, %L, 'because')$q$, v_g, v_handle)) ->> 'reason'));
+  perform pg_temp.rec('unmask: with no safety concern about that handle it is refused', 'no_safety_signal',
+    (pg_temp.asj(v_admin, format($q$select public.community_admin_unmask(%L, %L, 'A safety review needs to reach this member urgently.')$q$, v_g, v_handle)) ->> 'reason'));
+  -- a safety concern about p1 in this group (a withheld post and its signal)
+  insert into public.community_posts (group_id, author_profile_id, author_handle, body, state, hold_reason_codes)
+  values (v_g, v_p1, v_handle, 'a withheld post for the proof', 'held', array['safety:self_harm']) returning id into v_post_for_signal;
+  insert into public.community_safety_signals (group_id, post_id, author_profile_id, kind) values (v_g, v_post_for_signal, v_p1, 'self_harm_language');
+  perform pg_temp.rec('unmask: the candidate list is for admins, the CMO and doctors', '42501', (pg_temp.asj(v_mod, 'select public.community_unmask_candidates()') ->> 'error'));
+  perform pg_temp.rec('unmask: a doctor sees the concern with a handle and no account id', 'true',
+    (exists (select 1 from jsonb_array_elements(pg_temp.asj(v_doc, 'select public.community_unmask_candidates()') -> 'items') i where i ->> 'author_handle' = v_handle)
+     and (pg_temp.asj(v_doc, 'select public.community_unmask_candidates()'))::text not like '%' || v_p1::text || '%')::text);
+  perform pg_temp.rec('unmask: only an admin names the DPO', '42501', (pg_temp.asj(v_cmo, format('select public.community_admin_set_dpo(%L, true)', v_dpo)) ->> 'error'));
+  perform pg_temp.rec('unmask: an admin names the DPO', 'ok', (pg_temp.asj(v_admin, format('select public.community_admin_set_dpo(%L, true)', v_dpo)) ->> 'status'));
+  perform pg_temp.rec('unmask: a doctor with a written reason resolves the handle', v_p1::text,
+    (pg_temp.asj(v_doc, format($q$select public.community_admin_unmask(%L, %L, 'A safety review needs to reach this member urgently.')$q$, v_g, v_handle)) ->> 'profile_id'));
+  perform pg_temp.rec('unmask: the DPO is told too, with the same fixed notice', '{}',
+    (select payload::text from public.notifications where recipient_id = v_dpo and template = 'community_unmask_notice' limit 1));
+  update public.community_safety_signals set created_at = now() - interval '90 days' where id = (select id from public.community_safety_signals where post_id = v_post_for_signal);
+  perform pg_temp.rec('unmask: a concern older than the window no longer allows it', 'no_safety_signal',
+    (pg_temp.asj(v_cmo, format($q$select public.community_admin_unmask(%L, %L, 'A safety review needs to reach this member urgently.')$q$, v_g, v_handle)) ->> 'reason'));
+  update public.community_safety_signals set created_at = now() where post_id = v_post_for_signal;
   v_j := pg_temp.asj(v_admin, format($q$select public.community_admin_unmask(%L, %L, 'A safety review needs to reach this member urgently.')$q$, v_g, v_handle));
   perform pg_temp.rec('unmask: an admin with a written reason resolves the handle', v_p1::text, (v_j ->> 'profile_id'));
   perform pg_temp.rec('unmask: written to audit_log', '1', (select count(*)::text from public.audit_log where action = 'community_unmask' and actor_id = v_admin));

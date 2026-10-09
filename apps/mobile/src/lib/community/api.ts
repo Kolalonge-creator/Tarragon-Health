@@ -287,3 +287,27 @@ export async function uploadPostWithImage(upload: PostUpload, accessToken: strin
     return networkFailure;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Safety card: the person's own tap on "Alert my emergency contact"
+// ---------------------------------------------------------------------------
+/**
+ * Records an emergency for the signed-in person and messages their saved contact now (POST /api/mobile/community-emergency), exactly
+ * what the web card does. Called ONLY from the button; nothing in Community calls it by itself and no post text is sent. Never throws.
+ * Whatever the answer, the app then opens its own Emergency card, which confirms the alert or says what is missing (for example, no
+ * saved contact).
+ */
+export async function alertEmergencyContactFromCard(accessToken: string | null): Promise<"sent" | "not_sent" | "failed"> {
+  if (!accessToken) return "failed";
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/mobile/community-emergency`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
+    });
+    if (!response.ok) return "failed";
+    const json = (await response.json()) as { contact?: unknown };
+    return json.contact === "sent" ? "sent" : "not_sent";
+  } catch {
+    return "failed";
+  }
+}

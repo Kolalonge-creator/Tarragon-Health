@@ -6,7 +6,9 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
  *  1. community_purge_expired: the text of removed and deleted posts (and old appeal wording) after the retention period.
  *  2. community_images_due + community_images_mark_deleted: pictures of deleted or long-removed posts. The file is removed first and the
  *     row marked second, so a failed removal is retried tomorrow and a file that is already gone counts as removed.
- *  3. community_send_digests: the opt-in weekly note. The database sends at most one per member per six days, so running daily is safe.
+ *  3. community_orphan_files: files a day old or more that no post refers to (an upload whose post was never saved, or whose answer was
+ *     lost). They are unreadable by anyone, but they are removed so uploads cannot pile up.
+ *  4. community_send_digests: the opt-in weekly note. The database sends at most one per member per six days, so running daily is safe.
  * None of this is needed for Community to work; it only keeps data from living longer than promised.
  */
 const DueSchema = z.array(z.object({ id: z.string().uuid(), path: z.string() }));
@@ -16,7 +18,7 @@ export async function GET(request: Request): Promise<Response> {
   if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) return new Response("Not authorised", { status: 401 });
 
   const supabase = createServiceRoleClient();
-  const result = { purged_posts: 0, images_due: 0, images_removed: 0, images_failed: 0, digests: 0, errors: [] as string[] };
+  const result = { purged_posts: 0, images_due: 0, images_removed: 0, images_failed: 0, digests: 0, orphans_found: 0, orphans_removed: 0, orphans_failed: 0, errors: [] as string[] };
 
   const purge = await supabase.rpc("community_purge_expired");
   if (purge.error) result.errors.push("purge");
@@ -39,6 +41,19 @@ export async function GET(request: Request): Promise<Response> {
       const marked = await supabase.rpc("community_images_mark_deleted", { p_ids: removed });
       if (marked.error) result.errors.push("images_mark");
       else result.images_removed = Number(marked.data ?? 0);
+    }
+  }
+
+  const orphans = await supabase.rpc("community_orphan_files");
+  const orphanList = z.array(z.string()).safeParse(orphans.data);
+  if (orphans.error || !orphanList.success) {
+    result.errors.push("orphans");
+  } else {
+    result.orphans_found = orphanList.data.length;
+    for (const path of orphanList.data) {
+      const { error } = await supabase.storage.from("community-images").remove([path]);
+      if (error && !/not.?found/i.test(error.message)) result.orphans_failed += 1;
+      else result.orphans_removed += 1;
     }
   }
 

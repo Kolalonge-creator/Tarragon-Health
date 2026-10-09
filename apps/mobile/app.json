@@ -46,7 +46,7 @@
         "expo-image-picker",
         {
           "cameraPermission": "TarragonHealth uses your camera to photograph a lab result so it can be read into your record, and to take a photo to send with a written question to your care team.",
-          "photosPermission": "TarragonHealth accesses your photos so you can upload a lab result you've already photographed, or attach a photo to a written question to your care team.",
+          "photosPermission": "TarragonHealth accesses your photos so you can upload a lab result you've already photographed, attach a photo to a written question to your care team, or add one picture to a Community post. A person on our team checks a Community picture before anyone else sees it.",
           "microphonePermission": false
         }
       ],

@@ -30,7 +30,7 @@ interface CommunityRules {
   block_cooldown: { max_blocks: number; window_minutes: number; cooldown_minutes: number };
   auto_hide_report_threshold: number;
   removed_body_retention_days: number;
-  unmask: { min_reason_chars: number; max_per_day: number };
+  unmask: { min_reason_chars: number; max_per_day: number; signal_window_days: number };
   consent_version: string;
   feed_page_size: number;
   max_page_size: number;
