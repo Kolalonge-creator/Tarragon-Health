@@ -123,8 +123,12 @@ begin
   if v_uid is null then raise exception 'sign in required' using errcode = '28000'; end if;
   select * into po from public.community_posts where id = p_post_id;
   if not found or po.author_profile_id is null then return jsonb_build_object('status', 'refused', 'reason', 'no_such_member'); end if;
-  if not private.community_is_moderator(po.group_id) then raise exception 'community moderators only' using errcode = '42501'; end if;
-  if coalesce(p_platform_wide, false) and not private.is_admin() then raise exception 'only an admin sanctions across every group' using errcode = '42501'; end if;
+  -- A sanction in one group needs a moderator grant for that group; a sanction across every group is an admin's alone.
+  if coalesce(p_platform_wide, false) then
+    if not private.is_admin() then raise exception 'only an admin sanctions across every group' using errcode = '42501'; end if;
+  elsif not private.community_is_moderator(po.group_id) then
+    raise exception 'community moderators only' using errcode = '42501';
+  end if;
   if p_kind not in ('warning', 'mute', 'suspend', 'ban') then return jsonb_build_object('status', 'refused', 'reason', 'bad_kind'); end if;
   if p_reason_code is null or length(btrim(p_reason_code)) not between 2 and 40 then return jsonb_build_object('status', 'refused', 'reason', 'reason_needed'); end if;
   if p_kind in ('mute', 'suspend') then
@@ -483,8 +487,11 @@ create or replace function public.community_clinician_review_pin(p_id uuid)
 returns jsonb language plpgsql volatile security definer set search_path = '' as $$
 begin
   if (select auth.uid()) is null then raise exception 'sign in required' using errcode = '28000'; end if;
+  -- Only an active clinician other than the author can review (a refusal, not a database error, for anyone else).
   update public.community_pinned_content set reviewed_by = (select auth.uid()), reviewed_at = now()
-   where id = p_id and unpinned_at is null and reviewed_by is null;
+   where id = p_id and unpinned_at is null and reviewed_by is null
+     and authored_by <> (select auth.uid())
+     and exists (select 1 from public.clinical_staff cs where cs.profile_id = (select auth.uid()) and cs.active);
   if not found then return jsonb_build_object('status', 'refused', 'reason', 'not_reviewable'); end if;
   return jsonb_build_object('status', 'ok');
 end $$;

@@ -111,7 +111,10 @@ begin
                      'status', m.status, 'handle', m.handle, 'avatar_code', m.avatar_code,
                      'rules_current', (m.rules_accepted_version = g.rules_version),
                      'notifications_muted', m.notifications_muted) end,
-    'pinned', v_pinned);
+    'pinned', v_pinned,
+    -- The app reads limits from here and never carries a copy: they are PROPOSED values in the versioned configuration.
+    'limits', jsonb_build_object('post_max_chars', private.community_cfg_int('post_max_chars'),
+                                 'edit_window_minutes', private.community_cfg_int('edit_window_minutes')));
 end $$;
 
 -- ---------------------------------------------------------------------------

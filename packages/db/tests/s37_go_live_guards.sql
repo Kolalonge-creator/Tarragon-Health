@@ -113,7 +113,7 @@ begin
   update public.consultation_policy_config set config = config || '{"bookingLeadMinutes":5,"bookingHorizonDays":21}'::jsonb where is_active;
 
   -- 1. Shape ----------------------------------------------------------------------------------------------------
-  perform pg_temp.rec('seven guards exist', '7', (select count(*)::text from public.go_live_guards));
+  perform pg_temp.rec('the seven spec guards exist (other features may add guards of their own)', '7', (select count(*)::text from public.go_live_guards where key in ('clinical_operations_enabled', 'on_call_cover_ok', 'lab_booking_enabled', 'prescribing_enabled', 'scribe_enabled', 'payouts_enabled', 'public_signup_enabled')));
   perform pg_temp.rec('every guard ships off', '0', (select count(*)::text from public.go_live_guards where is_on));
   perform pg_temp.rec('RLS is on for all four tables', '4', (select count(*)::text from pg_class where oid in ('public.go_live_guards'::regclass, 'public.go_live_guard_log'::regclass, 'public.go_live_attestations'::regclass, 'public.proposed_config_signoffs'::regclass) and relrowsecurity));
   perform pg_temp.rec('authenticated cannot write any of the four tables', '0',
@@ -128,7 +128,7 @@ begin
   perform pg_temp.rec('anon cannot execute the private reader', 'false', has_function_privilege('anon', 'private.go_live_open(text,uuid,uuid)', 'EXECUTE')::text);
   perform pg_temp.rec('an unknown guard reads closed', 'false', private.go_live_open('no_such_guard')::text);
   perform pg_temp.act(v_pat);
-  perform pg_temp.rec('a signed-in person can read the guards', '7', (select count(*)::text from public.go_live_guards));
+  perform pg_temp.rec('a signed-in person can read the guards', '7', (select count(*)::text from public.go_live_guards where key in ('clinical_operations_enabled', 'on_call_cover_ok', 'lab_booking_enabled', 'prescribing_enabled', 'scribe_enabled', 'payouts_enabled', 'public_signup_enabled')));
   perform pg_temp.back();
 
   -- 2. No direct change, by anyone ------------------------------------------------------------------------------
