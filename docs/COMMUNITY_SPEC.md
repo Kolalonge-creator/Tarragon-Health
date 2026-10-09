@@ -1,9 +1,9 @@
 # Community: patient peer-support groups
 
-> **Status: design only. Nothing here is built, and no migration has been written.** This is a design and
-> reconciliation document, not a build order. It follows the house convention of the other `*_SPEC.md`
-> files. Building starts only after the founder answers the blocking questions `OQ-COM-01` to `OQ-COM-04`
-> in `docs/COMMUNITY_OPEN_QUESTIONS.md` (to be folded into `docs/OPEN-QUESTIONS.md` section E). Dated 2026-10-09.
+> **Status: design decided 2026-10-09; Phase 1 build started on branch `claude/community-groups-design`.**
+> All ten questions `OQ-COM-01` to `OQ-COM-10` were answered by the founder (see `docs/OPEN-QUESTIONS.md`
+> section E and `docs/DECISIONS.md`, "Community decisions, 2026-10-09"). The feature ships **dormant** behind
+> the `community` go-live guard until the owner-side items in section 8 are recorded. Dated 2026-10-09.
 > Verify every table, function and column named below against the live schema before the first migration
 > (see the standing lessons in `CLAUDE.md`).
 
@@ -13,7 +13,10 @@ Founder request (2026-10-09): patients can join communities by topic (hypertensi
 general health, and more); a Tarragon admin can create new groups; moderation blocks sharing of phone
 numbers, emails and similar. All three phases are to be built, in order.
 
-**This collides with `docs/BUILD-SPEC-v5.md` Part C.1** (line 2174): "Public feeds, public profiles, public
+**Decided (OQ-COM-01):** groups are open to Free and paid members alike; there is no plan check anywhere in the
+community code paths. Community is an acquisition route into the paid membership.
+
+**This collided with `docs/BUILD-SPEC-v5.md` Part C.1** (line 2174): "Public feeds, public profiles, public
 maps and body-metric leaderboards ... Stigma, location-safety risk and eating-disorder triggers;
 unmoderatable by a small team." Module 17 (line 1709) repeats it: "No public feeds, profiles or
 body-metric leaderboards." The v5 plan for community is private cohorts with challenges and anonymised
@@ -25,8 +28,8 @@ text-only, with no direct messages and no body-metric leaderboards. But C.1's la
 claim, and the honest reading is that this feature needs a moderation capacity the company may not have yet.
 So the design is built to be **dormant behind a go-live guard** and to scale moderation load down with
 mechanisms (pre-moderation for new members, hold-by-default on risky patterns, report thresholds) rather
-than assume a large team. `OQ-COM-01` asks the founder to confirm the reading explicitly, because per
-`CLAUDE.md` a v5 conflict is written down and the piece stops until decided.
+than assume a large team. The founder confirmed the reading (OQ-COM-01) and the decision is recorded in `docs/DECISIONS.md`. `BUILD-SPEC-v5.md`
+is never edited, so `DECISIONS.md` is the record that C.1 now reads as forbidding public and body-metric surfaces only.
 
 ## 1. Goals and non-goals
 
@@ -66,8 +69,8 @@ Non-goals (all deliberate)
 
 All tables live in `public`, have RLS enabled, an explicit `grant ... to authenticated` (new tables get no
 automatic grant, and `anon` gets none, per the standing lessons), and `organisation_id` where it makes
-sense. **Decision needed on the org column: `OQ-COM-07`.** Default proposed: every group row belongs to the
-single Tarragon platform organisation, and membership, not organisation, controls access.
+sense. **Decided (OQ-COM-07):** every group row belongs to the single Tarragon platform organisation, and membership, not
+organisation, controls access. This is the one deliberate exception to org-wide filtering and is stated in the migration header.
 
 ### 3.1 Core
 
@@ -176,7 +179,7 @@ A small team cannot read everything, so the system reads less by design:
 
 | Class | Examples (normalised) | Action | Author sees |
 |---|---|---|---|
-| `contact` | digit runs of 7+ after folding; `+234`, `080/081/070/090/091` prefixes; emails incl. "at/dot" forms; **any** URL or domain; `wa.me`, `t.me`, "whatsapp", "telegram", "ig:", "@name" handles; "dm me", "call me", "inbox me"; bank-account style 10-digit runs | `block` (post not stored, only hit class logged) | "Please keep contact details out of the group. Your care team can help you reach people safely." |
+| `contact` | digit runs of 7+ after folding; `+234`, `080/081/070/090/091` prefixes; emails incl. "at/dot" forms; **any** URL or domain except an exact-hostname match on the Tarragon allow-list (OQ-COM-10); `wa.me`, `t.me`, "whatsapp", "telegram", "ig:", "@name" handles; "dm me", "call me", "inbox me"; bank-account style 10-digit runs | `block` (post not stored, only hit class logged) | "Please keep contact details out of the group. Your care team can help you reach people safely." |
 | `commerce` | prices, "buy", "order", "delivery", "available at", "contact me for", brand lists | `hold` | "A moderator will look at this first." |
 | `cure_claim` | "cure", "reverse diabetes in N days", "herbal" plus outcome words, "detox" | `hold` | same |
 | `medicine_instruction` | "stop taking", "don't take your drugs", "increase your dose", "skip your tablets" | `hold` + nudge | "Talk to your care team before changing any medicine." |
@@ -217,7 +220,8 @@ into an alert to someone's family.
    care team (revealing identity and the excerpt to a clinician) is the only de-pseudonymising step in the
    product. It needs the author's consent recorded at join time, with counsel-approved wording
    (`OQ-COM-06`). Without that consent the reviewer can only message the author in-app.
-5. Free-plan carve-out (`CLAUDE.md`, 2026-08-10): Free consumes no doctor time. The patient safety card and
+5. Free-plan carve-out (`CLAUDE.md`, 2026-08-10, decided in OQ-COM-05): Free consumes no doctor time. A Free member gets
+   the safety card and their own one-tap emergency-contact button, with **no promise of a clinician review**. The patient safety card and
    the self-initiated emergency path work on every plan. A care-team **task** from a flagged post is a
    paid-plan feature behind a new feature flag, mirroring `vitals_red_flag_doctor_escalation`. The wording
    of the Free-plan experience is `OQ-COM-05`.
@@ -317,6 +321,8 @@ does not read community posts. A repo test greps for community table names outsi
   the member's choice (default: delete the body, keep a "former member" tombstone so replies read correctly).
 - The community tab is inert for under-18s (`OQ-COM-04`) and for accounts that have not verified.
 - Everything works with no notification ever delivered (house rule).
+- A membership call to action may appear as a fixed, non-condition-naming prompt. It is never an advertisement and never
+  depends on what the member posted or which group they are in (OQ-COM-01).
 - Copy rules: "your care team", never "your doctor"; no "cure", "instant doctor" or "free healthcare"; no
   em dashes; English only (en-NG); all strings in `packages/i18n`, none in components.
 
@@ -417,7 +423,7 @@ removal. Add new enum values in an earlier migration than the one that uses them
 
 ### Phase 2: Scale the moderation, deepen the value
 
-- Trust levels and peer moderators (volunteer `moderator` role in a group, powers limited to hold and report).
+- Trust levels (volunteer peer moderators are **not** in scope: OQ-COM-08 decided no at launch; revisit only on Phase 1 data).
 - AI second pass (4.6), registered and advisory only.
 - Programme-linked groups for the 12-week chronic-care programme, with a cohort start date.
 - Staff-posted scheduled threads and clinician "ask us anything" windows (paid-flow call to action).
@@ -454,6 +460,5 @@ removal. Add new enum values in an earlier migration than the one that uses them
 
 ## 12. Not decided here
 
-Everything in `docs/COMMUNITY_OPEN_QUESTIONS.md` under `OQ-COM-01` to `OQ-COM-10`. The four that block any build are
-01 (the Part C.1 conflict), 02 (sensitive groups at launch), 03 (who moderates, and how many hours), and 04
-(under-18 policy).
+Nothing is open for Phase 1 design. `OQ-COM-01` to `OQ-COM-10` are all decided. What is owed before go-live is a
+list of in-system acts by named people (section 8), not design questions.

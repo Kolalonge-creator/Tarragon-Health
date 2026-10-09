@@ -3,6 +3,23 @@
 Append-only log of decisions that shape the v5 build. Newest section first. A change to a
 spec invariant (INV-01 to INV-16) needs a written founder decision here.
 
+## Community decisions, 2026-10-09
+
+Founder, in chat, answering OQ-COM-01 to OQ-COM-10 (`docs/OPEN-QUESTIONS.md` section E, design in `docs/COMMUNITY_SPEC.md`). These do not sign the CMO's in-system acts (filter rule set v1 with the self-harm and emergency lists, the weight-loss template, the `community` guard switch), which are still owed.
+
+| ID | Decision |
+|---|---|
+| COM-1 | **Members-only topic groups are allowed and open to Free and paid members alike** (free-text answer: it builds the funnel into membership). Settles the Part C.1 conflict in OQ-COM-01 for members-only, pseudonymous, text-only groups; public, profile-based and body-metric-ranked surfaces stay forbidden. Ships dormant behind the `community` go-live guard (INV-14). |
+| COM-2 | **No sensitive groups at launch.** Launch groups: hypertension, diabetes, weight loss, general health. |
+| COM-3 | **Small named moderation team** (one safety reviewer, one or two moderators, declared hours) using a `community_staff` grant on an existing non-clinical staff role. No new `user_role` value. |
+| COM-4 | **Adults only, 18 and over**, re-checked on every post. |
+| COM-5 | **Free members get the safety card and their own one-tap emergency-contact button**, with no promise of a clinician review. No exception to the 2026-08-10 Free rule. |
+| COM-6 | **Consent at join**, counsel drafts the text: Tarragon may identify a member to their care team only if a post suggests they may be in danger. |
+| COM-7 | **One Tarragon-owned space.** Every group belongs to the Tarragon platform organisation; institutions see nothing. |
+| COM-8 | **No peer moderators at launch.** |
+| COM-9 | **Weight-loss group bans weights, calories and targets;** CMO approves the rules text and pinned post. |
+| COM-10 | **No direct messages ever. Tarragon-owned links only** (exact-hostname allow-list); no images or voice notes in Phases 1 and 2. |
+
 ## Design decisions, 2026-10-02
 
 Answered in a prompt after the mobile design audit (`docs/design/MOBILE-DESIGN-AUDIT.md`). They settle DF-2 and set Phase 0 of the design plan.
