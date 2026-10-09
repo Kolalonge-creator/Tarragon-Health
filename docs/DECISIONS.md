@@ -19,6 +19,12 @@ Founder, in chat, answering OQ-COM-01 to OQ-COM-10 (`docs/OPEN-QUESTIONS.md` sec
 | COM-8 | **No peer moderators at launch.** |
 | COM-9 | **Weight-loss group bans weights, calories and targets;** CMO approves the rules text and pinned post. |
 | COM-10 | **No direct messages ever. Tarragon-owned links only** (exact-hostname allow-list); no images or voice notes in Phases 1 and 2. |
+| COM-11 | **Sponsor and NGO groups: COM-7 stands.** Institutions see nothing about Community, not even counts. (Founder, in chat, 2026-10-09.) |
+| COM-12 | **No buddy pairing for now.** COM-10 stands; revisit after Phase 2 data. |
+| COM-13 | **No images or voice notes.** Text only. |
+| COM-14 | **Sensitive groups: still none.** COM-2 stands. |
+
+Phase 2 defaults chosen by engineering to answer the competitor audit (a recommendation, not a signed decision; the founder may change any of them): pre-moderation lowered from 3 posts to 1; a per-group size cap an admin can set; staff opt in to a visible display name; appeal window 14 days; 10% of moderator decisions re-checked by a second moderator. See `docs/COMMUNITY_SPEC.md` section 13.
 
 ## Design decisions, 2026-10-02
 
