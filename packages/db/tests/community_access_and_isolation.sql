@@ -344,6 +344,12 @@ begin
   v_j := pg_temp.asj(v_admin, format($q$select public.community_admin_unmask(%L, %L, 'A safety review needs to reach this member urgently.')$q$, v_g, v_handle));
   perform pg_temp.rec('unmask: an admin with a written reason resolves the handle', v_p1::text, (v_j ->> 'profile_id'));
   perform pg_temp.rec('unmask: written to audit_log', '1', (select count(*)::text from public.audit_log where action = 'community_unmask' and actor_id = v_admin));
+  perform pg_temp.rec('unmask: the audit row never carries the member''s id (audit_log is readable by org staff and analysts)', 'false',
+    (exists (select 1 from public.audit_log where action = 'community_unmask' and (event::text like '%' || v_p1::text || '%' or entity_id::text = v_p1::text)))::text);
+  perform pg_temp.rec('unmask: ...nor a name', 'false',
+    (exists (select 1 from public.audit_log where action = 'community_unmask' and event::text like '%COM p1%'))::text);
+  perform pg_temp.rec('unmask: who was looked up is kept in the private moderation log', 'true',
+    (exists (select 1 from public.community_moderation_events where action = 'unmasked' and member_profile_id = v_p1 and actor_id = v_admin))::text);
   perform pg_temp.rec('unmask: the audit row keeps the reason', 'true', (exists (select 1 from public.audit_log where action = 'community_unmask' and event ->> 'reason' like 'A safety review%'))::text);
   perform pg_temp.rec('unmask: the CMO is told, with a fixed notice and no content', '{}',
     (select payload::text from public.notifications where recipient_id = v_cmo and template = 'community_unmask_notice' limit 1));

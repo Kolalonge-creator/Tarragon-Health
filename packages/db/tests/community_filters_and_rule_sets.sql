@@ -75,7 +75,7 @@ end $f$;
 do $$
 declare
   v_org uuid; v_admin uuid; v_cmo uuid;
-  v_j jsonb; r record; v_dec text; v_n integer; v_emerg_rule bigint; v_url_rule bigint;
+  v_j jsonb; r record; v_dec text; v_n integer; v_emerg_rule bigint; v_url_rule bigint; v_t0 timestamptz; v_ms numeric;
 begin
   select id into v_org from public.organisations order by id limit 1;
   if v_org is null then insert into public.organisations (name) values ('community proof org') returning id into v_org; end if;
@@ -147,6 +147,16 @@ begin
   perform pg_temp.rec('the guard is born off', 'false', (select is_on::text from public.go_live_guards where key = 'community'));
   perform pg_temp.rec('the guard is switched by the CMO', 'cmo', (select switch_role from public.go_live_guards where key = 'community'));
 
+  -- Speed: a post of the maximum length must be checked in milliseconds, whatever it contains. A backreference rule once cost 4.5 SECONDS on
+  -- 2000 characters (every post would have held the member's row lock that long), so this is a standing check on the seeded rules.
+  for r in select * from (values ('dots', repeat('a.', 1000)), ('digits', repeat('1 ', 1000)), ('plain', repeat('hello there friends ', 100)),
+                                   ('separators', repeat('1-.(_)* ', 250)), ('letters', repeat('a', 2000)), ('words', repeat('zero one two ', 150))) as x(k, txt) loop
+    v_t0 := clock_timestamp();
+    perform private.community_scan(r.txt);
+    v_ms := extract(epoch from clock_timestamp() - v_t0) * 1000;
+    perform pg_temp.rec('a 2000 character ' || r.k || ' post is scanned in under 800 ms', 'true', (v_ms < 800)::text);
+  end loop;
+
   -- A decision never carries the text it matched
   perform pg_temp.rec('a scan returns rule ids and classes, never the matched text', 'false',
     (private.community_scan('call me on 08031234567')::text like '%08031234567%')::text);
@@ -169,6 +179,8 @@ begin
     pg_temp.try($q$select public.community_admin_rule_save(2, 'self_harm', 'regex', '\ytest crisis phrase\y', 'safety', 'proof only')$q$));
   perform pg_temp.rec('a regular expression that cannot compile is refused when saved', '2201B',
     pg_temp.try($q$select public.community_admin_rule_save(2, 'spam', 'regex', '(unclosed', 'hold', null)$q$));
+  perform pg_temp.rec('a rule with a backreference is refused on a draft (they are very slow in this regex engine)', '22023',
+    pg_temp.try($q$select public.community_admin_rule_save(2, 'spam', 'regex', '(.)\1{9,}', 'hold', null)$q$));
   perform pg_temp.back();
   select id into v_emerg_rule from public.community_filter_rules where rule_set_version = 2 and class = 'emergency';
   perform pg_temp.rec('the emergency rule exists to be deleted (the check below is not vacuous)', 'true', (v_emerg_rule is not null)::text);

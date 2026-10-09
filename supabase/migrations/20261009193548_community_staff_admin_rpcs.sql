@@ -348,8 +348,11 @@ begin
   select * into m from public.community_memberships where group_id = p_group_id and lower(handle) = lower(btrim(p_handle));
   if not found then return jsonb_build_object('status', 'refused', 'reason', 'no_such_member'); end if;
   select full_name into v_name from public.profiles where id = m.profile_id;
+  -- WHO was looked up is recorded ONLY in the private moderation log (no client role can read it). audit_log is readable by every staff member
+  -- of the organisation (audit_log_select uses is_org_staff) and by the analytics and finance audit screens, so it gets the handle, the
+  -- group and the reason and NEVER the member's id: otherwise any clinician could turn a handle back into a person.
   perform private.community_log_event(p_group_id, null, m.profile_id, 'unmasked', v_uid, 'admin_unmask', '[]'::jsonb);
-  perform private.log_audit('community_unmask', 'community_group', p_group_id, jsonb_build_object('handle', m.handle, 'reason', btrim(p_reason), 'member_id', m.profile_id));
+  perform private.log_audit('community_unmask', 'community_group', p_group_id, jsonb_build_object('handle', m.handle, 'reason', btrim(p_reason)));
   for r in select cs.profile_id as pid, p.organisation_id as org from public.clinical_staff cs join public.profiles p on p.id = cs.profile_id
             where cs.active and cs.doctor_tier = 'chief_medical_officer' and p.is_active loop
     insert into public.notifications (organisation_id, recipient_id, channel, template, payload, content_class, source_table, source_id)

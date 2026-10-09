@@ -164,7 +164,7 @@ insert into public.community_filter_rules (rule_set_version, class, kind, patter
   (1, 'medicine_instruction', 'regex', '\y(?:don''?t|do not) take\y (?:your |ur |the |any |those |these )?(?:drugs?|tablets?|pills?|medicines?|medication|insulin|metformin|amlodipine|lisinopril|losartan|glibenclamide|nifedipine)\y', 'hold', 'Telling others not to take a medicine'),
   (1, 'medicine_instruction', 'regex', '\y(?:increase|double|reduce|cut) (?:your|the|ur) (?:dose|dosage|tablets?)\y', 'hold', 'Telling others to change a dose'),
   (1, 'abuse', 'regex', '\y(?:i will|i''?ll|i''?m going to|im going to) (?:kill|beat|hurt|find) (?:you|u)\y|\yi know where you live\y', 'hold', 'Threats'),
-  (1, 'spam', 'regex', '(.)\1{9,}|\y(?:click here|free money|make money|investment opportunity|forex|bitcoin|crypto)\y', 'hold', 'Spam and get-rich-quick');
+  (1, 'spam', 'regex', 'a{10,}|b{10,}|c{10,}|d{10,}|e{10,}|f{10,}|g{10,}|h{10,}|i{10,}|j{10,}|k{10,}|l{10,}|m{10,}|n{10,}|o{10,}|p{10,}|q{10,}|r{10,}|s{10,}|t{10,}|u{10,}|v{10,}|w{10,}|x{10,}|y{10,}|z{10,}|0{10,}|1{10,}|2{10,}|3{10,}|4{10,}|5{10,}|6{10,}|7{10,}|8{10,}|9{10,}|!{10,}|\?{10,}|\.{10,}|-{10,}|\y(?:click here|free money|make money|investment opportunity|forex|bitcoin|crypto)\y', 'hold', 'Spam: a character repeated ten or more times, and get-rich-quick wording (no backreference: they are very slow in this regex engine)');
 
 -- ---------------------------------------------------------------------------
 -- 7. Self-check: nothing was switched on, no sensitive group, no safety rule invented

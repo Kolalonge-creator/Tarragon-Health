@@ -437,9 +437,25 @@ begin
   if v_status is distinct from 'draft' then
     raise exception 'rules can change only while their rule set is a draft (version % is %)', v_version, coalesce(v_status, 'missing') using errcode = '42501';
   end if;
-  -- A bad pattern would raise on every post once the set is live. Fail when it is saved, not when a member is typing.
+  -- A bad pattern would raise on every post once the set is live, and a slow one would stall every post (a backreference such as
+  -- (.)\1{9,} cost 4.5 seconds on a 2000 character post in this regex engine). Fail when it is saved, not when a member is typing.
   if tg_op <> 'DELETE' and new.kind = 'regex' then
+    if new.pattern ~ '\\[1-9]' then
+      raise exception 'a filter rule cannot use a backreference (they are very slow); spell the repetition out instead' using errcode = '22023';
+    end if;
     perform ''::text ~ new.pattern;
+    declare
+      v_t0 timestamptz;
+      v_sample text;
+    begin
+      foreach v_sample in array array[repeat('a', 2000), repeat('1 ', 1000), repeat('hello there friends ', 100), repeat('a.', 1000)] loop
+        v_t0 := clock_timestamp();
+        perform v_sample ~ new.pattern;
+        if clock_timestamp() - v_t0 > interval '300 milliseconds' then
+          raise exception 'a filter rule must scan a 2000 character post in well under a second; this one took %', clock_timestamp() - v_t0 using errcode = '54000';
+        end if;
+      end loop;
+    end;
   end if;
   return case when tg_op = 'DELETE' then old else new end;
 end $$;
