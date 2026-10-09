@@ -373,6 +373,15 @@ begin
   v_j := pg_temp.asj(v_p2, format('select public.community_get_group(%L)', v_slug));
   perform pg_temp.rec('the group view returns the post limit from the configuration', '2000', (v_j -> 'limits' ->> 'post_max_chars'));
   perform pg_temp.rec('...and the edit window', '15', (v_j -> 'limits' ->> 'edit_window_minutes'));
+  perform pg_temp.rec('the pinned list tells the author which notes are theirs', 'true',
+    ((pg_temp.asj(v_doc, format('select public.community_admin_pinned(%L)', v_g)) -> 'pinned' -> 0 ->> 'authored_by_me'))::text);
+  perform pg_temp.rec('...and tells another clinician they are not', 'false',
+    ((pg_temp.asj(v_doc2, format('select public.community_admin_pinned(%L)', v_g)) -> 'pinned' -> 0 ->> 'authored_by_me'))::text);
+  perform pg_temp.rec('a clinician can list the groups, drafts included', 'true',
+    (exists (select 1 from jsonb_array_elements(pg_temp.asj(v_doc, 'select public.community_note_groups()') -> 'groups') x where x ->> 'id' = v_g::text))::text);
+  perform pg_temp.rec('a patient cannot list the groups for notes', '42501', (pg_temp.asj(v_p1, 'select public.community_note_groups()') ->> 'error'));
+  perform pg_temp.rec('the rule set list names who approved the live version', 'COM cmo',
+    (select rs ->> 'approved_by_name' from jsonb_array_elements(pg_temp.asj(v_cmo, 'select public.community_admin_rule_sets()') -> 'rule_sets') rs where rs ->> 'status' = 'active'));
   perform pg_temp.rec('a reviewed note is shown with the reviewer''s real name', 'COM doc2', (v_j -> 'pinned' -> 0 ->> 'reviewed_by_name'));
   perform pg_temp.rec('...and when it was reviewed', 'true', ((v_j -> 'pinned' -> 0 ->> 'reviewed_at') is not null)::text);
 

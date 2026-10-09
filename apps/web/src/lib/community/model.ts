@@ -359,6 +359,7 @@ export const ruleSetSchema = z.object({
   params: z.object({ allowed_hosts: z.array(z.string()).optional() }).passthrough(),
   notes: z.string().nullable(),
   approved_at: z.string().nullable(),
+  approved_by_name: z.string().nullable().optional(),
   rule_count: z.number().int(),
   safety_rule_count: z.number().int(),
 });
@@ -387,6 +388,19 @@ export const pinnedAdminSchema = z.object({
       authored_by_name: z.string().nullable(),
       reviewed_by_name: z.string().nullable(),
       reviewed_at: z.string().nullable(),
+      authored_by_me: z.boolean().optional(),
+    }),
+  ),
+});
+
+export const noteGroupsSchema = z.object({
+  groups: z.array(
+    z.object({
+      id: z.string(),
+      slug: z.string(),
+      name: z.string(),
+      status: z.string(),
+      topic_label: z.string(),
     }),
   ),
 });

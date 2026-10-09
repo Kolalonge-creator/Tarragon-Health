@@ -371,6 +371,7 @@ begin
   return jsonb_build_object('rule_sets', coalesce((
     select jsonb_agg(jsonb_build_object(
              'version', rs.version, 'status', rs.status, 'params', rs.params, 'notes', rs.notes, 'approved_at', rs.approved_at,
+             'approved_by_name', (select p.full_name from public.profiles p where p.id = rs.approved_by),
              'rule_count', (select count(*) from public.community_filter_rules r where r.rule_set_version = rs.version),
              'safety_rule_count', (select count(*) from public.community_filter_rules r where r.rule_set_version = rs.version and r.action = 'safety'))
            order by rs.version desc)
@@ -518,9 +519,23 @@ begin
     select jsonb_agg(jsonb_build_object(
              'id', pc.id, 'title', pc.title, 'body', pc.body, 'pinned_at', pc.pinned_at, 'unpinned_at', pc.unpinned_at,
              'authored_by_name', (select p.full_name from public.profiles p where p.id = pc.authored_by),
+             'authored_by_me', (pc.authored_by = (select auth.uid())),
              'reviewed_by_name', (select p.full_name from public.profiles p where p.id = pc.reviewed_by), 'reviewed_at', pc.reviewed_at)
            order by pc.pinned_at desc)
       from public.community_pinned_content pc where pc.group_id = p_group_id), '[]'::jsonb));
+end $$;
+
+-- Groups a clinician can write or review a note for, drafts included (a clinician cannot call community_admin_groups, which is for admins and the CMO).
+create or replace function public.community_note_groups() returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if not (private.community_can_configure() or exists (select 1 from public.clinical_staff cs where cs.profile_id = (select auth.uid()) and cs.active)) then
+    raise exception 'admins, the Chief Medical Officer and clinicians only' using errcode = '42501';
+  end if;
+  return jsonb_build_object('groups', coalesce((
+    select jsonb_agg(jsonb_build_object('id', g.id, 'slug', g.slug, 'name', g.name, 'status', g.status, 'topic_label', t.label) order by t.sort_order, g.name)
+      from public.community_groups g join public.community_topics t on t.code = g.topic_code
+     where g.status <> 'archived'), '[]'::jsonb));
 end $$;
 
 create or replace function public.community_admin_overview() returns jsonb
@@ -559,7 +574,7 @@ begin
        'community_admin_staff', 'community_admin_grant_staff', 'community_admin_revoke_staff', 'community_admin_unmask',
        'community_admin_rule_sets', 'community_admin_rules', 'community_admin_rule_set_create', 'community_admin_rule_save',
        'community_admin_rule_delete', 'community_admin_rule_set_params', 'community_admin_rule_set_activate',
-       'community_clinician_pin', 'community_clinician_review_pin', 'community_admin_unpin', 'community_admin_pinned',
+       'community_clinician_pin', 'community_clinician_review_pin', 'community_admin_unpin', 'community_admin_pinned', 'community_note_groups',
        'community_admin_overview')
   loop
     execute format('revoke all on function %s from public, anon, authenticated, service_role', r.sig);

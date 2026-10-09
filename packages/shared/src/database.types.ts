@@ -42900,6 +42900,7 @@ export type Database = {
       community_join_group: { Args: { p_group_id: string; p_rules_version: number; p_consent: boolean }; Returns: Json }
       community_leave_group: { Args: { p_group_id: string; p_delete_posts?: boolean }; Returns: Json }
       community_list_groups: { Args: never; Returns: Json }
+      community_note_groups: { Args: never; Returns: Json }
       community_mod_decide: { Args: { p_post_id: string; p_decision: string; p_reason_code?: string }; Returns: Json }
       community_mod_queue: { Args: { p_group_id?: string }; Returns: Json }
       community_mod_sanction: { Args: { p_post_id: string; p_kind: string; p_reason_code: string; p_hours?: number; p_platform_wide?: boolean }; Returns: Json }
