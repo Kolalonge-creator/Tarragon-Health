@@ -70,6 +70,8 @@ const view = (membership: Extract<GroupViewData, { found: true }>["membership"],
   group: { ...GROUP, status },
   membership,
   pinned: [{ id: "n1", title: "Salt and you", body: "A short reviewed note.", reviewed_at: "2026-10-01T09:00:00Z", reviewed_by_name: "Dr Ada Obi" }],
+  team: [],
+  prompts: [],
   limits: { post_max_chars: MAX, edit_window_minutes: 15 },
 });
 const MEMBER = { status: "active" as const, handle: "Warm Fig", avatar_code: "sun", rules_current: true, notifications_muted: false };

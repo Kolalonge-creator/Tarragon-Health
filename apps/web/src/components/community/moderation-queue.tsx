@@ -14,7 +14,7 @@ import {
   type StaffActionResult,
 } from "./staff-types";
 
-type Mode = "idle" | "remove" | "sanction" | "sanction_confirm";
+type Mode = "idle" | "remove" | "sanction" | "sanction_confirm" | "safety_confirm";
 
 const reasonLabel = (code: string): string => REMOVE_REASONS.find((r) => r.code === code)?.label ?? "Another reason";
 
@@ -41,7 +41,8 @@ function ModerationCard({
   const hoursNumber = Number(hours);
   const hoursValid = Number.isInteger(hoursNumber) && hoursNumber >= 1 && hoursNumber <= 8760;
 
-  const why: string[] = item.reasons.map(holdReasonLabel);
+  const hasEatingDisorder = item.reasons.includes("eating_disorder");
+  const why: string[] = item.reasons.map((c) => (c === "eating_disorder" ? "Possible eating-disorder wording" : holdReasonLabel(c)));
   if (item.report_count > 0) why.push(`Reported ${item.report_count} ${item.report_count === 1 ? "time" : "times"}`);
 
   function close() {
@@ -109,6 +110,12 @@ function ModerationCard({
         {item.report_reasons.length > 0 && <p className="mt-1">Reasons given by members: {item.report_reasons.join(", ")}.</p>}
       </div>
 
+      {hasEatingDisorder && (
+        <p className="rounded-md border border-charcoal-ink/15 bg-warm-ivory p-3 text-sm text-charcoal-ink">
+          Possible eating-disorder wording. If you are worried about the writer, send it to a safety reviewer.
+        </p>
+      )}
+
       {mode === "idle" && (
         <div className="flex flex-wrap gap-2">
           <Button size="sm" disabled={busy} onClick={() => run(() => callbacks.onDecide({ postId: item.post_id, decision: "approve" }))}>
@@ -120,7 +127,27 @@ function ModerationCard({
           <Button size="sm" variant="outline" disabled={busy} onClick={() => setMode("sanction")}>
             Sanction the member
           </Button>
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => setMode("safety_confirm")}>
+            Send to a safety reviewer
+          </Button>
         </div>
+      )}
+
+      {mode === "safety_confirm" && (
+        <fieldset className="space-y-2 rounded-md border border-charcoal-ink/15 p-3">
+          <legend className="px-1 text-sm font-medium">Send this post to a safety reviewer</legend>
+          <p className="text-sm text-charcoal-ink/80">
+            Use this when you are worried about the person who wrote this. From then on only a safety reviewer can see it.
+          </p>
+          <div className="flex gap-2">
+            <Button size="sm" disabled={busy} onClick={() => run(() => callbacks.onDecide({ postId: item.post_id, decision: "send_to_safety" }))}>
+              Yes, send it to a safety reviewer
+            </Button>
+            <Button size="sm" variant="ghost" disabled={busy} onClick={close}>
+              Cancel
+            </Button>
+          </div>
+        </fieldset>
       )}
 
       {mode === "remove" && (

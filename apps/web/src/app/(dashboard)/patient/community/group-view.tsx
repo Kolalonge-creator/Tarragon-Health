@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { t, type Locale } from "@tarragon/i18n";
+import { t, type Locale, type MessageKey } from "@tarragon/i18n";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { formatPatientDate } from "@/lib/format-date";
@@ -11,11 +12,17 @@ import { Composer } from "./composer";
 import { JoinSection } from "./join-section";
 import { PostCard } from "./post-card";
 import { SafetyCard } from "./safety-card";
+import { HiddenAuthors, type HiddenAuthor } from "./hidden-authors";
 import { AvatarBadge } from "./avatar-badge";
 import { MUTED, TOUCH } from "./styles";
-import { leaveGroup, loadFeed, setGroupMuted, submitPost } from "./community-actions";
+import { leaveGroup, loadFeed, setDigest, setGroupMuted, submitPost } from "./community-actions";
 
 type FoundView = Extract<GroupViewData, { found: true }>;
+
+const TEAM_ROLE: Record<"moderator" | "safety_reviewer", MessageKey> = {
+  moderator: "community.team.moderator",
+  safety_reviewer: "community.team.safety_reviewer",
+};
 
 /**
  * A group: the safety card first when there is one, then the not-medical-advice banner, the rules, reviewed notes, the member's made-up
@@ -26,16 +33,19 @@ export function GroupView({
   initialPosts,
   initialHasMore,
   feedFailed,
+  hidden = [],
   locale,
 }: {
   view: FoundView;
   initialPosts: readonly FeedPost[];
   initialHasMore: boolean;
   feedFailed: boolean;
+  /** People this member has hidden in this group (handles only). */
+  hidden?: readonly HiddenAuthor[];
   locale: Locale;
 }) {
   const router = useRouter();
-  const { group, membership, pinned, limits } = view;
+  const { group, membership, pinned, limits, team, prompts } = view;
   const [safety, setSafety] = useState<"emergency" | "self_harm" | null>(null);
   const [joining, setJoining] = useState(false);
   const [older, setOlder] = useState<FeedPost[]>([]);
@@ -44,6 +54,7 @@ export function GroupView({
   const [feedMessage, setFeedMessage] = useState<"community.feed.error" | null>(feedFailed ? "community.feed.error" : null);
   const [deletePosts, setDeletePosts] = useState(false);
   const [muted, setMuted] = useState(membership.status !== "none" && membership.notifications_muted);
+  const [digest, setDigestOn] = useState(membership.status !== "none" && membership.digest_opt_in === true);
   const [controlNote, setControlNote] = useState<Parameters<typeof t>[0] | null>(null);
 
   // Older posts loaded by "show older" would go stale after an edit or delete, so a refresh starts the list again.
@@ -56,7 +67,9 @@ export function GroupView({
   const readOnly = group.status === "read_only";
   const canPost = isMember && !readOnly && membership.rules_current;
   const needsRules = isMember && !membership.rules_current && !readOnly;
-  const canJoin = !readOnly && (membership.status === "none" || membership.status === "left");
+  const notInGroup = membership.status === "none" || membership.status === "left";
+  const isFull = group.full === true && notInGroup;
+  const canJoin = !readOnly && notInGroup && !isFull;
   const blocked = membership.status === "suspended" || membership.status === "banned";
 
   const known = new Set(initialPosts.map((p) => p.id));
@@ -91,11 +104,33 @@ export function GroupView({
     else setControlNote(result ? result.key : "community.compose.refused.other");
   }
 
+  async function toggleDigest(on: boolean) {
+    setControlNote(null);
+    const result = await setDigest({ groupId: group.id, on }).catch(() => null);
+    if (result && result.ok) setDigestOn(result.on);
+    else setControlNote(result ? result.key : "community.compose.refused.other");
+  }
+
   return (
     <div className="space-y-6">
       {safety ? <SafetyCard kind={safety} locale={locale} onDismiss={() => setSafety(null)} /> : null}
 
       <p className="rounded-lg border-l-4 border-brand-green bg-soft-sage p-3 text-sm font-medium dark:bg-brand-green/20">{t("community.group.not_advice", locale)}</p>
+
+      {prompts.length > 0 ? (
+        <section aria-labelledby="community-prompts-title" className="space-y-2 rounded-xl border p-4">
+          <h3 id="community-prompts-title" className="font-medium">
+            {t("community.group.prompt_title", locale)}
+          </h3>
+          <ul className="space-y-1">
+            {prompts.map((p) => (
+              <li key={p.id} className="whitespace-pre-line text-sm leading-relaxed">
+                {p.body}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section className="space-y-2">
         {group.topic_label ? <p className={`text-xs font-medium uppercase tracking-wide ${MUTED}`}>{group.topic_label}</p> : null}
@@ -109,6 +144,23 @@ export function GroupView({
           {t("community.group.rules_title", locale)}
         </h3>
         <p className="whitespace-pre-line text-sm leading-relaxed">{group.rules_text}</p>
+      </section>
+
+      <section aria-labelledby="community-team-title" className="space-y-1">
+        <h3 id="community-team-title" className="font-medium">
+          {t("community.group.team_title", locale)}
+        </h3>
+        {team.length === 0 ? (
+          <p className="text-sm">{t("community.group.team_default", locale)}</p>
+        ) : (
+          <ul className="text-sm">
+            {team.map((m, i) => (
+              <li key={`${m.scope}-${m.display_name}-${i}`}>
+                {m.display_name} <span className={MUTED}>({t(TEAM_ROLE[m.scope], locale)})</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       {pinned.length > 0 ? (
@@ -153,9 +205,23 @@ export function GroupView({
           </div>
         </section>
       ) : null}
+      {isMember ? (
+        <div className={`flex items-center gap-3 ${TOUCH}`}>
+          <input id="community-digest" type="checkbox" className="h-5 w-5" checked={digest} onChange={(e) => void toggleDigest(e.target.checked)} />
+          <Label htmlFor="community-digest" className="font-normal">
+            {t("community.group.digest", locale)}
+          </Label>
+        </div>
+      ) : null}
       <p role="status" aria-live="polite" className="text-sm">
         {controlNote ? t(controlNote, locale) : ""}
       </p>
+
+      {isFull ? (
+        <p>
+          <span className="inline-flex min-h-11 items-center rounded-md bg-soft-sage px-3 text-sm font-medium dark:bg-brand-green/20">{t("community.groups.full", locale)}</span>
+        </p>
+      ) : null}
 
       {blocked ? <p>{t(membership.status === "banned" ? "community.compose.refused.banned" : "community.compose.refused.suspended", locale)}</p> : null}
 
@@ -209,6 +275,10 @@ export function GroupView({
               editWindowMinutes={limits.edit_window_minutes}
               canPost={canPost}
               onChanged={refresh}
+              onHidden={() => {
+                setControlNote("community.post.hide_done");
+                refresh();
+              }}
               onSafety={setSafety}
             />
           ))}
@@ -222,6 +292,14 @@ export function GroupView({
           ) : null}
         </section>
       ) : null}
+
+      {isMember ? <HiddenAuthors hidden={hidden} locale={locale} onChanged={refresh} /> : null}
+
+      <footer>
+        <Link href="/patient/community/appeals" className="text-sm font-medium underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green">
+          {t("community.appeals.link", locale)}
+        </Link>
+      </footer>
     </div>
   );
 }

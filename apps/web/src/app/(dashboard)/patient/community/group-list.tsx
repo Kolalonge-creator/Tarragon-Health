@@ -21,7 +21,10 @@ export function GroupList({ groups, locale }: { groups: readonly GroupSummary[];
               {t(memberCountKey(g.member_count), locale, { count: g.member_count })}
               {g.my_status === "active" ? ` - ${t("community.groups.you_are_in", locale)}` : ""}
             </p>
-            <div className="mt-auto">
+            <div className="mt-auto flex flex-wrap items-center gap-2">
+              {g.full === true && g.my_status !== "active" ? (
+                <span className="inline-flex min-h-11 items-center rounded-md bg-soft-sage px-3 text-sm font-medium dark:bg-brand-green/20">{t("community.groups.full", locale)}</span>
+              ) : null}
               <Link href={`/patient/community/${encodeURIComponent(g.slug)}`} className={LINK_BUTTON} aria-label={`${t("community.groups.open", locale)}: ${g.name}`}>
                 {t("community.groups.open", locale)}
               </Link>

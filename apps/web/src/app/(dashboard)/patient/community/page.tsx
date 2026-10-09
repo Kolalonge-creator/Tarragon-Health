@@ -5,7 +5,8 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 import { createClient } from "@/lib/supabase/server";
 import { groupListSchema } from "@/lib/community/model";
 import { t } from "@tarragon/i18n";
-import { GroupList } from "./group-list";
+import Link from "next/link";
+import { GroupSearch } from "./group-search";
 import { MUTED } from "./styles";
 
 export const metadata = { title: "Community", robots: { index: false, follow: false } };
@@ -25,7 +26,17 @@ export default async function CommunityPage() {
   let body: React.ReactNode;
   if (!list || !list.open) body = <p className={MUTED}>{t("community.not_open", uiLanguage)}</p>;
   else if (!list.adult) body = <p className={MUTED}>{t("community.adults_only", uiLanguage)}</p>;
-  else body = <GroupList groups={list.groups} locale={uiLanguage} />;
+  else
+    body = (
+      <div className="space-y-6">
+        <GroupSearch groups={list.groups} locale={uiLanguage} />
+        <p>
+          <Link href="/patient/community/appeals" className="text-sm font-medium underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green">
+            {t("community.appeals.link", uiLanguage)}
+          </Link>
+        </p>
+      </div>
+    );
 
   return (
     <div className="space-y-6">

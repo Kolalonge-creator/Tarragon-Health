@@ -5,8 +5,11 @@ import { z } from "zod";
 import type { MessageKey } from "@tarragon/i18n";
 import { createClient } from "@/lib/supabase/server";
 import {
+  appealRefusalKey,
   composeOutcome,
   feedSchema,
+  groupListSchema,
+  hiddenListSchema,
   joinRefusalKey,
   outcomeSchema,
   repliesSchema,
@@ -14,6 +17,8 @@ import {
   submitResultSchema,
   type ComposeOutcome,
   type Feed,
+  type GroupList,
+  type HiddenList,
   type Replies,
 } from "@/lib/community/model";
 import { alertEmergencyContactNow } from "@/app/(dashboard)/patient/actions";
@@ -211,6 +216,88 @@ export async function reportPost(input: unknown): Promise<ReportResult> {
   if (outcome.data.status === "reported") return { ok: true, key: "community.report.thanks" };
   if (outcome.data.status === "already_reported") return { ok: true, key: "community.report.already" };
   return { ok: false, key: refusalKey(outcome.data.reason) };
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2: search, digest, hiding a person, appeals
+// ---------------------------------------------------------------------------
+/**
+ * Searches group names, descriptions and topics only (never posts). Outside 2 to 60 characters the database returns the normal list, and
+ * so does this: the text is trimmed here and an out-of-range search asks for the plain list instead.
+ */
+export async function searchGroups(input: unknown): Promise<GroupList | ActionFailure> {
+  const parsed = z.object({ q: z.string() }).safeParse(input);
+  if (!parsed.success) return { ok: false, key: "community.feed.error" };
+  const q = parsed.data.q.trim();
+  const supabase = await createClient();
+  const { data, error } =
+    q.length >= 2 && q.length <= 60 ? await supabase.rpc("community_search_groups", { p_q: q }) : await supabase.rpc("community_list_groups");
+  if (error) return { ok: false, key: "community.feed.error" };
+  const list = groupListSchema.safeParse(data);
+  return list.success ? list.data : { ok: false, key: "community.feed.error" };
+}
+
+export async function setDigest(input: unknown): Promise<{ ok: true; on: boolean } | ActionFailure> {
+  const parsed = z.object({ groupId: Uuid, on: z.boolean() }).safeParse(input);
+  if (!parsed.success) return { ok: false, key: FAILED };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("community_set_digest", { p_group_id: parsed.data.groupId, p_on: parsed.data.on });
+  if (error) return { ok: false, key: FAILED };
+  const outcome = outcomeSchema.safeParse(data);
+  if (!outcome.success || outcome.data.status !== "ok") return { ok: false, key: outcome.success ? refusalKey(outcome.data.reason) : FAILED };
+  const on = outcome.data["digest_opt_in"];
+  return { ok: true, on: typeof on === "boolean" ? on : parsed.data.on };
+}
+
+const HIDE_FAILED: MessageKey = "community.post.hide_failed";
+
+/** Hides one person's posts from this member only. The person is never told. The database refuses it for the member's own posts. */
+export async function hideAuthor(input: unknown): Promise<{ ok: true } | ActionFailure> {
+  const parsed = z.object({ postId: Uuid }).safeParse(input);
+  if (!parsed.success) return { ok: false, key: HIDE_FAILED };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("community_hide_author", { p_post_id: parsed.data.postId });
+  if (error) return { ok: false, key: HIDE_FAILED };
+  const outcome = outcomeSchema.safeParse(data);
+  if (!outcome.success || outcome.data.status !== "hidden") return { ok: false, key: HIDE_FAILED };
+  refresh();
+  return { ok: true };
+}
+
+export async function unhideAuthor(input: unknown): Promise<{ ok: true } | ActionFailure> {
+  const parsed = z.object({ id: Uuid }).safeParse(input);
+  if (!parsed.success) return { ok: false, key: FAILED };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("community_unhide_author", { p_id: parsed.data.id });
+  if (error) return { ok: false, key: FAILED };
+  const outcome = outcomeSchema.safeParse(data);
+  if (!outcome.success || outcome.data.status !== "ok") return { ok: false, key: FAILED };
+  refresh();
+  return { ok: true };
+}
+
+export async function loadHidden(input: unknown): Promise<HiddenList | ActionFailure> {
+  const parsed = z.object({ groupId: Uuid }).safeParse(input);
+  if (!parsed.success) return { ok: false, key: "community.feed.error" };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("community_hidden_authors", { p_group_id: parsed.data.groupId });
+  if (error) return { ok: false, key: "community.feed.error" };
+  const list = hiddenListSchema.safeParse(data);
+  return list.success ? list.data : { ok: false, key: "community.feed.error" };
+}
+
+/** Asks for a second look at a removed post or an access change. A different moderator decides; the reason text is the member's own. */
+export async function submitAppeal(input: unknown): Promise<{ ok: true } | ActionFailure> {
+  const parsed = z.object({ kind: z.enum(["removal", "sanction"]), targetId: Uuid, reason: z.string().trim().min(1).max(1000) }).safeParse(input);
+  if (!parsed.success) return { ok: false, key: "community.appeals.refused.reason_length" };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("community_appeal", { p_kind: parsed.data.kind, p_target_id: parsed.data.targetId, p_reason: parsed.data.reason });
+  if (error) return { ok: false, key: "community.appeals.refused.other" };
+  const outcome = outcomeSchema.safeParse(data);
+  if (!outcome.success) return { ok: false, key: "community.appeals.refused.other" };
+  if (outcome.data.status !== "ok") return { ok: false, key: appealRefusalKey(outcome.data.reason) };
+  revalidatePath("/patient/community/appeals");
+  return { ok: true };
 }
 
 // ---------------------------------------------------------------------------

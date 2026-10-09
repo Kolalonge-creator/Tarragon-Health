@@ -1,10 +1,15 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { modQueueSchema, safetyQueueSchema } from "@/lib/community/model";
+import { appealQueueSchema, modQueueSchema, safetyQueueSchema, sampleQueueSchema } from "@/lib/community/model";
 import { getCommunityStaffContext } from "@/components/community/staff-rpc";
 import { ModerationQueue } from "@/components/community/moderation-queue";
 import { SafetyQueue } from "@/components/community/safety-queue";
-import { modDecideAction, modSanctionAction, safetyDecideAction } from "@/components/community/staff-actions";
+import { AppealQueue } from "@/components/community/appeal-queue";
+import { SampleQueue } from "@/components/community/sample-queue";
+import { DisplayNameForm } from "@/components/community/display-name-form";
+import {
+  appealDecideAction, modDecideAction, modSanctionAction, safetyDecideAction, sampleReviewAction, setDisplayNameAction,
+} from "@/components/community/staff-actions";
 
 export const metadata = { title: "Community" };
 export const dynamic = "force-dynamic";
@@ -25,45 +30,47 @@ export default async function CareCoordinatorCommunityPage({ searchParams }: { s
     );
   }
 
+  type Tab = "moderation" | "appeals" | "second_look" | "safety";
+  const allowed: Tab[] = [
+    ...(ctx.is_moderator ? (["moderation", "appeals", "second_look"] as const) : []),
+    ...(ctx.is_safety_reviewer ? (["safety"] as const) : []),
+  ];
   const requested = (await searchParams).tab;
-  const tab: "moderation" | "safety" =
-    requested === "safety" && ctx.is_safety_reviewer ? "safety" : requested === "moderation" && ctx.is_moderator ? "moderation" : ctx.is_moderator ? "moderation" : "safety";
+  const tab: Tab = allowed.find((t) => t === requested) ?? allowed[0];
 
   const supabase = await createClient();
+  const failed = (
+    <p role="alert" className="text-sm text-red-700">
+      {LOAD_FAILED}
+    </p>
+  );
   let content: React.ReactNode;
   if (tab === "moderation") {
     const { data, error } = await supabase.rpc("community_mod_queue", {});
     const parsed = modQueueSchema.safeParse(data);
     content =
-      error || !parsed.success ? (
-        <p role="alert" className="text-sm text-red-700">
-          {LOAD_FAILED}
-        </p>
-      ) : (
-        <ModerationQueue items={parsed.data.items} onDecide={modDecideAction} onSanction={modSanctionAction} />
-      );
+      error || !parsed.success ? failed : <ModerationQueue items={parsed.data.items} onDecide={modDecideAction} onSanction={modSanctionAction} />;
+  } else if (tab === "appeals") {
+    const { data, error } = await supabase.rpc("community_appeal_queue");
+    const parsed = appealQueueSchema.safeParse(data);
+    content = error || !parsed.success ? failed : <AppealQueue items={parsed.data.items} onDecide={appealDecideAction} />;
+  } else if (tab === "second_look") {
+    const { data, error } = await supabase.rpc("community_sample_queue");
+    const parsed = sampleQueueSchema.safeParse(data);
+    content = error || !parsed.success ? failed : <SampleQueue items={parsed.data.items} onReview={sampleReviewAction} />;
   } else {
     const { data, error } = await supabase.rpc("community_safety_queue");
     const parsed = safetyQueueSchema.safeParse(data);
-    content =
-      error || !parsed.success ? (
-        <p role="alert" className="text-sm text-red-700">
-          {LOAD_FAILED}
-        </p>
-      ) : (
-        <SafetyQueue items={parsed.data.items} onDecide={safetyDecideAction} />
-      );
+    content = error || !parsed.success ? failed : <SafetyQueue items={parsed.data.items} onDecide={safetyDecideAction} />;
   }
 
-  const tabs = [
-    ...(ctx.is_moderator ? [{ key: "moderation" as const, label: "Moderation queue" }] : []),
-    ...(ctx.is_safety_reviewer ? [{ key: "safety" as const, label: "Safety" }] : []),
-  ];
+  const LABEL: Record<Tab, string> = { moderation: "Moderation queue", appeals: "Appeals", second_look: "Second look", safety: "Safety" };
+  const tabs = allowed.map((key) => ({ key, label: LABEL[key] }));
 
   return (
     <div className="space-y-4">
       {tabs.length > 1 && (
-        <nav aria-label="Community sections" className="flex gap-2">
+        <nav aria-label="Community sections" className="flex flex-wrap gap-2">
           {tabs.map((t) => (
             <Link
               key={t.key}
@@ -81,6 +88,7 @@ export default async function CareCoordinatorCommunityPage({ searchParams }: { s
         </nav>
       )}
       {content}
+      <DisplayNameForm onSave={setDisplayNameAction} />
     </div>
   );
 }

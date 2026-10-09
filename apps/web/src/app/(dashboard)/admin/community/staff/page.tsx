@@ -18,7 +18,7 @@ export default async function CommunityStaffPage() {
       <h1 className={h1}>Moderators and safety reviewers</h1>
       <CommunityNav />
       <p className="max-w-3xl text-sm text-charcoal-ink/70">
-        A moderator sees post text and community names, but never who a member is. A safety reviewer sees posts flagged for emergency or self-harm language. Only admin and care coordinator accounts can be given these permissions.
+        A moderator sees post text and community names, but never who a member is. A safety reviewer sees posts flagged for emergency or self-harm language. These permissions are given to care coordinator accounts only. The database refuses to give them to an admin account.
       </p>
       {!staff.ok ? (
         <LoadFailed what="The permissions" />

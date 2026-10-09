@@ -24,8 +24,8 @@ export function GrantStaffForm({ candidates, groups }: { candidates: Candidate[]
         <input id="gs-paste" name="profile_id_pasted" aria-describedby="gs-paste-help" autoComplete="off" className={field} />
         <p id="gs-paste-help" className={help}>
           {candidates && candidates.length > 0
-            ? "Only needed if the person is not in the list. If both are given, the pasted id is used."
-            : "The list of staff could not be loaded, so paste the id of an active admin or care coordinator account."}
+            ? "Only needed if the person is not in the list. Only care coordinator accounts can be given a permission. If both are given, the pasted id is used."
+            : "The list of staff could not be loaded, so paste the id of an active care coordinator account."}
         </p>
       </div>
       <fieldset>

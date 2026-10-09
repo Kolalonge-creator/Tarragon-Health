@@ -9,7 +9,7 @@ import { AvatarBadge } from "./avatar-badge";
 import { Composer } from "./composer";
 import { ReportForm } from "./report-form";
 import { MUTED, TOUCH } from "./styles";
-import { deletePost, editPost, loadReplies, reactToPost, submitPost } from "./community-actions";
+import { deletePost, editPost, hideAuthor, loadReplies, reactToPost, submitPost } from "./community-actions";
 
 /**
  * One post or reply. Shows the author's made-up name and preset picture only. Support, report, reply (top-level posts), and for the
@@ -24,6 +24,7 @@ export function PostCard({
   canPost,
   isReply = false,
   onChanged,
+  onHidden,
   onSafety,
 }: {
   post: FeedPost;
@@ -35,6 +36,8 @@ export function PostCard({
   canPost: boolean;
   isReply?: boolean;
   onChanged: () => void;
+  /** Called after the member hid this person; defaults to onChanged. */
+  onHidden?: () => void;
   onSafety: (kind: "emergency" | "self_harm") => void;
 }) {
   const [supported, setSupported] = useState(post.i_supported);
@@ -81,6 +84,17 @@ export function PostCard({
     const result = await deletePost({ postId: post.id }).catch(() => null);
     if (result && result.ok) onChanged();
     else setNote(result ? result.key : "community.compose.refused.other");
+  }
+
+  async function hide() {
+    setNote(null);
+    const result = await hideAuthor({ postId: post.id }).catch(() => null);
+    if (result && result.ok) {
+      setNote("community.post.hide_done");
+      (onHidden ?? onChanged)();
+    } else {
+      setNote("community.post.hide_failed");
+    }
   }
 
   return (
@@ -139,9 +153,14 @@ export function PostCard({
             {t("community.post.delete", locale)}
           </Button>
         ) : (
-          <Button type="button" variant="ghost" className={TOUCH} aria-expanded={reporting} onClick={() => setReporting((r) => !r)}>
-            {t("community.post.report", locale)}
-          </Button>
+          <>
+            <Button type="button" variant="ghost" className={TOUCH} onClick={hide}>
+              {t("community.post.hide", locale)}
+            </Button>
+            <Button type="button" variant="ghost" className={TOUCH} aria-expanded={reporting} onClick={() => setReporting((r) => !r)}>
+              {t("community.post.report", locale)}
+            </Button>
+          </>
         )}
       </div>
 
@@ -167,6 +186,10 @@ export function PostCard({
               onChanged={() => {
                 void fetchReplies();
                 onChanged();
+              }}
+              onHidden={() => {
+                void fetchReplies();
+                (onHidden ?? onChanged)();
               }}
               onSafety={onSafety}
             />

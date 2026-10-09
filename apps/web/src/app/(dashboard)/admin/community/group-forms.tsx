@@ -1,7 +1,8 @@
 "use client";
 
 import { ActionForm } from "./action-form";
-import { createGroupAction, editGroupAction, setGroupStatusAction } from "./actions";
+import { createGroupAction, editGroupAction, setGroupCapAction, setGroupStatusAction } from "./actions";
+import { CAP_MAX, CAP_MIN } from "./schemas";
 import { btnDanger, btnQuiet, field, help, label } from "./ui";
 
 export type TopicOption = { code: string; label: string };
@@ -98,5 +99,40 @@ export function GroupStatusButtons({ id, slug, status, name }: { id: string; slu
         </ActionForm>
       ))}
     </div>
+  );
+}
+
+/** The largest number of members a group can hold. Empty means no limit. People already in the group are never removed. */
+export function SetGroupCapForm({ id, name, memberCount, cap }: { id: string; name: string; memberCount: number; cap: number | null | undefined }) {
+  const p = `cap-${id}`;
+  return (
+    <ActionForm
+      action={setGroupCapAction}
+      submitLabel="Save largest size"
+      pendingLabel="Saving..."
+      confirm={`Save the largest size for "${name}"? Leaving the box empty removes any limit.`}
+    >
+      <input type="hidden" name="id" value={id} />
+      <div>
+        <label htmlFor={`${p}-n`} className={label}>Largest size</label>
+        <input
+          id={`${p}-n`}
+          name="cap"
+          type="number"
+          inputMode="numeric"
+          min={CAP_MIN}
+          max={CAP_MAX}
+          step={1}
+          defaultValue={cap ?? ""}
+          aria-describedby={`${p}-help`}
+          className={field}
+        />
+        <p id={`${p}-help`} className={help}>
+          A whole number from {CAP_MIN} to {CAP_MAX}, or leave it empty for no limit. This group has {memberCount} {memberCount === 1 ? "member" : "members"} now.{" "}
+          {cap === undefined ? "The current limit is not shown here. " : cap === null ? "There is no limit at the moment. " : `The limit is ${cap} at the moment. `}
+          Lowering it never removes anyone; it only stops new people joining while the group is full.
+        </p>
+      </div>
+    </ActionForm>
   );
 }

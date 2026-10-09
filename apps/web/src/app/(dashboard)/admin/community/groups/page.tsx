@@ -1,5 +1,5 @@
 import { CommunityNav, LoadFailed } from "../community-nav";
-import { CreateGroupForm, EditGroupForm, GroupStatusButtons } from "../group-forms";
+import { CreateGroupForm, EditGroupForm, GroupStatusButtons, SetGroupCapForm } from "../group-forms";
 import { loadGroups, loadTopics, requireAdmin } from "../load";
 import { card, h1, h2, warn } from "../ui";
 
@@ -63,6 +63,7 @@ export default async function CommunityGroupsPage() {
                     <p className={warn}>This group needs Chief Medical Officer approval of its rules before it can go live.</p>
                   )}
                   {g.status !== "archived" && <EditGroupForm group={g} topics={allTopicOptions} />}
+                  {g.status !== "archived" && <SetGroupCapForm id={g.id} name={g.name} memberCount={g.member_count} cap={g.member_cap} />}
                   <GroupStatusButtons id={g.id} slug={g.slug} status={g.status} name={g.name} />
                 </div>
               </details>

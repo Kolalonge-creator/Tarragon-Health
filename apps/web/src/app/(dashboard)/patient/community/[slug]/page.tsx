@@ -3,7 +3,7 @@ import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-
 import { PageHeader } from "@/components/ui/page-header";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { createClient } from "@/lib/supabase/server";
-import { feedSchema, groupViewSchema, type FeedPost } from "@/lib/community/model";
+import { feedSchema, groupViewSchema, hiddenListSchema, type FeedPost } from "@/lib/community/model";
 import { t } from "@tarragon/i18n";
 import { GroupView } from "../group-view";
 import { MUTED } from "../styles";
@@ -50,6 +50,7 @@ export default async function CommunityGroupPage({ params }: { params: Promise<{
   let posts: FeedPost[] = [];
   let hasMore = false;
   let feedFailed = false;
+  let hidden: { id: string; handle: string }[] = [];
   if (view.membership.status === "active") {
     const { data: feedData, error: feedError } = await supabase.rpc("community_feed", { p_group_id: view.group.id });
     const feed = feedError ? null : feedSchema.safeParse(feedData);
@@ -59,12 +60,15 @@ export default async function CommunityGroupPage({ params }: { params: Promise<{
     } else {
       feedFailed = true;
     }
+    const { data: hiddenData, error: hiddenError } = await supabase.rpc("community_hidden_authors", { p_group_id: view.group.id });
+    const hiddenList = hiddenError ? null : hiddenListSchema.safeParse(hiddenData);
+    if (hiddenList?.success && hiddenList.data.ok) hidden = hiddenList.data.hidden;
   }
 
   return (
     <div className="space-y-6">
       {header}
-      <GroupView view={view} initialPosts={posts} initialHasMore={hasMore} feedFailed={feedFailed} locale={uiLanguage} />
+      <GroupView view={view} initialPosts={posts} initialHasMore={hasMore} feedFailed={feedFailed} hidden={hidden} locale={uiLanguage} />
     </div>
   );
 }

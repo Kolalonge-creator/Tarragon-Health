@@ -27,7 +27,7 @@ export const SANCTION_KINDS = [
 export type SanctionKind = (typeof SANCTION_KINDS)[number]["code"];
 export const SANCTION_KIND_CODES = SANCTION_KINDS.map((k) => k.code) as [SanctionKind, ...SanctionKind[]];
 
-export type ModDecision = "approve" | "remove";
+export type ModDecision = "approve" | "remove" | "send_to_safety";
 export type SafetyDecision = "release" | "keep_withheld" | "close";
 
 export interface ModerationCallbacks {
@@ -37,3 +37,18 @@ export interface ModerationCallbacks {
 export interface SafetyCallbacks {
   onDecide: (input: { signalId: string; decision: SafetyDecision }) => Promise<StaffActionResult>;
 }
+
+export type AppealDecision = "uphold" | "overturn";
+export interface AppealCallbacks {
+  onDecide: (input: { appealId: string; decision: AppealDecision; note?: string }) => Promise<StaffActionResult>;
+}
+export interface SampleCallbacks {
+  onReview: (input: { sampleId: string; agrees: boolean; note?: string }) => Promise<StaffActionResult>;
+}
+export interface DisplayNameCallbacks {
+  onSave: (input: { name: string }) => Promise<StaffActionResult>;
+}
+
+/** The display name rule, mirrored from the database: starts with a letter; letters, spaces, comma, full stop, hyphen, apostrophe; 2 to 40. */
+export const DISPLAY_NAME_PATTERN = /^[A-Za-z][A-Za-z ,.'-]{1,39}$/;
+export const NOTE_MAX = 500;

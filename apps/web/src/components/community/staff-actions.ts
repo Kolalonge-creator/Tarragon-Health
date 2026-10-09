@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { staffRefusalText } from "@/lib/community/model";
 import { toResult } from "./staff-rpc";
-import { REMOVE_REASON_CODES, SANCTION_KIND_CODES, type StaffActionResult } from "./staff-types";
+import { DISPLAY_NAME_PATTERN, NOTE_MAX, REMOVE_REASON_CODES, SANCTION_KIND_CODES, type StaffActionResult } from "./staff-types";
 
 /**
  * Moderator and safety-reviewer actions. Shared by the care coordinator page and (later) the admin area. Every input is validated
@@ -21,7 +22,7 @@ const INVALID: StaffActionResult = { ok: false, message: "Please check what you 
 const decideSchema = z
   .object({
     postId: z.string().uuid(),
-    decision: z.enum(["approve", "remove"]),
+    decision: z.enum(["approve", "remove", "send_to_safety"]),
     reasonCode: z.enum(REMOVE_REASON_CODES).optional(),
   })
   .refine((v) => v.decision !== "remove" || v.reasonCode !== undefined, { message: "reason needed" });
@@ -38,6 +39,7 @@ export async function modDecideAction(input: unknown): Promise<StaffActionResult
   const result = toResult(data, error, {
     approved: "Approved. The post is now visible to the group.",
     removed: "Removed. The member has been told their post was taken down.",
+    sent_to_safety: "Sent to a safety reviewer. Only a safety reviewer can see this post now.",
   });
   if (result.ok) refresh();
   return result;
@@ -91,3 +93,68 @@ export async function safetyDecideAction(input: unknown): Promise<StaffActionRes
   return result;
 }
 
+
+/** Blank notes are not sent at all. */
+const noteSchema = z.string().trim().max(NOTE_MAX).optional().transform((v) => (v === undefined || v === "" ? undefined : v));
+
+const appealSchema = z.object({
+  appealId: z.string().uuid(),
+  decision: z.enum(["uphold", "overturn"]),
+  note: noteSchema,
+});
+
+export async function appealDecideAction(input: unknown): Promise<StaffActionResult> {
+  const parsed = appealSchema.safeParse(input);
+  if (!parsed.success) return INVALID;
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("community_appeal_decide", {
+    p_id: parsed.data.appealId,
+    p_decision: parsed.data.decision,
+    ...(parsed.data.note !== undefined ? { p_note: parsed.data.note } : {}),
+  });
+  const result = toResult(data, error, {
+    upheld: "Decision upheld. The member has been told the result.",
+    overturned: "Decision reversed. The member has been told the result.",
+  });
+  if (result.ok) refresh();
+  return result;
+}
+
+const sampleSchema = z.object({
+  sampleId: z.string().uuid(),
+  agrees: z.boolean(),
+  note: noteSchema,
+});
+
+export async function sampleReviewAction(input: unknown): Promise<StaffActionResult> {
+  const parsed = sampleSchema.safeParse(input);
+  if (!parsed.success) return INVALID;
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("community_sample_review", {
+    p_id: parsed.data.sampleId,
+    p_agrees: parsed.data.agrees,
+    ...(parsed.data.note !== undefined ? { p_note: parsed.data.note } : {}),
+  });
+  const result = toResult(data, error, { ok: "Thank you. Your answer has been saved." });
+  if (result.ok) refresh();
+  return result;
+}
+
+const displayNameSchema = z.object({
+  name: z.string().trim().refine((v) => v === "" || DISPLAY_NAME_PATTERN.test(v), { message: "bad name" }),
+});
+
+export async function setDisplayNameAction(input: unknown): Promise<StaffActionResult> {
+  const parsed = displayNameSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, message: staffRefusalText("bad_name") };
+  }
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("community_set_my_display_name", { p_name: parsed.data.name });
+  const cleared = parsed.data.name === "";
+  const result = toResult(data, error, {
+    ok: cleared ? "Done. Members will not see a name for you." : "Saved. Members will see this name and your role.",
+  });
+  if (result.ok) refresh();
+  return result;
+}

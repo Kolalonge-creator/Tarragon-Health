@@ -8,7 +8,7 @@ import { getRpcClient } from "./rpc";
 import type { ActionState } from "./state";
 import {
   createGroupSchema, editGroupSchema, groupStatusSchema, topicSchema, grantSchema, revokeSchema, versionSchema, newDraftSchema,
-  ruleSaveSchema, ruleDeleteSchema, hostsSchema, unmaskSchema, unpinSchema,
+  ruleSaveSchema, ruleDeleteSchema, hostsSchema, unmaskSchema, unpinSchema, groupCapSchema, savePromptSchema, endPromptSchema,
 } from "./schemas";
 
 /**
@@ -158,5 +158,29 @@ export async function unpinAction(_prev: ActionState, f: FormData): Promise<Acti
   const p = unpinSchema.safeParse({ id: text(f, "id"), group_id: text(f, "group_id") });
   if (!p.success) return { ok: false, message: GENERIC };
   const r = await run("community_admin_unpin", { p_id: p.data.id }, "The note is no longer pinned.", [`${BASE}/pinned`]);
+  return { ok: r?.ok ?? false, message: r?.message ?? GENERIC };
+}
+
+export async function setGroupCapAction(_prev: ActionState, f: FormData): Promise<ActionState> {
+  const p = groupCapSchema.safeParse({ id: text(f, "id"), cap: text(f, "cap") });
+  if (!p.success) return { ok: false, message: firstIssue(p.error) };
+  const r = await run("community_admin_set_group_cap", { p_id: p.data.id, p_cap: p.data.cap },
+    p.data.cap === null ? "The size limit was removed." : `The largest size is now ${p.data.cap} members.`, [`${BASE}/groups`]);
+  return { ok: r?.ok ?? false, message: r?.message ?? GENERIC };
+}
+
+export async function savePromptAction(_prev: ActionState, f: FormData): Promise<ActionState> {
+  const p = savePromptSchema.safeParse({ group_id: text(f, "group_id"), body: text(f, "body"), show_from: text(f, "show_from"), show_until: text(f, "show_until") });
+  if (!p.success) return { ok: false, message: firstIssue(p.error) };
+  const r = await run("community_admin_save_prompt", {
+    p_group_id: p.data.group_id, p_body: p.data.body, p_show_from: p.data.show_from, p_show_until: p.data.show_until,
+  }, "The prompt was added.", [`${BASE}/prompts`]);
+  return { ok: r?.ok ?? false, message: r?.message ?? GENERIC };
+}
+
+export async function endPromptAction(_prev: ActionState, f: FormData): Promise<ActionState> {
+  const p = endPromptSchema.safeParse({ id: text(f, "id") });
+  if (!p.success) return { ok: false, message: GENERIC };
+  const r = await run("community_admin_end_prompt", { p_id: p.data.id }, "The prompt has ended.", [`${BASE}/prompts`]);
   return { ok: r?.ok ?? false, message: r?.message ?? GENERIC };
 }

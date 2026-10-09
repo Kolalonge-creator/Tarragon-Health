@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { CommunityNav, LoadFailed } from "./community-nav";
-import { loadCommunitySwitch, loadOverview, loadRuleSets, requireAdmin } from "./load";
+import { loadCommunitySwitch, loadOverview, loadQualitySummary, loadRuleSets, requireAdmin } from "./load";
 import { card, h1, h2, link, notice } from "./ui";
 
 export const metadata = { title: "Community" };
@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function CommunityOverviewPage() {
   await requireAdmin();
-  const [overview, sw, sets] = await Promise.all([loadOverview(), loadCommunitySwitch(), loadRuleSets()]);
+  const [overview, sw, sets, quality] = await Promise.all([loadOverview(), loadCommunitySwitch(), loadRuleSets(), loadQualitySummary()]);
   const o = overview.ok ? overview.data : null;
   const live = sets.ok ? sets.data.rule_sets.find((s) => s.status === "active") : undefined;
   const tiles: Array<[string, number | string, string?]> = o
@@ -61,6 +61,36 @@ export default async function CommunityOverviewPage() {
       ) : (
         <LoadFailed what="The overview" />
       )}
+
+      <section aria-labelledby="quality" className={card}>
+        <h2 id="quality" className={h2}>Quality of moderation</h2>
+        <p className="mt-1 max-w-3xl text-sm text-charcoal-ink/70">
+          A share of moderator decisions is checked by a second moderator, and members can appeal. These numbers show how that is going.
+        </p>
+        {quality.ok ? (
+          <dl className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {(
+              [
+                ["Second looks waiting", `${quality.data.waiting}`],
+                ["Second looks done in the last 30 days", `${quality.data.reviewed_30d}`],
+                ["Second looks where the checker did not agree, last 30 days", `${quality.data.disagreed_30d}`],
+                ["Appeals waiting for a decision", `${quality.data.appeals_open}`],
+                [
+                  "Appeals decided in the last 30 days",
+                  `${quality.data.appeals_decided_30d}, of which ${quality.data.appeals_overturned_30d} ${quality.data.appeals_overturned_30d === 1 ? "was" : "were"} reversed`,
+                ],
+              ] as const
+            ).map(([name, value]) => (
+              <div key={name} className="rounded-lg border border-charcoal-ink/10 p-3">
+                <dt className="text-sm text-charcoal-ink/70">{name}</dt>
+                <dd className="mt-1 text-lg font-semibold text-charcoal-ink">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
+          <LoadFailed what="The moderation quality numbers" />
+        )}
+      </section>
     </div>
   );
 }

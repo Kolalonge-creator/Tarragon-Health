@@ -71,3 +71,48 @@ export const unmaskSchema = z.object({
   reason: z.string().trim().min(1, "Please write the reason."),
 });
 export const unpinSchema = z.object({ id: uuid, group_id: uuid });
+
+/** Group size cap: empty means no limit, otherwise a whole number from 10 to 100000 (the database limits). */
+export const CAP_MIN = 10;
+export const CAP_MAX = 100000;
+export const groupCapSchema = z.object({
+  id: uuid,
+  cap: z.preprocess(
+    blankToNull,
+    z.coerce.number({ message: "Use a whole number from 10 to 100000, or leave it empty for no limit." })
+      .int("Use a whole number from 10 to 100000, or leave it empty for no limit.")
+      .min(CAP_MIN, "Use a whole number from 10 to 100000, or leave it empty for no limit.")
+      .max(CAP_MAX, "Use a whole number from 10 to 100000, or leave it empty for no limit.")
+      .nullable(),
+  ),
+});
+
+/** A group prompt: a short line shown at the top of a group (the database limits: 5 to 300 characters). */
+export const PROMPT_MIN = 5;
+export const PROMPT_MAX = 300;
+const LOCAL_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+/** A time typed on the form is Lagos time (UTC+1, no daylight saving). Blank means not set. */
+const lagosTime = z
+  .string()
+  .trim()
+  .transform((v, ctx): string | null => {
+    if (v === "") return null;
+    const d = LOCAL_TIME.test(v) ? new Date(`${v}:00+01:00`) : new Date(Number.NaN);
+    if (Number.isNaN(d.getTime())) {
+      ctx.addIssue({ code: "custom", message: "Please give the date and time again." });
+      return z.NEVER;
+    }
+    return d.toISOString();
+  });
+export const savePromptSchema = z
+  .object({
+    group_id: uuid,
+    body: z.string().trim().min(PROMPT_MIN, "Please write between 5 and 300 characters.").max(PROMPT_MAX, "Please write between 5 and 300 characters."),
+    show_from: lagosTime,
+    show_until: lagosTime,
+  })
+  .refine((v) => v.show_until === null || v.show_from === null || v.show_until > v.show_from, {
+    message: "The end time must be after the start time.",
+    path: ["show_until"],
+  });
+export const endPromptSchema = z.object({ id: uuid });

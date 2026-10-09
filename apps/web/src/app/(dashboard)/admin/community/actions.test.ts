@@ -5,7 +5,7 @@ jest.mock("next/cache", () => ({ revalidatePath: (p: string) => mockRevalidate(p
 
 import {
   createGroupAction, editGroupAction, setGroupStatusAction, saveTopicAction, grantStaffAction, revokeStaffAction, saveRuleAction,
-  deleteRuleAction, saveHostsAction, activateRuleSetAction, unmaskAction, unpinAction, newDraftAction,
+  deleteRuleAction, saveHostsAction, activateRuleSetAction, unmaskAction, unpinAction, newDraftAction, setGroupCapAction, savePromptAction, endPromptAction,
 } from "./actions";
 
 const U = "11111111-1111-4111-8111-111111111111";
@@ -109,5 +109,102 @@ describe("community admin actions", () => {
       const r = await unmaskAction(undefined, form({ group_id: G, handle: "h", reason: "r" }));
       expect(r?.message).not.toMatch(/profiles|select/);
     });
+  });
+});
+
+describe("group size cap", () => {
+  it("sends a whole number, and null for an empty box", async () => {
+    mockRpc.mockResolvedValue({ data: { status: "ok", member_cap: 250 }, error: null });
+    const r = await setGroupCapAction(undefined, form({ id: G, cap: "250" }));
+    expect(r?.ok).toBe(true);
+    expect(mockRpc).toHaveBeenCalledWith("community_admin_set_group_cap", { p_id: G, p_cap: 250 });
+    expect(mockRevalidate).toHaveBeenCalledWith("/admin/community/groups");
+    const cleared = await setGroupCapAction(undefined, form({ id: G, cap: "  " }));
+    expect(cleared?.message).toMatch(/limit was removed/);
+    expect(mockRpc).toHaveBeenLastCalledWith("community_admin_set_group_cap", { p_id: G, p_cap: null });
+  });
+  it.each(["9", "100001", "12.5", "abc", "-20"])("rejects %s before any call, with the limits in the message", async (cap) => {
+    const r = await setGroupCapAction(undefined, form({ id: G, cap }));
+    expect(r?.ok).toBe(false);
+    expect(r?.message).toMatch(/10 to 100000/);
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+  it("accepts both ends of the range", async () => {
+    mockRpc.mockResolvedValue({ data: { status: "ok" }, error: null });
+    expect((await setGroupCapAction(undefined, form({ id: G, cap: "10" })))?.ok).toBe(true);
+    expect((await setGroupCapAction(undefined, form({ id: G, cap: "100000" })))?.ok).toBe(true);
+  });
+  it("rejects a bad group id, explains a refusal and hides raw errors", async () => {
+    expect((await setGroupCapAction(undefined, form({ id: "x", cap: "20" })))?.ok).toBe(false);
+    expect(mockRpc).not.toHaveBeenCalled();
+    mockRpc.mockResolvedValue({ data: { status: "refused", reason: "bad_cap" }, error: null });
+    expect((await setGroupCapAction(undefined, form({ id: G, cap: "20" })))?.message).toMatch(/whole number from 10 to 100000/);
+    mockRpc.mockResolvedValue({ data: null, error: { code: "XX000", message: "update community_groups set member_cap failed" } });
+    expect((await setGroupCapAction(undefined, form({ id: G, cap: "20" })))?.message).not.toMatch(/community_groups|member_cap/);
+  });
+});
+
+describe("group prompts", () => {
+  it("saves a prompt, reading typed times as Lagos time", async () => {
+    mockRpc.mockResolvedValue({ data: { status: "ok", id: U }, error: null });
+    const r = await savePromptAction(undefined, form({ group_id: G, body: "  Welcome. What helped you this week?  ", show_from: "2026-10-12T09:00", show_until: "2026-10-19T09:00" }));
+    expect(r?.ok).toBe(true);
+    expect(mockRpc).toHaveBeenCalledWith("community_admin_save_prompt", {
+      p_group_id: G, p_body: "Welcome. What helped you this week?", p_show_from: "2026-10-12T08:00:00.000Z", p_show_until: "2026-10-19T08:00:00.000Z",
+    });
+    expect(mockRevalidate).toHaveBeenCalledWith("/admin/community/prompts");
+  });
+  it("sends null times when they are left empty", async () => {
+    mockRpc.mockResolvedValue({ data: { status: "ok" }, error: null });
+    await savePromptAction(undefined, form({ group_id: G, body: "A weekly question", show_from: "", show_until: "" }));
+    expect(mockRpc).toHaveBeenCalledWith("community_admin_save_prompt", { p_group_id: G, p_body: "A weekly question", p_show_from: null, p_show_until: null });
+  });
+  it("holds the body to 5 to 300 characters before any call", async () => {
+    for (const body of ["abcd", "", "a".repeat(301)]) {
+      const r = await savePromptAction(undefined, form({ group_id: G, body }));
+      expect(r?.ok).toBe(false);
+      expect(r?.message).toBe("Please write between 5 and 300 characters.");
+    }
+    expect(mockRpc).not.toHaveBeenCalled();
+    mockRpc.mockResolvedValue({ data: { status: "ok" }, error: null });
+    expect((await savePromptAction(undefined, form({ group_id: G, body: "abcde" })))?.ok).toBe(true);
+    expect((await savePromptAction(undefined, form({ group_id: G, body: "a".repeat(300) })))?.ok).toBe(true);
+  });
+  it("rejects an end before the start, a bad time and a bad group", async () => {
+    const early = await savePromptAction(undefined, form({ group_id: G, body: "A weekly question", show_from: "2026-10-12T09:00", show_until: "2026-10-12T08:00" }));
+    expect(early?.message).toBe("The end time must be after the start time.");
+    expect((await savePromptAction(undefined, form({ group_id: G, body: "A weekly question", show_from: "next week" })))?.ok).toBe(false);
+    expect((await savePromptAction(undefined, form({ group_id: "x", body: "A weekly question" })))?.ok).toBe(false);
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+  it("explains the filter refusal in plain English", async () => {
+    mockRpc.mockResolvedValue({ data: { status: "refused", reason: "text_not_allowed" }, error: null });
+    const r = await savePromptAction(undefined, form({ group_id: G, body: "Call me on 0803 000 0000" }));
+    expect(r?.ok).toBe(false);
+    expect(r?.message).toMatch(/phone number, email, link/);
+    expect(mockRevalidate).not.toHaveBeenCalled();
+  });
+  it("never shows raw database text", async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { code: "42501", message: "admins, the Chief Medical Officer and moderators of this group only" } });
+    const r = await savePromptAction(undefined, form({ group_id: G, body: "A weekly question" }));
+    expect(r?.message).toBe("You do not have permission to do that.");
+  });
+  it("ends a prompt, and refuses a bad id before any call", async () => {
+    expect((await endPromptAction(undefined, form({ id: "nope" })))?.ok).toBe(false);
+    expect(mockRpc).not.toHaveBeenCalled();
+    mockRpc.mockResolvedValue({ data: { status: "ok" }, error: null });
+    const r = await endPromptAction(undefined, form({ id: U }));
+    expect(r?.ok).toBe(true);
+    expect(mockRpc).toHaveBeenCalledWith("community_admin_end_prompt", { p_id: U });
+    expect(mockRevalidate).toHaveBeenCalledWith("/admin/community/prompts");
+  });
+});
+
+describe("granting staff to an admin account", () => {
+  it("shows a plain English sentence for the database refusal", async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { code: "42501", message: "community moderation is granted to an active care coordinator account" } });
+    const r = await grantStaffAction(undefined, form({ profile_id: U, scope: "moderator" }));
+    expect(r?.ok).toBe(false);
+    expect(r?.message).toBe("Only an active care coordinator account can be given a community permission. Admin accounts cannot.");
   });
 });

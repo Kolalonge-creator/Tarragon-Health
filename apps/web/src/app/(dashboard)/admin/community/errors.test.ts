@@ -10,6 +10,12 @@ describe("friendlyDbError", () => {
     expect(friendlyDbError({ code: "42501", message: "a filter rule set with safety rules can only be activated by an active Chief Medical Officer" })).toMatch(/only be made live by the Chief Medical Officer/);
     expect(friendlyDbError({ code: "42501", message: "a filter rule set cannot go live without blocking phone numbers, email addresses, links and handles" })).toMatch(/keep blocking/);
   });
+  it("explains that a community permission goes to care coordinator accounts only", () => {
+    const t = friendlyDbError({ code: "42501", message: "community moderation is granted to an active care coordinator account" });
+    expect(t).toBe("Only an active care coordinator account can be given a community permission. Admin accounts cannot.");
+    expect(t).not.toMatch(/granted to/);
+    expect(friendlyDbError({ code: "42501", message: "only an admin grants community moderation" })).toBe("Only an admin can give or end these permissions.");
+  });
   it("never echoes unknown database text", () => {
     const raw = 'duplicate key value violates unique constraint "community_groups_slug_key"';
     for (const code of ["23505", "XX000", undefined, "42501", "23514"]) {

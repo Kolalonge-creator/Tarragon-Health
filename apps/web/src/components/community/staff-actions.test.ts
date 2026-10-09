@@ -3,7 +3,7 @@ const rpc = jest.fn();
 jest.mock("@/lib/supabase/server", () => ({ createClient: jest.fn().mockResolvedValue({ rpc: (...a: unknown[]) => rpc(...a) }) }));
 
 import { revalidatePath } from "next/cache";
-import { modDecideAction, modSanctionAction, safetyDecideAction } from "./staff-actions";
+import { appealDecideAction, modDecideAction, modSanctionAction, safetyDecideAction, sampleReviewAction, setDisplayNameAction } from "./staff-actions";
 
 const POST = "11111111-1111-4111-8111-111111111111";
 const SIGNAL = "22222222-2222-4222-8222-222222222222";
@@ -114,5 +114,121 @@ describe("safetyDecideAction", () => {
   it("explains a signal that was already handled", async () => {
     rpc.mockResolvedValue({ data: { status: "refused", reason: "already_handled" }, error: null });
     expect((await safetyDecideAction({ signalId: SIGNAL, decision: "close" })).message).toBe("Someone else has already handled this.");
+  });
+});
+
+describe("modDecideAction send_to_safety", () => {
+  it("sends a post to a safety reviewer without a reason code", async () => {
+    rpc.mockResolvedValue({ data: { status: "sent_to_safety" }, error: null });
+    const r = await modDecideAction({ postId: POST, decision: "send_to_safety", reasonCode: "selling" });
+    expect(r.ok).toBe(true);
+    expect(r.message).toMatch(/safety reviewer/);
+    expect(rpc).toHaveBeenCalledWith("community_mod_decide", { p_post_id: POST, p_decision: "send_to_safety" });
+    expect(revalidatePath).toHaveBeenCalled();
+  });
+  it("explains a post that is already closed", async () => {
+    rpc.mockResolvedValue({ data: { status: "refused", reason: "already_closed" }, error: null });
+    expect((await modDecideAction({ postId: POST, decision: "send_to_safety" })).message).toBe("This post is already closed.");
+  });
+});
+
+const APPEAL = "33333333-3333-4333-8333-333333333333";
+describe("appealDecideAction", () => {
+  it("upholds, sending no note when it is blank", async () => {
+    rpc.mockResolvedValue({ data: { status: "upheld" }, error: null });
+    const r = await appealDecideAction({ appealId: APPEAL, decision: "uphold", note: "   " });
+    expect(r.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith("community_appeal_decide", { p_id: APPEAL, p_decision: "uphold" });
+    expect(revalidatePath).toHaveBeenCalled();
+  });
+  it("reverses with a trimmed note", async () => {
+    rpc.mockResolvedValue({ data: { status: "overturned" }, error: null });
+    const r = await appealDecideAction({ appealId: APPEAL, decision: "overturn", note: " Fair point " });
+    expect(r.ok).toBe(true);
+    expect(r.message).toMatch(/reversed/);
+    expect(rpc).toHaveBeenCalledWith("community_appeal_decide", { p_id: APPEAL, p_decision: "overturn", p_note: "Fair point" });
+  });
+  it("rejects bad input before any call", async () => {
+    expect((await appealDecideAction({ appealId: "x", decision: "uphold" })).ok).toBe(false);
+    expect((await appealDecideAction({ appealId: APPEAL, decision: "delete" })).ok).toBe(false);
+    expect((await appealDecideAction({ appealId: APPEAL, decision: "uphold", note: "a".repeat(501) })).ok).toBe(false);
+    expect((await appealDecideAction(undefined)).ok).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("explains the own-decision and already-decided refusals, without refreshing", async () => {
+    rpc.mockResolvedValue({ data: { status: "refused", reason: "not_your_appeal_to_decide" }, error: null });
+    expect((await appealDecideAction({ appealId: APPEAL, decision: "uphold" })).message).toMatch(/another moderator needs to decide/);
+    rpc.mockResolvedValue({ data: { status: "refused", reason: "already_decided" }, error: null });
+    expect((await appealDecideAction({ appealId: APPEAL, decision: "uphold" })).message).toBe("This appeal has already been decided.");
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+  it("never shows raw database text", async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: "42501", message: "community moderators only (community_appeals)" } });
+    const r = await appealDecideAction({ appealId: APPEAL, decision: "uphold" });
+    expect(r.message).toBe("You do not have permission to do that.");
+    rpc.mockResolvedValue({ data: null, error: { code: "XX000", message: "relation community_appeals broke" } });
+    expect((await appealDecideAction({ appealId: APPEAL, decision: "uphold" })).message).not.toMatch(/community_appeals|broke/);
+  });
+});
+
+const SAMPLE = "44444444-4444-4444-8444-444444444444";
+describe("sampleReviewAction", () => {
+  it("records agreement and disagreement", async () => {
+    rpc.mockResolvedValue({ data: { status: "ok", agrees: false }, error: null });
+    const r = await sampleReviewAction({ sampleId: SAMPLE, agrees: false, note: "Too strict" });
+    expect(r.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith("community_sample_review", { p_id: SAMPLE, p_agrees: false, p_note: "Too strict" });
+    await sampleReviewAction({ sampleId: SAMPLE, agrees: true });
+    expect(rpc).toHaveBeenLastCalledWith("community_sample_review", { p_id: SAMPLE, p_agrees: true });
+  });
+  it("needs a real yes or no and a short note", async () => {
+    expect((await sampleReviewAction({ sampleId: SAMPLE })).ok).toBe(false);
+    expect((await sampleReviewAction({ sampleId: SAMPLE, agrees: "yes" })).ok).toBe(false);
+    expect((await sampleReviewAction({ sampleId: SAMPLE, agrees: true, note: "a".repeat(501) })).ok).toBe(false);
+    expect((await sampleReviewAction({ sampleId: "nope", agrees: true })).ok).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("explains refusals in plain English", async () => {
+    rpc.mockResolvedValue({ data: { status: "refused", reason: "your_own_decision" }, error: null });
+    expect((await sampleReviewAction({ sampleId: SAMPLE, agrees: true })).message).toMatch(/another moderator needs to check/);
+    rpc.mockResolvedValue({ data: { status: "refused", reason: "already_reviewed" }, error: null });
+    expect((await sampleReviewAction({ sampleId: SAMPLE, agrees: true })).message).toBe("This has already been checked.");
+  });
+  it("never shows raw database text", async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: "XX000", message: "update community_mod_samples failed" } });
+    expect((await sampleReviewAction({ sampleId: SAMPLE, agrees: true })).message).toBe("That could not be done. Please try again.");
+  });
+});
+
+describe("setDisplayNameAction", () => {
+  it("saves a valid name, trimmed", async () => {
+    rpc.mockResolvedValue({ data: { status: "ok", display_name: "Ada O." }, error: null });
+    const r = await setDisplayNameAction({ name: "  Ada O.  " });
+    expect(r.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith("community_set_my_display_name", { p_name: "Ada O." });
+  });
+  it("an empty name clears it", async () => {
+    rpc.mockResolvedValue({ data: { status: "ok", display_name: null }, error: null });
+    const r = await setDisplayNameAction({ name: "" });
+    expect(r.ok).toBe(true);
+    expect(r.message).toMatch(/will not see a name/);
+    expect(rpc).toHaveBeenCalledWith("community_set_my_display_name", { p_name: "" });
+  });
+  it.each(["A", "7Ada", "Ada 2", "Ada@home", "a".repeat(41), "-Ada"])("rejects %s before any call", async (name) => {
+    const r = await setDisplayNameAction({ name });
+    expect(r).toEqual({ ok: false, message: "Use letters, spaces, commas, full stops, hyphens and apostrophes only, 2 to 40 characters. No numbers." });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("accepts the allowed punctuation and the 40 character limit", async () => {
+    rpc.mockResolvedValue({ data: { status: "ok" }, error: null });
+    expect((await setDisplayNameAction({ name: "Dr. Ada O'Neil-Smith, RN" })).ok).toBe(true);
+    expect((await setDisplayNameAction({ name: "a".repeat(40) })).ok).toBe(true);
+    expect((await setDisplayNameAction({ name: "Ab" })).ok).toBe(true);
+  });
+  it("turns a refusal and a raised error into plain English", async () => {
+    rpc.mockResolvedValue({ data: { status: "refused", reason: "bad_name" }, error: null });
+    expect((await setDisplayNameAction({ name: "Ada" })).message).toMatch(/letters, spaces/);
+    rpc.mockResolvedValue({ data: null, error: { code: "42501", message: "community staff only" } });
+    expect((await setDisplayNameAction({ name: "Ada" })).message).toBe("You do not have permission to do that.");
   });
 });
