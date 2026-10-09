@@ -3,7 +3,8 @@
  *
  *  - The real type is read from the file's own bytes (never the browser's word for it). Only JPEG and PNG are accepted.
  *  - Everything that is not needed to draw the picture is dropped: camera and phone details, GPS position, thumbnails, comments,
- *    colour-profile blobs and text chunks. A photograph straight from a phone carries where and when it was taken.
+ *    colour-profile blobs and text chunks. The one thing kept from a phone's EXIF block is the rotation number, written into a new, tiny
+ *    block, so a portrait photo is not shown on its side. A photograph straight from a phone carries where and when it was taken.
  *  - The picture itself is never re-drawn, so there is nothing to scale or compress here: a file over the size limit is refused.
  *  - Width and height come from the file header and are bounded, so a tiny file that expands into a huge image is refused.
  *
@@ -30,6 +31,39 @@ function dimensionsOk(w: number, h: number): boolean {
   return w >= 1 && h >= 1 && w <= MAX_SIDE && h <= MAX_SIDE && w * h <= MAX_PIXELS;
 }
 
+/** The picture's rotation (1 to 8) from an EXIF block, or null. Only this one number is ever kept from EXIF. */
+function exifOrientation(b: Uint8Array, start: number, end: number): number | null {
+  if (end - start < 14 || String.fromCharCode(...b.subarray(start, start + 4)) !== "Exif" || b[start + 4] !== 0 || b[start + 5] !== 0) return null;
+  const t = start + 6;
+  const little = b[t] === 0x49 && b[t + 1] === 0x49;
+  if (!little && !(b[t] === 0x4d && b[t + 1] === 0x4d)) return null;
+  const u16 = (o: number): number => (o + 2 > end ? -1 : little ? b[o]! | (b[o + 1]! << 8) : (b[o]! << 8) | b[o + 1]!);
+  const u32 = (o: number): number => (o + 4 > end ? -1 : little ? (b[o]! | (b[o + 1]! << 8) | (b[o + 2]! << 16) | (b[o + 3]! << 24)) >>> 0 : ((b[o]! << 24) | (b[o + 1]! << 16) | (b[o + 2]! << 8) | b[o + 3]!) >>> 0);
+  const ifd = t + u32(t + 4);
+  const count = u16(ifd);
+  if (count < 1 || count > 200) return null;
+  for (let k = 0; k < count; k += 1) {
+    const e = ifd + 2 + k * 12;
+    if (u16(e) === 0x0112 && u16(e + 2) === 3) {
+      const v = u16(e + 8);
+      return v >= 2 && v <= 8 ? v : null;
+    }
+  }
+  return null;
+}
+
+/** A new, tiny EXIF segment holding nothing but the rotation, so a portrait phone photo still shows upright. */
+function orientationOnlyExif(orientation: number): Uint8Array {
+  return Uint8Array.of(
+    0xff, 0xe1, 0x00, 0x22,
+    0x45, 0x78, 0x69, 0x66, 0x00, 0x00, // "Exif\0\0"
+    0x4d, 0x4d, 0x00, 0x2a, 0x00, 0x00, 0x00, 0x08, // big-endian TIFF header, first IFD at 8
+    0x00, 0x01, // one entry
+    0x01, 0x12, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, orientation, 0x00, 0x00, // Orientation, SHORT, 1 value
+    0x00, 0x00, 0x00, 0x00, // no next IFD
+  );
+}
+
 function sanitiseJpeg(b: Uint8Array): SanitiseResult {
   if (b.length < 4 || b[0] !== 0xff || b[1] !== 0xd8) return { ok: false, error: "corrupt" };
   const out: Uint8Array[] = [b.subarray(0, 2)];
@@ -38,6 +72,7 @@ function sanitiseJpeg(b: Uint8Array): SanitiseResult {
   let height = 0;
   let sawScan = false;
   let sawEnd = false;
+  let orientation: number | null = null;
   while (i < b.length) {
     if (b[i] !== 0xff) return { ok: false, error: "corrupt" };
     while (i < b.length && b[i] === 0xff) i += 1; // fill bytes
@@ -57,6 +92,7 @@ function sanitiseJpeg(b: Uint8Array): SanitiseResult {
     const len = (b[i]! << 8) | b[i + 1]!;
     if (len < 2 || i + len > b.length) return { ok: false, error: "corrupt" };
     const segment = b.subarray(i - 2, i + len); // FF xx len data
+    if (marker === 0xe1 && orientation === null) orientation = exifOrientation(b, i + 2, i + len);
     const keep = marker === 0xe0 /* JFIF */ || (marker >= 0xc0 && marker <= 0xcf) || marker === 0xdb || marker === 0xc4 || marker === 0xdd || marker === 0xda;
     // APP1 to APP15 (EXIF, XMP, ICC, Adobe) and comments are dropped. APP0 keeps only the 14-byte JFIF header.
     if (marker === 0xe0) {
@@ -105,6 +141,7 @@ function sanitiseJpeg(b: Uint8Array): SanitiseResult {
   }
   if (!sawScan || !sawEnd) return { ok: false, error: "corrupt" };
   if (!dimensionsOk(width, height)) return { ok: false, error: "dimensions" };
+  if (orientation !== null) out.splice(out[1] && out[1][1] === 0xe0 ? 2 : 1, 0, orientationOnlyExif(orientation));
   return { ok: true, image: { bytes: concat(out), mime: "image/jpeg", ext: "jpg", width, height } };
 }
 

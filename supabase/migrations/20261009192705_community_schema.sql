@@ -669,7 +669,7 @@ create table public.community_post_images (
   id           uuid primary key default gen_random_uuid(),
   post_id      uuid not null unique references public.community_posts (id) on delete cascade,
   group_id     uuid not null references public.community_groups (id) on delete restrict,
-  storage_path text not null unique check (storage_path ~ '^[0-9a-f-]{36}/[0-9a-f-]{36}[.](jpg|png)$'),
+  storage_path text not null unique check (storage_path ~ '^[0-9a-f-]{36}/[0-9a-f-]{36}/[0-9a-f-]{36}[.](jpg|png)$'),
   mime         text not null check (mime in ('image/jpeg', 'image/png')),
   size_bytes   integer not null check (size_bytes between 1 and 10485760),
   width        integer not null check (width between 1 and 20000),

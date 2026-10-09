@@ -100,7 +100,7 @@ export const groupViewSchema = z.discriminatedUnion("found", [
       })
       .nullable()
       .default(null),
-    limits: z.object({ post_max_chars: z.number().int().positive(), edit_window_minutes: z.number().int().nonnegative() }),
+    limits: z.object({ post_max_chars: z.number().int().positive(), edit_window_minutes: z.number().int().nonnegative(), image_max_bytes: z.number().int().positive().optional() }),
   }),
 ]);
 export type GroupView = z.infer<typeof groupViewSchema>;
@@ -465,6 +465,7 @@ const STAFF_REFUSED: Readonly<Record<string, string>> = {
   reason_needed: "Please give a reason.",
   hours_needed: "Please say how many hours (1 to 8760).",
   bad_decision: "That choice is not available.",
+  picture_needs_moderator: "This post has a picture, and only someone who is also a moderator can release a picture. Keep it withheld, or ask a moderator to take it.",
   still_blocked: "This post also contains contact details, so it cannot be published. Keep it withheld or close it.",
   bad_kind: "That sanction is not available.",
   already_handled: "Someone else has already handled this.",

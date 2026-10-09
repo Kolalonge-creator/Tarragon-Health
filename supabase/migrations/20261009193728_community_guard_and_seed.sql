@@ -52,7 +52,7 @@ begin
     private.go_live_cond('clinical_safety_case_current', 'A current clinical safety case and hazard log, signed off',
       private.go_live_attested(p_key, 'clinical_safety_case_current'), 'attestation', null),
     private.go_live_cond('tabletop_passed', 'The safety hand-off was rehearsed end to end and a passing run was recorded in the last 90 days',
-      exists (select 1 from public.community_tabletop_runs t where t.passed and t.run_at > now() - interval '90 days'), 'data',
+      coalesce((select t.passed and t.run_at > now() - interval '90 days' from public.community_tabletop_runs t order by t.run_at desc limit 1), false), 'data',
       (select 'last passing run ' || to_char(max(t.run_at) at time zone 'Africa/Lagos', 'YYYY-MM-DD') from public.community_tabletop_runs t where t.passed)),
     private.go_live_cond('cmo_switch', 'Chief Medical Officer sign-off', true, 'switch', 'Given by the Chief Medical Officer pressing the switch'));
 end $$;
@@ -103,7 +103,7 @@ insert into public.community_config (version, is_active, params) values (1, true
   "new_member_premoderated_posts": 1,
   "appeal_window_days": 14,
   "quality_sample_pct": 10,
-  "image_max_bytes": 5242880,
+  "image_max_bytes": 4194304,
   "qa_questions_per_member": 3,
   "qa_answer_grace_minutes": 60,
   "overdue_safety_minutes": 30,

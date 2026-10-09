@@ -261,7 +261,7 @@ export function GroupView({
             submit={(body, clientRequestId) => submitPost({ groupId: group.id, parentId: null, body, clientRequestId })}
             onPublished={refresh}
             onSafety={setSafety}
-            picture={group.images_allowed === true ? { groupId: group.id, parentId: null } : undefined}
+            picture={group.images_allowed === true ? { groupId: group.id, parentId: null, maxBytes: limits.image_max_bytes ?? 4 * 1024 * 1024 } : undefined}
           />
         </section>
       ) : null}
@@ -279,6 +279,7 @@ export function GroupView({
               editWindowMinutes={limits.edit_window_minutes}
               canPost={canPost}
               imagesAllowed={group.images_allowed === true}
+              imageMaxBytes={limits.image_max_bytes}
               qaStatus={qa ? qa.status : null}
               onChanged={refresh}
               onHidden={() => {

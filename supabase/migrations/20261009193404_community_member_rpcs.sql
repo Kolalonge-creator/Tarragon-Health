@@ -146,7 +146,8 @@ begin
     'prompts', v_prompts,
     -- The app reads limits from here and never carries a copy: they are PROPOSED values in the versioned configuration.
     'limits', jsonb_build_object('post_max_chars', private.community_cfg_int('post_max_chars'),
-                                 'edit_window_minutes', private.community_cfg_int('edit_window_minutes')));
+                                 'edit_window_minutes', private.community_cfg_int('edit_window_minutes'),
+                                 'image_max_bytes', private.community_cfg_int('image_max_bytes')));
 end $$;
 
 -- ---------------------------------------------------------------------------
@@ -405,8 +406,13 @@ begin
     if (p_image ->> 'mime') not in ('image/jpeg', 'image/png')
        or coalesce((p_image ->> 'size')::int, 0) not between 1 and private.community_cfg_int('image_max_bytes')
        or coalesce((p_image ->> 'width')::int, 0) not between 1 and 20000 or coalesce((p_image ->> 'height')::int, 0) not between 1 and 20000
-       or coalesce(p_image ->> 'path', '') !~ ('^' || p_group_id::text || '/[0-9a-f-]{36}[.](jpg|png)$') then
+       or coalesce(p_image ->> 'path', '') !~ ('^' || p_group_id::text || '/' || v_uid::text || '/[0-9a-f-]{36}[.](jpg|png)$') then
       return jsonb_build_object('status', 'refused', 'reason', 'bad_image');
+    end if;
+    -- the file must really be there, in the caller's own folder (where storage exists; the test database has none)
+    if to_regclass('storage.objects') is not null then
+      execute 'select exists (select 1 from storage.objects where bucket_id = ''community-images'' and name = $1)' into v_img_ok using (p_image ->> 'path');
+      if not coalesce(v_img_ok, false) then return jsonb_build_object('status', 'refused', 'reason', 'bad_image'); end if;
     end if;
   end if;
 
@@ -550,6 +556,7 @@ declare
   v_codes text[];
   v_apc integer;
   v_nb integer;
+  v_has_img boolean;
 begin
   if v_uid is null then raise exception 'sign in required' using errcode = '28000'; end if;
   select * into po from public.community_posts where id = p_post_id for update;
@@ -580,6 +587,7 @@ begin
   v_out := private.community_scan_outcome(v_scan, case when po.state = 'visible' then 1000000 else v_apc end);
   v_action := v_out ->> 'action';
   v_class := v_out ->> 'class';
+  v_has_img := exists (select 1 from public.community_post_images pi where pi.post_id = po.id and pi.deleted_at is null);
 
   if v_action = 'block' then
     perform private.community_log_event(po.group_id, po.id, v_uid, 'blocked', v_uid, v_class, v_scan -> 'hits');
@@ -600,9 +608,14 @@ begin
     perform private.community_log_event(po.group_id, po.id, v_uid, 'withheld_safety', v_uid, v_class, v_scan -> 'hits');
     return jsonb_build_object('status', 'withheld', 'safety_kind', v_class, 'post_id', po.id);
   elsif v_action = 'hold' then
-    update public.community_posts set body = v_body, edited_at = now(), state = 'held', hold_reason_codes = coalesce(v_codes, '{}'), rule_set_version = (v_scan ->> 'version')::int where id = po.id;
+    update public.community_posts set body = v_body, edited_at = now(), state = 'held', hold_reason_codes = case when v_has_img then array_append(coalesce(v_codes, '{}'), 'image') else coalesce(v_codes, '{}') end, rule_set_version = (v_scan ->> 'version')::int where id = po.id;
     perform private.community_log_event(po.group_id, po.id, v_uid, 'held', v_uid, v_class, v_scan -> 'hits');
     return jsonb_build_object('status', 'held', 'reason', v_class, 'post_id', po.id);
+  end if;
+  -- a post with a picture goes back to a moderator whenever its words change: the picture was approved with those words
+  if v_has_img and po.state = 'visible' then
+    update public.community_posts set body = v_body, edited_at = now(), state = 'held', hold_reason_codes = array['image'], rule_set_version = (v_scan ->> 'version')::int where id = po.id;
+    return jsonb_build_object('status', 'held', 'reason', 'image', 'post_id', po.id);
   end if;
   update public.community_posts set body = v_body, edited_at = now(), rule_set_version = (v_scan ->> 'version')::int where id = po.id;
   return jsonb_build_object('status', case po.state when 'visible' then 'published' else 'held' end, 'post_id', po.id);

@@ -50,6 +50,16 @@ export function GroupDetail({
   const copy = useCopy();
   const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
   const [accessToken, setAccessToken] = useState<string | null>(null);
+
+  // The token pictures are fetched with expires; refresh it while the group stays open so pictures do not quietly go blank.
+  useEffect(() => {
+    const timer = setInterval(() => {
+      void getAccessToken().then((token) => {
+        if (token) setAccessToken(token);
+      });
+    }, 20 * 60 * 1000);
+    return () => clearInterval(timer);
+  }, []);
   const [safety, setSafety] = useState<"emergency" | "self_harm" | null>(null);
   const [joining, setJoining] = useState(false);
   const [older, setOlder] = useState<FeedPost[]>([]);

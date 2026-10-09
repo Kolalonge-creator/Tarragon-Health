@@ -63,7 +63,8 @@ begin
       from (select i.id, i.storage_path
               from public.community_post_images i join public.community_posts po on po.id = i.post_id
              where i.deleted_at is null
-               and ((po.state = 'deleted_by_author' and po.removed_at < now() - interval '1 day')
+               and (po.author_profile_id is null
+                 or (po.state = 'deleted_by_author' and po.removed_at < now() - interval '1 day')
                  or (po.state = 'removed' and po.removed_at < now() - make_interval(days => v_days)))
              order by i.created_at limit 200) x), '[]'::jsonb);
 end $$;
@@ -141,7 +142,7 @@ begin
        where not exists (
          select 1 from public.community_shifts sh
            join public.community_staff s on s.id = sh.staff_id and s.revoked_at is null and s.scope = sc.scope and s.group_id is null
-           join public.profiles p on p.id = s.profile_id and p.is_active
+           join public.profiles p on p.id = s.profile_id and p.is_active and p.role in ('admin', 'care_coordinator')
           where sh.weekday = d and sh.start_hour <= h and sh.end_hour >= h + 1)), '[]'::jsonb));
 end $$;
 
@@ -172,9 +173,9 @@ begin
   if not exists (select 1 from public.community_staff where id = p_staff_id and revoked_at is null) then
     return jsonb_build_object('status', 'refused', 'reason', 'not_found');
   end if;
-  if jsonb_typeof(p_shifts) <> 'array' or jsonb_array_length(p_shifts) > 100 then return jsonb_build_object('status', 'refused', 'reason', 'bad_shifts'); end if;
+  if p_shifts is null or coalesce(jsonb_typeof(p_shifts), '') <> 'array' or jsonb_array_length(p_shifts) > 100 then return jsonb_build_object('status', 'refused', 'reason', 'bad_shifts'); end if;
   for r in select * from jsonb_array_elements(p_shifts) loop
-    if jsonb_typeof(r -> 'weekday') <> 'number' or jsonb_typeof(r -> 'start_hour') <> 'number' or jsonb_typeof(r -> 'end_hour') <> 'number'
+    if coalesce(jsonb_typeof(r -> 'weekday'), '') <> 'number' or coalesce(jsonb_typeof(r -> 'start_hour'), '') <> 'number' or coalesce(jsonb_typeof(r -> 'end_hour'), '') <> 'number'
        or (r ->> 'weekday')::numeric not between 0 and 6 or (r ->> 'weekday')::numeric <> trunc((r ->> 'weekday')::numeric)
        or (r ->> 'start_hour')::numeric not between 0 and 23 or (r ->> 'start_hour')::numeric <> trunc((r ->> 'start_hour')::numeric)
        or (r ->> 'end_hour')::numeric not between 1 and 24 or (r ->> 'end_hour')::numeric <> trunc((r ->> 'end_hour')::numeric)
@@ -203,6 +204,10 @@ begin
   if p_passed is null then return jsonb_build_object('status', 'refused', 'reason', 'choose_one'); end if;
   if length(coalesce(p_notes, '')) > 2000 then return jsonb_build_object('status', 'refused', 'reason', 'note_too_long'); end if;
   if jsonb_typeof(coalesce(p_steps, '[]'::jsonb)) <> 'array' or jsonb_array_length(coalesce(p_steps, '[]'::jsonb)) > 50 then
+    return jsonb_build_object('status', 'refused', 'reason', 'bad_steps');
+  end if;
+  -- a pass needs the five core steps ticked
+  if p_passed and (select count(*) from jsonb_array_elements(coalesce(p_steps, '[]'::jsonb)) e where e ->> 'ok' = 'true') < 5 then
     return jsonb_build_object('status', 'refused', 'reason', 'bad_steps');
   end if;
   insert into public.community_tabletop_runs (run_by, passed, notes, steps) values ((select auth.uid()), p_passed, nullif(btrim(coalesce(p_notes, '')), ''), coalesce(p_steps, '[]'::jsonb));
@@ -249,10 +254,10 @@ begin
   for r in
     select distinct x.profile_id from (
       select s.profile_id from public.community_staff s where s.revoked_at is null and (
-        (s.scope = 'safety_reviewer' and (w ->> 'safety_overdue')::int > 0) or (s.scope = 'moderator' and (w ->> 'queue_overdue')::int > 0))
+        (s.scope = 'safety_reviewer' and (w ->> 'safety_overdue')::int > 0) or (s.scope = 'moderator' and ((w ->> 'queue_overdue')::int > 0 or (w ->> 'appeals_overdue')::int > 0)))
       union
       select cs.profile_id from public.clinical_staff cs
-       where cs.active and cs.doctor_tier = 'chief_medical_officer' and ((w ->> 'safety_overdue')::int > 0 or (w ->> 'queue_overdue')::int > 0)) x
+       where cs.active and cs.doctor_tier = 'chief_medical_officer' and ((w ->> 'safety_overdue')::int > 0 or (w ->> 'queue_overdue')::int > 0 or (w ->> 'appeals_overdue')::int > 0)) x
      where x.profile_id is not null
   loop
     perform private.community_notify(r.profile_id, 'community_overdue', r.profile_id, 'profiles');
@@ -373,7 +378,9 @@ declare
   v_uid uuid := (select auth.uid());
 begin
   if v_uid is null then raise exception 'sign in required' using errcode = '28000'; end if;
-  if not exists (select 1 from public.community_qa_doctors where series_id = p_series_id and profile_id = v_uid) then
+  if not exists (select 1 from public.community_qa_doctors d where d.series_id = p_series_id and d.profile_id = v_uid)
+     or not exists (select 1 from public.clinical_staff cs where cs.profile_id = v_uid and cs.active and cs.doctor_tier in ('senior_medical_officer', 'chief_medical_officer'))
+     or not exists (select 1 from public.community_qa_sessions q where q.series_id = p_series_id and q.cancelled_at is null and q.closes_at > now() - interval '30 days') then
     raise exception 'named doctors only' using errcode = '42501';
   end if;
   return jsonb_build_object('questions', coalesce((
@@ -424,6 +431,27 @@ begin
   return jsonb_build_object('status', 'ok', 'id', v_id);
 end $$;
 
+-- Asked by the upload route BEFORE it writes a file: may this person post a picture to this group right now?
+create or replace function public.community_image_precheck(p_group_id uuid) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare
+  v_uid uuid := (select auth.uid());
+  v_gate jsonb;
+begin
+  if v_uid is null then raise exception 'sign in required' using errcode = '28000'; end if;
+  v_gate := private.community_posting_gate(p_group_id, v_uid);
+  if v_gate ->> 'status' <> 'ok' then return jsonb_build_object('ok', false, 'reason', v_gate ->> 'reason'); end if;
+  if not exists (select 1 from public.community_groups where id = p_group_id and images_allowed) then return jsonb_build_object('ok', false, 'reason', 'images_off'); end if;
+  if exists (select 1 from public.community_moderation_events e where e.member_profile_id = v_uid and e.action = 'cooldown_started'
+              and e.created_at > now() - make_interval(mins => (private.community_cfg() #>> '{block_cooldown,cooldown_minutes}')::int)) then
+    return jsonb_build_object('ok', false, 'reason', 'cooling_down');
+  end if;
+  if (select count(*) from public.community_posts where author_profile_id = v_uid and created_at > now() - interval '1 hour') >= private.community_cfg_int('rate_posts_per_hour') then
+    return jsonb_build_object('ok', false, 'reason', 'rate_limited');
+  end if;
+  return jsonb_build_object('ok', true);
+end $$;
+
 -- ---------------------------------------------------------------------------
 -- 8. Privileges
 -- ---------------------------------------------------------------------------
@@ -434,7 +462,7 @@ begin
   for r in
     select p.oid::regprocedure as sig, p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public' and p.proname in (
-       'community_image_ref', 'community_images_due', 'community_images_mark_deleted', 'community_admin_set_group_images', 'community_mod_recent',
+       'community_image_ref', 'community_image_precheck', 'community_images_due', 'community_images_mark_deleted', 'community_admin_set_group_images', 'community_mod_recent',
        'community_coverage', 'community_admin_shifts', 'community_admin_set_shifts', 'community_record_tabletop', 'community_tabletop_runs',
        'community_overdue_work', 'community_notify_overdue', 'community_admin_create_qa', 'community_admin_cancel_qa', 'community_admin_qa_list',
        'community_admin_remove_answer', 'community_qa_doctor_sessions', 'community_qa_doctor_questions', 'community_qa_answer')

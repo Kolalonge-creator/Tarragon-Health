@@ -23,6 +23,7 @@ export function PostCard({
   editWindowMinutes,
   canPost,
   imagesAllowed = false,
+  imageMaxBytes = 4 * 1024 * 1024,
   qaStatus = null,
   isReply = false,
   onChanged,
@@ -38,6 +39,8 @@ export function PostCard({
   canPost: boolean;
   /** True when the group allows one picture per post (then replies may carry one too). */
   imagesAllowed?: boolean;
+  /** The group's picture size limit (from the database reply). */
+  imageMaxBytes?: number;
   /** Status of the group's question session, so an unanswered question can say so only while it is still open. */
   qaStatus?: "upcoming" | "open" | "closed" | null;
   isReply?: boolean;
@@ -226,6 +229,7 @@ export function PostCard({
               editWindowMinutes={editWindowMinutes}
               canPost={canPost}
               imagesAllowed={imagesAllowed}
+              imageMaxBytes={imageMaxBytes}
               isReply
               onChanged={() => {
                 void fetchReplies();
@@ -251,7 +255,7 @@ export function PostCard({
                 onChanged();
               }}
               onSafety={onSafety}
-              picture={imagesAllowed ? { groupId, parentId: post.id } : undefined}
+              picture={imagesAllowed ? { groupId, parentId: post.id, maxBytes: imageMaxBytes } : undefined}
             />
           ) : null}
         </div>

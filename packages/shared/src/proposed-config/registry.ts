@@ -1822,7 +1822,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       new_member_premoderated_posts: 1,
       appeal_window_days: 14,
       quality_sample_pct: 10,
-      image_max_bytes: 5242880,
+      image_max_bytes: 4194304,
       qa_questions_per_member: 3,
       qa_answer_grace_minutes: 60,
       overdue_safety_minutes: 30,

@@ -282,7 +282,7 @@ language sql stable security definer set search_path = '' as $$
    where not exists (
      select 1 from public.community_shifts sh
        join public.community_staff s on s.id = sh.staff_id and s.revoked_at is null and s.scope = p_scope and s.group_id is null
-       join public.profiles p on p.id = s.profile_id and p.is_active
+       join public.profiles p on p.id = s.profile_id and p.is_active and p.role in ('admin', 'care_coordinator')
       where sh.weekday = d and sh.start_hour <= h and sh.end_hour >= h + 1)
 $$;
 

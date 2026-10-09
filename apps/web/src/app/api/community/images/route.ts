@@ -52,35 +52,39 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (!sanitised.ok) return NextResponse.json({ status: "refused", reason: "bad_image" }, { status: 400 });
   const { image } = sanitised;
 
-  const path = `${fields.data.group_id}/${randomUUID()}.${image.ext}`;
+  // Ask the database whether this person may post a picture to this group BEFORE any file is written.
+  const pre = await auth.supabase.rpc("community_image_precheck", { p_group_id: fields.data.group_id });
+  const allowed = z.object({ ok: z.boolean(), reason: z.string().optional() }).safeParse(pre.data);
+  if (pre.error || !allowed.success) return NextResponse.json({ error: "That could not be posted. Please try again." }, { status: 502 });
+  if (!allowed.data.ok) return NextResponse.json({ status: "refused", reason: allowed.data.reason ?? "images_off" });
+
+  // {group}/{member}/{random}: the database only accepts a path in the caller's own folder.
+  const path = `${fields.data.group_id}/${auth.userId}/${randomUUID()}.${image.ext}`;
   const storage = createServiceRoleClient().storage.from(BUCKET);
   const { error: uploadError } = await storage.upload(path, image.bytes, { contentType: image.mime, upsert: false, cacheControl: "0" });
   if (uploadError) return NextResponse.json({ error: "The picture could not be saved. Please try again." }, { status: 502 });
 
   const removeFile = async (): Promise<void> => {
-    await storage.remove([path]).catch(() => undefined);
+    const { error } = await storage.remove([path]);
+    if (error) console.error("community picture: could not remove an unused file", path);
   };
 
   const { data, error } = await auth.supabase.rpc("community_submit_post_with_image", {
     p_group_id: fields.data.group_id,
-    p_parent_id: fields.data.parent_id as string,
+    p_parent_id: (fields.data.parent_id ?? null) as unknown as string,
     p_body: fields.data.body,
-    p_client_request_id: fields.data.client_request_id as string,
+    p_client_request_id: (fields.data.client_request_id ?? null) as unknown as string,
     p_storage_path: path,
     p_mime: image.mime,
     p_size: image.bytes.length,
     p_width: image.width,
     p_height: image.height,
   });
-  if (error) {
-    await removeFile();
-    return NextResponse.json({ error: "That could not be posted. Please try again." }, { status: 502 });
-  }
+  // If the answer is lost or unreadable we cannot know whether the post was saved, so the file is KEPT: deleting it could orphan a post
+  // that the database did accept. A file with no post is harmless (nobody can open it) and the retry uses a new path.
+  if (error) return NextResponse.json({ error: "That could not be posted. Please try again." }, { status: 502 });
   const parsed = submitResultSchema.safeParse(data);
-  if (!parsed.success) {
-    await removeFile();
-    return NextResponse.json({ error: "That could not be posted. Please try again." }, { status: 502 });
-  }
+  if (!parsed.success) return NextResponse.json({ error: "That could not be posted. Please try again." }, { status: 502 });
   // Only a held or withheld post owns the file. Anything else (blocked, refused, a repeat of an earlier request) does not.
   if (!(parsed.data.status === "held" || parsed.data.status === "withheld") || parsed.data.repeat === true) await removeFile();
   return NextResponse.json(parsed.data);

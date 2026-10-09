@@ -135,7 +135,7 @@ begin
   update public.community_memberships set approved_post_count = 10 where group_id = v_g and profile_id in (v_p1, v_p2, v_p3, v_p4);
 
   -- 1. Pictures --------------------------------------------------------------------------------------------------------------------------
-  v_path := v_g::text || '/' || gen_random_uuid()::text || '.jpg';
+  v_path := v_g::text || '/' || v_p1::text || '/' || gen_random_uuid()::text || '.jpg';
   perform pg_temp.rec('a picture is refused while the group has pictures off', 'images_off',
     (pg_temp.asj(v_p1, format($q$select public.community_submit_post_with_image(%L, null, 'My home cuff', null, %L, 'image/jpeg', 120000, 800, 600)$q$, v_g, v_path)) ->> 'reason'));
   perform pg_temp.rec('a patient cannot turn pictures on', '42501', (pg_temp.asj(v_p1, format('select public.community_admin_set_group_images(%L, true)', v_g)) ->> 'error'));
@@ -160,7 +160,7 @@ begin
   select id into v_img from public.community_post_images where post_id = v_post;
   perform pg_temp.rec('...and the picture is on file', 'true', (v_img is not null)::text);
   perform pg_temp.rec('a retried request does not store a second picture', '1',
-    ((pg_temp.asj(v_p1, format($q$select public.community_submit_post_with_image(%L, null, 'My home blood pressure cuff', %L, %L, 'image/jpeg', 120000, 800, 600)$q$, v_g, v_req, v_g::text || '/' || gen_random_uuid()::text || '.jpg')) ->> 'repeat') is not null and (select count(*) from public.community_post_images) = 1)::int::text);
+    ((pg_temp.asj(v_p1, format($q$select public.community_submit_post_with_image(%L, null, 'My home blood pressure cuff', %L, %L, 'image/jpeg', 120000, 800, 600)$q$, v_g, v_req, v_g::text || '/' || v_p1::text || '/' || gen_random_uuid()::text || '.jpg')) ->> 'repeat') is not null and (select count(*) from public.community_post_images) = 1)::int::text);
   perform pg_temp.rec('other members cannot see the post', 'false',
     (exists (select 1 from jsonb_array_elements(pg_temp.asj(v_p2, format('select public.community_feed(%L)', v_g)) -> 'posts') x where x ->> 'id' = v_post::text))::text);
   perform pg_temp.rec('other members cannot open the picture', 'not_found', (pg_temp.asj(v_p2, format('select public.community_image_ref(%L)', v_img)) ->> 'reason'));
@@ -181,7 +181,7 @@ begin
   perform pg_temp.rec('...and members can open the picture', 'true', (pg_temp.asj(v_p2, format('select public.community_image_ref(%L)', v_img)) ->> 'ok'));
   perform pg_temp.rec('...but a non-member still cannot', 'not_found', (pg_temp.asj(v_out, format('select public.community_image_ref(%L)', v_img)) ->> 'reason'));
   perform pg_temp.rec('a post cannot have two pictures', '23505',
-    pg_temp.try(format($q$insert into public.community_post_images (post_id, group_id, storage_path, mime, size_bytes, width, height) values (%L, %L, %L, 'image/png', 10, 1, 1)$q$, v_post, v_g, v_g::text || '/' || gen_random_uuid()::text || '.png')));
+    pg_temp.try(format($q$insert into public.community_post_images (post_id, group_id, storage_path, mime, size_bytes, width, height) values (%L, %L, %L, 'image/png', 10, 1, 1)$q$, v_post, v_g, v_g::text || '/' || v_p1::text || '/' || gen_random_uuid()::text || '.png')));
   -- removal
   perform pg_temp.rec('the moderator removes the post', 'removed', (pg_temp.asj(v_mod, format($q$select public.community_mod_decide(%L, 'remove', 'off_topic')$q$, v_post)) ->> 'status'));
   perform pg_temp.rec('members can no longer open the picture', 'not_found', (pg_temp.asj(v_p2, format('select public.community_image_ref(%L)', v_img)) ->> 'reason'));
@@ -195,7 +195,7 @@ begin
   perform pg_temp.rec('marking it deleted', '1', (public.community_images_mark_deleted(array[v_img]))::text);
   perform pg_temp.rec('...closes the picture to everyone', 'not_found', (pg_temp.asj(v_mod, format('select public.community_image_ref(%L)', v_img)) ->> 'reason'));
   -- a picture post with safety wording
-  v_j := pg_temp.asj(v_p3, format($q$select public.community_submit_post_with_image(%L, null, 'a test crisis phrase', null, %L, 'image/png', 5000, 100, 100)$q$, v_g, v_g::text || '/' || gen_random_uuid()::text || '.png'));
+  v_j := pg_temp.asj(v_p3, format($q$select public.community_submit_post_with_image(%L, null, 'a test crisis phrase', null, %L, 'image/png', 5000, 100, 100)$q$, v_g, v_g::text || '/' || v_p3::text || '/' || gen_random_uuid()::text || '.png'));
   perform pg_temp.rec('a picture post with safety wording is withheld', 'withheld', (v_j ->> 'status'));
   v_post2 := (v_j ->> 'post_id')::uuid;
   select id into v_img from public.community_post_images where post_id = v_post2;
@@ -241,10 +241,42 @@ begin
   perform pg_temp.rec('a drill cannot be recorded by an admin', '42501', (pg_temp.asj(v_admin, $q$select public.community_record_tabletop(true, 'ok', '[]')$q$) ->> 'error'));
   perform pg_temp.rec('...so the drill condition is not met', 'false',
     (select (c ->> 'met') from jsonb_array_elements(private.community_go_live_conditions('community')) c where c ->> 'code' = 'tabletop_passed'));
-  perform pg_temp.rec('the CMO records a passing drill', 'ok', (pg_temp.asj(v_cmo, $q$select public.community_record_tabletop(true, 'Self-harm phrase withheld, reviewer saw it, card shown.', '[{"step":"withheld","ok":true}]')$q$) ->> 'status'));
+  perform pg_temp.rec('the CMO records a passing drill', 'ok', (pg_temp.asj(v_cmo, $q$select public.community_record_tabletop(true, 'Self-harm phrase withheld, reviewer saw it, card shown.', '[{"step":"1","ok":true},{"step":"2","ok":true},{"step":"3","ok":true},{"step":"4","ok":true},{"step":"5","ok":true}]')$q$) ->> 'status'));
   perform pg_temp.rec('...and the drill condition is met', 'true',
     (select (c ->> 'met') from jsonb_array_elements(private.community_go_live_conditions('community')) c where c ->> 'code' = 'tabletop_passed'));
   perform pg_temp.rec('the drill list shows who ran it', 'COM cmo', (pg_temp.asj(v_admin, 'select public.community_tabletop_runs()') -> 'runs' -> 0 ->> 'run_by_name'));
+
+  -- 6. Review fixes ---------------------------------------------------------------------------------------------------------------------
+  perform pg_temp.rec('a drill pass with no steps is refused', 'bad_steps', (pg_temp.asj(v_cmo, $q$select public.community_record_tabletop(true, 'quick', '[]')$q$) ->> 'reason'));
+  update public.community_tabletop_runs set run_at = now() - interval '1 hour' where passed;
+  perform pg_temp.asj(v_cmo, $q$select public.community_record_tabletop(false, 'A later drill failed', '[]')$q$);
+  perform pg_temp.rec('a later failed drill clears the drill condition', 'false',
+    (select (c ->> 'met') from jsonb_array_elements(private.community_go_live_conditions('community')) c where c ->> 'code' = 'tabletop_passed'));
+  perform pg_temp.rec('shifts that are not an array are refused, not erased', 'bad_shifts', (pg_temp.asj(v_admin, format($q$select public.community_admin_set_shifts(%L, null)$q$, v_staff)) ->> 'reason'));
+  perform pg_temp.rec('a shift missing a key is refused cleanly', 'bad_shifts', (pg_temp.asj(v_admin, format($q$select public.community_admin_set_shifts(%L, '[{"start_hour":8,"end_hour":16}]')$q$, v_staff)) ->> 'reason'));
+  perform pg_temp.rec('the rota was not wiped by the refused calls', '0', (private.community_uncovered_hours('safety_reviewer'))::text);
+  -- the precheck, before any file is written
+  perform pg_temp.rec('a member may post a picture here', 'true', (pg_temp.asj(v_p2, format('select public.community_image_precheck(%L)', v_g)) ->> 'ok'));
+  perform pg_temp.rec('a non-member may not', 'false', (pg_temp.asj(v_out, format('select public.community_image_precheck(%L)', v_g)) ->> 'ok'));
+  perform pg_temp.asj(v_admin, format('select public.community_admin_set_group_images(%L, false)', v_g));
+  perform pg_temp.rec('...nor in a group with pictures off', 'images_off', (pg_temp.asj(v_p2, format('select public.community_image_precheck(%L)', v_g)) ->> 'reason'));
+  perform pg_temp.asj(v_admin, format('select public.community_admin_set_group_images(%L, true)', v_g));
+  perform pg_temp.rec('a file in another member''s folder is refused', 'bad_image',
+    (pg_temp.asj(v_p2, format($q$select public.community_submit_post_with_image(%L, null, 'borrowed path', null, %L, 'image/png', 5000, 100, 100)$q$, v_g, v_g::text || '/' || v_p1::text || '/' || gen_random_uuid()::text || '.png')) ->> 'reason'));
+  -- editing the words of an approved picture post sends it back to a moderator
+  v_j := pg_temp.asj(v_p2, format($q$select public.community_submit_post_with_image(%L, null, 'My cuff on the table', null, %L, 'image/png', 5000, 100, 100)$q$, v_g, v_g::text || '/' || v_p2::text || '/' || gen_random_uuid()::text || '.png'));
+  v_post := (v_j ->> 'post_id')::uuid;
+  perform pg_temp.asj(v_mod, format($q$select public.community_mod_decide(%L, 'approve', null)$q$, v_post));
+  perform pg_temp.rec('an approved picture post is live', 'visible', (select state from public.community_posts where id = v_post));
+  perform pg_temp.rec('editing its words sends it back to a moderator', 'held', (pg_temp.asj(v_p2, format($q$select public.community_edit_post(%L, 'A completely different caption now')$q$, v_post)) ->> 'status'));
+  perform pg_temp.rec('...and it is no longer visible', 'held', (select state from public.community_posts where id = v_post));
+  -- a picture from an erased account is due for deletion
+  update public.community_posts set author_profile_id = null where id = v_post;
+  perform pg_temp.rec('the picture of an erased account is due', 'true',
+    (exists (select 1 from jsonb_array_elements(public.community_images_due()) x where x ->> 'id' = (select id::text from public.community_post_images where post_id = v_post)))::text);
+  -- a safety reviewer alone cannot release a picture
+  perform pg_temp.rec('a safety reviewer who is not a moderator cannot release a picture', 'picture_needs_moderator',
+    (pg_temp.asj(v_rev, format($q$select public.community_safety_decide(%L, 'release')$q$, (select id from public.community_safety_signals where post_id = v_post2))) ->> 'reason'));
 
   -- 3. Overdue work ----------------------------------------------------------------------------------------------------------------------
   update public.community_safety_signals set created_at = now() - interval '2 hours' where post_id = v_post2;
@@ -309,9 +341,11 @@ begin
     (exists (select 1 from jsonb_array_elements(pg_temp.asj(v_admin, 'select public.community_admin_qa_list()') -> 'sessions') x where x ->> 'series_id' = v_series::text))::text);
   perform pg_temp.rec('an admin can cancel a session', 'ok', (pg_temp.asj(v_admin, format('select public.community_admin_cancel_qa(%L)', v_series)) ->> 'status'));
 
+  perform pg_temp.rec('after a session is cancelled its questions are closed to the doctors too', '42501', (pg_temp.asj(v_doc, format('select public.community_qa_doctor_questions(%L)', v_series)) ->> 'error'));
+
   -- SABOTAGE -----------------------------------------------------------------------------------------------------------------------------
   -- (a) the picture access check lets everyone in: a non-member must no longer be refused
-  v_j := pg_temp.asj(v_p4, format($q$select public.community_submit_post_with_image(%L, null, 'Another picture post here', null, %L, 'image/png', 5000, 100, 100)$q$, v_g, v_g::text || '/' || gen_random_uuid()::text || '.png'));
+  v_j := pg_temp.asj(v_p4, format($q$select public.community_submit_post_with_image(%L, null, 'Another picture post here', null, %L, 'image/png', 5000, 100, 100)$q$, v_g, v_g::text || '/' || v_p4::text || '/' || gen_random_uuid()::text || '.png'));
   select id into v_img from public.community_post_images where post_id = (v_j ->> 'post_id')::uuid;
   create or replace function public.community_image_ref(p_image_id uuid) returns jsonb language sql security definer set search_path = '' as $s$ select jsonb_build_object('ok', true, 'path', 'x', 'mime', 'image/png') $s$;
   insert into results values ('sabotaged', 'a non-member cannot open a waiting picture', 'not_found', coalesce(pg_temp.asj(v_out, format('select public.community_image_ref(%L)', v_img)) ->> 'reason', 'null'));

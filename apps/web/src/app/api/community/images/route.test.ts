@@ -67,13 +67,13 @@ describe("POST /api/community/images", () => {
   });
 
   it("stores the cleaned file under the group's folder and keeps it when the post is held", async () => {
-    rpc.mockResolvedValue({ data: { status: "held", reason: "image", post_id: "p1" }, error: null });
+    rpc.mockImplementation(async (fn) => (fn === "community_image_precheck" ? { data: { ok: true }, error: null } : { data: { status: "held", reason: "image", post_id: "p1" }, error: null }));
     const res = await POST(request({}));
     expect(res.status).toBe(200);
     expect((await res.json()).status).toBe("held");
     const [path] = upload.mock.calls[0]!;
-    expect(path).toMatch(new RegExp(`^${GROUP}/[0-9a-f-]{36}\\.jpg$`));
-    const [fn, args] = rpc.mock.calls[0]!;
+    expect(path).toMatch(new RegExp(`^${GROUP}/11111111-1111-4111-8111-111111111111/[0-9a-f-]{36}\\.jpg$`));
+    const [fn, args] = rpc.mock.calls[1]!;
     expect(fn).toBe("community_submit_post_with_image");
     expect(args).toMatchObject({ p_group_id: GROUP, p_storage_path: path, p_mime: "image/jpeg", p_width: 10, p_height: 10 });
     expect(remove).not.toHaveBeenCalled();
@@ -84,21 +84,28 @@ describe("POST /api/community/images", () => {
     ["refused", { status: "refused", reason: "images_off" }],
     ["a repeat of an earlier request", { status: "held", repeat: true, post_id: "p1" }],
   ])("removes the file again when the post is %s", async (_label, result) => {
-    rpc.mockResolvedValue({ data: result, error: null });
+    rpc.mockImplementation(async (fn) => (fn === "community_image_precheck" ? { data: { ok: true }, error: null } : { data: result, error: null }));
     await POST(request({}));
     expect(remove).toHaveBeenCalledTimes(1);
   });
 
-  it("removes the file if the database call fails or answers in a shape we do not know", async () => {
-    rpc.mockResolvedValue({ data: null, error: { message: "boom" } });
+  it("keeps the file when the database answer is lost or unreadable (the post may have been saved)", async () => {
+    rpc.mockImplementation(async (fn) => (fn === "community_image_precheck" ? { data: { ok: true }, error: null } : { data: null, error: { message: "boom" } }));
     expect((await POST(request({}))).status).toBe(502);
-    rpc.mockResolvedValue({ data: { surprise: true }, error: null });
+    rpc.mockImplementation(async (fn) => (fn === "community_image_precheck" ? { data: { ok: true }, error: null } : { data: { surprise: true }, error: null }));
     expect((await POST(request({}))).status).toBe(502);
-    expect(remove).toHaveBeenCalledTimes(2);
+    expect(remove).not.toHaveBeenCalled();
+  });
+
+  it("writes nothing when the database says this person may not post a picture here", async () => {
+    rpc.mockResolvedValue({ data: { ok: false, reason: "images_off" }, error: null });
+    const res = await POST(request({}));
+    expect(await res.json()).toEqual({ status: "refused", reason: "images_off" });
+    expect(upload).not.toHaveBeenCalled();
   });
 
   it("never returns raw database text", async () => {
-    rpc.mockResolvedValue({ data: null, error: { message: "relation community_posts permission denied" } });
+    rpc.mockImplementation(async (fn) => (fn === "community_image_precheck" ? { data: { ok: true }, error: null } : { data: null, error: { message: "relation community_posts permission denied" } }));
     const text = await (await POST(request({}))).text();
     expect(text).not.toMatch(/relation|permission|community_posts/);
   });

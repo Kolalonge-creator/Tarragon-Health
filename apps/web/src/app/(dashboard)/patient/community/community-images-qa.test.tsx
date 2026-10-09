@@ -90,7 +90,7 @@ const composer = (withPicture: boolean) => (
     submit={(body, id) => actions.submitPost(body, id)}
     onPublished={refresh}
     onSafety={jest.fn()}
-    picture={withPicture ? { groupId: "11111111-1111-4111-8111-111111111111", parentId: null } : undefined}
+    picture={withPicture ? { groupId: "11111111-1111-4111-8111-111111111111", parentId: null, maxBytes: 4 * 1024 * 1024 } : undefined}
   />
 );
 
@@ -106,7 +106,7 @@ describe("picture control", () => {
   it("is shown when allowed, with help text, a preview and a way to remove the picture; axe-clean", async () => {
     render(gv(view({}, { images_allowed: true }), []));
     expect(screen.getByLabelText("Add a picture")).toBeTruthy();
-    expect(screen.getByText(/One picture, JPEG or PNG, up to 5 MB/)).toBeTruthy();
+    expect(screen.getByText(/One picture, JPEG or PNG, up to 4 MB/)).toBeTruthy();
     cleanup();
     render(composer(true));
     pick(png());
@@ -119,8 +119,8 @@ describe("picture control", () => {
 
   it("refuses a too-big or wrong-type file before sending anything", () => {
     render(composer(true));
-    pick(png(5 * 1024 * 1024 + 1));
-    expect(screen.getByRole("status").textContent).toBe("That picture could not be used. Please choose a JPEG or PNG under 5 MB.");
+    pick(png(4 * 1024 * 1024 + 1));
+    expect(screen.getByRole("status").textContent).toBe("That picture could not be used. Please choose a JPEG or PNG under 4 MB.");
     pick(png(10, "image/gif"));
     expect(screen.getByRole("status").textContent).toMatch(/could not be used/);
     expect(screen.queryByRole("button", { name: "Remove the picture" })).toBeNull();

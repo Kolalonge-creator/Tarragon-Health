@@ -194,6 +194,11 @@ begin
   if v_status is null then return jsonb_build_object('status', 'refused', 'reason', 'bad_decision'); end if;
   if p_decision = 'release' then
     -- The post was stored because of its safety language; it may also hold contact details, which are never published.
+    -- A picture is only ever released by someone who also holds the moderator scope (the picture checklist is the moderators' job).
+    if exists (select 1 from public.community_post_images pi where pi.post_id = s.post_id and pi.deleted_at is null)
+       and not private.community_is_moderator(s.group_id) then
+      return jsonb_build_object('status', 'refused', 'reason', 'picture_needs_moderator');
+    end if;
     -- (the scan's overall decision is "safety" for such a post, so look for any blocking rule among the hits)
     if exists (select 1 from jsonb_array_elements(private.community_scan((select po.body from public.community_posts po where po.id = s.post_id)) -> 'hits') h where h ->> 'action' = 'block')
        or private.community_scan((select po.body from public.community_posts po where po.id = s.post_id)) ->> 'decision' = 'unavailable' then

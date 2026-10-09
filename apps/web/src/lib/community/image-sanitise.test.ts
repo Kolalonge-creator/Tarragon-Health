@@ -33,7 +33,33 @@ function png(width: number, height: number): Uint8Array {
   ]);
 }
 
+/** A JPEG whose EXIF block carries GPS text AND an Orientation entry (value 6, big-endian). */
+function jpegWithOrientation(orientation: number): Uint8Array {
+  const tiff = [0x4d, 0x4d, 0, 0x2a, 0, 0, 0, 8, 0, 1, 0x01, 0x12, 0, 3, 0, 0, 0, 1, 0, orientation, 0, 0, 0, 0, 0, 0, ...ascii("GPSLatitude")];
+  const exif = [0xff, 0xe1, ...be16(2 + 6 + tiff.length), ...ascii("Exif"), 0, 0, ...tiff];
+  const base = jpeg(40, 30);
+  return Uint8Array.from([...base.subarray(0, 2), ...exif, ...base.subarray(2)]);
+}
+
 describe("sanitiseImage", () => {
+  it("keeps only the rotation from a phone's EXIF block, so a portrait photo stays upright", () => {
+    const r = sanitiseImage(jpegWithOrientation(6), 5_000_000);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(has(r.image.bytes, "GPSLatitude")).toBe(false);
+    const again = sanitiseImage(r.image.bytes, 5_000_000);
+    expect(again.ok).toBe(true);
+    // the rotation survives as a tiny new EXIF block: "Exif\0\0", big-endian header, tag 0x0112, SHORT, value 6
+    const text = Buffer.from(r.image.bytes).toString("hex");
+    expect(text).toContain("457869660000" + "4d4d002a00000008" + "0001" + "0112" + "0003" + "00000001" + "0006");
+  });
+
+  it("writes no EXIF at all when the photo is already upright", () => {
+    const r = sanitiseImage(jpegWithOrientation(1), 5_000_000);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(has(r.image.bytes, "Exif")).toBe(false);
+  });
+
   it("drops location and camera details from a JPEG and keeps the picture", () => {
     const r = sanitiseImage(jpeg(800, 600), 5_000_000);
     expect(r.ok).toBe(true);

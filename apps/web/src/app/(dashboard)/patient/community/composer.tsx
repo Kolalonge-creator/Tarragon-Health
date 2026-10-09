@@ -9,8 +9,7 @@ import { MUTED, TOUCH } from "./styles";
 import { composeOutcome, submitResultSchema } from "@/lib/community/model";
 import type { SubmitActionResult } from "./community-actions";
 
-/** The picture limits the screen checks before sending anything. The server checks again from the file's own bytes. */
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+/** The picture types the screen checks before sending anything; the size limit comes from the group (versioned configuration), never from here. The server checks again from the file's own bytes. */
 const IMAGE_TYPES = ["image/jpeg", "image/png"];
 
 /** A fresh id for one attempt. A retry of the SAME attempt reuses it, so the database can tell it is not a second post. */
@@ -55,7 +54,7 @@ export function Composer({
   /** Called after a successful edit so the editor can close. */
   onClose?: () => void;
   /** Present only when the group allows pictures and the member can post: turns on the "Add a picture" control. */
-  picture?: { groupId: string; parentId: string | null };
+  picture?: { groupId: string; parentId: string | null; maxBytes: number };
 }) {
   const [text, setText] = useState(initialText);
   const [pending, setPending] = useState(false);
@@ -84,7 +83,7 @@ export function Composer({
   function onPick(e: React.ChangeEvent<HTMLInputElement>) {
     const picked = e.target.files?.[0] ?? null;
     if (!picked) return;
-    if (!IMAGE_TYPES.includes(picked.type) || picked.size > MAX_IMAGE_BYTES || picked.size === 0) {
+    if (!IMAGE_TYPES.includes(picked.type) || picked.size > (picture?.maxBytes ?? 0) || picked.size === 0) {
       clearPicture();
       setMessage("community.compose.refused.bad_image");
       return;

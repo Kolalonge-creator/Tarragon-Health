@@ -42915,6 +42915,7 @@ export type Database = {
       community_get_group: { Args: { p_slug: string }; Returns: Json }
       community_hidden_authors: { Args: { p_group_id: string }; Returns: Json }
       community_hide_author: { Args: { p_post_id: string }; Returns: Json }
+      community_image_precheck: { Args: { p_group_id: string }; Returns: Json }
       community_image_ref: { Args: { p_image_id: string }; Returns: Json }
       community_images_due: { Args: never; Returns: Json }
       community_images_mark_deleted: { Args: { p_ids: string[] }; Returns: number }
