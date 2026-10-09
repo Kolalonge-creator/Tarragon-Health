@@ -335,8 +335,25 @@ create table public.community_moderation_events (
 create index community_moderation_events_member_idx on public.community_moderation_events (member_profile_id, action, created_at desc);
 create index community_moderation_events_subject_idx on public.community_moderation_events (subject_id);
 
+-- Append-only, with ONE exception: the person columns may be set to NULL and nothing else may change. Deleting an account performs exactly that
+-- (member_profile_id and actor_id are ON DELETE SET NULL, which is an UPDATE), and the right to erasure must not be blocked by a log.
+create or replace function private.community_events_guard() returns trigger
+language plpgsql set search_path = '' as $$
+begin
+  if tg_op = 'DELETE' then
+    raise exception 'community_moderation_events is append-only: a record is never removed' using errcode = '42501';
+  end if;
+  if (new.member_profile_id is null or new.member_profile_id is not distinct from old.member_profile_id)
+     and (new.actor_id is null or new.actor_id is not distinct from old.actor_id)
+     and (new.id, new.group_id, new.subject_kind, new.subject_id, new.action, new.reason_code, new.filter_hits, new.created_at)
+         is not distinct from (old.id, old.group_id, old.subject_kind, old.subject_id, old.action, old.reason_code, old.filter_hits, old.created_at) then
+    return new;
+  end if;
+  raise exception 'community_moderation_events is append-only: only the person columns may be cleared (erasure)' using errcode = '42501';
+end $$;
+
 create trigger community_moderation_events_append_only before update or delete on public.community_moderation_events
-  for each row execute function private.community_append_only();
+  for each row execute function private.community_events_guard();
 create trigger community_moderation_events_no_truncate before truncate on public.community_moderation_events
   for each statement execute function private.community_append_only();
 
@@ -479,7 +496,8 @@ create table public.community_safety_signals (
   handled_by        uuid references public.profiles (id) on delete set null,
   handled_at        timestamptz,
   created_at        timestamptz not null default now(),
-  constraint community_safety_signals_handled check (status in ('open', 'in_review') or (handled_by is not null and handled_at is not null))
+  -- handled_by is ON DELETE SET NULL (a reviewer's account may be erased), so only the time is required once a signal is handled.
+  constraint community_safety_signals_handled check (status in ('open', 'in_review') or handled_at is not null)
 );
 create index community_safety_signals_open_idx on public.community_safety_signals (created_at) where status in ('open', 'in_review');
 
@@ -515,11 +533,14 @@ create trigger community_pinned_guard before insert or update on public.communit
 
 create table public.community_staff (
   id         uuid primary key default gen_random_uuid(),
-  profile_id uuid not null references public.profiles (id) on delete restrict,
+  -- A grant is administrative: if the account is erased the grant ends (profile_id clears and the grant is revoked by the guard below).
+  -- Governance attributions elsewhere (a CMO's rules approval, a clinician's pinned note, a rule set's approver) deliberately RESTRICT
+  -- deletion: those accounts are deactivated, never erased, so the signature on a decision survives.
+  profile_id uuid references public.profiles (id) on delete set null,
   scope      text not null check (scope in ('moderator', 'safety_reviewer')),
   -- null group means every group.
   group_id   uuid references public.community_groups (id) on delete restrict,
-  granted_by uuid not null references public.profiles (id) on delete restrict,
+  granted_by uuid references public.profiles (id) on delete set null,
   granted_at timestamptz not null default now(),
   revoked_at timestamptz
 );
@@ -542,11 +563,17 @@ begin
     end if;
     return new;
   end if;
-  if new.profile_id is distinct from old.profile_id or new.scope is distinct from old.scope
-     or new.group_id is distinct from old.group_id or new.granted_by is distinct from old.granted_by
+  if (new.profile_id is not null and new.profile_id is distinct from old.profile_id)
+     or new.scope is distinct from old.scope
+     or new.group_id is distinct from old.group_id
+     or (new.granted_by is not null and new.granted_by is distinct from old.granted_by)
      or new.granted_at is distinct from old.granted_at
      or (old.revoked_at is not null and new.revoked_at is distinct from old.revoked_at) then
     raise exception 'a community staff grant can only be revoked' using errcode = '42501';
+  end if;
+  -- the account was erased: the grant ends with it
+  if new.profile_id is null and old.profile_id is not null then
+    new.revoked_at := coalesce(new.revoked_at, now());
   end if;
   return new;
 end $$;
@@ -574,7 +601,7 @@ end $$;
 revoke all on function private.community_set_updated_at(), private.community_append_only(),
   private.community_groups_guard(), private.community_posts_guard(), private.community_rule_sets_guard(),
   private.community_rules_guard(), private.community_pinned_guard(), private.community_staff_guard(),
-  private.community_config_guard() from public;
+  private.community_config_guard(), private.community_events_guard() from public;
 
 comment on table public.community_memberships is
   'Community: the only table tying a profile to a group. RPC-only; never exposed to members, staff queues or institutions. Handles are per group and system-issued.';

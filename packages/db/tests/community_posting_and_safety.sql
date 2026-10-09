@@ -336,6 +336,28 @@ begin
   perform pg_temp.rec('the moderation log cannot be edited', '42501', pg_temp.try('update public.community_moderation_events set action = ''x'''));
   perform pg_temp.rec('the moderation log cannot be deleted from', '42501', pg_temp.try('delete from public.community_moderation_events'));
   perform pg_temp.rec('the moderation log cannot be truncated', '42501', pg_temp.try('truncate public.community_moderation_events'));
+  -- Erasure: an account being deleted clears the person columns (ON DELETE SET NULL is an UPDATE); nothing else in the log may ever change.
+  perform pg_temp.rec('the person columns of the log can be cleared (erasure)', 'ok',
+    pg_temp.try(format('update public.community_moderation_events set member_profile_id = null where member_profile_id = %L', v_p5)));
+  perform pg_temp.rec('...and the rows remain', 'true', (exists (select 1 from public.community_moderation_events where action = 'cooldown_started' and member_profile_id is null))::text);
+  perform pg_temp.rec('a person cannot be swapped into the log', '42501',
+    pg_temp.try(format('update public.community_moderation_events set member_profile_id = %L where member_profile_id is null', v_p2)));
+  perform pg_temp.rec('the action of a log row cannot change even while clearing a person', '42501',
+    pg_temp.try('update public.community_moderation_events set action = ''x'', actor_id = null where actor_id is not null'));
+  perform pg_temp.rec('a handled signal survives its reviewer being erased', 'ok',
+    pg_temp.try(format('update public.community_safety_signals set handled_by = null where handled_by = %L', v_rev)));
+  perform pg_temp.rec('a deleted account leaves its posts as a tombstone (the author link clears)', 'ok',
+    pg_temp.try(format('update public.community_posts set author_profile_id = null where author_profile_id = %L', v_p7)));
+  perform pg_temp.rec('...but a post cannot be handed to someone else', '42501',
+    pg_temp.try(format('update public.community_posts set author_profile_id = %L where author_profile_id is null', v_p1)));
+  perform pg_temp.rec('a staff grant ends when the account is erased (profile clears)', 'ok',
+    pg_temp.try(format('update public.community_staff set profile_id = null where profile_id = %L', v_rev)));
+  perform pg_temp.rec('...and the grant is revoked by the guard', 'true',
+    (exists (select 1 from public.community_staff where profile_id is null and scope = 'safety_reviewer' and revoked_at is not null))::text);
+  perform pg_temp.rec('a grant cannot be handed to another account', '42501',
+    pg_temp.try(format('update public.community_staff set profile_id = %L where profile_id is null', v_p2)));
+  perform pg_temp.rec('the granter''s account can be erased too (granted_by clears)', 'ok',
+    pg_temp.try(format('update public.community_staff set granted_by = null where granted_by = %L', v_admin)));
   perform pg_temp.rec('a config version cannot be edited', '42501', pg_temp.try('update public.community_config set params = ''{}''::jsonb where version = 1'));
   perform pg_temp.rec('a config version cannot be deleted', '42501', pg_temp.try('delete from public.community_config where version = 1'));
   perform pg_temp.rec('exactly one config version is active', '1', (select count(*)::text from public.community_config where is_active));
