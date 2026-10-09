@@ -125,9 +125,10 @@ are shown in `sensitive` groups.
 
 ### 3.3 Safety and content
 
-- `community_safety_signals`: `id`, `post_id`, `author_profile_id`, `kind` (`emergency_language`,
-  `self_harm_language`, `reviewer_concern`), `status`, `emergency_event_id` nullable, `handled_by`,
-  `handled_at`, `created_at`. Readable only by safety reviewers (5.4)
+- `community_safety_signals`: `id`, `group_id`, `post_id`, `author_profile_id`, `kind` (`emergency_language`,
+  `self_harm_language`, `reviewer_concern`), `status` (`open`, `in_review`, `released`, `kept_withheld`, `closed`),
+  `rule_set_version`, `handled_by`, `handled_at`, `created_at`. Readable only by safety reviewers (5.4). There is **no**
+  `emergency_event_id` column: see the note under 4.4 item 3
 - `community_pinned_content`: `id`, `group_id`, `title`, `body`, `authored_by` (clinical_staff), `reviewed_by`
   (clinical_staff, nullable), `reviewed_at` (nullable), `pinned_at`. The shared "reviewed by" component renders
   only when both review columns are set (null-gated rule)
@@ -143,10 +144,9 @@ risk score. There is no foreign key from any clinical table to a community table
 ## 4. Moderation pipeline
 
 All writes go through `SECURITY DEFINER` RPCs with `set search_path = ''`. The browser can never insert into
-`community_posts` directly. The database is the system of record for filtering so no client can bypass it. A
-TypeScript mirror of the normaliser exists only to give the author instant feedback, with a drift test
-against a shared fixture of positive and negative examples (the same technique as the `*-mirror.test.ts`
-files).
+`community_posts` directly. The database is the system of record for filtering so no client can bypass it. **Phase 1 has no
+TypeScript copy of the rules** (a second implementation could drift from the one that decides; the author learns the outcome from the
+server's answer). An instant-feedback mirror with a drift test is a possible later addition.
 
 ### 4.1 Submit path: `community_submit_post(group_id, parent_id, body, client_request_id)`
 
@@ -209,10 +209,10 @@ into an alert to someone's family.
    author at once: the existing emergency guidance ("go to the nearest hospital now" for emergency language;
    the human crisis response for self-harm, see `OQ-COM-05`), with the care-team path.
 2. The system writes a `community_safety_signals` row and a `community_moderation_events` row.
-3. The author can choose **"Alert my emergency contact"**. That is an explicit tap, and it invokes the
-   existing emergency path (`emergency_events`, with a new `emergency_source` value `community_post`,
-   added in a migration that lands **before** any migration that uses it, because a new enum value cannot be
-   used in the transaction that adds it). **There is no auto-notify of an emergency contact from a
+3. The author can choose **"Alert my emergency contact"**. That is an explicit tap, and it opens the
+   **existing** emergency flow in the app. **Phase 1 adds no `emergency_source` value and links no event to a post** (a deliberate
+   reduction from the first draft: it keeps this feature out of the emergency pipeline and avoids a cross-branch enum collision). If a
+   later phase wants an event attributed to a post, the new enum value must land in an earlier migration than anything that uses it. **There is no auto-notify of an emergency contact from a
    community post**, because the phrase match cannot tell "my chest is tight now" from "my mum had chest pain
    last year", and a false positive must not message a patient's family.
 4. A safety reviewer is paged on the signal. They are staff with the `safety_reviewer` grant, see only the
@@ -326,12 +326,18 @@ does not read community posts. A repo test greps for community table names outsi
 - Copy rules: "your care team", never "your doctor"; no "cure", "instant doctor" or "free healthcare"; no
   em dashes; English only (en-NG); all strings in `packages/i18n`, none in components.
 
-### 6.2 Admin and moderation (`apps/console`)
+### 6.2 Admin and moderation (`apps/web` role areas; see the deviation note)
 
 - Group management (create, edit rules, change status, archive), topic list, rule-set editor (draft), the
   moderation queue, the safety queue, sanctions, appeals, and basic health counts.
-- Read `docs/design/S01d.md` and add the area to `CONSOLE_AREAS` before building. Never widen the console to a
-  role whose area has not been extracted.
+- **Deviation from the first draft (built this way).** The console serves only roles whose areas have been extracted (S01d), and
+  `CLAUDE.md` forbids widening it to a role whose area has not been. Moderators are care coordinators (home
+  `/dashboard/care-coordinator`) and the CMO and clinicians are `clinician` accounts (home `/clinician`), so a console area would have
+  needed exactly that widening. The staff screens therefore live in each role's existing `apps/web` area:
+  `/admin/community` (groups, topics, staff grants, rule sets, unmask, pinned notes),
+  `/dashboard/care-coordinator/community` (moderation queue and safety queue, shown by grant) and `/clinician/community` (the CMO's
+  rules approval and emergency/self-harm rules; clinicians' pinned notes and second-clinician review). Shared queue components live in
+  `apps/web/src/components/community/`. They move to the console with their role areas when those are extracted.
 - Creating a group does not need a deploy: a row, a rules text, a topic, a moderator assignment.
 
 ### 6.3 Doctor-reviewed content (the funnel, without free consults)
@@ -442,6 +448,35 @@ removal. Add new enum values in an earlier migration than the one that uses them
 - Images or voice notes **only if** pre-moderated, scanned for contact details, and approved in a written
   founder decision. Default: not built.
 - Sensitive groups if `OQ-COM-02` approves them, each with its own moderator, consent and hidden listing.
+
+## 10a. Phase 1 as built (2026-10-09)
+
+Migrations (all dormant; applied to no database yet): `*_community_schema.sql` (14 RPC-only tables, guards), `*_community_scan_and_helpers.sql`
+(normaliser, detectors, scan), `*_community_member_rpcs.sql`, `*_community_staff_admin_rpcs.sql`, `*_community_guard_and_seed.sql` (the `community`
+go-live guard, versioned config, four launch topics, four DRAFT groups, a DRAFT rule set v1 with no emergency or self-harm rules).
+Proofs: `community_filters_and_rule_sets.sql`, `community_access_and_isolation.sql`, `community_posting_and_safety.sql` (registered in `ci.manifest`,
+each with sabotage steps). Config mirror: `packages/shared/src/proposed-config` `community.rules` with `community-mirror.test.ts`.
+
+Found by reviewing the build, and now guarded by standing checks:
+- **The unmask must not write the member's id to `audit_log`.** `audit_log_select` admits every `is_org_staff` user and the analytics and finance
+  audit screens read it, so the id would have let any clinician resolve a handle. The audit row carries the handle, group and reason; the target
+  id lives only in `community_moderation_events`, which no client role can read.
+- **A regex with a backreference cost 4.5 seconds on a 2000-character post** in this engine. The seeded spam rule now spells the repetition out
+  (1 to 7 ms); saving a rule with a backreference is refused; every saved pattern is timed against four 2000-character samples.
+- **Accounts with community history could not be erased.** `ON DELETE SET NULL` is an UPDATE, which the append-only log, the staff-grant guard and a
+  CHECK refused. Now only the person columns may be cleared; staff grants end with the account. Governance attributions (a CMO's rules approval, a
+  clinician's pinned note, a rule set's approver) deliberately RESTRICT deletion: those accounts are deactivated, never erased.
+- **The `go_live_conditions` branch is patched in place**, because the live function carries branches from other unmerged branches. A proof fails if
+  a later migration replaces the function from an old copy and drops the community branch.
+
+Known limits and follow-ups (none blocks Phase 1; all are visible here on purpose):
+- `community_purge_expired()` exists (service role only) but nothing schedules it yet.
+- Notices are written to the in-app inbox with fixed templates; the push/email sender does not render them (the guard row says so).
+- `community_groups.moderated_hours` is stored and not yet used. Groups join `open` only; `request` and `invite` modes are stored but refused.
+- The cool-down is automatic; the sanction ladder (warn, mute, suspend, ban) is applied by moderators, not automatically.
+- Mobile screens, appeals, discovery/search, digests, the AI second pass and peer moderators are Phase 2.
+- The digit heuristic trades recall for not blocking reading lists: a contact exchange that avoids every digit pattern and every intent phrase is caught
+  only by pre-moderation and reports. Stated in the migration header.
 
 ## 11. Known risks, stated plainly
 
