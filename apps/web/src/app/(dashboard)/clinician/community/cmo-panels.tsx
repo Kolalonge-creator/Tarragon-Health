@@ -212,7 +212,9 @@ export function RuleSetActivation({ sets, onActivate }: { sets: RuleSet[] } & Pi
         {live ? (
           <>
             Live now: version <span className="font-semibold">{live.version}</span>
-            {live.approved_at ? `, approved on ${formatDay(live.approved_at)}.` : ", with no approval date recorded."}
+            {live.approved_at
+              ? `, approved${live.approved_by_name ? ` by ${live.approved_by_name}` : ""} on ${formatDay(live.approved_at)}.`
+              : ", with no approval date recorded."}
             {" "}It has {live.safety_rule_count} emergency or self-harm {live.safety_rule_count === 1 ? "rule" : "rules"}.
           </>
         ) : (

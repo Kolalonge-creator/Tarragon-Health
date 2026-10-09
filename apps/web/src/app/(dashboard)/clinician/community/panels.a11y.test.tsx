@@ -28,7 +28,7 @@ const group: AdminGroup = {
   open_signals: 0,
 };
 const draft: RuleSet = { version: 2, status: "draft", params: {}, notes: null, approved_at: null, rule_count: 5, safety_rule_count: 1 };
-const live: RuleSet = { version: 1, status: "active", params: {}, notes: null, approved_at: "2026-09-01T00:00:00Z", rule_count: 5, safety_rule_count: 2 };
+const live: RuleSet = { version: 1, status: "active", params: {}, notes: null, approved_at: "2026-09-01T00:00:00Z", approved_by_name: "Dr Chief", rule_count: 5, safety_rule_count: 2 };
 const rule: Rule = { id: 7, class: "emergency", kind: "regex", pattern: "\\ychest pain\\y", action: "safety", note: null };
 
 describe("CMO panels", () => {
@@ -80,7 +80,7 @@ describe("CMO panels", () => {
   it("explains the consequences before making a set live, and shows when the live one was approved", async () => {
     const onActivate = jest.fn().mockResolvedValue(ok);
     const { container } = render(<RuleSetActivation sets={[draft, live]} onActivate={onActivate} />);
-    expect(container.textContent).toContain("Live now: version 1, approved on");
+    expect(container.textContent).toContain("Live now: version 1, approved by Dr Chief on");
     fireEvent.click(screen.getByRole("button", { name: "Make version 2 live" }));
     expect(container.textContent).toContain("replaces the live version straight away");
     expect(container.textContent).toContain("both emergency and self-harm rules");

@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import {
   adminGroupsSchema,
-  groupListSchema,
+  noteGroupsSchema,
   pinnedAdminSchema,
   ruleSetsSchema,
   rulesSchema,
@@ -47,12 +46,9 @@ export default async function ClinicianCommunityPage({ searchParams }: { searchP
 
   const supabase = await createClient();
   const { group: requestedGroup } = await searchParams;
-  const profile = await getCurrentProfile();
-  const myName = profile?.full_name ?? null;
 
   // --- Chief Medical Officer ---
   let cmoBlock: React.ReactNode = null;
-  let cmoGroups: AdminGroup[] | null = null;
   if (ctx.is_cmo) {
     const [groupsRes, setsRes] = await Promise.all([supabase.rpc("community_admin_groups"), supabase.rpc("community_admin_rule_sets")]);
     const groupsParsed = adminGroupsSchema.safeParse(groupsRes.data);
@@ -64,8 +60,7 @@ export default async function ClinicianCommunityPage({ searchParams }: { searchP
         </p>
       );
     } else {
-      cmoGroups = groupsParsed.data.groups;
-      const waiting = cmoGroups.filter((g) => g.requires_cmo_rules && !g.rules_approved);
+      const waiting = groupsParsed.data.groups.filter((g) => g.requires_cmo_rules && !g.rules_approved);
       const sets: RuleSet[] = setsParsed.data.rule_sets;
       const draft = sets.find((s) => s.status === "draft") ?? null;
       let rules: ReturnType<typeof rulesSchema.parse>["rules"] = [];
@@ -112,15 +107,10 @@ export default async function ClinicianCommunityPage({ searchParams }: { searchP
   if (ctx.is_clinician) {
     let choices: GroupChoice[] = [];
     let listFailed = false;
-    if (cmoGroups) {
-      choices = cmoGroups.filter((g) => g.status !== "archived").map((g) => ({ id: g.id, name: g.name }));
-    } else {
-      // A plain clinician cannot call community_admin_groups; the member list is the only group list open to them.
-      const res = await supabase.rpc("community_list_groups");
-      const parsed = groupListSchema.safeParse(res.data);
-      if (res.error || !parsed.success) listFailed = true;
-      else choices = parsed.data.groups.map((g) => ({ id: g.id, name: g.name }));
-    }
+    const groupsRes = await supabase.rpc("community_note_groups");
+    const groupsParsed = noteGroupsSchema.safeParse(groupsRes.data);
+    if (groupsRes.error || !groupsParsed.success) listFailed = true;
+    else choices = groupsParsed.data.groups.filter((g) => g.status !== "archived").map((g) => ({ id: g.id, name: g.name }));
     const selected = choices.find((c) => c.id === requestedGroup) ?? choices[0] ?? null;
     let notes: NoteRow[] = [];
     let notesFailed = false;
@@ -138,8 +128,7 @@ export default async function ClinicianCommunityPage({ searchParams }: { searchP
             authored_by_name: n.authored_by_name,
             reviewed_by_name: n.reviewed_by_name,
             reviewed_at: n.reviewed_at,
-            // Only the name comes back, so this is a convenience: the database still refuses a review by the author.
-            is_mine: myName !== null && n.authored_by_name === myName,
+            is_mine: n.authored_by_me === true,
           }));
     }
     notesBlock = (
