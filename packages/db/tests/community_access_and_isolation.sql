@@ -1,7 +1,7 @@
 -- Community proof 2 of 3: access and isolation (migrations *_community_schema.sql, *_community_member_rpcs.sql, *_community_staff_admin_rpcs.sql).
 --
 -- Proves, in one rolled-back transaction:
---   1. All eighteen community tables are RPC-only: RLS on, no policy, and no client role (anon, authenticated, service_role)
+--   1. All twenty-four community tables are RPC-only: RLS on, no policy, and no client role (anon, authenticated, service_role)
 --      holds any privilege on any of them. The default privilege that grants new tables to authenticated is neutralised.
 --   2. Function privileges: anon and PUBLIC execute nothing; signed-in users execute every public function (each checks its own
 --      authority); the purge is for the service role only; no private helper is callable by a client.
@@ -131,8 +131,8 @@ begin
   perform pg_temp.asj(v_admin, 'select public.community_admin_rule_set_activate(1)');
 
   -- 1. Every community table is unreachable from every client role -------------------------------------------------------
-  perform pg_temp.rec('there are eighteen community tables', '18', (select count(*)::text from pg_tables where schemaname = 'public' and tablename like 'community\_%'));
-  perform pg_temp.rec('RLS is on for every community table', '18',
+  perform pg_temp.rec('there are twenty-four community tables', '24', (select count(*)::text from pg_tables where schemaname = 'public' and tablename like 'community\_%'));
+  perform pg_temp.rec('RLS is on for every community table', '24',
     (select count(*)::text from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relname like 'community\_%' and c.relkind = 'r' and c.relrowsecurity));
   perform pg_temp.rec('no community table has a policy (RPC-only)', '0', (select count(*)::text from pg_policies where schemaname = 'public' and tablename like 'community\_%'));
   for r in select tablename as t from pg_tables where schemaname = 'public' and tablename like 'community\_%' loop
@@ -174,7 +174,7 @@ begin
        where n.nspname in ('public', 'private') and p.proname like 'community\_%' and coalesce(p.proacl::text, '') ~ '(^\{|,)=X'), 'none'));
   perform pg_temp.rec('a signed-in user can execute every public community function except the two scheduled jobs', 'none',
     coalesce((select string_agg(p.proname, ',') from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-       where n.nspname = 'public' and p.proname like 'community\_%' and p.proname not in ('community_purge_expired', 'community_send_digests') and not has_function_privilege('authenticated', p.oid, 'EXECUTE')), 'none'));
+       where n.nspname = 'public' and p.proname like 'community\_%' and p.proname not in ('community_purge_expired', 'community_send_digests', 'community_images_due', 'community_images_mark_deleted', 'community_overdue_work', 'community_notify_overdue') and not has_function_privilege('authenticated', p.oid, 'EXECUTE')), 'none'));
   perform pg_temp.rec('a signed-in user cannot execute the purge', 'false', has_function_privilege('authenticated', 'public.community_purge_expired()', 'EXECUTE')::text);
   perform pg_temp.rec('only the service role may run the purge', 'true', has_function_privilege('service_role', 'public.community_purge_expired()', 'EXECUTE')::text);
   perform pg_temp.rec('only the service role may run the digest job', 'true,false',
@@ -278,14 +278,14 @@ begin
   perform pg_temp.rec('the moderator sees the handle', v_handle, (v_j -> 'items' -> 0 ->> 'author_handle'));
   perform pg_temp.rec('the moderator queue never carries a profile id', 'false', (v_j::text like '%' || v_p1::text || '%')::text);
   select string_agg(k, ',' order by k collate "C") into v_keys from jsonb_object_keys(v_j -> 'items' -> 0) k;
-  perform pg_temp.rec('the moderator queue item has exactly these fields', 'author_handle,author_is_new,body,created_at,group_id,group_name,is_reply,post_id,reasons,report_count,report_reasons,state', v_keys);
+  perform pg_temp.rec('the moderator queue item has exactly these fields', 'author_handle,author_is_new,body,created_at,group_id,group_name,image_id,is_reply,post_id,qa_session_id,reasons,report_count,report_reasons,state', v_keys);
   perform pg_temp.rec('the moderator approves', 'approved', (pg_temp.asj(v_mod, format($q$select public.community_mod_decide(%L, 'approve', null)$q$, v_post)) ->> 'status'));
   v_j := pg_temp.asj(v_p2, format('select public.community_feed(%L)', v_g));
   perform pg_temp.rec('after approval the other member sees the post', '1', (jsonb_array_length(v_j -> 'posts'))::text);
   perform pg_temp.rec('the feed shows the handle', v_handle, (v_j -> 'posts' -> 0 ->> 'author_handle'));
   perform pg_temp.rec('the feed never carries a profile id', 'false', (v_j::text like '%' || v_p1::text || '%')::text);
   select string_agg(k, ',' order by k collate "C") into v_keys from jsonb_object_keys(v_j -> 'posts' -> 0) k;
-  perform pg_temp.rec('a feed post has exactly these fields', 'author_avatar,author_handle,body,created_at,edited_at,i_supported,id,is_mine,pending_review,reply_count,support_count', v_keys);
+  perform pg_temp.rec('a feed post has exactly these fields', 'answers,author_avatar,author_handle,body,created_at,edited_at,i_supported,id,image,is_mine,pending_review,qa_session_id,reply_count,support_count', v_keys);
   perform pg_temp.rec('approving counted toward the author leaving pre-moderation', '1', (select approved_post_count::text from public.community_memberships where group_id = v_g and profile_id = v_p1));
 
   -- 7. Who can read the community ---------------------------------------------------------------------------------------------------

@@ -88,6 +88,7 @@ declare
   v_team jsonb;
   v_prompts jsonb;
   v_full boolean;
+  v_qa jsonb;
 begin
   if v_uid is null then raise exception 'sign in required' using errcode = '28000'; end if;
   if not private.go_live_open_patient('community', v_uid) then return jsonb_build_object('found', false, 'reason', 'not_open_yet'); end if;
@@ -118,18 +119,30 @@ begin
     from (select * from public.community_group_prompts q
            where q.group_id = g.id and q.show_from <= now() and (q.show_until is null or q.show_until > now())
            order by q.show_from desc limit 3) gp;
+  -- The doctor question session to show: one open now, else the next one starting within a week, else the latest that ended within a week.
+  select jsonb_build_object('session_id', q.id, 'title', q.title, 'intro', q.intro, 'opens_at', q.opens_at, 'closes_at', q.closes_at,
+           'status', case when now() < q.opens_at then 'upcoming' when now() < q.closes_at then 'open' else 'closed' end,
+           'doctors', coalesce((select jsonb_agg(cs.full_name order by cs.full_name) from public.community_qa_doctors d join public.clinical_staff cs on cs.profile_id = d.profile_id where d.series_id = q.series_id), '[]'::jsonb),
+           'my_questions', (select count(*) from public.community_posts qp where qp.qa_session_id = q.id and qp.author_profile_id = v_uid and qp.state not in ('removed', 'deleted_by_author')),
+           'question_limit', private.community_cfg_int('qa_questions_per_member'))
+    into v_qa
+    from public.community_qa_sessions q
+   where q.group_id = g.id and q.cancelled_at is null and q.opens_at < now() + interval '7 days' and q.closes_at > now() - interval '7 days'
+   order by case when now() >= q.opens_at and now() < q.closes_at then 0 when now() < q.opens_at then 1 else 2 end, q.opens_at
+   limit 1;
   v_full := g.member_cap is not null and (select count(*) from public.community_memberships mm where mm.group_id = g.id and mm.status = 'active') >= g.member_cap;
   return jsonb_build_object(
     'found', true,
     'group', jsonb_build_object('id', g.id, 'slug', g.slug, 'name', g.name, 'description', g.description, 'topic_code', g.topic_code,
                                 'topic_label', v_topic, 'status', g.status, 'rules_text', g.rules_text, 'rules_version', g.rules_version,
-                                'join_mode', g.join_mode, 'full', v_full),
+                                'join_mode', g.join_mode, 'full', v_full, 'images_allowed', g.images_allowed),
     'membership', case when m.group_id is null then jsonb_build_object('status', 'none') else jsonb_build_object(
                      'status', m.status, 'handle', m.handle, 'avatar_code', m.avatar_code,
                      'rules_current', (m.rules_accepted_version = g.rules_version),
                      'notifications_muted', m.notifications_muted, 'digest_opt_in', m.digest_opt_in) end,
     'pinned', v_pinned,
     'team', v_team,
+    'qa', v_qa,
     'prompts', v_prompts,
     -- The app reads limits from here and never carries a copy: they are PROPOSED values in the versioned configuration.
     'limits', jsonb_build_object('post_max_chars', private.community_cfg_int('post_max_chars'),
@@ -250,6 +263,10 @@ begin
            'body', x.body, 'created_at', x.created_at, 'edited_at', x.edited_at, 'support_count', x.support_count,
            'reply_count', (select count(*) from public.community_posts r where r.parent_post_id = x.id and r.state = 'visible'),
            'i_supported', exists (select 1 from public.community_reactions rx where rx.post_id = x.id and rx.profile_id = v_uid),
+           'image', (select jsonb_build_object('id', i.id, 'width', i.width, 'height', i.height) from public.community_post_images i where i.post_id = x.id and i.deleted_at is null),
+           'qa_session_id', x.qa_session_id,
+           'answers', coalesce((select jsonb_agg(jsonb_build_object('id', an.id, 'doctor_name', an.doctor_name, 'body', an.body, 'created_at', an.created_at) order by an.created_at)
+                                 from public.community_qa_answers an where an.question_post_id = x.id and an.removed_at is null), '[]'::jsonb),
            'pending_review', (x.state <> 'visible')) order by x.created_at desc), '[]'::jsonb)
     into v_posts
     from (select * from page order by created_at desc limit v_limit) x;
@@ -278,6 +295,10 @@ begin
              'id', r.id, 'author_handle', r.author_handle, 'author_avatar', m.avatar_code, 'is_mine', (r.author_profile_id = v_uid),
              'body', r.body, 'created_at', r.created_at, 'edited_at', r.edited_at, 'support_count', r.support_count,
              'i_supported', exists (select 1 from public.community_reactions rx where rx.post_id = r.id and rx.profile_id = v_uid),
+             'image', (select jsonb_build_object('id', i.id, 'width', i.width, 'height', i.height) from public.community_post_images i where i.post_id = r.id and i.deleted_at is null),
+             'qa_session_id', r.qa_session_id,
+             'answers', coalesce((select jsonb_agg(jsonb_build_object('id', an.id, 'doctor_name', an.doctor_name, 'body', an.body, 'created_at', an.created_at) order by an.created_at)
+                                   from public.community_qa_answers an where an.question_post_id = r.id and an.removed_at is null), '[]'::jsonb),
              'pending_review', (r.state <> 'visible')) order by r.created_at)
       from public.community_posts r
       left join public.community_memberships m on m.group_id = r.group_id and m.profile_id = r.author_profile_id
@@ -337,7 +358,7 @@ begin
   return jsonb_build_object('action', 'publish', 'class', null, 'codes', '[]'::jsonb);
 end $$;
 
-create or replace function public.community_submit_post(p_group_id uuid, p_parent_id uuid, p_body text, p_client_request_id uuid default null)
+create or replace function private.community_submit_core(p_group_id uuid, p_parent_id uuid, p_body text, p_client_request_id uuid, p_image jsonb, p_qa_session uuid)
 returns jsonb language plpgsql volatile security definer set search_path = '' as $$
 declare
   v_uid uuid := (select auth.uid());
@@ -356,6 +377,8 @@ declare
   v_n integer;
   v_h integer;
   v_d integer;
+  v_img_ok boolean;
+  qs public.community_qa_sessions;
 begin
   if v_uid is null then raise exception 'sign in required' using errcode = '28000'; end if;
   v_gate := private.community_posting_gate(p_group_id, v_uid);
@@ -374,6 +397,30 @@ begin
   v_body := btrim(coalesce(p_body, ''));
   if v_body = '' then return jsonb_build_object('status', 'refused', 'reason', 'empty'); end if;
   if length(v_body) > private.community_cfg_int('post_max_chars') then return jsonb_build_object('status', 'refused', 'reason', 'too_long'); end if;
+
+  if p_image is not null then
+    select images_allowed into v_img_ok from public.community_groups where id = p_group_id;
+    if not coalesce(v_img_ok, false) then return jsonb_build_object('status', 'refused', 'reason', 'images_off'); end if;
+    if p_qa_session is not null then return jsonb_build_object('status', 'refused', 'reason', 'images_off'); end if;
+    if (p_image ->> 'mime') not in ('image/jpeg', 'image/png')
+       or coalesce((p_image ->> 'size')::int, 0) not between 1 and private.community_cfg_int('image_max_bytes')
+       or coalesce((p_image ->> 'width')::int, 0) not between 1 and 20000 or coalesce((p_image ->> 'height')::int, 0) not between 1 and 20000
+       or coalesce(p_image ->> 'path', '') !~ ('^' || p_group_id::text || '/[0-9a-f-]{36}[.](jpg|png)$') then
+      return jsonb_build_object('status', 'refused', 'reason', 'bad_image');
+    end if;
+  end if;
+
+  -- A question for the doctors: only while the session is open, only as a top-level post, a few per member.
+  if p_qa_session is not null then
+    select * into qs from public.community_qa_sessions where id = p_qa_session and group_id = p_group_id and cancelled_at is null;
+    if not found or p_parent_id is not null or now() < qs.opens_at or now() >= qs.closes_at then
+      return jsonb_build_object('status', 'refused', 'reason', 'qa_closed');
+    end if;
+    if (select count(*) from public.community_posts q where q.qa_session_id = qs.id and q.author_profile_id = v_uid and q.state not in ('removed', 'deleted_by_author'))
+         >= private.community_cfg_int('qa_questions_per_member') then
+      return jsonb_build_object('status', 'refused', 'reason', 'qa_limit');
+    end if;
+  end if;
 
   if p_parent_id is not null then
     select * into v_parent from public.community_posts where id = p_parent_id;
@@ -413,17 +460,30 @@ begin
   end if;
 
   select array_agg(c) into v_codes from jsonb_array_elements_text(v_out -> 'codes') c;
+  -- A post with a picture is always seen by a moderator first, whatever its words say.
+  if p_image is not null then
+    if v_action = 'publish' then
+      v_action := 'hold'; v_class := 'image'; v_codes := array['image'];
+    elsif v_action = 'hold' then
+      v_codes := array_append(coalesce(v_codes, '{}'), 'image');
+    end if;
+  end if;
   v_state := case when v_action = 'publish' then 'visible' else 'held' end;
   select handle into v_handle from public.community_memberships where group_id = p_group_id and profile_id = v_uid;
 
   begin
-    insert into public.community_posts (group_id, author_profile_id, author_handle, parent_post_id, body, state, hold_reason_codes, rule_set_version, client_request_id)
-    values (p_group_id, v_uid, v_handle, p_parent_id, v_body, v_state, coalesce(v_codes, '{}'), (v_scan ->> 'version')::int, p_client_request_id)
+    insert into public.community_posts (group_id, author_profile_id, author_handle, parent_post_id, body, state, hold_reason_codes, rule_set_version, client_request_id, qa_session_id)
+    values (p_group_id, v_uid, v_handle, p_parent_id, v_body, v_state, coalesce(v_codes, '{}'), (v_scan ->> 'version')::int, p_client_request_id, p_qa_session)
     returning id into v_post_id;
   exception when unique_violation then
     select * into v_existing from public.community_posts where author_profile_id = v_uid and client_request_id = p_client_request_id;
     return private.community_replay_result(v_existing);
   end;
+
+  if p_image is not null then
+    insert into public.community_post_images (post_id, group_id, storage_path, mime, size_bytes, width, height)
+    values (v_post_id, p_group_id, p_image ->> 'path', p_image ->> 'mime', (p_image ->> 'size')::int, (p_image ->> 'width')::int, (p_image ->> 'height')::int);
+  end if;
 
   if v_action = 'safety' then
     insert into public.community_safety_signals (group_id, post_id, author_profile_id, kind, rule_set_version)
@@ -443,6 +503,26 @@ begin
   end if;
   return jsonb_build_object('status', 'published', 'post_id', v_post_id);
 end $$;
+
+create or replace function public.community_submit_post(p_group_id uuid, p_parent_id uuid, p_body text, p_client_request_id uuid default null)
+returns jsonb language sql volatile security definer set search_path = '' as $$
+  select private.community_submit_core(p_group_id, p_parent_id, p_body, p_client_request_id, null, null)
+$$;
+
+-- A post with one picture. The file has already been checked and stored by the server; the picture waits for a moderator.
+create or replace function public.community_submit_post_with_image(
+  p_group_id uuid, p_parent_id uuid, p_body text, p_client_request_id uuid,
+  p_storage_path text, p_mime text, p_size integer, p_width integer, p_height integer)
+returns jsonb language sql volatile security definer set search_path = '' as $$
+  select private.community_submit_core(p_group_id, p_parent_id, p_body, p_client_request_id,
+    jsonb_build_object('path', p_storage_path, 'mime', p_mime, 'size', p_size, 'width', p_width, 'height', p_height), null)
+$$;
+
+-- A question for the doctors in an open session.
+create or replace function public.community_ask_question(p_group_id uuid, p_session_id uuid, p_body text, p_client_request_id uuid default null)
+returns jsonb language sql volatile security definer set search_path = '' as $$
+  select private.community_submit_core(p_group_id, null, p_body, p_client_request_id, null, p_session_id)
+$$;
 
 -- What a retried request is told: the same answer the first attempt got, including the safety card for a withheld post.
 create or replace function private.community_replay_result(po public.community_posts) returns jsonb
@@ -622,7 +702,8 @@ end $$;
 -- ---------------------------------------------------------------------------
 revoke all on function
   private.community_log_event(uuid, uuid, uuid, text, uuid, text, jsonb), private.community_new_handle(uuid), private.community_pick_avatar(),
-  private.community_reader_ok(uuid, uuid), private.community_posting_gate(uuid, uuid), private.community_scan_outcome(jsonb, integer), private.community_replay_result(public.community_posts)
+  private.community_reader_ok(uuid, uuid), private.community_posting_gate(uuid, uuid), private.community_scan_outcome(jsonb, integer), private.community_replay_result(public.community_posts),
+  private.community_submit_core(uuid, uuid, text, uuid, jsonb, uuid)
 from public, anon, authenticated, service_role;
 
 revoke all on function
@@ -630,6 +711,7 @@ revoke all on function
   public.community_leave_group(uuid, boolean), public.community_set_group_muted(uuid, boolean), public.community_feed(uuid, timestamptz, integer),
   public.community_replies(uuid), public.community_submit_post(uuid, uuid, text, uuid), public.community_edit_post(uuid, text),
   public.community_delete_own_post(uuid), public.community_react(uuid, boolean), public.community_report_post(uuid, text, text),
+  public.community_submit_post_with_image(uuid, uuid, text, uuid, text, text, integer, integer, integer), public.community_ask_question(uuid, uuid, text, uuid),
   public.community_purge_expired()
 from public, anon, authenticated, service_role;
 
@@ -637,7 +719,8 @@ grant execute on function
   public.community_list_groups(), public.community_get_group(text), public.community_join_group(uuid, integer, boolean),
   public.community_leave_group(uuid, boolean), public.community_set_group_muted(uuid, boolean), public.community_feed(uuid, timestamptz, integer),
   public.community_replies(uuid), public.community_submit_post(uuid, uuid, text, uuid), public.community_edit_post(uuid, text),
-  public.community_delete_own_post(uuid), public.community_react(uuid, boolean), public.community_report_post(uuid, text, text)
+  public.community_delete_own_post(uuid), public.community_react(uuid, boolean), public.community_report_post(uuid, text, text),
+  public.community_submit_post_with_image(uuid, uuid, text, uuid, text, text, integer, integer, integer), public.community_ask_question(uuid, uuid, text, uuid)
 to authenticated;
 
 grant execute on function public.community_purge_expired() to service_role;

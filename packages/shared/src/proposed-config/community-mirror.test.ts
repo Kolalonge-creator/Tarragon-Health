@@ -20,6 +20,11 @@ interface CommunityRules {
   new_member_premoderated_posts: number;
   appeal_window_days: number;
   quality_sample_pct: number;
+  image_max_bytes: number;
+  qa_questions_per_member: number;
+  qa_answer_grace_minutes: number;
+  overdue_safety_minutes: number;
+  overdue_queue_minutes: number;
   rate_posts_per_hour: number;
   rate_posts_per_day: number;
   block_cooldown: { max_blocks: number; window_minutes: number; cooldown_minutes: number };

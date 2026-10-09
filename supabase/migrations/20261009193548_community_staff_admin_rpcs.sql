@@ -45,6 +45,8 @@ begin
              'is_reply', (po.parent_post_id is not null), 'body', po.body, 'state', po.state,
              'reasons', po.hold_reason_codes, 'created_at', po.created_at,
              'report_count', rc.n, 'report_reasons', rc.reasons,
+             'image_id', (select i.id from public.community_post_images i where i.post_id = po.id and i.deleted_at is null),
+             'qa_session_id', po.qa_session_id,
              'author_is_new', coalesce(m.approved_post_count < v_premod, true))
            order by (rc.n > 0) desc, po.created_at)
       from public.community_posts po
@@ -167,7 +169,8 @@ begin
   return jsonb_build_object('items', coalesce((
     select jsonb_agg(jsonb_build_object(
              'signal_id', s.id, 'kind', s.kind, 'status', s.status, 'created_at', s.created_at,
-             'group_name', g.name, 'post_id', po.id, 'post_state', po.state, 'author_handle', po.author_handle, 'body', po.body)
+             'group_name', g.name, 'post_id', po.id, 'post_state', po.state, 'author_handle', po.author_handle, 'body', po.body,
+             'image_id', (select i.id from public.community_post_images i where i.post_id = po.id and i.deleted_at is null))
            order by case s.kind when 'self_harm_language' then 0 when 'emergency_language' then 1 else 2 end, s.created_at)
       from public.community_safety_signals s
       join public.community_posts po on po.id = s.post_id

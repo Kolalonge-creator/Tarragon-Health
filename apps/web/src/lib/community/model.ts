@@ -77,6 +77,7 @@ export const groupViewSchema = z.discriminatedUnion("found", [
       rules_version: z.number().int(),
       join_mode: z.enum(["open", "request", "invite"]),
       full: z.boolean().optional(),
+      images_allowed: z.boolean().optional(),
     }),
     membership: membershipSchema,
     pinned: z.array(pinnedNoteSchema),
@@ -84,6 +85,21 @@ export const groupViewSchema = z.discriminatedUnion("found", [
     team: z.array(z.object({ display_name: z.string(), scope: z.enum(["moderator", "safety_reviewer"]) })).default([]),
     /** Short lines the team shows at the top of the group for a while. */
     prompts: z.array(z.object({ id: z.string(), body: z.string() })).default([]),
+    /** The doctor question session to show: open now, starting within a week, or ended within a week. */
+    qa: z
+      .object({
+        session_id: z.string(),
+        title: z.string(),
+        intro: z.string(),
+        opens_at: z.string(),
+        closes_at: z.string(),
+        status: z.enum(["upcoming", "open", "closed"]),
+        doctors: z.array(z.string()),
+        my_questions: z.number().int(),
+        question_limit: z.number().int(),
+      })
+      .nullable()
+      .default(null),
     limits: z.object({ post_max_chars: z.number().int().positive(), edit_window_minutes: z.number().int().nonnegative() }),
   }),
 ]);
@@ -102,6 +118,11 @@ export const feedPostSchema = z.object({
   reply_count: z.number().int().nonnegative().optional(),
   i_supported: z.boolean(),
   pending_review: z.boolean(),
+  /** One picture per post. Loaded through /api/community/images/{id}; never a URL. */
+  image: z.object({ id: z.string(), width: z.number().int(), height: z.number().int() }).nullable().optional(),
+  qa_session_id: z.string().nullable().optional(),
+  /** Answers from the named doctors of a question session, with the doctor's real name. */
+  answers: z.array(z.object({ id: z.string(), doctor_name: z.string(), body: z.string(), created_at: z.string() })).default([]),
 });
 export type FeedPost = z.infer<typeof feedPostSchema>;
 
@@ -179,6 +200,10 @@ const REFUSED_KEYS = {
   edit_window_over: "community.compose.refused.edit_window_over",
   not_yours: "community.compose.refused.not_yours",
   not_editable: "community.compose.refused.not_editable",
+  images_off: "community.compose.refused.images_off",
+  bad_image: "community.compose.refused.bad_image",
+  qa_closed: "community.compose.refused.qa_closed",
+  qa_limit: "community.compose.refused.qa_limit",
 } as const satisfies Record<string, MessageKey>;
 
 const HELD_KEYS = {
@@ -190,6 +215,7 @@ const HELD_KEYS = {
   abuse: "community.compose.held.abuse",
   spam: "community.compose.held.spam",
   eating_disorder: "community.compose.held.eating_disorder",
+  image: "community.compose.held.image",
 } as const satisfies Record<string, MessageKey>;
 
 const JOIN_REFUSED_KEYS = {
@@ -289,6 +315,9 @@ export const modItemSchema = z.object({
   report_count: z.number().int().nonnegative(),
   report_reasons: z.array(z.string()),
   author_is_new: z.boolean(),
+  /** A picture waiting to be checked. Opened through /api/community/images/{id}. */
+  image_id: z.string().nullable().optional(),
+  qa_session_id: z.string().nullable().optional(),
 });
 export type ModItem = z.infer<typeof modItemSchema>;
 export const modQueueSchema = z.object({ items: z.array(modItemSchema) });
@@ -303,6 +332,7 @@ export const safetyItemSchema = z.object({
   post_state: z.string(),
   author_handle: z.string(),
   body: z.string(),
+  image_id: z.string().nullable().optional(),
 });
 export type SafetyItem = z.infer<typeof safetyItemSchema>;
 export const safetyQueueSchema = z.object({ items: z.array(safetyItemSchema) });
@@ -450,7 +480,13 @@ const STAFF_REFUSED: Readonly<Record<string, string>> = {
   bad_cap: "A group size cap is a whole number from 10 to 100000, or empty for no cap.",
   text_not_allowed: "That text has a phone number, email, link or other wording the community filters refuse. Please rewrite it.",
   bad_length: "Please write between 5 and 300 characters.",
-  bad_window: "The end time must be after the start time.",
+  bad_window: "The end time must be after the start time. A question session can run for up to 12 hours.",
+  bad_shifts: "Each shift needs a day (Monday to Sunday) and whole hours, with the end after the start. For an overnight shift add two rows.",
+  bad_text: "Please give the session a title of 3 to 80 characters and an introduction of up to 300.",
+  bad_people: "Pick at least one doctor and at least one group.",
+  not_a_doctor: "Only active doctors can be named on a question session.",
+  qa_closed: "This session is not open for answers right now.",
+  not_for_this_topic: "Pictures cannot be turned on for a weight-loss group.",
   no_such_post: "That post is no longer there.",
   no_such_member: "No member matches that name in this group.",
   no_such_group: "That group no longer exists.",
@@ -508,6 +544,107 @@ export const myActionsSchema = z.object({
   ),
 });
 export type MyActions = z.infer<typeof myActionsSchema>;
+
+// ---------------------------------------------------------------------------
+// Phase 2b: moderators' recent posts, the rota, drills, doctor sessions (staff side, plain English in the page)
+// ---------------------------------------------------------------------------
+export const modRecentSchema = z.object({
+  items: z.array(
+    z.object({
+      post_id: z.string(),
+      group_id: z.string(),
+      group_name: z.string(),
+      author_handle: z.string(),
+      is_reply: z.boolean(),
+      body: z.string(),
+      state: z.enum(["visible", "held", "auto_hidden"]),
+      created_at: z.string(),
+      image_id: z.string().nullable(),
+    }),
+  ),
+});
+export type ModRecentItem = z.infer<typeof modRecentSchema>["items"][number];
+
+export const coverageSchema = z.object({
+  moderator_uncovered_hours: z.number().int(),
+  safety_uncovered_hours: z.number().int(),
+  gaps: z.array(z.object({ scope: z.enum(["moderator", "safety_reviewer"]), weekday: z.number().int(), hour: z.number().int() })),
+});
+export type Coverage = z.infer<typeof coverageSchema>;
+
+export const shiftsAdminSchema = z.object({
+  staff: z.array(
+    z.object({
+      staff_id: z.string(),
+      name: z.string().nullable(),
+      scope: z.enum(["moderator", "safety_reviewer"]),
+      all_groups: z.boolean(),
+      shifts: z.array(z.object({ weekday: z.number().int(), start_hour: z.number().int(), end_hour: z.number().int() })),
+    }),
+  ),
+});
+export type ShiftsAdmin = z.infer<typeof shiftsAdminSchema>;
+
+export const tabletopRunsSchema = z.object({
+  runs: z.array(
+    z.object({
+      id: z.string(),
+      run_at: z.string(),
+      passed: z.boolean(),
+      notes: z.string().nullable(),
+      run_by_name: z.string().nullable(),
+      steps: z.array(z.object({ step: z.string(), ok: z.boolean() })).default([]),
+    }),
+  ),
+});
+export type TabletopRuns = z.infer<typeof tabletopRunsSchema>;
+
+export const qaAdminListSchema = z.object({
+  sessions: z.array(
+    z.object({
+      series_id: z.string(),
+      title: z.string(),
+      opens_at: z.string(),
+      closes_at: z.string(),
+      cancelled: z.boolean(),
+      groups: z.array(z.string()),
+      doctors: z.array(z.string()),
+      questions: z.number().int(),
+      answers: z.number().int(),
+    }),
+  ),
+});
+export type QaAdminSession = z.infer<typeof qaAdminListSchema>["sessions"][number];
+
+export const qaDoctorSessionsSchema = z.object({
+  sessions: z.array(
+    z.object({
+      series_id: z.string(),
+      title: z.string(),
+      intro: z.string(),
+      opens_at: z.string(),
+      closes_at: z.string(),
+      can_answer: z.boolean(),
+      questions: z.number().int(),
+      unanswered: z.number().int(),
+    }),
+  ),
+});
+export type QaDoctorSession = z.infer<typeof qaDoctorSessionsSchema>["sessions"][number];
+
+export const qaDoctorQuestionsSchema = z.object({
+  questions: z.array(
+    z.object({
+      post_id: z.string(),
+      group_name: z.string(),
+      author_handle: z.string(),
+      body: z.string(),
+      created_at: z.string(),
+      answers: z.array(z.object({ doctor_name: z.string(), body: z.string(), created_at: z.string(), mine: z.boolean() })),
+    }),
+  ),
+});
+export type QaDoctorQuestion = z.infer<typeof qaDoctorQuestionsSchema>["questions"][number];
 
 const APPEAL_REFUSED_KEYS = {
   reason_length: "community.appeals.refused.reason_length",

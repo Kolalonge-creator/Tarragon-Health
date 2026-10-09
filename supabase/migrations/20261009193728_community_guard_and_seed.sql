@@ -32,8 +32,9 @@ begin
   return jsonb_build_array(
     private.go_live_cond('moderation_team_named', 'At least one named moderator and one named safety reviewer hold an active grant',
       v_mods >= 1 and v_safety >= 1, 'data', v_mods || ' moderators, ' || v_safety || ' safety reviewers'),
-    private.go_live_cond('moderated_hours_declared', 'The moderated hours (Africa/Lagos) are declared and the weekend sweep is staffed',
-      private.go_live_attested(p_key, 'moderated_hours_declared'), 'attestation', null),
+    private.go_live_cond('moderated_hours_declared', 'Moderators and safety reviewers are rostered for every hour of the week (Africa/Lagos)',
+      private.community_uncovered_hours('moderator') = 0 and private.community_uncovered_hours('safety_reviewer') = 0, 'data',
+      private.community_uncovered_hours('moderator') || ' moderator hours and ' || private.community_uncovered_hours('safety_reviewer') || ' safety reviewer hours uncovered'),
     private.go_live_cond('rule_set_signed_by_cmo', 'A live filter rule set carries emergency and self-harm rules and was activated by the Chief Medical Officer',
       exists (
         select 1 from public.community_filter_rule_sets rs
@@ -50,8 +51,9 @@ begin
       v_groups >= 1, 'data', v_groups || ' live'),
     private.go_live_cond('clinical_safety_case_current', 'A current clinical safety case and hazard log, signed off',
       private.go_live_attested(p_key, 'clinical_safety_case_current'), 'attestation', null),
-    private.go_live_cond('tabletop_passed', 'The safety hand-off was rehearsed end to end with a test account',
-      private.go_live_attested(p_key, 'tabletop_passed'), 'attestation', null),
+    private.go_live_cond('tabletop_passed', 'The safety hand-off was rehearsed end to end and a passing run was recorded in the last 90 days',
+      exists (select 1 from public.community_tabletop_runs t where t.passed and t.run_at > now() - interval '90 days'), 'data',
+      (select 'last passing run ' || to_char(max(t.run_at) at time zone 'Africa/Lagos', 'YYYY-MM-DD') from public.community_tabletop_runs t where t.passed)),
     private.go_live_cond('cmo_switch', 'Chief Medical Officer sign-off', true, 'switch', 'Given by the Chief Medical Officer pressing the switch'));
 end $$;
 
@@ -101,6 +103,11 @@ insert into public.community_config (version, is_active, params) values (1, true
   "new_member_premoderated_posts": 1,
   "appeal_window_days": 14,
   "quality_sample_pct": 10,
+  "image_max_bytes": 5242880,
+  "qa_questions_per_member": 3,
+  "qa_answer_grace_minutes": 60,
+  "overdue_safety_minutes": 30,
+  "overdue_queue_minutes": 60,
   "rate_posts_per_hour": 6,
   "rate_posts_per_day": 30,
   "block_cooldown": { "max_blocks": 3, "window_minutes": 10, "cooldown_minutes": 60 },

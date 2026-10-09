@@ -569,3 +569,43 @@ serialised so the size cap holds.
 Left as known limits: a second appeal result within 10 minutes can be merged into one unread notice (the appeals page is the record);
 the Phase 1 and Phase 2 migrations are edited in place and have never been applied anywhere, so they must be applied together as one
 batch (the live project had no community objects when last checked).
+
+## 14. Phase 2b: pictures, 24/7 operations, doctor question sessions, mobile (2026-10-09)
+
+Founder decisions COM-15 to COM-18 (`docs/DECISIONS.md`). Migration `20261009213122_community_images_ops_qa.sql` plus edits to the earlier
+community migrations; proof `packages/db/tests/community_images_ops_qa.sql`.
+
+### Pictures (COM-15)
+- A group allows pictures only when an admin turns it on (`community_groups.images_allowed`); never for a topic that needs the CMO's rules (weight loss).
+- The member posts text and one JPEG or PNG through `POST /api/community/images`. The server reads the file's own bytes, drops EXIF/XMP/ICC/comments (JPEG) and
+  every ancillary chunk but transparency (PNG), bounds the dimensions, stores it in the private `community-images` bucket under `{group}/{random}`, then calls
+  `community_submit_post_with_image` AS THE MEMBER. The database runs the text filters and always holds the post (`hold_reason_codes` includes `image`).
+- Who can open a file: `community_image_ref` (a published post to a member of the group; the author while it waits; the group's moderators while it waits and after
+  removal, for appeals; a safety reviewer for a safety post). The route streams the bytes with no caching and a locked-down content policy; there is no link to share.
+  Staff views are logged (`image_viewed`).
+- Files of posts the author deleted go after a day; files of removed posts after the retention period (daily job). Moderators check pictures against a written
+  checklist shown beside the picture. There is no automatic image analysis: a person looks at every picture.
+- Not done: automatic detection of faces, nudity or text in pictures (a moderator does this). If volume grows, this is where a vendor scan would sit, in front of the queue.
+
+### 24/7 operations (COM-17)
+- `community_shifts` (Africa/Lagos, whole hours, 0 = Monday). `community_coverage()` lists uncovered hours; the go-live condition `moderated_hours_declared` is met only
+  when moderators AND safety reviewers (all-groups grants) cover all 168 hours.
+- `community_tabletop_runs`: the CMO records a safety drill (a checklist in the admin Community area); the condition `tabletop_passed` needs a pass in the last 90 days.
+- Moderator tools: `community_mod_recent` lists live posts (never safety posts); the existing remove decision deletes any post or reply. Moderator grants go to care
+  coordinator accounts.
+- Overdue work: safety items older than `overdue_safety_minutes` (30) and queue items older than `overdue_queue_minutes` (60) notify the safety reviewers, moderators and
+  the CMO (`community_notify_overdue`, at most one notice per recipient per ten minutes). It needs a runner about every ten minutes: `.github/workflows/community-overdue.yml`
+  calls `/api/cron/community-overdue` and needs the repository secrets `COMMUNITY_CRON_URL` and `CRON_SECRET`.
+- Daily job `/api/cron/community-housekeeping` (Vercel cron, 03:50 UTC): purge expired text, delete due picture files, send opt-in weekly notes.
+- Still a human job: naming the moderators and safety reviewers, entering their shifts, and running the drill. The system now refuses go-live until they are done.
+
+### Doctor question sessions (COM-16)
+- An admin or the CMO creates a session (title, intro, up to 12 hours, named doctors, one or more active groups). Members see the session at the top of the group and
+  ask up to three questions (`qa_questions_per_member`). A question is an ordinary post (same filters; a new member's first post still waits for a moderator).
+- Doctors see the published questions of their session (handle and text only, never a person) and answer in text for the length of the session plus 60 minutes
+  (`qa_answer_grace_minutes`). An answer carries the doctor's real name, may talk about medicines and danger signs, but may not carry contact details. The asker gets
+  one fixed in-app notice. An admin can remove an answer. Answers are general information for everyone, not advice for one person (shown on the session card).
+
+### Mobile (COM-18)
+- Native screens in `apps/mobile` using the same RPCs and the picture routes with the bearer token. See the mobile agent's notes in the commit for what could not be
+  run here (no device build). Any native permission change needs a `runtimeVersion` bump.

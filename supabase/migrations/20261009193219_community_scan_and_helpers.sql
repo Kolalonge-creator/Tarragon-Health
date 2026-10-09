@@ -275,6 +275,17 @@ begin
     from public.profiles p where p.id = p_recipient and p.is_active;
 end $$;
 
+create or replace function private.community_uncovered_hours(p_scope text) returns integer
+language sql stable security definer set search_path = '' as $$
+  select count(*)::int
+    from generate_series(0, 6) d, generate_series(0, 23) h
+   where not exists (
+     select 1 from public.community_shifts sh
+       join public.community_staff s on s.id = sh.staff_id and s.revoked_at is null and s.scope = p_scope and s.group_id is null
+       join public.profiles p on p.id = s.profile_id and p.is_active
+      where sh.weekday = d and sh.start_hour <= h and sh.end_hour >= h + 1)
+$$;
+
 -- ---------------------------------------------------------------------------
 -- 6. Privileges: private helpers are for the SECURITY DEFINER functions only
 -- ---------------------------------------------------------------------------
@@ -285,5 +296,5 @@ revoke all on function
   private.community_detect_url(text, jsonb), private.community_scan(text),
   private.community_is_moderator(uuid), private.community_is_safety_reviewer(),
   private.community_adult(uuid), private.community_active_sanction(uuid, uuid),
-  private.community_notify(uuid, text, uuid, text)
+  private.community_notify(uuid, text, uuid, text), private.community_uncovered_hours(text)
 from public, anon, authenticated, service_role;

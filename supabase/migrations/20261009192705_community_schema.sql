@@ -94,6 +94,8 @@ create table public.community_groups (
   join_mode              text not null default 'open' check (join_mode in ('open', 'request', 'invite')),
   min_age                integer not null default 18,
   -- Soft size cap: a full group refuses new joins (an admin raises it, or opens a sibling group). Null means no cap.
+  -- Pictures in posts, off unless an admin turns it on for the group. Every picture waits for a moderator before anyone else sees it.
+  images_allowed         boolean not null default false,
   member_cap             integer check (member_cap is null or member_cap between 10 and 100000),
   status                 text not null default 'draft' check (status in ('draft', 'active', 'read_only', 'archived')),
   -- Declared staffed hours (Africa/Lagos), used by the new-member rule. Shape is validated by the scan function, not here.
@@ -659,6 +661,86 @@ create table public.community_group_prompts (
 create index community_group_prompts_idx on public.community_group_prompts (group_id, show_from desc);
 
 -- ---------------------------------------------------------------------------
+-- 7c. Phase 2b: pictures, the moderator rota, safety drills, doctor question sessions
+-- ---------------------------------------------------------------------------
+-- A picture attached to a post. The file lives in the private `community-images` bucket; nobody reads it except through
+-- community_image_ref, which checks who is asking. One picture per post.
+create table public.community_post_images (
+  id           uuid primary key default gen_random_uuid(),
+  post_id      uuid not null unique references public.community_posts (id) on delete cascade,
+  group_id     uuid not null references public.community_groups (id) on delete restrict,
+  storage_path text not null unique check (storage_path ~ '^[0-9a-f-]{36}/[0-9a-f-]{36}[.](jpg|png)$'),
+  mime         text not null check (mime in ('image/jpeg', 'image/png')),
+  size_bytes   integer not null check (size_bytes between 1 and 10485760),
+  width        integer not null check (width between 1 and 20000),
+  height       integer not null check (height between 1 and 20000),
+  created_at   timestamptz not null default now(),
+  -- set when the file has been removed from storage
+  deleted_at   timestamptz
+);
+create index community_post_images_due_idx on public.community_post_images (created_at) where deleted_at is null;
+
+-- Who is on duty when (Africa/Lagos). One row per day and span of whole hours; an overnight shift is two rows.
+create table public.community_shifts (
+  id         uuid primary key default gen_random_uuid(),
+  staff_id   uuid not null references public.community_staff (id) on delete cascade,
+  weekday    smallint not null check (weekday between 0 and 6),   -- 0 = Monday
+  start_hour smallint not null check (start_hour between 0 and 23),
+  end_hour   smallint not null check (end_hour between 1 and 24),
+  created_at timestamptz not null default now(),
+  constraint community_shifts_span check (end_hour > start_hour)
+);
+create index community_shifts_staff_idx on public.community_shifts (staff_id);
+
+-- A rehearsal of the safety hand-off, recorded by the Chief Medical Officer.
+create table public.community_tabletop_runs (
+  id        uuid primary key default gen_random_uuid(),
+  run_by    uuid references public.profiles (id) on delete set null,
+  run_at    timestamptz not null default now(),
+  passed    boolean not null,
+  notes     text check (notes is null or length(notes) <= 2000),
+  steps     jsonb not null default '[]'::jsonb
+);
+
+-- A one-off text session in which named doctors answer members' questions. One row per group; rows of one session share a series_id.
+create table public.community_qa_sessions (
+  id           uuid primary key default gen_random_uuid(),
+  series_id    uuid not null,
+  group_id     uuid not null references public.community_groups (id) on delete restrict,
+  title        text not null check (length(btrim(title)) between 3 and 80),
+  intro        text not null default '' check (length(intro) <= 300),
+  opens_at     timestamptz not null,
+  closes_at    timestamptz not null,
+  created_by   uuid references public.profiles (id) on delete set null,
+  created_at   timestamptz not null default now(),
+  cancelled_at timestamptz,
+  constraint community_qa_window check (closes_at > opens_at and closes_at <= opens_at + interval '12 hours'),
+  unique (series_id, group_id)
+);
+create index community_qa_sessions_group_idx on public.community_qa_sessions (group_id, opens_at desc);
+
+create table public.community_qa_doctors (
+  series_id  uuid not null,
+  profile_id uuid not null references public.profiles (id) on delete cascade,
+  primary key (series_id, profile_id)
+);
+
+alter table public.community_posts add column qa_session_id uuid references public.community_qa_sessions (id) on delete set null;
+
+create table public.community_qa_answers (
+  id               uuid primary key default gen_random_uuid(),
+  session_id       uuid not null references public.community_qa_sessions (id) on delete restrict,
+  question_post_id uuid not null references public.community_posts (id) on delete cascade,
+  -- The doctor's real name as it was when they answered (null-gated attribution: shown only with a real answer record).
+  doctor_profile_id uuid references public.profiles (id) on delete set null,
+  doctor_name      text not null check (length(btrim(doctor_name)) between 2 and 120),
+  body             text not null check (length(btrim(body)) between 5 and 1500),
+  created_at       timestamptz not null default now(),
+  removed_at       timestamptz
+);
+create index community_qa_answers_question_idx on public.community_qa_answers (question_post_id) where removed_at is null;
+
+-- ---------------------------------------------------------------------------
 -- 8. Lock everything down. RLS on, no policy (default deny), no table privilege for anyone but the owner.
 -- ---------------------------------------------------------------------------
 do $$
@@ -670,7 +752,8 @@ begin
     'community_reactions', 'community_reports', 'community_sanctions', 'community_moderation_events',
     'community_filter_rule_sets', 'community_filter_rules', 'community_safety_signals',
     'community_pinned_content', 'community_staff',
-    'community_hidden_authors', 'community_appeals', 'community_mod_samples', 'community_group_prompts']
+    'community_hidden_authors', 'community_appeals', 'community_mod_samples', 'community_group_prompts',
+    'community_post_images', 'community_shifts', 'community_tabletop_runs', 'community_qa_sessions', 'community_qa_doctors', 'community_qa_answers']
   loop
     execute format('alter table public.%I enable row level security', t);
     execute format('revoke all on public.%I from public, anon, authenticated, service_role', t);
@@ -699,7 +782,8 @@ begin
     'community_reactions', 'community_reports', 'community_sanctions', 'community_moderation_events',
     'community_filter_rule_sets', 'community_filter_rules', 'community_safety_signals',
     'community_pinned_content', 'community_staff',
-    'community_hidden_authors', 'community_appeals', 'community_mod_samples', 'community_group_prompts']
+    'community_hidden_authors', 'community_appeals', 'community_mod_samples', 'community_group_prompts',
+    'community_post_images', 'community_shifts', 'community_tabletop_runs', 'community_qa_sessions', 'community_qa_doctors', 'community_qa_answers']
   loop
     if not (select relrowsecurity from pg_class where oid = ('public.' || t)::regclass) then
       raise exception 'community self-check: RLS is off on %', t;
