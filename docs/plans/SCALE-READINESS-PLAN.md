@@ -1,6 +1,6 @@
 # Scale-readiness plan: 5,000, then 25,000, then 100,000 Members
 
-Date: 2026-10-10. Status: DRAFT for founder decision. Nothing here is approved, built or applied. Branch context: `s38/outcome-snapshots-analytics`.
+Date: 2026-10-10. Status: DRAFT for founder decision. Nothing here is approved, built or applied.
 
 Why this exists: the two-tier model (Free, and Member at 120,000 naira a year or 100,000 per organisation member) was costed at 5,000 and 100,000 Members. The platform is built to be correct and safe. It has not been sized or load-tested for those numbers.
 
@@ -43,17 +43,17 @@ Service targets to hold at every stage (proposed, the CMO and founder to set):
 Cheap, mostly settings, and everything else depends on it.
 1. **Hosting facts.** In the Supabase dashboard record: plan, compute size, connection limit, backup type and retention, whether point-in-time recovery is on. Same for Vercel (plan, function limits, deploy cap), Upstash, Railway, Zoom (plan, meeting and host limits), Paystack, Resend, Expo push.
 2. **Upgrade to a paid plan with point-in-time recovery** before any real Member's data is stored. Treat this as a launch blocker (it is already on the release-blockers checklist).
-3. **Switch on Sentry and uptime checks**, and route alerts to a phone: web app, `/api/health`-style endpoint, edge functions, Paystack webhook, Zoom webhook, `process-events`.
+3. **Switch on Sentry and uptime checks**, and route alerts to a phone: web app, a health endpoint (confirm one exists; if not, building it is part of SR1), edge functions, Paystack webhook, Zoom webhook, `process-events`.
 4. **Configure Upstash** so rate limits are shared across instances.
 5. **Write down the targets** in section 2 as versioned config, using the existing PROPOSED-config mechanism, and get the CMO to sign.
 
 ### Phase 1: Make the database safe to grow (about 2 weeks, one build session)
-1. **Job history clean-up.** Add a scheduled job that deletes `cron.job_run_details` older than 7 days, and make the sweeps record failures to the incident table rather than relying on history. Do this first; it is already 162 MB.
-2. **Connection pooling.** Move all server code, edge functions and the web app onto the pooler in transaction mode. Set per-role connection limits so the rota, payment and notification paths cannot be starved by browsing traffic.
+1. **Job history clean-up.** First make the sweeps record failures to the incident table, so history is no longer the only trace of a failing job. Then, in the same or a later migration, turn off `cron.log_run` for the 7 jobs that run every minute or faster (the source of most of the 333,778 rows), and add a backstop job that deletes `cron.job_run_details` for succeeded runs older than 7 days and failed runs older than 30 days. Do this first; history is already 162 MB. Never ship the purge before the failure recording.
+2. **Connection pooling.** Move the web app and edge functions onto the pooler in transaction mode, after auditing for session-scoped state that transaction mode breaks: `set_config('request.jwt.claim.*')` used for RLS, `SET` outside a transaction, prepared statements, advisory locks and row-locking claim paths. Keep `pg_cron` and long-lived workers on a direct or session connection. Set per-role connection limits so the rota, payment and notification paths cannot be starved by browsing traffic.
 3. **Fix the performance advisor findings** in priority order: unindexed foreign keys on the tables the queue, paging, vitals, notifications and labs use; row-level-security policies that re-evaluate per row (wrap in a subselect); overlapping permissive policies; duplicate indexes.
-4. **Growth plan for the tables that grow without limit:** vitals readings, notifications, audit log, web events, domain events and outbox, clinical task transitions, encounter events. For each: expected rows a year at stages B to D, index plan, partitioning by month where it pays off, an archive or retention rule agreed with the DPO (audit rows are kept; the rest are summarised then moved).
+4. **Growth plan for the tables that grow without limit:** vitals readings, notifications, audit log, web events, domain events and outbox, clinical task transitions, encounter events. For each: expected rows a year at stages B to D, index plan, partitioning by month where it pays off, an archive or retention rule agreed with the DPO (audit rows are kept; the rest are summarised and moved to cold storage, never deleted, consistent with the standing no-erasure-of-real-data decision).
 5. **Hot-path query review.** Read the real plans for: next task, red page sweep, claim expiry, chart summary, today screen, patient timeline, lab result release, notification send. Record the cost at 10,000 and 1,000,000 synthetic rows.
-6. **Proofs:** a Jest or SQL proof that each new index exists and that the clean-up job leaves failed-job rows for 30 days.
+6. **Proofs:** a Jest or SQL proof that each new index exists, that the clean-up job keeps failed-job rows for 30 days and succeeded rows for 7, and that a failing sweep still leaves an incident row after history is purged.
 
 ### Phase 2: Build the load-test harness (about 2 weeks, one build session)
 1. **Synthetic population generator.** Creates N test Members with `is_test = true`, doctors, a rota, readings history, lab orders, encounters. Uses the existing test-flag so nothing touches real metrics. Runs against an isolated stack or a scratch copy, never production.
@@ -91,7 +91,7 @@ Also build one **operations wall**: queue age by class, open pages, doctors onli
 7. **Cost controls.** Per-Member cost dashboard (hosting, lab, Zoom, AI, SMS) to check the 34,000 naira "other costs" assumption against real invoices.
 
 ### Phase 5: Staged rollout with a stop rule
-1. Stage A pilot (500 Members), one region, daily review of the monitoring wall for two weeks.
+1. Stage A pilot (500 Members), one region, daily review of the monitoring wall for two weeks. Stage A sees only about 15 red events a year, so organic traffic cannot prove the page ladder works. Inject synthetic red events (test accounts, `is_test`) during the pilot and require every one to page on time.
 2. Move to Stage B only if every target held and there were no unacknowledged pages or lost items.
 3. Repeat for C and D. Each step also re-runs the load test at the next stage's size before the Members arrive.
 4. Keep a written rollback for every stage: pause new sign-ups, route new Members to Free, stop testing-day bookings.
