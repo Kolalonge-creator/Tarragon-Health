@@ -92,7 +92,9 @@ export function Composer({
     setMessage(null);
     requestId.current = null;
     revoke();
-    const url = typeof URL.createObjectURL === "function" ? URL.createObjectURL(picked) : null;
+    // Only a local object URL is ever kept for the preview (the file's type was checked above).
+    const made = typeof URL.createObjectURL === "function" ? URL.createObjectURL(picked) : null;
+    const url = made !== null && made.startsWith("blob:") ? made : null;
     previewRef.current = url;
     setPreviewUrl(url);
     setFile(picked);
@@ -200,7 +202,7 @@ export function Composer({
           <p id={`${id}-image-help`} className={`text-sm ${MUTED}`}>
             {t("community.image.help", locale)}
           </p>
-          {file && previewUrl ? (
+          {file && previewUrl && previewUrl.startsWith("blob:") ? (
             // eslint-disable-next-line @next/next/no-img-element -- a local object URL preview; next/image cannot optimise it
             <img src={previewUrl} alt={t("community.image.alt", locale)} className="max-h-48 max-w-full rounded-md object-contain" />
           ) : null}
