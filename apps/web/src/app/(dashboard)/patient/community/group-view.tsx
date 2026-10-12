@@ -303,7 +303,7 @@ export function GroupView({
       {isMember ? <HiddenAuthors hidden={hidden} locale={locale} onChanged={refresh} /> : null}
 
       <footer>
-        <Link href="/patient/community/appeals" className="text-sm font-medium underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green">
+        <Link href="/patient/community/appeals" className="inline-flex min-h-11 items-center text-sm font-medium underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green">
           {t("community.appeals.link", locale)}
         </Link>
       </footer>
