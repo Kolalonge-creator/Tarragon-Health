@@ -361,6 +361,18 @@ begin
   return jsonb_build_object('action', 'publish', 'class', null, 'codes', '[]'::jsonb);
 end $$;
 
+-- Is this file in the private picture bucket? True where there is no storage schema at all (a plain test database). A proof that cannot
+-- put real files into storage replaces this function inside its own rolled-back transaction.
+create or replace function private.community_storage_has(p_path text) returns boolean
+language plpgsql stable security definer set search_path = '' as $$
+declare
+  v_ok boolean;
+begin
+  if to_regclass('storage.objects') is null then return true; end if;
+  execute 'select exists (select 1 from storage.objects where bucket_id = ''community-images'' and name = $1)' into v_ok using p_path;
+  return coalesce(v_ok, false);
+end $$;
+
 create or replace function private.community_submit_core(p_group_id uuid, p_parent_id uuid, p_body text, p_client_request_id uuid, p_image jsonb, p_qa_session uuid)
 returns jsonb language plpgsql volatile security definer set search_path = '' as $$
 declare
@@ -420,11 +432,8 @@ begin
        or coalesce(p_image ->> 'path', '') !~ ('^' || p_group_id::text || '/' || v_uid::text || '/[0-9a-f-]{36}[.](jpg|png)$') then
       return jsonb_build_object('status', 'refused', 'reason', 'bad_image');
     end if;
-    -- the file must really be there, in the caller's own folder (where storage exists; the test database has none)
-    if to_regclass('storage.objects') is not null then
-      execute 'select exists (select 1 from storage.objects where bucket_id = ''community-images'' and name = $1)' into v_img_ok using (p_image ->> 'path');
-      if not coalesce(v_img_ok, false) then return jsonb_build_object('status', 'refused', 'reason', 'bad_image'); end if;
-    end if;
+    -- the file must really be there, in the caller's own folder
+    if not private.community_storage_has(p_image ->> 'path') then return jsonb_build_object('status', 'refused', 'reason', 'bad_image'); end if;
   end if;
 
   -- A question for the doctors: only while the session is open, only as a top-level post, a few per member.
@@ -736,7 +745,7 @@ end $$;
 revoke all on function
   private.community_log_event(uuid, uuid, uuid, text, uuid, text, jsonb), private.community_new_handle(uuid), private.community_pick_avatar(),
   private.community_reader_ok(uuid, uuid), private.community_posting_gate(uuid, uuid), private.community_scan_outcome(jsonb, integer), private.community_replay_result(public.community_posts),
-  private.community_submit_core(uuid, uuid, text, uuid, jsonb, uuid)
+  private.community_submit_core(uuid, uuid, text, uuid, jsonb, uuid), private.community_storage_has(text)
 from public, anon, authenticated, service_role;
 
 revoke all on function

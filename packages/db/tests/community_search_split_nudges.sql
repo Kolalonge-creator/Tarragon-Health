@@ -99,6 +99,10 @@ declare
   v_org uuid; v_admin uuid; v_cmo uuid; v_mod uuid; v_p1 uuid; v_p2 uuid; v_p3 uuid; v_p4 uuid; v_pn uuid;
   v_g uuid; v_g2 uuid; v_j jsonb; v_post uuid; v_reply uuid; v_img uuid; v_slug text; v_hide uuid; v_n integer; v_pic uuid; v_held uuid;
 begin
+  -- Where real storage exists the proof cannot upload files, so the file check is answered "yes" for this rolled-back run only.
+  if to_regclass('storage.objects') is not null then
+    create or replace function private.community_storage_has(p_path text) returns boolean language sql stable as 'select true';
+  end if;
   select id into v_org from public.organisations order by id limit 1;
   if v_org is null then insert into public.organisations (name) values ('community proof org') returning id into v_org; end if;
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');

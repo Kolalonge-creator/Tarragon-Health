@@ -184,7 +184,8 @@ begin
   v_status := public.go_live_guard_status();
   perform pg_temp.rec('the dashboard now shows payouts all met', 'true',
     (select (g ->> 'all_met')::text from jsonb_array_elements(v_status) g where g ->> 'key' = 'payouts_enabled'));
-  perform pg_temp.rec('...and the dashboard lists seven guards', '7', jsonb_array_length(v_status)::text);
+  -- (the Community guard is a later feature's own guard, so it is not counted among the seven spec guards)
+  perform pg_temp.rec('...and the dashboard lists seven guards', '7', (select count(*)::text from jsonb_array_elements(v_status) g where g ->> 'key' <> 'community'));
   perform pg_temp.rec('the real switch works with every condition met', 'true',
     (public.set_go_live_guard('payouts_enabled', true, 'Stage 1 complete, fee schedule approved.') ->> 'changed'));
   perform pg_temp.back();
