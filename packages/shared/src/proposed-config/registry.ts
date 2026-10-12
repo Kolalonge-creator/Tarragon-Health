@@ -1809,4 +1809,46 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/DECISIONS.md S11-1; supabase/migrations/20261007152136_s11c_bp_care_triage_v3.sql",
   },
+  {
+    key: "community.rules",
+    // Community groups (decisions COM-1 to COM-10, docs/COMMUNITY_SPEC.md). Live values are the active row of `community_config`; this entry mirrors it
+    // and community-mirror.test.ts fails if the migration seed and this value drift. PROPOSED: post length, the first post a new member waits for (lowered from three to one in the Phase 2 review: Mayo Connect posts at once, so we measure first-post drop-off and can raise it again), rate
+    // limits, the cool-down after repeated blocked attempts, the number of reporters that hides a post, how long a removed post's text is kept, and the
+    // limits on the unmask. The retention figure and the consent version are counsel's (OQ-COM-06); the rest are the founder's and the CMO's.
+    // A change is a NEW version here AND a new community_config row; the old one is never edited.
+    value: {
+      post_max_chars: 2000,
+      edit_window_minutes: 15,
+      new_member_premoderated_posts: 1,
+      appeal_window_days: 14,
+      quality_sample_pct: 10,
+      image_max_bytes: 4194304,
+      qa_questions_per_member: 3,
+      qa_answer_grace_minutes: 60,
+      overdue_safety_minutes: 30,
+      overdue_queue_minutes: 60,
+      rate_posts_per_hour: 6,
+      rate_posts_per_day: 30,
+      block_cooldown: {"max_blocks": 3, "window_minutes": 10, "cooldown_minutes": 60},
+      auto_hide_report_threshold: 3,
+      removed_body_retention_days: 90,
+      unmask: {"min_reason_chars": 20, "max_per_day": 5, "signal_window_days": 30},
+      consent_version: "v1-2026-10-12-founder-cmo",
+      feed_page_size: 20,
+      max_page_size: 50,
+      welcome_days: 14,
+      return_nudge_days: 3,
+      avatars: ["leaf", "sun", "river", "hill", "star", "seed", "cloud", "stone", "wave", "bird"],
+      handle_words: {
+        adjectives: ["calm", "brave", "bright", "gentle", "steady", "kind", "warm", "quiet", "bold", "clever", "cheerful", "patient", "sunny", "swift", "wise", "lively", "hopeful", "honest", "mellow", "sturdy", "tender", "vivid", "witty", "zesty", "noble", "merry", "serene", "spry", "plucky", "radiant"],
+        nouns: ["river", "hill", "leaf", "sparrow", "baobab", "palm", "harbour", "lantern", "meadow", "pebble", "breeze", "cedar", "comet", "dune", "ember", "falcon", "garden", "heron", "island", "jasmine", "kestrel", "lagoon", "maple", "orchid", "plateau", "quartz", "reed", "savanna", "thistle", "willow"],
+      },
+    },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-09",
+    source: "docs/COMMUNITY_SPEC.md sections 4.1 to 4.5; supabase/migrations/20261009193728_community_guard_and_seed.sql",
+    guardPatterns: ["post[_ ]?max[_ ]?chars\\w*\\s*[=:]\\s*2000\\b", "premoderated\\w*\\s*[=:]\\s*3\\b", "auto[_ ]?hide\\w*\\s*[=:]\\s*3\\b"],
+  },
 ];
