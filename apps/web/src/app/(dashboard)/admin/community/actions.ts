@@ -141,31 +141,6 @@ export async function unmaskAction(_prev: ActionState, f: FormData): Promise<Act
   return runUnmask(client, { group_id: text(f, "group_id"), handle: text(f, "handle"), reason: text(f, "reason") }, friendlyDbError, true);
 }
 
-const dpoSchema = z.object({ profile_id: z.string().uuid("Please choose a person."), on: z.boolean() });
-
-/** An admin names, or stops naming, the data protection officer who is told of every lookup. */
-export async function setDpoAction(_prev: ActionState, f: FormData): Promise<ActionState> {
-  const pasted = text(f, "profile_id_pasted").trim();
-  const p = dpoSchema.safeParse({ profile_id: pasted || text(f, "profile_id"), on: text(f, "on") === "true" });
-  if (!p.success) return { ok: false, message: firstIssue(p.error) };
-  const client = await getRpcClient();
-  const { data, error } = await client.rpc("community_admin_set_dpo", { p_profile_id: p.data.profile_id, p_on: p.data.on });
-  if (error) return { ok: false, message: friendlyDbError(error) };
-  const parsed = outcomeSchema.safeParse(data);
-  if (!parsed.success) return { ok: false, message: GENERIC };
-  if (parsed.data.status === "refused") {
-    return { ok: false, message: parsed.data.reason === "no_such_member" ? "That person does not have an active account." : staffRefusalText(parsed.data.reason) };
-  }
-  if (parsed.data.status !== "ok") return { ok: false, message: GENERIC };
-  revalidatePath(`${BASE}/staff`);
-  revalidatePath(BASE);
-  return {
-    ok: true,
-    message: p.data.on
-      ? "Named as the data protection officer. They are told every time a member's name is looked up."
-      : "No longer named as a data protection officer for the community.",
-  };
-}
 
 export async function unpinAction(_prev: ActionState, f: FormData): Promise<ActionState> {
   const p = unpinSchema.safeParse({ id: text(f, "id"), group_id: text(f, "group_id") });

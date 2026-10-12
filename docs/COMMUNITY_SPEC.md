@@ -614,7 +614,8 @@ community migrations; proof `packages/db/tests/community_images_ops_qa.sql`.
 - **Unmask (COM-19).** `community_admin_unmask` refuses with `no_safety_signal` unless the member has a safety signal in that group within
   `unmask.signal_window_days` (30). Callers: admin, CMO, active senior/CMO-tier doctor (`private.community_can_unmask`); never a moderator or
   safety reviewer. `community_unmask_candidates()` lists the concerns (handle, group, kind, words, no account id). The CMO and every DPO in
-  `community_dpo` get the fixed `community_unmask_notice`; an admin names the DPO (`community_admin_set_dpo`); go-live condition `dpo_named`.
+  `community_dpo` get the fixed `community_unmask_notice`. Since COM-20 the CMO is the DPO: the notice goes to the CMO, `dpo_named` is met by an active CMO, and only the CMO can add
+  anyone else to the list (`community_admin_set_dpo`).
 - **Mobile emergency button.** `POST /api/mobile/community-emergency` (bearer) records an emergency for the signed-in person and messages their
   saved contact through the shared `lib/emergency/alert-contact.ts` (the web action uses the same code). Runs only on the person's tap; no post text.
 - **Stray files.** `community_orphan_files()` (service role) lists files in the bucket a day old that no post refers to; the daily job removes them.

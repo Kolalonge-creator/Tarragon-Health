@@ -354,11 +354,14 @@ begin
   perform pg_temp.rec('unmask: a doctor sees the concern with a handle and no account id', 'true',
     (exists (select 1 from jsonb_array_elements(pg_temp.asj(v_doc, 'select public.community_unmask_candidates()') -> 'items') i where i ->> 'author_handle' = v_handle)
      and (pg_temp.asj(v_doc, 'select public.community_unmask_candidates()'))::text not like '%' || v_p1::text || '%')::text);
-  perform pg_temp.rec('unmask: only an admin names the DPO', '42501', (pg_temp.asj(v_cmo, format('select public.community_admin_set_dpo(%L, true)', v_dpo)) ->> 'error'));
-  perform pg_temp.rec('unmask: an admin names the DPO', 'ok', (pg_temp.asj(v_admin, format('select public.community_admin_set_dpo(%L, true)', v_dpo)) ->> 'status'));
+  perform pg_temp.rec('unmask: an admin cannot name a DPO (the CMO is the DPO)', '42501', (pg_temp.asj(v_admin, format('select public.community_admin_set_dpo(%L, true)', v_dpo)) ->> 'error'));
+  perform pg_temp.rec('unmask: the CMO can add someone to the notice list', 'ok', (pg_temp.asj(v_cmo, format('select public.community_admin_set_dpo(%L, true)', v_dpo)) ->> 'status'));
+  perform pg_temp.rec('unmask: the DPO list says the CMO is the DPO', 'true', (pg_temp.asj(v_admin, 'select public.community_admin_dpo()') ->> 'cmo_is_dpo'));
   perform pg_temp.rec('unmask: a doctor with a written reason resolves the handle', v_p1::text,
     (pg_temp.asj(v_doc, format($q$select public.community_admin_unmask(%L, %L, 'A safety review needs to reach this member urgently.')$q$, v_g, v_handle)) ->> 'profile_id'));
-  perform pg_temp.rec('unmask: the DPO is told too, with the same fixed notice', '{}',
+  perform pg_temp.rec('unmask: the CMO (the DPO) is told, with the fixed notice', '{}',
+    (select payload::text from public.notifications where recipient_id = v_cmo and template = 'community_unmask_notice' limit 1));
+  perform pg_temp.rec('unmask: anyone the CMO added is told too, with the same fixed notice', '{}',
     (select payload::text from public.notifications where recipient_id = v_dpo and template = 'community_unmask_notice' limit 1));
   update public.community_safety_signals set created_at = now() - interval '90 days' where id = (select id from public.community_safety_signals where post_id = v_post_for_signal);
   perform pg_temp.rec('unmask: a concern older than the window no longer allows it', 'no_safety_signal',

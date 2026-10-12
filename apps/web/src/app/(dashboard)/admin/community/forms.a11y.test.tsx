@@ -7,7 +7,6 @@ jest.mock("./actions", () => {
   return {
     createGroupAction: ok, editGroupAction: ok, setGroupStatusAction: ok, saveTopicAction: ok, grantStaffAction: ok, revokeStaffAction: ok,
     saveRuleAction: ok, deleteRuleAction: ok, setGroupCapAction: ok, savePromptAction: ok, endPromptAction: ok, saveHostsAction: ok, activateRuleSetAction: ok, newDraftAction: ok, unpinAction: ok,
-    setDpoAction: jest.fn(async () => ({ ok: true, message: "Done." })),
     unmaskAction: jest.fn(async () => ({ ok: true, message: "Recorded.", result: { profile_id: "p-1", full_name: "Ada Obi" } })),
   };
 });
@@ -18,7 +17,6 @@ import { TopicForm } from "./topic-form";
 import { GrantStaffForm, RevokeStaffForm } from "./staff-forms";
 import { ActivateForm, AddRuleForm, DeleteRuleForm, HostsForm, NewDraftForm } from "./rule-forms";
 import { UnmaskForm } from "./unmask-form";
-import { NameDpoForm, RemoveDpoForm } from "./dpo-forms";
 import { UnpinForm } from "./unpin-form";
 
 const topics = [{ code: "heart", label: "Heart health" }];
@@ -83,10 +81,5 @@ describe("community admin forms accessibility", () => {
     expect(screen.getByText(/data protection officer were told/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Clear this result" }));
     expect(screen.queryByText("Ada Obi")).toBeNull();
-  });
-  it("dpo forms", async () => {
-    await expectNoA11yViolations(<NameDpoForm candidates={[{ id: "p1", full_name: "Ada Obi", role: "admin" }]} />);
-    await expectNoA11yViolations(<NameDpoForm candidates={null} />);
-    await expectNoA11yViolations(<RemoveDpoForm id="p1" who="Ada Obi" />);
   });
 });

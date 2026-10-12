@@ -427,12 +427,14 @@ begin
   return jsonb_build_object('status', 'ok', 'profile_id', m.profile_id, 'full_name', v_name);
 end $$;
 
--- The data protection officer is told of every unmask. An admin names them.
+-- The Chief Medical Officer is the data protection officer and is told of every unmask (see community_admin_unmask). The CMO may also add
+-- someone else to the notice list later; until then this list is empty.
 create or replace function public.community_admin_set_dpo(p_profile_id uuid, p_on boolean) returns jsonb
 language plpgsql volatile security definer set search_path = '' as $$
 begin
   if (select auth.uid()) is null then raise exception 'sign in required' using errcode = '28000'; end if;
-  if not private.is_admin() then raise exception 'admins only' using errcode = '42501'; end if;
+  -- For now the Chief Medical Officer IS the data protection officer (lean company); only the CMO may add anyone else to the notice list.
+  if not private.credential_is_cmo() then raise exception 'the Chief Medical Officer only' using errcode = '42501'; end if;
   if coalesce(p_on, false) then
     if not exists (select 1 from public.profiles where id = p_profile_id and is_active) then return jsonb_build_object('status', 'refused', 'reason', 'no_such_member'); end if;
     insert into public.community_dpo (profile_id, set_by) values (p_profile_id, (select auth.uid())) on conflict do nothing;
@@ -448,7 +450,7 @@ language plpgsql stable security definer set search_path = '' as $$
 begin
   if (select auth.uid()) is null then raise exception 'sign in required' using errcode = '28000'; end if;
   if not private.community_can_configure() then raise exception 'admins and the Chief Medical Officer only' using errcode = '42501'; end if;
-  return jsonb_build_object('dpo', coalesce((select jsonb_agg(jsonb_build_object('profile_id', d.profile_id, 'name', p.full_name, 'set_at', d.set_at) order by d.set_at)
+  return jsonb_build_object('cmo_is_dpo', true, 'dpo', coalesce((select jsonb_agg(jsonb_build_object('profile_id', d.profile_id, 'name', p.full_name, 'set_at', d.set_at) order by d.set_at)
                                                 from public.community_dpo d join public.profiles p on p.id = d.profile_id), '[]'::jsonb));
 end $$;
 
