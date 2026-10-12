@@ -930,3 +930,11 @@ s36j_cmo_may_approve_payouts.sql
 s28c_pharmacy_extras.sql
 # OQ-261: home delivery removed from the database (Part C.2). Every removed column, the attempts table, three types, four functions and two triggers are gone; pharmacy_order_status is exactly the collection set and a delivery value cannot be written; the five status triggers are back and a dispensed or unavailable order still queues its one in-app notice and no delivery notice is ever queued; logistics_partners, the courier and cold-chain columns and the logistics permissions are kept; the recreated functions keep authenticated and service_role and refuse anon and public; a pharmacist updates their pharmacy with the eight-argument function and one with no pharmacy is refused; the operations summary counts dispensed, not delivered. Sabotage: a removed column added back and the old nine-argument function recreated, each flipping its check.
 oq261_remove_home_delivery.sql
+# SR2a: pg_cron run-history clean-up. 7 days kept for successful runs, 30 for failed, running never; scheduled daily; no client role may execute it; a failing run opens exactly one sev3 incident and returns the error. Sabotage: a 7 day rule applied to failed runs deletes the 20 day old failure, so the keep check can fail.
+sr2a_cron_history_cleanup.sql
+# SR2c: 25 foreign-key indexes on the hot tables, one proven duplicate index dropped, five RLS policies wrapped in (select auth.uid()). Owner still sees their row, a stranger does not. Sabotage: policy opened to true lets the stranger in.
+sr2c_hot_table_indexes_and_initplan.sql
+# SR2d: the overdue-task sweep condition is rewritten so it can use an index (same ids selected, grace 0 and 15, 80k rows); four hot-path indexes exist; no client role can run the sweep. Sabotage: the old expression gets no Index Cond on due_at.
+sr2d_overdue_sweep_sargable_and_hot_indexes.sql
+# SR1: public.platform_health_snapshot() for the deep health route: service_role only, every section present, an unprocessed payment event older than 5 minutes is counted and a fresh or processed one is not, an overdue real task is counted and an is_test one is not, an unacknowledged page is aged. Sabotage: without the is_test filter both tasks would count.
+sr1_platform_health_snapshot.sql

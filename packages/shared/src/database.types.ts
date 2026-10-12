@@ -46077,6 +46077,7 @@ export type Database = {
       }
       ops_system_health: { Args: never; Returns: Json }
       ops_today_summary: { Args: never; Returns: Json }
+      platform_health_snapshot: { Args: never; Returns: Json }
       override_clinical_rule_action: {
         Args: { p_action_id: string; p_reason: string }
         Returns: string

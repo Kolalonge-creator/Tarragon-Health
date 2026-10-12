@@ -37,6 +37,7 @@ import type { TemplateRender } from "./templates.ts";
 import { describeViolations, lintRenderFn, lintText } from "../_shared/notifications/neutral.ts";
 import { decide, pushEnvelope } from "../_shared/notifications/delivery.ts";
 import type { QuietSettings } from "../_shared/notifications/delivery.ts";
+import { withSentry } from "../_shared/observability/sentry.ts";
 
 const BATCH_SIZE = 50;
 const MAX_ATTEMPTS = 3;
@@ -563,7 +564,7 @@ async function fetchPreventiveCarePlanPdf(patientId: string): Promise<EmailAttac
   }
 }
 
-Deno.serve(async () => {
+Deno.serve(withSentry("send-pending-notifications", async () => {
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -1092,4 +1093,4 @@ Deno.serve(async () => {
   }
 
   return Response.json({ processed: rows.length, sent, retried, failed, suppressed, deferred });
-});
+}));
