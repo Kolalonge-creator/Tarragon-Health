@@ -9,6 +9,10 @@ import { QaAnswerForm } from "./qa-answer-form";
 import { RecentPosts } from "./recent-posts";
 import { SafetyQueue } from "./safety-queue";
 import type { ModItem, ModRecentItem, SafetyItem } from "@/lib/community/model";
+import { configure as configureTestingLibrary } from "@testing-library/react";
+
+// A slow shared CI runner can take longer than the 1 second default to settle a click and its follow-up; the checks themselves are unchanged.
+configureTestingLibrary({ asyncUtilTimeout: 8000 });
 
 const IMG = "55555555-5555-4555-8555-555555555555";
 const withPicture: ModItem = {

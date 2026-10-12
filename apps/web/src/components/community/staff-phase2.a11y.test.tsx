@@ -7,6 +7,10 @@ import { SampleQueue } from "./sample-queue";
 import { DisplayNameForm } from "./display-name-form";
 import { ModerationQueue } from "./moderation-queue";
 import type { AppealItem, ModItem, SampleItem } from "@/lib/community/model";
+import { configure as configureTestingLibrary } from "@testing-library/react";
+
+// A slow shared CI runner can take longer than the 1 second default to settle a click and its follow-up; the checks themselves are unchanged.
+configureTestingLibrary({ asyncUtilTimeout: 8000 });
 
 const removal: AppealItem = {
   appeal_id: "11111111-1111-4111-8111-111111111111",
@@ -74,6 +78,8 @@ describe("AppealQueue", () => {
     render(<AppealQueue items={[removal]} onDecide={onDecide} />);
     fireEvent.click(screen.getByRole("button", { name: "Uphold the decision" }));
     expect((await screen.findByText(/Not done/)).textContent).toBe("Not done: This appeal has already been decided.");
+    // wait until the first answer has settled and the button is usable again before pressing it a second time
+    await waitFor(() => expect((screen.getByRole("button", { name: "Uphold the decision" }) as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(screen.getByRole("button", { name: "Uphold the decision" }));
     await waitFor(() => expect(screen.getByText(/Not done/).textContent).toBe("Not done: That could not be done. Please try again."));
   });

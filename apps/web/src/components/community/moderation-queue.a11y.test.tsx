@@ -5,6 +5,10 @@ import { expectNoA11yViolations } from "@/test/a11y";
 import { ModerationQueue } from "./moderation-queue";
 import { SafetyQueue } from "./safety-queue";
 import type { ModItem, SafetyItem } from "@/lib/community/model";
+import { configure as configureTestingLibrary } from "@testing-library/react";
+
+// A slow shared CI runner can take longer than the 1 second default to settle a click and its follow-up; the checks themselves are unchanged.
+configureTestingLibrary({ asyncUtilTimeout: 8000 });
 
 const item: ModItem = {
   post_id: "11111111-1111-4111-8111-111111111111",

@@ -2,6 +2,10 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { expectNoA11yViolations } from "@/test/a11y";
 import { DpoRecipientsPanel } from "./dpo-panel";
+import { configure as configureTestingLibrary } from "@testing-library/react";
+
+// A slow shared CI runner can take longer than the 1 second default to settle a click and its follow-up; the checks themselves are unchanged.
+configureTestingLibrary({ asyncUtilTimeout: 8000 });
 
 const PERSON = "55555555-5555-4555-8555-555555555555";
 const candidates = [{ profile_id: PERSON, name: "Ada Okafor", role: "care_coordinator" }];

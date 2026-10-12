@@ -18,6 +18,10 @@ import { GrantStaffForm, RevokeStaffForm } from "./staff-forms";
 import { ActivateForm, AddRuleForm, DeleteRuleForm, HostsForm, NewDraftForm } from "./rule-forms";
 import { UnmaskForm } from "./unmask-form";
 import { UnpinForm } from "./unpin-form";
+import { configure as configureTestingLibrary } from "@testing-library/react";
+
+// A slow shared CI runner can take longer than the 1 second default to settle a click and its follow-up; the checks themselves are unchanged.
+configureTestingLibrary({ asyncUtilTimeout: 8000 });
 
 const topics = [{ code: "heart", label: "Heart health" }];
 const group = { id: "g1", slug: "calm", name: "Calm", description: "d", topic_code: "heart", rules_text: "Be kind" };

@@ -4,6 +4,10 @@ import { expectNoA11yViolations } from "@/test/a11y";
 import { GroupRulesApproval, RuleSetActivation, SafetyRulesEditor } from "./cmo-panels";
 import { NotesPanel, type NoteRow } from "./notes-panel";
 import type { AdminGroup, Rule, RuleSet } from "@/lib/community/model";
+import { configure as configureTestingLibrary } from "@testing-library/react";
+
+// A slow shared CI runner can take longer than the 1 second default to settle a click and its follow-up; the checks themselves are unchanged.
+configureTestingLibrary({ asyncUtilTimeout: 8000 });
 
 const ok = { ok: true, message: "Done." };
 

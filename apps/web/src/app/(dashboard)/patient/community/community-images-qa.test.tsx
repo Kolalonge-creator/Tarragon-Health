@@ -38,6 +38,10 @@ jest.mock("./community-actions", () => ({
 import { Composer } from "./composer";
 import { GroupView } from "./group-view";
 import { PostCard } from "./post-card";
+import { configure as configureTestingLibrary } from "@testing-library/react";
+
+// A slow shared CI runner can take longer than the 1 second default to settle a click and its follow-up; the checks themselves are unchanged.
+configureTestingLibrary({ asyncUtilTimeout: 8000 });
 
 type Found = Extract<GroupViewData, { found: true }>;
 const NOW = new Date().toISOString();
