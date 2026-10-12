@@ -60,7 +60,7 @@ export default async function CommunityStaffPage() {
         <h2 id="dpo" className={h2}>Data protection officer</h2>
         <p className="mt-2 max-w-3xl text-sm text-charcoal-ink/70">
           For now the Chief Medical Officer is the data protection officer. Every time a member&apos;s name is looked up, the Chief Medical Officer is told with a short notice that carries no name and no content.
-          Only the Chief Medical Officer can change this.
+          Only the Chief Medical Officer can change this. It is not needed to switch Community on.
         </p>
       </section>
     </div>
