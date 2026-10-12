@@ -12,8 +12,8 @@ grant all on results to public;
 create function pg_temp.ck(p_phase text, p_name text, p_expected text, p_actual text) returns void language sql as
 $$ insert into results values (p_phase, p_name, p_expected, p_actual) $$;
 create function pg_temp.run(p_job bigint, p_status text, p_age interval, p_msg text) returns void language sql as
-$$ insert into cron.job_run_details (jobid, database, username, command, status, return_message, start_time, end_time)
-   values (p_job, 'postgres', 'postgres', 'sr2-proof', p_status, p_msg, now() - p_age, now() - p_age) $$;
+$$ insert into cron.job_run_details (runid, jobid, database, username, command, status, return_message, start_time, end_time)
+   values (9000000000 + (random() * 800000000)::bigint, p_job, 'postgres', 'postgres', 'sr2-proof', p_status, p_msg, now() - p_age, now() - p_age) $$;
 create function pg_temp.left_n(p_note text) returns text language sql as
 $$ select count(*)::text from cron.job_run_details where command = 'sr2-proof' and return_message = p_note $$;
 
