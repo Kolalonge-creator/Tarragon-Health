@@ -592,6 +592,25 @@ export const TEMPLATE_MAP: Record<
     smsText: "A written message needs attention. Open your queue.",
     pushUrl: "/clinician/async-consults",
   }),
+  // Two-tier model, monthly follow-up. Neutral by design (INV-07): no condition, reading, result or medicine. Push, in-app and email
+  // only, never SMS (INV-08); the smsText field below is the push text and is never sent as an SMS.
+  followup_times_offered: () => ({
+    smsText: "Your care team has offered times for your monthly check-in. Open the Tarragon Health app to choose one.",
+    pushUrl: "/patient/appointments",
+  }),
+  followup_offer_withdrawn: () => ({
+    smsText: "The times offered for your check-in have changed. Your care team will send new ones.",
+    pushUrl: "/patient/appointments",
+  }),
+  followup_month_missed: () => ({
+    smsText: "Your monthly check-in is waiting. Open the Tarragon Health app to pick a time.",
+    pushUrl: "/patient/appointments",
+    email: neutralMail("Your monthly check-in is waiting", ["A month has passed without a check-in booked. Open the Tarragon Health app to pick a time, or your care team will offer some."]),
+  }),
+  followup_slot_picked: () => ({
+    smsText: "A member picked one of your offered times. Open your monthly check-ins.",
+    pushUrl: "/clinician/followups",
+  }),
   note_correction_requested: () => ({
     smsText: "A patient asked for a correction to a signed note. Open your messages to answer.",
     pushUrl: "/clinician/messages",
