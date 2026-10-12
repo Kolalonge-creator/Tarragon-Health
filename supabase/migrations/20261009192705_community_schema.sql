@@ -262,6 +262,12 @@ begin
     end if;
     return new;
   end if;
+  -- A moderator turning a reply into its own post (community_mod_split_reply sets this for its own transaction only): the parent link
+  -- goes, and nothing else about the post may change.
+  if coalesce(current_setting('community.split_reply', true), '') = 'on' and old.parent_post_id is not null and new.parent_post_id is null
+     and (new.group_id, new.author_handle, new.created_at, new.body, new.author_profile_id) is not distinct from (old.group_id, old.author_handle, old.created_at, old.body, old.author_profile_id) then
+    return new;
+  end if;
   if new.group_id is distinct from old.group_id
      or new.author_handle is distinct from old.author_handle
      or new.parent_post_id is distinct from old.parent_post_id

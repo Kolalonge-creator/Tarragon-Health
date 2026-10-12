@@ -97,6 +97,7 @@ begin
 
   -- 2. Fixtures: what must be blocked, held, or allowed ---------------------------------------------------------------------
   create temp table fx(kind text, txt text, expected text) on commit drop;
+  create temp table fx2(kind text, txt text) on commit drop;
   insert into fx values
     -- phone and account numbers, in the ways people try
     ('phone', 'call me on 08031234567', 'block'), ('phone', '0803 123 4567', 'block'), ('phone', '0803-123-4567', 'block'),
@@ -249,6 +250,42 @@ begin
   perform pg_temp.rec('a retired set cannot be revived', '42501', pg_temp.try('update public.community_filter_rule_sets set status = ''active'' where version = 1'));
   perform pg_temp.rec('a rule set cannot be deleted', '42501', pg_temp.try('delete from public.community_filter_rule_sets where version = 1'));
 
+
+  -- 3b. The starter safety rules the CMO approved (one click to load, then the CMO signs by activating) --------------------------------
+  perform pg_temp.act(v_admin);
+  perform pg_temp.rec('an admin cannot load the starter safety rules', '42501', pg_temp.try('select public.community_cmo_load_starter_safety_rules()'));
+  perform pg_temp.back();
+  perform pg_temp.act(v_cmo);
+  v_j := public.community_cmo_load_starter_safety_rules();
+  perform pg_temp.back();
+  perform pg_temp.rec('the CMO loads them into a new draft', 'ok', (v_j ->> 'status'));
+  v_n := (v_j ->> 'version')::int;
+  perform pg_temp.rec('...which is only a draft', 'draft', (select status from public.community_filter_rule_sets where version = v_n));
+  perform pg_temp.rec('...carrying the approved emergency and self-harm rules', 'true',
+    ((select count(*) from public.community_filter_rules where rule_set_version = v_n and action = 'safety') >= 16)::text);
+  perform pg_temp.rec('...and the four contact detectors', '4',
+    (select count(*)::text from public.community_filter_rules where rule_set_version = v_n and kind = 'detector'));
+  perform pg_temp.act(v_cmo);
+  perform pg_temp.rec('loading twice opens the same draft', 'already_loaded', (public.community_cmo_load_starter_safety_rules() ->> 'status'));
+  perform pg_temp.back();
+  perform pg_temp.act(v_admin);
+  perform pg_temp.rec('an admin cannot activate it (it carries safety rules)', '42501', pg_temp.try(format('select public.community_admin_rule_set_activate(%s)', v_n)));
+  perform pg_temp.back();
+  perform pg_temp.act(v_cmo);
+  perform public.community_admin_rule_set_activate(v_n);
+  perform pg_temp.back();
+  perform pg_temp.rec('the CMO signs it by activating it', 'active', (select status from public.community_filter_rule_sets where version = v_n));
+  insert into fx2 values ('safety', 'I want to die'), ('safety', 'i wish i was dead'), ('safety', 'thinking about suicide'), ('safety', 'I keep making myself sick'),
+    ('safety', 'I have not eaten in days'), ('safety', 'taking laxatives to lose weight'), ('safety', 'I overdose on my tablets'),
+    ('safety', 'I have chest pain right now'), ('safety', 'I cannot breathe'), ('safety', 'my face is drooping'), ('safety', 'slurred speech since morning'),
+    ('safety', 'my blood sugar is very low and I am shaking'), ('safety', 'my bp is over 200 with a bad headache'),
+    ('not', 'my bp today was 140/90 and yesterday 150/95'), ('not', 'sugar 5.6 mmol this morning'), ('not', 'I walked 10000 steps today'),
+    ('not', 'my mum had chest pain last year'), ('not', 'I stopped adding salt and it helped'), ('not', 'my doctor changed my tablets'),
+    ('not', 'water pills make me visit the toilet a lot'), ('not', 'I skipped lunch today'), ('not', 'readings 110 125 130 140 this week');
+  perform pg_temp.rec('every approved safety phrase is decided as safety', '0',
+    (select count(*)::text from fx2 where kind = 'safety' and private.community_scan(txt) ->> 'decision' <> 'safety'));
+  perform pg_temp.rec('everyday blood pressure, sugar and diet talk is never decided as safety', '0',
+    (select count(*)::text from fx2 where kind = 'not' and private.community_scan(txt) ->> 'decision' = 'safety'));
 
   -- 4. SABOTAGE: break each detector and prove the matching checks flip --------------------------------------------------------
   create or replace function private.community_detect_phone(p_norm text) returns boolean language sql immutable as 'select false';

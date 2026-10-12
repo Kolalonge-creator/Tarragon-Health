@@ -9,7 +9,7 @@ import { AppealQueue } from "@/components/community/appeal-queue";
 import { SampleQueue } from "@/components/community/sample-queue";
 import { DisplayNameForm } from "@/components/community/display-name-form";
 import {
-  appealDecideAction, modDecideAction, modRecentAction, modRemoveRecentAction, modSanctionAction, safetyDecideAction, sampleReviewAction, setDisplayNameAction,
+  appealDecideAction, modDecideAction, modRecentAction, modRemoveRecentAction, modSplitReplyAction, modSanctionAction, safetyDecideAction, sampleReviewAction, setDisplayNameAction,
 } from "@/components/community/staff-actions";
 
 export const metadata = { title: "Community" };
@@ -55,7 +55,7 @@ export default async function CareCoordinatorCommunityPage({ searchParams }: { s
     const { data, error } = await supabase.rpc("community_mod_recent", {});
     const parsed = modRecentSchema.safeParse(data);
     content =
-      error || !parsed.success ? failed : <RecentPosts initial={parsed.data.items} onLoadOlder={modRecentAction} onRemove={modRemoveRecentAction} />;
+      error || !parsed.success ? failed : <RecentPosts initial={parsed.data.items} onLoadOlder={modRecentAction} onRemove={modRemoveRecentAction} onSplit={modSplitReplyAction} />;
   } else if (tab === "appeals") {
     const { data, error } = await supabase.rpc("community_appeal_queue");
     const parsed = appealQueueSchema.safeParse(data);

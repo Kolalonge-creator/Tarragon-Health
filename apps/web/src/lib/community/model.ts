@@ -57,6 +57,7 @@ export const membershipSchema = z.discriminatedUnion("status", [
     rules_current: z.boolean(),
     notifications_muted: z.boolean(),
     digest_opt_in: z.boolean().optional(),
+    new_member: z.boolean().optional(),
   }),
 ]);
 export type Membership = z.infer<typeof membershipSchema>;
@@ -299,6 +300,7 @@ export const HOLD_REASON_LABEL: Readonly<Record<string, string>> = {
   abuse: "Possible threat or abuse",
   spam: "Possible spam",
   reported: "Hidden after reports",
+  image_flagged: "An automatic check flagged this picture. A person still decides.",
   image: "Has a picture: every picture is checked first",
   eating_disorder: "Possible eating-disorder wording",
 };
@@ -731,3 +733,30 @@ export const promptsAdminSchema = z.object({
   ),
 });
 export type PromptRow = z.infer<typeof promptsAdminSchema>["prompts"][number];
+
+// ---------------------------------------------------------------------------
+// Search inside the member's own groups (COM-22). A made-up name, the group's name and words; never an account id.
+// ---------------------------------------------------------------------------
+export const searchResultSchema = z.discriminatedUnion("ok", [
+  z.object({
+    ok: z.literal(true),
+    items: z.array(
+      z.object({
+        id: z.string(),
+        group_id: z.string(),
+        group_name: z.string(),
+        group_slug: z.string(),
+        author_handle: z.string(),
+        author_avatar: z.string().nullable().optional(),
+        is_mine: z.boolean(),
+        body: z.string(),
+        created_at: z.string(),
+        is_reply: z.boolean(),
+      }),
+    ),
+    has_more: z.boolean(),
+  }),
+  z.object({ ok: z.literal(false), reason: z.string().optional() }),
+]);
+export type SearchResult = z.infer<typeof searchResultSchema>;
+export type SearchHit = Extract<SearchResult, { ok: true }>["items"][number];

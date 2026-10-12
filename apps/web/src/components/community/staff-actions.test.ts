@@ -3,7 +3,7 @@ const rpc = jest.fn();
 jest.mock("@/lib/supabase/server", () => ({ createClient: jest.fn().mockResolvedValue({ rpc: (...a: unknown[]) => rpc(...a) }) }));
 
 import { revalidatePath } from "next/cache";
-import { appealDecideAction, modDecideAction, modRecentAction, modRemoveRecentAction, modSanctionAction, safetyDecideAction, sampleReviewAction, setDisplayNameAction } from "./staff-actions";
+import { appealDecideAction, modDecideAction, modRecentAction, modRemoveRecentAction, modSplitReplyAction, modSanctionAction, safetyDecideAction, sampleReviewAction, setDisplayNameAction } from "./staff-actions";
 
 const POST = "11111111-1111-4111-8111-111111111111";
 const SIGNAL = "22222222-2222-4222-8222-222222222222";
@@ -289,5 +289,24 @@ describe("modRemoveRecentAction", () => {
     const r = await modRemoveRecentAction({ postId: POST, reasonCode: "other" });
     expect(r).toEqual({ ok: false, message: "Only a safety reviewer can handle this one." });
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+describe("modSplitReplyAction", () => {
+  it("turns a reply into its own post", async () => {
+    rpc.mockResolvedValue({ data: { status: "split" }, error: null });
+    const r = await modSplitReplyAction({ postId: POST });
+    expect(r).toEqual({ ok: true, message: "Done. The reply is now its own post in the group." });
+    expect(rpc).toHaveBeenCalledWith("community_mod_split_reply", { p_post_id: POST });
+  });
+  it("rejects a bad id before any call", async () => {
+    expect((await modSplitReplyAction({ postId: "x" })).ok).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("says in plain words when it is not a reply", async () => {
+    rpc.mockResolvedValue({ data: { status: "refused", reason: "not_a_reply" }, error: null });
+    const r = await modSplitReplyAction({ postId: POST });
+    expect(r.ok).toBe(false);
+    expect(r.message).not.toMatch(/not_a_reply/);
   });
 });

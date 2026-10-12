@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 const rpc = jest.fn<(fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>>();
 const upload = jest.fn<(path: string, bytes: Uint8Array, opts: unknown) => Promise<{ error: unknown }>>();
 const remove = jest.fn<(paths: string[]) => Promise<{ error: unknown }>>();
+const serviceRpc = jest.fn<(fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>>();
+const scan = jest.fn<(bytes: Uint8Array, mime: string) => Promise<"clear" | "flag" | "unavailable">>();
 let authenticated = true;
 
 jest.mock("@/lib/community/api-auth", () => ({
@@ -13,8 +15,9 @@ jest.mock("@/lib/community/api-auth", () => ({
       : { response: new Response(JSON.stringify({ error: "Please sign in again." }), { status: 401 }) },
 }));
 jest.mock("@/lib/supabase/service-role", () => ({
-  createServiceRoleClient: () => ({ storage: { from: () => ({ upload, remove }) } }),
+  createServiceRoleClient: () => ({ rpc: serviceRpc, storage: { from: () => ({ upload, remove }) } }),
 }));
+jest.mock("@/lib/community/image-scan", () => ({ scanPicture: (b: Uint8Array, m: string) => scan(b, m) }));
 
 import { POST } from "./route";
 
@@ -42,6 +45,8 @@ beforeEach(() => {
   rpc.mockReset();
   upload.mockReset().mockResolvedValue({ error: null });
   remove.mockReset().mockResolvedValue({ error: null });
+  serviceRpc.mockReset().mockResolvedValue({ data: true, error: null });
+  scan.mockReset().mockResolvedValue("unavailable");
   authenticated = true;
 });
 
@@ -117,5 +122,39 @@ describe("POST /api/community/images", () => {
     rpc.mockImplementation(async (fn) => (fn === "community_image_precheck" ? { data: { ok: true }, error: null } : { data: null, error: { message: "relation community_posts permission denied" } }));
     const text = await (await POST(request({}))).text();
     expect(text).not.toMatch(/relation|permission|community_posts/);
+  });
+
+  describe("the automatic picture check", () => {
+    const held = { data: { status: "held", reason: "image", post_id: "44444444-4444-4444-8444-444444444444" }, error: null };
+    const pre = (fn: string) => (fn === "community_image_precheck" ? { data: { ok: true }, error: null } : held);
+
+    it("adds a flag for the moderator when the check flags the picture, and the post still goes through as held", async () => {
+      rpc.mockImplementation(async (fn) => pre(fn));
+      scan.mockResolvedValue("flag");
+      const res = await POST(request({}));
+      expect((await res.json()).status).toBe("held");
+      expect(serviceRpc).toHaveBeenCalledWith("community_mark_image_flagged", { p_post_id: "44444444-4444-4444-8444-444444444444" });
+      expect(remove).not.toHaveBeenCalled();
+    });
+    it("does nothing extra when the check is off, clear, or unavailable", async () => {
+      rpc.mockImplementation(async (fn) => pre(fn));
+      for (const v of ["unavailable", "clear"] as const) {
+        scan.mockResolvedValue(v);
+        expect((await POST(request({}))).status).toBe(200);
+      }
+      expect(serviceRpc).not.toHaveBeenCalled();
+    });
+    it("never runs on a post that was not kept (blocked or a repeat)", async () => {
+      rpc.mockImplementation(async (fn) => (fn === "community_image_precheck" ? { data: { ok: true }, error: null } : { data: { status: "blocked", reason: "contact" }, error: null }));
+      scan.mockResolvedValue("flag");
+      await POST(request({}));
+      expect(scan).not.toHaveBeenCalled();
+    });
+    it("a failure to record the flag does not fail the post", async () => {
+      rpc.mockImplementation(async (fn) => pre(fn));
+      scan.mockResolvedValue("flag");
+      serviceRpc.mockResolvedValue({ data: null, error: { message: "boom" } });
+      expect((await POST(request({}))).status).toBe(200);
+    });
   });
 });

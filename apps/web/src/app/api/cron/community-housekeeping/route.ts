@@ -10,6 +10,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
  *  3. community_orphan_files: files a day old or more that no post refers to (an upload whose post was never saved, or whose answer was
  *     lost). They are unreadable by anyone, but they are removed so uploads cannot pile up.
  *  4. community_send_digests: the opt-in weekly note. The database sends at most one per member per six days, so running daily is safe.
+ *  5. community_send_return_nudges: the gentle "a reply is waiting" reminder, once per member every 14 days, only for members who chose the weekly note.
  * None of this is needed for Community to work; it only keeps data from living longer than promised.
  */
 const REMOVE_BATCH = 50;
@@ -35,7 +36,7 @@ export async function GET(request: Request): Promise<Response> {
   if (!isCronAuthorised(authHeader)) return new Response("Not authorised", { status: 401 });
 
   const supabase = createServiceRoleClient();
-  const result = { purged_posts: 0, images_due: 0, images_removed: 0, images_failed: 0, digests: 0, orphans_found: 0, orphans_removed: 0, orphans_failed: 0, errors: [] as string[] };
+  const result = { purged_posts: 0, images_due: 0, images_removed: 0, images_failed: 0, digests: 0, nudges: 0, orphans_found: 0, orphans_removed: 0, orphans_failed: 0, errors: [] as string[] };
 
   const purge = await supabase.rpc("community_purge_expired");
   if (purge.error) result.errors.push("purge");
@@ -80,6 +81,11 @@ export async function GET(request: Request): Promise<Response> {
   const digests = await supabase.rpc("community_send_digests");
   if (digests.error) result.errors.push("digests");
   else result.digests = Number(digests.data ?? 0);
+
+  // The gentle reminder (a member who chose the weekly note and has an old unread reply): at most one per member every 14 days.
+  const nudges = await supabase.rpc("community_send_return_nudges");
+  if (nudges.error) result.errors.push("nudges");
+  else result.nudges = Number(nudges.data ?? 0);
 
   // A removal that failed is a run that did not do its job (a picture stays past its promised time), so it must not look healthy.
   if (result.images_failed > 0) result.errors.push("images_remove");

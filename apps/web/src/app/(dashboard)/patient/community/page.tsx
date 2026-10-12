@@ -31,6 +31,9 @@ export default async function CommunityPage() {
       <div className="space-y-6">
         <GroupSearch groups={list.groups} locale={uiLanguage} />
         <p>
+          <Link href="/patient/community/search" className="mr-4 inline-flex min-h-11 items-center text-sm font-medium underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green">
+            {t("community.search.link", uiLanguage)}
+          </Link>
           <Link href="/patient/community/appeals" className="text-sm font-medium underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green">
             {t("community.appeals.link", uiLanguage)}
           </Link>

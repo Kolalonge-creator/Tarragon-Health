@@ -186,6 +186,15 @@ export function GroupView({
         </section>
       ) : null}
 
+      {membership.status !== "none" && isMember && membership.new_member ? (
+        <section aria-labelledby="community-welcome-title" className="space-y-1 rounded-lg border border-brand-green/30 bg-soft-sage p-4 dark:bg-brand-green/20">
+          <h2 id="community-welcome-title" className="font-heading text-base font-semibold">
+            {t("community.welcome.title", locale)}
+          </h2>
+          <p className="text-sm leading-relaxed">{t("community.welcome.body", locale)}</p>
+        </section>
+      ) : null}
+
       {membership.status !== "none" && isMember ? (
         <section className="flex flex-wrap items-center justify-between gap-3">
           <p className="flex items-center gap-3 font-medium">

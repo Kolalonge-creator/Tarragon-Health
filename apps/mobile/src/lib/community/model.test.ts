@@ -1,5 +1,7 @@
 import { en, type MessageKey } from "@tarragon/i18n";
 import {
+  parseSearchResult,
+  isPostSearchQuery,
   APPEAL_REFUSED_KEYS,
   HELD_KEYS,
   JOIN_REFUSED_KEYS,
@@ -275,5 +277,31 @@ describe("small rules", () => {
     expect(withinEditWindow(created, 60, at(16))).toBe(true);
     expect(withinEditWindow(created, 0, at(1))).toBe(false);
     expect(withinEditWindow("not a date", 15, at(1))).toBe(false);
+  });
+});
+
+describe("search inside the member's own groups", () => {
+  it("reads a result as made-up names and words, with no account id", () => {
+    const r = parseSearchResult({
+      ok: true,
+      has_more: false,
+      items: [{ id: "p1", group_id: "g1", group_name: "High blood pressure", group_slug: "hbp", author_handle: "calm-heron-42", is_mine: false, body: "a walk helps", created_at: "2026-10-12T10:00:00Z", is_reply: false }],
+    });
+    expect(r && r.ok && r.items[0]?.author_handle).toBe("calm-heron-42");
+    expect(JSON.stringify(r)).not.toMatch(/profile/);
+  });
+  it("reads a refusal and rejects a malformed reply", () => {
+    expect(parseSearchResult({ ok: false, reason: "bad_query" })).toEqual({ ok: false, reason: "bad_query" });
+    expect(parseSearchResult({ ok: true, items: [{ id: 1 }], has_more: false })).toBeUndefined();
+    expect(parseSearchResult("nope")).toBeUndefined();
+  });
+  it("a search needs 3 to 80 letters", () => {
+    expect(isPostSearchQuery("ab")).toBe(false);
+    expect(isPostSearchQuery("  walk ")).toBe(true);
+    expect(isPostSearchQuery("x".repeat(81))).toBe(false);
+  });
+  it("knows a member who has just joined", () => {
+    const g = parseGroupView({ found: true, group: { id: "g", slug: "s", name: "N", description: "d", topic_code: "t", topic_label: "T", status: "active", rules_text: "r", rules_version: 1, join_mode: "open" }, membership: { status: "active", handle: "a-b-12", avatar_code: "leaf", rules_current: true, notifications_muted: false, new_member: true }, pinned: [], team: [], prompts: [], qa: null, limits: { post_max_chars: 100, edit_window_minutes: 15, image_max_bytes: 100 } });
+    expect(g && g.found && g.membership.status !== "none" && g.membership.new_member).toBe(true);
   });
 });

@@ -93,6 +93,7 @@ export type Membership =
       rules_current: boolean;
       notifications_muted: boolean;
       digest_opt_in?: boolean;
+      new_member?: boolean;
     };
 const memberRowParser = object({
   status: oneOf(["pending", "active", "left", "suspended", "banned"] as const),
@@ -101,6 +102,7 @@ const memberRowParser = object({
   rules_current: boolean,
   notifications_muted: boolean,
   digest_opt_in: optional(boolean),
+  new_member: optional(boolean),
 });
 const membershipParser: Parser<Membership> = (u) => {
   if (!isRecord(u)) return { ok: false };
@@ -556,3 +558,28 @@ export function withinEditWindow(createdAtIso: string, editWindowMinutes: number
   if (Number.isNaN(created)) return false;
   return nowMs - created <= editWindowMinutes * 60_000;
 }
+
+// Search inside the member's own groups (COM-22): a made-up name, the group's name and words, never an account id.
+export interface SearchHit {
+  id: string;
+  group_name: string;
+  group_slug: string;
+  author_handle: string;
+  is_mine: boolean;
+  body: string;
+  created_at: string;
+  is_reply: boolean;
+}
+export type SearchResult = { ok: false; reason?: string } | { ok: true; items: SearchHit[]; has_more: boolean };
+const searchParser: Parser<SearchResult> = (u) => {
+  if (!isRecord(u)) return { ok: false };
+  if (u["ok"] === false) return object({ ok: literal(false), reason: optional(string) })(u);
+  return object({
+    ok: literal(true),
+    items: array(object({ id: string, group_name: string, group_slug: string, author_handle: string, is_mine: boolean, body: string, created_at: string, is_reply: boolean })),
+    has_more: boolean,
+  })(u);
+};
+export const parseSearchResult = (data: unknown): SearchResult | undefined => parse(searchParser, data);
+/** A search needs 3 to 80 characters, as the database says. */
+export const isPostSearchQuery = (q: string): boolean => q.trim().length >= 3 && q.trim().length <= 80;

@@ -53,6 +53,8 @@ export type RecentPage = { ok: true; items: ModRecentItem[] } | { ok: false; mes
 export interface RecentCallbacks {
   onLoadOlder: (input: { before: string; groupId?: string }) => Promise<RecentPage>;
   onRemove: (input: { postId: string; reasonCode: RecentRemoveReasonCode }) => Promise<StaffActionResult>;
+  /** Turns a reply into its own post in the same group. Optional so a screen that cannot split simply shows no button. */
+  onSplit?: (input: { postId: string }) => Promise<StaffActionResult>;
 }
 export interface SafetyCallbacks {
   onDecide: (input: { signalId: string; decision: SafetyDecision }) => Promise<StaffActionResult>;

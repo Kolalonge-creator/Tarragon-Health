@@ -174,7 +174,7 @@ begin
        where n.nspname in ('public', 'private') and p.proname like 'community\_%' and coalesce(p.proacl::text, '') ~ '(^\{|,)=X'), 'none'));
   perform pg_temp.rec('a signed-in user can execute every public community function except the two scheduled jobs', 'none',
     coalesce((select string_agg(p.proname, ',') from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-       where n.nspname = 'public' and p.proname like 'community\_%' and p.proname not in ('community_purge_expired', 'community_send_digests', 'community_orphan_files', 'community_images_due', 'community_images_mark_deleted', 'community_overdue_work', 'community_notify_overdue', 'community_job_heartbeat', 'community_image_path') and not has_function_privilege('authenticated', p.oid, 'EXECUTE')), 'none'));
+       where n.nspname = 'public' and p.proname like 'community\_%' and p.proname not in ('community_purge_expired', 'community_send_digests', 'community_orphan_files', 'community_images_due', 'community_images_mark_deleted', 'community_overdue_work', 'community_notify_overdue', 'community_job_heartbeat', 'community_image_path', 'community_send_return_nudges', 'community_mark_image_flagged') and not has_function_privilege('authenticated', p.oid, 'EXECUTE')), 'none'));
   perform pg_temp.rec('a signed-in user cannot execute the purge', 'false', has_function_privilege('authenticated', 'public.community_purge_expired()', 'EXECUTE')::text);
   perform pg_temp.rec('only the service role may run the purge', 'true', has_function_privilege('service_role', 'public.community_purge_expired()', 'EXECUTE')::text);
   perform pg_temp.rec('only the service role may run the digest job', 'true,false',
@@ -260,7 +260,7 @@ begin
   perform pg_temp.rec('a member joins and is given a system-issued handle', 'joined', (v_j ->> 'status'));
   perform pg_temp.rec('the handle is adjective-noun-number', 'true', (v_handle ~ '^[a-z]{3,12}-[a-z]{3,12}-[0-9]{2,3}$')::text);
   perform pg_temp.rec('joining again gives the same handle', v_handle, (pg_temp.asj(v_p1, format('select public.community_join_group(%L, %s, true)', v_g, v_rules)) ->> 'handle'));
-  perform pg_temp.rec('the consent version is recorded', 'DRAFT-UNAPPROVED', (select consent_version from public.community_memberships where group_id = v_g and profile_id = v_p1));
+  perform pg_temp.rec('the consent version is recorded', 'v1-2026-10-12-founder-cmo', (select consent_version from public.community_memberships where group_id = v_g and profile_id = v_p1));
   perform pg_temp.asj(v_p2, format('select public.community_join_group(%L, %s, true)', v_g, v_rules));
 
   -- 6. Identity never leaves the database ----------------------------------------------------------------------------------------

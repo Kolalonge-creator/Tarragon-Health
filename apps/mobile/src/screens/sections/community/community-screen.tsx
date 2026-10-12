@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { BackHandler, View } from "react-native";
 import type { MessageKey } from "@tarragon/i18n";
-import { loadGroupList, loadMyActions, searchGroups } from "@/lib/community/api";
+import { loadGroupList, loadMyActions, searchGroups, searchPosts } from "@/lib/community/api";
 import { communityGate } from "@/lib/community/entry";
-import { isSearchQuery, memberCountKey, type GroupList, type GroupSummary, type MyActions } from "@/lib/community/model";
+import { isPostSearchQuery, isSearchQuery, memberCountKey, type GroupList, type GroupSummary, type MyActions, type SearchResult } from "@/lib/community/model";
 import type { SectionId } from "@/lib/sections";
 import { space, useTheme } from "@/ui/design";
 import { AppText, Badge, Button, Card, Field, InlineAlert, Screen, Skeleton, SkeletonGroup } from "@/ui/kit";
@@ -11,7 +11,7 @@ import { AppealsView } from "./appeals-view";
 import { Status, TextAction, useCopy } from "./common";
 import { GroupDetail } from "./group-detail";
 
-type Route = { view: "list" } | { view: "group"; slug: string } | { view: "appeals" };
+type Route = { view: "list" } | { view: "group"; slug: string } | { view: "appeals" } | { view: "search" };
 
 /**
  * Community: members-only topic groups (docs/COMMUNITY_SPEC.md). The menu entry only exists while Community is open for an adult with
@@ -35,7 +35,7 @@ export function CommunityScreen({ onNavigate }: { onNavigate: (section: SectionI
   return (
     <Screen>
       {route.view !== "list" ? <TextAction label={copy("common.back")} accessibilityLabel={`${copy("common.back")}: ${copy("community.page.title")}`} onPress={() => setRoute({ view: "list" })} /> : null}
-      {route.view === "list" ? <GroupListView onOpen={(slug) => setRoute({ view: "group", slug })} onOpenAppeals={() => setRoute({ view: "appeals" })} /> : null}
+      {route.view === "list" ? <GroupListView onOpen={(slug) => setRoute({ view: "group", slug })} onOpenAppeals={() => setRoute({ view: "appeals" })} onOpenSearch={() => setRoute({ view: "search" })} /> : null}
       {route.view === "group" ? (
         <GroupDetail
           slug={route.slug}
@@ -45,11 +45,12 @@ export function CommunityScreen({ onNavigate }: { onNavigate: (section: SectionI
         />
       ) : null}
       {route.view === "appeals" ? <AppealsPage /> : null}
+      {route.view === "search" ? <PostSearchPage onOpen={(slug) => setRoute({ view: "group", slug })} /> : null}
     </Screen>
   );
 }
 
-function GroupListView({ onOpen, onOpenAppeals }: { onOpen: (slug: string) => void; onOpenAppeals: () => void }) {
+function GroupListView({ onOpen, onOpenAppeals, onOpenSearch }: { onOpen: (slug: string) => void; onOpenAppeals: () => void; onOpenSearch: () => void }) {
   const copy = useCopy();
   const [list, setList] = useState<GroupList | null | undefined>(undefined);
   const [groups, setGroups] = useState<readonly GroupSummary[]>([]);
@@ -133,6 +134,7 @@ function GroupListView({ onOpen, onOpenAppeals }: { onOpen: (slug: string) => vo
         groups.map((g) => <GroupCard key={g.id} group={g} onOpen={() => onOpen(g.slug)} />)
       )}
 
+      <TextAction label={copy("community.search.link")} onPress={onOpenSearch} />
       <TextAction label={copy("community.appeals.link")} onPress={onOpenAppeals} />
     </View>
   );
@@ -195,6 +197,70 @@ function AppealsPage() {
       ) : (
         <InlineAlert message={copy("community.not_open")} tone="info" />
       )}
+    </View>
+  );
+}
+
+/** Search the posts in the groups the member has joined (COM-22). Nothing outside their groups, nothing saved. */
+function PostSearchPage({ onOpen }: { onOpen: (slug: string) => void }) {
+  const copy = useCopy();
+  const [q, setQ] = useState("");
+  const [result, setResult] = useState<SearchResult | null | undefined>(undefined);
+  const [pending, setPending] = useState(false);
+  const [tooShort, setTooShort] = useState(false);
+
+  async function run() {
+    if (pending) return;
+    if (!isPostSearchQuery(q)) {
+      setTooShort(true);
+      return;
+    }
+    setTooShort(false);
+    setPending(true);
+    setResult(await searchPosts(q).catch(() => null));
+    setPending(false);
+  }
+
+  const hits = result && result.ok ? result.items : [];
+  return (
+    <View style={{ gap: space.md }}>
+      <View style={{ gap: space.xs }}>
+        <AppText variant="headline" heading>
+          {copy("community.search.title")}
+        </AppText>
+        <AppText variant="body" tone="textMuted">
+          {copy("community.search.help")}
+        </AppText>
+      </View>
+      <Field label={copy("community.search.label")} value={q} onChangeText={setQ} returnKeyType="search" onSubmitEditing={() => void run()} autoCapitalize="none" autoCorrect={false} />
+      <Button title={copy("community.search.button")} onPress={() => void run()} variant="secondary" loading={pending} fullWidth={false} />
+      <Status
+        text={
+          tooShort
+            ? copy("community.search.too_short")
+            : result === null
+              ? copy("community.search.error")
+              : result && result.ok && hits.length === 0
+                ? copy("community.search.none")
+                : null
+        }
+      />
+      {hits.map((hit) => (
+        <Card key={hit.id}>
+          <View style={{ gap: space.sm }}>
+            <AppText variant="caption" tone="textMuted">
+              {`${copy(hit.is_reply ? "community.search.reply" : "community.search.post")} ${hit.group_name}. ${hit.author_handle}${hit.is_mine ? ` ${copy("community.search.mine")}` : ""}`}
+            </AppText>
+            <AppText variant="body">{hit.body}</AppText>
+            <Button title={copy("community.search.open")} onPress={() => onOpen(hit.group_slug)} variant="secondary" fullWidth={false} accessibilityHint={hit.group_name} />
+          </View>
+        </Card>
+      ))}
+      {result && result.ok && result.has_more ? (
+        <AppText variant="caption" tone="textMuted">
+          {copy("community.search.more")}
+        </AppText>
+      ) : null}
     </View>
   );
 }

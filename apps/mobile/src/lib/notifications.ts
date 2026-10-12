@@ -91,6 +91,8 @@ export function describeNotification(n: InAppNotification): { text: string; sect
     // excerpt, whatever the payload carries (INV-07). Title and body, as on web. A tap opens Community.
     case "community_reply":
       return { text: communityNotice("community.notice.reply.title", "community.notice.reply.body"), section: "community" };
+    case "community_reply_waiting":
+      return { text: communityNotice("community.notice.waiting.title", "community.notice.waiting.body"), section: "community" };
     case "community_post_removed":
       return { text: communityNotice("community.notice.removed.title", "community.notice.removed.body"), section: "community" };
     case "community_sanction_notice":

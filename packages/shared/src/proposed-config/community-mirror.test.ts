@@ -34,6 +34,8 @@ interface CommunityRules {
   consent_version: string;
   feed_page_size: number;
   max_page_size: number;
+  welcome_days: number;
+  return_nudge_days: number;
   avatars: string[];
   handle_words: { adjectives: string[]; nouns: string[] };
 }
@@ -78,8 +80,8 @@ describe("community.rules mirrors the migration seed", () => {
     expect(rules.feed_page_size).toBeLessThanOrEqual(rules.max_page_size);
   });
 
-  it("the consent text is not yet approved, and says so", () => {
-    // OQ-COM-06: counsel approves the wording. Until then the version string must say it is a draft.
-    expect(rules.consent_version).toMatch(/^DRAFT/);
+  it("the consent version names who approved it (counsel has not yet reviewed v1)", () => {
+    // OQ-COM-06: the founder and CMO approved v1 on 2026-10-12; counsel still has to review it, which stays a go-live attestation.
+    expect(rules.consent_version).toBe("v1-2026-10-12-founder-cmo");
   });
 });

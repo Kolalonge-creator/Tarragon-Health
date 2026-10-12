@@ -26,17 +26,20 @@ function RecentCard({
   busy,
   run,
   onRemove,
+  onSplit,
 }: {
   item: ModRecentItem;
   busy: boolean;
   run: (fn: () => Promise<StaffActionResult>, after: (r: StaffActionResult) => void) => void;
   onRemove: RecentCallbacks["onRemove"];
+  onSplit: RecentCallbacks["onSplit"];
 }) {
   const uid = useId();
   const [confirming, setConfirming] = useState(false);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [gone, setGone] = useState(false);
+  const [split, setSplit] = useState(false);
   const label = RECENT_REMOVE_REASONS.find((r) => r.code === reason)?.label ?? "";
 
   function remove() {
@@ -71,9 +74,29 @@ function RecentCard({
       {gone ? (
         <p className="text-sm font-medium text-charcoal-ink">Removed.</p>
       ) : !confirming ? (
-        <Button size="sm" variant="outline" disabled={busy} onClick={() => setConfirming(true)}>
-          Remove
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => setConfirming(true)}>
+            Remove
+          </Button>
+          {item.is_reply && item.state === "visible" && onSplit && !split ? (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={() =>
+                run(
+                  () => onSplit({ postId: item.post_id }),
+                  (r) => {
+                    if (r.ok) setSplit(true);
+                  },
+                )
+              }
+            >
+              Make this its own post
+            </Button>
+          ) : null}
+          {split ? <p className="self-center text-sm font-medium text-charcoal-ink">Now its own post.</p> : null}
+        </div>
       ) : (
         <fieldset className="space-y-2 rounded-md border border-charcoal-ink/15 p-3">
           <legend className="px-1 text-sm font-medium">Remove this post</legend>
@@ -173,7 +196,7 @@ export function RecentPosts({ initial, ...callbacks }: { initial: ModRecentItem[
       ) : (
         <ul className="space-y-4">
           {items.map((item) => (
-            <RecentCard key={item.post_id} item={item} busy={pending} run={run} onRemove={callbacks.onRemove} />
+            <RecentCard key={item.post_id} item={item} busy={pending} run={run} onRemove={callbacks.onRemove} onSplit={callbacks.onSplit} />
           ))}
         </ul>
       )}

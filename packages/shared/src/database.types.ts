@@ -42910,6 +42910,7 @@ export type Database = {
       community_clinician_pin: { Args: { p_group_id: string; p_title: string; p_body: string }; Returns: Json }
       community_clinician_review_pin: { Args: { p_id: string }; Returns: Json }
       community_cmo_approve_group_rules: { Args: { p_group_id: string; p_rules_version: number }; Returns: Json }
+      community_cmo_load_starter_safety_rules: { Args: never; Returns: Json }
       community_coverage: { Args: never; Returns: Json }
       community_delete_own_post: { Args: { p_post_id: string }; Returns: Json }
       community_dpo_candidates: { Args: never; Returns: Json }
@@ -42927,7 +42928,9 @@ export type Database = {
       community_join_group: { Args: { p_group_id: string; p_rules_version: number; p_consent: boolean }; Returns: Json }
       community_leave_group: { Args: { p_group_id: string; p_delete_posts?: boolean }; Returns: Json }
       community_list_groups: { Args: never; Returns: Json }
+      community_mark_image_flagged: { Args: { p_post_id: string }; Returns: boolean }
       community_mod_recent: { Args: { p_group_id?: string; p_before?: string }; Returns: Json }
+      community_mod_split_reply: { Args: { p_post_id: string }; Returns: Json }
       community_my_actions: { Args: never; Returns: Json }
       community_note_groups: { Args: never; Returns: Json }
       community_mod_decide: { Args: { p_post_id: string; p_decision: string; p_reason_code?: string }; Returns: Json }
@@ -42950,7 +42953,9 @@ export type Database = {
       community_sample_queue: { Args: never; Returns: Json }
       community_sample_review: { Args: { p_id: string; p_agrees: boolean; p_note?: string }; Returns: Json }
       community_search_groups: { Args: { p_q: string }; Returns: Json }
+      community_search_posts: { Args: { p_query: string; p_group_id?: string; p_before?: string }; Returns: Json }
       community_send_digests: { Args: never; Returns: number }
+      community_send_return_nudges: { Args: never; Returns: number }
       community_set_digest: { Args: { p_group_id: string; p_on: boolean }; Returns: Json }
       community_set_group_muted: { Args: { p_group_id: string; p_muted: boolean }; Returns: Json }
       community_set_my_display_name: { Args: { p_name: string | null }; Returns: Json }

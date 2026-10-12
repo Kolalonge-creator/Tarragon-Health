@@ -1,6 +1,6 @@
 # Proposed safety wording for the CMO to review and sign (Community)
 
-Status: a PROPOSAL written by the engineering side. Nothing here is live. Only the Chief Medical Officer can write or activate
+Status: APPROVED in chat by the founder and CMO on 2026-10-12 (COM-21), as proposed, with the three severe eating phrases also as safety. It is loaded with one click (Community > Rules > "Load the approved starter rules into a draft"), and it only takes effect when the CMO activates the draft, which is the signature the database requires. Original text: a proposal written by the engineering side. Only the Chief Medical Officer can write or activate
 emergency and self-harm rules (enforced in the database), and rule set v1 ships without any. Pick, change or discard anything below,
 then enter the rules through the admin Community > Rules page (a draft copy of v1 is created, you add the safety rules, you activate it).
 Until you sign, nothing is withheld for safety and the group stays off.

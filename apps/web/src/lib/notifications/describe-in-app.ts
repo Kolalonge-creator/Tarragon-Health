@@ -849,6 +849,7 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   // Community notices (docs/COMMUNITY_SPEC.md section 7). The payload is empty by design (no group, handle or excerpt can reach a
   // lock screen), so each line is fixed copy. The first three go to the member and open Community; the unmask notice goes to the CMO.
   if (n.template === "community_reply") return communityNotice("community.notice.reply.title", "community.notice.reply.body", "/patient/community");
+  if (n.template === "community_reply_waiting") return communityNotice("community.notice.waiting.title", "community.notice.waiting.body", "/patient/community");
   if (n.template === "community_post_removed") return communityNotice("community.notice.removed.title", "community.notice.removed.body", "/patient/community");
   if (n.template === "community_sanction_notice") return communityNotice("community.notice.sanction.title", "community.notice.sanction.body", "/patient/community");
   if (n.template === "community_unmask_notice") return communityNotice("community.notice.unmask.title", "community.notice.unmask.body", "/clinician");

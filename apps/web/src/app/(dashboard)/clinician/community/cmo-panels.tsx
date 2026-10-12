@@ -14,6 +14,7 @@ export interface CmoCallbacks {
   onSaveRule: (input: { version: number; ruleClass: "emergency" | "self_harm"; pattern: string; note?: string }) => Promise<StaffActionResult>;
   onDeleteRule: (input: { ruleId: number }) => Promise<StaffActionResult>;
   onCreateDraft: () => Promise<StaffActionResult>;
+  onLoadStarter: () => Promise<StaffActionResult>;
   onActivate: (input: { version: number }) => Promise<StaffActionResult>;
 }
 
@@ -55,11 +56,12 @@ export function SafetyRulesEditor({
   onSaveRule,
   onDeleteRule,
   onCreateDraft,
+  onLoadStarter,
 }: {
   draft: RuleSet | null;
   rules: Rule[];
   otherRuleCount: number;
-} & Pick<CmoCallbacks, "onSaveRule" | "onDeleteRule" | "onCreateDraft">) {
+} & Pick<CmoCallbacks, "onSaveRule" | "onDeleteRule" | "onCreateDraft" | "onLoadStarter">) {
   const uid = useId();
   const { message, pending, run } = useStaffAction();
   const [ruleClass, setRuleClass] = useState<"emergency" | "self_harm">("emergency");
@@ -96,6 +98,17 @@ export function SafetyRulesEditor({
         held back and goes only to a safety reviewer. Nothing is sent to anyone else.
       </p>
       <StaffMessage message={message} />
+      {rules.length === 0 && (
+        <div className="space-y-2 rounded-md border border-brand-green/30 bg-soft-sage p-3">
+          <p className="text-sm">
+            The wording you approved for the community is ready to load: self-harm, severe disordered eating, and emergency signs such as chest pain or
+            stroke signs. Loading it makes a draft only. It has no effect until you activate it below.
+          </p>
+          <Button size="sm" disabled={pending} onClick={() => run(onLoadStarter)}>
+            Load the approved starter rules into a draft
+          </Button>
+        </div>
+      )}
 
       {!draft ? (
         <div className="space-y-2">

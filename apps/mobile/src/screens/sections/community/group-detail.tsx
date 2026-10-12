@@ -14,7 +14,7 @@ import {
 import { fromSubmit, type ComposerEffect } from "@/lib/community/compose";
 import { TEAM_ROLE_KEY, type FeedPost, type GroupView, type HiddenAuthor } from "@/lib/community/model";
 import { space } from "@/ui/design";
-import { AppText, Badge, Button, InlineAlert, Skeleton, SkeletonGroup } from "@/ui/kit";
+import { AppText, Badge, Button, Card, InlineAlert, Skeleton, SkeletonGroup } from "@/ui/kit";
 import { Avatar, CheckRow, Section, Status, TextAction, formatDate, useCopy } from "./common";
 import { Composer } from "./composer";
 import { HiddenAuthors } from "./hidden-authors";
@@ -277,6 +277,17 @@ export function GroupDetail({
             </Section>
           ))}
         </View>
+      ) : null}
+
+      {membership.status !== "none" && isMember && membership.new_member ? (
+        <Card>
+          <View style={{ gap: space.xs }} accessibilityRole="summary">
+            <AppText variant="bodyStrong" heading>
+              {copy("community.welcome.title")}
+            </AppText>
+            <AppText variant="body">{copy("community.welcome.body")}</AppText>
+          </View>
+        </Card>
       ) : null}
 
       {membership.status !== "none" && isMember ? (

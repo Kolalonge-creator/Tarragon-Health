@@ -11,6 +11,7 @@ import {
   reviewPinAction,
   saveSafetyRuleAction,
   setDpoRecipientAction,
+  loadStarterSafetyRulesAction,
 } from "./actions";
 
 const GROUP = "33333333-3333-4333-8333-333333333333";
@@ -187,5 +188,23 @@ describe("setDpoRecipientAction", () => {
     expect((await setDpoRecipientAction({ profileId: "x", on: true })).ok).toBe(false);
     expect((await setDpoRecipientAction({ profileId: PERSON, on: "yes" })).ok).toBe(false);
     expect(rpc).not.toHaveBeenCalled();
+  });
+});
+
+describe("loadStarterSafetyRulesAction", () => {
+  it("loads the starter rules into a draft and says it is not signed yet", async () => {
+    rpc.mockResolvedValue({ data: { status: "ok", version: 5 }, error: null });
+    const r = await loadStarterSafetyRulesAction();
+    expect(r.ok).toBe(true);
+    expect(r.message).toMatch(/activate the draft to sign/);
+    expect(rpc).toHaveBeenCalledWith("community_cmo_load_starter_safety_rules");
+  });
+  it("opens the existing draft instead of making a second", async () => {
+    rpc.mockResolvedValue({ data: { status: "already_loaded", version: 5 }, error: null });
+    expect((await loadStarterSafetyRulesAction()).ok).toBe(true);
+  });
+  it("says only the CMO can", async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: "42501", message: "the Chief Medical Officer only" } });
+    expect(await loadStarterSafetyRulesAction()).toEqual({ ok: false, message: "Only the Chief Medical Officer can load the safety rules." });
   });
 });

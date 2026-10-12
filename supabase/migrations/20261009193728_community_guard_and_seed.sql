@@ -117,9 +117,11 @@ insert into public.community_config (version, is_active, params) values (1, true
   "auto_hide_report_threshold": 3,
   "removed_body_retention_days": 90,
   "unmask": { "min_reason_chars": 20, "max_per_day": 5, "signal_window_days": 30 },
-  "consent_version": "DRAFT-UNAPPROVED",
+  "consent_version": "v1-2026-10-12-founder-cmo",
   "feed_page_size": 20,
   "max_page_size": 50,
+  "welcome_days": 14,
+  "return_nudge_days": 3,
   "avatars": ["leaf", "sun", "river", "hill", "star", "seed", "cloud", "stone", "wave", "bird"],
   "handle_words": {
     "adjectives": ["calm", "brave", "bright", "gentle", "steady", "kind", "warm", "quiet", "bold", "clever", "cheerful", "patient", "sunny", "swift", "wise", "lively", "hopeful", "honest", "mellow", "sturdy", "tender", "vivid", "witty", "zesty", "noble", "merry", "serene", "spry", "plucky", "radiant"],

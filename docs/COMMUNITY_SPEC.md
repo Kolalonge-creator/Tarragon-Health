@@ -647,3 +647,12 @@ Known and accepted, not fixed here:
 - A reused request id replays the earlier post without comparing the text. The id is random per attempt and only the same member can reuse it.
 - Phone numbers written with words in other languages, or a number with letters between its digits, can still pass the filter; the pre-moderated first post, the reports and the moderators are the backstop.
 - Safety escalation to a person is the 30-minute overdue notice plus the reviewers' queue; there is no instant page at creation.
+
+## 17. Added after the competitor audit (2026-10-12)
+
+- **Post search (COM-22).** `community_search_posts(query, group?, before?)`: 3 to 80 characters, only groups the member has joined, visible posts only, hidden people left out, results show a made-up name and the group's name, nothing is stored. Web: `/patient/community/search`. Phone: "Search posts in my groups" on the Community screen.
+- **Split a reply (COM-23).** `community_mod_split_reply(post)`: a moderator of the group turns a visible reply into its own post. Only the parent link changes (a session-only setting lets the post guard allow exactly that). Logged as `split_to_post`. Moving a thread to another group is not built.
+- **Picture check hook (COM-24).** `apps/web/src/lib/community/image-scan.ts`. Off: no provider is registered, and `COMMUNITY_IMAGE_SCAN_PROVIDER` is unset. A flag only appends `image_flagged` to the held post (`community_mark_image_flagged`, service role) so the moderator sees it. To turn a vendor on: (1) the CMO signs a short safety case covering what image data leaves our systems, the vendor's retention, and the false alarm rate; (2) add the provider to the registry in `image-scan.ts` with its test; (3) set the environment variable. Never let the check approve, release or remove a picture.
+- **Welcome and reminder (COM-25).** `welcome_days` (14) and `return_nudge_days` (3) are in the versioned configuration. The reminder runs inside the daily housekeeping job.
+- **Starter safety rules (COM-21).** `community_cmo_load_starter_safety_rules()` (CMO only) loads the approved wording into a new draft; activating it is the CMO's signature.
+- **Drill and rota.** `docs/community/DRILL_AND_ROTA_PACK.md`.

@@ -36,10 +36,10 @@ describe("CMO panels", () => {
     await expectNoA11yViolations(<GroupRulesApproval groups={[group]} onApproveGroupRules={jest.fn()} />);
     await expectNoA11yViolations(<GroupRulesApproval groups={[]} onApproveGroupRules={jest.fn()} />);
     await expectNoA11yViolations(
-      <SafetyRulesEditor draft={draft} rules={[rule]} otherRuleCount={4} onSaveRule={jest.fn()} onDeleteRule={jest.fn()} onCreateDraft={jest.fn()} />,
+      <SafetyRulesEditor draft={draft} rules={[rule]} otherRuleCount={4} onSaveRule={jest.fn()} onDeleteRule={jest.fn()} onCreateDraft={jest.fn()} onLoadStarter={jest.fn()} />,
     );
     await expectNoA11yViolations(
-      <SafetyRulesEditor draft={null} rules={[]} otherRuleCount={0} onSaveRule={jest.fn()} onDeleteRule={jest.fn()} onCreateDraft={jest.fn()} />,
+      <SafetyRulesEditor draft={null} rules={[]} otherRuleCount={0} onSaveRule={jest.fn()} onDeleteRule={jest.fn()} onCreateDraft={jest.fn()} onLoadStarter={jest.fn()} />,
     );
     await expectNoA11yViolations(<RuleSetActivation sets={[draft, live]} onActivate={jest.fn()} />);
   });
@@ -55,7 +55,7 @@ describe("CMO panels", () => {
   it("refuses an empty pattern before calling, then saves, and states the rules are the CMO's alone", async () => {
     const onSave = jest.fn().mockResolvedValue(ok);
     const { container } = render(
-      <SafetyRulesEditor draft={draft} rules={[rule]} otherRuleCount={4} onSaveRule={onSave} onDeleteRule={jest.fn()} onCreateDraft={jest.fn()} />,
+      <SafetyRulesEditor draft={draft} rules={[rule]} otherRuleCount={4} onSaveRule={onSave} onDeleteRule={jest.fn()} onCreateDraft={jest.fn()} onLoadStarter={jest.fn()} />,
     );
     expect(container.textContent).toContain("Nobody else can write or remove them");
     expect(container.textContent).toContain("word");
@@ -70,7 +70,7 @@ describe("CMO panels", () => {
 
   it("asks before removing a rule", async () => {
     const onDelete = jest.fn().mockResolvedValue(ok);
-    render(<SafetyRulesEditor draft={draft} rules={[rule]} otherRuleCount={0} onSaveRule={jest.fn()} onDeleteRule={onDelete} onCreateDraft={jest.fn()} />);
+    render(<SafetyRulesEditor draft={draft} rules={[rule]} otherRuleCount={0} onSaveRule={jest.fn()} onDeleteRule={onDelete} onCreateDraft={jest.fn()} onLoadStarter={jest.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Remove" }));
     expect(onDelete).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Yes, remove it" }));

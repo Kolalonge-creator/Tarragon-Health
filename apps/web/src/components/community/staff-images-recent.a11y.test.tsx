@@ -88,6 +88,19 @@ describe("RecentPosts", () => {
     const { container } = await expectNoA11yViolations(<RecentPosts initial={[post(1, { image_id: IMG }), post(2, { is_reply: true })]} {...cb} />);
     expect(container.querySelector("img")?.getAttribute("src")).toBe(`/api/community/images/${IMG}`);
   });
+  it("offers 'Make this its own post' only on a visible reply, and does it once", async () => {
+    const onSplit = jest.fn().mockResolvedValue({ ok: true, message: "Done." });
+    render(<RecentPosts initial={[post(1), post(2, { is_reply: true })]} {...cb} onSplit={onSplit} />);
+    const buttons = screen.getAllByRole("button", { name: "Make this its own post" });
+    expect(buttons).toHaveLength(1);
+    fireEvent.click(buttons[0]!);
+    await waitFor(() => expect(onSplit).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Make this its own post" })).toBeNull());
+  });
+  it("shows no split button when the screen cannot split", () => {
+    render(<RecentPosts initial={[post(2, { is_reply: true })]} {...cb} />);
+    expect(screen.queryByRole("button", { name: "Make this its own post" })).toBeNull();
+  });
   it("has no axe violations when empty", async () => {
     await expectNoA11yViolations(<RecentPosts initial={[]} {...cb} />);
   });

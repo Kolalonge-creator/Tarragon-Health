@@ -139,7 +139,9 @@ begin
     'membership', case when m.group_id is null then jsonb_build_object('status', 'none') else jsonb_build_object(
                      'status', m.status, 'handle', m.handle, 'avatar_code', m.avatar_code,
                      'rules_current', (m.rules_accepted_version = g.rules_version),
-                     'notifications_muted', m.notifications_muted, 'digest_opt_in', m.digest_opt_in) end,
+                     'notifications_muted', m.notifications_muted, 'digest_opt_in', m.digest_opt_in,
+                     -- joined recently: the screen shows a short welcome note (days come from the versioned configuration)
+                     'new_member', (m.joined_at > now() - make_interval(days => private.community_cfg_int('welcome_days')))) end,
     'pinned', v_pinned,
     'team', v_team,
     'qa', v_qa,

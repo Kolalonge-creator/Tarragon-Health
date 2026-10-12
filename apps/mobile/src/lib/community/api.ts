@@ -13,6 +13,7 @@ import {
   parseMyActions,
   parseOutcome,
   parseReplies,
+  parseSearchResult,
   parseSubmitResult,
   refusalKey,
   isSearchQuery,
@@ -24,6 +25,7 @@ import {
   type GroupView,
   type HiddenAuthor,
   type MyActions,
+  type SearchResult,
   type ReportReason,
   type Replies,
   type FeedPost,
@@ -91,6 +93,13 @@ export async function loadHidden(groupId: string): Promise<{ ok: true; hidden: H
   if (error) return failure(FEED_ERROR);
   const list = parseHiddenList(data);
   return list && list.ok ? list : failure(FEED_ERROR);
+}
+
+/** Search post text inside the groups the member has joined. Nothing is stored; null means it could not be read. */
+export async function searchPosts(q: string): Promise<SearchResult | null> {
+  const { data, error } = await supabase.rpc("community_search_posts", { p_query: q.trim() });
+  if (error) return null;
+  return parseSearchResult(data) ?? null;
 }
 
 export async function loadMyActions(): Promise<MyActions | null> {

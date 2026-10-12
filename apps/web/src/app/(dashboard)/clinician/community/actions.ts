@@ -79,6 +79,22 @@ export async function createDraftRuleSetAction(): Promise<StaffActionResult> {
   return result;
 }
 
+export async function loadStarterSafetyRulesAction(): Promise<StaffActionResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("community_cmo_load_starter_safety_rules");
+  const result = toResult(
+    data,
+    error,
+    {
+      ok: "The approved starter rules were loaded into a new draft. Read them, then activate the draft to sign them.",
+      already_loaded: "A draft with the starter rules is already waiting. Read it, then activate it to sign it.",
+    },
+    { "42501": "Only the Chief Medical Officer can load the safety rules." },
+  );
+  if (result.ok) revalidatePath(PATH);
+  return result;
+}
+
 const ACTIVATE_ERRORS = {
   "42501":
     "This set cannot go live yet. It must block phone numbers, email addresses, links and handles, and a set with emergency or self-harm rules can only be made live by the Chief Medical Officer.",

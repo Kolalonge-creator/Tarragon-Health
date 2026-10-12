@@ -17,6 +17,7 @@ import {
   deleteSafetyRuleAction,
   pinNoteAction,
   reviewPinAction,
+  loadStarterSafetyRulesAction,
   saveSafetyRuleAction,
   setDpoRecipientAction,
 } from "./actions";
@@ -100,6 +101,7 @@ export default async function ClinicianCommunityPage({ searchParams }: { searchP
               onSaveRule={saveSafetyRuleAction}
               onDeleteRule={deleteSafetyRuleAction}
               onCreateDraft={createDraftRuleSetAction}
+              onLoadStarter={loadStarterSafetyRulesAction}
             />
           )}
           <RuleSetActivation sets={sets} onActivate={activateRuleSetAction} />

@@ -197,3 +197,16 @@ export async function modRemoveRecentAction(input: unknown): Promise<StaffAction
   if (result.ok) refresh();
   return result;
 }
+
+const splitSchema = z.object({ postId: z.string().uuid() });
+
+/** Turns a reply into its own post in the same group (same author, words and time). The member is not told. */
+export async function modSplitReplyAction(input: unknown): Promise<StaffActionResult> {
+  const parsed = splitSchema.safeParse(input);
+  if (!parsed.success) return INVALID;
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("community_mod_split_reply", { p_post_id: parsed.data.postId });
+  const result = toResult(data, error, { split: "Done. The reply is now its own post in the group." });
+  if (result.ok) refresh();
+  return result;
+}

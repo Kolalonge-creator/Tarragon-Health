@@ -81,7 +81,7 @@ export function JoinSection({
       </div>
       <div className="space-y-2">
         <h3 className="text-sm font-medium">{t("community.join.consent_title", locale)}</h3>
-        <p className="text-sm leading-relaxed">{t("community.join.consent", locale)}</p>
+        <p className="whitespace-pre-line text-sm leading-relaxed">{t("community.join.consent", locale)}</p>
         <div className={`flex items-start gap-3 ${TOUCH}`}>
           <input id={`${uid}-consent`} type="checkbox" className="mt-1 h-5 w-5" checked={consent} onChange={(e) => setConsent(e.target.checked)} required />
           <Label htmlFor={`${uid}-consent`} className="font-normal leading-snug">

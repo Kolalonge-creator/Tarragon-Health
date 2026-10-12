@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { authenticateCommunity } from "@/lib/community/api-auth";
 import { sanitiseImage } from "@/lib/community/image-sanitise";
+import { scanPicture } from "@/lib/community/image-scan";
 import { submitResultSchema } from "@/lib/community/model";
 
 /**
@@ -96,5 +97,14 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (!parsed.success) return NextResponse.json({ error: "That could not be posted. Please try again." }, { status: 502 });
   // Only a held or withheld post owns the file. Anything else (blocked, refused, a repeat of an earlier request) does not.
   if (!(parsed.data.status === "held" || parsed.data.status === "withheld") || parsed.data.repeat === true) await removeFile();
+  else if (parsed.data.status === "held" && parsed.data.post_id) {
+    // The automatic check (off unless a provider is registered) can only ADD a flag for the moderator; the post is already held for a person
+    // and nothing here ever releases or removes it. A failure of the check changes nothing.
+    const verdict = await scanPicture(image.bytes, image.mime);
+    if (verdict === "flag") {
+      const { error: flagError } = await createServiceRoleClient().rpc("community_mark_image_flagged", { p_post_id: parsed.data.post_id });
+      if (flagError) console.error("community picture: could not record the automatic flag");
+    }
+  }
   return NextResponse.json(parsed.data);
 }
