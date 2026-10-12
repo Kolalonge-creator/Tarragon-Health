@@ -6,7 +6,7 @@
  * says so plainly and tells them to check the person's identity against the paper.
  */
 
-export type PublicPrescriptionStatus = "active" | "superseded" | "expired" | "cancelled";
+export type PublicPrescriptionStatus = "active" | "superseded" | "expired" | "cancelled" | "controlled_medicine";
 
 export interface PublicPrescriptionProof {
   status: PublicPrescriptionStatus;
@@ -64,6 +64,13 @@ export function presentStatus(status: PublicPrescriptionStatus): StatusPresentat
         tone: "bad",
         guidance: "This prescription has been stopped. Do not dispense.",
       };
+    case "controlled_medicine":
+      // OQ-276: the same list the counter and signing use. The prescription is genuine; it is just not supplied through Tarragon.
+      return {
+        headline: "Controlled medicine: not supplied through Tarragon",
+        tone: "bad",
+        guidance: "This medicine is on the controlled medicines list, and Tarragon does not supply controlled medicines. Nothing can be recorded here. Do not dispense it against this prescription.",
+      };
   }
 }
 
@@ -115,7 +122,7 @@ export function isProof(value: unknown): value is PublicPrescriptionProof {
   if (!value || typeof value !== "object") return false;
   const v = value as Record<string, unknown>;
   return (
-    (v.status === "active" || v.status === "superseded" || v.status === "expired" || v.status === "cancelled") &&
+    (v.status === "active" || v.status === "superseded" || v.status === "expired" || v.status === "cancelled" || v.status === "controlled_medicine") &&
     typeof v.rx_number === "string" &&
     typeof v.drug_name === "string" &&
     typeof v.supplies_dispensed === "number" &&

@@ -98,3 +98,17 @@ describe("OQ-276 controlled medicine at the QR page and phone desk", () => {
     expect(m.text).toMatch(/do not dispense/i);
   });
 });
+
+describe("OQ-276 controlled medicine on the read-only QR page", () => {
+  it("is a known status that says plainly nothing can be recorded and not to dispense", () => {
+    const s = presentStatus("controlled_medicine");
+    expect(s.tone).toBe("bad");
+    expect(s.headline).toMatch(/not supplied through tarragon/i);
+    expect(s.guidance).toMatch(/do not dispense/i);
+    expect(s.guidance).not.toMatch(/[—–]|warning/i);
+  });
+  it("is accepted as a proof (a controlled prescription must not read as 'not found')", () => {
+    const proof = parseProof([{ status: "controlled_medicine", rx_number: "TRG-RX-1", drug_name: "Tramadol 50mg", supplies_dispensed: 0, supply_available: false }]);
+    expect(proof?.status).toBe("controlled_medicine");
+  });
+});
