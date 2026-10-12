@@ -42912,6 +42912,7 @@ export type Database = {
       community_cmo_approve_group_rules: { Args: { p_group_id: string; p_rules_version: number }; Returns: Json }
       community_coverage: { Args: never; Returns: Json }
       community_delete_own_post: { Args: { p_post_id: string }; Returns: Json }
+      community_dpo_candidates: { Args: never; Returns: Json }
       community_edit_post: { Args: { p_post_id: string; p_body: string }; Returns: Json }
       community_feed: { Args: { p_group_id: string; p_before?: string; p_limit?: number }; Returns: Json }
       community_get_group: { Args: { p_slug: string }; Returns: Json }
@@ -42921,6 +42922,7 @@ export type Database = {
       community_image_ref: { Args: { p_image_id: string }; Returns: Json }
       community_images_due: { Args: never; Returns: Json }
       community_images_mark_deleted: { Args: { p_ids: string[] }; Returns: number }
+      community_job_heartbeat: { Args: { p_job: string; p_ok: boolean }; Returns: undefined }
       community_join_group: { Args: { p_group_id: string; p_rules_version: number; p_consent: boolean }; Returns: Json }
       community_leave_group: { Args: { p_group_id: string; p_delete_posts?: boolean }; Returns: Json }
       community_list_groups: { Args: never; Returns: Json }

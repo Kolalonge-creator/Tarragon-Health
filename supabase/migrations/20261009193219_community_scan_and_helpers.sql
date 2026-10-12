@@ -264,10 +264,19 @@ create or replace function private.community_notify(p_recipient uuid, p_template
 language plpgsql security definer set search_path = '' as $$
 begin
   if p_recipient is null then return; end if;
-  if exists (
+  -- Chatty notices (a reply, the digest, an overdue reminder) are throttled to one unread per ten minutes. A notice about a
+  -- distinct decision (an appeal result, a removal, a sanction, an answer) is never merged with another: it is only skipped
+  -- when the very same item already has one.
+  if p_template in ('community_reply', 'community_digest', 'community_overdue') then
+    if exists (
+      select 1 from public.notifications n
+       where n.recipient_id = p_recipient and n.template = p_template and n.opened_at is null
+         and n.created_at > now() - interval '10 minutes') then
+      return;
+    end if;
+  elsif exists (
     select 1 from public.notifications n
-     where n.recipient_id = p_recipient and n.template = p_template and n.opened_at is null
-       and n.created_at > now() - interval '10 minutes') then
+     where n.recipient_id = p_recipient and n.template = p_template and n.source_id = p_source and n.source_table = p_source_table) then
     return;
   end if;
   insert into public.notifications (organisation_id, recipient_id, channel, template, payload, content_class, source_table, source_id)

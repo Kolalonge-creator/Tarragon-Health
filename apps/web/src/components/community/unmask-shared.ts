@@ -31,6 +31,11 @@ export const dpoListSchema = z.object({
 });
 export type DpoList = z.infer<typeof dpoListSchema>;
 
+export const dpoCandidatesSchema = z.object({
+  items: z.array(z.object({ profile_id: z.string().uuid(), name: z.string(), role: z.string() })),
+});
+export type DpoCandidate = z.infer<typeof dpoCandidatesSchema>["items"][number];
+
 export const unmaskInputSchema = z.object({
   group_id: z.string().uuid("Please choose a group."),
   handle: z.string().trim().min(1, "Please enter the community name.").max(80),

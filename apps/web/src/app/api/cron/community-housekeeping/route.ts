@@ -61,5 +61,8 @@ export async function GET(request: Request): Promise<Response> {
   if (digests.error) result.errors.push("digests");
   else result.digests = Number(digests.data ?? 0);
 
+  // Report in, so it is known this job is running. A failed report never turns a good run into a failed one.
+  await supabase.rpc("community_job_heartbeat", { p_job: "housekeeping", p_ok: result.errors.length === 0 });
+
   return Response.json(result, { status: result.errors.length > 0 ? 500 : 200 });
 }

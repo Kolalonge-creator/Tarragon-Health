@@ -436,13 +436,30 @@ begin
   -- For now the Chief Medical Officer IS the data protection officer (lean company); only the CMO may add anyone else to the notice list.
   if not private.credential_is_cmo() then raise exception 'the Chief Medical Officer only' using errcode = '42501'; end if;
   if coalesce(p_on, false) then
-    if not exists (select 1 from public.profiles where id = p_profile_id and is_active) then return jsonb_build_object('status', 'refused', 'reason', 'no_such_member'); end if;
+    -- Only active staff can be told of a lookup; a patient account must never be able to receive this notice.
+    if not exists (select 1 from public.profiles where id = p_profile_id and is_active and role in ('admin', 'clinician', 'care_coordinator')) then
+      return jsonb_build_object('status', 'refused', 'reason', 'no_such_member');
+    end if;
     insert into public.community_dpo (profile_id, set_by) values (p_profile_id, (select auth.uid())) on conflict do nothing;
   else
     delete from public.community_dpo where profile_id = p_profile_id;
   end if;
   perform private.community_log_event(null, null, null, case when coalesce(p_on, false) then 'dpo_named' else 'dpo_removed' end, (select auth.uid()), null, '[]'::jsonb);
   return jsonb_build_object('status', 'ok');
+end $$;
+
+-- Who the CMO can add to the notice list: active staff who are not already on it. Names only; the CMO is told already, so is left out.
+create or replace function public.community_dpo_candidates() returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if (select auth.uid()) is null then raise exception 'sign in required' using errcode = '28000'; end if;
+  if not private.credential_is_cmo() then raise exception 'the Chief Medical Officer only' using errcode = '42501'; end if;
+  return jsonb_build_object('items', coalesce((
+    select jsonb_agg(jsonb_build_object('profile_id', p.id, 'name', coalesce(nullif(btrim(p.full_name), ''), 'Unnamed staff member'), 'role', p.role) order by p.full_name nulls last)
+      from (select * from public.profiles
+             where is_active and role in ('admin', 'clinician', 'care_coordinator') and id <> (select auth.uid())
+               and id not in (select profile_id from public.community_dpo)
+             order by full_name nulls last limit 200) p), '[]'::jsonb));
 end $$;
 
 create or replace function public.community_admin_dpo() returns jsonb
@@ -664,7 +681,7 @@ begin
        'community_staff_context', 'community_mod_queue', 'community_mod_decide', 'community_mod_sanction',
        'community_safety_queue', 'community_safety_decide', 'community_admin_topics', 'community_admin_save_topic',
        'community_admin_groups', 'community_admin_save_group', 'community_cmo_approve_group_rules',
-       'community_admin_staff', 'community_admin_grant_staff', 'community_admin_revoke_staff', 'community_admin_unmask', 'community_unmask_candidates', 'community_admin_set_dpo', 'community_admin_dpo',
+       'community_admin_staff', 'community_admin_grant_staff', 'community_admin_revoke_staff', 'community_admin_unmask', 'community_unmask_candidates', 'community_admin_set_dpo', 'community_admin_dpo', 'community_dpo_candidates',
        'community_admin_rule_sets', 'community_admin_rules', 'community_admin_rule_set_create', 'community_admin_rule_save',
        'community_admin_rule_delete', 'community_admin_rule_set_params', 'community_admin_rule_set_activate',
        'community_clinician_pin', 'community_clinician_review_pin', 'community_admin_unpin', 'community_admin_pinned', 'community_note_groups',

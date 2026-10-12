@@ -10,6 +10,7 @@ import {
   recordDrillAction,
   reviewPinAction,
   saveSafetyRuleAction,
+  setDpoRecipientAction,
 } from "./actions";
 
 const GROUP = "33333333-3333-4333-8333-333333333333";
@@ -155,5 +156,36 @@ describe("recordDrillAction", () => {
     rpc.mockResolvedValue({ data: null, error: { code: "42501", message: "the Chief Medical Officer only" } });
     const r = await recordDrillAction({ passed: false, steps: steps([false, false, false, false, false, false]) });
     expect(r).toEqual({ ok: false, message: "Only the Chief Medical Officer can record a drill." });
+  });
+});
+
+describe("setDpoRecipientAction", () => {
+  const PERSON = "55555555-5555-4555-8555-555555555555";
+  it("adds a person to the notice list", async () => {
+    rpc.mockResolvedValue({ data: { status: "ok" }, error: null });
+    const r = await setDpoRecipientAction({ profileId: PERSON, on: true });
+    expect(r.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith("community_admin_set_dpo", { p_profile_id: PERSON, p_on: true });
+  });
+  it("removes a person", async () => {
+    rpc.mockResolvedValue({ data: { status: "ok" }, error: null });
+    const r = await setDpoRecipientAction({ profileId: PERSON, on: false });
+    expect(r).toEqual({ ok: true, message: "Removed. This person will no longer be told." });
+  });
+  it("says only the CMO can, in plain English", async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: "42501", message: "the Chief Medical Officer only" } });
+    const r = await setDpoRecipientAction({ profileId: PERSON, on: true });
+    expect(r).toEqual({ ok: false, message: "Only the Chief Medical Officer can change who is told about member lookups." });
+  });
+  it("does not leak the database wording for a person who cannot be added", async () => {
+    rpc.mockResolvedValue({ data: { status: "refused", reason: "no_such_member" }, error: null });
+    const r = await setDpoRecipientAction({ profileId: PERSON, on: true });
+    expect(r.ok).toBe(false);
+    expect(r.message).toBe("That person cannot be added. Only active staff can be told about member lookups.");
+  });
+  it("rejects bad input without calling the database", async () => {
+    expect((await setDpoRecipientAction({ profileId: "x", on: true })).ok).toBe(false);
+    expect((await setDpoRecipientAction({ profileId: PERSON, on: "yes" })).ok).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

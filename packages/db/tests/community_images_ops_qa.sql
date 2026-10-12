@@ -252,6 +252,24 @@ begin
   perform pg_temp.asj(v_cmo, $q$select public.community_record_tabletop(false, 'A later drill failed', '[]')$q$);
   perform pg_temp.rec('a later failed drill clears the drill condition', 'false',
     (select (c ->> 'met') from jsonb_array_elements(private.community_go_live_conditions('community')) c where c ->> 'code' = 'tabletop_passed'));
+  -- the overdue monitor must be seen running before go-live
+  perform pg_temp.rec('the overdue monitor is not running on a fresh database', 'false',
+    (select (c ->> 'met') from jsonb_array_elements(private.community_go_live_conditions('community')) c where c ->> 'code' = 'overdue_monitor_running'));
+  perform public.community_job_heartbeat('overdue', true);
+  perform pg_temp.rec('a successful overdue run satisfies the monitor condition', 'true',
+    (select (c ->> 'met') from jsonb_array_elements(private.community_go_live_conditions('community')) c where c ->> 'code' = 'overdue_monitor_running'));
+  perform public.community_job_heartbeat('overdue', false);
+  perform pg_temp.rec('a failed overdue run does not count as running', 'false',
+    (select (c ->> 'met') from jsonb_array_elements(private.community_go_live_conditions('community')) c where c ->> 'code' = 'overdue_monitor_running'));
+  perform public.community_job_heartbeat('overdue', true);
+  update public.community_job_runs set last_run_at = now() - interval '2 hours' where job = 'overdue';
+  perform pg_temp.rec('a stale overdue run does not count', 'false',
+    (select (c ->> 'met') from jsonb_array_elements(private.community_go_live_conditions('community')) c where c ->> 'code' = 'overdue_monitor_running'));
+  perform pg_temp.rec('the housekeeping run alone does not satisfy it', 'false',
+    (select (public.community_job_heartbeat('housekeeping', true) is null and (c ->> 'met')::boolean)::text from jsonb_array_elements(private.community_go_live_conditions('community')) c where c ->> 'code' = 'overdue_monitor_running'));
+  perform pg_temp.rec('an unknown job name is refused', '22023', pg_temp.try($q$select public.community_job_heartbeat('other', true)$q$));
+  perform pg_temp.rec('the heartbeat is for the service role only', 'true,false,false',
+    has_function_privilege('service_role', 'public.community_job_heartbeat(text,boolean)', 'EXECUTE')::text || ',' || has_function_privilege('authenticated', 'public.community_job_heartbeat(text,boolean)', 'EXECUTE')::text || ',' || has_function_privilege('anon', 'public.community_job_heartbeat(text,boolean)', 'EXECUTE')::text);
   perform pg_temp.rec('shifts that are not an array are refused, not erased', 'bad_shifts', (pg_temp.asj(v_admin, format($q$select public.community_admin_set_shifts(%L, null)$q$, v_staff)) ->> 'reason'));
   perform pg_temp.rec('a shift missing a key is refused cleanly', 'bad_shifts', (pg_temp.asj(v_admin, format($q$select public.community_admin_set_shifts(%L, '[{"start_hour":8,"end_hour":16}]')$q$, v_staff)) ->> 'reason'));
   perform pg_temp.rec('the rota was not wiped by the refused calls', '0', (private.community_uncovered_hours('safety_reviewer'))::text);

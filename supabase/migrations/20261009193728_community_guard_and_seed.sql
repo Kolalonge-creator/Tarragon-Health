@@ -54,6 +54,9 @@ begin
     private.go_live_cond('tabletop_passed', 'The safety hand-off was rehearsed end to end and a passing run was recorded in the last 90 days',
       coalesce((select t.passed and t.run_at > now() - interval '90 days' from public.community_tabletop_runs t order by t.run_at desc limit 1), false), 'data',
       (select 'last passing run ' || to_char(max(t.run_at) at time zone 'Africa/Lagos', 'YYYY-MM-DD') from public.community_tabletop_runs t where t.passed)),
+    private.go_live_cond('overdue_monitor_running', 'The overdue-work check has run successfully in the last 45 minutes (it tells people when a safety item or queue item waits too long)',
+      coalesce((select j.last_ok and j.last_run_at > now() - interval '45 minutes' from public.community_job_runs j where j.job = 'overdue'), false), 'data',
+      (select 'last successful run ' || to_char(j.last_run_at at time zone 'Africa/Lagos', 'YYYY-MM-DD HH24:MI') from public.community_job_runs j where j.job = 'overdue' and j.last_ok)),
     private.go_live_cond('cmo_switch', 'Chief Medical Officer sign-off', true, 'switch', 'Given by the Chief Medical Officer pressing the switch'));
 end $$;
 

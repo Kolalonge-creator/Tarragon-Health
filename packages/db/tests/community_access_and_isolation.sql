@@ -1,7 +1,7 @@
 -- Community proof 2 of 3: access and isolation (migrations *_community_schema.sql, *_community_member_rpcs.sql, *_community_staff_admin_rpcs.sql).
 --
 -- Proves, in one rolled-back transaction:
---   1. All twenty-five community tables are RPC-only: RLS on, no policy, and no client role (anon, authenticated, service_role)
+--   1. All twenty-six community tables are RPC-only: RLS on, no policy, and no client role (anon, authenticated, service_role)
 --      holds any privilege on any of them. The default privilege that grants new tables to authenticated is neutralised.
 --   2. Function privileges: anon and PUBLIC execute nothing; signed-in users execute every public function (each checks its own
 --      authority); the purge is for the service role only; no private helper is callable by a client.
@@ -131,8 +131,8 @@ begin
   perform pg_temp.asj(v_admin, 'select public.community_admin_rule_set_activate(1)');
 
   -- 1. Every community table is unreachable from every client role -------------------------------------------------------
-  perform pg_temp.rec('there are twenty-five community tables', '25', (select count(*)::text from pg_tables where schemaname = 'public' and tablename like 'community\_%'));
-  perform pg_temp.rec('RLS is on for every community table', '25',
+  perform pg_temp.rec('there are twenty-six community tables', '26', (select count(*)::text from pg_tables where schemaname = 'public' and tablename like 'community\_%'));
+  perform pg_temp.rec('RLS is on for every community table', '26',
     (select count(*)::text from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relname like 'community\_%' and c.relkind = 'r' and c.relrowsecurity));
   perform pg_temp.rec('no community table has a policy (RPC-only)', '0', (select count(*)::text from pg_policies where schemaname = 'public' and tablename like 'community\_%'));
   for r in select tablename as t from pg_tables where schemaname = 'public' and tablename like 'community\_%' loop
@@ -174,7 +174,7 @@ begin
        where n.nspname in ('public', 'private') and p.proname like 'community\_%' and coalesce(p.proacl::text, '') ~ '(^\{|,)=X'), 'none'));
   perform pg_temp.rec('a signed-in user can execute every public community function except the two scheduled jobs', 'none',
     coalesce((select string_agg(p.proname, ',') from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-       where n.nspname = 'public' and p.proname like 'community\_%' and p.proname not in ('community_purge_expired', 'community_send_digests', 'community_orphan_files', 'community_images_due', 'community_images_mark_deleted', 'community_overdue_work', 'community_notify_overdue') and not has_function_privilege('authenticated', p.oid, 'EXECUTE')), 'none'));
+       where n.nspname = 'public' and p.proname like 'community\_%' and p.proname not in ('community_purge_expired', 'community_send_digests', 'community_orphan_files', 'community_images_due', 'community_images_mark_deleted', 'community_overdue_work', 'community_notify_overdue', 'community_job_heartbeat') and not has_function_privilege('authenticated', p.oid, 'EXECUTE')), 'none'));
   perform pg_temp.rec('a signed-in user cannot execute the purge', 'false', has_function_privilege('authenticated', 'public.community_purge_expired()', 'EXECUTE')::text);
   perform pg_temp.rec('only the service role may run the purge', 'true', has_function_privilege('service_role', 'public.community_purge_expired()', 'EXECUTE')::text);
   perform pg_temp.rec('only the service role may run the digest job', 'true,false',
@@ -355,7 +355,13 @@ begin
     (exists (select 1 from jsonb_array_elements(pg_temp.asj(v_doc, 'select public.community_unmask_candidates()') -> 'items') i where i ->> 'author_handle' = v_handle)
      and (pg_temp.asj(v_doc, 'select public.community_unmask_candidates()'))::text not like '%' || v_p1::text || '%')::text);
   perform pg_temp.rec('unmask: an admin cannot name a DPO (the CMO is the DPO)', '42501', (pg_temp.asj(v_admin, format('select public.community_admin_set_dpo(%L, true)', v_dpo)) ->> 'error'));
+  perform pg_temp.rec('unmask: a patient account cannot be put on the notice list', 'no_such_member', (pg_temp.asj(v_cmo, format('select public.community_admin_set_dpo(%L, true)', v_p1)) ->> 'reason'));
+  perform pg_temp.rec('unmask: only the CMO sees who can be added', '42501', (pg_temp.asj(v_admin, 'select public.community_dpo_candidates()') ->> 'error'));
+  perform pg_temp.rec('unmask: the candidates are staff only (no patient, not the CMO)', 'true',
+    ((select count(*) from jsonb_array_elements(pg_temp.asj(v_cmo, 'select public.community_dpo_candidates()') -> 'items') i where i ->> 'profile_id' in (v_p1::text, v_cmo::text)) = 0
+     and exists (select 1 from jsonb_array_elements(pg_temp.asj(v_cmo, 'select public.community_dpo_candidates()') -> 'items') i where i ->> 'profile_id' = v_dpo::text))::text);
   perform pg_temp.rec('unmask: the CMO can add someone to the notice list', 'ok', (pg_temp.asj(v_cmo, format('select public.community_admin_set_dpo(%L, true)', v_dpo)) ->> 'status'));
+  perform pg_temp.rec('unmask: someone already on the list is no longer offered', 'false', (exists (select 1 from jsonb_array_elements(pg_temp.asj(v_cmo, 'select public.community_dpo_candidates()') -> 'items') i where i ->> 'profile_id' = v_dpo::text))::text);
   perform pg_temp.rec('unmask: the DPO list says the CMO is the DPO', 'true', (pg_temp.asj(v_admin, 'select public.community_admin_dpo()') ->> 'cmo_is_dpo'));
   perform pg_temp.rec('unmask: a doctor with a written reason resolves the handle', v_p1::text,
     (pg_temp.asj(v_doc, format($q$select public.community_admin_unmask(%L, %L, 'A safety review needs to reach this member urgently.')$q$, v_g, v_handle)) ->> 'profile_id'));

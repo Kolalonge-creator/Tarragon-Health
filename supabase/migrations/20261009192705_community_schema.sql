@@ -747,6 +747,14 @@ create table public.community_dpo (
   set_at     timestamptz not null default now()
 );
 
+-- When each scheduled Community job last ran. The overdue check is the safety net for round-the-clock moderation, so Community
+-- cannot be switched on until it has actually been seen running (see the go-live conditions). Written only by community_job_heartbeat.
+create table public.community_job_runs (
+  job         text primary key check (job in ('overdue', 'housekeeping')),
+  last_run_at timestamptz not null default now(),
+  last_ok     boolean not null default false
+);
+
 -- ---------------------------------------------------------------------------
 -- 8. Lock everything down. RLS on, no policy (default deny), no table privilege for anyone but the owner.
 -- ---------------------------------------------------------------------------
@@ -760,7 +768,7 @@ begin
     'community_filter_rule_sets', 'community_filter_rules', 'community_safety_signals',
     'community_pinned_content', 'community_staff',
     'community_hidden_authors', 'community_appeals', 'community_mod_samples', 'community_group_prompts',
-    'community_post_images', 'community_shifts', 'community_tabletop_runs', 'community_qa_sessions', 'community_qa_doctors', 'community_qa_answers', 'community_dpo']
+    'community_post_images', 'community_shifts', 'community_tabletop_runs', 'community_qa_sessions', 'community_qa_doctors', 'community_qa_answers', 'community_dpo', 'community_job_runs']
   loop
     execute format('alter table public.%I enable row level security', t);
     execute format('revoke all on public.%I from public, anon, authenticated, service_role', t);
@@ -790,7 +798,7 @@ begin
     'community_filter_rule_sets', 'community_filter_rules', 'community_safety_signals',
     'community_pinned_content', 'community_staff',
     'community_hidden_authors', 'community_appeals', 'community_mod_samples', 'community_group_prompts',
-    'community_post_images', 'community_shifts', 'community_tabletop_runs', 'community_qa_sessions', 'community_qa_doctors', 'community_qa_answers', 'community_dpo']
+    'community_post_images', 'community_shifts', 'community_tabletop_runs', 'community_qa_sessions', 'community_qa_doctors', 'community_qa_answers', 'community_dpo', 'community_job_runs']
   loop
     if not (select relrowsecurity from pg_class where oid = ('public.' || t)::regclass) then
       raise exception 'community self-check: RLS is off on %', t;

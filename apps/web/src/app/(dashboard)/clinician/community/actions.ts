@@ -158,3 +158,27 @@ export async function recordDrillAction(input: unknown): Promise<StaffActionResu
   }
   return result;
 }
+
+const DPO_ERRORS = { "42501": "Only the Chief Medical Officer can change who is told about member lookups." } as const;
+
+/**
+ * The Chief Medical Officer adds or removes someone from the list of people told when a member's name is looked up. Optional: the CMO is
+ * always told, and nothing about switching Community on depends on this list.
+ */
+export async function setDpoRecipientAction(input: unknown): Promise<StaffActionResult> {
+  const parsed = z.object({ profileId: z.string().uuid(), on: z.boolean() }).safeParse(input);
+  if (!parsed.success) return INVALID;
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("community_admin_set_dpo", { p_profile_id: parsed.data.profileId, p_on: parsed.data.on });
+  const result = toResult(
+    data,
+    error,
+    { ok: parsed.data.on ? "Added. This person will be told about every member lookup." : "Removed. This person will no longer be told." },
+    DPO_ERRORS,
+  );
+  if (!result.ok && !error && /no member matches/i.test(result.message)) {
+    return { ok: false, message: "That person cannot be added. Only active staff can be told about member lookups." };
+  }
+  if (result.ok) revalidatePath(PATH);
+  return result;
+}

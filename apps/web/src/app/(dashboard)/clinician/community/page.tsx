@@ -9,6 +9,7 @@ import {
   type RuleSet,
 } from "@/lib/community/model";
 import { getCommunityStaffContext } from "@/components/community/staff-rpc";
+import { dpoCandidatesSchema, dpoListSchema } from "@/components/community/unmask-shared";
 import {
   approveGroupRulesAction,
   activateRuleSetAction,
@@ -17,7 +18,9 @@ import {
   pinNoteAction,
   reviewPinAction,
   saveSafetyRuleAction,
+  setDpoRecipientAction,
 } from "./actions";
+import { DpoRecipientsPanel } from "./dpo-panel";
 import { GroupRulesApproval, RuleSetActivation, SafetyRulesEditor } from "./cmo-panels";
 import { NotesPanel, type NoteRow } from "./notes-panel";
 
@@ -71,6 +74,17 @@ export default async function ClinicianCommunityPage({ searchParams }: { searchP
         else rules = rulesParsed.data.rules;
       }
       const safetyRules = rules.filter((r) => r.action === "safety" && (r.class === "emergency" || r.class === "self_harm"));
+      const [dpoRes, dpoCandRes] = await Promise.all([supabase.rpc("community_admin_dpo"), supabase.rpc("community_dpo_candidates")]);
+      const dpoParsed = dpoListSchema.safeParse(dpoRes.data);
+      const dpoCandParsed = dpoCandidatesSchema.safeParse(dpoCandRes.data);
+      const dpoBlock =
+        dpoRes.error || dpoCandRes.error || !dpoParsed.success || !dpoCandParsed.success ? (
+          <p role="alert" className="text-sm text-red-700">
+            {LOAD_FAILED}
+          </p>
+        ) : (
+          <DpoRecipientsPanel recipients={dpoParsed.data.dpo} candidates={dpoCandParsed.data.items} onSet={setDpoRecipientAction} />
+        );
       cmoBlock = (
         <div className="space-y-4">
           <GroupRulesApproval groups={waiting} onApproveGroupRules={approveGroupRulesAction} />
@@ -89,6 +103,7 @@ export default async function ClinicianCommunityPage({ searchParams }: { searchP
             />
           )}
           <RuleSetActivation sets={sets} onActivate={activateRuleSetAction} />
+          {dpoBlock}
           <p className="text-sm text-charcoal-ink/80">
             You switch the community on or off on the{" "}
             <Link href="/clinician/go-live" className="font-medium text-brand-green underline">

@@ -283,6 +283,15 @@ begin
   return v_n;
 end $$;
 
+-- The scheduled routes report in after each run. Service role only. A failed run is recorded as failed, so it does not count as seen running.
+create or replace function public.community_job_heartbeat(p_job text, p_ok boolean) returns void
+language plpgsql volatile security definer set search_path = '' as $$
+begin
+  if p_job not in ('overdue', 'housekeeping') then raise exception 'unknown job' using errcode = '22023'; end if;
+  insert into public.community_job_runs (job, last_run_at, last_ok) values (p_job, now(), coalesce(p_ok, false))
+  on conflict (job) do update set last_run_at = excluded.last_run_at, last_ok = excluded.last_ok;
+end $$;
+
 -- ---------------------------------------------------------------------------
 -- 7. Doctor question sessions (text only, one-off, answered by named doctors)
 -- ---------------------------------------------------------------------------
@@ -481,11 +490,11 @@ begin
      where n.nspname = 'public' and p.proname in (
        'community_image_ref', 'community_image_precheck', 'community_orphan_files', 'community_images_due', 'community_images_mark_deleted', 'community_admin_set_group_images', 'community_mod_recent',
        'community_coverage', 'community_admin_shifts', 'community_admin_set_shifts', 'community_record_tabletop', 'community_tabletop_runs',
-       'community_overdue_work', 'community_notify_overdue', 'community_admin_create_qa', 'community_admin_cancel_qa', 'community_admin_qa_list',
+       'community_overdue_work', 'community_notify_overdue', 'community_job_heartbeat', 'community_admin_create_qa', 'community_admin_cancel_qa', 'community_admin_qa_list',
        'community_admin_remove_answer', 'community_qa_doctor_sessions', 'community_qa_doctor_questions', 'community_qa_answer')
   loop
     execute format('revoke all on function %s from public, anon, authenticated, service_role', r.sig);
-    if r.proname in ('community_orphan_files', 'community_images_due', 'community_images_mark_deleted', 'community_overdue_work', 'community_notify_overdue') then
+    if r.proname in ('community_orphan_files', 'community_images_due', 'community_images_mark_deleted', 'community_overdue_work', 'community_notify_overdue', 'community_job_heartbeat') then
       execute format('grant execute on function %s to service_role', r.sig);
     else
       execute format('grant execute on function %s to authenticated', r.sig);

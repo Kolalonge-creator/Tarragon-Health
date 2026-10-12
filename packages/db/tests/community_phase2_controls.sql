@@ -289,6 +289,7 @@ begin
   select id into v_id from public.community_appeals where post_id = v_post2;
   perform pg_temp.rec('an upheld removal', 'upheld', (pg_temp.asj(v_mod2, format($q$select public.community_appeal_decide(%L, 'uphold', null)$q$, v_id)) ->> 'status'));
   perform pg_temp.rec('...stays removed', 'removed', (select state from public.community_posts where id = v_post2));
+  perform pg_temp.rec('a second appeal result a minute later is its own notice, not merged into the first', '2', (select count(*)::text from public.notifications where recipient_id = v_p5 and template = 'community_appeal_result'));
   -- a sanction appeal
   v_j := pg_temp.sub(v_p6, v_g, 'First post from p6');
   perform pg_temp.asj(v_mod, format($q$select public.community_mod_decide(%L, 'approve', null)$q$, v_j ->> 'post_id'));

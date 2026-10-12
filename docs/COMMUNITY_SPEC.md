@@ -621,3 +621,9 @@ community migrations; proof `packages/db/tests/community_images_ops_qa.sql`.
 - **Mobile photo permission wording.** The `expo-image-picker` `photosPermission` string in `apps/mobile/app.json` now mentions Community pictures. It is a
   native-config change: it reaches phones only with the next native build. `runtimeVersion` stays `0.1.0-native5` on purpose (founder decision 2026-10-07: bump to
   `0.1.0-native6` in the build commit, batched with the audio work), so the bump and `eas build` happen when that build is cut.
+
+## 16. Hardening pass (2026-10-12)
+
+- **Appeal notices.** `private.community_notify` throttles only chatty notices (reply, digest, overdue reminder) to one unread per ten minutes. A notice about a distinct decision (appeal result, removal, sanction, answer) is never merged with another; only a repeat for the very same item is skipped.
+- **Notice list (optional DPO list).** The CMO is always told of a member lookup. The CMO can add other active staff through `community_dpo_candidates()` and `community_admin_set_dpo`; a patient account is refused. Screen: Community, "Who is told about member lookups". It is not a go-live condition.
+- **Overdue monitor.** `community_job_runs` and `community_job_heartbeat(job, ok)` (service role) record each scheduled run. Go-live condition `overdue_monitor_running` is met only by a successful overdue run in the last 45 minutes, so the safety net cannot be silently absent. Set-up steps: `docs/community/OPERATIONS_SETUP.md`.
