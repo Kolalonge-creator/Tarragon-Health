@@ -2165,17 +2165,6 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/plans/SCALE-READINESS-PLAN.md section 3 (Phase 3 alert rules); supabase/migrations/20261013010258_sr1_platform_health_snapshot.sql",
   },
   {
-    key: "db.cron_history_retention",
-    // SR2a: how long pg_cron's own run history is kept. Mirrored by the arguments of the scheduled call in
-    // supabase/migrations/20261013003534_sr2a_cron_history_cleanup.sql (a mirror test fails if they drift).
-    value: { keepDays: 7, keepFailedDays: 30 },
-    owner: "Founder",
-    status: "proposed",
-    version: 1,
-    effectiveFrom: "2026-10-12",
-    source: "docs/plans/SCALE-READINESS-PLAN.md section 3 Phase 1 item 1 (retain 7 days, failed runs 30 days)",
-  },
-  {
     key: "ops.alert_rules",
     // SR5 operations alert rules (docs/plans/SCALE-READINESS-PLAN.md section 3). Live values are the rows of `ops_alert_rules`; this
     // entry mirrors the migration seed and a test fails if they drift. Every number is a proposal for the founder and CMO: the

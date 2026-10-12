@@ -12,22 +12,6 @@ function migration(suffix: string): string {
   return readFileSync(join(MIGRATIONS, file), "utf8");
 }
 
-describe("db.cron_history_retention mirrors the SR2a migration", () => {
-  it("the scheduled call uses the same two numbers", () => {
-    const v = getProposedConfig<{ keepDays: number; keepFailedDays: number }>("db.cron_history_retention").value;
-    const m = /cron\.schedule\('cron-history-cleanup',[^$]*\$c\$select private\.cron_history_cleanup\((\d+), (\d+)\)\$c\$/.exec(
-      migration("_sr2a_cron_history_cleanup.sql"),
-    );
-    if (!m) throw new Error("scheduled call not found in the migration");
-    expect([Number(m[1]), Number(m[2])]).toEqual([v.keepDays, v.keepFailedDays]);
-  });
-
-  it("failed runs are kept at least as long as successful ones", () => {
-    const v = getProposedConfig<{ keepDays: number; keepFailedDays: number }>("db.cron_history_retention").value;
-    expect(v.keepFailedDays).toBeGreaterThanOrEqual(v.keepDays);
-  });
-});
-
 describe("ops.service_targets (SR1, proposed, unsigned)", () => {
   it("carries the plan's five targets", () => {
     const t = getProposedConfig<Record<string, number>>("ops.service_targets").value;

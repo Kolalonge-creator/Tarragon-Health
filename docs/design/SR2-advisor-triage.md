@@ -8,7 +8,7 @@ How the advisor was read. The Supabase performance advisor returned a report too
 
 | Rank | Class | Live count 2026-10-12 | Risk it carries at scale | Action |
 |---|---|---|---|---|
-| 1 | Cron run history growth | `cron.job_run_details` 377,797 rows, 182 MB, 112 jobs, about 4,000 rows a day | Largest object in the database; unbounded | FIXED: SR2a migration `20261013003534_sr2a_cron_history_cleanup.sql`, daily, 7 days kept (30 for failures) |
+| 1 | Cron run history growth | `cron.job_run_details` 377,797 rows, 182 MB, 112 jobs, about 4,000 rows a day | Largest object in the database; unbounded | FIXED: (REMOVED in the two-tier integration: superseded by the already-live sr2_cron_history_purge_and_failure_incidents, #1055) SR2a migration `20261013003534_sr2a_cron_history_cleanup.sql`, daily, 7 days kept (30 for failures) |
 | 2 | Hot-path query shapes that cannot use an index | Two in the minute-by-minute task sweep, one in the lab awaiting list | The overdue-task sweep ran a full table scan every minute: 1.26 s at 1,000,000 task rows | FIXED: SR2d migration `20261013004916_sr2d_hot_path_indexes_and_overdue_sweep_sargable.sql` (details in `SR2-query-plans.md`) |
 | 3 | Foreign keys with no covering index | 1,019 of 2,123 foreign keys in `public` | Slow deletes and joins on the parent side; lock amplification | PARTLY FIXED: 25 on the hot tables in SR2c migration `20261013004442_sr2c_hot_table_indexes_and_policy_initplan.sql`. About 995 remain, all on cold or tiny tables. Left on purpose, see section 2 |
 | 4 | Row-level-security re-evaluation per row (bare `auth.uid()`) | 6 policies of 1,561 (656 were already wrapped by an earlier sweep) | One function call per row scanned | 5 FIXED in SR2c. 1 left (see below) |

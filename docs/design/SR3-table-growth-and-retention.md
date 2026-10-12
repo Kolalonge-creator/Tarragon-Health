@@ -147,7 +147,7 @@ Every deletion job that eventually ships must: (a) count first and log the count
 ## 6. What was implemented from this document
 
 Implemented (safe, pure operational history, no personal data):
-- `cron.job_run_details`: daily clean-up `private.cron_history_cleanup(7, 30)` (SR2a migration `20261013003534_sr2a_cron_history_cleanup.sql`), proof `packages/db/tests/sr2a_cron_history_cleanup.sql`, retention numbers mirrored as PROPOSED config `db.cron_history_retention`. The first run on live removes about 370,000 rows and frees the table's space for reuse; run `vacuum full cron.job_run_details` once in a quiet minute afterwards if the 182 MB must be returned to the operating system (a plain `vacuum` only makes it reusable).
+- `cron.job_run_details`: daily clean-up `private.cron_history_cleanup(7, 30)` ((REMOVED in the two-tier integration: superseded by the already-live sr2_cron_history_purge_and_failure_incidents, #1055) SR2a migration `20261013003534_sr2a_cron_history_cleanup.sql`), proof `packages/db/tests/sr2a_cron_history_cleanup.sql`, retention numbers mirrored as PROPOSED config `db.cron_history_retention`. The first run on live removes about 370,000 rows and frees the table's space for reuse; run `vacuum full cron.job_run_details` once in a quiet minute afterwards if the 182 MB must be returned to the operating system (a plain `vacuum` only makes it reusable).
 - `net._http_response`: nothing to build, pg_net already trims it.
 
 Not implemented (and why):
