@@ -1493,6 +1493,50 @@ export const TEMPLATE_MAP: Record<
       text: "Someone in your Care Circle has paid for your care.\n\nOpen Tarragon Health to see what it includes.\n\nTarragon Health",
     },
   }),
+  // Two-tier (CMO 2026-10-08): the Free red-event path. Fixed neutral wording (INV-07): no condition, reading or result, and
+  // nothing from the payload is echoed. The guidance itself is shown in the app, never in the message.
+  free_red_guidance: () => ({
+    smsText: "A safety message is waiting for you. Open the Tarragon Health app. Tarragon Health",
+    pushUrl: "/patient",
+    email: {
+      subject: "A message is waiting for you",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>A safety message is waiting for you in the app.</p>` +
+        `<p>Please open Tarragon Health now.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "A safety message is waiting for you in the app.\n\nPlease open Tarragon Health now.\n\nTarragon Health",
+    },
+  }),
+  free_red_recheck: () => ({
+    smsText: "It is time to check again. Open the Tarragon Health app when you can. Tarragon Health",
+    pushUrl: "/patient",
+    email: {
+      subject: "Time to check again",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>It is time to check again.</p>` +
+        `<p>Open Tarragon Health when you can.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "It is time to check again.\n\nOpen Tarragon Health when you can.\n\nTarragon Health",
+    },
+  }),
+  free_red_checkin: () => ({
+    smsText: "We are checking in. Open the Tarragon Health app to tell us how you are. Tarragon Health",
+    pushUrl: "/patient",
+    email: {
+      subject: "We are checking in",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>We are checking in on you.</p>` +
+        `<p>Open Tarragon Health to tell us how you are.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "We are checking in on you.\n\nOpen Tarragon Health to tell us how you are.\n\nTarragon Health",
+    },
+  }),
   // S19: a red event page to the clinician on call (on_call_page) and the alert to the clinical lead and ops when nobody
   // has acknowledged it (on_call_escalation). Sent as push, in-app and email together at critical priority. The wording
   // is fixed and neutral (INV-07): no condition, reading, name or result, and nothing from the payload is echoed.

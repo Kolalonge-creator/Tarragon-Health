@@ -858,6 +858,19 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S19.md; spec 7.9",
   },
   {
+    key: "free_red_event.rules",
+    // Two-tier (CMO decision 2026-10-08, C2): the Free red-event path. Live values are the active row of `free_red_config`; this
+    // entry mirrors it and a test fails if the migration seed and this value drift. recheck_minutes: when the Free patient is
+    // nudged to rest and take the reading again. checkin_minutes: when they are asked whether they got care (the answer is kept
+    // for them and never shown to a doctor). The CMO confirms both numbers.
+    value: { recheck_minutes: 30, checkin_minutes: 360 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "docs/OPEN-QUESTIONS.md two-tier Free red events; docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md C2",
+  },
+  {
     key: "queue.claims",
     // Claim, hand-back and reliability rules (S17, spec 7.6 and 7.8). Live values are the active row of
     // `queue_claim_config`; this entry mirrors it and a test fails if the migration seed and this value drift.

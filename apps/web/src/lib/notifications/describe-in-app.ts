@@ -1,3 +1,5 @@
+import { t } from "@tarragon/i18n";
+
 /** The two fields the copy depends on. `InAppNotification` (lib/queries/notifications.ts) satisfies it, and keeping it
  * structural lets the INV-07 lint in packages/notifications render every case without loading the web app. */
 export interface InAppNotificationInput {
@@ -646,6 +648,16 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   }
   if (n.template === "circle_paid_for_you") {
     return { text: "Someone in your Care Circle has paid for your care", href: "/patient" };
+  }
+  // Two-tier (CMO 2026-10-08): the Free red-event path. Fixed neutral lines (INV-07), never the reading or the cause.
+  if (n.template === "free_red_guidance") {
+    return { text: t("freered.notice.guidance", "en"), href: "/patient" };
+  }
+  if (n.template === "free_red_recheck") {
+    return { text: t("freered.notice.recheck", "en"), href: "/patient" };
+  }
+  if (n.template === "free_red_checkin") {
+    return { text: t("freered.notice.checkin", "en"), href: "/patient" };
   }
   if (n.template === "on_call_page") {
     // From private.page_notify (S19): fixed neutral line, never the patient or the reading (INV-07).

@@ -936,3 +936,6 @@ oq276_controlled_medicines_at_the_counter.sql
 sr2_cron_history_purge_and_failure_incidents.sql
 # OQ-276 follow-up: the read-only QR views flag a controlled medicine and the patient can ask whether a prescription holds one. verify_prescription_public and desk_verify_prescription answer status controlled_medicine with no supply available (ordinary ones stay active); the patient function is true for the owner (medicine row, or only a signed item under the real drug_name key), false for an ordinary prescription and for another patient, refused for anon. Sabotage: the controlled branch removed from the public view, and the patient function forced false; both must flip.
 oq276b_qr_views_and_patient_note.sql
+two_tier_free_red_event_path.sql
+two_tier_legacy_bundles_not_sellable.sql
+two_tier_free_rule_amber_heart_failure_crisis.sql
