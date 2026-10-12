@@ -194,3 +194,18 @@ D-02 to D-04 are not defined in the spec.
 - **Low reading:** only a systolic under 90 is flagged (BP-A7, amber 24 hour review, with no symptom; red with fainting, confusion or chest pain as before). 90 to 99 is not flagged.
 - **Postpartum:** the engine takes a `postpartum` input (first 6 weeks after a birth). It uses the pregnancy red lines (160/110, and 140/90 with a pre-eclampsia symptom) and an amber review at 150/100 (BP-P5).
 - These are rule set version 2 (draft, in `triage_rule_sets` next to the unused draft v1). Still a draft until the CMO signs it in the console (S37).
+
+## 2026-10-07 CMO decision sheet (all items selected in chat; see docs/clinical-signoff/CMO-DECISION-SHEET-2026-10-07.md)
+| Question | Decision |
+|---|---|
+| Escalation SLA v9 (symptom_triage urgent 60 min, review 24 h) | Signed and active. |
+| `security.rules` v2 (access window 8 h, alerts 20 and 50 an hour, after hours 22:00 to 06:00 Lagos) | Confirmed. |
+| OQ-263 retention | NHS-aligned schedule, PROPOSED, counsel to confirm; no automatic deletion of real patient data. |
+| OQ-276 controlled medicines at the counter | Add a counter check; approved repeats via the existing path. Build queued. |
+| Critical screening result contact time | Keep 12 hours (720 minutes). |
+| OQ-255 and OQ-257 triage grade reviews | Approved; switch ON. |
+| OQ-246 and OQ-216 speak-up wording | Approved as written; backup readers (OQ-158) still to be named. |
+| OQ-261 and OQ-282 access-log depth | Opening-level log plus weekly review; no pgaudit for launch. |
+| OQ-250 AI-017 wording and OQ-214 scribe pass mark | Wording corrected to Nigerian English only (the record was an unapproved draft); approval waits for the evaluations; pass mark proposed (zero dropped negations, ceiling set after first measurement). |
+| OQ-214 directory re-verification (clinical) | At each licence expiry, never more than 12 months. |
+
