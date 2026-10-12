@@ -32,3 +32,11 @@ e4c6a19456254e929e78662896c0beb4212fb3ae:supabase/functions/_shared/integrations
 ef26927e032aa366f7bb51dacd6fcf909afea5c7:supabase/functions/_shared/integrations/email-mock.ts:generic-api-key:13
 fc6545f31746f6129b65749368f41f5398867c04:supabase/migrations/20260829094847_symptom_triage_protocols_config.sql:generic-api-key:229
 fdbb56df4666f5c499053c92898c6348f3544dfb:apps/mobile/ios/Podfile.lock:generic-api-key:2079
+# Reviewed 2026-10-12 (OQ-276 CI unblock): guard key names and a consent-text key, not credentials. generic-api-key fires on `p_key = '...'` and `_key = '...'`.
+#  - s47 go-live conditions migration: the go-live guard names (`risk_instrument_who2019_enabled` and a condition_text containing a key name).
+#  - s46c proof: consent_text_key = 'placeholder.s46c.proof' (a text identifier).
+#  - cv-risk assess.ts: the same guard name passed to go_live_guard_is_open.
+785c506e731d88bd1961fbd1c9f349ee49d87230:supabase/migrations/20261008030051_s47_go_live_conditions_for_clinical_guards.sql:generic-api-key:97
+785c506e731d88bd1961fbd1c9f349ee49d87230:supabase/migrations/20261008030051_s47_go_live_conditions_for_clinical_guards.sql:generic-api-key:198
+17de6409d03b96495c34b03ccbbaa0420f4d6718:packages/db/tests/s46c_caregiver_report_read.sql:generic-api-key:314
+5d56f592ce895577f0e13649c85b8d092f1b3a11:apps/web/src/lib/cv-risk/assess.ts:generic-api-key:141
