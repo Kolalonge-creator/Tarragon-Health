@@ -88,3 +88,13 @@ describe("supply wording", () => {
     expect(parseProof([{ ...proof, supplies_dispensed: undefined }])).toBeNull();
   });
 });
+
+describe("OQ-276 controlled medicine at the QR page and phone desk", () => {
+  it("is a known supply outcome with a plain refusal that says nothing was recorded", () => {
+    expect(isSupplyOutcome("controlled_medicine")).toBe(true);
+    const m = SUPPLY_OUTCOME_MESSAGE.controlled_medicine;
+    expect(m.tone).toBe("bad");
+    expect(m.text).toMatch(/nothing was recorded/i);
+    expect(m.text).toMatch(/do not dispense/i);
+  });
+});
