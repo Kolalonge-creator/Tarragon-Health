@@ -7,6 +7,7 @@
 --   * A booked follow-up holds the month. It is CONSUMED when the call completes. Cancelled in time, by the clinician, or expired:
 --     the month goes back to available. A Member's late cancellation (inside the consultation cancel window) consumes it, matching
 --     the credit rule (lateCancelConsumes). A Member no-show does not consume it (patientNoShowConsumes false); a clinician no-show never does.
+--   * The yearly results call is one of the 12: it takes that month's follow-up (it is not an extra call).
 --   * A month that ends with no follow-up booked is nudged (in-app, push or email as the Member prefers, never SMS) and appears on
 --     the worklist of the lead doctor and the care coordinator.
 -- The tiered call length (decision C8): 20 minutes for the yearly results call and for a Member with a condition on the problem

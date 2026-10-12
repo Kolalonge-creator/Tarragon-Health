@@ -110,6 +110,10 @@ const TEMPLATE_CATEGORY: Partial<Record<string, PreferenceCategory>> = {
 
   new_care_message: "care_messages",
   // S22 written questions and note release (patient-addressed only; the clinician-addressed ones stay ungated).
+  // Two-tier monthly follow-up (patient-addressed only)
+  followup_times_offered: "appointments",
+  followup_offer_withdrawn: "appointments",
+  followup_month_missed: "appointments",
   written_question_received: "care_messages",
   written_question_answered: "care_messages",
   written_question_info_needed: "care_messages",

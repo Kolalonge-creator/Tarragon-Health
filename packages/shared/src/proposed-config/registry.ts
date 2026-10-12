@@ -1300,6 +1300,60 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S21.md; docs/research/S21.md",
   },
   {
+    key: "consultations.call_length",
+    // Tiered call length (CMO decision C8, 2026-10-08, docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md). Mirrored by
+    // followup_config kind 'call_length' version 1 (a drift test compares the two). The length and this version are stamped on the
+    // encounter when it is created (INV-16).
+    //  longMinutes: the yearly results call (yearlyResultsMinutes) and any Member with a condition on the problem list or an abnormal
+    //  or held result in the last abnormalLookbackDays. routineMinutes: everyone else (a doctor may shorten a routine call down to routineMinMinutes).
+    //  minMinutes, slotGridMinutes: the shortest bookable call and the grid its start sits on (private.slot_is_open).
+    //  maxExtensionMinutes: the most a doctor can add to one call. conditionStatuses, abnormalFlags, heldReleaseStates: what counts as a need.
+    value: {
+      routineMinutes: 15,
+      routineMinMinutes: 10,
+      longMinutes: 20,
+      yearlyResultsMinutes: 20,
+      abnormalLookbackDays: 90,
+      minMinutes: 10,
+      slotGridMinutes: 5,
+      maxExtensionMinutes: 15,
+      conditionStatuses: ["active", "controlled", "uncontrolled", "suspected", "under_investigation"],
+      abnormalFlags: ["low", "high", "critical", "positive"],
+      heldReleaseStates: ["awaiting_review", "clinician_disclosure_required", "withheld"],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md C8; supabase/migrations/20261012183210_two_tier_followup_data_model_and_config.sql",
+  },
+  {
+    key: "followups.policy",
+    // Monthly follow-up (founder decisions D4 and C5): the doctor offers several times and the Member picks one. Mirrored by
+    // followup_config kind 'offers' version 1 (a drift test compares the two).
+    //  entitlementMonths, carryOverMonths: 12 follow-up months per membership, an unused month lapses (no stockpile).
+    //  minSlots, maxSlots, offerValidHours, minLeadMinutes: how many times a doctor offers, how long an offer lives, the soonest time offered.
+    //  bulkMaxPatients: the most Members one bulk offer can name. lateCancelConsumes, patientNoShowConsumes: what a late cancel and a Member
+    //  no-show do to the month. holdMinutes: the live hold passed to hold_appointment_slot.
+    value: {
+      entitlementMonths: 12,
+      carryOverMonths: 0,
+      minSlots: 2,
+      maxSlots: 6,
+      offerValidHours: 72,
+      minLeadMinutes: 120,
+      bulkMaxPatients: 50,
+      lateCancelConsumes: true,
+      patientNoShowConsumes: false,
+      holdMinutes: 10,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md D4, C5; supabase/migrations/20261012183210_two_tier_followup_data_model_and_config.sql",
+  },
+  {
     key: "scribe.transcript_retention_days",
     value: 90,
     owner: "Founder",

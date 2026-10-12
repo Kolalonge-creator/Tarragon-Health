@@ -291,7 +291,8 @@ begin
 
   select jsonb_build_object(
            'current', (select jsonb_build_object('month_index', e.month_index, 'state', e.state, 'period_end', e.period_end,
-                                                   'appointment_id', e.appointment_id)
+                                                   'appointment_id', e.appointment_id,
+                                                   'encounter_id', (select en.id from public.encounters en where en.appointment_id = e.appointment_id))
                          from public.member_followup_entitlements e
                         where e.patient_id = v_subject and e.period_start <= now() and e.period_end > now() and e.state <> 'voided'
                         order by e.period_start desc limit 1),

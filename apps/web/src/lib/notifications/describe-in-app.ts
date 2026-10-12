@@ -395,6 +395,19 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "written_question_call_planned") {
     return { text: "Your care team will call you. Keep your phone close", href: "/patient/care" };
   }
+  // Two-tier monthly follow-up. Neutral by design (INV-07).
+  if (n.template === "followup_times_offered") {
+    return { text: "Your care team has offered times for your monthly check-in. Open the app to choose one", href: "/patient/appointments" };
+  }
+  if (n.template === "followup_offer_withdrawn") {
+    return { text: "The times offered for your check-in have changed. Your care team will send new ones", href: "/patient/appointments" };
+  }
+  if (n.template === "followup_month_missed") {
+    return { text: "Your monthly check-in is waiting. Open the app to pick a time", href: "/patient/appointments" };
+  }
+  if (n.template === "followup_slot_picked") {
+    return { text: "A member picked one of your offered times", href: "/clinician/followups" };
+  }
   if (n.template === "written_question_staff_notice") {
     return { text: "A written message needs attention", href: "/clinician/async-consults" };
   }

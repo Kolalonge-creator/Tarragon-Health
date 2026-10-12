@@ -558,6 +558,8 @@ export function getNavSections(
                 // The Next task queue, the task I hold, and the patients I lead (S35).
                 { label: "Next task", href: "/clinician/queue", icon: "escalation" },
                 { label: "My lead patients", href: "/clinician/lead-patients", icon: "patientActivity" },
+                // Two-tier model: offer each Member several times for the monthly check-in, see who is due or missed a month.
+                { label: "Monthly check-ins", href: "/clinician/followups", icon: "booking" },
                 { label: "On call", href: "/clinician/on-call", icon: "siren" },
                 { label: "Hours and rota", href: "/clinician/rota", icon: "booking" },
                 // What a contracted clinician has earned, line by line, and the fee schedule that applies (S30).
