@@ -21,7 +21,8 @@ Status: for review. Nothing here is pushed, merged to `main-dev`, or applied to 
 2. **SR2a dropped.** `sr2a_cron_history_cleanup` (job `cron-history-cleanup`, 7/30 days) duplicates the already-live SR2 purge (`purge-cron-history`, 7/30 days, #1055). Two purge jobs would double-run. The migration, its proof, the `db.cron_history_retention` config entry and its mirror test were removed.
 3. **OQ numbering.** OQ-309 was used twice; the pricing one is now OQ-310 (and the BUILD-PROGRESS reference).
 4. **Added proof** `packages/db/tests/two_tier_integration_feature_gate_union.sql` (registered in `ci.manifest`): the final `private.patient_has_feature_access` is the union of the Free red-event version and the add-on-retirement version. No extra composing migration was needed; the last-sorting definition (`...010949`) already carries both (fail-closed paging for the red feature, null patient pages, Member rule with grace for the doctor-time features, no recursion on `async_doctor_visit`).
-5. Registry (`proposed-config/registry.ts`) and `database.types.ts` re-spliced; every added key from each branch kept. i18n, `ci.manifest` were union merges.
+5. **Proof fixes found by the full replay:** `s16_clinical_tasks.sql` counted task types excluding only one branch's addition (`membership_handoff` from pricing, `ecg_interpretation` from testing days; each branch fixed only its own); `testing_days_visits_poc.sql` fixtures did not set `organisation_id` on the profile the signup trigger had already created, so the employer-visit section ran in the default organisation (fixed with `organisation_id = excluded.organisation_id`); the entitlement FK indexes above.
+6. Registry (`proposed-config/registry.ts`) and `database.types.ts` re-spliced; every added key from each branch kept. i18n, `ci.manifest` were union merges.
 
 Member helper usage: monthly-booking and testing-days both call `private.patient_is_member` (defined by the pricing migration, which sorts first). A Member in the 14 day grace passes it; a lapsed patient and a Free patient are refused (proved for the helper). Not exercised end to end: the follow-up entitlement rows are created per month up to `ends_at`, so a Member in grace has Member status but may have no open month to book; confirm that is the wanted behaviour.
 
@@ -47,6 +48,7 @@ All new, all after the live head `20261012183729`.
 | 20261013010515 | two_tier_free_rule_amber_heart_failure_crisis | Free rule extended to amber, heart-failure weight gain, crisis follow-up |
 | 20261013010732 | two_tier_only_free_and_member | Care packs, per-item doctor-time products, credits non-sellable (CHECK) |
 | 20261013010949 | two_tier_retire_addons_and_member_gates | AI pass and monitoring retired; Member rule in feature gate; final `patient_has_feature_access` |
+| 20261013011207 | two_tier_entitlement_fk_indexes | NEW (integration fix): partial indexes on `entitlements.seat_price_id` and `.invoice_id`; the pricing FKs had none and the SR2c proof refuses an uncovered FK on a hot table |
 
 ## 4. Apply runbook
 

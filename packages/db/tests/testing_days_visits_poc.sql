@@ -52,7 +52,7 @@ begin
   values (v, 'td-' || p_label || '-' || v || '@example.invalid', 'x', now(), '{}', '{}');
   insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test)
   values (v, p_org, p_role::public.user_role, 'TD ' || p_label, '+23480' || lpad((random() * 99999999)::int::text, 8, '0'), (current_date - interval '45 years')::date, true)
-  on conflict (id) do update set role = excluded.role, is_test = true, is_active = true, phone = excluded.phone;
+  on conflict (id) do update set role = excluded.role, organisation_id = excluded.organisation_id, is_test = true, is_active = true, phone = excluded.phone;
   return v;
 end $f$;
 create function pg_temp.mkmember(p_org uuid, p_label text, p_source text default 'granted') returns uuid
