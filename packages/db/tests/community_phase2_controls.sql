@@ -106,7 +106,7 @@ $f$ select pg_temp.asj(p_uid, format('select public.community_join_group(%L, %s,
 
 do $$
 declare
-  v_org uuid; v_admin uuid; v_cmo uuid; v_mod uuid; v_mod2 uuid; v_rev uuid;
+  v_org uuid; v_admin uuid; v_cmo uuid; v_mod uuid; v_mod2 uuid; v_modg uuid; v_rev uuid;
   v_p1 uuid; v_p2 uuid; v_p3 uuid; v_p4 uuid; v_p5 uuid; v_p6 uuid;
   v_g uuid; v_j jsonb; v_post uuid; v_post2 uuid; v_reply uuid; v_n integer; v_id uuid; v_hid uuid; v_sanc uuid; v_sample uuid; v_team jsonb;
   v_extra uuid; v_slug text; v_pw uuid; v_mod3 uuid;
@@ -322,8 +322,13 @@ begin
   perform pg_temp.rec('a platform-wide sanction can be appealed', 'ok',
     (pg_temp.asj(v_pw, format($q$select public.community_appeal('sanction', %L, 'I think this was a misunderstanding of my joke.')$q$, v_sanc)) ->> 'status'));
   select id into v_id from public.community_appeals where sanction_id = v_sanc;
-  perform pg_temp.rec('...and a moderator sees it', 'true',
-    (exists (select 1 from jsonb_array_elements(pg_temp.asj(v_mod2, 'select public.community_appeal_queue()') -> 'items') x where x ->> 'appeal_id' = v_id::text and x ->> 'group_name' = 'All groups'))::text);
+  perform pg_temp.rec('...a moderator of one group does not see a platform-wide appeal', 'false',
+    (exists (select 1 from jsonb_array_elements(pg_temp.asj(v_mod2, 'select public.community_appeal_queue()') -> 'items') x where x ->> 'appeal_id' = v_id::text))::text);
+  perform pg_temp.rec('...and cannot decide it', '42501', (pg_temp.asj(v_mod2, format($q$select public.community_appeal_decide(%L, 'uphold', null)$q$, v_id)) ->> 'error'));
+  v_modg := pg_temp.mkuser(v_org, 'modg', 'care_coordinator');
+  perform pg_temp.asj(v_admin, format($q$select public.community_admin_grant_staff(%L, 'moderator', null)$q$, v_modg));
+  perform pg_temp.rec('...a moderator whose grant covers every group does see it', 'true',
+    (exists (select 1 from jsonb_array_elements(pg_temp.asj(v_modg, 'select public.community_appeal_queue()') -> 'items') x where x ->> 'appeal_id' = v_id::text and x ->> 'group_name' = 'All groups'))::text);
   -- a moderator who is also a member cannot decide their own appeal
   perform pg_temp.joined(v_mod2, v_g);
   update public.community_memberships set approved_post_count = 10 where group_id = v_g and profile_id = v_mod2;

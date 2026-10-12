@@ -51,7 +51,7 @@ export async function alertEmergencyContact(
       payload,
     },
   ]);
-  if (notifyError) return { error: notifyError.message };
+  if (notifyError) return { error: "We could not message your emergency contact just now. Please call them, or use the emergency numbers." };
 
   await serviceRole.rpc("mark_emergency_contact_notified", { p_event_id: args.eventId, p_actor_id: args.actorId });
   return { success: true };

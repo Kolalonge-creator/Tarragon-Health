@@ -17,6 +17,7 @@ export function SafetyCard({ kind, locale, onDismiss }: { kind: "emergency" | "s
   const router = useRouter();
   const ref = useRef<HTMLElement | null>(null);
   const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   // Moves focus to the card so a keyboard or screen-reader user meets it before anything else on the page.
   useEffect(() => {
@@ -28,9 +29,15 @@ export function SafetyCard({ kind, locale, onDismiss }: { kind: "emergency" | "s
 
   async function alertContact() {
     setBusy(true);
-    await startEmergencyFromSafetyCard();
-    // Success or not, the existing emergency screen takes over: it confirms the alert, or explains what is missing (for example no saved contact).
-    router.push("/patient");
+    const result = await startEmergencyFromSafetyCard().catch(() => ({ ok: false, recorded: false }));
+    // If an emergency was recorded the existing emergency screen takes over: it confirms the alert, or explains what is missing (for example
+    // no saved contact). If nothing was recorded, say so here, so the person is never sent on as if help had been asked for.
+    if (result.recorded) {
+      router.push("/patient");
+      return;
+    }
+    setFailed(true);
+    setBusy(false);
   }
 
   return (
@@ -45,6 +52,11 @@ export function SafetyCard({ kind, locale, onDismiss }: { kind: "emergency" | "s
         {title}
       </h2>
       <p className="leading-relaxed">{body}</p>
+      {failed && (
+        <p role="alert" className="font-medium">
+          {t("community.safety.emergency.not_sent", locale)}
+        </p>
+      )}
       <div className="flex flex-wrap gap-3">
         {kind === "emergency" ? (
           <Button type="button" className={TOUCH} onClick={alertContact} disabled={busy}>

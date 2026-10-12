@@ -306,7 +306,7 @@ export async function alertEmergencyContactFromCard(accessToken: string | null):
     });
     if (!response.ok) return "failed";
     const json = (await response.json()) as { contact?: unknown };
-    return json.contact === "sent" ? "sent" : "not_sent";
+    return json.contact === "sent" || json.contact === "already_sent" ? "sent" : "not_sent";
   } catch {
     return "failed";
   }

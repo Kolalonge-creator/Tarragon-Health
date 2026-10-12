@@ -107,6 +107,13 @@ begin
     ('phone', translate('0803123456789', '0123456789', chr(1632) || chr(1633) || chr(1634) || chr(1635) || chr(1636) || chr(1637) || chr(1638) || chr(1639) || chr(1640) || chr(1641)), 'block'),
     ('phone', translate('08031234567', '0123456789', chr(65296) || chr(65297) || chr(65298) || chr(65299) || chr(65300) || chr(65301) || chr(65302) || chr(65303) || chr(65304) || chr(65305)), 'block'),
     ('phone', '0803' || chr(8203) || '1234567', 'block'),
+    -- review round: other separators, spelled-out and split numbers
+    ('phone', '0803/123/4567', 'block'), ('phone', '0803,123,4567', 'block'), ('phone', '0803:123:4567', 'block'), ('phone', '0803|123|4567', 'block'),
+    ('phone', '0803' || chr(183) || '123' || chr(183) || '4567', 'block'), ('phone', '0803' || chr(8211) || '123' || chr(8211) || '4567', 'block'),
+    ('phone', E'0803\n123\n4567', 'block'), ('phone', E'0803\t123\t4567', 'block'),
+    ('phone', 'oh eight oh three one two three four five six seven', 'block'),
+    ('email', 'john@gmail', 'block'),
+    ('url', 'linktr.ee/jane', 'block'), ('url', 'discord.gg/abc', 'block'), ('url', 'jane.uk', 'block'), ('url', 'jane.dev', 'block'),
     -- email
     ('email', 'john.doe@gmail.com', 'block'), ('email', 'mail me at john dot doe at gmail dot com', 'block'),
     ('email', 'john (at) gmail (dot) com', 'block'), ('email', 'john[at]gmail[dot]com', 'block'),
@@ -133,6 +140,10 @@ begin
     ('ok', 'I never skip my tablets', 'allow'), ('ok', 'my doctor told me to continue my insulin', 'allow'),
     ('ok', 'I stopped adding salt and it helped', 'allow'), ('ok', 'reduce salt in your food', 'allow'),
     ('ok', 'Thanks everyone, this group is kind', 'allow'),
+    ('ok', 'bp 120/80, 130/85 and 125/82 this week', 'allow'), ('ok', 'readings 140/90, 150/95, 135/88, 128/84', 'allow'),
+    ('ok', 'sugar 5.6, 6.2, 7.1, 5.9 mmol and bp 120/80', 'allow'), ('ok', 'oh I see, thanks for that', 'allow'),
+    ('ok', 'tablets at 8:30, 14:00 and 20:00', 'allow'), ('ok', 'walked 3,000 then 4,500 then 5,200 steps', 'allow'),
+
     -- review fix: lists of health numbers and prices are not phone numbers
     ('ok', 'hba1c 6.5 6.8 7.1 7.4 7.0 6.9', 'allow'), ('ok', 'fasting 5.6 6.1 7.2 5.9 6.3', 'allow'),
     ('ok', 'steps this week 10000 12000 9000', 'allow'), ('ok', 'cost was 15000 20000 naira', 'allow'),

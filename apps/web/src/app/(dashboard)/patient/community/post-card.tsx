@@ -117,7 +117,7 @@ export function PostCard({
           </p>
           <p className={`text-sm ${MUTED}`}>
             <time dateTime={post.created_at}>{formatPatientDateTime(post.created_at)}</time>
-            {post.edited_at ? <span> - {t("community.post.edited", locale)}</span> : null}
+            {post.edited_at ? <span>, {t("community.post.edited", locale)}</span> : null}
           </p>
         </div>
       </header>

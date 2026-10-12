@@ -74,6 +74,7 @@ export function Composer({
   useEffect(() => revoke, []);
 
   function clearPicture() {
+    requestId.current = null;
     revoke();
     setPreviewUrl(null);
     setFile(null);
@@ -89,6 +90,7 @@ export function Composer({
       return;
     }
     setMessage(null);
+    requestId.current = null;
     revoke();
     const url = typeof URL.createObjectURL === "function" ? URL.createObjectURL(picked) : null;
     previewRef.current = url;
@@ -164,7 +166,11 @@ export function Composer({
         value={text}
         rows={3}
         placeholder={placeholder ? t(placeholder, locale) : undefined}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => {
+          // A changed text is a new post: if the last try's answer was lost, replaying it would silently drop this edit.
+          requestId.current = null;
+          setText(e.target.value);
+        }}
         aria-describedby={`${id}-count`}
         aria-invalid={tooLong}
         className="min-h-24"
@@ -203,7 +209,7 @@ export function Composer({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p id={`${id}-count`} className={`text-sm ${tooLong ? "font-semibold" : MUTED}`}>
           {t("community.post.counter", locale, { used, max: maxChars })}
-          {tooLong ? ` - ${t("community.compose.refused.too_long", locale)}` : ""}
+          {tooLong ? `. ${t("community.compose.refused.too_long", locale)}` : ""}
         </p>
         <Button type="submit" className={TOUCH} disabled={pending || empty || tooLong}>
           {pending ? t(file ? "community.image.uploading" : "community.post.posting", locale) : t(submitLabel, locale)}

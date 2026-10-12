@@ -112,7 +112,7 @@ do $$
 declare
   v_org uuid; v_admin uuid; v_cmo uuid; v_doc uuid; v_doc2 uuid; v_mod uuid; v_rev uuid;
   v_p1 uuid; v_p2 uuid; v_p3 uuid; v_p4 uuid; v_p5 uuid; v_p6 uuid; v_p7 uuid;
-  v_g uuid; v_j jsonb; v_post uuid; v_post2 uuid; v_req uuid := gen_random_uuid(); v_n integer; v_sig uuid; v_pin uuid; v_slug text;
+  v_g uuid; v_mm uuid; v_j jsonb; v_post uuid; v_post2 uuid; v_req uuid := gen_random_uuid(); v_n integer; v_sig uuid; v_pin uuid; v_slug text;
 begin
   select id into v_org from public.organisations order by id limit 1;
   if v_org is null then insert into public.organisations (name) values ('community proof org') returning id into v_org; end if;
@@ -184,6 +184,7 @@ begin
   perform pg_temp.rec('the third blocked attempt starts a cool-down', 'true',
     (exists (select 1 from public.community_moderation_events where action = 'cooldown_started' and member_profile_id = v_p5))::text);
   perform pg_temp.rec('during the cool-down even a clean post is refused', 'cooling_down', (pg_temp.sub(v_p5, v_g, 'a perfectly clean post') ->> 'reason'));
+  perform pg_temp.rec('...but words that suggest self-harm are never turned away by the cool-down', 'withheld', (pg_temp.sub(v_p5, v_g, 'a test crisis phrase during the cool-down') ->> 'status'));
   perform pg_temp.rec('another member is not affected', 'published', (pg_temp.sub(v_p6, v_g, 'a perfectly clean post') ->> 'status'));
 
   -- 5. Held for a person: selling, cure claims, medicine instructions -----------------------------------------------------------------------
@@ -296,9 +297,16 @@ begin
   perform pg_temp.rec('...and cannot delete someone else''s', 'not_yours', (pg_temp.asj(v_p6, format('select public.community_delete_own_post(%L)', v_post)) ->> 'reason'));
   update public.community_posts set removed_at = now() - interval '100 days' where id = (v_j ->> 'post_id')::uuid;
   perform pg_temp.rec('a signed-in user cannot run the purge', '42501', (pg_temp.asj(v_p6, 'select public.community_purge_expired()') ->> 'error'));
+  -- the note on a resolved report is purged with the retention period; the note on an open report is kept
+  insert into public.community_reports (post_id, reporter_profile_id, reason_code, detail, status, resolved_at)
+  values (v_post, v_p7, 'other', 'old note', 'dismissed', now() - interval '100 days');
+  insert into public.community_reports (post_id, reporter_profile_id, reason_code, detail, status)
+  values (v_post, v_p6, 'other', 'open note', 'open');
   perform pg_temp.act_service();
   perform pg_temp.rec('the service role purges expired bodies', 'true', (public.community_purge_expired() >= 1)::text);
   perform pg_temp.back();
+  perform pg_temp.rec('...and the note on a resolved report', 'true', (select (detail is null)::text from public.community_reports where reporter_profile_id = v_p7 and post_id = v_post and reason_code = 'other'));
+  perform pg_temp.rec('...but not the note on an open report', 'open note', (select detail from public.community_reports where reporter_profile_id = v_p6 and post_id = v_post and reason_code = 'other'));
   perform pg_temp.rec('...which blanks the removed text only', '[removed]', (select body from public.community_posts where id = (v_j ->> 'post_id')::uuid));
   perform pg_temp.rec('...and leaves a live post alone', 'A question for the group', (select body from public.community_posts where id = v_post));
   perform pg_temp.sub(v_p7, v_g, 'one more from a leaver');
@@ -312,6 +320,7 @@ begin
   perform pg_temp.rec('a moderator mutes through a post', 'ok', (v_j ->> 'status'));
   perform pg_temp.rec('the answer carries no identity', 'false', (v_j::text like '%' || v_p1::text || '%')::text);
   perform pg_temp.rec('a muted member cannot post', 'muted', (pg_temp.sub(v_p1, v_g, 'trying anyway') ->> 'reason'));
+  perform pg_temp.rec('...but a muted member in crisis still reaches the safety path', 'withheld', (pg_temp.sub(v_p1, v_g, 'a test crisis phrase from a muted member') ->> 'status'));
   perform pg_temp.rec('a muted member can still read', 'true', (pg_temp.asj(v_p1, format('select public.community_feed(%L)', v_g)) ->> 'ok'));
   perform pg_temp.rec('a mute needs hours', 'hours_needed', (pg_temp.asj(v_mod, format($q$select public.community_mod_sanction(%L, 'mute', 'spamming', null, false)$q$, v_post)) ->> 'reason'));
   perform pg_temp.rec('a moderator cannot sanction across every group', '42501', (pg_temp.asj(v_mod, format($q$select public.community_mod_sanction(%L, 'ban', 'abuse', null, true)$q$, v_post)) ->> 'error'));
@@ -331,6 +340,7 @@ begin
   for v_n in 1..6 loop insert into public.community_posts (group_id, author_profile_id, author_handle, body) select v_g, v_p7, handle, 'filler ' || v_n from public.community_memberships where group_id = v_g and profile_id = v_p7; end loop;
   update public.community_memberships set status = 'active', left_at = null where group_id = v_g and profile_id = v_p7;
   perform pg_temp.rec('the hourly limit holds', 'rate_limited', (pg_temp.sub(v_p7, v_g, 'one too many') ->> 'reason'));
+  perform pg_temp.rec('...but the hourly limit never turns away a crisis post', 'withheld', (pg_temp.sub(v_p7, v_g, 'a test crisis phrase at the limit') ->> 'status'));
 
   -- 12. Logs, config, and pinned content ----------------------------------------------------------------------------------------------------------
   perform pg_temp.rec('the moderation log cannot be edited', '42501', pg_temp.try('update public.community_moderation_events set action = ''x'''));
@@ -419,6 +429,37 @@ begin
   -- grants go only to accounts that have a queue screen
   perform pg_temp.rec('moderation is not granted to an admin account', '42501',
     pg_temp.try(format($q$insert into public.community_staff (profile_id, scope, granted_by) values (%L, 'moderator', %L)$q$, v_admin, v_admin)));
+
+  -- 12b. Review fixes -----------------------------------------------------------------------------------------------------------------------
+  v_j := pg_temp.asj(v_admin, 'select public.community_admin_rule_set_create(1)');
+  perform pg_temp.rec('a rule set with no emergency or self-harm rules cannot be activated by an admin over the CMO''s live set', '42501',
+    (pg_temp.asj(v_admin, format('select public.community_admin_rule_set_activate(%s)', v_j ->> 'version')) ->> 'error'));
+  perform pg_temp.rec('...nor by the CMO: once safety rules have been live, no set may drop them', '42501',
+    (pg_temp.asj(v_cmo, format('select public.community_admin_rule_set_activate(%s)', v_j ->> 'version')) ->> 'error'));
+  perform pg_temp.rec('...and the CMO''s set is still the live one', 'true',
+    (exists (select 1 from public.community_filter_rule_sets where status = 'active' and approved_by = v_cmo))::text);
+  v_mm := pg_temp.mkuser(v_org, 'mm', 'care_coordinator');
+  perform pg_temp.rec('a safety reviewer grant for one group is refused (they see every group)', 'safety_reviewer_is_global',
+    (pg_temp.asj(v_admin, format($q$select public.community_admin_grant_staff(%L, 'safety_reviewer', %L)$q$, v_mm, v_g)) ->> 'reason'));
+  perform pg_temp.asj(v_admin, format($q$select public.community_admin_grant_staff(%L, 'moderator', %L)$q$, v_mm, v_g));
+  perform pg_temp.joined(v_mm, v_g);
+  update public.community_memberships set approved_post_count = 0 where group_id = v_g and profile_id = v_mm;
+  v_j := pg_temp.sub(v_mm, v_g, 'my very first post here as a moderator');
+  perform pg_temp.rec('a moderator''s own first post is held like anyone''s', 'held', (v_j ->> 'status'));
+  perform pg_temp.rec('a moderator cannot approve their own post', 'own_post',
+    (pg_temp.asj(v_mm, format($q$select public.community_mod_decide(%L, 'approve', null)$q$, v_j ->> 'post_id')) ->> 'reason'));
+  perform pg_temp.rec('another moderator can', 'approved',
+    (pg_temp.asj(v_mod, format($q$select public.community_mod_decide(%L, 'approve', null)$q$, v_j ->> 'post_id')) ->> 'status'));
+  -- a danger report on a visible post, then "keep withheld"
+  update public.community_memberships set approved_post_count = 10 where group_id = v_g and profile_id = v_p1;
+  v_j := pg_temp.sub(v_p1, v_g, 'a plain post that is showing to the group');
+  v_post2 := (v_j ->> 'post_id')::uuid;
+  perform pg_temp.rec('setup: the post is showing', 'visible', (select state from public.community_posts where id = v_post2));
+  perform pg_temp.asj(v_p5, format($q$select public.community_report_post(%L, 'self_harm_or_danger', null)$q$, v_post2));
+  select id into v_sig from public.community_safety_signals where post_id = v_post2 and status = 'open';
+  perform pg_temp.rec('a danger report opens a concern for the reviewers', 'true', (v_sig is not null)::text);
+  perform pg_temp.rec('the reviewer keeps it withheld', 'kept_withheld', (pg_temp.asj(v_rev, format($q$select public.community_safety_decide(%L, 'keep_withheld')$q$, v_sig)) ->> 'status'));
+  perform pg_temp.rec('...and the post that was showing is taken down from the group', 'auto_hidden', (select state from public.community_posts where id = v_post2));
 
   -- 13. SABOTAGE -------------------------------------------------------------------------------------------------------------------------------------------
   -- (a) the scan lets everything through: a phone number must no longer be blocked

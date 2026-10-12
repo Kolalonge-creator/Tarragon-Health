@@ -383,7 +383,16 @@ declare
 begin
   if v_uid is null then raise exception 'sign in required' using errcode = '28000'; end if;
   v_gate := private.community_posting_gate(p_group_id, v_uid);
-  if v_gate ->> 'status' <> 'ok' then return v_gate; end if;
+  if v_gate ->> 'status' <> 'ok' then
+    -- A member who is muted or suspended can still be in crisis: their words are read, and only if they suggest an emergency or
+    -- self-harm do they go on to the safety path. Anything else is refused as before.
+    if v_gate ->> 'reason' in ('muted', 'suspended')
+       and private.community_scan(btrim(coalesce(p_body, ''))) ->> 'decision' = 'safety' then
+      v_gate := jsonb_build_object('status', 'ok', 'approved_post_count', 0);
+    else
+      return v_gate;
+    end if;
+  end if;
 
   -- Serialise this member's posting so the rate limits below cannot be raced.
   perform 1 from public.community_memberships where group_id = p_group_id and profile_id = v_uid for update;
@@ -435,21 +444,25 @@ begin
     end if;
   end if;
 
-  -- cool-down after repeated blocked attempts
-  if exists (select 1 from public.community_moderation_events e
-              where e.member_profile_id = v_uid and e.action = 'cooldown_started'
-                and e.created_at > now() - make_interval(mins => (private.community_cfg() #>> '{block_cooldown,cooldown_minutes}')::int)) then
-    return jsonb_build_object('status', 'refused', 'reason', 'cooling_down');
-  end if;
-
-  select count(*) filter (where created_at > now() - interval '1 hour'), count(*) filter (where created_at > now() - interval '1 day')
-    into v_h, v_d from public.community_posts where author_profile_id = v_uid and created_at > now() - interval '1 day';
-  if v_h >= private.community_cfg_int('rate_posts_per_hour') or v_d >= private.community_cfg_int('rate_posts_per_day') then
-    return jsonb_build_object('status', 'refused', 'reason', 'rate_limited');
-  end if;
-
+  -- The words are read BEFORE the cool-down and the rate limits, because a person in crisis must never be turned away with "slow down":
+  -- words that suggest an emergency or self-harm always reach the safety path (the card, the withheld post, the reviewers).
   v_scan := private.community_scan(v_body);
   if v_scan ->> 'decision' = 'unavailable' then return jsonb_build_object('status', 'refused', 'reason', 'not_ready'); end if;
+
+  if v_scan ->> 'decision' <> 'safety' then
+    -- cool-down after repeated blocked attempts
+    if exists (select 1 from public.community_moderation_events e
+                where e.member_profile_id = v_uid and e.action = 'cooldown_started'
+                  and e.created_at > now() - make_interval(mins => (private.community_cfg() #>> '{block_cooldown,cooldown_minutes}')::int)) then
+      return jsonb_build_object('status', 'refused', 'reason', 'cooling_down');
+    end if;
+
+    select count(*) filter (where created_at > now() - interval '1 hour'), count(*) filter (where created_at > now() - interval '1 day')
+      into v_h, v_d from public.community_posts where author_profile_id = v_uid and created_at > now() - interval '1 day';
+    if v_h >= private.community_cfg_int('rate_posts_per_hour') or v_d >= private.community_cfg_int('rate_posts_per_day') then
+      return jsonb_build_object('status', 'refused', 'reason', 'rate_limited');
+    end if;
+  end if;
   v_out := private.community_scan_outcome(v_scan, (v_gate ->> 'approved_post_count')::int);
   v_action := v_out ->> 'action';
   v_class := v_out ->> 'class';
@@ -573,14 +586,14 @@ begin
   if v_body = '' then return jsonb_build_object('status', 'refused', 'reason', 'empty'); end if;
   if length(v_body) > private.community_cfg_int('post_max_chars') then return jsonb_build_object('status', 'refused', 'reason', 'too_long'); end if;
   -- the same cool-down as a new post: editing is not a way to keep probing the filter
-  if exists (select 1 from public.community_moderation_events e
+  v_scan := private.community_scan(v_body);
+  if v_scan ->> 'decision' = 'unavailable' then return jsonb_build_object('status', 'refused', 'reason', 'not_ready'); end if;
+  -- (words that suggest an emergency or self-harm are never turned away by the cool-down)
+  if v_scan ->> 'decision' <> 'safety' and exists (select 1 from public.community_moderation_events e
               where e.member_profile_id = v_uid and e.action = 'cooldown_started'
                 and e.created_at > now() - make_interval(mins => (private.community_cfg() #>> '{block_cooldown,cooldown_minutes}')::int)) then
     return jsonb_build_object('status', 'refused', 'reason', 'cooling_down');
   end if;
-
-  v_scan := private.community_scan(v_body);
-  if v_scan ->> 'decision' = 'unavailable' then return jsonb_build_object('status', 'refused', 'reason', 'not_ready'); end if;
   v_apc := (v_gate ->> 'approved_post_count')::int;
   -- An edit is checked as strictly as a new post, but a post that is already visible is not sent back to pre-moderation just
   -- because its author is new: only the rules decide.
@@ -644,7 +657,8 @@ declare
   v_count integer;
 begin
   if v_uid is null then raise exception 'sign in required' using errcode = '28000'; end if;
-  select * into po from public.community_posts where id = p_post_id;
+  -- locked, so two people reacting or reporting at once cannot each read a stale count
+  select * into po from public.community_posts where id = p_post_id for update;
   if not found or po.state <> 'visible' or not private.community_reader_ok(po.group_id, v_uid) then
     return jsonb_build_object('status', 'refused', 'reason', 'not_available');
   end if;
@@ -666,7 +680,8 @@ declare
   v_n integer;
 begin
   if v_uid is null then raise exception 'sign in required' using errcode = '28000'; end if;
-  select * into po from public.community_posts where id = p_post_id;
+  -- locked, so two people reacting or reporting at once cannot each read a stale count
+  select * into po from public.community_posts where id = p_post_id for update;
   if not found or po.state not in ('visible', 'auto_hidden') or not private.community_reader_ok(po.group_id, v_uid) then
     return jsonb_build_object('status', 'refused', 'reason', 'not_available');
   end if;
@@ -704,6 +719,9 @@ begin
   update public.community_posts set body = '[removed]'
    where state in ('removed', 'deleted_by_author') and body <> '[removed]' and removed_at < now() - make_interval(days => v_days);
   get diagnostics v_n = row_count;
+  -- the free-text note a member added when reporting a post goes the same way once the report is resolved
+  update public.community_reports set detail = null
+   where detail is not null and status <> 'open' and resolved_at < now() - make_interval(days => v_days);
   -- what a member wrote in an appeal is kept for the same window after it is decided
   update public.community_appeals set reason = '[removed after retention]'
    where status <> 'open' and decided_at < now() - make_interval(days => v_days) and reason <> '[removed after retention]';

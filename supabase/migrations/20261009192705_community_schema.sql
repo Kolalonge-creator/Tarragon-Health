@@ -428,6 +428,14 @@ begin
       raise exception 'a filter rule set cannot go live without blocking phone numbers, email addresses, links and handles' using errcode = '42501';
     end if;
     select exists (select 1 from public.community_filter_rules r where r.rule_set_version = new.version and r.class in ('self_harm', 'emergency')) into v_safety;
+    -- Once a set with emergency or self-harm rules has been live, no later set may go live without them. Otherwise an admin could
+    -- replace the Chief Medical Officer's set with one that drops detection altogether.
+    if not v_safety and exists (
+         select 1 from public.community_filter_rule_sets o
+          where o.version <> new.version and o.status in ('active', 'retired') and o.approved_at is not null
+            and exists (select 1 from public.community_filter_rules r where r.rule_set_version = o.version and r.class in ('self_harm', 'emergency'))) then
+      raise exception 'a filter rule set cannot go live without the emergency and self-harm rules once those have been live' using errcode = '42501';
+    end if;
     if new.approved_by is null then
       raise exception 'a filter rule set needs an approver to go live' using errcode = '42501';
     end if;
@@ -534,10 +542,10 @@ begin
   if tg_op = 'UPDATE' and new.authored_by is not distinct from old.authored_by and new.reviewed_by is not distinct from old.reviewed_by then
     return new;
   end if;
-  if not exists (select 1 from public.clinical_staff where profile_id = new.authored_by and active) then
+  if not exists (select 1 from public.clinical_staff where profile_id = new.authored_by and active and doctor_tier in ('senior_medical_officer', 'chief_medical_officer')) then
     raise exception 'pinned group content is written by an active clinician' using errcode = '42501';
   end if;
-  if new.reviewed_by is not null and not exists (select 1 from public.clinical_staff where profile_id = new.reviewed_by and active) then
+  if new.reviewed_by is not null and not exists (select 1 from public.clinical_staff where profile_id = new.reviewed_by and active and doctor_tier in ('senior_medical_officer', 'chief_medical_officer')) then
     raise exception 'pinned group content is reviewed by an active clinician' using errcode = '42501';
   end if;
   return new;
@@ -669,7 +677,7 @@ create table public.community_post_images (
   id           uuid primary key default gen_random_uuid(),
   post_id      uuid not null unique references public.community_posts (id) on delete cascade,
   group_id     uuid not null references public.community_groups (id) on delete restrict,
-  storage_path text not null unique check (storage_path ~ '^[0-9a-f-]{36}/[0-9a-f-]{36}/[0-9a-f-]{36}[.](jpg|png)$'),
+  storage_path text not null unique check (storage_path ~ '^([0-9a-f-]{36}/[0-9a-f-]{36}/[0-9a-f-]{36}[.](jpg|png)|removed/[0-9a-f-]{36})$'),
   mime         text not null check (mime in ('image/jpeg', 'image/png')),
   size_bytes   integer not null check (size_bytes between 1 and 10485760),
   width        integer not null check (width between 1 and 20000),
@@ -784,6 +792,13 @@ comment on table public.community_memberships is
   'Community: the only table tying a profile to a group. RPC-only; never exposed to members, staff queues or institutions. Handles are per group and system-issued.';
 comment on table public.community_moderation_events is
   'Community: append-only moderation log. filter_hits holds rule ids and classes, never the matched text.';
+
+-- Community notices are for the person they were sent to and nobody else. The platform lets org staff read notifications, which would
+-- let a moderator or any staff member see WHO received a "your post was removed" notice and so tie a made-up name to an account. This
+-- RESTRICTIVE policy only narrows: a community notice is visible to its own recipient alone, whatever the other policies allow.
+-- (The service role bypasses row security, so sending is unaffected.)
+create policy community_notices_recipient_only on public.notifications as restrictive for select to authenticated
+  using (template is null or template not like 'community\_%' or recipient_id = (select auth.uid()));
 
 -- ---------------------------------------------------------------------------
 -- 9. Self-check (the migration refuses to finish if the lock-down did not hold)

@@ -4,7 +4,7 @@ import { useId, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { holdReasonLabel, type ModItem } from "@/lib/community/model";
+import { holdReasonLabel, reportReasonLabel, type ModItem } from "@/lib/community/model";
 import { formatWhen } from "./staff-format";
 import { PictureChecklist, PostPicture } from "./post-picture";
 import {
@@ -45,7 +45,7 @@ function ModerationCard({
   const imageId = typeof item.image_id === "string" && item.image_id !== "" ? item.image_id : null;
   const hasPicture = imageId !== null;
   const hasEatingDisorder = item.reasons.includes("eating_disorder");
-  const why: string[] = item.reasons.map((c) => (c === "eating_disorder" ? "Possible eating-disorder wording" : holdReasonLabel(c)));
+  const why: string[] = item.reasons.map(holdReasonLabel);
   if (item.report_count > 0) why.push(`Reported ${item.report_count} ${item.report_count === 1 ? "time" : "times"}`);
 
   function close() {
@@ -119,7 +119,7 @@ function ModerationCard({
         ) : (
           <p>No reason was recorded.</p>
         )}
-        {item.report_reasons.length > 0 && <p className="mt-1">Reasons given by members: {item.report_reasons.join(", ")}.</p>}
+        {item.report_reasons.length > 0 && <p className="mt-1">Reasons given by members: {item.report_reasons.map(reportReasonLabel).join(", ")}.</p>}
       </div>
 
       {hasEatingDisorder && (

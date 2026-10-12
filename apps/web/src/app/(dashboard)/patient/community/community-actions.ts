@@ -335,14 +335,15 @@ export async function submitAppeal(input: unknown): Promise<{ ok: true } | Actio
  *
  * Note for the lead: the spec adds an emergency_source value 'community_post'; until that migration lands the existing generic source is used.
  */
-export async function startEmergencyFromSafetyCard(): Promise<{ ok: boolean }> {
+/** `recorded` is whether an emergency exists (the app's emergency screen can then take over); `ok` is whether the contact was messaged too. */
+export async function startEmergencyFromSafetyCard(): Promise<{ ok: boolean; recorded: boolean }> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { ok: false };
+  if (!user) return { ok: false, recorded: false };
   const { data: profile } = await supabase.from("profiles").select("organisation_id").eq("id", user.id).single();
-  if (!profile?.organisation_id) return { ok: false };
+  if (!profile?.organisation_id) return { ok: false, recorded: false };
   const { data: event, error } = await supabase
     .from("emergency_events")
     .insert({
@@ -354,7 +355,7 @@ export async function startEmergencyFromSafetyCard(): Promise<{ ok: boolean }> {
     })
     .select("id")
     .single();
-  if (error || !event) return { ok: false };
+  if (error || !event) return { ok: false, recorded: false };
   const alerted = await alertEmergencyContactNow(event.id);
-  return { ok: !alerted?.error };
+  return { ok: !alerted?.error, recorded: true };
 }

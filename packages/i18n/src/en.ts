@@ -2245,6 +2245,7 @@ export const en = {
   "community.safety.emergency.title": "If this is an emergency",
   "community.safety.emergency.body": "Please go to your nearest hospital now, or ask someone near you to take you. We have not shared your post with the group, and a member of the team will look at it.",
   "community.safety.emergency.contact": "Alert my emergency contact",
+  "community.safety.emergency.not_sent": "We could not alert your emergency contact just now. Please call them yourself, or go to your nearest hospital.",
   "community.safety.self_harm.title": "You are not alone",
   "community.safety.self_harm.body": "It sounds like things are very hard right now. Please reach out to someone you trust, or go to your nearest hospital. We have not shared your post with the group, and a person from the team will look at it.",
   "community.safety.self_harm.care_team": "Message your care team",

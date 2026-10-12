@@ -302,7 +302,7 @@ begin
       left join public.community_groups g on g.id = a.group_id
       left join public.community_posts po on po.id = a.post_id
       left join public.community_sanctions s on s.id = a.sanction_id
-     where a.status = 'open' and private.community_is_moderator(a.group_id)
+     where a.status = 'open' and private.community_is_moderator(a.group_id) and (a.group_id is not null or private.community_is_global_moderator())
        and coalesce(po.removed_by, s.issued_by) is distinct from v_uid
        and a.profile_id is distinct from v_uid), '[]'::jsonb));
 end $$;
@@ -319,7 +319,7 @@ begin
   if v_uid is null then raise exception 'sign in required' using errcode = '28000'; end if;
   select * into a from public.community_appeals where id = p_id for update;
   if not found then return jsonb_build_object('status', 'refused', 'reason', 'not_found'); end if;
-  if not private.community_is_moderator(a.group_id) then raise exception 'community moderators only' using errcode = '42501'; end if;
+  if not private.community_is_moderator(a.group_id) or (a.group_id is null and not private.community_is_global_moderator()) then raise exception 'community moderators only' using errcode = '42501'; end if;
   if a.status <> 'open' then return jsonb_build_object('status', 'refused', 'reason', 'already_decided'); end if;
   if p_decision not in ('uphold', 'overturn') then return jsonb_build_object('status', 'refused', 'reason', 'bad_decision'); end if;
   if length(coalesce(p_note, '')) > 500 then return jsonb_build_object('status', 'refused', 'reason', 'note_too_long'); end if;

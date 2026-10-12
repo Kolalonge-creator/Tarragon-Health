@@ -299,8 +299,23 @@ export const HOLD_REASON_LABEL: Readonly<Record<string, string>> = {
   abuse: "Possible threat or abuse",
   spam: "Possible spam",
   reported: "Hidden after reports",
+  image: "Has a picture: every picture is checked first",
+  eating_disorder: "Possible eating-disorder wording",
 };
-export const holdReasonLabel = (code: string): string => HOLD_REASON_LABEL[code] ?? code;
+/** A code we have no label for is shown as a neutral phrase, never as the raw code. */
+export const holdReasonLabel = (code: string): string => HOLD_REASON_LABEL[code] ?? "Another reason";
+
+/** What a member chose when reporting a post, in plain words for the moderator. */
+export const REPORT_REASON_LABEL: Readonly<Record<string, string>> = {
+  contact_details: "Contact details",
+  selling_or_promotion: "Selling or promoting",
+  medical_misinformation: "Medical misinformation",
+  harassment: "Harassment",
+  self_harm_or_danger: "Someone may be in danger",
+  privacy: "Shares private details",
+  other: "Another reason",
+};
+export const reportReasonLabel = (code: string): string => REPORT_REASON_LABEL[code] ?? "Another reason";
 
 export const modItemSchema = z.object({
   post_id: z.string(),
@@ -474,6 +489,8 @@ const STAFF_REFUSED: Readonly<Record<string, string>> = {
   already_decided: "This appeal has already been decided.",
   not_found: "That could not be found. It may have been removed already.",
   not_ready: "The text filters are not ready, so this cannot be saved yet. Ask the Chief Medical Officer to check the live rule set.",
+  own_post: "This is your own post, so another moderator needs to decide it.",
+  safety_reviewer_is_global: "A safety reviewer covers every group, so this permission cannot be limited to one group.",
   your_own_decision: "You made this decision, so another moderator needs to check it.",
   already_reviewed: "This has already been checked.",
   choose_one: "Please choose whether you agree.",

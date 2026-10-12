@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 
 const rpc = jest.fn<(fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>>();
 const download = jest.fn<(path: string) => Promise<{ data: Blob | null; error: unknown }>>();
+const servicePath = jest.fn<() => Promise<{ data: unknown }>>();
 let authenticated = true;
 
 jest.mock("@/lib/community/api-auth", () => ({
@@ -10,7 +11,7 @@ jest.mock("@/lib/community/api-auth", () => ({
     authenticated ? { userId: "u", supabase: { rpc } } : { response: new Response("{}", { status: 401 }) },
 }));
 jest.mock("@/lib/supabase/service-role", () => ({
-  createServiceRoleClient: () => ({ storage: { from: () => ({ download }) } }),
+  createServiceRoleClient: () => ({ rpc: (fn: string) => (fn === "community_image_path" ? servicePath() : Promise.resolve({ data: null })), storage: { from: () => ({ download }) } }),
 }));
 
 import { GET } from "./route";
@@ -22,6 +23,7 @@ const req = new Request("http://localhost/api/community/images/x");
 beforeEach(() => {
   rpc.mockReset();
   download.mockReset();
+  servicePath.mockReset().mockResolvedValue({ data: "g/u/f.jpg" });
   authenticated = true;
 });
 
@@ -43,7 +45,7 @@ describe("GET /api/community/images/[id]", () => {
   });
 
   it("streams the bytes with no caching and a locked-down content policy", async () => {
-    rpc.mockResolvedValue({ data: { ok: true, path: "g/f.jpg", mime: "image/jpeg" }, error: null });
+    rpc.mockResolvedValue({ data: { ok: true, mime: "image/jpeg" }, error: null });
     download.mockResolvedValue({ data: new Blob([Uint8Array.of(1, 2, 3)], { type: "image/jpeg" }), error: null });
     const res = await GET(req, ctx(ID));
     expect(res.status).toBe(200);
@@ -54,8 +56,15 @@ describe("GET /api/community/images/[id]", () => {
     expect((await res.arrayBuffer()).byteLength).toBe(3);
   });
 
+  it("never uses a path that was cleared when the file was removed", async () => {
+    rpc.mockResolvedValue({ data: { ok: true, mime: "image/png" }, error: null });
+    servicePath.mockResolvedValue({ data: "removed/abc" });
+    expect((await GET(req, ctx(ID))).status).toBe(404);
+    expect(download).not.toHaveBeenCalled();
+  });
+
   it("answers 404 when the file is missing from storage", async () => {
-    rpc.mockResolvedValue({ data: { ok: true, path: "g/f.jpg", mime: "image/png" }, error: null });
+    rpc.mockResolvedValue({ data: { ok: true, mime: "image/png" }, error: null });
     download.mockResolvedValue({ data: null, error: { message: "not found" } });
     expect((await GET(req, ctx(ID))).status).toBe(404);
   });

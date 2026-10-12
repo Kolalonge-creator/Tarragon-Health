@@ -29,11 +29,18 @@ export function SafetyCard({
   const { colors } = useTheme();
   const ref = useRef<View>(null);
   const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   async function alertContact() {
     setBusy(true);
-    await alertEmergencyContactFromCard(await getAccessToken());
+    const result = await alertEmergencyContactFromCard(await getAccessToken());
     setBusy(false);
+    // "failed" means nothing reached the server (offline, signed out): say so instead of opening the Emergency card as if help was asked for.
+    // "not_sent" means an emergency exists but the contact could not be messaged; the Emergency card explains what is missing.
+    if (result === "failed") {
+      setFailed(true);
+      return;
+    }
     onOpenEmergency();
   }
 
@@ -56,6 +63,11 @@ export function SafetyCard({
         {copy(emergency ? "community.safety.emergency.title" : "community.safety.self_harm.title")}
       </AppText>
       <AppText variant="bodyLarge">{copy(emergency ? "community.safety.emergency.body" : "community.safety.self_harm.body")}</AppText>
+      {failed && (
+        <View accessibilityRole="alert" accessibilityLiveRegion="polite">
+          <AppText variant="body">{copy("community.safety.emergency.not_sent")}</AppText>
+        </View>
+      )}
       {emergency ? (
         <Button title={copy("community.safety.emergency.contact")} onPress={() => void alertContact()} disabled={busy} accessibilityHint={tr("Messages your saved emergency contact now and opens your emergency card.")} />
       ) : (

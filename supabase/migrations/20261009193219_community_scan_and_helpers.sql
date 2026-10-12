@@ -68,7 +68,7 @@ declare
   prev text;
   n integer := 0;
 begin
-  t := regexp_replace(t, '\yzero\y', '0', 'g');
+  t := regexp_replace(t, '\y(?:zero|oh)\y', '0', 'g');
   t := regexp_replace(t, '\yone\y', '1', 'g');
   t := regexp_replace(t, '\ytwo\y', '2', 'g');
   t := regexp_replace(t, '\ythree\y', '3', 'g');
@@ -109,6 +109,8 @@ begin
   v := private.community_digit_view(p_norm);
   -- a decimal such as 6.5 or 7.25 is a measurement, not a phone number; a chain such as 0.8.0.3 is not matched (it is a dodge)
   v := regexp_replace(v, '(^|[^0-9.])[0-9]+\.[0-9]{1,2}(?![0-9]|\.[0-9])', '\1 ', 'g');
+  -- tabs, line breaks and non-breaking spaces between digits are just spaces
+  v := regexp_replace(v, '[\s]+', ' ', 'g');
   if v ~ '\+\s?[0-9][0-9 ._()-]{8,}[0-9]' then return true; end if;     -- an international number written with a plus
   for m in select regexp_matches(v, '[0-9](?:[0-9 ._()*+-]*[0-9])?', 'g') loop
     d := regexp_replace(m[1], '[^0-9]', '', 'g');
@@ -122,12 +124,22 @@ begin
     if tot between 10 and 13 and mx <= 4 and cardinality(g) >= 3 and (m[1] ~ '[-._()]' or (cardinality(g) = 3 and (select min(length(x)) from unnest(g) as x) <= 3)) then return true; end if;  -- a number in short blocks, with separators or an uneven last block
     if singles >= 8 then return true; end if;                           -- digits spaced apart to dodge the filter
   end loop;
+  -- Slashes, commas, colons, bars and dash-like marks as separators ("0803/123/4567", "0803,123,4567"). They are NOT treated as separators
+  -- above because blood pressure and sugar lists use them ("120/80, 130/85"); here only a number that BEGINS like a Nigerian mobile
+  -- (or is one long unbroken number) counts, so those lists are never flagged.
+  v := translate(v, '/,:;|' || chr(183) || chr(8211) || chr(8212), '        ');
+  for m in select regexp_matches(v, '[0-9](?:[0-9 ._()*+-]*[0-9])?', 'g') loop
+    d := regexp_replace(m[1], '[^0-9]', '', 'g');
+    if length(d) >= 10 and d ~ '^0[789][01]' then return true; end if;
+    if length(d) >= 12 and d ~ '^234[789][01]' then return true; end if;
+  end loop;
   return false;
 end $$;
 
 create or replace function private.community_detect_email(p_norm text) returns boolean
 language sql immutable set search_path = '' as $$
-  select p_norm ~ '[a-z0-9._%+-]{2,}\s?(?:@|\(at\)|\[at\]|\{at\})\s?[a-z0-9-]{2,}\s?(?:\.|\(dot\)|\[dot\]|\{dot\}|\ydot\y)\s?[a-z]{2,}'
+  select p_norm ~ '[a-z0-9._%+-]{2,}\s?(?:@|\(at\)|\[at\]|\{at\})\s?(?:gmail|googlemail|yahoo|ymail|hotmail|outlook|icloud|proton|protonmail|aol|live)\y'
+      or p_norm ~ '[a-z0-9._%+-]{2,}\s?(?:@|\(at\)|\[at\]|\{at\})\s?[a-z0-9-]{2,}\s?(?:\.|\(dot\)|\[dot\]|\{dot\}|\ydot\y)\s?[a-z]{2,}'
       or p_norm ~ '\y[a-z0-9._-]{2,}\s+at\s+[a-z0-9-]{2,}\s+dot\s+[a-z]{2,}\y'
 $$;
 
@@ -151,7 +163,7 @@ begin
   if p_norm ~ '\y[a-z0-9-]+\s+dot\s+(?:com|ng|org|net|co)\y' then return true; end if;
   for m in
     select regexp_matches(p_norm,
-      '(?:https?://|www\.)[^\s]+|\y[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)*\.(?:com|ng|org|net|co|io|me|ly|info|biz|app|xyz|tv|link|site|online|store|shop|health)\y(?:/[^\s]*)?',
+      '(?:https?://|www\.)[^\s]+|\y[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)*\.(?:com|ng|org|net|co|io|me|ly|info|biz|app|xyz|tv|link|site|online|store|shop|health|ee|gg|uk|dev|ai|gl|ws|gd|tk|pro|tech|live|chat|social|club)\y(?:/[^\s]*)?',
       'g')
   loop
     tok := m[1];
@@ -221,6 +233,16 @@ language sql stable security definer set search_path = '' as $$
        and (s.group_id is null or p_group is null or s.group_id = p_group))
 $$;
 
+-- A moderator whose grant covers every group (not just one). Platform-wide matters, such as an appeal against a platform-wide sanction, are for these.
+create or replace function private.community_is_global_moderator() returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (
+    select 1
+      from public.community_staff s
+      join public.profiles p on p.id = s.profile_id and p.is_active and p.role in ('admin', 'care_coordinator')
+     where s.profile_id = (select auth.uid()) and s.scope = 'moderator' and s.revoked_at is null and s.group_id is null)
+$$;
+
 create or replace function private.community_is_safety_reviewer() returns boolean
 language sql stable security definer set search_path = '' as $$
   select exists (
@@ -264,23 +286,19 @@ create or replace function private.community_notify(p_recipient uuid, p_template
 language plpgsql security definer set search_path = '' as $$
 begin
   if p_recipient is null then return; end if;
-  -- Chatty notices (a reply, the digest, an overdue reminder) are throttled to one unread per ten minutes. A notice about a
-  -- distinct decision (an appeal result, a removal, a sanction, an answer) is never merged with another: it is only skipped
-  -- when the very same item already has one.
-  if p_template in ('community_reply', 'community_digest', 'community_overdue') then
-    if exists (
-      select 1 from public.notifications n
-       where n.recipient_id = p_recipient and n.template = p_template and n.opened_at is null
-         and n.created_at > now() - interval '10 minutes') then
-      return;
-    end if;
-  elsif exists (
+  -- Chatty notices (a reply, the digest, an overdue reminder) are throttled to one unread per ten minutes. A notice about a distinct
+  -- decision (an appeal result, a removal, a sanction, an answer) is never merged with another: each is a one-off event.
+  if p_template in ('community_reply', 'community_digest', 'community_overdue') and exists (
     select 1 from public.notifications n
-     where n.recipient_id = p_recipient and n.template = p_template and n.source_id = p_source and n.source_table = p_source_table) then
+     where n.recipient_id = p_recipient and n.template = p_template and n.opened_at is null
+       and n.created_at > now() - interval '10 minutes') then
     return;
   end if;
-  insert into public.notifications (organisation_id, recipient_id, channel, template, payload, content_class, source_table, source_id)
-  select p.organisation_id, p.id, 'in_app', p_template, '{}'::jsonb, 'non_clinical', p_source_table, p_source
+  -- The notice never records WHICH post or appeal it is about (source_id and source_table stay empty): a row that said so would let anyone
+  -- who can read the table link a made-up name to the account that received the notice. p_source and p_source_table are kept so callers
+  -- need not change; they are deliberately not stored.
+  insert into public.notifications (organisation_id, recipient_id, channel, template, payload, content_class)
+  select p.organisation_id, p.id, 'in_app', p_template, '{}'::jsonb, 'non_clinical'
     from public.profiles p where p.id = p_recipient and p.is_active;
 end $$;
 
@@ -303,7 +321,7 @@ revoke all on function
   private.community_normalise(text), private.community_digit_view(text),
   private.community_detect_phone(text), private.community_detect_email(text), private.community_detect_handle(text),
   private.community_detect_url(text, jsonb), private.community_scan(text),
-  private.community_is_moderator(uuid), private.community_is_safety_reviewer(),
+  private.community_is_moderator(uuid), private.community_is_global_moderator(), private.community_is_safety_reviewer(),
   private.community_adult(uuid), private.community_active_sanction(uuid, uuid),
   private.community_notify(uuid, text, uuid, text), private.community_uncovered_hours(text)
 from public, anon, authenticated, service_role;

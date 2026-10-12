@@ -96,7 +96,7 @@ do $$
 declare
   v_org uuid; v_admin uuid; v_cmo uuid; v_mod uuid; v_mod2 uuid; v_rev uuid; v_doc uuid; v_cc uuid;
   v_p1 uuid; v_p2 uuid; v_p3 uuid; v_real uuid; v_minor uuid; v_edge uuid; v_young uuid; v_nodob uuid; v_dep uuid; v_merged uuid;
-  v_g uuid; v_g2 uuid; v_gw uuid; v_rules integer; v_j jsonb; v_post uuid; v_post2 uuid; v_handle text; v_n integer; t text; r record; v_post_for_signal uuid; v_dpo uuid;
+  v_g uuid; v_g2 uuid; v_gw uuid; v_rules integer; v_j jsonb; v_post uuid; v_post2 uuid; v_handle text; v_n integer; t text; r record; v_post_for_signal uuid; v_dpo uuid; v_cc2 uuid;
   v_staffroles text[] := array['hmo_admin', 'corporate_admin', 'pharmacist', 'finance', 'analyst', 'lab_partner', 'payer_admin', 'provider_org_staff', 'ngo_admin', 'lab_liaison'];
   v_role text; v_u uuid; v_ok boolean; v_keys text; v_staff_id uuid;
 begin
@@ -174,7 +174,7 @@ begin
        where n.nspname in ('public', 'private') and p.proname like 'community\_%' and coalesce(p.proacl::text, '') ~ '(^\{|,)=X'), 'none'));
   perform pg_temp.rec('a signed-in user can execute every public community function except the two scheduled jobs', 'none',
     coalesce((select string_agg(p.proname, ',') from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-       where n.nspname = 'public' and p.proname like 'community\_%' and p.proname not in ('community_purge_expired', 'community_send_digests', 'community_orphan_files', 'community_images_due', 'community_images_mark_deleted', 'community_overdue_work', 'community_notify_overdue', 'community_job_heartbeat') and not has_function_privilege('authenticated', p.oid, 'EXECUTE')), 'none'));
+       where n.nspname = 'public' and p.proname like 'community\_%' and p.proname not in ('community_purge_expired', 'community_send_digests', 'community_orphan_files', 'community_images_due', 'community_images_mark_deleted', 'community_overdue_work', 'community_notify_overdue', 'community_job_heartbeat', 'community_image_path') and not has_function_privilege('authenticated', p.oid, 'EXECUTE')), 'none'));
   perform pg_temp.rec('a signed-in user cannot execute the purge', 'false', has_function_privilege('authenticated', 'public.community_purge_expired()', 'EXECUTE')::text);
   perform pg_temp.rec('only the service role may run the purge', 'true', has_function_privilege('service_role', 'public.community_purge_expired()', 'EXECUTE')::text);
   perform pg_temp.rec('only the service role may run the digest job', 'true,false',
@@ -373,6 +373,12 @@ begin
   perform pg_temp.rec('unmask: a concern older than the window no longer allows it', 'no_safety_signal',
     (pg_temp.asj(v_cmo, format($q$select public.community_admin_unmask(%L, %L, 'A safety review needs to reach this member urgently.')$q$, v_g, v_handle)) ->> 'reason'));
   update public.community_safety_signals set created_at = now() where post_id = v_post_for_signal;
+  update public.community_safety_signals set status = 'closed', handled_at = now() where post_id = v_post_for_signal;
+  perform pg_temp.rec('unmask: a concern the reviewer closed as a false alarm no longer allows it', 'no_safety_signal',
+    (pg_temp.asj(v_cmo, format($q$select public.community_admin_unmask(%L, %L, 'A safety review needs to reach this member urgently.')$q$, v_g, v_handle)) ->> 'reason'));
+  perform pg_temp.rec('unmask: ...and it drops off the candidate list', 'false',
+    (exists (select 1 from jsonb_array_elements(pg_temp.asj(v_doc, 'select public.community_unmask_candidates()') -> 'items') i where i ->> 'author_handle' = v_handle))::text);
+  update public.community_safety_signals set status = 'open', handled_at = null where post_id = v_post_for_signal;
   v_j := pg_temp.asj(v_admin, format($q$select public.community_admin_unmask(%L, %L, 'A safety review needs to reach this member urgently.')$q$, v_g, v_handle));
   perform pg_temp.rec('unmask: an admin with a written reason resolves the handle', v_p1::text, (v_j ->> 'profile_id'));
   perform pg_temp.rec('unmask: written to audit_log', '1', (select count(*)::text from public.audit_log where action = 'community_unmask' and actor_id = v_admin));
@@ -385,13 +391,32 @@ begin
   perform pg_temp.rec('unmask: the audit row keeps the reason', 'true', (exists (select 1 from public.audit_log where action = 'community_unmask' and event ->> 'reason' like 'A safety review%'))::text);
   perform pg_temp.rec('unmask: the CMO is told, with a fixed notice and no content', '{}',
     (select payload::text from public.notifications where recipient_id = v_cmo and template = 'community_unmask_notice' limit 1));
-  perform pg_temp.rec('unmask: an unknown handle resolves to nothing', 'no_such_member',
+  perform pg_temp.rec('unmask: an unknown handle gets the SAME answer as a handle with no concern (a name cannot be probed)', 'no_safety_signal',
     (pg_temp.asj(v_admin, format($q$select public.community_admin_unmask(%L, 'nobody-here-99', 'A safety review needs to reach this member urgently.')$q$, v_g)) ->> 'reason'));
   for v_n in 1..5 loop
     perform pg_temp.asj(v_admin, format($q$select public.community_admin_unmask(%L, %L, 'A safety review needs to reach this member urgently.')$q$, v_g, v_handle));
   end loop;
   perform pg_temp.rec('unmask: the daily limit holds', 'daily_limit',
     (pg_temp.asj(v_admin, format($q$select public.community_admin_unmask(%L, %L, 'A safety review needs to reach this member urgently.')$q$, v_g, v_handle)) ->> 'reason'));
+
+  -- 9b. Review fixes: community notices are for their recipient only; pinned notes need a senior doctor ------------------------------------------
+  -- The platform lets org staff read notifications. Model that worst case (a permissive policy that shows everything), then prove the
+  -- restrictive community policy still keeps a community notice from anyone but its recipient.
+  alter table public.notifications enable row level security;
+  create policy proof_staff_see_all on public.notifications for select to authenticated using (true);
+  insert into public.notifications (organisation_id, recipient_id, channel, template, payload, content_class)
+  values (v_org, v_cmo, 'in_app', 'proof_other_notice', '{}', 'non_clinical');
+  perform pg_temp.rec('a community notice cannot be read by a staff member who is not its recipient', '0',
+    (pg_temp.asj(v_admin, format($q$select jsonb_build_object('n', (select count(*) from public.notifications where recipient_id = %L and template like 'community\_%%'))$q$, v_cmo)) ->> 'n'));
+  perform pg_temp.rec('...while a notice of another kind is still visible to staff (the policy is narrow)', '1',
+    (pg_temp.asj(v_admin, format($q$select jsonb_build_object('n', (select count(*) from public.notifications where recipient_id = %L and template = 'proof_other_notice'))$q$, v_cmo)) ->> 'n'));
+  perform pg_temp.rec('the recipient still reads their own community notices', 'true',
+    ((pg_temp.asj(v_cmo, format($q$select jsonb_build_object('n', (select count(*) from public.notifications where recipient_id = %L and template = 'community_unmask_notice'))$q$, v_cmo)) ->> 'n')::int >= 1)::text);
+  perform pg_temp.rec('a community notice records no post, appeal or group it is about, for the removal and reply kinds', '0',
+    (select count(*)::text from public.notifications where template in ('community_post_removed', 'community_reply', 'community_appeal_result', 'community_sanction_notice', 'community_digest') and (source_id is not null or source_table is not null)));
+  v_cc2 := pg_temp.mkdoc(v_org, v_admin, 'cc', 'care_coordinator');
+  perform pg_temp.rec('a care-coordinator-tier account cannot write pinned group notes', '42501',
+    (pg_temp.asj(v_cc2, format($q$select public.community_clinician_pin(%L, 'A note from the wrong tier', 'Body of the note.')$q$, v_g)) ->> 'error'));
 
   -- 10. SABOTAGE -----------------------------------------------------------------------------------------------------------------------------
   -- (a) hand a client role a table privilege: the direct-read refusal must flip
@@ -400,6 +425,10 @@ begin
   insert into results values ('sabotaged', 'a patient cannot read posts directly', '42501', pg_temp.try('select * from public.community_posts'));
   perform pg_temp.back();
   revoke select on public.community_posts from authenticated;
+  -- (c) remove the restrictive notices policy: a staff member can now read a community notice, so the refusal must flip
+  drop policy community_notices_recipient_only on public.notifications;
+  insert into results values ('sabotaged', 'a community notice cannot be read by a staff member who is not its recipient', '0',
+    pg_temp.asj(v_admin, format($q$select jsonb_build_object('n', (select count(*) from public.notifications where recipient_id = %L and template like 'community\_%%'))$q$, v_cmo)) ->> 'n');
   -- (b) disable the age gate: the 17-year-old is let in, so the refusal must flip
   create or replace function private.community_adult(p_profile uuid) returns boolean language sql stable as 'select true';
   insert into results values ('sabotaged', 'a 17-year-old is refused', 'adults_only',
@@ -416,7 +445,7 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected is distinct from actual;
-  if v_caught < 2 then raise exception 'VACUOUS TEST: only % of 2 sabotage steps changed the matching check', v_caught; end if;
+  if v_caught < 3 then raise exception 'VACUOUS TEST: only % of 3 sabotage steps changed the matching check', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result

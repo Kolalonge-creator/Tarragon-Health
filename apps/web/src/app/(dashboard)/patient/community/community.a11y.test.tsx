@@ -154,12 +154,21 @@ describe("GroupView", () => {
 
 describe("SafetyCard", () => {
   it("emergency: the button is an explicit tap that goes to the existing emergency screen", async () => {
-    actions.startEmergencyFromSafetyCard.mockResolvedValue({ ok: true });
+    actions.startEmergencyFromSafetyCard.mockResolvedValue({ ok: true, recorded: true });
     render(<SafetyCard kind="emergency" locale="en" onDismiss={() => undefined} />);
     expect(actions.startEmergencyFromSafetyCard).not.toHaveBeenCalled();
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Alert my emergency contact" })));
     expect(actions.startEmergencyFromSafetyCard).toHaveBeenCalledTimes(1);
     expect(push).toHaveBeenCalledWith("/patient");
+  });
+
+  it("emergency: if nothing could be recorded the person is told, and is not sent on", async () => {
+    actions.startEmergencyFromSafetyCard.mockResolvedValue({ ok: false, recorded: false });
+    render(<SafetyCard kind="emergency" locale="en" onDismiss={() => undefined} />);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Alert my emergency contact" })));
+    expect(push).not.toHaveBeenCalled();
+    expect(screen.getByText(/could not alert your emergency contact/)).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Alert my emergency contact" }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it("self harm: links to messaging the care team, can be dismissed, and never says flagged or reported", async () => {
@@ -233,6 +242,20 @@ describe("Composer", () => {
     expect(submit.mock.calls[2]?.[1]).not.toBe(submit.mock.calls[1]?.[1]);
     expect(box.value).toBe("");
     expect(props.onPublished).toHaveBeenCalled();
+  });
+
+  it("uses a NEW request id when the text is edited after a lost answer, so the edit is not silently dropped", async () => {
+    const submit = jest.fn();
+    submit.mockRejectedValueOnce(new Error("offline"));
+    submit.mockResolvedValueOnce({ ok: true, outcome: { kind: "published", message: "community.compose.published" } });
+    render(<Composer {...props} maxChars={100} submit={submit} />);
+    const box = screen.getByRole("textbox") as HTMLTextAreaElement;
+    fireEvent.change(box, { target: { value: "helo there" } });
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Post" })));
+    fireEvent.change(box, { target: { value: "hello there" } });
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Post" })));
+    expect(submit.mock.calls[1]?.[0]).toBe("hello there");
+    expect(submit.mock.calls[1]?.[1]).not.toBe(submit.mock.calls[0]?.[1]);
   });
 
   it("is axe-clean", async () => {

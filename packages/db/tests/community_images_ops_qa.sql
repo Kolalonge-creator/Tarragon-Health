@@ -106,7 +106,7 @@ do $$
 declare
   v_org uuid; v_admin uuid; v_cmo uuid; v_doc uuid; v_doc2 uuid; v_mod uuid; v_rev uuid;
   v_p1 uuid; v_p2 uuid; v_p3 uuid; v_p4 uuid; v_p5 uuid; v_out uuid;
-  v_g uuid; v_g2 uuid; v_wl uuid; v_slug text; v_j jsonb; v_post uuid; v_post2 uuid; v_img uuid; v_staff uuid; v_req uuid; v_sig uuid; v_series uuid; v_ans uuid; v_sess uuid;
+  v_g uuid; v_g2 uuid; v_wl uuid; v_slug text; v_j jsonb; v_post uuid; v_post2 uuid; v_img uuid; v_staff uuid; v_req uuid; v_oldcfg integer; v_sig uuid; v_series uuid; v_ans uuid; v_sess uuid;
   v_path text; v_n integer;
 begin
   select id into v_org from public.organisations order by id limit 1;
@@ -165,6 +165,10 @@ begin
     (exists (select 1 from jsonb_array_elements(pg_temp.asj(v_p2, format('select public.community_feed(%L)', v_g)) -> 'posts') x where x ->> 'id' = v_post::text))::text);
   perform pg_temp.rec('other members cannot open the picture', 'not_found', (pg_temp.asj(v_p2, format('select public.community_image_ref(%L)', v_img)) ->> 'reason'));
   perform pg_temp.rec('a non-member cannot open the picture', 'not_found', (pg_temp.asj(v_out, format('select public.community_image_ref(%L)', v_img)) ->> 'reason'));
+  perform pg_temp.rec('the member-facing answer carries no file path (it holds the author''s account id)', 'false',
+    ((pg_temp.asj(v_p1, format('select public.community_image_ref(%L)', v_img)))::text ~ ('(path|' || v_p1::text || ')'))::text);
+  perform pg_temp.rec('...and the path function is for the service role only', 'true,false,false',
+    has_function_privilege('service_role', 'public.community_image_path(uuid)', 'EXECUTE')::text || ',' || has_function_privilege('authenticated', 'public.community_image_path(uuid)', 'EXECUTE')::text || ',' || has_function_privilege('anon', 'public.community_image_path(uuid)', 'EXECUTE')::text);
   perform pg_temp.rec('the author can open their own waiting picture', 'true', (pg_temp.asj(v_p1, format('select public.community_image_ref(%L)', v_img)) ->> 'ok'));
   perform pg_temp.rec('the author''s feed shows it waiting, with a picture', 'true',
     (exists (select 1 from jsonb_array_elements(pg_temp.asj(v_p1, format('select public.community_feed(%L)', v_g)) -> 'posts') x where x ->> 'id' = v_post::text and x -> 'image' ->> 'id' = v_img::text and (x ->> 'pending_review')::boolean))::text);
@@ -193,6 +197,7 @@ begin
   perform pg_temp.rec('a signed-in user cannot list files due', '42501', pg_temp.try('set local role authenticated; select public.community_images_due()'));
   perform pg_temp.back();
   perform pg_temp.rec('marking it deleted', '1', (public.community_images_mark_deleted(array[v_img]))::text);
+  perform pg_temp.rec('...clears the stored path, which held the author''s account id', 'removed/' || v_img::text, (select storage_path from public.community_post_images where id = v_img));
   perform pg_temp.rec('...closes the picture to everyone', 'not_found', (pg_temp.asj(v_mod, format('select public.community_image_ref(%L)', v_img)) ->> 'reason'));
   -- a picture post with safety wording
   v_j := pg_temp.asj(v_p3, format($q$select public.community_submit_post_with_image(%L, null, 'a test crisis phrase', null, %L, 'image/png', 5000, 100, 100)$q$, v_g, v_g::text || '/' || v_p3::text || '/' || gen_random_uuid()::text || '.png'));
@@ -276,6 +281,16 @@ begin
   -- the precheck, before any file is written
   perform pg_temp.rec('a member may post a picture here', 'true', (pg_temp.asj(v_p2, format('select public.community_image_precheck(%L)', v_g)) ->> 'ok'));
   perform pg_temp.rec('a non-member may not', 'false', (pg_temp.asj(v_out, format('select public.community_image_precheck(%L)', v_g)) ->> 'ok'));
+  -- a retry of a picture post that was already saved is let through, even when the hourly limit is now reached
+  select version into v_oldcfg from public.community_config where is_active;
+  update public.community_config set is_active = false where is_active;
+  insert into public.community_config (version, is_active, params)
+  select (select max(version) + 1 from public.community_config), true, (select params || '{"rate_posts_per_hour": 1}'::jsonb from public.community_config where version = v_oldcfg);
+  perform pg_temp.rec('at the hourly limit a NEW picture post is refused up front', 'rate_limited', (pg_temp.asj(v_p1, format('select public.community_image_precheck(%L)', v_g)) ->> 'reason'));
+  perform pg_temp.rec('...but the retry of the one already saved is not (it will replay)', 'true', (pg_temp.asj(v_p1, format('select public.community_image_precheck(%L, %L)', v_g, v_req)) ->> 'ok'));
+  perform pg_temp.rec('...and someone else''s request id does not unlock it', 'rate_limited', (pg_temp.asj(v_p1, format('select public.community_image_precheck(%L, %L)', v_g, gen_random_uuid())) ->> 'reason'));
+  update public.community_config set is_active = false where is_active;
+  update public.community_config set is_active = true where version = v_oldcfg;
   perform pg_temp.asj(v_admin, format('select public.community_admin_set_group_images(%L, false)', v_g));
   perform pg_temp.rec('...nor in a group with pictures off', 'images_off', (pg_temp.asj(v_p2, format('select public.community_image_precheck(%L)', v_g)) ->> 'reason'));
   perform pg_temp.asj(v_admin, format('select public.community_admin_set_group_images(%L, true)', v_g));

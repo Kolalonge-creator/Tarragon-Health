@@ -37,10 +37,24 @@ describe("community housekeeping", () => {
       if (fn === "community_orphan_files") return { data: ["g/u/stray.jpg"], error: null };
       return { data: null, error: { message: "unexpected" } };
     });
-    remove.mockImplementation(async ([p]) => (p === "g/b.jpg" ? { error: { message: "network down" } } : { error: null }));
+    remove.mockImplementation(async (ps) => (ps.includes("g/b.jpg") ? { error: { message: "network down" } } : { error: null }));
     const res = await GET(authorised);
     expect(await res.json()).toMatchObject({ purged_posts: 4, images_due: 2, images_removed: 1, images_failed: 1, digests: 2, orphans_found: 1, orphans_removed: 1 });
     expect(rpc).toHaveBeenCalledWith("community_images_mark_deleted", { p_ids: [A] });
+  });
+
+  it("reports a failed removal as a failed run, so it cannot look healthy", async () => {
+    rpc.mockImplementation(async (fn) => {
+      if (fn === "community_images_due") return { data: [{ id: A, path: "g/a.jpg" }], error: null };
+      if (fn === "community_orphan_files") return { data: [], error: null };
+      return { data: 0, error: null };
+    });
+    remove.mockResolvedValue({ error: { message: "storage is down" } });
+    const res = await GET(authorised);
+    expect(res.status).toBe(500);
+    expect(await res.json()).toMatchObject({ images_failed: 1, errors: ["images_remove"] });
+    expect(rpc).not.toHaveBeenCalledWith("community_images_mark_deleted", expect.anything());
+    expect(rpc).toHaveBeenLastCalledWith("community_job_heartbeat", { p_job: "housekeeping", p_ok: false });
   });
 
   it("treats a file that is already gone as removed", async () => {

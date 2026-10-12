@@ -627,3 +627,23 @@ community migrations; proof `packages/db/tests/community_images_ops_qa.sql`.
 - **Appeal notices.** `private.community_notify` throttles only chatty notices (reply, digest, overdue reminder) to one unread per ten minutes. A notice about a distinct decision (appeal result, removal, sanction, answer) is never merged with another; only a repeat for the very same item is skipped.
 - **Notice list (optional DPO list).** The CMO is always told of a member lookup. The CMO can add other active staff through `community_dpo_candidates()` and `community_admin_set_dpo`; a patient account is refused. Screen: Community, "Who is told about member lookups". It is not a go-live condition.
 - **Overdue monitor.** `community_job_runs` and `community_job_heartbeat(job, ok)` (service role) record each scheduled run. Go-live condition `overdue_monitor_running` is met only by a successful overdue run in the last 45 minutes, so the safety net cannot be silently absent. Set-up steps: `docs/community/OPERATIONS_SETUP.md`.
+
+### 16a. Independent review findings and what was done (2026-10-12)
+
+Two independent reviews (database layer; application code) read the build. Fixed, each with a proof:
+- **Rule-set downgrade.** Once a rule set with emergency or self-harm rules has been live, no set without them can go live (trigger), and only the CMO can retire a set that carries them. An admin alone could previously have switched detection off.
+- **Notices and identity.** A community notice no longer records which post or appeal it is about, and a RESTRICTIVE row-security policy (`community_notices_recipient_only`) makes a community notice readable only by its recipient, so staff cannot tie a handle to the account that received a removal notice. This policy touches the shared `notifications` table, so it needs the "ultra" review CLAUDE.md asks for on RLS before any PR.
+- **Picture paths.** The file path holds the author's account id; `community_image_ref` no longer returns it (members can call it). The route reads it through `community_image_path` (service role only). The path is cleared when the file is removed.
+- **Unmask.** Only a live concern counts (open, in review, kept withheld; not closed or released), an unknown name and no concern give the same answer, and the daily limit is serialised per person.
+- **Crisis is never turned away.** Words that suggest an emergency or self-harm are read before the cool-down, the hourly limit and a mute/suspension, so the safety card and the reviewers always get them.
+- **Moderation scope.** A moderator cannot approve their own post; a safety reviewer grant is always global; platform-wide appeals need a global moderator; "keep withheld" takes down a post that was still showing; pinned notes need a senior doctor (not a care-coordinator-tier row).
+- **Detectors.** More separators for phone numbers (slash, comma, colon, bar, dash marks, line breaks), "oh" as zero, e-mail at a well-known provider with no ending, more link endings. Lists of blood pressure and sugar readings are still allowed (fixtures prove it).
+- **Races and retries.** Reacting and reporting lock the post row; a picture retry is not refused by the hourly limit when its first try was saved; an edited retry uses a new request id; the emergency route is bearer-only with one alert per ten minutes; the housekeeping run reports failed removals as a failed run and removes files in batches; the cron secret is compared in constant time; the notes on resolved reports are purged with the retention period.
+- **Staff screens** show plain words for picture holds and report reasons; the safety card says so when no alert could be recorded (web and phone).
+
+Known and accepted, not fixed here:
+- A normal member's own visible post body stays (without any account link) after the account is erased; the spec's "removes or tombstones" is met by anonymisation only.
+- Held, hidden and safety-withheld bodies are not purged by age; they wait for a person (the overdue check flags them).
+- A reused request id replays the earlier post without comparing the text. The id is random per attempt and only the same member can reuse it.
+- Phone numbers written with words in other languages, or a number with letters between its digits, can still pass the filter; the pre-moderated first post, the reports and the moderators are the backstop.
+- Safety escalation to a person is the 30-minute overdue notice plus the reviewers' queue; there is no instant page at creation.

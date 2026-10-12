@@ -8,7 +8,7 @@ import { authenticateCommunity } from "@/lib/community/api-auth";
  * post. The file is streamed through here; there is no link to share, and nothing is cached.
  */
 const refSchema = z.discriminatedUnion("ok", [
-  z.object({ ok: z.literal(true), path: z.string(), mime: z.enum(["image/jpeg", "image/png"]) }),
+  z.object({ ok: z.literal(true), mime: z.enum(["image/jpeg", "image/png"]) }),
   z.object({ ok: z.literal(false), reason: z.string().optional() }),
 ]);
 
@@ -22,7 +22,11 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
   const ref = refSchema.safeParse(data);
   if (error || !ref.success || !ref.data.ok) return new Response("Not found", { status: 404 });
 
-  const { data: blob, error: downloadError } = await createServiceRoleClient().storage.from("community-images").download(ref.data.path);
+  // The database has said this person may see it. The file's path is read separately, with the service role, because it holds the author's account id.
+  const service = createServiceRoleClient();
+  const { data: path } = await service.rpc("community_image_path", { p_image_id: id });
+  if (typeof path !== "string" || path === "" || path.startsWith("removed/")) return new Response("Not found", { status: 404 });
+  const { data: blob, error: downloadError } = await service.storage.from("community-images").download(path);
   if (downloadError || !blob) return new Response("Not found", { status: 404 });
   return new Response(blob, {
     headers: {

@@ -48,8 +48,15 @@ begin
   if v_staff then
     perform private.community_log_event(po.group_id, po.id, null, 'image_viewed', v_uid, null, '[]'::jsonb);
   end if;
-  return jsonb_build_object('ok', true, 'path', i.storage_path, 'mime', i.mime);
+  -- No path here: the path holds the author's account id, and this function is callable by any member. The route reads the path with
+  -- community_image_path (service role only) after this check has passed.
+  return jsonb_build_object('ok', true, 'mime', i.mime);
 end $$;
+
+create or replace function public.community_image_path(p_image_id uuid) returns text
+language sql stable security definer set search_path = '' as $$
+  select i.storage_path from public.community_post_images i where i.id = p_image_id and i.deleted_at is null
+$$;
 
 -- Files to remove from storage: pictures of posts the author deleted (after a day), or a moderator removed (after the retention period),
 -- and pictures whose post is gone. Called by the daily job (service role).
@@ -74,7 +81,8 @@ language plpgsql volatile security definer set search_path = '' as $$
 declare
   v_n integer;
 begin
-  update public.community_post_images set deleted_at = now() where id = any(p_ids) and deleted_at is null;
+  -- The path (which holds the author's account id) is overwritten once the file is gone.
+  update public.community_post_images set deleted_at = now(), storage_path = 'removed/' || id::text where id = any(p_ids) and deleted_at is null;
   get diagnostics v_n = row_count;
   return v_n;
 end $$;
@@ -458,7 +466,7 @@ begin
 end $$;
 
 -- Asked by the upload route BEFORE it writes a file: may this person post a picture to this group right now?
-create or replace function public.community_image_precheck(p_group_id uuid) returns jsonb
+create or replace function public.community_image_precheck(p_group_id uuid, p_client_request_id uuid default null) returns jsonb
 language plpgsql stable security definer set search_path = '' as $$
 declare
   v_uid uuid := (select auth.uid());
@@ -467,6 +475,10 @@ begin
   if v_uid is null then raise exception 'sign in required' using errcode = '28000'; end if;
   v_gate := private.community_posting_gate(p_group_id, v_uid);
   if v_gate ->> 'status' <> 'ok' then return jsonb_build_object('ok', false, 'reason', v_gate ->> 'reason'); end if;
+  -- A retry of a post that was already saved (its answer was lost) is let through: the submit step replays the saved result, as it does for text.
+  if p_client_request_id is not null and exists (select 1 from public.community_posts where author_profile_id = v_uid and client_request_id = p_client_request_id) then
+    return jsonb_build_object('ok', true);
+  end if;
   if not exists (select 1 from public.community_groups where id = p_group_id and images_allowed) then return jsonb_build_object('ok', false, 'reason', 'images_off'); end if;
   if exists (select 1 from public.community_moderation_events e where e.member_profile_id = v_uid and e.action = 'cooldown_started'
               and e.created_at > now() - make_interval(mins => (private.community_cfg() #>> '{block_cooldown,cooldown_minutes}')::int)) then
@@ -488,13 +500,13 @@ begin
   for r in
     select p.oid::regprocedure as sig, p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public' and p.proname in (
-       'community_image_ref', 'community_image_precheck', 'community_orphan_files', 'community_images_due', 'community_images_mark_deleted', 'community_admin_set_group_images', 'community_mod_recent',
+       'community_image_ref', 'community_image_path', 'community_image_precheck', 'community_orphan_files', 'community_images_due', 'community_images_mark_deleted', 'community_admin_set_group_images', 'community_mod_recent',
        'community_coverage', 'community_admin_shifts', 'community_admin_set_shifts', 'community_record_tabletop', 'community_tabletop_runs',
        'community_overdue_work', 'community_notify_overdue', 'community_job_heartbeat', 'community_admin_create_qa', 'community_admin_cancel_qa', 'community_admin_qa_list',
        'community_admin_remove_answer', 'community_qa_doctor_sessions', 'community_qa_doctor_questions', 'community_qa_answer')
   loop
     execute format('revoke all on function %s from public, anon, authenticated, service_role', r.sig);
-    if r.proname in ('community_orphan_files', 'community_images_due', 'community_images_mark_deleted', 'community_overdue_work', 'community_notify_overdue', 'community_job_heartbeat') then
+    if r.proname in ('community_orphan_files', 'community_images_due', 'community_images_mark_deleted', 'community_overdue_work', 'community_notify_overdue', 'community_job_heartbeat', 'community_image_path') then
       execute format('grant execute on function %s to service_role', r.sig);
     else
       execute format('grant execute on function %s to authenticated', r.sig);

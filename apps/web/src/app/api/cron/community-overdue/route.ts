@@ -1,3 +1,4 @@
+import { isCronAuthorised } from "@/lib/cron-auth";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 /**
@@ -10,7 +11,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
  */
 export async function GET(request: Request): Promise<Response> {
   const authHeader = request.headers.get("authorization");
-  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) return new Response("Not authorised", { status: 401 });
+  if (!isCronAuthorised(authHeader)) return new Response("Not authorised", { status: 401 });
   const supabase = createServiceRoleClient();
   // Each run reports in, success or failure, so the go-live check can see that this safety net is really running.
   const heartbeat = (ok: boolean) => supabase.rpc("community_job_heartbeat", { p_job: "overdue", p_ok: ok });

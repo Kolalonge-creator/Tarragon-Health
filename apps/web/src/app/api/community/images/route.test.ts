@@ -60,6 +60,15 @@ describe("POST /api/community/images", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
+  it("refuses an oversized body from its declared length, before reading it or storing anything", async () => {
+    const req = new Request("http://localhost/api/community/images", { method: "POST", headers: { "content-length": String(9 * 1024 * 1024) }, body: "x" });
+    const res = await POST(req);
+    expect(res.status).toBe(413);
+    expect(await res.json()).toEqual({ status: "refused", reason: "bad_image" });
+    expect(upload).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
   it("refuses a post with no picture or no words", async () => {
     expect((await POST(request({ image: null }))).status).toBe(400);
     expect((await POST(request({ body: null }))).status).toBe(400);

@@ -80,6 +80,9 @@ begin
   end if;
   if po.state in ('removed', 'deleted_by_author') then return jsonb_build_object('status', 'refused', 'reason', 'already_closed'); end if;
 
+  -- A moderator never approves their own post; another moderator does.
+  if p_decision = 'approve' and po.author_profile_id = v_uid then return jsonb_build_object('status', 'refused', 'reason', 'own_post'); end if;
+
   if p_decision = 'approve' then
     if po.state = 'held' and po.author_profile_id is not null then
       update public.community_memberships set approved_post_count = approved_post_count + 1
@@ -205,6 +208,10 @@ begin
       return jsonb_build_object('status', 'refused', 'reason', 'still_blocked');
     end if;
     update public.community_posts set state = 'visible', hold_reason_codes = '{}' where id = s.post_id and state in ('held', 'auto_hidden');
+  end if;
+  -- "Keep withheld" on a post that is still showing (for example after a danger report) takes it down from the group.
+  if p_decision = 'keep_withheld' then
+    update public.community_posts set state = 'auto_hidden' where id = s.post_id and state = 'visible';
   end if;
   update public.community_safety_signals set status = v_status, handled_by = v_uid, handled_at = now() where id = s.id;
   perform private.community_log_event(s.group_id, s.post_id, s.author_profile_id, 'safety_' || v_status, v_uid, s.kind, '[]'::jsonb);
@@ -335,6 +342,8 @@ declare
   v_id uuid;
 begin
   if not private.is_admin() then raise exception 'admins only' using errcode = '42501'; end if;
+  -- Safety reviewers see every group's withheld posts, so a safety reviewer grant is never for one group only.
+  if p_scope = 'safety_reviewer' and p_group_id is not null then return jsonb_build_object('status', 'refused', 'reason', 'safety_reviewer_is_global'); end if;
   insert into public.community_staff (profile_id, scope, group_id, granted_by)
   values (p_profile_id, p_scope, p_group_id, (select auth.uid()))
   returning id into v_id;
@@ -379,6 +388,7 @@ begin
       join public.community_posts po on po.id = s.post_id
       join public.community_groups g on g.id = s.group_id
      where s.created_at > now() - make_interval(days => (private.community_cfg() #>> '{unmask,signal_window_days}')::int)
+       and s.status in ('open', 'in_review', 'kept_withheld')
        and po.author_profile_id is not null), '[]'::jsonb));
 end $$;
 
@@ -398,15 +408,19 @@ begin
   if length(btrim(coalesce(p_reason, ''))) < (private.community_cfg() #>> '{unmask,min_reason_chars}')::int then
     return jsonb_build_object('status', 'refused', 'reason', 'reason_too_short');
   end if;
+  -- One lookup at a time per person, so two at once cannot both read "4 so far" and both pass the daily limit.
+  perform pg_advisory_xact_lock(hashtextextended('community_unmask:' || v_uid::text, 0));
   if (select count(*) from public.community_moderation_events e
        where e.action = 'unmasked' and e.actor_id = v_uid and e.created_at > now() - interval '1 day') >= (private.community_cfg() #>> '{unmask,max_per_day}')::int then
     return jsonb_build_object('status', 'refused', 'reason', 'daily_limit');
   end if;
   select * into m from public.community_memberships where group_id = p_group_id and lower(handle) = lower(btrim(p_handle));
-  if not found then return jsonb_build_object('status', 'refused', 'reason', 'no_such_member'); end if;
+  -- No such name and no live concern give the SAME answer, so this cannot be used to find out whether a name exists in a group.
+  if not found then return jsonb_build_object('status', 'refused', 'reason', 'no_safety_signal'); end if;
   select s.kind into v_kind
     from public.community_safety_signals s
    where s.group_id = p_group_id and s.author_profile_id = m.profile_id
+     and s.status in ('open', 'in_review', 'kept_withheld')
      and s.created_at > now() - make_interval(days => (private.community_cfg() #>> '{unmask,signal_window_days}')::int)
    order by s.created_at desc limit 1;
   if v_kind is null then return jsonb_build_object('status', 'refused', 'reason', 'no_safety_signal'); end if;
@@ -575,6 +589,12 @@ begin
   if not private.community_can_configure() then raise exception 'admins and the Chief Medical Officer only' using errcode = '42501'; end if;
   -- The guard trigger decides who may approve (the CMO whenever the set carries safety rules) and refuses a set that does not
   -- block phone numbers, email addresses, links and handles. If anything below raises, the retirement is rolled back with it.
+  -- Retiring a set that carries the Chief Medical Officer's emergency and self-harm rules is itself a clinical decision.
+  if not private.credential_is_cmo() and exists (
+       select 1 from public.community_filter_rule_sets o join public.community_filter_rules r on r.rule_set_version = o.version
+        where o.status = 'active' and o.version <> p_version and r.class in ('self_harm', 'emergency')) then
+    raise exception 'only the Chief Medical Officer can replace a rule set that carries the emergency and self-harm rules' using errcode = '42501';
+  end if;
   update public.community_filter_rule_sets set status = 'retired' where status = 'active' and version <> p_version;
   update public.community_filter_rule_sets set status = 'active', approved_by = v_uid, approved_at = now() where version = p_version and status = 'draft';
   if not found then raise exception 'only a draft rule set can be activated' using errcode = '22023'; end if;
@@ -605,7 +625,7 @@ begin
   update public.community_pinned_content set reviewed_by = (select auth.uid()), reviewed_at = now()
    where id = p_id and unpinned_at is null and reviewed_by is null
      and authored_by <> (select auth.uid())
-     and exists (select 1 from public.clinical_staff cs where cs.profile_id = (select auth.uid()) and cs.active);
+     and exists (select 1 from public.clinical_staff cs where cs.profile_id = (select auth.uid()) and cs.active and cs.doctor_tier in ('senior_medical_officer', 'chief_medical_officer'));
   if not found then return jsonb_build_object('status', 'refused', 'reason', 'not_reviewable'); end if;
   return jsonb_build_object('status', 'ok');
 end $$;

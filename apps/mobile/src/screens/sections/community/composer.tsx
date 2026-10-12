@@ -57,7 +57,10 @@ export function Composer({
   async function addPicture() {
     setMessage(null);
     const picked = await pickAndPrepareImage();
-    if (picked.kind === "picked") setImage(picked.image);
+    if (picked.kind === "picked") {
+      ids.settle();
+      setImage(picked.image);
+    }
     else if (picked.kind === "failed") setMessage("community.compose.refused.bad_image");
   }
 
@@ -86,7 +89,10 @@ export function Composer({
       <Field
         label={copy(label)}
         value={text}
-        onChangeText={setText}
+        onChangeText={(v) => {
+          ids.settle(); // changed text is a new post: replaying the last try's id would drop this edit
+          setText(v);
+        }}
         placeholder={placeholder ? copy(placeholder) : undefined}
         multiline
         numberOfLines={4}

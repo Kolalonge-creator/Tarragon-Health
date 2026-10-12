@@ -6,6 +6,7 @@ import {
   groupListSchema,
   groupViewSchema,
   holdReasonLabel,
+  reportReasonLabel,
   joinRefusalKey,
   memberCountKey,
   modQueueSchema,
@@ -138,11 +139,20 @@ describe("community model: staff wording", () => {
     for (const c of ["new_member", "commerce", "cure_claim", "medicine_instruction", "contact_platform", "abuse", "spam", "reported"]) {
       expect(holdReasonLabel(c)).not.toBe(c);
     }
-    expect(holdReasonLabel("brand_new")).toBe("brand_new");
+    expect(holdReasonLabel("brand_new")).toBe("Another reason");
   });
   it("every refusal the staff functions return has plain wording", () => {
     for (const r of ["reason_needed", "hours_needed", "bad_decision", "already_handled", "safety_reviewer_only", "no_such_post", "daily_limit", "reason_too_short", "not_reviewable", "bad_hostname"]) {
       expect(staffRefusalText(r)).not.toBe("That could not be done. Please try again.");
     }
+  });
+});
+
+describe("staff reason labels", () => {
+  it("never shows a raw code to staff", () => {
+    expect(holdReasonLabel("image")).toMatch(/picture/);
+    expect(holdReasonLabel("some_new_code")).toBe("Another reason");
+    expect(reportReasonLabel("self_harm_or_danger")).toBe("Someone may be in danger");
+    expect(reportReasonLabel("unknown")).toBe("Another reason");
   });
 });

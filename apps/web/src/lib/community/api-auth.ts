@@ -10,8 +10,14 @@ export type CommunityAuth = { userId: string; supabase: SupabaseClient<Database>
  * The Community picture routes serve the web app (cookie session) and the mobile app (bearer token). Either way the database calls run
  * AS THE PERSON, so the same checks as every other Community call apply; the service role is used only to read and write the file.
  */
-export async function authenticateCommunity(request: Request): Promise<CommunityAuth | { response: NextResponse }> {
+export async function authenticateCommunity(
+  request: Request,
+  options: { bearerOnly?: boolean } = {},
+): Promise<CommunityAuth | { response: NextResponse }> {
   const accessToken = request.headers.get("authorization")?.match(/^Bearer (.+)$/)?.[1];
+  // A route that does something on a person's behalf (it messages their contact) must not fall back to the browser cookie: a page on
+  // another site could then trigger it. Bearer only means the phone app, which sends the token itself.
+  if (options.bearerOnly && !accessToken) return { response: NextResponse.json({ error: "Please sign in again." }, { status: 401 }) };
   const supabase = (accessToken ? createBearerClient(accessToken) : await createClient()) as SupabaseClient<Database>;
   const {
     data: { user },

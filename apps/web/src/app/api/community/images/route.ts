@@ -16,7 +16,9 @@ import { submitResultSchema } from "@/lib/community/model";
  *    it is approved.
  * 4. If the database did not take the post, or it was a repeat of an earlier request, the file is removed again.
  */
-const HARD_LIMIT_BYTES = 10 * 1024 * 1024;
+// The platform refuses request bodies above about 4.5 MB before this code runs, so a larger limit here could never be reached. The member's
+// own limit (image_max_bytes, 4 MB) is applied by the database to the cleaned file.
+const HARD_LIMIT_BYTES = 4_500_000;
 const BUCKET = "community-images";
 
 const fieldsSchema = z.object({
@@ -29,6 +31,10 @@ const fieldsSchema = z.object({
 export async function POST(request: Request): Promise<NextResponse> {
   const auth = await authenticateCommunity(request);
   if ("response" in auth) return auth.response;
+
+  // Refuse an oversized body from its declared length before reading any of it.
+  const declared = Number(request.headers.get("content-length") ?? "0");
+  if (Number.isFinite(declared) && declared > HARD_LIMIT_BYTES + 64 * 1024) return NextResponse.json({ status: "refused", reason: "bad_image" }, { status: 413 });
 
   let form: FormData;
   try {
@@ -53,7 +59,10 @@ export async function POST(request: Request): Promise<NextResponse> {
   const { image } = sanitised;
 
   // Ask the database whether this person may post a picture to this group BEFORE any file is written.
-  const pre = await auth.supabase.rpc("community_image_precheck", { p_group_id: fields.data.group_id });
+  const pre = await auth.supabase.rpc("community_image_precheck", {
+    p_group_id: fields.data.group_id,
+    ...(fields.data.client_request_id ? { p_client_request_id: fields.data.client_request_id } : {}),
+  });
   const allowed = z.object({ ok: z.boolean(), reason: z.string().optional() }).safeParse(pre.data);
   if (pre.error || !allowed.success) return NextResponse.json({ error: "That could not be posted. Please try again." }, { status: 502 });
   if (!allowed.data.ok) return NextResponse.json({ status: "refused", reason: allowed.data.reason ?? "images_off" });
