@@ -1928,6 +1928,7 @@ export const en = {
   "pharmcollect.repeat_hint": "Your care team allows another supply. Choose where to collect it and you will get a new collection code.",
   "pharmcollect.withdraw": "Take it back from this pharmacy",
   "pharmcollect.withdraw_hint": "The pharmacy will stop seeing this prescription at once and the code will stop working. Not once the pharmacy has started to supply it.",
+  "pharmcollect.controlled_note": "This prescription includes a controlled medicine. Pharmacies cannot supply it through TarragonHealth, so please speak to your care team before you choose a pharmacy. You can still go ahead.",
   "pharmcollect.other_needed": "Your pharmacy could not supply this. Please choose a different pharmacy below.",
   "pharmcollect.off": "Collecting from a pharmacy is not open yet. You can still download your prescription and take it to any pharmacy.",
   "pharmcollect.notice.withdrawn": "Done. The pharmacy can no longer see your prescription.",
