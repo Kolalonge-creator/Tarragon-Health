@@ -418,6 +418,19 @@ begin
   perform pg_temp.rec('a care-coordinator-tier account cannot write pinned group notes', '42501',
     (pg_temp.asj(v_cc2, format($q$select public.community_clinician_pin(%L, 'A note from the wrong tier', 'Body of the note.')$q$, v_g)) ->> 'error'));
 
+  -- 9c. The three Community conditions a person records can be recorded (the attestable list was missing them, found by the real replay) --------
+  if to_regprocedure('public.attest_go_live_condition(text,text,boolean,text)') is not null and to_regprocedure('private.go_live_actor_role()') is not null then
+    perform pg_temp.act(v_admin);
+    perform pg_temp.rec('an admin can record the crisis owner', 'ok', pg_temp.try($q$select public.attest_go_live_condition('community', 'crisis_owner_named', true, 'Proof: the CMO owns the crisis response.')$q$));
+    perform pg_temp.rec('an admin can record the counsel-approved consent text', 'ok', pg_temp.try($q$select public.attest_go_live_condition('community', 'consent_text_approved', true, 'Proof: counsel approved consent v1.')$q$));
+    perform pg_temp.rec('an admin who is not the CMO cannot record the safety case', '42501', pg_temp.try($q$select public.attest_go_live_condition('community', 'clinical_safety_case_current', true, 'Proof: safety case v1 signed by the CMO today.')$q$));
+    perform pg_temp.rec('...and a made-up Community condition still cannot be attested', '22023', pg_temp.try($q$select public.attest_go_live_condition('community', 'tabletop_passed', true, 'Proof: this is read from data and must be refused.')$q$));
+    perform pg_temp.back();
+    perform pg_temp.act(v_cmo);
+    perform pg_temp.rec('the CMO can record the safety case', 'ok', pg_temp.try($q$select public.attest_go_live_condition('community', 'clinical_safety_case_current', true, 'Proof: safety case v1 signed by the CMO today.')$q$));
+    perform pg_temp.back();
+  end if;
+
   -- 10. SABOTAGE -----------------------------------------------------------------------------------------------------------------------------
   -- (a) hand a client role a table privilege: the direct-read refusal must flip
   grant select on public.community_posts to authenticated;
