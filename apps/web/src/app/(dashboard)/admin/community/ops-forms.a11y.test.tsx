@@ -26,7 +26,8 @@ describe("pictures, rota and question session forms", () => {
     await expectNoA11yViolations(<CreateQaForm doctors={null} groups={[]} />);
     await expectNoA11yViolations(<CancelQaForm seriesId="s1" title="Ask a doctor" />);
     await expectNoA11yViolations(<CoverageGrid title="Moderators" scope="moderator" gaps={[{ scope: "moderator", weekday: 2, hour: 3 }]} />);
-  });
+    // nine axe runs in one test: on a busy CI runner this took 8 seconds, so it gets a generous limit rather than the 5 second default
+  }, 60_000);
 
   it("offers the right pictures choice for what is known", () => {
     const { rerender } = render(<GroupImagesForm id="g1" name="Calm" current={false} topicNeedsCmoRules={false} />);
