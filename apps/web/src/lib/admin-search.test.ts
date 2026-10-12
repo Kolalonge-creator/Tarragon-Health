@@ -78,6 +78,13 @@ describe("the real admin menus", () => {
     expect(top("weekly payout")).toContain("/admin/payouts");
   });
 
+  it("finds the testing days and employer visits page (every console page needs a search entry)", () => {
+    expect(top("testing day")).toContain("/admin/settings/testing-days");
+    expect(top("employer visit")).toContain("/admin/settings/testing-days");
+    expect(top("venue")).toContain("/admin/settings/testing-days");
+    expect(top("waitlist")).toContain("/admin/settings/testing-days");
+  });
+
   it("indexes a useful number of pages with no path twice", () => {
     expect(real.length).toBeGreaterThan(60);
     expect(new Set(real.map((e) => e.href)).size).toBe(real.length);
@@ -95,6 +102,14 @@ describe("the Chief Medical Officer index", () => {
     expect(cmo.every((e) => e.href.startsWith("/clinician"))).toBe(true);
     expect(searchAdminEntries(cmo, "test content").map((e) => e.href)).toContain("/clinician/credentialing/content");
     expect(searchAdminEntries(cmo, "licence").map((e) => e.href)).toContain("/clinician/credentialing/expiry");
+  });
+});
+
+describe("the Chief Medical Officer index for testing-day results", () => {
+  it("finds the point-of-care results page by ECG, urine and HbA1c", () => {
+    const cmo = buildAdminSearchIndex([], [], CMO_EXTRA_PAGES);
+    expect(searchAdminEntries(cmo, "ecg").map((e) => e.href)).toContain("/clinician/poc-results");
+    expect(searchAdminEntries(cmo, "hba1c").map((e) => e.href)).toContain("/clinician/poc-results");
   });
 });
 

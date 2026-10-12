@@ -17,23 +17,31 @@ type Analyte = { code: string; kind: string; unit: string; sensitive?: boolean; 
 const panels = () => (getProposedConfig("lab.panels").value as { panels: Record<string, { analytes: Analyte[] }> }).panels;
 
 describe("lab.panels mirrors the migration seed", () => {
-  it("is identical to the membership_annual lab_panel_versions seed (S27g)", () => {
+  it("is the S27g membership_annual seed with the three screening analytes made required (v3 = the lab_panel_versions v2 row)", () => {
     const match = /lab-panels-v2-begin[\s\S]*?\$json\$([\s\S]*?)\$json\$/.exec(migration("_s27g_lab_panel_membership_sex_ranges.sql"));
     if (!match?.[1]) throw new Error("lab panel v2 seed not found in the migration");
-    expect(JSON.parse(match[1]).panels.membership_annual.analytes).toEqual(panels().membership_annual!.analytes);
-    expect(getProposedConfig("lab.panels").version).toBe(2);
+    const seed = JSON.parse(match[1]).panels.membership_annual.analytes as Analyte[];
+    // exactly what 20261012182045_membership_annual_screening_required.sql does in SQL: drop `optional` from those three, change nothing else
+    const required = seed.map((a) => {
+      if (!["hiv_screen", "hbsag", "hcv_ab"].includes(a.code)) return a;
+      const { optional: _optional, ...rest } = a;
+      return rest;
+    });
+    expect(required).toEqual(panels().membership_annual!.analytes);
+    expect(getProposedConfig("lab.panels").version).toBe(3);
+    expect(migration("_membership_annual_screening_required.sql")).toContain("a - 'optional'");
   });
 
   it("there is exactly one panel and the package-era names are gone", () => {
     expect(Object.keys(panels())).toEqual(["membership_annual"]);
   });
 
-  it("only the three screening analytes are sensitive, and each is qualitative and optional", () => {
+  it("only the three screening analytes are sensitive, and each is qualitative and REQUIRED every year (CMO C1/C6, not risk-based)", () => {
     const sensitive = Object.values(panels()).flatMap((p) => p.analytes.filter((a) => a.sensitive));
     expect(new Set(sensitive.map((a) => a.code))).toEqual(new Set(["hiv_screen", "hbsag", "hcv_ab"]));
     for (const a of sensitive) {
       expect(a.kind).toBe("qualitative");
-      expect(a.optional).toBe(true);
+      expect(a.optional).toBeUndefined();
     }
   });
 
@@ -62,10 +70,11 @@ describe("lab.panels mirrors the migration seed", () => {
     }
   });
 
-  it("every required (non-optional) analyte is numeric, so an all-normal panel can release, and the three screening items are optional", () => {
+  it("no analyte is optional, and HIV screen, HBsAg and anti-HCV are among the required ones", () => {
     const list = panels().membership_annual!.analytes;
-    expect(list.filter((x) => !x.optional).every((x) => x.kind === "numeric")).toBe(true);
-    expect(list.filter((x) => x.optional).map((x) => x.code).sort()).toEqual(["hbsag", "hcv_ab", "hiv_screen"]);
+    expect(list.filter((x) => x.optional)).toEqual([]);
+    expect(list.filter((x) => x.kind === "qualitative").map((x) => x.code).sort()).toEqual(["hbsag", "hcv_ab", "hiv_screen"]);
+    expect(list).toHaveLength(18);
   });
 
   it("the units are the ones Nigerian laboratories most often print", () => {

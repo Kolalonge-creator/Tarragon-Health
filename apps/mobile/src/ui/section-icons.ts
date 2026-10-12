@@ -88,6 +88,7 @@ export const SECTION_ICONS: Record<SectionId, LucideIcon> = {
   family: Users,
   supporting: HandHelping,
   screeningDays: Users,
+  testingDays: Calendar,
   passport: FileText,
   financialProfile: Wallet,
   receipts: Receipt,

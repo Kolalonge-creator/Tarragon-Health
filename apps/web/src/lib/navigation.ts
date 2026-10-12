@@ -252,6 +252,8 @@ export function getNavSections(
             // patient supports nobody) — kept reachable rather than regressed.
             { label: "People you support", href: "/patient/supporting", icon: "parentCare" },
             { label: "Group screening days", href: "/patient/screening-days", icon: "booking" },
+            // Two-tier model: the Member's yearly check happens at a listed testing day.
+            { label: "Testing days", href: "/patient/testing-days", icon: "booking" },
           ],
         },
         {
@@ -517,6 +519,8 @@ export function getNavSections(
                 { label: "Availability", href: "/clinician/availability", icon: "booking" },
                 // S27: lab results held before the patient can see them (INV-03, INV-04).
                 { label: "Lab results to review", href: "/clinician/lab-results", icon: "labs" },
+                // Testing days and employer visits: urine and HbA1c results held for release, and ECG traces to read.
+                { label: "Testing-day results", href: "/clinician/poc-results", icon: "labs" },
                 { label: "Appointments", href: "/clinician/appointments", icon: "booking" },
                 // S21: today's and tomorrow's consultation rooms (spec 9.1, "Consultations").
                 { label: "Consultations", href: "/clinician/consultations", icon: "booking" },

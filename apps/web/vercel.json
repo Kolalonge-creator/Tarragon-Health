@@ -91,6 +91,10 @@
     {
       "path": "/api/cron/order-refunds",
       "schedule": "25 5 * * *"
+    },
+    {
+      "path": "/api/cron/testing-day-reminders",
+      "schedule": "35 6 * * *"
     }
   ]
 }

@@ -71,6 +71,8 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/data-rights", "gdpr ndpa privacy deletion erasure access request"],
   ["/admin/promo-codes", "discount coupon voucher"],
   ["/admin/leads", "enquiries prospects contact form"],
+  ["/admin/settings/testing-days", "testing day testing days venue venues location city lga capacity waitlist waiting list lab laboratory team station registration check in specimen tube employer visit on site onsite headcount ecg urine urinalysis point of care poc"],
+  ["/clinician/poc-results", "point of care poc ecg trace interpret interpretation read urine urinalysis dipstick hba1c testing day employer visit release withhold held"],
   ["/admin/refund-requests", "refund refunds money back guarantee claim order payment paystack reverse"],
 ];
 
@@ -90,6 +92,7 @@ export const CMO_EXTRA_PAGES: AdminSearchEntry[] = [
   { label: "Result release policies", href: "/clinician/result-release-policies", group: "Clinical governance", hint: "Which abnormal results wait for a doctor before the patient sees them." },
   { label: "Safety concerns", href: "/clinician/quality/concerns", group: "Clinical governance", hint: "The speak-up inbox: replies, backup readers and reviews after a concern." },
   { label: "Titration protocols", href: "/clinician/titration-protocols", group: "Clinical sign-off", hint: "Write, check and approve the step table the dose suggestion tool reads." },
+  { label: "Testing-day results", href: "/clinician/poc-results", group: "Clinical queue", hint: "Read ECG traces and release urine and HbA1c results from testing days and employer visits." },
 ];
 
 export interface SettingsPageInput {
