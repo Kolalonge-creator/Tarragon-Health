@@ -1538,6 +1538,35 @@ export const TEMPLATE_MAP: Record<
       text: "A priority case was acknowledged but has not been closed yet.\n\nOpen Tarragon Health to see where it stands.\n\nTarragon Health",
     },
   }),
+  // SR5: operations alerts to the on-call contact list (ops_alert) and the quiet in-app all clear (ops_all_clear). Fixed wording:
+  // nothing from the payload is echoed, so no detail of any kind can reach an email or a push. They carry no patient reference.
+  ops_alert: () => ({
+    smsText: "An operations alert needs attention. Open the operations wall. Tarragon Health",
+    pushUrl: "/admin/ops/wall",
+    email: {
+      subject: "An operations alert needs attention",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>An operations alert needs attention.</p>` +
+        `<p>Open the operations wall in Tarragon Health to see what it is.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "An operations alert needs attention.\n\nOpen the operations wall in Tarragon Health to see what it is.\n\nTarragon Health",
+    },
+  }),
+  ops_all_clear: () => ({
+    smsText: "An operations alert has cleared. Tarragon Health",
+    pushUrl: "/admin/ops/wall",
+    email: {
+      subject: "An operations alert has cleared",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>An operations alert has cleared.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "An operations alert has cleared.\n\nTarragon Health",
+    },
+  }),
   // S18: the patient is told when their care team lead is set, changes, or is still being arranged. Fixed wording by
   // kind, no names and nothing clinical (INV-07). No name is promised or shown: the care team card names nobody ahead
   // of a real review (OQ-129). "Your care team", never "your doctor". Only in_app and email rows are written for it.
