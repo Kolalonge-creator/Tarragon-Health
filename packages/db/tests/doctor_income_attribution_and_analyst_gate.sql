@@ -257,7 +257,7 @@ begin
   select organisation_id into v_org
     from public.profiles where role = 'patient' and organisation_id is not null limit 1;
   select id, price_kobo into v_product, v_price
-    from public.service_products where is_active limit 1;
+    from public.service_products where is_active and code <> 'second_opinion_credit' limit 1;
 
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
   values
