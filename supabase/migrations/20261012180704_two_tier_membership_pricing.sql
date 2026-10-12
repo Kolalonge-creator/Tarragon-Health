@@ -31,7 +31,7 @@ begin
   select * into v_old from public.prices where catalog_item_id = it.id and valid_to is null;
   if found then
     if v_old.amount_kobo = 12000000 then return; end if;
-    v_now := greatest(v_now, v_old.valid_from + interval '1 second');
+    v_now := greatest(v_now, v_old.valid_from + interval '1 microsecond');
     update public.prices set valid_to = v_now where id = v_old.id;
   end if;
   insert into public.prices (organisation_id, catalog_item_id, amount_kobo, valid_from, reason)
