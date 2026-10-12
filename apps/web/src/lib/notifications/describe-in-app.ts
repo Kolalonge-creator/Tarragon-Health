@@ -382,6 +382,22 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "lab_result_corrected") {
     return { text: "Your care team has updated something in your health record. Open the app to see what changed", href: "/patient/labs" };
   }
+  // Testing days. Neutral by design (INV-07): a place, a date, never a test, a value or a condition.
+  if (n.template === "testing_day_confirmed" || n.template === "testing_day_promoted") {
+    return { text: "Your visit is booked. Open the app for the date and place", href: "/patient/testing-days" };
+  }
+  if (n.template === "testing_day_waitlisted") {
+    return { text: "You are on the waiting list. We will tell you if a place opens", href: "/patient/testing-days" };
+  }
+  if (n.template === "testing_day_reminder") {
+    return { text: "A reminder about your visit. Open the app for the date and place", href: "/patient/testing-days" };
+  }
+  if (n.template === "testing_day_cancelled") {
+    return { text: "Your booking has changed. Open the app to choose another date", href: "/patient/testing-days" };
+  }
+  if (n.template === "poc_result_ready") {
+    return { text: "Your care team has added something to your health record. Open the app to see it", href: "/patient/testing-days" };
+  }
   if (n.template === "lab_result_ready") {
     return { text: "Your care team has added something to your health record. Open the app to see it", href: "/patient/labs" };
   }

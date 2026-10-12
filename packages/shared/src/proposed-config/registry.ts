@@ -1855,6 +1855,204 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/clinical-signoff/STANDARDS-CROSS-CHECK-2026-10-07.md; WHO haemoglobin thresholds 2024; Royal College of Pathologists critical results",
   },
   {
+    key: "lab.panels",
+    // v3 (2026-10-12, CMO C1/C6): HIV screen, HBsAg and anti-HCV are REQUIRED every year, not "only if ordered". Same analytes and limits
+    // as v2 otherwise. Mirrors lab_panel_versions v2, made by 20261012182045_membership_annual_screening_required.sql; a test fails if the
+    // two drift. Stays `proposed` until the CMO signs; nothing auto-releases before that.
+    value: {
+      "panels": {
+        "membership_annual": {
+          "analytes": [
+            {
+              "code": "fasting_glucose",
+              "label": "Fasting glucose",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 70,
+              "refHigh": 99,
+              "criticalLow": 45,
+              "criticalHigh": 360
+            },
+            {
+              "code": "hba1c",
+              "label": "HbA1c",
+              "kind": "numeric",
+              "unit": "%",
+              "refLow": 4,
+              "refHigh": 5.6,
+              "criticalHigh": 14
+            },
+            {
+              "code": "creatinine",
+              "label": "Creatinine",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 0.6,
+              "refHigh": 1.3,
+              "criticalHigh": 4,
+              "bySex": {
+                "male": {
+                  "refLow": 0.7,
+                  "refHigh": 1.3
+                },
+                "female": {
+                  "refLow": 0.6,
+                  "refHigh": 1.1
+                }
+              }
+            },
+            {
+              "code": "potassium",
+              "label": "Potassium",
+              "kind": "numeric",
+              "unit": "mmol/L",
+              "refLow": 3.5,
+              "refHigh": 5.1,
+              "criticalLow": 3,
+              "criticalHigh": 6
+            },
+            {
+              "code": "sodium",
+              "label": "Sodium",
+              "kind": "numeric",
+              "unit": "mmol/L",
+              "refLow": 135,
+              "refHigh": 145,
+              "criticalLow": 121,
+              "criticalHigh": 150
+            },
+            {
+              "code": "total_cholesterol",
+              "label": "Total cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 200
+            },
+            {
+              "code": "ldl_cholesterol",
+              "label": "LDL cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 130
+            },
+            {
+              "code": "hdl_cholesterol",
+              "label": "HDL cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 40,
+              "bySex": {
+                "male": {
+                  "refLow": 40
+                },
+                "female": {
+                  "refLow": 50
+                }
+              }
+            },
+            {
+              "code": "triglycerides",
+              "label": "Triglycerides",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 150
+            },
+            {
+              "code": "alt",
+              "label": "ALT",
+              "kind": "numeric",
+              "unit": "U/L",
+              "refLow": 7,
+              "refHigh": 40
+            },
+            {
+              "code": "ast",
+              "label": "AST",
+              "kind": "numeric",
+              "unit": "U/L",
+              "refLow": 10,
+              "refHigh": 40
+            },
+            {
+              "code": "haemoglobin",
+              "label": "Haemoglobin",
+              "kind": "numeric",
+              "unit": "g/dL",
+              "refLow": 12,
+              "refHigh": 17.5,
+              "criticalLow": 7,
+              "criticalHigh": 20,
+              "bySex": {
+                "male": {
+                  "refLow": 13,
+                  "refHigh": 17.5
+                },
+                "female": {
+                  "refLow": 12,
+                  "refHigh": 15.5
+                }
+              }
+            },
+            {
+              "code": "wbc",
+              "label": "White cell count",
+              "kind": "numeric",
+              "unit": "10^9/L",
+              "refLow": 3,
+              "refHigh": 11,
+              "criticalLow": 1,
+              "criticalHigh": 30
+            },
+            {
+              "code": "platelets",
+              "label": "Platelets",
+              "kind": "numeric",
+              "unit": "10^9/L",
+              "refLow": 150,
+              "refHigh": 450,
+              "criticalLow": 20,
+              "criticalHigh": 1000
+            },
+            {
+              "code": "tsh",
+              "label": "TSH",
+              "kind": "numeric",
+              "unit": "mIU/L",
+              "refLow": 0.4,
+              "refHigh": 4
+            },
+            {
+              "code": "hiv_screen",
+              "label": "HIV screen",
+              "kind": "qualitative",
+              "unit": "",
+              "sensitive": true
+            },
+            {
+              "code": "hbsag",
+              "label": "Hepatitis B surface antigen",
+              "kind": "qualitative",
+              "unit": "",
+              "sensitive": true
+            },
+            {
+              "code": "hcv_ab",
+              "label": "Hepatitis C antibody",
+              "kind": "qualitative",
+              "unit": "",
+              "sensitive": true
+            }
+          ]
+        }
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 3,
+    effectiveFrom: "2026-10-12",
+    source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md (C1, C6); docs/clinical-signoff/STANDARDS-CROSS-CHECK-2026-10-07.md; WHO haemoglobin thresholds 2024; Royal College of Pathologists critical results",
+  },
+  {
     key: "triage.silence_rule_days",
     // v2 (decision S11-1, 2026-10-07): 7 days, not 5. Takes effect when the CMO approves bp_care_triage v3 in the database; the live rule set
     // carries its own copy of this number and stays at the earlier line until then. The rule set, not this entry, is what the engine reads.
