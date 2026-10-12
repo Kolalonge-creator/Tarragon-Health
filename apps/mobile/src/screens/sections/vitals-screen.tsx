@@ -56,6 +56,7 @@ import { SymptomQuestionSheet } from "@/screens/symptom-question-sheet";
 import { MIN_READINGS_FOR_CHART, useTrendInsights } from "@/lib/use-trend-insights";
 import { TrendInsightsCard } from "@/screens/sections/trend-insights-card";
 import { SyncBanner } from "@/screens/sync-banner";
+import { FreeFollowUpCard } from "@/screens/sections/free-follow-up-card";
 import { SymptomScreen } from "@/screens/sections/symptom-screen";
 import { MonitoringCoverCard } from "@/screens/sections/monitoring-cover-card";
 import { SymptomChecklist, TechniqueGuide } from "@/screens/sections/bp-extras";
@@ -376,6 +377,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
       </View>
 
       <SyncBanner />
+      <FreeFollowUpCard />
 
       {/* Latest reading: the one number that matters most, then the 7 day average. */}
       <Card level={2} style={{ gap: space.sm }}>

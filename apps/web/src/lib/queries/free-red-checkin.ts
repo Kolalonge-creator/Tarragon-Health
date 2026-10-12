@@ -34,3 +34,32 @@ export function useAnswerFreeRedCheckin(patientId: string) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: freeRedCheckinKey(patientId) }),
   });
 }
+
+export const freeGuidanceKey = (patientId: string) => ["free-guidance", patientId];
+
+/** The newest calm guidance notice (amber or heart failure) not yet acknowledged, or null. */
+export function useFreeGuidance(patientId: string) {
+  return useQuery({
+    queryKey: freeGuidanceKey(patientId),
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("my_free_guidance");
+      if (error) throw error;
+      return data?.[0] ?? null;
+    },
+    enabled: !!patientId,
+    refetchInterval: 60_000,
+  });
+}
+
+export function useAcknowledgeFreeGuidance(patientId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("acknowledge_free_guidance", { p_id: id });
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: freeGuidanceKey(patientId) }),
+  });
+}

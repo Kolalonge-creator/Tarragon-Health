@@ -7,6 +7,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { expectNoA11yViolations } from "@/test/a11y";
 import { EmergencyAlert } from "./emergency-alert";
 import { FreeRedCheckin } from "./free-red-checkin";
+import { FreeGuidance } from "./free-guidance";
 
 const mockEmergency = jest.fn();
 jest.mock("@/lib/queries/emergency", () => ({
@@ -22,11 +23,15 @@ jest.mock("./actions", () => ({
   alertEmergencyContactNow: jest.fn(async () => ({})),
 }));
 
+const mockGuidance = jest.fn();
+const mockAck = jest.fn();
 const mockCheckin = jest.fn();
 const mockMutate = jest.fn();
 jest.mock("@/lib/queries/free-red-checkin", () => ({
   FREE_RED_CHECKIN_ANSWERS: ["got_care", "going_now", "not_yet"],
   useFreeRedCheckin: () => ({ data: mockCheckin() }),
+  useFreeGuidance: () => ({ data: mockGuidance() }),
+  useAcknowledgeFreeGuidance: () => ({ mutate: mockAck, isPending: false }),
   useAnswerFreeRedCheckin: () => ({ mutate: mockMutate, isPending: false, isError: false }),
 }));
 
@@ -73,5 +78,28 @@ describe("FreeRedCheckin", () => {
   it("has no axe violations", async () => {
     mockCheckin.mockReturnValue({ id: "c1" });
     await expectNoA11yViolations(<FreeRedCheckin patientId="p1" />);
+  });
+});
+
+describe("FreeGuidance (amber and heart failure on the Free plan)", () => {
+  it("shows calm guidance, the no-doctor sentence and the Membership route for a heart-failure notice", async () => {
+    mockGuidance.mockReturnValue({ id: "g1", kind: "heart_failure" });
+    const { container } = render(<FreeGuidance patientId="p1" />);
+    expect(container.textContent).toContain("Your weight has gone up quickly");
+    expect(screen.getByText("A doctor has not been alerted, because you are on the Free plan. Doctor review is part of Membership.")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Join as a Member" }).getAttribute("href")).toBe("/patient/membership");
+    expect(container.textContent).not.toMatch(/warning|danger|—/i);
+    fireEvent.click(screen.getByRole("button", { name: "Got it" }));
+    expect(mockAck).toHaveBeenCalledWith("g1");
+    await expectNoA11yViolations(<FreeGuidance patientId="p1" />);
+  });
+
+  it("uses the amber wording for an amber notice and renders nothing when there is none", () => {
+    mockGuidance.mockReturnValue({ id: "g2", kind: "amber" });
+    const { container, rerender } = render(<FreeGuidance patientId="p1" />);
+    expect(container.textContent).toContain("above your target");
+    mockGuidance.mockReturnValue(null);
+    rerender(<FreeGuidance patientId="p1" />);
+    expect(container.innerHTML).toBe("");
   });
 });

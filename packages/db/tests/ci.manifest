@@ -932,3 +932,4 @@ s28c_pharmacy_extras.sql
 oq261_remove_home_delivery.sql
 two_tier_free_red_event_path.sql
 two_tier_legacy_bundles_not_sellable.sql
+two_tier_free_rule_amber_heart_failure_crisis.sql

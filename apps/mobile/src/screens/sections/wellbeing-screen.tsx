@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ActivityIndicator, Modal, ScrollView, Text, TextInput, View } from "react-native";
 import { postMentalHealthScreen } from "@/lib/api";
+import { loadDoctorReviewIncluded } from "@/lib/doctor-review";
+import { t } from "@tarragon/i18n";
 import { TherapyNetworkScreen } from "@/screens/sections/therapy-network-screen";
 import {
   loadLatestWellbeingCheckin,
@@ -411,6 +413,8 @@ function MentalHealthScreenForm({ onDone }: { onDone: () => void }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ crisis?: boolean } | null>(null);
+  // Two-tier: whether a doctor is told about a crisis answer (a Member). null when it cannot be worked out.
+  const [doctorReview, setDoctorReview] = useState<boolean | null>(null);
 
   async function submit() {
     setError(null);
@@ -435,6 +439,7 @@ function MentalHealthScreenForm({ onDone }: { onDone: () => void }) {
       return;
     }
     setResult({ crisis: res.crisis });
+    if (res.crisis) loadDoctorReviewIncluded().then(setDoctorReview).catch(() => {});
   }
 
   if (result) {
@@ -445,8 +450,9 @@ function MentalHealthScreenForm({ onDone }: { onDone: () => void }) {
         {result.crisis && (
           <View style={{ backgroundColor: colors.dangerBg, borderRadius: radius.card, padding: 10 }}>
             <Text style={{ fontSize: 13, color: colors.status.critical }}>
-              You told us you have had thoughts of harming yourself. You are not alone. A member of your care
-              team will reach out. If you are in immediate danger, please go to the nearest hospital now.
+              {t("freered.crisis.body", "en")}
+              {doctorReview === true ? ` ${t("freered.crisis.care_team", "en")}` : ""}
+              {doctorReview === false ? ` ${t("freered.crisis.no_doctor", "en")}` : ""}
             </Text>
           </View>
         )}

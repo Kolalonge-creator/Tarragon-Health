@@ -6,8 +6,10 @@ import { supabase } from "./supabase";
  * Returns null when it cannot be worked out, for example offline: the red screen then makes no claim either way, and the
  * server, which fails toward paging, decides.
  */
-export async function loadDoctorReviewIncluded(patientId: string): Promise<boolean | null> {
+export async function loadDoctorReviewIncluded(patientIdArg?: string): Promise<boolean | null> {
   try {
+    const patientId = patientIdArg ?? (await supabase.auth.getUser()).data.user?.id;
+    if (!patientId) return null;
     const { data, error } = await supabase.rpc("patient_has_feature_access", {
       p_patient_id: patientId,
       p_feature: "vitals_red_flag_doctor_escalation",

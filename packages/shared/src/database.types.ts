@@ -43291,6 +43291,14 @@ export type Database = {
         Args: { p_answer: string; p_id: string };
         Returns: undefined;
       };
+      acknowledge_free_guidance: {
+        Args: { p_id: string };
+        Returns: undefined;
+      };
+      my_free_guidance: {
+        Args: Record<PropertyKey, never>;
+        Returns: { created_at: string; id: string; kind: string }[];
+      };
       my_free_red_checkin: {
         Args: Record<PropertyKey, never>;
         Returns: { checkin_due_at: string; created_at: string; id: string }[];
