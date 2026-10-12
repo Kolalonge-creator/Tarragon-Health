@@ -2328,6 +2328,7 @@ export const en = {
   "community.image.help": "One picture, JPEG or PNG, up to 4 MB. A person on our team checks every picture before the group sees it. Please do not include faces, names, phone numbers, addresses or medicine labels that show who you are.",
   "community.image.uploading": "Sending your picture...",
   "community.image.alt": "A picture shared by a member",
+  "community.image.chosen": "Picture chosen:",
   "community.image.waiting": "Your picture is waiting for a person on our team to check it.",
   "community.qa.title": "Ask the doctors",
   "community.qa.upcoming": "Starts {time}",

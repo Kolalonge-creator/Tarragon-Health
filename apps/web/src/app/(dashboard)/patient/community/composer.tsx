@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { t, type Locale, type MessageKey } from "@tarragon/i18n";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -62,21 +62,10 @@ export function Composer({
   const requestId = useRef<string | null>(null);
   const id = useId();
   const [file, setFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [inputKey, setInputKey] = useState(0);
-
-  const previewRef = useRef<string | null>(null);
-  const revoke = () => {
-    if (previewRef.current && typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(previewRef.current);
-    previewRef.current = null;
-  };
-  // Release the preview if the box goes away with a picture still chosen.
-  useEffect(() => revoke, []);
 
   function clearPicture() {
     requestId.current = null;
-    revoke();
-    setPreviewUrl(null);
     setFile(null);
     setInputKey((k) => k + 1);
   }
@@ -91,12 +80,6 @@ export function Composer({
     }
     setMessage(null);
     requestId.current = null;
-    revoke();
-    // Only a local object URL is ever kept for the preview (the file's type was checked above).
-    const made = typeof URL.createObjectURL === "function" ? URL.createObjectURL(picked) : null;
-    const url = made !== null && made.startsWith("blob:") ? made : null;
-    previewRef.current = url;
-    setPreviewUrl(url);
     setFile(picked);
   }
 
@@ -202,9 +185,11 @@ export function Composer({
           <p id={`${id}-image-help`} className={`text-sm ${MUTED}`}>
             {t("community.image.help", locale)}
           </p>
-          {file && previewUrl && previewUrl.startsWith("blob:") ? (
-            // eslint-disable-next-line @next/next/no-img-element -- a local object URL preview; next/image cannot optimise it
-            <img src={previewUrl} alt={t("community.image.alt", locale)} className="max-h-48 max-w-full rounded-md object-contain" />
+          {file ? (
+            // The chosen file is shown by name (plain text), not as a live preview.
+            <p className={`text-sm ${MUTED}`}>
+              {t("community.image.chosen", locale)} {file.name}
+            </p>
           ) : null}
         </div>
       ) : null}

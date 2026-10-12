@@ -103,16 +103,16 @@ describe("picture control", () => {
     expect(screen.queryByLabelText("Add a picture")).toBeNull();
   });
 
-  it("is shown when allowed, with help text, a preview and a way to remove the picture; axe-clean", async () => {
+  it("is shown when allowed, with help text, the chosen file name and a way to remove the picture; axe-clean", async () => {
     render(gv(view({}, { images_allowed: true }), []));
     expect(screen.getByLabelText("Add a picture")).toBeTruthy();
     expect(screen.getByText(/One picture, JPEG or PNG, up to 4 MB/)).toBeTruthy();
     cleanup();
     render(composer(true));
     pick(png());
-    expect(screen.getByAltText("A picture shared by a member")).toBeTruthy();
+    expect(screen.getByText(/Picture chosen:/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Remove the picture" }));
-    expect(screen.queryByAltText("A picture shared by a member")).toBeNull();
+    expect(screen.queryByText(/Picture chosen:/)).toBeNull();
     cleanup();
     await expectNoA11yViolations(composer(true));
   });
