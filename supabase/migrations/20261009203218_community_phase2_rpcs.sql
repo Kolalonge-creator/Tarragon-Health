@@ -37,16 +37,6 @@ begin
   return jsonb_build_object('status', 'hidden');
 end $$;
 
-create or replace function public.community_unhide_author(p_id uuid) returns jsonb
-language plpgsql volatile security definer set search_path = '' as $$
-declare
-  v_uid uuid := (select auth.uid());
-begin
-  if v_uid is null then raise exception 'sign in required' using errcode = '28000'; end if;
-  delete from public.community_hidden_authors where id = p_id and viewer_id = v_uid;
-  if not found then return jsonb_build_object('status', 'refused', 'reason', 'not_found'); end if;
-  return jsonb_build_object('status', 'ok');
-end $$;
 
 create or replace function public.community_hidden_authors(p_group_id uuid) returns jsonb
 language plpgsql stable security definer set search_path = '' as $$
@@ -184,24 +174,6 @@ begin
       from public.community_group_prompts p where p.group_id = p_group_id and (p.show_until is null or p.show_until > now() - interval '30 days')), '[]'::jsonb));
 end $$;
 
-create or replace function public.community_admin_end_prompt(p_id uuid) returns jsonb
-language plpgsql volatile security definer set search_path = '' as $$
-declare
-  p public.community_group_prompts;
-begin
-  if (select auth.uid()) is null then raise exception 'sign in required' using errcode = '28000'; end if;
-  select * into p from public.community_group_prompts where id = p_id;
-  if not found then return jsonb_build_object('status', 'refused', 'reason', 'not_found'); end if;
-  if not private.community_can_prompt(p.group_id) then raise exception 'admins, the Chief Medical Officer and moderators of this group only' using errcode = '42501'; end if;
-  -- a prompt that has barely started (or not started) is simply removed; a running one is ended now
-  perform private.community_log_event(p.group_id, p.id, null, 'prompt_ended', (select auth.uid()), null, '[]'::jsonb);
-  if p.show_from > now() - interval '1 minute' then
-    delete from public.community_group_prompts where id = p_id;
-  else
-    update public.community_group_prompts set show_until = now() where id = p_id and (show_until is null or show_until > now());
-  end if;
-  return jsonb_build_object('status', 'ok');
-end $$;
 
 -- ---------------------------------------------------------------------------
 -- 4. Appeals

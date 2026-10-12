@@ -186,37 +186,6 @@ begin
      where s.revoked_at is null), '[]'::jsonb));
 end $$;
 
--- Replaces all the shifts of one grant. p_shifts: [{"weekday":0,"start_hour":8,"end_hour":16}, ...]
-create or replace function public.community_admin_set_shifts(p_staff_id uuid, p_shifts jsonb) returns jsonb
-language plpgsql volatile security definer set search_path = '' as $$
-declare
-  r jsonb;
-  v_n integer := 0;
-begin
-  if (select auth.uid()) is null then raise exception 'sign in required' using errcode = '28000'; end if;
-  if not private.community_can_configure() then raise exception 'admins and the Chief Medical Officer only' using errcode = '42501'; end if;
-  if not exists (select 1 from public.community_staff where id = p_staff_id and revoked_at is null) then
-    return jsonb_build_object('status', 'refused', 'reason', 'not_found');
-  end if;
-  if p_shifts is null or coalesce(jsonb_typeof(p_shifts), '') <> 'array' or jsonb_array_length(p_shifts) > 100 then return jsonb_build_object('status', 'refused', 'reason', 'bad_shifts'); end if;
-  for r in select * from jsonb_array_elements(p_shifts) loop
-    if coalesce(jsonb_typeof(r -> 'weekday'), '') <> 'number' or coalesce(jsonb_typeof(r -> 'start_hour'), '') <> 'number' or coalesce(jsonb_typeof(r -> 'end_hour'), '') <> 'number'
-       or (r ->> 'weekday')::numeric not between 0 and 6 or (r ->> 'weekday')::numeric <> trunc((r ->> 'weekday')::numeric)
-       or (r ->> 'start_hour')::numeric not between 0 and 23 or (r ->> 'start_hour')::numeric <> trunc((r ->> 'start_hour')::numeric)
-       or (r ->> 'end_hour')::numeric not between 1 and 24 or (r ->> 'end_hour')::numeric <> trunc((r ->> 'end_hour')::numeric)
-       or (r ->> 'end_hour')::int <= (r ->> 'start_hour')::int then
-      return jsonb_build_object('status', 'refused', 'reason', 'bad_shifts');
-    end if;
-  end loop;
-  delete from public.community_shifts where staff_id = p_staff_id;
-  for r in select * from jsonb_array_elements(p_shifts) loop
-    insert into public.community_shifts (staff_id, weekday, start_hour, end_hour)
-    values (p_staff_id, (r ->> 'weekday')::int, (r ->> 'start_hour')::int, (r ->> 'end_hour')::int);
-    v_n := v_n + 1;
-  end loop;
-  perform private.community_log_event(null, null, null, 'rota_changed', (select auth.uid()), null, '[]'::jsonb);
-  return jsonb_build_object('status', 'ok', 'shifts', v_n);
-end $$;
 
 -- ---------------------------------------------------------------------------
 -- 5. Safety drills (the CMO records a rehearsal of the hand-off)

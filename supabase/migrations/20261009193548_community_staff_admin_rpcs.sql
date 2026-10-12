@@ -549,20 +549,6 @@ begin
   return jsonb_build_object('status', 'ok', 'id', v_id);
 end $$;
 
-create or replace function public.community_admin_rule_delete(p_rule_id bigint)
-returns jsonb language plpgsql volatile security definer set search_path = '' as $$
-declare
-  r public.community_filter_rules;
-begin
-  if not private.community_can_configure() then raise exception 'admins and the Chief Medical Officer only' using errcode = '42501'; end if;
-  select * into r from public.community_filter_rules where id = p_rule_id;
-  if not found then return jsonb_build_object('status', 'refused', 'reason', 'no_such_rule'); end if;
-  if r.action = 'safety' and not private.credential_is_cmo() then
-    raise exception 'only the Chief Medical Officer removes emergency and self-harm rules' using errcode = '42501';
-  end if;
-  delete from public.community_filter_rules where id = p_rule_id;
-  return jsonb_build_object('status', 'ok');
-end $$;
 
 create or replace function public.community_admin_rule_set_params(p_version integer, p_allowed_hosts jsonb)
 returns jsonb language plpgsql volatile security definer set search_path = '' as $$
