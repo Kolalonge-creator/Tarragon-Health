@@ -128,6 +128,7 @@ function History({ rows, locale }: { rows: OrderRow[]; locale: Locale }) {
             ))}
           </ul>
         )}
+        {rows.some((o) => o.state === "paid") && <p className={`mt-3 text-sm ${MUTED}`}>{t("refund.policy.cooling_off", locale)}</p>}
       </CardContent>
       {refundTarget && (
         <RefundRequestDialog

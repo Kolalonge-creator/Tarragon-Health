@@ -77,3 +77,12 @@ No migration, no code, no price change, no PR. Live payments are untouched.
 | C10 | Organisation member price is flat 100,000 naira, adjustable from the admin dashboard (versioned price rows, audited, never an edit in place). |
 | C11 | Build all of items 1 to 8 and the scale-readiness sessions SR1 to SR7 (`docs/plans/SCALE-READINESS-PLAN.md`). |
 | C12 | AI scribe activation and auto-release signing are requested by the CMO. Activation follows the governance gate: the evaluation suites must actually run and pass, and the CMO reviews the results. Panel ranges are shown to the CMO before signing. |
+
+## Update 5, 2026-10-12 (founder/CMO answers to the integration review)
+
+| # | Decision |
+|---|---|
+| C13 | **Refunds:** a Membership can be refunded only within **21 days of purchase**; after that no refund. An approved refund ends Member access **immediately** (no 14-day grace). The 14-day grace applies only when a year ends naturally. |
+| C14 | **Legacy programme holders** are converted into real Memberships (count first; no free year: they keep their existing end date). After conversion the legacy OR-clause in `patient_is_member` is removed, so Member means one thing. |
+| C15 | A Member in the 14-day grace **can book** a follow-up. |
+| C16 | **Prescription renewals are included** in the Member year. **Second opinions are an extra 5,000 naira each** (500,000 kobo), available to Members only. |

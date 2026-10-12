@@ -1804,6 +1804,8 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - To do with this decision: tell the DPO and legal (the safety promise changes; review the terms and consent wording, amendments C2 point 8). Mobile shows the new status box on the red screen but has no check-in card yet (the web card is built); the mobile Care Circle and `red_alerts` notices (S29) are unaffected.
 - Options: (a) accept as built (recommended); (b) also put the four condition work-ups above on the Free rule; (c) hold the migration until Membership is on sale.
 - Decision: pending CMO and DPO sign-off on the INV-05 wording.
+- Resolved by the 2026-10-12 review: the day-one effect (every patient with no programme purchase becomes guidance-only) is still real until Membership is on sale and legacy holders are converted; the apply runbook now makes the conversion migration run before the Free path matters. The "also put the four condition work-ups on the Free rule" option was taken (`20261013010515`). Still open: the CMO/DPO sign-off on the INV-05 wording.
+
 
 ### OQ-310 Two-tier pricing: price, only Free and Member, lapse, organisation seats (raised by the two-tier pricing build, 2026-10-12)
 - Built on branch `two-tier/pricing`, nothing applied. Founder 2026-10-12: the platform launches at 120,000 naira. The 12,000,000 kobo `prices` row starts the moment the migration is applied and the 10,000,000 row is closed at that instant (never edited), so 100,000 is never in force. The Membership item and `v5_checkout` stay off until staff switch them on.
@@ -1812,3 +1814,18 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Lapse: `membership.lapse` (grace_days 14, reminders 30/14/7) PROPOSED; `private.patient_is_member` is the one Member function (grace included) and the Free red-event gate reads it. Hand-off of open work goes to a neutral `membership_handoff` task.
 - Open: (1) seats are not posted to the ledger; (2) `employer_billing_configs.price_per_member_minor` is a second per-member price that seats ignore; (3) an organisation seat is not renewed automatically at its end; (4) the three new notification templates need the deployed `send-pending-notifications` to render email and push (check the deployed version); (5) `risk_is_current_member`, outcome and report helpers read `patient_memberships` by date without the grace.
 - Decision: open.
+- Answered 2026-10-12 (founder/CMO, `docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md` Update 5): refunds are 21 days and end access at once (TT-6); legacy programme holders are converted and Member has one meaning (TT-7); the grace can book (TT-8); renewals are included and a second opinion is a 5,000 naira Members-only extra (TT-9). Open items (1) to (3) and (5) above remain open; (4) is on the apply runbook.
+
+### OQ-311 Prescription renewal spacing and the old renewal credit (raised by the 2026-10-12 review)
+- Built: renewals are included in the Member year with at most one request per medication every 28 days (`membership.renewal`, PROPOSED). A declined request does not count. Finding: until now `medication_refills` sat in the free feature list, so the old check never asked anyone for a credit; the new rule makes renewal a Membership benefit for the first time.
+- A credit someone already holds (`prescription_renewal_credit`) is still redeemable by a non-Member; the product stays closed for sale.
+- Options: (a) 28 days as built (recommended); (b) a different spacing; (c) no spacing.
+- Decision: pending CMO confirmation of the number.
+
+### OQ-312 Legacy conversion: no end date (raised by the 2026-10-12 review)
+- Conversion gives a holder with an active purchase and no end date at all now + 90 days (marked in the migration header). Live there are none (the one plan-feature purchase has its own `expires_at`). Confirm 90 days or give another rule if one appears.
+- Decision: pending founder.
+
+### OQ-313 Legal text for the 21 day refund (raised by the 2026-10-12 review)
+- The Terms of Service document served from `legal_documents` still carries the old subscription wording; `docs/legal/schedule-c-terms-of-service.md` is updated in this branch but counsel and the DPO must sign the live row (Question 7 in the cover memo asks whether a statutory cooling-off period applies).
+- Decision: pending counsel.

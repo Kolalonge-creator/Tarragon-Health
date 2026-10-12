@@ -25635,6 +25635,36 @@ export type Database = {
         }
         Relationships: []
       }
+      membership_policy_config: {
+        Row: {
+          created_at: string
+          effective_from: string
+          id: string
+          is_active: boolean
+          kind: string
+          rules: Json
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          effective_from: string
+          id?: string
+          is_active?: boolean
+          kind: string
+          rules: Json
+          version: number
+        }
+        Update: {
+          created_at?: string
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          kind?: string
+          rules?: Json
+          version?: number
+        }
+        Relationships: []
+      }
       membership_renewal_reminders: {
         Row: {
           days_before: number

@@ -24,6 +24,11 @@ describe("GUEST_CHECKOUT_PRODUCT_CODES", () => {
     expect(GUEST_CHECKOUT_PRODUCT_CODES).not.toContain("continuous_monitoring_12m");
   });
 
+  it("never offers the Members-only second opinion to a guest (a guest is not a Member)", () => {
+    expect(GUEST_CHECKOUT_PRODUCT_CODES).not.toContain("second_opinion_credit");
+    expect(isGuestCheckoutProductCode("second_opinion_credit")).toBe(false);
+  });
+
   it("no longer recognises a retired 3/6/12-month code as guest-buyable", () => {
     expect(isGuestCheckoutProductCode("continuous_monitoring_3m")).toBe(false);
     expect(isGuestCheckoutProductCode("continuous_monitoring_90d")).toBe(true);

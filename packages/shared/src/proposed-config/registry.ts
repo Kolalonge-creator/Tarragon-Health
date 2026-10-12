@@ -1454,7 +1454,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   },
   {
     key: "refunds.cooling_off_days",
-    // FCCPA consumer-protection cooling-off period: a patient may request a full refund within this window.
+    // Superseded for the Membership by membership.refund (21 days, decision 2026-10-12). Kept for any non-Membership order; none is sold.
     value: 14,
     owner: "Founder",
     status: "proposed",
@@ -2091,8 +2091,8 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   },
   {
     key: "membership.lapse",
-    // Founder decision 2026-10-12: when a Membership year ends or is refunded the person keeps Member status for a 14 day grace, then is
-    // Free again (state lapsed). Renewal reminders go 30, 14 and 7 days before the end (in-app, push or email; never SMS). Mirrored by
+    // Founder decision 2026-10-12: when a Membership year ENDS NATURALLY the person keeps Member status for a 14 day grace, then is
+    // Free again (state lapsed). A refund is different: it ends Member access at once (membership.refund, decision 2026-10-12). Renewal reminders go 30, 14 and 7 days before the end (in-app, push or email; never SMS). Mirrored by
     // membership_lapse_config in the database (the migration seed), with a drift test.
     value: { grace_days: 14, reminder_days_before: [30, 14, 7] },
     owner: "Founder",
@@ -2100,6 +2100,39 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-12",
     source: "Founder decision 2026-10-12 (lapse and grace); supabase/migrations/20261013010732_two_tier_only_free_and_member.sql",
+  },
+  {
+    key: "membership.refund",
+    // Founder/CMO decision 2026-10-12: a Membership is refundable only within 21 days of purchase; an approved refund ends Member access
+    // immediately (no grace). Mirrored by membership_policy_config (kind refund) in the migration seed, with a drift test.
+    value: { window_days: 21 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "Founder/CMO decision 2026-10-12 (review of integration/two-tier); supabase/migrations/20261013012113_two_tier_refund_window_and_immediate_end.sql",
+  },
+  {
+    key: "membership.renewal",
+    // Prescription renewals are part of the Member year. Default: at most one renewal request per medication every 28 days (a declined
+    // request does not count). PROPOSED: the founder/CMO confirm the number. Mirrored by membership_policy_config (kind renewal).
+    value: { min_days_between_requests: 28 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "Founder/CMO decision 2026-10-12 (renewals included); supabase/migrations/20261013012113_two_tier_refund_window_and_immediate_end.sql",
+  },
+  {
+    key: "commerce.second_opinion",
+    // A second opinion is an extra 5,000 naira (500,000 kobo, INV-15), sold to Members only. The price is the service_products row for
+    // second_opinion_credit; this entry is the code-side mirror and a test pins the migration to it.
+    value: { item_code: "second_opinion_credit", price_kobo: 500_000, members_only: true },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "Founder/CMO decision 2026-10-12 (second opinion extra); supabase/migrations/20261013012811_two_tier_renewals_included_second_opinion_member_only.sql",
   },
   {
     key: "commerce.organisation_member_price_limits",

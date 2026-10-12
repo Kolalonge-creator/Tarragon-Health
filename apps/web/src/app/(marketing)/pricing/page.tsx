@@ -48,6 +48,11 @@ function pricingFaq(price: string) {
         "No. It lasts a year and we remind you 30, 14 and 7 days before it ends. For 14 days after it ends you keep your Member access, and your records stay with you whatever you choose.",
     },
     {
+      question: "Can I get a refund?",
+      answer:
+        "Yes, within 21 days of buying your Membership. After 21 days it cannot be refunded. If a refund is approved your Member access ends straight away. A Membership that simply reaches the end of its year is different: you keep your Member access for 14 days after it ends.",
+    },
+    {
       question: "Are medicines included?",
       answer: "No. Your care team signs a prescription and you take it to any pharmacy and pay there.",
     },

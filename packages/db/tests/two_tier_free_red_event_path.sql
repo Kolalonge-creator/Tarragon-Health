@@ -228,6 +228,24 @@ begin
   insert into fx values ('rs', v_rs);
 end $$;
 
+-- 7b. Membership flips between the emergency-event insert and the Free-record look-up (review finding 6) ------------------
+-- A patient who is a Member when the emergency event is inserted gets no Free record from the trigger; record_free_red_event must
+-- still end with a Free record (guidance and check-in), never with none.
+do $$
+declare v_rs uuid; v_m uuid; v_te uuid; v_fre uuid;
+begin
+  select id into v_rs from fx where label = 'rs';
+  select id into v_m from fx where label = 'member2';
+  v_te := pg_temp.red(v_m, v_rs);
+  v_fre := private.record_free_red_event(v_te);
+  insert into results values ('real', 'a red event whose membership flipped still ends with a Free record', 'true',
+    (v_fre is not null and exists (select 1 from public.free_red_events where id = v_fre and triage_event_id = v_te))::text);
+  insert into results values ('real', 'and the guidance notice was queued', '1',
+    (select count(*)::text from public.notifications where recipient_id = v_m and template = 'free_red_guidance'));
+  -- calling it again is idempotent
+  insert into results values ('real', 'a repeat call returns the same record', 'true', (private.record_free_red_event(v_te) = v_fre)::text);
+end $$;
+
 -- 8. SABOTAGE ------------------------------------------------------------------------------------------------------
 do $$
 declare
@@ -262,6 +280,17 @@ begin
   v_r := (select case when public.create_red_page(pg_temp.red((select id from fx where label = 'free2'), v_rs)) is null then 'null' else 'paged' end);
   insert into results values ('sabotaged', 'a Free red event does not page', 'null', v_r);
   execute v_orig_gate;
+
+  -- sabotage 4: the explicit fallback removed. A flipped-membership red event must then end with no Free record.
+  declare v_d text := pg_get_functiondef('private.record_free_red_event(uuid)'::regprocedure); v_te uuid; v_f uuid;
+  begin
+    if replace(v_d, 'if v_fre is null then', 'if false then') = v_d then raise exception 'VACUOUS TEST: fallback text not found'; end if;
+    execute replace(v_d, 'if v_fre is null then', 'if false then');
+    v_te := pg_temp.red((select id from fx where label = 'member'), v_rs);
+    v_f := private.record_free_red_event(v_te);
+    insert into results values ('sabotaged', 'a flipped-membership red event ends with a Free record', 'true', (v_f is not null)::text);
+    execute v_d;
+  end;
 end $$;
 
 do $$
@@ -274,8 +303,8 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 3 then
-    raise exception 'VACUOUS TEST: only % of 3 sabotage steps changed the matching check', v_caught;
+  if v_caught < 4 then
+    raise exception 'VACUOUS TEST: only % of 4 sabotage steps changed the matching check', v_caught;
   end if;
 end $$;
 

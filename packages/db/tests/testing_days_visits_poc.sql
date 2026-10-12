@@ -322,8 +322,25 @@ begin
   perform pg_temp.ck('the doctor withholds the urinalysis with a reason', 'ok', pg_temp.err(pg_temp.rpc(v_doc, format('public.withhold_poc_result(%L, %L)', ur, 'sample contaminated, repeat'))));
   perform pg_temp.ck('...the patient never sees it', '1', jsonb_array_length(pg_temp.rpc(v_m4, 'public.my_poc_results()')::jsonb -> 'results')::text);
 
+  -- ECG: the file path must be this booking's own folder (review finding 5)
+  perform pg_temp.ck('an ECG path in ANOTHER booking''s folder is refused', 'ecg_file_path_not_allowed',
+    pg_temp.err(pg_temp.rpc(runner, format($q$public.record_poc_ecg(%L, '%s/%s.pdf', 'application/pdf', 52000)$q$, bk, pg_temp.f('b3'), gen_random_uuid()))));
+  perform pg_temp.ck('a path with .. is refused', 'ecg_file_path_not_allowed',
+    pg_temp.err(pg_temp.rpc(runner, format($q$public.record_poc_ecg(%L, '%s/../%s.pdf', 'application/pdf', 52000)$q$, bk, bk, gen_random_uuid()))));
+  perform pg_temp.ck('a path with no booking folder is refused', 'ecg_file_path_not_allowed',
+    pg_temp.err(pg_temp.rpc(runner, format($q$public.record_poc_ecg(%L, 'ecg/%s.pdf', 'application/pdf', 52000)$q$, bk, bk))));
+  perform pg_temp.ck('a path over 200 characters is refused', 'ecg_file_path_not_allowed',
+    pg_temp.err(pg_temp.rpc(runner, format($q$public.record_poc_ecg(%L, '%s/%s.pdf', 'application/pdf', 52000)$q$, bk, bk, repeat('a', 220)))));
+  perform pg_temp.ck('a file type outside the list is refused', 'ecg_file_type_not_allowed',
+    pg_temp.err(pg_temp.rpc(runner, format($q$public.record_poc_ecg(%L, '%s/%s.exe', 'application/x-msdownload', 52000)$q$, bk, bk, gen_random_uuid()))));
+  perform pg_temp.ck('a file over the 20 MB cap is refused', 'ecg_file_size_not_allowed',
+    pg_temp.err(pg_temp.rpc(runner, format($q$public.record_poc_ecg(%L, '%s/%s.pdf', 'application/pdf', 99999999)$q$, bk, bk, gen_random_uuid()))));
+  perform pg_temp.ck('nothing was recorded by any refused call', '0', (select count(*)::text from public.poc_ecg_recordings where booking_id = bk));
+  perform pg_temp.ck('the table refuses another booking''s folder too (CHECK, for any other writer)', '23514',
+    pg_temp.try_sql(format($q$insert into public.poc_ecg_recordings (organisation_id, patient_id, booking_id, file_path, mime_type, file_size_bytes)
+      select organisation_id, patient_id, id, '%s/x.pdf', 'application/pdf', 100 from public.testing_event_bookings where id = %L$q$, pg_temp.f('b3'), bk)));
   -- ECG
-  ecg := pg_temp.rpc(runner, format($q$public.record_poc_ecg(%L, 'ecg/%s.pdf', 'application/pdf', 52000, 'Contec ECG1200G', 'Sinus rhythm (machine text)')$q$, bk, bk))::uuid;
+  ecg := pg_temp.rpc(runner, format($q$public.record_poc_ecg(%L, '%s/%s.pdf', 'application/pdf', 52000, 'Contec ECG1200G', 'Sinus rhythm (machine text)')$q$, bk, bk, gen_random_uuid()))::uuid;
   perform pg_temp.setf('ecg', ecg);
   perform pg_temp.ck('an ECG recording makes a task for a doctor and is not read', 'awaiting_interpretation|1',
     (select release_state from public.poc_ecg_recordings where id = ecg) || '|' || (select count(*)::text from public.clinical_tasks where dedup_key = 'poc_ecg:' || ecg and type = 'ecg_interpretation'));
@@ -339,7 +356,7 @@ begin
   perform pg_temp.ck('an untied clinician cannot interpret or open the trace', 'not permitted|not permitted',
     pg_temp.err(pg_temp.rpc(pg_temp.f('stranger'), format($q$public.interpret_poc_ecg(%L, 'normal', 'ok')$q$, ecg))) || '|' ||
     pg_temp.err(pg_temp.rpc(pg_temp.f('stranger'), format('public.poc_ecg_file_path(%L)', ecg))));
-  perform pg_temp.ck('the tied doctor can open the trace path', 'true', (pg_temp.rpc(v_doc, format('public.poc_ecg_file_path(%L)', ecg)) like 'ecg/%')::text);
+  perform pg_temp.ck('the tied doctor can open the trace path', 'true', (pg_temp.rpc(v_doc, format('public.poc_ecg_file_path(%L)', ecg)) like bk::text || '/%')::text);
   perform pg_temp.ck('the queue shows the machine statement to the doctor only', 'true',
     (pg_temp.rpc(v_doc, 'public.poc_review_queue()') like '%Sinus rhythm (machine text)%')::text);
   perform pg_temp.ck('the doctor interpretation needs text', 'ecg_interpretation_required', pg_temp.err(pg_temp.rpc(v_doc, format($q$public.interpret_poc_ecg(%L, 'normal', '  ')$q$, ecg))));
@@ -435,6 +452,7 @@ drop policy poc_results_released_own on public.poc_results;
 create policy poc_results_released_own on public.poc_results for select to authenticated using (patient_id = (select auth.uid()));
 drop trigger poc_results_guard on public.poc_results;
 drop trigger poc_ecg_guard on public.poc_ecg_recordings;
+alter table public.poc_ecg_recordings drop constraint poc_ecg_recordings_path_in_booking_folder;
 
 do $$
 declare v_held uuid := pg_temp.f('ur'); v_ecg uuid;
@@ -445,6 +463,9 @@ begin
   insert into results values ('sabotaged', 'with the guard gone an unreviewed release goes through', '42501',
     pg_temp.try_sql(format($q$update public.poc_results set release_state = 'released', release_reason = 'RES-001', released_at = now() where id = %L$q$, pg_temp.f('hb'))));
   -- hb is already released and final; without the guard the update goes through
+  insert into results values ('sabotaged', 'with the path rule gone another booking''s folder is accepted', '23514',
+    pg_temp.try_sql(format($q$insert into public.poc_ecg_recordings (organisation_id, patient_id, booking_id, file_path, mime_type, file_size_bytes)
+      select organisation_id, patient_id, id, '%s/x.pdf', 'application/pdf', 100 from public.testing_event_bookings where id = %L$q$, pg_temp.f('bk'), pg_temp.f('b3'))));
   insert into results values ('sabotaged', 'with the ECG guard gone a non-clinician can be the interpreter', '42501',
     pg_temp.try_sql(format($q$update public.poc_ecg_recordings set release_state = 'released', interpreted_by = %L, interpreted_at = now(), interpretation_class = 'normal', interpretation = 'fine' where id = %L$q$, pg_temp.f('admin'), pg_temp.f('ecg'))));
 end $$;
@@ -459,7 +480,7 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 3 then raise exception 'VACUOUS TEST: the sabotage flipped % of the checks that should flip', v_caught; end if;
+  if v_caught < 4 then raise exception 'VACUOUS TEST: the sabotage flipped % of the checks that should flip', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result

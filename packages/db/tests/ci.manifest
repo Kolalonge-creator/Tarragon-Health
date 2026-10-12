@@ -959,3 +959,5 @@ sr1_platform_health_snapshot.sql
 sr5_alert_rules_and_operations_wall.sql
 # Two-tier integration: the final patient_has_feature_access (add-on retirement, sorts after the Free red-event path) carries the union of both definitions: the red-event feature and the doctor-time features follow one Member rule (grace included, a lapsed person and a Free person refused, an unknown patient pages), and patient_is_member agrees. Sabotage: a function without the Member block flips the doctor-time check.
 two_tier_integration_feature_gate_union.sql
+# Two-tier code-review decisions: refund window (21 days) and immediate end, legacy holders converted and one meaning of Member, a Member in the grace books exactly one follow-up (month 13), renewals included in the year with a 28 day spacing, second opinion at 500,000 kobo for Members only; six sabotage steps each flip their check.
+two_tier_review_decisions.sql

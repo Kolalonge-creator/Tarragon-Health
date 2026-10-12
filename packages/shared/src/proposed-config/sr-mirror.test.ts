@@ -1,16 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { getProposedConfig, listUnconfirmed } from "./index";
 
-const MIGRATIONS = join(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..", "..", "supabase", "migrations");
-
-function migration(suffix: string): string {
-  const file = readdirSync(MIGRATIONS).find((f) => f.endsWith(suffix));
-  if (!file) throw new Error(`migration ending ${suffix} not found`);
-  return readFileSync(join(MIGRATIONS, file), "utf8");
-}
 
 describe("ops.service_targets (SR1, proposed, unsigned)", () => {
   it("carries the plan's five targets", () => {

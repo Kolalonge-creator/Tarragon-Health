@@ -8,7 +8,7 @@
 --     an employer-paid Membership gets a message that does not ask to buy
 --   * when the grace is over the Membership is lapsed (Free), open tasks and booked follow-ups are NOT dropped and a neutral hand-off
 --     task goes to a doctor, records are untouched, a second run changes nothing
---   * a refund starts the grace instead of ending the Membership on the spot
+--   * a refund ends the Membership on the spot (no grace; the grace is for a year that ends naturally)
 -- SABOTAGE: the grace removed from the Member function, and the hand-off removed from the lapse job; both checks must flip.
 begin;
 
@@ -88,8 +88,8 @@ begin
     pg_temp.owner_try(format($q$insert into public.catalog_items (organisation_id, code, kind, name_key, description_key, duration_days, active) values (%L, 'tt_pack', 'care_pack', 'k', 'd', 90, false)$q$, v_org)));
   perform pg_temp.ck('and switching it on is refused by the constraint', 'true',
     (pg_temp.owner_try($q$update public.catalog_items set active = true where code = 'tt_pack'$q$) like '23514:%')::text);
-  perform pg_temp.ck('no doctor-time product is for sale', '0',
-    (select count(*)::text from public.service_products where is_active and code ~ '(_credit$|^verified_document|^chronic_doctor_supported_pack$|^written_result_interpretation$|^preventive_health_check_review$)'));
+  perform pg_temp.ck('no doctor-time product is for sale except the Members-only second opinion', '0',
+    (select count(*)::text from public.service_products where is_active and code <> 'second_opinion_credit' and code ~ '(_credit$|^verified_document|^chronic_doctor_supported_pack$|^written_result_interpretation$|^preventive_health_check_review$)'));
   perform pg_temp.ck('the doctor-time products are kept, with their prices', 'true',
     (select (count(*) >= 5 and bool_and(price_kobo is not null))::text from public.service_products where code in ('video_visit_credit', 'async_consult_credit', 'second_opinion_credit', 'prescription_renewal_credit', 'result_interpretation_credit')));
   perform pg_temp.ck('video_visit_credit cannot be switched back on', 'true',
@@ -189,7 +189,7 @@ begin
   perform pg_temp.ck('the whole daily job runs and reports', 'true', (private.run_membership_lifecycle() ? 'lapsed')::text);
 end $$;
 
--- 5. A refund starts the grace ----------------------------------------------------------------------------------------------
+-- 5. A refund ends access at once (no grace) ----------------------------------------------------------------------------------------------
 do $$
 declare v_org uuid := pg_temp.f('org'); v_pat uuid := pg_temp.f('p9'); v_item uuid := pg_temp.f('item'); v_admin uuid := pg_temp.f('admin');
         v_price uuid; v_order uuid; v_ref uuid; r text;
@@ -206,11 +206,8 @@ begin
   r := pg_temp.q_as(v_admin, format($q$select public.decide_order_refund(%L, true, 'approved in proof')::text$q$, v_ref));
   perform pg_temp.ck('the refund is approved', 'true', (r !~ '^ERR:')::text);
   perform pg_temp.ck('the entitlement is revoked', 'revoked', (select state from public.entitlements where order_id = v_order));
-  perform pg_temp.ck('the Membership is not ended on the spot: it is still active, ending now', 'active', (select state from public.patient_memberships where patient_id = v_pat));
-  perform pg_temp.ck('and the person is still a Member for the 14 day grace', 'true', private.patient_is_member(v_pat)::text);
-  update public.patient_memberships set ends_at = now() - interval '15 days', starts_at = now() - interval '380 days' where patient_id = v_pat;
-  perform private.lapse_expired_memberships();
-  perform pg_temp.ck('fifteen days on, the job lapses it', 'lapsed', (select state from public.patient_memberships where patient_id = v_pat));
+  perform pg_temp.ck('the Membership is ended on the spot', 'ended', (select state from public.patient_memberships where patient_id = v_pat));
+  perform pg_temp.ck('and the person is Free at once, with no grace', 'false', private.patient_is_member(v_pat)::text);
   perform pg_temp.ck('the refunded order and the person are still on record', '1/refunded', (select count(*)::text from public.profiles where id = v_pat) || '/' || (select state from public.orders where id = v_order));
 end $$;
 

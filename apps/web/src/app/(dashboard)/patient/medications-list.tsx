@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { stripDoctorTitle } from "@/lib/prescriptions/doctor-name";
 import { useMemo, useState, type FormEvent } from "react";
 import {
@@ -37,8 +38,6 @@ import {
   useMedicationRenewalRequest,
   useRequestPrescriptionRenewal,
 } from "@/lib/queries/prescription-renewal";
-import { useHasAvailableServicePurchase } from "@/lib/queries/service-purchases";
-import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -915,16 +914,11 @@ function RequestChangeButton({
   );
 }
 
-const RENEWAL_CREDIT_CODE = "prescription_renewal_credit";
-
 /**
- * Pay-per-service item: request a doctor's review to renew this
- * prescription. Server-side, prescription_renewal_requests_enforce_credit
- * accepts either plan access (medication_refills) or a redeemed
- * prescription_renewal_credit — this button doesn't pre-check plan access
- * itself (has_available_service_purchase only tells us about a credit), so
- * a plan-covered patient's request just succeeds on submit without ever
- * needing to buy anything.
+ * Request a doctor's review to renew this prescription. Renewals are part of Membership (two-tier decision, 2026-10-12): a Member asks
+ * with no credit, at most once per medication in the spaced window the server enforces (membership.renewal). A Free person is told,
+ * in plain words, that renewal is part of Membership and gets a link to join. The server trigger
+ * (prescription_renewal_requests_enforce_credit) is the only authority; this button never decides who is a Member.
  */
 function RequestRenewalButton({
   medication,
@@ -936,10 +930,9 @@ function RequestRenewalButton({
   organisationId: string;
 }) {
   const { data: openRequest } = useMedicationRenewalRequest(medication.id);
-  const { data: hasCredit } = useHasAvailableServicePurchase(patientId, RENEWAL_CREDIT_CODE);
   const requestRenewal = useRequestPrescriptionRenewal();
-  const [isBuying, setIsBuying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsMembership, setNeedsMembership] = useState(false);
 
   if (openRequest && (openRequest.status === "submitted" || openRequest.status === "in_review")) {
     return (
@@ -953,26 +946,19 @@ function RequestRenewalButton({
     return <p className="mt-1 text-xs text-brand-green dark:text-brand-green-bright">Renewal approved by your care team.</p>;
   }
 
-  async function onRequest() {
+  function onRequest() {
     setError(null);
+    setNeedsMembership(false);
     requestRenewal.mutate(
       { patientId, organisationId, medicationId: medication.id },
       {
-        onError: async (err) => {
+        onError: (err) => {
           const message = (err as Error).message ?? "";
-          if (!message.includes("renewal credit")) {
-            setError(message || "Could not send this request.");
+          if (message.includes("part of Membership")) {
+            setNeedsMembership(true);
             return;
           }
-          // No plan access and no credit — start checkout, then retry on return.
-          setIsBuying(true);
-          const result = await purchaseServiceProduct({
-            serviceProductCode: RENEWAL_CREDIT_CODE,
-            callbackPath: "/patient",
-          });
-          setIsBuying(false);
-          if (result?.error) setError(result.error);
-          else if (result?.checkoutUrl) window.location.href = result.checkoutUrl;
+          setError(message || "Could not send this request.");
         },
       }
     );
@@ -985,15 +971,19 @@ function RequestRenewalButton({
         variant="ghost"
         size="sm"
         className="min-h-11 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
-        disabled={requestRenewal.isPending || isBuying}
+        disabled={requestRenewal.isPending}
         onClick={onRequest}
       >
-        {requestRenewal.isPending || isBuying
-          ? "Requesting…"
-          : hasCredit
-            ? "Request renewal (credit ready)"
-            : "Request renewal"}
+        {requestRenewal.isPending ? "Requesting…" : "Request renewal"}
       </Button>
+      {needsMembership && (
+        <p className="mt-1 text-xs text-charcoal-ink/70 dark:text-night-ink/70">
+          Prescription renewals are part of Membership.{" "}
+          <Link href="/patient/membership" className="font-medium underline">
+            Join Membership
+          </Link>
+        </p>
+      )}
       <FormError id={fieldErrorId(`medication-renewal-${medication.id}`)} message={error} />
     </div>
   );

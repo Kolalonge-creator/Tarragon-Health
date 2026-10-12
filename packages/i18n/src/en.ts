@@ -1363,7 +1363,8 @@ export const en = {
   "refund.state.completed": "Refunded",
   "refund.state.rejected": "Declined",
   "refund.state.failed": "Failed",
-  "refund.policy.cooling_off": "You can request a full refund within 14 days of purchase.",
+  "refund.policy.cooling_off": "You can ask for a full refund of your Membership within 21 days of buying it. After that it cannot be refunded. If a refund is approved, your Member access ends straight away.",
+  "refund.request.outside_window": "Your Membership was bought more than 21 days ago, so it can no longer be refunded.",
   "refund.policy.consultation_cancel": "Full refund if cancelled at least 2 hours before your consultation. If your care team cancels, you always get a full refund.",
 
   "shop.pay_for_someone.title": "Pay for someone you care for",

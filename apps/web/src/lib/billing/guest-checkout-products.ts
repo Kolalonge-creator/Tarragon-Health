@@ -24,7 +24,6 @@ export const GUEST_CHECKOUT_PRODUCT_CODES = [
   "written_result_interpretation",
   "result_interpretation_credit",
   "async_consult_credit",
-  "second_opinion_credit",
   "video_visit_credit",
 ] as const;
 

@@ -80,3 +80,35 @@ describe("the Membership lapse config mirrors the migration", () => {
     expect(lapse.reminder_days_before).toEqual([30, 14, 7]);
   });
 });
+
+describe("the refund, renewal and second-opinion config mirror their migrations", () => {
+  it("membership.refund is the membership_policy_config refund seed: 21 days", () => {
+    const sql = migration("_two_tier_refund_window_and_immediate_end.sql");
+    const m = /membership-refund-begin[\s\S]*?\$json\$([\s\S]*?)\$json\$/.exec(sql);
+    if (!m?.[1]) throw new Error("refund seed not found in the migration");
+    const v = getProposedConfig("membership.refund").value as { window_days: number };
+    expect(JSON.parse(m[1])).toEqual(v);
+    expect(v.window_days).toBe(21);
+  });
+  it("membership.renewal is the renewal seed: 28 days between requests", () => {
+    const sql = migration("_two_tier_refund_window_and_immediate_end.sql");
+    const m = /membership-renewal-begin[\s\S]*?\$json\$([\s\S]*?)\$json\$/.exec(sql);
+    if (!m?.[1]) throw new Error("renewal seed not found in the migration");
+    const v = getProposedConfig("membership.renewal").value as { min_days_between_requests: number };
+    expect(JSON.parse(m[1])).toEqual(v);
+    expect(v.min_days_between_requests).toBe(28);
+  });
+  it("commerce.second_opinion is 500,000 kobo (INV-15) and the migration sells it at exactly that", () => {
+    const v = getProposedConfig("commerce.second_opinion").value as { item_code: string; price_kobo: number; members_only: boolean };
+    expect(v.price_kobo).toBe(500_000);
+    expect(v.members_only).toBe(true);
+    const sql = migration("_two_tier_renewals_included_second_opinion_member_only.sql");
+    const m = /second-opinion-price-begin[\s\S]*?price_kobo = (\d+)[\s\S]*?where code = '([a-z_]+)'/.exec(sql);
+    if (!m) throw new Error("second opinion price statement not found");
+    expect(Number(m[1])).toBe(v.price_kobo);
+    expect(m[2]).toBe(v.item_code);
+  });
+  it("no migration hands out a second opinion price as a typed constant elsewhere", () => {
+    expect(migration("_two_tier_renewals_included_second_opinion_member_only.sql")).not.toMatch(/1200000|12000 /);
+  });
+});

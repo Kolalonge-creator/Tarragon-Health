@@ -43,6 +43,8 @@ When you pay for a health check or screening ahead of time, you receive a Care V
 A paid video visit with a doctor works differently from a subscription charge: your payment is held by us at the time you request the visit, and only goes through once a doctor accepts the request; a visit is never automatic, and depends on doctor availability. If no doctor accepts your request within a set window, or a doctor declines it, your payment is refunded.
 
 ## Cancelling and refunds
+**Membership refunds.** A Membership can be refunded only within 21 days of purchase. After 21 days it is not refundable. If we approve a refund your Member access ends straight away. A Membership that reaches the end of its year is different: you keep your Member access for 14 days after it ends, and your records stay with you either way. [Wording proposed by the founder and CMO on 2026-10-12; counsel to confirm.]
+
 You can cancel a subscription at any time from your account settings. Cancelling stops it from renewing; you keep full access through the end of the period you have already paid for. We do not provide a partial or pro-rata refund for the unused portion of a period you cancel mid-cycle, except where required by applicable law, where we decide, at our discretion, that a billing error or a service failure attributable to us warrants one, or as described above for a held video-visit payment that is never accepted.
 
 [Counsel to confirm whether Nigerian consumer protection law (the FCCPC framework) requires a cooling-off period or a different refund position than the one stated above. See the accompanying memo, Question 7.]
