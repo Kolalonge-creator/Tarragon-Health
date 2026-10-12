@@ -6,7 +6,7 @@ const mockRpc = jest.fn();
 jest.mock("../supabase", () => ({ supabase: { functions: { invoke: (...a: unknown[]) => mockInvoke(...a) }, rpc: (...a: unknown[]) => mockRpc(...a) } }));
 import { loadCatalogue, loadMembership, loadMyOrders, startCheckout, verifyOrder } from "./api";
 
-const item = { code: "membership_annual", kind: "membership", name_key: "catalog.membership_annual.name", description_key: "catalog.membership_annual.description", included_keys: ["a", 3, "b"], amount_kobo: 10_000_000 };
+const item = { code: "membership_annual", kind: "membership", name_key: "catalog.membership_annual.name", description_key: "catalog.membership_annual.description", included_keys: ["a", 3, "b"], amount_kobo: 12_000_000 };
 
 describe("parsing", () => {
   it("keeps good catalogue rows, drops bad ones, and keeps only string copy keys", () => {

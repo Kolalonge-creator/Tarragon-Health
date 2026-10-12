@@ -4,7 +4,7 @@ import { checkoutErrorKey, isMessageKey, orderStateKey, parseCatalogue, parseMem
 
 const item = {
   code: "membership_annual", kind: "membership", name_key: "catalog.membership_annual.name", description_key: "catalog.membership_annual.description",
-  included_keys: ["catalog.membership_annual.incl.1"], duration_days: 365, uses: null, amount_kobo: 10_000_000, components: {},
+  included_keys: ["catalog.membership_annual.incl.1"], duration_days: 365, uses: null, amount_kobo: 12_000_000, components: {},
 };
 
 describe("parseCatalogue", () => {
@@ -58,8 +58,9 @@ describe("copy keys", () => {
 
 describe("the web imports the shared commerce core", () => {
   it("formats the membership price and adds up an estimate that is labelled as one", () => {
+    expect(formatNaira(12_000_000)).toBe("120,000");
     expect(formatNaira(10_000_000)).toBe("100,000");
-    const b = estimatedBreakdown(10_000_000, { localBasisPoints: 150, flatKobo: 10_000, flatWaivedBelowKobo: 250_000, capKobo: 200_000 });
+    const b = estimatedBreakdown(12_000_000, { localBasisPoints: 150, flatKobo: 10_000, flatWaivedBelowKobo: 250_000, capKobo: 200_000 });
     expect(b.estimated).toBe(true);
     expect(b.totalKobo).toBe(b.priceKobo + b.feeKobo);
   });

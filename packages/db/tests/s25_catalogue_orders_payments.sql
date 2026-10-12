@@ -138,8 +138,8 @@ begin
   perform pg_temp.ck('the catalogue shows the item with its price', '500000',
     pg_temp.q_as(v_pat, $q$select (select (e->>'amount_kobo') from jsonb_array_elements(public.catalogue()) e where e->>'code' = 'proof_consult')$q$));
   perform pg_temp.ck('the seeded membership starts off', 'false', (select active::text from public.catalog_items where code = 'membership_annual' and organisation_id = pg_temp.f('org')));
-  perform pg_temp.ck('the seeded membership price is 100,000 naira in kobo', '10000000',
-    (select amount_kobo::text from public.prices p join public.catalog_items i on i.id = p.catalog_item_id where i.code = 'membership_annual' and i.organisation_id = pg_temp.f('org') and p.valid_to is null));
+  perform pg_temp.ck('the price in force today for the seeded membership is 100,000 naira in kobo (the 120,000 price is parked, two-tier migration)', '10000000',
+    (select amount_kobo::text from public.prices p join public.catalog_items i on i.id = p.catalog_item_id where i.code = 'membership_annual' and i.organisation_id = pg_temp.f('org') and p.valid_from <= now() and (p.valid_to is null or p.valid_to > now())));
   perform pg_temp.ck('anon cannot create an order', '42501', pg_temp.try_anon($q$select public.create_order('proof_consult')$q$));
 end $$;
 

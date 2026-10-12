@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { z } from "zod";
 import type { Tables } from "@tarragon/shared";
 
 export type EmployerBenefitPackage = Tables<"employer_benefit_packages">;
@@ -53,12 +54,40 @@ export function useServiceProductCatalog() {
   });
 }
 
+/** What one Membership seat costs this organisation and how many it has: counts and money only, never a person (rule I9). */
+export const seatSummarySchema = z.object({
+  catalog_item_id: z.string().nullable(),
+  price_kobo: z.number().int().positive().nullable(),
+  price_source: z.enum(["default", "override"]),
+  module_open: z.boolean(),
+  active_seats: z.number().int().nonnegative(),
+  seats_ever: z.number().int().nonnegative(),
+  uninvoiced_kobo: z.number().int().nonnegative(),
+});
+export type SeatSummary = z.infer<typeof seatSummarySchema>;
+
+export function useOrganisationSeatSummary(organisationId: string) {
+  return useQuery({
+    queryKey: ["organisation-seat-summary", organisationId],
+    queryFn: async (): Promise<SeatSummary | null> => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("organisation_seat_summary", { p_org: organisationId });
+      if (error) throw error;
+      const parsed = seatSummarySchema.safeParse(data);
+      return parsed.success ? parsed.data : null;
+    },
+    enabled: !!organisationId,
+  });
+}
+
 export function useCreateBenefitPackage(organisationId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: {
       name: string;
-      service_product_id: string;
+      /** Exactly one of the two: a legacy service product, or the v5 Membership item billed to the organisation. */
+      service_product_id?: string;
+      catalog_item_id?: string;
       lab_discount_percent?: number;
       is_default?: boolean;
     }) => {
@@ -66,13 +95,16 @@ export function useCreateBenefitPackage(organisationId: string) {
       const { error } = await supabase.from("employer_benefit_packages").insert({
         organisation_id: organisationId,
         name: input.name,
-        service_product_id: input.service_product_id,
+        ...(input.catalog_item_id ? { catalog_item_id: input.catalog_item_id } : { service_product_id: input.service_product_id }),
         lab_discount_percent: input.lab_discount_percent ?? 0,
         is_default: input.is_default ?? false,
       });
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: packagesKey(organisationId) }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: packagesKey(organisationId) });
+      void queryClient.invalidateQueries({ queryKey: ["organisation-seat-summary", organisationId] });
+    },
   });
 }
 

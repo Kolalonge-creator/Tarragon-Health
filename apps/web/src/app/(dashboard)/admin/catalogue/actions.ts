@@ -23,6 +23,9 @@ const MESSAGES: Readonly<Record<string, string>> = {
   catalogue_reason_needed: "Give a reason of at least 10 characters.",
   item_has_no_price: "This item has no price yet, so it cannot be switched on.",
   price_start_before_current: "The new price must start after the current price started.",
+  no_scheduled_price: "There is no parked price to bring forward.",
+  price_not_brought_forward: "The new start must be earlier than the date the price is parked at.",
+  price_start_in_past: "The price cannot start in the past. Leave the date empty to start now.",
   price_components_must_sum: "The itemised split must add up to the price.",
   unknown_item: "That item no longer exists.",
 };
@@ -56,4 +59,22 @@ export async function setItemPrice(_prev: CatalogueActionState, formData: FormDa
   if (error) return { error: describe(error) };
   revalidatePath("/admin/catalogue");
   return { message: "Price saved." };
+}
+
+const bringForwardSchema = z.object({ code: CODE, startsOn: z.string().trim().regex(/^(\d{4}-\d{2}-\d{2})?$/, "Choose a date or leave it empty to start now."), reason });
+
+/**
+ * Brings a parked price forward (the 120,000 naira individual Membership price is parked at 2099-01-01 until the founder says go).
+ * No date means now. The parked row is withdrawn and a real one starts; the old price is closed, never edited.
+ */
+export async function bringForwardPrice(_prev: CatalogueActionState, formData: FormData): Promise<CatalogueActionState> {
+  const parsed = bringForwardSchema.safeParse({ code: formData.get("code"), startsOn: formData.get("starts_on") ?? "", reason: formData.get("reason") });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form." };
+  const startsAt = parsed.data.startsOn ? new Date(`${parsed.data.startsOn}T00:00:00+01:00`) : new Date();
+  if (Number.isNaN(startsAt.getTime())) return { error: "Choose a date or leave it empty to start now." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("bring_forward_scheduled_price", { p_code: parsed.data.code, p_valid_from: startsAt.toISOString(), p_reason: parsed.data.reason });
+  if (error) return { error: describe(error) };
+  revalidatePath("/admin/catalogue");
+  return { message: "The parked price now starts." };
 }

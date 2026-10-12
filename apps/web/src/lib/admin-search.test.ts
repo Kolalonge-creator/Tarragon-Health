@@ -69,6 +69,9 @@ describe("the real admin menus", () => {
     expect(top("grant")).toContain("/admin/memberships");
     expect(top("catalogue")).toContain("/admin/catalogue");
     expect(top("price list")).toContain("/admin/catalogue");
+    expect(top("organisation prices")).toContain("/admin/organisation-prices");
+    expect(top("employer price")).toContain("/admin/organisation-prices");
+    expect(top("per member")).toContain("/admin/organisation-prices");
   });
 
   it("finds the fees and earnings page (every console page needs a search entry)", () => {
