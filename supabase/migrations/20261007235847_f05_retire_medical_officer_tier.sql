@@ -169,7 +169,7 @@ end $$;
 do $$
 declare r record; g jsonb; v_kind_order text[] := array['index', 'function', 'view', 'constraint', 'policy'];
 begin
-  for r in select * from f05_swap order by array_position(v_kind_order, kind), ord loop
+  for r in select * from f05_swap order by array_position(v_kind_order, kind), (name not like 'private.doctor_tier_rank(%'), ord loop
     execute r.ddl;
     if r.kind = 'function' then
       execute format('revoke all on function %s from public, anon, authenticated, service_role', r.name);
