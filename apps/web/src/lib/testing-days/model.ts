@@ -2,7 +2,7 @@ import { z } from "zod";
 
 /**
  * Shared pieces for testing days, employer visits and point-of-care results (migration
- * 20261012181321_testing_days_employer_visits_point_of_care.sql). No server-only imports, so the actions, the screens, the
+ * 20261013004659_testing_days_employer_visits_point_of_care.sql). No server-only imports, so the actions, the screens, the
  * mobile app's copy of the same rules and the tests read one definition.
  */
 

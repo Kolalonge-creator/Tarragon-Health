@@ -1,6 +1,6 @@
 # Design: testing days, employer on-site visits and point-of-care results
 
-Two-tier model decision D6 (individuals join listed testing days, employers get an on-site visit) and CMO decisions C1, C6, C9 (HIV, HBsAg and anti-HCV every year; ECG and urinalysis at point of care; no vitamin D, ferritin or PSA). Migration `20261012181321_testing_days_employer_visits_point_of_care.sql`; screening fix `20261012182045_membership_annual_screening_required.sql`; proof `packages/db/tests/testing_days_visits_poc.sql`. Nothing here is applied, signed or merged.
+Two-tier model decision D6 (individuals join listed testing days, employers get an on-site visit) and CMO decisions C1, C6, C9 (HIV, HBsAg and anti-HCV every year; ECG and urinalysis at point of care; no vitamin D, ferritin or PSA). Migration `20261013004659_testing_days_employer_visits_point_of_care.sql`; screening fix `20261013005133_membership_annual_screening_required.sql`; proof `packages/db/tests/testing_days_visits_poc.sql`. Nothing here is applied, signed or merged.
 
 ## 1. Why a new table family and not group screening days
 `screening_days` (20260829003735) is a bulk-paid product: one payer, a discount on a panel bundle, one voucher per head. A Member's testing day is an entitlement use with a capacity and a waitlist, and it makes a lab order at check-in; nothing is paid per head. Reused from it: the `*.manage` permission convention and staff gating. Both visit kinds share one table (`testing_events.kind`) so check-in, specimen labelling, point-of-care entry and release are one path.

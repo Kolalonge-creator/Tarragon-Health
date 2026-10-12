@@ -1,5 +1,5 @@
 -- ===========================================================================
--- Verification: SR1 20261012183837_sr1_platform_health_snapshot
+-- Verification: SR1 20261013010258_sr1_platform_health_snapshot
 --
 -- Proves public.platform_health_snapshot():
 --   * is callable by service_role and by no client role (anon, authenticated);

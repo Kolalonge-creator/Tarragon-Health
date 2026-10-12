@@ -1338,7 +1338,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-12",
-    source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md C8; supabase/migrations/20261012183210_two_tier_followup_data_model_and_config.sql",
+    source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md C8; supabase/migrations/20261013005607_two_tier_followup_data_model_and_config.sql",
   },
   {
     key: "followups.policy",
@@ -1364,7 +1364,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-12",
-    source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md D4, C5; supabase/migrations/20261012183210_two_tier_followup_data_model_and_config.sql",
+    source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md D4, C5; supabase/migrations/20261013005607_two_tier_followup_data_model_and_config.sql",
   },
   {
     key: "scribe.transcript_retention_days",
@@ -1857,7 +1857,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   {
     key: "lab.panels",
     // v3 (2026-10-12, CMO C1/C6): HIV screen, HBsAg and anti-HCV are REQUIRED every year, not "only if ordered". Same analytes and limits
-    // as v2 otherwise. Mirrors lab_panel_versions v2, made by 20261012182045_membership_annual_screening_required.sql; a test fails if the
+    // as v2 otherwise. Mirrors lab_panel_versions v2, made by 20261013005133_membership_annual_screening_required.sql; a test fails if the
     // two drift. Stays `proposed` until the CMO signs; nothing auto-releases before that.
     value: {
       "panels": {
@@ -2087,7 +2087,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     status: "confirmed",
     version: 1,
     effectiveFrom: "2026-10-12",
-    source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md (D2, C3, C10); supabase/migrations/20261012180704_two_tier_membership_pricing.sql",
+    source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md (D2, C3, C10); supabase/migrations/20261013003317_two_tier_membership_pricing.sql",
   },
   {
     key: "membership.lapse",
@@ -2099,7 +2099,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-12",
-    source: "Founder decision 2026-10-12 (lapse and grace); supabase/migrations/20261012185805_two_tier_only_free_and_member.sql",
+    source: "Founder decision 2026-10-12 (lapse and grace); supabase/migrations/20261013010732_two_tier_only_free_and_member.sql",
   },
   {
     key: "commerce.organisation_member_price_limits",
@@ -2111,7 +2111,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-12",
-    source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md (C10); supabase/migrations/20261012180704_two_tier_membership_pricing.sql",
+    source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md (C10); supabase/migrations/20261013003317_two_tier_membership_pricing.sql",
   },
   {
     key: "ops.service_targets",
@@ -2162,12 +2162,12 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-12",
-    source: "docs/plans/SCALE-READINESS-PLAN.md section 3 (Phase 3 alert rules); supabase/migrations/20261012183837_sr1_platform_health_snapshot.sql",
+    source: "docs/plans/SCALE-READINESS-PLAN.md section 3 (Phase 3 alert rules); supabase/migrations/20261013010258_sr1_platform_health_snapshot.sql",
   },
   {
     key: "db.cron_history_retention",
     // SR2a: how long pg_cron's own run history is kept. Mirrored by the arguments of the scheduled call in
-    // supabase/migrations/20261012180801_sr2a_cron_history_cleanup.sql (a mirror test fails if they drift).
+    // supabase/migrations/20261013003534_sr2a_cron_history_cleanup.sql (a mirror test fails if they drift).
     value: { keepDays: 7, keepFailedDays: 30 },
     owner: "Founder",
     status: "proposed",
@@ -2201,6 +2201,6 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-12",
-    source: "docs/plans/SCALE-READINESS-PLAN.md section 3; supabase/migrations/20261012182805_sr5_alert_rules_and_operations_wall.sql",
+    source: "docs/plans/SCALE-READINESS-PLAN.md section 3; supabase/migrations/20261013005350_sr5_alert_rules_and_operations_wall.sql",
   },
 ];

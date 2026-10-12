@@ -1,5 +1,5 @@
 -- ===========================================================================
--- Verification: SR2a 20261012180801_sr2a_cron_history_cleanup
+-- Verification: SR2a 20261013003534_sr2a_cron_history_cleanup
 --
 -- Proves private.cron_history_cleanup():
 --   * deletes successful runs older than 7 days and keeps newer ones;

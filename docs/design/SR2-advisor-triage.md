@@ -8,9 +8,9 @@ How the advisor was read. The Supabase performance advisor returned a report too
 
 | Rank | Class | Live count 2026-10-12 | Risk it carries at scale | Action |
 |---|---|---|---|---|
-| 1 | Cron run history growth | `cron.job_run_details` 377,797 rows, 182 MB, 112 jobs, about 4,000 rows a day | Largest object in the database; unbounded | FIXED: SR2a migration `20261012180801_sr2a_cron_history_cleanup.sql`, daily, 7 days kept (30 for failures) |
-| 2 | Hot-path query shapes that cannot use an index | Two in the minute-by-minute task sweep, one in the lab awaiting list | The overdue-task sweep ran a full table scan every minute: 1.26 s at 1,000,000 task rows | FIXED: SR2d migration `20261012181856_sr2d_hot_path_indexes_and_overdue_sweep_sargable.sql` (details in `SR2-query-plans.md`) |
-| 3 | Foreign keys with no covering index | 1,019 of 2,123 foreign keys in `public` | Slow deletes and joins on the parent side; lock amplification | PARTLY FIXED: 25 on the hot tables in SR2c migration `20261012181102_sr2c_hot_table_indexes_and_policy_initplan.sql`. About 995 remain, all on cold or tiny tables. Left on purpose, see section 2 |
+| 1 | Cron run history growth | `cron.job_run_details` 377,797 rows, 182 MB, 112 jobs, about 4,000 rows a day | Largest object in the database; unbounded | FIXED: SR2a migration `20261013003534_sr2a_cron_history_cleanup.sql`, daily, 7 days kept (30 for failures) |
+| 2 | Hot-path query shapes that cannot use an index | Two in the minute-by-minute task sweep, one in the lab awaiting list | The overdue-task sweep ran a full table scan every minute: 1.26 s at 1,000,000 task rows | FIXED: SR2d migration `20261013004916_sr2d_hot_path_indexes_and_overdue_sweep_sargable.sql` (details in `SR2-query-plans.md`) |
+| 3 | Foreign keys with no covering index | 1,019 of 2,123 foreign keys in `public` | Slow deletes and joins on the parent side; lock amplification | PARTLY FIXED: 25 on the hot tables in SR2c migration `20261013004442_sr2c_hot_table_indexes_and_policy_initplan.sql`. About 995 remain, all on cold or tiny tables. Left on purpose, see section 2 |
 | 4 | Row-level-security re-evaluation per row (bare `auth.uid()`) | 6 policies of 1,561 (656 were already wrapped by an earlier sweep) | One function call per row scanned | 5 FIXED in SR2c. 1 left (see below) |
 | 5 | Multiple permissive policies for the same role and command | 52 role/command combinations on 34 tables, none on a hot table; worst case 3 policies | Each permissive policy is evaluated and OR-ed per row | NOT changed. See section 3 |
 | 6 | Duplicate indexes (same table, same columns in the same order, same predicate) | 1 | A wasted write per row | FIXED in SR2c: `async_consults_patient_month_idx` dropped, `async_consults_patient_idx` kept (definitions compared inside the migration before dropping) |
@@ -93,8 +93,8 @@ create role app_notification_worker login connection limit 10 noinherit;
 
 | Migration | Contents | Proof |
 |---|---|---|
-| `20261012180801_sr2a_cron_history_cleanup.sql` | `private.cron_history_cleanup(keep, keep_failed)`, scheduled `17 3 * * *`, incident on failure, anon and authenticated revoked | `packages/db/tests/sr2a_cron_history_cleanup.sql` |
-| `20261012181102_sr2c_hot_table_indexes_and_policy_initplan.sql` | 25 foreign-key indexes, 1 duplicate index dropped, 5 policies wrapped | `packages/db/tests/sr2c_hot_table_indexes_and_initplan.sql` |
-| `20261012181856_sr2d_hot_path_indexes_and_overdue_sweep_sargable.sql` | 4 hot-path indexes, overdue sweep rewritten to be index-friendly | `packages/db/tests/sr2d_overdue_sweep_sargable_and_hot_indexes.sql` |
+| `20261013003534_sr2a_cron_history_cleanup.sql` | `private.cron_history_cleanup(keep, keep_failed)`, scheduled `17 3 * * *`, incident on failure, anon and authenticated revoked | `packages/db/tests/sr2a_cron_history_cleanup.sql` |
+| `20261013004442_sr2c_hot_table_indexes_and_policy_initplan.sql` | 25 foreign-key indexes, 1 duplicate index dropped, 5 policies wrapped | `packages/db/tests/sr2c_hot_table_indexes_and_initplan.sql` |
+| `20261013004916_sr2d_hot_path_indexes_and_overdue_sweep_sargable.sql` | 4 hot-path indexes, overdue sweep rewritten to be index-friendly | `packages/db/tests/sr2d_overdue_sweep_sargable_and_hot_indexes.sql` |
 
 All three are written for `apply_migration`-style application but are NOT applied to the live project. When applying, pin `schema_migrations.version` to the filename timestamp (CI does not push migrations), check `list_migrations` for anything recent you do not recognise first, and run the SR2a clean-up once by hand afterwards to see its first deletion count.

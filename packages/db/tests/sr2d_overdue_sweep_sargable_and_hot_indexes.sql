@@ -1,5 +1,5 @@
 -- ===========================================================================
--- Verification: SR2d 20261012181856_sr2d_hot_path_indexes_and_overdue_sweep_sargable
+-- Verification: SR2d 20261013004916_sr2d_hot_path_indexes_and_overdue_sweep_sargable
 --
 -- Proves:
 --   * the four indexes exist and are valid;

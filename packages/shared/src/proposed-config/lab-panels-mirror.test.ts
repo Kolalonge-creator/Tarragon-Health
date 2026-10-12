@@ -21,7 +21,7 @@ describe("lab.panels mirrors the migration seed", () => {
     const match = /lab-panels-v2-begin[\s\S]*?\$json\$([\s\S]*?)\$json\$/.exec(migration("_s27g_lab_panel_membership_sex_ranges.sql"));
     if (!match?.[1]) throw new Error("lab panel v2 seed not found in the migration");
     const seed = JSON.parse(match[1]).panels.membership_annual.analytes as Analyte[];
-    // exactly what 20261012182045_membership_annual_screening_required.sql does in SQL: drop `optional` from those three, change nothing else
+    // exactly what 20261013005133_membership_annual_screening_required.sql does in SQL: drop `optional` from those three, change nothing else
     const required = seed.map((a) => {
       if (!["hiv_screen", "hbsag", "hcv_ab"].includes(a.code)) return a;
       const { optional: _optional, ...rest } = a;

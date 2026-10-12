@@ -43140,7 +43140,7 @@ export type Database = {
       release_lab_result: { Args: { p_note?: string; p_result: string }; Returns: Json };
       team_submit_lab_result: { Args: { p_file?: Json; p_items: Json; p_order: string; p_panel: string; p_patient: string }; Returns: Json };
       withhold_lab_result: { Args: { p_reason: string; p_result: string }; Returns: Json };
-      // Testing days, employer visits and point-of-care results (20261012181321_testing_days_employer_visits_point_of_care.sql)
+      // Testing days, employer visits and point-of-care results (20261013004659_testing_days_employer_visits_point_of_care.sql)
       create_testing_event: {
         Args: {
           p_address: string; p_capacity: number; p_city: string; p_employer_org?: string; p_event_date: string; p_ends_at: string | null;

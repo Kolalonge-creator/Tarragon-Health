@@ -7,7 +7,7 @@
 --
 -- CRISIS. On Free the patient still gets everything patient-side: the crisis answer already writes an emergency event, which
 -- shows the acknowledge-gated hospital screen, notifies the emergency contact and opens the Free record (migration
--- 20261012181053). Only the doctor-facing half (the class 1 task and the on-call page in private.raise_crisis_follow_up) is
+-- 20261013004008). Only the doctor-facing half (the class 1 task and the on-call page in private.raise_crisis_follow_up) is
 -- skipped. That function exists live (migration f1_crisis_priority_task_and_event, 20261007003431) but is not yet in
 -- main-dev, so it is patched here only if it exists, from its own live text, and the patch is asserted.
 --

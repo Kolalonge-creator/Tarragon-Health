@@ -1,7 +1,7 @@
 -- Two tiers, nothing between, part 2 (founder 2026-10-12): the last two add-on products are folded into Membership.
 --
 --   * ai_coach_daily_pass_30d (a higher daily AI coach limit) and continuous_monitoring_90d (clinician review of continuous data) stop
---     being sold. Rows, prices and history stay; a CHECK keeps them off (the constraint from 20261012185805 is widened to name them and
+--     being sold. Rows, prices and history stay; a CHECK keeps them off (the constraint from 20261013010732 is widened to name them and
 --     the old monitoring tiers). LIVE COUNTS BEFORE (read-only, 2026-10-12): service_purchases of ai_coach_daily_pass_30d 0, of
 --     continuous_monitoring_90d 0, of the older continuous_monitoring_3m 1 (already inactive, honoured). A pass someone holds is honoured
 --     until it expires: patient_has_feature_access and get_ai_coach_daily_limit read service_purchases, never service_products.is_active.
@@ -10,7 +10,7 @@
 --   * Continuous monitoring (clinician review of continuous data) becomes a Member benefit: private.patient_has_feature_access now
 --     answers true to the doctor-time features the monitoring product carried when private.patient_is_member is true (the grace
 --     included). 'async_doctor_visit' is deliberately left out: patient_is_member itself consults it for the legacy plan, so including it
---     would recurse. This function is also redefined by the Free red-event branch (two-tier/free-red-path, migration 20261012181053)
+--     would recurse. This function is also redefined by the Free red-event branch (two-tier/free-red-path, migration 20261013004008)
 --     for 'vitals_red_flag_doctor_escalation' (fail closed toward paging); that behaviour is carried here unchanged so that whichever
 --     of the two migrations sorts last leaves the same function.
 --   * "Is a Member" has ONE definition with a point-in-time form: private.patient_is_member_at(patient, at). private.patient_is_member
