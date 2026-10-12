@@ -692,6 +692,13 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     // From private.page_notify (S19): fixed neutral line, never the patient or the reading (INV-07).
     return { text: "A priority case is waiting for you", href: "/clinician/on-call" };
   }
+  if (n.template === "ops_alert") {
+    // From private.ops_alert_notify (SR5): fixed wording, no detail, no patient reference.
+    return { text: "An operations alert needs attention", href: "/admin/ops/wall" };
+  }
+  if (n.template === "ops_all_clear") {
+    return { text: "An operations alert has cleared", href: "/admin/ops/wall" };
+  }
   if (n.template === "on_call_unfinished") {
     return { text: "A priority case is acknowledged but still open", href: "/rota" };
   }

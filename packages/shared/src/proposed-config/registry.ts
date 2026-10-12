@@ -2175,4 +2175,32 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-12",
     source: "docs/plans/SCALE-READINESS-PLAN.md section 3 Phase 1 item 1 (retain 7 days, failed runs 30 days)",
   },
+  {
+    key: "ops.alert_rules",
+    // SR5 operations alert rules (docs/plans/SCALE-READINESS-PLAN.md section 3). Live values are the rows of `ops_alert_rules`; this
+    // entry mirrors the migration seed and a test fails if they drift. Every number is a proposal for the founder and CMO: the
+    // 60 second page target, 70 percent connection and disk lines, 2 percent send failures, 3 percent Zoom join failures and
+    // 10 percent phone fallback come from the plan. disk_limit_bytes is a placeholder until SR1 records the real plan.
+    value: {
+      unacknowledged_page: { severity: "sev1", params: {} },
+      queue_starvation: { severity: "sev2", params: { grace_minutes: 0 } },
+      rota_gap_12h: { severity: "sev1", params: { hours: 12 } },
+      notification_failure_rate: { severity: "sev2", params: { window_minutes: 15, max_failure_percent: 2, min_volume: 20, stuck_pending_minutes: 10 } },
+      payment_webhooks_unprocessed: { severity: "sev2", params: { older_than_minutes: 5, errored_window_minutes: 60 } },
+      zoom_webhooks_unprocessed: { severity: "sev2", params: { older_than_minutes: 5, errored_window_minutes: 60 } },
+      db_connections: { severity: "sev2", params: { max_percent: 70 } },
+      db_disk: { severity: "sev2", params: { max_percent: 70, disk_limit_bytes: 8589934592 } },
+      stale_cron: { severity: "sev2", params: { lookback_hours: 72, factor: 2, min_slack_minutes: 2 } },
+      lab_result_unreviewed: { severity: "sev2", params: { review_target_hours: 24 } },
+      zoom_join_fallback: { severity: "sev2", params: { window_minutes: 60, min_volume: 20, max_failed_percent: 3, max_fallback_percent: 10 } },
+      edge_function_errors: { severity: "sev2", params: { signal: "edge_error_rate_percent", max_value: 1, max_age_minutes: 15 } },
+      edge_function_drift: { severity: "sev2", params: { signal: "edge_drift_count", max_value: 0, max_age_minutes: 480 } },
+      cost_projection: { severity: "sev3", params: { signal: "cost_projection_percent_of_budget", max_value: 100, max_age_minutes: 1440 } },
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "docs/plans/SCALE-READINESS-PLAN.md section 3; supabase/migrations/20261012182805_sr5_alert_rules_and_operations_wall.sql",
+  },
 ];
