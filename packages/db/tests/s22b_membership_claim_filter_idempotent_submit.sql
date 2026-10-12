@@ -195,7 +195,9 @@ begin
     pg_temp.try_as(v_admin, format($q$select public.grant_membership(%L, 'Short pilot membership for a launch week', now() + interval '1 hour')$q$, pg_temp.f('pat2'))));
   perform pg_temp.ck('...and counts while it runs', 'true', (select private.patient_is_member(pg_temp.f('pat2'))::text));
   update public.patient_memberships set starts_at = now() - interval '2 hours', ends_at = now() - interval '1 hour' where patient_id = pg_temp.f('pat2');
-  perform pg_temp.ck('...and stops counting after its end date, with nobody doing anything', 'false', (select private.patient_is_member(pg_temp.f('pat2'))::text));
+  perform pg_temp.ck('...and still counts in the 14 day grace after its end date (two-tier lapse)', 'true', (select private.patient_is_member(pg_temp.f('pat2'))::text));
+  update public.patient_memberships set starts_at = now() - interval '40 days', ends_at = now() - interval '20 days' where patient_id = pg_temp.f('pat2');
+  perform pg_temp.ck('...and stops counting once the grace is over, with nobody doing anything', 'false', (select private.patient_is_member(pg_temp.f('pat2'))::text));
   perform pg_temp.ck('a lapsed membership can be renewed (not blocked as still active)', 'ok',
     pg_temp.try_as(v_admin, format($q$select public.grant_membership(%L, 'Renewed after the dated pilot membership ended')$q$, pg_temp.f('pat2'))));
   perform pg_temp.ck('...and the patient is a member again', 'true', (select private.patient_is_member(pg_temp.f('pat2'))::text));

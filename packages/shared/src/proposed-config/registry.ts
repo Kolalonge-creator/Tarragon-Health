@@ -1822,4 +1822,43 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/DECISIONS.md S11-1; supabase/migrations/20261007152136_s11c_bp_care_triage_v3.sql",
   },
+  {
+    key: "commerce.membership_prices",
+    // Two-tier decisions D2 (2026-10-08) and C3/C10 (2026-10-12): the individual Membership is 120,000 naira a year and an
+    // organisation pays a flat 100,000 naira per member, adjustable per organisation from the admin dashboard. Both integer kobo
+    // (INV-15). Volume tiers (80k/70k/60k) were dropped. The platform launches at 120,000 (founder, 2026-10-12): the database row takes
+    // effect the moment the migration is applied and the 100,000 row is closed at the same instant, so the old figure is never in
+    // force. The database holds the live rows (prices, organisation_member_prices); this is the code-side mirror and the mirror test
+    // pins both migrations' numbers to these.
+    value: { individual_kobo: 12_000_000, organisation_member_kobo: 10_000_000 },
+    owner: "Founder",
+    status: "confirmed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md (D2, C3, C10); supabase/migrations/20261012180704_two_tier_membership_pricing.sql",
+  },
+  {
+    key: "membership.lapse",
+    // Founder decision 2026-10-12: when a Membership year ends or is refunded the person keeps Member status for a 14 day grace, then is
+    // Free again (state lapsed). Renewal reminders go 30, 14 and 7 days before the end (in-app, push or email; never SMS). Mirrored by
+    // membership_lapse_config in the database (the migration seed), with a drift test.
+    value: { grace_days: 14, reminder_days_before: [30, 14, 7] },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "Founder decision 2026-10-12 (lapse and grace); supabase/migrations/20261012185805_two_tier_only_free_and_member.sql",
+  },
+  {
+    key: "commerce.organisation_member_price_limits",
+    // Floor and ceiling an admin can set for one organisation's member price, so a typo cannot set 1 naira: 50,000 to 200,000 naira.
+    // PROPOSED: the founder confirms the band. The default (100,000) and the individual price (120,000) both sit inside it. Mirrored
+    // byte for byte by organisation_price_limits (the migration seed) and enforced by a table trigger as well as the admin RPC.
+    value: { item_code: "membership_annual", min_kobo: 5_000_000, max_kobo: 20_000_000, default_kobo: 10_000_000 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md (C10); supabase/migrations/20261012180704_two_tier_membership_pricing.sql",
+  },
 ];
