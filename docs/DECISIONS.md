@@ -3,6 +3,15 @@
 Append-only log of decisions that shape the v5 build. Newest section first. A change to a
 spec invariant (INV-01 to INV-16) needs a written founder decision here.
 
+## CMO decision, 2026-10-08: Free red events are guidance-only (built 2026-10-12, not applied)
+
+| ID | Decision |
+|---|---|
+| TT-1 | **A red event on a Free patient does not page a doctor, create a clinical task or create a clinician alert.** A Member red event pages as before. Source: `docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md` D3 and C2. Recorded as a change to INV-05 for Free patients in OQ-309 (needs a written founder decision here, and the DPO and legal told). |
+| TT-2 | **Fail closed toward paging:** if membership cannot be determined, the patient is treated as a Member and the red event pages. |
+| TT-3 | **The Free patient is told in plain words** that no doctor has been alerted because they are on the Free plan and that doctor review is part of Membership; the guidance stays complete without a doctor (hospital now, recheck, emergency contact, check-in, one-tap Membership). The check-in answer is never shown to a doctor. |
+| TT-4 | **Item 8: the legacy screening bundles that duplicate the Membership annual test are not sellable** (`screen_core`, `screen_essential`, `screen_advanced`, `screen_comprehensive`, `annual_health_check`, `health_check_basic`, `health_check_comprehensive`); not repriced; a CHECK constraint keeps them off. `screen_essential` and the three older bundles were added by this build on the same reasoning, and the CMO should confirm them. |
+
 ## Design decisions, 2026-10-02
 
 Answered in a prompt after the mobile design audit (`docs/design/MOBILE-DESIGN-AUDIT.md`). They settle DF-2 and set Phase 0 of the design plan.

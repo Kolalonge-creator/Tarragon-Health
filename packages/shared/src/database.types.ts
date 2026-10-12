@@ -43287,6 +43287,14 @@ export type Database = {
         Returns: Json
       }
       admin_run_duplicate_patient_sweep: { Args: never; Returns: undefined }
+      answer_free_red_checkin: {
+        Args: { p_answer: string; p_id: string };
+        Returns: undefined;
+      };
+      my_free_red_checkin: {
+        Args: Record<PropertyKey, never>;
+        Returns: { checkin_due_at: string; created_at: string; id: string }[];
+      };
       answer_written_question: {
         Args: { p_attested: boolean; p_body: string; p_consult: string; p_kind: string };
         Returns: Json;
@@ -48481,6 +48489,7 @@ export type Database = {
         | "pulse_red_flag"
         | "mental_health_screen"
         | "symptom_to_test_checker"
+        | "triage_red"
       employer_allowance_type:
         | "gp_consultation"
         | "specialist_consultation"
@@ -50818,6 +50827,7 @@ export const Constants = {
         "pulse_red_flag",
         "mental_health_screen",
         "symptom_to_test_checker",
+        "triage_red",
       ],
       employer_allowance_type: [
         "gp_consultation",

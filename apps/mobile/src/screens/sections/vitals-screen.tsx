@@ -51,6 +51,7 @@ import {
   type BadgeTone,
 } from "@/ui/kit";
 import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
+import { loadDoctorReviewIncluded } from "@/lib/doctor-review";
 import { SymptomQuestionSheet } from "@/screens/symptom-question-sheet";
 import { MIN_READINGS_FOR_CHART, useTrendInsights } from "@/lib/use-trend-insights";
 import { TrendInsightsCard } from "@/screens/sections/trend-insights-card";
@@ -142,6 +143,8 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   const [rulesStale, setRulesStale] = useState(false);
   const [symptomOpen, setSymptomOpen] = useState(false);
   const [guidance, setGuidance] = useState<GuidanceState | null>(null);
+  // Two-tier: whether a red event reaches a doctor for this patient (null until known, or when it cannot be worked out).
+  const [doctorReview, setDoctorReview] = useState<boolean | null>(null);
   // The emergency-symptom question for a reading of 200/130 or more (TRI-008): the reading it is about, until answered.
   const [question, setQuestion] = useState<{ systolic: number; diastolic: number; gradedAtMs: number } | null>(null);
   const [questionBusy, setQuestionBusy] = useState(false);
@@ -224,6 +227,9 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
       .catch(() => {});
     loadCachedEmergencyFacts()
       .then((facts) => setEmergencyContact(facts?.emergencyContact ?? null))
+      .catch(() => {});
+    loadDoctorReviewIncluded(patientId)
+      .then(setDoctorReview)
       .catch(() => {});
   }, [load, patientId]);
 
@@ -597,6 +603,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         synced={guidance?.synced ?? false}
         wordingCode={guidance?.wordingCode ?? null}
         emergencyContact={emergencyContact}
+        doctorReview={doctorReview}
         onDismiss={() => setGuidance(null)}
       />
     </Screen>
