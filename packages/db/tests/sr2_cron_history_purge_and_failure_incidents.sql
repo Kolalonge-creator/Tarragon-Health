@@ -18,7 +18,7 @@ create function pg_temp.left_n(p_note text) returns text language sql as
 $$ select count(*)::text from cron.job_run_details where command = 'sr2-proof' and return_message = p_note $$;
 
 do $$
-declare v_sweep bigint; v_n integer; v_inc_before integer;
+declare v_sweep bigint;
 begin
   select cron.schedule('sr2-proof-sweep-pages', '0 0 1 1 *', 'select 1') into v_sweep;
   perform pg_temp.run(999001, 'succeeded', interval '8 days',  'old-ok');
@@ -28,7 +28,6 @@ begin
   perform pg_temp.run(999002, 'failed',    interval '2 minutes', 'startup trouble');
   perform pg_temp.run(v_sweep, 'failed',   interval '2 minutes', 'startup trouble');
 
-  select count(*) into v_inc_before from public.ops_incidents where external_reference like 'cron-failure:%';
   perform private.record_cron_failures();
   perform pg_temp.ck('real', 'an ordinary job failure opens one sev3 technical incident',
     '1/sev3/technical', (select count(*) || '/' || min(severity::text) || '/' || min(category::text) from public.ops_incidents where external_reference like 'cron-failure:job 999002:%'));
@@ -36,7 +35,7 @@ begin
     (select severity::text from public.ops_incidents where external_reference like 'cron-failure:sr2-proof-sweep-pages:%'));
   perform private.record_cron_failures();
   perform pg_temp.ck('real', 'a second pass opens no duplicate', '2',
-    ((select count(*) from public.ops_incidents where external_reference like 'cron-failure:%') - v_inc_before)::text);
+    ((select count(*) from public.ops_incidents where external_reference like 'cron-failure:job 999002:%' or external_reference like 'cron-failure:sr2-proof-sweep-pages:%'))::text);
 
   perform private.purge_cron_history();
   perform pg_temp.ck('real', 'a succeeded run older than 7 days is deleted', '0', pg_temp.left_n('old-ok'));
@@ -44,7 +43,7 @@ begin
   perform pg_temp.ck('real', 'a succeeded run 6 days old is kept', '1', pg_temp.left_n('new-ok'));
   perform pg_temp.ck('real', 'a failed run 29 days old is kept', '1', pg_temp.left_n('new-fail'));
   perform pg_temp.ck('real', 'the purge keeps the incident the failure opened', '2',
-    ((select count(*) from public.ops_incidents where external_reference like 'cron-failure:%') - v_inc_before)::text);
+    ((select count(*) from public.ops_incidents where external_reference like 'cron-failure:job 999002:%' or external_reference like 'cron-failure:sr2-proof-sweep-pages:%'))::text);
   perform pg_temp.ck('real', 'both jobs are scheduled', '2', (select count(*)::text from cron.job where jobname in ('record-cron-failures', 'purge-cron-history')));
   perform pg_temp.ck('real', 'anon and authenticated cannot execute either function', 'false/false',
     (has_function_privilege('anon', 'private.purge_cron_history()', 'EXECUTE') or has_function_privilege('anon', 'private.record_cron_failures()', 'EXECUTE'))::text || '/' ||
