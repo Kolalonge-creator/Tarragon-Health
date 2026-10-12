@@ -949,3 +949,11 @@ two_tier_addons_retired_member_gates.sql
 two_tier_monthly_followup_offers_and_call_length.sql
 # Two-tier testing days: Member-only listings with capacity, waitlist, cancel and reschedule; check-in makes the annual-panel lab order and a labelled specimen; employer visits (aggregate-only, no count under the min cell, capacity); point-of-care readings into vitals_readings, urinalysis and HbA1c classified in the database and held until a doctor releases (never auto-released while unsigned), the ECG never auto-read or auto-released and shown to the patient only as the doctor's words; neutral notices; the three screening analytes (HIV, HBsAg, anti-HCV) required in the active annual panel. Sabotage: the patient policy opened and both release guards dropped; the checks must flip.
 testing_days_visits_poc.sql
+# SR2a: pg_cron run-history clean-up. 7 days kept for successful runs, 30 for failed, running never; scheduled daily; no client role may execute it; a failing run opens exactly one sev3 incident and returns the error. Sabotage: a 7 day rule applied to failed runs deletes the 20 day old failure, so the keep check can fail.
+sr2a_cron_history_cleanup.sql
+# SR2c: 25 foreign-key indexes on the hot tables, one proven duplicate index dropped, five RLS policies wrapped in (select auth.uid()). Owner still sees their row, a stranger does not. Sabotage: policy opened to true lets the stranger in.
+sr2c_hot_table_indexes_and_initplan.sql
+# SR2d: the overdue-task sweep condition is rewritten so it can use an index (same ids selected, grace 0 and 15, 80k rows); four hot-path indexes exist; no client role can run the sweep. Sabotage: the old expression gets no Index Cond on due_at.
+sr2d_overdue_sweep_sargable_and_hot_indexes.sql
+# SR1: public.platform_health_snapshot() for the deep health route: service_role only, every section present, an unprocessed payment event older than 5 minutes is counted and a fresh or processed one is not, an overdue real task is counted and an is_test one is not, an unacknowledged page is aged. Sabotage: without the is_test filter both tasks would count.
+sr1_platform_health_snapshot.sql

@@ -2113,4 +2113,66 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-12",
     source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md (C10); supabase/migrations/20261012180704_two_tier_membership_pricing.sql",
   },
+  {
+    key: "ops.service_targets",
+    // SR1 (docs/plans/SCALE-READINESS-PLAN.md section 2). The numbers the platform is held to at every stage (500, 5,000,
+    // 25,000, 100,000 Members). PROPOSED: the CMO and founder have not signed them, and this entry must not be marked confirmed by an agent.
+    // The page acknowledgement ladder (5 and 10 minutes) is paging.escalation_minutes, not repeated here.
+    value: {
+      redEventPagedWithinSeconds: 60,
+      readingSavedAndGradedWithinSeconds: 5,
+      nextTaskWithinSeconds: 2,
+      chartSummaryOpensWithinSeconds: 3,
+      lostPaymentConfirmationsAllowed: 0,
+      lostLabResultsAllowed: 0,
+      lostNotificationsAllowed: 0,
+      duplicatedTasksAllowed: 0,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "docs/plans/SCALE-READINESS-PLAN.md section 2 (service targets); to be signed by the CMO and founder",
+    guardPatterns: ["redEventPagedWithin\\w*\\s*[=:]\\s*60\\b", "nextTaskWithin\\w*\\s*[=:]\\s*2\\b"],
+  },
+  {
+    key: "ops.health_thresholds",
+    // SR1: where /api/health/deep turns a measure from public.platform_health_snapshot() into ok, degraded or down.
+    // Minutes unless the name says otherwise. PROPOSED by engineering; the founder confirms once the on-call route exists (SR5).
+    // An unacknowledged page going "down" at 10 minutes lines up with the second step of paging.escalation_minutes.
+    value: {
+      dbQueryTimeoutMs: 3000,
+      connectionsDegradedPercent: 70,
+      connectionsDownPercent: 90,
+      overdueTaskDegradedMinutes: 15,
+      overdueTaskDownMinutes: 60,
+      unacknowledgedPageDegradedMinutes: 5,
+      unacknowledgedPageDownMinutes: 10,
+      notificationBacklogDegradedMinutes: 10,
+      notificationBacklogDownMinutes: 30,
+      criticalUnopenedDegradedMinutes: 10,
+      criticalUnopenedDownMinutes: 30,
+      eventBacklogDegradedMinutes: 10,
+      eventBacklogDownMinutes: 30,
+      webhookBacklogDegradedMinutes: 5,
+      webhookBacklogDownMinutes: 30,
+      outboundDeadLetterDegradedCount: 1,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "docs/plans/SCALE-READINESS-PLAN.md section 3 (Phase 3 alert rules); supabase/migrations/20261012183837_sr1_platform_health_snapshot.sql",
+  },
+  {
+    key: "db.cron_history_retention",
+    // SR2a: how long pg_cron's own run history is kept. Mirrored by the arguments of the scheduled call in
+    // supabase/migrations/20261012180801_sr2a_cron_history_cleanup.sql (a mirror test fails if they drift).
+    value: { keepDays: 7, keepFailedDays: 30 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "docs/plans/SCALE-READINESS-PLAN.md section 3 Phase 1 item 1 (retain 7 days, failed runs 30 days)",
+  },
 ];
