@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormError, FormSuccess } from "@/components/ui/form-error";
-import { bringForwardPrice, setItemActive, setItemPrice, type CatalogueActionState } from "./actions";
+import { setItemActive, setItemPrice, type CatalogueActionState } from "./actions";
 
 export function ActiveForm({ code, active }: { code: string; active: boolean }) {
   const [state, action, pending] = useActionState<CatalogueActionState, FormData>(setItemActive, undefined);
@@ -35,22 +35,6 @@ export function PriceForm({ code }: { code: string }) {
       <Input id={`reason-${code}-price`} name="reason" required minLength={10} maxLength={500} />
       <Button type="submit" disabled={pending} className="min-h-11">Save price</Button>
       <FormError id={`err-${code}-price`} message={state?.error ?? null} />
-      <FormSuccess message={state?.message ?? null} />
-    </form>
-  );
-}
-
-export function BringForwardForm({ code }: { code: string }) {
-  const [state, action, pending] = useActionState<CatalogueActionState, FormData>(bringForwardPrice, undefined);
-  return (
-    <form action={action} className="space-y-2">
-      <input type="hidden" name="code" value={code} />
-      <Label htmlFor={`bf-start-${code}`}>Starts on (leave empty to start now)</Label>
-      <Input id={`bf-start-${code}`} name="starts_on" type="date" />
-      <Label htmlFor={`bf-reason-${code}`}>Reason</Label>
-      <Input id={`bf-reason-${code}`} name="reason" required minLength={10} maxLength={500} />
-      <Button type="submit" disabled={pending} className="min-h-11">Bring the parked price forward</Button>
-      <FormError id={`err-${code}-bf`} message={state?.error ?? null} />
       <FormSuccess message={state?.message ?? null} />
     </form>
   );

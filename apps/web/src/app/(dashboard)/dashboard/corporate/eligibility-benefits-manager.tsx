@@ -209,6 +209,9 @@ function BenefitPackagesCard({ organisationId }: { organisationId: string }) {
             A Membership seat costs your organisation ₦{formatNaira(seats.data.price_kobo)} a year, invoiced to you. You have {seats.data.active_seats}{" "}
             active {seats.data.active_seats === 1 ? "seat" : "seats"}.{" "}
             {seats.data.module_open ? "" : "Organisation-paid Membership is not open yet, so a package cannot grant it."}
+            {seats.data.already_member_count > 0
+              ? ` ${seats.data.already_member_count} ${seats.data.already_member_count === 1 ? "employee already has" : "employees already have"} their own Membership, so you are not billed for them until it ends.`
+              : ""}
           </p>
         ) : null}
         <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-2">

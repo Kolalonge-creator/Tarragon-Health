@@ -1813,15 +1813,28 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     key: "commerce.membership_prices",
     // Two-tier decisions D2 (2026-10-08) and C3/C10 (2026-10-12): the individual Membership is 120,000 naira a year and an
     // organisation pays a flat 100,000 naira per member, adjustable per organisation from the admin dashboard. Both integer kobo
-    // (INV-15). Volume tiers (80k/70k/60k) were dropped. The database holds the live rows (prices, organisation_member_prices); this
-    // is the code-side mirror. The 120,000 row is PARKED at 2099-01-01 in the database until the founder says go, so the price in
-    // force today is still the earlier 100,000 naira one; the mirror test pins both migrations' numbers to these.
+    // (INV-15). Volume tiers (80k/70k/60k) were dropped. The platform launches at 120,000 (founder, 2026-10-12): the database row takes
+    // effect the moment the migration is applied and the 100,000 row is closed at the same instant, so the old figure is never in
+    // force. The database holds the live rows (prices, organisation_member_prices); this is the code-side mirror and the mirror test
+    // pins both migrations' numbers to these.
     value: { individual_kobo: 12_000_000, organisation_member_kobo: 10_000_000 },
     owner: "Founder",
     status: "confirmed",
     version: 1,
     effectiveFrom: "2026-10-12",
     source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md (D2, C3, C10); supabase/migrations/20261012180704_two_tier_membership_pricing.sql",
+  },
+  {
+    key: "membership.lapse",
+    // Founder decision 2026-10-12: when a Membership year ends or is refunded the person keeps Member status for a 14 day grace, then is
+    // Free again (state lapsed). Renewal reminders go 30, 14 and 7 days before the end (in-app, push or email; never SMS). Mirrored by
+    // membership_lapse_config in the database (the migration seed), with a drift test.
+    value: { grace_days: 14, reminder_days_before: [30, 14, 7] },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "Founder decision 2026-10-12 (lapse and grace); supabase/migrations/20261012185805_two_tier_only_free_and_member.sql",
   },
   {
     key: "commerce.organisation_member_price_limits",

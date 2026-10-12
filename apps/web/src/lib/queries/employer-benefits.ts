@@ -61,6 +61,8 @@ export const seatSummarySchema = z.object({
   price_source: z.enum(["default", "override"]),
   module_open: z.boolean(),
   active_seats: z.number().int().nonnegative(),
+  /** Employees who already hold their own Membership: not billed to the organisation until it ends. A count only (rule I9). */
+  already_member_count: z.number().int().nonnegative(),
   seats_ever: z.number().int().nonnegative(),
   uninvoiced_kobo: z.number().int().nonnegative(),
 });

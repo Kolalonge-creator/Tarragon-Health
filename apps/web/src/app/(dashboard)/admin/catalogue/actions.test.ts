@@ -4,7 +4,7 @@ jest.mock("@/lib/supabase/server", () => ({
   createClient: jest.fn().mockResolvedValue({ rpc: (...args: unknown[]) => rpc(...args) }),
 }));
 
-import { bringForwardPrice, setItemActive, setItemPrice } from "./actions";
+import { setItemActive, setItemPrice } from "./actions";
 
 const form = (entries: Record<string, string>): FormData => {
   const f = new FormData();
@@ -59,36 +59,5 @@ describe("setItemPrice", () => {
   it("maps a backdated price to a sentence", async () => {
     rpc.mockResolvedValue({ data: null, error: { message: "price_start_before_current" } });
     expect((await setItemPrice(undefined, form(base)))?.error).toMatch(/after the current price/);
-  });
-});
-
-describe("bringForwardPrice", () => {
-  const base = { code: "membership_annual", starts_on: "", reason: "Founder said go on the 120,000 price" };
-  it("starts now when no date is given", async () => {
-    rpc.mockResolvedValue({ data: "p2", error: null });
-    const before = Date.now();
-    const r = await bringForwardPrice(undefined, form(base));
-    expect(r?.message).toBe("The parked price now starts.");
-    const [fn, args] = rpc.mock.calls[0] as [string, { p_code: string; p_valid_from: string; p_reason: string }];
-    expect(fn).toBe("bring_forward_scheduled_price");
-    expect(args.p_code).toBe("membership_annual");
-    expect(Math.abs(new Date(args.p_valid_from).getTime() - before)).toBeLessThan(5000);
-  });
-  it("starts at the start of the chosen day in Lagos", async () => {
-    rpc.mockResolvedValue({ data: "p2", error: null });
-    await bringForwardPrice(undefined, form({ ...base, starts_on: "2026-11-01" }));
-    expect(rpc).toHaveBeenCalledWith("bring_forward_scheduled_price", { p_code: "membership_annual", p_valid_from: "2026-10-31T23:00:00.000Z", p_reason: base.reason });
-  });
-  it("refuses a short reason, a bad code and a bad date without calling the database", async () => {
-    for (const over of [{ reason: "short" }, { code: "Bad Code" }, { starts_on: "tomorrow" }]) {
-      expect((await bringForwardPrice(undefined, form({ ...base, ...over })))?.error).toBeDefined();
-    }
-    expect(rpc).not.toHaveBeenCalled();
-  });
-  it("maps the database's refusals to sentences", async () => {
-    rpc.mockResolvedValue({ data: null, error: { message: "no_scheduled_price" } });
-    expect((await bringForwardPrice(undefined, form(base)))?.error).toMatch(/no parked price/);
-    rpc.mockResolvedValue({ data: null, error: { message: "catalogue_not_authorised" } });
-    expect((await bringForwardPrice(undefined, form(base)))?.error).toMatch(/admin/);
   });
 });

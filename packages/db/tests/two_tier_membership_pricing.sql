@@ -1,7 +1,7 @@
 -- Two-tier pricing proof (migration *_two_tier_membership_pricing.sql).
 -- Proves in one rolled-back transaction:
---   * the individual 120,000 naira price exists as a NEW parked row and the price in force is still 100,000 until an admin brings it
---     forward (and then it is 120,000, the old row closed, audited); an effective price still cannot be deleted or edited
+--   * the individual 120,000 naira price is a NEW row in force from the apply instant, the 100,000 row closed (never in force again);
+--     an effective price cannot be deleted, edited or reopened
 --   * the organisation price defaults to 100,000 naira flat for every organisation, has no volume tiers, can be set per organisation
 --     by an admin only (reason, audit row, old row closed), and a floor and ceiling refuse 1 naira and an absurd amount, in the RPC and
 --     at the table
@@ -93,32 +93,22 @@ begin
   perform pg_temp.setf('p4', pg_temp.mkuser('00000000-0000-0000-0000-000000000001', 'p4', 'patient'));
 end $$;
 
--- 1. The individual price: parked, then brought forward ------------------------------------------------------------------
+-- 1. The individual price: 120,000 in force, the 100,000 row closed and never in force again ------------------------------
 do $$
-declare v_item uuid := pg_temp.f('item'); v_admin uuid := pg_temp.f('admin'); v_p1 uuid := pg_temp.f('p1'); r text;
+declare v_item uuid := pg_temp.f('item'); v_p1 uuid := pg_temp.f('p1'); r_new public.prices%rowtype; r_old public.prices%rowtype;
 begin
-  perform pg_temp.ck('the price in force today is still 100,000 naira (10,000,000 kobo)', '10000000', (select amount_kobo::text from private.current_price(v_item)));
-  perform pg_temp.ck('the 120,000 naira price exists as a new, parked row', '12000000', (select amount_kobo::text from public.prices where catalog_item_id = v_item and valid_from > now() + interval '10 years'));
-  perform pg_temp.ck('the old row was closed, not edited (still 10,000,000)', '10000000',
-    (select amount_kobo::text from public.prices where catalog_item_id = v_item and valid_to is not null and valid_from <= now()));
-  perform pg_temp.ck('a parked price cannot be deleted by hand', 'price_immutable', pg_temp.owner_try(format('delete from public.prices where catalog_item_id = %L and valid_from > now() + interval ''10 years''', v_item)));
-  perform pg_temp.ck('an effective price cannot be edited', 'price_immutable', pg_temp.owner_try(format('update public.prices set amount_kobo = 1 where catalog_item_id = %L and valid_from <= now()', v_item)));
+  select * into r_new from public.prices where catalog_item_id = v_item and amount_kobo = 12000000;
+  select * into r_old from public.prices where catalog_item_id = v_item and amount_kobo = 10000000;
+  perform pg_temp.ck('the price in force today is 120,000 naira (12,000,000 kobo)', '12000000', (select amount_kobo::text from private.current_price(v_item)));
+  perform pg_temp.ck('the 100,000 row is closed, not edited, and still reads 10,000,000', 'closed', case when r_old.valid_to is not null then 'closed' else 'open' end);
+  perform pg_temp.ck('the 120,000 row starts the instant the 100,000 row stops (no gap, no overlap)', 'true', (r_old.valid_to = r_new.valid_from)::text);
+  perform pg_temp.ck('the 120,000 row is open-ended and starts in the past, not parked', 'true', (r_new.valid_to is null and r_new.valid_from <= now())::text);
+  perform pg_temp.ck('the 100,000 price is in force at no moment from now on', '0',
+    (select count(*)::text from public.prices where catalog_item_id = v_item and amount_kobo = 10000000 and (valid_to is null or valid_to > now())));
   perform pg_temp.ck('an effective price cannot be deleted', 'price_immutable', pg_temp.owner_try(format('delete from public.prices where catalog_item_id = %L and valid_from <= now()', v_item)));
+  perform pg_temp.ck('an effective price cannot be edited', 'price_immutable', pg_temp.owner_try(format('update public.prices set amount_kobo = 1 where catalog_item_id = %L and valid_from <= now()', v_item)));
+  perform pg_temp.ck('and the old row cannot be reopened', 'price_immutable', pg_temp.owner_try(format('update public.prices set valid_to = null where catalog_item_id = %L and amount_kobo = 10000000', v_item)));
   perform pg_temp.ck('the catalogue shop window stays closed (module off)', '[]', pg_temp.q_as(v_p1, 'select public.catalogue()::text'));
-  perform pg_temp.ck('a patient cannot bring the price forward', 'true',
-    (pg_temp.q_as(v_p1, $q$select public.bring_forward_scheduled_price('membership_annual', now(), 'Patient trying it')::text$q$) like '%catalogue_not_authorised%')::text);
-  perform pg_temp.ck('a reason is needed', 'true',
-    (pg_temp.q_as(v_admin, $q$select public.bring_forward_scheduled_price('membership_annual', now(), 'short')::text$q$) like '%catalogue_reason_needed%')::text);
-  r := pg_temp.q_as(v_admin, $q$select public.set_item_price('membership_annual', 11000000, '{}', 'Trying to jump the queue', now() + interval '1 day')::text$q$);
-  perform pg_temp.ck('set_item_price cannot jump the parked row', 'true', (r like 'ERR:%')::text);
-  perform pg_temp.ck('anon cannot bring a price forward', '42501', pg_temp.try_anon($q$select public.bring_forward_scheduled_price('membership_annual', now(), 'Anonymous attempt here')$q$));
-  perform pg_temp.ck('the admin brings the 120,000 price forward', 'true',
-    (pg_temp.q_as(v_admin, $q$select public.bring_forward_scheduled_price('membership_annual', now(), 'Founder said go, test run in a rolled back proof')::text$q$) !~ '^ERR:')::text);
-  perform pg_temp.ck('now the price in force is 120,000 naira', '12000000', (select amount_kobo::text from private.current_price(v_item)));
-  perform pg_temp.ck('only one open row remains and nothing is parked', '1/0',
-    (select count(*) filter (where valid_to is null)::text || '/' || count(*) filter (where valid_from > now() + interval '1 year')::text from public.prices where catalog_item_id = v_item));
-  perform pg_temp.ck('the 100,000 row is kept as history', '10000000', (select amount_kobo::text from public.prices where catalog_item_id = v_item and valid_to is not null));
-  perform pg_temp.ck('the bring-forward was audited', '1', (select count(*)::text from public.audit_log where action = 'catalogue.price_brought_forward' and entity_id = v_item));
   perform pg_temp.ck('checkout stays dormant: module off', 'false', (select is_enabled::text from public.platform_modules where key = 'v5_checkout'));
   perform pg_temp.ck('checkout stays dormant: the Membership item is off', 'false', (select active::text from public.catalog_items where id = v_item));
 end $$;
@@ -221,8 +211,29 @@ begin
   perform pg_temp.claim(b, v_pkg, p3);
   perform pg_temp.ck('an employee who is already a Member is not billed to the organisation', '0',
     (select count(*)::text from public.entitlements where patient_id = p3 and billed_to_organisation_id is not null));
-  perform pg_temp.ck('and an incident tells a person', '1',
-    (select count(*)::text from public.ops_incidents where external_reference like 'org-seat-already-member:%'));
+  perform pg_temp.ck('and they keep their own Membership', 'granted', (select source from public.patient_memberships where patient_id = p3 and state = 'active'));
+  perform pg_temp.ck('the roster row is marked already_member', 'already_member',
+    (select seat_state from public.employer_roster_members where claimed_profile_id = p3));
+  perform pg_temp.ck('the employer is told a count only: 1 employee already has their own Membership', '1',
+    pg_temp.q_as(v_admin, format($q$select (public.organisation_seat_summary(%L)) ->> 'already_member_count'$q$, b)));
+  perform pg_temp.ck('the sweep does not bill the organisation while the person still holds their own', '0',
+    private.activate_pending_org_seats()::text);
+  -- their own Membership ends: the organisation's seat starts, once
+  update public.patient_memberships set state = 'ended', ended_at = now(), end_reason = 'Ended in the proof run' where patient_id = p3 and state = 'active';
+  perform pg_temp.ck('once their own Membership has ended the sweep starts the organisation seat', '1', private.activate_pending_org_seats()::text);
+  perform pg_temp.ck('the sweep is idempotent', '0', private.activate_pending_org_seats()::text);
+  perform pg_temp.ck('and the roster row now says seat, billed to employer B', 'seat/' || b::text,
+    (select r.seat_state || '/' || e.billed_to_organisation_id::text from public.employer_roster_members r join public.entitlements e on e.roster_member_id = r.id where r.claimed_profile_id = p3));
+
+  -- an employee sees their entitlement but never what the organisation pays
+  perform pg_temp.ck('an employee reads their own seat state', 'active', pg_temp.q_as(p1, 'select state from public.entitlements where roster_member_id is not null limit 1'));
+  perform pg_temp.ck('an employee cannot read the seat price', 'true', (pg_temp.q_as(p1, 'select seat_price_kobo::text from public.entitlements limit 1') like 'ERR:%permission denied%')::text);
+  perform pg_temp.ck('an employee cannot read who is billed', 'true', (pg_temp.q_as(p1, 'select billed_to_organisation_id::text from public.entitlements limit 1') like 'ERR:%permission denied%')::text);
+  perform pg_temp.ck('an employee cannot read the invoice link', 'true', (pg_temp.q_as(p1, 'select invoice_id::text from public.entitlements limit 1') like 'ERR:%permission denied%')::text);
+
+  -- the 7 day "buy a new one" reminder never goes to a seat or a Membership
+  update public.entitlements set ends_at = now() + interval '3 days', starts_at = now() - interval '1 day' where id = v_ent;
+  perform pg_temp.ck('no purchase reminder is queued for an employer-paid seat ending in 3 days', '0', private.queue_entitlement_expiry_reminders()::text);
 
   perform pg_temp.ck('seats of test accounts are never billed or counted (INV-13)', '0/0',
     pg_temp.q_as(pg_temp.f('corpA'), format($q$select (s ->> 'active_seats') || '/' || (s ->> 'uninvoiced_kobo') from (select public.organisation_seat_summary(%L) s) x$q$, a)));
@@ -294,13 +305,13 @@ begin
   insert into results values ('sabotaged', 'a 1 naira price is refused at the table', 'organisation_price_out_of_range', r);
 end $$;
 
--- SABOTAGE 2: remove the module gate from the claim trigger; a claim with the module off must now create a seat
+-- SABOTAGE 2: remove the module gate from the seat function; a claim with the module off must now create a seat
 do $$
 declare d text;
 begin
-  d := replace(pg_get_functiondef('private.sync_employer_subscription_from_roster'::regproc),
+  d := replace(pg_get_functiondef('private.grant_org_seat'::regproc),
     $s$if not coalesce((select is_enabled from public.platform_modules where key = 'organisation_membership'), false) then$s$, 'if false then');
-  if d = pg_get_functiondef('private.sync_employer_subscription_from_roster'::regproc) then raise exception 'VACUOUS TEST: sabotage text not found'; end if;
+  if d = pg_get_functiondef('private.grant_org_seat'::regproc) then raise exception 'VACUOUS TEST: sabotage text not found'; end if;
   execute d;
   update public.platform_modules set is_enabled = false where key = 'organisation_membership';
   perform pg_temp.claim(pg_temp.f('orgA'), pg_temp.f('pkg'), pg_temp.f('p4'));

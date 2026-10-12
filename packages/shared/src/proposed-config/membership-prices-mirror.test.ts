@@ -33,9 +33,9 @@ describe("the two-tier Membership prices mirror the migrations", () => {
     expect(JSON.parse(match[1])).toEqual(limits);
   });
 
-  it("the parked individual price row is the registry's individual price", () => {
-    const m = /insert into public\.prices[^;]*?values \(it\.organisation_id, it\.id, (\d+), v_park/.exec(sql);
-    if (!m?.[1]) throw new Error("parked price insert not found");
+  it("the individual price row is the registry's individual price", () => {
+    const m = /insert into public\.prices[^;]*?values \(it\.organisation_id, it\.id, (\d+), v_now,/.exec(sql);
+    if (!m?.[1]) throw new Error("individual price insert not found");
     expect(Number(m[1])).toBe(prices.individual_kobo);
   });
 
@@ -60,7 +60,23 @@ describe("the two-tier Membership prices mirror the migrations", () => {
     expect(text).not.toMatch(/tier|volume|bracket/);
   });
 
-  it("parks the individual price far in the future so nothing changes live until the founder says go", () => {
-    expect(sql).toMatch(/v_park constant timestamptz := timestamptz '2099-01-01/);
+  it("the individual price takes effect when the migration is applied and closes the 100,000 row at the same instant (never parked)", () => {
+    expect(sql).not.toMatch(/2099|park/i);
+    expect(sql).toMatch(/update public\.prices set valid_to = v_now where id = v_old\.id;/);
+    expect(sql).toMatch(/values \(it\.organisation_id, it\.id, 12000000, v_now,/);
+  });
+});
+
+describe("the Membership lapse config mirrors the migration", () => {
+  const lapse = getProposedConfig("membership.lapse").value as { grace_days: number; reminder_days_before: number[] };
+  it("is identical to the membership_lapse_config seed", () => {
+    const sql = migration("_two_tier_only_free_and_member.sql");
+    const match = /membership-lapse-begin[\s\S]*?\$json\$([\s\S]*?)\$json\$/.exec(sql);
+    if (!match?.[1]) throw new Error("membership lapse seed not found in the migration");
+    expect(JSON.parse(match[1])).toEqual(lapse);
+  });
+  it("is 14 days of grace and reminders at 30, 14 and 7 days, longest first", () => {
+    expect(lapse.grace_days).toBe(14);
+    expect(lapse.reminder_days_before).toEqual([30, 14, 7]);
   });
 });

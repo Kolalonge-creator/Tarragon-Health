@@ -23,6 +23,8 @@ describe("parsing", () => {
     expect(parseMembership({ is_member: true, ends_at: "2027-01-01T00:00:00Z" })).toEqual({ isMember: true, endsAt: "2027-01-01T00:00:00Z" });
     expect(parseMembership({ is_member: true })).toEqual({ isMember: true, endsAt: null });
     expect(parseMembership({ is_member: "yes" })).toEqual({ isMember: false, endsAt: null });
+    // in the grace the person keeps Member access but the screen must let them renew, so it is not treated as a current Member
+    expect(parseMembership({ is_member: true, in_grace: true, ends_at: "2026-12-01T00:00:00Z", grace_ends_at: "2026-12-15T00:00:00Z" })).toEqual({ isMember: false, endsAt: null, graceEndsAt: "2026-12-15T00:00:00Z" });
   });
   it("opens only an https checkout link", () => {
     expect(parseCheckout({ reference: "tho_x", checkout_url: "https://checkout.paystack.com/a" })).toEqual({ reference: "tho_x", checkoutUrl: "https://checkout.paystack.com/a" });

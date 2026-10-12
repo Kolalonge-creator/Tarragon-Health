@@ -1,9 +1,9 @@
 -- Two-tier pricing (founder decisions D2 2026-10-08, C3 and C10 2026-10-12; docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md).
 --
---   1. Individual Membership: 120,000 naira a year (12,000,000 kobo). It is a NEW prices row, never an edit. It is PARKED at
---      2099-01-01 so nothing changes on live until the founder says go: the live price stays 10,000,000 until an admin runs
---      public.bring_forward_scheduled_price (the catalogue page has the button). The item is still inactive and the v5_checkout
---      module is still off; this migration switches nothing on for sale.
+--   1. Individual Membership: 120,000 naira a year (12,000,000 kobo), in force the moment this migration is applied (founder, 2026-10-12:
+--      the platform launches at 120,000). It is a NEW prices row (valid_from = apply time) and the 10,000,000 row is closed at the same
+--      instant, never edited, so the 100,000 price is never in force again on any path. The item is still inactive and the v5_checkout
+--      module still off; this migration switches nothing on for sale.
 --   2. Organisation member price: 100,000 naira (10,000,000 kobo), flat, adjustable per organisation by an admin. Versioned rows
 --      (organisation_member_prices), a default row for every organisation, per-organisation overrides, a floor and ceiling from
 --      PROPOSED config (organisation_price_limits, mirrored as commerce.organisation_member_price_limits) so a typo cannot set 1 naira.
@@ -21,83 +21,23 @@
 -- v5_checkout off. So nothing is converted or backfilled.
 
 -- ---------------------------------------------------------------------------
--- 1. prices: allow a price that has not started yet to be taken back, only through bring_forward_scheduled_price
+-- 1. The individual 120,000 price, in force from the moment of apply; the 100,000 row is closed, not edited
 -- ---------------------------------------------------------------------------
-create or replace function private.prices_immutable() returns trigger language plpgsql set search_path = '' as $$
-declare k text; v bigint; s bigint := 0;
-        v_moving boolean := coalesce(current_setting('tarragon.price_rescheduling', true), '') = 'on';
-begin
-  if tg_op = 'DELETE' then
-    -- a price that has not started is a plan, not yet a fact; only the audited bring-forward function may withdraw one
-    if v_moving and old.valid_from > now() then return old; end if;
-    raise exception 'price_immutable' using errcode = 'P0001';
-  end if;
-  if tg_op = 'UPDATE' then
-    if new.amount_kobo is distinct from old.amount_kobo or new.components is distinct from old.components
-       or new.catalog_item_id is distinct from old.catalog_item_id or new.valid_from is distinct from old.valid_from
-       or new.organisation_id is distinct from old.organisation_id
-       or (old.valid_to is not null and not (v_moving and old.valid_to > now() and new.valid_to is not null)) then
-      raise exception 'price_immutable' using errcode = 'P0001';
-    end if;
-    return new;
-  end if;
-  if new.components <> '{}'::jsonb then
-    for k, v in select key, (value #>> '{}')::bigint from jsonb_each(new.components) loop
-      if v < 0 then raise exception 'price_components_invalid' using errcode = '22023'; end if;
-      s := s + v;
-    end loop;
-    if s <> new.amount_kobo then raise exception 'price_components_must_sum' using errcode = '22023'; end if;
-  end if;
-  return new;
-end $$;
-
--- the individual 120,000 price, parked
 do $$
-declare it public.catalog_items%rowtype; v_old public.prices%rowtype;
-        v_park constant timestamptz := timestamptz '2099-01-01 00:00:00+01';
+declare it public.catalog_items%rowtype; v_old public.prices%rowtype; v_now timestamptz := now();
 begin
   select * into it from public.catalog_items where code = 'membership_annual' order by created_at limit 1;
   if not found then return; end if;
   select * into v_old from public.prices where catalog_item_id = it.id and valid_to is null;
   if found then
-    if v_old.valid_from >= v_park or v_old.amount_kobo = 12000000 then return; end if;
-    update public.prices set valid_to = v_park where id = v_old.id;
+    if v_old.amount_kobo = 12000000 then return; end if;
+    v_now := greatest(v_now, v_old.valid_from + interval '1 second');
+    update public.prices set valid_to = v_now where id = v_old.id;
   end if;
   insert into public.prices (organisation_id, catalog_item_id, amount_kobo, valid_from, reason)
-  values (it.organisation_id, it.id, 12000000, v_park,
-          'Founder decision D2, 2026-10-08/12: individual Membership 120,000 naira a year. Parked at 2099-01-01 until the founder says go; bring it forward from the catalogue page.');
+  values (it.organisation_id, it.id, 12000000, v_now,
+          'Founder decision D2, 2026-10-08/12: individual Membership 120,000 naira a year, the launch price. Replaces the 100,000 naira seed.');
 end $$;
-
-create function public.bring_forward_scheduled_price(p_code text, p_valid_from timestamptz, p_reason text) returns uuid
-language plpgsql security definer set search_path = ''
-as $$
-declare
-  v_org uuid := (select organisation_id from public.profiles where id = (select auth.uid()));
-  it public.catalog_items%rowtype; v_sched public.prices%rowtype; v_prev public.prices%rowtype;
-  v_from timestamptz := coalesce(p_valid_from, now()); v_id uuid;
-begin
-  if not private.is_admin() then raise exception 'catalogue_not_authorised' using errcode = '42501'; end if;
-  if char_length(btrim(coalesce(p_reason, ''))) < 10 then raise exception 'catalogue_reason_needed' using errcode = '22023'; end if;
-  select * into it from public.catalog_items where organisation_id = v_org and code = p_code for update;
-  if not found then raise exception 'unknown_item' using errcode = '22023'; end if;
-  select * into v_sched from public.prices where catalog_item_id = it.id and valid_from > now() and valid_to is null;
-  if not found then raise exception 'no_scheduled_price' using errcode = 'P0001'; end if;
-  if v_from >= v_sched.valid_from then raise exception 'price_not_brought_forward' using errcode = '22023'; end if;
-  if v_from < now() - interval '1 minute' then raise exception 'price_start_in_past' using errcode = '22023'; end if;
-  select * into v_prev from public.prices where catalog_item_id = it.id and valid_to = v_sched.valid_from;
-  if v_prev.id is not null and v_from <= v_prev.valid_from then raise exception 'price_start_before_current' using errcode = '22023'; end if;
-  perform set_config('tarragon.price_rescheduling', 'on', true);
-  delete from public.prices where id = v_sched.id;
-  if v_prev.id is not null then update public.prices set valid_to = v_from where id = v_prev.id; end if;
-  perform set_config('tarragon.price_rescheduling', 'off', true);
-  insert into public.prices (organisation_id, catalog_item_id, amount_kobo, components, valid_from, created_by, reason)
-  values (v_org, it.id, v_sched.amount_kobo, v_sched.components, v_from, (select auth.uid()), p_reason) returning id into v_id;
-  perform private.log_audit('catalogue.price_brought_forward', 'catalog_items', it.id,
-    jsonb_build_object('code', p_code, 'amount_kobo', v_sched.amount_kobo, 'from', v_from, 'was', v_sched.valid_from, 'reason', p_reason));
-  return v_id;
-end $$;
-revoke all on function public.bring_forward_scheduled_price(text, timestamptz, text) from public, anon;
-grant execute on function public.bring_forward_scheduled_price(text, timestamptz, text) to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 2. Organisation member prices
@@ -300,6 +240,7 @@ begin
     'price_source', case when px.employer_organisation_id is null then 'default' else 'override' end,
     'module_open', coalesce((select is_enabled from public.platform_modules where key = 'organisation_membership'), false),
     'active_seats', (select count(*) from public.entitlements e where e.billed_to_organisation_id = p_org and e.state = 'active' and not e.is_test),
+    'already_member_count', (select count(*) from public.employer_roster_members r where r.organisation_id = p_org and r.status = 'claimed' and r.seat_state = 'already_member'),
     'seats_ever', (select count(*) from public.entitlements e where e.billed_to_organisation_id = p_org and not e.is_test),
     'uninvoiced_kobo', coalesce((select sum(e.seat_price_kobo) from public.entitlements e
                                   where e.billed_to_organisation_id = p_org and e.invoice_id is null and not e.is_test), 0));
@@ -321,6 +262,11 @@ insert into public.platform_modules (key, label, description)
 values ('organisation_membership', 'Organisation-paid Membership',
         'Lets an employer benefit package grant its rostered employees a Membership billed to the organisation at the organisation price. Dormant until the founder confirms the price, the on-site visit offer and the invoicing process.')
 on conflict (key) do nothing;
+
+alter table public.employer_roster_members
+  add column seat_state text check (seat_state is null or seat_state in ('seat', 'already_member'));
+comment on column public.employer_roster_members.seat_state is
+  'seat: the organisation pays for this person''s Membership. already_member: the person holds their own Membership, so the organisation is not billed until it ends. Surfaced to the employer as a count only.';
 
 alter table public.entitlements alter column order_id drop not null;
 alter table public.entitlements
@@ -363,6 +309,54 @@ create trigger employer_benefit_packages_plan_is_active
   before insert or update of service_product_id, catalog_item_id on public.employer_benefit_packages
   for each row execute function private.assert_benefit_package_org_matches();
 
+-- One place that makes a seat. Returns 'seat' (made), 'already_member' (the person holds their own Membership: the organisation is NOT
+-- billed; the roster row is marked and the employer sees a count only), or 'skipped' (module off, no price, nothing to grant).
+create function private.grant_org_seat(p_roster uuid) returns text
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  r public.employer_roster_members%rowtype;
+  v_package public.employer_benefit_packages;
+  it public.catalog_items%rowtype;
+  px public.organisation_member_prices%rowtype;
+  v_ends timestamptz; v_ent uuid; v_is_test boolean;
+begin
+  select * into r from public.employer_roster_members where id = p_roster for update;
+  if not found or r.status <> 'claimed' or r.claimed_profile_id is null or r.benefit_package_id is null then return 'skipped'; end if;
+  select * into v_package from public.employer_benefit_packages where id = r.benefit_package_id and is_active;
+  if v_package.id is null or v_package.catalog_item_id is null then return 'skipped'; end if;
+  if not coalesce((select is_enabled from public.platform_modules where key = 'organisation_membership'), false) then
+    perform private.order_incident(r.organisation_id, 'org-seat-module-off:' || r.id, 'A rostered employee claimed while organisation Membership is off',
+      'Roster row ' || r.id || ' claimed a benefit package that grants Membership, but the organisation_membership module is off, so no seat was created.');
+    return 'skipped';
+  end if;
+  select * into it from public.catalog_items where id = v_package.catalog_item_id;
+  px := private.organisation_member_price(r.organisation_id, it.id);
+  if px.id is null then
+    perform private.order_incident(r.organisation_id, 'org-seat-no-price:' || r.id, 'No organisation Membership price is in force',
+      'Roster row ' || r.id || ' claimed a Membership benefit but no organisation price is in force, so no seat was created.');
+    return 'skipped';
+  end if;
+  -- the person's own Membership wins; the organisation is not billed until it ends (the daily sweep re-offers the seat)
+  if private.patient_is_member(r.claimed_profile_id) then return 'already_member'; end if;
+  v_ends := least(now() + make_interval(days => it.duration_days),
+                  case when r.eligible_until is not null then r.eligible_until::timestamptz + interval '1 day' end);
+  if v_ends <= now() then return 'skipped'; end if;
+  select coalesce(p.is_test, false) into v_is_test from public.profiles p where p.id = r.claimed_profile_id;
+  insert into public.entitlements (organisation_id, patient_id, kind, starts_at, ends_at, roster_member_id,
+                                   billed_to_organisation_id, seat_price_kobo, seat_price_id, is_test)
+  values (r.organisation_id, r.claimed_profile_id, 'membership', now(), v_ends, r.id,
+          r.organisation_id, px.amount_kobo, px.id, coalesce(v_is_test, false))
+  on conflict (roster_member_id) where state = 'active' and roster_member_id is not null do nothing
+  returning id into v_ent;
+  if v_ent is not null then
+    insert into public.patient_memberships (organisation_id, patient_id, source, starts_at, ends_at, is_test)
+    values (r.organisation_id, r.claimed_profile_id, 'employer', now(), v_ends, coalesce(v_is_test, false));
+  end if;
+  return 'seat';
+end $$;
+revoke all on function private.grant_org_seat(uuid) from public, anon, authenticated;
+
 create or replace function private.sync_employer_subscription_from_roster()
 returns trigger language plpgsql security definer set search_path to ''
 as $function$
@@ -370,11 +364,7 @@ declare
   v_package public.employer_benefit_packages;
   v_period_end timestamptz;
   v_purchase_id uuid;
-  it public.catalog_items%rowtype;
-  px public.organisation_member_prices%rowtype;
-  v_ends timestamptz;
-  v_ent uuid;
-  v_is_test boolean;
+  v_result text;
 begin
   if new.claimed_profile_id is null then
     return null;
@@ -419,40 +409,9 @@ begin
 
   -- v5 path: a Membership seat billed to the organisation
   if v_package.catalog_item_id is not null then
-    if not coalesce((select is_enabled from public.platform_modules where key = 'organisation_membership'), false) then
-      perform private.order_incident(new.organisation_id, 'org-seat-module-off:' || new.id, 'A rostered employee claimed while organisation Membership is off',
-        'Roster row ' || new.id || ' claimed a benefit package that grants Membership, but the organisation_membership module is off, so no seat was created.');
-      return null;
-    end if;
-    select * into it from public.catalog_items where id = v_package.catalog_item_id;
-    px := private.organisation_member_price(new.organisation_id, it.id);
-    if px.id is null then
-      perform private.order_incident(new.organisation_id, 'org-seat-no-price:' || new.id, 'No organisation Membership price is in force',
-        'Roster row ' || new.id || ' claimed a Membership benefit but no organisation price is in force, so no seat was created.');
-      return null;
-    end if;
-    update public.patient_memberships set state = 'ended', ended_at = now(), end_reason = 'Lapsed on its end date, closed automatically'
-     where patient_id = new.claimed_profile_id and state = 'active' and ends_at is not null and ends_at <= now();
-    if exists (select 1 from public.patient_memberships where patient_id = new.claimed_profile_id and state = 'active') then
-      perform private.order_incident(new.organisation_id, 'org-seat-already-member:' || new.id, 'A rostered employee already had a Membership',
-        'Roster row ' || new.id || ' claimed a Membership benefit but the person already has an active Membership, so no seat was billed to the organisation.');
-      return null;
-    end if;
-    v_ends := least(now() + make_interval(days => it.duration_days),
-                    case when new.eligible_until is not null then new.eligible_until::timestamptz + interval '1 day' end);
-    if v_ends <= now() then
-      return null;
-    end if;
-    select coalesce(p.is_test, false) into v_is_test from public.profiles p where p.id = new.claimed_profile_id;
-    insert into public.entitlements (organisation_id, patient_id, kind, starts_at, ends_at, roster_member_id,
-                                     billed_to_organisation_id, seat_price_kobo, seat_price_id, is_test)
-    values (new.organisation_id, new.claimed_profile_id, 'membership', now(), v_ends, new.id,
-            new.organisation_id, px.amount_kobo, px.id, coalesce(v_is_test, false))
-    on conflict (roster_member_id) where state = 'active' and roster_member_id is not null do nothing
-    returning id into v_ent;
-    if v_ent is not null then
-      insert into public.patient_memberships (organisation_id, patient_id, source, starts_at, ends_at, is_test)
-      values (new.organisation_id, new.claimed_profile_id, 'employer', now(), v_ends, coalesce(v_is_test, false));
+    v_result := private.grant_org_seat(new.id);
+    if v_result in ('seat', 'already_member') then
+      update public.employer_roster_members set seat_state = v_result where id = new.id and seat_state is distinct from v_result;
     end if;
     return null;
   end if;
@@ -532,6 +491,48 @@ create trigger employer_invoices_release_seats after update of status on public.
   for each row execute function private.release_seats_on_invoice_void();
 
 -- ---------------------------------------------------------------------------
+-- 4. What an employee must not see, and a reminder that must not sell
+-- ---------------------------------------------------------------------------
+-- An employee reads their own entitlements, but the price their employer pays, the organisation billed and the invoice are the
+-- organisation's business. Column privileges, not a view, so the app's existing queries keep working unchanged. A column added to
+-- entitlements later is NOT readable by authenticated until it is granted here on purpose (a loud "permission denied", never a silent gap).
+revoke select on public.entitlements from authenticated;
+grant select (id, organisation_id, patient_id, order_id, kind, starts_at, ends_at, remaining_uses, state, is_test, created_at,
+              reminded_at, acceptance, decided_at, roster_member_id)
+  on public.entitlements to authenticated;
+
+-- The 7-day expiry reminder tells a person to buy a new one. That is wrong for an employer-paid seat (the employer renews it) and a
+-- Membership now has its own 30, 14 and 7 day reminders, so neither is reminded here.
+create or replace function private.queue_entitlement_expiry_reminders() returns integer
+language plpgsql security definer set search_path = '' as $$
+declare
+  r record;
+  n integer := 0;
+begin
+  for r in
+    select e.id, e.patient_id, e.organisation_id, e.kind, e.ends_at
+      from public.entitlements e
+     where e.state = 'active'
+       and e.ends_at is not null
+       and e.ends_at > now()
+       and e.ends_at <= now() + interval '7 days'
+       and e.reminded_at is null
+       and e.roster_member_id is null
+       and e.kind <> 'membership'
+  loop
+    insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload)
+    values (r.organisation_id, r.patient_id,
+            private.patient_reminder_channel(r.patient_id), 'pending',
+            'entitlement_expiring_soon',
+            jsonb_build_object('entitlement_id', r.id, 'kind', r.kind, 'ends_at', r.ends_at));
+    update public.entitlements set reminded_at = now() where id = r.id;
+    n := n + 1;
+  end loop;
+  return n;
+end $$;
+revoke all on function private.queue_entitlement_expiry_reminders() from public, anon, authenticated;
+
+-- ---------------------------------------------------------------------------
 -- Self-check
 -- ---------------------------------------------------------------------------
 do $$
@@ -539,9 +540,9 @@ declare v_item uuid; v_sched int; v_dflt bigint;
 begin
   select id into v_item from public.catalog_items where code = 'membership_annual' order by created_at limit 1;
   if v_item is not null then
-    select count(*) into v_sched from public.prices where catalog_item_id = v_item and amount_kobo = 12000000 and valid_from > now() + interval '10 years';
-    if v_sched <> 1 then raise exception 'two-tier: the parked 12,000,000 kobo price is missing'; end if;
-    if (select amount_kobo from private.current_price(v_item)) <> 10000000 then raise exception 'two-tier: the live individual price moved'; end if;
+    if (select amount_kobo from private.current_price(v_item)) <> 12000000 then raise exception 'two-tier: the individual price in force is not 12,000,000 kobo'; end if;
+    select count(*) into v_sched from public.prices where catalog_item_id = v_item and amount_kobo = 10000000 and valid_to is null;
+    if v_sched <> 0 then raise exception 'two-tier: the 100,000 naira individual price is still open'; end if;
     select amount_kobo into v_dflt from private.organisation_member_price(null, v_item);
     if v_dflt <> 10000000 then raise exception 'two-tier: default organisation price is not 10,000,000 kobo'; end if;
   end if;
@@ -551,10 +552,15 @@ begin
   if has_function_privilege('anon', 'public.set_organisation_member_price(uuid,bigint,text,timestamptz)', 'EXECUTE')
      or has_function_privilege('anon', 'public.set_default_organisation_member_price(bigint,text,timestamptz)', 'EXECUTE')
      or has_function_privilege('anon', 'public.admin_organisation_prices()', 'EXECUTE')
-     or has_function_privilege('anon', 'public.bring_forward_scheduled_price(text,timestamptz,text)', 'EXECUTE')
      or has_function_privilege('anon', 'public.generate_organisation_membership_invoice(uuid,date,date)', 'EXECUTE')
      or has_function_privilege('anon', 'public.organisation_seat_summary(uuid)', 'EXECUTE') then
     raise exception 'two-tier: anon can execute a pricing function';
   end if;
+  if has_column_privilege('authenticated', 'public.entitlements', 'seat_price_kobo', 'SELECT')
+     or has_column_privilege('authenticated', 'public.entitlements', 'billed_to_organisation_id', 'SELECT')
+     or has_column_privilege('authenticated', 'public.entitlements', 'invoice_id', 'SELECT') then
+    raise exception 'two-tier: an employee can read what the organisation pays';
+  end if;
+  if not has_column_privilege('authenticated', 'public.entitlements', 'state', 'SELECT') then raise exception 'two-tier: authenticated lost entitlements.state'; end if;
   if has_table_privilege('authenticated', 'public.organisation_member_prices', 'SELECT') then raise exception 'two-tier: authenticated can read organisation_member_prices directly'; end if;
 end $$;

@@ -13933,6 +13933,7 @@ export type Database = {
           location_id: string | null
           organisation_id: string
           phone: string | null
+          seat_state: string | null
           status: Database["public"]["Enums"]["employer_roster_status"]
           updated_at: string
         }
@@ -13963,6 +13964,7 @@ export type Database = {
           location_id?: string | null
           organisation_id: string
           phone?: string | null
+          seat_state?: string | null
           status?: Database["public"]["Enums"]["employer_roster_status"]
           updated_at?: string
         }
@@ -13993,6 +13995,7 @@ export type Database = {
           location_id?: string | null
           organisation_id?: string
           phone?: string | null
+          seat_state?: string | null
           status?: Database["public"]["Enums"]["employer_roster_status"]
           updated_at?: string
         }
@@ -25601,6 +25604,59 @@ export type Database = {
             columns: ["reported_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      membership_lapse_config: {
+        Row: {
+          created_at: string
+          effective_from: string
+          id: string
+          is_active: boolean
+          rules: Json
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          effective_from: string
+          id?: string
+          is_active?: boolean
+          rules: Json
+          version: number
+        }
+        Update: {
+          created_at?: string
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          rules?: Json
+          version?: number
+        }
+        Relationships: []
+      }
+      membership_renewal_reminders: {
+        Row: {
+          days_before: number
+          membership_id: string
+          sent_at: string
+        }
+        Insert: {
+          days_before: number
+          membership_id: string
+          sent_at?: string
+        }
+        Update: {
+          days_before?: number
+          membership_id?: string
+          sent_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "membership_renewal_reminders_membership_id_fkey"
+            columns: ["membership_id"]
+            isOneToOne: false
+            referencedRelation: "patient_memberships"
             referencedColumns: ["id"]
           },
         ]
@@ -43371,10 +43427,6 @@ export type Database = {
       }
       admin_catalogue: { Args: never; Returns: Json };
       admin_organisation_prices: { Args: never; Returns: Json };
-      bring_forward_scheduled_price: {
-        Args: { p_code: string; p_reason: string; p_valid_from: string };
-        Returns: string;
-      };
       clear_organisation_member_price: {
         Args: { p_employer_org: string; p_reason: string; p_valid_from?: string };
         Returns: undefined;

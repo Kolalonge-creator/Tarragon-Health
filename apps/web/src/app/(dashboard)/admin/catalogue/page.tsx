@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatPatientDate } from "@/lib/format-date";
-import { ActiveForm, BringForwardForm, PriceForm } from "./catalogue-forms";
+import { ActiveForm, PriceForm } from "./catalogue-forms";
 
 export const metadata = { title: "Catalogue and prices" };
 export const dynamic = "force-dynamic";
@@ -45,7 +45,6 @@ export default async function AdminCataloguePage() {
             // The price in force today, not the open-ended row: a parked price (starts far in the future) is not the current one.
             const now = clockMs();
             const current = i.prices.find((p) => new Date(p.valid_from).getTime() <= now && (p.valid_to === null || new Date(p.valid_to).getTime() > now));
-            const parked = i.prices.find((p) => new Date(p.valid_from).getTime() > now && p.valid_to === null);
             return (
               <Card key={i.code}>
                 <CardHeader>
@@ -59,21 +58,12 @@ export default async function AdminCataloguePage() {
                     Current price: {current ? `₦${formatNaira(current.amount_kobo)}` : "none"}. Paid orders (real): {i.paid_orders}.
                     {i.duration_days ? ` Runs ${i.duration_days} days.` : ""}{i.uses ? ` ${i.uses} uses.` : ""}{i.grants_lead ? " Needs a lead clinician slot." : ""}
                   </p>
-                  {parked ? (
-                    <div className="space-y-2" role="group" aria-label={`Parked price for ${i.code}`}>
-                      <p>
-                        Parked price: <strong>{`₦${formatNaira(parked.amount_kobo)}`}</strong>, not yet in force. It is set to start on {formatPatientDate(parked.valid_from)} so nothing changes until the founder says go.
-                        {parked.reason ? ` ${parked.reason}` : ""}
-                      </p>
-                      <BringForwardForm code={i.code} />
-                    </div>
-                  ) : null}
                   <details>
                     <summary className="min-h-11 cursor-pointer">Price history ({i.prices.length})</summary>
                     <ul className="mt-2 space-y-1">
                       {i.prices.map((p) => (
                         <li key={p.valid_from}>
-                          {`₦${formatNaira(p.amount_kobo)}`} from {formatPatientDate(p.valid_from)}{p.valid_to ? ` to ${formatPatientDate(p.valid_to)}` : new Date(p.valid_from).getTime() > now ? " (parked, not in force)" : " (current)"}{p.reason ? `: ${p.reason}` : ""}
+                          {`₦${formatNaira(p.amount_kobo)}`} from {formatPatientDate(p.valid_from)}{p.valid_to ? ` to ${formatPatientDate(p.valid_to)}` : new Date(p.valid_from).getTime() > now ? " (starts later)" : " (current)"}{p.reason ? `: ${p.reason}` : ""}
                         </li>
                       ))}
                     </ul>

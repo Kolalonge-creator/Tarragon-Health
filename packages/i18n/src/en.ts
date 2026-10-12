@@ -1167,6 +1167,7 @@ export const en = {
   "shop.paid_for_you": "Paid for you by {name}.",
   "shop.not_open": "Membership is not open yet. We will tell you in the app when it is.",
   "shop.member_until": "You are a member until {date}.",
+  "shop.in_grace": "Your Membership year ended. You keep your Member access until {date}, and you can renew now.",
   "shop.fee.about": "about {amount}",
   "shop.fee.estimate": "The fee shown is an estimate. Paystack shows the exact amount on its payment page before you confirm, and your receipt shows what was charged.",
   "shop.return.checking": "Checking your payment...",
