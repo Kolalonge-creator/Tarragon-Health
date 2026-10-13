@@ -8,6 +8,12 @@
 --   Null-gate: a name comes ONLY from clinical_staff (never a bare profile, so an admin or support account is never named); no name -> role only; no
 --   clinical_staff row -> 'Tarragon staff member' with no name. 'Care team' is NOT claimed: an 'open'-basis row is a clinician with no tie to the patient.
 --   Role comes from clinical_staff.doctor_tier, never free text. Role/name are resolved as they are NOW, not snapshotted (follow-up: OQ-S09x-6).
+--   Only openings at or after access_log_staff_identity_since (the apply moment) are shown; earlier history stays hidden. Live rows at authoring: 0.
+--   Only openings by someone with a clinical_staff row are shown. staff_record_opens is written ONLY by open_patient_record (an active clinician), and
+--   has no column that separates administrative, support view-as, security or investigation reads from care opens (no reason class exists), so those
+--   cannot be told apart from a clinician's open-basis row: recorded as OQ-S09x-7 (needs a flag on the row before an investigation can be hidden by design).
+--   Break-glass names come only from clinical_staff (no bare profile fallback); the organisation name stays.
+--   The kill-switch value is parsed as text and can never throw.
 --   Kill switch: my_health_config.access_log.show_staff_identity=false (absent = shown) hides the staff rows; show_staff_opens is ignored.
 -- Live definition md5 of my_access_log read 2026-10-13 and matched the S09x file before this replacement. Signature, paging and grants unchanged.
 
@@ -25,6 +31,17 @@ as $$
 $$;
 revoke all on function private.staff_public_profile(uuid) from public, anon, authenticated;
 
+-- Retroactive exposure: only openings from the release moment onward are shown. Everything logged before it was written under the 'patient is not told'
+-- policy (OQ-281) and stays hidden. One row, frozen at apply time; no client can read or write it (the definer function below reads it).
+create table public.access_log_staff_identity_since (
+  only_row boolean primary key default true check (only_row),
+  since    timestamptz not null default now()
+);
+insert into public.access_log_staff_identity_since default values;
+alter table public.access_log_staff_identity_since enable row level security;
+revoke all on public.access_log_staff_identity_since from public, anon, authenticated;
+comment on table public.access_log_staff_identity_since is 'S09x2: staff openings logged before this moment are never shown to the patient (they were recorded under the OQ-281 not-told policy).';
+
 create or replace function public.my_access_log(p_limit integer default null, p_before timestamptz default null, p_before_id text default null) returns jsonb
 language plpgsql stable security definer set search_path = ''
 as $$
@@ -34,7 +51,7 @@ declare
   v_size  integer;
   -- Governed kill switch: absent means shown (founder decision 2026-10-13). A future CMO-signed my_health_config version can set show_staff_identity to false
   -- (for example if counsel's NDPA answer, OQ-S09x-2, goes against it) without a migration.
-  v_show_staff boolean := case when jsonb_typeof(v_cfg -> 'show_staff_identity') = 'boolean' then (v_cfg ->> 'show_staff_identity')::boolean else true end;  -- a malformed value never breaks the whole log
+  v_show_staff boolean := case when lower(v_cfg ->> 'show_staff_identity') in ('true', 't', '1') then true when lower(v_cfg ->> 'show_staff_identity') in ('false', 'f', '0') then false else true end;  -- text compare: a malformed value can never throw
 begin
   if v_uid is null then raise exception 'not authenticated'; end if;
   v_size := least(greatest(coalesce(p_limit, (v_cfg ->> 'page_size')::integer, 50), 1), coalesce((v_cfg ->> 'max_page_size')::integer, 100));
@@ -69,11 +86,10 @@ begin
         union all
         (select g.granted_at, 'b:' || g.id::text, 'emergency_record_access',
                case when sp.role_label is not null then sp.role_label || ' using emergency access' else 'Clinician using emergency access' end,
-               nullif(concat_ws(', ', coalesce(sp.display_name, p.full_name), o.name), ''), array['emergency_record']::text[],
+               nullif(concat_ws(', ', sp.display_name, o.name), ''), array['emergency_record']::text[],
                case when g.ended_at is not null then 'ended' when g.expires_at <= now() then 'expired' else 'active' end,
                coalesce(g.ended_at, g.expires_at)
           from public.emergency_record_access_grants g
-          left join public.profiles p on p.id = g.requester_id
           left join public.organisations o on o.id = g.requester_org_id
           left join lateral private.staff_public_profile(g.requester_id) sp on true
          where g.patient_id = v_uid and (p_before is null or g.granted_at < p_before or (p_before_id is not null and g.granted_at = p_before and ('b:' || g.id::text) < p_before_id))
@@ -88,7 +104,9 @@ begin
                array['record_opened']::text[], null, null
           from public.staff_record_opens o2
           left join lateral private.staff_public_profile(o2.staff_id) sp on true
-         where v_show_staff and o2.patient_id = v_uid and (p_before is null or o2.opened_at < p_before or (p_before_id is not null and o2.opened_at = p_before and ('s:' || o2.id::text) < p_before_id))
+         where v_show_staff and o2.opened_at >= (select c.since from public.access_log_staff_identity_since c)
+           and exists (select 1 from public.clinical_staff cs where cs.profile_id = o2.staff_id)
+           and o2.patient_id = v_uid and (p_before is null or o2.opened_at < p_before or (p_before_id is not null and o2.opened_at = p_before and ('s:' || o2.id::text) < p_before_id))
          order by o2.opened_at desc, o2.id desc limit v_size)
       ) u
       order by u.at desc, u.rid desc

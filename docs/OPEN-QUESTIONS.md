@@ -1930,6 +1930,10 @@ following are recorded in the system:
 - Follow-up OQ-S09x-6: role and name are resolved at read time, not snapshotted, so a promotion changes how an old opening reads. Fixing it needs a role column on `staff_record_opens` and `emergency_record_access_grants` (counsel/DPO may want that for the audit trail).
 - Still open for counsel and the DPO: confirm the NDPA basis (OQ-S09x-2). This decision does not wait on it.
 
+### OQ-S09x-7 Staff openings cannot be separated by purpose (raised by S09x2)
+- `staff_record_opens` has no column that marks an administrative, support, security or investigation read; it is written only by `open_patient_record` for an active clinician, so every row looks like a clinical open (tied or open basis). S09x2 therefore shows only rows by someone with a `clinical_staff` row, and only openings at or after the release moment (`access_log_staff_identity_since`; earlier history stays hidden). A CMO or clinician opening a record to investigate cannot be hidden from the patient by design until the row carries a purpose flag. Decision needed: add a `purpose` class to the row and to `open_patient_record`, and hide the non-care classes from the patient log. Until then, an investigation by a clinician-account would be visible to the patient.
+- Follow-up with OQ-S09x-6: staff role labels are hard-coded English in `private.staff_public_profile` (not in i18n); a future `doctor_tier` value maps to no label and falls back to "Tarragon staff member". Revisit with the snapshot columns.
+
 ### OQ-S09x-2 NDPA basis for the emergency card, break-glass visibility and the lock-screen pass (D9, counsel)
 - Counsel was instructed (D9). The legal basis is not yet confirmed. The lock-screen pass is off by default (D4), its fields are CMO item C8 (approved text, not signed), and the wallet generator is dormant behind the `wallet_pass` guard, so nothing depends on the answer yet.
 
