@@ -11,9 +11,12 @@
 --   4. taper amended with new plain times            -> refused (22023), nothing superseded
 --   5. taper amended without times                   -> spec carried unchanged
 --   6. no spec amended                               -> schedule_spec stays null
+--   7. weekdays amended with new times               -> spec.times replaced, days kept
+--   8. new times overlapping the spec's window       -> refused with the clear message, nothing superseded
+--   9. (inside case 1) the superseded row keeps its own spec untouched
 --
 -- SABOTAGE: take the schedule_spec column out of amend_medication's insert (the pre-fix body);
--- cases 1, 2, 3 and 5 must FAIL (the new row's spec is null) and case 4 must FAIL (no refusal).
+-- cases 1, 2, 3, 5 and 7 must FAIL (the new row's spec is null) and case 4 must FAIL (no refusal).
 -- Done 2026-10-13 by running this file, unchanged, against the live pre-fix definition: it aborted
 -- at case 4's consequence (the taper was superseded without a refusal, so case 5 hit 'already been
 -- amended'), i.e. it fails loudly rather than passing.
@@ -37,6 +40,8 @@ declare
 
   v_asneeded jsonb := '{"kind":"as_needed","maxPerDay":3,"foodNote":"with_food"}'::jsonb;
   v_everyn   jsonb := '{"kind":"every_n_days","intervalDays":3,"anchorDate":"2026-10-01","times":["09:00"],"windowMinutes":60}'::jsonb;
+  v_weekdays jsonb := '{"kind":"weekdays","days":[1,3,5],"times":["08:00"]}'::jsonb;
+  v_windowed jsonb := '{"kind":"daily","times":["08:00"],"windowMinutes":120}'::jsonb;
   v_taper    jsonb := '{"kind":"taper","startDate":"2026-10-01","steps":[{"days":5,"times":["08:00"],"doseText":"20 mg"},{"days":5,"times":["08:00"],"doseText":"10 mg"}]}'::jsonb;
 begin
   v_pat := gen_random_uuid();
@@ -64,8 +69,9 @@ begin
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
   select schedule_spec into v_spec from public.medications where id = v_new;
-  insert into test_result values (1, 'as_needed spec carried onto the amended row',
-    case when v_spec = v_asneeded then 'PASS' else 'FAIL' end, coalesce(v_spec::text, 'null'));
+  insert into test_result values (1, 'as_needed spec carried onto the amended row; the superseded row keeps its own',
+    case when v_spec = v_asneeded
+          and (select schedule_spec from public.medications where id = v_med) = v_asneeded then 'PASS' else 'FAIL' end, coalesce(v_spec::text, 'null'));
 
   ---------------------------------------------------------------- case 2
   insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, source, is_active, quantity, duration_days, schedule_spec, schedule_times)
@@ -137,6 +143,38 @@ begin
     case when (select schedule_spec from public.medications where id = v_new) is null
           and (select schedule_times from public.medications where id = v_new) = '["08:00"]'::jsonb
          then 'PASS' else 'FAIL' end, '');
+
+  ---------------------------------------------------------------- case 7
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, source, is_active, quantity, duration_days, schedule_spec, schedule_times)
+  values (v_org, v_pat, 'Spec Probe Weekdays', '5mg', 'Mon Wed Fri', 'clinician', true, '12 tablets', 30, v_weekdays, '["08:00"]')
+  returning id into v_med;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_clin, 'role', 'authenticated')::text, true);
+  perform set_config('role', 'authenticated', true);
+  select public.amend_medication(v_med, 'Move the times', p_allergies_confirmed => true, p_schedule_times => v_times) into v_new;
+  perform set_config('role', 'postgres', true);
+  perform set_config('request.jwt.claims', '', true);
+  select schedule_spec into v_spec from public.medications where id = v_new;
+  insert into test_result values (7, 'weekdays: new times replace spec.times, days kept',
+    case when v_spec = jsonb_set(v_weekdays, '{times}', v_times) then 'PASS' else 'FAIL' end, coalesce(v_spec::text, 'null'));
+
+  ---------------------------------------------------------------- case 8
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, source, is_active, quantity, duration_days, schedule_spec, schedule_times)
+  values (v_org, v_pat, 'Spec Probe Window', '5mg', 'daily', 'clinician', true, '30 tablets', 30, v_windowed, '["08:00"]')
+  returning id into v_med;
+  v_raised := null;
+  begin
+    perform set_config('request.jwt.claims', json_build_object('sub', v_clin, 'role', 'authenticated')::text, true);
+    perform set_config('role', 'authenticated', true);
+    perform public.amend_medication(v_med, 'Times too close for the window', p_allergies_confirmed => true, p_schedule_times => '["08:00","09:00"]'::jsonb);
+  exception when others then
+    v_raised := sqlerrm;
+  end;
+  perform set_config('role', 'postgres', true);
+  perform set_config('request.jwt.claims', '', true);
+  insert into test_result values (8, 'times overlapping the window are refused with the clear message, nothing superseded',
+    case when v_raised like '%do not fit the existing schedule%'
+          and (select superseded_at from public.medications where id = v_med) is null
+         then 'PASS' else 'FAIL' end, coalesce(v_raised, 'no error raised'));
 
   if exists (select 1 from test_result where outcome = 'FAIL') then
     raise exception 'amend_medication_carries_schedule_spec: %',

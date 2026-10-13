@@ -9,7 +9,7 @@
 -- Rule now: the new row keeps the old row's schedule_spec (kind, food note, window, dates, steps).
 -- If the amendment supplies new p_schedule_times and the spec has a single times list
 -- (daily / every_n_days / weekdays) those times replace spec.times, so the spec and the plain list
--- agree. As-needed has no times and is kept as is. A taper carries its times per step, so new plain
+-- agree; if the result is not a valid schedule (say a window longer than the new gap) it is refused up front with a clear message. As-needed has no times and is kept as is. A taper carries its times per step, so new plain
 -- times cannot be mapped onto it: that is refused with a clear message instead of guessed.
 -- schedule_effective_from is stamped by the existing insert trigger (created_at of the new version).
 --
@@ -82,6 +82,9 @@ begin
       v_spec := jsonb_set(v_spec, '{times}', p_schedule_times, true);
     elsif v_spec ->> 'kind' = 'taper' then
       raise exception 'A tapering schedule keeps its times per step: amend the schedule itself, not the plain times list' using errcode = '22023';
+    end if;
+    if not private.is_valid_schedule_spec(v_spec) then
+      raise exception 'These times do not fit the existing schedule (for example a dose window that reaches the next dose): adjust the schedule itself' using errcode = '22023';
     end if;
   end if;
 
