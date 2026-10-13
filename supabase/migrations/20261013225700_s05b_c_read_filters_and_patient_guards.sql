@@ -148,12 +148,13 @@ grant execute on function public.clinical_value_history(text, uuid) to authentic
 
 -- 4. Review columns cannot be changed from a client session ----------------------------------------------------------------------------
 -- SECURITY INVOKER on purpose (same reason as the supersession guard): current_user is the role running the statement. Definer functions
--- owned by postgres (clear_vitals_validation_flag, the clinician review paths) pass; a patient, or any client session, does not.
+-- owned by postgres (clear_vitals_validation_flag, the clinician review paths) and the service role pass; a signed-in user session does not.
 create function private.guard_vitals_review_columns() returns trigger
 language plpgsql set search_path = '' as
 $$
 begin
-  if current_user in ('postgres', 'supabase_admin') then return new; end if;
+  -- the threat is a patient (or other user) session; backend roles are not constrained here
+  if current_user in ('postgres', 'supabase_admin', 'service_role') then return new; end if;
   if tg_op = 'INSERT' then
     if new.validated_by is not null or new.validated_at is not null or new.triage_event_id is not null then
       raise exception 'a new reading cannot be created already reviewed or already triaged' using errcode = '42501';
@@ -184,7 +185,7 @@ declare
     || E'         v_old ->> ''triage_event_id'' is not null\n'
     || E'         or exists (select 1 from public.clinician_alerts ca where ca.vital_reading_id = p_id)\n'
     || E'         or exists (select 1 from public.emergency_events ee where ee.vital_reading_id = p_id)\n'
-    || E'         or exists (select 1 from public.triage_pending_rechecks tr where tr.observation_id = p_id)\n'
+    || E'         or exists (select 1 from public.triage_pending_rechecks tr where tr.observation_id = p_id and tr.state = ''pending'')\n'
     || E'    ) then\n'
     || E'      raise exception ''this reading was picked up by the safety checks: ask your care team to correct it'' using errcode = ''42501'';\n'
     || E'    end if;\n';

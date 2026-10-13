@@ -24,6 +24,7 @@ declare
   v_c   uuid := gen_random_uuid();   -- tied clinician
   v_u   uuid := gen_random_uuid();   -- untied clinician
   v_b1 uuid; v_b2 uuid; v_b3 uuid;
+  v_rs uuid; v_rs_status text; v_rs_ver int; v_te uuid;
   v_w1 uuid; v_w2 uuid; v_w3 uuid; v_w4 uuid; v_wrev uuid;
   v_al uuid;
   v_res jsonb;
@@ -76,7 +77,13 @@ begin
   values (v_org, v_p, 'weight', 74, now() - interval '2 hours 20 minutes', 'manual') returning id into v_wrev;   -- reviewed by a clinician
   update public.vitals_readings set validated_by = (select id from public.clinical_staff where profile_id = v_c), validated_at = now()
    where id = v_wrev;
-  update public.vitals_readings set triage_event_id = gen_random_uuid() where id = v_w3;
+  -- a real triage event (the column has a foreign key): any rule set will do, the event is a green one
+  select id, status, version into v_rs, v_rs_status, v_rs_ver from public.triage_rule_sets where code = 'bp_care_triage' order by version desc limit 1;
+  if v_rs is null then raise exception 'fixture FAIL: no triage rule set'; end if;
+  insert into public.triage_events (organisation_id, patient_id, trigger_type, trigger_id, grade, rule_id, rule_set_id, rule_set_code, rule_set_version, rule_set_status, actions, shadow, is_test)
+  values (v_org, v_p, 'observation', v_w3, 'green', 'S05BC-G1', v_rs, 'bp_care_triage', v_rs_ver, v_rs_status, '[]', v_rs_status <> 'approved', true)
+  returning id into v_te;
+  update public.vitals_readings set triage_event_id = v_te where id = v_w3;
   insert into public.clinician_alerts (organisation_id, patient_id, level, title, vital_reading_id)
   values (v_org, v_p, 'emergency', 'S05bc fixture alert', v_w2);
   insert into public.patient_allergies (organisation_id, patient_id, allergen, severity, source)
