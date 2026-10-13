@@ -202,7 +202,11 @@ function EntryForm({ order, panels, correctsId }: { order: PortalOrder; panels: 
                     <option value="positive">Positive</option>
                   </Select>
                 )}
-                {range ? <p className="mt-1 text-xs text-charcoal-ink/60">Reference {range}</p> : null}
+                {range ? (
+                  <p className="mt-1 text-xs text-charcoal-ink/60">
+                    Reference {range}. Source: Tarragon lab panel version {def.version}. Once the Chief Medical Officer has signed the panels, the patient sees this range with its source; the range printed on your own report is not stored.
+                  </p>
+                ) : null}
               </div>
             );
           })}

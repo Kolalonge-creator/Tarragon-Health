@@ -16995,16 +16995,24 @@ export type Database = {
           abnormal_flag: Database["public"]["Enums"]["lab_analyte_flag"] | null
           analyte_concept_id: string | null
           code: string
+          corrected_at: string | null
+          corrected_by: string | null
+          correction_reason: string | null
+          correction_status: Database["public"]["Enums"]["correction_status"] | null
           created_at: string
           id: string
           laboratory: string | null
           organisation_id: string
           patient_id: string
+          range_source: string
+          range_source_ref: string | null
           reference_range_high: number | null
           reference_range_low: number | null
           reference_range_text: string | null
           report_status: Database["public"]["Enums"]["lab_report_status"]
           specimen_collected_at: string | null
+          superseded_by_id: string | null
+          supersedes_id: string | null
           taken_at: string
           unit: string | null
           value: number | null
@@ -17014,16 +17022,24 @@ export type Database = {
           abnormal_flag?: Database["public"]["Enums"]["lab_analyte_flag"] | null
           analyte_concept_id?: string | null
           code: string
+          corrected_at?: string | null
+          corrected_by?: string | null
+          correction_reason?: string | null
+          correction_status?: Database["public"]["Enums"]["correction_status"] | null
           created_at?: string
           id?: string
           laboratory?: string | null
           organisation_id: string
           patient_id: string
+          range_source?: string
+          range_source_ref?: string | null
           reference_range_high?: number | null
           reference_range_low?: number | null
           reference_range_text?: string | null
           report_status?: Database["public"]["Enums"]["lab_report_status"]
           specimen_collected_at?: string | null
+          superseded_by_id?: string | null
+          supersedes_id?: string | null
           taken_at?: string
           unit?: string | null
           value?: number | null
@@ -17033,16 +17049,24 @@ export type Database = {
           abnormal_flag?: Database["public"]["Enums"]["lab_analyte_flag"] | null
           analyte_concept_id?: string | null
           code?: string
+          corrected_at?: string | null
+          corrected_by?: string | null
+          correction_reason?: string | null
+          correction_status?: Database["public"]["Enums"]["correction_status"] | null
           created_at?: string
           id?: string
           laboratory?: string | null
           organisation_id?: string
           patient_id?: string
+          range_source?: string
+          range_source_ref?: string | null
           reference_range_high?: number | null
           reference_range_low?: number | null
           reference_range_text?: string | null
           report_status?: Database["public"]["Enums"]["lab_report_status"]
           specimen_collected_at?: string | null
+          superseded_by_id?: string | null
+          supersedes_id?: string | null
           taken_at?: string
           unit?: string | null
           value?: number | null
@@ -23372,6 +23396,10 @@ export type Database = {
         Row: {
           allergen: string
           allergen_concept_id: string | null
+          corrected_at: string | null
+          corrected_by: string | null
+          correction_reason: string | null
+          correction_status: Database["public"]["Enums"]["correction_status"] | null
           created_at: string
           id: string
           noted_at: string
@@ -23382,6 +23410,8 @@ export type Database = {
           search_vector: unknown
           severity: Database["public"]["Enums"]["allergy_severity"] | null
           source: Database["public"]["Enums"]["allergy_source"]
+          superseded_by_id: string | null
+          supersedes_id: string | null
           updated_at: string
           verification_status: Database["public"]["Enums"]["allergy_verification_status"]
           verified_at: string | null
@@ -23390,6 +23420,10 @@ export type Database = {
         Insert: {
           allergen: string
           allergen_concept_id?: string | null
+          corrected_at?: string | null
+          corrected_by?: string | null
+          correction_reason?: string | null
+          correction_status?: Database["public"]["Enums"]["correction_status"] | null
           created_at?: string
           id?: string
           noted_at?: string
@@ -23400,6 +23434,8 @@ export type Database = {
           search_vector?: unknown
           severity?: Database["public"]["Enums"]["allergy_severity"] | null
           source?: Database["public"]["Enums"]["allergy_source"]
+          superseded_by_id?: string | null
+          supersedes_id?: string | null
           updated_at?: string
           verification_status?: Database["public"]["Enums"]["allergy_verification_status"]
           verified_at?: string | null
@@ -23408,6 +23444,10 @@ export type Database = {
         Update: {
           allergen?: string
           allergen_concept_id?: string | null
+          corrected_at?: string | null
+          corrected_by?: string | null
+          correction_reason?: string | null
+          correction_status?: Database["public"]["Enums"]["correction_status"] | null
           created_at?: string
           id?: string
           noted_at?: string
@@ -23418,6 +23458,8 @@ export type Database = {
           search_vector?: unknown
           severity?: Database["public"]["Enums"]["allergy_severity"] | null
           source?: Database["public"]["Enums"]["allergy_source"]
+          superseded_by_id?: string | null
+          supersedes_id?: string | null
           updated_at?: string
           verification_status?: Database["public"]["Enums"]["allergy_verification_status"]
           verified_at?: string | null
@@ -23475,6 +23517,7 @@ export type Database = {
           recorded_at: string
           recorded_by: string | null
           updated_at: string
+          verification: string
         }
         Insert: {
           attestation_version?: string | null
@@ -23737,6 +23780,10 @@ export type Database = {
         Row: {
           condition_concept_id: string | null
           condition_name: string
+          corrected_at: string | null
+          corrected_by: string | null
+          correction_reason: string | null
+          correction_status: Database["public"]["Enums"]["correction_status"] | null
           created_at: string
           current_treatment: string | null
           date_identified: string | null
@@ -23752,12 +23799,18 @@ export type Database = {
           severity: Database["public"]["Enums"]["clinical_severity"] | null
           source: Database["public"]["Enums"]["record_source"]
           status: Database["public"]["Enums"]["condition_clinical_status"]
+          superseded_by_id: string | null
+          supersedes_id: string | null
           supporting_evidence: string | null
           updated_at: string
         }
         Insert: {
           condition_concept_id?: string | null
           condition_name: string
+          corrected_at?: string | null
+          corrected_by?: string | null
+          correction_reason?: string | null
+          correction_status?: Database["public"]["Enums"]["correction_status"] | null
           created_at?: string
           current_treatment?: string | null
           date_identified?: string | null
@@ -23773,12 +23826,18 @@ export type Database = {
           severity?: Database["public"]["Enums"]["clinical_severity"] | null
           source?: Database["public"]["Enums"]["record_source"]
           status?: Database["public"]["Enums"]["condition_clinical_status"]
+          superseded_by_id?: string | null
+          supersedes_id?: string | null
           supporting_evidence?: string | null
           updated_at?: string
         }
         Update: {
           condition_concept_id?: string | null
           condition_name?: string
+          corrected_at?: string | null
+          corrected_by?: string | null
+          correction_reason?: string | null
+          correction_status?: Database["public"]["Enums"]["correction_status"] | null
           created_at?: string
           current_treatment?: string | null
           date_identified?: string | null
@@ -23794,6 +23853,8 @@ export type Database = {
           severity?: Database["public"]["Enums"]["clinical_severity"] | null
           source?: Database["public"]["Enums"]["record_source"]
           status?: Database["public"]["Enums"]["condition_clinical_status"]
+          superseded_by_id?: string | null
+          supersedes_id?: string | null
           supporting_evidence?: string | null
           updated_at?: string
         }
@@ -36216,6 +36277,10 @@ export type Database = {
           arm: string | null
           cgm_connection_id: string | null
           client_reading_id: string | null
+          corrected_at: string | null
+          corrected_by: string | null
+          correction_reason: string | null
+          correction_status: Database["public"]["Enums"]["correction_status"] | null
           created_at: string
           device_id: string | null
           diastolic: number | null
@@ -36235,6 +36300,8 @@ export type Database = {
           respiratory_rate_bpm: number | null
           source: Database["public"]["Enums"]["vital_source"]
           spo2_pct: number | null
+          superseded_by_id: string | null
+          supersedes_id: string | null
           systolic: number | null
           taken_at: string
           temperature_c: number | null
@@ -36254,6 +36321,10 @@ export type Database = {
           arm?: string | null
           cgm_connection_id?: string | null
           client_reading_id?: string | null
+          corrected_at?: string | null
+          corrected_by?: string | null
+          correction_reason?: string | null
+          correction_status?: Database["public"]["Enums"]["correction_status"] | null
           created_at?: string
           device_id?: string | null
           diastolic?: number | null
@@ -36275,6 +36346,8 @@ export type Database = {
           respiratory_rate_bpm?: number | null
           source?: Database["public"]["Enums"]["vital_source"]
           spo2_pct?: number | null
+          superseded_by_id?: string | null
+          supersedes_id?: string | null
           systolic?: number | null
           taken_at?: string
           temperature_c?: number | null
@@ -36294,6 +36367,10 @@ export type Database = {
           arm?: string | null
           cgm_connection_id?: string | null
           client_reading_id?: string | null
+          corrected_at?: string | null
+          corrected_by?: string | null
+          correction_reason?: string | null
+          correction_status?: Database["public"]["Enums"]["correction_status"] | null
           created_at?: string
           device_id?: string | null
           diastolic?: number | null
@@ -36315,6 +36392,8 @@ export type Database = {
           respiratory_rate_bpm?: number | null
           source?: Database["public"]["Enums"]["vital_source"]
           spo2_pct?: number | null
+          superseded_by_id?: string | null
+          supersedes_id?: string | null
           systolic?: number | null
           taken_at?: string
           temperature_c?: number | null
@@ -38037,6 +38116,16 @@ export type Database = {
       }
     }
     Functions: {
+      correct_clinical_value: {
+        Args: {
+          p_id: string
+          p_reason: string
+          p_replacement?: Json
+          p_status: Database["public"]["Enums"]["correction_status"]
+          p_table: string
+        }
+        Returns: Json
+      }
       abnormal_result_dashboard_counts: {
         Args: { p_organisation_id: string }
         Returns: Json
@@ -42111,6 +42200,7 @@ export type Database = {
       }
     }
     Enums: {
+      correction_status: "corrected" | "amended" | "entered_in_error" | "cancelled"
       activity_entry_type: "steps" | "workout"
       adolescent_transition_milestone:
         | "shared_access_nudge_13"
@@ -44223,6 +44313,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      correction_status: ["corrected", "amended", "entered_in_error", "cancelled"],
       activity_entry_type: ["steps", "workout"],
       adolescent_transition_milestone: [
         "shared_access_nudge_13",
