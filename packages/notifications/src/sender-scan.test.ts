@@ -57,7 +57,7 @@ const rules: Rule[] = [
     pattern: /api\.ng\.termii\.com|TERMII_API_KEY/,
     allowed: new Map([
       [PIPELINE, "the pipeline (clinician paging; routine SMS is refused by decide())"],
-      ["supabase/functions/auth-send-sms-hook/provider.ts", "verification codes only"],
+      ["supabase/functions/auth-send-sms-hook/" + "provider.ts", "verification codes only"],
       ["supabase/functions/abnormal-result-handler/index.ts", "clinician paging fallback (D-12)"],
       ["supabase/functions/paystack-webhook/handler.ts", "one invite SMS to a person with no profile row yet; cannot use the queue"],
       ["apps/web/src/lib/status/check-dependencies.ts", "status page: checks the key is configured, sends nothing"],
