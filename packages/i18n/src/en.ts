@@ -1745,6 +1745,7 @@ export const en = {
   "queue.overdue": "Overdue",
   "queue.due_in": "Due in {minutes} minutes",
   "scribe.review.look_for": "Before you confirm, look for what is missing, not only what is wrong: allergies, medicines and doses, things the patient said they do NOT have, and the follow-up plan. Missing items are the most common error in AI notes.",
+  "scribe.review.check_these": "Drug names and numbers in this section. Check each one against what was said:",
   "queue.updated": "Updated {time}",
   "scribe.review.empty_summary": "No patient summary was drafted. Write one, or confirm there is none.",
   "scribe.gate.checking": "Checking whether the patient has allowed AI note-taking...",

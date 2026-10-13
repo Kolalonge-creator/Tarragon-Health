@@ -1190,6 +1190,45 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S31.md; spec 7.7",
   },
   {
+    key: "payouts.controls",
+    // Payout batch maker-checker limits (S31x, OQ-97). Paystack's transfer OTP stays OFF by founder decision, so these ARE the
+    // compensating controls: a payout is sent only from a batch one approver proposed and a different approver released, and these caps
+    // apply at proposal, at release and at send. Live value is the active row of `payout_controls_config`; a test fails if the migration
+    // seed and this value drift. Kobo. The founder sets the real numbers; these are starting points sized for the first pilot cohort.
+    //  perPayoutMaxKobo: no single weekly payout above this (150,000,000 kobo = 1.5 million naira).
+    //  perClinicianRolling7DaysMaxKobo: one clinician's sent, succeeded and batched-and-approved payouts in any 7 days, plus the new one.
+    //  perBatchMaxKobo / perBatchMaxCount: a batch's total and its number of payouts.
+    value: {
+      perPayoutMaxKobo: 150000000,
+      perClinicianRolling7DaysMaxKobo: 150000000,
+      perBatchMaxKobo: 1000000000,
+      perBatchMaxCount: 20,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/design/S11-S15-p4-providers.md; OQ-97",
+  },
+  {
+    key: "providers.layer",
+    // The provider layer's operating values (S14x): the webhook inbox, the circuit breaker and settlement reconciliation. Live value is
+    // the active row of `provider_layer_config`; a test fails if the migration seed and this value drift.
+    //  inbox: lease and attempt limits and backoff for retrying a webhook that failed; maxBodyBytes caps what is stored per event.
+    //  circuit: this many consecutive outages open the breaker; after openSeconds one probe is let through.
+    //  reconciliation: a paid charge no settlement lists after unsettledAfterHours is a break; breaks are bucketed by age.
+    value: {
+      inbox: { leaseSeconds: 120, maxAttempts: 8, backoffBaseSeconds: 30, backoffMaxSeconds: 3600, maxBodyBytes: 262144 },
+      circuit: { failureThreshold: 5, openSeconds: 60 },
+      reconciliation: { unsettledAfterHours: 72, ageingBucketsHours: [24, 72, 168], lookbackDays: 7 },
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/design/S11-S15-p4-providers.md",
+  },
+  {
     key: "queue.task_types",
     // Task types and priority classes (S16, spec 7.3 and 7.4). Live values are the active `task_types` rows; this entry
     // mirrors them, and a test compares it with the migration seed. Each row: code, priority class (1 is first), default

@@ -4,13 +4,13 @@ import { createFakePaystack } from "./support/fake-paystack";
 
 runPaymentContract("mock", () => {
   const mock = createMockPayment();
-  return { provider: mock, settle: (r, s) => mock.settle(r, s), setCustomerFee: (r, f) => mock.setCustomerFee(r, f), settleTransfer: (r, s) => mock.settleTransfer(r, s), signedWebhook: mock.signedWebhook, signedRaw: mock.signedRaw, failNextCall: () => mock.failNextCall() };
+  return { provider: mock, settle: (r, s) => mock.settle(r, s), setCustomerFee: (r, f) => mock.setCustomerFee(r, f), settleTransfer: (r, s) => mock.settleTransfer(r, s), signedWebhook: mock.signedWebhook, signedRaw: mock.signedRaw, failNextCall: () => mock.failNextCall(), addSettlement: (...a) => mock.addSettlement(...a) };
 });
 
 runPaymentContract("paystack adapter over a fake vendor", () => {
   const fake = createFakePaystack();
   const provider = createPaystackPayment({ secretKey: fake.secretKey, fetch: fake.fetch });
-  return { provider, settle: (r, s) => fake.settle(r, s), setCustomerFee: (r, f) => fake.setCustomerFee(r, f), settleTransfer: (r, s) => fake.settleTransfer(r, s), signedWebhook: (b) => fake.signedWebhook(b), signedRaw: (r) => fake.signedRaw(r), failNextCall: () => fake.failNextCall() };
+  return { provider, settle: (r, s) => fake.settle(r, s), setCustomerFee: (r, f) => fake.setCustomerFee(r, f), settleTransfer: (r, s) => fake.settleTransfer(r, s), signedWebhook: (b) => fake.signedWebhook(b), signedRaw: (r) => fake.signedRaw(r), failNextCall: () => fake.failNextCall(), addSettlement: (...a) => fake.addSettlement(...a) };
 });
 
 // The live run (S25, S31) adds one more line here, gated on a Paystack test key in the environment:
