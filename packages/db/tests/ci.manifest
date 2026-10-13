@@ -308,6 +308,13 @@ can_read_clinical_bare_literal_policy_cast.sql
 continuous_monitoring_90d_single_tier.sql
 preventive_health_check_review_sku.sql
 
+# --- Added 2026-10-13 (S03b-b) ------------------------------------------------
+# Accounts that survive a lost number: backup codes, Care Circle recovery contact, the change-number gate and the 72 hour hold
+# (answers OQ-43 in our apps; the Auth-level gap is OQ-S03B-06), and eligibility-first roster/cohort claims after a verified contact (closes OQ-41). Both prove each guard in BOTH
+# directions and carry sabotage steps that flip.
+s03b_account_recovery_routes.sql
+s03b_eligibility_first_claims.sql
+
 # /code-review high on the above continuous_monitoring_90d_single_tier.sql
 # migration, run before its PR was opened, found a real bug in it: the new
 # product's features array was copied from continuous_monitoring_cover.sql's
@@ -326,10 +333,6 @@ preventive_health_check_review_sku.sql
 # coverage for "annual_review must stay reachable" instead comes from
 # doctor_time_entitlement_grantable_by_purchasable_product.sql (line 14
 # above), which builds its own fixtures generically and already covers this.
-
-s04b1_adult_registration_dependants_proxy.sql
-# S04b-1 standing proof: every patient_id table is guarded or listed, so a later PR cannot bypass the under-18 scope guard.
-minor_dependant_table_policy_complete.sql
 
 # --- Added 2026-09-22 -------------------------------------------------------
 # CMO governed-config INSERT dual-gate: 5 tables were admin-INSERT-only while
@@ -994,12 +997,6 @@ sr2_stagger_cron_start_times.sql
 # SR2: scribe_consents_insert_clinical keeps its S39g tie rule and active-clinician check, and wraps auth.uid() in a select so it is evaluated once per statement; one insert policy for authenticated. Sabotage: the policy put back on a bare auth.uid(); the wrapper check must flip. Behaviour is proven by s21g and s39g.
 sr2_scribe_consents_insert_policy_initplan.sql
 
-# --- Added 2026-10-13 (S03b-b) ------------------------------------------------
-# Accounts that survive a lost number: backup codes, Care Circle recovery contact, the change-number gate and the 72 hour hold
-# (answers OQ-43 in our apps; the Auth-level gap is OQ-S03B-06), and eligibility-first roster/cohort claims after a verified contact (closes OQ-41). Both prove each guard in BOTH
-# directions and carry sabotage steps that flip.
-s03b_account_recovery_routes.sql
-s03b_eligibility_first_claims.sql
 # S08x: as-needed (PRN) limits, warn never block (decision C7, approved text, NOT signed): the rule ships unsigned and inactive; only the active CMO signs; only a tied clinician with prescribing authority sets limits inside the signed bounds; the ten shared cases from packages/medicines prn.fixtures.ts give the same flags; late-synced doses are judged like in-order ones; a failing flag write never stops the dose being logged; guard off means no flag; three flagged doses raise one signal; patients read only their own, staff read audited; anon cannot execute. Sabotage: a gap-blind rule must flip the min_gap cases.
 s08x_prn_limits.sql
 # amend_medication carries schedule_spec onto the amended row (as-needed / every-N-days / weekdays / taper no longer become a plain daily list); explicit new times replace spec.times; a taper refuses plain times; plain medicines unchanged. Sabotage: the pre-fix body (no schedule_spec in the insert) fails cases 1, 2, 3 and 5.

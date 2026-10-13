@@ -112,6 +112,8 @@ select pg_temp.ck('real', 'E11 a denied request does not open it', 'ERR 42501', 
 -- added with reviewed = false and waits for the CMO and DPO.
 select pg_temp.ck('real', 'R1 a reviewed registry row carries a date and a note, and an unreviewed row carries no review date', '0', (select count(*)::text from public.data_registry where (reviewed and (reviewed_at is null or reviewed_note is null)) or (not reviewed and reviewed_at is not null)));
 select pg_temp.ck('real', 'R1b the 302 rows the CMO confirmed on 2026-10-07 are still reviewed', '0', (select count(*)::text from public.data_registry where reviewed_note like 'CMO review 2026-10-07%' and not reviewed));
+select pg_temp.ck('real', 'R1c the only unreviewed two-tier rows are those awaiting review, and none claims to be reviewed', '0',
+  (select count(*)::text from public.data_registry where coalesce(notes, '') like 'Two-tier build%' and reviewed));
 select pg_temp.ck('real', 'R2 the CMO''s corrections are applied', 'clinical_record|clinical_record|operational|audit|true|clinical_record',
   (select string_agg(x, '|' order by ord) from (values
     (1, (select retention_class from public.data_registry where table_name = 'sti_partner_notifications')),
