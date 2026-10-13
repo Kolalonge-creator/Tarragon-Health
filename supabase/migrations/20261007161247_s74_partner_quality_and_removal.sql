@@ -323,10 +323,10 @@ begin
   v_score := round(v_acc / v_wsum, 1);
 
   -- breaches
-  if v_lic_state = 'expired' then v_breaches := v_breaches || 'licence_expired'; end if;
-  if v_upheld >= v_limit then v_breaches := v_breaches || 'complaints_upheld_limit'; end if;
-  if v_c_turn is not null and v_within < v_min_pct then v_breaches := v_breaches || 'turnaround_below_target'; end if;
-  if v_score < (v_rules #>> '{score,suspend_below}')::numeric then v_breaches := v_breaches || 'score_below_floor'; end if;
+  if v_lic_state = 'expired' then v_breaches := v_breaches || 'licence_expired'::text; end if;
+  if v_upheld >= v_limit then v_breaches := v_breaches || 'complaints_upheld_limit'::text; end if;
+  if v_c_turn is not null and v_within < v_min_pct then v_breaches := v_breaches || 'turnaround_below_target'::text; end if;
+  if v_score < (v_rules #>> '{score,suspend_below}')::numeric then v_breaches := v_breaches || 'score_below_floor'::text; end if;
 
   insert into public.partner_quality as q (partner_kind, partner_id, period_month, config_version, turnaround_target_hours, turnaround_actual_median_hours,
          orders_measured, pct_within_target, complaints_upheld, complaints_open, licence_expires_at, licence_state, score, components, breaches, computed_at)

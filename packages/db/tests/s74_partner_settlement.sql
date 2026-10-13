@@ -167,8 +167,8 @@ begin
   v_t2 := pg_temp.q_as(pg_temp.f('a1'), format($q$select public.create_partner_settlement_terms('pharmacy', %L, 's74_item_two', 'pharmacy_margin', 'fixed_kobo', 5000, true, 'Agreed fixed margin per item with the pharmacy')::text$q$, pg_temp.f('phA')))::uuid;
   perform pg_temp.setf('t1', v_t1); perform pg_temp.setf('t2', v_t2);
   perform pg_temp.r('3.6 terms are drafted unapproved', 'null', (select coalesce(approved_by::text, 'null') from public.partner_settlement_terms where id = v_t1));
-  perform pg_temp.r('3.7 terms cannot be edited, even by the owner', '42501', pg_temp.try_sql(format($$update public.partner_settlement_terms set value = 9000 where id = %L$$, v_t1)));
-  perform pg_temp.r('3.8 terms cannot be deleted', '42501', pg_temp.try_sql(format($$delete from public.partner_settlement_terms where id = %L$$, v_t1)));
+  perform pg_temp.r('3.7 terms cannot be edited, even by the owner', '42501', pg_temp.try_sql(format($u$update public.partner_settlement_terms set value = 9000 where id = %L$u$, v_t1)));
+  perform pg_temp.r('3.8 terms cannot be deleted', '42501', pg_temp.try_sql(format($u$delete from public.partner_settlement_terms where id = %L$u$, v_t1)));
   perform pg_temp.r('3.9 four eyes: the person who drafted the terms cannot approve them', 'ERR:42501', pg_temp.q_as(pg_temp.f('a1'), format($q$select public.approve_partner_settlement_terms(%L)::text$q$, v_t1)));
   perform pg_temp.r('3.10 a patient and a pharmacist cannot approve', 'ERR:42501|ERR:42501', pg_temp.q_as(pg_temp.f('pat'), format($q$select public.approve_partner_settlement_terms(%L)::text$q$, v_t1)) || '|' || pg_temp.q_as(pg_temp.f('phAu'), format($q$select public.approve_partner_settlement_terms(%L)::text$q$, v_t1)));
   perform pg_temp.r('3.11 the preview is empty while nothing is approved', '0', pg_temp.q_as(pg_temp.f('a2'), format($q$select count(*)::text from public.partner_settlement_preview(%L)$q$, pg_temp.t('month')::date)));
@@ -258,9 +258,9 @@ begin
   perform pg_temp.do_as(pg_temp.f('a1'), format($q$select public.record_settlement_paid(%L, 'GTB-0001-2026')::text$q$, v_set));
   perform pg_temp.r('6.18 recorded paid, with the reference and by whom', 'settled|GTB-0001-2026|true', (select state || '|' || external_reference || '|' || (settled_by is not null)::text from public.settlements where id = v_set));
   perform pg_temp.r('6.19 a settled statement is frozen: amount, state and payables', '42501|42501|42501',
-    pg_temp.try_sql(format($$update public.settlements set amount_kobo = 1 where id = %L$$, v_set)) || '|' ||
-    pg_temp.try_sql(format($$update public.partner_payables set amount_kobo = 1 where settlement_id = %L$$, v_set)) || '|' ||
-    pg_temp.try_sql(format($$delete from public.partner_payables where settlement_id = %L$$, v_set)));
+    pg_temp.try_sql(format($u$update public.settlements set amount_kobo = 1 where id = %L$u$, v_set)) || '|' ||
+    pg_temp.try_sql(format($u$update public.partner_payables set amount_kobo = 1 where settlement_id = %L$u$, v_set)) || '|' ||
+    pg_temp.try_sql(format($u$delete from public.partner_payables where settlement_id = %L$u$, v_set)));
   perform pg_temp.r('6.20 a settled statement cannot be voided', 'ERR:22023', pg_temp.q_as(pg_temp.f('a1'), format($q$select public.void_settlement(%L, 'Trying to undo a paid statement')::text$q$, v_set)));
   perform pg_temp.r('6.21 the paid statement shows the pharmacy its reference', 'GTB-0001-2026', pg_temp.q_as(pg_temp.f('phAu'), 'select max(external_reference) from public.partner_my_statements()'));
 end $$;
@@ -278,14 +278,14 @@ begin
   perform pg_temp.r('7.3 the late payable stays unattached', 'null', (select coalesce(settlement_id::text, 'null') from public.partner_payables where order_id = v_o8));
   -- the earnings side: an order already in the clinician ledger cannot be made a payable by any path
   perform pg_temp.r('7.4 a payable for an order a clinician earning reaches is refused by the table', '23514',
-    pg_temp.try_sql(format($$insert into public.partner_payables (organisation_id, term_id, order_id, partner_kind, partner_id, source_kind, basis_amount_kobo, amount_kobo, period_month, is_test)
-      values (%L, %L, %L, 'pharmacy', %L, 'sponsor_paid_item', 100100, 33363, %L, false)$$, pg_temp.f('org'), pg_temp.f('t1'), pg_temp.f('o6'), pg_temp.f('phA'), v_month)));
+    pg_temp.try_sql(format($u$insert into public.partner_payables (organisation_id, term_id, order_id, partner_kind, partner_id, source_kind, basis_amount_kobo, amount_kobo, period_month, is_test)
+      values (%L, %L, %L, 'pharmacy', %L, 'sponsor_paid_item', 100100, 33363, %L, false)$u$, pg_temp.f('org'), pg_temp.f('t1'), pg_temp.f('o6'), pg_temp.f('phA'), v_month)));
   perform pg_temp.r('7.5 a payable for an unpaid order is refused', '23514',
-    pg_temp.try_sql(format($$insert into public.partner_payables (organisation_id, term_id, order_id, partner_kind, partner_id, source_kind, basis_amount_kobo, amount_kobo, period_month, is_test)
-      values (%L, %L, %L, 'pharmacy', %L, 'sponsor_paid_item', 100100, 33363, %L, false)$$, pg_temp.f('org'), pg_temp.f('t1'), pg_temp.f('o4'), pg_temp.f('phA'), v_month)));
+    pg_temp.try_sql(format($u$insert into public.partner_payables (organisation_id, term_id, order_id, partner_kind, partner_id, source_kind, basis_amount_kobo, amount_kobo, period_month, is_test)
+      values (%L, %L, %L, 'pharmacy', %L, 'sponsor_paid_item', 100100, 33363, %L, false)$u$, pg_temp.f('org'), pg_temp.f('t1'), pg_temp.f('o4'), pg_temp.f('phA'), v_month)));
   perform pg_temp.r('7.6 the same order and term cannot accrue twice', '23505',
-    pg_temp.try_sql(format($$insert into public.partner_payables (organisation_id, term_id, order_id, partner_kind, partner_id, source_kind, basis_amount_kobo, amount_kobo, period_month, is_test)
-      values (%L, %L, %L, 'pharmacy', %L, 'sponsor_paid_item', 100100, 33363, %L, false)$$, pg_temp.f('org'), pg_temp.f('t1'), pg_temp.f('o1'), pg_temp.f('phA'), v_month)));
+    pg_temp.try_sql(format($u$insert into public.partner_payables (organisation_id, term_id, order_id, partner_kind, partner_id, source_kind, basis_amount_kobo, amount_kobo, period_month, is_test)
+      values (%L, %L, %L, 'pharmacy', %L, 'sponsor_paid_item', 100100, 33363, %L, false)$u$, pg_temp.f('org'), pg_temp.f('t1'), pg_temp.f('o1'), pg_temp.f('phA'), v_month)));
   perform pg_temp.r('7.7 the double-payment check is empty while the two systems are clean', '0', (select count(*)::text from private.partner_double_payment_findings()));
   -- an earnings line later added for an order that is already a payable is FOUND
   perform set_config('tarragon.earnings_write', 'on', true);
@@ -315,8 +315,8 @@ begin
   insert into public.settlements (organisation_id, partner_kind, partner_id, period_month, amount_kobo, item_count, config_version, is_test)
   values (pg_temp.f('org'), 'pharmacy', v_ph, (v_month - interval '2 months')::date, 0, 0, 1, true) returning id into v_set;
   perform pg_temp.do_as(pg_temp.f('a1'), format($q$select public.void_settlement(%L, 'Drafted by mistake in this proof')::text$q$, v_set));
-  perform pg_temp.r('7.15 a draft can be voided with a reason and is then final', 'void|42501', (select state from public.settlements where id = v_set) || '|' || pg_temp.try_sql(format($$update public.settlements set state = 'draft' where id = %L$$, v_set)));
-  perform pg_temp.r('7.16 a statement is never deleted', '42501', pg_temp.try_sql(format($$delete from public.settlements where id = %L$$, v_set)));
+  perform pg_temp.r('7.15 a draft can be voided with a reason and is then final', 'void|42501', (select state from public.settlements where id = v_set) || '|' || pg_temp.try_sql(format($u$update public.settlements set state = 'draft' where id = %L$u$, v_set)));
+  perform pg_temp.r('7.16 a statement is never deleted', '42501', pg_temp.try_sql(format($u$delete from public.settlements where id = %L$u$, v_set)));
 end $$;
 
 -- 8. SABOTAGE -------------------------------------------------------------------------------------------------------------------------

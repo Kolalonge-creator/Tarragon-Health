@@ -131,10 +131,10 @@ do $$ declare r text; begin
   perform pg_temp.r('4.3 ...and a second result for the same order is refused as already received', 'ERR:lab_result_already_received',
     pg_temp.msg_as(pg_temp.f('labA'), format($q$select public.lab_partner_submit_result(%L, 'membership_annual', %L::jsonb)::text$q$, pg_temp.f('orderA'), pg_temp.items(0.9))));
 end $$;
-select pg_temp.r('3.5 laboratory A reads no result row, not even its own (a partner never reads results back, INV-10)', '0|0|0',
-  pg_temp.code_as(pg_temp.f('labA'), 'select (select count(*) from public.lab_results)::text || ''|'' || (select count(*) from public.lab_result_items)::text || ''|'' || (select count(*) from public.lab_result_files)::text'));
-select pg_temp.r('3.6 laboratory B reads none either', '0|0|0',
-  pg_temp.code_as(pg_temp.f('labB'), 'select (select count(*) from public.lab_results)::text || ''|'' || (select count(*) from public.lab_result_items)::text || ''|'' || (select count(*) from public.lab_result_files)::text'));
+select pg_temp.r('3.5 laboratory A reads no result row, not even its own (a partner never reads results back, INV-10); the files table is not readable by any signed-in user at all (S27 grants nothing on it)', '0|0|false',
+  pg_temp.code_as(pg_temp.f('labA'), 'select (select count(*) from public.lab_results)::text || ''|'' || (select count(*) from public.lab_result_items)::text || ''|'' || has_table_privilege(''authenticated'', ''public.lab_result_files'', ''SELECT'')::text'));
+select pg_temp.r('3.6 laboratory B reads none either', '0|0|false',
+  pg_temp.code_as(pg_temp.f('labB'), 'select (select count(*) from public.lab_results)::text || ''|'' || (select count(*) from public.lab_result_items)::text || ''|'' || has_table_privilege(''authenticated'', ''public.lab_result_files'', ''SELECT'')::text'));
 select pg_temp.r('3.7 an unrelated patient reads none', '0|0', pg_temp.code_as(pg_temp.f('stranger'), 'select (select count(*) from public.lab_results)::text || ''|'' || (select count(*) from public.lab_result_items)::text'));
 select pg_temp.r('3.8 the patient does not see the held result yet (INV-03)', '0', pg_temp.code_as(pg_temp.f('pat'), 'select count(*)::text from public.lab_results'));
 select pg_temp.r('3.9 a clinician reads no result directly either (reads go through the audited function)', '0', pg_temp.code_as(pg_temp.f('doc'), 'select count(*)::text from public.lab_results'));
