@@ -303,35 +303,38 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-47 Add-elder proxy gives `manage` access before the elder has agreed (raised by S04)
 - `addElderProxyDependentAction` (`apps/web/src/app/(dashboard)/patient/family/add-elder-actions.ts`) creates a login-less elder profile and gives the proxy `manage` on it at once. Through the dependent bypass in `private.can_read_clinical` that covers every category, reproductive health included. That is the opposite of v5 8.2 and safety case 23 ("the proxy sees nothing until the parent confirms"). The new `proxy_setups` flow is the compliant path; the old one is unchanged by S04.
 - Options: (a) route "add a parent" through the new flow and keep the old action only for elders with no phone or capacity, with a recorded reason (recommended); (b) remove the old action; (c) leave both.
-- Decision:
+- Decision: Fixed in S04b-1 (PR pending, founder instruction 2026-10-13, owner to confirm). The legacy add-elder path still creates the login-less record (the sponsor flow needs it) but the proxy's grant now carries `manage_payments` only; `private.guard_elder_proxy_grant` refuses any clinical permission over an elder_proxy who has not verified their own phone, and the blanket dependant read in both `private.can_read_clinical` overloads now applies to a `minor_child` only, so the proxy of an adult sees nothing until that adult chooses categories (the "Set up for my parent" flow). Open for you: this keeps the manage level for payments; if you would rather the old action be removed altogether and sponsors pay only through a confirmed proxy setup, say so.
 
 ### OQ-48 The dependent-claim flow sends an SMS that is not a verification code (raised by S04)
 - `claimDependentAccountAction` inserts a `notifications` row on channel `sms` (`dependent_account_claimed`), which INV-08 forbids (SMS is for verification codes only). Extends OQ-32; S04 does not change it.
-- Decision:
+- Decision: Fixed in S04b-1. The claim flow now only starts a hand-over (`dependant_handovers`), attaches the number unconfirmed, and queues nothing: no SMS and no other notification. The only SMS is the Auth verification code the person triggers by signing in. The guardian is told on screen to ask them to sign in at app.tarragonhealth.ng; the record changes hands only when the person accepts (founder decision R3).
 
 ### OQ-49 Optional consent types have no approved wording (raised by S04)
 - `consent_versions` has rows only for the three original types. S04 adds the plumbing (`is_required`, withdrawal-aware logic, history) and seeds the optional purposes with `text_key`s, but the legal text (English) and the Pidgin equivalents need your approval and a native reviewer (OQ-19) before they are shown as real consent.
 - Options: (a) ship the keys with clearly marked draft text behind a config flag until signed off (recommended); (b) hold the optional purposes entirely.
+- Progress (S04b-2, migration `20261013181937`, NOT applied): drafts are a database concept now (`consent_versions.is_draft`). A draft is invisible to patients and anon, cannot be accepted, and can only be published by `public.publish_consent_wording` when a superadmin has switched on the platform module `optional_consent_wording`. Seeded one draft, `care_circle_sharing` (exact text in the PR for approval). `research` and `sponsor_reporting` already carry live wording (applied from other branches, see OQ-S04b2-1) and were left alone; they still need your approval as text of record.
 - Decision:
 
 ### OQ-50 Self-serve account deletion and data export are not in S04 (raised by S04)
 - Live: export and deletion are admin-reviewed requests (`data_export_requests`, `data_deletion_requests`); there is no `delete_account` function and no self-serve download. Automated erasure needs a retention decision (clinical records, `audit_log` has no FK on purpose, finance ledger entries are never deleted).
 - Options: (a) keep the reviewed workflow and add a two-tap request and status view (recommended); (b) automate erasure after a legal retention ruling.
+- Progress (S04b-2): chose option (a). Reused `data_export_requests` and `data_deletion_requests` (no third table). Export: two-tap request, stated timeline (`due_at`, 30 days), status, download when fulfilled (the S39f route and `export_my_data()`). Deletion: a grace period (7 to 30 days in the database, 14 PROPOSED in `privacy.deletion_grace`), nothing approved or completed before it ends, cancel until then (`public.cancel_my_data_deletion_request`), one open request per patient, requests and cancels written to `audit_log`, and a plain list of what is removed and what is kept (posted clinical records, audit logs, financial ledger entries, consent history). No clinical record is deleted by this flow. See OQ-S04b2-2 for what is still manual.
 - Decision:
 
 ### OQ-51 Categories chosen by the parent do not set `profile_access.permissions` (raised by S04 review)
 - `confirm_proxy_setup` grants the chosen `care_access_category` rows but stores empty `permissions`. Tables or screens gated by the `can_read_clinical(uuid, caregiver_permission)` overload can still refuse the proxy, so "share Medicines" may not let them see medicines. The direction is safe (less access than shown), but the two models disagree.
 - Options: (a) define one mapping from category to permissions and write both at confirmation (recommended, needs a clinical and product decision on the mapping); (b) make the permission overload read the category rows.
-- Decision:
+- Decision: Fixed in S04b-1 with option (a), one mapping in SQL (`private.category_permissions`): appointments_care_plan -> view_appointments, view_care_plan; medications -> view_medication; labs_results -> view_results; messaging -> communicate_with_care_team; vitals, vaccinations, medical history map to nothing; reproductive_health never maps. `confirm_proxy_setup` writes both from the categories the parent ticked (the hand-supplied permission list is ignored), and the permission overload of `can_read_clinical` accepts a category the person chose, still requiring the permission to be in the grant's array. Needs a clinical read of the mapping (CMO) before it is called signed off.
 
 ### OQ-52 Starting a setup creates an unverified account for any phone number (raised by S04 review)
 - The proxy flow uses phone OTP with `shouldCreateUser: true`, as spec 8.2 describes, so any patient can create a password-less, unconfirmed account and profile for an arbitrary number (5 a day each). That also runs `handle_new_user`'s roster claim before verification (OQ-41).
 - Options: (a) accept and add per-number and per-caller limits plus a cleanup of never-verified setup accounts (recommended); (b) send no code to a number with no account and let the parent sign up normally, then show the pending request after verification (changes spec 8.2).
-- Decision:
+- Decision: Fixed in S04b-1 with option (b): starting a setup sends the code with `shouldCreateUser: false` on web and mobile, so no account, profile or employer-roster claim is created for a number nobody has verified. A number with no account gets the same answer as one with an account. A parent without an account signs up normally and sees the request once their number is verified.
 
 ### OQ-53 "A required consent cannot be withdrawn" is enforced only in the web action (raised by S04 review)
 - `withdrawConsentAction` refuses required purposes, but the `patient_consents` insert policy and the withdrawal trigger still allow a patient to insert a withdrawn row for a required purpose directly.
 - Options: (a) enforce it in `enforce_patient_consent_withdrawal` for current required versions and route account-level withdrawal to the data rights flow (recommended); (b) leave it app-level.
+- Progress (S04b-2): chose option (a). `private.enforce_patient_consent_withdrawal` now refuses (SQLSTATE 23514) a withdrawal of a required consent by a signed-in person whose account is active; a closed account (`profiles.is_active = false`) and a service context are not blocked. The web and mobile actions explain the refusal and point to closing the account. Optional purposes stay individually withdrawable in two taps.
 - Decision:
 
 
@@ -2033,6 +2036,22 @@ following are recorded in the system:
 4. Counsel-approved join consent text and retention values (OQ-COM-06).
 5. CMO approval of the weight-loss group rules and pinned post (OQ-COM-09).
 6. A tabletop run of the safety hand-off with a test account (`is_test`).
+
+### OQ-S04b2-1 Live consent wording that is not on `main-dev` (raised by S04b-2)
+- Live `consent_versions` holds a current optional `research` version (migration `20261007220215_consent_research_version`, from `origin/fix/content-approval-reviewer-role`, not on `main-dev`) and a current `sponsor_reporting` version `2026-10-07` (S38e shipped it as a non-current draft). Both are shown to patients today. **Founder decision 2026-10-13: the live `research` and `sponsor_reporting` wording is approved as written, and the `care_circle_sharing` draft (`2026-10-13`) is approved as written but NOT published.** Publishing stays a separate audited superadmin step (`public.publish_consent_wording`, with the `optional_consent_wording` module on). Still open: that branch edits the same consent actions and panels as S04b-2 (names `grantConsentAction` and `recordConsent` kept the same on purpose); `s04_consent_is_optional.sql` fails against live (a current `research` row exists) though it passes on a fresh replay; OQ-S04b2-3 says Care Circle sharing may be redundant.
+- Decision:
+
+### OQ-S04b2-2 Closing an account has no automated executor (raised by S04b-2)
+- After the grace period an admin reviews the request and marks it completed by hand (the existing workflow). Completing an approved request deactivates the profile (never deleted; that is what lets a required consent be withdrawn under OQ-53), bans the login, writes a withdrawal row for every consent still in force, and is audited. Nothing yet removes the contact details, preferences or device connections, or revokes Care Circle grants; the reviewer's note says what was done. The patient-facing text lists what is removed and what is kept, so an executor must be built to match it, using the S39d registry classes (`operational` removable, everything else kept) and never touching clinical records, audit logs or ledger entries.
+- Constraint found in review: `patient_consents.patient_id` and `data_deletion_requests.patient_id` cascade from `profiles`, so the executor must DEACTIVATE the profile (`is_active = false`), never delete it, or the consent history and deletion record that the privacy page promises to keep would be deleted with it. Only `purge_test_account` removes profiles (test accounts).
+- Also decided in the migration, for you to confirm: a guardian can record a consent for a DEPENDANT account only with `manage` access (`private.can_act_for(uuid)`), because the caregiver permission enum has no consent permission and consent for a child is a guardian-level act, not a delegable one.
+- Options: (a) build a reviewed "close account" function the admin runs from the request, using the registry classes, with a proof (recommended, next session); (b) keep it manual and tracked by checklist.
+- Decision:
+
+### OQ-S04b2-3 Care Circle sharing consent may be redundant (raised by S04b-2)
+- OQ-313 recommended retiring the `care_circle_sharing` consent type because Care Circle already has its own access grants (a second consent is a second source of truth). The brief for S04b-2 asked to seed it as a draft, so a draft exists, hidden. If OQ-313 (a) wins, delete the draft and do not publish it.
+- Options: (a) keep hidden and decide with OQ-313; (b) publish after approval and wire a gate.
+- Decision:
 
 ---
 

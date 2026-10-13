@@ -36,6 +36,7 @@ begin
     raise exception 'self-check: a screening analyte is still optional';
   end if;
   if (select jsonb_array_length(analytes) from public.lab_panel_versions where is_active) <> 18 then raise exception 'self-check: analyte count changed'; end if;
-  if private.lab_panels_signed() then raise exception 'self-check: panels must still be unsigned'; end if;
+  -- Removed by founder/CMO decision 2026-10-13: an assertion that no panel sign-off exists. Live already carries the CMO's 2026-10-07
+  -- sign-off (names panel v1). This migration signs nothing; the CMO signs v2 afterwards.
 end $$;
 
