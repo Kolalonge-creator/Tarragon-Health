@@ -142,11 +142,11 @@ begin
       select id, supersedes_id, superseded_by_id from public.%1$I where id = $1
       union
       select t.id, t.supersedes_id, t.superseded_by_id
-        from public.%1$I t join chain c on t.id = c.supersedes_id or t.id = c.superseded_by_id or t.supersedes_id = c.id
+        from public.%1$I t join chain c on t.patient_id = $3 and (t.id = c.supersedes_id or t.id = c.superseded_by_id or t.supersedes_id = c.id)
     )
     select coalesce(jsonb_agg((case when $2 then to_jsonb(t) - 'search_vector' else to_jsonb(t) - 'search_vector' - 'validated_by' - 'logged_by_profile_id' - 'validation_flags' - 'corrected_by' - 'recorded_by' - 'verified_by' end) order by t.created_at, t.id), '[]'::jsonb)
       from public.%1$I t where t.id in (select id from chain)
-  $q$, p_table) into v_out using p_id, v_staff;
+  $q$, p_table) into v_out using p_id, v_staff, v_patient;
   return v_out;
 end;
 $$;
