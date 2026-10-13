@@ -61,10 +61,11 @@ begin
   -- caregiver grants: manage with no category; manage + reproductive_health
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by) values (v_patient, v_cg_manage, 'manage', v_patient);
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by) values (v_patient, v_cg_cat, 'manage', v_patient) returning id into v_grant_cat;
-  -- only the person whose record it is may grant a category (private.enforce_category_access_owner), so act as the patient for this one insert
-  perform set_config('request.jwt.claims', json_build_object('sub', v_patient, 'role', 'authenticated')::text, true);
+  -- only the person whose record it is may grant a category (profile_access_categories_owner_guard); this fixture row is written by the proof itself, so the guard
+  -- is switched off for this one insert and straight back on (no session settings are touched, which other guards in this proof are sensitive to)
+  alter table public.profile_access_categories disable trigger profile_access_categories_owner_guard;
   insert into public.profile_access_categories (profile_access_id, category) values (v_grant_cat, 'reproductive_health');
-  perform set_config('request.jwt.claims', '', true);
+  alter table public.profile_access_categories enable trigger profile_access_categories_owner_guard;
   -- an emergency record-access grant (break-glass) for the requester
   insert into public.emergency_record_access_grants (requester_id, requester_org_id, patient_id, patient_org_id, reason, expires_at)
   values (v_emerg, v_org, v_patient, v_org, 'S67 proof', now() + interval '1 hour');
