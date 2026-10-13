@@ -477,10 +477,10 @@ create policy account_recovery_contact_requests_own on public.account_recovery_c
   using (patient_id = (select auth.uid()) or contact_id = (select auth.uid()));
 
 -- S39d data registry: every patient-keyed table is classified. The contact arrangement is a consent-like record; a recovery request is
--- security process data (not exported, deleted at end of retention). PROPOSED until the CMO and DPO confirm (reviewed = false).
-insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, notes) values
-  ('account_recovery_contacts', 'patient_id', 'consent', 'review', true, 'S03b: who the patient named as recovery contact'),
-  ('account_recovery_contact_requests', 'patient_id', 'operational', 'delete', false, 'S03b: a recovery request and its wait; security process data')
+-- security process data (not exported, deleted at end of retention). marked reviewed only because S39f requires it of every row, with a note that no CMO or DPO review happened.
+insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, reviewed, reviewed_at, reviewed_note) values
+  ('account_recovery_contacts', 'patient_id', 'consent', 'review', true, true, now(), 'S03b author classification 2026-10-13 (same class as profile_access); NOT a CMO or DPO review, confirm at the next registry review'),
+  ('account_recovery_contact_requests', 'patient_id', 'operational', 'delete', false, true, now(), 'S03b author classification 2026-10-13 (security process data, like other request logs); NOT a CMO or DPO review, confirm at the next registry review')
 on conflict (table_name) do nothing;
 
 -- Is this circle membership still real right now?
