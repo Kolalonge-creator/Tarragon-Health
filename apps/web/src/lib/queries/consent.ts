@@ -75,5 +75,30 @@ export function useOutstandingConsentTypes(patientId: string) {
     accepted,
     outstanding,
     isLoading: currentVersions.isLoading || patientConsents.isLoading,
+    /** A failed load must not read as "nothing agreed": the panel hides its controls and says so. */
+    isError: currentVersions.isError || patientConsents.isError,
   };
+}
+
+export type ConsentReceipt = Tables<"patient_consent_receipts">;
+
+/**
+ * The caller's consent receipts (S04b-2): every grant and withdrawal with the exact words, when, where and by whom,
+ * newest first. Read from the security-invoker view, so RLS scopes it to the patient (or a guardian of a dependant).
+ */
+export function usePatientConsentReceipts(patientId: string) {
+  return useQuery({
+    queryKey: ["patient-consent-receipts", patientId],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("patient_consent_receipts")
+        .select("*")
+        .eq("patient_id", patientId)
+        .order("recorded_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!patientId,
+  });
 }

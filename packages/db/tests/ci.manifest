@@ -308,6 +308,8 @@ can_read_clinical_bare_literal_policy_cast.sql
 continuous_monitoring_90d_single_tier.sql
 preventive_health_check_review_sku.sql
 
+# S04b-2: consent receipts (channel, who, exact-text hash, forged values overwritten), the OQ-53 rule (an active account cannot withdraw a required consent; optional give and withdraw work; closed account and service context are not blocked), drafted optional wording (hidden from patients and anon, cannot be accepted, publish needs the module on and an admin, text immutable once agreed), guardian scope for a dependant, patient_consents append-only, deletion request grace clamped 7 to 30 days, one open request, no approval before the grace ends, owner-only audited cancel. Sabotage: the withdrawal rule removed (a required consent is withdrawn) and the grace gate removed (an admin approves early); both must flip, then are restored.
+s04b2_consent_receipts_and_deletion_grace.sql
 # /code-review high on the above continuous_monitoring_90d_single_tier.sql
 # migration, run before its PR was opened, found a real bug in it: the new
 # product's features array was copied from continuous_monitoring_cover.sql's

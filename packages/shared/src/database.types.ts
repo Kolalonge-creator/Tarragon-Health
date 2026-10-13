@@ -10569,8 +10569,10 @@ export type Database = {
           body: string
           consent_type: Database["public"]["Enums"]["consent_type"]
           created_at: string
+          draft_note: string | null
           id: string
           is_current: boolean
+          is_draft: boolean
           is_optional: boolean
           published_at: string
           text_key: string | null
@@ -10581,8 +10583,10 @@ export type Database = {
           body: string
           consent_type: Database["public"]["Enums"]["consent_type"]
           created_at?: string
+          draft_note?: string | null
           id?: string
           is_current?: boolean
+          is_draft?: boolean
           is_optional?: boolean
           published_at?: string
           text_key?: string | null
@@ -10593,8 +10597,10 @@ export type Database = {
           body?: string
           consent_type?: Database["public"]["Enums"]["consent_type"]
           created_at?: string
+          draft_note?: string | null
           id?: string
           is_current?: boolean
+          is_draft?: boolean
           is_optional?: boolean
           published_at?: string
           text_key?: string | null
@@ -11556,16 +11562,20 @@ export type Database = {
         Row: {
           blocked_categories: string[]
           blocked_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           completed_at: string | null
           completed_by: string | null
           created_at: string
           decision_note: string | null
+          grace_ends_at: string | null
           id: string
           organisation_id: string
           patient_id: string
           reason: string | null
           requested_at: string
           requested_categories: string[]
+          requested_grace_days: number | null
           reviewed_at: string | null
           reviewed_by: string | null
           status: string
@@ -11574,16 +11584,20 @@ export type Database = {
         Insert: {
           blocked_categories?: string[]
           blocked_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string
           decision_note?: string | null
+          grace_ends_at?: string | null
           id?: string
           organisation_id: string
           patient_id: string
           reason?: string | null
           requested_at?: string
           requested_categories?: string[]
+          requested_grace_days?: number | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string
@@ -11592,16 +11606,20 @@ export type Database = {
         Update: {
           blocked_categories?: string[]
           blocked_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string
           decision_note?: string | null
+          grace_ends_at?: string | null
           id?: string
           organisation_id?: string
           patient_id?: string
           reason?: string | null
           requested_at?: string
           requested_categories?: string[]
+          requested_grace_days?: number | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string
@@ -11642,6 +11660,7 @@ export type Database = {
         Row: {
           created_at: string
           decision_note: string | null
+          due_at: string
           fulfilled_at: string | null
           fulfilled_by: string | null
           id: string
@@ -11657,6 +11676,7 @@ export type Database = {
         Insert: {
           created_at?: string
           decision_note?: string | null
+          due_at?: string
           fulfilled_at?: string | null
           fulfilled_by?: string | null
           id?: string
@@ -11672,6 +11692,7 @@ export type Database = {
         Update: {
           created_at?: string
           decision_note?: string | null
+          due_at?: string
           fulfilled_at?: string | null
           fulfilled_by?: string | null
           id?: string
@@ -27429,34 +27450,46 @@ export type Database = {
         Row: {
           accepted_at: string
           action: string
+          channel: string | null
           consent_type: Database["public"]["Enums"]["consent_type"]
           consent_version_id: string
+          consented_by: string | null
+          consented_by_relation: string | null
           created_at: string
           id: string
           organisation_id: string
           patient_id: string
+          text_sha256: string | null
           version: string
         }
         Insert: {
           accepted_at?: string
           action?: string
+          channel?: string | null
           consent_type: Database["public"]["Enums"]["consent_type"]
           consent_version_id: string
+          consented_by?: string | null
+          consented_by_relation?: string | null
           created_at?: string
           id?: string
           organisation_id: string
           patient_id: string
+          text_sha256?: string | null
           version: string
         }
         Update: {
           accepted_at?: string
           action?: string
+          channel?: string | null
           consent_type?: Database["public"]["Enums"]["consent_type"]
           consent_version_id?: string
+          consented_by?: string | null
+          consented_by_relation?: string | null
           created_at?: string
           id?: string
           organisation_id?: string
           patient_id?: string
+          text_sha256?: string | null
           version?: string
         }
         Relationships: [
@@ -43441,6 +43474,24 @@ export type Database = {
         }
         Relationships: []
       }
+      patient_consent_receipts: {
+        Row: {
+          action: string | null
+          body: string | null
+          channel: string | null
+          consent_type: Database["public"]["Enums"]["consent_type"] | null
+          consent_version_id: string | null
+          consented_by_relation: string | null
+          id: string | null
+          is_optional: boolean | null
+          patient_id: string | null
+          recorded_at: string | null
+          text_sha256: string | null
+          title: string | null
+          version: string | null
+        }
+        Relationships: []
+      }
       patient_consent_state: {
         Row: {
           consent_type_code: Database["public"]["Enums"]["consent_type"] | null
@@ -48834,6 +48885,8 @@ export type Database = {
         Returns: boolean
       }
       accept_care_circle_invite: { Args: { p_token: string }; Returns: Json };
+      cancel_my_data_deletion_request: { Args: { p_request: string }; Returns: Json };
+      publish_consent_wording: { Args: { p_note: string; p_version: string }; Returns: Json };
       cancel_care_circle_invite: { Args: { p_invite: string }; Returns: boolean };
       circle_open_alerts: { Args: never; Returns: Json };
       circle_ack_alert: { Args: { p_patient: string }; Returns: boolean };
