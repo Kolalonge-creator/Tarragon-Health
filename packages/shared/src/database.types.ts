@@ -128,6 +128,60 @@ export type Database = {
           },
         ]
       }
+      my_health_config: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      patient_lock_screen_pass: {
+        Row: {
+          enabled: boolean
+          organisation_id: string
+          profile_id: string
+          updated_at: string
+        }
+        Insert: {
+          enabled?: boolean
+          organisation_id: string
+          profile_id: string
+          updated_at?: string
+        }
+        Update: {
+          enabled?: boolean
+          organisation_id?: string
+          profile_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       payout_events: {
         Row: {
           actor_id: string | null
@@ -34364,6 +34418,8 @@ export type Database = {
           looked_up_at: string
           ip_inet: string | null
           user_agent: string | null
+          outcome: string
+          client_hash: string | null
         }
         Insert: {
           id?: string
@@ -34371,6 +34427,8 @@ export type Database = {
           looked_up_at?: string
           ip_inet?: string | null
           user_agent?: string | null
+          outcome?: string
+          client_hash?: string | null
         }
         Update: {
           id?: string
@@ -34378,6 +34436,8 @@ export type Database = {
           looked_up_at?: string
           ip_inet?: string | null
           user_agent?: string | null
+          outcome?: string
+          client_hash?: string | null
         }
         Relationships: [
           {
@@ -34402,6 +34462,12 @@ export type Database = {
           last_viewed_at: string | null
           created_at: string
           revoked_at: string | null
+          pin_hash: string | null
+          pin_misses: number
+          locked_at: string | null
+          one_session: boolean
+          first_opened_at: string | null
+          pin_protected: boolean | null
         }
         Insert: {
           id?: string
@@ -34415,6 +34481,11 @@ export type Database = {
           last_viewed_at?: string | null
           created_at?: string
           revoked_at?: string | null
+          pin_hash?: string | null
+          pin_misses?: number
+          locked_at?: string | null
+          one_session?: boolean
+          first_opened_at?: string | null
         }
         Update: {
           id?: string
@@ -34428,6 +34499,11 @@ export type Database = {
           last_viewed_at?: string | null
           created_at?: string
           revoked_at?: string | null
+          pin_hash?: string | null
+          pin_misses?: number
+          locked_at?: string | null
+          one_session?: boolean
+          first_opened_at?: string | null
         }
         Relationships: [
           {
@@ -43275,6 +43351,10 @@ export type Database = {
       };
       record_lab_disclosure_attempt: { Args: { p_note?: string; p_outcome: string; p_result: string }; Returns: Json };
       sign_lab_panels: { Args: { p_id: string }; Returns: string };
+      sign_my_health_config: { Args: { p_id: string }; Returns: string };
+      my_access_log: { Args: { p_limit?: number; p_before?: string; p_before_id?: string }; Returns: Json };
+      my_lock_screen_facts: { Args: Record<PropertyKey, never>; Returns: Json };
+      set_lock_screen_pass: { Args: { p_enabled: boolean }; Returns: boolean };
       withdraw_lab_result: { Args: { p_reason: string; p_result: string }; Returns: Json };
       lab_partner_submit_result: { Args: { p_file?: Json; p_items: Json; p_order: string; p_panel: string }; Returns: Json };
       lab_result_explain_allowed: { Args: { p_result: string }; Returns: boolean };
@@ -44985,7 +45065,9 @@ export type Database = {
       create_record_share: {
         Args: {
           p_sections: string[]
-          p_expires_in_hours: number
+          p_expires_in_hours?: number
+          p_use_pin?: boolean
+          p_one_session?: boolean
         }
         Returns: Json
       }
@@ -46962,8 +47044,9 @@ export type Database = {
         }
         Returns: boolean
       }
+      record_share_peek: { Args: { p_token: string }; Returns: string }
       record_share_by_token: {
-        Args: { p_token: string }
+        Args: { p_token: string; p_pin?: string; p_client_key?: string }
         Returns: Json
       }
       redeem_available_service_purchase: {

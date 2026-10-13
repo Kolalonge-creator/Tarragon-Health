@@ -21,6 +21,7 @@ import { RiskQuestionnaireConfigPanel } from "../_signoff-panels/risk-questionna
 import { VaccinationSchedulePanel } from "../_signoff-panels/vaccination-schedule-panel";
 import { LabPanelsPanel } from "../_signoff-panels/lab-panels-panel";
 import { PrnLimitRulesPanel } from "../_signoff-panels/prn-limit-rules-panel";
+import { MyHealthConfigPanel } from "../_signoff-panels/my-health-config-panel";
 import { CommunitySignoffPanel } from "../_signoff-panels/community-panel";
 import { SignoffChecklist } from "@/app/(dashboard)/admin/settings/clinical-signoff/signoff-checklist";
 import { SignoffQueueList } from "@/app/(dashboard)/admin/settings/clinical-protocols/signoff-queue-list";
@@ -51,6 +52,7 @@ const CONFIG_PANELS: Record<string, () => ReactNode> = {
   vaccination_schedule_signoffs: () => <VaccinationSchedulePanel />,
   lab_panel_signoffs: () => <LabPanelsPanel />,
   prn_limit_rules: () => <PrnLimitRulesPanel />,
+  my_health_config: () => <MyHealthConfigPanel />,
 };
 
 /**
