@@ -15,6 +15,13 @@ insert into public.notification_rules_config (version, is_active, config, note) 
 
 alter table public.notification_settings alter column quiet_enabled set default false;
 
+-- Reminders already held under the old default (quiet hours on for everyone) belong to people who never chose that:
+-- release them so the sender decides them again under the new default. Anyone who did opt in is re-held by the sender.
+update public.notifications n set send_after = null
+ where n.status = 'pending' and n.priority = 'routine' and n.channel in ('push', 'email') and n.send_after > now()
+   and exists (select 1 from public.notification_delivery_events e where e.notification_id = n.id and e.event = 'deferred_quiet')
+   and not exists (select 1 from public.notification_settings s where s.profile_id = n.recipient_id and s.quiet_enabled);
+
 create or replace function public.set_my_notification_settings(p_quiet_enabled boolean, p_quiet_start time, p_quiet_end time, p_discreet boolean)
 returns void language plpgsql security definer set search_path = pg_catalog, public as $fn$
 declare v_uid uuid := auth.uid(); v_org uuid; v_on boolean; v_old_on boolean; v_old_start time; v_old_end time;
