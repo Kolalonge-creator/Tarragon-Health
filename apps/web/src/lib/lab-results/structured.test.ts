@@ -99,12 +99,15 @@ describe("describeRangeWithSource (S05b)", () => {
     }
   });
   it("shows an unsigned proposed panel range only to the reviewing clinician, labelled as proposed", () => {
-    const item = { ...base, range_source: "unspecified", range_source_ref: "proposed lab panel membership annual version 1, not yet signed by the Chief Medical Officer" };
+    const item = { ...base, range_source: "proposed_unsigned", range_source_ref: "proposed lab panel membership annual version 1, not yet signed by the Chief Medical Officer" };
     expect(describeRangeWithSource(item).range).toBe("");
     const review = describeRangeWithSource(item, { showUnsignedProposed: true });
     expect(review.range).toBe("70 to 99 mg/dL");
     expect(review.sourceLabel).toContain("not signed");
     expect(describeRangeWithSource({ ...base, range_source: "unspecified" }, { showUnsignedProposed: true }).range).toBe("");
+  });
+  it("prints nothing for a qualitative analyte with no range", () => {
+    expect(describeRangeWithSource({ ref_low: null, ref_high: null, unit: "n/a", range_source: "unspecified" })).toEqual({ range: "", sourceLabel: "" });
   });
   it("parses a payload from before the column existed", () => {
     const parsed = myLabResultsSchema.safeParse([

@@ -19,8 +19,8 @@
 --   * the correction columns can only be written by public.correct_clinical_value (a transaction-local flag it sets), and once a row is
 --     marked superseded they never change again;
 --   * INSERT cannot set supersedes_id unless it comes from that function (no forged chains);
---   * DELETE is refused, except a cascade from a parent row (account removal, pg_trigger_depth > 1) and the patient's own
---     wearable data erasure, which sets app.allow_clinical_value_delete (see section 4).
+--   * DELETE is refused unless a privileged function set the transaction-local flag app.allow_clinical_value_delete: only the patient's own
+--     wearable data erasure does (see section 4); a cascade from a deleted profile is refused as well.
 -- The function is deliberately NOT granted to authenticated yet: reads do not hide superseded rows until S05b-c.
 -- Superuser maintenance migrations that must rewrite a value can disable the trigger for that statement; nothing else can.
 
@@ -43,8 +43,10 @@ declare
   v_chain constant text[] := array['supersedes_id', 'superseded_by_id', 'correction_status', 'correction_reason', 'corrected_by', 'corrected_at'];
 begin
   if tg_op = 'DELETE' then
-    if pg_trigger_depth() > 1
-       or (v_priv and coalesce(nullif(current_setting('app.allow_clinical_value_delete', true), ''), 'off') = 'on') then
+    -- only the one explicit, transaction-local flag set by a privileged function that is allowed to remove these rows (the patient's own
+    -- wearable erasure). A cascade from a deleted profile is refused too: real accounts are not erased this way, and the test-account purge
+    -- disables triggers on the tables it touches.
+    if v_priv and coalesce(nullif(current_setting('app.allow_clinical_value_delete', true), ''), 'off') = 'on' then
       return old;
     end if;
     raise exception 'a recorded % value is never deleted: supersede it with public.correct_clinical_value (entered_in_error keeps the original)', tg_table_name

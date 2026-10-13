@@ -76,6 +76,31 @@ revoke all on function private.stamp_lab_result_item_range_source() from public,
 create trigger a_lab_result_items_stamp_range_source before insert on public.lab_result_items
   for each row execute function private.stamp_lab_result_item_range_source();
 
+-- 2b. The label is resolved at READ time for the two lab-result read paths. The stored value is the one at insert (the items table is append
+--     only); a result entered before the CMO signed is stored with a 'proposed lab panel ...' reference, and as soon as the panels are signed
+--     the read path reports it as signed, so it does not stay "Range not specified" for the patient. Before signing, the reading clinician
+--     gets the typed marker 'proposed_unsigned' (never a stored value, only an output of this function) instead of a parsed sentence.
+create function private.eff_range_source(p_source text, p_ref text, p_low numeric, p_high numeric) returns text
+language sql stable security definer set search_path = '' as
+$$
+  select case
+    when p_source = 'unspecified' and (p_low is not null or p_high is not null) and p_ref like 'proposed lab panel %'
+      then case when private.lab_panels_signed() then 'cmo_signed_config' else 'proposed_unsigned' end
+    else p_source
+  end;
+$$;
+create function private.eff_range_ref(p_source text, p_ref text, p_low numeric, p_high numeric) returns text
+language sql stable security definer set search_path = '' as
+$$
+  select case
+    when p_source = 'unspecified' and (p_low is not null or p_high is not null) and p_ref like 'proposed lab panel %' and private.lab_panels_signed()
+      then regexp_replace(p_ref, '^proposed (lab panel .* version [0-9]+).*$', '\1')
+    else p_ref
+  end;
+$$;
+revoke all on function private.eff_range_source(text, text, numeric, numeric) from public, anon, authenticated;
+revoke all on function private.eff_range_ref(text, text, numeric, numeric) from public, anon, authenticated;
+
 -- 3. The three read paths that carry a range now also carry its source. Patched in place from the live definition (so a parallel change to
 --    these functions is not overwritten) and each patch is asserted to have applied.
 do $$
@@ -88,10 +113,10 @@ begin
     select * from (values
       ('public.my_lab_results()'::text,
        '''ref_low'', i.ref_low, ''ref_high'', i.ref_high,',
-       '''ref_low'', i.ref_low, ''ref_high'', i.ref_high, ''range_source'', i.range_source, ''range_source_ref'', i.range_source_ref,'),
+       '''ref_low'', i.ref_low, ''ref_high'', i.ref_high, ''range_source'', private.eff_range_source(i.range_source, i.range_source_ref, i.ref_low, i.ref_high), ''range_source_ref'', private.eff_range_ref(i.range_source, i.range_source_ref, i.ref_low, i.ref_high),'),
       ('public.lab_result_for_review(uuid,text)',
        '''ref_low'', i.ref_low, ''ref_high'', i.ref_high,',
-       '''ref_low'', i.ref_low, ''ref_high'', i.ref_high, ''range_source'', i.range_source, ''range_source_ref'', i.range_source_ref,'),
+       '''ref_low'', i.ref_low, ''ref_high'', i.ref_high, ''range_source'', private.eff_range_source(i.range_source, i.range_source_ref, i.ref_low, i.ref_high), ''range_source_ref'', private.eff_range_ref(i.range_source, i.range_source_ref, i.ref_low, i.ref_high),'),
       ('public.record_share_by_token(text)',
        '''reference_range_text'', lr.reference_range_text,',
        '''reference_range_text'', lr.reference_range_text, ''range_source'', lr.range_source, ''range_source_ref'', lr.range_source_ref,')

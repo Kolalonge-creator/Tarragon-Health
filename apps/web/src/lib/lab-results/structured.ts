@@ -233,13 +233,14 @@ export function describeRangeWithSource(
   item: { ref_low: number | null; ref_high: number | null; unit: string; range_source?: string | null; range_source_ref?: string | null },
   options: { showUnsignedProposed?: boolean } = {},
 ): { range: string; sourceLabel: string } {
-  const known = rangeMayBeShownAsClinical(item.range_source);
-  if (known) {
+  // a qualitative analyte (positive or negative) has no range at all: nothing to label, nothing printed
+  if (item.ref_low === null && item.ref_high === null) return { range: "", sourceLabel: "" };
+  if (rangeMayBeShownAsClinical(item.range_source)) {
     return { range: formatRange(item.ref_low, item.ref_high, item.unit), sourceLabel: rangeSourceLabel(item.range_source, item.range_source_ref) };
   }
-  // the reviewing clinician may see a proposed (unsigned) panel range, labelled as exactly that; nobody else sees a range without a known source
-  if (options.showUnsignedProposed && item.range_source_ref?.startsWith("proposed lab panel")) {
-    return { range: formatRange(item.ref_low, item.ref_high, item.unit), sourceLabel: `Range not signed: ${item.range_source_ref}` };
+  // 'proposed_unsigned' is computed by the read functions (never stored): the reviewing clinician may see it, labelled as exactly that
+  if (options.showUnsignedProposed && item.range_source === "proposed_unsigned") {
+    return { range: formatRange(item.ref_low, item.ref_high, item.unit), sourceLabel: `Range not signed: ${item.range_source_ref ?? "proposed panel range"}` };
   }
   return { range: "", sourceLabel: rangeSourceLabel("unspecified") };
 }

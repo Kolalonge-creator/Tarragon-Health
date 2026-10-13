@@ -193,9 +193,8 @@ begin
   end if;
   execute 'reset role';
 
-  -- B2 CONTROL: a delete that comes from a parent row (an account removal cascade) still works, a direct delete of the same table does not.
-  --    Shown on two throwaway tables carrying the same trigger function, because deleting a real account also trips the append-only
-  --    record_corrections link (a separate, existing rule that the test-account purge handles by disabling triggers).
+  -- B2 a delete is refused unless the explicit flag is set, whether it is direct or arrives through a parent cascade. Shown on two throwaway
+  --    tables carrying the same trigger function (deleting a real account also trips the append-only record_corrections link, a separate rule).
   create temporary table s05b_parent (id uuid primary key);
   create temporary table s05b_child (id uuid primary key default gen_random_uuid(), parent_id uuid references s05b_parent (id) on delete cascade);
   create trigger a_clinical_value_supersession before delete on s05b_child
@@ -206,8 +205,21 @@ begin
   begin delete from s05b_child where parent_id = v_p3;
   exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
   if v_state is distinct from '42501' then raise exception 'FAIL B2a: a direct delete was allowed (state %)', v_state; end if;
+  v_state := null;
+  begin delete from s05b_parent where id = v_p3;
+  exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
+  if v_state is distinct from '42501' then raise exception 'FAIL B2b: a parent cascade removed a recorded row (state %)', v_state; end if;
+  perform set_config('app.allow_clinical_value_delete', 'on', true);
   delete from s05b_parent where id = v_p3;
-  if exists (select 1 from s05b_child) then raise exception 'FAIL B2b: the parent cascade left the child row'; end if;
+  perform set_config('app.allow_clinical_value_delete', 'off', true);
+  if exists (select 1 from s05b_child) then raise exception 'FAIL B2b2: with the flag the cascade did not remove the row'; end if;
+  -- a trigger-initiated delete without the flag is refused (the old depth rule would have let it through)
+  insert into s05b_parent values (v_p3);
+  insert into s05b_child (parent_id) values (v_p3);
+  v_state := null;
+  begin delete from s05b_parent where id = v_p3;
+  exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
+  if v_state is distinct from '42501' then raise exception 'FAIL B2b3: a nested delete bypassed the guard (state %)', v_state; end if;
 
   -- B2c CONTROL: the patient's own "delete my wearable data" still works (it sets the one sanctioned flag) and still reports the count
   insert into public.wearable_connections (organisation_id, patient_id, provider, status, external_id, access_token, refresh_token)
@@ -464,6 +476,10 @@ begin
   if (select range_source_ref from public.lab_result_items where lab_result_id = v_lr and analyte_code = 'hba1c') not like 'proposed lab panel %' then
     raise exception 'FAIL C5a2: an unsigned range does not say it is a proposed panel range';
   end if;
+  select * into v_item from public.lab_result_items where lab_result_id = v_lr and analyte_code = 'hba1c';
+  if private.eff_range_source(v_item.range_source, v_item.range_source_ref, v_item.ref_low, v_item.ref_high) <> 'proposed_unsigned' then
+    raise exception 'FAIL C5a3: an unsigned stored range does not read as proposed_unsigned';
+  end if;
 
   update public.lab_panel_signoffs set approved_at = now(), approved_by = v_cs where is_active;
   insert into public.lab_result_items (lab_result_id, organisation_id, patient_id, analyte_code, value_numeric, unit, ref_low, ref_high, flag, is_test)
@@ -471,6 +487,15 @@ begin
   select * into v_item from public.lab_result_items where lab_result_id = v_lr and analyte_code = 'fpg';
   if v_item.range_source <> 'cmo_signed_config' or v_item.range_source_ref is null or v_item.range_source_ref not like 'lab panel % version %' then
     raise exception 'FAIL C5b: a signed panel range is not labelled (source %, ref %)', v_item.range_source, v_item.range_source_ref;
+  end if;
+  -- the item stored while unsigned now reads as signed (resolved at read time), with the panel named and no 'proposed' wording
+  select * into v_item from public.lab_result_items where lab_result_id = v_lr and analyte_code = 'hba1c';
+  if private.eff_range_source(v_item.range_source, v_item.range_source_ref, v_item.ref_low, v_item.ref_high) <> 'cmo_signed_config'
+     or private.eff_range_ref(v_item.range_source, v_item.range_source_ref, v_item.ref_low, v_item.ref_high) not like 'lab panel % version %'
+     or private.eff_range_ref(v_item.range_source, v_item.range_source_ref, v_item.ref_low, v_item.ref_high) like 'proposed%' then
+    raise exception 'FAIL C5e: a result entered before signing stays unsigned for the patient after the sign-off (% / %)',
+      private.eff_range_source(v_item.range_source, v_item.range_source_ref, v_item.ref_low, v_item.ref_high),
+      private.eff_range_ref(v_item.range_source, v_item.range_source_ref, v_item.ref_low, v_item.ref_high);
   end if;
   insert into public.lab_result_items (lab_result_id, organisation_id, patient_id, analyte_code, value_text, unit, flag, is_test)
   values (v_lr, v_org, v_p, 'hiv', 'negative', 'n/a', 'negative', true);
@@ -531,7 +556,19 @@ begin
   end;
   if not v_flipped then raise exception 'FAIL D3: sabotage did not flip (the range proof is vacuous)'; end if;
 
-  raise notice 'PASS D: three sabotages each flipped';
+  -- D4: with the read-time resolver stubbed out, a result entered before signing stays unsigned for the patient
+  v_flipped := false;
+  begin
+    create or replace function private.eff_range_source(p_source text, p_ref text, p_low numeric, p_high numeric) returns text
+      language sql as 'select p_source';
+    select * into v_item from public.lab_result_items where lab_result_id = v_lr and analyte_code = 'hba1c';
+    if private.eff_range_source(v_item.range_source, v_item.range_source_ref, v_item.ref_low, v_item.ref_high) = 'unspecified' then v_flipped := true; end if;
+    raise exception 'undo sabotage' using errcode = 'P0099';
+  exception when sqlstate 'P0099' then null;
+  end;
+  if not v_flipped then raise exception 'FAIL D4: sabotage did not flip (the read-time range proof is vacuous)'; end if;
+
+  raise notice 'PASS D: four sabotages each flipped';
   select count(*) into v_n from public.vitals_readings where patient_id = v_p;
   raise notice 'S05b record integrity proof complete (% vitals rows for the fixture patient)', v_n;
 end $$;

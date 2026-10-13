@@ -17,7 +17,7 @@ export function RangeCell({
   return (
     <>
       {described.range}
-      <span className={`block text-xs ${sourceClassName}`}>{described.sourceLabel}</span>
+      {described.sourceLabel ? <span className={`block text-xs ${sourceClassName}`}>{described.sourceLabel}</span> : null}
     </>
   );
 }
