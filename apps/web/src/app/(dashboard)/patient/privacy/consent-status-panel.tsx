@@ -93,7 +93,7 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
                         : "Not yet recorded";
               const badgeVariant = state === "granted" ? "green" : state === "older_version" ? "amber" : "grey";
               const badgeText =
-                state === "granted" ? "Accepted" : state === "withdrawn" ? "Withdrawn" : optional ? "Not shared" : "Outstanding";
+                state === "granted" ? "Accepted" : state === "older_version" ? "Review needed" : state === "withdrawn" ? "Withdrawn" : optional ? "Not shared" : "Outstanding";
               return (
                 <li key={version.id} className="flex items-center justify-between gap-3 py-3">
                   <div>

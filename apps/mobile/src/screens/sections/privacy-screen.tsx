@@ -152,7 +152,7 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
                           : "Not yet recorded"}</MutedText>
               </View>
               <Badge tone={c.accepted ? "brand" : "neutral"}>
-                {c.accepted ? "Accepted" : c.state === "withdrawn" ? "Withdrawn" : c.isOptional ? "Not shared" : "Outstanding"}
+                {c.accepted ? "Accepted" : c.state === "older_version" ? "Review needed" : c.state === "withdrawn" ? "Withdrawn" : c.isOptional ? "Not shared" : "Outstanding"}
               </Badge>
             </View>
             <OptionalConsentControls row={c} organisationId={organisationId} patientId={userId} onChanged={reload} />

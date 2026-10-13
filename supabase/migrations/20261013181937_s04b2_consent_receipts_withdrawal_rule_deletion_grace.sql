@@ -101,13 +101,13 @@ create policy consent_versions_anon_select on public.consent_versions
 
 -- The DRAFT wording for the one optional purpose that has none (plain English, pending the founder's approval).
 insert into public.consent_versions (consent_type, version, title, body, is_current, is_optional, is_draft, draft_note)
-select 'care_circle_sharing', '2026-10-13-draft',
+select 'care_circle_sharing', '2026-10-13',
        'Share my record with my Care Circle',
        'I agree that the people I add to my Care Circle can see the parts of my health information that I choose to share with each of them. I decide who is in my Care Circle and what each person can see, and I can change or remove anyone at any time in the app. Tarragon Health shares nothing with them that I have not chosen. If I stop, they can no longer see my information from that point on. Choosing not to share changes nothing about my care.',
        false,   -- a draft never holds the single current slot; publish_consent_wording makes it current and retires the previous one
        true, true,
        'DRAFT pending approval (OQ-49). Not shown to patients. Publish with public.publish_consent_wording once the founder approves the exact text and the optional_consent_wording module is on.'
-where not exists (select 1 from public.consent_versions c where c.consent_type = 'care_circle_sharing' and c.version = '2026-10-13-draft');
+where not exists (select 1 from public.consent_versions c where c.consent_type = 'care_circle_sharing' and c.version = '2026-10-13');
 
 -- A signed-in session (not a migration or service context) cannot insert optional wording that is already final: it has to go
 -- in as a draft and be published through public.publish_consent_wording.
