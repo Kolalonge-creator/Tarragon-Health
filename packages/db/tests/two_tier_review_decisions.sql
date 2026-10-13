@@ -408,7 +408,7 @@ begin
   execute d;
   select id into m from public.medications where patient_id = mb limit 1;
   r := pg_temp.exec_as(mb, format($q$insert into public.prescription_renewal_requests (patient_id, organisation_id, medication_id) values (%L, %L, %L)$q$, mb, pg_temp.f('org'), m));
-  perform pg_temp.sab('SAB4 a Member standalone renewal is refused', 'P0001', left(r, 5));
+  perform pg_temp.sab('SAB4 a Member standalone renewal is refused with the monthly-review message', 'true', (r like 'P0001:%monthly call%')::text);
 end $$;
 -- 5. the Member check removed from the second-opinion trigger and function
 do $$
