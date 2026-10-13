@@ -310,6 +310,13 @@ continuous_monitoring_90d_single_tier.sql
 s05b_record_integrity.sql
 preventive_health_check_review_sku.sql
 
+# --- Added 2026-10-13 (S03b-b) ------------------------------------------------
+# Accounts that survive a lost number: backup codes, Care Circle recovery contact, the change-number gate and the 72 hour hold
+# (answers OQ-43 in our apps; the Auth-level gap is OQ-S03B-06), and eligibility-first roster/cohort claims after a verified contact (closes OQ-41). Both prove each guard in BOTH
+# directions and carry sabotage steps that flip.
+s03b_account_recovery_routes.sql
+s03b_eligibility_first_claims.sql
+
 # S04b-2: consent receipts (channel, who, exact-text hash, forged values overwritten), the OQ-53 rule (an active account cannot withdraw a required consent; optional give and withdraw work; closed account and service context are not blocked), drafted optional wording (hidden from patients and anon, cannot be accepted, publish needs the module on and an admin, text immutable once agreed), guardian scope for a dependant, patient_consents append-only, deletion request grace clamped 7 to 30 days, one open request, no approval before the grace ends, owner-only audited cancel. Sabotage: the withdrawal rule removed (a required consent is withdrawn) and the grace gate removed (an admin approves early); both must flip, then are restored.
 s04b2_consent_receipts_and_deletion_grace.sql
 # /code-review high on the above continuous_monitoring_90d_single_tier.sql
