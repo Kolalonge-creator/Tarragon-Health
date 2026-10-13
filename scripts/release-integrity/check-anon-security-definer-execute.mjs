@@ -72,6 +72,16 @@ const ALLOWLIST = new Set([
   // prescription records a supply, bounded by active status, the clinician-approved repeats and a 10 minute
   // duplicate window; self-declared pharmacy and pharmacist names, no patient data returned.
   "public.record_prescription_supply_public(p_token text, p_pharmacy_name text, p_pharmacist_name text, p_pharmacist_registration text, p_quantity_supplied text)",
+  // 20261013181946_s09x_my_health_completion.sql -- the public record-share page (/share/[token]). A holder of the
+  // link (and its PIN, if one was set) reads only the sections the patient chose. Revoked from public then granted to
+  // anon on purpose; the migration's own self-check asserts both functions are anon-executable and every other new
+  // function is not. Wrong PINs lock the share after 5, are rate limited per client, and every attempt is audited.
+  "public.record_share_by_token(p_token text, p_pin text, p_client_key text)",
+  // Same migration: the landing page only PEEKS (is this link usable?) so a link preview or prefetch is never counted as an open.
+  "public.record_share_peek(p_token text)",
+  // 20261005222628_platform_switches_pidgin_kill_switch.sql -- revokes from public, then grants anon on purpose;
+  // the row-level opt-in (readable_by_anon) limits what anon can learn, and an unknown key is false.
+  "public.platform_switch_is_on(p_key text)",
 ]);
 
 const QUERY = `

@@ -4,6 +4,7 @@ import { loadGuards, loadSignoffs } from "@/lib/go-live/load";
 import {
   buildConfigRows,
   guardHasDrifted,
+  lagosToday,
   openRows,
   viewerMaySwitchOn,
   viewerOwns,
@@ -15,7 +16,6 @@ import { attestConditionAction, signoffConfigAction, switchGuardAction } from "@
 import { FlashClean } from "./flash-clean";
 
 const lagos = (iso: string) => new Date(iso).toLocaleString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
-const today = () => new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 10);
 const button = "rounded-lg px-4 py-2 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green disabled:opacity-50";
 const field = "mt-1 w-full rounded-lg border border-charcoal-ink/20 bg-white px-3 py-2 text-sm text-charcoal-ink dark:border-night-ink/25";
 
@@ -42,7 +42,7 @@ export async function GoLivePage({
   // S36b: operations users see the guards and nothing else, and no button. The database refuses their writes regardless.
   const writer: Viewer | null = viewer === "ops" ? null : viewer;
   const [guards, signoffs] = await Promise.all([loadGuards(), writer ? loadSignoffs() : Promise.resolve({ ok: true as const, data: [] })]);
-  const rows = signoffs.ok ? buildConfigRows(PROPOSED_CONFIG, signoffs.data, today()) : [];
+  const rows = signoffs.ok ? buildConfigRows(PROPOSED_CONFIG, signoffs.data, lagosToday()) : [];
   const open = openRows(rows);
   const noticeText = notice && /^golive\.(done|error)\./.test(notice) ? t(notice as Parameters<typeof t>[0], locale) : null;
 
@@ -220,7 +220,8 @@ function GuardCard({ g, viewer, locale }: { g: GuardStatus; viewer: Viewer | nul
   );
 }
 
-function ConfigCard({ r, viewer, locale }: { r: ConfigRow; viewer: Viewer; locale: Locale }) {
+/** One proposed value with its confirm control. Also used by the sign-off hub (back="hub" returns the Chief Medical Officer there). */
+export function ConfigCard({ r, viewer, locale, back }: { r: ConfigRow; viewer: Viewer; locale: Locale; back?: "hub" }) {
   const mine = viewerOwns(r.owner, viewer);
   const done = r.status === "signed" || r.status === "confirmed_in_registry";
   const statusText =
@@ -250,6 +251,7 @@ function ConfigCard({ r, viewer, locale }: { r: ConfigRow; viewer: Viewer; local
         (mine ? (
           <form action={signoffConfigAction} className="mt-3 space-y-2">
             <input type="hidden" name="viewer" value={viewer} />
+            {back ? <input type="hidden" name="back" value={back} /> : null}
             <input type="hidden" name="key" value={r.key} />
             <input type="hidden" name="version" value={r.version} />
             <label className="block text-xs text-charcoal-ink">

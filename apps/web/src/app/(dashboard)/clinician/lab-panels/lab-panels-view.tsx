@@ -37,6 +37,11 @@ export function LabPanelsView({ signoff, panels, canSign }: { signoff: LabSignof
         <Card key={p.panel_code}>
           <CardHeader>
             <CardTitle className="text-base">{PANEL_LABEL[p.panel_code as PanelCode] ?? p.panel_code} (version {p.version})</CardTitle>
+            <p className="text-xs text-charcoal-ink/70">
+              {signed
+                ? `Range source: lab panel ${p.panel_code.replace(/_/g, " ")} version ${p.version}. The latest Chief Medical Officer signature is sign-off version ${signoff!.version}, ${new Date(signoff!.approved_at!).toLocaleDateString("en-NG")}; results show ranges as signed whenever a signed sign-off is active. It does not list which panel versions it covers, so check a new version against it before relying on the label.`
+                : "Ranges are proposed and not yet signed by the Chief Medical Officer. They are not shown to patients as clinical ranges."}
+            </p>
           </CardHeader>
           <CardContent>
             <table className="w-full text-sm">

@@ -10569,8 +10569,10 @@ export type Database = {
           body: string
           consent_type: Database["public"]["Enums"]["consent_type"]
           created_at: string
+          draft_note: string | null
           id: string
           is_current: boolean
+          is_draft: boolean
           is_optional: boolean
           published_at: string
           text_key: string | null
@@ -10581,8 +10583,10 @@ export type Database = {
           body: string
           consent_type: Database["public"]["Enums"]["consent_type"]
           created_at?: string
+          draft_note?: string | null
           id?: string
           is_current?: boolean
+          is_draft?: boolean
           is_optional?: boolean
           published_at?: string
           text_key?: string | null
@@ -10593,8 +10597,10 @@ export type Database = {
           body?: string
           consent_type?: Database["public"]["Enums"]["consent_type"]
           created_at?: string
+          draft_note?: string | null
           id?: string
           is_current?: boolean
+          is_draft?: boolean
           is_optional?: boolean
           published_at?: string
           text_key?: string | null
@@ -11556,16 +11562,20 @@ export type Database = {
         Row: {
           blocked_categories: string[]
           blocked_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           completed_at: string | null
           completed_by: string | null
           created_at: string
           decision_note: string | null
+          grace_ends_at: string | null
           id: string
           organisation_id: string
           patient_id: string
           reason: string | null
           requested_at: string
           requested_categories: string[]
+          requested_grace_days: number | null
           reviewed_at: string | null
           reviewed_by: string | null
           status: string
@@ -11574,16 +11584,20 @@ export type Database = {
         Insert: {
           blocked_categories?: string[]
           blocked_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string
           decision_note?: string | null
+          grace_ends_at?: string | null
           id?: string
           organisation_id: string
           patient_id: string
           reason?: string | null
           requested_at?: string
           requested_categories?: string[]
+          requested_grace_days?: number | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string
@@ -11592,16 +11606,20 @@ export type Database = {
         Update: {
           blocked_categories?: string[]
           blocked_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string
           decision_note?: string | null
+          grace_ends_at?: string | null
           id?: string
           organisation_id?: string
           patient_id?: string
           reason?: string | null
           requested_at?: string
           requested_categories?: string[]
+          requested_grace_days?: number | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string
@@ -11642,6 +11660,7 @@ export type Database = {
         Row: {
           created_at: string
           decision_note: string | null
+          due_at: string
           fulfilled_at: string | null
           fulfilled_by: string | null
           id: string
@@ -11657,6 +11676,7 @@ export type Database = {
         Insert: {
           created_at?: string
           decision_note?: string | null
+          due_at?: string
           fulfilled_at?: string | null
           fulfilled_by?: string | null
           id?: string
@@ -11672,6 +11692,7 @@ export type Database = {
         Update: {
           created_at?: string
           decision_note?: string | null
+          due_at?: string
           fulfilled_at?: string | null
           fulfilled_by?: string | null
           id?: string
@@ -19705,16 +19726,24 @@ export type Database = {
           abnormal_flag: Database["public"]["Enums"]["lab_analyte_flag"] | null
           analyte_concept_id: string | null
           code: string
+          corrected_at: string | null
+          corrected_by: string | null
+          correction_reason: string | null
+          correction_status: Database["public"]["Enums"]["correction_status"] | null
           created_at: string
           id: string
           laboratory: string | null
           organisation_id: string
           patient_id: string
+          range_source: string
+          range_source_ref: string | null
           reference_range_high: number | null
           reference_range_low: number | null
           reference_range_text: string | null
           report_status: Database["public"]["Enums"]["lab_report_status"]
           specimen_collected_at: string | null
+          superseded_by_id: string | null
+          supersedes_id: string | null
           taken_at: string
           unit: string | null
           value: number | null
@@ -19724,16 +19753,24 @@ export type Database = {
           abnormal_flag?: Database["public"]["Enums"]["lab_analyte_flag"] | null
           analyte_concept_id?: string | null
           code: string
+          corrected_at?: string | null
+          corrected_by?: string | null
+          correction_reason?: string | null
+          correction_status?: Database["public"]["Enums"]["correction_status"] | null
           created_at?: string
           id?: string
           laboratory?: string | null
           organisation_id: string
           patient_id: string
+          range_source?: string
+          range_source_ref?: string | null
           reference_range_high?: number | null
           reference_range_low?: number | null
           reference_range_text?: string | null
           report_status?: Database["public"]["Enums"]["lab_report_status"]
           specimen_collected_at?: string | null
+          superseded_by_id?: string | null
+          supersedes_id?: string | null
           taken_at?: string
           unit?: string | null
           value?: number | null
@@ -19743,16 +19780,24 @@ export type Database = {
           abnormal_flag?: Database["public"]["Enums"]["lab_analyte_flag"] | null
           analyte_concept_id?: string | null
           code?: string
+          corrected_at?: string | null
+          corrected_by?: string | null
+          correction_reason?: string | null
+          correction_status?: Database["public"]["Enums"]["correction_status"] | null
           created_at?: string
           id?: string
           laboratory?: string | null
           organisation_id?: string
           patient_id?: string
+          range_source?: string
+          range_source_ref?: string | null
           reference_range_high?: number | null
           reference_range_low?: number | null
           reference_range_text?: string | null
           report_status?: Database["public"]["Enums"]["lab_report_status"]
           specimen_collected_at?: string | null
+          superseded_by_id?: string | null
+          supersedes_id?: string | null
           taken_at?: string
           unit?: string | null
           value?: number | null
@@ -26962,6 +27007,10 @@ export type Database = {
         Row: {
           allergen: string
           allergen_concept_id: string | null
+          corrected_at: string | null
+          corrected_by: string | null
+          correction_reason: string | null
+          correction_status: Database["public"]["Enums"]["correction_status"] | null
           created_at: string
           id: string
           noted_at: string
@@ -26972,6 +27021,8 @@ export type Database = {
           search_vector: unknown
           severity: Database["public"]["Enums"]["allergy_severity"] | null
           source: Database["public"]["Enums"]["allergy_source"]
+          superseded_by_id: string | null
+          supersedes_id: string | null
           updated_at: string
           verification_status: Database["public"]["Enums"]["allergy_verification_status"]
           verified_at: string | null
@@ -26980,6 +27031,10 @@ export type Database = {
         Insert: {
           allergen: string
           allergen_concept_id?: string | null
+          corrected_at?: string | null
+          corrected_by?: string | null
+          correction_reason?: string | null
+          correction_status?: Database["public"]["Enums"]["correction_status"] | null
           created_at?: string
           id?: string
           noted_at?: string
@@ -26990,6 +27045,8 @@ export type Database = {
           search_vector?: unknown
           severity?: Database["public"]["Enums"]["allergy_severity"] | null
           source?: Database["public"]["Enums"]["allergy_source"]
+          superseded_by_id?: string | null
+          supersedes_id?: string | null
           updated_at?: string
           verification_status?: Database["public"]["Enums"]["allergy_verification_status"]
           verified_at?: string | null
@@ -26998,6 +27055,10 @@ export type Database = {
         Update: {
           allergen?: string
           allergen_concept_id?: string | null
+          corrected_at?: string | null
+          corrected_by?: string | null
+          correction_reason?: string | null
+          correction_status?: Database["public"]["Enums"]["correction_status"] | null
           created_at?: string
           id?: string
           noted_at?: string
@@ -27008,6 +27069,8 @@ export type Database = {
           search_vector?: unknown
           severity?: Database["public"]["Enums"]["allergy_severity"] | null
           source?: Database["public"]["Enums"]["allergy_source"]
+          superseded_by_id?: string | null
+          supersedes_id?: string | null
           updated_at?: string
           verification_status?: Database["public"]["Enums"]["allergy_verification_status"]
           verified_at?: string | null
@@ -27065,6 +27128,7 @@ export type Database = {
           recorded_at: string
           recorded_by: string | null
           updated_at: string
+          verification: string
         }
         Insert: {
           attestation_version?: string | null
@@ -27327,6 +27391,10 @@ export type Database = {
         Row: {
           condition_concept_id: string | null
           condition_name: string
+          corrected_at: string | null
+          corrected_by: string | null
+          correction_reason: string | null
+          correction_status: Database["public"]["Enums"]["correction_status"] | null
           created_at: string
           current_treatment: string | null
           date_identified: string | null
@@ -27342,12 +27410,18 @@ export type Database = {
           severity: Database["public"]["Enums"]["clinical_severity"] | null
           source: Database["public"]["Enums"]["record_source"]
           status: Database["public"]["Enums"]["condition_clinical_status"]
+          superseded_by_id: string | null
+          supersedes_id: string | null
           supporting_evidence: string | null
           updated_at: string
         }
         Insert: {
           condition_concept_id?: string | null
           condition_name: string
+          corrected_at?: string | null
+          corrected_by?: string | null
+          correction_reason?: string | null
+          correction_status?: Database["public"]["Enums"]["correction_status"] | null
           created_at?: string
           current_treatment?: string | null
           date_identified?: string | null
@@ -27363,12 +27437,18 @@ export type Database = {
           severity?: Database["public"]["Enums"]["clinical_severity"] | null
           source?: Database["public"]["Enums"]["record_source"]
           status?: Database["public"]["Enums"]["condition_clinical_status"]
+          superseded_by_id?: string | null
+          supersedes_id?: string | null
           supporting_evidence?: string | null
           updated_at?: string
         }
         Update: {
           condition_concept_id?: string | null
           condition_name?: string
+          corrected_at?: string | null
+          corrected_by?: string | null
+          correction_reason?: string | null
+          correction_status?: Database["public"]["Enums"]["correction_status"] | null
           created_at?: string
           current_treatment?: string | null
           date_identified?: string | null
@@ -27384,6 +27464,8 @@ export type Database = {
           severity?: Database["public"]["Enums"]["clinical_severity"] | null
           source?: Database["public"]["Enums"]["record_source"]
           status?: Database["public"]["Enums"]["condition_clinical_status"]
+          superseded_by_id?: string | null
+          supersedes_id?: string | null
           supporting_evidence?: string | null
           updated_at?: string
         }
@@ -27429,34 +27511,46 @@ export type Database = {
         Row: {
           accepted_at: string
           action: string
+          channel: string | null
           consent_type: Database["public"]["Enums"]["consent_type"]
           consent_version_id: string
+          consented_by: string | null
+          consented_by_relation: string | null
           created_at: string
           id: string
           organisation_id: string
           patient_id: string
+          text_sha256: string | null
           version: string
         }
         Insert: {
           accepted_at?: string
           action?: string
+          channel?: string | null
           consent_type: Database["public"]["Enums"]["consent_type"]
           consent_version_id: string
+          consented_by?: string | null
+          consented_by_relation?: string | null
           created_at?: string
           id?: string
           organisation_id: string
           patient_id: string
+          text_sha256?: string | null
           version: string
         }
         Update: {
           accepted_at?: string
           action?: string
+          channel?: string | null
           consent_type?: Database["public"]["Enums"]["consent_type"]
           consent_version_id?: string
+          consented_by?: string | null
+          consented_by_relation?: string | null
           created_at?: string
           id?: string
           organisation_id?: string
           patient_id?: string
+          text_sha256?: string | null
           version?: string
         }
         Relationships: [
@@ -41024,7 +41118,13 @@ export type Database = {
           cgm_connection_id: string | null
           client_reading_id: string | null
           client_recorded_at: string | null
+          corrected_at: string | null
+          corrected_by: string | null
+          correction_reason: string | null
+          correction_status: Database["public"]["Enums"]["correction_status"] | null
           received_at: string | null
+          superseded_by_id: string | null
+          supersedes_id: string | null
           time_basis: string | null
           created_at: string
           cuff_type: string | null
@@ -41066,7 +41166,13 @@ export type Database = {
           cgm_connection_id?: string | null
           client_reading_id?: string | null
           client_recorded_at?: string | null
+          corrected_at?: string | null
+          corrected_by?: string | null
+          correction_reason?: string | null
+          correction_status?: Database["public"]["Enums"]["correction_status"] | null
           received_at?: string | null
+          superseded_by_id?: string | null
+          supersedes_id?: string | null
           time_basis?: string | null
           created_at?: string
           cuff_type?: string | null
@@ -41110,7 +41216,13 @@ export type Database = {
           cgm_connection_id?: string | null
           client_reading_id?: string | null
           client_recorded_at?: string | null
+          corrected_at?: string | null
+          corrected_by?: string | null
+          correction_reason?: string | null
+          correction_status?: Database["public"]["Enums"]["correction_status"] | null
           received_at?: string | null
+          superseded_by_id?: string | null
+          supersedes_id?: string | null
           time_basis?: string | null
           created_at?: string
           cuff_type?: string | null
@@ -43441,6 +43553,24 @@ export type Database = {
         }
         Relationships: []
       }
+      patient_consent_receipts: {
+        Row: {
+          action: string | null
+          body: string | null
+          channel: string | null
+          consent_type: Database["public"]["Enums"]["consent_type"] | null
+          consent_version_id: string | null
+          consented_by_relation: string | null
+          id: string | null
+          is_optional: boolean | null
+          patient_id: string | null
+          recorded_at: string | null
+          text_sha256: string | null
+          title: string | null
+          version: string | null
+        }
+        Relationships: []
+      }
       patient_consent_state: {
         Row: {
           consent_type_code: Database["public"]["Enums"]["consent_type"] | null
@@ -43661,6 +43791,16 @@ export type Database = {
       }
     }
     Functions: {
+      correct_clinical_value: {
+        Args: {
+          p_id: string
+          p_reason: string
+          p_replacement?: Json
+          p_status: Database["public"]["Enums"]["correction_status"]
+          p_table: string
+        }
+        Returns: Json
+      }
       // S27 (lab results and release rules): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       bp_control_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       // S38c (monthly report and risk stratification): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
@@ -43778,6 +43918,27 @@ export type Database = {
       sponsor_outcome_report: { Args: { p_cohort: string; p_from?: string; p_to?: string }; Returns: Json };
       sponsor_staff_figures: { Args: { p_cohort: string }; Returns: Json };
       log_sponsor_staff_export: { Args: { p_cohort: string }; Returns: Json };
+      // S03b (accounts that survive a lost number; eligibility-first claims): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
+      authorise_phone_change: { Args: { p_method: string; p_user: string }; Returns: Json };
+      cancel_contact_recovery: { Args: Record<PropertyKey, never>; Returns: Json };
+      check_cohort_code_for_signup: { Args: { p_code: string }; Returns: boolean };
+      claim_contact_recovery: { Args: { p_identifier: string; p_kind: string }; Returns: Json };
+      complete_backup_code_recovery: { Args: { p_user: string }; Returns: Json };
+      confirm_contact_recovery: { Args: { p_confirm: boolean; p_request: string }; Returns: Json };
+      generate_backup_codes: { Args: Record<PropertyKey, never>; Returns: string[] };
+      my_backup_code_status: { Args: Record<PropertyKey, never>; Returns: Json };
+      my_phone_recovery_hold: { Args: Record<PropertyKey, never>; Returns: Json };
+      my_recovery_contact: { Args: Record<PropertyKey, never>; Returns: Json };
+      my_recovery_contact_duties: { Args: Record<PropertyKey, never>; Returns: Json };
+      propose_recovery_contact: { Args: { p_member: string }; Returns: Json };
+      record_step_up: { Args: { p_purpose: string; p_session: string; p_user: string }; Returns: boolean };
+      has_fresh_phone_change_authorisation: { Args: { p_user: string }; Returns: boolean };
+      redeem_backup_code: { Args: { p_code: string; p_identifier: string; p_kind: string }; Returns: Json };
+      release_backup_code: { Args: { p_code: string; p_user: string }; Returns: boolean };
+      request_contact_recovery: { Args: { p_identifier: string; p_kind: string }; Returns: Json };
+      respond_recovery_contact: { Args: { p_accept: boolean; p_id: string }; Returns: Json };
+      revoke_recovery_contact: { Args: { p_id: string }; Returns: Json };
+      unrelease_contact_recovery: { Args: { p_request: string }; Returns: boolean };
       sponsor_staff_programmes: { Args: Record<PropertyKey, never>; Returns: Json };
       triage_accuracy_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       lab_panel_definition: { Args: { p_panel: string }; Returns: Json };
@@ -48834,6 +48995,8 @@ export type Database = {
         Returns: boolean
       }
       accept_care_circle_invite: { Args: { p_token: string }; Returns: Json };
+      cancel_my_data_deletion_request: { Args: { p_request: string }; Returns: Json };
+      publish_consent_wording: { Args: { p_note: string; p_version: string }; Returns: Json };
       cancel_care_circle_invite: { Args: { p_invite: string }; Returns: boolean };
       circle_open_alerts: { Args: never; Returns: Json };
       circle_ack_alert: { Args: { p_patient: string }; Returns: boolean };
@@ -48883,6 +49046,7 @@ export type Database = {
       sign_challenge_template: { Args: { p_approve: boolean; p_code: string; p_note: string }; Returns: Json };
     }
     Enums: {
+      correction_status: "corrected" | "amended" | "entered_in_error" | "cancelled"
       lab_integration_status: "api" | "hl7_fhir" | "file_exchange" | "structured_upload" | "manual"
       lab_price_type: "cash" | "payer" | "employer" | "tarragon_negotiated"
       lab_specimen_collection_method: "facility_visit" | "home_collection"
@@ -51161,6 +51325,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      correction_status: ["corrected", "amended", "entered_in_error", "cancelled"],
       activity_entry_type: ["steps", "workout"],
       ageing_assessment_domain: [
         "mobility",
