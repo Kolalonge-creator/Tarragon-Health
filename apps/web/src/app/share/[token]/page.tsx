@@ -292,13 +292,13 @@ export default async function SharePage({
                 </div>
                 <p className="text-sm text-charcoal-ink/70">
                   {lr.value_text ?? lr.value ?? "-"} {lr.unit ?? ""}
-                  {lr.reference_range_text && rangeMayBeShownAsClinical(lr.range_source) ? (
+                  {lr.reference_range_text ? (
                     <span className="ml-2 text-xs text-charcoal-ink/50">
-                      (ref: {lr.reference_range_text}. {rangeSourceLabel(lr.range_source, lr.range_source_ref)})
+                      {rangeMayBeShownAsClinical(lr.range_source)
+                        ? `(ref: ${lr.reference_range_text}. ${rangeSourceLabel(lr.range_source, lr.range_source_ref)})`
+                        : `(${rangeSourceLabel(null)})`}
                     </span>
-                  ) : (
-                    <span className="ml-2 text-xs text-charcoal-ink/50">({rangeSourceLabel(null)})</span>
-                  )}
+                  ) : null}
                   {lr.abnormal_flag && (
                     <span className="ml-2 text-xs font-semibold text-red-600">
                       {lr.abnormal_flag}

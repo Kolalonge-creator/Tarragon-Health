@@ -90,7 +90,7 @@ function ReviewBody({ result }: { result: ReviewResult }) {
                   <td className="py-1">{i.analyte_code.replace(/_/g, " ")}</td>
                   <td>{i.value_numeric !== null ? `${i.value_numeric} ${i.unit}` : i.value_text}</td>
                   <td>
-                    <RangeCell item={i} />
+                    <RangeCell item={i} showUnsignedProposed />
                   </td>
                   <td><Badge variant={FLAG_VARIANT[i.flag]}>{i.sensitive_positive ? "reactive screen (sensitive)" : i.flag}</Badge></td>
                 </tr>

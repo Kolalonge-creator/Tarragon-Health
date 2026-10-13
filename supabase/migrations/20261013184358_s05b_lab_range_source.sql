@@ -66,9 +66,11 @@ begin
     new.range_source := 'cmo_signed_config';
     new.range_source_ref := 'lab panel ' || replace(v_panel, '_', ' ') || ' version ' || v_version;
   else
-    -- a range with no signed configuration behind it is not presented as clinical
+    -- a range with no signed configuration behind it is not presented as clinical; the reference records that it was a proposed panel range
+    -- (the clinician review screen may show it with that label, nobody else does)
     new.range_source := 'unspecified';
-    new.range_source_ref := null;
+    new.range_source_ref := case when v_panel is not null
+      then 'proposed lab panel ' || replace(v_panel, '_', ' ') || ' version ' || v_version || ', not yet signed by the Chief Medical Officer' end;
   end if;
   return new;
 end;

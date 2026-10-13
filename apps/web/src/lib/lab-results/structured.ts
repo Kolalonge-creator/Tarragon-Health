@@ -231,12 +231,17 @@ export function formatRange(low: number | null, high: number | null, unit: strin
  */
 export function describeRangeWithSource(
   item: { ref_low: number | null; ref_high: number | null; unit: string; range_source?: string | null; range_source_ref?: string | null },
+  options: { showUnsignedProposed?: boolean } = {},
 ): { range: string; sourceLabel: string } {
   const known = rangeMayBeShownAsClinical(item.range_source);
-  return {
-    range: known ? formatRange(item.ref_low, item.ref_high, item.unit) : "",
-    sourceLabel: rangeSourceLabel(known ? item.range_source : "unspecified", item.range_source_ref),
-  };
+  if (known) {
+    return { range: formatRange(item.ref_low, item.ref_high, item.unit), sourceLabel: rangeSourceLabel(item.range_source, item.range_source_ref) };
+  }
+  // the reviewing clinician may see a proposed (unsigned) panel range, labelled as exactly that; nobody else sees a range without a known source
+  if (options.showUnsignedProposed && item.range_source_ref?.startsWith("proposed lab panel")) {
+    return { range: formatRange(item.ref_low, item.ref_high, item.unit), sourceLabel: `Range not signed: ${item.range_source_ref}` };
+  }
+  return { range: "", sourceLabel: rangeSourceLabel("unspecified") };
 }
 
 /** The audit-safe refusal the review functions return instead of raising (so the denied audit row commits). */

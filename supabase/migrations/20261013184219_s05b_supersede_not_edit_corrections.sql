@@ -118,7 +118,7 @@ begin
 
     frozen := case t
       when 'vitals_readings' then
-        'organisation_id,patient_id,source,device_id,wearable_connection_id,cgm_connection_id,vital_type,systolic,diastolic,glucose_mmol_l,glucose_context,weight_kg,pulse_bpm,temperature_c,spo2_pct,taken_at,waist_cm,ketones_mmol_l,ketone_urine,respiratory_rate_bpm,peak_flow_l_min,value_numeric,value_unit,position,arm,cuff_type'
+        'organisation_id,patient_id,source,vital_type,systolic,diastolic,glucose_mmol_l,glucose_context,weight_kg,pulse_bpm,temperature_c,spo2_pct,taken_at,waist_cm,ketones_mmol_l,ketone_urine,respiratory_rate_bpm,peak_flow_l_min,value_numeric,value_unit,position,arm,cuff_type'
       when 'patient_allergies' then
         'organisation_id,patient_id,allergen,reaction,severity'
       when 'patient_conditions' then
@@ -190,7 +190,11 @@ begin
     if p_table = 'vitals_readings' and v_old ->> 'validated_by' is not null then
       raise exception 'a clinician has already reviewed this reading: ask your care team to correct it' using errcode = '42501';
     end if;
-    -- a patient corrects only what she typed herself: not a device or wearable value, not an entry a clinician recorded or verified
+    -- a patient corrects only what she typed herself (a reading a staff member logged or corrected carries that staff member's id)
+    if p_table = 'vitals_readings' and v_old ->> 'logged_by_profile_id' is not null and (v_old ->> 'logged_by_profile_id')::uuid <> v_patient then
+      raise exception 'this entry was recorded by your care team: ask them to correct it' using errcode = '42501';
+    end if;
+    -- (the rest of the rule): not a device or wearable value, not an entry a clinician recorded or verified
     if (p_table = 'vitals_readings' and v_old ->> 'source' is distinct from 'manual')
        or (p_table in ('patient_allergies', 'patient_conditions') and v_old ->> 'source' is distinct from 'patient')
        or (p_table = 'patient_allergies' and v_old ->> 'verified_by' is not null) then
@@ -231,6 +235,15 @@ begin
     elsif p_table = 'patient_conditions' then
       v_drop := v_drop || array['recorded_by'];
     end if;
+    -- coded or derived columns that the new values can invalidate are not carried over (null means uncoded or unflagged, never wrong)
+    if p_table = 'patient_allergies' and p_replacement ? 'allergen' then v_drop := v_drop || array['allergen_concept_id']; end if;
+    if p_table = 'patient_conditions' and (p_replacement ? 'condition_name' or p_replacement ? 'icd10_code') then v_drop := v_drop || array['condition_concept_id']; end if;
+    if p_table = 'lab_analyte_readings' then
+      if p_replacement ? 'code' then v_drop := v_drop || array['analyte_concept_id']; end if;
+      if p_replacement ?| array['value', 'value_text', 'unit', 'reference_range_low', 'reference_range_high', 'reference_range_text'] then
+        v_drop := v_drop || array['abnormal_flag'];
+      end if;
+    end if;
     select jsonb_object_agg(k, v) into v_new from jsonb_each(v_old) e(k, v) where not (k = any (v_drop));
     v_new_id := gen_random_uuid();
     v_new := v_new || p_replacement || jsonb_build_object('id', v_new_id, 'supersedes_id', p_id);
@@ -241,7 +254,11 @@ begin
         v_new := v_new || jsonb_build_object('client_recorded_at', coalesce(p_replacement ->> 'taken_at', v_old ->> 'taken_at'));
       end if;
     end if;
-    if p_table in ('patient_allergies', 'patient_conditions') then v_new := v_new || jsonb_build_object('recorded_by', v_uid); end if;
+    if p_table in ('patient_allergies', 'patient_conditions') then
+      v_new := v_new || jsonb_build_object('recorded_by', v_uid);
+      -- a clinician's correction is a clinician's entry: the patient cannot supersede it through this function
+      if v_is_staff then v_new := v_new || jsonb_build_object('source', 'clinician'); end if;
+    end if;
 
   end if;
 

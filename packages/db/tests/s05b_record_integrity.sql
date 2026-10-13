@@ -360,6 +360,15 @@ begin
     raise exception 'FAIL B7g: the replacement manual reading lost the original time (% vs original)', v_row.taken_at;
   end if;
 
+  -- B7g2 a clinician's correction is the clinician's entry: the patient cannot supersede it
+  perform set_config('request.jwt.claims', json_build_object('sub', v_p, 'role', 'authenticated')::text, true);
+  execute 'set local role service_role';
+  v_state := null;
+  begin perform public.correct_clinical_value('vitals_readings', v_row.id, 'entered_in_error', 'patient voids the clinician fix', null);
+  exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
+  execute 'reset role';
+  if v_state is distinct from '42501' then raise exception 'FAIL B7g2: a patient superseded a clinician correction (state %)', v_state; end if;
+
   -- B7h the foreign key that nulls corrected_by when a profile is later removed is the one outside change the guard lets through
   create temporary table s05b_fkp (id uuid primary key);
   create temporary table s05b_fkc (
@@ -385,6 +394,7 @@ begin
   if v_row.severity <> 'severe' or v_row.supersedes_id <> v_al or v_row.allergen <> 'Penicillin' then
     raise exception 'FAIL B8a: the replacement allergy is wrong';
   end if;
+  if v_row.source::text <> 'clinician' then raise exception 'FAIL B8a2: a clinician correction is not marked as a clinician entry'; end if;
   if (select severity from public.patient_allergies where id = v_al) <> 'moderate' then
     raise exception 'FAIL B8b: the original allergy changed';
   end if;
@@ -450,6 +460,9 @@ begin
   values (v_lr, v_org, v_p, 'hba1c', 5.0, '%', 4.0, 5.6, 'normal', true);
   if (select range_source from public.lab_result_items where lab_result_id = v_lr and analyte_code = 'hba1c') <> 'unspecified' then
     raise exception 'FAIL C5a: an unsigned panel range was labelled as signed';
+  end if;
+  if (select range_source_ref from public.lab_result_items where lab_result_id = v_lr and analyte_code = 'hba1c') not like 'proposed lab panel %' then
+    raise exception 'FAIL C5a2: an unsigned range does not say it is a proposed panel range';
   end if;
 
   update public.lab_panel_signoffs set approved_at = now(), approved_by = v_cs where is_active;
