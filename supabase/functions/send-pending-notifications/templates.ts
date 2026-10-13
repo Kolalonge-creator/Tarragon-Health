@@ -640,6 +640,25 @@ export const TEMPLATE_MAP: Record<
     smsText: "A written message needs attention. Open your queue.",
     pushUrl: "/clinician/async-consults",
   }),
+  // Two-tier model, monthly follow-up. Neutral by design (INV-07): no condition, reading, result or medicine. Push, in-app and email
+  // only, never SMS (INV-08); the smsText field below is the push text and is never sent as an SMS.
+  followup_times_offered: () => ({
+    smsText: "Your care team has offered times for your monthly check-in. Open the Tarragon Health app to choose one.",
+    pushUrl: "/patient/appointments",
+  }),
+  followup_offer_withdrawn: () => ({
+    smsText: "The times offered for your check-in have changed. Your care team will send new ones.",
+    pushUrl: "/patient/appointments",
+  }),
+  followup_month_missed: () => ({
+    smsText: "Your monthly check-in is waiting. Open the Tarragon Health app to pick a time.",
+    pushUrl: "/patient/appointments",
+    email: neutralMail("Your monthly check-in is waiting", ["A month has passed without a check-in booked. Open the Tarragon Health app to pick a time, or your care team will offer some."]),
+  }),
+  followup_slot_picked: () => ({
+    smsText: "A member picked one of your offered times. Open your monthly check-ins.",
+    pushUrl: "/clinician/followups",
+  }),
   note_correction_requested: () => ({
     smsText: "A patient asked for a correction to a signed note. Open your messages to answer.",
     pushUrl: "/clinician/messages",
@@ -1541,6 +1560,50 @@ export const TEMPLATE_MAP: Record<
       text: "Someone in your Care Circle has paid for your care.\n\nOpen Tarragon Health to see what it includes.\n\nTarragon Health",
     },
   }),
+  // Two-tier (CMO 2026-10-08): the Free red-event path. Fixed neutral wording (INV-07): no condition, reading or result, and
+  // nothing from the payload is echoed. The guidance itself is shown in the app, never in the message.
+  free_red_guidance: () => ({
+    smsText: "A safety message is waiting for you. Open the Tarragon Health app. Tarragon Health",
+    pushUrl: "/patient",
+    email: {
+      subject: "A message is waiting for you",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>A safety message is waiting for you in the app.</p>` +
+        `<p>Please open Tarragon Health now.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "A safety message is waiting for you in the app.\n\nPlease open Tarragon Health now.\n\nTarragon Health",
+    },
+  }),
+  free_red_recheck: () => ({
+    smsText: "It is time to check again. Open the Tarragon Health app when you can. Tarragon Health",
+    pushUrl: "/patient",
+    email: {
+      subject: "Time to check again",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>It is time to check again.</p>` +
+        `<p>Open Tarragon Health when you can.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "It is time to check again.\n\nOpen Tarragon Health when you can.\n\nTarragon Health",
+    },
+  }),
+  free_red_checkin: () => ({
+    smsText: "We are checking in. Open the Tarragon Health app to tell us how you are. Tarragon Health",
+    pushUrl: "/patient",
+    email: {
+      subject: "We are checking in",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>We are checking in on you.</p>` +
+        `<p>Open Tarragon Health to tell us how you are.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "We are checking in on you.\n\nOpen Tarragon Health to tell us how you are.\n\nTarragon Health",
+    },
+  }),
   // S19: a red event page to the clinician on call (on_call_page) and the alert to the clinical lead and ops when nobody
   // has acknowledged it (on_call_escalation). Sent as push, in-app and email together at critical priority. The wording
   // is fixed and neutral (INV-07): no condition, reading, name or result, and nothing from the payload is echoed.
@@ -1584,6 +1647,35 @@ export const TEMPLATE_MAP: Record<
         `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
         `</div>`,
       text: "A priority case was acknowledged but has not been closed yet.\n\nOpen Tarragon Health to see where it stands.\n\nTarragon Health",
+    },
+  }),
+  // SR5: operations alerts to the on-call contact list (ops_alert) and the quiet in-app all clear (ops_all_clear). Fixed wording:
+  // nothing from the payload is echoed, so no detail of any kind can reach an email or a push. They carry no patient reference.
+  ops_alert: () => ({
+    smsText: "An operations alert needs attention. Open the operations wall. Tarragon Health",
+    pushUrl: "/admin/ops/wall",
+    email: {
+      subject: "An operations alert needs attention",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>An operations alert needs attention.</p>` +
+        `<p>Open the operations wall in Tarragon Health to see what it is.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "An operations alert needs attention.\n\nOpen the operations wall in Tarragon Health to see what it is.\n\nTarragon Health",
+    },
+  }),
+  ops_all_clear: () => ({
+    smsText: "An operations alert has cleared. Tarragon Health",
+    pushUrl: "/admin/ops/wall",
+    email: {
+      subject: "An operations alert has cleared",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>An operations alert has cleared.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "An operations alert has cleared.\n\nTarragon Health",
     },
   }),
   // S18: the patient is told when their care team lead is set, changes, or is still being arranged. Fixed wording by

@@ -96,6 +96,9 @@ describe("matcher config", () => {
     expect(pattern.test("/clinician/patients")).toBe(true);
     // Unchanged exclusions.
     expect(pattern.test("/api/status")).toBe(false);
+    // SR1: the deep health check is secret-authenticated and must answer even when Supabase Auth is down.
+    expect(pattern.test("/api/health/deep")).toBe(false);
+    expect(pattern.test("/api/healthcheck-lookalike")).toBe(true);
     expect(pattern.test("/_next/static/chunk.js")).toBe(false);
   });
 });

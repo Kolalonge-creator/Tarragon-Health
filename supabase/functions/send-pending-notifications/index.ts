@@ -37,6 +37,7 @@ import type { TemplateRender } from "./templates.ts";
 import { describeViolations, lintRenderFn, lintText } from "../_shared/notifications/neutral.ts";
 import { decide, DISCREET_DOCUMENT_TEMPLATES, discreetEmail, FALLBACK_QUIET, isSafetyCritical, PATIENT_AUDIENCES, privacyFor, pushEnvelope } from "../_shared/notifications/delivery.ts";
 import type { QuietSettings } from "../_shared/notifications/delivery.ts";
+import { withSentry } from "../_shared/observability/sentry.ts";
 
 const BATCH_SIZE = 50;
 const MAX_ATTEMPTS = 3;
@@ -110,6 +111,10 @@ const TEMPLATE_CATEGORY: Partial<Record<string, PreferenceCategory>> = {
 
   new_care_message: "care_messages",
   // S22 written questions and note release (patient-addressed only; the clinician-addressed ones stay ungated).
+  // Two-tier monthly follow-up (patient-addressed only)
+  followup_times_offered: "appointments",
+  followup_offer_withdrawn: "appointments",
+  followup_month_missed: "appointments",
   written_question_received: "care_messages",
   written_question_answered: "care_messages",
   written_question_info_needed: "care_messages",
@@ -563,7 +568,7 @@ async function fetchPreventiveCarePlanPdf(patientId: string): Promise<EmailAttac
   }
 }
 
-Deno.serve(async () => {
+Deno.serve(withSentry("send-pending-notifications", async () => {
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -1203,4 +1208,4 @@ Deno.serve(async () => {
   }
 
   return Response.json({ processed: rows.length, sent, retried, failed, suppressed, deferred, pushedBack: pushedBackIds.length });
-});
+}));

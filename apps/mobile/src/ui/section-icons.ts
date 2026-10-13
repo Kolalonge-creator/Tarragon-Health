@@ -91,6 +91,7 @@ export const SECTION_ICONS: Record<SectionId, LucideIcon> = {
   community: MessagesSquare,
   supporting: HandHelping,
   screeningDays: Users,
+  testingDays: Calendar,
   passport: FileText,
   financialProfile: Wallet,
   receipts: Receipt,

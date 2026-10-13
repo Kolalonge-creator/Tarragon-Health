@@ -913,6 +913,19 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S19.md; spec 7.9",
   },
   {
+    key: "free_red_event.rules",
+    // Two-tier (CMO decision 2026-10-08, C2): the Free red-event path. Live values are the active row of `free_red_config`; this
+    // entry mirrors it and a test fails if the migration seed and this value drift. recheck_minutes: when the Free patient is
+    // nudged to rest and take the reading again. checkin_minutes: when they are asked whether they got care (the answer is kept
+    // for them and never shown to a doctor). The CMO confirms both numbers.
+    value: { recheck_minutes: 30, checkin_minutes: 360 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "docs/OPEN-QUESTIONS.md two-tier Free red events; docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md C2",
+  },
+  {
     key: "queue.claims",
     // Claim, hand-back and reliability rules (S17, spec 7.6 and 7.8). Live values are the active row of
     // `queue_claim_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
@@ -1408,6 +1421,60 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S21.md; docs/research/S21.md",
   },
   {
+    key: "consultations.call_length",
+    // Tiered call length (CMO decision C8, 2026-10-08, docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md). Mirrored by
+    // followup_config kind 'call_length' version 1 (a drift test compares the two). The length and this version are stamped on the
+    // encounter when it is created (INV-16).
+    //  longMinutes: the yearly results call (yearlyResultsMinutes) and any Member with a condition on the problem list or an abnormal
+    //  or held result in the last abnormalLookbackDays. routineMinutes: everyone else (a doctor may shorten a routine call down to routineMinMinutes).
+    //  minMinutes, slotGridMinutes: the shortest bookable call and the grid its start sits on (private.slot_is_open).
+    //  maxExtensionMinutes: the most a doctor can add to one call. conditionStatuses, abnormalFlags, heldReleaseStates: what counts as a need.
+    value: {
+      routineMinutes: 15,
+      routineMinMinutes: 10,
+      longMinutes: 20,
+      yearlyResultsMinutes: 20,
+      abnormalLookbackDays: 90,
+      minMinutes: 10,
+      slotGridMinutes: 5,
+      maxExtensionMinutes: 15,
+      conditionStatuses: ["active", "controlled", "uncontrolled", "suspected", "under_investigation"],
+      abnormalFlags: ["low", "high", "critical", "positive"],
+      heldReleaseStates: ["awaiting_review", "clinician_disclosure_required", "withheld"],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md C8; supabase/migrations/20261013005607_two_tier_followup_data_model_and_config.sql",
+  },
+  {
+    key: "followups.policy",
+    // Monthly follow-up (founder decisions D4 and C5): the doctor offers several times and the Member picks one. Mirrored by
+    // followup_config kind 'offers' version 1 (a drift test compares the two).
+    //  entitlementMonths, carryOverMonths: 12 follow-up months per membership, an unused month lapses (no stockpile).
+    //  minSlots, maxSlots, offerValidHours, minLeadMinutes: how many times a doctor offers, how long an offer lives, the soonest time offered.
+    //  bulkMaxPatients: the most Members one bulk offer can name. lateCancelConsumes, patientNoShowConsumes: what a late cancel and a Member
+    //  no-show do to the month. holdMinutes: the live hold passed to hold_appointment_slot.
+    value: {
+      entitlementMonths: 12,
+      carryOverMonths: 0,
+      minSlots: 2,
+      maxSlots: 6,
+      offerValidHours: 72,
+      minLeadMinutes: 120,
+      bulkMaxPatients: 50,
+      lateCancelConsumes: true,
+      patientNoShowConsumes: false,
+      holdMinutes: 10,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md D4, C5; supabase/migrations/20261013005607_two_tier_followup_data_model_and_config.sql",
+  },
+  {
     key: "scribe.transcript_retention_days",
     value: 90,
     owner: "Founder",
@@ -1495,7 +1562,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   },
   {
     key: "refunds.cooling_off_days",
-    // FCCPA consumer-protection cooling-off period: a patient may request a full refund within this window.
+    // Superseded for the Membership by membership.refund (21 days, decision 2026-10-12). Kept for any non-Membership order; none is sold.
     value: 14,
     owner: "Founder",
     status: "proposed",
@@ -1896,6 +1963,204 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/clinical-signoff/STANDARDS-CROSS-CHECK-2026-10-07.md; WHO haemoglobin thresholds 2024; Royal College of Pathologists critical results",
   },
   {
+    key: "lab.panels",
+    // v3 (2026-10-12, CMO C1/C6): HIV screen, HBsAg and anti-HCV are REQUIRED every year, not "only if ordered". Same analytes and limits
+    // as v2 otherwise. Mirrors lab_panel_versions v2, made by 20261013005133_membership_annual_screening_required.sql; a test fails if the
+    // two drift. Stays `proposed` until the CMO signs; nothing auto-releases before that.
+    value: {
+      "panels": {
+        "membership_annual": {
+          "analytes": [
+            {
+              "code": "fasting_glucose",
+              "label": "Fasting glucose",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 70,
+              "refHigh": 99,
+              "criticalLow": 45,
+              "criticalHigh": 360
+            },
+            {
+              "code": "hba1c",
+              "label": "HbA1c",
+              "kind": "numeric",
+              "unit": "%",
+              "refLow": 4,
+              "refHigh": 5.6,
+              "criticalHigh": 14
+            },
+            {
+              "code": "creatinine",
+              "label": "Creatinine",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 0.6,
+              "refHigh": 1.3,
+              "criticalHigh": 4,
+              "bySex": {
+                "male": {
+                  "refLow": 0.7,
+                  "refHigh": 1.3
+                },
+                "female": {
+                  "refLow": 0.6,
+                  "refHigh": 1.1
+                }
+              }
+            },
+            {
+              "code": "potassium",
+              "label": "Potassium",
+              "kind": "numeric",
+              "unit": "mmol/L",
+              "refLow": 3.5,
+              "refHigh": 5.1,
+              "criticalLow": 3,
+              "criticalHigh": 6
+            },
+            {
+              "code": "sodium",
+              "label": "Sodium",
+              "kind": "numeric",
+              "unit": "mmol/L",
+              "refLow": 135,
+              "refHigh": 145,
+              "criticalLow": 121,
+              "criticalHigh": 150
+            },
+            {
+              "code": "total_cholesterol",
+              "label": "Total cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 200
+            },
+            {
+              "code": "ldl_cholesterol",
+              "label": "LDL cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 130
+            },
+            {
+              "code": "hdl_cholesterol",
+              "label": "HDL cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 40,
+              "bySex": {
+                "male": {
+                  "refLow": 40
+                },
+                "female": {
+                  "refLow": 50
+                }
+              }
+            },
+            {
+              "code": "triglycerides",
+              "label": "Triglycerides",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 150
+            },
+            {
+              "code": "alt",
+              "label": "ALT",
+              "kind": "numeric",
+              "unit": "U/L",
+              "refLow": 7,
+              "refHigh": 40
+            },
+            {
+              "code": "ast",
+              "label": "AST",
+              "kind": "numeric",
+              "unit": "U/L",
+              "refLow": 10,
+              "refHigh": 40
+            },
+            {
+              "code": "haemoglobin",
+              "label": "Haemoglobin",
+              "kind": "numeric",
+              "unit": "g/dL",
+              "refLow": 12,
+              "refHigh": 17.5,
+              "criticalLow": 7,
+              "criticalHigh": 20,
+              "bySex": {
+                "male": {
+                  "refLow": 13,
+                  "refHigh": 17.5
+                },
+                "female": {
+                  "refLow": 12,
+                  "refHigh": 15.5
+                }
+              }
+            },
+            {
+              "code": "wbc",
+              "label": "White cell count",
+              "kind": "numeric",
+              "unit": "10^9/L",
+              "refLow": 3,
+              "refHigh": 11,
+              "criticalLow": 1,
+              "criticalHigh": 30
+            },
+            {
+              "code": "platelets",
+              "label": "Platelets",
+              "kind": "numeric",
+              "unit": "10^9/L",
+              "refLow": 150,
+              "refHigh": 450,
+              "criticalLow": 20,
+              "criticalHigh": 1000
+            },
+            {
+              "code": "tsh",
+              "label": "TSH",
+              "kind": "numeric",
+              "unit": "mIU/L",
+              "refLow": 0.4,
+              "refHigh": 4
+            },
+            {
+              "code": "hiv_screen",
+              "label": "HIV screen",
+              "kind": "qualitative",
+              "unit": "",
+              "sensitive": true
+            },
+            {
+              "code": "hbsag",
+              "label": "Hepatitis B surface antigen",
+              "kind": "qualitative",
+              "unit": "",
+              "sensitive": true
+            },
+            {
+              "code": "hcv_ab",
+              "label": "Hepatitis C antibody",
+              "kind": "qualitative",
+              "unit": "",
+              "sensitive": true
+            }
+          ]
+        }
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 3,
+    effectiveFrom: "2026-10-12",
+    source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md (C1, C6); docs/clinical-signoff/STANDARDS-CROSS-CHECK-2026-10-07.md; WHO haemoglobin thresholds 2024; Royal College of Pathologists critical results",
+  },
+  {
     key: "triage.silence_rule_days",
     // v2 (decision S11-1, 2026-10-07): 7 days, not 5. Takes effect when the CMO approves bp_care_triage v3 in the database; the live rule set
     // carries its own copy of this number and stays at the earlier line until then. The rule set, not this entry, is what the engine reads.
@@ -1916,6 +2181,169 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 3,
     effectiveFrom: "2026-10-07",
     source: "docs/DECISIONS.md S11-1; supabase/migrations/20261007152136_s11c_bp_care_triage_v3.sql",
+  },
+  {
+    key: "commerce.membership_prices",
+    // Two-tier decisions D2 (2026-10-08) and C3/C10 (2026-10-12): the individual Membership is 120,000 naira a year and an
+    // organisation pays a flat 100,000 naira per member, adjustable per organisation from the admin dashboard. Both integer kobo
+    // (INV-15). Volume tiers (80k/70k/60k) were dropped. The platform launches at 120,000 (founder, 2026-10-12): the database row takes
+    // effect the moment the migration is applied and the 100,000 row is closed at the same instant, so the old figure is never in
+    // force. The database holds the live rows (prices, organisation_member_prices); this is the code-side mirror and the mirror test
+    // pins both migrations' numbers to these.
+    value: { individual_kobo: 12_000_000, organisation_member_kobo: 10_000_000 },
+    owner: "Founder",
+    status: "confirmed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md (D2, C3, C10); supabase/migrations/20261013003317_two_tier_membership_pricing.sql",
+  },
+  {
+    key: "membership.lapse",
+    // Founder decision 2026-10-12: when a Membership year ENDS NATURALLY the person keeps Member status for a 14 day grace, then is
+    // Free again (state lapsed). A refund is different: it ends Member access at once (membership.refund, decision 2026-10-12). Renewal reminders go 30, 14 and 7 days before the end (in-app, push or email; never SMS). Mirrored by
+    // membership_lapse_config in the database (the migration seed), with a drift test.
+    value: { grace_days: 14, reminder_days_before: [30, 14, 7] },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "Founder decision 2026-10-12 (lapse and grace); supabase/migrations/20261013010732_two_tier_only_free_and_member.sql",
+  },
+  {
+    key: "membership.refund",
+    // Founder/CMO decision 2026-10-12: a Membership is refundable only within 21 days of purchase; an approved refund ends Member access
+    // immediately (no grace). Mirrored by membership_policy_config (kind refund) in the migration seed, with a drift test.
+    value: { window_days: 21 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "Founder/CMO decision 2026-10-12 (review of integration/two-tier); supabase/migrations/20261013012113_two_tier_refund_window_and_immediate_end.sql",
+  },
+  {
+    key: "membership.legacy_conversion",
+    // Founder decision 2026-10-13: every legacy programme or plan holder becomes a real Member. A holder with an end date keeps it; a holder
+    // with an active purchase and no end date gets a full 365 days from conversion. PROPOSED. Mirrored by membership_policy_config
+    // (kind legacy_conversion), with a drift test.
+    value: { no_end_date_days: 365 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "Founder decision 2026-10-13 (legacy holders); supabase/migrations/20261013012113_two_tier_refund_window_and_immediate_end.sql",
+  },
+  {
+    key: "membership.review",
+    // Prescription renewals are discussed at the monthly review, not requested separately (decision 2026-10-13). The pre-call summary
+    // lists the medicines whose prescription expires within this many days of the call. PROPOSED; the CMO confirms the window.
+    value: { renewal_window_days: 30 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "Founder/CMO decision 2026-10-13 (renewals at the monthly review); supabase/migrations/20261013013400_two_tier_renewal_at_monthly_review.sql",
+  },
+  {
+    key: "commerce.second_opinion",
+    // A second opinion is an extra 5,000 naira (500,000 kobo, INV-15), sold to Members only. The price is the service_products row for
+    // second_opinion_credit; this entry is the code-side mirror and a test pins the migration to it.
+    value: { item_code: "second_opinion_credit", price_kobo: 500_000, members_only: true },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "Founder/CMO decision 2026-10-12 (second opinion extra); supabase/migrations/20261013012811_two_tier_renewals_included_second_opinion_member_only.sql",
+  },
+  {
+    key: "commerce.organisation_member_price_limits",
+    // Floor and ceiling an admin can set for one organisation's member price, so a typo cannot set 1 naira: 50,000 to 200,000 naira.
+    // PROPOSED: the founder confirms the band. The default (100,000) and the individual price (120,000) both sit inside it. Mirrored
+    // byte for byte by organisation_price_limits (the migration seed) and enforced by a table trigger as well as the admin RPC.
+    value: { item_code: "membership_annual", min_kobo: 5_000_000, max_kobo: 20_000_000, default_kobo: 10_000_000 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md (C10); supabase/migrations/20261013003317_two_tier_membership_pricing.sql",
+  },
+  {
+    key: "ops.service_targets",
+    // SR1 (docs/plans/SCALE-READINESS-PLAN.md section 2). The numbers the platform is held to at every stage (500, 5,000,
+    // 25,000, 100,000 Members). PROPOSED: the CMO and founder have not signed them, and this entry must not be marked confirmed by an agent.
+    // The page acknowledgement ladder (5 and 10 minutes) is paging.escalation_minutes, not repeated here.
+    value: {
+      redEventPagedWithinSeconds: 60,
+      readingSavedAndGradedWithinSeconds: 5,
+      nextTaskWithinSeconds: 2,
+      chartSummaryOpensWithinSeconds: 3,
+      lostPaymentConfirmationsAllowed: 0,
+      lostLabResultsAllowed: 0,
+      lostNotificationsAllowed: 0,
+      duplicatedTasksAllowed: 0,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "docs/plans/SCALE-READINESS-PLAN.md section 2 (service targets); to be signed by the CMO and founder",
+    guardPatterns: ["redEventPagedWithin\\w*\\s*[=:]\\s*60\\b", "nextTaskWithin\\w*\\s*[=:]\\s*2\\b"],
+  },
+  {
+    key: "ops.health_thresholds",
+    // SR1: where /api/health/deep turns a measure from public.platform_health_snapshot() into ok, degraded or down.
+    // Minutes unless the name says otherwise. PROPOSED by engineering; the founder confirms once the on-call route exists (SR5).
+    // An unacknowledged page going "down" at 10 minutes lines up with the second step of paging.escalation_minutes.
+    value: {
+      dbQueryTimeoutMs: 3000,
+      connectionsDegradedPercent: 70,
+      connectionsDownPercent: 90,
+      overdueTaskDegradedMinutes: 15,
+      overdueTaskDownMinutes: 60,
+      unacknowledgedPageDegradedMinutes: 5,
+      unacknowledgedPageDownMinutes: 10,
+      notificationBacklogDegradedMinutes: 10,
+      notificationBacklogDownMinutes: 30,
+      criticalUnopenedDegradedMinutes: 10,
+      criticalUnopenedDownMinutes: 30,
+      eventBacklogDegradedMinutes: 10,
+      eventBacklogDownMinutes: 30,
+      webhookBacklogDegradedMinutes: 5,
+      webhookBacklogDownMinutes: 30,
+      outboundDeadLetterDegradedCount: 1,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "docs/plans/SCALE-READINESS-PLAN.md section 3 (Phase 3 alert rules); supabase/migrations/20261013010258_sr1_platform_health_snapshot.sql",
+  },
+  {
+    key: "ops.alert_rules",
+    // SR5 operations alert rules (docs/plans/SCALE-READINESS-PLAN.md section 3). Live values are the rows of `ops_alert_rules`; this
+    // entry mirrors the migration seed and a test fails if they drift. Every number is a proposal for the founder and CMO: the
+    // 60 second page target, 70 percent connection and disk lines, 2 percent send failures, 3 percent Zoom join failures and
+    // 10 percent phone fallback come from the plan. disk_limit_bytes is a placeholder until SR1 records the real plan.
+    value: {
+      unacknowledged_page: { severity: "sev1", params: {} },
+      queue_starvation: { severity: "sev2", params: { grace_minutes: 0 } },
+      rota_gap_12h: { severity: "sev1", params: { hours: 12 } },
+      notification_failure_rate: { severity: "sev2", params: { window_minutes: 15, max_failure_percent: 2, min_volume: 20, stuck_pending_minutes: 10 } },
+      payment_webhooks_unprocessed: { severity: "sev2", params: { older_than_minutes: 5, errored_window_minutes: 60 } },
+      zoom_webhooks_unprocessed: { severity: "sev2", params: { older_than_minutes: 5, errored_window_minutes: 60 } },
+      db_connections: { severity: "sev2", params: { max_percent: 70 } },
+      db_disk: { severity: "sev2", params: { max_percent: 70, disk_limit_bytes: 8589934592 } },
+      stale_cron: { severity: "sev2", params: { lookback_hours: 72, factor: 2, min_slack_minutes: 2 } },
+      lab_result_unreviewed: { severity: "sev2", params: { review_target_hours: 24 } },
+      zoom_join_fallback: { severity: "sev2", params: { window_minutes: 60, min_volume: 20, max_failed_percent: 3, max_fallback_percent: 10 } },
+      edge_function_errors: { severity: "sev2", params: { signal: "edge_error_rate_percent", max_value: 1, max_age_minutes: 15 } },
+      edge_function_drift: { severity: "sev2", params: { signal: "edge_drift_count", max_value: 0, max_age_minutes: 480 } },
+      cost_projection: { severity: "sev3", params: { signal: "cost_projection_percent_of_budget", max_value: 100, max_age_minutes: 1440 } },
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "docs/plans/SCALE-READINESS-PLAN.md section 3; supabase/migrations/20261013005350_sr5_alert_rules_and_operations_wall.sql",
   },
   {
     key: "community.rules",
