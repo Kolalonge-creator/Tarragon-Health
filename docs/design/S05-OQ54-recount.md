@@ -23,4 +23,4 @@ Repo scan: no file under the staff screens (`apps/web/src/app/(dashboard)/{clini
 
 Added: `apps/web/src/lib/security/staff-closed-tables-scan.test.ts`, which fails if that changes. Sabotage checked: adding a staff file with a direct read and an embed made two of the four tests fail.
 
-Not verified: the two paths outside the scan (shared libs under `apps/web/src/lib` called from staff pages with a user session) were not traced call by call; S05f's own review re-scanned `.from()` readers on 2026-10-01 and found none.
+Known blind spots (also in the test header): shared libs, variable table names, constant-built selects. Not verified: the two paths outside the scan (shared libs under `apps/web/src/lib` called from staff pages with a user session) were not traced call by call; S05f's own review re-scanned `.from()` readers on 2026-10-01 and found none.

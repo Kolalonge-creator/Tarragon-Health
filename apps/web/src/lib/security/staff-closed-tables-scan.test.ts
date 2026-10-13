@@ -9,7 +9,11 @@ import { join, relative, resolve } from "node:path";
  * and the per-surface readers). This scan fails if a staff screen adds a direct
  * `.from("<table>")` read or a PostgREST embed of one of these tables.
  *
- * Patient, mobile and server-only (service role) code is out of scope here.
+ * Scope: staff route folders, the staff API routes, apps/console and packages/staff-core.
+ * Shared libs under src/lib are NOT scanned (some are legitimately patient or service-role
+ * readers); a staff page importing a patient-session reader of these tables is a
+ * known blind spot, covered by the S05f review and the DB proofs. Table names held in
+ * variables and selects built from constants are also not detected.
  */
 const CLOSED_TABLES = [
   "vitals_readings",
@@ -24,8 +28,8 @@ const CLOSED_TABLES = [
   "family_history",
 ] as const;
 
-const WEB_SRC = resolve(process.cwd(), "src");
-const REPO_APPS = resolve(process.cwd(), "..");
+const WEB_SRC = resolve(__dirname, "..", ".."); // apps/web/src
+const REPO_APPS = resolve(WEB_SRC, "..", ".."); // apps
 const STAFF_ROOTS = [
   "clinician",
   "admin",
@@ -40,7 +44,12 @@ const STAFF_ROOTS = [
   "payer",
   "provider-org",
 ].map((d) => join(WEB_SRC, "app", "(dashboard)", d));
-STAFF_ROOTS.push(join(REPO_APPS, "console", "src"));
+STAFF_ROOTS.push(
+  join(WEB_SRC, "app", "api", "clinician"),
+  join(WEB_SRC, "app", "api", "admin"),
+  join(REPO_APPS, "console", "src"),
+  join(REPO_APPS, "..", "packages", "staff-core"),
+);
 
 function walk(dir: string, out: string[] = []): string[] {
   let entries: string[];
@@ -65,6 +74,11 @@ const EMBED = new RegExp(`[\\s,:(\`"'](${tableAlt})\\s*(!\\w+)?\\s*\\(`);
 
 describe("staff screens never read the closed health-record tables directly (OQ-54)", () => {
   const files = STAFF_ROOTS.flatMap((r) => walk(r));
+
+  it.each(STAFF_ROOTS)("staff root exists and has files: %s", (root) => {
+    // A renamed or extracted root must be noticed, not silently scan nothing.
+    expect(walk(root).length).toBeGreaterThan(0);
+  });
 
   it("scans a non-trivial number of staff files", () => {
     expect(files.length).toBeGreaterThan(50);
