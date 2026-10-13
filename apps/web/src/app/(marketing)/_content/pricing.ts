@@ -137,10 +137,10 @@ export const NAIRA_ONLY_STATEMENT =
 /** The "No-Hidden-Cost Promise", shown as a banner near the top of the pricing page. */
 export const PRICING_PROMISES: string[] = [
   "The app is free. Tracking, reminders, your screening calendar, the whole education library, lifestyle and weight coaching, the AI Health Coach, and your quarterly report cost you nothing, with no time limit and no card required.",
-  "Beyond the free app, we charge by the piece: a doctor's time, plus Continuous Monitoring and one optional AI Coach top-up. You see the exact price and confirm it before anything is taken. No surprise charges, ever.",
-  "Nothing auto-renews. Continuous Monitoring is paid once for a fixed term and then simply stops, and we tell you before it does. There is no subscription, no card kept on file, and no cancellation to remember.",
-  "We do not sell laboratory tests and take no cut of what a laboratory or pharmacy charges you. We work out which tests you need and write the request, free, and you pay the laboratory directly at their price. We tell you roughly what to expect it to cost so you can compare before you go.",
-  "Naira prices are reviewed once a year at most, and we will tell you at least 30 days before any change. Anything you have already paid for is honoured until it runs out.",
+  "There are two plans: Free, and Membership. Membership is one price for a year. You see that price and confirm it before anything is taken. No surprise charges, ever.",
+  "Nothing auto-renews. Membership lasts a year and then simply ends, and we remind you before it does. There is no card kept on file and no cancellation to remember.",
+  "We do not sell laboratory tests and take no cut of what a laboratory or pharmacy charges you. We work out which tests you need and write the request, and you pay the laboratory or pharmacy directly at their price.",
+  "The Membership price is reviewed once a year at most, and we will tell you at least 30 days before any change. A Membership you have already paid for is honoured until it ends.",
   NAIRA_ONLY_STATEMENT,
 ];
 
@@ -223,24 +223,20 @@ export const FREE_FEATURES_NOTE =
  * now Continuous Monitoring, which is both the cheapest way in and the thing
  * that keeps someone watched. */
 export const CARE_VOUCHER_INTRO =
-  "You can buy a paid service up front, for yourself or for someone who has linked you to their care, and pay for it in one go or bit by bit. Whoever it is for uses it when they are ready. It is not an account balance, and it cannot be exchanged for cash. The app itself is free, so a voucher is only ever for a doctor's time. Tests are paid straight to the laboratory you use.";
+  "Someone can pay for a year of Membership for you, from Nigeria or from abroad, and you accept it when you are ready. It is not an account balance, and it cannot be exchanged for cash. The app itself is free, so a gift is only ever for Membership. Tests, medicines and vaccines are paid straight to the laboratory or pharmacy you use.";
 
 export const CARE_VOUCHER_POINTS: { title: string; body: string }[] = [
   {
-    title: "Pay a little at a time",
-    body: "Spread a paid service, such as twelve months of Continuous Monitoring, over as many instalments as you like. It becomes usable once it is fully paid, and nothing runs out while you are still paying towards it.",
+    title: "Someone can give it to you",
+    body: "A family member, in Nigeria or abroad, can give you a year of Membership. They see that they gave it and later that it was used, and nothing about your results. Your tests you pay for at the laboratory, like anyone else.",
   },
   {
-    title: "Someone can buy it for you",
-    body: "A family member, in Nigeria or abroad, can buy one for you. This is what sponsoring someone's care means here: they see that they bought it and later that it was used, and nothing about your results. Your tests you pay for at the laboratory, like anyone else.",
+    title: "You choose to accept it",
+    body: "A gift waits for you to accept it. If you decline, or do not answer in time, the person who gave it is refunded. Nothing about a gift ever bills you, then or later.",
   },
   {
     title: "Refer a friend",
     body: "Share your referral link from your dashboard. Once your friend becomes a Member, you both get a reward voucher towards your care.",
-  },
-  {
-    title: "It does not quietly disappear",
-    body: "A voucher lasts two years and we remind you 30 days before it runs out. If it lapses unused, ask us and we will normally put it back.",
   },
 ];
 
@@ -301,37 +297,37 @@ export const ALWAYS_FREE_NOTE =
  * offer here would have described something the platform cannot do.
  */
 export const FREE_TRIAL_INTRO =
-  "There is nothing to try, because there is nothing to commit to. Everything the app does is free and stays free, with no time limit and no card required. You only ever pay when you want a doctor to do a specific piece of work for you, and you see that price and confirm it first.";
+  "There is nothing to try, because there is nothing to commit to. Everything the app does is free and stays free, with no time limit and no card required. If you want a yearly blood test and a video call with your care team every month, that is Membership, one price for a year that you see and confirm first.";
 
 export const FREE_TRIALS: { title: string; body: string }[] = [
   {
     title: "Start with your own numbers",
-    body: "Log your blood pressure, blood sugar or weight and get your trends, your screening calendar, the education library and the AI Health Coach, at no charge. Every reading is checked against care protocols whatever you pay, and a dangerous one gets you immediate guidance and the full emergency safety net.",
+    body: "Log your blood pressure, blood sugar or weight and get your trends, your screening calendar, the education library and the AI Health Coach, at no charge. Every reading is checked against care protocols whatever plan you are on, and a dangerous one gets you immediate guidance.",
   },
   {
-    title: "Buy a doctor's time only when you want it",
-    body: "If you want a doctor to read a result, answer a question, or keep watch on your readings for a few months, buy that one thing. There is no plan to join first, and nothing carries on charging you afterwards.",
+    title: "Join Membership when you want a doctor",
+    body: "If you want your care team to look at your numbers with you every month, and a yearly blood test, join Membership. There is no plan to join first, and nothing carries on charging you afterwards.",
   },
 ];
 
 export const FREE_TRIAL_TERMS: string[] = [
-  "The free app has no time limit, and it stays free unless you choose to buy something.",
+  "The free app has no time limit, and it stays free unless you choose to join Membership.",
   "You will always see the exact price and confirm it before anything is taken from your card.",
-  "Nothing renews automatically. When a paid service runs out, you buy it again only if you want to.",
+  "Nothing renews automatically. When your Membership ends you join again only if you want to.",
 ];
 
 export const BOOKING_STEPS: { title: string; body: string }[] = [
   {
-    title: "Your doctor tells you (or you ask)",
+    title: "Your care team tells you (or you ask)",
     body: "A test, refill, or vaccine is due.",
   },
   {
-    title: "For a paid service, you see the exact price",
-    body: "In the app, before you're ever charged. No estimates, no “roughly.” A test, refill, or vaccine isn't something Tarragon charges for at all, so there's no price of ours to show; see the next step.",
+    title: "For Membership, you see the exact price",
+    body: "In the app, before you are ever charged. No estimates, no “roughly.” A test, refill, or vaccine is not something Tarragon charges for at all, so there is no price of ours to show; see the next step.",
   },
   {
     title: "You confirm and pay, or take a request to the provider",
-    body: "For paid services: by card, bank transfer, or USSD, through Paystack, in naira, from wherever you are paying. For a test, refill, or vaccine: you take our request to whichever laboratory, pharmacy, or provider you choose and pay them directly, at their price. We set no price on it and take no cut.",
+    body: "For Membership: by card, bank transfer, or USSD, through Paystack, in naira, from wherever you are paying. For a test, refill, or vaccine: you take our request to whichever laboratory, pharmacy, or provider you choose and pay them directly, at their price. We set no price on it and take no cut.",
   },
   {
     title: "You get a request to take with you",
@@ -339,7 +335,7 @@ export const BOOKING_STEPS: { title: string; body: string }[] = [
   },
   {
     title: "Your result or delivery comes back in the app",
-    body: "Explained in plain language, with an alert so you don't miss it. If anything needs attention, your doctor calls you; this does not create any new charge.",
+    body: "Explained in plain language, with an alert so you do not miss it. If anything needs attention, your care team calls you; this does not create any new charge.",
   },
 ];
 
@@ -347,8 +343,8 @@ export const OUR_UNDERTAKINGS: string[] = [
   "We show you the price and wait for your confirmation before we charge you anything",
   "A doctor reviews your case before any diagnosis is offered or any medicine is changed",
   "Your health information reaches a family member only with your consent",
-  "There is no contract and no subscription, and your card is charged once for each thing you confirm",
-  "A paid service is always labelled as paid, and anything genuinely free (such as the HPV vaccine for girls 9–14) is always labelled as free",
+  "There is no contract and no subscription, and your card is charged once for the Membership you confirm",
+  "What is Membership is always labelled as Membership, and anything genuinely free (such as the HPV vaccine for girls 9–14) is always labelled as free",
   "The free app stays free, with no expiry date and nothing that turns into a charge on its own",
 ];
 
