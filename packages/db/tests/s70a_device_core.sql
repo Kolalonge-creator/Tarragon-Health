@@ -95,8 +95,8 @@ begin
   if v_org is null then raise exception 'need an organisation to run this proof'; end if;
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
   v_cmo := pg_temp.mkdoc(v_org, v_admin, 'cmo', 'chief_medical_officer');
-  v_doc := pg_temp.mkdoc(v_org, v_admin, 'doc', 'medical_officer');
-  v_stranger_doc := pg_temp.mkdoc(v_org, v_admin, 'doc2', 'medical_officer');
+  v_doc := pg_temp.mkdoc(v_org, v_admin, 'doc', 'senior_medical_officer');
+  v_stranger_doc := pg_temp.mkdoc(v_org, v_admin, 'doc2', 'senior_medical_officer');
   v_pat := pg_temp.mkuser(v_org, 'patient', 'patient');
   v_pat2 := pg_temp.mkuser(v_org, 'patient2', 'patient');
   v_pat3 := pg_temp.mkuser(v_org, 'patient3', 'patient');

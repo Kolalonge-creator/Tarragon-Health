@@ -69,7 +69,7 @@ export function draftFromRecognisedText(deviceKind: PhotoDeviceKind, lines: read
       };
     }
     case "glucose": {
-      const unit = /mg\s*\/?\s*dl/.test(t) ? "mg_dl" : /mmol/.test(t) ? "mmol_l" : null;
+      const unit = /mg\s*(?:\/\s*)?dl/.test(t) ? "mg_dl" : /mmol/.test(t) ? "mmol_l" : null;
       const n = nums.find((x) => x > 0);
       return { deviceKind, fields: [sug("glucose_value", n)], unit, needsUnit: unit === null, warnings };
     }
@@ -79,7 +79,8 @@ export function draftFromRecognisedText(deviceKind: PhotoDeviceKind, lines: read
       return { deviceKind, fields: [sug("weight_value", n)], unit, needsUnit: unit === null, warnings };
     }
     case "temperature": {
-      const unit = /°?\s*f\b/.test(t) && !/°?\s*c\b/.test(t) ? "f" : /°?\s*c\b/.test(t) ? "c" : null;
+      // The degree sign and spaces before the letter are optional, so they cannot change whether it matches: test the letter alone.
+      const unit = /f\b/.test(t) && !/c\b/.test(t) ? "f" : /c\b/.test(t) ? "c" : null;
       const n = nums.find((x) => x >= 25);
       return { deviceKind, fields: [sug("temperature_c", n)], unit, needsUnit: unit === null, warnings };
     }
