@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { consentStateFor } from "@tarragon/shared";
-import { withdrawConsentAction } from "./consent-actions";
+import { grantConsentAction, withdrawConsentAction } from "./consent-actions";
 import { CONSENT_TYPE_LABEL, useOutstandingConsentTypes } from "@/lib/queries/consent";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +41,12 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
   // Two taps: "Withdraw" arms a confirmation for that type, the second tap does it.
   const [confirmingWithdraw, setConfirmingWithdraw] = React.useState<string | null>(null);
   const [withdrawError, setWithdrawError] = React.useState<string | null>(null);
+  // Giving an optional purpose is one explicit choice per purpose: nothing starts ticked and nothing is bundled.
+  const [agreed, setAgreed] = React.useState<Record<string, boolean>>({});
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: ["patient-consents", patientId] });
+    void queryClient.invalidateQueries({ queryKey: ["patient-consent-receipts", patientId] });
+  };
   const { versions, accepted, outstanding, isLoading } = useOutstandingConsentTypes(patientId);
 
   const outstandingTypes = outstanding.map((v) => v.consent_type);
@@ -100,7 +106,7 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
                             const result = await withdrawConsentAction(version.consent_type);
                             setConfirmingWithdraw(null);
                             if (result?.error) setWithdrawError(result.error);
-                            else void queryClient.invalidateQueries({ queryKey: ["patient-consents", patientId] });
+                            else refresh();
                           }}
                         >
                           Yes, withdraw
@@ -110,6 +116,40 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
                           Withdraw
                         </Button>
                       )
+                    )}
+                    {optional && state !== "granted" && (
+                      <details className="max-w-xs text-xs">
+                        <summary className="cursor-pointer font-medium text-brand-green">Read and decide</summary>
+                        <div className="mt-2 space-y-2 rounded-lg border border-charcoal-ink/10 p-2 dark:border-night-ink/15">
+                          <p className="font-medium text-charcoal-ink dark:text-night-ink">{version.title}</p>
+                          <p className="whitespace-pre-wrap text-charcoal-ink/80 dark:text-night-ink/80">{version.body}</p>
+                          <label className="flex items-start gap-2 text-charcoal-ink/80 dark:text-night-ink/80">
+                            <input
+                              type="checkbox"
+                              checked={agreed[version.consent_type] === true}
+                              onChange={(e) => setAgreed((a) => ({ ...a, [version.consent_type]: e.target.checked }))}
+                              className="mt-0.5"
+                            />
+                            <span>I have read this and I choose to agree. I can stop at any time.</span>
+                          </label>
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={agreed[version.consent_type] !== true}
+                            onClick={async () => {
+                              setWithdrawError(null);
+                              const result = await grantConsentAction(version.consent_type);
+                              if (result?.error) setWithdrawError(result.error);
+                              else {
+                                setAgreed((a) => ({ ...a, [version.consent_type]: false }));
+                                refresh();
+                              }
+                            }}
+                          >
+                            Agree
+                          </Button>
+                        </div>
+                      </details>
                     )}
                     <Badge variant={badgeVariant}>{badgeText}</Badge>
                   </div>

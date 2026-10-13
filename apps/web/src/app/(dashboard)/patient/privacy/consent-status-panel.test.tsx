@@ -58,7 +58,11 @@ jest.mock("@/lib/queries/consent", () => {
 });
 
 const withdrawMock = jest.fn();
-jest.mock("./consent-actions", () => ({ withdrawConsentAction: (...a: unknown[]) => withdrawMock(...a) }));
+const grantMock = jest.fn();
+jest.mock("./consent-actions", () => ({
+  withdrawConsentAction: (...a: unknown[]) => withdrawMock(...a),
+  grantConsentAction: (...a: unknown[]) => grantMock(...a),
+}));
 
 let capturedFormData: FormData | null = null;
 jest.mock("@/app/onboarding/actions", () => ({
@@ -73,6 +77,7 @@ describe("ConsentStatusPanel", () => {
     capturedFormData = null;
     invalidateQueries.mockReset();
     withdrawMock.mockReset().mockResolvedValue({ success: true });
+    grantMock.mockReset().mockResolvedValue({ success: true });
     EXTRA_VERSIONS = [];
     ACCEPTED = [
       { id: "c1", consent_type: "data_processing", version: 1, ...ROW },
@@ -163,5 +168,33 @@ describe("ConsentStatusPanel", () => {
   it("offers no withdraw button for a required purpose", () => {
     render(<ConsentStatusPanel patientId="patient-1" />);
     expect(screen.queryByRole("button", { name: "Withdraw" })).toBeNull();
+  });
+
+  it("an optional purpose starts unticked: the Agree button is disabled until the person ticks it, and one tick agrees to one purpose", async () => {
+    EXTRA_VERSIONS = [{ id: "v-r-1", consent_type: "research", version: 1, is_optional: true, title: "Use my information in approved research", body: "The exact words." }];
+    render(<ConsentStatusPanel patientId="patient-1" />);
+    const box = screen.getByRole("checkbox", { name: /I have read this and I choose to agree/ }) as HTMLInputElement;
+    expect(box.checked).toBe(false);
+    const agree = screen.getByRole("button", { name: "Agree" }) as HTMLButtonElement;
+    expect(agree.disabled).toBe(true);
+    fireEvent.click(agree);
+    expect(grantMock).not.toHaveBeenCalled();
+
+    fireEvent.click(box);
+    expect(agree.disabled).toBe(false);
+    fireEvent.click(agree);
+    await waitFor(() => expect(grantMock).toHaveBeenCalledWith("research"));
+    expect(grantMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the exact words before the person decides", () => {
+    EXTRA_VERSIONS = [{ id: "v-r-1", consent_type: "research", version: 1, is_optional: true, title: "Use my information in approved research", body: "The exact words." }];
+    render(<ConsentStatusPanel patientId="patient-1" />);
+    expect(screen.getByText("The exact words.")).toBeTruthy();
+  });
+
+  it("offers no Agree button for a required purpose", () => {
+    render(<ConsentStatusPanel patientId="patient-1" />);
+    expect(screen.queryByRole("button", { name: "Agree" })).toBeNull();
   });
 });

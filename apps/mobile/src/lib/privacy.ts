@@ -1,4 +1,4 @@
-import { consentStateFor } from "@tarragon/shared";
+import { consentStateFor, deletionGraceEndsAt, type ConsentReceiptRow, type Enums } from "@tarragon/shared";
 import { supabase } from "./supabase";
 import type { QueryResult } from "./medications";
 
@@ -20,7 +20,10 @@ import type { QueryResult } from "./medications";
  * direction rather than re-implementing that switch mechanism.
  */
 export interface ConsentRow {
-  consentType: string;
+  consentType: Enums<"consent_type">;
+  /** The consent's own title and plain-language words, shown before a person decides. */
+  title: string;
+  body: string;
   version: string;
   /** True only while an acceptance of THIS version is in force; a later withdrawal ends it (mirrors the database). */
   accepted: boolean;
@@ -34,7 +37,7 @@ export async function loadConsentStatus(patientId: string): Promise<QueryResult<
   const [{ data: versions, error: versionsError }, { data: events, error: eventsError }] = await Promise.all([
     supabase
       .from("consent_versions")
-      .select("consent_type, version, is_optional")
+      .select("consent_type, version, is_optional, title, body")
       .eq("is_current", true)
       .order("consent_type", { ascending: true }),
     supabase.from("patient_consents").select("consent_type, version, accepted_at, action, created_at").eq("patient_id", patientId),
@@ -47,6 +50,8 @@ export async function loadConsentStatus(patientId: string): Promise<QueryResult<
     const record = (events ?? []).find((c) => c.consent_type === v.consent_type && c.version === v.version && c.action === "accepted");
     return {
       consentType: v.consent_type,
+      title: v.title,
+      body: v.body,
       version: v.version,
       accepted: state === "granted",
       state,
@@ -55,6 +60,71 @@ export async function loadConsentStatus(patientId: string): Promise<QueryResult<
     };
   });
   return { ok: true, data: rows };
+}
+
+/**
+ * Gives or withdraws an OPTIONAL consent for the signed-in person (S04b-2). Append-only: one more patient_consents row
+ * against the CURRENT published version, one purpose at a time, never bundled and never pre-ticked by the caller. The database
+ * derives who made the choice and the exact-text hash; the channel ("mobile") is the only receipt field the app supplies.
+ * A required purpose is refused here and by the database (OQ-53): stopping it means closing the account.
+ */
+export async function recordConsent(
+  organisationId: string,
+  patientId: string,
+  consentType: Enums<"consent_type">,
+  action: "accepted" | "withdrawn",
+): Promise<QueryResult<null>> {
+  const { data: version, error: versionError } = await supabase
+    .from("consent_versions")
+    .select("id, version, is_optional")
+    .eq("consent_type", consentType)
+    .eq("is_current", true)
+    .maybeSingle();
+  if (versionError || !version) return { ok: false, error: "We could not find that consent." };
+  if (!version.is_optional) {
+    return { ok: false, error: "This one is needed to use your account. To stop it, close your account using the data options below." };
+  }
+  const { error } = await supabase.from("patient_consents").insert({
+    organisation_id: organisationId,
+    patient_id: patientId,
+    consent_type: consentType,
+    consent_version_id: version.id,
+    version: version.version,
+    action,
+    channel: "mobile",
+  });
+  if (error) {
+    if (error.code === "23514" && action === "withdrawn") {
+      return { ok: false, error: "This one is needed to use your account. To stop it, close your account using the data options below." };
+    }
+    return { ok: false, error: "We could not record that just now. Please try again." };
+  }
+  return { ok: true, data: null };
+}
+
+/** The caller's consent receipts, newest first: the exact words, when, where and by whom. */
+export async function loadConsentReceipts(patientId: string): Promise<QueryResult<ConsentReceiptRow[]>> {
+  const { data, error } = await supabase
+    .from("patient_consent_receipts")
+    .select("id, consent_type, action, version, title, body, channel, consented_by_relation, recorded_at, text_sha256")
+    .eq("patient_id", patientId)
+    .order("recorded_at", { ascending: false });
+  if (error) return { ok: false, error: error.message };
+  return {
+    ok: true,
+    data: (data ?? []).map((r) => ({
+      id: r.id ?? "",
+      consent_type: r.consent_type ?? "",
+      action: r.action ?? "accepted",
+      version: r.version ?? "",
+      title: r.title ?? "",
+      body: r.body ?? "",
+      channel: r.channel ?? "unknown",
+      consented_by_relation: r.consented_by_relation ?? "self",
+      recorded_at: r.recorded_at ?? "",
+      text_sha256: r.text_sha256 ?? "",
+    })),
+  };
 }
 
 export interface ConnectedDevice {
@@ -84,9 +154,20 @@ export interface DataRightsRequest {
   summary: string | null;
 }
 
-export async function loadExportRequests(): Promise<DataRightsRequest[]> {
-  const { data } = await supabase.from("data_export_requests").select("id, status, requested_at, note").order("requested_at", { ascending: false });
-  return (data ?? []).map((r) => ({ id: r.id, status: r.status, requestedAt: r.requested_at, summary: r.note }));
+export interface ExportRequestRow {
+  id: string;
+  status: string;
+  requestedAt: string;
+  dueAt: string;
+  fulfilledAt: string | null;
+}
+
+export async function loadExportRequests(): Promise<ExportRequestRow[]> {
+  const { data } = await supabase
+    .from("data_export_requests")
+    .select("id, status, requested_at, due_at, fulfilled_at")
+    .order("requested_at", { ascending: false });
+  return (data ?? []).map((r) => ({ id: r.id, status: r.status, requestedAt: r.requested_at, dueAt: r.due_at, fulfilledAt: r.fulfilled_at }));
 }
 
 export async function createExportRequest(organisationId: string, patientId: string, note?: string): Promise<QueryResult<null>> {
@@ -126,9 +207,26 @@ export async function createCorrectionRequest(
   return { ok: true, data: null };
 }
 
-export async function loadDeletionRequests(): Promise<DataRightsRequest[]> {
-  const { data } = await supabase.from("data_deletion_requests").select("id, status, requested_at, reason").order("requested_at", { ascending: false });
-  return (data ?? []).map((r) => ({ id: r.id, status: r.status, requestedAt: r.requested_at, summary: r.reason }));
+export interface DeletionRequestRow {
+  id: string;
+  status: string;
+  requestedAt: string;
+  graceEndsAt: string | null;
+  note: string | null;
+}
+
+export async function loadDeletionRequests(): Promise<DeletionRequestRow[]> {
+  const { data } = await supabase
+    .from("data_deletion_requests")
+    .select("id, status, requested_at, grace_ends_at, blocked_reason, decision_note")
+    .order("requested_at", { ascending: false });
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    status: r.status,
+    requestedAt: r.requested_at,
+    graceEndsAt: r.grace_ends_at,
+    note: r.blocked_reason ?? r.decision_note,
+  }));
 }
 
 export async function createDeletionRequest(organisationId: string, patientId: string, reason: string): Promise<QueryResult<null>> {
@@ -137,7 +235,16 @@ export async function createDeletionRequest(organisationId: string, patientId: s
     patient_id: patientId,
     reason,
     requested_categories: [],
+    // The waiting period the person can cancel within (PROPOSED privacy.deletion_grace); the database holds it to 7..30 days.
+    grace_ends_at: deletionGraceEndsAt(),
   });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: null };
+}
+
+/** Cancels the caller's own deletion request while its waiting period runs; the database refuses afterwards. */
+export async function cancelDeletionRequest(requestId: string): Promise<QueryResult<null>> {
+  const { error } = await supabase.rpc("cancel_my_data_deletion_request", { p_request: requestId });
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: null };
 }

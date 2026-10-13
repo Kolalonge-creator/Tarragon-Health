@@ -23,7 +23,7 @@ jest.mock("@/lib/supabase/server", () => ({
   })),
 }));
 
-import { withdrawConsentAction } from "./consent-actions";
+import { grantConsentAction, withdrawConsentAction } from "./consent-actions";
 
 beforeEach(() => {
   insertMock.mockReset().mockResolvedValue({ error: null });
@@ -42,6 +42,7 @@ describe("withdrawConsentAction", () => {
       consent_version_id: "cv-1",
       version: "v1",
       action: "withdrawn",
+      channel: "web",
     });
   });
 
@@ -68,7 +69,48 @@ describe("withdrawConsentAction", () => {
     expect((await withdrawConsentAction("research"))?.error).toMatch(/could not record/i);
   });
 
+  it("tells the person plainly when the database refuses a required withdrawal (OQ-53), not 'try again'", async () => {
+    insertMock.mockResolvedValue({ error: { code: "23514", message: "A required consent cannot be withdrawn while your account is active." } });
+    const result = await withdrawConsentAction("research");
+    expect(result?.error).toMatch(/close your account/i);
+  });
+
   it("never takes the patient id from the caller", () => {
     expect(withdrawConsentAction.length).toBe(1);
+  });
+});
+
+describe("grantConsentAction", () => {
+  it("appends one accepted row for one optional purpose, recording the channel", async () => {
+    const result = await grantConsentAction("research");
+    expect(result).toEqual({ success: true });
+    expect(insertMock).toHaveBeenCalledTimes(1);
+    expect(insertMock).toHaveBeenCalledWith({
+      organisation_id: "org-1",
+      patient_id: "patient-1",
+      consent_type: "research",
+      consent_version_id: "cv-1",
+      version: "v1",
+      action: "accepted",
+      channel: "web",
+    });
+  });
+
+  it("will not record a required purpose here (those are given when the account is set up)", async () => {
+    versionRow = { id: "cv-2", version: "v1", is_optional: false };
+    expect((await grantConsentAction("data_processing"))?.error).toMatch(/set up your account/i);
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+
+  it("finds nothing to give when no published version exists (a draft is invisible to the patient)", async () => {
+    versionRow = null;
+    expect((await grantConsentAction("care_circle_sharing"))?.error).toMatch(/could not find/i);
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+
+  it("needs a signed-in caller", async () => {
+    user = null;
+    expect((await grantConsentAction("research"))?.error).toBeTruthy();
+    expect(insertMock).not.toHaveBeenCalled();
   });
 });

@@ -277,6 +277,10 @@ declare
   v_request_id uuid := (select v from dg_fixture where k = 'request_id');
   v_edit_after_complete_rejected boolean := false;
 begin
+  -- S04b-2: back-date the waiting period for this fixture only (the gate is proven in s04b2_consent_receipts_and_deletion_grace.sql).
+  set local session_replication_role = replica;
+  update public.data_deletion_requests set grace_ends_at = now() - interval '1 second' where id = v_request_id;
+  set local session_replication_role = origin;
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
   update public.data_deletion_requests set status = 'completed', decision_note = 'DG test completion' where id = v_request_id;

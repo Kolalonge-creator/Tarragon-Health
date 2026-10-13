@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, Text, TextInput, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
+import type { ConsentReceiptRow } from "@tarragon/shared";
 import {
   createCorrectionRequest,
-  createDeletionRequest,
-  createExportRequest,
   loadConnectedDevices,
+  loadConsentReceipts,
   loadConsentStatus,
   loadCorrectionRequests,
   loadDeletionRequests,
@@ -13,7 +13,11 @@ import {
   type ConnectedDevice,
   type ConsentRow,
   type DataRightsRequest,
+  type DeletionRequestRow,
+  type ExportRequestRow,
 } from "@/lib/privacy";
+import { OptionalConsentControls, ConsentReceiptsCard } from "./privacy-consent-controls";
+import { DeletionRequestCard, ExportRequestCard } from "./privacy-data-cards";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import type { SectionId } from "@/lib/sections";
 import { spacing } from "@/ui/theme";
@@ -53,14 +57,16 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
   const [loading, setLoading] = useState(true);
   const [consents, setConsents] = useState<ConsentRow[]>([]);
   const [devices, setDevices] = useState<ConnectedDevice[]>([]);
-  const [exportRequests, setExportRequests] = useState<DataRightsRequest[]>([]);
+  const [receipts, setReceipts] = useState<ConsentReceiptRow[]>([]);
+  const [exportRequests, setExportRequests] = useState<ExportRequestRow[]>([]);
   const [correctionRequests, setCorrectionRequests] = useState<DataRightsRequest[]>([]);
-  const [deletionRequests, setDeletionRequests] = useState<DataRightsRequest[]>([]);
+  const [deletionRequests, setDeletionRequests] = useState<DeletionRequestRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    const [consentResult, deviceList, exportList, correctionList, deletionList] = await Promise.all([
+    const [consentResult, receiptResult, deviceList, exportList, correctionList, deletionList] = await Promise.all([
       loadConsentStatus(userId),
+      loadConsentReceipts(userId),
       loadConnectedDevices(userId),
       loadExportRequests(),
       loadCorrectionRequests(),
@@ -72,6 +78,7 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
     }
     setLoadError(null);
     setConsents(consentResult.data);
+    setReceipts(receiptResult.ok ? receiptResult.data : []);
     setDevices(deviceList);
     setExportRequests(exportList);
     setCorrectionRequests(correctionList);
@@ -97,8 +104,8 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
       <View>
         <ScreenTitle>Privacy & your data</ScreenTitle>
         <MutedText>
-          What you&apos;ve agreed to, who can see your record, and how to request, correct, or delete
-          your data.
+          What you&apos;ve agreed to, who can see your record, and how to get a copy of your data, correct it, or close
+          your account.
         </MutedText>
       </View>
 
@@ -115,7 +122,8 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
           <MutedText>Nothing to show yet.</MutedText>
         ) : (
           consents.map((c) => (
-            <View key={`${c.consentType}-${c.version}`} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}>
+            <View key={`${c.consentType}-${c.version}`} style={{ gap: 8, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 13, color: colors.ink }}>{CONSENT_TYPE_LABEL[c.consentType] ?? c.consentType.replace(/_/g, " ")}</Text>
                 <MutedText>{c.accepted && c.acceptedAt
@@ -132,9 +140,13 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
                 {c.accepted ? "Accepted" : c.state === "withdrawn" ? "Withdrawn" : c.isOptional ? "Not shared" : "Outstanding"}
               </Badge>
             </View>
+            <OptionalConsentControls row={c} organisationId={organisationId} patientId={userId} onChanged={() => void refresh()} />
+            </View>
           ))
         )}
       </Card>
+
+      <ConsentReceiptsCard receipts={receipts} />
 
       <Card style={{ gap: 8 }}>
         <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Connected devices</Text>
@@ -166,7 +178,7 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
       <View>
         <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink, marginBottom: 4 }}>Your data rights</Text>
         <MutedText>
-          Under Nigeria&apos;s Data Protection Act, you can ask to see, correct, or delete the data we
+          Under Nigeria&apos;s Data Protection Act, you can ask to see, correct, or erase the data we
           hold about you.
         </MutedText>
       </View>
@@ -192,70 +204,6 @@ function RequestList({ requests }: { requests: DataRightsRequest[] }) {
         </View>
       ))}
     </View>
-  );
-}
-
-function ExportRequestCard({
-  userId,
-  organisationId,
-  requests,
-  onChanged,
-}: {
-  userId: string;
-  organisationId: string;
-  requests: DataRightsRequest[];
-  onChanged: () => void;
-}) {
-  const colors = useLegacyColors();
-  const textInputStyle = useTextInputStyle();
-  const { scheme } = useTheme();
-  const [open, setOpen] = useState(false);
-  const [note, setNote] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function submit() {
-    setError(null);
-    setSubmitting(true);
-    const result = await createExportRequest(organisationId, userId, note.trim() || undefined);
-    setSubmitting(false);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    setOpen(false);
-    setNote("");
-    onChanged();
-  }
-
-  return (
-    <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Request a copy of your data</Text>
-      <MutedText>
-        Ask us for a copy of the data we hold about you. A member of our team reviews and prepares
-        it, then sends it to you securely — it isn&apos;t a direct download.
-      </MutedText>
-      {error && <ErrorText>{error}</ErrorText>}
-      {open ? (
-        <>
-          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
-            value={note}
-            onChangeText={setNote}
-            placeholder="Anything specific you need? (optional)"
-            multiline
-            numberOfLines={2}
-            style={[textInputStyle, { minHeight: 50, textAlignVertical: "top" }]}
-          />
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <PrimaryButton title="Submit request" onPress={submit} loading={submitting} />
-            <SecondaryButton title="Cancel" onPress={() => setOpen(false)} disabled={submitting} />
-          </View>
-        </>
-      ) : (
-        <SecondaryButton title="Request my data" onPress={() => setOpen(true)} />
-      )}
-      <RequestList requests={requests} />
-    </Card>
   );
 }
 
@@ -335,71 +283,6 @@ function CorrectionRequestCard({
         </>
       ) : (
         <SecondaryButton title="Request a correction" onPress={() => setOpen(true)} />
-      )}
-      <RequestList requests={requests} />
-    </Card>
-  );
-}
-
-function DeletionRequestCard({
-  userId,
-  organisationId,
-  requests,
-  onChanged,
-}: {
-  userId: string;
-  organisationId: string;
-  requests: DataRightsRequest[];
-  onChanged: () => void;
-}) {
-  const colors = useLegacyColors();
-  const textInputStyle = useTextInputStyle();
-  const { scheme } = useTheme();
-  const [open, setOpen] = useState(false);
-  const [reason, setReason] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function submit() {
-    setError(null);
-    setSubmitting(true);
-    const result = await createDeletionRequest(organisationId, userId, reason.trim());
-    setSubmitting(false);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    setOpen(false);
-    setReason("");
-    onChanged();
-  }
-
-  return (
-    <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Request deletion of your data</Text>
-      <MutedText>
-        You can ask us to delete data we hold about you. Some clinical records must be kept for a
-        minimum period under Nigerian healthcare regulation. If that applies, we&apos;ll explain
-        exactly what can and can&apos;t be deleted when we review your request.
-      </MutedText>
-      {error && <ErrorText>{error}</ErrorText>}
-      {open ? (
-        <>
-          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
-            value={reason}
-            onChangeText={setReason}
-            placeholder="Tell us what you'd like deleted and why (optional)"
-            multiline
-            numberOfLines={3}
-            style={[textInputStyle, { minHeight: 60, textAlignVertical: "top" }]}
-          />
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <PrimaryButton title="Submit request" onPress={submit} loading={submitting} />
-            <SecondaryButton title="Cancel" onPress={() => setOpen(false)} disabled={submitting} />
-          </View>
-        </>
-      ) : (
-        <SecondaryButton title="Request deletion" onPress={() => setOpen(true)} />
       )}
       <RequestList requests={requests} />
     </Card>
