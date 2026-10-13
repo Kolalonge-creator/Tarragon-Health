@@ -1147,6 +1147,31 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S16.md; spec 7.3 and 7.4",
   },
   {
+    key: "queue.task_types",
+    // Task types and priority classes (S16, spec 7.3 and 7.4). Live values are the active `task_types` rows; this entry
+    // mirrors them, and a test compares it with the migration seed. Each row: code, priority class (1 is first), default
+    // due minutes, minimum doctor tier, required competencies, lead window minutes (0 for none), claim timeout minutes,
+    // pushable (an employed doctor may be pushed it), creatable (false for a class reached only by promotion) and the
+    // triage task keys it answers. adherence_follow_up is not in the spec table (OQ-S16-1). v2 (F-05, 2026-10-07): the Medical Officer tier is retired, so every doctor task type has senior_medical_officer as its minimum; nothing else changed.
+    value: [
+      { code: "red_event_unacknowledged", priority_class: 1, default_due_minutes: 0, min_doctor_tier: "senior_medical_officer", required_competencies: ["on_call"], lead_window_minutes: 0, claim_timeout_minutes: 30, pushable: false, creatable: true, source_task_keys: [] },
+      { code: "critical_result_review", priority_class: 2, default_due_minutes: 120, min_doctor_tier: "senior_medical_officer", required_competencies: ["result_review"], lead_window_minutes: 0, claim_timeout_minutes: 30, pushable: false, creatable: true, source_task_keys: [] },
+      { code: "amber_bp_review_due_soon", priority_class: 3, default_due_minutes: 0, min_doctor_tier: "senior_medical_officer", required_competencies: ["hypertension"], lead_window_minutes: 0, claim_timeout_minutes: 30, pushable: false, creatable: false, source_task_keys: [] },
+      { code: "amber_bp_review", priority_class: 4, default_due_minutes: 1440, min_doctor_tier: "senior_medical_officer", required_competencies: ["hypertension"], lead_window_minutes: 240, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: ["urgent_bp_review", "bp_review", "low_bp_review"] },
+      { code: "symptom_review", priority_class: 5, default_due_minutes: 1440, min_doctor_tier: "senior_medical_officer", required_competencies: ["adult_general"], lead_window_minutes: 1440, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: [] },
+      { code: "titration_signoff", priority_class: 6, default_due_minutes: 2880, min_doctor_tier: "senior_medical_officer", required_competencies: ["prescribing", "hypertension"], lead_window_minutes: 2880, claim_timeout_minutes: 60, pushable: true, creatable: true, source_task_keys: [] },
+      { code: "async_question", priority_class: 7, default_due_minutes: 1440, min_doctor_tier: "senior_medical_officer", required_competencies: ["adult_general"], lead_window_minutes: 1440, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: [] },
+      { code: "routine_result_review", priority_class: 8, default_due_minutes: 2880, min_doctor_tier: "senior_medical_officer", required_competencies: ["result_review"], lead_window_minutes: 1440, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: [] },
+      { code: "admin_clinical", priority_class: 9, default_due_minutes: 4320, min_doctor_tier: "senior_medical_officer", required_competencies: [], lead_window_minutes: 1440, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: ["referral_review"] },
+      { code: "adherence_follow_up", priority_class: 8, default_due_minutes: 2880, min_doctor_tier: "care_coordinator", required_competencies: [], lead_window_minutes: 1440, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: ["adherence_review", "silence_check"] },
+    ],
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S16.md; spec 7.3 and 7.4",
+  },
+  {
     key: "triage.bp_rule_set",
     // Blood pressure triage rules (S11). The thresholds themselves live in the rule set, `packages/clinical`
     // (`BP_CARE_V1`) and the `triage_rule_sets` row of the same code and version; this entry records the owner and
@@ -1818,5 +1843,47 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 3,
     effectiveFrom: "2026-10-07",
     source: "docs/DECISIONS.md S11-1; supabase/migrations/20261007152136_s11c_bp_care_triage_v3.sql",
+  },
+  {
+    key: "community.rules",
+    // Community groups (decisions COM-1 to COM-10, docs/COMMUNITY_SPEC.md). Live values are the active row of `community_config`; this entry mirrors it
+    // and community-mirror.test.ts fails if the migration seed and this value drift. PROPOSED: post length, the first post a new member waits for (lowered from three to one in the Phase 2 review: Mayo Connect posts at once, so we measure first-post drop-off and can raise it again), rate
+    // limits, the cool-down after repeated blocked attempts, the number of reporters that hides a post, how long a removed post's text is kept, and the
+    // limits on the unmask. The retention figure and the consent version are counsel's (OQ-COM-06); the rest are the founder's and the CMO's.
+    // A change is a NEW version here AND a new community_config row; the old one is never edited.
+    value: {
+      post_max_chars: 2000,
+      edit_window_minutes: 15,
+      new_member_premoderated_posts: 1,
+      appeal_window_days: 14,
+      quality_sample_pct: 10,
+      image_max_bytes: 4194304,
+      qa_questions_per_member: 3,
+      qa_answer_grace_minutes: 60,
+      overdue_safety_minutes: 30,
+      overdue_queue_minutes: 60,
+      rate_posts_per_hour: 6,
+      rate_posts_per_day: 30,
+      block_cooldown: {"max_blocks": 3, "window_minutes": 10, "cooldown_minutes": 60},
+      auto_hide_report_threshold: 3,
+      removed_body_retention_days: 90,
+      unmask: {"min_reason_chars": 20, "max_per_day": 5, "signal_window_days": 30},
+      consent_version: "v1-2026-10-12-founder-cmo",
+      feed_page_size: 20,
+      max_page_size: 50,
+      welcome_days: 14,
+      return_nudge_days: 3,
+      avatars: ["leaf", "sun", "river", "hill", "star", "seed", "cloud", "stone", "wave", "bird"],
+      handle_words: {
+        adjectives: ["calm", "brave", "bright", "gentle", "steady", "kind", "warm", "quiet", "bold", "clever", "cheerful", "patient", "sunny", "swift", "wise", "lively", "hopeful", "honest", "mellow", "sturdy", "tender", "vivid", "witty", "zesty", "noble", "merry", "serene", "spry", "plucky", "radiant"],
+        nouns: ["river", "hill", "leaf", "sparrow", "baobab", "palm", "harbour", "lantern", "meadow", "pebble", "breeze", "cedar", "comet", "dune", "ember", "falcon", "garden", "heron", "island", "jasmine", "kestrel", "lagoon", "maple", "orchid", "plateau", "quartz", "reed", "savanna", "thistle", "willow"],
+      },
+    },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-09",
+    source: "docs/COMMUNITY_SPEC.md sections 4.1 to 4.5; supabase/migrations/20261009193728_community_guard_and_seed.sql",
+    guardPatterns: ["post[_ ]?max[_ ]?chars\\w*\\s*[=:]\\s*2000\\b", "premoderated\\w*\\s*[=:]\\s*3\\b", "auto[_ ]?hide\\w*\\s*[=:]\\s*3\\b"],
   },
 ];

@@ -59,13 +59,13 @@ begin
   -- Every fixture doctor is minted INACTIVE -- each case activates only the
   -- ones it needs.
   for r in select * from (values
-      ('doctor_onleave', 'medical_officer'),
-      ('doctor_loaded', 'medical_officer'),
-      ('doctor_blocked', 'medical_officer'),
-      ('doctor_free', 'medical_officer'),
-      ('doctor_onlyblocked', 'medical_officer'),
-      ('doctor_expiredrule', 'medical_officer'),
-      ('doctor_norules', 'medical_officer'),
+      ('doctor_onleave', 'senior_medical_officer'),
+      ('doctor_loaded', 'senior_medical_officer'),
+      ('doctor_blocked', 'senior_medical_officer'),
+      ('doctor_free', 'senior_medical_officer'),
+      ('doctor_onlyblocked', 'senior_medical_officer'),
+      ('doctor_expiredrule', 'senior_medical_officer'),
+      ('doctor_norules', 'senior_medical_officer'),
       ('doctor_smo_owner', 'senior_medical_officer'),
       ('doctor_smo_backup', 'senior_medical_officer')
     ) as t(key_name, tier)
