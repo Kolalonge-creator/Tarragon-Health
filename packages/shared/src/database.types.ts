@@ -11397,6 +11397,7 @@ export type Database = {
           reason: string | null
           requested_at: string
           requested_categories: string[]
+          requested_grace_days: number | null
           reviewed_at: string | null
           reviewed_by: string | null
           status: string
@@ -11418,6 +11419,7 @@ export type Database = {
           reason?: string | null
           requested_at?: string
           requested_categories?: string[]
+          requested_grace_days?: number | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string
@@ -11439,6 +11441,7 @@ export type Database = {
           reason?: string | null
           requested_at?: string
           requested_categories?: string[]
+          requested_grace_days?: number | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string

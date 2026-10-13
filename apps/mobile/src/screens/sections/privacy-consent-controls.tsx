@@ -22,7 +22,9 @@ export function OptionalConsentControls({
 }) {
   const colors = useLegacyColors();
   const [reading, setReading] = useState(false);
-  const [ticked, setTicked] = useState(false);
+  // The tick belongs to the version that was on screen when it was made; a replaced version starts unticked.
+  const [tickedFor, setTickedFor] = useState<string | null>(null);
+  const ticked = tickedFor === row.versionId;
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +41,7 @@ export function OptionalConsentControls({
       return;
     }
     setReading(false);
-    setTicked(false);
+    setTickedFor(null);
     setConfirming(false);
     onChanged();
   }
@@ -65,7 +67,7 @@ export function OptionalConsentControls({
           <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>{row.title}</Text>
           <Text style={{ fontSize: 12.5, color: colors.ink }}>{row.body}</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <Switch value={ticked} onValueChange={setTicked} accessibilityLabel="I have read this and I choose to agree" />
+            <Switch value={ticked} onValueChange={(on) => setTickedFor(on ? row.versionId : null)} accessibilityLabel="I have read this and I choose to agree" />
             <Text style={{ flex: 1, fontSize: 12.5, color: colors.ink }}>I have read this and I choose to agree. I can stop at any time.</Text>
           </View>
           <View style={{ flexDirection: "row", gap: 8 }}>

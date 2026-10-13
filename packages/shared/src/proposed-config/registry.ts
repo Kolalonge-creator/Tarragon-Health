@@ -1890,7 +1890,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     key: "privacy.deletion_grace",
     // S04b-2 (OQ-50): how long a patient has to change their mind after asking to close their account and erase what the law
     // allows to be erased. Nothing is approved or completed before it ends and the patient can cancel until then. The database
-    // holds the request to 7..30 days whatever the app sends (data_deletion_requests.grace_ends_at). Fourteen days is a PROPOSED
+    // counts it from its own clock and holds it to 7..30 days whatever the app asks for (data_deletion_requests.requested_grace_days). Fourteen days is a PROPOSED
     // figure, not from the spec; counsel and the founder confirm.
     value: { days: 14 },
     owner: "Founder and counsel",

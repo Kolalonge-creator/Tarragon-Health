@@ -134,8 +134,8 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
                           <label className="flex items-start gap-2 text-charcoal-ink/80 dark:text-night-ink/80">
                             <input
                               type="checkbox"
-                              checked={agreed[version.consent_type] === true}
-                              onChange={(e) => setAgreed((a) => ({ ...a, [version.consent_type]: e.target.checked }))}
+                              checked={agreed[version.id] === true}
+                              onChange={(e) => setAgreed((a) => ({ ...a, [version.id]: e.target.checked }))}
                               className="mt-0.5"
                             />
                             <span>I have read this and I choose to agree. I can stop at any time.</span>
@@ -143,14 +143,14 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
                           <Button
                             type="button"
                             size="sm"
-                            disabled={agreed[version.consent_type] !== true || busy}
+                            disabled={agreed[version.id] !== true || busy}
                             onClick={async () => {
                               setWithdrawError(null);
                               setBusy(true);
                               const result = await grantConsentAction(version.consent_type, version.id).finally(() => setBusy(false));
                               if (result?.error) setWithdrawError(result.error);
                               else {
-                                setAgreed((a) => ({ ...a, [version.consent_type]: false }));
+                                setAgreed((a) => ({ ...a, [version.id]: false }));
                                 refresh();
                               }
                             }}
@@ -191,7 +191,7 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
           </details>
         )}
 
-        {!isLoading && outstandingTypes.length > 0 && !reviewing && (
+        {!isLoading && !isError && outstandingTypes.length > 0 && !reviewing && (
           <div className="flex flex-col items-start gap-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
               {outstandingTypes.length === 1

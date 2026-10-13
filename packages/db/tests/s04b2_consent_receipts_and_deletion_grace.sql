@@ -162,7 +162,19 @@ begin
   -- closed account: allowed
   perform set_config('request.jwt.claims', '', true);
   insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action, created_at) values (v_org, pat2, cv.consent_type, cv.id, cv.version, 'accepted', now() - interval '2 minutes');
+  -- a suspended patient (inactive profile, no completed deletion request) is NOT a closed account
   update public.profiles set is_active = false where id = pat2;
+  perform set_config('request.jwt.claims', json_build_object('sub', pat2::text, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  begin
+    insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action, channel) values (v_org, pat2, cv.consent_type, cv.id, cv.version, 'withdrawn', 'web');
+    reset role; raise exception 'FAIL 3d0: a suspended (not closed) account withdrew a required consent';
+  exception when check_violation then reset role; end;
+  perform set_config('request.jwt.claims', '', true);
+  set local session_replication_role = replica;
+  insert into public.data_deletion_requests (organisation_id, patient_id, status, reviewed_by, reviewed_at, completed_by, completed_at, grace_ends_at)
+    values (v_org, pat2, 'completed', (select v from s4b2_fx where k = 'adm'), now(), (select v from s4b2_fx where k = 'adm'), now(), now() - interval '1 day');
+  set local session_replication_role = origin;
   perform set_config('request.jwt.claims', json_build_object('sub', pat2::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
   insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action, channel) values (v_org, pat2, cv.consent_type, cv.id, cv.version, 'withdrawn', 'web');
@@ -343,13 +355,13 @@ begin
   -- clamps: 1 day -> 7, 90 days -> 30 (other patient)
   perform set_config('request.jwt.claims', json_build_object('sub', pat2::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
-  insert into public.data_deletion_requests (organisation_id, patient_id, grace_ends_at) values (v_org, pat2, now() + interval '1 day') returning grace_ends_at into g;
+  insert into public.data_deletion_requests (organisation_id, patient_id, requested_grace_days, grace_ends_at) values (v_org, pat2, 1, now() + interval '400 days') returning grace_ends_at into g;
   reset role;
   if g < now() + interval '6 days 23 hours' or g > now() + interval '7 days 1 hour' then raise exception 'FAIL 6c: short grace not raised to 7 days (%)', g; end if;
-  update public.data_deletion_requests set status = 'cancelled', cancelled_at = now(), cancelled_by = pat2 where patient_id = pat2;
+  update public.data_deletion_requests set status = 'cancelled', cancelled_at = now(), cancelled_by = pat2 where patient_id = pat2 and status = 'pending';
   perform set_config('request.jwt.claims', json_build_object('sub', pat2::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
-  insert into public.data_deletion_requests (organisation_id, patient_id, grace_ends_at) values (v_org, pat2, now() + interval '90 days') returning grace_ends_at into g;
+  insert into public.data_deletion_requests (organisation_id, patient_id, requested_grace_days) values (v_org, pat2, 90) returning grace_ends_at into g;
   reset role;
   if g < now() + interval '29 days 23 hours' or g > now() + interval '30 days 1 hour' then raise exception 'FAIL 6d: long grace not capped at 30 days (%)', g; end if;
 
@@ -436,8 +448,8 @@ declare
 begin
   def := pg_get_functiondef('private.enforce_patient_consent_withdrawal()'::regprocedure);
   insert into s4b2_def values ('withdrawal', def);
-  if position('if v_uid is not null and not v_cv.is_optional then' in def) = 0 then raise exception 'SABOTAGE setup: anchor not found'; end if;
-  execute replace(def, 'if v_uid is not null and not v_cv.is_optional then', 'if false then');
+  if position('if v_uid is not null and not v_cv.is_optional and coalesce' in def) = 0 then raise exception 'SABOTAGE setup: anchor not found'; end if;
+  execute replace(def, 'if v_uid is not null and not v_cv.is_optional and coalesce', 'if false and coalesce');
 
   select * into cv from public.consent_versions where is_current and not is_optional and consent_type = 'data_processing';
   insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action, created_at) values (v_org, pat2, cv.consent_type, cv.id, cv.version, 'accepted', now() - interval '30 seconds');

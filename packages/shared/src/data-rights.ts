@@ -72,6 +72,8 @@ export interface ExportRequestLike {
   requested_at: string;
   due_at: string;
   fulfilled_at: string | null;
+  /** The reviewer's reason, shown when a request is declined. */
+  decision_note?: string | null;
 }
 
 export type ExportPhase = "waiting" | "ready" | "expired" | "declined";
@@ -91,7 +93,7 @@ export function exportDownloadDays(): number {
 
 export function exportRequestView(row: ExportRequestLike, now: number = Date.now()): ExportRequestView {
   if (row.status === "denied") {
-    return { phase: "declined", canDownload: false, headline: "We could not prepare this one", detail: "Our team has written back about why. You can ask again at any time." };
+    return { phase: "declined", canDownload: false, headline: "We could not prepare this one", detail: row.decision_note ? `Reason from our team: ${row.decision_note} You can ask again at any time.` : "You can ask again at any time." };
   }
   if (row.status === "fulfilled" && row.fulfilled_at) {
     const expiresAt = Date.parse(row.fulfilled_at) + exportDownloadDays() * DAY_MS;
@@ -140,11 +142,6 @@ export interface DeletionRequestView {
 export function deletionGraceDays(): number {
   const v = getProposedConfig("privacy.deletion_grace").value as { days?: number };
   return v.days ?? 14;
-}
-
-/** The grace_ends_at to send with a new request. */
-export function deletionGraceEndsAt(now: number = Date.now()): string {
-  return new Date(now + deletionGraceDays() * DAY_MS).toISOString();
 }
 
 export function deletionRequestView(row: DeletionRequestLike, now: number = Date.now()): DeletionRequestView {

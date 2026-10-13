@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import { deletionGraceEndsAt, type Tables } from "@tarragon/shared";
+import { deletionGraceDays, type Tables } from "@tarragon/shared";
 
 export type DataDeletionRequest = Tables<"data_deletion_requests">;
 export type DataCorrectionRequest = Tables<"data_correction_requests">;
@@ -60,8 +60,8 @@ export function useCreateDeletionRequest(organisationId: string, patientId: stri
         patient_id: patientId,
         reason: input.reason,
         requested_categories: input.requestedCategories,
-        // S04b-2: the waiting period the patient can cancel within. The database holds it to 7..30 days whatever is sent.
-        grace_ends_at: deletionGraceEndsAt(),
+        // S04b-2: the waiting period the patient can cancel within, in days. The database counts it from its own clock and holds it to 7..30.
+        requested_grace_days: deletionGraceDays(),
       });
       if (error) throw error;
     },

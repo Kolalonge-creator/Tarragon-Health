@@ -80,13 +80,12 @@ describe("recordConsent", () => {
 });
 
 describe("deletion requests", () => {
-  it("send a grace_ends_at about 14 days out", async () => {
+  it("ask for the proposed 14 days and never send a timestamp of their own", async () => {
     await createDeletionRequest("org-1", "p1", "leaving");
-    const [table, row] = mockInsert.mock.calls[0] as [string, { grace_ends_at: string }];
+    const [table, row] = mockInsert.mock.calls[0] as [string, Record<string, unknown>];
     expect(table).toBe("data_deletion_requests");
-    const days = (Date.parse(row.grace_ends_at) - Date.now()) / 86_400_000;
-    expect(days).toBeGreaterThan(13.9);
-    expect(days).toBeLessThan(14.1);
+    expect(row.requested_grace_days).toBe(14);
+    expect(row).not.toHaveProperty("grace_ends_at");
   });
 
   it("cancel goes through the database function and surfaces a refusal", async () => {

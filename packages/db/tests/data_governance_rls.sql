@@ -283,6 +283,7 @@ begin
   set local session_replication_role = origin;
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
+  update public.data_deletion_requests set status = 'approved_full' where id = v_request_id;
   update public.data_deletion_requests set status = 'completed', decision_note = 'DG test completion' where id = v_request_id;
 
   begin

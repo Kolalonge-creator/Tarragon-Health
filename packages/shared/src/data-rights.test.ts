@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { DELETION_KEPT, deletionGraceDays, deletionGraceEndsAt, deletionRequestView, exportRequestView, receiptSentence } from "./data-rights";
+import { DELETION_KEPT, deletionGraceDays, deletionRequestView, exportRequestView, receiptSentence } from "./data-rights";
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = Date.parse("2026-10-13T10:00:00Z");
@@ -25,9 +25,8 @@ describe("deletionRequestView", () => {
       expect(deletionRequestView({ ...base, status, grace_ends_at: new Date(NOW + DAY).toISOString() }, NOW).canCancel).toBe(false);
     }
   });
-  it("the grace sent with a request is the proposed 14 days", () => {
+  it("the grace the app asks for is the proposed 14 days (the database counts it from its own clock)", () => {
     expect(deletionGraceDays()).toBe(14);
-    expect(Date.parse(deletionGraceEndsAt(NOW)) - NOW).toBe(14 * DAY);
   });
   it("says plainly that clinical records, the audit log and the ledger are kept", () => {
     const text = DELETION_KEPT.join(" ").toLowerCase();
@@ -59,8 +58,11 @@ describe("exportRequestView", () => {
     expect(v.phase).toBe("expired");
     expect(v.canDownload).toBe(false);
   });
-  it("a declined request is not downloadable", () => {
-    expect(exportRequestView({ ...base, status: "denied", fulfilled_at: null }, NOW).phase).toBe("declined");
+  it("a declined request is not downloadable and shows the reviewer's reason", () => {
+    const v = exportRequestView({ ...base, status: "denied", fulfilled_at: null, decision_note: "We need to confirm your identity first." }, NOW);
+    expect(v.phase).toBe("declined");
+    expect(v.canDownload).toBe(false);
+    expect(v.detail).toContain("We need to confirm your identity first.");
   });
 });
 

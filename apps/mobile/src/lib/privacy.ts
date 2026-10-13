@@ -1,4 +1,4 @@
-import { consentStateFor, deletionGraceEndsAt, type ConsentReceiptRow, type Enums } from "@tarragon/shared";
+import { consentStateFor, deletionGraceDays, type ConsentReceiptRow, type Enums } from "@tarragon/shared";
 import { supabase } from "./supabase";
 import type { QueryResult } from "./medications";
 
@@ -166,18 +166,19 @@ export interface ExportRequestRow {
   requestedAt: string;
   dueAt: string;
   fulfilledAt: string | null;
+  note: string | null;
 }
 
 export async function loadExportRequests(patientId: string): Promise<QueryResult<ExportRequestRow[]>> {
   const { data, error } = await supabase
     .from("data_export_requests")
-    .select("id, status, requested_at, due_at, fulfilled_at")
+    .select("id, status, requested_at, due_at, fulfilled_at, decision_note")
     .eq("patient_id", patientId)
     .order("requested_at", { ascending: false });
   if (error) return { ok: false, error: error.message };
   return {
     ok: true,
-    data: (data ?? []).map((r) => ({ id: r.id, status: r.status, requestedAt: r.requested_at, dueAt: r.due_at, fulfilledAt: r.fulfilled_at })),
+    data: (data ?? []).map((r) => ({ id: r.id, status: r.status, requestedAt: r.requested_at, dueAt: r.due_at, fulfilledAt: r.fulfilled_at, note: r.decision_note })),
   };
 }
 
@@ -257,8 +258,8 @@ export async function createDeletionRequest(organisationId: string, patientId: s
     patient_id: patientId,
     reason,
     requested_categories: [],
-    // The waiting period the person can cancel within (PROPOSED privacy.deletion_grace); the database holds it to 7..30 days.
-    grace_ends_at: deletionGraceEndsAt(),
+    // The waiting period in days (PROPOSED privacy.deletion_grace); the database counts it from its own clock and holds it to 7..30.
+    requested_grace_days: deletionGraceDays(),
   });
   if (error) {
     if (error.code === "23505") return { ok: false, error: "You already have a request in progress. Close this screen and open it again to see it." };

@@ -290,8 +290,12 @@ begin
 
   -- OQ-53: a required consent is not withdrawable while the account is active. A signed-in person who wants to stop it
   -- closes the account (a data deletion request). A service or migration context (no auth.uid()) is not blocked.
-  if v_uid is not null and not v_cv.is_optional then
-    select coalesce(p.is_active, true) into v_active from public.profiles p where p.id = new.patient_id;
+  if v_uid is not null and not v_cv.is_optional and coalesce(current_setting('app.closing_account', true), '') <> 'on' then
+    -- 'Closed' means a completed deletion request on a deactivated profile. is_active alone is not enough: a suspended patient is not a
+    -- closed one.
+    select coalesce(p.is_active, true) or not exists (
+             select 1 from public.data_deletion_requests r where r.patient_id = new.patient_id and r.status = 'completed')
+      into v_active from public.profiles p where p.id = new.patient_id;
     if coalesce(v_active, true) then
       raise exception 'A required consent cannot be withdrawn while your account is active. To stop it, close your account.'
         using errcode = '23514';
@@ -357,6 +361,7 @@ grant select on public.patient_consent_receipts to authenticated;
 -- 3. Deletion requests: grace period, cancel, one open request
 -- ---------------------------------------------------------------------------
 alter table public.data_deletion_requests add column if not exists grace_ends_at timestamptz;
+alter table public.data_deletion_requests add column if not exists requested_grace_days smallint;
 alter table public.data_deletion_requests add column if not exists cancelled_at timestamptz;
 alter table public.data_deletion_requests add column if not exists cancelled_by uuid references public.profiles (id) on delete set null;
 
@@ -397,10 +402,9 @@ begin
     new.completed_at := null;
     new.cancelled_at := null;
     new.cancelled_by := null;
-    -- The grace period is whatever the app passes (PROPOSED value privacy.deletion_grace), held to 7..30 days here.
-    new.grace_ends_at := least(
-      greatest(coalesce(new.grace_ends_at, now() + interval '14 days'), now() + interval '7 days'),
-      now() + interval '30 days');
+    -- The grace period is the number of days the app asks for (PROPOSED value privacy.deletion_grace), held to 7..30 here and counted
+    -- from the server clock, never from a timestamp the client sends.
+    new.grace_ends_at := now() + make_interval(days => least(greatest(coalesce(new.requested_grace_days, 14), 7), 30));
     insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event, subject_patient_id)
       values (new.organisation_id, v_uid, 'data_deletion.requested', 'data_deletion_request', new.id,
               jsonb_build_object('grace_ends_at', new.grace_ends_at), new.patient_id);
@@ -441,6 +445,9 @@ begin
       raise exception 'Only an admin can review or complete a data deletion request.'
         using errcode = '42501';
     end if;
+    if new.status = 'completed' and old.status not in ('approved_full', 'approved_partial') then
+      raise exception 'A deletion request can only be completed after it has been approved.' using errcode = '23514';
+    end if;
     if new.status in ('approved_partial', 'approved_full', 'completed')
        and old.grace_ends_at is not null and now() < old.grace_ends_at then
       raise exception 'The patient''s waiting period has not ended; this request cannot be approved or completed yet.'
@@ -455,9 +462,8 @@ begin
       new.completed_by := v_uid;
       new.completed_at := now();
     end if;
-    -- Only a request that was APPROVED (fully or partially) closes the account when it is completed; completing one that skipped
-    -- approval records the completion and nothing else.
-    if new.status = 'completed' and old.status in ('approved_full', 'approved_partial') then
+    -- Completing an approved request closes the account.
+    if new.status = 'completed' then
       -- Completing a request closes the account: the profile is DEACTIVATED, never deleted (consents, the deletion record and the
       -- clinical records hang off it). This is also what lets a required consent be withdrawn (OQ-53). Removing the sign-in and
       -- contact details is still a manual step by the reviewer (OQ-S04b2-2).
