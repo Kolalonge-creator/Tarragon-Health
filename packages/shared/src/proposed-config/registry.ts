@@ -1428,6 +1428,39 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S13.md; founder decision 2026-10-13",
   },
   {
+    key: "notifications.rules",
+    // v4 (S13 R4, CMO answers Q10 to Q13): adds redUnconfirmed. A red alert the patient has not confirmed (opened a notice,
+    // acknowledged the guidance, replied, or a push receipt says delivered) within unconfirmedMinutes (30, CMO Q11, matching the
+    // obstetric treatment window; the plan had recommended 10) opens one clinician outreach task and alerts the on-call
+    // clinician. undeliveredMinutes (5): when every push for the alert ended in a receipt error and no email was delivered, the
+    // call is due that long after the error instead. expireHours (6): an alert older than this opens no task. deliveredCountsAsConfirmed
+    // (true, per the plan): a delivered push receipt counts as confirmation; false needs a human action, which is safer and
+    // sends more calls, CMO to decide. couldNotGetCareOutreachNow (true): the patient's "I could not get care" answer brings the
+    // call forward. criticalReceiptCheckMinutes (2): critical Expo tickets are checked from this age, not 15.
+    // The other keys are v3's, unchanged. Live value: the active row of `notification_rules_config`.
+    value: {
+      quietHours: { enabled: false, start: "21:00", end: "07:00" },
+      routinePushPerDay: 4,
+      receiptCheckMinutes: 15,
+      receiptGiveUpHours: 24,
+      pushFallback: { enabled: true, afterMinutes: 240, maxAgeHours: 24, perRecipientPerDay: 1, batchSize: 200 },
+      redUnconfirmed: {
+        enabled: true,
+        unconfirmedMinutes: 30,
+        undeliveredMinutes: 5,
+        expireHours: 6,
+        deliveredCountsAsConfirmed: true,
+        couldNotGetCareOutreachNow: true,
+        criticalReceiptCheckMinutes: 2,
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 4,
+    effectiveFrom: "2026-10-13",
+    source: "docs/design/S11-S15-p3-critical-notifications.md; CMO decision Q11 (2026-10-07)",
+  },
+  {
     key: "video.audio_fallback",
     // Video consultations (S14 interface, wired in S21). Connection quality arrives as a sample every few seconds.
     //  poorSamplesToDowngrade: that many poor samples in a row drop the call to audio only (one bad sample never does).

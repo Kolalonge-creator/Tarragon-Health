@@ -145,11 +145,11 @@ describe("discreet mode", () => {
     expect([...DISCREET_DOCUMENT_TEMPLATES].sort()).toEqual(["lab_order_requested_patient", "preventive_care_plan_updated"]);
   });
 
-  it("the sender covers every template it attaches a document to, records the trace event, and does not send a review link", () => {
+  it("the sender attaches no PDF (OQ-91), links both document templates, records the trace event, and does not send a review link", () => {
     const src = readFileSync("../../supabase/functions/send-pending-notifications/index.ts", "utf8");
-    const attached = [...src.matchAll(/row\.template === "([a-z_]+)"[^\n]*\n\s+const pdf = await fetch/g)].map((m) => m[1]);
-    const attachedElse = [...src.matchAll(/else if \(row\.template === "([a-z_]+)"\) \{\n\s+const pdf = await fetch/g)].map((m) => m[1]);
-    expect([...new Set([...attached, ...attachedElse])].sort()).toEqual([...DISCREET_DOCUMENT_TEMPLATES].sort());
+    expect(src).not.toMatch(/fetchLabOrderRequestPdf|fetchPreventiveCarePlanPdf|const pdf = await fetch/);
+    const linked = [...src.matchAll(/template === "([a-z_]+)" && typeof payload\.order_id|template === "(preventive_care_plan_updated)"/g)].map((m) => m[1] ?? m[2]);
+    expect([...new Set(linked)].sort()).toEqual([...DISCREET_DOCUMENT_TEMPLATES].sort());
     expect(src).toContain('"discreet_document_in_app"');
     expect(src).toContain("pushedBackIds");
     expect(src).toMatch(/discreetMail && row\.template === "reputation_review_request_trustpilot"/);

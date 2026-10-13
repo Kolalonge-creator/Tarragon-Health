@@ -6,6 +6,7 @@ import { readPendingAiGovernanceSignoff } from "@/lib/queries/pending-ai-governa
 import { readPendingCommunitySignoff } from "@/lib/queries/pending-community-signoff";
 import { readCredentialAttention, credentialAttentionItem } from "@/lib/queries/credential-attention";
 import { readS06S10Signoffs, EMPTY_S06S10, type S06S10Snapshot } from "@/lib/queries/s06-s10-signoffs";
+import { readPendingRedOutreachSignoff } from "@/lib/queries/pending-red-outreach-signoff";
 
 export type CmoSigningHub = {
   /** One line per thing that needs the Chief Medical Officer's signature, most urgent first. */
@@ -31,6 +32,8 @@ export const CLINICAL_RULES_ITEM_KEY = "clinical_rules";
 export const PROTOCOL_DRAFTS_ITEM_KEY = "protocol_drafts";
 /** The key the Community line carries (safety rules, group rules and the three statements), so the page can attach the signing checklist. */
 export const COMMUNITY_ITEM_KEY = "community";
+/** The key the red-alert outreach line carries (the call-the-patient task type, CMO Q11), so the page can attach the confirm panel. */
+export const RED_OUTREACH_ITEM_KEY = "red_outreach";
 
 /**
  * Everything that needs the Chief Medical Officer's signature, in one list.
@@ -52,7 +55,7 @@ export const COMMUNITY_ITEM_KEY = "community";
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -62,6 +65,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingCommunitySignoff(supabase),
     readS06S10Signoffs(supabase).catch(() => ({ ...EMPTY_S06S10, failed: true, failedSources: ["the S06 to S10 items"] })),
     readCredentialAttention(supabase),
+    readPendingRedOutreachSignoff(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -137,6 +141,16 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
 
   const credentialItem = credentialAttentionItem(credentials);
   const attention = credentialItem ? [credentialItem] : [];
+  if (redOutreach.waiting) {
+    items.push({
+      key: RED_OUTREACH_ITEM_KEY,
+      title: "Red alert outreach (call the patient)",
+      detail: "A Member's red alert that is not confirmed within the time you chose opens a call-the-patient task for the clinician on call. The task type needs your confirmation before any task is created.",
+      href: "/clinician/task-types",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
 
   items.push(...s06s10.items);
 
@@ -146,6 +160,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(ai.failed ? ["AI governance"] : []),
     ...(community.failed ? ["Community"] : []),
     ...(credentials.failed ? ["Clinician registration checks"] : []),
+    ...(redOutreach.failed ? ["Red alert outreach"] : []),
   ];
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
   // A banner row may only link to a hub line that exists. The banner reads its own copy of the state, so if the two ever disagree (a row it

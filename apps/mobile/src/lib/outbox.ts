@@ -45,7 +45,16 @@ export interface DosePayload {
   reason?: string | null;
 }
 
-export type OutboxPayload = VitalReadingPayload | SymptomPayload | DosePayload;
+/**
+ * S13 R4 (CMO Q13): what the patient said about seeking care after a red alert. Sent with the database function
+ * record_red_care_response, which is idempotent by the outbox client id. It is information for the on-call clinician and
+ * never stops paging. The phone does not know the server's event id, so the server links it to the latest red alert of the day.
+ */
+export interface RedCarePayload {
+  response: "sought_care" | "could_not_get_care";
+}
+
+export type OutboxPayload = VitalReadingPayload | SymptomPayload | DosePayload | RedCarePayload;
 
 interface OutboxRow {
   client_id: string;
@@ -537,6 +546,16 @@ async function send(item: OutboxItem): Promise<SendOutcome> {
         client_id: item.clientId,
         client_recorded_at: item.clientRecordedAt,
       });
+      return error ? asFailure(error) : { ok: true };
+    }
+
+    if (item.kind === "red_care") {
+      const p = item.payload as RedCarePayload;
+      const { error } = await supabase.rpc("record_red_care_response" as never, {
+        p_client_id: item.clientId,
+        p_response: p.response,
+        p_client_recorded_at: item.clientRecordedAt,
+      } as never);
       return error ? asFailure(error) : { ok: true };
     }
 

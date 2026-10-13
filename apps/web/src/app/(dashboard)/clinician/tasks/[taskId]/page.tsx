@@ -12,6 +12,8 @@ import { TriageExplainer } from "@/components/clinician/triage-explainer";
 import { explainerSchema } from "@/lib/triage/explainer";
 import { DEDICATED_FLOW_TASK_TYPES, heldTaskSchema, minutesLeft, patientSummarySchema, TASK_SUMMARY_READ_REASON, uuidSchema } from "@/lib/clinician/queue-console";
 import { CompleteForm, ExtendForm, HandBackForm } from "../../queue/forms";
+import { getRedPatientResponse } from "@/lib/paging/queries";
+import { RedPatientAnswer } from "@/components/paging/red-patient-answer";
 
 export const metadata = { title: "Task" };
 export const dynamic = "force-dynamic";
@@ -61,6 +63,8 @@ export default async function ClinicianTaskPage({ params }: { params: Promise<{ 
   const explainerRes = await supabase.rpc("clinician_task_triage_explainer", { p_task: task.id });
   const explainerParsed = explainerRes.error ? null : explainerSchema.safeParse(explainerRes.data);
   const explainer = explainerParsed?.success ? explainerParsed.data : null;
+  // CMO Q13: for a red alert task, what the patient said about seeking care (information; it never closes the task)
+  const redAnswer = task.type === "red_patient_outreach" || task.type === "red_event_unacknowledged" ? await getRedPatientResponse({ task: task.id }) : null;
   const left = minutesLeft(task.claim_expires_at, new Date());
   const dedicatedFlow = DEDICATED_FLOW_TASK_TYPES[task.type];
 
@@ -78,6 +82,7 @@ export default async function ClinicianTaskPage({ params }: { params: Promise<{ 
         {task.due_at && <>{t("task.due", "en")} {dateTime(task.due_at)}. </>}
         {left !== null && (left === 0 ? t("queue.expired", "en") : t("queue.time_left", "en", { minutes: left }))}
       </p>
+      <RedPatientAnswer answer={redAnswer} />
       <ExtendForm taskId={task.id} />
 
       <TriageExplainer explainer={explainer} />
