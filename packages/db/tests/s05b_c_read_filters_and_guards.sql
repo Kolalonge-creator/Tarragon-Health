@@ -30,6 +30,7 @@ declare
   v_res jsonb;
   v_rep uuid;
   v_state text;
+  v_msg text;
   v_n int;
   v_n_before int;
   v_n_after int;
@@ -170,21 +171,23 @@ begin
   execute 'set local role authenticated';
   v_state := null;
   begin update public.vitals_readings set validated_by = null, validated_at = null where id = v_wrev;
-  exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
-  if v_state is distinct from '42501' then raise exception 'FAIL G1a: a patient cleared the clinician review (state %)', v_state; end if;
+  exception when others then get stacked diagnostics v_state = returned_sqlstate, v_msg = message_text; end;
+  if v_state is distinct from '42501' or v_msg not like '%cannot be changed from a client session%' then raise exception 'FAIL G1a: a patient cleared the clinician review (state %)', v_state; end if;
   v_state := null;
+  v_msg := null;
   begin update public.vitals_readings set logged_by_profile_id = v_c where id = v_w4;
-  exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
-  if v_state is distinct from '42501' then raise exception 'FAIL G1b: a patient changed logged_by_profile_id (state %)', v_state; end if;
+  exception when others then get stacked diagnostics v_state = returned_sqlstate, v_msg = message_text; end;
+  if v_state is distinct from '42501' or v_msg not like '%cannot be changed from a client session%' then raise exception 'FAIL G1b: a patient changed logged_by_profile_id (state %)', v_state; end if;
   v_state := null;
+  v_msg := null;
   begin update public.vitals_readings set triage_event_id = null where id = v_w3;
-  exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
-  if v_state is distinct from '42501' then raise exception 'FAIL G1e: a patient cleared the triage link (state %)', v_state; end if;
+  exception when others then get stacked diagnostics v_state = returned_sqlstate, v_msg = message_text; end;
+  if v_state is distinct from '42501' or v_msg not like '%cannot be changed from a client session%' then raise exception 'FAIL G1e: a patient cleared the triage link (state %)', v_state; end if;
   v_state := null;
   begin insert into public.vitals_readings (organisation_id, patient_id, vital_type, weight_kg, taken_at, source, validated_by, validated_at)
         values (v_org, v_p, 'weight', 75, now() - interval '10 minutes', 'manual', (select id from public.clinical_staff where profile_id = v_c), now());
-  exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
-  if v_state is distinct from '42501' then raise exception 'FAIL G1f: a patient created a reading that looks clinician-reviewed (state %)', v_state; end if;
+  exception when others then get stacked diagnostics v_state = returned_sqlstate, v_msg = message_text; end;
+  if v_state is distinct from '42501' or v_msg not like '%already reviewed or already triaged%' then raise exception 'FAIL G1f: a patient created a reading that looks clinician-reviewed (state %)', v_state; end if;
   -- G1 CONTROL: she can still add a note to her own reading
   update public.vitals_readings set note = 'after breakfast' where id = v_w4;
   if (select note from public.vitals_readings where id = v_w4) is distinct from 'after breakfast' then
@@ -235,7 +238,7 @@ begin
      where n.nspname in ('public', 'private') and p.prokind = 'f' and p.prosecdef
        and p.proname not in ('correct_clinical_value', 'delete_wearable_connection_data', 'execute_wearable_data_deletion',
                              'clear_vitals_validation_flag', 'record_triage_result', 'record_poc_measurements',
-                             'confirm_lab_report_extraction', 'enforce_fhir_import_resource_attribution', 'capture_record_correction')
+                             'confirm_lab_report_extraction', 'enforce_fhir_import_resource_attribution', 'capture_record_correction', 'handle_bp_reading_red_flag', 'handle_pulse_reading_red_flag', 'handle_spo2_reading_red_flag', 'handle_temperature_reading_red_flag', 'enforce_htn_alert_attestation')
        and p.prosrc ~* '(from|join)\s+public\.(vitals_readings|patient_allergies|patient_conditions|lab_analyte_readings)\M'
   loop
     raise exception 'FAIL H2: definer function % reads a corrected table directly: read private.<table>_current instead', r.fn;

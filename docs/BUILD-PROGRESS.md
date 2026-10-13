@@ -1277,6 +1277,6 @@ Not done: not applied to production, not pushed.
 
 ## S05b-c: read filters and guards for supersede-not-edit (2026-10-14, draft PR, nothing applied)
 
-- **Built**: migration `20261013225700_s05b_c_read_filters_and_patient_guards.sql` (restrictive hide policies, definer readers rewritten onto `private.*_current` views, `clinical_value_history`, review-column guard, patient safety-event guard); proof `packages/db/tests/s05b_c_read_filters_and_guards.sql` (registered, four sabotages); five service-role readers filter `correction_status`; Jest scan `correction-read-filter.test.ts`; `docs/design/S05b.md` section 6.
+- **Built**: migration `20261013225700_s05b_c_read_filters_and_patient_guards.sql` (restrictive hide policies, definer readers rewritten onto `private.*_current` views, `clinical_value_history`, review-column guard, patient safety-event guard); proof `packages/db/tests/s05b_c_read_filters_and_guards.sql` (registered, four sabotages); eleven service-role-capable lib readers filter `correction_status`; Jest scan `correction-read-filter.test.ts`; `docs/design/S05b.md` section 6.
 - **Not done, on purpose**: the `authenticated` grant on `correct_clinical_value` (held until the proof and replay run on a real database; exact grant in the design doc); the two result-document replace paths (need a definer function that also handles the clinician alert).
 - **Not run**: the SQL proof and the full replay (no Docker in the session; the migration was exercised only against a stub schema), Jest, tsc (no installed dependencies).

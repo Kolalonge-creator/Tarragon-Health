@@ -58,7 +58,7 @@ declare
   v_skip constant text[] := array[
     'correct_clinical_value', 'delete_wearable_connection_data', 'execute_wearable_data_deletion', 'clear_vitals_validation_flag',
     'record_triage_result', 'record_poc_measurements', 'confirm_lab_report_extraction', 'enforce_fhir_import_resource_attribution',
-    'capture_record_correction'];
+    'capture_record_correction', 'handle_bp_reading_red_flag', 'handle_pulse_reading_red_flag', 'handle_spo2_reading_red_flag', 'handle_temperature_reading_red_flag', 'enforce_htn_alert_attestation'];
 begin
   for r in
     select p.oid, n.nspname, p.proname
@@ -102,6 +102,10 @@ begin
   v_def := pg_get_viewdef('public.diabetes_quality_metrics'::regclass);
   if position(v_old2 in v_def) = 0 then raise exception 'public.diabetes_quality_metrics: expected text not found, refusing to guess'; end if;
   execute 'create or replace view public.diabetes_quality_metrics as ' || replace(v_def, v_old2, 'FROM private.lab_analyte_readings_current l');
+
+  -- keep the options the views were created with (a replaced view must stay owner-rights)
+  execute 'alter view private.v_bp_cohort_90d set (security_invoker = false)';
+  execute 'alter view public.diabetes_quality_metrics set (security_invoker = false)';
 end $$;
 
 -- 3. History of a corrected entry ------------------------------------------------------------------------------------------------
@@ -222,7 +226,7 @@ begin
      where n.nspname in ('public', 'private') and p.prokind = 'f' and p.prosecdef
        and p.proname not in ('correct_clinical_value', 'delete_wearable_connection_data', 'execute_wearable_data_deletion',
                              'clear_vitals_validation_flag', 'record_triage_result', 'record_poc_measurements',
-                             'confirm_lab_report_extraction', 'enforce_fhir_import_resource_attribution', 'capture_record_correction')
+                             'confirm_lab_report_extraction', 'enforce_fhir_import_resource_attribution', 'capture_record_correction', 'handle_bp_reading_red_flag', 'handle_pulse_reading_red_flag', 'handle_spo2_reading_red_flag', 'handle_temperature_reading_red_flag', 'enforce_htn_alert_attestation')
        and p.prosrc ~* '(from|join)\s+public\.(vitals_readings|patient_allergies|patient_conditions|lab_analyte_readings)\M'
   loop
     raise exception 'definer function % still reads a corrected table directly', r.fn;
