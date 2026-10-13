@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { breakRowSchema, healthRowSchema, inboxRowSchema, type BreakRow, type HealthRow, type InboxRow } from "./model";
+import { breakRowSchema, glAttentionRowSchema, type GlAttentionRow, healthRowSchema, inboxRowSchema, type BreakRow, type HealthRow, type InboxRow } from "./model";
 
 /**
  * Loaders for the provider board. Every read is an admin-only database function or an admin-only view (RLS), so a non-admin gets an
@@ -27,5 +27,12 @@ export async function loadBreaks(status: string | null): Promise<{ rows: BreakRo
 export async function loadInbox(provider: string | null, status: string | null): Promise<{ rows: InboxRow[]; failed: boolean }> {
   const { data, error } = await (await client()).rpc("list_provider_events", { p_provider: provider, p_status: status, p_limit: 100 });
   const parsed = inboxRowSchema.array().safeParse(data);
+  return error || !parsed.success ? { rows: [], failed: true } : { rows: parsed.data, failed: false };
+}
+
+/** Payout ledger postings that failed or were skipped: finance must look at these (a closed period, or the bank returned the money first). */
+export async function loadGlAttention(): Promise<{ rows: GlAttentionRow[]; failed: boolean }> {
+  const { data, error } = await (await client()).rpc("list_payout_gl_attention");
+  const parsed = glAttentionRowSchema.array().safeParse(data);
   return error || !parsed.success ? { rows: [], failed: true } : { rows: parsed.data, failed: false };
 }

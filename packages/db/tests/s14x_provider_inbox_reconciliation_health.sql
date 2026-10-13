@@ -160,7 +160,18 @@ begin
   insert into results values ('real', 'an admin can list it', 'true', (pg_temp.as_user(v_admin, $q$select count(*)::text from public.list_provider_events()$q$)::int > 0)::text);
   perform pg_temp.as_user(v_admin, format($q$select public.get_provider_event(%L)::text$q$, v_id));
   insert into results values ('real', 'reading a raw body is audited', '1', (select count(*)::text from public.audit_log where action = 'provider_event.read_raw' and entity_id = v_id));
-  insert into results values ('real', 'a clinician sees no rows of the inbox table', '0', pg_temp.as_user(v_clin, $q$select count(*)::text from public.provider_events$q$));
+  insert into results values ('real', 'no client can read the inbox table directly, not even an admin (the raw body is read only through the audited function)', 'ERR:42501|ERR:42501',
+    pg_temp.as_user(v_clin, $q$select count(*)::text from public.provider_events$q$) || '|' || pg_temp.as_user(v_admin, $q$select count(*)::text from public.provider_events$q$));
+  -- purge: only rejected rows older than the window; never a verified one; not below seven days
+  begin perform public.purge_rejected_provider_events(3); v_s := 'accepted'; exception when others then v_s := sqlerrm; end;
+  insert into results values ('real', 'purge refuses a window under seven days', 'provider_event_purge_window_too_short', v_s);
+  set local session_replication_role = replica;
+  update public.provider_events set received_at = now() - interval '40 days' where id in (v_rej, v_id);
+  set local session_replication_role = origin;
+  v_n := public.purge_rejected_provider_events(30);
+  insert into results values ('real', 'purge removes the old rejected row only', '1|1|0', v_n::text || '|' || (select count(*)::text from public.provider_events where id = v_id) || '|' || (select count(*)::text from public.provider_events where id = v_rej));
+  begin delete from public.provider_events where id = v_id; v_s := 'accepted'; exception when others then v_s := sqlstate; end;
+  insert into results values ('real', 'a verified old row still cannot be deleted by anything', '42501', v_s);
 
   -- 4. Reconciliation ----------------------------------------------------------------------------
   select count(*) into v_gl_before from public.finance_journal_entries;

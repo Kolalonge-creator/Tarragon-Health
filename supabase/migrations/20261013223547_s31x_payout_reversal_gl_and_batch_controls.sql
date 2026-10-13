@@ -76,7 +76,7 @@ create table public.payout_gl_postings (
   payout_id        uuid not null references public.payouts (id) on delete restrict,
   attempt          integer not null check (attempt >= 1),
   kind             text not null check (kind in ('sent', 'reversal')),
-  status           text not null check (status in ('posted', 'failed')),
+  status           text not null check (status in ('posted', 'failed', 'skipped')),
   amount_kobo      bigint not null check (amount_kobo > 0),
   journal_entry_id uuid references public.finance_journal_entries (id) on delete restrict,
   error            text,
@@ -90,7 +90,7 @@ create policy payout_gl_postings_read on public.payout_gl_postings for select to
 revoke all on public.payout_gl_postings from public, anon, authenticated;
 grant select on public.payout_gl_postings to authenticated;
 comment on table public.payout_gl_postings is
-  'S31x: which payout attempts have been posted to the general ledger. One row per (payout, attempt, kind). A failed posting never blocks the payout state change; it waits here for retry_failed_payout_gl_postings().';
+  'S31x: which payout attempts have been posted to the general ledger. One row per (payout, attempt, kind). A failed posting never blocks the payout state change; it waits here for retry_failed_payout_gl_postings(). skipped = the success posting failed and the bank returned the money before it could be retried, so it is never posted.';
 
 -- Never raises: a posting problem is recorded, not thrown, so the webhook that carries the state change still succeeds.
 create function private.payout_post_gl(p_payout uuid, p_attempt integer, p_kind text) returns void
@@ -106,7 +106,11 @@ begin
   select * into p from public.payouts where id = p_payout;
   if not found then return; end if;
   if p_kind = 'reversal' and not exists (select 1 from public.payout_gl_postings where payout_id = p_payout and attempt = p_attempt and kind = 'sent' and status = 'posted') then
-    return;   -- nothing was posted for this attempt, so there is nothing to reverse
+    -- Nothing was posted for this attempt, so there is nothing to reverse. If the success posting FAILED (a closed period) and the bank
+    -- has since returned the money, that posting must never be retried into the books: it is marked skipped, with the reason.
+    update public.payout_gl_postings set status = 'skipped', error = left(coalesce(error, '') || ' | skipped: the bank returned the payout before this was posted', 300), updated_at = now()
+     where payout_id = p_payout and attempt = p_attempt and kind = 'sent' and status = 'failed';
+    return;
   end if;
   if exists (select 1 from public.payout_gl_postings where payout_id = p_payout and attempt = p_attempt and kind = p_kind and status = 'posted') then return; end if;
   v_dr := case p_kind when 'sent' then '5200' else '1000' end;
@@ -144,6 +148,18 @@ begin
     v_n := v_n + 1;
   end loop;
   return v_n;
+end;
+$$;
+
+-- What finance must look at: postings that failed (a closed period) or were skipped because the bank returned the money first.
+create function public.list_payout_gl_attention() returns table (
+  payout_id uuid, attempt integer, kind text, status text, amount_kobo bigint, error text, created_at timestamptz)
+language plpgsql stable security definer set search_path = ''
+as $$
+begin
+  if (select auth.uid()) is null or not private.is_admin() then raise exception 'payout_not_authorised' using errcode = '42501'; end if;
+  return query select g.payout_id, g.attempt, g.kind, g.status, g.amount_kobo, g.error, g.created_at
+    from public.payout_gl_postings g where g.status in ('failed', 'skipped') order by g.created_at desc limit 200;
 end;
 $$;
 
@@ -281,7 +297,10 @@ begin
   select coalesce(sum(amount_kobo), 0) into v_total from public.payouts where id = any (p_ids);
   if v_total > v_batch then raise exception 'payout_limit_batch_total' using errcode = '23514'; end if;
   if exists (select 1 from public.payouts where id = any (p_ids) and amount_kobo > v_per) then raise exception 'payout_limit_payout' using errcode = '23514'; end if;
-  for r in select clinician_id, sum(amount_kobo)::bigint as this_batch from public.payouts where id = any (p_ids) group by clinician_id loop
+  -- One clinician's limit is checked under a lock keyed by the clinician, so two approvers proposing at the same moment cannot each
+  -- be under the limit while together they are over it (the second waits, then sees the first).
+  for r in select clinician_id, sum(amount_kobo)::bigint as this_batch from public.payouts where id = any (p_ids) group by clinician_id order by clinician_id loop
+    perform pg_advisory_xact_lock(hashtextextended('payout_limit:' || r.clinician_id::text, 0));
     if r.this_batch + coalesce((
          select sum(o.amount_kobo) from public.payouts o
           where o.clinician_id = r.clinician_id and not (o.id = any (p_ids))
@@ -415,7 +434,8 @@ begin
                     where i.payout_id = p.id and i.transfer_attempt = t.attempt and b.state = 'released') then
       raise exception 'payout_batch_required' using errcode = '55000';
     end if;
-    if p.amount_kobo > private.payout_control('perPayoutMaxKobo') then raise exception 'payout_limit_payout' using errcode = '23514'; end if;
+    -- All the limits again at the moment of sending (per payout, per clinician over 7 days), not only the per-payout cap.
+    perform private.payout_limits_check(array[p.id], null);
   end if;
   return jsonb_build_object('payout_id', p.id, 'reference', t.reference, 'amount_kobo', p.amount_kobo, 'recipient_code', p.recipient_code,
     'reason', 'Tarragon weekly payout ' || to_char(p.period_end, 'YYYY-MM-DD'));
@@ -454,9 +474,9 @@ $$;
 -- ---------------------------------------------------------------------------
 -- 7. Grants and self-check
 -- ---------------------------------------------------------------------------
-revoke all on function public.retry_failed_payout_gl_postings(), public.propose_payout_batch(uuid[], text), public.release_payout_batch(uuid),
+revoke all on function public.list_payout_gl_attention(), public.retry_failed_payout_gl_postings(), public.propose_payout_batch(uuid[], text), public.release_payout_batch(uuid),
   public.reject_payout_batch(uuid, text), public.list_payout_batches(text) from public, anon, authenticated;
-grant execute on function public.retry_failed_payout_gl_postings(), public.propose_payout_batch(uuid[], text), public.release_payout_batch(uuid),
+grant execute on function public.list_payout_gl_attention(), public.retry_failed_payout_gl_postings(), public.propose_payout_batch(uuid[], text), public.release_payout_batch(uuid),
   public.reject_payout_batch(uuid, text), public.list_payout_batches(text) to authenticated;
 -- create or replace keeps the existing grants of the three rewritten functions; state them again so the file is the whole truth.
 revoke all on function public.apply_payout_transfer_event(text, text, text, text) from public, anon, authenticated;

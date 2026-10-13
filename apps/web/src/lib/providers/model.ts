@@ -54,6 +54,17 @@ export const inboxRowSchema = z.object({
 });
 export type InboxRow = z.infer<typeof inboxRowSchema>;
 
+export const glAttentionRowSchema = z.object({
+  payout_id: z.string().uuid(),
+  attempt: z.number().int(),
+  kind: z.enum(["sent", "reversal"]),
+  status: z.enum(["failed", "skipped"]),
+  amount_kobo: kobo,
+  error: z.string().nullable(),
+  created_at: z.string(),
+});
+export type GlAttentionRow = z.infer<typeof glAttentionRowSchema>;
+
 export const BREAK_LABEL: Record<BreakRow["break_type"], string> = {
   missing_in_ledger: "Paystack settled it, we have no record",
   amount_mismatch: "Amount differs from our record",

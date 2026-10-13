@@ -67,6 +67,8 @@ export async function handleViaInbox(
       console.error("paystack-webhook: provider inbox unavailable, asking Paystack to retry", out.error);
       return Response.json({ ok: false, error: "inbox_unavailable" }, { status: 500 });
     case "duplicate":
+      // A DEAD event (attempts exhausted) is not a harmless replay: answer 500 so the provider keeps it visible instead of acknowledging it.
+      if (out.status === "dead") return Response.json({ ok: false, error: "event_dead" }, { status: 500 });
       return Response.json({ ok: true, replay: true });
     case "processed":
     case "failed":

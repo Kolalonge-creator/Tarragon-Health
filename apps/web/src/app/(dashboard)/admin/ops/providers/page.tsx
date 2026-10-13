@@ -6,7 +6,7 @@ import { LoadFailure } from "@/components/ui/load-failure";
 import { PageHeader } from "@/components/ui/page-header";
 import { formatKobo } from "@/lib/format-money";
 import { closeBreakAction, replayProviderEventAction } from "@/lib/providers/actions";
-import { loadBreaks, loadInbox, loadProviderHealth } from "@/lib/providers/load";
+import { loadBreaks, loadGlAttention, loadInbox, loadProviderHealth } from "@/lib/providers/load";
 import { BREAK_LABEL, INBOX_PROVIDERS, INBOX_STATUSES, canReplay, healthTone, inboxTone } from "@/lib/providers/model";
 
 export const metadata = { title: "Payment, video and email providers" };
@@ -38,7 +38,7 @@ export default async function ProvidersPage({ searchParams }: { searchParams: Pr
   const provider = INBOX_PROVIDERS.find((p) => p === sp.provider) ?? null;
   const status = INBOX_STATUSES.find((s) => s === sp.status) ?? null;
   const breakStatus = sp.breaks === "all" ? null : "open";
-  const [health, breaks, inbox] = await Promise.all([loadProviderHealth(), loadBreaks(breakStatus), loadInbox(provider, status)]);
+  const [health, breaks, inbox, glAttention] = await Promise.all([loadProviderHealth(), loadBreaks(breakStatus), loadInbox(provider, status), loadGlAttention()]);
   const result = sp.r && RESULT[sp.r] ? RESULT[sp.r] : null;
 
   return (
@@ -103,6 +103,34 @@ export default async function ProvidersPage({ searchParams }: { searchParams: Pr
                           </form>
                         ) : <span className="text-xs text-charcoal-ink/60">{b.status}: {b.closing_note ?? ""}</span>}
                       </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Payout ledger postings that need finance</CardTitle>
+          <p className="text-sm text-charcoal-ink/60">A payout posting that failed (for example the accounting period was closed) or was skipped because the bank returned the money first. Reopen the period and retry, or leave the skipped ones as they are.</p>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          {glAttention.failed ? <LoadFailure>This list could not be loaded. This is not the same as having none.</LoadFailure>
+            : glAttention.rows.length === 0 ? <p className="text-sm text-charcoal-ink/60">Nothing needs attention.</p>
+            : (
+              <table className="w-full min-w-[640px]">
+                <thead><tr>{["Payout", "Attempt", "What", "Status", "Amount", "Why"].map((c) => <th key={c} className={head}>{c}</th>)}</tr></thead>
+                <tbody>
+                  {glAttention.rows.map((r) => (
+                    <tr key={`${r.payout_id}-${r.attempt}-${r.kind}`} className="border-t border-charcoal-ink/10">
+                      <td className={cell}><code className="text-xs">{r.payout_id.slice(0, 8)}</code></td>
+                      <td className={cell}>{r.attempt}</td>
+                      <td className={cell}>{r.kind === "sent" ? "Payout sent" : "Payout returned by the bank"}</td>
+                      <td className={cell}><Badge variant={r.status === "failed" ? "red" : "grey"}>{r.status}</Badge></td>
+                      <td className={cell}>{formatKobo(r.amount_kobo)}</td>
+                      <td className={cell}>{r.error ?? "-"}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -10,8 +10,8 @@
 --
 -- Rules (both triggers, invoker-independent: they read the consent as the table owner):
 --   * the consent must exist, be granted, not revoked, and belong to the same organisation;
---   * if the consent is tied to a note (encounter_note_id), the row must be that note: a transcript's encounter_note_id, or the note itself;
---   * a note's consent must be for the same patient.
+--   * the consent must be bound to a note (encounter_note_id) and the row must be THAT note: a transcript's encounter_note_id, or the note itself;
+--   * a note's consent must be for the same patient, and a transcript's note must belong to the consent's patient.
 -- The note trigger fires only when scribe_consent_id is set or changed, so reading, signing or amending an old note whose consent was
 -- later revoked is not blocked (history is kept; revoking a consent deletes the transcript, S21g).
 
@@ -27,8 +27,12 @@ begin
   if c.organisation_id <> new.organisation_id then
     raise exception 'scribe_consent_other_organisation' using errcode = '42501';
   end if;
-  if c.encounter_note_id is not null and new.encounter_note_id is distinct from c.encounter_note_id then
+  -- Per encounter (Q18): the consent must be bound to a note, and it must be THIS note. An unbound consent is refused.
+  if c.encounter_note_id is null or new.encounter_note_id is distinct from c.encounter_note_id then
     raise exception 'scribe_consent_other_encounter' using errcode = '42501';
+  end if;
+  if not exists (select 1 from public.clinical_encounter_notes n where n.id = new.encounter_note_id and n.patient_id = c.patient_id) then
+    raise exception 'scribe_consent_other_patient' using errcode = '42501';
   end if;
   return new;
 end;
@@ -51,7 +55,7 @@ begin
   if c.patient_id <> new.patient_id or c.organisation_id <> new.organisation_id then
     raise exception 'scribe_consent_other_patient' using errcode = '42501';
   end if;
-  if c.encounter_note_id is not null and c.encounter_note_id <> new.id then
+  if c.encounter_note_id is null or c.encounter_note_id <> new.id then
     raise exception 'scribe_consent_other_encounter' using errcode = '42501';
   end if;
   return new;

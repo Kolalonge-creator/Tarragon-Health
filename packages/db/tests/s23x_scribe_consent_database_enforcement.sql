@@ -68,8 +68,10 @@ begin
   insert into results values ('real', 'transcript: a transcript with no encounter cannot use a consent tied to one', '42501:scribe_consent_other_encounter', v_s);
   begin insert into public.scribe_transcripts (organisation_id, scribe_consent_id, encounter_note_id, segments_encrypted, duration_ms, language) values (v_org, c_other_org, v_note, '\x00', 1, 'en-NG'); v_s := 'accepted'; exception when others then v_s := sqlstate || ':' || sqlerrm; end;
   insert into results values ('real', 'transcript: a consent from another organisation is refused', '42501:scribe_consent_other_organisation', v_s);
-  begin insert into public.scribe_transcripts (organisation_id, scribe_consent_id, encounter_note_id, segments_encrypted, duration_ms, language) values (v_org, c_untied, v_note2, '\x00', 1, 'en-NG'); v_s := 'accepted'; exception when others then v_s := sqlstate; end;
-  insert into results values ('real', 'transcript: an untied granted consent is accepted for a note', 'accepted', v_s);
+  begin insert into public.scribe_transcripts (organisation_id, scribe_consent_id, encounter_note_id, segments_encrypted, duration_ms, language) values (v_org, c_untied, v_note2, '\x00', 1, 'en-NG'); v_s := 'accepted'; exception when others then v_s := sqlstate || ':' || sqlerrm; end;
+  insert into results values ('real', 'transcript: a consent not bound to an encounter is refused (per encounter, Q18)', '42501:scribe_consent_other_encounter', v_s);
+  begin insert into public.scribe_transcripts (organisation_id, scribe_consent_id, encounter_note_id, segments_encrypted, duration_ms, language) values (v_org, c_other_pat, v_note, '\x00', 1, 'en-NG'); v_s := 'accepted'; exception when others then v_s := sqlstate || ':' || sqlerrm; end;
+  insert into results values ('real', 'transcript: a note that belongs to another patient than the consent is refused', '42501:scribe_consent_other_patient', v_s);
 
   -- clinical_encounter_notes.scribe_consent_id ----------------------------------------------------
   update public.clinical_encounter_notes set scribe_consent_id = c_ok where id = v_note;
@@ -80,6 +82,8 @@ begin
   insert into results values ('real', 'note: a revoked consent cannot be attached', '42501:scribe_consent_not_active', v_s);
   begin update public.clinical_encounter_notes set scribe_consent_id = c_ok where id = v_note2; v_s := 'accepted'; exception when others then v_s := sqlstate || ':' || sqlerrm; end;
   insert into results values ('real', 'note: a consent for another encounter cannot be attached (a plain UPDATE no longer bypasses attach_scribe_draft_to_note)', '42501:scribe_consent_other_encounter', v_s);
+  begin update public.clinical_encounter_notes set scribe_consent_id = c_untied where id = v_note2; v_s := 'accepted'; exception when others then v_s := sqlstate || ':' || sqlerrm; end;
+  insert into results values ('real', 'note: a consent not bound to an encounter cannot be attached to any note', '42501:scribe_consent_other_encounter', v_s);
   begin update public.clinical_encounter_notes set scribe_consent_id = c_other_pat where id = v_note; v_s := 'accepted'; exception when others then v_s := sqlstate || ':' || sqlerrm; end;
   insert into results values ('real', 'note: another patient''s consent cannot be attached', '42501:scribe_consent_other_patient', v_s);
   begin update public.clinical_encounter_notes set scribe_consent_id = c_other_org where id = v_note; v_s := 'accepted'; exception when others then v_s := sqlstate || ':' || sqlerrm; end;

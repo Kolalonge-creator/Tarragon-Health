@@ -179,6 +179,21 @@ begin
   perform pg_temp.ck('retry: running it again posts nothing more', '1', (select count(*)::text from public.finance_journal_entries where source_ref = 'payout:' || v_d || ':1:sent'));
   perform pg_temp.ck('retry: a clinician cannot', 'ERR:payout_not_authorised', pg_temp.q_as(v_doc, 'select public.retry_failed_payout_gl_postings()::text'));
 
+  -- 4b. The success posting failed (closed period), then the bank returned the money: the failed posting is skipped, never retried into the books
+  insert into public.finance_periods (period_month, status) values (date_trunc('month', (now() at time zone 'Africa/Lagos'))::date, 'closed')
+    on conflict (period_month) do update set status = 'closed';
+  v_c := pg_temp.mkpay(v_org, v_doc, v_admin, 250000, 'sent', 63);
+  perform public.apply_payout_transfer_event('transfer.success', pg_temp.ref(v_c), null, null);
+  perform public.apply_payout_transfer_event('transfer.reversed', pg_temp.ref(v_c), null, null);
+  perform pg_temp.ck('closed period then bank return: the failed success posting is skipped', 'skipped|reversed',
+    (select status from public.payout_gl_postings where payout_id = v_c and kind = 'sent') || '|' || (select state from public.payouts where id = v_c));
+  update public.finance_periods set status = 'open' where period_month = date_trunc('month', (now() at time zone 'Africa/Lagos'))::date;
+  v_s := pg_temp.q_as(v_admin, 'select public.retry_failed_payout_gl_postings()::text');
+  perform pg_temp.ck('and the retry posts nothing for it', '0', (select count(*)::text from public.finance_journal_entries where source_ref like 'payout:' || v_c || ':%'));
+
+  perform pg_temp.ck('finance can see the skipped posting', 'true', (pg_temp.q_as(v_admin, format($q$select count(*) > 0 from public.list_payout_gl_attention() where payout_id = %L and status = 'skipped'$q$, v_c)))::text);
+  perform pg_temp.ck('a clinician cannot see the attention list', 'ERR:payout_not_authorised', pg_temp.q_as(v_doc, 'select count(*)::text from public.list_payout_gl_attention()'));
+
   -- 5. Batch maker-checker ---------------------------------------------------------------------------
   v_pay := pg_temp.mkpay(v_org, v_doc, v_admin, 100000000, 'approved', 28);
   perform pg_temp.ck('flag off: proposing a batch is refused', 'ERR:payout_batch_control_off', pg_temp.q_as(v_admin, format($q$select public.propose_payout_batch(array[%L]::uuid[])::text$q$, v_pay)));

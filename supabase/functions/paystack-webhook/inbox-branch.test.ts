@@ -159,3 +159,12 @@ Deno.test("outcomeOfResponse: 5xx and explicit failure bodies are failures, a 20
   assertEquals(await outcomeOfResponse(new Response("plain")), { ok: true });
   assert(true);
 });
+
+Deno.test("flag on: a redelivery of a DEAD event is answered 500, not acknowledged as a replay", async () => {
+  const client = new InboxFake(createMemoryInbox(), "on");
+  await post(client, { event: "refund.processed", data: { currency: "NGN" } }); // unidentifiable refund goes dead
+  assertEquals(client.inbox.rows[0]?.status, "dead");
+  const again = await post(client, { event: "refund.processed", data: { currency: "NGN" } });
+  assertEquals(again.status, 500);
+  assertEquals(again.json["error"], "event_dead");
+});

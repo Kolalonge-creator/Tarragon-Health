@@ -93,7 +93,12 @@ create function private.guard_provider_events() returns trigger
 language plpgsql security definer set search_path = ''
 as $$
 begin
-  if tg_op = 'DELETE' or tg_op = 'TRUNCATE' then
+  if tg_op = 'TRUNCATE' then
+    raise exception 'provider_events is append only: rows are never deleted' using errcode = '42501';
+  end if;
+  if tg_op = 'DELETE' then
+    -- The one exception: a REJECTED (bad signature) row older than the retention window, removed by purge_rejected_provider_events().
+    if old.status = 'rejected' and coalesce(current_setting('tarragon.provider_purge', true), '') = 'on' then return old; end if;
     raise exception 'provider_events is append only: rows are never deleted' using errcode = '42501';
   end if;
   if new.provider is distinct from old.provider or new.raw_body is distinct from old.raw_body
@@ -109,10 +114,10 @@ revoke all on function private.guard_provider_events() from public, anon, authen
 create trigger provider_events_guard before update or delete on public.provider_events for each row execute function private.guard_provider_events();
 create trigger provider_events_no_truncate before truncate on public.provider_events for each statement execute function private.guard_provider_events();
 
+-- RLS on, and NO table grant to any client: the raw body can hold a customer email, so an admin reads the inbox only through
+-- list_provider_events (no body) and get_provider_event (the body, audited). A direct table read is refused.
 alter table public.provider_events enable row level security;
-create policy provider_events_admin_read on public.provider_events for select to authenticated using (private.is_admin());
 revoke all on public.provider_events from public, anon, authenticated;
-grant select on public.provider_events to authenticated;
 
 -- Record (service role). New verified key -> 'received'. Same key again -> the first body is kept, the delivery count goes up.
 -- Not verified -> stored as 'rejected' under a key made from the body hash, so a flood of the same forged body is one row.
@@ -233,6 +238,22 @@ begin
     next_attempt_at = now() + make_interval(secs => least(v_base * power(2, e.attempt_count - 1), v_cap) * (1 + random() * 0.2))
    where id = e.id;
   return 'failed';
+end;
+$$;
+
+-- Forged bodies are unauthenticated input and cannot be deleted by anything else, so they are purged by age (service role, not scheduled yet).
+-- A verified event is never purged here.
+create function public.purge_rejected_provider_events(p_older_than_days integer default 30) returns integer
+language plpgsql security definer set search_path = ''
+as $$
+declare v_n integer;
+begin
+  if p_older_than_days is null or p_older_than_days < 7 then raise exception 'provider_event_purge_window_too_short' using errcode = '22023'; end if;
+  perform set_config('tarragon.provider_purge', 'on', true);
+  delete from public.provider_events where status = 'rejected' and not signature_verified and received_at < now() - make_interval(days => p_older_than_days);
+  get diagnostics v_n = row_count;
+  perform set_config('tarragon.provider_purge', 'off', true);
+  return v_n;
 end;
 $$;
 
@@ -586,13 +607,15 @@ revoke all on function
   public.replay_provider_event(uuid, text), public.list_provider_events(text, text, integer), public.get_provider_event(uuid),
   public.record_settlement_report(text, text, bigint, bigint, timestamptz, jsonb, boolean), public.reconcile_settlement_report(uuid),
   public.reconcile_unsettled_charges(timestamptz), public.reconciliation_break_queue(text, integer), public.close_reconciliation_break(uuid, text, text),
+  public.purge_rejected_provider_events(integer),
   public.provider_call_allowed(text, text), public.provider_record_result(text, text, boolean, text)
   from public, anon, authenticated;
 grant execute on function
   public.record_provider_event(text, text, text, text, boolean), public.claim_provider_event(uuid), public.claim_provider_events(integer),
   public.complete_provider_event(uuid, uuid, text, text), public.fail_provider_event(uuid, uuid, text, boolean),
   public.record_settlement_report(text, text, bigint, bigint, timestamptz, jsonb, boolean), public.reconcile_settlement_report(uuid),
-  public.reconcile_unsettled_charges(timestamptz), public.provider_call_allowed(text, text), public.provider_record_result(text, text, boolean, text)
+  public.reconcile_unsettled_charges(timestamptz), public.provider_call_allowed(text, text), public.provider_record_result(text, text, boolean, text),
+  public.purge_rejected_provider_events(integer)
   to service_role;
 grant execute on function
   public.replay_provider_event(uuid, text), public.list_provider_events(text, text, integer), public.get_provider_event(uuid),
@@ -613,7 +636,7 @@ begin
     'public.record_provider_event(text,text,text,text,boolean)', 'public.claim_provider_event(uuid)', 'public.claim_provider_events(integer)',
     'public.complete_provider_event(uuid,uuid,text,text)', 'public.fail_provider_event(uuid,uuid,text,boolean)',
     'public.record_settlement_report(text,text,bigint,bigint,timestamptz,jsonb,boolean)', 'public.reconcile_settlement_report(uuid)',
-    'public.reconcile_unsettled_charges(timestamptz)', 'public.provider_call_allowed(text,text)', 'public.provider_record_result(text,text,boolean,text)'] loop
+    'public.reconcile_unsettled_charges(timestamptz)', 'public.purge_rejected_provider_events(integer)', 'public.provider_call_allowed(text,text)', 'public.provider_record_result(text,text,boolean,text)'] loop
     if has_function_privilege('anon', v_fn, 'EXECUTE') or has_function_privilege('authenticated', v_fn, 'EXECUTE') then
       raise exception 'S14x assertion: % is callable by a client', v_fn;
     end if;
