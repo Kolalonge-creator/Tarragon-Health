@@ -48,6 +48,19 @@
 
 begin;
 
+
+-- S04b-1: this proof models an under-18 patient account, which registration no longer allows (adults 18 and over only;
+-- children exist only as dependants limited to immunisation and preventive tracking). The behaviour it proves still
+-- matters as defence in depth, so the registration rule and the dependant scope guard is switched off inside this rolled-back transaction only.
+alter table public.profiles disable trigger profiles_01_enforce_adult_registration;
+do $$
+declare r record;
+begin
+  for r in select c.relname from pg_trigger t join pg_class c on c.oid = t.tgrelid where t.tgname = '00_minor_dependant_scope' and not t.tgisinternal loop
+    execute format('alter table public.%I disable trigger "00_minor_dependant_scope"', r.relname);
+  end loop;
+end $$;
+
 do $$
 declare
   v_src     text;

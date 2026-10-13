@@ -16,6 +16,7 @@ import { firstIssue } from "@/lib/validation/first-issue";
 import { sanitizeRedirect } from "@/lib/auth/redirect";
 import { redirectAfterLogin } from "@/lib/auth/redirect-after-login";
 import { backfillSignupMetadata } from "@/lib/auth/backfill-signup-metadata";
+import { readAdultDob } from "./adult-gate";
 
 export type SignupActionState =
   | {
@@ -82,6 +83,8 @@ export async function signUp(
   if (!parsed.success) {
     return { ...firstIssue(parsed.error, "Check the details above and try again."), values };
   }
+  const adult = readAdultDob(formData);
+  if (!adult.ok) return { error: adult.error, field: adult.field, values };
 
   // IP-scoped (10/hour) blunts scripted mass account creation; email-scoped
   // (3/hour) stops someone repeatedly triggering Supabase's confirmation
@@ -124,6 +127,7 @@ export async function signUp(
       data: {
         full_name: parsed.data.fullName,
         phone: parsed.data.phone,
+        date_of_birth: adult.dateOfBirth,
         ...(parsed.data.state ? { state: parsed.data.state } : {}),
         ...(parsed.data.refCode ? { ref_code: parsed.data.refCode } : {}),
         ...(parsed.data.intent ? { signup_intent: parsed.data.intent } : {}),
@@ -200,6 +204,8 @@ export async function signUpWithPhone(
   if (!parsed.success) {
     return localisedIssue(firstIssue(parsed.error, "Check the details above and try again."), locale);
   }
+  const adult = readAdultDob(formData);
+  if (!adult.ok) return { error: adult.error, field: adult.field };
 
   // Keyed on the phone as well as the IP: every attempt costs an SMS, and the hook's own per-phone hourly cap is the
   // backstop, not the first line.
@@ -228,6 +234,7 @@ export async function signUpWithPhone(
     options: {
       data: {
         full_name: parsed.data.fullName,
+        date_of_birth: adult.dateOfBirth,
         ...(parsed.data.state ? { state: parsed.data.state } : {}),
         ...(parsed.data.refCode ? { ref_code: parsed.data.refCode } : {}),
         ...(parsed.data.intent ? { signup_intent: parsed.data.intent } : {}),

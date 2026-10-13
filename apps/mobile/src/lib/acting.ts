@@ -74,6 +74,12 @@ export async function assertNotActingFor(message: string): Promise<{ error: stri
 export async function startActingFor(beneficiaryId: string): Promise<boolean> {
   const { data: allowed } = await supabase.rpc("can_act_for", { p_beneficiary: beneficiaryId });
   if (allowed !== true) return false;
+  // The person this is about can see that their record was opened and when (S04b-1). Best effort: never the reason an
+  // errand fails; the database function only writes for a real grant holder, once per ten minutes.
+  await supabase.rpc("log_proxy_view", { p_patient: beneficiaryId }).then(
+    () => undefined,
+    () => undefined
+  );
   await SecureStore.setItemAsync(ACTING_FOR_KEY, beneficiaryId);
   return true;
 }

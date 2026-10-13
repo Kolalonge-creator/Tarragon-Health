@@ -11666,6 +11666,48 @@ export type Database = {
           },
         ]
       }
+      dependant_handovers: {
+        Row: {
+          created_at: string
+          decided_at: string | null
+          dependent_id: string
+          expires_at: string
+          id: string
+          organisation_id: string
+          started_by: string
+          state: string
+          target_phone_e164: string
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string | null
+          dependent_id: string
+          expires_at: string
+          id?: string
+          organisation_id: string
+          started_by: string
+          state?: string
+          target_phone_e164: string
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string | null
+          dependent_id?: string
+          expires_at?: string
+          id?: string
+          organisation_id?: string
+          started_by?: string
+          state?: string
+          target_phone_e164?: string
+        }
+        Relationships: []
+      }
+      minor_dependant_table_policy: {
+        Row: { policy: string; reason: string; table_name: string }
+        Insert: { policy: string; reason: string; table_name: string }
+        Update: { policy?: string; reason?: string; table_name?: string }
+        Relationships: []
+      }
       dependent_transition_status: {
         Row: {
           computed_at: string
@@ -43559,6 +43601,38 @@ export type Database = {
           reason_for_encounter: string
         }[]
       }
+      accept_dependant_handover: { Args: { p_handover: string }; Returns: undefined }
+      cancel_dependant_handover: { Args: { p_dependent: string }; Returns: undefined }
+      decline_dependant_handover: { Args: { p_handover: string }; Returns: undefined }
+      log_proxy_view: { Args: { p_patient: string }; Returns: undefined }
+      my_pending_handover: {
+        Args: never
+        Returns: {
+          expires_at: string
+          guardian_first_name: string
+          id: string
+        }[]
+      }
+      my_proxy_view_log: {
+        Args: { p_limit?: number }
+        Returns: {
+          actor_first_name: string
+          id: string
+          kind: string
+          occurred_at: string
+          scope: string
+        }[]
+      }
+      narrow_proxy_access: {
+        Args: {
+          p_categories: Database["public"]["Enums"]["care_access_category"][]
+          p_grantee: string
+          p_notify?: boolean
+        }
+        Returns: number
+      }
+      revoke_proxy_access: { Args: { p_grantee: string }; Returns: boolean }
+      start_dependant_handover: { Args: { p_dependent: string; p_phone: string }; Returns: string }
       my_pending_proxy_setups: {
         Args: never
         Returns: {
