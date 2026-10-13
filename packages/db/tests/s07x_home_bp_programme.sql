@@ -187,7 +187,9 @@ select pg_temp.ck('real', 'H1b the not-enough answer says how many readings and 
   (select (x ->> 'readings') || '|' || (x ->> 'days') from (select pg_temp.as_user(pg_temp.f('p'), format('select public.complete_home_bp_check(%L)::text', (now() at time zone 'Africa/Lagos')::date - 9))::jsonb x) y));
 
 -- replace the three with a full protocol: 12 readings, 3 days, mean 138/86
+select set_config('app.allow_clinical_value_delete', 'on', true);   -- S05b: fixture cleanup is a superuser maintenance delete
 delete from public.vitals_readings where patient_id = pg_temp.f('p');
+select set_config('app.allow_clinical_value_delete', 'off', true);
 select pg_temp.seed12(pg_temp.f('p'), pg_temp.f('org'), (now() at time zone 'Africa/Lagos')::date - 9, 138, 86);
 create temp table snap on commit drop as
 select 'alerts' k, count(*) n from public.clinician_alerts where patient_id = pg_temp.f('p')
