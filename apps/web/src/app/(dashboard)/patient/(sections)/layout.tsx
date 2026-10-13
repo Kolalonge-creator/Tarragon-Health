@@ -11,6 +11,7 @@ import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthLocale } from "@/lib/auth/auth-locale";
 import { ProxyConfirmationCard } from "@/app/(dashboard)/patient/family/proxy-confirmation-card";
+import { HandoverCard } from "@/app/(dashboard)/patient/family/handover-card";
 
 /**
  * Shared chrome for the patient dashboard's routed sections (Overview,
@@ -44,10 +45,20 @@ export default async function PatientSectionsLayout({
   const [
     { profile, acting, subjectId, subjectDateOfBirth, subjectHasEmergencyContact, glucoseUnit },
     { data: pendingProxySetups, error: proxySetupsError },
+    { data: pendingHandovers, error: handoverError },
     locale,
-  ] = await Promise.all([getPatientDashboardContext(), supabase.rpc("my_pending_proxy_setups"), getAuthLocale()]);
+  ] = await Promise.all([
+    getPatientDashboardContext(),
+    supabase.rpc("my_pending_proxy_setups"),
+    // A guardian started handing a record over to this person (S04b-1, R3). Matched on this account's own verified number.
+    supabase.rpc("my_pending_handover"),
+    getAuthLocale(),
+  ]);
   if (proxySetupsError) {
     Sentry.captureMessage("my_pending_proxy_setups failed", { level: "warning", tags: { pg_code: proxySetupsError.code ?? "none" } });
+  }
+  if (handoverError) {
+    Sentry.captureMessage("my_pending_handover failed", { level: "warning", tags: { pg_code: handoverError.code ?? "none" } });
   }
 
   return (
@@ -60,11 +71,18 @@ export default async function PatientSectionsLayout({
       roleLabel={acting ? "Acting for them" : "Patient"}
     >
       <ProxyConfirmationCard setups={pendingProxySetups ?? []} locale={locale} />
+      <HandoverCard handovers={pendingHandovers ?? []} />
 
       {/* Whose account this is must never be in doubt. It sits above the
           safety surfaces because mistaking one person's record for another is
           itself the safety problem. */}
       <ActingForBanner acting={acting} />
+      {acting && (ageFromDateOfBirth(subjectDateOfBirth) ?? 99) < 18 ? (
+        <p role="note" className="rounded-xl bg-brand-green/5 px-4 py-3 text-sm text-charcoal-ink/80">
+          A child&apos;s record is for vaccinations, growth checks and screening reminders only. Appointments,
+          medicines, messages, tests and results are not available for a child, and only you can see this record.
+        </p>
+      ) : null}
 
       {/* Safety surfaces stay above everything, outside any section. */}
       <EmergencyAlert patientId={subjectId} hasEmergencyContact={subjectHasEmergencyContact} />
