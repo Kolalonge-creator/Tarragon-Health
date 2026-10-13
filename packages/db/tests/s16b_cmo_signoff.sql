@@ -26,6 +26,10 @@ begin
   insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test)
   values (v, p_org, p_role::public.user_role, 'S16b ' || p_label, '+23480' || lpad((random() * 99999999)::int::text, 8, '0'), (current_date - interval '45 years')::date, true)
   on conflict (id) do update set role = excluded.role, is_test = true, is_active = true, phone = excluded.phone;
+  -- two-tier (founder 2026-10-12): a doctor task is made only for a Member, so every fixture patient here is one
+  if p_role = 'patient' then
+    insert into public.patient_memberships (organisation_id, patient_id, source, state, is_test) values (p_org, v, 'purchase', 'active', true);
+  end if;
   return v;
 end $f$;
 
