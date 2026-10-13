@@ -35,6 +35,15 @@ export interface TriagePorts {
   record(args: { observationId: string; result: TriageResult; ruleSetId: string; causationId: string; basis: string }): Promise<void>;
 }
 
+/**
+ * The database drops a null from the JSON it sends (jsonb_strip_nulls), so a patient with no date of birth arrives with no
+ * `ageYears` at all, and the engine's input check wants the key (`null` means unknown). Without this such a patient's reading
+ * (or silence) was rejected as invalid_input and never graded. Unknown age stays unknown; nothing is invented.
+ */
+export function withKnownAge(input: TriageInput): TriageInput {
+  return input.ageYears === undefined ? { ...input, ageYears: null } : input;
+}
+
 function observationIdOf(event: BusEvent): string {
   const id = event.payload["observation_id"];
   if (typeof id !== "string" || id.length === 0) {
@@ -55,7 +64,7 @@ export function makeObservationHandler(ports: TriagePorts): Handler {
     const set = await ports.loadRuleSet(BP_RULE_SET_CODE);
     if (!set) throw new Error(`no ${BP_RULE_SET_CODE} rule set to grade with`);
 
-    const result = grade(context.input, set.rules);
+    const result = grade(withKnownAge(context.input), set.rules);
     // A rule set the engine refuses is not graded half way. Throwing retries, then dead-letters,
     // where event_bus_health() shows it; the live pipeline keeps covering the patient meanwhile.
     if (result.status === "rejected" && result.reason === "invalid_rule_set") {
