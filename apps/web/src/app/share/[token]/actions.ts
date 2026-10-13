@@ -1,0 +1,35 @@
+"use server";
+
+import { headers } from "next/headers";
+import { openShare, isWellFormedPin } from "@/lib/my-health/open-share";
+import type { SharedData } from "./shared-record-view";
+
+export type UnlockState =
+  | { status: "pin_required"; attemptsLeft: number | null; message?: "format" }
+  | { status: "try_later" }
+  | { status: "unavailable" }
+  | { status: "ok"; record: SharedData };
+
+/** The viewer's address as the platform proxy reports it. Only ever hashed by the database, only ever used to slow down wrong PINs. */
+async function clientKey(): Promise<string | null> {
+  const h = await headers();
+  const forwarded = h.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return forwarded || h.get("x-real-ip") || null;
+}
+
+/** Bound to the link's token on the page. The PIN travels in the form body, never in a URL. */
+export async function unlockShare(token: string, _prev: UnlockState, formData: FormData): Promise<UnlockState> {
+  const pin = String(formData.get("pin") ?? "").trim();
+  if (!isWellFormedPin(pin)) return { status: "pin_required", attemptsLeft: null, message: "format" };
+  const result = await openShare(token, pin, await clientKey());
+  switch (result.kind) {
+    case "ok":
+      return { status: "ok", record: result.record as unknown as SharedData };
+    case "pin_required":
+      return { status: "pin_required", attemptsLeft: result.attemptsLeft };
+    case "try_later":
+      return { status: "try_later" };
+    default:
+      return { status: "unavailable" };
+  }
+}
