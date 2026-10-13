@@ -63,6 +63,17 @@ export function withKnownAge(input: TriageInput): TriageInput {
   return input.ageYears === undefined ? { ...input, ageYears: null } : input;
 }
 
+/**
+ * The glucose twin of withKnownAge. The glucose context is built with jsonb_strip_nulls too, so a patient with no date of birth
+ * (or no diabetes record) arrives with the key missing. The glucose engine already treats absent as "not recorded"; this makes the
+ * handler hand it the explicit null as well, so the two engines cannot drift on this again. Unknown stays unknown.
+ */
+export function withKnownGlucoseFields(input: GlucoseInput): GlucoseInput {
+  return input.ageYears === undefined || input.diabetesType === undefined
+    ? { ...input, ageYears: input.ageYears ?? null, diabetesType: input.diabetesType ?? null }
+    : input;
+}
+
 function observationIdOf(event: BusEvent): string {
   const id = event.payload["observation_id"];
   if (typeof id !== "string" || id.length === 0) {
@@ -77,7 +88,7 @@ async function handleGlucose(ports: TriagePorts, observationId: string, event: B
   if (!context.found || !context.input) return;
   const set = await ports.loadGlucoseRuleSet(GLUCOSE_RULE_SET_CODE);
   if (!set) throw new Error(`no ${GLUCOSE_RULE_SET_CODE} rule set to grade with`);
-  const result = gradeGlucose(context.input, set.rules);
+  const result = gradeGlucose(withKnownGlucoseFields(context.input), set.rules);
   // Same stance as blood pressure: an invalid rule set is not graded half way. It retries, then dead-letters where event_bus_health()
   // shows it, while the older glucose pipeline keeps covering the patient.
   if (result.status === "rejected" && result.reason === "invalid_rule_set") {

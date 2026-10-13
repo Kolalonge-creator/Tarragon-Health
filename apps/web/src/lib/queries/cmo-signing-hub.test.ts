@@ -35,7 +35,12 @@ const readPendingGlucoseTriageSignoff = jest.fn<(...args: unknown[]) => Promise<
 jest.mock("@/lib/queries/pending-glucose-triage-signoff", () => ({
   GLUCOSE_TRIAGE_ITEM_KEY: "glucose_triage_rule_set",
   readPendingGlucoseTriageSignoff: (...args: unknown[]) => readPendingGlucoseTriageSignoff(...args),
+}));
 const noGlucose: GlucosePending = { pending: false, version: null, approvedVersion: null, note: null, failed: false };
+const readPendingGlucoseTaskTypeSignoff = jest.fn<(...args: unknown[]) => Promise<{ waiting: boolean; failed: boolean }>>();
+jest.mock("@/lib/queries/pending-glucose-task-type-signoff", () => ({
+  readPendingGlucoseTaskTypeSignoff: (...args: unknown[]) => readPendingGlucoseTaskTypeSignoff(...args),
+}));
 const noCommunity = { rulesUnsigned: false, groupsWaiting: 0, statementsWaiting: 0, attentionCount: 0, failed: false };
 jest.mock("@/lib/queries/pending-ai-governance-signoff", () => ({
   readPendingAiGovernanceSignoff: (...args: unknown[]) => readPendingAiGovernanceSignoff(...args),
@@ -68,6 +73,8 @@ beforeEach(() => {
   readS06S10Signoffs.mockResolvedValue(emptyS06S10);
   readPendingRedOutreachSignoff.mockReset();
   readPendingRedOutreachSignoff.mockResolvedValue({ waiting: false, failed: false });
+  readPendingGlucoseTaskTypeSignoff.mockReset();
+  readPendingGlucoseTaskTypeSignoff.mockResolvedValue({ waiting: false, failed: false });
   readPendingGlucoseTriageSignoff.mockReset();
   readPendingGlucoseTriageSignoff.mockResolvedValue(noGlucose);
 });
@@ -284,5 +291,24 @@ describe("readCmoSigningHub: red alert outreach (S13 R4)", () => {
     readPendingRedOutreachSignoff.mockResolvedValue({ waiting: false, failed: true });
     const hub = await readCmoSigningHub(supabase);
     expect(hub).toMatchObject({ failed: true, failedSources: ["Red alert outreach"] });
+  });
+});
+
+describe("readCmoSigningHub: both new task types and the glucose rules together (S11 to S15 integration)", () => {
+  it("lists the glucose rules, the urgent glucose review task type and the call-the-patient task type as three separate lines, all under /clinician", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingGlucoseTriageSignoff.mockResolvedValue({ pending: true, version: 1, approvedVersion: null, note: null, failed: false });
+    readPendingGlucoseTaskTypeSignoff.mockResolvedValue({ waiting: true, failed: false });
+    readPendingRedOutreachSignoff.mockResolvedValue({ waiting: true, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    const keys = hub.items.map((i) => i.key).sort();
+    expect(keys).toEqual(["glucose_task_type", "glucose_triage_rule_set", "red_outreach"]);
+    expect(hub.items.every((i) => i.href.startsWith("/clinician/"))).toBe(true);
+    expect(hub.failed).toBe(false);
+  });
+  it("names an unreadable glucose task type source instead of going quiet", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingGlucoseTaskTypeSignoff.mockResolvedValue({ waiting: false, failed: true });
+    expect(await readCmoSigningHub(supabase)).toMatchObject({ failed: true, failedSources: ["the urgent glucose review task type"] });
   });
 });

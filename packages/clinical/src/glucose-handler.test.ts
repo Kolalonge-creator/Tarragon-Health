@@ -46,6 +46,15 @@ function ports(over: Partial<TriagePorts> = {}) {
 }
 
 describe("the glucose branch of the observation handler", () => {
+  it("a glucose reading from a patient with no date of birth or no diabetes record (keys missing from the JSON, as jsonb_strip_nulls sends them) is graded, never rejected as invalid input", async () => {
+    const { ageYears: _a, diabetesType: _d, ...stripped } = glucoseInput(2.6);
+    const { p, recorded } = ports({ loadGlucoseContext: async () => ({ found: true, input: stripped as unknown as GlucoseInput }) });
+    await makeObservationHandler(p)(event({ observation_id: "obs1", kind: "glucose" }), ctx);
+    expect(recorded).toHaveLength(1);
+    expect(recorded[0]?.result.status).toBe("graded");
+    expect(recorded[0]?.result.grade).toBe("red");
+  });
+
   it("grades a glucose event with the glucose rule set and records it with the rule set and the event as cause, never touching the blood pressure ports", async () => {
     const { p, recorded } = ports();
     await makeObservationHandler(p)(event({ observation_id: "obs1", kind: "glucose" }), ctx);

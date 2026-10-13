@@ -145,6 +145,18 @@ create table public.chain_canary_subjects (
 alter table public.chain_canary_subjects enable row level security;
 revoke all on public.chain_canary_subjects from public, anon, authenticated;
 
+-- Registered with the data registry (S39d requires every table with a patient_id column to be listed). It holds only the id of the one
+-- synthetic canary patient, no real person, so it is kept out of any export. Added by the S11 to S15 integration pass.
+insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, notes)
+values ('chain_canary_subjects', 'patient_id', private.retention_class_for('chain_canary_subjects'), 'review', false,
+        'P1 2026-10-13: the synthetic canary patient only (no real person). Not exported. Class proposed by the standing name rule; awaiting the CMO and DPO class review.')
+on conflict (table_name) do nothing;
+
+-- The under-18 dependant guard must classify every table with a patient_id column. The canary patient is synthetic and an adult.
+insert into public.minor_dependant_table_policy (table_name, policy, reason)
+values ('chain_canary_subjects', 'exempt', 'the synthetic canary patient only: not a real person and not a dependant')
+on conflict (table_name) do update set policy = excluded.policy, reason = excluded.reason;
+
 -- Anyone whose profile sits in the synthetic organisation. Keyed on the organisation (not the subjects row) so it is true from the moment the
 -- profiles are created, before the subjects row can exist.
 create function private.chain_canary_is_subject(p_profile uuid) returns boolean

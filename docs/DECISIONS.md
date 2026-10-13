@@ -257,6 +257,15 @@ Recorded as CMO decisions (not a database signature). Pack: `docs/plans/S11-S15-
 - Q19: no speech-to-text vendor until a 20 to 30 clip consented real-consult gold set is scored; thresholds set after seeing results; every drug name and number in a draft is highlighted for the signing clinician.
 - Next steps: new DRAFT versions only. Nothing is signed. `glucose_care_triage` v1 is drafted and shown to the CMO in full; BP v3 is unchanged. Open conflict to resolve with the founder: OQ-97 (2026-10-06) set the Paystack transfer OTP off with compensating limits, while the review plan suggested keeping it on until reconciliation and reversal handling exist.
 
+**What was built per decision (integration, 2026-10-13; all DRAFT or flagged OFF, nothing signed):**
+- Q1: `triage_engine_parity()` and the chain health parity table (P1), glucose divergence report (P2). Legacy alerts are NOT retired.
+- Q2, Q3, Q5: no change (BP v3). Q4: upper-arm advice beside the repeat prompt on the phone, red never downgraded (P2).
+- Q6 to Q9: `glucose_care_triage` v1 draft, hub panel with guideline basis and full wording (P2). Not signed.
+- Q10 to Q13: patient ladder, 30 minute unconfirmed sweep, generic wording, patient answer recorded (P3). The `red_patient_outreach` task type awaits confirmation on the hub.
+- Q14 to Q17: verification gate with grandfathering, six-month spot re-check, first-20 review, "Licence verified on" with no folio (P5). Folio still readable through `clinical_staff_directory` (OQ-358).
+- Q18, Q19: scribe consent enforced in the database, drug and number highlight, ASR gold-set harness, no vendor (P4).
+- Tooling not tied to one decision: chain canary and health page (P1), coverage sweep for silence and adherence (P6), provider inbox and payout controls (P4).
+
 ### Two-tier answers, 2026-10-08
 Founder decisions in chat after the process-map review. Full per-session effect: `docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md`.
 - Member price 120,000 naira a year individual, 100,000 naira per organisation member (volume tiers dropped, confirm flat). Code still seeds 100,000; not changed.

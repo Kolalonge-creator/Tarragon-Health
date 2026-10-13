@@ -7,6 +7,7 @@ import { readPendingCommunitySignoff } from "@/lib/queries/pending-community-sig
 import { readCredentialAttention, credentialAttentionItem } from "@/lib/queries/credential-attention";
 import { GLUCOSE_TRIAGE_ITEM_KEY, readPendingGlucoseTriageSignoff } from "@/lib/queries/pending-glucose-triage-signoff";
 import { readS06S10Signoffs, EMPTY_S06S10, type S06S10Snapshot } from "@/lib/queries/s06-s10-signoffs";
+import { readPendingGlucoseTaskTypeSignoff } from "@/lib/queries/pending-glucose-task-type-signoff";
 import { readPendingRedOutreachSignoff } from "@/lib/queries/pending-red-outreach-signoff";
 
 export type CmoSigningHub = {
@@ -35,6 +36,8 @@ export const PROTOCOL_DRAFTS_ITEM_KEY = "protocol_drafts";
 export const COMMUNITY_ITEM_KEY = "community";
 /** The key the red-alert outreach line carries (the call-the-patient task type, CMO Q11), so the page can attach the confirm panel. */
 export const RED_OUTREACH_ITEM_KEY = "red_outreach";
+/** The key the urgent glucose review task type line carries (R2, CMO Q7 and Q8), so the page can attach the confirm panel. */
+export const GLUCOSE_TASK_TYPE_ITEM_KEY = "glucose_task_type";
 export { GLUCOSE_TRIAGE_ITEM_KEY };
 
 /**
@@ -57,7 +60,7 @@ export { GLUCOSE_TRIAGE_ITEM_KEY };
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -69,6 +72,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readCredentialAttention(supabase),
     readPendingRedOutreachSignoff(supabase),
     readPendingGlucoseTriageSignoff(supabase),
+    readPendingGlucoseTaskTypeSignoff(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -157,6 +161,17 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
 
   items.push(...s06s10.items);
 
+  if (glucoseTaskType.waiting) {
+    items.push({
+      key: GLUCOSE_TASK_TYPE_ITEM_KEY,
+      title: "Urgent glucose review (task type)",
+      detail: "The task a doctor gets for an urgent same-day glucose reading needs your confirmation. Until you confirm it, the glucose rules cannot be signed.",
+      href: "/clinician/task-types",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
   if (glucose.pending) {
     items.push({
       key: GLUCOSE_TRIAGE_ITEM_KEY,
@@ -175,6 +190,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(credentials.failed ? ["Clinician registration checks"] : []),
     ...(redOutreach.failed ? ["Red alert outreach"] : []),
     ...(glucose.failed ? ["the glucose triage rules"] : []),
+    ...(glucoseTaskType.failed ? ["the urgent glucose review task type"] : []),
   ];
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
   // A banner row may only link to a hub line that exists. The banner reads its own copy of the state, so if the two ever disagree (a row it
