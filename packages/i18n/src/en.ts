@@ -840,7 +840,7 @@ export const en = {
   "my_health.card.pass": "Lock-screen card",
   "my_health.card.pass_body": "A small card with initials, blood group and an emergency number. Off until you turn it on.",
   "my_health.log.title": "Who has looked",
-  "my_health.log.description": "Opens of your share links and emergency card, anyone who used emergency access, and staff members who opened your record (their name and role only, once per visit rather than every page they viewed). This list never shows why, or what was in your record.",
+  "my_health.log.description": "Opens of your share links and emergency card, anyone who used emergency access, and staff members who opened your record (their name and role only, one line each time a visit starts, not every page they viewed, and not every route to your record). This list never shows why, or what was in your record.",
   "my_health.log.empty": "Nothing to show yet. This list covers your share links, your emergency card, emergency access and anyone you gave access to.",
   "my_health.log.failed": "We could not load this list. Please try again.",
   "my_health.log.more": "Show older",
