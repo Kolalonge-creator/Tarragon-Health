@@ -79,7 +79,7 @@ begin
   v_doc := pg_temp.mkuser(v_org, 'doc', 'clinician'); perform pg_temp.setf('doc', v_doc);
   insert into public.clinical_staff (organisation_id, profile_id, full_name, credential_type, credential_number, active, status, license_verified_at, verified_by,
       doctor_tier, employment_type, credentialing_level, indemnity_exempt, indemnity_exempt_by, is_test)
-  values (v_org, v_doc, 'S74 doc', 'MDCN', 'S74-doc-' || substr(v_doc::text, 1, 8), true, 'active', now(), v_admin, 'medical_officer'::public.doctor_tier, 'contracted'::public.staff_employment_type, 1, true, v_admin, true)
+  values (v_org, v_doc, 'S74 doc', 'MDCN', 'S74-doc-' || substr(v_doc::text, 1, 8), true, 'active', now(), v_admin, 'senior_medical_officer'::public.doctor_tier, 'contracted'::public.staff_employment_type, 1, true, v_admin, true)
   returning id into v_staff;
   v_pat := pg_temp.mkuser(v_org, 'pat', 'patient'); perform pg_temp.setf('pat', v_pat);
   perform pg_temp.setf('stranger', pg_temp.mkuser(v_org, 'stranger', 'patient'));
