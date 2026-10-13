@@ -60,7 +60,7 @@ begin
   select exists (
     select 1 from public.lab_panel_signoffs s, public.lab_panel_versions v, public.lab_results r
      where s.is_active and s.approved_by is not null and s.approved_at is not null
-       and r.id = new.lab_result_id and v.id = r.panel_version_id and s.approved_at >= v.created_at
+       and r.id = new.lab_result_id and v.id = r.panel_version_id and v.is_active and s.approved_at >= v.created_at
   ) into v_signed;
   if v_panel is not null and v_signed then
     new.range_source := 'cmo_signed_config';

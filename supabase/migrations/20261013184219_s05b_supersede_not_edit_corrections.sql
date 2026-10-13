@@ -172,7 +172,8 @@ begin
   end if;
 
   execute format('select to_jsonb(t) from public.%I t where id = $1 for update', p_table) into v_old using p_id;
-  if v_old is null then raise exception 'record not found' using errcode = 'P0002'; end if;
+  -- one answer for "missing" and "not yours", so the function is not a way to probe whether a row id exists
+  if v_old is null then raise exception 'you cannot correct this record' using errcode = '42501'; end if;
   v_patient := (v_old ->> 'patient_id')::uuid;
 
   -- who may correct: the clinician tied to this patient, or the patient on her own entries (never on a lab result, never to 'cancelled')
