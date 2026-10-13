@@ -4,8 +4,8 @@
 -- Counted first (live, 2026-10-13): 11 public tables keyed by patient_id are not in minor_dependant_table_policy, so a
 -- dependant under 18 is not blocked from holding rows in them: followup_offer_slots, followup_offers,
 -- medication_prn_flags, medication_prn_limits, member_followup_entitlements, member_review_notes, poc_ecg_recordings,
--- poc_measurements, poc_result_items, poc_results, testing_event_bookings (two-tier and S08x migrations that sort after
--- the original guard). Founder rule: a dependant under 18 holds immunisation and preventive tracking only, so all 11 are
+-- poc_measurements, poc_result_items, poc_results, testing_event_bookings (two-tier and S08x tables; the two-tier files sort before the original
+-- guard, so a fresh replay already guards them, but production applied them after it, and the S08x files sort after it). Founder rule: a dependant under 18 holds immunisation and preventive tracking only, so all 11 are
 -- guarded. No under-18 dependant exists live (0 rows), so there is nothing to convert.
 --
 -- 1. private.minor_guard_gaps(): the single definition of "a patient table the guard misses", used by the proof, by the
@@ -79,6 +79,7 @@ begin
   for r in select g.table_name from private.minor_guard_gaps() g where g.problem = 'not in minor_dependant_table_policy' loop
     v_col := case when r.table_name in ('booking_requests', 'risk_assessment_responses', 'prevention_risk_scores', 'ai_conversations')
                   then 'profile_id' else 'patient_id' end;
+    raise notice 'S04b-1b: guarding unclassified patient table % (reclassify allowed/exempt in a new migration if it must stay writable for a child)', r.table_name;
     perform private.guard_minor_dependant_table(r.table_name, v_col);
   end loop;
   -- a guarded-listed table that lost its trigger gets it back
