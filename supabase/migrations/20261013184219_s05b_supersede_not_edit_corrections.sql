@@ -104,7 +104,7 @@ begin
     execute format($f$
       alter table public.%1$I
         add column supersedes_id     uuid references public.%1$I (id),
-        add column superseded_by_id  uuid references public.%1$I (id) deferrable initially deferred,
+        add column superseded_by_id  uuid,   -- no foreign key: a deferred one leaves pending trigger events that block later ALTER TABLE in the same transaction (proofs), the function writes it
         add column correction_status public.correction_status,
         add column correction_reason text,
         add column corrected_by      uuid references public.profiles (id) on delete set null,
@@ -270,7 +270,7 @@ begin
 
   end if;
 
-  -- mark the original first (its superseded_by_id foreign key is deferred), so a unique rule on current entries never sees both
+  -- mark the original first (superseded_by_id has no foreign key), so a unique rule on current entries never sees both
   execute format(
     'update public.%I set correction_status = $1, correction_reason = $2, corrected_by = $3, corrected_at = now(), superseded_by_id = $4 where id = $5',
     p_table) using p_status, btrim(p_reason), v_uid, v_new_id, p_id;

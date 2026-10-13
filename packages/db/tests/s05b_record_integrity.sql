@@ -513,8 +513,6 @@ begin
   raise notice 'PASS C: range source';
 
   -- ======================================================================== D. sabotage (each must flip)
-  execute 'set constraints all immediate';   -- the deferred superseded_by_id checks must settle before DDL
-
   -- D1: without the provenance trigger a patient reaches lab_verified
   v_flipped := false;
   begin
