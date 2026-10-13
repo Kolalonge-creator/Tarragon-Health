@@ -227,18 +227,9 @@ export function PharmacyCatalogue({
 
                   {canBook && isOpen && (
                     <div className="space-y-3 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
-                      {/* Fulfilment method — pickup live, delivery gated until partners onboard. */}
-                      <div className="flex flex-wrap items-center gap-2 text-xs">
-                        <span className="rounded-full bg-brand-green px-3 py-1 font-medium text-white">
-                          Pickup
-                        </span>
-                        <span
-                          className="cursor-not-allowed rounded-full border border-charcoal-ink/20 dark:border-night-ink/25 px-3 py-1 text-charcoal-ink/40 dark:text-night-ink/50"
-                          title="Home delivery is coming soon"
-                        >
-                          Delivery · coming soon
-                        </span>
-                      </div>
+                      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                        You collect your medicine from the pharmacy you choose.
+                      </p>
 
                       {/* Location control for nearest-first ordering. */}
                       <div className="flex flex-wrap items-center gap-2">
@@ -315,7 +306,6 @@ export function PharmacyCatalogue({
                                         pharmacyPartnerId: option.pharmacy_partner_id,
                                         medication: option,
                                         quantity,
-                                        fulfilmentMethod: "pickup",
                                       },
                                       {
                                         onSuccess: () => {

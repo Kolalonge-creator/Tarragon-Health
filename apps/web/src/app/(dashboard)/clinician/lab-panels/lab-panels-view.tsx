@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { signLabPanels } from "./actions";
 import type { PanelDefinition } from "@/lib/lab-results/structured";
-import { PANEL_LABEL, type PanelCode } from "@/lib/lab-results/structured";
+import { describeSexRanges, PANEL_LABEL, type PanelCode } from "@/lib/lab-results/structured";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -61,7 +61,7 @@ export function LabPanelsView({ signoff, panels, canSign }: { signoff: LabSignof
                     <td>{num(a.refHigh)}</td>
                     <td>{num(a.criticalLow)}</td>
                     <td>{num(a.criticalHigh)}</td>
-                    <td>{[a.kind === "qualitative" ? "positive or negative" : "", a.sensitive ? "sensitive: disclosed in person" : "", a.optional ? "only if ordered" : ""].filter(Boolean).join(", ")}</td>
+                    <td>{[a.kind === "qualitative" ? "positive or negative" : "", describeSexRanges(a), a.sensitive ? "sensitive: disclosed in person" : "", a.optional ? "only if ordered" : ""].filter(Boolean).join(", ")}</td>
                   </tr>
                 ))}
               </tbody>

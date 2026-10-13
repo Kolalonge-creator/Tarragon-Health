@@ -241,7 +241,7 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
       {/* After the video visit card: a visit that starts soon must stay near the top. */}
       <TodayCard patientId={patientId} onNavigate={onNavigate} reloadToken={scoreReloadToken} />
 
-      {showGetStarted ? <GetStartedCard progress={progress} onNavigate={onNavigate} language={uiLanguage} /> : null}
+      {showGetStarted ? <GetStartedCard progress={progress} onNavigate={onNavigate} /> : null}
 
       <View style={{ gap: space.md }}>
         {/* On an empty account these tiles could only read dashes and zeros. The quick actions

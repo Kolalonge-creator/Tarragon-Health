@@ -1,4 +1,4 @@
-import { en, pcm, type MessageKey } from "@tarragon/i18n";
+import { en, type MessageKey } from "@tarragon/i18n";
 
 /**
  * INV-07: a notification never names a condition, a reading, a result or a
@@ -29,7 +29,7 @@ const CLINICAL = [
 
 describe("reminder notification wording (INV-07)", () => {
   for (const key of NOTIFICATION_KEYS) {
-    for (const [lang, catalogue] of [["en", en], ["pcm", pcm]] as const) {
+    for (const [lang, catalogue] of [["en", en]] as const) {
       it(`${key} (${lang}) names nothing clinical`, () => {
         const text = catalogue[key];
         expect(text).toBeTruthy();

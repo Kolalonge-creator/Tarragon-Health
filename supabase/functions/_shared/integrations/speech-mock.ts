@@ -1,6 +1,6 @@
 import { fail, ok, type ProviderResult } from "./result.ts";
 import { isUuid } from "./ids.ts";
-import { SUPPORTED_LANGUAGES, type Speaker, type SpeechStream, type SpeechToText, type Transcript, type TranscriptSegment } from "./speech.ts";
+import { type Speaker, type SpeechStream, type SpeechToText, type Transcript, type TranscriptSegment } from "./speech.ts";
 
 export interface ScriptedSegment {
   readonly text: string;
@@ -22,7 +22,6 @@ export function createMockSpeech(options: MockSpeechOptions): SpeechToText {
     async startStream(input): Promise<ProviderResult<SpeechStream>> {
       if (!isUuid(input.scribeConsentId)) return fail("consent_required", "A recorded scribe consent is required before transcription", false);
       if (!isUuid(input.encounterRef)) return fail("invalid_input", "Encounter reference must be an opaque uuid");
-      if (!SUPPORTED_LANGUAGES.includes(input.language)) return fail("unsupported", "Language is not supported", false);
       const resume = input.resumeFrom;
       if (resume && !(Number.isInteger(resume.offsetMs) && resume.offsetMs >= 0 && Number.isInteger(resume.nextIndex) && resume.nextIndex >= 0)) {
         return fail("invalid_input", "Resume point is not valid");
@@ -66,7 +65,7 @@ export function createMockSpeech(options: MockSpeechOptions): SpeechToText {
           return ok(null);
         },
         async stop() {
-          stopped ??= { segments: [...segments], durationMs: cursorMs, language: input.language };
+          stopped ??= { segments: [...segments], durationMs: cursorMs };
           return ok(stopped);
         },
       };

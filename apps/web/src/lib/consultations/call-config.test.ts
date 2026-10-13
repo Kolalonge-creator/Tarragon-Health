@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { callPolicyFor, inAppCallAvailable, participantKeySecret, presenceFromWebhook } from "./call-config";
+import { callPolicyFor, hostKeyTtlSeconds, inAppCallAvailable, participantKeySecret, presenceFromWebhook } from "./call-config";
 
 describe("in-app call configuration", () => {
   it("is available only with both Meeting SDK keys, and the secret is the one that mints participant keys", () => {
@@ -16,6 +16,13 @@ describe("in-app call configuration", () => {
     expect(presenceFromWebhook({})).toBe(false);
     expect(presenceFromWebhook({ ZOOM_PRESENCE_WEBHOOK: "true" })).toBe(false);
     expect(presenceFromWebhook({ ZOOM_PRESENCE_WEBHOOK: "1" })).toBe(true);
+  });
+
+  it("reads how long a clinician's host key lives from the versioned configuration, short enough to be a join-time credential only", () => {
+    const ttl = hostKeyTtlSeconds();
+    expect(Number.isInteger(ttl)).toBe(true);
+    expect(ttl).toBeGreaterThan(0);
+    expect(ttl).toBeLessThanOrEqual(900);
   });
 
   it("builds the page's call policy from the versioned config and the consultation's own grace, or none when unavailable", () => {

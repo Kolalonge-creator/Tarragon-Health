@@ -34,7 +34,7 @@ jest.mock("@/lib/go-live/actions", () => ({ attestConditionAction: async () => u
 
 import { GoLivePage } from "./go-live-page";
 
-const html = async (viewer: "admin" | "cmo", locale: "en" | "pcm" = "en", extra: Record<string, unknown> = {}) =>
+const html = async (viewer: "admin" | "cmo" | "ops", locale: "en" = "en", extra: Record<string, unknown> = {}) =>
   renderToStaticMarkup(await GoLivePage({ viewer, locale, ...extra }));
 
 describe("GoLivePage", () => {
@@ -97,10 +97,10 @@ describe("GoLivePage", () => {
     expect(pagingBlock).toContain("Only the owner confirms this.");
   });
 
-  it("renders in Pidgin and shows a calm message when the guards cannot be loaded", async () => {
+  it("shows a calm message when the guards cannot be loaded", async () => {
     guardsOk = false;
-    const out = await html("admin", "pcm");
-    expect(out).toContain("We no fit load this now");
+    const out = await html("admin", "en");
+    expect(out).toContain("This could not be loaded just now");
     guardsOk = true;
   });
 
@@ -108,5 +108,23 @@ describe("GoLivePage", () => {
     guards = [];
     expect(await html("admin", "en", { notice: "golive.done.switched_on", ok: true })).toContain("Switched on.");
     expect(await html("admin", "en", { notice: "common.continue", ok: true })).not.toContain("Continue");
+  });
+
+  it("shows an operations user every guard and no form or button at all", async () => {
+    guards = [guard({ is_on: true, all_met: true })];
+    const out = await html("ops");
+    expect(out).toContain("Payouts");
+    expect(out).toContain("A fee schedule is approved");
+    expect(out).toContain("This is a read-only view.");
+    expect(out).not.toContain("<form");
+    expect(out).not.toContain("<button");
+    expect(out).not.toContain("Switch off");
+    expect(out).not.toContain("Switch on");
+  });
+
+  it("does not list the proposed-value sign-offs for an operations user", async () => {
+    guards = [guard({})];
+    const out = await html("ops");
+    expect(out).not.toContain("proposed-values");
   });
 });

@@ -16603,6 +16603,8 @@ export type Database = {
           updated_at: string
           version: number
           video_url: string | null
+          audio_clip_id: string | null
+          next_action: string | null
         }
         Insert: {
           approved_at?: string | null
@@ -16641,6 +16643,8 @@ export type Database = {
           updated_at?: string
           version?: number
           video_url?: string | null
+          audio_clip_id?: string | null
+          next_action?: string | null
         }
         Update: {
           approved_at?: string | null
@@ -16679,6 +16683,8 @@ export type Database = {
           updated_at?: string
           version?: number
           video_url?: string | null
+          audio_clip_id?: string | null
+          next_action?: string | null
         }
         Relationships: []
       }
@@ -29769,83 +29775,6 @@ export type Database = {
           },
         ]
       }
-      pharmacy_order_delivery_attempts: {
-        Row: {
-          attempt_number: number
-          attempted_at: string
-          created_at: string
-          failure_reason:
-            | Database["public"]["Enums"]["delivery_failure_reason"]
-            | null
-          id: string
-          notes: string | null
-          organisation_id: string
-          patient_id: string
-          pharmacy_order_id: string
-          recorded_by: string | null
-          result: Database["public"]["Enums"]["delivery_attempt_result"]
-        }
-        Insert: {
-          attempt_number?: number
-          attempted_at?: string
-          created_at?: string
-          failure_reason?:
-            | Database["public"]["Enums"]["delivery_failure_reason"]
-            | null
-          id?: string
-          notes?: string | null
-          organisation_id: string
-          patient_id: string
-          pharmacy_order_id: string
-          recorded_by?: string | null
-          result: Database["public"]["Enums"]["delivery_attempt_result"]
-        }
-        Update: {
-          attempt_number?: number
-          attempted_at?: string
-          created_at?: string
-          failure_reason?:
-            | Database["public"]["Enums"]["delivery_failure_reason"]
-            | null
-          id?: string
-          notes?: string | null
-          organisation_id?: string
-          patient_id?: string
-          pharmacy_order_id?: string
-          recorded_by?: string | null
-          result?: Database["public"]["Enums"]["delivery_attempt_result"]
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pharmacy_order_delivery_attempts_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pharmacy_order_delivery_attempts_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pharmacy_order_delivery_attempts_pharmacy_order_id_fkey"
-            columns: ["pharmacy_order_id"]
-            isOneToOne: false
-            referencedRelation: "pharmacy_orders"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pharmacy_order_delivery_attempts_recorded_by_fkey"
-            columns: ["recorded_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       pharmacy_order_dispenses: {
         Row: {
           batch_lot: string | null
@@ -30097,15 +30026,9 @@ export type Database = {
           created_at: string
           declined_at: string | null
           declined_by: string | null
-          delivered_at: string | null
-          delivery_address: Json | null
-          delivery_confirmed_at: string | null
-          estimated_delivery_at: string | null
           estimated_fulfilment_at: string | null
-          fulfilment_method: Database["public"]["Enums"]["pharmacy_fulfilment_method"]
           id: string
           items: Json
-          logistics_partner_id: string | null
           order_number: string | null
           ordered_by: string | null
           organisation_id: string
@@ -30145,15 +30068,9 @@ export type Database = {
           created_at?: string
           declined_at?: string | null
           declined_by?: string | null
-          delivered_at?: string | null
-          delivery_address?: Json | null
-          delivery_confirmed_at?: string | null
-          estimated_delivery_at?: string | null
           estimated_fulfilment_at?: string | null
-          fulfilment_method?: Database["public"]["Enums"]["pharmacy_fulfilment_method"]
           id?: string
           items?: Json
-          logistics_partner_id?: string | null
           order_number?: string | null
           ordered_by?: string | null
           organisation_id: string
@@ -30193,15 +30110,9 @@ export type Database = {
           created_at?: string
           declined_at?: string | null
           declined_by?: string | null
-          delivered_at?: string | null
-          delivery_address?: Json | null
-          delivery_confirmed_at?: string | null
-          estimated_delivery_at?: string | null
           estimated_fulfilment_at?: string | null
-          fulfilment_method?: Database["public"]["Enums"]["pharmacy_fulfilment_method"]
           id?: string
           items?: Json
-          logistics_partner_id?: string | null
           order_number?: string | null
           ordered_by?: string | null
           organisation_id?: string
@@ -30242,13 +30153,6 @@ export type Database = {
             columns: ["declined_by"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pharmacy_orders_logistics_partner_id_fkey"
-            columns: ["logistics_partner_id"]
-            isOneToOne: false
-            referencedRelation: "logistics_partners"
             referencedColumns: ["id"]
           },
           {
@@ -30531,8 +30435,6 @@ export type Database = {
           contact_email: string | null
           contact_phone: string | null
           created_at: string
-          delivery: boolean
-          delivery_fee_kobo: number | null
           id: string
           integration_tested_at: string | null
           integration_tested_by: string | null
@@ -30569,8 +30471,6 @@ export type Database = {
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
-          delivery?: boolean
-          delivery_fee_kobo?: number | null
           id?: string
           integration_tested_at?: string | null
           integration_tested_by?: string | null
@@ -30607,8 +30507,6 @@ export type Database = {
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
-          delivery?: boolean
-          delivery_fee_kobo?: number | null
           id?: string
           integration_tested_at?: string | null
           integration_tested_by?: string | null
@@ -42954,8 +42852,6 @@ export type Database = {
           address: string | null
           area: string | null
           city: string | null
-          delivery: boolean | null
-          delivery_fee_kobo: number | null
           id: string | null
           is_active: boolean | null
           latitude: number | null
@@ -42972,7 +42868,123 @@ export type Database = {
       }
     }
     Functions: {
+      // S27 (lab results and release rules): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       bp_control_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
+      // S38c (monthly report and risk stratification): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
+      clinician_risk_worklist: { Args: { p_limit?: number }; Returns: Json };
+      community_admin_cancel_qa: { Args: { p_series_id: string }; Returns: Json }
+      community_admin_create_qa: { Args: { p_title: string; p_intro: string; p_opens_at: string; p_closes_at: string; p_doctor_ids: string[]; p_group_ids: string[] }; Returns: Json }
+      community_admin_dpo: { Args: never; Returns: Json }
+      community_admin_end_prompt: { Args: { p_id: string }; Returns: Json }
+      community_admin_grant_staff: { Args: { p_profile_id: string; p_scope: string; p_group_id?: string }; Returns: Json }
+      community_admin_groups: { Args: never; Returns: Json }
+      community_admin_overview: { Args: never; Returns: Json }
+      community_admin_pinned: { Args: { p_group_id: string }; Returns: Json }
+      community_admin_prompts: { Args: { p_group_id: string }; Returns: Json }
+      community_admin_qa_list: { Args: never; Returns: Json }
+      community_admin_remove_answer: { Args: { p_id: string }; Returns: Json }
+      community_admin_revoke_staff: { Args: { p_id: string }; Returns: Json }
+      community_admin_rule_delete: { Args: { p_rule_id: number }; Returns: Json }
+      community_admin_rule_save: { Args: { p_version: number; p_class: string; p_kind: string; p_pattern: string; p_action: string; p_note?: string }; Returns: Json }
+      community_admin_rule_set_activate: { Args: { p_version: number }; Returns: Json }
+      community_admin_rule_set_create: { Args: { p_from_version?: number }; Returns: Json }
+      community_admin_rule_set_params: { Args: { p_version: number; p_allowed_hosts: Json }; Returns: Json }
+      community_admin_rule_sets: { Args: never; Returns: Json }
+      community_admin_rules: { Args: { p_version: number }; Returns: Json }
+      community_admin_save_group: { Args: { p_id: string; p_name: string; p_slug: string; p_description: string; p_topic_code: string; p_rules_text: string; p_join_mode?: string; p_status?: string }; Returns: Json }
+      community_admin_save_prompt: { Args: { p_group_id: string; p_body: string; p_show_from?: string; p_show_until?: string }; Returns: Json }
+      community_admin_save_topic: { Args: { p_code: string; p_label: string; p_description?: string; p_sort_order?: number; p_is_active?: boolean; p_requires_cmo_rules?: boolean }; Returns: Json }
+      community_admin_set_dpo: { Args: { p_profile_id: string; p_on: boolean }; Returns: Json }
+      community_admin_set_group_cap: { Args: { p_id: string; p_cap: number | null }; Returns: Json }
+      community_admin_set_group_images: { Args: { p_id: string; p_on: boolean }; Returns: Json }
+      community_admin_set_shifts: { Args: { p_staff_id: string; p_shifts: Json }; Returns: Json }
+      community_admin_shifts: { Args: never; Returns: Json }
+      community_admin_staff: { Args: never; Returns: Json }
+      community_admin_topics: { Args: never; Returns: Json }
+      community_admin_unmask: { Args: { p_group_id: string; p_handle: string; p_reason: string }; Returns: Json }
+      community_admin_unpin: { Args: { p_id: string }; Returns: Json }
+      community_appeal: { Args: { p_kind: string; p_target_id: string; p_reason: string }; Returns: Json }
+      community_appeal_decide: { Args: { p_id: string; p_decision: string; p_note?: string }; Returns: Json }
+      community_appeal_queue: { Args: never; Returns: Json }
+      community_ask_question: { Args: { p_group_id: string; p_session_id: string; p_body: string; p_client_request_id?: string }; Returns: Json }
+      community_clinician_pin: { Args: { p_group_id: string; p_title: string; p_body: string }; Returns: Json }
+      community_clinician_review_pin: { Args: { p_id: string }; Returns: Json }
+      community_cmo_approve_group_rules: { Args: { p_group_id: string; p_rules_version: number }; Returns: Json }
+      community_cmo_load_starter_safety_rules: { Args: never; Returns: Json }
+      community_coverage: { Args: never; Returns: Json }
+      community_delete_own_post: { Args: { p_post_id: string }; Returns: Json }
+      community_dpo_candidates: { Args: never; Returns: Json }
+      community_edit_post: { Args: { p_post_id: string; p_body: string }; Returns: Json }
+      community_feed: { Args: { p_group_id: string; p_before?: string; p_limit?: number }; Returns: Json }
+      community_get_group: { Args: { p_slug: string }; Returns: Json }
+      community_hidden_authors: { Args: { p_group_id: string }; Returns: Json }
+      community_hide_author: { Args: { p_post_id: string }; Returns: Json }
+      community_image_path: { Args: { p_image_id: string }; Returns: string }
+      community_image_precheck: { Args: { p_group_id: string; p_client_request_id?: string }; Returns: Json }
+      community_image_ref: { Args: { p_image_id: string }; Returns: Json }
+      community_images_due: { Args: never; Returns: Json }
+      community_images_mark_deleted: { Args: { p_ids: string[] }; Returns: number }
+      community_job_heartbeat: { Args: { p_job: string; p_ok: boolean }; Returns: undefined }
+      community_join_group: { Args: { p_group_id: string; p_rules_version: number; p_consent: boolean }; Returns: Json }
+      community_leave_group: { Args: { p_group_id: string; p_delete_posts?: boolean }; Returns: Json }
+      community_list_groups: { Args: never; Returns: Json }
+      community_mark_image_flagged: { Args: { p_post_id: string }; Returns: boolean }
+      community_mod_recent: { Args: { p_group_id?: string; p_before?: string }; Returns: Json }
+      community_mod_split_reply: { Args: { p_post_id: string }; Returns: Json }
+      community_my_actions: { Args: never; Returns: Json }
+      community_note_groups: { Args: never; Returns: Json }
+      community_mod_decide: { Args: { p_post_id: string; p_decision: string; p_reason_code?: string }; Returns: Json }
+      community_mod_queue: { Args: { p_group_id?: string }; Returns: Json }
+      community_mod_sanction: { Args: { p_post_id: string; p_kind: string; p_reason_code: string; p_hours?: number; p_platform_wide?: boolean }; Returns: Json }
+      community_notify_overdue: { Args: never; Returns: number }
+      community_orphan_files: { Args: never; Returns: Json }
+      community_overdue_work: { Args: never; Returns: Json }
+      community_purge_expired: { Args: never; Returns: number }
+      community_qa_answer: { Args: { p_post_id: string; p_body: string }; Returns: Json }
+      community_qa_doctor_questions: { Args: { p_series_id: string }; Returns: Json }
+      community_qa_doctor_sessions: { Args: never; Returns: Json }
+      community_quality_summary: { Args: never; Returns: Json }
+      community_react: { Args: { p_post_id: string; p_on: boolean }; Returns: Json }
+      community_record_tabletop: { Args: { p_passed: boolean; p_notes?: string; p_steps?: Json }; Returns: Json }
+      community_replies: { Args: { p_post_id: string }; Returns: Json }
+      community_report_post: { Args: { p_post_id: string; p_reason_code: string; p_detail?: string }; Returns: Json }
+      community_safety_decide: { Args: { p_signal_id: string; p_decision: string }; Returns: Json }
+      community_safety_queue: { Args: never; Returns: Json }
+      community_sample_queue: { Args: never; Returns: Json }
+      community_sample_review: { Args: { p_id: string; p_agrees: boolean; p_note?: string }; Returns: Json }
+      community_search_groups: { Args: { p_q: string }; Returns: Json }
+      community_search_posts: { Args: { p_query: string; p_group_id?: string; p_before?: string }; Returns: Json }
+      community_send_digests: { Args: never; Returns: number }
+      community_send_return_nudges: { Args: never; Returns: number }
+      community_set_digest: { Args: { p_group_id: string; p_on: boolean }; Returns: Json }
+      community_set_group_muted: { Args: { p_group_id: string; p_muted: boolean }; Returns: Json }
+      community_set_my_display_name: { Args: { p_name: string | null }; Returns: Json }
+      community_staff_context: { Args: never; Returns: Json }
+      community_submit_post: { Args: { p_group_id: string; p_parent_id: string; p_body: string; p_client_request_id?: string }; Returns: Json }
+      community_submit_post_with_image: { Args: { p_group_id: string; p_parent_id: string; p_body: string; p_client_request_id: string; p_storage_path: string; p_mime: string; p_size: number; p_width: number; p_height: number }; Returns: Json }
+      community_tabletop_runs: { Args: never; Returns: Json }
+      community_unhide_author: { Args: { p_id: string }; Returns: Json }
+      community_unmask_candidates: { Args: never; Returns: Json }
+      log_outcome_export: { Args: { p_from?: string; p_to?: string }; Returns: undefined };
+      my_monthly_reports: { Args: { p_limit?: number }; Returns: Json };
+      override_patient_risk: { Args: { p_days?: number; p_level: string; p_patient: string; p_reason: string }; Returns: Json };
+      risk_distribution_report: { Args: Record<PropertyKey, never>; Returns: Json };
+      // S38e (sponsor cohorts and triage accuracy): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
+      admin_close_sponsor_cohort: { Args: { p_cohort: string }; Returns: boolean };
+      admin_create_sponsor_cohort: { Args: { p_max_uses: number; p_name: string; p_sponsor_org: string; p_valid_from: string; p_valid_to: string }; Returns: Json };
+      admin_list_sponsor_cohorts: { Args: Record<PropertyKey, never>; Returns: Json };
+      clinician_triage_review_list: { Args: Record<PropertyKey, never>; Returns: Json };
+      join_cohort: { Args: { p_code: string }; Returns: Json };
+      leave_cohort: { Args: { p_cohort: string }; Returns: Json };
+      log_sponsor_export: { Args: { p_cohort: string; p_from?: string; p_to?: string }; Returns: undefined };
+      my_cohorts: { Args: Record<PropertyKey, never>; Returns: Json };
+      record_triage_review: { Args: { p_agreement: string; p_task: string }; Returns: Json };
+      set_cohort_reporting_consent: { Args: { p_cohort: string; p_granted: boolean }; Returns: Json };
+      sponsor_outcome_report: { Args: { p_cohort: string; p_from?: string; p_to?: string }; Returns: Json };
+      sponsor_staff_figures: { Args: { p_cohort: string }; Returns: Json };
+      log_sponsor_staff_export: { Args: { p_cohort: string }; Returns: Json };
+      sponsor_staff_programmes: { Args: Record<PropertyKey, never>; Returns: Json };
+      triage_accuracy_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       lab_panel_definition: { Args: { p_panel: string }; Returns: Json };
       liaison_recent_uploads: {
         Args: Record<PropertyKey, never>;
@@ -43061,6 +43073,28 @@ export type Database = {
         }[]
       }
       go_live_guard_is_open: { Args: { p_key: string }; Returns: boolean }
+      learning_course: {
+        Args: { p_programme_code: string }
+        Returns: {
+          audio_clip_id: string
+          body: string
+          check_score: number
+          check_total: number
+          content_code: string
+          content_id: string
+          estimated_minutes: number
+          knowledge_check: Json
+          language_served: string
+          module_number: number
+          next_action: string
+          next_review_due: string
+          reviewed_at: string
+          reviewed_by_name: string
+          status: Database["public"]["Enums"]["health_education_status"]
+          summary: string
+          title: string
+        }[]
+      }
       list_fee_schedules: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -46331,14 +46365,13 @@ export type Database = {
           p_order_id: string
           p_quantity: string
         }
-        Returns: undefined
+        Returns: string
       }
       pharmacist_update_profile: {
         Args: {
           p_city: string
           p_contact_email: string
           p_contact_phone: string
-          p_delivery: boolean
           p_license_expires_at: string
           p_license_number: string
           p_name: string
@@ -46413,7 +46446,6 @@ export type Database = {
       provider_org_pharmacy_order_queue: {
         Args: { p_organisation_id: string }
         Returns: {
-          delivered_at: string
           order_id: string
           order_number: string
           patient_name: string
@@ -46595,15 +46627,6 @@ export type Database = {
           p_user_agent: string
         }
         Returns: boolean
-      }
-      record_pharmacy_delivery_attempt: {
-        Args: {
-          p_failure_reason?: string
-          p_notes?: string
-          p_order_id: string
-          p_result: string
-        }
-        Returns: undefined
       }
       record_reputation_review_prompt_outcome: {
         Args: { p_id: string; p_outcome: string }
@@ -47302,10 +47325,6 @@ export type Database = {
           p_type: Database["public"]["Enums"]["diabetes_type"]
         }
         Returns: undefined
-      }
-      set_pharmacy_order_delivery_address: {
-        Args: { p_address: Json; p_order_id: string }
-        Returns: boolean
       }
       platform_switch_is_on: { Args: { p_key: string }; Returns: boolean }
       set_platform_module: {
@@ -48485,13 +48504,6 @@ export type Database = {
         | "impossible_measurement"
       data_quality_finding_status: "open" | "resolved" | "dismissed"
       data_quality_severity: "info" | "warning" | "critical"
-      delivery_attempt_result: "failed" | "delivered"
-      delivery_failure_reason:
-        | "patient_unavailable"
-        | "incorrect_address"
-        | "courier_failure"
-        | "security_access_issue"
-        | "other"
       dependent_transition_state: "child" | "adolescent" | "transition_prep" | "independent"
       developmental_domain: "motor" | "language" | "social" | "cognitive" | "behavioural"
       developmental_item_answer: "yes" | "sometimes" | "not_yet"
@@ -48532,7 +48544,6 @@ export type Database = {
       dispense_source: "patient" | "pharmacy"
       doctor_tier:
         | "care_coordinator"
-        | "medical_officer"
         | "senior_medical_officer"
         | "chief_medical_officer"
       ec_request_status:
@@ -49379,7 +49390,6 @@ export type Database = {
         | "transfer.success"
         | "transfer.failed"
         | "transfer.reversed"
-      pharmacy_fulfilment_method: "pickup" | "delivery"
       pharmacy_medication_stock_status: "in_stock" | "low_stock" | "unavailable"
       pharmacy_order_status:
         | "pending_payment"
@@ -49388,9 +49398,6 @@ export type Database = {
         | "confirmed"
         | "unavailable"
         | "dispensed"
-        | "out_for_delivery"
-        | "delivery_failed"
-        | "delivered"
         | "cancelled"
       pharmacy_partner_onboarding_status:
         | "application"
@@ -49832,6 +49839,9 @@ export type Database = {
         | "lethargy"
         | "grunting_or_retractions"
         | "dehydration_signs"
+        | "weakness_or_numbness"
+        | "difficulty_speaking"
+        | "back_pain"
       therapy_modality: "video" | "audio" | "in_person"
       therapy_session_status: "requested" | "awaiting_clinician_approval" | "confirmed" | "completed" | "cancelled" | "no_show"
       timeline_event_type:
@@ -50818,14 +50828,6 @@ export const Constants = {
       ],
       data_quality_finding_status: ["open", "resolved", "dismissed"],
       data_quality_severity: ["info", "warning", "critical"],
-      delivery_attempt_result: ["failed", "delivered"],
-      delivery_failure_reason: [
-        "patient_unavailable",
-        "incorrect_address",
-        "courier_failure",
-        "security_access_issue",
-        "other",
-      ],
       dependent_transition_state: ["child", "adolescent", "transition_prep", "independent"],
       developmental_domain: ["motor", "language", "social", "cognitive", "behavioural"],
       developmental_item_answer: ["yes", "sometimes", "not_yet"],
@@ -50876,7 +50878,6 @@ export const Constants = {
       dispense_source: ["patient", "pharmacy"],
       doctor_tier: [
         "care_coordinator",
-        "medical_officer",
         "senior_medical_officer",
         "chief_medical_officer",
       ],
@@ -51825,7 +51826,6 @@ export const Constants = {
         "transfer.failed",
         "transfer.reversed",
       ],
-      pharmacy_fulfilment_method: ["pickup", "delivery"],
       pharmacy_medication_stock_status: [
         "in_stock",
         "low_stock",
@@ -51838,9 +51838,6 @@ export const Constants = {
         "confirmed",
         "unavailable",
         "dispensed",
-        "out_for_delivery",
-        "delivery_failed",
-        "delivered",
         "cancelled",
       ],
       pharmacy_partner_onboarding_status: [
@@ -52338,6 +52335,9 @@ export const Constants = {
         "lethargy",
         "grunting_or_retractions",
         "dehydration_signs",
+        "weakness_or_numbness",
+        "difficulty_speaking",
+        "back_pain",
       ],
       therapy_modality: ["video", "audio", "in_person"],
       therapy_session_status: ["requested", "awaiting_clinician_approval", "confirmed", "completed", "cancelled", "no_show"],

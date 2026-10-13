@@ -1,7 +1,7 @@
 {
  "ruleSet": {
   "code": "bp_care_triage",
-  "version": 1
+  "version": 2
  },
  "description": "Clinical safety cases for the BP triage engine (spec 15.1 cases 1 to 7, plus edge cases). Reviewed by the CMO before go-live. The same file is run on the server (packages/clinical) and on the device (apps/mobile); both must produce exactly these results. Times are UTC; 2026-10-05T09:00:00Z is 10:00 in Lagos.",
  "cases": [
@@ -121,8 +121,8 @@
    }
   },
   {
-   "id": "SC-02",
-   "title": "205/100 without symptoms is red",
+   "id": "SC-02a",
+   "title": "205/100 before the symptom question is answered: ask it first, grade nothing (CMO decision)",
    "safetyCase": 2,
    "input": {
     "trigger": {
@@ -147,28 +147,69 @@
     "now": "2026-10-05T09:00:00Z"
    },
    "expect": {
-    "status": "graded",
-    "grade": "red",
-    "ruleId": "BP-R2",
-    "explanationKey": "EMG-001",
+    "status": "symptom_check_required",
+    "grade": null,
+    "ruleId": "BP-X1",
+    "explanationKey": "TRI-008",
     "actions": [
-     "show_emergency_guidance:EMG-001",
-     "page_on_call"
+     "ask_symptoms:TRI-008"
     ]
    }
   },
   {
    "id": "SC-02b",
-   "title": "diastolic 130 alone is red",
+   "title": "205/100, no symptom: take usual medicine, rest, recheck after 2 hours",
+   "safetyCase": 2,
    "input": {
     "trigger": {
      "type": "observation",
      "reading": {
-      "systolic": 150,
-      "diastolic": 130,
+      "systolic": 205,
+      "diastolic": 100,
       "takenAt": "2026-10-05T09:00:00Z"
      },
-     "symptoms": []
+     "symptoms": [],
+     "symptomsAnswered": true
+    },
+    "history": [],
+    "target": {
+     "systolic": 135,
+     "diastolic": 85
+    },
+    "pathway": {
+     "state": "self_guided"
+    },
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-05T09:00:00Z"
+   },
+   "expect": {
+    "status": "recheck_required",
+    "grade": null,
+    "ruleId": "BP-X2",
+    "explanationKey": "TRI-007",
+    "actions": [
+     "prompt_recheck:TRI-007"
+    ],
+    "waitMinutes": 120
+   }
+  },
+  {
+   "id": "SC-02c",
+   "title": "205/100 with a severe headache is red",
+   "safetyCase": 2,
+   "input": {
+    "trigger": {
+     "type": "observation",
+     "reading": {
+      "systolic": 205,
+      "diastolic": 100,
+      "takenAt": "2026-10-05T09:00:00Z"
+     },
+     "symptoms": [
+      "severe_headache"
+     ],
+     "symptomsAnswered": true
     },
     "history": [],
     "target": {
@@ -185,7 +226,443 @@
    "expect": {
     "status": "graded",
     "grade": "red",
-    "ruleId": "BP-R2",
+    "ruleId": "BP-R1",
+    "explanationKey": "EMG-001",
+    "actions": [
+     "show_emergency_guidance:EMG-001",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SC-02d",
+   "title": "diastolic 130 alone, no symptom: the same 2 hour recheck",
+   "safetyCase": 2,
+   "input": {
+    "trigger": {
+     "type": "observation",
+     "reading": {
+      "systolic": 150,
+      "diastolic": 130,
+      "takenAt": "2026-10-05T09:00:00Z"
+     },
+     "symptoms": [],
+     "symptomsAnswered": true
+    },
+    "history": [],
+    "target": {
+     "systolic": 135,
+     "diastolic": 85
+    },
+    "pathway": {
+     "state": "self_guided"
+    },
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-05T09:00:00Z"
+   },
+   "expect": {
+    "status": "recheck_required",
+    "grade": null,
+    "ruleId": "BP-X2",
+    "explanationKey": "TRI-007",
+    "actions": [
+     "prompt_recheck:TRI-007"
+    ],
+    "waitMinutes": 120
+   }
+  },
+  {
+   "id": "SC-02e",
+   "title": "a repeat after only 6 minutes is too soon: 114 minutes remain",
+   "safetyCase": 2,
+   "input": {
+    "trigger": {
+     "type": "observation",
+     "reading": {
+      "systolic": 203,
+      "diastolic": 101,
+      "takenAt": "2026-10-05T09:00:00Z"
+     },
+     "symptoms": [],
+     "recheck": {
+      "kind": "repeat",
+      "previous": {
+       "systolic": 205,
+       "diastolic": 100,
+       "takenAt": "2026-10-05T08:54:00Z"
+      },
+      "minutesSincePrevious": 6
+     },
+     "symptomsAnswered": true
+    },
+    "history": [],
+    "target": {
+     "systolic": 135,
+     "diastolic": 85
+    },
+    "pathway": {
+     "state": "self_guided"
+    },
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-05T09:00:00Z"
+   },
+   "expect": {
+    "status": "recheck_required",
+    "grade": null,
+    "ruleId": "BP-X2",
+    "explanationKey": "TRI-007",
+    "actions": [
+     "prompt_recheck:TRI-007"
+    ],
+    "waitMinutes": 114
+   }
+  },
+  {
+   "id": "SC-02f",
+   "title": "still 202/105 after 2 hours: amber, same-day review task",
+   "safetyCase": 2,
+   "input": {
+    "trigger": {
+     "type": "observation",
+     "reading": {
+      "systolic": 202,
+      "diastolic": 105,
+      "takenAt": "2026-10-05T09:00:00Z"
+     },
+     "symptoms": [],
+     "recheck": {
+      "kind": "repeat",
+      "previous": {
+       "systolic": 205,
+       "diastolic": 100,
+       "takenAt": "2026-10-05T06:55:00Z"
+      },
+      "minutesSincePrevious": 125
+     },
+     "symptomsAnswered": true
+    },
+    "history": [],
+    "target": {
+     "systolic": 135,
+     "diastolic": 85
+    },
+    "pathway": {
+     "state": "self_guided"
+    },
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-05T09:00:00Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "amber",
+    "ruleId": "BP-A1",
+    "explanationKey": "TRI-002",
+    "actions": [
+     "create_task:urgent_bp_review"
+    ],
+    "taskKey": "BP-A1:2026-10-05T09:00:00Z",
+    "dueMinutes": 240
+   }
+  },
+  {
+   "id": "SC-02g",
+   "title": "after 2 hours the reading is 185/112: still urgent, so amber",
+   "safetyCase": 2,
+   "input": {
+    "trigger": {
+     "type": "observation",
+     "reading": {
+      "systolic": 185,
+      "diastolic": 112,
+      "takenAt": "2026-10-05T09:00:00Z"
+     },
+     "symptoms": [],
+     "recheck": {
+      "kind": "repeat",
+      "previous": {
+       "systolic": 205,
+       "diastolic": 100,
+       "takenAt": "2026-10-05T06:50:00Z"
+      },
+      "minutesSincePrevious": 130
+     },
+     "symptomsAnswered": true
+    },
+    "history": [],
+    "target": {
+     "systolic": 135,
+     "diastolic": 85
+    },
+    "pathway": {
+     "state": "self_guided"
+    },
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-05T09:00:00Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "amber",
+    "ruleId": "BP-A1",
+    "explanationKey": "TRI-002",
+    "actions": [
+     "create_task:urgent_bp_review"
+    ],
+    "taskKey": "BP-A1:2026-10-05T09:00:00Z",
+    "dueMinutes": 240
+   }
+  },
+  {
+   "id": "SC-02h",
+   "title": "after 2 hours the reading is 150/92: graded on its own, no task",
+   "safetyCase": 2,
+   "input": {
+    "trigger": {
+     "type": "observation",
+     "reading": {
+      "systolic": 150,
+      "diastolic": 92,
+      "takenAt": "2026-10-05T09:00:00Z"
+     },
+     "symptoms": [],
+     "recheck": {
+      "kind": "repeat",
+      "previous": {
+       "systolic": 205,
+       "diastolic": 100,
+       "takenAt": "2026-10-05T06:55:00Z"
+      },
+      "minutesSincePrevious": 125
+     },
+     "symptomsAnswered": true
+    },
+    "history": [],
+    "target": {
+     "systolic": 135,
+     "diastolic": 85
+    },
+    "pathway": {
+     "state": "self_guided"
+    },
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-05T09:00:00Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "green",
+    "ruleId": "BP-G2",
+    "explanationKey": "TRI-003",
+    "actions": [
+     "show_message:TRI-003"
+    ]
+   }
+  },
+  {
+   "id": "SC-02i",
+   "title": "no recheck within 4 hours: the first reading is graded as if repeated",
+   "safetyCase": 2,
+   "input": {
+    "trigger": {
+     "type": "observation",
+     "reading": {
+      "systolic": 205,
+      "diastolic": 100,
+      "takenAt": "2026-10-05T09:00:00Z"
+     },
+     "symptoms": [],
+     "recheck": {
+      "kind": "timed_out"
+     },
+     "symptomsAnswered": true
+    },
+    "history": [],
+    "target": {
+     "systolic": 135,
+     "diastolic": 85
+    },
+    "pathway": {
+     "state": "self_guided"
+    },
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-05T09:00:00Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "amber",
+    "ruleId": "BP-A1",
+    "explanationKey": "TRI-002",
+    "actions": [
+     "create_task:urgent_bp_review"
+    ],
+    "taskKey": "BP-A1:2026-10-05T09:00:00Z",
+    "dueMinutes": 240
+   }
+  },
+  {
+   "id": "SC-02j",
+   "title": "a repeat after the 4 hour window is a new first reading: wait 2 hours again",
+   "safetyCase": 2,
+   "input": {
+    "trigger": {
+     "type": "observation",
+     "reading": {
+      "systolic": 205,
+      "diastolic": 100,
+      "takenAt": "2026-10-05T09:00:00Z"
+     },
+     "symptoms": [],
+     "recheck": {
+      "kind": "repeat",
+      "previous": {
+       "systolic": 205,
+       "diastolic": 100,
+       "takenAt": "2026-10-05T04:00:00Z"
+      },
+      "minutesSincePrevious": 300
+     },
+     "symptomsAnswered": true
+    },
+    "history": [],
+    "target": {
+     "systolic": 135,
+     "diastolic": 85
+    },
+    "pathway": {
+     "state": "self_guided"
+    },
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-05T09:00:00Z"
+   },
+   "expect": {
+    "status": "recheck_required",
+    "grade": null,
+    "ruleId": "BP-X2",
+    "explanationKey": "TRI-007",
+    "actions": [
+     "prompt_recheck:TRI-007"
+    ],
+    "waitMinutes": 120
+   }
+  },
+  {
+   "id": "SC-02k",
+   "title": "a repeat after an extreme first reading that is unanswered asks the question again",
+   "safetyCase": 2,
+   "input": {
+    "trigger": {
+     "type": "observation",
+     "reading": {
+      "systolic": 185,
+      "diastolic": 112,
+      "takenAt": "2026-10-05T09:00:00Z"
+     },
+     "symptoms": [],
+     "recheck": {
+      "kind": "repeat",
+      "previous": {
+       "systolic": 205,
+       "diastolic": 100,
+       "takenAt": "2026-10-05T08:54:00Z"
+      },
+      "minutesSincePrevious": 6
+     }
+    },
+    "history": [],
+    "target": {
+     "systolic": 135,
+     "diastolic": 85
+    },
+    "pathway": {
+     "state": "self_guided"
+    },
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-05T09:00:00Z"
+   },
+   "expect": {
+    "status": "symptom_check_required",
+    "grade": null,
+    "ruleId": "BP-X1",
+    "explanationKey": "TRI-008",
+    "actions": [
+     "ask_symptoms:TRI-008"
+    ]
+   }
+  },
+  {
+   "id": "SC-02l",
+   "title": "a symptom ticked answers the question on its own: 205/100 with chest pain is red",
+   "safetyCase": 2,
+   "input": {
+    "trigger": {
+     "type": "observation",
+     "reading": {
+      "systolic": 205,
+      "diastolic": 100,
+      "takenAt": "2026-10-05T09:00:00Z"
+     },
+     "symptoms": [
+      "chest_pain"
+     ]
+    },
+    "history": [],
+    "target": {
+     "systolic": 135,
+     "diastolic": 85
+    },
+    "pathway": {
+     "state": "self_guided"
+    },
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-05T09:00:00Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "BP-R1",
+    "explanationKey": "EMG-001",
+    "actions": [
+     "show_emergency_guidance:EMG-001",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SC-02m",
+   "title": "a pregnant user at 205/100 is red whatever the answer",
+   "input": {
+    "trigger": {
+     "type": "observation",
+     "reading": {
+      "systolic": 205,
+      "diastolic": 100,
+      "takenAt": "2026-10-05T09:00:00Z"
+     },
+     "symptoms": []
+    },
+    "history": [],
+    "target": {
+     "systolic": 135,
+     "diastolic": 85
+    },
+    "pathway": {
+     "state": "self_guided"
+    },
+    "pregnant": true,
+    "ageYears": 45,
+    "now": "2026-10-05T09:00:00Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "BP-P3",
     "explanationKey": "EMG-001",
     "actions": [
      "show_emergency_guidance:EMG-001",
@@ -655,6 +1132,303 @@
     "actions": [
      "show_message:TRI-001"
     ]
+   }
+  },
+  {
+   "id": "SC-04d",
+   "title": "systolic under 90 with no symptom is flagged amber (CMO decision)",
+   "input": {
+    "trigger": {
+     "type": "observation",
+     "reading": {
+      "systolic": 85,
+      "diastolic": 60,
+      "takenAt": "2026-10-05T09:00:00Z"
+     },
+     "symptoms": []
+    },
+    "history": [],
+    "target": {
+     "systolic": 135,
+     "diastolic": 85
+    },
+    "pathway": {
+     "state": "self_guided"
+    },
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-05T09:00:00Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "amber",
+    "ruleId": "BP-A7",
+    "explanationKey": "TRI-002",
+    "actions": [
+     "create_task:low_bp_review"
+    ],
+    "taskKey": "BP-A7:2026-10-05T09:00:00Z",
+    "dueMinutes": 1440
+   }
+  },
+  {
+   "id": "SC-04e",
+   "title": "systolic 90 is not flagged",
+   "input": {
+    "trigger": {
+     "type": "observation",
+     "reading": {
+      "systolic": 90,
+      "diastolic": 55,
+      "takenAt": "2026-10-05T09:00:00Z"
+     },
+     "symptoms": []
+    },
+    "history": [],
+    "target": {
+     "systolic": 135,
+     "diastolic": 85
+    },
+    "pathway": {
+     "state": "self_guided"
+    },
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-05T09:00:00Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "green",
+    "ruleId": "BP-G1",
+    "explanationKey": "TRI-001",
+    "actions": [
+     "show_message:TRI-001"
+    ]
+   }
+  },
+  {
+   "id": "SC-14a",
+   "title": "postpartum 162/100 is red",
+   "input": {
+    "trigger": {
+     "type": "observation",
+     "reading": {
+      "systolic": 162,
+      "diastolic": 100,
+      "takenAt": "2026-10-05T09:00:00Z"
+     },
+     "symptoms": []
+    },
+    "history": [],
+    "target": {
+     "systolic": 135,
+     "diastolic": 85
+    },
+    "pathway": {
+     "state": "self_guided"
+    },
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-05T09:00:00Z",
+    "postpartum": true
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "BP-P3",
+    "explanationKey": "EMG-001",
+    "actions": [
+     "show_emergency_guidance:EMG-001",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SC-14b",
+   "title": "postpartum 150/95 is routed to a clinician",
+   "input": {
+    "trigger": {
+     "type": "observation",
+     "reading": {
+      "systolic": 150,
+      "diastolic": 95,
+      "takenAt": "2026-10-05T09:00:00Z"
+     },
+     "symptoms": []
+    },
+    "history": [],
+    "target": {
+     "systolic": 135,
+     "diastolic": 85
+    },
+    "pathway": {
+     "state": "self_guided"
+    },
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-05T09:00:00Z",
+    "postpartum": true
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "amber",
+    "ruleId": "BP-P5",
+    "explanationKey": "TRI-002",
+    "actions": [
+     "route_referral:postpartum",
+     "create_task:postpartum_review"
+    ],
+    "taskKey": "BP-P5:2026-W41",
+    "dueMinutes": 1440
+   }
+  },
+  {
+   "id": "SC-14c",
+   "title": "postpartum 100/100 diastolic is at the line",
+   "input": {
+    "trigger": {
+     "type": "observation",
+     "reading": {
+      "systolic": 130,
+      "diastolic": 100,
+      "takenAt": "2026-10-05T09:00:00Z"
+     },
+     "symptoms": []
+    },
+    "history": [],
+    "target": {
+     "systolic": 135,
+     "diastolic": 85
+    },
+    "pathway": {
+     "state": "self_guided"
+    },
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-05T09:00:00Z",
+    "postpartum": true
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "amber",
+    "ruleId": "BP-P5",
+    "explanationKey": "TRI-002",
+    "actions": [
+     "route_referral:postpartum",
+     "create_task:postpartum_review"
+    ],
+    "taskKey": "BP-P5:2026-W41",
+    "dueMinutes": 1440
+   }
+  },
+  {
+   "id": "SC-14d",
+   "title": "postpartum 148/96 is graded on the adult rules",
+   "input": {
+    "trigger": {
+     "type": "observation",
+     "reading": {
+      "systolic": 148,
+      "diastolic": 96,
+      "takenAt": "2026-10-05T09:00:00Z"
+     },
+     "symptoms": []
+    },
+    "history": [],
+    "target": {
+     "systolic": 135,
+     "diastolic": 85
+    },
+    "pathway": {
+     "state": "self_guided"
+    },
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-05T09:00:00Z",
+    "postpartum": true
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "green",
+    "ruleId": "BP-G2",
+    "explanationKey": "TRI-003",
+    "actions": [
+     "show_message:TRI-003"
+    ]
+   }
+  },
+  {
+   "id": "SC-14e",
+   "title": "postpartum 142/92 with a severe headache is red",
+   "input": {
+    "trigger": {
+     "type": "observation",
+     "reading": {
+      "systolic": 142,
+      "diastolic": 92,
+      "takenAt": "2026-10-05T09:00:00Z"
+     },
+     "symptoms": [
+      "severe_headache"
+     ]
+    },
+    "history": [],
+    "target": {
+     "systolic": 135,
+     "diastolic": 85
+    },
+    "pathway": {
+     "state": "self_guided"
+    },
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-05T09:00:00Z",
+    "postpartum": true
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "BP-P4",
+    "explanationKey": "EMG-001",
+    "actions": [
+     "show_emergency_guidance:EMG-001",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SC-14f",
+   "title": "an invalid postpartum flag is rejected",
+   "input": {
+    "trigger": {
+     "type": "observation",
+     "reading": {
+      "systolic": 120,
+      "diastolic": 78,
+      "takenAt": "2026-10-05T09:00:00Z"
+     },
+     "symptoms": []
+    },
+    "history": [],
+    "target": {
+     "systolic": 135,
+     "diastolic": 85
+    },
+    "pathway": {
+     "state": "self_guided"
+    },
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-05T09:00:00Z",
+    "postpartum": "yes"
+   },
+   "expect": {
+    "status": "rejected",
+    "grade": null,
+    "ruleId": null,
+    "explanationKey": "TRI-006",
+    "actions": [],
+    "reason": "invalid_input"
    }
   },
   {

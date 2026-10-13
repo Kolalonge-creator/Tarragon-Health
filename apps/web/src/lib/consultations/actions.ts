@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { joinConsultation, prepareSdkJoin, reportCallEvent, requestDialIn, type CallEventReport, type DialInOutcome, type JoinOutcome, type RoomDeps, type RpcClient, type SdkJoinOutcome } from "./room";
 import { videoProvider } from "./providers";
-import { participantKeySecret, presenceFromWebhook } from "./call-config";
+import { hostKeyTtlSeconds, participantKeySecret, presenceFromWebhook } from "./call-config";
 
 /**
  * S21 server actions shared by the patient and clinician consultation pages. Each one checks the signed-in person first and
@@ -53,7 +53,7 @@ export async function prepareSdkJoinAction(encounterId: string, media: "video" |
   const m = mediaSchema.safeParse(media);
   if (!id.success || !m.success) return { ok: false, reason: "not_found" };
   const d = await deps();
-  return isFail(d) ? d : prepareSdkJoin(d, id.data, m.data, { participantKeySecret: participantKeySecret(), presenceFromWebhook: presenceFromWebhook() });
+  return isFail(d) ? d : prepareSdkJoin(d, id.data, m.data, { participantKeySecret: participantKeySecret(), presenceFromWebhook: presenceFromWebhook(), hostKeyTtlSeconds: hostKeyTtlSeconds() });
 }
 
 const callEventSchema = z.discriminatedUnion("kind", [

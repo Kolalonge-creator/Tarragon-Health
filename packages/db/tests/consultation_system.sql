@@ -86,7 +86,7 @@ begin
   -- foreign-key violation having nothing to do with what this test proves.
   insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier)
   values
-    (v_org, v_doc,   'Consultation System Test: Medical Officer Doctor', true, now(), 'medical_officer'),
+    (v_org, v_doc,   'Consultation System Test: Medical Officer Doctor', true, now(), 'senior_medical_officer'),
     (v_org, v_coord, 'Consultation System Test: Care Coordinator', true, now(), 'care_coordinator')
   on conflict (profile_id) do update
     set organisation_id = excluded.organisation_id, full_name = excluded.full_name,

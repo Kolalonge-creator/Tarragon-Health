@@ -12,9 +12,6 @@
  *  - a breached password is refused before anything is confirmed.
  */
 
-// getAuthLocale reads the Pidgin switch over RPC; keep that out of this suite's one-shot rpc mocks.
-jest.mock("@/lib/language/pidgin-switch", () => ({ getPidginEnabled: async () => true }));
-
 jest.mock("next/headers", () => ({
   headers: jest.fn().mockResolvedValue(new Map()),
   cookies: jest.fn().mockResolvedValue({ get: () => undefined }),

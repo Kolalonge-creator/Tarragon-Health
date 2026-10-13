@@ -1,14 +1,13 @@
-import { en, pcm } from "@tarragon/i18n";
+import { en } from "@tarragon/i18n";
 import {
   CIRCLE_PERMISSIONS, circleErrorKey, inviteLinkPath, parseAccept, parseMyCircle, parseOpenAlerts, parsePreview, parseSupported,
   parseSupporterView, parseViewLog, permissionKey, parsePendingGifts, parseGiftResult, endsSoon, parsePreviewView,
 } from "./model";
 
 describe("care circle model", () => {
-  it("every permission has copy in both languages", () => {
+  it("every permission has copy", () => {
     for (const p of CIRCLE_PERMISSIONS) {
       expect(en[permissionKey(p)].length).toBeGreaterThan(0);
-      expect(pcm[permissionKey(p)].length).toBeGreaterThan(0);
     }
   });
 

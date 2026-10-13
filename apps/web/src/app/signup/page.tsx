@@ -3,7 +3,6 @@ import { Check } from "lucide-react";
 import { SignupForm } from "./signup-form";
 import { GuardLeafMark } from "@/components/brand/guard-leaf-mark";
 import { getAuthLocale } from "@/lib/auth/auth-locale";
-import { getPidginEnabled } from "@/lib/language/pidgin-switch";
 
 /**
  * The first screen a new user sees, so nothing on it may outlive the business
@@ -55,7 +54,6 @@ export default async function SignupPage({
 }) {
   const { ref, intent, redirect } = await searchParams;
   const locale = await getAuthLocale();
-  const pidginEnabled = await getPidginEnabled();
   const bookingCheck = intent === "health_check";
   // Someone here to pay for a relative's care. They are not signing up to be
   // treated, so we neither promise them care nor ask them to consent to it.
@@ -108,7 +106,6 @@ export default async function SignupPage({
         <div className="rounded-2xl border border-charcoal-ink/10 bg-white p-6 shadow-sm sm:p-7">
           <SignupForm
             locale={locale}
-            pidginEnabled={pidginEnabled}
             refCode={ref}
             intent={bookingCheck ? "health_check" : supporting ? "support" : undefined}
             redirectTo={redirect}

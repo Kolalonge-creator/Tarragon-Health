@@ -11,6 +11,8 @@ export type SectionId =
   | "myActions"
   | "vitals"
   | "bpHistory"
+  | "monthlySummary"
+  | "programmes"
   | "medications"
   | "labs"
   | "devices"
@@ -31,6 +33,7 @@ export type SectionId =
   | "messages"
   | "aiCoach"
   | "family"
+  | "community"
   | "supporting"
   | "appointments"
   | "screeningDays"
@@ -127,6 +130,18 @@ export const SECTIONS: SectionDef[] = [
     id: "bpHistory",
     label: "Blood pressure history",
     icon: "list-outline",
+    group: "Your health",
+  },
+  {
+    id: "monthlySummary",
+    label: "Your month",
+    icon: "calendar-outline",
+    group: "Your health",
+  },
+  {
+    id: "programmes",
+    label: "Programmes",
+    icon: "people-outline",
     group: "Your health",
   },
   {
@@ -254,6 +269,9 @@ export const SECTIONS: SectionDef[] = [
     group: "Support",
   },
   { id: "supporting", label: "People you support", icon: "hand-left-outline", group: "Support" },
+  // Community groups (docs/COMMUNITY_SPEC.md). Shown in the drawer only while the go-live guard is on and the person is an adult
+  // with their own account (lib/community/entry.ts); the drawer filters it out otherwise.
+  { id: "community", label: "Community", icon: "chatbubbles-outline", group: "Support" },
   {
     id: "screeningDays",
     label: "Group screening days",

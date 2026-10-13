@@ -1,4 +1,4 @@
-import { en, pcm } from "@tarragon/i18n";
+import { en } from "@tarragon/i18n";
 import { buildTrendInsights, WEEKDAY_KEYS, type TrendInsightsInput } from "./bp-trend-insights";
 import { lagosTimeToUtcMs } from "./lagos-date";
 import type { AveragingProtocol } from "./bp-average";
@@ -174,8 +174,7 @@ describe("the per-day list", () => {
 });
 
 describe("weekday keys", () => {
-  it.each(WEEKDAY_KEYS.map((k) => [k]))("%s exists in English and Pidgin", (key) => {
+  it.each(WEEKDAY_KEYS.map((k) => [k]))("%s exists in English", (key) => {
     expect((en as Record<string, string>)[key]).toBeTruthy();
-    expect((pcm as Record<string, string>)[key]).toBeTruthy();
   });
 });

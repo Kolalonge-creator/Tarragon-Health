@@ -66,6 +66,12 @@ function fakeDb(opts: { now: () => number; scheduledAt?: number; status?: string
         s.events.push({ kind: "mode_changed", role: "system", payload: { mode: "phone" } });
         return ok(null);
       }
+      if (fn === "service_record_host_key_issued") {
+        // the database checks the person is the encounter's clinician; the fake has one clinician
+        if (args.p_clinician !== DOCTOR) return bad("that person is not the clinician on this consultation");
+        s.events.push({ kind: "host_key_issued", role: "clinician", payload: {} });
+        return ok(null);
+      }
       if (fn === "service_record_encounter_event") {
         s.events.push({ kind: String(args.p_kind), role: String(args.p_actor_role), payload: (args.p_payload ?? {}) as Record<string, unknown> });
         return ok(null);
@@ -354,7 +360,7 @@ describe("the dial-in fallback on its own", () => {
 
 describe("the in-app call: what the person is handed to enter the room", () => {
   const SECRET = "server-only-participant-secret";
-  const live = { participantKeySecret: SECRET, presenceFromWebhook: true };
+  const live = { participantKeySecret: SECRET, presenceFromWebhook: true, hostKeyTtlSeconds: 300 };
 
   it("hands each person a signature, the passcode and a verifiable key, the role word as label, and the host key to the clinician only", async () => {
     const { db, deps } = setup();
@@ -371,11 +377,38 @@ describe("the in-app call: what the person is handed to enter the room", () => {
     expect(db.s.opened).toBe(1);
   });
 
+  describe("the clinician's host key", () => {
+    it("is asked for with the configured short lifetime, and every issue is recorded before the key is returned (who and when, never the key)", async () => {
+      const { db, deps, video } = setup();
+      const spy = jest.spyOn(video, "joinToken");
+      const r = await prepareSdkJoin(deps(DOCTOR), ENC, "video", { ...live, presenceFromWebhook: false });
+      expect(spy).toHaveBeenCalledWith(expect.objectContaining({ role: "clinician", hostKeyTtlSeconds: 300 }));
+      expect(r).toMatchObject({ ok: true, join: { zak: "mockzak" } });
+      const issued = db.s.events.filter((e) => e.kind === "host_key_issued");
+      expect(issued).toEqual([{ kind: "host_key_issued", role: "clinician", payload: {} }]);
+      expect(JSON.stringify(db.s.events)).not.toContain("mockzak");
+    });
+
+    it("is never issued, and never recorded as issued, for the patient", async () => {
+      const { db, deps } = setup();
+      const r = await prepareSdkJoin(deps(PATIENT), ENC, "video", live);
+      expect(r).toMatchObject({ ok: true, join: { zak: null } });
+      expect(db.s.events.some((e) => e.kind === "host_key_issued")).toBe(false);
+    });
+
+    it("is NOT handed out when the record of it cannot be written: the room falls back to the link", async () => {
+      const { db, deps } = setup();
+      const failing: RpcClient = { rpc: (fn, args) => (fn === "service_record_host_key_issued" ? Promise.resolve({ data: null, error: { message: "down" } }) : db.service.rpc(fn, args)) };
+      expect(await prepareSdkJoin({ ...deps(DOCTOR), serviceRpc: failing }, ENC, "video", live)).toEqual({ ok: false, reason: "provider" });
+    });
+  });
+
   it("when the vendor's webhook is live, records nothing for the clinician: their presence is the vendor's to report", async () => {
     const { db, deps } = setup();
     const r = await prepareSdkJoin(deps(DOCTOR), ENC, "video", live);
     expect(r).toMatchObject({ ok: true, join: { recordedAtIssue: false } });
-    expect(db.s.events).toHaveLength(0);
+    // no join is recorded for them; the only event is the audit of the host key
+    expect(db.s.events.map((e) => e.kind)).toEqual(["host_key_issued"]);
     expect(db.s.status).toBe("scheduled");
   });
 
@@ -397,14 +430,14 @@ describe("the in-app call: what the person is handed to enter the room", () => {
 
   it("keeps the older behaviour (recorded when handed the way in) until the webhook is switched on", async () => {
     const { db, deps } = setup();
-    const r = await prepareSdkJoin(deps(PATIENT), ENC, "video", { participantKeySecret: SECRET, presenceFromWebhook: false });
+    const r = await prepareSdkJoin(deps(PATIENT), ENC, "video", { participantKeySecret: SECRET, presenceFromWebhook: false, hostKeyTtlSeconds: 300 });
     expect(r).toMatchObject({ ok: true, join: { recordedAtIssue: true } });
     expect(db.s.events.map((e) => e.kind)).toEqual(["joined"]);
   });
 
   it("says the in-app call is not configured without the secret or when the vendor has no SDK keys, so the page uses the link", async () => {
     const { db, deps } = setup();
-    expect(await prepareSdkJoin(deps(PATIENT), ENC, "video", { participantKeySecret: null, presenceFromWebhook: true })).toEqual({ ok: false, reason: "not_configured" });
+    expect(await prepareSdkJoin(deps(PATIENT), ENC, "video", { participantKeySecret: null, presenceFromWebhook: true, hostKeyTtlSeconds: 300 })).toEqual({ ok: false, reason: "not_configured" });
     expect(db.s.roomId).toBeNull();
     const video = createMockVideo(() => T0);
     jest.spyOn(video, "joinToken").mockResolvedValueOnce({ ok: false, error: { code: "not_configured", message: "x", retryable: false } });
@@ -437,7 +470,7 @@ describe("the in-app call: what the person is handed to enter the room", () => {
 
   it("never puts a link or a name in anything it hands over or stores", async () => {
     const { db, deps } = setup();
-    const r = await prepareSdkJoin(deps(DOCTOR), ENC, "audio_only", { participantKeySecret: SECRET, presenceFromWebhook: false });
+    const r = await prepareSdkJoin(deps(DOCTOR), ENC, "audio_only", { participantKeySecret: SECRET, presenceFromWebhook: false, hostKeyTtlSeconds: 300 });
     expect(JSON.stringify(r)).not.toMatch(/https?:/);
     expect(JSON.stringify(db.s.events)).not.toMatch(/mockzak|mockpass|https?:/);
   });

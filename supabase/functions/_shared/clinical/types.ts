@@ -43,6 +43,8 @@ export interface ObservationTrigger {
   readonly reading: Reading;
   readonly symptoms: readonly SymptomCode[];
   readonly recheck?: RecheckState;
+  /** True once the patient has answered the symptom question (ticking none counts). A very high reading asks first. */
+  readonly symptomsAnswered?: boolean;
 }
 
 export interface AdherenceTrigger {
@@ -74,6 +76,8 @@ export interface TriageInput {
   readonly pathway: { readonly state: PathwayState };
   /** Always false in Stage 1; a pregnant user is routed to a clinician. */
   readonly pregnant: boolean;
+  /** Within 6 weeks after a birth. Optional; absent means false. */
+  readonly postpartum?: boolean;
   readonly ageYears: number | null;
   /** ISO 8601. The engine never reads the clock. */
   readonly now: string;
@@ -86,6 +90,7 @@ export type TriageAction =
   | { readonly kind: "page_on_call" }
   | { readonly kind: "show_message"; readonly code: string }
   | { readonly kind: "prompt_recheck"; readonly code: string }
+  | { readonly kind: "ask_symptoms"; readonly code: string }
   | { readonly kind: "route_referral"; readonly reason: string }
   | {
       readonly kind: "create_task";
@@ -98,7 +103,7 @@ export type TriageAction =
 export type RejectReason = "implausible_reading" | "invalid_input" | "invalid_rule_set";
 
 export interface TriageResult {
-  readonly status: "graded" | "recheck_required" | "rejected";
+  readonly status: "graded" | "recheck_required" | "symptom_check_required" | "rejected";
   readonly grade: Grade | null;
   readonly ruleId: string | null;
   /** Clip and text code, for example TRI-001 or EMG-001. */
@@ -133,7 +138,10 @@ export interface Rule {
   readonly description: string;
   readonly triggers: readonly TriageTrigger["type"][];
   /** `grade` rules grade; a `recheck` rule only asks for a repeat reading. */
-  readonly result: "grade" | "recheck";
+  /** `grade` rules grade; `recheck` asks for a repeat reading; `ask` asks the symptom question. The last two never grade. */
+  readonly result: "grade" | "recheck" | "ask";
+  /** Which recheck timing a `recheck` rule uses; default `standard`. */
+  readonly recheckTiming?: "standard" | "extreme";
   readonly grade?: Grade;
   readonly explanationKey: string;
   readonly when: Condition;
@@ -153,9 +161,13 @@ export interface RuleSet {
       readonly diastolicMax: number;
     };
     readonly recheck: { readonly afterMinutes: number; readonly windowMinutes: number };
+    readonly extreme: { readonly systolic: number; readonly diastolic: number };
+    readonly extremeRecheck: { readonly afterMinutes: number; readonly windowMinutes: number };
     readonly averageWindowDays: number;
     readonly minAdultAgeYears: number;
     readonly silence: { readonly days: number };
+    readonly postpartum: { readonly reviewSystolic: number; readonly reviewDiastolic: number; readonly windowDays: number };
+    readonly recheckBackupPush: { readonly minAfterMinutes: number; readonly delayMinutes: number };
     readonly pregnancy: { readonly severeSystolic: number; readonly severeDiastolic: number; readonly raisedSystolic: number; readonly raisedDiastolic: number };
     readonly adherence: { readonly minPercent: number };
     readonly symptomGroups: { readonly [group: string]: readonly string[]; readonly redFlag: readonly string[] };

@@ -2,7 +2,7 @@
  * Catalogue keys (in `@tarragon/i18n`) for each credential and quality notice
  * the SQL functions can send. The text itself lives in the catalogue so it can
  * be translated and reviewed; a test checks that every key here exists in
- * English and Pidgin.
+ * English.
  */
 export interface MessageKeys {
   readonly title: string;

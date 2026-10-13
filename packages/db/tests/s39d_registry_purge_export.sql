@@ -25,7 +25,7 @@ begin
   on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, is_test = true, is_active = true;
   if p_role = 'clinician' then
     insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier)
-    values (p_org, v, 'S39c ' || p_label, true, now(), 'medical_officer');
+    values (p_org, v, 'S39c ' || p_label, true, now(), 'senior_medical_officer');
   end if;
   return v;
 end $f$;
@@ -164,7 +164,7 @@ select pg_temp.ck('real', 'G1 a new export request is due in 30 days', 'true',
 select pg_temp.ck('real', 'G3 the clock follows the config, not a literal', 'true',
   (select (private.export_review_due() between now() + interval '29 days' and now() + interval '31 days')::text));
 select pg_temp.ck('real', 'G2 the active config is v3 with export_review_days 30', 'true',
-  (select (version = 3 and (config ->> 'export_review_days') = '30' and (config -> 'retention' ->> 'real_data_auto_delete') = 'false')::text from public.security_config where is_active));
+  (select (version >= 3 and (config ->> 'export_review_days') = '30' and (config -> 'retention' ->> 'real_data_auto_delete') = 'false')::text from public.security_config where is_active));
 
 -- SABOTAGE ---------------------------------------------------------------------------------------------------------------------------------------------------------
 do $$

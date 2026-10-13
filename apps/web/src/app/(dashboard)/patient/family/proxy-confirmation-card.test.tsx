@@ -34,9 +34,4 @@ describe("ProxyConfirmationCard", () => {
     expect(screen.getByRole("button", { name: /share what i chose/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /no thanks/i })).toBeTruthy();
   });
-
-  it("speaks Pidgin when asked", () => {
-    render(<ProxyConfirmationCard setups={[SETUP]} locale="pcm" />);
-    expect(screen.getByText(/Adaeze wan help look after you/)).toBeTruthy();
-  });
 });

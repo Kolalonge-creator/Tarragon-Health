@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
-import { resolveUiLanguage } from "@tarragon/shared";
-import { getCurrentClinicalStaff, getCurrentProfile } from "@/lib/auth/current-profile";
+import { DEFAULT_UI_LANGUAGE } from "@tarragon/shared";
+import { getCurrentClinicalStaff } from "@/lib/auth/current-profile";
 import { canAssignCases } from "@/lib/clinical/doctor-tier";
-import { getPidginEnabled } from "@/lib/language/pidgin-switch";
 import { readFlash } from "@/lib/go-live/flash";
 import { GoLivePage } from "@/components/go-live/go-live-page";
 
@@ -16,8 +15,7 @@ export const dynamic = "force-dynamic";
 export default async function ClinicianGoLive({ searchParams }: { searchParams: Promise<{ n?: string }> }) {
   const staff = await getCurrentClinicalStaff();
   if (!canAssignCases(staff)) redirect("/clinician");
-  const profile = await getCurrentProfile();
   const flash = await readFlash((await searchParams).n);
-  const locale = resolveUiLanguage(profile?.language, await getPidginEnabled());
+  const locale = DEFAULT_UI_LANGUAGE;
   return <GoLivePage viewer="cmo" locale={locale} notice={flash?.notice} detail={flash?.detail} ok={flash?.ok} />;
 }

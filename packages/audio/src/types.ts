@@ -2,17 +2,17 @@
  * The audio manifest (spec 8.8): `audio/manifest.json`. One entry per clip id, with the file, size, checksum and
  * duration of its recording per language, and the bundle group that says how the clip reaches the phone.
  */
-export type Lang = "en" | "pcm";
-export const LANGS: readonly Lang[] = ["en", "pcm"];
+export type Lang = "en";
+export const LANGS: readonly Lang[] = ["en"];
 
 export type BundleGroup = "bundled" | "post_signup" | "on_demand";
 export const BUNDLE_GROUPS: readonly BundleGroup[] = ["bundled", "post_signup", "on_demand"];
 
-/** "shared" is the one recording of a clip that says the same thing in both languages (whole numbers, rounded steps). */
+/** "shared" is the one recording of a clip that does not depend on the language (whole numbers, rounded steps). */
 export type FileKey = Lang | "shared";
 
-export type ReviewKind = "brand" | "clinical" | "legal" | "native_pidgin";
-export const REVIEW_KINDS: readonly ReviewKind[] = ["brand", "clinical", "legal", "native_pidgin"];
+export type ReviewKind = "brand" | "clinical" | "legal";
+export const REVIEW_KINDS: readonly ReviewKind[] = ["brand", "clinical", "legal"];
 
 /**
  * A named person's sign-off on one recording (the list's "audio log"). Only a human adds these; nothing in the
@@ -46,12 +46,6 @@ export interface ClipFile {
   readonly history: readonly RecordingVersion[];
 }
 
-/**
- * Where a clip's Pidgin words stand. `held_as_english`: a clinical clip whose Pidgin is not signed yet, so the
- * Pidgin text is the English text (OQ-19, OQ-87). `needs_native_review`: non-clinical draft Pidgin (spec 12).
- */
-export type PcmTextStatus = "held_as_english" | "needs_native_review" | "reviewed" | "not_applicable";
-
 export interface ManifestClip {
   readonly id: string;
   readonly group: string;
@@ -60,12 +54,9 @@ export interface ManifestClip {
   readonly clinical: boolean;
   readonly legal: boolean;
   readonly language_neutral: boolean;
-  readonly pcm_text: PcmTextStatus;
   readonly files: Readonly<Partial<Record<FileKey, ClipFile>>>;
   /** Hash of the words the recording was made from; a changed script drops the recording's facts and approvals. */
   readonly script_hash: string | null;
-  /** Same for the Pidgin words, so releasing Pidgin does not invalidate the English recording. */
-  readonly pcm_script_hash?: string | null;
 }
 
 export interface ManifestGroup {
@@ -107,6 +98,7 @@ export type AudioIssueCode =
   | "phrase_not_signed"
   | "phrase_missing_severity"
   | "engine_unavailable"
+  | "playback_failed"
   | "manifest_invalid";
 
 export interface AudioIssue {

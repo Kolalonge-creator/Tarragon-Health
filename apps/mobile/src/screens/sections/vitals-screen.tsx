@@ -10,7 +10,9 @@ import { summariseTrend, windowReadings, type TrendWindowDays } from "@/lib/bp-t
 import { loadActiveThresholds } from "@/lib/threshold-sync";
 import { BP_CHECKLIST_SYMPTOMS, CUFF_TYPES, planBpLog, redFlagsAmong, type BpChecklistSymptom, type CuffType } from "@/lib/bp-checklist";
 import { logBpWithExtras } from "@/lib/bp-log";
-import { refreshApprovedRuleSet, refreshPatientFacts, resolveExpiredRecheck, rulesMayBeStale, type DeviceTriage } from "@/lib/triage-device";
+import { refreshApprovedRuleSet, refreshPatientFacts, resolveExpiredRecheck, rulesMayBeStale, shouldAskSymptomQuestion, type DeviceTriage } from "@/lib/triage-device";
+import { answerSymptomQuestion, type QuestionSymptom } from "@/lib/symptom-question";
+import { refreshObstetricStatus } from "@/lib/obstetric-status";
 import { loadBpSymptomChecklist, loadHomeProtocol } from "@/lib/s07-config";
 import {
   validateOtherEntry,
@@ -39,6 +41,7 @@ import {
   InlineAlert,
   Icon,
   ListItem,
+  ListenButton,
   Screen,
   SegmentedControl,
   Skeleton,
@@ -48,6 +51,7 @@ import {
   type BadgeTone,
 } from "@/ui/kit";
 import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
+import { SymptomQuestionSheet } from "@/screens/symptom-question-sheet";
 import { MIN_READINGS_FOR_CHART, useTrendInsights } from "@/lib/use-trend-insights";
 import { TrendInsightsCard } from "@/screens/sections/trend-insights-card";
 import { SyncBanner } from "@/screens/sync-banner";
@@ -62,6 +66,8 @@ const SYMPTOM_CHECKLIST = loadBpSymptomChecklist();
 interface GuidanceState {
   detail: string;
   synced: boolean;
+  /** EMG-001 or EMG-001L when the on-device triage chose the wording; the modal then shows those words and a Listen button. */
+  wordingCode?: string | null;
 }
 
 interface VitalsScreenProps {
@@ -131,11 +137,15 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   const [errorKey, setErrorKey] = useState<MessageKey | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [urgentBanner, setUrgentBanner] = useState<string | null>(null);
-  const [triageCard, setTriageCard] = useState<{ message: string; tone: "warn" | "info" } | null>(null);
+  const [triageCard, setTriageCard] = useState<{ message: string; tone: "warn" | "info"; audioId: string | null } | null>(null);
   const [cuffType, setCuffType] = useState<CuffType | null>(null);
   const [rulesStale, setRulesStale] = useState(false);
   const [symptomOpen, setSymptomOpen] = useState(false);
   const [guidance, setGuidance] = useState<GuidanceState | null>(null);
+  // The emergency-symptom question for a reading of 200/130 or more (TRI-008): the reading it is about, until answered.
+  const [question, setQuestion] = useState<{ systolic: number; diastolic: number; gradedAtMs: number } | null>(null);
+  const [questionBusy, setQuestionBusy] = useState(false);
+  const [questionFailed, setQuestionFailed] = useState(false);
   const [emergencyContact, setEmergencyContact] = useState<EmergencyContact | null>(null);
 
   // The governed engine's message for a reading (S12). Emergency guidance has its own full-screen modal, so it
@@ -147,7 +157,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         return;
       }
       const tone = d.result.status === "recheck_required" || d.result.grade === "amber" ? "warn" : "info";
-      setTriageCard({ message: `${t(d.message.title as MessageKey, locale)}. ${t(d.message.body as MessageKey, locale)}`, tone });
+      setTriageCard({ message: `${t(d.message.title as MessageKey, locale)}. ${t(d.message.body as MessageKey, locale)}`, tone, audioId: d.audioId });
     },
     [locale],
   );
@@ -158,10 +168,12 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
       .then(setRulesStale)
       .catch(() => {});
     void refreshPatientFacts(patientId);
+    // Pregnant or just delivered changes which lines grade a reading; kept on the phone for offline readings.
+    void refreshObstetricStatus(beneficiaryProfileId ?? patientId);
     void resolveExpiredRecheck(patientId)
       .then((d) => d && showTriage(d))
       .catch(() => {});
-  }, [patientId, showTriage]);
+  }, [patientId, beneficiaryProfileId, showTriage]);
 
   const load = useCallback(async () => {
     // Enough for a 30 day chart even for someone who logs several times a day.
@@ -263,11 +275,16 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         const detail = outcome.symptomFlag
           ? tr("vitals.guidance.symptom_detail", { symptoms: symptomLabels })
           : (outcome.bpFlag?.detail ?? "");
-        setGuidance({ detail, synced: false });
+        setGuidance({ detail, synced: false, wordingCode: outcome.device?.emergencyCode ?? null });
       } else if (outcome.severity === "urgent" && outcome.bpFlag) {
         setUrgentBanner(outcome.bpFlag.detail);
       }
-      showTriage(outcome.device);
+      // The engine's softer cards never sit beside emergency guidance the older check has raised.
+      showTriage(outcome.severity === "emergency" ? null : outcome.device);
+      if (shouldAskSymptomQuestion(outcome.device) && outcome.device) {
+        setQuestionFailed(false);
+        setQuestion({ systolic: plan.systolic, diastolic: plan.diastolic, gradedAtMs: outcome.device.gradedAtMs });
+      }
     });
     setSaving(false);
     if (result.error) {
@@ -290,6 +307,37 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
     setPulse("");
     setTicked([]);
     await load();
+  }
+
+  async function handleQuestionAnswer(symptoms: QuestionSymptom[]) {
+    if (!question) return;
+    setQuestionBusy(true);
+    setQuestionFailed(false);
+    try {
+      const subject = beneficiaryProfileId ?? patientId;
+      const answer = await answerSymptomQuestion({
+        subjectId: subject,
+        beneficiaryProfileId,
+        systolic: question.systolic,
+        diastolic: question.diastolic,
+        gradedAtMs: question.gradedAtMs,
+        symptoms,
+      });
+      setQuestion(null);
+      if (answer.triage.severity === "emergency") {
+        const names = symptoms.map((s) => tr(`vitals.symptom.${s}` as MessageKey)).join(", ");
+        setGuidance({ detail: tr("vitals.guidance.symptom_detail", { symptoms: names }), synced: answer.syncedAll });
+        setTriageCard(null);
+      } else {
+        showTriage(answer.triage);
+      }
+      if (!answer.saved) setSaveError(tr("triage.question.error"));
+      await load();
+    } catch {
+      setQuestionFailed(true);
+    } finally {
+      setQuestionBusy(false);
+    }
   }
 
   const latest = readings[0] ?? null;
@@ -468,7 +516,12 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         {saveError ? <InlineAlert tone="danger" message={saveError} /> : null}
         {urgentBanner ? <InlineAlert tone="warn" message={urgentBanner} /> : null}
         {rulesStale ? <InlineAlert tone="info" message={tr("triage.stale.rules")} /> : null}
-        {triageCard ? <InlineAlert tone={triageCard.tone} message={triageCard.message} /> : null}
+        {triageCard ? (
+          <>
+            <InlineAlert tone={triageCard.tone} message={triageCard.message} />
+            {triageCard.audioId ? <ListenButton clipIds={[triageCard.audioId]} lang={locale} /> : null}
+          </>
+        ) : null}
         <Button title={tr("vitals.log.save")} onPress={handleSave} loading={saving} />
       </Card>
 
@@ -536,10 +589,13 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         </View>
       </Modal>
 
+      <SymptomQuestionSheet visible={question !== null} tr={tr} busy={questionBusy} failed={questionFailed} onAnswer={handleQuestionAnswer} />
+
       <EmergencyGuidanceModal
         visible={guidance !== null}
         detail={guidance?.detail ?? ""}
         synced={guidance?.synced ?? false}
+        wordingCode={guidance?.wordingCode ?? null}
         emergencyContact={emergencyContact}
         onDismiss={() => setGuidance(null)}
       />

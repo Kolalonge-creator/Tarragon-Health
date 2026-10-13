@@ -38,11 +38,11 @@ export function CredentialStatus({ status, returnTo, now }: { status: MyCredenti
           </ul>
         ) : null}
         {paused ? (
-          <Muted>Upload your renewed documents below. Your care team lead will check them and switch your access back on.</Muted>
+          <Muted>Upload your renewed documents below. Our team will check them and switch your access back on.</Muted>
         ) : null}
         {level1 ? (
           <Muted>
-            Your first {status.audit_required_count} completed tasks are reviewed by your care team lead. {status.audited_task_count} reviewed so far.
+            Your first {status.audit_required_count} completed tasks are reviewed by our clinical team. {status.audited_task_count} reviewed so far.
           </Muted>
         ) : null}
       </Section>
@@ -56,7 +56,7 @@ export function CredentialStatus({ status, returnTo, now }: { status: MyCredenti
         )}
       </Section>
 
-      <Section title="Renew" hint="Upload your new documents. Your care team lead checks them and records the new dates.">
+      <Section title="Renew" hint="Upload your new documents. Our team checks them and records the new dates.">
         <div className="space-y-4">
           <DocumentUploadForm kind="mdcn_practising_licence" applicationId={null} returnTo={returnTo} withExpiry buttonLabel="Upload new licence" />
           <DocumentUploadForm kind="mdcn_portal_screenshot" applicationId={null} returnTo={returnTo} buttonLabel="Upload portal screenshot" />

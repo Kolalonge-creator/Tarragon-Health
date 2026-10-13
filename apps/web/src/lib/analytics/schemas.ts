@@ -388,7 +388,7 @@ export type DiagnosticGovernanceAnalytics = z.infer<typeof diagnosticGovernanceA
 const orderStat = z.object({
   total: z.number().default(0),
   completed: z.number().optional(),
-  delivered: z.number().optional(),
+  dispensed: z.number().optional(),
   confirmed: z.number().optional(),
   avg_turnaround_hours: z.number().optional(),
 });

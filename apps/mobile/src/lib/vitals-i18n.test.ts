@@ -3,7 +3,7 @@
  * entry errors, the vital type names, the glucose contexts). TypeScript cannot check
  * those, so this proves every key the screen can ask for exists in both languages.
  */
-import { en, pcm, type MessageKey } from "@tarragon/i18n";
+import { en, type MessageKey } from "@tarragon/i18n";
 import type { BpLevel } from "./bp-classification";
 import { BP_CHECKLIST_SYMPTOMS } from "./bp-checklist";
 import type { BpEntryError, OtherEntryError, OtherVitalType } from "./vitals-entry";
@@ -28,9 +28,8 @@ const keys: string[] = [
 ];
 
 describe("Vitals screen dynamic translation keys", () => {
-  it.each(keys)("%s exists in English and Pidgin", (key) => {
+  it.each(keys)("%s exists in English", (key) => {
     expect(en[key as MessageKey]).toBeTruthy();
-    expect(pcm[key as MessageKey]).toBeTruthy();
   });
 
   it("covers every error the entry validators can return", () => {

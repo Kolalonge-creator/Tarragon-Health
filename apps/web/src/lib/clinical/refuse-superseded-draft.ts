@@ -10,7 +10,19 @@ export type VersionedGovernedTable =
   | "cv_risk_config"
   | "risk_questionnaire_configs"
   | "vaccination_schedule_signoffs"
-  | "result_release_policies";
+  | "result_release_policies"
+  | "lab_panel_signoffs";
+
+/**
+ * Tables whose versions are numbered per partition, not globally: one live row per
+ * organisation (and per code for the questionnaire). The database guard partitions
+ * the same way (see its migration); comparing across partitions here would refuse a
+ * legitimate version in one organisation because another organisation is further on.
+ */
+const PARTITION_COLUMNS: Partial<Record<VersionedGovernedTable, readonly string[]>> = {
+  cv_risk_config: ["organisation_id"],
+  risk_questionnaire_configs: ["organisation_id", "code"],
+};
 
 /**
  * True for an unsigned-or-not draft that is OLDER than the live version: the one
@@ -45,20 +57,24 @@ export async function refuseSupersededDraft(
   table: VersionedGovernedTable,
   id: string
 ): Promise<string | null> {
+  const partition = PARTITION_COLUMNS[table] ?? [];
   const { data: target, error: targetError } = await supabase
     .from(table)
-    .select("version, is_active")
+    .select(["version", "is_active", ...partition].join(", "))
     .eq("id", id)
     .maybeSingle();
   if (targetError || !target) return COULD_NOT_CHECK;
-  const row = target as { version: number; is_active: boolean };
+  const row = target as unknown as { version: number; is_active: boolean } & Record<string, string | null>;
   if (row.is_active) return null;
 
-  const { data: active, error: activeError } = await supabase
-    .from(table)
-    .select("version")
-    .eq("is_active", true)
-    .maybeSingle();
+  let liveQuery = supabase.from(table).select("version").eq("is_active", true);
+  // A null partition value must match with `is null`, as the database trigger's
+  // `is not distinct from` does; `.eq(column, null)` would filter on the string "null".
+  for (const column of partition) {
+    const value = row[column];
+    liveQuery = value === null || value === undefined ? liveQuery.is(column, null) : liveQuery.eq(column, value);
+  }
+  const { data: active, error: activeError } = await liveQuery.maybeSingle();
   if (activeError) return COULD_NOT_CHECK;
   const live = active as { version: number } | null;
 

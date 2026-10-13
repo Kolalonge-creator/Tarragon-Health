@@ -403,10 +403,10 @@ describe("tell us nobody came", () => {
 
 describe("note wording", () => {
   const kinds: RoomNote["kind"][] = ["link_error", "not_open", "wait_longer", "save_error", "phone_unavailable", "phone_not_open"];
-  it("has real wording in English and Pidgin for every note, with no raw key shown", () => {
+  it("has real wording in English for every note, with no raw key shown", () => {
     for (const kind of kinds) {
       const key = noteMessageKey({ kind });
-      for (const locale of ["en", "pcm"] as const) {
+      for (const locale of ["en"] as const) {
         const text = t(key, locale, { when: "Wed 09:00" });
         expect(text).not.toBe(key);
         expect(text.length).toBeGreaterThan(5);

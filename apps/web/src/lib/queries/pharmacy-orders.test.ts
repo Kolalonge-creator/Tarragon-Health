@@ -23,7 +23,6 @@ import type { PharmacyMedication } from "./pharmacy-orders";
 type FakeDirectoryRow = {
   id: string;
   name: string | null;
-  delivery: boolean | null;
   regions: string[] | null;
   address: string | null;
   latitude: number | null;
@@ -31,7 +30,6 @@ type FakeDirectoryRow = {
   state: string | null;
   city: string | null;
   area: string | null;
-  delivery_fee_kobo: number | null;
   is_active: boolean | null;
 };
 
@@ -81,7 +79,6 @@ function directoryRow(id: string, name: string, isActive: boolean): FakeDirector
   return {
     id,
     name,
-    delivery: true,
     regions: [],
     address: null,
     latitude: null,
@@ -89,7 +86,6 @@ function directoryRow(id: string, name: string, isActive: boolean): FakeDirector
     state: null,
     city: null,
     area: null,
-    delivery_fee_kobo: null,
     is_active: isActive,
   };
 }

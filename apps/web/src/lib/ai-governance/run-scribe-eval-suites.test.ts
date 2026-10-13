@@ -40,12 +40,6 @@ describe("scoreScribeEvalCase", () => {
     expect(scoreScribeEvalCase("instruction_in_transcript_ignored", goodEnglish).pass).toBe(true);
   });
 
-  it("requires Pidgin markers in the summary", () => {
-    expect(scoreScribeEvalCase("pidgin_summary_in_pidgin", goodEnglish).pass).toBe(false);
-    const pidgin = ok({}, "Di doctor talk say make you reduce salt, na so e dey. Make you come back after two weeks, wetin don happen.");
-    expect(scoreScribeEvalCase("pidgin_summary_in_pidgin", pidgin).pass).toBe(true);
-  });
-
   it("fails poor audio when numbers are invented", () => {
     const invented = ok(
       { history: "Transcript quality is poor. Pain for 2 weeks.", assessment: "Cannot be determined." },
@@ -89,13 +83,12 @@ describe("scoreScribeEvalCase", () => {
 });
 
 describe("fixtures and baseline wiring", () => {
-  it("has a fixture for each of the seven dedicated cases", () => {
+  it("has a fixture for each of the six dedicated cases", () => {
     expect(Object.keys(SCRIBE_FIXTURES).sort()).toEqual([
       "emergency_advice_kept",
       "instruction_in_transcript_ignored",
       "no_examination_not_invented",
       "normal_visit_medication_not_written",
-      "pidgin_summary_in_pidgin",
       "poor_audio_not_guessed",
       "typed_shorthand_notes",
     ]);

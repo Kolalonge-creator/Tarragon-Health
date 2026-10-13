@@ -15,7 +15,6 @@ import { PHONE_HINT_ID, PhoneNumberHint, phoneInputProps } from "@/components/ui
 import { PASSWORD_MIN_LENGTH, PASSWORD_RULE_HINT } from "@/lib/validation/password";
 import { t, type Locale } from "@tarragon/i18n";
 import { cn } from "@/lib/utils";
-import { LanguageSwitch } from "@/components/auth/language-switch";
 import { PhoneSignupForm } from "./phone-signup-form";
 
 const FIELD_CLASS = "h-11 rounded-xl";
@@ -248,11 +247,9 @@ function EmailSignupForm({
  */
 export function SignupForm({
   locale = "en",
-  pidginEnabled = true,
   ...props
 }: {
   locale?: Locale;
-  pidginEnabled?: boolean;
   refCode?: string;
   intent?: "health_check" | "support";
   redirectTo?: string;
@@ -261,7 +258,6 @@ export function SignupForm({
 
   return (
     <div className="space-y-5">
-      <LanguageSwitch locale={locale} pidginEnabled={pidginEnabled} />
       <div role="tablist" aria-label={t("auth.signup.title", locale)} className="grid grid-cols-2 rounded-xl bg-charcoal-ink/5 p-1 text-sm font-medium">
         {(["email", "phone"] as const).map((value) => (
           <button
