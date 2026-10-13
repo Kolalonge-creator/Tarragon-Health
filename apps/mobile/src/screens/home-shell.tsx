@@ -45,6 +45,7 @@ import { VideoVisitScreen } from "@/screens/sections/video-visit-screen";
 import { ConsultationRoomScreen } from "@/screens/sections/consultation-room-screen";
 import { FindASpecialistScreen } from "@/screens/sections/find-a-specialist-screen";
 import { ScreeningDaysScreen } from "@/screens/sections/screening-days-screen";
+import { TestingDaysScreen } from "@/screens/sections/testing-days-screen";
 import { FinancialProfileScreen } from "@/screens/sections/financial-profile-screen";
 import { WeightManagementScreen } from "@/screens/sections/weight-management-screen";
 import { WellbeingScreen } from "@/screens/sections/wellbeing-screen";
@@ -362,6 +363,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     // Reached by a notice tap while the entry is hidden: one calm line, nothing else (no group list, no calls).
     community: () => (communityVisible ? <CommunityScreen onNavigate={handleSelect} /> : <CommunityNotOpen />),
     screeningDays: () => <ScreeningDaysScreen />,
+    testingDays: () => <TestingDaysScreen />,
     financialProfile: () => <FinancialProfileScreen userId={userId} />,
     privacy: () => (
       <PrivacyScreen userId={userId} organisationId={organisationId} onNavigate={handleSelect} />

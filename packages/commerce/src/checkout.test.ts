@@ -5,7 +5,7 @@ import { supabaseOrderStore, type RpcClient } from "../../../supabase/functions/
 import { MemoryStore } from "./support/memory-store.ts";
 
 const REF = "tho_0123456789abcdef0123456789abcdef";
-const order = (over: Partial<CreatedOrder> = {}): CreatedOrder => ({ orderId: "order-1", reference: REF, amountKobo: 10_000_000, state: "created", checkoutUrl: null, ...over });
+const order = (over: Partial<CreatedOrder> = {}): CreatedOrder => ({ orderId: "order-1", reference: REF, amountKobo: 12_000_000, state: "created", checkoutUrl: null, ...over });
 const creator = (o: CreatedOrder): OrderCreator => ({ create: async () => ({ ok: true, order: o }) });
 const args = { code: "membership_annual", clientKey: "k", email: "a@example.com", callbackUrl: "https://app.example/return" };
 
@@ -21,14 +21,14 @@ describe("startCheckout", () => {
   it("initialises Paystack for the order's own price with the order id as the only metadata, and keeps the link", async () => {
     const payments = createMockPayment();
     const store = new MemoryStore();
-    store.add({ reference: REF, amountKobo: 10_000_000 });
+    store.add({ reference: REF, amountKobo: 12_000_000 });
     const r = await startCheckout({ payments, store, orders: creator(order()) }, args);
-    expect(r).toMatchObject({ ok: true, orderId: "order-1", amountKobo: 10_000_000 });
+    expect(r).toMatchObject({ ok: true, orderId: "order-1", amountKobo: 12_000_000 });
     expect(r.ok && r.checkoutUrl).toContain(REF);
     expect(store.orders.get(REF)!.checkoutUrl).toBe(r.ok ? r.checkoutUrl : null);
     const v = await payments.verifyTransaction(REF);
     expect(v.ok && v.data.metadata).toEqual({ kind: "order", order_id: "order-1" });
-    expect(v.ok && v.data.requestedAmountKobo).toBe(10_000_000);
+    expect(v.ok && v.data.requestedAmountKobo).toBe(12_000_000);
   });
   it("needs an email on file", async () => {
     const r = await startCheckout({ payments: createMockPayment(), store: new MemoryStore(), orders: creator(order()) }, { ...args, email: null });
