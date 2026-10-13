@@ -13,7 +13,10 @@ export const isPaymentRequestCode = (v: unknown): v is string => typeof v === "s
 /** The link to share. `base` is the platform's own address (configuration), never anything the person typed. */
 export function paymentRequestLink(base: string, code: string): string {
   if (!isPaymentRequestCode(code)) throw new Error("payment_request_code_invalid");
-  return `${base.replace(/\/+$/, "")}/checkout/${code}`;
+  // (a loop, not /\/+$/: that pattern can run slowly on a long run of slashes, CodeQL js/polynomial-redos)
+  let end = base.length;
+  while (end > 0 && base.charCodeAt(end - 1) === 47) end -= 1;
+  return `${base.slice(0, end)}/checkout/${code}`;
 }
 
 export type PaymentRequestStatus = "open" | "pending_payment" | "paid" | "cancelled" | "expired";

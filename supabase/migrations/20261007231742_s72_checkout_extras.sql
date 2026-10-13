@@ -120,27 +120,55 @@ begin
       private.go_live_cond('restricted_gift_accounting_decided', 'Finance has decided how restricted gifts are accounted for (OQ-421)', private.go_live_attested(p_key, 'restricted_gift_accounting_decided'), 'attestation', null),
       private.go_live_cond('admin_confirmation', 'Admin confirmation', true, 'switch', 'Given by an admin pressing the switch'));
   end if;
+  -- An unknown key has no conditions here: ask the function this one wraps. (This exact comment is the anchor that later migrations on main-dev look for when they
+  -- add their own branch to private.go_live_conditions in place. Do not reword it.)
   return private.go_live_conditions_s71(p_key, p_org);
 end $$;
 revoke all on function private.go_live_conditions(text, uuid) from public;
 
-alter function public.attest_go_live_condition(text, text, boolean, text) set schema private;
-alter function private.attest_go_live_condition(text, text, boolean, text) rename to attest_go_live_condition_s71;
-revoke all on function private.attest_go_live_condition_s71(text, text, boolean, text) from public, anon, authenticated;
-create function public.attest_go_live_condition(p_key text, p_code text, p_met boolean, p_note text) returns jsonb
+-- attest_go_live_condition is NOT wrapped: later migrations on main-dev add their own (guard, condition) pairs to its list by patching it in place, and a thin
+-- wrapper has no list to patch. So this is the full function with this migration's pairs added to the list.
+create or replace function public.attest_go_live_condition(p_key text, p_code text, p_met boolean, p_note text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
-declare v_uid uuid := (select auth.uid());
+declare
+  v_uid uuid := (select auth.uid());
 begin
-  if (p_key, p_code) in (('access_fund_enabled', 'counsel_opinion_recorded'), ('access_fund_enabled', 'grant_criteria_signed_off'),
-                         ('access_fund_enabled', 'restricted_gift_accounting_decided')) then
-    if v_uid is null then raise exception 'not signed in' using errcode = '42501'; end if;
-    if private.go_live_actor_role() is null then raise exception 'only an admin or the Chief Medical Officer can record this' using errcode = '42501'; end if;
-    if p_met is null or length(btrim(coalesce(p_note, ''))) < 10 then raise exception 'say what was checked and by whom, in a sentence' using errcode = '22023'; end if;
-    insert into public.go_live_attestations (guard_key, condition_code, met, note, attested_by) values (p_key, p_code, p_met, btrim(p_note), v_uid);
-    perform private.log_audit('go_live_guard.condition_attested', 'go_live_guard', null, jsonb_build_object('key', p_key, 'code', p_code, 'met', p_met));
-    return jsonb_build_object('ok', true);
+  if v_uid is null then raise exception 'not signed in' using errcode = '42501'; end if;
+  if private.go_live_actor_role() is null then raise exception 'only an admin or the Chief Medical Officer can record this' using errcode = '42501'; end if;
+  if not exists (select 1 from public.go_live_guards where key = p_key) then raise exception 'no such go-live guard: %', p_key using errcode = '22023'; end if;
+  -- the conditions a person records (the rest are read from the data). A fixed list, so a broken data query cannot block recording one.
+  if (p_key, p_code) not in (
+       ('clinical_operations_enabled', 'clinical_safety_case_current'), ('prescribing_enabled', 'clinical_safety_case_current'),
+       ('scribe_enabled', 'clinical_safety_case_current'), ('prescribing_enabled', 'notification_sender_deployed'),
+       ('lab_booking_enabled', 'results_flow_tested'),
+       ('scribe_enabled', 'con001_legal_review_recorded'), ('scribe_enabled', 'speech_provider_configured'),
+       ('payouts_enabled', 'fee_schedule_approved'), ('payouts_enabled', 'paystack_transfers_configured'),
+       ('public_signup_enabled', 'stage2_exit_criteria_met'),
+       ('membership_billing_enabled', 'paystack_plan_codes_disabled'), ('membership_billing_enabled', 'refund_path_tested'),
+       ('concierge_coordinator_enabled', 'coordinator_staffing_in_place'),
+       ('checkout_enabled', 'paystack_channels_verified'),
+       ('checkout_enabled', 'refund_path_tested'),
+       ('sponsor_payment_enabled', 'counsel_opinion_recorded'),
+       ('sponsor_payment_enabled', 'sponsor_receivable_confirmed'),
+       ('access_fund_enabled', 'counsel_opinion_recorded'),
+       ('access_fund_enabled', 'grant_criteria_signed_off'),
+       ('access_fund_enabled', 'restricted_gift_accounting_decided')) then
+    raise exception 'that condition is read from the data (or does not exist), it cannot be attested' using errcode = '22023';
   end if;
-  return private.attest_go_live_condition_s71(p_key, p_code, p_met, p_note);
+  if p_met is null or length(btrim(coalesce(p_note, ''))) < 10 then
+    raise exception 'say what was checked and by whom, in a sentence' using errcode = '22023';
+  end if;
+  -- the safety case is the safety officer's: an admin who is not the CMO cannot record it
+  if p_code = 'clinical_safety_case_current' and not private.credential_is_cmo() then
+    raise exception 'only the Chief Medical Officer can record the clinical safety case' using errcode = '42501';
+  end if;
+  if p_code = 'clinical_safety_case_current' and p_met and length(btrim(p_note)) < 25 then
+    raise exception 'name the safety case document, its version and who signed it' using errcode = '22023';
+  end if;
+  insert into public.go_live_attestations (guard_key, condition_code, met, note, attested_by)
+  values (p_key, p_code, p_met, btrim(p_note), v_uid);
+  perform private.log_audit('go_live_guard.condition_attested', 'go_live_guard', null, jsonb_build_object('key', p_key, 'code', p_code, 'met', p_met));
+  return jsonb_build_object('ok', true);
 end $$;
 
 -- ---------------------------------------------------------------------------
@@ -924,7 +952,7 @@ begin
     if has_function_privilege('anon', f, 'EXECUTE') then raise exception 'S72: anon can execute %', f; end if;
   end loop;
   foreach f in array array['public.access_fund_public_report()', 'public.payment_request_preview(text,text)', 'private.sponsor_match(uuid,uuid,uuid,boolean)', 'private.payment_request_hash(text)',
-                           'private.fund_general_needed(uuid,boolean,text,bigint)', 'private.go_live_conditions_s71(text,uuid)', 'private.attest_go_live_condition_s71(text,text,boolean,text)'] loop
+                           'private.fund_general_needed(uuid,boolean,text,bigint)', 'private.go_live_conditions_s71(text,uuid)'] loop
     if has_function_privilege('authenticated', f, 'EXECUTE') then raise exception 'S72: authenticated can execute %', f; end if;
   end loop;
   if not exists (select 1 from public.event_type_versions where event_type = 'donation.received' and version = 1) then raise exception 'S72: donation.received is not registered'; end if;

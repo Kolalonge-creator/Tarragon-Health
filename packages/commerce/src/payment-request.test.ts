@@ -14,6 +14,8 @@ describe("payment request codes and links", () => {
   it("builds the link on the platform base and refuses a bad code", () => {
     expect(paymentRequestLink("https://app.tarragonhealth.ng/", CODE)).toBe(`https://app.tarragonhealth.ng/checkout/${CODE}`);
     expect(() => paymentRequestLink("https://x.test", "nope")).toThrow();
+    expect(paymentRequestLink("https://x.test///", CODE)).toBe(`https://x.test/checkout/${CODE}`);
+    expect(paymentRequestLink("///", CODE)).toBe(`/checkout/${CODE}`);
   });
   it("the link carries the code and nothing about the person or the item (INV-07)", () => {
     const link = paymentRequestLink("https://app.example", CODE);
