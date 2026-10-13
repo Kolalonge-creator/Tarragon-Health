@@ -2548,4 +2548,42 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-13",
     source: "docs/OPEN-QUESTIONS.md OQ-89; docs/design/S11-S15-p6-coverage.md",
   },
+  {
+    key: "chain.canary_and_health",
+    // P1 (S11 to S15 end to end): the clinical-chain canary and the chain health page. Live values are the active row of
+    // `chain_canary_config`; this entry mirrors the v1 seed and a test fails on drift.
+    //  intervalMinutes: the cadence the cron job is built for (minutes 11 and 41 of the hour).
+    //  gradedSeconds / taskSeconds / pageSeconds / notificationSeconds / ackSeconds: the time each stage of a canary run has to finish.
+    //  minEvalAgeSeconds: a run is judged only after this long. staleAfterMinutes: no finished run for this long is itself an incident.
+    //  health: thresholds the chain health page turns into ok, attention or down (minSample is the fewest real events before a
+    //  percentile is shown; ungradedReadingMinutes is how long a real BP reading may sit with no grade; deadLetterWindowDays is how far back a dead letter still counts).
+    // PROPOSED, CMO to confirm. The budgets are generous on purpose: the event processor runs every 15 seconds.
+    value: {
+      intervalMinutes: 30,
+      gradedSeconds: 180,
+      taskSeconds: 240,
+      pageSeconds: 240,
+      notificationSeconds: 300,
+      ackSeconds: 600,
+      minEvalAgeSeconds: 660,
+      staleAfterMinutes: 100,
+      rotaHours: 4,
+      retentionDays: 30,
+      health: {
+        minSample: 20,
+        stuckDeliverySeconds: 300,
+        deadLettersMax: 0,
+        readingToGradedP95Seconds: 120,
+        pageToAckP95Seconds: 600,
+        canaryStaleMinutes: 100,
+        ungradedReadingMinutes: 10,
+        deadLetterWindowDays: 14,
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/research/S11-S15-review-and-build-plan.md R1; docs/design/S11-S15-p1-chain.md",
+  },
 ];
