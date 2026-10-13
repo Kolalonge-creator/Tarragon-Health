@@ -3,6 +3,7 @@ const mockInsert = jest.fn();
 const mockRpc = jest.fn();
 let mockVersionRow: { id: string; version: string; is_optional: boolean } | null;
 let mockReceiptRows: unknown[] = [];
+let mockListFails = false;
 
 jest.mock("./supabase", () => ({
   supabase: {
@@ -14,18 +15,25 @@ jest.mock("./supabase", () => ({
       if (table === "patient_consent_receipts") {
         return { select: () => ({ eq: () => ({ order: async () => ({ data: mockReceiptRows, error: null }) }) }) };
       }
+      if (table === "data_deletion_requests" && mockListFails) {
+        return {
+          select: () => ({ eq: () => ({ order: async () => ({ data: null, error: { message: "offline" } }) }) }),
+          insert: (row: unknown) => mockInsert(table, row),
+        };
+      }
       return { insert: (row: unknown) => mockInsert(table, row) };
     },
   },
 }));
 
-import { cancelDeletionRequest, createDeletionRequest, loadConsentReceipts, recordConsent } from "./privacy";
+import { cancelDeletionRequest, createDeletionRequest, loadConsentReceipts, loadDeletionRequests, recordConsent } from "./privacy";
 
 beforeEach(() => {
   mockInsert.mockReset().mockResolvedValue({ error: null });
   mockRpc.mockReset().mockResolvedValue({ error: null });
   mockVersionRow = { id: "cv-1", version: "v1", is_optional: true };
   mockReceiptRows = [];
+  mockListFails = false;
 });
 
 describe("recordConsent", () => {
@@ -81,6 +89,20 @@ describe("deletion requests", () => {
     mockRpc.mockResolvedValue({ error: { message: "The waiting period for this deletion request has ended" } });
     const refused = await cancelDeletionRequest("d1");
     expect(refused.ok).toBe(false);
+  });
+});
+
+describe("a failed load is not an empty list", () => {
+  it("loadDeletionRequests reports the error instead of returning [] (which would hide a pending request and its cancel button)", async () => {
+    mockListFails = true;
+    const result = await loadDeletionRequests("p1");
+    expect(result.ok).toBe(false);
+  });
+
+  it("a second open request gets a plain message, not a constraint name", async () => {
+    mockInsert.mockResolvedValue({ error: { code: "23505", message: 'duplicate key value violates unique constraint "data_deletion_requests_one_open_per_patient"' } });
+    const result = await createDeletionRequest("org-1", "p1", "again");
+    expect(result).toEqual({ ok: false, error: expect.stringMatching(/already have a request in progress/i) });
   });
 });
 

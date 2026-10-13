@@ -84,14 +84,16 @@ export function OptionalConsentControls({
 }
 
 /** The consent receipts: who, what, which version, when and where, with the exact words on demand. Append-only evidence. */
-export function ConsentReceiptsCard({ receipts }: { receipts: ConsentReceiptRow[] }) {
+export function ConsentReceiptsCard({ receipts, error }: { receipts: ConsentReceiptRow[]; error: string | null }) {
   const colors = useLegacyColors();
   const [openId, setOpenId] = useState<string | null>(null);
   return (
     <Card style={{ gap: 8 }}>
       <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Your consent receipts</Text>
       <MutedText>Every time you agreed to something or stopped it: the exact words you saw, when, and where. Nothing here is ever removed.</MutedText>
-      {receipts.length === 0 ? (
+      {error ? (
+        <ErrorText>{error}</ErrorText>
+      ) : receipts.length === 0 ? (
         <MutedText>No receipts yet.</MutedText>
       ) : (
         receipts.map((r) => (

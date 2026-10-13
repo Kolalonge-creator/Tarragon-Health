@@ -26,6 +26,10 @@
 --    request before its grace period ends; the patient can cancel until then, through public.cancel_my_data_deletion_request.
 --    One open request per patient. Requests and cancellations are written to audit_log.
 --
+-- Known limit, see OQ-S04b2-2: patient_consents.patient_id and data_deletion_requests.patient_id still cascade from profiles. Closing an
+-- account must DEACTIVATE the profile (is_active = false), never delete it, or the consent history and the deletion record the privacy
+-- page promises to keep would go with it. Test accounts are the only profiles purge_test_account removes.
+--
 -- Version pinned to this filename when applied. Not applied by the author: the owner applies after review.
 
 -- ---------------------------------------------------------------------------
@@ -53,9 +57,15 @@ security definer
 set search_path = ''
 as $$
 begin
-  if old.is_draft and not new.is_draft and not private.module_enabled('optional_consent_wording') then
-    raise exception 'drafted consent wording cannot be published until the optional_consent_wording module is switched on'
-      using errcode = '23514';
+  if old.is_draft and not new.is_draft then
+    if not private.module_enabled('optional_consent_wording') then
+      raise exception 'drafted consent wording cannot be published until the optional_consent_wording module is switched on'
+        using errcode = '23514';
+    end if;
+    if coalesce(current_setting('app.publishing_consent_wording', true), '') <> 'on' then
+      raise exception 'drafted consent wording is published through public.publish_consent_wording (approval note and audit entry), not by a direct update'
+        using errcode = '42501';
+    end if;
   end if;
   if exists (select 1 from public.patient_consents pc where pc.consent_version_id = old.id)
      and (new.consent_type, new.version, new.title, new.body, new.is_optional, new.is_draft)
@@ -87,10 +97,33 @@ insert into public.consent_versions (consent_type, version, title, body, is_curr
 select 'care_circle_sharing', '2026-10-13-draft',
        'Share my record with my Care Circle',
        'I agree that the people I add to my Care Circle can see the parts of my health information that I choose to share with each of them. I decide who is in my Care Circle and what each person can see, and I can change or remove anyone at any time in the app. Tarragon Health shares nothing with them that I have not chosen. If I stop, they can no longer see my information from that point on. Choosing not to share changes nothing about my care.',
-       not exists (select 1 from public.consent_versions c where c.consent_type = 'care_circle_sharing' and c.is_current),
+       false,   -- a draft never holds the single current slot; publish_consent_wording makes it current and retires the previous one
        true, true,
        'DRAFT pending approval (OQ-49). Not shown to patients. Publish with public.publish_consent_wording once the founder approves the exact text and the optional_consent_wording module is on.'
 where not exists (select 1 from public.consent_versions c where c.consent_type = 'care_circle_sharing' and c.version = '2026-10-13-draft');
+
+-- A signed-in session (not a migration or service context) cannot insert optional wording that is already final: it has to go
+-- in as a draft and be published through public.publish_consent_wording.
+create or replace function private.guard_optional_consent_insert()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if (select auth.uid()) is not null and new.is_optional and not new.is_draft then
+    raise exception 'optional consent wording is added as a draft and published through public.publish_consent_wording'
+      using errcode = '42501';
+  end if;
+  return new;
+end;
+$$;
+revoke all on function private.guard_optional_consent_insert() from public;
+
+drop trigger if exists consent_versions_guard_optional_insert on public.consent_versions;
+create trigger consent_versions_guard_optional_insert
+  before insert on public.consent_versions
+  for each row execute function private.guard_optional_consent_insert();
 
 create or replace function public.publish_consent_wording(p_version uuid, p_note text)
 returns jsonb
@@ -112,12 +145,14 @@ begin
   if not found then raise exception 'no such consent version' using errcode = 'P0002'; end if;
   if not v.is_draft then raise exception 'this wording is already published' using errcode = '23514'; end if;
 
+  perform set_config('app.publishing_consent_wording', 'on', true);
   update public.consent_versions set is_current = false
    where consent_type = v.consent_type and is_current and id <> v.id and not is_draft;
   update public.consent_versions set is_draft = false, is_current = true, published_at = now(),
          draft_note = coalesce(draft_note, '') || E'\nPublished: ' || btrim(p_note)
    where id = v.id;
 
+  perform set_config('app.publishing_consent_wording', 'off', true);
   perform private.log_audit('consent_wording.published', 'consent_version', v.id,
     jsonb_build_object('consent_type', v.consent_type, 'version', v.version, 'note', btrim(p_note)));
   return jsonb_build_object('ok', true, 'consent_type', v.consent_type, 'version', v.version);
@@ -140,11 +175,11 @@ alter table public.patient_consents add constraint patient_consents_channel_chec
   check (channel is null or channel in ('web', 'mobile', 'staff_assisted', 'system', 'unknown'));
 alter table public.patient_consents drop constraint if exists patient_consents_consented_by_relation_check;
 alter table public.patient_consents add constraint patient_consents_consented_by_relation_check
-  check (consented_by_relation is null or consented_by_relation in ('self', 'guardian', 'system'));
+  check (consented_by_relation is null or consented_by_relation in ('self', 'guardian', 'staff', 'system'));
 
-comment on column public.patient_consents.channel is 'S04b-2 receipt: where the choice was made (web, mobile, staff_assisted, system, unknown). Supplied by the app as a label; null on rows recorded before receipts.';
+comment on column public.patient_consents.channel is 'S04b-2 receipt: where the choice was made (web, mobile, staff_assisted, system, unknown). A signed-in patient or guardian may only label web, mobile or unknown; staff_assisted is forced for a staff-made row and system for a service context. Null on rows recorded before receipts.';
 comment on column public.patient_consents.consented_by is 'S04b-2 receipt: auth.uid() of whoever made the choice (the patient, or a guardian for a dependant). Derived by the trigger, never client-supplied. No foreign key on purpose: the receipt must outlive the account.';
-comment on column public.patient_consents.consented_by_relation is 'S04b-2 receipt: self, guardian or system, derived by the trigger.';
+comment on column public.patient_consents.consented_by_relation is 'S04b-2 receipt: self, guardian (manage access to a dependant account), staff (a staff session acting through a definer function) or system (no signed-in user), derived by the trigger.';
 comment on column public.patient_consents.text_sha256 is 'S04b-2 receipt: sha-256 of title || newline || body of the exact version agreed to or withdrawn, computed by the trigger.';
 
 create or replace function private.enforce_patient_consent_withdrawal()
@@ -159,18 +194,30 @@ declare
   v_current record;
   v_active boolean;
 begin
-  -- Who is acting, derived (never client-supplied).
+  -- Who is acting, derived (never client-supplied), and the channel label that is believable for that actor.
   if v_uid is null then
     new.consented_by := null;
     new.consented_by_relation := 'system';
-  elsif v_uid = new.patient_id then
-    new.consented_by := v_uid;
-    new.consented_by_relation := 'self';
+    new.channel := coalesce(new.channel, 'system');
   else
     new.consented_by := v_uid;
-    new.consented_by_relation := 'guardian';
+    if v_uid = new.patient_id then
+      new.consented_by_relation := 'self';
+    elsif private.can_act_for(new.patient_id)
+          and exists (select 1 from public.profiles d where d.id = new.patient_id and d.is_dependent_account) then
+      new.consented_by_relation := 'guardian';
+    else
+      new.consented_by_relation := 'staff';
+    end if;
+    if new.consented_by_relation = 'staff' then
+      new.channel := 'staff_assisted';
+    else
+      new.channel := coalesce(new.channel, 'unknown');
+      if new.channel not in ('web', 'mobile', 'unknown') then
+        raise exception 'a patient or guardian can only record a choice made on the web or in the app' using errcode = '23514';
+      end if;
+    end if;
   end if;
-  new.channel := coalesce(new.channel, 'unknown');
 
   if new.action <> 'withdrawn' then
     -- The version row decides the version string and type; a mismatched or draft version cannot be accepted.

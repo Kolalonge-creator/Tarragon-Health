@@ -162,12 +162,17 @@ export interface ExportRequestRow {
   fulfilledAt: string | null;
 }
 
-export async function loadExportRequests(): Promise<ExportRequestRow[]> {
-  const { data } = await supabase
+export async function loadExportRequests(patientId: string): Promise<QueryResult<ExportRequestRow[]>> {
+  const { data, error } = await supabase
     .from("data_export_requests")
     .select("id, status, requested_at, due_at, fulfilled_at")
+    .eq("patient_id", patientId)
     .order("requested_at", { ascending: false });
-  return (data ?? []).map((r) => ({ id: r.id, status: r.status, requestedAt: r.requested_at, dueAt: r.due_at, fulfilledAt: r.fulfilled_at }));
+  if (error) return { ok: false, error: error.message };
+  return {
+    ok: true,
+    data: (data ?? []).map((r) => ({ id: r.id, status: r.status, requestedAt: r.requested_at, dueAt: r.due_at, fulfilledAt: r.fulfilled_at })),
+  };
 }
 
 export async function createExportRequest(organisationId: string, patientId: string, note?: string): Promise<QueryResult<null>> {
@@ -215,18 +220,23 @@ export interface DeletionRequestRow {
   note: string | null;
 }
 
-export async function loadDeletionRequests(): Promise<DeletionRequestRow[]> {
-  const { data } = await supabase
+export async function loadDeletionRequests(patientId: string): Promise<QueryResult<DeletionRequestRow[]>> {
+  const { data, error } = await supabase
     .from("data_deletion_requests")
     .select("id, status, requested_at, grace_ends_at, blocked_reason, decision_note")
+    .eq("patient_id", patientId)
     .order("requested_at", { ascending: false });
-  return (data ?? []).map((r) => ({
-    id: r.id,
-    status: r.status,
-    requestedAt: r.requested_at,
-    graceEndsAt: r.grace_ends_at,
-    note: r.blocked_reason ?? r.decision_note,
-  }));
+  if (error) return { ok: false, error: error.message };
+  return {
+    ok: true,
+    data: (data ?? []).map((r) => ({
+      id: r.id,
+      status: r.status,
+      requestedAt: r.requested_at,
+      graceEndsAt: r.grace_ends_at,
+      note: r.blocked_reason ?? r.decision_note,
+    })),
+  };
 }
 
 export async function createDeletionRequest(organisationId: string, patientId: string, reason: string): Promise<QueryResult<null>> {
@@ -238,7 +248,10 @@ export async function createDeletionRequest(organisationId: string, patientId: s
     // The waiting period the person can cancel within (PROPOSED privacy.deletion_grace); the database holds it to 7..30 days.
     grace_ends_at: deletionGraceEndsAt(),
   });
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    if (error.code === "23505") return { ok: false, error: "You already have a request in progress. Pull down to refresh and see it." };
+    return { ok: false, error: error.message };
+  }
   return { ok: true, data: null };
 }
 

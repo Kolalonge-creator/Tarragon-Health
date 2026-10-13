@@ -95,6 +95,15 @@ begin
   reset role;
   if (select channel from public.patient_consents where patient_id = pat and consent_type = 'telehealth') <> 'unknown' then raise exception 'FAIL 1f: missing channel was guessed'; end if;
 
+  -- a patient cannot label their own choice as staff-assisted or system
+  perform set_config('request.jwt.claims', json_build_object('sub', pat::text, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  begin
+    insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action, channel)
+      select v_org, pat, 'data_processing', id, version, 'accepted', 'staff_assisted' from public.consent_versions where is_current and consent_type = 'data_processing';
+    reset role; raise exception 'FAIL 1g: a patient forged the staff_assisted channel';
+  exception when check_violation then reset role; end;
+
   -- 2. mismatched type and version
   perform set_config('request.jwt.claims', json_build_object('sub', pat::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
@@ -169,6 +178,7 @@ begin
   select * into d from public.consent_versions where consent_type = 'care_circle_sharing' and is_draft;
   if d.id is null then raise exception 'FAIL 4a: the care_circle_sharing draft is not seeded'; end if;
   if not d.is_optional then raise exception 'FAIL 4a2: draft is not optional'; end if;
+  if d.is_current then raise exception 'FAIL 4a3: a draft holds the current slot'; end if;
 
   perform set_config('request.jwt.claims', json_build_object('sub', pat::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
@@ -204,8 +214,18 @@ begin
   begin update public.consent_versions set is_draft = false where id = d.id; v_sqlstate := 'allowed'; exception when others then v_sqlstate := sqlstate; end;
   if v_sqlstate = 'allowed' then raise exception 'FAIL 4g: a direct update published a draft while the module is off'; end if;
 
-  -- switch the module on (as a superadmin would), a non-admin still cannot publish
+  -- switch the module on (as a superadmin would), a non-admin still cannot publish, and a direct update still cannot skip the function
   update public.platform_modules set is_enabled = true, enabled_at = now(), enabled_by = adm, activation_note = 'proof' where key = 'optional_consent_wording';
+  perform set_config('request.jwt.claims', json_build_object('sub', adm::text, 'role', 'authenticated')::text, true);
+  begin update public.consent_versions set is_draft = false where id = d.id; v_sqlstate := 'allowed'; exception when others then v_sqlstate := sqlstate; end;
+  if v_sqlstate <> '42501' then raise exception 'FAIL 4g2: with the module on, a direct update still published a draft (%)', v_sqlstate; end if;
+  set local role authenticated;
+  begin
+    insert into public.consent_versions (consent_type, version, title, body, is_current, is_optional, is_draft) values ('research', 'proof-direct', 'Direct', 'direct body', false, true, false);
+    v_sqlstate := 'allowed';
+  exception when others then v_sqlstate := sqlstate; end;
+  reset role;
+  if v_sqlstate <> '42501' then raise exception 'FAIL 4g3: an admin session inserted final optional wording directly (%)', v_sqlstate; end if;
   perform set_config('request.jwt.claims', json_build_object('sub', pat::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
   begin perform public.publish_consent_wording(d.id, 'sneaky'); v_sqlstate := 'allowed'; exception when others then v_sqlstate := sqlstate; end;
@@ -265,6 +285,15 @@ begin
   reset role;
   if n <> 0 then raise exception 'FAIL 5c: a stranger read a dependant''s receipts'; end if;
   if v_sqlstate <> '42501' then raise exception 'FAIL 5d: a stranger wrote a dependant''s consent (%)', v_sqlstate; end if;
+
+  -- a staff session acting through a definer function is labelled staff, never guardian
+  perform set_config('request.jwt.claims', json_build_object('sub', (select v from s4b2_fx where k = 'adm')::text, 'role', 'authenticated')::text, true);
+  insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action, channel)
+    values (v_org, pat2, 'marketing', opt.id, opt.version, 'accepted', 'web');
+  if not exists (select 1 from public.patient_consents where patient_id = pat2 and consent_type = 'marketing' and consented_by_relation = 'staff' and channel = 'staff_assisted') then
+    raise exception 'FAIL 5g: a staff-made row was not labelled staff / staff_assisted';
+  end if;
+  perform set_config('request.jwt.claims', '', true);
 
   perform set_config('request.jwt.claims', json_build_object('sub', pat::text, 'role', 'authenticated')::text, true);
   set local role authenticated;

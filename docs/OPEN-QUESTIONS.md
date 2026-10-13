@@ -1894,6 +1894,8 @@ following are recorded in the system:
 
 ### OQ-S04b2-2 Closing an account has no automated executor (raised by S04b-2)
 - After the grace period an admin reviews the request and marks it completed by hand (the existing workflow). Nothing yet removes the sign-in, contact details, preferences or device connections, withdraws the optional consents, or sets `profiles.is_active = false` (which is what lets a required consent be withdrawn under OQ-53). The patient-facing text lists what is removed and what is kept, so an executor must be built to match it, using the S39d registry classes (`operational` removable, everything else kept) and never touching clinical records, audit logs or ledger entries.
+- Constraint found in review: `patient_consents.patient_id` and `data_deletion_requests.patient_id` cascade from `profiles`, so the executor must DEACTIVATE the profile (`is_active = false`), never delete it, or the consent history and deletion record that the privacy page promises to keep would be deleted with it. Only `purge_test_account` removes profiles (test accounts).
+- Also decided in the migration, for you to confirm: a guardian can record a consent for a DEPENDANT account only with `manage` access (`private.can_act_for(uuid)`), because the caregiver permission enum has no consent permission and consent for a child is a guardian-level act, not a delegable one.
 - Options: (a) build a reviewed "close account" function the admin runs from the request, using the registry classes, with a proof (recommended, next session); (b) keep it manual and tracked by checklist.
 - Decision:
 

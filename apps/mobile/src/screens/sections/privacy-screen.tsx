@@ -58,6 +58,8 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
   const [consents, setConsents] = useState<ConsentRow[]>([]);
   const [devices, setDevices] = useState<ConnectedDevice[]>([]);
   const [receipts, setReceipts] = useState<ConsentReceiptRow[]>([]);
+  const [receiptsError, setReceiptsError] = useState<string | null>(null);
+  const [requestsError, setRequestsError] = useState<string | null>(null);
   const [exportRequests, setExportRequests] = useState<ExportRequestRow[]>([]);
   const [correctionRequests, setCorrectionRequests] = useState<DataRightsRequest[]>([]);
   const [deletionRequests, setDeletionRequests] = useState<DeletionRequestRow[]>([]);
@@ -68,9 +70,9 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
       loadConsentStatus(userId),
       loadConsentReceipts(userId),
       loadConnectedDevices(userId),
-      loadExportRequests(),
+      loadExportRequests(userId),
       loadCorrectionRequests(),
-      loadDeletionRequests(),
+      loadDeletionRequests(userId),
     ]);
     if (!consentResult.ok) {
       setLoadError(consentResult.error);
@@ -79,10 +81,15 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
     setLoadError(null);
     setConsents(consentResult.data);
     setReceipts(receiptResult.ok ? receiptResult.data : []);
+    setReceiptsError(receiptResult.ok ? null : "We could not load your consent receipts just now.");
+    // A failed load must never look like "no requests": the deletion card would hide a pending request and its cancel button.
+    setRequestsError(
+      exportList.ok && deletionList.ok ? null : "We could not load your data requests just now. Please try again before starting a new one.",
+    );
     setDevices(deviceList);
-    setExportRequests(exportList);
+    setExportRequests(exportList.ok ? exportList.data : []);
     setCorrectionRequests(correctionList);
-    setDeletionRequests(deletionList);
+    setDeletionRequests(deletionList.ok ? deletionList.data : []);
   }, [userId]);
 
   useEffect(() => {
@@ -146,7 +153,7 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
         )}
       </Card>
 
-      <ConsentReceiptsCard receipts={receipts} />
+      <ConsentReceiptsCard receipts={receipts} error={receiptsError} />
 
       <Card style={{ gap: 8 }}>
         <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Connected devices</Text>
@@ -183,9 +190,14 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
         </MutedText>
       </View>
 
-      <ExportRequestCard userId={userId} organisationId={organisationId} requests={exportRequests} onChanged={refresh} />
+      {requestsError && (
+        <Card>
+          <ErrorText>{requestsError}</ErrorText>
+        </Card>
+      )}
+      <ExportRequestCard userId={userId} organisationId={organisationId} requests={exportRequests} blocked={requestsError !== null} onChanged={refresh} />
       <CorrectionRequestCard userId={userId} organisationId={organisationId} requests={correctionRequests} onChanged={refresh} />
-      <DeletionRequestCard userId={userId} organisationId={organisationId} requests={deletionRequests} onChanged={refresh} />
+      <DeletionRequestCard userId={userId} organisationId={organisationId} requests={deletionRequests} blocked={requestsError !== null} onChanged={refresh} />
     </ScrollView>
   );
 }

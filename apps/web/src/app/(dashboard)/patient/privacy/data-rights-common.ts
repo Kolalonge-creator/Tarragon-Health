@@ -4,6 +4,10 @@ import type { BadgeProps } from "@/components/ui/badge";
  * `.message`, but the mutation's own `.error` is typed `unknown` by react-query. */
 export function mutationErrorMessage(error: unknown): string | null {
   if (!error) return null;
+  // A second open request (the database allows one open deletion request per person).
+  if (typeof error === "object" && "code" in error && (error as { code?: unknown }).code === "23505") {
+    return "You already have a request in progress. Refresh the page to see it.";
+  }
   if (error instanceof Error) return error.message;
   if (typeof error === "object" && error !== null && "message" in error) {
     const message = (error as { message?: unknown }).message;

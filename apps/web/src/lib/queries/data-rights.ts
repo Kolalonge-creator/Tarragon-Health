@@ -31,6 +31,7 @@ export function usePatientDeletionRequests(patientId: string) {
       const { data, error } = await supabase
         .from("data_deletion_requests")
         .select("*")
+        .eq("patient_id", patientId)
         .order("requested_at", { ascending: false });
       if (error) throw error;
       return data as DataDeletionRequest[];
@@ -79,6 +80,7 @@ export function usePatientCorrectionRequests(patientId: string) {
       const { data, error } = await supabase
         .from("data_correction_requests")
         .select("*")
+        .eq("patient_id", patientId)
         .order("requested_at", { ascending: false });
       if (error) throw error;
       return data as DataCorrectionRequest[];
@@ -131,6 +133,7 @@ export function usePatientExportRequests(patientId: string) {
       const { data, error } = await supabase
         .from("data_export_requests")
         .select("*")
+        .eq("patient_id", patientId)
         .order("requested_at", { ascending: false });
       if (error) throw error;
       return data as DataExportRequest[];

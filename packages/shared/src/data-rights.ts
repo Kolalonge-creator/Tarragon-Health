@@ -40,6 +40,7 @@ const CHANNEL_LABEL: Record<string, string> = {
 const WHO_LABEL: Record<string, string> = {
   self: "You",
   guardian: "A guardian on your behalf",
+  staff: "Our team on your behalf",
   system: "Our system",
 };
 

@@ -33,11 +33,14 @@ export function ExportRequestCard({
   userId,
   organisationId,
   requests,
+  blocked,
   onChanged,
 }: {
   userId: string;
   organisationId: string;
   requests: ExportRequestRow[];
+  /** True when the list of requests failed to load: starting a new one is disabled rather than shown against an empty list. */
+  blocked: boolean;
   onChanged: () => void;
 }) {
   const colors = useLegacyColors();
@@ -89,7 +92,7 @@ export function ExportRequestCard({
           </View>
         </>
       ) : (
-        <SecondaryButton title={hasOpen ? "Request in progress" : "Request my data"} onPress={() => setOpen(true)} disabled={hasOpen} />
+        <SecondaryButton title={hasOpen ? "Request in progress" : "Request my data"} onPress={() => setOpen(true)} disabled={hasOpen || blocked} />
       )}
       {requests.map((r) => {
         const view = exportRequestView({ status: r.status, requested_at: r.requestedAt, due_at: r.dueAt, fulfilled_at: r.fulfilledAt });
@@ -102,7 +105,7 @@ export function ExportRequestCard({
             <MutedText>{`Asked ${formatLagosDate(r.requestedAt)}. ${view.detail}`}</MutedText>
             {view.canDownload ? (
               <PrimaryButton
-                title="Open the download page"
+                title="Open the download page (sign in on the web)"
                 onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/privacy`)}
               />
             ) : null}
@@ -121,11 +124,14 @@ export function DeletionRequestCard({
   userId,
   organisationId,
   requests,
+  blocked,
   onChanged,
 }: {
   userId: string;
   organisationId: string;
   requests: DeletionRequestRow[];
+  /** True when the list of requests failed to load: a pending request and its cancel button could be hidden, so asking is disabled. */
+  blocked: boolean;
   onChanged: () => void;
 }) {
   const colors = useLegacyColors();
@@ -199,7 +205,7 @@ export function DeletionRequestCard({
           </View>
         </>
       ) : (
-        <SecondaryButton title={hasOpen ? "Request in progress" : "Close my account"} onPress={() => setOpen(true)} disabled={hasOpen} />
+        <SecondaryButton title={hasOpen ? "Request in progress" : "Close my account"} onPress={() => setOpen(true)} disabled={hasOpen || blocked} />
       )}
       {requests.map((r) => {
         const view = deletionRequestView({ status: r.status, requested_at: r.requestedAt, grace_ends_at: r.graceEndsAt });
