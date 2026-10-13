@@ -856,7 +856,10 @@ Deno.serve(async () => {
 
   for (const row of rows) {
     if (foldedIds.has(row.id)) continue;
-    if (settingsDegraded && row.channel !== "in_app" && row.priority !== "critical" && !isSafetyCritical(row.template)) {
+    // Only email and push depend on the privacy lookups (SMS, voice and in-app ignore quiet hours and discreet mode).
+    // An email also needs the template audience: if that lookup failed, a routine email waits rather than going out unsure.
+    const needsPrivacy = row.channel === "push" || row.channel === "email";
+    if ((settingsDegraded || (audienceError && row.channel === "email")) && needsPrivacy && row.priority !== "critical" && !isSafetyCritical(row.template)) {
       pushedBackIds.push(row.id); // pushed back five minutes after the loop, so it cannot sit at the front of every batch
       continue;
     }

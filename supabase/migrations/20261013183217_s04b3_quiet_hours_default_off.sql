@@ -73,6 +73,6 @@ grant execute on function public.set_my_notification_settings(boolean, time, tim
 do $do$
 begin
   if (select count(*) from public.notification_rules_config where is_active) <> 1 then raise exception 'S04b-3: not exactly one active rules row'; end if;
-  if (select (config -> 'quietHours' ->> 'enabled')::boolean from public.notification_rules_config where is_active) then raise exception 'S04b-3: quiet hours default must be off'; end if;
+  if coalesce((select (config -> 'quietHours' ->> 'enabled')::boolean from public.notification_rules_config where is_active), true) then raise exception 'S04b-3: quiet hours default must be off'; end if;
   if has_function_privilege('anon', 'public.set_my_notification_settings(boolean,time,time,boolean)', 'EXECUTE') then raise exception 'S04b-3: anon can execute the settings function'; end if;
 end $do$;
