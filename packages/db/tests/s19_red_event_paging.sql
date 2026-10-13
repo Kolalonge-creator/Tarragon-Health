@@ -354,6 +354,9 @@ begin
     if new.role = 'backup' and exists (select 1 from pg_temp.fx where label = 'poison' and id = new.patient_id) then raise exception 'poisoned page'; end if;
     return new;
   end $f$;
+  -- Take the strongest lock on pages FIRST. create trigger takes SHARE ROW EXCLUSIVE and drop trigger needs ACCESS EXCLUSIVE, so a background cron
+  -- sweep writing to pages in between could deadlock the upgrade (seen once on CI). Locking up front makes the sweep wait instead.
+  lock table public.pages in access exclusive mode;
   create trigger s19_poison before insert on public.pages for each row execute function public.s19_poison();
   e9 := pg_temp.red(pt9, v_rs_ok, 'red', false); v_root9 := public.create_red_page(e9);
   e10 := pg_temp.red(pt10, v_rs_ok, 'red', false); v_root10 := public.create_red_page(e10);
