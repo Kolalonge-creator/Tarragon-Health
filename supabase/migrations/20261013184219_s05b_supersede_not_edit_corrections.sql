@@ -227,6 +227,11 @@ begin
       end if;
     end loop;
 
+    if p_table = 'lab_analyte_readings' and p_replacement ?| array['reference_range_low', 'reference_range_high', 'reference_range_text']
+       and not (p_replacement ? 'range_source') then
+      raise exception 'a corrected lab range must also state its range_source (lab_report, guideline or cmo_signed_config)' using errcode = '22023';
+    end if;
+
     -- columns that identify, time-stamp or de-duplicate the original are not copied
     v_drop := array['id','created_at','updated_at','search_vector','supersedes_id','superseded_by_id','correction_status','correction_reason','corrected_by','corrected_at'];
     if p_table = 'vitals_readings' then
