@@ -207,6 +207,39 @@ D-02 to D-04 are not defined in the spec.
 ### S21, 2026-10-06
 - Plan accepted (OQ-124 to OQ-131): merge S18 first, new authoritative `encounters` table, link-based Zoom with a server-owned video to audio to phone ladder (the phone step is Zoom's own dial-in, decided 2026-10-06, replacing a bridge through a second vendor), full refund 2 hours or more before, per-consultation in-app consent, adults only, NGN 10,000 a consultation.
 
+
+### CMO decision pack S11 to S15, 2026-10-07
+Recorded as CMO decisions (not a database signature). Pack: `docs/plans/S11-S15-cmo-decision-pack.md`; plan: `docs/research/S11-S15-review-and-build-plan.md`. Evidence tags in the pack: only the Nigerian National Hypertension Guideline 2023 to 2028 was read in full text; other guideline numbers are search-summary level and must be checked against the primary documents before any rule set is signed.
+- Q1: keep the legacy BP alerts beside `bp_care_triage` v3 until the live canary and a window of real readings show parity, then retire them in one signed, count-first migration.
+- Q2: asymptomatic confirmed severe reading stays repeat then amber urgent review; red only with symptoms (v3 unchanged).
+- Q3: pregnancy and first 6 weeks postpartum: red on the first reading at 160/110 or more, repeat prompt in parallel (v3 unchanged).
+- Q4: wrist-cuff readings graded normally, with upper-arm repeat advice added to the repeat prompt; a red is never downgraded for cuff type.
+- Q5: low-BP line unchanged (symptom-led, red below 90 with symptoms, amber below 100).
+- Q6: adopt the three ADA hypoglycaemia levels in the new glucose rule set (below 3.0 red; 3.0 to 3.8 urgent with fast-sugar message; any value with confusion, seizure, unconscious or cannot swallow red). Treatment wording to be shown to the CMO in full before signing.
+- Q7: keep red at glucose 11.0 or more with ketones 3.0 or more (or urine moderate/large); add ketones 1.5 to 2.9 with vomiting, abdominal pain, fast breathing or drowsiness = red, otherwise urgent same-day review.
+- Q8: glucose 20.0 or more = urgent same-day; 20.0 or more with symptoms, or 33.3 or more = red.
+- Q9: glucose engine grades adults 18+ with type 1 or 2; pregnancy and under-18 route to a clinician as amber; the severe-hypo and suspected-DKA reds apply to everyone.
+- Q10: patient critical ladder ends at push, email and in-app, then a call by the on-call clinician; SMS stays for clinicians only (closes OQ-92, option b).
+- Q11: a red alert unconfirmed for 30 minutes escalates to clinician outreach (PROPOSED config value). Note: the recommendation was 10 minutes; the CMO chose 30, matching the obstetric treatment window. Revisit after the first real reds.
+- Q12: reds keep generic lock-screen and email wording; guidance appears only after opening the app.
+- Q13: the patient "I have sought care" response is recorded and shown to the on-call clinician; only a clinician acknowledgement stops paging.
+- Q14: every new clinician needs a recorded MDCN or DataFlow verification (reference stored) before first independent patient contact; the two existing clinicians get the same evidence recorded.
+- Q15: expiry notices (90/30/0) plus a mid-year MDCN spot re-check for every active clinician.
+- Q16: keep S20 sampling and add 100 percent review of a new clinician's first 20 prescribing or red cases, then taper. The 20 is a design choice, not a guideline figure.
+- Q17: patient-facing "Licence verified on <date>" only when a stored verification record exists; the folio number is never shown.
+- Q18: AI scribe needs explicit recorded consent each encounter; declining affects nothing.
+- Q19: no speech-to-text vendor until a 20 to 30 clip consented real-consult gold set is scored; thresholds set after seeing results; every drug name and number in a draft is highlighted for the signing clinician.
+- Next steps: new DRAFT versions only. Nothing is signed. `glucose_care_triage` v1 is drafted and shown to the CMO in full; BP v3 is unchanged. Open conflict to resolve with the founder: OQ-97 (2026-10-06) set the Paystack transfer OTP off with compensating limits, while the review plan suggested keeping it on until reconciliation and reversal handling exist.
+
+### Two-tier answers, 2026-10-08
+Founder decisions in chat after the process-map review. Full per-session effect: `docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md`.
+- Member price 120,000 naira a year individual, 100,000 naira per organisation member (volume tiers dropped, confirm flat). Code still seeds 100,000; not changed.
+- A red event on a Free patient does not page a doctor; guidance and emergency-contact notice only. Members still page.
+- Monthly follow-up: doctor posts several date/time options, patient picks one.
+- Annual panel includes HIV and hepatitis (founder wrote B; earlier notes said C, unconfirmed).
+- Individuals join platform-listed testing days with locations; employers get an on-site visit.
+- CMO update, same day: HIV and hepatitis tested yearly for every Member; Free red events never page a doctor and the patient is told no doctor was alerted because they are on Free; the 100,000 organisation price is borne by the organisation; doctors work 8 hours a day, 5 days a week. Detail in the amendments file.
+
 ### English only, 2026-10-06 (D-14, reverses D-13)
 - **D-14: the product is English only.** Nigerian Pidgin (`pcm`) was removed first, then the founder removed every other non-English language too (Yoruba `yo`, Hausa `ha`, Igbo `ig`). Both apps, the AI scribe, the patient explainer, the admin console, the notification-template locales and the database language constraints are English only. D-13 ("English and Pidgin") no longer holds.
 - **Why:** every non-English string was written by a build session and never reviewed by a native speaker or a clinician, which is an unreviewed clinical-translation risk. Live counts at the time: 0 non-English rows in every language column (12 profiles, all `en`), so no data was converted.
