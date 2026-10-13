@@ -23,6 +23,14 @@ export async function removeItem(key: string): Promise<void> {
   store.delete(key);
 }
 
+export async function getAllKeys(): Promise<string[]> {
+  return [...store.keys()];
+}
+
+export async function multiRemove(keys: readonly string[]): Promise<void> {
+  for (const k of keys) store.delete(k);
+}
+
 export function __failNextSet(): void {
   failNextSet = true;
 }
@@ -37,4 +45,4 @@ export function __reset(): void {
   failNextSet = false;
 }
 
-export default { getItem, setItem, removeItem };
+export default { getItem, setItem, removeItem, getAllKeys, multiRemove };

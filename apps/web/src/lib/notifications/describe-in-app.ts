@@ -1,3 +1,4 @@
+import { t, type MessageKey } from "@tarragon/i18n";
 /** The two fields the copy depends on. `InAppNotification` (lib/queries/notifications.ts) satisfies it, and keeping it
  * structural lets the INV-07 lint in packages/notifications render every case without loading the web app. */
 export interface InAppNotificationInput {
@@ -852,5 +853,20 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
       href: "/",
     };
   }
+  // Community notices (docs/COMMUNITY_SPEC.md section 7). The payload is empty by design (no group, handle or excerpt can reach a
+  // lock screen), so each line is fixed copy. The first three go to the member and open Community; the unmask notice goes to the CMO.
+  if (n.template === "community_reply") return communityNotice("community.notice.reply.title", "community.notice.reply.body", "/patient/community");
+  if (n.template === "community_reply_waiting") return communityNotice("community.notice.waiting.title", "community.notice.waiting.body", "/patient/community");
+  if (n.template === "community_post_removed") return communityNotice("community.notice.removed.title", "community.notice.removed.body", "/patient/community");
+  if (n.template === "community_sanction_notice") return communityNotice("community.notice.sanction.title", "community.notice.sanction.body", "/patient/community");
+  if (n.template === "community_unmask_notice") return communityNotice("community.notice.unmask.title", "community.notice.unmask.body", "/clinician");
+  if (n.template === "community_digest") return communityNotice("community.notice.digest.title", "community.notice.digest.body", "/patient/community");
+  if (n.template === "community_appeal_result") return communityNotice("community.notice.appeal.title", "community.notice.appeal.body", "/patient/community/appeals");
+  if (n.template === "community_qa_answer") return communityNotice("community.notice.qa.title", "community.notice.qa.body", "/patient/community");
+  if (n.template === "community_overdue") return communityNotice("community.notice.overdue.title", "community.notice.overdue.body", "/dashboard/care-coordinator/community");
   return { text: "You have an update", href: "/patient" };
+}
+
+function communityNotice(title: MessageKey, body: MessageKey, href: string): { text: string; href: string } {
+  return { text: `${t(title)}. ${t(body)}`, href };
 }
