@@ -92,4 +92,18 @@ describe("POST /api/mobile/vitals: offline device time", () => {
     expect(res.status).toBe(200);
     expect(assessHeartRateBestEffort).not.toHaveBeenCalled();
   });
+
+  it("R2: ketones typed with a glucose reading are stored on the same row, and a bad ketone value is refused", async () => {
+    const ok = await POST(request({ vital_type: "glucose", glucose_value: 14.2, glucose_unit: "mmol_l", glucose_context: "random", ketones_mmol_l: 2.1, ketone_urine: "moderate" }));
+    expect(ok.status).toBe(200);
+    const row = insert.mock.calls[0][0] as Record<string, unknown>;
+    expect(row).toMatchObject({ vital_type: "glucose", glucose_mmol_l: 14.2, ketones_mmol_l: 2.1, ketone_urine: "moderate" });
+    const plain = await POST(request({ vital_type: "glucose", glucose_value: 6.1, glucose_unit: "mmol_l", glucose_context: "fasting" }));
+    expect(plain.status).toBe(200);
+    const plainRow = insert.mock.calls[1][0] as Record<string, unknown>;
+    expect("ketones_mmol_l" in plainRow || "ketone_urine" in plainRow).toBe(false);
+    expect((await POST(request({ vital_type: "glucose", glucose_value: 6.1, glucose_unit: "mmol_l", glucose_context: "fasting", ketones_mmol_l: 21 }))).status).toBe(400);
+    expect((await POST(request({ vital_type: "glucose", glucose_value: 6.1, glucose_unit: "mmol_l", glucose_context: "fasting", ketone_urine: "huge" }))).status).toBe(400);
+    expect(insert).toHaveBeenCalledTimes(2);
+  });
 });

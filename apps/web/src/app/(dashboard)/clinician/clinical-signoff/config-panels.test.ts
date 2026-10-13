@@ -33,6 +33,15 @@ describe("sign-off hub inline panels", () => {
     expect(source).toContain("inlinePanels[PROPOSED_VALUES_ITEM_KEY] = <ProposedValuesPanel");
   });
 
+  it("opens the glucose triage rules inline on the hub, with the guideline basis, so they are never signed unseen (plan item R2)", () => {
+    expect(source).toContain("inlinePanels[GLUCOSE_TRIAGE_ITEM_KEY] = <GlucoseTriageRulesPanel");
+    const panel = readFileSync(join(__dirname, "../_signoff-panels/glucose-triage-rules-panel.tsx"), "utf8");
+    expect(panel).toContain("GLUCOSE_RULE_BASIS");
+    expect(panel).toContain("GLUCOSE_CITATIONS");
+    expect(panel).toContain("GLUCOSE_WORDING_DATA");
+    expect(panel).toContain('code="glucose_care_triage"');
+  });
+
   it("shows the S06 to S10 banner and opens the line a link points at", () => {
     expect(source).toContain("<S06S10Banner");
     expect(source).toContain("<OpenOnHash");

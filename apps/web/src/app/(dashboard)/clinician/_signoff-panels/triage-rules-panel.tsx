@@ -34,10 +34,10 @@ function dueText(minutes: number | null): string {
  * show the same thing. Access is gated by the page that renders it (both require canAssignCases); the database refuses anyone but the active
  * Chief Medical Officer at the sign step. back="hub" makes the form return to the sign-off hub instead of this rule set's own page.
  */
-export async function TriageRulesPanel({ back }: { back?: "hub" }) {
+export async function TriageRulesPanel({ back, code = "bp_care_triage", page }: { back?: "hub"; code?: "bp_care_triage" | "glucose_care_triage"; page?: "glucose" }) {
   const supabase = (await createClient()) as unknown as Reader;
 
-  const sets = await supabase.from("triage_rule_sets").select("id, code, version, status, approved_by, approved_at, note, rules").eq("code", "bp_care_triage").order("version", { ascending: false });
+  const sets = await supabase.from("triage_rule_sets").select("id, code, version, status, approved_by, approved_at, note, rules").eq("code", code).order("version", { ascending: false });
   const rows = sets.error ? null : z.array(ruleSetRowSchema).safeParse(sets.data);
   const unconfirmed = await supabase.from("task_types").select("code, needs_confirmation, confirmed_at").eq("is_active", true);
   const unconfirmedRows = unconfirmed.error ? null : z.array(z.object({ code: z.string(), needs_confirmation: z.boolean(), confirmed_at: z.string().nullable() })).safeParse(unconfirmed.data);
@@ -112,6 +112,7 @@ export async function TriageRulesPanel({ back }: { back?: "hub" }) {
                 <form action={approveRuleSetAction} className="space-y-3">
                   <input type="hidden" name="id" value={latest.id} />
                   {back ? <input type="hidden" name="back" value={back} /> : null}
+                  {page ? <input type="hidden" name="page" value={page} /> : null}
                   <label className="flex items-start gap-2 text-sm text-charcoal-ink">
                     <input type="checkbox" name="understood" className="mt-1" required />
                     <span>I have read every rule above and I approve this rule set for use with patients.</span>

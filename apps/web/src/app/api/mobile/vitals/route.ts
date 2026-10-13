@@ -157,6 +157,9 @@ export async function POST(request: Request): Promise<NextResponse> {
           glucose_mmol_l:
             reading.glucose_unit === "mg_dl" ? mgDlToMmolL(reading.glucose_value) : reading.glucose_value,
           note: reading.note ?? null,
+          // R2: ketones typed with the glucose ride on the same row, so the server grades what the phone graded.
+          ...(reading.ketones_mmol_l !== undefined ? { ketones_mmol_l: reading.ketones_mmol_l } : {}),
+          ...(reading.ketone_urine !== undefined ? { ketone_urine: reading.ketone_urine } : {}),
         }
       : {
           patient_id: subjectId,

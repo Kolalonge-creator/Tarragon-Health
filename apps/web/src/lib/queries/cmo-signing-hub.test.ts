@@ -21,6 +21,13 @@ const readPendingCommunitySignoff = jest.fn<(...args: unknown[]) => Promise<{ ru
 jest.mock("@/lib/queries/pending-community-signoff", () => ({
   readPendingCommunitySignoff: (...args: unknown[]) => readPendingCommunitySignoff(...args),
 }));
+type GlucosePending = { pending: boolean; version: number | null; approvedVersion: number | null; note: string | null; failed: boolean };
+const readPendingGlucoseTriageSignoff = jest.fn<(...args: unknown[]) => Promise<GlucosePending>>();
+jest.mock("@/lib/queries/pending-glucose-triage-signoff", () => ({
+  GLUCOSE_TRIAGE_ITEM_KEY: "glucose_triage_rule_set",
+  readPendingGlucoseTriageSignoff: (...args: unknown[]) => readPendingGlucoseTriageSignoff(...args),
+}));
+const noGlucose: GlucosePending = { pending: false, version: null, approvedVersion: null, note: null, failed: false };
 const noCommunity = { rulesUnsigned: false, groupsWaiting: 0, statementsWaiting: 0, attentionCount: 0, failed: false };
 jest.mock("@/lib/queries/pending-ai-governance-signoff", () => ({
   readPendingAiGovernanceSignoff: (...args: unknown[]) => readPendingAiGovernanceSignoff(...args),
@@ -49,6 +56,31 @@ beforeEach(() => {
   readPendingCommunitySignoff.mockResolvedValue(noCommunity);
   readS06S10Signoffs.mockReset();
   readS06S10Signoffs.mockResolvedValue(emptyS06S10);
+  readPendingGlucoseTriageSignoff.mockReset();
+  readPendingGlucoseTriageSignoff.mockResolvedValue(noGlucose);
+});
+
+describe("readCmoSigningHub: glucose triage rules (plan item R2)", () => {
+  it("lists a draft glucose rule set as a hub line under /clinician", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingGlucoseTriageSignoff.mockResolvedValue({ pending: true, version: 1, approvedVersion: null, note: null, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.items).toHaveLength(1);
+    expect(hub.items[0]).toMatchObject({ key: "glucose_triage_rule_set", href: "/clinician/glucose-triage-rules", severity: "draft_pending" });
+    expect(hub.items[0]?.detail).toMatch(/shadow only/);
+  });
+  it("says which version stays in force once one is approved", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingGlucoseTriageSignoff.mockResolvedValue({ pending: true, version: 2, approvedVersion: 1, note: null, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.items[0]?.detail).toMatch(/Version 1 stays in force/);
+  });
+  it("shows nothing when there is nothing to sign, and names a failed read instead of going quiet", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    expect((await readCmoSigningHub(supabase)).items).toEqual([]);
+    readPendingGlucoseTriageSignoff.mockResolvedValue({ pending: false, version: null, approvedVersion: null, note: null, failed: true });
+    expect(await readCmoSigningHub(supabase)).toMatchObject({ failed: true, failedSources: ["the glucose triage rules"] });
+  });
 });
 
 describe("readCmoSigningHub: S06 to S10 items", () => {

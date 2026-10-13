@@ -1,0 +1,1577 @@
+{
+ "ruleSet": {
+  "code": "glucose_care_triage",
+  "version": 1
+ },
+ "description": "Clinical safety cases for the glucose triage engine (plan item R2, CMO decisions Q6 to Q9). Expectations are written by hand from the decisions, never generated from the engine. The same file is run on the server (packages/clinical) and on the device (apps/mobile); both must produce exactly these results. 2026-10-13T09:00:00.000Z is 10:00 in Lagos.",
+ "cases": [
+  {
+   "id": "SG-01",
+   "title": "2.8 mmol/L is red level 2 hypoglycaemia with guidance and a page",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 2.8,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": []
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "GL-R1",
+    "explanationKey": "GLU-E01",
+    "actions": [
+     "show_emergency_guidance:GLU-E01",
+     "page_on_call"
+    ]
+   },
+   "safetyCase": 1
+  },
+  {
+   "id": "SG-02",
+   "title": "2.99 is still under 3.0 and red",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 2.99,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": []
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "GL-R1",
+    "explanationKey": "GLU-E01",
+    "actions": [
+     "show_emergency_guidance:GLU-E01",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SG-03",
+   "title": "severe hypoglycaemia is red for a pregnant patient",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 2.9,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": []
+    },
+    "diabetesType": "type_2",
+    "pregnant": true,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "GL-R1",
+    "explanationKey": "GLU-E01",
+    "actions": [
+     "show_emergency_guidance:GLU-E01",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SG-04",
+   "title": "severe hypoglycaemia is red for a child",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 2.9,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": []
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 12,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "GL-R1",
+    "explanationKey": "GLU-E01",
+    "actions": [
+     "show_emergency_guidance:GLU-E01",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SG-05",
+   "title": "a night reading of 2.5 on type 1 is red",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 2.5,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "night"
+     },
+     "symptoms": []
+    },
+    "diabetesType": "type_1",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "GL-R1",
+    "explanationKey": "GLU-E01",
+    "actions": [
+     "show_emergency_guidance:GLU-E01",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SG-06",
+   "title": "3.5 with confusion is red level 3",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 3.5,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": [
+      "confusion"
+     ]
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "GL-R2",
+    "explanationKey": "GLU-E01",
+    "actions": [
+     "show_emergency_guidance:GLU-E01",
+     "page_on_call"
+    ]
+   },
+   "safetyCase": 2
+  },
+  {
+   "id": "SG-07",
+   "title": "3.5 with a seizure on type 1 is red level 3",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 3.5,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": [
+      "seizure"
+     ]
+    },
+    "diabetesType": "type_1",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "GL-R2",
+    "explanationKey": "GLU-E01",
+    "actions": [
+     "show_emergency_guidance:GLU-E01",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SG-08",
+   "title": "6.0 with unconsciousness is red whatever the glucose",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 6.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": [
+      "unconscious"
+     ]
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "GL-R3",
+    "explanationKey": "GLU-E02",
+    "actions": [
+     "show_emergency_guidance:GLU-E02",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SG-09",
+   "title": "9.0 and cannot swallow is red",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 9.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": [
+      "cannot_swallow"
+     ]
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "GL-R3",
+    "explanationKey": "GLU-E02",
+    "actions": [
+     "show_emergency_guidance:GLU-E02",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SG-10",
+   "title": "3.0 is the lower edge of level 1: treat now with fast sugar",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 3.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": []
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "amber",
+    "ruleId": "GL-A1",
+    "explanationKey": "GLU-T01",
+    "actions": [
+     "show_message:GLU-T01"
+    ]
+   },
+   "safetyCase": 3
+  },
+  {
+   "id": "SG-11",
+   "title": "3.8 is the upper edge of level 1",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 3.8,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": []
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "amber",
+    "ruleId": "GL-A1",
+    "explanationKey": "GLU-T01",
+    "actions": [
+     "show_message:GLU-T01"
+    ]
+   }
+  },
+  {
+   "id": "SG-12",
+   "title": "3.9 is not low: reading saved",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 3.9,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": []
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "green",
+    "ruleId": "GL-G1",
+    "explanationKey": "GLU-T05",
+    "actions": [
+     "show_message:GLU-T05"
+    ]
+   }
+  },
+  {
+   "id": "SG-13",
+   "title": "a pregnant patient at 3.5 gets the treat-now message and is routed to a clinician",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 3.5,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": []
+    },
+    "diabetesType": "type_2",
+    "pregnant": true,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "amber",
+    "ruleId": "GL-A1P",
+    "explanationKey": "GLU-T01",
+    "actions": [
+     "show_message:GLU-T01",
+     "route_referral:population",
+     "create_task:referral_review"
+    ],
+    "taskKey": "GL-A1P:2026-W42",
+    "dueMinutes": 1440
+   }
+  },
+  {
+   "id": "SG-14",
+   "title": "11.0 with blood ketones 3.0 is suspected DKA, red",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 11.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": [],
+     "ketones": {
+      "bloodMmol": 3.0
+     }
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "GL-R4",
+    "explanationKey": "GLU-E02",
+    "actions": [
+     "show_emergency_guidance:GLU-E02",
+     "page_on_call"
+    ]
+   },
+   "safetyCase": 4
+  },
+  {
+   "id": "SG-15",
+   "title": "11.0 with large urine ketones is suspected DKA, red",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 11.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": [],
+     "ketones": {
+      "urine": "large"
+     }
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "GL-R4",
+    "explanationKey": "GLU-E02",
+    "actions": [
+     "show_emergency_guidance:GLU-E02",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SG-16",
+   "title": "suspected DKA is red for a child",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 12.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": [],
+     "ketones": {
+      "bloodMmol": 3.5
+     }
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 12,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "GL-R4",
+    "explanationKey": "GLU-E02",
+    "actions": [
+     "show_emergency_guidance:GLU-E02",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SG-17",
+   "title": "suspected DKA is red for a pregnant patient",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 13.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": [],
+     "ketones": {
+      "urine": "moderate"
+     }
+    },
+    "diabetesType": "type_2",
+    "pregnant": true,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "GL-R4",
+    "explanationKey": "GLU-E02",
+    "actions": [
+     "show_emergency_guidance:GLU-E02",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SG-18",
+   "title": "10.9 with ketones 3.0 and no symptoms is urgent same-day review, not red",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 10.9,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": [],
+     "ketones": {
+      "bloodMmol": 3.0
+     }
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "amber",
+    "ruleId": "GL-A2",
+    "explanationKey": "GLU-T02",
+    "actions": [
+     "show_message:GLU-T02",
+     "create_task:urgent_glucose_review"
+    ],
+    "taskKey": "GL-A2:2026-10-13T09:00:00.000Z",
+    "dueMinutes": 480
+   }
+  },
+  {
+   "id": "SG-19",
+   "title": "12.0 with ketones 2.9 and vomiting is red",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 12.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": [
+      "vomiting"
+     ],
+     "ketones": {
+      "bloodMmol": 2.9
+     }
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "GL-R5",
+    "explanationKey": "GLU-E02",
+    "actions": [
+     "show_emergency_guidance:GLU-E02",
+     "page_on_call"
+    ]
+   },
+   "safetyCase": 5
+  },
+  {
+   "id": "SG-20",
+   "title": "8.0 with ketones 1.5 and drowsiness is red even with near normal glucose",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 8.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": [
+      "drowsiness"
+     ],
+     "ketones": {
+      "bloodMmol": 1.5
+     }
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "GL-R5",
+    "explanationKey": "GLU-E02",
+    "actions": [
+     "show_emergency_guidance:GLU-E02",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SG-21",
+   "title": "ketones 1.5 with abdominal pain is red",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 8.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": [
+      "abdominal_pain"
+     ],
+     "ketones": {
+      "bloodMmol": 1.5
+     }
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "GL-R5",
+    "explanationKey": "GLU-E02",
+    "actions": [
+     "show_emergency_guidance:GLU-E02",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SG-22",
+   "title": "ketones 2.0 with fast breathing is red",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 8.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": [
+      "fast_breathing"
+     ],
+     "ketones": {
+      "bloodMmol": 2.0
+     }
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "GL-R5",
+    "explanationKey": "GLU-E02",
+    "actions": [
+     "show_emergency_guidance:GLU-E02",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SG-23",
+   "title": "12.0 with ketones 1.5 and no symptoms is urgent same-day review",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 12.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": [],
+     "ketones": {
+      "bloodMmol": 1.5
+     }
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "amber",
+    "ruleId": "GL-A2",
+    "explanationKey": "GLU-T02",
+    "actions": [
+     "show_message:GLU-T02",
+     "create_task:urgent_glucose_review"
+    ],
+    "taskKey": "GL-A2:2026-10-13T09:00:00.000Z",
+    "dueMinutes": 480
+   }
+  },
+  {
+   "id": "SG-24",
+   "title": "urine ketones moderate with no symptoms is urgent same-day review",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 9.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": [],
+     "ketones": {
+      "urine": "moderate"
+     }
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "amber",
+    "ruleId": "GL-A2",
+    "explanationKey": "GLU-T02",
+    "actions": [
+     "show_message:GLU-T02",
+     "create_task:urgent_glucose_review"
+    ],
+    "taskKey": "GL-A2:2026-10-13T09:00:00.000Z",
+    "dueMinutes": 480
+   }
+  },
+  {
+   "id": "SG-25",
+   "title": "urine ketones small is not raised",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 9.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": [],
+     "ketones": {
+      "urine": "small"
+     }
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "green",
+    "ruleId": "GL-G1",
+    "explanationKey": "GLU-T05",
+    "actions": [
+     "show_message:GLU-T05"
+    ]
+   }
+  },
+  {
+   "id": "SG-26",
+   "title": "12.0 with ketones 1.4 is under the raised line",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 12.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": [],
+     "ketones": {
+      "bloodMmol": 1.4
+     }
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "green",
+    "ruleId": "GL-G1",
+    "explanationKey": "GLU-T05",
+    "actions": [
+     "show_message:GLU-T05"
+    ]
+   }
+  },
+  {
+   "id": "SG-27",
+   "title": "20.0 with no symptoms is urgent same-day review",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 20.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": []
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "amber",
+    "ruleId": "GL-A3",
+    "explanationKey": "GLU-T03",
+    "actions": [
+     "show_message:GLU-T03",
+     "create_task:urgent_glucose_review"
+    ],
+    "taskKey": "GL-A3:2026-10-13T09:00:00.000Z",
+    "dueMinutes": 480
+   },
+   "safetyCase": 6
+  },
+  {
+   "id": "SG-28",
+   "title": "19.9 is not urgent",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 19.9,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": []
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "green",
+    "ruleId": "GL-G1",
+    "explanationKey": "GLU-T05",
+    "actions": [
+     "show_message:GLU-T05"
+    ]
+   }
+  },
+  {
+   "id": "SG-29",
+   "title": "20.0 with vomiting is red",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 20.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": [
+      "vomiting"
+     ]
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "GL-R7",
+    "explanationKey": "GLU-E02",
+    "actions": [
+     "show_emergency_guidance:GLU-E02",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SG-30",
+   "title": "25.0 very thirsty and cannot keep fluids is red",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 25.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": [
+      "very_thirsty_cannot_keep_fluids"
+     ]
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "GL-R7",
+    "explanationKey": "GLU-E02",
+    "actions": [
+     "show_emergency_guidance:GLU-E02",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SG-31",
+   "title": "33.3 is red with no symptoms",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 33.3,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": []
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "GL-R6",
+    "explanationKey": "GLU-E02",
+    "actions": [
+     "show_emergency_guidance:GLU-E02",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SG-32",
+   "title": "33.2 is urgent but not red without symptoms",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 33.2,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": []
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "amber",
+    "ruleId": "GL-A3",
+    "explanationKey": "GLU-T03",
+    "actions": [
+     "show_message:GLU-T03",
+     "create_task:urgent_glucose_review"
+    ],
+    "taskKey": "GL-A3:2026-10-13T09:00:00.000Z",
+    "dueMinutes": 480
+   }
+  },
+  {
+   "id": "SG-33",
+   "title": "a pregnant patient at 7.0 is routed to a clinician",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 7.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": []
+    },
+    "diabetesType": "type_2",
+    "pregnant": true,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "amber",
+    "ruleId": "GL-P1",
+    "explanationKey": "GLU-T04",
+    "actions": [
+     "route_referral:pregnancy",
+     "create_task:referral_review"
+    ],
+    "taskKey": "GL-P1:2026-W42",
+    "dueMinutes": 1440
+   },
+   "safetyCase": 7
+  },
+  {
+   "id": "SG-34",
+   "title": "a 16 year old at 6.0 is routed to a clinician",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 6.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": []
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 16,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "amber",
+    "ruleId": "GL-P2",
+    "explanationKey": "GLU-T04",
+    "actions": [
+     "route_referral:age",
+     "create_task:referral_review"
+    ],
+    "taskKey": "GL-P2:2026-W42",
+    "dueMinutes": 1440
+   }
+  },
+  {
+   "id": "SG-35",
+   "title": "gestational diabetes is routed to a clinician",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 6.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": []
+    },
+    "diabetesType": "gestational",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "amber",
+    "ruleId": "GL-P3",
+    "explanationKey": "GLU-T04",
+    "actions": [
+     "route_referral:diabetes_type",
+     "create_task:referral_review"
+    ],
+    "taskKey": "GL-P3:2026-W42",
+    "dueMinutes": 1440
+   }
+  },
+  {
+   "id": "SG-36",
+   "title": "other diabetes at 25.0 gets the urgent line first (rule order)",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 25.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": []
+    },
+    "diabetesType": "other",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "amber",
+    "ruleId": "GL-A3",
+    "explanationKey": "GLU-T03",
+    "actions": [
+     "show_message:GLU-T03",
+     "create_task:urgent_glucose_review"
+    ],
+    "taskKey": "GL-A3:2026-10-13T09:00:00.000Z",
+    "dueMinutes": 480
+   }
+  },
+  {
+   "id": "SG-37",
+   "title": "very high with vomiting is red for a pregnant patient",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 25.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": [
+      "vomiting"
+     ]
+    },
+    "diabetesType": "type_2",
+    "pregnant": true,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "GL-R7",
+    "explanationKey": "GLU-E02",
+    "actions": [
+     "show_emergency_guidance:GLU-E02",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SG-38",
+   "title": "no diabetes type recorded is graded on adult bands",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 6.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": []
+    },
+    "diabetesType": null,
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "green",
+    "ruleId": "GL-G1",
+    "explanationKey": "GLU-T05",
+    "actions": [
+     "show_message:GLU-T05"
+    ]
+   }
+  },
+  {
+   "id": "SG-39",
+   "title": "age unknown is graded on adult bands",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 6.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": []
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": null,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "green",
+    "ruleId": "GL-G1",
+    "explanationKey": "GLU-T05",
+    "actions": [
+     "show_message:GLU-T05"
+    ]
+   }
+  },
+  {
+   "id": "SG-40",
+   "title": "a post-meal context does not change the grade",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 8.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "post_meal"
+     },
+     "symptoms": []
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "green",
+    "ruleId": "GL-G1",
+    "explanationKey": "GLU-T05",
+    "actions": [
+     "show_message:GLU-T05"
+    ]
+   }
+  },
+  {
+   "id": "SG-41",
+   "title": "a repeat of an open urgent task is not created again",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 20.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": []
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z",
+    "existingOpenTaskKeys": [
+     "GL-A3:2026-10-13T09:00:00.000Z"
+    ]
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "amber",
+    "ruleId": "GL-A3",
+    "explanationKey": "GLU-T03",
+    "actions": [
+     "show_message:GLU-T03"
+    ],
+    "taskKey": "GL-A3:2026-10-13T09:00:00.000Z",
+    "duplicateSuppressed": true
+   }
+  },
+  {
+   "id": "SG-42",
+   "title": "0.4 is implausible and never graded",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 0.4,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": []
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "rejected",
+    "reason": "implausible_reading",
+    "explanationKey": "GLU-T06"
+   }
+  },
+  {
+   "id": "SG-43",
+   "title": "70.0 is implausible and never graded",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 70.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": []
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "rejected",
+    "reason": "implausible_reading",
+    "explanationKey": "GLU-T06"
+   }
+  },
+  {
+   "id": "SG-44",
+   "title": "an implausible reading with a seizure still shows guidance",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 0.4,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": [
+      "seizure"
+     ]
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "rejected",
+    "reason": "implausible_reading",
+    "explanationKey": "GLU-T06",
+    "redFlagSymptomPresent": true,
+    "actions": [
+     "show_emergency_guidance:GLU-E02"
+    ]
+   }
+  },
+  {
+   "id": "SG-45",
+   "title": "a blood ketone above the meter range is read as the top of the range, so 12.0 with 25.0 is suspected DKA",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 12.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": [],
+     "ketones": {
+      "bloodMmol": 25.0
+     }
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "GL-R4",
+    "explanationKey": "GLU-E02",
+    "actions": [
+     "show_emergency_guidance:GLU-E02",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SG-46",
+   "title": "a nonsense ketone value never vetoes the grading of a severe low: 2.4 with ketones 25.0 is red GL-R1",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 2.4,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": [],
+     "ketones": {
+      "bloodMmol": 25.0
+     }
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "GL-R1",
+    "explanationKey": "GLU-E01",
+    "actions": [
+     "show_emergency_guidance:GLU-E01",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SG-47",
+   "title": "a negative ketone value is read as none: 6.0 stays green",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 6.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": [],
+     "ketones": {
+      "bloodMmol": -1.0
+     }
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "green",
+    "ruleId": "GL-G1",
+    "explanationKey": "GLU-T05",
+    "actions": [
+     "show_message:GLU-T05"
+    ]
+   }
+  },
+  {
+   "id": "SG-48",
+   "title": "1.0 mmol/L (18 mg/dL), the lowest value either entry form accepts, is red",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 1.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": []
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "GL-R1",
+    "explanationKey": "GLU-E01",
+    "actions": [
+     "show_emergency_guidance:GLU-E01",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SG-49",
+   "title": "0.5 mmol/L is still graded and red",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 0.5,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": []
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "GL-R1",
+    "explanationKey": "GLU-E01",
+    "actions": [
+     "show_emergency_guidance:GLU-E01",
+     "page_on_call"
+    ]
+   }
+  },
+  {
+   "id": "SG-50",
+   "title": "a 16 year old at 3.5 gets the treat-now message and is routed to a clinician",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 3.5,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": []
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 16,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "amber",
+    "ruleId": "GL-A1P",
+    "explanationKey": "GLU-T01",
+    "actions": [
+     "show_message:GLU-T01",
+     "route_referral:population",
+     "create_task:referral_review"
+    ],
+    "taskKey": "GL-A1P:2026-W42",
+    "dueMinutes": 1440
+   }
+  },
+  {
+   "id": "SG-51",
+   "title": "gestational diabetes at 3.5 gets the treat-now message and is routed to a clinician",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 3.5,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": []
+    },
+    "diabetesType": "gestational",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "amber",
+    "ruleId": "GL-A1P",
+    "explanationKey": "GLU-T01",
+    "actions": [
+     "show_message:GLU-T01",
+     "route_referral:population",
+     "create_task:referral_review"
+    ],
+    "taskKey": "GL-A1P:2026-W42",
+    "dueMinutes": 1440
+   }
+  }
+ ]
+}
