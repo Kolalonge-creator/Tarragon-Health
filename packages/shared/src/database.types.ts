@@ -24760,14 +24760,70 @@ export type Database = {
           },
         ]
       }
+      offline_device_leases: {
+        Row: {
+          account_id: string
+          danger_at_wipe: number | null
+          device_id: string
+          last_checkin_at: string
+          lease_expires_at: string
+          organisation_id: string
+          platform: string
+          registered_at: string
+          retired_at: string | null
+          revoke_reason: string | null
+          revoked_at: string | null
+          revoked_by: string | null
+          unsent_at_wipe: number | null
+          wipe_confirmed_at: string | null
+          wipe_reason: string | null
+        }
+        Insert: {
+          account_id: string
+          danger_at_wipe?: number | null
+          device_id: string
+          last_checkin_at?: string
+          lease_expires_at: string
+          organisation_id: string
+          platform: string
+          registered_at?: string
+          retired_at?: string | null
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          unsent_at_wipe?: number | null
+          wipe_confirmed_at?: string | null
+          wipe_reason?: string | null
+        }
+        Update: {
+          account_id?: string
+          danger_at_wipe?: number | null
+          device_id?: string
+          last_checkin_at?: string
+          lease_expires_at?: string
+          organisation_id?: string
+          platform?: string
+          registered_at?: string
+          retired_at?: string | null
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          unsent_at_wipe?: number | null
+          wipe_confirmed_at?: string | null
+          wipe_reason?: string | null
+        }
+        Relationships: []
+      }
       offline_sync_config: {
         Row: {
           backdate_window_hours: number
           created_at: string
+          device_lease_days: number
           future_skew_minutes: number
           is_active: boolean
           note: string | null
           pull_overlap_minutes: number
+          rejection_report_daily_cap: number
           stuck_notice_danger_hours: number
           stuck_notice_hours: number
           version: number
@@ -24775,10 +24831,12 @@ export type Database = {
         Insert: {
           backdate_window_hours: number
           created_at?: string
+          device_lease_days?: number
           future_skew_minutes: number
           is_active?: boolean
           note?: string | null
           pull_overlap_minutes: number
+          rejection_report_daily_cap?: number
           stuck_notice_danger_hours: number
           stuck_notice_hours: number
           version: number
@@ -24786,13 +24844,51 @@ export type Database = {
         Update: {
           backdate_window_hours?: number
           created_at?: string
+          device_lease_days?: number
           future_skew_minutes?: number
           is_active?: boolean
           note?: string | null
           pull_overlap_minutes?: number
+          rejection_report_daily_cap?: number
           stuck_notice_danger_hours?: number
           stuck_notice_hours?: number
           version?: number
+        }
+        Relationships: []
+      }
+      offline_sync_rejections: {
+        Row: {
+          account_id: string
+          client_id: string
+          created_at: string
+          http_status: number | null
+          id: string
+          kind: string
+          organisation_id: string
+          reason_code: string
+          support_code: string
+        }
+        Insert: {
+          account_id: string
+          client_id: string
+          created_at?: string
+          http_status?: number | null
+          id?: string
+          kind: string
+          organisation_id: string
+          reason_code: string
+          support_code: string
+        }
+        Update: {
+          account_id?: string
+          client_id?: string
+          created_at?: string
+          http_status?: number | null
+          id?: string
+          kind?: string
+          organisation_id?: string
+          reason_code?: string
+          support_code?: string
         }
         Relationships: []
       }
@@ -43797,6 +43893,21 @@ export type Database = {
       };
       queue_next: { Args: { p_types?: string[] }; Returns: Json };
       queue_summary: { Args: Record<PropertyKey, never>; Returns: Json };
+      confirm_offline_device_wipe: { Args: { p_danger?: number; p_device: string; p_reason?: string; p_unsent: number }; Returns: boolean }
+      offline_device_checkin: { Args: { p_device: string; p_platform: string }; Returns: Json }
+      read_offline_sync_rejections: {
+        Args: { p_account?: string; p_days?: number }
+        Returns: {
+          account_id: string
+          created_at: string
+          http_status: number
+          id: string
+          kind: string
+          reason_code: string
+          support_code: string
+        }[]
+      }
+      request_offline_device_wipe: { Args: { p_device: string; p_reason?: string }; Returns: boolean }
       read_medication_dose_log_audited: {
         Args: { p_patient: string; p_reason: string }
         Returns: Json
