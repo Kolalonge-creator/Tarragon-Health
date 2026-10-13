@@ -280,8 +280,10 @@ end;
 $$;
 revoke all on function public.correct_clinical_value(text, uuid, public.correction_status, text, jsonb) from public;
 revoke all on function public.correct_clinical_value(text, uuid, public.correction_status, text, jsonb) from anon, authenticated;
--- NOT yet executable by signed-in users: no read path hides a superseded or entered_in_error row yet (S05b-c). The service role (a server
--- action acting for a verified user) can call it; S05b-c adds the read filters and then grants authenticated in its own migration.
+-- NOT yet executable by signed-in users: no read path hides a superseded or entered_in_error row yet (S05b-c). The service role is granted
+-- only so the proof can exercise it with a simulated user session (it reads auth.uid(), which is null for a plain service-role client, so it
+-- refuses that client). S05b-c adds the read filters and then grants authenticated in its own migration. Before that grant, the patient guard
+-- must also refuse a reading that raised an alert, escalation or triage event (it checks only validated_by today).
 grant execute on function public.correct_clinical_value(text, uuid, public.correction_status, text, jsonb) to service_role;
 
 -- 4. The patient's own wearable data erasure stays possible (it is a deliberate patient control, not a clinician deleting a relied-on value).

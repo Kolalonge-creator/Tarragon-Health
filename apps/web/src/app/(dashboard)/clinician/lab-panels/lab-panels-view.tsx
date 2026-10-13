@@ -39,7 +39,7 @@ export function LabPanelsView({ signoff, panels, canSign }: { signoff: LabSignof
             <CardTitle className="text-base">{PANEL_LABEL[p.panel_code as PanelCode] ?? p.panel_code} (version {p.version})</CardTitle>
             <p className="text-xs text-charcoal-ink/70">
               {signed
-                ? `Range source: lab panel ${p.panel_code.replace(/_/g, " ")} version ${p.version}. Chief Medical Officer sign-off version ${signoff!.version}, signed ${new Date(signoff!.approved_at!).toLocaleDateString("en-NG")}. It covers panel versions created before that date; a newer version needs a new signature before its ranges are shown as signed.`
+                ? `Range source: lab panel ${p.panel_code.replace(/_/g, " ")} version ${p.version}. The latest Chief Medical Officer signature is sign-off version ${signoff!.version}, ${new Date(signoff!.approved_at!).toLocaleDateString("en-NG")}; results show these ranges as signed only for panel versions created before that date.`
                 : "Ranges are proposed and not yet signed by the Chief Medical Officer. They are not shown to patients as clinical ranges."}
             </p>
           </CardHeader>
