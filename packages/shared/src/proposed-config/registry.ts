@@ -2436,7 +2436,8 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // My Health completion (S09x). Live values are the active row of `my_health_config`.config (sharing, access_log); my-health-mirror.test.ts fails if the
     // migration seed and this value drift. PROPOSED: the default share expiry (12 hours, shorter than the 24 the first share screen used; the 30 day cap is
     // unchanged), the PIN length, how many wrong PINs lock a share, how many from one client in a window, and the one-session window. show_staff_opens is
-    // held at false on purpose: founder direction 2026-10-07 is that a patient is not told about routine staff openings, pending counsel (OQ-281).
+    // INERT since S09x2 (founder decision 2026-10-13): my_access_log() no longer reads it and always shows a routine staff opening as name and role only.
+    // It stays false in the signed v1 row because changing it needs a new CMO-signed version, which an agent never produces.
     value: {
       sharing: {
         default_expiry_hours: 12,

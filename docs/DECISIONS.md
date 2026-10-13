@@ -310,3 +310,9 @@ Full text, options and guideline basis: `docs/plans/S06-S10-decisions-and-cmo-si
 | D7 white-coat / masked flag | Yes, clinician-only, behind a guard |
 | D8 test devices | Founder supplies two Android floor phones and one iPhone |
 | D9 counsel on NDPA basis for emergency card and access logs | Instruct now |
+
+## S09x2 access log shows staff identity (2026-10-13)
+
+| Decision | Chosen |
+|---|---|
+| OQ-S09x-1 (extends OQ-281): may a patient see that staff opened their record | Yes, name and role plus time only. No reason, no basis, no category detail (reproductive_health included), no contact details, no IP or device. Break-glass and emergency access stay shown, with the role. |
