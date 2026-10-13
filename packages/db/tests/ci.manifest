@@ -969,3 +969,5 @@ sr2_scribe_consents_insert_policy_initplan.sql
 # directions and carry sabotage steps that flip.
 s03b_account_recovery_routes.sql
 s03b_eligibility_first_claims.sql
+# S06x: offline_sync_rejections (patient inserts and reads own, one row per entry, no health value column, admin reads only through the audited function) and offline_device_leases (check-in, owner or same-organisation admin revokes, revoked check-in does not extend the lease, wipe confirmation stores a count only, anon refused). Sabotage: the insert policy loosened to any account; a check-in that extends a revoked lease. Both must flip.
+s06x_offline_trust.sql
