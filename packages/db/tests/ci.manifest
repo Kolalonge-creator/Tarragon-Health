@@ -963,3 +963,5 @@ sr2_stagger_cron_start_times.sql
 # SR2: scribe_consents_insert_clinical keeps its S39g tie rule and active-clinician check, and wraps auth.uid() in a select so it is evaluated once per statement; one insert policy for authenticated. Sabotage: the policy put back on a bare auth.uid(); the wrapper check must flip. Behaviour is proven by s21g and s39g.
 sr2_scribe_consents_insert_policy_initplan.sql
 s04b1_adult_registration_dependants_proxy.sql
+# S04b-1 standing proof: every patient_id table is guarded or listed, so a later PR cannot bypass the under-18 scope guard.
+minor_dependant_table_policy_complete.sql

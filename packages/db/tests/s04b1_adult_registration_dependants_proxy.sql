@@ -189,12 +189,7 @@ begin
       raise exception 'FAIL 2f: allowed table % is guarded', tname;
     end if;
   end loop;
-  -- completeness is reported, not enforced here: a patient_id table added later must be classified
-  select count(*) into n from information_schema.columns c join information_schema.tables t using (table_schema, table_name)
-   where c.table_schema = 'public' and t.table_type = 'BASE TABLE' and c.column_name = 'patient_id'
-     and not exists (select 1 from pg_trigger g where g.tgrelid = format('public.%I', c.table_name)::regclass and g.tgname = '00_minor_dependant_scope' and not g.tgisinternal)
-     and not exists (select 1 from public.minor_dependant_table_policy p where p.table_name = c.table_name);
-  if n > 0 then raise warning 'S04b-1: % patient_id table(s) are neither guarded nor listed in minor_dependant_table_policy', n; end if;
+  -- completeness (every patient_id table classified) is the standing proof minor_dependant_table_policy_complete.sql
 
   -- the child's growth data, once the child is 18, is no longer restricted (the scope is an under-18 rule)
   -- (covered by is_minor_dependant: date_of_birth <= 18 years ago is not a minor)

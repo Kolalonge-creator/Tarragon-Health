@@ -188,7 +188,7 @@ comment on function private.guard_minor_dependant_scope() is
 -- The registry is a table so the proof (and a reviewer) can read exactly what is allowed and what is exempt.
 create table if not exists public.minor_dependant_table_policy (
   table_name text primary key,
-  policy     text not null check (policy in ('allowed', 'exempt')),
+  policy     text not null check (policy in ('allowed', 'exempt', 'guarded')),
   reason     text not null
 );
 alter table public.minor_dependant_table_policy enable row level security;
@@ -239,6 +239,28 @@ insert into public.minor_dependant_table_policy (table_name, policy, reason) val
   ('lead_assignments', 'exempt', 'marketing bookkeeping')
 on conflict (table_name) do nothing;
 
+-- The one way to guard a table: installs the trigger and records the table as guarded. A migration that adds a table
+-- with a patient_id column must either call this or add an allowed/exempt row to minor_dependant_table_policy; the
+-- standing proof (packages/db/tests/minor_dependant_table_policy_complete.sql) fails otherwise.
+create or replace function private.guard_minor_dependant_table(p_table text, p_column text default 'patient_id')
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  execute format('drop trigger if exists "00_minor_dependant_scope" on public.%I', p_table);
+  execute format(
+    'create trigger "00_minor_dependant_scope" before insert or update of %I on public.%I
+       for each row execute function private.guard_minor_dependant_scope(%L)',
+    p_column, p_table, p_column);
+  insert into public.minor_dependant_table_policy (table_name, policy, reason)
+  values (p_table, 'guarded', 'clinical or personal data: not available for an under-18 dependant')
+  on conflict (table_name) do update set policy = 'guarded';
+end;
+$$;
+revoke all on function private.guard_minor_dependant_table(text, text) from public, anon, authenticated;
+
 do $$
 declare
   r record;
@@ -255,11 +277,7 @@ begin
                 and c.table_name in ('booking_requests', 'risk_assessment_responses', 'prevention_risk_scores', 'ai_conversations')))
        and not exists (select 1 from public.minor_dependant_table_policy p where p.table_name = c.table_name)
   loop
-    execute format('drop trigger if exists "00_minor_dependant_scope" on public.%I', r.table_name);
-    execute format(
-      'create trigger "00_minor_dependant_scope" before insert or update of %I on public.%I
-         for each row execute function private.guard_minor_dependant_scope(%L)',
-      r.column_name, r.table_name, r.column_name);
+    perform private.guard_minor_dependant_table(r.table_name, r.column_name);
     v_n := v_n + 1;
   end loop;
   raise notice 'S04b-1: minor dependant scope guard installed on % tables', v_n;
