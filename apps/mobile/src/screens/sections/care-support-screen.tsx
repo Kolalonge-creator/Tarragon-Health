@@ -45,6 +45,7 @@ import { SeniorCaseReviewSection } from "./senior-case-review-section";
 import { VerifiedDocumentsSection } from "./verified-documents-section";
 import { VideoVisitBookingSection } from "./video-visit-booking-section";
 import { UpcomingConsultationsSection } from "./upcoming-consultations-section";
+import { MonthlyCheckinSection } from "./monthly-checkin-section";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import {
   loadMyVouchers,
@@ -131,6 +132,7 @@ export function CareSupportScreen({ patientId, organisationId, onOpenVideoVisit,
         <MutedText>Your care plan, reviews, and referrals.</MutedText>
       </View>
 
+      <MonthlyCheckinSection />
       <UpcomingConsultationsSection onOpenConsultation={onOpenConsultation} />
       <CarePlanSection patientId={patientId} />
       <EscalationsSection patientId={patientId} />

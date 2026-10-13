@@ -19,6 +19,7 @@ export type SectionId =
   | "prevention"
   | "healthSummary"
   | "timeline"
+  | "myHealth"
   | "womensHealth"
   | "sexualHealth"
   | "wellbeing"
@@ -33,9 +34,11 @@ export type SectionId =
   | "messages"
   | "aiCoach"
   | "family"
+  | "community"
   | "supporting"
   | "appointments"
   | "screeningDays"
+  | "testingDays"
   | "passport"
   | "financialProfile"
   | "services"
@@ -117,6 +120,12 @@ export const SECTIONS: SectionDef[] = [
     id: "prevention",
     label: "Prevention",
     icon: "shield-checkmark-outline",
+    group: "Your health",
+  },
+  {
+    id: "myHealth",
+    label: "My Health",
+    icon: "id-card-outline",
     group: "Your health",
   },
   {
@@ -268,12 +277,17 @@ export const SECTIONS: SectionDef[] = [
     group: "Support",
   },
   { id: "supporting", label: "People you support", icon: "hand-left-outline", group: "Support" },
+  // Community groups (docs/COMMUNITY_SPEC.md). Shown in the drawer only while the go-live guard is on and the person is an adult
+  // with their own account (lib/community/entry.ts); the drawer filters it out otherwise.
+  { id: "community", label: "Community", icon: "chatbubbles-outline", group: "Support" },
   {
     id: "screeningDays",
     label: "Group screening days",
     icon: "people-circle-outline",
     group: "Support",
   },
+  // Two-tier model: a Member's yearly check happens at a listed testing day.
+  { id: "testingDays", label: "Testing days", icon: "calendar-outline", group: "Support" },
 
   { id: "passport", label: "Health Passport", icon: "id-card-outline", group: "Your account" },
   {

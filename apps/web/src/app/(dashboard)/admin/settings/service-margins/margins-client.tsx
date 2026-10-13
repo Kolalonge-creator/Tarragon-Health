@@ -55,7 +55,6 @@ type Rate = {
 
 const TIER_LABEL: Record<string, string> = {
   care_coordinator: "Care Coordinator",
-  medical_officer: "Medical Officer",
   senior_medical_officer: "Senior Medical Officer",
   chief_medical_officer: "Chief Medical Officer",
 };

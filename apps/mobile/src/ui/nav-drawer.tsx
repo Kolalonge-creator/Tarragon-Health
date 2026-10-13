@@ -19,6 +19,8 @@ interface NavDrawerProps {
   onSelect: (id: SectionId) => void;
   onClose: () => void;
   onSignOut: () => void;
+  /** Sections to leave out of the menu for this account (for example Community while it is not open). */
+  hiddenSections?: readonly SectionId[];
 }
 
 /**
@@ -28,7 +30,7 @@ interface NavDrawerProps {
  * duplicates it. The section names and band names still come from lib/sections.ts
  * and the older translator (useT); only the drawer's own words are new keys.
  */
-export function NavDrawer({ visible, activeSection, patientName, patientNumber, initials, onSelect, onClose, onSignOut }: NavDrawerProps) {
+export function NavDrawer({ visible, activeSection, patientName, patientNumber, initials, onSelect, onClose, onSignOut, hiddenSections = [] }: NavDrawerProps) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const locale = asLocale(useUiLanguage());
@@ -38,8 +40,9 @@ export function NavDrawer({ visible, activeSection, patientName, patientNumber, 
   // The everyday jobs stay open; the rest collapse to their headings. Only the band
   // holding the current section opens by default; tapping a heading overrides that for
   // this session. This mirrors the web sidebar's progressive disclosure.
-  const everydayItems = SECTIONS.filter((s) => s.group === "top" && s.id !== "overview");
-  const groups = SECTION_GROUP_ORDER.filter((group) => group !== "top" && SECTIONS.some((s) => s.group === group));
+  const shown = SECTIONS.filter((s) => !hiddenSections.includes(s.id));
+  const everydayItems = shown.filter((s) => s.group === "top" && s.id !== "overview");
+  const groups = SECTION_GROUP_ORDER.filter((group) => group !== "top" && shown.some((s) => s.group === group));
   const activeGroup = SECTIONS.find((s) => s.id === activeSection)?.group;
   const [manualOpen, setManualOpen] = useState<Record<string, boolean>>({});
   const isOpen = (group: string) => manualOpen[group] ?? group === activeGroup;
@@ -95,7 +98,7 @@ export function NavDrawer({ visible, activeSection, patientName, patientNumber, 
               {grid(everydayItems)}
             </View>
             {groups.map((group) => {
-              const items = SECTIONS.filter((s) => s.group === group);
+              const items = shown.filter((s) => s.group === group);
               const open = isOpen(group);
               const name = tr(group);
               const Chevron = open ? ChevronDown : ChevronRight;

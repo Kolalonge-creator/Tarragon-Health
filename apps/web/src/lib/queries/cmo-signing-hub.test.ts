@@ -11,11 +11,16 @@ jest.mock("@/lib/queries/signoff-queue", () => ({
   readSignoffQueue: (...args: unknown[]) => readSignoffQueue(...args),
   SEVERITY_RANK: { live_unsigned: 0, draft_pending: 1, setup_needed: 2 },
 }));
+const readPendingCommunitySignoff = jest.fn<(...args: unknown[]) => Promise<{ rulesUnsigned: boolean; groupsWaiting: number; statementsWaiting: number; attentionCount: number; failed: boolean }>>();
+jest.mock("@/lib/queries/pending-community-signoff", () => ({
+  readPendingCommunitySignoff: (...args: unknown[]) => readPendingCommunitySignoff(...args),
+}));
+const noCommunity = { rulesUnsigned: false, groupsWaiting: 0, statementsWaiting: 0, attentionCount: 0, failed: false };
 jest.mock("@/lib/queries/pending-ai-governance-signoff", () => ({
   readPendingAiGovernanceSignoff: (...args: unknown[]) => readPendingAiGovernanceSignoff(...args),
 }));
 
-import { CLINICAL_RULES_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, readCmoSigningHub } from "./cmo-signing-hub";
+import { CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, readCmoSigningHub } from "./cmo-signing-hub";
 
 const supabase = {} as SupabaseClient<Database>;
 
@@ -34,6 +39,24 @@ beforeEach(() => {
   readSignoffQueue.mockReset();
   readPendingAiGovernanceSignoff.mockReset();
   readPendingAiGovernanceSignoff.mockResolvedValue(noAi);
+  readPendingCommunitySignoff.mockReset();
+  readPendingCommunitySignoff.mockResolvedValue(noCommunity);
+});
+
+describe("readCmoSigningHub: Community", () => {
+  it("adds one Community line, linking into /clinician, when anything needs the CMO", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingCommunitySignoff.mockResolvedValue({ rulesUnsigned: true, groupsWaiting: 1, statementsWaiting: 3, attentionCount: 5, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.items).toHaveLength(1);
+    expect(hub.items[0]).toMatchObject({ key: COMMUNITY_ITEM_KEY, count: 5, href: "/clinician/community/signoff" });
+  });
+  it("names Community as a failed source rather than going quiet", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingCommunitySignoff.mockResolvedValue({ ...noCommunity, failed: true });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub).toMatchObject({ failed: true, failedSources: ["Community"] });
+  });
 });
 
 describe("readCmoSigningHub", () => {

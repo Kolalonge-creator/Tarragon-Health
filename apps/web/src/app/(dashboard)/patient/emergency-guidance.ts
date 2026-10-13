@@ -1,3 +1,5 @@
+import { t } from "@tarragon/i18n";
+
 /**
  * The one line of the emergency dialog whose truth depends on the patient's
  * plan, kept here as a pure function so it can be tested without rendering
@@ -28,6 +30,16 @@ export function emergencyHospitalGuidance(clinicianAlertId: string | null | unde
   }
   // No alert was raised, so no clinician has seen this. The line still has to
   // move the patient towards a hospital now; it just must not imply anyone
-  // here is on the way.
-  return "Go to the nearest hospital's emergency department. Please go now rather than waiting to hear from anyone here first.";
+  // here is on the way. Two-tier (CMO 2026-10-08): it also says so in plain
+  // words, because the patient is on the Free plan and doctor review is part
+  // of Membership. The wording lives in @tarragon/i18n (freered.*).
+  return t("freered.go_now", "en");
+}
+
+/**
+ * The plain sentence shown when no doctor was alerted (the event carries no clinician alert). Null when a doctor was
+ * alerted, so the dialog never says both.
+ */
+export function freeRedNoDoctorSentence(clinicianAlertId: string | null | undefined): string | null {
+  return clinicianAlertId ? null : t("freered.no_doctor", "en");
 }
