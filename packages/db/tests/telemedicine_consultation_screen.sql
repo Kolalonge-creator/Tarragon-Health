@@ -91,11 +91,13 @@ begin
     (v_org, v_pat, v_doc, 'gp', 'telemedicine', now() + interval '3 hours', now() + interval '3 hours 15 minutes', 'confirmed')
   returning id into v_appt_badreason;
 
+  perform set_config('app.allow_clinical_value_delete', 'on', true);   -- S05b: fixture cleanup is a superuser maintenance delete
   delete from public.patient_allergies where patient_id = v_pat and allergen = 'Telemedicine Test Allergen';
   insert into public.patient_allergies (organisation_id, patient_id, allergen, reaction, severity, source)
   values (v_org, v_pat, 'Telemedicine Test Allergen', 'Rash', 'moderate', 'clinician');
 
   delete from public.patient_conditions where patient_id = v_pat and condition_name = 'Telemedicine Test Condition';
+  perform set_config('app.allow_clinical_value_delete', 'off', true);
   insert into public.patient_conditions (organisation_id, patient_id, condition_name, status)
   values (v_org, v_pat, 'Telemedicine Test Condition', 'active');
 

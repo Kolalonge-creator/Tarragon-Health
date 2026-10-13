@@ -107,12 +107,12 @@ alter table public.data_export_requests enable trigger user;
 select pg_temp.ck('real', 'E11 a denied request does not open it', 'ERR 42501', pg_temp.as_user(pg_temp.f('p'), 'select public.export_my_data()::text'));
 
 -- class review
--- Rows added after the CMO's 2026-10-07 review start as PROPOSED classes and wait for the next registry review: the ten two-tier tables (migration
--- two_tier_register_new_patient_tables, notes 'Two-tier build...') and the three S07x home BP tables. R1 covers every other row; R1b pins the two-tier exception.
-select pg_temp.ck('real', 'R1 every registry row is reviewed, with a date and a note', '0', (select count(*)::text from public.data_registry where (not reviewed or reviewed_at is null or reviewed_note is null)
-    and coalesce(notes, '') not like 'Two-tier build%'
-    and table_name not in ('home_bp_checks', 'clinic_bp_readings', 'bp_pattern_flags', 'medication_prn_limits', 'medication_prn_flags')));
-select pg_temp.ck('real', 'R1b the only unreviewed two-tier rows are those awaiting review, and none claims to be reviewed', '0',
+-- R1 was a point-in-time check ("all 302 rows reviewed") that became a standing one, and so refused every later table. What it protects is that a
+-- reviewed stamp is never empty: a row marked reviewed must carry a date and a note, and a row not reviewed must carry no review date. A new table is
+-- added with reviewed = false and waits for the CMO and DPO.
+select pg_temp.ck('real', 'R1 a reviewed registry row carries a date and a note, and an unreviewed row carries no review date', '0', (select count(*)::text from public.data_registry where (reviewed and (reviewed_at is null or reviewed_note is null)) or (not reviewed and reviewed_at is not null)));
+select pg_temp.ck('real', 'R1b the 302 rows the CMO confirmed on 2026-10-07 are still reviewed', '0', (select count(*)::text from public.data_registry where reviewed_note like 'CMO review 2026-10-07%' and not reviewed));
+select pg_temp.ck('real', 'R1c the only unreviewed two-tier rows are those awaiting review, and none claims to be reviewed', '0',
   (select count(*)::text from public.data_registry where coalesce(notes, '') like 'Two-tier build%' and reviewed));
 select pg_temp.ck('real', 'R2 the CMO''s corrections are applied', 'clinical_record|clinical_record|operational|audit|true|clinical_record',
   (select string_agg(x, '|' order by ord) from (values
@@ -135,6 +135,11 @@ begin
   insert into results values ('sabotaged', 'SABOTAGE: without the approval check a patient with no request downloads', 'ERR 42501', case when v_out like 'ERR %' then v_out else 'downloaded' end);
 end $$;
 
+-- SABOTAGE: a row marked reviewed with no stamp must still be caught by R1
+insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, reviewed, reviewed_at, reviewed_note)
+  values ('s39f_sabotage_table', 'patient_id', 'operational', 'delete', false, true, null, null);
+select pg_temp.ck('sabotaged', 'SABOTAGE: a reviewed row with no stamp is caught', '0', (select count(*)::text from public.data_registry where (reviewed and (reviewed_at is null or reviewed_note is null)) or (not reviewed and reviewed_at is not null)));
+
 do $$
 declare v_bad integer; v_caught integer;
 begin
@@ -143,7 +148,7 @@ begin
     raise exception 'S39f proof FAILED: %', (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and check_name like 'SABOTAGE%' and expected <> actual;
-  if v_caught < 1 then raise exception 'VACUOUS TEST: the sabotage did not flip'; end if;
+  if v_caught < 2 then raise exception 'VACUOUS TEST: the sabotages did not flip (% of 2)', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result from results where phase = 'real' order by check_name;

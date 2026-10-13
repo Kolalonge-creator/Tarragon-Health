@@ -24,6 +24,16 @@ import { PrnLimitRulesPanel } from "../_signoff-panels/prn-limit-rules-panel";
 import { HomeBpProgrammePanel } from "../_signoff-panels/home-bp-programme-panel";
 import { MyHealthConfigPanel } from "../_signoff-panels/my-health-config-panel";
 import { CommunitySignoffPanel } from "../_signoff-panels/community-panel";
+import { TriageRulesPanel } from "../_signoff-panels/triage-rules-panel";
+import { WordingAttestationPanel } from "../_signoff-panels/wording-attestation-panel";
+import { ProposedValuesPanel } from "../_signoff-panels/proposed-values-panel";
+import { S06S10Banner } from "./s06-s10-banner";
+import { OpenOnHash } from "./open-on-hash";
+import { readFlash } from "@/lib/go-live/flash";
+import { FlashClean } from "@/components/go-live/flash-clean";
+import { t } from "@tarragon/i18n";
+import { DEFAULT_UI_LANGUAGE } from "@tarragon/shared";
+import { attestItemKey, C4_CODE, HOME_BP_GUARD, PATTERN_CODE, PATTERN_GUARD, PROPOSED_VALUES_ITEM_KEY, TRIAGE_DRAFT_ITEM_KEY } from "@/lib/clinical/s06-s10-signoff-model";
 import { SignoffChecklist } from "@/app/(dashboard)/admin/settings/clinical-signoff/signoff-checklist";
 import { SignoffQueueList } from "@/app/(dashboard)/admin/settings/clinical-protocols/signoff-queue-list";
 import {
@@ -80,11 +90,19 @@ const CONFIG_PANELS: Record<string, () => ReactNode> = {
  * `clinician` (CLAUDE.md, "never re-split the account role"), so every link
  * here stays under /clinician.
  */
-export default async function ClinicianClinicalSignoffPage() {
+export default async function ClinicianClinicalSignoffPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ n?: string }>;
+}) {
   const staff = await getCurrentClinicalStaff();
   if (!canAssignCases(staff)) {
     redirect("/clinician");
   }
+
+  const sp = await searchParams;
+  const flash = await readFlash(sp.n);
+  const flashText = flash?.notice && /^golive\.(done|error)\./.test(flash.notice) ? t(flash.notice as Parameters<typeof t>[0], DEFAULT_UI_LANGUAGE) : null;
 
   const supabase = await createClient();
   const [checklist, hub] = await Promise.all([
@@ -160,6 +178,12 @@ export default async function ClinicianClinicalSignoffPage() {
     if (panel) inlinePanels[item.key] = panel();
   }
 
+  // S06 to S10 lines that have no governed table of their own: the triage draft (C5), the two wording attestations (C4, C3) and the registry values (C6 and mirrors).
+  if (keys.has(TRIAGE_DRAFT_ITEM_KEY)) inlinePanels[TRIAGE_DRAFT_ITEM_KEY] = <TriageRulesPanel back="hub" />;
+  if (keys.has(attestItemKey(HOME_BP_GUARD, C4_CODE))) inlinePanels[attestItemKey(HOME_BP_GUARD, C4_CODE)] = <WordingAttestationPanel kind="c4" />;
+  if (keys.has(attestItemKey(PATTERN_GUARD, PATTERN_CODE))) inlinePanels[attestItemKey(PATTERN_GUARD, PATTERN_CODE)] = <WordingAttestationPanel kind="pattern" />;
+  if (keys.has(PROPOSED_VALUES_ITEM_KEY)) inlinePanels[PROPOSED_VALUES_ITEM_KEY] = <ProposedValuesPanel rows={hub.s06s10.openProposed} />;
+
   if (keys.has("ai_governance")) inlinePanels.ai_governance = <AiGovernancePanel />;
 
   if (keys.has(COMMUNITY_ITEM_KEY)) inlinePanels[COMMUNITY_ITEM_KEY] = <CommunitySignoffPanel />;
@@ -193,6 +217,17 @@ export default async function ClinicianClinicalSignoffPage() {
           actual values first. Nothing is signed until you press the sign button.
         </p>
       </div>
+
+      {flashText && <FlashClean />}
+      {flashText && (
+        <p role={flash?.ok ? "status" : "alert"} className={`rounded-xl border p-3 text-sm ${flash?.ok ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-red-300 bg-red-50 text-red-900"}`}>
+          {flashText}
+          {flash?.detail ? ` ${flash.detail}` : ""}
+        </p>
+      )}
+
+      <S06S10Banner snapshot={hub.s06s10} />
+      <OpenOnHash />
 
       {/* Never an all-clear when a read failed: say so, and keep whatever did load. */}
       {hub.failed && (

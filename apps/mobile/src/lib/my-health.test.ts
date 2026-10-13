@@ -54,6 +54,12 @@ describe("describeAccessEntry", () => {
     expect(d.status).toBe("Still active");
   });
 
+  it("shows a staff opening as name and role only", () => {
+    const d = describeAccessEntry({ at: "x", rid: "s:1", kind: "staff_record_opened", actor_label: "Chief Medical Officer", actor_name: "A. Okafor", categories: ["record_opened"], status: null, ends_at: null });
+    expect(d.who).toBe("A. Okafor (Chief Medical Officer)");
+    expect(d.status).toBeNull();
+  });
+
   it("falls back to neutral words for anything unknown", () => {
     const d = describeAccessEntry({ at: "x", rid: "l:1", kind: "brand_new", actor_label: "Someone", actor_name: null, categories: ["mystery"], status: "weird", ends_at: null });
     expect(JSON.stringify(d)).not.toContain("my_health.");
