@@ -60,6 +60,15 @@ $$ select (now() at time zone 'Africa/Lagos')::date $$;
 create function pg_temp.events(p_type text, p_patient uuid) returns text language sql as
 $$ select count(*)::text from public.domain_events where event_type = p_type and patient_id = p_patient $$;
 
+-- S55 refuses to publish a lesson without a future review date (private.health_education_content_publish_gate). This proof builds undated,
+-- expired and same-day published lessons on purpose, to prove the SERVING rule, so the publish gate is off for it; the gate has its own proof
+-- (s55_learning_centre_governance.sql). Everything here is rolled back.
+do $$ begin
+  if exists (select 1 from pg_trigger where tgname = 'health_education_content_publish_gate' and not tgisinternal) then
+    alter table public.health_education_content disable trigger health_education_content_publish_gate;
+  end if;
+end $$;
+
 do $$
 declare
   v_org uuid; v_pat uuid; v_pat2 uuid; v_admin uuid; v_prog uuid;

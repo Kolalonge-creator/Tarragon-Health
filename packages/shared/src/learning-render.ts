@@ -16,8 +16,15 @@ export function parseFaq(body: string | null | undefined): FaqEntry[] | null {
   if (!body) return null;
   const entries: FaqEntry[] = [];
   for (const block of body.split(/\r?\n\s*\r?\n/)) {
-    const m = /^\s*Q:\s*([\s\S]+?)\s*\r?\n\s*A:\s*([\s\S]+?)\s*$/.exec(block);
-    if (m?.[1] && m[2]) entries.push({ question: m[1].replace(/\s+/g, " "), answer: m[2].trim() });
+    // Line-by-line instead of one backtracking pattern: the Q line, then the first later line that starts with A:.
+    const lines = block.split(/\r?\n/);
+    const q = lines.findIndex((l) => l.trim() !== "");
+    if (q < 0 || !(lines[q] ?? "").trimStart().startsWith("Q:")) continue;
+    const a = lines.findIndex((l, i) => i > q && l.trimStart().startsWith("A:"));
+    if (a < 0) continue;
+    const question = [(lines[q] ?? "").trimStart().slice(2), ...lines.slice(q + 1, a)].join("\n").trim();
+    const answer = [(lines[a] ?? "").trimStart().slice(2), ...lines.slice(a + 1)].join("\n").trim();
+    if (question && answer) entries.push({ question: question.replace(/\s+/g, " "), answer });
   }
   return entries.length > 0 ? entries : null;
 }
@@ -36,12 +43,12 @@ export function parseInfographic(body: string | null | undefined): InfographicPa
   for (; i < lines.length; i++) {
     const line = lines[i] ?? "";
     const img = /^image:\s*(\S+)\s*$/i.exec(line);
-    const altm = /^alt:\s*(.+)$/i.exec(line);
+    const altRaw = /^alt:/i.test(line) ? line.slice(4) : null;
     if (img?.[1]) {
       // Only https images from a known-safe shape; anything else is ignored rather than rendered.
       imageUrl = /^https:\/\/[^\s"'<>]+$/.test(img[1]) ? img[1] : null;
-    } else if (altm?.[1]) {
-      alt = altm[1].trim();
+    } else if (altRaw !== null && altRaw.length > 0) {
+      alt = altRaw.trim();
     } else if (line.trim() !== "") {
       break;
     }

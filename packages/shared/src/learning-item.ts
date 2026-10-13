@@ -120,7 +120,9 @@ export function offlineVisible<T extends { next_review_due?: string | null }>(it
 
 /** Link to the public share page. Only the content code goes in the URL: no patient data, ever. */
 export function publicShareUrl(origin: string, code: string): string {
-  return `${origin.replace(/\/+$/, "")}/health-library/${encodeURIComponent(code)}`;
+  let base = origin;
+  while (base.endsWith("/")) base = base.slice(0, -1);
+  return `${base}/health-library/${encodeURIComponent(code)}`;
 }
 
 export function shareByEmailUrl(title: string, url: string): string {

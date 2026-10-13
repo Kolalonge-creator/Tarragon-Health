@@ -101,7 +101,7 @@ begin
   v_cmo := pg_temp.mkuser(v_org, 'cmo', 'clinician');
   v_rev := pg_temp.mkuser(v_org, 'rev', 'clinician');
   v_staff_clin := pg_temp.mkstaff(v_org, v_clin, 'Dr Creator Test', 'senior_medical_officer', true, v_admin);
-  v_staff_unver := pg_temp.mkstaff(v_org, v_unver, 'Dr Unverified Test', 'medical_officer', false, v_admin);
+  v_staff_unver := pg_temp.mkstaff(v_org, v_unver, 'Dr Unverified Test', 'senior_medical_officer', false, v_admin);
   v_staff_cmo := pg_temp.mkstaff(v_org, v_cmo, 'Dr Chief Test', 'chief_medical_officer', true, v_admin);
   v_staff_rev := pg_temp.mkstaff(v_org, v_rev, 'Dr Reviewer Test', 'senior_medical_officer', true, v_admin);
   insert into public.patient_memberships (organisation_id, patient_id, source, is_test) values (v_org, v_member, 'purchase', true);
