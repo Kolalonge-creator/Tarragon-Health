@@ -208,6 +208,8 @@ export function getNavSections(
             // one place, composed from the record the sections below already
             // hold rather than a second copy of it.
             { label: "Health summary", href: "/patient/health-summary", icon: "carePlan" },
+            // The front door for the record the patient carries and shares (S09x): timeline, emergency card, passport, share links, who has looked.
+            { label: "My Health", href: "/patient/my-health", icon: "passport" },
             { label: "Prevention", href: "/patient/prevention", icon: "preventive" },
             { label: "Women's Health", href: "/patient/womens-health", icon: "family" },
             {
@@ -730,6 +732,7 @@ export function getNavSections(
             { label: "Fees and earnings", href: "/admin/earnings", icon: "analytics" },
             { label: "Payouts", href: "/admin/payouts", icon: "analytics" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+            { label: "Event bus", href: "/admin/ops/event-bus", icon: "operations" },
             { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
                 { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
             { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },

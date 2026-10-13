@@ -245,3 +245,4 @@ export * from "./consent-state";
 export * from "./data-rights";
 export * from "./notification-settings";
 export * from "./notification-diagnosis";
+export * from "./lock-screen-pass";
