@@ -66,7 +66,7 @@ describe("recordConsent", () => {
   });
 
   it("explains a database refusal of a required withdrawal instead of saying try again", async () => {
-    mockInsert.mockResolvedValue({ error: { code: "23514", message: "required" } });
+    mockInsert.mockResolvedValue({ error: { code: "23514", message: "A required consent cannot be withdrawn" } });
     const result = await recordConsent("org-1", "p1", "research", "withdrawn");
     expect(result).toEqual({ ok: false, error: expect.stringMatching(/close your account/i) });
   });

@@ -97,7 +97,7 @@ export async function recordConsent(
     channel: "mobile",
   });
   if (error) {
-    if (error.code === "23514" && action === "withdrawn") {
+    if (error.code === "23514" && action === "withdrawn" && /required consent/i.test(error.message ?? "")) {
       return { ok: false, error: "This one is needed to use your account. To stop it, close your account using the data options below." };
     }
     if (error.code === "23514" && action === "accepted" && /replaced/i.test(error.message ?? "")) {

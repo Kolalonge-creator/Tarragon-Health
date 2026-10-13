@@ -161,7 +161,7 @@ export function deletionRequestView(row: DeletionRequestLike, now: number = Date
         phase: "done",
         canCancel: false,
         daysLeft: null,
-        headline: "Your account has been closed and you have been signed out",
+        headline: "Your account has been closed",
         detail: row.note
           ? "Our team's note below says what else was removed. The records we must keep are listed under What we have to keep."
           : "Our team did not leave a note about what else was removed. You can ask support. The records we must keep are listed under What we have to keep.",
@@ -186,7 +186,7 @@ export function deletionRequestView(row: DeletionRequestLike, now: number = Date
   }
 }
 
-/** What our team removes when it closes an account. A person goes through each request and writes down what was done; see docs/design/S39d-class-review.md. */
+/** What our team goes through removing when it closes an account (each request is reviewed by a person and the note says what was actually done). A person goes through each request and writes down what was done; see docs/design/S39d-class-review.md. */
 export const DELETION_REMOVED: readonly string[] = [
   "Your sign-in and contact details",
   "Your preferences and reminders",

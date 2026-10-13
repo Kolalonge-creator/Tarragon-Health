@@ -52,7 +52,7 @@ async function recordOptionalConsent(consentType: string, action: "accepted" | "
   });
   if (error) {
     // The database refuses a required consent while the account is active. Say so rather than "try again".
-    if (error.code === CHECK_VIOLATION && action === "withdrawn") {
+    if (error.code === CHECK_VIOLATION && action === "withdrawn" && /required consent/i.test(error.message ?? "")) {
       return { error: "This one is needed to use your account. To stop it, close your account using the data rights options on this page." };
     }
     if (error.code === CHECK_VIOLATION && action === "accepted" && /replaced/i.test(error.message ?? "")) {
