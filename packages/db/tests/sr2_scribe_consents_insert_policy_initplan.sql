@@ -12,17 +12,17 @@ grant all on results to public;
 create function pg_temp.ck(p_phase text, p_name text, p_expected text, p_actual text) returns void language sql as
 $$ insert into results values (p_phase, p_name, p_expected, p_actual) $$;
 create function pg_temp.bare() returns text language sql as
-$$ select count(*)::text from pg_policies where tablename = 'scribe_consents' and policyname = 'scribe_consents_insert_clinical'
+$$ select count(*)::text from pg_policies where schemaname = 'public' and tablename = 'scribe_consents' and policyname = 'scribe_consents_insert_clinical'
      and regexp_replace(with_check, '\(\s*SELECT\s+auth\.uid\(\)\s+AS\s+uid\s*\)', '', 'gi') ~ 'auth\.uid\(\)' $$;
 
 do $$
 begin
   perform pg_temp.ck('real', 'one insert policy for authenticated', '1/INSERT/{authenticated}',
-    (select count(*) || '/' || min(cmd) || '/' || min(roles::text) from pg_policies where tablename = 'scribe_consents' and policyname = 'scribe_consents_insert_clinical'));
+    (select count(*) || '/' || min(cmd) || '/' || min(roles::text) from pg_policies where schemaname = 'public' and tablename = 'scribe_consents' and policyname = 'scribe_consents_insert_clinical'));
   perform pg_temp.ck('real', 'still requires the medical_history write tie', 'true',
-    (select (with_check ~ 'staff_may_write\(patient_id, organisation_id, ''medical_history''')::text from pg_policies where tablename = 'scribe_consents' and policyname = 'scribe_consents_insert_clinical'));
+    (select (with_check ~ 'staff_may_write\(patient_id, organisation_id, ''medical_history''')::text from pg_policies where schemaname = 'public' and tablename = 'scribe_consents' and policyname = 'scribe_consents_insert_clinical'));
   perform pg_temp.ck('real', 'still requires an active clinician that owns the staff row', 'true',
-    (select (with_check ~ 'cs\.active = true' and with_check ~ 'cs\.id = scribe_consents\.clinician_staff_id')::text from pg_policies where tablename = 'scribe_consents' and policyname = 'scribe_consents_insert_clinical'));
+    (select (with_check ~ 'cs\.active = true' and with_check ~ 'cs\.id = scribe_consents\.clinician_staff_id')::text from pg_policies where schemaname = 'public' and tablename = 'scribe_consents' and policyname = 'scribe_consents_insert_clinical'));
   perform pg_temp.ck('real', 'auth.uid() only inside a select wrapper', '0', pg_temp.bare());
 
   alter policy scribe_consents_insert_clinical on public.scribe_consents

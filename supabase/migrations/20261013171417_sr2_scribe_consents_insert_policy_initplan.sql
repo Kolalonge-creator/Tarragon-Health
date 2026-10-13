@@ -4,6 +4,14 @@
 -- the policy in force throughout (no drop and create) and keeps its role list.
 -- Held back from the first SR2 advisor change because private.staff_may_write exists only from S39g (20261007193000), which was applied
 -- live but not yet merged, so a fresh replay failed on this policy. Merged after S39g.
+do $$
+begin
+  if to_regclass('public.scribe_consents') is null
+     or not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'scribe_consents' and policyname = 'scribe_consents_insert_clinical') then
+    raise exception 'SR2: public.scribe_consents / scribe_consents_insert_clinical is missing, so there is nothing to rewrite (is the S23 scribe migration applied?)';
+  end if;
+end $$;
+
 alter policy scribe_consents_insert_clinical on public.scribe_consents
   with check (
     private.staff_may_write(patient_id, organisation_id, 'medical_history'::public.care_access_category)
@@ -14,7 +22,7 @@ alter policy scribe_consents_insert_clinical on public.scribe_consents
 do $$
 declare v text;
 begin
-  select with_check into v from pg_policies where tablename = 'scribe_consents' and policyname = 'scribe_consents_insert_clinical';
+  select with_check into v from pg_policies where schemaname = 'public' and tablename = 'scribe_consents' and policyname = 'scribe_consents_insert_clinical';
   if v is null or v !~ 'staff_may_write' or v !~ 'cs\.active = true' then raise exception 'SR2: scribe_consents_insert_clinical lost its tie or active-clinician rule'; end if;
   if regexp_replace(v, '\(\s*SELECT\s+auth\.uid\(\)\s+AS\s+uid\s*\)', '', 'gi') ~ 'auth\.uid\(\)' then raise exception 'SR2: scribe_consents_insert_clinical still calls auth.uid() per row'; end if;
 end $$;
