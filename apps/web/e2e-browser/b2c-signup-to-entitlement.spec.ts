@@ -23,6 +23,7 @@ test.describe("B2C signup form", () => {
     await page.locator("#lastName").fill("Test");
     await page.locator("#email").fill(email);
     await page.locator("#phone").fill("8012345678");
+    await page.locator("#signup-dateOfBirth").fill("1990-01-01");
     await page.locator("#password").fill("E2e-test-pw-!Aa1");
 
     await page.getByRole("button", { name: /create account|sign up/i }).click();
