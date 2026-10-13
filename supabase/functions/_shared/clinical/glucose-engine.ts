@@ -141,7 +141,9 @@ export function buildGlucoseContext(input: GlucoseInput): Context {
   const urineRaised = urine === "moderate" || urine === "large";
   return {
     "trigger.type": "glucose",
-    "glucose.mmol": t.reading.mmol,
+    // Compared at the precision a meter shows: one decimal. A mg/dL entry converts to two decimals (70 mg/dL is 3.88 mmol/L), and ADA level 1 is "under 70 mg/dL", so
+    // 70 must not read as a low against a 3.9 line. The phone and the server both reach this line, so they round the same way.
+    "glucose.mmol": Math.round(t.reading.mmol * 10) / 10,
     "glucose.context": t.reading.context,
     "ketone.bloodMmol": blood,
     "ketone.urineRaised": urineRaised,

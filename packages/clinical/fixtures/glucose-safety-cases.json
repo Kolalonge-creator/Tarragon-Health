@@ -37,12 +37,12 @@
   },
   {
    "id": "SG-02",
-   "title": "2.99 is still under 3.0 and red",
+   "title": "2.94 is still under 3.0 (53 mg/dL) and red",
    "input": {
     "trigger": {
      "type": "glucose",
      "reading": {
-      "mmol": 2.99,
+      "mmol": 2.94,
       "takenAt": "2026-10-13T09:00:00.000Z",
       "context": "random"
      },
@@ -1571,6 +1571,119 @@
     ],
     "taskKey": "GL-A1P:2026-W42",
     "dueMinutes": 1440
+   }
+  },
+  {
+   "id": "SG-52",
+   "title": "70 mg/dL (3.88 mmol/L) is not a low: ADA level 1 is under 70",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 3.88,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": []
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "green",
+    "ruleId": "GL-G1",
+    "explanationKey": "GLU-T05",
+    "actions": [
+     "show_message:GLU-T05"
+    ]
+   }
+  },
+  {
+   "id": "SG-53",
+   "title": "69 mg/dL (3.83 mmol/L) is level 1",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 3.83,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": []
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "amber",
+    "ruleId": "GL-A1",
+    "explanationKey": "GLU-T01",
+    "actions": [
+     "show_message:GLU-T01"
+    ]
+   }
+  },
+  {
+   "id": "SG-54",
+   "title": "54 mg/dL (3.0 mmol/L) is level 1, not level 2",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 3.0,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": []
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "amber",
+    "ruleId": "GL-A1",
+    "explanationKey": "GLU-T01",
+    "actions": [
+     "show_message:GLU-T01"
+    ]
+   }
+  },
+  {
+   "id": "SG-55",
+   "title": "53 mg/dL (2.94 mmol/L) is level 2, red",
+   "input": {
+    "trigger": {
+     "type": "glucose",
+     "reading": {
+      "mmol": 2.94,
+      "takenAt": "2026-10-13T09:00:00.000Z",
+      "context": "random"
+     },
+     "symptoms": []
+    },
+    "diabetesType": "type_2",
+    "pregnant": false,
+    "ageYears": 45,
+    "now": "2026-10-13T09:00:00.000Z"
+   },
+   "expect": {
+    "status": "graded",
+    "grade": "red",
+    "ruleId": "GL-R1",
+    "explanationKey": "GLU-E01",
+    "actions": [
+     "show_emergency_guidance:GLU-E01",
+     "page_on_call"
+    ]
    }
   }
  ]

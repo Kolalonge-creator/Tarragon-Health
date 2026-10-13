@@ -6,6 +6,19 @@
  * A test (glucose-triage-basis.test.ts) fails when a rule in the bundled rule set has no entry here, or an entry here names no rule, so the CMO is
  * never shown a rule without its basis.
  */
+import { isDeepStrictEqual } from "node:util";
+import { GLUCOSE_CARE_V1 } from "@tarragon/clinical";
+
+/**
+ * The hub panel shows the numbers, the basis and the wording from THIS build's copy of the rule set. That is only honest while the draft the CMO is about
+ * to sign is exactly that copy. True when the stored rules equal the bundled ones (key order does not matter); anything else, including an unreadable row, is false
+ * and the panel then hides the build's text and says so, instead of showing version 1's reasoning beside a different version's Sign button.
+ */
+export function rulesMatchBuild(storedRules: unknown): boolean {
+  if (storedRules === null || typeof storedRules !== "object") return false;
+  return isDeepStrictEqual(storedRules, JSON.parse(JSON.stringify(GLUCOSE_CARE_V1)));
+}
+
 export type Citation = { id: string; label: string; tag: "G" | "P" | "NV" };
 
 export const GLUCOSE_CITATIONS: readonly Citation[] = [
@@ -39,8 +52,10 @@ export const GLUCOSE_RULE_BASIS: Readonly<Record<string, RuleBasis>> = {
 
 /** What signing means, in plain words, for the hub panel. */
 export const GLUCOSE_OPEN_POINTS: readonly string[] = [
-  "The signs a patient ticks on the phone (seizure, not awake, cannot swallow, vomiting, stomach pain) are graded on the phone but are NOT yet stored on the server: the server's symptom log has no entry for them. Until they are, the server cannot page for GL-R2, GL-R3 and part of GL-R5 and GL-R7 from the phone's entries, although the phone still shows the emergency guidance. Ketones typed with the glucose are stored. Decide whether to sign before the signs are stored.",
-  "Readings that arrive late from a continuous monitor or a wearable are graded when they arrive, with no freshness limit. Once signed, an old low in a bulk sync could page. Decide whether late readings should page.",
+  "The signs a patient ticks on the phone (seizure, not awake, cannot swallow, vomiting, stomach pain) are graded on the phone but are NOT yet stored on the server: the server's symptom log has no entry for them. Until they are, the server cannot page for GL-R2, GL-R3 and part of GL-R5 and GL-R7 from the phone's entries, although the phone still shows the emergency guidance. Ketones typed on the phone ARE stored (as their own reading). Decide whether to sign before the signs are stored.",
+  "Only manual and Bluetooth meter glucose readings are graded by this rule set. A continuous monitor or a wearable streams hundreds of readings a day and syncs old ones in bulk, so those stay on the older glucose alerts alone. Decide whether, and how, they should be graded (a late low in a bulk sync should probably not page).",
+  "A reading rejected as implausible, with a sign ticked, stores nothing on the server (the phone still shows the guidance). The older alerts do not read signs.",
+  "Glucose is compared at one decimal place (a meter's precision), so 70 mg/dL (3.88 mmol/L) is not a low and 69 mg/dL is. The older glucose alerts compare the unrounded value and call 70 mg/dL a low.",
   "The older glucose alerts keep running beside this rule set until the two are shown to agree (the glucose divergence report). Once this is signed a severe low is paged by BOTH.",
 ];
 

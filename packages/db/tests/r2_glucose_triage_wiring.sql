@@ -34,7 +34,7 @@ language sql as $f$ insert into results values (p_phase, p_check, p_expected, p_
 
 do $$
 declare
-  v_org uuid; v_p uuid; v_p2 uuid; v_cmo uuid; v_admin uuid;
+  v_org uuid; v_p uuid; v_p2 uuid; v_cmo uuid; v_admin uuid; v_p3 uuid; v_g8 uuid; v_g9 uuid; v_k3 uuid;
   v_rs uuid; v_bp_rs uuid;
   v_g1 uuid; v_g2 uuid; v_g3 uuid; v_g4 uuid; v_k uuid; v_bp uuid; v_bp2 uuid; v_g5 uuid; v_g6 uuid; v_g7 uuid;
   v_ctx jsonb; v_out jsonb; v_te uuid; v_n integer; v_err text; v_n2 integer;
@@ -44,6 +44,7 @@ begin
   select id into v_org from public.organisations order by created_at limit 1;
   v_p := pg_temp.mkuser(v_org, 'patient', 'patient');
   v_p2 := pg_temp.mkuser(v_org, 'patient2', 'patient');
+  v_p3 := pg_temp.mkuser(v_org, 'patient3', 'patient');
   v_cmo := pg_temp.mkuser(v_org, 'cmo', 'clinician');
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
   insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, active, license_verified_at, employment_type, indemnity_exempt, indemnity_exempt_by)
@@ -128,6 +129,38 @@ begin
     ((public.triage_context_for_glucose_observation(v_g3) ->> 'found') = 'true')::text);
   perform pg_temp.res('real', 'pregnancy is carried', 'true|null',
     (public.triage_context_for_glucose_observation(v_g3) #>> '{input,pregnant}') || '|' || coalesce(public.triage_context_for_glucose_observation(v_g3) #>> '{input,diabetesType}', 'null'));
+
+
+  -- Which readings, ketone regrade and retractions (code review): streaming sources are not graded; a ketone arriving after the glucose regrades it; a retracted ketone or
+  -- glucose is never used.
+  insert into public.vitals_readings (organisation_id, patient_id, vital_type, glucose_mmol_l, glucose_context, source, taken_at)
+    values (v_org, v_p3, 'glucose', 2.5, 'random', 'wearable', now()) returning id into v_g8;
+  perform pg_temp.res('real', 'a wearable or monitor glucose reading is not graded by this engine (no event)', '0',
+    (select count(*)::text from public.domain_events where idempotency_key = 'glu:' || v_g8));
+  insert into public.vitals_readings (organisation_id, patient_id, vital_type, glucose_mmol_l, glucose_context, source, taken_at)
+    values (v_org, v_p3, 'glucose', 15.0, 'random', 'device', now()) returning id into v_g9;
+  perform pg_temp.res('real', 'a Bluetooth meter glucose reading is graded (one event)', '1',
+    (select count(*)::text from public.domain_events where idempotency_key = 'glu:' || v_g9));
+  insert into public.vitals_readings (organisation_id, patient_id, vital_type, ketones_mmol_l, source, taken_at)
+    values (v_org, v_p3, 'ketones', 3.5, 'manual', now()) returning id into v_k3;
+  perform pg_temp.res('real', 'a ketone reading arriving after the glucose regrades it (one event with the ketone id)', '1',
+    (select count(*)::text from public.domain_events where idempotency_key = 'glu:' || v_g9 || ':ket:' || v_k3));
+  perform pg_temp.res('real', 'and the regraded context now holds the ketone, with a different basis', 'true|true',
+    ((public.triage_context_for_glucose_observation(v_g9) #>> '{input,trigger,ketones,bloodMmol}') = '3.50')::text || '|' ||
+    ((public.triage_context_for_glucose_observation(v_g9) ->> 'basis') is distinct from md5('|' || '' || '|' || ''))::text);
+  perform set_config('request.jwt.claim.sub', v_p3::text, true);
+  perform public.correct_clinical_value('vitals_readings', v_k3, 'entered_in_error', 'typed by mistake in the proof');
+  perform set_config('request.jwt.claim.sub', '', true);
+  perform pg_temp.res('real', 'a ketone marked entered in error is never used', 'null',
+    coalesce(public.triage_context_for_glucose_observation(v_g9) #>> '{input,trigger,ketones,bloodMmol}', 'null'));
+  insert into public.vitals_readings (organisation_id, patient_id, vital_type, glucose_mmol_l, glucose_context, source, taken_at)
+    values (v_org, v_p3, 'glucose', 2.3, 'random', 'manual', now()) returning id into v_g8;
+  perform pg_temp.res('real', 'a manual glucose reading is graded until it is retracted', 'true', public.triage_context_for_glucose_observation(v_g8) ->> 'found');
+  perform set_config('request.jwt.claim.sub', v_p3::text, true);
+  perform public.correct_clinical_value('vitals_readings', v_g8, 'entered_in_error', 'typed by mistake in the proof');
+  perform set_config('request.jwt.claim.sub', '', true);
+  perform pg_temp.res('real', 'a glucose reading marked entered in error is not graded', 'false',
+    public.triage_context_for_glucose_observation(v_g8) ->> 'found');
 
   -- 3. Writer (the rule set is a draft: shadow)
   select count(*) into v_pending_before from public.triage_pending_rechecks;

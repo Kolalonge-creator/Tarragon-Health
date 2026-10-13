@@ -21,7 +21,7 @@ import {
   type GlucoseUnit,
   type OtherVitalType,
 } from "@/lib/vitals-entry";
-import { evaluateGlucoseOnDevice, type GlucoseOutcome } from "@/lib/glucose-log";
+import { evaluateGlucoseOnDevice, LEVEL_3_SIGNS, type GlucoseOutcome } from "@/lib/glucose-log";
 import { GLUCOSE_SYMPTOMS, KETONE_URINE_BANDS, type GlucoseSymptomCode, type KetoneUrine } from "@tarragon/clinical";
 import {
   computeSevenDayAverage,
@@ -678,6 +678,11 @@ function OtherVitalCard({
   async function handleSave() {
     const entry = validateOtherEntry(type, value, glucoseUnit);
     if (!entry.ok) {
+      // Guidance for a ticked level 3 sign never waits for a valid number (a meter that says LO, a mistyped value, a carer who has no number): nothing was saved, so it says so.
+      const level3 = signs.filter((x) => LEVEL_3_SIGNS.includes(x));
+      if (type === "glucose" && level3.length > 0) {
+        onEmergency(tr("vitals.guidance.symptom_detail", { symptoms: level3.map((x) => tr(`vitals.glucose.sign.${x}` as MessageKey)).join(", ") }), false, "GLU-E02");
+      }
       setSaveError(null);
       setErrorKey(`vitals.other.error.${entry.error}` as MessageKey);
       return;
@@ -738,7 +743,7 @@ function OtherVitalCard({
     }
     const emergencyDetail = outcome
       ? outcome.signFlag
-        ? tr("vitals.guidance.symptom_detail", { symptoms: signs.filter((x) => ["confusion", "seizure", "unconscious", "cannot_swallow"].includes(x)).map((x) => tr(`vitals.glucose.sign.${x}` as MessageKey)).join(", ") })
+        ? tr("vitals.guidance.symptom_detail", { symptoms: signs.filter((x) => LEVEL_3_SIGNS.includes(x)).map((x) => tr(`vitals.glucose.sign.${x}` as MessageKey)).join(", ") })
         : (outcome.legacy?.detail ?? tr("vitals.glucose.guidance_detail", { value, unit }))
       : "";
     const wordingCode = outcome?.device?.emergencyCode ?? null;

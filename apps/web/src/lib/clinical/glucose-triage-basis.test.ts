@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 import { GLUCOSE_CARE_V1 } from "@tarragon/clinical";
-import { GLUCOSE_CITATIONS, GLUCOSE_OPEN_POINTS, GLUCOSE_RULE_BASIS, GLUCOSE_SIGNING_NOTE } from "./glucose-triage-basis";
+import { GLUCOSE_CITATIONS, GLUCOSE_OPEN_POINTS, GLUCOSE_RULE_BASIS, GLUCOSE_SIGNING_NOTE, rulesMatchBuild } from "./glucose-triage-basis";
 
 describe("glucose triage guideline basis (CMO sign-off hub)", () => {
   it("has a basis for every rule of the rule set, and none for a rule that does not exist", () => {
@@ -41,7 +41,20 @@ describe("glucose triage guideline basis (CMO sign-off hub)", () => {
   it("tells the CMO the open points that matter before signing: unsaved signs, late readings, and both pipelines paging", () => {
     const text = GLUCOSE_OPEN_POINTS.join(" ");
     expect(text).toMatch(/NOT yet stored on the server/);
-    expect(text).toMatch(/late from a continuous monitor/);
+    expect(text).toMatch(/Only manual and Bluetooth meter glucose readings/);
+    expect(text).toMatch(/one decimal place/);
     expect(text).toMatch(/paged by BOTH/);
+  });
+
+  it("rulesMatchBuild is true only for exactly the bundled rule set (key order aside), so the CMO is never shown one version's reasoning beside another's Sign button", () => {
+    const stored = JSON.parse(JSON.stringify(GLUCOSE_CARE_V1)) as Record<string, unknown>;
+    expect(rulesMatchBuild(stored)).toBe(true);
+    expect(rulesMatchBuild(Object.fromEntries(Object.entries(stored).reverse()))).toBe(true);
+    expect(rulesMatchBuild({ ...stored, version: 2 })).toBe(false);
+    const rules = (stored["rules"] as Array<Record<string, unknown>>).map((r, i) => (i === 0 ? { ...r, description: "changed" } : r));
+    expect(rulesMatchBuild({ ...stored, rules })).toBe(false);
+    expect(rulesMatchBuild(null)).toBe(false);
+    expect(rulesMatchBuild(undefined)).toBe(false);
+    expect(rulesMatchBuild("x")).toBe(false);
   });
 });

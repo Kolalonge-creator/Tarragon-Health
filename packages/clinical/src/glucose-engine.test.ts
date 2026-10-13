@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 import { readFileSync } from "node:fs";
+import { mgDlToMmolL } from "@tarragon/shared";
 import {
   buildGlucoseContext,
   expectationWithDefaults,
@@ -110,6 +111,16 @@ describe("glucose safety fixtures (CMO Q6 to Q9)", () => {
     for (let tenths = 5; tenths < 39; tenths++) {
       const r = gradeGlucose(input({}, { reading: { mmol: tenths / 10, takenAt: NOW, context: "random" } }), GLUCOSE_CARE_V1);
       expect(r.grade === "red" || r.grade === "amber").toBe(true);
+    }
+  });
+});
+
+describe("mg/dL entries land on the same side of every line as the mg/dL values the guidelines use", () => {
+  it("every whole mg/dL from 18 to 720 converts with the shared conversion and is graded as ADA and the CMO's lines say", () => {
+    for (let mgdl = 18; mgdl <= 720; mgdl++) {
+      const r = gradeGlucose(input({}, { reading: { mmol: mgDlToMmolL(mgdl), takenAt: NOW, context: "random" } }), GLUCOSE_CARE_V1);
+      const expected = mgdl < 54 || mgdl >= 600 ? "red" : mgdl < 70 || (mgdl >= 360 && mgdl < 600) ? "amber" : "green";
+      expect([mgdl, r.grade]).toEqual([mgdl, expected]);
     }
   });
 });

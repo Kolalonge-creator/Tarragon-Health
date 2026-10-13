@@ -1,7 +1,17 @@
 import { GLUCOSE_WORDING_CODES, GLUCOSE_WORDING_DATA, GLUCOSE_WORDING_SIGNED } from "@tarragon/i18n";
 import { GLUCOSE_CARE_V1 } from "@tarragon/clinical";
 import { GLUCOSE_CITATIONS, GLUCOSE_OPEN_POINTS, GLUCOSE_RULE_BASIS, GLUCOSE_SIGNING_NOTE } from "@/lib/clinical/glucose-triage-basis";
+import { createClient } from "@/lib/supabase/server";
+import { rulesMatchBuild } from "@/lib/clinical/glucose-triage-basis";
 import { TriageRulesPanel } from "./triage-rules-panel";
+
+type Reader = {
+  from(table: string): {
+    select(columns: string): {
+      eq(column: string, value: string): { order(column: string, o: { ascending: boolean }): PromiseLike<{ data: unknown; error: { message: string } | null }> };
+    };
+  };
+};
 
 /**
  * Glucose triage rules (plan item R2, CMO decisions Q6 to Q9) for the Chief Medical Officer: the numbers, the guideline basis of every rule with its
@@ -10,6 +20,11 @@ import { TriageRulesPanel } from "./triage-rules-panel";
  * identical, so what is read here is what would be signed. Nothing on this panel signs anything; the Sign control below it is the CMO's act.
  */
 export async function GlucoseTriageRulesPanel({ back }: { back?: "hub" }) {
+  // The text below is this build's copy of version 1. It is shown only while the draft that the Sign control targets is exactly that copy.
+  const supabase = (await createClient()) as unknown as Reader;
+  const res = await supabase.from("triage_rule_sets").select("version, rules").eq("code", "glucose_care_triage").order("version", { ascending: false });
+  const latest = res.error || !Array.isArray(res.data) ? null : ((res.data as Array<{ version: number; rules: unknown }>)[0] ?? null);
+  const sameAsBuild = latest !== null && rulesMatchBuild(latest.rules);
   const p = GLUCOSE_CARE_V1.params;
   const numbers: Array<[string, string]> = [
     ["Red: glucose under", `${p.hypo.severe.toFixed(1)} mmol/L (ADA level 2)`],
@@ -20,6 +35,19 @@ export async function GlucoseTriageRulesPanel({ back }: { back?: "hub" }) {
     ["Red whatever else is known: glucose", `${p.high.severe.toFixed(1)} mmol/L or more`],
     ["Who is graded", `adults ${p.minAdultAgeYears} and over with type 1 or type 2 diabetes (or none recorded). Pregnancy, under ${p.minAdultAgeYears} and other types go to a clinician. The severe low and suspected DKA reds apply to everyone.`],
   ];
+  if (!sameAsBuild) {
+    return (
+      <div className="space-y-6">
+        <p className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">{GLUCOSE_SIGNING_NOTE}</p>
+        <p role="alert" className="rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-900">
+          {latest === null
+            ? "The glucose rule set could not be read just now, so the guideline basis and the patient wording are not shown. Do not sign what you cannot read. Nothing has been changed."
+            : `The rule set waiting for you is version ${latest.version}, which differs from the text this page was built with (version ${GLUCOSE_CARE_V1.version}). The guideline basis and wording are therefore not shown: they would describe different rules. Read the rule list below, and do not sign until the basis for this version has been written.`}
+        </p>
+        <TriageRulesPanel code="glucose_care_triage" page="glucose" {...(back ? { back } : {})} />
+      </div>
+    );
+  }
   return (
     <div className="space-y-6">
       <p className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">{GLUCOSE_SIGNING_NOTE}</p>
