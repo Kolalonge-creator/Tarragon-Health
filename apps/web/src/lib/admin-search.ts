@@ -81,6 +81,7 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/ops/event-bus", "event bus events outbox queue deliveries subscribers dead letter replay stuck lag falling behind heartbeat attempts retry process-events partner webhook"],
   ["/admin/ops/chain-health", "chain health canary test run synthetic check heartbeat grading graded task page paging acknowledged notice stuck dead letter timing how long reading parity legacy old alert engine compare red amber"],
   ["/clinician/chain-health", "chain health canary test run synthetic check heartbeat grading graded task page paging acknowledged notice stuck dead letter timing how long reading parity legacy old alert engine compare red amber"],
+  ["/admin/ops/providers", "provider providers paystack zoom resend webhook webhooks inbox replay settlement reconciliation reconcile break breaks ledger mismatch circuit breaker health outage payment video email"],
   ["/admin/data-rights", "gdpr ndpa privacy deletion erasure access request"],
   ["/admin/promo-codes", "discount coupon voucher"],
   ["/admin/leads", "enquiries prospects contact form"],
@@ -94,6 +95,7 @@ export const ADMIN_EXTRA_PAGES: AdminSearchEntry[] = [
   { label: "Licences and cover", href: "/admin/credentialing/expiry", group: "Clinician credentialing", hint: "Licence and indemnity expiry, grace periods, pause or reinstate access." },
   { label: "Task types and priorities", href: "/admin/task-types", group: "Clinical queue", hint: "The kinds of clinical work, how urgent each is and who may take it." },
   { label: "Record access review", href: "/admin/access-review", group: "Security and privacy", hint: "Who opened which patient record, untied and after-hours openings, and the retention review." },
+  { label: "Providers", href: "/admin/ops/providers", group: "Operations", hint: "Whether Paystack, Zoom and Resend are answering, settlement breaks against the ledger, and the webhook inbox with replay." },
   { label: "Event bus", href: "/admin/ops/event-bus", group: "Operations", hint: "Every event the platform recorded, who handled it, what is stuck, and replay." },
   { label: "Chain health", href: "/admin/ops/chain-health", group: "Operations", hint: "Whether readings become grades, tasks, pages and notices, the test run, timings, and the new grading against the old alerts." },
 ];

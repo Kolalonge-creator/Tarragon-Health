@@ -37,6 +37,9 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Speech evaluation harness (node:test, synthetic data only)
+        run: node --test scripts/asr-eval/score.test.mjs
+
       - name: Build
         run: pnpm build
 
@@ -418,6 +421,14 @@ jobs:
         if: github.event_name != 'pull_request' || steps.changes.outputs.edge == 'true'
         run: |
           for d in order-checkout order-verify order-reconcile; do
+            (cd supabase/functions/$d && deno test --no-config . && deno lint --no-config .)
+          done
+
+      # S14x: the provider event inbox adopters (Resend, Zoom), the settlement reconciliation function and the inbox drain.
+      - name: Test provider-layer functions
+        if: github.event_name != 'pull_request' || steps.changes.outputs.edge == 'true'
+        run: |
+          for d in resend-webhook zoom-webhook settlement-reconcile provider-event-drain; do
             (cd supabase/functions/$d && deno test --no-config . && deno lint --no-config .)
           done
 

@@ -750,6 +750,7 @@ export function getNavSections(
             { label: "Event bus", href: "/admin/ops/event-bus", icon: "operations" },
             // Is the chain from a reading to a grade, task, page and notice working, and how fast (P1).
             { label: "Chain health", href: "/admin/ops/chain-health", icon: "operations" },
+            { label: "Providers", href: "/admin/ops/providers", icon: "operations" },
             { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
                 { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
             { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
