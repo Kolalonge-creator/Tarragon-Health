@@ -20,6 +20,41 @@ spec invariant (INV-01 to INV-16) needs a written founder decision here.
 | TT-12 | **Founder/CMO, 2026-10-13: only the CMO's signature is needed to go live** with the Free red-event wording (OQ-309). DPO and legal review are recommended and optional; nothing in the apply runbook is blocked on them. |
 | TT-10 | **Review findings, 2026-10-12:** the ECG file path must be the booking's own folder (server check plus table CHECK); `record_free_red_event` opens the Free record explicitly if membership flipped between the emergency insert and the look-up; migration timestamps stay as hand-spaced future stamps with a mandatory pre-apply re-check (`scripts/release-integrity/check-two-tier-apply-order.mjs`). |
 
+## Community decisions, 2026-10-09
+
+Founder, in chat, answering OQ-COM-01 to OQ-COM-10 (`docs/OPEN-QUESTIONS.md` section E, design in `docs/COMMUNITY_SPEC.md`). These do not sign the CMO's in-system acts (filter rule set v1 with the self-harm and emergency lists, the weight-loss template, the `community` guard switch), which are still owed.
+
+| ID | Decision |
+|---|---|
+| COM-1 | **Members-only topic groups are allowed and open to Free and paid members alike** (free-text answer: it builds the funnel into membership). Settles the Part C.1 conflict in OQ-COM-01 for members-only, pseudonymous, text-only groups; public, profile-based and body-metric-ranked surfaces stay forbidden. Ships dormant behind the `community` go-live guard (INV-14). |
+| COM-2 | **No sensitive groups at launch.** Launch groups: hypertension, diabetes, weight loss, general health. |
+| COM-3 | **Small named moderation team** (one safety reviewer, one or two moderators, declared hours) using a `community_staff` grant on an existing non-clinical staff role. No new `user_role` value. |
+| COM-4 | **Adults only, 18 and over**, re-checked on every post. |
+| COM-5 | **Free members get the safety card and their own one-tap emergency-contact button**, with no promise of a clinician review. No exception to the 2026-08-10 Free rule. |
+| COM-6 | **Consent at join**, counsel drafts the text: Tarragon may identify a member to their care team only if a post suggests they may be in danger. |
+| COM-7 | **One Tarragon-owned space.** Every group belongs to the Tarragon platform organisation; institutions see nothing. |
+| COM-8 | **No peer moderators at launch.** |
+| COM-9 | **Weight-loss group bans weights, calories and targets;** CMO approves the rules text and pinned post. |
+| COM-10 | **No direct messages ever. Tarragon-owned links only** (exact-hostname allow-list); no images or voice notes in Phases 1 and 2. |
+| COM-11 | **Sponsor and NGO groups: COM-7 stands.** Institutions see nothing about Community, not even counts. (Founder, in chat, 2026-10-09.) |
+| COM-12 | **No buddy pairing for now.** COM-10 stands; revisit after Phase 2 data. |
+| COM-13 | **No images or voice notes.** Text only. |
+| COM-14 | **Sensitive groups: still none.** COM-2 stands. |
+| COM-15 | **Pictures are allowed, pre-moderated. Supersedes COM-13 for pictures only** (voice notes stay out). A group allows pictures only when an admin turns that on (never a weight-loss group). A member posts the picture, it waits in the moderator queue, a moderator checks it is safe and releases it, then the group sees it. Every picture is held, even from a trusted member. Location and camera details are stripped on upload. (Founder, in chat, 2026-10-09.) |
+| COM-16 | **Doctor question sessions are allowed:** a one-off text session in which named doctors answer members' questions for a group (or several). General information for everyone, not advice for one person; the doctor's real name shows; questions go through the same filters as posts. This is a deliberate exception to "Free consumes no doctor time", for scheduled community sessions only. (Founder, in chat, 2026-10-09.) |
+| COM-17 | **Moderators work 24/7 and can delete unwanted messages.** The rota is recorded in the system and go-live requires every hour of the week covered for both moderators and safety reviewers. Moderators can list live posts and remove any that does not belong. A passing safety drill recorded by the CMO within 90 days is a go-live condition. Overdue safety and queue work alerts the safety reviewers, moderators and the CMO. (Founder, in chat, 2026-10-09.) |
+| COM-18 | **Mobile screens are in scope** (native, in `apps/mobile`). Live clinician audio sessions are not needed. (Founder, in chat, 2026-10-09.) |
+| COM-19 | **Unmask, as COM-6 intended and now enforced.** A community name is looked up only while that member has a recent safety concern in that group (30 days), and only by an admin, the Chief Medical Officer or an active doctor. Moderators and safety reviewers hand the concern to one of them. Every lookup is written down with a reason, limited per day, and reported by a fixed notice to the CMO and the named DPO; Community cannot go live until a DPO is named. (Founder, in chat, 2026-10-09.) |
+| COM-20 | **For now the Chief Medical Officer is the data protection officer for Community** (lean company; he oversees governance and quality). Every unmask notice goes to the CMO; Naming a DPO is not a go-live condition and never blocks anything (the `dpo_named` condition was removed; the notice list stays built for later). Only the CMO can add anyone else to the notice list. (Founder, in chat, 2026-10-12.) |
+| COM-21 | **Founder and CMO sign-offs given in chat, 2026-10-12.** (a) Join consent text v1 accepted as written (version `v1-2026-10-12-founder-cmo`; retention of removed and deleted post text 90 days). Counsel has NOT reviewed it, so the counsel go-live attestation stays open. (b) Self-harm and emergency safety wording approved as proposed in `docs/community/CMO_SAFETY_TERMS_PROPOSAL.md`, with the three severe eating phrases (making myself sick, not eaten in days, laxatives to lose weight) also as safety; other disordered-eating wording stays a moderator hold. (c) Rules text of the Healthy weight and habits group approved as written. (d) Crisis owner: the CMO, with named safety reviewers. These answers record intent. The in-system acts (activating the rule set, approving the group rules, attesting go-live conditions) are still done by the CMO's own account. (Founder, chat.) |
+| COM-22 | **Post search is allowed, inside the member's own groups only.** Names and topics search is unchanged. Never across groups they have not joined, never public, no query stored, hidden people left out. (Founder, chat, 2026-10-12; narrows COM-1.) |
+| COM-23 | **Moderators may turn a reply into its own post** (same group, author, words, time; author not told; never a safety post). Moving a thread to another group is NOT built: handles are per group and the authors would not be members there. |
+| COM-24 | **Automatic picture check: the hook is built and OFF.** It can only add a flag for the moderator; every picture still waits for a person. No vendor is connected. Turning one on needs the CMO's safety sign-off (what leaves our systems, what the vendor keeps, false alarm rate). |
+| COM-25 | **Privacy-safe engagement only:** a welcome note for members who joined in the last 14 days, the existing opt-in reply notice, and a once-in-14-days reminder when a reply has sat unread for 3 days (only for members who chose the weekly note). No streaks, badges, member counts or leaderboards. |
+| COM-26 | **Still not built, by founder choice (2026-10-12):** direct messages, voice notes or live video, public groups. CLAUDE.md "never add a DM, voice note, outside link, profile page or leaderboard" stands. |
+
+Phase 2 defaults chosen by engineering to answer the competitor audit (a recommendation, not a signed decision; the founder may change any of them): pre-moderation lowered from 3 posts to 1; a per-group size cap an admin can set; staff opt in to a visible display name; appeal window 14 days; 10% of moderator decisions re-checked by a second moderator. See `docs/COMMUNITY_SPEC.md` section 13.
+
 ## Design decisions, 2026-10-02
 
 Answered in a prompt after the mobile design audit (`docs/design/MOBILE-DESIGN-AUDIT.md`). They settle DF-2 and set Phase 0 of the design plan.
