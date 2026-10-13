@@ -154,6 +154,9 @@ begin
   perform pg_temp.setf('g_empty', pg_temp.mkuser(v_org, 'gempty', 'patient'));
   perform pg_temp.setf('stranger', pg_temp.mkuser(v_org, 'stranger', 'patient'));
   -- an item priced 5,000 naira: 3,000 owed to a partner, 2,000 Tarragon's own service fee
+  -- main-dev's two-tier rule (catalog_items_only_membership_sellable) allows only the Membership to be active in the real catalog. This proof exercises the generic
+  -- checkout and pricing machinery with consultation items, so the rule is lifted for this rolled-back transaction only.
+  alter table public.catalog_items drop constraint if exists catalog_items_only_membership_sellable;
   insert into public.catalog_items (organisation_id, code, kind, name_key, description_key, uses, grants_lead, active)
   values (v_org, 'proof_consult', 'consultation', 'catalog.proof.name', 'catalog.proof.description', 2, false, true) returning id into v_item;
   insert into public.prices (organisation_id, catalog_item_id, amount_kobo, components, reason)

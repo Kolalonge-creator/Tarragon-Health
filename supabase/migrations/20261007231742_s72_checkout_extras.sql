@@ -50,6 +50,9 @@ end $$;
 
 drop function if exists public.redeem_wellness_points(integer);
 drop table public.wellness_points_redemptions;
+-- The registries that list patient tables must not keep a row for a table that no longer exists (the patient-data export walks data_registry and would fail on it).
+delete from public.data_registry where table_name = 'wellness_points_redemptions';
+delete from public.staff_read_scope where table_name = 'wellness_points_redemptions';
 alter table public.wellness_points_config drop column points_to_kobo_rate;
 
 -- ---------------------------------------------------------------------------

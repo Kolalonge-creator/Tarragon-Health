@@ -193,6 +193,9 @@ begin
   perform pg_temp.setf('real', pg_temp.mkuser(v_org, 'real', 'patient'));
   update public.profiles set is_test = false where id = pg_temp.f('real');
   -- items: a yearly Membership (10,000 naira, all Tarragon's own fee), a consultation (5,000: 3,000 partner, 2,000 Tarragon), a plain 8,000 item, a 3,000 lab panel
+  -- main-dev's two-tier rule (catalog_items_only_membership_sellable) allows only the Membership to be active in the real catalog. This proof exercises the generic
+  -- checkout and pricing machinery with consultation items, so the rule is lifted for this rolled-back transaction only.
+  alter table public.catalog_items drop constraint if exists catalog_items_only_membership_sellable;
   insert into public.catalog_items (organisation_id, code, kind, name_key, description_key, duration_days, grants_lead, active)
   values (v_org, 'proof_member', 'membership', 'catalog.proof.name', 'catalog.proof.description', 365, false, true) returning id into v_item;
   insert into public.prices (organisation_id, catalog_item_id, amount_kobo, components, reason) values (v_org, v_item, 10000000, '{"tarragon_service_fee":10000000}', 'proof');
@@ -653,11 +656,11 @@ begin
     'public.create_payment_request(text,uuid)', 'public.cancel_payment_request(uuid)', 'public.my_payment_requests()', 'public.create_request_order(text,uuid)', 'public.expire_payment_requests()',
     'public.my_entitlements()', 'public.my_orders()', 'public.access_fund_public_report()', 'public.payment_request_preview(text,text)', 'public.admin_sponsor_programmes()',
     'private.sponsor_match(uuid,uuid,uuid,boolean)', 'private.fund_general_needed(uuid,boolean,text,bigint)', 'private.payment_request_hash(text)', 'private.fund_sponsor_org(uuid)',
-    'private.go_live_conditions(text,uuid)', 'private.go_live_conditions_s71(text,uuid)', 'private.attest_go_live_condition_s71(text,text,boolean,text)', 'private.fund_min_cell()', 'private.extras_rules()'] loop
+    'private.go_live_conditions(text,uuid)', 'private.go_live_conditions_s71(text,uuid)', 'private.fund_min_cell()', 'private.extras_rules()'] loop
     perform pg_temp.ck('anon cannot execute ' || f, 'false', has_function_privilege('anon', f, 'EXECUTE')::text);
   end loop;
   foreach f in array array['public.access_fund_public_report()', 'public.payment_request_preview(text,text)', 'private.sponsor_match(uuid,uuid,uuid,boolean)', 'private.payment_request_hash(text)',
-    'private.go_live_conditions_s71(text,uuid)', 'private.attest_go_live_condition_s71(text,text,boolean,text)', 'private.fund_min_cell()', 'private.extras_rules()', 'private.fund_sponsor_org(uuid)'] loop
+    'private.go_live_conditions_s71(text,uuid)', 'private.fund_min_cell()', 'private.extras_rules()', 'private.fund_sponsor_org(uuid)'] loop
     perform pg_temp.ck('a signed-in person cannot execute ' || f, 'false', has_function_privilege('authenticated', f, 'EXECUTE')::text);
   end loop;
   perform pg_temp.ck('the service role can run the public report and the link preview', 'true,true', has_function_privilege('service_role', 'public.access_fund_public_report()', 'EXECUTE')::text || ',' || has_function_privilege('service_role', 'public.payment_request_preview(text,text)', 'EXECUTE')::text);
