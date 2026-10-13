@@ -10,12 +10,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CONTROLLED_AT_COUNTER_TEXT } from "@/lib/pharmacy-collection/model";
 
 const STATUS_BADGE: Record<string, { variant: "green" | "grey" | "amber" | "blue"; label: string }> = {
   active: { variant: "green", label: "Active" },
   expired: { variant: "amber", label: "Expired" },
   cancelled: { variant: "grey", label: "Cancelled" },
   superseded: { variant: "blue", label: "Superseded (a newer version exists)" },
+  controlled_medicine: { variant: "amber", label: "Controlled medicine: not supplied through Tarragon" },
 };
 
 /**
@@ -93,6 +95,9 @@ export function VerifyPrescriptionForm() {
             </CardTitle>
           </CardHeader>
           <CardContent>
+            {result.status === "controlled_medicine" && (
+              <p role="status" className="mb-3 rounded border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900">{CONTROLLED_AT_COUNTER_TEXT}</p>
+            )}
             <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
               <Row label="Patient" value={result.patient_name} />
               <Row label="Prescriber" value={result.prescriber_name} />

@@ -76,7 +76,7 @@ for (const name of readdirSync(dir).filter((n) => n.endsWith(".mp3")).sort()) {
 }
 
 // A file is playable only when every review it needs is signed (same rule as `playable` in packages/audio).
-const required = (clip, key) => ["brand", ...(clip.clinical ? ["clinical"] : []), ...(clip.legal ? ["legal"] : []), ...(key === "pcm" ? ["native_pidgin"] : [])];
+const required = (clip, key) => ["brand", ...(clip.clinical ? ["clinical"] : []), ...(clip.legal ? ["legal"] : [])];
 const playable = (clip, key, f) => f.sha256 !== null && f.bytes !== null && required(clip, key).every((r) => f.approvals.some((a) => a.review === r && a.sha256 === f.sha256));
 
 // Compact manifest: header pretty-printed, one clip per line (matches import-production-list.py).

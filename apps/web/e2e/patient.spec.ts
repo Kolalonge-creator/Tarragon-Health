@@ -53,12 +53,9 @@ test.describe("patient", () => {
     // Core Overview sections a patient relies on every visit — greeting
     // banner, the sidebar nav, and the quick-actions row — all matched by
     // href rather than English copy. This account's UI language could in
-    // principle be switched to Pidgin (patients can change it, and the
-    // platform ships real Pidgin coverage — see project memory
-    // project_pidgin_lifestyle_tracker_coverage_20260911), which would
-    // silently break an assertion on translated text like the
-    // quick-actions section's own "Quick actions" heading
-    // (quick-actions.tsx's tr("Quick actions")) — hrefs never translate.
+    // principle change how text reads, which would silently break an
+    // assertion on translated text, so hrefs are matched instead — hrefs
+    // never change.
     // "Patient dashboard" and the "Here's how ... is going" greeting are
     // untranslated static/server-built strings (dashboard-placeholder.tsx,
     // (sections)/page.tsx), so those two stay text assertions.

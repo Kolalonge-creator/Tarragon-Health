@@ -95,9 +95,9 @@ describe("withLanguage", () => {
   it("changes every identifier when the language changes, so scheduled text is refreshed", () => {
     const plan = planReminderNotifications(input({ prefs: prefs({ bp: [bp("a", ["20:00"])] }) }), NOW, cfg);
     const en = withLanguage(plan, "en").map((p) => p.identifier);
-    const pcm = withLanguage(plan, "pcm").map((p) => p.identifier);
+    const other = withLanguage(plan, "xx").map((p) => p.identifier);
     expect(en.every((id) => id.endsWith("@en"))).toBe(true);
-    expect(en.filter((id) => pcm.includes(id))).toEqual([]);
+    expect(en.filter((id) => other.includes(id))).toEqual([]);
     expect(en.every((id) => id.startsWith(REMINDER_ID_PREFIX))).toBe(true);
   });
 });

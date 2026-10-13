@@ -107,8 +107,8 @@ begin
     values ('s16test', 1, 'approved', '{"code":"s16test","version":1}'::jsonb, v_cmo, now(), 'S16 proof fixture') returning id into v_rs_ok;
 
   -- 1. Seed -----------------------------------------------------------------------------------------------
-  -- S22 added written_question_call and S27 sensitive_result_disclosure, so S16's own ten are counted by excluding later sections' types
-  perform pg_temp.rec('ten task types seeded', '10', (select count(*)::text from public.task_types where is_active and code not in ('written_question_call', 'sensitive_result_disclosure')));
+  -- S22 added written_question_call, S27 sensitive_result_disclosure and S36h pharmacy_flag_review, so S16's own ten are counted by excluding later sections' types
+  perform pg_temp.rec('ten task types seeded', '10', (select count(*)::text from public.task_types where is_active and code not in ('written_question_call', 'sensitive_result_disclosure', 'pharmacy_flag_review')));
   perform pg_temp.rec('one active version per code', '0', (select count(*)::text from (select code from public.task_types where is_active group by code having count(*) > 1) x));
   perform pg_temp.rec('a red-class type has no lead window', '0', (select lead_window_minutes::text from public.task_types where code = 'red_event_unacknowledged'));
   perform pg_temp.rec('amber review is class 4, 24 hours, 4 hour lead window', '4,1440,240',
@@ -158,7 +158,7 @@ begin
   perform pg_temp.rec('a direct state update is refused', '42501', pg_temp.try(format('update public.clinical_tasks set state = ''completed'' where id = %L', v_t1)));
   perform pg_temp.rec('a direct insert is refused', '42501',
     pg_temp.try(format($q$insert into public.clinical_tasks (organisation_id, type, task_type_version, priority_class, priority_class_original, patient_id, min_tier, due_at)
-      values (%L, 'amber_bp_review', 1, 4, 4, %L, 'medical_officer', now())$q$, v_org, v_p3)));
+      values (%L, 'amber_bp_review', 1, 4, 4, %L, 'senior_medical_officer', now())$q$, v_org, v_p3)));
   perform pg_temp.rec('an illegal move is refused (open -> completed)', '23514',
     pg_temp.try(format($q$select private.apply_task_transition(%L, 'completed', 'clinician', %L, null, null, null, '{}'::jsonb)$q$, v_red, v_emp)));
   perform pg_temp.rec('the wrong actor kind is refused (system cannot claim)', '23514',

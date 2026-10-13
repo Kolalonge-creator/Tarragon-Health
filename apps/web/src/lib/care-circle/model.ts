@@ -92,6 +92,8 @@ export const supporterViewSchema = z.object({
     })
     .optional(),
   appointments: z.object({ next_at: z.string().nullable(), missed_30d: z.number() }).optional(),
+  // S38d: monthly summary, parts present only with the matching tick; parsed field by field in @tarragon/i18n (parseCircleMonthly).
+  monthly: z.array(z.unknown()).optional(),
   can_pay: z.boolean().optional(),
 });
 export type SupporterView = z.infer<typeof supporterViewSchema>;

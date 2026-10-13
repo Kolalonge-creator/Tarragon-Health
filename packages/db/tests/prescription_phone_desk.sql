@@ -40,7 +40,7 @@ begin
   insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier,
                                      credential_type, credential_number, indemnity_insurer, indemnity_policy_number, indemnity_expires_at) values
     (v_org, v_doc,   'RxDesk Doctor', true, now(), 'senior_medical_officer', 'MDCN', 'RXDESK-1', 'Probe', 'RXD-1', now() + interval '1 year'),
-    (v_org, v_staff, 'RxDesk Staff',  true, now(), 'medical_officer',        'MDCN', 'RXDESK-2', 'Probe', 'RXD-2', now() + interval '1 year');
+    (v_org, v_staff, 'RxDesk Staff',  true, now(), 'senior_medical_officer',        'MDCN', 'RXDESK-2', 'Probe', 'RXD-2', now() + interval '1 year');
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_doc, 'role', 'authenticated')::text, true);
   insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, quantity, duration_days, source, added_by)

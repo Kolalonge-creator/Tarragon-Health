@@ -115,7 +115,7 @@ begin
   insert into public.clinical_staff
     (id, organisation_id, profile_id, full_name, credential_type, active, doctor_tier, license_verified_at)
   values
-    (v_staff_id, v_org, v_doctor, 'DIA Fixture Doctor', 'MDCN', true, 'medical_officer', now());
+    (v_staff_id, v_org, v_doctor, 'DIA Fixture Doctor', 'MDCN', true, 'senior_medical_officer', now());
 
   -- 2. clinical_staff.id vs profile_id genuinely differ — the negative
   -- control that proves a wrong-table join in this fixture would not
@@ -267,7 +267,7 @@ begin
     set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
   insert into public.clinical_staff
     (id, organisation_id, profile_id, full_name, credential_type, active, doctor_tier, license_verified_at)
-  values (v_staff_id, v_org, v_doctor, 'DIA Appt Doctor', 'MDCN', true, 'medical_officer', now());
+  values (v_staff_id, v_org, v_doctor, 'DIA Appt Doctor', 'MDCN', true, 'senior_medical_officer', now());
 
   -- A live appointment: attributed to the doctor via appointments.
   -- clinician_id -> profiles, the one redemption path with no

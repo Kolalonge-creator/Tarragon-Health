@@ -7,8 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { ta } from "@/lib/auth/auth-locale";
 import { startPhoneSignUp } from "@/lib/auth/auth-flow";
 import { checkNewPassword } from "@/lib/auth/password-verdict";
-import { useAuthLocale } from "@/lib/auth/use-auth-locale";
-import { LanguageChooser } from "@/screens/language-chooser";
+import { DEFAULT_LOCALE } from "@tarragon/i18n";
 import { VerifyCodeStep } from "@/screens/verify-code-step";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
@@ -128,7 +127,7 @@ function friendlySignUpError(rawMessage: string): string {
 type SignUpMethod = "phone" | "email";
 
 export function SignUpScreen({ onClose }: { onClose: () => void }) {
-  const [locale, chooseLocale] = useAuthLocale();
+  const locale = DEFAULT_LOCALE;
   const [method, setMethod] = useState<SignUpMethod>("phone");
   // Phone method: after signUp the account exists but is unconfirmed; this
   // holds the E.164 number the code went to. The app is never entered until
@@ -283,8 +282,6 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
         contentContainerStyle={{ padding: spacing.screen, paddingTop: 56, gap: 12 }}
       >
         <SecondaryButton title="Close" onPress={onClose} />
-
-        <LanguageChooser locale={locale} onChange={chooseLocale} />
 
         <View>
           <Text style={{ fontSize: 22, fontWeight: "700", color: colors.ink }}>
@@ -444,7 +441,7 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
         animationType="fade"
         onRequestClose={() => setCountryPickerOpen(false)}
       >
-        <Pressable
+        <Pressable accessible={false}
           onPress={() => setCountryPickerOpen(false)}
           style={{ flex: 1, backgroundColor: inkAlpha(0.4), justifyContent: "flex-end" }}
         >
@@ -483,7 +480,7 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
         animationType="fade"
         onRequestClose={() => setStatePickerOpen(false)}
       >
-        <Pressable
+        <Pressable accessible={false}
           onPress={() => setStatePickerOpen(false)}
           style={{ flex: 1, backgroundColor: inkAlpha(0.4), justifyContent: "flex-end" }}
         >

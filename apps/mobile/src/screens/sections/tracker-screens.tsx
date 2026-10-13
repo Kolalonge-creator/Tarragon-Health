@@ -435,8 +435,7 @@ export function MealsScreen({ patientId }: { patientId: string }) {
             />
             {/* "Remove photo" / "Take a photo" / "Choose from library" stay
                 plain English, matching labs-screen.tsx's identical camera
-                affordance -- neither that screen nor this one's photo path
-                is part of the wayfinding-only pidgin dictionary. */}
+                affordance. */}
             <SecondaryButton title="Remove photo" onPress={() => setPhoto(null)} disabled={saving} />
           </View>
         ) : null}

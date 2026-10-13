@@ -223,7 +223,7 @@ export function VideoVisitBookingSection({
                   </View>
                 )}
                 {canCancel && (
-                  <Pressable onPress={() => void cancelRequest(req.id)} style={{ marginTop: 4 }}>
+                  <Pressable accessibilityRole="button" onPress={() => void cancelRequest(req.id)} style={{ marginTop: 4 }}>
                     <Text style={{ fontSize: 13, fontWeight: "600", color: colors.danger }}>
                       {cancellingId === req.id ? "Cancelling…" : "Cancel request"}
                     </Text>
@@ -275,7 +275,7 @@ export function VideoVisitBookingSection({
         <MutedText>No open times right now. Check back soon, or open the full booking page.</MutedText>
       )}
 
-      <Pressable onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/care#book-video-visit`)}>
+      <Pressable accessibilityRole="link" onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/care#book-video-visit`)}>
         <Text style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed, textAlign: "center" }}>
           Open the full booking page in your browser
         </Text>

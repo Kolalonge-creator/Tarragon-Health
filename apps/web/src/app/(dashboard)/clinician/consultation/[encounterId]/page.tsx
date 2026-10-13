@@ -30,7 +30,7 @@ export default async function ClinicianConsultationPage({ params }: { params: Pr
         </Link>
         {view.video_consultation_id && (
           <Link href={`/clinician/video-visit/${view.video_consultation_id}`} className="text-sm font-medium text-brand-green hover:underline">
-            Notes and prescribing →
+            Notes, scribe and prescribing →
           </Link>
         )}
       </div>

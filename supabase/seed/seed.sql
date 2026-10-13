@@ -268,14 +268,13 @@ update public.panel_bundles set self_bookable = true
 -- it). onboarding_status='activated' mirrors exactly what that migration's
 -- own backfill set on these same 4 rows in production.
 insert into public.pharmacy_partners
-  (name, delivery, regions, contact_phone, contact_email, address, latitude, longitude, uses_platform_login, is_active, onboarding_status)
+  (name, regions, contact_phone, contact_email, address, latitude, longitude, uses_platform_login, is_active, onboarding_status)
 values
-  ('Medplus',        true, array['Lagos', 'Abuja'], '+2348030000001', 'orders@medplus.example',        'Allen Avenue, Ikeja, Lagos',        6.6018, 3.3515, false, false, 'activated'),
-  ('HealthPlus',     true, array['Lagos', 'Abuja'], '+2348030000002', 'orders@healthplus.example',     'Adeola Odeku St, Victoria Island, Lagos', 6.4281, 3.4219, true, false, 'activated'),
-  ('Alpha Pharmacy', true, array['Lagos'],          '+2348030000003', 'care@alphapharmacy.example',    'Adeniran Ogunsanya, Surulere, Lagos', 6.5010, 3.3552, false, false, 'activated'),
-  ('MedsPal',        true, array['Lagos'],          '+2348030000004', 'orders@medspal.example',        'Admiralty Way, Lekki Phase 1, Lagos', 6.4698, 3.5852, false, false, 'activated')
+  ('Medplus',        array['Lagos', 'Abuja'], '+2348030000001', 'orders@medplus.example',        'Allen Avenue, Ikeja, Lagos',        6.6018, 3.3515, false, false, 'activated'),
+  ('HealthPlus',     array['Lagos', 'Abuja'], '+2348030000002', 'orders@healthplus.example',     'Adeola Odeku St, Victoria Island, Lagos', 6.4281, 3.4219, true, false, 'activated'),
+  ('Alpha Pharmacy', array['Lagos'],          '+2348030000003', 'care@alphapharmacy.example',    'Adeniran Ogunsanya, Surulere, Lagos', 6.5010, 3.3552, false, false, 'activated'),
+  ('MedsPal',        array['Lagos'],          '+2348030000004', 'orders@medspal.example',        'Admiralty Way, Lekki Phase 1, Lagos', 6.4698, 3.5852, false, false, 'activated')
 on conflict (name) do update set
-  delivery           = excluded.delivery,
   regions            = excluded.regions,
   contact_phone      = excluded.contact_phone,
   contact_email      = excluded.contact_email,

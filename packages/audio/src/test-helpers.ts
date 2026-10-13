@@ -21,18 +21,16 @@ export function finished(clip: ManifestClip, sha = SHA): ManifestClip {
     const reviews: Approval["review"][] = ["brand"];
     if (clip.clinical) reviews.push("clinical");
     if (clip.legal) reviews.push("legal");
-    if (key === "pcm") reviews.push("native_pidgin");
     files[key] = { ...(f as ClipFile), sha256: sha, bytes: 12_345, duration_ms: 4_000, approvals: reviews.map((r) => APPROVAL(r, sha)) };
   }
-  // A held Pidgin clip counts as finished only once its Pidgin has been released (signed and natively reviewed).
-  return { ...clip, files, pcm_text: clip.pcm_text === "held_as_english" ? "reviewed" : clip.pcm_text };
+  return { ...clip, files };
 }
 
 /** Clinician sign-offs for every stitched pattern in both languages, over the recordings the manifest has now. */
 export function withPhraseSignoffs(m: Manifest): Manifest {
   const byId = new Map(m.clips.map((c) => [c.id, c]));
   const signoffs = (Object.keys(PATTERN_CLIPS) as PhrasePattern[]).flatMap((pattern) =>
-    (["en", "pcm"] as Lang[]).map((lang) => ({
+    (["en"] as Lang[]).map((lang) => ({
       pattern,
       lang,
       by: "Test Clinician",

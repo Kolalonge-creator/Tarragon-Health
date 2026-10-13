@@ -18,15 +18,35 @@ import { BUNDLED_AUDIO } from "./bundled-assets.generated";
 import { reportAudioIssue } from "./issues";
 
 /** Where a recording comes from on this phone. */
-export type AudioSource = { readonly kind: "bundled"; readonly module: number } | { readonly kind: "file"; readonly uri: string };
+export type AudioSource = (
+  | { readonly kind: "bundled"; readonly module: number }
+  | { readonly kind: "file"; readonly uri: string }
+) & {
+  /** Recorded length, so the player can tell a clip that stalled (a phone call took the audio) from one still playing. */
+  readonly durationMs?: number;
+};
+
+export interface PlayOptions {
+  /** An emergency or red-result message: plays even with the ringer off. Everything else respects silent mode. */
+  readonly emergency: boolean;
+}
+
+/** Thrown by an engine when `stop()` ended a play. Not a failure: the caller was told to stop. */
+export class AudioStopped extends Error {
+  constructor() {
+    super("audio stopped");
+    this.name = "AudioStopped";
+  }
+}
 
 /**
  * The part of the app that makes sound. It is a port because the native audio module is a native dependency that
  * needs a new build and a `runtimeVersion` bump (OQ-201); until one is registered, every request shows its text.
- * `play` resolves when the last source has finished, or rejects; `stop` ends whatever is playing at once.
+ * `play` resolves when the last source has finished, or rejects; `stop` ends whatever is playing at once, and the
+ * interrupted `play` rejects with `AudioStopped`.
  */
 export interface AudioEngine {
-  play(sources: readonly AudioSource[]): Promise<void>;
+  play(sources: readonly AudioSource[], options: PlayOptions): Promise<void>;
   stop(): void;
 }
 
@@ -56,6 +76,8 @@ export interface AudioService {
   playClips(clipIds: readonly string[], lang: Lang): Promise<Spoken>;
   /** Say a stitched reading. A null phrase (a value the kit cannot say) is text only by the caller; see `speakReading`. */
   playPhrase(phrase: Phrase, lang: Lang): Promise<Spoken>;
+  /** Whether these clips would play right now: recorded, signed off, and an engine registered. Never reports an issue, so a screen can ask on every render. */
+  canPlayClips(clipIds: readonly string[], lang: Lang): Promise<boolean>;
   /** Stop at once: on a language change, on leaving the screen, on a new request. */
   stop(): void;
 }
@@ -65,10 +87,11 @@ const noDownloads: DownloadedFiles = { uriFor: () => null };
 export function createAudioService(deps: AudioServiceDeps): AudioService {
   const { catalogue, engine } = deps;
   const sourceFor = (file: ClipFile): AudioSource | null => {
+    const durationMs = file.duration_ms ?? undefined;
     const module = deps.bundled[file.file];
-    if (module !== undefined) return { kind: "bundled", module };
+    if (module !== undefined) return { kind: "bundled", module, durationMs };
     const uri = deps.downloaded.uriFor(file);
-    return uri === null ? null : { kind: "file", uri };
+    return uri === null ? null : { kind: "file", uri, durationMs };
   };
   const locator: ClipLocator = { has: (_id, _key: FileKey, file) => sourceFor(file) !== null };
 
@@ -83,10 +106,13 @@ export function createAudioService(deps: AudioServiceDeps): AudioService {
     engine.stop();
     const sources = plan.steps.map((s: PlayStep) => sourceFor(s.file)).filter((s): s is AudioSource => s !== null);
     try {
-      await engine.play(sources);
+      await engine.play(sources, { emergency: plan.steps.some((s: PlayStep) => s.clipId.startsWith("EMG-")) });
       return { played: true, text: plan.text, lang: plan.lang };
     } catch (e) {
-      deps.report({ code: "clip_file_missing", clipId: plan.steps[0]?.clipId ?? null, lang: plan.lang, detail: e instanceof Error ? e.message.slice(0, 120) : "playback failed" });
+      // Stopped on purpose (a new request, a language change): not a fault, and not "played".
+      if (!(e instanceof AudioStopped)) {
+        deps.report({ code: "playback_failed", clipId: plan.steps[0]?.clipId ?? null, lang: plan.lang, detail: e instanceof Error ? e.message.slice(0, 120) : "playback failed" });
+      }
       return { played: false, text: plan.text, lang: plan.lang };
     }
   }
@@ -97,6 +123,11 @@ export function createAudioService(deps: AudioServiceDeps): AudioService {
       run((c) => resolveClips(ids, lang, rd(c)), () => ids.map((id) => scriptText(id, lang)).join(" "), lang),
     playPhrase: (phrase, lang) =>
       run((c) => resolvePhrase(phrase, lang, rd(c)), () => phraseText(phrase, lang, scriptText), lang),
+    canPlayClips: async (ids, lang) => {
+      if (!catalogue || !engine) return false;
+      const quiet = { catalogue, locator, script: scriptText, report: () => {} };
+      return (await resolveClips(ids, lang, quiet)).complete;
+    },
     stop: () => engine?.stop(),
   };
 }

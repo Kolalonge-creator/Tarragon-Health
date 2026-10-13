@@ -16,7 +16,7 @@ describe("mock speech to text", () => {
 
   it("drops the connection on the chosen chunk and keeps what it already had", async () => {
     const stt = createMockSpeech({ script, failOnChunk: 3 });
-    const s = await stt.startStream({ encounterRef: ENC, language: "en-NG", scribeConsentId: CONSENT });
+    const s = await stt.startStream({ encounterRef: ENC, scribeConsentId: CONSENT });
     if (!s.ok) throw new Error("stream");
     await s.data.push(new Uint8Array([1]));
     await s.data.push(new Uint8Array([1]));
@@ -29,7 +29,7 @@ describe("mock speech to text", () => {
 
   it("a script shorter than the audio just yields no more segments", async () => {
     const stt = createMockSpeech({ script: script.slice(0, 1) });
-    const s = await stt.startStream({ encounterRef: ENC, language: "pcm", scribeConsentId: CONSENT });
+    const s = await stt.startStream({ encounterRef: ENC, scribeConsentId: CONSENT });
     if (!s.ok) throw new Error("stream");
     for (let i = 0; i < 4; i++) await s.data.push(new Uint8Array([1]));
     const t = await s.data.stop();
@@ -38,8 +38,8 @@ describe("mock speech to text", () => {
 
   it("gives each stream its own id", async () => {
     const stt = createMockSpeech({ script });
-    const a = await stt.startStream({ encounterRef: ENC, language: "en-NG", scribeConsentId: CONSENT });
-    const b = await stt.startStream({ encounterRef: ENC, language: "en-NG", scribeConsentId: CONSENT });
+    const a = await stt.startStream({ encounterRef: ENC, scribeConsentId: CONSENT });
+    const b = await stt.startStream({ encounterRef: ENC, scribeConsentId: CONSENT });
     expect(a.ok && b.ok && a.data.id !== b.data.id).toBe(true);
   });
 });

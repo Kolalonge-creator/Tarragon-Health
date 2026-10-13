@@ -31,6 +31,12 @@
 
 begin;
 
+-- 20261006223248 added a guard that refuses activating a version older than one already
+-- signed (it would roll the platform back). This test deliberately activates an older
+-- draft, for this rolled-back transaction only, so it switches that one guard off first.
+-- (Disabling a trigger is transactional: the rollback below restores it.)
+alter table public.escalation_slas disable trigger refuse_superseded_activation;
+
 update public.escalation_slas set is_active = false where is_active;
 update public.escalation_slas set is_active = true
   where id = (

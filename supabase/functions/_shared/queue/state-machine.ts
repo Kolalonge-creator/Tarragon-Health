@@ -52,7 +52,6 @@ export function movesFor(from: TaskState, actor: ActorKind): TaskState[] {
 
 export const DOCTOR_TIER_RANK = {
   care_coordinator: 0,
-  medical_officer: 1,
   senior_medical_officer: 2,
   chief_medical_officer: 3,
 } as const;

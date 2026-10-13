@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 import { readFileSync } from "node:fs";
-import { en, pcm } from "@tarragon/i18n";
+import { en } from "@tarragon/i18n";
 
 /**
  * INV-07: a reminder never names a medicine, a condition, a reading or a result.
@@ -45,9 +45,8 @@ describe("medicine reminder wording (INV-07)", () => {
     expect(keys.length).toBeGreaterThanOrEqual(5);
   });
 
-  it.each(keys)("%s is neutral in English and Pidgin", (key) => {
+  it.each(keys)("%s is neutral in English", (key) => {
     expect(hits(en[key])).toEqual([]);
-    expect(hits(pcm[key])).toEqual([]);
   });
 
   it("the scan discriminates: a string naming a medicine is caught", () => {

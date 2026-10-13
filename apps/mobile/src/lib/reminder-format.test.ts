@@ -1,4 +1,4 @@
-import { en, pcm } from "@tarragon/i18n";
+import { en } from "@tarragon/i18n";
 import { DAY_KEYS, daysSummary, describeUpcoming } from "./reminder-format";
 import { lagosTimeToUtcMs } from "./lagos-date";
 
@@ -34,8 +34,7 @@ describe("describeUpcoming", () => {
 });
 
 describe("day keys", () => {
-  it.each(DAY_KEYS.map((k) => [k]))("%s exists in English and Pidgin", (key) => {
+  it.each(DAY_KEYS.map((k) => [k]))("%s exists in English", (key) => {
     expect((en as Record<string, string>)[key]).toBeTruthy();
-    expect((pcm as Record<string, string>)[key]).toBeTruthy();
   });
 });

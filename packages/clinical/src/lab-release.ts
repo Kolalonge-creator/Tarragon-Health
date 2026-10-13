@@ -13,9 +13,31 @@ export type LabAnalyteDefinition = {
   refHigh?: number;
   criticalLow?: number;
   criticalHigh?: number;
+  /**
+   * Sex-specific reference limits (WHO haemoglobin, creatinine, HDL). Critical limits stay the same for everyone. A patient
+   * whose recorded sex is missing or is neither key is judged by the narrowest of the two ranges, so an uncertain case is
+   * held for a clinician rather than passed. The database applies the same rule (`private.classify_lab_result`).
+   */
+  bySex?: { male?: SexRange; female?: SexRange };
   sensitive?: boolean;
   optional?: boolean;
 };
+
+export type SexRange = { refLow?: number; refHigh?: number };
+
+export type LabSex = "male" | "female";
+
+/** The reference limits to judge one value against, for the patient's recorded sex. */
+export function effectiveRange(def: LabAnalyteDefinition, sex?: string | null): { refLow?: number; refHigh?: number } {
+  if (!def.bySex) return { refLow: def.refLow, refHigh: def.refHigh };
+  const male = def.bySex.male;
+  const female = def.bySex.female;
+  if (sex === "male") return { refLow: male?.refLow ?? def.refLow, refHigh: male?.refHigh ?? def.refHigh };
+  if (sex === "female") return { refLow: female?.refLow ?? def.refLow, refHigh: female?.refHigh ?? def.refHigh };
+  const lows = [male?.refLow ?? def.refLow, female?.refLow ?? def.refLow].filter((x): x is number => x !== undefined);
+  const highs = [male?.refHigh ?? def.refHigh, female?.refHigh ?? def.refHigh].filter((x): x is number => x !== undefined);
+  return { refLow: lows.length ? Math.max(...lows) : undefined, refHigh: highs.length ? Math.min(...highs) : undefined };
+}
 
 export type LabPanelDefinition = { analytes: LabAnalyteDefinition[] };
 
@@ -53,15 +75,15 @@ export class LabEntryError extends Error {
 /** Values the form may send for a qualitative analyte. Anything else is refused, never guessed (OQ-176). */
 export const QUALITATIVE_VALUES = ["positive", "negative"] as const;
 
-function flagNumeric(def: LabAnalyteDefinition, v: number): LabFlag {
+function flagNumeric(def: LabAnalyteDefinition, v: number, range: { refLow?: number; refHigh?: number }): LabFlag {
   if (def.criticalLow !== undefined && v < def.criticalLow) return "critical";
   if (def.criticalHigh !== undefined && v > def.criticalHigh) return "critical";
-  if (def.refLow !== undefined && v < def.refLow) return "low";
-  if (def.refHigh !== undefined && v > def.refHigh) return "high";
+  if (range.refLow !== undefined && v < range.refLow) return "low";
+  if (range.refHigh !== undefined && v > range.refHigh) return "high";
   return "normal";
 }
 
-export function classifyLabResult(panel: LabPanelDefinition, input: LabItemInput[]): LabClassification {
+export function classifyLabResult(panel: LabPanelDefinition, input: LabItemInput[], sex?: string | null): LabClassification {
   const byCode = new Map(panel.analytes.map((a) => [a.code, a]));
   const seen = new Set<string>();
   const items: ClassifiedItem[] = [];
@@ -77,7 +99,8 @@ export function classifyLabResult(panel: LabPanelDefinition, input: LabItemInput
       const v = it.valueNumeric;
       if (v == null) throw new LabEntryError("lab_value_missing", it.analyteCode);
       if (!Number.isFinite(v) || v < 0 || v > 1e6) throw new LabEntryError("lab_value_out_of_bounds", it.analyteCode);
-      items.push({ analyteCode: def.code, flag: flagNumeric(def, v), sensitivePositive: false, unit: def.unit, refLow: def.refLow ?? null, refHigh: def.refHigh ?? null });
+      const range = effectiveRange(def, sex);
+      items.push({ analyteCode: def.code, flag: flagNumeric(def, v, range), sensitivePositive: false, unit: def.unit, refLow: range.refLow ?? null, refHigh: range.refHigh ?? null });
     } else {
       const t = it.valueText?.trim().toLowerCase();
       if (t == null || t === "") throw new LabEntryError("lab_value_missing", it.analyteCode);

@@ -7,7 +7,9 @@ import {
   type FundingProgrammeInvitation,
   type FundingProgrammeStats,
 } from "@tarragon/staff-core/ngo/funding-programmes";
+import { isPlatformModuleEnabled } from "@tarragon/staff-core/platform-modules";
 import { Card, CardDescription, CardHeader, CardTitle } from "@tarragon/ui/components/card";
+import { DashboardPlaceholder } from "@tarragon/ui/components/dashboard-placeholder";
 import { NgoConsole } from "./ngo-console";
 
 /**
@@ -22,6 +24,17 @@ import { NgoConsole } from "./ngo-console";
  */
 export default async function NgoDashboardPage() {
   const profile = await getCurrentProfile();
+  // The funded-cohort tools are behind a module a superadmin switches on (every RPC below also enforces it). Until then an honest
+  // placeholder, not a blank page; the programme figures tab next to it does not depend on the module.
+  if (!(await isPlatformModuleEnabled("ngo_funded_cohort"))) {
+    return (
+      <DashboardPlaceholder
+        greeting={`Welcome${profile?.full_name ? `, ${profile.full_name}` : ""}`}
+        roleLabel="NGO partner admin"
+        comingUp={["The NGO-funded cohort programme tools are built and ready. A Tarragon superadmin has not switched it on yet. Your programme figures are under Programme figures."]}
+      />
+    );
+  }
   const supabase = await createClient();
   const programmes = await listFundingProgrammesForCaller(supabase);
 

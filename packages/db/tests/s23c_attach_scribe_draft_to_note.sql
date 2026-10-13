@@ -40,7 +40,7 @@ begin
   on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name, is_test = true;
   insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier) values
     (v_org, v_tied,   'S23c Tied Doctor',   true, now(), 'senior_medical_officer'),
-    (v_org, v_untied, 'S23c Untied Doctor', true, now(), 'medical_officer');
+    (v_org, v_untied, 'S23c Untied Doctor', true, now(), 'senior_medical_officer');
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, assigned_at)
   values (v_org, v_pat, v_tied, now()) on conflict (patient_id) do update set clinician_id = v_tied;
 
@@ -54,7 +54,7 @@ begin
   select public.create_encounter_note(v_pat, 'phone', 'S23c review') into v_note;
   select public.create_encounter_note(v_pat, 'phone', 'S23c second') into v_note2;
   insert into public.scribe_consents (patient_id, encounter_note_id, granted, language) values (v_pat, v_note, true, 'en-NG') returning id into v_ok;
-  insert into public.scribe_consents (patient_id, encounter_note_id, granted, language) values (v_pat, v_note, true, 'pcm') returning id into v_revoked;
+  insert into public.scribe_consents (patient_id, encounter_note_id, granted, language) values (v_pat, v_note, true, 'en-NG') returning id into v_revoked;
   update public.scribe_consents set revoked_at = now() where id = v_revoked;
   insert into public.scribe_consents (patient_id, encounter_note_id, granted, language) values (v_pat, v_note2, true, 'en-NG') returning id into v_other;
   insert into public.scribe_consents (patient_id, encounter_note_id, granted, language) values (v_pat, v_note, false, 'en-NG') returning id into v_declined;
@@ -75,7 +75,7 @@ begin
   execute 'set local role authenticated';
   -- 2b revoked, 2c other note, 2d declined
   v_failed := false;
-  begin perform public.attach_scribe_draft_to_note(v_note, v_revoked, 'x', 'pcm');
+  begin perform public.attach_scribe_draft_to_note(v_note, v_revoked, 'x', 'en-NG');
   exception when insufficient_privilege then v_failed := true; end;
   if not v_failed then raise exception 'FAIL 2b: a revoked consent was accepted'; end if;
   v_failed := false;

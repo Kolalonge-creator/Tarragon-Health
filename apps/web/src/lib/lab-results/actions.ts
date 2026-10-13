@@ -578,7 +578,7 @@ export async function uploadResultAsLabPartner(
   // has reviewed it (INV-03). The free-text note is not kept: a held result has nothing a patient could be shown.
   const fd = new FormData();
   fd.set("order_id", String(formData.get("order_id") ?? ""));
-  fd.set("panel", "essential");
+  fd.set("panel", "membership_annual");
   fd.set("items", "[]");
   const file = formData.get("file");
   if (file instanceof File) fd.set("file", file);

@@ -76,7 +76,7 @@ function CardSkeleton({ className = "h-40" }: { className?: string }) {
 }
 
 export default async function PatientOverviewPage() {
-  const { subjectId, acting, subjectSex, glucoseUnit, uiLanguage } =
+  const { subjectId, acting, subjectSex, glucoseUnit } =
     await getPatientDashboardContext();
   const stats = await getPatientSummaryStats(subjectId);
   const prevention = await getPatientPreventionStats(subjectId);
@@ -161,7 +161,6 @@ export default async function PatientOverviewPage() {
         <GetStartedCard
           progress={progress}
           acting={acting?.fullName ?? null}
-          language={uiLanguage}
         />
       )}
 

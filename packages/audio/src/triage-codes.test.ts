@@ -13,8 +13,8 @@ describe("triage message codes and the manifest (safety case 1 area)", () => {
 
   it("has a clip for every spoken triage code except the ones recorded as open", () => {
     const missing = spoken.filter((k) => !ids.has(k)).sort();
-    // EMG-001L (the low-pressure variant) is not in the Audio Production List. Raised as OQ-202.
-    expect(missing).toEqual(["EMG-001L"]);
+    // EMG-001L is added from clinical-wording.json; it is not in the Audio Production List (OQ-202).
+    expect(missing).toEqual([]);
   });
 
   it("covers the codes the engine uses most: the emergency, the green, the amber and the recheck", () => {

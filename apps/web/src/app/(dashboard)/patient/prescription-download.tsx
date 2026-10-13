@@ -76,6 +76,7 @@ export function PrescriptionDownload({
   expiresAt,
   supplies,
   patientId,
+  prescriptionId,
 }: {
   medicationId: string;
   rxNumber: string | null;
@@ -84,6 +85,8 @@ export function PrescriptionDownload({
   /** Supplies a pharmacy has recorded against this prescription (source 'pharmacy'), newest first. */
   supplies: RecordedSupply[];
   patientId: string;
+  /** The signed prescription row, when there is one: lets the patient choose a verified pharmacy to collect from (S28). */
+  prescriptionId?: string | null;
 }) {
   if (!rxNumber || !verificationCode) return null;
   const expired = !!expiresAt && new Date(expiresAt).getTime() < new Date().getTime();
@@ -125,6 +128,14 @@ export function PrescriptionDownload({
           >
             Download prescription (PDF)
           </a>
+          {prescriptionId && (
+            <a
+              href={`/patient/pharmacy/collect/${prescriptionId}?for=${patientId}`}
+              className="ml-2 inline-flex items-center rounded-md border border-clinical-navy px-3 py-1.5 font-medium text-clinical-navy hover:bg-clinical-navy/5 dark:text-night-ink dark:border-night-ink"
+            >
+              Choose where to collect
+            </a>
+          )}
         </p>
       )}
       <p className="text-charcoal-ink/50 dark:text-night-ink/55">

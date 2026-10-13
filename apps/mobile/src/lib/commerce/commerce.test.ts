@@ -1,4 +1,4 @@
-import { en, pcm } from "@tarragon/i18n";
+import { en } from "@tarragon/i18n";
 import { checkoutErrorKey, keepsRetryKey, orderStateKey, parseCatalogue, parseCheckout, parseMembership, parseOrders, parseVerify } from "./parse";
 
 const mockInvoke = jest.fn();
@@ -33,11 +33,10 @@ describe("parsing", () => {
     expect(parseVerify({ state: "weird", outcome: "x" })).toBeNull();
     expect(parseVerify(3)).toBeNull();
   });
-  it("every error code and state has copy in both languages; refusals drop the retry key, network failures keep it", () => {
+  it("every error code and state has copy; refusals drop the retry key, network failures keep it", () => {
     for (const c of ["checkout_not_open", "no_capacity", "already_member", "unknown", "payment_unavailable", "surprise"]) {
       const k = checkoutErrorKey(c);
       expect(en[k].length).toBeGreaterThan(0);
-      expect(pcm[k].length).toBeGreaterThan(0);
     }
     expect(checkoutErrorKey("surprise")).toBe("shop.error.unknown");
     expect(checkoutErrorKey(1)).toBe("shop.error.unknown");

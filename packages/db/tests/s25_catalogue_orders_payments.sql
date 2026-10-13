@@ -350,13 +350,14 @@ begin
     (select count(*)::text from public.finance_journal_entries where source = 'payment' and source_ref = 'order:' || o));
   update public.orders set is_test = true where id = o;
 
-  -- a paid date inside a closed month posts today instead of failing for ever
+  -- a paid date inside a closed month posts today instead of failing for ever. The closed month is the month of paid_at (the one before this month); the
+  -- first version closed the month of now() - 10 days, which is the CURRENT month from the 11th onwards, leaving nowhere to post and failing on 11 days of every month.
   v_old := pg_temp.f('ord2');
   update public.orders set paid_at = (date_trunc('month', now()) - interval '10 days') where id = v_mem;
   delete from public.revenue_recognition_schedules where source_kind = 'order' and source_id = v_mem;
   delete from public.finance_journal_lines where entry_id in (select id from public.finance_journal_entries where source = 'payment' and source_ref = 'order:' || v_mem);
   delete from public.finance_journal_entries where source = 'payment' and source_ref = 'order:' || v_mem;
-  insert into public.finance_periods (period_month, status) values (date_trunc('month', now() - interval '10 days')::date, 'closed') on conflict (period_month) do update set status = 'closed';
+  insert into public.finance_periods (period_month, status) values (date_trunc('month', date_trunc('month', now()) - interval '10 days')::date, 'closed') on conflict (period_month) do update set status = 'closed';
   v_ok := private.post_order_safely(v_mem, true);
   perform pg_temp.ck('an order paid in a closed month posts into the current month', 'true/1/paid',
     v_ok::text || '/' || (select count(*) filter (where entry_date >= v_month)::text from public.finance_journal_entries where source = 'payment' and source_ref = 'order:' || v_mem) || '/' || (select state from public.orders where id = v_mem));

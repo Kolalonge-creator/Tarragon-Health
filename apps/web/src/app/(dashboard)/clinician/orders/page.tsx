@@ -3,17 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useOrgLabOrders, type LabOrderWithDetails } from "@/lib/queries/lab-orders";
-import { useOrgPharmacyOrders, type PharmacyOrderWithLogistics } from "@/lib/queries/pharmacy-orders";
-import {
-  useMatchedHomeVisitProviders,
-  useMatchedLogisticsPartners,
-  useAssignHomeVisitProvider,
-  useAssignLogisticsPartner,
-  useConfirmPharmacyDelivery,
-  useRecordFailedDelivery,
-  type DeliveryFailureReason,
-} from "@/lib/queries/logistics-partners";
-import { useOrderDeliveryAttempts } from "@/lib/queries/pharmacy-orders";
+import { useOrgPharmacyOrders } from "@/lib/queries/pharmacy-orders";
+import { useMatchedHomeVisitProviders, useAssignHomeVisitProvider } from "@/lib/queries/logistics-partners";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { listQueryState } from "@/lib/queries/list-query-state";
@@ -23,14 +14,6 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { koboToNaira, type LabOrderStatus, type PharmacyOrderStatus } from "@tarragon/shared";
-
-const FAILURE_REASON_OPTIONS: { value: DeliveryFailureReason; label: string }[] = [
-  { value: "patient_unavailable", label: "Patient unavailable" },
-  { value: "incorrect_address", label: "Incorrect address" },
-  { value: "courier_failure", label: "Courier failure" },
-  { value: "security_access_issue", label: "Security/access issue" },
-  { value: "other", label: "Other" },
-];
 
 const LAB_ORDER_STATUS_BADGE: Record<LabOrderStatus, { variant: BadgeProps["variant"]; label: string }> = {
   pending_payment: { variant: "amber", label: "Awaiting payment" },
@@ -50,9 +33,6 @@ const PHARMACY_ORDER_STATUS_BADGE: Record<PharmacyOrderStatus, { variant: BadgeP
   confirmed: { variant: "blue", label: "In progress" },
   unavailable: { variant: "amber", label: "Medicine unavailable" },
   dispensed: { variant: "blue", label: "Dispensed" },
-  out_for_delivery: { variant: "blue", label: "Out for delivery" },
-  delivery_failed: { variant: "red", label: "Delivery failed" },
-  delivered: { variant: "green", label: "Delivered" },
   cancelled: { variant: "grey", label: "Cancelled" },
 };
 
@@ -183,179 +163,8 @@ function LabOrdersWorklist() {
   );
 }
 
-/** Staff-only "Assign courier/logistics partner" control, same manual-state-entry UX as the lab side. */
-function AssignLogisticsForm({ order, isRetry = false }: { order: PharmacyOrderWithLogistics; isRetry?: boolean }) {
-  const address = order.delivery_address as unknown as { state?: string } | null;
-  const [state, setState] = useState(address?.state ?? "");
-  const { data: partners, isLoading } = useMatchedLogisticsPartners({
-    region: state || undefined,
-    requiresColdChain: order.requires_cold_chain,
-  });
-  const [partnerId, setPartnerId] = useState("");
-  const [estimatedAt, setEstimatedAt] = useState("");
-  const [courierRef, setCourierRef] = useState("");
-  const assign = useAssignLogisticsPartner();
-
-  const noMatches = !isLoading && state.length > 0 && (partners?.length ?? 0) === 0;
-
-  return (
-    <div className="space-y-2 border-t border-charcoal-ink/10 pt-2">
-      {order.requires_cold_chain && (
-        <p className="text-xs font-medium text-blue-700">
-          Cold-chain: needs insulated packaging — only cold-chain-capable couriers are listed.
-        </p>
-      )}
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="space-y-1">
-          <Label htmlFor={`lg-state-${order.id}`}>State</Label>
-          <Input
-            id={`lg-state-${order.id}`}
-            placeholder="e.g. Lagos"
-            value={state}
-            onChange={(e) => setState(e.target.value)}
-            className="w-32"
-          />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor={`lg-partner-${order.id}`}>Logistics partner</Label>
-          {isLoading && <p className="text-xs text-charcoal-ink/60">Loading…</p>}
-          {noMatches && (
-            <p className="text-xs text-charcoal-ink/60">
-              No active {order.requires_cold_chain ? "cold-chain-capable " : ""}couriers cover this state yet.
-            </p>
-          )}
-          {(partners?.length ?? 0) > 0 && (
-            <Select id={`lg-partner-${order.id}`} value={partnerId} onChange={(e) => setPartnerId(e.target.value)}>
-              <option value="">Select a courier</option>
-              {partners!.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}: ₦{koboToNaira(p.delivery_fee_kobo).toLocaleString()}
-                  {p.estimated_delivery_hours ? ` · ~${p.estimated_delivery_hours}h` : ""}
-                </option>
-              ))}
-            </Select>
-          )}
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor={`lg-eta-${order.id}`}>Estimated delivery</Label>
-          <Input
-            id={`lg-eta-${order.id}`}
-            type="datetime-local"
-            value={estimatedAt}
-            onChange={(e) => setEstimatedAt(e.target.value)}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor={`lg-ref-${order.id}`}>Courier reference (optional)</Label>
-          <Input
-            id={`lg-ref-${order.id}`}
-            value={courierRef}
-            onChange={(e) => setCourierRef(e.target.value)}
-            className="w-32"
-          />
-        </div>
-        <Button
-          size="sm"
-          disabled={!partnerId || !estimatedAt || assign.isPending}
-          onClick={() =>
-            assign.mutate({
-              orderId: order.id,
-              logisticsPartnerId: partnerId,
-              estimatedDeliveryAt: new Date(estimatedAt).toISOString(),
-              courierReference: courierRef.trim() || undefined,
-            })
-          }
-        >
-          {assign.isPending ? "Assigning…" : isRetry ? "Retry delivery" : "Send for delivery"}
-        </Button>
-      </div>
-      {assign.isError && <p className="text-xs text-red-600">Could not assign courier. Try again.</p>}
-    </div>
-  );
-}
-
-/** Staff-only "record a failed delivery attempt" control (spec §63.10) — reason is required, notes optional. */
-function MarkFailedDeliveryForm({ orderId }: { orderId: string }) {
-  const [open, setOpen] = useState(false);
-  const [reason, setReason] = useState<DeliveryFailureReason | "">("");
-  const [notes, setNotes] = useState("");
-  const recordFailed = useRecordFailedDelivery();
-
-  if (!open) {
-    return (
-      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
-        Mark failed
-      </Button>
-    );
-  }
-
-  return (
-    <div className="flex flex-wrap items-end gap-2 rounded-md bg-red-50 p-2">
-      <div className="space-y-1">
-        <Label htmlFor={`fail-reason-${orderId}`}>Why did it fail?</Label>
-        <Select
-          id={`fail-reason-${orderId}`}
-          value={reason}
-          onChange={(e) => setReason(e.target.value as DeliveryFailureReason)}
-        >
-          <option value="">Select a reason</option>
-          {FAILURE_REASON_OPTIONS.map((r) => (
-            <option key={r.value} value={r.value}>
-              {r.label}
-            </option>
-          ))}
-        </Select>
-      </div>
-      <div className="min-w-40 flex-1 space-y-1">
-        <Label htmlFor={`fail-notes-${orderId}`}>Notes (optional)</Label>
-        <Input id={`fail-notes-${orderId}`} value={notes} onChange={(e) => setNotes(e.target.value)} />
-      </div>
-      <Button
-        size="sm"
-        disabled={!reason || recordFailed.isPending}
-        onClick={() =>
-          recordFailed.mutate(
-            { orderId, failureReason: reason as DeliveryFailureReason, notes: notes.trim() || undefined },
-            { onSuccess: () => setOpen(false) },
-          )
-        }
-      >
-        {recordFailed.isPending ? "Saving…" : "Confirm"}
-      </Button>
-      <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
-        Cancel
-      </Button>
-      {recordFailed.isError && <p className="basis-full text-xs text-red-600">Could not save. Try again.</p>}
-    </div>
-  );
-}
-
-const FAILURE_REASON_LABEL: Record<string, string> = Object.fromEntries(
-  FAILURE_REASON_OPTIONS.map((r) => [r.value, r.label]),
-);
-
-/** Delivery attempt history — spec §63.10's resolution workflow needs each attempt visible, not just the current status. */
-function DeliveryAttemptHistory({ orderId }: { orderId: string }) {
-  const { data: attempts } = useOrderDeliveryAttempts(orderId);
-  if (!attempts || attempts.length === 0) return null;
-
-  return (
-    <ul className="space-y-0.5">
-      {attempts.map((a) => (
-        <li key={a.id} className="text-[11px] text-charcoal-ink/55">
-          Attempt {a.attempt_number}: {a.result === "delivered" ? "Delivered" : FAILURE_REASON_LABEL[a.failure_reason ?? "other"] ?? "Failed"}
-          {" · "}
-          {new Date(a.attempted_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
-          {a.notes && ` · ${a.notes}`}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 function PharmacyOrdersWorklist() {
   const { data, isLoading, isError } = useOrgPharmacyOrders();
-  const confirmDelivery = useConfirmPharmacyDelivery();
   const state = listQueryState({ isLoading, isError, count: data?.length });
 
   return (
@@ -391,33 +200,6 @@ function PharmacyOrdersWorklist() {
                       Flagged unavailable{order.unavailable_reason ? `: ${order.unavailable_reason}` : ""}
                     </p>
                   )}
-                  {order.logistics_partner ? (
-                    <div className="space-y-1.5">
-                      <p className="text-xs text-charcoal-ink/60">
-                        Courier: {order.logistics_partner.name}
-                        {order.courier_reference && ` · Ref ${order.courier_reference}`}
-                      </p>
-                      <DeliveryAttemptHistory orderId={order.id} />
-                      {order.status === "out_for_delivery" && (
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={confirmDelivery.isPending}
-                            onClick={() => confirmDelivery.mutate(order.id)}
-                          >
-                            {confirmDelivery.isPending ? "Saving…" : "Mark delivered"}
-                          </Button>
-                          <MarkFailedDeliveryForm orderId={order.id} />
-                        </div>
-                      )}
-                      {order.status === "delivery_failed" && <AssignLogisticsForm order={order} isRetry />}
-                    </div>
-                  ) : (
-                    (order.status === "payment_confirmed" ||
-                      order.status === "confirmed" ||
-                      order.status === "dispensed") && <AssignLogisticsForm order={order} />
-                  )}
                 </li>
               );
             })}
@@ -437,10 +219,10 @@ export default function ClinicianOrdersPage() {
         </Link>
       </div>
       <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Home visits &amp; deliveries</h1>
+        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Home visits &amp; pharmacy orders</h1>
         <p className="text-charcoal-ink/60">
-          Assign a home-visit provider or courier once an order is paid. This is the mechanism
-          that moves a pharmacy order through confirmed → out for delivery → delivered.
+          Assign a home-visit provider once a lab order is paid. Pharmacy orders are collection
+          only, so they are listed here for reference.
         </p>
       </div>
       <LabOrdersWorklist />
