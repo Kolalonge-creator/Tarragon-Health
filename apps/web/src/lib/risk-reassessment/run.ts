@@ -74,6 +74,7 @@ export async function runRiskReassessment(): Promise<RiskReassessmentRunResult> 
       .select("weight_kg")
       .eq("patient_id", patientId)
       .eq("vital_type", "weight")
+      .is("correction_status", null)
       .order("taken_at", { ascending: false })
       .limit(1)
       .maybeSingle();

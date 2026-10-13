@@ -1274,3 +1274,9 @@ Not done: not applied to production, not pushed.
 - **Tests**: DB proof `s10x_bus_operations.sql` (82 checks, 2 sabotages caught) and `s10x_bus_contention.sh` (registered in `ci.manifest`); the S10 proof (89) and `integration_gateway.sql` pass with the new migrations. All run against live inside a rolled-back transaction with the migration text included; live schema confirmed untouched after. Jest: events 29 (100 percent coverage), web event-bus 13, admin-search, shared mirror test. Web typecheck clean.
 - **Not verified**: the contention script has not run (local Docker was unresponsive); CI replay is its first run. No endpoint UI for rotate/re-enable/mapping.
 - **Deploy**: redeploy `process-events` and `integration-outbound-drain` after the migrations apply; do not create a partner mapping before `process-events` is deployed.
+
+## S05b-c: read filters and guards for supersede-not-edit (2026-10-14, draft PR, nothing applied)
+
+- **Built**: migration `20261013225700_s05b_c_read_filters_and_patient_guards.sql` (restrictive hide policies, definer readers rewritten onto `private.*_current` views, `clinical_value_history`, review-column guard, patient safety-event guard); proof `packages/db/tests/s05b_c_read_filters_and_guards.sql` (registered, four sabotages); five service-role readers filter `correction_status`; Jest scan `correction-read-filter.test.ts`; `docs/design/S05b.md` section 6.
+- **Not done, on purpose**: the `authenticated` grant on `correct_clinical_value` (held until the proof and replay run on a real database; exact grant in the design doc); the two result-document replace paths (need a definer function that also handles the clinician alert).
+- **Not run**: the SQL proof and the full replay (no Docker in the session; the migration was exercised only against a stub schema), Jest, tsc (no installed dependencies).
