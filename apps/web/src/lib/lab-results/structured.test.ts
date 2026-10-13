@@ -1,4 +1,5 @@
 import {
+  describeRangeWithSource,
   describeSexRanges,
   panelDefinitionSchema,
   describeLabError,
@@ -80,6 +81,37 @@ describe("formatRange", () => {
     expect(formatRange(null, 200, "mg/dL")).toBe("up to 200 mg/dL");
     expect(formatRange(40, null, "mg/dL")).toBe("40 or more mg/dL");
     expect(formatRange(null, null, "")).toBe("");
+  });
+});
+
+describe("describeRangeWithSource (S05b)", () => {
+  const base = { ref_low: 70, ref_high: 99, unit: "mg/dL" };
+  it("shows the range with the signed configuration named", () => {
+    const r = describeRangeWithSource({ ...base, range_source: "cmo_signed_config", range_source_ref: "lab panel membership annual version 1" });
+    expect(r.range).toBe("70 to 99 mg/dL");
+    expect(r.sourceLabel).toContain("lab panel membership annual version 1");
+  });
+  it("hides the numbers when the source is unspecified, missing or not a known source", () => {
+    for (const range_source of ["unspecified", null, undefined, "optimal"]) {
+      const r = describeRangeWithSource({ ...base, range_source });
+      expect(r.range).toBe("");
+      expect(r.sourceLabel).toBe("Range not specified");
+    }
+  });
+  it("parses a payload from before the column existed", () => {
+    const parsed = myLabResultsSchema.safeParse([
+      {
+        lab_result_id: "7d1c3a52-1111-4222-8333-444455556666",
+        received_at: "2026-10-01T00:00:00Z",
+        panel_code: null,
+        own_upload: false,
+        status: "released",
+        explain_allowed: true,
+        has_file: false,
+        items: [{ analyte_code: "hba1c", value_numeric: 5, value_text: null, unit: "%", ref_low: 4, ref_high: 5.6, flag: "normal" }],
+      },
+    ]);
+    expect(parsed.success).toBe(true);
   });
 });
 

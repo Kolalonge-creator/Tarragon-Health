@@ -5,6 +5,7 @@ import { signLabPanels } from "./actions";
 import type { PanelDefinition } from "@/lib/lab-results/structured";
 import { describeSexRanges, PANEL_LABEL, type PanelCode } from "@/lib/lab-results/structured";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { rangeSourceLabel } from "@tarragon/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +38,11 @@ export function LabPanelsView({ signoff, panels, canSign }: { signoff: LabSignof
         <Card key={p.panel_code}>
           <CardHeader>
             <CardTitle className="text-base">{PANEL_LABEL[p.panel_code as PanelCode] ?? p.panel_code} (version {p.version})</CardTitle>
+            <p className="text-xs text-charcoal-ink/70">
+              {signed
+                ? rangeSourceLabel("cmo_signed_config", `lab panel ${p.panel_code.replace(/_/g, " ")} version ${p.version}`)
+                : "Ranges are proposed and not yet signed by the Chief Medical Officer. They are not shown to patients as clinical ranges."}
+            </p>
           </CardHeader>
           <CardContent>
             <table className="w-full text-sm">

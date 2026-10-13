@@ -202,7 +202,11 @@ function EntryForm({ order, panels, correctsId }: { order: PortalOrder; panels: 
                     <option value="positive">Positive</option>
                   </Select>
                 )}
-                {range ? <p className="mt-1 text-xs text-charcoal-ink/60">Reference {range}</p> : null}
+                {range ? (
+                  <p className="mt-1 text-xs text-charcoal-ink/60">
+                    Reference {range}. Source: Tarragon lab panel version {def.version}, for entry only. Your own report&rsquo;s range is not replaced by it.
+                  </p>
+                ) : null}
               </div>
             );
           })}

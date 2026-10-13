@@ -107,12 +107,12 @@ export const BLOOD_PROVENANCE: Record<
   { label: string; tone: "confirmed" | "unconfirmed"; detail: string }
 > = {
   lab_document: {
-    label: "From a lab report on file",
+    label: "Verified by a lab",
     tone: "confirmed",
     detail: "Recorded by the care team from a laboratory report the patient uploaded.",
   },
   patient_attested: {
-    label: "Patient-reported, not confirmed",
+    label: "Self-reported",
     tone: "unconfirmed",
     detail:
       "The patient told us this themselves and no lab report has been seen. Treat it as a starting point, not a result.",

@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { BLOOD_VERIFICATION_LABEL, bloodVerificationFromProvenance } from "@tarragon/shared";
 import { attestBloodProfile } from "@/app/(dashboard)/clinician/patients/[patientId]/blood-profile-actions";
 import { BLOOD_ATTESTATION_TEXT } from "@/lib/clinical/blood-attestation";
 
@@ -78,7 +79,7 @@ export function BloodAttestationForm({
               {initial.genotype ? ` · Genotype ${initial.genotype}` : ""}
             </span>
             <Badge variant={labBacked ? "green" : "amber"}>
-              {labBacked ? "Confirmed from your lab report" : "Your own confirmation"}
+              {BLOOD_VERIFICATION_LABEL[bloodVerificationFromProvenance(initial?.provenance)]}
             </Badge>
           </div>
         ) : (

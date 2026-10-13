@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { rangeMayBeShownAsClinical, rangeSourceLabel } from "@tarragon/shared";
 import { LAB_UNIT_CONVERSIONS, LabEntryError, toCanonicalUnit } from "@tarragon/clinical/lab-units";
 
 /**
@@ -147,6 +148,9 @@ const myItemSchema = z.object({
   unit: z.string(),
   ref_low: z.number().nullable(),
   ref_high: z.number().nullable(),
+  // S05b: where the range came from. Optional so a payload from before the column existed still parses (it then reads "Range not specified").
+  range_source: z.string().nullish(),
+  range_source_ref: z.string().nullish(),
   flag: z.enum(["normal", "low", "high", "critical", "positive", "negative"]),
   sensitive_positive: z.boolean().optional(),
 });
@@ -219,6 +223,20 @@ export function formatRange(low: number | null, high: number | null, unit: strin
   if (high !== null) return `up to ${high} ${unit}`;
   if (low !== null) return `${low} or more ${unit}`;
   return "";
+}
+
+/**
+ * What to show in a Reference cell (S05b): the range only when its source is known, always with the source line.
+ * A range with no known source is not shown as a number at all; the line says "Range not specified".
+ */
+export function describeRangeWithSource(
+  item: { ref_low: number | null; ref_high: number | null; unit: string; range_source?: string | null; range_source_ref?: string | null },
+): { range: string; sourceLabel: string } {
+  const known = rangeMayBeShownAsClinical(item.range_source);
+  return {
+    range: known ? formatRange(item.ref_low, item.ref_high, item.unit) : "",
+    sourceLabel: rangeSourceLabel(known ? item.range_source : "unspecified", item.range_source_ref),
+  };
 }
 
 /** The audit-safe refusal the review functions return instead of raising (so the denied audit row commits). */

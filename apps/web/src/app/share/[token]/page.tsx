@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { createClient } from "@supabase/supabase-js";
-import type { Database } from "@tarragon/shared";
+import { rangeMayBeShownAsClinical, rangeSourceLabel, type Database } from "@tarragon/shared";
 
 export const metadata: Metadata = {
   title: "Shared health record",
@@ -46,6 +46,8 @@ type SharedData = {
     value_text: string | null;
     unit: string | null;
     reference_range_text: string | null;
+    range_source?: string | null;
+    range_source_ref?: string | null;
     abnormal_flag: string | null;
     taken_at: string;
     laboratory: string | null;
@@ -290,10 +292,12 @@ export default async function SharePage({
                 </div>
                 <p className="text-sm text-charcoal-ink/70">
                   {lr.value_text ?? lr.value ?? "-"} {lr.unit ?? ""}
-                  {lr.reference_range_text && (
+                  {lr.reference_range_text && rangeMayBeShownAsClinical(lr.range_source) ? (
                     <span className="ml-2 text-xs text-charcoal-ink/50">
-                      (ref: {lr.reference_range_text})
+                      (ref: {lr.reference_range_text}. {rangeSourceLabel(lr.range_source, lr.range_source_ref)})
                     </span>
+                  ) : (
+                    <span className="ml-2 text-xs text-charcoal-ink/50">({rangeSourceLabel(null)})</span>
                   )}
                   {lr.abnormal_flag && (
                     <span className="ml-2 text-xs font-semibold text-red-600">
