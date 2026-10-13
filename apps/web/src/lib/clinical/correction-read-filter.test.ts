@@ -19,7 +19,6 @@ const USER_SESSION_ONLY = new Set([
   "ai-coach/context.ts",
   "ai-coach/tools.ts",
   "data-export/get-full-patient-record.ts",
-  "healthy-ageing/loaders.ts",
   "lifestyle/ingest.ts",
   "queries/vitals.ts",
   "queries/sponsorship.ts",
@@ -27,7 +26,6 @@ const USER_SESSION_ONLY = new Set([
   "queries/conditions.ts",
   "queries/lipids.ts",
   "queries/allergies.ts",
-  "health-passport/get-health-passport-data.ts",
   "wearables/ingest.ts",
   "patient-explainer/snapshot.ts",
 ]);

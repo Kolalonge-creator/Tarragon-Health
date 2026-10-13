@@ -173,6 +173,11 @@ begin
   begin update public.vitals_readings set triage_event_id = null where id = v_w3;
   exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
   if v_state is distinct from '42501' then raise exception 'FAIL G1e: a patient cleared the triage link (state %)', v_state; end if;
+  v_state := null;
+  begin insert into public.vitals_readings (organisation_id, patient_id, vital_type, weight_kg, taken_at, source, validated_by, validated_at)
+        values (v_org, v_p, 'weight', 75, now() - interval '10 minutes', 'manual', (select id from public.clinical_staff where profile_id = v_c), now());
+  exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
+  if v_state is distinct from '42501' then raise exception 'FAIL G1f: a patient created a reading that looks clinician-reviewed (state %)', v_state; end if;
   -- G1 CONTROL: she can still add a note to her own reading
   update public.vitals_readings set note = 'after breakfast' where id = v_w4;
   if (select note from public.vitals_readings where id = v_w4) is distinct from 'after breakfast' then

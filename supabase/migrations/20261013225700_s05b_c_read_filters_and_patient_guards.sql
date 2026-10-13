@@ -154,6 +154,12 @@ language plpgsql set search_path = '' as
 $$
 begin
   if current_user in ('postgres', 'supabase_admin') then return new; end if;
+  if tg_op = 'INSERT' then
+    if new.validated_by is not null or new.validated_at is not null or new.triage_event_id is not null then
+      raise exception 'a new reading cannot be created already reviewed or already triaged' using errcode = '42501';
+    end if;
+    return new;
+  end if;
   if new.validated_by is distinct from old.validated_by
      or new.validated_at is distinct from old.validated_at
      or new.logged_by_profile_id is distinct from old.logged_by_profile_id
@@ -164,7 +170,7 @@ begin
 end;
 $$;
 revoke all on function private.guard_vitals_review_columns() from public, anon, authenticated;
-create trigger b_guard_vitals_review_columns before update on public.vitals_readings
+create trigger b_guard_vitals_review_columns before insert or update on public.vitals_readings
   for each row execute function private.guard_vitals_review_columns();
 
 -- 5. Patient path of correct_clinical_value: not a reading that raised a safety event -----------------------------------------------
