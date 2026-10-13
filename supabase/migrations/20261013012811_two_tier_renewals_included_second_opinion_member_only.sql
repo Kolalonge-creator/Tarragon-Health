@@ -1,11 +1,10 @@
 -- Two-tier decisions, 2026-10-12, item 4.
 --
--- (a) PRESCRIPTION RENEWALS ARE INCLUDED IN THE MEMBER YEAR. The renewal-request trigger keys off private.patient_is_member (the one
---     Member rule, grace included). A Member needs no credit. At most one request per medication per 28 days (membership.renewal,
---     min_days_between_requests, PROPOSED; a declined request does not count). A Free person is told, in plain words, that renewal is
---     part of Membership (detail MEMBERSHIP_REQUIRED, which the app turns into a Join link). A credit someone already holds is still
---     honoured for a non-Member (it was paid for). FINDING: the old check passed everyone, because 'medication_refills' is in the
---     free feature list of patient_has_feature_access; so until now no one was ever asked for a credit. This closes that.
+-- (a) PRESCRIPTION RENEWALS ARE DISCUSSED AT THE MONTHLY REVIEW (decision 2026-10-13, replacing the 2026-10-12 28 day request rule).
+--     A renewal is not a separate request. The standalone request route is CLOSED for a Member: the trigger answers that the doctor
+--     reviews renewals at the monthly call (detail RENEWAL_AT_MONTHLY_REVIEW); the Member can add a note to the next review instead
+--     (20261013013400). A Free person is told that renewal is part of Membership. A credit someone already holds is still honoured for
+--     a non-Member. FINDING kept: the old check passed everyone, because 'medication_refills' is in the free feature list.
 -- (b) SECOND OPINION = an extra 5,000 naira (500,000 kobo), Members only. second_opinion_credit is the live product code (read
 --     2026-10-12: price 1,200,000 kobo, inactive, 0 live purchases of it). It is re-enabled at 500,000 kobo and is the ONE product
 --     exempt from service_products_doctor_time_not_sellable; every other doctor-time product stays closed. It is purchasable only when
@@ -15,14 +14,13 @@
 --     commerce.second_opinion in the proposed-config registry with a drift test.
 -- LIVE COUNTS BEFORE (read-only, 2026-10-12): prescription_renewal_requests 0 rows matter here (trigger only); second_opinion_credit
 --   purchases 0; prescription_renewal_credit price 500,000 kobo, inactive (left closed).
--- ROLLBACK: restore the S-renewal trigger body from 20260831170433; update service_products set is_active = false where code =
+-- ROLLBACK: restore the renewal trigger body from 20260831170433 and the public_price_list body from 20260902002938; update service_products set is_active = false where code =
 --   'second_opinion_credit'; re-create the CHECK without the exemption; drop trigger service_purchases_second_opinion_members_only.
 
--- (a) renewals ----------------------------------------------------------------------------------------------------------
+-- (a) renewals ---------------------------------------------------------------------------------------------------------
 create or replace function private.enforce_prescription_renewal_entitlement_or_credit()
 returns trigger language plpgsql security definer set search_path = ''
 as $$
-declare v_days integer := private.membership_renewal_min_days();
 begin
   new.id := coalesce(new.id, gen_random_uuid());
 
@@ -34,13 +32,8 @@ begin
   end if;
 
   if private.patient_is_member(new.patient_id) then
-    if exists (select 1 from public.prescription_renewal_requests x
-                where x.medication_id = new.medication_id and x.id <> new.id and x.status <> 'declined'
-                  and x.created_at > now() - make_interval(days => v_days)) then
-      raise exception 'You asked for a renewal of this medicine recently. Please wait until % days have passed since your last request, or tell your care team if it is urgent.', v_days
-        using errcode = 'P0001', detail = 'RENEWAL_TOO_SOON';
-    end if;
-    return new;
+    raise exception 'Your doctor reviews renewals at your monthly call. You can add a note to your next review from the medicines screen.'
+      using errcode = 'P0001', detail = 'RENEWAL_AT_MONTHLY_REVIEW';
   end if;
 
   -- not a Member: a credit already paid for is still honoured
@@ -67,6 +60,15 @@ alter table public.service_products add constraint service_products_doctor_time_
 -- second-opinion-price-begin (mirrored as commerce.second_opinion in packages/shared/src/proposed-config/registry.ts)
 update public.service_products set price_kobo = 500000, is_active = true, updated_at = now() where code = 'second_opinion_credit';
 -- second-opinion-price-end
+
+-- The public price list (callable by anon, read by nothing on the marketing site any more) must never show the Members-only extra.
+create or replace function public.public_price_list()
+returns table (code text, currency public.currency, access_duration_days integer, price_minor bigint)
+language sql stable security definer set search_path = '' as $$
+  select p.code, p.currency, p.access_duration_days, p.price_kobo
+  from public.service_products p
+  where p.is_active and p.code <> 'second_opinion_credit';
+$$;
 
 create function private.second_opinion_members_only() returns trigger
 language plpgsql security definer set search_path = ''

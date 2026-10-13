@@ -37,11 +37,8 @@ const WAYS_TO_GIVE = [
     body: "The gift waits for them to accept it. If they decline, or do not answer in time, you are refunded. Nothing about a gift ever bills them, then or later.",
   },
   {
-    // The ₦500 figure is fixed in code, not DB-configured: redeem_referral_code
-    // hardcodes reward_kobo = 50000 (migration 20260724113718). Update this
-    // line together with that function if it ever changes.
     title: "Invite them, you both get a reward",
-    body: "If they are not on Tarragon yet, share your personal referral link; signing up is free. Once they complete their first paid order, you both get a ₦500 reward voucher, a discount, not cash.",
+    body: "If they are not on Tarragon yet, share your personal referral link; signing up is free. Once they become a Member, you both get a reward voucher, a discount, not cash.",
   },
 ];
 

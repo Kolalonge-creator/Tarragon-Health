@@ -459,7 +459,16 @@ end $$;
 do $$
 declare r jsonb; v_enc uuid := pg_temp.f('enc_pm4'); v_pat uuid := pg_temp.f('pm4');
 begin
+  -- renewals are decided at this call: a medicine whose prescription expires soon, and a note the Member wrote
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, is_active, source, expires_at)
+  values (pg_temp.f('org'), v_pat, 'Proof Renewal Drug', '10mg', 'once daily', true, 'clinician', now() + interval '10 days');
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, is_active, source, expires_at)
+  values (pg_temp.f('org'), v_pat, 'Proof Far Drug', '10mg', 'once daily', true, 'clinician', now() + interval '200 days');
+  perform pg_temp.q_as(v_pat, 'select public.add_review_note(null, ''Please look at my renewals'')::text');
   r := pg_temp.j(pg_temp.f('d'), format('select public.precall_summary(%L)', v_enc));
+  perform pg_temp.ck('H13 the summary lists the medicine due for renewal, and only that one', 'Proof Renewal Drug',
+    (select string_agg(x ->> 'drug_name', ',') from jsonb_array_elements(r -> 'renewals_due') x));
+  perform pg_temp.ck('H14 and the Member''s note for the review', 'Please look at my renewals', (r -> 'patient_notes' -> 0 ->> 'note'));
   perform pg_temp.ck('H1 the assigned doctor gets the pre-call summary', 'true', (r ->> 'status' in ('ok', 'partial'))::text);
   perform pg_temp.ck('H2 one audit row for the summary itself and one for the extras', '1|1', pg_temp.audit_rows(v_pat, pg_temp.f('d'), 'summary')::text || '|' || pg_temp.audit_rows(v_pat, pg_temp.f('d'), 'precall_extras')::text);
   perform pg_temp.ck('H3 vitals trend covers only readings since the window (one, not the 40 day old one)', '1', (select (x ->> 'readings') from jsonb_array_elements(r -> 'vitals_trend') x limit 1));

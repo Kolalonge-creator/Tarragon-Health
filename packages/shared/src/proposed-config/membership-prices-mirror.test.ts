@@ -81,7 +81,7 @@ describe("the Membership lapse config mirrors the migration", () => {
   });
 });
 
-describe("the refund, renewal and second-opinion config mirror their migrations", () => {
+describe("the refund, legacy, review and second-opinion config mirror their migrations", () => {
   it("membership.refund is the membership_policy_config refund seed: 21 days", () => {
     const sql = migration("_two_tier_refund_window_and_immediate_end.sql");
     const m = /membership-refund-begin[\s\S]*?\$json\$([\s\S]*?)\$json\$/.exec(sql);
@@ -90,13 +90,25 @@ describe("the refund, renewal and second-opinion config mirror their migrations"
     expect(JSON.parse(m[1])).toEqual(v);
     expect(v.window_days).toBe(21);
   });
-  it("membership.renewal is the renewal seed: 28 days between requests", () => {
+  it("membership.legacy_conversion is the legacy seed: a full 365 days when there is no end date", () => {
     const sql = migration("_two_tier_refund_window_and_immediate_end.sql");
-    const m = /membership-renewal-begin[\s\S]*?\$json\$([\s\S]*?)\$json\$/.exec(sql);
-    if (!m?.[1]) throw new Error("renewal seed not found in the migration");
-    const v = getProposedConfig("membership.renewal").value as { min_days_between_requests: number };
+    const m = /membership-legacy-begin[\s\S]*?\$json\$([\s\S]*?)\$json\$/.exec(sql);
+    if (!m?.[1]) throw new Error("legacy seed not found in the migration");
+    const v = getProposedConfig("membership.legacy_conversion").value as { no_end_date_days: number };
     expect(JSON.parse(m[1])).toEqual(v);
-    expect(v.min_days_between_requests).toBe(28);
+    expect(v.no_end_date_days).toBe(365);
+    expect(migration("_two_tier_one_member_rule_and_legacy_conversion.sql")).not.toMatch(/interval '90 days'/);
+  });
+  it("membership.review is the review seed: a 30 day renewal lookahead", () => {
+    const sql = migration("_two_tier_refund_window_and_immediate_end.sql");
+    const m = /membership-review-begin[\s\S]*?\$json\$([\s\S]*?)\$json\$/.exec(sql);
+    if (!m?.[1]) throw new Error("review seed not found in the migration");
+    const v = getProposedConfig("membership.review").value as { renewal_window_days: number };
+    expect(JSON.parse(m[1])).toEqual(v);
+    expect(v.renewal_window_days).toBe(30);
+  });
+  it("there is no renewal request spacing config any more (renewals are decided at the monthly review)", () => {
+    expect(() => getProposedConfig("membership.renewal")).toThrow();
   });
   it("commerce.second_opinion is 500,000 kobo (INV-15) and the migration sells it at exactly that", () => {
     const v = getProposedConfig("commerce.second_opinion").value as { item_code: string; price_kobo: number; members_only: boolean };

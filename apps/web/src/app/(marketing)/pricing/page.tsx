@@ -29,6 +29,12 @@ function membershipPriceKobo(): number {
   return v.individual_kobo;
 }
 
+/** The refund window in days, read from the versioned config (membership.refund), never typed into a page. */
+function refundWindowDays(): number {
+  const v = getProposedConfig("membership.refund").value as { window_days: number };
+  return v.window_days;
+}
+
 const MEMBERSHIP_INCLUDES = [
   t("catalog.membership_annual.incl.1", "en"),
   t("catalog.membership_annual.incl.2", "en"),
@@ -36,7 +42,7 @@ const MEMBERSHIP_INCLUDES = [
   t("catalog.membership_annual.incl.4", "en"),
 ] as const;
 
-function pricingFaq(price: string) {
+function pricingFaq(price: string, refundDays: number) {
   return [
     {
       question: "What are the two plans?",
@@ -50,7 +56,7 @@ function pricingFaq(price: string) {
     {
       question: "Can I get a refund?",
       answer:
-        "Yes, within 21 days of buying your Membership. After 21 days it cannot be refunded. If a refund is approved your Member access ends straight away. A Membership that simply reaches the end of its year is different: you keep your Member access for 14 days after it ends.",
+        `Yes, within ${refundDays} days of buying your Membership. After ${refundDays} days it cannot be refunded. If a refund is approved your Member access ends straight away. A Membership that simply reaches the end of its year is different: you keep your Member access for 14 days after it ends.`,
     },
     {
       question: "Are medicines included?",
@@ -66,7 +72,8 @@ function pricingFaq(price: string) {
 
 export default async function PricingPage() {
   const price = formatNaira(membershipPriceKobo());
-  const faq = pricingFaq(price);
+  const refundDays = refundWindowDays();
+  const faq = pricingFaq(price, refundDays);
   /** FAQPage structured data for the pricing questions; eligible for rich results. */
   const pricingFaqJsonLd = {
     "@context": "https://schema.org",
@@ -121,6 +128,9 @@ export default async function PricingPage() {
           </ul>
           <p className="mt-4 text-sm text-charcoal-ink/70">
             It lasts a year and does not renew by itself. We remind you before it ends, and you keep your Member access for 14 days after.
+          </p>
+          <p className="mt-2 text-sm text-charcoal-ink/70">
+            Refunds: within {refundDays} days of buying it. After that it cannot be refunded.
           </p>
         </div>
       </Section>

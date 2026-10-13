@@ -43110,6 +43110,8 @@ export type Database = {
       my_monthly_reports: { Args: { p_limit?: number }; Returns: Json };
       override_patient_risk: { Args: { p_days?: number; p_level: string; p_patient: string; p_reason: string }; Returns: Json };
       risk_distribution_report: { Args: Record<PropertyKey, never>; Returns: Json };
+      // Two-tier review decisions (renewals at the monthly review): spliced by hand.
+      add_review_note: { Args: { p_medication: string | null; p_note: string }; Returns: string };
       // S38e (sponsor cohorts and triage accuracy): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       admin_close_sponsor_cohort: { Args: { p_cohort: string }; Returns: boolean };
       admin_create_sponsor_cohort: { Args: { p_max_uses: number; p_name: string; p_sponsor_org: string; p_valid_from: string; p_valid_to: string }; Returns: Json };

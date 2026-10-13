@@ -5,8 +5,9 @@
 -- (and made every admin-role profile a Member, because patient_has_feature_access answers true for an admin). This migration:
 --   1. converts every such holder to a real patient_memberships row (source 'legacy_conversion', state 'active', starts_at = now,
 --      ends_at = their own legacy end: programme_purchases.ends_at (end of that day, Africa/Lagos) or service_purchases.expires_at;
---      the latest of several). NO free year is given. A holder with an active purchase and no end date at all would get now + 90
---      days; that case is marked below for founder review. The follow-up entitlement rows come from the existing membership trigger,
+--      the latest of several). NO free year is given. A holder with an active purchase and no end date at all gets a full
+--      365 days from conversion (membership.legacy_conversion, no_end_date_days, PROPOSED, versioned in membership_policy_config;
+--      founder decision 2026-10-13: every legacy holder becomes a real Member). The follow-up entitlement rows come from the existing membership trigger,
 --      and each conversion writes one audit_log row. The conversion function is idempotent: a patient who already has an active
 --      membership is skipped, so running it twice converts nobody twice.
 --   2. removes the async_doctor_visit clause from patient_is_member / patient_is_member_at: a Member is a person with an active
@@ -14,7 +15,7 @@
 --   3. adds 'legacy_conversion' to the patient_memberships source CHECK.
 -- LIVE COUNTS BEFORE (read-only, 2026-10-12): programme_purchases active 0 (any end date 0); service_purchases active, unexpired,
 --   whose product carries vitals_red_flag_doctor_escalation or async_doctor_visit: 1, with no end date 0; patient_memberships
---   active 0. So at most one person is converted live, with their own expires_at; no row falls back to the 90 day default.
+--   active 0. So at most one person is converted live, with their own expires_at; no row falls back to the 365 day grant.
 -- Callers re-checked (all read private.patient_is_member, none reads the legacy clause any more): patient_has_feature_access (Member
 --   block), patient_may_page_doctor (the red-event gate), offer_followup_slots / pick_followup_slot, the testing-day booking and
 --   check-in functions, risk_is_current_member (through patient_is_member_at), my_membership (reads the table directly).
@@ -67,11 +68,11 @@ begin
   loop
     insert into public.patient_memberships (organisation_id, patient_id, source, state, starts_at, ends_at, is_test)
     values (r.organisation_id, r.patient_id, 'legacy_conversion', 'active', now(),
-            case when r.no_end_date then now() + interval '90 days' else r.ends_at end, r.is_test)
+            case when r.no_end_date then now() + make_interval(days => private.membership_legacy_no_end_days()) else r.ends_at end, r.is_test)
     returning id into v_id;
     insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
     values (r.organisation_id, null, 'membership.legacy_conversion', 'patient_memberships', v_id,
-            jsonb_build_object('no_end_date_default_90_days', r.no_end_date));
+            jsonb_build_object('no_end_date_default_applied', r.no_end_date, 'default_days', case when r.no_end_date then private.membership_legacy_no_end_days() end));
     n := n + 1;
   end loop;
   return n;

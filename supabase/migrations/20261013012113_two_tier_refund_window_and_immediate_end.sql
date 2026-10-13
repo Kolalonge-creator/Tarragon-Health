@@ -16,7 +16,7 @@
 
 create table public.membership_policy_config (
   id             uuid primary key default gen_random_uuid(),
-  kind           text not null check (kind in ('refund', 'renewal')),
+  kind           text not null check (kind in ('refund', 'legacy_conversion', 'review')),
   version        integer not null check (version > 0),
   is_active      boolean not null default false,
   effective_from date not null,
@@ -33,18 +33,27 @@ insert into public.membership_policy_config (kind, version, is_active, effective
 values ('refund', 1, true, date '2026-10-12', $json${"window_days":21}$json$::jsonb);
 -- membership-refund-end
 
--- membership-renewal-begin (mirrored as membership.renewal in packages/shared/src/proposed-config/registry.ts)
+-- membership-legacy-begin (mirrored as membership.legacy_conversion in packages/shared/src/proposed-config/registry.ts)
 insert into public.membership_policy_config (kind, version, is_active, effective_from, rules)
-values ('renewal', 1, true, date '2026-10-12', $json${"min_days_between_requests":28}$json$::jsonb);
--- membership-renewal-end
+values ('legacy_conversion', 1, true, date '2026-10-13', $json${"no_end_date_days":365}$json$::jsonb);
+-- membership-legacy-end
+
+-- membership-review-begin (mirrored as membership.review in packages/shared/src/proposed-config/registry.ts)
+insert into public.membership_policy_config (kind, version, is_active, effective_from, rules)
+values ('review', 1, true, date '2026-10-13', $json${"renewal_window_days":30}$json$::jsonb);
+-- membership-review-end
 
 create function private.membership_refund_window_days() returns integer language sql stable security definer set search_path = ''
 as $$ select coalesce((select (rules ->> 'window_days')::integer from public.membership_policy_config where kind = 'refund' and is_active), 21) $$;
 revoke all on function private.membership_refund_window_days() from public, anon, authenticated;
 
-create function private.membership_renewal_min_days() returns integer language sql stable security definer set search_path = ''
-as $$ select coalesce((select (rules ->> 'min_days_between_requests')::integer from public.membership_policy_config where kind = 'renewal' and is_active), 28) $$;
-revoke all on function private.membership_renewal_min_days() from public, anon, authenticated;
+create function private.membership_legacy_no_end_days() returns integer language sql stable security definer set search_path = ''
+as $$ select coalesce((select (rules ->> 'no_end_date_days')::integer from public.membership_policy_config where kind = 'legacy_conversion' and is_active), 365) $$;
+revoke all on function private.membership_legacy_no_end_days() from public, anon, authenticated;
+
+create function private.membership_review_renewal_window_days() returns integer language sql stable security definer set search_path = ''
+as $$ select coalesce((select (rules ->> 'renewal_window_days')::integer from public.membership_policy_config where kind = 'review' and is_active), 30) $$;
+revoke all on function private.membership_review_renewal_window_days() from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------------------------------------
 -- Ending a Membership on the spot (a refund, not a lapse)
@@ -172,7 +181,8 @@ grant execute on function public.decide_order_refund(uuid, boolean, text), publi
 do $$
 begin
   if private.membership_refund_window_days() <> 21 then raise exception 'two-tier: refund window is not 21 days'; end if;
-  if private.membership_renewal_min_days() <> 28 then raise exception 'two-tier: renewal spacing is not 28 days'; end if;
+  if private.membership_legacy_no_end_days() <> 365 then raise exception 'two-tier: legacy no-end-date grant is not 365 days'; end if;
+  if private.membership_review_renewal_window_days() <> 30 then raise exception 'two-tier: renewal lookahead is not 30 days'; end if;
   if has_function_privilege('anon', 'public.request_order_refund(uuid, text)', 'EXECUTE')
      or has_function_privilege('anon', 'public.decide_order_refund(uuid, boolean, text)', 'EXECUTE')
      or has_function_privilege('authenticated', 'private.end_membership_now(uuid, uuid, text)', 'EXECUTE') then

@@ -1801,10 +1801,10 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - The Free patient gets: the acknowledge-gated hospital screen; the plain sentence "A doctor has not been alerted, because you are on the Free plan. Doctor review is part of Membership."; a recheck line; the emergency-contact notice (existing mechanism, no health detail); a recheck notice after 30 minutes and a "did you get care" check-in after 6 hours (PROPOSED, `free_red_event.rules`, CMO to confirm), the answer stored in `free_red_events` where no clinician, CMO or admin can read it; a one-tap "Join as a Member" route that never blocks the guidance; a hospital search link (no hospital directory exists, so this is a generic maps search, not a Tarragon-curated list). The triage event is still logged and counted.
 - Effect to know before applying: live has 0 active memberships and the Membership item is still inactive (S25), so on the day this is applied **every red event on a patient with no programme purchase is guidance-only**. Applying it before Membership is sellable removes doctor paging for essentially everyone.
 - Extended by the founder on 2026-10-12 to the same Free rule (`20261013010515`): amber triage tasks, heart-failure rapid weight gain, and mental-health crisis follow-up (the doctor task and page only; the patient's crisis screen, emergency contact notice and hospital guidance are unchanged). Still reach a doctor on every plan, by standing rule: abnormal screening results and the lab critical-result path. Not asked for and so unchanged: the mental-health screen CONCERN alert (a high but non-crisis score) and legacy RED-level vitals, which on Free keep the old self-care suggestion with no recheck or check-in. `private.raise_crisis_follow_up` exists live only (migration `f1_crisis_priority_task_and_event`, not in main-dev) and is patched from its own text only if present. No Nigerian helpline numbers exist in the repo and none were invented; the founder needs to supply verified ones for the crisis screen.
-- To do with this decision: tell the DPO and legal (the safety promise changes; review the terms and consent wording, amendments C2 point 8). Mobile shows the new status box on the red screen but has no check-in card yet (the web card is built); the mobile Care Circle and `red_alerts` notices (S29) are unaffected.
+- Recommended, optional: tell the DPO and have legal review the terms and consent wording (the safety promise changes; amendments C2 point 8). Mobile shows the new status box on the red screen but has no check-in card yet (the web card is built); the mobile Care Circle and `red_alerts` notices (S29) are unaffected.
 - Options: (a) accept as built (recommended); (b) also put the four condition work-ups above on the Free rule; (c) hold the migration until Membership is on sale.
-- Decision: pending CMO and DPO sign-off on the INV-05 wording.
-- Resolved by the 2026-10-12 review: the day-one effect (every patient with no programme purchase becomes guidance-only) is still real until Membership is on sale and legacy holders are converted; the apply runbook now makes the conversion migration run before the Free path matters. The "also put the four condition work-ups on the Free rule" option was taken (`20261013010515`). Still open: the CMO/DPO sign-off on the INV-05 wording.
+- Decision (2026-10-13, TT-12): only the CMO's signature is needed to go live. DPO and legal review are recommended and optional; nothing is blocked on them.
+- Resolved by the 2026-10-12 review: the day-one effect (every patient with no programme purchase becomes guidance-only) is still real until Membership is on sale and legacy holders are converted; the apply runbook now makes the conversion migration run before the Free path matters. The "also put the four condition work-ups on the Free rule" option was taken (`20261013010515`). Still open: the CMO signature on the INV-05 wording (DPO and legal review are recommended, optional).
 
 
 ### OQ-310 Two-tier pricing: price, only Free and Member, lapse, organisation seats (raised by the two-tier pricing build, 2026-10-12)
@@ -1816,16 +1816,15 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Decision: open.
 - Answered 2026-10-12 (founder/CMO, `docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md` Update 5): refunds are 21 days and end access at once (TT-6); legacy programme holders are converted and Member has one meaning (TT-7); the grace can book (TT-8); renewals are included and a second opinion is a 5,000 naira Members-only extra (TT-9). Open items (1) to (3) and (5) above remain open; (4) is on the apply runbook.
 
-### OQ-311 Prescription renewal spacing and the old renewal credit (raised by the 2026-10-12 review)
-- Built: renewals are included in the Member year with at most one request per medication every 28 days (`membership.renewal`, PROPOSED). A declined request does not count. Finding: until now `medication_refills` sat in the free feature list, so the old check never asked anyone for a credit; the new rule makes renewal a Membership benefit for the first time.
-- A credit someone already holds (`prescription_renewal_credit`) is still redeemable by a non-Member; the product stays closed for sale.
-- Options: (a) 28 days as built (recommended); (b) a different spacing; (c) no spacing.
-- Decision: pending CMO confirmation of the number.
+### OQ-311 Prescription renewal spacing and the old renewal credit (raised by the 2026-10-12 review) - RESOLVED 2026-10-13
+- Resolved by the founder/CMO on 2026-10-13: a renewal is NOT a separate request. It is discussed and prescribed at the Member's monthly doctor review. The 28 day spacing and the `membership.renewal` config are removed. Built: the standalone request is closed for a Member; the medicines screen (web and mobile) says so and offers an optional "add to my next review" note; the pre-call summary lists medicines due for renewal and the note; a Free person is told renewal is part of Membership with a Join link; a held credit still works for a non-Member (see TT-9). The lookahead for "due for renewal" is `membership.review` renewal_window_days = 30, PROPOSED, for the CMO to confirm.
+- Finding kept for the record: before this change the old trigger passed everyone, because `medication_refills` is in the free feature list.
+- Decision: resolved.
 
-### OQ-312 Legacy conversion: no end date (raised by the 2026-10-12 review)
-- Conversion gives a holder with an active purchase and no end date at all now + 90 days (marked in the migration header). Live there are none (the one plan-feature purchase has its own `expires_at`). Confirm 90 days or give another rule if one appears.
-- Decision: pending founder.
+### OQ-312 Legacy conversion: no end date (raised by the 2026-10-12 review) - RESOLVED 2026-10-13
+- Resolved by the founder on 2026-10-13: every legacy holder becomes a real Member; a holder with no end date gets a full 365 days from conversion (`membership.legacy_conversion` no_end_date_days, PROPOSED, versioned); a holder with an end date keeps it; no free year. Live there are none without an end date.
+- Decision: resolved.
 
 ### OQ-313 Legal text for the 21 day refund (raised by the 2026-10-12 review)
-- The Terms of Service document served from `legal_documents` still carries the old subscription wording; `docs/legal/schedule-c-terms-of-service.md` is updated in this branch but counsel and the DPO must sign the live row (Question 7 in the cover memo asks whether a statutory cooling-off period applies).
-- Decision: pending counsel.
+- The Membership terms text, including the 21 day refund and the immediate end of access, is being drafted by another agent on a separate branch; this branch does not touch `docs/legal`. Counsel review is recommended and optional (founder 2026-10-13); the live Terms row is updated through the legal flow, not by this branch.
+- Decision: pending the other branch.

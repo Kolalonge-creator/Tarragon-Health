@@ -2113,15 +2113,27 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "Founder/CMO decision 2026-10-12 (review of integration/two-tier); supabase/migrations/20261013012113_two_tier_refund_window_and_immediate_end.sql",
   },
   {
-    key: "membership.renewal",
-    // Prescription renewals are part of the Member year. Default: at most one renewal request per medication every 28 days (a declined
-    // request does not count). PROPOSED: the founder/CMO confirm the number. Mirrored by membership_policy_config (kind renewal).
-    value: { min_days_between_requests: 28 },
+    key: "membership.legacy_conversion",
+    // Founder decision 2026-10-13: every legacy programme or plan holder becomes a real Member. A holder with an end date keeps it; a holder
+    // with an active purchase and no end date gets a full 365 days from conversion. PROPOSED. Mirrored by membership_policy_config
+    // (kind legacy_conversion), with a drift test.
+    value: { no_end_date_days: 365 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "Founder decision 2026-10-13 (legacy holders); supabase/migrations/20261013012113_two_tier_refund_window_and_immediate_end.sql",
+  },
+  {
+    key: "membership.review",
+    // Prescription renewals are discussed at the monthly review, not requested separately (decision 2026-10-13). The pre-call summary
+    // lists the medicines whose prescription expires within this many days of the call. PROPOSED; the CMO confirms the window.
+    value: { renewal_window_days: 30 },
     owner: "CMO",
     status: "proposed",
     version: 1,
-    effectiveFrom: "2026-10-12",
-    source: "Founder/CMO decision 2026-10-12 (renewals included); supabase/migrations/20261013012113_two_tier_refund_window_and_immediate_end.sql",
+    effectiveFrom: "2026-10-13",
+    source: "Founder/CMO decision 2026-10-13 (renewals at the monthly review); supabase/migrations/20261013013400_two_tier_renewal_at_monthly_review.sql",
   },
   {
     key: "commerce.second_opinion",

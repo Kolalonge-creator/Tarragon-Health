@@ -9,12 +9,14 @@
 --      admin profile is never a Member.
 --   G. Grace booking: a Member inside the 14 day grace is offered and can pick exactly one follow-up (month 13); a second is refused;
 --      a lapsed person and a refunded (ended) person cannot.
---   P. Renewals: Free refused with the Membership message, Member allowed, a second request inside 28 days refused, allowed after.
+--   P. Renewals are decided at the monthly review: the standalone request is closed for a Member (told so), a Free person is told it is
+--      part of Membership, a held credit still works for a non-Member; a Member adds a note to the next review (Free refused, too long
+--      refused, nothing notified); the second opinion is hidden from the anonymous public price list.
 --   S. Second opinion: sold at 500,000 kobo to a Member only; Free, lapsed and ended refused by the purchase function AND by the
 --      table trigger; no other doctor-time product can be switched on.
 -- SABOTAGE (each must flip its check): the refund window removed; the immediate end replaced by the old grace; the legacy clause put
---   back into patient_is_member_at; the grace row creation removed; the Member check removed from the renewal trigger; the Member
---   check removed from the second-opinion trigger and function.
+--   back into patient_is_member_at; the grace row creation removed; the Member closure removed from the renewal trigger; the Member
+--   check removed from the second-opinion trigger and function; the second opinion filter removed from the public price list.
 begin;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
@@ -183,12 +185,13 @@ end $$;
 
 -- L. Legacy holders ---------------------------------------------------------------------------------------------------------
 do $$
-declare v_org uuid := pg_temp.f('org'); v_prog uuid; a uuid; b uuid; c uuid; e uuid; adm uuid := pg_temp.f('admin'); v_sp uuid; v_pp uuid; n integer; v_end timestamptz;
+declare v_org uuid := pg_temp.f('org'); v_prog uuid; a uuid; b uuid; c uuid; e uuid; adm uuid := pg_temp.f('admin'); v_sp uuid; v_pp uuid; n integer; v_end timestamptz; noend uuid;
 begin
   select id into v_prog from public.chronic_condition_programmes limit 1;
   a := pg_temp.mkuser(v_org, 'leg_prog', 'patient'); b := pg_temp.mkuser(v_org, 'leg_plan', 'patient');
   c := pg_temp.mkuser(v_org, 'leg_member', 'patient'); e := pg_temp.mkuser(v_org, 'leg_expired', 'patient');
   perform pg_temp.setf('leg_prog', a); perform pg_temp.setf('leg_plan', b);
+  noend := pg_temp.mkuser(v_org, 'leg_noend', 'patient');
   -- the programme pricing and protocol triggers are bypassed for this legacy fixture only (a programme cannot be activated without a signed protocol)
   set local session_replication_role = replica;
   insert into public.programme_purchases (organisation_id, patient_id, programme_id, status, price_kobo, duration_weeks, starts_at, ends_at, purchased_at)
@@ -202,13 +205,15 @@ begin
   insert into public.service_purchases (organisation_id, patient_id, purchaser_profile_id, service_product_id, status, amount_kobo, currency, payment_provider, purchased_at, expires_at)
   values (v_org, c, c, v_sp, 'active', 100, 'NGN', 'paystack', now() - interval '2 days', now() + interval '60 days'),
          (v_org, e, e, v_sp, 'active', 100, 'NGN', 'paystack', now() - interval '90 days', now() - interval '3 days');
+  insert into public.service_purchases (organisation_id, patient_id, purchaser_profile_id, service_product_id, status, amount_kobo, currency, payment_provider, purchased_at, expires_at)
+  values (v_org, noend, noend, v_sp, 'active', 100, 'NGN', 'paystack', now() - interval '2 days', null);
 
   perform pg_temp.ck('L1 a programme holder is NOT a Member before conversion (one meaning of Member)', 'false', private.patient_is_member(a)::text);
   perform pg_temp.ck('L2 a plan-feature purchaser is NOT a Member before conversion', 'false', private.patient_is_member(b)::text);
   perform pg_temp.ck('L3 an admin profile is not a Member', 'false', private.patient_is_member(adm)::text);
 
   n := private.convert_legacy_programme_holders();
-  perform pg_temp.ck('L4 the programme holder and the plan purchaser are converted (not the Member, not the expired)', '2', n::text);
+  perform pg_temp.ck('L4 the programme holder, the plan purchaser and the no-end-date holder are converted (not the Member, not the expired)', '3', n::text);
   select ends_at into v_end from public.patient_memberships where patient_id = a;
   perform pg_temp.ck('L5 the programme holder keeps THEIR end date, no free year', 'true',
     (v_end = ((select ends_at + 1 from public.programme_purchases where patient_id = a)::timestamp at time zone 'Africa/Lagos'))::text);
@@ -217,7 +222,10 @@ begin
     (select (abs(extract(epoch from (m.ends_at - sp.expires_at))) < 1)::text from public.patient_memberships m, public.service_purchases sp where m.patient_id = b and sp.patient_id = b));
   perform pg_temp.ck('L8 both are Members now', 'true/true', private.patient_is_member(a)::text || '/' || private.patient_is_member(b)::text);
   perform pg_temp.ck('L9 the monthly follow-up months exist', 'true', (select (count(*) >= 1)::text from public.member_followup_entitlements where patient_id = a));
-  perform pg_temp.ck('L10 one audit row each', '2', (select count(*)::text from public.audit_log where action = 'membership.legacy_conversion' and entity_id in (select id from public.patient_memberships where patient_id in (a, b))));
+  perform pg_temp.ck('L10 one audit row each', '3', (select count(*)::text from public.audit_log where action = 'membership.legacy_conversion' and entity_id in (select id from public.patient_memberships where patient_id in (a, b, noend))));
+  perform pg_temp.ck('L5b a holder with no end date gets a full 365 days from conversion (config), not 90', 'true',
+    (select (abs(extract(epoch from (m.ends_at - (now() + interval '365 days')))) < 5)::text from public.patient_memberships m where m.patient_id = noend));
+  perform pg_temp.ck('L5c and it is flagged in the audit row', 'true/365', (select (event ->> 'no_end_date_default_applied') || '/' || (event ->> 'default_days') from public.audit_log where action = 'membership.legacy_conversion' and entity_id = (select id from public.patient_memberships where patient_id = noend)));
   perform pg_temp.ck('L11 a second run converts nobody (idempotent)', '0', private.convert_legacy_programme_holders()::text);
   perform pg_temp.ck('L12 the existing Member kept their own membership only', '1', (select count(*)::text from public.patient_memberships where patient_id = c));
   perform pg_temp.ck('L13 the expired holder was not converted', '0', (select count(*)::text from public.patient_memberships where patient_id = e));
@@ -263,28 +271,63 @@ begin
   perform pg_temp.ck('G8 a person whose Membership was ended by a refund cannot be offered times', 'P0001', v_off ->> 'err');
 end $$;
 
--- P. Renewals --------------------------------------------------------------------------------------------------------------
+-- P. Renewals ---------------------------------------------------------------------------------------------------------
 do $$
-declare v_org uuid := pg_temp.f('org'); fr uuid := pg_temp.f('free'); mb uuid; m1 uuid; m2 uuid; r text;
+declare v_org uuid := pg_temp.f('org'); fr uuid := pg_temp.f('free'); mb uuid; cr uuid; m1 uuid; m2 uuid; m3 uuid; r text; v_note uuid; v_sp uuid; n0 integer;
 begin
   mb := pg_temp.mkuser(v_org, 'renew_member', 'patient');
+  cr := pg_temp.mkuser(v_org, 'renew_credit', 'patient');
   perform pg_temp.mkmember(v_org, mb, 10, 300);
   perform pg_temp.setf('renew_member', mb);
   insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, is_active, source) values (v_org, fr, 'RD Amlodipine', '5mg', 'once daily', true, 'clinician') returning id into m1;
   insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, is_active, source) values (v_org, mb, 'RD Metformin', '500mg', 'twice daily', true, 'clinician') returning id into m2;
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, is_active, source) values (v_org, cr, 'RD Losartan', '50mg', 'once daily', true, 'clinician') returning id into m3;
   perform pg_temp.setf('med_member', m2);
   r := pg_temp.exec_as(fr, format($q$insert into public.prescription_renewal_requests (patient_id, organisation_id, medication_id) values (%L, %L, %L)$q$, fr, v_org, m1));
   perform pg_temp.ck('P1 a Free person is told renewal is part of Membership', 'true', (r like 'P0001:%Membership%')::text);
   r := pg_temp.exec_as(mb, format($q$insert into public.prescription_renewal_requests (patient_id, organisation_id, medication_id) values (%L, %L, %L)$q$, mb, v_org, m2));
-  perform pg_temp.ck('P2 a Member can ask, with no credit', 'ok', r);
-  set local session_replication_role = replica;
-  update public.prescription_renewal_requests set status = 'approved' where medication_id = m2;
-  set local session_replication_role = origin;
-  r := pg_temp.exec_as(mb, format($q$insert into public.prescription_renewal_requests (patient_id, organisation_id, medication_id) values (%L, %L, %L)$q$, mb, v_org, m2));
-  perform pg_temp.ck('P3 a second request inside 28 days is refused', 'true', (r like 'P0001:%recently%')::text);
-  update public.prescription_renewal_requests set created_at = now() - interval '29 days' where medication_id = m2;
-  r := pg_temp.exec_as(mb, format($q$insert into public.prescription_renewal_requests (patient_id, organisation_id, medication_id) values (%L, %L, %L)$q$, mb, v_org, m2));
-  perform pg_temp.ck('P4 after 28 days a new request is allowed', 'ok', r);
+  perform pg_temp.ck('P2 a Member cannot file a standalone renewal request: the doctor reviews renewals at the monthly call', 'true', (r like 'P0001:%monthly call%')::text);
+  perform pg_temp.ck('P2b and nothing was filed', '0', (select count(*)::text from public.prescription_renewal_requests where patient_id = mb));
+  -- a credit someone already holds keeps working for a non-Member
+  select id into v_sp from public.service_products where code = 'prescription_renewal_credit';
+  insert into public.service_purchases (organisation_id, patient_id, purchaser_profile_id, service_product_id, status, amount_kobo, currency, payment_provider, purchased_at, expires_at)
+  values (v_org, cr, cr, v_sp, 'active', 500000, 'NGN', 'paystack', now() - interval '1 day', now() + interval '60 days');
+  r := pg_temp.exec_as(cr, format($q$insert into public.prescription_renewal_requests (patient_id, organisation_id, medication_id) values (%L, %L, %L)$q$, cr, v_org, m3));
+  perform pg_temp.ck('P3 a non-Member with a held renewal credit can still use it', 'ok', r);
+
+  -- the optional note for the next review
+  perform pg_temp.ck('P4 a Free person cannot add a review note', 'true',
+    (pg_temp.q_as(fr, format($q$select public.add_review_note(%L, 'please renew')::text$q$, m1)) like 'ERR:%Membership%')::text);
+  v_note := pg_temp.q_as(mb, format($q$select public.add_review_note(%L, 'Running low in two weeks, please renew')::text$q$, m2))::uuid;
+  perform pg_temp.ck('P5 a Member can add a note about one of their medicines', 'true', (v_note is not null)::text);
+  perform pg_temp.ck('P6 the Member can read their own note', '1', pg_temp.q_as(mb, 'select count(*)::text from public.member_review_notes'));
+  perform pg_temp.ck('P7 another person cannot', '0', pg_temp.q_as(fr, 'select count(*)::text from public.member_review_notes'));
+  perform pg_temp.ck('P8 a note about someone else''s medicine is refused', 'true',
+    (pg_temp.q_as(mb, format($q$select public.add_review_note(%L, 'x')::text$q$, m1)) like 'ERR:%not on your list%')::text);
+  perform pg_temp.ck('P9 a note over 500 characters is refused', 'true',
+    (pg_temp.q_as(mb, format($q$select public.add_review_note(null, %L)::text$q$, repeat('a', 501))) like 'ERR:%between 1 and 500%')::text);
+  perform pg_temp.ck('P10 the note notifies no one (INV-07: nothing reaches a phone)', '0',
+    (select count(*)::text from public.notifications where created_at >= now() - interval '1 minute' and payload::text like '%Running low%'));
+  perform pg_temp.ck('P11 the table cannot be written directly, and anon has nothing', 'true',
+    (pg_temp.exec_as(mb, format($q$insert into public.member_review_notes (organisation_id, patient_id, note) values (%L, %L, 'direct')$q$, v_org, mb)) like '42501:%')::text
+    and not has_table_privilege('anon', 'public.member_review_notes', 'SELECT'));
+  -- the tenth note in a month is the last
+  for n0 in 1..9 loop
+    perform pg_temp.q_as(mb, format($q$select public.add_review_note(null, 'note %s')::text$q$, n0));
+  end loop;
+  perform pg_temp.ck('P12 an eleventh note in 31 days is refused', 'true',
+    (pg_temp.q_as(mb, $q$select public.add_review_note(null, 'one too many')::text$q$) like 'ERR:%several notes%')::text);
+end $$;
+
+-- the second opinion is never on the anonymous public price list
+do $$
+declare n integer;
+begin
+  perform set_config('request.jwt.claims', json_build_object('role', 'anon')::text, true);
+  set local role anon;
+  select count(*) into n from public.public_price_list() where code = 'second_opinion_credit';
+  reset role;
+  perform pg_temp.ck('P13 the anonymous price list never shows the Members-only second opinion', '0', n::text);
 end $$;
 
 -- S. Second opinion --------------------------------------------------------------------------------------------------------
@@ -352,16 +395,16 @@ begin
   execute d;
   perform pg_temp.sab('SAB3 the grace month is created', '1', private.ensure_followup_entitlements(mid)::text);
 end $$;
--- 4. the Member check removed from the renewal trigger
+-- 4. the Member closure removed from the renewal trigger
 do $$
-declare d text; fr uuid := pg_temp.f('free'); m uuid; r text;
+declare d text; mb uuid := pg_temp.f('renew_member'); m uuid; r text;
 begin
-  d := replace(pg_get_functiondef('private.enforce_prescription_renewal_entitlement_or_credit()'::regprocedure), 'if private.patient_is_member(new.patient_id) then', 'if true then');
+  d := replace(pg_get_functiondef('private.enforce_prescription_renewal_entitlement_or_credit()'::regprocedure), 'if private.patient_is_member(new.patient_id) then', 'if false then');
   if d = pg_get_functiondef('private.enforce_prescription_renewal_entitlement_or_credit()'::regprocedure) then raise exception 'VACUOUS TEST: renewal text not found'; end if;
   execute d;
-  select id into m from public.medications where patient_id = fr limit 1;
-  r := pg_temp.exec_as(fr, format($q$insert into public.prescription_renewal_requests (patient_id, organisation_id, medication_id) values (%L, %L, %L)$q$, fr, pg_temp.f('org'), m));
-  perform pg_temp.sab('SAB4 a Free renewal is refused', 'P0001', left(r, 5));
+  select id into m from public.medications where patient_id = mb limit 1;
+  r := pg_temp.exec_as(mb, format($q$insert into public.prescription_renewal_requests (patient_id, organisation_id, medication_id) values (%L, %L, %L)$q$, mb, pg_temp.f('org'), m));
+  perform pg_temp.sab('SAB4 a Member standalone renewal is refused', 'P0001', left(r, 5));
 end $$;
 -- 5. the Member check removed from the second-opinion trigger and function
 do $$
@@ -388,6 +431,20 @@ begin
   perform pg_temp.sab('SAB6 after a refund the person is Free at once', 'false', private.patient_is_member(v_ok)::text);
 end $$;
 
+-- 7. the second opinion filter removed from the public price list
+do $$
+declare d text; n integer;
+begin
+  d := replace(pg_get_functiondef('public.public_price_list()'::regprocedure), $s$ and p.code <> 'second_opinion_credit'$s$, '');
+  if d = pg_get_functiondef('public.public_price_list()'::regprocedure) then raise exception 'VACUOUS TEST: price list text not found'; end if;
+  execute d;
+  perform set_config('request.jwt.claims', json_build_object('role', 'anon')::text, true);
+  set local role anon;
+  select count(*) into n from public.public_price_list() where code = 'second_opinion_credit';
+  reset role;
+  perform pg_temp.sab('SAB7 the second opinion stays off the anonymous list', '0', n::text);
+end $$;
+
 do $$
 declare v_bad integer; v_caught integer;
 begin
@@ -397,8 +454,8 @@ begin
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected is distinct from actual;
-  if v_caught < 6 then
-    raise exception 'VACUOUS TEST: the sabotage flipped % of 7 checks: %', v_caught,
+  if v_caught < 7 then
+    raise exception 'VACUOUS TEST: the sabotage flipped % of 8 checks: %', v_caught,
       (select string_agg(check_name, '; ') from results where phase = 'sabotaged' and expected is not distinct from actual);
   end if;
 end $$;
