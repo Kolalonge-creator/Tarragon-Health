@@ -403,6 +403,12 @@ begin
     E'\n  elsif p_key = ''prn_limits'' then\n    return private.prn_limits_go_live_conditions(p_key);\n  end if;\n  -- An unknown key has no conditions');
 end $$;
 
+-- 8b. The patient-data registry (S39d): every table with a patient_id is listed with its retention class and whether it is exported.
+insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export)
+select t, 'patient_id', private.retention_class_for(t), 'review', true
+  from unnest(array['medication_prn_limits', 'medication_prn_flags']) t
+on conflict (table_name) do nothing;
+
 -- 9. Privileges, and the migration proves what it claims ----------------------------------------------------------------------------
 revoke all on function private.prn_exceedances(uuid, timestamptz, timestamptz) from public, anon, authenticated;
 revoke all on function private.evaluate_prn_limits() from public, anon, authenticated;
