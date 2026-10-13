@@ -287,3 +287,19 @@ Founder decisions in chat after the process-map review. Full per-session effect:
 | OQ-250 AI-017 wording and OQ-214 scribe pass mark | Wording corrected to Nigerian English only (the record was an unapproved draft); approval waits for the evaluations; pass mark proposed (zero dropped negations, ceiling set after first measurement). |
 | OQ-214 directory re-verification (clinical) | At each licence expiry, never more than 12 months. |
 
+
+## S06 to S10 upgrade decisions (2026-10-07)
+
+Full text, options and guideline basis: `docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md`. Clinical items C1 to C8 are APPROVED TEXT, NOT SIGNED; each is signed in chat when its config row exists. Record: `docs/plans/S06-S10-cmo-decisions-2026-10-07.md`.
+
+| Decision | Chosen |
+|---|---|
+| D1 encrypt the phone's local database | Yes, in the one native build |
+| D2 drafts after forced sign-out | Keep, encrypted per account; wipe the mirror only |
+| D3 remote wipe | After one last upload attempt or a 30-day key lease; never silent |
+| D4 lock-screen pass on shared phones | Off until the patient turns it on |
+| D5 hosted queue or webhook vendor | Stay in-house |
+| D6 medicine data | Hybrid: Greenbook with written terms (fallback hand-curated brands) plus interaction rules from public-domain labels and the Nigeria EML 2020, signed by CMO and a pharmacist; WHO ATC/EML (non-commercial) and DrugBank (paid) not used without a licence |
+| D7 white-coat / masked flag | Yes, clinician-only, behind a guard |
+| D8 test devices | Founder supplies two Android floor phones and one iPhone |
+| D9 counsel on NDPA basis for emergency card and access logs | Instruct now |
