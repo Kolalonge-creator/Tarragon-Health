@@ -15,10 +15,11 @@ export function isTypesOnlyModule(source) {
   const code = stripComments(source);
   if (code.trim() === "") return true;
   // Any top-level value declaration or value re-export is runtime.
-  if (/^\s*(export\s+)?(declare\s+)?(const|let|var|function|class|enum|abstract\s+class)\b/m.test(code)) return false;
+  if (/^\s*(export\s+)?(declare\s+)?(const|let|var|async|function|class|enum|namespace|module|abstract\s+class)\b/m.test(code)) return false;
   if (/^\s*export\s+default\b/m.test(code)) return false;
   if (/^\s*export\s+\*/m.test(code)) return false;
   if (/^\s*export\s*\{/m.test(code)) return false;
+  if (/^\s*(export\s+)?import\s+\w+\s*=/m.test(code)) return false;
   // An import that is not `import type` pulls in a runtime module.
   if (/^\s*import\s+(?!type\b)/m.test(code)) return false;
   return true;
@@ -54,7 +55,7 @@ function normalise(parts) {
 export function relativeImports(fromRel, source) {
   const dir = fromRel.split("/").slice(0, -1);
   const found = [];
-  const re = /(?:import|export)\s+(?:[^'"]*?\s+from\s+)?["'](\.{1,2}\/[^"']+)["']/g;
+  const re = /(?:(?:import|export)\s+(?:[^'"]*?\s+from\s+)?|import\s*\(\s*)["'](\.{1,2}\/[^"']+)["']/g;
   let m;
   while ((m = re.exec(source)) !== null) found.push(normalise([...dir, ...m[1].split("/")]));
   return found;

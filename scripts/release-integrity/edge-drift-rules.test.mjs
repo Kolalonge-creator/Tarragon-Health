@@ -56,3 +56,9 @@ test("a shared module nothing deployed imports is expected undeployed; an import
 test("a function's own file that is not deployed is still drift", () => {
   assert.equal(isExpectedUndeployed("new-fn/index.ts", new Set()), false);
 });
+
+test("async functions and dynamic imports count as runtime", () => {
+  assert.equal(isTypesOnlyModule("export async function f() {}"), false);
+  assert.equal(isTypesOnlyModule("export namespace N { export const a = 1; }"), false);
+  assert.deepEqual(relativeImports("a/b.ts", `const m = await import("../_shared/x.ts");`), ["_shared/x.ts"]);
+});

@@ -84,7 +84,7 @@ function main() {
         drifted = true;
         continue;
       }
-      const a = readFileSync(join(deployedFnDir, rel), "utf8");
+      const a = deployedText[rel];
       const b = readFileSync(join(sourceFnDir, rel), "utf8");
       if (a !== b && isBundlerEmptiedTypesModule(a, b)) continue; // types-only module emptied by the API bundler: not drift (edge-drift-rules.mjs)
       if (a !== b) {
