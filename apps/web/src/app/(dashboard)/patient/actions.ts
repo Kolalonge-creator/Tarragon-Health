@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { resolveSubjectId, assertNotActingFor } from "@/lib/acting/acting-for";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { alertEmergencyContact } from "@/lib/emergency/alert-contact";
 import { validatePatientAvatarFile } from "@/lib/validation/patient-avatar";
 import { assessBpControlBestEffort } from "@/lib/ml/assess-bp-control";
 import { assessHeartRateBestEffort } from "@/lib/vitals/assess-heart-rate";
@@ -1227,73 +1228,7 @@ export async function alertEmergencyContactNow(eventId: string): Promise<Emergen
   // grant server-side, so a stale or forged cookie resolves back to the
   // caller's own id.
   const subjectId = await resolveSubjectId(user.id);
-
-  // Ownership + contact are read under the caller's own RLS session first —
-  // both scoped to subjectId (the account the emergency actually belongs to),
-  // not the caller, so a supporter acting for someone alerts THEIR contact.
-  const { data: event } = await supabase
-    .from("emergency_events")
-    .select("id, organisation_id, contact_notified_at")
-    .eq("id", eventId)
-    .eq("patient_id", subjectId)
-    .single();
-  if (!event) {
-    return { error: "Emergency not found" };
-  }
-  if (event.contact_notified_at) {
-    return { success: true };
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select(
-      "full_name, emergency_contact_name, emergency_contact_phone, emergency_contact_relationship, emergency_contact_consent"
-    )
-    .eq("id", subjectId)
-    .single();
-  if (!profile?.emergency_contact_phone) {
-    return { error: "Add an emergency contact number first so we can alert them." };
-  }
-  // Never message a contact without the patient's recorded consent.
-  if (!profile.emergency_contact_consent) {
-    return {
-      error: "Confirm your emergency contact has agreed to be contacted before we alert them.",
-    };
-  }
-
-  const payload = {
-    to_phone: profile.emergency_contact_phone,
-    contact_name: profile.emergency_contact_name ?? "there",
-    contact_relationship: profile.emergency_contact_relationship,
-    patient_name: profile.full_name ?? "someone who lists you as their emergency contact",
-  } as Json;
-
-  // notifications is queue-write only; the deployed dispatcher sends off-session.
-  // recipient_id is the patient this emergency belongs to, not necessarily the caller.
-  const serviceRole = createServiceRoleClient();
-  const { error: notifyError } = await serviceRole.from("notifications").insert([
-    {
-      organisation_id: event.organisation_id,
-      recipient_id: subjectId,
-      channel: "sms",
-      status: "pending",
-      template: "emergency_contact_alert",
-      payload,
-    },
-  ]);
-  if (notifyError) {
-    return { error: notifyError.message };
-  }
-
-  // Routed through an RPC so the write can be attributed to the patient in public.audit_log
-  // despite running on the service-role client — see
-  // 20260812041044_service_role_write_actor_attribution.sql.
-  await serviceRole.rpc("mark_emergency_contact_notified", {
-    p_event_id: eventId,
-    p_actor_id: user.id,
-  });
-
-  return { success: true };
+  return alertEmergencyContact(supabase, { eventId, subjectId, actorId: user.id });
 }
 
 // ---------------------------------------------------------------------------

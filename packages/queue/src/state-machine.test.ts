@@ -85,11 +85,9 @@ describe("transitions", () => {
 });
 
 describe("minimum tier (doctor tier is the only gate)", () => {
-  it("orders coordinator < medical officer < senior < chief", () => {
-    expect(meetsMinimumTier("senior_medical_officer", "medical_officer")).toBe(true);
-    expect(meetsMinimumTier("medical_officer", "medical_officer")).toBe(true);
-    expect(meetsMinimumTier("medical_officer", "senior_medical_officer")).toBe(false);
-    expect(meetsMinimumTier("care_coordinator", "medical_officer")).toBe(false);
+  it("orders coordinator < senior < chief", () => {
+    expect(meetsMinimumTier("senior_medical_officer", "senior_medical_officer")).toBe(true);
+    expect(meetsMinimumTier("care_coordinator", "senior_medical_officer")).toBe(false);
     expect(meetsMinimumTier("chief_medical_officer", "senior_medical_officer")).toBe(true);
   });
 });

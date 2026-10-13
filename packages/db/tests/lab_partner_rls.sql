@@ -112,7 +112,7 @@ begin
     (organisation_id, profile_id, full_name, doctor_tier, active,
      license_verified_at, verified_by)
   values
-    (v_org, v_clin, 'VERIFY Ordering Clinician', 'medical_officer', true, now(), v_pat_a)
+    (v_org, v_clin, 'VERIFY Ordering Clinician', 'senior_medical_officer', true, now(), v_pat_a)
   on conflict (profile_id) do update
     set organisation_id = excluded.organisation_id, full_name = excluded.full_name,
         doctor_tier = excluded.doctor_tier, active = excluded.active,

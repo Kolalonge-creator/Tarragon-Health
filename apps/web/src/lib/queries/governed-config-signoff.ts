@@ -46,6 +46,8 @@ export const GOVERNED_CONFIG_TABLES = [
     title: "Clinical config drafts (S88)",
     slug: "clinical-config-versions",
   },
+  { table: "home_bp_programme_signoffs", title: "Home blood pressure programme", slug: "home-bp-programme" },
+  { table: "my_health_config", title: "My Health lock-screen pass fields", slug: "my-health-config" },
 ] as const;
 
 /** Tables that hold one live row per kind rather than one live row in total. */
