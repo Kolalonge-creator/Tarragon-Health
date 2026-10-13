@@ -35,7 +35,7 @@ as $$
     select c.relname::text as table_name
       from pg_trigger g join pg_class c on c.oid = g.tgrelid join pg_namespace ns on ns.oid = c.relnamespace
      where ns.nspname = 'public' and g.tgname = '00_minor_dependant_scope' and not g.tgisinternal
-       and g.tgenabled <> 'D'  -- a disabled trigger guards nothing
+       and g.tgenabled in ('O', 'A')  -- disabled or replica-only triggers guard nothing in a normal session
   )
   select s.table_name, 'not in minor_dependant_table_policy'
     from scoped s left join public.minor_dependant_table_policy p on p.table_name = s.table_name
