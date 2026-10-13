@@ -41,6 +41,8 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/clinician/home-bp-programme", "home blood pressure check seven day protocol sign cmo bands 135 85 white coat masked pattern flag clinic reading cuff"],
   ["/admin/settings/home-bp-programme", "home blood pressure check seven day protocol bands pattern read only signed"],
   ["/admin/settings/lab-panels", "lab ranges reference critical limits release policy panels read only signed"],
+  ["/clinician/my-health-config", "lock screen pass wallet card fields sign cmo emergency basics initials blood group genotype allergies on file my health c8"],
+  ["/admin/settings/my-health-config", "lock screen pass wallet card fields read only signed my health emergency basics"],
   ["/clinician/clinical-signoff", "sign signature sign off signoff hub approve what needs signing outstanding pending awaiting clinical director cmo"],
   ["/clinician/lpe-content-library", "sign approve review coaching content ai coach lifestyle blocks library reference copy"],
   ["/clinician/result-release-policies", "sign approve result release policy abnormal critical doctor delivered restricted hiv hepatitis cancer screen withhold patient"],

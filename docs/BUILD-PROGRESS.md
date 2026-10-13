@@ -451,6 +451,15 @@ This entry was missing; it is rebuilt from the merged PRs and a live check, not 
 - **Correction 2026-10-07**: both S09 migrations (`20261005185500` `s09_timeline_vitals_and_prescription_events`, `20261005185600` `s09_record_shares`) are **applied to production** (checked live in `supabase_migrations.schema_migrations`); the line above saying they are not applied is out of date. The proof's tests 7 and 8 (the new enum values) should now be re-run against live, and `database.types.ts` still needs its own-keys splice.
 
 
+## S09x: My Health completion (2026-10-13, branch `s09x/my-health-completion`)
+
+- **Built**: migration `20261013181946_s09x_my_health_completion.sql`. (a) `/patient/my-health` hub (web, and a `myHealth` section on the phone) and `public.my_access_log()`, one function scoped to the caller, newest first, no clinical content: share opens, wrong PINs, locks, emergency card opens, family emergency access, staff break-glass, delegated use. Routine staff openings are behind `show_staff_opens`, shipped false (OQ-S09x-1, extends OQ-281). (b) Share PIN (random 6 digits, bcrypt, per-share salt, shown once and apart from the link), 5 misses lock, 3 per client per 15 minutes slows, one-session window, default expiry 12 hours from config (30-day cap kept), every attempt audited; `/share/[token]` has a PIN form. (c) Lock-screen pass: patient setting off by default, `my_lock_screen_facts()`, `buildLockScreenPayload`, printable card, phone toggle, governed field list (C8, **unsigned**), dormant wallet generator, go-live guard `wallet_pass` born off with no conditions branch.
+- **Security fixes found on the way**: org staff could read every share token (policy dropped); authenticated could write `record_shares` directly (revoked); `pin_hash` excluded from every client read.
+- **Tests**: DB proof `s09x_my_health_completion.sql` (registered, 3 sabotages that flip) run against live in a rolled-back transaction with the migration included; the S09, S37 (guard exclusion), S39 lookup, S39 catalog, S39b, S39d and supersede-guard (10 to 11 triggers) proofs re-run the same way. Jest: shared 215 (lock-screen payload, config mirror), web 4805, mobile 1640, i18n 81.
+- **Not verified**: Apple Wallet and Google Wallet issue (no credentials; nothing fabricated), a lock-screen widget (needs a native build), the PIN form in a real browser, the mobile screen on a device, CI replay on a fresh database.
+- **Open**: OQ-S09x-1 to 5. Signing the field list is the CMO's (not done).
+
+
 
 ## S10: Event bus and outbox processor (2026-10-05)
 

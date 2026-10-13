@@ -40,6 +40,7 @@ export const GOVERNED_CONFIG_TABLES = [
   },
   { table: "lab_panel_signoffs", title: "Lab ranges and release policy", slug: "lab-panels" },
   { table: "home_bp_programme_signoffs", title: "Home blood pressure programme", slug: "home-bp-programme" },
+  { table: "my_health_config", title: "My Health lock-screen pass fields", slug: "my-health-config" },
 ] as const;
 
 export type GovernedConfigSignoff = {
