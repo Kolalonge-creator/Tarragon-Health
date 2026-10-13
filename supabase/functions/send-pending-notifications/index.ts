@@ -634,9 +634,10 @@ Deno.serve(async () => {
     .in("key", [...new Set(rows.map((r) => r.template).filter((t): t is string => typeof t === "string"))])
     .returns<Array<{ key: string; audience: string | null }>>();
   const audienceByTemplate = new Map((audienceRows ?? []).map((t) => [t.key, t.audience]));
-  const settingsDegraded = Boolean(profilesError || settingsError || audienceError);
+  if (audienceError) console.error("send-pending-notifications: template audience lookup failed; partner exemption unavailable this pass", audienceError.message);
+  const settingsDegraded = Boolean(profilesError || settingsError);
   if (settingsDegraded) {
-    console.error("send-pending-notifications: privacy settings lookup failed; only critical and safety rows go this pass", (profilesError ?? settingsError ?? audienceError)!.message);
+    console.error("send-pending-notifications: privacy settings lookup failed; only critical and safety rows go this pass", (profilesError ?? settingsError)!.message);
   }
   const quietById = new Map<string, QuietSettings>(
     (settingRows ?? []).map((r) => [r.profile_id, { enabled: r.quiet_enabled, start: r.quiet_start.slice(0, 5), end: r.quiet_end.slice(0, 5) }]),
@@ -828,7 +829,7 @@ Deno.serve(async () => {
 
   for (const row of rows) {
     if (foldedIds.has(row.id)) continue;
-    if (settingsDegraded && row.priority !== "critical" && !isSafetyCritical(row.template)) continue; // stays pending
+    if (settingsDegraded && row.channel !== "in_app" && row.priority !== "critical" && !isSafetyCritical(row.template)) continue; // stays pending
 
     if (platformDisabledChannel(row)) {
       await suppress(row.id, "sms deprioritised platform-wide, no provider approval yet");

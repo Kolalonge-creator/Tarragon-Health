@@ -1,7 +1,7 @@
 -- S04b-3 proof: quiet hours default OFF, and turning them off releases only the caller's own held reminders
 -- (migration 20261013183217_s04b3_quiet_hours_default_off.sql, needs the S13 migration).
 --   1. The active rules row says quiet hours are off; the table column defaults to off.
---   2. set_my_notification_settings(null, ...) stores OFF (a missing value never turns quiet hours on).
+--   2. set_my_notification_settings(null, ...) for a person with no row stores OFF (a missing value never turns quiet hours on).
 --   3. A reminder held by quiet hours (it has a deferred_quiet event) is released when its owner turns quiet hours off;
 --      someone else's held reminder, and the owner's own unrelated scheduled reminder, stay as they were.
 --   4. A critical row is never touched. anon cannot run the function.
@@ -42,7 +42,7 @@ end $f$;
 
 do $$
 declare
-  v_org uuid; v_a uuid; v_b uuid;
+  v_org uuid; v_a uuid; v_b uuid; v_c uuid;
   v_held_a uuid; v_sched_a uuid; v_crit_a uuid; v_held_b uuid;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
@@ -59,12 +59,23 @@ begin
   v_sched_a := pg_temp.held(v_org, v_a, 'routine', false);
   v_crit_a := pg_temp.held(v_org, v_a, 'critical');
   v_held_b := pg_temp.held(v_org, v_b);
+  -- a and b opted in earlier (their reminders were held by their own window)
+  insert into public.notification_settings (profile_id, organisation_id, quiet_enabled, quiet_start, quiet_end)
+  values (v_a, v_org, true, '22:00', '06:00'), (v_b, v_org, true, '22:00', '06:00');
+
+  -- a person with no row who sends a null choice is stored OFF
+  v_c := pg_temp.mkuser(v_org, 'c');
+  perform set_config('request.jwt.claim.sub', v_c::text, true);
+  set local role authenticated;
+  perform pg_temp.try($q$select public.set_my_notification_settings(null, '22:00', '06:00', null)$q$);
+  reset role;
+  insert into results values ('real', 'a null choice with no row stores off', 'false', (select quiet_enabled::text from public.notification_settings where profile_id = v_c));
 
   perform set_config('request.jwt.claim.sub', v_a::text, true);
   perform set_config('request.jwt.claims', json_build_object('sub', v_a, 'role', 'authenticated')::text, true);
   set local role authenticated;
 
-  insert into results values ('real', 'a null choice stores off', 'ok', pg_temp.try($q$select public.set_my_notification_settings(null, '22:00', '06:00', null)$q$));
+  insert into results values ('real', 'turning quiet hours off is accepted', 'ok', pg_temp.try($q$select public.set_my_notification_settings(false, '22:00', '06:00', null)$q$));
   reset role;
   insert into results values ('real', 'the saved row is off', 'false', (select quiet_enabled::text from public.notification_settings where profile_id = v_a));
   insert into results values ('real', 'turning off released the caller''s held reminder', 'null',

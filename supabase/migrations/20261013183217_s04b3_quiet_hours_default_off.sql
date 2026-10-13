@@ -47,7 +47,7 @@ begin
   -- deferred_quiet event). The sender decides them again on its next pass, so a shorter window or quiet hours turned
   -- off take effect at once, and a window still in force simply holds them again.
   -- Only when the quiet-hours choice itself changed (not on a discreet-only save).
-  if v_old_on is distinct from v_on or v_old_start is distinct from p_quiet_start or v_old_end is distinct from p_quiet_end then
+  if v_old_on is not null and (v_old_on is distinct from v_on or v_old_start is distinct from p_quiet_start or v_old_end is distinct from p_quiet_end) then
     update public.notifications n set send_after = null
      where n.recipient_id = v_uid and n.status = 'pending' and n.priority = 'routine'
        and n.channel in ('push', 'email') and n.send_after > now()
