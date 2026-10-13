@@ -13,6 +13,8 @@ const NORMAL: LabItemInput[] = [
   { analyteCode: "triglycerides", valueNumeric: 110 }, { analyteCode: "alt", valueNumeric: 24 },
   { analyteCode: "ast", valueNumeric: 20 }, { analyteCode: "haemoglobin", valueNumeric: 14 }, { analyteCode: "wbc", valueNumeric: 6 },
   { analyteCode: "platelets", valueNumeric: 250 }, { analyteCode: "tsh", valueNumeric: 2 },
+  // HIV, HBsAg and anti-HCV are done every year (CMO C1/C6), so a complete result carries all three
+  { analyteCode: "hiv_screen", valueText: "negative" }, { analyteCode: "hbsag", valueText: "negative" }, { analyteCode: "hcv_ab", valueText: "negative" },
 ];
 const with_ = (code: string, v: Partial<LabItemInput>): LabItemInput[] => NORMAL.map((i) => (i.analyteCode === code ? { ...i, ...v } : i));
 
@@ -55,7 +57,7 @@ describe("safety case 11: raised creatinine is held for review", () => {
 });
 
 describe("safety case 12: a positive HBsAg needs a clinician to disclose it", () => {
-  const sensitive = (code: string, text: string): LabItemInput[] => [...NORMAL, { analyteCode: code, valueText: text }];
+  const sensitive = (code: string, text: string): LabItemInput[] => NORMAL.map((i) => (i.analyteCode === code ? { ...i, valueText: text } : i));
   it.each(["hbsag", "hcv_ab", "hiv_screen"])("%s positive forces disclosure, no explanation, a disclosure task", (code) => {
     const r = classifyLabResult(panel, [...sensitive(code, "positive")]);
     expect(r.releaseState).toBe("clinician_disclosure_required");
@@ -63,12 +65,11 @@ describe("safety case 12: a positive HBsAg needs a clinician to disclose it", ()
     expect(explanationAllowed(r.items, r.releaseState)).toBe(false);
   });
   it("sensitive positive wins over a critical value", () => {
-    const r = classifyLabResult(panel, [...with_("potassium", { valueNumeric: 7.5 }), { analyteCode: "hbsag", valueText: "Positive" }]);
+    const r = classifyLabResult(panel, with_("potassium", { valueNumeric: 7.5 }).map((i) => (i.analyteCode === "hbsag" ? { ...i, valueText: "Positive" } : i)));
     expect(r.releaseState).toBe("clinician_disclosure_required");
   });
   it("a negative sensitive screen with otherwise complete normal values auto-releases", () => {
-    const full: LabItemInput[] = [...NORMAL, { analyteCode: "hbsag", valueText: "negative" }];
-    const r = classifyLabResult(panel, full);
+    const r = classifyLabResult(panel, NORMAL);
     expect(r.releaseState).toBe("released");
     expect(explanationAllowed(r.items, r.releaseState)).toBe(true);
   });
@@ -80,6 +81,12 @@ describe("incomplete and malformed entries never auto-release", () => {
     expect(r.releaseState).toBe("awaiting_review");
     expect(r.reason).toBe("incomplete");
     expect(r.missingRequired).toEqual(["alt"]);
+  });
+  it.each(["hiv_screen", "hbsag", "hcv_ab"])("a result without %s is held as incomplete: the screening tests are not risk-based", (code) => {
+    const r = classifyLabResult(panel, NORMAL.filter((i) => i.analyteCode !== code));
+    expect(r.releaseState).toBe("awaiting_review");
+    expect(r.reason).toBe("incomplete");
+    expect(r.missingRequired).toEqual([code]);
   });
   it("an empty submission is held", () => expect(classifyLabResult(panel, []).releaseState).toBe("awaiting_review"));
   it("refuses a wrong unit, an unknown analyte, a duplicate, indeterminate text and a missing value", () => {

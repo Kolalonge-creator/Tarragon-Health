@@ -1,0 +1,891 @@
+{
+  "stage": "B",
+  "members": 5000,
+  "startedAt": "2026-10-12T19:44:23.255Z",
+  "machine": {
+    "platform": "darwin 25.5.0 arm64",
+    "cpu": "Apple M5 Pro",
+    "cores": 18,
+    "memGiB": 64,
+    "node": "v24.20.0",
+    "loadAverage": [
+      5,
+      12.1,
+      21.4
+    ]
+  },
+  "cfg": {
+    "members": 5000,
+    "pool": 20,
+    "freePerMember": 4,
+    "doctors": 60,
+    "seed": 1
+  },
+  "dbSettings": {
+    "effective_cache_size": "16384",
+    "max_connections": "60",
+    "shared_buffers": "28672",
+    "track_io_timing": "on",
+    "work_mem": "4096"
+  },
+  "postgres": "PostgreSQL 17.6",
+  "cronJobs": 111,
+  "generation": {
+    "members": 5000,
+    "free": 20000,
+    "doctors": 60,
+    "seconds": 2.744,
+    "timings": {
+      "auth.users members": {
+        "ms": 84,
+        "rows": 5000
+      },
+      "auth.users free": {
+        "ms": 136,
+        "rows": 20000
+      },
+      "auth.users doctors": {
+        "ms": 1,
+        "rows": 60
+      },
+      "profiles members": {
+        "ms": 99,
+        "rows": 5000
+      },
+      "profiles free": {
+        "ms": 264,
+        "rows": 20000
+      },
+      "profiles doctors": {
+        "ms": 2,
+        "rows": 60
+      },
+      "memberships": {
+        "ms": 22,
+        "rows": 5000
+      },
+      "clinical_staff": {
+        "ms": 2,
+        "rows": 60
+      },
+      "competencies": {
+        "ms": 1,
+        "rows": 120
+      },
+      "availability": {
+        "ms": 2,
+        "rows": 60
+      },
+      "on-call readiness (first 4 doctors)": {
+        "ms": 2,
+        "rows": 4
+      },
+      "on-call rota": {
+        "ms": 2,
+        "rows": 1
+      },
+      "vitals members": {
+        "ms": 688,
+        "rows": 150000
+      },
+      "vitals free": {
+        "ms": 514,
+        "rows": 100000
+      },
+      "lab_orders": {
+        "ms": 32,
+        "rows": 5000
+      },
+      "encounters (past, completed)": {
+        "ms": 50,
+        "rows": 1500
+      },
+      "notifications (history)": {
+        "ms": 367,
+        "rows": 100000
+      },
+      "notifications (free)": {
+        "ms": 202,
+        "rows": 60000
+      }
+    },
+    "counts": {
+      "profiles": 25061,
+      "vitals": 250000,
+      "notifications": 160000,
+      "lab_orders": 5000,
+      "encounters": 1500,
+      "db_size": "901 MB"
+    }
+  },
+  "dataSizes": [
+    {
+      "relname": "domain_events",
+      "rows": "6",
+      "size": "318 MB"
+    },
+    {
+      "relname": "vitals_readings",
+      "rows": "250000",
+      "size": "116 MB"
+    },
+    {
+      "relname": "notifications",
+      "rows": "160270",
+      "size": "55 MB"
+    },
+    {
+      "relname": "profiles",
+      "rows": "25063",
+      "size": "18 MB"
+    },
+    {
+      "relname": "lab_orders",
+      "rows": "5000",
+      "size": "3536 kB"
+    },
+    {
+      "relname": "encounters",
+      "rows": "1500",
+      "size": "1072 kB"
+    },
+    {
+      "relname": "pages",
+      "rows": "0",
+      "size": "272 kB"
+    },
+    {
+      "relname": "clinical_tasks",
+      "rows": "0",
+      "size": "192 kB"
+    }
+  ],
+  "dbSize": "901 MB",
+  "scenarios": [
+    {
+      "summaries": [
+        {
+          "name": "morning logging peak (reading save, as the patient)",
+          "calls": 3000,
+          "ok": 3000,
+          "errors": 0,
+          "errorRate": 0,
+          "p50": 10.310999999999694,
+          "p95": 304.8712919999998,
+          "p99": 1657.1013329999996,
+          "max": 10627.858291,
+          "seconds": 15.082,
+          "perSecond": 198.91261105954118,
+          "errorKinds": []
+        },
+        {
+          "name": "baseline: reading save, one at a time",
+          "calls": 40,
+          "ok": 40,
+          "errors": 0,
+          "errorRate": 0,
+          "p50": 6.3324579999998605,
+          "p95": 87.07095900000013,
+          "p99": 87.92766699999993,
+          "max": 87.92766699999993,
+          "seconds": 0.879,
+          "perSecond": 45.50625711035267,
+          "errorKinds": []
+        }
+      ],
+      "connections": {
+        "samples": 41,
+        "maxTotal": 22,
+        "maxActive": 20,
+        "maxWaitingOnLock": 0
+      },
+      "assertions": [
+        {
+          "name": "reading save p95 within 5000 ms",
+          "ok": true,
+          "detail": "p95 305 ms"
+        },
+        {
+          "name": "no failed saves",
+          "ok": true,
+          "detail": "0 errors []"
+        }
+      ],
+      "notes": [
+        "3000 Members logged (60 percent of 5000) with 20 requests in flight."
+      ],
+      "name": "morning",
+      "seconds": 15.115,
+      "slow": [
+        {
+          "q": "insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, taken_at, so",
+          "calls": "3000",
+          "mean_ms": "66.06",
+          "total_ms": "198192"
+        },
+        {
+          "q": "insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, taken_at, so",
+          "calls": "40",
+          "mean_ms": "2.85",
+          "total_ms": "114"
+        },
+        {
+          "q": "select private.sweep_pages()",
+          "calls": "1",
+          "mean_ms": "12.66",
+          "total_ms": "13"
+        },
+        {
+          "q": "insert into cron.job_run_details (jobid, runid, database, username, command, status) values ($1,$2,$3,$4,$5,$6",
+          "calls": "2",
+          "mean_ms": "2.44",
+          "total_ms": "5"
+        },
+        {
+          "q": "update cron.job_run_details set status = $1, start_time = $2 where runid = $3",
+          "calls": "2",
+          "mean_ms": "0.27",
+          "total_ms": "1"
+        }
+      ]
+    },
+    {
+      "summaries": [
+        {
+          "name": "red burst: red reading save (Member)",
+          "calls": 50,
+          "ok": 50,
+          "errors": 0,
+          "errorRate": 0,
+          "p50": 15.479374999998981,
+          "p95": 30.09887499999968,
+          "p99": 35.004500000002736,
+          "max": 35.004500000002736,
+          "seconds": 0.055,
+          "perSecond": 909.0909090909091,
+          "errorKinds": []
+        },
+        {
+          "name": "red burst: create_red_page (service role)",
+          "calls": 50,
+          "ok": 50,
+          "errors": 0,
+          "errorRate": 0,
+          "p50": 19.096792000000278,
+          "p95": 72.56837500000256,
+          "p99": 74.74054199999955,
+          "max": 74.74054199999955,
+          "seconds": 0.197,
+          "perSecond": 253.80710659898477,
+          "errorKinds": []
+        },
+        {
+          "name": "red burst: red reading save (Free user)",
+          "calls": 50,
+          "ok": 50,
+          "errors": 0,
+          "errorRate": 0,
+          "p50": 6.544624999998632,
+          "p95": 44.84599999999773,
+          "p99": 45.13958400000047,
+          "max": 45.13958400000047,
+          "seconds": 0.058,
+          "perSecond": 862.0689655172413,
+          "errorKinds": []
+        }
+      ],
+      "connections": {
+        "samples": 1,
+        "maxTotal": 22,
+        "maxActive": 4,
+        "maxWaitingOnLock": 0
+      },
+      "pageLadder": {
+        "createRedPageP50": 19.096792000000278,
+        "createRedPageP95": 72.56837500000256,
+        "sweepAt6MinutesMs": 77.01954200000182,
+        "sweepAt11MinutesMs": 38.32466700000077,
+        "backupPagesCreated": 50,
+        "class1TasksCreated": 50,
+        "leadsAlerted": 50,
+        "roots": 50
+      },
+      "assertions": [
+        {
+          "name": "SAFETY: no Member red event goes unpaged",
+          "ok": true,
+          "detail": "0 of 50 events had no page"
+        },
+        {
+          "name": "each page notified the primary on push, in-app and email at critical priority",
+          "ok": true,
+          "detail": "150 critical notices over 3 channels for 50 pages"
+        },
+        {
+          "name": "the primary was an eligible, on-call clinician",
+          "ok": true,
+          "detail": "clinician_is_eligible = true"
+        },
+        {
+          "name": "page created within 60 s (p95)",
+          "ok": true,
+          "detail": "p95 73 ms (database step only)"
+        },
+        {
+          "name": "ladder step 1 (5 min): every unacknowledged page paged its backup and created the class 1 task",
+          "ok": true,
+          "detail": "50 backups, 50 tasks for 50 pages"
+        },
+        {
+          "name": "ladder step 2 (10 min): every unacknowledged page alerted the clinical lead",
+          "ok": true,
+          "detail": "50 of 50"
+        },
+        {
+          "name": "no failed reading saves",
+          "ok": true,
+          "detail": "0 Member, 0 Free"
+        }
+      ],
+      "notes": [
+        "50 simultaneous red events. Trigger side effects of the Free reds: 0 emergency_events and 0 clinician_alerts (the Free-plan rule is enforced by the edge-function handler, which is not part of this run).",
+        "Grading is done by the TypeScript triage engine inside process-events in production. This run inserts the red triage event directly (what the handler does after grading) and times create_red_page, the sweep and the notice rows. Delivery of push, email and SMS is not exercised."
+      ],
+      "name": "red",
+      "seconds": 0.652,
+      "slow": [
+        {
+          "q": "select public.create_red_page($1)",
+          "calls": "50",
+          "mean_ms": "20.37",
+          "total_ms": "1019"
+        },
+        {
+          "q": "insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, taken_at, so",
+          "calls": "100",
+          "mean_ms": "5.19",
+          "total_ms": "519"
+        },
+        {
+          "q": "select private.sweep_pages()",
+          "calls": "2",
+          "mean_ms": "56.10",
+          "total_ms": "112"
+        },
+        {
+          "q": "select count(*)::int n, count(distinct channel)::int ch from public.notifications where source_table = $2 and ",
+          "calls": "1",
+          "mean_ms": "9.16",
+          "total_ms": "9"
+        },
+        {
+          "q": "insert into public.triage_events (organisation_id, patient_id, trigger_type, trigger_id, grade, rule_id, rule_",
+          "calls": "50",
+          "mean_ms": "0.07",
+          "total_ms": "3"
+        }
+      ]
+    },
+    {
+      "summaries": [
+        {
+          "name": "queue_next (doctors asking for the next task)",
+          "calls": 55,
+          "ok": 55,
+          "errors": 0,
+          "errorRate": 0,
+          "p50": 123.23716599999898,
+          "p95": 212.58620800000062,
+          "p99": 214.11670900000172,
+          "max": 214.11670900000172,
+          "seconds": 0.393,
+          "perSecond": 139.94910941475825,
+          "errorKinds": []
+        },
+        {
+          "name": "baseline: queue_next, one at a time",
+          "calls": 5,
+          "ok": 5,
+          "errors": 0,
+          "errorRate": 0,
+          "p50": 4.646792000003188,
+          "p95": 7.952416999996785,
+          "p99": 7.952416999996785,
+          "max": 7.952416999996785,
+          "seconds": 0.032,
+          "perSecond": 156.25,
+          "errorKinds": []
+        }
+      ],
+      "connections": {
+        "samples": 1,
+        "maxTotal": 22,
+        "maxActive": 0,
+        "maxWaitingOnLock": 0
+      },
+      "assertions": [
+        {
+          "name": "SAFETY: no task was claimed twice",
+          "ok": true,
+          "detail": "47 claims, 47 distinct tasks, 0 tasks with two live claims"
+        },
+        {
+          "name": "no doctor holds two live claims",
+          "ok": true,
+          "detail": "0 doctors"
+        },
+        {
+          "name": "every task was handed out when there were enough doctors",
+          "ok": true,
+          "detail": "47 claimed of 47 tasks by 60 doctors, 0 left open"
+        },
+        {
+          "name": "next task p95 within 2000 ms",
+          "ok": true,
+          "detail": "p95 213 ms"
+        },
+        {
+          "name": "no errors",
+          "ok": true,
+          "detail": "0 []"
+        }
+      ],
+      "notes": [
+        "55 doctors asked at once for 42 open tasks (after 5 one-at-a-time baseline claims), through a pool of 20 connections (so some waited for a connection, as they would behind PostgREST)."
+      ],
+      "name": "queue",
+      "seconds": 0.444,
+      "slow": [
+        {
+          "q": "select public.queue_next($1) j",
+          "calls": "60",
+          "mean_ms": "51.80",
+          "total_ms": "3108"
+        },
+        {
+          "q": "select private.create_clinical_task($1, $3, $2)",
+          "calls": "47",
+          "mean_ms": "0.79",
+          "total_ms": "37"
+        },
+        {
+          "q": "delete from public.clinical_task_transitions where task_id in (select id from public.clinical_tasks where pati",
+          "calls": "2",
+          "mean_ms": "0.14",
+          "total_ms": "0"
+        },
+        {
+          "q": "delete from public.pages where patient_id in (select id from public.profiles where full_name like $1)",
+          "calls": "2",
+          "mean_ms": "0.09",
+          "total_ms": "0"
+        },
+        {
+          "q": "delete from public.clinical_tasks where patient_id in (select id from public.profiles where full_name like $1)",
+          "calls": "2",
+          "mean_ms": "0.07",
+          "total_ms": "0"
+        }
+      ]
+    },
+    {
+      "summaries": [
+        {
+          "name": "booking: list_bookable_consult_slots",
+          "calls": 120,
+          "ok": 120,
+          "errors": 0,
+          "errorRate": 0,
+          "p50": 5.025958999998693,
+          "p95": 25.587249999996857,
+          "p99": 48.51287500000035,
+          "max": 50.47075000000041,
+          "seconds": 0.107,
+          "perSecond": 1121.4953271028037,
+          "errorKinds": []
+        },
+        {
+          "name": "join: encounter lookup (my_upcoming_encounters)",
+          "calls": 120,
+          "ok": 120,
+          "errors": 0,
+          "errorRate": 0,
+          "p50": 4.138207999996666,
+          "p95": 5.758832999999868,
+          "p99": 6.257874999999331,
+          "max": 6.459208000000217,
+          "seconds": 0.107,
+          "perSecond": 1121.4953271028037,
+          "errorKinds": []
+        }
+      ],
+      "connections": {
+        "samples": 1,
+        "maxTotal": 26,
+        "maxActive": 0,
+        "maxWaitingOnLock": 0
+      },
+      "assertions": [
+        {
+          "name": "no errors",
+          "ok": true,
+          "detail": "[[0,[]],[0,[]]]"
+        },
+        {
+          "name": "booking read p95 within 3 s",
+          "ok": true,
+          "detail": "p95 26 ms"
+        }
+      ],
+      "notes": [
+        "240 read calls (half slot listings, half upcoming-encounter lookups). Holding and confirming a slot, and the Zoom room, are behind the clinical_operations_enabled go-live guard and Zoom; they are NOT exercised here, so this measures the read side only."
+      ],
+      "name": "booking",
+      "seconds": 0.252,
+      "slow": [
+        {
+          "q": "select * from public.list_bookable_consult_slots($1::timestamptz, $2::timestamptz, $3, $4, $5)",
+          "calls": "120",
+          "mean_ms": "2.01",
+          "total_ms": "241"
+        },
+        {
+          "q": "select * from public.my_upcoming_encounters()",
+          "calls": "120",
+          "mean_ms": "0.24",
+          "total_ms": "29"
+        }
+      ]
+    },
+    {
+      "summaries": [
+        {
+          "name": "payment webhook insert (idempotent, service role)",
+          "calls": 1250,
+          "ok": 1250,
+          "errors": 0,
+          "errorRate": 0,
+          "p50": 4.9689999999973224,
+          "p95": 31.28950000000259,
+          "p99": 54.04316699999981,
+          "max": 105.58308299999771,
+          "seconds": 0.512,
+          "perSecond": 2441.40625,
+          "errorKinds": []
+        }
+      ],
+      "connections": {
+        "samples": 3,
+        "maxTotal": 26,
+        "maxActive": 11,
+        "maxWaitingOnLock": 0
+      },
+      "assertions": [
+        {
+          "name": "no lost payment event and no duplicate",
+          "ok": true,
+          "detail": "1000 stored for 1000 unique events sent (1250 deliveries)"
+        },
+        {
+          "name": "none left unprocessed",
+          "ok": true,
+          "detail": "0"
+        },
+        {
+          "name": "no errors",
+          "ok": true,
+          "detail": "0"
+        }
+      ],
+      "notes": [
+        "1250 deliveries of 1000 distinct events. The business logic after the insert (activating a membership, ledger posting) is in the edge function and is not exercised."
+      ],
+      "name": "paystack",
+      "seconds": 0.792,
+      "slow": [
+        {
+          "q": "insert into public.payment_transactions (provider, provider_event_id, event_type, amount_minor, currency, raw_",
+          "calls": "1250",
+          "mean_ms": "0.22",
+          "total_ms": "273"
+        },
+        {
+          "q": "update public.payment_transactions set processed_at = now() where id = $1",
+          "calls": "1000",
+          "mean_ms": "0.10",
+          "total_ms": "101"
+        },
+        {
+          "q": "delete from public.payment_transactions where provider_event_id like $1",
+          "calls": "1",
+          "mean_ms": "30.42",
+          "total_ms": "30"
+        },
+        {
+          "q": "select count(*)::int n, count(*) filter (where processed_at is null)::int unprocessed from public.payment_tran",
+          "calls": "1",
+          "mean_ms": "0.10",
+          "total_ms": "0"
+        }
+      ]
+    },
+    {
+      "summaries": [
+        {
+          "name": "notification worker batch (claim 50 pending, mark sent)",
+          "calls": 105,
+          "ok": 105,
+          "errors": 0,
+          "errorRate": 0,
+          "p50": 2.859667000000627,
+          "p95": 6.5335830000003625,
+          "p99": 10.267457999998442,
+          "max": 10.297999999998865,
+          "seconds": 0.082,
+          "perSecond": 1280.4878048780488,
+          "errorKinds": []
+        }
+      ],
+      "drain": {
+        "notices": 5000,
+        "seconds": 0.082,
+        "noticesPerSecond": 60975.60975609756
+      },
+      "connections": {
+        "samples": 1,
+        "maxTotal": 26,
+        "maxActive": 4,
+        "maxWaitingOnLock": 0
+      },
+      "queueAge": {
+        "p50Seconds": 0.147336,
+        "p95Seconds": 0.175137,
+        "maxSeconds": 0.178728,
+        "insertMs": 98
+      },
+      "assertions": [
+        {
+          "name": "every queued notice was drained",
+          "ok": true,
+          "detail": "5000 of 5000 sent, 0 left"
+        },
+        {
+          "name": "no errors",
+          "ok": true,
+          "detail": "0"
+        }
+      ],
+      "notes": [
+        "5000 notices, 4 concurrent workers. This is the database side of the worker only. Real throughput is bounded by Expo push and Resend rate limits and by the edge function's per-row work, which are not in the loop."
+      ],
+      "name": "fanout",
+      "seconds": 0.43,
+      "slow": [
+        {
+          "q": "with b as (select id from public.notifications where status = $1 and template = $2 order by created_at limit $",
+          "calls": "105",
+          "mean_ms": "2.03",
+          "total_ms": "213"
+        },
+        {
+          "q": "insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_c",
+          "calls": "1",
+          "mean_ms": "93.27",
+          "total_ms": "93"
+        },
+        {
+          "q": "delete from public.notifications where template = $1",
+          "calls": "1",
+          "mean_ms": "72.51",
+          "total_ms": "73"
+        },
+        {
+          "q": "delete from public.notifications where status = $1 and template = $2",
+          "calls": "1",
+          "mean_ms": "0.53",
+          "total_ms": "1"
+        },
+        {
+          "q": "select count(*)::int n from public.notifications where status = $1 and template = $2",
+          "calls": "1",
+          "mean_ms": "0.44",
+          "total_ms": "0"
+        }
+      ]
+    },
+    {
+      "summaries": [
+        {
+          "name": "offline sync: queued reading insert (with client_reading_id)",
+          "calls": 22000,
+          "ok": 21980,
+          "errors": 20,
+          "errorRate": 0.0009090909090909091,
+          "p50": 10.268207999994047,
+          "p95": 134.6328749999957,
+          "p99": 1416.8090419999935,
+          "max": 33462.21462499999,
+          "seconds": 114.465,
+          "perSecond": 192.19848862097584,
+          "errorKinds": [
+            [
+              "57014: canceling statement due to statement timeout",
+              20
+            ]
+          ]
+        }
+      ],
+      "connections": {
+        "samples": 209,
+        "maxTotal": 42,
+        "maxActive": 21,
+        "maxWaitingOnLock": 7
+      },
+      "assertions": [
+        {
+          "name": "no reading lost: every queued reading is stored once",
+          "ok": true,
+          "detail": "19980 stored of 19980 sent"
+        },
+        {
+          "name": "retries were deduplicated, not errors",
+          "ok": false,
+          "detail": "2000 retries deduped, 20 errors [[\"57014: canceling statement due to statement timeout\",20]]"
+        }
+      ],
+      "notes": [
+        "1000 phones, 20 queued readings each (capped at 40,000 requests), then 10 percent re-sent."
+      ],
+      "name": "offline",
+      "seconds": 114.738,
+      "slow": [
+        {
+          "q": "insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, taken_at, so",
+          "calls": "19980",
+          "mean_ms": "54.71",
+          "total_ms": "1093159"
+        },
+        {
+          "q": "select private.queue_push_email_fallbacks()",
+          "calls": "1",
+          "mean_ms": "591.26",
+          "total_ms": "591"
+        },
+        {
+          "q": "select private.ops_evaluate_alerts()",
+          "calls": "2",
+          "mean_ms": "257.44",
+          "total_ms": "515"
+        },
+        {
+          "q": "select private.earnings_sweep()",
+          "calls": "1",
+          "mean_ms": "377.21",
+          "total_ms": "377"
+        },
+        {
+          "q": "select private.sweep_triage_rechecks()",
+          "calls": "1",
+          "mean_ms": "204.26",
+          "total_ms": "204"
+        }
+      ]
+    },
+    {
+      "summaries": [
+        {
+          "name": "alert evaluator (all enabled rules, forced)",
+          "calls": 8,
+          "ok": 8,
+          "errors": 0,
+          "errorRate": 0,
+          "p50": 54.75554199999897,
+          "p95": 80.1479999999865,
+          "p99": 80.1479999999865,
+          "max": 80.1479999999865,
+          "seconds": 0.428,
+          "perSecond": 18.69158878504673,
+          "errorKinds": []
+        },
+        {
+          "name": "operations_wall() as an admin",
+          "calls": 30,
+          "ok": 30,
+          "errors": 0,
+          "errorRate": 0,
+          "p50": 7.432249999983469,
+          "p95": 11.055166999984067,
+          "p99": 22.291540999984136,
+          "max": 22.291540999984136,
+          "seconds": 0.669,
+          "perSecond": 44.84304932735426,
+          "errorKinds": []
+        }
+      ],
+      "connections": null,
+      "assertions": [
+        {
+          "name": "evaluator runs every enabled rule without error",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "name": "the wall loads in under 2 s (p95)",
+          "ok": true,
+          "detail": "p95 11 ms"
+        },
+        {
+          "name": "the evaluator finishes well inside its one minute cycle",
+          "ok": true,
+          "detail": "p95 80 ms"
+        }
+      ],
+      "notes": [
+        "The stale-cron rule reads cron.job_run_details, the largest object in production (162 MB on 2026-10-10). Here it holds only this local stack's own history, so its cost is understated until SR2's clean-up lands."
+      ],
+      "name": "monitoring",
+      "seconds": 0.671,
+      "slow": [
+        {
+          "q": "select private.ops_evaluate_alerts($1, $2)",
+          "calls": "8",
+          "mean_ms": "51.81",
+          "total_ms": "414"
+        },
+        {
+          "q": "select public.operations_wall()",
+          "calls": "30",
+          "mean_ms": "5.29",
+          "total_ms": "159"
+        },
+        {
+          "q": "select code, last_error from public.ops_alert_rules where last_error is not null",
+          "calls": "1",
+          "mean_ms": "0.01",
+          "total_ms": "0"
+        }
+      ]
+    }
+  ],
+  "finalChecks": {
+    "redUnpaged": 0,
+    "doubleClaims": 0,
+    "openAlerts": 11
+  },
+  "raceScripts": [
+    {
+      "file": "s17_queue_concurrent_claim.sh",
+      "code": 0,
+      "seconds": 15.485,
+      "output": "PASS | 50 callers, 30 tasks: 30 claims, 0 duplicates, 20 told none, 0 errors\nPASS | 50 callers, 1 task: exactly one winner, 49 told none, 0 errors\nPASS | control: a lock-free picker made 49 of 50 callers fail on the guard, so the race is real"
+    },
+    {
+      "file": "s19_page_ack_sweep_race.sh",
+      "code": 0,
+      "seconds": 50.449,
+      "output": "PASS | 12 rounds of acknowledge-versus-sweep: every family fully acknowledged, at most one backup page, at most one task\nPASS | control: a lock-free sweep left a half-acknowledged family in 3 of 3 rounds, so the race is real"
+    }
+  ],
+  "endedAt": "2026-10-12T19:52:02.673Z",
+  "dbNote": "Container limited to 2 CPUs and 2 GB (docker update), max_connections 60, shared_buffers 224MB."
+}

@@ -20,7 +20,7 @@ describe("task types", () => {
   });
 
   it("rejects a row with an unknown tier or a class outside 1 to 9", () => {
-    const row = { code: "x", priority_class: 4, default_due_minutes: 10, min_doctor_tier: "medical_officer", required_competencies: [], lead_window_minutes: 0, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: [], note: null, needs_confirmation: false, confirmed_at: null, confirmation_note: null };
+    const row = { code: "x", priority_class: 4, default_due_minutes: 10, min_doctor_tier: "senior_medical_officer", required_competencies: [], lead_window_minutes: 0, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: [], note: null, needs_confirmation: false, confirmed_at: null, confirmation_note: null };
     expect(taskTypeSchema.safeParse(row).success).toBe(true);
     expect(taskTypeSchema.safeParse({ ...row, min_doctor_tier: "nurse" }).success).toBe(false);
     expect(taskTypeSchema.safeParse({ ...row, priority_class: 10 }).success).toBe(false);

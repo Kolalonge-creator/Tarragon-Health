@@ -42,3 +42,12 @@ export async function loadSuggestion(prescription: string): Promise<Loaded<Sugge
   const parsed = suggestionRowsSchema.safeParse(data);
   return parsed.success ? { ok: true, data: parsed.data[0] ?? null } : { ok: false, denied: false };
 }
+
+/**
+ * OQ-276: whether the prescription names a controlled medicine, so the patient is told before choosing a pharmacy. Advisory only: the counter refuses it
+ * either way, so a failed read shows no note rather than blocking the page.
+ */
+export async function loadHasControlledItem(prescription: string, forWhom?: string): Promise<boolean> {
+  const { data, error } = await loose(await createClient()).rpc("patient_prescription_has_controlled_item", { p_prescription: prescription, ...beneficiary(forWhom) });
+  return !error && data === true;
+}
