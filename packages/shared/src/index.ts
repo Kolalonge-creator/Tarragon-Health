@@ -246,3 +246,4 @@ export * from "./breathing";
 export * from "./consent-state";
 export * from "./notification-settings";
 export * from "./notification-diagnosis";
+export * from "./lock-screen-pass";

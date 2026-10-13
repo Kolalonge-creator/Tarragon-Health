@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import { readSignoffQueue, SEVERITY_RANK, type SettledConfig, type SignoffQueueItem } from "@/lib/queries/signoff-queue";
 import { readPendingAiGovernanceSignoff } from "@/lib/queries/pending-ai-governance-signoff";
+import { readPendingCommunitySignoff } from "@/lib/queries/pending-community-signoff";
 
 export type CmoSigningHub = {
   /** One line per thing that needs the Chief Medical Officer's signature, most urgent first. */
@@ -19,6 +20,8 @@ export type CmoSigningHub = {
 export const CLINICAL_RULES_ITEM_KEY = "clinical_rules";
 /** The key the merged protocol-drafts line carries; the one manager lists every draft, so there is one line, not one per draft. */
 export const PROTOCOL_DRAFTS_ITEM_KEY = "protocol_drafts";
+/** The key the Community line carries (safety rules, group rules and the three statements), so the page can attach the signing checklist. */
+export const COMMUNITY_ITEM_KEY = "community";
 
 /**
  * Everything that needs the Chief Medical Officer's signature, in one list.
@@ -40,13 +43,14 @@ export const PROTOCOL_DRAFTS_ITEM_KEY = "protocol_drafts";
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai] = await Promise.all([
+  const [queue, ai, community] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
       failedSources: ["the sign-off queue"],
     })),
     readPendingAiGovernanceSignoff(supabase),
+    readPendingCommunitySignoff(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -104,7 +108,27 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
-  const failedSources = [...queue.failedSources, ...(ai.failed ? ["AI governance"] : [])];
+  if (community.attentionCount > 0) {
+    const parts = [
+      community.rulesUnsigned && "the emergency and self-harm rules to sign",
+      community.groupsWaiting > 0 && `${community.groupsWaiting} group rule set${community.groupsWaiting === 1 ? "" : "s"} to approve`,
+      community.statementsWaiting > 0 && `${community.statementsWaiting} statement${community.statementsWaiting === 1 ? "" : "s"} to record`,
+    ].filter(Boolean);
+    items.push({
+      key: COMMUNITY_ITEM_KEY,
+      title: "Community groups",
+      detail: `${parts.join(", ")}. Nothing is live for members until you switch it on.`,
+      href: "/clinician/community/signoff",
+      severity: "draft_pending",
+      count: community.attentionCount,
+    });
+  }
+
+  const failedSources = [
+    ...queue.failedSources,
+    ...(ai.failed ? ["AI governance"] : []),
+    ...(community.failed ? ["Community"] : []),
+  ];
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
   return { items, failed: failedSources.length > 0, failedSources, settledConfigs: queue.settledConfigs };
 }
