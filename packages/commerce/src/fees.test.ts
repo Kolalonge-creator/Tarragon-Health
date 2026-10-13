@@ -25,6 +25,8 @@ describe("breakdowns", () => {
   it("an estimate is labelled as one and adds up", () => {
     const b = estimatedBreakdown(10_000_000, S);
     expect(b).toEqual({ priceKobo: 10_000_000, feeKobo: 160_000, totalKobo: 10_160_000, estimated: true });
+    // the individual Membership price (120,000 naira, two-tier decision D2): 1.5 percent is 180,000, plus the 10,000 flat, under the 200,000 cap
+    expect(estimatedBreakdown(12_000_000, S)).toEqual({ priceKobo: 12_000_000, feeKobo: 190_000, totalKobo: 12_190_000, estimated: true });
   });
   it("a recorded breakdown is exact", () => {
     expect(recordedBreakdown({ amount_kobo: 500_000, fee_kobo: 150, total_kobo: 500_150 })).toEqual({ priceKobo: 500_000, feeKobo: 150, totalKobo: 500_150, estimated: false });

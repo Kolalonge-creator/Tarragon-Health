@@ -19,6 +19,11 @@
 --      granted to signed-in users, a patient can call it; with the older booking path's adult gate dropped, a minor gets through.
 begin;
 
+-- Two-tier: the paid per-item products are not sellable (service_products_doctor_time_not_sellable). The consultation machinery under test
+-- still prices from video_visit_credit, so the constraint is dropped and the product switched on here, inside this rolled-back transaction.
+alter table public.service_products drop constraint service_products_doctor_time_not_sellable;
+update public.service_products set is_active = true where code = 'video_visit_credit';
+
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
 grant all on results to public;
 

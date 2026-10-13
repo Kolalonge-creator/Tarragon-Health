@@ -23,6 +23,7 @@ import {
   validateLabResultFile,
   withholdSchema,
 } from "@/lib/lab-results/structured";
+import { loose } from "@/lib/clinician/loose-client";
 import { getLabResultsSource } from "@/lib/lab-results/results-source";
 
 export type LabActionState = { error?: string; success?: boolean } | undefined;
@@ -84,7 +85,7 @@ export async function submitPartnerResult(_prev: LabActionState, formData: FormD
   }
 
   // S74: results enter through a LabResultsSource (manual entry today; an API source is a stub). The database makes every decision.
-  const outcome = await getLabResultsSource("manual_entry", supabase).submit({
+  const outcome = await getLabResultsSource("manual_entry", loose(supabase)).submit({
     orderId: parsed.data.orderId,
     panel: parsed.data.panel,
     items: converted.items,

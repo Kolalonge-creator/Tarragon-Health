@@ -17,6 +17,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { isSafeWebhookChallenge } from "../_shared/integrations/webhook-challenge.ts";
 import { forwardPresenceEvent, isPresenceEvent } from "../_shared/integrations/webhook-forward.ts";
+import { withSentry } from "../_shared/observability/sentry.ts";
 
 interface ZoomWebhookEvent {
   event: string;
@@ -60,7 +61,7 @@ async function verifySignature(
   return signatureHeader === expected;
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry("zoom-webhook", async (req) => {
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
   }
@@ -212,4 +213,4 @@ Deno.serve(async (req) => {
   }
 
   return Response.json({ ok: true });
-});
+}));

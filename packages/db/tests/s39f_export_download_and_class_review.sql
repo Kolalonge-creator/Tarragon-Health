@@ -107,9 +107,16 @@ alter table public.data_export_requests enable trigger user;
 select pg_temp.ck('real', 'E11 a denied request does not open it', 'ERR 42501', pg_temp.as_user(pg_temp.f('p'), 'select public.export_my_data()::text'));
 
 -- class review
+-- Rows added after the CMO's 2026-10-07 review start as PROPOSED classes and wait for the next registry review: the ten two-tier tables (migration
+-- two_tier_register_new_patient_tables, notes 'Two-tier build...') and the three S07x home BP tables. R1 covers every other row; R1b pins the two-tier exception. Rows that a later build registers with the default classification (note 'Registered with the default S39d classification...') wait for the same review; R1c pins that none claims to be reviewed.
 select pg_temp.ck('real', 'R1 every registry row is reviewed, with a date and a note', '0', (select count(*)::text from public.data_registry where (not reviewed or reviewed_at is null or reviewed_note is null)
-    -- tables added after the CMO's 2026-10-07 review start as PROPOSED classes and are confirmed at the next review of the registry (S07x: the three home BP tables)
-    and table_name not in ('home_bp_checks', 'clinic_bp_readings', 'bp_pattern_flags')));
+    and coalesce(notes, '') not like 'Two-tier build%'
+    and coalesce(notes, '') not like 'Registered with the default S39d classification%'
+    and table_name not in ('home_bp_checks', 'clinic_bp_readings', 'bp_pattern_flags', 'medication_prn_limits', 'medication_prn_flags')));
+select pg_temp.ck('real', 'R1b the only unreviewed two-tier rows are those awaiting review, and none claims to be reviewed', '0',
+  (select count(*)::text from public.data_registry where coalesce(notes, '') like 'Two-tier build%' and reviewed));
+select pg_temp.ck('real', 'R1c rows registered with the default classification are awaiting review, and none claims to be reviewed', '0',
+  (select count(*)::text from public.data_registry where coalesce(notes, '') like 'Registered with the default S39d classification%' and reviewed));
 select pg_temp.ck('real', 'R2 the CMO''s corrections are applied', 'clinical_record|clinical_record|operational|audit|true|clinical_record',
   (select string_agg(x, '|' order by ord) from (values
     (1, (select retention_class from public.data_registry where table_name = 'sti_partner_notifications')),

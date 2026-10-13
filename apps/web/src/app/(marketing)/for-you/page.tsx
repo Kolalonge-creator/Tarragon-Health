@@ -8,21 +8,8 @@ import { EmergencyNotice } from "../_components/emergency-notice";
 import { Section, SectionHeading } from "../_components/section";
 import { ServiceCardLink } from "../_components/service-card";
 import { SERVICE_CARDS } from "../_content/services";
-import { PAID_SERVICES } from "../_content/pricing";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
-
-// The ongoing product this page leads on. Was the 12-week pack until it was
-// retired and unbundled on 2026-09-10; it is now Continuous Monitoring. Resolved
-// by id with a hard failure rather than a non-null assertion, so a future
-// rename breaks the build here instead of rendering "undefined" to a visitor.
-const ONGOING_SERVICE = PAID_SERVICES.find((service) => service.id === "continuous-monitoring");
-if (!ONGOING_SERVICE) {
-  throw new Error(
-    "for-you: no PAID_SERVICES entry with id 'continuous-monitoring'. Update this page when the lead product changes."
-  );
-}
-const CHRONIC_PROGRAMME = ONGOING_SERVICE;
 
 // Retitled from "For you", which competed head-on with /who-its-for in search
 // and in the footer: two pages, one apparent question. This is the INDIVIDUAL's
@@ -50,7 +37,7 @@ const CARE_COMPARISON: {
     },
     withTarragon: {
       label: "A team that keeps watching",
-      body: "Message your care team at any time, get an async doctor's answer within 72 hours, and book a paid 15-minute online consultation only when you need one.",
+      body: "Message your care team at any time, get an async doctor's answer within 72 hours, and and with Membership a video call with your care team every month.",
     },
   },
   {
@@ -252,17 +239,16 @@ export default function ForYouPage() {
             The app is free and stays free: track your own numbers, get your screening calendar,
             read the whole education library, and use the AI Health Coach, with no time limit and no
             card required. When you want your care team reviewing your readings rather than just a
-            record of them, {CHRONIC_PROGRAMME.name} is {CHRONIC_PROGRAMME.price} {CHRONIC_PROGRAMME.priceCaption}:
-            a dangerous reading reaches a doctor on your care team instead of sitting on your record.
-            Add a Chronic Care Review whenever one falls due, and managing your weight alongside
-            hypertension or diabetes is part of that same review, at no extra charge.
+            record of them, there is Membership: a dangerous reading reaches a doctor on your care
+            team instead of sitting on your record, with a yearly blood test and a video call with
+            your care team every month.
           </p>
           <p>
-            Want a doctor for one thing only? The{" "}
+            There are two plans, Free and Membership, and the{" "}
             <Link href={MARKETING_ROUTES.pricing} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               pricing page
             </Link>{" "}
-            lists every one-off service and what it costs. And looking after a parent instead?{" "}
+            shows both. And looking after a parent instead?{" "}
             <Link href={MARKETING_ROUTES.parentcare} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               Caring for a parent
             </Link>{" "}

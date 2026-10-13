@@ -261,12 +261,15 @@ export function getNavSections(
             // patient supports nobody) — kept reachable rather than regressed.
             { label: "People you support", href: "/patient/supporting", icon: "parentCare" },
             { label: "Group screening days", href: "/patient/screening-days", icon: "booking" },
+            // Two-tier model: the Member's yearly check happens at a listed testing day.
+            { label: "Testing days", href: "/patient/testing-days", icon: "booking" },
           ],
         },
         {
           label: "Your account",
           items: [
             { label: "Health Passport", href: "/patient/health-passport", icon: "passport" },
+            { label: "Doses marked taken", href: "/patient/medicine-report", icon: "passport" },
             { label: "Your finances", href: "/patient/financial-profile", icon: "payables" },
             { label: "Receipts", href: "/patient/receipts", icon: "receipts" },
             {
@@ -377,6 +380,7 @@ export function getNavSections(
                 { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
                 { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
                 { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
+                { label: "Operations wall", href: "/admin/ops/wall", icon: "operations" },
                 { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
                 { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
                 { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },
@@ -526,6 +530,8 @@ export function getNavSections(
                 { label: "Availability", href: "/clinician/availability", icon: "booking" },
                 // S27: lab results held before the patient can see them (INV-03, INV-04).
                 { label: "Lab results to review", href: "/clinician/lab-results", icon: "labs" },
+                // Testing days and employer visits: urine and HbA1c results held for release, and ECG traces to read.
+                { label: "Testing-day results", href: "/clinician/poc-results", icon: "labs" },
                 { label: "Appointments", href: "/clinician/appointments", icon: "booking" },
                 // S21: today's and tomorrow's consultation rooms (spec 9.1, "Consultations").
                 { label: "Consultations", href: "/clinician/consultations", icon: "booking" },
@@ -567,6 +573,8 @@ export function getNavSections(
                 // The Next task queue, the task I hold, and the patients I lead (S35).
                 { label: "Next task", href: "/clinician/queue", icon: "escalation" },
                 { label: "My lead patients", href: "/clinician/lead-patients", icon: "patientActivity" },
+                // Two-tier model: offer each Member several times for the monthly check-in, see who is due or missed a month.
+                { label: "Monthly check-ins", href: "/clinician/followups", icon: "booking" },
                 { label: "On call", href: "/clinician/on-call", icon: "siren" },
                 { label: "Hours and rota", href: "/clinician/rota", icon: "booking" },
                 // What a contracted clinician has earned, line by line, and the fee schedule that applies (S30).
@@ -663,6 +671,7 @@ export function getNavSections(
                   icon: "review",
                 },
                 { label: "Vaccination schedule", href: "/clinician/vaccination-schedule", icon: "vaccination" },
+                { label: "As-needed medicine limits", href: "/clinician/prn-limit-rules", icon: "review" },
                 { label: "Provider quality", href: "/clinician/provider-quality", icon: "analytics" },
               ],
             },
@@ -681,6 +690,7 @@ export function getNavSections(
                 { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
                 { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
                 { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
+                { label: "Operations wall", href: "/admin/ops/wall", icon: "operations" },
                 { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
               ],
             },
@@ -721,6 +731,8 @@ export function getNavSections(
             { label: "Memberships", href: "/admin/memberships", icon: "members" },
             // What can be bought, its price and its history; switch an item on or off (S25).
             { label: "Catalogue and prices", href: "/admin/catalogue", icon: "billing" },
+            // What each organisation pays per Membership seat: the flat default, per-organisation prices, history (two-tier, C10).
+            { label: "Organisation prices", href: "/admin/organisation-prices", icon: "billing" },
             // Blood pressure control 90 days after joining: aggregate only, small numbers withheld (S38).
             { label: "Outcomes", href: "/admin/outcomes", icon: "analytics" },
             { label: "Risk fairness", href: "/admin/risk-fairness", icon: "analytics" },
@@ -740,6 +752,7 @@ export function getNavSections(
             { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
                 { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
             { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
+            { label: "Operations wall", href: "/admin/ops/wall", icon: "operations" },
             { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
             { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
             { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },
@@ -836,6 +849,7 @@ export function getNavSections(
             { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
                 { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
             { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
+            { label: "Operations wall", href: "/admin/ops/wall", icon: "operations" },
             { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
             { label: "Feature flags", href: "/admin/settings/feature-flags", icon: "flag" },
           ],
@@ -882,6 +896,7 @@ export function getNavSections(
             { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
                 { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
             { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
+            { label: "Operations wall", href: "/admin/ops/wall", icon: "operations" },
             { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
           ],
         },

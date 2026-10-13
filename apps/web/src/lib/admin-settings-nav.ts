@@ -226,6 +226,13 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         icon: NAV_ICON.review,
         visible: adminOnly,
       },
+      {
+        href: "/admin/settings/prn-limit-rules",
+        label: "As-needed medicine limits",
+        blurb: "The bounds a clinician may set for an as-needed medicine, and the repeated-dose rule. The CMO signs it.",
+        icon: NAV_ICON.review,
+        visible: adminOnly,
+      },
     ],
   },
   {
@@ -294,6 +301,13 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         label: "Retired subscription catalogue",
         blurb: "Read-only history of the plans and add-ons retired in 2026.",
         icon: SEMANTIC_ICON.billing,
+        visible: adminOnly,
+      },
+      {
+        href: "/admin/settings/testing-days",
+        label: "Testing days and employer visits",
+        blurb: "Schedule Member testing days and employer on-site visits, approve venues, run the stations.",
+        icon: SEMANTIC_ICON.booking,
         visible: adminOnly,
       },
       {

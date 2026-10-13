@@ -243,4 +243,7 @@ const nextConfig: NextConfig = {
 export default withSentryConfig(nextConfig, {
   silent: true,
   telemetry: false,
+  // SR1: tag the build with the deploy's commit so an error is tied to the release that shipped it. Undefined locally
+  // (no VERCEL_GIT_COMMIT_SHA), in which case the plugin falls back to its own default.
+  release: process.env.VERCEL_GIT_COMMIT_SHA ? { name: process.env.VERCEL_GIT_COMMIT_SHA } : undefined,
 });

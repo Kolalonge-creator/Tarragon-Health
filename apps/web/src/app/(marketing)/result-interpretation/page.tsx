@@ -3,10 +3,8 @@ import Link from "next/link";
 import { Section, SectionHeading } from "../_components/section";
 import { CtaBand } from "../_components/cta-band";
 import { FaqAccordion } from "../_components/marketing-faq-accordion";
-import { fetchPlanPrices } from "@/lib/marketing/plan-prices";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
-import { fromMinorUnits } from "@tarragon/shared";
 
 export const revalidate = 300;
 
@@ -83,24 +81,16 @@ const FAQ = [
   {
     question: "What if I would rather talk it through?",
     answer:
-      "A Result Consultation is a fifteen-minute video call with a doctor going through the same result with you, for people who would rather ask questions as they go. It costs more because it takes more of a doctor's time.",
+      "A Result Consultation is a fifteen-minute video call with a doctor going through the same result with you, for people who would rather ask questions as they go. It is part of your monthly call with your care team.",
   },
   {
     question: "Do you sell the tests too?",
     answer:
-      "No. We work out which tests you need and write the request, free, and you take it to whichever laboratory you choose and pay them directly at their price. We add nothing and take no cut. Reading the result is the part we charge for.",
+      "No. We work out which tests you need and write the request, free, and you take it to whichever laboratory you choose and pay them directly at their price. We add nothing and take no cut. Reading the result with you is part of Membership.",
   },
 ];
 
-export default async function ResultInterpretationPage() {
-  const prices = await fetchPlanPrices();
-  const priceFor = (code: string, fallback: string) => {
-    const kobo = prices.get(code);
-    return kobo === undefined
-      ? fallback
-      : `₦${fromMinorUnits(kobo, "NGN").toLocaleString("en-NG")}`;
-  };
-
+export default function ResultInterpretationPage() {
   return (
     <>
       <Section>
@@ -125,11 +115,9 @@ export default async function ResultInterpretationPage() {
         </div>
 
         <div className="mx-auto mt-8 max-w-md rounded-2xl border-2 border-brand-green/30 bg-white px-6 py-5 text-center shadow-sm">
-          <p className="font-heading text-4xl font-bold text-brand-green">
-            {priceFor("written_result_interpretation", "₦7,500")}
-          </p>
+          <p className="font-heading text-2xl font-bold text-brand-green">Part of Membership</p>
           <p className="mt-1 text-sm text-charcoal-ink/65">
-            per result, one-off, no account history needed
+            Your care team reads your results with you on your monthly call. The price is on the pricing page.
           </p>
         </div>
       </Section>
