@@ -312,11 +312,13 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-49 Optional consent types have no approved wording (raised by S04)
 - `consent_versions` has rows only for the three original types. S04 adds the plumbing (`is_required`, withdrawal-aware logic, history) and seeds the optional purposes with `text_key`s, but the legal text (English) and the Pidgin equivalents need your approval and a native reviewer (OQ-19) before they are shown as real consent.
 - Options: (a) ship the keys with clearly marked draft text behind a config flag until signed off (recommended); (b) hold the optional purposes entirely.
+- Progress (S04b-2, migration `20261013181937`, NOT applied): drafts are a database concept now (`consent_versions.is_draft`). A draft is invisible to patients and anon, cannot be accepted, and can only be published by `public.publish_consent_wording` when a superadmin has switched on the platform module `optional_consent_wording`. Seeded one draft, `care_circle_sharing` (exact text in the PR for approval). `research` and `sponsor_reporting` already carry live wording (applied from other branches, see OQ-S04b2-1) and were left alone; they still need your approval as text of record.
 - Decision:
 
 ### OQ-50 Self-serve account deletion and data export are not in S04 (raised by S04)
 - Live: export and deletion are admin-reviewed requests (`data_export_requests`, `data_deletion_requests`); there is no `delete_account` function and no self-serve download. Automated erasure needs a retention decision (clinical records, `audit_log` has no FK on purpose, finance ledger entries are never deleted).
 - Options: (a) keep the reviewed workflow and add a two-tap request and status view (recommended); (b) automate erasure after a legal retention ruling.
+- Progress (S04b-2): chose option (a). Reused `data_export_requests` and `data_deletion_requests` (no third table). Export: two-tap request, stated timeline (`due_at`, 30 days), status, download when fulfilled (the S39f route and `export_my_data()`). Deletion: a grace period (7 to 30 days in the database, 14 PROPOSED in `privacy.deletion_grace`), nothing approved or completed before it ends, cancel until then (`public.cancel_my_data_deletion_request`), one open request per patient, requests and cancels written to `audit_log`, and a plain list of what is removed and what is kept (posted clinical records, audit logs, financial ledger entries, consent history). No clinical record is deleted by this flow. See OQ-S04b2-2 for what is still manual.
 - Decision:
 
 ### OQ-51 Categories chosen by the parent do not set `profile_access.permissions` (raised by S04 review)
@@ -332,6 +334,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-53 "A required consent cannot be withdrawn" is enforced only in the web action (raised by S04 review)
 - `withdrawConsentAction` refuses required purposes, but the `patient_consents` insert policy and the withdrawal trigger still allow a patient to insert a withdrawn row for a required purpose directly.
 - Options: (a) enforce it in `enforce_patient_consent_withdrawal` for current required versions and route account-level withdrawal to the data rights flow (recommended); (b) leave it app-level.
+- Progress (S04b-2): chose option (a). `private.enforce_patient_consent_withdrawal` now refuses (SQLSTATE 23514) a withdrawal of a required consent by a signed-in person whose account is active; a closed account (`profiles.is_active = false`) and a service context are not blocked. The web and mobile actions explain the refusal and point to closing the account. Optional purposes stay individually withdrawable in two taps.
 - Decision:
 
 
@@ -1956,6 +1959,24 @@ following are recorded in the system:
 4. Counsel-approved join consent text and retention values (OQ-COM-06).
 5. CMO approval of the weight-loss group rules and pinned post (OQ-COM-09).
 6. A tabletop run of the safety hand-off with a test account (`is_test`).
+
+### OQ-S04b2-1 Live consent wording that is not on `main-dev` (raised by S04b-2)
+- Live `consent_versions` holds a current optional `research` version (migration `20261007220215_consent_research_version`, from `origin/fix/content-approval-reviewer-role`, not on `main-dev`) and a current `sponsor_reporting` version `2026-10-07` (S38e shipped it as a non-current draft). Both are shown to patients today. **Founder decision 2026-10-13: the live `research` and `sponsor_reporting` wording is approved as written, and the `care_circle_sharing` draft (`2026-10-13`) is approved as written but NOT published.** Publishing stays a separate audited superadmin step (`public.publish_consent_wording`, with the `optional_consent_wording` module on). Still open: that branch edits the same consent actions and panels as S04b-2 (names `grantConsentAction` and `recordConsent` kept the same on purpose); `s04_consent_is_optional.sql` fails against live (a current `research` row exists) though it passes on a fresh replay; OQ-S04b2-3 says Care Circle sharing may be redundant.
+- Decision:
+
+### OQ-S04b2-2 Closing an account has no automated executor (raised by S04b-2)
+- After the grace period an admin reviews the request and marks it completed by hand (the existing workflow). Completing an approved request deactivates the profile (never deleted; that is what lets a required consent be withdrawn under OQ-53), bans the login, writes a withdrawal row for every consent still in force, and is audited. Nothing yet removes the contact details, preferences or device connections, or revokes Care Circle grants; the reviewer's note says what was done. The patient-facing text lists what is removed and what is kept, so an executor must be built to match it, using the S39d registry classes (`operational` removable, everything else kept) and never touching clinical records, audit logs or ledger entries.
+- Constraint found in review: `patient_consents.patient_id` and `data_deletion_requests.patient_id` cascade from `profiles`, so the executor must DEACTIVATE the profile (`is_active = false`), never delete it, or the consent history and deletion record that the privacy page promises to keep would be deleted with it. Only `purge_test_account` removes profiles (test accounts).
+- Also decided in the migration, for you to confirm: a guardian can record a consent for a DEPENDANT account only with `manage` access (`private.can_act_for(uuid)`), because the caregiver permission enum has no consent permission and consent for a child is a guardian-level act, not a delegable one.
+- Options: (a) build a reviewed "close account" function the admin runs from the request, using the registry classes, with a proof (recommended, next session); (b) keep it manual and tracked by checklist.
+- Decision:
+
+### OQ-S04b2-3 Care Circle sharing consent may be redundant (raised by S04b-2)
+- OQ-313 recommended retiring the `care_circle_sharing` consent type because Care Circle already has its own access grants (a second consent is a second source of truth). The brief for S04b-2 asked to seed it as a draft, so a draft exists, hidden. If OQ-313 (a) wins, delete the draft and do not publish it.
+- Options: (a) keep hidden and decide with OQ-313; (b) publish after approval and wire a gate.
+- Decision:
+
+---
 
 ## S09x: My Health completion (raised 2026-10-13)
 
