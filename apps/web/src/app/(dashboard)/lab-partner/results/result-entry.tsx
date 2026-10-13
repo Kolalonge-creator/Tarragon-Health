@@ -204,7 +204,7 @@ function EntryForm({ order, panels, correctsId }: { order: PortalOrder; panels: 
                 )}
                 {range ? (
                   <p className="mt-1 text-xs text-charcoal-ink/60">
-                    Reference {range}. Source: Tarragon lab panel version {def.version}, for entry only. Your own report&rsquo;s range is not replaced by it.
+                    Reference {range}. Source: Tarragon lab panel version {def.version}. This is the range the patient will see, labelled with its source; the range printed on your own report is not stored.
                   </p>
                 ) : null}
               </div>
