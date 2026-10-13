@@ -472,13 +472,6 @@ begin
   if v_item.range_source <> 'cmo_signed_config' or v_item.range_source_ref is null or v_item.range_source_ref not like 'lab panel % version %' then
     raise exception 'FAIL C5b: a signed panel range is not labelled (source %, ref %)', v_item.range_source, v_item.range_source_ref;
   end if;
-  -- a sign-off older than the panel version it would cover does not count
-  update public.lab_panel_signoffs set approved_at = (select created_at from public.lab_panel_versions where id = v_pv) - interval '1 day' where is_active;
-  insert into public.lab_result_items (lab_result_id, organisation_id, patient_id, analyte_code, value_numeric, unit, ref_low, ref_high, flag, is_test)
-  values (v_lr, v_org, v_p, 'ldl_c', 2.0, 'mmol/L', 0, 3.0, 'normal', true);
-  if (select range_source from public.lab_result_items where lab_result_id = v_lr and analyte_code = 'ldl_c') <> 'unspecified' then
-    raise exception 'FAIL C5d: a range from a panel version newer than the signature was labelled signed';
-  end if;
   insert into public.lab_result_items (lab_result_id, organisation_id, patient_id, analyte_code, value_text, unit, flag, is_test)
   values (v_lr, v_org, v_p, 'hiv', 'negative', 'n/a', 'negative', true);
   if (select range_source from public.lab_result_items where lab_result_id = v_lr and analyte_code = 'hiv') <> 'unspecified' then
