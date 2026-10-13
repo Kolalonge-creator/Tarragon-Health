@@ -16,6 +16,7 @@ import { firstIssue } from "@/lib/validation/first-issue";
 import { sanitizeRedirect } from "@/lib/auth/redirect";
 import { redirectAfterLogin } from "@/lib/auth/redirect-after-login";
 import { backfillSignupMetadata } from "@/lib/auth/backfill-signup-metadata";
+import { readSignupCohortCode } from "@/lib/auth/signup-cohort-code";
 import { readAdultDob } from "./adult-gate";
 
 export type SignupActionState =
@@ -106,6 +107,10 @@ export async function signUp(
     return { error: verdict.message, field: "password" };
   }
 
+  // Optional programme code (S03b): checked now, joined only after the email is verified.
+  const cohort = await readSignupCohortCode(formData, await getAuthLocale());
+  if (!cohort.ok) return { error: cohort.error, field: "cohortCode", values };
+
   const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL;
   const supabase = await createClient();
 
@@ -138,6 +143,7 @@ export async function signUp(
         // which is what lets them skip consenting to telehealth for
         // themselves — see 20260801093000_supporter_accounts.sql.
         ...(parsed.data.intent === "support" ? { account_purpose: "support" } : {}),
+        ...(cohort.code ? { cohort_code: cohort.code } : {}),
       },
     },
   });
@@ -229,6 +235,10 @@ export async function signUpWithPhone(
     };
   }
 
+  // Optional programme code (S03b): checked now, joined only after the phone is verified.
+  const cohort = await readSignupCohortCode(formData, locale);
+  if (!cohort.ok) return { error: cohort.error, field: "cohortCode" };
+
   const supabase = await createClient();
   const { error } = await supabase.auth.signUp({
     phone: parsed.data.phone,
@@ -241,6 +251,7 @@ export async function signUpWithPhone(
         ...(parsed.data.refCode ? { ref_code: parsed.data.refCode } : {}),
         ...(parsed.data.intent ? { signup_intent: parsed.data.intent } : {}),
         ...(parsed.data.intent === "support" ? { account_purpose: "support" } : {}),
+        ...(cohort.code ? { cohort_code: cohort.code } : {}),
       },
     },
   });

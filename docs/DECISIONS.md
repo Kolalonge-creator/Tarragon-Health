@@ -26,6 +26,15 @@ Source: `docs/plans/S70-S75-cmo-signoff-pack.md` and `docs/research/S70-S75-revi
 - **S75-3: the triage dashboard is named "agreement", and no accuracy figure is published** until an outcome-linked study with a written design exists.
 - **S75-4: risk stratification stays deterministic,** with a monthly CMO fairness review (age band, sex, region, language). No ML model before 90 days of real snapshots.
 - **S75-5: minimum cell size stays 20 (30 for two attributes), enforced by one database function** on every aggregate surface. Counsel or the DPO still confirms the number (OQ-233).
+## S03b decisions, 2026-10-13
+
+Founder, for sign-in resilience (`docs/research/S01-S05-competitor-gap-and-build-plan.md` section 10; design in `docs/design/S03b.md`).
+
+| ID | Decision |
+|---|---|
+| S03B-1 | **People sign in with a working email or phone number; keep it simple.** Not built: voice-call OTP or any delivery-status table, a per-profile PIN, a restricted new-device state. SMS stays code-only (INV-08) and nothing new requires an SMS for core access. |
+| S03B-2 | **Built:** ten single-use backup codes, a Care Circle recovery contact, a self-serve change-number flow with a database-enforced confirmation (answers OQ-43 in our apps; the Auth-level gap is OQ-S03B-06), and eligibility-first cohort and sponsor codes (closes OQ-41, delivers spec 1.8). |
+| S03B-3 | **PROPOSED values** (not yet confirmed by the founder): 24 hour wait after a recovery contact confirms, 72 hour pause of text-code recovery after a number change, 15 minute confirmation window, three backup-code sets a day, two contact requests a week. Versioned as `auth.recovery_rules`. |
 ## CMO decision, 2026-10-08: Free red events are guidance-only (built 2026-10-12, not applied)
 
 | ID | Decision |
@@ -333,3 +342,9 @@ Full text, options and guideline basis: `docs/plans/S06-S10-decisions-and-cmo-si
 | D7 white-coat / masked flag | Yes, clinician-only, behind a guard |
 | D8 test devices | Founder supplies two Android floor phones and one iPhone |
 | D9 counsel on NDPA basis for emergency card and access logs | Instruct now |
+
+## S09x2 access log shows staff identity (2026-10-13)
+
+| Decision | Chosen |
+|---|---|
+| OQ-S09x-1 (extends OQ-281): may a patient see that staff opened their record | Yes, name and role plus time only. No reason, no basis, no category detail (reproductive_health included), no contact details, no IP or device. Break-glass and emergency access stay shown, with the role. |

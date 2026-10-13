@@ -133,6 +133,47 @@ describe("attestConditionAction", () => {
   });
 });
 
+describe("the sign-off hub return path", () => {
+  it("records the C4 cuff wording attestation for the CMO and returns to the sign-off hub", async () => {
+    role = "clinician";
+    cmo = true;
+    const msg = await run(
+      attestConditionAction(form({ viewer: "cmo", back: "hub", key: "home_bp_programme", code: "c4_cuff_wording_signed", met: "1", note: "Wording read in full on the hub." })),
+    );
+    expect(rpc).toHaveBeenCalledWith("attest_go_live_condition", { p_key: "home_bp_programme", p_code: "c4_cuff_wording_signed", p_met: true, p_note: "Wording read in full on the hub." });
+    expect(msg).toBe("REDIRECT:/clinician/clinical-signoff?n=n-1");
+  });
+
+  it("returns to the go-live page when no return is asked for, and ignores a return asked for by the admin viewer", async () => {
+    role = "clinician";
+    cmo = true;
+    const plain = await run(attestConditionAction(form({ viewer: "cmo", key: "bp_pattern_flag", code: "pattern_is_clinician_only", met: "1", note: "Checked: clinician only." })));
+    expect(plain).toBe("REDIRECT:/clinician/go-live?n=n-1");
+    role = "admin";
+    cmo = false;
+    const admin = await run(attestConditionAction(form({ viewer: "admin", back: "hub", key: "bp_pattern_flag", code: "pattern_is_clinician_only", met: "1", note: "Checked: clinician only." })));
+    expect(admin).toBe("REDIRECT:/admin/go-live?n=n-1");
+  });
+
+  it("returns a failed hub attestation to the hub with the error, never claiming success", async () => {
+    role = "clinician";
+    cmo = true;
+    const msg = await run(attestConditionAction(form({ viewer: "cmo", back: "hub", key: "home_bp_programme", code: "c4_cuff_wording_signed", met: "1", note: "short" })));
+    expect(msg).toBe("REDIRECT:/clinician/clinical-signoff?n=n-1");
+    expect(flash).toHaveBeenCalledWith(expect.objectContaining({ notice: "golive.error.input", ok: false }));
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("confirms a registry value from the hub and returns there", async () => {
+    role = "clinician";
+    cmo = true;
+    const entry = PROPOSED_CONFIG.find((e) => e.owner === "CMO" && getProposedConfig(e.key).version === e.version)!;
+    const msg = await run(signoffConfigAction(form({ viewer: "cmo", back: "hub", key: entry.key, version: String(entry.version), decision: "confirmed" })));
+    expect(msg).toBe("REDIRECT:/clinician/clinical-signoff?n=n-1");
+    expect(serviceRpc).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("signoffConfigAction", () => {
   const inForce = (owner: "CMO" | "Founder") => PROPOSED_CONFIG.find((e) => e.owner === owner && getProposedConfig(e.key).version === e.version)!;
 

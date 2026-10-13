@@ -15,10 +15,16 @@ import {
 import { checkNewPassword } from "@/lib/auth/password-verdict";
 import { DEFAULT_LOCALE } from "@tarragon/i18n";
 import { PLATFORM_URL } from "@/lib/platform-url";
+import { API_BASE_URL } from "@/lib/api";
+import {
+  contactRecoveryRemote,
+  enforcePhoneRecoveryHold,
+  recoverWithBackupCodeRemote,
+} from "@/lib/auth/recovery-routes";
 import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
 import { ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
 
-type Tab = "phone" | "email";
+type Tab = "phone" | "email" | "backup" | "contact";
 type PhoneStep = "request" | "verify" | "new-password";
 
 const inputStyle = {
@@ -113,6 +119,15 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
   const [email, setEmail] = useState("");
   const [emailSent, setEmailSent] = useState(false);
 
+  // S03b: backup code and recovery contact
+  const [backupIdentifier, setBackupIdentifier] = useState("");
+  const [backupCode, setBackupCode] = useState("");
+  const [backupPassword, setBackupPassword] = useState("");
+  const [backupConfirm, setBackupConfirm] = useState("");
+  const [backupDone, setBackupDone] = useState(false);
+  const [contactIdentifier, setContactIdentifier] = useState("");
+  const [contactNotice, setContactNotice] = useState<string | null>(null);
+
   async function sendPhoneCode() {
     setError(null);
     const phone = normalisePhoneWithCountry(countryCode, localPhone);
@@ -140,12 +155,76 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
     }
     setLoading(true);
     const outcome = await verifyPhoneCode(supabase.auth, { phone: recoveryPhone, code: otp });
+    if (outcome.kind === "error") {
+      setLoading(false);
+      setError(ta(outcome.key, locale));
+      return;
+    }
+    // OQ-43: a code to a number that changed in the last few days is what a SIM swap defeats. The phone is signed in as of the
+    // code, so this ends that session and stops here when recovery by text code is paused (or the pause cannot be read).
+    const hold = await enforcePhoneRecoveryHold(supabase);
+    setLoading(false);
+    if (hold.kind === "held") {
+      setError(ta("auth.recovery.held", locale, { until: hold.untilText }));
+      setPhoneStep("request");
+      setOtp("");
+      return;
+    }
+    if (hold.kind === "unknown") {
+      setError(ta("auth.error.generic", locale));
+      setPhoneStep("request");
+      setOtp("");
+      return;
+    }
+    setPhoneStep("new-password");
+  }
+
+  async function submitBackupCode() {
+    setError(null);
+    if (backupPassword !== backupConfirm) {
+      setError(ta("auth.password.mismatch", locale));
+      return;
+    }
+    setLoading(true);
+    const outcome = await recoverWithBackupCodeRemote(
+      { identifier: backupIdentifier, code: backupCode, newPassword: backupPassword },
+      fetch as unknown as Parameters<typeof recoverWithBackupCodeRemote>[1],
+      API_BASE_URL,
+    );
+    if (outcome.kind === "error") {
+      setLoading(false);
+      setError(outcome.message ?? ta(outcome.key, locale));
+      return;
+    }
+    // The server changed the password and ended every other session. Sign in with it here.
+    const { error: signInError } =
+      outcome.signInWith.kind === "email"
+        ? await supabase.auth.signInWithPassword({ email: outcome.signInWith.value, password: backupPassword })
+        : await supabase.auth.signInWithPassword({ phone: outcome.signInWith.value, password: backupPassword });
+    setLoading(false);
+    if (signInError) {
+      setBackupDone(true);
+      return;
+    }
+    onClose();
+  }
+
+  async function contactStep(action: "ask" | "send") {
+    setError(null);
+    setContactNotice(null);
+    setLoading(true);
+    const outcome = await contactRecoveryRemote(
+      action,
+      contactIdentifier,
+      fetch as unknown as Parameters<typeof contactRecoveryRemote>[2],
+      API_BASE_URL,
+    );
     setLoading(false);
     if (outcome.kind === "error") {
       setError(ta(outcome.key, locale));
       return;
     }
-    setPhoneStep("new-password");
+    setContactNotice(ta(action === "ask" ? "auth.recovery.contact_asked" : "auth.recovery.contact_sent", locale));
   }
 
   async function submitNewPassword() {
@@ -208,6 +287,7 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
             borderRadius: radius.control,
             padding: 4,
             gap: 4,
+            flexWrap: "wrap",
           }}
         >
           <TabButton
@@ -223,6 +303,22 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
             active={tab === "email"}
             onPress={() => {
               setTab("email");
+              setError(null);
+            }}
+          />
+          <TabButton
+            label={ta("auth.recovery.method_backup", locale)}
+            active={tab === "backup"}
+            onPress={() => {
+              setTab("backup");
+              setError(null);
+            }}
+          />
+          <TabButton
+            label={ta("auth.recovery.method_contact", locale)}
+            active={tab === "contact"}
+            onPress={() => {
+              setTab("contact");
               setError(null);
             }}
           />
@@ -303,6 +399,67 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
                 />
               </>
             )}
+          </View>
+        ) : tab === "backup" ? (
+          backupDone ? (
+            <MutedText>{ta("auth.recovery.backup_done", locale)}</MutedText>
+          ) : (
+            <View style={{ gap: 10 }}>
+              <MutedText>{ta("auth.recovery.backup_intro", locale)}</MutedText>
+              <TextInput
+                accessibilityLabel={ta("auth.recovery.identifier", locale)}
+                placeholder={ta("auth.recovery.identifier", locale)}
+                placeholderTextColor={colors.subtle}
+                autoCapitalize="none"
+                autoCorrect={false}
+                value={backupIdentifier}
+                onChangeText={setBackupIdentifier}
+                style={inputStyle}
+              />
+              <TextInput
+                accessibilityLabel={ta("auth.recovery.backup_code", locale)}
+                placeholder="XXXXX-XXXXX"
+                placeholderTextColor={colors.subtle}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                maxLength={14}
+                value={backupCode}
+                onChangeText={setBackupCode}
+                style={inputStyle}
+              />
+              <PasswordField
+                accessibilityLabel="New password"
+                placeholder="New password"
+                value={backupPassword}
+                onChangeText={setBackupPassword}
+              />
+              <PasswordField
+                accessibilityLabel="Confirm new password"
+                placeholder="Confirm new password"
+                value={backupConfirm}
+                onChangeText={setBackupConfirm}
+              />
+              {error ? <ErrorText>{error}</ErrorText> : null}
+              <PrimaryButton title={ta("auth.recovery.backup_submit", locale)} onPress={submitBackupCode} loading={loading} />
+            </View>
+          )
+        ) : tab === "contact" ? (
+          <View style={{ gap: 10 }}>
+            <MutedText>{ta("auth.recovery.contact_intro", locale)}</MutedText>
+            <TextInput
+              accessibilityLabel={ta("auth.recovery.identifier", locale)}
+              placeholder={ta("auth.recovery.identifier", locale)}
+              placeholderTextColor={colors.subtle}
+              autoCapitalize="none"
+              autoCorrect={false}
+              value={contactIdentifier}
+              onChangeText={setContactIdentifier}
+              style={inputStyle}
+            />
+            {error ? <ErrorText>{error}</ErrorText> : null}
+            {contactNotice ? <MutedText>{contactNotice}</MutedText> : null}
+            <PrimaryButton title={ta("auth.recovery.contact_ask", locale)} onPress={() => contactStep("ask")} loading={loading} />
+            <SecondaryButton title={ta("auth.recovery.contact_send", locale)} onPress={() => contactStep("send")} loading={loading} />
           </View>
         ) : emailSent ? (
           <MutedText>{ta("auth.recovery.sent_generic", locale)}</MutedText>
