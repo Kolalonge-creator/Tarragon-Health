@@ -31,7 +31,7 @@ describe("my_health config mirrors the migration seed", () => {
     expect([...reg.fields].sort()).toEqual([...LOCK_SCREEN_FIELDS].sort());
   });
 
-  it("the pass is off by default (D4) and routine staff openings stay hidden (OQ-281)", () => {
+  it("the pass is off by default (D4) and the inert show_staff_opens key still matches the signed v1 row (S09x2: the function ignores it)", () => {
     expect((getProposedConfig("my_health.lock_screen_pass").value as { default_enabled: boolean }).default_enabled).toBe(false);
     expect((getProposedConfig("my_health.sharing_and_access_log").value as { access_log: { show_staff_opens: boolean } }).access_log.show_staff_opens).toBe(false);
   });
