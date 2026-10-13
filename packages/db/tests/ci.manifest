@@ -964,3 +964,5 @@ sr2_stagger_cron_start_times.sql
 sr2_scribe_consents_insert_policy_initplan.sql
 # S04b-3: quiet hours default off (rules v3, column default, null choice stores off); turning them off releases only the caller's own reminders that were held by quiet hours (not a critical row, not someone else's, not an unrelated scheduled one); anon cannot run the function. Sabotage: the release step removed; the check must flip.
 s04b3_quiet_hours_default_off.sql
+# S06x: offline_sync_rejections (patient inserts and reads own, one row per entry, no health value column, admin reads only through the audited function) and offline_device_leases (check-in, owner or same-organisation admin revokes, revoked check-in does not extend the lease, wipe confirmation stores a count only, anon refused). Sabotage: the insert policy loosened to any account; a check-in that extends a revoked lease. Both must flip.
+s06x_offline_trust.sql
