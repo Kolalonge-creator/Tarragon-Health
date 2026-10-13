@@ -213,6 +213,16 @@ describe("the go-live guards are searchable (S37)", () => {
   });
 });
 
+describe("the event bus explorer (S10x)", () => {
+  const adminReal = buildAdminSearchIndex(getNavSections("admin", null), []);
+
+  it("is in the admin menu and found by the words an admin would type", () => {
+    for (const q of ["event bus", "dead letter", "replay", "stuck", "outbox"]) {
+      expect(searchAdminEntries(adminReal, q).map((e) => e.href)).toContain("/admin/ops/event-bus");
+    }
+  });
+});
+
 describe("the real Chief Medical Officer menu", () => {
   const real = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
 
