@@ -26,14 +26,29 @@ describe("Q10 / OQ-92: SMS is decided by who the recipient is", () => {
   it("a critical row to a patient is not sent by SMS", () => {
     expect(decide({ ...base, isClinicianPage: isClinicianPageRow("patient", "emergency_event_clinician_alert") })).toEqual({ action: "suppress", reason: "sms_not_allowed" });
   });
-  it("a clinician, an admin or any other staff role may be paged by SMS", () => {
-    for (const role of ["clinician", "admin", "care_coordinator", "finance"]) {
-      expect(decide({ ...base, isClinicianPage: isClinicianPageRow(role, "on_call_page") })).toEqual({ action: "send" });
+  it("a clinician may be paged by SMS for any row, as before", () => {
+    expect(decide({ ...base, priority: "routine", isClinicianPage: isClinicianPageRow("clinician", "on_call_page", "routine") })).toEqual({ action: "send" });
+    expect(decide({ ...base, isClinicianPage: isClinicianPageRow("clinician", "on_call_page", "critical") })).toEqual({ action: "send" });
+  });
+  it("the paging roles (admin, care coordinator) only for a critical row", () => {
+    for (const role of ["admin", "care_coordinator"]) {
+      expect(isClinicianPageRow(role, "on_call_escalation", "critical")).toBe(true);
+      expect(isClinicianPageRow(role, "ops_all_clear", "routine")).toBe(false);
+    }
+  });
+  it("every other role never gets an SMS, critical or not (finance, analyst, pharmacist, lab, payer staff)", () => {
+    for (const role of ["finance", "analyst", "pharmacist", "lab_partner", "lab_liaison", "hmo_admin", "corporate_admin", "payer_admin", "provider_org_staff", "ngo_admin"]) {
+      expect(isClinicianPageRow(role, "ops_alert", "critical")).toBe(false);
+      expect(decide({ ...base, isClinicianPage: isClinicianPageRow(role, "ops_alert", "critical") })).toEqual({ action: "suppress", reason: "sms_not_allowed" });
     }
   });
   it("an unknown role (a failed lookup) is not a clinician", () => {
     expect(isClinicianPageRow(undefined, "on_call_page")).toBe(false);
     expect(isClinicianPageRow(null, "on_call_page")).toBe(false);
+  });
+  it("a failed profile lookup leaves an SMS row for the next pass instead of settling it", () => {
+    const src = readFileSync("../../supabase/functions/send-pending-notifications/index.ts", "utf8");
+    expect(src).toContain('if (row.channel === "sms" && profilesError) continue;');
   });
   it("priority alone no longer opens the door (the old rule did)", () => {
     expect(decide({ ...base, priority: "critical", isClinicianPage: isClinicianPageRow("patient", "free_red_guidance") }).action).toBe("suppress");
@@ -43,7 +58,7 @@ describe("Q10 / OQ-92: SMS is decided by who the recipient is", () => {
   });
   it("the sender uses the role rule and not the priority", () => {
     const src = readFileSync("../../supabase/functions/send-pending-notifications/index.ts", "utf8");
-    expect(src).toContain("isClinicianPage: isClinicianPageRow(roleById.get(row.recipient_id), row.template)");
+    expect(src).toContain("isClinicianPage: isClinicianPageRow(roleById.get(row.recipient_id), row.template, row.priority)");
     expect(src).not.toMatch(/isClinicianPage:\s*row\.priority === "critical"/);
   });
 });
@@ -112,7 +127,7 @@ describe("the migration and the sender agree (no template the database queues is
   const dir = "../../supabase/migrations";
   const file = readdirSync(dir).find((f) => f.endsWith("_s13r4_critical_ladder_and_red_outreach.sql"))!;
   const sql = readFileSync(`${dir}/${file}`, "utf8");
-  const queued = [...new Set([...sql.matchAll(/'(red_event_[a-z_]+|test_alert)'/g)].map((m) => m[1] as string))];
+  const queued = [...new Set([...sql.matchAll(/'(red_event_guidance_waiting|red_event_outreach_task|test_alert)'/g)].map((m) => m[1] as string))];
   it("finds the templates the migration queues", () => {
     expect(queued.sort()).toEqual(["red_event_guidance_waiting", "red_event_outreach_task", "test_alert"]);
   });

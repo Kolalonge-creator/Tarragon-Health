@@ -30,7 +30,10 @@ export async function answerRedCare(
   }
   // flushOutbox deletes a sent row. If the network was down the row simply stays queued on the phone.
   try {
-    return (await listOutbox("red_care")).some((row) => row.clientId === item.clientId) ? "queued" : "saved";
+    const row = (await listOutbox("red_care")).find((r) => r.clientId === item.clientId);
+    if (!row) return "saved";
+    // A row the server refused stays on the phone as rejected and will never go: say so, do not promise it will be sent.
+    return row.state === "rejected" ? "failed" : "queued";
   } catch {
     return "queued";
   }

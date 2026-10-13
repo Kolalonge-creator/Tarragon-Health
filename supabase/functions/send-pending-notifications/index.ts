@@ -837,6 +837,9 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
   for (const row of rows) {
     if (foldedIds.has(row.id) || pushedBackSet.has(row.id)) continue;
 
+    // A failed profile lookup means the recipient's role is unknown, and the SMS rule is decided by role. Leave an SMS row for the next
+    // pass (never settle it as suppressed on a guess): a staff page must not be lost to a one-off read error.
+    if (row.channel === "sms" && profilesError) continue;
     if (platformDisabledChannel(row)) {
       await suppress(row.id, "sms deprioritised platform-wide, no provider approval yet");
       suppressed++;
@@ -974,7 +977,7 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
       routinePushSentToday: pushSentToday.get(row.recipient_id) ?? 0,
       routinePushPerDay,
       wordingViolations: wordingViolationsFor(row.template, row.channel, dbBody),
-      isClinicianPage: isClinicianPageRow(roleById.get(row.recipient_id), row.template),
+      isClinicianPage: isClinicianPageRow(roleById.get(row.recipient_id), row.template, row.priority),
       safetyCritical: isSafetyCritical(row.template),
       previouslyHeld: previouslyHeldIds.has(row.id),
     });

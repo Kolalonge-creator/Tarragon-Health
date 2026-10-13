@@ -115,6 +115,10 @@ describe("answerRedCare", () => {
     };
     await expect(answerRedCare("user-1", "sought_care", port)).resolves.toBe("queued");
   });
+  it("returns failed, not queued, when the server refused the answer (a rejected row will never go)", async () => {
+    mockRpcError = { code: "42501", message: "this red event is not yours" };
+    await expect(answerRedCare("user-1", "could_not_get_care")).resolves.toBe("failed");
+  });
   it("returns saved when the row is gone from the queue after the flush", async () => {
     const port = { enqueue: async () => ({ clientId: "c1" }) as never, flush: (async () => ({})) as never };
     await expect(answerRedCare("user-1", "sought_care", port)).resolves.toBe("saved");

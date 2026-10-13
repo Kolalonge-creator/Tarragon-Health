@@ -74,7 +74,7 @@ revoke all on function private.patient_critical_channels(uuid, public.notificati
 
 -- LIVE definition, plus: (a) the patient ladder filter; (b) a pending in-app row that is itself the last hop of a patient
 -- ladder is an eligible row, so the ladder can finish with the existing "exhausted" admin alert instead of ending
--- silently; (c) rows that belong to the red timer or are test alerts are not laddered for a patient (their own rules apply).
+-- silently; (c) a test alert is never laddered, and a patient's red notices are not laddered either (the red timer is their ladder).
 create or replace function private.escalate_unconfirmed_critical_notifications()
 returns void
 language plpgsql
@@ -106,7 +106,8 @@ begin
            or (n.status in ('sent', 'delivered') and n.sent_at is not null)
            or (n.channel = 'in_app' and n.status = 'pending' and n.escalated_from_id is not null
                and private.recipient_is_patient(n.recipient_id)))
-      and (coalesce(n.source_table, '') not in ('red_alert_watch', 'test_alert') or not private.recipient_is_patient(n.recipient_id))
+      and coalesce(n.source_table, '') <> 'test_alert'
+      and (coalesce(n.source_table, '') <> 'red_alert_watch' or not private.recipient_is_patient(n.recipient_id))
       and not exists (select 1 from public.notifications nxt where nxt.escalated_from_id = n.id)
       and not exists (select 1 from public.notification_escalation_failures f where f.notification_id = n.id)
   loop
@@ -382,7 +383,8 @@ create table public.red_alert_watch (
 create index red_alert_watch_open_idx on public.red_alert_watch (opened_at) where state in ('watching', 'outreach_created');
 create index red_alert_watch_patient_idx on public.red_alert_watch (patient_id, opened_at desc);
 alter table public.red_alert_watch enable row level security;
-create policy red_alert_watch_admin_read on public.red_alert_watch for select to authenticated using (private.is_admin());
+create policy red_alert_watch_admin_read on public.red_alert_watch for select to authenticated
+  using (private.is_admin() and organisation_id = private.current_org_id());
 revoke all on public.red_alert_watch from public, anon, authenticated;
 grant select on public.red_alert_watch to authenticated;
 comment on table public.red_alert_watch is 'S13 R4: one row per red alert, tracking whether the patient confirmed it. Written only by the opener, the sweep and record_red_care_response. Admin read only; clinicians reach the outcome through the outreach task.';
@@ -404,7 +406,8 @@ create table public.red_care_responses (
 create index red_care_responses_patient_idx on public.red_care_responses (patient_id, responded_at desc);
 alter table public.red_care_responses enable row level security;
 create policy red_care_responses_patient_read on public.red_care_responses for select to authenticated using (patient_id = (select auth.uid()));
-create policy red_care_responses_admin_read on public.red_care_responses for select to authenticated using (private.is_admin());
+-- No admin policy on purpose: an answer about seeking care is read by the patient and, through latest_red_patient_response, by the
+-- clinician working that alert. Nobody else has a reason to read it row by row.
 revoke all on public.red_care_responses from public, anon, authenticated;
 grant select on public.red_care_responses to authenticated;
 comment on table public.red_care_responses is 'S13 R4 (CMO Q13): what a patient said about seeking care after a red alert. Append only (updates refused). Shown to the on-call clinician; never stops paging.';
@@ -433,6 +436,19 @@ on conflict (table_name) do nothing;
 -- 6. Opening a watch, telling the patient, the sweep, outreach
 -- ---------------------------------------------------------------------------------------------------------------------
 -- Fixed neutral wording (INV-07). One row per channel the patient actually has; in-app always lands.
+create function private.kick_notification_sender() returns void
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  perform net.http_post(
+    url := (select decrypted_secret from vault.decrypted_secrets where name = 'project_url') || '/functions/v1/send-pending-notifications',
+    headers := jsonb_build_object('Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'edge_function_publishable_key'), 'Content-Type', 'application/json'),
+    timeout_milliseconds := 8000);
+exception when others then null;  -- the 5 minute cron is the backstop
+end;
+$$;
+revoke all on function private.kick_notification_sender() from public, anon, authenticated;
+
 create function private.red_patient_notify(p_watch public.red_alert_watch) returns void
 language plpgsql security definer set search_path = ''
 as $$
@@ -449,13 +465,7 @@ begin
     insert into public.notifications (recipient_id, organisation_id, channel, template, payload, status, content_class, priority, source_table, source_id)
     values (p_watch.patient_id, p_watch.organisation_id, 'email', 'red_event_guidance_waiting', jsonb_build_object('to_email', v_email), 'pending', 'non_clinical', 'critical', 'red_alert_watch', p_watch.id);
   end if;
-  begin
-    perform net.http_post(
-      url := (select decrypted_secret from vault.decrypted_secrets where name = 'project_url') || '/functions/v1/send-pending-notifications',
-      headers := jsonb_build_object('Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'edge_function_publishable_key'), 'Content-Type', 'application/json'),
-      timeout_milliseconds := 8000);
-  exception when others then null;
-  end;
+  perform private.kick_notification_sender();
 end;
 $$;
 revoke all on function private.red_patient_notify(public.red_alert_watch) from public, anon, authenticated;
@@ -484,7 +494,13 @@ begin
   if w.id is null then return null; end if;
   -- Free: the Free path sends its own notices and no clinician is involved, so nothing more is done here.
   if v_may and coalesce(private.red_rule('enabled'), 'true')::boolean then
-    perform private.red_patient_notify(w);
+    -- Its own block: if telling the patient fails, the watch row above stays, so the timer still runs and a clinician still gets the call.
+    begin
+      perform private.red_patient_notify(w);
+    exception when others then
+      insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+      values (v_org, 'red_watch.notify_error', 'red_alert_watch', w.id, jsonb_build_object('error', sqlerrm, 'kind', p_kind));
+    end;
   end if;
   return w.id;
 exception when others then
@@ -509,12 +525,13 @@ create trigger triage_events_open_red_watch after insert on public.triage_events
   for each row when (new.grade = 'red' and not new.shadow and new.actions @> '[{"kind":"page_on_call"}]'::jsonb)
   execute function private.red_watch_triage_trigger();
 
--- The patient's latest answer since just before the alert opened (a phone may answer before the reading reaches the server).
+-- The patient's latest answer given AFTER the alert opened. The server stamps responded_at when it receives the answer, and a phone's
+-- answer always follows the reading that raised the alert (oldest first), so an answer older than the alert belongs to an earlier one.
 create function private.latest_red_answer(p_patient uuid, p_since timestamptz) returns text
 language sql stable security definer set search_path = ''
 as $$
   select response from public.red_care_responses
-   where patient_id = p_patient and responded_at >= p_since - interval '1 hour'
+   where patient_id = p_patient and responded_at >= p_since
    order by responded_at desc limit 1
 $$;
 revoke all on function private.latest_red_answer(uuid, timestamptz) from public, anon, authenticated;
@@ -556,6 +573,7 @@ begin
       insert into public.notifications (recipient_id, organisation_id, channel, template, payload, status, content_class, priority, source_table, source_id)
       values (v_to, w.organisation_id, c::public.notification_channel, 'red_event_outreach_task', '{}'::jsonb, 'pending', 'non_clinical', 'critical', 'red_alert_watch', w.id);
     end loop;
+    perform private.kick_notification_sender();
     return;
   end if;
   for r in
@@ -571,6 +589,7 @@ begin
     end loop;
     n := n + 1;
   end loop;
+  perform private.kick_notification_sender();
   perform private.page_incident(w.organisation_id, 'red_outreach_no_cover:' || w.id, 'A red alert needs a call and nobody is on call',
     'A patient has not confirmed a red alert and no clinician is on the rota. The clinical lead and ops were alerted' || case when n = 0 then ' (nobody matched: add or activate a chief medical officer or admin).' else '.' end);
 end;
@@ -592,6 +611,9 @@ begin
       update public.red_alert_watch set waiting_cmo_at = now() where id = w.id;
       insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
       values (w.organisation_id, 'red_outreach.waiting_for_cmo', 'red_alert_watch', w.id, jsonb_build_object('task_type', 'red_patient_outreach'));
+      -- Not silent: a patient has an unconfirmed red alert and nobody will be called, so ops and the clinical lead see a sev1 incident.
+      perform private.page_incident(w.organisation_id, 'red_outreach_task_type_unconfirmed', 'A red alert needs a call and the call task is switched off',
+        'A patient has not confirmed a red alert, but the Call the patient task type is not confirmed by the Chief Medical Officer, so no task was created. Confirm it on the sign-off hub, and have someone call the patient now.');
     end if;
     return null;
   end if;
@@ -611,6 +633,10 @@ language plpgsql security definer set search_path = ''
 as $$
 declare t record;
 begin
+  -- The patient's alerts share one open task. Another alert that still has the call outstanding keeps it alive.
+  if exists (select 1 from public.red_alert_watch o where o.outreach_task_id = w.outreach_task_id and o.id <> w.id and o.state = 'outreach_created') then
+    return;
+  end if;
   for t in select id from public.clinical_tasks where id = w.outreach_task_id and state in ('created', 'offered_to_lead', 'open', 'escalated') loop
     perform private.apply_task_transition(t.id, 'cancelled', 'lead', null, p_reason);
   end loop;
@@ -636,20 +662,25 @@ begin
       if not found then continue; end if;
 
       if private.red_watch_clinician_acked(w) then
-        perform private.red_outreach_cancel_if_unclaimed(w, 'a clinician has acknowledged this red alert');
         update public.red_alert_watch set state = 'clinician_acknowledged' where id = w.id and state <> 'clinician_acknowledged';
+        select * into w from public.red_alert_watch where id = v_id;
+        perform private.red_outreach_cancel_if_unclaimed(w, 'a clinician has acknowledged this red alert');
         n_acked := n_acked + 1;
         continue;
       end if;
 
       v_via := private.red_watch_patient_confirmed(w);
+      -- A delivered push receipt only says the handset got the message. It can end the wait, but it never cancels a call that was
+      -- already created: only the person opening, acknowledging or answering does.
+      if v_via = 'push_receipt' and w.state = 'outreach_created' then continue; end if;
       if v_via is not null then
-        if w.state = 'outreach_created' then
-          perform private.red_outreach_cancel_if_unclaimed(w, 'the patient has confirmed the red alert (' || v_via || ')');
-        end if;
         if w.state in ('watching', 'outreach_created') then
           update public.red_alert_watch set state = 'confirmed', confirmed_via = v_via where id = w.id;
           n_confirmed := n_confirmed + 1;
+          if w.state = 'outreach_created' then
+            select * into w from public.red_alert_watch where id = v_id;
+            perform private.red_outreach_cancel_if_unclaimed(w, 'the patient has confirmed the red alert (' || v_via || ')');
+          end if;
         end if;
         continue;
       end if;
@@ -744,10 +775,13 @@ begin
   insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
   values (v_org, v_uid, 'red_care_response.recorded', 'red_care_responses', v_id, jsonb_build_object('response', p_response, 'shown_to_clinician', v_shown));
 
-  -- Information for the responder, never a way to stop paging. "Could not get care" can bring the call forward on every
-  -- recent alert (they merge into one task); nothing here touches pages, claimed tasks or acknowledgements.
+  -- Information for the responder, never a way to stop paging. "Could not get care" brings the call forward on the alert it was
+  -- linked to; nothing here touches pages, claimed tasks or acknowledgements.
   if v_shown and p_response = 'could_not_get_care' and coalesce(private.red_rule('couldNotGetCareOutreachNow'), 'false')::boolean then
-    for w in select id from public.red_alert_watch where patient_id = v_uid and state in ('watching', 'confirmed') and opened_at > now() - interval '24 hours' order by opened_at loop
+    for w in select id from public.red_alert_watch
+              where patient_id = v_uid and state in ('watching', 'confirmed')
+                and source_kind = case when v_ee is not null then 'emergency_event' else 'triage_event' end
+                and source_id = coalesce(v_ee, v_te) loop
       perform private.create_red_outreach(w.id);
     end loop;
   end if;
@@ -769,13 +803,15 @@ begin
   if (p_page is null) = (p_task is null) then raise exception 'name a page or a task' using errcode = '22023'; end if;
   if p_page is not null then
     select root.patient_id, root.sent_at into v_patient, v_since
-      from public.pages pg join public.pages root on root.id = coalesce(pg.parent_page_id, pg.id) where pg.id = p_page;
+      from public.pages pg join public.pages root on root.id = coalesce(pg.parent_page_id, pg.id)
+     where pg.id = p_page and pg.organisation_id = private.current_org_id();
     v_ok := v_patient is not null and (private.credential_is_cmo() or exists (
       select 1 from public.pages x join public.pages root on root.id = coalesce(x.parent_page_id, x.id)
        where coalesce(x.parent_page_id, x.id) = (select coalesce(parent_page_id, id) from public.pages where id = p_page)
          and (x.to_clinician_id = v_uid or root.acknowledged_by = v_uid)));
   else
-    select t.patient_id, t.created_at into v_patient, v_since from public.clinical_tasks t where t.id = p_task;
+    select t.patient_id, t.created_at into v_patient, v_since from public.clinical_tasks t
+     where t.id = p_task and t.organisation_id = private.current_org_id() and t.type in ('red_patient_outreach', 'red_event_unacknowledged');
     v_ok := v_patient is not null and (private.credential_is_cmo() or exists (
       select 1 from public.clinical_tasks t where t.id = p_task
          and (t.claimed_by = v_uid or t.pushed_to = v_uid or t.lead_clinician_id = v_uid
@@ -853,13 +889,7 @@ begin
     values (v_uid, v_org, 'push', 'test_alert', '{}'::jsonb, 'pending', 'non_clinical', 'critical', 'test_alert');
     v_n := 2;
   end if;
-  begin
-    perform net.http_post(
-      url := (select decrypted_secret from vault.decrypted_secrets where name = 'project_url') || '/functions/v1/send-pending-notifications',
-      headers := jsonb_build_object('Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'edge_function_publishable_key'), 'Content-Type', 'application/json'),
-      timeout_milliseconds := 8000);
-  exception when others then null;
-  end;
+  perform private.kick_notification_sender();
   return v_n;
 end;
 $$;

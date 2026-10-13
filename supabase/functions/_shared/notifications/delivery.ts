@@ -98,11 +98,16 @@ export const THIRD_PARTY_SMS_TEMPLATES: ReadonlySet<string> = new Set(["emergenc
 
 /**
  * CMO Q10 / OQ-92: the one allowed non-code SMS is a clinician page. It is decided by WHO the recipient is, never by the
- * row's priority (before this, any critical row passed, including a patient's). An unknown role is not a clinician.
+ * row's priority alone (before this, any critical row passed, including a patient's). A clinician may be texted for any row (as
+ * before); the paging roles admin and care_coordinator only for a critical row (the clinical lead and ops are paged when nobody
+ * answers); every other role (finance, analyst, pharmacist, lab and payer staff, patients) never. An unknown role is not a
+ * clinician: the caller defers the row instead (a failed profile lookup must not drop a page).
  */
-export function isClinicianPageRow(role: string | null | undefined, template: string | null | undefined): boolean {
+export const SMS_PAGING_ROLES: ReadonlySet<string> = new Set(["admin", "care_coordinator"]);
+export function isClinicianPageRow(role: string | null | undefined, template: string | null | undefined, priority: Priority = "routine"): boolean {
   if (template != null && THIRD_PARTY_SMS_TEMPLATES.has(template)) return true;
-  return role != null && role !== "patient";
+  if (role === "clinician") return true;
+  return priority === "critical" && role != null && SMS_PAGING_ROLES.has(role);
 }
 
 /**

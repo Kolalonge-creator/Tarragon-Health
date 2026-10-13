@@ -213,8 +213,11 @@ begin
   -- the patient opens the notice: confirmed, and the unclaimed task is cancelled
   update public.notifications set opened_at = now() where source_id = w1 and channel = 'in_app';
   perform private.sweep_unconfirmed_red_alerts();
-  perform pg_temp.rec('C12 the patient opening the notice confirms it and cancels the unclaimed task', 'confirmed,opened,cancelled',
+  perform pg_temp.rec('C12 the patient opening the notice confirms that alert; the second alert still needs the call, so the shared task stays', 'confirmed,opened,open',
     (select state || ',' || confirmed_via from public.red_alert_watch where id = w1) || ',' || (select state::text from public.clinical_tasks where id = v_task));
+  update public.notifications set opened_at = now() where source_id = w3 and channel = 'in_app';
+  perform private.sweep_unconfirmed_red_alerts();
+  perform pg_temp.rec('C12b once every alert is confirmed the unclaimed task is cancelled', 'cancelled', (select state::text from public.clinical_tasks where id = v_task));
   -- the patient acknowledges the guidance before the time
   e4 := pg_temp.ee(mem2); w4 := pg_temp.watch(e4);
   update public.emergency_events set acknowledged_at = now(), acknowledged_by = mem2 where id = e4;
@@ -368,6 +371,100 @@ begin
     (select count(*)::text from public.data_registry where table_name in ('red_alert_watch', 'red_care_responses')) || ',' || (select count(*)::text from public.minor_dependant_table_policy where table_name in ('red_alert_watch', 'red_care_responses')));
 end $$;
 
+-- ===================================== second pass (review findings) =====================================
+do $$
+declare
+  v_org uuid; v_admin uuid; v_cmo uuid; v_other uuid;
+  gA uuid; gC uuid; gD uuid; gE uuid; gF uuid;
+  eA uuid; eB uuid; e1 uuid; e2 uuid; eD uuid; eE uuid; eF uuid;
+  wB uuid; w1 uuid; w2 uuid; wD uuid; wF uuid; t1 uuid; v_task uuid; v_def text; v_n integer; v_state text;
+begin
+  select id into v_org from public.organisations order by created_at limit 1;
+  v_admin := pg_temp.f('admin'); v_cmo := pg_temp.f('cmo'); v_other := pg_temp.f('other');
+  gA := pg_temp.mkuser(v_org, 'g-a', 'patient'); gC := pg_temp.mkuser(v_org, 'g-c', 'patient'); gD := pg_temp.mkuser(v_org, 'g-d', 'patient');
+  gE := pg_temp.mkuser(v_org, 'g-e', 'patient'); gF := pg_temp.mkuser(v_org, 'g-f', 'patient');
+  insert into public.patient_memberships (organisation_id, patient_id, source, state, granted_by, grant_reason, is_test)
+  select v_org, x, 'granted', 'active', v_admin, 'R4 proof: a Member', true from unnest(array[gA, gC, gD, gE, gF]) x;
+  insert into public.push_subscriptions (organisation_id, profile_id, platform, expo_push_token) values (v_org, gD, 'android', 'ExponentPushToken[r4-gd]');
+
+  -- G1 an answer to an EARLIER alert does not confirm a LATER one
+  eA := pg_temp.ee(gA);
+  perform pg_temp.act(gA);
+  perform public.record_red_care_response(gen_random_uuid(), 'sought_care', eA, null, null);
+  perform pg_temp.back();
+  eB := pg_temp.ee(gA); wB := pg_temp.watch(eB);
+  update public.red_alert_watch set opened_at = now() + interval '1 minute', due_at = now() - interval '1 second' where id = wB;
+  perform private.sweep_unconfirmed_red_alerts();
+  perform pg_temp.rec('G1 an earlier alert''s "sought care" does not confirm a later alert; its call is created', 'outreach_created',
+    (select state from public.red_alert_watch where id = wB));
+
+  -- G2 two alerts share one task: confirming one leaves the task for the other
+  e1 := pg_temp.ee(gC); e2 := pg_temp.ee(gC); w1 := pg_temp.watch(e1); w2 := pg_temp.watch(e2);
+  update public.red_alert_watch set due_at = now() - interval '1 minute', opened_at = now() - interval '31 minutes' where id in (w1, w2);
+  perform private.sweep_unconfirmed_red_alerts();
+  select outreach_task_id into v_task from public.red_alert_watch where id = w1;
+  perform pg_temp.rec('G2a both alerts point at the same one task', 'true,1',
+    (select (outreach_task_id = v_task)::text from public.red_alert_watch where id = w2) || ',' || (select count(*)::text from public.clinical_tasks where patient_id = gC and type = 'red_patient_outreach'));
+  update public.notifications set opened_at = now() where source_id = w1 and channel = 'in_app';
+  perform private.sweep_unconfirmed_red_alerts();
+  perform pg_temp.rec('G2b one alert confirmed: the other still needs the call, so the task stays', 'confirmed,outreach_created,true',
+    (select state from public.red_alert_watch where id = w1) || ',' || (select state from public.red_alert_watch where id = w2) || ',' ||
+    (select (state not in ('cancelled', 'completed'))::text from public.clinical_tasks where id = v_task));
+  update public.notifications set opened_at = now() where source_id = w2 and channel = 'in_app';
+  perform private.sweep_unconfirmed_red_alerts();
+  perform pg_temp.rec('G2c both confirmed: the task is cancelled', 'cancelled', (select state::text from public.clinical_tasks where id = v_task));
+
+  -- G3 a late delivered push receipt never cancels a call that was already created
+  eD := pg_temp.ee(gD); wD := pg_temp.watch(eD);
+  update public.red_alert_watch set due_at = now() - interval '1 minute', opened_at = now() - interval '31 minutes' where id = wD;
+  update public.notifications set status = 'sent', sent_at = now() - interval '30 minutes' where source_id = wD and channel = 'push';
+  perform private.sweep_unconfirmed_red_alerts();
+  select outreach_task_id into v_task from public.red_alert_watch where id = wD;
+  update public.notifications set delivered_at = now() where source_id = wD and channel = 'push';
+  perform private.sweep_unconfirmed_red_alerts();
+  perform pg_temp.rec('G3 a delivered receipt after the call exists leaves the call standing', 'outreach_created,true',
+    (select state from public.red_alert_watch where id = wD) || ',' || (select (state not in ('cancelled', 'completed'))::text from public.clinical_tasks where id = v_task));
+
+  -- G4 telling the patient failing must not undo the watch
+  v_def := pg_get_functiondef('private.red_patient_notify(public.red_alert_watch)'::regprocedure);
+  execute 'create or replace function private.red_patient_notify(p_watch public.red_alert_watch) returns void language plpgsql as $f$ begin raise exception ''boom''; end $f$';
+  eE := pg_temp.ee(gE);
+  perform pg_temp.rec('G4 the notice failed but the watch exists and the failure is recorded', '1,1',
+    (select count(*)::text from public.red_alert_watch where source_id = eE) || ',' || (select count(*)::text from public.audit_log where action = 'red_watch.notify_error' and event ->> 'error' = 'boom'));
+  execute v_def;
+
+  -- G5 an unconfirmed task type is loud, not silent
+  update public.task_types set confirmed_at = null, confirmed_by = null where code = 'red_patient_outreach';
+  eF := pg_temp.ee(gF); wF := pg_temp.watch(eF);
+  update public.red_alert_watch set due_at = now() - interval '1 minute', opened_at = now() - interval '31 minutes' where id = wF;
+  perform private.sweep_unconfirmed_red_alerts();
+  perform pg_temp.rec('G5 no task, a sev1 incident for ops, and the watch still watching', '0,1,watching',
+    (select count(*)::text from public.clinical_tasks where patient_id = gF) || ',' ||
+    (select count(*)::text from public.ops_incidents where external_reference = 'red_outreach_task_type_unconfirmed' and status not in ('resolved', 'closed')) || ',' ||
+    (select state from public.red_alert_watch where id = wF));
+  update public.task_types set confirmed_at = now(), confirmed_by = v_cmo where code = 'red_patient_outreach';
+
+  -- G6 a staff test alert is not laddered into email and sms
+  perform pg_temp.act(v_other);
+  perform public.send_my_test_alert();
+  perform pg_temp.back();
+  update public.notifications set status = 'sent', sent_at = now() - interval '3 hours' where recipient_id = v_other and template = 'test_alert';
+  perform private.escalate_unconfirmed_critical_notifications();
+  perform pg_temp.rec('G6 a clinician''s unopened test alert is not escalated', '0',
+    (select count(*)::text from public.notifications where escalated_from_id in (select id from public.notifications where recipient_id = v_other and template = 'test_alert')));
+
+  -- G7 an admin cannot read the answers row by row
+  perform pg_temp.act(v_admin);
+  perform pg_temp.rec('G7 an admin reads no red answers', '0', (select count(*)::text from public.red_care_responses));
+  perform pg_temp.back();
+  -- G8 the response reader is limited to red task types
+  t1 := private.create_clinical_task(gA, 'symptom_review', null, 'r4-g8', null, null, null, '{}');
+  perform pg_temp.act(v_cmo);
+  perform pg_temp.rec('G8 the CMO cannot read a patient answer through a task that is not a red alert task', '42501',
+    pg_temp.try(format('select public.latest_red_patient_response(null, %L)', t1)));
+  perform pg_temp.back();
+end $$;
+
 -- ===================================== sabotage =====================================
 do $$
 declare
@@ -414,6 +511,28 @@ begin
   drop trigger sab_bad_ack on public.red_care_responses;
 end $$;
 
+-- 4. the shared-task guard removed: confirming one alert must then wrongly cancel the call the other still needs
+do $$
+declare
+  v_org uuid; gs uuid; e1 uuid; e2 uuid; w1 uuid; w2 uuid; v_task uuid; v_def text;
+begin
+  select id into v_org from public.organisations order by created_at limit 1;
+  gs := pg_temp.mkuser(v_org, 'sab-shared', 'patient');
+  insert into public.patient_memberships (organisation_id, patient_id, source, state, granted_by, grant_reason, is_test)
+    values (v_org, gs, 'granted', 'active', pg_temp.f('admin'), 'R4 proof: a Member', true);
+  v_def := pg_get_functiondef('private.red_outreach_cancel_if_unclaimed(public.red_alert_watch,text)'::regprocedure);
+  if replace(v_def, 'o.state = ''outreach_created'')', 'false)') = v_def then raise exception 'VACUOUS TEST: shared-task guard text not found'; end if;
+  execute replace(v_def, 'o.state = ''outreach_created'')', 'false)');
+  e1 := pg_temp.ee(gs); e2 := pg_temp.ee(gs); w1 := pg_temp.watch(e1); w2 := pg_temp.watch(e2);
+  update public.red_alert_watch set due_at = now() - interval '1 minute', opened_at = now() - interval '31 minutes' where id in (w1, w2);
+  perform private.sweep_unconfirmed_red_alerts();
+  select outreach_task_id into v_task from public.red_alert_watch where id = w1;
+  update public.notifications set opened_at = now() where source_id = w1 and channel = 'in_app';
+  perform private.sweep_unconfirmed_red_alerts();
+  insert into results values ('sabotaged', 'one confirmed alert leaves the task for the other', 'true', (select (state not in ('cancelled', 'completed'))::text from public.clinical_tasks where id = v_task));
+  execute v_def;
+end $$;
+
 do $$
 declare v_bad integer; v_caught integer;
 begin
@@ -423,8 +542,8 @@ begin
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 3 then
-    raise exception 'VACUOUS TEST: only % of 3 sabotage steps changed the matching check', v_caught;
+  if v_caught < 4 then
+    raise exception 'VACUOUS TEST: only % of 4 sabotage steps changed the matching check', v_caught;
   end if;
 end $$;
 
