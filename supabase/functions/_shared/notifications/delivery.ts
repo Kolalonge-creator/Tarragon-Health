@@ -109,7 +109,17 @@ export function classifyExpoReceipt(r: ExpoReceipt | undefined): ReceiptOutcome 
  * Note: an email row always carries `payload.to_email`, usually the person's own address, so that field says
  * nothing about who the recipient is.
  */
-export function privacyFor(role: string | null | undefined, discreetFlag: boolean | undefined, known: boolean): { quietApplies: boolean; discreet: boolean } {
+export function privacyFor(
+  role: string | null | undefined,
+  discreetFlag: boolean | undefined,
+  known: boolean,
+  audience?: string | null,
+): { quietApplies: boolean; discreet: boolean } {
+  // A partner (lab, pharmacy, specialist) or an emergency contact is reached at their own address, with the patient as
+  // the row's recipient: neither the patient's quiet hours nor their discreet wording belong on that message.
+  if (known && audience != null && (audience.startsWith("partner_") || audience === "patient_emergency_contact")) {
+    return { quietApplies: false, discreet: false };
+  }
   return { quietApplies: known && role === "patient", discreet: !known || discreetFlag === true };
 }
 

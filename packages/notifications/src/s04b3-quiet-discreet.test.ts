@@ -62,6 +62,15 @@ describe("privacyFor", () => {
     expect(privacyFor("patient", true, true).discreet).toBe(true);
     expect(privacyFor("patient", undefined, false)).toEqual({ quietApplies: false, discreet: true });
   });
+  it("leaves partner and emergency-contact messages alone, even though the patient is the row's recipient", () => {
+    for (const audience of ["partner_lab", "partner_pharmacy", "partner_specialist", "patient_emergency_contact"]) {
+      expect(privacyFor("patient", true, true, audience)).toEqual({ quietApplies: false, discreet: false });
+    }
+    expect(privacyFor("patient", true, true, "patient")).toEqual({ quietApplies: true, discreet: true });
+    expect(privacyFor("patient", true, true, null)).toEqual({ quietApplies: true, discreet: true });
+    // an unreadable audience (known = false) is never trusted to exempt a message
+    expect(privacyFor("patient", false, false, "partner_lab").discreet).toBe(true);
+  });
   it("treats a security alert and a triage recheck as safety messages", () => {
     expect(isSafetyCritical("security.new_device_signin")).toBe(true);
     expect(isSafetyCritical("triage_recheck_due")).toBe(true);

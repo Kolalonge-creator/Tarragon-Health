@@ -88,6 +88,13 @@ begin
   insert into results values ('real', 'a null choice leaves an existing opt-in on', 'true',
     (select quiet_enabled::text from public.notification_settings where profile_id = v_a));
 
+  v_held_a := pg_temp.held(v_org, v_a);
+  set local role authenticated;
+  perform pg_temp.try($q$select public.set_my_notification_settings(true, '21:00', '07:00', false)$q$);
+  reset role;
+  insert into results values ('real', 'a discreet-only save does not release a held reminder', 'true',
+    (select (send_after is not null)::text from public.notifications where id = v_held_a));
+
   set local role anon;
   insert into results values ('real', 'anon cannot run the settings function', '42501', pg_temp.try($q$select public.set_my_notification_settings(true, '21:00', '07:00', true)$q$));
   reset role;

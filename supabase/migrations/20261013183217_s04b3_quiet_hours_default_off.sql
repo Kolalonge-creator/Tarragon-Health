@@ -17,7 +17,7 @@ alter table public.notification_settings alter column quiet_enabled set default 
 
 create or replace function public.set_my_notification_settings(p_quiet_enabled boolean, p_quiet_start time, p_quiet_end time, p_discreet boolean)
 returns void language plpgsql security definer set search_path = pg_catalog, public as $fn$
-declare v_uid uuid := auth.uid(); v_org uuid; v_on boolean;
+declare v_uid uuid := auth.uid(); v_org uuid; v_on boolean; v_old_on boolean; v_old_start time; v_old_end time;
 begin
   if v_uid is null then raise exception 'not signed in' using errcode = '28000'; end if;
   if p_quiet_start is null or p_quiet_end is null or p_quiet_start = p_quiet_end then
@@ -26,7 +26,8 @@ begin
   select organisation_id into v_org from public.profiles where id = v_uid;
   if v_org is null then raise exception 'no profile' using errcode = '42501'; end if;
   -- A null choice means "no change": keep what is stored, or off for someone with no row yet.
-  v_on := coalesce(p_quiet_enabled, (select quiet_enabled from public.notification_settings where profile_id = v_uid), false);
+  select quiet_enabled, quiet_start, quiet_end into v_old_on, v_old_start, v_old_end from public.notification_settings where profile_id = v_uid;
+  v_on := coalesce(p_quiet_enabled, v_old_on, false);
   insert into public.notification_settings (profile_id, organisation_id, quiet_enabled, quiet_start, quiet_end)
   values (v_uid, v_org, v_on, p_quiet_start, p_quiet_end)
   on conflict (profile_id) do update
@@ -38,10 +39,13 @@ begin
   -- On any save, release this person's own reminders that were held only because of quiet hours (they have a
   -- deferred_quiet event). The sender decides them again on its next pass, so a shorter window or quiet hours turned
   -- off take effect at once, and a window still in force simply holds them again.
-  update public.notifications n set send_after = null
-   where n.recipient_id = v_uid and n.status = 'pending' and n.priority = 'routine'
-     and n.channel in ('push', 'email') and n.send_after > now()
-     and exists (select 1 from public.notification_delivery_events e where e.notification_id = n.id and e.event = 'deferred_quiet');
+  -- Only when the quiet-hours choice itself changed (not on a discreet-only save).
+  if v_old_on is distinct from v_on or v_old_start is distinct from p_quiet_start or v_old_end is distinct from p_quiet_end then
+    update public.notifications n set send_after = null
+     where n.recipient_id = v_uid and n.status = 'pending' and n.priority = 'routine'
+       and n.channel in ('push', 'email') and n.send_after > now()
+       and exists (select 1 from public.notification_delivery_events e where e.notification_id = n.id and e.event = 'deferred_quiet');
+  end if;
 end $fn$;
 revoke all on function public.set_my_notification_settings(boolean, time, time, boolean) from public, anon;
 grant execute on function public.set_my_notification_settings(boolean, time, time, boolean) to authenticated;

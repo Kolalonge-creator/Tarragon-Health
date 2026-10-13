@@ -607,11 +607,12 @@ Deno.serve(async () => {
   const discreetById = new Map((profiles ?? []).map((p) => [p.id, p.discreet_mode === true]));
 
   // S13: PROPOSED rules (versioned in notification_rules_config) and each recipient's own quiet hours.
-  const { data: rulesRow } = await supabase
+  const { data: rulesRow, error: rulesError } = await supabase
     .from("notification_rules_config")
     .select("config")
     .eq("is_active", true)
     .maybeSingle<{ config: { quietHours?: { enabled?: boolean; start?: string; end?: string }; routinePushPerDay?: number } }>();
+  if (rulesError) console.error("send-pending-notifications: rules config unreadable; quiet hours fall back to off", rulesError.message);
   const defaultQuiet: QuietSettings = {
     enabled: rulesRow?.config.quietHours?.enabled ?? FALLBACK_QUIET.enabled,
     start: rulesRow?.config.quietHours?.start ?? FALLBACK_QUIET.start,
@@ -627,9 +628,15 @@ Deno.serve(async () => {
   // honour them, so this pass leaves routine rows pending (the next pass tries again; nothing is lost or sent with the
   // wrong wording). Critical and safety rows still go: they ignore quiet hours, and a push or email is only made
   // generic when discreet is known, so for them the worst case is more wording than wanted, never a missed alert.
-  const settingsDegraded = Boolean(profilesError || settingsError);
+  const { data: audienceRows, error: audienceError } = await supabase
+    .from("notification_templates")
+    .select("key, audience")
+    .in("key", [...new Set(rows.map((r) => r.template).filter((t): t is string => typeof t === "string"))])
+    .returns<Array<{ key: string; audience: string | null }>>();
+  const audienceByTemplate = new Map((audienceRows ?? []).map((t) => [t.key, t.audience]));
+  const settingsDegraded = Boolean(profilesError || settingsError || audienceError);
   if (settingsDegraded) {
-    console.error("send-pending-notifications: privacy settings lookup failed; only critical and safety rows go this pass", (profilesError ?? settingsError)!.message);
+    console.error("send-pending-notifications: privacy settings lookup failed; only critical and safety rows go this pass", (profilesError ?? settingsError ?? audienceError)!.message);
   }
   const quietById = new Map<string, QuietSettings>(
     (settingRows ?? []).map((r) => [r.profile_id, { enabled: r.quiet_enabled, start: r.quiet_start.slice(0, 5), end: r.quiet_end.slice(0, 5) }]),
@@ -938,7 +945,7 @@ Deno.serve(async () => {
     }
 
     // S13: INV-07 guard, quiet hours, daily cap and the SMS rule, decided by one pure function.
-    const privacy = privacyFor(roleById.get(row.recipient_id), discreetById.get(row.recipient_id), !settingsDegraded);
+    const privacy = privacyFor(roleById.get(row.recipient_id), discreetById.get(row.recipient_id), !settingsDegraded, row.template ? audienceByTemplate.get(row.template) : null);
     const decision = decide({
       channel: row.channel,
       priority: row.priority,
