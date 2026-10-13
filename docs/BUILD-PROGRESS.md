@@ -1007,6 +1007,12 @@ Found during the simulator pass (`docs/S06_SIMULATOR_CHECKLIST.md`).
 - **Decided by the founder**: no erasure of real data; test data deletable; international retention periods; export from the registry with a 30-day clock.
 - **Open**: OQ-284 (registry classification review), OQ-285 (export not yet behind the download route), OQ-283 (retention periods, counsel).
 - **Follow-ups**: wire `export_patient_data` into the download route; counsel on real-data erasure (Q5).
+
+## S39e: shared work queues under the care tie (2026-10-07, branch `s39e/worklists`, stacked on S39d)
+- **Built**: migration `20261007181500_s39e_worklists_and_work_counts.sql` (NOT yet applied). `clinical_worklist()` and `org_open_work_counts()`; `/clinician/worklists`; the admin caseload count reads through the counts function.
+- **Proof**: `s39e_worklists_and_work_counts.sql` role simulation (13 checks, 6 of 7 queues built as fixtures, sabotage flips); web tests pass.
+- **Found**: S39b hides pooled queue items from untied clinicians; all queues are empty today.
+- **Open**: therapy approvals not covered by a fixture; existing queue pages still show tied detail only; OQ-286 (labels reveal the kind of care). Review fixes: queue size and the 100 row cap are shown, coordinator is turned away, exact fixture set and real isolation check in the proof.
 ## S28: Pharmacy partner: prescriptions to a chosen pharmacy, collection code, dispensing (2026-10-07, branch `s28/pharmacy-dispensing`, based on the S36h branch of PR #987)
 - **Built**: migration `20261007120114_s28_pharmacy_collection_and_dispensing.sql` (applied to production 2026-10-07, version pinned, verified: recorded, one active config, direct partner policies gone, anon cannot execute, no residue). `pharmacy_config`, `prescription_collection_codes` (patient-only), routing columns, events and neutral templates, the trigger door for the patient's own choice, the two direct partner policies on `prescriptions` dropped, seven functions (patient chooser and code, audited pharmacy list, verify with lock, full or partial dispense under the shared lock). Web: patient `/patient/pharmacy/collect/[id]` (en and pcm) linked from the prescription card; pharmacist counter `/pharmacist/prescriptions/[id]`; the S36h list no longer shows a code.
 - **Reused**: S05 `prescriptions` and state machine, S24 signing, S36h flags and list, `pharmacy_order_dispenses` and the QR/desk supply path (now one shared count), S10 events, S13 template lint, the registry and mirror-test pattern, `private.log_audit`.
