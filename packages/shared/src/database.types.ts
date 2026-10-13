@@ -51139,6 +51139,7 @@ export type Database = {
         | "dexcom"
         | "libre"
         | "android_health_connect"
+        | "withings"
       wellness_challenge_metric:
         | "vitals_logs"
         | "meal_logs"
@@ -53658,6 +53659,7 @@ export const Constants = {
         "dexcom",
         "libre",
         "android_health_connect",
+        "withings",
       ],
       wellness_challenge_metric: [
         "vitals_logs",
