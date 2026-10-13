@@ -128,6 +128,60 @@ export type Database = {
           },
         ]
       }
+      my_health_config: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      patient_lock_screen_pass: {
+        Row: {
+          enabled: boolean
+          organisation_id: string
+          profile_id: string
+          updated_at: string
+        }
+        Insert: {
+          enabled?: boolean
+          organisation_id: string
+          profile_id: string
+          updated_at?: string
+        }
+        Update: {
+          enabled?: boolean
+          organisation_id?: string
+          profile_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       payout_events: {
         Row: {
           actor_id: string | null
@@ -34199,6 +34253,8 @@ export type Database = {
           looked_up_at: string
           ip_inet: string | null
           user_agent: string | null
+          outcome: string
+          client_hash: string | null
         }
         Insert: {
           id?: string
@@ -34206,6 +34262,8 @@ export type Database = {
           looked_up_at?: string
           ip_inet?: string | null
           user_agent?: string | null
+          outcome?: string
+          client_hash?: string | null
         }
         Update: {
           id?: string
@@ -34213,6 +34271,8 @@ export type Database = {
           looked_up_at?: string
           ip_inet?: string | null
           user_agent?: string | null
+          outcome?: string
+          client_hash?: string | null
         }
         Relationships: [
           {
@@ -34237,6 +34297,12 @@ export type Database = {
           last_viewed_at: string | null
           created_at: string
           revoked_at: string | null
+          pin_hash: string | null
+          pin_misses: number
+          locked_at: string | null
+          one_session: boolean
+          first_opened_at: string | null
+          pin_protected: boolean | null
         }
         Insert: {
           id?: string
@@ -34250,6 +34316,11 @@ export type Database = {
           last_viewed_at?: string | null
           created_at?: string
           revoked_at?: string | null
+          pin_hash?: string | null
+          pin_misses?: number
+          locked_at?: string | null
+          one_session?: boolean
+          first_opened_at?: string | null
         }
         Update: {
           id?: string
@@ -34263,6 +34334,11 @@ export type Database = {
           last_viewed_at?: string | null
           created_at?: string
           revoked_at?: string | null
+          pin_hash?: string | null
+          pin_misses?: number
+          locked_at?: string | null
+          one_session?: boolean
+          first_opened_at?: string | null
         }
         Relationships: [
           {
@@ -39238,6 +39314,171 @@ export type Database = {
         }
         Relationships: []
       }
+      home_bp_programme_signoffs: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      home_bp_checks: {
+        Row: {
+          band: string
+          config_version: number
+          created_at: string
+          days: number
+          id: string
+          is_test: boolean
+          mean_diastolic: number
+          mean_systolic: number
+          organisation_id: string
+          patient_id: string
+          readings: number
+          task_id: string | null
+          window_end: string
+          window_start: string
+        }
+        Insert: {
+          band: string
+          config_version: number
+          created_at?: string
+          days: number
+          id?: string
+          is_test?: boolean
+          mean_diastolic: number
+          mean_systolic: number
+          organisation_id: string
+          patient_id: string
+          readings: number
+          task_id?: string | null
+          window_end: string
+          window_start: string
+        }
+        Update: {
+          band?: string
+          config_version?: number
+          created_at?: string
+          days?: number
+          id?: string
+          is_test?: boolean
+          mean_diastolic?: number
+          mean_systolic?: number
+          organisation_id?: string
+          patient_id?: string
+          readings?: number
+          task_id?: string | null
+          window_end?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
+      clinic_bp_readings: {
+        Row: {
+          created_at: string
+          diastolic: number
+          id: string
+          is_test: boolean
+          measured_at: string
+          note: string | null
+          organisation_id: string
+          patient_id: string
+          recorded_by: string
+          systolic: number
+        }
+        Insert: {
+          created_at?: string
+          diastolic: number
+          id?: string
+          is_test?: boolean
+          measured_at: string
+          note?: string | null
+          organisation_id: string
+          patient_id: string
+          recorded_by: string
+          systolic: number
+        }
+        Update: {
+          created_at?: string
+          diastolic?: number
+          id?: string
+          is_test?: boolean
+          measured_at?: string
+          note?: string | null
+          organisation_id?: string
+          patient_id?: string
+          recorded_by?: string
+          systolic?: number
+        }
+        Relationships: []
+      }
+      bp_pattern_flags: {
+        Row: {
+          clinic_reading_id: string
+          config_version: number
+          created_at: string
+          home_check_id: string
+          id: string
+          is_test: boolean
+          kind: string
+          organisation_id: string
+          patient_id: string
+          task_id: string | null
+          treated: boolean
+        }
+        Insert: {
+          clinic_reading_id: string
+          config_version: number
+          created_at?: string
+          home_check_id: string
+          id?: string
+          is_test?: boolean
+          kind: string
+          organisation_id: string
+          patient_id: string
+          task_id?: string | null
+          treated: boolean
+        }
+        Update: {
+          clinic_reading_id?: string
+          config_version?: number
+          created_at?: string
+          home_check_id?: string
+          id?: string
+          is_test?: boolean
+          kind?: string
+          organisation_id?: string
+          patient_id?: string
+          task_id?: string | null
+          treated?: boolean
+        }
+        Relationships: []
+      }
       triage_protocols: {
         Row: {
           approved_at: string | null
@@ -43110,6 +43351,13 @@ export type Database = {
       };
       record_lab_disclosure_attempt: { Args: { p_note?: string; p_outcome: string; p_result: string }; Returns: Json };
       sign_lab_panels: { Args: { p_id: string }; Returns: string };
+      sign_home_bp_programme: { Args: { p_id: string }; Returns: string };
+      complete_home_bp_check: { Args: { p_window_start: string }; Returns: Json };
+      record_clinic_bp_reading: { Args: { p_diastolic: number; p_measured_at: string; p_note?: string; p_patient: string; p_systolic: number }; Returns: string };
+      sign_my_health_config: { Args: { p_id: string }; Returns: string };
+      my_access_log: { Args: { p_limit?: number; p_before?: string; p_before_id?: string }; Returns: Json };
+      my_lock_screen_facts: { Args: Record<PropertyKey, never>; Returns: Json };
+      set_lock_screen_pass: { Args: { p_enabled: boolean }; Returns: boolean };
       withdraw_lab_result: { Args: { p_reason: string; p_result: string }; Returns: Json };
       lab_partner_submit_result: { Args: { p_file?: Json; p_items: Json; p_order: string; p_panel: string }; Returns: Json };
       lab_result_explain_allowed: { Args: { p_result: string }; Returns: boolean };
@@ -44816,7 +45064,9 @@ export type Database = {
       create_record_share: {
         Args: {
           p_sections: string[]
-          p_expires_in_hours: number
+          p_expires_in_hours?: number
+          p_use_pin?: boolean
+          p_one_session?: boolean
         }
         Returns: Json
       }
@@ -46793,8 +47043,9 @@ export type Database = {
         }
         Returns: boolean
       }
+      record_share_peek: { Args: { p_token: string }; Returns: string }
       record_share_by_token: {
-        Args: { p_token: string }
+        Args: { p_token: string; p_pin?: string; p_client_key?: string }
         Returns: Json
       }
       redeem_available_service_purchase: {
