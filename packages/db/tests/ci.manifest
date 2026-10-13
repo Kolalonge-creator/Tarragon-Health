@@ -965,3 +965,5 @@ sr2_scribe_consents_insert_policy_initplan.sql
 
 # S08x: as-needed (PRN) limits, warn never block (decision C7, approved text, NOT signed): the rule ships unsigned and inactive; only the active CMO signs; only a tied clinician with prescribing authority sets limits inside the signed bounds; the ten shared cases from packages/medicines prn.fixtures.ts give the same flags; late-synced doses are judged like in-order ones; a failing flag write never stops the dose being logged; guard off means no flag; three flagged doses raise one signal; patients read only their own, staff read audited; anon cannot execute. Sabotage: a gap-blind rule must flip the min_gap cases.
 s08x_prn_limits.sql
+# S06x: offline_sync_rejections (patient inserts and reads own, one row per entry, no health value column, admin reads only through the audited function) and offline_device_leases (check-in, owner or same-organisation admin revokes, revoked check-in does not extend the lease, wipe confirmation stores a count only, anon refused). Sabotage: the insert policy loosened to any account; a check-in that extends a revoked lease. Both must flip.
+s06x_offline_trust.sql

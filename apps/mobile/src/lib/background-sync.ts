@@ -7,6 +7,7 @@ import { syncAppleHealth, syncHealthConnect } from "./health-sync";
 import { flushDeviceReadingsQueue } from "./offline-queue";
 import { recordSyncError } from "./sync-diagnostics";
 import { flushOutbox } from "./outbox";
+import { runDeviceCheck } from "./device-lease";
 import { syncReminders } from "./reminder-notifications";
 import { replanDoseReminders } from "./dose-reminders";
 import { refreshOfflineSyncConfig } from "./offline-sync-config";
@@ -44,13 +45,9 @@ import { syncThresholdsIfOnline } from "./threshold-sync";
  * store-and-forward queues (spec 55.13-55.15): whatever a page/reading
  * upload failed to send while the app wasn't running gets retried here at
  * the next OS-scheduled run, on top of the flush every manual sync and BLE
- * screen open already attempts. There is deliberately no NetInfo-driven
- * "flush immediately on reconnect" listener layered on top of that —
- * @react-native-community/netinfo is not a dependency anywhere in this app
- * today, and adding it solely for that one trigger was judged not worth a
- * new native dependency when this task's floor (15 minutes) plus a manual
- * sync/BLE screen open already recovers a queued item promptly in practice.
- * Revisit if NetInfo is ever added for another reason.
+ * screen open already attempts. S06x added a NetInfo-driven reconnect trigger
+ * for the S06 outbox (reachability.ts, started from App.tsx while the app is
+ * open); this task stays the OS-scheduled backstop for when the app is closed.
  */
 
 const TASK_NAME = "tarragon-health-background-sync";
@@ -77,6 +74,8 @@ TaskManager.defineTask(TASK_NAME, async () => {
     // Vitals screen's own opportunistic flush-on-save/flush-on-mount.
     try {
       await flushOutbox();
+      // Lost-phone wipe and key lease (S06x): checked right after the flush so the "one last upload attempt" has just run.
+      await runDeviceCheck();
       await refreshOfflineSyncConfig();
       await syncThresholdsIfOnline();
       // Blood pressure reminders are a rolling window of local notifications; topping it up here keeps
