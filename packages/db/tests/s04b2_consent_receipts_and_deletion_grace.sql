@@ -417,6 +417,8 @@ begin
   if st <> 'completed' then raise exception 'FAIL 6k: admin could not complete after the grace (%)', st; end if;
   if (select is_active from public.profiles where id = pat) then raise exception 'FAIL 6l: completing the request did not deactivate the profile'; end if;
   if not exists (select 1 from public.profiles where id = pat) then raise exception 'FAIL 6m: the profile was deleted'; end if;
+  if not exists (select 1 from auth.users where id = pat and banned_until is not null and banned_until > now() + interval '100 years') then raise exception 'FAIL 6p: completing the request did not sign the person out'; end if;
+  if not exists (select 1 from public.audit_log where entity_id = req and action = 'data_deletion.completed' and subject_patient_id = pat) then raise exception 'FAIL 6q: completion was not audited'; end if;
   if exists (
     select 1 from (select distinct on (consent_type) consent_type, action from public.patient_consents where patient_id = pat order by consent_type, created_at desc, id desc) l
      where l.action = 'accepted'
@@ -482,6 +484,29 @@ begin
   reset role;
   if v_sqlstate <> 'allowed' then raise exception 'VACUOUS: with the grace gate removed approval was still refused, so check 6e proves nothing'; end if;
   execute (select d from s4b2_def where k = 'grace');
+end $$;
+
+-- 7c. no oracle: through the API (role authenticated), a stranger gets the same refusal whatever the victim holds
+do $$
+declare
+  strg uuid := (select v from s4b2_fx where k = 'str');
+  victim uuid := (select v from s4b2_fx where k = 'pat2');
+  v_org uuid := (select v from s4b2_fx where k = 'org');
+  cv record; r1 text; r2 text;
+begin
+  select * into cv from public.consent_versions where is_current and not is_optional and consent_type = 'terms_of_service';
+  perform set_config('request.jwt.claims', json_build_object('sub', strg::text, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  begin
+    insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action) values (v_org, victim, 'terms_of_service', cv.id, cv.version, 'withdrawn');
+    r1 := 'allowed';
+  exception when others then r1 := sqlstate || ':' || sqlerrm; end;
+  begin
+    insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action) values (v_org, victim, 'research', cv.id, cv.version, 'withdrawn');
+    r2 := 'allowed';
+  exception when others then r2 := sqlstate || ':' || sqlerrm; end;
+  reset role;
+  if r1 is distinct from r2 or r1 not like '42501%' then raise exception 'FAIL 7c: a stranger could tell consent states apart (% / %)', r1, r2; end if;
 end $$;
 
 -- 8. function privileges

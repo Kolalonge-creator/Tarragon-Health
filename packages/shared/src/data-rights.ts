@@ -164,7 +164,7 @@ export function deletionRequestView(row: DeletionRequestLike, now: number = Date
         phase: "done",
         canCancel: false,
         daysLeft: null,
-        headline: "Your account has been closed",
+        headline: "Your account has been closed and you have been signed out",
         detail: row.note
           ? "Our team's note below says what else was removed. The records we must keep are listed under What we have to keep."
           : "Our team did not leave a note about what else was removed. You can ask support. The records we must keep are listed under What we have to keep.",

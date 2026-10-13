@@ -81,8 +81,13 @@ describe("withdrawConsentAction", () => {
 });
 
 describe("grantConsentAction", () => {
+  it("tells the person to reload when the wording changed while they were reading (database refusal)", async () => {
+    insertMock.mockResolvedValue({ error: { code: "23514", message: "this wording has been replaced" } });
+    expect((await grantConsentAction("research", "cv-1"))?.error).toMatch(/wording changed/i);
+  });
+
   it("appends one accepted row for one optional purpose, recording the channel", async () => {
-    const result = await grantConsentAction("research");
+    const result = await grantConsentAction("research", "cv-1");
     expect(result).toEqual({ success: true });
     expect(insertMock).toHaveBeenCalledTimes(1);
     expect(insertMock).toHaveBeenCalledWith({
@@ -98,19 +103,19 @@ describe("grantConsentAction", () => {
 
   it("will not record a required purpose here (those are given when the account is set up)", async () => {
     versionRow = { id: "cv-2", version: "v1", is_optional: false };
-    expect((await grantConsentAction("data_processing"))?.error).toMatch(/set up your account/i);
+    expect((await grantConsentAction("data_processing", "cv-2"))?.error).toMatch(/set up your account/i);
     expect(insertMock).not.toHaveBeenCalled();
   });
 
   it("finds nothing to give when no published version exists (a draft is invisible to the patient)", async () => {
     versionRow = null;
-    expect((await grantConsentAction("care_circle_sharing"))?.error).toMatch(/could not find/i);
+    expect((await grantConsentAction("care_circle_sharing", "cv-x"))?.error).toMatch(/could not find/i);
     expect(insertMock).not.toHaveBeenCalled();
   });
 
   it("needs a signed-in caller", async () => {
     user = null;
-    expect((await grantConsentAction("research"))?.error).toBeTruthy();
+    expect((await grantConsentAction("research", "cv-1"))?.error).toBeTruthy();
     expect(insertMock).not.toHaveBeenCalled();
   });
 });

@@ -21,6 +21,8 @@ import type { QueryResult } from "./medications";
  */
 export interface ConsentRow {
   consentType: Enums<"consent_type">;
+  /** The version the person is shown; accepting records exactly this one (the database refuses it if it has been replaced). */
+  versionId: string;
   /** The consent's own title and plain-language words, shown before a person decides. */
   title: string;
   body: string;
@@ -37,7 +39,7 @@ export async function loadConsentStatus(patientId: string): Promise<QueryResult<
   const [{ data: versions, error: versionsError }, { data: events, error: eventsError }] = await Promise.all([
     supabase
       .from("consent_versions")
-      .select("consent_type, version, is_optional, title, body")
+      .select("id, consent_type, version, is_optional, title, body")
       .eq("is_current", true)
       .order("consent_type", { ascending: true }),
     supabase.from("patient_consents").select("consent_type, version, accepted_at, action, created_at").eq("patient_id", patientId),
@@ -50,6 +52,7 @@ export async function loadConsentStatus(patientId: string): Promise<QueryResult<
     const record = (events ?? []).find((c) => c.consent_type === v.consent_type && c.version === v.version && c.action === "accepted");
     return {
       consentType: v.consent_type,
+      versionId: v.id,
       title: v.title,
       body: v.body,
       version: v.version,
@@ -73,13 +76,13 @@ export async function recordConsent(
   patientId: string,
   consentType: Enums<"consent_type">,
   action: "accepted" | "withdrawn",
+  shownVersionId?: string,
 ): Promise<QueryResult<null>> {
-  const { data: version, error: versionError } = await supabase
-    .from("consent_versions")
-    .select("id, version, is_optional")
-    .eq("consent_type", consentType)
-    .eq("is_current", true)
-    .maybeSingle();
+  // Accepting records the exact version the person was shown; withdrawing needs no version (the database ends the one in force).
+  const { data: version, error: versionError } =
+    action === "accepted" && shownVersionId
+      ? await supabase.from("consent_versions").select("id, version, is_optional").eq("id", shownVersionId).eq("consent_type", consentType).maybeSingle()
+      : await supabase.from("consent_versions").select("id, version, is_optional").eq("consent_type", consentType).eq("is_current", true).maybeSingle();
   if (versionError || !version) return { ok: false, error: "We could not find that consent." };
   if (!version.is_optional) {
     return { ok: false, error: "This one is needed to use your account. To stop it, close your account using the data options below." };
@@ -96,6 +99,9 @@ export async function recordConsent(
   if (error) {
     if (error.code === "23514" && action === "withdrawn") {
       return { ok: false, error: "This one is needed to use your account. To stop it, close your account using the data options below." };
+    }
+    if (error.code === "23514" && action === "accepted") {
+      return { ok: false, error: "The wording changed while you were reading. Pull down to refresh and read the new version." };
     }
     return { ok: false, error: "We could not record that just now. Please try again." };
   }

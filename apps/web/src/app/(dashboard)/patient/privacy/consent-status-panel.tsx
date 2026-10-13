@@ -103,7 +103,7 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
                     <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">{subtitle}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    {optional && state === "granted" && (
+                    {optional && (state === "granted" || state === "older_version") && (
                       confirmingWithdraw === version.consent_type ? (
                         <Button
                           type="button"
@@ -125,7 +125,7 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
                         </Button>
                       )
                     )}
-                    {optional && state !== "granted" && (
+                    {optional && state !== "granted" && state !== "older_version" && (
                       <details className="max-w-xs text-xs">
                         <summary className="cursor-pointer font-medium text-brand-green">Read and decide</summary>
                         <div className="mt-2 space-y-2 rounded-lg border border-charcoal-ink/10 p-2 dark:border-night-ink/15">
@@ -147,7 +147,7 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
                             onClick={async () => {
                               setWithdrawError(null);
                               setBusy(true);
-                              const result = await grantConsentAction(version.consent_type).finally(() => setBusy(false));
+                              const result = await grantConsentAction(version.consent_type, version.id).finally(() => setBusy(false));
                               if (result?.error) setWithdrawError(result.error);
                               else {
                                 setAgreed((a) => ({ ...a, [version.consent_type]: false }));
@@ -214,7 +214,7 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
                 .join(", ")} consent above.`}
               onComplete={() => {
                 setReviewing(false);
-                void queryClient.invalidateQueries({ queryKey: ["patient-consents", patientId] });
+                refresh();
               }}
             />
             <button

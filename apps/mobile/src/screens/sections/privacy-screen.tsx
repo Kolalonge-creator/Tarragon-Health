@@ -81,13 +81,18 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
     setReceiptsError(receiptResult.ok ? null : "We could not load your consent receipts just now.");
     // A failed load must never look like "no requests": the deletion card would hide a pending request and its cancel button.
     setRequestsError(
-      exportList.ok && deletionList.ok && correctionList.ok && deviceList.ok ? null : "We could not load your data requests just now. Please try again before starting a new one.",
+      exportList.ok && deletionList.ok ? null : "We could not load your data requests just now. Please try again before starting a new one.",
     );
     setDevices(deviceList.ok ? deviceList.data : []);
     setExportRequests(exportList.ok ? exportList.data : []);
     setCorrectionRequests(correctionList.ok ? correctionList.data : []);
     setDeletionRequests(deletionList.ok ? deletionList.data : []);
   }, [userId]);
+
+  // Cards call this after a change. A failed reload must be seen, not left as stale lists (a stale deletion list hides its cancel button).
+  const reload = useCallback(() => {
+    refresh().catch(() => setRequestsError("We could not refresh your data requests just now. Please pull down to refresh before changing anything."));
+  }, [refresh]);
 
   useEffect(() => {
     refresh()
@@ -146,7 +151,7 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
                 {c.accepted ? "Accepted" : c.state === "withdrawn" ? "Withdrawn" : c.isOptional ? "Not shared" : "Outstanding"}
               </Badge>
             </View>
-            <OptionalConsentControls row={c} organisationId={organisationId} patientId={userId} onChanged={() => void refresh()} />
+            <OptionalConsentControls row={c} organisationId={organisationId} patientId={userId} onChanged={reload} />
             </View>
           ))
         )}
@@ -194,9 +199,9 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
           <ErrorText>{requestsError}</ErrorText>
         </Card>
       )}
-      <ExportRequestCard userId={userId} organisationId={organisationId} requests={exportRequests} blocked={requestsError !== null} onChanged={refresh} />
-      <CorrectionRequestCard userId={userId} organisationId={organisationId} requests={correctionRequests} onChanged={refresh} />
-      <DeletionRequestCard userId={userId} organisationId={organisationId} requests={deletionRequests} blocked={requestsError !== null} onChanged={refresh} />
+      <ExportRequestCard userId={userId} organisationId={organisationId} requests={exportRequests} blocked={requestsError !== null} onChanged={reload} />
+      <CorrectionRequestCard userId={userId} organisationId={organisationId} requests={correctionRequests} onChanged={reload} />
+      <DeletionRequestCard userId={userId} organisationId={organisationId} requests={deletionRequests} blocked={requestsError !== null} onChanged={reload} />
     </ScrollView>
   );
 }

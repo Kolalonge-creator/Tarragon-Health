@@ -12,7 +12,7 @@ const consentTypeSchema = z.object({ consentType: z.enum(Constants.public.Enums.
 /** PostgREST error for a check_violation raised by the consent trigger (for example a required consent while the account is active). */
 const CHECK_VIOLATION = "23514";
 
-async function recordOptionalConsent(consentType: string, action: "accepted" | "withdrawn"): Promise<WithdrawConsentState> {
+async function recordOptionalConsent(consentType: string, action: "accepted" | "withdrawn", shownVersionId?: string): Promise<WithdrawConsentState> {
   const parsed = consentTypeSchema.safeParse({ consentType });
   if (!parsed.success) return { error: "That consent does not exist." };
 
@@ -24,12 +24,11 @@ async function recordOptionalConsent(consentType: string, action: "accepted" | "
 
   const [{ data: profile }, { data: version }] = await Promise.all([
     supabase.from("profiles").select("organisation_id").eq("id", user.id).single(),
-    supabase
-      .from("consent_versions")
-      .select("id, version, is_optional")
-      .eq("consent_type", parsed.data.consentType)
-      .eq("is_current", true)
-      .maybeSingle(),
+    // Accepting records the exact version the person was shown (the database refuses it if it has since been replaced). Withdrawing
+    // needs no version: the database ends whichever acceptance is in force.
+    action === "accepted" && shownVersionId
+      ? supabase.from("consent_versions").select("id, version, is_optional").eq("id", shownVersionId).eq("consent_type", parsed.data.consentType).maybeSingle()
+      : supabase.from("consent_versions").select("id, version, is_optional").eq("consent_type", parsed.data.consentType).eq("is_current", true).maybeSingle(),
   ]);
   if (!profile?.organisation_id || !version) return { error: "We could not find that consent." };
   if (!version.is_optional) {
@@ -56,6 +55,9 @@ async function recordOptionalConsent(consentType: string, action: "accepted" | "
     if (error.code === CHECK_VIOLATION && action === "withdrawn") {
       return { error: "This one is needed to use your account. To stop it, close your account using the data rights options on this page." };
     }
+    if (error.code === CHECK_VIOLATION && action === "accepted") {
+      return { error: "The wording changed while you were reading. Please reload the page and read the new version." };
+    }
     return { error: "We could not record that just then. Please try again." };
   }
 
@@ -79,6 +81,6 @@ export async function withdrawConsentAction(consentType: string): Promise<Withdr
  * them and nothing is bundled (one row per purpose). Required purposes are given when the account is set up, not here.
  * Wording still pending approval (is_draft) is invisible to patients, so there is nothing to give until it is published.
  */
-export async function grantConsentAction(consentType: string): Promise<WithdrawConsentState> {
-  return recordOptionalConsent(consentType, "accepted");
+export async function grantConsentAction(consentType: string, shownVersionId: string): Promise<WithdrawConsentState> {
+  return recordOptionalConsent(consentType, "accepted", shownVersionId);
 }

@@ -186,7 +186,7 @@ describe("ConsentStatusPanel", () => {
     fireEvent.click(box);
     expect(agree.disabled).toBe(false);
     fireEvent.click(agree);
-    await waitFor(() => expect(grantMock).toHaveBeenCalledWith("research"));
+    await waitFor(() => expect(grantMock).toHaveBeenCalledWith("research", "v-r-1"));
     expect(grantMock).toHaveBeenCalledTimes(1);
   });
 
@@ -203,6 +203,13 @@ describe("ConsentStatusPanel", () => {
     expect(screen.getByRole("alert").textContent).toMatch(/could not load your consent choices/i);
     expect(screen.queryByRole("button", { name: "Agree" })).toBeNull();
     expect(screen.queryByText("Not shared")).toBeNull();
+  });
+
+  it("an optional purpose still in force under an older version can be withdrawn (not only re-read)", () => {
+    EXTRA_VERSIONS = [{ id: "v-r-2", consent_type: "research", version: 2, is_optional: true, title: "Research", body: "New words." }];
+    ACCEPTED = [...ACCEPTED, { id: "c9", consent_type: "research", version: 1, ...ROW }];
+    render(<ConsentStatusPanel patientId="patient-1" />);
+    expect(screen.getByRole("button", { name: "Withdraw" })).toBeTruthy();
   });
 
   it("offers no Agree button for a required purpose", () => {

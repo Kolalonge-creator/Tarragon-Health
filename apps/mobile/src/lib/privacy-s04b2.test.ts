@@ -38,7 +38,7 @@ beforeEach(() => {
 
 describe("recordConsent", () => {
   it("appends one row for one optional purpose and records the mobile channel", async () => {
-    const result = await recordConsent("org-1", "p1", "research", "accepted");
+    const result = await recordConsent("org-1", "p1", "research", "accepted", "cv-1");
     expect(result.ok).toBe(true);
     expect(mockInsert).toHaveBeenCalledTimes(1);
     expect(mockInsert).toHaveBeenCalledWith("patient_consents", {
@@ -50,6 +50,12 @@ describe("recordConsent", () => {
       action: "accepted",
       channel: "mobile",
     });
+  });
+
+  it("tells the person to refresh when the wording changed while they were reading (database refusal)", async () => {
+    mockInsert.mockResolvedValue({ error: { code: "23514", message: "replaced" } });
+    const result = await recordConsent("org-1", "p1", "research", "accepted", "cv-1");
+    expect(result).toEqual({ ok: false, error: expect.stringMatching(/wording changed/i) });
   });
 
   it("refuses a required purpose before writing anything", async () => {

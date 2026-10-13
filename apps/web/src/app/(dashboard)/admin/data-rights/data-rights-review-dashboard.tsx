@@ -321,7 +321,7 @@ function DeletionRequestRow({ request }: { request: AdminDataDeletionRequest }) 
             // The patient sees this note: it must say what was removed and what was kept.
             const completionNote = window.prompt("What was removed, and what was kept? (shown to the patient)");
             if (!completionNote || completionNote.trim().length === 0) return;
-            review.mutate({ requestId: request.id, status: "completed", decisionNote: completionNote.trim() });
+            review.mutate({ requestId: request.id, status: "completed", decisionNote: [request.decision_note, completionNote.trim()].filter(Boolean).join(" ") });
           }}
         >
           Mark completed

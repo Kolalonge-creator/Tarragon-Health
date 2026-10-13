@@ -32,7 +32,7 @@ export function OptionalConsentControls({
   async function run(action: "accepted" | "withdrawn") {
     setError(null);
     setBusy(true);
-    const result = await recordConsent(organisationId, patientId, row.consentType, action);
+    const result = await recordConsent(organisationId, patientId, row.consentType, action, row.versionId);
     setBusy(false);
     if (!result.ok) {
       setError(result.error);
@@ -44,7 +44,7 @@ export function OptionalConsentControls({
     onChanged();
   }
 
-  if (row.state === "granted") {
+  if (row.state === "granted" || row.state === "older_version") {
     return (
       <View style={{ gap: 6 }}>
         {error && <ErrorText>{error}</ErrorText>}

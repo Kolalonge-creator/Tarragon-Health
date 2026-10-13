@@ -201,6 +201,18 @@ declare
   v_current record;
   v_active boolean;
 begin
+  -- A request that arrives through the API (PostgREST runs it as role 'authenticated') may only act for the person themself or, for a
+  -- dependant account, their guardian. Checked before any lookup, so a stranger learns nothing about someone else's consents from the
+  -- error they get back. Migrations, proofs and the account-closing step below are not API requests.
+  if v_uid is not null
+     and coalesce(current_setting('role', true), '') in ('authenticated', 'anon')
+     and v_uid <> new.patient_id
+     and coalesce(current_setting('app.closing_account', true), '') <> 'on'
+     and not (private.can_act_for(new.patient_id)
+              and exists (select 1 from public.profiles d where d.id = new.patient_id and d.is_dependent_account)) then
+    raise exception 'not allowed' using errcode = '42501';
+  end if;
+
   -- When: a signed-in session cannot choose the time (it decides which acceptance is in force and what the receipt shows).
   -- clock_timestamp(), not now(), so two choices in one transaction still order. A service or migration context keeps what it supplied.
   if v_uid is not null then
@@ -436,6 +448,9 @@ begin
     end if;
     new.reviewed_by := v_uid;
     new.reviewed_at := coalesce(old.reviewed_at, now());
+    insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event, subject_patient_id)
+      values (old.organisation_id, v_uid, 'data_deletion.' || new.status, 'data_deletion_request', old.id,
+              jsonb_build_object('from', old.status, 'grace_ends_at', old.grace_ends_at), old.patient_id);
     if new.status = 'completed' then
       new.completed_by := v_uid;
       new.completed_at := now();
@@ -443,6 +458,10 @@ begin
       -- clinical records hang off it). This is also what lets a required consent be withdrawn (OQ-53). Removing the sign-in and
       -- contact details is still a manual step by the reviewer (OQ-S04b2-2).
       update public.profiles set is_active = false where id = old.patient_id;
+      -- And signs the person out for good: a deactivated profile alone only restricts staff, so the login is banned too (an existing
+      -- session lasts until its token expires). A reviewer can lift it by clearing auth.users.banned_until.
+      update auth.users set banned_until = 'infinity' where id = old.patient_id;
+      perform set_config('app.closing_account', 'on', true);
       -- And ends every consent still in force, as one withdrawal row each (append-only; labelled staff, since a reviewer made them).
       insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action)
         select l.organisation_id, l.patient_id, l.consent_type, l.consent_version_id, l.version, 'withdrawn'
@@ -451,6 +470,7 @@ begin
                  where patient_id = old.patient_id
                  order by consent_type, created_at desc, id desc) l
          where l.action = 'accepted';
+      perform set_config('app.closing_account', 'off', true);
     end if;
   end if;
 
