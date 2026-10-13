@@ -79,6 +79,19 @@ begin
                                   coalesce(p_hours::text, 'null'), p_pin, p_one_session));
   return r::jsonb;
 end $f$;
+-- walk the access log one entry per page using the (at, rid) cursor; return how many DISTINCT entries came back (a repeat or a loss changes the count)
+create function pg_temp.walk(p_uid uuid) returns bigint language plpgsql as $f$
+declare cur_at text := null; cur_rid text := null; r jsonb; seen text[] := '{}'; n integer := 0;
+begin
+  loop
+    r := pg_temp.q_as(p_uid, format('select public.my_access_log(1, %L, %L)::text', cur_at, cur_rid))::jsonb;
+    exit when jsonb_array_length(r) = 0 or n > 200;
+    seen := seen || (r -> 0 ->> 'rid');
+    cur_at := r -> 0 ->> 'at'; cur_rid := r -> 0 ->> 'rid';
+    n := n + 1;
+  end loop;
+  return (select count(distinct x) from unnest(seen) x);
+end $f$;
 create function pg_temp.open(p_token text, p_pin text, p_client text) returns jsonb
 language plpgsql as $f$
 declare r text;
@@ -166,6 +179,14 @@ begin
   perform pg_temp.ck('a patient cannot unlock a locked share by writing the row', 'true',
     (pg_temp.q_as(v_p, format('update public.record_shares set locked_at = null, pin_misses = 0 where id = %L', s2 ->> 'id')) like 'ERR:permission denied%')::text);
   perform pg_temp.setf('share_pin', (s2 ->> 'id')::uuid);
+  update public.my_health_config set config = jsonb_set(config, '{sharing,pin_digits}', '12') where is_active;
+  perform pg_temp.ck('a config that asks for a PIN length the door could not validate is refused, not issued', 'true',
+    (pg_temp.q_as(v_p, $q$select public.create_record_share(array['vitals']::text[], 1, true, false)::text$q$) like 'ERR:%pin_digits%')::text);
+  update public.my_health_config set config = jsonb_set(config, '{sharing,pin_digits}', '4') where is_active;
+  perform pg_temp.ck('a 4 digit config issues a 4 digit PIN that opens the share', 'true|ok',
+    ((select (s4 ->> 'pin') ~ '^[0-9]{4}$' from (select pg_temp.mk_share(v_p, true) as s4) x))::text || '|' ||
+    (select pg_temp.open(s4 ->> 'token', s4 ->> 'pin', 'd4') ->> 'status' from (select pg_temp.mk_share(v_p, true) as s4) y));
+  update public.my_health_config set config = jsonb_set(config, '{sharing,pin_digits}', '6') where is_active;
   create temp table if not exists toks(k text primary key, t text, pin text) on commit drop;
   grant all on toks to public;
   insert into toks values ('plain', s ->> 'token', null), ('pin', s2 ->> 'token', s2 ->> 'pin'), ('pin_b', s3 ->> 'token', s3 ->> 'pin');
@@ -245,6 +266,12 @@ begin
   perform pg_temp.ck('an expired PIN share fails even with the right PIN', 'true', (r is null or r::text = 'null')::text);
 
   s := pg_temp.mk_share(v_p, false, true); t := s ->> 'token'; v_id := (s ->> 'id')::uuid;
+  perform pg_temp.ck('a landing-page peek says a plain link is ready', 'ready', pg_temp.q_anon(format('select public.record_share_peek(%L)', t)));
+  perform pg_temp.ck('...and a peek is NOT an open: no audit row, no view, no session started', '0|0|true',
+    (select count(*)::text from public.record_share_lookups where share_id = v_id) || '|' || (select view_count::text from public.record_shares where id = v_id) || '|' || (select (first_opened_at is null)::text from public.record_shares where id = v_id));
+  perform pg_temp.ck('a peek at a PIN link says a PIN is needed', 'pin_required', pg_temp.q_anon(format('select public.record_share_peek(%L)', (select toks.t from toks where toks.k = 'pin'))));
+  perform pg_temp.ck('a peek at an unknown token is null, like the door', 'true', (pg_temp.q_anon(format('select public.record_share_peek(%L)', repeat('cd', 32))) is null)::text);
+  perform pg_temp.ck('a peek at a locked link is null', 'true', (pg_temp.q_anon(format('select public.record_share_peek(%L)', (select token from public.record_shares where locked_at is not null limit 1))) is null)::text);
   r := pg_temp.open(t, null, 'o1');
   perform pg_temp.ck('a one-session share opens and says when the session ends', 'ok|true', (r ->> 'status') || '|' || (r ->> 'session_ends_at' is not null)::text);
   perform pg_temp.ck('...and opens again inside the window', 'ok', pg_temp.open(t, null, 'o2') ->> 'status');
@@ -291,10 +318,10 @@ begin
   perform pg_temp.ck('reproductive_health appears nowhere in the log', 'false', (v_log ilike '%reproductive%')::text);
   perform pg_temp.ck('another patient sees none of it', '[]', pg_temp.q_as(v_q, 'select public.my_access_log()::text'));
   perform pg_temp.ck('a page of one returns one', '1', jsonb_array_length(pg_temp.q_as(v_p, 'select public.my_access_log(1)::text')::jsonb)::text);
-  perform pg_temp.ck('a cursor returns only older entries', 'true',
-    (((select count(*) from jsonb_array_elements(pg_temp.q_as(v_p, format('select public.my_access_log(100, %L)::text', (v_j -> 0 ->> 'at')))::jsonb))
-      = (select count(*) from jsonb_array_elements(v_j) x where (x ->> 'at')::timestamptz < (v_j -> 0 ->> 'at')::timestamptz)
-      and (select count(*) from jsonb_array_elements(v_j) x where (x ->> 'at')::timestamptz < (v_j -> 0 ->> 'at')::timestamptz) > 0))::text);
+  -- rows that share a timestamp must survive paging: make three lookups tie, then walk the whole list one entry at a time
+  update public.record_share_lookups set looked_up_at = now() - interval '2 minutes' where id in (select id from public.record_share_lookups order by id limit 3);
+  perform pg_temp.ck('keyset paging one entry at a time loses and repeats nothing, even across tied timestamps', 'true',
+    (pg_temp.walk(v_p) = (select count(*) from jsonb_array_elements(pg_temp.q_as(v_p, 'select public.my_access_log(100)::text')::jsonb)))::text);
   -- the gate opens: flip the staff-opens flag
   update public.my_health_config set config = jsonb_set(config, '{access_log,show_staff_opens}', 'true') where is_active;
   v_j := pg_temp.q_as(v_p, 'select public.my_access_log()::text')::jsonb;

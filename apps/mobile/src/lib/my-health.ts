@@ -6,6 +6,7 @@ import { supabase } from "./supabase";
 /** One row of `public.my_access_log()`: who, when, what kind of thing. Never a value, a reason or a medicine, condition or allergen name. */
 export interface AccessLogEntry {
   at: string;
+  rid: string;
   kind: string;
   actor_label: string;
   actor_name: string | null;
@@ -17,11 +18,11 @@ export interface AccessLogEntry {
 export type AccessLogResult = { ok: true; entries: AccessLogEntry[] } | { ok: false };
 
 /** A failed read is `{ ok: false }`, never an empty list that would read as "no one has looked". */
-export async function loadAccessLog(before?: string): Promise<AccessLogResult> {
-  const { data, error } = await supabase.rpc("my_access_log", before ? { p_before: before } : {});
+export async function loadAccessLog(before?: { at: string; rid: string }): Promise<AccessLogResult> {
+  const { data, error } = await supabase.rpc("my_access_log", before ? { p_before: before.at, p_before_id: before.rid } : {});
   if (error || !Array.isArray(data)) return { ok: false };
   const entries = (data as unknown[]).filter(
-    (e): e is AccessLogEntry => typeof e === "object" && e !== null && typeof (e as AccessLogEntry).at === "string" && typeof (e as AccessLogEntry).kind === "string",
+    (e): e is AccessLogEntry => typeof e === "object" && e !== null && typeof (e as AccessLogEntry).at === "string" && typeof (e as AccessLogEntry).rid === "string" && typeof (e as AccessLogEntry).kind === "string",
   );
   return { ok: true, entries };
 }
@@ -42,14 +43,15 @@ export function describeAccessEntry(entry: AccessLogEntry): DescribedEntry {
   });
   const statusKey = entry.status ? `my_health.log.status.${entry.status}` : null;
   return {
-    title: known(kindKey) ? t(kindKey) : t("my_health.log.category.record"),
+    title: known(kindKey) ? t(kindKey) : t("my_health.log.kind.other"),
     who: entry.actor_name ? `${entry.actor_name} (${entry.actor_label})` : entry.actor_label,
     what: t("my_health.log.what", "en", { what: categories.join(", ") }),
     status: statusKey && known(statusKey) ? t(statusKey) : null,
   };
 }
 
-const PASS_KEY = "lock-screen-pass-enabled-v1";
+/** The setting is cached per account, so a second person signing in on the same phone never inherits the first person's choice. */
+const passKey = (userId: string) => `lock-screen-pass-enabled-v1-${userId}`;
 
 export interface PassState {
   facts: LockScreenFacts;
@@ -59,12 +61,12 @@ export interface PassState {
   cardPayload: LockScreenPayload | null;
 }
 
-export async function loadPassState(): Promise<{ ok: true; state: PassState } | { ok: false }> {
+export async function loadPassState(userId: string): Promise<{ ok: true; state: PassState } | { ok: false }> {
   const { data, error } = await supabase.rpc("my_lock_screen_facts");
   if (error || !data || typeof data !== "object" || Array.isArray(data)) return { ok: false };
   const facts = data as LockScreenFacts;
   // Keep the device copy of the setting in step with the server, best effort. The server is the source of truth.
-  SecureStore.setItemAsync(PASS_KEY, facts.enabled === true ? "true" : "false").catch(() => {});
+  SecureStore.setItemAsync(passKey(userId), facts.enabled === true ? "true" : "false").catch(() => {});
   return {
     ok: true,
     state: {
@@ -76,17 +78,17 @@ export async function loadPassState(): Promise<{ ok: true; state: PassState } | 
 }
 
 /** The setting as last seen on this phone, for use before the network answers. Off when unknown. */
-export async function loadCachedPassEnabled(): Promise<boolean> {
+export async function loadCachedPassEnabled(userId: string): Promise<boolean> {
   try {
-    return (await SecureStore.getItemAsync(PASS_KEY)) === "true";
+    return (await SecureStore.getItemAsync(passKey(userId))) === "true";
   } catch {
     return false;
   }
 }
 
-export async function setPassEnabled(enabled: boolean): Promise<{ error?: string }> {
+export async function setPassEnabled(enabled: boolean, userId: string): Promise<{ error?: string }> {
   const { error } = await supabase.rpc("set_lock_screen_pass", { p_enabled: enabled });
   if (error) return { error: error.message };
-  SecureStore.setItemAsync(PASS_KEY, enabled ? "true" : "false").catch(() => {});
+  SecureStore.setItemAsync(passKey(userId), enabled ? "true" : "false").catch(() => {});
   return {};
 }

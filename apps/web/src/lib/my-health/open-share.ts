@@ -42,3 +42,19 @@ export async function openShare(token: string, pin: string | null, clientKey: st
       return { kind: "unavailable" };
   }
 }
+
+export type PeekResult = "ready" | "pin_required" | "unavailable";
+
+/**
+ * A side-effect-free look for the landing page. A link preview, crawler or prefetch fetching the page must not count as the recipient opening the
+ * record (no audit row, no view, no one-session window), so the page peeks and only an explicit submit calls openShare.
+ */
+export async function peekShare(token: string): Promise<PeekResult> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) return "unavailable";
+  const supabase = createClient<Database>(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  const { data, error } = await supabase.rpc("record_share_peek", { p_token: token });
+  if (error) return "unavailable";
+  return data === "ready" || data === "pin_required" ? data : "unavailable";
+}

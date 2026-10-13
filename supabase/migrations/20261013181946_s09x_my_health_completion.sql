@@ -149,6 +149,8 @@ begin
     raise exception 'invalid section in list: allowed are vitals, medications, conditions, allergies, lab_results, vaccinations, emergency_info';
   end if;
   if v_cfg is null or v_cfg ->> 'default_expiry_hours' is null then raise exception 'sharing config missing'; end if;
+  -- The door accepts 4 to 12 digit PINs; 32 random bits fill at most 9 digits without bias worth the name. Refuse a config outside that, never issue a PIN that cannot validate.
+  if v_digits < 4 or v_digits > 9 then raise exception 'pin_digits must be between 4 and 9'; end if;
   v_hours := coalesce(p_expires_in_hours, (v_cfg ->> 'default_expiry_hours')::integer);
   if v_hours < 1 or v_hours > least(v_max, 720) then raise exception 'expires_in_hours must be between 1 and %', least(v_max, 720); end if;
 
@@ -353,72 +355,102 @@ $$;
 revoke all on function public.record_share_by_token(text, text, text) from public;
 grant execute on function public.record_share_by_token(text, text, text) to anon, authenticated;
 
+-- A side-effect-free look at a link, for the landing page. A link preview, a crawler or a browser prefetch fetches the page; it must not count as the
+-- recipient opening the record, start a one-session window or write an 'opened' audit row. Only an explicit submit calls record_share_by_token.
+--   null = not available (same cases as the door), 'pin_required' = needs its PIN, 'ready' = open on request. Dead links feed the same failure counter.
+create function public.record_share_peek(p_token text) returns text
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  v_share public.record_shares%rowtype;
+  v_osw   integer := coalesce((private.my_health_cfg('sharing') ->> 'one_session_window_minutes')::integer, 30);
+begin
+  if p_token is null or length(p_token) < 32 then return null; end if;
+  select * into v_share from public.record_shares where token = p_token;
+  if not found or not v_share.is_active or v_share.expires_at <= now() or v_share.locked_at is not null
+     or (v_share.one_session and v_share.first_opened_at is not null and now() > v_share.first_opened_at + make_interval(mins => v_osw)) then
+    perform private.log_public_lookup_failure('record_share');
+    return null;
+  end if;
+  return case when v_share.pin_hash is not null then 'pin_required' else 'ready' end;
+end;
+$$;
+revoke all on function public.record_share_peek(text) from public;
+grant execute on function public.record_share_peek(text) to anon, authenticated;
+
 -- 5. The patient's access log ------------------------------------------------------------------------------------------------------
 --   Who, when, what kind of thing. Never a value, a reason, a medicine, a condition or an allergen. Routine staff openings (S39c) are NOT shown
 --   unless access_log.show_staff_opens is true: founder direction 2026-10-07 is that the patient is not told, pending counsel (OQ-281).
 --   Break-glass and emergency access ARE shown: they are exceptional, and the plan (S06-S10 section 3.4) promises it.
 --   reproductive_health: nothing here reads a category table; break-glass never opens it (private.has_emergency_access) and no row names it.
-create function public.my_access_log(p_limit integer default null, p_before timestamptz default null) returns jsonb
+create function public.my_access_log(p_limit integer default null, p_before timestamptz default null, p_before_id text default null) returns jsonb
 language plpgsql stable security definer set search_path = ''
 as $$
 declare
   v_uid   uuid := (select auth.uid());
   v_cfg   jsonb := private.my_health_cfg('access_log');
   v_size  integer;
-  v_staff boolean := coalesce((private.my_health_cfg('access_log') ->> 'show_staff_opens')::boolean, false);
+  v_staff boolean := coalesce((v_cfg ->> 'show_staff_opens')::boolean, false);
 begin
   if v_uid is null then raise exception 'not authenticated'; end if;
   v_size := least(greatest(coalesce(p_limit, (v_cfg ->> 'page_size')::integer, 50), 1), coalesce((v_cfg ->> 'max_page_size')::integer, 100));
 
+  -- Keyset paging on (at, rid): rid is unique per source row, so rows sharing a timestamp (a wrong PIN and the lock it caused are written in one
+  -- transaction) are never lost at a page boundary. Each source applies the cursor and its own limit first, so a long history is never scanned whole.
   return coalesce((
     select jsonb_agg(jsonb_build_object(
-             'at', e.at, 'kind', e.kind, 'actor_label', e.actor_label, 'actor_name', e.actor_name,
-             'categories', e.categories, 'status', e.status, 'ends_at', e.ends_at) order by e.at desc)
+             'at', e.at, 'rid', e.rid, 'kind', e.kind, 'actor_label', e.actor_label, 'actor_name', e.actor_name,
+             'categories', e.categories, 'status', e.status, 'ends_at', e.ends_at) order by e.at desc, e.rid desc)
     from (
       select * from (
-        select l.looked_up_at as at,
+        (select l.looked_up_at as at, 'l:' || l.id::text as rid,
                case l.outcome when 'opened' then 'share_opened' when 'pin_wrong' then 'share_pin_wrong' else 'share_locked' end as kind,
                'Someone with your share link'::text as actor_label, null::text as actor_name,
                s.sections as categories, null::text as status, null::timestamptz as ends_at
           from public.record_share_lookups l join public.record_shares s on s.id = l.share_id
-         where s.patient_id = v_uid
+         where s.patient_id = v_uid and (p_before is null or l.looked_up_at < p_before or (p_before_id is not null and l.looked_up_at = p_before and ('l:' || l.id::text) < p_before_id))
+         order by l.looked_up_at desc, l.id desc limit v_size)
         union all
-        select l.looked_up_at, 'emergency_card_opened', 'Someone with your emergency card link', null, array['emergency_card']::text[], null, null
+        (select l.looked_up_at, 'c:' || l.id::text, 'emergency_card_opened', 'Someone with your emergency card link', null, array['emergency_card']::text[], null, null
           from public.emergency_card_lookups l join public.emergency_cards c on c.id = l.card_id
-         where c.patient_id = v_uid
+         where c.patient_id = v_uid and (p_before is null or l.looked_up_at < p_before or (p_before_id is not null and l.looked_up_at = p_before and ('c:' || l.id::text) < p_before_id))
+         order by l.looked_up_at desc, l.id desc limit v_size)
         union all
-        select g.granted_at, 'emergency_access_grant', 'Person you allowed to use emergency access', p.full_name, array['emergency_access']::text[],
+        (select g.granted_at, 'g:' || g.id::text, 'emergency_access_grant', 'Person you allowed to use emergency access', p.full_name, array['emergency_access']::text[],
                case when g.revoked_at is not null then 'revoked' when g.expires_at <= now() then 'expired' else 'active' end,
                coalesce(g.revoked_at, g.expires_at)
           from public.emergency_access_grants g left join public.profiles p on p.id = g.grantee_user_id
-         where g.profile_id = v_uid
+         where g.profile_id = v_uid and (p_before is null or g.granted_at < p_before or (p_before_id is not null and g.granted_at = p_before and ('g:' || g.id::text) < p_before_id))
+         order by g.granted_at desc, g.id desc limit v_size)
         union all
-        select g.granted_at, 'emergency_record_access', 'Clinician using emergency access',
+        (select g.granted_at, 'b:' || g.id::text, 'emergency_record_access', 'Clinician using emergency access',
                nullif(concat_ws(', ', p.full_name, o.name), ''), array['emergency_record']::text[],
                case when g.ended_at is not null then 'ended' when g.expires_at <= now() then 'expired' else 'active' end,
                coalesce(g.ended_at, g.expires_at)
           from public.emergency_record_access_grants g
           left join public.profiles p on p.id = g.requester_id
           left join public.organisations o on o.id = g.requester_org_id
-         where g.patient_id = v_uid
+         where g.patient_id = v_uid and (p_before is null or g.granted_at < p_before or (p_before_id is not null and g.granted_at = p_before and ('b:' || g.id::text) < p_before_id))
+         order by g.granted_at desc, g.id desc limit v_size)
         union all
-        select e2.occurred_at, 'delegated_access', 'Person you gave access to', p.full_name, array[coalesce(e2.scope, 'record')]::text[], null, null
+        (select e2.occurred_at, 'd:' || e2.id::text, 'delegated_access', 'Person you gave access to', p.full_name, array[coalesce(e2.scope, 'record')]::text[], null, null
           from public.care_access_events e2 left join public.profiles p on p.id = e2.actor_profile_id
-         where e2.patient_id = v_uid and e2.kind in ('record_viewed', 'receipt_generated', 'acted_for')
+         where e2.patient_id = v_uid and e2.kind in ('record_viewed', 'receipt_generated', 'acted_for') and (p_before is null or e2.occurred_at < p_before or (p_before_id is not null and e2.occurred_at = p_before and ('d:' || e2.id::text) < p_before_id))
+         order by e2.occurred_at desc, e2.id desc limit v_size)
         union all
-        select o2.opened_at, 'staff_record_opened', 'Member of your care team', p.full_name, array['record_opened']::text[], o2.basis, o2.expires_at
+        (select o2.opened_at, 's:' || o2.id::text, 'staff_record_opened', 'Member of your care team', p.full_name, array['record_opened']::text[], o2.basis, o2.expires_at
           from public.staff_record_opens o2 left join public.profiles p on p.id = o2.staff_id
-         where v_staff and o2.patient_id = v_uid
+         where v_staff and o2.patient_id = v_uid and (p_before is null or o2.opened_at < p_before or (p_before_id is not null and o2.opened_at = p_before and ('s:' || o2.id::text) < p_before_id))
+         order by o2.opened_at desc, o2.id desc limit v_size)
       ) u
-      where p_before is null or u.at < p_before
-      order by u.at desc
+      order by u.at desc, u.rid desc
       limit v_size
     ) e
   ), '[]'::jsonb);
 end;
 $$;
-revoke all on function public.my_access_log(integer, timestamptz) from public, anon;
-grant execute on function public.my_access_log(integer, timestamptz) to authenticated;
+revoke all on function public.my_access_log(integer, timestamptz, text) from public, anon;
+grant execute on function public.my_access_log(integer, timestamptz, text) to authenticated;
 
 -- 6. Lock-screen presence ---------------------------------------------------------------------------------------------------------
 create table public.patient_lock_screen_pass (
@@ -511,10 +543,11 @@ do $$
 begin
   if (select count(*) from public.my_health_config where is_active) <> 1 then raise exception 'S09x: exactly one active my_health_config expected'; end if;
   if has_function_privilege('anon', 'public.create_record_share(text[], integer, boolean, boolean)', 'EXECUTE') then raise exception 'S09x: anon can create shares'; end if;
-  if has_function_privilege('anon', 'public.my_access_log(integer, timestamptz)', 'EXECUTE') then raise exception 'S09x: anon can read the access log'; end if;
+  if has_function_privilege('anon', 'public.my_access_log(integer, timestamptz, text)', 'EXECUTE') then raise exception 'S09x: anon can read the access log'; end if;
   if has_function_privilege('anon', 'public.my_lock_screen_facts()', 'EXECUTE') then raise exception 'S09x: anon can read lock-screen facts'; end if;
   if has_function_privilege('anon', 'public.set_lock_screen_pass(boolean)', 'EXECUTE') then raise exception 'S09x: anon can set the pass'; end if;
   if has_function_privilege('anon', 'public.sign_my_health_config(uuid)', 'EXECUTE') then raise exception 'S09x: anon can sign'; end if;
+  if not has_function_privilege('anon', 'public.record_share_peek(text)', 'EXECUTE') then raise exception 'S09x: the share landing check must stay anon-callable'; end if;
   if not has_function_privilege('anon', 'public.record_share_by_token(text, text, text)', 'EXECUTE') then raise exception 'S09x: the share door must stay anon-callable'; end if;
   if has_column_privilege('authenticated', 'public.record_shares', 'pin_hash', 'SELECT') then raise exception 'S09x: a client can read pin_hash'; end if;
   if has_table_privilege('authenticated', 'public.record_shares', 'UPDATE') or has_table_privilege('authenticated', 'public.record_shares', 'INSERT') then

@@ -5,15 +5,10 @@ import { en, t, type Locale, type MessageKey } from "@tarragon/i18n";
 /** One row of `public.my_access_log()`. Who, when, what kind of thing. Never a value, a reason or a name of a medicine, condition or allergen. */
 export interface AccessLogEntry {
   at: string;
-  kind:
-    | "share_opened"
-    | "share_pin_wrong"
-    | "share_locked"
-    | "emergency_card_opened"
-    | "emergency_access_grant"
-    | "emergency_record_access"
-    | "delegated_access"
-    | "staff_record_opened";
+  /** Unique per source row; with `at` it is the paging cursor, so rows that share a timestamp are never lost. */
+  rid: string;
+  /** One of the kinds below today; typed as a string because the server may add more. */
+  kind: string;
   actor_label: string;
   actor_name: string | null;
   categories: string[];
@@ -21,25 +16,23 @@ export interface AccessLogEntry {
   ends_at: string | null;
 }
 
-const KINDS = new Set<string>([
-  "share_opened",
-  "share_pin_wrong",
-  "share_locked",
-  "emergency_card_opened",
-  "emergency_access_grant",
-  "emergency_record_access",
-  "delegated_access",
-  "staff_record_opened",
-]);
-
 export type AccessLogResult = { ok: true; entries: AccessLogEntry[] } | { ok: false };
 
-/** Never throws: a failed read is `{ ok: false }` so the page can say so instead of showing an empty list that looks like "no one looked". */
-export async function fetchAccessLog(supabase: SupabaseClient<Database>, before?: string): Promise<AccessLogResult> {
-  const { data, error } = await supabase.rpc("my_access_log", before ? { p_before: before } : {});
+export interface AccessLogCursor {
+  at: string;
+  rid: string;
+}
+
+/**
+ * Never throws: a failed read is `{ ok: false }` so the page can say so instead of showing an empty list that looks like "no one looked".
+ * A row of a kind this build does not know is KEPT (describeEntry gives it a neutral title) rather than dropped, so a new kind added on the
+ * server is never silently hidden and the page length still tells the caller whether another page exists.
+ */
+export async function fetchAccessLog(supabase: SupabaseClient<Database>, before?: AccessLogCursor): Promise<AccessLogResult> {
+  const { data, error } = await supabase.rpc("my_access_log", before ? { p_before: before.at, p_before_id: before.rid } : {});
   if (error || !Array.isArray(data)) return { ok: false };
   const entries = (data as unknown[]).filter(
-    (e): e is AccessLogEntry => typeof e === "object" && e !== null && typeof (e as AccessLogEntry).at === "string" && KINDS.has((e as AccessLogEntry).kind),
+    (e): e is AccessLogEntry => typeof e === "object" && e !== null && typeof (e as AccessLogEntry).at === "string" && typeof (e as AccessLogEntry).rid === "string" && typeof (e as AccessLogEntry).kind === "string",
   );
   return { ok: true, entries };
 }
@@ -60,7 +53,7 @@ export function describeEntry(entry: AccessLogEntry, locale: Locale = "en"): Des
   const statusKey = entry.status ? (`my_health.log.status.${entry.status}` as MessageKey) : null;
   const status = statusKey && Object.hasOwn(en, statusKey) ? t(statusKey, locale) : null;
   return {
-    title: t(`my_health.log.kind.${entry.kind}` as MessageKey, locale),
+    title: Object.hasOwn(en, `my_health.log.kind.${entry.kind}`) ? t(`my_health.log.kind.${entry.kind}` as MessageKey, locale) : t("my_health.log.kind.other", locale),
     who: entry.actor_name ? `${entry.actor_name} (${entry.actor_label})` : entry.actor_label,
     what: t("my_health.log.what", locale, { what: entry.categories.map(categoryName).join(", ") }),
     status,

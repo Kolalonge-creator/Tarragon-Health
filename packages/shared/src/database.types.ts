@@ -43187,7 +43187,7 @@ export type Database = {
       record_lab_disclosure_attempt: { Args: { p_note?: string; p_outcome: string; p_result: string }; Returns: Json };
       sign_lab_panels: { Args: { p_id: string }; Returns: string };
       sign_my_health_config: { Args: { p_id: string }; Returns: string };
-      my_access_log: { Args: { p_limit?: number; p_before?: string }; Returns: Json };
+      my_access_log: { Args: { p_limit?: number; p_before?: string; p_before_id?: string }; Returns: Json };
       my_lock_screen_facts: { Args: Record<PropertyKey, never>; Returns: Json };
       set_lock_screen_pass: { Args: { p_enabled: boolean }; Returns: boolean };
       withdraw_lab_result: { Args: { p_reason: string; p_result: string }; Returns: Json };
@@ -46875,6 +46875,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      record_share_peek: { Args: { p_token: string }; Returns: string }
       record_share_by_token: {
         Args: { p_token: string; p_pin?: string; p_client_key?: string }
         Returns: Json

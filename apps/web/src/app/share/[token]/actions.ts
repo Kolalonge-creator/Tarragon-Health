@@ -17,11 +17,14 @@ async function clientKey(): Promise<string | null> {
   return forwarded || h.get("x-real-ip") || null;
 }
 
-/** Bound to the link's token on the page. The PIN travels in the form body, never in a URL. */
-export async function unlockShare(token: string, _prev: UnlockState, formData: FormData): Promise<UnlockState> {
-  const pin = String(formData.get("pin") ?? "").trim();
-  if (!isWellFormedPin(pin)) return { status: "pin_required", attemptsLeft: null, message: "format" };
-  const result = await openShare(token, pin, await clientKey());
+/**
+ * Bound to the link's token on the page. The PIN travels in the form body, never in a URL. This explicit submit is the only thing that counts as
+ * an open: the landing page itself only peeks, so a link preview or prefetch never does.
+ */
+export async function unlockShare(token: string, needsPin: boolean, _prev: UnlockState, formData: FormData): Promise<UnlockState> {
+  const pin = needsPin ? String(formData.get("pin") ?? "").trim() : "";
+  if (needsPin && !isWellFormedPin(pin)) return { status: "pin_required", attemptsLeft: null, message: "format" };
+  const result = await openShare(token, needsPin ? pin : null, await clientKey());
   switch (result.kind) {
     case "ok":
       return { status: "ok", record: result.record as unknown as SharedData };

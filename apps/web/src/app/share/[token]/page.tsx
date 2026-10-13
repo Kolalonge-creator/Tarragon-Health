@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
-import { openShare } from "@/lib/my-health/open-share";
+import { peekShare } from "@/lib/my-health/open-share";
 import { t } from "@tarragon/i18n";
 import { PinGate } from "./pin-gate";
-import { SharedRecordView, type SharedData } from "./shared-record-view";
 
 export const metadata: Metadata = {
   title: "Shared health record",
@@ -20,15 +18,10 @@ export default async function SharePage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
-  const h = await headers();
-  const client = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || null;
-  const result = await openShare(token, null, client);
-
-  if (result.kind === "ok") return <SharedRecordView record={result.record as unknown as SharedData} />;
-  // A valid link that needs its PIN. The record is not fetched until the PIN is right.
-  if (result.kind === "pin_required" || result.kind === "try_later") {
-    return <PinGate token={token} initialAttemptsLeft={null} />;
-  }
+  // Only a peek: loading this page is not an open. A chat app's link preview or a browser prefetch must not log "someone opened your link",
+  // start a one-session window, or use up the recipient's chance to see the record. The record is fetched on the explicit button press.
+  const peek = await peekShare(token);
+  if (peek !== "unavailable") return <PinGate token={token} needsPin={peek === "pin_required"} />;
 
   return (
     <main className="mx-auto max-w-md p-6">

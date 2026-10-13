@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Linking, ScrollView, Switch, Text, View } from "react-native";
+import { getProposedConfig } from "@tarragon/shared";
 import { t } from "@tarragon/i18n";
 import {
   describeAccessEntry,
@@ -15,7 +16,7 @@ import { spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, GroupedList, GroupedListRow, MutedText, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = (getProposedConfig("my_health.sharing_and_access_log").value as unknown as { access_log: { page_size: number } }).access_log.page_size;
 
 const formatWhen = (value: string) =>
   new Date(value).toLocaleString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -27,7 +28,7 @@ interface MyHealthScreenProps {
   onNavigate: (section: SectionId) => void;
 }
 
-export function MyHealthScreen({ acting, onNavigate }: MyHealthScreenProps) {
+export function MyHealthScreen({ userId, acting, onNavigate }: MyHealthScreenProps) {
   const colors = useLegacyColors();
   const [entries, setEntries] = useState<AccessLogEntry[]>([]);
   const [logLoading, setLogLoading] = useState(true);
@@ -43,7 +44,7 @@ export function MyHealthScreen({ acting, onNavigate }: MyHealthScreenProps) {
       return;
     }
     setLogLoading(true);
-    const [log, passResult] = await Promise.all([loadAccessLog(), loadPassState()]);
+    const [log, passResult] = await Promise.all([loadAccessLog(), loadPassState(userId)]);
     if (log.ok) {
       setEntries(log.entries);
       setMore(log.entries.length >= PAGE_SIZE);
@@ -58,7 +59,7 @@ export function MyHealthScreen({ acting, onNavigate }: MyHealthScreenProps) {
       setPassError(true);
     }
     setLogLoading(false);
-  }, [acting]);
+  }, [acting, userId]);
 
   useEffect(() => {
     void loadFirst();
@@ -67,7 +68,7 @@ export function MyHealthScreen({ acting, onNavigate }: MyHealthScreenProps) {
   const loadOlder = async () => {
     const last = entries[entries.length - 1];
     if (!last) return;
-    const r = await loadAccessLog(last.at);
+    const r = await loadAccessLog({ at: last.at, rid: last.rid });
     if (!r.ok) {
       setLogError(true);
       return;
@@ -78,11 +79,11 @@ export function MyHealthScreen({ acting, onNavigate }: MyHealthScreenProps) {
 
   const toggle = async (next: boolean) => {
     setSaving(true);
-    const r = await setPassEnabled(next);
+    const r = await setPassEnabled(next, userId);
     if (r.error) setPassError(true);
     else {
       setPassError(false);
-      const fresh = await loadPassState();
+      const fresh = await loadPassState(userId);
       if (fresh.ok) setPass(fresh.state);
     }
     setSaving(false);
@@ -158,11 +159,11 @@ export function MyHealthScreen({ acting, onNavigate }: MyHealthScreenProps) {
           ) : (
             <>
               <GroupedList>
-                {entries.map((e, i) => {
+                {entries.map((e) => {
                   const d = describeAccessEntry(e);
                   return (
                     <GroupedListRow
-                      key={`${e.at}-${e.kind}-${i}`}
+                      key={e.rid}
                       title={d.title}
                       subtitle={[d.who, formatWhen(e.at), d.what, d.status].filter(Boolean).join(" · ")}
                       trailing="none"

@@ -60,6 +60,11 @@ describe("buildLockScreenPayload", () => {
     expect(buildLockScreenPayload({ ...SIGNED, fields_signed: false }, { requireSigned: false })).not.toBeNull();
   });
 
+  it("fails closed when the response carries no governed field list", () => {
+    expect(buildLockScreenPayload({ ...SIGNED, fields: undefined })).toBeNull();
+    expect(buildLockScreenPayload({ ...SIGNED, fields: [] })).toBeNull();
+  });
+
   it("honours a narrower governed field list", () => {
     const p = buildLockScreenPayload({ ...SIGNED, fields: ["initials", "unlock_hint"] });
     expect(p?.rows.map((r) => r.key)).toEqual(["initials", "unlock_hint"]);

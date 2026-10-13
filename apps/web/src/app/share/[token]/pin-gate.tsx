@@ -14,10 +14,10 @@ function Unavailable() {
   );
 }
 
-export function PinGate({ token, initialAttemptsLeft }: { token: string; initialAttemptsLeft: number | null }) {
-  const [state, action, pending] = useActionState(unlockShare.bind(null, token), {
+export function PinGate({ token, needsPin }: { token: string; needsPin: boolean }) {
+  const [state, action, pending] = useActionState(unlockShare.bind(null, token, needsPin), {
     status: "pin_required",
-    attemptsLeft: initialAttemptsLeft,
+    attemptsLeft: null,
   } as UnlockState);
 
   if (state.status === "ok") return <SharedRecordView record={state.record} />;
@@ -26,23 +26,27 @@ export function PinGate({ token, initialAttemptsLeft }: { token: string; initial
   return (
     <main className="mx-auto max-w-md p-6">
       <p className="text-xs font-medium uppercase tracking-wide text-tarragon-green">TarragonHealth</p>
-      <h1 className="mt-1 text-lg font-semibold text-charcoal-ink">{t("share.public.pin_title")}</h1>
-      <p className="mt-2 text-sm text-charcoal-ink/70">{t("share.public.pin_help")}</p>
+      <h1 className="mt-1 text-lg font-semibold text-charcoal-ink">{needsPin ? t("share.public.pin_title") : t("share.public.open_title")}</h1>
+      <p className="mt-2 text-sm text-charcoal-ink/70">{needsPin ? t("share.public.pin_help") : t("share.public.open_help")}</p>
       <form action={action} className="mt-4 space-y-3" autoComplete="off">
-        <label htmlFor="pin" className="block text-sm font-medium text-charcoal-ink">
-          {t("share.public.pin_label")}
-        </label>
-        <input
-          id="pin"
-          name="pin"
-          type="password"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          maxLength={12}
-          autoComplete="one-time-code"
-          required
-          className="w-full rounded-lg border border-charcoal-ink/20 px-3 py-2 text-lg tracking-widest"
-        />
+        {needsPin ? (
+          <>
+            <label htmlFor="pin" className="block text-sm font-medium text-charcoal-ink">
+              {t("share.public.pin_label")}
+            </label>
+            <input
+              id="pin"
+              name="pin"
+              type="password"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={12}
+              autoComplete="one-time-code"
+              required
+              className="w-full rounded-lg border border-charcoal-ink/20 px-3 py-2 text-lg tracking-widest"
+            />
+          </>
+        ) : null}
         <button
           type="submit"
           disabled={pending}

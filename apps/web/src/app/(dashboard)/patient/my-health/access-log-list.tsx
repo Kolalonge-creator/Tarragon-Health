@@ -19,7 +19,7 @@ export function AccessLogList({ initial, pageSize }: { initial: AccessLogEntry[]
     start(async () => {
       const last = entries[entries.length - 1];
       if (!last) return;
-      const r = await fetchAccessLog(createClient(), last.at);
+      const r = await fetchAccessLog(createClient(), { at: last.at, rid: last.rid });
       if (!r.ok) {
         setFailed(true);
         return;
@@ -34,10 +34,10 @@ export function AccessLogList({ initial, pageSize }: { initial: AccessLogEntry[]
   return (
     <div className="space-y-3">
       <ul className="space-y-2">
-        {entries.map((e, i) => {
+        {entries.map((e) => {
           const d = describeEntry(e);
           return (
-            <li key={`${e.at}-${e.kind}-${i}`} className="rounded-lg border border-charcoal-ink/10 px-3 py-2 text-sm">
+            <li key={e.rid} className="rounded-lg border border-charcoal-ink/10 px-3 py-2 text-sm">
               <p className="font-medium text-charcoal-ink">{d.title}</p>
               <p className="text-charcoal-ink/70">{d.who}</p>
               <p className="text-xs text-charcoal-ink/60">

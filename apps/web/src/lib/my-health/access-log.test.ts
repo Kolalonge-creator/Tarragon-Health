@@ -2,6 +2,7 @@ import { describeEntry, fetchAccessLog, type AccessLogEntry } from "./access-log
 
 const entry = (over: Partial<AccessLogEntry> = {}): AccessLogEntry => ({
   at: "2026-10-13T10:00:00Z",
+  rid: "l:1",
   kind: "share_opened",
   actor_label: "Someone with your share link",
   actor_name: null,
@@ -52,14 +53,20 @@ describe("fetchAccessLog", () => {
     expect(await fetchAccessLog(client({ data: { not: "an array" }, error: null }))).toEqual({ ok: false });
   });
 
-  it("drops rows of a kind it does not know", async () => {
-    const r = await fetchAccessLog(client({ data: [entry(), { at: "2026-10-12T10:00:00Z", kind: "mystery" }], error: null }));
+  it("keeps a row of a kind it does not know, with a neutral title, so nothing is silently hidden", async () => {
+    const r = await fetchAccessLog(client({ data: [entry(), entry({ rid: "x:2", kind: "mystery" })], error: null }));
+    expect(r.ok && r.entries.length).toBe(2);
+    expect(describeEntry(entry({ kind: "mystery" })).title).toBe("Your record was accessed");
+  });
+
+  it("drops a row with no id or time (it cannot be a cursor)", async () => {
+    const r = await fetchAccessLog(client({ data: [entry(), { kind: "share_opened" }], error: null }));
     expect(r.ok && r.entries.length).toBe(1);
   });
 
-  it("passes the cursor", async () => {
+  it("passes the cursor (time and row id)", async () => {
     const c = client({ data: [], error: null });
-    await fetchAccessLog(c, "2026-10-13T10:00:00Z");
-    expect((c as unknown as { rpc: jest.Mock }).rpc).toHaveBeenCalledWith("my_access_log", { p_before: "2026-10-13T10:00:00Z" });
+    await fetchAccessLog(c, { at: "2026-10-13T10:00:00Z", rid: "l:9" });
+    expect((c as unknown as { rpc: jest.Mock }).rpc).toHaveBeenCalledWith("my_access_log", { p_before: "2026-10-13T10:00:00Z", p_before_id: "l:9" });
   });
 });

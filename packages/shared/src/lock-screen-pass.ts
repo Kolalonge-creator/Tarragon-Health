@@ -66,7 +66,8 @@ export function buildLockScreenPayload(facts: LockScreenFacts | null | undefined
   if (!facts || facts.enabled !== true) return null;
   if ((options.requireSigned ?? true) && facts.fields_signed !== true) return null;
 
-  const allowed = new Set<string>((facts.fields ?? LOCK_SCREEN_FIELDS).filter((f): f is string => typeof f === "string"));
+  // No governed list means nothing is allowed: a partial or older response must never widen the pass to every field.
+  const allowed = new Set<string>((facts.fields ?? []).filter((f): f is string => typeof f === "string"));
   const rows: LockScreenRow[] = [];
   const add = (key: LockScreenField, label: string, value: string | null) => {
     if (value !== null && allowed.has(key)) rows.push({ key, label, value });

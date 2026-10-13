@@ -5,7 +5,7 @@
 const rpc = jest.fn();
 jest.mock("@supabase/supabase-js", () => ({ createClient: () => ({ rpc }) }));
 
-import { isWellFormedPin, openShare } from "./open-share";
+import { isWellFormedPin, openShare, peekShare } from "./open-share";
 
 const TOKEN = "a".repeat(64);
 
@@ -65,5 +65,25 @@ describe("isWellFormedPin", () => {
     expect(isWellFormedPin("12 456")).toBe(false);
     expect(isWellFormedPin("12345a")).toBe(false);
     expect(isWellFormedPin("")).toBe(false);
+  });
+});
+
+describe("peekShare (the landing page: never an open)", () => {
+  it("maps ready and pin_required, and everything else to unavailable", async () => {
+    rpc.mockResolvedValue({ data: "ready", error: null });
+    expect(await peekShare(TOKEN)).toBe("ready");
+    rpc.mockResolvedValue({ data: "pin_required", error: null });
+    expect(await peekShare(TOKEN)).toBe("pin_required");
+    for (const reply of [{ data: null, error: null }, { data: "weird", error: null }, { data: null, error: { message: "x" } }]) {
+      rpc.mockResolvedValue(reply);
+      expect(await peekShare(TOKEN)).toBe("unavailable");
+    }
+  });
+
+  it("calls only the peek function with the token alone, never the door", async () => {
+    rpc.mockResolvedValue({ data: "ready", error: null });
+    await peekShare(TOKEN);
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith("record_share_peek", { p_token: TOKEN });
   });
 });
