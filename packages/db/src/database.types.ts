@@ -40574,6 +40574,38 @@ export type Database = {
           reason_for_encounter: string
         }[]
       }
+      accept_dependant_handover: { Args: { p_date_of_birth: string; p_handover: string }; Returns: boolean }
+      cancel_dependant_handover: { Args: { p_dependent: string }; Returns: undefined }
+      decline_dependant_handover: { Args: { p_handover: string }; Returns: undefined }
+      log_proxy_view: { Args: { p_patient: string }; Returns: undefined }
+      my_pending_handover: {
+        Args: never
+        Returns: {
+          expires_at: string
+          guardian_first_name: string
+          id: string
+        }[]
+      }
+      my_proxy_view_log: {
+        Args: { p_limit?: number }
+        Returns: {
+          actor_first_name: string
+          id: string
+          kind: string
+          occurred_at: string
+          scope: string
+        }[]
+      }
+      narrow_proxy_access: {
+        Args: {
+          p_categories: Database["public"]["Enums"]["care_access_category"][]
+          p_grantee: string
+          p_notify?: boolean
+        }
+        Returns: number
+      }
+      revoke_proxy_access: { Args: { p_grantee: string }; Returns: boolean }
+      start_dependant_handover: { Args: { p_dependent: string; p_phone: string }; Returns: string }
       my_pending_proxy_setups: {
         Args: never
         Returns: {
