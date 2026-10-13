@@ -112,28 +112,28 @@ begin
   v_pat := pg_temp.mkuser(v_org, 'pat', 'patient'); v_pat2 := pg_temp.mkuser(v_org, 'pat2', 'patient'); v_pat3 := pg_temp.mkuser(v_org, 'pat3', 'patient');
 
   -- 1. who may propose
-  perform pg_temp.rec('a patient cannot propose', '42501', pg_temp.propose(v_pat, quote_literal('zz_s76_patient') || ', 4::smallint, 60, ''medical_officer''::public.doctor_tier'));
-  perform pg_temp.rec('an ordinary clinician cannot propose', '42501', pg_temp.propose(v_a, quote_literal('zz_s76_clin') || ', 4::smallint, 60, ''medical_officer''::public.doctor_tier'));
+  perform pg_temp.rec('a patient cannot propose', '42501', pg_temp.propose(v_pat, quote_literal('zz_s76_patient') || ', 4::smallint, 60, ''senior_medical_officer''::public.doctor_tier'));
+  perform pg_temp.rec('an ordinary clinician cannot propose', '42501', pg_temp.propose(v_a, quote_literal('zz_s76_clin') || ', 4::smallint, 60, ''senior_medical_officer''::public.doctor_tier'));
   perform pg_temp.act_anon();
-  perform pg_temp.rec('anon cannot propose', '42501', pg_temp.try('select public.create_task_type_proposal(''zz_s76_anon'', 4::smallint, 60, ''medical_officer''::public.doctor_tier)'));
+  perform pg_temp.rec('anon cannot propose', '42501', pg_temp.try('select public.create_task_type_proposal(''zz_s76_anon'', 4::smallint, 60, ''senior_medical_officer''::public.doctor_tier)'));
   perform pg_temp.back();
 
   -- 2. validation (as the admin)
-  perform pg_temp.rec('an existing code is refused', '22023', pg_temp.propose(v_admin, '''symptom_review'', 4::smallint, 60, ''medical_officer''::public.doctor_tier'));
-  perform pg_temp.rec('a bad code is refused', '22023', pg_temp.propose(v_admin, '''Bad Code'', 4::smallint, 60, ''medical_officer''::public.doctor_tier'));
-  perform pg_temp.rec('class 10 is refused', '22023', pg_temp.propose(v_admin, '''zz_s76_c10'', 10::smallint, 60, ''medical_officer''::public.doctor_tier'));
+  perform pg_temp.rec('an existing code is refused', '22023', pg_temp.propose(v_admin, '''symptom_review'', 4::smallint, 60, ''senior_medical_officer''::public.doctor_tier'));
+  perform pg_temp.rec('a bad code is refused', '22023', pg_temp.propose(v_admin, '''Bad Code'', 4::smallint, 60, ''senior_medical_officer''::public.doctor_tier'));
+  perform pg_temp.rec('class 10 is refused', '22023', pg_temp.propose(v_admin, '''zz_s76_c10'', 10::smallint, 60, ''senior_medical_officer''::public.doctor_tier'));
   perform pg_temp.rec('class 1 with a window is refused', '22023', pg_temp.propose(v_admin, '''zz_s76_c1'', 1::smallint, 0, ''senior_medical_officer''::public.doctor_tier, ''{}''::text[], 30'));
-  perform pg_temp.rec('an unknown competency is refused', '22023', pg_temp.propose(v_admin, '''zz_s76_comp'', 4::smallint, 60, ''medical_officer''::public.doctor_tier, ''{no_such_skill}''::text[]'));
-  perform pg_temp.rec('a triage key already answered is refused', '22023', pg_temp.propose(v_admin, '''zz_s76_key'', 4::smallint, 60, ''medical_officer''::public.doctor_tier, ''{}''::text[], 0, 30, false, ''{bp_review}''::text[]'));
+  perform pg_temp.rec('an unknown competency is refused', '22023', pg_temp.propose(v_admin, '''zz_s76_comp'', 4::smallint, 60, ''senior_medical_officer''::public.doctor_tier, ''{no_such_skill}''::text[]'));
+  perform pg_temp.rec('a triage key already answered is refused', '22023', pg_temp.propose(v_admin, '''zz_s76_key'', 4::smallint, 60, ''senior_medical_officer''::public.doctor_tier, ''{}''::text[], 0, 30, false, ''{bp_review}''::text[]'));
 
   -- 3. admin proposes; unconfirmed; audited; only the CMO confirms
-  perform pg_temp.rec('an admin can propose', 'ok', pg_temp.propose(v_admin, '''zz_s76_new_type'', 3::smallint, 120, ''medical_officer''::public.doctor_tier, ''{adult_general}''::text[], 0, 30, false, ''{}''::text[], ''S76B4 proof type'''));
+  perform pg_temp.rec('an admin can propose', 'ok', pg_temp.propose(v_admin, '''zz_s76_new_type'', 3::smallint, 120, ''senior_medical_officer''::public.doctor_tier, ''{adult_general}''::text[], 0, 30, false, ''{}''::text[], ''S76B4 proof type'''));
   perform pg_temp.rec('the proposal is active and unconfirmed', 'true,true,true', (select is_active::text || ',' || needs_confirmation::text || ',' || (confirmed_at is null)::text from public.task_types where code = 'zz_s76_new_type'));
   perform pg_temp.rec('the proposal is audited', '1', (select count(*)::text from public.audit_log where action = 'task_type.proposed' and event ->> 'code' = 'zz_s76_new_type'));
   perform pg_temp.act(v_admin);
   perform pg_temp.rec('an admin cannot confirm', '42501', pg_temp.try('select public.confirm_task_type(''zz_s76_new_type'', ''x'')'));
   perform pg_temp.back();
-  perform pg_temp.rec('the CMO can propose too', 'ok', pg_temp.propose(v_cmo, '''zz_s76_cmo_type'', 6::smallint, 600, ''medical_officer''::public.doctor_tier'));
+  perform pg_temp.rec('the CMO can propose too', 'ok', pg_temp.propose(v_cmo, '''zz_s76_cmo_type'', 6::smallint, 600, ''senior_medical_officer''::public.doctor_tier'));
 
   -- 4. ACCEPTANCE: the new type is in the queue with its own class and claimable, ahead of a lower-class task, no code change
   t_amber := private.create_clinical_task(v_pat2, 'amber_bp_review', 60);
@@ -153,7 +153,7 @@ begin
   execute replace(pg_get_functiondef('public.create_task_type_proposal(text, smallint, integer, public.doctor_tier, text[], integer, integer, boolean, text[], text)'::regprocedure),
     'if not private.can_credential_review() then', 'if false then');
   insert into results values ('sabotaged', 'a patient cannot propose', '42501',
-    pg_temp.propose(v_pat, quote_literal('zz_s76_sab') || ', 4::smallint, 60, ''medical_officer''::public.doctor_tier'));
+    pg_temp.propose(v_pat, quote_literal('zz_s76_sab') || ', 4::smallint, 60, ''senior_medical_officer''::public.doctor_tier'));
 end $$;
 
 do $$

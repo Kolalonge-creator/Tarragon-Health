@@ -45,7 +45,7 @@ begin
   for i in 1..22 loop
     insert into public.clinical_tasks (organisation_id, type, task_type_version, priority_class, priority_class_original, patient_id, required_competencies, min_tier,
         due_at, delivery_path, state, claimed_by, claimed_at, claim_expires_at, completed_at, outcome, is_test, created_at)
-    values (v_org, 'amber_bp_review', 1, 4, 4, pat, '{}', 'medical_officer', v_base + case when i <= 20 then interval '2 hours' else interval '1 hour' end, 'pull', 'completed',
+    values (v_org, 'amber_bp_review', 1, 4, 4, pat, '{}', 'senior_medical_officer', v_base + case when i <= 20 then interval '2 hours' else interval '1 hour' end, 'pull', 'completed',
             docu, v_base + make_interval(mins => i), v_base + make_interval(mins => i + 30), v_base + make_interval(mins => 60 + i), '{"done":true}'::jsonb, false, v_base)
     returning id into v_t;
     insert into public.task_claims (organisation_id, task_id, clinician_id, claimed_at, expires_at, ended_at, end_reason, is_test)
@@ -55,19 +55,19 @@ begin
   for i in 1..3 loop
     insert into public.clinical_tasks (organisation_id, type, task_type_version, priority_class, priority_class_original, patient_id, required_competencies, min_tier,
         due_at, delivery_path, state, is_test, created_at)
-    values (v_org, 'amber_bp_review', 1, 4, 4, pat, '{}', 'medical_officer', v_base + interval '1 hour', 'pull', 'open', false, v_base);
+    values (v_org, 'amber_bp_review', 1, 4, 4, pat, '{}', 'senior_medical_officer', v_base + interval '1 hour', 'pull', 'open', false, v_base);
   end loop;
   -- group B: class 2, only 5 tasks (withheld)
   for i in 1..5 loop
     insert into public.clinical_tasks (organisation_id, type, task_type_version, priority_class, priority_class_original, patient_id, required_competencies, min_tier,
         due_at, delivery_path, state, is_test, created_at)
-    values (v_org, 'amber_bp_review', 1, 2, 2, pat, '{}', 'medical_officer', v_base + interval '1 hour', 'pull', 'open', false, v_base);
+    values (v_org, 'amber_bp_review', 1, 2, 2, pat, '{}', 'senior_medical_officer', v_base + interval '1 hour', 'pull', 'open', false, v_base);
   end loop;
   -- group C: class 3, 22 tasks, only 5 claimed (claim measure withheld inside a shown group)
   for i in 1..22 loop
     insert into public.clinical_tasks (organisation_id, type, task_type_version, priority_class, priority_class_original, patient_id, required_competencies, min_tier,
         due_at, delivery_path, state, is_test, created_at)
-    values (v_org, 'amber_bp_review', 1, 3, 3, pat, '{}', 'medical_officer', v_base + interval '1 day', 'pull', 'open', false, v_base) returning id into v_t;
+    values (v_org, 'amber_bp_review', 1, 3, 3, pat, '{}', 'senior_medical_officer', v_base + interval '1 day', 'pull', 'open', false, v_base) returning id into v_t;
     if i <= 5 then
       insert into public.task_claims (organisation_id, task_id, clinician_id, claimed_at, expires_at, ended_at, end_reason, is_test)
       values (v_org, v_t, docu, v_base + interval '5 minutes', v_base + interval '35 minutes', v_base + interval '10 minutes', 'handed_back', false);
@@ -77,8 +77,8 @@ begin
   for i in 1..25 loop
     insert into public.clinical_tasks (organisation_id, type, task_type_version, priority_class, priority_class_original, patient_id, required_competencies, min_tier,
         due_at, delivery_path, state, is_test, created_at)
-    values (v_org, 'amber_bp_review', 1, 4, 4, tp, '{}', 'medical_officer', v_base + interval '1 hour', 'pull', 'open', false, v_base),
-           (v_org, 'amber_bp_review', 1, 4, 4, pat, '{}', 'medical_officer', v_base + interval '1 hour', 'pull', 'open', true, v_base);
+    values (v_org, 'amber_bp_review', 1, 4, 4, tp, '{}', 'senior_medical_officer', v_base + interval '1 hour', 'pull', 'open', false, v_base),
+           (v_org, 'amber_bp_review', 1, 4, 4, pat, '{}', 'senior_medical_officer', v_base + interval '1 hour', 'pull', 'open', true, v_base);
   end loop;
   perform set_config('tarragon.task_transition', 'off', true);
 

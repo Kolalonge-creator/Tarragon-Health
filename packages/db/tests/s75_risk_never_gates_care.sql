@@ -47,7 +47,7 @@ begin
     insert into public.clinical_staff (organisation_id, profile_id, full_name, credential_type, credential_number, active, status,
         license_verified_at, verified_by, doctor_tier, employment_type, credentialing_level, indemnity_exempt, indemnity_exempt_by, is_test)
     values (v_org, v_doc, 'S75A4 doc', 'MDCN', 'S75A4-' || substr(v_doc::text, 1, 8), true, 'active', now(), v_admin,
-        'medical_officer', 'contracted', 2, true, v_admin, true) returning id into v_staff;
+        'senior_medical_officer', 'contracted', 2, true, v_admin, true) returning id into v_staff;
     insert into public.availability_blocks (organisation_id, clinician_id, starts_at, ends_at, kind, is_test)
     values (v_org, v_doc, now() - interval '1 minute', now() + interval '2 hours', 'queue', true);
 
@@ -56,7 +56,7 @@ begin
       v_p := pg_temp.mkuser(v_org, 'pat' || v_labels[i], 'patient');
       insert into public.clinical_tasks (organisation_id, type, task_type_version, priority_class, priority_class_original, patient_id,
           required_competencies, min_tier, due_at, delivery_path, state, is_test, created_at)
-      values (v_org, 'amber_bp_review', 1, v_class[i], v_class[i], v_p, '{}', 'medical_officer', now() + make_interval(days => v_due[i]), 'pull', 'open', true,
+      values (v_org, 'amber_bp_review', 1, v_class[i], v_class[i], v_p, '{}', 'senior_medical_officer', now() + make_interval(days => v_due[i]), 'pull', 'open', true,
               now() - make_interval(mins => i))
       returning id into v_t;
       v_pat := v_pat || v_p; v_task := v_task || v_t;

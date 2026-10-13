@@ -85,9 +85,9 @@ begin
   insert into public.async_consults (organisation_id, patient_id, category, question, status, is_test, answered_at, created_at, window_started_at)
     values (v_org, v_pt_ok, 'general', 'S78b proof question answered', 'answered', false, now() - interval '20 hours', now() - interval '30 hours', now() - interval '30 hours') returning id into q_answered;
   insert into public.clinical_tasks (organisation_id, type, task_type_version, priority_class, priority_class_original, patient_id, min_tier, due_at, state, is_test, created_at)
-    values (v_org, 'amber_bp_review', 1, 4, 4, v_pt_amber, 'medical_officer', now() - interval '6 hours', 'open', false, now() - interval '30 hours') returning id into t_late;
+    values (v_org, 'amber_bp_review', 1, 4, 4, v_pt_amber, 'senior_medical_officer', now() - interval '6 hours', 'open', false, now() - interval '30 hours') returning id into t_late;
   insert into public.clinical_tasks (organisation_id, type, task_type_version, priority_class, priority_class_original, patient_id, min_tier, due_at, state, is_test, created_at)
-    values (v_org, 'amber_bp_review', 1, 4, 4, v_pt_ok, 'medical_officer', now() + interval '20 hours', 'open', false, now() - interval '4 hours') returning id into t_ok;
+    values (v_org, 'amber_bp_review', 1, 4, 4, v_pt_ok, 'senior_medical_officer', now() + interval '20 hours', 'open', false, now() - interval '4 hours') returning id into t_ok;
   insert into public.appointments (organisation_id, patient_id, clinician_id, scheduled_for, ends_at, status, appointment_type, consultation_method)
     values (v_org, v_pt_appt, v_doc, now() - interval '70 minutes', now() - interval '45 minutes', 'confirmed', 'telemedicine', 'telemedicine') returning id into a_late;
   insert into public.appointments (organisation_id, patient_id, clinician_id, scheduled_for, ends_at, status, appointment_type, consultation_method)

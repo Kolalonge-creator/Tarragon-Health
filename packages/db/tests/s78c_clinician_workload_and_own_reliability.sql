@@ -68,7 +68,7 @@ begin
   set local session_replication_role = replica;
   for i in 1..9 loop
     insert into public.clinical_tasks (organisation_id, type, task_type_version, priority_class, priority_class_original, patient_id, min_tier, due_at, state, claimed_by, claimed_at, claim_expires_at, is_test, created_at)
-      values (v_org, 'symptom_review', 1, 5, 5, v_pt, 'medical_officer', now() - interval '1 hour', case when i = 9 then 'claimed' else 'open' end::public.clinical_task_state,
+      values (v_org, 'symptom_review', 1, 5, 5, v_pt, 'senior_medical_officer', now() - interval '1 hour', case when i = 9 then 'claimed' else 'open' end::public.clinical_task_state,
               case when i = 9 then v_a end, case when i = 9 then now() - interval '2 hours' end, case when i = 9 then now() + interval '1 hour' end, false, now() - interval '3 days') returning id into v_task;
     insert into public.task_claims (organisation_id, task_id, clinician_id, claimed_at, expires_at, ended_at, end_reason, is_test)
     select v_org, v_task,
