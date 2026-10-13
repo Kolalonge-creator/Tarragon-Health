@@ -34,7 +34,7 @@ declare
   v_size  integer;
   -- Governed kill switch: absent means shown (founder decision 2026-10-13). A future CMO-signed my_health_config version can set show_staff_identity to false
   -- (for example if counsel's NDPA answer, OQ-S09x-2, goes against it) without a migration.
-  v_show_staff boolean := coalesce((v_cfg ->> 'show_staff_identity')::boolean, true);
+  v_show_staff boolean := case when jsonb_typeof(v_cfg -> 'show_staff_identity') = 'boolean' then (v_cfg ->> 'show_staff_identity')::boolean else true end;  -- a malformed value never breaks the whole log
 begin
   if v_uid is null then raise exception 'not authenticated'; end if;
   v_size := least(greatest(coalesce(p_limit, (v_cfg ->> 'page_size')::integer, 50), 1), coalesce((v_cfg ->> 'max_page_size')::integer, 100));
