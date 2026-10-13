@@ -92,7 +92,7 @@ declare
   u_gf uuid; u_new uuid; u_t uuid; u_old uuid; u_dates uuid;
   s_gf uuid; s_new uuid; s_t uuid; s_old uuid; s_dates uuid;
   d_gf uuid; d_new uuid; d_other uuid; d_old uuid; d_old2 uuid;
-  v_r text; v_sweep jsonb; v_list jsonb; v_n integer; v_cols text;
+  v_r text; v_sweep jsonb; v_list jsonb; v_n integer; v_cols text; u_coord uuid; s_coord uuid; v_app uuid;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
@@ -251,8 +251,49 @@ begin
   perform pg_temp.rec('the clinician now leaves the missing-dates list', 'false',
     ((pg_temp.q_as(v_admin, 'select public.credentialing_work_list()::text'))::jsonb -> 'missing_dates' @> jsonb_build_array(jsonb_build_object('staff_id', s_dates)))::text);
 
+  -- review fixes: a repeat reference at a re-check, a far-future date, coordinators, in-flight applications, the legacy slot route
+  perform pg_temp.rec('a re-check may repeat the same reference (a register number does not change)', 'ok',
+    pg_temp.try_as(v_admin, format('select public.record_primary_source_verification(%L, ''mdcn_written_confirmation'', ''mdcn-ltr-77'', %L, %L)', s_gf, pg_temp.today(), pg_temp.mkdoc(v_org, s_gf, u_gf, 'mdcn_portal_screenshot'))));
+  perform pg_temp.rec('...but not on the same day twice', '23514',
+    pg_temp.try_as(v_admin, format('select public.record_primary_source_verification(%L, ''mdcn_written_confirmation'', ''MDCN-LTR-77'', %L, %L)', s_gf, pg_temp.today(), pg_temp.mkdoc(v_org, s_gf, u_gf, 'mdcn_portal_screenshot'))));
+  perform pg_temp.rec('...and never another clinician''s reference', '23514',
+    pg_temp.try_as(v_admin, format('select public.record_primary_source_verification(%L, ''mdcn_written_confirmation'', ''MDCN-LTR-77'', %L, %L)', s_dates, pg_temp.today(), pg_temp.mkdoc(v_org, s_dates, u_dates, 'mdcn_confirmation'))));
+  perform pg_temp.rec('a date many years away is refused', '23514',
+    pg_temp.try_as(v_admin, format('select public.record_clinician_credential_dates(%L, now() + interval ''5000 days'', null, ''read from the licence card'')', s_new)));
+  u_coord := pg_temp.mkuser(v_org, 'coordinator', 'clinician');
+  insert into public.clinical_staff (organisation_id, profile_id, full_name, credential_type, credential_number, active, status,
+      license_verified_at, verified_by, doctor_tier, employment_type, credentialing_level, is_test)
+    values (v_org, u_coord, 'P5 coordinator', 'MDCN', 'P5-COORD-1', true, 'active', now(), v_admin, 'care_coordinator', 'employed', 1, false) returning id into s_coord;
+  perform pg_temp.rec('a care coordinator needs no MDCN verification (no registration to verify)', 'true', private.psv_satisfied(s_coord)::text);
+  perform private.credential_recheck_sweep();
+  perform pg_temp.rec('...and is never put on the work list or the sweep', '0',
+    (select count(*)::text from public.credential_work_items where clinical_staff_id = s_coord) || '' );
+  perform pg_temp.rec('...nor in the unverified or missing-dates lists', '0',
+    position(s_coord::text in (pg_temp.q_as(v_admin, 'select public.credentialing_work_list()::text')))::text);
+  -- an application already past the checks when the rule arrived can still have its primary-source check recorded
+  insert into public.clinician_applications (organisation_id, profile_id, state, employment_type, licence_expires_at, mdcn_folio, is_test)
+    values (v_org, v_pat, 'started', 'employed', now() + interval '300 days', 'P5-INFLIGHT-1', false) returning id into v_app;
+  perform set_config('tarragon.credential_transition', 'on', true);
+  update public.clinician_applications set state = 'training' where id = v_app;
+  perform set_config('tarragon.credential_transition', 'off', true);
+  insert into public.clinician_checks (organisation_id, application_id, kind, result, is_test) values (v_org, v_app, 'primary_source', 'pending', false);
+  insert into public.clinician_documents (organisation_id, owner_profile_id, application_id, kind, storage_path, mime_type, size_bytes, sha256, is_test)
+    values (v_org, v_pat, v_app, 'mdcn_confirmation', v_org || '/' || v_pat || '/inflight.pdf', 'application/pdf', 1000, repeat('d', 64), true);
+  perform pg_temp.rec('an in-flight application can still record the primary-source check', 'ok',
+    pg_temp.try_as(v_admin, format('select public.record_credential_check(%L, ''primary_source'', ''passed'', null, %L::jsonb)', v_app,
+      jsonb_build_object('route', 'mdcn_dataflow', 'reference', 'DF-INFLIGHT-1', 'verified_on', pg_temp.today())::text)));
+  perform pg_temp.rec('...and it stays in training (only the first pass through the checks moves state)', 'training',
+    (select state::text from public.clinician_applications where id = v_app));
+  perform pg_temp.rec('another check still cannot be recorded after the checks stage', '23514',
+    pg_temp.try_as(v_admin, format('select public.record_credential_check(%L, ''identity'', ''passed'')', v_app)));
+
+  -- the older patient-facing route: no availability can be published before verification
+  perform pg_temp.rec('a clinician with no record cannot publish video-visit availability', '23514',
+    pg_temp.try(format('insert into public.consult_availability_slots (organisation_id, clinician_profile_id, slot_start, slot_end) values (%L, %L, now() + interval ''1 day'', now() + interval ''1 day 30 minutes'')', v_org, u_dates)));
+  perform pg_temp.rec('...one with a record can', 'ok',
+    pg_temp.try(format('insert into public.consult_availability_slots (organisation_id, clinician_profile_id, slot_start, slot_end) values (%L, %L, now() + interval ''1 day'', now() + interval ''1 day 30 minutes'')', v_org, u_gf)));
   -- 6. The patient lookup (Q17) ------------------------------------------------------------------------------------------
-  perform pg_temp.rec('a patient sees the verification date for a verified clinician', (pg_temp.today() - 5)::text,
+  perform pg_temp.rec('a patient sees the LATEST verification date for a verified clinician', (pg_temp.today())::text,
     pg_temp.q_as(v_pat, format('select verified_on::text from public.clinician_licence_verified_on(array[%L::uuid])', s_gf)));
   perform pg_temp.rec('...also when asked by profile id', (pg_temp.today())::text,
     pg_temp.q_as(v_pat, format('select verified_on::text from public.clinician_licence_verified_on(array[%L::uuid])', u_old)));

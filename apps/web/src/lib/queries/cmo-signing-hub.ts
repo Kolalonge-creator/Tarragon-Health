@@ -18,6 +18,11 @@ export type CmoSigningHub = {
   settledConfigs: SettledConfig[];
   /** The S06 to S10 clinical items (C1 to C8) with their live state; its lines are already merged into `items`. */
   s06s10: S06S10Snapshot;
+  /**
+   * Things that need the CMO's attention but are not a signature (P5: overdue MDCN spot re-checks, clinicians with no verification
+   * on record). Kept apart from `items` on purpose: the banner counts `items` as "areas that need your signature".
+   */
+  attention: SignoffQueueItem[];
 };
 
 /** The key the merged clinical-rules line carries, so the page can attach the guided signing forms to it. */
@@ -131,7 +136,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
   }
 
   const credentialItem = credentialAttentionItem(credentials);
-  if (credentialItem) items.push(credentialItem);
+  const attention = credentialItem ? [credentialItem] : [];
 
   items.push(...s06s10.items);
 
@@ -147,5 +152,5 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
   // thinks is waiting that the queue does not list) the link falls back to the item's own page rather than pointing at a missing anchor.
   const lineKeys = new Set(items.map((i) => i.key));
   const banner: S06S10Snapshot = { ...s06s10, rows: s06s10.rows.map((r) => (r.panelKey && !lineKeys.has(r.panelKey) ? { ...r, panelKey: null } : r)) };
-  return { items, failed: failedSources.length > 0, failedSources, settledConfigs: queue.settledConfigs, s06s10: banner };
+  return { items, failed: failedSources.length > 0, failedSources, settledConfigs: queue.settledConfigs, s06s10: banner, attention };
 }

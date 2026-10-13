@@ -113,7 +113,7 @@ describe("readCmoSigningHub", () => {
 
   it("is an all-clear only when everything was read and nothing is outstanding", async () => {
     readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
-    expect(await readCmoSigningHub(supabase)).toEqual({ items: [], failed: false, failedSources: [], settledConfigs: [], s06s10: emptyS06S10 });
+    expect(await readCmoSigningHub(supabase)).toEqual({ items: [], failed: false, failedSources: [], settledConfigs: [], s06s10: emptyS06S10, attention: [] });
   });
 
   it("merges rules needing setup and rules ready to sign into one line with the summed count", async () => {
@@ -207,16 +207,20 @@ describe("readCmoSigningHub", () => {
     readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
     readCredentialAttention.mockResolvedValue({ overdueRechecks: 1, unverified: 2, failed: false });
     const hub = await readCmoSigningHub(supabase);
-    expect(hub.items).toHaveLength(1);
-    expect(hub.items[0]).toMatchObject({ key: "credential_attention", count: 3, href: "/clinician/credentialing" });
-    expect(hub.items[0]?.detail).toContain("1 MDCN spot re-check is overdue");
-    expect(hub.items[0]?.detail).toContain("2 clinicians have no MDCN or DataFlow verification on record");
-    expect(hub.items[0]?.detail).toContain("Nothing is paused");
+    // attention, not a signature: it must never be counted by the "areas need your signature" banner
+    expect(hub.items).toHaveLength(0);
+    expect(hub.attention).toHaveLength(1);
+    expect(hub.attention[0]).toMatchObject({ key: "credential_attention", count: 3, href: "/clinician/credentialing" });
+    expect(hub.attention[0]?.detail).toContain("1 MDCN spot re-check is overdue");
+    expect(hub.attention[0]?.detail).toContain("2 clinicians have no MDCN or DataFlow verification on record");
+    expect(hub.attention[0]?.detail).toContain("Nothing is paused");
   });
 
   it("P5: nothing outstanding adds no line, and a failed read is named rather than shown as all clear", async () => {
     readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
-    expect((await readCmoSigningHub(supabase)).items).toEqual([]);
+    const clear = await readCmoSigningHub(supabase);
+    expect(clear.items).toEqual([]);
+    expect(clear.attention).toEqual([]);
     readCredentialAttention.mockResolvedValue({ overdueRechecks: 0, unverified: 0, failed: true });
     const hub = await readCmoSigningHub(supabase);
     expect(hub.failed).toBe(true);

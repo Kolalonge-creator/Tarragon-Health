@@ -551,6 +551,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       primary_source_max_age_days: 365,
       recheck_months: 6,
       recheck_overdue_days: 14,
+      credential_date_max_days: 1100,
       grandfather_ends_on: null,
     },
     owner: "Founder and counsel",

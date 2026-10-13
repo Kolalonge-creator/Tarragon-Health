@@ -48,6 +48,7 @@ insert into public.credentialing_config (version, is_active, effective_from, rul
   "primary_source_max_age_days": 365,
   "recheck_months": 6,
   "recheck_overdue_days": 14,
+  "credential_date_max_days": 1100,
   "grandfather_ends_on": null
 }
 $json$::jsonb);
@@ -82,7 +83,7 @@ comment on column public.clinical_staff.psv_grandfathered is
 
 -- the two clinicians who are active today; no evidence is invented for them
 update public.clinical_staff set psv_grandfathered = true
-  where active and status = 'active' and profile_id is not null and is_test is not true;
+  where active and status = 'active' and profile_id is not null and is_test is not true and doctor_tier <> 'care_coordinator';
 
 create function private.guard_psv_grandfathered() returns trigger
 language plpgsql set search_path = ''
@@ -117,8 +118,9 @@ create table public.clinician_primary_source_verifications (
   is_test              boolean not null default false,
   created_at           timestamptz not null default now()
 );
--- the same MDCN or DataFlow reference can never vouch for two people
-create unique index clinician_psv_reference_unique on public.clinician_primary_source_verifications (route, upper(btrim(reference)));
+-- the same MDCN or DataFlow reference can never vouch for two different people (the functions below enforce that); the same person
+-- may repeat a reference at a re-check (a register number does not change), but not on the same day twice
+create unique index clinician_psv_reference_unique on public.clinician_primary_source_verifications (clinical_staff_id, route, upper(btrim(reference)), verified_on);
 create index clinician_psv_staff_idx on public.clinician_primary_source_verifications (clinical_staff_id, verified_on desc);
 -- Append only: never edited, and deleted only when the clinician record itself is removed (rejecting an approved
 -- application that was never switched on deletes that record, and with it these rows).
@@ -173,7 +175,8 @@ language sql stable security definer set search_path = ''
 as $$
   select case
     when not coalesce((private.credential_rule('primary_source_required'))::boolean, false) then true
-    else exists (select 1 from public.clinical_staff cs where cs.id = p_staff and cs.is_test)
+    -- a care coordinator is not a registered doctor: there is no MDCN registration to verify (they never take clinical work)
+    else exists (select 1 from public.clinical_staff cs where cs.id = p_staff and (cs.is_test or cs.doctor_tier = 'care_coordinator'))
       or exists (select 1 from public.clinician_primary_source_verifications v where v.clinical_staff_id = p_staff)
       or exists (select 1 from public.clinical_staff cs
                   where cs.id = p_staff and cs.psv_grandfathered
@@ -281,7 +284,9 @@ begin
   select * into a from public.clinician_applications where id = p_application for update;
   if not found then raise exception 'application not found' using errcode = 'P0002'; end if;
   if a.profile_id = auth.uid() then raise exception 'you cannot verify your own application' using errcode = '42501'; end if;
-  if a.state <> 'checks_in_progress' then raise exception 'checks can only be recorded while checks are in progress' using errcode = '23514'; end if;
+  -- the primary-source check may also be recorded for an application that was already past the checks when the rule arrived
+  if a.state <> 'checks_in_progress' and not (p_kind = 'primary_source' and a.state in ('training', 'test_passed')) then
+    raise exception 'checks can only be recorded while checks are in progress' using errcode = '23514'; end if;
   if p_result = 'pending' then raise exception 'a check result must be passed or failed' using errcode = '23514'; end if;
 
   if p_result = 'passed' then
@@ -315,6 +320,7 @@ begin
         begin v_on := (p_details ->> 'verified_on')::date; exception when others then v_on := null; end;
         if v_on is null or v_on > v_today or v_on < v_today - v_max_age then
           raise exception 'enter the date of the verification (today or earlier, within the last % days)', v_max_age using errcode = '23514'; end if;
+        -- an applicant has no clinician record yet, so any existing record with this reference belongs to someone else
         if exists (select 1 from public.clinician_primary_source_verifications v
                     where v.route = p_details ->> 'route' and upper(btrim(v.reference)) = upper(v_ref)) then
           raise exception 'this reference is already recorded for another clinician' using errcode = '23514'; end if;
@@ -337,7 +343,7 @@ begin
   end if;
   perform private.credential_audit(a.organisation_id, auth.uid(), 'clinician_check.' || p_result::text, 'clinician_application', a.id, jsonb_build_object('kind', p_kind));
 
-  if not exists (select 1 from public.clinician_checks where application_id = a.id and result <> 'passed') then
+  if a.state = 'checks_in_progress' and not exists (select 1 from public.clinician_checks where application_id = a.id and result <> 'passed') then
     perform private.apply_application_transition(a.id, 'training', null, 'all checks passed');
   end if;
 end;
@@ -441,8 +447,12 @@ begin
     where id = p_evidence_document and clinical_staff_id = p_staff and owner_profile_id = s.profile_id and superseded_at is null
       and kind in ('mdcn_confirmation', 'mdcn_portal_screenshot');
   if not found then raise exception 'attach the clinician''s uploaded MDCN or DataFlow confirmation (or register screenshot)' using errcode = '23514'; end if;
-  if exists (select 1 from public.clinician_primary_source_verifications v where v.route = p_route and upper(btrim(v.reference)) = upper(v_ref)) then
-    raise exception 'this reference is already recorded' using errcode = '23514'; end if;
+  if exists (select 1 from public.clinician_primary_source_verifications v
+              where v.route = p_route and upper(btrim(v.reference)) = upper(v_ref) and v.clinical_staff_id <> p_staff) then
+    raise exception 'this reference is already recorded for another clinician' using errcode = '23514'; end if;
+  if exists (select 1 from public.clinician_primary_source_verifications v
+              where v.route = p_route and upper(btrim(v.reference)) = upper(v_ref) and v.clinical_staff_id = p_staff and v.verified_on = p_verified_on) then
+    raise exception 'this verification is already recorded' using errcode = '23514'; end if;
   select max(verified_on) into v_last from public.clinician_primary_source_verifications where clinical_staff_id = p_staff;
   if v_last is not null and p_verified_on < v_last then raise exception 'the date is earlier than the last verification on record' using errcode = '23514'; end if;
   v_kind := case when v_last is null then 'initial' else 'recheck' end;
@@ -466,7 +476,9 @@ create function public.record_clinician_credential_dates(
   p_staff uuid, p_licence_expires_at timestamptz default null, p_indemnity_expires_at timestamptz default null, p_note text default null)
 returns void language plpgsql security definer set search_path = ''
 as $$
-declare s public.clinical_staff%rowtype;
+declare
+  s public.clinical_staff%rowtype;
+  v_max timestamptz := now() + make_interval(days => coalesce((private.credential_rule('credential_date_max_days'))::integer, 1100));
 begin
   if not private.can_credential_review() then raise exception 'not allowed' using errcode = '42501'; end if;
   select * into s from public.clinical_staff where id = p_staff for update;
@@ -478,11 +490,13 @@ begin
   if p_licence_expires_at is not null then
     if s.license_expires_at is not null then raise exception 'a licence date is already on file; use the renewal check' using errcode = '23514'; end if;
     if p_licence_expires_at <= now() then raise exception 'the licence date must be in the future' using errcode = '23514'; end if;
+    if p_licence_expires_at > v_max then raise exception 'that licence date is too far away; check the document' using errcode = '23514'; end if;
   end if;
   if p_indemnity_expires_at is not null then
     if not coalesce(private.indemnity_required(p_staff), false) then raise exception 'cover is not required for this clinician' using errcode = '23514'; end if;
     if s.indemnity_expires_at is not null then raise exception 'a cover date is already on file; use the renewal check' using errcode = '23514'; end if;
     if p_indemnity_expires_at <= now() then raise exception 'the cover date must be in the future' using errcode = '23514'; end if;
+    if p_indemnity_expires_at > v_max then raise exception 'that cover date is too far away; check the document' using errcode = '23514'; end if;
   end if;
   update public.clinical_staff set
       license_expires_at = coalesce(p_licence_expires_at, license_expires_at),
@@ -512,7 +526,7 @@ begin
                           from public.clinician_documents d where d.clinical_staff_id = cs.id and d.application_id is null and d.superseded_at is null
                            and d.kind in ('mdcn_confirmation', 'mdcn_portal_screenshot'))) order by cs.full_name), '[]'::jsonb)
         from public.clinical_staff cs
-        where cs.status <> 'offboarded' and cs.profile_id is not null and cs.active
+        where cs.status <> 'offboarded' and cs.profile_id is not null and cs.active and cs.is_test is not true and cs.doctor_tier <> 'care_coordinator'
           and not exists (select 1 from public.clinician_primary_source_verifications v where v.clinical_staff_id = cs.id)),
     'rechecks', (select coalesce(jsonb_agg(jsonb_build_object('staff_id', cs.id, 'full_name', cs.full_name, 'last_verified_on', l.verified_on,
           'due_on', (l.verified_on + make_interval(months => v_months))::date,
@@ -523,13 +537,13 @@ begin
           order by l.verified_on), '[]'::jsonb)
         from public.clinical_staff cs
         join lateral (select max(verified_on) as verified_on from public.clinician_primary_source_verifications v where v.clinical_staff_id = cs.id) l on l.verified_on is not null
-        where cs.status <> 'offboarded' and cs.profile_id is not null and cs.active
+        where cs.status <> 'offboarded' and cs.profile_id is not null and cs.active and cs.is_test is not true and cs.doctor_tier <> 'care_coordinator'
           and v_today >= (l.verified_on + make_interval(months => v_months))::date),
     'missing_dates', (select coalesce(jsonb_agg(jsonb_build_object('staff_id', cs.id, 'full_name', cs.full_name, 'status', cs.status,
           'licence_missing', cs.license_expires_at is null,
           'indemnity_missing', coalesce(private.indemnity_required(cs.id), false) and cs.indemnity_expires_at is null) order by cs.full_name), '[]'::jsonb)
         from public.clinical_staff cs
-        where cs.status <> 'offboarded' and cs.profile_id is not null and cs.active
+        where cs.status <> 'offboarded' and cs.profile_id is not null and cs.active and cs.is_test is not true and cs.doctor_tier <> 'care_coordinator'
           and (cs.license_expires_at is null or (coalesce(private.indemnity_required(cs.id), false) and cs.indemnity_expires_at is null))));
 end;
 $$;
@@ -546,7 +560,7 @@ declare
   v_date_str text;
 begin
   for r in select cs.* from public.clinical_staff cs
-            where cs.active and cs.status = 'active' and cs.profile_id is not null and cs.is_test is not true loop
+            where cs.active and cs.status = 'active' and cs.profile_id is not null and cs.is_test is not true and cs.doctor_tier <> 'care_coordinator' loop
     begin
       select max(verified_on) into v_last from public.clinician_primary_source_verifications where clinical_staff_id = r.id;
       if v_last is null then
@@ -596,6 +610,12 @@ begin
       perform private.credential_audit(r.organisation_id, null, 'credential_recheck_sweep.error', 'clinical_staff', r.id, jsonb_build_object('error', sqlerrm));
     end;
   end loop;
+  if v_errors > 0 and not exists (select 1 from public.ops_incidents where external_reference = 'credential_recheck_sweep' and status not in ('resolved', 'closed')) then
+    insert into public.ops_incidents (category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
+    values ('technical', 'sev2', 'MDCN re-check sweep failed for some clinicians',
+            format('%s clinician(s) could not be processed by private.credential_recheck_sweep(); see audit_log action credential_recheck_sweep.error. Re-check notices for them may be missing.', v_errors),
+            'credential_recheck_sweep', now(), now());
+  end if;
   -- Deliberately no suspension here: a missed re-check is a person's job to chase. Suspension stays expiry-driven.
   return jsonb_build_object('opened', v_new, 'overdue_told', v_overdue, 'errors', v_errors);
 end;
@@ -665,6 +685,30 @@ begin
   perform cron.schedule('credential-recheck-sweep', '37 5 * * *', $c$select private.credential_recheck_sweep()$c$);
 end $$;
 
+-- Applications already past the start of checks when the rule arrives get the new check as pending, so they are not stuck.
+insert into public.clinician_checks (organisation_id, application_id, kind, is_test)
+  select a.organisation_id, a.id, 'primary_source', a.is_test
+    from public.clinician_applications a
+   where a.state in ('checks_in_progress', 'training', 'test_passed')
+  on conflict (application_id, kind) do nothing;
+
+-- Q14 also covers the older patient-facing route: a clinician cannot publish video-visit availability until verified.
+create function private.guard_consult_slot_primary_source() returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+declare s public.clinical_staff%rowtype;
+begin
+  select * into s from public.clinical_staff where profile_id = new.clinician_profile_id and active;
+  if found and not private.psv_satisfied(s.id) then
+    raise exception 'the MDCN or DataFlow verification must be recorded before you can offer video visits' using errcode = '23514';
+  end if;
+  return new;
+end;
+$$;
+revoke all on function private.guard_consult_slot_primary_source() from public, anon, authenticated;
+create trigger consult_availability_slots_primary_source before insert on public.consult_availability_slots
+  for each row execute function private.guard_consult_slot_primary_source();
+
 -- ---------------------------------------------------------------------------
 -- 7. Q16: a new clinician's first N red or prescribing cases are all audited
 -- ---------------------------------------------------------------------------
@@ -700,13 +744,16 @@ begin
   select * into s from public.clinical_staff where profile_id = t.claimed_by;
   if not found then return null; end if;
   v_draw := (abs(hashtextextended(t.id::text || ':' || private.lagos_month(coalesce(t.completed_at, now()))::text, 0)) % 1000000) / 10000.0;
-  v_ord := private.new_clinician_case_ordinal(p_task);
   if t.priority_class_original = 1 or t.type = 'red_event_unacknowledged' then v_reason := 'red_event';
   elsif t.type = 'titration_signoff' then v_reason := 'titration';
   elsif coalesce(s.credentialing_level, 2) = 1 and private.tier1_count(t.claimed_by) < private.tier1_target(s.id) then v_reason := 'first_tasks';
-  elsif v_ord is not null and v_ord <= v_full then v_reason := 'new_clinician_review';
-  elsif v_draw < v_rate then v_reason := 'random_sample';
-  else return null;
+  else
+    -- only counted when the rule is on and nothing above already decided the reason (the count walks the clinician's completed tasks)
+    if v_full > 0 then v_ord := private.new_clinician_case_ordinal(p_task); end if;
+    if v_ord is not null and v_ord <= v_full then v_reason := 'new_clinician_review';
+    elsif v_draw < v_rate then v_reason := 'random_sample';
+    else return null;
+    end if;
   end if;
   return private.create_audit(p_task, v_reason, v_draw);
 end;
