@@ -176,7 +176,8 @@ begin
   execute v_def;
   perform pg_temp.as_user(pg_temp.f('ad'), format('select public.purge_test_account(%L)::text', v_victim));
   insert into results values ('sabotaged', 'SABOTAGE 1: without the is_test guard a real account is purged', '1', (select count(*)::text from public.profiles where id = v_victim));
-  select pg_get_functiondef('public.export_patient_data(uuid)'::regprocedure) into v_def;
+  -- S39f moved the export body (and its credential filter) into private.export_patient_json; sabotage whichever function holds it
+  select pg_get_functiondef(coalesce(to_regprocedure('private.export_patient_json(uuid)'), 'public.export_patient_data(uuid)'::regprocedure)) into v_def;
   v_def := replace(v_def, 'where e.key !~* ''''token|secret|password|hash|api_key|passcode''''', 'where true');
   execute v_def;
   insert into results values ('sabotaged', 'SABOTAGE 2: without the credential filter a token appears in the export', 'false',
