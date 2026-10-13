@@ -431,6 +431,14 @@ jobs:
         working-directory: supabase/functions/auth-send-sms-hook
         run: deno lint --no-config .
 
+      # SR1: the edge-function error reporter (opt-in via the SENTRY_DSN secret; no SDK, PII scrubbed before send).
+      - name: Test and lint edge Sentry reporter
+        if: github.event_name != 'pull_request' || steps.changes.outputs.edge == 'true'
+        working-directory: supabase/functions/_shared/observability
+        run: |
+          deno test --no-config --allow-env=SENTRY_DSN,SENTRY_ENVIRONMENT,SENTRY_RELEASE .
+          deno lint --no-config .
+
   supabase-db:
     name: Supabase migration replay
     runs-on: ubuntu-latest

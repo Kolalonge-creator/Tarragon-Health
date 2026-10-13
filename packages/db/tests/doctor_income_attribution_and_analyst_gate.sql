@@ -50,6 +50,12 @@
 
 begin;
 
+-- Two-tier: no service product is for sale any more (service_products_doctor_time_not_sellable). This proof uses a purchasable
+-- product as the vehicle for generic machinery, so the constraint is dropped and the two retired add-ons are switched on here,
+-- inside this rolled-back transaction.
+alter table public.service_products drop constraint service_products_doctor_time_not_sellable;
+update public.service_products set is_active = true where code in ('continuous_monitoring_90d', 'ai_coach_daily_pass_30d');
+
 do $$
 declare
   v_org           uuid;
@@ -251,7 +257,7 @@ begin
   select organisation_id into v_org
     from public.profiles where role = 'patient' and organisation_id is not null limit 1;
   select id, price_kobo into v_product, v_price
-    from public.service_products where is_active limit 1;
+    from public.service_products where is_active and code <> 'second_opinion_credit' limit 1;
 
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
   values

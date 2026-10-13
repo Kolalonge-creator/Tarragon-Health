@@ -21,6 +21,11 @@
 --      switch a guard on directly. Both matching checks must flip.
 begin;
 
+-- Two-tier: the paid per-item products are not sellable (service_products_doctor_time_not_sellable). The consultation machinery under test
+-- still prices from video_visit_credit, so the constraint is dropped and the product switched on here, inside this rolled-back transaction.
+alter table public.service_products drop constraint service_products_doctor_time_not_sellable;
+update public.service_products set is_active = true where code = 'video_visit_credit';
+
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
 grant all on results to public;
 create function pg_temp.rec(p_name text, p_expected text, p_actual text) returns void language sql as

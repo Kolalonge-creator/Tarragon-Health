@@ -144,6 +144,9 @@ describe("SafetyQueue", () => {
     fireEvent.click(screen.getByRole("button", { name: "Keep withheld" }));
     await waitFor(() => expect(onDecide).toHaveBeenCalledWith({ signalId: safety.signal_id, decision: "keep_withheld" }));
     await screen.findByText(/Kept withheld\./);
+    // The message appears while the transition is still settling; the buttons stay disabled until it ends, and a click on a
+    // disabled button is ignored. On a loaded CI runner that left "Yes, release it" unrendered. Wait for the buttons first.
+    await waitFor(() => expect((screen.getByRole("button", { name: "Release" }) as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(screen.getByRole("button", { name: "Release" }));
     expect(onDecide).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: "Yes, release it" }));

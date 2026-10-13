@@ -33,6 +33,9 @@ import {
 const ALWAYS_CRITICAL_TEMPLATES = new Set<string>([
   "free_tier_reading_self_care_suggestion",
   "emergency_followup",
+  "free_red_guidance",
+  "free_red_recheck",
+  "free_red_checkin",
   "critical_notification_escalation_exhausted",
   // The unacknowledged-alert escalation ladder. Live rows arrive with
   // priority 'routine' as often as 'critical' (the escalation engine sets it
