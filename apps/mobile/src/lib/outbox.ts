@@ -1,7 +1,10 @@
-import * as SQLite from "expo-sqlite";
+import type * as SQLite from "expo-sqlite";
 import * as Crypto from "expo-crypto";
 import { NETWORK_ERROR_MESSAGE, postVitalReading, type VitalReadingPayload } from "./api";
 import { supabase } from "./supabase";
+import { getStoreWithSchema } from "./secure-db";
+import { reportRejection } from "./rejection-report";
+import { addDataUsage } from "./data-usage";
 import { recordSyncError } from "./sync-diagnostics";
 import { loadOfflineSyncConfig } from "./offline-sync-config";
 import {
@@ -80,12 +83,11 @@ export interface OutboxItem {
   supportCode: string;
 }
 
-let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
-
 /** Test hook: forget the opened database so the next call re-runs setup and the legacy migration. */
 export function __resetOutboxForTests(): void {
-  dbPromise = null;
+  setupGeneration += 1;
   groupColumnReady = true;
+  reportedColumnReady = true;
 }
 
 /**
@@ -94,67 +96,75 @@ export function __resetOutboxForTests(): void {
  * so a failed upgrade can never stop a patient logging.
  */
 let groupColumnReady = true;
+/** Same idea for the S06x rejection_reported column: without it a rejection is reported again on every retry (the server ignores the repeat). */
+let reportedColumnReady = true;
 
 /** Test hook. */
 export function __setGroupColumnReadyForTests(ready: boolean): void {
   groupColumnReady = ready;
 }
 
-function getDb(): Promise<SQLite.SQLiteDatabase> {
-  if (!dbPromise) {
-    dbPromise = SQLite.openDatabaseAsync("tarragon-offline.db").then(async (db) => {
-      await db.execAsync(
-        `create table if not exists outbox (
-          client_id text primary key,
-          kind text not null,
-          owner_user_id text not null,
-          subject_id text not null,
-          beneficiary_profile_id text,
-          payload text not null,
-          client_recorded_at text not null,
-          created_at text not null,
-          attempts integer not null default 0,
-          next_attempt_at text not null,
-          state text not null default 'pending',
-          last_error text,
-          last_status integer,
-          danger integer not null default 0
-        );
-        create index if not exists outbox_state_created on outbox (state, created_at);
-        create table if not exists pending_vitals (
-          client_reading_id text primary key,
-          payload text not null,
-          beneficiary_profile_id text,
-          created_at text not null,
-          attempts integer not null default 0,
-          last_error text
-        );`
-      );
-      // Added after the first release of the outbox: a phone that already has the table gets the column.
-      try {
-        const columns = await db.getAllAsync<{ name: string }>("pragma table_info(outbox)");
-        if (!columns.some((c) => c.name === "group_id")) {
-          await db.execAsync("alter table outbox add column group_id text");
-        }
-      } catch (error) {
-        groupColumnReady = false;
-        recordSyncError("offline_outbox", "addGroupColumn", error);
-      }
-      try {
-        await migrateLegacyVitals(db);
-      } catch (error) {
-        // Adopting old rows is best effort and retried next open; it must never
-        // take the whole outbox down with it.
-        recordSyncError("offline_outbox", "migrateLegacyVitals", error);
-      }
-      return db;
-    }).catch((error) => {
-      // Do not memoise a failed open: the next call tries again.
-      dbPromise = null;
-      throw error;
-    });
+/** Bumped by tests so the schema setup is keyed fresh and re-runs against the shared store. */
+let setupGeneration = 0;
+
+async function setupOutbox(db: SQLite.SQLiteDatabase): Promise<void> {
+  await db.execAsync(
+    `create table if not exists outbox (
+      client_id text primary key,
+      kind text not null,
+      owner_user_id text not null,
+      subject_id text not null,
+      beneficiary_profile_id text,
+      payload text not null,
+      client_recorded_at text not null,
+      created_at text not null,
+      attempts integer not null default 0,
+      next_attempt_at text not null,
+      state text not null default 'pending',
+      last_error text,
+      last_status integer,
+      danger integer not null default 0
+    );
+    create index if not exists outbox_state_created on outbox (state, created_at);
+    create table if not exists pending_vitals (
+      client_reading_id text primary key,
+      payload text not null,
+      beneficiary_profile_id text,
+      created_at text not null,
+      attempts integer not null default 0,
+      last_error text
+    );`
+  );
+  // Added after the first release of the outbox: a phone that already has the table gets the column.
+  try {
+    const columns = await db.getAllAsync<{ name: string }>("pragma table_info(outbox)");
+    if (!columns.some((c) => c.name === "group_id")) {
+      await db.execAsync("alter table outbox add column group_id text");
+    }
+  } catch (error) {
+    groupColumnReady = false;
+    recordSyncError("offline_outbox", "addGroupColumn", error);
   }
-  return dbPromise;
+  try {
+    const columns = await db.getAllAsync<{ name: string }>("pragma table_info(outbox)");
+    if (!columns.some((c) => c.name === "rejection_reported")) {
+      await db.execAsync("alter table outbox add column rejection_reported integer not null default 0");
+    }
+  } catch (error) {
+    reportedColumnReady = false;
+    recordSyncError("offline_outbox", "addRejectionReportedColumn", error);
+  }
+  try {
+    await migrateLegacyVitals(db);
+  } catch (error) {
+    // Adopting old rows is best effort and retried next open; it must never
+    // take the whole outbox down with it.
+    recordSyncError("offline_outbox", "migrateLegacyVitals", error);
+  }
+}
+
+function getDb(): Promise<SQLite.SQLiteDatabase> {
+  return getStoreWithSchema(`outbox:${setupGeneration}`, setupOutbox);
 }
 
 /**
@@ -366,6 +376,13 @@ export async function listOutbox(kind?: OutboxKind): Promise<OutboxItem[]> {
   return items.filter((item) => mayFlushUnder(item.ownerUserId, userId));
 }
 
+/** Every unsent or rejected row on the phone, for every account. Used by the remote wipe to report a COUNT (never content). */
+export async function countAllOutboxRows(): Promise<number> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<{ n: number }>("select count(*) as n from outbox");
+  return row?.n ?? 0;
+}
+
 export async function getPendingCount(): Promise<number> {
   return (await listOutbox()).length;
 }
@@ -519,6 +536,37 @@ async function send(item: OutboxItem): Promise<SendOutcome> {
   }
 }
 
+/**
+ * S06x: tell the server, once, that it refused this entry, so support can see it without the patient
+ * having to read a code down the phone. Carries no health value (rejection-report.ts). Best effort: a
+ * failure leaves the row unreported and the next flush tries again; the server ignores a repeat.
+ */
+async function reportIfNeeded(db: SQLite.SQLiteDatabase, item: OutboxItem, fresh?: FailureInfo): Promise<void> {
+  try {
+    if (reportedColumnReady) {
+      const flag = await db.getFirstAsync<{ rejection_reported: number }>(
+        "select rejection_reported from outbox where client_id = ?",
+        [item.clientId]
+      );
+      if (flag?.rejection_reported === 1) return;
+    }
+    let info = fresh;
+    if (!info) {
+      const stored = await db.getFirstAsync<{ last_status: number | null; last_error: string | null }>(
+        "select last_status, last_error from outbox where client_id = ?",
+        [item.clientId]
+      );
+      info = { status: stored?.last_status ?? undefined, message: stored?.last_error ?? undefined };
+    }
+    const ok = await reportRejection(item, info);
+    if (ok && reportedColumnReady) {
+      await db.runAsync("update outbox set rejection_reported = 1 where client_id = ?", [item.clientId]);
+    }
+  } catch (error) {
+    recordSyncError("offline_outbox", `reportRejection:${supportCode(item.clientId)}`, error);
+  }
+}
+
 let flushing: Promise<FlushResult> | null = null;
 
 /**
@@ -546,7 +594,10 @@ async function runFlush(): Promise<FlushResult> {
       result.held += 1;
       continue;
     }
-    if (item.state === "rejected") continue;
+    if (item.state === "rejected") {
+      await reportIfNeeded(db, item);
+      continue;
+    }
     const due = await db.getFirstAsync<{ next_attempt_at: string }>(
       "select next_attempt_at from outbox where client_id = ?",
       [item.clientId]
@@ -556,6 +607,7 @@ async function runFlush(): Promise<FlushResult> {
     const outcome = await send(item);
     if (outcome.ok) {
       await db.runAsync("delete from outbox where client_id = ?", [item.clientId]);
+      await addDataUsage(JSON.stringify(item.payload).length + 300);
       result.synced += 1;
       result.remaining -= 1;
       continue;
@@ -579,6 +631,7 @@ async function runFlush(): Promise<FlushResult> {
         [message, outcome.status ?? null, item.clientId]
       );
       result.newlyRejected += 1;
+      await reportIfNeeded(db, item, outcome);
     } else {
       recordSyncError("offline_outbox", `${detail}:retry`, message);
       const wait = backoffMs(item.attempts + 1);
