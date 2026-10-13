@@ -294,6 +294,8 @@ begin
       private.go_live_cond('settlement_terms_approved', 'At least one approved settlement term', v_n > 0, 'data', v_n || ' approved'),
       private.go_live_cond('admin_confirmation', 'Admin confirmation', true, 'switch', 'Given by an admin pressing the switch'));
   end if;
+  -- An unknown key has no conditions here: ask the function this one wraps. (This exact comment is the anchor that later migrations on main-dev look for when they
+  -- add their own branch to private.go_live_conditions in place: community, the home blood pressure programme, My Health and as-needed limits. Do not reword it.)
   return private.go_live_conditions_s74_base(p_key, p_org);
 end $$;
 
