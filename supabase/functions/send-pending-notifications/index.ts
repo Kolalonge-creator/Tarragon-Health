@@ -35,7 +35,7 @@ import webpush from "npm:web-push@3.6.7";
 import { appUrl, substituteTemplatePlaceholders, TEMPLATE_MAP } from "./templates.ts";
 import type { TemplateRender } from "./templates.ts";
 import { describeViolations, lintRenderFn, lintText } from "../_shared/notifications/neutral.ts";
-import { decide, pushEnvelope } from "../_shared/notifications/delivery.ts";
+import { decide, discreetEmail, FALLBACK_QUIET, isSafetyCritical, pushEnvelope } from "../_shared/notifications/delivery.ts";
 import type { QuietSettings } from "../_shared/notifications/delivery.ts";
 
 const BATCH_SIZE = 50;
@@ -597,7 +597,7 @@ Deno.serve(async () => {
   }
 
   const recipientIds = [...new Set(rows.map((row) => row.recipient_id))];
-  const { data: profiles } = await supabase
+  const { data: profiles, error: profilesError } = await supabase
     .from("profiles")
     .select("id, phone, role, discreet_mode")
     .in("id", recipientIds)
@@ -613,30 +613,38 @@ Deno.serve(async () => {
     .eq("is_active", true)
     .maybeSingle<{ config: { quietHours?: { enabled?: boolean; start?: string; end?: string }; routinePushPerDay?: number } }>();
   const defaultQuiet: QuietSettings = {
-    enabled: rulesRow?.config.quietHours?.enabled ?? true,
-    start: rulesRow?.config.quietHours?.start ?? "21:00",
-    end: rulesRow?.config.quietHours?.end ?? "07:00",
+    enabled: rulesRow?.config.quietHours?.enabled ?? FALLBACK_QUIET.enabled,
+    start: rulesRow?.config.quietHours?.start ?? FALLBACK_QUIET.start,
+    end: rulesRow?.config.quietHours?.end ?? FALLBACK_QUIET.end,
   };
   const routinePushPerDay = rulesRow?.config.routinePushPerDay ?? 4;
-  const { data: settingRows } = await supabase
+  const { data: settingRows, error: settingsError } = await supabase
     .from("notification_settings")
     .select("profile_id, quiet_enabled, quiet_start, quiet_end")
     .in("profile_id", recipientIds)
     .returns<Array<{ profile_id: string; quiet_enabled: boolean; quiet_start: string; quiet_end: string }>>();
+  // Fail closed for routine rows: without the recipient's role, discreet choice and quiet hours the sender cannot
+  // honour them, so this pass leaves routine rows pending (the next pass tries again; nothing is lost or sent with the
+  // wrong wording). Critical and safety rows still go: they ignore quiet hours, and a push or email is only made
+  // generic when discreet is known, so for them the worst case is more wording than wanted, never a missed alert.
+  const settingsDegraded = Boolean(profilesError || settingsError);
+  if (settingsDegraded) {
+    console.error("send-pending-notifications: privacy settings lookup failed; only critical and safety rows go this pass", (profilesError ?? settingsError)!.message);
+  }
   const quietById = new Map<string, QuietSettings>(
     (settingRows ?? []).map((r) => [r.profile_id, { enabled: r.quiet_enabled, start: r.quiet_start.slice(0, 5), end: r.quiet_end.slice(0, 5) }]),
   );
   const { data: pushToday } = await supabase
     .from("notifications")
-    .select("recipient_id")
+    .select("recipient_id, template")
     .eq("channel", "push")
     .eq("priority", "routine")
     .eq("status", "sent")
     .gte("sent_at", new Date(Date.now() - 24 * 3_600_000).toISOString())
     .in("recipient_id", recipientIds)
-    .returns<Array<{ recipient_id: string }>>();
+    .returns<Array<{ recipient_id: string; template: string | null }>>();
   const pushSentToday = new Map<string, number>();
-  for (const r of pushToday ?? []) pushSentToday.set(r.recipient_id, (pushSentToday.get(r.recipient_id) ?? 0) + 1);
+  for (const r of pushToday ?? []) if (!isSafetyCritical(r.template)) pushSentToday.set(r.recipient_id, (pushSentToday.get(r.recipient_id) ?? 0) + 1);
 
   // Append only record of what happened to a notification. Never throws: tracking must not change a send.
   const recordEvent = async (
@@ -737,7 +745,7 @@ Deno.serve(async () => {
   }
 
   function channelAllowed(row: NotificationRow): boolean {
-    if (row.priority === "critical") return true; // never gated — see TEMPLATE_CATEGORY's header comment
+    if (row.priority === "critical" || isSafetyCritical(row.template)) return true; // never gated — see TEMPLATE_CATEGORY's header comment
     // S13b: the email nudge after an unopened push follows the patient's email choice for the ORIGINAL message's category.
     const effectiveTemplate = row.template === "push_unconfirmed_email_nudge"
       ? originalTemplateById.get(String(row.payload?.fallback_for ?? "")) ?? null
@@ -776,7 +784,7 @@ Deno.serve(async () => {
   // below by construction (only priority === "routine" rows are grouped).
   const routineByRecipient = new Map<string, NotificationRow[]>();
   for (const row of rows) {
-    if (row.priority !== "routine") continue;
+    if (row.priority !== "routine" || isSafetyCritical(row.template)) continue; // safety messages are never folded away
     const list = routineByRecipient.get(row.recipient_id) ?? [];
     list.push(row);
     routineByRecipient.set(row.recipient_id, list);
@@ -813,6 +821,7 @@ Deno.serve(async () => {
 
   for (const row of rows) {
     if (foldedIds.has(row.id)) continue;
+    if (settingsDegraded && row.priority !== "critical" && !isSafetyCritical(row.template)) continue; // stays pending
 
     if (platformDisabledChannel(row)) {
       await suppress(row.id, "sms deprioritised platform-wide, no provider approval yet");
@@ -942,6 +951,7 @@ Deno.serve(async () => {
       routinePushPerDay,
       wordingViolations: wordingViolationsFor(row.template, row.channel, dbBody),
       isClinicianPage: row.priority === "critical" || roleById.get(row.recipient_id) === "clinician",
+      safetyCritical: isSafetyCritical(row.template),
     });
     if (decision.action === "block") {
       await markFailed(`blocked: INV-07 wording (${decision.violations.slice(0, 3).join(", ")})`);
@@ -957,7 +967,12 @@ Deno.serve(async () => {
     }
     if (decision.action === "defer") {
       // Held, never dropped: the row stays pending and is picked up once quiet hours end. No attempt is used.
-      await supabase.from("notifications").update({ send_after: new Date(decision.until).toISOString() }).eq("id", row.id);
+      const { error: holdError } = await supabase.from("notifications").update({ send_after: new Date(decision.until).toISOString() }).eq("id", row.id);
+      // If the hold could not be saved the row stays pending and is decided again on the next pass: never sent early, never lost.
+      if (holdError) {
+        console.error("quiet-hours hold not saved; row stays pending", row.id, holdError.message);
+        continue; // not counted, no event: it is decided again next pass
+      }
       await recordEvent(row.id, "deferred_quiet", "system", null, { until: new Date(decision.until).toISOString() });
       deferred++;
       continue;
@@ -988,8 +1003,12 @@ Deno.serve(async () => {
       // template that wants the same treatment should add its own explicit
       // case here rather than have this condition grown into something
       // fuzzier.
+      // Discreet mode: a person's own email carries fixed generic words and no attachment (the PDFs name the request).
+      const discreetMail = discreetById.get(row.recipient_id) === true && typeof payload.to_email !== "string";
       let attachments: EmailAttachment[] | undefined;
-      if (row.template === "lab_order_requested_patient" && typeof payload.order_id === "string") {
+      if (discreetMail) {
+        // no attachment is fetched or sent
+      } else if (row.template === "lab_order_requested_patient" && typeof payload.order_id === "string") {
         const pdf = await fetchLabOrderRequestPdf(payload.order_id);
         if (pdf) attachments = [pdf];
       } else if (row.template === "preventive_care_plan_updated") {
@@ -1008,9 +1027,10 @@ Deno.serve(async () => {
         failed++;
         continue;
       }
-      const emailResult = await sendEmail(
-        toEmail, render.email.subject, render.email.html, render.email.text ?? render.smsText, attachments,
-      );
+      const generic = discreetMail ? discreetEmail(isCritical || isSafetyCritical(row.template)) : null;
+      const emailResult = generic
+        ? await sendEmail(toEmail, generic.subject, generic.html, generic.text)
+        : await sendEmail(toEmail, render.email.subject, render.email.html, render.email.text ?? render.smsText, attachments);
       await settle(emailResult);
       if (emailResult.ok) await recordEvent(row.id, "accepted", "resend", emailResult.messageId ?? null);
       // Scoped to exactly one template, same pattern as the PDF-attachment
@@ -1020,6 +1040,7 @@ Deno.serve(async () => {
       // indistinguishable from one that never left the queue.
       if (
         emailResult.ok &&
+        !discreetMail && // a generic email carried no review link, so the prompt was not really sent
         row.template === "reputation_review_request_trustpilot" &&
         typeof payload.reputation_review_prompt_id === "string"
       ) {
@@ -1031,7 +1052,7 @@ Deno.serve(async () => {
       }
     } else if (row.channel === "push") {
       const subs = subscriptionsByProfile.get(row.recipient_id) ?? [];
-      const envelope = pushEnvelope(discreetById.get(row.recipient_id) === true, render.smsText, PUSH_BODY_MAX_CHARS);
+      const envelope = pushEnvelope(discreetById.get(row.recipient_id) === true, render.smsText, PUSH_BODY_MAX_CHARS, isCritical || isSafetyCritical(row.template));
       const pushPayload = {
         title: envelope.title,
         body: envelope.body,
@@ -1064,7 +1085,7 @@ Deno.serve(async () => {
       }
 
       if (pushOk) {
-        if (row.priority === "routine") pushSentToday.set(row.recipient_id, (pushSentToday.get(row.recipient_id) ?? 0) + 1);
+        if (row.priority === "routine" && !isSafetyCritical(row.template)) pushSentToday.set(row.recipient_id, (pushSentToday.get(row.recipient_id) ?? 0) + 1);
         await recordEvent(row.id, "accepted", "expo", null, { web: webResult.ok, native: nativeResult.ok });
         for (const t of nativeResult.tickets ?? []) {
           await recordEvent(row.id, "receipt_pending", "expo", t.id, { subscription_id: t.subscriptionId });

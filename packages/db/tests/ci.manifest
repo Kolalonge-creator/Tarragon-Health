@@ -962,3 +962,5 @@ oq276c_controlled_list_brand_names.sql
 sr2_stagger_cron_start_times.sql
 # SR2: scribe_consents_insert_clinical keeps its S39g tie rule and active-clinician check, and wraps auth.uid() in a select so it is evaluated once per statement; one insert policy for authenticated. Sabotage: the policy put back on a bare auth.uid(); the wrapper check must flip. Behaviour is proven by s21g and s39g.
 sr2_scribe_consents_insert_policy_initplan.sql
+# S04b-3: quiet hours default off (rules v3, column default, null choice stores off); turning them off releases only the caller's own reminders that were held by quiet hours (not a critical row, not someone else's, not an unrelated scheduled one); anon cannot run the function. Sabotage: the release step removed; the check must flip.
+s04b3_quiet_hours_default_off.sql
