@@ -922,3 +922,14 @@ begin
     end if;
   end loop;
 end $$;
+
+-- S04b-1 under-18 dependant scope guard: a patient-keyed table must be classified in public.minor_dependant_table_policy. Where the guard
+-- already exists (production, applied 20261013183512) classify the two new tables as GUARDED: an under-18 dependant holds no recovery
+-- contact or recovery request. On a fresh replay this migration sorts BEFORE the guard, whose own loop then guards them; both paths agree.
+do $$
+begin
+  if to_regprocedure('private.guard_minor_dependant_table(text,text)') is not null then
+    perform private.guard_minor_dependant_table('account_recovery_contacts', 'patient_id');
+    perform private.guard_minor_dependant_table('account_recovery_contact_requests', 'patient_id');
+  end if;
+end $$;

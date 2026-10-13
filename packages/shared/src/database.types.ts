@@ -6868,6 +6868,130 @@ export type Database = {
           },
         ]
       }
+      medication_prn_flags: {
+        Row: {
+          created_at: string
+          daily_max: boolean
+          dose_at: string
+          log_id: string
+          medication_id: string
+          min_gap: boolean
+          organisation_id: string
+          patient_id: string
+        }
+        Insert: {
+          created_at?: string
+          daily_max?: boolean
+          dose_at: string
+          log_id: string
+          medication_id: string
+          min_gap?: boolean
+          organisation_id: string
+          patient_id: string
+        }
+        Update: {
+          created_at?: string
+          daily_max?: boolean
+          dose_at?: string
+          log_id?: string
+          medication_id?: string
+          min_gap?: boolean
+          organisation_id?: string
+          patient_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_prn_flags_log_id_fkey"
+            columns: ["log_id"]
+            isOneToOne: true
+            referencedRelation: "medication_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_prn_flags_medication_id_fkey"
+            columns: ["medication_id"]
+            isOneToOne: false
+            referencedRelation: "medications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_prn_flags_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_prn_flags_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medication_prn_limits: {
+        Row: {
+          daily_max: number | null
+          medication_id: string
+          min_gap_minutes: number | null
+          organisation_id: string
+          patient_id: string
+          rule_version: number
+          set_at: string
+          set_by: string | null
+        }
+        Insert: {
+          daily_max?: number | null
+          medication_id: string
+          min_gap_minutes?: number | null
+          organisation_id: string
+          patient_id: string
+          rule_version: number
+          set_at?: string
+          set_by?: string | null
+        }
+        Update: {
+          daily_max?: number | null
+          medication_id?: string
+          min_gap_minutes?: number | null
+          organisation_id?: string
+          patient_id?: string
+          rule_version?: number
+          set_at?: string
+          set_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_prn_limits_medication_id_fkey"
+            columns: ["medication_id"]
+            isOneToOne: true
+            referencedRelation: "medications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_prn_limits_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_prn_limits_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_prn_limits_set_by_fkey"
+            columns: ["set_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       medication_supply: {
         Row: {
           count_source: string
@@ -11719,6 +11843,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      dependant_handovers: {
+        Row: {
+          created_at: string
+          decided_at: string | null
+          dependent_id: string
+          expires_at: string
+          id: string
+          organisation_id: string
+          started_by: string
+          state: string
+          target_phone_e164: string
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string | null
+          dependent_id: string
+          expires_at: string
+          id?: string
+          organisation_id: string
+          started_by: string
+          state?: string
+          target_phone_e164: string
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string | null
+          dependent_id?: string
+          expires_at?: string
+          id?: string
+          organisation_id?: string
+          started_by?: string
+          state?: string
+          target_phone_e164?: string
+        }
+        Relationships: []
+      }
+      minor_dependant_table_policy: {
+        Row: { policy: string; reason: string; table_name: string }
+        Insert: { policy: string; reason: string; table_name: string }
+        Update: { policy?: string; reason?: string; table_name?: string }
+        Relationships: []
       }
       dependent_transition_status: {
         Row: {
@@ -33918,6 +34084,47 @@ export type Database = {
           },
         ]
       }
+      prn_limit_rules: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prn_limit_rules_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       provider_quality_policy: {
         Row: {
           approved_at: string | null
@@ -44225,6 +44432,10 @@ export type Database = {
         Args: { p_note: string; p_reason: string };
         Returns: undefined;
       };
+      medication_prn_overview: {
+        Args: { p_patient: string; p_reason?: string }
+        Returns: Json
+      }
       medication_weekly_adherence: {
         Args: { p_patient: string; p_reason?: string }
         Returns: Json
@@ -44246,6 +44457,38 @@ export type Database = {
           reason_for_encounter: string
         }[]
       }
+      accept_dependant_handover: { Args: { p_date_of_birth: string; p_handover: string }; Returns: boolean }
+      cancel_dependant_handover: { Args: { p_dependent: string }; Returns: undefined }
+      decline_dependant_handover: { Args: { p_handover: string }; Returns: undefined }
+      log_proxy_view: { Args: { p_patient: string }; Returns: undefined }
+      my_pending_handover: {
+        Args: never
+        Returns: {
+          expires_at: string
+          guardian_first_name: string
+          id: string
+        }[]
+      }
+      my_proxy_view_log: {
+        Args: { p_limit?: number }
+        Returns: {
+          actor_first_name: string
+          id: string
+          kind: string
+          occurred_at: string
+          scope: string
+        }[]
+      }
+      narrow_proxy_access: {
+        Args: {
+          p_categories: Database["public"]["Enums"]["care_access_category"][]
+          p_grantee: string
+          p_notify?: boolean
+        }
+        Returns: number
+      }
+      revoke_proxy_access: { Args: { p_grantee: string }; Returns: boolean }
+      start_dependant_handover: { Args: { p_dependent: string; p_phone: string }; Returns: string }
       my_pending_proxy_setups: {
         Args: never
         Returns: {
@@ -48248,6 +48491,34 @@ export type Database = {
         Args: { p_id: string }
         Returns: string
       }
+      set_medication_prn_limits: {
+        Args: {
+          p_daily_max: number
+          p_medication: string
+          p_min_gap_minutes: number
+          p_reason: string
+        }
+        Returns: undefined
+      }
+      sign_prn_limit_rules: {
+        Args: { p_rules_id: string }
+        Returns: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "prn_limit_rules"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       sign_provider_quality_policy: {
         Args: { p_policy_id: string }
         Returns: {
@@ -49155,6 +49426,7 @@ export type Database = {
         | "medication_dose_recorded"
         | "medication_refill_due"
         | "medication_adherence_low"
+        | "medication_prn_limit_repeated"
       clinical_rule_execution_mode: "active" | "shadow"
       clinical_rule_execution_outcome:
         | "actions_emitted"
@@ -51464,6 +51736,7 @@ export const Constants = {
         "medication_dose_recorded",
         "medication_refill_due",
         "medication_adherence_low",
+        "medication_prn_limit_repeated",
       ],
       clinical_rule_execution_mode: ["active", "shadow"],
       clinical_rule_execution_outcome: [

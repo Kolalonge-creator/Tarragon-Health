@@ -7,6 +7,7 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthLocale } from "@/lib/auth/auth-locale";
 import { checkNewPassword } from "@/lib/auth/check-new-password";
+import { isRateLimitOtpError, isUnknownUserOtpError } from "@/lib/auth/otp-errors";
 import { checkAuthRateLimit } from "@/lib/rate-limit";
 import { PASSWORD_MIN_LENGTH } from "@/lib/validation/password";
 import { proxyConfirmSchema, proxyDeclineSchema, proxySetupSchema } from "@/lib/validation/proxy-setup";
@@ -67,11 +68,15 @@ export async function startProxySetupAction(_prev: ProxySetupState, formData: Fo
   const sender = createStatelessClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+  // shouldCreateUser is false on purpose (OQ-52): starting a setup must never create an account, or claim an employer
+  // roster place, for a number nobody has verified. A parent with no account signs up normally on their own phone and
+  // sees the request once their number is verified. For a number with no account GoTrue answers with an error, which is
+  // treated exactly like success below, so the proxy learns nothing about whether the number is registered.
   const { error: otpError } = await sender.auth.signInWithOtp({
     phone: parsed.data.phone,
-    options: { shouldCreateUser: true },
+    options: { shouldCreateUser: false },
   });
-  if (otpError) {
+  if (otpError && !isUnknownUserOtpError(otpError) && !isRateLimitOtpError(otpError)) {
     // Never report success when no code went out (the SMS provider can be unset or capped): the proxy would wait for
     // a parent who has nothing to enter. The setup row exists, so trying again returns it and sends a fresh code. The
     // message is the same for every number, so it tells the proxy nothing about the number itself.

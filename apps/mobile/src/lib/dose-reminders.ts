@@ -19,6 +19,7 @@ import { loadReminderBehaviour } from "./s07-config";
 import { scheduleOf } from "./medications";
 import { supabase } from "./supabase";
 import { getUiLanguage } from "./ui-language";
+import { exactAlarmsAllowed } from "./exact-alarms";
 
 /**
  * Local, device-only dose reminders: the one reminder channel that works with
@@ -186,6 +187,22 @@ export async function replanDoseReminders(
   }
 }
 
+/**
+ * Cancel every dose reminder this phone holds and plan them again. Used once, when the person has just allowed exact
+ * alarms: reminders already scheduled were created as inexact ones and keep that mode until they are made again.
+ */
+export async function rescheduleAllDoseReminders(patientId: string): Promise<ReplanResult> {
+  try {
+    const held = await Notifications.getAllScheduledNotificationsAsync();
+    for (const n of held) {
+      if (n.identifier.startsWith(DOSE_NOTIFICATION_PREFIX)) await Notifications.cancelScheduledNotificationAsync(n.identifier);
+    }
+  } catch {
+    // The replan below still runs; a reminder that could not be cancelled is replaced by id.
+  }
+  return replanDoseReminders(patientId);
+}
+
 /** Remind again later for one dose, at most `maxSnoozes` times. Nothing is logged: a snooze is only a later reminder. */
 export async function snoozeDose(slot: string): Promise<{ ok: true; minutes: number } | { ok: false; reason: "limit" | "failed" }> {
   const cfg = loadReminderBehaviour();
@@ -264,7 +281,8 @@ export async function checkReminderHealth(patientId: string, nowMs: number = Dat
       Platform.OS === "android" ? ((Platform.constants as { Manufacturer?: string }).Manufacturer ?? null) : null;
     return reminderIssues({
       notificationsAllowed: status === "granted",
-      exactAlarmsAllowed: null,
+      // Android 12+: false means reminders can arrive a few minutes late; null where the phone or build cannot tell.
+      exactAlarmsAllowed: exactAlarmsAllowed(),
       plannedCount,
       pendingCount: pending,
       lastPlannedAtMs: Number.isFinite(plannedAt) && plannedAt > 0 ? plannedAt : null,
