@@ -406,6 +406,31 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S10.md; docs/research/S10.md",
   },
   {
+    key: "events.bus_rules",
+    // S10x adds the operations values. Same live source (the active row of `event_bus_config`, now version 3; a test fails if the
+    // migrations and this entry drift apart). lagAlertSeconds: when the oldest due, unclaimed, non-urgent delivery of a subscriber is
+    // older than this, one incident opens for that subscriber (none while one is open). lagAlertFloorSeconds: the database refuses a
+    // lower value, so a typo cannot turn the alert into noise. partnerDisableAfterFailures: consecutive failed attempts after which a
+    // partner webhook endpoint is switched off and an incident opens; partnerDisableFloor is the lowest the database allows.
+    value: {
+      batchSize: 50,
+      leaseSeconds: 60,
+      maxAttempts: 8,
+      backoffBaseSeconds: 15,
+      backoffMaxSeconds: 900,
+      jitterPercent: 20,
+      lagAlertSeconds: 600,
+      lagAlertFloorSeconds: 120,
+      partnerDisableAfterFailures: 20,
+      partnerDisableFloor: 5,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-13",
+    source: "docs/design/S10x.md",
+  },
+  {
     key: "credentialing.rules",
     // Clinician credentialing (S15). The live values are the active row of `credentialing_config` (versioned in the
     // database); this entry mirrors it, and a test fails if the migration seed and this value drift apart. Keys are the
@@ -1000,6 +1025,41 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/design/S39c.md; spec section 13; founder direction 2026-10-07",
   },
+  {
+    key: "security.rules",
+    // Security thresholds (S39, S39c, S39d). Live values are the active row of `security_config`; this entry mirrors it and a test fails if the
+    // migration seed and this value drift. PROPOSED, owned by the security owner (CMO until one is named). v1 (S39): failed lookups on a public
+    // token door in one hour that open a security incident (the answer to guessing is to see it, never to lock the door). v2 (S39c): how long an
+    // opening of a patient record stays valid for an untied clinician, how many untied openings in an hour raise an incident, the after-hours
+    // band (Lagos hours), and the retention periods (NHS Records Management Code and HIPAA as references, counsel to confirm). v3 (S39d): the review clock, in days, for a patient data export request. Retention is
+    // config only: real_data_auto_delete is false, nothing deletes real patient data (founder, 2026-10-07).
+    value: {
+      lookup_failure_alert_per_hour: 50,
+      record_open_window_hours: 8,
+      untied_open_alert_per_hour: 20,
+      after_hours_start: 22,
+      after_hours_end: 6,
+      export_review_days: 30,
+      retention: {
+        adult_clinical_record_years_after_last_contact: 8,
+        child_record_until_age: 25,
+        child_record_until_age_if_seen_at_17: 26,
+        maternity_record_years: 25,
+        mental_health_years_after_last_contact: 20,
+        access_audit_log_years: 8,
+        consent_years_after_relationship_end: 6,
+        payments_ledger_years: 6,
+        operational_data_days_min: 90,
+        operational_data_days_max: 730,
+        real_data_auto_delete: false,
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 3,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S39d.md; spec section 13; founder direction 2026-10-07",
+  },
 
   {
     key: "quality.audit",
@@ -1213,6 +1273,24 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 2,
     effectiveFrom: "2026-10-06",
     source: "docs/design/S13.md; docs/research/S13.md",
+  },
+  {
+    key: "notifications.rules",
+    // v3 (S04b-3, founder decision 2026-10-13): quiet hours are OFF until a person turns them on (window 21:00 to 07:00
+    // Africa/Lagos until they change it). Discreet mode and quiet hours are applied by the one sender; safety messages
+    // are never held. Live value: the active row of `notification_rules_config`.
+    value: {
+      quietHours: { enabled: false, start: "21:00", end: "07:00" },
+      routinePushPerDay: 4,
+      receiptCheckMinutes: 15,
+      receiptGiveUpHours: 24,
+      pushFallback: { enabled: true, afterMinutes: 240, maxAgeHours: 24, perRecipientPerDay: 1, batchSize: 200 },
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 3,
+    effectiveFrom: "2026-10-13",
+    source: "docs/design/S13.md; founder decision 2026-10-13",
   },
   {
     key: "video.audio_fallback",
@@ -1808,6 +1886,149 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 3,
     effectiveFrom: "2026-10-07",
     source: "docs/DECISIONS.md S11-1; supabase/migrations/20261007152136_s11c_bp_care_triage_v3.sql",
+  },
+  {
+    key: "community.rules",
+    // Community groups (decisions COM-1 to COM-10, docs/COMMUNITY_SPEC.md). Live values are the active row of `community_config`; this entry mirrors it
+    // and community-mirror.test.ts fails if the migration seed and this value drift. PROPOSED: post length, the first post a new member waits for (lowered from three to one in the Phase 2 review: Mayo Connect posts at once, so we measure first-post drop-off and can raise it again), rate
+    // limits, the cool-down after repeated blocked attempts, the number of reporters that hides a post, how long a removed post's text is kept, and the
+    // limits on the unmask. The retention figure and the consent version are counsel's (OQ-COM-06); the rest are the founder's and the CMO's.
+    // A change is a NEW version here AND a new community_config row; the old one is never edited.
+    value: {
+      post_max_chars: 2000,
+      edit_window_minutes: 15,
+      new_member_premoderated_posts: 1,
+      appeal_window_days: 14,
+      quality_sample_pct: 10,
+      image_max_bytes: 4194304,
+      qa_questions_per_member: 3,
+      qa_answer_grace_minutes: 60,
+      overdue_safety_minutes: 30,
+      overdue_queue_minutes: 60,
+      rate_posts_per_hour: 6,
+      rate_posts_per_day: 30,
+      block_cooldown: {"max_blocks": 3, "window_minutes": 10, "cooldown_minutes": 60},
+      auto_hide_report_threshold: 3,
+      removed_body_retention_days: 90,
+      unmask: {"min_reason_chars": 20, "max_per_day": 5, "signal_window_days": 30},
+      consent_version: "v1-2026-10-12-founder-cmo",
+      feed_page_size: 20,
+      max_page_size: 50,
+      welcome_days: 14,
+      return_nudge_days: 3,
+      avatars: ["leaf", "sun", "river", "hill", "star", "seed", "cloud", "stone", "wave", "bird"],
+      handle_words: {
+        adjectives: ["calm", "brave", "bright", "gentle", "steady", "kind", "warm", "quiet", "bold", "clever", "cheerful", "patient", "sunny", "swift", "wise", "lively", "hopeful", "honest", "mellow", "sturdy", "tender", "vivid", "witty", "zesty", "noble", "merry", "serene", "spry", "plucky", "radiant"],
+        nouns: ["river", "hill", "leaf", "sparrow", "baobab", "palm", "harbour", "lantern", "meadow", "pebble", "breeze", "cedar", "comet", "dune", "ember", "falcon", "garden", "heron", "island", "jasmine", "kestrel", "lagoon", "maple", "orchid", "plateau", "quartz", "reed", "savanna", "thistle", "willow"],
+      },
+    },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-09",
+    source: "docs/COMMUNITY_SPEC.md sections 4.1 to 4.5; supabase/migrations/20261009193728_community_guard_and_seed.sql",
+    guardPatterns: ["post[_ ]?max[_ ]?chars\\w*\\s*[=:]\\s*2000\\b", "premoderated\\w*\\s*[=:]\\s*3\\b", "auto[_ ]?hide\\w*\\s*[=:]\\s*3\\b"],
+  },
+  {
+    key: "bp.home_programme",
+    // S07x: the seven-day home blood pressure check (CMO-approved text C1, C2, C3 of 2026-10-07, NOT signed). Live value is the active, signed row of
+    // `home_bp_programme_signoffs`.config; home-bp-mirror.test.ts fails if the migration seed and this value drift. The phone bundles this value, so a change
+    // reaches installed phones only with the next build or update; the server (which records the result and raises the care-team task) always uses the signed row.
+    // protocol: C1 (2 readings a minute apart, morning and evening, 7 days, minimum 3 days and 12 readings, every reading averaged).
+    // bands: C2 (home mean 135/85 or above is above the home hypertension level; 130-134 / 80-84 is borderline). pattern: C3 (clinic 140/90, 30 days).
+    value: {
+      "protocol": {
+        "readingsPerSession": 2,
+        "minGapMinutes": 1,
+        "targetDays": 7,
+        "minDays": 3,
+        "minReadings": 12,
+        "restMinutes": 5,
+        "avoidBeforeMinutes": 30,
+        "morningHours": [4, 12],
+        "eveningHours": [17, 24]
+      },
+      "bands": {
+        "aboveSystolic": 135,
+        "aboveDiastolic": 85,
+        "borderlineSystolic": 130,
+        "borderlineDiastolic": 80
+      },
+      "pattern": {
+        "clinicSystolic": 140,
+        "clinicDiastolic": 90,
+        "windowDays": 30
+      },
+      "tasks": {
+        "reviewDueMinutes": 2880,
+        "patternDueMinutes": 2880
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md Part B C1 to C3; Nigeria hypertension guideline 2023-2028 sections 3.1.1, 3.2, 5.4.5, 6.2, 6.3; supabase/migrations/20261013182514_s07x_home_bp_programme.sql",
+  },
+  {
+    key: "offline.trust",
+    // S06x. PROPOSED: how long a phone may go without checking in before its encrypted-store key lease expires and it does its last upload
+    // attempt and wipes (D3 in docs/plans/S06-S10-cmo-decisions-2026-10-07.md says 30 days; the server column
+    // offline_sync_config.device_lease_days mirrors it, offline-trust-mirror.test.ts fails if they drift), the least gap between two reachability
+    // probes while rows wait (a HEAD with no body, so it costs almost no data), how long a probe may take, and how many hours a phone waits after it first sees its own lease as lapsed (offline, so the server cannot confirm) before it wipes, and how many rejection reports one account may file a day (a per-account cap in the database stops a flood).
+    value: {
+      device_lease_days: 30,
+      probe_min_interval_seconds: 60,
+      probe_timeout_seconds: 8,
+      rejection_report_daily_cap: 200,
+      lease_grace_hours: 24,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/plans/S06-S10-cmo-decisions-2026-10-07.md D1 to D3; supabase/migrations/20261013181713_s06x_offline_trust.sql",
+    guardPatterns: ["lease\\w*days?\\s*[=:]\\s*30\\b", "probe\\w*(interval|seconds)\\w*\\s*[=:]\\s*60\\b"],
+  },
+  {
+    key: "my_health.sharing_and_access_log",
+    // My Health completion (S09x). Live values are the active row of `my_health_config`.config (sharing, access_log); my-health-mirror.test.ts fails if the
+    // migration seed and this value drift. PROPOSED: the default share expiry (12 hours, shorter than the 24 the first share screen used; the 30 day cap is
+    // unchanged), the PIN length, how many wrong PINs lock a share, how many from one client in a window, and the one-session window. show_staff_opens is
+    // held at false on purpose: founder direction 2026-10-07 is that a patient is not told about routine staff openings, pending counsel (OQ-281).
+    value: {
+      sharing: {
+        default_expiry_hours: 12,
+        max_expiry_hours: 720,
+        expiry_options_hours: [1, 6, 12, 24, 72, 168, 720],
+        pin_digits: 6,
+        pin_max_misses: 5,
+        pin_client_max_misses: 3,
+        pin_client_window_minutes: 15,
+        one_session_window_minutes: 30,
+      },
+      access_log: { page_size: 50, max_page_size: 100, show_staff_opens: false },
+    },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/plans/S06-S10-competitor-gap-and-build-plan.md section 5 (S09x); docs/design/S09x.md; supabase/migrations/20261013181946_s09x_my_health_completion.sql",
+    guardPatterns: ["pin\\w*miss\\w*\\s*[=:]\\s*5\\b", "default\\w*expiry\\w*\\s*[=:]\\s*12\\b"],
+  },
+  {
+    key: "my_health.lock_screen_pass",
+    // CMO item C8 (docs/plans/S06-S10-cmo-decisions-2026-10-07.md): APPROVED TEXT, NOT SIGNED. The only things a lock-screen or wallet pass may carry.
+    // Live value is the active row of `my_health_config`.config.lock_screen_pass; the CMO signs it through sign_my_health_config. Off by default (D4).
+    value: {
+      default_enabled: false,
+      fields: ["initials", "blood_group", "genotype", "genotype_provenance", "allergies_on_file", "emergency_contact_phone", "unlock_hint"],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md C8 and D4; supabase/migrations/20261013181946_s09x_my_health_completion.sql",
   },
   {
     key: "commerce.membership_prices",

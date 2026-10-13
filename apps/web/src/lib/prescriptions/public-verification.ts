@@ -6,7 +6,7 @@
  * says so plainly and tells them to check the person's identity against the paper.
  */
 
-export type PublicPrescriptionStatus = "active" | "superseded" | "expired" | "cancelled";
+export type PublicPrescriptionStatus = "active" | "superseded" | "expired" | "cancelled" | "controlled_medicine";
 
 export interface PublicPrescriptionProof {
   status: PublicPrescriptionStatus;
@@ -64,6 +64,13 @@ export function presentStatus(status: PublicPrescriptionStatus): StatusPresentat
         tone: "bad",
         guidance: "This prescription has been stopped. Do not dispense.",
       };
+    case "controlled_medicine":
+      // OQ-276: the same list the counter and signing use. The prescription is genuine; it is just not supplied through Tarragon.
+      return {
+        headline: "Controlled medicine: not supplied through Tarragon",
+        tone: "bad",
+        guidance: "This medicine is on the controlled medicines list, and Tarragon does not supply controlled medicines. Nothing can be recorded here. Do not dispense it against this prescription.",
+      };
   }
 }
 
@@ -80,6 +87,7 @@ export type SupplyOutcome =
   | "duplicate"
   | "no_supply_available"
   | "not_active"
+  | "controlled_medicine"
   | "not_found"
   | "invalid"
   | "rate_limited"
@@ -90,6 +98,7 @@ export const SUPPLY_OUTCOME_MESSAGE: Record<SupplyOutcome, { tone: "good" | "bad
   duplicate: { tone: "bad", text: "A supply was recorded for this prescription a few minutes ago, so this was not recorded again." },
   no_supply_available: { tone: "bad", text: "No supply is available on this prescription now, so nothing was recorded. Do not dispense." },
   not_active: { tone: "bad", text: "This prescription can no longer be supplied. Nothing was recorded. Do not dispense." },
+  controlled_medicine: { tone: "bad", text: "This medicine is on the controlled medicines list, and Tarragon does not supply controlled medicines. Nothing was recorded. Do not dispense it against this prescription." },
   not_found: { tone: "bad", text: "We could not find this prescription, so nothing was recorded." },
   invalid: { tone: "bad", text: "Enter the pharmacy name, the pharmacist's name and the pharmacist's registration number." },
   rate_limited: { tone: "bad", text: "Too many attempts from this connection. Please wait a while and try again." },
@@ -113,7 +122,7 @@ export function isProof(value: unknown): value is PublicPrescriptionProof {
   if (!value || typeof value !== "object") return false;
   const v = value as Record<string, unknown>;
   return (
-    (v.status === "active" || v.status === "superseded" || v.status === "expired" || v.status === "cancelled") &&
+    (v.status === "active" || v.status === "superseded" || v.status === "expired" || v.status === "cancelled" || v.status === "controlled_medicine") &&
     typeof v.rx_number === "string" &&
     typeof v.drug_name === "string" &&
     typeof v.supplies_dispensed === "number" &&
