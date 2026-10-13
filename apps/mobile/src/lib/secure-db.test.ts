@@ -102,6 +102,17 @@ describe("moving the old plain database", () => {
     expect(await listStoreNotices()).toEqual([]);
   });
 
+  it("moves queued photo bytes intact, in small pages", async () => {
+    await seedLegacy(1, true);
+    const db = await openDatabaseAsync(LEGACY_DB_NAME);
+    const big = new Uint8Array(300_000).map((_, i) => i % 251);
+    for (let i = 0; i < 30; i++) await db.runAsync("insert into wq_queue_photos values (?, ?, ?)", ["q2", `p${i}`, big as unknown as number]);
+    freshStart();
+    const store = await getStore();
+    expect((await store.getFirstAsync<{ n: number }>("select count(*) as n from wq_queue_photos"))?.n).toBe(31);
+    expect(__databaseNames()).not.toContain(LEGACY_DB_NAME);
+  });
+
   it("moves 1000 queued rows without loss", async () => {
     await seedLegacy(1000);
     freshStart();
@@ -231,6 +242,28 @@ describe("when encryption cannot start, logging still works and the patient is t
     freshStart();
     expect(await getStoreStatus()).toMatchObject({ mode: "encrypted" });
     expect(await listOutbox()).toHaveLength(1);
+  });
+});
+
+describe("after the move, a failure to open is never answered with a plain file", () => {
+  it("a locked or broken keystore makes the open fail, creates no plain file, and shows no false notice", async () => {
+    await enqueue({ kind: "vital", subjectId: "user-1", payload: BP });
+    __setFailing(true);
+    freshStart();
+    await expect(getStore()).rejects.toThrow(/keystore/);
+    expect(__databaseNames()).not.toContain(LEGACY_DB_NAME);
+    expect(await listStoreNotices()).toEqual([]);
+    __setFailing(false);
+    freshStart();
+    expect(await listOutbox()).toHaveLength(1); // nothing was lost, it just waited
+  });
+
+  it("a build that lost SQLCipher after the move fails the same way", async () => {
+    await enqueue({ kind: "vital", subjectId: "user-1", payload: BP });
+    __setCipherAvailable(false);
+    freshStart();
+    await expect(getStore()).rejects.toThrow();
+    expect(__databaseNames()).not.toContain(LEGACY_DB_NAME);
   });
 });
 

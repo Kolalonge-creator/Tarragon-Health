@@ -35,7 +35,8 @@ import {
 
 const GENERATION_KEY = "@tarragon/store-generation/v1";
 const LEGACY_STATE_KEY = "@tarragon/legacy-store/v1";
-const COPY_PAGE = 200;
+// Small on purpose: the written-question queue keeps photo bytes in this store, and a page is held in memory twice (read, then bind).
+const COPY_PAGE = 25;
 
 export type StoreMode = "encrypted" | "plain";
 
@@ -219,11 +220,26 @@ async function migrateLegacy(dest: SQLite.SQLiteDatabase): Promise<boolean> {
   }
 }
 
+/**
+ * True once the plain file has been migrated and removed. After that the encrypted store is the ONLY copy
+ * of the patient's entries, so a failure to open it (a locked keystore, a busy or full disk) must not be
+ * "solved" by opening a fresh plain file: that would hide the real outbox and write health data in clear.
+ * The caller gets the error instead and tries again later.
+ */
+async function plainFileRetired(): Promise<boolean> {
+  try {
+    return (await AsyncStorage.getItem(LEGACY_STATE_KEY)) === "done";
+  } catch {
+    return false;
+  }
+}
+
 async function openStore(): Promise<OpenStore> {
   let key;
   try {
     key = await getOrCreateStoreKey();
   } catch (error) {
+    if (await plainFileRetired()) throw error;
     return openPlainFallback("keystore", error);
   }
 
@@ -232,8 +248,11 @@ async function openStore(): Promise<OpenStore> {
   try {
     db = await openEncrypted(storeFileName(generation), key.hex);
   } catch (error) {
-    if (error instanceof CipherUnavailableError) return openPlainFallback("sqlcipher", error);
-    if (!isWrongKeyError(error)) throw error;
+    if (error instanceof CipherUnavailableError) {
+      if (await plainFileRetired()) throw error;
+      return openPlainFallback("sqlcipher", error);
+    }
+    if (!isWrongKeyError(error)) throw error; // busy, full or unreadable disk: transient, the caller retries; never a reason to leave the encrypted store
     // The file exists and this key does not open it. Leave it exactly as it is and start the next generation.
     const code = eventCode(Crypto.randomUUID());
     recordSyncError("offline_outbox", `store:keyLost:${code}`, error);
@@ -308,6 +327,8 @@ export async function getStoreStatus(): Promise<StoreStatus> {
  * notices (they must outlive the wipe) or the sign-in.
  */
 export async function destroyStore(): Promise<void> {
+  // An open still in flight must finish first, or it would finish onto files that are about to be deleted.
+  await opening?.catch(() => {});
   const generation = current?.generation ?? (await readGeneration());
   try {
     await current?.db.closeAsync();

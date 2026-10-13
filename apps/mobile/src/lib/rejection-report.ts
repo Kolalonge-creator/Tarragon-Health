@@ -28,15 +28,14 @@ export async function reportRejection(
     const { error } = await supabase.from("offline_sync_rejections").insert({
       organisation_id: profile.organisation_id,
       account_id: item.ownerUserId,
-      patient_id: item.subjectId,
       kind: item.kind,
       reason_code: rejectionReasonCode(info),
       http_status: info.status ?? null,
       support_code: supportCode(item.clientId),
       client_id: item.clientId,
     });
-    // 23505: already reported. That is success.
-    if (error && error.code !== "23505") {
+    // 23505: already reported. 53400: today's cap reached. Both are "nothing more to send".
+    if (error && error.code !== "23505" && error.code !== "53400") {
       recordSyncError("offline_outbox", "reportRejection:insert", error.message);
       return false;
     }

@@ -4,7 +4,8 @@ import { bytesToHex } from "./store-rules";
 
 /**
  * The encryption key for the on-device database (S06x, decision D1). 256 random bits, made on first
- * run and kept only in the OS keychain/keystore: WHEN_UNLOCKED_THIS_DEVICE_ONLY on iOS, so the key is
+ * run and kept only in the OS keychain/keystore: AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY on iOS (not WHEN_UNLOCKED: the
+ * background sync task runs while the phone is locked and must be able to open the store), so the key is
  * neither included in an iCloud backup nor restored onto another phone. On Android the key is wrapped by
  * a hardware-backed Keystore key that a backup restore cannot recreate, so a restored copy of the app
  * data has a database it cannot open: that is the "key lost" path in secure-db.ts, not a leak.
@@ -14,7 +15,7 @@ import { bytesToHex } from "./store-rules";
 const KEY_NAME = "tarragon.offline.store.key.v1";
 const DEVICE_ID_PREFIX = "tarragon.offline.device.id.v1.";
 
-const OPTIONS: SecureStore.SecureStoreOptions = { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY };
+const OPTIONS: SecureStore.SecureStoreOptions = { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY };
 
 export class StoreKeyUnavailableError extends Error {
   constructor(cause: unknown) {

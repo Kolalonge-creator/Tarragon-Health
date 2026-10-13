@@ -50,7 +50,6 @@ describe("rejection report", () => {
     expect(mockReports[0]).toMatchObject({
       organisation_id: "org-1",
       account_id: "user-1",
-      patient_id: "p1",
       kind: "symptom",
       reason_code: "refused_constraint",
       client_id: item.clientId,
@@ -68,7 +67,7 @@ describe("rejection report", () => {
       else expect(text).not.toContain(leaked);
     }
     expect(Object.keys(mockReports[0]).sort()).toEqual(
-      ["account_id", "client_id", "http_status", "kind", "organisation_id", "patient_id", "reason_code", "support_code"].sort()
+      ["account_id", "client_id", "http_status", "kind", "organisation_id", "reason_code", "support_code"].sort()
     );
   });
 

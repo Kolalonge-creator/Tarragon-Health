@@ -5,7 +5,7 @@
  */
 const store = new Map<string, string>();
 
-export const WHEN_UNLOCKED_THIS_DEVICE_ONLY = 6;
+export const AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY = 5;
 let failing = false;
 /** Test hook: the keystore is unavailable (locked, corrupted). */
 export function __setFailing(value: boolean): void {

@@ -43,6 +43,13 @@ export async function addStoreNotice(notice: NewStoreNotice, now: Date = new Dat
   try {
     const current = await listStoreNotices();
     const code = "code" in notice ? notice.code : null;
+    // A wipe that is retried (a file would not delete) must not stack notices: the same reason within ten minutes is one.
+    if (
+      notice.kind === "wiped" &&
+      current.some((n) => n.kind === "wiped" && n.reason === notice.reason && now.getTime() - new Date(n.at).getTime() < 10 * 60_000)
+    ) {
+      return;
+    }
     if (current.some((n) => n.kind === notice.kind && ("code" in n ? n.code : null) === code && notice.kind !== "wiped")) return;
     const next: StoreNotice = { ...notice, id: `${now.getTime()}-${current.length}`, at: now.toISOString() } as StoreNotice;
     await AsyncStorage.setItem(KEY, JSON.stringify([...current, next].slice(-MAX)));

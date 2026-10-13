@@ -24814,6 +24814,7 @@ export type Database = {
           is_active: boolean
           note: string | null
           pull_overlap_minutes: number
+          rejection_report_daily_cap: number
           stuck_notice_danger_hours: number
           stuck_notice_hours: number
           version: number
@@ -24826,6 +24827,7 @@ export type Database = {
           is_active?: boolean
           note?: string | null
           pull_overlap_minutes: number
+          rejection_report_daily_cap?: number
           stuck_notice_danger_hours: number
           stuck_notice_hours: number
           version: number
@@ -24838,6 +24840,7 @@ export type Database = {
           is_active?: boolean
           note?: string | null
           pull_overlap_minutes?: number
+          rejection_report_daily_cap?: number
           stuck_notice_danger_hours?: number
           stuck_notice_hours?: number
           version?: number
@@ -24853,7 +24856,6 @@ export type Database = {
           id: string
           kind: string
           organisation_id: string
-          patient_id: string | null
           reason_code: string
           support_code: string
         }
@@ -24865,7 +24867,6 @@ export type Database = {
           id?: string
           kind: string
           organisation_id: string
-          patient_id?: string | null
           reason_code: string
           support_code: string
         }
@@ -24877,7 +24878,6 @@ export type Database = {
           id?: string
           kind?: string
           organisation_id?: string
-          patient_id?: string | null
           reason_code?: string
           support_code?: string
         }

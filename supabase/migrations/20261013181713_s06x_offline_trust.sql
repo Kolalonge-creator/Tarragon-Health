@@ -11,14 +11,14 @@
 -- No data conversion: both tables are new and empty. Applied by the merge pipeline at this filename's version.
 
 alter table public.offline_sync_config
-  add column if not exists device_lease_days integer not null default 30 check (device_lease_days between 1 and 365);
+  add column if not exists device_lease_days integer not null default 30 check (device_lease_days between 1 and 365),
+  add column if not exists rejection_report_daily_cap integer not null default 200 check (rejection_report_daily_cap between 1 and 5000);
 
 -- 1. Rejections ---------------------------------------------------------------------------------------------------------------------
 create table public.offline_sync_rejections (
   id uuid primary key default gen_random_uuid(),
   organisation_id uuid not null,
   account_id uuid not null references auth.users (id) on delete cascade,
-  patient_id uuid,
   kind text not null check (kind in ('vital', 'symptom', 'dose')),
   reason_code text not null check (reason_code in ('refused_permission', 'refused_constraint', 'refused_validation', 'refused_other')),
   http_status integer check (http_status is null or http_status between 100 and 599),
@@ -39,9 +39,27 @@ create policy offline_sync_rejections_insert_own on public.offline_sync_rejectio
 create policy offline_sync_rejections_read_own on public.offline_sync_rejections for select to authenticated
   using (account_id = (select auth.uid()));
 
+-- Not STABLE: it writes the audit row, and a STABLE function runs in a read-only transaction when called as a GET.
+-- A caller chooses its own client_id, so the unique key is no brake on a loop of inserts. A per-account daily cap (a PROPOSED value in
+-- offline_sync_config, mirrored in offline.trust) stops one account flooding the table or pushing real rows out of the support view.
+create function private.cap_offline_sync_rejections() returns trigger language plpgsql set search_path = '' as
+$$
+declare v_cap integer; v_n integer;
+begin
+  select coalesce(rejection_report_daily_cap, 200) into v_cap from public.offline_sync_config where is_active;
+  select count(*) into v_n from public.offline_sync_rejections where account_id = new.account_id and created_at > now() - interval '1 day';
+  if v_n >= coalesce(v_cap, 200) then
+    raise exception 'too many rejection reports today' using errcode = '53400';
+  end if;
+  return new;
+end $$;
+revoke all on function private.cap_offline_sync_rejections() from public, anon;
+create trigger offline_sync_rejections_cap before insert on public.offline_sync_rejections
+  for each row execute function private.cap_offline_sync_rejections();
+
 create function public.read_offline_sync_rejections(p_account uuid default null, p_days integer default 14)
 returns table (id uuid, account_id uuid, kind text, reason_code text, http_status integer, support_code text, created_at timestamptz)
-language plpgsql stable security definer set search_path = '' as
+language plpgsql volatile security definer set search_path = '' as
 $$
 begin
   if not coalesce(private.is_admin(), false) then raise exception 'not allowed' using errcode = '42501'; end if;

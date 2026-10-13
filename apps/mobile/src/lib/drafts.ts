@@ -24,8 +24,10 @@ async function setupDrafts(db: SQLite.SQLiteDatabase): Promise<void> {
        value text not null,
        updated_at text not null,
        primary key (owner_user_id, key)
-     );`
+     );
+     drop table if exists drafts;`
   );
+  // The pre-S06x drafts table had no account on its rows, so nobody can be shown them safely (typed form text only).
 }
 
 function getDb(): Promise<SQLite.SQLiteDatabase> {

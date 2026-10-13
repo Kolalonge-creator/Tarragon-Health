@@ -19,7 +19,13 @@ let mockFlushThrows = false;
 
 jest.mock("./supabase", () => ({
   supabase: {
-    auth: { getSession: async () => ({ data: { session: mockUser ? { user: { id: mockUser } } : null } }) },
+    auth: {
+      getSession: async () => ({ data: { session: mockUser ? { user: { id: mockUser } } : null } }),
+      signOut: async () => {
+        calls.push("signOut");
+        return { error: null };
+      },
+    },
     rpc: async (name: string, args: unknown) => {
       calls.push(`rpc:${name}`);
       if (name === "offline_device_checkin") return mockCheckin;
@@ -100,6 +106,7 @@ describe("a lost-phone report", () => {
     expect(calls[0]).toBe("rpc:offline_device_checkin");
     expect(calls.indexOf("flush")).toBeLessThan(calls.indexOf("count"));
     expect(calls.indexOf("count")).toBeLessThan(calls.indexOf("rpc:confirm_offline_device_wipe"));
+    expect(calls).toContain("signOut"); // a lost phone must not stay signed in
 
     expect(__databaseNames().filter((n) => n.startsWith("tarragon-"))).toEqual([]);
     expect(await SecureStore.getItemAsync("tarragon.offline.store.key.v1")).toBeNull();
@@ -171,6 +178,14 @@ describe("a key lease that ran out", () => {
     expect(await runDeviceCheck(new Date("2026-11-11T00:00:00Z"))).toBe("offline");
     expect(__databaseNames().length).toBeGreaterThan(0);
     expect(await listStoreNotices()).toEqual([]);
+  });
+
+  it("an outage on our side (a 5xx) never runs the lease down", async () => {
+    await seedPhone();
+    await checkInOnce();
+    mockCheckin = { data: null, error: { code: "PGRST000", message: "Service unavailable", status: 503 } as never };
+    expect(await runDeviceCheck(new Date("2026-12-01T00:00:00Z"))).toBe("offline");
+    expect(__databaseNames().length).toBeGreaterThan(0);
   });
 
   it("never wipes a phone whose clock went backwards", async () => {

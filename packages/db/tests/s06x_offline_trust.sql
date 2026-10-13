@@ -5,6 +5,7 @@
 -- Devices: check-in registers a lease, extends it, another account cannot take the device; a lost-phone report by the owner or an
 -- admin of the same organisation sets the flag, another patient and another organisation's admin are refused; the next check-in reports
 -- revoked and does NOT extend the lease; the wipe confirmation stores a count only; anon cannot call any of it.
+-- A per-account daily cap stops a flood; the support read function is VOLATILE so its audit write works under GET.
 -- SABOTAGE: the rejection insert policy loosened to any account (a patient can then write as someone else), and the check-in function
 -- made to extend a revoked lease.
 begin;
@@ -78,9 +79,21 @@ select pg_temp.ck('real', 'A3 a patient cannot write a rejection as another acco
   pg_temp.as_user(pg_temp.f('p1'), format($q$ with i as (insert into public.offline_sync_rejections (organisation_id, account_id, kind, reason_code, support_code, client_id) values (%L, %L, 'dose', 'refused_other', 'ABCD1235', %L) returning 1) select 'ok' from i $q$, pg_temp.f('org'), pg_temp.f('p2'), pg_temp.f('c2'))));
 select pg_temp.ck('real', 'A4 nor into another organisation', 'ERR 42501',
   pg_temp.as_user(pg_temp.f('p1'), format($q$ with i as (insert into public.offline_sync_rejections (organisation_id, account_id, kind, reason_code, support_code, client_id) values (%L, %L, 'dose', 'refused_other', 'ABCD1236', %L) returning 1) select 'ok' from i $q$, pg_temp.f('org2'), pg_temp.f('p1'), gen_random_uuid())));
+do $$ begin
+  update public.offline_sync_config set rejection_report_daily_cap = 2 where is_active;
+end $$;
+select pg_temp.ck('real', 'A4b the second report of the day is allowed under a cap of two (A1 was the first)', 'ok',
+  pg_temp.as_user(pg_temp.f('p1'), format($q$ with i as (insert into public.offline_sync_rejections (organisation_id, account_id, kind, reason_code, support_code, client_id) values (%L, %L, 'dose', 'refused_other', 'ABCD1237', %L) returning 1) select 'ok' from i $q$, pg_temp.f('org'), pg_temp.f('p1'), gen_random_uuid())));
+select pg_temp.ck('real', 'A4c ...and a flood is stopped at the cap', 'ERR 53400',
+  pg_temp.as_user(pg_temp.f('p1'), format($q$ with i as (insert into public.offline_sync_rejections (organisation_id, account_id, kind, reason_code, support_code, client_id) values (%L, %L, 'dose', 'refused_other', 'ABCD1238', %L) returning 1) select 'ok' from i $q$, pg_temp.f('org'), pg_temp.f('p1'), gen_random_uuid())));
+select pg_temp.ck('real', 'A4d ...the cap is per account, another patient is not affected', 'ok',
+  pg_temp.as_user(pg_temp.f('p2'), format($q$ with i as (insert into public.offline_sync_rejections (organisation_id, account_id, kind, reason_code, support_code, client_id) values (%L, %L, 'dose', 'refused_other', 'ABCD123A', %L) returning 1) select 'ok' from i $q$, pg_temp.f('org'), pg_temp.f('p2'), gen_random_uuid())));
+do $$ begin
+  update public.offline_sync_config set rejection_report_daily_cap = 200 where is_active;
+end $$;
 select pg_temp.ck('real', 'A5 a malformed support code is refused', 'ERR 23514',
   pg_temp.as_user(pg_temp.f('p1'), format($q$ with i as (insert into public.offline_sync_rejections (organisation_id, account_id, kind, reason_code, support_code, client_id) values (%L, %L, 'dose', 'refused_other', 'not-a-code', %L) returning 1) select 'ok' from i $q$, pg_temp.f('org'), pg_temp.f('p1'), gen_random_uuid())));
-select pg_temp.ck('real', 'A6 the owner reads their row, another patient reads none', '1/0',
+select pg_temp.ck('real', 'A6 the owner reads their rows, another patient reads only their own', '2/1',
   pg_temp.as_user(pg_temp.f('p1'), 'select count(*)::text from public.offline_sync_rejections') || '/' || pg_temp.as_user(pg_temp.f('p2'), 'select count(*)::text from public.offline_sync_rejections'));
 select pg_temp.ck('real', 'A7 a patient cannot update their row (no grant)', 'ERR 42501',
   pg_temp.as_user(pg_temp.f('p1'), $q$ with u as (update public.offline_sync_rejections set reason_code = 'refused_other' returning 1) select count(*)::text from u $q$));
@@ -88,7 +101,7 @@ select pg_temp.ck('real', 'A8 ...or delete it (no grant)', 'ERR 42501', pg_temp.
 select pg_temp.ck('real', 'A9 anon sees nothing', 'ERR 42501', pg_temp.as_anon('select count(*)::text from public.offline_sync_rejections'));
 select pg_temp.ck('real', 'A10 the table has no free-text or payload column', '0',
   (select count(*)::text from information_schema.columns where table_schema = 'public' and table_name = 'offline_sync_rejections' and data_type in ('jsonb', 'json')));
-select pg_temp.ck('real', 'A11 an admin of the same organisation reads it through the function', '1',
+select pg_temp.ck('real', 'A11 an admin of the same organisation reads it through the function', '3',
   pg_temp.as_user(pg_temp.f('ad'), 'select count(*)::text from public.read_offline_sync_rejections()'));
 select pg_temp.ck('real', 'A12 ...and that read is audited', '1',
   (select count(*)::text from public.audit_log where actor_id = pg_temp.f('ad') and action = 'offline_rejections_read'));
@@ -96,6 +109,8 @@ select pg_temp.ck('real', 'A13 another organisation''s admin reads none', '0',
   pg_temp.as_user(pg_temp.f('ad2'), 'select count(*)::text from public.read_offline_sync_rejections()'));
 select pg_temp.ck('real', 'A14 a clinician and a patient are refused the function', 'ERR 42501/ERR 42501',
   pg_temp.as_user(pg_temp.f('cl'), 'select count(*)::text from public.read_offline_sync_rejections()') || '/' || pg_temp.as_user(pg_temp.f('p1'), 'select count(*)::text from public.read_offline_sync_rejections()'));
+select pg_temp.ck('real', 'A14b the read function is not STABLE (it writes the audit row)', 'v',
+  (select provolatile::text from pg_proc where oid = 'public.read_offline_sync_rejections(uuid, integer)'::regprocedure));
 select pg_temp.ck('real', 'A15 anon cannot execute the function', 'ERR 42501', pg_temp.as_anon('select count(*)::text from public.read_offline_sync_rejections()'));
 
 -- B. devices ---------------------------------------------------------------------------------------------------------------------------------

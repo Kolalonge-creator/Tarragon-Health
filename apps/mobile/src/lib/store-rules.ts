@@ -40,9 +40,19 @@ export function fnv1a(text: string): string {
   return h.toString(16).padStart(8, "0");
 }
 
+/** FNV-1a over bytes without building an intermediate array or string (a queued photo is megabytes). */
+export function fnv1aBytes(bytes: Uint8Array): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < bytes.length; i++) {
+    h ^= bytes[i];
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, "0");
+}
+
 function canonical(value: unknown): string {
   if (value === null || value === undefined) return "n";
-  if (value instanceof Uint8Array) return `b${value.length}:${fnv1a(Array.from(value).join(","))}`;
+  if (value instanceof Uint8Array) return `b${value.length}:${fnv1aBytes(value)}`;
   if (typeof value === "number") return `i${value}`;
   return `s${String(value).length}:${String(value)}`;
 }

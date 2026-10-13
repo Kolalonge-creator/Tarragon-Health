@@ -84,7 +84,12 @@ export async function wipeThisPhone(reason: WipeReason, deviceId: string, now: D
   if (doomed.length > 0) await AsyncStorage.multiRemove(doomed);
   await AsyncStorage.removeItem(STATE_KEY).catch(() => {});
   // 6. A fresh id, so this phone registers as a new device the next time it checks in.
-  await resetDeviceId(await currentUserIdOrEmpty());
+  const userId = await currentUserIdOrEmpty();
+  await resetDeviceId(userId);
+  // 7. Sign out. The session lives in the keystore, not in the store: a lost phone that stayed signed in would
+  //    simply download the record again. The wipe is of the whole phone, every account on it (a lost phone is lost
+  //    for everyone who used it); each account's server copy is untouched.
+  await supabase.auth.signOut({ scope: "local" }).catch((error: unknown) => recordSyncError("offline_outbox", "wipe:signOut", error));
   return { unsent };
 }
 
@@ -135,6 +140,9 @@ export async function runDeviceCheck(now: Date = new Date()): Promise<DeviceChec
         recordSyncError("offline_outbox", "deviceCheckin", error.message);
         return "skipped";
       }
+      // A server error (5xx, an outage on our side) says nothing about the phone: only a phone that cannot reach the
+      // network at all runs its lease down.
+      if (cls === "retry") return "offline";
       const state = await readState(userId);
       if (leaseVerdict(state?.leaseExpiresAt ?? null, state?.lastCheckinClock ?? null, now) === "expired") {
         await wipeThisPhone("lease_expired", deviceId, now);
