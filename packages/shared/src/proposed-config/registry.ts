@@ -2358,6 +2358,19 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     guardPatterns: ["post[_ ]?max[_ ]?chars\\w*\\s*[=:]\\s*2000\\b", "premoderated\\w*\\s*[=:]\\s*3\\b", "auto[_ ]?hide\\w*\\s*[=:]\\s*3\\b"],
   },
   {
+    key: "privacy.deletion_grace",
+    // S04b-2 (OQ-50): how long a patient has to change their mind after asking to close their account and erase what the law
+    // allows to be erased. Nothing is approved or completed before it ends and the patient can cancel until then. The database
+    // counts it from its own clock and holds it to 7..30 days whatever the app asks for (data_deletion_requests.requested_grace_days). Fourteen days is a PROPOSED
+    // figure, not from the spec; counsel and the founder confirm.
+    value: { days: 14 },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/OPEN-QUESTIONS.md OQ-50; supabase/migrations/20261013181937_s04b2_consent_receipts_withdrawal_rule_deletion_grace.sql",
+  },
+  {
     key: "bp.home_programme",
     // S07x: the seven-day home blood pressure check (CMO-approved text C1, C2, C3 of 2026-10-07, NOT signed). Live value is the active, signed row of
     // `home_bp_programme_signoffs`.config; home-bp-mirror.test.ts fails if the migration seed and this value drift. The phone bundles this value, so a change
