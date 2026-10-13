@@ -62,9 +62,9 @@ begin
         'actions', '[{"kind":"show_emergency_guidance","code":"EMG-001"},{"kind":"page_on_call"}]'::jsonb, 'matchedRuleIds', '["BP-R1"]'::jsonb, 'taskKey', null,
         'ruleSet', jsonb_build_object('code', 'bp_care_triage', 'version', r.version));
     else
-      v_res := jsonb_build_object('status', 'graded', 'grade', 'amber', 'ruleId', 'BP-A7', 'explanationKey', 'TRI-004',
+      v_res := jsonb_build_object('status', 'graded', 'grade', 'amber', 'ruleId', 'BP-A3', 'explanationKey', 'TRI-004',
         'actions', '[{"kind":"create_task","task":"low_bp_review","notifyKey":"notify.triage.task_created","dueMinutes":1440}]'::jsonb,
-        'matchedRuleIds', '["BP-A7"]'::jsonb, 'taskKey', 'low_bp_review', 'ruleSet', jsonb_build_object('code', 'bp_care_triage', 'version', r.version));
+        'matchedRuleIds', '["BP-A3"]'::jsonb, 'taskKey', 'low_bp_review', 'ruleSet', jsonb_build_object('code', 'bp_care_triage', 'version', r.version));
     end if;
     perform public.record_triage_result((it ->> 'reading_id')::uuid, v_res, v_rs, null, '');
     select id into v_te from public.triage_events where trigger_id = (it ->> 'reading_id')::uuid;

@@ -3,12 +3,12 @@ import { describeTiming, formatSeconds, groupParity, parseChainHealth, parityGro
 
 const timing = { n: 0, withheld: false };
 const sample = {
-  generated_at: "2026-10-13T20:00:00Z", status: "ok", reasons: [], thresholds: { minSample: 20 },
+  generated_at: "2026-10-13T20:00:00Z", status: "ok", reasons: [], response: [], thresholds: { minSample: 20 },
   canary: { last_result_at: null, last_passed: null, last_failed_stage: null, last_pass_at: null, minutes_since_last_result: null, runs_24h: 0, failures_24h: 0, recent: [] },
   bus: { subscribers: [], stuck: 0, dead: 0, dead_older: 0 },
-  schedule: { interval_minutes: 30, fixtures: ["bp_amber_low", "bp_red_chest_pain"] },
+  schedule: { interval_minutes: 30, fixtures: ["bp_amber_low_dizzy", "bp_red_chest_pain"] },
   sending: { last_real_send_at: null },
-  unfinished: { ungraded_readings: 0, unacknowledged_pages: 0, critical_notices_pending: 0, critical_notices_failed_24h: 0 },
+  unfinished: { ungraded_readings: 0, unacknowledged_pages: 0, critical_notices_pending: 0, critical_notices_failed_24h: 0, sms_failed_24h: 0 },
   timings_7d: { reading_to_graded: timing, graded_to_task: timing, graded_to_page: timing, page_to_ack: timing },
   canary_timings_7d: { reading_to_graded: timing, graded_to_page: timing, page_to_ack: timing },
   parity_30d: [],

@@ -53,7 +53,7 @@ export function ChainHealthPanel({
           ) : (
             <ul className="list-disc pl-5">
               {health.reasons.map((r) => (
-                <li key={r}>{r}</li>
+                <li key={r}>{health.response.includes(r) ? <><Badge variant="amber" className="mr-2">Response needed</Badge>{r}</> : r}</li>
               ))}
             </ul>
           )}
@@ -123,7 +123,7 @@ export function ChainHealthPanel({
           </p>
           <p className="mt-2 text-sm">
             Not finished yet, real people only: {health.unfinished.ungraded_readings} blood pressure readings with no grade after {health.thresholds["ungradedReadingMinutes"]} minutes;{" "}
-            {health.unfinished.unacknowledged_pages} pages not acknowledged; {health.unfinished.critical_notices_pending} critical notices still pending; {health.unfinished.critical_notices_failed_24h} failed in the last day.
+            {health.unfinished.unacknowledged_pages} pages not acknowledged; {health.unfinished.critical_notices_pending} critical push, in-app or email notices still pending; {health.unfinished.critical_notices_failed_24h} failed in the last day. SMS paging failures ({health.unfinished.sms_failed_24h} in the last day) are tracked separately and do not change the status.
             These matter more than the typical times, because a typical time only describes the events that finished.
           </p>
         </CardContent>

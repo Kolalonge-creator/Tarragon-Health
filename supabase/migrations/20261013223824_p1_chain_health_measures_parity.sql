@@ -240,6 +240,8 @@ declare
   v_ungraded integer; v_unacked integer; v_notif_pending integer; v_notif_failed integer;
   v_cleanup jsonb;
   v_last_send timestamptz;
+  v_sms_failed integer;
+  v_response text[] := '{}';
 begin
   if (select auth.uid()) is null or not (private.is_admin() or private.credential_is_cmo()) then
     raise exception 'chain_not_authorised' using errcode = '42501';
@@ -284,9 +286,11 @@ begin
   select count(*) into v_unacked
     from public.pages p where not p.is_test and p.parent_page_id is null and p.acknowledged_at is null and p.closed_at is null
      and p.sent_at < now() - make_interval(secs => (v_h ->> 'pageToAckP95Seconds')::int);
-  select count(*) filter (where n.status = 'pending' and n.created_at < now() - make_interval(secs => (v_h ->> 'stuckDeliverySeconds')::int)),
-         count(*) filter (where n.status = 'failed')
-    into v_notif_pending, v_notif_failed
+  -- push, in-app and email only. SMS has no sender ID live and always fails, so its failures are counted apart (sms_failed_24h) and never change the status.
+  select count(*) filter (where n.channel <> 'sms' and n.status = 'pending' and n.created_at < now() - make_interval(secs => (v_h ->> 'stuckDeliverySeconds')::int)),
+         count(*) filter (where n.channel <> 'sms' and n.status = 'failed'),
+         count(*) filter (where n.channel = 'sms' and n.status = 'failed')
+    into v_notif_pending, v_notif_failed, v_sms_failed
     from public.notifications n join public.profiles pr on pr.id = n.recipient_id and not pr.is_test
    where n.priority = 'critical' and n.created_at > now() - interval '24 hours';
 
@@ -320,11 +324,14 @@ begin
   if v_ungraded > 0 then
     v_reasons := array_append(v_reasons, format('%s real blood pressure readings have had no grade for more than %s minutes.', v_ungraded, v_h ->> 'ungradedReadingMinutes')); v_status := 'down';
   end if;
+  -- a page nobody has acknowledged is a RESPONSE problem (people), not a system fault: attention, never down. The page was sent, which is the system's job.
   if v_unacked > 0 then
-    v_reasons := array_append(v_reasons, format('%s real pages are still not acknowledged after %s seconds.', v_unacked, v_h ->> 'pageToAckP95Seconds')); v_status := 'down';
+    v_response := array_append(v_response, format('%s real pages are still not acknowledged after %s seconds. The page was sent; a clinician has not answered it yet.', v_unacked, v_h ->> 'pageToAckP95Seconds'));
+    v_reasons := array_append(v_reasons, v_response[array_length(v_response, 1)]);
+    if v_status = 'ok' then v_status := 'attention'; end if;
   end if;
   if v_notif_pending > 0 or v_notif_failed > 0 then
-    v_reasons := array_append(v_reasons, format('Critical notices to real people: %s still pending after %s seconds, %s failed in the last 24 hours. (The test run records its notices and never sends them, so this is the only check on sending.)', v_notif_pending, v_h ->> 'stuckDeliverySeconds', v_notif_failed));
+    v_reasons := array_append(v_reasons, format('Critical push, in-app or email notices to real people: %s still pending after %s seconds, %s failed in the last 24 hours. (The test run records its notices and never sends them, so this is the only check on sending. SMS paging failures are tracked separately.)', v_notif_pending, v_h ->> 'stuckDeliverySeconds', v_notif_failed));
     if v_status = 'ok' then v_status := 'attention'; end if;
   end if;
   if (v_g ->> 'p95') is not null and (v_g ->> 'p95')::numeric > (v_h ->> 'readingToGradedP95Seconds')::numeric then
@@ -343,6 +350,7 @@ begin
     'generated_at', now(),
     'status', v_status,
     'reasons', to_jsonb(v_reasons),
+    'response', to_jsonb(v_response),
     'thresholds', v_h,
     'canary', jsonb_build_object(
       'last_result_at', v_last.at, 'last_passed', v_last.passed, 'last_failed_stage', v_last.failed_stage,
@@ -356,7 +364,7 @@ begin
     'schedule', jsonb_build_object('interval_minutes', (v_cfg ->> 'intervalMinutes')::int,
                   'fixtures', coalesce((select jsonb_agg(f.code order by f.code) from public.chain_canary_fixtures f where f.is_enabled), '[]'::jsonb)),
     'sending', jsonb_build_object('last_real_send_at', v_last_send),
-    'unfinished', jsonb_build_object('ungraded_readings', v_ungraded, 'unacknowledged_pages', v_unacked, 'critical_notices_pending', v_notif_pending, 'critical_notices_failed_24h', v_notif_failed),
+    'unfinished', jsonb_build_object('ungraded_readings', v_ungraded, 'unacknowledged_pages', v_unacked, 'critical_notices_pending', v_notif_pending, 'critical_notices_failed_24h', v_notif_failed, 'sms_failed_24h', v_sms_failed),
     'timings_7d', jsonb_build_object(
       'reading_to_graded', v_g,
       'graded_to_task', private.chain_stat(v_real, 'graded_to_task'),

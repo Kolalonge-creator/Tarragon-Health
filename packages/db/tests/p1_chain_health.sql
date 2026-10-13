@@ -103,8 +103,8 @@ begin
         v_res := jsonb_build_object('status', 'graded', 'grade', 'red', 'ruleId', 'BP-R1', 'explanationKey', 'EMG-001', 'actions', '[{"kind":"page_on_call"}]'::jsonb,
           'matchedRuleIds', '["BP-R1"]'::jsonb, 'taskKey', null, 'ruleSet', jsonb_build_object('code', 'bp_care_triage', 'version', v_rsv));
       else
-        v_res := jsonb_build_object('status', 'graded', 'grade', 'amber', 'ruleId', 'BP-A7', 'explanationKey', 'TRI-004',
-          'actions', '[{"kind":"create_task","task":"low_bp_review","dueMinutes":1440}]'::jsonb, 'matchedRuleIds', '["BP-A7"]'::jsonb, 'taskKey', 'low_bp_review',
+        v_res := jsonb_build_object('status', 'graded', 'grade', 'amber', 'ruleId', 'BP-A3', 'explanationKey', 'TRI-004',
+          'actions', '[{"kind":"create_task","task":"low_bp_review","dueMinutes":1440}]'::jsonb, 'matchedRuleIds', '["BP-A3"]'::jsonb, 'taskKey', 'low_bp_review',
           'ruleSet', jsonb_build_object('code', 'bp_care_triage', 'version', v_rsv));
       end if;
       perform public.record_triage_result((it ->> 'reading_id')::uuid, v_res, v_rs, null, '');
@@ -189,6 +189,37 @@ begin
 
   -- the report's credential block counts real staff only
   perform pg_temp.res('credential coverage counts non-test active staff only', (select count(*)::text from public.clinical_staff where active and status = 'active' and not is_test), v_rep #>> '{credential_coverage,active_staff}');
+
+  -- 5b. SMS failures and unanswered pages (lead review). Live may already hold real failures, so every check is a change from the baseline.
+  update public.domain_event_deliveries set status = 'done', done_at = now() where status = 'dead' and last_error = 'p1 proof';
+  declare v_rp uuid := pg_temp.mkuser(v_org, 'real-patient-2', 'patient'); v_rr2 uuid; v_ev2 uuid; v_pg uuid; v_b jsonb; v_a jsonb;
+  begin
+    update public.profiles set is_test = false where id = v_rp;
+    perform pg_temp.act(v_admin); v_b := public.chain_health(); perform pg_temp.back();
+    -- SMS has no sender ID live and always fails: counted apart, never in the status
+    insert into public.notifications (recipient_id, organisation_id, channel, template, payload, status, content_class, priority)
+      values (v_rp, v_org, 'sms', 'on_call_page', '{}'::jsonb, 'pending', 'non_clinical', 'critical');
+    perform pg_temp.act(v_admin); v_a := public.chain_health(); perform pg_temp.back();
+    perform pg_temp.res('a failed SMS is counted apart', 'true', (((v_a #>> '{unfinished,sms_failed_24h}')::int) = ((v_b #>> '{unfinished,sms_failed_24h}')::int) + 1)::text);
+    perform pg_temp.res('a failed SMS is not a failed critical notice', 'true', ((v_a #>> '{unfinished,critical_notices_failed_24h}') = (v_b #>> '{unfinished,critical_notices_failed_24h}'))::text);
+    perform pg_temp.res('a failed SMS does not change the status or the reasons', 'true', ((v_a ->> 'status') = (v_b ->> 'status') and (v_a -> 'reasons') = (v_b -> 'reasons'))::text);
+    -- a real page nobody has answered is a response problem: its own entry, attention, never down
+    insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, source, taken_at)
+      values (v_org, v_rp, 'blood_pressure', 150, 95, 'manual', now()) returning id into v_rr2;
+    insert into public.triage_events (organisation_id, patient_id, trigger_type, trigger_id, grade, rule_id, rule_set_id, rule_set_code, rule_set_version, rule_set_status, actions, shadow, is_test, basis)
+      values (v_org, v_rp, 'observation', v_rr2, 'red', 'BP-R1', v_rs, 'bp_care_triage', v_rsv, 'approved', '[{"kind":"page_on_call"}]'::jsonb, false, false, 'resp') returning id into v_ev2;
+    perform set_config('tarragon.paging_write', 'on', true);
+    insert into public.pages (organisation_id, patient_id, triage_event_id, role, to_clinician_id, escalation_level, config_version, is_test, sent_at)
+      values (v_org, v_rp, v_ev2, 'primary', v_doc, 0, 1, false, now() - interval '1 hour') returning id into v_pg;
+    perform set_config('tarragon.paging_write', 'off', true);
+    perform pg_temp.act(v_admin); v_a := public.chain_health(); perform pg_temp.back();
+    perform pg_temp.res('an unanswered real page adds one response entry', '1', jsonb_array_length(v_a -> 'response')::text);
+    perform pg_temp.res('an unanswered real page is attention, and never makes a clean board down', 'true',
+      ((v_b ->> 'status' <> 'ok') or (v_a ->> 'status') = 'attention')::text);
+    perform pg_temp.res('an unanswered real page never turns a board that was not down into down', 'true', ((v_b ->> 'status') = 'down' or (v_a ->> 'status') <> 'down')::text);
+    perform pg_temp.res('the unfinished block counts the page', 'true', (((v_a #>> '{unfinished,unacknowledged_pages}')::int) = ((v_b #>> '{unfinished,unacknowledged_pages}')::int) + 1)::text);
+    update public.profiles set is_test = true where id = v_rp;
+  end;
 
   -- 6. SABOTAGE -------------------------------------------------------------------------------------------------------------------------------
   create or replace view analytics.v_chain_timings with (security_invoker = off) as select metric, day, seconds from private.chain_timing_rows(365, true);

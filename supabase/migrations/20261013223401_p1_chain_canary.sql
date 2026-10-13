@@ -128,8 +128,8 @@ grant select on public.chain_canary_fixtures to authenticated;
 insert into public.chain_canary_fixtures (code, is_enabled, vital_type, systolic, diastolic, glucose_mmol_l, ketones_mmol_l, symptom_type, expect_grade, expect_task_type, expect_page, note) values
   ('bp_red_chest_pain', true, 'blood_pressure', 190, 125, null, null, 'chest_pain', 'red', null, true,
    'Severe BP with a red-flag symptom: bp_care_triage BP-R1. Must grade red, page the on-call clinician, notify neutrally, be acknowledged.'),
-  ('bp_amber_low', true, 'blood_pressure', 85, 55, null, null, null, 'amber', 'amber_bp_review', false,
-   'Low BP without a red-flag symptom: BP-A7. Must grade amber and create a clinical task, and must NOT page.'),
+  ('bp_amber_low_dizzy', true, 'blood_pressure', 95, 60, null, null, 'dizziness', 'amber', 'amber_bp_review', false,
+   'Low BP with dizziness: BP-A3 (systolic under 100 with the dizzy symptom group; the server context maps the dizziness symptom to it). Chosen over BP-A7, which the v4 draft narrows to patients on BP medicines. Must grade amber, create a low_bp_review task (type amber_bp_review) and must NOT page.'),
   ('glucose_red_severe_hypo', false, 'glucose', null, null, 2.4, null, null, 'red', null, true,
    'HOOK for package P2 (glucose engine). Disabled until the glucose rule set grades through the same bus; then enable this row, no code change.');
 
