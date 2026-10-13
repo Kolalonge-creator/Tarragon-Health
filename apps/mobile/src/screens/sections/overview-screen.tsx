@@ -21,6 +21,7 @@ import { getPendingPaymentIssue, type PendingPaymentIssue } from "@/lib/services
 import { PaymentIssueCard } from "@/screens/sections/payment-issue-card";
 import { HowYoureDoingCard } from "@/screens/sections/how-youre-doing-card";
 import { TodayCard } from "@/screens/sections/today-card";
+import { HomeCheckCard } from "@/screens/sections/home-check-card";
 import { todayIsoDate } from "@/lib/medications";
 import { agoLine, dueLine, formatVisitTime, heroMetric, nextBestStep, type Line } from "@/lib/home-model";
 import { lightPalette, radii, space, useTheme } from "@/ui/design";
@@ -240,6 +241,7 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
 
       {/* After the video visit card: a visit that starts soon must stay near the top. */}
       <TodayCard patientId={patientId} onNavigate={onNavigate} reloadToken={scoreReloadToken} />
+      <HomeCheckCard patientId={patientId} reloadToken={scoreReloadToken} />
 
       {showGetStarted ? <GetStartedCard progress={progress} onNavigate={onNavigate} /> : null}
 
