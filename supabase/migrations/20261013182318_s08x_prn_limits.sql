@@ -404,8 +404,10 @@ begin
 end $$;
 
 -- 8b. The patient-data registry (S39d): every table with a patient_id is listed with its retention class and whether it is exported.
-insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export)
-select t, 'patient_id', private.retention_class_for(t), 'review', true
+-- Left UNREVIEWED on purpose: the CMO and DPO class review happened before these tables existed, and a review is theirs to give.
+insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, reviewed, notes)
+select t, 'patient_id', private.retention_class_for(t), 'review', true, false,
+       'Added after the S39f class review (S08x, 2026-10-13). Class proposed by the standing name rule; awaiting the next CMO and DPO class review.'
   from unnest(array['medication_prn_limits', 'medication_prn_flags']) t
 on conflict (table_name) do nothing;
 
