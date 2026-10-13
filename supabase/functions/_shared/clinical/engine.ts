@@ -83,32 +83,34 @@ export function grade(input: TriageInput, ruleSet: RuleSet): TriageResult {
   const graded = matched.filter((r) => r.result === "grade");
   const winner =
     graded.find((r) => r.grade === "red") ?? graded.find((r) => r.grade === "amber") ?? graded.find((r) => r.grade === "green");
-  const recheckRule = winner?.grade === "red" ? undefined : matched.find((r) => r.result === "recheck");
+  const pendingRule = winner?.grade === "red" ? undefined : matched.find((r) => r.result !== "grade");
 
-  const recheck = recheckRule
-    ? (() => {
-        const { afterMinutes, windowMinutes } = ruleSet.params.recheck;
-        const since = ctx["recheck.minutesSincePrevious"];
-        const waitMinutes = typeof since === "number" && since < afterMinutes ? afterMinutes - since : afterMinutes;
-        return { afterMinutes, windowMinutes, waitMinutes };
-      })()
-    : null;
+  const recheck =
+    pendingRule?.result === "recheck"
+      ? (() => {
+          const timing = pendingRule.recheckTiming === "extreme" ? ruleSet.params.extremeRecheck : ruleSet.params.recheck;
+          const { afterMinutes, windowMinutes } = timing;
+          const since = ctx["recheck.minutesSincePrevious"];
+          const waitMinutes = typeof since === "number" && since < afterMinutes ? afterMinutes - since : afterMinutes;
+          return { afterMinutes, windowMinutes, waitMinutes };
+        })()
+      : null;
 
   const matchedRuleIds = matched.map((r) => r.id);
-  if (recheckRule && (!winner || winner.grade === "green")) {
+  if (pendingRule && (!winner || winner.grade === "green")) {
     return {
       ...baseResult,
-      status: "recheck_required",
-      ruleId: recheckRule.id,
-      explanationKey: recheckRule.explanationKey,
-      actions: recheckRule.actions,
+      status: pendingRule.result === "ask" ? "symptom_check_required" : "recheck_required",
+      ruleId: pendingRule.id,
+      explanationKey: pendingRule.explanationKey,
+      actions: pendingRule.actions,
       matchedRuleIds,
       recheck,
       ruleSet: id,
     };
   }
 
-  let actions: readonly TriageAction[] = [...(winner?.actions ?? []), ...(recheckRule?.actions ?? [])];
+  let actions: readonly TriageAction[] = [...(winner?.actions ?? []), ...(pendingRule?.actions ?? [])];
   let taskKey: string | null = null;
   let duplicateSuppressed = false;
   if (winner && actions.some((a) => a.kind === "create_task")) {
@@ -131,4 +133,15 @@ export function grade(input: TriageInput, ruleSet: RuleSet): TriageResult {
     recheck,
     ruleSet: id,
   };
+}
+
+/**
+ * How long a first reading can wait for its repeat before it is graded as if repeated. A reading at or above the
+ * extreme line (200/130) waits for the 2 hour recheck; any other waits the standard few minutes. The phone and the
+ * server both use this, so they agree on when "no repeat" is final.
+ */
+export function recheckWindowMinutes(ruleSet: RuleSet, firstReading: { systolic: number; diastolic: number }): number {
+  const { extreme } = ruleSet.params;
+  const isExtreme = firstReading.systolic >= extreme.systolic || firstReading.diastolic >= extreme.diastolic;
+  return (isExtreme ? ruleSet.params.extremeRecheck : ruleSet.params.recheck).windowMinutes;
 }

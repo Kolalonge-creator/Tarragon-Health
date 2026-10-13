@@ -33,5 +33,5 @@ export function videoFromEnv(env: Env, fetch: FetchLike): VideoProvider | null {
   // The Meeting SDK keys are optional: only an in-app SDK join needs them (S21 runs on links, OQ-126).
   const sdkKey = has(env["ZOOM_SDK_KEY"]) ? env["ZOOM_SDK_KEY"] : undefined;
   const sdkSecret = has(env["ZOOM_SDK_SECRET"]) ? env["ZOOM_SDK_SECRET"] : undefined;
-  return createZoomVideo({ accountId, clientId, clientSecret, sdkKey, sdkSecret, webhookSecretToken: has(env["ZOOM_WEBHOOK_SECRET_TOKEN"]) ? env["ZOOM_WEBHOOK_SECRET_TOKEN"] : undefined, fetch });
+  return createZoomVideo({ accountId, clientId, clientSecret, sdkKey, sdkSecret, webhookSecretToken: has(env["ZOOM_WEBHOOK_SECRET_TOKEN"]) ? env["ZOOM_WEBHOOK_SECRET_TOKEN"] : undefined, hostUserId: has(env["ZOOM_HOST_USER_ID"]) ? env["ZOOM_HOST_USER_ID"] : undefined, fetch });
 }

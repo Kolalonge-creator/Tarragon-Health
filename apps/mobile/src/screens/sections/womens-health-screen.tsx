@@ -263,7 +263,7 @@ export function WomensHealthScreen({ patientId, organisationId, onNavigate }: Wo
             <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Week {gestationalEstimate.weeks}</Text>
           </View>
         )}
-        <Pressable style={{ flexBasis: "30%", flexGrow: 1 }} onPress={() => onNavigate("prevention")}>
+        <Pressable accessibilityRole="button" style={{ flexBasis: "30%", flexGrow: 1 }} onPress={() => onNavigate("prevention")}>
           <MutedText>Next screening</MutedText>
           <Text
             style={{

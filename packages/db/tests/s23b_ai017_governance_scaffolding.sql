@@ -28,7 +28,8 @@ begin
   end if;
 
   select count(*) into v_n from public.ai_evaluation_cases c join public.ai_evaluation_suites e on e.id = c.suite_id where e.ai_system_id = v_id and e.is_required_for_release;
-  if v_n <> 6 then raise exception 'FAIL 7: % dedicated cases, expected 6 (7 until the Pidgin case pidgin_summary_in_pidgin was removed, D-14)', v_n; end if;
+  -- 6 after the Pidgin case was removed (D-14), plus 6 from S35c (the facts-to-confirm suite, which is also required for release).
+  if v_n <> 12 then raise exception 'FAIL 7: % dedicated cases, expected 12 (6 from S23b and S23d, 6 from S35c)', v_n; end if;
   select count(*) into v_n from public.ai_evaluation_cases where case_code like 'ai017\_%';
   if v_n <> 2 then raise exception 'FAIL 8: % baseline cases, expected 2', v_n; end if;
 

@@ -51,7 +51,6 @@ describe("getPharmacyOrders", () => {
           total_kobo: 150000,
           payable_kobo: 100000,
           requested_at: "2026-09-17T00:00:00Z",
-          fulfilment_method: "pickup",
         },
       ])
     );
@@ -67,7 +66,6 @@ describe("getPharmacyOrders", () => {
           totalKobo: 150000,
           payableKobo: 100000,
           requestedAt: "2026-09-17T00:00:00Z",
-          fulfilmentMethod: "pickup",
         },
       ],
     });
@@ -84,7 +82,6 @@ describe("getPharmacyOrders", () => {
           total_kobo: 150000,
           payable_kobo: null,
           requested_at: "2026-09-16T00:00:00Z",
-          fulfilment_method: "delivery",
         },
       ])
     );
@@ -105,7 +102,6 @@ describe("getPharmacyOrders", () => {
           total_kobo: 0,
           payable_kobo: 0,
           requested_at: "2026-09-15T00:00:00Z",
-          fulfilment_method: "pickup",
         },
       ])
     );
@@ -155,9 +151,6 @@ describe("PHARMACY_ORDER_STATUS_LABEL", () => {
       "confirmed",
       "unavailable",
       "dispensed",
-      "out_for_delivery",
-      "delivery_failed",
-      "delivered",
       "cancelled",
     ];
     expect(Object.keys(PHARMACY_ORDER_STATUS_LABEL).sort()).toEqual(expectedStatuses.sort());

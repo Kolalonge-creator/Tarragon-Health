@@ -5,6 +5,8 @@ export interface PatientIdentity {
   patientNumber: string | null;
   organisationId: string;
   initials: string;
+  /** profiles.role. Only used to send a sponsor's own staff to their figures screen instead of the patient app (S38f). */
+  role: string | null;
 }
 
 function initialsFrom(name: string): string {
@@ -19,7 +21,7 @@ function initialsFrom(name: string): string {
 export async function loadPatientIdentity(userId: string): Promise<PatientIdentity | null> {
   const { data } = await supabase
     .from("profiles")
-    .select("full_name, patient_number, organisation_id")
+    .select("full_name, patient_number, organisation_id, role")
     .eq("id", userId)
     .maybeSingle();
   if (!data?.full_name || !data.organisation_id) return null;
@@ -28,5 +30,6 @@ export async function loadPatientIdentity(userId: string): Promise<PatientIdenti
     patientNumber: data.patient_number,
     organisationId: data.organisation_id,
     initials: initialsFrom(data.full_name),
+    role: data.role ?? null,
   };
 }

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { loose } from "@/lib/clinician/loose-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { SlaBadge } from "@/components/clinician/sla-badge";
 import { PatientSummaryView } from "@/components/clinician/patient-summary";
 import { DEDICATED_FLOW_TASK_TYPES, heldTaskSchema, minutesLeft, patientSummarySchema, TASK_SUMMARY_READ_REASON, uuidSchema } from "@/lib/clinician/queue-console";
 import { CompleteForm, ExtendForm, HandBackForm } from "../../queue/forms";
@@ -61,6 +62,7 @@ export default async function ClinicianTaskPage({ params }: { params: Promise<{ 
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">{task.type.replace(/_/g, " ")}</h1>
         <Badge variant={task.priority_class === 1 ? "red" : "blue"}>{t("queue.class", "en", { n: task.priority_class ?? "?" })}</Badge>
+        <SlaBadge dueAt={task.due_at} now={new Date()} />
         {task.rule_set_version !== null && task.rule_set_version !== undefined && (
           <span className="text-xs text-charcoal-ink/60">{t("task.rule_version", "en", { version: task.rule_set_version })}</span>
         )}

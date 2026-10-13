@@ -20,7 +20,7 @@ describe("flagFormSchema", () => {
 
 describe("row schemas", () => {
   it("parses a pharmacy row and refuses a draft state", () => {
-    const row = { prescription_id: ID, state: "sent", collection_code: "AB12", sent_at: null, dispensed_at: null, patient_name: "A", patient_number: "TH1", items: [{ drug: "X" }], open_flags: 0 };
+    const row = { prescription_id: ID, state: "sent", sent_at: null, dispensed_at: null, patient_name: "A", patient_number: "TH1", items: [{ drug: "X" }], open_flags: 0, location_name: null, code_locked: false };
     expect(pharmacyPrescriptionRowsSchema.safeParse([row]).success).toBe(true);
     expect(pharmacyPrescriptionRowsSchema.safeParse([{ ...row, state: "draft" }]).success).toBe(false);
   });

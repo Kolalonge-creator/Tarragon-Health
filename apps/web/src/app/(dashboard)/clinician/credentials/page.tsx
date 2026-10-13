@@ -23,7 +23,7 @@ export default async function ClinicianCredentialsPage({ searchParams }: { searc
       {status ? (
         <CredentialStatus status={status} returnTo="/clinician/credentials" now={new Date()} />
       ) : (
-        <Muted>There is no clinician record for your account yet. Your care team lead will add one.</Muted>
+        <Muted>There is no clinician record for your account yet. Our team will add one.</Muted>
       )}
     </div>
   );

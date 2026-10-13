@@ -1,3 +1,4 @@
+import { t, type MessageKey } from "@tarragon/i18n";
 /** The two fields the copy depends on. `InAppNotification` (lib/queries/notifications.ts) satisfies it, and keeping it
  * structural lets the INV-07 lint in packages/notifications render every case without loading the web app. */
 export interface InAppNotificationInput {
@@ -117,7 +118,17 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   }
   if (n.template === "pharmacy_flag_notice") {
     // S36h: neutral by design (INV-07). Names no medicine, patient or reason; the detail is on the page.
-    return { text: "A pharmacy has raised something. Open your pharmacy messages", href: "/clinician/pharmacy-flags" };
+    return { text: "A pharmacy has raised something. Open your pharmacy messages", href: "/clinician/pharmacy" };
+  }
+  // S28: neutral by design (INV-07): never a medicine, a person or a collection code.
+  if (n.template === "pharmacy_new_prescription") {
+    return { text: "Something is waiting for you", href: "/pharmacist/prescriptions" };
+  }
+  if (n.template === "pharmacy_question_answered") {
+    return { text: "Your question was answered. Open the app to see it", href: "/pharmacist/prescriptions" };
+  }
+  if (n.template === "pharmacy_collection_update" || n.template === "prescription_sent_patient" || n.template === "prescription_collected_patient") {
+    return { text: "Your pharmacy has an update. Open the app to see it", href: "/patient/medications" };
   }
   if (n.template === "health_reset_complete") {
     return {
@@ -190,6 +201,7 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "medication_refill_reminder") {
     return {
       text: "A reminder is coming up. Open the app to see when.",
+      // S28: the Medicines screen carries the "choose where to collect" link on each prescription
       href: "/patient/medications",
     };
   }
@@ -369,6 +381,22 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "lab_result_corrected") {
     return { text: "Your care team has updated something in your health record. Open the app to see what changed", href: "/patient/labs" };
   }
+  // Testing days. Neutral by design (INV-07): a place, a date, never a test, a value or a condition.
+  if (n.template === "testing_day_confirmed" || n.template === "testing_day_promoted") {
+    return { text: "Your visit is booked. Open the app for the date and place", href: "/patient/testing-days" };
+  }
+  if (n.template === "testing_day_waitlisted") {
+    return { text: "You are on the waiting list. We will tell you if a place opens", href: "/patient/testing-days" };
+  }
+  if (n.template === "testing_day_reminder") {
+    return { text: "A reminder about your visit. Open the app for the date and place", href: "/patient/testing-days" };
+  }
+  if (n.template === "testing_day_cancelled") {
+    return { text: "Your booking has changed. Open the app to choose another date", href: "/patient/testing-days" };
+  }
+  if (n.template === "poc_result_ready") {
+    return { text: "Your care team has added something to your health record. Open the app to see it", href: "/patient/testing-days" };
+  }
   if (n.template === "lab_result_ready") {
     return { text: "Your care team has added something to your health record. Open the app to see it", href: "/patient/labs" };
   }
@@ -383,6 +411,19 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   }
   if (n.template === "written_question_call_planned") {
     return { text: "Your care team will call you. Keep your phone close", href: "/patient/care" };
+  }
+  // Two-tier monthly follow-up. Neutral by design (INV-07).
+  if (n.template === "followup_times_offered") {
+    return { text: "Your care team has offered times for your monthly check-in. Open the app to choose one", href: "/patient/appointments" };
+  }
+  if (n.template === "followup_offer_withdrawn") {
+    return { text: "The times offered for your check-in have changed. Your care team will send new ones", href: "/patient/appointments" };
+  }
+  if (n.template === "followup_month_missed") {
+    return { text: "Your monthly check-in is waiting. Open the app to pick a time", href: "/patient/appointments" };
+  }
+  if (n.template === "followup_slot_picked") {
+    return { text: "A member picked one of your offered times", href: "/clinician/followups" };
   }
   if (n.template === "written_question_staff_notice") {
     return { text: "A written message needs attention", href: "/clinician/async-consults" };
@@ -488,16 +529,6 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "pharmacy_order_ready_for_collection") {
     const pharmacy = String(payload.pharmacy_name ?? "the pharmacy");
     return { text: `Your order is ready for collection at ${pharmacy}`, href: "/patient/medications" };
-  }
-  if (n.template === "pharmacy_order_out_for_delivery") {
-    const courier = String(payload.courier_name ?? "your courier");
-    return { text: `Your order is out for delivery with ${courier}`, href: "/patient/medications" };
-  }
-  if (n.template === "pharmacy_order_delivered") {
-    return { text: "Your order has been delivered", href: "/patient/medications" };
-  }
-  if (n.template === "pharmacy_order_delivery_failed") {
-    return { text: "A delivery attempt for your order was unsuccessful", href: "/patient/medications" };
   }
   if (n.template === "pharmacy_order_unavailable") {
     const pharmacy = String(payload.pharmacy_name ?? "the pharmacy");
@@ -637,12 +668,35 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "circle_gift_waiting") {
     return { text: "Someone has paid for care for you. Open it to accept", href: "/patient/care-circle" };
   }
+  if (n.template === "monthly_report_ready") {
+    return { text: "Your monthly summary is ready", href: "/patient/progress" };
+  }
+  if (n.template === "sponsor_figures_ready") {
+    return { text: "Your programme figures for last month are ready", href: "/" };
+  }
   if (n.template === "circle_paid_for_you") {
     return { text: "Someone in your Care Circle has paid for your care", href: "/patient" };
+  }
+  // Two-tier (CMO 2026-10-08): the Free red-event path. Fixed neutral lines (INV-07), never the reading or the cause.
+  if (n.template === "free_red_guidance") {
+    return { text: t("freered.notice.guidance", "en"), href: "/patient" };
+  }
+  if (n.template === "free_red_recheck") {
+    return { text: t("freered.notice.recheck", "en"), href: "/patient" };
+  }
+  if (n.template === "free_red_checkin") {
+    return { text: t("freered.notice.checkin", "en"), href: "/patient" };
   }
   if (n.template === "on_call_page") {
     // From private.page_notify (S19): fixed neutral line, never the patient or the reading (INV-07).
     return { text: "A priority case is waiting for you", href: "/clinician/on-call" };
+  }
+  if (n.template === "ops_alert") {
+    // From private.ops_alert_notify (SR5): fixed wording, no detail, no patient reference.
+    return { text: "An operations alert needs attention", href: "/admin/ops/wall" };
+  }
+  if (n.template === "ops_all_clear") {
+    return { text: "An operations alert has cleared", href: "/admin/ops/wall" };
   }
   if (n.template === "on_call_unfinished") {
     return { text: "A priority case is acknowledged but still open", href: "/rota" };
@@ -838,5 +892,20 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
       href: "/",
     };
   }
+  // Community notices (docs/COMMUNITY_SPEC.md section 7). The payload is empty by design (no group, handle or excerpt can reach a
+  // lock screen), so each line is fixed copy. The first three go to the member and open Community; the unmask notice goes to the CMO.
+  if (n.template === "community_reply") return communityNotice("community.notice.reply.title", "community.notice.reply.body", "/patient/community");
+  if (n.template === "community_reply_waiting") return communityNotice("community.notice.waiting.title", "community.notice.waiting.body", "/patient/community");
+  if (n.template === "community_post_removed") return communityNotice("community.notice.removed.title", "community.notice.removed.body", "/patient/community");
+  if (n.template === "community_sanction_notice") return communityNotice("community.notice.sanction.title", "community.notice.sanction.body", "/patient/community");
+  if (n.template === "community_unmask_notice") return communityNotice("community.notice.unmask.title", "community.notice.unmask.body", "/clinician");
+  if (n.template === "community_digest") return communityNotice("community.notice.digest.title", "community.notice.digest.body", "/patient/community");
+  if (n.template === "community_appeal_result") return communityNotice("community.notice.appeal.title", "community.notice.appeal.body", "/patient/community/appeals");
+  if (n.template === "community_qa_answer") return communityNotice("community.notice.qa.title", "community.notice.qa.body", "/patient/community");
+  if (n.template === "community_overdue") return communityNotice("community.notice.overdue.title", "community.notice.overdue.body", "/dashboard/care-coordinator/community");
   return { text: "You have an update", href: "/patient" };
+}
+
+function communityNotice(title: MessageKey, body: MessageKey, href: string): { text: string; href: string } {
+  return { text: `${t(title)}. ${t(body)}`, href };
 }

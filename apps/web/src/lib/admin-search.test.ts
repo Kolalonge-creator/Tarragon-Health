@@ -69,6 +69,9 @@ describe("the real admin menus", () => {
     expect(top("grant")).toContain("/admin/memberships");
     expect(top("catalogue")).toContain("/admin/catalogue");
     expect(top("price list")).toContain("/admin/catalogue");
+    expect(top("organisation prices")).toContain("/admin/organisation-prices");
+    expect(top("employer price")).toContain("/admin/organisation-prices");
+    expect(top("per member")).toContain("/admin/organisation-prices");
   });
 
   it("finds the fees and earnings page (every console page needs a search entry)", () => {
@@ -82,6 +85,13 @@ describe("the real admin menus", () => {
     expect(top("search terms")).toContain("/admin/settings/health-education/aliases");
     expect(top("synonyms")).toContain("/admin/settings/health-education/aliases");
     expect(top("creators")).toContain("/admin/settings/health-education/creators");
+  });
+
+  it("finds the testing days and employer visits page (every console page needs a search entry)", () => {
+    expect(top("testing day")).toContain("/admin/settings/testing-days");
+    expect(top("employer visit")).toContain("/admin/settings/testing-days");
+    expect(top("venue")).toContain("/admin/settings/testing-days");
+    expect(top("waitlist")).toContain("/admin/settings/testing-days");
   });
 
   it("indexes a useful number of pages with no path twice", () => {
@@ -102,6 +112,14 @@ describe("the Chief Medical Officer index", () => {
     expect(searchAdminEntries(cmo, "test content").map((e) => e.href)).toContain("/clinician/credentialing/content");
     expect(searchAdminEntries(cmo, "everyday words").map((e) => e.href)).toContain("/clinician/learning-governance");
     expect(searchAdminEntries(cmo, "licence").map((e) => e.href)).toContain("/clinician/credentialing/expiry");
+  });
+});
+
+describe("the Chief Medical Officer index for testing-day results", () => {
+  it("finds the point-of-care results page by ECG, urine and HbA1c", () => {
+    const cmo = buildAdminSearchIndex([], [], CMO_EXTRA_PAGES);
+    expect(searchAdminEntries(cmo, "ecg").map((e) => e.href)).toContain("/clinician/poc-results");
+    expect(searchAdminEntries(cmo, "hba1c").map((e) => e.href)).toContain("/clinician/poc-results");
   });
 });
 
@@ -198,6 +216,16 @@ describe("the go-live guards are searchable (S37)", () => {
     for (const q of ["go live", "go-live guards", "guard", "switch on", "clinical operations", "proposed values", "sign-off"]) {
       expect(hit(adminIndex, q)).toContain("/admin/go-live");
       expect(hit(cmoIndex, q)).toContain("/clinician/go-live");
+    }
+  });
+});
+
+describe("the event bus explorer (S10x)", () => {
+  const adminReal = buildAdminSearchIndex(getNavSections("admin", null), []);
+
+  it("is in the admin menu and found by the words an admin would type", () => {
+    for (const q of ["event bus", "dead letter", "replay", "stuck", "outbox"]) {
+      expect(searchAdminEntries(adminReal, q).map((e) => e.href)).toContain("/admin/ops/event-bus");
     }
   });
 });

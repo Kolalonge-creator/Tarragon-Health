@@ -34,10 +34,10 @@ const ABOUT_COMMITMENTS = [
       "A critical result starts a twelve-hour clock to contact you; any other abnormal result is followed up within a day. The clock starts the moment the result comes back, rather than on a schedule.",
   },
   {
-    value: "₦0",
+    value: "Free",
     label: "the app itself is free",
     detail:
-      "Everything you can do yourself costs nothing, with no time limit. We charge only when a doctor does a specific piece of work for you, at a price you see and confirm first.",
+      "Everything you can do yourself costs nothing, with no time limit. Membership adds a yearly blood test and a video call with your care team every month, for one price you see before you pay.",
   },
   {
     value: "Built to scale",

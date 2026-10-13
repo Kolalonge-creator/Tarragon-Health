@@ -12,6 +12,7 @@ import {
 } from "@/lib/queries/pharmacist";
 import { assessAllergyFindings, type AllergyInput, type MedicationInput } from "@/lib/rules/drug-safety";
 import { controlledSubstanceInfo } from "@/lib/rules/controlled-substances";
+import { CONTROLLED_AT_COUNTER_TEXT } from "@/lib/pharmacy-collection/model";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -205,7 +206,7 @@ function OrderCard({ order }: { order: PharmacistOrderRow }) {
   const [isSubstitution, setIsSubstitution] = useState(false);
   const [substitutedFor, setSubstitutedFor] = useState("");
   const [substitutionReason, setSubstitutionReason] = useState("");
-  const [enhancedVerificationConfirmed, setEnhancedVerificationConfirmed] = useState(false);
+  const [refusedControlled, setRefusedControlled] = useState(false);
   const [unavailableOpen, setUnavailableOpen] = useState(false);
   const [unavailableReason, setUnavailableReason] = useState("");
 
@@ -257,10 +258,7 @@ function OrderCard({ order }: { order: PharmacistOrderRow }) {
           Declined: {order.cancellation_reason}
         </p>
       )}
-      {(order.status === "confirmed" ||
-        order.status === "dispensed" ||
-        order.status === "out_for_delivery" ||
-        order.status === "delivered") &&
+      {(order.status === "confirmed" || order.status === "dispensed") &&
         order.confirmed_quantity && (
           <p className="text-xs text-charcoal-ink/50">
             Accepted: {order.confirmed_quantity}
@@ -390,7 +388,7 @@ function OrderCard({ order }: { order: PharmacistOrderRow }) {
                 <Input
                   id={`d_drug_${order.order_id}`}
                   value={drugName}
-                  onChange={(e) => setDrugName(e.target.value)}
+                  onChange={(e) => { setDrugName(e.target.value); setRefusedControlled(false); }}
                   className="h-8 text-xs"
                 />
               </div>
@@ -502,33 +500,20 @@ function OrderCard({ order }: { order: PharmacistOrderRow }) {
             )}
 
             {controlledInfo && (
-              <div
-                className={cn(
-                  "mt-2 rounded border p-2 text-xs leading-relaxed",
-                  controlledInfo.tier === "narcotic"
-                    ? "border-red-300 bg-red-50 text-red-900"
-                    : "border-amber-300 bg-amber-50 text-amber-900",
-                )}
-              >
-                <p className="font-semibold">{controlledInfo.label} — enhanced verification required.</p>
-                <p className="mt-0.5">{controlledInfo.note}</p>
-                <label className="mt-1.5 flex items-center gap-1.5 font-medium">
-                  <input
-                    type="checkbox"
-                    checked={enhancedVerificationConfirmed}
-                    onChange={(e) => setEnhancedVerificationConfirmed(e.target.checked)}
-                    className="h-3.5 w-3.5"
-                  />
-                  I confirm the additional safeguard above for this controlled/restricted medicine
-                </label>
+              <div role="status" className="mt-2 rounded border border-amber-300 bg-amber-50 p-2 text-xs leading-relaxed text-amber-900">
+                <p className="font-semibold">{controlledInfo.label}: not supplied through Tarragon.</p>
+                <p className="mt-0.5">{CONTROLLED_AT_COUNTER_TEXT}</p>
               </div>
+            )}
+            {refusedControlled && !controlledInfo && (
+              <p role="status" className="mt-2 rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">{CONTROLLED_AT_COUNTER_TEXT}</p>
             )}
 
             <div className="mt-2">
               <Button
                 size="sm"
                 disabled={
-                  record.isPending || !drugName.trim() || (!!controlledInfo && !enhancedVerificationConfirmed)
+                  record.isPending || !drugName.trim() || !!controlledInfo
                 }
                 onClick={() =>
                   record.mutate(
@@ -543,11 +528,12 @@ function OrderCard({ order }: { order: PharmacistOrderRow }) {
                       batchNumber: batchNumber.trim() || undefined,
                       substitutedFor: isSubstitution ? substitutedFor.trim() || undefined : undefined,
                       substitutionReason: isSubstitution ? substitutionReason.trim() || undefined : undefined,
-                      controlledTier: controlledInfo?.tier ?? null,
-                      enhancedVerificationConfirmed,
                     },
                     {
-                      onSuccess: () => {
+                      onSuccess: (outcome) => {
+                        // OQ-276: the database also checks the list (a name the page does not know, or a substituted original). Keep the form so nothing is lost.
+                        setRefusedControlled(outcome === "controlled_medicine");
+                        if (outcome === "controlled_medicine") return;
                         setDrugName("");
                         setQuantity("");
                         setQuantityPrescribed("");
@@ -557,7 +543,6 @@ function OrderCard({ order }: { order: PharmacistOrderRow }) {
                         setIsSubstitution(false);
                         setSubstitutedFor("");
                         setSubstitutionReason("");
-                        setEnhancedVerificationConfirmed(false);
                       },
                     },
                   )

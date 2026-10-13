@@ -23,8 +23,12 @@ export const CONTEXT_FIELDS = [
   "adherence.percent7d",
   "silence.days",
   "pathway.carePack",
+  "symptoms.answered",
   "pregnant",
+  "postpartum",
+  "obstetric",
   "age",
+  "onBpMedicines",
 ] as const;
 
 /** Numeric `params` values flattened to dotted names (`params.recheck.afterMinutes`), so a rule can refer to them. */
@@ -88,7 +92,12 @@ export function buildContext(input: TriageInput, ruleSet: RuleSet): Context {
     "adherence.percent7d": trigger.type === "adherence" ? trigger.percent7d : null,
     "silence.days": silenceFrom === null ? null : lagosDaysBetween(toMs(silenceFrom), nowMs),
     "pathway.carePack": input.pathway.state === "care_pack_active",
+    "symptoms.answered": observation ? observation.symptomsAnswered === true || observation.symptoms.length > 0 : null,
     pregnant: input.pregnant,
+    postpartum: input.postpartum === true,
+    obstetric: input.pregnant || input.postpartum === true,
     age: input.ageYears,
+    // absent = unknown = treated as taking them (the conservative reading, same as version 3); only an explicit false switches BP-A7 off
+    onBpMedicines: input.onBpMedicines !== false,
   };
 }

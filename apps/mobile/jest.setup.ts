@@ -32,6 +32,10 @@ beforeEach(() => {
   secureStoreMock.__reset();
   cryptoMock.__reset();
   sqliteMock.__reset();
+  // Required lazily, not imported above: importing app modules here would load them before a test file's own
+  // jest.mock calls take effect (low-data.test.ts mocks expo-secure-store itself).
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  (require("./src/lib/secure-db") as typeof import("./src/lib/secure-db")).__resetStoreForTests();
   asyncStorageMock.__reset();
   bleMock.__reset();
 });

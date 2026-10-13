@@ -2,8 +2,8 @@ import { isAwaitingStatus, isOpenStatus, statusMeta, STATUS_META } from "./order
 
 /**
  * pharmacy_order_status (DB enum) as of writing: pending_payment,
- * payment_confirmed, requested, confirmed, dispensed, out_for_delivery,
- * delivered, cancelled. This list is duplicated here deliberately so the
+ * payment_confirmed, requested, confirmed, unavailable, dispensed,
+ * cancelled (collection only, no delivery statuses). This list is duplicated here deliberately so the
  * test fails loudly if the enum gains a value STATUS_META hasn't been
  * taught about, rather than the dashboard silently bucketing it as "grey".
  */
@@ -12,9 +12,8 @@ const ALL_ENUM_VALUES = [
   "payment_confirmed",
   "requested",
   "confirmed",
+  "unavailable",
   "dispensed",
-  "out_for_delivery",
-  "delivered",
   "cancelled",
 ] as const;
 
@@ -33,8 +32,6 @@ describe("statusMeta", () => {
     ["requested", "Awaiting", "amber"],
     ["confirmed", "In progress", "blue"],
     ["dispensed", "Dispensed", "green"],
-    ["out_for_delivery", "Dispensed", "green"],
-    ["delivered", "Dispensed", "green"],
     ["cancelled", "Cancelled", "grey"],
   ])("maps %s to label %s / badge %s", (status, label, badge) => {
     expect(statusMeta(status)).toEqual({ label, badge });
@@ -55,8 +52,6 @@ describe("isOpenStatus", () => {
 
   it("is false for every terminal status, including cancelled", () => {
     expect(isOpenStatus("dispensed")).toBe(false);
-    expect(isOpenStatus("out_for_delivery")).toBe(false);
-    expect(isOpenStatus("delivered")).toBe(false);
     expect(isOpenStatus("cancelled")).toBe(false);
   });
 
@@ -75,8 +70,6 @@ describe("isAwaitingStatus", () => {
   it("is false for in-progress and every terminal status", () => {
     expect(isAwaitingStatus("confirmed")).toBe(false);
     expect(isAwaitingStatus("dispensed")).toBe(false);
-    expect(isAwaitingStatus("out_for_delivery")).toBe(false);
-    expect(isAwaitingStatus("delivered")).toBe(false);
     expect(isAwaitingStatus("cancelled")).toBe(false);
   });
 

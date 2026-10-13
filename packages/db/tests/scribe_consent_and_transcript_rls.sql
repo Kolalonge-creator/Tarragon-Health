@@ -63,6 +63,9 @@ begin
   returning id into v_staff_id;
 
   insert into sc_fixture values ('org', v_org), ('clinician', v_clinician), ('patient', v_patient), ('staff', v_staff_id);
+  -- S39b: staff read a transcript only through a care relationship, so the fixture clinician is on this patient's care team
+  insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, assigned_at) values (v_org, v_patient, v_clinician, now())
+  on conflict (patient_id) do update set clinician_id = excluded.clinician_id;
 
   -- S21g (OQ-161): a granted consent exists only while the patient has allowed the AI note-taker in the app for a live consultation
   -- with this clinician. The fixture is that consultation and the patient's own answer, written the way the S21 functions write them.

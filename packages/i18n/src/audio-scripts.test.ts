@@ -1,3 +1,4 @@
+import { activeWording } from "./clinical-wording";
 import { describe, expect, it } from "@jest/globals";
 import { AUDIO_SCRIPTS } from "./audio-scripts";
 
@@ -23,6 +24,8 @@ describe("audio scripts (the words a clip says)", () => {
     for (const [id, s] of entries) {
       if (id.startsWith("EMG-")) expect([id, /\b112\b/.test(s.en)]).toEqual([id, false]);
     }
-    expect(AUDIO_SCRIPTS["EMG-001"].en).toContain("one one two");
+    // EMG-001 names the number only if the wording in force does (the screen prints no number until the CMO confirms 112).
+    const onScreen = /\b112\b/.test(activeWording("EMG-001").body);
+    expect(AUDIO_SCRIPTS["EMG-001"].en.includes("one one two")).toBe(onScreen);
   });
 });

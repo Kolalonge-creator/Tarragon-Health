@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { loose } from "@/lib/clinician/loose-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { SlaBadge } from "@/components/clinician/sla-badge";
 import { formatKobo } from "@/lib/format-money";
 import { classCounts, heldTaskSchema, minutesLeft, queueSummarySchema } from "@/lib/clinician/queue-console";
 import { ExtendForm, NextTaskForm } from "./forms";
@@ -50,6 +51,9 @@ export default async function ClinicianQueuePage({ searchParams }: { searchParam
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">{t("queue.title", "en")}</h1>
         <p className="text-sm text-charcoal-ink/60">{t("queue.subtitle", "en")}</p>
+        <p className="text-xs text-charcoal-ink/50">
+          {t("queue.updated", "en", { time: now.toLocaleTimeString("en-GB", { timeStyle: "short", timeZone: "Africa/Lagos" }) })}
+        </p>
       </div>
 
       {first(raw.none) === "1" && <p role="status" className="text-sm text-charcoal-ink/70">{t("queue.none", "en")}</p>}
@@ -108,6 +112,7 @@ export default async function ClinicianQueuePage({ searchParams }: { searchParam
                     </Badge>
                     <span className="text-sm font-medium text-charcoal-ink">{task.type.replace(/_/g, " ")}</span>
                     {task.due_at && <span className="text-xs text-charcoal-ink/60">{t("task.due", "en")} {dateTime(task.due_at)}</span>}
+                    <SlaBadge dueAt={task.due_at} now={now} />
                     {left !== null && (
                       <span className="text-xs text-charcoal-ink/60">
                         {left === 0 ? t("queue.expired", "en") : t("queue.time_left", "en", { minutes: left })}

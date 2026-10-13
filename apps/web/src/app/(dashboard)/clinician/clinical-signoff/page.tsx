@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { Card, CardContent } from "@/components/ui/card";
 import { readClinicalSignoffChecklist } from "@/lib/clinical/read-clinical-signoff-checklist";
-import { CLINICAL_RULES_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
+import { CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
 import { getCmoSigningHubForRequest } from "@/lib/queries/cmo-signing-hub-request";
 import { ProtocolDraftsManager } from "@/app/(dashboard)/admin/settings/protocols/protocol-drafts-manager";
 import { RefreshOnMutationSuccess } from "../_signoff-panels/refresh-on-mutation-success";
@@ -20,6 +20,9 @@ import { CvRiskConfigPanel } from "../_signoff-panels/cv-risk-config-panel";
 import { RiskQuestionnaireConfigPanel } from "../_signoff-panels/risk-questionnaire-config-panel";
 import { VaccinationSchedulePanel } from "../_signoff-panels/vaccination-schedule-panel";
 import { LabPanelsPanel } from "../_signoff-panels/lab-panels-panel";
+import { HomeBpProgrammePanel } from "../_signoff-panels/home-bp-programme-panel";
+import { MyHealthConfigPanel } from "../_signoff-panels/my-health-config-panel";
+import { CommunitySignoffPanel } from "../_signoff-panels/community-panel";
 import { SignoffChecklist } from "@/app/(dashboard)/admin/settings/clinical-signoff/signoff-checklist";
 import { SignoffQueueList } from "@/app/(dashboard)/admin/settings/clinical-protocols/signoff-queue-list";
 import {
@@ -48,6 +51,8 @@ const CONFIG_PANELS: Record<string, () => ReactNode> = {
   risk_questionnaire_configs: () => <RiskQuestionnaireConfigPanel />,
   vaccination_schedule_signoffs: () => <VaccinationSchedulePanel />,
   lab_panel_signoffs: () => <LabPanelsPanel />,
+  home_bp_programme_signoffs: () => <HomeBpProgrammePanel />,
+  my_health_config: () => <MyHealthConfigPanel />,
 };
 
 /**
@@ -154,6 +159,8 @@ export default async function ClinicianClinicalSignoffPage() {
   }
 
   if (keys.has("ai_governance")) inlinePanels.ai_governance = <AiGovernancePanel />;
+
+  if (keys.has(COMMUNITY_ITEM_KEY)) inlinePanels[COMMUNITY_ITEM_KEY] = <CommunitySignoffPanel />;
 
   if (keys.has(PROTOCOL_DRAFTS_ITEM_KEY)) {
     inlinePanels[PROTOCOL_DRAFTS_ITEM_KEY] = (

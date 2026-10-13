@@ -12,7 +12,6 @@ type OrderRow = {
   patient_number: string | null;
   total_kobo: number | null;
   requested_at: string;
-  delivered_at: string | null;
 };
 
 export default async function ProviderOrgPharmacyOrdersPage({
@@ -68,7 +67,6 @@ export default async function ProviderOrgPharmacyOrdersPage({
                     <th className="py-2 pr-4">Total</th>
                     <th className="py-2 pr-4">Status</th>
                     <th className="py-2 pr-4">Requested</th>
-                    <th className="py-2 pr-4">Delivered</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -84,7 +82,6 @@ export default async function ProviderOrgPharmacyOrdersPage({
                         <Badge>{o.status.replace(/_/g, " ")}</Badge>
                       </td>
                       <td className="py-2 pr-4">{new Date(o.requested_at).toLocaleDateString()}</td>
-                      <td className="py-2 pr-4">{o.delivered_at ? new Date(o.delivered_at).toLocaleDateString() : "—"}</td>
                     </tr>
                   ))}
                 </tbody>

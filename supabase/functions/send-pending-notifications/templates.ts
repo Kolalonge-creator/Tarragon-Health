@@ -592,6 +592,25 @@ export const TEMPLATE_MAP: Record<
     smsText: "A written message needs attention. Open your queue.",
     pushUrl: "/clinician/async-consults",
   }),
+  // Two-tier model, monthly follow-up. Neutral by design (INV-07): no condition, reading, result or medicine. Push, in-app and email
+  // only, never SMS (INV-08); the smsText field below is the push text and is never sent as an SMS.
+  followup_times_offered: () => ({
+    smsText: "Your care team has offered times for your monthly check-in. Open the Tarragon Health app to choose one.",
+    pushUrl: "/patient/appointments",
+  }),
+  followup_offer_withdrawn: () => ({
+    smsText: "The times offered for your check-in have changed. Your care team will send new ones.",
+    pushUrl: "/patient/appointments",
+  }),
+  followup_month_missed: () => ({
+    smsText: "Your monthly check-in is waiting. Open the Tarragon Health app to pick a time.",
+    pushUrl: "/patient/appointments",
+    email: neutralMail("Your monthly check-in is waiting", ["A month has passed without a check-in booked. Open the Tarragon Health app to pick a time, or your care team will offer some."]),
+  }),
+  followup_slot_picked: () => ({
+    smsText: "A member picked one of your offered times. Open your monthly check-ins.",
+    pushUrl: "/clinician/followups",
+  }),
   note_correction_requested: () => ({
     smsText: "A patient asked for a correction to a signed note. Open your messages to answer.",
     pushUrl: "/clinician/messages",
@@ -620,6 +639,13 @@ export const TEMPLATE_MAP: Record<
   care_change_ready_patient: () => ({
     smsText: "Your care team has a change for you. Open the Tarragon Health app to read it.",
     pushUrl: "/patient/medications",
+  }),
+  // S11f: private.queue_triage_recheck_backup_reminders() queues this (push, or in_app when there is no push subscription, plus an in_app
+  // copy) when a patient told to rest and measure again after 2 hours has still not done so, ten minutes after the phone's own reminder
+  // was due. INV-07: no condition, reading or number in any channel's wording.
+  triage_recheck_due: () => ({
+    smsText: "Hi, it is time for your check-in. Open the Tarragon Health app to continue. Tarragon Health",
+    pushUrl: "/patient/vitals",
   }),
   care_change_declined_staff: () => ({
     smsText: "A patient answered a change. Nothing was changed. Open your patient list.",
@@ -770,93 +796,6 @@ export const TEMPLATE_MAP: Record<
       smsText,
       email: neutralMail(`Your Tarragon Health order ${orderNumber} is ready for collection`, ["Hi,", `Your order is ready to collect from <strong>${pharmacyName}</strong>.`], [["Order number", orderNumber]]),
       pushUrl: "/patient/medications",
-    };
-  },
-  pharmacy_order_out_for_delivery: (payload) => {
-    const orderNumber = String(payload.order_number ?? "your order");
-    const itemsSummary = String(payload.items_summary ?? "your medication");
-    const courierName = String(payload.courier_name ?? "your courier");
-    const eta = payload.estimated_delivery_at
-      ? new Date(String(payload.estimated_delivery_at)).toLocaleString("en-GB", {
-          dateStyle: "medium",
-          timeStyle: "short",
-        })
-      : null;
-    const coldChainNote = payload.requires_cold_chain === true ? " Keep it refrigerated once it arrives." : "";
-    const path = "/patient/medications";
-    const smsText =
-      `Hi, your Tarragon Health order ${orderNumber} is out for delivery with ${courierName}` +
-      `${eta ? `, estimated ${eta}` : ""}.${coldChainNote} Tarragon Health`;
-    return {
-      smsText,
-      email: {
-        subject: `Your Tarragon Health order ${orderNumber} is out for delivery`,
-        html:
-          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
-          `<p>Hi,</p>` +
-          `<p>Your order is on its way with <strong>${courierName}</strong>${eta ? `, estimated ${eta}` : ""}.</p>` +
-          `<p style="color:#5b6b78">Order ${orderNumber}</p>` +
-          `${coldChainNote ? `<p style="color:#b45309">${coldChainNote.trim()}</p>` : ""}` +
-          `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
-          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
-          `</div>`,
-        text: smsText,
-      },
-      pushUrl: path,
-    };
-  },
-  pharmacy_order_delivered: (payload) => {
-    const orderNumber = String(payload.order_number ?? "your order");
-    const itemsSummary = String(payload.items_summary ?? "your medication");
-    const path = "/patient/medications";
-    const smsText = `Hi, your Tarragon Health order ${orderNumber} has been delivered. Tarragon Health`;
-    return {
-      smsText,
-      email: {
-        subject: `Your Tarragon Health order ${orderNumber} was delivered`,
-        html:
-          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
-          `<p>Hi,</p>` +
-          `<p>Your order has been delivered.</p>` +
-          `<p style="color:#5b6b78">Order ${orderNumber}</p>` +
-          `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
-          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
-          `</div>`,
-        text: smsText,
-      },
-      pushUrl: path,
-    };
-  },
-  pharmacy_order_delivery_failed: (payload) => {
-    const orderNumber = String(payload.order_number ?? "your order");
-    const itemsSummary = String(payload.items_summary ?? "your medication");
-    const reasonCopy: Record<string, string> = {
-      patient_unavailable: "nobody was available to receive it",
-      incorrect_address: "the delivery address needs to be corrected",
-      courier_failure: "the courier could not complete the delivery",
-      security_access_issue: "the courier could not access the delivery location",
-      other: "the delivery could not be completed",
-    };
-    const reason = reasonCopy[String(payload.failure_reason ?? "other")] ?? reasonCopy.other;
-    const path = "/patient/medications";
-    const smsText =
-      `Hi, delivery of your Tarragon Health order ${orderNumber} did not succeed. ` +
-      `We'll be in touch to arrange redelivery. Tarragon Health`;
-    return {
-      smsText,
-      email: {
-        subject: `Delivery attempt for your Tarragon Health order ${orderNumber} was unsuccessful`,
-        html:
-          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
-          `<p>Hi,</p>` +
-          `<p>We tried to deliver your order but ${reason}. We'll be in touch to arrange redelivery — no action ` +
-          `needed from you right now, but you can update your delivery address in the app.</p>` +
-          `<p style="color:#5b6b78">Order ${orderNumber}</p>` +
-          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
-          `</div>`,
-        text: smsText,
-      },
-      pushUrl: path,
     };
   },
   pharmacy_order_unavailable: (payload) => {
@@ -1528,6 +1467,37 @@ export const TEMPLATE_MAP: Record<
       text: "Someone in your Care Circle has paid for care for you.\n\nOpen Tarragon Health to accept it. Nothing starts until you say yes.\n\nTarragon Health",
     },
   }),
+  // S38c: the monthly progress summary is ready. Fixed neutral copy: no condition, reading, number or name (INV-07); the payload is never echoed.
+  monthly_report_ready: () => ({
+    smsText: "Your monthly summary is ready. Open Tarragon Health. Tarragon Health",
+    pushUrl: "/patient/progress",
+    email: {
+      subject: "Your monthly summary is ready",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Your monthly summary is ready.</p>` +
+        `<p>Open Tarragon Health to see it.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Your monthly summary is ready.\n\nOpen Tarragon Health to see it.\n\nTarragon Health",
+    },
+  }),
+  // S38g: a sponsor's monthly programme figures are ready (to the sponsor's own staff). Fixed neutral copy: no programme name, number, condition or
+  // person (INV-07); the payload (which carries only the destination address) is never echoed.
+  sponsor_figures_ready: () => ({
+    smsText: "Your programme figures for last month are ready. Open Tarragon Health. Tarragon Health",
+    pushUrl: "/",
+    email: {
+      subject: "Your programme figures are ready",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Your programme figures for last month are ready.</p>` +
+        `<p>Sign in to Tarragon Health, on the web or in the app, to read them: <a href="${appUrl("/")}">${appUrl("/")}</a></p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: `Your programme figures for last month are ready.\n\nSign in to Tarragon Health, on the web or in the app, to read them: ${appUrl("/")}\n\nTarragon Health`,
+    },
+  }),
   circle_paid_for_you: () => ({
     smsText: "Someone has paid for your care. Open Tarragon Health. Tarragon Health",
     pushUrl: "/patient",
@@ -1540,6 +1510,50 @@ export const TEMPLATE_MAP: Record<
         `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
         `</div>`,
       text: "Someone in your Care Circle has paid for your care.\n\nOpen Tarragon Health to see what it includes.\n\nTarragon Health",
+    },
+  }),
+  // Two-tier (CMO 2026-10-08): the Free red-event path. Fixed neutral wording (INV-07): no condition, reading or result, and
+  // nothing from the payload is echoed. The guidance itself is shown in the app, never in the message.
+  free_red_guidance: () => ({
+    smsText: "A safety message is waiting for you. Open the Tarragon Health app. Tarragon Health",
+    pushUrl: "/patient",
+    email: {
+      subject: "A message is waiting for you",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>A safety message is waiting for you in the app.</p>` +
+        `<p>Please open Tarragon Health now.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "A safety message is waiting for you in the app.\n\nPlease open Tarragon Health now.\n\nTarragon Health",
+    },
+  }),
+  free_red_recheck: () => ({
+    smsText: "It is time to check again. Open the Tarragon Health app when you can. Tarragon Health",
+    pushUrl: "/patient",
+    email: {
+      subject: "Time to check again",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>It is time to check again.</p>` +
+        `<p>Open Tarragon Health when you can.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "It is time to check again.\n\nOpen Tarragon Health when you can.\n\nTarragon Health",
+    },
+  }),
+  free_red_checkin: () => ({
+    smsText: "We are checking in. Open the Tarragon Health app to tell us how you are. Tarragon Health",
+    pushUrl: "/patient",
+    email: {
+      subject: "We are checking in",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>We are checking in on you.</p>` +
+        `<p>Open Tarragon Health to tell us how you are.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "We are checking in on you.\n\nOpen Tarragon Health to tell us how you are.\n\nTarragon Health",
     },
   }),
   // S19: a red event page to the clinician on call (on_call_page) and the alert to the clinical lead and ops when nobody
@@ -1585,6 +1599,35 @@ export const TEMPLATE_MAP: Record<
         `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
         `</div>`,
       text: "A priority case was acknowledged but has not been closed yet.\n\nOpen Tarragon Health to see where it stands.\n\nTarragon Health",
+    },
+  }),
+  // SR5: operations alerts to the on-call contact list (ops_alert) and the quiet in-app all clear (ops_all_clear). Fixed wording:
+  // nothing from the payload is echoed, so no detail of any kind can reach an email or a push. They carry no patient reference.
+  ops_alert: () => ({
+    smsText: "An operations alert needs attention. Open the operations wall. Tarragon Health",
+    pushUrl: "/admin/ops/wall",
+    email: {
+      subject: "An operations alert needs attention",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>An operations alert needs attention.</p>` +
+        `<p>Open the operations wall in Tarragon Health to see what it is.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "An operations alert needs attention.\n\nOpen the operations wall in Tarragon Health to see what it is.\n\nTarragon Health",
+    },
+  }),
+  ops_all_clear: () => ({
+    smsText: "An operations alert has cleared. Tarragon Health",
+    pushUrl: "/admin/ops/wall",
+    email: {
+      subject: "An operations alert has cleared",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>An operations alert has cleared.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "An operations alert has cleared.\n\nTarragon Health",
     },
   }),
   // S18: the patient is told when their care team lead is set, changes, or is still being arranged. Fixed wording by

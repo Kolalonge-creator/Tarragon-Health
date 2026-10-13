@@ -26,6 +26,10 @@ export function StartApplication({ canApply }: { canApply: boolean }) {
         <li>Your own professional indemnity certificate if you will work as a freelance clinician</li>
         <li>Two referees we can reach through their institution</li>
       </ul>
+      <Muted>
+        Once you are switched on, this login becomes your clinician login and no longer shows the patient dashboard. If you also use
+        Tarragon as a patient, apply from a separate work account so your own health records stay where they are.
+      </Muted>
       {canApply ? (
         <form action={startApplication}>
           <Hidden name="returnTo" value={HOME} />
@@ -77,7 +81,7 @@ function DetailsForm({ app }: { app: MyApplication }) {
           <Field label="Year you finished NYSC">
             <input name="nysc_year" type="number" min={1950} defaultValue={d.nysc_year ?? ""} className={fieldClass} />
           </Field>
-          <Field label="Years of practice after house job" hint="We need at least the minimum set by your care team lead.">
+          <Field label="Years of practice after house job" hint="We need at least the minimum set by our clinical team.">
             <input name="years_since_house_job" type="number" step="0.5" min={0} defaultValue={d.years_since_house_job ?? ""} className={fieldClass} required />
           </Field>
           <Field label="Specialties" hint="Separate with commas">
@@ -242,7 +246,7 @@ function TrainingSection({ app }: { app: MyApplication }) {
     <>
       <Section title="Training" hint="Read each module, then mark it as done. The test opens when every module is done.">
         {app.modules.length === 0 ? (
-          <Muted>Your care team lead is still preparing the training. We will let you know when it is ready.</Muted>
+          <Muted>We are still preparing the training. We will let you know when it is ready.</Muted>
         ) : (
           <ul className="space-y-4">
             {app.modules.map((m) => (
@@ -277,7 +281,7 @@ function TrainingSection({ app }: { app: MyApplication }) {
           Attempts used: {t.attempts_used} of {t.attempts_allowed}
         </p>
         {exhausted ? (
-          <Muted>You have used all your attempts. Your care team lead has been told and will be in touch.</Muted>
+          <Muted>You have used all your attempts. Our team has been told and will be in touch.</Muted>
         ) : t.open_attempt_id ? (
           <Link href={`${HOME}/test`} className="text-sm font-medium text-brand-green underline">
             Continue the test
@@ -314,7 +318,7 @@ export function ApplicantFlow({ app }: { app: MyApplication }) {
 
       {state === "documents_submitted" || state === "checks_in_progress" ? (
         <>
-          <Section title="We are checking your application" hint="Your care team lead is checking your licence, qualifications, identity and referees. You do not need to do anything. If we need a clearer document we will tell you.">
+          <Section title="We are checking your application" hint="Our team is checking your licence, qualifications, identity and referees. You do not need to do anything. If we need a clearer document we will tell you.">
             <Muted>You can replace a document below if we asked you to.</Muted>
           </Section>
           <DocumentsSection app={app} editable />
@@ -324,13 +328,13 @@ export function ApplicantFlow({ app }: { app: MyApplication }) {
       {state === "training" ? <TrainingSection app={app} /> : null}
 
       {state === "test_passed" ? (
-        <Section title="You passed the test" hint="Your care team lead will review your application and let you know." >
+        <Section title="You passed the test" hint="Our team will review your application and let you know." >
           <Muted>Nothing more to do for now.</Muted>
         </Section>
       ) : null}
 
       {state === "approved_tier1" ? (
-        <Section title="You are approved" hint="Your care team lead will switch you on once your first-day setup is complete. You will get a message when it is done.">
+        <Section title="You are approved" hint="Our team will switch you on once your first-day setup is complete. You will get a message when it is done.">
           <Muted>Nothing more to do for now.</Muted>
         </Section>
       ) : null}
@@ -344,14 +348,14 @@ export function ApplicantFlow({ app }: { app: MyApplication }) {
       ) : null}
 
       {state === "rejected" ? (
-        <Section title="Your application was not approved" hint="Your care team lead can tell you more. You can apply again later.">
+        <Section title="Your application was not approved" hint="Our team can tell you more. You can apply again later.">
           <Muted>If you think we got something wrong, reply to the email we sent you.</Muted>
         </Section>
       ) : null}
 
       {state === "offboarded" ? (
         <Section title="You have left the network">
-          <Muted>If this is a mistake, contact your care team lead.</Muted>
+          <Muted>If this is a mistake, contact our team.</Muted>
         </Section>
       ) : null}
 

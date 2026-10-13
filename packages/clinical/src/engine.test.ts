@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { BP_CARE_V1, actionToString, grade, messageKeyFor, validateInput, validateRuleSet } from "./index";
+import { BP_CARE_V1, actionToString, grade, recheckWindowMinutes, messageKeyFor, validateInput, validateRuleSet } from "./index";
 import { buildContext, flattenParams } from "./context";
 import { evaluate, type EvalEnv } from "./conditions";
 import { isoWeekKey, lagosDateKey, lagosDaysBetween, isValidTimestamp, toMs } from "./dates";
@@ -55,19 +55,21 @@ describe("validateRuleSet", () => {
     ["triggers not a list", [["rules.0.triggers", "observation"]], "triggers must"],
     ["no explanation key", [["rules.0.explanationKey", ""]], "explanationKey"],
     ["bad result", [["rules.0.result", "maybe"]], "result must be"],
+    ["bad recheck timing", [["rules.9.recheckTiming", "soon"]], "recheckTiming"],
+    ["extreme recheck window shorter", [["params.extremeRecheck", { afterMinutes: 9, windowMinutes: 3 }]], "params.extremeRecheck"],
     ["bad grade", [["rules.0.grade", "purple"]], "grade must be"],
     ["actions not a list", [["rules.0.actions", "x"]], "actions must be a list"],
     ["unknown action", [["rules.0.actions", [{ kind: "fire" }]]], "bad action"],
     ["action not an object", [["rules.0.actions", [3]]], "bad action"],
-    ["task without due", [["rules.5.actions.1.dueMinutes", 0]], "create_task needs"],
-    ["task without notify key", [["rules.5.actions.1.notifyKey"]], "create_task needs"],
+    ["task without due", [["rules.4.actions.1.dueMinutes", 0]], "create_task needs"],
+    ["task without notify key", [["rules.4.actions.1.notifyKey"]], "create_task needs"],
     ["red without a page", [["rules.0.actions", [{ kind: "show_emergency_guidance", code: "EMG-001" }]]], "INV-05"],
     ["red without guidance", [["rules.0.actions", [{ kind: "page_on_call" }]]], "INV-05"],
-    ["task without an anchor", [["rules.5.taskAnchor"]], "taskAnchor"],
-    ["reading anchor on a silence rule", [["rules.13.taskAnchor", "reading"]], "taskAnchor"],
-    ["last-reading anchor on an observation rule", [["rules.5.taskAnchor", "lastReadingDate"]], "taskAnchor"],
-    ["anchor on a rule with several triggers", [["rules.5.triggers", ["observation", "silence"]], ["rules.5.taskAnchor", "reading"]], "taskAnchor"],
-    ["task anchor on a rule whose triggers are not a list", [["rules.5.triggers", "x"], ["rules.5.taskAnchor", "reading"]], "taskAnchor"],
+    ["task without an anchor", [["rules.4.taskAnchor"]], "taskAnchor"],
+    ["reading anchor on a silence rule", [["rules.16.taskAnchor", "reading"]], "taskAnchor"],
+    ["last-reading anchor on an observation rule", [["rules.4.taskAnchor", "lastReadingDate"]], "taskAnchor"],
+    ["anchor on a rule with several triggers", [["rules.4.triggers", ["observation", "silence"]], ["rules.4.taskAnchor", "reading"]], "taskAnchor"],
+    ["task anchor on a rule whose triggers are not a list", [["rules.4.triggers", "x"], ["rules.4.taskAnchor", "reading"]], "taskAnchor"],
     ["condition is not an object", [["rules.0.when", 5]], "condition must"],
     ["empty all list", [["rules.0.when", { all: [] }]], "non-empty"],
     ["all is not a list", [["rules.0.when", { any: "x" }]], "non-empty"],
@@ -145,6 +147,8 @@ describe("validateInput", () => {
     expect(v({ ...base(), pathway: undefined })).toBe("invalid_input");
     expect(v({ ...base(), pathway: { state: 3 } })).toBe("invalid_input");
     expect(v({ ...base(), ageYears: "45" })).toBe("invalid_input");
+    expect(v({ ...base(), postpartum: "yes" })).toBe("invalid_input");
+    expect(v(obs({ symptomsAnswered: "yes" as never }))).toBe("invalid_input");
     expect(v(obs({ reading: { systolic: "120", diastolic: 78, takenAt: NOW } as never }))).toBe("invalid_input");
     expect(v(obs({ reading: { systolic: 120, diastolic: 78, takenAt: "x" } }))).toBe("invalid_input");
     expect(v(obs({ symptoms: "chest_pain" as never }))).toBe("invalid_input");
@@ -213,6 +217,21 @@ describe("grade: refusals and edges", () => {
     expect(r.matchedRuleIds).toEqual(expect.arrayContaining(["BP-P1", "BP-P2"]));
   });
 
+  it("an amber routing result keeps the symptom question beside it and does not hide it", () => {
+    const r = grade(base({ ageYears: 16, trigger: { type: "observation", reading: { systolic: 205, diastolic: 100, takenAt: NOW }, symptoms: [] } }), BP_CARE_V1);
+    expect(r.status).toBe("graded");
+    expect(r.ruleId).toBe("BP-P2");
+    expect(r.actions.map(actionToString)).toEqual(["route_referral:age", "create_task:referral_review", "ask_symptoms:TRI-008"]);
+  });
+
+  it("A1, A1W and X2 are exclusive: a standard repeat is confirmed or asked for again, never both", () => {
+    const prev = { systolic: 182, diastolic: 112, takenAt: "2026-10-05T08:54:00Z" };
+    for (const minutes of [0, 6, 20]) {
+      const r = grade(obs({ reading: { systolic: 181, diastolic: 111, takenAt: NOW }, symptomsAnswered: true, recheck: { kind: "repeat", previous: prev, minutesSincePrevious: minutes } }), BP_CARE_V1);
+      expect(r.matchedRuleIds.filter((id) => ["BP-A1", "BP-A1W", "BP-X2"].includes(id))).toHaveLength(1);
+    }
+  });
+
   it("A1 and A1W never both match: a repeat is either confirmed or asked for again", () => {
     const prev = { systolic: 182, diastolic: 112, takenAt: "2026-10-05T08:54:00Z" };
     for (const minutes of [0, 1, 4.99, 5, 6, 15, 15.01, 30]) {
@@ -230,10 +249,16 @@ describe("rule thresholds sit exactly on the line", () => {
     expect(sys(150, 120, ["confusion"]).ruleId).toBe("BP-R1");
     expect(sys(179, 119, ["confusion"]).ruleId).toBe("BP-A6");
   });
-  it("BP-R2 at 200 and 130, not at 199 and 129", () => {
-    expect(sys(200, 100).ruleId).toBe("BP-R2");
-    expect(sys(150, 130).ruleId).toBe("BP-R2");
-    expect(sys(199, 129).ruleId).not.toBe("BP-R2");
+  it("the extreme line is 200 or 130: below it the usual urgent recheck, at it the 2 hour recheck", () => {
+    const at = (a: number, d: number) => grade(obs({ reading: { systolic: a, diastolic: d, takenAt: NOW }, symptomsAnswered: true }), BP_CARE_V1);
+    expect(at(200, 100).ruleId).toBe("BP-X2");
+    expect(at(150, 130).ruleId).toBe("BP-X2");
+    expect(at(199, 129).ruleId).toBe("BP-A1W");
+    expect(at(199, 129).recheck?.waitMinutes).toBe(5);
+  });
+  it("a systolic under 90 with no symptom is amber, 90 is not", () => {
+    expect(sys(89, 50).ruleId).toBe("BP-A7");
+    expect(sys(90, 50).ruleId).toBe("BP-G1");
   });
   it("BP-R3 below 90, not at 90", () => {
     expect(sys(89, 50, ["fainting"]).ruleId).toBe("BP-R3");
@@ -387,5 +412,14 @@ describe("actions and messages", () => {
     expect(messageKeyFor("TRI-001")).toEqual({ title: "triage.tri_001.title", body: "triage.tri_001.body" });
     expect(messageKeyFor(null)).toBeNull();
     expect(messageKeyFor("TRI-999")).toBeNull();
+  });
+});
+
+describe("recheck window", () => {
+  it("is short for an urgent reading and 4 hours at the extreme line, by either number", () => {
+    expect(recheckWindowMinutes(BP_CARE_V1, { systolic: 185, diastolic: 112 })).toBe(15);
+    expect(recheckWindowMinutes(BP_CARE_V1, { systolic: 200, diastolic: 100 })).toBe(240);
+    expect(recheckWindowMinutes(BP_CARE_V1, { systolic: 150, diastolic: 130 })).toBe(240);
+    expect(recheckWindowMinutes(BP_CARE_V1, { systolic: 199, diastolic: 129 })).toBe(15);
   });
 });
