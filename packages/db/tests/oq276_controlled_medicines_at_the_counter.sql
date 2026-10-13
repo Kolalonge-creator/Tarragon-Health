@@ -106,7 +106,7 @@ do $$
 declare v_org uuid; v_pA uuid; v_lA uuid; v_doc uuid; v_pat uuid;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
-  insert into public.pharmacy_partners (name, is_active, approved_at, license_verified_at, onboarding_status) values ('OQ276 Pharmacy A', true, now(), now(), 'activated') returning id into v_pA;
+  insert into public.pharmacy_partners (name, is_active, approved_at, license_verified_at, nafdac_source_attested_at, onboarding_status) values ('OQ276 Pharmacy A', true, now(), now(), now(), 'activated') returning id into v_pA;
   insert into public.pharmacy_partner_locations (pharmacy_partner_id, name, state, address, is_active, verified_at) values (v_pA, 'OQ276 A Lekki', 'Lagos', '1 Test Road', true, now()) returning id into v_lA;
   perform pg_temp.setf('org', v_org); perform pg_temp.setf('pA', v_pA); perform pg_temp.setf('lA', v_lA);
   perform pg_temp.setf('phA', pg_temp.mkuser(v_org, 'phA', 'pharmacist', 'OQ276 Pharmacist A'));

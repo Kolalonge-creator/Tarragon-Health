@@ -121,7 +121,7 @@ begin
   v_doc := pg_temp.mkuser(v_org, 'doc', 'clinician', 'S54c Prescriber'); perform pg_temp.setf('doc', v_doc);
   perform pg_temp.mkstaff(v_org, v_doc, 'senior_medical_officer', v_adm);
   perform pg_temp.setf('doc2', pg_temp.mkuser(v_org, 'doc2', 'clinician', 'S54c Untied Clinician'));
-  perform pg_temp.mkstaff(v_org, pg_temp.f('doc2'), 'medical_officer', v_adm);
+  perform pg_temp.mkstaff(v_org, pg_temp.f('doc2'), 'senior_medical_officer', v_adm);
   perform pg_temp.setf('coord', pg_temp.mkuser(v_org, 'coord', 'care_coordinator', 'S54c Coordinator'));
   perform pg_temp.mkstaff(v_org, pg_temp.f('coord'), 'care_coordinator', v_adm);
   perform pg_temp.setf('phA', pg_temp.mkuser(v_org, 'phA', 'pharmacist', 'S54c Pharmacist A'));
@@ -157,11 +157,11 @@ begin
   perform pg_temp.setf('odd_care_coordinator', pg_temp.mkuser(v_org, 'oddcc', 'care_coordinator', 'S54c Odd coordinator'));
   perform pg_temp.setf('odd_analyst', pg_temp.mkuser(v_org, 'oddan', 'analyst', 'S54c Odd analyst'));
   perform pg_temp.setf('odd_lab_liaison', pg_temp.mkuser(v_org, 'oddll', 'lab_liaison', 'S54c Odd liaison'));
-  perform pg_temp.mkstaff(v_org, pg_temp.f('odd_corporate_admin'), 'medical_officer', v_adm);
-  perform pg_temp.mkstaff(v_org, pg_temp.f('odd_hmo_admin'), 'medical_officer', v_adm);
-  perform pg_temp.mkstaff(v_org, pg_temp.f('odd_care_coordinator'), 'medical_officer', v_adm);
-  perform pg_temp.mkstaff(v_org, pg_temp.f('odd_analyst'), 'medical_officer', v_adm);
-  perform pg_temp.mkstaff(v_org, pg_temp.f('odd_lab_liaison'), 'medical_officer', v_adm);
+  perform pg_temp.mkstaff(v_org, pg_temp.f('odd_corporate_admin'), 'senior_medical_officer', v_adm);
+  perform pg_temp.mkstaff(v_org, pg_temp.f('odd_hmo_admin'), 'senior_medical_officer', v_adm);
+  perform pg_temp.mkstaff(v_org, pg_temp.f('odd_care_coordinator'), 'senior_medical_officer', v_adm);
+  perform pg_temp.mkstaff(v_org, pg_temp.f('odd_analyst'), 'senior_medical_officer', v_adm);
+  perform pg_temp.mkstaff(v_org, pg_temp.f('odd_lab_liaison'), 'senior_medical_officer', v_adm);
   perform pg_temp.setf('rx7', pg_temp.mkrx(v_org, v_pat, v_doc, '[{"drug":"Amlodipine","dose":"5 mg","quantity":"30 tablets"}]'::jsonb, 'signed'));
   -- a patient whose city is her state (Lagos, Lagos): nearness must stay a state-level fact
   perform pg_temp.setf('lagos', pg_temp.mkuser(v_org, 'lagos', 'patient', 'S54c Lagos Patient'));
