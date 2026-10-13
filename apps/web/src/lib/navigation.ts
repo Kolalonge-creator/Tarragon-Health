@@ -269,6 +269,7 @@ export function getNavSections(
           label: "Your account",
           items: [
             { label: "Health Passport", href: "/patient/health-passport", icon: "passport" },
+            { label: "Doses marked taken", href: "/patient/medicine-report", icon: "passport" },
             { label: "Your finances", href: "/patient/financial-profile", icon: "payables" },
             { label: "Receipts", href: "/patient/receipts", icon: "receipts" },
             {
@@ -674,6 +675,7 @@ export function getNavSections(
                   icon: "review",
                 },
                 { label: "Vaccination schedule", href: "/clinician/vaccination-schedule", icon: "vaccination" },
+                { label: "As-needed medicine limits", href: "/clinician/prn-limit-rules", icon: "review" },
                 { label: "Provider quality", href: "/clinician/provider-quality", icon: "analytics" },
               ],
             },

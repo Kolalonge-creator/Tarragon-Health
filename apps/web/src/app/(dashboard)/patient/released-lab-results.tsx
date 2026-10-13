@@ -5,7 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 import { t, type Locale } from "@tarragon/i18n";
 import { createClient } from "@/lib/supabase/client";
 import { addOwnLabResult, getOwnResultFileUrl } from "@/lib/lab-results/structured-actions";
-import { formatRange, LAB_RESULT_FILE_ACCEPT, myLabResultsSchema, SCREENING_ANALYTES, type MyLabResult } from "@/lib/lab-results/structured";
+import { RangeCell } from "@/components/lab/range-cell";
+import { LAB_RESULT_FILE_ACCEPT, myLabResultsSchema, SCREENING_ANALYTES, type MyLabResult } from "@/lib/lab-results/structured";
 import { formatPatientDate } from "@/lib/format-date";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -74,7 +75,9 @@ function ResultCard({ r, locale }: { r: MyLabResult; locale: Locale }) {
               <tr key={i.analyte_code} className="border-t">
                 <th scope="row" className="py-1 pr-2 text-left font-normal">{i.analyte_code.replace(/_/g, " ")}</th>
                 <td>{i.value_numeric !== null ? `${i.value_numeric} ${i.unit}` : i.value_text}</td>
-                <td className={MUTED}>{formatRange(i.ref_low, i.ref_high, i.unit)}</td>
+                <td className={MUTED}>
+                  <RangeCell item={i} sourceClassName="" />
+                </td>
                 <td>{t(`labres.item.flag.${i.flag}`, locale)}</td>
               </tr>
             ))}

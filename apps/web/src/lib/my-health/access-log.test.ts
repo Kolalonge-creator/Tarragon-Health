@@ -26,6 +26,15 @@ describe("describeEntry", () => {
     expect(d.status).toBe("Expired");
   });
 
+  it("shows a staff opening as name and role, or role alone when there is no name, with no status", () => {
+    const named = describeEntry(entry({ kind: "staff_record_opened", actor_label: "Senior Medical Officer", actor_name: "A. Okafor", categories: ["record_opened"] }));
+    expect(named.who).toBe("A. Okafor (Senior Medical Officer)");
+    expect(named.title).toBe("Your record was opened by a Tarragon staff member");
+    expect(named.what).toBe("");
+    expect(named.status).toBeNull();
+    expect(describeEntry(entry({ kind: "staff_record_opened", actor_label: "Care Coordinator", actor_name: null, categories: ["record_opened"] })).who).toBe("Care Coordinator");
+  });
+
   it("falls back to a neutral word for a category it does not know, never a raw key", () => {
     const d = describeEntry(entry({ categories: ["something_new"], status: "mystery" }));
     expect(d.what).toBe("Part of your record: your record");

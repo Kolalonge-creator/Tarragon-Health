@@ -103,6 +103,9 @@ insert into results values ('real', 'authenticated cannot write the table direct
 insert into results values ('real', 'refusals left the job running', 'true', pg_temp.active_of('care-circle-expiry'));
 
 -- 2. a real pause and resume
+-- review fix 2 (20261007160301): default-deny. A job nobody has marked pausable cannot be paused; a person marks it. The proof marks the two routine jobs it pauses.
+insert into results values ('real', 'a job nobody has marked pausable is refused (default-deny)', 'ERR:23514', pg_temp.pause_as(pg_temp.f('admin'), 'care-circle-expiry', true, 'paused while the circle copy is reviewed'));
+update public.automations set pausable = true where job_name in ('care-circle-expiry', 'care-circle-gift-expiry', '/api/cron/fraud-sweep');
 insert into results values ('real', 'a short reason is refused', 'ERR:22023', pg_temp.pause_as(pg_temp.f('admin'), 'care-circle-expiry', true, 'short'));
 insert into results values ('real', 'admin pauses a routine job', 'ok', pg_temp.pause_as(pg_temp.f('admin'), 'care-circle-expiry', true, 'paused while the circle copy is reviewed'));
 insert into results values ('real', 'the cron job is really inactive', 'false', pg_temp.active_of('care-circle-expiry'));
@@ -137,7 +140,7 @@ do $$
 declare v_orig text; v_def text; v_c name;
 begin
   v_orig := pg_get_functiondef('public.set_automation_paused(text, boolean, text)'::regprocedure);
-  v_def := replace(v_orig, 'if p_paused and v_row.safety_critical then', 'if false then');
+  v_def := replace(v_orig, 'if p_paused and (v_row.safety_critical or not v_row.pausable) then', 'if false then');
   if v_def = v_orig then raise exception 'SABOTAGE (a) not applied'; end if;
   execute v_def;
   -- the table CHECK is a second layer; remove it too so the sabotage tests the function guard on its own merits

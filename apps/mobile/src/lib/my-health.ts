@@ -45,7 +45,7 @@ export function describeAccessEntry(entry: AccessLogEntry): DescribedEntry {
   return {
     title: known(kindKey) ? t(kindKey) : t("my_health.log.kind.other"),
     who: entry.actor_name ? `${entry.actor_name} (${entry.actor_label})` : entry.actor_label,
-    what: t("my_health.log.what", "en", { what: categories.join(", ") }),
+    what: entry.kind === "staff_record_opened" ? "" : t("my_health.log.what", "en", { what: categories.join(", ") }),
     status: statusKey && known(statusKey) ? t(statusKey) : null,
   };
 }

@@ -19,6 +19,9 @@ critical_notification_dead_letter_without_pathway.sql
 finance_posting_failures_queue.sql
 payment_activation_amount_and_reference.sql
 
+# S04b-1b: late patient tables guarded; private.minor_guard_gaps() empty (sabotage: crippled function, dropped guard).
+s04b1b_minor_guard_gaps.sql
+
 # --- Added 2026-09-05 -------------------------------------------------------
 # Nineteen more, each confirmed to build every fixture it needs. Where a script
 # borrowed something the live project happens to hold -- a @tarragon.test QA
@@ -306,8 +309,19 @@ can_read_clinical_bare_literal_policy_cast.sql
 #     purchase never touches annual_health_checks) and works even for a
 #     patient who never started the free Health Check journey.
 continuous_monitoring_90d_single_tier.sql
+# S05b: blood group and genotype verification is generated (lab_verified only for a row backed by the patient's own report; a patient can only reach self_reported); recorded vitals, allergies, conditions and lab values cannot be edited or deleted (even by the service role), only superseded through public.correct_clinical_value, which keeps the original and records actor and reason; a stored lab range must declare its source and lab_result_items are stamped from the sign-off state. Sabotage: provenance trigger dropped, supersession trigger dropped, range constraint dropped; each must flip.
+s05b_record_integrity.sql
 preventive_health_check_review_sku.sql
 
+# --- Added 2026-10-13 (S03b-b) ------------------------------------------------
+# Accounts that survive a lost number: backup codes, Care Circle recovery contact, the change-number gate and the 72 hour hold
+# (answers OQ-43 in our apps; the Auth-level gap is OQ-S03B-06), and eligibility-first roster/cohort claims after a verified contact (closes OQ-41). Both prove each guard in BOTH
+# directions and carry sabotage steps that flip.
+s03b_account_recovery_routes.sql
+s03b_eligibility_first_claims.sql
+
+# S04b-2: consent receipts (channel, who, exact-text hash, forged values overwritten), the OQ-53 rule (an active account cannot withdraw a required consent; optional give and withdraw work; closed account and service context are not blocked), drafted optional wording (hidden from patients and anon, cannot be accepted, publish needs the module on and an admin, text immutable once agreed), guardian scope for a dependant, patient_consents append-only, deletion request grace clamped 7 to 30 days, one open request, no approval before the grace ends, owner-only audited cancel. Sabotage: the withdrawal rule removed (a required consent is withdrawn) and the grace gate removed (an admin approves early); both must flip, then are restored.
+s04b2_consent_receipts_and_deletion_grace.sql
 # /code-review high on the above continuous_monitoring_90d_single_tier.sql
 # migration, run before its PR was opened, found a real bug in it: the new
 # product's features array was copied from continuous_monitoring_cover.sql's
@@ -326,6 +340,10 @@ preventive_health_check_review_sku.sql
 # coverage for "annual_review must stay reachable" instead comes from
 # doctor_time_entitlement_grantable_by_purchasable_product.sql (line 14
 # above), which builds its own fixtures generically and already covers this.
+
+s04b1_adult_registration_dependants_proxy.sql
+# S04b-1 standing proof: every patient_id table is guarded or listed, so a later PR cannot bypass the under-18 scope guard.
+minor_dependant_table_policy_complete.sql
 
 # --- Added 2026-09-22 -------------------------------------------------------
 # CMO governed-config INSERT dual-gate: 5 tables were admin-INSERT-only while
@@ -1031,6 +1049,9 @@ oq276c_controlled_list_brand_names.sql
 sr2_stagger_cron_start_times.sql
 # SR2: scribe_consents_insert_clinical keeps its S39g tie rule and active-clinician check, and wraps auth.uid() in a select so it is evaluated once per statement; one insert policy for authenticated. Sabotage: the policy put back on a bare auth.uid(); the wrapper check must flip. Behaviour is proven by s21g and s39g.
 sr2_scribe_consents_insert_policy_initplan.sql
+
+# S08x: as-needed (PRN) limits, warn never block (decision C7, approved text, NOT signed): the rule ships unsigned and inactive; only the active CMO signs; only a tied clinician with prescribing authority sets limits inside the signed bounds; the ten shared cases from packages/medicines prn.fixtures.ts give the same flags; late-synced doses are judged like in-order ones; a failing flag write never stops the dose being logged; guard off means no flag; three flagged doses raise one signal; patients read only their own, staff read audited; anon cannot execute. Sabotage: a gap-blind rule must flip the min_gap cases.
+s08x_prn_limits.sql
 # amend_medication carries schedule_spec onto the amended row (as-needed / every-N-days / weekdays / taper no longer become a plain daily list); explicit new times replace spec.times; a taper refuses plain times; plain medicines unchanged. Sabotage: the pre-fix body (no schedule_spec in the insert) fails cases 1, 2, 3 and 5.
 amend_medication_carries_schedule_spec.sql
 # S04b-3: quiet hours default off (rules v3, column default, null choice stores off); turning them off releases only the caller's own reminders that were held by quiet hours (not a critical row, not someone else's, not an unrelated scheduled one); anon cannot run the function. Sabotage: the release step removed; the check must flip.
@@ -1039,5 +1060,5 @@ s04b3_quiet_hours_default_off.sql
 s07x_home_bp_programme.sql
 # S06x: offline_sync_rejections (patient inserts and reads own, one row per entry, no health value column, admin reads only through the audited function) and offline_device_leases (check-in, owner or same-organisation admin revokes, revoked check-in does not extend the lease, wipe confirmation stores a count only, anon refused). Sabotage: the insert policy loosened to any account; a check-in that extends a revoked lease. Both must flip.
 s06x_offline_trust.sql
-# S09x: My Health completion. The patient's access log (one function, caller only, newest first, no reasons or clinical values, routine staff openings hidden until the flag is on, reproductive_health nowhere); sharing: PIN stored as a salted bcrypt hash and shown once, 5 misses lock the share (audited), 3 misses from one client blocks that client, one-session window, revoke and expiry fail, expired and revoked and unknown and locked links all answer null, no client can write record_shares or read pin_hash, staff no longer read share credentials; lock-screen pass off by default, facts carry no allergen/condition/medicine name, the CMO signs the field list, an older draft cannot be signed over a newer one, the wallet_pass guard is born off and cannot be switched on. Sabotage: lockout removed, PIN check removed, leaky payload; each check must flip.
+# S09x: My Health completion. The patient's access log (one function, caller only, newest first, no reasons or clinical values, routine staff openings shown as name and role only (S09x2: no basis, window, id, contact; generic label and no name for non-clinical staff; blank-name role-only; kill switch show_staff_identity), reproductive_health nowhere); sharing: PIN stored as a salted bcrypt hash and shown once, 5 misses lock the share (audited), 3 misses from one client blocks that client, one-session window, revoke and expiry fail, expired and revoked and unknown and locked links all answer null, no client can write record_shares or read pin_hash, staff no longer read share credentials; lock-screen pass off by default, facts carry no allergen/condition/medicine name, the CMO signs the field list, an older draft cannot be signed over a newer one, the wallet_pass guard is born off and cannot be switched on. Sabotage: lockout removed, PIN check removed, leaky payload, staff row leaking the basis; each check must flip.
 s09x_my_health_completion.sql
