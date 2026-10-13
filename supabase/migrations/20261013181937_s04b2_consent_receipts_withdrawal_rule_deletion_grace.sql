@@ -109,7 +109,7 @@ select 'care_circle_sharing', '2026-10-13',
        'DRAFT pending approval (OQ-49). Not shown to patients. Publish with public.publish_consent_wording once the founder approves the exact text and the optional_consent_wording module is on.'
 where not exists (select 1 from public.consent_versions c where c.consent_type = 'care_circle_sharing' and c.version = '2026-10-13');
 
--- A signed-in session (not a migration or service context) cannot insert optional wording that is already final: it has to go
+-- A request through the API (role authenticated or anon; not a migration, proof or service context) cannot insert optional wording that is already final: it has to go
 -- in as a draft and be published through public.publish_consent_wording.
 create or replace function private.guard_optional_consent_insert()
 returns trigger
@@ -118,7 +118,7 @@ security definer
 set search_path = ''
 as $$
 begin
-  if (select auth.uid()) is not null and new.is_optional and not new.is_draft then
+  if (select auth.uid()) is not null and coalesce(current_setting('role', true), '') in ('authenticated', 'anon') and new.is_optional and not new.is_draft then
     raise exception 'optional consent wording is added as a draft and published through public.publish_consent_wording'
       using errcode = '42501';
   end if;
@@ -215,7 +215,7 @@ begin
 
   -- When: a signed-in session cannot choose the time (it decides which acceptance is in force and what the receipt shows).
   -- clock_timestamp(), not now(), so two choices in one transaction still order. A service or migration context keeps what it supplied.
-  if v_uid is not null then
+  if v_uid is not null and coalesce(current_setting('role', true), '') in ('authenticated', 'anon') then
     new.created_at := clock_timestamp();
     new.accepted_at := new.created_at;
   end if;
@@ -255,7 +255,7 @@ begin
       raise exception 'drafted consent wording cannot be accepted' using errcode = '23514';
     end if;
     -- A signed-in person accepts the wording in force. If it changed while their screen was open they must read the new words.
-    if v_uid is not null and not v_cv.is_current then
+    if v_uid is not null and coalesce(current_setting('role', true), '') in ('authenticated', 'anon') and not v_cv.is_current then
       raise exception 'this wording has been replaced; reload the page and read the current version' using errcode = '23514';
     end if;
     new.version := v_cv.version;
