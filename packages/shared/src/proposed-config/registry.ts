@@ -2314,4 +2314,105 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/COMMUNITY_SPEC.md sections 4.1 to 4.5; supabase/migrations/20261009193728_community_guard_and_seed.sql",
     guardPatterns: ["post[_ ]?max[_ ]?chars\\w*\\s*[=:]\\s*2000\\b", "premoderated\\w*\\s*[=:]\\s*3\\b", "auto[_ ]?hide\\w*\\s*[=:]\\s*3\\b"],
   },
+  {
+    key: "bp.home_programme",
+    // S07x: the seven-day home blood pressure check (CMO-approved text C1, C2, C3 of 2026-10-07, NOT signed). Live value is the active, signed row of
+    // `home_bp_programme_signoffs`.config; home-bp-mirror.test.ts fails if the migration seed and this value drift. The phone bundles this value, so a change
+    // reaches installed phones only with the next build or update; the server (which records the result and raises the care-team task) always uses the signed row.
+    // protocol: C1 (2 readings a minute apart, morning and evening, 7 days, minimum 3 days and 12 readings, every reading averaged).
+    // bands: C2 (home mean 135/85 or above is above the home hypertension level; 130-134 / 80-84 is borderline). pattern: C3 (clinic 140/90, 30 days).
+    value: {
+      "protocol": {
+        "readingsPerSession": 2,
+        "minGapMinutes": 1,
+        "targetDays": 7,
+        "minDays": 3,
+        "minReadings": 12,
+        "restMinutes": 5,
+        "avoidBeforeMinutes": 30,
+        "morningHours": [4, 12],
+        "eveningHours": [17, 24]
+      },
+      "bands": {
+        "aboveSystolic": 135,
+        "aboveDiastolic": 85,
+        "borderlineSystolic": 130,
+        "borderlineDiastolic": 80
+      },
+      "pattern": {
+        "clinicSystolic": 140,
+        "clinicDiastolic": 90,
+        "windowDays": 30
+      },
+      "tasks": {
+        "reviewDueMinutes": 2880,
+        "patternDueMinutes": 2880
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md Part B C1 to C3; Nigeria hypertension guideline 2023-2028 sections 3.1.1, 3.2, 5.4.5, 6.2, 6.3; supabase/migrations/20261013182514_s07x_home_bp_programme.sql",
+  },
+  {
+    key: "offline.trust",
+    // S06x. PROPOSED: how long a phone may go without checking in before its encrypted-store key lease expires and it does its last upload
+    // attempt and wipes (D3 in docs/plans/S06-S10-cmo-decisions-2026-10-07.md says 30 days; the server column
+    // offline_sync_config.device_lease_days mirrors it, offline-trust-mirror.test.ts fails if they drift), the least gap between two reachability
+    // probes while rows wait (a HEAD with no body, so it costs almost no data), how long a probe may take, and how many hours a phone waits after it first sees its own lease as lapsed (offline, so the server cannot confirm) before it wipes, and how many rejection reports one account may file a day (a per-account cap in the database stops a flood).
+    value: {
+      device_lease_days: 30,
+      probe_min_interval_seconds: 60,
+      probe_timeout_seconds: 8,
+      rejection_report_daily_cap: 200,
+      lease_grace_hours: 24,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/plans/S06-S10-cmo-decisions-2026-10-07.md D1 to D3; supabase/migrations/20261013181713_s06x_offline_trust.sql",
+    guardPatterns: ["lease\\w*days?\\s*[=:]\\s*30\\b", "probe\\w*(interval|seconds)\\w*\\s*[=:]\\s*60\\b"],
+  },
+  {
+    key: "my_health.sharing_and_access_log",
+    // My Health completion (S09x). Live values are the active row of `my_health_config`.config (sharing, access_log); my-health-mirror.test.ts fails if the
+    // migration seed and this value drift. PROPOSED: the default share expiry (12 hours, shorter than the 24 the first share screen used; the 30 day cap is
+    // unchanged), the PIN length, how many wrong PINs lock a share, how many from one client in a window, and the one-session window. show_staff_opens is
+    // held at false on purpose: founder direction 2026-10-07 is that a patient is not told about routine staff openings, pending counsel (OQ-281).
+    value: {
+      sharing: {
+        default_expiry_hours: 12,
+        max_expiry_hours: 720,
+        expiry_options_hours: [1, 6, 12, 24, 72, 168, 720],
+        pin_digits: 6,
+        pin_max_misses: 5,
+        pin_client_max_misses: 3,
+        pin_client_window_minutes: 15,
+        one_session_window_minutes: 30,
+      },
+      access_log: { page_size: 50, max_page_size: 100, show_staff_opens: false },
+    },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/plans/S06-S10-competitor-gap-and-build-plan.md section 5 (S09x); docs/design/S09x.md; supabase/migrations/20261013181946_s09x_my_health_completion.sql",
+    guardPatterns: ["pin\\w*miss\\w*\\s*[=:]\\s*5\\b", "default\\w*expiry\\w*\\s*[=:]\\s*12\\b"],
+  },
+  {
+    key: "my_health.lock_screen_pass",
+    // CMO item C8 (docs/plans/S06-S10-cmo-decisions-2026-10-07.md): APPROVED TEXT, NOT SIGNED. The only things a lock-screen or wallet pass may carry.
+    // Live value is the active row of `my_health_config`.config.lock_screen_pass; the CMO signs it through sign_my_health_config. Off by default (D4).
+    value: {
+      default_enabled: false,
+      fields: ["initials", "blood_group", "genotype", "genotype_provenance", "allergies_on_file", "emergency_contact_phone", "unlock_hint"],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md C8 and D4; supabase/migrations/20261013181946_s09x_my_health_completion.sql",
+  },
 ];

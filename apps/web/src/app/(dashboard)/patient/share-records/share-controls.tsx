@@ -11,8 +11,10 @@ import {
   useRevokeRecordShare,
   recordShareUrl,
   SHARE_SECTIONS,
+  type CreatedRecordShare,
   type RecordShareSection,
 } from "@/lib/queries/record-shares";
+import { expiryLabel, getSharingConfig } from "@/lib/my-health/share-config";
 import { t, type Locale } from "@tarragon/i18n";
 
 const SECTION_LABELS: Record<RecordShareSection, string> = {
@@ -25,12 +27,7 @@ const SECTION_LABELS: Record<RecordShareSection, string> = {
   emergency_info: "share.sections.emergency_info",
 };
 
-const EXPIRY_OPTIONS = [
-  { value: "1", labelKey: "share.expiry.1h" as const },
-  { value: "24", labelKey: "share.expiry.24h" as const },
-  { value: "168", labelKey: "share.expiry.7d" as const },
-  { value: "720", labelKey: "share.expiry.30d" as const },
-];
+const SHARING = getSharingConfig();
 
 function formatDate(value: string): string {
   const d = new Date(value);
@@ -56,7 +53,12 @@ export function ShareControls({
   const revokeShare = useRevokeRecordShare();
 
   const [selectedSections, setSelectedSections] = useState<Set<RecordShareSection>>(new Set());
-  const [expiryHours, setExpiryHours] = useState("24");
+  const [expiryHours, setExpiryHours] = useState(String(SHARING.default_expiry_hours));
+  const [usePin, setUsePin] = useState(false);
+  const [oneSession, setOneSession] = useState(false);
+  const [created, setCreated] = useState<CreatedRecordShare | null>(null);
+  const [createFailed, setCreateFailed] = useState(false);
+  const [pinCopied, setPinCopied] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [revokingId, setRevokingId] = useState<string | null>(null);
 
@@ -74,12 +76,22 @@ export function ShareControls({
 
   const handleCreate = useCallback(async () => {
     if (selectedSections.size === 0) return;
-    await createShare.mutateAsync({
-      sections: Array.from(selectedSections),
-      expiresInHours: Number.parseInt(expiryHours, 10),
-    });
-    setSelectedSections(new Set());
-  }, [selectedSections, expiryHours, createShare]);
+    setCreateFailed(false);
+    try {
+      const result = await createShare.mutateAsync({
+        sections: Array.from(selectedSections),
+        expiresInHours: Number.parseInt(expiryHours, 10),
+        usePin,
+        oneSession,
+      });
+      setCreated(result);
+      setSelectedSections(new Set());
+      setUsePin(false);
+      setOneSession(false);
+    } catch {
+      setCreateFailed(true);
+    }
+  }, [selectedSections, expiryHours, usePin, oneSession, createShare]);
 
   const handleCopy = useCallback(async (token: string, shareId: string) => {
     try {
@@ -88,7 +100,17 @@ export function ShareControls({
       setCopiedId(shareId);
       setTimeout(() => setCopiedId(null), 2000);
     } catch {
-      // Clipboard API unavailable or denied — silently ignore
+      // Clipboard unavailable or denied: the link is on screen to copy by hand.
+    }
+  }, []);
+
+  const handleCopyPin = useCallback(async (pin: string) => {
+    try {
+      await navigator.clipboard.writeText(pin);
+      setPinCopied(true);
+      setTimeout(() => setPinCopied(false), 2000);
+    } catch {
+      // Clipboard unavailable: the PIN is on screen to copy by hand.
     }
   }, []);
 
@@ -129,19 +151,42 @@ export function ShareControls({
             </Label>
             <Select
               id="expiry"
-              className="w-32"
+              className="w-36"
               value={expiryHours}
               onChange={(e) => setExpiryHours(e.target.value)}
             >
-              {EXPIRY_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {t(opt.labelKey, locale)}
+              {SHARING.expiry_options_hours.map((hours) => (
+                <option key={hours} value={String(hours)}>
+                  {expiryLabel(hours, locale)}
                 </option>
               ))}
             </Select>
           </div>
 
+          <div className="space-y-2">
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" checked={usePin} onChange={(e) => setUsePin(e.target.checked)} className="mt-0.5 h-4 w-4 accent-brand-green" />
+              <span>
+                <span className="font-medium">{t("share.pin.label", locale)}</span>
+                <span className="block text-xs text-charcoal-ink/60">{t("share.pin.hint", locale, { digits: String(SHARING.pin_digits) })}</span>
+              </span>
+            </label>
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" checked={oneSession} onChange={(e) => setOneSession(e.target.checked)} className="mt-0.5 h-4 w-4 accent-brand-green" />
+              <span>
+                <span className="font-medium">{t("share.session.label", locale)}</span>
+                <span className="block text-xs text-charcoal-ink/60">{t("share.session.hint", locale, { minutes: String(SHARING.one_session_window_minutes) })}</span>
+              </span>
+            </label>
+          </div>
+
           <p className="text-xs text-charcoal-ink/60">{t("share.consent_notice", locale)}</p>
+
+          {createFailed && (
+            <p role="alert" className="text-sm text-red-700">
+              {t("share.create_failed", locale)}
+            </p>
+          )}
 
           <Button
             onClick={handleCreate}
@@ -154,6 +199,33 @@ export function ShareControls({
           </Button>
         </CardContent>
       </Card>
+
+      {created && (
+        <Card role="status">
+          <CardHeader>
+            <CardTitle>{t("share.created.title", locale)}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="break-all rounded-lg bg-charcoal-ink/5 p-3 text-sm">{recordShareUrl(created.token)}</p>
+            <Button variant="outline" size="sm" onClick={() => handleCopy(created.token, created.id)}>
+              {copiedId === created.id ? t("share.link_copied", locale) : t("share.copy_link", locale)}
+            </Button>
+            {created.pin && (
+              <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
+                <p className="text-sm font-medium">{t("share.created.pin_title", locale)}</p>
+                <p className="font-mono text-2xl tracking-widest">{created.pin}</p>
+                <p className="text-xs text-charcoal-ink/70">{t("share.created.pin_warning", locale)}</p>
+                <Button variant="outline" size="sm" onClick={() => handleCopyPin(created.pin as string)}>
+                  {pinCopied ? t("share.pin_copied", locale) : t("share.copy_pin", locale)}
+                </Button>
+              </div>
+            )}
+            <Button size="sm" onClick={() => setCreated(null)}>
+              {t("share.created.done", locale)}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -177,6 +249,12 @@ export function ShareControls({
                     <div className="text-sm">
                       <p className="font-medium text-charcoal-ink">
                         {share.sections.join(", ")}
+                        {share.pin_protected ? (
+                          <span className="ml-2 rounded-full bg-charcoal-ink/10 px-2 py-0.5 text-xs">{t("share.badge.pin", locale)}</span>
+                        ) : null}
+                        {share.one_session ? (
+                          <span className="ml-2 rounded-full bg-charcoal-ink/10 px-2 py-0.5 text-xs">{t("share.badge.session", locale)}</span>
+                        ) : null}
                       </p>
                       <p className="text-xs text-charcoal-ink/60">
                         {t("share.expires", locale, {
@@ -187,6 +265,11 @@ export function ShareControls({
                           count: String(share.view_count),
                         })}
                       </p>
+                      {share.locked_at ? (
+                        <p role="status" className="text-xs text-red-700">
+                          {t("share.locked", locale)}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="flex gap-2">
                       <Button

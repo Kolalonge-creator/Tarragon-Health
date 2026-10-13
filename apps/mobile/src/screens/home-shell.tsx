@@ -39,6 +39,7 @@ import { BpHistoryScreen } from "@/screens/sections/bp-history-screen";
 import { MonthlyReportScreen } from "@/screens/sections/monthly-report-screen";
 import { ProgrammesScreen } from "@/screens/sections/programmes-screen";
 import { TimelineScreen } from "@/screens/sections/timeline-screen";
+import { MyHealthScreen } from "@/screens/sections/my-health-screen";
 import { ExerciseScreen } from "@/screens/sections/exercise-screen";
 import { VideoVisitScreen } from "@/screens/sections/video-visit-screen";
 import { ConsultationRoomScreen } from "@/screens/sections/consultation-room-screen";
@@ -296,6 +297,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     myActions: () => <ActionsScreen patientId={subjectId} onNavigate={handleSelect} />,
     healthSummary: () => <HealthSummaryScreen patientId={subjectId} onNavigate={handleSelect} />,
     timeline: () => <TimelineScreen patientId={subjectId} onNavigate={handleSelect} />,
+    myHealth: () => <MyHealthScreen userId={userId} acting={acting != null} onNavigate={handleSelect} />,
     exercise: () => <ExerciseScreen patientId={subjectId} organisationId={organisationId} />,
     devices: () =>
       openDevice ? (
