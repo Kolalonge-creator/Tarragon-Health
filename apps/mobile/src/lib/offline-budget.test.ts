@@ -10,7 +10,7 @@
  *   A pass below is therefore never evidence that a 2 GB Android phone meets
  *   the spec D.1 targets. Those three stay open until a device lab run.
  */
-import { openDatabaseAsync } from "../test/mocks/expo-sqlite";
+import { getStore } from "./secure-db";
 import { OFFLINE_BUDGET } from "./offline-budget";
 import { enqueue } from "./outbox";
 import { clearLocalMirror, pullChanges } from "./offline-store";
@@ -55,7 +55,8 @@ describe("offline budget (Jest stand-in, not a device)", () => {
   });
 
   it(`1000 queued rows take under ${OFFLINE_BUDGET.outboxDbBytesPer1000Rows} bytes of database`, async () => {
-    const db = await openDatabaseAsync("tarragon-offline.db");
+    for (let i = 0; i < 1000; i++) await enqueue({ kind: "vital", subjectId: "p1", payload: BP });
+    const db = await getStore();
     const pages = await db.getFirstAsync<{ page_count: number }>("pragma page_count");
     const size = await db.getFirstAsync<{ page_size: number }>("pragma page_size");
     const rows = await db.getFirstAsync<{ n: number }>("select count(*) as n from outbox");

@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { canViewOpsConsole } from "@/lib/auth/permissions";
+import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { DEFAULT_UI_LANGUAGE } from "@tarragon/shared";
+import { EventBusTile } from "@/components/event-bus/event-bus-tile";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatTile } from "@/components/ui/stat-tile";
@@ -66,6 +69,8 @@ export default async function OpsConsolePage() {
     redirect("/admin");
   }
 
+  // The event bus reads are admin-only database functions, so the tile is shown to the admin account only.
+  const isAdmin = (await getCurrentProfile())?.role === "admin";
   const supabase = await createClient();
   const [summaryRes, queueRes, healthRes] = await Promise.all([
     supabase.rpc("ops_today_summary"),
@@ -165,6 +170,8 @@ export default async function OpsConsolePage() {
       )}
 
       <SystemHealthPanel components={health} loadFailed={healthRes.error !== null} />
+
+      {isAdmin && <EventBusTile locale={DEFAULT_UI_LANGUAGE} />}
 
       {!summaryFailed && (
       <Card>

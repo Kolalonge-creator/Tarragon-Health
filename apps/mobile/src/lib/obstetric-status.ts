@@ -1,6 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { gestationalAge } from "@tarragon/clinical";
+import type * as SQLite from "expo-sqlite";
 import { supabase } from "./supabase";
+import { getStoreWithSchema } from "./secure-db";
 
 /**
  * Whether the person is pregnant or in the first weeks after a birth, for the triage engine on the phone.
@@ -10,6 +12,10 @@ import { supabase } from "./supabase";
  *
  * A read that fails is NOT "not pregnant": the old answer is kept, and with none the engine is told nothing (false),
  * exactly what it was told before this existed. It never throws and never holds a reading back.
+ *
+ * S06x: pregnancy is among the most sensitive things the phone keeps, so the copy lives in the ENCRYPTED store
+ * (table local_obstetric), not in AsyncStorage. A copy an older build left in AsyncStorage is moved across the
+ * first time it is read, then removed.
  */
 export interface ObstetricCache {
   pregnant: boolean;
@@ -34,10 +40,13 @@ const DAY_MS = 86_400_000;
 /** Used only when the rule set in force predates the setting (the approved set is the source of truth). */
 export const FALLBACK_POSTPARTUM_DAYS = 42;
 
-export async function readObstetricCache(subjectId: string): Promise<ObstetricCache | null> {
+async function setupObstetric(db: SQLite.SQLiteDatabase): Promise<void> {
+  await db.execAsync("create table if not exists local_obstetric (subject_id text primary key, value text not null)");
+}
+
+function parseCache(raw: string | null): ObstetricCache | null {
+  if (!raw) return null;
   try {
-    const raw = await AsyncStorage.getItem(KEY(subjectId));
-    if (!raw) return null;
     const v = JSON.parse(raw) as Partial<ObstetricCache>;
     if (typeof v.pregnant !== "boolean" || typeof v.fetchedAtMs !== "number") return null;
     if (v.lastDeliveryDate != null && !Number.isFinite(Date.parse(v.lastDeliveryDate))) return null;
@@ -48,6 +57,24 @@ export async function readObstetricCache(subjectId: string): Promise<ObstetricCa
       lmp: typeof v.lmp === "string" ? v.lmp : null,
       edd: typeof v.edd === "string" ? v.edd : null,
     };
+  } catch {
+    return null;
+  }
+}
+
+export async function readObstetricCache(subjectId: string): Promise<ObstetricCache | null> {
+  try {
+    const db = await getStoreWithSchema("obstetric", setupObstetric);
+    const row = await db.getFirstAsync<{ value: string }>("select value from local_obstetric where subject_id = ?", [subjectId]);
+    const fromStore = parseCache(row?.value ?? null);
+    if (fromStore) return fromStore;
+    // Move a copy an older build kept in AsyncStorage (plaintext) into the encrypted store, then remove it.
+    const legacy = await AsyncStorage.getItem(KEY(subjectId));
+    if (legacy === null) return null;
+    const parsed = parseCache(legacy);
+    if (parsed) await db.runAsync("insert or replace into local_obstetric (subject_id, value) values (?, ?)", [subjectId, JSON.stringify(parsed)]);
+    await AsyncStorage.removeItem(KEY(subjectId));
+    return parsed;
   } catch {
     return null;
   }
@@ -103,7 +130,9 @@ export async function refreshObstetricStatus(subjectId: string, nowMs: number = 
       lmp: p?.last_menstrual_period_date ?? null,
       edd: p?.estimated_due_date ?? null,
     };
-    await AsyncStorage.setItem(KEY(subjectId), JSON.stringify(next));
+    const db = await getStoreWithSchema("obstetric", setupObstetric);
+    await db.runAsync("insert or replace into local_obstetric (subject_id, value) values (?, ?)", [subjectId, JSON.stringify(next)]);
+    await AsyncStorage.removeItem(KEY(subjectId)); // never leave a plaintext copy behind
     return "updated";
   } catch {
     return "failed";

@@ -19,6 +19,24 @@
 --      granted to signed-in users, a patient can call it; with the older booking path's adult gate dropped, a minor gets through.
 begin;
 
+
+-- S04b-1: this proof models an under-18 patient account, which registration no longer allows (adults 18 and over only;
+-- children exist only as dependants limited to immunisation and preventive tracking). The behaviour it proves still
+-- matters as defence in depth, so the registration rule and the dependant scope guard is switched off inside this rolled-back transaction only.
+alter table public.profiles disable trigger profiles_01_enforce_adult_registration;
+do $$
+declare r record;
+begin
+  for r in select c.relname from pg_trigger t join pg_class c on c.oid = t.tgrelid where t.tgname = '00_minor_dependant_scope' and not t.tgisinternal loop
+    execute format('alter table public.%I disable trigger "00_minor_dependant_scope"', r.relname);
+  end loop;
+end $$;
+
+-- Two-tier: the paid per-item products are not sellable (service_products_doctor_time_not_sellable). The consultation machinery under test
+-- still prices from video_visit_credit, so the constraint is dropped and the product switched on here, inside this rolled-back transaction.
+alter table public.service_products drop constraint service_products_doctor_time_not_sellable;
+update public.service_products set is_active = true where code = 'video_visit_credit';
+
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
 grant all on results to public;
 

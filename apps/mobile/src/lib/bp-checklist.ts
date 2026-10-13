@@ -50,7 +50,7 @@ export const BP_CHECKLIST_SYMPTOMS: readonly BpChecklistSymptom[] = [
   "palpitations",
 ];
 
-/** Offered only to someone who is pregnant or in the first weeks after a birth (the pregnancy rules in rule set v4 read them). */
+/** Offered only to someone who is pregnant or in the first weeks after a birth (the pregnancy rules in rule set v5 read them). */
 export const PREGNANCY_CHECKLIST_SYMPTOMS: readonly BpChecklistSymptom[] = ["sudden_face_hand_swelling", "convulsion", "loss_of_consciousness"];
 
 /** The ticks shown on the form: the usual list, plus the pregnancy signs when `obstetric`. */

@@ -82,7 +82,7 @@ jobs:
           CHANGED=$(git diff --name-only "$BEFORE" "$AFTER" -- apps/mobile)
           echo "Changed files under apps/mobile:"
           echo "$CHANGED"
-          if echo "$CHANGED" | grep -Eq '^apps/mobile/(package\.json|app\.json|eas\.json|ios/|plugins/)'; then
+          if echo "$CHANGED" | grep -Eq '^apps/mobile/(package\.json|app\.json|eas\.json|ios/|android/|modules/|plugins/)'; then
             echo "Native-affecting file changed — this needs a fresh 'eas build', not just an OTA update. Skipping auto-publish."
             echo "publish=false" >> "$GITHUB_OUTPUT"
           else

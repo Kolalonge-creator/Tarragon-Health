@@ -9,8 +9,7 @@ import {
   SYMPTOM_OPTIONS,
   type SymptomCluster,
 } from "@/lib/symptom-check/symptom-clusters";
-import { ProductCtaCard } from "./product-cta-card";
-import type { ResolvedServicePrices } from "../_content/pricing";
+import { MembershipCtaCard } from "./membership-cta-card";
 
 /**
  * Public, anonymous symptom-to-test checker. Nothing here is stored or sent
@@ -20,11 +19,7 @@ import type { ResolvedServicePrices } from "../_content/pricing";
  * shown alongside any test suggestion, and any danger symptom suppresses
  * every suggestion in favour of EmergencyNotice.
  */
-export function SymptomToTestCheck({
-  priceOverrides,
-}: {
-  priceOverrides?: ResolvedServicePrices;
-} = {}) {
+export function SymptomToTestCheck() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [submitted, setSubmitted] = useState(false);
 
@@ -68,11 +63,10 @@ export function SymptomToTestCheck({
           <ResultCard
             title="Not sure what this points to"
             body="What you've described doesn't clearly match one of the specific patterns we check for here. That doesn't mean it's nothing. A doctor is the right next step to look at it properly."
-            priceOverrides={priceOverrides}
           />
         ) : (
           matched.map((cluster) => (
-            <ClusterResultCard key={cluster.id} cluster={cluster} priceOverrides={priceOverrides} />
+            <ClusterResultCard key={cluster.id} cluster={cluster} />
           ))
         )}
         <div className="text-center">
@@ -141,13 +135,7 @@ export function SymptomToTestCheck({
   );
 }
 
-function ClusterResultCard({
-  cluster,
-  priceOverrides,
-}: {
-  cluster: SymptomCluster;
-  priceOverrides?: ResolvedServicePrices;
-}) {
+function ClusterResultCard({ cluster }: { cluster: SymptomCluster }) {
   return (
     <div className="rounded-2xl border-2 border-brand-green bg-brand-green/5 p-6 sm:p-8">
       <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">
@@ -173,26 +161,12 @@ function ClusterResultCard({
         Sign up to actually request this or book a consultation. Nothing here is a diagnosis,
         and nothing you answered was saved or sent anywhere.
       </p>
-      <ProductCtaCard
-        code="async_consult_credit"
-        href="/checkout/async_consult_credit"
-        ctaLabel="Ask a doctor, no account needed"
-        overrides={priceOverrides}
-        className="mt-6 border-white/60 bg-white/60"
-      />
+      <MembershipCtaCard className="mt-6 border-white/60 bg-white/60" />
     </div>
   );
 }
 
-function ResultCard({
-  title,
-  body,
-  priceOverrides,
-}: {
-  title: string;
-  body: string;
-  priceOverrides?: ResolvedServicePrices;
-}) {
+function ResultCard({ title, body }: { title: string; body: string }) {
   return (
     <div className="rounded-2xl border-2 border-charcoal-ink/15 bg-soft-sage p-6 sm:p-8">
       <h3 className="font-heading text-xl font-semibold text-charcoal-ink">{title}</h3>
@@ -205,13 +179,7 @@ function ResultCard({
           Talk to a doctor
         </Link>
       </div>
-      <ProductCtaCard
-        code="async_consult_credit"
-        href="/checkout/async_consult_credit"
-        ctaLabel="Ask a doctor, no account needed"
-        overrides={priceOverrides}
-        className="mt-6 border-white bg-white"
-      />
+      <MembershipCtaCard className="mt-6 border-white bg-white" />
     </div>
   );
 }

@@ -13,7 +13,7 @@
 --   D. antenatal schedule generator: idempotent, never overwrites a person's row, refuses an ended pregnancy.
 --   E. birth plan: money is a kobo plan note (bigint), bad phone numbers refused, one plan per pregnancy.
 --   F. guard: maternal_enabled exists, is OFF, has no log or attestation row, and cannot be switched on (no conditions met).
---   G. bp_care_triage v4 exists as a draft; no S67 object is executable by anon.
+--   G. bp_care_triage v5 exists as a draft; no S67 object is executable by anon.
 --   SABOTAGE: the pregnancies SELECT policy is opened to everyone and the stranger-refusal check must flip; then restored.
 -- Test data is all is_test.
 -- ===========================================================================
@@ -335,10 +335,10 @@ begin
   exception when insufficient_privilege then v_ok := true;
   end;
   perform pg_temp.check_eq('F4 a bare update cannot switch it on', v_ok::text, 'true');
-  perform pg_temp.check_eq('G1 bp_care_triage v4 exists as an unapproved draft with rule BP-P6',
-    (select status || ':' || (rules -> 'rules' @> '[{"id":"BP-P6"}]'::jsonb)::text from public.triage_rule_sets where code = 'bp_care_triage' and version = 4), 'draft:true');
-  perform pg_temp.check_eq('G2 v4 was not approved by this migration',
-    (select (approved_by is null and approved_at is null)::text from public.triage_rule_sets where code = 'bp_care_triage' and version = 4), 'true');
+  perform pg_temp.check_eq('G1 bp_care_triage v5 exists as an unapproved draft with rule BP-P6',
+    (select status || ':' || (rules -> 'rules' @> '[{"id":"BP-P6"}]'::jsonb)::text from public.triage_rule_sets where code = 'bp_care_triage' and version = 5), 'draft:true');
+  perform pg_temp.check_eq('G2 v5 was not approved by this migration',
+    (select (approved_by is null and approved_at is null)::text from public.triage_rule_sets where code = 'bp_care_triage' and version = 5), 'true');
   perform pg_temp.check_eq('G3 anon cannot execute any S67 function',
     (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
       where n.nspname in ('public', 'private') and p.proname in ('generate_antenatal_schedule', 'antenatal_schedule_review_prompt', 'pregnancy_staff_may_read',

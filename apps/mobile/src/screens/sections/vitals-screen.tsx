@@ -51,10 +51,13 @@ import {
   type BadgeTone,
 } from "@/ui/kit";
 import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
+import { loadDoctorReviewIncluded } from "@/lib/doctor-review";
 import { SymptomQuestionSheet } from "@/screens/symptom-question-sheet";
 import { MIN_READINGS_FOR_CHART, useTrendInsights } from "@/lib/use-trend-insights";
 import { TrendInsightsCard } from "@/screens/sections/trend-insights-card";
+import { HomeCheckCard } from "@/screens/sections/home-check-card";
 import { SyncBanner } from "@/screens/sync-banner";
+import { FreeFollowUpCard } from "@/screens/sections/free-follow-up-card";
 import { SymptomScreen } from "@/screens/sections/symptom-screen";
 import { MonitoringCoverCard } from "@/screens/sections/monitoring-cover-card";
 import { SymptomChecklist, TechniqueGuide } from "@/screens/sections/bp-extras";
@@ -143,6 +146,8 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   const [obstetric, setObstetric] = useState(false);
   const [symptomOpen, setSymptomOpen] = useState(false);
   const [guidance, setGuidance] = useState<GuidanceState | null>(null);
+  // Two-tier: whether a red event reaches a doctor for this patient (null until known, or when it cannot be worked out).
+  const [doctorReview, setDoctorReview] = useState<boolean | null>(null);
   // The emergency-symptom question for a reading of 200/130 or more (TRI-008): the reading it is about, until answered.
   const [question, setQuestion] = useState<{ systolic: number; diastolic: number; gradedAtMs: number } | null>(null);
   const [questionBusy, setQuestionBusy] = useState(false);
@@ -233,6 +238,9 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
       .catch(() => {});
     loadCachedEmergencyFacts()
       .then((facts) => setEmergencyContact(facts?.emergencyContact ?? null))
+      .catch(() => {});
+    loadDoctorReviewIncluded(patientId)
+      .then(setDoctorReview)
       .catch(() => {});
   }, [load, patientId]);
 
@@ -379,6 +387,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
       </View>
 
       <SyncBanner />
+      <FreeFollowUpCard />
 
       {/* Latest reading: the one number that matters most, then the 7 day average. */}
       <Card level={2} style={{ gap: space.sm }}>
@@ -488,6 +497,9 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
       {!loading && windowed.length > 0 ? (
         <TrendInsightsCard insights={insights} tr={tr} minReadingsForChart={MIN_READINGS_FOR_CHART} targetKnowable={!beneficiaryProfileId} />
       ) : null}
+
+      {/* The seven-day home check (S07x): appears only when the server guard is open, and not while acting for someone else. */}
+      {!beneficiaryProfileId ? <HomeCheckCard patientId={patientId} /> : null}
 
       {/* Log a reading */}
       <Card style={{ gap: space.md }}>
@@ -607,6 +619,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         synced={guidance?.synced ?? false}
         wordingCode={guidance?.wordingCode ?? null}
         emergencyContact={emergencyContact}
+        doctorReview={doctorReview}
         onDismiss={() => setGuidance(null)}
       />
     </Screen>

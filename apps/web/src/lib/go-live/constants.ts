@@ -10,6 +10,8 @@ export const GUARD_KEYS = [
   "scribe_enabled",
   "payouts_enabled",
   "public_signup_enabled",
+  // Community groups (decisions COM-1 to COM-10). Born off; the Chief Medical Officer switches it on from the go-live page once its conditions are met.
+  "community",
 ] as const;
 export type GuardKey = (typeof GUARD_KEYS)[number];
 

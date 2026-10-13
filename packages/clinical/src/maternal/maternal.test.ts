@@ -12,7 +12,7 @@ import {
   type Contraction,
   type MaternalConfig,
 } from "./index";
-import { BP_CARE_V4 } from "../rules";
+import { BP_CARE_V5 } from "../rules";
 
 const entry = getProposedConfig("maternal.rules");
 const config = entry.value as unknown as MaternalConfig;
@@ -31,12 +31,12 @@ describe("maternal.rules is a PROPOSED registry entry, not code", () => {
 
   it("maternal.bp_rule_set mirrors the pregnancy lines and version of the rule set that carries them", () => {
     const e = getProposedConfig<{ code: string; ruleSetVersion: number; pregnancyRaisedSystolic: number; pregnancyRaisedDiastolic: number; pregnancySevereSystolic: number; pregnancySevereDiastolic: number }>("maternal.bp_rule_set");
-    expect(e.value.code).toBe(BP_CARE_V4.code);
-    expect(e.value.ruleSetVersion).toBe(BP_CARE_V4.version);
-    expect(e.value.pregnancyRaisedSystolic).toBe(BP_CARE_V4.params.pregnancy.raisedSystolic);
-    expect(e.value.pregnancyRaisedDiastolic).toBe(BP_CARE_V4.params.pregnancy.raisedDiastolic);
-    expect(e.value.pregnancySevereSystolic).toBe(BP_CARE_V4.params.pregnancy.severeSystolic);
-    expect(e.value.pregnancySevereDiastolic).toBe(BP_CARE_V4.params.pregnancy.severeDiastolic);
+    expect(e.value.code).toBe(BP_CARE_V5.code);
+    expect(e.value.ruleSetVersion).toBe(BP_CARE_V5.version);
+    expect(e.value.pregnancyRaisedSystolic).toBe(BP_CARE_V5.params.pregnancy.raisedSystolic);
+    expect(e.value.pregnancyRaisedDiastolic).toBe(BP_CARE_V5.params.pregnancy.raisedDiastolic);
+    expect(e.value.pregnancySevereSystolic).toBe(BP_CARE_V5.params.pregnancy.severeSystolic);
+    expect(e.value.pregnancySevereDiastolic).toBe(BP_CARE_V5.params.pregnancy.severeDiastolic);
     expect(e.status).toBe("proposed");
   });
 });

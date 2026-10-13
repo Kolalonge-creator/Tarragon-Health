@@ -108,3 +108,20 @@ export function effectiveTimeForDisplay(
   }
   return { iso: receivedIso, basis: "server" };
 }
+
+export type RejectionReasonCode = "refused_permission" | "refused_constraint" | "refused_validation" | "refused_other";
+
+/**
+ * The coarse reason the server gave for refusing an entry, for the support view (S06x). Only the class
+ * is kept: never the message, which can echo a value the patient typed.
+ */
+export function rejectionReasonCode(info: FailureInfo): RejectionReasonCode {
+  const { status, code, message = "" } = info;
+  if (code === "42501" || status === 401 || status === 403) return "refused_permission";
+  if (code && /^23/.test(code)) return "refused_constraint";
+  if (code && /^22/.test(code)) return "refused_validation";
+  if (/row-level security|permission denied|not allowed/i.test(message)) return "refused_permission";
+  if (/violates|constraint|duplicate/i.test(message)) return "refused_constraint";
+  if (/invalid|out of range|must be|too (high|low|long)|check/i.test(message) || status === 400 || status === 422) return "refused_validation";
+  return "refused_other";
+}
