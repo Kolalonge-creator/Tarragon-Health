@@ -20,6 +20,8 @@ import { CvRiskConfigPanel } from "../_signoff-panels/cv-risk-config-panel";
 import { RiskQuestionnaireConfigPanel } from "../_signoff-panels/risk-questionnaire-config-panel";
 import { VaccinationSchedulePanel } from "../_signoff-panels/vaccination-schedule-panel";
 import { LabPanelsPanel } from "../_signoff-panels/lab-panels-panel";
+import { HomeBpProgrammePanel } from "../_signoff-panels/home-bp-programme-panel";
+import { MyHealthConfigPanel } from "../_signoff-panels/my-health-config-panel";
 import { CommunitySignoffPanel } from "../_signoff-panels/community-panel";
 import { SignoffChecklist } from "@/app/(dashboard)/admin/settings/clinical-signoff/signoff-checklist";
 import { SignoffQueueList } from "@/app/(dashboard)/admin/settings/clinical-protocols/signoff-queue-list";
@@ -49,6 +51,8 @@ const CONFIG_PANELS: Record<string, () => ReactNode> = {
   risk_questionnaire_configs: () => <RiskQuestionnaireConfigPanel />,
   vaccination_schedule_signoffs: () => <VaccinationSchedulePanel />,
   lab_panel_signoffs: () => <LabPanelsPanel />,
+  home_bp_programme_signoffs: () => <HomeBpProgrammePanel />,
+  my_health_config: () => <MyHealthConfigPanel />,
 };
 
 /**
