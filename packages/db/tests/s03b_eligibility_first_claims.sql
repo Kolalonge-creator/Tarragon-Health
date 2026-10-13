@@ -154,6 +154,8 @@ begin
   if (select organisation_id from public.profiles where id = u10) <> v_dir then raise exception 'FAIL 2h: an established account was moved to another organisation'; end if;
   if not exists (select 1 from public.audit_log where subject_patient_id = u10 and action = 'roster.claim_skipped_account_in_use' and result = 'denied') then
     raise exception 'FAIL 2h: the skipped claim was not audited'; end if;
+  if not exists (select 1 from public.notifications where recipient_id = u10 and template = 'security.programme_code_not_applied' and channel = 'in_app') then
+    raise exception 'FAIL 2h: the established account was not told its employer slot was not applied'; end if;
 
   -- phone path
   insert into auth.users (id, phone, encrypted_password, phone_confirmed_at, raw_app_meta_data, raw_user_meta_data)

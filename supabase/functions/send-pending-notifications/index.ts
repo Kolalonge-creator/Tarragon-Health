@@ -777,6 +777,10 @@ Deno.serve(async () => {
   const routineByRecipient = new Map<string, NotificationRow[]>();
   for (const row of rows) {
     if (row.priority !== "routine") continue;
+    // S03b: a security notice (sign-in recovery, the sign-in number) is never folded into a digest. They are queued 'routine' on
+    // purpose (a 'critical' row is re-sent by SMS), but folding would drop the EMAIL half exactly when several steps happen quickly,
+    // which is when the owner most needs it.
+    if (typeof row.template === "string" && row.template.startsWith("security.")) continue;
     const list = routineByRecipient.get(row.recipient_id) ?? [];
     list.push(row);
     routineByRecipient.set(row.recipient_id, list);

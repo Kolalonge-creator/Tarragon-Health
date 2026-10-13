@@ -12,13 +12,17 @@ jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
 
 const rpc = jest.fn();
 const getCurrentUser = jest.fn();
+const getSession = jest.fn();
 jest.mock("@/lib/supabase/server", () => ({
   getCurrentUser: () => getCurrentUser(),
-  createClient: jest.fn().mockResolvedValue({ rpc: (...a: unknown[]) => rpc(...a) }),
+  createClient: jest.fn().mockResolvedValue({ rpc: (...a: unknown[]) => rpc(...a), auth: { getSession: () => getSession() } }),
 }));
 
 const verify = jest.fn();
-jest.mock("@/lib/account/step-up", () => ({ verifyPasswordAndRecordStepUp: (...a: unknown[]) => verify(...a) }));
+jest.mock("@/lib/account/step-up", () => ({
+  verifyPasswordAndRecordStepUp: (...a: unknown[]) => verify(...a),
+  sessionIdFromAccessToken: (t: string | undefined) => (t === "tok" ? "session-1234" : null),
+}));
 
 import { confirmContactRecoveryAction, generateBackupCodesAction, proposeRecoveryContactAction } from "./recovery-actions";
 
@@ -34,6 +38,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   getCurrentUser.mockResolvedValue(USER);
   verify.mockResolvedValue({ ok: true });
+  getSession.mockResolvedValue({ data: { session: { access_token: "tok" } } });
   rpc.mockResolvedValue({ data: ["ABCDE-FGHJK"], error: null });
 });
 
@@ -41,7 +46,7 @@ describe("generateBackupCodesAction", () => {
   it("checks the password for the backup_codes purpose BEFORE asking the database, and returns the codes", async () => {
     const res = await generateBackupCodesAction(undefined, form({ password: "secret-passphrase" }));
     expect(res).toEqual({ codes: ["ABCDE-FGHJK"] });
-    expect(verify).toHaveBeenCalledWith(USER, "secret-passphrase", "backup_codes");
+    expect(verify).toHaveBeenCalledWith(USER, "secret-passphrase", "backup_codes", "session-1234");
     expect(verify.mock.invocationCallOrder[0]).toBeLessThan(rpc.mock.invocationCallOrder[0]);
   });
 
@@ -73,7 +78,7 @@ describe("proposeRecoveryContactAction", () => {
   it("records the recovery_contact step-up first and then asks the database", async () => {
     rpc.mockResolvedValue({ data: { ok: true, id: "c1" }, error: null });
     expect(await proposeRecoveryContactAction(undefined, form({ memberId: MEMBER, password: "secret-passphrase" }))).toEqual({ ok: true });
-    expect(verify).toHaveBeenCalledWith(USER, "secret-passphrase", "recovery_contact");
+    expect(verify).toHaveBeenCalledWith(USER, "secret-passphrase", "recovery_contact", "session-1234");
     expect(rpc).toHaveBeenCalledWith("propose_recovery_contact", { p_member: MEMBER });
   });
 

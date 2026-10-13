@@ -95,6 +95,21 @@ describe("requestPhoneChange needs a fresh confirmation when the account has som
     expect(updateUserMock).toHaveBeenCalledWith({ phone: NEW });
   });
 
+  it("a resend of the SAME pending number is not asked to confirm again (the database does not gate it either)", async () => {
+    getCurrentUserMock.mockResolvedValue({ ...confirmed, new_phone: "2348099999999" });
+    svcRpcMock.mockResolvedValue({ data: false, error: null });
+    expect(await requestPhoneChange(undefined, form({ countryCode: "+234", phone: "0809 999 9999" }))).toEqual({ step: "verify", phone: NEW });
+    expect(svcRpcMock).not.toHaveBeenCalled();
+    expect(updateUserMock).toHaveBeenCalledWith({ phone: NEW });
+  });
+
+  it("a DIFFERENT number than the pending one is a new request and needs the confirmation", async () => {
+    getCurrentUserMock.mockResolvedValue({ ...confirmed, new_phone: "2348011112222" });
+    svcRpcMock.mockResolvedValue({ data: false, error: null });
+    expect((await requestPhoneChange(undefined, form({ countryCode: "+234", phone: "0809 999 9999" })))?.field).toBe("confirm");
+    expect(updateUserMock).not.toHaveBeenCalled();
+  });
+
   it("does not guess when the database cannot be asked", async () => {
     getCurrentUserMock.mockResolvedValue(confirmed);
     svcRpcMock.mockResolvedValue({ data: null, error: { message: "down" } });

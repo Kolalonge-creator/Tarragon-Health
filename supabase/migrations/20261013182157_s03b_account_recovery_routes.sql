@@ -211,6 +211,9 @@ revoke all on function private.number_changed_recently(uuid, integer) from publi
 create table public.account_step_ups (
   id          uuid primary key default gen_random_uuid(),
   user_id     uuid not null references auth.users (id) on delete cascade,
+  -- bound to the SESSION that typed the password (the session_id claim of its access token): a second access token for the same
+  -- account (a borrowed device, a stolen token) cannot spend it
+  session_id  text not null check (char_length(session_id) between 8 and 64),
   purpose     text not null check (purpose in ('backup_codes', 'recovery_contact')),
   created_at  timestamptz not null default now(),
   expires_at  timestamptz not null,
@@ -220,15 +223,17 @@ create index account_step_ups_user_idx on public.account_step_ups (user_id, purp
 alter table public.account_step_ups enable row level security;
 revoke all on public.account_step_ups from public, anon, authenticated;
 
-create function public.record_step_up(p_user uuid, p_purpose text) returns boolean
+create function public.record_step_up(p_user uuid, p_purpose text, p_session text) returns boolean
 language plpgsql security definer set search_path = ''
 as $$
 begin
   if p_purpose not in ('backup_codes', 'recovery_contact') then raise exception 'unknown purpose' using errcode = '22023'; end if;
+  if p_session is null or char_length(p_session) not between 8 and 64 then return false; end if;
   if not exists (select 1 from public.profiles where id = p_user and role = 'patient' and is_active) then return false; end if;
-  delete from public.account_step_ups where user_id = p_user and purpose = p_purpose and consumed_at is null;
-  insert into public.account_step_ups (user_id, purpose, expires_at)
-  values (p_user, p_purpose, now() + make_interval(mins => (private.recovery_rules() ->> 'step_up_minutes')::integer));
+  -- spent and expired rows are not kept
+  delete from public.account_step_ups where user_id = p_user and (consumed_at is not null or expires_at < now() - interval '1 day' or (purpose = p_purpose and session_id = p_session));
+  insert into public.account_step_ups (user_id, session_id, purpose, expires_at)
+  values (p_user, p_session, p_purpose, now() + make_interval(mins => (private.recovery_rules() ->> 'step_up_minutes')::integer));
   return true;
 end;
 $$;
@@ -241,6 +246,7 @@ declare v_id uuid;
 begin
   select id into v_id from public.account_step_ups
    where user_id = p_user and purpose = p_purpose and consumed_at is null and expires_at > now()
+     and session_id = coalesce((select auth.jwt()) ->> 'session_id', '')
    order by created_at desc limit 1 for update;
   if v_id is null then raise exception 'step_up_required' using errcode = 'P0001'; end if;
   update public.account_step_ups set consumed_at = now() where id = v_id;
@@ -409,7 +415,7 @@ begin
   with gone as (delete from auth.sessions where user_id = p_user returning 1) select count(*) into v_sessions from gone;
   select count(*) into v_left from public.account_backup_codes where user_id = p_user and used_at is null;
   v_ch := private.recovery_notice(p_user, 'security.backup_code_used',
-    'A backup code was used to recover your Tarragon Health account, and you were signed out everywhere. If this was not you, contact your care team right away.');
+    'A backup code was used on your Tarragon Health account, and every device was signed out. If this was not you, contact your care team right away.');
   perform private.recovery_audit(v_org, p_user, 'account.backup_code_used', 'account_backup_codes', null, p_user, 'success',
     jsonb_build_object('sessions_revoked', v_sessions, 'codes_left', v_left, 'notice_channels', to_jsonb(v_ch)));
   return jsonb_build_object('ok', true, 'remaining', v_left);
@@ -877,7 +883,7 @@ begin
   foreach f in array array[
     'public.redeem_backup_code(text,text,text)', 'public.release_backup_code(uuid,text)', 'public.complete_backup_code_recovery(uuid)',
     'public.request_contact_recovery(text,text)', 'public.claim_contact_recovery(text,text)', 'public.unrelease_contact_recovery(uuid)',
-    'public.authorise_phone_change(uuid,text)', 'public.record_step_up(uuid,text)', 'public.has_fresh_phone_change_authorisation(uuid)'] loop
+    'public.authorise_phone_change(uuid,text)', 'public.record_step_up(uuid,text,text)', 'public.has_fresh_phone_change_authorisation(uuid)'] loop
     execute format('revoke all on function %s from public', f);
     execute format('revoke all on function %s from anon', f);
     execute format('revoke all on function %s from authenticated', f);

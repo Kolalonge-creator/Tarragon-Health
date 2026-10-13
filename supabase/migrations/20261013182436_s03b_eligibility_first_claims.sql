@@ -147,6 +147,11 @@ begin
       insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event, result, subject_patient_id)
       values (v_roster_org, p_user, 'roster.claim_skipped_account_in_use', 'employer_roster_member', v_roster_id,
               jsonb_build_object('why', 'onboarding_completed'), 'denied', p_user);
+      -- tell the person: they may believe employer cover applies, and nothing retries this
+      insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class, priority)
+      values (p.organisation_id, p_user, 'in_app', 'pending', 'security.programme_code_not_applied',
+              jsonb_build_object('message', 'Your employer has listed you, but this account is already in use, so we could not add you to their programme automatically. Ask your employer to send you a join code, then enter it from your profile.', 'occurred_at', now()),
+              'non_clinical', 'routine');
     end if;
   end if;
 

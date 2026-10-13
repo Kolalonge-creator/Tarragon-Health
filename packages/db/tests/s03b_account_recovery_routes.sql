@@ -17,7 +17,8 @@
 --      route released the account.
 --   4. Every step audited (no secret in the event); owner notified in-app and by email, never SMS; anon has no access anywhere.
 --   4b. A password step-up (recorded only by the server) is needed, once, to make backup codes or name a recovery contact; a
---      session alone, a step-up for the other purpose, an expired one and a spent one are all refused.
+--      session alone, a step-up for the other purpose, an expired one, a spent one and one earned by a DIFFERENT session of the same
+--      account (bound to the session_id claim) are all refused.
 --   4c. Security notices are 'routine', never 'critical' (the escalation engine re-sends a critical, unopened notice by SMS).
 --   4d. The pause reads WHEN THE NUMBER ACTUALLY MOVED (recorded by a trigger), not phone_confirmed_at, which GoTrue re-stamps on
 --      every successful SMS code: a re-stamp alone starts no pause. A failure to queue the number-changed notice never blocks a change.
@@ -29,10 +30,10 @@
 
 begin;
 
-create function pg_temp.call_as(p_uid uuid, p_sql text) returns jsonb language plpgsql as $$
+create function pg_temp.call_as(p_uid uuid, p_sql text, p_session text default 'sess-0001-aaaa') returns jsonb language plpgsql as $$
 declare j jsonb;
 begin
-  perform set_config('request.jwt.claims', json_build_object('sub', p_uid, 'role', 'authenticated')::text, true);
+  perform set_config('request.jwt.claims', json_build_object('sub', p_uid, 'role', 'authenticated', 'session_id', p_session)::text, true);
   execute 'set local role authenticated';
   execute p_sql into j;
   execute 'reset role';
@@ -83,9 +84,9 @@ begin
 end $$;
 
 -- the server's step-up (service role), then the signed-in call
-create function pg_temp.step_up(p_uid uuid, p_purpose text) returns boolean language plpgsql as $$
+create function pg_temp.step_up(p_uid uuid, p_purpose text, p_session text default 'sess-0001-aaaa') returns boolean language plpgsql as $$
 begin
-  return (pg_temp.call_svc(format('select to_jsonb(public.record_step_up(%L, %L))', p_uid, p_purpose)))::text::boolean;
+  return (pg_temp.call_svc(format('select to_jsonb(public.record_step_up(%L, %L, %L))', p_uid, p_purpose, p_session)))::text::boolean;
 end $$;
 create function pg_temp.gen_codes(p_uid uuid) returns jsonb language plpgsql as $$
 begin
@@ -157,15 +158,28 @@ begin
   v_txt := null;
   begin perform pg_temp.call_as(p1, 'select to_jsonb(public.generate_backup_codes())'); exception when others then v_txt := sqlerrm; end;
   if v_txt is distinct from 'step_up_required' then raise exception 'FAIL 1-pre c: an expired step-up was accepted (%)', v_txt; end if;
-  if not pg_temp.refused('authenticated', p1, format('select public.record_step_up(%L, %L)', p1, 'backup_codes')) then raise exception 'FAIL 1-pre d: a session can record its own step-up'; end if;
-  if not pg_temp.refused('anon', null, format('select public.record_step_up(%L, %L)', p1, 'backup_codes')) then raise exception 'FAIL 1-pre d: anon can record a step-up'; end if;
+  if not pg_temp.refused('authenticated', p1, format('select public.record_step_up(%L, %L, %L)', p1, 'backup_codes', 'sess-0001-aaaa')) then raise exception 'FAIL 1-pre d: a session can record its own step-up'; end if;
+  if not pg_temp.refused('anon', null, format('select public.record_step_up(%L, %L, %L)', p1, 'backup_codes', 'sess-0001-aaaa')) then raise exception 'FAIL 1-pre d: anon can record a step-up'; end if;
   if pg_temp.step_up(clin, 'backup_codes') then raise exception 'FAIL 1-pre e: a step-up was recorded for a non-patient'; end if;
+  if pg_temp.step_up(p1, 'backup_codes', 'short') or pg_temp.step_up(p1, 'backup_codes', null) then raise exception 'FAIL 1-pre e: a step-up was recorded with no usable session'; end if;
+  -- bound to the session that earned it: a second access token for the same account cannot spend it, and the failed try spends nothing
+  perform pg_temp.step_up(p1, 'backup_codes', 'sess-0001-aaaa');
+  v_txt := null;
+  begin perform pg_temp.call_as(p1, 'select to_jsonb(public.generate_backup_codes())', 'sess-0002-bbbb'); exception when others then v_txt := sqlerrm; end;
+  if v_txt is distinct from 'step_up_required' then raise exception 'FAIL 1-pre e2: another session spent the step-up (%)', v_txt; end if;
+  if not exists (select 1 from public.account_step_ups where user_id = p1 and purpose = 'backup_codes' and consumed_at is null and session_id = 'sess-0001-aaaa') then
+    raise exception 'FAIL 1-pre e2: a refused try spent the step-up'; end if;
+  delete from public.account_step_ups where user_id = p1;
 
   codes := pg_temp.gen_codes(p1);
   -- a step-up is spent by use
   v_txt := null;
   begin perform pg_temp.call_as(p1, 'select to_jsonb(public.generate_backup_codes())'); exception when others then v_txt := sqlerrm; end;
   if v_txt is distinct from 'step_up_required' then raise exception 'FAIL 1-pre f: one step-up made two sets (%)', v_txt; end if;
+  -- spent rows are not kept: recording the next one removes them
+  perform pg_temp.step_up(p1, 'backup_codes');
+  if exists (select 1 from public.account_step_ups where user_id = p1 and consumed_at is not null) then raise exception 'FAIL 1-pre g: a spent step-up was kept'; end if;
+  delete from public.account_step_ups where user_id = p1;
   if jsonb_array_length(codes) <> 10 then raise exception 'FAIL 1a: expected 10 codes, got %', jsonb_array_length(codes); end if;
   if exists (select 1 from jsonb_array_elements_text(codes) c where c !~ '^[A-HJ-NP-Z2-9]{5}-[A-HJ-NP-Z2-9]{5}$') then
     raise exception 'FAIL 1a: a code is not in the XXXXX-XXXXX shape: %', codes; end if;

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
-import { verifyPasswordAndRecordStepUp, type StepUpResult } from "@/lib/account/step-up";
+import { sessionIdFromAccessToken, verifyPasswordAndRecordStepUp, type StepUpResult } from "@/lib/account/step-up";
 
 /**
  * Signed-in actions for the S03b recovery routes: making backup codes, naming a recovery contact, and (for the contact)
@@ -38,9 +38,10 @@ function stepUpMessage(reason: Extract<StepUpResult, { ok: false }>["reason"]): 
 export async function generateBackupCodesAction(_prev: BackupCodesState, formData: FormData): Promise<BackupCodesState> {
   const user = await getCurrentUser();
   if (!user) return { error: "Your session has expired. Sign in again, then retry." };
-  const stepUp = await verifyPasswordAndRecordStepUp(user, String(formData.get("password") ?? ""), "backup_codes");
-  if (!stepUp.ok) return { error: stepUpMessage(stepUp.reason) };
   const supabase = await createClient();
+  const sessionId = sessionIdFromAccessToken((await supabase.auth.getSession()).data.session?.access_token);
+  const stepUp = await verifyPasswordAndRecordStepUp(user, String(formData.get("password") ?? ""), "backup_codes", sessionId);
+  if (!stepUp.ok) return { error: stepUpMessage(stepUp.reason) };
   const { data, error } = await supabase.rpc("generate_backup_codes");
   if (error) {
     if (/backup_codes_rate_limited/.test(error.message)) {
@@ -73,9 +74,10 @@ export async function proposeRecoveryContactAction(_prev: SimpleState, formData:
   if (!member.success) return { error: "Choose someone from your Care Circle." };
   const user = await getCurrentUser();
   if (!user) return { error: "Your session has expired. Sign in again, then retry." };
-  const stepUp = await verifyPasswordAndRecordStepUp(user, String(formData.get("password") ?? ""), "recovery_contact");
-  if (!stepUp.ok) return { error: stepUpMessage(stepUp.reason) };
   const supabase = await createClient();
+  const sessionId = sessionIdFromAccessToken((await supabase.auth.getSession()).data.session?.access_token);
+  const stepUp = await verifyPasswordAndRecordStepUp(user, String(formData.get("password") ?? ""), "recovery_contact", sessionId);
+  if (!stepUp.ok) return { error: stepUpMessage(stepUp.reason) };
   const { data, error } = await supabase.rpc("propose_recovery_contact", { p_member: member.data });
   const res = outcome(data, error);
   if (res?.ok) revalidatePath("/patient/care-circle");
