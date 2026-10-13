@@ -1207,6 +1207,10 @@ Not done: not applied to production, not pushed.
 
 
 
+## S04b-3: quiet hours and discreet mode in every sender (2026-10-13)
+- **Found**: S13 already put quiet hours, discreet push and the settings screens (web and phone) in `send-pending-notifications`. Gaps closed: quiet hours defaulted ON (now OFF, rules v3, column default, RPC); discreet mode only changed push, not email (now fixed generic email, no PDF attachment); a routine-priority row for a safety template (emergency, escalation, paging) could be held overnight (now `isSafetyCritical` never holds it); an unsaved hold was silent (now logged, row stays pending); turning quiet hours off now releases that person's own held reminders.
+- **Senders**: push (Expo, web push), email (Resend) and clinician paging SMS go through the pipeline. Outside it, SMS only: auth-send-sms-hook (codes), abnormal-result-handler (clinician paging fallback), paystack-webhook (one invite SMS to a person with no profile), `send-patient-link.ts` (Zoom link). A scan test (`sender-scan.test.ts`) fails on any new sender outside an allow-list with reasons. SMS untouched.
+- **Not done**: migration NOT applied (rolled-back proof against production passes); `send-pending-notifications` must be redeployed after merge (it has drifted before).
 ## S05 OQ-54 recount and standing guard (2026-10-13)
 - Re-counted live: all ten tables have no policy admitting staff (read or write); OQ-54 is closed. See `docs/design/S05-OQ54-recount.md`. No migration.
 - Added `apps/web/src/lib/security/staff-closed-tables-scan.test.ts`: fails if a staff screen reads one of the ten tables directly or embeds it in a select (sabotage checked).

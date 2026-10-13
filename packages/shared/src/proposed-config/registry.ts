@@ -1275,6 +1275,24 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S13.md; docs/research/S13.md",
   },
   {
+    key: "notifications.rules",
+    // v3 (S04b-3, founder decision 2026-10-13): quiet hours are OFF until a person turns them on (window 21:00 to 07:00
+    // Africa/Lagos until they change it). Discreet mode and quiet hours are applied by the one sender; safety messages
+    // are never held. Live value: the active row of `notification_rules_config`.
+    value: {
+      quietHours: { enabled: false, start: "21:00", end: "07:00" },
+      routinePushPerDay: 4,
+      receiptCheckMinutes: 15,
+      receiptGiveUpHours: 24,
+      pushFallback: { enabled: true, afterMinutes: 240, maxAgeHours: 24, perRecipientPerDay: 1, batchSize: 200 },
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 3,
+    effectiveFrom: "2026-10-13",
+    source: "docs/design/S13.md; founder decision 2026-10-13",
+  },
+  {
     key: "video.audio_fallback",
     // Video consultations (S14 interface, wired in S21). Connection quality arrives as a sample every few seconds.
     //  poorSamplesToDowngrade: that many poor samples in a row drop the call to audio only (one bad sample never does).
