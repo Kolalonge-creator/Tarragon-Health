@@ -93,6 +93,10 @@
       "schedule": "25 5 * * *"
     },
     {
+      "path": "/api/cron/testing-day-reminders",
+      "schedule": "35 6 * * *"
+    },
+    {
       "path": "/api/cron/community-housekeeping",
       "schedule": "50 3 * * *"
     }

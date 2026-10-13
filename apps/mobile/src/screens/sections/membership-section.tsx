@@ -108,6 +108,7 @@ export function MembershipSection({ beneficiary }: { beneficiary?: Beneficiary }
       {beneficiary ? <MutedText>{tr("circle.pay.note", { name: beneficiary.name })}</MutedText> : null}
       {beneficiary ? <MutedText>{tr("circle.pay.only_year")}</MutedText> : null}
       {!beneficiary && membership.isMember && membership.endsAt ? <MutedText>{tr("shop.member_until", { date: lagos(membership.endsAt) })}</MutedText> : null}
+      {!beneficiary && membership.graceEndsAt ? <MutedText>{tr("shop.in_grace", { date: lagos(membership.graceEndsAt) })}</MutedText> : null}
       {items.length === 0 ? <MutedText>{tr("shop.not_open")}</MutedText> : null}
       {items.filter((item) => !beneficiary || item.kind === "membership").map((item) => {
         const b = estimatedBreakdown(item.amountKobo, fee);
