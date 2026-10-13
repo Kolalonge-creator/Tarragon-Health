@@ -18,6 +18,9 @@ export interface AdminSearchEntry {
 
 /** Words an admin may use for a page whose title does not say it. Keyed by the path they match. */
 const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
+  ["/clinician/worklists", "queue worklist inbox pending waiting results lab abnormal screening flags reviews vaccination therapy approvals shared pool"],
+  ["/admin/access-review", "audit access log opened viewed record who looked privacy snooping retention delete export"],
+  ["/clinician/access-review", "audit access log opened viewed record who looked privacy snooping retention delete export"],
   ["/clinician/credentialing/expiry", "licence license mdcn indemnity expiry expires renewal renew grace suspended reinstate"],
   ["/clinician/credentialing/content", "training test scenarios questions modules approve content exam"],
   ["/clinician/credentialing", "doctor clinician onboarding application applicant apply verify verification mdcn folio credentials referees nysc approve"],
@@ -35,7 +38,11 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/catalogue", "catalogue prices price list items membership care pack consultation checkout paystack switch on off sell buy"],
   ["/clinician/lab-results", "lab result review held abnormal critical release disclosure disclose positive hiv hepatitis screening withhold"],
   ["/clinician/lab-panels", "lab ranges reference critical limits sign cmo release policy disclosure attempts panels essential annual health check"],
+  ["/clinician/home-bp-programme", "home blood pressure check seven day protocol sign cmo bands 135 85 white coat masked pattern flag clinic reading cuff"],
+  ["/admin/settings/home-bp-programme", "home blood pressure check seven day protocol bands pattern read only signed"],
   ["/admin/settings/lab-panels", "lab ranges reference critical limits release policy panels read only signed"],
+  ["/clinician/my-health-config", "lock screen pass wallet card fields sign cmo emergency basics initials blood group genotype allergies on file my health c8"],
+  ["/admin/settings/my-health-config", "lock screen pass wallet card fields read only signed my health emergency basics"],
   ["/clinician/clinical-signoff", "sign signature sign off signoff hub approve what needs signing outstanding pending awaiting clinical director cmo"],
   ["/clinician/lpe-content-library", "sign approve review coaching content ai coach lifestyle blocks library reference copy"],
   ["/clinician/result-release-policies", "sign approve result release policy abnormal critical doctor delivered restricted hiv hepatitis cancer screen withhold patient"],
@@ -68,6 +75,7 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/settings/members", "users logins accounts roles permissions invite provision"],
   ["/admin/patients", "patient people customers find search lookup support investigate purchases"],
   ["/admin/ops/incidents", "incident outage problem sev"],
+  ["/admin/ops/event-bus", "event bus events outbox queue deliveries subscribers dead letter replay stuck lag falling behind heartbeat attempts retry process-events partner webhook"],
   ["/admin/data-rights", "gdpr ndpa privacy deletion erasure access request"],
   ["/admin/promo-codes", "discount coupon voucher"],
   ["/admin/leads", "enquiries prospects contact form"],
@@ -78,6 +86,8 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
 export const ADMIN_EXTRA_PAGES: AdminSearchEntry[] = [
   { label: "Licences and cover", href: "/admin/credentialing/expiry", group: "Clinician credentialing", hint: "Licence and indemnity expiry, grace periods, pause or reinstate access." },
   { label: "Task types and priorities", href: "/admin/task-types", group: "Clinical queue", hint: "The kinds of clinical work, how urgent each is and who may take it." },
+  { label: "Record access review", href: "/admin/access-review", group: "Security and privacy", hint: "Who opened which patient record, untied and after-hours openings, and the retention review." },
+  { label: "Event bus", href: "/admin/ops/event-bus", group: "Operations", hint: "Every event the platform recorded, who handled it, what is stuck, and replay." },
 ];
 
 /** The same, for the Chief Medical Officer, whose account role cannot open /admin. */
@@ -88,8 +98,10 @@ export const CMO_EXTRA_PAGES: AdminSearchEntry[] = [
   { label: "Task types and priorities", href: "/clinician/task-types", group: "Clinical queue", hint: "The kinds of clinical work, how urgent each is and who may take it." },
   { label: "Lifestyle coaching content", href: "/clinician/lpe-content-library", group: "Clinical governance", hint: "Review and approve the reference copy the AI Coach can draw on." },
   { label: "Result release policies", href: "/clinician/result-release-policies", group: "Clinical governance", hint: "Which abnormal results wait for a doctor before the patient sees them." },
+  { label: "Shared work queues", href: "/clinician/worklists", group: "Clinical queue", hint: "Open lab results, abnormal screening, lifestyle flags and reviews, therapy and vaccination items across the organisation." },
   { label: "Safety concerns", href: "/clinician/quality/concerns", group: "Clinical governance", hint: "The speak-up inbox: replies, backup readers and reviews after a concern." },
   { label: "Titration protocols", href: "/clinician/titration-protocols", group: "Clinical sign-off", hint: "Write, check and approve the step table the dose suggestion tool reads." },
+  { label: "Record access review", href: "/clinician/access-review", group: "Security and privacy", hint: "Who opened which patient record, untied and after-hours openings, and the retention review." },
 ];
 
 export interface SettingsPageInput {
