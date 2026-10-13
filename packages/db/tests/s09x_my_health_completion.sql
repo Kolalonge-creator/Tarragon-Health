@@ -351,6 +351,8 @@ begin
     (select (not (x @> '[{"kind":"staff_record_opened"}]'::jsonb)) and x @> '[{"kind":"emergency_record_access"}]'::jsonb
        from (select pg_temp.q_as(v_p, 'select public.my_access_log(100)::text')::jsonb as x) y)::text);
   update public.my_health_config set config = config #- '{access_log,show_staff_identity}' where is_active;
+  perform pg_temp.ck('the staff-profile helper is callable by no client role', 'false',
+    (has_function_privilege('anon', 'private.staff_public_profile(uuid)', 'EXECUTE') or has_function_privilege('authenticated', 'private.staff_public_profile(uuid)', 'EXECUTE'))::text);
   perform pg_temp.ck('another patient sees no staff opens of this patient', '[]', pg_temp.q_as(v_q, 'select public.my_access_log()::text'));
   perform pg_temp.ck('no phone, email, credential number or organisation internals on staff rows', 'false',
     (select coalesce(bool_or(x::text ilike '%@example.invalid%' or x::text ilike '%S09X-%' or x::text ilike '%+234%'), false) from jsonb_array_elements(v_j) x where x ->> 'kind' = 'staff_record_opened')::text);
