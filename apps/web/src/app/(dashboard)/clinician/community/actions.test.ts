@@ -12,6 +12,7 @@ import {
   saveSafetyRuleAction,
   setDpoRecipientAction,
   loadStarterSafetyRulesAction,
+  attestCommunityConditionAction,
 } from "./actions";
 
 const GROUP = "33333333-3333-4333-8333-333333333333";
@@ -206,5 +207,35 @@ describe("loadStarterSafetyRulesAction", () => {
   it("says only the CMO can", async () => {
     rpc.mockResolvedValue({ data: null, error: { code: "42501", message: "the Chief Medical Officer only" } });
     expect(await loadStarterSafetyRulesAction()).toEqual({ ok: false, message: "Only the Chief Medical Officer can load the safety rules." });
+  });
+});
+
+describe("attestCommunityConditionAction", () => {
+  it("records one of the three statements against the community guard", async () => {
+    rpc.mockResolvedValue({ data: { ok: true }, error: null });
+    const r = await attestCommunityConditionAction({ code: "crisis_owner_named", note: "Dr A owns the queue, first look in 30 minutes" });
+    expect(r.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith("attest_go_live_condition", {
+      p_key: "community",
+      p_code: "crisis_owner_named",
+      p_met: true,
+      p_note: "Dr A owns the queue, first look in 30 minutes",
+    });
+  });
+  it("only accepts the three community statements and never another guard's condition", async () => {
+    expect((await attestCommunityConditionAction({ code: "dpo_registered", note: "a long enough note here" })).ok).toBe(false);
+    expect((await attestCommunityConditionAction({ code: "cmo_switch", note: "a long enough note here" })).ok).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("asks for a real note, and a longer one for the safety case, before any call", async () => {
+    expect((await attestCommunityConditionAction({ code: "consent_text_approved", note: "ok" })).ok).toBe(false);
+    const r = await attestCommunityConditionAction({ code: "clinical_safety_case_current", note: "version one" });
+    expect(r).toEqual({ ok: false, message: "Name the safety case document, its version and who signed it." });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("turns a refusal for a non-CMO into plain English", async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: "42501", message: "only the CMO" } });
+    const r = await attestCommunityConditionAction({ code: "clinical_safety_case_current", note: "Safety case v2 signed by Dr A on 1 Oct" });
+    expect(r).toEqual({ ok: false, message: "Only the Chief Medical Officer can record this." });
   });
 });

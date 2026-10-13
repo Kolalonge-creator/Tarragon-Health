@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { toResult } from "@/components/community/staff-rpc";
+import { failureMessage, toResult } from "@/components/community/staff-rpc";
 import { DRILL_NOTES_MAX, DRILL_REQUIRED_STEPS, DRILL_STEPS } from "@/components/community/drill-steps";
+import type { RpcClient } from "@/lib/go-live/load";
 import type { StaffActionResult } from "@/components/community/staff-types";
 
 /**
@@ -13,6 +14,13 @@ import type { StaffActionResult } from "@/components/community/staff-types";
  */
 
 const PATH = "/clinician/community";
+const SIGNOFF_PATH = `${PATH}/signoff`;
+
+/** The sign-off page shows the same state as this page, so any change refreshes both. */
+function refresh() {
+  revalidatePath(PATH);
+  revalidatePath(SIGNOFF_PATH);
+}
 const INVALID: StaffActionResult = { ok: false, message: "Please check what you entered and try again." };
 
 export async function approveGroupRulesAction(input: unknown): Promise<StaffActionResult> {
@@ -24,7 +32,7 @@ export async function approveGroupRulesAction(input: unknown): Promise<StaffActi
     p_rules_version: parsed.data.rulesVersion,
   });
   const result = toResult(data, error, { approved: "Approved. These rules are now the approved rules for the group." });
-  if (result.ok) revalidatePath(PATH);
+  if (result.ok) refresh();
   return result;
 }
 
@@ -55,7 +63,7 @@ export async function saveSafetyRuleAction(input: unknown): Promise<StaffActionR
     ...(parsed.data.note ? { p_note: parsed.data.note } : {}),
   });
   const result = toResult(data, error, { ok: "Rule saved." }, RULE_SAVE_ERRORS);
-  if (result.ok) revalidatePath(PATH);
+  if (result.ok) refresh();
   return result;
 }
 
@@ -67,7 +75,7 @@ export async function deleteSafetyRuleAction(input: unknown): Promise<StaffActio
   const result = toResult(data, error, { ok: "Rule removed." }, {
     "42501": "That was refused. Rules can only change while the set is a draft, and only the Chief Medical Officer can remove these.",
   });
-  if (result.ok) revalidatePath(PATH);
+  if (result.ok) refresh();
   return result;
 }
 
@@ -75,7 +83,7 @@ export async function createDraftRuleSetAction(): Promise<StaffActionResult> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("community_admin_rule_set_create", {});
   const result = toResult(data, error, { ok: "A new draft rule set was started, copied from the live one." });
-  if (result.ok) revalidatePath(PATH);
+  if (result.ok) refresh();
   return result;
 }
 
@@ -91,7 +99,7 @@ export async function loadStarterSafetyRulesAction(): Promise<StaffActionResult>
     },
     { "42501": "Only the Chief Medical Officer can load the safety rules." },
   );
-  if (result.ok) revalidatePath(PATH);
+  if (result.ok) refresh();
   return result;
 }
 
@@ -107,7 +115,7 @@ export async function activateRuleSetAction(input: unknown): Promise<StaffAction
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("community_admin_rule_set_activate", { p_version: parsed.data.version });
   const result = toResult(data, error, { ok: "The rule set is now live. The previous live version was retired." }, ACTIVATE_ERRORS);
-  if (result.ok) revalidatePath(PATH);
+  if (result.ok) refresh();
   return result;
 }
 
@@ -130,7 +138,7 @@ export async function pinNoteAction(input: unknown): Promise<StaffActionResult> 
     "23514": "The title needs at least 3 characters, and the note cannot be empty or too long.",
     "42501": "Only an active clinician can write a note.",
   });
-  if (result.ok) revalidatePath(PATH);
+  if (result.ok) refresh();
   return result;
 }
 
@@ -140,7 +148,7 @@ export async function reviewPinAction(input: unknown): Promise<StaffActionResult
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("community_clinician_review_pin", { p_id: parsed.data.id });
   const result = toResult(data, error, { ok: "Reviewed. Your name and today's date now show on the note." });
-  if (result.ok) revalidatePath(PATH);
+  if (result.ok) refresh();
   return result;
 }
 
@@ -195,6 +203,49 @@ export async function setDpoRecipientAction(input: unknown): Promise<StaffAction
   if (!result.ok && !error && /no member matches/i.test(result.message)) {
     return { ok: false, message: "That person cannot be added. Only active staff can be told about member lookups." };
   }
-  if (result.ok) revalidatePath(PATH);
+  if (result.ok) refresh();
   return result;
+}
+
+const ATTEST_CODES = ["crisis_owner_named", "consent_text_approved", "clinical_safety_case_current"] as const;
+const ATTEST_MIN_CHARS = { crisis_owner_named: 10, consent_text_approved: 10, clinical_safety_case_current: 25 } as const;
+
+/**
+ * The Chief Medical Officer records one of the three statements only a person can make before Community can be switched on: who owns the
+ * self-harm queue, that the consent text is approved, and that the clinical safety case is current. This is the same database function the
+ * go-live page uses (attest_go_live_condition), which checks that the signed-in person is the CMO and writes their name and the time. The
+ * note must say what was checked and by whom. Nothing here switches Community on.
+ */
+export async function attestCommunityConditionAction(input: unknown): Promise<StaffActionResult> {
+  const parsed = z.object({ code: z.enum(ATTEST_CODES), note: z.string().trim().min(10).max(1000) }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Please write a sentence saying what was checked and by whom." };
+  if (parsed.data.note.length < ATTEST_MIN_CHARS[parsed.data.code]) {
+    return {
+      ok: false,
+      message:
+        parsed.data.code === "clinical_safety_case_current"
+          ? "Name the safety case document, its version and who signed it."
+          : "Please write a sentence saying what was checked and by whom.",
+    };
+  }
+  // attest_go_live_condition belongs to the go-live module and is not in the generated Community types, so it is called the way that module does.
+  const supabase = (await createClient()) as unknown as RpcClient;
+  const { error } = await supabase.rpc("attest_go_live_condition", {
+    p_key: "community",
+    p_code: parsed.data.code,
+    p_met: true,
+    p_note: parsed.data.note,
+  });
+  if (error) {
+    return {
+      ok: false,
+      message: failureMessage(error, {
+        "42501": "Only the Chief Medical Officer can record this.",
+        "22023": "That was not accepted. Please check the note and try again.",
+      }),
+    };
+  }
+  refresh();
+  revalidatePath("/clinician/go-live");
+  return { ok: true, message: "Recorded with your name and today's date." };
 }
