@@ -35,7 +35,7 @@ import webpush from "npm:web-push@3.6.7";
 import { appUrl, substituteTemplatePlaceholders, TEMPLATE_MAP } from "./templates.ts";
 import type { TemplateRender } from "./templates.ts";
 import { describeViolations, lintRenderFn, lintText } from "../_shared/notifications/neutral.ts";
-import { decide, DISCREET_DOCUMENT_TEMPLATES, discreetEmail, FALLBACK_QUIET, isSafetyCritical, privacyFor, pushEnvelope } from "../_shared/notifications/delivery.ts";
+import { decide, DISCREET_DOCUMENT_TEMPLATES, discreetEmail, FALLBACK_QUIET, isSafetyCritical, PATIENT_AUDIENCES, privacyFor, pushEnvelope } from "../_shared/notifications/delivery.ts";
 import type { QuietSettings } from "../_shared/notifications/delivery.ts";
 
 const BATCH_SIZE = 50;
@@ -819,7 +819,8 @@ Deno.serve(async () => {
   // below by construction (only priority === "routine" rows are grouped).
   const routineByRecipient = new Map<string, NotificationRow[]>();
   for (const row of rows) {
-    if (row.priority !== "routine" || isSafetyCritical(row.template)) continue; // safety messages are never folded away
+    // Safety messages are never folded away, and neither is a reminder quiet hours already held: it is sent once.
+    if (row.priority !== "routine" || isSafetyCritical(row.template) || previouslyHeldIds.has(row.id)) continue;
     const list = routineByRecipient.get(row.recipient_id) ?? [];
     list.push(row);
     routineByRecipient.set(row.recipient_id, list);
@@ -854,15 +855,29 @@ Deno.serve(async () => {
     }
   }
 
+  // Only email and push depend on the privacy lookups (SMS, voice and in-app ignore quiet hours and discreet mode).
+  // An email also needs the template audience: if that lookup failed, a routine email waits rather than going out unsure.
+  // Those rows are pushed back five minutes BEFORE any send, so a crash or timeout later cannot leave them at the front
+  // of every batch to starve newer rows.
   for (const row of rows) {
-    if (foldedIds.has(row.id)) continue;
-    // Only email and push depend on the privacy lookups (SMS, voice and in-app ignore quiet hours and discreet mode).
-    // An email also needs the template audience: if that lookup failed, a routine email waits rather than going out unsure.
     const needsPrivacy = row.channel === "push" || row.channel === "email";
-    if ((settingsDegraded || (audienceError && row.channel === "email")) && needsPrivacy && row.priority !== "critical" && !isSafetyCritical(row.template)) {
-      pushedBackIds.push(row.id); // pushed back five minutes after the loop, so it cannot sit at the front of every batch
-      continue;
+    // A failed held-row lookup also waits: without it a released reminder could be capped or folded away for good.
+    if (!foldedIds.has(row.id) && (settingsDegraded || heldError || (audienceError && row.channel === "email")) && needsPrivacy && row.priority !== "critical" && !isSafetyCritical(row.template)) {
+      pushedBackIds.push(row.id);
     }
+  }
+  if (pushedBackIds.length > 0) {
+    const { error: pushBackError } = await supabase
+      .from("notifications")
+      .update({ send_after: new Date(Date.now() + 5 * 60_000).toISOString() })
+      .in("id", pushedBackIds)
+      .eq("status", "pending");
+    if (pushBackError) console.error("send-pending-notifications: could not push back skipped rows", pushBackError.message);
+  }
+  const pushedBackSet = new Set(pushedBackIds);
+
+  for (const row of rows) {
+    if (foldedIds.has(row.id) || pushedBackSet.has(row.id)) continue;
 
     if (platformDisabledChannel(row)) {
       await suppress(row.id, "sms deprioritised platform-wide, no provider approval yet");
@@ -985,7 +1000,10 @@ Deno.serve(async () => {
       known: !settingsDegraded,
       channel: row.channel,
       audience: audienceError || !row.template ? null : audienceByTemplate.get(row.template),
-      toEmailIsOwn: row.channel === "email" ? await emailIsOwn(row.recipient_id, (row.payload ?? {}).to_email) : null,
+      // Only worth an Auth lookup when the template's audience is a patient one; otherwise privacy is off anyway.
+      toEmailIsOwn: row.channel === "email" && !audienceError && PATIENT_AUDIENCES.has(String(audienceByTemplate.get(row.template ?? "") ?? ""))
+        ? await emailIsOwn(row.recipient_id, (row.payload ?? {}).to_email)
+        : null,
     });
     const decision = decide({
       channel: row.channel,
@@ -1168,15 +1186,6 @@ Deno.serve(async () => {
       }
       await settle(await sendTermiiSms(toPhone, render.smsText));
     }
-  }
-
-  if (pushedBackIds.length > 0) {
-    const { error: pushBackError } = await supabase
-      .from("notifications")
-      .update({ send_after: new Date(Date.now() + 5 * 60_000).toISOString() })
-      .in("id", pushedBackIds)
-      .eq("status", "pending");
-    if (pushBackError) console.error("send-pending-notifications: could not push back skipped rows", pushBackError.message);
   }
 
   return Response.json({ processed: rows.length, sent, retried, failed, suppressed, deferred, pushedBack: pushedBackIds.length });
