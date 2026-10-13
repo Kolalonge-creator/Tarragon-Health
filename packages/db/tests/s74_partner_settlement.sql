@@ -166,6 +166,11 @@ begin
   v_t1 := pg_temp.q_as(pg_temp.f('a1'), format($q$select public.create_partner_settlement_terms('pharmacy', %L, 's74_item_one', 'sponsor_paid_item', 'basis_points', 3333, true, 'Agreed with the pharmacy in writing on 1 October')::text$q$, pg_temp.f('phA')))::uuid;
   v_t2 := pg_temp.q_as(pg_temp.f('a1'), format($q$select public.create_partner_settlement_terms('pharmacy', %L, 's74_item_two', 'pharmacy_margin', 'fixed_kobo', 5000, true, 'Agreed fixed margin per item with the pharmacy')::text$q$, pg_temp.f('phA')))::uuid;
   perform pg_temp.setf('t1', v_t1); perform pg_temp.setf('t2', v_t2);
+  -- Terms only reach orders paid AFTER they were drafted (valid_from = now(), by design). This proof settles a month that is already closed, so the two terms are backdated
+  -- here as a fixture (triggers bypassed, which is the only way to move valid_from); nothing in the migration can do this.
+  set local session_replication_role = replica;
+  update public.partner_settlement_terms set valid_from = date_trunc('month', now()) - interval '6 months' where id in (v_t1, v_t2);
+  set local session_replication_role = origin;
   perform pg_temp.r('3.6 terms are drafted unapproved', 'null', (select coalesce(approved_by::text, 'null') from public.partner_settlement_terms where id = v_t1));
   perform pg_temp.r('3.7 terms cannot be edited, even by the owner', '42501', pg_temp.try_sql(format($u$update public.partner_settlement_terms set value = 9000 where id = %L$u$, v_t1)));
   perform pg_temp.r('3.8 terms cannot be deleted', '42501', pg_temp.try_sql(format($u$delete from public.partner_settlement_terms where id = %L$u$, v_t1)));
@@ -302,7 +307,7 @@ begin
   perform pg_temp.r('7.12 no payout or earnings column points at a settlement or payable', '0',
     (select count(*)::text from information_schema.columns where table_schema = 'public' and table_name in ('payouts', 'payout_transfers', 'earnings_ledger') and column_name ~* '(settlement|payable)'));
   perform pg_temp.r('7.13 settlement code calls no payment provider (no transfer function is referenced)', '0',
-    (select count(*)::text from pg_proc p where p.pronamespace in ('public'::regnamespace, 'private'::regnamespace) and (p.proname ~ 'settlement|payable') and pg_get_functiondef(p.oid) ~* '(paystack|transfer_code|payout_prepare_send|payout_record_send|payout_transfers)'));
+    (select count(*)::text from pg_proc p where p.pronamespace in ('public'::regnamespace, 'private'::regnamespace) and (p.proname ~ 'settlement|payable') and p.proname !~ '^finance_' /* finance_* imports Paystack's own bank settlements, a different thing */ and pg_get_functiondef(p.oid) ~* '(paystack|transfer_code|payout_prepare_send|payout_record_send|payout_transfers)'));
 end $$;
 
 -- terms end; a voided statement is final

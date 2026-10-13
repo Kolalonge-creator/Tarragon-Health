@@ -66,7 +66,7 @@ end $f$;
 create function pg_temp.mkcmo(p_org uuid, p_admin uuid) returns uuid language plpgsql as
 $f$ declare v uuid;
 begin
-  v := pg_temp.mkuser(p_org, 'cmo', 'clinician');
+  v := pg_temp.mkuser(p_org, 'cmo', 'clinician', false);   -- a REAL (non-test) CMO, so the complaint it records counts (C15)
   insert into public.clinical_staff (organisation_id, profile_id, full_name, credential_type, credential_number, active, status, license_verified_at, verified_by,
       doctor_tier, employment_type, credentialing_level, indemnity_exempt, indemnity_exempt_by, is_test)
   values (p_org, v, 'S74 cmo', 'MDCN', 'S74-cmo-' || substr(v::text, 1, 8), true, 'active', now(), p_admin,
@@ -86,9 +86,9 @@ end $f$;
 create function pg_temp.mkresulted(p_org uuid, p_pat uuid, p_lab uuid, p_staff uuid, p_hours numeric) returns void language plpgsql as
 $f$ begin
   set local session_replication_role = replica;
-  insert into public.lab_orders (organisation_id, patient_id, provider_id, fulfilment, status, origin, ordered_by, clinical_indication, payment_confirmed_at, resulted_at, ordered_at)
+  insert into public.lab_orders (organisation_id, patient_id, provider_id, fulfilment, status, origin, ordered_by, clinical_indication, payment_confirmed_at, resulted_at, ordered_at, transmission)
   values (p_org, p_pat, p_lab, 'partner', 'resulted', 'clinically_triggered', p_staff, 'S74 proof order',
-          now() - interval '10 days', now() - interval '10 days' + make_interval(secs => (p_hours * 3600)::integer), now() - interval '10 days');
+          now() - interval '10 days', now() - interval '10 days' + make_interval(secs => (p_hours * 3600)::integer), now() - interval '10 days', 'sent');
   set local session_replication_role = origin;
 end $f$;
 create function pg_temp.try_sql(p_sql text) returns text language plpgsql as $f$ begin execute p_sql; return 'ok'; exception when others then return sqlstate; end $f$;
@@ -187,7 +187,7 @@ begin
   perform pg_temp.mkresulted(v_org, pg_temp.f('pat'), v_lab, pg_temp.f('staff'), 100);
   perform private.compute_partner_quality('lab', v_lab);
   perform pg_temp.r('B8 ten orders: 50 percent within 72 hours, breach turnaround_below_target', '10|50.0|true',
-    pg_temp.quality_of('lab', v_lab, 'orders_measured') || '|' || pg_temp.quality_of('lab', v_lab, 'pct_within_target') || '|' || ('turnaround_below_target' = any ((select breaches from public.partner_quality where partner_id = v_lab order by period_month desc limit 1)))::text);
+    pg_temp.quality_of('lab', v_lab, 'orders_measured') || '|' || pg_temp.quality_of('lab', v_lab, 'pct_within_target') || '|' || (exists (select 1 from (select breaches from public.partner_quality where partner_id = v_lab order by period_month desc limit 1) q where 'turnaround_below_target' = any (q.breaches)))::text);
   perform pg_temp.r('B9 the configuration version used is stored (INV-16)', '1', pg_temp.quality_of('lab', v_lab, 'config_version'));
 end $$;
 
@@ -224,7 +224,7 @@ begin
     perform pg_temp.q_as(pg_temp.f('admin'), format($q$select public.resolve_partner_complaint(%L, 'upheld', 'Checked and confirmed upheld')::text$q$, v_id));
   end loop;
   perform private.compute_partner_quality('lab', v_lab);
-  perform pg_temp.r('C14 three real upheld complaints is a breach', '3|true', pg_temp.quality_of('lab', v_lab, 'complaints_upheld') || '|' || ('complaints_upheld_limit' = any ((select breaches from public.partner_quality where partner_id = v_lab order by period_month desc limit 1)))::text);
+  perform pg_temp.r('C14 three real upheld complaints is a breach', '3|true', pg_temp.quality_of('lab', v_lab, 'complaints_upheld') || '|' || (exists (select 1 from (select breaches from public.partner_quality where partner_id = v_lab order by period_month desc limit 1) q where 'complaints_upheld_limit' = any (q.breaches)))::text);
   perform pg_temp.r('C15 the open complaint from the CMO is counted as open, not upheld', '1', pg_temp.quality_of('lab', v_lab, 'complaints_open'));
 end $$;
 
@@ -259,16 +259,16 @@ declare v_org uuid := pg_temp.f('org'); v_labA uuid := pg_temp.f('labA'); v_labB
         v_open_lab uuid; v_order uuid; v_rx uuid; v_phA uuid := pg_temp.f('phA'); v_locA uuid := pg_temp.f('locA'); v_phB uuid := pg_temp.f('phB');
 begin
   begin
-    insert into public.lab_orders (organisation_id, patient_id, provider_id, fulfilment, status, origin, ordered_by, clinical_indication)
-    values (v_org, v_pat, v_labB, 'partner', 'pending_payment', 'clinically_triggered', v_staff, 'S74 should be refused');
+    insert into public.lab_orders (organisation_id, patient_id, provider_id, fulfilment, status, origin, ordered_by, clinical_indication, transmission)
+    values (v_org, v_pat, v_labB, 'partner', 'pending_payment', 'clinically_triggered', v_staff, 'S74 should be refused', 'awaiting_payment');
     perform pg_temp.r('E1 an order cannot be given to a paused laboratory', '55000', 'inserted');
   exception when others then
     perform pg_temp.r('E1 an order cannot be given to a paused laboratory', '55000', sqlstate);
   end;
   -- lab orders go to a third laboratory that is open
   insert into public.lab_providers (name, is_active, license_expires_at, license_verified_at) values ('S74 Lab C', true, now() + interval '200 days', now()) returning id into v_open_lab;
-  insert into public.lab_orders (organisation_id, patient_id, provider_id, fulfilment, status, origin, ordered_by, clinical_indication)
-  values (v_org, v_pat, v_open_lab, 'partner', 'pending_payment', 'clinically_triggered', v_staff, 'S74 proof order') returning id into v_order;
+  insert into public.lab_orders (organisation_id, patient_id, provider_id, fulfilment, status, origin, ordered_by, clinical_indication, transmission)
+  values (v_org, v_pat, v_open_lab, 'partner', 'pending_payment', 'clinically_triggered', v_staff, 'S74 proof order', 'awaiting_payment') returning id into v_order;
   perform pg_temp.r('E2 an open laboratory still receives an order', 'true', (v_order is not null)::text);
   -- an order already with a laboratory that is later paused keeps working
   update public.lab_providers set license_expires_at = now() - interval '1 day' where id = v_open_lab;
@@ -343,7 +343,7 @@ begin
   perform pg_temp.r('G5 a patient is refused', 'ERR:42501', pg_temp.q_as(pg_temp.f('pat'), 'select public.partner_my_quality()::text'));
   perform pg_temp.r('G6 anon is refused', 'ERR:42501', pg_temp.anon_q('select public.partner_my_quality()::text'));
   perform pg_temp.r('G7 the pharmacist sees the pharmacy''s figures', 'pharmacy', (pg_temp.q_as(pg_temp.f('phAu'), 'select public.partner_my_quality()::text')::jsonb) ->> 'partner_kind');
-  perform pg_temp.r('G8 the desk overview is refused to a laboratory and a patient', 'ERR:42501|0', pg_temp.q_as(pg_temp.f('labAu'), 'select 1 from public.partner_quality_overview() limit 1') || '|' || coalesce(pg_temp.q_as(pg_temp.f('pat'), 'select count(*)::text from public.partner_quality_overview()'), '0'));
+  perform pg_temp.r('G8 the desk overview is refused to a laboratory and a patient', 'ERR:42501|ERR:42501', pg_temp.q_as(pg_temp.f('labAu'), 'select 1 from public.partner_quality_overview() limit 1') || '|' || coalesce(pg_temp.q_as(pg_temp.f('pat'), 'select count(*)::text from public.partner_quality_overview()'), '0'));
   perform pg_temp.r('G9 the desk overview is given to the admin and lists the partners', 'true', (pg_temp.q_as(pg_temp.f('admin'), 'select count(*)::text from public.partner_quality_overview()')::integer >= 4)::text);
 end $$;
 

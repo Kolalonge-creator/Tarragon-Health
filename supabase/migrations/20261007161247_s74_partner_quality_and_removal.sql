@@ -423,7 +423,8 @@ begin
     if v_org is not null then
       perform private.emit_domain_event('partner.quality_breach', v_org,
         jsonb_build_object('partner_kind', p_kind, 'partner_id', p_id, 'breaches', to_jsonb(q.breaches), 'suspended', v_suspend or coalesce(st.state, 'open') = 'suspended'),
-        'partner_quality_breach:' || p_kind || ':' || p_id || ':' || q.period_month || ':' || md5(array_to_string(q.breaches, ',')) || ':' || v_suspend::text,
+        -- the key carries the RESULTING state, so the run that suspends and every later run that finds it already suspended share one key (one event, not two)
+        'partner_quality_breach:' || p_kind || ':' || p_id || ':' || q.period_month || ':' || md5(array_to_string(q.breaches, ',')) || ':' || (v_suspend or coalesce(st.state, 'open') = 'suspended')::text,
         null, 'partner', p_id);
       if v_suspend or not exists (select 1 from public.notifications n where n.template = 'partner_quality_attention' and n.created_at > p_now - interval '1 day') then
         perform private.partner_notify_desk(v_org);
@@ -557,18 +558,21 @@ create function public.partner_quality_overview() returns table (
   partner_kind text, partner_id uuid, partner_name text, is_active boolean, work_state text, reason_codes text[], score numeric,
   breaches text[], licence_state text, licence_expires_at timestamptz, pct_within_target numeric, orders_measured integer,
   complaints_upheld integer, complaints_open integer, computed_at timestamptz, override_until timestamptz)
-language sql stable security definer set search_path = ''
+language plpgsql stable security definer set search_path = ''
 as $$
+begin
+  -- like every other desk function here: refuse (42501) a caller who is not the partner desk, rather than quietly returning nothing
+  if not private.partner_desk_actor() then raise exception 'not authorised' using errcode = '42501'; end if;
+  return query
   select p.k, p.id, p.name, p.active, coalesce(s.state, 'open'), coalesce(s.reason_codes, '{}'), q.score, coalesce(q.breaches, '{}'), q.licence_state,
          q.licence_expires_at, q.pct_within_target, q.orders_measured, q.complaints_upheld, q.complaints_open, q.computed_at, s.override_until
-    from (select 'lab'::text as k, id, name, is_active as active from public.lab_providers
-          union all select 'pharmacy', id, name, is_active from public.pharmacy_partners
-          union all select 'clinic', id, coalesce(display_name, legal_name), is_operational from public.provider_organisations) p
+    from (select 'lab'::text as k, l.id, l.name, l.is_active as active from public.lab_providers l
+          union all select 'pharmacy', ph.id, ph.name, ph.is_active from public.pharmacy_partners ph
+          union all select 'clinic', po.id, coalesce(po.display_name, po.legal_name), po.is_operational from public.provider_organisations po) p
     left join public.partner_work_status s on s.partner_kind = p.k and s.partner_id = p.id
     left join lateral (select * from public.partner_quality x where x.partner_kind = p.k and x.partner_id = p.id order by x.period_month desc limit 1) q on true
-   where private.partner_desk_actor()
    order by p.k, p.name;
-$$;
+end $$;
 
 -- The partner's own view of how it is doing (no complaint notes, no other partner, no patient).
 create function private.partner_of_caller() returns table (partner_kind text, partner_id uuid)
