@@ -91,12 +91,17 @@ as $$
     p.check_total,
     case when c.members_only and not perk.is_member then null else c.audio_clip_id end,
     case when c.clinician_reviewed then c.reviewed_at end,
-    c.source_reference,
+    case when c.members_only and not perk.is_member then null else c.source_reference end,
     c.next_review_due,
-    c.next_action,
-    c.next_step_kind,
-    c.next_step_target_code,
-    case when nt.id is not null and nt.is_active and private.health_education_review_in_date(nt.next_review_due) then nt.title end,
+    case when c.members_only and not perk.is_member then null else c.next_action end,
+    case when c.members_only and not perk.is_member then null else c.next_step_kind end,
+    case when c.members_only and not perk.is_member then null else c.next_step_target_code end,
+    -- A next-step link is offered only to a lesson this person could actually open.
+    case when nt.id is not null and nt.is_active
+           and private.health_education_review_in_date(nt.next_review_due)
+           and (not nt.members_only or perk.is_member)
+           and (nt.creator_id is null or private.learning_creator_in_good_standing(nt.creator_id))
+         then nt.title end,
     c.series_tag,
     c.members_only,
     (c.members_only and not perk.is_member),
@@ -566,7 +571,8 @@ stable
 security definer
 set search_path = ''
 as $$
-  select i.code, i.next_review_due, c.content_version
+  -- version = text edits (version) plus status-driven corrections (content_version): either one rising evicts a phone's copy.
+  select i.code, i.next_review_due, (c.version + c.content_version)
   from private.health_education_items(p_codes) i
   join public.health_education_content c on c.id = i.content_id
   where i.code = any (coalesce(p_codes, '{}'::text[]))
@@ -577,7 +583,7 @@ $$;
 
 -- ---- public share page (9.8) ------------------------------------------------------------------------------------------------
 -- The ONLY function in this module that anon can call, on purpose. Returns an item only when it is flagged public, published,
--- in date, clinician reviewed with a review date, and not a Members item. No patient data of any kind is involved.
+-- published (not flagged for re-review), clinician reviewed with a review date, carrying a future review date, and not a Members item. No patient data of any kind is involved.
 create or replace function public.public_health_education_item(p_code text)
 returns table (
   code text, title text, summary text, body text, category public.health_education_category, estimated_minutes integer,
@@ -597,11 +603,169 @@ as $$
     and not c.members_only
     and c.creator_id is null
     and c.is_active
-    and c.content_status in ('published', 'review_due')
+    and c.content_status = 'published'
     and c.clinician_reviewed
     and c.reviewed_at is not null
+    and c.next_review_due is not null
     and private.health_education_review_in_date(c.next_review_due);
 $$;
+
+
+-- ---- recommendation and nudge paths (a recommendation must not point at content the reader cannot open) ----------------------
+create or replace function private.health_education_recommend_on_medication()
+ returns trigger
+ language plpgsql
+ security definer
+ set search_path to ''
+as $function$
+declare
+  v_condition public.care_plan_condition;
+  v_content record;
+begin
+  if not new.is_active then
+    return new;
+  end if;
+
+  select cp.condition into v_condition
+  from public.care_plans cp where cp.id = new.care_plan_id;
+
+  for v_content in
+    select distinct c.id
+    from public.health_education_trigger_mappings tm
+    join public.health_education_content c
+      on c.is_active
+      and not c.members_only
+      and private.health_education_review_in_date(c.next_review_due)
+      and (tm.target_content_id is null or c.id = tm.target_content_id)
+      and (tm.target_category is null or c.category = tm.target_category)
+      and (tm.target_condition is null or c.condition = tm.target_condition or c.condition is null)
+    where tm.is_active
+      and tm.trigger_source = 'medication'
+      and lower(new.drug_name) like '%' || lower(tm.match_key) || '%'
+      and (tm.target_condition is null or tm.target_condition = v_condition)
+  loop
+    insert into public.health_education_recommendations (organisation_id, patient_id, content_id, trigger_reason)
+    values (new.organisation_id, new.patient_id, v_content.id, format('New medication: %s', new.drug_name));
+  end loop;
+
+  return new;
+end;
+$function$;
+
+create or replace function private.health_education_recommend_on_abnormal_result()
+ returns trigger
+ language plpgsql
+ security definer
+ set search_path to ''
+as $function$
+declare
+  v_flag text;
+  v_content record;
+begin
+  if new.abnormal_flags is null or array_length(new.abnormal_flags, 1) is null then
+    return new;
+  end if;
+
+  foreach v_flag in array new.abnormal_flags loop
+    for v_content in
+      select distinct c.id
+      from public.health_education_trigger_mappings tm
+      join public.health_education_content c
+        on c.is_active
+      and not c.members_only
+        and private.health_education_review_in_date(c.next_review_due)
+        and (tm.target_content_id is null or c.id = tm.target_content_id)
+        and (tm.target_category is null or c.category = tm.target_category)
+        and (tm.target_condition is null or c.condition = tm.target_condition or c.condition is null)
+      where tm.is_active
+        and tm.trigger_source = 'abnormal_result'
+        and lower(v_flag) like '%' || lower(tm.match_key) || '%'
+    loop
+      insert into public.health_education_recommendations (organisation_id, patient_id, content_id, trigger_reason)
+      values (new.organisation_id, new.patient_id, v_content.id, format('Abnormal result: %s', v_flag));
+    end loop;
+  end loop;
+
+  return new;
+end;
+$function$;
+
+create or replace function private.queue_health_education_unlock_nudges()
+ returns void
+ language sql
+ security definer
+ set search_path to ''
+as $function$
+  with patients as (
+    select p.id as patient_id, p.organisation_id
+    from public.profiles p
+    where p.role = 'patient' and p.organisation_id is not null
+  ),
+  patient_conditions as (
+    select distinct cp.patient_id, cp.condition
+    from public.care_plans cp
+    where cp.status = 'active'
+  ),
+  patient_risk as (
+    select prs.patient_id, max(prs.risk_level) as risk_level
+    from public.patient_risk_scores prs
+    group by prs.patient_id
+  ),
+  candidates as (
+    select
+      pt.patient_id,
+      pt.organisation_id,
+      c.id as content_id,
+      c.title,
+      c.sort_order,
+      coalesce(c.condition::text, 'general') as track_key,
+      c.drip_week as unlock_week
+    from public.health_education_content c
+    join patients pt on true
+    left join patient_conditions pc
+      on pc.patient_id = pt.patient_id and pc.condition = c.condition
+    left join patient_risk pr on pr.patient_id = pt.patient_id
+    where c.is_active
+      and not c.members_only
+      and private.health_education_review_in_date(c.next_review_due)
+      and c.drip_week is not null
+      and (c.condition is null or pc.condition is not null)
+      and (c.min_risk_level is null
+           or c.min_risk_level <= coalesce(pr.risk_level, 'low'::public.risk_level))
+      and c.drip_week = private.health_education_unlock_week_for(pt.patient_id, c.condition)
+  ),
+  unseen as (
+    select cand.*
+    from candidates cand
+    where not exists (
+      select 1 from public.health_education_progress hep
+      where hep.patient_id = cand.patient_id and hep.content_id = cand.content_id
+    )
+  ),
+  newly_marked as (
+    insert into public.health_education_unlock_notifications
+      (patient_id, organisation_id, track_key, unlock_week)
+    select distinct patient_id, organisation_id, track_key, unlock_week
+    from unseen
+    on conflict (patient_id, track_key, unlock_week) do nothing
+    returning patient_id
+  ),
+  to_notify as (
+    select distinct
+      nm.patient_id,
+      (select organisation_id from unseen u where u.patient_id = nm.patient_id limit 1)
+        as organisation_id,
+      (select u.title from unseen u where u.patient_id = nm.patient_id
+        order by u.sort_order limit 1) as lead_title,
+      (select count(distinct u.content_id) from unseen u where u.patient_id = nm.patient_id)
+        as item_count
+    from newly_marked nm
+  )
+  insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload)
+  select organisation_id, patient_id, 'in_app', 'pending', 'health_education_unlock',
+    jsonb_build_object('lesson_title', lead_title, 'lesson_count', item_count)
+  from to_notify;
+$function$;
 
 -- ---- grants ---------------------------------------------------------------------------------------------------------------------
 revoke all on function public.health_education_library(public.health_education_category) from public, anon;

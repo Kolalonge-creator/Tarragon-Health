@@ -32,7 +32,7 @@ import {
   type SearchResult,
 } from "@/lib/health-education";
 import { takeRequestedLesson } from "@/lib/learn-intent";
-import { isDownloaded, listDownloads, removeDownload, saveDownload, syncDownloads, type DownloadableItem } from "@/lib/learning-downloads";
+import { isDownloaded, listDownloads, purgeExpiredDownloads, removeDownload, saveDownload, syncDownloads, type DownloadableItem } from "@/lib/learning-downloads";
 import { ContentAudioPlayer, FaqBlock, InfographicBlock, MembersLock, NextStepFooter, ReviewCreditBlock, ShareRow } from "@/screens/sections/learn-parts";
 import { asLocale, t } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
@@ -97,6 +97,7 @@ export function LearnScreen({ userId, organisationId, onNavigate }: LearnScreenP
     try {
       const detail = await loadHealthEducationDetail(code);
       if (detail) setOpenLesson(detail);
+      else setLoadError("That topic is not available right now. It may be waiting for its next review.");
     } catch {
       setLoadError("Could not open that topic right now.");
     }
@@ -143,7 +144,8 @@ export function LearnScreen({ userId, organisationId, onNavigate }: LearnScreenP
     setFeed(feedData);
     setLockedCount(locked);
     setCategoryCounts(counts);
-    setRecommendations(recs);
+    // A recommendation whose item is no longer readable (past its review date, or Members only) comes back with no content: skip it.
+    setRecommendations(recs.filter((r) => r.content !== null));
     setFirstCondition(condition);
     if (condition) {
       const latest = await loadLatestHealthLiteracy(userId, condition);
@@ -686,16 +688,29 @@ function DownloadControl({ item, userId, onChanged }: { item: AnyEducationItem; 
   async function toggle() {
     setError(null);
     if (saved) {
-      await removeDownload(userId, item.code);
-      setSaved(false);
-      onChanged();
+      try {
+        await removeDownload(userId, item.code);
+        setSaved(false);
+        onChanged();
+      } catch {
+        setError("Could not remove this download. Try again.");
+      }
       return;
     }
-    const versions = await loadServableCodes([item.code]);
-    const version = versions?.find((v) => v.code === item.code)?.content_version ?? null;
-    const result = await saveDownload(userId, { ...(item as unknown as DownloadableItem), content_version: version });
-    if (result.ok) setSaved(true);
-    else setError(result.reason === "expired" ? "This topic is due for review, so it cannot be saved right now." : "This topic cannot be saved.");
+    try {
+      // The server's content version is stored with the copy so a later correction can evict it. No version, no copy.
+      const versions = await loadServableCodes([item.code]);
+      const version = versions?.find((v) => v.code === item.code)?.content_version ?? null;
+      if (version === null) {
+        setError(t("learn.downloads.need_connection", locale));
+        return;
+      }
+      const result = await saveDownload(userId, { ...(item as unknown as DownloadableItem), content_version: version });
+      if (result.ok) setSaved(true);
+      else setError(result.reason === "expired" ? "This topic is due for review, so it cannot be saved right now." : "This topic cannot be saved.");
+    } catch {
+      setError(t("learn.downloads.need_connection", locale));
+    }
   }
 
   return (
@@ -730,8 +745,20 @@ function LearnDownloads({
   const [notice, setNotice] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    const result = await syncDownloads(userId, loadServableCodes);
+    let result: { removed: number; offline: boolean };
+    let checked = true;
+    try {
+      result = await syncDownloads(userId, loadServableCodes);
+    } catch {
+      // The server answered with an error (not just no signal): apply the local review-date rule and say the check did not run.
+      checked = false;
+      result = { removed: await purgeExpiredDownloads(userId), offline: true };
+    }
     setItems(await listDownloads(userId));
+    if (!checked) {
+      setNotice(t("learn.downloads.check_failed", locale));
+      return;
+    }
     if (result.offline) setNotice(t("learn.downloads.sync_offline", locale));
     else if (result.removed > 0) setNotice(t(result.removed === 1 ? "learn.downloads.removed_expired" : "learn.downloads.removed_expired_plural", locale, { count: result.removed }));
     else setNotice(null);

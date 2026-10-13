@@ -9,13 +9,16 @@
 --     replay without S33 still works and S33's own earlier migration is not broken), clinical_owner_id (a link to a verified
 --     clinical_staff row, 9.6), next_step_kind + next_step_target_code (9.4, next_action is the visible label),
 --     series_tag (9.5), is_public (9.8), members_only and creator_id (9.7).
---   * Publish gate (trigger): a row cannot become published without a "what can I do next" line (9.4); its kind (goal, booking,
+--   * Publish gate (trigger): a row cannot become published without a future review date (spec 9 safety rule) or a "what can I do next" line (9.4); its kind (goal, booking,
 --     lesson) is optional and only decides whether the footer carries a link (S33's BP course lessons already carry the line). A lesson in a programme must be 1..5
 --     minutes (9.2), enforced here and on programme modules. A public row must carry a complete review record.
 --     A row that was ALREADY published and only returns from review_due is exempt from the next-step rule, so the 213+6 live
 --     rows are not locked out of the cron's review cycle; they are asked for a next step when next edited by an admin in the UI.
 --   * health_education_search_aliases: clinician-reviewable everyday-term synonyms (BP, sugar, high blood). Search only uses a
 --     row once the CMO has marked it clinician_reviewed. Seeded rows are DRAFT. Editing a reviewed row sends it back to draft.
+--   * (Reviewer attribution note: clinical_owner_id is a link set by an admin in the editor; it is NOT a recorded attestation by that
+--     clinician. The creator gate checks the link is a verified clinician other than the creator, no more. OQ-296 asks for an
+--     attestation step before the creator programme is switched on.)
 --   * creators + RPCs: verified Nigerian clinicians (an active clinical_staff row with a verified credential, not suspended, not
 --     a care coordinator) can apply, an admin or the CMO approves, an approved creator submits content INTO the existing review
 --     workflow (status clinical_review). Creator content is members_only, can only be published from approved or review_due,
@@ -154,6 +157,12 @@ begin
       raise exception 'health_education_next_step_required: add a "what can I do next" line before publishing %', new.code
         using errcode = '23514';
     end if;
+    -- Spec 9 safety rule: only reviewed, IN-DATE content is published. A new publication carries a future review date, so the
+    -- expiry rule (private.health_education_review_in_date) has something to act on.
+    if new.next_review_due is null or new.next_review_due <= (now() at time zone 'Africa/Lagos')::date then
+      raise exception 'health_education_review_date_required: set a review date in the future before publishing %', new.code
+        using errcode = '23514';
+    end if;
     if new.next_step_kind = 'lesson'
        and not exists (select 1 from public.health_education_content t where t.code = new.next_step_target_code and t.id <> new.id) then
       raise exception 'health_education_next_step_target_unknown: no lesson has the code %', new.next_step_target_code using errcode = '23514';
@@ -173,8 +182,8 @@ begin
 
   -- 9.8: a public item carries a complete review record, and is never a Members item.
   if new.is_public and (tg_op = 'INSERT' or old.is_public is distinct from true) then
-    if not (new.clinician_reviewed and new.reviewed_at is not null) then
-      raise exception 'health_education_public_needs_review: only a clinician-reviewed item (with a review date) can be public' using errcode = '23514';
+    if not (new.clinician_reviewed and new.reviewed_at is not null and new.next_review_due is not null) then
+      raise exception 'health_education_public_needs_review: only a clinician-reviewed item (with a review record and a review date) can be public' using errcode = '23514';
     end if;
   end if;
 

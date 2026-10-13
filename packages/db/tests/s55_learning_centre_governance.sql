@@ -76,7 +76,8 @@ begin
   values (p_code, 'S55 ' || p_code, 'summary ' || p_code, 'body text for ' || p_code || ' that is long enough to be a real body', 'getting_started', 'article', p_min, 'draft')
   returning id into v;
   if p_status <> 'draft' then
-    update public.health_education_content set next_action = 'Take your blood pressure today and write it down.', next_step_kind = 'booking' where id = v;
+    update public.health_education_content set next_action = 'Take your blood pressure today and write it down.', next_step_kind = 'booking',
+      next_review_due = (now() at time zone 'Africa/Lagos')::date + 180 where id = v;
     update public.health_education_content set content_status = p_status::public.health_education_content_status where id = v;
   end if;
   return v;
@@ -113,8 +114,12 @@ begin
     pg_temp.try(format($q$update public.health_education_content set next_action = 'Read the next lesson now.', next_step_kind = 'lesson', next_step_target_code = 'no_such_lesson', content_status = 'published' where id = %L$q$, v_a)));
   perform pg_temp.rec('a lesson-kind next step needs a target (table check)', '23514',
     pg_temp.try(format($q$update public.health_education_content set next_step_kind = 'lesson', next_step_target_code = null where id = %L$q$, v_a)));
-  perform pg_temp.rec('with a next step it publishes', 'ok',
-    pg_temp.try(format($q$update public.health_education_content set next_action = 'Take your blood pressure today.', next_step_kind = 'booking', content_status = 'published' where id = %L$q$, v_a)));
+  perform pg_temp.rec('a next step but no review date is refused', '23514',
+    pg_temp.try(format($q$update public.health_education_content set next_action = 'Take your blood pressure today.', content_status = 'published' where id = %L$q$, v_a)));
+  perform pg_temp.rec('a review date that is already past is refused', '23514',
+    pg_temp.try(format($q$update public.health_education_content set next_action = 'Take your blood pressure today.', next_review_due = current_date - 1, content_status = 'published' where id = %L$q$, v_a)));
+  perform pg_temp.rec('with a next step and a future review date it publishes', 'ok',
+    pg_temp.try(format($q$update public.health_education_content set next_action = 'Take your blood pressure today.', next_step_kind = 'booking', next_review_due = current_date + 90, content_status = 'published' where id = %L$q$, v_a)));
   perform pg_temp.rec('published item is active', 'true', (select is_active::text from public.health_education_content where id = v_a));
   update public.health_education_content set content_status = 'review_due' where id = v_a;
   update public.health_education_content set next_action = null, next_step_kind = null where id = v_a;
@@ -123,7 +128,7 @@ begin
 
   v_c := pg_temp.mkcontent('s55_sentence_only', 'draft');
   perform pg_temp.rec('a next-step sentence with no link kind is enough to publish', 'ok',
-    pg_temp.try(format($q$update public.health_education_content set next_action = 'Take your reading at the same time daily.', content_status = 'published' where id = %L$q$, v_c)));
+    pg_temp.try(format($q$update public.health_education_content set next_action = 'Take your reading at the same time daily.', next_review_due = current_date + 90, content_status = 'published' where id = %L$q$, v_c)));
 
   -- 2. Lesson length ----------------------------------------------------------------------------------------------
   v_b := pg_temp.mkcontent('s55_len_long', 'draft', 8);
@@ -252,7 +257,7 @@ begin
   perform pg_temp.back();
   perform pg_temp.rec('creator content cannot be published straight from review', '23514',
     pg_temp.try(format($q$update public.health_education_content set content_status = 'published' where id = %L$q$, v_cr_content)));
-  update public.health_education_content set content_status = 'approved', clinician_reviewed = true, reviewed_at = now() where id = v_cr_content;
+  update public.health_education_content set content_status = 'approved', clinician_reviewed = true, reviewed_at = now(), next_review_due = current_date + 120 where id = v_cr_content;
   perform pg_temp.rec('approved but no verified reviewer: refused', '23514',
     pg_temp.try(format($q$update public.health_education_content set content_status = 'published' where id = %L$q$, v_cr_content)));
   update public.health_education_content set clinical_owner_id = v_staff_clin where id = v_cr_content;
@@ -324,6 +329,15 @@ begin
   perform pg_temp.rec('anon cannot call search', '42501', pg_temp.try('select * from public.health_education_search(''sugar'')'));
   perform pg_temp.back();
   update public.health_education_content set next_review_due = v_today where id = v_pub;
+  update public.health_education_content set next_review_due = null where id = v_pub;
+  perform pg_temp.act_anon();
+  perform pg_temp.rec('anon: an item with no review date is not served', '0', (select count(*)::text from public.public_health_education_item('s55_public')));
+  perform pg_temp.back();
+  update public.health_education_content set next_review_due = v_today, content_status = 'review_due' where id = v_pub;
+  perform pg_temp.act_anon();
+  perform pg_temp.rec('anon: an item flagged review_due is not served', '0', (select count(*)::text from public.public_health_education_item('s55_public')));
+  perform pg_temp.back();
+  update public.health_education_content set content_status = 'published' where id = v_pub;
   perform pg_temp.act_anon();
   perform pg_temp.rec('anon: an item due for review today is not served', '0', (select count(*)::text from public.public_health_education_item('s55_public')));
   perform pg_temp.back();
@@ -357,6 +371,14 @@ begin
   perform pg_temp.act(v_pat);
   perform pg_temp.rec('offline re-check returns an in-date code', '1', (select count(*)::text from public.health_education_servable_codes(array['s55_week_lesson'])));
   perform pg_temp.rec('offline re-check omits a Members item for a non-member', '0', (select count(*)::text from public.health_education_servable_codes(array['cr_series_one'])));
+  perform pg_temp.back();
+  perform pg_temp.act(v_pat);
+  select content_version into v_n from public.health_education_servable_codes(array['s55_week_lesson']);
+  perform pg_temp.back();
+  update public.health_education_content set body = body || ' A corrected sentence.' where id = v_week;
+  perform pg_temp.act(v_pat);
+  perform pg_temp.rec('a text correction raises the version the phone compares', 'true',
+    (select (content_version > v_n)::text from public.health_education_servable_codes(array['s55_week_lesson'])));
   perform pg_temp.back();
   update public.health_education_content set next_review_due = v_today - 1 where id = v_week;
   perform pg_temp.act(v_pat);

@@ -16,6 +16,8 @@ create temp table results(phase text, check_name text, expected text, actual tex
 grant all on results to public;
 create function pg_temp.rec(p_name text, p_expected text, p_actual text) returns void language sql as
 $$ insert into results values ('real', p_name, p_expected, p_actual) $$;
+create function pg_temp.try(p_sql text) returns text language plpgsql as
+$f$ begin execute p_sql; return 'ok'; exception when others then return sqlstate; end $f$;
 create function pg_temp.act(p_uid uuid) returns void language plpgsql as
 $f$ begin
   perform set_config('request.jwt.claims', json_build_object('sub', p_uid, 'role', 'authenticated')::text, true);
@@ -117,6 +119,15 @@ begin
   perform pg_temp.act(v_pat);
   perform pg_temp.rec('...and it is still not served', '0', pg_temp.in_library(v_code));
   perform pg_temp.back();
+
+  -- 4b. The recommendation and nudge paths use the same rule ------------------------------------------------------------------
+  perform pg_temp.rec('the medication recommendation trigger checks the review date', 'true',
+    (select (pg_get_functiondef('private.health_education_recommend_on_medication()'::regprocedure) ilike '%health_education_review_in_date%')::text));
+  perform pg_temp.rec('the abnormal-result recommendation trigger checks the review date', 'true',
+    (select (pg_get_functiondef('private.health_education_recommend_on_abnormal_result()'::regprocedure) ilike '%health_education_review_in_date%')::text));
+  perform pg_temp.rec('the unlock nudge checks the review date', 'true',
+    (select (pg_get_functiondef('private.queue_health_education_unlock_nudges()'::regprocedure) ilike '%health_education_review_in_date%')::text));
+  perform pg_temp.rec('the unlock nudge still runs', 'ok', pg_temp.try('select private.queue_health_education_unlock_nudges()'));
 
   -- 5. Anon ---------------------------------------------------------------------------------------------------
   perform pg_temp.rec('anon cannot execute the review-date helper', 'false', has_function_privilege('anon', 'private.health_education_review_in_date(date)', 'EXECUTE')::text);

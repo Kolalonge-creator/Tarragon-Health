@@ -527,11 +527,13 @@ function RecommendationsBanner({ patientId }: { patientId: string }) {
   const dismiss = useDismissRecommendation(patientId);
   const markViewed = useMarkRecommendationViewed(patientId);
 
-  if (!data || data.length === 0) return null;
+  // A recommendation whose item is no longer readable (past its review date, or Members only) comes back with no content: skip it.
+  const readable = (data ?? []).filter((rec) => rec.content !== null);
+  if (readable.length === 0) return null;
 
   return (
     <div className="space-y-2">
-      {data.slice(0, 3).map((rec) => (
+      {readable.slice(0, 3).map((rec) => (
         <div
           key={rec.id}
           className="flex items-start justify-between gap-3 rounded-lg border border-brand-green/25 bg-soft-sage/20 dark:bg-brand-green/10 p-3"
@@ -730,7 +732,12 @@ function LearningPathways({
  */
 function LibrarySearch() {
   const [text, setText] = useState("");
-  const query = text.trim();
+  // Wait for a pause in typing: each search rebuilds the library server-side.
+  const [query, setQuery] = useState("");
+  useEffect(() => {
+    const handle = setTimeout(() => setQuery(text.trim()), 300);
+    return () => clearTimeout(handle);
+  }, [text]);
   const { data, isLoading, isError } = useHealthEducationSearch(query);
   const alias = data?.find((r) => r.matched_alias)?.matched_alias ?? null;
   const expanded = data?.find((r) => r.expanded_to)?.expanded_to ?? null;

@@ -1919,6 +1919,8 @@ export const en = {
   "learn.downloads.empty": "Nothing saved yet. Open a topic and choose Save for offline.",
   "learn.downloads.removed_expired": "{count} saved topic was removed because its review date passed.",
   "learn.downloads.removed_expired_plural": "{count} saved topics were removed because their review dates passed.",
+  "learn.downloads.check_failed": "We could not check your saved topics just now. Topics past their review date are hidden.",
+  "learn.downloads.need_connection": "Connect to the internet to save this topic.",
   "learn.downloads.sync_offline": "You are offline. Topics past their review date are hidden until you reconnect.",
 } as const;
 

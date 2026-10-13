@@ -29,6 +29,9 @@
 -- open question. Course lessons (S33 learning_course) are already fail-closed
 -- on NULL and unchanged by this file.
 --
+-- The recommendation triggers (new medication, abnormal result) and the weekly unlock nudge are gated by the same date rule, so a
+-- patient is never pointed at an item the read paths now hide.
+--
 -- The single predicate lives in private.health_education_review_in_date() so
 -- the CMO decision "fail closed for clinical content" is a one-line change.
 
@@ -360,6 +363,160 @@ as $function$
     and (filter_condition is null or c.condition = filter_condition or c.condition is null)
   order by similarity desc
   limit greatest(coalesce(match_count, 3), 0)
+$function$;
+
+
+-- ---- recommendation and nudge paths (a recommendation must not point at content the reader cannot open) ----------------------
+create or replace function private.health_education_recommend_on_medication()
+ returns trigger
+ language plpgsql
+ security definer
+ set search_path to ''
+as $function$
+declare
+  v_condition public.care_plan_condition;
+  v_content record;
+begin
+  if not new.is_active then
+    return new;
+  end if;
+
+  select cp.condition into v_condition
+  from public.care_plans cp where cp.id = new.care_plan_id;
+
+  for v_content in
+    select distinct c.id
+    from public.health_education_trigger_mappings tm
+    join public.health_education_content c
+      on c.is_active
+      and private.health_education_review_in_date(c.next_review_due)
+      and (tm.target_content_id is null or c.id = tm.target_content_id)
+      and (tm.target_category is null or c.category = tm.target_category)
+      and (tm.target_condition is null or c.condition = tm.target_condition or c.condition is null)
+    where tm.is_active
+      and tm.trigger_source = 'medication'
+      and lower(new.drug_name) like '%' || lower(tm.match_key) || '%'
+      and (tm.target_condition is null or tm.target_condition = v_condition)
+  loop
+    insert into public.health_education_recommendations (organisation_id, patient_id, content_id, trigger_reason)
+    values (new.organisation_id, new.patient_id, v_content.id, format('New medication: %s', new.drug_name));
+  end loop;
+
+  return new;
+end;
+$function$;
+
+create or replace function private.health_education_recommend_on_abnormal_result()
+ returns trigger
+ language plpgsql
+ security definer
+ set search_path to ''
+as $function$
+declare
+  v_flag text;
+  v_content record;
+begin
+  if new.abnormal_flags is null or array_length(new.abnormal_flags, 1) is null then
+    return new;
+  end if;
+
+  foreach v_flag in array new.abnormal_flags loop
+    for v_content in
+      select distinct c.id
+      from public.health_education_trigger_mappings tm
+      join public.health_education_content c
+        on c.is_active
+        and private.health_education_review_in_date(c.next_review_due)
+        and (tm.target_content_id is null or c.id = tm.target_content_id)
+        and (tm.target_category is null or c.category = tm.target_category)
+        and (tm.target_condition is null or c.condition = tm.target_condition or c.condition is null)
+      where tm.is_active
+        and tm.trigger_source = 'abnormal_result'
+        and lower(v_flag) like '%' || lower(tm.match_key) || '%'
+    loop
+      insert into public.health_education_recommendations (organisation_id, patient_id, content_id, trigger_reason)
+      values (new.organisation_id, new.patient_id, v_content.id, format('Abnormal result: %s', v_flag));
+    end loop;
+  end loop;
+
+  return new;
+end;
+$function$;
+
+create or replace function private.queue_health_education_unlock_nudges()
+ returns void
+ language sql
+ security definer
+ set search_path to ''
+as $function$
+  with patients as (
+    select p.id as patient_id, p.organisation_id
+    from public.profiles p
+    where p.role = 'patient' and p.organisation_id is not null
+  ),
+  patient_conditions as (
+    select distinct cp.patient_id, cp.condition
+    from public.care_plans cp
+    where cp.status = 'active'
+  ),
+  patient_risk as (
+    select prs.patient_id, max(prs.risk_level) as risk_level
+    from public.patient_risk_scores prs
+    group by prs.patient_id
+  ),
+  candidates as (
+    select
+      pt.patient_id,
+      pt.organisation_id,
+      c.id as content_id,
+      c.title,
+      c.sort_order,
+      coalesce(c.condition::text, 'general') as track_key,
+      c.drip_week as unlock_week
+    from public.health_education_content c
+    join patients pt on true
+    left join patient_conditions pc
+      on pc.patient_id = pt.patient_id and pc.condition = c.condition
+    left join patient_risk pr on pr.patient_id = pt.patient_id
+    where c.is_active
+      and private.health_education_review_in_date(c.next_review_due)
+      and c.drip_week is not null
+      and (c.condition is null or pc.condition is not null)
+      and (c.min_risk_level is null
+           or c.min_risk_level <= coalesce(pr.risk_level, 'low'::public.risk_level))
+      and c.drip_week = private.health_education_unlock_week_for(pt.patient_id, c.condition)
+  ),
+  unseen as (
+    select cand.*
+    from candidates cand
+    where not exists (
+      select 1 from public.health_education_progress hep
+      where hep.patient_id = cand.patient_id and hep.content_id = cand.content_id
+    )
+  ),
+  newly_marked as (
+    insert into public.health_education_unlock_notifications
+      (patient_id, organisation_id, track_key, unlock_week)
+    select distinct patient_id, organisation_id, track_key, unlock_week
+    from unseen
+    on conflict (patient_id, track_key, unlock_week) do nothing
+    returning patient_id
+  ),
+  to_notify as (
+    select distinct
+      nm.patient_id,
+      (select organisation_id from unseen u where u.patient_id = nm.patient_id limit 1)
+        as organisation_id,
+      (select u.title from unseen u where u.patient_id = nm.patient_id
+        order by u.sort_order limit 1) as lead_title,
+      (select count(distinct u.content_id) from unseen u where u.patient_id = nm.patient_id)
+        as item_count
+    from newly_marked nm
+  )
+  insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload)
+  select organisation_id, patient_id, 'in_app', 'pending', 'health_education_unlock',
+    jsonb_build_object('lesson_title', lead_title, 'lesson_count', item_count)
+  from to_notify;
 $function$;
 
 -- create or replace keeps existing grants; assert them anyway.

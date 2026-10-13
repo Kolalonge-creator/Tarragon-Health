@@ -124,7 +124,12 @@ export async function loadHealthEducationDetail(code: string): Promise<LibraryIt
  */
 export async function loadServableCodes(codes: string[]): Promise<{ code: string; next_review_due: string | null; content_version: number | null }[] | null> {
   const { data, error } = await supabase.rpc("health_education_servable_codes", { p_codes: codes });
-  if (error) return null;
+  // A network failure comes back with an empty code; a real server answer (permission, function error, expired session) has one.
+  // Only the first means "offline". The second must not be mistaken for it, or a withdrawn topic would silently stay on the phone.
+  if (error) {
+    if (error.code) throw error;
+    return null;
+  }
   return (data ?? []).map((r) => ({ code: r.code, next_review_due: r.next_review_due ?? null, content_version: r.content_version ?? null }));
 }
 

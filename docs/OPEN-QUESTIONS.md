@@ -1450,6 +1450,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-291 Content with no review date: served (fail open) or hidden (fail closed)? (D4)
 - Live 2026-10-07: 249 content rows, 219 published, ALL with `next_review_due` NULL (0 overdue). The D4 rule hides an item once its date is on or before today in Africa/Lagos. A NULL date fails OPEN, because failing closed would remove the whole library on apply. Consequence: today no item is protected by expiry.
 - Options: (a) as built, and the CMO assigns review dates to the 6 clinician-reviewed items first, then the rest (recommended); (b) fail closed for every item with no date (library disappears until dated); (c) fail closed only for `clinician_reviewed = false` items (213 rows hidden; the 6 reviewed stay).
+- Mitigation built: from now on an item cannot be published (or made public) without a future review date, so only the 219 legacy rows are undated. The public share page also refuses an undated or `review_due` item.
 - One-line change: `private.health_education_review_in_date()`.
 - Decision: open (CMO).
 
@@ -1464,6 +1465,11 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-294 Audio player needs a native build
 - No audio module (expo-audio) is installed. S55 adds a port (`apps/mobile/src/lib/content-audio.ts`); until a build registers an engine the app shows the written version and opens the file in the phone's player. Adding `expo-audio` needs a new EAS build and a `runtimeVersion` bump (OQ-201). Not tested on a real device.
 - Decision: open (founder, native build).
+
+### OQ-296 The reviewer link is an admin's claim, not the clinician's attestation
+- `clinical_owner_id` is set by an admin in the editor and `set_health_education_content_status` (admin only) sets `clinician_reviewed`. Neither records that the named clinician actually read the item, so "Reviewed by Dr X" is only as true as the admin's entry. The creator gate checks the reviewer is a verified clinician other than the creator, no more. Same weakness exists for the older free-text `reviewed_by_name`.
+- Options: (a) as built until creators are switched on, then add an attestation step (the named clinician signs from `/clinician`, like the CMO sign-off hub) before publish; (b) require the CMO to publish creator content.
+- Decision: open (CMO, founder). Blocks switching on `learning_creators`.
 
 ### OQ-295 `when_to_seek_care` category and myth series have no content
 - The category exists and the myth-busting programme exists with no modules. Nothing was written: clinical safety wording must come from the CMO. The admin can copy the three existing marketing myth articles in as drafts (`mirror_marketing_resource_to_learning`), each needing review and a next step before it can be published.

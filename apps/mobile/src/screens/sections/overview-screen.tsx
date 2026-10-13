@@ -34,9 +34,11 @@ interface OverviewScreenProps {
   patientName: string;
   onNavigate: (section: SectionId) => void;
   onOpenVideoVisit: (consultationId: string) => void;
+  /** False while acting for someone else: the lesson belongs to the signed-in person, not the dependant. */
+  ownRecord?: boolean;
 }
 
-export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideoVisit }: OverviewScreenProps) {
+export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideoVisit, ownRecord = true }: OverviewScreenProps) {
   const glucoseUnit = useGlucoseDisplayUnit();
   const uiLanguage = useUiLanguage();
   const [stats, setStats] = useState<SummaryStats | null>(null);
@@ -244,12 +246,14 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
       <TodayCard patientId={patientId} onNavigate={onNavigate} reloadToken={scoreReloadToken} />
 
       {/* One short lesson for the week (S55, 9.2); nothing when there is none. */}
+      {ownRecord ? (
       <ThisWeeksLessonCard
         onOpen={(code) => {
           requestLesson(code);
           onNavigate("learn");
         }}
       />
+      ) : null}
 
       {showGetStarted ? <GetStartedCard progress={progress} onNavigate={onNavigate} /> : null}
 
