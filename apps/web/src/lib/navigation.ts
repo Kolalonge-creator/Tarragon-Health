@@ -1,3 +1,4 @@
+import { t } from "@tarragon/i18n";
 import type { AppIconName } from "@/lib/icons";
 import { ANALYTICS_GROUP_ORDER, ANALYTICS_SECTIONS } from "@/lib/analytics/sections";
 import type { WorklistCountKey } from "@/lib/queries/worklist-counts";
@@ -63,6 +64,11 @@ export function getNavSections(
    * two are independent, so there is no combined case to special-case.
    */
   receivesCare?: boolean | null,
+  /**
+   * Community groups are dormant behind the `community` go-live guard (docs/COMMUNITY_SPEC.md section 8). The entry is added only when
+   * the database says the community is open for this member, so while it is closed nothing about it shows anywhere in the menu.
+   */
+  options?: { communityOpen?: boolean },
 ): NavSection[] {
   switch (role) {
     case "patient":
@@ -202,6 +208,8 @@ export function getNavSections(
             // one place, composed from the record the sections below already
             // hold rather than a second copy of it.
             { label: "Health summary", href: "/patient/health-summary", icon: "carePlan" },
+            // The front door for the record the patient carries and shares (S09x): timeline, emergency card, passport, share links, who has looked.
+            { label: "My Health", href: "/patient/my-health", icon: "passport" },
             { label: "Prevention", href: "/patient/prevention", icon: "preventive" },
             { label: "Women's Health", href: "/patient/womens-health", icon: "family" },
             {
@@ -248,6 +256,7 @@ export function getNavSections(
             // Buy the Membership or a care pack, see what is included and the price, and see your payments (S25).
             { label: "Membership", href: "/patient/membership", icon: "billing" },
             { label: "Family", href: "/patient/family", icon: "family" },
+            ...(options?.communityOpen ? [{ label: t("community.nav.title"), href: "/patient/community", icon: "family" as const }] : []),
             // Real feature a single-persona mock doesn't happen to show (that
             // patient supports nobody) — kept reachable rather than regressed.
             { label: "People you support", href: "/patient/supporting", icon: "parentCare" },
@@ -606,6 +615,8 @@ export function getNavSections(
                 // reachable only via /admin, which a real CMO account
                 // (always `profiles.role = "clinician"`) cannot open.
                 { label: "Sign-off hub", href: "/clinician/clinical-signoff", icon: "review" },
+                // Community groups: the sign-off block lives on the hub above; this is the rest of the tools (rules, drill, member lookups). CMO and clinicians.
+                { label: "Community", href: "/clinician/community", icon: "members" },
                 // New clinician applications, licence and cover expiry, and the training and test content (S15).
                 // Chief Medical Officer only; the pages redirect anyone below that tier.
                 { label: "Clinician credentialing", href: "/clinician/credentialing", icon: "review" },
@@ -708,6 +719,8 @@ export function getNavSections(
             { label: "Rota and lead clinicians", href: "/admin/rota", icon: "caseload" },
             // The go-live guards and the proposed values the founder owns (S37).
             { label: "Go-live guards", href: "/admin/go-live", icon: "governance" },
+            // Community groups, topics, moderators, filter rules, the recorded member lookup.
+            { label: "Community", href: "/admin/community", icon: "messages" },
             // Grant or end a Membership by hand until checkout exists (S22b).
             { label: "Memberships", href: "/admin/memberships", icon: "members" },
             // What can be bought, its price and its history; switch an item on or off (S25).
@@ -723,6 +736,7 @@ export function getNavSections(
             { label: "Fees and earnings", href: "/admin/earnings", icon: "analytics" },
             { label: "Payouts", href: "/admin/payouts", icon: "analytics" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+            { label: "Event bus", href: "/admin/ops/event-bus", icon: "operations" },
             { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
                 { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
             { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },

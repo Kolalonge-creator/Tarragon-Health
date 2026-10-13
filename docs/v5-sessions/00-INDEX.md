@@ -126,3 +126,5 @@ Suggested release order: Release 1 completion (M7, M12, M13 diabetes half, M1 co
 | [S87](S87-cross-cutting-part-c-conformance-scan-do-not-build.md) | Cross-cutting: Part C conformance scan (do not build list) | S40 |
 
 Total sessions: 90.
+
+**Amendments:** read [00-AMENDMENTS-2026-10-08-two-tier.md](00-AMENDMENTS-2026-10-08-two-tier.md) before starting or resuming S12, S18, S19, S21, S25-S27, S45, S46, S65, S71-S74, S79.
