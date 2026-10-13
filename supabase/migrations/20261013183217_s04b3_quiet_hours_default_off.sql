@@ -7,11 +7,24 @@
 -- Row counts at writing (live): notification_settings 0 rows, profiles.discreet_mode true 0 rows, so no conversion step.
 -- Safety rule unchanged: critical rows, safety templates and the in-app inbox are never held (sender code, delivery.ts).
 
-update public.notification_rules_config set is_active = false where is_active;
-insert into public.notification_rules_config (version, is_active, config, note) values
-  (3, true,
-   '{"quietHours":{"enabled":false,"start":"21:00","end":"07:00"},"routinePushPerDay":4,"receiptCheckMinutes":15,"receiptGiveUpHours":24,"pushFallback":{"enabled":true,"afterMinutes":240,"maxAgeHours":24,"perRecipientPerDay":1,"batchSize":200}}'::jsonb,
-   'S04b-3 PROPOSED: quiet hours default off; a person turns them on in settings (window 21:00 to 07:00 Africa/Lagos until they change it).');
+-- Read the live active row rather than a copy of it: take max(version) + 1, keep every other setting as it is, and
+-- only switch quiet hours off.
+do $rules$
+declare v_cfg jsonb; v_next integer;
+begin
+  select config into v_cfg from public.notification_rules_config where is_active order by version desc limit 1;
+  if v_cfg is null then raise exception 'S04b-3: no active notification_rules_config row to copy'; end if;
+  select max(version) + 1 into v_next from public.notification_rules_config;
+  update public.notification_rules_config set is_active = false where is_active;
+  insert into public.notification_rules_config (version, is_active, config, note) values
+    (v_next, true, jsonb_set(v_cfg, '{quietHours,enabled}', 'false'::jsonb, true),
+     'S04b-3 PROPOSED: quiet hours default off; a person turns them on in settings (window 21:00 to 07:00 Africa/Lagos until they change it). All other values copied from the previous active row.');
+end $rules$;
+
+-- One new delivery event: a discreet patient's email carried no document; it is open in the app.
+alter table public.notification_delivery_events drop constraint if exists notification_delivery_events_event_check;
+alter table public.notification_delivery_events add constraint notification_delivery_events_event_check
+  check (event in ('accepted','receipt_pending','delivered','opened','failed','bounced','complained','deferred_quiet','suppressed_cap','blocked_inv07','token_dead','email_fallback_queued','discreet_document_in_app'));
 
 alter table public.notification_settings alter column quiet_enabled set default false;
 

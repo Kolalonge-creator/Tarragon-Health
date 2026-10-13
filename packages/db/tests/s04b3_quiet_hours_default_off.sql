@@ -51,6 +51,12 @@ begin
 
   insert into results values ('real', 'the active rules row has quiet hours off', 'false',
     (select (config -> 'quietHours' ->> 'enabled') from public.notification_rules_config where is_active));
+  insert into results values ('real', 'the new rules row is the previous version plus one and copies every other setting', 'true',
+    (select (a.version = p.version + 1 and (a.config - 'quietHours') = (p.config - 'quietHours') and p.is_active = false)::text
+       from public.notification_rules_config a join public.notification_rules_config p on p.version = a.version - 1 where a.is_active));
+  insert into results values ('real', 'the discreet-document delivery event is accepted', 'ok',
+    pg_temp.try(format($q$insert into public.notification_delivery_events (notification_id, organisation_id, event, provider)
+      select id, organisation_id, 'discreet_document_in_app', 'system' from public.notifications where id = %L$q$, pg_temp.held(v_org, v_b))));
   insert into results values ('real', 'exactly one active rules row', '1', (select count(*)::text from public.notification_rules_config where is_active));
   insert into results values ('real', 'the column default is off', 'false',
     (select (column_default)::text from information_schema.columns where table_name = 'notification_settings' and column_name = 'quiet_enabled'));
