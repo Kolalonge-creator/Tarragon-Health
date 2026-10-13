@@ -612,6 +612,7 @@ async function sendPregnancySession(item: OutboxItem): Promise<SendOutcome> {
   return error ? asFailure(error) : { ok: true };
 }
 
+/**
  * S06x: tell the server, once, that it refused this entry, so support can see it without the patient
  * having to read a code down the phone. Carries no health value (rejection-report.ts). Best effort: a
  * failure leaves the row unreported and the next flush tries again; the server ignores a repeat.

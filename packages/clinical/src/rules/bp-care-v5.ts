@@ -42,7 +42,8 @@ export const BP_CARE_V5: RuleSet = {
     ...BP_CARE_V4.params,
     symptomGroups: {
       ...BP_CARE_V4.params.symptomGroups,
-      preeclampsiaFlag: [...(BP_CARE_V4.params.symptomGroups.preeclampsiaFlag ?? []), "sudden_face_hand_swelling"],
+      // (spread over a default, not `?? []`: version 4 always has the group, so a fallback branch could never run)
+      preeclampsiaFlag: [...{ preeclampsiaFlag: [], ...BP_CARE_V4.params.symptomGroups }.preeclampsiaFlag, "sudden_face_hand_swelling"],
       obstetricEmergency: ["convulsion", "loss_of_consciousness"],
     },
   },

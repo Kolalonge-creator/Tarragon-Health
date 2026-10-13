@@ -1,14 +1,24 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { finishContractionSession, finishKickSession, evaluateKickNow, kickCounterOffered } from "./pregnancy-sessions";
+import type { ObstetricCache } from "./obstetric-status";
 
 const mockEnqueue = jest.fn(async (_input: unknown) => ({}));
 jest.mock("./outbox", () => ({ enqueue: (input: unknown) => mockEnqueue(input) }));
 jest.mock("./supabase", () => ({ supabase: {} }));
+// S06x moved the obstetric copy into the encrypted store; the tests set what the reader returns instead of writing the old AsyncStorage key.
+let mockObstetric: ObstetricCache | null = null;
+jest.mock("./obstetric-status", () => {
+  const actual = jest.requireActual("./obstetric-status");
+  return {
+    ...actual,
+    // the real week arithmetic, fed from the value the test sets instead of the encrypted store
+    readPregnancyWeek: async (_subjectId: string, nowMs: number) => actual.pregnancyWeekFrom(mockObstetric, nowMs),
+  };
+});
 
 const SUBJECT = "user-s67";
 const NOW = Date.parse("2026-10-05T10:00:00.000Z");
 const MIN = 60_000;
-const OBSTETRIC_KEY = `@tarragon/obstetric/v1:${SUBJECT}`;
 const HISTORY = `@tarragon/kick-history/v1:${SUBJECT}`;
 const taps = (start: number, n: number, every: number) => Array.from({ length: n }, (_, i) => start + (i + 1) * every * MIN);
 
@@ -16,15 +26,15 @@ beforeEach(async () => {
   mockEnqueue.mockClear();
   await AsyncStorage.removeItem(HISTORY);
   // 31 weeks on 2026-10-05 (last period 2026-03-01)
-  await AsyncStorage.setItem(OBSTETRIC_KEY, JSON.stringify({ pregnant: true, lastDeliveryDate: null, fetchedAtMs: 1, lmp: "2026-03-01", edd: null }));
+  mockObstetric = { pregnant: true, lastDeliveryDate: null, fetchedAtMs: 1, lmp: "2026-03-01", edd: null };
 });
 
 describe("kick counter on the phone", () => {
   it("is offered from week 28 when she is pregnant, not otherwise", async () => {
     expect(await kickCounterOffered(SUBJECT, NOW)).toBe(true);
-    await AsyncStorage.setItem(OBSTETRIC_KEY, JSON.stringify({ pregnant: true, lastDeliveryDate: null, fetchedAtMs: 1, lmp: "2026-08-01", edd: null }));
+    mockObstetric = { pregnant: true, lastDeliveryDate: null, fetchedAtMs: 1, lmp: "2026-08-01", edd: null };
     expect(await kickCounterOffered(SUBJECT, NOW)).toBe(false);
-    await AsyncStorage.removeItem(OBSTETRIC_KEY);
+    mockObstetric = null;
     expect(await kickCounterOffered(SUBJECT, NOW)).toBe(false);
   });
 
@@ -79,7 +89,7 @@ describe("contraction timer on the phone", () => {
   });
 
   it("an hour of contractions every 5 minutes at 39 weeks is go now (pattern); the earlier pattern needs the birth plan", async () => {
-    await AsyncStorage.setItem(OBSTETRIC_KEY, JSON.stringify({ pregnant: true, lastDeliveryDate: null, fetchedAtMs: 1, lmp: "2026-01-05", edd: null }));
+    mockObstetric = { pregnant: true, lastDeliveryDate: null, fetchedAtMs: 1, lmp: "2026-01-05", edd: null };
     const start = NOW - 62 * MIN;
     const c = run(13, 5, start);
     const e = await finishContractionSession({ subjectId: SUBJECT, organisationId: "o1", startedAtMs: start, contractions: c, signs: [], flags: null, nowMs: NOW });
@@ -92,7 +102,7 @@ describe("contraction timer on the phone", () => {
   });
 
   it("any contraction before 37 weeks is go now", async () => {
-    await AsyncStorage.setItem(OBSTETRIC_KEY, JSON.stringify({ pregnant: true, lastDeliveryDate: null, fetchedAtMs: 1, lmp: "2026-03-01", edd: null }));
+    mockObstetric = { pregnant: true, lastDeliveryDate: null, fetchedAtMs: 1, lmp: "2026-03-01", edd: null };
     const e = await finishContractionSession({ subjectId: SUBJECT, organisationId: "o1", startedAtMs: NOW, contractions: run(1, 5, NOW), signs: [], flags: null, nowMs: NOW });
     expect(e).toMatchObject({ state: "go_now", reason: "before_term" });
   });
