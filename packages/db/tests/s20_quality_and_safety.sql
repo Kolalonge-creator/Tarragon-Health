@@ -1044,7 +1044,7 @@ begin
 end $$;
 
 -- 11b. SABOTAGE: the new-clinician branch removed; the Q16 check must flip
-create or replace function private.new_clinician_case_ordinal(p_task uuid) returns integer
+create or replace function private.new_clinician_case_ordinal(p_task uuid, p_cap integer default 1000) returns integer
 language sql stable security definer set search_path = '' as $$ select null::integer $$;
 do $$
 declare v_t uuid;

@@ -92,7 +92,7 @@ declare
   u_gf uuid; u_new uuid; u_t uuid; u_old uuid; u_dates uuid;
   s_gf uuid; s_new uuid; s_t uuid; s_old uuid; s_dates uuid;
   d_gf uuid; d_new uuid; d_other uuid; d_old uuid; d_old2 uuid;
-  v_r text; v_sweep jsonb; v_list jsonb; v_n integer; v_cols text; u_coord uuid; s_coord uuid; v_app uuid;
+  v_r text; v_sweep jsonb; v_list jsonb; v_n integer; v_cols text; u_coord uuid; s_coord uuid; v_app uuid; d_cv uuid;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
@@ -287,11 +287,18 @@ begin
   perform pg_temp.rec('another check still cannot be recorded after the checks stage', '23514',
     pg_temp.try_as(v_admin, format('select public.record_credential_check(%L, ''identity'', ''passed'')', v_app)));
 
+  -- the appointment engine's availability rules take the same gate
+  perform pg_temp.rec('a clinician with no record cannot add appointment availability rules', '23514',
+    pg_temp.try(format('insert into public.provider_availability_rules (organisation_id, clinician_id, day_of_week, start_time, end_time, consultation_method, appointment_types, slot_duration_minutes) values (%L, %L, 1, ''09:00'', ''12:00'', (enum_range(null::public.appointment_consultation_method))[1], array[(enum_range(null::public.appointment_type))[1]], 30)', v_org, u_dates)));
+  perform pg_temp.rec('...one with a record can', 'ok',
+    pg_temp.try(format('insert into public.provider_availability_rules (organisation_id, clinician_id, day_of_week, start_time, end_time, consultation_method, appointment_types, slot_duration_minutes) values (%L, %L, 1, ''09:00'', ''12:00'', (enum_range(null::public.appointment_consultation_method))[1], array[(enum_range(null::public.appointment_type))[1]], 30)', v_org, u_gf)));
   -- the older patient-facing route: no availability can be published before verification
   perform pg_temp.rec('a clinician with no record cannot publish video-visit availability', '23514',
     pg_temp.try(format('insert into public.consult_availability_slots (organisation_id, clinician_profile_id, slot_start, slot_end) values (%L, %L, now() + interval ''1 day'', now() + interval ''1 day 30 minutes'')', v_org, u_dates)));
   perform pg_temp.rec('...one with a record can', 'ok',
     pg_temp.try(format('insert into public.consult_availability_slots (organisation_id, clinician_profile_id, slot_start, slot_end) values (%L, %L, now() + interval ''1 day'', now() + interval ''1 day 30 minutes'')', v_org, u_gf)));
+  perform pg_temp.rec('a file that already backs one verification cannot back another', '23514',
+    pg_temp.try_as(v_admin, format('select public.record_primary_source_verification(%L, ''mdcn_register_check'', ''REG-OLD-0009'', %L, %L)', s_old, pg_temp.today(), d_old2)));
   -- 6. The patient lookup (Q17) ------------------------------------------------------------------------------------------
   perform pg_temp.rec('a patient sees the LATEST verification date for a verified clinician', (pg_temp.today())::text,
     pg_temp.q_as(v_pat, format('select verified_on::text from public.clinician_licence_verified_on(array[%L::uuid])', s_gf)));
@@ -317,6 +324,14 @@ begin
     perform pg_temp.rec('a patient of another organisation sees no badge', '0',
       pg_temp.q_as(v_pat_other, format('select count(*)::text from public.clinician_licence_verified_on(array[%L::uuid])', s_gf)));
   end if;
+  -- verification evidence is never purged, even when its owner has left and the retention date has passed
+  update public.clinical_staff set status = 'offboarded', active = false where id = s_old;
+  d_cv := pg_temp.mkdoc(v_org, s_old, u_old, 'cv');
+  update public.clinician_documents set retain_until = current_date - 5 where id in (d_old, d_old2, d_cv);
+  perform pg_temp.rec('the purge skips a document that backs a verification', '',
+    coalesce((select private.credential_purge_reason(d) from public.clinician_documents d where d.id = d_old2), ''));
+  perform pg_temp.rec('...but still applies to an ordinary document of the same owner', 'retention_elapsed',
+    (select private.credential_purge_reason(d) from public.clinician_documents d where d.id = d_cv));
 end $$;
 
 -- 7. SABOTAGE: the gate forced open; "a real clinician with no evidence is NOT eligible" must flip -------------------------

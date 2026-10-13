@@ -15,7 +15,11 @@ export async function fetchLicenceVerifiedOn(client: object, ids: readonly strin
   const wanted = [...new Set(ids.filter((i) => z.uuid().safeParse(i).success))];
   if (wanted.length === 0) return out;
   const { data, error } = await (client as RpcClient).rpc("clinician_licence_verified_on", { p_ids: wanted });
-  if (error) return out; // a failed lookup shows no badge; it can never invent one
+  if (error) {
+    // a failed lookup shows no badge (it can never invent one), but it must not be silent: a broken grant would look like "not verified" everywhere
+    console.error("licence-verified lookup failed", typeof error === "object" && error !== null && "code" in error ? (error as { code?: unknown }).code : undefined);
+    return out;
+  }
   const parsed = z.array(rowSchema).safeParse(data);
   if (!parsed.success) return out;
   for (const r of parsed.data) {

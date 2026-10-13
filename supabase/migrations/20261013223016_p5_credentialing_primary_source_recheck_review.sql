@@ -107,7 +107,7 @@ create table public.clinician_primary_source_verifications (
   id                   uuid primary key default gen_random_uuid(),
   organisation_id      uuid not null references public.organisations (id) on delete restrict,
   clinical_staff_id    uuid not null references public.clinical_staff (id) on delete cascade,
-  application_id       uuid references public.clinician_applications (id) on delete set null,
+  application_id       uuid,   -- plain reference, no foreign key: this table is append only, so a cascade could never update it
   kind                 text not null check (kind in ('initial', 'recheck')),
   route                text not null check (route in ('mdcn_dataflow', 'mdcn_written_confirmation', 'mdcn_register_check')),
   reference            text not null check (length(btrim(reference)) between 4 and 80),
@@ -121,6 +121,8 @@ create table public.clinician_primary_source_verifications (
 -- the same MDCN or DataFlow reference can never vouch for two different people (the functions below enforce that); the same person
 -- may repeat a reference at a re-check (a register number does not change), but not on the same day twice
 create unique index clinician_psv_reference_unique on public.clinician_primary_source_verifications (clinical_staff_id, route, upper(btrim(reference)), verified_on);
+-- a file can back one verification only: a re-check needs a fresh file, not the one already used
+create unique index clinician_psv_evidence_unique on public.clinician_primary_source_verifications (evidence_document_id);
 create index clinician_psv_staff_idx on public.clinician_primary_source_verifications (clinical_staff_id, verified_on desc);
 -- Append only: never edited, and deleted only when the clinician record itself is removed (rejecting an approved
 -- application that was never switched on deletes that record, and with it these rows).
@@ -233,7 +235,9 @@ begin
   if p_application is not null then
     select * into a from public.clinician_applications where id = p_application and profile_id = v_uid;
     if not found then raise exception 'application not found' using errcode = 'P0002'; end if;
-    if a.state not in ('started', 'documents_submitted', 'checks_in_progress') then raise exception 'documents can no longer be changed on this application' using errcode = '23514'; end if;
+    if a.state not in ('started', 'documents_submitted', 'checks_in_progress')
+       and not (p_kind = 'mdcn_confirmation' and a.state in ('training', 'test_passed')) then
+      raise exception 'documents can no longer be changed on this application' using errcode = '23514'; end if;
     update public.clinician_documents set superseded_at = now() where application_id = p_application and kind = p_kind and superseded_at is null;
     -- Replacing a document whose check already passed sends that check back to pending: the evidence changed.
     update public.clinician_checks set result = 'pending', performed_by = null, performed_at = null, evidence_document_id = null
@@ -324,6 +328,11 @@ begin
         if exists (select 1 from public.clinician_primary_source_verifications v
                     where v.route = p_details ->> 'route' and upper(btrim(v.reference)) = upper(v_ref)) then
           raise exception 'this reference is already recorded for another clinician' using errcode = '23514'; end if;
+        -- two applicants cannot pass the check with the same reference either (nothing is in the verifications table until approval)
+        if exists (select 1 from public.clinician_checks c2
+                    where c2.kind = 'primary_source' and c2.result = 'passed' and c2.application_id <> a.id
+                      and c2.details ->> 'route' = p_details ->> 'route' and upper(btrim(c2.details ->> 'reference')) = upper(v_ref)) then
+          raise exception 'this reference is already recorded for another applicant' using errcode = '23514'; end if;
         select id into v_evidence from public.clinician_documents where application_id = a.id and kind = 'mdcn_confirmation' and superseded_at is null;
       else
         if coalesce((p_details ->> 'confirmed_back')::boolean, false) is not true then
@@ -401,6 +410,9 @@ begin
   update public.clinician_applications set approved_by = auth.uid(), approved_at = now(), clinical_staff_id = v_staff where id = a.id;
   -- Q14: carry the verified record (route, reference, date, verifier, evidence file) to the clinician.
   if v_psv_check.id is not null and v_psv_check.result = 'passed' then
+    if exists (select 1 from public.clinician_primary_source_verifications v
+                where v.route = v_psv_check.details ->> 'route' and upper(btrim(v.reference)) = upper(btrim(v_psv_check.details ->> 'reference'))) then
+      raise exception 'this reference was recorded for another clinician since the check passed' using errcode = '23514'; end if;
     insert into public.clinician_primary_source_verifications
       (organisation_id, clinical_staff_id, application_id, kind, route, reference, verified_on, verified_by, evidence_document_id, notes, is_test)
     values (a.organisation_id, v_staff, a.id, 'initial', v_psv_check.details ->> 'route', btrim(v_psv_check.details ->> 'reference'),
@@ -447,6 +459,8 @@ begin
     where id = p_evidence_document and clinical_staff_id = p_staff and owner_profile_id = s.profile_id and superseded_at is null
       and kind in ('mdcn_confirmation', 'mdcn_portal_screenshot');
   if not found then raise exception 'attach the clinician''s uploaded MDCN or DataFlow confirmation (or register screenshot)' using errcode = '23514'; end if;
+  if exists (select 1 from public.clinician_primary_source_verifications v where v.evidence_document_id = d.id) then
+    raise exception 'that file already backs an earlier verification; ask the clinician to upload a fresh one' using errcode = '23514'; end if;
   if exists (select 1 from public.clinician_primary_source_verifications v
               where v.route = p_route and upper(btrim(v.reference)) = upper(v_ref) and v.clinical_staff_id <> p_staff) then
     raise exception 'this reference is already recorded for another clinician' using errcode = '23514'; end if;
@@ -607,7 +621,11 @@ begin
     exception when others then
       v_errors := v_errors + 1;
       raise warning 'credential_recheck_sweep failed for clinician %: %', r.id, sqlerrm;
-      perform private.credential_audit(r.organisation_id, null, 'credential_recheck_sweep.error', 'clinical_staff', r.id, jsonb_build_object('error', sqlerrm));
+      begin
+        perform private.credential_audit(r.organisation_id, null, 'credential_recheck_sweep.error', 'clinical_staff', r.id, jsonb_build_object('error', sqlerrm));
+      exception when others then
+        raise warning 'credential_recheck_sweep: could not write the audit row for %: %', r.id, sqlerrm;
+      end;
     end;
   end loop;
   if v_errors > 0 and not exists (select 1 from public.ops_incidents where external_reference = 'credential_recheck_sweep' and status not in ('resolved', 'closed')) then
@@ -709,6 +727,42 @@ revoke all on function private.guard_consult_slot_primary_source() from public, 
 create trigger consult_availability_slots_primary_source before insert on public.consult_availability_slots
   for each row execute function private.guard_consult_slot_primary_source();
 
+-- ... and the appointment engine's availability rules (clinician_id is a profile id there)
+create function private.guard_availability_rule_primary_source() returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+declare s public.clinical_staff%rowtype;
+begin
+  select * into s from public.clinical_staff where profile_id = new.clinician_id and active;
+  if found and not private.psv_satisfied(s.id) then
+    raise exception 'the MDCN or DataFlow verification must be recorded before availability can be offered' using errcode = '23514';
+  end if;
+  return new;
+end;
+$$;
+revoke all on function private.guard_availability_rule_primary_source() from public, anon, authenticated;
+create trigger provider_availability_rules_primary_source before insert on public.provider_availability_rules
+  for each row execute function private.guard_availability_rule_primary_source();
+
+-- Verification evidence is never purged (the verification row points at it and is append only).
+create or replace function private.credential_purge_reason(d public.clinician_documents) returns text
+language sql stable set search_path = ''
+as $$
+  select case
+    when exists (select 1 from public.clinician_primary_source_verifications v where v.evidence_document_id = d.id) then null
+    when d.retain_until is not null and d.retain_until < current_date
+         and not exists (select 1 from public.clinical_staff s
+                          where s.profile_id = d.owner_profile_id and s.status in ('active', 'suspended'))
+      then 'retention_elapsed'
+    when d.clinical_staff_id is null and d.application_id is not null
+         and exists (select 1 from public.clinician_applications a where a.id = d.application_id and a.state = 'rejected')
+         and (select max(t.created_at) from public.clinician_application_transitions t
+               where t.application_id = d.application_id and t.to_state = 'rejected')
+             < now() - make_interval(months => coalesce((private.credential_rule('rejected_application_document_retention_months'))::int, 24))
+      then 'rejected_application_retention_elapsed'
+  end
+$$;
+
 -- ---------------------------------------------------------------------------
 -- 7. Q16: a new clinician's first N red or prescribing cases are all audited
 -- ---------------------------------------------------------------------------
@@ -717,18 +771,23 @@ alter table public.clinical_audits add constraint clinical_audits_reason_check
   check (reason in ('random_sample', 'floor_top_up', 'red_event', 'titration', 'first_tasks', 'lead_request', 'new_clinician_review'));
 
 -- Which completed task is this clinician's n-th red or prescribing case? Ordered by completion time then id, so it is stable.
-create function private.new_clinician_case_ordinal(p_task uuid) returns integer
+create index clinical_tasks_claimed_completed_idx on public.clinical_tasks (claimed_by, completed_at) where state = 'completed';
+
+-- p_cap bounds the count: the caller only needs to know whether the case is within the first N, so it never scans a whole history.
+create function private.new_clinician_case_ordinal(p_task uuid, p_cap integer default 1000) returns integer
 language sql stable security definer set search_path = ''
 as $$
   select case when (t.priority_class_original = 1 or t.type = 'red_event_unacknowledged' or t.required_competencies @> array['prescribing']::text[])
-           then (select count(*)::integer from public.clinical_tasks x
-                  where x.claimed_by = t.claimed_by and x.state = 'completed'
-                    and (x.priority_class_original = 1 or x.type = 'red_event_unacknowledged' or x.required_competencies @> array['prescribing']::text[])
-                    and (coalesce(x.completed_at, 'infinity'::timestamptz), x.id) <= (coalesce(t.completed_at, 'infinity'::timestamptz), t.id))
+           then (select count(*)::integer from (
+                  select 1 from public.clinical_tasks x
+                   where x.claimed_by = t.claimed_by and x.state = 'completed'
+                     and (x.priority_class_original = 1 or x.type = 'red_event_unacknowledged' or x.required_competencies @> array['prescribing']::text[])
+                     and (coalesce(x.completed_at, 'infinity'::timestamptz), x.id) <= (coalesce(t.completed_at, 'infinity'::timestamptz), t.id)
+                   limit greatest(p_cap, 1)) c)
          end
     from public.clinical_tasks t where t.id = p_task;
 $$;
-revoke all on function private.new_clinician_case_ordinal(uuid) from public, anon, authenticated;
+revoke all on function private.new_clinician_case_ordinal(uuid, integer) from public, anon, authenticated;
 
 create or replace function private.consider_task_for_audit(p_task uuid) returns uuid
 language plpgsql security definer set search_path = ''
@@ -749,7 +808,7 @@ begin
   elsif coalesce(s.credentialing_level, 2) = 1 and private.tier1_count(t.claimed_by) < private.tier1_target(s.id) then v_reason := 'first_tasks';
   else
     -- only counted when the rule is on and nothing above already decided the reason (the count walks the clinician's completed tasks)
-    if v_full > 0 then v_ord := private.new_clinician_case_ordinal(p_task); end if;
+    if v_full > 0 then v_ord := private.new_clinician_case_ordinal(p_task, v_full + 1); end if;
     if v_ord is not null and v_ord <= v_full then v_reason := 'new_clinician_review';
     elsif v_draw < v_rate then v_reason := 'random_sample';
     else return null;
