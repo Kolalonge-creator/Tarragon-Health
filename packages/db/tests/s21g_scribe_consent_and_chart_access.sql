@@ -160,12 +160,12 @@ begin
       pg_temp.try(format('insert into public.scribe_consents (patient_id, granted, language, encounter_note_id) values (%L, true, ''en-NG'', %L)', v_adult, v_note)));
     perform pg_temp.back();
     delete from public.clinical_encounter_notes where id = v_note;
+    -- S39g: a write needs a tie, so the clinician is tied to this patient (as the owner, before acting as them)
+    insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, assigned_at) values ((select organisation_id from public.profiles where id = v_adult2), v_adult2, v_docA, now())
+      on conflict (patient_id) do update set clinician_id = excluded.clinician_id;
     perform pg_temp.act(v_docA);
     perform pg_temp.rec('a granted consent for a patient who never answered is refused', '42501',
       pg_temp.try(format('insert into public.scribe_consents (patient_id, granted, language) values (%L, true, ''en-NG'')', v_adult2)));
-    -- S39g: a write needs a tie, so the clinician is tied to this patient before recording the decline
-    insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, assigned_at) values ((select organisation_id from public.profiles where id = v_adult2), v_adult2, v_docA, now())
-      on conflict (patient_id) do update set clinician_id = excluded.clinician_id;
     perform pg_temp.rec('a recorded decline needs no precondition', 'ok',
       pg_temp.try(format('insert into public.scribe_consents (patient_id, granted, language) values (%L, false, ''en-NG'')', v_adult2)));
     perform pg_temp.back();
