@@ -24,6 +24,7 @@
 --      overload, so "share Medicines" really lets the proxy see medicines. Reproductive health maps to nothing.
 --   E. Proxy controls: log_proxy_view, my_proxy_view_log (patient scoped, over care_access_events; audit_log_select is not
 --      touched), narrow_proxy_access (optional notice to the proxy, off by default), revoke_proxy_access.
+--      (set_care_access_categories now keeps permissions in step too, so the two editors agree.)
 --   F. Age-18 hand-over with the young person's agreement: dependant_handovers, start/accept/decline/cancel functions,
 --      and the dependant.handover_due event 30 days before the 18th birthday (it did not exist).
 --
@@ -49,7 +50,7 @@ as $$
       from public.profiles p
      where p.id = p_profile), false);
 $$;
-revoke all on function private.is_minor_dependant(uuid) from public, anon;
+revoke all on function private.is_minor_dependant(uuid) from public, anon, authenticated;
 
 create or replace function private.enforce_adult_registration()
 returns trigger
@@ -179,7 +180,7 @@ begin
   return new;
 end;
 $$;
-revoke all on function private.guard_minor_dependant_scope() from public, anon;
+revoke all on function private.guard_minor_dependant_scope() from public, anon, authenticated;
 
 comment on function private.guard_minor_dependant_scope() is
   'S04b-1: refuses a row about an under-18 dependant in any table that is not on the allowed or exempt list. Installed by the migration on every public table keyed by patient_id (and four profile_id tables).';
@@ -294,6 +295,29 @@ as $$
          lateral unnest(private.category_permissions(c)) perm;
 $$;
 
+-- Keeps the permissions array in step with the categories without touching permissions no category maps to
+-- (manage_payments, receive_alerts, book_appointments...): drops the mapped ones and adds exactly what the categories
+-- give. NULL (unrestricted) stays NULL.
+create or replace function private.sync_permissions_with_categories(
+  p_old public.caregiver_permission[],
+  p_categories public.care_access_category[])
+returns public.caregiver_permission[]
+language sql
+stable
+set search_path = ''
+as $$
+  select case when p_old is null then null else (
+    select coalesce(array_agg(distinct x order by x), array[]::public.caregiver_permission[])
+      from (
+        select unnest(p_old) as x
+        except
+        select unnest(private.permissions_for_categories(enum_range(null::public.care_access_category)))
+        union
+        select unnest(private.permissions_for_categories(p_categories))
+      ) u
+  ) end;
+$$;
+
 -- ---------------------------------------------------------------------------
 -- C. OQ-47 and OQ-51: the two can_read_clinical bodies, replaced in place (same signatures)
 -- ---------------------------------------------------------------------------
@@ -312,7 +336,10 @@ as $$
       and (
         -- The blanket bypass stands in for a child who cannot be asked. It never applies to an adult (elder_proxy):
         -- an adult's proxy sees only the categories that adult chose (S04b-1, OQ-47).
-        (pa.permission_level = 'manage' and p.is_dependent_account and p.dependent_kind = 'minor_child')
+        (pa.permission_level = 'manage' and p.is_dependent_account and p.dependent_kind = 'minor_child'
+         -- Under 18 every category stands in for a child who cannot be asked. From 18, before the hand-over is accepted,
+         -- only the immunisation and growth categories do: nothing an adult later records is readable by the guardian.
+         and (private.is_minor_dependant(p.id) or p_category in ('vaccinations', 'medical_history')))
         or exists (
           select 1 from public.profile_access_categories pac
           where pac.profile_access_id = pa.id and pac.category = p_category
@@ -338,7 +365,8 @@ as $$
       and (pa.permissions is null or p_permission = any(pa.permissions))
       and (
         pa.clinical_access
-        or (pa.permission_level = 'manage' and p.is_dependent_account and p.dependent_kind = 'minor_child')
+        or (pa.permission_level = 'manage' and p.is_dependent_account and p.dependent_kind = 'minor_child'
+            and private.is_minor_dependant(p.id))
         -- S04b-1 (OQ-51): a category the person chose carries the permissions that category maps to. The permissions
         -- array above still has to include the permission, so this can only ever grant what both models agree on.
         or exists (
@@ -423,7 +451,9 @@ begin
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by, permissions)
   values (v_uid, v_setup.created_by_profile_id, 'view', v_uid, v_perms)
   on conflict (profile_id, grantee_user_id)
-  do update set permissions = excluded.permissions, updated_at = now()
+  do update set permissions = private.sync_permissions_with_categories(
+                  coalesce(public.profile_access.permissions, enum_range(null::public.caregiver_permission)), p_categories),
+                updated_at = now()
   returning id into v_grant;
 
   delete from public.profile_access_categories
@@ -446,6 +476,43 @@ end;
 $$;
 revoke all on function public.confirm_proxy_setup(uuid, public.care_access_category[], public.caregiver_permission[]) from public, anon;
 grant execute on function public.confirm_proxy_setup(uuid, public.care_access_category[], public.caregiver_permission[]) to authenticated;
+
+-- The existing category editor (CareVisibilityList) must agree with the proxy flow: when the person adds or removes a
+-- category the permissions that category maps to follow it (OQ-51). Body verified live 2026-10-13.
+create or replace function public.set_care_access_categories(p_grant_id uuid, p_categories public.care_access_category[])
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_owner uuid;
+begin
+  select profile_id into v_owner from public.profile_access where id = p_grant_id;
+  if v_owner is null then
+    raise exception 'grant not found';
+  end if;
+  if v_owner <> (select auth.uid()) then
+    raise exception
+      'only the person whose record it is may change who can see their health information'
+      using errcode = '42501';
+  end if;
+
+  delete from public.profile_access_categories
+    where profile_access_id = p_grant_id
+      and category <> all (coalesce(p_categories, array[]::public.care_access_category[]));
+
+  insert into public.profile_access_categories (profile_access_id, category)
+  select p_grant_id, c
+  from unnest(coalesce(p_categories, array[]::public.care_access_category[])) as c
+  on conflict (profile_access_id, category) do nothing;
+
+  update public.profile_access
+     set permissions = private.sync_permissions_with_categories(permissions, coalesce(p_categories, array[]::public.care_access_category[]))
+   where id = p_grant_id
+     and permissions is distinct from private.sync_permissions_with_categories(permissions, coalesce(p_categories, array[]::public.care_access_category[]));
+end;
+$$;
 
 -- ---------------------------------------------------------------------------
 -- E. Proxy controls: view log, narrow (silent by default), revoke
@@ -547,11 +614,14 @@ begin
   select coalesce(array_agg(category), array[]::public.care_access_category[]) into v_left
     from public.profile_access_categories where profile_access_id = v_grant.id;
 
+  -- Only ever fewer permissions: the mapped ones follow the categories that are left, everything else (payments, alerts)
+  -- is untouched, and nothing is added that the proxy did not already hold.
   update public.profile_access
      set permissions = (
-           select coalesce(array_agg(perm), array[]::public.caregiver_permission[])
-             from unnest(private.permissions_for_categories(v_left)) perm
-            where v_grant.permissions is null or perm = any(v_grant.permissions)),
+           select coalesce(array_agg(x), array[]::public.caregiver_permission[])
+             from unnest(private.sync_permissions_with_categories(
+                    coalesce(v_grant.permissions, enum_range(null::public.caregiver_permission)), v_left)) x
+            where v_grant.permissions is null or x = any(v_grant.permissions)),
          updated_at = now()
    where id = v_grant.id;
 
@@ -609,6 +679,34 @@ grant select on public.dependant_handovers to authenticated;
 comment on table public.dependant_handovers is
   'S04b-1: a guardian starts the hand-over of a record to the young person who has turned 18; nothing changes until that person, signed in on their own verified number, accepts. Writes only through the functions below.';
 
+-- A number the guardian typed is attached to the record's login UNCONFIRMED so the person can sign in with a code. If the
+-- hand-over ends without that number ever being verified (cancelled, declined, expired, replaced) it is removed again, so a
+-- mistyped number cannot be used to sign in later. A number that WAS verified belongs to someone who proved they hold it
+-- and is left alone.
+create or replace function private.close_pending_handovers(p_dependent uuid, p_state text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  r record;
+begin
+  for r in
+    update public.dependant_handovers
+       set state = case when expires_at <= now() then 'expired' else p_state end, decided_at = now()
+     where dependent_id = p_dependent and state = 'pending'
+    returning target_phone_e164
+  loop
+    update auth.users
+       set phone = null
+     where id = p_dependent and phone_confirmed_at is null
+       and regexp_replace(coalesce(phone, ''), '\D', '', 'g') = regexp_replace(r.target_phone_e164, '\D', '', 'g');
+  end loop;
+end;
+$$;
+revoke all on function private.close_pending_handovers(uuid, text) from public, anon, authenticated;
+
 create or replace function public.start_dependant_handover(p_dependent uuid, p_phone text)
 returns uuid
 language plpgsql
@@ -630,14 +728,14 @@ begin
   if v_p.id is null
      or not v_p.is_dependent_account or v_p.dependent_kind is null
      or v_p.date_of_birth is null or v_p.date_of_birth > (current_date - interval '18 years')::date
-     or not exists (select 1 from public.profile_access pa where pa.profile_id = p_dependent and pa.grantee_user_id = v_uid) then
+     -- Only the person who created the record (the guardian or sponsor who granted themselves access) can start the
+     -- hand-over: a payments-only or view-only grantee cannot, and the level may already have stepped down at 18.
+     or not exists (select 1 from public.profile_access pa
+                     where pa.profile_id = p_dependent and pa.grantee_user_id = v_uid and pa.granted_by = v_uid) then
     raise exception 'this record cannot be handed over' using errcode = '42501';
   end if;
 
-  update public.dependant_handovers set state = 'expired'
-   where dependent_id = p_dependent and state = 'pending' and expires_at <= now();
-  update public.dependant_handovers set state = 'cancelled', decided_at = now()
-   where dependent_id = p_dependent and state = 'pending';
+  perform private.close_pending_handovers(p_dependent, 'cancelled');
 
   insert into public.dependant_handovers (organisation_id, dependent_id, started_by, target_phone_e164, expires_at)
   values (v_p.organisation_id, p_dependent, v_uid, p_phone, now() + interval '30 days')
@@ -656,8 +754,10 @@ security definer
 set search_path = ''
 as $$
 begin
-  update public.dependant_handovers set state = 'cancelled', decided_at = now()
-   where dependent_id = p_dependent and state = 'pending' and started_by = (select auth.uid());
+  if exists (select 1 from public.dependant_handovers
+              where dependent_id = p_dependent and state = 'pending' and started_by = (select auth.uid())) then
+    perform private.close_pending_handovers(p_dependent, 'cancelled');
+  end if;
 end;
 $$;
 
@@ -682,8 +782,8 @@ as $$
 $$;
 
 -- The young person agrees. Only now does the record stop being a dependant record.
-create or replace function public.accept_dependant_handover(p_handover uuid)
-returns void
+create or replace function public.accept_dependant_handover(p_handover uuid, p_date_of_birth date)
+returns boolean
 language plpgsql
 security definer
 set search_path = ''
@@ -709,10 +809,32 @@ begin
     raise exception 'this hand-over cannot be accepted' using errcode = '42501';
   end if;
 
+  -- A second factor only the real person (or their guardian) knows: the number alone is whatever the guardian typed, so a
+  -- wrong number must not be enough to take over a record. Five wrong answers close the hand-over.
+  -- Counted per person over 24 hours (not per hand-over), so a guardian restarting the hand-over does not hand out five
+  -- more guesses.
+  if (select count(*) from public.audit_log
+       where action = 'dependant_handover.wrong_dob' and subject_patient_id = v_uid
+         and created_at > now() - interval '24 hours') >= 5 then
+    perform private.close_pending_handovers(v_uid, 'cancelled');
+    return false;
+  end if;
+  if p_date_of_birth is distinct from (select date_of_birth from public.profiles where id = v_uid) then
+    insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event, result, subject_patient_id)
+    values (v_h.organisation_id, v_uid, 'dependant_handover.wrong_dob', 'dependant_handover', v_h.id, '{}'::jsonb, 'denied', v_uid);
+    if (select count(*) from public.audit_log
+         where action = 'dependant_handover.wrong_dob' and subject_patient_id = v_uid
+           and created_at > now() - interval '24 hours') >= 5 then
+      perform private.close_pending_handovers(v_uid, 'cancelled');
+    end if;
+    return false;
+  end if;
+
   -- The state change fires private.apply_dependant_handover (below), which does the profile change at trigger depth 2 so
   -- that private.guard_profiles_self_update, which stops an owner editing is_dependent_account directly, lets exactly this
   -- one sanctioned path through.
   update public.dependant_handovers set state = 'accepted', decided_at = now() where id = v_h.id;
+  return true;
 end;
 $$;
 
@@ -751,10 +873,33 @@ security definer
 set search_path = ''
 as $$
 begin
-  update public.dependant_handovers set state = 'declined', decided_at = now()
-   where id = p_handover and dependent_id = (select auth.uid()) and state = 'pending';
+  if exists (select 1 from public.dependant_handovers
+              where id = p_handover and dependent_id = (select auth.uid()) and state = 'pending') then
+    perform private.close_pending_handovers((select auth.uid()), 'declined');
+  end if;
 end;
 $$;
+
+-- Daily: a hand-over nobody answered in 30 days closes and its unverified number is removed.
+create or replace function private.expire_dependant_handovers()
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  r record;
+  n integer := 0;
+begin
+  for r in select distinct dependent_id from public.dependant_handovers where state = 'pending' and expires_at <= now() loop
+    perform private.close_pending_handovers(r.dependent_id, 'expired');
+    n := n + 1;
+  end loop;
+  return n;
+end;
+$$;
+revoke all on function private.expire_dependant_handovers() from public, anon, authenticated;
+select cron.schedule('dependant-handover-expiry-daily', '40 3 * * *', $$ select private.expire_dependant_handovers(); $$);
 
 -- dependant.handover_due: 30 days before the 18th birthday, once per birthday.
 insert into public.event_types (event_type, description, owner_section, is_urgent) values
@@ -795,7 +940,8 @@ begin
       '%s turns 18 on %s. At 18 they sign up with their own number and agree before their record is handed over. Until then it stays with you.',
       coalesce(nullif(split_part(btrim(coalesce(r.full_name, '')), ' ', 1), ''), 'The child you added'),
       to_char(r.turns_18_on, 'DD Mon YYYY'));
-    for g in select pa.grantee_user_id from public.profile_access pa where pa.profile_id = r.id loop
+    for g in select pa.grantee_user_id from public.profile_access pa
+              where pa.profile_id = r.id and pa.granted_by = pa.grantee_user_id loop
       insert into public.notifications (recipient_id, organisation_id, channel, template, payload, status, content_class)
       values (g.grantee_user_id, r.organisation_id, 'in_app', 'dependant_handover_due',
               jsonb_build_object('message', v_message, 'dependent_id', r.id), 'pending', 'non_clinical');
@@ -819,7 +965,7 @@ revoke all on function public.revoke_proxy_access(uuid) from public, anon;
 revoke all on function public.start_dependant_handover(uuid, text) from public, anon;
 revoke all on function public.cancel_dependant_handover(uuid) from public, anon;
 revoke all on function public.my_pending_handover() from public, anon;
-revoke all on function public.accept_dependant_handover(uuid) from public, anon;
+revoke all on function public.accept_dependant_handover(uuid, date) from public, anon;
 revoke all on function public.decline_dependant_handover(uuid) from public, anon;
 grant execute on function public.log_proxy_view(uuid) to authenticated;
 grant execute on function public.my_proxy_view_log(integer) to authenticated;
@@ -828,7 +974,7 @@ grant execute on function public.revoke_proxy_access(uuid) to authenticated;
 grant execute on function public.start_dependant_handover(uuid, text) to authenticated;
 grant execute on function public.cancel_dependant_handover(uuid) to authenticated;
 grant execute on function public.my_pending_handover() to authenticated;
-grant execute on function public.accept_dependant_handover(uuid) to authenticated;
+grant execute on function public.accept_dependant_handover(uuid, date) to authenticated;
 grant execute on function public.decline_dependant_handover(uuid) to authenticated;
 
 -- Proof, not hope.
@@ -840,13 +986,15 @@ begin
     'public.log_proxy_view(uuid)', 'public.my_proxy_view_log(integer)',
     'public.narrow_proxy_access(uuid, public.care_access_category[], boolean)', 'public.revoke_proxy_access(uuid)',
     'public.start_dependant_handover(uuid, text)', 'public.cancel_dependant_handover(uuid)', 'public.my_pending_handover()',
-    'public.accept_dependant_handover(uuid)', 'public.decline_dependant_handover(uuid)',
+    'public.accept_dependant_handover(uuid, date)', 'public.decline_dependant_handover(uuid)',
     'public.confirm_proxy_setup(uuid, public.care_access_category[], public.caregiver_permission[])'] loop
     if has_function_privilege('anon', f, 'EXECUTE') then
       raise exception 'S04b-1: anon can execute %', f;
     end if;
   end loop;
-  if has_function_privilege('authenticated', 'private.sweep_dependant_handover_due()', 'EXECUTE')
+  if has_function_privilege('authenticated', 'private.expire_dependant_handovers()', 'EXECUTE')
+     or has_function_privilege('authenticated', 'private.close_pending_handovers(uuid, text)', 'EXECUTE')
+     or has_function_privilege('authenticated', 'private.sweep_dependant_handover_due()', 'EXECUTE')
      or has_function_privilege('anon', 'private.sweep_dependant_handover_due()', 'EXECUTE') then
     raise exception 'S04b-1: the hand-over sweep is callable by an API role';
   end if;

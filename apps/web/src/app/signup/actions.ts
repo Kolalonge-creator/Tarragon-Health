@@ -46,6 +46,7 @@ export type SignupActionState =
         countryCode?: string;
         phone?: string;
         state?: string;
+        dateOfBirth?: string;
       };
     }
   | undefined;
@@ -68,6 +69,7 @@ export async function signUp(
     countryCode: String(formData.get("countryCode") ?? ""),
     phone: String(formData.get("phone") ?? ""),
     state: String(formData.get("state") ?? ""),
+    dateOfBirth: String(formData.get("dateOfBirth") ?? ""),
   };
   const parsed = signupSchema.safeParse({
     firstName: formData.get("firstName"),

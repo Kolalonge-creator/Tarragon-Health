@@ -43601,7 +43601,7 @@ export type Database = {
           reason_for_encounter: string
         }[]
       }
-      accept_dependant_handover: { Args: { p_handover: string }; Returns: undefined }
+      accept_dependant_handover: { Args: { p_date_of_birth: string; p_handover: string }; Returns: boolean }
       cancel_dependant_handover: { Args: { p_dependent: string }; Returns: undefined }
       decline_dependant_handover: { Args: { p_handover: string }; Returns: undefined }
       log_proxy_view: { Args: { p_patient: string }; Returns: undefined }

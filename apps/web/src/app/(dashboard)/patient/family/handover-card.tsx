@@ -3,6 +3,8 @@
 import { useActionState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { acceptHandoverAction, declineHandoverAction } from "./handover-actions";
 
 export interface PendingHandover {
@@ -44,6 +46,11 @@ function HandoverItem({ handover }: { handover: PendingHandover }) {
       <CardContent>
         <form action={acceptAction} className="space-y-4">
           <input type="hidden" name="handoverId" value={handover.id} />
+          <div className="space-y-1.5">
+            <Label htmlFor={`handover-dob-${handover.id}`}>Your date of birth</Label>
+            <Input id={`handover-dob-${handover.id}`} name="dateOfBirth" type="date" required autoComplete="bday" min="1900-01-01" className="h-11 rounded-xl" />
+            <p className="text-xs text-charcoal-ink/60">We ask so we know it is really you. Only needed to take over the record.</p>
+          </div>
           {(acceptState?.error || declineState?.error) && (
             <p role="alert" className="text-sm text-red-700">
               {acceptState?.error ?? declineState?.error}

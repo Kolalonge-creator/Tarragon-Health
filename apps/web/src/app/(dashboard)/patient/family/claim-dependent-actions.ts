@@ -50,6 +50,9 @@ export async function claimDependentAccountAction(
     .select("id")
     .eq("profile_id", dependent_id)
     .eq("grantee_user_id", parent.id)
+    // Only the person who created the record (granted themselves access) can hand it over; the level may already have
+    // stepped down from manage to view at 18, so it is not checked here.
+    .eq("granted_by", parent.id)
     .in("permission_level", ["manage", "view"])
     .maybeSingle();
   if (!grant) return { error: "You don't have access to this record" };
