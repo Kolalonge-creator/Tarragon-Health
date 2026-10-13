@@ -69,7 +69,7 @@ begin
   -- specialist_onlyblocked (endocrinology): case 2b.
   -- specialist_expiredrule / specialist_norules (nephrology): case 3.
   for r in select * from (values
-      ('doctor_referrer', 'medical_officer', null),
+      ('doctor_referrer', 'senior_medical_officer', null),
       ('specialist_onleave', 'senior_medical_officer', 'cardiology'),
       ('specialist_loaded', 'senior_medical_officer', 'cardiology'),
       ('specialist_blocked', 'senior_medical_officer', 'oncologist'),

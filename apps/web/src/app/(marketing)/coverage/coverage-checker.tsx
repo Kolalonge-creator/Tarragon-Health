@@ -13,9 +13,9 @@ import { cn } from "@/lib/utils";
  * Since the 2026-08-03 self-arranged-fulfilment change, the DEFAULT path for
  * labs, pharmacy collection and specialist referrals is self-arranged and
  * works nationwide already, waiting on no partner at all. Home sample
- * collection and medication delivery still depend entirely on a contracted
- * logistics partner, and neither is live in any state yet — those are the
- * only two services gatedServices() tracks (see
+ * collection still depends entirely on a contracted logistics partner and is
+ * not live in any state yet; medication is not delivered at all (Part C.2).
+ * Home collection is the only gated service gatedServices() tracks (see
  * @/lib/coverage/what-works-where). Labs briefly carried a second, optional
  * partner-billed path (Synlab) from 2026-08-21, but every panel_bundles row
  * became guidance_only on 2026-09-10 and the database now refuses that kind
@@ -92,8 +92,9 @@ export function CoverageChecker({ coverage }: { coverage: StateCoverage[] }) {
               ))}
           </div>
           <p className="mt-3 text-xs text-charcoal-ink/65">
-            The dot tracks home sample collection and medication delivery, which still wait on a
-            contracted logistics partner everywhere. Everything else on this page, including labs,
+            The dot tracks home sample collection, which still waits on a contracted logistics
+            partner everywhere. We do not deliver medication: you collect it from a pharmacy you
+            choose. Everything else on this page, including labs,
             pharmacy collection and specialist referrals, already works the same way in all 36
             states and the FCT.
           </p>
@@ -147,7 +148,7 @@ export function CoverageChecker({ coverage }: { coverage: StateCoverage[] }) {
             <p className="mt-1 text-sm text-charcoal-ink/70">
               {liveCount > 0
                 ? "Everything else on this page works there today regardless, because it does not depend on a local partner."
-                : "Monitoring, doctors over video and text, reminders and the health record all still work there today. So do lab tests, pharmacy collection and specialist referrals, self-arranged: you take the request to a lab or pharmacy of your choice and pay them directly, in every state, without waiting on a partner. What's still waiting, below: home sample collection and medication delivery."}
+                : "Monitoring, doctors over video and text, reminders and the health record all still work there today. So do lab tests, pharmacy collection and specialist referrals, self-arranged: you take the request to a lab or pharmacy of your choice and pay them directly, in every state, without waiting on a partner. What's still waiting, below: home sample collection. We do not deliver medication; you collect it from a pharmacy you choose."}
             </p>
 
             <ul className="mt-4 space-y-2">

@@ -1,0 +1,241 @@
+jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
+const rpc = jest.fn();
+jest.mock("@/lib/supabase/server", () => ({ createClient: jest.fn().mockResolvedValue({ rpc: (...a: unknown[]) => rpc(...a) }) }));
+
+import {
+  activateRuleSetAction,
+  approveGroupRulesAction,
+  deleteSafetyRuleAction,
+  pinNoteAction,
+  recordDrillAction,
+  reviewPinAction,
+  saveSafetyRuleAction,
+  setDpoRecipientAction,
+  loadStarterSafetyRulesAction,
+  attestCommunityConditionAction,
+} from "./actions";
+
+const GROUP = "33333333-3333-4333-8333-333333333333";
+const NOTE = "44444444-4444-4444-8444-444444444444";
+
+beforeEach(() => rpc.mockReset());
+
+describe("approveGroupRulesAction", () => {
+  it("approves the version the CMO was looking at", async () => {
+    rpc.mockResolvedValue({ data: { status: "approved", rules_version: 3 }, error: null });
+    const r = await approveGroupRulesAction({ groupId: GROUP, rulesVersion: 3 });
+    expect(r.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith("community_cmo_approve_group_rules", { p_group_id: GROUP, p_rules_version: 3 });
+  });
+  it("says so when the rules changed", async () => {
+    rpc.mockResolvedValue({ data: { status: "refused", reason: "rules_changed", rules_version: 4 }, error: null });
+    const r = await approveGroupRulesAction({ groupId: GROUP, rulesVersion: 3 });
+    expect(r).toEqual({ ok: false, message: "The rules changed while you were looking. Please reload and check them." });
+  });
+  it("rejects bad input", async () => {
+    expect((await approveGroupRulesAction({ groupId: "x", rulesVersion: 3 })).ok).toBe(false);
+    expect((await approveGroupRulesAction({ groupId: GROUP, rulesVersion: 0 })).ok).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+});
+
+describe("saveSafetyRuleAction", () => {
+  it("saves a regex rule with the safety action", async () => {
+    rpc.mockResolvedValue({ data: { status: "ok", id: 9 }, error: null });
+    const r = await saveSafetyRuleAction({ version: 2, ruleClass: "emergency", pattern: "  \\ychest pain\\y ", note: "x" });
+    expect(r.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith("community_admin_rule_save", {
+      p_version: 2,
+      p_class: "emergency",
+      p_kind: "regex",
+      p_pattern: "\\ychest pain\\y",
+      p_action: "safety",
+      p_note: "x",
+    });
+  });
+  it("rejects an empty pattern and any class but emergency or self_harm, before any call", async () => {
+    expect((await saveSafetyRuleAction({ version: 2, ruleClass: "emergency", pattern: "   " })).ok).toBe(false);
+    expect((await saveSafetyRuleAction({ version: 2, ruleClass: "spam", pattern: "x" })).ok).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("shows a pattern that cannot compile in plain English, without database text", async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: "2201B", message: 'invalid regular expression: parentheses () not balanced' } });
+    const r = await saveSafetyRuleAction({ version: 2, ruleClass: "self_harm", pattern: "(" });
+    expect(r.ok).toBe(false);
+    expect(r.message).toMatch(/not a valid regular expression/);
+    expect(r.message).not.toMatch(/parentheses/);
+  });
+  it("explains a refusal for a non-CMO", async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: "42501", message: "only the Chief Medical Officer writes emergency and self-harm rules" } });
+    const r = await saveSafetyRuleAction({ version: 2, ruleClass: "emergency", pattern: "x" });
+    expect(r.ok).toBe(false);
+    expect(r.message).toMatch(/Chief Medical Officer/);
+  });
+});
+
+describe("deleteSafetyRuleAction and activateRuleSetAction", () => {
+  it("deletes by id", async () => {
+    rpc.mockResolvedValue({ data: { status: "ok" }, error: null });
+    expect((await deleteSafetyRuleAction({ ruleId: 5 })).ok).toBe(true);
+    expect((await deleteSafetyRuleAction({ ruleId: "5" })).ok).toBe(false);
+  });
+  it("activates a version and explains a refused activation", async () => {
+    rpc.mockResolvedValue({ data: { status: "ok", version: 2 }, error: null });
+    expect((await activateRuleSetAction({ version: 2 })).ok).toBe(true);
+    rpc.mockResolvedValue({ data: null, error: { code: "42501", message: "a filter rule set cannot go live without blocking phone numbers" } });
+    const r = await activateRuleSetAction({ version: 2 });
+    expect(r.ok).toBe(false);
+    expect(r.message).toMatch(/phone numbers, email addresses, links and handles/);
+    expect(r.message).not.toMatch(/filter rule set cannot/);
+    expect((await activateRuleSetAction({ version: -1 })).ok).toBe(false);
+  });
+});
+
+describe("notes", () => {
+  it("pins a note", async () => {
+    rpc.mockResolvedValue({ data: { status: "ok", id: NOTE }, error: null });
+    const r = await pinNoteAction({ groupId: GROUP, title: " Hello ", body: " Text " });
+    expect(r.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith("community_clinician_pin", { p_group_id: GROUP, p_title: "Hello", p_body: "Text" });
+  });
+  it("rejects an empty title or body", async () => {
+    expect((await pinNoteAction({ groupId: GROUP, title: " ", body: "x" })).ok).toBe(false);
+    expect((await pinNoteAction({ groupId: GROUP, title: "x", body: "" })).ok).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("maps a too-short title to plain English", async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: "23514", message: 'new row violates check constraint "community_pinned_content_title_check"' } });
+    const r = await pinNoteAction({ groupId: GROUP, title: "ab", body: "x" });
+    expect(r.message).not.toMatch(/constraint/);
+  });
+  it("a clinician reviewing their own note is refused calmly", async () => {
+    rpc.mockResolvedValue({ data: { status: "refused", reason: "not_reviewable" }, error: null });
+    const r = await reviewPinAction({ id: NOTE });
+    expect(r).toEqual({ ok: false, message: "You cannot review this note. A different clinician has to." });
+  });
+  it("reviews a note", async () => {
+    rpc.mockResolvedValue({ data: { status: "ok" }, error: null });
+    expect((await reviewPinAction({ id: NOTE })).ok).toBe(true);
+    expect((await reviewPinAction({ id: "no" })).ok).toBe(false);
+  });
+});
+
+describe("recordDrillAction", () => {
+  const STEPS = [
+    "Post the Chief Medical Officer's signed test self-harm phrase in a live group, as a test member.",
+    "Confirm the post is withheld from the group and the member sees the self-harm card.",
+    "Confirm the post is in the safety queue and not in the moderator queue.",
+    "Confirm a safety reviewer can see it and a moderator cannot.",
+    "Confirm the member's own emergency button works (it is never automatic) and that nothing was sent to the member's contacts without a tap.",
+    "Confirm the overdue notice reaches the safety reviewer if the post is left for 30 minutes (or write in the notes why you skipped this step).",
+  ];
+  const steps = (oks: boolean[]) => STEPS.map((step, i) => ({ step, ok: oks[i] }));
+  it("records a pass with the ticked steps and the notes", async () => {
+    rpc.mockResolvedValue({ data: { status: "ok" }, error: null });
+    const r = await recordDrillAction({ passed: true, notes: " all fine ", steps: steps([true, true, true, true, true, false]) });
+    expect(r.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith("community_record_tabletop", {
+      p_passed: true,
+      p_steps: steps([true, true, true, true, true, false]),
+      p_notes: "all fine",
+    });
+  });
+  it("records a failure with a step missing", async () => {
+    rpc.mockResolvedValue({ data: { status: "ok" }, error: null });
+    expect((await recordDrillAction({ passed: false, steps: steps([true, false, false, false, false, false]) })).ok).toBe(true);
+  });
+  it("refuses a pass with one of the first five steps unticked, before any call", async () => {
+    expect((await recordDrillAction({ passed: true, steps: steps([true, true, false, true, true, true]) })).ok).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("refuses invented steps, a missing step, and notes over 2000 characters", async () => {
+    expect((await recordDrillAction({ passed: false, steps: [{ step: "made up", ok: true }] })).ok).toBe(false);
+    expect((await recordDrillAction({ passed: false, steps: steps([true, true, true, true, true, true]).slice(0, 5) })).ok).toBe(false);
+    expect((await recordDrillAction({ passed: false, notes: "x".repeat(2001), steps: steps([true, true, true, true, true, true]) })).ok).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("tells anyone but the Chief Medical Officer so, without database text", async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: "42501", message: "the Chief Medical Officer only" } });
+    const r = await recordDrillAction({ passed: false, steps: steps([false, false, false, false, false, false]) });
+    expect(r).toEqual({ ok: false, message: "Only the Chief Medical Officer can record a drill." });
+  });
+});
+
+describe("setDpoRecipientAction", () => {
+  const PERSON = "55555555-5555-4555-8555-555555555555";
+  it("adds a person to the notice list", async () => {
+    rpc.mockResolvedValue({ data: { status: "ok" }, error: null });
+    const r = await setDpoRecipientAction({ profileId: PERSON, on: true });
+    expect(r.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith("community_admin_set_dpo", { p_profile_id: PERSON, p_on: true });
+  });
+  it("removes a person", async () => {
+    rpc.mockResolvedValue({ data: { status: "ok" }, error: null });
+    const r = await setDpoRecipientAction({ profileId: PERSON, on: false });
+    expect(r).toEqual({ ok: true, message: "Removed. This person will no longer be told." });
+  });
+  it("says only the CMO can, in plain English", async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: "42501", message: "the Chief Medical Officer only" } });
+    const r = await setDpoRecipientAction({ profileId: PERSON, on: true });
+    expect(r).toEqual({ ok: false, message: "Only the Chief Medical Officer can change who is told about member lookups." });
+  });
+  it("does not leak the database wording for a person who cannot be added", async () => {
+    rpc.mockResolvedValue({ data: { status: "refused", reason: "no_such_member" }, error: null });
+    const r = await setDpoRecipientAction({ profileId: PERSON, on: true });
+    expect(r.ok).toBe(false);
+    expect(r.message).toBe("That person cannot be added. Only active staff can be told about member lookups.");
+  });
+  it("rejects bad input without calling the database", async () => {
+    expect((await setDpoRecipientAction({ profileId: "x", on: true })).ok).toBe(false);
+    expect((await setDpoRecipientAction({ profileId: PERSON, on: "yes" })).ok).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+});
+
+describe("loadStarterSafetyRulesAction", () => {
+  it("loads the starter rules into a draft and says it is not signed yet", async () => {
+    rpc.mockResolvedValue({ data: { status: "ok", version: 5 }, error: null });
+    const r = await loadStarterSafetyRulesAction();
+    expect(r.ok).toBe(true);
+    expect(r.message).toMatch(/activate the draft to sign/);
+    expect(rpc).toHaveBeenCalledWith("community_cmo_load_starter_safety_rules");
+  });
+  it("opens the existing draft instead of making a second", async () => {
+    rpc.mockResolvedValue({ data: { status: "already_loaded", version: 5 }, error: null });
+    expect((await loadStarterSafetyRulesAction()).ok).toBe(true);
+  });
+  it("says only the CMO can", async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: "42501", message: "the Chief Medical Officer only" } });
+    expect(await loadStarterSafetyRulesAction()).toEqual({ ok: false, message: "Only the Chief Medical Officer can load the safety rules." });
+  });
+});
+
+describe("attestCommunityConditionAction", () => {
+  it("records one of the three statements against the community guard", async () => {
+    rpc.mockResolvedValue({ data: { ok: true }, error: null });
+    const r = await attestCommunityConditionAction({ code: "crisis_owner_named", note: "Dr A owns the queue, first look in 30 minutes" });
+    expect(r.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith("attest_go_live_condition", {
+      p_key: "community",
+      p_code: "crisis_owner_named",
+      p_met: true,
+      p_note: "Dr A owns the queue, first look in 30 minutes",
+    });
+  });
+  it("only accepts the three community statements and never another guard's condition", async () => {
+    expect((await attestCommunityConditionAction({ code: "dpo_registered", note: "a long enough note here" })).ok).toBe(false);
+    expect((await attestCommunityConditionAction({ code: "cmo_switch", note: "a long enough note here" })).ok).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("asks for a real note, and a longer one for the safety case, before any call", async () => {
+    expect((await attestCommunityConditionAction({ code: "consent_text_approved", note: "ok" })).ok).toBe(false);
+    const r = await attestCommunityConditionAction({ code: "clinical_safety_case_current", note: "version one" });
+    expect(r).toEqual({ ok: false, message: "Name the safety case document, its version and who signed it." });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("turns a refusal for a non-CMO into plain English", async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: "42501", message: "only the CMO" } });
+    const r = await attestCommunityConditionAction({ code: "clinical_safety_case_current", note: "Safety case v2 signed by Dr A on 1 Oct" });
+    expect(r).toEqual({ ok: false, message: "Only the Chief Medical Officer can record this." });
+  });
+});

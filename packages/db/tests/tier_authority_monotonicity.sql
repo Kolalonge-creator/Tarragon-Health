@@ -9,7 +9,7 @@
 -- routine refill. Fixed by 20260801093117_refill_confirm_any_clinical_tier.sql.
 -- (`tier_1`/`tier_4_senior_registrar` were the pre-collapse enum values live at
 -- the time -- see the 2026-08-31 tier-collapse migration; today's equivalent
--- fence would read `doctor_tier = 'medical_officer'` denying a Chief Medical
+-- fence would read `doctor_tier = 'senior_medical_officer'` denying a Chief Medical
 -- Officer, which is exactly what the sabotage step below now demonstrates.)
 --
 -- WHY THIS TEST DISCOVERS GATES DYNAMICALLY rather than listing them:
@@ -35,7 +35,7 @@
 --   5. The full matrix, printed for inspection
 --
 -- TO CONFIRM THIS TEST DISCRIMINATES, break it on purpose: revert
--- can_confirm_medication_refill to `doctor_tier = 'medical_officer'` and
+-- can_confirm_medication_refill to `doctor_tier = 'senior_medical_officer'` and
 -- re-run. Case 3 must FAIL, naming that gate with
 -- medical_officer=allowed / senior_medical_officer=denied.
 --
@@ -64,7 +64,7 @@ declare
   v_profile    uuid;
   v_staff_id   uuid;
   v_tiers      text[] := array[
-                  'medical_officer','senior_medical_officer','chief_medical_officer'
+                  'senior_medical_officer','senior_medical_officer','chief_medical_officer'
                 ];
   v_tier       text;
   v_rank       int := 0;
@@ -253,7 +253,7 @@ select line from (
   select
     99, 1,
     'MATRIX ' || rpad(gate, 32) ||
-      ' mo=' || max(allowed::int) filter (where tier = 'medical_officer') ||
+      ' mo=' || max(allowed::int) filter (where tier = 'senior_medical_officer') ||
       ' smo=' || max(allowed::int) filter (where tier = 'senior_medical_officer') ||
       ' cmo=' || max(allowed::int) filter (where tier = 'chief_medical_officer') ||
       ' coord=' || max(allowed::int) filter (where tier = 'care_coordinator')

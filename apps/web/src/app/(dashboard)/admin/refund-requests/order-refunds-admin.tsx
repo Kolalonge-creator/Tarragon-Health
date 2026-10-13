@@ -142,7 +142,7 @@ export function OrderRefundsAdmin() {
         title={pending?.approve ? "Approve this refund?" : "Deny this refund request?"}
         description={
           pending?.approve
-            ? "The patient's payment is refunded and any access this order granted is withdrawn."
+            ? "The patient's payment is refunded and their Member access ends straight away, with no grace period. Open follow-ups are cancelled and a doctor is asked to hand over any open work."
             : "The patient is told this request was declined. Nothing is refunded."
         }
         confirmLabel={
