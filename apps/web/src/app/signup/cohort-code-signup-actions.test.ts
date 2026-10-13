@@ -5,7 +5,7 @@
  *  - a valid code is held PENDING in the new account's metadata (cohort_code) and nothing is joined or claimed by the action;
  *  - a code that fails the check stops the sign-up before any account is created, naming the field;
  *  - no code typed means no metadata key at all and no check (the common path is unchanged);
- *  - both the phone and the email sign-up carry it.
+ *  - both the phone and the email sign-up carry it, next to S04b-1's date of birth (which is still required and still sent).
  */
 
 jest.mock("next/headers", () => ({
@@ -39,6 +39,7 @@ function phoneForm(overrides: Record<string, string> = {}) {
   fd.set("phone", "0803 123 4567");
   fd.set("state", "");
   fd.set("password", "a-strong-password-123");
+  fd.set("dateOfBirth", "1990-04-02");
   for (const [k, v] of Object.entries(overrides)) fd.set(k, v);
   return fd;
 }
@@ -58,7 +59,7 @@ describe("phone sign-up with a programme code", () => {
     readCohort.mockResolvedValue({ ok: true, code: "GRPA2345" });
     const res = await signUpWithPhone(undefined, phoneForm({ cohortCode: "grpa-2345" }));
     expect(res).toMatchObject({ step: "verify" });
-    expect(signUpMock.mock.calls[0]?.[0].options.data).toMatchObject({ cohort_code: "GRPA2345" });
+    expect(signUpMock.mock.calls[0]?.[0].options.data).toMatchObject({ cohort_code: "GRPA2345", date_of_birth: "1990-04-02" });
   });
 
   it("stops before creating any account when the code fails, and names the field", async () => {
