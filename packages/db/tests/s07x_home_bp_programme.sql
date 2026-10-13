@@ -240,6 +240,9 @@ $$ select coalesce(string_agg(kind || ':' || treated::text, ',' order by created
 create function pg_temp.ptasks(p_pat uuid) returns text language sql as
 $$ select count(*)::text from public.clinical_tasks where patient_id = p_pat and type = 'bp_pattern_review' $$;
 
+select pg_temp.ck('real', 'G8 the never-activate-an-older-signed-version guard is on the new governed table', '1',
+  (select count(*)::text from pg_trigger where tgname = 'refuse_superseded_activation' and not tgisinternal and tgrelid = 'public.home_bp_programme_signoffs'::regclass));
+
 -- D. clinic readings --------------------------------------------------------------------------------------------------------------
 select pg_temp.ck('real', 'D1 only a clinician tied to the patient can record a clinic reading', 'ERR 42501|ERR 42501|ERR 42501|ERR 42501',
   pg_temp.rec(pg_temp.f('c2'), pg_temp.f('p'), 126, 78, 2) || '|' || pg_temp.rec(pg_temp.f('co'), pg_temp.f('p'), 126, 78, 2) || '|' ||
