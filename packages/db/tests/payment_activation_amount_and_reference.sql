@@ -32,6 +32,12 @@
 -- ===========================================================================
 
 begin;
+-- Two-tier: no service product is for sale any more (service_products_doctor_time_not_sellable). This proof uses a purchasable
+-- product as the vehicle for generic machinery, so the constraint is dropped and the two retired add-ons are switched on here,
+-- inside this rolled-back transaction.
+alter table public.service_products drop constraint service_products_doctor_time_not_sellable;
+update public.service_products set is_active = true where code in ('continuous_monitoring_90d', 'ai_coach_daily_pass_30d');
+
 create temporary table p3(check_name text, observed text, expected text, verdict text) on commit drop;
 create temporary table p3f(k text primary key, v text) on commit drop;
 

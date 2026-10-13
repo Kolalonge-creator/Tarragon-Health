@@ -381,6 +381,22 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "lab_result_corrected") {
     return { text: "Your care team has updated something in your health record. Open the app to see what changed", href: "/patient/labs" };
   }
+  // Testing days. Neutral by design (INV-07): a place, a date, never a test, a value or a condition.
+  if (n.template === "testing_day_confirmed" || n.template === "testing_day_promoted") {
+    return { text: "Your visit is booked. Open the app for the date and place", href: "/patient/testing-days" };
+  }
+  if (n.template === "testing_day_waitlisted") {
+    return { text: "You are on the waiting list. We will tell you if a place opens", href: "/patient/testing-days" };
+  }
+  if (n.template === "testing_day_reminder") {
+    return { text: "A reminder about your visit. Open the app for the date and place", href: "/patient/testing-days" };
+  }
+  if (n.template === "testing_day_cancelled") {
+    return { text: "Your booking has changed. Open the app to choose another date", href: "/patient/testing-days" };
+  }
+  if (n.template === "poc_result_ready") {
+    return { text: "Your care team has added something to your health record. Open the app to see it", href: "/patient/testing-days" };
+  }
   if (n.template === "lab_result_ready") {
     return { text: "Your care team has added something to your health record. Open the app to see it", href: "/patient/labs" };
   }
@@ -395,6 +411,19 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   }
   if (n.template === "written_question_call_planned") {
     return { text: "Your care team will call you. Keep your phone close", href: "/patient/care" };
+  }
+  // Two-tier monthly follow-up. Neutral by design (INV-07).
+  if (n.template === "followup_times_offered") {
+    return { text: "Your care team has offered times for your monthly check-in. Open the app to choose one", href: "/patient/appointments" };
+  }
+  if (n.template === "followup_offer_withdrawn") {
+    return { text: "The times offered for your check-in have changed. Your care team will send new ones", href: "/patient/appointments" };
+  }
+  if (n.template === "followup_month_missed") {
+    return { text: "Your monthly check-in is waiting. Open the app to pick a time", href: "/patient/appointments" };
+  }
+  if (n.template === "followup_slot_picked") {
+    return { text: "A member picked one of your offered times", href: "/clinician/followups" };
   }
   if (n.template === "written_question_staff_notice") {
     return { text: "A written message needs attention", href: "/clinician/async-consults" };
@@ -648,9 +677,26 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "circle_paid_for_you") {
     return { text: "Someone in your Care Circle has paid for your care", href: "/patient" };
   }
+  // Two-tier (CMO 2026-10-08): the Free red-event path. Fixed neutral lines (INV-07), never the reading or the cause.
+  if (n.template === "free_red_guidance") {
+    return { text: t("freered.notice.guidance", "en"), href: "/patient" };
+  }
+  if (n.template === "free_red_recheck") {
+    return { text: t("freered.notice.recheck", "en"), href: "/patient" };
+  }
+  if (n.template === "free_red_checkin") {
+    return { text: t("freered.notice.checkin", "en"), href: "/patient" };
+  }
   if (n.template === "on_call_page") {
     // From private.page_notify (S19): fixed neutral line, never the patient or the reading (INV-07).
     return { text: "A priority case is waiting for you", href: "/clinician/on-call" };
+  }
+  if (n.template === "ops_alert") {
+    // From private.ops_alert_notify (SR5): fixed wording, no detail, no patient reference.
+    return { text: "An operations alert needs attention", href: "/admin/ops/wall" };
+  }
+  if (n.template === "ops_all_clear") {
+    return { text: "An operations alert has cleared", href: "/admin/ops/wall" };
   }
   if (n.template === "on_call_unfinished") {
     return { text: "A priority case is acknowledged but still open", href: "/rota" };

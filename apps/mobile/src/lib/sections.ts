@@ -38,6 +38,7 @@ export type SectionId =
   | "supporting"
   | "appointments"
   | "screeningDays"
+  | "testingDays"
   | "passport"
   | "financialProfile"
   | "services"
@@ -285,6 +286,8 @@ export const SECTIONS: SectionDef[] = [
     icon: "people-circle-outline",
     group: "Support",
   },
+  // Two-tier model: a Member's yearly check happens at a listed testing day.
+  { id: "testingDays", label: "Testing days", icon: "calendar-outline", group: "Support" },
 
   { id: "passport", label: "Health Passport", icon: "id-card-outline", group: "Your account" },
   {

@@ -51,6 +51,10 @@ begin
   insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test)
   values (v, p_org, p_role::public.user_role, 'S16 ' || p_label, '+23480' || lpad((random() * 99999999)::int::text, 8, '0'), (current_date - interval '45 years')::date, true)
   on conflict (id) do update set role = excluded.role, is_test = true, is_active = true, phone = excluded.phone;
+  -- two-tier (founder 2026-10-12): a doctor task is made only for a Member, so every fixture patient here is one
+  if p_role = 'patient' then
+    insert into public.patient_memberships (organisation_id, patient_id, source, state, is_test) values (p_org, v, 'purchase', 'active', true);
+  end if;
   return v;
 end $f$;
 create function pg_temp.triage(p_patient uuid, p_set uuid, p_actions jsonb, p_shadow boolean) returns uuid language plpgsql as
@@ -107,8 +111,8 @@ begin
     values ('s16test', 1, 'approved', '{"code":"s16test","version":1}'::jsonb, v_cmo, now(), 'S16 proof fixture') returning id into v_rs_ok;
 
   -- 1. Seed -----------------------------------------------------------------------------------------------
-  -- S22 added written_question_call, S27 sensitive_result_disclosure and S36h pharmacy_flag_review, so S16's own ten are counted by excluding later sections' types
-  perform pg_temp.rec('ten task types seeded', '10', (select count(*)::text from public.task_types where is_active and code not in ('written_question_call', 'sensitive_result_disclosure', 'pharmacy_flag_review', 'home_bp_check_review', 'bp_pattern_review')));
+  -- two-tier added membership_handoff (pricing) and ecg_interpretation (testing days); S22 added written_question_call, S27 sensitive_result_disclosure and S36h pharmacy_flag_review, S07x added home_bp_check_review and bp_pattern_review, so S16's own ten are counted by excluding later sections' types
+  perform pg_temp.rec('ten task types seeded', '10', (select count(*)::text from public.task_types where is_active and code not in ('written_question_call', 'sensitive_result_disclosure', 'pharmacy_flag_review', 'membership_handoff', 'ecg_interpretation', 'home_bp_check_review', 'bp_pattern_review')));
   perform pg_temp.rec('one active version per code', '0', (select count(*)::text from (select code from public.task_types where is_active group by code having count(*) > 1) x));
   perform pg_temp.rec('a red-class type has no lead window', '0', (select lead_window_minutes::text from public.task_types where code = 'red_event_unacknowledged'));
   perform pg_temp.rec('amber review is class 4, 24 hours, 4 hour lead window', '4,1440,240',

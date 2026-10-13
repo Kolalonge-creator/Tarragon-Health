@@ -14,6 +14,10 @@
 
 begin;
 
+-- Two-tier: only the Membership may be on sale (catalog_items_only_membership_sellable). The order machinery under test is generic and
+-- uses care-pack and consultation fixtures, so the constraint is dropped here on purpose, inside this rolled-back transaction.
+alter table public.catalog_items drop constraint catalog_items_only_membership_sellable;
+
 create temporary table s26_fixture(k text primary key, v uuid) on commit drop;
 create temporary table s26_result(
   check_name text,
