@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { Card, CardContent } from "@/components/ui/card";
 import { readClinicalSignoffChecklist } from "@/lib/clinical/read-clinical-signoff-checklist";
-import { CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
+import { CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, RED_OUTREACH_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
 import { getCmoSigningHubForRequest } from "@/lib/queries/cmo-signing-hub-request";
 import { ProtocolDraftsManager } from "@/app/(dashboard)/admin/settings/protocols/protocol-drafts-manager";
 import { RefreshOnMutationSuccess } from "../_signoff-panels/refresh-on-mutation-success";
@@ -25,6 +25,7 @@ import { HomeBpProgrammePanel } from "../_signoff-panels/home-bp-programme-panel
 import { MyHealthConfigPanel } from "../_signoff-panels/my-health-config-panel";
 import { CommunitySignoffPanel } from "../_signoff-panels/community-panel";
 import { TriageRulesPanel } from "../_signoff-panels/triage-rules-panel";
+import { RedOutreachPanel } from "../_signoff-panels/red-outreach-panel";
 import { WordingAttestationPanel } from "../_signoff-panels/wording-attestation-panel";
 import { ProposedValuesPanel } from "../_signoff-panels/proposed-values-panel";
 import { S06S10Banner } from "./s06-s10-banner";
@@ -187,6 +188,8 @@ export default async function ClinicianClinicalSignoffPage({
   if (keys.has("ai_governance")) inlinePanels.ai_governance = <AiGovernancePanel />;
 
   if (keys.has(COMMUNITY_ITEM_KEY)) inlinePanels[COMMUNITY_ITEM_KEY] = <CommunitySignoffPanel />;
+
+  if (keys.has(RED_OUTREACH_ITEM_KEY)) inlinePanels[RED_OUTREACH_ITEM_KEY] = <RedOutreachPanel />;
 
   if (keys.has(PROTOCOL_DRAFTS_ITEM_KEY)) {
     inlinePanels[PROTOCOL_DRAFTS_ITEM_KEY] = (

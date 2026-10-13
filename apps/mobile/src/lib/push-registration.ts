@@ -3,6 +3,7 @@ import Constants from "expo-constants";
 import { Platform } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { reportNotificationOpened } from "@/lib/notification-settings";
+import { ensureNotificationChannels } from "@/lib/notification-channels";
 
 /**
  * Registers this device for remote push, closing the one gap left in an
@@ -47,6 +48,8 @@ export function startOpenReporting(): void {
 
 export async function registerPushToken(userId: string, organisationId: string): Promise<void> {
   startOpenReporting();
+  // Channels first: Android 13+ may not show the permission prompt until one exists, and the server sends safety rows to `urgent`.
+  await ensureNotificationChannels();
   try {
     const { status: existing } = await Notifications.getPermissionsAsync();
     let status = existing;

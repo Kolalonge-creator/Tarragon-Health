@@ -56,7 +56,9 @@ begin
 
   perform pg_temp.rec('adherence_follow_up awaits confirmation', 'true,null',
     (select needs_confirmation::text || ',' || coalesce(confirmed_at::text, 'null') from public.task_types where code = 'adherence_follow_up' and is_active));
-  perform pg_temp.rec('only that type needs confirming', '1', (select count(*)::text from public.task_types where is_active and needs_confirmation));
+  perform pg_temp.rec('only that type needs confirming', '1', (select count(*)::text from public.task_types where is_active and needs_confirmation and code <> 'red_patient_outreach'));
+  -- S13 R4 added red_patient_outreach, which also awaits the CMO; this proof is about the adherence type, so take that one out of the way
+  update public.task_types set needs_confirmation = false where code = 'red_patient_outreach';
 
   -- who can act
   perform pg_temp.act(v_doc);

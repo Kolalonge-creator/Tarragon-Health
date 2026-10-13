@@ -21,12 +21,16 @@ const readPendingCommunitySignoff = jest.fn<(...args: unknown[]) => Promise<{ ru
 jest.mock("@/lib/queries/pending-community-signoff", () => ({
   readPendingCommunitySignoff: (...args: unknown[]) => readPendingCommunitySignoff(...args),
 }));
+const readPendingRedOutreachSignoff = jest.fn<(...args: unknown[]) => Promise<{ waiting: boolean; failed: boolean }>>();
+jest.mock("@/lib/queries/pending-red-outreach-signoff", () => ({
+  readPendingRedOutreachSignoff: (...args: unknown[]) => readPendingRedOutreachSignoff(...args),
+}));
 const noCommunity = { rulesUnsigned: false, groupsWaiting: 0, statementsWaiting: 0, attentionCount: 0, failed: false };
 jest.mock("@/lib/queries/pending-ai-governance-signoff", () => ({
   readPendingAiGovernanceSignoff: (...args: unknown[]) => readPendingAiGovernanceSignoff(...args),
 }));
 
-import { CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, readCmoSigningHub } from "./cmo-signing-hub";
+import { CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, RED_OUTREACH_ITEM_KEY, readCmoSigningHub } from "./cmo-signing-hub";
 
 const supabase = {} as SupabaseClient<Database>;
 
@@ -49,6 +53,8 @@ beforeEach(() => {
   readPendingCommunitySignoff.mockResolvedValue(noCommunity);
   readS06S10Signoffs.mockReset();
   readS06S10Signoffs.mockResolvedValue(emptyS06S10);
+  readPendingRedOutreachSignoff.mockReset();
+  readPendingRedOutreachSignoff.mockResolvedValue({ waiting: false, failed: false });
 });
 
 describe("readCmoSigningHub: S06 to S10 items", () => {
@@ -194,5 +200,27 @@ describe("readCmoSigningHub", () => {
     const settled = [{ table: "alert_rules", title: "Alert rules", href: "/clinician/alert-rules", version: 6 }];
     readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: settled });
     expect((await readCmoSigningHub(supabase)).settledConfigs).toEqual(settled);
+  });
+});
+
+describe("readCmoSigningHub: red alert outreach (S13 R4)", () => {
+  it("lists the call-the-patient task type while it awaits the CMO, under /clinician", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingRedOutreachSignoff.mockResolvedValue({ waiting: true, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    const line = hub.items.find((i) => i.key === RED_OUTREACH_ITEM_KEY);
+    expect(line).toMatchObject({ severity: "draft_pending", count: 1 });
+    expect(line?.href.startsWith("/clinician/")).toBe(true);
+  });
+  it("lists nothing once it is confirmed", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.items.find((i) => i.key === RED_OUTREACH_ITEM_KEY)).toBeUndefined();
+  });
+  it("names an unreadable source instead of looking like an all-clear", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingRedOutreachSignoff.mockResolvedValue({ waiting: false, failed: true });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub).toMatchObject({ failed: true, failedSources: ["Red alert outreach"] });
   });
 });

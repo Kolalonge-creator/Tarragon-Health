@@ -959,6 +959,17 @@ export const en = {
   "notif.diag.open_settings": "Open phone settings",
   "notif.diag.check_again": "Check again",
   "notif.diag.not_sure_maker": "Not sure which phone this is, or using a Tecno, Infinix or Itel? Try this too:",
+  "notif.diag.send_test": "Send me a test alert",
+  "notif.diag.test_sent": "Test alert sent. It should arrive within a minute. If it does not, follow the steps above, then try again.",
+  "notif.diag.test_failed": "We could not send the test alert just now. Check that you are online and try again.",
+  "notif.diag.test_limit": "You have sent enough test alerts for today. Try again tomorrow.",
+  "redcare.question": "Have you been able to get care?",
+  "redcare.sought": "I have sought care",
+  "redcare.could_not": "I could not get care",
+  "redcare.saved": "Thank you. Your care team can see your answer. Please keep going to the nearest hospital if you have not been seen.",
+  "redcare.saved_could_not": "Thank you. Your care team can see your answer and may call you. Please go to the nearest hospital if you can.",
+  "redcare.queued": "Saved on your phone. We will send it as soon as you are back online.",
+  "redcare.failed": "We could not save your answer just now. Please try again.",
 
   // S15: clinician credentialing notices (sent by credential_notify / credential_notify_reviewers)
   "credential.app_approved.subject": "Your clinician application",
