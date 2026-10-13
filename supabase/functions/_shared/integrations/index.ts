@@ -10,6 +10,8 @@ export { createMockVideo, type MockVideoControl } from "./video-mock.ts";
 export { createZoomVideo, type ZoomConfig } from "./video-zoom.ts";
 export * from "./speech.ts";
 export { createMockSpeech, type MockSpeechOptions, type ScriptedSegment } from "./speech-mock.ts";
+export * from "./identity.ts";
+export { createMockIdentity, type MockIdentityOptions } from "./identity-mock.ts";
 export * from "./email.ts";
 export { createResendEmail, type ResendConfig } from "./email-resend.ts";
 export { createMockEmail, type MockEmailControl } from "./email-mock.ts";

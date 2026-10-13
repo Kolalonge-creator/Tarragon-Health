@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { getCurrentClinicalStaff } from "@/lib/auth/current-profile";
@@ -253,6 +254,23 @@ export default async function ClinicianClinicalSignoffPage({
         </Card>
       ) : (
         <SignoffQueueList items={hub.items} inlinePanels={inlinePanels} />
+      )}
+
+      {hub.attention.length > 0 && (
+        <section aria-label="Needs your attention" className="space-y-2">
+          <h2 className="text-base font-semibold text-charcoal-ink">Needs your attention (not a signature)</h2>
+          <ul className="space-y-2">
+            {hub.attention.map((a) => (
+              <li key={a.key} className="rounded-xl border border-mist-grey/40 p-4 text-sm">
+                <p className="font-medium text-charcoal-ink">{a.title}</p>
+                <p className="mt-1 text-charcoal-ink/70">{a.detail}</p>
+                <Link href={a.href} className="mt-2 inline-block font-medium text-brand-green underline underline-offset-4">
+                  Open the credentialing page
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {hasSigned && (

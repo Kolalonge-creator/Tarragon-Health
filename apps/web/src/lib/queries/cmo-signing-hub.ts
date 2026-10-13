@@ -4,6 +4,7 @@ import type { Database } from "@tarragon/shared";
 import { readSignoffQueue, SEVERITY_RANK, type SettledConfig, type SignoffQueueItem } from "@/lib/queries/signoff-queue";
 import { readPendingAiGovernanceSignoff } from "@/lib/queries/pending-ai-governance-signoff";
 import { readPendingCommunitySignoff } from "@/lib/queries/pending-community-signoff";
+import { readCredentialAttention, credentialAttentionItem } from "@/lib/queries/credential-attention";
 import { readS06S10Signoffs, EMPTY_S06S10, type S06S10Snapshot } from "@/lib/queries/s06-s10-signoffs";
 
 export type CmoSigningHub = {
@@ -17,6 +18,11 @@ export type CmoSigningHub = {
   settledConfigs: SettledConfig[];
   /** The S06 to S10 clinical items (C1 to C8) with their live state; its lines are already merged into `items`. */
   s06s10: S06S10Snapshot;
+  /**
+   * Things that need the CMO's attention but are not a signature (P5: overdue MDCN spot re-checks, clinicians with no verification
+   * on record). Kept apart from `items` on purpose: the banner counts `items` as "areas that need your signature".
+   */
+  attention: SignoffQueueItem[];
 };
 
 /** The key the merged clinical-rules line carries, so the page can attach the guided signing forms to it. */
@@ -46,7 +52,7 @@ export const COMMUNITY_ITEM_KEY = "community";
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -55,6 +61,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingAiGovernanceSignoff(supabase),
     readPendingCommunitySignoff(supabase),
     readS06S10Signoffs(supabase).catch(() => ({ ...EMPTY_S06S10, failed: true, failedSources: ["the S06 to S10 items"] })),
+    readCredentialAttention(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -128,6 +135,9 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  const credentialItem = credentialAttentionItem(credentials);
+  const attention = credentialItem ? [credentialItem] : [];
+
   items.push(...s06s10.items);
 
   const failedSources = [
@@ -135,11 +145,12 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...s06s10.failedSources,
     ...(ai.failed ? ["AI governance"] : []),
     ...(community.failed ? ["Community"] : []),
+    ...(credentials.failed ? ["Clinician registration checks"] : []),
   ];
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
   // A banner row may only link to a hub line that exists. The banner reads its own copy of the state, so if the two ever disagree (a row it
   // thinks is waiting that the queue does not list) the link falls back to the item's own page rather than pointing at a missing anchor.
   const lineKeys = new Set(items.map((i) => i.key));
   const banner: S06S10Snapshot = { ...s06s10, rows: s06s10.rows.map((r) => (r.panelKey && !lineKeys.has(r.panelKey) ? { ...r, panelKey: null } : r)) };
-  return { items, failed: failedSources.length > 0, failedSources, settledConfigs: queue.settledConfigs, s06s10: banner };
+  return { items, failed: failedSources.length > 0, failedSources, settledConfigs: queue.settledConfigs, s06s10: banner, attention };
 }

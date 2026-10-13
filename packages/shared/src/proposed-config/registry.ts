@@ -524,6 +524,43 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S15.md; OQ-104; OQ-108",
   },
   {
+    key: "credentialing.rules",
+    // Version 3 (Q14, Q15) adds the primary-source and re-check keys to version 2 (OQ-104, OQ-108): the same rules plus three. Both switches start off: no real account has a confirmed
+    // phone yet and SMS is not live, so requiring one would stop every applicant, and the purge stays off until counsel
+    // confirms the periods (the rejected-application period is a proposal).
+    value: {
+      min_practice_years: 2,
+      pass_percent: 80,
+      all_red_correct: true,
+      audited_task_count: 20,
+      referees_required: 2,
+      referee_independent_contact: true,
+      test_max_attempts: 3,
+      test_retake_cooldown_hours: 24,
+      test_scenarios_per_attempt: 10,
+      notice_windows_days: [90, 30, 0],
+      grace_max_days: 14,
+      separate_verifier_and_approver: true,
+      document_max_bytes: 8388608,
+      document_retention_years_after_offboarding: 7,
+      require_verified_phone: false,
+      document_purge_enabled: false,
+      rejected_application_document_retention_months: 24,
+      primary_source_required: true,
+      primary_source_routes: ["mdcn_dataflow", "mdcn_written_confirmation", "mdcn_register_check"],
+      primary_source_max_age_days: 365,
+      recheck_months: 6,
+      recheck_overdue_days: 14,
+      credential_date_max_days: 1100,
+      grandfather_ends_on: null,
+    },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 3,
+    effectiveFrom: "2026-10-13",
+    source: "docs/design/S11-S15-credentialing.md; CMO answers Q14 and Q15 (MDCN verification before first independent contact; six-month spot re-check). grandfather_ends_on is null until the CMO sets it.",
+  },
+  {
     key: "lab.release_policy",
     // Lab release policy (S27d). Live value is the active row of `lab_panel_signoffs`.config; a test fails if the migration seed and this
     // value drift. maxAttempts and escalateAfterHours are the founder's competitor-research follow-up: a held sensitive result that
@@ -1157,6 +1194,61 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-06",
     source: "docs/design/S20.md; spec 7.8",
+  },
+  {
+    key: "quality.audit",
+    // Version 2 (Q16): adds sampling.new_clinician_full_review_cases. Clinical audits, tier 1 count, the audit form, reliability weight and the speak-up clocks (S20, spec 7.8). Live values are the
+    // active row of `quality_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
+    // Every number is PROPOSED and owned by the CMO (OQ-140): the sample rate, the tier 1 count and pass mark, the score bands,
+    // and the acknowledge and respond times for a safety concern.
+    value: {
+      sampling: {
+        random_rate_percent: 10,
+        always_reasons: ["red_event", "titration"],
+        floor_min_tasks: 3,
+        floor_per_clinician_per_month: 1,
+        reviewer_monthly_cap: 40,
+        due_days: 14,
+        new_clinician_full_review_cases: 20,
+      },
+      tier1: {
+        audited_task_count: 20,
+        graduation_min_score: 85,
+        max_critical_misses: 0,
+      },
+      form: {
+        version: 1,
+        safety_items: ["identity_and_consent_confirmed", "red_flags_recognised_and_acted_on", "decision_within_competence_and_protocol", "no_unsigned_treatment_change", "safety_netting_and_follow_up_given", "escalated_when_needed"],
+        quality_items: ["history_adequate", "reasoning_documented", "communication_clear", "plan_appropriate", "patient_questions_answered", "documentation_timely"],
+        quality_max: 4,
+      },
+      outcomes: {
+        satisfactory_min: 85,
+        minor_concerns_min: 70,
+        rationale_min_chars: 20,
+      },
+      reliability: {
+        audit_weight: 2,
+        good_by_outcome: {
+          satisfactory: 1,
+          minor_concerns: 0.6,
+          significant_concerns: 0.2,
+          unsafe: 0,
+        },
+      },
+      speak_up: {
+        acknowledge_hours: 48,
+        immediate_acknowledge_hours: 4,
+        respond_days: 14,
+        max_per_day: 10,
+        retaliation_review_months: 12,
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-13",
+    source: "docs/design/S20.md; spec 7.8; docs/design/S11-S15-credentialing.md (CMO answer Q16: 100 percent review of a new clinician's first 20 red or prescribing cases)",
   },
   {
     key: "earnings.rules",

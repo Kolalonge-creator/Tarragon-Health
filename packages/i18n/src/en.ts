@@ -991,6 +991,12 @@ export const en = {
   "credential.expiry_plan.body": "Your {label} expires on {date}. Please plan your renewal and upload it under Training and profile.",
   "credential.expiry_reviewers.subject": "Clinician credential expiring",
   "credential.expiry_reviewers.body": "{name}: {label} expires on {date} ({days} days).",
+  "credential.recheck_due.subject": "MDCN spot re-check due",
+  "credential.recheck_due.body": "{name}: the six-month MDCN spot re-check is due on {date}.",
+  "credential.recheck_overdue.subject": "MDCN spot re-check overdue",
+  "credential.recheck_overdue.body": "{name}: the MDCN spot re-check was due on {date} and is not recorded yet.",
+  "credential.primary_source_missing.subject": "MDCN verification evidence needed",
+  "credential.primary_source_missing.body": "{name} has no MDCN or DataFlow verification on record. Record the reference and attach the evidence.",
 
   // S20: quality and safety notices (sent by notify_clinical_leads / credential_notify / notify_backup_readers)
   "quality.audit_assigned.subject": "A clinical audit is waiting for you",
