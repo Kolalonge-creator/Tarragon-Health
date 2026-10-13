@@ -2,7 +2,7 @@ import { describe, expect, it } from "@jest/globals";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { getProposedConfig } from "./index";
+import { getProposedConfig, type ConfigValue } from "./index";
 
 const MIGRATIONS = join(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..", "..", "supabase", "migrations");
 
@@ -32,7 +32,7 @@ describe("reproductive_privacy.rules mirrors the migration seed", () => {
 
 describe("private_section.lock", () => {
   it("is proposed, on by default (founder decision) and carries every key the lock reads", () => {
-    const e = getProposedConfig<Record<string, unknown>>("private_section.lock");
+    const e = getProposedConfig<Record<string, ConfigValue>>("private_section.lock");
     expect(e.status).toBe("proposed");
     expect(e.value.on_by_default).toBe(true);
     expect(Object.keys(e.value).sort()).toEqual(["free_attempts", "lockout_seconds", "on_by_default", "pbkdf2_iterations", "pin_max_digits", "pin_min_digits", "relock_after_background_seconds"]);

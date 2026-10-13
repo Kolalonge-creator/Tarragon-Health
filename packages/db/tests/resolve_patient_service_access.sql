@@ -43,6 +43,12 @@
 
 begin;
 
+-- Two-tier: no service product is for sale any more (service_products_doctor_time_not_sellable). This proof uses a purchasable
+-- product as the vehicle for generic machinery, so the constraint is dropped and the two retired add-ons are switched on here,
+-- inside this rolled-back transaction.
+alter table public.service_products drop constraint service_products_doctor_time_not_sellable;
+update public.service_products set is_active = true where code in ('continuous_monitoring_90d', 'ai_coach_daily_pass_30d');
+
 create temporary table rpsa_fixture(k text primary key, v uuid) on commit drop;
 create temporary table rpsa_result(
   check_name text,
@@ -133,8 +139,8 @@ begin
 
   insert into public.clinical_staff (profile_id, organisation_id, full_name, active, license_verified_at, doctor_tier, employment_type)
   values
-    (v_org_a_staff, v_org_a, 'RPSA Org A Staff', true, now(), 'medical_officer', 'employed'),
-    (v_org_b_staff, v_org_b, 'RPSA Org B Staff', true, now(), 'medical_officer', 'employed')
+    (v_org_a_staff, v_org_a, 'RPSA Org A Staff', true, now(), 'senior_medical_officer', 'employed'),
+    (v_org_b_staff, v_org_b, 'RPSA Org B Staff', true, now(), 'senior_medical_officer', 'employed')
   on conflict (profile_id) do update set organisation_id = excluded.organisation_id, active = true, license_verified_at = excluded.license_verified_at;
 
   -- Monitoring patient: only an active continuous_monitoring purchase, 90 days out.

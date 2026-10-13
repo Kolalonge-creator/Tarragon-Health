@@ -59,7 +59,7 @@ begin
 
   insert into public.clinical_staff
     (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier)
-  values (v_org, v_clinical_pf, 'RME Probe Clinician', true, now(), 'medical_officer')
+  values (v_org, v_clinical_pf, 'RME Probe Clinician', true, now(), 'senior_medical_officer')
   returning id into v_clinical_staff_id;
 
   insert into public.clinical_staff

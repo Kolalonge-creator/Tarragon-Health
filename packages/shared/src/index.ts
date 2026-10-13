@@ -250,3 +250,4 @@ export * from "./cycle";
 
 // S66: the reusable private-section lock (PIN or biometric, device-held), used by cycle now and by pregnancy and other private sections later.
 export * from "./private-section";
+export * from "./lock-screen-pass";
