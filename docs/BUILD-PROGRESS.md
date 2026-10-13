@@ -601,7 +601,7 @@ This entry was missing; it is rebuilt from the merged PRs and a live check, not 
 
 ## S04b-1b: late patient tables guarded, production gap check (2026-10-13)
 
-- Counted live: 11 patient_id tables outside `minor_dependant_table_policy` (followup_offer_slots, followup_offers, medication_prn_flags, medication_prn_limits, member_followup_entitlements, member_review_notes, poc_ecg_recordings, poc_measurements, poc_result_items, poc_results, testing_event_bookings). Migration `20261013215200_s04b1b_...` guards them, adds `private.minor_guard_gaps()` and fails itself if any gap remains. Proof `s04b1b_minor_guard_gaps.sql` (2 sabotages). Release-integrity job `check-minor-guard-gaps` asks production directly; runbook `docs/runbooks/minor-guard-gaps.md`. Not applied by the author.
+- Counted live: 11 patient_id tables outside `minor_dependant_table_policy` (followup_offer_slots, followup_offers, medication_prn_flags, medication_prn_limits, member_followup_entitlements, member_review_notes, poc_ecg_recordings, poc_measurements, poc_result_items, poc_results, testing_event_bookings). Migration `20261013215731_s04b1b_...` guards them, adds `private.minor_guard_gaps()` and fails itself if any gap remains. Proof `s04b1b_minor_guard_gaps.sql` (2 sabotages). Release-integrity job `check-minor-guard-gaps` asks production directly; runbook `docs/runbooks/minor-guard-gaps.md`. Not applied by the author.
 
 ## S18 and S19: second research pass and completion (2026-10-06)
 

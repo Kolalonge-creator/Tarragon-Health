@@ -61,6 +61,12 @@ select 'free_red_events', 'exempt', 'safety: a red event must always be recordab
  where to_regclass('public.free_red_events') is not null
 on conflict (table_name) do update set policy = 'exempt', reason = excluded.reason
   where public.minor_dependant_table_policy.policy = 'guarded';
+do $$
+begin
+  if to_regclass('public.free_red_events') is not null then
+    drop trigger if exists "00_minor_dependant_scope" on public.free_red_events;
+  end if;
+end $$;
 
 do $$
 declare

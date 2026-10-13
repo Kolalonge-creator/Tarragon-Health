@@ -1,5 +1,5 @@
 -- ===========================================================================
--- Proof: 20261013215200_s04b1b_guard_late_patient_tables_and_minor_guard_gaps.sql
+-- Proof: 20261013215731_s04b1b_guard_late_patient_tables_and_minor_guard_gaps.sql
 --   1. private.minor_guard_gaps() is empty after the migration (every patient table guarded or classified).
 --   2. The eleven late tables are guarded, and a minor dependant is refused a row in each that exists.
 --   3. A new unclassified patient_id table is reported; guarding it clears the report; dropping its trigger is reported again.
@@ -93,6 +93,7 @@ begin
     (g, 's04b1b-sg@example.invalid', 'x', now(), now(), '{}', '{}'),
     (k, 'dependent+' || k || '@dependents.tarragonhealth.internal', null, now(), now(), jsonb_build_object('role', 'patient', 'organisation_id', v_org), '{}');
   perform public.provision_dependent_profile_basics(k, (current_date - interval '6 years')::date, null, g, 'minor_child');
+  if to_regclass('public.medication_prn_limits') is null then return; end if;
   drop trigger "00_minor_dependant_scope" on public.medication_prn_limits;
   begin
     insert into public.medication_prn_limits (patient_id) values (k);
