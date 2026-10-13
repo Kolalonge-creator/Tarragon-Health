@@ -76,7 +76,7 @@ export function SyncBanner() {
         return t("store.key_lost", locale, { code: n.code });
       case "wiped":
         return n.reason === "lease_expired"
-          ? t("store.wiped.lease_expired", locale, { count: n.unsent, days: loadOfflineTrustConfig().deviceLeaseDays })
+          ? t("store.wiped.lease_expired", locale, { count: n.unsent, days: n.days ?? loadOfflineTrustConfig().deviceLeaseDays })
           : t(`store.wiped.${n.reason}`, locale, { count: n.unsent });
       case "migration_held":
         return t("store.migration_held", locale, { code: n.code });

@@ -148,6 +148,16 @@ begin
   perform pg_temp.ck('real', 'B12c ...with the admin reason recorded', 'admin',
     (select revoke_reason from public.offline_device_leases where device_id = pg_temp.f('c2')));
 end $$;
+do $$
+declare i integer; v_last text;
+begin
+  for i in 1..25 loop
+    v_last := pg_temp.as_user(pg_temp.f('p2'), format($q$ select (public.offline_device_checkin(%L, 'ios')) ->> 'revoked' $q$, gen_random_uuid()));
+  end loop;
+  perform pg_temp.ck('real', 'B12d one account cannot register phones without limit (the 26th is refused)', 'ERR 53400', v_last);
+  perform pg_temp.ck('real', 'B12e ...and the table holds at most 20 live phones for that account', '20',
+    (select count(*)::text from public.offline_device_leases where account_id = pg_temp.f('p2') and revoked_at is null));
+end $$;
 select pg_temp.ck('real', 'B13 anon cannot call check-in', 'ERR 42501', pg_temp.as_anon(format($q$ select public.offline_device_checkin(%L, 'ios')::text $q$, gen_random_uuid())));
 select pg_temp.ck('real', 'B14 a patient cannot write the lease table directly', 'ERR 42501',
   pg_temp.as_user(pg_temp.f('p1'), format($q$ update public.offline_device_leases set revoked_at = null where device_id = %L $q$, pg_temp.f('dev1'))));

@@ -113,22 +113,37 @@ async function columnsOf(db: SQLite.SQLiteDatabase, table: string): Promise<stri
   return cols.map((c) => c.name);
 }
 
+/** Walks a table by rowid (keyset, not OFFSET, so a big table is read once, not quadratically), handing each page on. */
+async function forEachPage(
+  db: SQLite.SQLiteDatabase,
+  table: string,
+  cols: string[],
+  onPage: (rows: Record<string, unknown>[]) => Promise<void>
+): Promise<void> {
+  let last = -1;
+  for (;;) {
+    const rows = await db.getAllAsync<Record<string, unknown>>(
+      `select rowid as __rowid, * from ${quote(table)} where rowid > ${last} order by rowid limit ${COPY_PAGE}`
+    );
+    if (rows.length === 0) return;
+    await onPage(rows);
+    last = Number(rows[rows.length - 1].__rowid);
+    if (rows.length < COPY_PAGE) return;
+  }
+  void cols;
+}
+
 async function summarize(db: SQLite.SQLiteDatabase, table: string): Promise<TableSummary> {
   const cols = await columnsOf(db, table);
   let count = 0;
   let checksum = "";
-  for (let offset = 0; ; offset += COPY_PAGE) {
-    const rows = await db.getAllAsync<Record<string, unknown>>(
-      `select * from ${quote(table)} order by rowid limit ${COPY_PAGE} offset ${offset}`
-    );
-    if (rows.length === 0) break;
+  await forEachPage(db, table, cols, async (rows) => {
     count += rows.length;
     checksum = rowsChecksum(
       rows.map((r) => cols.map((c) => r[c])),
       checksum
     );
-    if (rows.length < COPY_PAGE) break;
-  }
+  });
   return { table, count, checksum };
 }
 
@@ -144,17 +159,20 @@ async function copyAll(src: SQLite.SQLiteDatabase, dest: SQLite.SQLiteDatabase):
     await dest.execAsync(t.sql);
     const cols = await columnsOf(src, t.name);
     const insert = `insert into ${quote(t.name)} (${cols.map(quote).join(", ")}) values (${cols.map(() => "?").join(", ")})`;
-    for (let offset = 0; ; offset += COPY_PAGE) {
-      const rows = await src.getAllAsync<Record<string, unknown>>(
-        `select * from ${quote(t.name)} order by rowid limit ${COPY_PAGE} offset ${offset}`
+    // The source checksum is taken in the same pass as the copy, from the rows that were actually copied.
+    let count = 0;
+    let checksum = "";
+    await forEachPage(src, t.name, cols, async (rows) => {
+      count += rows.length;
+      checksum = rowsChecksum(
+        rows.map((r) => cols.map((c) => r[c])),
+        checksum
       );
-      if (rows.length === 0) break;
       await dest.withTransactionAsync(async () => {
         for (const r of rows) await dest.runAsync(insert, cols.map((c) => r[c]) as (string | number | null)[]);
       });
-      if (rows.length < COPY_PAGE) break;
-    }
-    summaries.push(await summarize(src, t.name));
+    });
+    summaries.push({ table: t.name, count, checksum });
   }
   for (const i of indexes) await dest.execAsync(i.sql);
   return summaries;

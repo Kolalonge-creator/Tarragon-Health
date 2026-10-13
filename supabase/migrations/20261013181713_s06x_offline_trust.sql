@@ -115,6 +115,10 @@ begin
   select * into v_row from public.offline_device_leases where device_id = p_device;
   if found and v_row.account_id <> v_me then raise exception 'device belongs to another account' using errcode = '42501'; end if;
   if not found then
+    -- One account cannot register phones without limit (a loop of random ids would bloat the table and the support view).
+    if (select count(*) from public.offline_device_leases where account_id = v_me and revoked_at is null) >= 20 then
+      raise exception 'too many registered phones' using errcode = '53400';
+    end if;
     insert into public.offline_device_leases (device_id, account_id, organisation_id, platform, lease_expires_at)
     values (p_device, v_me, v_org, p_platform, now() + make_interval(days => v_days))
     returning * into v_row;

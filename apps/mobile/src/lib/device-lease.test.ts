@@ -107,6 +107,8 @@ describe("a lost-phone report", () => {
     expect(calls.indexOf("flush")).toBeLessThan(calls.indexOf("count"));
     expect(calls.indexOf("count")).toBeLessThan(calls.indexOf("rpc:confirm_offline_device_wipe"));
     expect(calls).toContain("signOut"); // a lost phone must not stay signed in
+    // the server is told BEFORE the sign-out (it needs the session)
+    expect(calls.indexOf("rpc:confirm_offline_device_wipe")).toBeLessThan(calls.indexOf("signOut"));
 
     expect(__databaseNames().filter((n) => n.startsWith("tarragon-"))).toEqual([]);
     expect(await SecureStore.getItemAsync("tarragon.offline.store.key.v1")).toBeNull();
@@ -167,9 +169,34 @@ describe("a key lease that ran out", () => {
     await seedPhone();
     await checkInOnce();
     expect(await runDeviceCheck(new Date("2026-11-13T00:00:00Z"))).toBe("wiped");
-    expect(calls.slice(0, 2)).toEqual(["rpc:offline_device_checkin", "flush"]);
+    expect(calls[0]).toBe("flush"); // the phone's own lease record decides first; one last upload attempt, then the wipe
+    expect(calls).toContain("signOut");
     expect((await listStoreNotices())[0]).toMatchObject({ kind: "wiped", reason: "lease_expired" });
     expect(__databaseNames().filter((n) => n.startsWith("tarragon-"))).toEqual([]);
+  });
+
+  it("also wipes a phone that comes back ONLINE after its lease ran out (the server would only renew it)", async () => {
+    await seedPhone();
+    await runDeviceCheck(NOW);
+    calls.length = 0;
+    mockCheckin = { data: { revoked: false, lease_expires_at: "2026-12-20T00:00:00Z" }, error: null };
+    expect(await runDeviceCheck(new Date("2026-11-20T00:00:00Z"))).toBe("wiped");
+    expect(calls[0]).toBe("flush");
+    expect(calls).not.toContain("rpc:offline_device_checkin");
+  });
+
+  it("names the lease length the server gave, not a bundled number", async () => {
+    mockCheckin = { data: { revoked: false, lease_expires_at: "2026-10-27T12:00:00Z", lease_days: 14 }, error: null };
+    await runDeviceCheck(NOW);
+    await runDeviceCheck(new Date("2026-10-28T00:00:00Z"));
+    expect((await listStoreNotices())[0]).toMatchObject({ kind: "wiped", reason: "lease_expired", days: 14 });
+  });
+
+  it("keeps the confirmation until someone is signed in, and does not drop it on a refusal", async () => {
+    mockCheckin = { data: { revoked: true }, error: null };
+    mockConfirm = { error: { code: "42501", message: "not allowed" } };
+    await runDeviceCheck(NOW);
+    expect(await AsyncStorage.getItem("@tarragon/device-wipe-confirm/v1")).not.toBeNull();
   });
 
   it("does nothing while the lease is still good, however long the phone has been offline", async () => {
@@ -180,12 +207,13 @@ describe("a key lease that ran out", () => {
     expect(await listStoreNotices()).toEqual([]);
   });
 
-  it("an outage on our side (a 5xx) never runs the lease down", async () => {
+  it("an outage on our side (a 5xx) neither wipes nor renews a phone whose lease is still good", async () => {
     await seedPhone();
     await checkInOnce();
     mockCheckin = { data: null, error: { code: "PGRST000", message: "Service unavailable", status: 503 } as never };
-    expect(await runDeviceCheck(new Date("2026-12-01T00:00:00Z"))).toBe("offline");
+    expect(await runDeviceCheck(new Date("2026-11-01T00:00:00Z"))).toBe("offline");
     expect(__databaseNames().length).toBeGreaterThan(0);
+    expect(JSON.parse((await AsyncStorage.getItem("@tarragon/device-lease/v1")) ?? "{}").leaseExpiresAt).toBe("2026-11-12T12:00:00Z");
   });
 
   it("never wipes a phone whose clock went backwards", async () => {

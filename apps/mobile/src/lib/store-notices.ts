@@ -9,13 +9,13 @@ import type { WipeReason } from "./store-rules";
  */
 export type StoreNotice =
   | { id: string; kind: "key_lost"; code: string; at: string }
-  | { id: string; kind: "wiped"; reason: WipeReason; at: string; unsent: number }
+  | { id: string; kind: "wiped"; reason: WipeReason; at: string; unsent: number; days?: number }
   | { id: string; kind: "migration_held"; code: string; at: string }
   | { id: string; kind: "not_encrypted"; why: "keystore" | "sqlcipher"; at: string };
 
 export type NewStoreNotice =
   | { kind: "key_lost"; code: string }
-  | { kind: "wiped"; reason: WipeReason; unsent: number }
+  | { kind: "wiped"; reason: WipeReason; unsent: number; days?: number }
   | { kind: "migration_held"; code: string }
   | { kind: "not_encrypted"; why: "keystore" | "sqlcipher" };
 

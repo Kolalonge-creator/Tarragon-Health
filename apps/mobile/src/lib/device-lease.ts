@@ -8,6 +8,7 @@ import { destroyStore } from "./secure-db";
 import { getOrCreateDeviceId, resetDeviceId } from "./store-key";
 import { addStoreNotice } from "./store-notices";
 import { leaseVerdict, type WipeReason } from "./store-rules";
+import { loadOfflineTrustConfig } from "./offline-trust-config";
 
 /**
  * Remote wipe and key lease (S06x, decision D3). The phone checks in whenever it syncs.
@@ -33,6 +34,8 @@ interface LeaseState {
   leaseExpiresAt: string;
   lastCheckinClock: string;
   userId: string;
+  deviceId: string;
+  leaseDays: number;
 }
 
 interface PendingConfirm {
@@ -42,12 +45,13 @@ interface PendingConfirm {
 
 export type DeviceCheckOutcome = "ok" | "offline" | "wiped" | "skipped";
 
-async function readState(userId: string): Promise<LeaseState | null> {
+/** The last lease the server gave this phone. A property of the phone, not of whoever is signed in now. */
+async function readState(): Promise<LeaseState | null> {
   try {
     const raw = await AsyncStorage.getItem(STATE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<LeaseState>;
-    if (parsed.userId !== userId || typeof parsed.leaseExpiresAt !== "string" || typeof parsed.lastCheckinClock !== "string") return null;
+    if (typeof parsed.leaseExpiresAt !== "string" || typeof parsed.lastCheckinClock !== "string" || typeof parsed.deviceId !== "string") return null;
     return parsed as LeaseState;
   } catch {
     return null;
@@ -59,7 +63,7 @@ function asWipeReason(value: unknown): WipeReason {
 }
 
 /** Removes everything on the phone that holds health data. Order matters: the notice first, the store last. */
-export async function wipeThisPhone(reason: WipeReason, deviceId: string, now: Date = new Date()): Promise<{ unsent: number }> {
+export async function wipeThisPhone(reason: WipeReason, deviceId: string, now: Date = new Date(), days?: number): Promise<{ unsent: number }> {
   // 1. The one last upload attempt. A failure here is the expected case for a phone that is offline.
   try {
     await flushOutbox();
@@ -74,7 +78,7 @@ export async function wipeThisPhone(reason: WipeReason, deviceId: string, now: D
     recordSyncError("offline_outbox", "wipe:count", error);
   }
   // 3. Tell the patient BEFORE anything is removed, so a crash half way still leaves the notice.
-  await addStoreNotice({ kind: "wiped", reason, unsent }, now);
+  await addStoreNotice({ kind: "wiped", reason, unsent, ...(days ? { days } : {}) }, now);
   await AsyncStorage.setItem(PENDING_CONFIRM_KEY, JSON.stringify({ deviceId, unsent } satisfies PendingConfirm)).catch(() => {});
   // 4. The store, its key, and every earlier generation.
   await destroyStore();
@@ -84,13 +88,19 @@ export async function wipeThisPhone(reason: WipeReason, deviceId: string, now: D
   if (doomed.length > 0) await AsyncStorage.multiRemove(doomed);
   await AsyncStorage.removeItem(STATE_KEY).catch(() => {});
   // 6. A fresh id, so this phone registers as a new device the next time it checks in.
-  const userId = await currentUserIdOrEmpty();
-  await resetDeviceId(userId);
-  // 7. Sign out. The session lives in the keystore, not in the store: a lost phone that stayed signed in would
-  //    simply download the record again. The wipe is of the whole phone, every account on it (a lost phone is lost
-  //    for everyone who used it); each account's server copy is untouched.
-  await supabase.auth.signOut({ scope: "local" }).catch((error: unknown) => recordSyncError("offline_outbox", "wipe:signOut", error));
+  await resetDeviceId(await currentUserIdOrEmpty());
   return { unsent };
+}
+
+/**
+ * After the wipe: tell the server (it needs the session, so this comes BEFORE the sign-out), then sign the phone
+ * out. The session lives in the keystore, not in the store: a lost phone that stayed signed in would simply
+ * download the record again. The wipe is of the whole phone, every account on it (a lost phone is lost for all
+ * its users); each account's server copy is untouched.
+ */
+async function finishWipe(): Promise<void> {
+  await sendPendingConfirm();
+  await supabase.auth.signOut({ scope: "local" }).catch((error: unknown) => recordSyncError("offline_outbox", "wipe:signOut", error));
 }
 
 async function currentUserIdOrEmpty(): Promise<string> {
@@ -108,10 +118,14 @@ async function sendPendingConfirm(): Promise<void> {
   try {
     const raw = await AsyncStorage.getItem(PENDING_CONFIRM_KEY);
     if (!raw) return;
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return; // kept until an account is signed in again; the server cannot be told without one
     const pending = JSON.parse(raw) as PendingConfirm;
     const { error } = await supabase.rpc("confirm_offline_device_wipe", { p_device: pending.deviceId, p_unsent: pending.unsent });
-    // P0002: the server has no such device for this account (another account is signed in now). Nothing more to tell it.
-    if (!error || error.code === "P0002" || error.code === "42501") await AsyncStorage.removeItem(PENDING_CONFIRM_KEY);
+    // P0002: the server has no such device for the account signed in now (it was another account's phone). Nothing more to tell it.
+    if (!error || error.code === "P0002") await AsyncStorage.removeItem(PENDING_CONFIRM_KEY);
     else recordSyncError("offline_outbox", "wipe:confirm", error.message);
   } catch (error) {
     recordSyncError("offline_outbox", "wipe:confirm", error);
@@ -124,6 +138,16 @@ async function sendPendingConfirm(): Promise<void> {
  */
 export async function runDeviceCheck(now: Date = new Date()): Promise<DeviceCheckOutcome> {
   try {
+    // The key lease is checked FIRST, from what the phone remembers, so a phone that has been away longer than its
+    // lease is cleared even when it comes back online (the server would otherwise just renew the lease). The
+    // wipe makes its one last upload attempt before it removes anything.
+    const state = await readState();
+    if (state && leaseVerdict(state.leaseExpiresAt, state.lastCheckinClock, now) === "expired") {
+      await wipeThisPhone("lease_expired", state.deviceId, now, state.leaseDays);
+      await finishWipe();
+      return "wiped";
+    }
+
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -140,27 +164,27 @@ export async function runDeviceCheck(now: Date = new Date()): Promise<DeviceChec
         recordSyncError("offline_outbox", "deviceCheckin", error.message);
         return "skipped";
       }
-      // A server error (5xx, an outage on our side) says nothing about the phone: only a phone that cannot reach the
-      // network at all runs its lease down.
-      if (cls === "retry") return "offline";
-      const state = await readState(userId);
-      if (leaseVerdict(state?.leaseExpiresAt ?? null, state?.lastCheckinClock ?? null, now) === "expired") {
-        await wipeThisPhone("lease_expired", deviceId, now);
-        return "wiped";
-      }
+      // Offline, or an outage on our side: the lease keeps running on the phone's own record (checked above on the
+      // next run). A 5xx never shortens it.
       return "offline";
     }
 
-    const answer = (data ?? {}) as { revoked?: boolean; lease_expires_at?: string; wipe_reason?: string };
+    const answer = (data ?? {}) as { revoked?: boolean; lease_expires_at?: string; lease_days?: number; wipe_reason?: string };
     if (answer.revoked) {
       await wipeThisPhone(asWipeReason(answer.wipe_reason), deviceId, now);
-      await sendPendingConfirm();
+      await finishWipe();
       return "wiped";
     }
     if (typeof answer.lease_expires_at === "string") {
       await AsyncStorage.setItem(
         STATE_KEY,
-        JSON.stringify({ leaseExpiresAt: answer.lease_expires_at, lastCheckinClock: now.toISOString(), userId } satisfies LeaseState)
+        JSON.stringify({
+          leaseExpiresAt: answer.lease_expires_at,
+          lastCheckinClock: now.toISOString(),
+          userId,
+          deviceId,
+          leaseDays: typeof answer.lease_days === "number" ? answer.lease_days : loadOfflineTrustConfig().deviceLeaseDays,
+        } satisfies LeaseState)
       );
     }
     return "ok";

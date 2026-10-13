@@ -90,6 +90,15 @@ describe("rejection report", () => {
     expect(mockReports[0]).toMatchObject({ client_id: item.clientId });
   });
 
+  it("does NOT treat the daily cap (53400) as sent: the row was not stored, so it is tried again later", async () => {
+    mockReportError = { code: "53400", message: "too many rejection reports today" };
+    await enqueue({ kind: "symptom", subjectId: "p1", payload: SYMPTOM });
+    await flushOutbox();
+    mockReportError = null;
+    await flushOutbox();
+    expect(mockReports).toHaveLength(1);
+  });
+
   it("treats a repeat the server already holds (23505) as done", async () => {
     mockReportError = { code: "23505", message: "duplicate key" };
     await enqueue({ kind: "symptom", subjectId: "p1", payload: SYMPTOM });

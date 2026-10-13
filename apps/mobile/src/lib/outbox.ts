@@ -567,6 +567,9 @@ async function reportIfNeeded(db: SQLite.SQLiteDatabase, item: OutboxItem, fresh
   }
 }
 
+/** At most this many rejection reports per flush, so a pile of old rejected rows cannot make every flush slow. */
+const MAX_REPORTS_PER_FLUSH = 5;
+
 let flushing: Promise<FlushResult> | null = null;
 
 /**
@@ -588,6 +591,9 @@ async function runFlush(): Promise<FlushResult> {
   const now = new Date();
   const items = await listAllOutbox();
   const result: FlushResult = { synced: 0, remaining: items.length, stoppedOffline: false, held: 0, newlyRejected: 0 };
+  // Rejection reports (S06x) wait until every sendable row has gone: an urgent reading must never queue behind
+  // two slow requests per old rejected row.
+  const toReport: { item: OutboxItem; info?: FailureInfo }[] = [];
 
   for (const item of items) {
     if (!mayFlushUnder(item.ownerUserId, userId)) {
@@ -595,7 +601,7 @@ async function runFlush(): Promise<FlushResult> {
       continue;
     }
     if (item.state === "rejected") {
-      await reportIfNeeded(db, item);
+      toReport.push({ item });
       continue;
     }
     const due = await db.getFirstAsync<{ next_attempt_at: string }>(
@@ -631,7 +637,7 @@ async function runFlush(): Promise<FlushResult> {
         [message, outcome.status ?? null, item.clientId]
       );
       result.newlyRejected += 1;
-      await reportIfNeeded(db, item, outcome);
+      toReport.push({ item, info: outcome });
     } else {
       recordSyncError("offline_outbox", `${detail}:retry`, message);
       const wait = backoffMs(item.attempts + 1);
@@ -641,5 +647,6 @@ async function runFlush(): Promise<FlushResult> {
       );
     }
   }
+  for (const r of toReport.slice(0, MAX_REPORTS_PER_FLUSH)) await reportIfNeeded(db, r.item, r.info);
   return result;
 }

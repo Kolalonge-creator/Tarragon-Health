@@ -34,8 +34,9 @@ export async function reportRejection(
       support_code: supportCode(item.clientId),
       client_id: item.clientId,
     });
-    // 23505: already reported. 53400: today's cap reached. Both are "nothing more to send".
-    if (error && error.code !== "23505" && error.code !== "53400") {
+    // 23505: already reported, which is success. 53400 (today's cap) is NOT: the row was not stored, so it stays
+    // unreported and is tried again at a later flush.
+    if (error && error.code !== "23505") {
       recordSyncError("offline_outbox", "reportRejection:insert", error.message);
       return false;
     }
