@@ -204,7 +204,9 @@ begin
   create or replace function private.patient_may_page_doctor(p_patient uuid) returns boolean language sql as $f$ select true $f$;
   insert into results values ('sabotaged', 'amber, Free: no task is created', '0', public.create_tasks_from_triage_event(pg_temp.amber(v_fa, v_rs, v_acts))::text);
   delete from public.free_red_events where patient_id = (select id from fx where label = 'fh');
+  perform set_config('app.allow_clinical_value_delete', 'on', true);   -- S05b: fixture cleanup is a superuser maintenance delete
   delete from public.vitals_readings where patient_id = (select id from fx where label = 'fh');
+  perform set_config('app.allow_clinical_value_delete', 'off', true);
   perform pg_temp.gain((select id from fx where label = 'fh'), v_org);
   insert into results values ('sabotaged', 'heart failure, Free: no clinician alert', '0', (select count(*)::text from public.clinician_alerts where patient_id = (select id from fx where label = 'fh')));
   execute v_gate;
