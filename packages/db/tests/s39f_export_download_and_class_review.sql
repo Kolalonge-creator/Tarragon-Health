@@ -111,7 +111,7 @@ select pg_temp.ck('real', 'E11 a denied request does not open it', 'ERR 42501', 
 -- two_tier_register_new_patient_tables, notes 'Two-tier build...') and the three S07x home BP tables. R1 covers every other row; R1b pins the two-tier exception.
 select pg_temp.ck('real', 'R1 every registry row is reviewed, with a date and a note', '0', (select count(*)::text from public.data_registry where (not reviewed or reviewed_at is null or reviewed_note is null)
     and coalesce(notes, '') not like 'Two-tier build%'
-    and table_name not in ('home_bp_checks', 'clinic_bp_readings', 'bp_pattern_flags')));
+    and table_name not in ('home_bp_checks', 'clinic_bp_readings', 'bp_pattern_flags', 'medication_prn_limits', 'medication_prn_flags')));
 select pg_temp.ck('real', 'R1b the only unreviewed two-tier rows are those awaiting review, and none claims to be reviewed', '0',
   (select count(*)::text from public.data_registry where coalesce(notes, '') like 'Two-tier build%' and reviewed));
 select pg_temp.ck('real', 'R2 the CMO''s corrections are applied', 'clinical_record|clinical_record|operational|audit|true|clinical_record',

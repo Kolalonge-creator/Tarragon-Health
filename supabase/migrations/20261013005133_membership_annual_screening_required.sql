@@ -11,7 +11,6 @@
 -- is signed: it names panel v1 and the CMO must be shown v2 before signing (reported, not changed here).
 --
 -- Mirror: packages/shared/src/proposed-config registry `lab.panels` v3, checked by lab-panels-mirror.test.ts.
-begin;
 
 do $$
 declare v1 public.lab_panel_versions%rowtype; v_an jsonb;
@@ -40,4 +39,3 @@ begin
   if private.lab_panels_signed() then raise exception 'self-check: panels must still be unsigned'; end if;
 end $$;
 
-commit;

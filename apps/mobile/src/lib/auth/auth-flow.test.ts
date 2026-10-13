@@ -82,26 +82,46 @@ describe("phone sign-up", () => {
       phone: "+2348031234567",
       password: "a-long-password",
       fullName: "Ada Obi",
+      dateOfBirth: "1990-04-02",
       state: "Lagos",
     });
     expect(out).toEqual({ kind: "verify" });
     expect(calls.signUp?.[0]).toMatchObject({
       phone: "+2348031234567",
-      options: { data: { full_name: "Ada Obi", phone: "+2348031234567", state: "Lagos" } },
+      options: { data: { full_name: "Ada Obi", phone: "+2348031234567", date_of_birth: "1990-04-02", state: "Lagos" } },
     });
   });
 
   it("looks identical when the number already has an account (no enumeration)", async () => {
     const { auth } = fakeAuth({ signUp: fail("User already registered") });
     expect(
-      await startPhoneSignUp(auth, { phone: "+2348031234567", password: "x".repeat(10), fullName: "A B" }),
+      await startPhoneSignUp(auth, { phone: "+2348031234567", password: "x".repeat(10), fullName: "A B", dateOfBirth: "1990-04-02" }),
     ).toEqual({ kind: "verify" });
+  });
+
+  it("refuses anyone under 18 before any account is created", async () => {
+    const { auth, calls } = fakeAuth();
+    const under = new Date();
+    under.setUTCFullYear(under.getUTCFullYear() - 17);
+    const dob = under.toISOString().slice(0, 10);
+    expect(
+      await startPhoneSignUp(auth, { phone: "+2348031234567", password: "x".repeat(10), fullName: "A B", dateOfBirth: dob }),
+    ).toEqual({ kind: "error", key: "auth.error.adult_only" });
+    expect(calls.signUp).toBeUndefined();
+  });
+
+  it("refuses a date of birth that is not a real date", async () => {
+    const { auth, calls } = fakeAuth();
+    expect(
+      await startPhoneSignUp(auth, { phone: "+2348031234567", password: "x".repeat(10), fullName: "A B", dateOfBirth: "31/02/1990" }),
+    ).toEqual({ kind: "error", key: "auth.error.invalid_dob" });
+    expect(calls.signUp).toBeUndefined();
   });
 
   it("maps other failures to an auth.error key", async () => {
     const { auth } = fakeAuth({ signUp: fail("Something odd") });
     expect(
-      await startPhoneSignUp(auth, { phone: "+2348031234567", password: "x".repeat(10), fullName: "A B" }),
+      await startPhoneSignUp(auth, { phone: "+2348031234567", password: "x".repeat(10), fullName: "A B", dateOfBirth: "1990-04-02" }),
     ).toEqual({ kind: "error", key: "auth.error.generic" });
   });
 });
