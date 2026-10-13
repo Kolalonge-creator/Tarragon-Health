@@ -18,7 +18,10 @@ import { supabase } from "./supabase";
 export interface AsNeededMedicine {
   id: string;
   drugName: string;
+  /** What the care team set, or null when none is set. */
   limits: PrnLimits | null;
+  /** True when the limits could not be read and none are remembered: "no limits" would be a guess, so the screen says so. */
+  limitsUnknown?: boolean;
 }
 
 interface MedRow {
@@ -33,15 +36,16 @@ const LOOKBACK_MS = 36 * 60 * 60 * 1000;
 
 type LimitsMap = Record<string, PrnLimits>;
 
-async function readCachedLimits(patientId: string): Promise<LimitsMap> {
+async function readCachedLimits(patientId: string): Promise<LimitsMap | null> {
   try {
-    return JSON.parse((await AsyncStorage.getItem(LIMITS_KEY(patientId))) ?? "{}") as LimitsMap;
+    const raw = await AsyncStorage.getItem(LIMITS_KEY(patientId));
+    return raw === null ? null : (JSON.parse(raw) as LimitsMap);
   } catch {
-    return {};
+    return null;
   }
 }
 
-async function loadLimits(patientId: string): Promise<LimitsMap> {
+async function loadLimits(patientId: string): Promise<LimitsMap | null> {
   try {
     const { data, error } = await supabase
       .from("medication_prn_limits")
@@ -53,6 +57,7 @@ async function loadLimits(patientId: string): Promise<LimitsMap> {
     await AsyncStorage.setItem(LIMITS_KEY(patientId), JSON.stringify(map)).catch(() => undefined);
     return map;
   } catch {
+    // Offline or refused: use what this phone last saw. Nothing remembered is "unknown", not "none".
     return readCachedLimits(patientId);
   }
 }
@@ -94,11 +99,11 @@ export async function loadAsNeededMedicines(patientId: string): Promise<AsNeeded
   });
   if (asNeeded.length === 0) return [];
   const limits = await loadLimits(patientId);
-  return asNeeded.map((m) => ({ id: m.id, drugName: m.drug_name, limits: limits[m.id] ?? null }));
+  return asNeeded.map((m) => ({ id: m.id, drugName: m.drug_name, limits: limits?.[m.id] ?? null, limitsUnknown: limits === null }));
 }
 
 /** Times of the other as-needed doses of this medicine in the last day and a half: the server's, the phone's mirror, and any not yet sent. */
-async function priorDoseTimes(patientId: string, medicationId: string, nowMs: number): Promise<number[]> {
+async function priorDoseTimes(patientId: string, medicationId: string, nowMs: number, excludeClientId?: string): Promise<number[]> {
   const since = new Date(nowMs - LOOKBACK_MS).toISOString();
   const times: number[] = [];
   try {
@@ -122,7 +127,7 @@ async function priorDoseTimes(patientId: string, medicationId: string, nowMs: nu
   }
   for (const row of await listOutbox("dose").catch(() => [])) {
     const p = row.payload as DosePayload;
-    if (row.subjectId === patientId && p.medication_id === medicationId && p.scheduled_time == null && (p.status === "taken" || p.status === "delayed")) {
+    if (row.clientId !== excludeClientId && row.subjectId === patientId && p.medication_id === medicationId && p.scheduled_time == null && (p.status === "taken" || p.status === "delayed")) {
       times.push(Date.parse(row.clientRecordedAt));
     }
   }
@@ -146,14 +151,7 @@ export async function logAsNeededDose(
   medication: AsNeededMedicine,
   nowMs: number = Date.now(),
 ): Promise<AsNeededResult> {
-  let breaches: PrnBreach[] = [];
-  if (medication.limits && (await prnNoticeEnabled())) {
-    try {
-      breaches = checkPrnDose(medication.limits, await priorDoseTimes(patientId, medication.id, nowMs), nowMs);
-    } catch {
-      breaches = [];
-    }
-  }
+  // 1. Save on the phone FIRST. Nothing below can delay or lose it: the checks read the network, which may hang.
   let queuedId: string;
   try {
     const row = await enqueue({
@@ -173,6 +171,18 @@ export async function logAsNeededDose(
   } catch {
     return { saved: false, synced: false, breaches: [] };
   }
+  // 2. Judge it against the other doses (not itself), for the notice only.
+  let breaches: PrnBreach[] = [];
+  if (medication.limits) {
+    try {
+      if (await prnNoticeEnabled()) {
+        breaches = checkPrnDose(medication.limits, await priorDoseTimes(patientId, medication.id, nowMs, queuedId), nowMs);
+      }
+    } catch {
+      breaches = [];
+    }
+  }
+  // 3. Send.
   await flushOutbox().catch(() => undefined);
   const stillThere = (await listOutbox("dose").catch(() => [])).find((row) => row.clientId === queuedId);
   return { saved: true, synced: !stillThere, breaches };

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Linking, Platform, View } from "react-native";
+import { AppState, Linking, Platform, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
 import { resolveTakenTime, isDoubleTap, lagosLocalDate, slotKey, windowEndTime, type AdherenceResult, type ReminderIssue, type SlotState } from "@tarragon/medicines";
 import { useUiLanguage } from "@/lib/ui-language";
@@ -19,7 +19,7 @@ import { exactAlarmsAllowed, openExactAlarmSettings } from "@/lib/exact-alarms";
 import { androidManufacturer, keepStepsFor, openAppSettings, openBatterySettings } from "@/lib/keep-reminders";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import * as WebBrowser from "expo-web-browser";
-import { cancelSnooze, checkReminderHealth, replanDoseReminders, sendTestReminder, snoozeDose, type ReplanResult } from "@/lib/dose-reminders";
+import { cancelSnooze, checkReminderHealth, replanDoseReminders, rescheduleAllDoseReminders, sendTestReminder, snoozeDose, type ReplanResult } from "@/lib/dose-reminders";
 import { loadAdherenceBand, loadMedicineRules } from "@/lib/medicines-config";
 import { loadReminderBehaviour } from "@/lib/s07-config";
 import { space, useTheme } from "@/ui/design";
@@ -286,7 +286,8 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
     }
     // Saved first, always. The notice is added, never a reason the dose was refused.
     if (res.breaches.length > 0) setPrnNotice(tr("medicines.prn.over_limit_notice"));
-    else toast.show({ message: tr("medicines.prn.saved"), tone: "info" });
+    // Only say it is on the record once it has reached the server.
+    else toast.show({ message: tr(res.synced ? "medicines.prn.saved" : "medicines.prn.saved_offline"), tone: "info" });
   }
 
   async function testReminder() {
@@ -330,7 +331,7 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
       ) : null}
 
       {Platform.OS === "android" && ownsReminders ? (
-        <AndroidReminderHelp issues={issues} tr={tr} onRefresh={() => void refreshSide()} />
+        <AndroidReminderHelp issues={issues} tr={tr} onGranted={() => void rescheduleAllDoseReminders(patientId).then((r) => refreshSide(r))} />
       ) : null}
 
       <View style={{ gap: space.md }}>
@@ -496,6 +497,7 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
               {m.limits?.dailyMax != null ? (
                 <AppText variant="caption" tone="textMuted">{tr("medicines.prn.limit_max", { count: m.limits.dailyMax })}</AppText>
               ) : null}
+              {m.limitsUnknown ? <AppText variant="caption" tone="textMuted">{tr("medicines.prn.limits_unknown")}</AppText> : null}
               <Button title={tr("medicines.prn.action")} variant="secondary" disabled={prnBusy !== null} onPress={() => void tookOne(m)} />
             </View>
           ))}
@@ -569,15 +571,30 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
 function AndroidReminderHelp({
   issues,
   tr,
-  onRefresh,
+  onGranted,
 }: {
   issues: ReminderIssue[];
   tr: (key: MessageKey, params?: Record<string, string | number>) => string;
-  onRefresh: () => void;
+  /** Called once when exact alarms turn from off to on while the screen is open. */
+  onGranted: () => void;
 }) {
   const toast = useToast();
   const [open, setOpen] = useState(false);
-  const exactOff = exactAlarmsAllowed() === false;
+  const [exactOff, setExactOff] = useState(() => exactAlarmsAllowed() === false);
+  const wasOff = useRef(exactOff);
+  const grantedRef = useRef(onGranted);
+  grantedRef.current = onGranted;
+  // Coming back from the system screen: read the answer again, and make the reminders again if it is now on.
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state !== "active") return;
+      const off = exactAlarmsAllowed() === false;
+      if (wasOff.current && !off) grantedRef.current();
+      wasOff.current = off;
+      setExactOff(off);
+    });
+    return () => sub.remove();
+  }, []);
   const steps = keepStepsFor(androidManufacturer());
   const note = (ok: boolean) => {
     if (!ok) toast.show({ message: tr("meds.keep.opening_failed"), tone: "warn" });
@@ -592,11 +609,7 @@ function AndroidReminderHelp({
           <Button
             title={tr("meds.exact_alarm.allow")}
             variant="secondary"
-            onPress={() => {
-              note(openExactAlarmSettings());
-              // Coming back from the settings screen refreshes the check on the next focus; do it once now too.
-              setTimeout(onRefresh, 1500);
-            }}
+            onPress={() => note(openExactAlarmSettings())}
           />
         </View>
       ) : null}

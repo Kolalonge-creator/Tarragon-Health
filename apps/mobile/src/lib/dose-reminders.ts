@@ -187,6 +187,22 @@ export async function replanDoseReminders(
   }
 }
 
+/**
+ * Cancel every dose reminder this phone holds and plan them again. Used once, when the person has just allowed exact
+ * alarms: reminders already scheduled were created as inexact ones and keep that mode until they are made again.
+ */
+export async function rescheduleAllDoseReminders(patientId: string): Promise<ReplanResult> {
+  try {
+    const held = await Notifications.getAllScheduledNotificationsAsync();
+    for (const n of held) {
+      if (n.identifier.startsWith(DOSE_NOTIFICATION_PREFIX)) await Notifications.cancelScheduledNotificationAsync(n.identifier);
+    }
+  } catch {
+    // The replan below still runs; a reminder that could not be cancelled is replaced by id.
+  }
+  return replanDoseReminders(patientId);
+}
+
 /** Remind again later for one dose, at most `maxSnoozes` times. Nothing is logged: a snooze is only a later reminder. */
 export async function snoozeDose(slot: string): Promise<{ ok: true; minutes: number } | { ok: false; reason: "limit" | "failed" }> {
   const cfg = loadReminderBehaviour();

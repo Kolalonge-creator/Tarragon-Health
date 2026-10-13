@@ -219,6 +219,24 @@ begin
   alter table public.medication_prn_flags drop constraint s08x_proof_reject_flag;
   v_res := v_res || jsonb_build_array(jsonb_build_array('a failing flag write never stops the dose being logged', 'true:',
     (exists (select 1 from public.medication_logs where id = v_log))::text || ':' || pg_temp.flag_of(v_log)));
+  v_res := v_res || jsonb_build_array(jsonb_build_array('a failing flag write leaves a durable audit row', 'true',
+    (exists (select 1 from public.audit_log where action = 'medication_prn_limits.flag_write_failed' and entity_id = v_log))::text));
+  -- the repair puts the missing flag back, and never removes one
+  v_res := v_res || jsonb_build_array(jsonb_build_array('the repair restores the flag that failed to write', '1:min_gap',
+    private.reevaluate_prn_flags(v_med2)::text || ':' || pg_temp.flag_of(v_log)));
+  v_res := v_res || jsonb_build_array(jsonb_build_array('running the repair again changes nothing', '0', private.reevaluate_prn_flags(v_med2)::text));
+
+  -- limits follow an amended medicine (the new row names the old one), and only while it is still as-needed
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, schedule_times, schedule_spec, source, is_active, previous_version_id, version)
+    values (v_org, v_test, 'S08x amended', '1', 'as needed', '[]', '{"kind":"as_needed","maxPerDay":null,"startDate":null,"endDate":null,"foodNote":null}', 'clinician', true, v_med2, 2)
+    returning id into v_d;
+  v_res := v_res || jsonb_build_array(jsonb_build_array('limits follow an amended as-needed medicine', '240',
+    coalesce((select min_gap_minutes::text from public.medication_prn_limits where medication_id = v_d), 'none')));
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, schedule_times, source, is_active, previous_version_id, version)
+    values (v_org, v_test, 'S08x amended to daily', '1', 'daily', '["08:00"]', 'clinician', true, v_med2, 2)
+    returning id into v_c;
+  v_res := v_res || jsonb_build_array(jsonb_build_array('limits do not follow a medicine that stopped being as-needed', 'none',
+    coalesce((select min_gap_minutes::text from public.medication_prn_limits where medication_id = v_c), 'none')));
 
   -- 7. the guard ---------------------------------------------------------------------------------------------------------------
   insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, schedule_times, schedule_spec, source, is_active)

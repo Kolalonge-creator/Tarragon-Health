@@ -222,11 +222,53 @@ begin
       end;
     end if;
   exception when others then
-    -- A dose log must never fail because a flag could not be written; the warning reaches the database log.
+    -- A dose log must never fail because a flag could not be written. The failure is kept (a database warning AND an audit
+    -- row), because a missing flag reads as reassurance; private.reevaluate_prn_flags(medicine) repairs it.
     raise warning 'as-needed limit check not written for log %: %', new.id, sqlerrm;
+    begin
+      perform private.log_audit('medication_prn_limits.flag_write_failed', 'medication_log', new.id,
+        jsonb_build_object('medication_id', new.medication_id, 'error', sqlerrm));
+    exception when others then
+      raise warning 'as-needed limit failure not recorded for log %: %', new.id, sqlerrm;
+    end;
   end;
   return null;
 end $$;
+
+-- Repair: judge every counted dose of one medicine again and add any flag that is missing. Never removes a flag.
+create or replace function private.reevaluate_prn_flags(p_medication uuid)
+returns integer language plpgsql security definer set search_path = '' as $$
+declare v_n integer;
+begin
+  insert into public.medication_prn_flags (log_id, medication_id, patient_id, organisation_id, dose_at, min_gap, daily_max)
+  select e.log_id, l.medication_id, l.patient_id, l.organisation_id, e.dose_at, e.min_gap, e.daily_max
+    from private.prn_exceedances(p_medication, '-infinity'::timestamptz, 'infinity'::timestamptz) e
+    join public.medication_logs l on l.id = e.log_id
+  on conflict (log_id) do nothing;
+  get diagnostics v_n = row_count;
+  return v_n;
+end $$;
+
+-- Amending a prescription supersedes the row and inserts a new one (public.amend_medication). The limits belong to the
+-- medicine, not to one version of it, so they follow it. Without this the live medicine would read "no limits".
+create or replace function private.carry_prn_limits_on_amend()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  if new.previous_version_id is null or coalesce(new.schedule_spec ->> 'kind', '') <> 'as_needed' then
+    return null;
+  end if;
+  insert into public.medication_prn_limits (medication_id, organisation_id, patient_id, min_gap_minutes, daily_max, rule_version, set_by, set_at)
+  select new.id, l.organisation_id, l.patient_id, l.min_gap_minutes, l.daily_max, l.rule_version, l.set_by, l.set_at
+    from public.medication_prn_limits l where l.medication_id = new.previous_version_id
+  on conflict (medication_id) do nothing;
+  if found then
+    perform private.log_audit('medication_prn_limits.carried_on_amend', 'medication', new.id, jsonb_build_object('from', new.previous_version_id));
+  end if;
+  return null;
+end $$;
+drop trigger if exists medications_carry_prn_limits on public.medications;
+create trigger medications_carry_prn_limits after insert on public.medications
+  for each row when (new.previous_version_id is not null) execute function private.carry_prn_limits_on_amend();
 drop trigger if exists medication_logs_evaluate_prn_limits on public.medication_logs;
 create trigger medication_logs_evaluate_prn_limits after insert on public.medication_logs
   for each row execute function private.evaluate_prn_limits();
@@ -365,13 +407,15 @@ end $$;
 revoke all on function private.prn_exceedances(uuid, timestamptz, timestamptz) from public, anon, authenticated;
 revoke all on function private.evaluate_prn_limits() from public, anon, authenticated;
 revoke all on function private.prn_overview(uuid) from public, anon, authenticated;
+revoke all on function private.reevaluate_prn_flags(uuid) from public, anon, authenticated;
+revoke all on function private.carry_prn_limits_on_amend() from public, anon, authenticated;
 
 do $$
 declare f text; t text;
 begin
   foreach f in array array['public.sign_prn_limit_rules(uuid)', 'public.set_medication_prn_limits(uuid,integer,integer,text)',
                            'public.medication_prn_overview(uuid,text)', 'private.prn_exceedances(uuid,timestamptz,timestamptz)',
-                           'private.evaluate_prn_limits()', 'private.prn_overview(uuid)', 'private.prn_limits_go_live_conditions(text)']
+                           'private.evaluate_prn_limits()', 'private.prn_overview(uuid)', 'private.reevaluate_prn_flags(uuid)', 'private.carry_prn_limits_on_amend()', 'private.prn_limits_go_live_conditions(text)']
   loop
     if has_function_privilege('anon', f, 'EXECUTE') then raise exception 'S08x: anon can execute %', f; end if;
   end loop;

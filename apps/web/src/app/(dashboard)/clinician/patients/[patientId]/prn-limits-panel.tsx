@@ -17,7 +17,22 @@ export async function PrnLimitsPanel({ patientId, canSet }: { patientId: string;
     readPatientMedicationsAudited(supabase, patientId, { active: true }),
     readPrnOverview(supabase, patientId),
   ]);
-  if (meds.status !== "ok") return null;
+  if (meds.status !== "ok") {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>As-needed medicine limits</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-charcoal-ink/60">
+            {meds.status === "denied"
+              ? "This patient's medicines are not available to you, so their as-needed limits cannot be shown."
+              : "The medicines could not be loaded just now, so as-needed limits cannot be shown. Do not assume none are set."}
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
   const asNeeded = meds.rows.filter(
     (m) => !m.superseded_at && (m.schedule_spec as { kind?: string } | null)?.kind === "as_needed",
   );

@@ -15,6 +15,7 @@ type Row = Record<string, unknown>;
 const mockTables: Record<string, Row[]> = {};
 let mockGuard: boolean | "error" = true;
 let mockOnline = false;
+const mockFailTables = new Set<string>();
 const mockInserted: Row[] = [];
 
 jest.mock("./api", () => ({
@@ -44,7 +45,7 @@ jest.mock("./supabase", () => ({
           return { error: null };
         },
         then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>
-          (mockOnline ? Promise.resolve({ data: mockTables[table] ?? [], error: null }) : Promise.reject(new TypeError("Network request failed"))).then(res, rej),
+          (mockOnline && !mockFailTables.has(table) ? Promise.resolve({ data: mockTables[table] ?? [], error: null }) : Promise.reject(new TypeError("Network request failed"))).then(res, rej),
       };
       return q;
     },
@@ -61,6 +62,7 @@ beforeEach(async () => {
   mockInserted.length = 0;
   mockGuard = true;
   mockOnline = true;
+  mockFailTables.clear();
   await clearLocalMirror();
 });
 
@@ -129,16 +131,38 @@ describe("the as-needed list", () => {
     ];
     mockTables.medication_prn_limits = [{ medication_id: "m-prn", min_gap_minutes: 240, daily_max: 3 }];
     const online = await loadAsNeededMedicines("p1");
-    expect(online).toEqual([{ id: "m-prn", drugName: "Painkiller", limits: { minGapMinutes: 240, dailyMax: 3 } }]);
+    expect(online).toEqual([{ id: "m-prn", drugName: "Painkiller", limits: { minGapMinutes: 240, dailyMax: 3 }, limitsUnknown: false }]);
+    // the limits read now fails: the phone uses what it last saw rather than guessing "none"
+    mockFailTables.add("medication_prn_limits");
+    expect((await loadAsNeededMedicines("p1"))[0]).toMatchObject({ limits: { minGapMinutes: 240, dailyMax: 3 }, limitsUnknown: false });
     mockOnline = false;
     // offline, with no mirrored medicines the list is empty rather than an error
     expect(await loadAsNeededMedicines("p1")).toEqual([]);
   });
 });
 
+describe("when the limits cannot be read", () => {
+  it("says so rather than showing 'no limits', and the dose is still recorded", async () => {
+    mockTables.medications = [{ id: "m-prn", drug_name: "Painkiller", schedule_spec: { kind: "as_needed", maxPerDay: null, startDate: null, endDate: null, foodNote: null } }];
+    mockFailTables.add("medication_prn_limits");
+    const list = await loadAsNeededMedicines("p-fresh");
+    expect(list).toEqual([{ id: "m-prn", drugName: "Painkiller", limits: null, limitsUnknown: true }]);
+    const r = await logAsNeededDose("p-fresh", "org-1", list[0]!, NOW);
+    expect(r).toMatchObject({ saved: true, breaches: [] });
+  });
+  it("saves the dose before it reads anything from the network", async () => {
+    // Every read hangs forever; the dose must already be on the phone.
+    mockOnline = false;
+    const pending = logAsNeededDose("p1", "org-1", med({ minGapMinutes: 240, dailyMax: null }), NOW);
+    const r = await pending;
+    expect(r.saved).toBe(true);
+    expect((await listOutbox("dose")).length).toBe(1);
+  });
+});
+
 describe("the wording", () => {
   it("is the approved sentence, names no medicine and never suggests doubling a dose", () => {
-    const keys = ["medicines.prn.over_limit_notice", "medicines.prn.limit_gap", "medicines.prn.limit_max", "medicines.prn.saved"] as const;
+    const keys = ["medicines.prn.over_limit_notice", "medicines.prn.limit_gap", "medicines.prn.limit_max", "medicines.prn.saved", "medicines.prn.saved_offline", "medicines.prn.limits_unknown"] as const;
     expect(t("medicines.prn.over_limit_notice")).toBe("This is sooner than your care plan says. Check with your care team before taking another");
     for (const k of keys) {
       const text = t(k, "en", { minutes: 1, count: 1 });
