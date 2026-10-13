@@ -22,7 +22,6 @@
 -- Nothing here signs or activates anything: poc_panel_versions starts unsigned, so no point-of-care result auto-releases.
 -- Counts before this migration: none of these tables exist (new names, checked against live 2026-10-12).
 
-begin;
 
 -- ---------------------------------------------------------------------------
 -- 0. Permissions and helpers
@@ -1313,4 +1312,3 @@ begin
   end if;
 end $$;
 
-commit;
