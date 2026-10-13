@@ -70,6 +70,7 @@ declare
   u9 uuid := gen_random_uuid();   -- failing claim
   u1c uuid := gen_random_uuid();  -- cohort code only, no roster slot
   u1b uuid := gen_random_uuid();  -- roster slot AND a cohort code
+  u8b uuid := gen_random_uuid();  -- adult with a date of birth
   u10 uuid := gen_random_uuid();  -- established account (onboarding finished) matching a roster slot
   r_both uuid; r_est uuid;
   v_org uuid; v_n integer; v_txt text; r jsonb; v_uses integer; v_status text;
@@ -240,6 +241,22 @@ begin
     raise exception 'FAIL 7b: a failed claim was silent'; end if;
   if not exists (select 1 from public.notifications where recipient_id = u9 and template = 'security.programme_code_not_applied' and channel = 'in_app') then
     raise exception 'FAIL 7c: the person was not told their programme could not be added'; end if;
+  -- 7b. S04b-1's adult-only refusal (PR 1078) must still exist after this migration: handle_new_user is a superset of both
+  v_txt := null;
+  begin
+    insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+      values (gen_random_uuid(), 's03b-minor@example.invalid', 'x', null, '{}', jsonb_build_object('date_of_birth', (current_date - interval '10 years')::date::text));
+  exception when others then v_txt := sqlerrm; end;
+  if v_txt is null or v_txt not like 'adult_only_registration%' then raise exception 'FAIL 7b: an under-18 sign-up was not refused (%)', v_txt; end if;
+  v_txt := null;
+  begin
+    insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+      values (gen_random_uuid(), 's03b-baddob@example.invalid', 'x', null, '{}', '{"date_of_birth":"not a date"}');
+  exception when others then v_txt := sqlerrm; end;
+  if v_txt is null or v_txt not like 'adult_only_registration%' then raise exception 'FAIL 7b: an invalid date of birth was accepted (%)', v_txt; end if;
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+    values (u8b, 's03b-adult@example.invalid', 'x', null, '{}', '{"date_of_birth":"1985-03-04"}');
+  if (select date_of_birth from public.profiles where id = u8b) is distinct from date '1985-03-04' then raise exception 'FAIL 7b: an adult date of birth was not stored'; end if;
   raise notice 'PASS 1-7 eligibility first';
 end $$;
 

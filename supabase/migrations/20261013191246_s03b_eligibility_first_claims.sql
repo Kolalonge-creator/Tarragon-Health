@@ -225,6 +225,8 @@ as $$
 declare
   v_phone text;
   v_org_id uuid;
+  v_dob_text text;
+  v_dob date;
 begin
   v_phone := case
     when new.phone is null or new.phone = '' then null
@@ -232,18 +234,36 @@ begin
     else '+' || new.phone
   end;
 
+  -- S04b-1 (PR 1078, migration 20261013183512): registration is for adults. A date of birth carried in the sign-up metadata must be
+  -- a real date and 18 or more years ago, and is stored. This definition is a SUPERSET of that one so that whichever migration is
+  -- applied last does not undo the other: it sorts after 20261013183512, keeps the age refusal and the stored date of birth, and
+  -- adds the claim-after-verification change below. A sign-up that carries no date of birth is still accepted (staff and
+  -- dependant records are provisioned without one); onboarding then requires it and the profiles trigger applies the rule.
+  v_dob_text := nullif(btrim(coalesce(new.raw_user_meta_data ->> 'date_of_birth', '')), '');
+  if v_dob_text is not null then
+    begin
+      v_dob := v_dob_text::date;
+    exception when others then
+      raise exception 'adult_only_registration: invalid date of birth' using errcode = 'P0001';
+    end;
+    if v_dob > (current_date - interval '18 years')::date then
+      raise exception 'adult_only_registration: registration is for adults aged 18 and over' using errcode = 'P0001';
+    end if;
+  end if;
+
   v_org_id := coalesce(
     (new.raw_app_meta_data ->> 'organisation_id')::uuid,
     '00000000-0000-0000-0000-000000000001'
   );
 
-  insert into public.profiles (id, role, organisation_id, full_name, phone)
+  insert into public.profiles (id, role, organisation_id, full_name, phone, date_of_birth)
   values (
     new.id,
     coalesce((new.raw_app_meta_data ->> 'role')::public.user_role, 'patient'),
     coalesce(v_org_id, '00000000-0000-0000-0000-000000000001'),
     new.raw_user_meta_data ->> 'full_name',
-    v_phone
+    v_phone,
+    v_dob
   );
 
   -- An account created already verified (an admin invite, a provisioned account) has nothing left to wait for, so its

@@ -283,6 +283,9 @@ const SECURITY_NOTICE_SUBJECTS: Readonly<Record<string, string>> = {
   "security.phone_change_started": "The phone number on your account is being changed",
   "security.phone_changed": "The phone number on your account was changed",
   "security.programme_code_not_applied": "Your programme code could not be used",
+  // S03 assisted recovery (private.queue_recovery_notice): queued since 2026-09-30 with no entry here, so the email rows failed as unknown.
+  "security.assisted_recovery_requested": "Account recovery was started on your account",
+  "security.assisted_recovery_executed": "An account recovery step was completed on your account",
 };
 
 // The message can contain a person's display name, which they chose, so it is escaped before it goes into HTML.

@@ -970,7 +970,16 @@ Deno.serve(async () => {
     // Destination resolution. Rows queued for a non-profile recipient (e.g. a
     // no-login partner pharmacy) carry an explicit `to_phone`/`to_email` in the
     // payload; recipient-profile reminder rows fall back to profiles.phone.
-    const toEmail = typeof payload.to_email === "string" ? payload.to_email : undefined;
+    let toEmail = typeof payload.to_email === "string" ? payload.to_email : undefined;
+    // security.* notices (new sign-in, recovery, the sign-in number) go to the account's own VERIFIED address. The older producers
+    // (record_login_device, queue_recovery_notice) queue the email row without payload.to_email, so the address is looked up here,
+    // from Auth by the recipient id, never from the payload; an unverified address is not used. Scoped to security.* templates.
+    if (
+      !toEmail && row.channel === "email" && typeof row.template === "string" && row.template.startsWith("security.")
+    ) {
+      const { data: authUser } = await supabase.auth.admin.getUserById(row.recipient_id);
+      if (authUser?.user?.email && authUser.user.email_confirmed_at) toEmail = authUser.user.email;
+    }
     const toPhone = typeof payload.to_phone === "string"
       ? payload.to_phone
       : phoneById.get(row.recipient_id) ?? undefined;
