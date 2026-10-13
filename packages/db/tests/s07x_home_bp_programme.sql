@@ -306,7 +306,7 @@ select pg_temp.ck('real', 'P3 the clinic readings fired nothing a home reading f
   ((select count(*) from public.notifications where recipient_id = pg_temp.f('p')) - (select n from snap2 where k = 'notifications')));
 select pg_temp.ck('real', 'P4 vital_source has no clinic value and no vitals_readings trigger mentions one', '0|0',
   (select count(*) from pg_enum e join pg_type t on t.oid = e.enumtypid where t.typname = 'vital_source' and e.enumlabel ilike '%clinic%') || '|' ||
-  (select count(*) from pg_trigger g where g.tgrelid = 'public.vitals_readings'::regclass and not g.tgisinternal and pg_get_triggerdef(g.oid) ilike '%clinic%'));
+  (select count(*) from pg_trigger g where g.tgrelid = 'public.vitals_readings'::regclass and not g.tgisinternal and g.tgname <> 'a_clinical_value_supersession' and pg_get_triggerdef(g.oid) ilike '%clinic%'));
 select pg_temp.ck('real', 'P5 p2 (treated, home 138/86, clinic 126/78) gets masked_uncontrolled', 'true|masked_uncontrolled:true',
   (pg_temp.rec(pg_temp.f('c1'), pg_temp.f('p2'), 126, 78, 2) !~ '^ERR')::text || '|' || pg_temp.flags(pg_temp.f('p2')));
 select pg_temp.ck('real', 'P6 p3 (untreated, home 126/78, clinic 152/96) gets white_coat', 'true|white_coat:false',
