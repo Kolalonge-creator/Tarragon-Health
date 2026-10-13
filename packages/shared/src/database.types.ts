@@ -43588,6 +43588,16 @@ export type Database = {
       log_sponsor_staff_export: { Args: { p_cohort: string }; Returns: Json };
       sponsor_staff_programmes: { Args: Record<PropertyKey, never>; Returns: Json };
       triage_accuracy_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
+      // S75 (outcomes completion): spliced by hand, only what the S75 migrations add.
+      triage_agreement_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
+      bp_control_report_180d: { Args: { p_from?: string; p_to?: string }; Returns: Json };
+      retention_completion_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
+      response_times_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
+      outcome_data_quality_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
+      risk_fairness_history: { Args: Record<PropertyKey, never>; Returns: Json };
+      record_risk_fairness_review: { Args: { p_month: string; p_note: string }; Returns: Json };
+      sponsor_pilot_pack: { Args: { p_cohort: string; p_from?: string; p_to?: string }; Returns: Json };
+      log_sponsor_pack_export: { Args: { p_cohort: string; p_format?: string }; Returns: undefined };
       lab_panel_definition: { Args: { p_panel: string }; Returns: Json };
       liaison_recent_uploads: {
         Args: Record<PropertyKey, never>;

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { isShownCell, parseFairness, type FairnessCell } from "@/lib/risk/worklist";
+import { parseFairnessHistory } from "@/lib/outcomes/fairness-history";
 
 export const metadata = { title: "Risk fairness" };
 export const dynamic = "force-dynamic";
@@ -39,6 +40,8 @@ export default async function RiskFairnessPage() {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("risk_distribution_report");
   const report = error ? null : parseFairness(data);
+  const hist = await supabase.rpc("risk_fairness_history");
+  const history = hist.error ? null : parseFairnessHistory(hist.data);
 
   return (
     <div className="space-y-6">
@@ -59,6 +62,23 @@ export default async function RiskFairnessPage() {
           <Group title="By age" cells={report.by.age_band} />
           <Group title="By state" cells={report.by.state} />
           <p className="text-sm">{report.purpose} It makes no claim about cause and is never a reason to withhold care.</p>
+          <section aria-labelledby="rf-monthly" className="space-y-2">
+            <h2 id="rf-monthly" className="font-medium">Monthly reports for the Chief Medical Officer</h2>
+            <p className="text-sm">
+              Each month the distribution by sex, age band and region is written once and frozen, for the Chief Medical Officer to review. Risk stays a fixed set of rules; no
+              learned model is used. The platform is English only, so language is not a cut.
+            </p>
+            {!history ? <p role="alert">The monthly reports could not be read.</p> : history.length === 0 ? <p>No monthly report has been written yet. The first appears from the 3rd of next month.</p> : (
+              <ul className="space-y-1">
+                {history.map((h) => (
+                  <li key={h.month}>
+                    {h.month.slice(0, 7)}: {h.payload.total_scored === null ? "too few people scored to show a total" : `${h.payload.total_scored} people scored`};{" "}
+                    {h.reviewed ? `reviewed by ${h.reviewed_by_name ?? "the Chief Medical Officer"}${h.reviewed_at ? ` on ${h.reviewed_at.slice(0, 10)}` : ""}` : "not yet reviewed"}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </>
       )}
     </div>

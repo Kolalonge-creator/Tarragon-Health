@@ -53,3 +53,12 @@ describe("formatting", () => {
     expect(JSON.stringify(base)).not.toMatch(/patient_id|full_name|date_of_birth|phone/);
   });
 });
+
+describe("the 180-day report and withheld data-quality counts", () => {
+  it("reads a 180-day report whose enrolled counts are withheld (null)", () => {
+    const r180 = { ...base, measure: "bp_control_180d", due_day: 180, bp_basis: "own target else 140/90",
+      data_quality: { enrolled_total: null, not_yet_due: null, baseline_missing_pct: 0, due_day_no_reading_pct: 10, day90_no_reading_pct: null, default_target_used_pct: 90, readings_arriving_after_snapshot_pct: 0 } };
+    const r = parseReport(r180);
+    expect(r?.measure).toBe("bp_control_180d");
+  });
+});

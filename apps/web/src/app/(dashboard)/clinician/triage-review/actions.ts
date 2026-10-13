@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { AGREEMENTS } from "@/lib/triage-accuracy/report";
+import { AGREEMENTS } from "@/lib/triage-agreement/report";
 
 const schema = z.object({ taskId: z.string().uuid(), agreement: z.enum(AGREEMENTS) });
 const BACK = "/clinician/triage-review";

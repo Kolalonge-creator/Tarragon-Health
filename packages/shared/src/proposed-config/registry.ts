@@ -2599,4 +2599,125 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/plans/S75-S80-cmo-decisions.md S-20; spec 23.8; supabase/migrations/20261007160101_s77_clinical_follow_ups_closure.sql",
   },
+  {
+    key: "outcomes.measures",
+    // Programme reporting (S75b slimmed, S75c): the response-time grouping rules, the retention days and the evaluation-design note a sponsor pack carries.
+    // Live values are the active row of `outcome_measure_config`; this entry mirrors it and a test fails if the migration seed and this value drift. Every
+    // number is PROPOSED and owned by the CMO; nothing here is signed. The outcome MEASURES (HbA1c, weight, PHQ-9, GAD-7: windows, goals, exclusions and
+    // severity bands) are in outcome_config and mirrored as `outcomes.measure_rules`; the sponsor pack shows them only once the CMO has activated that config.
+    value: {
+        response_times: {
+          min_clinicians_per_group: 3,
+          priority_bands: {
+            urgent: [1, 2],
+            soon: [3, 5],
+            routine: [6, 9],
+          },
+        },
+        retention: {
+          days: [30, 90, 180],
+          engaged_window_days: 30,
+        },
+        pack: {
+          evaluation_design: "What this pack is: a descriptive before-and-after summary of the members who agreed to share group figures, taken at the day they joined and again 90 and 180 days later. There is no comparison group, members were not chosen at random, and the people who stay are not the same as the people who leave. For these reasons the figures describe what happened to these members and cannot show what would have happened without the programme. Differences between months or groups can arise from who joined, not from anything the programme did.",
+          caveat: "A change in a measure is not a verdict on the programme. Results for the same programme will differ with who joined, how long they stayed and how often they were measured.",
+        },
+      },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S75.md; docs/plans/S70-S75-cmo-signoff-pack.md C7; decision S75-2",
+  },
+  {
+    key: "outcomes.measure_rules",
+    // Version 2 (S75 exclusions and severity bands): version 1 plus, on each measure, who is NOT counted (`exclusions`: under 18 or age unknown for all; pregnant
+    // for HbA1c and weight; a PHQ-9 total of 20 or more for PHQ-9 and GAD-7) and, for PHQ-9 and GAD-7, the severity `bands`. The database holds it as
+    // `outcome_config` v4, which is v3 plus these keys. PROPOSED, UNSIGNED and INACTIVE like v3: the CMO activates v4 (not v3) to bring the exclusions in.
+    // Only the TOTAL score is read to remove a person; item 9 and the crisis flag are never read. A test compares this with the migration seed.
+    value: {
+      bp_report_days: [90, 180],
+      measures: {
+        hba1c: {
+          days: [0, 90, 180],
+          goal_below_percent: 7.0,
+          use_care_plan_target: true,
+          valid_min: 3.0,
+          valid_max: 20.0,
+          baseline_before_days: 90,
+          baseline_after_days: 14,
+          followup_tolerance_days: 30,
+          definition: "HbA1c, as a percentage. Change is the value near the day minus the baseline value near joining. A person reached the goal when the value near the day is under 7.0 percent or at their own care-plan HbA1c target. The result nearest the day inside the window is used.",
+          limitations: "Only people with an HbA1c result are counted in the measure; a person with no result near a day is shown as no result, never as not improved. Results come from the lab results recorded on the platform, not from every lab a person may have used. A before and after view without a comparison group says nothing about cause. People under 18, or with no date of birth on record, are not counted in any measure; people who are pregnant are not counted in HbA1c or weight; and people whose PHQ-9 total reached the safeguarding line (20 or more) are not counted in PHQ-9 or GAD-7. They are followed up through the existing routes, never through a report.",
+          exclusions: {
+            min_age_years: 18,
+            age_required: true,
+            pregnancy: true,
+          },
+        },
+        weight: {
+          days: [0, 30, 90, 180],
+          goal_loss_percent: 5.0,
+          valid_min: 20,
+          valid_max: 400,
+          min_age_years: 18,
+          baseline_before_days: 14,
+          baseline_after_days: 7,
+          followup_tolerance_days: 14,
+          definition: "Weight in kilograms. Change is the percent difference between the weight near the day and the baseline weight near joining. A person reached the goal when weight fell by 5 percent or more. The weight nearest the day inside the window is used. Adults only.",
+          limitations: "Only people who logged a weight are counted; a person with no weight near a day is shown as no result, never as not improved. Weight changes for many reasons, including pregnancy, illness and fluid; the measure is not a judgement of any person. A before and after view without a comparison group says nothing about cause. People under 18, or with no date of birth on record, are not counted in any measure; people who are pregnant are not counted in HbA1c or weight; and people whose PHQ-9 total reached the safeguarding line (20 or more) are not counted in PHQ-9 or GAD-7. They are followed up through the existing routes, never through a report.",
+          exclusions: {
+            min_age_years: 18,
+            age_required: true,
+            pregnancy: true,
+          },
+        },
+        phq9: {
+          days: [0, 30, 90, 180],
+          max_score: 27,
+          response_fall_percent: 50,
+          remission_below: 5,
+          min_baseline_for_outcome: 5,
+          baseline_before_days: 14,
+          baseline_after_days: 14,
+          followup_tolerance_days: 21,
+          definition: "PHQ-9 total score only. Response is a fall of 50 percent or more from the baseline total. Remission is a total below 5. Both are counted only for people whose baseline total was 5 or more.",
+          limitations: "Only total scores are used; no answer to any single question is read. A screening score is not a diagnosis. People with no score near a day are shown as no result. Readable only by the person and by a clinician with a written reason; never shown to a sponsor. People under 18, or with no date of birth on record, are not counted in any measure; people who are pregnant are not counted in HbA1c or weight; and people whose PHQ-9 total reached the safeguarding line (20 or more) are not counted in PHQ-9 or GAD-7. They are followed up through the existing routes, never through a report.",
+          exclusions: {
+            min_age_years: 18,
+            age_required: true,
+            safeguarding: {
+              score_from: 20,
+            },
+          },
+          bands: [["minimal", 0, 4], ["mild", 5, 9], ["moderate", 10, 14], ["moderately_severe", 15, 19], ["severe", 20, 27]],
+        },
+        gad7: {
+          days: [0, 30, 90, 180],
+          max_score: 21,
+          response_fall_percent: 50,
+          remission_below: 5,
+          min_baseline_for_outcome: 5,
+          baseline_before_days: 14,
+          baseline_after_days: 14,
+          followup_tolerance_days: 21,
+          definition: "GAD-7 total score only. Response is a fall of 50 percent or more from the baseline total. Remission is a total below 5. Both are counted only for people whose baseline total was 5 or more.",
+          limitations: "A screening score is not a diagnosis. People with no score near a day are shown as no result. Readable only by the person and by a clinician with a written reason; never shown to a sponsor. People under 18, or with no date of birth on record, are not counted in any measure; people who are pregnant are not counted in HbA1c or weight; and people whose PHQ-9 total reached the safeguarding line (20 or more) are not counted in PHQ-9 or GAD-7. They are followed up through the existing routes, never through a report.",
+          exclusions: {
+            min_age_years: 18,
+            age_required: true,
+            safeguarding: {
+              score_from: 20,
+            },
+          },
+          bands: [["minimal", 0, 4], ["mild", 5, 9], ["moderate", 10, 14], ["severe", 15, 21]],
+        },
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-13",
+    source: "docs/design/S75.md (exclusions); docs/design/S75-outcome-measures.md; docs/plans/S75-S80-cmo-decisions.md S-5; decision S75-2",
+  },
 ];

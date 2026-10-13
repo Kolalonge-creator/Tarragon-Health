@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { allowedAgreements, isShownCell, parseAccuracy, parseReviewList } from "./report";
+import { allowedAgreements, isShownCell, parseAgreementReport, parseReviewList } from "./report";
 
 const id = "11111111-1111-4111-8111-111111111111";
 const report = {
@@ -24,14 +24,14 @@ describe("triage review list", () => {
   });
 });
 
-describe("accuracy report", () => {
+describe("agreement report", () => {
   it("parses a good report and tells shown cells from withheld ones", () => {
-    const r = parseAccuracy(report);
+    const r = parseAgreementReport(report);
     expect(r?.by.state.map(isShownCell)).toEqual([true, false]);
     expect(r?.coverage.suppressed === false && r.coverage.low_coverage).toBe(true);
   });
   it("rejects a malformed report instead of half-rendering it", () => {
-    expect(parseAccuracy({ ...report, by: {} })).toBeNull();
-    expect(parseAccuracy(null)).toBeNull();
+    expect(parseAgreementReport({ ...report, by: {} })).toBeNull();
+    expect(parseAgreementReport(null)).toBeNull();
   });
 });
