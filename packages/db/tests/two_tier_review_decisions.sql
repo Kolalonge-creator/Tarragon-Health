@@ -313,8 +313,8 @@ begin
   perform pg_temp.ck('P10 the note notifies no one (INV-07: nothing reaches a phone)', '0',
     (select count(*)::text from public.notifications where created_at >= now() - interval '1 minute' and payload::text like '%Running low%'));
   perform pg_temp.ck('P11 the table cannot be written directly, and anon has nothing', 'true',
-    (pg_temp.exec_as(mb, format($q$insert into public.member_review_notes (organisation_id, patient_id, note) values (%L, %L, 'direct')$q$, v_org, mb)) like '42501:%')::text
-    and not has_table_privilege('anon', 'public.member_review_notes', 'SELECT'));
+    ((pg_temp.exec_as(mb, format($q$insert into public.member_review_notes (organisation_id, patient_id, note) values (%L, %L, 'direct')$q$, v_org, mb)) like '42501:%')
+     and not has_table_privilege('anon', 'public.member_review_notes', 'SELECT'))::text);
   -- the tenth note in a month is the last
   for n0 in 1..9 loop
     perform pg_temp.q_as(mb, format($q$select public.add_review_note(null, 'note %s')::text$q$, n0));
