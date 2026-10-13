@@ -38,6 +38,8 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/catalogue", "catalogue prices price list items membership care pack consultation checkout paystack switch on off sell buy"],
   ["/clinician/lab-results", "lab result review held abnormal critical release disclosure disclose positive hiv hepatitis screening withhold"],
   ["/clinician/lab-panels", "lab ranges reference critical limits sign cmo release policy disclosure attempts panels essential annual health check"],
+  ["/clinician/home-bp-programme", "home blood pressure check seven day protocol sign cmo bands 135 85 white coat masked pattern flag clinic reading cuff"],
+  ["/admin/settings/home-bp-programme", "home blood pressure check seven day protocol bands pattern read only signed"],
   ["/admin/settings/lab-panels", "lab ranges reference critical limits release policy panels read only signed"],
   ["/clinician/my-health-config", "lock screen pass wallet card fields sign cmo emergency basics initials blood group genotype allergies on file my health c8"],
   ["/admin/settings/my-health-config", "lock screen pass wallet card fields read only signed my health emergency basics"],
@@ -73,6 +75,7 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/settings/members", "users logins accounts roles permissions invite provision"],
   ["/admin/patients", "patient people customers find search lookup support investigate purchases"],
   ["/admin/ops/incidents", "incident outage problem sev"],
+  ["/admin/ops/event-bus", "event bus events outbox queue deliveries subscribers dead letter replay stuck lag falling behind heartbeat attempts retry process-events partner webhook"],
   ["/admin/data-rights", "gdpr ndpa privacy deletion erasure access request"],
   ["/admin/promo-codes", "discount coupon voucher"],
   ["/admin/leads", "enquiries prospects contact form"],
@@ -84,6 +87,7 @@ export const ADMIN_EXTRA_PAGES: AdminSearchEntry[] = [
   { label: "Licences and cover", href: "/admin/credentialing/expiry", group: "Clinician credentialing", hint: "Licence and indemnity expiry, grace periods, pause or reinstate access." },
   { label: "Task types and priorities", href: "/admin/task-types", group: "Clinical queue", hint: "The kinds of clinical work, how urgent each is and who may take it." },
   { label: "Record access review", href: "/admin/access-review", group: "Security and privacy", hint: "Who opened which patient record, untied and after-hours openings, and the retention review." },
+  { label: "Event bus", href: "/admin/ops/event-bus", group: "Operations", hint: "Every event the platform recorded, who handled it, what is stuck, and replay." },
 ];
 
 /** The same, for the Chief Medical Officer, whose account role cannot open /admin. */

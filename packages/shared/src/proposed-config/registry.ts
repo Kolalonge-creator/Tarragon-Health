@@ -406,6 +406,31 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S10.md; docs/research/S10.md",
   },
   {
+    key: "events.bus_rules",
+    // S10x adds the operations values. Same live source (the active row of `event_bus_config`, now version 3; a test fails if the
+    // migrations and this entry drift apart). lagAlertSeconds: when the oldest due, unclaimed, non-urgent delivery of a subscriber is
+    // older than this, one incident opens for that subscriber (none while one is open). lagAlertFloorSeconds: the database refuses a
+    // lower value, so a typo cannot turn the alert into noise. partnerDisableAfterFailures: consecutive failed attempts after which a
+    // partner webhook endpoint is switched off and an incident opens; partnerDisableFloor is the lowest the database allows.
+    value: {
+      batchSize: 50,
+      leaseSeconds: 60,
+      maxAttempts: 8,
+      backoffBaseSeconds: 15,
+      backoffMaxSeconds: 900,
+      jitterPercent: 20,
+      lagAlertSeconds: 600,
+      lagAlertFloorSeconds: 120,
+      partnerDisableAfterFailures: 20,
+      partnerDisableFloor: 5,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-13",
+    source: "docs/design/S10x.md",
+  },
+  {
     key: "credentialing.rules",
     // Clinician credentialing (S15). The live values are the active row of `credentialing_config` (versioned in the
     // database); this entry mirrors it, and a test fails if the migration seed and this value drift apart. Keys are the
@@ -1250,6 +1275,24 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S13.md; docs/research/S13.md",
   },
   {
+    key: "notifications.rules",
+    // v3 (S04b-3, founder decision 2026-10-13): quiet hours are OFF until a person turns them on (window 21:00 to 07:00
+    // Africa/Lagos until they change it). Discreet mode and quiet hours are applied by the one sender; safety messages
+    // are never held. Live value: the active row of `notification_rules_config`.
+    value: {
+      quietHours: { enabled: false, start: "21:00", end: "07:00" },
+      routinePushPerDay: 4,
+      receiptCheckMinutes: 15,
+      receiptGiveUpHours: 24,
+      pushFallback: { enabled: true, afterMinutes: 240, maxAgeHours: 24, perRecipientPerDay: 1, batchSize: 200 },
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 3,
+    effectiveFrom: "2026-10-13",
+    source: "docs/design/S13.md; founder decision 2026-10-13",
+  },
+  {
     key: "video.audio_fallback",
     // Video consultations (S14 interface, wired in S21). Connection quality arrives as a sample every few seconds.
     //  poorSamplesToDowngrade: that many poor samples in a row drop the call to audio only (one bad sample never does).
@@ -1887,35 +1930,45 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     guardPatterns: ["post[_ ]?max[_ ]?chars\\w*\\s*[=:]\\s*2000\\b", "premoderated\\w*\\s*[=:]\\s*3\\b", "auto[_ ]?hide\\w*\\s*[=:]\\s*3\\b"],
   },
   {
-    key: "medicines.prn_limits",
-    // As-needed (PRN) limits (S08x, decision C7). There are NO default limits: a clinician sets a shortest gap and/or a most doses in a
-    // Lagos day per medicine, and only inside these bounds. A dose outside them is still logged; the patient is shown a notice.
-    // Live values are the active, SIGNED row of `prn_limit_rules`; this entry mirrors the v1 seed and a test fails on drift.
-    //  minGapMinutesBounds / dailyMaxBounds: the range a clinician may enter.
-    //  repeatSignal: that many flagged doses of one medicine inside that many days raises one care-team signal (never an alarm).
-    // PROPOSED, CMO and a pharmacist to confirm; the rule stays inactive until the CMO signs it in the sign-off hub.
+    key: "bp.home_programme",
+    // S07x: the seven-day home blood pressure check (CMO-approved text C1, C2, C3 of 2026-10-07, NOT signed). Live value is the active, signed row of
+    // `home_bp_programme_signoffs`.config; home-bp-mirror.test.ts fails if the migration seed and this value drift. The phone bundles this value, so a change
+    // reaches installed phones only with the next build or update; the server (which records the result and raises the care-team task) always uses the signed row.
+    // protocol: C1 (2 readings a minute apart, morning and evening, 7 days, minimum 3 days and 12 readings, every reading averaged).
+    // bands: C2 (home mean 135/85 or above is above the home hypertension level; 130-134 / 80-84 is borderline). pattern: C3 (clinic 140/90, 30 days).
     value: {
-      minGapMinutesBounds: [15, 1440],
-      dailyMaxBounds: [1, 24],
-      repeatSignal: { flaggedDoses: 3, windowDays: 7 },
+      "protocol": {
+        "readingsPerSession": 2,
+        "minGapMinutes": 1,
+        "targetDays": 7,
+        "minDays": 3,
+        "minReadings": 12,
+        "restMinutes": 5,
+        "avoidBeforeMinutes": 30,
+        "morningHours": [4, 12],
+        "eveningHours": [17, 24]
+      },
+      "bands": {
+        "aboveSystolic": 135,
+        "aboveDiastolic": 85,
+        "borderlineSystolic": 130,
+        "borderlineDiastolic": 80
+      },
+      "pattern": {
+        "clinicSystolic": 140,
+        "clinicDiastolic": 90,
+        "windowDays": 30
+      },
+      "tasks": {
+        "reviewDueMinutes": 2880,
+        "patternDueMinutes": 2880
+      }
     },
     owner: "CMO",
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-13",
-    source: "docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md C7; docs/design/S08x.md",
-  },
-  {
-    key: "medicines.adherence_report",
-    // The patient's printed adherence report (S08x, decision C6): how many completed 7-day weeks it covers. The formula is the app's
-    // (doses you marked taken over doses due, as-needed left out); the minimum doses and missed window come from `medicines.dose_rules`
-    // and `reminders.behaviour`. Display only: it changes no treatment and raises no task.
-    value: { weeks: 8 },
-    owner: "CMO",
-    status: "proposed",
-    version: 1,
-    effectiveFrom: "2026-10-13",
-    source: "docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md C6; docs/design/S08x.md",
+    source: "docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md Part B C1 to C3; Nigeria hypertension guideline 2023-2028 sections 3.1.1, 3.2, 5.4.5, 6.2, 6.3; supabase/migrations/20261013182514_s07x_home_bp_programme.sql",
   },
   {
     key: "offline.trust",
@@ -1976,5 +2029,36 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-13",
     source: "docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md C8 and D4; supabase/migrations/20261013181946_s09x_my_health_completion.sql",
+  },
+  {
+    key: "medicines.prn_limits",
+    // As-needed (PRN) limits (S08x, decision C7). There are NO default limits: a clinician sets a shortest gap and/or a most doses in a
+    // Lagos day per medicine, and only inside these bounds. A dose outside them is still logged; the patient is shown a notice.
+    // Live values are the active, SIGNED row of `prn_limit_rules`; this entry mirrors the v1 seed and a test fails on drift.
+    //  minGapMinutesBounds / dailyMaxBounds: the range a clinician may enter.
+    //  repeatSignal: that many flagged doses of one medicine inside that many days raises one care-team signal (never an alarm).
+    // PROPOSED, CMO and a pharmacist to confirm; the rule stays inactive until the CMO signs it in the sign-off hub.
+    value: {
+      minGapMinutesBounds: [15, 1440],
+      dailyMaxBounds: [1, 24],
+      repeatSignal: { flaggedDoses: 3, windowDays: 7 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md C7; docs/design/S08x.md",
+  },
+  {
+    key: "medicines.adherence_report",
+    // The patient's printed adherence report (S08x, decision C6): how many completed 7-day weeks it covers. The formula is the app's
+    // (doses you marked taken over doses due, as-needed left out); the minimum doses and missed window come from `medicines.dose_rules`
+    // and `reminders.behaviour`. Display only: it changes no treatment and raises no task.
+    value: { weeks: 8 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md C6; docs/design/S08x.md",
   },
 ];

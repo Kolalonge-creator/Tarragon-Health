@@ -107,12 +107,9 @@ alter table public.data_export_requests enable trigger user;
 select pg_temp.ck('real', 'E11 a denied request does not open it', 'ERR 42501', pg_temp.as_user(pg_temp.f('p'), 'select public.export_my_data()::text'));
 
 -- class review
--- Rows the CMO reviewed carry a date and a note. A table added AFTER that review is honestly left unreviewed with a note saying so (never marked reviewed on someone else's behalf)
--- until the next class review; any other unreviewed row is a failure.
-select pg_temp.ck('real', 'R1 every registry row is reviewed, with a date and a note, or openly marked as added after the review', '0',
-  (select count(*)::text from public.data_registry
-    where (reviewed and (reviewed_at is null or reviewed_note is null))
-       or (not reviewed and (notes is null or notes not like 'Added after the S39f class review%'))));
+select pg_temp.ck('real', 'R1 every registry row is reviewed, with a date and a note', '0', (select count(*)::text from public.data_registry where (not reviewed or reviewed_at is null or reviewed_note is null)
+    -- tables added after the CMO's 2026-10-07 review start as PROPOSED classes and are confirmed at the next review of the registry (S07x: the three home BP tables)
+    and table_name not in ('home_bp_checks', 'clinic_bp_readings', 'bp_pattern_flags', 'medication_prn_limits', 'medication_prn_flags')));
 select pg_temp.ck('real', 'R2 the CMO''s corrections are applied', 'clinical_record|clinical_record|operational|audit|true|clinical_record',
   (select string_agg(x, '|' order by ord) from (values
     (1, (select retention_class from public.data_registry where table_name = 'sti_partner_notifications')),

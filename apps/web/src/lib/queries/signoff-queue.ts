@@ -43,7 +43,8 @@ type VersionedTableName =
   | "vaccination_schedule_signoffs"
   | "lab_panel_signoffs"
   | "prn_limit_rules"
-  | "my_health_config";
+  | "my_health_config"
+  | "home_bp_programme_signoffs";
 
 const VERSIONED_TABLES: { table: VersionedTableName; title: string; slug: string }[] = [
   { table: "alert_rules", title: "Alert rules", slug: "alert-rules" },
@@ -64,6 +65,7 @@ const VERSIONED_TABLES: { table: VersionedTableName; title: string; slug: string
   { table: "vaccination_schedule_signoffs", title: "Vaccination schedule", slug: "vaccination-schedule" },
   { table: "lab_panel_signoffs", title: "Lab ranges and release policy", slug: "lab-panels" },
   { table: "prn_limit_rules", title: "As-needed medicine limits", slug: "prn-limit-rules" },
+  { table: "home_bp_programme_signoffs", title: "Home blood pressure programme", slug: "home-bp-programme" },
   { table: "my_health_config", title: "My Health lock-screen pass fields", slug: "my-health-config" },
 ];
 

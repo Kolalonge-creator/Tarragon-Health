@@ -26475,9 +26475,11 @@ export type Database = {
       }
       partner_webhook_endpoints: {
         Row: {
+          auto_disabled_at: string | null
           consecutive_failures: number
           created_at: string
           description: string | null
+          disabled_reason: string | null
           environment: Database["public"]["Enums"]["api_environment"]
           event_types: Database["public"]["Enums"]["integration_event_type"][]
           id: string
@@ -26487,14 +26489,19 @@ export type Database = {
           name: string
           organisation_id: string
           partner_integration_id: string
+          previous_secret: string | null
+          previous_secret_expires_at: string | null
           secret: string
+          signing_key_version: number
           updated_at: string
           url: string
         }
         Insert: {
+          auto_disabled_at?: string | null
           consecutive_failures?: number
           created_at?: string
           description?: string | null
+          disabled_reason?: string | null
           environment?: Database["public"]["Enums"]["api_environment"]
           event_types: Database["public"]["Enums"]["integration_event_type"][]
           id?: string
@@ -26504,14 +26511,19 @@ export type Database = {
           name: string
           organisation_id: string
           partner_integration_id: string
+          previous_secret?: string | null
+          previous_secret_expires_at?: string | null
           secret: string
+          signing_key_version?: number
           updated_at?: string
           url: string
         }
         Update: {
+          auto_disabled_at?: string | null
           consecutive_failures?: number
           created_at?: string
           description?: string | null
+          disabled_reason?: string | null
           environment?: Database["public"]["Enums"]["api_environment"]
           event_types?: Database["public"]["Enums"]["integration_event_type"][]
           id?: string
@@ -26521,7 +26533,10 @@ export type Database = {
           name?: string
           organisation_id?: string
           partner_integration_id?: string
+          previous_secret?: string | null
+          previous_secret_expires_at?: string | null
           secret?: string
+          signing_key_version?: number
           updated_at?: string
           url?: string
         }
@@ -39479,6 +39494,171 @@ export type Database = {
         }
         Relationships: []
       }
+      home_bp_programme_signoffs: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      home_bp_checks: {
+        Row: {
+          band: string
+          config_version: number
+          created_at: string
+          days: number
+          id: string
+          is_test: boolean
+          mean_diastolic: number
+          mean_systolic: number
+          organisation_id: string
+          patient_id: string
+          readings: number
+          task_id: string | null
+          window_end: string
+          window_start: string
+        }
+        Insert: {
+          band: string
+          config_version: number
+          created_at?: string
+          days: number
+          id?: string
+          is_test?: boolean
+          mean_diastolic: number
+          mean_systolic: number
+          organisation_id: string
+          patient_id: string
+          readings: number
+          task_id?: string | null
+          window_end: string
+          window_start: string
+        }
+        Update: {
+          band?: string
+          config_version?: number
+          created_at?: string
+          days?: number
+          id?: string
+          is_test?: boolean
+          mean_diastolic?: number
+          mean_systolic?: number
+          organisation_id?: string
+          patient_id?: string
+          readings?: number
+          task_id?: string | null
+          window_end?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
+      clinic_bp_readings: {
+        Row: {
+          created_at: string
+          diastolic: number
+          id: string
+          is_test: boolean
+          measured_at: string
+          note: string | null
+          organisation_id: string
+          patient_id: string
+          recorded_by: string
+          systolic: number
+        }
+        Insert: {
+          created_at?: string
+          diastolic: number
+          id?: string
+          is_test?: boolean
+          measured_at: string
+          note?: string | null
+          organisation_id: string
+          patient_id: string
+          recorded_by: string
+          systolic: number
+        }
+        Update: {
+          created_at?: string
+          diastolic?: number
+          id?: string
+          is_test?: boolean
+          measured_at?: string
+          note?: string | null
+          organisation_id?: string
+          patient_id?: string
+          recorded_by?: string
+          systolic?: number
+        }
+        Relationships: []
+      }
+      bp_pattern_flags: {
+        Row: {
+          clinic_reading_id: string
+          config_version: number
+          created_at: string
+          home_check_id: string
+          id: string
+          is_test: boolean
+          kind: string
+          organisation_id: string
+          patient_id: string
+          task_id: string | null
+          treated: boolean
+        }
+        Insert: {
+          clinic_reading_id: string
+          config_version: number
+          created_at?: string
+          home_check_id: string
+          id?: string
+          is_test?: boolean
+          kind: string
+          organisation_id: string
+          patient_id: string
+          task_id?: string | null
+          treated: boolean
+        }
+        Update: {
+          clinic_reading_id?: string
+          config_version?: number
+          created_at?: string
+          home_check_id?: string
+          id?: string
+          is_test?: boolean
+          kind?: string
+          organisation_id?: string
+          patient_id?: string
+          task_id?: string | null
+          treated?: boolean
+        }
+        Relationships: []
+      }
       triage_protocols: {
         Row: {
           approved_at: string | null
@@ -43351,6 +43531,9 @@ export type Database = {
       };
       record_lab_disclosure_attempt: { Args: { p_note?: string; p_outcome: string; p_result: string }; Returns: Json };
       sign_lab_panels: { Args: { p_id: string }; Returns: string };
+      sign_home_bp_programme: { Args: { p_id: string }; Returns: string };
+      complete_home_bp_check: { Args: { p_window_start: string }; Returns: Json };
+      record_clinic_bp_reading: { Args: { p_diastolic: number; p_measured_at: string; p_note?: string; p_patient: string; p_systolic: number }; Returns: string };
       sign_my_health_config: { Args: { p_id: string }; Returns: string };
       my_access_log: { Args: { p_limit?: number; p_before?: string; p_before_id?: string }; Returns: Json };
       my_lock_screen_facts: { Args: Record<PropertyKey, never>; Returns: Json };
@@ -44788,6 +44971,60 @@ export type Database = {
         Args: { p_case_id: string; p_closure_summary: string }
         Returns: undefined
       }
+      event_bus_health: { Args: never; Returns: Json }
+      replay_event_delivery: { Args: { p_delivery_id: string; p_redo_effects?: boolean }; Returns: boolean }
+      event_bus_lag_sweep: { Args: { p_include_test?: boolean }; Returns: number }
+      event_bus_explorer: {
+        Args: { p_before?: string; p_before_id?: string; p_event_type?: string; p_limit?: number; p_status?: string; p_subscriber?: string }
+        Returns: {
+          aggregate_id: string
+          aggregate_type: string
+          attempt_count: number
+          created_at: string
+          delivery_id: string
+          done_at: string
+          event_id: string
+          event_type: string
+          event_version: number
+          is_test: boolean
+          lag_seconds: number
+          last_error: string
+          next_attempt_at: string
+          payload_ids: Json
+          priority: string
+          replay_count: number
+          status: string
+          subscriber_key: string
+        }[]
+      }
+      event_bus_delivery_attempts: {
+        Args: { p_delivery_id: string }
+        Returns: { attempt_no: number; created_at: string; error: string; outcome: string }[]
+      }
+      event_bus_subscriber_status: {
+        Args: never
+        Returns: {
+          dead: number
+          done_24h: number
+          event_type: string
+          handler_key: string
+          is_active: boolean
+          lag_incident_open: boolean
+          last_failure_at: string
+          last_success_at: string
+          oldest_due_seconds: number
+          pending: number
+          processing: number
+          subscriber_key: string
+        }[]
+      }
+      partner_webhook_enqueue_for_delivery: { Args: { p_delivery_id: string }; Returns: number }
+      reenable_partner_webhook_endpoint: { Args: { p_endpoint_id: string }; Returns: undefined }
+      rotate_partner_webhook_secret: { Args: { p_endpoint_id: string; p_grace_hours?: number }; Returns: string }
+      set_partner_event_mapping: {
+        Args: { p_bus_event_type: string; p_id_keys?: string[]; p_integration_event_type: Database["public"]["Enums"]["integration_event_type"] }
+        Returns: string
+      }
       claim_integration_outbound_batch: {
         Args: { p_limit?: number }
         Returns: {
@@ -44798,7 +45035,9 @@ export type Database = {
           id: string
           max_attempts: number
           payload: Json
+          previous_secret: string
           secret: string
+          signing_key_version: number
           url: string
         }[]
       }
