@@ -2533,4 +2533,19 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-13",
     source: "docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md C6; docs/design/S08x.md",
   },
+  {
+    key: "triage.coverage",
+    // The daily silence (BP-A5) and adherence (BP-A4) sweep (P6, plan item R3). The LINES themselves (7 days of silence, 80 percent) are
+    // in the signed bp_care_triage rule set and are read from it; this entry holds only the switch and who counts as having a blood
+    // pressure interest. Live values are the active row of `triage_coverage_config`; this mirrors the v1 seed and a test fails on drift.
+    //  enabled: born OFF. A human turns it on after the CMO confirms Members should get these tasks (a task is made for a Member only,
+    //    never a Free patient, under the two-tier model).
+    //  bp_interest_days: a Member with no hypertension care plan counts as having a blood pressure interest if they read in this many days.
+    value: { enabled: false, bp_interest_days: 90 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/OPEN-QUESTIONS.md OQ-89; docs/design/S11-S15-p6-coverage.md",
+  },
 ];

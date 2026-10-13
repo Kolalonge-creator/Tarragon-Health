@@ -1,6 +1,8 @@
 "use client";
 
 import { useVitalsReadingsPage } from "@/lib/queries/vitals";
+import { useOwnTriageResults } from "@/lib/queries/triage-results";
+import { ReadingTriageNote } from "./reading-triage-note";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatGlucose, type GlucoseDisplayUnit, type Tables } from "@tarragon/shared";
@@ -130,6 +132,8 @@ export function VitalsHistory({ patientId }: { patientId: string }) {
   const { data, isLoading, isError, hasNextPage, isFetchingNextPage, fetchNextPage } =
     useVitalsReadingsPage(patientId);
   const readings = data?.pages.flatMap((p) => p.rows) ?? [];
+  // P6: the grade the patient was shown for each reading that has one. A failed load only leaves the note out.
+  const { data: triageResults } = useOwnTriageResults(readings.flatMap((r) => (r.triage_event_id ? [r.triage_event_id] : [])));
 
   return (
     <Card>
@@ -167,6 +171,7 @@ export function VitalsHistory({ patientId }: { patientId: string }) {
                   {reading.note && (
                     <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{reading.note}</p>
                   )}
+                  <ReadingTriageNote result={reading.triage_event_id ? triageResults?.get(reading.triage_event_id) : undefined} />
                 </div>
                 <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                   {formatPatientDateTime(reading.taken_at)}
