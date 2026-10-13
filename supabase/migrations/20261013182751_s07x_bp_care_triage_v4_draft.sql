@@ -11,8 +11,11 @@
 -- (read with pg_get_functiondef, one entry added to the input object, raises if the anchor moved, idempotent) so that every other change made to it on other branches
 -- is kept. The value comes from private.patient_takes_bp_medicines (the S07x programme migration). The phone does not know it and leaves it out; for a phone that only
 -- means BP-A7 adds no on-device task, and the server grade (which creates the task) has it.
--- IF v4 IS APPROVED BEFORE THE EDGE FUNCTION IS REDEPLOYED with the engine that reads the field, BP-A7 would never fire (an unknown field is false): the context function
--- below is safe to ship first, the edge function must be redeployed from main-dev before the CMO approves v4 (checklist in docs/design/S07x.md).
+-- A MISSING VALUE MEANS "UNKNOWN", WHICH IS TREATED AS TAKING THEM (the conservative reading, same as v3), so a phone that cannot tell still shows the amber guidance for a low
+-- reading; only the server, which knows, can switch BP-A7 off for a patient it knows takes none.
+-- IF v4 IS APPROVED BEFORE THE EDGE FUNCTION IS REDEPLOYED with the engine that knows the field, the old engine refuses the rule set as invalid (an unknown field) and the
+-- observation handler throws, so deliveries retry and dead-letter where event_bus_health() shows them: loud, not silent, but every blood pressure grade would stall until redeploy.
+-- The context function below is safe to ship first; redeploy the edge function from main-dev before the CMO approves v4 (checklist in docs/design/S07x.md).
 
 -- 1. The draft rule set, derived from v3 ------------------------------------------------------------------------------------------------
 insert into public.triage_rule_sets (code, version, status, rules, note)

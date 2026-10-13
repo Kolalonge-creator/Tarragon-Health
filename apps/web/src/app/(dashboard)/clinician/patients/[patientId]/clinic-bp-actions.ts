@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { parseLagosLocal } from "@/lib/clinical/lagos-local";
 
 export type RecordClinicBpState = { error?: string; success?: boolean } | undefined;
 
@@ -30,8 +31,8 @@ export async function recordClinicBp(_prev: RecordClinicBpState, formData: FormD
     note: String(formData.get("note") ?? "").trim() || undefined,
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form." };
-  const measured = new Date(parsed.data.measured_at);
-  if (Number.isNaN(measured.getTime())) return { error: "Enter a valid date and time." };
+  const measured = parseLagosLocal(parsed.data.measured_at);
+  if (!measured) return { error: "Enter a valid date and time." };
 
   const supabase = await createClient();
   const { error } = await supabase.rpc("record_clinic_bp_reading", {

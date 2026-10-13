@@ -31,6 +31,8 @@ export const TASK_TYPE_LABEL: Readonly<Record<string, string>> = {
   routine_result_review: "Routine result review",
   admin_clinical: "Referral letters and repeat prescriptions",
   adherence_follow_up: "Adherence follow-up (missed doses or silence)",
+  home_bp_check_review: "Home blood pressure check review",
+  bp_pattern_review: "Blood pressure pattern for review (clinic and home differ)",
 };
 
 export const TIER_LABEL: Readonly<Record<TaskTypeRow["min_doctor_tier"], string>> = {

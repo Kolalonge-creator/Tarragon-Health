@@ -17,6 +17,8 @@ export interface StoredHomeCheck {
   /** When the server confirmed. */
   submittedAt?: string;
   result?: SentResult;
+  /** The server recounted and found fewer readings than this phone did (a watch or ring reading, or one still waiting to send). Shown, never retried blindly. */
+  serverShort?: { readings: number; days: number };
 }
 
 export interface SentResult {
@@ -31,7 +33,7 @@ export type HomeCheckView =
   | { kind: "hidden" }
   | { kind: "start" }
   | { kind: "running"; assessment: HomeCheckAssessment }
-  | { kind: "ready"; assessment: HomeCheckAssessment; queued: boolean }
+  | { kind: "ready"; assessment: HomeCheckAssessment; queued: boolean; serverShort: { readings: number; days: number } | null }
   | { kind: "ended_short"; assessment: HomeCheckAssessment }
   | { kind: "sent"; result: SentResult };
 
@@ -47,7 +49,9 @@ export function buildHomeCheckView(input: {
   if (stored === null) return { kind: "start" };
   if (stored.submittedAt !== undefined && stored.result !== undefined) return { kind: "sent", result: stored.result };
   if (assessment === null) return { kind: "start" };
-  if (assessment.complete) return { kind: "ready", assessment, queued: stored.sendRequestedAt !== undefined };
+  if (assessment.complete) {
+    return { kind: "ready", assessment, queued: stored.sendRequestedAt !== undefined, serverShort: stored.serverShort ?? null };
+  }
   if (assessment.windowOver) return { kind: "ended_short", assessment };
   return { kind: "running", assessment };
 }
@@ -69,14 +73,16 @@ const BANDS: readonly string[] = ["above_home_level", "borderline", "within_home
 /** The server's answer to complete_home_bp_check, checked by hand: anything that does not match is treated as no answer. */
 export type SubmitOutcome =
   | { kind: "recorded"; result: SentResult }
-  | { kind: "not_enough" }
+  | { kind: "not_enough"; readings: number; days: number }
   | { kind: "closed" }
   | { kind: "offline" };
 
 export function parseCompleteResult(data: unknown): SubmitOutcome | null {
   if (typeof data !== "object" || data === null || Array.isArray(data)) return null;
   const d = data as Record<string, unknown>;
-  if (d.complete === false) return { kind: "not_enough" };
+  if (d.complete === false) {
+    return { kind: "not_enough", readings: typeof d.readings === "number" ? d.readings : 0, days: typeof d.days === "number" ? d.days : 0 };
+  }
   if (d.complete !== true) return null;
   const { readings, days, systolic, diastolic, band } = d;
   if (

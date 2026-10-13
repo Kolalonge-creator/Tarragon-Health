@@ -235,7 +235,7 @@ describe("bp_care_triage v4 draft (decision C5)", () => {
     expect(changed.map((r) => r.id)).toEqual(["BP-A7"]);
   });
 
-  it("v3 flags a low systolic with no symptom for everyone; v4 only for a patient on BP medicines", () => {
+  it("v3 flags a low systolic with no symptom for everyone; v4 unless the server knows the patient takes no BP medicines", () => {
     const v3 = grade(input(85), BP_CARE_V3);
     expect(v3).toMatchObject({ grade: "amber", ruleId: "BP-A7" });
     const treated = grade(input(85, { onBpMedicines: true }), BP_CARE_V4);
@@ -243,9 +243,9 @@ describe("bp_care_triage v4 draft (decision C5)", () => {
     expect(treated.actions.map((a) => a.kind)).toContain("create_task");
     const untreated = grade(input(85, { onBpMedicines: false }), BP_CARE_V4);
     expect(untreated.ruleId).not.toBe("BP-A7");
+    // the phone cannot tell: unknown counts as taking them, so the low reading is never reassured away on a phone
     const unknown = grade(input(85), BP_CARE_V4);
-    expect(unknown.ruleId).not.toBe("BP-A7");
-    expect(unknown.actions.map((a) => a.kind)).not.toContain("create_task");
+    expect(unknown).toMatchObject({ grade: "amber", ruleId: "BP-A7" });
   });
 
   it("a low systolic with fainting is still red for everyone (BP-R3 is untouched)", () => {

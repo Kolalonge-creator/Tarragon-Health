@@ -2384,6 +2384,7 @@ export const en = {
   "hc.sending": "Sending",
   "hc.queued": "We will send your results when you are back online.",
   "hc.send_failed": "Your results could not be sent just now. They are saved on this phone and we will try again.",
+  "hc.server_short": "Our records have {readings} readings on {days} days so far, which is not enough yet. Readings from a watch or ring are not counted, and readings still waiting to send count once they arrive. Keep measuring and send again.",
   "hc.sent": "Your results are with your care team.",
   "hc.sent_detail": "They will look at them when they review. Nobody is called, and nothing here needs you to wait. If you feel unwell, do not wait for a reply: use the emergency guidance.",
   "hc.band.above_home_level": "Your average is above the home hypertension level.",

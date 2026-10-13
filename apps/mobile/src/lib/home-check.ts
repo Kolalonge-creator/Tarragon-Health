@@ -101,8 +101,8 @@ export async function loadHomeCheck(patientId: string, nowMs: number): Promise<H
   const cfg = loadHomeBpConfig();
   let assessment: HomeCheckAssessment | null = null;
   if (stored && !stored.submittedAt) {
-    // A 7-day window holds at most 4 readings a day, plus a few extra: 80 is far above anything the protocol produces.
-    const readings = toHomeReadings(await loadRecentBpReadings(patientId, 80).catch(() => []));
+    // A 7-day window holds about 4 readings a day: 200 is far above anything the protocol produces (the offline mirror keeps 200).
+    const readings = toHomeReadings(await loadRecentBpReadings(patientId, 200).catch(() => []));
     assessment = assessHomeCheck({ readings, startDate: stored.startDate, nowMs }, cfg);
     if (stored.sendRequestedAt && assessment.complete) {
       const outcome = await submit(patientId, stored);
@@ -128,6 +128,11 @@ async function submit(patientId: string, stored: StoredHomeCheck): Promise<Submi
     if (!outcome) return { kind: "offline" };
     if (outcome.kind === "recorded") {
       await writeStored(patientId, { ...stored, submittedAt: new Date().toISOString(), result: outcome.result });
+    } else if (outcome.kind === "not_enough") {
+      // The server counts manual and device readings only. Stop retrying (it would answer the same) and remember what it counted so the card can say so.
+      const { sendRequestedAt: _dropped, ...rest } = stored;
+      void _dropped;
+      await writeStored(patientId, { ...rest, serverShort: { readings: outcome.readings, days: outcome.days } });
     }
     return outcome;
   } catch {

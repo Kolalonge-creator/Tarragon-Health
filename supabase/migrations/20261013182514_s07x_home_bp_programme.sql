@@ -81,6 +81,17 @@ as $$
 declare v_staff uuid;
 begin
   if not exists (select 1 from public.home_bp_programme_signoffs where id = p_id) then raise exception 'Home BP programme version not found'; end if;
+  if exists (select 1 from public.home_bp_programme_signoffs where id = p_id and approved_by is not null) then
+    raise exception 'this version is already signed; a change is a new version';
+  end if;
+  -- every key the server functions and the phone read must be present, or every later call would fail on a missing value
+  perform 1 from public.home_bp_programme_signoffs c, unnest(array[
+      '{protocol,readingsPerSession}', '{protocol,minGapMinutes}', '{protocol,targetDays}', '{protocol,minDays}', '{protocol,minReadings}',
+      '{protocol,morningHours}', '{protocol,eveningHours}',
+      '{bands,aboveSystolic}', '{bands,aboveDiastolic}', '{bands,borderlineSystolic}', '{bands,borderlineDiastolic}',
+      '{pattern,clinicSystolic}', '{pattern,clinicDiastolic}', '{pattern,windowDays}', '{tasks,reviewDueMinutes}', '{tasks,patternDueMinutes}']::text[]) k
+   where c.id = p_id and (c.config #> k::text[]) is null;
+  if found then raise exception 'this version is missing a value the programme needs and cannot be signed'; end if;
   select cs.id into v_staff from public.clinical_staff cs
    where cs.profile_id = (select auth.uid()) and cs.active and cs.status = 'active' and cs.doctor_tier = 'chief_medical_officer' limit 1;
   if v_staff is null then raise exception 'not authorised: only the active Chief Medical Officer can sign the home BP programme'; end if;
@@ -265,8 +276,8 @@ as $$
 $$;
 revoke all on function private.bp_pattern_kind(int, int, timestamptz, int, int, timestamptz, boolean, boolean, int, jsonb) from public, anon, authenticated;
 
--- "Taking blood pressure medicines": an active medicine the HEARTS classifier recognises (private.bp_drug_class, the same one the clinician ladder uses), or one
--- linked to an active hypertension care plan, or whose indication says so. There is no medicine class catalogue yet (S53), so a BP medicine the classifier does not
+-- "Taking blood pressure medicines": an active medicine the HEARTS classifier recognises (private.bp_drug_class, the same one the clinician ladder uses) or one of
+-- the other common blood pressure medicines named below (over-inclusion is the safe direction: it only makes a flag routine), or one linked to an active hypertension care plan, or whose indication says so. There is no medicine class catalogue yet (S53), so a BP medicine the classifier does not
 -- know and with neither link reads as untreated (OQ-S07X-2).
 create function private.patient_takes_bp_medicines(p_patient uuid) returns boolean
 language sql stable security definer set search_path = ''
@@ -275,7 +286,11 @@ as $$
     select 1 from public.medications m
       left join public.care_plans cp on cp.id = m.care_plan_id
      where m.patient_id = p_patient and m.is_active and m.stopped_at is null and m.superseded_at is null
-       and (private.bp_drug_class(m.drug_name) is not null or (cp.condition = 'hypertension' and cp.status = 'active') or coalesce(m.indication, '') ~* '(hypertens|blood pressure)'))
+       and (private.bp_drug_class(m.drug_name) is not null
+            -- the classifier covers the HEARTS ladder only; these are the other blood pressure medicines in common use in Nigeria, and some brand names
+            or lower(m.drug_name) ~ '(atenolol|bisoprolol|metoprolol|carvedilol|nebivolol|propranolol|labetalol|methyldopa|doxazosin|prazosin|hydralazine|clonidine|furosemide|frusemide|torsemide|norvasc|tenormin|zestril|cozaar|diovan|micardis|lasix|aldactone|coversyl|aprovel|exforge)'
+            or (cp.condition = 'hypertension' and cp.status = 'active')
+            or coalesce(m.indication, '') ~* '(hypertens|blood pressure)'))
 $$;
 revoke all on function private.patient_takes_bp_medicines(uuid) from public, anon, authenticated;
 
@@ -290,6 +305,13 @@ begin
       (select 'version ' || version from public.home_bp_programme_signoffs where is_active and approved_by is not null)),
     private.go_live_cond('task_types_active', 'The care-team review task types exist',
       (select count(*) from public.task_types where code in ('home_bp_check_review', 'bp_pattern_review') and is_active and creatable) = 2, 'data', null),
+    case when p_key = 'home_bp_programme' then
+      private.go_live_cond('c4_cuff_wording_signed', 'The Chief Medical Officer has signed the patient wording: the cuff guidance (C4) and the band sentences the patient reads',
+        private.go_live_attested(p_key, 'c4_cuff_wording_signed'), 'attestation', null)
+    else
+      private.go_live_cond('pattern_is_clinician_only', 'The pattern flag is understood to be clinician-only: no patient screen, notification or export shows it',
+        private.go_live_attested(p_key, 'pattern_is_clinician_only'), 'attestation', null)
+    end,
     private.go_live_cond('cmo_switch', 'Chief Medical Officer sign-off', true, 'switch', 'Given by the Chief Medical Officer pressing the switch'));
 end $$;
 revoke all on function private.home_bp_go_live_conditions(text) from public, anon, authenticated, service_role;
@@ -310,15 +332,34 @@ begin
   execute v_new;
 end $$;
 
+-- The two conditions a person records must be on the list of attestable conditions, or nobody could ever record them. Patched in place from the CURRENT
+-- definition (so every entry other migrations have added is kept); it raises if the anchor is not found.
+do $patch$
+declare
+  v_def text := pg_get_functiondef('public.attest_go_live_condition(text,text,boolean,text)'::regprocedure);
+  v_anchor text := E'\')) then\n    raise exception \'that condition is read from the data';
+  v_new text;
+begin
+  if position('c4_cuff_wording_signed' in v_def) > 0 then return; end if;
+  if position(v_anchor in v_def) = 0 then
+    raise exception 'attest_go_live_condition: anchor not found, refusing to rewrite';
+  end if;
+  v_new := replace(v_def, v_anchor,
+    E'\'),\n       (\'home_bp_programme\', \'c4_cuff_wording_signed\'), (\'bp_pattern_flag\', \'pattern_is_clinician_only\')) then\n    raise exception \'that condition is read from the data');
+  execute v_new;
+end $patch$;
+revoke all on function public.attest_go_live_condition(text, text, boolean, text) from public, anon;
+grant execute on function public.attest_go_live_condition(text, text, boolean, text) to authenticated;
+
 insert into public.go_live_guards (key, label, blocks, condition_text, switch_role, enforced_in, not_enforced_in) values
   ('home_bp_programme', 'Seven-day home blood pressure check',
    'Completing a home check, which records the result and opens a routine care-team review task',
-   'The home check configuration (protocol, bands, pattern rule) is signed by the Chief Medical Officer; the review task types exist',
+   'The home check configuration (protocol, bands, pattern rule) is signed by the Chief Medical Officer; the review task types exist; the patient wording (C4 cuff guidance and the band sentences) is recorded as signed',
    'cmo', array['complete_home_bp_check'],
    'Logging a reading is never behind this guard. Test accounts pass it, but the configuration must still be signed. The phone shows the card only when the guard is open for the signed-in person.'),
   ('bp_pattern_flag', 'Clinician-only white-coat / masked pattern flag',
    'Raising a "pattern for review" task from a clinic reading and a complete home average',
-   'The home check configuration (protocol, bands, pattern rule) is signed by the Chief Medical Officer; the review task types exist',
+   'The home check configuration is signed by the Chief Medical Officer; the review task types exist; it is recorded that the flag is clinician-only',
    'cmo', array['evaluate_bp_pattern'],
    'Entering a clinic reading is never behind this guard (it only stores the reading). Nothing here is ever shown to the patient.')
 on conflict (key) do nothing;
@@ -348,8 +389,11 @@ begin
   v_cfg := private.home_bp_config();
   if v_cfg is null then raise exception 'the home check configuration is not signed' using errcode = '55000'; end if;
 
-  perform pg_advisory_xact_lock(hashtextextended('home_bp_check:' || v_me || ':' || p_window_start, 0));
-  select * into v_existing from public.home_bp_checks where patient_id = v_me and window_start = p_window_start;
+  perform pg_advisory_xact_lock(hashtextextended('home_bp_check:' || v_me, 0));
+  -- a window that overlaps one already sent is the same period: answer with the earlier record, never a second average over the same days
+  select * into v_existing from public.home_bp_checks
+   where patient_id = v_me and window_start <= p_window_start + ((v_cfg -> 'protocol' ->> 'targetDays')::int - 1) and window_end >= p_window_start
+   order by window_start limit 1;
   if found then
     return jsonb_build_object('complete', true, 'alreadyRecorded', true, 'id', v_existing.id, 'readings', v_existing.readings, 'days', v_existing.days,
       'systolic', v_existing.mean_systolic, 'diastolic', v_existing.mean_diastolic, 'band', v_existing.band);
@@ -359,14 +403,16 @@ begin
   if not (v_a ->> 'complete')::boolean then
     return jsonb_build_object('complete', false, 'readings', v_a -> 'readings', 'days', v_a -> 'days');
   end if;
-  v_end := p_window_start + ((v_cfg -> 'protocol' ->> 'targetDays')::int - 1);
+  -- sent early (at 12 readings over 3 days, before day 7): the record covers the days up to today, not days that have not happened
+  v_end := least(p_window_start + ((v_cfg -> 'protocol' ->> 'targetDays')::int - 1), v_today);
 
-  v_task := private.create_clinical_task(v_me, 'home_bp_check_review', (v_cfg -> 'tasks' ->> 'reviewDueMinutes')::int, 'home_bp_check:' || v_id, null, null, null);
+  -- one open review task per patient: a further completed check merges into it (counted, never dropped) instead of adding another
+  v_task := private.create_clinical_task(v_me, 'home_bp_check_review', (v_cfg -> 'tasks' ->> 'reviewDueMinutes')::int, 'home_bp_check:' || v_me, null, null, null);
   insert into public.home_bp_checks (id, organisation_id, patient_id, window_start, window_end, readings, days, mean_systolic, mean_diastolic, band, config_version, task_id, is_test)
   values (v_id, v_pr.organisation_id, v_me, p_window_start, v_end, (v_a ->> 'readings')::int, (v_a ->> 'days')::int,
           (v_a ->> 'systolic')::int, (v_a ->> 'diastolic')::int, v_a ->> 'band', private.home_bp_config_version(), v_task, coalesce(v_pr.is_test, false));
   perform private.log_audit('home_bp_check.completed', 'home_bp_checks', v_id, '{}'::jsonb);
-  perform private.evaluate_bp_pattern(v_me);
+  perform private.evaluate_bp_pattern_safe(v_me);
   return jsonb_build_object('complete', true, 'alreadyRecorded', false, 'id', v_id, 'readings', v_a -> 'readings', 'days', v_a -> 'days',
     'systolic', v_a -> 'systolic', 'diastolic', v_a -> 'diastolic', 'band', v_a -> 'band');
 end $$;
@@ -403,7 +449,7 @@ begin
   insert into public.clinic_bp_readings (id, organisation_id, patient_id, systolic, diastolic, measured_at, recorded_by, note, is_test)
   values (v_id, v_org, p_patient, p_systolic, p_diastolic, p_measured_at, v_me, nullif(btrim(p_note), ''), coalesce(v_test, false));
   perform private.log_audit('clinic_bp_reading.recorded', 'clinic_bp_readings', v_id, '{}'::jsonb);
-  perform private.evaluate_bp_pattern(p_patient);
+  perform private.evaluate_bp_pattern_safe(p_patient);
   return v_id;
 end $$;
 revoke all on function public.record_clinic_bp_reading(uuid, integer, integer, timestamptz, text) from public, anon;
@@ -446,13 +492,37 @@ begin
   if v_kind is null then return null; end if;
   if exists (select 1 from public.bp_pattern_flags f where f.clinic_reading_id = v_clinic.id and f.home_check_id = v_chk.id) then return null; end if;
 
-  v_task := private.create_clinical_task(p_patient, 'bp_pattern_review', (v_cfg -> 'tasks' ->> 'patternDueMinutes')::int, 'bp_pattern:' || v_flag, null, null, null);
+  -- one open pattern task per patient and kind: a further pair with the same discordance merges into it instead of adding another
+  v_task := private.create_clinical_task(p_patient, 'bp_pattern_review', (v_cfg -> 'tasks' ->> 'patternDueMinutes')::int, 'bp_pattern:' || p_patient || ':' || (case v_kind when 'masked' then 'm' when 'masked_uncontrolled' then 'mu' else 'w' end), null, null, null);
   insert into public.bp_pattern_flags (id, organisation_id, patient_id, kind, treated, clinic_reading_id, home_check_id, config_version, task_id, is_test)
   values (v_flag, v_pr.organisation_id, p_patient, v_kind, v_treated, v_clinic.id, v_chk.id, private.home_bp_config_version(), v_task, coalesce(v_pr.is_test, false));
-  perform private.log_audit('bp_pattern.flagged', 'bp_pattern_flags', v_flag, jsonb_build_object('kind', v_kind));
+  -- No audit_log row on purpose: audit_log is readable by the actor, and the actor here can be the patient (her own completed check runs this rule).
+  -- The flag row and its task are the record, and neither has a patient policy.
   return v_flag;
 end $$;
 revoke all on function private.evaluate_bp_pattern(uuid) from public, anon, authenticated;
+
+-- The rule runs as a side effect of the patient's completed check and of a clinician's clinic reading. A failure in it must never roll back the patient's own record
+-- or the clinician's reading, and must never be silent: it opens an ops incident (one at a time) and writes a warning.
+create function private.evaluate_bp_pattern_safe(p_patient uuid) returns void
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  perform private.evaluate_bp_pattern(p_patient);
+exception when others then
+  raise warning 'bp pattern rule failed for a patient: % %', sqlstate, sqlerrm;
+  begin
+    if not exists (select 1 from public.ops_incidents where external_reference = 'home_bp_pattern_rule' and status not in ('resolved', 'closed')) then
+      insert into public.ops_incidents (organisation_id, category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
+      values ((select organisation_id from public.profiles where id = p_patient), 'technical', 'sev3', 'The white-coat and masked pattern rule failed',
+              format('The rule raised %s (%s). The patient''s own record and the clinician''s reading were saved; only the pattern check was skipped. Check task_types home_bp_check_review and bp_pattern_review and the signed configuration.', sqlstate, sqlerrm),
+              'home_bp_pattern_rule', now(), now());
+    end if;
+  exception when others then
+    raise warning 'could not open an incident for the bp pattern rule: %', sqlerrm;
+  end;
+end $$;
+revoke all on function private.evaluate_bp_pattern_safe(uuid) from public, anon, authenticated;
 
 -- 12. Self-check ------------------------------------------------------------------------------------------------------------------------------
 do $$

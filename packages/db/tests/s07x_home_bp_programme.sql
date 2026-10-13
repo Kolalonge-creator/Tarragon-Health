@@ -101,7 +101,7 @@ begin
   v_c2 := pg_temp.mkdoc(v_org, 'untied smo', 'senior_medical_officer', v_admin); perform pg_temp.setf('c2', v_c2);
   v_co := pg_temp.mkuser(v_org, 'coordinator', 'care_coordinator'); perform pg_temp.setf('co', v_co);
   -- patients: p (test), p2 (test, takes BP medicines), p3 (test, untreated), p4 (test, treated), r (a REAL patient, is_test false), q (another patient)
-  foreach v_k in array array['p', 'p2', 'p3', 'p4', 'q'] loop
+  foreach v_k in array array['p', 'p2', 'p3', 'p4', 'p5', 'p6', 'q'] loop
     perform pg_temp.setf(v_k, pg_temp.mkuser(v_org, 'patient ' || v_k, 'patient'));
     insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, care_coordinator_id, assigned_at)
     values (v_org, pg_temp.f(v_k), v_c1, v_co, now());
@@ -155,6 +155,14 @@ select pg_temp.ck('real', 'G3 the CMO signs; it becomes the one active signed co
   (select case when o ~ '^ERR' then o else 'ok' end from (select pg_temp.as_user(pg_temp.f('cmo'), format('select public.sign_home_bp_programme(%L)::text', (select id from public.home_bp_programme_signoffs where version = 1))) o) z));
 select pg_temp.ck('real', 'G3b ...and it is the one active, signed configuration', 'true',
   ((select is_active and approved_by is not null from public.home_bp_programme_signoffs where version = 1) and private.home_bp_config() is not null)::text);
+create temp table signed_at on commit drop as select approved_at, approved_by from public.home_bp_programme_signoffs where version = 1;
+select pg_temp.ck('real', 'G6 signing the same version again is refused and the original signature is untouched', 'ERR P0001|true',
+  pg_temp.as_user(pg_temp.f('cmo'), format('select public.sign_home_bp_programme(%L)::text', (select id from public.home_bp_programme_signoffs where version = 1))) || '|' ||
+  ((select approved_at = (select approved_at from signed_at) and approved_by = (select approved_by from signed_at) from public.home_bp_programme_signoffs where version = 1))::text);
+insert into public.home_bp_programme_signoffs (version, config, notes) values (2, '{"protocol": {}}'::jsonb, 'proof: a draft missing the values the programme reads');
+select pg_temp.ck('real', 'G7 a draft missing a value the programme reads cannot be signed, and version 1 stays active', 'ERR P0001|1',
+  pg_temp.as_user(pg_temp.f('cmo'), format('select public.sign_home_bp_programme(%L)::text', (select id from public.home_bp_programme_signoffs where version = 2))) || '|' ||
+  (select version from public.home_bp_programme_signoffs where is_active)::text);
 select pg_temp.ck('real', 'G4 the guard conditions now say the configuration is signed', 'true',
   (private.go_live_conditions('home_bp_programme', pg_temp.f('org')) -> 0 ->> 'met'));
 -- a real patient is refused while the guard is off, even with the configuration signed
@@ -196,6 +204,10 @@ select pg_temp.ck('real', 'H3 exactly one check row and one routine task (class 
   (select coalesce(max(priority_class), 0) from public.clinical_tasks where patient_id = pg_temp.f('p') and type = 'home_bp_check_review'));
 select pg_temp.ck('real', 'H4 calling again is idempotent: same row, no second task', 'true|1|1',
   (select (x ->> 'alreadyRecorded')::boolean::text from (select pg_temp.as_user(pg_temp.f('p'), format('select public.complete_home_bp_check(%L)::text', (now() at time zone 'Africa/Lagos')::date - 9))::jsonb x) y)
+  || '|' || (select count(*) from public.home_bp_checks where patient_id = pg_temp.f('p')) || '|' ||
+  (select count(*) from public.clinical_tasks where patient_id = pg_temp.f('p') and type = 'home_bp_check_review'));
+select pg_temp.ck('real', 'O1 a window that overlaps a recorded one is answered with the earlier record: no second check, no second task', 'true|1|1',
+  (select (x ->> 'alreadyRecorded')::boolean::text from (select pg_temp.as_user(pg_temp.f('p'), format('select public.complete_home_bp_check(%L)::text', (now() at time zone 'Africa/Lagos')::date - 8))::jsonb x) y)
   || '|' || (select count(*) from public.home_bp_checks where patient_id = pg_temp.f('p')) || '|' ||
   (select count(*) from public.clinical_tasks where patient_id = pg_temp.f('p') and type = 'home_bp_check_review'));
 select pg_temp.ck('real', 'H5 the task is an ordinary routine task; no reading, band or condition is stored on it', 'true',
@@ -251,11 +263,22 @@ select pg_temp.ck('real', 'D4 the clinic reading is invisible to the patient and
 select pg_temp.seed12(pg_temp.f('p2'), pg_temp.f('org'), (now() at time zone 'Africa/Lagos')::date - 9, 138, 86);
 select pg_temp.seed12(pg_temp.f('p3'), pg_temp.f('org'), (now() at time zone 'Africa/Lagos')::date - 9, 126, 78);
 select pg_temp.seed12(pg_temp.f('p4'), pg_temp.f('org'), (now() at time zone 'Africa/Lagos')::date - 9, 126, 78);
+select pg_temp.ck('real', 'D5pre the pattern guard cannot be switched on before the clinician-only attestation is recorded', 'refused',
+  (select case when o ~ '^ERR' then 'refused' else o end from (select pg_temp.as_user(pg_temp.f('cmo'), 'select public.set_go_live_guard(''bp_pattern_flag'', true, ''S07x proof'')::text') o) z));
+select pg_temp.ck('real', 'D5a the CMO records the clinician-only attestation', 'ok',
+  (select case when o ~ '^ERR' then o else 'ok' end from (select pg_temp.as_user(pg_temp.f('cmo'), 'select public.attest_go_live_condition(''bp_pattern_flag'', ''pattern_is_clinician_only'', true, ''S07x proof: no patient screen, notification or export shows the flag'')::text') o) z));
 select pg_temp.ck('real', 'D5 the CMO switches the pattern guard on (its data conditions are met)', 'ok',
   (select case when o ~ '^ERR' then o else 'ok' end from (select pg_temp.as_user(pg_temp.f('cmo'), 'select public.set_go_live_guard(''bp_pattern_flag'', true, ''S07x proof'')::text') o) z));
 select pg_temp.ck('real', 'D5b ...and the guard is on', 'true', (select is_on from public.go_live_guards where key = 'bp_pattern_flag')::text);
 select pg_temp.ck('real', 'D6 the three other patients complete their checks', 'true|true|true',
   (pg_temp.chk(pg_temp.f('p2')) !~ '^ERR')::text || '|' || (pg_temp.chk(pg_temp.f('p3')) !~ '^ERR')::text || '|' || (pg_temp.chk(pg_temp.f('p4')) !~ '^ERR')::text);
+
+-- early send: 12 readings on days 1 to 3 of a window that has not finished; the record ends today, not on a day that has not happened
+select pg_temp.seed12(pg_temp.f('p6'), pg_temp.f('org'), (now() at time zone 'Africa/Lagos')::date - 2, 126, 78);
+select pg_temp.ck('real', 'E1 a check sent on day 3 is accepted', 'true',
+  (pg_temp.as_user(pg_temp.f('p6'), format('select public.complete_home_bp_check(%L)::text', (now() at time zone 'Africa/Lagos')::date - 2)) !~ '^ERR')::text);
+select pg_temp.ck('real', 'E1b ...and the record ends today, not on a day that has not happened', 'true',
+  ((select window_end = (now() at time zone 'Africa/Lagos')::date from public.home_bp_checks where patient_id = pg_temp.f('p6')))::text);
 
 create temp table snap2 on commit drop as
 select 'vitals' k, count(*) n from public.vitals_readings where patient_id = pg_temp.f('p')
@@ -316,6 +339,21 @@ begin
   perform pg_temp.ck('real', 'V2 the server context says whether the patient takes BP medicines (treated true, untreated false)', 'true|false',
     (v_ctx_t -> 'input' ->> 'onBpMedicines') || '|' || (v_ctx_u -> 'input' ->> 'onBpMedicines'));
 end $$;
+
+select pg_temp.ck('real', 'A1 the patient can read no audit entry about a pattern flag, and none was written', '0|0',
+  pg_temp.as_user(pg_temp.f('p'), 'select count(*)::text from public.audit_log where action like ''bp_pattern%'' or event::text ~* ''(masked|white_coat)''') || '|' ||
+  (select count(*) from public.audit_log where action like 'bp_pattern%' or event::text ~* '(masked|white_coat)'));
+
+-- a failure in the pattern rule must not roll back the clinician's reading, and must open an incident rather than pass silently
+select pg_temp.seed12(pg_temp.f('p5'), pg_temp.f('org'), (now() at time zone 'Africa/Lagos')::date - 9, 126, 78);
+select pg_temp.ck('real', 'F0 p5 completes a check', 'true', (pg_temp.chk(pg_temp.f('p5')) !~ '^ERR')::text);
+update public.task_types set is_active = false where code = 'bp_pattern_review';
+select pg_temp.ck('real', 'F1 with the pattern task type unavailable, the clinician''s call still succeeds', 'true',
+  (pg_temp.rec(pg_temp.f('c1'), pg_temp.f('p5'), 152, 96, 2) !~ '^ERR')::text);
+select pg_temp.ck('real', 'F2 ...the clinic reading is saved, no flag exists, and one incident is open', '1|none|1',
+  (select count(*) from public.clinic_bp_readings where patient_id = pg_temp.f('p5')) || '|' || pg_temp.flags(pg_temp.f('p5')) || '|' ||
+  (select count(*) from public.ops_incidents where external_reference = 'home_bp_pattern_rule' and status not in ('resolved', 'closed')));
+update public.task_types set is_active = true where code = 'bp_pattern_review';
 
 -- SABOTAGE 1: the completeness gate lowered to one reading. The three-reading case must now come out complete.
 do $$

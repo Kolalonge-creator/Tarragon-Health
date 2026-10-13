@@ -4,7 +4,7 @@ import type { Rule, RuleSet } from "../types";
 /**
  * Blood pressure triage rule set, version 4 (decision C5, approved text of 2026-10-07, NOT signed). IDENTICAL to version 3 except rule BP-A7:
  * a systolic under 90 with no symptom now raises the amber 24 hour care-team review only for a patient who is taking blood pressure medicines
- * (`onBpMedicines`). Version 3 flagged everyone (the CMO's 2026-10-05 decision); C5 option (a) narrows it to the group where a low reading is a
+ * (`onBpMedicines`; unknown counts as taking them, so a phone that cannot tell behaves like version 3 and only the server, which knows, switches it off). Version 3 flagged everyone (the CMO's 2026-10-05 decision); C5 option (a) narrows it to the group where a low reading is a
  * medicine-related risk, which keeps the alert volume low. No guideline sets a home action line for a low reading without symptoms, so this is the CMO's
  * own clinical judgement. A low reading WITH fainting, confusion or chest pain is still red (BP-R3), and low with dizziness is still amber (BP-A3).
  *

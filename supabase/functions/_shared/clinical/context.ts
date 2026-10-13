@@ -97,6 +97,7 @@ export function buildContext(input: TriageInput, ruleSet: RuleSet): Context {
     postpartum: input.postpartum === true,
     obstetric: input.pregnant || input.postpartum === true,
     age: input.ageYears,
-    onBpMedicines: input.onBpMedicines === true,
+    // absent = unknown = treated as taking them (the conservative reading, same as version 3); only an explicit false switches BP-A7 off
+    onBpMedicines: input.onBpMedicines !== false,
   };
 }

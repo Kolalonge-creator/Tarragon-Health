@@ -32,6 +32,12 @@ describe("home check card state", () => {
     const a = assess(three, "2026-10-03T20:00:00Z");
     expect(buildHomeCheckView({ guardOpen: true, stored, assessment: a })).toMatchObject({ kind: "ready", queued: false });
     expect(buildHomeCheckView({ guardOpen: true, stored: { ...stored, sendRequestedAt: "2026-10-03T20:00:00Z" }, assessment: a })).toMatchObject({ kind: "ready", queued: true });
+    // the server counted fewer readings than the phone: the card says so and the send is no longer queued
+    expect(buildHomeCheckView({ guardOpen: true, stored: { ...stored, serverShort: { readings: 9, days: 3 } }, assessment: a })).toMatchObject({
+      kind: "ready",
+      queued: false,
+      serverShort: { readings: 9, days: 3 },
+    });
   });
 
   it("ends short when the window is over and the protocol never completed, with no average", () => {
@@ -63,7 +69,8 @@ describe("the server answer", () => {
       kind: "recorded",
       result: { readings: 12, days: 3, systolic: 138, diastolic: 86, band: "above_home_level" },
     });
-    expect(parseCompleteResult({ complete: false, readings: 3, days: 3 })).toEqual({ kind: "not_enough" });
+    expect(parseCompleteResult({ complete: false, readings: 3, days: 2 })).toEqual({ kind: "not_enough", readings: 3, days: 2 });
+    expect(parseCompleteResult({ complete: false })).toEqual({ kind: "not_enough", readings: 0, days: 0 });
   });
 
   it("refuses anything malformed rather than guessing", () => {

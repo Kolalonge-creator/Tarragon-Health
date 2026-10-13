@@ -80,8 +80,9 @@ export interface TriageInput {
   readonly postpartum?: boolean;
   readonly ageYears: number | null;
   /**
-   * Taking blood pressure medicines now (S07x, decision C5). Optional; absent means false. Version 4 of the rule set flags a systolic under 90 with no symptom only when this is true.
-   * The server sets it from the medicines on record; the phone does not know it and leaves it out, which only means the phone adds no task (the server makes the task).
+   * Taking blood pressure medicines now (S07x, decision C5). Optional; ABSENT MEANS UNKNOWN, which is treated as taking them, so a phone that cannot tell still shows the
+   * amber guidance for a low reading (as version 3 does). Version 4 of the rule set flags a systolic under 90 with no symptom unless this is explicitly false.
+   * The server always sends a definite true or false from the medicines on record.
    */
   readonly onBpMedicines?: boolean;
   /** ISO 8601. The engine never reads the clock. */

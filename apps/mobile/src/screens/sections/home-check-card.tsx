@@ -49,7 +49,7 @@ export function HomeCheckCard({ patientId, reloadToken }: { patientId: string; r
     const outcome = await requestSend(patientId);
     setBusy(false);
     if (outcome.kind === "offline") setNotice("queued");
-    else if (outcome.kind === "not_enough" || outcome.kind === "closed") setNotice("failed");
+    else if (outcome.kind === "closed") setNotice("failed");
     await refresh();
   };
 
@@ -132,6 +132,7 @@ export function HomeCheckCard({ patientId, reloadToken }: { patientId: string; r
           ) : null}
           {!view.assessment.windowOver ? <AppText variant="caption" tone="textMuted">{tr("hc.enough_more", { total: CONFIG.protocol.targetDays })}</AppText> : null}
           {view.queued ? <InlineAlert tone="info" message={tr("hc.queued")} /> : null}
+          {view.serverShort ? <InlineAlert tone="warn" message={tr("hc.server_short", { readings: view.serverShort.readings, days: view.serverShort.days })} /> : null}
           {notice === "failed" ? <InlineAlert tone="warn" message={tr("hc.send_failed")} /> : null}
           <Button title={busy ? tr("hc.sending") : tr("hc.send")} disabled={busy} onPress={() => void send()} />
           {guide}
