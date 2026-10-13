@@ -39,6 +39,9 @@ function ports(over: Partial<TriagePorts> = {}) {
     loadContext: jest.fn(async () => ({ found: true, input: input({ trigger: { type: "observation", reading: reading(124, 78), symptoms: [] } }) }) as TriageContext),
     loadRuleSet: jest.fn(async () => draft),
     record: jest.fn(async (a: (typeof recorded)[number]) => void recorded.push(a)),
+    loadGlucoseContext: jest.fn(async () => ({ found: false })),
+    loadGlucoseRuleSet: jest.fn(async () => null),
+    recordGlucose: jest.fn(async () => undefined),
     ...over,
   };
   return { p, recorded };
