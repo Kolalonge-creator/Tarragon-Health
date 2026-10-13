@@ -19,6 +19,9 @@ critical_notification_dead_letter_without_pathway.sql
 finance_posting_failures_queue.sql
 payment_activation_amount_and_reference.sql
 
+# S04b-1b: late patient tables guarded; private.minor_guard_gaps() empty (sabotage: crippled function, dropped guard).
+s04b1b_minor_guard_gaps.sql
+
 # --- Added 2026-09-05 -------------------------------------------------------
 # Nineteen more, each confirmed to build every fixture it needs. Where a script
 # borrowed something the live project happens to hold -- a @tarragon.test QA

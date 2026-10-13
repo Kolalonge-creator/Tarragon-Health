@@ -605,6 +605,10 @@ This entry was missing; it is rebuilt from the merged PRs and a live check, not 
 - **Open questions**: OQ-131 to OQ-133 (access from acknowledgement, Care Circle and the incident review task, the numbers and a further rung).
 - **Not done, and why**: (1) The migration is not applied and `process-events` and `send-pending-notifications` are not redeployed (handler, subscriber row and templates are in source); apply S18 then S19 before merging (CI does not push migrations), pin each version to its filename, deploy `process-events` first. (2) Nothing pages in practice until the CMO approves a triage rule set (OQ-88). (3) Care Circle notices and the clinical lead's review task are S29 and S20. (4) Not run in a browser or on a phone. (5) `database.types.ts` not spliced; screens parse results with Zod.
 
+## S04b-1b: late patient tables guarded, production gap check (2026-10-13)
+
+- Counted live: 11 patient_id tables outside `minor_dependant_table_policy` (followup_offer_slots, followup_offers, medication_prn_flags, medication_prn_limits, member_followup_entitlements, member_review_notes, poc_ecg_recordings, poc_measurements, poc_result_items, poc_results, testing_event_bookings). Migration `20261013215731_s04b1b_...` guards them, adds `private.minor_guard_gaps()` and fails itself if any gap remains. Proof `s04b1b_minor_guard_gaps.sql` (2 sabotages). Release-integrity job `check-minor-guard-gaps` asks production directly; runbook `docs/runbooks/minor-guard-gaps.md`. Not applied by the author.
+
 ## S03b-b: accounts that survive a lost number (2026-10-13)
 
 - **Asked (founder, 2026-10-13)**: backup codes, a Care Circle recovery contact, a self-serve change-number flow with extra friction after a recent change (answers OQ-43 in our apps; the Auth-level gap is OQ-S03B-06), eligibility-first cohort and sponsor codes (spec 1.8, closes OQ-41). Not asked, by founder decision: voice-call OTP or a delivery-status table, a per-profile PIN, a restricted new-device state.
