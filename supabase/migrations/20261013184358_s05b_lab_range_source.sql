@@ -116,10 +116,7 @@ begin
        '''ref_low'', i.ref_low, ''ref_high'', i.ref_high, ''range_source'', private.eff_range_source(i.range_source, i.range_source_ref, i.ref_low, i.ref_high), ''range_source_ref'', private.eff_range_ref(i.range_source, i.range_source_ref, i.ref_low, i.ref_high),'),
       ('public.lab_result_for_review(uuid,text)',
        '''ref_low'', i.ref_low, ''ref_high'', i.ref_high,',
-       '''ref_low'', i.ref_low, ''ref_high'', i.ref_high, ''range_source'', private.eff_range_source(i.range_source, i.range_source_ref, i.ref_low, i.ref_high), ''range_source_ref'', private.eff_range_ref(i.range_source, i.range_source_ref, i.ref_low, i.ref_high),'),
-      ('public.record_share_by_token(text)',
-       '''reference_range_text'', lr.reference_range_text,',
-       '''reference_range_text'', lr.reference_range_text, ''range_source'', lr.range_source, ''range_source_ref'', lr.range_source_ref,')
+       '''ref_low'', i.ref_low, ''ref_high'', i.ref_high, ''range_source'', private.eff_range_source(i.range_source, i.range_source_ref, i.ref_low, i.ref_high), ''range_source_ref'', private.eff_range_ref(i.range_source, i.range_source_ref, i.ref_low, i.ref_high),')
     ) as x(fn, old_text, new_text)
   loop
     v_def := pg_get_functiondef(r.fn::regprocedure);
@@ -131,6 +128,26 @@ begin
   end loop;
 end $$;
 
+-- 3b. record_share_by_token: patched by name, because its signature changed in S09x (text -> text, text, text). Every overload present is patched.
+do $$
+declare
+  v_oid oid;
+  v_def text;
+  v_old constant text := '''reference_range_text'', lr.reference_range_text,';
+  v_new constant text := '''reference_range_text'', lr.reference_range_text, ''range_source'', lr.range_source, ''range_source_ref'', lr.range_source_ref,';
+  v_n integer := 0;
+begin
+  for v_oid in select p.oid from pg_proc p where p.proname = 'record_share_by_token' and p.pronamespace = 'public'::regnamespace loop
+    v_def := pg_get_functiondef(v_oid);
+    if position(v_old in v_def) = 0 then
+      raise exception 'record_share_by_token (%): expected text not found, refusing to guess', v_oid::regprocedure;
+    end if;
+    execute replace(v_def, v_old, v_new);
+    v_n := v_n + 1;
+  end loop;
+  if v_n = 0 then raise exception 'record_share_by_token not found'; end if;
+end $$;
+
 -- 4. Self-check
 do $$
 begin
@@ -139,10 +156,12 @@ begin
   end if;
   if position('range_source' in pg_get_functiondef('public.my_lab_results()'::regprocedure)) = 0
      or position('range_source' in pg_get_functiondef('public.lab_result_for_review(uuid,text)'::regprocedure)) = 0
-     or position('range_source' in pg_get_functiondef('public.record_share_by_token(text)'::regprocedure)) = 0 then
+     or exists (select 1 from pg_proc p where p.proname = 'record_share_by_token' and p.pronamespace = 'public'::regnamespace
+                 and position('range_source' in pg_get_functiondef(p.oid)) = 0) then
     raise exception 'a read path was not patched';
   end if;
-  if not has_function_privilege('anon', 'public.record_share_by_token(text)', 'EXECUTE') then
+  if not exists (select 1 from pg_proc p where p.proname = 'record_share_by_token' and p.pronamespace = 'public'::regnamespace
+                  and has_function_privilege('anon', p.oid, 'EXECUTE')) then
     raise exception 'record_share_by_token must stay anon-executable (public share link)';
   end if;
   if has_function_privilege('anon', 'public.my_lab_results()', 'EXECUTE') then

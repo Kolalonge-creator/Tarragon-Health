@@ -506,7 +506,8 @@ begin
   -- C6 the read paths carry the source
   if position('range_source' in pg_get_functiondef('public.my_lab_results()'::regprocedure)) = 0
      or position('range_source' in pg_get_functiondef('public.lab_result_for_review(uuid,text)'::regprocedure)) = 0
-     or position('range_source' in pg_get_functiondef('public.record_share_by_token(text)'::regprocedure)) = 0 then
+     or exists (select 1 from pg_proc p where p.proname = 'record_share_by_token' and p.pronamespace = 'public'::regnamespace
+                 and position('range_source' in pg_get_functiondef(p.oid)) = 0) then
     raise exception 'FAIL C6: a read path does not return range_source';
   end if;
   raise notice 'PASS C: range source';
