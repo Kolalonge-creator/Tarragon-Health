@@ -63,6 +63,24 @@ values ('maternal_enabled', 'Pregnancy care (module 16)',
         'Not enforced anywhere yet: S67 ships the guard and its conditions only. The screens are built behind it in a later pass, so switching it on or off changes nothing today.')
 on conflict (key) do nothing;
 
+-- The one maternal_enabled condition a person records (the NAFDAC and MDCN written queries answered) must be on the list of attestable conditions, or nobody
+-- could ever record it (the S37 proof "every attestation condition the dashboard lists can be attested" checks this). Patched in place from the CURRENT
+-- definition so every entry other migrations have added is kept, adding only this one pair; it raises if the anchor is not found. Idempotent.
+do $patch$
+declare
+  v_def text := pg_get_functiondef('public.attest_go_live_condition(text,text,boolean,text)'::regprocedure);
+  v_anchor text := E'\')) then\n    raise exception \'that condition is read from the data';
+begin
+  if position('maternal_enabled' in v_def) > 0 then return; end if;
+  if position(v_anchor in v_def) = 0 then
+    raise exception 'attest_go_live_condition: anchor not found, refusing to rewrite';
+  end if;
+  execute replace(v_def, v_anchor,
+    E'\'),\n       (\'maternal_enabled\', \'regulator_queries_answered\')) then\n    raise exception \'that condition is read from the data');
+end $patch$;
+revoke all on function public.attest_go_live_condition(text, text, boolean, text) from public, anon;
+grant execute on function public.attest_go_live_condition(text, text, boolean, text) to authenticated;
+
 do $$
 declare v_on boolean; v_conds jsonb;
 begin

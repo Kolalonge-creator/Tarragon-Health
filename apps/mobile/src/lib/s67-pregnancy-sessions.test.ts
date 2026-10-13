@@ -2,7 +2,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { finishContractionSession, finishKickSession, evaluateKickNow, kickCounterOffered } from "./pregnancy-sessions";
 import type { ObstetricCache } from "./obstetric-status";
 
-const mockEnqueue = jest.fn(async (_input: unknown) => ({}));
+const mockEnqueue = jest.fn(async (input: unknown) => {
+  void input; // typed so the call sites below can read mock.calls[n][0]
+  return {};
+});
 jest.mock("./outbox", () => ({ enqueue: (input: unknown) => mockEnqueue(input) }));
 jest.mock("./supabase", () => ({ supabase: {} }));
 // S06x moved the obstetric copy into the encrypted store; the tests set what the reader returns instead of writing the old AsyncStorage key.
