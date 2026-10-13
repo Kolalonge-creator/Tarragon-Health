@@ -149,7 +149,7 @@ export function parseDeviceScreenText(lines: string[], kind: PhotoReadingKind): 
   }
 
   if (kind === "glucose") {
-    const mgdl = /mg\s*\/?\s*d/i.test(text);
+    const mgdl = /mg\s*(?:\/\s*)?d/i.test(text);
     const mmol = /mmol/i.test(text);
     const candidates = nums.filter((n) => (mmol && !mgdl ? inRange(n.value, 1, 40) : mgdl && !mmol ? inRange(n.value, 18, 720) : inRange(n.value, 1, 720)));
     const pick = candidates[0];
