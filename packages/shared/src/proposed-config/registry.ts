@@ -406,6 +406,31 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S10.md; docs/research/S10.md",
   },
   {
+    key: "events.bus_rules",
+    // S10x adds the operations values. Same live source (the active row of `event_bus_config`, now version 3; a test fails if the
+    // migrations and this entry drift apart). lagAlertSeconds: when the oldest due, unclaimed, non-urgent delivery of a subscriber is
+    // older than this, one incident opens for that subscriber (none while one is open). lagAlertFloorSeconds: the database refuses a
+    // lower value, so a typo cannot turn the alert into noise. partnerDisableAfterFailures: consecutive failed attempts after which a
+    // partner webhook endpoint is switched off and an incident opens; partnerDisableFloor is the lowest the database allows.
+    value: {
+      batchSize: 50,
+      leaseSeconds: 60,
+      maxAttempts: 8,
+      backoffBaseSeconds: 15,
+      backoffMaxSeconds: 900,
+      jitterPercent: 20,
+      lagAlertSeconds: 600,
+      lagAlertFloorSeconds: 120,
+      partnerDisableAfterFailures: 20,
+      partnerDisableFloor: 5,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-13",
+    source: "docs/design/S10x.md",
+  },
+  {
     key: "credentialing.rules",
     // Clinician credentialing (S15). The live values are the active row of `credentialing_config` (versioned in the
     // database); this entry mirrors it, and a test fails if the migration seed and this value drift apart. Keys are the
@@ -1248,6 +1273,24 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 2,
     effectiveFrom: "2026-10-06",
     source: "docs/design/S13.md; docs/research/S13.md",
+  },
+  {
+    key: "notifications.rules",
+    // v3 (S04b-3, founder decision 2026-10-13): quiet hours are OFF until a person turns them on (window 21:00 to 07:00
+    // Africa/Lagos until they change it). Discreet mode and quiet hours are applied by the one sender; safety messages
+    // are never held. Live value: the active row of `notification_rules_config`.
+    value: {
+      quietHours: { enabled: false, start: "21:00", end: "07:00" },
+      routinePushPerDay: 4,
+      receiptCheckMinutes: 15,
+      receiptGiveUpHours: 24,
+      pushFallback: { enabled: true, afterMinutes: 240, maxAgeHours: 24, perRecipientPerDay: 1, batchSize: 200 },
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 3,
+    effectiveFrom: "2026-10-13",
+    source: "docs/design/S13.md; founder decision 2026-10-13",
   },
   {
     key: "video.audio_fallback",

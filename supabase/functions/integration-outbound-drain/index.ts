@@ -29,6 +29,7 @@
 // row (and the next minute's invocation) still needs to run.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { signedHeaders } from "../_shared/integrations/webhook-signature.ts";
 
 const BATCH_SIZE = 25;
 const DELIVERY_TIMEOUT_MS = 10_000;
@@ -48,19 +49,8 @@ interface ClaimedEvent {
   url: string;
   secret: string;
   endpoint_name: string;
-}
-
-async function signPayload(secret: string, rawBody: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
-  const hex = [...new Uint8Array(signature)].map((b) => b.toString(16).padStart(2, "0")).join("");
-  return `sha256=${hex}`;
+  // S10x-b: present once that migration is applied; undefined against the older schema, which this code still works with.
+  previous_secret?: string | null;
 }
 
 async function deliverOne(
@@ -73,7 +63,7 @@ async function deliverOne(
     data: event.payload,
   };
   const rawBody = JSON.stringify(envelope);
-  const signature = await signPayload(event.secret, rawBody);
+  const signed = await signedHeaders(event.secret, event.previous_secret ?? null, Date.now(), rawBody);
 
   const startedAt = Date.now();
   let ok = false;
@@ -85,7 +75,7 @@ async function deliverOne(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Tarragon-Signature": signature,
+        ...signed,
         "X-Tarragon-Event-Id": event.event_id,
         "X-Tarragon-Event-Type": event.event_type,
       },
