@@ -122,6 +122,8 @@ export interface DeletionRequestLike {
   /** With patient_id, lets the view say who cancelled (the person, or our team). */
   patient_id?: string;
   cancelled_by?: string | null;
+  /** The reviewer's note (blocked reason and decision note), when there is one. */
+  note?: string | null;
 }
 
 export type DeletionPhase = "waiting" | "in_review" | "done" | "cancelled" | "declined";
@@ -163,7 +165,9 @@ export function deletionRequestView(row: DeletionRequestLike, now: number = Date
         canCancel: false,
         daysLeft: null,
         headline: "Your account has been closed",
-        detail: "Our team's note below says what else was removed. The records we must keep are listed under What we have to keep.",
+        detail: row.note
+          ? "Our team's note below says what else was removed. The records we must keep are listed under What we have to keep."
+          : "Our team did not leave a note about what else was removed. You can ask support. The records we must keep are listed under What we have to keep.",
       };
     default:
       if (inGrace) {

@@ -43,6 +43,8 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
   const [withdrawError, setWithdrawError] = React.useState<string | null>(null);
   // Giving an optional purpose is one explicit choice per purpose: nothing starts ticked and nothing is bundled.
   const [agreed, setAgreed] = React.useState<Record<string, boolean>>({});
+  // One choice in flight at a time, so a double tap cannot record two receipts for one decision.
+  const [busy, setBusy] = React.useState(false);
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ["patient-consents", patientId] });
     void queryClient.invalidateQueries({ queryKey: ["patient-consent-receipts", patientId] });
@@ -141,10 +143,11 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
                           <Button
                             type="button"
                             size="sm"
-                            disabled={agreed[version.consent_type] !== true}
+                            disabled={agreed[version.consent_type] !== true || busy}
                             onClick={async () => {
                               setWithdrawError(null);
-                              const result = await grantConsentAction(version.consent_type);
+                              setBusy(true);
+                              const result = await grantConsentAction(version.consent_type).finally(() => setBusy(false));
                               if (result?.error) setWithdrawError(result.error);
                               else {
                                 setAgreed((a) => ({ ...a, [version.consent_type]: false }));

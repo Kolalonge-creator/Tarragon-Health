@@ -108,7 +108,8 @@ export function DeletionRequestCard({ organisationId, patientId }: { organisatio
         {list.length > 0 ? (
           <ul className="space-y-3 border-t border-charcoal-ink/10 pt-3 text-sm dark:border-night-ink/15">
             {list.map((r) => {
-              const view = deletionRequestView(r);
+              const note = [r.blocked_reason, r.decision_note].filter((t): t is string => !!t && t.trim().length > 0).join(" ");
+              const view = deletionRequestView({ ...r, note });
               return (
                 <li key={r.id} className="space-y-1">
                   <div className="flex items-center justify-between gap-2">
@@ -119,10 +120,8 @@ export function DeletionRequestCard({ organisationId, patientId }: { organisatio
                     </div>
                   </div>
                   <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">{view.detail}</p>
-                  {r.status === "completed" || r.status === "approved_partial" || r.status === "denied" ? (
-                    r.blocked_reason || r.decision_note ? (
-                      <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">Note from our team: {r.blocked_reason ?? r.decision_note}</p>
-                    ) : null
+                  {note && (r.status === "completed" || r.status === "approved_partial" || r.status === "denied") ? (
+                    <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">Note from our team: {note}</p>
                   ) : null}
                   {view.canCancel ? (
                     confirmCancel === r.id ? (

@@ -26,6 +26,7 @@
 --    request before its grace period ends; the patient can cancel until then, through public.cancel_my_data_deletion_request.
 --    One open request per patient. Requests and cancellations are written to audit_log.
 --
+-- Completing a deletion request deactivates the profile (never deletes it) and withdraws every consent still in force.
 -- Known limit, see OQ-S04b2-2: patient_consents.patient_id and data_deletion_requests.patient_id still cascade from profiles. Closing an
 -- account must DEACTIVATE the profile (is_active = false), never delete it, or the consent history and the deletion record the privacy
 -- page promises to keep would go with it. Test accounts are the only profiles purge_test_account removes.
@@ -70,10 +71,13 @@ begin
         using errcode = '42501';
     end if;
   end if;
-  if exists (select 1 from public.patient_consents pc where pc.consent_version_id = old.id)
+  -- Once published (not a draft) the text, type, version and optionality are fixed: a receipt's exact words must be the words that
+  -- were on screen, so a legal change is always a new version. A draft is editable until it is published.
+  if (not old.is_draft or exists (select 1 from public.patient_consents pc where pc.consent_version_id = old.id))
      and (new.consent_type, new.version, new.title, new.body, new.is_optional, new.is_draft)
-         is distinct from (old.consent_type, old.version, old.title, old.body, old.is_optional, old.is_draft) then
-    raise exception 'consent version % has been agreed to and its text cannot change; publish a new version', old.version
+         is distinct from (old.consent_type, old.version, old.title, old.body, old.is_optional, old.is_draft)
+     and not (old.is_draft and not new.is_draft) then
+    raise exception 'consent version % is published and its text cannot change; publish a new version', old.version
       using errcode = '23514';
   end if;
   return new;
@@ -151,8 +155,8 @@ begin
   perform set_config('app.publishing_consent_wording', 'on', true);
   update public.consent_versions set is_current = false
    where consent_type = v.consent_type and is_current and id <> v.id and not is_draft;
-  update public.consent_versions set is_draft = false, is_current = true, published_at = now(),
-         draft_note = coalesce(draft_note, '') || E'\nPublished: ' || btrim(p_note)
+  -- The approval note goes to audit_log only: consent_versions rows are readable by patients and anon once published.
+  update public.consent_versions set is_draft = false, is_current = true, published_at = now(), draft_note = null
    where id = v.id;
 
   perform set_config('app.publishing_consent_wording', 'off', true);
@@ -237,6 +241,10 @@ begin
     end if;
     if v_cv.is_draft then
       raise exception 'drafted consent wording cannot be accepted' using errcode = '23514';
+    end if;
+    -- A signed-in person accepts the wording in force. If it changed while their screen was open they must read the new words.
+    if v_uid is not null and not v_cv.is_current then
+      raise exception 'this wording has been replaced; reload the page and read the current version' using errcode = '23514';
     end if;
     new.version := v_cv.version;
     new.text_sha256 := encode(sha256(convert_to(v_cv.title || E'\n' || v_cv.body, 'UTF8')), 'hex');
@@ -352,7 +360,7 @@ alter table public.data_deletion_requests add constraint data_deletion_requests_
 
 alter table public.data_deletion_requests drop constraint if exists data_deletion_requests_cancelled_requires_stamp;
 alter table public.data_deletion_requests add constraint data_deletion_requests_cancelled_requires_stamp
-  check (status <> 'cancelled' or (cancelled_at is not null and cancelled_by is not null));
+  check (status <> 'cancelled' or cancelled_at is not null);
 
 create unique index if not exists data_deletion_requests_one_open_per_patient
   on public.data_deletion_requests (patient_id)
@@ -435,6 +443,14 @@ begin
       -- clinical records hang off it). This is also what lets a required consent be withdrawn (OQ-53). Removing the sign-in and
       -- contact details is still a manual step by the reviewer (OQ-S04b2-2).
       update public.profiles set is_active = false where id = old.patient_id;
+      -- And ends every consent still in force, as one withdrawal row each (append-only; labelled staff, since a reviewer made them).
+      insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action)
+        select l.organisation_id, l.patient_id, l.consent_type, l.consent_version_id, l.version, 'withdrawn'
+          from (select distinct on (consent_type) *
+                  from public.patient_consents
+                 where patient_id = old.patient_id
+                 order by consent_type, created_at desc, id desc) l
+         where l.action = 'accepted';
     end if;
   end if;
 

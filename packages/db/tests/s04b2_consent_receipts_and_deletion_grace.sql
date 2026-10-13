@@ -256,9 +256,11 @@ begin
   reset role;
   if n <> 1 then raise exception 'FAIL 4j: patient cannot see published wording'; end if;
 
-  -- text of an agreed version is immutable
+  -- text of a published version is immutable
   begin update public.consent_versions set body = body || ' edited' where id = d.id; v_sqlstate := 'allowed'; exception when others then v_sqlstate := sqlstate; end;
-  if v_sqlstate = 'allowed' then raise exception 'FAIL 4k: the text of an agreed version changed'; end if;
+  if v_sqlstate = 'allowed' then raise exception 'FAIL 4k: the text of a published version changed'; end if;
+  if exists (select 1 from public.audit_log where entity_id = d.id and action = 'consent_wording.published' and (event ->> 'note') is null) then raise exception 'FAIL 4l: publish audit row lost its note'; end if;
+  if (select draft_note from public.consent_versions where id = d.id) is not null then raise exception 'FAIL 4m: an approval note is readable on a published row'; end if;
   update public.platform_modules set is_enabled = false, enabled_at = null, enabled_by = null where key = 'optional_consent_wording';
 end $$;
 
@@ -415,6 +417,10 @@ begin
   if st <> 'completed' then raise exception 'FAIL 6k: admin could not complete after the grace (%)', st; end if;
   if (select is_active from public.profiles where id = pat) then raise exception 'FAIL 6l: completing the request did not deactivate the profile'; end if;
   if not exists (select 1 from public.profiles where id = pat) then raise exception 'FAIL 6m: the profile was deleted'; end if;
+  if exists (
+    select 1 from (select distinct on (consent_type) consent_type, action from public.patient_consents where patient_id = pat order by consent_type, created_at desc, id desc) l
+     where l.action = 'accepted'
+  ) then raise exception 'FAIL 6o: completing the request left a consent in force'; end if;
   if not exists (select 1 from public.audit_log where entity_id = req and action = 'data_deletion.requested' and subject_patient_id = pat) then raise exception 'FAIL 6n: the request audit row has no patient subject'; end if;
 end $$;
 

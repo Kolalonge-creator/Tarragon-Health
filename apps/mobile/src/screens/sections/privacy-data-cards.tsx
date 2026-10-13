@@ -208,7 +208,7 @@ export function DeletionRequestCard({
         <SecondaryButton title={hasOpen ? "Request in progress" : "Request deletion of your data"} onPress={() => setOpen(true)} disabled={hasOpen || blocked} />
       )}
       {requests.map((r) => {
-        const view = deletionRequestView({ status: r.status, requested_at: r.requestedAt, grace_ends_at: r.graceEndsAt, patient_id: r.patientId, cancelled_by: r.cancelledBy });
+        const view = deletionRequestView({ status: r.status, requested_at: r.requestedAt, grace_ends_at: r.graceEndsAt, patient_id: r.patientId, cancelled_by: r.cancelledBy, note: r.note });
         return (
           <View key={r.id} style={{ gap: 4, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>

@@ -226,6 +226,15 @@ function DeletionRequestRow({ request }: { request: AdminDataDeletionRequest }) 
   const [blockedCategoriesInput, setBlockedCategoriesInput] = useState("");
   const isOpen = request.status === "pending" || request.status === "under_review";
   const isApproved = request.status === "approved_full" || request.status === "approved_partial";
+  // The patient's waiting period (S04b-2): nothing can be approved or completed until it ends, and the patient can cancel until then.
+  const inGrace = !!request.grace_ends_at && Date.now() < Date.parse(request.grace_ends_at);
+  const reviewError = review.isError
+    ? review.error instanceof Error
+      ? review.error.message
+      : typeof review.error === "object" && review.error !== null && "message" in review.error
+        ? String((review.error as { message: unknown }).message)
+        : "Couldn't update this request"
+    : null;
 
   return (
     <li className="space-y-2 border-b border-charcoal-ink/10 py-3 last:border-0">
@@ -234,6 +243,13 @@ function DeletionRequestRow({ request }: { request: AdminDataDeletionRequest }) 
           <p className="text-sm font-medium text-charcoal-ink">{patientLabel(request.patient)}</p>
           <p className="text-xs text-charcoal-ink/60">Requested {formatDate(request.requested_at)}</p>
           {request.reason && <p className="mt-1 text-xs text-charcoal-ink/70">Reason: {request.reason}</p>}
+          {request.grace_ends_at && (
+            <p className="mt-1 text-xs text-charcoal-ink/60">
+              {inGrace
+                ? `Waiting period until ${formatDate(request.grace_ends_at)}: the patient can still cancel, and this cannot be approved or completed yet.`
+                : `Waiting period ended ${formatDate(request.grace_ends_at)}.`}
+            </p>
+          )}
           {request.requested_categories.length > 0 && (
             <p className="mt-1 text-xs text-charcoal-ink/60">
               Categories: {request.requested_categories.join(", ")}
@@ -268,7 +284,7 @@ function DeletionRequestRow({ request }: { request: AdminDataDeletionRequest }) 
           )}
           <Button
             size="sm"
-            disabled={review.isPending}
+            disabled={review.isPending || inGrace}
             onClick={() => review.mutate({ requestId: request.id, status: "approved_full" })}
           >
             Approve (full)
@@ -276,6 +292,7 @@ function DeletionRequestRow({ request }: { request: AdminDataDeletionRequest }) 
           <Button
             size="sm"
             variant="outline"
+            disabled={inGrace}
             onClick={() => {
               setBlockedCategoriesInput(request.requested_categories.join(", "));
               setAction("partial");
@@ -292,26 +309,26 @@ function DeletionRequestRow({ request }: { request: AdminDataDeletionRequest }) 
       {isApproved && (
         <Button
           size="sm"
-          disabled={review.isPending}
+          disabled={review.isPending || inGrace}
           onClick={() => {
             if (
-              window.confirm(
-                "Mark completed only once the approved deletion/anonymisation has actually been carried out. Continue?"
+              !window.confirm(
+                "Marking this completed CLOSES THE PATIENT'S ACCOUNT now (the profile is deactivated, never deleted) and withdraws every consent still in force. Only do this once the approved removal has actually been carried out. Continue?"
               )
             ) {
-              review.mutate({ requestId: request.id, status: "completed" });
+              return;
             }
+            // The patient sees this note: it must say what was removed and what was kept.
+            const completionNote = window.prompt("What was removed, and what was kept? (shown to the patient)");
+            if (!completionNote || completionNote.trim().length === 0) return;
+            review.mutate({ requestId: request.id, status: "completed", decisionNote: completionNote.trim() });
           }}
         >
           Mark completed
         </Button>
       )}
 
-      {review.isError && (
-        <p className="text-xs text-red-600">
-          {review.error instanceof Error ? review.error.message : "Couldn't update this request"}
-        </p>
-      )}
+      {reviewError && <p className="text-xs text-red-600">{reviewError}</p>}
 
       {isOpen && action === "deny" && (
         <div className="space-y-2 rounded-lg border border-charcoal-ink/10 p-3">

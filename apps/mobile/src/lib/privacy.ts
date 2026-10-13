@@ -238,7 +238,7 @@ export async function loadDeletionRequests(patientId: string): Promise<QueryResu
       status: r.status,
       requestedAt: r.requested_at,
       graceEndsAt: r.grace_ends_at,
-      note: r.blocked_reason ?? r.decision_note,
+      note: [r.blocked_reason, r.decision_note].filter((t): t is string => !!t && t.trim().length > 0).join(" ") || null,
       patientId: r.patient_id,
       cancelledBy: r.cancelled_by,
     })),

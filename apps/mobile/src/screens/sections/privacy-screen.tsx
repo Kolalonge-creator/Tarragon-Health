@@ -74,12 +74,9 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
       loadCorrectionRequests(userId),
       loadDeletionRequests(userId),
     ]);
-    if (!consentResult.ok) {
-      setLoadError(consentResult.error);
-      return;
-    }
-    setLoadError(null);
-    setConsents(consentResult.data);
+    // A failed consent load must not stop the request lists from being set: an unset deletion list reads as "no pending request".
+    setLoadError(consentResult.ok ? null : consentResult.error);
+    setConsents(consentResult.ok ? consentResult.data : []);
     setReceipts(receiptResult.ok ? receiptResult.data : []);
     setReceiptsError(receiptResult.ok ? null : "We could not load your consent receipts just now.");
     // A failed load must never look like "no requests": the deletion card would hide a pending request and its cancel button.
@@ -125,7 +122,9 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
       <Card style={{ gap: 8 }}>
         <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Your consent</Text>
         <MutedText>What you&apos;ve agreed to, by category.</MutedText>
-        {consents.length === 0 ? (
+        {loadError ? (
+          <MutedText>We could not load your consent choices just now, so we are not showing them.</MutedText>
+        ) : consents.length === 0 ? (
           <MutedText>Nothing to show yet.</MutedText>
         ) : (
           consents.map((c) => (
