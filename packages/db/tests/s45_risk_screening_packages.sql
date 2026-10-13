@@ -113,7 +113,7 @@ begin
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin', 'male', 40);
   perform pg_temp.setf('admin', v_admin);
   perform pg_temp.setf('cmo', pg_temp.mkdoc(v_org, 'cmo', 'chief_medical_officer', v_admin));
-  perform pg_temp.setf('doc', pg_temp.mkdoc(v_org, 'doc', 'medical_officer', v_admin));
+  perform pg_temp.setf('doc', pg_temp.mkdoc(v_org, 'doc', 'senior_medical_officer', v_admin));
   perform pg_temp.setf('stranger', pg_temp.mkdoc(v_org, 'stranger', 'senior_medical_officer', v_admin));
   perform pg_temp.setf('fpat', pg_temp.mkuser(v_org, 'fpat', 'patient', 'female', 45));
   perform pg_temp.setf('young', pg_temp.mkuser(v_org, 'young', 'patient', 'female', 24));

@@ -147,7 +147,7 @@ begin
   perform pg_temp.setf('doc', v_doc);
   insert into public.clinical_staff (organisation_id, profile_id, full_name, credential_type, credential_number, active, status, license_verified_at, verified_by,
       doctor_tier, employment_type, credentialing_level, indemnity_exempt, indemnity_exempt_by, is_test)
-  values (v_org, v_doc, 'S46c doc', 'MDCN', 'S46CG-1', true, 'active', now(), v_admin, 'medical_officer', 'contracted', 1, true, v_admin, true);
+  values (v_org, v_doc, 'S46c doc', 'MDCN', 'S46CG-1', true, 'active', now(), v_admin, 'senior_medical_officer', 'contracted', 1, true, v_admin, true);
 
   -- an adult patient with a signed report, and one grantee per category pattern
   adult := pg_temp.mkuser(v_org, 'adult', 'patient');

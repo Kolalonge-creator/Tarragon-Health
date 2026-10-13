@@ -134,8 +134,8 @@ begin
   -- only the fixture clinicians may be picked, so "least loaded" never depends on other data
   update public.clinical_staff set active = false where is_test is not true;
   perform pg_temp.setf('cmo', pg_temp.mkdoc(v_org, 'cmo', 'chief_medical_officer', 'contracted', v_admin));
-  v_a := pg_temp.mkdoc(v_org, 'docA', 'medical_officer', 'employed', v_admin);   -- the patient's named doctor, employed
-  v_b := pg_temp.mkdoc(v_org, 'docB', 'medical_officer', 'contracted', v_admin); -- a freelancer who pulls from the pool
+  v_a := pg_temp.mkdoc(v_org, 'docA', 'senior_medical_officer', 'employed', v_admin);   -- the patient's named doctor, employed
+  v_b := pg_temp.mkdoc(v_org, 'docB', 'senior_medical_officer', 'contracted', v_admin); -- a freelancer who pulls from the pool
   perform pg_temp.setf('docA', v_a);
   perform pg_temp.setf('docB', v_b);
   perform pg_temp.mkblock(v_org, v_b);
