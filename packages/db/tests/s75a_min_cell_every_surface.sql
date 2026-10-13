@@ -96,7 +96,7 @@ begin
   values (v_org, p_patient, 'observation', gen_random_uuid(), p_grade, v_rs.id, v_rs.code, v_rs.version, 'approved', case when p_grade = 'red' then '[{"kind":"page_on_call"}]'::jsonb else '[]'::jsonb end, false, false, gen_random_uuid()::text) returning id into v_ev;
   perform set_config('tarragon.task_transition', 'on', true);
   insert into public.clinical_tasks (organisation_id, type, task_type_version, priority_class, priority_class_original, patient_id, min_tier, due_at, state, completed_at, outcome, triage_event_id, is_test)
-  values (v_org, 'amber_bp_review', 1, 4, 4, p_patient, 'medical_officer', now(), 'completed', now(), '{"done":true}'::jsonb, v_ev, false) returning id into v_t;
+  values (v_org, 'amber_bp_review', 1, 4, 4, p_patient, 'senior_medical_officer', now(), 'completed', now(), '{"done":true}'::jsonb, v_ev, false) returning id into v_t;
   perform set_config('tarragon.task_transition', 'off', true);
   insert into public.triage_reviews (organisation_id, task_id, triage_event_id, patient_id, graded_as, agreement, reviewed_by, rule_set_version, shadow)
   values (v_org, v_t, v_ev, p_patient, p_grade, p_agree, p_clin, v_rs.version, false);

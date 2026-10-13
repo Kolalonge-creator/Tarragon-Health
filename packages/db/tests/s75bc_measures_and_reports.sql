@@ -190,11 +190,11 @@ begin
   perform pg_temp.ck('5f items left unused: 2 not fully used is a small category, so the figure is withheld', 'true/small_cell', (r #>> '{programme_completion,suppressed}') || '/' || (r #>> '{programme_completion,reason}'));
   perform pg_temp.ck('5c retention is refused to a patient', 'ERR:outcomes_not_authorised', pg_temp.q_as(pg_temp.f('plain'), $q$ select public.retention_completion_report()::text $q$));
   for k in 1 .. 3 loop c := pg_temp.mkuser(v_org, 'DOC' || k, 'clinician', false);
-    perform pg_temp.mkstaff(v_org, adm, c, 'medical_officer'); v_clin := v_clin || c; end loop;
+    perform pg_temp.mkstaff(v_org, adm, c, 'senior_medical_officer'); v_clin := v_clin || c; end loop;
   for i in 1 .. 25 loop p := pg_temp.mkuser(v_org, 'RT' || i, 'patient');
     perform set_config('tarragon.task_transition', 'on', true);
     insert into public.clinical_tasks (organisation_id, type, task_type_version, priority_class, priority_class_original, patient_id, min_tier, due_at, state, completed_at, outcome, created_at, escalation_level)
-      values (v_org, 'amber_bp_review', 1, 4, 4, p, 'medical_officer', now() + interval '1 hour', 'completed', now(), '{"done":true}', now() - interval '30 minutes', case when i <= 2 then 1 else 0 end);
+      values (v_org, 'amber_bp_review', 1, 4, 4, p, 'senior_medical_officer', now() + interval '1 hour', 'completed', now(), '{"done":true}', now() - interval '30 minutes', case when i <= 2 then 1 else 0 end);
     perform set_config('tarragon.task_transition', 'off', true);
     insert into public.task_claims (organisation_id, task_id, clinician_id, claimed_at, expires_at, ended_at, end_reason)
       select v_org, id, v_clin[1 + (i % 3)], now() - interval '20 minutes', now() + interval '1 hour', now(), 'completed' from public.clinical_tasks where patient_id = p;
@@ -210,7 +210,7 @@ begin
   for i in 1 .. 4 loop p := pg_temp.mkuser(v_org, 'RR' || i, 'patient');
     perform set_config('tarragon.task_transition', 'on', true);
     insert into public.clinical_tasks (organisation_id, type, task_type_version, priority_class, priority_class_original, patient_id, min_tier, due_at, state, created_at)
-      values (v_org, 'routine_result_review', 1, 8, 8, p, 'medical_officer', now() + interval '1 day', 'open', now() - interval '1 hour');
+      values (v_org, 'routine_result_review', 1, 8, 8, p, 'senior_medical_officer', now() + interval '1 day', 'open', now() - interval '1 hour');
     perform set_config('tarragon.task_transition', 'off', true); end loop;
   r := pg_temp.rpt(adm, $q$ select public.response_times_report()::text $q$);
   perform pg_temp.ck('6a response times: the "soon" band (25 people) is shown; the routine band (4) is withheld and so is the next smallest (urgent, 22)', 'false/true/true',
