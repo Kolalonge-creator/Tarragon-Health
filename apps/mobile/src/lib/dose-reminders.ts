@@ -19,6 +19,7 @@ import { loadReminderBehaviour } from "./s07-config";
 import { scheduleOf } from "./medications";
 import { supabase } from "./supabase";
 import { getUiLanguage } from "./ui-language";
+import { exactAlarmsAllowed } from "./exact-alarms";
 
 /**
  * Local, device-only dose reminders: the one reminder channel that works with
@@ -264,7 +265,8 @@ export async function checkReminderHealth(patientId: string, nowMs: number = Dat
       Platform.OS === "android" ? ((Platform.constants as { Manufacturer?: string }).Manufacturer ?? null) : null;
     return reminderIssues({
       notificationsAllowed: status === "granted",
-      exactAlarmsAllowed: null,
+      // Android 12+: false means reminders can arrive a few minutes late; null where the phone or build cannot tell.
+      exactAlarmsAllowed: exactAlarmsAllowed(),
       plannedCount,
       pendingCount: pending,
       lastPlannedAtMs: Number.isFinite(plannedAt) && plannedAt > 0 ? plannedAt : null,

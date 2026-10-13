@@ -226,6 +226,13 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         icon: NAV_ICON.review,
         visible: adminOnly,
       },
+      {
+        href: "/admin/settings/prn-limit-rules",
+        label: "As-needed medicine limits",
+        blurb: "The bounds a clinician may set for an as-needed medicine, and the repeated-dose rule. The CMO signs it.",
+        icon: NAV_ICON.review,
+        visible: adminOnly,
+      },
     ],
   },
   {

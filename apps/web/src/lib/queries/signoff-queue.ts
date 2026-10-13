@@ -41,7 +41,8 @@ type VersionedTableName =
   | "cv_risk_config"
   | "risk_questionnaire_configs"
   | "vaccination_schedule_signoffs"
-  | "lab_panel_signoffs";
+  | "lab_panel_signoffs"
+  | "prn_limit_rules";
 
 const VERSIONED_TABLES: { table: VersionedTableName; title: string; slug: string }[] = [
   { table: "alert_rules", title: "Alert rules", slug: "alert-rules" },
@@ -61,6 +62,7 @@ const VERSIONED_TABLES: { table: VersionedTableName; title: string; slug: string
   },
   { table: "vaccination_schedule_signoffs", title: "Vaccination schedule", slug: "vaccination-schedule" },
   { table: "lab_panel_signoffs", title: "Lab ranges and release policy", slug: "lab-panels" },
+  { table: "prn_limit_rules", title: "As-needed medicine limits", slug: "prn-limit-rules" },
 ];
 
 export type SettledConfig = { table: string; title: string; href: string; version: number };

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Linking, View } from "react-native";
+import { Linking, Platform, View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
 import { resolveTakenTime, isDoubleTap, lagosLocalDate, slotKey, windowEndTime, type AdherenceResult, type ReminderIssue, type SlotState } from "@tarragon/medicines";
 import { useUiLanguage } from "@/lib/ui-language";
@@ -14,6 +14,11 @@ import {
   type DoseChecklistItem,
   type LoggableStatus,
 } from "@/lib/medications";
+import { loadAsNeededMedicines, logAsNeededDose, type AsNeededMedicine } from "@/lib/prn-doses";
+import { exactAlarmsAllowed, openExactAlarmSettings } from "@/lib/exact-alarms";
+import { androidManufacturer, keepStepsFor, openAppSettings, openBatterySettings } from "@/lib/keep-reminders";
+import { PLATFORM_URL } from "@/lib/platform-url";
+import * as WebBrowser from "expo-web-browser";
 import { cancelSnooze, checkReminderHealth, replanDoseReminders, sendTestReminder, snoozeDose, type ReplanResult } from "@/lib/dose-reminders";
 import { loadAdherenceBand, loadMedicineRules } from "@/lib/medicines-config";
 import { loadReminderBehaviour } from "@/lib/s07-config";
@@ -109,6 +114,10 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
   const [panelNote, setPanelNote] = useState<string | null>(null);
   const [adherence, setAdherence] = useState<AdherenceResult | null>(null);
   const [issues, setIssues] = useState<ReminderIssue[]>([]);
+  const [asNeeded, setAsNeeded] = useState<AsNeededMedicine[]>([]);
+  // The notice stays on screen after "I took one" until the next tap: a toast would be gone before it is read.
+  const [prnNotice, setPrnNotice] = useState<string | null>(null);
+  const [prnBusy, setPrnBusy] = useState<string | null>(null);
 
   const ownsReminders = !subjectName;
 
@@ -129,6 +138,7 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
     }
     setLoadError(false);
     setDoses(result.data);
+    setAsNeeded(await loadAsNeededMedicines(patientId).catch(() => []));
     // The screen is something the patient opened, so it may ask for notification permission.
     const replanned = ownsReminders ? await replanDoseReminders(patientId, Date.now(), { prompt: true }) : undefined;
     await refreshSide(replanned);
@@ -264,6 +274,21 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
     else toast.show({ message: tr(res.reason === "limit" ? "meds.snooze.limit" : "meds.snooze.failed"), tone: "info" });
   }
 
+  async function tookOne(med: AsNeededMedicine) {
+    if (prnBusy) return;
+    setPrnBusy(med.id);
+    setPrnNotice(null);
+    const res = await logAsNeededDose(patientId, organisationId, med);
+    setPrnBusy(null);
+    if (!res.saved) {
+      toast.show({ message: tr("medicines.prn.save_failed"), tone: "warn" });
+      return;
+    }
+    // Saved first, always. The notice is added, never a reason the dose was refused.
+    if (res.breaches.length > 0) setPrnNotice(tr("medicines.prn.over_limit_notice"));
+    else toast.show({ message: tr("medicines.prn.saved"), tone: "info" });
+  }
+
   async function testReminder() {
     const ok = await sendTestReminder();
     toast.show({ message: tr(ok ? "meds.reminder_health.test_sent" : "meds.reminder_health.test_failed"), tone: ok ? "info" : "warn" });
@@ -302,6 +327,10 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
           <Button title={tr("meds.reminder_health.open_settings")} variant="secondary" onPress={() => void Linking.openSettings()} />
           <Button title={tr("meds.reminder_health.send_test")} variant="ghost" onPress={() => void testReminder()} />
         </Card>
+      ) : null}
+
+      {Platform.OS === "android" && ownsReminders ? (
+        <AndroidReminderHelp issues={issues} tr={tr} onRefresh={() => void refreshSide()} />
       ) : null}
 
       <View style={{ gap: space.md }}>
@@ -454,6 +483,25 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
         )}
       </View>
 
+      {asNeeded.length > 0 ? (
+        <Card style={{ gap: space.sm }}>
+          <AppText variant="bodyStrong">{tr("medicines.prn.section_title")}</AppText>
+          {prnNotice ? <InlineAlert tone="info" message={prnNotice} /> : null}
+          {asNeeded.map((m) => (
+            <View key={m.id} style={{ gap: space.xs }}>
+              <AppText variant="body">{m.drugName}</AppText>
+              {m.limits?.minGapMinutes != null ? (
+                <AppText variant="caption" tone="textMuted">{tr("medicines.prn.limit_gap", { minutes: m.limits.minGapMinutes })}</AppText>
+              ) : null}
+              {m.limits?.dailyMax != null ? (
+                <AppText variant="caption" tone="textMuted">{tr("medicines.prn.limit_max", { count: m.limits.dailyMax })}</AppText>
+              ) : null}
+              <Button title={tr("medicines.prn.action")} variant="secondary" disabled={prnBusy !== null} onPress={() => void tookOne(m)} />
+            </View>
+          ))}
+        </Card>
+      ) : null}
+
       {adherence ? (
         <Card style={{ gap: space.xs }}>
           <AppText variant="bodyStrong">{tr("meds.adherence.heading")}</AppText>
@@ -474,6 +522,17 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
               ) : null}
             </>
           )}
+        </Card>
+      ) : null}
+
+      {ownsReminders ? (
+        <Card padded={false}>
+          <ListItem
+            icon="medication"
+            title={tr("medicines.report.title")}
+            subtitle={tr("medicines.report.page_intro")}
+            onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/medicine-report`).catch(() => undefined)}
+          />
         </Card>
       ) : null}
 
@@ -499,5 +558,59 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
         <MedicineCabinetScreen patientId={patientId} organisationId={organisationId} />
       </LegacySheet>
     </Screen>
+  );
+}
+
+/**
+ * Android only: asks for exact alarms in context, says plainly what happens if they stay off, and gives a short
+ * "Keep reminders working" checklist for the phone maker. Every button is best effort and cannot crash the screen.
+ * Not run on a real Android phone yet (docs/design/S08x.md section 5).
+ */
+function AndroidReminderHelp({
+  issues,
+  tr,
+  onRefresh,
+}: {
+  issues: ReminderIssue[];
+  tr: (key: MessageKey, params?: Record<string, string | number>) => string;
+  onRefresh: () => void;
+}) {
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const exactOff = exactAlarmsAllowed() === false;
+  const steps = keepStepsFor(androidManufacturer());
+  const note = (ok: boolean) => {
+    if (!ok) toast.show({ message: tr("meds.keep.opening_failed"), tone: "warn" });
+  };
+  return (
+    <Card style={{ gap: space.sm }}>
+      {exactOff ? (
+        <View style={{ gap: space.xs }}>
+          <AppText variant="bodyStrong">{tr("meds.exact_alarm.title")}</AppText>
+          <AppText variant="body" tone="textMuted">{tr("meds.exact_alarm.body")}</AppText>
+          <InlineAlert tone="info" message={tr("meds.exact_alarm.late_notice")} />
+          <Button
+            title={tr("meds.exact_alarm.allow")}
+            variant="secondary"
+            onPress={() => {
+              note(openExactAlarmSettings());
+              // Coming back from the settings screen refreshes the check on the next focus; do it once now too.
+              setTimeout(onRefresh, 1500);
+            }}
+          />
+        </View>
+      ) : null}
+      <Button title={tr("meds.keep.title")} variant="ghost" onPress={() => setOpen((v) => !v)} />
+      {open || issues.includes("maker_may_stop_reminders") ? (
+        <View style={{ gap: space.xs }}>
+          <AppText variant="caption" tone="textMuted">{tr("meds.keep.intro")}</AppText>
+          {steps.map((k) => (
+            <AppText key={k} variant="body">{tr(k)}</AppText>
+          ))}
+          <Button title={tr("meds.keep.open_battery")} variant="secondary" onPress={() => void openBatterySettings().then(note)} />
+          <Button title={tr("meds.keep.open_app")} variant="ghost" onPress={() => void openAppSettings().then(note)} />
+        </View>
+      ) : null}
+    </Card>
   );
 }

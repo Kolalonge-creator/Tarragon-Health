@@ -66,7 +66,7 @@ begin
   v_cmo := pg_temp.mkdoc(v_org, v_admin, 'cmo', 'chief_medical_officer');
 
   -- 1. Shape
-  perform pg_temp.rec('ten tables carry the guard', '10', (select count(*)::text from pg_trigger where tgname = 'refuse_superseded_activation' and not tgisinternal));
+  perform pg_temp.rec('eleven tables carry the guard (prn_limit_rules joined in S08x)', '11', (select count(*)::text from pg_trigger where tgname = 'refuse_superseded_activation' and not tgisinternal));
   perform pg_temp.rec('cv_risk_config is partitioned by organisation', 'true',
     (select (pg_get_triggerdef(oid) like '%organisation_id%')::text from pg_trigger where tgname = 'refuse_superseded_activation' and tgrelid = 'public.cv_risk_config'::regclass));
   perform pg_temp.rec('risk questionnaires are partitioned by organisation and code', 'true',

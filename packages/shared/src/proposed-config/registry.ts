@@ -1886,4 +1886,35 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/COMMUNITY_SPEC.md sections 4.1 to 4.5; supabase/migrations/20261009193728_community_guard_and_seed.sql",
     guardPatterns: ["post[_ ]?max[_ ]?chars\\w*\\s*[=:]\\s*2000\\b", "premoderated\\w*\\s*[=:]\\s*3\\b", "auto[_ ]?hide\\w*\\s*[=:]\\s*3\\b"],
   },
+  {
+    key: "medicines.prn_limits",
+    // As-needed (PRN) limits (S08x, decision C7). There are NO default limits: a clinician sets a shortest gap and/or a most doses in a
+    // Lagos day per medicine, and only inside these bounds. A dose outside them is still logged; the patient is shown a notice.
+    // Live values are the active, SIGNED row of `prn_limit_rules`; this entry mirrors the v1 seed and a test fails on drift.
+    //  minGapMinutesBounds / dailyMaxBounds: the range a clinician may enter.
+    //  repeatSignal: that many flagged doses of one medicine inside that many days raises one care-team signal (never an alarm).
+    // PROPOSED, CMO and a pharmacist to confirm; the rule stays inactive until the CMO signs it in the sign-off hub.
+    value: {
+      minGapMinutesBounds: [15, 1440],
+      dailyMaxBounds: [1, 24],
+      repeatSignal: { flaggedDoses: 3, windowDays: 7 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md C7; docs/design/S08x.md",
+  },
+  {
+    key: "medicines.adherence_report",
+    // The patient's printed adherence report (S08x, decision C6): how many completed 7-day weeks it covers. The formula is the app's
+    // (doses you marked taken over doses due, as-needed left out); the minimum doses and missed window come from `medicines.dose_rules`
+    // and `reminders.behaviour`. Display only: it changes no treatment and raises no task.
+    value: { weeks: 8 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md C6; docs/design/S08x.md",
+  },
 ];
