@@ -4,7 +4,7 @@ Source: selections made in chat against `docs/plans/S06-S10-decisions-and-cmo-si
 
 **Status of the clinical items (C1 to C8): APPROVED TEXT, NOT SIGNED.** The versioned config rows they belong to do not exist yet (they are created by S07x, S08x and S09x). When each row exists, it is signed through the CMO chat-signing method after the founder approves that specific row. No item below has been signed, and no signing RPC has been run.
 
-Not yet copied into `docs/DECISIONS.md` (this checkout is on the S38 branch, and that file should be edited from a fresh worktree off `origin/main-dev`).
+Part A is copied into `docs/DECISIONS.md`.
 
 ## Founder and DPO decisions (Part A)
 

@@ -964,3 +964,5 @@ sr2_stagger_cron_start_times.sql
 sr2_scribe_consents_insert_policy_initplan.sql
 # S05b: blood group and genotype verification is generated (lab_verified only for a row backed by the patient's own report; a patient can only reach self_reported); recorded vitals, allergies, conditions and lab values cannot be edited or deleted (even by the service role), only superseded through public.correct_clinical_value, which keeps the original and records actor and reason; a stored lab range must declare its source and lab_result_items are stamped from the sign-off state. Sabotage: provenance trigger dropped, supersession trigger dropped, range constraint dropped; each must flip.
 s05b_record_integrity.sql
+# S06x: offline_sync_rejections (patient inserts and reads own, one row per entry, no health value column, admin reads only through the audited function) and offline_device_leases (check-in, owner or same-organisation admin revokes, revoked check-in does not extend the lease, wipe confirmation stores a count only, anon refused). Sabotage: the insert policy loosened to any account; a check-in that extends a revoked lease. Both must flip.
+s06x_offline_trust.sql
