@@ -70,6 +70,9 @@ begin
     if (select p.prosrc from pg_proc p where p.oid = r.oid) ~* '(insert\s+into|update|delete\s+from)\s+public\.(vitals_readings|patient_allergies|patient_conditions|lab_analyte_readings)\M' then
       raise exception 'S05b-c: %.% writes a corrected table: add it to the listed writers on purpose, or read the _current view', r.nspname, r.proname;
     end if;
+    if (select p.prosrc from pg_proc p where p.oid = r.oid) ~* '(public\.)?\m(vitals_readings|patient_allergies|patient_conditions|lab_analyte_readings)\.[a-z_*]' then
+      raise exception 'S05b-c: %.% refers to a corrected table by name outside a FROM clause: rewrite it by hand', r.nspname, r.proname;
+    end if;
     v_def := pg_get_functiondef(r.oid);
     v_new := v_def;
     foreach v_t in array array['vitals_readings', 'patient_allergies', 'patient_conditions', 'lab_analyte_readings'] loop
