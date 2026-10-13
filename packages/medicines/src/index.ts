@@ -5,3 +5,5 @@ export * from "./dose-state";
 export * from "./adherence";
 export * from "./supply";
 export * from "./reminders";
+export * from "./prn";
+export * from "./adherence-report";
