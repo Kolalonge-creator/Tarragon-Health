@@ -311,6 +311,21 @@ begin
       raise exception '% is missing the supersession trigger', t;
     end if;
   end loop;
+  -- every column named in a frozen list must exist, or the guard would silently skip it
+  for t in select unnest(array['vitals_readings', 'patient_conditions', 'patient_allergies', 'lab_analyte_readings']) loop
+    declare
+      v_list text; v_col text;
+    begin
+      select (regexp_match(pg_get_triggerdef(g.oid), 'enforce_clinical_value_supersession\(''([^'']*)''\)'))[1] into v_list
+        from pg_trigger g where g.tgrelid = ('public.' || t)::regclass and g.tgname = 'a_clinical_value_supersession';
+      foreach v_col in array string_to_array(v_list, ',') loop
+        if v_col in ('range_source', 'range_source_ref') then continue; end if;   -- added by the range-source migration that follows
+        if not exists (select 1 from information_schema.columns c where c.table_schema = 'public' and c.table_name = t and c.column_name = v_col) then
+          raise exception 'frozen column %.% does not exist', t, v_col;
+        end if;
+      end loop;
+    end;
+  end loop;
   if has_function_privilege('anon', 'public.correct_clinical_value(text, uuid, public.correction_status, text, jsonb)', 'EXECUTE') then
     raise exception 'anon can execute correct_clinical_value';
   end if;

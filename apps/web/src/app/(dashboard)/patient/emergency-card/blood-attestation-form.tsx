@@ -41,7 +41,7 @@ export function BloodAttestationForm({
   const [note, setNote] = useState(initial?.genotypeNote ?? "");
   const [attested, setAttested] = useState(false);
 
-  const labBacked = initial?.provenance === "lab_document";
+  const labBacked = bloodVerificationFromProvenance(initial?.provenance) === "lab_verified";
 
   function submit() {
     setError(null);

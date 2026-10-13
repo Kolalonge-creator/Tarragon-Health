@@ -56,7 +56,7 @@ export function BloodProfileForm({
   const [note, setNote] = useState(initial?.genotypeNote ?? "");
   const [documentId, setDocumentId] = useState(initial?.documentId ?? "");
 
-  const patientAttested = initial?.provenance === "patient_attested";
+  const patientAttested = bloodVerificationFromProvenance(initial?.provenance) === "self_reported";
 
   function submit() {
     setError(null);
