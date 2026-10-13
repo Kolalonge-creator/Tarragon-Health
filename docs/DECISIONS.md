@@ -12,6 +12,40 @@ spec invariant (INV-01 to INV-16) needs a written founder decision here.
 | TT-3 | **The Free patient is told in plain words** that no doctor has been alerted because they are on the Free plan and that doctor review is part of Membership; the guidance stays complete without a doctor (hospital now, recheck, emergency contact, check-in, one-tap Membership). The check-in answer is never shown to a doctor. |
 | TT-5 | **Founder, 2026-10-12: "Member" means exactly one thing, an active Membership** (including an organisation-paid seat and the 14-day grace after a year ends or is refunded). The Free rule also covers amber triage tasks, heart-failure weight gain and mental-health crisis follow-up; abnormal screening results and the lab critical-result path still reach a doctor on every plan. The gate uses the S22 helper `private.patient_is_member`; the grace helper from `two-tier/pricing` is not in yet. Existing programme or service purchase holders keep doctor access (1 live service purchase holder on 2026-10-12). |
 | TT-4 | **Item 8: the legacy screening bundles that duplicate the Membership annual test are not sellable** (`screen_core`, `screen_essential`, `screen_advanced`, `screen_comprehensive`, `annual_health_check`, `health_check_basic`, `health_check_comprehensive`); not repriced; a CHECK constraint keeps them off. `screen_essential` and the three older bundles were added by this build on the same reasoning, and the CMO should confirm them. |
+## Community decisions, 2026-10-09
+
+Founder, in chat, answering OQ-COM-01 to OQ-COM-10 (`docs/OPEN-QUESTIONS.md` section E, design in `docs/COMMUNITY_SPEC.md`). These do not sign the CMO's in-system acts (filter rule set v1 with the self-harm and emergency lists, the weight-loss template, the `community` guard switch), which are still owed.
+
+| ID | Decision |
+|---|---|
+| COM-1 | **Members-only topic groups are allowed and open to Free and paid members alike** (free-text answer: it builds the funnel into membership). Settles the Part C.1 conflict in OQ-COM-01 for members-only, pseudonymous, text-only groups; public, profile-based and body-metric-ranked surfaces stay forbidden. Ships dormant behind the `community` go-live guard (INV-14). |
+| COM-2 | **No sensitive groups at launch.** Launch groups: hypertension, diabetes, weight loss, general health. |
+| COM-3 | **Small named moderation team** (one safety reviewer, one or two moderators, declared hours) using a `community_staff` grant on an existing non-clinical staff role. No new `user_role` value. |
+| COM-4 | **Adults only, 18 and over**, re-checked on every post. |
+| COM-5 | **Free members get the safety card and their own one-tap emergency-contact button**, with no promise of a clinician review. No exception to the 2026-08-10 Free rule. |
+| COM-6 | **Consent at join**, counsel drafts the text: Tarragon may identify a member to their care team only if a post suggests they may be in danger. |
+| COM-7 | **One Tarragon-owned space.** Every group belongs to the Tarragon platform organisation; institutions see nothing. |
+| COM-8 | **No peer moderators at launch.** |
+| COM-9 | **Weight-loss group bans weights, calories and targets;** CMO approves the rules text and pinned post. |
+| COM-10 | **No direct messages ever. Tarragon-owned links only** (exact-hostname allow-list); no images or voice notes in Phases 1 and 2. |
+| COM-11 | **Sponsor and NGO groups: COM-7 stands.** Institutions see nothing about Community, not even counts. (Founder, in chat, 2026-10-09.) |
+| COM-12 | **No buddy pairing for now.** COM-10 stands; revisit after Phase 2 data. |
+| COM-13 | **No images or voice notes.** Text only. |
+| COM-14 | **Sensitive groups: still none.** COM-2 stands. |
+| COM-15 | **Pictures are allowed, pre-moderated. Supersedes COM-13 for pictures only** (voice notes stay out). A group allows pictures only when an admin turns that on (never a weight-loss group). A member posts the picture, it waits in the moderator queue, a moderator checks it is safe and releases it, then the group sees it. Every picture is held, even from a trusted member. Location and camera details are stripped on upload. (Founder, in chat, 2026-10-09.) |
+| COM-16 | **Doctor question sessions are allowed:** a one-off text session in which named doctors answer members' questions for a group (or several). General information for everyone, not advice for one person; the doctor's real name shows; questions go through the same filters as posts. This is a deliberate exception to "Free consumes no doctor time", for scheduled community sessions only. (Founder, in chat, 2026-10-09.) |
+| COM-17 | **Moderators work 24/7 and can delete unwanted messages.** The rota is recorded in the system and go-live requires every hour of the week covered for both moderators and safety reviewers. Moderators can list live posts and remove any that does not belong. A passing safety drill recorded by the CMO within 90 days is a go-live condition. Overdue safety and queue work alerts the safety reviewers, moderators and the CMO. (Founder, in chat, 2026-10-09.) |
+| COM-18 | **Mobile screens are in scope** (native, in `apps/mobile`). Live clinician audio sessions are not needed. (Founder, in chat, 2026-10-09.) |
+| COM-19 | **Unmask, as COM-6 intended and now enforced.** A community name is looked up only while that member has a recent safety concern in that group (30 days), and only by an admin, the Chief Medical Officer or an active doctor. Moderators and safety reviewers hand the concern to one of them. Every lookup is written down with a reason, limited per day, and reported by a fixed notice to the CMO and the named DPO; Community cannot go live until a DPO is named. (Founder, in chat, 2026-10-09.) |
+| COM-20 | **For now the Chief Medical Officer is the data protection officer for Community** (lean company; he oversees governance and quality). Every unmask notice goes to the CMO; Naming a DPO is not a go-live condition and never blocks anything (the `dpo_named` condition was removed; the notice list stays built for later). Only the CMO can add anyone else to the notice list. (Founder, in chat, 2026-10-12.) |
+| COM-21 | **Founder and CMO sign-offs given in chat, 2026-10-12.** (a) Join consent text v1 accepted as written (version `v1-2026-10-12-founder-cmo`; retention of removed and deleted post text 90 days). Counsel has NOT reviewed it, so the counsel go-live attestation stays open. (b) Self-harm and emergency safety wording approved as proposed in `docs/community/CMO_SAFETY_TERMS_PROPOSAL.md`, with the three severe eating phrases (making myself sick, not eaten in days, laxatives to lose weight) also as safety; other disordered-eating wording stays a moderator hold. (c) Rules text of the Healthy weight and habits group approved as written. (d) Crisis owner: the CMO, with named safety reviewers. These answers record intent. The in-system acts (activating the rule set, approving the group rules, attesting go-live conditions) are still done by the CMO's own account. (Founder, chat.) |
+| COM-22 | **Post search is allowed, inside the member's own groups only.** Names and topics search is unchanged. Never across groups they have not joined, never public, no query stored, hidden people left out. (Founder, chat, 2026-10-12; narrows COM-1.) |
+| COM-23 | **Moderators may turn a reply into its own post** (same group, author, words, time; author not told; never a safety post). Moving a thread to another group is NOT built: handles are per group and the authors would not be members there. |
+| COM-24 | **Automatic picture check: the hook is built and OFF.** It can only add a flag for the moderator; every picture still waits for a person. No vendor is connected. Turning one on needs the CMO's safety sign-off (what leaves our systems, what the vendor keeps, false alarm rate). |
+| COM-25 | **Privacy-safe engagement only:** a welcome note for members who joined in the last 14 days, the existing opt-in reply notice, and a once-in-14-days reminder when a reply has sat unread for 3 days (only for members who chose the weekly note). No streaks, badges, member counts or leaderboards. |
+| COM-26 | **Still not built, by founder choice (2026-10-12):** direct messages, voice notes or live video, public groups. CLAUDE.md "never add a DM, voice note, outside link, profile page or leaderboard" stands. |
+
+Phase 2 defaults chosen by engineering to answer the competitor audit (a recommendation, not a signed decision; the founder may change any of them): pre-moderation lowered from 3 posts to 1; a per-group size cap an admin can set; staff opt in to a visible display name; appeal window 14 days; 10% of moderator decisions re-checked by a second moderator. See `docs/COMMUNITY_SPEC.md` section 13.
 
 ## Design decisions, 2026-10-02
 
@@ -182,6 +216,39 @@ D-02 to D-04 are not defined in the spec.
 ### S21, 2026-10-06
 - Plan accepted (OQ-124 to OQ-131): merge S18 first, new authoritative `encounters` table, link-based Zoom with a server-owned video to audio to phone ladder (the phone step is Zoom's own dial-in, decided 2026-10-06, replacing a bridge through a second vendor), full refund 2 hours or more before, per-consultation in-app consent, adults only, NGN 10,000 a consultation.
 
+
+### CMO decision pack S11 to S15, 2026-10-07
+Recorded as CMO decisions (not a database signature). Pack: `docs/plans/S11-S15-cmo-decision-pack.md`; plan: `docs/research/S11-S15-review-and-build-plan.md`. Evidence tags in the pack: only the Nigerian National Hypertension Guideline 2023 to 2028 was read in full text; other guideline numbers are search-summary level and must be checked against the primary documents before any rule set is signed.
+- Q1: keep the legacy BP alerts beside `bp_care_triage` v3 until the live canary and a window of real readings show parity, then retire them in one signed, count-first migration.
+- Q2: asymptomatic confirmed severe reading stays repeat then amber urgent review; red only with symptoms (v3 unchanged).
+- Q3: pregnancy and first 6 weeks postpartum: red on the first reading at 160/110 or more, repeat prompt in parallel (v3 unchanged).
+- Q4: wrist-cuff readings graded normally, with upper-arm repeat advice added to the repeat prompt; a red is never downgraded for cuff type.
+- Q5: low-BP line unchanged (symptom-led, red below 90 with symptoms, amber below 100).
+- Q6: adopt the three ADA hypoglycaemia levels in the new glucose rule set (below 3.0 red; 3.0 to 3.8 urgent with fast-sugar message; any value with confusion, seizure, unconscious or cannot swallow red). Treatment wording to be shown to the CMO in full before signing.
+- Q7: keep red at glucose 11.0 or more with ketones 3.0 or more (or urine moderate/large); add ketones 1.5 to 2.9 with vomiting, abdominal pain, fast breathing or drowsiness = red, otherwise urgent same-day review.
+- Q8: glucose 20.0 or more = urgent same-day; 20.0 or more with symptoms, or 33.3 or more = red.
+- Q9: glucose engine grades adults 18+ with type 1 or 2; pregnancy and under-18 route to a clinician as amber; the severe-hypo and suspected-DKA reds apply to everyone.
+- Q10: patient critical ladder ends at push, email and in-app, then a call by the on-call clinician; SMS stays for clinicians only (closes OQ-92, option b).
+- Q11: a red alert unconfirmed for 30 minutes escalates to clinician outreach (PROPOSED config value). Note: the recommendation was 10 minutes; the CMO chose 30, matching the obstetric treatment window. Revisit after the first real reds.
+- Q12: reds keep generic lock-screen and email wording; guidance appears only after opening the app.
+- Q13: the patient "I have sought care" response is recorded and shown to the on-call clinician; only a clinician acknowledgement stops paging.
+- Q14: every new clinician needs a recorded MDCN or DataFlow verification (reference stored) before first independent patient contact; the two existing clinicians get the same evidence recorded.
+- Q15: expiry notices (90/30/0) plus a mid-year MDCN spot re-check for every active clinician.
+- Q16: keep S20 sampling and add 100 percent review of a new clinician's first 20 prescribing or red cases, then taper. The 20 is a design choice, not a guideline figure.
+- Q17: patient-facing "Licence verified on <date>" only when a stored verification record exists; the folio number is never shown.
+- Q18: AI scribe needs explicit recorded consent each encounter; declining affects nothing.
+- Q19: no speech-to-text vendor until a 20 to 30 clip consented real-consult gold set is scored; thresholds set after seeing results; every drug name and number in a draft is highlighted for the signing clinician.
+- Next steps: new DRAFT versions only. Nothing is signed. `glucose_care_triage` v1 is drafted and shown to the CMO in full; BP v3 is unchanged. Open conflict to resolve with the founder: OQ-97 (2026-10-06) set the Paystack transfer OTP off with compensating limits, while the review plan suggested keeping it on until reconciliation and reversal handling exist.
+
+### Two-tier answers, 2026-10-08
+Founder decisions in chat after the process-map review. Full per-session effect: `docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md`.
+- Member price 120,000 naira a year individual, 100,000 naira per organisation member (volume tiers dropped, confirm flat). Code still seeds 100,000; not changed.
+- A red event on a Free patient does not page a doctor; guidance and emergency-contact notice only. Members still page.
+- Monthly follow-up: doctor posts several date/time options, patient picks one.
+- Annual panel includes HIV and hepatitis (founder wrote B; earlier notes said C, unconfirmed).
+- Individuals join platform-listed testing days with locations; employers get an on-site visit.
+- CMO update, same day: HIV and hepatitis tested yearly for every Member; Free red events never page a doctor and the patient is told no doctor was alerted because they are on Free; the 100,000 organisation price is borne by the organisation; doctors work 8 hours a day, 5 days a week. Detail in the amendments file.
+
 ### English only, 2026-10-06 (D-14, reverses D-13)
 - **D-14: the product is English only.** Nigerian Pidgin (`pcm`) was removed first, then the founder removed every other non-English language too (Yoruba `yo`, Hausa `ha`, Igbo `ig`). Both apps, the AI scribe, the patient explainer, the admin console, the notification-template locales and the database language constraints are English only. D-13 ("English and Pidgin") no longer holds.
 - **Why:** every non-English string was written by a build session and never reviewed by a native speaker or a clinician, which is an unreviewed clinical-translation risk. Live counts at the time: 0 non-English rows in every language column (12 profiles, all `en`), so no data was converted.
@@ -219,3 +286,19 @@ D-02 to D-04 are not defined in the spec.
 | OQ-250 AI-017 wording and OQ-214 scribe pass mark | Wording corrected to Nigerian English only (the record was an unapproved draft); approval waits for the evaluations; pass mark proposed (zero dropped negations, ceiling set after first measurement). |
 | OQ-214 directory re-verification (clinical) | At each licence expiry, never more than 12 months. |
 
+
+## S06 to S10 upgrade decisions (2026-10-07)
+
+Full text, options and guideline basis: `docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md`. Clinical items C1 to C8 are APPROVED TEXT, NOT SIGNED; each is signed in chat when its config row exists. Record: `docs/plans/S06-S10-cmo-decisions-2026-10-07.md`.
+
+| Decision | Chosen |
+|---|---|
+| D1 encrypt the phone's local database | Yes, in the one native build |
+| D2 drafts after forced sign-out | Keep, encrypted per account; wipe the mirror only |
+| D3 remote wipe | After one last upload attempt or a 30-day key lease; never silent |
+| D4 lock-screen pass on shared phones | Off until the patient turns it on |
+| D5 hosted queue or webhook vendor | Stay in-house |
+| D6 medicine data | Hybrid: Greenbook with written terms (fallback hand-curated brands) plus interaction rules from public-domain labels and the Nigeria EML 2020, signed by CMO and a pharmacist; WHO ATC/EML (non-commercial) and DrugBank (paid) not used without a licence |
+| D7 white-coat / masked flag | Yes, clinician-only, behind a guard |
+| D8 test devices | Founder supplies two Android floor phones and one iPhone |
+| D9 counsel on NDPA basis for emergency card and access logs | Instruct now |

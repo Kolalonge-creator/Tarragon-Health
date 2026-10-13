@@ -221,3 +221,6 @@ export function HealthPassportDocument({
     </Document>
   );
 }
+
+/** The Health Passport letterhead and section styles, reused by the patient-held monthly blood pressure summary so the two read as one family of documents. */
+export { styles as passportPdfStyles };
