@@ -42983,6 +42983,25 @@ export type Database = {
       sponsor_outcome_report: { Args: { p_cohort: string; p_from?: string; p_to?: string }; Returns: Json };
       sponsor_staff_figures: { Args: { p_cohort: string }; Returns: Json };
       log_sponsor_staff_export: { Args: { p_cohort: string }; Returns: Json };
+      // S03b (accounts that survive a lost number; eligibility-first claims): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
+      authorise_phone_change: { Args: { p_method: string; p_user: string }; Returns: Json };
+      cancel_contact_recovery: { Args: Record<PropertyKey, never>; Returns: Json };
+      check_cohort_code_for_signup: { Args: { p_code: string }; Returns: boolean };
+      claim_contact_recovery: { Args: { p_identifier: string; p_kind: string }; Returns: Json };
+      complete_backup_code_recovery: { Args: { p_user: string }; Returns: Json };
+      confirm_contact_recovery: { Args: { p_confirm: boolean; p_request: string }; Returns: Json };
+      generate_backup_codes: { Args: Record<PropertyKey, never>; Returns: string[] };
+      my_backup_code_status: { Args: Record<PropertyKey, never>; Returns: Json };
+      my_phone_recovery_hold: { Args: Record<PropertyKey, never>; Returns: Json };
+      my_recovery_contact: { Args: Record<PropertyKey, never>; Returns: Json };
+      my_recovery_contact_duties: { Args: Record<PropertyKey, never>; Returns: Json };
+      propose_recovery_contact: { Args: { p_member: string }; Returns: Json };
+      redeem_backup_code: { Args: { p_code: string; p_identifier: string; p_kind: string }; Returns: Json };
+      release_backup_code: { Args: { p_code: string; p_user: string }; Returns: boolean };
+      request_contact_recovery: { Args: { p_identifier: string; p_kind: string }; Returns: Json };
+      respond_recovery_contact: { Args: { p_accept: boolean; p_id: string }; Returns: Json };
+      revoke_recovery_contact: { Args: { p_id: string }; Returns: Json };
+      unrelease_contact_recovery: { Args: { p_request: string }; Returns: boolean };
       sponsor_staff_programmes: { Args: Record<PropertyKey, never>; Returns: Json };
       triage_accuracy_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       lab_panel_definition: { Args: { p_panel: string }; Returns: Json };

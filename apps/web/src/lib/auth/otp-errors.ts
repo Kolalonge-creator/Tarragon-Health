@@ -23,6 +23,17 @@ export function isRateLimitOtpError(error: unknown): boolean {
   return typeof message === "string" && /for security purposes|rate limit|too many requests/i.test(message);
 }
 
+/**
+ * What Auth returns when the database refused a number change because the owner had not confirmed it (S03b:
+ * private.enforce_phone_change_authorisation raises `phone_change_needs_confirmation`). GoTrue wraps a trigger failure as a
+ * 500 "Database error updating user", so the specific text may or may not survive; both shapes mean "confirm first".
+ */
+export function isPhoneChangeNeedsConfirmationError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const { message } = error as { message?: unknown };
+  return typeof message === "string" && /phone_change_needs_confirmation|database error updating user/i.test(message);
+}
+
 /** GoTrue's "this number already has an account" answer to a sign-up. Sign-up shows the code step for it, like a new number. */
 export function isAlreadyRegisteredError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;

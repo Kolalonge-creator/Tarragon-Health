@@ -10,6 +10,7 @@ import * as Sentry from "@sentry/nextjs";
 import { t } from "@tarragon/i18n";
 import { getAuthLocale } from "@/lib/auth/auth-locale";
 import { checkNewPassword } from "@/lib/auth/check-new-password";
+import { isPhoneChangeNeedsConfirmationError } from "@/lib/auth/otp-errors";
 
 export type UpdateOwnPasswordState =
   | { error?: string; field?: string; success?: boolean }
@@ -54,7 +55,7 @@ export async function updateOwnPassword(
 }
 
 export type ChangePhoneState =
-  | { error?: string; field?: string; step?: "verify"; phone?: string; success?: boolean }
+  | { error?: string; field?: string; step?: "verify"; phone?: string; success?: boolean; at?: number }
   | undefined;
 
 /**
@@ -97,6 +98,11 @@ export async function requestPhoneChange(
   const supabase = await createClient();
   const { error } = await supabase.auth.updateUser({ phone: parsed.data.phone });
   if (error) {
+    // The database refuses a number change that was not confirmed in the last few minutes (S03b). The card goes back to the
+    // "confirm it is you" step rather than showing a provider error.
+    if (isPhoneChangeNeedsConfirmationError(error)) {
+      return { error: t("auth.phone_change.confirm_expired", locale), field: "confirm", at: Date.now() };
+    }
     return { error: t(authErrorKey(error, "otp_send"), locale), field: "phone" };
   }
   return { step: "verify", phone: parsed.data.phone };

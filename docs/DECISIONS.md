@@ -3,6 +3,16 @@
 Append-only log of decisions that shape the v5 build. Newest section first. A change to a
 spec invariant (INV-01 to INV-16) needs a written founder decision here.
 
+## S03b decisions, 2026-10-13
+
+Founder, for sign-in resilience (`docs/research/S01-S05-competitor-gap-and-build-plan.md` section 10; design in `docs/design/S03b.md`).
+
+| ID | Decision |
+|---|---|
+| S03B-1 | **People sign in with a working email or phone number; keep it simple.** Not built: voice-call OTP or any delivery-status table, a per-profile PIN, a restricted new-device state. SMS stays code-only (INV-08) and nothing new requires an SMS for core access. |
+| S03B-2 | **Built:** ten single-use backup codes, a Care Circle recovery contact, a self-serve change-number flow with a database-enforced confirmation (closes OQ-43), and eligibility-first cohort and sponsor codes (closes OQ-41, delivers spec 1.8). |
+| S03B-3 | **PROPOSED values** (not yet confirmed by the founder): 24 hour wait after a recovery contact confirms, 72 hour pause of text-code recovery after a number change, 15 minute confirmation window, three backup-code sets a day, two contact requests a week. Versioned as `auth.recovery_rules`. |
+
 ## Community decisions, 2026-10-09
 
 Founder, in chat, answering OQ-COM-01 to OQ-COM-10 (`docs/OPEN-QUESTIONS.md` section E, design in `docs/COMMUNITY_SPEC.md`). These do not sign the CMO's in-system acts (filter rule set v1 with the self-harm and emergency lists, the weight-loss template, the `community` guard switch), which are still owed.

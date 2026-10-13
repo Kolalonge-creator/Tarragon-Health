@@ -962,3 +962,10 @@ oq276c_controlled_list_brand_names.sql
 sr2_stagger_cron_start_times.sql
 # SR2: scribe_consents_insert_clinical keeps its S39g tie rule and active-clinician check, and wraps auth.uid() in a select so it is evaluated once per statement; one insert policy for authenticated. Sabotage: the policy put back on a bare auth.uid(); the wrapper check must flip. Behaviour is proven by s21g and s39g.
 sr2_scribe_consents_insert_policy_initplan.sql
+
+# --- Added 2026-10-13 (S03b-b) ------------------------------------------------
+# Accounts that survive a lost number: backup codes, Care Circle recovery contact, the change-number gate and the 72 hour hold
+# (closes OQ-43), and eligibility-first roster/cohort claims after a verified contact (closes OQ-41). Both prove each guard in BOTH
+# directions and carry sabotage steps that flip.
+s03b_account_recovery_routes.sql
+s03b_eligibility_first_claims.sql

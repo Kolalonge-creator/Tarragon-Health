@@ -7,6 +7,7 @@ import { t, type Locale } from "@tarragon/i18n";
 import { NIGERIAN_STATES } from "@/lib/nigeria-states";
 import { signUpWithPhone, verifySignupPhone } from "./actions";
 import { Button } from "@/components/ui/button";
+import { CohortCodeField } from "./cohort-code-field";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
@@ -177,6 +178,7 @@ export function PhoneSignupForm({
           {t("auth.password.rule", locale, { min: PASSWORD_MIN_LENGTH })}
         </p>
       </div>
+      <CohortCodeField idPrefix="phone-signup" className={FIELD_CLASS} />
       <FormError id={errorId} message={signupState?.error} />
       <Button type="submit" size="lg" className="w-full rounded-xl" disabled={signupPending}>
         {signupPending ? t("auth.signup.submitting", locale) : t("auth.signup.submit", locale)}
