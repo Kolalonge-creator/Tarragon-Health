@@ -18,7 +18,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const PROJECT_REF = process.env.SUPABASE_PROJECT_REF || "koiplnmbgnqnbywhpjlf";
-const REPO_ROOT = execFileSync("git", ["rev-parse", "--show-toplevel"]).toString().trim();
 const QUERY = "select table_name, problem from private.minor_guard_gaps() order by table_name;";
 
 function sh(cmd, args, opts = {}) {
@@ -75,6 +74,7 @@ function main() {
     console.error("SUPABASE_ACCESS_TOKEN is not set: cannot check the under-18 scope guard.");
     process.exit(2);
   }
+  const REPO_ROOT = execFileSync("git", ["rev-parse", "--show-toplevel"]).toString().trim();
   sh("npx", ["--yes", "supabase", "link", "--project-ref", PROJECT_REF, "--yes", "--workdir", REPO_ROOT]);
   const dir = mkdtempSync(join(tmpdir(), "minor-guard-gaps-"));
   const file = join(dir, "query.sql");

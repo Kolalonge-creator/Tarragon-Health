@@ -21,14 +21,15 @@ security definer
 set search_path = ''
 as $$
   with scoped as (
-    select distinct c.table_name::text as table_name
-      from information_schema.columns c
-      join information_schema.tables t
-        on t.table_schema = c.table_schema and t.table_name = c.table_name and t.table_type = 'BASE TABLE'
-     where c.table_schema = 'public'
-       and (c.column_name = 'patient_id'
-            or (c.column_name = 'profile_id'
-                and c.table_name in ('booking_requests', 'risk_assessment_responses', 'prevention_risk_scores', 'ai_conversations')))
+    -- catalogs, not information_schema: the latter hides tables the current role has no privilege on
+    select distinct cl.relname::text as table_name
+      from pg_attribute a
+      join pg_class cl on cl.oid = a.attrelid and cl.relkind in ('r', 'p')
+      join pg_namespace ns on ns.oid = cl.relnamespace and ns.nspname = 'public'
+     where not a.attisdropped
+       and (a.attname = 'patient_id'
+            or (a.attname = 'profile_id'
+                and cl.relname in ('booking_requests', 'risk_assessment_responses', 'prevention_risk_scores', 'ai_conversations')))
   ),
   has_trigger as (
     select c.relname::text as table_name
@@ -58,17 +59,16 @@ comment on function private.minor_guard_gaps() is
 insert into public.minor_dependant_table_policy (table_name, policy, reason)
 select 'free_red_events', 'exempt', 'safety: a red event must always be recordable'
  where to_regclass('public.free_red_events') is not null
-on conflict (table_name) do update set policy = 'exempt', reason = excluded.reason;
+on conflict (table_name) do update set policy = 'exempt', reason = excluded.reason
+  where public.minor_dependant_table_policy.policy = 'guarded';
 
 do $$
 declare
   r record;
   v_col text;
 begin
-  -- a table classified allowed/exempt that is also guarded: the classification wins, the trigger goes
-  for r in select g.table_name from private.minor_guard_gaps() g where g.problem like 'listed % but is guarded' loop
-    execute format('drop trigger if exists "00_minor_dependant_scope" on public.%I', r.table_name);
-  end loop;
+  -- a table classified allowed/exempt that is also guarded is NOT auto-fixed here (that would weaken protection silently):
+  -- the self-check below fails the migration so a person decides.
   -- unclassified tables are guarded (never silently exempted); the column is patient_id except for the four profile_id tables
   for r in select g.table_name from private.minor_guard_gaps() g where g.problem = 'not in minor_dependant_table_policy' loop
     v_col := case when r.table_name in ('booking_requests', 'risk_assessment_responses', 'prevention_risk_scores', 'ai_conversations')
