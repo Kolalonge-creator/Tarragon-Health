@@ -288,6 +288,10 @@ begin
   r := pg_temp.exec_as(mb, format($q$insert into public.prescription_renewal_requests (patient_id, organisation_id, medication_id) values (%L, %L, %L)$q$, mb, v_org, m2));
   perform pg_temp.ck('P2 a Member cannot file a standalone renewal request: the doctor reviews renewals at the monthly call', 'true', (r like 'P0001:%monthly call%')::text);
   perform pg_temp.ck('P2b and nothing was filed', '0', (select count(*)::text from public.prescription_renewal_requests where patient_id = mb));
+  -- P2c: a row created on the Member's behalf (no patient session: a doctor, staff or service job) is the monthly-review route and passes
+  insert into public.prescription_renewal_requests (patient_id, organisation_id, medication_id) values (mb, v_org, m2);
+  perform pg_temp.ck('P2c a doctor, staff or service insert for a Member is allowed', '1', (select count(*)::text from public.prescription_renewal_requests where patient_id = mb));
+  delete from public.prescription_renewal_requests where patient_id = mb;
   -- a credit someone already holds keeps working for a non-Member
   select id into v_sp from public.service_products where code = 'prescription_renewal_credit';
   insert into public.service_purchases (organisation_id, patient_id, purchaser_profile_id, service_product_id, status, amount_kobo, currency, payment_provider, purchased_at, expires_at)

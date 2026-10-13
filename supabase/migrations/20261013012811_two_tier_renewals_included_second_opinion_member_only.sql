@@ -4,7 +4,7 @@
 --     A renewal is not a separate request. The standalone request route is CLOSED for a Member: the trigger answers that the doctor
 --     reviews renewals at the monthly call (detail RENEWAL_AT_MONTHLY_REVIEW); the Member can add a note to the next review instead
 --     (20261013013400). A Free person is told that renewal is part of Membership. A credit someone already holds is still honoured for
---     a non-Member. FINDING kept: the old check passed everyone, because 'medication_refills' is in the free feature list.
+--     a non-Member. Only the Member's own insert is refused; a doctor, staff or service-job insert for a Member passes (code review 2026-10-13). FINDING kept: the old check passed everyone, because 'medication_refills' is in the free feature list.
 -- (b) SECOND OPINION = an extra 5,000 naira (500,000 kobo), Members only. second_opinion_credit is the live product code (read
 --     2026-10-12: price 1,200,000 kobo, inactive, 0 live purchases of it). It is re-enabled at 500,000 kobo and is the ONE product
 --     exempt from service_products_doctor_time_not_sellable; every other doctor-time product stays closed. It is purchasable only when
@@ -32,8 +32,13 @@ begin
   end if;
 
   if private.patient_is_member(new.patient_id) then
-    raise exception 'Your doctor reviews renewals at your monthly call. You can add a note to your next review from the medicines screen.'
-      using errcode = 'P0001', detail = 'RENEWAL_AT_MONTHLY_REVIEW';
+    -- Only the Member's OWN standalone request is closed. A row created by a doctor, staff member or a service job on the
+    -- Member's behalf (auth.uid() is not the patient) is the monthly-review route itself and must be allowed.
+    if (select auth.uid()) is not distinct from new.patient_id then
+      raise exception 'Your doctor reviews renewals at your monthly call. You can add a note to your next review from the medicines screen.'
+        using errcode = 'P0001', detail = 'RENEWAL_AT_MONTHLY_REVIEW';
+    end if;
+    return new;
   end if;
 
   -- not a Member: a credit already paid for is still honoured
