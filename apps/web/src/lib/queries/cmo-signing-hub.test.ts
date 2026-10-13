@@ -21,6 +21,11 @@ const readPendingCommunitySignoff = jest.fn<(...args: unknown[]) => Promise<{ ru
 jest.mock("@/lib/queries/pending-community-signoff", () => ({
   readPendingCommunitySignoff: (...args: unknown[]) => readPendingCommunitySignoff(...args),
 }));
+const readCredentialAttention = jest.fn<(...args: unknown[]) => Promise<{ overdueRechecks: number; unverified: number; failed: boolean }>>();
+jest.mock("@/lib/queries/credential-attention", () => {
+  const actual = jest.requireActual<typeof import("./credential-attention")>("./credential-attention");
+  return { ...actual, readCredentialAttention: (...args: unknown[]) => readCredentialAttention(...args) };
+});
 const noCommunity = { rulesUnsigned: false, groupsWaiting: 0, statementsWaiting: 0, attentionCount: 0, failed: false };
 jest.mock("@/lib/queries/pending-ai-governance-signoff", () => ({
   readPendingAiGovernanceSignoff: (...args: unknown[]) => readPendingAiGovernanceSignoff(...args),
@@ -47,6 +52,8 @@ beforeEach(() => {
   readPendingAiGovernanceSignoff.mockResolvedValue(noAi);
   readPendingCommunitySignoff.mockReset();
   readPendingCommunitySignoff.mockResolvedValue(noCommunity);
+  readCredentialAttention.mockReset();
+  readCredentialAttention.mockResolvedValue({ overdueRechecks: 0, unverified: 0, failed: false });
   readS06S10Signoffs.mockReset();
   readS06S10Signoffs.mockResolvedValue(emptyS06S10);
 });
@@ -194,5 +201,25 @@ describe("readCmoSigningHub", () => {
     const settled = [{ table: "alert_rules", title: "Alert rules", href: "/clinician/alert-rules", version: 6 }];
     readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: settled });
     expect((await readCmoSigningHub(supabase)).settledConfigs).toEqual(settled);
+  });
+
+  it("P5: an overdue MDCN spot re-check and clinicians with no verification show as one attention line that links under /clinician", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readCredentialAttention.mockResolvedValue({ overdueRechecks: 1, unverified: 2, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.items).toHaveLength(1);
+    expect(hub.items[0]).toMatchObject({ key: "credential_attention", count: 3, href: "/clinician/credentialing" });
+    expect(hub.items[0]?.detail).toContain("1 MDCN spot re-check is overdue");
+    expect(hub.items[0]?.detail).toContain("2 clinicians have no MDCN or DataFlow verification on record");
+    expect(hub.items[0]?.detail).toContain("Nothing is paused");
+  });
+
+  it("P5: nothing outstanding adds no line, and a failed read is named rather than shown as all clear", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    expect((await readCmoSigningHub(supabase)).items).toEqual([]);
+    readCredentialAttention.mockResolvedValue({ overdueRechecks: 0, unverified: 0, failed: true });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.failed).toBe(true);
+    expect(hub.failedSources).toEqual(["Clinician registration checks"]);
   });
 });

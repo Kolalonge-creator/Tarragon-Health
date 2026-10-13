@@ -4,6 +4,7 @@ import type { Database } from "@tarragon/shared";
 import { readSignoffQueue, SEVERITY_RANK, type SettledConfig, type SignoffQueueItem } from "@/lib/queries/signoff-queue";
 import { readPendingAiGovernanceSignoff } from "@/lib/queries/pending-ai-governance-signoff";
 import { readPendingCommunitySignoff } from "@/lib/queries/pending-community-signoff";
+import { readCredentialAttention, credentialAttentionItem } from "@/lib/queries/credential-attention";
 import { readS06S10Signoffs, EMPTY_S06S10, type S06S10Snapshot } from "@/lib/queries/s06-s10-signoffs";
 
 export type CmoSigningHub = {
@@ -46,7 +47,7 @@ export const COMMUNITY_ITEM_KEY = "community";
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -55,6 +56,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingAiGovernanceSignoff(supabase),
     readPendingCommunitySignoff(supabase),
     readS06S10Signoffs(supabase).catch(() => ({ ...EMPTY_S06S10, failed: true, failedSources: ["the S06 to S10 items"] })),
+    readCredentialAttention(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -128,6 +130,9 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  const credentialItem = credentialAttentionItem(credentials);
+  if (credentialItem) items.push(credentialItem);
+
   items.push(...s06s10.items);
 
   const failedSources = [
@@ -135,6 +140,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...s06s10.failedSources,
     ...(ai.failed ? ["AI governance"] : []),
     ...(community.failed ? ["Community"] : []),
+    ...(credentials.failed ? ["Clinician registration checks"] : []),
   ];
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
   // A banner row may only link to a hub line that exists. The banner reads its own copy of the state, so if the two ever disagree (a row it
