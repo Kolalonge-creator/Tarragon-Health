@@ -6,7 +6,6 @@ import { getProposedConfig } from "./index";
 
 const MIGRATIONS = join(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..", "..", "supabase", "migrations");
 const SCHEDULE_MIGRATION = "20261007230645_s43_biomarker_trends_and_vaccination_schedule.sql";
-const SHARE_MIGRATION = "20261007230508_s43_share_links_and_emergency_card_fields.sql";
 
 function seededSchedule(): { status: string; doses: Record<string, unknown>[]; excluded: { code: string }[] } {
   const sql = readFileSync(join(MIGRATIONS, SCHEDULE_MIGRATION), "utf8");
@@ -43,21 +42,5 @@ describe("immunisation.schedule mirrors the draft sign-off row", () => {
   it("marks every dose that is not verified against a dated national table", () => {
     const v = getProposedConfig("immunisation.schedule").value as { doses: { evidence: string }[] };
     for (const d of v.doses) expect(["V", "NV", "SEC"]).toContain(d.evidence);
-  });
-});
-
-describe("record_share.defaults mirrors record_share_config version 1", () => {
-  it("is identical", () => {
-    const sql = readFileSync(join(MIGRATIONS, SHARE_MIGRATION), "utf8");
-    const m = /insert into public\.record_share_config[^;]*?values \((\d+), (\d+), (\d+), (\d+), (\d+),/.exec(sql);
-    if (!m) throw new Error("record_share_config seed not found");
-    expect({ default_hours: Number(m[2]), max_hours: Number(m[3]), max_pin_attempts: Number(m[4]), min_pin_length: Number(m[5]) }).toEqual(getProposedConfig("record_share.defaults").value);
-    expect(Number(m[1])).toBe(1);
-  });
-
-  it("defaults to 72 hours, as the spec says, and is proposed until the founder and CMO confirm", () => {
-    const e = getProposedConfig("record_share.defaults");
-    expect((e.value as { default_hours: number }).default_hours).toBe(72);
-    expect(e.status).toBe("proposed");
   });
 });

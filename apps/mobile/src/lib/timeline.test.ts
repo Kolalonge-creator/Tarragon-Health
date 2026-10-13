@@ -47,7 +47,7 @@ describe("loadPatientTimeline", () => {
       { id: "ev-2", patient_id: "p1", actor_clinical_staff_id: "staff-b", occurred_at: "2026-09-02T00:00:00Z" },
     ];
     const directory = [
-      { id: "staff-a", full_name: "Dr. A", doctor_tier: "medical_officer" },
+      { id: "staff-a", full_name: "Dr. A", doctor_tier: "senior_medical_officer" },
       { id: "staff-b", full_name: "Dr. B", doctor_tier: "care_coordinator" },
     ];
     mockFrom.mockImplementation((table: string) =>

@@ -20,14 +20,12 @@ const staff = (doctor_tier: NonNullable<Staff>["doctor_tier"]): Staff => ({ doct
  * orthogonal governance layer.
  */
 const CLINICAL_LADDER = [
-  "medical_officer",
   "senior_medical_officer",
   "chief_medical_officer",
 ] as const;
 
 describe("hasPrescribingAuthority", () => {
-  it("denies Medical Officer and admits Senior Medical Officer and above", () => {
-    expect(hasPrescribingAuthority(staff("medical_officer"))).toBe(false);
+  it("admits Senior Medical Officer and above (the one doctor tier, F-05)", () => {
     expect(hasPrescribingAuthority(staff("senior_medical_officer"))).toBe(true);
     expect(hasPrescribingAuthority(staff("chief_medical_officer"))).toBe(true);
   });
@@ -39,11 +37,10 @@ describe("hasPrescribingAuthority", () => {
 });
 
 describe("canConfirmMedicationRefill", () => {
-  it("admits every clinical tier, not just Medical Officer", () => {
+  it("admits every clinical tier", () => {
     // The regression this exists to prevent: written as an equality
-    // (`doctor_tier === 'medical_officer'`), a senior doctor covering a
-    // shift with no Medical Officer on duty could not confirm a routine
-    // refill.
+    // (`doctor_tier === 'senior_medical_officer'`), the chief covering a
+    // shift could not confirm a routine refill.
     for (const tier of CLINICAL_LADDER) {
       expect(canConfirmMedicationRefill(staff(tier))).toBe(true);
     }
@@ -72,11 +69,7 @@ describe("canConfirmMedicationRefill", () => {
  * emergency.
  */
 describe("canHandleEmergencyEscalation", () => {
-  it("refuses Medical Officer — the case the doctor->clinician role merge created", () => {
-    expect(canHandleEmergencyEscalation(staff("medical_officer"))).toBe(false);
-  });
-
-  it("refuses a Care Coordinator outright", () => {
+    it("refuses a Care Coordinator outright", () => {
     expect(canHandleEmergencyEscalation(staff("care_coordinator"))).toBe(false);
   });
 
@@ -102,8 +95,7 @@ describe("canHandleEmergencyEscalation", () => {
  * governance authority is now intrinsic to chief_medical_officer.
  */
 describe("canReviewSafeguardingConcern", () => {
-  it("refuses Medical Officer and Care Coordinator", () => {
-    expect(canReviewSafeguardingConcern(staff("medical_officer"))).toBe(false);
+  it("refuses a Care Coordinator", () => {
     expect(canReviewSafeguardingConcern(staff("care_coordinator"))).toBe(false);
   });
 
@@ -130,7 +122,6 @@ describe("canAssignCases", () => {
   it("admits only Chief Medical Officer", () => {
     expect(canAssignCases(staff("chief_medical_officer"))).toBe(true);
     expect(canAssignCases(staff("senior_medical_officer"))).toBe(false);
-    expect(canAssignCases(staff("medical_officer"))).toBe(false);
     expect(canAssignCases(staff("care_coordinator"))).toBe(false);
   });
 

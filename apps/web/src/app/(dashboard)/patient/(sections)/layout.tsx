@@ -2,6 +2,8 @@ import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-
 import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
 import { ActingForBanner } from "@/app/(dashboard)/patient/acting-for-banner";
 import { EmergencyAlert } from "@/app/(dashboard)/patient/emergency-alert";
+import { FreeGuidance } from "@/app/(dashboard)/patient/free-guidance";
+import { FreeRedCheckin } from "@/app/(dashboard)/patient/free-red-checkin";
 import { DangerSymptomCheck } from "@/app/(dashboard)/patient/danger-symptom-check";
 import { ageFromDateOfBirth } from "@tarragon/shared";
 import { GlucoseUnitProvider } from "@/components/glucose-unit-provider";
@@ -80,6 +82,8 @@ export default async function PatientSectionsLayout({
 
       {/* Safety surfaces stay above everything, outside any section. */}
       <EmergencyAlert patientId={subjectId} hasEmergencyContact={subjectHasEmergencyContact} />
+      <FreeGuidance patientId={subjectId} />
+      <FreeRedCheckin patientId={subjectId} />
       <DangerSymptomCheck patientId={subjectId} ageYears={ageFromDateOfBirth(subjectDateOfBirth)} />
 
       {/* Every glucose figure below this point renders in the reader's own

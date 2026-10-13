@@ -22,6 +22,7 @@ import { AppText, Badge, Button, Card, EmptyState, InlineAlert, LegacySheet, Lis
 import { SyncBanner } from "@/screens/sync-banner";
 import { MedicineCabinetScreen } from "@/screens/sections/medicine-cabinet-screen";
 import { CareChangeCard } from "@/screens/sections/care-change-card";
+import { RenewalReviewCard } from "@/screens/sections/renewal-review-card";
 
 interface MedicationsScreenProps {
   patientId: string;
@@ -289,6 +290,8 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
 
       {/* A change is the patient's own yes, so it is not shown while acting for someone else. */}
       {ownsReminders ? <CareChangeCard /> : null}
+
+      {ownsReminders ? <RenewalReviewCard tr={tr} /> : null}
 
       {ownsReminders && issues.length > 0 ? (
         <Card style={{ gap: space.sm }}>

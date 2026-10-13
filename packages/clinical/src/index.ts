@@ -1,6 +1,6 @@
 export { grade, recheckWindowMinutes } from "./engine";
 export { validateInput, validateRuleSet } from "./validate";
-export { BP_CARE_V1, BP_CARE_V3 } from "./rules";
+export { BP_CARE_V1, BP_CARE_V3, BP_CARE_V4 } from "./rules";
 export { actionToString } from "./actions";
 export { summarise, expectationWithDefaults, type ResultSummary } from "./summary";
 export { TRIAGE_MESSAGE_KEYS, messageKeyFor } from "./messages";
@@ -15,3 +15,7 @@ export type * from "./titration-types";
 export { scoreCvdWho2019, runCvdValidationVectors, cvdRiskFraction, bandFor, type CvdInputs, type CvdInstrumentConfig, type CvdOutcome, type CvdSexModel, type CvdNotScoredStatus, type CvdModelKind, type CvdValidationVector } from "./risk/who-cvd-2019";
 export { composeHealthReport, shareableView } from "./health-report/compose";
 export type { HealthReportConfig, HealthReportFacts, ComposedReport, ReportItem, ReportPriority, ReportState, ReportChange, LabPoint } from "./health-report/types";
+export {
+  assessHomeCheck, bandHomeMean, dedupeReadings, detectBpPattern, homeCheckSchedule, pairSessions, parseHomeBpConfig, sessionPartOf, statusAgainstTarget, addLocalDays,
+  type HomeBand, type HomeBpConfig, type HomeBpReading, type HomeCheckAssessment, type HomeCheckInput, type PatternInput, type PatternKind, type PersonalTarget, type ScheduledSession, type SessionPart, type SessionProgress, type TargetStatus,
+} from "./home-bp";

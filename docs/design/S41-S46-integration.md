@@ -17,7 +17,7 @@ Every file was renamed so that it sorts after the newest migration on main-dev (
 |---|---|
 | 20261007230154 | s41_onboarding_answers_and_lga |
 | 20261007230331 | s43_record_foundations |
-| 20261007230508 | s43_share_links_and_emergency_card_fields |
+| 20261007230508 | s43_emergency_card_fields |
 | 20261007230645 | s43_biomarker_trends_and_vaccination_schedule |
 | 20261007230822 | s42_consent_matrix |
 | 20261007230959 | s45a_screening_status_not_applicable |
@@ -77,3 +77,10 @@ Apply with the CLI in this exact order, or pin each `schema_migrations.version` 
 - `system-codes.ts`: AI-018 and AI-019 both kept.
 - Mobile `profile-screen.tsx`: the local correction-request row literal gained `item_id` and `item_table` (added to the table by S44).
 
+
+
+## Share links: S09x wins (decision, 2026-10-13)
+
+S43 reworked share links (hashed token, PIN, lockout, a status door answering 410/401/423). main-dev's S09x (#1073) shipped a different PIN-protected design for the same feature. The decision is that S09x wins: this integration takes main-dev's share code, query, page and functions, drops S43's share objects (`record_share_config`, `record_share_open`, the 4-argument `create_record_share`, the extra `record_shares` columns, the `/share/[token]/route.ts` door and its client, the `record_share.defaults` config entry and the share proof section), and keeps the rest of S41 to S46, including the emergency card's patient-chosen fields. S09x already fixed the two S09 bugs S43 had found in the share sections (the vitals glucose column and the lab report status).
+
+Discreet-mode email: the branch's S42 `emailEnvelope` path in `send-pending-notifications` was replaced by main-dev's S04b-3 implementation (`discreetEmail`). `emailEnvelope` remains exported from `_shared/notifications/delivery.ts` and is tested but is no longer called by the sender.

@@ -1,5 +1,5 @@
 -- S43 proof: the Health Passport record, share links, emergency card fields, biomarker trends and the vaccination schedule gate
--- (migrations *_s43_record_foundations.sql, *_s43_share_links_and_emergency_card_fields.sql, *_s43_biomarker_trends_and_vaccination_schedule.sql).
+-- (migrations *_s43_record_foundations.sql, *_s43_emergency_card_fields.sql, *_s43_biomarker_trends_and_vaccination_schedule.sql).
 -- One rolled-back transaction. Proves:
 --   1. Timeline: every item carries a trust tier; manual vitals are patient, a device reading is device, a document awaiting a reading is ocr_unconfirmed,
 --      a confirmed reading is ocr_confirmed; a client cannot choose a tier.
@@ -9,9 +9,7 @@
 --   3. History: a patient writer cannot claim a clinician source or a verification; an edit un-verifies; removal is a tombstone; staff have no direct read and read
 --      through an audited function that refuses an untied clinician and writes audit rows (INV-10, INV-12); a clinician records and verifies only with a tie.
 --   4. Symptom journal: a timeline row, the journal read (own only).
---   5. Share links: default expiry from config; token stored hashed; EXPIRED returns gone/expired AND logs the attempt (acceptance: 410 and logs); revoked, view cap,
---      PIN required, wrong PIN, lockout; mental health and reproductive sections cannot be chosen; the released-only lab filter (a held, withdrawn or sensitive
---      positive result never appears); anon can open but cannot create or revoke; the bus event fires.
+--   5. (Share links are not proved here: S09x owns them, see s09x_my_health_completion.sql.)
 --   6. Emergency card: patient-chosen fields are stripped by the wrapper; the renamed full function cannot be called by a client.
 --   7. Biomarker trends: released results only, the lab's own range, mixed units flagged, the care team's target labelled, a stranger refused.
 --   8. Vaccination: the immunisations view, the v2 draft is unsigned (HPV two doses, typhoid excluded), reminders are paused until a signed schedule with a config exists.
@@ -323,30 +321,7 @@ begin
   perform pg_temp.ck('4b the journal lists it for its owner', '1', pg_temp.q_as(v_pat, 'select count(*)::text from public.patient_symptom_journal()'));
   perform pg_temp.ck('4c and for no one else', '0', pg_temp.q_as(v_pat2, 'select count(*)::text from public.patient_symptom_journal()'));
   perform pg_temp.ck('4d anon cannot', 'true', (pg_temp.q_anon('select count(*) from public.patient_symptom_journal()') like '%permission denied%')::text);
-
-  -- ===== 5. share links =========================================================================================================
-  v_j := pg_temp.q_as(v_pat, $q$select public.create_record_share(array['vitals','allergies','lab_results','procedures'])::text$q$)::jsonb;
-  v_tok := v_j ->> 'token'; v_s := (v_j ->> 'id')::uuid; perform pg_temp.setf('share', v_s);
-  perform pg_temp.ck('5a the default expiry is the configured 72 hours', '72',
-    (select round(extract(epoch from (expires_at - created_at)) / 3600)::text from public.record_shares where id = v_s));
-  perform pg_temp.ck('5b the token is held only as a hash', 'true:true',
-    (select (token is null)::text || ':' || (token_hash = encode(extensions.digest(v_tok, 'sha256'), 'hex'))::text from public.record_shares where id = v_s));
-  perform pg_temp.ck('5c the two argument call still works (the deployed client)', 'true',
-    (pg_temp.try_as(v_pat, $q$select public.create_record_share(array['vitals'], 24)$q$) = 'ok')::text);
-  perform pg_temp.ck('5d mental health cannot be chosen', 'true',
-    (pg_temp.try_as(v_pat, $q$select public.create_record_share(array['vitals','mental_health'])$q$) like '%invalid section%')::text);
-  perform pg_temp.ck('5e reproductive health cannot be chosen', 'true',
-    (pg_temp.try_as(v_pat, $q$select public.create_record_share(array['reproductive'])$q$) like '%invalid section%')::text);
-  perform pg_temp.ck('5f the table refuses them too (a direct insert)', 'true',
-    (pg_temp.try_sql_owner(format($q$insert into public.record_shares (organisation_id, patient_id, token_hash, sections, expires_at) values (%L, %L, %L, array['mental_health'], now() + interval '1 hour')$q$, v_org, v_pat, repeat('a', 64))) like '%record_shares_sections_valid%')::text);
-  perform pg_temp.ck('5g an expiry beyond the ceiling is refused', 'true',
-    (pg_temp.try_as(v_pat, $q$select public.create_record_share(array['vitals'], 721)$q$) like '%between 1 and 720%')::text);
-  perform pg_temp.ck('5h a PIN must be digits', 'true',
-    (pg_temp.try_as(v_pat, $q$select public.create_record_share(array['vitals'], 24, 'abcd')$q$) like '%digits%')::text);
-  perform pg_temp.ck('5i anon cannot create or revoke', 'true',
-    (pg_temp.q_anon($q$select public.create_record_share(array['vitals'])$q$) like '%permission denied%' and pg_temp.q_anon(format($q$select public.revoke_record_share(%L)$q$, v_s)) like '%permission denied%')::text);
-  perform pg_temp.ck('5j anon cannot read the share table', 'true', (pg_temp.q_anon('select count(*) from public.record_shares') like '%permission denied%')::text);
-  -- data for the lab filter
+  -- ===== 5. (share links moved out: S09x owns them) / data for the lab filter and the trends =====
   set local session_replication_role = replica;
   insert into public.lab_analyte_readings (organisation_id, patient_id, code, value, unit, taken_at, report_status, reference_range_low, reference_range_high, laboratory)
   values (v_org, v_pat, 'hba1c', 6.1, '%', now() - interval '3 years', 'final', 4.0, 5.6, 'Lab A'),
@@ -374,86 +349,6 @@ begin
   values (v_s2, v_org, v_pat, 'LDL', 7.7, 'mmol/L', 'high', false);
   set local session_replication_role = origin;
   insert into public.procedures (organisation_id, patient_id, name, approximate_year, is_test) values (v_org, v_pat, 'Tonsillectomy', 2005, true);
-
-  v_j := public.record_share_open(v_tok);
-  perform pg_temp.ck('5k a clean opening returns ok with the record', 'ok', v_j ->> 'status');
-  perform pg_temp.ck('5l the lab section no longer raises and shows final legacy readings and one released item', '4', jsonb_array_length(v_j -> 'record' -> 'lab_results')::text);
-  perform pg_temp.ck('5m a held, a withdrawn, a replaced and a sensitive positive item are absent, a preliminary reading is absent', '0',
-    (select count(*)::text from jsonb_array_elements(v_j -> 'record' -> 'lab_results') x where x ->> 'code' in ('HIV') or (x ->> 'value')::numeric in (9.9, 8.8, 99, 7.7)));
-  perform pg_temp.ck('5n the procedures section is present', '2', jsonb_array_length(v_j -> 'record' -> 'procedures')::text);
-  perform pg_temp.ck('5o a tombstoned procedure is absent', '0', (select count(*)::text from jsonb_array_elements(v_j -> 'record' -> 'procedures') x where x ->> 'name' = 'Hernia repair'));
-  perform pg_temp.ck('5p the opening is logged and counted', '1:viewed:1',
-    (select view_count::text from public.record_shares where id = pg_temp.f('share')) || ':' || (select outcome from public.record_share_lookups where share_id = pg_temp.f('share') limit 1)
-    || ':' || (select count(*)::text from public.domain_events where event_type = 'share_link.accessed' and aggregate_id = pg_temp.f('share')));
-  perform pg_temp.ck('5q the bus payload carries ids only', 'true',
-    (select (payload ? 'share_id' and not (payload::text ~* 'blood|glucose|result|hiv')) ::text from public.domain_events where event_type = 'share_link.accessed' and aggregate_id = pg_temp.f('share') limit 1));
-  perform pg_temp.ck('5r anon can open a link', 'ok', pg_temp.q_anon(format($q$select (public.record_share_open(%L) ->> 'status')$q$, v_tok)));
-  perform pg_temp.ck('5s an unknown token is not_found and logs no attempt row', 'not_found',
-    (public.record_share_open(repeat('b', 64)) ->> 'status'));
-  -- PREVIEW: what a plain GET does (a link-preview bot or mail scanner must not spend a view or read a record)
-  v_j := pg_temp.q_as(v_pat, $q$select public.create_record_share(array['vitals'], 24, null, 1)::text$q$)::jsonb;
-  v_t := public.record_share_open(v_j ->> 'token', null, false)::text;
-  perform pg_temp.ck('5pa a preview of a live link says ready and returns no record', 'ready:false',
-    (v_t::jsonb ->> 'status') || ':' || (v_t::jsonb ? 'record')::text);
-  perform pg_temp.ck('5pb a preview spends no view and logs no opening', '0:0',
-    (select view_count::text from public.record_shares where id = (v_j ->> 'id')::uuid) || ':'
-    || (select count(*)::text from public.record_share_lookups where share_id = (v_j ->> 'id')::uuid and outcome = 'viewed'));
-  perform public.record_share_open(v_j ->> 'token', null, false); perform public.record_share_open(v_j ->> 'token', null, false);
-  perform pg_temp.ck('5pc many previews still leave the one allowed view for a person', 'ok',
-    public.record_share_open(v_j ->> 'token') ->> 'status');
-  perform pg_temp.ck('5pd and that one deliberate opening then closes the link', 'gone:view_cap',
-    (public.record_share_open(v_j ->> 'token') ->> 'status') || ':' || (public.record_share_open(v_j ->> 'token') ->> 'reason'));
-  v_j := pg_temp.q_as(v_pat, $q$select public.create_record_share(array['vitals'], 24, '5555')::text$q$)::jsonb;
-  perform pg_temp.ck('5pe a preview of a PIN link asks for the PIN and shows nothing', 'pin_required',
-    public.record_share_open(v_j ->> 'token', '5555', false) ->> 'status');
-  perform pg_temp.ck('5pf a preview never checks or counts a PIN', '0',
-    (select pin_failed_attempts::text from public.record_shares where id = (v_j ->> 'id')::uuid));
-  perform pg_temp.ck('5t the old function name still works for a clean opening and returns the bare record', 'true',
-    ((public.record_share_by_token(v_tok) ? 'full_name'))::text);
-
-  -- EXPIRED: the acceptance test
-  update public.record_shares set expires_at = now() - interval '1 minute' where id = pg_temp.f('share');
-  v_j := public.record_share_open(v_tok);
-  perform pg_temp.ck('5u an expired link is gone (the route answers 410)', 'gone:expired', (v_j ->> 'status') || ':' || (v_j ->> 'reason'));
-  perform pg_temp.ck('5v the expired attempt is logged against the link', '1',
-    (select count(*)::text from public.record_share_lookups where share_id = pg_temp.f('share') and outcome = 'expired'));
-  v_t := public.record_share_open(v_tok, null, false)::text;
-  perform pg_temp.ck('5va a PREVIEW of an expired link is gone too, and is logged', 'gone:2',
-    (v_t::jsonb ->> 'status') || ':' || (select count(*)::text from public.record_share_lookups where share_id = pg_temp.f('share') and outcome = 'expired'));
-  perform pg_temp.ck('5w an expired link returns no record', 'false', (v_j ? 'record')::text);
-  perform pg_temp.ck('5x the patient sees both attempts (the person and the preview)', '2',
-    pg_temp.q_as(v_pat, format($q$select count(*)::text from public.record_share_lookups where share_id = %L and outcome = 'expired'$q$, pg_temp.f('share'))));
-  perform pg_temp.ck('5y the other patient does not', '0',
-    pg_temp.q_as(v_pat2, format($q$select count(*)::text from public.record_share_lookups where share_id = %L$q$, pg_temp.f('share'))));
-  -- revoked
-  v_j := pg_temp.q_as(v_pat, $q$select public.create_record_share(array['vitals'], 24)::text$q$)::jsonb;
-  perform pg_temp.q_as(v_pat, format($q$select public.revoke_record_share(%L)$q$, (v_j ->> 'id')::uuid));
-  v_t := public.record_share_open(v_j ->> 'token')::text;
-  perform pg_temp.ck('5z a revoked link is gone immediately and the attempt is logged', 'gone:revoked:1',
-    (v_t::jsonb ->> 'status') || ':' || (v_t::jsonb ->> 'reason') || ':'
-    || (select count(*)::text from public.record_share_lookups where share_id = (v_j ->> 'id')::uuid and outcome = 'revoked'));
-  perform pg_temp.ck('5aa another patient cannot revoke it', 'true',
-    (pg_temp.try_as(v_pat2, format($q$select public.revoke_record_share(%L)$q$, pg_temp.f('share'))) like '%not found or already revoked%')::text);
-  -- view cap
-  v_j := pg_temp.q_as(v_pat, $q$select public.create_record_share(array['vitals'], 24, null, 2)::text$q$)::jsonb;
-  perform public.record_share_open(v_j ->> 'token'); perform public.record_share_open(v_j ->> 'token');
-  perform pg_temp.ck('5ab the view cap closes the link after the last view', 'gone:view_cap',
-    (public.record_share_open(v_j ->> 'token') ->> 'status') || ':' || (public.record_share_open(v_j ->> 'token') ->> 'reason'));
-  perform pg_temp.ck('5ac exactly the capped number of views were counted', '2', (select view_count::text from public.record_shares where id = (v_j ->> 'id')::uuid));
-  -- PIN
-  v_j := pg_temp.q_as(v_pat, $q$select public.create_record_share(array['vitals'], 24, '4821')::text$q$)::jsonb;
-  v_tok := v_j ->> 'token'; v_s := (v_j ->> 'id')::uuid;
-  perform pg_temp.ck('5ad the PIN is stored hashed, never plain', 'true',
-    (select (pin_hash is not null and pin_hash <> '4821' and pin_hash like '$2%')::text from public.record_shares where id = v_s));
-  perform pg_temp.ck('5ae no PIN: pin_required, and nothing is shown or counted', 'pin_required:false:0',
-    (public.record_share_open(v_tok) ->> 'status') || ':' || (public.record_share_open(v_tok) ? 'record')::text || ':' || (select view_count::text from public.record_shares where id = v_s));
-  perform pg_temp.ck('5af a wrong PIN says how many tries are left', 'pin_wrong:3', (public.record_share_open(v_tok, '0000') ->> 'status') || ':' || (public.record_share_open(v_tok, '1111') ->> 'attempts_left'));
-  perform pg_temp.ck('5ag the right PIN opens it', 'ok', public.record_share_open(v_tok, '4821') ->> 'status');
-  perform pg_temp.ck('5ah a right PIN resets the counter', '0', (select pin_failed_attempts::text from public.record_shares where id = v_s));
-  for i in 1..5 loop perform public.record_share_open(v_tok, '9999'); end loop;
-  perform pg_temp.ck('5ai five wrong PINs lock the link', 'locked', public.record_share_open(v_tok, '4821') ->> 'status');
-  perform pg_temp.ck('5aj the lockout and the wrong tries are logged', 'true',
-    (select (count(*) filter (where outcome = 'pin_wrong') >= 5 and count(*) filter (where outcome = 'locked') >= 1)::text from public.record_share_lookups where share_id = v_s));
 
   -- ===== 6. emergency card ======================================================================================================
   v_card := encode(extensions.gen_random_bytes(32), 'hex');
@@ -548,14 +443,12 @@ begin
     coalesce((select string_agg(fn, ',') from unnest(array[
       'public.record_document_suggestion(uuid, text, jsonb, text, boolean)', 'public.confirm_document_extraction(uuid, jsonb)', 'public.reject_document_extraction(uuid)',
       'public.remove_history_item(text, uuid, text)', 'public.clinician_record_procedure(uuid, text, date, text, text)', 'public.verify_history_item(text, uuid, text)',
-      'public.read_patient_history_audited(uuid, text)', 'public.patient_symptom_journal(integer)', 'public.create_record_share(text[], integer, text, integer)',
-      'public.revoke_record_share(uuid)', 'public.patient_biomarker_list(uuid)', 'public.patient_biomarker_trend(text, uuid, date)', 'public.vaccination_schedule_status()',
+      'public.read_patient_history_audited(uuid, text)', 'public.patient_symptom_journal(integer)', 'public.patient_biomarker_list(uuid)', 'public.patient_biomarker_trend(text, uuid, date)', 'public.vaccination_schedule_status()',
       'public.emergency_card_full_by_token(text)']) fn where has_function_privilege('anon', fn::regprocedure, 'EXECUTE')), ''));
-  perform pg_temp.ck('9b the share door and the card wrapper are the anon-callable ones', 'true:true:true',
-    has_function_privilege('anon', 'public.record_share_open(text, text, boolean)', 'EXECUTE')::text || ':' || has_function_privilege('anon', 'public.record_share_by_token(text)', 'EXECUTE')::text
-    || ':' || has_function_privilege('anon', 'public.emergency_card_by_token(text)', 'EXECUTE')::text);
+  perform pg_temp.ck('9b the card wrapper is the anon-callable one', 'true',
+    has_function_privilege('anon', 'public.emergency_card_by_token(text)', 'EXECUTE')::text);
   perform pg_temp.ck('9c RLS is on for every new table', '0',
-    (select count(*)::text from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relname in ('procedures', 'emergency_card_fields', 'record_share_config') and not c.relrowsecurity));
+    (select count(*)::text from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relname in ('procedures', 'emergency_card_fields') and not c.relrowsecurity));
 
   -- ===== 10. sabotage ===========================================================================================================
   -- A. drop the reading-column guard: a forged update must then succeed (so check 2g would fail)
@@ -564,21 +457,10 @@ begin
   values (v_org, v_pat, 'other', v_pat || '/s43-sab.jpg', 'patient', 'pending') returning id into v_s2;
   insert into results values ('sabotaged', '2g forged ocr_state write without the guard', 'refused',
     case when pg_temp.try_sql_owner(format($q$update public.patient_documents set ocr_state = 'suggested' where id = %L$q$, v_s2)) = 'ok' then 'accepted' else 'refused' end);
-  -- B. an expired link read as live (the expiry condition defeated): the "expired" check would read ok instead of gone
-  v_j := pg_temp.q_as(v_pat, $q$select public.create_record_share(array['vitals'], 24)::text$q$)::jsonb;
-  update public.record_shares set expires_at = now() - interval '1 minute' where id = (v_j ->> 'id')::uuid;
-  perform pg_temp.ck('5ua control: a fresh expired link is gone', 'gone', public.record_share_open(v_j ->> 'token') ->> 'status');
-  update public.record_shares set expires_at = now() + interval '1 day' where id = (v_j ->> 'id')::uuid;
-  insert into results values ('sabotaged', '5u an expired link', 'gone', public.record_share_open(v_j ->> 'token') ->> 'status');
   -- C. bypass the reminder gate: calling the inner function queues reminders with no signed schedule
   update public.vaccination_schedules set reminder_stage = null where patient_id = v_pat;
   select count(*) into v_n from public.notifications where recipient_id = v_pat and template like 'vaccination_%';
   perform private.queue_vaccination_reminders_when_signed();
-  -- D. a preview that commits (a GET that behaves like a deliberate opening) spends a view: the 5pb check would fail
-  v_j := pg_temp.q_as(v_pat, $q$select public.create_record_share(array['vitals'], 24, null, 5)::text$q$)::jsonb;
-  perform public.record_share_open(v_j ->> 'token', null, true);
-  insert into results values ('sabotaged', '5pb a preview spends no view', '0',
-    (select view_count::text from public.record_shares where id = (v_j ->> 'id')::uuid));
   insert into results values ('sabotaged', '8k reminders while unsigned', '0',
     ((select count(*) from public.notifications where recipient_id = v_pat and template like 'vaccination_%') - v_n)::text);
 end $$;
@@ -598,7 +480,7 @@ begin
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), E'\n  ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 4 then raise exception 'VACUOUS TEST: the sabotage flipped % of 4 checks', v_caught; end if;
+  if v_caught < 2 then raise exception 'VACUOUS TEST: the sabotage flipped % of 2 checks', v_caught; end if;
 end $$;
 
 

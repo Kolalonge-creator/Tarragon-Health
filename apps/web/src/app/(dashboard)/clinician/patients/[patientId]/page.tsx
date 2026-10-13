@@ -44,6 +44,7 @@ import { loadCvRiskAssessment } from "@/lib/cv-risk/assess";
 import { FootAssessmentForm } from "./foot-assessment-form";
 import { ComplicationCheckForm } from "./complication-check-form";
 import { GlucoseTargetForm } from "./glucose-target-form";
+import { ClinicBpForm } from "./clinic-bp-form";
 import { DiabetesTypeForm } from "./diabetes-type-form";
 import { TreatmentLadder } from "./treatment-ladder";
 import { ObesityAssessmentPanel } from "./obesity-assessment-panel";
@@ -368,6 +369,7 @@ export default async function ClinicianPatientPage({
                     (doctor_tier = 'care_coordinator'), so `callerStaff &&` alone
                     no longer excludes them. */}
                 {isClinicalTier(callerStaff) && <GlucoseTargetForm patientId={patient.id} />}
+                {isClinicalTier(callerStaff) && <ClinicBpForm patientId={patient.id} />}
                 {isClinicalTier(callerStaff) && (
                   <DiabetesTypeForm
                     patientId={patient.id}

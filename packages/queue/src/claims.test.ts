@@ -39,8 +39,8 @@ describe("mayBeOffered: the shared eligibility cases (the database proof runs th
 
 describe("tierAtLeast", () => {
   it("follows the ladder", () => {
-    expect(tierAtLeast("medical_officer", "care_coordinator")).toBe(true);
-    expect(tierAtLeast("care_coordinator", "medical_officer")).toBe(false);
+    expect(tierAtLeast("senior_medical_officer", "care_coordinator")).toBe(true);
+    expect(tierAtLeast("care_coordinator", "senior_medical_officer")).toBe(false);
     expect(tierAtLeast("chief_medical_officer", "senior_medical_officer")).toBe(true);
   });
 });
