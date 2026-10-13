@@ -16,9 +16,6 @@ jest.mock("next/headers", () => ({
   cookies: jest.fn().mockResolvedValue({ get: () => undefined }),
 }));
 
-const mockPidginEnabled = jest.fn().mockResolvedValue(true);
-jest.mock("@/lib/language/pidgin-switch", () => ({ getPidginEnabled: () => mockPidginEnabled() }));
-
 const rateLimitMock = jest.fn().mockResolvedValue({ success: true });
 jest.mock("@/lib/rate-limit", () => ({
   checkAuthRateLimit: (...args: unknown[]) => rateLimitMock(...args),
@@ -128,21 +125,9 @@ describe("signUpWithPhone", () => {
     expect(JSON.stringify(result)).not.toContain("a-strong-password-123");
   });
 
-  it("switches the error to Pidgin when the language cookie says so", async () => {
-    const headers = jest.requireMock("next/headers") as { cookies: jest.Mock };
-    headers.cookies.mockResolvedValueOnce({ get: () => ({ value: "pcm" }) });
+  it("answers a rate-limit refusal in English", async () => {
     rateLimitMock.mockResolvedValue({ success: false });
     const result = await signUpWithPhone(undefined, signupForm());
-    expect(result?.error).toMatch(/abeg/i);
-  });
-
-  it("stays in English when an admin has switched Pidgin off, even with a Pidgin cookie", async () => {
-    const headers = jest.requireMock("next/headers") as { cookies: jest.Mock };
-    headers.cookies.mockResolvedValueOnce({ get: () => ({ value: "pcm" }) });
-    mockPidginEnabled.mockResolvedValueOnce(false);
-    rateLimitMock.mockResolvedValue({ success: false });
-    const result = await signUpWithPhone(undefined, signupForm());
-    expect(result?.error).not.toMatch(/abeg/i);
     expect(result?.error).toMatch(/too many attempts/i);
   });
 });

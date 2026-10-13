@@ -24,7 +24,7 @@ const PEOPLE_CODES = new Set(["23514", "23505", "42501", "P0002"]);
 
 function toError(error: { message: string; code?: string }): CredentialingError {
   if (error.code && PEOPLE_CODES.has(error.code)) return new CredentialingError(error.message, error.code);
-  return new CredentialingError("Something went wrong. Please try again, and tell your care team lead if it keeps happening.", error.code);
+  return new CredentialingError("Something went wrong. Please try again, and tell us if it keeps happening.", error.code);
 }
 
 export async function rpcParsed<T>(client: object, fn: string, args: Record<string, unknown>, schema: z.ZodType<T>): Promise<T> {

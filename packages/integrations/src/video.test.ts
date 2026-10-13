@@ -324,6 +324,77 @@ describe("zoom adapter", () => {
     expect(await z.parseWebhook(noTs, await sign(noTs), 1_800_000_000_077)).toEqual({ ok: true, data: { kind: "room_ended", roomId: "123456789", atMs: 1_800_000_000_077 } });
   });
 
+  describe("the host key and the dedicated host user", () => {
+    const HOST = "consult-host@tarragon.example";
+    const make = () => {
+      const fake = createFakeZoom({ now: 1_800_000_000_000 });
+      const z = createZoomVideo({ accountId: "acc", clientId: "cid", clientSecret: "csecret", sdkKey: "k", sdkSecret: "s", hostUserId: HOST, fetch: fake.fetch, now: () => fake.clock.now });
+      return { fake, z };
+    };
+
+    it("creates every consultation meeting under the configured host user, not the account owner", async () => {
+      const { fake, z } = make();
+      const room = await z.createRoom({ encounterRef: ENC, expiresAtMs: fake.clock.now + 30 * 60_000 });
+      expect(room.ok).toBe(true);
+      expect(fake.calls.some((c) => c.method === "POST" && c.path === `/v2/users/${encodeURIComponent(HOST)}/meetings`)).toBe(true);
+      expect(fake.calls.some((c) => c.path === "/v2/users/me/meetings")).toBe(false);
+    });
+
+    it("asks for the host key of the meeting's own owner, with the short lifetime the caller set, and never longer than the token or the room", async () => {
+      const { fake, z } = make();
+      const room = await z.createRoom({ encounterRef: ENC, expiresAtMs: fake.clock.now + 30 * 60_000 });
+      if (!room.ok) throw new Error("room");
+      const doc = await z.joinToken({ roomId: room.data.roomId, role: "clinician", identity: ID, ttlSeconds: 7200, hostKeyTtlSeconds: 300 });
+      expect(doc).toMatchObject({ ok: true, data: { zak: "zak_ttl300" } });
+      expect(fake.calls.some((c) => c.method === "GET" && c.path === `/v2/users/${encodeURIComponent(HOST)}/token`)).toBe(true);
+      // a longer ask than the room has left is cut to what is left (30 minutes = 1800 seconds)
+      const longer = await z.joinToken({ roomId: room.data.roomId, role: "clinician", identity: ID, ttlSeconds: 7200, hostKeyTtlSeconds: 7000 });
+      expect(longer).toMatchObject({ ok: true, data: { zak: "zak_ttl1800" } });
+      // no ask at all keeps the older behaviour (as long as the token)
+      const unset = await z.joinToken({ roomId: room.data.roomId, role: "clinician", identity: ID, ttlSeconds: 600 });
+      expect(unset).toMatchObject({ ok: true, data: { zak: "zak_ttl600" } });
+    });
+
+    it("refuses to mint a host key for a meeting that is not the dedicated host user's (made before it was set), rather than issue the owner's", async () => {
+      const { fake, z } = make();
+      const before = createZoomVideo({ accountId: "acc", clientId: "cid", clientSecret: "csecret", sdkKey: "k", sdkSecret: "s", fetch: fake.fetch, now: () => fake.clock.now });
+      const room = await before.createRoom({ encounterRef: ENC, expiresAtMs: fake.clock.now + 30 * 60_000 });
+      if (!room.ok) throw new Error("room");
+      expect(await z.joinToken({ roomId: room.data.roomId, role: "clinician", identity: ID, ttlSeconds: 600, hostKeyTtlSeconds: 300 })).toMatchObject({ ok: false, error: { code: "conflict" } });
+      expect(fake.calls.some((c) => c.path === "/v2/users/owner_user/token")).toBe(false);
+      // the patient is unaffected: no key is involved
+      expect(await z.joinToken({ roomId: room.data.roomId, role: "patient", identity: ID, ttlSeconds: 600 })).toMatchObject({ ok: true });
+    });
+
+    it("matches the host by email as well as by id, ignoring case", async () => {
+      const fake = createFakeZoom({ now: 1_800_000_000_000 });
+      const z = createZoomVideo({ accountId: "acc", clientId: "cid", clientSecret: "csecret", sdkKey: "k", sdkSecret: "s", hostUserId: "Host@Tarragon.Example", fetch: fake.fetch, now: () => fake.clock.now });
+      const room = await z.createRoom({ encounterRef: ENC, expiresAtMs: fake.clock.now + 30 * 60_000 });
+      if (!room.ok) throw new Error("room");
+      // the fake reports the creating user as the host id: "Host@Tarragon.Example"
+      expect(await z.joinToken({ roomId: room.data.roomId, role: "clinician", identity: ID, ttlSeconds: 600, hostKeyTtlSeconds: 300 })).toMatchObject({ ok: true });
+      const emailOnly = zoomWith('{"start_time":"2027-01-15T08:00:00Z","duration":30,"password":"pw","host_email":"host@tarragon.example"}');
+      expect(emailOnly).toBeDefined();
+    });
+
+    it("never asks for a host key for a patient", async () => {
+      const { fake, z } = make();
+      const room = await z.createRoom({ encounterRef: ENC, expiresAtMs: fake.clock.now + 30 * 60_000 });
+      if (!room.ok) throw new Error("room");
+      expect(await z.joinToken({ roomId: room.data.roomId, role: "patient", identity: ID, ttlSeconds: 600, hostKeyTtlSeconds: 300 })).toMatchObject({ ok: true });
+      expect(fake.calls.some((c) => /^\/v2\/users\/[^/]+\/token$/.test(c.path))).toBe(false);
+    });
+
+    it("refuses a host key lifetime that is not a positive whole number within the token limit", async () => {
+      const { fake, z } = make();
+      const room = await z.createRoom({ encounterRef: ENC, expiresAtMs: fake.clock.now + 30 * 60_000 });
+      if (!room.ok) throw new Error("room");
+      for (const bad of [0, -1, 1.5, 99_999]) {
+        expect(await z.joinToken({ roomId: room.data.roomId, role: "clinician", identity: ID, ttlSeconds: 600, hostKeyTtlSeconds: bad })).toMatchObject({ ok: false, error: { code: "invalid_input" } });
+      }
+    });
+  });
+
   describe("in-app SDK join", () => {
     const meeting = '"start_time":"2027-01-15T08:00:00Z","duration":30';
 
@@ -337,8 +408,9 @@ describe("zoom adapter", () => {
       expect(pat).toMatchObject({ ok: true, data: { password: "pw123" } });
       expect(pat.ok && pat.data.zak).toBeUndefined();
       expect(doc).toMatchObject({ ok: true, data: { password: "pw123", zak: "zak_ttl600" } });
-      // the host key is asked for with the token's own lifetime, never longer
-      expect(fake.calls.filter((c) => c.path === "/v2/users/me/token")).toHaveLength(1);
+      // the host key is asked for with the token's own lifetime, never longer. The room was made by "me", whose meetings report the owner
+      // "owner_user", so the key is asked for that user (read from the meeting), not guessed from configuration.
+      expect(fake.calls.filter((c) => c.path === "/v2/users/owner_user/token")).toHaveLength(1);
       // neither credential is inside the signed token
       if (!doc.ok) throw new Error("token");
       expect(JSON.stringify(decode(doc.data.token))).not.toMatch(/pw123|zak_/);

@@ -1,6 +1,6 @@
 /**
  * Locale-neutral twin of auth-error-message.ts for the S03 flows: returns an i18n KEY (from @tarragon/i18n, the
- * `auth.*` group) instead of an English sentence, so a screen can show the same failure in English or Pidgin.
+ * `auth.*` group) instead of an English sentence, so a screen can show the same failure from the catalogue.
  *
  * Same two rules as the English mapper: never confirm whether an account exists (a wrong password and an unknown
  * number read the same), and never surface a provider internal. Anything unrecognised falls back to a generic key.

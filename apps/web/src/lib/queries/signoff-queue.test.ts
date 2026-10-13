@@ -213,3 +213,57 @@ describe("readSignoffQueue partial failure", () => {
     );
   });
 });
+
+describe("readSignoffQueue signed configurations", () => {
+  const signedLive = { id: "l", version: 6, is_active: true, approved_by: "staff", approved_at: "2026-09-01T00:00:00Z", created_at: "2026-09-01T00:00:00Z" };
+
+  it("returns the signed live version of each governed config, with a link the CMO can open", async () => {
+    const result = await readSignoffQueue(client({ alert_rules: { data: [signedLive] } }), "/clinician");
+    expect(result.settledConfigs).toContainEqual({
+      table: "alert_rules",
+      title: "Alert rules",
+      href: "/clinician/alert-rules",
+      version: 6,
+    });
+    // Signed means nothing is outstanding for it.
+    expect(result.items.find((i) => i.key.includes("alert_rules"))).toBeUndefined();
+  });
+
+  it("does not list an unsigned live version as signed", async () => {
+    const result = await readSignoffQueue(client(unsignedAlertRules));
+    expect(result.settledConfigs.find((c) => c.table === "alert_rules")).toBeUndefined();
+  });
+});
+
+describe("pending draft wording", () => {
+  it("does not address the reader as the signer, because the admin hub shows these lines too", async () => {
+    const live = { id: "l", version: 5, is_active: true, approved_by: "staff", approved_at: "2026-09-01T00:00:00Z", created_at: "2026-09-01T00:00:00Z" };
+    const draft = { id: "d", version: 6, is_active: false, approved_by: null, approved_at: null, created_at: "2026-09-10T00:00:00Z", notes: "" };
+    const items = await getSignoffQueue(client({ triage_protocols: { data: [live, draft] } }));
+    const line = items.find((i) => i.key === "versioned_draft:triage_protocols");
+    expect(line?.detail).toContain("Clinical Director's signature");
+    expect(line?.detail).not.toContain("your signature");
+  });
+});
+
+describe("readSignoffQueue corrupt state", () => {
+  const live = (id: string, signed: boolean) => ({
+    id,
+    version: 6,
+    is_active: true,
+    approved_by: signed ? "staff" : null,
+    approved_at: signed ? "2026-09-01T00:00:00Z" : null,
+    created_at: "2026-09-01T00:00:00Z",
+  });
+
+  it("names a config with two live versions as unreadable instead of picking one", async () => {
+    const result = await readSignoffQueue(client({ escalation_slas: { data: [live("a", true), live("b", false)] } }));
+    expect(result.failedSources).toContain("escalation_slas");
+    expect(result.settledConfigs.find((c) => c.table === "escalation_slas")).toBeUndefined();
+  });
+
+  it("does the same for the result release policy", async () => {
+    const result = await readSignoffQueue(client({ result_release_policies: { data: [live("a", true), live("b", true)] } }));
+    expect(result.failedSources).toContain("result_release_policies");
+  });
+});

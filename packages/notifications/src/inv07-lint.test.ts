@@ -7,7 +7,7 @@
 import "./support/deno.ts";
 import { describe, expect, it } from "@jest/globals";
 import { readdirSync, readFileSync } from "node:fs";
-import { en, pcm } from "@tarragon/i18n";
+import { en } from "@tarragon/i18n";
 import { describeViolations, FORBIDDEN_PARAM_KEYS, FORBIDDEN_TERMS, lintRenderFn, lintText } from "./index.ts";
 import { TEMPLATE_MAP } from "../../../supabase/functions/send-pending-notifications/templates.ts";
 import { describe as describeInApp } from "../../../apps/web/src/lib/notifications/describe-in-app.ts";
@@ -78,10 +78,10 @@ describe("notification wording in the language catalogues (reminders, medicine r
   it("finds the keys", () => {
     expect(keys.length).toBeGreaterThanOrEqual(5);
   });
-  for (const locale of ["en", "pcm"] as const) {
+  for (const locale of ["en"] as const) {
     for (const key of keys) {
       it(`${locale}: ${key}`, () => {
-        const text = (locale === "en" ? en : pcm)[key as keyof typeof en];
+        const text = en[key as keyof typeof en];
         expect(describeViolations(lintText(text))).toEqual([]);
       });
     }

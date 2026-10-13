@@ -274,6 +274,7 @@ export function MedicationsList({
                             .filter((c) => c.medication_id === medication.id && c.source === "pharmacy")
                             .sort((a, b) => (a.dispensed_on < b.dispensed_on ? 1 : -1))}
                           patientId={patientId}
+                          prescriptionId={(medication as { prescription_id?: string | null }).prescription_id ?? null}
                         />
                       )}
                       <MedicationCollectionForm medication={medication} patientId={patientId} />

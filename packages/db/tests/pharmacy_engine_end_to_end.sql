@@ -81,8 +81,8 @@ begin
   on conflict (id) do update
     set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
 
-  insert into public.pharmacy_partners (name, delivery, regions, is_active, contact_phone)
-  values ('E2E Test Pharmacy', true, array['Lagos'], false, '+2348000000000')
+  insert into public.pharmacy_partners (name, regions, is_active, contact_phone)
+  values ('E2E Test Pharmacy', array['Lagos'], false, '+2348000000000')
   returning id into v_partner;
 
   insert into public.pharmacy_medications (pharmacy_partner_id, drug_name, strength, pack_size, price_kobo)
@@ -199,11 +199,11 @@ begin
   -- the catalogue -- the item previously carried only drug_name/price_kobo/
   -- quantity, with no medication_id at all.
   insert into public.pharmacy_orders
-    (organisation_id, patient_id, pharmacy_partner_id, items, total_kobo, status, fulfilment_method)
+    (organisation_id, patient_id, pharmacy_partner_id, items, total_kobo, status)
   values (
     v_org, v_patient, v_partner,
     jsonb_build_array(jsonb_build_object('medication_id', v_med_id, 'drug_name', 'E2E Test Amlodipine 5mg', 'price_kobo', 150000, 'quantity', 1)),
-    150000, 'pending_payment', 'pickup'
+    150000, 'pending_payment'
   )
   returning id into v_order_id;
   reset role;
@@ -316,11 +316,11 @@ begin
     json_build_object('sub', v_patient::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
   insert into public.pharmacy_orders
-    (organisation_id, patient_id, pharmacy_partner_id, items, total_kobo, status, fulfilment_method)
+    (organisation_id, patient_id, pharmacy_partner_id, items, total_kobo, status)
   values (
     v_org, v_patient, v_partner,
     jsonb_build_array(jsonb_build_object('medication_id', v_med_id, 'drug_name', 'E2E Test Amlodipine 5mg', 'price_kobo', 150000, 'quantity', 1)),
-    150000, 'pending_payment', 'pickup'
+    150000, 'pending_payment'
   )
   returning id into v_order_id;
   reset role;

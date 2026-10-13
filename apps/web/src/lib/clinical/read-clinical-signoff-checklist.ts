@@ -35,7 +35,16 @@ export type ClinicalSignoffChecklistData = {
  */
 export async function readClinicalSignoffChecklist(
   supabase: SupabaseClient<Database>,
-  basePath: string
+  basePath: string,
+  options: {
+    /**
+     * Read the 8 governed configs' signature state (default). The CMO's sign-off hub passes
+     * false: its queue has already read every one of those tables in the same request, so
+     * reading them again here would only repeat the work. `unsignedConfigs` and `settled` are
+     * then empty, and the caller must not treat that as "none signed".
+     */
+    withConfigs?: boolean;
+  } = {}
 ): Promise<ClinicalSignoffChecklistData> {
   const [rulesRes, staffRes, protocolsRes, configs] = await Promise.all([
     supabase
@@ -60,7 +69,7 @@ export async function readClinicalSignoffChecklist(
       .select("id, protocol_id, title, version_number")
       .not("approved_by", "is", null)
       .order("title", { ascending: true }),
-    readGovernedConfigSignoff(supabase, basePath),
+    options.withConfigs === false ? Promise.resolve([]) : readGovernedConfigSignoff(supabase, basePath),
   ]);
 
   if (rulesRes.error || staffRes.error || protocolsRes.error) {

@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { Card, CardContent } from "@/components/ui/card";
 import { readClinicalSignoffChecklist } from "@/lib/clinical/read-clinical-signoff-checklist";
-import { CLINICAL_RULES_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
+import { CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
 import { getCmoSigningHubForRequest } from "@/lib/queries/cmo-signing-hub-request";
 import { ProtocolDraftsManager } from "@/app/(dashboard)/admin/settings/protocols/protocol-drafts-manager";
 import { RefreshOnMutationSuccess } from "../_signoff-panels/refresh-on-mutation-success";
@@ -19,6 +19,8 @@ import { ProviderQualityPolicyPanel } from "../_signoff-panels/provider-quality-
 import { CvRiskConfigPanel } from "../_signoff-panels/cv-risk-config-panel";
 import { RiskQuestionnaireConfigPanel } from "../_signoff-panels/risk-questionnaire-config-panel";
 import { VaccinationSchedulePanel } from "../_signoff-panels/vaccination-schedule-panel";
+import { LabPanelsPanel } from "../_signoff-panels/lab-panels-panel";
+import { CommunitySignoffPanel } from "../_signoff-panels/community-panel";
 import { SignoffChecklist } from "@/app/(dashboard)/admin/settings/clinical-signoff/signoff-checklist";
 import { SignoffQueueList } from "@/app/(dashboard)/admin/settings/clinical-protocols/signoff-queue-list";
 import {
@@ -46,6 +48,7 @@ const CONFIG_PANELS: Record<string, () => ReactNode> = {
   cv_risk_config: () => <CvRiskConfigPanel />,
   risk_questionnaire_configs: () => <RiskQuestionnaireConfigPanel />,
   vaccination_schedule_signoffs: () => <VaccinationSchedulePanel />,
+  lab_panel_signoffs: () => <LabPanelsPanel />,
 };
 
 /**
@@ -79,7 +82,7 @@ export default async function ClinicianClinicalSignoffPage() {
 
   const supabase = await createClient();
   const [checklist, hub] = await Promise.all([
-    readClinicalSignoffChecklist(supabase, "/clinician"),
+    readClinicalSignoffChecklist(supabase, "/clinician", { withConfigs: false }),
     getCmoSigningHubForRequest(),
   ]);
 
@@ -153,6 +156,8 @@ export default async function ClinicianClinicalSignoffPage() {
 
   if (keys.has("ai_governance")) inlinePanels.ai_governance = <AiGovernancePanel />;
 
+  if (keys.has(COMMUNITY_ITEM_KEY)) inlinePanels[COMMUNITY_ITEM_KEY] = <CommunitySignoffPanel />;
+
   if (keys.has(PROTOCOL_DRAFTS_ITEM_KEY)) {
     inlinePanels[PROTOCOL_DRAFTS_ITEM_KEY] = (
       <>
@@ -162,7 +167,15 @@ export default async function ClinicianClinicalSignoffPage() {
     );
   }
 
-  const hasSigned = !checklistFailed && (checklist.signedRules.length > 0 || checklist.settled.length > 0);
+  // Signed configurations come from the queue's own pass over those tables (the checklist is told
+  // not to read them again), so this list and the lines above can never be from different reads.
+  const settledConfigs = hub.settledConfigs.map((c) => ({
+    key: c.table,
+    title: c.title,
+    detail: `version ${c.version}`,
+    href: c.href,
+  }));
+  const hasSigned = checklist.signedRules.length > 0 || settledConfigs.length > 0;
 
   return (
     <div className="space-y-6 p-6">
@@ -204,15 +217,17 @@ export default async function ClinicianClinicalSignoffPage() {
       {hasSigned && (
         <details className="rounded-md border border-mist-grey/40 p-4">
           <summary className="cursor-pointer text-sm font-medium text-charcoal-ink">
-            Already signed ({checklist.signedRules.length} clinical rules, {checklist.settled.length} of{" "}
-            {checklist.totalConfigCount} configurations)
+            Already signed ({checklist.signedRules.length} clinical rules,{" "}
+            {hub.failed
+              ? `${settledConfigs.length} configurations confirmed, some not checked`
+              : `${settledConfigs.length} of ${checklist.totalConfigCount} configurations`})
           </summary>
           <div className="mt-4">
             <SignoffChecklist
               unsignedRules={[]}
               signedRules={checklist.signedRules}
               unsignedConfigs={[]}
-              settled={checklist.settled}
+              settled={settledConfigs}
               staff={checklist.staff}
               protocols={checklist.protocols}
               totalConfigCount={checklist.totalConfigCount}

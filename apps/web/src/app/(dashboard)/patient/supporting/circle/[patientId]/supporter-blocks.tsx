@@ -1,4 +1,4 @@
-import { t, type Locale } from "@tarragon/i18n";
+import { circleMonthlyLines, parseCircleMonthly, t, type Locale } from "@tarragon/i18n";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatPatientDate, formatPatientDateTime } from "@/lib/format-date";
 import type { SupporterView } from "@/lib/care-circle/model";
@@ -9,7 +9,8 @@ const MUTED = "text-charcoal-ink/70 dark:text-night-ink/70";
  * The health blocks a supporter sees, and nothing else. Used by the supporter's own page and by the patient's "see what they see"
  * preview, so the preview cannot show anything the real page does not. A block that is absent is simply not shared.
  */
-export function SupporterBlocks({ view, locale }: { view: Pick<SupporterView, "adherence" | "bp_trend" | "appointments">; locale: Locale }) {
+export function SupporterBlocks({ view, locale }: { view: Pick<SupporterView, "adherence" | "bp_trend" | "appointments" | "monthly">; locale: Locale }) {
+  const monthly = parseCircleMonthly(view.monthly).filter((r) => circleMonthlyLines(r, locale).length > 0);
   return (
     <>
       {view.adherence ? (
@@ -38,6 +39,17 @@ export function SupporterBlocks({ view, locale }: { view: Pick<SupporterView, "a
               ))}
             </ul>
             {view.bp_trend.direction ? <p className="font-medium">{t(`circle.view.bp.${view.bp_trend.direction}`, locale)}</p> : null}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {monthly.length > 0 ? (
+        <Card>
+          <CardHeader><CardTitle>{t("circle.view.monthly.title", locale)}</CardTitle></CardHeader>
+          <CardContent>
+            <ul className="space-y-1">
+              {monthly.flatMap((r) => circleMonthlyLines(r, locale).map((l) => <li key={`${r.month}-${l}`}>{l}</li>))}
+            </ul>
           </CardContent>
         </Card>
       ) : null}

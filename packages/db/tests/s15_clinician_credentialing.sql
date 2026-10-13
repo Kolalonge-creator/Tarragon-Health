@@ -351,6 +351,8 @@ begin
   perform pg_temp.rec('approval moves to approved_tier1', 'approved_tier1', v_state);
   perform pg_temp.rec('approval creates an inactive clinician at level 1', 'false,1,senior_medical_officer,contracted,active',
     (select active::text || ',' || credentialing_level || ',' || doctor_tier || ',' || employment_type || ',' || status from public.clinical_staff where id = v_staff));
+  perform pg_temp.rec('approving a test applicant keeps the test flag (OQ-103)', 'true', (select is_test::text from public.clinical_staff where id = v_staff));
+  perform pg_temp.rec('the test-flag carry does not outlive the approval', 'true', (coalesce(nullif(current_setting('tarragon.credential_carry_test_flag', true), ''), '') = '')::text);
   perform pg_temp.rec('the role is still patient until activation', 'patient', (select role::text from public.profiles where id = v_p1));
   perform pg_temp.rec('two competencies were granted', '2', (select count(*)::text from public.clinician_competencies where clinical_staff_id = v_staff and revoked_at is null));
   perform pg_temp.rec('an approved but inactive clinician is not eligible', 'false', private.clinician_is_eligible(v_p1)::text);
@@ -630,6 +632,83 @@ begin
   perform pg_temp.rec('offboarded: status, role and application', 'offboarded,false,patient,offboarded',
     (select cs.status::text || ',' || cs.active::text || ',' || (select role::text from public.profiles where id = v_p1) || ',' || (select state::text from public.clinician_applications where id = v_app) from public.clinical_staff cs where cs.id = v_staff));
   perform pg_temp.rec('their documents now carry a retention date', 'true', (select (count(*) > 0 and bool_and(retain_until is not null))::text from public.clinician_documents where owner_profile_id = v_p1));
+
+  -- 8b. Verified phone rule (OQ-104) and document purge (OQ-108) -------------------------------------------------
+  declare
+    v_ph uuid; v_phtest uuid; v_rj uuid; v_rjapp uuid; v_pu uuid; v_puapp uuid; v_d1 uuid; v_d3 uuid; v_d4 uuid; v_sab text;
+  begin
+    perform set_config('request.jwt.claims', '', true);  -- act as the migration connection again: these fixtures set is_test
+    update public.credentialing_config set rules = rules || '{"require_verified_phone": true}'::jsonb where is_active;
+    v_ph := pg_temp.mkuser(v_org, 'phone', 'patient');
+    update public.profiles set is_test = false where id = v_ph;
+    perform pg_temp.act(v_ph);
+    perform pg_temp.rec('a real applicant with no verified phone cannot start', '42501', pg_temp.try('select public.start_clinician_application(''employed'')'));
+    perform pg_temp.back();
+    update auth.users set phone_confirmed_at = now() where id = v_ph;
+    perform pg_temp.act(v_ph);
+    perform pg_temp.rec('the same applicant can start once the phone is verified', 'ok', pg_temp.try('select public.start_clinician_application(''employed'')'));
+    perform pg_temp.back();
+    perform set_config('request.jwt.claims', '', true);
+    v_phtest := pg_temp.mkuser(v_org, 'phonetest', 'patient');
+    perform pg_temp.act(v_phtest);
+    perform pg_temp.rec('a QA account is not held back by the phone rule', 'ok', pg_temp.try('select public.start_clinician_application(''employed'')'));
+    perform pg_temp.back();
+    update public.credentialing_config set rules = rules || '{"require_verified_phone": false}'::jsonb where is_active;
+
+    perform set_config('request.jwt.claims', '', true);
+    -- documents: one of a rejected application past the period, one past its retention date, one not due
+    v_rj := pg_temp.mkuser(v_org, 'rejectedold', 'patient');
+    insert into public.clinician_applications (organisation_id, profile_id, state, employment_type, is_test) values (v_org, v_rj, 'rejected', 'contracted', true) returning id into v_rjapp;
+    insert into public.clinician_application_transitions (organisation_id, application_id, from_state, to_state, actor_id, reason, is_test, created_at)
+      values (v_org, v_rjapp, 'checks_in_progress', 'rejected', null, 'purge proof', true, now() - interval '25 months');
+    insert into public.clinician_documents (organisation_id, owner_profile_id, application_id, kind, storage_path, mime_type, size_bytes, sha256, is_test)
+      values (v_org, v_rj, v_rjapp, 'mdcn_practising_licence', 'purge-proof/' || v_rj || '/a.pdf', 'application/pdf', 100, v_hash, true) returning id into v_d1;
+    v_pu := pg_temp.mkuser(v_org, 'retained', 'patient');
+    insert into public.clinician_applications (organisation_id, profile_id, state, employment_type, is_test) values (v_org, v_pu, 'started', 'contracted', true) returning id into v_puapp;
+    insert into public.clinician_documents (organisation_id, owner_profile_id, application_id, kind, storage_path, mime_type, size_bytes, sha256, retain_until, is_test)
+      values (v_org, v_pu, v_puapp, 'mdcn_practising_licence', 'purge-proof/' || v_pu || '/b.pdf', 'application/pdf', 100, v_hash, current_date - 1, true) returning id into v_d3;
+    insert into public.clinician_documents (organisation_id, owner_profile_id, application_id, kind, storage_path, mime_type, size_bytes, sha256, is_test)
+      values (v_org, v_pu, v_puapp, 'government_id', 'purge-proof/' || v_pu || '/c.pdf', 'application/pdf', 100, v_hash, true) returning id into v_d4;
+
+    perform pg_temp.act(v_admin);
+    perform pg_temp.rec('an admin cannot list or purge documents', '42501', pg_temp.try('select * from public.credential_documents_due_for_purge()'));
+    perform pg_temp.back();
+    perform pg_temp.act_anon();
+    perform pg_temp.rec('anon cannot list documents due for purge', '42501', pg_temp.try('select * from public.credential_documents_due_for_purge()'));
+    perform pg_temp.back();
+
+    perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
+    perform set_config('request.jwt.claim.role', 'service_role', true);
+    set local role service_role;
+    perform pg_temp.rec('while the purge is switched off nothing is listed', '0', (select count(*)::text from public.credential_documents_due_for_purge()));
+    perform pg_temp.rec('while the purge is switched off a purge is refused', '23514', pg_temp.try(format('select public.purge_credential_document(%L)', v_d1)));
+    perform pg_temp.back();
+
+    update public.credentialing_config set rules = rules || '{"document_purge_enabled": true}'::jsonb where is_active;
+    perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
+    perform set_config('request.jwt.claim.role', 'service_role', true);
+    set local role service_role;
+    perform pg_temp.rec('past retention and rejected-past-period documents are due', '2', (select count(*)::text from public.credential_documents_due_for_purge() where document_id in (v_d1, v_d3)));
+    perform pg_temp.rec('a document that is not due is not listed', '0', (select count(*)::text from public.credential_documents_due_for_purge() where document_id = v_d4));
+    perform pg_temp.rec('a document that is not due cannot be purged', '23514', pg_temp.try(format('select public.purge_credential_document(%L)', v_d4)));
+    perform public.purge_credential_document(v_d1);
+    perform pg_temp.back();
+    perform pg_temp.rec('a purged document is gone', '0', (select count(*)::text from public.clinician_documents where id = v_d1));
+    perform pg_temp.rec('the purge left one audit entry', '1', (select count(*)::text from public.audit_log where action = 'clinician_document.purged' and entity_id = v_d1));
+    perform pg_temp.rec('the other documents were left alone', '2', (select count(*)::text from public.clinician_documents where id in (v_d3, v_d4)));
+
+    -- sabotage: a purge check that always says "due" must make the not-due refusal change
+    create or replace function private.credential_purge_reason(d public.clinician_documents) returns text
+      language sql stable set search_path = '' as $f$ select 'retention_elapsed'::text $f$;
+    perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
+    perform set_config('request.jwt.claim.role', 'service_role', true);
+    set local role service_role;
+    v_sab := pg_temp.try(format('select public.purge_credential_document(%L)', v_d4));
+    perform pg_temp.back();
+    if v_sab = '23514' then
+      raise exception 'VACUOUS TEST: a purge check that is always due did not change the not-due refusal';
+    end if;
+  end;
 
   -- 9. SABOTAGE: drop the state guard; a direct state update must now succeed -----------------------------------
   drop trigger clinician_applications_guard_state on public.clinician_applications;

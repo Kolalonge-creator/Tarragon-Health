@@ -19,6 +19,7 @@ import {
   reviewResultSchema,
   type ReviewResult,
   resultEntrySchema,
+  toPanelUnits,
   validateLabResultFile,
   withholdSchema,
 } from "@/lib/lab-results/structured";
@@ -67,6 +68,8 @@ export async function submitPartnerResult(_prev: LabActionState, formData: FormD
   }
   const parsed = resultEntrySchema.safeParse({ orderId: String(formData.get("order_id") ?? ""), panel: String(formData.get("panel") ?? ""), items: itemsRaw });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form." };
+  const converted = toPanelUnits(parsed.data.items);
+  if ("error" in converted) return { error: converted.error };
 
   const supabase = await createClient();
   const file = formData.get("file");
@@ -82,7 +85,7 @@ export async function submitPartnerResult(_prev: LabActionState, formData: FormD
   const { error } = await supabase.rpc("lab_partner_submit_result", {
     p_order: parsed.data.orderId,
     p_panel: parsed.data.panel,
-    p_items: parsed.data.items as unknown as Json,
+    p_items: converted.items as unknown as Json,
     p_file: (stored ?? undefined) as unknown as Json,
   });
   if (error) {
@@ -245,6 +248,8 @@ export async function submitPartnerCorrection(_prev: LabActionState, formData: F
     reason: String(formData.get("reason") ?? ""),
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form." };
+  const converted = toPanelUnits(parsed.data.items);
+  if ("error" in converted) return { error: converted.error };
 
   const supabase = await createClient();
   const file = formData.get("file");
@@ -262,7 +267,7 @@ export async function submitPartnerCorrection(_prev: LabActionState, formData: F
     p_kind: parsed.data.kind,
     p_reason: parsed.data.reason,
     p_panel: parsed.data.panel,
-    p_items: parsed.data.items as unknown as Json,
+    p_items: converted.items as unknown as Json,
     p_file: (stored ?? undefined) as unknown as Json,
   });
   if (error) {

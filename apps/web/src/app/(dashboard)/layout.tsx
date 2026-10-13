@@ -1,15 +1,17 @@
 import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { AppShell } from "@/components/shell/app-shell";
-import { resolveUiLanguage } from "@tarragon/shared";
-import { getPidginEnabled } from "@/lib/language/pidgin-switch";
 import { MfaNudgeBanner } from "@/components/shell/mfa-nudge-banner";
 import { ConsentNudgeBanner } from "@/components/shell/consent-nudge-banner";
 import { PendingJobsBanner } from "@/components/shell/pending-jobs-banner";
 import { OnCallAlarm } from "@/components/paging/on-call-alarm";
+import { SafetyConcernButton } from "@/components/clinician/safety-concern";
 import { OfflineBanner } from "@/components/shell/offline-banner";
 import { SigningHubBanner } from "@/components/shell/signing-hub-banner";
 import { getNavSections } from "@/lib/navigation";
+import { getCommunityStaffContext } from "@/components/community/staff-rpc";
+import { withCommunityNav } from "@/components/community/community-nav";
+import { groupListSchema } from "@/lib/community/model";
 import { buildAdminSearchIndex, CMO_EXTRA_PAGES } from "@/lib/admin-search";
 import { getVisibleAdminSettingsTabs } from "@/lib/admin-settings-nav";
 import { isActiveChiefMedicalOfficer } from "@/lib/clinical/doctor-tier";
@@ -20,7 +22,6 @@ import { cookies } from "next/headers";
 import { THEME_COOKIE, parseThemePreference } from "@/lib/theme";
 import { Providers } from "./providers";
 import { signOut } from "../auth/actions";
-import { updateUiLanguage } from "./patient/ui-language-actions";
 
 export default async function DashboardLayout({
   children,
@@ -41,9 +42,6 @@ export default async function DashboardLayout({
     )
     .eq("id", user.id)
     .single();
-
-  // Only patients ever see Pidgin; staff consoles are English, so skip the lookup for them.
-  const pidginEnabled = profile?.role === "patient" ? await getPidginEnabled() : false;
 
   // Supporter-only: they fund somebody else's care and receive none here.
   // Somebody who is BOTH keeps the full patient app, with People you support
@@ -90,6 +88,15 @@ export default async function DashboardLayout({
           .map((item) => ({ label: item.label, href: item.href, countKey: item.countKey! }))
       : [];
 
+  // The Community entry shows only while the database says the community is open to this member (go-live guard) and they are an
+  // adult. A failed or malformed reply means "closed": nothing about the community leaks into the menu.
+  let communityOpen = false;
+  if (profile?.role === "patient" && !supporterOnly) {
+    const { data: communityList, error: communityError } = await supabase.rpc("community_list_groups");
+    const parsedList = communityError ? null : groupListSchema.safeParse(communityList);
+    communityOpen = parsedList?.success === true && parsedList.data.open && parsedList.data.adult;
+  }
+
   const isPatient = profile?.role === "patient" && !supporterOnly;
   const idLabel = isPatient ? "Patient ID" : staffNumber ? "Staff ID" : undefined;
   const idValue = isPatient ? profile?.patient_number : staffNumber;
@@ -120,6 +127,10 @@ export default async function DashboardLayout({
       : profile?.role === "clinician" && isChiefMedicalOfficer
         ? buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES)
         : undefined;
+
+  // "Community" appears in a staff menu only when the database says this person has community duties (cached per request).
+  const communityStaff =
+    profile?.role === "clinician" || profile?.role === "care_coordinator" ? await getCommunityStaffContext() : null;
 
   const embedded = await isEmbeddedInApp();
   if (embedded) {
@@ -153,19 +164,17 @@ export default async function DashboardLayout({
         idLabel={idLabel}
         idValue={idValue}
         profileHref={profileHref}
-        navSections={getNavSections(profile?.role, profile?.receives_care)}
+        navSections={withCommunityNav(
+          getNavSections(profile?.role, profile?.receives_care, { communityOpen }),
+          profile?.role,
+          communityStaff,
+        )}
         // The search box for the admin and the Chief Medical Officer: every page they can reach, built from the lists that draw the menus.
         adminSearch={adminSearchEntries}
         // Patient accounts (supporters included — they share the patient
         // role) get the Warm Ivory ground the mobile app already ships;
         // staff and clinical consoles keep the white canvas.
         surface={profile?.role === "patient" ? "warm" : "default"}
-        // Patients only. Staff consoles stay English: the clinical vocabulary
-        // they work in has no Pidgin register, and a half-translated clinical
-        // console is a safety problem rather than an accessibility win.
-        uiLanguage={profile?.role === "patient" ? resolveUiLanguage(profile?.language, pidginEnabled) : "en"}
-        // The English/Pidgin toggle disappears while an admin has Pidgin switched off.
-        uiLanguageAction={profile?.role === "patient" && pidginEnabled ? updateUiLanguage : undefined}
         initialTheme={theme}
         signOutAction={signOut}
       >
@@ -183,6 +192,8 @@ export default async function DashboardLayout({
         )}
         {/* The in-console alarm for a red event page (S19): clinicians only; it only ever reads the caller's own pages. */}
         {profile?.role === "clinician" && <OnCallAlarm />}
+        {/* Always visible to a clinician (S35, spec 9.1): the safety concern report. */}
+        {profile?.role === "clinician" && <SafetyConcernButton />}
         {profile?.role === "clinician" && (
           <PendingJobsBanner jobs={pendingJobItems} staffId={clinicalStaffId} />
         )}

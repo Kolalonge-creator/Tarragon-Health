@@ -2,7 +2,7 @@ import { describe, expect, it } from "@jest/globals";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { en, pcm } from "@tarragon/i18n";
+import { en } from "@tarragon/i18n";
 import * as pkg from "./index";
 import { ProtocolDefinitionError, proposalToChangeArgs, proposeTitration, validateProtocolDefinition } from "./titration";
 import { TITRATION_LABEL_KEYS, TITRATION_STOP_KEYS } from "./titration-messages";
@@ -370,11 +370,10 @@ describe("the evaluator holds no drug name, dose or clinical threshold (INV-01)"
 });
 
 describe("message keys", () => {
-  it("every stop code and label has an English and a Pidgin string", () => {
+  it("every stop code and label has an English string", () => {
     const keys = [...Object.values(TITRATION_STOP_KEYS), ...Object.values(TITRATION_LABEL_KEYS)];
     for (const k of keys) {
       expect([k, k in en]).toEqual([k, true]);
-      expect([k, k in pcm]).toEqual([k, true]);
     }
   });
   it("covers all fourteen stop codes", () => expect(Object.keys(TITRATION_STOP_KEYS)).toHaveLength(14));

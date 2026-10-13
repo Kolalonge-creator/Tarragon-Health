@@ -61,6 +61,9 @@ export function createMockVideo(now: () => number = () => Date.now()): VideoProv
       if (!room) return fail("not_found", "No such room", false);
       if (room.ended || room.expiresAtMs <= now()) return fail("conflict", "Room is closed", false);
       if (!isUuid(input.identity)) return fail("invalid_input", "Identity must be an opaque uuid");
+      if (input.hostKeyTtlSeconds !== undefined && (!Number.isInteger(input.hostKeyTtlSeconds) || input.hostKeyTtlSeconds <= 0 || input.hostKeyTtlSeconds > MAX_TOKEN_TTL_SECONDS)) {
+        return fail("invalid_input", "Host key lifetime is out of range");
+      }
       if (!Number.isInteger(input.ttlSeconds) || input.ttlSeconds <= 0 || input.ttlSeconds > MAX_TOKEN_TTL_SECONDS) {
         return fail("invalid_input", "Token lifetime is out of range");
       }

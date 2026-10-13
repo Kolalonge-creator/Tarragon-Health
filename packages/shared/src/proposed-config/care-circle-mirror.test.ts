@@ -28,6 +28,6 @@ describe("care_circle.rules mirrors the migration seed", () => {
     const e = getProposedConfig("care_circle.rules");
     expect(e.status).toBe("proposed");
     expect(e.owner).toBe("Founder");
-    expect(Object.keys(e.value as object).sort()).toEqual(["alert_visible_hours", "default_grant_days", "expiry_final_notice_days", "expiry_notice_days", "gift_decide_days", "invite_ttl_hours", "max_attempts", "max_invites_per_day", "max_members", "pause_days", "view_weeks"]);
+    expect(Object.keys(e.value as object).sort()).toEqual(["alert_visible_hours", "default_grant_days", "expiry_final_notice_days", "expiry_notice_days", "gift_decide_days", "gift_remind_days", "invite_ttl_hours", "max_attempts", "max_invites_per_day", "max_members", "pause_days", "view_weeks"]);
   });
 });

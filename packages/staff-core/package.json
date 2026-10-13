@@ -6,7 +6,11 @@
   "description": "Server-side domain code shared by more than one staff area while those areas are split between apps/web and apps/console (S01d). Once every consumer has moved into apps/console, individual modules can be folded back into the console.",
   "exports": {
     "./platform-modules": "./src/platform-modules.ts",
-    "./ngo/funding-programmes": "./src/ngo/funding-programmes.ts"
+    "./ngo/funding-programmes": "./src/ngo/funding-programmes.ts",
+    "./sponsors/report": "./src/sponsors/report.ts",
+    "./sponsors/staff-figures": "./src/sponsors/staff-figures.ts",
+    "./sponsors/staff-export": "./src/sponsors/staff-export.ts",
+    "./sponsors/load-figures": "./src/sponsors/load-figures.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

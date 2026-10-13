@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 const TABS = [
   { href: "/dashboard/hmo", label: "Overview", exact: true },
   { href: "/dashboard/hmo/reports", label: "Reports & outcomes", exact: false },
+  { href: "/dashboard/hmo/programme-figures", label: "Programme figures", exact: false },
 ] as const;
 
 export function HmoNav() {

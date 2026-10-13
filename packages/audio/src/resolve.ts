@@ -69,8 +69,6 @@ async function tryLang(clipIds: readonly string[], lang: Lang, deps: ResolveDeps
  *
  * - All or nothing. If any clip cannot play, none do and the text is shown, because half of a spoken reading
  *   ("your blood pressure reading is ... over 94") is worse than none.
- * - A Pidgin request falls back to English audio only when every clip's Pidgin text is held as English (OQ-19):
- *   the screen then already shows English words, so the voice says what the screen says. Never the other way.
  * - Problems are reported as non-fatal issues and never thrown (spec 8.8).
  */
 export async function resolveClips(clipIds: readonly string[], lang: Lang, deps: ResolveDeps): Promise<Playback> {
@@ -107,11 +105,6 @@ async function resolveWith(ids: readonly string[], lang: Lang, deps: ResolveDeps
   const first = blocked ? null : await tryLang(ids, lang, deps, collect);
   if (first) return { complete: true, lang, steps: first, text: text(lang) };
 
-  if (lang === "pcm" && ids.every((id) => deps.catalogue.get(id)?.pcm_text !== "reviewed" && deps.catalogue.get(id)?.pcm_text !== "needs_native_review")) {
-    // Every clip's Pidgin is held as English (or neutral), so English audio matches the text on screen.
-    const fallback = gate?.("en") ? null : await tryLang(ids, "en", deps, () => {});
-    if (fallback) return { complete: true, lang: "en", steps: fallback, text: text("en") };
-  }
   flush();
   return { complete: false, lang, steps: [], text: text(lang) };
 }

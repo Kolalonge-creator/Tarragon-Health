@@ -1,21 +1,26 @@
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
-import type { SignoffQueueItem } from "./signoff-queue";
+import type { SettledConfig, SignoffQueueItem } from "./signoff-queue";
 import type { PendingAiGovernanceSignoff } from "./pending-ai-governance-signoff";
 
-const readSignoffQueue = jest.fn<(...args: unknown[]) => Promise<{ items: SignoffQueueItem[]; failedSources: string[] }>>();
+const readSignoffQueue = jest.fn<(...args: unknown[]) => Promise<{ items: SignoffQueueItem[]; failedSources: string[]; settledConfigs: SettledConfig[] }>>();
 const readPendingAiGovernanceSignoff = jest.fn<(...args: unknown[]) => Promise<PendingAiGovernanceSignoff>>();
 
 jest.mock("@/lib/queries/signoff-queue", () => ({
   readSignoffQueue: (...args: unknown[]) => readSignoffQueue(...args),
   SEVERITY_RANK: { live_unsigned: 0, draft_pending: 1, setup_needed: 2 },
 }));
+const readPendingCommunitySignoff = jest.fn<(...args: unknown[]) => Promise<{ rulesUnsigned: boolean; groupsWaiting: number; statementsWaiting: number; attentionCount: number; failed: boolean }>>();
+jest.mock("@/lib/queries/pending-community-signoff", () => ({
+  readPendingCommunitySignoff: (...args: unknown[]) => readPendingCommunitySignoff(...args),
+}));
+const noCommunity = { rulesUnsigned: false, groupsWaiting: 0, statementsWaiting: 0, attentionCount: 0, failed: false };
 jest.mock("@/lib/queries/pending-ai-governance-signoff", () => ({
   readPendingAiGovernanceSignoff: (...args: unknown[]) => readPendingAiGovernanceSignoff(...args),
 }));
 
-import { CLINICAL_RULES_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, readCmoSigningHub } from "./cmo-signing-hub";
+import { CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, readCmoSigningHub } from "./cmo-signing-hub";
 
 const supabase = {} as SupabaseClient<Database>;
 
@@ -34,32 +39,50 @@ beforeEach(() => {
   readSignoffQueue.mockReset();
   readPendingAiGovernanceSignoff.mockReset();
   readPendingAiGovernanceSignoff.mockResolvedValue(noAi);
+  readPendingCommunitySignoff.mockReset();
+  readPendingCommunitySignoff.mockResolvedValue(noCommunity);
+});
+
+describe("readCmoSigningHub: Community", () => {
+  it("adds one Community line, linking into /clinician, when anything needs the CMO", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingCommunitySignoff.mockResolvedValue({ rulesUnsigned: true, groupsWaiting: 1, statementsWaiting: 3, attentionCount: 5, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.items).toHaveLength(1);
+    expect(hub.items[0]).toMatchObject({ key: COMMUNITY_ITEM_KEY, count: 5, href: "/clinician/community/signoff" });
+  });
+  it("names Community as a failed source rather than going quiet", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingCommunitySignoff.mockResolvedValue({ ...noCommunity, failed: true });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub).toMatchObject({ failed: true, failedSources: ["Community"] });
+  });
 });
 
 describe("readCmoSigningHub", () => {
   it("asks the queue for the Chief Medical Officer's own links", async () => {
-    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [] });
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
     await readCmoSigningHub(supabase);
     expect(readSignoffQueue).toHaveBeenCalledWith(supabase, "/clinician");
   });
 
   it("is an all-clear only when everything was read and nothing is outstanding", async () => {
-    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [] });
-    expect(await readCmoSigningHub(supabase)).toEqual({ items: [], failed: false, failedSources: [] });
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    expect(await readCmoSigningHub(supabase)).toEqual({ items: [], failed: false, failedSources: [], settledConfigs: [] });
   });
 
   it("merges rules needing setup and rules ready to sign into one line with the summed count", async () => {
     readSignoffQueue.mockResolvedValue({ items: [
       item("clinical_rules_needs_setup", "setup_needed", 2),
       item("clinical_rules_ready", "draft_pending", 3),
-    ], failedSources: [] });
+    ], failedSources: [], settledConfigs: [] });
     const hub = await readCmoSigningHub(supabase);
     expect(hub.items).toHaveLength(1);
     expect(hub.items[0]).toMatchObject({ key: CLINICAL_RULES_ITEM_KEY, count: 5 });
   });
 
   it("adds one AI governance line naming both kinds of pending work", async () => {
-    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [] });
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
     readPendingAiGovernanceSignoff.mockResolvedValue({
       pendingVersionApprovalCount: 1,
       pendingClinicalAccuracyLabelCount: 4,
@@ -74,7 +97,7 @@ describe("readCmoSigningHub", () => {
   });
 
   it("lists what is live with no signature before what is merely waiting", async () => {
-    readSignoffQueue.mockResolvedValue({ items: [item("clinical_rules_ready", "draft_pending", 1), item("lpe_content_blocks", "live_unsigned", 2)], failedSources: [] });
+    readSignoffQueue.mockResolvedValue({ items: [item("clinical_rules_ready", "draft_pending", 1), item("lpe_content_blocks", "live_unsigned", 2)], failedSources: [], settledConfigs: [] });
     const hub = await readCmoSigningHub(supabase);
     expect(hub.items.map((i) => i.severity)).toEqual(["live_unsigned", "draft_pending"]);
   });
@@ -93,7 +116,7 @@ describe("readCmoSigningHub", () => {
   });
 
   it("reports failure when only the AI read failed", async () => {
-    readSignoffQueue.mockResolvedValue({ items: [item("lpe_content_blocks", "live_unsigned", 1)], failedSources: [] });
+    readSignoffQueue.mockResolvedValue({ items: [item("lpe_content_blocks", "live_unsigned", 1)], failedSources: [], settledConfigs: [] });
     readPendingAiGovernanceSignoff.mockResolvedValue({ ...noAi, failed: true });
     const hub = await readCmoSigningHub(supabase);
     expect(hub.failed).toBe(true);
@@ -107,6 +130,7 @@ describe("readCmoSigningHub", () => {
         { ...item("protocol_draft:b", "draft_pending"), title: "Diabetes" },
       ],
       failedSources: [],
+      settledConfigs: [],
     });
     const hub = await readCmoSigningHub(supabase);
     expect(hub.items).toHaveLength(1);
@@ -115,7 +139,7 @@ describe("readCmoSigningHub", () => {
   });
 
   it("keeps the lines that loaded and names the source that did not", async () => {
-    readSignoffQueue.mockResolvedValue({ items: [item("lpe_content_blocks", "live_unsigned", 2)], failedSources: ["alert_rules"] });
+    readSignoffQueue.mockResolvedValue({ items: [item("lpe_content_blocks", "live_unsigned", 2)], failedSources: ["alert_rules"], settledConfigs: [] });
     const hub = await readCmoSigningHub(supabase);
     expect(hub.failed).toBe(true);
     expect(hub.failedSources).toEqual(["alert_rules"]);
@@ -123,8 +147,14 @@ describe("readCmoSigningHub", () => {
   });
 
   it("names AI governance when only that read failed", async () => {
-    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [] });
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
     readPendingAiGovernanceSignoff.mockResolvedValue({ ...noAi, failed: true });
     expect((await readCmoSigningHub(supabase)).failedSources).toEqual(["AI governance"]);
+  });
+
+  it("passes the signed configurations through, so the page does not read those tables again", async () => {
+    const settled = [{ table: "alert_rules", title: "Alert rules", href: "/clinician/alert-rules", version: 6 }];
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: settled });
+    expect((await readCmoSigningHub(supabase)).settledConfigs).toEqual(settled);
   });
 });

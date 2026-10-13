@@ -7,9 +7,14 @@ import { getProposedConfig } from "./index";
 const MIGRATIONS = join(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..", "..", "supabase", "migrations");
 
 function seededRules(): unknown {
-  const file = readdirSync(MIGRATIONS).find((f) => f.endsWith("_s15_clinician_credentialing.sql"));
-  if (!file) throw new Error("S15 migration not found");
-  const sql = readFileSync(join(MIGRATIONS, file), "utf8");
+  // The newest migration that seeds a rules row is the live one (each new version adds a row and retires the last).
+  const sqls = readdirSync(MIGRATIONS)
+    .filter((f) => f.endsWith(".sql"))
+    .sort()
+    .map((f) => readFileSync(join(MIGRATIONS, f), "utf8"))
+    .filter((sql) => sql.includes("credentialing-rules-begin"));
+  const sql = sqls[sqls.length - 1];
+  if (!sql) throw new Error("S15 migration not found");
   const match = /credentialing-rules-begin[\s\S]*?\$json\$([\s\S]*?)\$json\$/.exec(sql);
   if (!match?.[1]) throw new Error("credentialing rules seed not found in the migration");
   return JSON.parse(match[1]);

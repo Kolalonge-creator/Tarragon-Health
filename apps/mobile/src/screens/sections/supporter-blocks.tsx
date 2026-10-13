@@ -1,5 +1,5 @@
 import { Text } from "react-native";
-import { asLocale, t } from "@tarragon/i18n";
+import { asLocale, circleMonthlyLines, t } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
 import type { SupporterView } from "@/lib/care-circle/parse";
 import { useLegacyColors } from "@/ui/design";
@@ -16,10 +16,11 @@ function lagosDateTime(iso: string): string {
  * The health blocks a supporter sees, and nothing else. Used by the supporter's own page and by the patient's "see what they see"
  * preview, so the preview cannot show anything the real page does not. A block that is absent is simply not shared.
  */
-export function SupporterBlocks({ view }: { view: Pick<SupporterView, "adherence" | "bpTrend" | "appointments"> }) {
+export function SupporterBlocks({ view }: { view: Pick<SupporterView, "adherence" | "bpTrend" | "appointments" | "monthly"> }) {
   const colors = useLegacyColors();
   const locale = asLocale(useUiLanguage());
   const dir = view.bpTrend?.direction ?? null;
+  const monthly = (view.monthly ?? []).filter((r) => circleMonthlyLines(r, locale).length > 0);
   return (
     <>
       {view.adherence ? (
@@ -41,6 +42,13 @@ export function SupporterBlocks({ view }: { view: Pick<SupporterView, "adherence
             <Text key={w.weekStart} style={{ color: colors.ink }}>{t("circle.view.bp.row", locale, { date: lagosDate(w.weekStart), systolic: w.systolic, diastolic: w.diastolic, count: w.readings })}</Text>
           ))}
           {dir ? <Text style={{ fontWeight: "600", color: colors.ink }}>{t(`circle.view.bp.${dir}`, locale)}</Text> : null}
+        </Card>
+      ) : null}
+
+      {monthly.length > 0 ? (
+        <Card style={{ gap: 4 }}>
+          <Text style={{ fontWeight: "700", color: colors.ink }}>{t("circle.view.monthly.title", locale)}</Text>
+          {monthly.flatMap((r) => circleMonthlyLines(r, locale).map((l) => <Text key={`${r.month}-${l}`} style={{ color: colors.ink }}>{l}</Text>))}
         </Card>
       ) : null}
 

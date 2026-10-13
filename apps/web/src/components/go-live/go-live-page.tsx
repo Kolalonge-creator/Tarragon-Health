@@ -33,13 +33,15 @@ export async function GoLivePage({
   detail,
   ok,
 }: {
-  viewer: Viewer;
+  viewer: Viewer | "ops";
   locale: Locale;
   notice?: string;
   detail?: string;
   ok?: boolean;
 }) {
-  const [guards, signoffs] = await Promise.all([loadGuards(), loadSignoffs()]);
+  // S36b: operations users see the guards and nothing else, and no button. The database refuses their writes regardless.
+  const writer: Viewer | null = viewer === "ops" ? null : viewer;
+  const [guards, signoffs] = await Promise.all([loadGuards(), writer ? loadSignoffs() : Promise.resolve({ ok: true as const, data: [] })]);
   const rows = signoffs.ok ? buildConfigRows(PROPOSED_CONFIG, signoffs.data, today()) : [];
   const open = openRows(rows);
   const noticeText = notice && /^golive\.(done|error)\./.test(notice) ? t(notice as Parameters<typeof t>[0], locale) : null;
@@ -64,11 +66,12 @@ export async function GoLivePage({
       ) : (
         <ul className="grid gap-4">
           {guards.data.map((g) => (
-            <GuardCard key={g.key} g={g} viewer={viewer} locale={locale} />
+            <GuardCard key={g.key} g={g} viewer={writer} locale={locale} />
           ))}
         </ul>
       )}
 
+      {writer && (
       <section aria-labelledby="proposed-values" className="space-y-3">
         <div>
           <h2 id="proposed-values" className="font-heading text-xl font-semibold text-charcoal-ink">{t("golive.config.title", locale)}</h2>
@@ -82,17 +85,18 @@ export async function GoLivePage({
         ) : (
           <ul className="grid gap-3">
             {rows.map((r) => (
-              <ConfigCard key={`${r.key}@${r.version}`} r={r} viewer={viewer} locale={locale} />
+              <ConfigCard key={`${r.key}@${r.version}`} r={r} viewer={writer as Viewer} locale={locale} />
             ))}
           </ul>
         )}
       </section>
+      )}
     </div>
   );
 }
 
-function GuardCard({ g, viewer, locale }: { g: GuardStatus; viewer: Viewer; locale: Locale }) {
-  const mayOn = viewerMaySwitchOn(g, viewer);
+function GuardCard({ g, viewer, locale }: { g: GuardStatus; viewer: Viewer | null; locale: Locale }) {
+  const mayOn = viewer !== null && viewerMaySwitchOn(g, viewer);
   const drift = guardHasDrifted(g);
   return (
     <li id={g.key} className="space-y-3 rounded-xl border border-charcoal-ink/10 bg-white p-4 shadow-sm dark:border-night-ink/15 dark:bg-night-card">
@@ -136,7 +140,7 @@ function GuardCard({ g, viewer, locale }: { g: GuardStatus; viewer: Viewer; loca
                 {c.source === "data" ? t("golive.cond.source.data", locale) : c.source === "attestation" ? t("golive.cond.source.attestation", locale) : t("golive.cond.source.switch", locale)}
                 {c.detail ? `: ${c.detail}` : ""}
               </p>
-              {c.source === "attestation" && (
+              {c.source === "attestation" && viewer !== null && (
                 <form action={attestConditionAction} className="mt-2 space-y-2">
                   <input type="hidden" name="viewer" value={viewer} />
                   <input type="hidden" name="key" value={g.key} />
@@ -158,6 +162,9 @@ function GuardCard({ g, viewer, locale }: { g: GuardStatus; viewer: Viewer; loca
         </ul>
       </div>
 
+      {viewer === null ? (
+        <p className="text-xs text-charcoal-ink/70">{t("golive.readonly", locale)}</p>
+      ) : (
       <form action={switchGuardAction} className="space-y-2">
         <input type="hidden" name="viewer" value={viewer} />
         <input type="hidden" name="key" value={g.key} />
@@ -188,6 +195,7 @@ function GuardCard({ g, viewer, locale }: { g: GuardStatus; viewer: Viewer; loca
           <p className="text-xs text-charcoal-ink/70">{g.switch_role === "cmo" ? t("golive.switch.who.cmo", locale) : t("golive.switch.who.admin", locale)}</p>
         )}
       </form>
+      )}
 
       <div>
         <p className="text-sm font-medium text-charcoal-ink">{t("golive.recent", locale)}</p>

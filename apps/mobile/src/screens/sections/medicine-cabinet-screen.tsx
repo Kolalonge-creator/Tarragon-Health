@@ -804,7 +804,7 @@ function AddMedicationSection({ patientId, onAdded }: { patientId: string; onAdd
             {scheduleTimes.length > 0 ? (
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
                 {scheduleTimes.map((time) => (
-                  <Pressable key={time} onPress={() => removeTime(time)} style={{ backgroundColor: colors.pressed, borderRadius: 999, paddingVertical: 5, paddingHorizontal: 10 }}>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${time}`} key={time} onPress={() => removeTime(time)} style={{ backgroundColor: colors.pressed, borderRadius: 999, paddingVertical: 5, paddingHorizontal: 10 }}>
                     <Text style={{ fontSize: 12, color: colors.ink }}>{time} ×</Text>
                   </Pressable>
                 ))}

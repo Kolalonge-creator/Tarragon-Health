@@ -1,4 +1,4 @@
-import { en, pcm } from "@tarragon/i18n";
+import { en } from "@tarragon/i18n";
 import { estimatedBreakdown, formatNaira } from "@tarragon/commerce";
 import { checkoutErrorKey, isMessageKey, orderStateKey, parseCatalogue, parseMembership, parseOrders, ORDER_STATES } from "./model";
 
@@ -35,7 +35,6 @@ describe("copy keys", () => {
     for (const code of ["checkout_not_open", "item_not_available", "already_member", "no_capacity", "too_many_open_orders", "email_needed", "payment_unavailable", "checkout_link_lost", "already_paid", "order_closed", "unknown"]) {
       const key = checkoutErrorKey(code);
       expect(en[key].length).toBeGreaterThan(0);
-      expect(pcm[key].length).toBeGreaterThan(0);
     }
     expect(checkoutErrorKey("surprise")).toBe("shop.error.unknown");
     expect(checkoutErrorKey(undefined)).toBe("shop.error.unknown");
@@ -44,10 +43,9 @@ describe("copy keys", () => {
   it("every order state has a label", () => {
     for (const s of ORDER_STATES) expect(en[orderStateKey(s)].length).toBeGreaterThan(0);
   });
-  it("the seeded catalogue copy keys all exist in both languages; an unknown key is not a message key", () => {
+  it("the seeded catalogue copy keys all exist; an unknown key is not a message key", () => {
     for (const k of ["catalog.membership_annual.name", "catalog.membership_annual.description", "catalog.membership_annual.incl.1", "catalog.membership_annual.incl.4", "catalog.bp_care_pack_3m.name", "catalog.bp_care_pack_3m.incl.4"]) {
       expect(isMessageKey(k, en)).toBe(true);
-      expect(isMessageKey(k, pcm)).toBe(true);
     }
     expect(isMessageKey("catalog.nothing.here", en)).toBe(false);
     expect(isMessageKey("constructor", en)).toBe(false);

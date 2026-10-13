@@ -14,6 +14,7 @@ import { ProfileScreen } from "@/screens/sections/profile-screen";
 import { AppearanceSetting } from "@/screens/sections/appearance-setting";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { authenticate, readAppLockEnabled, writeAppLockEnabled } from "@/lib/app-lock";
+import { readLowDataEnabled, writeLowDataEnabled } from "@/lib/low-data";
 import { supabase } from "@/lib/supabase";
 import type { SectionId } from "@/lib/sections";
 
@@ -40,6 +41,7 @@ export function SettingsScreen({ patientName, initials, onNavigate }: SettingsSc
   const [appLockEnabled, setAppLockEnabled] = useState(false);
   const [prefs, setPrefs] = useState<NotifPrefs>(DEFAULT_PREFS);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [lowData, setLowData] = useState(false);
   const locale = asLocale(useUiLanguage());
 
   useEffect(() => {
@@ -51,6 +53,9 @@ export function SettingsScreen({ patientName, initials, onNavigate }: SettingsSc
       .catch(() => {});
     readAppLockEnabled()
       .then(setAppLockEnabled)
+      .catch(() => {});
+    readLowDataEnabled()
+      .then(setLowData)
       .catch(() => {});
     SecureStore.getItemAsync(NOTIF_PREFS_KEY)
       .then((v) => {
@@ -80,6 +85,19 @@ export function SettingsScreen({ patientName, initials, onNavigate }: SettingsSc
       // will never see; re-read what actually stuck.
       readAppLockEnabled()
         .then(setAppLockEnabled)
+        .catch(() => {});
+    }
+  }
+
+  async function toggleLowData() {
+    const next = !lowData;
+    setLowData(next);
+    try {
+      await writeLowDataEnabled(next);
+    } catch {
+      // Not saved: show what actually stuck rather than a mode that will not survive a restart.
+      readLowDataEnabled()
+        .then(setLowData)
         .catch(() => {});
     }
   }
@@ -164,6 +182,17 @@ export function SettingsScreen({ patientName, initials, onNavigate }: SettingsSc
               }
             />
           ) : null}
+          <GroupedListRow
+            title="Low-data mode"
+            subtitle="Download less in the background. Your readings still send as normal."
+            trailing={
+              <Toggle
+                value={lowData}
+                onChange={() => void toggleLowData()}
+                accessibilityLabel="Low-data mode"
+              />
+            }
+          />
           <GroupedListRow
             title="Refill & dose reminders"
             trailing={

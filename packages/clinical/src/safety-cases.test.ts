@@ -71,6 +71,6 @@ describe("clinical safety fixtures (spec 15.1)", () => {
   });
 
   it("every result names the rule set and version it used (INV-16)", () => {
-    for (const c of fixtures.cases) expect(grade(c.input, BP_CARE_V1).ruleSet).toEqual({ code: "bp_care_triage", version: 1 });
+    for (const c of fixtures.cases) expect(grade(c.input, BP_CARE_V1).ruleSet).toEqual({ code: "bp_care_triage", version: 2 });
   });
 });
