@@ -19,8 +19,9 @@ import { Platform } from "react-native";
 export const URGENT_CHANNEL_ID = "urgent";
 export const DEFAULT_CHANNEL_ID = "default";
 
-export async function ensureNotificationChannels(): Promise<void> {
-  if (Platform.OS !== "android") return;
+/** True when this phone can show the `urgent` channel (always true on iPhone, which has no channels). Sent to the server at registration. */
+export async function ensureNotificationChannels(): Promise<boolean> {
+  if (Platform.OS !== "android") return true;
   try {
     await Notifications.setNotificationChannelAsync(DEFAULT_CHANNEL_ID, {
       name: "Messages",
@@ -36,7 +37,9 @@ export async function ensureNotificationChannels(): Promise<void> {
       enableVibrate: true,
       showBadge: true,
     });
+    return true;
   } catch {
     // best effort
+    return false;
   }
 }

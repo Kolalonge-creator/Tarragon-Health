@@ -21,7 +21,7 @@ beforeEach(() => {
 describe("android notification channels", () => {
   it("creates a default and a maximum-importance urgent channel with a vibration pattern", async () => {
     Platform.OS = "android";
-    await ensureNotificationChannels();
+    await expect(ensureNotificationChannels()).resolves.toBe(true);
     expect(mockChannels.map((c) => c.id)).toEqual([DEFAULT_CHANNEL_ID, URGENT_CHANNEL_ID]);
     const urgent = mockChannels.find((c) => c.id === URGENT_CHANNEL_ID)!;
     expect(urgent.opts).toMatchObject({ importance: 5, enableVibrate: true });
@@ -29,13 +29,13 @@ describe("android notification channels", () => {
   });
   it("does nothing on iPhone", async () => {
     Platform.OS = "ios";
-    await ensureNotificationChannels();
+    await expect(ensureNotificationChannels()).resolves.toBe(true);
     expect(mockChannels).toHaveLength(0);
   });
-  it("never throws", async () => {
+  it("never throws, and says the channel is not ready so the server does not name it", async () => {
     Platform.OS = "android";
     mockThrow = true;
-    await expect(ensureNotificationChannels()).resolves.toBeUndefined();
+    await expect(ensureNotificationChannels()).resolves.toBe(false);
   });
   it("is called before the permission prompt", () => {
     const src = readFileSync("src/lib/push-registration.ts", "utf8");

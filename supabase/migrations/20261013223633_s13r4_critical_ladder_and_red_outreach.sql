@@ -341,6 +341,11 @@ begin
   end if;
 end $$;
 
+-- A phone that has the `urgent` Android channel says so when it registers. The sender names that channel only for such a phone:
+-- Expo does not show a push whose channel the phone has never heard of (and would still report it delivered), so a phone that
+-- has not yet updated gets the default channel, still at high priority.
+alter table public.push_subscriptions add column urgent_channel_ready boolean not null default false;
+
 -- ---------------------------------------------------------------------------------------------------------------------
 -- 4. Task type (data, not code). Needs the CMO's confirmation before any task is created.
 -- ---------------------------------------------------------------------------------------------------------------------
@@ -381,6 +386,7 @@ create table public.red_alert_watch (
   unique (source_kind, source_id)
 );
 create index red_alert_watch_open_idx on public.red_alert_watch (opened_at) where state in ('watching', 'outreach_created');
+create index notifications_red_watch_idx on public.notifications (source_id) where source_table = 'red_alert_watch';
 create index red_alert_watch_patient_idx on public.red_alert_watch (patient_id, opened_at desc);
 alter table public.red_alert_watch enable row level security;
 create policy red_alert_watch_admin_read on public.red_alert_watch for select to authenticated
@@ -542,11 +548,11 @@ as $$
   select case
     -- "I could not get care" is the one answer that means the patient still needs a call: it is never a confirmation
     when private.latest_red_answer(w.patient_id, w.opened_at) = 'could_not_get_care' then null
-    when exists (select 1 from public.notifications n where n.source_table = 'red_alert_watch' and n.source_id = w.id and n.opened_at is not null) then 'opened'
+    when exists (select 1 from public.notifications n where n.source_table = 'red_alert_watch' and n.source_id = w.id and n.recipient_id = w.patient_id and n.opened_at is not null) then 'opened'
     when w.source_kind = 'emergency_event' and exists (select 1 from public.emergency_events e where e.id = w.source_id and e.acknowledged_at is not null) then 'acknowledged_guidance'
     when private.latest_red_answer(w.patient_id, w.opened_at) = 'sought_care' then 'patient_response'
     when coalesce(private.red_rule('deliveredCountsAsConfirmed'), 'true')::boolean
-         and exists (select 1 from public.notifications n where n.source_table = 'red_alert_watch' and n.source_id = w.id and n.channel = 'push' and n.delivered_at is not null) then 'push_receipt'
+         and exists (select 1 from public.notifications n where n.source_table = 'red_alert_watch' and n.source_id = w.id and n.recipient_id = w.patient_id and n.channel = 'push' and n.delivered_at is not null) then 'push_receipt'
     else null end
 $$;
 revoke all on function private.red_watch_patient_confirmed(public.red_alert_watch) from public, anon, authenticated;
@@ -654,8 +660,9 @@ declare
 begin
   if not coalesce(private.red_rule('enabled'), 'true')::boolean then return jsonb_build_object('enabled', false); end if;
   select array_agg(id order by opened_at) into v_ids from (
-    select id, opened_at from public.red_alert_watch where state in ('watching', 'outreach_created', 'confirmed')
-       and opened_at > now() - interval '3 days' order by opened_at limit 500) x;
+    -- Alerts still waiting come first, so a backlog of open calls can never starve a new one; settled ones are not scanned at all.
+    select id, opened_at from public.red_alert_watch where state in ('watching', 'outreach_created')
+       and opened_at > now() - interval '3 days' order by (state = 'watching') desc, opened_at limit 500) x;
   foreach v_id in array coalesce(v_ids, '{}') loop
     begin
       select * into w from public.red_alert_watch where id = v_id for update skip locked;
@@ -694,7 +701,7 @@ begin
              bool_or(channel = 'email' and delivered_at is not null),
              max(failed_at) filter (where channel = 'push' and status = 'failed')
         into v_push, v_push_failed, v_ok_other, v_failed_at
-        from public.notifications where source_table = 'red_alert_watch' and source_id = w.id;
+        from public.notifications where source_table = 'red_alert_watch' and source_id = w.id and recipient_id = w.patient_id;
       v_due := w.due_at;
       if v_push > 0 and v_push_failed = v_push and not coalesce(v_ok_other, false) and v_failed_at is not null then
         v_due := least(v_due, v_failed_at + make_interval(mins => coalesce(nullif(private.red_rule('undeliveredMinutes'), '')::integer, 5)));
@@ -706,14 +713,19 @@ begin
       if now() < v_due then continue; end if;
       if now() > w.opened_at + make_interval(hours => coalesce(nullif(private.red_rule('expireHours'), '')::integer, 6)) then
         update public.red_alert_watch set state = 'expired' where id = w.id;
+        insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+        values (w.organisation_id, 'red_watch.expired', 'red_alert_watch', w.id, jsonb_build_object('waited_cmo', w.waiting_cmo_at is not null, 'opened_at', w.opened_at));
         n_expired := n_expired + 1;
         continue;
       end if;
       if private.create_red_outreach(w.id) is not null then n_created := n_created + 1; end if;
     exception when others then
       n_errors := n_errors + 1;
-      insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
-      values (w.organisation_id, 'red_watch.sweep_error', 'red_alert_watch', v_id, jsonb_build_object('error', sqlerrm));
+      begin
+        insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+        values ((select organisation_id from public.red_alert_watch where id = v_id), 'red_watch.sweep_error', 'red_alert_watch', v_id, jsonb_build_object('error', sqlerrm));
+      exception when others then null;  -- the next alert in the loop must still be swept
+      end;
     end;
   end loop;
   return jsonb_build_object('outreach_created', n_created, 'confirmed', n_confirmed, 'clinician_acknowledged', n_acked, 'expired', n_expired, 'errors', n_errors);

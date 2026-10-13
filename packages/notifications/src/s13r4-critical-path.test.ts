@@ -109,6 +109,16 @@ describe("delivery reliability fields", () => {
   it("a safety push is high priority on the urgent channel, kept a day, time-sensitive on iPhone", () => {
     expect(expoUrgencyFields(true, false)).toEqual({ priority: "high", channelId: URGENT_CHANNEL_ID, ttl: URGENT_TTL_SECONDS, interruptionLevel: "time-sensitive", sound: "default" });
   });
+  it("a phone that has not created the urgent channel is sent high priority on the default channel, never to a channel it lacks", () => {
+    const f = expoUrgencyFields(true, false, false);
+    expect(f.channelId).toBeUndefined();
+    expect(f.priority).toBe("high");
+  });
+  it("the sender names the channel only for an Android phone that said it is ready, and the app says so at registration", () => {
+    const src = readFileSync("../../supabase/functions/send-pending-notifications/index.ts", "utf8");
+    expect(src).toContain('sub.platform !== "android" || sub.urgent_channel_ready === true');
+    expect(readFileSync("../../apps/mobile/src/lib/push-registration.ts", "utf8")).toContain("urgent_channel_ready: urgentChannelReady");
+  });
   it("critical is sent only when the entitlement switch is on", () => {
     expect(expoUrgencyFields(true, true).interruptionLevel).toBe("critical");
     expect(expoUrgencyFields(true, false).interruptionLevel).not.toBe("critical");

@@ -453,6 +453,23 @@ begin
   perform pg_temp.rec('G6 a clinician''s unopened test alert is not escalated', '0',
     (select count(*)::text from public.notifications where escalated_from_id in (select id from public.notifications where recipient_id = v_other and template = 'test_alert')));
 
+  -- G9 a clinician opening the on-call alert is not the patient confirming anything
+  declare gG uuid := pg_temp.mkuser(v_org, 'g-g', 'patient'); eG uuid; wG uuid; v_t uuid;
+  begin
+    insert into public.patient_memberships (organisation_id, patient_id, source, state, granted_by, grant_reason, is_test)
+    values (v_org, gG, 'granted', 'active', v_admin, 'R4 proof: a Member', true);
+    eG := pg_temp.ee(gG); wG := pg_temp.watch(eG);
+    update public.red_alert_watch set due_at = now() - interval '1 minute', opened_at = now() - interval '31 minutes' where id = wG;
+    perform private.sweep_unconfirmed_red_alerts();
+    select outreach_task_id into v_t from public.red_alert_watch where id = wG;
+    update public.notifications set opened_at = now(), delivered_at = now() where source_id = wG and recipient_id <> gG;
+    perform private.sweep_unconfirmed_red_alerts();
+    perform pg_temp.rec('G9 the on-call clinician opening their alert does not confirm the patient or cancel the call', 'outreach_created,true',
+      (select state from public.red_alert_watch where id = wG) || ',' || (select (state not in ('cancelled', 'completed'))::text from public.clinical_tasks where id = v_t));
+  end;
+  perform pg_temp.rec('G10 a subscription defaults to no urgent channel until the phone says so', 'false',
+    (select column_default from information_schema.columns where table_name = 'push_subscriptions' and column_name = 'urgent_channel_ready'));
+
   -- G7 an admin cannot read the answers row by row
   perform pg_temp.act(v_admin);
   perform pg_temp.rec('G7 an admin reads no red answers', '0', (select count(*)::text from public.red_care_responses));

@@ -175,6 +175,7 @@ interface PushSubscriptionRow {
   p256dh_key: string | null;
   auth_key: string | null;
   expo_push_token: string | null;
+  urgent_channel_ready?: boolean | null;
 }
 
 // Narrowed shapes sendWebPush/sendExpoPush actually operate on, so neither
@@ -190,6 +191,8 @@ interface WebPushSubscription {
 interface NativePushSubscription {
   id: string;
   expo_push_token: string;
+  platform?: "web" | "ios" | "android";
+  urgent_channel_ready?: boolean | null;
 }
 
 function isWebPushSubscription(sub: PushSubscriptionRow): sub is PushSubscriptionRow & WebPushSubscription {
@@ -378,7 +381,7 @@ async function sendExpoPush(
     data: { url: payload.url, notificationId: payload.notificationId },
     // S13 R4: safety rows are high priority, on the urgent Android channel, time-sensitive on iPhone (critical only once Apple's
     // entitlement is granted and IOS_CRITICAL_ALERTS_ENABLED is set). Routine rows add nothing here.
-    ...expoUrgencyFields(urgent, Deno.env.get("IOS_CRITICAL_ALERTS_ENABLED") === "true"),
+    ...expoUrgencyFields(urgent, Deno.env.get("IOS_CRITICAL_ALERTS_ENABLED") === "true", sub.platform !== "android" || sub.urgent_channel_ready === true),
   }));
 
   const result = await withExternalCall((signal) =>
@@ -671,7 +674,7 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
 
   const { data: subscriptions } = await supabase
     .from("push_subscriptions")
-    .select("id, profile_id, platform, endpoint, p256dh_key, auth_key, expo_push_token")
+    .select("id, profile_id, platform, endpoint, p256dh_key, auth_key, expo_push_token, urgent_channel_ready")
     .in("profile_id", recipientIds)
     .is("disabled_at", null)
     .returns<Array<PushSubscriptionRow & { profile_id: string }>>();

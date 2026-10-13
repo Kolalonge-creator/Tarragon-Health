@@ -127,11 +127,13 @@ export interface ExpoUrgencyFields {
   readonly interruptionLevel?: "time-sensitive" | "critical";
   readonly sound?: "default";
 }
-export function expoUrgencyFields(urgent: boolean, criticalAlertsEnabled: boolean): ExpoUrgencyFields {
+export function expoUrgencyFields(urgent: boolean, criticalAlertsEnabled: boolean, channelReady = true): ExpoUrgencyFields {
   if (!urgent) return {};
   return {
     priority: "high",
-    channelId: URGENT_CHANNEL_ID,
+    // Only a phone that has created the channel (push_subscriptions.urgent_channel_ready) is sent to it; otherwise the push would
+    // be accepted and reported delivered but never shown.
+    ...(channelReady ? { channelId: URGENT_CHANNEL_ID } : {}),
     ttl: URGENT_TTL_SECONDS,
     interruptionLevel: criticalAlertsEnabled ? "critical" : "time-sensitive",
     sound: "default",

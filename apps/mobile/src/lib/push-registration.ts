@@ -49,7 +49,7 @@ export function startOpenReporting(): void {
 export async function registerPushToken(userId: string, organisationId: string): Promise<void> {
   startOpenReporting();
   // Channels first: Android 13+ may not show the permission prompt until one exists, and the server sends safety rows to `urgent`.
-  await ensureNotificationChannels();
+  const urgentChannelReady = await ensureNotificationChannels();
   try {
     const { status: existing } = await Notifications.getPermissionsAsync();
     let status = existing;
@@ -77,6 +77,8 @@ export async function registerPushToken(userId: string, organisationId: string):
         expo_push_token: data,
         last_seen_at: new Date().toISOString(),
         disabled_at: null,
+        // the sender names the `urgent` channel only for a phone that has created it
+        urgent_channel_ready: urgentChannelReady,
       },
       { onConflict: "expo_push_token" }
     );
