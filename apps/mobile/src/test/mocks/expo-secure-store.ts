@@ -5,11 +5,20 @@
  */
 const store = new Map<string, string>();
 
+export const AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY = 5;
+let failing = false;
+/** Test hook: the keystore is unavailable (locked, corrupted). */
+export function __setFailing(value: boolean): void {
+  failing = value;
+}
+
 export async function getItemAsync(key: string): Promise<string | null> {
+  if (failing) throw new Error("keystore unavailable");
   return store.has(key) ? (store.get(key) as string) : null;
 }
 
 export async function setItemAsync(key: string, value: string): Promise<void> {
+  if (failing) throw new Error("keystore unavailable");
   store.set(key, value);
 }
 
@@ -18,5 +27,6 @@ export async function deleteItemAsync(key: string): Promise<void> {
 }
 
 export function __reset(): void {
+  failing = false;
   store.clear();
 }
