@@ -16,7 +16,7 @@ export const FALLBACK_QUIET: QuietSettings = { enabled: false, start: "21:00", e
  * against the daily push cap, whatever `priority` the row was queued with (a routine-priority row for one of these
  * would otherwise be held overnight). They may still use generic wording (discreet mode).
  */
-const SAFETY_TEMPLATE = /(^|_)(escalat[a-z]*|red_flag|red_event|on_call|clinician_alert|critical)(_|$)|^emergency_(?!card_)|^abnormal_result_/;
+const SAFETY_TEMPLATE = /(^|_)(escalat[a-z]*|red_flag|red_event|on_call|clinician_alert|critical)(_|$)|^emergency_(?!card_)|^abnormal_result_|^triage_recheck|^security\./;
 export function isSafetyCritical(template: string | null | undefined): boolean {
   return template != null && SAFETY_TEMPLATE.test(template);
 }
@@ -100,6 +100,17 @@ export function classifyExpoReceipt(r: ExpoReceipt | undefined): ReceiptOutcome 
   if (r.status === "ok") return { event: "delivered" };
   if (r.details?.error === "DeviceNotRegistered") return { event: "token_dead" };
   return { event: "failed", reason: r.details?.error ?? r.message ?? "unknown" };
+}
+
+/**
+ * Which of a person's own privacy choices apply to a row. Quiet hours are a patient's own setting (a clinician is
+ * never held back overnight). Discreet mode follows the profile flag; if the settings lookup failed (`known` false)
+ * the wording is made generic rather than guessed, so a lookup failure can never leak a topic.
+ * Note: an email row always carries `payload.to_email`, usually the person's own address, so that field says
+ * nothing about who the recipient is.
+ */
+export function privacyFor(role: string | null | undefined, discreetFlag: boolean | undefined, known: boolean): { quietApplies: boolean; discreet: boolean } {
+  return { quietApplies: known && role === "patient", discreet: !known || discreetFlag === true };
 }
 
 /** The email a person in discreet mode receives instead of the template's own wording: no brand, topic or detail. */

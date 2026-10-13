@@ -35,7 +35,7 @@ import webpush from "npm:web-push@3.6.7";
 import { appUrl, substituteTemplatePlaceholders, TEMPLATE_MAP } from "./templates.ts";
 import type { TemplateRender } from "./templates.ts";
 import { describeViolations, lintRenderFn, lintText } from "../_shared/notifications/neutral.ts";
-import { decide, discreetEmail, FALLBACK_QUIET, isSafetyCritical, pushEnvelope } from "../_shared/notifications/delivery.ts";
+import { decide, discreetEmail, FALLBACK_QUIET, isSafetyCritical, privacyFor, pushEnvelope } from "../_shared/notifications/delivery.ts";
 import type { QuietSettings } from "../_shared/notifications/delivery.ts";
 
 const BATCH_SIZE = 50;
@@ -938,13 +938,13 @@ Deno.serve(async () => {
     }
 
     // S13: INV-07 guard, quiet hours, daily cap and the SMS rule, decided by one pure function.
+    const privacy = privacyFor(roleById.get(row.recipient_id), discreetById.get(row.recipient_id), !settingsDegraded);
     const decision = decide({
       channel: row.channel,
       priority: row.priority,
       nowMs: Date.now(),
-      // Quiet hours are a patient's own setting. A clinician, and a partner reached at an explicit address
-      // (payload.to_email), are never held back overnight.
-      quiet: roleById.get(row.recipient_id) === "patient" && typeof (row.payload ?? {}).to_email !== "string"
+      // Quiet hours are a patient's own setting; a clinician is never held back overnight.
+      quiet: privacy.quietApplies
         ? (quietById.get(row.recipient_id) ?? defaultQuiet)
         : { ...defaultQuiet, enabled: false },
       routinePushSentToday: pushSentToday.get(row.recipient_id) ?? 0,
@@ -1004,7 +1004,7 @@ Deno.serve(async () => {
       // case here rather than have this condition grown into something
       // fuzzier.
       // Discreet mode: a person's own email carries fixed generic words and no attachment (the PDFs name the request).
-      const discreetMail = discreetById.get(row.recipient_id) === true && typeof payload.to_email !== "string";
+      const discreetMail = privacy.discreet;
       let attachments: EmailAttachment[] | undefined;
       if (discreetMail) {
         // no attachment is fetched or sent
@@ -1052,7 +1052,7 @@ Deno.serve(async () => {
       }
     } else if (row.channel === "push") {
       const subs = subscriptionsByProfile.get(row.recipient_id) ?? [];
-      const envelope = pushEnvelope(discreetById.get(row.recipient_id) === true, render.smsText, PUSH_BODY_MAX_CHARS, isCritical || isSafetyCritical(row.template));
+      const envelope = pushEnvelope(privacy.discreet, render.smsText, PUSH_BODY_MAX_CHARS, isCritical || isSafetyCritical(row.template));
       const pushPayload = {
         title: envelope.title,
         body: envelope.body,

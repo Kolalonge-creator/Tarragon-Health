@@ -4,7 +4,7 @@
  * and discreet mode produces generic words on push and email.
  */
 import { describe, expect, it } from "@jest/globals";
-import { decide, discreetEmail, FALLBACK_QUIET, isSafetyCritical, pushEnvelope, type DecideInput, type QuietSettings } from "./index.ts";
+import { decide, discreetEmail, FALLBACK_QUIET, isSafetyCritical, privacyFor, pushEnvelope, type DecideInput, type QuietSettings } from "./index.ts";
 
 const Q: QuietSettings = { enabled: true, start: "21:00", end: "07:00" };
 const utc = (h: number, m = 0) => Date.UTC(2026, 9, 6, h, m); // Africa/Lagos is UTC+1
@@ -49,6 +49,22 @@ describe("safety templates", () => {
       expect(isSafetyCritical(t)).toBe(true);
     }
     for (const t of ["booking_reminder", "daily_digest", "credential_notice", "emergency_card_viewed", "emergency_card_expiring_soon", "", null, undefined]) expect(isSafetyCritical(t)).toBe(false);
+  });
+});
+
+describe("privacyFor", () => {
+  it("applies quiet hours to a patient only, whatever address an email carries", () => {
+    expect(privacyFor("patient", false, true)).toEqual({ quietApplies: true, discreet: false });
+    expect(privacyFor("clinician", false, true).quietApplies).toBe(false);
+    expect(privacyFor(undefined, undefined, true)).toEqual({ quietApplies: false, discreet: false });
+  });
+  it("follows the discreet flag, and goes generic when the settings could not be read", () => {
+    expect(privacyFor("patient", true, true).discreet).toBe(true);
+    expect(privacyFor("patient", undefined, false)).toEqual({ quietApplies: false, discreet: true });
+  });
+  it("treats a security alert and a triage recheck as safety messages", () => {
+    expect(isSafetyCritical("security.new_device_signin")).toBe(true);
+    expect(isSafetyCritical("triage_recheck_due")).toBe(true);
   });
 });
 
