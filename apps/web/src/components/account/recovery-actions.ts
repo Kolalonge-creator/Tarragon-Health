@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
+import { verifyPasswordAndRecordStepUp, type StepUpResult } from "@/lib/account/step-up";
 
 /**
  * Signed-in actions for the S03b recovery routes: making backup codes, naming a recovery contact, and (for the contact)
@@ -16,10 +17,29 @@ export type SimpleState = { ok?: boolean; error?: string } | undefined;
 const GENERIC = "Something went wrong just then. Please try again.";
 const uuid = z.string().uuid();
 
-/** Ten new backup codes, shown once. Making new ones ends the old set at once. */
-export async function generateBackupCodesAction(_prev: BackupCodesState, _formData: FormData): Promise<BackupCodesState> {
+/** Plain wording for a failed password step-up. A wrong password and a missing route read differently only because the person needs to act. */
+function stepUpMessage(reason: Extract<StepUpResult, { ok: false }>["reason"]): string {
+  switch (reason) {
+    case "wrong_password":
+      return "That password is not right. Enter the password you sign in with.";
+    case "rate_limited":
+      return "Too many attempts. Please wait a moment, then try again.";
+    case "no_password_route":
+      return "We could not check your password because your account has no confirmed email or phone. Contact your care team.";
+    default:
+      return GENERIC;
+  }
+}
+
+/**
+ * Ten new backup codes, shown once. Making new ones ends the old set at once. Needs the account password again (a step-up the
+ * server records only after checking it); the database function refuses to run without that step-up.
+ */
+export async function generateBackupCodesAction(_prev: BackupCodesState, formData: FormData): Promise<BackupCodesState> {
   const user = await getCurrentUser();
   if (!user) return { error: "Your session has expired. Sign in again, then retry." };
+  const stepUp = await verifyPasswordAndRecordStepUp(user, String(formData.get("password") ?? ""), "backup_codes");
+  if (!stepUp.ok) return { error: stepUpMessage(stepUp.reason) };
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("generate_backup_codes");
   if (error) {
@@ -47,10 +67,14 @@ function outcome(data: unknown, error: unknown): SimpleState {
   return { error: CONTACT_ERRORS[String(res?.error)] ?? GENERIC };
 }
 
-/** The patient names ONE confirmed Care Circle member. The person has to agree before it counts. */
+/** The patient names ONE confirmed Care Circle member. The person has to agree before it counts. Needs the account password again. */
 export async function proposeRecoveryContactAction(_prev: SimpleState, formData: FormData): Promise<SimpleState> {
   const member = uuid.safeParse(formData.get("memberId"));
   if (!member.success) return { error: "Choose someone from your Care Circle." };
+  const user = await getCurrentUser();
+  if (!user) return { error: "Your session has expired. Sign in again, then retry." };
+  const stepUp = await verifyPasswordAndRecordStepUp(user, String(formData.get("password") ?? ""), "recovery_contact");
+  if (!stepUp.ok) return { error: stepUpMessage(stepUp.reason) };
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("propose_recovery_contact", { p_member: member.data });
   const res = outcome(data, error);

@@ -11,6 +11,8 @@ import { t } from "@tarragon/i18n";
 import { getAuthLocale } from "@/lib/auth/auth-locale";
 import { checkNewPassword } from "@/lib/auth/check-new-password";
 import { isPhoneChangeNeedsConfirmationError } from "@/lib/auth/otp-errors";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { phoneChangeOptions } from "@/lib/account/phone-change-options";
 
 export type UpdateOwnPasswordState =
   | { error?: string; field?: string; success?: boolean }
@@ -93,6 +95,15 @@ export async function requestPhoneChange(
   );
   if (!limited.success) {
     return { error: t("auth.error.rate_limited", locale) };
+  }
+
+  // An account with something to confirm with must have confirmed it a few minutes ago (S03b). Ask the database BEFORE asking Auth,
+  // so "confirm it is you first" never depends on how Auth words a wrapped trigger error. The trigger on auth.users is what
+  // actually enforces it; this check is the friendly way to find out.
+  if (phoneChangeOptions(user).needsConfirmation) {
+    const { data: fresh, error: freshError } = await createServiceRoleClient().rpc("has_fresh_phone_change_authorisation", { p_user: user.id });
+    if (freshError) return { error: t("auth.error.generic", locale) };
+    if (fresh !== true) return { error: t("auth.phone_change.confirm_expired", locale), field: "confirm", at: Date.now() };
   }
 
   const supabase = await createClient();

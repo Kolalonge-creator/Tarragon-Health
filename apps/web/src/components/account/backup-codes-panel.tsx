@@ -5,6 +5,8 @@ import { generateBackupCodesAction } from "./recovery-actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormError } from "@/components/ui/form-error";
+import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import { formatPatientDate } from "@/lib/format-date";
 
 /**
@@ -78,6 +80,10 @@ export function BackupCodesPanel({ total, remaining, generatedAt }: { total: num
                   {total > 0 ? "Making new codes stops every old code from working. " : ""}
                   We will tell you by email and in the app that new codes were made.
                 </p>
+                <div className="max-w-sm space-y-1.5">
+                  <Label htmlFor="backup-codes-password">Your password, to check it is you</Label>
+                  <PasswordInput id="backup-codes-password" name="password" autoComplete="current-password" required />
+                </div>
                 <div className="flex gap-2">
                   <Button type="submit" disabled={pending}>
                     {pending ? "Making codes..." : "Make my codes"}

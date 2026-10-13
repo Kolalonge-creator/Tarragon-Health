@@ -42996,6 +42996,8 @@ export type Database = {
       my_recovery_contact: { Args: Record<PropertyKey, never>; Returns: Json };
       my_recovery_contact_duties: { Args: Record<PropertyKey, never>; Returns: Json };
       propose_recovery_contact: { Args: { p_member: string }; Returns: Json };
+      record_step_up: { Args: { p_purpose: string; p_user: string }; Returns: boolean };
+      has_fresh_phone_change_authorisation: { Args: { p_user: string }; Returns: boolean };
       redeem_backup_code: { Args: { p_code: string; p_identifier: string; p_kind: string }; Returns: Json };
       release_backup_code: { Args: { p_code: string; p_user: string }; Returns: boolean };
       request_contact_recovery: { Args: { p_identifier: string; p_kind: string }; Returns: Json };

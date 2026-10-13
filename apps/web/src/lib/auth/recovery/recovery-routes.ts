@@ -61,21 +61,24 @@ export async function recoverWithBackupCode(input: {
   if (!result?.ok || !result.user_id) return { ok: false, reason: "invalid" };
   const userId = result.user_id;
 
-  const updated = await svc.auth.admin.updateUserById(userId, { password: input.newPassword });
-  if (updated.error) {
-    // The code was spent but the password did not change: give the code back so the person is not left worse off.
+  // Ends every other session of the account and tells the owner, BEFORE the password changes. A recovery that leaves the old sessions
+  // alive protects nothing when the account was taken over, so if this cannot be done the password is NOT changed and the code is
+  // given back: the step that makes the recovery worth anything is never the one allowed to fail open.
+  const release = async (why: string) => {
     const released = await svc.rpc("release_backup_code", { p_user: userId, p_code: body });
-    Sentry.captureMessage(
-      released.error ? "backup code recovery: password update and code release both failed" : "backup code recovery: password update failed",
-      "error",
-    );
+    Sentry.captureMessage(released.error ? `backup code recovery: ${why} and the code could not be released` : `backup code recovery: ${why}`, "error");
+  };
+  const completed = await svc.rpc("complete_backup_code_recovery", { p_user: userId });
+  if (completed.error || (completed.data as { ok?: boolean } | null)?.ok !== true) {
+    await release("sessions could not be ended");
     return { ok: false, reason: "unavailable" };
   }
 
-  // Ends every other session and tells the owner. The password has already changed, so a failure here is reported, not fatal.
-  const completed = await svc.rpc("complete_backup_code_recovery", { p_user: userId });
-  if (completed.error || (completed.data as { ok?: boolean } | null)?.ok !== true) {
-    Sentry.captureMessage("backup code recovery: sessions or notice not completed", "error");
+  const updated = await svc.auth.admin.updateUserById(userId, { password: input.newPassword });
+  if (updated.error) {
+    // The code was spent but the password did not change: give the code back so the person is not left worse off.
+    await release("password update failed");
+    return { ok: false, reason: "unavailable" };
   }
   return { ok: true, signInWith: { kind: id.kind, value: id.value } };
 }

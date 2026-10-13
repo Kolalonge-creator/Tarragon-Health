@@ -144,7 +144,8 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // contact_release_hours: how long the link can be asked for once the wait is over. contact_requests_per_week: requests one
     // person can start in a week (each one disturbs the contact). number_change_hold_hours: how long recovery by a text code is
     // paused after the sign-in number moved (OQ-43). number_change_confirm_minutes: how long a confirmation from the old number or
-    // the verified email stays good for starting a number change. All are PROPOSED; none is spec-fixed except the count of ten.
+    // the verified email stays good for starting a number change. step_up_minutes: how long a password re-entry stays good for making
+    // backup codes or naming a recovery contact. All are PROPOSED; none is spec-fixed except the count of ten.
     value: {
       backup_code_count: 10,
       backup_code_regenerations_per_day: 3,
@@ -155,6 +156,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       contact_requests_per_week: 2,
       number_change_hold_hours: 72,
       number_change_confirm_minutes: 15,
+      step_up_minutes: 10,
     },
     owner: "Founder",
     status: "proposed",

@@ -1,4 +1,4 @@
--- S03b-b (v5 1.6, closes OQ-43): accounts that survive a lost number.
+-- S03b-b (v5 1.6, answers OQ-43): accounts that survive a lost number.
 -- Design: docs/design/S03b.md. Founder decisions 2026-10-13: backup codes, a Care Circle recovery contact, a self-serve
 -- change-number flow with extra friction after a recent change. NOT built (founder said no): voice-call OTP, a delivery-status
 -- table, a per-profile PIN, a restricted new-device state. SMS stays code-only (INV-08): nothing here sends an SMS, and every
@@ -19,7 +19,10 @@
 --      control of the OLD number or a VERIFIED email in the last 15 minutes. A BEFORE UPDATE trigger on auth.users enforces it,
 --      because a check that lives only in a Next.js action is bypassed by anyone holding an access token.
 --   5. Friction after a recent number change (OQ-43): recovery by a code to the phone is paused for 72 hours after the number
---      moved, unless the recovery contact route has released the account.
+--      moved, unless the recovery contact route has released the account. The pause is enforced by OUR apps (web and phone), not by
+--      Auth: someone who calls Auth directly with a code is not stopped by it, and signing in by code is not paused (OQ-S03B-06).
+--   5b. A password step-up before backup codes can be made or a recovery contact named, so a borrowed session cannot plant a way
+--      back in that outlives it.
 --   6. The owner is told (in-app and email, never SMS) about every one of these steps.
 
 -- ---------------------------------------------------------------------------
@@ -43,12 +46,13 @@ begin
   -- every key must be a positive whole number; a missing or odd one would make a comparison null and quietly lift a limit
   foreach k in array array['backup_code_count', 'backup_code_regenerations_per_day', 'backup_code_attempts_per_hour',
                            'contact_delay_hours', 'contact_request_hours', 'contact_release_hours', 'contact_requests_per_week',
-                           'number_change_hold_hours', 'number_change_confirm_minutes'] loop
+                           'number_change_hold_hours', 'number_change_confirm_minutes', 'step_up_minutes'] loop
     if (r ->> k) is null or (r ->> k) !~ '^[0-9]{1,4}$' or (r ->> k)::integer < 1 then return false; end if;
   end loop;
   return (r ->> 'backup_code_count')::integer between 5 and 20
      and (r ->> 'contact_delay_hours')::integer >= 1
-     and (r ->> 'number_change_confirm_minutes')::integer <= 60;
+     and (r ->> 'number_change_confirm_minutes')::integer <= 60
+     and (r ->> 'step_up_minutes')::integer <= 60;
 exception when others then
   return false;
 end;
@@ -67,7 +71,8 @@ insert into public.account_recovery_config (version, is_active, effective_from, 
   "contact_release_hours": 48,
   "contact_requests_per_week": 2,
   "number_change_hold_hours": 72,
-  "number_change_confirm_minutes": 15
+  "number_change_confirm_minutes": 15,
+  "step_up_minutes": 10
 }
 $json$::jsonb);
 -- account-recovery-rules-end
@@ -146,6 +151,11 @@ revoke all on function private.recovery_audit(uuid, uuid, text, text, uuid, uuid
 
 -- Neutral wording (INV-07). In-app always, email only to a VERIFIED address, never SMS (INV-08). Returns the channels queued so a
 -- caller can record that no notice could be queued. p_email false makes it in-app only (for the contact's side).
+-- priority is 'routine' ON PURPOSE: private.escalate_unconfirmed_critical_notifications() picks up every 'critical' row that is sent
+-- and unopened and re-sends it on push, then email, then SMS. These notices must never be texted (INV-08), and a "number changed"
+-- notice texted to the new number would reach exactly the person it warns about. (The older security.new_device_signin and
+-- security.assisted_recovery_* notices are 'critical' and do escalate to SMS: OQ-S03B-02.) The email row is not held back by quiet
+-- hours because it carries payload.to_email.
 create function private.recovery_notice(p_user uuid, p_template text, p_message text, p_email boolean default true) returns text[]
 language plpgsql security definer set search_path = ''
 as $$
@@ -157,14 +167,14 @@ begin
   select organisation_id into v_org from public.profiles where id = p_user;
   if v_org is null then return v_channels; end if;
   insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class, priority)
-  values (v_org, p_user, 'in_app', 'pending', p_template, jsonb_build_object('message', p_message, 'occurred_at', now()), 'non_clinical', 'critical');
+  values (v_org, p_user, 'in_app', 'pending', p_template, jsonb_build_object('message', p_message, 'occurred_at', now()), 'non_clinical', 'routine');
   v_channels := array_append(v_channels, 'in_app'::text);
   if p_email then
     select u.email into v_email from auth.users u where u.id = p_user and u.email_confirmed_at is not null;
     if v_email is not null and btrim(v_email) <> '' then
       insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class, priority)
       -- the dispatcher sends an email row only when payload.to_email names the address; without it the row fails as "recipient has no email address"
-      values (v_org, p_user, 'email', 'pending', p_template, jsonb_build_object('message', p_message, 'occurred_at', now(), 'to_email', v_email), 'non_clinical', 'critical');
+      values (v_org, p_user, 'email', 'pending', p_template, jsonb_build_object('message', p_message, 'occurred_at', now(), 'to_email', v_email), 'non_clinical', 'routine');
       v_channels := array_append(v_channels, 'email'::text);
     end if;
   end if;
@@ -173,15 +183,70 @@ end;
 $$;
 revoke all on function private.recovery_notice(uuid, text, text, boolean) from public, anon, authenticated;
 
--- Did the sign-in number move (or start to move) in the last N hours on an account older than that? A brand-new account is not a SIM swap.
+-- When did the sign-in number actually move? Written by the trigger on auth.users below, whoever moved it (the owner, a direct call
+-- to Auth, assisted recovery). NOT derived from auth.users.phone_confirmed_at: GoTrue re-stamps that on every successful SMS code
+-- (a normal sign-in by code included), so as a "number changed" signal it is true for almost everyone right after they prove a code,
+-- which is exactly when the pause is asked. (Assisted recovery's own SIM-swap flag still reads that column: OQ-S03B-02.)
+create table public.account_phone_changes (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users (id) on delete cascade,
+  changed_at timestamptz not null default now()
+);
+create index account_phone_changes_user_idx on public.account_phone_changes (user_id, changed_at desc);
+alter table public.account_phone_changes enable row level security;
+revoke all on public.account_phone_changes from public, anon, authenticated;
+
+-- Did the sign-in number move in the last N hours?
 create function private.number_changed_recently(p_user uuid, p_hours integer) returns boolean
 language sql stable security definer set search_path = ''
 as $$
-  select coalesce((select u.created_at < now() - make_interval(hours => p_hours)
-                          and greatest(u.phone_change_sent_at, u.phone_confirmed_at) > now() - make_interval(hours => p_hours)
-                     from auth.users u where u.id = p_user), false)
+  select exists (select 1 from public.account_phone_changes c where c.user_id = p_user and c.changed_at > now() - make_interval(hours => p_hours))
 $$;
 revoke all on function private.number_changed_recently(uuid, integer) from public, anon, authenticated;
+
+-- A short step-up before the two actions that create a way back into the account later (making backup codes, naming a recovery
+-- contact). A session alone (a borrowed phone, a stolen access token, a SIM-swap code login) must not be able to plant a way back in
+-- that outlives it. The server records a step-up only after it checked the account PASSWORD; the two functions below refuse without a
+-- fresh one and spend it. Same shape as the change-number gate: earned in the server, enforced in the database.
+create table public.account_step_ups (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references auth.users (id) on delete cascade,
+  purpose     text not null check (purpose in ('backup_codes', 'recovery_contact')),
+  created_at  timestamptz not null default now(),
+  expires_at  timestamptz not null,
+  consumed_at timestamptz
+);
+create index account_step_ups_user_idx on public.account_step_ups (user_id, purpose, created_at desc);
+alter table public.account_step_ups enable row level security;
+revoke all on public.account_step_ups from public, anon, authenticated;
+
+create function public.record_step_up(p_user uuid, p_purpose text) returns boolean
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  if p_purpose not in ('backup_codes', 'recovery_contact') then raise exception 'unknown purpose' using errcode = '22023'; end if;
+  if not exists (select 1 from public.profiles where id = p_user and role = 'patient' and is_active) then return false; end if;
+  delete from public.account_step_ups where user_id = p_user and purpose = p_purpose and consumed_at is null;
+  insert into public.account_step_ups (user_id, purpose, expires_at)
+  values (p_user, p_purpose, now() + make_interval(mins => (private.recovery_rules() ->> 'step_up_minutes')::integer));
+  return true;
+end;
+$$;
+
+-- Spends a fresh step-up for the caller or refuses.
+create function private.consume_step_up(p_user uuid, p_purpose text) returns void
+language plpgsql security definer set search_path = ''
+as $$
+declare v_id uuid;
+begin
+  select id into v_id from public.account_step_ups
+   where user_id = p_user and purpose = p_purpose and consumed_at is null and expires_at > now()
+   order by created_at desc limit 1 for update;
+  if v_id is null then raise exception 'step_up_required' using errcode = 'P0001'; end if;
+  update public.account_step_ups set consumed_at = now() where id = v_id;
+end;
+$$;
+revoke all on function private.consume_step_up(uuid, text) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 3. Backup codes
@@ -229,6 +294,8 @@ begin
   if v_uid is null then raise exception 'recovery_not_authorised' using errcode = '42501'; end if;
   select organisation_id into v_org from public.profiles where id = v_uid and role = 'patient' and is_active;
   if v_org is null then raise exception 'recovery_not_authorised' using errcode = '42501'; end if;
+  -- the account password was checked by the server a moment ago (public.record_step_up); a session alone is not enough
+  perform private.consume_step_up(v_uid, 'backup_codes');
   if (select count(*) from public.audit_log where actor_id = v_uid and action = 'account.backup_codes_generated'
                                               and created_at > now() - interval '24 hours')
        >= (v_rules ->> 'backup_code_regenerations_per_day')::integer then
@@ -324,8 +391,10 @@ begin
 end;
 $$;
 
--- The password was changed with a backup code: end every session (a recovery that leaves old sessions alive protects nothing
--- when the account was taken over; an access token already issued works for at most the JWT lifetime, one hour), tell the owner.
+-- A backup code was accepted: end every session (a recovery that leaves old sessions alive protects nothing when the account was
+-- taken over; an access token already issued works for at most the JWT lifetime, one hour) and tell the owner. The server calls this
+-- BEFORE it sets the new password, so if it cannot run the password is not changed (and the code is given back): the step that makes
+-- the recovery protect anything is never the one allowed to fail open.
 create function public.complete_backup_code_recovery(p_user uuid) returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
@@ -340,7 +409,7 @@ begin
   with gone as (delete from auth.sessions where user_id = p_user returning 1) select count(*) into v_sessions from gone;
   select count(*) into v_left from public.account_backup_codes where user_id = p_user and used_at is null;
   v_ch := private.recovery_notice(p_user, 'security.backup_code_used',
-    'A backup code was used to set a new password on your Tarragon Health account, and you were signed out everywhere. If this was not you, contact your care team right away.');
+    'A backup code was used to recover your Tarragon Health account, and you were signed out everywhere. If this was not you, contact your care team right away.');
   perform private.recovery_audit(v_org, p_user, 'account.backup_code_used', 'account_backup_codes', null, p_user, 'success',
     jsonb_build_object('sessions_revoked', v_sessions, 'codes_left', v_left, 'notice_channels', to_jsonb(v_ch)));
   return jsonb_build_object('ok', true, 'remaining', v_left);
@@ -428,6 +497,7 @@ begin
   if exists (select 1 from public.account_recovery_contacts where patient_id = v_uid and state in ('proposed', 'accepted')) then
     return jsonb_build_object('ok', false, 'error', 'already_set');
   end if;
+  perform private.consume_step_up(v_uid, 'recovery_contact');
   insert into public.account_recovery_contacts (organisation_id, patient_id, contact_id, member_id)
   values (v_org, v_uid, m.supporter_id, m.id) returning id into v_id;
 
@@ -700,6 +770,14 @@ begin
 end;
 $$;
 
+-- Does the account hold a fresh, unspent authorisation? Lets the server say "confirm it is you first" BEFORE it asks Auth to move the
+-- number, instead of guessing from the wording of a wrapped database error. Does not spend it.
+create function public.has_fresh_phone_change_authorisation(p_user uuid) returns boolean
+language sql stable security definer set search_path = ''
+as $$
+  select exists (select 1 from public.phone_change_authorisations where user_id = p_user and consumed_at is null and expires_at > now())
+$$;
+
 -- The gate. GoTrue sets auth.users.phone_change when someone asks for a new number. If the account has anything to confirm with
 -- (a confirmed phone or a confirmed email), a fresh authorisation must exist. Runs for every caller, including a direct call to
 -- the Auth API with a stolen access token, which an application-level check would miss. A resend of the same code (phone_change
@@ -731,24 +809,32 @@ create trigger auth_users_enforce_phone_change_authorisation
   when (new.phone_change is distinct from old.phone_change and coalesce(new.phone_change, '') <> '')
   execute function private.enforce_phone_change_authorisation();
 
--- Tell the owner when the sign-in number actually moved, whoever moved it (the owner's own change, a direct Auth call, or
--- assisted recovery). Email and in-app only: SMS stays code-only. The old number is not texted.
-create function private.notify_phone_changed() returns trigger
+-- The sign-in number actually moved, whoever moved it (the owner's own change, a direct Auth call, assisted recovery): record WHEN
+-- (the pause reads it) and tell the owner (in-app and email, not SMS; the old number is not texted, INV-08). Recording is plain; the
+-- notice is wrapped so that a failure to queue it can never block a legitimate number change (it is reported as a warning).
+create function private.record_phone_changed() returns trigger
 language plpgsql security definer set search_path = ''
 as $$
 begin
-  perform private.recovery_notice(new.id, 'security.phone_changed',
-    'The phone number on your Tarragon Health account was changed. For your safety, recovery by a text code is paused for a few days. If this was not you, change your password now and tell your care team.');
+  insert into public.account_phone_changes (user_id) values (new.id);
+  if old.phone is not null then
+    begin
+      perform private.recovery_notice(new.id, 'security.phone_changed',
+        'The phone number on your Tarragon Health account was changed. For your safety, recovery by a text code is paused for a few days. If this was not you, change your password now and tell your care team.');
+    exception when others then
+      raise warning 'S03b: could not queue the number-changed notice (sqlstate %)', sqlstate;
+    end;
+  end if;
   return new;
 end;
 $$;
-revoke all on function private.notify_phone_changed() from public, anon, authenticated;
+revoke all on function private.record_phone_changed() from public, anon, authenticated;
 
-create trigger auth_users_notify_phone_changed
+create trigger auth_users_record_phone_changed
   after update of phone on auth.users
   for each row
-  when (old.phone is not null and old.phone is distinct from new.phone)
-  execute function private.notify_phone_changed();
+  when (old.phone is distinct from new.phone)
+  execute function private.record_phone_changed();
 
 -- Is recovery by a text code paused for the signed-in caller? Called right after a recovery code was accepted, by the person who
 -- just proved the code. Paused for number_change_hold_hours after the number moved, unless the recovery contact route has
@@ -766,7 +852,7 @@ begin
   if exists (select 1 from public.account_recovery_contact_requests where patient_id = v_uid and state = 'released' and released_at > now() - interval '2 hours') then
     return jsonb_build_object('held', false, 'released_by_contact', true);
   end if;
-  select greatest(u.phone_change_sent_at, u.phone_confirmed_at) into v_since from auth.users u where u.id = v_uid;
+  select max(c.changed_at) into v_since from public.account_phone_changes c where c.user_id = v_uid;
   return jsonb_build_object('held', true, 'until', v_since + make_interval(hours => v_hours));
 end;
 $$;
@@ -791,7 +877,7 @@ begin
   foreach f in array array[
     'public.redeem_backup_code(text,text,text)', 'public.release_backup_code(uuid,text)', 'public.complete_backup_code_recovery(uuid)',
     'public.request_contact_recovery(text,text)', 'public.claim_contact_recovery(text,text)', 'public.unrelease_contact_recovery(uuid)',
-    'public.authorise_phone_change(uuid,text)'] loop
+    'public.authorise_phone_change(uuid,text)', 'public.record_step_up(uuid,text)', 'public.has_fresh_phone_change_authorisation(uuid)'] loop
     execute format('revoke all on function %s from public', f);
     execute format('revoke all on function %s from anon', f);
     execute format('revoke all on function %s from authenticated', f);
@@ -803,12 +889,14 @@ begin
   foreach f in array array[
     'private.backup_code_hash(text)', 'private.recovery_find_user(text,text)', 'private.recovery_audit(uuid,uuid,text,text,uuid,uuid,text,jsonb)',
     'private.recovery_notice(uuid,text,text,boolean)', 'private.number_changed_recently(uuid,integer)', 'private.circle_member_is_live(uuid)',
-    'private.recovery_rules()', 'private.enforce_phone_change_authorisation()', 'private.notify_phone_changed()'] loop
+    'private.recovery_rules()', 'private.enforce_phone_change_authorisation()', 'private.record_phone_changed()',
+    'private.consume_step_up(uuid,text)'] loop
     if has_function_privilege('authenticated', f, 'EXECUTE') or has_function_privilege('anon', f, 'EXECUTE') then
       raise exception 'S03b: helper % is directly executable', f;
     end if;
   end loop;
-  foreach f in array array['public.account_backup_codes', 'public.account_backup_code_attempts', 'public.phone_change_authorisations', 'public.account_recovery_config'] loop
+  foreach f in array array['public.account_backup_codes', 'public.account_backup_code_attempts', 'public.phone_change_authorisations', 'public.account_recovery_config',
+                           'public.account_step_ups', 'public.account_phone_changes'] loop
     if has_table_privilege('authenticated', f, 'SELECT') or has_table_privilege('anon', f, 'SELECT')
        or has_table_privilege('authenticated', f, 'INSERT') or has_table_privilege('authenticated', f, 'UPDATE') then
       raise exception 'S03b: % is directly reachable by an application role', f;

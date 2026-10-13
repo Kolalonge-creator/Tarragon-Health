@@ -10,7 +10,7 @@ Founder, for sign-in resilience (`docs/research/S01-S05-competitor-gap-and-build
 | ID | Decision |
 |---|---|
 | S03B-1 | **People sign in with a working email or phone number; keep it simple.** Not built: voice-call OTP or any delivery-status table, a per-profile PIN, a restricted new-device state. SMS stays code-only (INV-08) and nothing new requires an SMS for core access. |
-| S03B-2 | **Built:** ten single-use backup codes, a Care Circle recovery contact, a self-serve change-number flow with a database-enforced confirmation (closes OQ-43), and eligibility-first cohort and sponsor codes (closes OQ-41, delivers spec 1.8). |
+| S03B-2 | **Built:** ten single-use backup codes, a Care Circle recovery contact, a self-serve change-number flow with a database-enforced confirmation (answers OQ-43 in our apps; the Auth-level gap is OQ-S03B-06), and eligibility-first cohort and sponsor codes (closes OQ-41, delivers spec 1.8). |
 | S03B-3 | **PROPOSED values** (not yet confirmed by the founder): 24 hour wait after a recovery contact confirms, 72 hour pause of text-code recovery after a number change, 15 minute confirmation window, three backup-code sets a day, two contact requests a week. Versioned as `auth.recovery_rules`. |
 
 ## Community decisions, 2026-10-09

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormError, FormSuccess } from "@/components/ui/form-error";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Select } from "@/components/ui/select";
 
 export interface CircleChoice {
@@ -83,6 +84,10 @@ export function RecoveryContactPanel({ current, members }: { current: RecoveryCo
                   </option>
                 ))}
               </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="recovery-contact-password">Your password, to check it is you</Label>
+              <PasswordInput id="recovery-contact-password" name="password" autoComplete="current-password" required />
             </div>
             <FormError id="recovery-contact-propose-error" message={proposeState?.error} />
             {proposeState?.ok ? <FormSuccess message="We asked them. It counts once they say yes." /> : null}

@@ -68,6 +68,10 @@ declare
   u7 uuid := gen_random_uuid();   -- full cohort code
   u8 uuid := gen_random_uuid();   -- signed-in joiner
   u9 uuid := gen_random_uuid();   -- failing claim
+  u1c uuid := gen_random_uuid();  -- cohort code only, no roster slot
+  u1b uuid := gen_random_uuid();  -- roster slot AND a cohort code
+  u10 uuid := gen_random_uuid();  -- established account (onboarding finished) matching a roster slot
+  r_both uuid; r_est uuid;
   v_org uuid; v_n integer; v_txt text; r jsonb; v_uses integer; v_status text;
 begin
   insert into public.organisations (name, type) values ('S03b Employer', 'corporate') returning id into v_emp;
@@ -103,7 +107,7 @@ begin
   -- ===== 2. the real owner verifies: the claim happens (a different slot and address; the attacker's account above stays unverified)
   insert into public.employer_roster_members (organisation_id, email, full_name) values (v_emp, 's03b-real@example.invalid', 'S03b Real') returning id into r_email;
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
-    values (u1, 's03b-real@example.invalid', 'x', null, '{}', '{"cohort_code":"grpa-2345"}');
+    values (u1, 's03b-real@example.invalid', 'x', null, '{}', '{}');
   select status::text into v_status from public.employer_roster_members where id = r_email;
   if v_status <> 'pending' then raise exception 'FAIL 2a: slot claimed before the colleague verified'; end if;
   update auth.users set email_confirmed_at = now() where id = u1;
@@ -111,15 +115,45 @@ begin
   if v_status <> 'claimed' or (select claimed_profile_id from public.employer_roster_members where id = r_email) <> u1 then
     raise exception 'FAIL 2b: verifying the email did not claim the slot (status %)', v_status; end if;
   if (select organisation_id from public.profiles where id = u1) <> v_emp then raise exception 'FAIL 2b: profile did not move to the employer organisation'; end if;
-  if not exists (select 1 from public.profile_cohorts where patient_id = u1 and cohort_id = c_good and left_at is null) then raise exception 'FAIL 2c: pending cohort code did not join on verification'; end if;
+  if not exists (select 1 from public.audit_log where subject_patient_id = u1 and action = 'roster.claimed_after_verification') then raise exception 'FAIL 2d: roster claim not audited'; end if;
+
+  -- a cohort code alone: pending until verified, then joined, one use, audited, and a later update counts nothing twice
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+    values (u1c, 's03b-cohort-only@example.invalid', 'x', null, '{}', '{"cohort_code":"grpa-2345"}');
+  if exists (select 1 from public.profile_cohorts where patient_id = u1c) then raise exception 'FAIL 2c: a cohort was joined before verification'; end if;
+  update auth.users set email_confirmed_at = now() where id = u1c;
+  if not exists (select 1 from public.profile_cohorts where patient_id = u1c and cohort_id = c_good and left_at is null) then raise exception 'FAIL 2c: pending cohort code did not join on verification'; end if;
   select uses into v_uses from public.sponsor_cohorts where id = c_good;
   if v_uses <> 1 then raise exception 'FAIL 2c: cohort uses is % not 1', v_uses; end if;
-  if not exists (select 1 from public.audit_log where subject_patient_id = u1 and action = 'roster.claimed_after_verification') then raise exception 'FAIL 2d: roster claim not audited'; end if;
-  if not exists (select 1 from public.audit_log where actor_id = u1 and action = 'sponsor.cohort_joined') then raise exception 'FAIL 2d: cohort join not audited'; end if;
-  -- verifying again (or any later update) claims nothing twice
-  update auth.users set email_confirmed_at = now() + interval '1 second' where id = u1;
+  if not exists (select 1 from public.audit_log where actor_id = u1c and action = 'sponsor.cohort_joined') then raise exception 'FAIL 2d: cohort join not audited'; end if;
+  update auth.users set email_confirmed_at = now() + interval '1 second' where id = u1c;
   select uses into v_uses from public.sponsor_cohorts where id = c_good;
   if v_uses <> 1 then raise exception 'FAIL 2e: a second update counted a second use'; end if;
+
+  -- a roster employee who ALSO typed a direct-organisation cohort code: the roster claim runs first and moves the profile, and a cohort
+  -- is joined only inside the person's own organisation, so the code is not applied and the person is TOLD (same rule as join_cohort)
+  insert into public.employer_roster_members (organisation_id, email, full_name) values (v_emp, 's03b-both@example.invalid', 'S03b Both') returning id into r_both;
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+    values (u1b, 's03b-both@example.invalid', 'x', null, '{}', '{"cohort_code":"GRPA2345"}');
+  update auth.users set email_confirmed_at = now() where id = u1b;
+  if (select status::text from public.employer_roster_members where id = r_both) <> 'claimed' then raise exception 'FAIL 2g: the roster slot was not claimed'; end if;
+  if exists (select 1 from public.profile_cohorts where patient_id = u1b) then raise exception 'FAIL 2g: a cohort row was written in an organisation the profile is not in'; end if;
+  if not exists (select 1 from public.notifications where recipient_id = u1b and template = 'security.programme_code_not_applied' and channel = 'in_app') then
+    raise exception 'FAIL 2g: the person was not told the code could not be used'; end if;
+
+  -- an ESTABLISHED account (onboarding finished) is never moved to another organisation by a later verification
+  insert into public.employer_roster_members (organisation_id, email, full_name) values (v_emp, 's03b-established@example.invalid', 'S03b Established') returning id into r_est;
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+    values (u10, 's03b-established@example.invalid', 'x', null, '{}', '{}');
+  -- the onboarding prerequisites (consents, DOB) are a separate guard; this fixture only needs the finished flag
+  alter table public.profiles disable trigger profiles_enforce_onboarding_prereqs;
+  update public.profiles set onboarding_completed_at = now() where id = u10;
+  alter table public.profiles enable trigger profiles_enforce_onboarding_prereqs;
+  update auth.users set email_confirmed_at = now() where id = u10;
+  if (select status::text from public.employer_roster_members where id = r_est) <> 'pending' then raise exception 'FAIL 2h: an established account claimed a roster slot'; end if;
+  if (select organisation_id from public.profiles where id = u10) <> v_dir then raise exception 'FAIL 2h: an established account was moved to another organisation'; end if;
+  if not exists (select 1 from public.audit_log where subject_patient_id = u10 and action = 'roster.claim_skipped_account_in_use' and result = 'denied') then
+    raise exception 'FAIL 2h: the skipped claim was not audited'; end if;
 
   -- phone path
   insert into auth.users (id, phone, encrypted_password, phone_confirmed_at, raw_app_meta_data, raw_user_meta_data)
@@ -202,6 +236,8 @@ begin
   if not exists (select 1 from public.profiles where id = u9) then raise exception 'FAIL 7a: a failing claim blocked account creation'; end if;
   if not exists (select 1 from public.audit_log where subject_patient_id = u9 and action = 'signup.programme_claim_failed' and result = 'failed') then
     raise exception 'FAIL 7b: a failed claim was silent'; end if;
+  if not exists (select 1 from public.notifications where recipient_id = u9 and template = 'security.programme_code_not_applied' and channel = 'in_app') then
+    raise exception 'FAIL 7c: the person was not told their programme could not be added'; end if;
   raise notice 'PASS 1-7 eligibility first';
 end $$;
 

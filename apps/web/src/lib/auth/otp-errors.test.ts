@@ -30,11 +30,11 @@ describe("isRateLimitOtpError", () => {
 });
 
 describe("isPhoneChangeNeedsConfirmationError", () => {
-  it("recognises the database refusing an unconfirmed number change, in either shape GoTrue may wrap it", () => {
+  it("recognises the database refusing an unconfirmed number change by its own wording", () => {
     expect(isPhoneChangeNeedsConfirmationError({ message: "phone_change_needs_confirmation" })).toBe(true);
-    expect(isPhoneChangeNeedsConfirmationError({ message: "Database error updating user", status: 500 })).toBe(true);
   });
-  it("does not mistake an SMS or rate-limit failure for it", () => {
+  it("does not mistake a generic database error, an SMS failure or a rate limit for it", () => {
+    expect(isPhoneChangeNeedsConfirmationError({ message: "Database error updating user", status: 500 })).toBe(false);
     expect(isPhoneChangeNeedsConfirmationError({ message: "Error sending sms OTP", status: 500 })).toBe(false);
     expect(isPhoneChangeNeedsConfirmationError({ code: "over_sms_send_rate_limit", message: "x" })).toBe(false);
     expect(isPhoneChangeNeedsConfirmationError(null)).toBe(false);

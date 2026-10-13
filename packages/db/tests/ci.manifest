@@ -965,7 +965,7 @@ sr2_scribe_consents_insert_policy_initplan.sql
 
 # --- Added 2026-10-13 (S03b-b) ------------------------------------------------
 # Accounts that survive a lost number: backup codes, Care Circle recovery contact, the change-number gate and the 72 hour hold
-# (closes OQ-43), and eligibility-first roster/cohort claims after a verified contact (closes OQ-41). Both prove each guard in BOTH
+# (answers OQ-43 in our apps; the Auth-level gap is OQ-S03B-06), and eligibility-first roster/cohort claims after a verified contact (closes OQ-41). Both prove each guard in BOTH
 # directions and carry sabotage steps that flip.
 s03b_account_recovery_routes.sql
 s03b_eligibility_first_claims.sql

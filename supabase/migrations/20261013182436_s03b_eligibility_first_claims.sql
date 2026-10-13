@@ -10,11 +10,14 @@
 -- calls) and held as PENDING in the account's own metadata. Nothing is claimed or joined until the phone or the email is verified:
 --   * an AFTER UPDATE trigger on auth.users fires when email_confirmed_at or phone_confirmed_at first becomes non-null;
 --   * an account created already verified (an admin invite, a provisioned account) is handled at the end of handle_new_user;
---   * private.claim_programmes_for_verified_user() then (1) joins the pending cohort through the same rules as join_cohort and
---     (2) claims a roster slot, matching on a VERIFIED channel only.
+--   * private.claim_programmes_for_verified_user() then (1) claims a roster slot, matching on a VERIFIED channel only, and
+--     (2) joins the pending cohort through the same rules as join_cohort (roster first, so the cohort sees the organisation the
+--     person ends up in).
 -- The pending code lives in raw_user_meta_data, which the account owner can edit. That is safe: the code is re-checked by the same
 -- rules as join_cohort at claim time, and the claim runs once, on the verification transition. Editing it grants nothing a signed-in
 -- person could not already get by calling join_cohort.
+--
+-- The claim only moves a profile that has not finished onboarding (a profile with records stays where it is; see the function).
 --
 -- Counted live 2026-10-13: 0 employer_roster_members rows (0 pending or invited), 0 sponsor_cohorts, 0 profile_cohorts,
 -- 12 auth users. Nothing to convert and no slot is currently exposed.
@@ -100,27 +103,23 @@ declare
   p public.profiles%rowtype;
   v_phone text; v_email text; v_code text;
   v_roster_id uuid; v_roster_org uuid;
+  v_fresh boolean;
   r jsonb;
 begin
   select * into u from auth.users where id = p_user;
   select * into p from public.profiles where id = p_user;
   if u.id is null or p.id is null then return; end if;
 
-  -- (1) the pending sponsor cohort code, joined by the same rules as join_cohort. A code that is no longer valid is told to
-  -- the person in-app rather than dropped silently.
-  v_code := nullif(btrim(coalesce(u.raw_user_meta_data ->> 'cohort_code', '')), '');
-  if v_code is not null and p.role = 'patient' then
-    r := private.join_cohort_core(p_user, v_code);
-    if coalesce((r ->> 'ok')::boolean, false) = false then
-      insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class, priority)
-      values (p.organisation_id, p_user, 'in_app', 'pending', 'security.programme_code_not_applied',
-              jsonb_build_object('message', 'The programme code you entered when you signed up could not be used: it may have expired or be full. You can try it again from your profile, or ask the programme for a new one.', 'occurred_at', now()),
-              'non_clinical', 'routine');
-    end if;
-  end if;
+  -- An account is "fresh" until it has finished onboarding. Moving a profile to an employer's organisation is only safe while the
+  -- account holds no organisation-scoped records (vitals, medications, appointments, consents ...): they would stay behind in the
+  -- old organisation and split the person's record. The old code did it at INSERT, when that was always true; now the claim can
+  -- run on a later verification (a second channel added months after sign-up), so an established account is NOT moved. It can still
+  -- join through public.claim_employer_roster_member, the explicit route for an existing user.
+  v_fresh := p.onboarding_completed_at is null;
 
-  -- (2) the employer roster slot, matched on a VERIFIED channel only, and only for a self-serve account (an account an admin
-  -- already placed in an organisation through app_metadata is left where it was put).
+  -- (1) the employer roster slot, matched on a VERIFIED channel only, and only for a self-serve account (an account an admin
+  -- already placed in an organisation through app_metadata is left where it was put). Done BEFORE the cohort so the cohort rules
+  -- (a cohort is joined only inside the person's own organisation) see the organisation the person ends up in.
   if (u.raw_app_meta_data ->> 'organisation_id') is null
      and not exists (select 1 from public.employer_roster_members where claimed_profile_id = p_user) then
     v_phone := case
@@ -137,12 +136,30 @@ begin
       select id, organisation_id into v_roster_id, v_roster_org from public.employer_roster_members
        where lower(trim(email)) = v_email and status in ('pending', 'invited') order by created_at limit 1 for update;
     end if;
-    if v_roster_id is not null then
+    if v_roster_id is not null and v_fresh then
       update public.profiles set organisation_id = v_roster_org where id = p_user and organisation_id is distinct from v_roster_org;
       update public.employer_roster_members
          set status = 'claimed', claimed_profile_id = p_user, claimed_at = now() where id = v_roster_id;
       insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event, subject_patient_id)
       values (v_roster_org, p_user, 'roster.claimed_after_verification', 'employer_roster_member', v_roster_id, '{}'::jsonb, p_user);
+      p.organisation_id := v_roster_org;
+    elsif v_roster_id is not null then
+      insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event, result, subject_patient_id)
+      values (v_roster_org, p_user, 'roster.claim_skipped_account_in_use', 'employer_roster_member', v_roster_id,
+              jsonb_build_object('why', 'onboarding_completed'), 'denied', p_user);
+    end if;
+  end if;
+
+  -- (2) the pending sponsor cohort code, joined by the same rules as join_cohort. A code that no longer works is told to the person
+  -- in-app rather than dropped silently.
+  v_code := nullif(btrim(coalesce(u.raw_user_meta_data ->> 'cohort_code', '')), '');
+  if v_code is not null and p.role = 'patient' then
+    r := private.join_cohort_core(p_user, v_code);
+    if coalesce((r ->> 'ok')::boolean, false) = false then
+      insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class, priority)
+      values ((select organisation_id from public.profiles where id = p_user), p_user, 'in_app', 'pending', 'security.programme_code_not_applied',
+              jsonb_build_object('message', 'The programme code you entered when you signed up could not be used: it may have expired or be full. You can try it again from your profile, or ask the programme for a new one.', 'occurred_at', now()),
+              'non_clinical', 'routine');
     end if;
   end if;
 end;
@@ -150,7 +167,8 @@ $$;
 revoke all on function private.claim_programmes_for_verified_user(uuid) from public, anon, authenticated;
 
 -- A failure here must never block sign-up or the verification itself, but it must never be silent either: it is written to the
--- audit log for an admin to see and re-run.
+-- audit log, and the person is told in-app that their programme could not be added, with the route to try again (the code from
+-- their profile, or the employer join code). The claim runs once, on the verification transition, so nothing retries it by itself.
 create function private.claim_programmes_safely(p_user uuid) returns void
 language plpgsql security definer set search_path = ''
 as $$
@@ -161,8 +179,13 @@ exception when others then
     insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event, result, subject_patient_id)
     values ((select organisation_id from public.profiles where id = p_user), p_user, 'signup.programme_claim_failed', 'auth_user', p_user,
             jsonb_build_object('sqlstate', sqlstate), 'failed', p_user);
+    insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class, priority)
+    select organisation_id, p_user, 'in_app', 'pending', 'security.programme_code_not_applied',
+           jsonb_build_object('message', 'We could not add you to your programme just now. You can enter your programme or employer code again from your profile.', 'occurred_at', now()),
+           'non_clinical', 'routine'
+      from public.profiles where id = p_user;
   exception when others then
-    raise warning 'S03b: programme claim failed for a new user and the failure could not be logged (sqlstate %)', sqlstate;
+    raise warning 'S03b: programme claim failed for a new user and the failure could not be recorded (sqlstate %)', sqlstate;
   end;
 end;
 $$;

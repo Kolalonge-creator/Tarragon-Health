@@ -25,13 +25,15 @@ export function isRateLimitOtpError(error: unknown): boolean {
 
 /**
  * What Auth returns when the database refused a number change because the owner had not confirmed it (S03b:
- * private.enforce_phone_change_authorisation raises `phone_change_needs_confirmation`). GoTrue wraps a trigger failure as a
- * 500 "Database error updating user", so the specific text may or may not survive; both shapes mean "confirm first".
+ * private.enforce_phone_change_authorisation raises `phone_change_needs_confirmation`). Only the specific text counts: GoTrue wraps
+ * EVERY trigger or database failure as a generic 500 "Database error updating user", so matching that would send a person back to
+ * "confirm it is you" for an unrelated failure and never show the real one. The web action asks the database whether a fresh
+ * confirmation exists BEFORE it calls Auth (has_fresh_phone_change_authorisation), so it does not depend on this wording.
  */
 export function isPhoneChangeNeedsConfirmationError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
   const { message } = error as { message?: unknown };
-  return typeof message === "string" && /phone_change_needs_confirmation|database error updating user/i.test(message);
+  return typeof message === "string" && /phone_change_needs_confirmation/i.test(message);
 }
 
 /** GoTrue's "this number already has an account" answer to a sign-up. Sign-up shows the code step for it, like a new number. */

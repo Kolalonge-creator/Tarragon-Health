@@ -5,8 +5,8 @@
  *  - a malformed identifier or code, a weak password and a rate-limited caller never reach the database, and a weak password
  *    never spends a code;
  *  - every wrong code reads the same ("invalid"), whatever the reason;
- *  - the password is set only after the code is redeemed; if setting it fails the code is given back;
- *  - sessions are ended and the owner told only after the password changed;
+ *  - the password is set only after the code is redeemed AND every other session has been ended (so the step that makes the
+ *    recovery protect anything can never be the one that fails open); if either fails the code is given back;
  *  - nothing secret (code, password, number, address) is ever reported;
  *  - the contact route answers {ok:true} for a well-formed identifier whether or not anything exists, the link goes only to a
  *    channel Auth reports as VERIFIED, the address comes from Auth (never the request), and a failed send reopens the request.
@@ -68,7 +68,7 @@ describe("recoverWithBackupCode", () => {
     expect(updateUserById).not.toHaveBeenCalled();
   });
 
-  it("passes the normalised identifier and code, sets the password for the account the database named, then completes", async () => {
+  it("passes the normalised identifier and code, ends the other sessions, THEN sets the password for the account the database named", async () => {
     rpc.mockImplementation(async (fn: string) =>
       fn === "redeem_backup_code" ? { data: { ok: true, user_id: USER, remaining: 9 }, error: null } : { data: { ok: true }, error: null },
     );
@@ -77,30 +77,41 @@ describe("recoverWithBackupCode", () => {
     expect(rpc).toHaveBeenNthCalledWith(1, "redeem_backup_code", { p_kind: "email", p_identifier: "ada@example.ng", p_code: "ABCDEFGHJK" });
     expect(updateUserById).toHaveBeenCalledWith(USER, { password: PASSWORD });
     expect(rpc).toHaveBeenNthCalledWith(2, "complete_backup_code_recovery", { p_user: USER });
-    // order: redeem, then password, then complete
-    expect(rpc.mock.invocationCallOrder[0]).toBeLessThan(updateUserById.mock.invocationCallOrder[0]);
-    expect(updateUserById.mock.invocationCallOrder[0]).toBeLessThan(rpc.mock.invocationCallOrder[1]);
+    // order: redeem, then end the sessions, then the password
+    expect(rpc.mock.invocationCallOrder[1]).toBeLessThan(updateUserById.mock.invocationCallOrder[0]);
+    expect(rpc.mock.invocationCallOrder[0]).toBeLessThan(rpc.mock.invocationCallOrder[1]);
   });
 
   it("gives the code back when the password could not be set, and reports without any secret", async () => {
     rpc.mockImplementation(async (fn: string) =>
-      fn === "redeem_backup_code" ? { data: { ok: true, user_id: USER }, error: null } : { data: true, error: null },
+      fn === "redeem_backup_code" ? { data: { ok: true, user_id: USER }, error: null } : { data: { ok: true }, error: null },
     );
     updateUserById.mockResolvedValue({ error: { message: "boom" } });
     expect(await recoverWithBackupCode({ identifier: "ada@example.ng", code: CODE, newPassword: PASSWORD })).toEqual({ ok: false, reason: "unavailable" });
     expect(rpc).toHaveBeenCalledWith("release_backup_code", { p_user: USER, p_code: "ABCDEFGHJK" });
-    expect(rpc).not.toHaveBeenCalledWith("complete_backup_code_recovery", expect.anything());
     const reported = JSON.stringify(reportMock.mock.calls);
     expect(reportMock).toHaveBeenCalled();
     for (const secret of [PASSWORD, "ABCDEFGHJK", "ada@example.ng", USER]) expect(reported).not.toContain(secret);
   });
 
-  it("reports (and still succeeds) when ending sessions fails after the password changed", async () => {
-    rpc.mockImplementation(async (fn: string) =>
-      fn === "redeem_backup_code" ? { data: { ok: true, user_id: USER }, error: null } : { data: null, error: { message: "x" } },
-    );
-    expect(await recoverWithBackupCode({ identifier: "ada@example.ng", code: CODE, newPassword: PASSWORD })).toMatchObject({ ok: true });
+  it("does NOT change the password when the other sessions cannot be ended, and gives the code back", async () => {
+    rpc.mockImplementation(async (fn: string) => {
+      if (fn === "redeem_backup_code") return { data: { ok: true, user_id: USER }, error: null };
+      if (fn === "complete_backup_code_recovery") return { data: null, error: { message: "x" } };
+      return { data: true, error: null };
+    });
+    expect(await recoverWithBackupCode({ identifier: "ada@example.ng", code: CODE, newPassword: PASSWORD })).toEqual({ ok: false, reason: "unavailable" });
+    expect(updateUserById).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledWith("release_backup_code", { p_user: USER, p_code: "ABCDEFGHJK" });
     expect(reportMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats a completion that answers ok:false the same as a failure", async () => {
+    rpc.mockImplementation(async (fn: string) =>
+      fn === "redeem_backup_code" ? { data: { ok: true, user_id: USER }, error: null } : { data: { ok: false }, error: null },
+    );
+    expect(await recoverWithBackupCode({ identifier: "ada@example.ng", code: CODE, newPassword: PASSWORD })).toEqual({ ok: false, reason: "unavailable" });
+    expect(updateUserById).not.toHaveBeenCalled();
   });
 
   it("treats a database error on redeem as unavailable, not as a wrong code", async () => {
