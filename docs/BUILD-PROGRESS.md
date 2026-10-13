@@ -599,6 +599,10 @@ This entry was missing; it is rebuilt from the merged PRs and a live check, not 
 - **Open questions**: OQ-131 to OQ-133 (access from acknowledgement, Care Circle and the incident review task, the numbers and a further rung).
 - **Not done, and why**: (1) The migration is not applied and `process-events` and `send-pending-notifications` are not redeployed (handler, subscriber row and templates are in source); apply S18 then S19 before merging (CI does not push migrations), pin each version to its filename, deploy `process-events` first. (2) Nothing pages in practice until the CMO approves a triage rule set (OQ-88). (3) Care Circle notices and the clinical lead's review task are S29 and S20. (4) Not run in a browser or on a phone. (5) `database.types.ts` not spliced; screens parse results with Zod.
 
+## S04b-1b: late patient tables guarded, production gap check (2026-10-13)
+
+- Counted live: 11 patient_id tables outside `minor_dependant_table_policy` (followup_offer_slots, followup_offers, medication_prn_flags, medication_prn_limits, member_followup_entitlements, member_review_notes, poc_ecg_recordings, poc_measurements, poc_result_items, poc_results, testing_event_bookings). Migration `20261013215200_s04b1b_...` guards them, adds `private.minor_guard_gaps()` and fails itself if any gap remains. Proof `s04b1b_minor_guard_gaps.sql` (2 sabotages). Release-integrity job `check-minor-guard-gaps` asks production directly; runbook `docs/runbooks/minor-guard-gaps.md`. Not applied by the author.
+
 ## S18 and S19: second research pass and completion (2026-10-06)
 
 - **Research**: a second pass opened full pages where the fetcher allowed (Wheel, OpenLoop, Amwell, Omada, the CQC report on Babylon, PagerDuty, Opsgenie, the NHS Employers FAQ, Manchester Triage, MDCN and a 2025 legal guide, GSMA and electricity-supply sources); sections added to `docs/research/S18.md` and `S19.md` with each fact marked read, snippet or inferred, and the unpublished gaps listed.
