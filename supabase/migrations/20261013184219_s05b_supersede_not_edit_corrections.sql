@@ -21,6 +21,7 @@
 --   * INSERT cannot set supersedes_id unless it comes from that function (no forged chains);
 --   * DELETE is refused, except a cascade from a parent row (account removal, pg_trigger_depth > 1) and the patient's own
 --     wearable data erasure, which sets app.allow_clinical_value_delete (see section 4).
+-- The function is deliberately NOT granted to authenticated yet: reads do not hide superseded rows until S05b-c.
 -- Superuser maintenance migrations that must rewrite a value can disable the trigger for that statement; nothing else can.
 
 create type public.correction_status as enum ('corrected', 'amended', 'entered_in_error', 'cancelled');
@@ -73,6 +74,10 @@ begin
   -- correction links: only the function writes them, and a marked row is final
   foreach v_col in array v_chain loop
     if v_old -> v_col is distinct from v_new -> v_col then
+      -- the foreign key's own ON DELETE SET NULL (a profile removed later) is the one change that may come from outside the function
+      if v_col = 'corrected_by' and new.corrected_by is null and pg_trigger_depth() > 1 then
+        continue;
+      end if;
       if not v_ok then
         raise exception 'correction columns can only be set by public.correct_clinical_value' using errcode = '42501';
       end if;
@@ -113,13 +118,13 @@ begin
 
     frozen := case t
       when 'vitals_readings' then
-        'patient_id,vital_type,systolic,diastolic,glucose_mmol_l,glucose_context,weight_kg,pulse_bpm,temperature_c,spo2_pct,taken_at,waist_cm,ketones_mmol_l,ketone_urine,respiratory_rate_bpm,peak_flow_l_min,value_numeric,value_unit,position,arm,cuff_type'
+        'organisation_id,patient_id,source,device_id,wearable_connection_id,cgm_connection_id,vital_type,systolic,diastolic,glucose_mmol_l,glucose_context,weight_kg,pulse_bpm,temperature_c,spo2_pct,taken_at,waist_cm,ketones_mmol_l,ketone_urine,respiratory_rate_bpm,peak_flow_l_min,value_numeric,value_unit,position,arm,cuff_type'
       when 'patient_allergies' then
-        'patient_id,allergen,reaction,severity'
+        'organisation_id,patient_id,allergen,reaction,severity'
       when 'patient_conditions' then
-        'patient_id,condition_name,icd10_code,date_identified'
+        'organisation_id,patient_id,condition_name,icd10_code,date_identified'
       when 'lab_analyte_readings' then
-        'patient_id,code,value,value_text,unit,taken_at,reference_range_low,reference_range_high,reference_range_text,range_source,range_source_ref'
+        'organisation_id,patient_id,code,value,value_text,unit,taken_at,reference_range_low,reference_range_high,reference_range_text,range_source,range_source_ref'
     end;
     execute format(
       'create trigger a_clinical_value_supersession before insert or update or delete on public.%I '
@@ -172,7 +177,8 @@ begin
 
   -- who may correct: the clinician tied to this patient, or the patient on her own entries (never on a lab result, never to 'cancelled')
   select exists (
-    select 1 from public.clinical_staff cs where cs.profile_id = v_uid and cs.active
+    select 1 from public.clinical_staff cs
+     where cs.profile_id = v_uid and cs.active and cs.doctor_tier is not null and cs.doctor_tier <> 'care_coordinator'
   ) and private.clinician_has_patient_access(v_patient) into v_is_staff;
   if not v_is_staff then
     if v_patient is distinct from v_uid or p_table = 'lab_analyte_readings' then
@@ -183,6 +189,12 @@ begin
     end if;
     if p_table = 'vitals_readings' and v_old ->> 'validated_by' is not null then
       raise exception 'a clinician has already reviewed this reading: ask your care team to correct it' using errcode = '42501';
+    end if;
+    -- a patient corrects only what she typed herself: not a device or wearable value, not an entry a clinician recorded or verified
+    if (p_table = 'vitals_readings' and v_old ->> 'source' is distinct from 'manual')
+       or (p_table in ('patient_allergies', 'patient_conditions') and v_old ->> 'source' is distinct from 'patient')
+       or (p_table = 'patient_allergies' and v_old ->> 'verified_by' is not null) then
+      raise exception 'this entry did not come from you or a clinician has verified it: ask your care team to correct it' using errcode = '42501';
     end if;
   end if;
 
@@ -222,7 +234,13 @@ begin
     select jsonb_object_agg(k, v) into v_new from jsonb_each(v_old) e(k, v) where not (k = any (v_drop));
     v_new_id := gen_random_uuid();
     v_new := v_new || p_replacement || jsonb_build_object('id', v_new_id, 'supersedes_id', p_id);
-    if p_table = 'vitals_readings' then v_new := v_new || jsonb_build_object('logged_by_profile_id', v_uid); end if;
+    if p_table = 'vitals_readings' then
+      v_new := v_new || jsonb_build_object('logged_by_profile_id', v_uid);
+      -- a manual reading's time is derived from client_recorded_at (private.stamp_manual_vitals_timestamp, bounded by the offline window)
+      if v_old ->> 'source' = 'manual' then
+        v_new := v_new || jsonb_build_object('client_recorded_at', coalesce(p_replacement ->> 'taken_at', v_old ->> 'taken_at'));
+      end if;
+    end if;
     if p_table in ('patient_allergies', 'patient_conditions') then v_new := v_new || jsonb_build_object('recorded_by', v_uid); end if;
 
   end if;
@@ -244,8 +262,10 @@ begin
 end;
 $$;
 revoke all on function public.correct_clinical_value(text, uuid, public.correction_status, text, jsonb) from public;
-revoke all on function public.correct_clinical_value(text, uuid, public.correction_status, text, jsonb) from anon;
-grant execute on function public.correct_clinical_value(text, uuid, public.correction_status, text, jsonb) to authenticated;
+revoke all on function public.correct_clinical_value(text, uuid, public.correction_status, text, jsonb) from anon, authenticated;
+-- NOT yet executable by signed-in users: no read path hides a superseded or entered_in_error row yet (S05b-c). The service role (a server
+-- action acting for a verified user) can call it; S05b-c adds the read filters and then grants authenticated in its own migration.
+grant execute on function public.correct_clinical_value(text, uuid, public.correction_status, text, jsonb) to service_role;
 
 -- 4. The patient's own wearable data erasure stays possible (it is a deliberate patient control, not a clinician deleting a relied-on value).
 do $$
@@ -275,7 +295,10 @@ begin
   if has_function_privilege('anon', 'public.correct_clinical_value(text, uuid, public.correction_status, text, jsonb)', 'EXECUTE') then
     raise exception 'anon can execute correct_clinical_value';
   end if;
-  if not has_function_privilege('authenticated', 'public.correct_clinical_value(text, uuid, public.correction_status, text, jsonb)', 'EXECUTE') then
-    raise exception 'authenticated cannot execute correct_clinical_value';
+  if has_function_privilege('authenticated', 'public.correct_clinical_value(text, uuid, public.correction_status, text, jsonb)', 'EXECUTE') then
+    raise exception 'authenticated must not execute correct_clinical_value until the read paths hide superseded rows (S05b-c)';
+  end if;
+  if not has_function_privilege('service_role', 'public.correct_clinical_value(text, uuid, public.correction_status, text, jsonb)', 'EXECUTE') then
+    raise exception 'service_role cannot execute correct_clinical_value';
   end if;
 end $$;

@@ -9,7 +9,8 @@ import {
   releaseResult,
   withholdResult,
 } from "@/lib/lab-results/structured-actions";
-import { ATTEMPT_OUTCOME_LABEL, DISCLOSURE_ATTEMPT_OUTCOMES, describeRangeWithSource, SCREENING_ANALYTES, type ReviewResult } from "@/lib/lab-results/structured";
+import { RangeCell } from "@/components/lab/range-cell";
+import { ATTEMPT_OUTCOME_LABEL, DISCLOSURE_ATTEMPT_OUTCOMES, SCREENING_ANALYTES, type ReviewResult } from "@/lib/lab-results/structured";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -89,15 +90,7 @@ function ReviewBody({ result }: { result: ReviewResult }) {
                   <td className="py-1">{i.analyte_code.replace(/_/g, " ")}</td>
                   <td>{i.value_numeric !== null ? `${i.value_numeric} ${i.unit}` : i.value_text}</td>
                   <td>
-                    {(() => {
-                      const r = describeRangeWithSource(i);
-                      return (
-                        <>
-                          {r.range}
-                          <span className="block text-xs text-charcoal-ink/60">{r.sourceLabel}</span>
-                        </>
-                      );
-                    })()}
+                    <RangeCell item={i} />
                   </td>
                   <td><Badge variant={FLAG_VARIANT[i.flag]}>{i.sensitive_positive ? "reactive screen (sensitive)" : i.flag}</Badge></td>
                 </tr>

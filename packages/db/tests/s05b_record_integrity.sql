@@ -42,6 +42,8 @@ declare
   v_pv uuid;
   v_pc text;
   v_wc uuid;
+  v_cc uuid := gen_random_uuid();   -- care coordinator
+  v_v6 uuid; v_v7 uuid; v_al2 uuid; v_ccs uuid;
   v_item record;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
@@ -63,6 +65,13 @@ begin
   insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier) values
     (v_org, v_c, 'S05b Tied Doctor',   true, now(), 'senior_medical_officer'),
     (v_org, v_u, 'S05b Untied Doctor', true, now(), 'senior_medical_officer');
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_cc, 's05b-cc@example.invalid', 'x', now(), '{}', '{}');
+  insert into public.profiles (id, organisation_id, role, full_name, phone)
+  values (v_cc, v_org, 'clinician', 'S05b Coordinator', '+2348055550006')
+  on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role;
+  insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier)
+  values (v_org, v_cc, 'S05b Coordinator', true, now(), 'care_coordinator');
   select id into v_cs from public.clinical_staff where profile_id = v_c;
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, assigned_at)
   values (v_org, v_p, v_c, now()) on conflict (patient_id) do update set clinician_id = v_c;
@@ -222,7 +231,7 @@ begin
 
   -- B3 the tied clinician corrects v1 (value changes)
   perform set_config('request.jwt.claims', json_build_object('sub', v_c, 'role', 'authenticated')::text, true);
-  execute 'set local role authenticated';
+  execute 'set local role service_role';
   v_res := public.correct_clinical_value('vitals_readings', v_v1, 'corrected', 'Scale was not zeroed', '{"weight_kg": 68.5}'::jsonb);
   execute 'reset role';
   select * into v_row from public.vitals_readings where id = v_v1;
@@ -240,7 +249,7 @@ begin
 
   -- B4 a second correction of the same row is refused; reason and shape rules
   perform set_config('request.jwt.claims', json_build_object('sub', v_c, 'role', 'authenticated')::text, true);
-  execute 'set local role authenticated';
+  execute 'set local role service_role';
   v_state := null;
   begin perform public.correct_clinical_value('vitals_readings', v_v1, 'corrected', 'second attempt here', '{"weight_kg": 1}'::jsonb);
   exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
@@ -261,7 +270,7 @@ begin
 
   -- B5 who may: an untied clinician, another patient, a patient marking cancelled
   perform set_config('request.jwt.claims', json_build_object('sub', v_u, 'role', 'authenticated')::text, true);
-  execute 'set local role authenticated';
+  execute 'set local role service_role';
   v_state := null;
   begin perform public.correct_clinical_value('vitals_readings', v_v2, 'entered_in_error', 'untied doctor guess', null);
   exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
@@ -269,7 +278,7 @@ begin
   execute 'reset role';
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_p2, 'role', 'authenticated')::text, true);
-  execute 'set local role authenticated';
+  execute 'set local role service_role';
   v_state := null;
   begin perform public.correct_clinical_value('vitals_readings', v_v2, 'entered_in_error', 'someone else''s reading', null);
   exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
@@ -277,7 +286,7 @@ begin
   execute 'reset role';
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_p, 'role', 'authenticated')::text, true);
-  execute 'set local role authenticated';
+  execute 'set local role service_role';
   v_state := null;
   begin perform public.correct_clinical_value('vitals_readings', v_v2, 'cancelled', 'patient cancels it', null);
   exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
@@ -297,7 +306,7 @@ begin
 
   -- B7 a clinician acted on v4: entered_in_error is refused for the clinician too, cancelled is the status
   perform set_config('request.jwt.claims', json_build_object('sub', v_c, 'role', 'authenticated')::text, true);
-  execute 'set local role authenticated';
+  execute 'set local role service_role';
   v_state := null;
   begin perform public.correct_clinical_value('vitals_readings', v_v4, 'entered_in_error', 'wrong day', null);
   exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
@@ -308,8 +317,68 @@ begin
     raise exception 'FAIL B7b: cancelled was not recorded';
   end if;
 
+  execute 'reset role';
+  -- B7c a care coordinator (tied to the patient) cannot correct; the tied doctor can (the gate opens)
+  insert into public.vitals_readings (organisation_id, patient_id, vital_type, weight_kg, taken_at, source)
+  values (v_org, v_p2, 'weight', 81, now() - interval '30 minutes', 'manual') returning id into v_v6;
+  insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, assigned_at)
+  values (v_org, v_p2, v_cc, now()) on conflict (patient_id) do update set clinician_id = v_cc;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_cc, 'role', 'authenticated')::text, true);
+  execute 'set local role service_role';
+  v_state := null;
+  begin perform public.correct_clinical_value('vitals_readings', v_v6, 'entered_in_error', 'coordinator tries it', null);
+  exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
+  execute 'reset role';
+  if v_state is distinct from '42501' then raise exception 'FAIL B7c: a care coordinator corrected a reading (state %)', v_state; end if;
+  update public.care_team_assignment set clinician_id = v_c where patient_id = v_p2;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_c, 'role', 'authenticated')::text, true);
+  execute 'set local role service_role';
+  perform public.correct_clinical_value('vitals_readings', v_v6, 'entered_in_error', 'tied doctor confirms the slip', null);
+  execute 'reset role';
+  if (select correction_status from public.vitals_readings where id = v_v6) is distinct from 'entered_in_error' then
+    raise exception 'FAIL B7d: the tied doctor could not correct after the coordinator was refused';
+  end if;
+
+  -- B7e a patient cannot correct a device reading or an allergy a clinician recorded
+  insert into public.vitals_readings (organisation_id, patient_id, vital_type, pulse_bpm, taken_at, source)
+  values (v_org, v_p, 'pulse', 72, now() - interval '20 minutes', 'device') returning id into v_v7;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_p, 'role', 'authenticated')::text, true);
+  execute 'set local role service_role';
+  v_state := null;
+  begin perform public.correct_clinical_value('vitals_readings', v_v7, 'corrected', 'patient edits a device reading', '{"pulse_bpm": 60}'::jsonb);
+  exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
+  if v_state is distinct from '42501' then raise exception 'FAIL B7e: a patient edited a device reading (state %)', v_state; end if;
+  v_state := null;
+  begin perform public.correct_clinical_value('patient_allergies', v_al, 'entered_in_error', 'patient voids a clinician allergy', null);
+  exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
+  if v_state is distinct from '42501' then raise exception 'FAIL B7f: a patient voided a clinician-recorded allergy (state %)', v_state; end if;
+  execute 'reset role';
+
+  -- B7g a corrected manual reading keeps its time (inside the offline window) instead of taking the correction time
+  select * into v_row from public.vitals_readings where supersedes_id = v_v1;
+  if abs(extract(epoch from (v_row.taken_at - (select taken_at from public.vitals_readings where id = v_v1)))) > 5 then
+    raise exception 'FAIL B7g: the replacement manual reading lost the original time (% vs original)', v_row.taken_at;
+  end if;
+
+  -- B7h the foreign key that nulls corrected_by when a profile is later removed is the one outside change the guard lets through
+  create temporary table s05b_fkp (id uuid primary key);
+  create temporary table s05b_fkc (
+    id uuid primary key default gen_random_uuid(), supersedes_id uuid, superseded_by_id uuid, correction_status text, correction_reason text,
+    corrected_by uuid references s05b_fkp (id) on delete set null, corrected_at timestamptz);
+  create trigger a_clinical_value_supersession before update on s05b_fkc
+    for each row execute function private.enforce_clinical_value_supersession();
+  insert into s05b_fkp values (v_p3);
+  insert into s05b_fkc (correction_status, correction_reason, corrected_by, corrected_at) values ('corrected', 'earlier fix', v_p3, now());
+  v_state := null;
+  begin update s05b_fkc set corrected_by = null;
+  exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
+  if v_state is distinct from '42501' then raise exception 'FAIL B7h: corrected_by was nulled by a plain update (state %)', v_state; end if;
+  delete from s05b_fkp where id = v_p3;
+  if exists (select 1 from s05b_fkc where corrected_by is not null) then raise exception 'FAIL B7h2: the foreign key action did not null corrected_by'; end if;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_c, 'role', 'authenticated')::text, true);
+
   -- B8 allergies and lab values go through the same function
-  execute 'set local role authenticated';
+  execute 'set local role service_role';
   v_res := public.correct_clinical_value('patient_allergies', v_al, 'amended', 'Reaction was more severe', '{"severity": "severe"}'::jsonb);
   execute 'reset role';
   select * into v_row from public.patient_allergies where id = (v_res ->> 'replacement_id')::uuid;
@@ -319,7 +388,7 @@ begin
   if (select severity from public.patient_allergies where id = v_al) <> 'moderate' then
     raise exception 'FAIL B8b: the original allergy changed';
   end if;
-  execute 'set local role authenticated';
+  execute 'set local role service_role';
   v_res := public.correct_clinical_value('lab_analyte_readings', v_lab, 'corrected', 'Lab sent a corrected report',
                                          '{"value": 5.9, "range_source": "lab_report", "reference_range_text": "4.0 - 5.6"}'::jsonb);
   execute 'reset role';
@@ -331,15 +400,16 @@ begin
 
   -- B9 a patient cannot correct a lab value
   perform set_config('request.jwt.claims', json_build_object('sub', v_p, 'role', 'authenticated')::text, true);
-  execute 'set local role authenticated';
+  execute 'set local role service_role';
   v_state := null;
   begin perform public.correct_clinical_value('lab_analyte_readings', v_lab, 'entered_in_error', 'patient wants it gone', null);
   exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
   if v_state is distinct from '42501' then raise exception 'FAIL B9: a patient corrected a lab value (state %)', v_state; end if;
   execute 'reset role';
   -- anon cannot execute
-  if has_function_privilege('anon', 'public.correct_clinical_value(text, uuid, public.correction_status, text, jsonb)', 'EXECUTE') then
-    raise exception 'FAIL B10: anon can execute the correction function';
+  if has_function_privilege('anon', 'public.correct_clinical_value(text, uuid, public.correction_status, text, jsonb)', 'EXECUTE')
+     or has_function_privilege('authenticated', 'public.correct_clinical_value(text, uuid, public.correction_status, text, jsonb)', 'EXECUTE') then
+    raise exception 'FAIL B10: anon or authenticated can execute the correction function before the read paths hide superseded rows';
   end if;
   perform set_config('request.jwt.claims', '', true);
   raise notice 'PASS B: supersede, never edit';
@@ -388,6 +458,13 @@ begin
   select * into v_item from public.lab_result_items where lab_result_id = v_lr and analyte_code = 'fpg';
   if v_item.range_source <> 'cmo_signed_config' or v_item.range_source_ref is null or v_item.range_source_ref not like 'lab panel % version %' then
     raise exception 'FAIL C5b: a signed panel range is not labelled (source %, ref %)', v_item.range_source, v_item.range_source_ref;
+  end if;
+  -- a sign-off older than the panel version it would cover does not count
+  update public.lab_panel_signoffs set approved_at = (select created_at from public.lab_panel_versions where id = v_pv) - interval '1 day' where is_active;
+  insert into public.lab_result_items (lab_result_id, organisation_id, patient_id, analyte_code, value_numeric, unit, ref_low, ref_high, flag, is_test)
+  values (v_lr, v_org, v_p, 'ldl_c', 2.0, 'mmol/L', 0, 3.0, 'normal', true);
+  if (select range_source from public.lab_result_items where lab_result_id = v_lr and analyte_code = 'ldl_c') <> 'unspecified' then
+    raise exception 'FAIL C5d: a range from a panel version newer than the signature was labelled signed';
   end if;
   insert into public.lab_result_items (lab_result_id, organisation_id, patient_id, analyte_code, value_text, unit, flag, is_test)
   values (v_lr, v_org, v_p, 'hiv', 'negative', 'n/a', 'negative', true);

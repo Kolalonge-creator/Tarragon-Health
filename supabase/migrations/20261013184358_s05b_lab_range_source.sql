@@ -55,7 +55,13 @@ begin
   select v.panel_code, v.version into v_panel, v_version
     from public.lab_results r join public.lab_panel_versions v on v.id = r.panel_version_id
    where r.id = new.lab_result_id;
-  select exists (select 1 from public.lab_panel_signoffs s where s.is_active and s.approved_at is not null) into v_signed;
+  -- the same predicate the release rules use (an active, signed sign-off, private.lab_panels_signed), plus: the sign-off must be at or after
+  -- the moment this panel version was created, so a panel version added after the last signature is not called signed
+  select exists (
+    select 1 from public.lab_panel_signoffs s, public.lab_panel_versions v, public.lab_results r
+     where s.is_active and s.approved_by is not null and s.approved_at is not null
+       and r.id = new.lab_result_id and v.id = r.panel_version_id and s.approved_at >= v.created_at
+  ) into v_signed;
   if v_panel is not null and v_signed then
     new.range_source := 'cmo_signed_config';
     new.range_source_ref := 'lab panel ' || replace(v_panel, '_', ' ') || ' version ' || v_version;
