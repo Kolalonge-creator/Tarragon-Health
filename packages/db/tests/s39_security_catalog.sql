@@ -32,13 +32,17 @@ insert into allow values
   -- public RPCs anon may execute (token or serial verified, or public catalogue); each is rate-limited or carries no personal data
   ('anon_fn', 'public.public_service_coverage'), ('anon_fn', 'public.public_response_commitments'), ('anon_fn', 'public.public_partner_locations'),
   ('anon_fn', 'public.emergency_card_by_token'), ('anon_fn', 'public.health_passport_by_serial'), ('anon_fn', 'public.verify_payer_board_report'),
-  ('anon_fn', 'public.public_price_list'), ('anon_fn', 'public.record_share_by_token'), ('anon_fn', 'public.platform_switch_is_on'),
+  ('anon_fn', 'public.public_price_list'), ('anon_fn', 'public.record_share_by_token'), ('anon_fn', 'public.record_share_peek'), ('anon_fn', 'public.platform_switch_is_on'),
   ('anon_fn', 'public.verify_prescription_public'), ('anon_fn', 'public.record_prescription_supply_public'),
   -- views that run with their owner's rights on purpose (each carries its own caller predicate, or is a public directory, or is not granted)
   ('owner_view', 'public.care_message_communication_log'), ('owner_view', 'public.clinical_staff_directory'),
   ('owner_view', 'public.lab_provider_directory'), ('owner_view', 'public.pharmacy_partner_directory'),
   ('owner_view', 'public.specialist_directory'), ('owner_view', 'public.therapy_directory'),
   ('owner_view', 'analytics.v_outcome_snapshots'), ('owner_view', 'analytics.v_bp_control_90d_by_month'),
+  -- S39b: organisation-level quality and safety aggregates (counts only, filtered to the caller's organisation staff)
+  ('owner_view', 'public.diabetes_quality_metrics'), ('owner_view', 'public.hypertension_quality_metrics'), ('owner_view', 'public.lpe_programme_outcomes'),
+  ('owner_view', 'public.obesity_quality_metrics'), ('owner_view', 'public.risk_model_drift_signal'), ('owner_view', 'public.risk_model_performance'),
+  ('owner_view', 'public.risk_model_performance_by_subgroup'), ('owner_view', 'public.triage_safety_monitoring'),
   -- public storage buckets (staff photos are shown on the public directory)
   ('public_bucket', 'clinical-staff-photos'),
   -- patient avatars: a random-named file under the person's own folder, shown by its stored public address; private bucket plus signed

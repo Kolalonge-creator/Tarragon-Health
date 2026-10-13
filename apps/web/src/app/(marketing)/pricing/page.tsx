@@ -1,105 +1,101 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { formatNaira } from "@tarragon/commerce";
+import { t } from "@tarragon/i18n";
+import { getProposedConfig } from "@tarragon/shared";
 import { Section, SectionHeading } from "../_components/section";
 import { PricingFreeFeatures } from "../_components/pricing-free-features";
-import { PricingServices } from "../_components/pricing-services";
-import { fetchPlanPrices, servicePriceOverridesFrom } from "@/lib/marketing/plan-prices";
 import { PricingLabelBadge } from "../_components/pricing-label";
 import { CtaBand } from "../_components/cta-band";
 import { EmergencyNotice } from "../_components/emergency-notice";
 import { FaqAccordion } from "../_components/marketing-faq-accordion";
 import { Button } from "@/components/ui/button";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
-import { SITE, SITE_URL, absoluteUrl, pageMetadata } from "@/lib/marketing/site";
-import { paidServicesJsonLd } from "@/lib/marketing/structured-data";
-import {
-  ALWAYS_FREE,
-  ALWAYS_FREE_NOTE,
-  EMPLOYER_HMO_NOTE,
-  getPricingFaq,
-  NAIRA_ONLY_STATEMENT,
-  PAID_SERVICES,
-} from "../_content/pricing";
+import { pageMetadata } from "@/lib/marketing/site";
+import { ALWAYS_FREE, ALWAYS_FREE_NOTE, EMPLOYER_HMO_NOTE, NAIRA_ONLY_STATEMENT } from "../_content/pricing";
 
 export const metadata: Metadata = pageMetadata({
   title: "Pricing",
   description:
-    "The app is free. You pay only for a doctor's time, priced per piece of work, in naira, with the exact price shown before you confirm. Nothing recurs.",
+    "Two plans: Free, and Membership. Membership adds a yearly blood test and a monthly video call with your care team, in naira.",
   path: MARKETING_ROUTES.pricing,
 });
 
 export const revalidate = 3600;
 
+/** The individual Membership price, read from the versioned config (integer kobo), never typed into a page. */
+function membershipPriceKobo(): number {
+  const v = getProposedConfig("commerce.membership_prices").value as { individual_kobo: number };
+  return v.individual_kobo;
+}
+
+/** The refund window in days, read from the versioned config (membership.refund), never typed into a page. */
+function refundWindowDays(): number {
+  const v = getProposedConfig("membership.refund").value as { window_days: number };
+  return v.window_days;
+}
+
+const MEMBERSHIP_INCLUDES = [
+  t("catalog.membership_annual.incl.1", "en"),
+  t("catalog.membership_annual.incl.2", "en"),
+  t("catalog.membership_annual.incl.3", "en"),
+  t("catalog.membership_annual.incl.4", "en"),
+] as const;
+
+function pricingFaq(price: string, refundDays: number) {
+  return [
+    {
+      question: "What are the two plans?",
+      answer: `Free and Membership. Free is the app: tracking, reminders, education and guidance, with no time limit and no card. Membership is ₦${price} a year and adds a yearly blood test and a video call with your care team every month.`,
+    },
+    {
+      question: "Does Membership renew by itself?",
+      answer:
+        "No. It lasts a year and we remind you 30, 14 and 7 days before it ends. For 14 days after it ends you keep your Member access, and your records stay with you whatever you choose.",
+    },
+    {
+      question: "Can I get a refund?",
+      answer:
+        `Yes, within ${refundDays} days of buying your Membership. After ${refundDays} days it cannot be refunded. If a refund is approved your Member access ends straight away. A Membership that simply reaches the end of its year is different: you keep your Member access for 14 days after it ends.`,
+    },
+    {
+      question: "Are medicines included?",
+      answer: "No. Your care team signs a prescription and you take it to any pharmacy and pay there.",
+    },
+    {
+      question: "Can my employer pay for me?",
+      answer:
+        "Yes. An employer can cover its employees. If your employer pays you do not pay anything yourself, and your employer only ever sees counts, never anything about you.",
+    },
+  ];
+}
+
 export default async function PricingPage() {
-  const priceOverrides = servicePriceOverridesFrom(await fetchPlanPrices());
-  // Resolved once and used for both the rendered FAQ and its JSON-LD, so the
-  // structured data always quotes the same (live) prices as the visible page.
-  const pricingFaq = getPricingFaq(priceOverrides);
+  const price = formatNaira(membershipPriceKobo());
+  const refundDays = refundWindowDays();
+  const faq = pricingFaq(price, refundDays);
   /** FAQPage structured data for the pricing questions; eligible for rich results. */
   const pricingFaqJsonLd = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
-    mainEntity: pricingFaq.map((faq) => ({
+    mainEntity: faq.map((f) => ({
       "@type": "Question",
-      name: faq.question,
-      acceptedAnswer: { "@type": "Answer", text: faq.answer },
+      name: f.question,
+      acceptedAnswer: { "@type": "Answer", text: f.answer },
     })),
   };
-  /**
-   * Offer markup for the nine-item paid menu, built from the SAME resolved
-   * prices the page renders, so the structured data can never advertise a
-   * number the visible card contradicts. NGN only: Paystack is the one live
-   * provider and there is no other currency to quote.
-   */
-  const paidServicesStructuredData = paidServicesJsonLd({
-    services: PAID_SERVICES.map((service) => ({
-      id: service.id,
-      name: service.name,
-      description: service.description,
-      price: priceOverrides[service.code] ?? service.price,
-    })),
-    pageUrl: absoluteUrl(MARKETING_ROUTES.pricing),
-    providerName: SITE.name,
-    providerUrl: SITE_URL,
-  });
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingFaqJsonLd) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(paidServicesStructuredData) }}
-      />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingFaqJsonLd) }} />
       <Section className="pt-20">
         <SectionHeading
           as="h1"
           eyebrow="Pricing"
-          title="The app is free. You pay for a doctor's time."
-          description="Everything you can do yourself costs nothing, with no time limit and no card required. We charge only when a doctor does a specific piece of work for you, and you always see that price first."
+          title="Free, or Membership. Nothing in between."
+          description="Everything you can do yourself costs nothing, with no time limit and no card required. Membership adds a yearly blood test and a video call with your care team every month."
         />
-        <p className="mx-auto mb-10 max-w-2xl text-center text-sm font-medium text-deep-forest">
-          {NAIRA_ONLY_STATEMENT}
-        </p>
-        {/* The early exit for somebody who came here for one blood test, not to
-            read a pricing page. The Health Check is genuinely pay-once and the
-            lab sets its own price, so sending them straight out of this page is
-            the honest thing to do rather than a leak. */}
-        <div className="mx-auto mb-10 max-w-2xl rounded-xl border border-clinical-navy/15 bg-clinical-navy/[0.04] px-5 py-4 text-center">
-          <p className="text-sm font-semibold text-clinical-navy">
-Just want one blood test? You do not need an account for that.
-          </p>
-          <p className="mt-1.5 text-sm text-charcoal-ink/75">
-            You pay laboratories and pharmacies directly, at their price, for every test, including a
-            one-off Health Check. We tell you what&apos;s worth doing and a doctor reads the result; we
-            neither set the price nor take a cut.
-          </p>
-          <Button asChild variant="outline" size="sm" className="mt-3">
-            <Link href={MARKETING_ROUTES.annualHealthCheck}>Book a one-off check instead</Link>
-          </Button>
-        </div>
+        <p className="mx-auto mb-10 max-w-2xl text-center text-sm font-medium text-deep-forest">{NAIRA_ONLY_STATEMENT}</p>
         <PricingFreeFeatures />
         <div className="mt-10 flex flex-wrap justify-center gap-3">
           <Button asChild size="lg">
@@ -112,7 +108,7 @@ Just want one blood test? You do not need an account for that.
         <p className="mt-6 text-center text-sm text-charcoal-ink/70">
           Want the full picture first? Read our{" "}
           <Link href={MARKETING_ROUTES.howPricingWorks} className="font-semibold text-brand-green underline underline-offset-2">
-No-Hidden-Cost Promise, care vouchers, and how we compare to your HMO
+            No-Hidden-Cost Promise and how we compare to your HMO
           </Link>
           .
         </p>
@@ -120,11 +116,23 @@ No-Hidden-Cost Promise, care vouchers, and how we compare to your HMO
 
       <Section variant="sage">
         <SectionHeading
-          eyebrow="What costs money"
-          title="A doctor's time, priced per piece of work"
-          description="Nothing here is ever added on your behalf: you choose it, you see the price, you confirm, and it does not renew. Lab tests aren't on this list: you pay the laboratory directly, not us."
+          eyebrow="Membership"
+          title={`${t("catalog.membership_annual.name", "en")}: ₦${price} a year`}
+          description={t("catalog.membership_annual.description", "en")}
         />
-        <PricingServices priceOverrides={priceOverrides} />
+        <div className="mx-auto max-w-2xl rounded-xl border border-brand-green/20 bg-white p-6">
+          <ul className="space-y-2 text-sm leading-relaxed text-charcoal-ink/80">
+            {MEMBERSHIP_INCLUDES.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+          <p className="mt-4 text-sm text-charcoal-ink/70">
+            It lasts a year and does not renew by itself. We remind you before it ends, and you keep your Member access for 14 days after.
+          </p>
+          <p className="mt-2 text-sm text-charcoal-ink/70">
+            Refunds: within {refundDays} days of buying it. After that it cannot be refunded.
+          </p>
+        </div>
       </Section>
 
       <Section>
@@ -132,25 +140,18 @@ No-Hidden-Cost Promise, care vouchers, and how we compare to your HMO
         <div className="mx-auto max-w-2xl">
           <div className="rounded-xl border border-charcoal-ink/10 bg-white p-6">
             <div className="flex items-start justify-between gap-3">
-              <h3 className="font-heading text-lg font-semibold text-charcoal-ink">
-                {ALWAYS_FREE.feature}
-              </h3>
+              <h3 className="font-heading text-lg font-semibold text-charcoal-ink">{ALWAYS_FREE.feature}</h3>
               <PricingLabelBadge label={ALWAYS_FREE.label} />
             </div>
-            <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">
-              {ALWAYS_FREE.description}
-            </p>
+            <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">{ALWAYS_FREE.description}</p>
           </div>
           <p className="mt-6 text-center text-sm text-charcoal-ink/70">{ALWAYS_FREE_NOTE}</p>
         </div>
       </Section>
 
       <Section variant="sage">
-        <SectionHeading
-          eyebrow="Questions"
-          title="Frequently asked questions"
-        />
-        <FaqAccordion items={pricingFaq} variant="minimal" />
+        <SectionHeading eyebrow="Questions" title="Frequently asked questions" />
+        <FaqAccordion items={faq} variant="minimal" />
       </Section>
 
       <Section>

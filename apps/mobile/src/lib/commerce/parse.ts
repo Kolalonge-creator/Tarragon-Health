@@ -24,6 +24,8 @@ export interface OrderRow {
 export interface MembershipState {
   isMember: boolean;
   endsAt: string | null;
+  /** Set only in the 14 day grace after the year ended: the person keeps Member access but may renew, so the screen does not block a purchase. */
+  graceEndsAt?: string;
 }
 
 const KINDS = ["consultation", "care_pack", "lab_panel", "membership"] as const;
@@ -63,6 +65,7 @@ export function parseOrders(data: unknown): OrderRow[] {
 
 export function parseMembership(data: unknown): MembershipState {
   if (!isObj(data) || data["is_member"] !== true) return { isMember: false, endsAt: null };
+  if (data["in_grace"] === true) return { isMember: false, endsAt: null, ...(str(data["grace_ends_at"]) ? { graceEndsAt: data["grace_ends_at"] } : {}) };
   return { isMember: true, endsAt: str(data["ends_at"]) ? data["ends_at"] : null };
 }
 

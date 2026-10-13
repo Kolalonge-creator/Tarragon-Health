@@ -9,6 +9,9 @@ import { SafetyConcernButton } from "@/components/clinician/safety-concern";
 import { OfflineBanner } from "@/components/shell/offline-banner";
 import { SigningHubBanner } from "@/components/shell/signing-hub-banner";
 import { getNavSections } from "@/lib/navigation";
+import { getCommunityStaffContext } from "@/components/community/staff-rpc";
+import { withCommunityNav } from "@/components/community/community-nav";
+import { groupListSchema } from "@/lib/community/model";
 import { buildAdminSearchIndex, CMO_EXTRA_PAGES } from "@/lib/admin-search";
 import { getVisibleAdminSettingsTabs } from "@/lib/admin-settings-nav";
 import { isActiveChiefMedicalOfficer } from "@/lib/clinical/doctor-tier";
@@ -85,6 +88,15 @@ export default async function DashboardLayout({
           .map((item) => ({ label: item.label, href: item.href, countKey: item.countKey! }))
       : [];
 
+  // The Community entry shows only while the database says the community is open to this member (go-live guard) and they are an
+  // adult. A failed or malformed reply means "closed": nothing about the community leaks into the menu.
+  let communityOpen = false;
+  if (profile?.role === "patient" && !supporterOnly) {
+    const { data: communityList, error: communityError } = await supabase.rpc("community_list_groups");
+    const parsedList = communityError ? null : groupListSchema.safeParse(communityList);
+    communityOpen = parsedList?.success === true && parsedList.data.open && parsedList.data.adult;
+  }
+
   const isPatient = profile?.role === "patient" && !supporterOnly;
   const idLabel = isPatient ? "Patient ID" : staffNumber ? "Staff ID" : undefined;
   const idValue = isPatient ? profile?.patient_number : staffNumber;
@@ -115,6 +127,10 @@ export default async function DashboardLayout({
       : profile?.role === "clinician" && isChiefMedicalOfficer
         ? buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES)
         : undefined;
+
+  // "Community" appears in a staff menu only when the database says this person has community duties (cached per request).
+  const communityStaff =
+    profile?.role === "clinician" || profile?.role === "care_coordinator" ? await getCommunityStaffContext() : null;
 
   const embedded = await isEmbeddedInApp();
   if (embedded) {
@@ -148,7 +164,11 @@ export default async function DashboardLayout({
         idLabel={idLabel}
         idValue={idValue}
         profileHref={profileHref}
-        navSections={getNavSections(profile?.role, profile?.receives_care)}
+        navSections={withCommunityNav(
+          getNavSections(profile?.role, profile?.receives_care, { communityOpen }),
+          profile?.role,
+          communityStaff,
+        )}
         // The search box for the admin and the Chief Medical Officer: every page they can reach, built from the lists that draw the menus.
         adminSearch={adminSearchEntries}
         // Patient accounts (supporters included — they share the patient
