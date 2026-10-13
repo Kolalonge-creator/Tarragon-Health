@@ -100,8 +100,8 @@ export async function recordConsent(
     if (error.code === "23514" && action === "withdrawn") {
       return { ok: false, error: "This one is needed to use your account. To stop it, close your account using the data options below." };
     }
-    if (error.code === "23514" && action === "accepted") {
-      return { ok: false, error: "The wording changed while you were reading. Pull down to refresh and read the new version." };
+    if (error.code === "23514" && action === "accepted" && /replaced/i.test(error.message ?? "")) {
+      return { ok: false, error: "The wording changed while you were reading. Close this screen and open it again to read the new version." };
     }
     return { ok: false, error: "We could not record that just now. Please try again." };
   }
@@ -261,7 +261,7 @@ export async function createDeletionRequest(organisationId: string, patientId: s
     grace_ends_at: deletionGraceEndsAt(),
   });
   if (error) {
-    if (error.code === "23505") return { ok: false, error: "You already have a request in progress. Pull down to refresh and see it." };
+    if (error.code === "23505") return { ok: false, error: "You already have a request in progress. Close this screen and open it again to see it." };
     return { ok: false, error: error.message };
   }
   return { ok: true, data: null };

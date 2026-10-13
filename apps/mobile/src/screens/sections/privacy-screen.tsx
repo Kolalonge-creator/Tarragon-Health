@@ -81,7 +81,7 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
     setReceiptsError(receiptResult.ok ? null : "We could not load your consent receipts just now.");
     // A failed load must never look like "no requests": the deletion card would hide a pending request and its cancel button.
     setRequestsError(
-      exportList.ok && deletionList.ok ? null : "We could not load your data requests just now. Please try again before starting a new one.",
+      exportList.ok && deletionList.ok ? null : "We could not load your data requests just now. Please close this screen and open it again before starting a new one.",
     );
     setDevices(deviceList.ok ? deviceList.data : []);
     setExportRequests(exportList.ok ? exportList.data : []);
@@ -91,12 +91,16 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
 
   // Cards call this after a change. A failed reload must be seen, not left as stale lists (a stale deletion list hides its cancel button).
   const reload = useCallback(() => {
-    refresh().catch(() => setRequestsError("We could not refresh your data requests just now. Please pull down to refresh before changing anything."));
+    refresh().catch(() => setRequestsError("We could not refresh your data requests just now. Please close this screen and open it again before changing anything."));
   }, [refresh]);
 
   useEffect(() => {
     refresh()
-      .catch(() => setLoadError("Could not load your privacy settings."))
+      .catch(() => {
+        setLoadError("Could not load your privacy settings.");
+        // The request lists are unknown, so asking for an export or deletion is blocked rather than shown against an empty list.
+        setRequestsError("We could not load your data requests just now. Please close this screen and open it again before starting a new one.");
+      })
       .finally(() => setLoading(false));
   }, [refresh]);
 

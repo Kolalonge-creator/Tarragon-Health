@@ -55,7 +55,7 @@ async function recordOptionalConsent(consentType: string, action: "accepted" | "
     if (error.code === CHECK_VIOLATION && action === "withdrawn") {
       return { error: "This one is needed to use your account. To stop it, close your account using the data rights options on this page." };
     }
-    if (error.code === CHECK_VIOLATION && action === "accepted") {
+    if (error.code === CHECK_VIOLATION && action === "accepted" && /replaced/i.test(error.message ?? "")) {
       return { error: "The wording changed while you were reading. Please reload the page and read the new version." };
     }
     return { error: "We could not record that just then. Please try again." };

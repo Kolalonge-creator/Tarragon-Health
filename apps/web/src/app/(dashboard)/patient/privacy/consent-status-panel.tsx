@@ -125,7 +125,7 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
                         </Button>
                       )
                     )}
-                    {optional && state !== "granted" && state !== "older_version" && (
+                    {optional && state !== "granted" && (
                       <details className="max-w-xs text-xs">
                         <summary className="cursor-pointer font-medium text-brand-green">Read and decide</summary>
                         <div className="mt-2 space-y-2 rounded-lg border border-charcoal-ink/10 p-2 dark:border-night-ink/15">

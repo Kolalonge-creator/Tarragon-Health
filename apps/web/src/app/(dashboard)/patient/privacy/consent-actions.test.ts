@@ -82,7 +82,7 @@ describe("withdrawConsentAction", () => {
 
 describe("grantConsentAction", () => {
   it("tells the person to reload when the wording changed while they were reading (database refusal)", async () => {
-    insertMock.mockResolvedValue({ error: { code: "23514", message: "this wording has been replaced" } });
+    insertMock.mockResolvedValue({ error: { code: "23514", message: "this wording has been replaced; reload the page and read the current version" } });
     expect((await grantConsentAction("research", "cv-1"))?.error).toMatch(/wording changed/i);
   });
 

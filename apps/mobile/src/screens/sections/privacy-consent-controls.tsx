@@ -44,26 +44,23 @@ export function OptionalConsentControls({
     onChanged();
   }
 
-  if (row.state === "granted" || row.state === "older_version") {
-    return (
-      <View style={{ gap: 6 }}>
-        {error && <ErrorText>{error}</ErrorText>}
-        {confirming ? (
+  // In force (this version or an older one): the person can always withdraw. If the wording has been replaced they can also read the new words.
+  const inForce = row.state === "granted" || row.state === "older_version";
+  const canRead = row.state !== "granted";
+
+  return (
+    <View style={{ gap: 8 }}>
+      {error && <ErrorText>{error}</ErrorText>}
+      {inForce &&
+        (confirming ? (
           <View style={{ flexDirection: "row", gap: 8 }}>
             <SecondaryButton title="Yes, withdraw" onPress={() => void run("withdrawn")} disabled={busy} />
             <SecondaryButton title="Keep it" onPress={() => setConfirming(false)} disabled={busy} />
           </View>
         ) : (
           <SecondaryButton title="Withdraw" onPress={() => setConfirming(true)} />
-        )}
-      </View>
-    );
-  }
-
-  return (
-    <View style={{ gap: 8 }}>
-      {error && <ErrorText>{error}</ErrorText>}
-      {reading ? (
+        ))}
+      {!canRead ? null : reading ? (
         <>
           <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>{row.title}</Text>
           <Text style={{ fontSize: 12.5, color: colors.ink }}>{row.body}</Text>

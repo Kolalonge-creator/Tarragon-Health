@@ -417,7 +417,7 @@ begin
   if st <> 'completed' then raise exception 'FAIL 6k: admin could not complete after the grace (%)', st; end if;
   if (select is_active from public.profiles where id = pat) then raise exception 'FAIL 6l: completing the request did not deactivate the profile'; end if;
   if not exists (select 1 from public.profiles where id = pat) then raise exception 'FAIL 6m: the profile was deleted'; end if;
-  if not exists (select 1 from auth.users where id = pat and banned_until is not null and banned_until > now() + interval '100 years') then raise exception 'FAIL 6p: completing the request did not sign the person out'; end if;
+  if not exists (select 1 from auth.users where id = pat and banned_until is not null and banned_until > now() + interval '99 years') then raise exception 'FAIL 6p: completing the request did not sign the person out'; end if;
   if not exists (select 1 from public.audit_log where entity_id = req and action = 'data_deletion.completed' and subject_patient_id = pat) then raise exception 'FAIL 6q: completion was not audited'; end if;
   if exists (
     select 1 from (select distinct on (consent_type) consent_type, action from public.patient_consents where patient_id = pat order by consent_type, created_at desc, id desc) l

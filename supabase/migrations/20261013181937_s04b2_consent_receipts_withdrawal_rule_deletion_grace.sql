@@ -454,13 +454,17 @@ begin
     if new.status = 'completed' then
       new.completed_by := v_uid;
       new.completed_at := now();
+    end if;
+    -- Only a request that was APPROVED (fully or partially) closes the account when it is completed; completing one that skipped
+    -- approval records the completion and nothing else.
+    if new.status = 'completed' and old.status in ('approved_full', 'approved_partial') then
       -- Completing a request closes the account: the profile is DEACTIVATED, never deleted (consents, the deletion record and the
       -- clinical records hang off it). This is also what lets a required consent be withdrawn (OQ-53). Removing the sign-in and
       -- contact details is still a manual step by the reviewer (OQ-S04b2-2).
       update public.profiles set is_active = false where id = old.patient_id;
       -- And signs the person out for good: a deactivated profile alone only restricts staff, so the login is banned too (an existing
       -- session lasts until its token expires). A reviewer can lift it by clearing auth.users.banned_until.
-      update auth.users set banned_until = 'infinity' where id = old.patient_id;
+      update auth.users set banned_until = now() + interval '100 years' where id = old.patient_id;
       perform set_config('app.closing_account', 'on', true);
       -- And ends every consent still in force, as one withdrawal row each (append-only; labelled staff, since a reviewer made them).
       insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action)

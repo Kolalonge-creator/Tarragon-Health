@@ -53,7 +53,7 @@ describe("recordConsent", () => {
   });
 
   it("tells the person to refresh when the wording changed while they were reading (database refusal)", async () => {
-    mockInsert.mockResolvedValue({ error: { code: "23514", message: "replaced" } });
+    mockInsert.mockResolvedValue({ error: { code: "23514", message: "this wording has been replaced; reload" } });
     const result = await recordConsent("org-1", "p1", "research", "accepted", "cv-1");
     expect(result).toEqual({ ok: false, error: expect.stringMatching(/wording changed/i) });
   });
