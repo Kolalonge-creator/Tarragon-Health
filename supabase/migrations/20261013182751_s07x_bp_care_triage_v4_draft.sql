@@ -62,8 +62,9 @@ begin
   if v3 is null then raise exception 'S07x self-check: bp_care_triage v3 is missing'; end if;
   if v4 is null then raise exception 'S07x self-check: bp_care_triage v4 was not created'; end if;
   if v_status <> 'draft' then raise exception 'S07x self-check: v4 must be a draft until the CMO approves it, found %', v_status; end if;
-  if (select status from public.triage_rule_sets where code = 'bp_care_triage' and version = 3) <> 'approved' then
-    raise exception 'S07x self-check: v3 must still be the approved set';
+  -- v3 is approved on the live project and a draft on a fresh replay (approval is a live fact, never in a migration); either way this migration leaves its status alone.
+  if (select status from public.triage_rule_sets where code = 'bp_care_triage' and version = 3) not in ('approved', 'draft') then
+    raise exception 'S07x self-check: v3 must be untouched (approved on live, a draft on a fresh replay)';
   end if;
   if (v4 -> 'rules') = (v3 -> 'rules') then raise exception 'S07x self-check: v4 rules are identical to v3'; end if;
   if jsonb_array_length(v4 -> 'rules') <> jsonb_array_length(v3 -> 'rules') then raise exception 'S07x self-check: v4 has a different number of rules than v3'; end if;

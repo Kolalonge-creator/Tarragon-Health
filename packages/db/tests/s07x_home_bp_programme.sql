@@ -320,8 +320,8 @@ select pg_temp.ck('real', 'P10 both new tables are registered for tied staff rea
   (select count(*) from public.data_registry where table_name in ('home_bp_checks', 'clinic_bp_readings', 'bp_pattern_flags')));
 
 -- F. the v4 draft and the server context ---------------------------------------------------------------------------------------------
-select pg_temp.ck('real', 'V1 v3 is still the approved set; v4 is a draft; v4 differs from v3 only in the version and BP-A7', 'approved|draft|true|1',
-  (select status from public.triage_rule_sets where code = 'bp_care_triage' and version = 3) || '|' ||
+select pg_temp.ck('real', 'V1 v3 is untouched (approved on live, a draft on a fresh replay); v4 is a draft; v4 differs from v3 only in the version and BP-A7', 'ok|draft|true|1',
+  (select case when status in ('approved', 'draft') then 'ok' else status end from public.triage_rule_sets where code = 'bp_care_triage' and version = 3) || '|' ||
   (select status from public.triage_rule_sets where code = 'bp_care_triage' and version = 4) || '|' ||
   ((select (rules #- '{rules}' #- '{version}') from public.triage_rule_sets where code = 'bp_care_triage' and version = 4)
     = (select (rules #- '{rules}' #- '{version}') from public.triage_rule_sets where code = 'bp_care_triage' and version = 3))::text || '|' ||
