@@ -153,12 +153,32 @@ begin
   perform pg_temp.res('a page notification carrying a reading fails notification_not_neutral', 'false,notification_not_neutral',
     v_ok::text || ',' || (select failed_stage from public.chain_canary_runs where run_id = v_run3 and kind = 'result'));
 
+  -- a page that made fewer than its three notices fails 'notification'
+  v_run4 := private.chain_canary_start();
+  perform pg_temp.emulate_processor(v_run4);
+  delete from public.notifications where template = 'on_call_page' and channel = 'email' and private.chain_canary_is_subject(recipient_id)
+     and source_id in (select p.id from public.pages p join public.triage_events te on te.id = p.triage_event_id where te.trigger_id in (select pg_temp.run_readings(v_run4)));
+  v_ok := private.chain_canary_evaluate(v_run4);
+  perform pg_temp.res('a page missing a channel fails the notification stage', 'false,notification', v_ok::text || ',' || (select failed_stage from public.chain_canary_runs where run_id = v_run4 and kind = 'result'));
+
+  -- a judge that breaks still reports: the tick cannot be rolled back by it
+  v_run4 := private.chain_canary_start();
+  update public.chain_canary_config set is_active = false;
+  perform private.chain_canary_evaluate_safe(v_run4);
+  update public.chain_canary_config set is_active = true where version = 1;
+  perform pg_temp.res('a broken judge records an evaluate failure and an incident', 'evaluate,1',
+    (select failed_stage from public.chain_canary_runs where run_id = v_run4 and kind = 'result') || ',' || (select count(*)::text from public.ops_incidents where external_reference = 'chain_canary:evaluate'));
+
   -- 7. The tick -----------------------------------------------------------------------------------------------------------------------
   select count(*) into v_n from public.chain_canary_runs where kind = 'started';
   v_tick := private.chain_canary_tick();
   perform pg_temp.res('a tick starts a run', 'true', (v_tick ->> 'started' is not null)::text);
   v_tick := private.chain_canary_tick();
   perform pg_temp.res('a second tick starts nothing while one is still waiting', 'true', (v_tick ->> 'started' is null)::text);
+  perform pg_temp.res('a config with a missing budget is refused by the database', '23514', pg_temp.try($q$insert into public.chain_canary_config (version, is_active, effective_from, rules) values (98, false, current_date, '{"intervalMinutes":30}')$q$));
+  perform pg_temp.res('a config with a non-number budget is refused', '23514', pg_temp.try($q$update public.chain_canary_config set rules = jsonb_set(rules, '{gradedSeconds}', '"soon"') where is_active$q$));
+  perform pg_temp.res('a config with a zero budget is refused', '23514', pg_temp.try($q$update public.chain_canary_config set rules = jsonb_set(rules, '{pageSeconds}', '0') where is_active$q$));
+  alter table public.chain_canary_config drop constraint chain_canary_config_rules_check;   -- fixture only: lets the proof use a negative age so a same-transaction run is old enough
   update public.chain_canary_config set rules = jsonb_set(rules, '{minEvalAgeSeconds}', '-3600') where is_active;
   v_tick := private.chain_canary_tick();
   perform pg_temp.res('the next tick evaluates the waiting run and starts a fresh one', '1,true', (v_tick ->> 'evaluated') || ',' || (v_tick ->> 'started' is not null)::text);
@@ -199,6 +219,7 @@ begin
     perform pg_temp.emulate_processor(v_run5);
     v_ok := private.chain_canary_evaluate(v_run5);
     insert into results values ('sabotaged', 'without the auto-ack trigger the run still passes', 'true', coalesce(v_ok::text, 'null') || ':' || coalesce((select failed_stage from public.chain_canary_runs where run_id = v_run5 and kind = 'result'), ''));
+    perform pg_temp.res('an unacknowledged canary page is closed by the clean-up, so sweep_pages cannot escalate it into its own incident', '0', (select count(*)::text from public.pages where organisation_id = v_s.organisation_id and closed_at is null));
     perform pg_temp.res('without the auto-ack the canary fails at ack (the check can fail)', 'false:ack', v_ok::text || ':' || (select failed_stage from public.chain_canary_runs where run_id = v_run5 and kind = 'result'));
   end;
   drop trigger notifications_chain_canary_record_only on public.notifications;

@@ -6,7 +6,7 @@ import { getCurrentClinicalStaff, getCurrentProfile } from "@/lib/auth/current-p
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * "Run the check now": starts one canary run (public.chain_canary_run_now, admin or the active CMO, once per 15 minutes). The next
+ * "Run the check now": starts one canary run (public.chain_canary_run_now, admin or the active CMO, refused while another run is waiting to be judged). The next
  * scheduled tick judges it. The result travels as one of three fixed words in the address, never free text.
  */
 export async function runCanaryNowAction(form: FormData): Promise<void> {

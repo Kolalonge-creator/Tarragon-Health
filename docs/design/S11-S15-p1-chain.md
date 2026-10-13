@@ -26,3 +26,12 @@ A run (`private.chain_canary_start`) inserts, for each enabled row of `chain_can
 
 ## 6. Safety rules honoured
 INV-01 no model; INV-07 the canary asserts the page notice is neutral; INV-08 no SMS; INV-12 staff reads unchanged (aggregates only, ids never); INV-13 test rows excluded from every analytics path; nothing here is required for a patient feature to work.
+
+## 7. Changes made after the review pass (code-review high)
+- The test run records its notices and never sends them, so it cannot prove sending. Said plainly on the page; `chain_health` therefore watches real critical notices (pending too long, failed in 24 hours), and the notification stage now needs all three channel rows within the budget.
+- Percentiles describe finished events only, so unfinished work drives the status: real BP readings with no grade, real unacknowledged pages, critical notices pending or failed; dead letters count for `deadLetterWindowDays`.
+- `chain_canary_config.rules` is validated by the database (missing, non-numeric or zero budgets refused); the evaluate step is wrapped (`chain_canary_evaluate_safe`) so a broken judge records an `evaluate` failure and a sev1 incident instead of rolling the tick back; every step of the tick is guarded.
+- Synthetic users are created with the synthetic organisation and role in the sign-up metadata and unconfirmed, and the record-only trigger keys on the synthetic organisation, so nothing is ever filed in the real organisation or mailed during creation.
+- Clean-up closes every open synthetic page (acknowledged or not); a failed auto-acknowledge closes its page, so `sweep_pages` cannot raise a stray sev1 per run. A manual run is refused while another run waits to be judged.
+- Timings are computed in one pass (`private.chain_stats`); the parity cases function is audited.
+- The job dying is caught by the existing `stale_cron` rule (a comma schedule gives it a one hour expected interval, so it fires after two hours), independent of this function.

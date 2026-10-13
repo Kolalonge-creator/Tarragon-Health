@@ -24,7 +24,7 @@
 -- WHAT IT ASSERTS, per fixture (chain_canary_fixtures; P2 adds a glucose fixture by enabling a row, no code):
 --   graded -> event_delivered -> task (non-shadow amber) / page (red) -> notification (neutral) -> ack.
 --   A missing or late stage fails the run and names the stage; the result row is append-only; an ops incident is raised
---   (ops_alert_incident, severity sev1 for the red fixture, sev2 otherwise). A stopped processor leaves no triage_event, so the
+--   (ops_alert_incident, severity sev1 when a page fixture fails, sev2 otherwise). A stopped processor leaves no triage_event, so the
 --   run fails at 'graded' (proved with a sabotage in packages/db/tests/p1_chain_canary.sql).
 --   It also fails 'stale' when no run has finished for stale_after_minutes (the canary itself died).
 --
@@ -34,11 +34,29 @@
 -- listed as a follow-up for the SR3 retention work.
 
 -- 1. Configuration (versioned, one active row) ------------------------------------------------------------------------------
+-- A budget that is missing or not a positive number would turn every time comparison into null and make the check pass silently
+-- (found in review), so the database refuses such a config, the same way S19's paging_config does.
+create function private.chain_canary_rules_valid(r jsonb) returns boolean
+language sql immutable set search_path = ''
+as $$
+  select r is not null and jsonb_typeof(r) = 'object'
+    and not exists (
+      select 1 from unnest(array['intervalMinutes', 'gradedSeconds', 'taskSeconds', 'pageSeconds', 'notificationSeconds', 'ackSeconds',
+                                 'minEvalAgeSeconds', 'staleAfterMinutes', 'rotaHours', 'retentionDays']) k
+       where jsonb_typeof(r -> k) is distinct from 'number' or (r ->> k)::numeric <= 0)
+    and jsonb_typeof(r -> 'health') = 'object'
+    and not exists (
+      select 1 from unnest(array['minSample', 'stuckDeliverySeconds', 'readingToGradedP95Seconds', 'pageToAckP95Seconds', 'canaryStaleMinutes',
+                                 'ungradedReadingMinutes', 'deadLetterWindowDays']) k
+       where jsonb_typeof(r -> 'health' -> k) is distinct from 'number' or (r -> 'health' ->> k)::numeric <= 0)
+    and jsonb_typeof(r -> 'health' -> 'deadLettersMax') = 'number' and (r -> 'health' ->> 'deadLettersMax')::numeric >= 0
+$$;
+
 create table public.chain_canary_config (
   version        integer primary key,
   is_active      boolean not null default false,
   effective_from date not null,
-  rules          jsonb not null,
+  rules          jsonb not null check (private.chain_canary_rules_valid(rules)),
   note           text,
   created_at     timestamptz not null default now()
 );
@@ -69,7 +87,9 @@ insert into public.chain_canary_config (version, is_active, effective_from, rule
       "deadLettersMax": 0,
       "readingToGradedP95Seconds": 120,
       "pageToAckP95Seconds": 600,
-      "canaryStaleMinutes": 100
+      "canaryStaleMinutes": 100,
+      "ungradedReadingMinutes": 10,
+      "deadLetterWindowDays": 14
     }
   }'::jsonb, 'P1 first version, PROPOSED (CMO). Budgets are generous on purpose: the processor runs every 15 seconds, so a healthy chain grades in well under a minute.');
 -- chain-canary-config-end
@@ -122,9 +142,14 @@ create table public.chain_canary_subjects (
 alter table public.chain_canary_subjects enable row level security;
 revoke all on public.chain_canary_subjects from public, anon, authenticated;
 
+-- Anyone whose profile sits in the synthetic organisation. Keyed on the organisation (not the subjects row) so it is true from the moment the
+-- profiles are created, before the subjects row can exist.
 create function private.chain_canary_is_subject(p_profile uuid) returns boolean
 language sql stable security definer set search_path = ''
-as $$ select exists (select 1 from public.chain_canary_subjects s where p_profile in (s.patient_id, s.clinician_id, s.admin_id)) $$;
+as $$
+  select exists (select 1 from public.profiles p join public.organisations o on o.id = p.organisation_id
+                  where p.id = p_profile and coalesce((o.metadata ->> 'canary')::boolean, false))
+$$;
 revoke all on function private.chain_canary_is_subject(uuid) from public, anon, authenticated;
 
 -- Record, never send: anything for a canary profile is suppressed at insert.
@@ -160,16 +185,14 @@ begin
     returning id into v_org;
 
   v_adm := gen_random_uuid(); v_pat := gen_random_uuid(); v_doc := gen_random_uuid();
-  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
-  values (v_adm, 'canary-admin-' || v_adm || '@example.invalid', 'x', now(), '{}', '{}'),
-         (v_pat, 'canary-patient-' || v_pat || '@example.invalid', 'x', now(), '{}', '{}'),
-         (v_doc, 'canary-clinician-' || v_doc || '@example.invalid', 'x', now(), '{}', '{}');
-  insert into public.profiles (id, organisation_id, role, full_name, date_of_birth, is_test, language) values
-    (v_adm, v_org, 'admin', 'Canary admin', (current_date - interval '45 years')::date, true, 'en'),
-    (v_pat, v_org, 'patient', 'Canary patient', (current_date - interval '45 years')::date, true, 'en'),
-    (v_doc, v_org, 'clinician', 'Canary clinician', (current_date - interval '45 years')::date, true, 'en')
-  on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, is_test = true, is_active = true,
-    full_name = excluded.full_name, date_of_birth = excluded.date_of_birth;
+  -- organisation and role travel in the metadata so private.handle_new_user creates each profile directly in the synthetic organisation with the
+  -- right role (without them it files a patient in the real default organisation). Unconfirmed on purpose: a confirmed account triggers a programme claim.
+  insert into auth.users (id, email, encrypted_password, raw_app_meta_data, raw_user_meta_data)
+  values (v_adm, 'canary-admin-' || v_adm || '@example.invalid', 'x', jsonb_build_object('organisation_id', v_org, 'role', 'admin'), '{"full_name": "Canary admin"}'),
+         (v_pat, 'canary-patient-' || v_pat || '@example.invalid', 'x', jsonb_build_object('organisation_id', v_org, 'role', 'patient'), '{"full_name": "Canary patient"}'),
+         (v_doc, 'canary-clinician-' || v_doc || '@example.invalid', 'x', jsonb_build_object('organisation_id', v_org, 'role', 'clinician'), '{"full_name": "Canary clinician"}');
+  update public.profiles set is_test = true, is_active = true, language = 'en', date_of_birth = (current_date - interval '45 years')::date
+   where id in (v_adm, v_pat, v_doc);
 
   -- A Member: a red event pages only a Member (two-tier model), and doctor tasks are for Members.
   insert into public.patient_memberships (organisation_id, patient_id, source, state, is_test) values (v_org, v_pat, 'purchase', 'active', true);
@@ -216,6 +239,10 @@ begin
     exception when others then
       insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
         values (new.organisation_id, 'chain_canary.ack_error', 'page', new.id, jsonb_build_object('error', sqlerrm));
+      -- close it unacknowledged: the run then fails at stage 'ack' once, instead of sweep_pages raising a sev1 incident of its own for every run
+      perform set_config('tarragon.paging_write', 'on', true);
+      update public.pages set closed_at = now(), close_note = 'chain canary: acknowledgement failed' where id = new.id and closed_at is null;
+      perform set_config('tarragon.paging_write', 'off', true);
     end;
     perform set_config('request.jwt.claim.sub', coalesce(v_prev, ''), true);
     perform set_config('request.jwt.claims', coalesce(v_prev_claims, ''), true);
@@ -324,6 +351,7 @@ begin
   if not found then return null; end if;
   if exists (select 1 from public.chain_canary_runs where run_id = p_run and kind = 'result') then return null; end if;
   select * into s from public.chain_canary_subjects;
+  if v_cfg is null then raise exception 'no active chain canary config'; end if;
 
   begin
     for it in select * from jsonb_array_elements(st.fixtures) loop
@@ -391,14 +419,17 @@ begin
         if v_stage is null then
           v_viol := array(select distinct unnest(private.notification_text_violations(n.payload::text))
                             from public.notifications n where n.source_table = 'pages' and n.source_id = pg.id and n.template = 'on_call_page');
-          select count(*) into v_n from public.notifications n where n.source_table = 'pages' and n.source_id = pg.id and n.template = 'on_call_page'
-             and n.content_class = 'non_clinical' and n.priority = 'critical';
+          select count(distinct n.channel) into v_n from public.notifications n where n.source_table = 'pages' and n.source_id = pg.id and n.template = 'on_call_page'
+             and n.content_class = 'non_clinical' and n.priority = 'critical' and n.recipient_id = s.clinician_id;
           select count(*) into v_bad_keys from public.notifications n, jsonb_object_keys(n.payload) k
            where n.source_table = 'pages' and n.source_id = pg.id and n.template = 'on_call_page' and k <> 'page_id';
-          if v_n = 0 then
-            v_stage := 'notification'; v_msg := 'no critical non-clinical on_call_page notification row exists for the page';
+          if v_n < 3 then
+            v_stage := 'notification'; v_msg := format('the page made %s of its 3 critical notice rows (push, in-app, email); every channel must have one', v_n);
           elsif v_bad_keys > 0 or cardinality(v_viol) > 0 then
             v_stage := 'notification_not_neutral'; v_msg := 'the page notification payload carries more than the page id or a forbidden term (INV-07)';
+          elsif exists (select 1 from public.notifications n where n.source_table = 'pages' and n.source_id = pg.id and n.template = 'on_call_page'
+                          and n.created_at - pg.sent_at > make_interval(secs => (v_cfg ->> 'notificationSeconds')::int)) then
+            v_stage := 'notification'; v_msg := format('a page notice was recorded more than %s seconds after the page', v_cfg ->> 'notificationSeconds');
           else
             v_t := v_t || jsonb_build_object('notifications', v_n);
           end if;
@@ -440,14 +471,12 @@ begin
       exception when others then v_errs := v_errs || to_jsonb('task: ' || sqlerrm); end;
     end loop;
     begin
-      perform set_config('request.jwt.claim.sub', s.clinician_id::text, true);
-      perform set_config('request.jwt.claims', json_build_object('sub', s.clinician_id, 'role', 'authenticated')::text, true);
-      for v_task_row in select p2.id from public.pages p2 where p2.organisation_id = s.organisation_id and p2.parent_page_id is null and p2.closed_at is null and p2.acknowledged_at is not null loop
-        perform public.close_page(v_task_row.id, 'chain canary clean-up');
-      end loop;
-    exception when others then v_errs := v_errs || to_jsonb('page: ' || sqlerrm); end;
-    perform set_config('request.jwt.claim.sub', '', true);
-    perform set_config('request.jwt.claims', '', true);
+      -- every open page of the synthetic organisation, acknowledged or not: an unacknowledged one left open would be escalated by sweep_pages into
+      -- a real sev1 incident of its own, one per run, instead of the single named 'ack' incident
+      perform set_config('tarragon.paging_write', 'on', true);
+      update public.pages set closed_at = now(), close_note = 'chain canary clean-up' where organisation_id = s.organisation_id and closed_at is null;
+      perform set_config('tarragon.paging_write', 'off', true);
+    exception when others then perform set_config('tarragon.paging_write', 'off', true); v_errs := v_errs || to_jsonb('page: ' || sqlerrm); end;
     begin
       update public.clinician_alerts set status = 'resolved', resolution_action = 'chain canary clean-up', resolution_outcome = 'no_action_needed'
          where organisation_id = s.organisation_id and status not in ('resolved', 'closed');
@@ -475,31 +504,62 @@ end $$;
 revoke all on function private.chain_canary_evaluate(uuid) from public, anon, authenticated;
 
 -- 7. The scheduled tick ---------------------------------------------------------------------------------------------------
+-- One run at a time, each step guarded so a failure in one cannot stop the others or roll back the tick (found in review: an unguarded
+-- evaluate would have rolled the whole tick back on every cron run and left the canary dead while the job looked healthy).
+create function private.chain_canary_evaluate_safe(p_run uuid) returns void
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  perform private.chain_canary_evaluate(p_run);
+exception when others then
+  begin
+    insert into public.chain_canary_runs (run_id, kind, config_version, passed, failed_stage, details)
+    select p_run, 'result', coalesce(s.config_version, 0), false, 'evaluate', jsonb_build_object('error', sqlerrm)
+      from public.chain_canary_runs s where s.run_id = p_run and s.kind = 'started'
+      and not exists (select 1 from public.chain_canary_runs x where x.run_id = p_run and x.kind = 'result');
+  exception when others then null;
+  end;
+  begin
+    perform private.ops_alert_incident('chain_canary:evaluate', 'Clinical chain canary could not be evaluated',
+      'The canary run ' || p_run || ' could not be judged: ' || sqlerrm || '. Until this is fixed the chain is not being checked.', 'sev1');
+  exception when others then
+    raise warning 'chain canary: could not raise the evaluate incident: %', sqlerrm;
+  end;
+end $$;
+revoke all on function private.chain_canary_evaluate_safe(uuid) from public, anon, authenticated;
+
 create function private.chain_canary_tick() returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
 declare
   v_cfg jsonb := (select rules from public.chain_canary_config where is_active);
   r record;
-  v_eval integer := 0; v_started uuid; v_last timestamptz;
+  v_eval integer := 0; v_started uuid; v_last timestamptz; v_first_start timestamptz;
 begin
-  if v_cfg is null then return jsonb_build_object('skipped', 'no active config'); end if;
+  if v_cfg is null then
+    perform private.ops_alert_incident('chain_canary:config', 'Clinical chain canary has no active configuration', 'chain_canary_config has no active row, so no run can be judged.', 'sev1');
+    return jsonb_build_object('skipped', 'no active config');
+  end if;
   if not pg_try_advisory_xact_lock(hashtext('chain_canary_tick')) then return jsonb_build_object('skipped', 'busy'); end if;
 
   -- evaluate every run that has had time to finish
   for r in select s.run_id from public.chain_canary_runs s
             where s.kind = 'started' and s.at < now() - make_interval(secs => (v_cfg ->> 'minEvalAgeSeconds')::int)
               and not exists (select 1 from public.chain_canary_runs x where x.run_id = s.run_id and x.kind = 'result') order by s.at loop
-    perform private.chain_canary_evaluate(r.run_id);
+    perform private.chain_canary_evaluate_safe(r.run_id);
     v_eval := v_eval + 1;
   end loop;
 
-  -- the canary itself must not die quietly
-  select max(at) into v_last from public.chain_canary_runs where kind = 'result';
-  if v_last is not null and v_last < now() - make_interval(mins => (v_cfg ->> 'staleAfterMinutes')::int) then
-    perform private.ops_alert_incident('chain_canary:stale', 'Clinical chain canary has stopped reporting',
-      format('No canary run has finished since %s. The scheduled job chain-canary may have stopped, or the evaluation keeps failing.', v_last), 'sev2');
-  end if;
+  -- the canary itself must not die quietly (the cron job dying is caught by the stale_cron rule, which does not depend on this function)
+  begin
+    select max(at) into v_last from public.chain_canary_runs where kind = 'result';
+    select min(at) into v_first_start from public.chain_canary_runs where kind = 'started';
+    if (v_last is not null and v_last < now() - make_interval(mins => (v_cfg ->> 'staleAfterMinutes')::int))
+       or (v_last is null and v_first_start is not null and v_first_start < now() - make_interval(mins => (v_cfg ->> 'staleAfterMinutes')::int)) then
+      perform private.ops_alert_incident('chain_canary:stale', 'Clinical chain canary has stopped reporting',
+        format('No canary run has finished since %s. The scheduled job chain-canary may have stopped, or the evaluation keeps failing.', coalesce(v_last::text, 'the first run')), 'sev2');
+    end if;
+  exception when others then raise warning 'chain canary stale check failed: %', sqlerrm; end;
 
   -- start the next run unless one is still waiting to be evaluated
   if not exists (select 1 from public.chain_canary_runs s where s.kind = 'started'
@@ -508,18 +568,18 @@ begin
       v_started := private.chain_canary_start();
     exception when others then
       -- could not even start: that is a failed run, named 'start'
-      declare v_id uuid := gen_random_uuid();
+      declare v_id uuid := gen_random_uuid(); v_err text := sqlerrm;
       begin
         insert into public.chain_canary_runs (run_id, kind, config_version) values (v_id, 'started', (select version from public.chain_canary_config where is_active));
         insert into public.chain_canary_runs (run_id, kind, config_version, passed, failed_stage, details)
-          values (v_id, 'result', (select version from public.chain_canary_config where is_active), false, 'start', jsonb_build_object('error', sqlerrm));
+          values (v_id, 'result', (select version from public.chain_canary_config where is_active), false, 'start', jsonb_build_object('error', v_err));
         perform private.ops_alert_incident('chain_canary:start', 'Clinical chain canary could not start',
-          'The synthetic reading could not be inserted: ' || sqlerrm, 'sev1');
-      end;
+          'The synthetic reading could not be inserted: ' || v_err, 'sev1');
+      exception when others then raise warning 'chain canary start failure could not be recorded: %', sqlerrm; end;
     end;
   end if;
 
-  perform private.chain_canary_prune();
+  begin perform private.chain_canary_prune(); exception when others then raise warning 'chain canary prune failed: %', sqlerrm; end;
   return jsonb_build_object('evaluated', v_eval, 'started', v_started);
 end $$;
 revoke all on function private.chain_canary_tick() from public, anon, authenticated;
@@ -536,7 +596,7 @@ begin
 end $$;
 revoke all on function private.chain_canary_prune() from public, anon, authenticated;
 
--- Manual run for the CMO or an admin ("run it now"): starts a run; the next tick evaluates it. Returns the run id.
+-- Manual run for the CMO or an admin ("run it now"): starts a run when none is waiting; the next tick judges it. Returns the run id.
 create function public.chain_canary_run_now() returns uuid
 language plpgsql security definer set search_path = ''
 as $$
@@ -545,8 +605,10 @@ begin
   if (select auth.uid()) is null or not (private.is_admin() or private.credential_is_cmo()) then
     raise exception 'chain_canary_not_authorised' using errcode = '42501';
   end if;
-  if exists (select 1 from public.chain_canary_runs s where s.kind = 'started' and s.at > now() - interval '15 minutes') then
-    raise exception 'a canary run started in the last 15 minutes' using errcode = '22023';
+  -- never while another run is waiting to be judged: the judge cleans up the whole synthetic organisation and would cancel this run's tasks
+  if exists (select 1 from public.chain_canary_runs s where s.kind = 'started'
+              and not exists (select 1 from public.chain_canary_runs x where x.run_id = s.run_id and x.kind = 'result')) then
+    raise exception 'a canary run is still waiting to be judged' using errcode = '22023';
   end if;
   v_run := private.chain_canary_start();
   perform private.log_audit('chain_canary.run_now', 'chain_canary_run', v_run, '{}'::jsonb);

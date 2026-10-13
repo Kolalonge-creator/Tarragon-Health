@@ -37,7 +37,7 @@ export function ChainHealthPanel({
     <div className="space-y-6">
       {result && (
         <p role="status" className={`rounded-lg border px-4 py-3 text-sm ${result === "started" ? "border-brand-green/40 bg-brand-green/5" : "border-red-300 bg-red-50"}`}>
-          {result === "started" ? "A check run was started. The next scheduled check (minutes 11 and 41 of the hour) will judge it." : result === "wait" ? "A check was started in the last 15 minutes. Wait for it." : "The check could not be started."}
+          {result === "started" ? "A check run was started. The next scheduled check (minutes 11 and 41 of the hour) will judge it." : result === "wait" ? "A check is already waiting to be judged. Wait for the next scheduled check." : "The check could not be started."}
         </p>
       )}
 
@@ -112,7 +112,15 @@ export function ChainHealthPanel({
               ))}
             </tbody>
           </table>
-          <p className="mt-2 text-sm text-charcoal-ink/60">Real patients only. {health.bus.stuck} waiting longer than {health.thresholds["stuckDeliverySeconds"]} seconds; {health.bus.dead} failed for good.</p>
+          <p className="mt-2 text-sm text-charcoal-ink/60">
+            Real patients only. {health.bus.stuck} waiting longer than {health.thresholds["stuckDeliverySeconds"]} seconds; {health.bus.dead} failed for good in the last {health.thresholds["deadLetterWindowDays"]} days
+            {health.bus.dead_older > 0 ? ` (${health.bus.dead_older} older ones are still listed in the event bus and no longer count here)` : ""}.
+          </p>
+          <p className="mt-2 text-sm">
+            Not finished yet, real people only: {health.unfinished.ungraded_readings} blood pressure readings with no grade after {health.thresholds["ungradedReadingMinutes"]} minutes;{" "}
+            {health.unfinished.unacknowledged_pages} pages not acknowledged; {health.unfinished.critical_notices_pending} critical notices still pending; {health.unfinished.critical_notices_failed_24h} failed in the last day.
+            These matter more than the typical times, because a typical time only describes the events that finished.
+          </p>
         </CardContent>
       </Card>
 

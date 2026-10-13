@@ -2541,7 +2541,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     //  gradedSeconds / taskSeconds / pageSeconds / notificationSeconds / ackSeconds: the time each stage of a canary run has to finish.
     //  minEvalAgeSeconds: a run is judged only after this long. staleAfterMinutes: no finished run for this long is itself an incident.
     //  health: thresholds the chain health page turns into ok, attention or down (minSample is the fewest real events before a
-    //  percentile is shown).
+    //  percentile is shown; ungradedReadingMinutes is how long a real BP reading may sit with no grade; deadLetterWindowDays is how far back a dead letter still counts).
     // PROPOSED, CMO to confirm. The budgets are generous on purpose: the event processor runs every 15 seconds.
     value: {
       intervalMinutes: 30,
@@ -2561,6 +2561,8 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
         readingToGradedP95Seconds: 120,
         pageToAckP95Seconds: 600,
         canaryStaleMinutes: 100,
+        ungradedReadingMinutes: 10,
+        deadLetterWindowDays: 14,
       },
     },
     owner: "CMO",

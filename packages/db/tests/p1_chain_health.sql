@@ -121,6 +121,18 @@ begin
   perform pg_temp.res('after a passed run the canary is not blamed', 'true,true', ((v_h #>> '{canary,last_passed}') = 'true')::text || ',' || (not ((v_h -> 'reasons')::text like '%canary%'))::text);
   perform pg_temp.res('the test events did not count as real timings', '0', (v_h #>> '{timings_7d,reading_to_graded,n}'));
   perform pg_temp.res('the canary timings are reported apart', 'true', ((v_h #>> '{canary_timings_7d,reading_to_graded,n}')::int >= 1)::text);
+  -- unfinished work drives the status even when every percentile looks fine (a reading never graded makes no timing row)
+  perform pg_temp.res('the unfinished block is reported', 'true', (v_h ? 'unfinished')::text);
+  declare v_real_pat uuid := pg_temp.mkuser(v_org, 'real-patient', 'patient'); v_rr uuid;
+  begin
+    update public.profiles set is_test = false where id = v_real_pat;
+    insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, source, taken_at, created_at)
+      values (v_org, v_real_pat, 'blood_pressure', 130, 85, 'manual', now() - interval '30 minutes', now() - interval '30 minutes') returning id into v_rr;
+    perform pg_temp.act(v_admin); v_h := public.chain_health(); perform pg_temp.back();
+    perform pg_temp.res('a real reading with no grade for 30 minutes is down and counted', 'down,1',
+      (v_h ->> 'status') || ',' || (v_h #>> '{unfinished,ungraded_readings}'));
+    update public.profiles set is_test = true where id = v_real_pat;
+  end;
   -- a dead letter on a chain subscriber
   v_ev := private.emit_domain_event('triage.graded', v_org, jsonb_build_object('grade', 'green', 'triage_event_id', gen_random_uuid()), 'p1h-dead:' || gen_random_uuid());
   update public.domain_event_deliveries set status = 'dead', last_error = 'p1 proof' where event_id = v_ev and subscriber_key = 'paging.on_red';

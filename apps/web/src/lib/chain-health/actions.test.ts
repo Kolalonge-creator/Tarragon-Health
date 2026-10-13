@@ -58,7 +58,7 @@ describe("runCanaryNowAction", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it("says wait when a run started in the last 15 minutes and failed when the call errors", async () => {
+  it("says wait when a run is still waiting to be judged and failed when the call errors", async () => {
     rpc.mockResolvedValueOnce({ data: null, error: { code: "22023" } });
     expect(await run()).toBe("REDIRECT:/admin/ops/chain-health?r=wait");
     rpc.mockResolvedValueOnce({ data: null, error: { code: "XX000" } });
