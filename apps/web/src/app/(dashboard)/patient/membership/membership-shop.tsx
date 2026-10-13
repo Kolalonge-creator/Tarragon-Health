@@ -128,6 +128,7 @@ function History({ rows, locale }: { rows: OrderRow[]; locale: Locale }) {
             ))}
           </ul>
         )}
+        {rows.some((o) => o.state === "paid") && <p className={`mt-3 text-sm ${MUTED}`}>{t("refund.policy.cooling_off", locale)}</p>}
       </CardContent>
       {refundTarget && (
         <RefundRequestDialog
@@ -153,7 +154,10 @@ export function MembershipShop({ locale, fee, go = goTo, beneficiary }: { locale
   // A fixed beneficiary (a Care Circle member paying, S29) wins over the picker (older family grants, S26).
   const chosenId = beneficiary?.id ?? beneficiaryId;
   // The payer's own membership says nothing about the person they are paying for.
-  const memberUntil = !chosenId && membership.data?.is_member ? (membership.data.ends_at ?? "") || null : null;
+  const inGrace = !chosenId && membership.data?.is_member === true && membership.data.in_grace === true;
+  // In the grace the person is still a Member but may renew, so the item is not blocked and the message is different.
+  const memberUntil = !chosenId && membership.data?.is_member && !inGrace ? (membership.data.ends_at ?? "") || null : null;
+  const graceEnds = inGrace ? membership.data?.grace_ends_at ?? null : null;
   const items = catalogue.data ?? [];
   const profiles = lovedOnes.data ?? [];
 
@@ -167,6 +171,7 @@ export function MembershipShop({ locale, fee, go = goTo, beneficiary }: { locale
         </section>
       ) : null}
       {memberUntil ? <p role="status">{t("shop.member_until", locale, { date: formatPatientDate(memberUntil) })}</p> : null}
+      {graceEnds ? <p role="status">{t("shop.in_grace", locale, { date: formatPatientDate(graceEnds) })}</p> : null}
       {!beneficiary && profiles.length > 0 ? (
         <fieldset>
           <label htmlFor="beneficiary-select" className="block font-medium mb-1">{t("shop.buy_for.label", locale)}</label>

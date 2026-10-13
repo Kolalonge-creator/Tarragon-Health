@@ -297,6 +297,13 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         visible: adminOnly,
       },
       {
+        href: "/admin/settings/testing-days",
+        label: "Testing days and employer visits",
+        blurb: "Schedule Member testing days and employer on-site visits, approve venues, run the stations.",
+        icon: SEMANTIC_ICON.booking,
+        visible: adminOnly,
+      },
+      {
         href: "/admin/settings/screening-days",
         label: "Group screening days",
         blurb: "Confirm requests, set the cohort discount, and issue attendee vouchers.",

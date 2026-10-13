@@ -66,7 +66,7 @@ describe("loadPatientTimeline", () => {
         { id: "evt-2", patient_id: "p1", actor_clinical_staff_id: "staff-b", occurred_at: "2026-08-01T00:00:00Z" },
       ],
       [
-        { id: "staff-a", full_name: "Dr. A", credential_type: "MDCN", credential_number: "AAA", doctor_tier: "medical_officer" },
+        { id: "staff-a", full_name: "Dr. A", credential_type: "MDCN", credential_number: "AAA", doctor_tier: "senior_medical_officer" },
         { id: "staff-b", full_name: "Dr. B", credential_type: "MDCN", credential_number: "BBB", doctor_tier: "senior_medical_officer" },
       ]
     );
@@ -84,7 +84,7 @@ describe("loadPatientTimeline", () => {
         { id: "evt-1", patient_id: "p1", actor_clinical_staff_id: "staff-a", occurred_at: "2026-09-01T00:00:00Z" },
         { id: "evt-2", patient_id: "p1", actor_clinical_staff_id: null, occurred_at: "2026-08-01T00:00:00Z" },
       ],
-      [{ id: "staff-a", full_name: "Dr. A", credential_type: "MDCN", credential_number: "AAA", doctor_tier: "medical_officer" }]
+      [{ id: "staff-a", full_name: "Dr. A", credential_type: "MDCN", credential_number: "AAA", doctor_tier: "senior_medical_officer" }]
     );
 
     const events = await loadPatientTimeline(supabase, "p1", 50, 0);
@@ -99,7 +99,7 @@ describe("loadPatientTimeline", () => {
         { id: "evt-1", patient_id: "p1", actor_clinical_staff_id: "staff-a", occurred_at: "2026-09-02T00:00:00Z" },
         { id: "evt-2", patient_id: "p1", actor_clinical_staff_id: "staff-a", occurred_at: "2026-09-01T00:00:00Z" },
       ],
-      [{ id: "staff-a", full_name: "Dr. A", credential_type: "MDCN", credential_number: "AAA", doctor_tier: "medical_officer" }]
+      [{ id: "staff-a", full_name: "Dr. A", credential_type: "MDCN", credential_number: "AAA", doctor_tier: "senior_medical_officer" }]
     );
 
     const events = await loadPatientTimeline(supabase, "p1", 50, 0);

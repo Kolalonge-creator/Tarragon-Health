@@ -41,7 +41,7 @@ begin
   on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
   insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier) values
     (v_org, v_tied,   'S05c Tied Doctor',   true, now(), 'senior_medical_officer'),
-    (v_org, v_untied, 'S05c Untied Doctor', true, now(), 'medical_officer');
+    (v_org, v_untied, 'S05c Untied Doctor', true, now(), 'senior_medical_officer');
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, assigned_at)
   values (v_org, v_pat, v_tied, now()) on conflict (patient_id) do update set clinician_id = v_tied;
 

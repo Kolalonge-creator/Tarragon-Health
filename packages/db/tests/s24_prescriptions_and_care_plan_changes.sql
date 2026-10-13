@@ -141,7 +141,7 @@ begin
   update public.clinical_staff set active = false where is_test is not true;
   perform pg_temp.setf('doc', pg_temp.mkdoc(v_org, 'smo', 'senior_medical_officer', v_admin));
   perform pg_temp.setf('doc2', pg_temp.mkdoc(v_org, 'smo2', 'senior_medical_officer', v_admin));
-  perform pg_temp.setf('mo', pg_temp.mkdoc(v_org, 'mo', 'medical_officer', v_admin));
+  perform pg_temp.setf('mo', pg_temp.mkdoc(v_org, 'mo', 'care_coordinator', v_admin));
   perform pg_temp.setf('pat', pg_temp.mkuser(v_org, 'pat', 'patient'));
   perform pg_temp.setf('pat2', pg_temp.mkuser(v_org, 'pat2', 'patient'));
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, clinical_director_id, assigned_at)
@@ -210,7 +210,7 @@ begin
   perform pg_temp.ck('an allergen typed as wildcard characters does not match every drug', 'true', (r !~ '^ERR')::text);
   -- who may prescribe
   r := pg_temp.q_as(v_mo, format($q$select public.prescribe_medication(%L, 'Losartan', '50 mg', 'once daily', null, null, null, 'oral', 30, '30 tablets', 0, null, null)::text$q$, v_pat));
-  perform pg_temp.ck('a Medical Officer cannot prescribe (no authority)', 'true', (r like 'ERR:Not authorised to prescribe%')::text);
+  perform pg_temp.ck('a care coordinator cannot prescribe (no authority)', 'true', (r like 'ERR:Not authorised to prescribe%')::text);
   r := pg_temp.q_as(pg_temp.f('doc2'), format($q$select public.prescribe_medication(%L, 'Losartan', '50 mg', 'once daily', null, null, null, 'oral', 30, '30 tablets', 0, null, null)::text$q$, v_pat));
   perform pg_temp.ck('a prescriber with no tie to the patient cannot prescribe', 'true', (r like 'ERR:Not authorised to prescribe%')::text);
   r := pg_temp.q_as(v_pat, format($q$select public.prescribe_medication(%L, 'Losartan', '50 mg', 'once daily', null, null, null, 'oral', 30, '30 tablets', 0, null, null)::text$q$, v_pat));
@@ -248,7 +248,7 @@ declare v_doc uuid := pg_temp.f('doc'); v_doc2 uuid := pg_temp.f('doc2'); v_mo u
   item jsonb := '{"drug_name":"Lisinopril","dose":"5 mg","frequency":"once daily","route":"oral","duration_days":30,"quantity":"30 tablets","repeats_allowed":1}';
 begin
   r := pg_temp.propose_med(v_mo, v_pat, jsonb_build_object('action', 'start', 'item', item));
-  perform pg_temp.ck('a Medical Officer cannot propose a change', 'true', (r like 'ERR:Not authorised to propose%')::text);
+  perform pg_temp.ck('a care coordinator cannot propose a change', 'true', (r like 'ERR:Not authorised to propose%')::text);
   r := pg_temp.propose_med(v_doc2, v_pat, jsonb_build_object('action', 'start', 'item', item));
   perform pg_temp.ck('a prescriber with no tie cannot propose', 'true', (r like 'ERR:Not authorised to propose%')::text);
   r := pg_temp.propose_med(v_doc, v_pat, jsonb_build_object('action', 'start', 'item', item - 'quantity'));
@@ -262,7 +262,7 @@ begin
   perform pg_temp.ck('the patient cannot confirm a draft', 'not_available|true', pg_temp.confirm_as(v_pat, c1));
   perform pg_temp.ck('nothing on the patient''s medicines yet', '0', pg_temp.pz(v_pat, 'Lisinopril'));
   r := pg_temp.sign_as(v_mo, c1, 'Your care team would like to start a new tablet.', true, null);
-  perform pg_temp.ck('a Medical Officer cannot sign', 'true', (r like 'Not authorised to sign%')::text);
+  perform pg_temp.ck('a care coordinator cannot sign', 'true', (r like 'Not authorised to sign%')::text);
   r := pg_temp.sign_as(v_doc, c1, '  ', true, null);
   perform pg_temp.ck('signing needs a plain-language summary', 'true', (r like 'Write what this change means%')::text);
   r := pg_temp.propose_med(v_doc, v_pat2, jsonb_build_object('action', 'start', 'item', item));

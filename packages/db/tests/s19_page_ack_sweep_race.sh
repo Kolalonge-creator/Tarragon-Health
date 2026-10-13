@@ -51,6 +51,7 @@ cleanup() {
   psql_q <<SQL >/dev/null 2>&1
 set session_replication_role = replica;   -- local, disposable database: several of these logs are append only
 drop function if exists public.s19_sweep_naive(uuid);
+delete from public.patient_memberships where patient_id in (select id from public.profiles where full_name like '$TAG%');
 delete from public.notifications where recipient_id in (select id from public.profiles where full_name like '$TAG%');
 delete from public.clinical_task_transitions where task_id in (select id from public.clinical_tasks where patient_id in (select id from public.profiles where full_name like '$TAG%'));
 delete from public.clinical_tasks where patient_id in (select id from public.profiles where full_name like '$TAG%');
@@ -96,6 +97,8 @@ begin
     (v_admin, v_org, 'admin', '$TAG admin', '+23480' || lpad((random() * 99999999)::int::text, 8, '0'), date '1980-01-01', true),
     (v_pt, v_org, 'patient', '$TAG patient', '+23480' || lpad((random() * 99999999)::int::text, 8, '0'), date '1980-01-01', true)
     on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name, phone = excluded.phone, is_test = excluded.is_test;
+  -- two-tier (CMO 2026-10-08): a red event pages only for a Member, so the fixture patient is one
+  insert into public.patient_memberships (organisation_id, patient_id, source, state, is_test) values (v_org, v_pt, 'purchase', 'active', true);
   for r in select * from (values (v_cmo, 'cmo', 'chief_medical_officer'), (v_p, 'primary', 'senior_medical_officer'), (v_b, 'backup', 'senior_medical_officer')) t(id, label, tier) loop
     insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test)
       values (r.id, v_org, 'clinician', '$TAG ' || r.label, '+23480' || lpad((random() * 99999999)::int::text, 8, '0'), date '1980-01-01', true)
