@@ -7,7 +7,7 @@
 -- copy of either: it reads the live definition, inserts the community branch / the two attestable codes, and re-creates it. If another
 -- session changed the surrounding text so the anchor is not found, the migration fails loudly rather than silently dropping a branch.
 -- Conditions: a CMO-approved challenge template (read from the data), a recorded DPIA and counsel's confirmation of the NDPA 2023
--- section references (both attestations by a person). Switch role: admin. Enforced in: private.community_open (every cohort, invite,
+-- section references (both attestations by a person). Switch role: admin. Enforced in: private.cohort_open (every cohort, invite,
 -- join, contribution and board function for a real person). Not enforced in: leaving, withdrawing consent and turning community off,
 -- which must always work.
 --
@@ -17,11 +17,11 @@
 -- notice now says only that a challenge ends soon. Live counts at writing: not read here (the change adds no data).
 
 insert into public.go_live_guards (key, label, blocks, condition_text, switch_role, enforced_in, not_enforced_in) values
-  ('community_cohorts_enabled', 'Community cohorts and challenges',
+  ('cohorts_enabled', 'Community cohorts and challenges',
    'Creating or joining a cohort, cohort invites, challenge contributions, cohort totals and the cohort board (real people; test accounts pass)',
    'At least one challenge template signed by the Chief Medical Officer; a data protection impact assessment recorded; counsel has confirmed the NDPA 2023 references; admin confirmation',
    'admin',
-   array['private.community_open (community_create, community_create_invite, community_preview_invite, community_join, community_my_cohorts, community_roster, community_start_challenge, community_challenges, contribute_to_challenge, community_board)'],
+   array['private.cohort_open (cohort_create, cohort_create_invite, cohort_preview_invite, cohort_join, cohort_my_cohorts, cohort_roster, cohort_start_challenge, cohort_challenges, contribute_to_challenge, cohort_board)'],
    'Leaving a cohort, withdrawing consent to totals, turning community off, reporting, and a moderator removing a member or closing a cohort are never behind it. Live group audio sessions are a separate switch (platform_modules group_sessions) and are not built.')
 on conflict (key) do nothing;
 
@@ -33,12 +33,12 @@ declare
   v_def text := pg_get_functiondef('public.attest_go_live_condition(text,text,boolean,text)'::regprocedure);
   v_anchor text := E'\')) then\n    raise exception \'that condition is read from the data';
 begin
-  if position('community_cohorts_enabled' in v_def) > 0 then return; end if;
+  if position('cohorts_enabled' in v_def) > 0 then return; end if;
   if position(v_anchor in v_def) = 0 then
     raise exception 'attest_go_live_condition: anchor not found, refusing to rewrite';
   end if;
   execute replace(v_def, v_anchor,
-    E'\'),\n       (\'community_cohorts_enabled\', \'dpia_recorded\'), (\'community_cohorts_enabled\', \'counsel_ndpa_confirmed\')) then\n    raise exception \'that condition is read from the data');
+    E'\'),\n       (\'cohorts_enabled\', \'dpia_recorded\'), (\'cohorts_enabled\', \'counsel_ndpa_confirmed\')) then\n    raise exception \'that condition is read from the data');
 end $patch$;
 revoke all on function public.attest_go_live_condition(text, text, boolean, text) from public, anon;
 grant execute on function public.attest_go_live_condition(text, text, boolean, text) to authenticated;
@@ -46,7 +46,7 @@ grant execute on function public.attest_go_live_condition(text, text, boolean, t
 do $$
 declare
   v_def text; v_new text;
-  v_branch constant text := $branch$elsif p_key = 'community_cohorts_enabled' then
+  v_branch constant text := $branch$elsif p_key = 'cohorts_enabled' then
     return jsonb_build_array(
       private.go_live_cond('challenge_templates_approved', 'At least one challenge template signed by the Chief Medical Officer',
         exists (select 1 from public.challenge_templates where status = 'approved'), 'data',
@@ -57,17 +57,17 @@ declare
   $branch$;
 begin
   v_def := pg_get_functiondef('private.go_live_conditions(text,uuid)'::regprocedure);
-  if position('community_cohorts_enabled' in v_def) = 0 then
+  if position('cohorts_enabled' in v_def) = 0 then
     if position('elsif p_key = ''public_signup_enabled'' then' in v_def) = 0 then raise exception 'S69b: anchor not found in go_live_conditions, rebase this migration'; end if;
     v_new := replace(v_def, 'elsif p_key = ''public_signup_enabled'' then', v_branch || 'elsif p_key = ''public_signup_enabled'' then');
     execute v_new;
   end if;
 
   v_def := pg_get_functiondef('public.attest_go_live_condition(text,text,boolean,text)'::regprocedure);
-  if position('community_cohorts_enabled' in v_def) = 0 then
+  if position('cohorts_enabled' in v_def) = 0 then
     if position('(''public_signup_enabled'', ''stage2_exit_criteria_met''))' in v_def) = 0 then raise exception 'S69b: anchor not found in attest_go_live_condition, rebase this migration'; end if;
     v_new := replace(v_def, '(''public_signup_enabled'', ''stage2_exit_criteria_met''))',
-                     '(''public_signup_enabled'', ''stage2_exit_criteria_met''), (''community_cohorts_enabled'', ''dpia_recorded''), (''community_cohorts_enabled'', ''counsel_ndpa_confirmed''))');
+                     '(''public_signup_enabled'', ''stage2_exit_criteria_met''), (''cohorts_enabled'', ''dpia_recorded''), (''cohorts_enabled'', ''counsel_ndpa_confirmed''))');
     execute v_new;
   end if;
 end $$;
@@ -128,7 +128,7 @@ update public.notification_template_locales
 
 do $$
 begin
-  if jsonb_array_length(private.go_live_conditions('community_cohorts_enabled', null)) <> 4 then raise exception 'S69b: the community guard has no conditions'; end if;
-  if exists (select 1 from public.go_live_guards where key = 'community_cohorts_enabled' and is_on) then raise exception 'S69b: the guard was born on'; end if;
+  if jsonb_array_length(private.go_live_conditions('cohorts_enabled', null)) <> 4 then raise exception 'S69b: the community guard has no conditions'; end if;
+  if exists (select 1 from public.go_live_guards where key = 'cohorts_enabled' and is_on) then raise exception 'S69b: the guard was born on'; end if;
   if position('challenge_title' in pg_get_functiondef('private.queue_wellness_challenge_ending_nudges()'::regprocedure)) > 0 then raise exception 'S69b: the nudge still carries the title'; end if;
 end $$;

@@ -31,7 +31,7 @@ create table public.cohort_config (
 );
 create unique index cohort_config_one_active on public.cohort_config (is_active) where is_active;
 
-create function private.community_rules_valid(r jsonb) returns boolean
+create function private.cohort_rules_valid(r jsonb) returns boolean
 language plpgsql immutable set search_path = ''
 as $$
 declare k text; t jsonb;
@@ -57,8 +57,8 @@ exception when others then
   return false;
 end;
 $$;
-revoke all on function private.community_rules_valid(jsonb) from public, anon, authenticated;
-alter table public.cohort_config add constraint community_config_rules_valid check (private.community_rules_valid(rules));
+revoke all on function private.cohort_rules_valid(jsonb) from public, anon, authenticated;
+alter table public.cohort_config add constraint community_config_rules_valid check (private.cohort_rules_valid(rules));
 
 -- community-rules-begin
 insert into public.cohort_config (version, is_active, effective_from, rules) values (1, true, '2026-10-07', $json$
@@ -93,17 +93,17 @@ revoke all on public.cohort_config from public, anon;
 revoke insert, update, delete, truncate, references, trigger on public.cohort_config from authenticated;
 grant select on public.cohort_config to authenticated;
 
-create function private.community_rules() returns jsonb
+create function private.cohort_rules() returns jsonb
 language sql stable security definer set search_path = ''
 as $$ select rules from public.cohort_config where is_active $$;
-revoke all on function private.community_rules() from public, anon, authenticated;
+revoke all on function private.cohort_rules() from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 2. Platform switches (both OFF) and event types
 -- ---------------------------------------------------------------------------
 insert into public.platform_modules (key, label, description) values
   ('cohorts', 'Community cohorts and challenges',
-   'Private cohorts (church, mosque, union, estate, workplace) with effort challenges and cohort totals (spec 17.6, 17.7, 17.9). Off until the CMO has signed the challenge templates, the DPIA is recorded and the go-live guard community_cohorts_enabled is on.'),
+   'Private cohorts (church, mosque, union, estate, workplace) with effort challenges and cohort totals (spec 17.6, 17.7, 17.9). Off until the CMO has signed the challenge templates, the DPIA is recorded and the go-live guard cohorts_enabled is on.'),
   ('group_sessions', 'Clinician-led live audio group sessions',
    'Live audio group sessions for programme members (spec 17.8). Deferred by the founder 2026-10-07: only the schema exists, there is no room and no Zoom code. Do not switch on.')
 on conflict (key) do nothing;
@@ -351,51 +351,51 @@ revoke all on function private.group_sessions_dormant() from public, anon, authe
 create trigger group_sessions_dormant before insert on public.group_sessions for each row execute function private.group_sessions_dormant();
 
 -- A cohort name is generic, never about a condition: checked against the versioned term list on every insert and rename.
-create function private.community_name_ok(p_name text) returns boolean
+create function private.cohort_name_ok(p_name text) returns boolean
 language sql stable security definer set search_path = ''
 as $$
   select p_name is not null
      and char_length(btrim(p_name)) between 3 and 60
-     and lower(p_name) !~ ('\m(' || (select string_agg(t, '|') from jsonb_array_elements_text(private.community_rules() -> 'blocked_name_terms') t) || ')')
+     and lower(p_name) !~ ('\m(' || (select string_agg(t, '|') from jsonb_array_elements_text(private.cohort_rules() -> 'blocked_name_terms') t) || ')')
 $$;
-revoke all on function private.community_name_ok(text) from public, anon, authenticated;
+revoke all on function private.cohort_name_ok(text) from public, anon, authenticated;
 
-create function private.community_cohort_name_guard() returns trigger
+create function private.cohort_cohort_name_guard() returns trigger
 language plpgsql security definer set search_path = ''
 as $$ begin
   if tg_op = 'INSERT' or new.name is distinct from old.name then
-    if not private.community_name_ok(new.name) then raise exception 'cohort_name_not_allowed' using errcode = '22023'; end if;
+    if not private.cohort_name_ok(new.name) then raise exception 'cohort_name_not_allowed' using errcode = '22023'; end if;
   end if;
   return new;
 end $$;
-revoke all on function private.community_cohort_name_guard() from public, anon, authenticated;
-create trigger community_cohort_name_guard before insert or update of name on public.cohorts
-  for each row execute function private.community_cohort_name_guard();
+revoke all on function private.cohort_cohort_name_guard() from public, anon, authenticated;
+create trigger cohort_cohort_name_guard before insert or update of name on public.cohorts
+  for each row execute function private.cohort_cohort_name_guard();
 
 -- ---------------------------------------------------------------------------
 -- 5. Private helpers
 -- ---------------------------------------------------------------------------
-create function private.community_today() returns date language sql stable set search_path = ''
+create function private.cohort_today() returns date language sql stable set search_path = ''
 as $$ select (now() at time zone 'Africa/Lagos')::date $$;
-revoke all on function private.community_today() from public, anon, authenticated;
+revoke all on function private.cohort_today() from public, anon, authenticated;
 
 -- Open for a real person only when the platform module is on AND the go-live guard is on (INV-14). A test account passes either way, so
 -- the whole flow can be proved before launch on test data; a test account can only ever be in a test cohort (checked at join).
-create function private.community_open(p_patient uuid) returns boolean
+create function private.cohort_open(p_patient uuid) returns boolean
 language sql stable security definer set search_path = ''
 as $$
-  select (private.module_enabled('cohorts') and private.go_live_guard_on('community_cohorts_enabled'))
+  select (private.module_enabled('cohorts') and private.go_live_guard_on('cohorts_enabled'))
       or exists (select 1 from public.profiles where id = p_patient and is_test)
 $$;
-revoke all on function private.community_open(uuid) from public, anon, authenticated;
+revoke all on function private.cohort_open(uuid) from public, anon, authenticated;
 
-create function private.community_is_off(p_patient uuid) returns boolean
+create function private.cohort_is_off(p_patient uuid) returns boolean
 language sql stable security definer set search_path = ''
 as $$ select coalesce((select community_off from public.cohort_preferences where patient_id = p_patient), false) $$;
-revoke all on function private.community_is_off(uuid) from public, anon, authenticated;
+revoke all on function private.cohort_is_off(uuid) from public, anon, authenticated;
 
 -- The signed-in adult patient. Dependants and under-18s never take part.
-create function private.community_patient() returns public.profiles
+create function private.cohort_patient() returns public.profiles
 language plpgsql security definer set search_path = ''
 as $$
 declare v_uid uuid := (select auth.uid()); pr public.profiles%rowtype;
@@ -407,20 +407,20 @@ begin
   if not found then raise exception 'community_not_authorised' using errcode = '42501'; end if;
   return pr;
 end $$;
-revoke all on function private.community_patient() from public, anon, authenticated;
+revoke all on function private.cohort_patient() from public, anon, authenticated;
 
-create function private.community_member(p_cohort uuid, p_patient uuid) returns public.cohort_members
+create function private.cohort_member(p_cohort uuid, p_patient uuid) returns public.cohort_members
 language sql stable security definer set search_path = ''
 as $$ select m.* from public.cohort_members m where m.cohort_id = p_cohort and m.patient_id = p_patient and m.state = 'active' $$;
-revoke all on function private.community_member(uuid, uuid) from public, anon, authenticated;
+revoke all on function private.cohort_member(uuid, uuid) from public, anon, authenticated;
 
-create function private.community_is_member(p_cohort uuid) returns boolean
+create function private.cohort_is_member(p_cohort uuid) returns boolean
 language sql stable security definer set search_path = ''
 as $$ select exists (select 1 from public.cohort_members m where m.cohort_id = p_cohort and m.patient_id = (select auth.uid()) and m.state = 'active') $$;
-revoke all on function private.community_is_member(uuid) from public, anon, authenticated;
+revoke all on function private.cohort_is_member(uuid) from public, anon, authenticated;
 
 -- used by RLS policies, so the signed-in role must be able to run it (it answers only "am I a member", for the caller)
-grant execute on function private.community_is_member(uuid) to authenticated;
+grant execute on function private.cohort_is_member(uuid) to authenticated;
 
 create function private.cohort_is_moderator(p_cohort uuid, p_patient uuid) returns boolean
 language sql stable security definer set search_path = ''
@@ -429,7 +429,7 @@ revoke all on function private.cohort_is_moderator(uuid, uuid) from public, anon
 
 -- The effort-only rule (A16). True when the person has heart failure, kidney disease, a pregnancy, uses insulin, or has an eating-disorder
 -- history. Decided here, from the record, never returned to a caller: the only thing a caller can learn is "not available for you".
-create function private.community_effort_only(p_patient uuid) returns boolean
+create function private.cohort_effort_only(p_patient uuid) returns boolean
 language sql stable security definer set search_path = ''
 as $$
   select exists (select 1 from public.patient_conditions c
@@ -441,19 +441,19 @@ as $$
                   and m.drug_name ~* '(insulin|lantus|levemir|novorapid|humalog|humulin|mixtard|glargine|detemir|aspart|lispro|degludec)')
       or exists (select 1 from public.obesity_ed_screens e where e.patient_id = p_patient and e.positive)
 $$;
-revoke all on function private.community_effort_only(uuid) from public, anon, authenticated;
+revoke all on function private.cohort_effort_only(uuid) from public, anon, authenticated;
 
-create function private.community_metric_allowed(p_patient uuid, p_metric text) returns boolean
+create function private.cohort_metric_allowed(p_patient uuid, p_metric text) returns boolean
 language sql stable security definer set search_path = ''
-as $$ select p_metric in ('log_days', 'lessons_completed') or not private.community_effort_only(p_patient) $$;
-revoke all on function private.community_metric_allowed(uuid, text) from public, anon, authenticated;
+as $$ select p_metric in ('log_days', 'lessons_completed') or not private.cohort_effort_only(p_patient) $$;
+revoke all on function private.cohort_metric_allowed(uuid, text) from public, anon, authenticated;
 
-create function private.community_phase(p_starts date, p_ends date, p_cancelled timestamptz) returns text
+create function private.cohort_phase(p_starts date, p_ends date, p_cancelled timestamptz) returns text
 language sql stable set search_path = ''
 as $$ select case when p_cancelled is not null then 'cancelled'
-                  when private.community_today() < p_starts then 'scheduled'
-                  when private.community_today() <= p_ends then 'active' else 'ended' end $$;
-revoke all on function private.community_phase(date, date, timestamptz) from public, anon, authenticated;
+                  when private.cohort_today() < p_starts then 'scheduled'
+                  when private.cohort_today() <= p_ends then 'active' else 'ended' end $$;
+revoke all on function private.cohort_phase(date, date, timestamptz) from public, anon, authenticated;
 
 -- INV-07: one generic notice for every community milestone. The payload is empty, the template names no cohort, metric or figure.
 create function private.cohort_notify(p_recipient uuid, p_org uuid, p_source_table text, p_source uuid) returns void
@@ -472,37 +472,37 @@ end $$;
 revoke all on function private.cohort_notify(uuid, uuid, text, uuid) from public, anon, authenticated;
 
 -- Withdrawing, leaving, being removed or turning community off all remove the person's own effort rows; published aggregates stay.
-create function private.community_forget_effort(p_patient uuid, p_cohort uuid default null) returns void
+create function private.cohort_forget_effort(p_patient uuid, p_cohort uuid default null) returns void
 language sql security definer set search_path = ''
 as $$
   delete from public.challenge_participation cp using public.challenges ch
    where cp.challenge_id = ch.id and cp.patient_id = p_patient and (p_cohort is null or ch.cohort_id = p_cohort)
 $$;
-revoke all on function private.community_forget_effort(uuid, uuid) from public, anon, authenticated;
+revoke all on function private.cohort_forget_effort(uuid, uuid) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 6. Cohorts, invites, joining
 -- ---------------------------------------------------------------------------
-create function public.community_status() returns jsonb
+create function public.cohort_status() returns jsonb
 language plpgsql stable security definer set search_path = ''
 as $$
 declare pr public.profiles;
 begin
-  pr := private.community_patient();
-  return jsonb_build_object('open', private.community_open(pr.id), 'off', private.community_is_off(pr.id));
+  pr := private.cohort_patient();
+  return jsonb_build_object('open', private.cohort_open(pr.id), 'off', private.cohort_is_off(pr.id));
 end $$;
 
-create function public.community_create(p_name text, p_kind text, p_consent_join boolean) returns jsonb
+create function public.cohort_create(p_name text, p_kind text, p_consent_join boolean) returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
-declare pr public.profiles; cfg jsonb := private.community_rules(); v_id uuid;
+declare pr public.profiles; cfg jsonb := private.cohort_rules(); v_id uuid;
 begin
-  pr := private.community_patient();
-  if not private.community_open(pr.id) then raise exception 'community_closed' using errcode = 'P0001'; end if;
-  if private.community_is_off(pr.id) then raise exception 'community_off' using errcode = 'P0001'; end if;
+  pr := private.cohort_patient();
+  if not private.cohort_open(pr.id) then raise exception 'community_closed' using errcode = 'P0001'; end if;
+  if private.cohort_is_off(pr.id) then raise exception 'community_off' using errcode = 'P0001'; end if;
   if p_consent_join is distinct from true then raise exception 'consent_required' using errcode = 'P0001'; end if;
   if p_kind not in ('church', 'mosque', 'union', 'estate', 'workplace') then raise exception 'cohort_kind_invalid' using errcode = '22023'; end if;
-  if not private.community_name_ok(p_name) then raise exception 'cohort_name_not_allowed' using errcode = '22023'; end if;
+  if not private.cohort_name_ok(p_name) then raise exception 'cohort_name_not_allowed' using errcode = '22023'; end if;
   if (select count(*) from public.cohorts where created_by = pr.id and state = 'active') >= (cfg ->> 'max_cohorts_per_moderator')::integer then
     raise exception 'too_many_cohorts' using errcode = 'P0001';
   end if;
@@ -513,14 +513,14 @@ begin
   return jsonb_build_object('ok', true, 'cohort_id', v_id);
 end $$;
 
-create function public.community_create_invite(p_cohort uuid) returns jsonb
+create function public.cohort_create_invite(p_cohort uuid) returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
 declare
-  pr public.profiles; cfg jsonb := private.community_rules(); co public.cohorts%rowtype; v_token text; v_expires timestamptz;
+  pr public.profiles; cfg jsonb := private.cohort_rules(); co public.cohorts%rowtype; v_token text; v_expires timestamptz;
 begin
-  pr := private.community_patient();
-  if not private.community_open(pr.id) then raise exception 'community_closed' using errcode = 'P0001'; end if;
+  pr := private.cohort_patient();
+  if not private.cohort_open(pr.id) then raise exception 'community_closed' using errcode = 'P0001'; end if;
   select * into co from public.cohorts where id = p_cohort and state = 'active';
   if not found or not private.cohort_is_moderator(p_cohort, pr.id) then raise exception 'community_not_authorised' using errcode = '42501'; end if;
   if (select count(*) from public.cohort_invites where cohort_id = p_cohort and created_at > now() - interval '24 hours') >= (cfg ->> 'max_invites_per_day')::integer then
@@ -537,43 +537,43 @@ begin
 end $$;
 
 -- One lookup for preview and join. Returns null for every failure (unknown, used, expired, closed cohort, wrong test flag, community off).
-create function private.community_invite_for_caller(p_token text) returns public.cohort_invites
+create function private.cohort_invite_for_caller(p_token text) returns public.cohort_invites
 language plpgsql security definer set search_path = ''
 as $$
 declare pr public.profiles; i public.cohort_invites%rowtype; co public.cohorts%rowtype;
 begin
-  pr := private.community_patient();
+  pr := private.cohort_patient();
   if p_token is null or char_length(p_token) not between 20 and 100 then return null; end if;
-  if not private.community_open(pr.id) or private.community_is_off(pr.id) then return null; end if;
+  if not private.cohort_open(pr.id) or private.cohort_is_off(pr.id) then return null; end if;
   select * into i from public.cohort_invites where token_hash = private.circle_hash(p_token) and state = 'pending' and expires_at > now() for update;
   if not found then return null; end if;
   select * into co from public.cohorts where id = i.cohort_id and state = 'active';
   if not found or co.is_test is distinct from coalesce(pr.is_test, false) then return null; end if;
   if exists (select 1 from public.cohort_members m where m.cohort_id = i.cohort_id and m.patient_id = pr.id and (m.state = 'active' or m.barred)) then return null; end if;
-  if (select count(*) from public.cohort_members where cohort_id = i.cohort_id and state = 'active') >= (private.community_rules() ->> 'max_members_per_cohort')::integer then return null; end if;
+  if (select count(*) from public.cohort_members where cohort_id = i.cohort_id and state = 'active') >= (private.cohort_rules() ->> 'max_members_per_cohort')::integer then return null; end if;
   return i;
 end $$;
-revoke all on function private.community_invite_for_caller(text) from public, anon, authenticated;
+revoke all on function private.cohort_invite_for_caller(text) from public, anon, authenticated;
 
-create function public.community_preview_invite(p_token text) returns jsonb
+create function public.cohort_preview_invite(p_token text) returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
 declare i public.cohort_invites; co public.cohorts%rowtype;
 begin
-  i := private.community_invite_for_caller(p_token);
+  i := private.cohort_invite_for_caller(p_token);
   if i.id is null then return jsonb_build_object('ok', false); end if;
   select * into co from public.cohorts where id = i.cohort_id;
   return jsonb_build_object('ok', true, 'name', co.name, 'kind', co.kind);
 end $$;
 
-create function public.community_join(p_token text, p_consent_join boolean) returns jsonb
+create function public.cohort_join(p_token text, p_consent_join boolean) returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
 declare i public.cohort_invites; pr public.profiles; v_member uuid;
 begin
-  pr := private.community_patient();
+  pr := private.cohort_patient();
   if p_consent_join is distinct from true then return jsonb_build_object('ok', false); end if;
-  i := private.community_invite_for_caller(p_token);
+  i := private.cohort_invite_for_caller(p_token);
   if i.id is null then return jsonb_build_object('ok', false); end if;
   insert into public.cohort_members (organisation_id, cohort_id, patient_id, role, consent_join_at, is_test)
   values (pr.organisation_id, i.cohort_id, pr.id, 'member', now(), coalesce(pr.is_test, false))
@@ -588,14 +588,14 @@ end $$;
 -- ---------------------------------------------------------------------------
 -- 7. What a member sees (no health data anywhere in these answers)
 -- ---------------------------------------------------------------------------
-create function public.community_my_cohorts() returns jsonb
+create function public.cohort_my_cohorts() returns jsonb
 language plpgsql stable security definer set search_path = ''
 as $$
 declare pr public.profiles;
 begin
-  pr := private.community_patient();
-  if not private.community_open(pr.id) then return jsonb_build_object('open', false, 'off', private.community_is_off(pr.id), 'cohorts', '[]'::jsonb); end if;
-  return jsonb_build_object('open', true, 'off', private.community_is_off(pr.id), 'cohorts', coalesce((
+  pr := private.cohort_patient();
+  if not private.cohort_open(pr.id) then return jsonb_build_object('open', false, 'off', private.cohort_is_off(pr.id), 'cohorts', '[]'::jsonb); end if;
+  return jsonb_build_object('open', true, 'off', private.cohort_is_off(pr.id), 'cohorts', coalesce((
     select jsonb_agg(jsonb_build_object('cohort_id', c.id, 'name', c.name, 'kind', c.kind, 'state', c.state, 'is_moderator', m.role = 'moderator',
                                         'muted', m.muted, 'contributing', m.consent_totals_at is not null) order by c.name)
       from public.cohort_members m join public.cohorts c on c.id = m.cohort_id
@@ -603,20 +603,20 @@ begin
 end $$;
 
 -- The member list: first names and roles only, to members of that cohort. A moderator sees the same list, nothing more.
-create function public.community_roster(p_cohort uuid) returns jsonb
+create function public.cohort_roster(p_cohort uuid) returns jsonb
 language plpgsql stable security definer set search_path = ''
 as $$
 declare pr public.profiles;
 begin
-  pr := private.community_patient();
-  if not private.community_open(pr.id) or private.community_member(p_cohort, pr.id) is null then return '[]'::jsonb; end if;
+  pr := private.cohort_patient();
+  if not private.cohort_open(pr.id) or private.cohort_member(p_cohort, pr.id) is null then return '[]'::jsonb; end if;
   return coalesce((select jsonb_agg(jsonb_build_object('member_id', m.id, 'first_name', coalesce(nullif(split_part(btrim(p.full_name), ' ', 1), ''), 'Member'),
                                                          'role', m.role, 'is_you', m.patient_id = pr.id) order by coalesce(nullif(split_part(btrim(p.full_name), ' ', 1), ''), 'Member'), m.id)
                      from public.cohort_members m join public.profiles p on p.id = m.patient_id
                     where m.cohort_id = p_cohort and m.state = 'active'), '[]'::jsonb);
 end $$;
 
-create function public.community_leave(p_cohort uuid) returns jsonb
+create function public.cohort_leave(p_cohort uuid) returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
 declare v_uid uuid := (select auth.uid()); m public.cohort_members%rowtype;
@@ -626,7 +626,7 @@ begin
   update public.cohort_members set state = 'left', left_at = now(), consent_totals_at = null, consent_totals_withdrawn_at = coalesce(consent_totals_withdrawn_at, now())
    where cohort_id = p_cohort and patient_id = v_uid and state = 'active' returning * into m;
   if not found then return jsonb_build_object('ok', false); end if;
-  perform private.community_forget_effort(v_uid, p_cohort);
+  perform private.cohort_forget_effort(v_uid, p_cohort);
   -- a cohort with no moderator left is closed (no stranger is promoted into moderator powers)
   if not exists (select 1 from public.cohort_members where cohort_id = p_cohort and state = 'active' and role = 'moderator') then
     update public.cohorts set state = 'closed', closed_at = now() where id = p_cohort and state <> 'closed';
@@ -635,7 +635,7 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
-create function public.community_set_muted(p_cohort uuid, p_muted boolean) returns jsonb
+create function public.cohort_set_muted(p_cohort uuid, p_muted boolean) returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
 declare v_uid uuid := (select auth.uid());
@@ -645,23 +645,23 @@ begin
   return jsonb_build_object('ok', found);
 end $$;
 
-create function public.community_set_totals_consent(p_cohort uuid, p_on boolean) returns jsonb
+create function public.cohort_set_totals_consent(p_cohort uuid, p_on boolean) returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
 declare pr public.profiles; co public.cohorts%rowtype;
 begin
-  pr := private.community_patient();
+  pr := private.cohort_patient();
   if p_on is null then raise exception 'community_not_authorised' using errcode = '42501'; end if;
   if p_on then
     select * into co from public.cohorts where id = p_cohort and state = 'active';
-    if not found or private.community_member(p_cohort, pr.id) is null or not private.community_open(pr.id) or private.community_is_off(pr.id) then
+    if not found or private.cohort_member(p_cohort, pr.id) is null or not private.cohort_open(pr.id) or private.cohort_is_off(pr.id) then
       return jsonb_build_object('ok', false);
     end if;
     update public.cohort_members set consent_totals_at = now(), consent_totals_withdrawn_at = null where cohort_id = p_cohort and patient_id = pr.id;
   else
     -- withdrawing is never blocked by the switch or the cohort state
     update public.cohort_members set consent_totals_at = null, consent_totals_withdrawn_at = now() where cohort_id = p_cohort and patient_id = pr.id and state = 'active';
-    perform private.community_forget_effort(pr.id, p_cohort);
+    perform private.cohort_forget_effort(pr.id, p_cohort);
   end if;
   return jsonb_build_object('ok', true);
 end $$;
@@ -676,7 +676,7 @@ begin
   on conflict (patient_id) do update set community_off = excluded.community_off, updated_at = now();
   if p_off then
     update public.cohort_members set consent_totals_at = null, consent_totals_withdrawn_at = now() where patient_id = v_uid and state = 'active' and consent_totals_at is not null;
-    perform private.community_forget_effort(v_uid);
+    perform private.cohort_forget_effort(v_uid);
   end if;
   return jsonb_build_object('ok', true, 'off', p_off);
 end $$;
@@ -684,13 +684,13 @@ end $$;
 -- ---------------------------------------------------------------------------
 -- 8. Moderation: report-and-remove, moderator tools, platform freeze. No free text anywhere.
 -- ---------------------------------------------------------------------------
-create function public.community_report(p_cohort uuid, p_member uuid, p_reason text) returns jsonb
+create function public.cohort_report(p_cohort uuid, p_member uuid, p_reason text) returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
 declare v_uid uuid := (select auth.uid()); me public.cohort_members%rowtype; tgt public.cohort_members%rowtype; co public.cohorts%rowtype;
 begin
   if v_uid is null then raise exception 'community_not_authorised' using errcode = '42501'; end if;
-  me := private.community_member(p_cohort, v_uid);
+  me := private.cohort_member(p_cohort, v_uid);
   if me.id is null then return jsonb_build_object('ok', false); end if;
   if p_reason not in ('concerning_behaviour', 'unwanted_contact', 'pressure_to_share', 'something_else') then raise exception 'report_reason_invalid' using errcode = '22023'; end if;
   if p_member is not null then
@@ -704,19 +704,19 @@ begin
 end $$;
 
 -- A moderator sees reports about members (never about themselves, never who reported).
-create function public.community_moderator_reports(p_cohort uuid) returns jsonb
+create function public.cohort_moderator_reports(p_cohort uuid) returns jsonb
 language plpgsql stable security definer set search_path = ''
 as $$
 declare pr public.profiles;
 begin
-  pr := private.community_patient();
+  pr := private.cohort_patient();
   if not private.cohort_is_moderator(p_cohort, pr.id) then return '[]'::jsonb; end if;
   return coalesce((select jsonb_agg(jsonb_build_object('report_id', r.id, 'member_id', r.reported_member_id, 'reason', r.reason, 'created_on', r.created_at::date) order by r.created_at)
                      from public.cohort_reports r join public.cohort_members t on t.id = r.reported_member_id
                     where r.cohort_id = p_cohort and r.state = 'open' and t.patient_id <> pr.id), '[]'::jsonb);
 end $$;
 
-create function private.community_remove(p_member uuid, p_by uuid, p_bar boolean) returns void
+create function private.cohort_remove(p_member uuid, p_by uuid, p_bar boolean) returns void
 language plpgsql security definer set search_path = ''
 as $$
 declare t public.cohort_members%rowtype;
@@ -725,31 +725,31 @@ begin
          consent_totals_at = null, consent_totals_withdrawn_at = coalesce(consent_totals_withdrawn_at, now())
    where id = p_member and state = 'active' returning * into t;
   if not found then return; end if;
-  perform private.community_forget_effort(t.patient_id, t.cohort_id);
+  perform private.cohort_forget_effort(t.patient_id, t.cohort_id);
   update public.cohort_reports set state = 'actioned', resolved_at = now(), resolved_by = p_by where reported_member_id = p_member and state = 'open';
 end $$;
-revoke all on function private.community_remove(uuid, uuid, boolean) from public, anon, authenticated;
+revoke all on function private.cohort_remove(uuid, uuid, boolean) from public, anon, authenticated;
 
-create function public.community_remove_member(p_cohort uuid, p_member uuid) returns jsonb
+create function public.cohort_remove_member(p_cohort uuid, p_member uuid) returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
 declare pr public.profiles; t public.cohort_members%rowtype;
 begin
-  pr := private.community_patient();
+  pr := private.cohort_patient();
   if not private.cohort_is_moderator(p_cohort, pr.id) then raise exception 'community_not_authorised' using errcode = '42501'; end if;
   select * into t from public.cohort_members where id = p_member and cohort_id = p_cohort and state = 'active';
   if not found or t.patient_id = pr.id or t.role = 'moderator' then return jsonb_build_object('ok', false); end if;
-  perform private.community_remove(p_member, pr.id, false);
+  perform private.cohort_remove(p_member, pr.id, false);
   perform private.log_audit('community.member_removed', 'community_cohort', p_cohort, '{}'::jsonb);
   return jsonb_build_object('ok', true);
 end $$;
 
-create function public.community_close(p_cohort uuid) returns jsonb
+create function public.cohort_close(p_cohort uuid) returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
 declare pr public.profiles;
 begin
-  pr := private.community_patient();
+  pr := private.cohort_patient();
   if not private.cohort_is_moderator(p_cohort, pr.id) then raise exception 'community_not_authorised' using errcode = '42501'; end if;
   update public.cohorts set state = 'closed', closed_at = now() where id = p_cohort and state <> 'closed';
   update public.challenges set cancelled_at = now() where cohort_id = p_cohort and cancelled_at is null;
@@ -797,7 +797,7 @@ begin
   if p_action = 'dismiss' then
     update public.cohort_reports set state = 'dismissed', resolved_at = now(), resolved_by = v_uid where id = p_report;
   elsif p_action = 'remove_member' and r.reported_member_id is not null then
-    perform private.community_remove(r.reported_member_id, v_uid, coalesce(p_bar, false));
+    perform private.cohort_remove(r.reported_member_id, v_uid, coalesce(p_bar, false));
     update public.cohort_reports set state = 'actioned', resolved_at = now(), resolved_by = v_uid where id = p_report;
   else
     raise exception 'action_invalid' using errcode = '22023';
@@ -814,28 +814,28 @@ language plpgsql stable security definer set search_path = ''
 as $$
 declare pr public.profiles;
 begin
-  pr := private.community_patient();
-  if not private.community_open(pr.id) then return '[]'::jsonb; end if;
+  pr := private.cohort_patient();
+  if not private.cohort_open(pr.id) then return '[]'::jsonb; end if;
   -- approved only; nothing is approved until the CMO signs it
   return coalesce((select jsonb_agg(jsonb_build_object('code', code, 'label', label, 'description', description, 'unit', unit,
                                                          'default_days', default_days, 'target_per_member', target_per_member) order by label)
                      from public.challenge_templates where status = 'approved'), '[]'::jsonb);
 end $$;
 
-create function public.community_start_challenge(p_cohort uuid, p_template text, p_starts_on date, p_days integer) returns jsonb
+create function public.cohort_start_challenge(p_cohort uuid, p_template text, p_starts_on date, p_days integer) returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
-declare pr public.profiles; cfg jsonb := private.community_rules(); t public.challenge_templates%rowtype; co public.cohorts%rowtype; v_id uuid;
+declare pr public.profiles; cfg jsonb := private.cohort_rules(); t public.challenge_templates%rowtype; co public.cohorts%rowtype; v_id uuid;
 begin
-  pr := private.community_patient();
-  if not private.community_open(pr.id) then raise exception 'community_closed' using errcode = 'P0001'; end if;
+  pr := private.cohort_patient();
+  if not private.cohort_open(pr.id) then raise exception 'community_closed' using errcode = 'P0001'; end if;
   select * into co from public.cohorts where id = p_cohort and state = 'active';
   if not found or not private.cohort_is_moderator(p_cohort, pr.id) then raise exception 'community_not_authorised' using errcode = '42501'; end if;
   select * into t from public.challenge_templates where code = p_template and status = 'approved';
   if not found then raise exception 'template_not_approved' using errcode = 'P0001'; end if;
-  if p_starts_on is null or p_starts_on < private.community_today() or p_starts_on > private.community_today() + 30 then raise exception 'challenge_dates_invalid' using errcode = '22023'; end if;
+  if p_starts_on is null or p_starts_on < private.cohort_today() or p_starts_on > private.cohort_today() + 30 then raise exception 'challenge_dates_invalid' using errcode = '22023'; end if;
   if p_days is null or p_days not between (cfg ->> 'challenge_min_days')::integer and (cfg ->> 'challenge_max_days')::integer then raise exception 'challenge_dates_invalid' using errcode = '22023'; end if;
-  if (select count(*) from public.challenges where cohort_id = p_cohort and cancelled_at is null and ends_on >= private.community_today()) >= (cfg ->> 'max_active_challenges')::integer then
+  if (select count(*) from public.challenges where cohort_id = p_cohort and cancelled_at is null and ends_on >= private.cohort_today()) >= (cfg ->> 'max_active_challenges')::integer then
     raise exception 'too_many_challenges' using errcode = 'P0001';
   end if;
   insert into public.challenges (organisation_id, cohort_id, template_code, template_version, metric, target_per_member, starts_on, ends_on, created_by, is_test)
@@ -845,35 +845,35 @@ end $$;
 
 -- The challenge view. A CLOSED key set: label, dates, phase, one availability flag, and the cohort's own published total. There is no
 -- field for any person's figure, so no view built on this function can show one.
-create function private.community_challenge_view(p_challenge public.challenges, p_patient uuid) returns jsonb
+create function private.cohort_challenge_view(p_challenge public.challenges, p_patient uuid) returns jsonb
 language plpgsql stable security definer set search_path = ''
 as $$
 declare t public.challenge_templates%rowtype; s public.challenge_totals%rowtype; m public.cohort_members%rowtype;
 begin
   select * into t from public.challenge_templates where code = p_challenge.template_code;
-  m := private.community_member(p_challenge.cohort_id, p_patient);
+  m := private.cohort_member(p_challenge.cohort_id, p_patient);
   select * into s from public.challenge_totals where challenge_id = p_challenge.id and published_after <= now() order by published_after desc, as_of desc limit 1;
   return jsonb_build_object(
     'challenge_id', p_challenge.id, 'label', t.label, 'unit', t.unit, 'starts_on', p_challenge.starts_on, 'ends_on', p_challenge.ends_on,
-    'phase', private.community_phase(p_challenge.starts_on, p_challenge.ends_on, p_challenge.cancelled_at),
-    'available', private.community_metric_allowed(p_patient, p_challenge.metric),
+    'phase', private.cohort_phase(p_challenge.starts_on, p_challenge.ends_on, p_challenge.cancelled_at),
+    'available', private.cohort_metric_allowed(p_patient, p_challenge.metric),
     'contributing', m.consent_totals_at is not null,
     'total', case when s.id is null then jsonb_build_object('state', 'pending')
                   when s.suppressed then jsonb_build_object('state', 'hidden')
                   else jsonb_build_object('state', 'shown', 'total', s.total_rounded, 'progress_pct', s.progress_pct, 'goal_reached', s.goal_reached,
                                           'group_size', s.contributor_band, 'as_of', s.published_after::date, 'final', s.is_final) end);
 end $$;
-revoke all on function private.community_challenge_view(public.challenges, uuid) from public, anon, authenticated;
+revoke all on function private.cohort_challenge_view(public.challenges, uuid) from public, anon, authenticated;
 
-create function public.community_challenges(p_cohort uuid) returns jsonb
+create function public.cohort_challenges(p_cohort uuid) returns jsonb
 language plpgsql stable security definer set search_path = ''
 as $$
 declare pr public.profiles;
 begin
-  pr := private.community_patient();
-  if not private.community_open(pr.id) or private.community_member(p_cohort, pr.id) is null then return '[]'::jsonb; end if;
+  pr := private.cohort_patient();
+  if not private.cohort_open(pr.id) or private.cohort_member(p_cohort, pr.id) is null then return '[]'::jsonb; end if;
   if (select state from public.cohorts where id = p_cohort) <> 'active' then return '[]'::jsonb; end if;
-  return coalesce((select jsonb_agg(private.community_challenge_view(ch, pr.id) order by ch.starts_on desc)
+  return coalesce((select jsonb_agg(private.cohort_challenge_view(ch, pr.id) order by ch.starts_on desc)
                      from public.challenges ch where ch.cohort_id = p_cohort and ch.cancelled_at is null), '[]'::jsonb);
 end $$;
 
@@ -883,21 +883,21 @@ create function public.contribute_to_challenge(p_challenge uuid, p_day date defa
 language plpgsql security definer set search_path = ''
 as $$
 declare
-  pr public.profiles; ch public.challenges%rowtype; co public.cohorts%rowtype; m public.cohort_members%rowtype; cfg jsonb := private.community_rules();
+  pr public.profiles; ch public.challenges%rowtype; co public.cohorts%rowtype; m public.cohort_members%rowtype; cfg jsonb := private.cohort_rules();
   v_from date; v_to date; v_day date; v_val integer; v_week_used integer;
 begin
-  pr := private.community_patient();
+  pr := private.cohort_patient();
   select * into ch from public.challenges where id = p_challenge and cancelled_at is null;
-  if not found or not private.community_open(pr.id) then return jsonb_build_object('ok', false, 'reason', 'not_available'); end if;
+  if not found or not private.cohort_open(pr.id) then return jsonb_build_object('ok', false, 'reason', 'not_available'); end if;
   select * into co from public.cohorts where id = ch.cohort_id;
-  m := private.community_member(ch.cohort_id, pr.id);
+  m := private.cohort_member(ch.cohort_id, pr.id);
   -- one neutral answer for: not in the cohort, frozen or closed, challenge not running, or the effort-only rule (never says which)
-  if m.id is null or co.state <> 'active' or private.community_phase(ch.starts_on, ch.ends_on, ch.cancelled_at) <> 'active'
-     or not private.community_metric_allowed(pr.id, ch.metric) or private.community_is_off(pr.id) then
+  if m.id is null or co.state <> 'active' or private.cohort_phase(ch.starts_on, ch.ends_on, ch.cancelled_at) <> 'active'
+     or not private.cohort_metric_allowed(pr.id, ch.metric) or private.cohort_is_off(pr.id) then
     return jsonb_build_object('ok', false, 'reason', 'not_available');
   end if;
   if m.consent_totals_at is null then return jsonb_build_object('ok', false, 'reason', 'consent_needed'); end if;
-  v_from := ch.starts_on; v_to := least(ch.ends_on, private.community_today());
+  v_from := ch.starts_on; v_to := least(ch.ends_on, private.cohort_today());
 
   if ch.metric = 'log_days' then
     insert into public.challenge_participation (organisation_id, challenge_id, patient_id, day, value, source)
@@ -922,8 +922,8 @@ begin
     on conflict (challenge_id, patient_id, day) do update set value = excluded.value;
   else
     -- self-reported: today or yesterday only, one row a day
-    v_day := coalesce(p_day, private.community_today());
-    if v_day < private.community_today() - 1 or v_day > private.community_today() or v_day < ch.starts_on or v_day > ch.ends_on then
+    v_day := coalesce(p_day, private.cohort_today());
+    if v_day < private.cohort_today() - 1 or v_day > private.cohort_today() or v_day < ch.starts_on or v_day > ch.ends_on then
       return jsonb_build_object('ok', false, 'reason', 'not_available');
     end if;
     if ch.metric = 'activity_minutes' then
@@ -949,13 +949,13 @@ language plpgsql stable security definer set search_path = ''
 as $$
 declare pr public.profiles; ch public.challenges%rowtype; m public.cohort_members%rowtype;
 begin
-  pr := private.community_patient();
+  pr := private.cohort_patient();
   select * into ch from public.challenges where id = p_challenge and cancelled_at is null;
   if not found then return jsonb_build_object('available', false); end if;
-  m := private.community_member(ch.cohort_id, pr.id);
+  m := private.cohort_member(ch.cohort_id, pr.id);
   if m.id is null then return jsonb_build_object('available', false); end if;
-  return jsonb_build_object('available', private.community_metric_allowed(pr.id, ch.metric), 'contributing', m.consent_totals_at is not null,
-    'did_today', exists (select 1 from public.challenge_participation where challenge_id = p_challenge and patient_id = pr.id and day = private.community_today()));
+  return jsonb_build_object('available', private.cohort_metric_allowed(pr.id, ch.metric), 'contributing', m.consent_totals_at is not null,
+    'did_today', exists (select 1 from public.challenge_participation where challenge_id = p_challenge and patient_id = pr.id and day = private.cohort_today()));
 end $$;
 
 -- ---------------------------------------------------------------------------
@@ -965,7 +965,7 @@ create function private.challenge_aggregate(p_challenge uuid, p_final boolean) r
 language plpgsql security definer set search_path = ''
 as $$
 declare
-  cfg jsonb := private.community_rules(); ch public.challenges%rowtype;
+  cfg jsonb := private.cohort_rules(); ch public.challenges%rowtype;
   v_n integer; v_total bigint; v_max bigint; v_reason text; v_pct integer; v_step integer := (cfg ->> 'progress_step_pct')::integer;
   v_round integer := (cfg ->> 'round_total_to')::integer; v_id uuid; v_band text; v_goal boolean;
 begin
@@ -975,7 +975,7 @@ begin
     select sum(cp.value)::bigint s
       from public.challenge_participation cp
       join public.cohort_members m on m.cohort_id = ch.cohort_id and m.patient_id = cp.patient_id and m.state = 'active' and m.consent_totals_at is not null
-     where cp.challenge_id = p_challenge and not private.community_is_off(cp.patient_id)
+     where cp.challenge_id = p_challenge and not private.cohort_is_off(cp.patient_id)
      group by cp.patient_id) per_member;
   if v_n < (cfg ->> 'min_contributors')::integer then v_reason := 'too_few';
   -- leave-one-out: if removing the biggest contributor would move the total by more than the allowed share, it is hidden
@@ -996,20 +996,20 @@ end $$;
 revoke all on function private.challenge_aggregate(uuid, boolean) from public, anon, authenticated;
 
 -- The scheduled run. Real cohorts only while the module is on; test cohorts always (so the flow is provable before launch).
-create function private.community_run() returns jsonb
+create function private.cohort_run() returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
 declare
-  cfg jsonb := private.community_rules(); ch public.challenges%rowtype; s public.challenge_totals%rowtype; v_made integer := 0; v_announced integer := 0; v_errors integer := 0; v_purged integer; v_phase text; v_member record;
+  cfg jsonb := private.cohort_rules(); ch public.challenges%rowtype; s public.challenge_totals%rowtype; v_made integer := 0; v_announced integer := 0; v_errors integer := 0; v_purged integer; v_phase text; v_member record;
   v_on boolean := private.module_enabled('cohorts');
 begin
   -- 1. snapshots: one every snapshot_every_hours while a challenge runs, and exactly one final one after it ends. One bad challenge never
   --    stops the others: its error is written to the audit log (a silent skip would look like "no total yet") and counted in the result.
   for ch in select h.* from public.challenges h join public.cohorts c on c.id = h.cohort_id
              where h.cancelled_at is null and c.state = 'active' and (c.is_test or v_on)
-               and h.starts_on <= private.community_today() and h.ends_on >= private.community_today() - 3 loop
+               and h.starts_on <= private.cohort_today() and h.ends_on >= private.cohort_today() - 3 loop
     begin
-      v_phase := private.community_phase(ch.starts_on, ch.ends_on, ch.cancelled_at);
+      v_phase := private.cohort_phase(ch.starts_on, ch.ends_on, ch.cancelled_at);
       if v_phase = 'active' then
         if not exists (select 1 from public.challenge_totals where challenge_id = ch.id and as_of > now() - make_interval(hours => (cfg ->> 'snapshot_every_hours')::integer)) then
           perform private.challenge_aggregate(ch.id, false); v_made := v_made + 1;
@@ -1032,7 +1032,7 @@ begin
           jsonb_build_object('challenge_id', ch.id, 'cohort_id', ch.cohort_id, 'kind', 'goal_reached'), 'challenge.progress:' || s.id,
           case when ch.is_test then ch.created_by end, 'challenge', ch.id);
         for v_member in select m.patient_id, m.organisation_id from public.cohort_members m
-                         where m.cohort_id = ch.cohort_id and m.state = 'active' and not m.muted and not private.community_is_off(m.patient_id) loop
+                         where m.cohort_id = ch.cohort_id and m.state = 'active' and not m.muted and not private.cohort_is_off(m.patient_id) loop
           perform private.cohort_notify(v_member.patient_id, v_member.organisation_id, 'challenge_totals', s.id);
         end loop;
         v_announced := v_announced + 1;
@@ -1042,7 +1042,7 @@ begin
           jsonb_build_object('challenge_id', ch.id, 'cohort_id', ch.cohort_id, 'kind', 'ended'), 'challenge.progress:ended:' || ch.id,
           case when ch.is_test then ch.created_by end, 'challenge', ch.id);
         for v_member in select m.patient_id, m.organisation_id from public.cohort_members m
-                         where m.cohort_id = ch.cohort_id and m.state = 'active' and not m.muted and not private.community_is_off(m.patient_id) loop
+                         where m.cohort_id = ch.cohort_id and m.state = 'active' and not m.muted and not private.cohort_is_off(m.patient_id) loop
           perform private.cohort_notify(v_member.patient_id, v_member.organisation_id, 'challenges', ch.id);
         end loop;
         update public.challenges set ended_announced_at = now() where id = ch.id;
@@ -1057,22 +1057,22 @@ begin
 
   -- 3. retention: a member's own effort rows are kept only a short while after a challenge ends
   delete from public.challenge_participation cp using public.challenges h
-   where cp.challenge_id = h.id and h.ends_on < private.community_today() - (cfg ->> 'participation_keep_days')::integer;
+   where cp.challenge_id = h.id and h.ends_on < private.cohort_today() - (cfg ->> 'participation_keep_days')::integer;
   get diagnostics v_purged = row_count;
   return jsonb_build_object('snapshots', v_made, 'announced', v_announced, 'purged', v_purged, 'errors', v_errors);
 end $$;
-revoke all on function private.community_run() from public, anon, authenticated;
+revoke all on function private.cohort_run() from public, anon, authenticated;
 
 -- Cohort against cohort. Anonymised labels, ranked by percent of goal (so size does not decide it), only cohorts whose own total is shown,
 -- and only when enough cohorts take part. A member never sees who the other cohorts are, and never a member rank.
-create function public.community_board(p_challenge uuid) returns jsonb
+create function public.cohort_board(p_challenge uuid) returns jsonb
 language plpgsql stable security definer set search_path = ''
 as $$
-declare pr public.profiles; ch public.challenges%rowtype; cfg jsonb := private.community_rules(); v_rows jsonb;
+declare pr public.profiles; ch public.challenges%rowtype; cfg jsonb := private.cohort_rules(); v_rows jsonb;
 begin
-  pr := private.community_patient();
+  pr := private.cohort_patient();
   select * into ch from public.challenges where id = p_challenge and cancelled_at is null;
-  if not found or not private.community_open(pr.id) or private.community_member(ch.cohort_id, pr.id) is null then return jsonb_build_object('state', 'hidden'); end if;
+  if not found or not private.cohort_open(pr.id) or private.cohort_member(ch.cohort_id, pr.id) is null then return jsonb_build_object('state', 'hidden'); end if;
   with latest as (
     select distinct on (h.id) h.id as challenge_id, h.cohort_id, s.progress_pct, s.suppressed
       from public.challenges h
@@ -1107,13 +1107,13 @@ alter table public.group_sessions enable row level security;
 
 -- a member (and so a moderator) reads their own cohorts, the cohort's challenges and its PUBLISHED totals; an admin can see cohort rows
 create policy community_cohorts_read on public.cohorts for select to authenticated
-  using (private.community_is_member(id) or private.is_admin());
+  using (private.cohort_is_member(id) or private.is_admin());
 create policy cohort_members_own on public.cohort_members for select to authenticated using (patient_id = (select auth.uid()));
 create policy community_preferences_own on public.cohort_preferences for select to authenticated using (patient_id = (select auth.uid()));
-create policy challenges_member_read on public.challenges for select to authenticated using (private.community_is_member(cohort_id));
+create policy challenges_member_read on public.challenges for select to authenticated using (private.cohort_is_member(cohort_id));
 create policy challenge_participation_own on public.challenge_participation for select to authenticated using (patient_id = (select auth.uid()));
 create policy challenge_totals_published on public.challenge_totals for select to authenticated
-  using (published_after <= now() and private.community_is_member((select h.cohort_id from public.challenges h where h.id = challenge_id)));
+  using (published_after <= now() and private.cohort_is_member((select h.cohort_id from public.challenges h where h.id = challenge_id)));
 -- invites (hash only), reports and group sessions have no policy and no grant: reached only through the functions
 
 revoke all on public.cohorts, public.cohort_members, public.cohort_preferences, public.cohort_invites, public.challenges,
@@ -1125,13 +1125,13 @@ do $$
 declare f text;
 begin
   foreach f in array array[
-    'public.sign_challenge_template(text,boolean,text)', 'public.community_status()', 'public.community_create(text,text,boolean)',
-    'public.community_create_invite(uuid)', 'public.community_preview_invite(text)', 'public.community_join(text,boolean)', 'public.community_my_cohorts()',
-    'public.community_roster(uuid)', 'public.community_leave(uuid)', 'public.community_set_muted(uuid,boolean)', 'public.community_set_totals_consent(uuid,boolean)',
-    'public.set_community_off(boolean)', 'public.community_report(uuid,uuid,text)', 'public.community_moderator_reports(uuid)', 'public.community_remove_member(uuid,uuid)',
-    'public.community_close(uuid)', 'public.admin_community_freeze(uuid,boolean,text)', 'public.admin_community_reports()',
-    'public.admin_community_resolve_report(uuid,text,boolean)', 'public.list_challenge_templates()', 'public.community_start_challenge(uuid,text,date,integer)',
-    'public.community_challenges(uuid)', 'public.contribute_to_challenge(uuid,date,integer)', 'public.my_challenge_status(uuid)', 'public.community_board(uuid)']
+    'public.sign_challenge_template(text,boolean,text)', 'public.cohort_status()', 'public.cohort_create(text,text,boolean)',
+    'public.cohort_create_invite(uuid)', 'public.cohort_preview_invite(text)', 'public.cohort_join(text,boolean)', 'public.cohort_my_cohorts()',
+    'public.cohort_roster(uuid)', 'public.cohort_leave(uuid)', 'public.cohort_set_muted(uuid,boolean)', 'public.cohort_set_totals_consent(uuid,boolean)',
+    'public.set_community_off(boolean)', 'public.cohort_report(uuid,uuid,text)', 'public.cohort_moderator_reports(uuid)', 'public.cohort_remove_member(uuid,uuid)',
+    'public.cohort_close(uuid)', 'public.admin_community_freeze(uuid,boolean,text)', 'public.admin_community_reports()',
+    'public.admin_community_resolve_report(uuid,text,boolean)', 'public.list_challenge_templates()', 'public.cohort_start_challenge(uuid,text,date,integer)',
+    'public.cohort_challenges(uuid)', 'public.contribute_to_challenge(uuid,date,integer)', 'public.my_challenge_status(uuid)', 'public.cohort_board(uuid)']
   loop
     execute format('revoke all on function %s from public, anon', f);
     execute format('grant execute on function %s to authenticated', f);
@@ -1143,7 +1143,7 @@ do $$
 begin
   if exists (select 1 from pg_extension where extname = 'pg_cron') then
     perform cron.unschedule(jobname) from cron.job where jobname = 'community-challenge-aggregate';
-    perform cron.schedule('community-challenge-aggregate', '23 * * * *', $c$select private.community_run()$c$);
+    perform cron.schedule('community-challenge-aggregate', '23 * * * *', $c$select private.cohort_run()$c$);
   end if;
 end $$;
 
@@ -1151,7 +1151,7 @@ end $$;
 do $$
 declare f text; v_n integer;
 begin
-  foreach f in array array['public.community_create(text,text,boolean)', 'public.community_join(text,boolean)', 'public.community_board(uuid)', 'public.contribute_to_challenge(uuid,date,integer)',
+  foreach f in array array['public.cohort_create(text,text,boolean)', 'public.cohort_join(text,boolean)', 'public.cohort_board(uuid)', 'public.contribute_to_challenge(uuid,date,integer)',
                            'public.admin_community_freeze(uuid,boolean,text)', 'public.sign_challenge_template(text,boolean,text)'] loop
     if has_function_privilege('anon', f, 'EXECUTE') then raise exception 'anon can execute %', f; end if;
     if not has_function_privilege('authenticated', f, 'EXECUTE') then raise exception 'authenticated cannot execute %', f; end if;

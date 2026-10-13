@@ -59,13 +59,13 @@ describe("community api", () => {
   it("loads cohorts through the one RPC and parses the reply", async () => {
     mockRpc.mockResolvedValue({ data: { open: true, off: false, cohorts: [] }, error: null });
     expect(await loadMyCohorts()).toEqual({ ok: true, data: { open: true, off: false, cohorts: [] } });
-    expect(mockRpc).toHaveBeenCalledWith("community_my_cohorts");
+    expect(mockRpc).toHaveBeenCalledWith("cohort_my_cohorts");
   });
 
   it("joining sends the token and the explicit yes, and nothing else", async () => {
     mockRpc.mockResolvedValue({ data: { ok: true, cohort_id: "c1" }, error: null });
     const r = await joinCohort("tok", true);
-    expect(mockRpc).toHaveBeenCalledWith("community_join", { p_token: "tok", p_consent_join: true });
+    expect(mockRpc).toHaveBeenCalledWith("cohort_join", { p_token: "tok", p_consent_join: true });
     expect(r.ok && r.result.cohortId).toBe("c1");
   });
 
