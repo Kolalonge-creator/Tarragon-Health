@@ -21,7 +21,9 @@ export function ConsentReceiptsPanel({ patientId }: { patientId: string }) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {receipts.isError ? (
+        {receipts.isLoading ? (
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading your receipts...</p>
+        ) : receipts.isError ? (
           <p role="alert" className="text-sm text-red-700">
             We could not load your receipts just now. Please refresh the page.
           </p>
@@ -38,13 +40,17 @@ export function ConsentReceiptsPanel({ patientId }: { patientId: string }) {
                     version: r.version ?? "",
                     recorded_at: r.recorded_at ?? "",
                     channel: r.channel ?? "unknown",
-                    consented_by_relation: r.consented_by_relation ?? "self",
+                    consented_by_relation: r.consented_by_relation ?? "legacy",
                   })}
                 </p>
                 <details className="mt-1 text-xs">
                   <summary className="cursor-pointer font-medium text-charcoal-ink/70 dark:text-night-ink/70">Show the exact words</summary>
                   <p className="mt-2 whitespace-pre-wrap text-charcoal-ink/80 dark:text-night-ink/80">{r.body}</p>
-                  <p className="mt-2 break-all text-charcoal-ink/50 dark:text-night-ink/55">Fingerprint of these words: {r.text_sha256}</p>
+                  {r.text_sha256 ? (
+                    <p className="mt-2 break-all text-charcoal-ink/50 dark:text-night-ink/55">Fingerprint of these words: {r.text_sha256}</p>
+                  ) : (
+                    <p className="mt-2 text-charcoal-ink/50 dark:text-night-ink/55">These are the words on file for that version. This record pre-dates receipts, so it has no fingerprint.</p>
+                  )}
                 </details>
               </li>
             ))}

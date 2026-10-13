@@ -102,7 +102,11 @@ export function ConsentReceiptsCard({ receipts, error }: { receipts: ConsentRece
             {openId === r.id ? (
               <>
                 <Text style={{ fontSize: 12.5, color: colors.ink }}>{r.body}</Text>
-                <MutedText>Fingerprint of these words: {r.text_sha256}</MutedText>
+                <MutedText>
+                  {r.text_sha256
+                    ? `Fingerprint of these words: ${r.text_sha256}`
+                    : "These are the words on file for that version. This record pre-dates receipts, so it has no fingerprint."}
+                </MutedText>
                 <SecondaryButton title="Hide the words" onPress={() => setOpenId(null)} />
               </>
             ) : (

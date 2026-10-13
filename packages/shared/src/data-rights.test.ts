@@ -37,6 +37,12 @@ describe("deletionRequestView", () => {
   });
 });
 
+describe("cancelled requests say who cancelled", () => {
+  const base = { requested_at: "2026-10-13T09:00:00Z", grace_ends_at: null, patient_id: "p1" };
+  it("the person", () => expect(deletionRequestView({ ...base, status: "cancelled", cancelled_by: "p1" }, NOW).headline).toBe("You cancelled this request"));
+  it("our team", () => expect(deletionRequestView({ ...base, status: "cancelled", cancelled_by: "admin1" }, NOW).headline).toBe("Our team cancelled this request"));
+});
+
 describe("exportRequestView", () => {
   const base = { requested_at: "2026-10-01T09:00:00Z", due_at: "2026-10-31T09:00:00Z" };
   it("states the timeline while waiting", () => {
@@ -63,6 +69,12 @@ describe("receiptSentence", () => {
   it("names who, what, which version, when and where", () => {
     const s = receiptSentence({ ...row, action: "accepted", channel: "mobile", consented_by_relation: "self" });
     expect(s).toBe('You agreed to "Use my information in approved research" (version 2026-10-07) on 12 Oct 2026, in the app.');
+  });
+  it("does not present a row recorded before receipts as the person's own act", () => {
+    const s = receiptSentence({ ...row, action: "accepted", channel: "unknown", consented_by_relation: "legacy" });
+    expect(s).toContain("A record from 12 Oct 2026 shows");
+    expect(s).toContain("was not recorded at the time");
+    expect(s).not.toContain("You agreed");
   });
   it("shows a guardian and a withdrawal, and does not guess an unknown channel", () => {
     const s = receiptSentence({ ...row, action: "withdrawn", channel: "unknown", consented_by_relation: "guardian" });

@@ -26,7 +26,8 @@ export interface ConsentReceiptRow {
   channel: string;
   consented_by_relation: string;
   recorded_at: string;
-  text_sha256: string;
+  /** Null on a row recorded before receipts were kept: no fingerprint is invented for it. */
+  text_sha256: string | null;
 }
 
 const CHANNEL_LABEL: Record<string, string> = {
@@ -57,6 +58,10 @@ export function receiptSentence(
   row: Pick<ConsentReceiptRow, "action" | "title" | "version" | "recorded_at" | "channel" | "consented_by_relation">
 ): string {
   const verb = row.action === "withdrawn" ? "withdrew" : "agreed to";
+  if (row.consented_by_relation === "legacy") {
+    // Recorded before receipts existed: say what the record shows and no more. Who made the choice and where were not kept.
+    return `A record from ${formatLagosDate(row.recorded_at)} shows "${row.title}" (version ${row.version}) was ${verb === "withdrew" ? "withdrawn" : "agreed to"}. Who made the choice and where was not recorded at the time.`;
+  }
   return `${receiptWhoLabel(row.consented_by_relation)} ${verb} "${row.title}" (version ${row.version}) on ${formatLagosDate(row.recorded_at)}, ${receiptChannelLabel(row.channel)}.`;
 }
 
@@ -114,6 +119,9 @@ export interface DeletionRequestLike {
   status: string;
   requested_at: string;
   grace_ends_at: string | null;
+  /** With patient_id, lets the view say who cancelled (the person, or our team). */
+  patient_id?: string;
+  cancelled_by?: string | null;
 }
 
 export type DeletionPhase = "waiting" | "in_review" | "done" | "cancelled" | "declined";
@@ -143,11 +151,20 @@ export function deletionRequestView(row: DeletionRequestLike, now: number = Date
   const daysLeft = inGrace && ends !== null ? Math.max(1, Math.ceil((ends - now) / DAY_MS)) : null;
   switch (row.status) {
     case "cancelled":
+      if (row.cancelled_by && row.patient_id && row.cancelled_by !== row.patient_id) {
+        return { phase: "cancelled", canCancel: false, daysLeft: null, headline: "Our team cancelled this request", detail: "Nothing was changed on your account. You can ask again at any time." };
+      }
       return { phase: "cancelled", canCancel: false, daysLeft: null, headline: "You cancelled this request", detail: "Nothing was changed on your account." };
     case "denied":
       return { phase: "declined", canCancel: false, daysLeft: null, headline: "We could not go ahead with this request", detail: "Our team has written back about why. Your account is unchanged." };
     case "completed":
-      return { phase: "done", canCancel: false, daysLeft: null, headline: "Your account has been closed", detail: "What could be removed has been removed. The records we must keep are listed below." };
+      return {
+        phase: "done",
+        canCancel: false,
+        daysLeft: null,
+        headline: "Your account has been closed",
+        detail: "Our team's note below says what else was removed. The records we must keep are listed under What we have to keep.",
+      };
     default:
       if (inGrace) {
         return {
@@ -168,7 +185,7 @@ export function deletionRequestView(row: DeletionRequestLike, now: number = Date
   }
 }
 
-/** What closing an account removes. A person reviews every request; see docs/design/S39d-class-review.md. */
+/** What our team removes when it closes an account. A person goes through each request and writes down what was done; see docs/design/S39d-class-review.md. */
 export const DELETION_REMOVED: readonly string[] = [
   "Your sign-in and contact details",
   "Your preferences and reminders",

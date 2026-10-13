@@ -107,10 +107,10 @@ describe("a failed load is not an empty list", () => {
 });
 
 describe("loadConsentReceipts", () => {
-  it("fills the gaps the view can leave (a legacy row has no channel) without guessing", async () => {
-    mockReceiptRows = [{ id: "r1", consent_type: "research", action: "accepted", version: "v1", title: "T", body: "B", channel: null, consented_by_relation: null, recorded_at: "2026-10-01T10:00:00Z", text_sha256: "h" }];
+  it("marks a row recorded before receipts as legacy with no fingerprint, without guessing", async () => {
+    mockReceiptRows = [{ id: "r1", consent_type: "research", action: "accepted", version: "v1", title: "T", body: "B", channel: null, consented_by_relation: null, recorded_at: "2026-10-01T10:00:00Z", text_sha256: null }];
     const result = await loadConsentReceipts("p1");
     if (!result.ok) throw new Error("expected ok");
-    expect(result.data[0]).toMatchObject({ channel: "unknown", consented_by_relation: "self" });
+    expect(result.data[0]).toMatchObject({ channel: "unknown", consented_by_relation: "legacy", text_sha256: null });
   });
 });

@@ -47,7 +47,7 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
     void queryClient.invalidateQueries({ queryKey: ["patient-consents", patientId] });
     void queryClient.invalidateQueries({ queryKey: ["patient-consent-receipts", patientId] });
   };
-  const { versions, accepted, outstanding, isLoading } = useOutstandingConsentTypes(patientId);
+  const { versions, accepted, outstanding, isLoading, isError } = useOutstandingConsentTypes(patientId);
 
   const outstandingTypes = outstanding.map((v) => v.consent_type);
 
@@ -58,7 +58,13 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
         <CardDescription>What you&apos;ve agreed to, by category.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {versions.length === 0 ? (
+        {isError ? (
+          <p role="alert" className="text-sm text-red-700">
+            We could not load your consent choices just now, so we are not showing them. Please refresh the page.
+          </p>
+        ) : isLoading ? (
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading your choices...</p>
+        ) : versions.length === 0 ? (
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Nothing to show yet.</p>
         ) : (
           <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">

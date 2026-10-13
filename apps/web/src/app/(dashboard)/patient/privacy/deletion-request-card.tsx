@@ -28,20 +28,22 @@ export function DeletionRequestCard({ organisationId, patientId }: { organisatio
 
   const list = requests.data ?? [];
   const hasOpen = list.some((r) => OPEN.has(r.status));
+  // While the list is loading or failed to load, a pending request and its cancel button could be hidden, so asking is disabled.
+  const unknown = requests.isLoading || requests.isError;
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Close my account and erase my data</CardTitle>
+        <CardTitle>Request deletion of your data</CardTitle>
         <CardDescription>
-          You can ask us to close your account. We wait {deletionGraceDays()} days first so you can change your mind, then our team reviews
-          the request and tells you exactly what was done.
+          You can ask us to close your account and erase what the law allows. We wait {deletionGraceDays()} days first so you can change your
+          mind, then our team reviews the request and writes down exactly what was done.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-3 text-sm sm:grid-cols-2">
           <div>
-            <p className="font-medium text-charcoal-ink dark:text-night-ink">What we remove</p>
+            <p className="font-medium text-charcoal-ink dark:text-night-ink">What our team removes</p>
             <ul className="mt-1 list-disc space-y-1 pl-5 text-charcoal-ink/80 dark:text-night-ink/80">
               {DELETION_REMOVED.map((t) => (
                 <li key={t}>{t}</li>
@@ -91,8 +93,8 @@ export function DeletionRequestCard({ organisationId, patientId }: { organisatio
             </div>
           </div>
         ) : (
-          <Button variant="outline" disabled={hasOpen} onClick={() => setOpen(true)}>
-            {hasOpen ? "Request in progress" : "Close my account"}
+          <Button variant="outline" disabled={hasOpen || unknown} onClick={() => setOpen(true)}>
+            {hasOpen ? "Request in progress" : "Request deletion of your data"}
           </Button>
         )}
 

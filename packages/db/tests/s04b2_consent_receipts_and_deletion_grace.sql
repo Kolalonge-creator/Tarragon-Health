@@ -104,6 +104,16 @@ begin
     reset role; raise exception 'FAIL 1g: a patient forged the staff_assisted channel';
   exception when check_violation then reset role; end;
 
+  -- a legacy-shaped row (written by a service context with no receipt columns) is not presented as the person's own act
+  perform set_config('request.jwt.claims', '', true);
+  insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action)
+    select v_org, (select v from s4b2_fx where k = 'str'), 'data_processing', id, version, 'accepted' from public.consent_versions where is_current and consent_type = 'data_processing';
+  update public.patient_consents set consented_by_relation = null, channel = null, text_sha256 = null where patient_id = (select v from s4b2_fx where k = 'str');
+  if (select consented_by_relation || '/' || channel || '/' || coalesce(text_sha256, 'none')
+        from public.patient_consent_receipts where patient_id = (select v from s4b2_fx where k = 'str')) <> 'legacy/unknown/none' then
+    raise exception 'FAIL 1h: a legacy row is presented with guessed provenance';
+  end if;
+
   -- 2. mismatched type and version
   perform set_config('request.jwt.claims', json_build_object('sub', pat::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
@@ -140,12 +150,13 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', pat::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
   insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action, channel, created_at) values (v_org, pat, 'marketing', opt.id, opt.version, 'accepted', 'mobile', now() - interval '2 minutes');
+  if (select created_at from public.patient_consents where patient_id = pat and consent_type = 'marketing') < now() - interval '1 minute' then raise exception 'FAIL 3b0: a signed-in patient back-dated a consent'; end if;
   reset role;
   perform set_config('request.jwt.claims', json_build_object('sub', pat::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
   insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action, channel) values (v_org, pat, 'marketing', opt.id, opt.version, 'withdrawn', 'mobile');
   reset role;
-  if (select count(*) from public.patient_consents where patient_id = pat and consent_type = 'marketing') <> 2 then raise exception 'FAIL 3b: optional give+withdraw is not two rows'; end if;
+  if (select count(*) from public.patient_consents where patient_id = pat and consent_type = 'marketing' and created_at < clock_timestamp()) <> 2 then raise exception 'FAIL 3b: optional give+withdraw is not two rows'; end if;
   if (select count(distinct text_sha256) from public.patient_consents where patient_id = pat and consent_type = 'marketing') <> 1 then raise exception 'FAIL 3c: the withdrawal does not carry the hash of the text withdrawn'; end if;
 
   -- closed account: allowed
@@ -402,6 +413,9 @@ begin
   reset role;
   select status into st from public.data_deletion_requests where id = req;
   if st <> 'completed' then raise exception 'FAIL 6k: admin could not complete after the grace (%)', st; end if;
+  if (select is_active from public.profiles where id = pat) then raise exception 'FAIL 6l: completing the request did not deactivate the profile'; end if;
+  if not exists (select 1 from public.profiles where id = pat) then raise exception 'FAIL 6m: the profile was deleted'; end if;
+  if not exists (select 1 from public.audit_log where entity_id = req and action = 'data_deletion.requested' and subject_patient_id = pat) then raise exception 'FAIL 6n: the request audit row has no patient subject'; end if;
 end $$;
 
 -- 7. SABOTAGE

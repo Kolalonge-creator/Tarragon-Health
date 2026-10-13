@@ -42,6 +42,7 @@ let ACCEPTED: Record<string, unknown>[] = [
   { id: "c2", consent_type: "terms_of_service", version: 1, ...ROW },
 ];
 let EXTRA_VERSIONS: Record<string, unknown>[] = [];
+let LOAD_FAILED = false;
 
 jest.mock("@/lib/queries/consent", () => {
   const actual = jest.requireActual("@/lib/queries/consent");
@@ -53,6 +54,7 @@ jest.mock("@/lib/queries/consent", () => {
       accepted: ACCEPTED,
       outstanding: CURRENT_VERSIONS.filter((v) => v.consent_type === "data_processing"),
       isLoading: false,
+      isError: LOAD_FAILED,
     }),
   };
 });
@@ -79,6 +81,7 @@ describe("ConsentStatusPanel", () => {
     withdrawMock.mockReset().mockResolvedValue({ success: true });
     grantMock.mockReset().mockResolvedValue({ success: true });
     EXTRA_VERSIONS = [];
+    LOAD_FAILED = false;
     ACCEPTED = [
       { id: "c1", consent_type: "data_processing", version: 1, ...ROW },
       { id: "c2", consent_type: "terms_of_service", version: 1, ...ROW },
@@ -191,6 +194,15 @@ describe("ConsentStatusPanel", () => {
     EXTRA_VERSIONS = [{ id: "v-r-1", consent_type: "research", version: 1, is_optional: true, title: "Use my information in approved research", body: "The exact words." }];
     render(<ConsentStatusPanel patientId="patient-1" />);
     expect(screen.getByText("The exact words.")).toBeTruthy();
+  });
+
+  it("a failed load shows an error, not a list of 'Not shared' choices with Agree buttons", () => {
+    LOAD_FAILED = true;
+    EXTRA_VERSIONS = [{ id: "v-r-1", consent_type: "research", version: 1, is_optional: true, title: "Research", body: "Words." }];
+    render(<ConsentStatusPanel patientId="patient-1" />);
+    expect(screen.getByRole("alert").textContent).toMatch(/could not load your consent choices/i);
+    expect(screen.queryByRole("button", { name: "Agree" })).toBeNull();
+    expect(screen.queryByText("Not shared")).toBeNull();
   });
 
   it("offers no Agree button for a required purpose", () => {

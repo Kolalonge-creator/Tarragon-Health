@@ -717,9 +717,9 @@ function DataPrivacySection({
       </Card>
 
       <Card style={{ gap: 10 }}>
-        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Close your account</Text>
+        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Request deletion of your data</Text>
         <MutedText>
-          Closing your account, and what is erased and what must be kept, now lives in Privacy &amp; your data (open it from the menu).
+          Asking us to close your account and erase your data lives in Privacy &amp; your data (open it from the menu): tap &quot;Request deletion of your data&quot;.
           It shows the waiting period, lets you cancel during it, and says plainly which records the law requires us to keep.
         </MutedText>
       </Card>

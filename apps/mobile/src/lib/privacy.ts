@@ -120,9 +120,9 @@ export async function loadConsentReceipts(patientId: string): Promise<QueryResul
       title: r.title ?? "",
       body: r.body ?? "",
       channel: r.channel ?? "unknown",
-      consented_by_relation: r.consented_by_relation ?? "self",
+      consented_by_relation: r.consented_by_relation ?? "legacy",
       recorded_at: r.recorded_at ?? "",
-      text_sha256: r.text_sha256 ?? "",
+      text_sha256: r.text_sha256 ?? null,
     })),
   };
 }
@@ -137,14 +137,14 @@ export interface ConnectedDevice {
  * OAuth flow (see CLAUDE.md's Device & Wearable Integration section); this
  * just shows what's currently sharing data, same as web's own
  * ConnectedDevicesSummary. */
-export async function loadConnectedDevices(patientId: string): Promise<ConnectedDevice[]> {
+export async function loadConnectedDevices(patientId: string): Promise<QueryResult<ConnectedDevice[]>> {
   const { data, error } = await supabase
     .from("wearable_connections")
     .select("id, provider, connected_at")
     .eq("patient_id", patientId)
     .in("status", ["active", "paused", "error"]);
-  if (error) return [];
-  return (data ?? []).map((d) => ({ id: d.id, provider: d.provider, connectedAt: d.connected_at }));
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: (data ?? []).map((d) => ({ id: d.id, provider: d.provider, connectedAt: d.connected_at })) };
 }
 
 export interface DataRightsRequest {
@@ -185,12 +185,14 @@ export async function createExportRequest(organisationId: string, patientId: str
   return { ok: true, data: null };
 }
 
-export async function loadCorrectionRequests(): Promise<DataRightsRequest[]> {
-  const { data } = await supabase
+export async function loadCorrectionRequests(patientId: string): Promise<QueryResult<DataRightsRequest[]>> {
+  const { data, error } = await supabase
     .from("data_correction_requests")
     .select("id, status, requested_at, record_description")
+    .eq("patient_id", patientId)
     .order("requested_at", { ascending: false });
-  return (data ?? []).map((r) => ({ id: r.id, status: r.status, requestedAt: r.requested_at, summary: r.record_description }));
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: (data ?? []).map((r) => ({ id: r.id, status: r.status, requestedAt: r.requested_at, summary: r.record_description })) };
 }
 
 export async function createCorrectionRequest(
@@ -218,12 +220,14 @@ export interface DeletionRequestRow {
   requestedAt: string;
   graceEndsAt: string | null;
   note: string | null;
+  patientId: string;
+  cancelledBy: string | null;
 }
 
 export async function loadDeletionRequests(patientId: string): Promise<QueryResult<DeletionRequestRow[]>> {
   const { data, error } = await supabase
     .from("data_deletion_requests")
-    .select("id, status, requested_at, grace_ends_at, blocked_reason, decision_note")
+    .select("id, status, requested_at, grace_ends_at, blocked_reason, decision_note, patient_id, cancelled_by")
     .eq("patient_id", patientId)
     .order("requested_at", { ascending: false });
   if (error) return { ok: false, error: error.message };
@@ -235,6 +239,8 @@ export async function loadDeletionRequests(patientId: string): Promise<QueryResu
       requestedAt: r.requested_at,
       graceEndsAt: r.grace_ends_at,
       note: r.blocked_reason ?? r.decision_note,
+      patientId: r.patient_id,
+      cancelledBy: r.cancelled_by,
     })),
   };
 }

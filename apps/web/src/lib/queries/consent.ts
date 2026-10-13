@@ -75,6 +75,8 @@ export function useOutstandingConsentTypes(patientId: string) {
     accepted,
     outstanding,
     isLoading: currentVersions.isLoading || patientConsents.isLoading,
+    /** A failed load must not read as "nothing agreed": the panel hides its controls and says so. */
+    isError: currentVersions.isError || patientConsents.isError,
   };
 }
 

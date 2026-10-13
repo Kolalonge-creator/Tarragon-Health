@@ -12,6 +12,7 @@ const DAY = 24 * 60 * 60 * 1000;
 const iso = (offsetMs: number) => new Date(Date.now() + offsetMs).toISOString();
 
 let exportRows: Record<string, unknown>[] = [];
+let listState: { isLoading: boolean; isError: boolean } = { isLoading: false, isError: false };
 let deletionRows: Record<string, unknown>[] = [];
 let receiptRows: Record<string, unknown>[] = [];
 const createExport = jest.fn();
@@ -19,17 +20,18 @@ const createDeletion = jest.fn();
 const cancelDeletion = jest.fn();
 
 jest.mock("@/lib/queries/data-rights", () => ({
-  usePatientExportRequests: () => ({ data: exportRows, isError: false }),
+  usePatientExportRequests: () => ({ data: exportRows, ...listState }),
   useCreateExportRequest: () => ({ mutate: createExport, isPending: false, error: null }),
-  usePatientDeletionRequests: () => ({ data: deletionRows, isError: false }),
+  usePatientDeletionRequests: () => ({ data: deletionRows, ...listState }),
   useCreateDeletionRequest: () => ({ mutate: createDeletion, isPending: false, error: null }),
   useCancelDeletionRequest: () => ({ mutate: cancelDeletion, isPending: false, error: null }),
 }));
 jest.mock("@/lib/queries/consent", () => ({
-  usePatientConsentReceipts: () => ({ data: receiptRows, isError: false }),
+  usePatientConsentReceipts: () => ({ data: receiptRows, isLoading: listState.isLoading, isError: listState.isError }),
 }));
 
 beforeEach(() => {
+  listState = { isLoading: false, isError: false };
   exportRows = [];
   deletionRows = [];
   receiptRows = [];
@@ -63,6 +65,16 @@ describe("ExportRequestCard", () => {
   });
 });
 
+describe("a request list that is loading or failed", () => {
+  it("disables asking again, so a hidden pending request cannot be duplicated", () => {
+    listState = { isLoading: false, isError: true };
+    render(<DeletionRequestCard organisationId="o" patientId="p" />);
+    expect((screen.getByRole("button", { name: "Request deletion of your data" }) as HTMLButtonElement).disabled).toBe(true);
+    render(<ExportRequestCard organisationId="o" patientId="p" />);
+    expect((screen.getByRole("button", { name: "Request my data" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
 describe("DeletionRequestCard", () => {
   it("says plainly what is removed and what is kept before asking", () => {
     render(<DeletionRequestCard organisationId="o" patientId="p" />);
@@ -74,7 +86,7 @@ describe("DeletionRequestCard", () => {
 
   it("takes two taps to start the waiting period", () => {
     render(<DeletionRequestCard organisationId="o" patientId="p" />);
-    fireEvent.click(screen.getByRole("button", { name: "Close my account" }));
+    fireEvent.click(screen.getByRole("button", { name: "Request deletion of your data" }));
     expect(createDeletion).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: /Yes, start the 14-day wait/ }));
     expect(createDeletion).toHaveBeenCalledTimes(1);
@@ -118,6 +130,17 @@ describe("ConsentReceiptsPanel", () => {
     expect(screen.getByText(/You agreed to "Use my information in approved research" \(version 2026-10-07\) on 12 Oct 2026, in the app\./)).toBeTruthy();
     expect(screen.getByText("The exact words shown.")).toBeTruthy();
     expect(screen.getByText(/abc123/)).toBeTruthy();
+  });
+
+  it("does not call a loading list empty, and says when it failed", () => {
+    listState = { isLoading: true, isError: false };
+    const { unmount } = render(<ConsentReceiptsPanel patientId="p" />);
+    expect(screen.queryByText("No receipts yet.")).toBeNull();
+    unmount();
+    listState = { isLoading: false, isError: true };
+    render(<ConsentReceiptsPanel patientId="p" />);
+    expect(screen.getByRole("alert")).toBeTruthy();
+    expect(screen.queryByText("No receipts yet.")).toBeNull();
   });
 
   it("says so when there are no receipts yet", () => {

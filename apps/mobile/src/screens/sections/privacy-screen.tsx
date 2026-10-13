@@ -71,7 +71,7 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
       loadConsentReceipts(userId),
       loadConnectedDevices(userId),
       loadExportRequests(userId),
-      loadCorrectionRequests(),
+      loadCorrectionRequests(userId),
       loadDeletionRequests(userId),
     ]);
     if (!consentResult.ok) {
@@ -84,11 +84,11 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
     setReceiptsError(receiptResult.ok ? null : "We could not load your consent receipts just now.");
     // A failed load must never look like "no requests": the deletion card would hide a pending request and its cancel button.
     setRequestsError(
-      exportList.ok && deletionList.ok ? null : "We could not load your data requests just now. Please try again before starting a new one.",
+      exportList.ok && deletionList.ok && correctionList.ok && deviceList.ok ? null : "We could not load your data requests just now. Please try again before starting a new one.",
     );
-    setDevices(deviceList);
+    setDevices(deviceList.ok ? deviceList.data : []);
     setExportRequests(exportList.ok ? exportList.data : []);
-    setCorrectionRequests(correctionList);
+    setCorrectionRequests(correctionList.ok ? correctionList.data : []);
     setDeletionRequests(deletionList.ok ? deletionList.data : []);
   }, [userId]);
 

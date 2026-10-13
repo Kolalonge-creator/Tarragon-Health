@@ -41,6 +41,9 @@ alter table public.consent_versions add column if not exists draft_note text;
 comment on column public.consent_versions.is_draft is
   'S04b-2 (OQ-49): wording pending approval. A draft is invisible to patients, cannot be accepted, and is published only by public.publish_consent_wording (admin, and only while the optional_consent_wording module is on).';
 
+alter table public.consent_versions drop constraint if exists consent_versions_draft_not_current;
+alter table public.consent_versions add constraint consent_versions_draft_not_current check (not (is_draft and is_current));
+
 alter table public.consent_versions drop constraint if exists consent_versions_draft_is_optional;
 alter table public.consent_versions add constraint consent_versions_draft_is_optional check (not is_draft or is_optional);
 
@@ -194,6 +197,13 @@ declare
   v_current record;
   v_active boolean;
 begin
+  -- When: a signed-in session cannot choose the time (it decides which acceptance is in force and what the receipt shows).
+  -- clock_timestamp(), not now(), so two choices in one transaction still order. A service or migration context keeps what it supplied.
+  if v_uid is not null then
+    new.created_at := clock_timestamp();
+    new.accepted_at := new.created_at;
+  end if;
+
   -- Who is acting, derived (never client-supplied), and the channel label that is believable for that actor.
   if v_uid is null then
     new.consented_by := null;
@@ -270,7 +280,7 @@ begin
 
   new.consent_version_id := v_current.consent_version_id;
   new.version := v_current.version;
-  new.accepted_at := now();
+  new.accepted_at := coalesce(new.created_at, now());
   new.text_sha256 := encode(sha256(convert_to(v_cv.title || E'\n' || v_cv.body, 'UTF8')), 'hex');
   return new;
 end;
@@ -299,8 +309,9 @@ create policy patient_consents_select on public.patient_consents
 -- Append-only stays append-only: no update or delete privilege for any client role.
 revoke update, delete, truncate on public.patient_consents from authenticated, anon;
 
--- The receipt: what was agreed or withdrawn, the exact text, when, where, and by whom. Legacy rows show the hash computed
--- from the version they point at (the text of a referenced version cannot change, see protect_consent_version_text).
+-- The receipt: what was agreed or withdrawn, the exact text, when, where, and by whom. A row recorded before receipts existed
+-- says so ('legacy' relation, 'unknown' channel, no fingerprint): who made it and where are not guessed, and the version text
+-- was editable then, so a fingerprint computed today would not prove what that person saw.
 create or replace view public.patient_consent_receipts
 with (security_invoker = true) as
 select pc.id,
@@ -312,9 +323,9 @@ select pc.id,
        cv.title,
        cv.body,
        cv.is_optional,
-       coalesce(pc.text_sha256, encode(sha256(convert_to(cv.title || E'\n' || cv.body, 'UTF8')), 'hex')) as text_sha256,
+       pc.text_sha256,
        coalesce(pc.channel, 'unknown') as channel,
-       coalesce(pc.consented_by_relation, 'self') as consented_by_relation,
+       coalesce(pc.consented_by_relation, 'legacy') as consented_by_relation,
        pc.created_at as recorded_at
   from public.patient_consents pc
   join public.consent_versions cv on cv.id = pc.consent_version_id;
@@ -370,8 +381,9 @@ begin
     new.grace_ends_at := least(
       greatest(coalesce(new.grace_ends_at, now() + interval '14 days'), now() + interval '7 days'),
       now() + interval '30 days');
-    perform private.log_audit('data_deletion.requested', 'data_deletion_request', new.id,
-      jsonb_build_object('grace_ends_at', new.grace_ends_at));
+    insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event, subject_patient_id)
+      values (new.organisation_id, v_uid, 'data_deletion.requested', 'data_deletion_request', new.id,
+              jsonb_build_object('grace_ends_at', new.grace_ends_at), new.patient_id);
     return new;
   end if;
 
@@ -398,7 +410,9 @@ begin
     end if;
     new.cancelled_at := now();
     new.cancelled_by := v_uid;
-    perform private.log_audit('data_deletion.cancelled', 'data_deletion_request', old.id, '{}'::jsonb);
+    insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event, subject_patient_id)
+      values (old.organisation_id, v_uid, 'data_deletion.cancelled', 'data_deletion_request', old.id,
+              jsonb_build_object('by_admin', v_uid is distinct from old.patient_id), old.patient_id);
     return new;
   end if;
 
@@ -417,6 +431,10 @@ begin
     if new.status = 'completed' then
       new.completed_by := v_uid;
       new.completed_at := now();
+      -- Completing a request closes the account: the profile is DEACTIVATED, never deleted (consents, the deletion record and the
+      -- clinical records hang off it). This is also what lets a required consent be withdrawn (OQ-53). Removing the sign-in and
+      -- contact details is still a manual step by the reviewer (OQ-S04b2-2).
+      update public.profiles set is_active = false where id = old.patient_id;
     end if;
   end if;
 

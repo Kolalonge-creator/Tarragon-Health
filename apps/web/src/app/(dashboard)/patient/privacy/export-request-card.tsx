@@ -27,6 +27,8 @@ export function ExportRequestCard({ organisationId, patientId }: { organisationI
 
   const list = requests.data ?? [];
   const hasOpen = list.some((r) => OPEN.has(r.status));
+  // While the list is loading or failed to load we cannot tell whether a request is already open, so asking is disabled.
+  const unknown = requests.isLoading || requests.isError;
 
   return (
     <Card>
@@ -74,7 +76,7 @@ export function ExportRequestCard({ organisationId, patientId }: { organisationI
             </div>
           </div>
         ) : (
-          <Button variant="outline" disabled={hasOpen} onClick={() => setOpen(true)}>
+          <Button variant="outline" disabled={hasOpen || unknown} onClick={() => setOpen(true)}>
             {hasOpen ? "Request in progress" : "Request my data"}
           </Button>
         )}

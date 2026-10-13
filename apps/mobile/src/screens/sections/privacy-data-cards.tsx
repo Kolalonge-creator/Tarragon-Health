@@ -173,11 +173,11 @@ export function DeletionRequestCard({
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Close my account and erase my data</Text>
+      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Request deletion of your data</Text>
       <MutedText>
-        {`You can ask us to close your account. We wait ${deletionGraceDays()} days first so you can change your mind, then our team reviews the request and tells you exactly what was done.`}
+        {`You can ask us to close your account and erase what the law allows. We wait ${deletionGraceDays()} days first so you can change your mind, then our team reviews the request and writes down exactly what was done.`}
       </MutedText>
-      <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>What we remove</Text>
+      <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>What our team removes</Text>
       {DELETION_REMOVED.map((t) => (
         <MutedText key={t}>{`• ${t}`}</MutedText>
       ))}
@@ -205,10 +205,10 @@ export function DeletionRequestCard({
           </View>
         </>
       ) : (
-        <SecondaryButton title={hasOpen ? "Request in progress" : "Close my account"} onPress={() => setOpen(true)} disabled={hasOpen || blocked} />
+        <SecondaryButton title={hasOpen ? "Request in progress" : "Request deletion of your data"} onPress={() => setOpen(true)} disabled={hasOpen || blocked} />
       )}
       {requests.map((r) => {
-        const view = deletionRequestView({ status: r.status, requested_at: r.requestedAt, grace_ends_at: r.graceEndsAt });
+        const view = deletionRequestView({ status: r.status, requested_at: r.requestedAt, grace_ends_at: r.graceEndsAt, patient_id: r.patientId, cancelled_by: r.cancelledBy });
         return (
           <View key={r.id} style={{ gap: 4, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
