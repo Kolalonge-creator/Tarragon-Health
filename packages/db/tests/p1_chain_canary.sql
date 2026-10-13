@@ -26,6 +26,13 @@ create function pg_temp.res(p_check text, p_expected text, p_actual text) return
 $f$ insert into results values ('real', p_check, p_expected, p_actual) $f$;
 create function pg_temp.try(p_sql text) returns text language plpgsql as
 $f$ begin execute p_sql; return 'ok'; exception when others then return sqlstate; end $f$;
+create function pg_temp.act(p_uid uuid) returns void language plpgsql as
+$f$ begin
+  perform set_config('request.jwt.claims', json_build_object('sub', p_uid, 'role', 'authenticated')::text, true);
+  perform set_config('request.jwt.claim.sub', p_uid::text, true);
+  set local role authenticated;
+end $f$;
+create function pg_temp.back() returns void language plpgsql as $f$ begin reset role; perform set_config('request.jwt.claim.sub', '', true); end $f$;
 create function pg_temp.mkuser(p_org uuid, p_label text, p_role text) returns uuid
 language plpgsql as $f$
 declare v uuid := gen_random_uuid();
@@ -169,6 +176,15 @@ begin
   perform pg_temp.res('a broken judge records an evaluate failure and an incident', 'evaluate,1',
     (select failed_stage from public.chain_canary_runs where run_id = v_run4 and kind = 'result') || ',' || (select count(*)::text from public.ops_incidents where external_reference = 'chain_canary:evaluate'));
 
+  -- the run-now success path: an admin starts one run, a second click is refused while it waits, and the readings carry no actor
+  perform pg_temp.act(v_admin);
+  v_run4 := public.chain_canary_run_now();
+  perform pg_temp.res('an admin can start a run now', 'true', (v_run4 is not null)::text);
+  perform pg_temp.res('a second click is refused while the run waits', '22023', pg_temp.try('select public.chain_canary_run_now()'));
+  perform pg_temp.back();
+  perform pg_temp.res('the run-now readings carry no logged-by actor', '0', (select count(*)::text from public.vitals_readings where id in (select pg_temp.run_readings(v_run4)) and logged_by_profile_id is not null));
+  perform private.chain_canary_evaluate_safe(v_run4);
+
   -- 7. The tick -----------------------------------------------------------------------------------------------------------------------
   select count(*) into v_n from public.chain_canary_runs where kind = 'started';
   v_tick := private.chain_canary_tick();
@@ -177,6 +193,7 @@ begin
   perform pg_temp.res('a second tick starts nothing while one is still waiting', 'true', (v_tick ->> 'started' is null)::text);
   perform pg_temp.res('a config with a missing budget is refused by the database', '23514', pg_temp.try($q$insert into public.chain_canary_config (version, is_active, effective_from, rules) values (98, false, current_date, '{"intervalMinutes":30}')$q$));
   perform pg_temp.res('a config with a non-number budget is refused', '23514', pg_temp.try($q$update public.chain_canary_config set rules = jsonb_set(rules, '{gradedSeconds}', '"soon"') where is_active$q$));
+  perform pg_temp.res('a config with a fractional budget is refused', '23514', pg_temp.try($q$update public.chain_canary_config set rules = jsonb_set(rules, '{staleAfterMinutes}', '1.5') where is_active$q$));
   perform pg_temp.res('a config with a zero budget is refused', '23514', pg_temp.try($q$update public.chain_canary_config set rules = jsonb_set(rules, '{pageSeconds}', '0') where is_active$q$));
   alter table public.chain_canary_config drop constraint chain_canary_config_rules_check;   -- fixture only: lets the proof use a negative age so a same-transaction run is old enough
   update public.chain_canary_config set rules = jsonb_set(rules, '{minEvalAgeSeconds}', '-3600') where is_active;

@@ -131,6 +131,14 @@ begin
     perform pg_temp.act(v_admin); v_h := public.chain_health(); perform pg_temp.back();
     perform pg_temp.res('a real reading with no grade for 30 minutes is down and counted', 'down,1',
       (v_h ->> 'status') || ',' || (v_h #>> '{unfinished,ungraded_readings}'));
+    -- a reading the handler dealt with (delivery done, e.g. rejected or waiting out a recheck) is not a fault
+    update public.domain_event_deliveries set status = 'done', done_at = now()
+     where subscriber_key = 'triage.grade_observation' and event_id in (select id from public.domain_events where idempotency_key = 'bp:' || v_rr);
+    perform pg_temp.act(v_admin); v_h := public.chain_health(); perform pg_temp.back();
+    perform pg_temp.res('a reading whose grading delivery is done is not counted as ungraded', '0', v_h #>> '{unfinished,ungraded_readings}');
+    perform pg_temp.res('the page reports the last real send, or none when nothing real was ever sent', 'true',
+      ((v_h #>> '{sending,last_real_send_at}' is null) = (select max(n.sent_at) is null from public.notifications n join public.profiles pr on pr.id = n.recipient_id and not pr.is_test
+        where n.status in ('sent', 'delivered', 'read') and n.channel in ('push', 'email')))::text);
     update public.profiles set is_test = true where id = v_real_pat;
   end;
   -- a dead letter on a chain subscriber

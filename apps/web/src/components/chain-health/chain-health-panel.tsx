@@ -57,6 +57,11 @@ export function ChainHealthPanel({
               ))}
             </ul>
           )}
+          <p>
+            {health.sending.last_real_send_at
+              ? `Sending: the last push or email to a real person went out ${lagos(health.sending.last_real_send_at)}.`
+              : "Sending is not verified: no push or email has gone to a real person yet. The test run never sends, so it cannot show that sending works."}
+          </p>
           <p className="text-charcoal-ink/60">Read {lagos(health.generated_at)} (Lagos time). Limits are proposed values the Chief Medical Officer confirms.</p>
         </CardContent>
       </Card>
@@ -67,8 +72,8 @@ export function ChainHealthPanel({
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <p>
-            Every 30 minutes the platform sends two made-up readings (a red one and an amber one) through the real path, for a synthetic patient that belongs to no real
-            organisation, and checks that each one is graded, handed on, paged or tasked, noticed in neutral words and acknowledged. Nobody real is paged and nothing is sent.
+            About every {health.schedule.interval_minutes} minutes the platform sends {health.schedule.fixtures.length} made-up readings ({health.schedule.fixtures.join(", ")}) through the real path, for a synthetic patient that
+            belongs to no real organisation, and checks that each one is graded, handed on, paged or tasked, noticed in neutral words and acknowledged. Nobody real is paged and nothing is sent.
           </p>
           <p>
             Last finished run: {lagos(health.canary.last_result_at)}{" "}
@@ -170,6 +175,7 @@ export function ChainHealthPanel({
         </CardContent>
       </Card>
 
+      {!reliability && <LoadFailure>The reliability figures could not be read. That does not mean they are fine.</LoadFailure>}
       {reliability && (
         <Card>
           <CardHeader>

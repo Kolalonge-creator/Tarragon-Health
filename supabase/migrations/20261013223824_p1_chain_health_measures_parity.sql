@@ -239,6 +239,7 @@ declare
   v_parity jsonb;
   v_ungraded integer; v_unacked integer; v_notif_pending integer; v_notif_failed integer;
   v_cleanup jsonb;
+  v_last_send timestamptz;
 begin
   if (select auth.uid()) is null or not (private.is_admin() or private.credential_is_cmo()) then
     raise exception 'chain_not_authorised' using errcode = '42501';
@@ -270,10 +271,16 @@ begin
    where d.subscriber_key in ('triage.grade_observation', 'queue.create_from_triage', 'paging.on_red');
 
   -- the unfinished: real BP readings still without a grade, real pages still without an acknowledgement, critical notices stuck or failed
+  -- "ungraded" means the grading step never HANDLED the reading: no triage_event, no recheck waiting, and the observation.recorded delivery is not done
+  -- (pending, processing, dead, or never emitted). A reading the handler decided not to grade (rejected, awaiting a symptom answer, waiting out a recheck)
+  -- has a done delivery or a recheck row and is not a fault.
   select count(*) into v_ungraded
     from public.vitals_readings vr join public.profiles pr on pr.id = vr.patient_id and not pr.is_test
    where vr.vital_type = 'blood_pressure' and vr.systolic is not null and vr.triage_event_id is null
-     and vr.created_at < now() - make_interval(mins => (v_h ->> 'ungradedReadingMinutes')::int) and vr.created_at > now() - interval '7 days';
+     and vr.created_at < now() - make_interval(mins => (v_h ->> 'ungradedReadingMinutes')::int) and vr.created_at > now() - interval '7 days'
+     and not exists (select 1 from public.triage_pending_rechecks rc where rc.observation_id = vr.id)
+     and not exists (select 1 from public.domain_events e join public.domain_event_deliveries d on d.event_id = e.id
+                      where e.idempotency_key = 'bp:' || vr.id::text and d.subscriber_key = 'triage.grade_observation' and d.status = 'done');
   select count(*) into v_unacked
     from public.pages p where not p.is_test and p.parent_page_id is null and p.acknowledged_at is null and p.closed_at is null
      and p.sent_at < now() - make_interval(secs => (v_h ->> 'pageToAckP95Seconds')::int);
@@ -282,6 +289,9 @@ begin
     into v_notif_pending, v_notif_failed
     from public.notifications n join public.profiles pr on pr.id = n.recipient_id and not pr.is_test
    where n.priority = 'critical' and n.created_at > now() - interval '24 hours';
+
+  select max(n.sent_at) into v_last_send from public.notifications n join public.profiles pr on pr.id = n.recipient_id and not pr.is_test
+   where n.status in ('sent', 'delivered', 'read') and n.channel in ('push', 'email');
 
   v_real := private.chain_stats(7, false, v_min);
   v_canary := private.chain_stats(7, true, 1);
@@ -343,6 +353,9 @@ begin
       'recent', coalesce((select jsonb_agg(jsonb_build_object('at', x.at, 'passed', x.passed, 'stage', x.failed_stage) order by x.at desc)
                            from (select at, passed, failed_stage from public.chain_canary_runs where kind = 'result' order by at desc limit 12) x), '[]'::jsonb)),
     'bus', jsonb_build_object('subscribers', v_subs, 'stuck', v_stuck, 'dead', v_dead, 'dead_older', v_dead_old),
+    'schedule', jsonb_build_object('interval_minutes', (v_cfg ->> 'intervalMinutes')::int,
+                  'fixtures', coalesce((select jsonb_agg(f.code order by f.code) from public.chain_canary_fixtures f where f.is_enabled), '[]'::jsonb)),
+    'sending', jsonb_build_object('last_real_send_at', v_last_send),
     'unfinished', jsonb_build_object('ungraded_readings', v_ungraded, 'unacknowledged_pages', v_unacked, 'critical_notices_pending', v_notif_pending, 'critical_notices_failed_24h', v_notif_failed),
     'timings_7d', jsonb_build_object(
       'reading_to_graded', v_g,

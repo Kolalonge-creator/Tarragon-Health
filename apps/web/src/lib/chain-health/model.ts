@@ -31,6 +31,8 @@ export const chainHealthSchema = z.object({
     dead: z.number(),
     dead_older: z.number(),
   }),
+  schedule: z.object({ interval_minutes: z.number(), fixtures: z.array(z.string()) }),
+  sending: z.object({ last_real_send_at: z.string().nullable() }),
   unfinished: z.object({ ungraded_readings: z.number(), unacknowledged_pages: z.number(), critical_notices_pending: z.number(), critical_notices_failed_24h: z.number() }),
   timings_7d: z.object({ reading_to_graded: timing, graded_to_task: timing, graded_to_page: timing, page_to_ack: timing }),
   canary_timings_7d: z.object({ reading_to_graded: timing, graded_to_page: timing, page_to_ack: timing }),
