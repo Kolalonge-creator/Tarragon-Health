@@ -379,6 +379,16 @@ Found during the simulator pass (`docs/S06_SIMULATOR_CHECKLIST.md`).
 - **Open questions**: OQ-63 (Pidgin review of the vitals strings), OQ-64 (the monitoring-cover wording and placement). Not yet asked.
 - **Follow-ups**: Home, Medications and Messages onto the kit; then flip `DARK_MODE_ENABLED`; screen reader and large-text pass; an Android device check.
 
+## S07: Today screen, BP logging, trends and reminders (entry added 2026-10-07)
+
+This entry was missing; it is rebuilt from the merged PRs and a live check, not from the original session's own notes. Verify details against the code before relying on them.
+
+- **Built** (PRs 872, 884, 887, 890, 892, 894, 897, 899, 902, 913): `docs/research/S07.md`, `docs/design/S07.md`, OQ-65 to OQ-68 (and the OQ-83 renumber); pure-logic modules (Lagos days, BP averaging gate, trend rules, streaks, reminders); trends extension (average behind a gate, target, per-day list); BP form with optional pulse, symptom ticks and technique guide; History screen with an ask-for-a-correction path; Reminders screen with recurring reminders and generic wording; Today list on Home (tasks and dose slots) with a task mirror; `care_tasks` gained `kind` and `source_event_id`, and the `patient_tasks` view; `my_home_bp_target()` so trends match the alerts.
+- **Production state (checked live 2026-10-07)**: migrations `20261004054638` (`s07_care_tasks_kind_and_patient_tasks_view`) and `20261004213403` (`s07_my_home_bp_target`) are applied; the `patient_tasks` view and `public.my_home_bp_target` exist. The earlier note "built, not applied" on PR 899 is out of date (the S08 entry already recorded the second as applied).
+- **Reused**: S06 outbox and mirror, Design Phase 1 Skia trend chart, `data_correction_requests`, `reminders.behaviour` and `adherence.threshold` config.
+- **Open questions**: OQ-65 (`patient_tasks` vs `care_tasks`), OQ-66 (plausibility limits), OQ-67 (BP grading bands differ from the live pipeline; still the blocker for any home-check protocol), OQ-68 (dose reminder named the medicine; closed by S08), OQ-80 (target visibility), OQ-83.
+- **Not done**: readiness for wearable users and voice logging (deferred; voice dropped by founder decision R1 in the S46-S50 plan); no real-device run.
+
 ## S08: Medicines, schedules, dose events, adherence, refill (2026-10-04)
 
 - **Built**: `docs/research/S08.md` (products, evidence, platform limits, decision table, rejected list), `docs/design/S08.md`, `docs/THIRD-PARTY.md`. A new pure package `packages/medicines` (schedule parse and expansion for daily, every N days, weekdays, step-down and as-needed with start and end dates and a food note; dose state; the weekly adherence formula; pill count and run-out; the rolling reminder plan and reminder health rules; 100 percent branch coverage enforced in its Jest config). Migrations `20261004214247` (3 event types), `20261004214531` (`medications.schedule_spec`, `medication_supply`, `medicine_config`, `private.medication_slots_on`, the server missed job with a deterministic client id, `weekly_adherence` and `public.medication_weekly_adherence`, signals `dose.recorded`, `dose.missed`, `refill.due` and `adherence.low` into `clinical_rule_events`, dose and refill reminders without the medicine name, the refill reminder from the pill count) and `20261004220959` (review fixes: `schedule_effective_from`, a stale refill date no longer hides a run-out, suspended accounts left alone). All three applied to production on 2026-10-04 at their file versions, after a rolled-back run of each with the proof.
@@ -438,6 +448,7 @@ Found during the simulator pass (`docs/S06_SIMULATOR_CHECKLIST.md`).
 - **Open questions**: none new.
 - **Fixed while merging (found by running the proof, which had never run)**: the proof inserted an organisation with no `type` and a profile with a `user_role` column that does not exist; `create_record_share` called `gen_random_bytes` unqualified under an empty search_path (now `extensions.gen_random_bytes`), so creating any share would have failed; `record_share_by_token` read `patient_blood_profile.source`, which does not exist (now `provenance`), so reading any share with emergency info would have failed. the prescription-signed trigger joined `clinical_staff` on a `user_id` column that does not exist (it is `profile_id`), so signing any prescription would have errored; test 8 also signed with a leftover patient session. Tests 1 to 6 now pass against live in a rolled-back transaction; tests 7 and 8 (the new enum values) need the migration committed first and run in CI. **The two S09 migrations are not applied to production.**
 - **Follow-ups**: types splice into `database.types.ts` for the new tables/enum values; My Health hub page at `/patient/my-health` (entry point linking Timeline, Emergency Card, Health Passport, Share Records) deferred to the next session that touches patient navigation.
+- **Correction 2026-10-07**: both S09 migrations (`20261005185500` `s09_timeline_vitals_and_prescription_events`, `20261005185600` `s09_record_shares`) are **applied to production** (checked live in `supabase_migrations.schema_migrations`); the line above saying they are not applied is out of date. The proof's tests 7 and 8 (the new enum values) should now be re-run against live, and `database.types.ts` still needs its own-keys splice.
 
 
 
@@ -457,7 +468,7 @@ Found during the simulator pass (`docs/S06_SIMULATOR_CHECKLIST.md`).
 - **`event_effects.organisation_id`** added (filled from the delivery).
 - **One source for the dispatch loop**: `packages/events` now imports `supabase/functions/_shared/event-bus/dispatch.ts` directly (no copy, no drift test); coverage still 100 percent and a deliberately added uncovered function fails the threshold.
 - **Tests**: DB proof 89 checks (sabotage still caught); events 21 tests.
-- **Still not applied to production / not deployed.**
+- **Correction 2026-10-07**: the migration `20261005203441` (`s10_event_bus_and_outbox`) is **applied to production**, and the bus is running: live counts are 7 subscribers, 11 events and 0 dead deliveries. The `process-events` function source is on main-dev (`supabase/functions/process-events`). The lines above and below saying "not yet applied" and "not deployed" are out of date. Not re-checked today: that the deployed function matches source and that the Vault and edge secrets hold the same value (the release-integrity edge-drift job is the check to trust).
 
 ## S11: Triage engine, `packages/clinical` (2026-10-05)
 
