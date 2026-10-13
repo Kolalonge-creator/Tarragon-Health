@@ -2081,6 +2081,33 @@ Raised by the S70 to S75 review (`docs/research/S70-S75-review-and-build-plan.md
 ### OQ-431 Nothing schedules the two expiry functions; the new pages were not walked in a browser (raised by S72)
 - `expire_access_fund()` and `expire_payment_requests()` are safe to call often (admin or service role). Reads already treat an old pledge as lapsed and an old link as expired, and a grant past its date matches nothing, but the stored status changes only when one of these runs (a daily call from an existing cron route would do). Separately, the web and mobile screens were type-checked, linted and unit tested, and the new database functions proved, but no browser or phone walk-through, no Paystack test-key payment from a link, and no sign-up of a brand-new payer through `/login?redirect=` was run.
 - Decision: open (follow-up).
+### OQ-360 Partner quality numbers (raised by S74, function 21.7)
+- The turnaround target (72 hours for a laboratory), the 80 percent on-time floor with at least 10 orders, three upheld complaints, the score weights (40/30/30) and floors (warn 70, suspend 50), the 30-day override and which breaches suspend are PROPOSED in `partner_quality_config` (mirrored as `partner.quality`). Nothing is signed. A wrong number can pause a real laboratory from new work.
+- Decision: open; CMO to confirm before the nightly job is trusted on real partners. Partner rows are a shared directory with no `organisation_id` (like go-live guards); reads are admin and CMO only.
+
+### OQ-361 Home test kits (raised by S74, function 21.1)
+- Not built. A kit needs a named partner, a D-06 treatment (who is paid for the kit and the lab work) and a result path through `LabResultsSource`. The seam is documented in `apps/web/src/lib/lab-results/results-source.ts`. `ApiLabResultsSource` is a stub that connects to nothing.
+- Decision: open; needs a partner.
+
+### OQ-362 Settlement four eyes with one founder (raised by S74, function 21.6)
+- `partner.settlement.four_eyes` is true: the person who drafts terms cannot approve them. A solo founder cannot satisfy it. Settlement ships guard-off and is empty at launch (no sponsor checkout, pharmacy prices hidden, OQ-283), so this does not block anything today.
+- Decision: open; founder to say whether a second approver (accountant, CMO) exists. Also open: a refund after a statement is issued is only reported (`partner_double_payment_findings`), not clawed back.
+
+### OQ-363 Pharmacy sourcing claim and batch record (raised by S74, function 21.2)
+- A pharmacy declares its NAFDAC-registered suppliers and an admin records a check. The pharmacist may record the product NAFDAC number and supplier per supply, once. It is NOT required at dispense (S28c says Tarragon does not verify batches), and the patient directory view does not yet show the badge (`pharmacy_sourcing_verified()` exists).
+- Decision: open; pharmacy lead and counsel to confirm wording before any patient-facing claim.
+
+### OQ-364 Pharmacist chat scope (raised by S74, function 21.2)
+- In app only, patient starts, 1,000 characters, 20 a day, open until collection plus 14 days, the pharmacy loses access when the patient changes pharmacy or takes the prescription back. No Tarragon staff read path. Caregivers (S28c pharmacy permission) are not included. The static emergency notice is the only safety text: no keyword triage (INV-01 spirit).
+- Decision: open; CMO and DPO to confirm that no staff read path is acceptable for complaints, and whether caregivers may use it.
+
+### OQ-365 go_live_conditions wrapper (raised by S74)
+- S74 renames the live `private.go_live_conditions` to `go_live_conditions_s74_base` and puts a thin wrapper in front, to avoid copying another session's body. A later migration that replaces `go_live_conditions` whole removes the wrapper and the settlement guard then fails closed. The S37 and S36b proofs now expect eight guards.
+- Decision: open; fold into S37 on the next rebase.
+
+### OQ-366 Clinic calendar and migration timestamps (raised by S74, function 21.3)
+- Clinic slots and reservations exist as schema and functions only, dormant under module 28; the proof for them and for the pharmacy chat and sourcing is NOT written or run (see BUILD-PROGRESS S74). The three S74 migrations are named 20261007161247 to 20261007161321 because the machine clock (12:34 UTC) sorted before existing files; whoever applies them must pin the version to the filename.
+- Decision: open.
 ### OQ-309 Free red events are guidance-only (CMO decision 2026-10-08): the INV-05 consequence
 - INV-05 says a red event never waits for a clinician to pull work and always pages the on-call clinician. By CMO decision (a sustainability decision, amendments C2) a red event on a **Free** patient now pages nobody, creates no clinical task and no clinician alert. A **Member** red event pages exactly as before. INV-05 therefore reads, from this change: "a red event on a Member never waits for a pull; on a Free patient it is guidance only." The spec text and `docs/design/S19.md` still carry the old wording until the CMO signs this.
 - Built (`two-tier/free-red-path`, NOT applied): `private.patient_may_page_doctor()` is the one gate, fail closed toward paging (a missing patient or any error while working out membership counts as Member and pages). `public.create_red_page`, `public.create_tasks_from_triage_event` and the legacy trigger feature check (`vitals_red_flag_doctor_escalation`, now also true for a Member) all use it. The glucose app-layer check now also fails toward paging.
