@@ -962,3 +962,5 @@ oq276c_controlled_list_brand_names.sql
 sr2_stagger_cron_start_times.sql
 # SR2: scribe_consents_insert_clinical keeps its S39g tie rule and active-clinician check, and wraps auth.uid() in a select so it is evaluated once per statement; one insert policy for authenticated. Sabotage: the policy put back on a bare auth.uid(); the wrapper check must flip. Behaviour is proven by s21g and s39g.
 sr2_scribe_consents_insert_policy_initplan.sql
+# amend_medication carries schedule_spec onto the amended row (as-needed / every-N-days / weekdays / taper no longer become a plain daily list); explicit new times replace spec.times; a taper refuses plain times; plain medicines unchanged. Sabotage: the pre-fix body (no schedule_spec in the insert) fails cases 1, 2, 3 and 5.
+amend_medication_carries_schedule_spec.sql
