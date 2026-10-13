@@ -208,6 +208,8 @@ export function getNavSections(
             // one place, composed from the record the sections below already
             // hold rather than a second copy of it.
             { label: "Health summary", href: "/patient/health-summary", icon: "carePlan" },
+            // The front door for the record the patient carries and shares (S09x): timeline, emergency card, passport, share links, who has looked.
+            { label: "My Health", href: "/patient/my-health", icon: "passport" },
             { label: "Prevention", href: "/patient/prevention", icon: "preventive" },
             { label: "Women's Health", href: "/patient/womens-health", icon: "family" },
             {

@@ -1883,3 +1883,24 @@ following are recorded in the system:
 4. Counsel-approved join consent text and retention values (OQ-COM-06).
 5. CMO approval of the weight-loss group rules and pinned post (OQ-COM-09).
 6. A tabletop run of the safety hand-off with a test account (`is_test`).
+
+---
+
+## S09x: My Health completion (raised 2026-10-13)
+
+### OQ-S09x-1 Should routine staff openings appear in the patient's access log? (extends OQ-281; counsel, DPO, founder)
+- The plan asked for "staff reads through the audited path" in the patient-facing log. Founder direction on 2026-10-07 (OQ-281) is that the patient is not told a doctor opened the record, pending counsel. Per the operating contract, that piece is stopped, not decided here.
+- Built: `my_access_log()` can include `staff_record_opens`, behind `my_health_config.access_log.show_staff_opens`, shipped **false**. Break-glass (`emergency_record_access_grants`), family emergency access (`emergency_access_grants`), delegated access (`care_access_events` use rows), share opens and emergency card opens ARE shown.
+- To change: a new `my_health_config` version with the flag true (the Founder and counsel own it; the registry key is `my_health.sharing_and_access_log`).
+
+### OQ-S09x-2 NDPA basis for the emergency card, break-glass visibility and the lock-screen pass (D9, counsel)
+- Counsel was instructed (D9). The legal basis is not yet confirmed. The lock-screen pass is off by default (D4), its fields are CMO item C8 (approved text, not signed), and the wallet generator is dormant behind the `wallet_pass` guard, so nothing depends on the answer yet.
+
+### OQ-S09x-3 Add `patient_lock_screen_pass` to the data registry (S39d)
+- The table keys on `profile_id`, not `patient_id`, so it is not auto-registered (a `patient_id` column would put an unreviewed row in `data_registry`, which the CMO and DPO review must own). It holds one boolean per person, but the S39d export and purge should still list it. Decision for the registry reviewer.
+
+### OQ-S09x-4 A locked share can be locked by anyone who holds the link
+- Five wrong PINs lock a share permanently (the patient revokes it and makes a new one). Someone holding the link but not the PIN can therefore lock a share the patient meant to use. Chosen over a timed lock because a timed lock lets a patient fall back to guessing; revisit if patients report it.
+
+### OQ-S09x-5 Wallet pass credentials (D9 / founder)
+- Needs: an Apple Developer Pass Type ID certificate, a Google Wallet issuer account and service account, and a decision on who holds the signing key. When they exist, a session adds the `wallet_pass` conditions branch (`private.go_live_conditions`), the attestations and a `WalletSigner`. Until then `go_live_guard_status` shows the guard with an unmet "no defined condition".
