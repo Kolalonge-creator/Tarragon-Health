@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { t } from "@tarragon/i18n";
 import { DEFAULT_UI_LANGUAGE } from "@tarragon/shared";
-import { loadCollection, loadPharmacies } from "@/lib/pharmacy-collection/load";
+import { loadCollection, loadHasControlledItem, loadPharmacies } from "@/lib/pharmacy-collection/load";
 import { choosePharmacyAction, newCodeAction, withdrawAction } from "@/lib/pharmacy-collection/actions";
 import { asNotice, viewFor, type PharmacyOption } from "@/lib/pharmacy-collection/model";
 import { FlashClean } from "@/components/go-live/flash-clean";
@@ -53,6 +53,8 @@ export default async function CollectPage({ params, searchParams }: { params: Pr
   const view = collection.ok && collection.data ? viewFor(collection.data) : null;
   const pharmacies = view === "choose" || view === "code" || view === "repeat" ? await loadPharmacies(prescriptionId, forWhom) : null;
   const off = !collection.ok && collection.off === true;
+  // OQ-276: a plain note before choosing, for a prescription that includes a controlled medicine. The patient may still go ahead; the counter refuses it.
+  const controlledNote = view === "choose" || view === "repeat" || view === "code" ? await loadHasControlledItem(prescriptionId, forWhom) : false;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -73,17 +75,20 @@ export default async function CollectPage({ params, searchParams }: { params: Pr
       ) : view === "choose" ? (
         <section className="space-y-3">
           <h3 className="font-semibold text-charcoal-ink">{t("pharmcollect.choose", locale)}</h3>
+          {controlledNote && <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{t("pharmcollect.controlled_note", locale)}</p>}
           {pharmacies?.ok ? <Chooser id={prescriptionId} options={pharmacies.data} locale={locale} forWhom={forWhom} /> : <p role="alert" className="text-sm text-red-900">{t("pharmcollect.load_failed", locale)}</p>}
         </section>
       ) : view === "repeat" ? (
         <section className="space-y-3">
           <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-900">{t("pharmcollect.collected", locale)}</p>
           <h3 className="font-semibold text-charcoal-ink">{t("pharmcollect.repeat", locale)}</h3>
+          {controlledNote && <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{t("pharmcollect.controlled_note", locale)}</p>}
           <p className="text-xs text-charcoal-ink/60">{t("pharmcollect.repeat_hint", locale)}</p>
           {pharmacies?.ok ? <Chooser id={prescriptionId} options={pharmacies.data} locale={locale} forWhom={forWhom} /> : <p role="alert" className="text-sm text-red-900">{t("pharmcollect.load_failed", locale)}</p>}
         </section>
       ) : view === "code" ? (
         <section className="space-y-4">
+          {controlledNote && <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{t("pharmcollect.controlled_note", locale)}</p>}
           <p className="font-semibold text-charcoal-ink">
             {t("pharmcollect.sent_to", locale, { pharmacy: [collection.data?.pharmacy_name, collection.data?.location_name].filter(Boolean).join(", ") })}
           </p>
