@@ -306,6 +306,8 @@ can_read_clinical_bare_literal_policy_cast.sql
 #     purchase never touches annual_health_checks) and works even for a
 #     patient who never started the free Health Check journey.
 continuous_monitoring_90d_single_tier.sql
+# S05b: blood group and genotype verification is generated (lab_verified only for a row backed by the patient's own report; a patient can only reach self_reported); recorded vitals, allergies, conditions and lab values cannot be edited or deleted (even by the service role), only superseded through public.correct_clinical_value, which keeps the original and records actor and reason; a stored lab range must declare its source and lab_result_items are stamped from the sign-off state. Sabotage: provenance trigger dropped, supersession trigger dropped, range constraint dropped; each must flip.
+s05b_record_integrity.sql
 preventive_health_check_review_sku.sql
 
 # /code-review high on the above continuous_monitoring_90d_single_tier.sql
@@ -989,8 +991,6 @@ oq276c_controlled_list_brand_names.sql
 sr2_stagger_cron_start_times.sql
 # SR2: scribe_consents_insert_clinical keeps its S39g tie rule and active-clinician check, and wraps auth.uid() in a select so it is evaluated once per statement; one insert policy for authenticated. Sabotage: the policy put back on a bare auth.uid(); the wrapper check must flip. Behaviour is proven by s21g and s39g.
 sr2_scribe_consents_insert_policy_initplan.sql
-# S05b: blood group and genotype verification is generated (lab_verified only for a row backed by the patient's own report; a patient can only reach self_reported); recorded vitals, allergies, conditions and lab values cannot be edited or deleted (even by the service role), only superseded through public.correct_clinical_value, which keeps the original and records actor and reason; a stored lab range must declare its source and lab_result_items are stamped from the sign-off state. Sabotage: provenance trigger dropped, supersession trigger dropped, range constraint dropped; each must flip.
-s05b_record_integrity.sql
 # amend_medication carries schedule_spec onto the amended row (as-needed / every-N-days / weekdays / taper no longer become a plain daily list); explicit new times replace spec.times; a taper refuses plain times; plain medicines unchanged. Sabotage: the pre-fix body (no schedule_spec in the insert) fails cases 1, 2, 3 and 5.
 amend_medication_carries_schedule_spec.sql
 # S04b-3: quiet hours default off (rules v3, column default, null choice stores off); turning them off releases only the caller's own reminders that were held by quiet hours (not a critical row, not someone else's, not an unrelated scheduled one); anon cannot run the function. Sabotage: the release step removed; the check must flip.
