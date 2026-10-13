@@ -26375,9 +26375,11 @@ export type Database = {
       }
       partner_webhook_endpoints: {
         Row: {
+          auto_disabled_at: string | null
           consecutive_failures: number
           created_at: string
           description: string | null
+          disabled_reason: string | null
           environment: Database["public"]["Enums"]["api_environment"]
           event_types: Database["public"]["Enums"]["integration_event_type"][]
           id: string
@@ -26387,14 +26389,19 @@ export type Database = {
           name: string
           organisation_id: string
           partner_integration_id: string
+          previous_secret: string | null
+          previous_secret_expires_at: string | null
           secret: string
+          signing_key_version: number
           updated_at: string
           url: string
         }
         Insert: {
+          auto_disabled_at?: string | null
           consecutive_failures?: number
           created_at?: string
           description?: string | null
+          disabled_reason?: string | null
           environment?: Database["public"]["Enums"]["api_environment"]
           event_types: Database["public"]["Enums"]["integration_event_type"][]
           id?: string
@@ -26404,14 +26411,19 @@ export type Database = {
           name: string
           organisation_id: string
           partner_integration_id: string
+          previous_secret?: string | null
+          previous_secret_expires_at?: string | null
           secret: string
+          signing_key_version?: number
           updated_at?: string
           url: string
         }
         Update: {
+          auto_disabled_at?: string | null
           consecutive_failures?: number
           created_at?: string
           description?: string | null
+          disabled_reason?: string | null
           environment?: Database["public"]["Enums"]["api_environment"]
           event_types?: Database["public"]["Enums"]["integration_event_type"][]
           id?: string
@@ -26421,7 +26433,10 @@ export type Database = {
           name?: string
           organisation_id?: string
           partner_integration_id?: string
+          previous_secret?: string | null
+          previous_secret_expires_at?: string | null
           secret?: string
+          signing_key_version?: number
           updated_at?: string
           url?: string
         }
@@ -44876,6 +44891,60 @@ export type Database = {
         Args: { p_case_id: string; p_closure_summary: string }
         Returns: undefined
       }
+      event_bus_health: { Args: never; Returns: Json }
+      replay_event_delivery: { Args: { p_delivery_id: string; p_redo_effects?: boolean }; Returns: boolean }
+      event_bus_lag_sweep: { Args: { p_include_test?: boolean }; Returns: number }
+      event_bus_explorer: {
+        Args: { p_before?: string; p_before_id?: string; p_event_type?: string; p_limit?: number; p_status?: string; p_subscriber?: string }
+        Returns: {
+          aggregate_id: string
+          aggregate_type: string
+          attempt_count: number
+          created_at: string
+          delivery_id: string
+          done_at: string
+          event_id: string
+          event_type: string
+          event_version: number
+          is_test: boolean
+          lag_seconds: number
+          last_error: string
+          next_attempt_at: string
+          payload_ids: Json
+          priority: string
+          replay_count: number
+          status: string
+          subscriber_key: string
+        }[]
+      }
+      event_bus_delivery_attempts: {
+        Args: { p_delivery_id: string }
+        Returns: { attempt_no: number; created_at: string; error: string; outcome: string }[]
+      }
+      event_bus_subscriber_status: {
+        Args: never
+        Returns: {
+          dead: number
+          done_24h: number
+          event_type: string
+          handler_key: string
+          is_active: boolean
+          lag_incident_open: boolean
+          last_failure_at: string
+          last_success_at: string
+          oldest_due_seconds: number
+          pending: number
+          processing: number
+          subscriber_key: string
+        }[]
+      }
+      partner_webhook_enqueue_for_delivery: { Args: { p_delivery_id: string }; Returns: number }
+      reenable_partner_webhook_endpoint: { Args: { p_endpoint_id: string }; Returns: undefined }
+      rotate_partner_webhook_secret: { Args: { p_endpoint_id: string; p_grace_hours?: number }; Returns: string }
+      set_partner_event_mapping: {
+        Args: { p_bus_event_type: string; p_id_keys?: string[]; p_integration_event_type: Database["public"]["Enums"]["integration_event_type"] }
+        Returns: string
+      }
       claim_integration_outbound_batch: {
         Args: { p_limit?: number }
         Returns: {
@@ -44886,7 +44955,9 @@ export type Database = {
           id: string
           max_attempts: number
           payload: Json
+          previous_secret: string
           secret: string
+          signing_key_version: number
           url: string
         }[]
       }
