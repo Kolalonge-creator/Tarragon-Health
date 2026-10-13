@@ -18,6 +18,9 @@ export interface AdminSearchEntry {
 
 /** Words an admin may use for a page whose title does not say it. Keyed by the path they match. */
 const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
+  ["/clinician/worklists", "queue worklist inbox pending waiting results lab abnormal screening flags reviews vaccination therapy approvals shared pool"],
+  ["/admin/access-review", "audit access log opened viewed record who looked privacy snooping retention delete export"],
+  ["/clinician/access-review", "audit access log opened viewed record who looked privacy snooping retention delete export"],
   ["/clinician/credentialing/expiry", "licence license mdcn indemnity expiry expires renewal renew grace suspended reinstate"],
   ["/clinician/credentialing/content", "training test scenarios questions modules approve content exam"],
   ["/clinician/credentialing", "doctor clinician onboarding application applicant apply verify verification mdcn folio credentials referees nysc approve"],
@@ -33,10 +36,15 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/risk-fairness", "risk fairness bias distribution tiers sex age state groups worklist ordering check"],
   ["/admin/outcomes", "outcomes blood pressure control 90 day report bp snapshot day 30 180 hypertension programme results adherence cohort"],
   ["/admin/access-fund", "community access fund donation donations gift pledge bank transfer grant grants hardship cannot afford restricted gift criteria approve donor"],
+  ["/admin/organisation-prices", "organisation prices employer price per member seat 100000 flat default override employer pays discount negotiated invoice floor ceiling company corporate hmo"],
   ["/admin/catalogue", "catalogue prices price list items membership care pack consultation checkout paystack switch on off sell buy"],
   ["/clinician/lab-results", "lab result review held abnormal critical release disclosure disclose positive hiv hepatitis screening withhold"],
   ["/clinician/lab-panels", "lab ranges reference critical limits sign cmo release policy disclosure attempts panels essential annual health check"],
+  ["/clinician/home-bp-programme", "home blood pressure check seven day protocol sign cmo bands 135 85 white coat masked pattern flag clinic reading cuff"],
+  ["/admin/settings/home-bp-programme", "home blood pressure check seven day protocol bands pattern read only signed"],
   ["/admin/settings/lab-panels", "lab ranges reference critical limits release policy panels read only signed"],
+  ["/clinician/my-health-config", "lock screen pass wallet card fields sign cmo emergency basics initials blood group genotype allergies on file my health c8"],
+  ["/admin/settings/my-health-config", "lock screen pass wallet card fields read only signed my health emergency basics"],
   ["/clinician/clinical-signoff", "sign signature sign off signoff hub approve what needs signing outstanding pending awaiting clinical director cmo"],
   ["/clinician/lpe-content-library", "sign approve review coaching content ai coach lifestyle blocks library reference copy"],
   ["/clinician/result-release-policies", "sign approve result release policy abnormal critical doctor delivered restricted hiv hepatitis cancer screen withhold patient"],
@@ -54,6 +62,7 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/settings/access/history", "grants history who has access permission permissions capability roles holders revoked granted audit expiry expires role grants"],
   ["/clinician/reliability", "reliability sla service level queue health waiting oldest wait past due red event page paged acknowledged acknowledgement unacknowledged on call cover gaps rota hand-back handback rate score band clinician advisory"],
   ["/admin/ops/reliability", "reliability sla service level queue health waiting oldest wait past due red event page paged acknowledged acknowledgement unacknowledged on call cover gaps rota hand-back handback rate read only view operations ops"],
+  ["/admin/ops/wall", "operations wall ops wall live board dashboard queue age oldest task open pages unacknowledged doctors online calls in progress tests this week notification delivery failures payments last hour alerts alert rules on call contacts incident all clear stale cron database connections disk webhooks zoom fallback"],
   ["/admin/ops/directory-freshness", "directory freshness verification verify listing listings partner partners lab laboratory pharmacy facility specialist logistics delivery overdue stale due re-verify reverify check last verified schedule cadence"],
   ["/clinician/pharmacy", "pharmacy messages pharmacy questions question questions flag flagged problem out of stock query prescriber prescription collected collection dispensed supplied sent where is my prescription pharmacist asked answer batch substitute strength dose unclear partner dispensing"],
   ["/clinician/quality/concerns", "speak up speakup whistleblow raise concern backup reader retaliation reply acknowledge deadline overdue"],
@@ -69,9 +78,12 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/settings/members", "users logins accounts roles permissions invite provision"],
   ["/admin/patients", "patient people customers find search lookup support investigate purchases"],
   ["/admin/ops/incidents", "incident outage problem sev"],
+  ["/admin/ops/event-bus", "event bus events outbox queue deliveries subscribers dead letter replay stuck lag falling behind heartbeat attempts retry process-events partner webhook"],
   ["/admin/data-rights", "gdpr ndpa privacy deletion erasure access request"],
   ["/admin/promo-codes", "discount coupon voucher"],
   ["/admin/leads", "enquiries prospects contact form"],
+  ["/admin/settings/testing-days", "testing day testing days venue venues location city lga capacity waitlist waiting list lab laboratory team station registration check in specimen tube employer visit on site onsite headcount ecg urine urinalysis point of care poc"],
+  ["/clinician/poc-results", "point of care poc ecg trace interpret interpretation read urine urinalysis dipstick hba1c testing day employer visit release withhold held"],
   ["/admin/refund-requests", "refund refunds money back guarantee claim order payment paystack reverse"],
 ];
 
@@ -79,6 +91,8 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
 export const ADMIN_EXTRA_PAGES: AdminSearchEntry[] = [
   { label: "Licences and cover", href: "/admin/credentialing/expiry", group: "Clinician credentialing", hint: "Licence and indemnity expiry, grace periods, pause or reinstate access." },
   { label: "Task types and priorities", href: "/admin/task-types", group: "Clinical queue", hint: "The kinds of clinical work, how urgent each is and who may take it." },
+  { label: "Record access review", href: "/admin/access-review", group: "Security and privacy", hint: "Who opened which patient record, untied and after-hours openings, and the retention review." },
+  { label: "Event bus", href: "/admin/ops/event-bus", group: "Operations", hint: "Every event the platform recorded, who handled it, what is stuck, and replay." },
 ];
 
 /** The same, for the Chief Medical Officer, whose account role cannot open /admin. */
@@ -89,8 +103,11 @@ export const CMO_EXTRA_PAGES: AdminSearchEntry[] = [
   { label: "Task types and priorities", href: "/clinician/task-types", group: "Clinical queue", hint: "The kinds of clinical work, how urgent each is and who may take it." },
   { label: "Lifestyle coaching content", href: "/clinician/lpe-content-library", group: "Clinical governance", hint: "Review and approve the reference copy the AI Coach can draw on." },
   { label: "Result release policies", href: "/clinician/result-release-policies", group: "Clinical governance", hint: "Which abnormal results wait for a doctor before the patient sees them." },
+  { label: "Shared work queues", href: "/clinician/worklists", group: "Clinical queue", hint: "Open lab results, abnormal screening, lifestyle flags and reviews, therapy and vaccination items across the organisation." },
   { label: "Safety concerns", href: "/clinician/quality/concerns", group: "Clinical governance", hint: "The speak-up inbox: replies, backup readers and reviews after a concern." },
   { label: "Titration protocols", href: "/clinician/titration-protocols", group: "Clinical sign-off", hint: "Write, check and approve the step table the dose suggestion tool reads." },
+  { label: "Testing-day results", href: "/clinician/poc-results", group: "Clinical queue", hint: "Read ECG traces and release urine and HbA1c results from testing days and employer visits." },
+  { label: "Record access review", href: "/clinician/access-review", group: "Security and privacy", hint: "Who opened which patient record, untied and after-hours openings, and the retention review." },
 ];
 
 export interface SettingsPageInput {

@@ -18,7 +18,7 @@ function deps(over: Partial<CheckoutDeps> & { rpc?: (fn: string, args: Record<st
     whoami: () => Promise.resolve({ id: "u1", email: "a@example.com" }),
     rpcAsUser: (_a, fn, args) => {
       seen.args = args;
-      return Promise.resolve(over.rpc ? over.rpc(fn, args) : { data: { order_id: "o1", reference: REF, amount_kobo: 10_000_000, state: "created", checkout_url: null }, error: null });
+      return Promise.resolve(over.rpc ? over.rpc(fn, args) : { data: { order_id: "o1", reference: REF, amount_kobo: 12_000_000, state: "created", checkout_url: null }, error: null });
     },
     ...over,
   };
@@ -32,10 +32,10 @@ Deno.test("creates the order as the patient and returns the hosted checkout link
   const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY }), d);
   assertEquals(res.status, 200);
   const j = await res.json();
-  assertEquals([j.order_id, j.amount_kobo, j.reference], ["o1", 10_000_000, REF]);
+  assertEquals([j.order_id, j.amount_kobo, j.reference], ["o1", 12_000_000, REF]);
   assertEquals(seen.args, { p_code: "membership_annual", p_client_key: KEY });
   const v = await payments.verifyTransaction(REF);
-  assertEquals(v.ok && v.data.requestedAmountKobo, 10_000_000);
+  assertEquals(v.ok && v.data.requestedAmountKobo, 12_000_000);
 });
 
 Deno.test("an amount or a return URL sent by the client is ignored", async () => {
@@ -43,7 +43,7 @@ Deno.test("an amount or a return URL sent by the client is ignored", async () =>
   const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, amount_kobo: 1, callback_url: "https://evil.example" }), d);
   assertEquals(res.status, 200);
   const v = await payments.verifyTransaction(REF);
-  assertEquals(v.ok && v.data.requestedAmountKobo, 10_000_000);
+  assertEquals(v.ok && v.data.requestedAmountKobo, 12_000_000);
 });
 
 Deno.test("refuses without a token, with a bad token, a wrong method, bad input", async () => {

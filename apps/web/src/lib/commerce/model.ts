@@ -44,7 +44,14 @@ export const orderRowSchema = z.object({
 });
 export type OrderRow = z.infer<typeof orderRowSchema>;
 
-export const membershipSchema = z.object({ is_member: z.boolean(), ends_at: z.string().nullable(), source: z.string().nullable() });
+export const membershipSchema = z.object({
+  is_member: z.boolean(),
+  ends_at: z.string().nullable(),
+  source: z.string().nullable(),
+  /** The year has ended but the 14 day grace has not: still a Member, and may renew. */
+  in_grace: z.boolean().optional(),
+  grace_ends_at: z.string().nullable().optional(),
+});
 export type MembershipState = z.infer<typeof membershipSchema>;
 
 export const payReplySchema = z.object({ order_id: z.string(), reference: z.string(), amount_kobo: kobo, checkout_url: z.string().url() });

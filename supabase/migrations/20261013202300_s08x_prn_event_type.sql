@@ -1,0 +1,11 @@
+-- S08x (medicines completion), part 1 of 2: one new clinical rule event type.
+--
+--   medication_prn_limit_repeated  a patient has logged several as-needed doses of one medicine that were
+--                                  sooner than, or more than, the limits their care team set (decision C7).
+--
+-- A signal for the care team to read, never an alarm and never a block on the patient's log. Kept in its own
+-- file because ALTER TYPE ... ADD VALUE cannot be used by anything else in the same transaction; part 2
+-- (the next S08x migration) emits it.
+--
+-- Row counts at writing (live, 2026-10-13): no row carries the new value, so no data is touched.
+alter type public.clinical_rule_event_type add value if not exists 'medication_prn_limit_repeated';

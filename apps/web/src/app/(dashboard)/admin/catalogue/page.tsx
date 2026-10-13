@@ -12,6 +12,9 @@ import { ActiveForm, PriceForm } from "./catalogue-forms";
 export const metadata = { title: "Catalogue and prices" };
 export const dynamic = "force-dynamic";
 
+/** The clock, read outside the render so the page stays a pure function of the data it was given and this one reading. */
+const clockMs = (): number => Date.now();
+
 const priceRow = z.object({ amount_kobo: z.number().int(), valid_from: z.string(), valid_to: z.string().nullable(), reason: z.string().nullable() });
 const itemRow = z.object({
   code: z.string(), kind: z.string(), audience: z.string().default("patient"), active: z.boolean(), note: z.string().nullable(), paid_orders: z.number().int(),
@@ -42,7 +45,9 @@ export default async function AdminCataloguePage() {
             The Membership can be switched on only while its go-live guard (<code>membership_billing_enabled</code>) is <strong>{parsed.data.membership_guard_on ? "on" : "off"}</strong>. It is a one-off yearly purchase with an end date: nothing renews or charges again by itself, and every change here is written to the audit log with your reason.
           </p>
           {parsed.data.items.map((i) => {
-            const current = i.prices.find((p) => p.valid_to === null);
+            // The price in force today, not the open-ended row: a parked price (starts far in the future) is not the current one.
+            const now = clockMs();
+            const current = i.prices.find((p) => new Date(p.valid_from).getTime() <= now && (p.valid_to === null || new Date(p.valid_to).getTime() > now));
             return (
               <Card key={i.code}>
                 <CardHeader>
@@ -61,7 +66,7 @@ export default async function AdminCataloguePage() {
                     <ul className="mt-2 space-y-1">
                       {i.prices.map((p) => (
                         <li key={p.valid_from}>
-                          {`₦${formatNaira(p.amount_kobo)}`} from {formatPatientDate(p.valid_from)}{p.valid_to ? ` to ${formatPatientDate(p.valid_to)}` : " (current)"}{p.reason ? `: ${p.reason}` : ""}
+                          {`₦${formatNaira(p.amount_kobo)}`} from {formatPatientDate(p.valid_from)}{p.valid_to ? ` to ${formatPatientDate(p.valid_to)}` : new Date(p.valid_from).getTime() > now ? " (starts later)" : " (current)"}{p.reason ? `: ${p.reason}` : ""}
                         </li>
                       ))}
                     </ul>

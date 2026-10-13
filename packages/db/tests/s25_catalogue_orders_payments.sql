@@ -7,6 +7,10 @@
 -- SABOTAGE: the amount check removed, and the replay guard removed; both checks must flip.
 begin;
 
+-- Two-tier: only the Membership may be on sale (catalog_items_only_membership_sellable). The order machinery under test is generic and
+-- uses care-pack and consultation fixtures, so the constraint is dropped here on purpose, inside this rolled-back transaction.
+alter table public.catalog_items drop constraint catalog_items_only_membership_sellable;
+
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
 grant all on results to public;
 create temp table fx(k text primary key, v uuid) on commit drop;
@@ -138,8 +142,8 @@ begin
   perform pg_temp.ck('the catalogue shows the item with its price', '500000',
     pg_temp.q_as(v_pat, $q$select (select (e->>'amount_kobo') from jsonb_array_elements(public.catalogue()) e where e->>'code' = 'proof_consult')$q$));
   perform pg_temp.ck('the seeded membership starts off', 'false', (select active::text from public.catalog_items where code = 'membership_annual' and organisation_id = pg_temp.f('org')));
-  perform pg_temp.ck('the seeded membership price is 100,000 naira in kobo', '10000000',
-    (select amount_kobo::text from public.prices p join public.catalog_items i on i.id = p.catalog_item_id where i.code = 'membership_annual' and i.organisation_id = pg_temp.f('org') and p.valid_to is null));
+  perform pg_temp.ck('the price in force today for the seeded membership is 120,000 naira in kobo (two-tier migration)', '12000000',
+    (select amount_kobo::text from public.prices p join public.catalog_items i on i.id = p.catalog_item_id where i.code = 'membership_annual' and i.organisation_id = pg_temp.f('org') and p.valid_from <= now() and (p.valid_to is null or p.valid_to > now())));
   perform pg_temp.ck('anon cannot create an order', '42501', pg_temp.try_anon($q$select public.create_order('proof_consult')$q$));
 end $$;
 
@@ -266,8 +270,8 @@ begin
   perform pg_temp.ck('with a lead slot the membership order is created', 'true', (ref like 'tho_%')::text);
   o := (select id from public.orders where paystack_reference = ref);
   perform pg_temp.ck('not a member before paying', 'false', (select private.patient_is_member(v_p3)::text));
-  perform pg_temp.ck('the membership order holds 100,000 naira', '10000000', (select amount_kobo::text from public.orders where id = o));
-  perform pg_temp.ck('paying the membership', 'paid', pg_temp.res(pg_temp.pay(ref, 10000000, 15000, 10015000)));
+  perform pg_temp.ck('the membership order holds 120,000 naira', '12000000', (select amount_kobo::text from public.orders where id = o));
+  perform pg_temp.ck('paying the membership', 'paid', pg_temp.res(pg_temp.pay(ref, 12000000, 15000, 12015000)));
   perform pg_temp.ck('a paid membership makes the patient a Member', 'true', (select private.patient_is_member(v_p3)::text));
   perform pg_temp.ck('my_membership tells the member so', 'true/purchase', pg_temp.q_as(v_p3, $q$select (public.my_membership()->>'is_member') || '/' || (public.my_membership()->>'source')$q$));
   perform pg_temp.ck('my_membership tells a non-member so', 'false', pg_temp.q_as(pg_temp.f('pat'), $q$select (public.my_membership()->>'is_member')$q$));
@@ -277,7 +281,7 @@ begin
   perform pg_temp.ck('the entitlement is a membership', 'membership', (select kind from public.entitlements where order_id = o));
   perform pg_temp.ck('the event asks for a lead clinician', 'true', (select payload ->> 'care_pack' from public.domain_events where event_type = 'order.paid' and aggregate_id = o));
   perform pg_temp.ck('a replay does not add a second membership', '1',
-    (pg_temp.res(pg_temp.pay(ref, 10000000, 15000, 10015000)) = 'replay' and (select count(*) from public.patient_memberships where patient_id = v_p3) = 1)::int::text);
+    (pg_temp.res(pg_temp.pay(ref, 12000000, 15000, 12015000)) = 'replay' and (select count(*) from public.patient_memberships where patient_id = v_p3) = 1)::int::text);
   perform pg_temp.ck('a Member cannot buy a second membership', 'true',
     (pg_temp.q_as(v_p3, $q$select public.create_order('membership_annual', gen_random_uuid())::text$q$) like '%already_member%')::text);
 end $$;
@@ -289,9 +293,9 @@ begin
   -- pat3 is already a Member. A second order made before the first was paid (simulated by inserting it directly) is paid later.
   insert into public.orders (organisation_id, buyer_profile_id, beneficiary_patient_id, catalog_item_id, price_id, amount_kobo, paystack_reference, is_test)
   select o2.organisation_id, v_p3, v_p3, o2.catalog_item_id, o2.price_id, o2.amount_kobo, 'tho_overlap0000000000000000000000', true
-    from public.orders o2 where o2.buyer_profile_id = v_p3 and o2.amount_kobo = 10000000 limit 1 returning id into o;
+    from public.orders o2 where o2.buyer_profile_id = v_p3 and o2.amount_kobo = 12000000 limit 1 returning id into o;
   select ends_at into v_end0 from public.patient_memberships where patient_id = v_p3 and state = 'active';
-  perform pg_temp.ck('a second membership payment is honoured, not rolled back', 'paid', pg_temp.res(pg_temp.pay('tho_overlap0000000000000000000000', 10000000, 15000, 10015000)));
+  perform pg_temp.ck('a second membership payment is honoured, not rolled back', 'paid', pg_temp.res(pg_temp.pay('tho_overlap0000000000000000000000', 12000000, 15000, 12015000)));
   select ends_at into v_end1 from public.patient_memberships where patient_id = v_p3 and state = 'active';
   perform pg_temp.ck('the dated membership is extended by the paid year', '365', extract(day from (v_end1 - v_end0))::int::text);
   perform pg_temp.ck('there is still exactly one active membership row', '1', (select count(*)::text from public.patient_memberships where patient_id = v_p3 and state = 'active'));
@@ -302,19 +306,19 @@ end $$;
 -- 5c. The general ledger (OQ-170) -----------------------------------------------------------------------------------------
 do $$
 declare
-  v_mem uuid := (select id from public.orders where buyer_profile_id = pg_temp.f('pat3') and amount_kobo = 10000000 and paystack_reference <> 'tho_overlap0000000000000000000000' limit 1);
+  v_mem uuid := (select id from public.orders where buyer_profile_id = pg_temp.f('pat3') and amount_kobo = 12000000 and paystack_reference <> 'tho_overlap0000000000000000000000' limit 1);
   v_cons uuid := pg_temp.f('ord1'); v_late uuid := pg_temp.f('ord2'); v_e uuid; v_month date := date_trunc('month', (now() at time zone 'Africa/Lagos')::date)::date; n integer;
 begin
   perform pg_temp.ck('a test order is never posted to the ledger on its own (INV-13)', '0',
     (select count(*)::text from public.finance_journal_entries where source = 'payment' and source_ref in ('order:' || v_mem, 'order:' || v_cons)));
   v_e := private.post_order_to_ledger(v_mem, true);
-  perform pg_temp.ck('a Membership posts Dr clearing, Cr deferred revenue, for the price only', '1020/10000000/2000/10000000',
+  perform pg_temp.ck('a Membership posts Dr clearing, Cr deferred revenue, for the price only', '1020/12000000/2000/12000000',
     (select max(case when debit_minor > 0 then account_code || '/' || debit_minor end) || '/' || max(case when credit_minor > 0 then account_code || '/' || credit_minor end)
        from public.finance_journal_lines where entry_id = v_e));
   perform private.post_order_to_ledger(v_mem, true);
   perform private.post_order_to_ledger(v_mem, true);
   perform pg_temp.ck('posting again changes nothing: one entry', '1', (select count(*)::text from public.finance_journal_entries where source = 'payment' and source_ref = 'order:' || v_mem));
-  perform pg_temp.ck('and one recognition schedule over the 365 day window into service pack revenue', '1/10000000/365/4020',
+  perform pg_temp.ck('and one recognition schedule over the 365 day window into service pack revenue', '1/12000000/365/4020',
     (select count(*) || '/' || max(total_minor) || '/' || max(period_end - period_start) || '/' || max(revenue_account_code)
        from public.revenue_recognition_schedules where source_kind = 'order' and source_id = v_mem));
   perform private.post_order_to_ledger(v_cons, true);
@@ -341,7 +345,7 @@ end $$;
 -- 5d. Period fallback, refund cancels the schedule, and the automatic post for a real order ---------------------------------
 do $$
 declare
-  v_p2 uuid := pg_temp.f('pat2'); v_mem uuid := (select id from public.orders where buyer_profile_id = pg_temp.f('pat3') and amount_kobo = 10000000 and paystack_reference <> 'tho_overlap0000000000000000000000' limit 1);
+  v_p2 uuid := pg_temp.f('pat2'); v_mem uuid := (select id from public.orders where buyer_profile_id = pg_temp.f('pat3') and amount_kobo = 12000000 and paystack_reference <> 'tho_overlap0000000000000000000000' limit 1);
   ref text; o uuid; v_month date := date_trunc('month', (now() at time zone 'Africa/Lagos')::date)::date; v_old uuid; v_ok boolean;
 begin
   -- the automatic path: a REAL (not test) order is posted by the payment itself, with no direct call
@@ -353,13 +357,14 @@ begin
     (select count(*)::text from public.finance_journal_entries where source = 'payment' and source_ref = 'order:' || o));
   update public.orders set is_test = true where id = o;
 
-  -- a paid date inside a closed month posts today instead of failing for ever
+  -- a paid date inside a closed month posts today instead of failing for ever. The closed month is the month of paid_at (the one before this month); the
+  -- first version closed the month of now() - 10 days, which is the CURRENT month from the 11th onwards, leaving nowhere to post and failing on 11 days of every month.
   v_old := pg_temp.f('ord2');
   update public.orders set paid_at = (date_trunc('month', now()) - interval '10 days') where id = v_mem;
   delete from public.revenue_recognition_schedules where source_kind = 'order' and source_id = v_mem;
   delete from public.finance_journal_lines where entry_id in (select id from public.finance_journal_entries where source = 'payment' and source_ref = 'order:' || v_mem);
   delete from public.finance_journal_entries where source = 'payment' and source_ref = 'order:' || v_mem;
-  insert into public.finance_periods (period_month, status) values (date_trunc('month', now() - interval '10 days')::date, 'closed') on conflict (period_month) do update set status = 'closed';
+  insert into public.finance_periods (period_month, status) values (date_trunc('month', date_trunc('month', now()) - interval '10 days')::date, 'closed') on conflict (period_month) do update set status = 'closed';
   v_ok := private.post_order_safely(v_mem, true);
   perform pg_temp.ck('an order paid in a closed month posts into the current month', 'true/1/paid',
     v_ok::text || '/' || (select count(*) filter (where entry_date >= v_month)::text from public.finance_journal_entries where source = 'payment' and source_ref = 'order:' || v_mem) || '/' || (select state from public.orders where id = v_mem));
@@ -523,9 +528,9 @@ begin
   o := (select id from public.orders where paystack_reference = ref);
   perform pg_temp.pay(ref, 1, 0, 1);
   insert into results values ('sabotaged', 'a payment short of the price is a mismatch and the order stays created', 'created', (select state from public.orders where id = o));
-  ref3 := (select paystack_reference from public.orders where buyer_profile_id = pg_temp.f('pat3') and state = 'paid' and amount_kobo = 10000000 and paystack_reference <> 'tho_overlap0000000000000000000000' limit 1);
-  perform pg_temp.pay(ref3, 10000000, 15000, 10015000);
-  perform pg_temp.pay(ref3, 10000000, 15000, 10015000);
+  ref3 := (select paystack_reference from public.orders where buyer_profile_id = pg_temp.f('pat3') and state = 'paid' and amount_kobo = 12000000 and paystack_reference <> 'tho_overlap0000000000000000000000' limit 1);
+  perform pg_temp.pay(ref3, 12000000, 15000, 12015000);
+  perform pg_temp.pay(ref3, 12000000, 15000, 12015000);
   select count(*) into n from public.entitlements where order_id = (select id from public.orders where paystack_reference = ref3);
   insert into results values ('sabotaged', 'SAFETY CASE 24: a replay still leaves one entitlement', '1', n::text);
 end $$;

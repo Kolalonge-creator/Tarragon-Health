@@ -12,7 +12,7 @@ import { MembershipShop } from "./membership-shop";
 const FEE = { localBasisPoints: 150, flatKobo: 10_000, flatWaivedBelowKobo: 250_000, capKobo: 200_000 };
 const ITEM = {
   code: "membership_annual", kind: "membership", name_key: "catalog.membership_annual.name", description_key: "catalog.membership_annual.description",
-  included_keys: ["catalog.membership_annual.incl.1", "catalog.membership_annual.incl.2"], duration_days: 365, uses: null, amount_kobo: 10_000_000, components: {},
+  included_keys: ["catalog.membership_annual.incl.1", "catalog.membership_annual.incl.2"], duration_days: 365, uses: null, amount_kobo: 12_000_000, components: {},
 };
 
 let catalogue: { data: unknown[]; isSuccess: boolean };
@@ -53,7 +53,7 @@ describe("MembershipShop", () => {
     render(<MembershipShop locale="en" fee={FEE} go={assign} />);
     expect(screen.getByText("Tarragon Membership")).toBeTruthy();
     expect(screen.getByText(/A video call with your care team every month/)).toBeTruthy();
-    expect(screen.getByText("₦100,000")).toBeTruthy();
+    expect(screen.getByText("₦120,000")).toBeTruthy();
     expect(screen.getAllByText(/about ₦/).length).toBe(2);
     expect(screen.getByText(/estimate/i)).toBeTruthy();
     expect(screen.getByText(/does not renew by itself/)).toBeTruthy();
@@ -62,7 +62,7 @@ describe("MembershipShop", () => {
   });
 
   it("sends only the item code and a retry key, then opens Paystack", async () => {
-    mutateAsync.mockResolvedValue({ order_id: "o1", reference: "tho_x", amount_kobo: 10_000_000, checkout_url: "https://checkout.paystack.com/abc" });
+    mutateAsync.mockResolvedValue({ order_id: "o1", reference: "tho_x", amount_kobo: 12_000_000, checkout_url: "https://checkout.paystack.com/abc" });
     render(<MembershipShop locale="en" fee={FEE} go={assign} />);
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pay with Paystack" })));
     expect(mutateAsync).toHaveBeenCalledTimes(1);
@@ -75,7 +75,7 @@ describe("MembershipShop", () => {
 
   it("lets the patient pay for someone they care for and sends who it is for, only when chosen", async () => {
     lovedOnes = { data: [{ id: "p-mum", full_name: "Mum" }] };
-    mutateAsync.mockResolvedValue({ order_id: "o1", reference: "tho_x", amount_kobo: 10_000_000, checkout_url: "https://checkout.paystack.com/abc" });
+    mutateAsync.mockResolvedValue({ order_id: "o1", reference: "tho_x", amount_kobo: 12_000_000, checkout_url: "https://checkout.paystack.com/abc" });
     render(<MembershipShop locale="en" fee={FEE} go={assign} />);
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "p-mum" } });
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pay with Paystack" })));
@@ -188,7 +188,7 @@ describe("MembershipShop", () => {
 
   it("when paying for someone, names them, sends their id with the code and key, and ignores the payer's own membership", async () => {
     membership = { data: { is_member: true, ends_at: "2027-01-01T00:00:00Z", source: "purchase" } };
-    mutateAsync.mockResolvedValue({ order_id: "o1", reference: "tho_x", amount_kobo: 10_000_000, checkout_url: "https://checkout.paystack.com/abc" });
+    mutateAsync.mockResolvedValue({ order_id: "o1", reference: "tho_x", amount_kobo: 12_000_000, checkout_url: "https://checkout.paystack.com/abc" });
     render(<MembershipShop locale="en" fee={FEE} go={assign} beneficiary={{ id: "p-9", name: "Mama Eze" }} />);
     expect(screen.getByText("Paying for Mama Eze")).toBeTruthy();
     expect(screen.getByText(/You will not see any health information/)).toBeTruthy();
@@ -211,7 +211,7 @@ describe("MembershipShop", () => {
   });
 
   it("paying for yourself asks for no extra confirmation", async () => {
-    mutateAsync.mockResolvedValue({ order_id: "o1", reference: "tho_x", amount_kobo: 10_000_000, checkout_url: "https://checkout.paystack.com/abc" });
+    mutateAsync.mockResolvedValue({ order_id: "o1", reference: "tho_x", amount_kobo: 12_000_000, checkout_url: "https://checkout.paystack.com/abc" });
     render(<MembershipShop locale="en" fee={FEE} go={assign} />);
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pay with Paystack" })));
     expect(confirm).not.toHaveBeenCalled();
