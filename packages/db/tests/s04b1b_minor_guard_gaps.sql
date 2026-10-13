@@ -61,6 +61,12 @@ begin
   if not exists (select 1 from private.minor_guard_gaps() where table_name = 'zz_s04b1b_gap') then
     raise exception 'FAIL 3c: a guarded table without its trigger was not reported';
   end if;
+  -- a DISABLED trigger is a gap too
+  alter table public.zz_s04b1b_gap disable trigger "00_minor_dependant_scope";
+  if not exists (select 1 from private.minor_guard_gaps() where table_name = 'zz_s04b1b_gap') then
+    raise exception 'FAIL 3d: a disabled guard trigger was not reported';
+  end if;
+  alter table public.zz_s04b1b_gap enable trigger "00_minor_dependant_scope";
   perform private.guard_minor_dependant_table('zz_s04b1b_gap');
 
   -- 4
