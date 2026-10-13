@@ -229,6 +229,9 @@ begin
       return jsonb_build_object('status', 'pin_required');
     end if;
     v_client := case when p_client_key is null then null else encode(extensions.digest(p_client_key, 'sha256'), 'hex') end;
+    -- The address hash is only a throttle: keep it for the throttle window plus a day, then drop it (an unsalted hash of an IPv4 address is reversible).
+    update public.record_share_lookups set client_hash = null
+     where share_id = v_share.id and client_hash is not null and looked_up_at < now() - interval '1 day';
     if v_client is not null then
       select count(*) into v_n from public.record_share_lookups
        where share_id = v_share.id and client_hash = v_client and outcome = 'pin_wrong'

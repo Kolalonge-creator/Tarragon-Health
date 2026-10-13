@@ -5,7 +5,7 @@ import { openShare, isWellFormedPin } from "@/lib/my-health/open-share";
 import type { SharedData } from "./shared-record-view";
 
 export type UnlockState =
-  | { status: "pin_required"; attemptsLeft: number | null; message?: "format" }
+  | { status: "pin_required"; attemptsLeft: number | null; message?: "format"; needsPin?: true }
   | { status: "try_later" }
   | { status: "unavailable" }
   | { status: "ok"; record: SharedData };
@@ -29,7 +29,8 @@ export async function unlockShare(token: string, needsPin: boolean, _prev: Unloc
     case "ok":
       return { status: "ok", record: result.record as unknown as SharedData };
     case "pin_required":
-      return { status: "pin_required", attemptsLeft: result.attemptsLeft };
+      // needsPin: true tells the form to show the PIN field even if the page loaded without one (the link gained a PIN since).
+      return { status: "pin_required", attemptsLeft: result.attemptsLeft, needsPin: true };
     case "try_later":
       return { status: "try_later" };
     default:

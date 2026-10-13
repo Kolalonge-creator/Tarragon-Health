@@ -29,7 +29,7 @@ describe("unlockShare", () => {
     openShare.mockResolvedValue({ kind: "pin_required", attemptsLeft: 4 });
     const r = await unlockShare("tok", true, START, form("123456"));
     expect(openShare).toHaveBeenCalledWith("tok", "123456", "203.0.113.7");
-    expect(r).toEqual({ status: "pin_required", attemptsLeft: 4 });
+    expect(r).toEqual({ status: "pin_required", attemptsLeft: 4, needsPin: true });
   });
 
   it("a link with no PIN opens on the explicit submit, and never sends a PIN", async () => {
@@ -37,6 +37,12 @@ describe("unlockShare", () => {
     const r = await unlockShare("tok", false, START, form("123456"));
     expect(r.status).toBe("ok");
     expect(openShare).toHaveBeenCalledWith("tok", null, "203.0.113.7");
+  });
+
+  it("if a link without a PIN turns out to need one, the form is told to show the PIN field", async () => {
+    openShare.mockResolvedValue({ kind: "pin_required", attemptsLeft: null });
+    const r = await unlockShare("tok", false, START, form(""));
+    expect(r).toEqual({ status: "pin_required", attemptsLeft: null, needsPin: true });
   });
 
   it("returns the record when the PIN is right", async () => {

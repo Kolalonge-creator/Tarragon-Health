@@ -22,14 +22,15 @@ export function PinGate({ token, needsPin }: { token: string; needsPin: boolean 
 
   if (state.status === "ok") return <SharedRecordView record={state.record} />;
   if (state.status === "unavailable") return <Unavailable />;
+  const showPin = needsPin || (state.status === "pin_required" && state.needsPin === true);
 
   return (
     <main className="mx-auto max-w-md p-6">
       <p className="text-xs font-medium uppercase tracking-wide text-tarragon-green">TarragonHealth</p>
-      <h1 className="mt-1 text-lg font-semibold text-charcoal-ink">{needsPin ? t("share.public.pin_title") : t("share.public.open_title")}</h1>
-      <p className="mt-2 text-sm text-charcoal-ink/70">{needsPin ? t("share.public.pin_help") : t("share.public.open_help")}</p>
+      <h1 className="mt-1 text-lg font-semibold text-charcoal-ink">{showPin ? t("share.public.pin_title") : t("share.public.open_title")}</h1>
+      <p className="mt-2 text-sm text-charcoal-ink/70">{showPin ? t("share.public.pin_help") : t("share.public.open_help")}</p>
       <form action={action} className="mt-4 space-y-3" autoComplete="off">
-        {needsPin ? (
+        {showPin ? (
           <>
             <label htmlFor="pin" className="block text-sm font-medium text-charcoal-ink">
               {t("share.public.pin_label")}

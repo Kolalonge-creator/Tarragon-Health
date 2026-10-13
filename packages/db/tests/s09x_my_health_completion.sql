@@ -238,7 +238,10 @@ begin
   for i in 1..3 loop r := pg_temp.open(t_b, wrong, 'same-client'); end loop;
   r := pg_temp.open(t_b, pin_b, 'same-client');
   perform pg_temp.ck('a client with 3 recent misses is told to try later, even with the right PIN', 'try_later', r ->> 'status');
+  update public.record_share_lookups set looked_up_at = now() - interval '2 days' where share_id = (select id from public.record_shares where token = t_b) and outcome = 'pin_wrong';
   r := pg_temp.open(t_b, pin_b, 'another-client');
+  perform pg_temp.ck('an address hash is dropped once it is older than the throttle window', '0',
+    (select count(*)::text from public.record_share_lookups where share_id = (select id from public.record_shares where token = t_b) and looked_up_at < now() - interval '1 day' and client_hash is not null));
   perform pg_temp.ck('a different client with the right PIN opens it (the gate opens, not only closes)', 'ok', r ->> 'status');
 end $$;
 
