@@ -38,6 +38,8 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/catalogue", "catalogue prices price list items membership care pack consultation checkout paystack switch on off sell buy"],
   ["/clinician/lab-results", "lab result review held abnormal critical release disclosure disclose positive hiv hepatitis screening withhold"],
   ["/clinician/lab-panels", "lab ranges reference critical limits sign cmo release policy disclosure attempts panels essential annual health check"],
+  ["/clinician/home-bp-programme", "home blood pressure check seven day protocol sign cmo bands 135 85 white coat masked pattern flag clinic reading cuff"],
+  ["/admin/settings/home-bp-programme", "home blood pressure check seven day protocol bands pattern read only signed"],
   ["/admin/settings/lab-panels", "lab ranges reference critical limits release policy panels read only signed"],
   ["/clinician/clinical-signoff", "sign signature sign off signoff hub approve what needs signing outstanding pending awaiting clinical director cmo"],
   ["/clinician/lpe-content-library", "sign approve review coaching content ai coach lifestyle blocks library reference copy"],

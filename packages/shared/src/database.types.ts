@@ -39142,6 +39142,171 @@ export type Database = {
         }
         Relationships: []
       }
+      home_bp_programme_signoffs: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      home_bp_checks: {
+        Row: {
+          band: string
+          config_version: number
+          created_at: string
+          days: number
+          id: string
+          is_test: boolean
+          mean_diastolic: number
+          mean_systolic: number
+          organisation_id: string
+          patient_id: string
+          readings: number
+          task_id: string | null
+          window_end: string
+          window_start: string
+        }
+        Insert: {
+          band: string
+          config_version: number
+          created_at?: string
+          days: number
+          id?: string
+          is_test?: boolean
+          mean_diastolic: number
+          mean_systolic: number
+          organisation_id: string
+          patient_id: string
+          readings: number
+          task_id?: string | null
+          window_end: string
+          window_start: string
+        }
+        Update: {
+          band?: string
+          config_version?: number
+          created_at?: string
+          days?: number
+          id?: string
+          is_test?: boolean
+          mean_diastolic?: number
+          mean_systolic?: number
+          organisation_id?: string
+          patient_id?: string
+          readings?: number
+          task_id?: string | null
+          window_end?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
+      clinic_bp_readings: {
+        Row: {
+          created_at: string
+          diastolic: number
+          id: string
+          is_test: boolean
+          measured_at: string
+          note: string | null
+          organisation_id: string
+          patient_id: string
+          recorded_by: string
+          systolic: number
+        }
+        Insert: {
+          created_at?: string
+          diastolic: number
+          id?: string
+          is_test?: boolean
+          measured_at: string
+          note?: string | null
+          organisation_id: string
+          patient_id: string
+          recorded_by: string
+          systolic: number
+        }
+        Update: {
+          created_at?: string
+          diastolic?: number
+          id?: string
+          is_test?: boolean
+          measured_at?: string
+          note?: string | null
+          organisation_id?: string
+          patient_id?: string
+          recorded_by?: string
+          systolic?: number
+        }
+        Relationships: []
+      }
+      bp_pattern_flags: {
+        Row: {
+          clinic_reading_id: string
+          config_version: number
+          created_at: string
+          home_check_id: string
+          id: string
+          is_test: boolean
+          kind: string
+          organisation_id: string
+          patient_id: string
+          task_id: string | null
+          treated: boolean
+        }
+        Insert: {
+          clinic_reading_id: string
+          config_version: number
+          created_at?: string
+          home_check_id: string
+          id?: string
+          is_test?: boolean
+          kind: string
+          organisation_id: string
+          patient_id: string
+          task_id?: string | null
+          treated: boolean
+        }
+        Update: {
+          clinic_reading_id?: string
+          config_version?: number
+          created_at?: string
+          home_check_id?: string
+          id?: string
+          is_test?: boolean
+          kind?: string
+          organisation_id?: string
+          patient_id?: string
+          task_id?: string | null
+          treated?: boolean
+        }
+        Relationships: []
+      }
       triage_protocols: {
         Row: {
           approved_at: string | null
@@ -43014,6 +43179,9 @@ export type Database = {
       };
       record_lab_disclosure_attempt: { Args: { p_note?: string; p_outcome: string; p_result: string }; Returns: Json };
       sign_lab_panels: { Args: { p_id: string }; Returns: string };
+      sign_home_bp_programme: { Args: { p_id: string }; Returns: string };
+      complete_home_bp_check: { Args: { p_window_start: string }; Returns: Json };
+      record_clinic_bp_reading: { Args: { p_diastolic: number; p_measured_at: string; p_note?: string; p_patient: string; p_systolic: number }; Returns: string };
       withdraw_lab_result: { Args: { p_reason: string; p_result: string }; Returns: Json };
       lab_partner_submit_result: { Args: { p_file?: Json; p_items: Json; p_order: string; p_panel: string }; Returns: Json };
       lab_result_explain_allowed: { Args: { p_result: string }; Returns: boolean };

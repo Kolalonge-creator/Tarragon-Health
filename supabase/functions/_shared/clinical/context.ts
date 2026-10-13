@@ -28,6 +28,7 @@ export const CONTEXT_FIELDS = [
   "postpartum",
   "obstetric",
   "age",
+  "onBpMedicines",
 ] as const;
 
 /** Numeric `params` values flattened to dotted names (`params.recheck.afterMinutes`), so a rule can refer to them. */
@@ -96,5 +97,6 @@ export function buildContext(input: TriageInput, ruleSet: RuleSet): Context {
     postpartum: input.postpartum === true,
     obstetric: input.pregnant || input.postpartum === true,
     age: input.ageYears,
+    onBpMedicines: input.onBpMedicines === true,
   };
 }

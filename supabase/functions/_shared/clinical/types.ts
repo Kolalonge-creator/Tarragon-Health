@@ -79,6 +79,11 @@ export interface TriageInput {
   /** Within 6 weeks after a birth. Optional; absent means false. */
   readonly postpartum?: boolean;
   readonly ageYears: number | null;
+  /**
+   * Taking blood pressure medicines now (S07x, decision C5). Optional; absent means false. Version 4 of the rule set flags a systolic under 90 with no symptom only when this is true.
+   * The server sets it from the medicines on record; the phone does not know it and leaves it out, which only means the phone adds no task (the server makes the task).
+   */
+  readonly onBpMedicines?: boolean;
   /** ISO 8601. The engine never reads the clock. */
   readonly now: string;
   /** Task keys that are already open for this patient; a repeat is not created again. */

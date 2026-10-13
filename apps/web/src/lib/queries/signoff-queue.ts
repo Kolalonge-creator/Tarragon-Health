@@ -41,7 +41,8 @@ type VersionedTableName =
   | "cv_risk_config"
   | "risk_questionnaire_configs"
   | "vaccination_schedule_signoffs"
-  | "lab_panel_signoffs";
+  | "lab_panel_signoffs"
+  | "home_bp_programme_signoffs";
 
 const VERSIONED_TABLES: { table: VersionedTableName; title: string; slug: string }[] = [
   { table: "alert_rules", title: "Alert rules", slug: "alert-rules" },
@@ -61,6 +62,7 @@ const VERSIONED_TABLES: { table: VersionedTableName; title: string; slug: string
   },
   { table: "vaccination_schedule_signoffs", title: "Vaccination schedule", slug: "vaccination-schedule" },
   { table: "lab_panel_signoffs", title: "Lab ranges and release policy", slug: "lab-panels" },
+  { table: "home_bp_programme_signoffs", title: "Home blood pressure programme", slug: "home-bp-programme" },
 ];
 
 export type SettledConfig = { table: string; title: string; href: string; version: number };

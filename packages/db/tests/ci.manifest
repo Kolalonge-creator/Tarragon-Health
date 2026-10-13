@@ -962,3 +962,5 @@ oq276c_controlled_list_brand_names.sql
 sr2_stagger_cron_start_times.sql
 # SR2: scribe_consents_insert_clinical keeps its S39g tie rule and active-clinician check, and wraps auth.uid() in a select so it is evaluated once per statement; one insert policy for authenticated. Sabotage: the policy put back on a bare auth.uid(); the wrapper check must flip. Behaviour is proven by s21g and s39g.
 sr2_scribe_consents_insert_policy_initplan.sql
+# S07x: the seven-day home BP programme (unsigned config, guards off, completeness gate, one routine task), clinic readings (own table, fire nothing a home reading fires, tied clinician only), the C3 white-coat/masked rule (clinician-only, never for a treated white-coat, pregnancy or under 18, nothing while its guard is off), parity of the SQL and TypeScript rules on 33 cases, and the bp_care_triage v4 draft (differs from v3 only in BP-A7; v3 still approved; server context carries onBpMedicines). Sabotage: completeness gate lowered; white-coat allowed for a treated patient.
+s07x_home_bp_programme.sql
