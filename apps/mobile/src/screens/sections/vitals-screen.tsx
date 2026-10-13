@@ -54,6 +54,7 @@ import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
 import { SymptomQuestionSheet } from "@/screens/symptom-question-sheet";
 import { MIN_READINGS_FOR_CHART, useTrendInsights } from "@/lib/use-trend-insights";
 import { TrendInsightsCard } from "@/screens/sections/trend-insights-card";
+import { HomeCheckCard } from "@/screens/sections/home-check-card";
 import { SyncBanner } from "@/screens/sync-banner";
 import { SymptomScreen } from "@/screens/sections/symptom-screen";
 import { MonitoringCoverCard } from "@/screens/sections/monitoring-cover-card";
@@ -479,6 +480,9 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
       {!loading && windowed.length > 0 ? (
         <TrendInsightsCard insights={insights} tr={tr} minReadingsForChart={MIN_READINGS_FOR_CHART} targetKnowable={!beneficiaryProfileId} />
       ) : null}
+
+      {/* The seven-day home check (S07x): appears only when the server guard is open, and not while acting for someone else. */}
+      {!beneficiaryProfileId ? <HomeCheckCard patientId={patientId} /> : null}
 
       {/* Log a reading */}
       <Card style={{ gap: space.md }}>

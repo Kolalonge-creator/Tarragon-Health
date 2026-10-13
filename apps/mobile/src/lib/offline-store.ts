@@ -1,4 +1,7 @@
-import * as SQLite from "expo-sqlite";
+import type * as SQLite from "expo-sqlite";
+import { getStoreWithSchema } from "./secure-db";
+import { addDataUsage } from "./data-usage";
+import { driftFloor, hasDrifted } from "./mirror-drift";
 import { supabase } from "./supabase";
 import { recordSyncError } from "./sync-diagnostics";
 import { loadOfflineSyncConfig } from "./offline-sync-config";
@@ -32,40 +35,36 @@ const TABLE_FOR_KIND = {
   dose: "medication_logs",
 } as const;
 
-let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
+async function setupMirror(db: SQLite.SQLiteDatabase): Promise<void> {
+  await db.execAsync(
+    `create table if not exists local_records (
+      kind text not null,
+      id text not null,
+      owner_user_id text not null,
+      subject_id text not null,
+      created_at text not null,
+      row text not null,
+      primary key (kind, id)
+    );
+    create index if not exists local_records_read on local_records (kind, owner_user_id, subject_id, created_at);
+    create table if not exists local_medications (
+      id text primary key,
+      owner_user_id text not null,
+      subject_id text not null,
+      row text not null
+    );
+    create table if not exists local_tasks (
+      id text primary key,
+      owner_user_id text not null,
+      subject_id text not null,
+      row text not null
+    );
+    create table if not exists sync_state (key text primary key, value text not null);`
+  );
+}
 
 function getDb(): Promise<SQLite.SQLiteDatabase> {
-  if (!dbPromise) {
-    dbPromise = SQLite.openDatabaseAsync("tarragon-offline.db").then(async (db) => {
-      await db.execAsync(
-        `create table if not exists local_records (
-          kind text not null,
-          id text not null,
-          owner_user_id text not null,
-          subject_id text not null,
-          created_at text not null,
-          row text not null,
-          primary key (kind, id)
-        );
-        create index if not exists local_records_read on local_records (kind, owner_user_id, subject_id, created_at);
-        create table if not exists local_medications (
-          id text primary key,
-          owner_user_id text not null,
-          subject_id text not null,
-          row text not null
-        );
-        create table if not exists local_tasks (
-          id text primary key,
-          owner_user_id text not null,
-          subject_id text not null,
-          row text not null
-        );
-        create table if not exists sync_state (key text primary key, value text not null);`
-      );
-      return db;
-    });
-  }
-  return dbPromise;
+  return getStoreWithSchema("mirror", setupMirror);
 }
 
 async function currentUserId(): Promise<string | null> {
@@ -88,6 +87,10 @@ export interface PullResult {
   pages: number;
   /** Approximate bytes received (JSON length), for the data-use budget. */
   bytes: number;
+  /** Tables whose count check found fewer local rows than the server holds (S06x). */
+  drifted: MirrorKind[];
+  /** Tables the widened re-read then brought back in line. */
+  repaired: MirrorKind[];
 }
 
 async function readCursor(db: SQLite.SQLiteDatabase, key: string): Promise<string | null> {
@@ -106,12 +109,13 @@ async function pullKind(
   subjectId: string,
   config: OfflineSyncConfig,
   budget: { pagesLeft: number },
-  result: PullResult
+  result: PullResult,
+  forceFloor?: string
 ): Promise<void> {
   const cursorKey = `pull:${owner}:${subjectId}:${kind}`;
   const stored = await readCursor(db, cursorKey);
   const initialFloor = new Date(Date.now() - activeBudget().initialPullDays * 86_400_000).toISOString();
-  const floor = pullFloor(stored, config) ?? initialFloor;
+  const floor = forceFloor ?? pullFloor(stored, config) ?? initialFloor;
   let lastCreated: string | null = null;
   let lastId: string | null = null;
 
@@ -153,6 +157,74 @@ async function pullKind(
     }
     if (rows.length < activeBudget().pullPageSize) return;
   }
+}
+
+/**
+ * S06x: after a pull, ask the server how many rows it holds for this table in the window the mirror
+ * claims to cover, and compare with what is on the phone. The cursor and its overlap catch a row that
+ * committed late by a few minutes; this catches the rest (a row that committed later than the overlap,
+ * a page lost between the network and the disk). On a shortfall the stored cursor is dropped and the
+ * window is read again from its start, once; if the counts still differ that is recorded, not looped.
+ * The count is a HEAD-style request (no body), so it costs almost no data.
+ */
+async function verifyCounts(
+  db: SQLite.SQLiteDatabase,
+  kind: MirrorKind,
+  owner: string,
+  subjectId: string,
+  config: OfflineSyncConfig,
+  result: PullResult
+): Promise<void> {
+  try {
+    const cursorKey = `pull:${owner}:${subjectId}:${kind}`;
+    const cursor = await readCursor(db, cursorKey);
+    if (!cursor) return;
+    const window = driftFloor(cursor, activeBudget().initialPullDays, activeBudget().mirrorRetentionDays);
+    const remote = await countRemote(kind, subjectId, window, cursor);
+    if (remote === null) return;
+    const local = await countLocal(db, kind, owner, subjectId, window, cursor);
+    result.pages += 1;
+    if (!hasDrifted(local, remote)) return;
+    result.drifted.push(kind);
+    recordSyncError("offline_outbox", `drift:${kind}`, `mirror has ${local} of ${remote} rows`);
+    // Widen: forget the cursor and re-read the whole window, using the usual page budget.
+    await db.runAsync("delete from sync_state where key = ?", [cursorKey]);
+    await pullKind(db, kind, owner, subjectId, config, { pagesLeft: activeBudget().maxPagesPerPull }, result, window);
+    const after = await countLocal(db, kind, owner, subjectId, window, cursor);
+    if (!hasDrifted(after, remote)) result.repaired.push(kind);
+    else recordSyncError("offline_outbox", `drift:${kind}:unrepaired`, `mirror has ${after} of ${remote} rows after a widened read`);
+  } catch (error) {
+    recordSyncError("offline_outbox", `verifyCounts:${kind}`, error);
+  }
+}
+
+async function countRemote(kind: MirrorKind, subjectId: string, floor: string, ceiling: string): Promise<number | null> {
+  const { count, error } = await supabase
+    .from(TABLE_FOR_KIND[kind])
+    .select("id", { count: "exact", head: true })
+    .eq("patient_id", subjectId)
+    .gte("created_at", floor)
+    .lte("created_at", ceiling);
+  if (error || count === null || count === undefined) {
+    if (error) recordSyncError("offline_outbox", `count:${kind}`, error.message);
+    return null;
+  }
+  return count;
+}
+
+async function countLocal(
+  db: SQLite.SQLiteDatabase,
+  kind: MirrorKind,
+  owner: string,
+  subjectId: string,
+  floor: string,
+  ceiling: string
+): Promise<number> {
+  const row = await db.getFirstAsync<{ n: number }>(
+    "select count(*) as n from local_records where kind = ? and owner_user_id = ? and subject_id = ? and created_at >= ? and created_at <= ?",
+    [kind, owner, subjectId, floor, ceiling]
+  );
+  return row?.n ?? 0;
 }
 
 /** Active medications are small and clinician-owned: replace the whole list. */
@@ -225,7 +297,7 @@ async function pullTasks(db: SQLite.SQLiteDatabase, owner: string, subjectId: st
 
 /** Pulls the patient's own changes into the mirror. Never throws. */
 export async function pullChanges(subjectId: string): Promise<PullResult> {
-  const result: PullResult = { pulled: 0, stoppedOffline: false, pages: 0, bytes: 0 };
+  const result: PullResult = { pulled: 0, stoppedOffline: false, pages: 0, bytes: 0, drifted: [], repaired: [] };
   try {
     await ensureLowDataLoaded();
     const owner = await currentUserId();
@@ -236,11 +308,13 @@ export async function pullChanges(subjectId: string): Promise<PullResult> {
       if (result.stoppedOffline) break;
       // Each table gets its own page budget so a big vitals backlog cannot starve the others.
       await pullKind(db, kind, owner, subjectId, config, { pagesLeft: activeBudget().maxPagesPerPull }, result);
+      if (!result.stoppedOffline) await verifyCounts(db, kind, owner, subjectId, config, result);
     }
     if (!result.stoppedOffline) await pullMedications(db, owner, subjectId, result);
     if (!result.stoppedOffline) await pullTasks(db, owner, subjectId, result);
     // Local housekeeping, safe offline. Never lets a purge failure fail the pull.
     await purgeMirror(owner).catch((error) => recordSyncError("offline_outbox", "purgeMirror", error));
+    await addDataUsage(result.bytes);
   } catch (error) {
     recordSyncError("offline_outbox", "pull", error);
   }

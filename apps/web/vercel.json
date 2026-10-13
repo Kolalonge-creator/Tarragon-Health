@@ -91,6 +91,10 @@
     {
       "path": "/api/cron/order-refunds",
       "schedule": "25 5 * * *"
+    },
+    {
+      "path": "/api/cron/community-housekeeping",
+      "schedule": "50 3 * * *"
     }
   ]
 }

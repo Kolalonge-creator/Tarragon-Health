@@ -40729,7 +40729,7 @@ export type Database = {
           p_order_id: string
           p_quantity: string
         }
-        Returns: undefined
+        Returns: string
       }
       pharmacist_update_profile: {
         Args: {
@@ -42722,7 +42722,6 @@ export type Database = {
       dispense_source: "patient" | "pharmacy"
       doctor_tier:
         | "care_coordinator"
-        | "medical_officer"
         | "senior_medical_officer"
         | "chief_medical_officer"
       ec_request_status:
@@ -44917,7 +44916,6 @@ export const Constants = {
       dispense_source: ["patient", "pharmacy"],
       doctor_tier: [
         "care_coordinator",
-        "medical_officer",
         "senior_medical_officer",
         "chief_medical_officer",
       ],

@@ -3,7 +3,7 @@
  * rejected-row rule, account ownership, and that nothing is dropped silently.
  */
 import { NETWORK_ERROR_MESSAGE, postVitalReading, type VitalReadingPayload } from "./api";
-import { openDatabaseAsync } from "../test/mocks/expo-sqlite";
+import { getStore } from "./secure-db";
 import {
   NotSignedInError,
   __resetOutboxForTests,
@@ -240,7 +240,7 @@ describe("account ownership", () => {
     await flushOutbox();
     // Signed out, nothing is listed for anyone, but nothing was deleted either.
     expect(await getPendingCount()).toBe(0);
-    const db = await openDatabaseAsync("tarragon-offline.db");
+    const db = await getStore();
     expect((await db.getFirstAsync<{ n: number }>("select count(*) as n from outbox"))?.n).toBe(1);
     mockSessionUser = "user-1";
     await expect(flushOutbox()).resolves.toMatchObject({ synced: 1 });
@@ -298,7 +298,7 @@ describe("summary and stuck notice", () => {
   it("flags a row stuck after 12 hours, a dangerous-looking one after 1 hour, and a rejected one always", async () => {
     const a = await enqueue({ kind: "dose", subjectId: "p1", payload: DOSE });
     const b = await enqueue({ kind: "vital", subjectId: "p1", payload: BP, danger: true });
-    const db = await openDatabaseAsync("tarragon-offline.db");
+    const db = await getStore();
     const at = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
     await db.runAsync("update outbox set created_at = ? where client_id = ?", [at(2), a.clientId]);
     await db.runAsync("update outbox set created_at = ? where client_id = ?", [at(2), b.clientId]);
@@ -323,7 +323,7 @@ describe("concurrent flushes", () => {
 
 describe("legacy pending_vitals", () => {
   it("is adopted into the outbox under the signed-in account, then removed from the old table", async () => {
-    const db = await openDatabaseAsync("tarragon-offline.db");
+    const db = await getStore();
     await db.execAsync(
       "create table if not exists pending_vitals (client_reading_id text primary key, payload text not null, beneficiary_profile_id text, created_at text not null, attempts integer not null default 0, last_error text)"
     );
