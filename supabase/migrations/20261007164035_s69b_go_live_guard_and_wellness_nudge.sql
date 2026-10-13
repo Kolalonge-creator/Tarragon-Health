@@ -25,6 +25,24 @@ insert into public.go_live_guards (key, label, blocks, condition_text, switch_ro
    'Leaving a cohort, withdrawing consent to totals, turning community off, reporting, and a moderator removing a member or closing a cohort are never behind it. Live group audio sessions are a separate switch (platform_modules group_sessions) and are not built.')
 on conflict (key) do nothing;
 
+-- The two Community cohorts conditions a person records (the data protection impact assessment, counsel's NDPA section references) must be on the list of
+-- attestable conditions, or nobody could ever record them (the S37 proof "every attestation condition the dashboard lists can be attested" checks this).
+-- Patched in place from the CURRENT definition so every entry other migrations have added is kept; it raises if the anchor is not found. Idempotent.
+do $patch$
+declare
+  v_def text := pg_get_functiondef('public.attest_go_live_condition(text,text,boolean,text)'::regprocedure);
+  v_anchor text := E'\')) then\n    raise exception \'that condition is read from the data';
+begin
+  if position('community_cohorts_enabled' in v_def) > 0 then return; end if;
+  if position(v_anchor in v_def) = 0 then
+    raise exception 'attest_go_live_condition: anchor not found, refusing to rewrite';
+  end if;
+  execute replace(v_def, v_anchor,
+    E'\'),\n       (\'community_cohorts_enabled\', \'dpia_recorded\'), (\'community_cohorts_enabled\', \'counsel_ndpa_confirmed\')) then\n    raise exception \'that condition is read from the data');
+end $patch$;
+revoke all on function public.attest_go_live_condition(text, text, boolean, text) from public, anon;
+grant execute on function public.attest_go_live_condition(text, text, boolean, text) to authenticated;
+
 do $$
 declare
   v_def text; v_new text;

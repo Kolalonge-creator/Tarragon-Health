@@ -11,7 +11,7 @@ select t.table_name, 'patient_id', private.retention_class_for(t.table_name),
        case when private.retention_class_for(t.table_name) = 'operational' then 'delete' else 'review' end,
        private.retention_class_for(t.table_name) <> 'audit',
        'Registered with the default S39d classification when the cohort and challenge tables were added; awaiting review.'
-  from unnest(array['cohort_members', 'community_preferences', 'challenge_participation']) as t(table_name)
+  from unnest(array['cohort_members', 'cohort_preferences', 'challenge_participation']) as t(table_name)
  where to_regclass('public.' || t.table_name) is not null
 on conflict (table_name) do nothing;
 

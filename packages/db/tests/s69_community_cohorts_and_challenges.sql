@@ -115,7 +115,7 @@ begin
       'chief_medical_officer', 'contracted', 2, true, v_admin, true);
 
   ---------------------------------------------------------------------------------------------------------------- 1. closed by default
-  perform pg_temp.ck('1 module community_cohorts is off', 'false', (select is_enabled::text from public.platform_modules where key = 'community_cohorts'));
+  perform pg_temp.ck('1 module cohorts is off', 'false', (select is_enabled::text from public.platform_modules where key = 'cohorts'));
   perform pg_temp.ck('1 module group_sessions is off', 'false', (select is_enabled::text from public.platform_modules where key = 'group_sessions'));
   perform pg_temp.ck('1 the migration approved no template', '0', (select count(*)::text from public.challenge_templates where status <> 'proposed'));
   perform pg_temp.ck('1 seven templates are seeded', '7', (select count(*)::text from public.challenge_templates));
@@ -154,7 +154,7 @@ begin
   perform pg_temp.q_as(v_admin, $q$select public.attest_go_live_condition('community_cohorts_enabled', 'dpia_recorded', true, 'DPIA v1 recorded by the founder for the proof')::text$q$);
   perform pg_temp.q_as(v_admin, $q$select public.attest_go_live_condition('community_cohorts_enabled', 'counsel_ndpa_confirmed', true, 'Counsel letter confirmed for the proof')::text$q$);
   -- module on, guard still off: a real patient stays closed
-  update public.platform_modules set is_enabled = true, enabled_at = now(), enabled_by = v_admin, activation_note = 'proof' where key = 'community_cohorts';
+  update public.platform_modules set is_enabled = true, enabled_at = now(), enabled_by = v_admin, activation_note = 'proof' where key = 'cohorts';
   perform pg_temp.ck('2 module on but guard off: a real patient is still closed', 'false', pg_temp.q_as(v_real, $q$select (public.community_status() ->> 'open')$q$));
   perform pg_temp.act(v_admin);
   begin perform public.set_go_live_guard('community_cohorts_enabled', true, 'switching on for the proof'); t := 'on'; exception when others then t := 'refused:' || sqlerrm; end;
@@ -169,7 +169,7 @@ begin
   perform pg_temp.ck('3 a weight-themed name is refused', 'ERR:22023:cohort_name_not_allowed', pg_temp.q_as(v_out, $q$select public.community_create('Weight Loss Crew', 'estate', true)::text$q$));
   perform pg_temp.ck('3 a bad kind is refused', 'ERR:22023:cohort_kind_invalid', pg_temp.q_as(v_out, $q$select public.community_create('Peace Estate Group', 'club', true)::text$q$));
   begin
-    insert into public.community_cohorts (organisation_id, name, kind, created_by, is_test) values (v_org, 'Cancer Support', 'church', v_out, true);
+    insert into public.cohorts (organisation_id, name, kind, created_by, is_test) values (v_org, 'Cancer Support', 'church', v_out, true);
     t := 'inserted';
   exception when sqlstate '22023' then t := 'refused'; end;
   perform pg_temp.ck('3 the trigger also refuses a condition name written around the function', 'refused', t);
@@ -181,8 +181,8 @@ begin
   v_cc := (pg_temp.j(v_mc, $q$select public.community_create('Unity Union Branch', 'union', true)::text$q$) ->> 'cohort_id')::uuid;
   v_cd := (pg_temp.j(v_md, $q$select public.community_create('Harmony Mosque Circle', 'mosque', true)::text$q$) ->> 'cohort_id')::uuid;
   v_ce := (pg_temp.j(v_me, $q$select public.community_create('Lagos Office Walkers', 'workplace', true)::text$q$) ->> 'cohort_id')::uuid;
-  perform pg_temp.ck('3 five cohorts exist', '5', (select count(*)::text from public.community_cohorts where created_by in (v_ma, v_mb, v_mc, v_md, v_me)));
-  perform pg_temp.ck('3 a cohort made by a test account is a test cohort', 'true', (select is_test::text from public.community_cohorts where id = v_ca));
+  perform pg_temp.ck('3 five cohorts exist', '5', (select count(*)::text from public.cohorts where created_by in (v_ma, v_mb, v_mc, v_md, v_me)));
+  perform pg_temp.ck('3 a cohort made by a test account is a test cohort', 'true', (select is_test::text from public.cohorts where id = v_ca));
   perform pg_temp.ck('3 the creator is the moderator and has not consented to totals', 'moderator|false',
     (select role || '|' || (consent_totals_at is not null)::text from public.cohort_members where cohort_id = v_ca and patient_id = v_ma));
   v_u := pg_temp.mkuser(v_org, 'serial', 'patient');
@@ -228,7 +228,7 @@ begin
   perform pg_temp.q_as(v_md, format('select public.community_set_totals_consent(%L::uuid, true)::text', v_cd)); v_d_members := array[v_md];
   for v_i in 1..10 loop v_d_members := v_d_members || pg_temp.enrol(v_org, v_cd, v_md, 'd' || v_i); end loop;
   perform pg_temp.ck('3 cohort sizes: A 12, B 10, C 10, D 11', '12|11|10|10',
-    (select string_agg(n::text, '|' order by cohort_name) from (select c.name cohort_name, count(*) n from public.cohort_members m join public.community_cohorts c on c.id = m.cohort_id
+    (select string_agg(n::text, '|' order by cohort_name) from (select c.name cohort_name, count(*) n from public.cohort_members m join public.cohorts c on c.id = m.cohort_id
       where m.state = 'active' and c.id in (v_ca, v_cb, v_cc, v_cd) group by c.name) z)::text);
 
   ---------------------------------------------------------------------------------------------------------------- 4/5. roster and visibility
@@ -453,23 +453,23 @@ begin
   perform pg_temp.ck('13 a frozen cohort cannot make an invite', 'ERR:42501', substr(pg_temp.q_as(v_mb, format('select public.community_create_invite(%L::uuid)::text', v_cb)), 1, 9));
   perform pg_temp.ck('13 a frozen cohort can still be left', 'true', pg_temp.q_as(v_b_members[4], format('select (public.community_leave(%L::uuid) ->> %L)', v_cb, 'ok')));
   perform pg_temp.q_as(v_admin, format('select public.admin_community_freeze(%L::uuid, false, %L)::text', v_cb, 'proof unfreeze'));
-  perform pg_temp.ck('13 unfreezing restores it', 'active', (select state from public.community_cohorts where id = v_cb));
+  perform pg_temp.ck('13 unfreezing restores it', 'active', (select state from public.cohorts where id = v_cb));
   -- sole moderator leaves: the cohort closes (no stranger is promoted)
   perform pg_temp.q_as(v_me, format('select public.community_leave(%L::uuid)::text', v_ce));
-  perform pg_temp.ck('13 when the only moderator leaves the cohort closes', 'closed', (select state from public.community_cohorts where id = v_ce));
+  perform pg_temp.ck('13 when the only moderator leaves the cohort closes', 'closed', (select state from public.cohorts where id = v_ce));
   -- moderator closes cohort D: challenges cancelled, effort erased
   perform pg_temp.q_as(v_md, format('select public.community_close(%L::uuid)::text', v_cd));
   perform pg_temp.ck('13 closing a cohort cancels its challenges and erases the effort', 'closed|0',
-    (select state from public.community_cohorts where id = v_cd) || '|' || (select count(*)::text from public.challenge_participation where challenge_id = v_chD));
+    (select state from public.cohorts where id = v_cd) || '|' || (select count(*)::text from public.challenge_participation where challenge_id = v_chD));
 
   ---------------------------------------------------------------------------------------------------------------- 14. other roles read nothing
-  foreach t in array array['community_cohorts', 'cohort_members', 'challenges', 'challenge_participation', 'challenge_totals', 'community_preferences'] loop
+  foreach t in array array['cohorts', 'cohort_members', 'challenges', 'challenge_participation', 'challenge_totals', 'cohort_preferences'] loop
     perform pg_temp.ck('14 employer reads nothing from ' || t, '0', pg_temp.q_as(v_emp, 'select count(*)::text from public.' || t));
     perform pg_temp.ck('14 sponsor reads nothing from ' || t, '0', pg_temp.q_as(v_spo, 'select count(*)::text from public.' || t));
     perform pg_temp.ck('14 an unrelated clinician reads nothing from ' || t, '0', pg_temp.q_as(v_doc, 'select count(*)::text from public.' || t));
     perform pg_temp.ck('14 a non-member patient reads nothing from ' || t, '0', pg_temp.q_as(v_out, 'select count(*)::text from public.' || t));
   end loop;
-  perform pg_temp.ck('14 the admin sees cohort rows', 'true', (pg_temp.q_as(v_admin, 'select count(*)::text from public.community_cohorts')::integer > 0)::text);
+  perform pg_temp.ck('14 the admin sees cohort rows', 'true', (pg_temp.q_as(v_admin, 'select count(*)::text from public.cohorts')::integer > 0)::text);
   perform pg_temp.ck('14 the admin reads no member, no effort and no total', '0|0|0',
     pg_temp.q_as(v_admin, 'select count(*)::text from public.cohort_members') || '|' || pg_temp.q_as(v_admin, 'select count(*)::text from public.challenge_participation') || '|' || pg_temp.q_as(v_admin, 'select count(*)::text from public.challenge_totals'));
   perform pg_temp.ck('14 an employer account is refused by the roster function', 'ERR:42501', substr(pg_temp.q_as(v_emp, format('select public.community_roster(%L::uuid)::text', v_ca)), 1, 9));
@@ -501,11 +501,11 @@ begin
   update public.platform_modules set is_enabled = false, enabled_at = null, enabled_by = null, activation_note = null where key = 'group_sessions';
 
   ---------------------------------------------------------------------------------------------------------------- 16. global switch
-  update public.platform_modules set is_enabled = false, enabled_at = null, enabled_by = null, activation_note = null where key = 'community_cohorts';
+  update public.platform_modules set is_enabled = false, enabled_at = null, enabled_by = null, activation_note = null where key = 'cohorts';
   perform pg_temp.ck('16 switch off: a real patient is closed again', 'false', pg_temp.q_as(v_real, $q$select (public.community_status() ->> 'open')$q$));
   perform pg_temp.ck('16 leaving still works with the switch off', 'true', pg_temp.q_as(v_b_members[5], format('select (public.community_leave(%L::uuid) ->> %L)', v_cb, 'ok')));
   perform pg_temp.ck('16 withdrawing consent still works with the switch off', 'true', pg_temp.q_as(v_b_members[6], format('select (public.community_set_totals_consent(%L::uuid, false) ->> %L)', v_cb, 'ok')));
-  update public.platform_modules set is_enabled = true, enabled_at = now(), enabled_by = v_admin, activation_note = 'proof' where key = 'community_cohorts';
+  update public.platform_modules set is_enabled = true, enabled_at = now(), enabled_by = v_admin, activation_note = 'proof' where key = 'cohorts';
 
   ---------------------------------------------------------------------------------------------------------------- 17. the solo wellness nudge is neutral
   insert into public.wellness_challenges (code, title, description, metric, target_count, duration_days) values ('s69_proof', '5-Day Vitals Streak S69', 'proof', 'vitals_logs', 5, 7);
