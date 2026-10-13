@@ -201,6 +201,11 @@ export default async function ClinicianCommunityPage({ searchParams }: { searchP
           Look up a member (safety concerns only)
         </Link>
         {ctx.is_cmo && (
+          <Link href="/clinician/community/signoff" className="font-medium text-brand-green underline">
+            CMO sign-off (everything in one place)
+          </Link>
+        )}
+        {ctx.is_cmo && (
           <Link href="/clinician/community/drill" className="font-medium text-brand-green underline">
             Safety drill
           </Link>

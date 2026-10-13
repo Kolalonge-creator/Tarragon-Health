@@ -86,3 +86,21 @@ No migration, no code, no price change, no PR. Live payments are untouched.
 | C14 | **Legacy programme holders** are converted into real Memberships (count first; no free year: they keep their existing end date). After conversion the legacy OR-clause in `patient_is_member` is removed, so Member means one thing. |
 | C15 | A Member in the 14-day grace **can book** a follow-up. |
 | C16 | **Prescription renewals are included** in the Member year. **Second opinions are an extra 5,000 naira each** (500,000 kobo), available to Members only. |
+
+## Update 6, 2026-10-13 (CMO)
+
+| # | Decision |
+|---|---|
+| C17 | **Sign-off authority:** only the CMO's signature is needed to go live. DPO and legal sign-off are optional (recommended). OQ-309 is not blocked on them. |
+| C18 | **Renewals** are not a separate request: they are discussed and prescribed at the monthly doctor review. No standalone renewal route and no 28-day limit. |
+| C19 | **Legacy holders:** all become Members. A holder with no end date gets a full 365 days from conversion. |
+| C20 | **Terms:** the 21-day refund terms are checked against Nigerian law by a research draft; the owner (CMO and CEO) signs them personally. |
+| C21 | **Marketing site shows only Free and Membership pricing.** No other prices anywhere public. Second opinion (5,000 naira) appears only in the signed-in Member app. |
+| C22 | **Sign-offs by the CMO** (lab panel v2, urinalysis and HbA1c limits, service targets, AI scribe evaluations) are taken in this chat as pop-ups once the objects exist live. |
+
+## Update 7, 2026-10-13 (owner answers on the terms)
+
+| # | Decision |
+|---|---|
+| C23 | **Refund rule:** full refund within 21 days of purchase; after that no change-of-mind refund, but for non-delivery of the annual test or monthly calls the Member chooses a make-good or a pro-rata refund of the undelivered part. (Answers the FCCPA s.120/127/129 risk in `docs/legal/membership-terms-nigeria-review.md` on branch `legal/membership-terms`.) |
+| C24 | **Organisation-paid Memberships:** only the organisation can claim the 21-day refund; the employee keeps the make-good right for non-delivery. |

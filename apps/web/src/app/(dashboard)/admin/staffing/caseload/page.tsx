@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { loadOrgOpenWorkCount } from "@/lib/security/worklists";
 import { getCallerPermissions } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -96,11 +97,8 @@ export default async function DoctorCaseloadPage() {
       .select("id", { count: "exact", head: true })
       .eq("organisation_id", orgId)
       .eq("status", "open"),
-    supabase
-      .from("async_consults")
-      .select("id", { count: "exact", head: true })
-      .eq("organisation_id", orgId)
-      .in("status", ["submitted", "in_review"]),
+    // Organisation total through the counts function: an admin has no care tie, so a direct read of the tied table would show a false zero.
+    loadOrgOpenWorkCount(supabase, "async_consults"),
     supabase
       .from("provider_availability_rules")
       .select("clinician_id, start_time, end_time")
