@@ -171,6 +171,12 @@ export default async function DashboardLayout({
         )}
         // The search box for the admin and the Chief Medical Officer: every page they can reach, built from the lists that draw the menus.
         adminSearch={adminSearchEntries}
+        // The Chief Medical Officer's pending-signature count beside "Sign-off hub", from the same list the banner and the hub show.
+        hrefBadges={
+          signingHub
+            ? { "/clinician/clinical-signoff": { count: signingHub.items.length, failed: signingHub.failed && signingHub.items.length === 0 } }
+            : undefined
+        }
         // Patient accounts (supporters included — they share the patient
         // role) get the Warm Ivory ground the mobile app already ships;
         // staff and clinical consoles keep the white canvas.

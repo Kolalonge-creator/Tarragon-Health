@@ -44,7 +44,7 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/settings/lab-panels", "lab ranges reference critical limits release policy panels read only signed"],
   ["/clinician/my-health-config", "lock screen pass wallet card fields sign cmo emergency basics initials blood group genotype allergies on file my health c8"],
   ["/admin/settings/my-health-config", "lock screen pass wallet card fields read only signed my health emergency basics"],
-  ["/clinician/clinical-signoff", "sign signature sign off signoff hub approve what needs signing outstanding pending awaiting clinical director cmo"],
+  ["/clinician/clinical-signoff", "sign signature sign off signoff hub approve what needs signing outstanding pending awaiting clinical director cmo s06 s07 s08 s09 s10 c1 c2 c3 c4 c5 c6 c7 c8 cuff wording low blood pressure adherence as needed prn limits lock screen pass"],
   ["/clinician/lpe-content-library", "sign approve review coaching content ai coach lifestyle blocks library reference copy"],
   ["/clinician/result-release-policies", "sign approve result release policy abnormal critical doctor delivered restricted hiv hepatitis cancer screen withhold patient"],
   ["/clinician/titration-protocols", "protocol protocols titration step table steps approve protocol approve sign hypertension blood pressure protocol dose increase medicine draft htn_hearts_ng check validate save draft definition json"],
@@ -66,7 +66,7 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/clinician/pharmacy", "pharmacy messages pharmacy questions question questions flag flagged problem out of stock query prescriber prescription collected collection dispensed supplied sent where is my prescription pharmacist asked answer batch substitute strength dose unclear partner dispensing"],
   ["/clinician/quality/concerns", "speak up speakup whistleblow raise concern backup reader retaliation reply acknowledge deadline overdue"],
   ["/clinician/quality", "quality safety audit audits clinical audit hand-back handback review reviewer tier 1 first 20 case file score outcome unsafe concerns"],
-  ["/clinician/go-live", "go live golive guard guards switch on off launch enable disable clinical operations consultations scribe prescribing payouts lab booking signup sign-up sign up cover proposed values config configuration confirm confirmation owner sign-off signoff founder cmo"],
+  ["/clinician/go-live", "go live golive guard guards switch on off launch enable disable clinical operations consultations scribe prescribing payouts lab booking signup sign-up sign up cover proposed values config configuration confirm confirmation owner sign-off signoff founder cmo cuff wording attestation c4 home blood pressure pattern flag clinician only as needed limits wallet pass"],
   ["/clinician/payout-approvals", "payout payouts approve approval approvals weekly draft pay clinician contracted cmo chief medical officer money"],
   ["/admin/earnings", "fee fees schedule earnings earned pay paid payout ledger contracted clinician per task consultation share on call shift lead month minimum guarantee adjustment correction statement salary kobo naira"],
   ["/admin/payouts", "payout payouts weekly draft approve send paystack transfer bank account verified retry failed reversed clinician pay finance"],
@@ -107,6 +107,8 @@ export const CMO_EXTRA_PAGES: AdminSearchEntry[] = [
   { label: "Titration protocols", href: "/clinician/titration-protocols", group: "Clinical sign-off", hint: "Write, check and approve the step table the dose suggestion tool reads." },
   { label: "Testing-day results", href: "/clinician/poc-results", group: "Clinical queue", hint: "Read ECG traces and release urine and HbA1c results from testing days and employer visits." },
   { label: "Record access review", href: "/clinician/access-review", group: "Security and privacy", hint: "Who opened which patient record, untied and after-hours openings, and the retention review." },
+  { label: "Home blood pressure programme", href: "/clinician/home-bp-programme", group: "Clinical sign-off", hint: "Sign the seven-day home check protocol, the bands and the white-coat or masked pattern rule (C1 to C3)." },
+  { label: "My Health lock-screen pass fields", href: "/clinician/my-health-config", group: "Clinical sign-off", hint: "Sign what a lock-screen or wallet pass may show (C8)." },
 ];
 
 export interface SettingsPageInput {
