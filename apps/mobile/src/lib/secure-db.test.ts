@@ -13,7 +13,7 @@ import {
 } from "../test/mocks/expo-sqlite";
 import { __setFailing } from "../test/mocks/expo-secure-store";
 import { __resetOutboxForTests, countAllOutboxRows, enqueue, listOutbox } from "./outbox";
-import { __resetStoreForTests, destroyStore, getStore, getStoreStatus } from "./secure-db";
+import { STUCK_AFTER_STARTS, __resetStoreForTests, destroyStore, getStore, getStoreStatus } from "./secure-db";
 import { listStoreNotices } from "./store-notices";
 import * as rules from "./store-rules";
 import { LEGACY_DB_NAME, storeFileName } from "./store-rules";
@@ -111,6 +111,33 @@ describe("moving the old plain database", () => {
     const store = await getStore();
     expect((await store.getFirstAsync<{ n: number }>("select count(*) as n from wq_queue_photos"))?.n).toBe(31);
     expect(__databaseNames()).not.toContain(LEGACY_DB_NAME);
+  });
+
+  it("moves a WITHOUT ROWID table, blobs included, in primary-key order", async () => {
+    const db = await openDatabaseAsync(LEGACY_DB_NAME);
+    await db.execAsync("create table kv (k text primary key, v blob, n integer) without rowid");
+    for (let i = 0; i < 60; i++) {
+      await db.runAsync("insert into kv values (?, ?, ?)", [`key-${String(i).padStart(3, "0")}`, new Uint8Array([i, 255 - i, 7]) as unknown as number, i]);
+    }
+    freshStart();
+    const store = await getStore();
+    expect((await store.getFirstAsync<{ n: number }>("select count(*) as n from kv"))?.n).toBe(60);
+    const row = await store.getFirstAsync<{ v: Uint8Array }>("select v from kv where k = 'key-042'");
+    expect(Array.from(row!.v)).toEqual([42, 213, 7]);
+    expect(__databaseNames()).not.toContain(LEGACY_DB_NAME);
+  });
+
+  it("a copy that stays held is escalated after a few starts, as one notice, never as a stack", async () => {
+    await seedLegacy(4);
+    const spy = jest.spyOn(rules, "compareSummaries").mockReturnValue(["outbox: x"]);
+    for (let i = 0; i < STUCK_AFTER_STARTS; i++) {
+      freshStart();
+      await getStore();
+      const kinds = (await listStoreNotices()).map((n) => n.kind);
+      expect(kinds).toEqual([i + 1 >= STUCK_AFTER_STARTS ? "migration_stuck" : "migration_held"]);
+    }
+    expect(await listOutbox()).toHaveLength(4); // still all there, still sending from the old file
+    spy.mockRestore();
   });
 
   it("moves 1000 queued rows without loss", async () => {

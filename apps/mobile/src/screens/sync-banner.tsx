@@ -11,7 +11,8 @@ import {
   type OutboxSummary,
 } from "@/lib/outbox";
 import { useUiLanguage } from "@/lib/ui-language";
-import { dismissStoreNotice, listStoreNotices, type StoreNotice } from "@/lib/store-notices";
+import { dismissStoreNotice, listStoreNotices, noticesFor, type StoreNotice } from "@/lib/store-notices";
+import { supabase } from "@/lib/supabase";
 import { formatBytes, getMonthlyDataUsage } from "@/lib/data-usage";
 import { loadOfflineTrustConfig } from "@/lib/offline-trust-config";
 import { space } from "@/ui/design";
@@ -38,7 +39,8 @@ export function SyncBanner() {
       const [s, items] = await Promise.all([getOutboxSummary(), listOutbox()]);
       setSummary(s);
       setRejected(items.filter((i) => i.state === "rejected"));
-      setNotices(await listStoreNotices());
+      const { data: auth } = await supabase.auth.getSession();
+      setNotices(noticesFor(await listStoreNotices(), auth.session?.user.id ?? null));
       setUsage(await getMonthlyDataUsage());
     } catch {
       // A failed read of the local queue must not blank the screen.
@@ -80,6 +82,8 @@ export function SyncBanner() {
           : t(`store.wiped.${n.reason}`, locale, { count: n.unsent });
       case "migration_held":
         return t("store.migration_held", locale, { code: n.code });
+      case "migration_stuck":
+        return t("store.migration_stuck", locale, { code: n.code });
       case "not_encrypted":
         return t("store.not_encrypted", locale);
     }

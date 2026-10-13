@@ -24763,45 +24763,54 @@ export type Database = {
       offline_device_leases: {
         Row: {
           account_id: string
+          danger_at_wipe: number | null
           device_id: string
           last_checkin_at: string
           lease_expires_at: string
           organisation_id: string
           platform: string
           registered_at: string
+          retired_at: string | null
           revoke_reason: string | null
           revoked_at: string | null
           revoked_by: string | null
           unsent_at_wipe: number | null
           wipe_confirmed_at: string | null
+          wipe_reason: string | null
         }
         Insert: {
           account_id: string
+          danger_at_wipe?: number | null
           device_id: string
           last_checkin_at?: string
           lease_expires_at: string
           organisation_id: string
           platform: string
           registered_at?: string
+          retired_at?: string | null
           revoke_reason?: string | null
           revoked_at?: string | null
           revoked_by?: string | null
           unsent_at_wipe?: number | null
           wipe_confirmed_at?: string | null
+          wipe_reason?: string | null
         }
         Update: {
           account_id?: string
+          danger_at_wipe?: number | null
           device_id?: string
           last_checkin_at?: string
           lease_expires_at?: string
           organisation_id?: string
           platform?: string
           registered_at?: string
+          retired_at?: string | null
           revoke_reason?: string | null
           revoked_at?: string | null
           revoked_by?: string | null
           unsent_at_wipe?: number | null
           wipe_confirmed_at?: string | null
+          wipe_reason?: string | null
         }
         Relationships: []
       }
@@ -43716,7 +43725,7 @@ export type Database = {
       };
       queue_next: { Args: { p_types?: string[] }; Returns: Json };
       queue_summary: { Args: Record<PropertyKey, never>; Returns: Json };
-      confirm_offline_device_wipe: { Args: { p_device: string; p_unsent: number }; Returns: boolean }
+      confirm_offline_device_wipe: { Args: { p_danger?: number; p_device: string; p_reason?: string; p_unsent: number }; Returns: boolean }
       offline_device_checkin: { Args: { p_device: string; p_platform: string }; Returns: Json }
       read_offline_sync_rejections: {
         Args: { p_account?: string; p_days?: number }

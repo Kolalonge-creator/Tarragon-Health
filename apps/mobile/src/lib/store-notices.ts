@@ -9,13 +9,15 @@ import type { WipeReason } from "./store-rules";
  */
 export type StoreNotice =
   | { id: string; kind: "key_lost"; code: string; at: string }
-  | { id: string; kind: "wiped"; reason: WipeReason; at: string; unsent: number; days?: number }
+  | { id: string; kind: "wiped"; reason: WipeReason; at: string; unsent: number; days?: number; ownerUserId?: string }
+  | { id: string; kind: "migration_stuck"; code: string; at: string }
   | { id: string; kind: "migration_held"; code: string; at: string }
   | { id: string; kind: "not_encrypted"; why: "keystore" | "sqlcipher"; at: string };
 
 export type NewStoreNotice =
   | { kind: "key_lost"; code: string }
-  | { kind: "wiped"; reason: WipeReason; unsent: number; days?: number }
+  | { kind: "wiped"; reason: WipeReason; unsent: number; days?: number; ownerUserId?: string }
+  | { kind: "migration_stuck"; code: string }
   | { kind: "migration_held"; code: string }
   | { kind: "not_encrypted"; why: "keystore" | "sqlcipher" };
 
@@ -46,16 +48,28 @@ export async function addStoreNotice(notice: NewStoreNotice, now: Date = new Dat
     // A wipe that is retried (a file would not delete) must not stack notices: the same reason within ten minutes is one.
     if (
       notice.kind === "wiped" &&
-      current.some((n) => n.kind === "wiped" && n.reason === notice.reason && now.getTime() - new Date(n.at).getTime() < 10 * 60_000)
+      current.some((n) => n.kind === "wiped" && n.reason === notice.reason && n.ownerUserId === notice.ownerUserId && now.getTime() - new Date(n.at).getTime() < 10 * 60_000)
     ) {
       return;
     }
     if (current.some((n) => n.kind === notice.kind && ("code" in n ? n.code : null) === code && notice.kind !== "wiped")) return;
+    // A held copy is one standing problem: its newest notice replaces the older ones instead of stacking a code per start.
+    if (notice.kind === "migration_held" || notice.kind === "migration_stuck") {
+      const rest = current.filter((n) => n.kind !== "migration_held" && n.kind !== "migration_stuck");
+      const only: StoreNotice = { ...notice, id: `${now.getTime()}-${rest.length}`, at: now.toISOString() } as StoreNotice;
+      await AsyncStorage.setItem(KEY, JSON.stringify([...rest, only].slice(-MAX)));
+      return;
+    }
     const next: StoreNotice = { ...notice, id: `${now.getTime()}-${current.length}`, at: now.toISOString() } as StoreNotice;
     await AsyncStorage.setItem(KEY, JSON.stringify([...current, next].slice(-MAX)));
   } catch {
     // A notice that cannot be saved must not break the store.
   }
+}
+
+/** The notices this account should see: its own, and the ones that belong to nobody in particular. */
+export function noticesFor(notices: readonly StoreNotice[], userId: string | null): StoreNotice[] {
+  return notices.filter((n) => n.kind !== "wiped" || !n.ownerUserId || n.ownerUserId === userId);
 }
 
 export async function dismissStoreNotice(id: string): Promise<void> {

@@ -111,6 +111,7 @@ export const en = {
   "store.wiped.admin": "Your care team asked for this phone to be cleared, so your health entries were removed from it. Entries not yet sent: {count}.",
   "store.wiped.lease_expired": "This phone did not connect for {days} days, so your health entries were cleared from it to keep them private. Entries not yet sent: {count}.",
   "store.migration_held": "Your entries are safe on this phone but are not locked yet. We will try again the next time you open the app. Code: {code}",
+  "store.migration_stuck": "Your entries have been kept safe on this phone for several days without being locked. Please tell support this code so they can help: {code}",
   "store.not_encrypted": "Your entries are saved on this phone but could not be locked with a key yet. They still send as normal.",
   "store.dismiss": "OK",
   "usage.month": "Data used by syncing this month (an estimate): {amount}",

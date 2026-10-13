@@ -6,8 +6,8 @@
 -- admin of the same organisation sets the flag, another patient and another organisation's admin are refused; the next check-in reports
 -- revoked and does NOT extend the lease; the wipe confirmation stores a count only; anon cannot call any of it.
 -- A per-account daily cap stops a flood; the support read function is VOLATILE so its audit write works under GET.
--- SABOTAGE: the rejection insert policy loosened to any account (a patient can then write as someone else), and the check-in function
--- made to extend a revoked lease.
+-- SABOTAGE: the rejection insert policy loosened to any account (a patient can then write as someone else), the check-in function
+-- made to extend a revoked lease, the confirmation guard removed, and the retirement of stale phones removed.
 begin;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
@@ -134,11 +134,40 @@ select pg_temp.ck('real', 'B8 the next check-in says revoked...', 'true',
 select pg_temp.ck('real', 'B9 ...and does not extend the lease', 'true',
   (select (lease_expires_at < now() + interval '2 days')::text from public.offline_device_leases where device_id = pg_temp.f('dev1')));
 select pg_temp.ck('real', 'B10 the wipe confirmation call succeeds', 'true',
-  pg_temp.as_user(pg_temp.f('p1'), format($q$ select public.confirm_offline_device_wipe(%L, 3)::text $q$, pg_temp.f('dev1'))));
+  pg_temp.as_user(pg_temp.f('p1'), format($q$ select public.confirm_offline_device_wipe(%L, 3, 1, 'lost_phone')::text $q$, pg_temp.f('dev1'))));
 select pg_temp.ck('real', 'B10b ...and stores a count only', '3',
   (select unsent_at_wipe::text from public.offline_device_leases where device_id = pg_temp.f('dev1')));
+select pg_temp.ck('real', 'B10c ...and the urgent count and the reason the server recorded', '1/lost_phone',
+  (select danger_at_wipe::text || '/' || wipe_reason from public.offline_device_leases where device_id = pg_temp.f('dev1')));
 select pg_temp.ck('real', 'B11 a request, a confirmation and no stray rows are audited', '2',
   (select count(*)::text from public.audit_log where entity_type = 'offline_device_leases' and entity_id = pg_temp.f('p1') and action in ('offline_device_wipe_requested', 'offline_device_wiped')));
+-- B10x: the server only accepts a "wiped" record for a phone reported lost or whose lease it agrees has run out
+do $$
+declare v_dev3 uuid := gen_random_uuid(); v_prev text;
+begin
+  perform pg_temp.setf('dev3', v_dev3);
+  perform pg_temp.as_user(pg_temp.f('p1'), format($q$ select (public.offline_device_checkin(%L, 'android')) ->> 'revoked' $q$, v_dev3));
+  perform pg_temp.ck('real', 'B10d a healthy phone cannot be stamped as wiped (reason lease_expired, lease still good)', 'ERR 42501',
+    pg_temp.as_user(pg_temp.f('p1'), format($q$ select public.confirm_offline_device_wipe(%L, 1, 0, 'lease_expired')::text $q$, v_dev3)));
+  perform pg_temp.ck('real', 'B10e ...nor with a lost-phone reason it never had', 'ERR 42501',
+    pg_temp.as_user(pg_temp.f('p1'), format($q$ select public.confirm_offline_device_wipe(%L, 1, 0, 'lost_phone')::text $q$, v_dev3)));
+  update public.offline_device_leases set lease_expires_at = now() - interval '1 day' where device_id = v_dev3;
+  -- the check-in reports what the server held BEFORE renewing, on the server's clock
+  v_prev := pg_temp.as_user(pg_temp.f('p1'), format($q$ select public.offline_device_checkin(%L, 'android')::text $q$, v_dev3));
+  perform pg_temp.ck('real', 'B10f check-in returns the previous (lapsed) lease, earlier than the server time it also returns', 'true',
+    ((v_prev::jsonb ->> 'prev_lease_expires_at')::timestamptz < (v_prev::jsonb ->> 'server_now')::timestamptz
+     and (v_prev::jsonb ->> 'lease_expires_at')::timestamptz > (v_prev::jsonb ->> 'server_now')::timestamptz)::text);
+  update public.offline_device_leases set lease_expires_at = now() - interval '1 day' where device_id = v_dev3;
+  perform pg_temp.ck('real', 'B10g a lease the SERVER sees as lapsed can be confirmed as wiped', 'true',
+    pg_temp.as_user(pg_temp.f('p1'), format($q$ select public.confirm_offline_device_wipe(%L, 2, 0, 'lease_expired')::text $q$, v_dev3)));
+  perform pg_temp.as_user(pg_temp.f('p1'), format($q$ select public.confirm_offline_device_wipe(%L, 999999999, 0, 'lease_expired')::text $q$, v_dev3));
+  perform pg_temp.setf('dev5', gen_random_uuid());
+  perform pg_temp.as_user(pg_temp.f('p1'), format($q$ select (public.offline_device_checkin(%L, 'ios')) ->> 'revoked' $q$, pg_temp.f('dev5')));
+  perform pg_temp.as_user(pg_temp.f('p1'), format($q$ select public.confirm_offline_device_wipe(%L, 2, 1, 'shared_phone')::text $q$, pg_temp.f('dev5')));
+  perform pg_temp.ck('real', 'B10i a sibling account on a shared phone is recorded as phone-reported (shared_phone)', 'shared_phone',
+    (select wipe_reason from public.offline_device_leases where device_id = pg_temp.f('dev5')));
+  perform pg_temp.ck('real', 'B10h counts are capped', '100000', (select unsent_at_wipe::text from public.offline_device_leases where device_id = v_dev3));
+end $$;
 do $$
 begin
   perform pg_temp.ck('real', 'B12a a second patient registers a phone', 'false',
@@ -149,14 +178,30 @@ begin
     (select revoke_reason from public.offline_device_leases where device_id = pg_temp.f('c2')));
 end $$;
 do $$
-declare i integer; v_last text;
+declare i integer; v_last text; v_ids uuid[];
 begin
   for i in 1..25 loop
     v_last := pg_temp.as_user(pg_temp.f('p2'), format($q$ select (public.offline_device_checkin(%L, 'ios')) ->> 'revoked' $q$, gen_random_uuid()));
   end loop;
-  perform pg_temp.ck('real', 'B12d one account cannot register phones without limit (the 26th is refused)', 'ERR 53400', v_last);
-  perform pg_temp.ck('real', 'B12e ...and the table holds at most 20 live phones for that account', '20',
-    (select count(*)::text from public.offline_device_leases where account_id = pg_temp.f('p2') and revoked_at is null));
+  perform pg_temp.ck('real', 'B12d one account cannot register phones without limit (the 21st live phone is refused)', 'ERR 53400', v_last);
+  perform pg_temp.ck('real', 'B12e ...the table holds at most 20 live phones for that account', '20',
+    (select count(*)::text from public.offline_device_leases where account_id = pg_temp.f('p2') and revoked_at is null and retired_at is null));
+  -- stale phones are retired, so the cap never fills for good
+  select array_agg(device_id) into v_ids from (select device_id from public.offline_device_leases where account_id = pg_temp.f('p2') and revoked_at is null order by registered_at limit 5) x;
+  update public.offline_device_leases set last_checkin_at = now() - interval '100 days' where device_id = any (v_ids);
+  perform pg_temp.ck('real', 'B12f a new check-in retires phones silent for twice the lease and then succeeds', 'false',
+    pg_temp.as_user(pg_temp.f('p2'), format($q$ select (public.offline_device_checkin(%L, 'ios')) ->> 'revoked' $q$, gen_random_uuid())));
+  perform pg_temp.ck('real', 'B12g ...and the five stale rows are retired, not deleted', '5',
+    (select count(*)::text from public.offline_device_leases where device_id = any (v_ids) and retired_at is not null));
+  perform pg_temp.ck('real', 'B12h a retired phone that comes back is let in again when there is room', 'false',
+    pg_temp.as_user(pg_temp.f('p2'), format($q$ select (public.offline_device_checkin(%L, 'ios')) ->> 'revoked' $q$, v_ids[1])));
+end $$;
+do $$
+begin
+  insert into public.offline_device_leases (device_id, account_id, organisation_id, platform, lease_expires_at, last_checkin_at)
+  select gen_random_uuid(), pg_temp.f('ad'), pg_temp.f('org'), 'android', now() - interval '60 days', now() - interval '100 days' from generate_series(1, 20);
+  perform pg_temp.ck('real', 'B12i an account whose 20 phones are all long silent can still register a new one (they are retired, not counted)', 'false',
+    pg_temp.as_user(pg_temp.f('ad'), format($q$ select (public.offline_device_checkin(%L, 'ios')) ->> 'revoked' $q$, gen_random_uuid())));
 end $$;
 select pg_temp.ck('real', 'B13 anon cannot call check-in', 'ERR 42501', pg_temp.as_anon(format($q$ select public.offline_device_checkin(%L, 'ios')::text $q$, gen_random_uuid())));
 select pg_temp.ck('real', 'B14 a patient cannot write the lease table directly', 'ERR 42501',
@@ -178,6 +223,22 @@ begin
   perform pg_temp.as_user(pg_temp.f('p1'), format($q$ select (public.offline_device_checkin(%L, 'android')) ->> 'revoked' $q$, pg_temp.f('dev1')));
   insert into results values ('sabotaged', 'SABOTAGE 2: a check-in that extends a revoked lease', 'true',
     (select (lease_expires_at < now() + interval '2 days')::text from public.offline_device_leases where device_id = pg_temp.f('dev1')));
+  -- 4. stale phones no longer retired: the cap fills for good
+  select pg_get_functiondef('public.offline_device_checkin(uuid, text)'::regprocedure) into v_def;
+  v_def := replace(v_def, 'set retired_at = now()', 'set retired_at = null');
+  execute v_def;
+  insert into public.offline_device_leases (device_id, account_id, organisation_id, platform, lease_expires_at, last_checkin_at)
+  select gen_random_uuid(), pg_temp.f('ad2'), pg_temp.f('org2'), 'android', now() - interval '60 days', now() - interval '100 days' from generate_series(1, 20);
+  insert into results values ('sabotaged', 'SABOTAGE 4: with retirement removed a long-silent account can never register again', 'false',
+    pg_temp.as_user(pg_temp.f('ad2'), format($q$ select (public.offline_device_checkin(%L, 'ios')) ->> 'revoked' $q$, gen_random_uuid())));
+  -- 3. the confirmation guard removed: a healthy phone can be stamped as wiped
+  select pg_get_functiondef('public.confirm_offline_device_wipe(uuid, integer, integer, text)'::regprocedure) into v_def;
+  v_def := replace(v_def, 'elsif p_reason = ''lease_expired'' and v_row.lease_expires_at < now() then', 'elsif true then');
+  execute v_def;
+  perform pg_temp.setf('dev4', gen_random_uuid());
+  perform pg_temp.as_user(pg_temp.f('p1'), format($q$ select (public.offline_device_checkin(%L, 'android')) ->> 'revoked' $q$, pg_temp.f('dev4')));
+  insert into results values ('sabotaged', 'SABOTAGE 3: a confirmation with its guard removed stamps a healthy phone', 'ERR 42501',
+    pg_temp.as_user(pg_temp.f('p1'), format($q$ select public.confirm_offline_device_wipe(%L, 1, 0, 'lease_expired')::text $q$, pg_temp.f('dev4'))));
 end $$;
 
 do $$
@@ -188,7 +249,7 @@ begin
     raise exception 'S06x proof FAILED: %', (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and check_name like 'SABOTAGE%' and expected <> actual;
-  if v_caught < 2 then raise exception 'VACUOUS TEST: the sabotage flipped % of 2 checks', v_caught; end if;
+  if v_caught < 4 then raise exception 'VACUOUS TEST: the sabotage flipped % of 4 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result from results where phase = 'real' order by check_name;

@@ -1,5 +1,6 @@
 import * as SecureStore from "expo-secure-store";
 import * as Crypto from "expo-crypto";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { bytesToHex } from "./store-rules";
 
 /**
@@ -58,16 +59,48 @@ function deviceIdName(userId: string): string {
   return `${DEVICE_ID_PREFIX}${userId.replace(/[^A-Za-z0-9._-]/g, "")}`;
 }
 
+/**
+ * The keystore cannot list its keys, so the accounts that have a device id on this phone are listed here (ids and
+ * account ids only, no health value). It is what lets a wipe find and reset EVERY account's id, signed in or not.
+ */
+const DEVICE_REGISTRY_KEY = "@tarragon/device-accounts/v1";
+
+async function readRegistry(): Promise<Record<string, string>> {
+  try {
+    const raw = await AsyncStorage.getItem(DEVICE_REGISTRY_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
+
 export async function getOrCreateDeviceId(userId: string): Promise<string> {
   const name = deviceIdName(userId);
   const existing = await SecureStore.getItemAsync(name, OPTIONS);
-  if (existing) return existing;
-  const id = Crypto.randomUUID();
-  await SecureStore.setItemAsync(name, id, OPTIONS);
+  const id = existing ?? Crypto.randomUUID();
+  if (!existing) await SecureStore.setItemAsync(name, id, OPTIONS);
+  const registry = await readRegistry();
+  if (registry[userId] !== id) await AsyncStorage.setItem(DEVICE_REGISTRY_KEY, JSON.stringify({ ...registry, [userId]: id })).catch(() => {});
   return id;
 }
 
-export async function resetDeviceId(userId: string): Promise<void> {
-  if (!userId) return;
-  await SecureStore.deleteItemAsync(deviceIdName(userId), OPTIONS);
+/**
+ * Removes the device id of EVERY account known on this phone and returns what was removed, so the wipe can still
+ * tell the server about each one. Works with nobody signed in.
+ */
+export async function forgetAllDeviceIds(): Promise<{ userId: string; deviceId: string }[]> {
+  const registry = await readRegistry();
+  const removed: { userId: string; deviceId: string }[] = [];
+  for (const [userId, deviceId] of Object.entries(registry)) {
+    await SecureStore.deleteItemAsync(deviceIdName(userId), OPTIONS).catch(() => {});
+    removed.push({ userId, deviceId });
+  }
+  await AsyncStorage.removeItem(DEVICE_REGISTRY_KEY).catch(() => {});
+  return removed;
+}
+
+/** Test and tooling hook: the account ids that have a device id on this phone. */
+export async function listDeviceAccounts(): Promise<Record<string, string>> {
+  return readRegistry();
 }

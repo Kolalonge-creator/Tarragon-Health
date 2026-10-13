@@ -11,6 +11,8 @@ export interface OfflineTrustConfig {
   deviceLeaseDays: number;
   probeMinIntervalMs: number;
   probeTimeoutMs: number;
+  /** After this phone first sees its own lease as lapsed while it cannot ask the server, it waits this long before wiping. */
+  leaseGraceHours: number;
 }
 
 export function loadOfflineTrustConfig(): OfflineTrustConfig {
@@ -26,5 +28,6 @@ export function loadOfflineTrustConfig(): OfflineTrustConfig {
     deviceLeaseDays: num("device_lease_days"),
     probeMinIntervalMs: num("probe_min_interval_seconds") * 1000,
     probeTimeoutMs: num("probe_timeout_seconds") * 1000,
+    leaseGraceHours: num("lease_grace_hours"),
   };
 }

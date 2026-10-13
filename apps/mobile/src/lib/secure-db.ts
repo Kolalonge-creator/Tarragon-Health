@@ -40,6 +40,20 @@ const COPY_PAGE = 25;
 
 export type StoreMode = "encrypted" | "plain";
 
+/** After this many starts with the copy still held, the patient is asked to contact support. */
+export const STUCK_AFTER_STARTS = 3;
+const HELD_COUNT_KEY = "@tarragon/legacy-held-count/v1";
+
+async function countHeldStart(): Promise<number> {
+  try {
+    const n = (Number(await AsyncStorage.getItem(HELD_COUNT_KEY)) || 0) + 1;
+    await AsyncStorage.setItem(HELD_COUNT_KEY, String(n));
+    return n;
+  } catch {
+    return 1;
+  }
+}
+
 class CipherUnavailableError extends Error {
   constructor() {
     super("This build has no SQLCipher");
@@ -113,6 +127,15 @@ async function columnsOf(db: SQLite.SQLiteDatabase, table: string): Promise<stri
   return cols.map((c) => c.name);
 }
 
+/** A WITHOUT ROWID table has no rowid to walk by; it is read in primary-key order instead. */
+async function readOrder(db: SQLite.SQLiteDatabase, table: string): Promise<{ withoutRowid: boolean; pk: string[] }> {
+  const def = await db.getFirstAsync<{ sql: string | null }>("select sql from sqlite_master where type = 'table' and name = ?", [table]);
+  const withoutRowid = /without\s+rowid/i.test(def?.sql ?? "");
+  if (!withoutRowid) return { withoutRowid: false, pk: [] };
+  const info = await db.getAllAsync<{ name: string; pk: number }>(`pragma table_info(${quote(table)})`);
+  return { withoutRowid: true, pk: info.filter((c) => c.pk > 0).sort((a, b) => a.pk - b.pk).map((c) => c.name) };
+}
+
 /** Walks a table by rowid (keyset, not OFFSET, so a big table is read once, not quadratically), handing each page on. */
 async function forEachPage(
   db: SQLite.SQLiteDatabase,
@@ -120,6 +143,17 @@ async function forEachPage(
   cols: string[],
   onPage: (rows: Record<string, unknown>[]) => Promise<void>
 ): Promise<void> {
+  const order = await readOrder(db, table);
+  if (order.withoutRowid) {
+    // Rare and small: page by primary key with an offset (no rowid exists to walk by).
+    const by = order.pk.length > 0 ? order.pk.map(quote).join(", ") : cols.map(quote).join(", ");
+    for (let offset = 0; ; offset += COPY_PAGE) {
+      const rows = await db.getAllAsync<Record<string, unknown>>(`select * from ${quote(table)} order by ${by} limit ${COPY_PAGE} offset ${offset}`);
+      if (rows.length === 0) return;
+      await onPage(rows);
+      if (rows.length < COPY_PAGE) return;
+    }
+  }
   let last = -1;
   for (;;) {
     const rows = await db.getAllAsync<Record<string, unknown>>(
@@ -130,7 +164,6 @@ async function forEachPage(
     last = Number(rows[rows.length - 1].__rowid);
     if (rows.length < COPY_PAGE) return;
   }
-  void cols;
 }
 
 async function summarize(db: SQLite.SQLiteDatabase, table: string): Promise<TableSummary> {
@@ -226,6 +259,7 @@ async function migrateLegacy(dest: SQLite.SQLiteDatabase): Promise<boolean> {
       if (problems.length > 0) throw new MigrationVerifyError(problems);
     }
     await AsyncStorage.setItem(LEGACY_STATE_KEY, "verified");
+    await AsyncStorage.removeItem(HELD_COUNT_KEY).catch(() => {});
     await src.closeAsync().catch(() => {});
     if (await removeLegacyFile()) await AsyncStorage.setItem(LEGACY_STATE_KEY, "done").catch(() => {});
     return true;
@@ -233,7 +267,9 @@ async function migrateLegacy(dest: SQLite.SQLiteDatabase): Promise<boolean> {
     await src.closeAsync().catch(() => {});
     const code = eventCode(Crypto.randomUUID());
     recordSyncError("offline_outbox", `store:migrate:${code}`, error);
-    await addStoreNotice({ kind: "migration_held", code });
+    // A copy that keeps failing is escalated: after a few starts the notice becomes a request to contact support.
+    const starts = (await countHeldStart()) ;
+    await addStoreNotice(starts >= STUCK_AFTER_STARTS ? { kind: "migration_stuck", code } : { kind: "migration_held", code });
     return false;
   }
 }

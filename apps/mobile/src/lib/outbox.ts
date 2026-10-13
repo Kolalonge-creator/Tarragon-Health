@@ -3,7 +3,7 @@ import * as Crypto from "expo-crypto";
 import { NETWORK_ERROR_MESSAGE, postVitalReading, type VitalReadingPayload } from "./api";
 import { supabase } from "./supabase";
 import { getStoreWithSchema } from "./secure-db";
-import { reportRejection } from "./rejection-report";
+import { applyReportOutcome, reportOnHold, reportRejection } from "./rejection-report";
 import { addDataUsage } from "./data-usage";
 import { recordSyncError } from "./sync-diagnostics";
 import { loadOfflineSyncConfig } from "./offline-sync-config";
@@ -383,6 +383,29 @@ export async function countAllOutboxRows(): Promise<number> {
   return row?.n ?? 0;
 }
 
+export interface UnsentByOwner {
+  owner: string;
+  total: number;
+  /** Rows the phone itself classed urgent or emergency. */
+  danger: number;
+}
+
+/** Unsent counts per account for EVERY account on the phone (counts only). Used by the remote wipe so no account's loss is silent. */
+export async function countUnsentByOwner(): Promise<UnsentByOwner[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<{ owner_user_id: string; n: number; d: number }>(
+    "select owner_user_id, count(*) as n, coalesce(sum(danger), 0) as d from outbox group by owner_user_id"
+  );
+  return rows.map((r) => ({ owner: r.owner_user_id, total: r.n, danger: r.d }));
+}
+
+/** Urgent rows not yet on the server, for every account on the phone. */
+export async function countDangerUnsent(): Promise<number> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<{ n: number }>("select count(*) as n from outbox where danger = 1");
+  return row?.n ?? 0;
+}
+
 export async function getPendingCount(): Promise<number> {
   return (await listOutbox()).length;
 }
@@ -550,6 +573,7 @@ async function reportIfNeeded(db: SQLite.SQLiteDatabase, item: OutboxItem, fresh
       );
       if (flag?.rejection_reported === 1) return;
     }
+    if (await reportOnHold(item.clientId)) return;
     let info = fresh;
     if (!info) {
       const stored = await db.getFirstAsync<{ last_status: number | null; last_error: string | null }>(
@@ -558,8 +582,9 @@ async function reportIfNeeded(db: SQLite.SQLiteDatabase, item: OutboxItem, fresh
       );
       info = { status: stored?.last_status ?? undefined, message: stored?.last_error ?? undefined };
     }
-    const ok = await reportRejection(item, info);
-    if (ok && reportedColumnReady) {
+    const outcome = await reportRejection(item, info);
+    await applyReportOutcome(item.clientId, outcome);
+    if (outcome === "sent" && reportedColumnReady) {
       await db.runAsync("update outbox set rejection_reported = 1 where client_id = ?", [item.clientId]);
     }
   } catch (error) {

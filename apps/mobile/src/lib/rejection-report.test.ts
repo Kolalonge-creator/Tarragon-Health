@@ -6,6 +6,7 @@ import { enqueue, flushOutbox, retryRow } from "./outbox";
 import { rejectionReasonCode } from "./outbox-rules";
 
 let mockReports: Record<string, unknown>[] = [];
+let mockAttempts = 0;
 let mockReportError: { code?: string; message: string } | null = null;
 let mockSymptomError: { code?: string; message: string } | null = { code: "23514", message: "new row violates check constraint \"severity\" (value 11 headache)" };
 let mockProfileOrg: string | null = "org-1";
@@ -22,6 +23,7 @@ jest.mock("./supabase", () => ({
       }),
       insert: async (row: Record<string, unknown>) => {
         if (table === "offline_sync_rejections") {
+          mockAttempts += 1;
           if (mockReportError) return { error: mockReportError };
           mockReports.push(row);
           return { error: null };
@@ -34,6 +36,7 @@ jest.mock("./supabase", () => ({
 
 beforeEach(() => {
   mockReports = [];
+  mockAttempts = 0;
   mockReportError = null;
   mockProfileOrg = "org-1";
   mockSymptomError = { code: "23514", message: "new row violates check constraint \"severity\" (value 11 headache)" };
@@ -79,24 +82,43 @@ describe("rejection report", () => {
     expect(mockReports).toHaveLength(1);
   });
 
-  it("is retried at the next flush when the report itself could not be sent, and the entry is still kept", async () => {
+  it("a report that could not be sent waits ten minutes, then goes, and the entry is still kept", async () => {
     mockReportError = { message: "Network request failed" };
     const item = await enqueue({ kind: "symptom", subjectId: "p1", payload: SYMPTOM });
     await flushOutbox();
-    expect(mockReports).toHaveLength(0);
+    expect(mockAttempts).toBe(1);
     mockReportError = null;
     await flushOutbox();
+    await flushOutbox();
+    expect(mockAttempts).toBe(1); // on hold: not asked again on every flush
+    const spy = jest.spyOn(Date, "now").mockReturnValue(Date.now() + 11 * 60_000);
+    await flushOutbox();
+    spy.mockRestore();
     expect(mockReports).toHaveLength(1);
     expect(mockReports[0]).toMatchObject({ client_id: item.clientId });
   });
 
-  it("does NOT treat the daily cap (53400) as sent: the row was not stored, so it is tried again later", async () => {
+  it("a REFUSAL (the daily cap, a permission) is not asked again until tomorrow", async () => {
     mockReportError = { code: "53400", message: "too many rejection reports today" };
     await enqueue({ kind: "symptom", subjectId: "p1", payload: SYMPTOM });
-    await flushOutbox();
+    for (let i = 0; i < 5; i++) await flushOutbox();
+    expect(mockAttempts).toBe(1);
     mockReportError = null;
+    const soon = jest.spyOn(Date, "now").mockReturnValue(Date.now() + 11 * 60_000);
     await flushOutbox();
+    soon.mockRestore();
+    expect(mockAttempts).toBe(1); // ten minutes is not tomorrow
+    const tomorrow = jest.spyOn(Date, "now").mockReturnValue(Date.now() + 25 * 3_600_000);
+    await flushOutbox();
+    tomorrow.mockRestore();
     expect(mockReports).toHaveLength(1);
+  });
+
+  it("a permission refusal (42501) is also left until tomorrow", async () => {
+    mockReportError = { code: "42501", message: "new row violates row-level security policy" };
+    await enqueue({ kind: "symptom", subjectId: "p1", payload: SYMPTOM });
+    for (let i = 0; i < 4; i++) await flushOutbox();
+    expect(mockAttempts).toBe(1);
   });
 
   it("treats a repeat the server already holds (23505) as done", async () => {
