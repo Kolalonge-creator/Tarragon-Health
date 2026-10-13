@@ -13,10 +13,14 @@
 --   6. no spec amended                               -> schedule_spec stays null
 --   7. weekdays amended with new times               -> spec.times replaced, days kept
 --   8. new times overlapping the spec's window       -> refused with the clear message, nothing superseded
---   9. (inside case 1) the superseded row keeps its own spec untouched
+--   (inside case 1) the superseded row keeps its own spec untouched
+--   9. taper amended with a new dose                  -> refused, nothing superseded
+--  10. every_n_days with endDate, duration changed    -> endDate moves to today + new duration - 1
+--  11. taper amended with a new duration              -> refused, nothing superseded
+--  12. as_needed amended with plain times             -> refused, nothing superseded
 --
 -- SABOTAGE: take the schedule_spec column out of amend_medication's insert (the pre-fix body);
--- cases 1, 2, 3, 5 and 7 must FAIL (the new row's spec is null) and case 4 must FAIL (no refusal).
+-- cases 1, 2, 3, 5, 7 and 10 must FAIL (the new row's spec is null) and case 4 must FAIL (no refusal).
 -- Done 2026-10-13 by running this file, unchanged, against the live pre-fix definition: it aborted
 -- at case 4's consequence (the taper was superseded without a refusal, so case 5 hit 'already been
 -- amended'), i.e. it fails loudly rather than passing.
@@ -174,6 +178,75 @@ begin
   insert into test_result values (8, 'times overlapping the window are refused with the clear message, nothing superseded',
     case when v_raised like '%do not fit the existing schedule%'
           and (select superseded_at from public.medications where id = v_med) is null
+         then 'PASS' else 'FAIL' end, coalesce(v_raised, 'no error raised'));
+
+  ---------------------------------------------------------------- case 9
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, source, is_active, quantity, duration_days, schedule_spec)
+  values (v_org, v_pat, 'Spec Probe TaperDose', '20mg', 'x', 'clinician', true, '20 tablets', 10, v_taper)
+  returning id into v_med;
+  v_raised := null;
+  begin
+    perform set_config('request.jwt.claims', json_build_object('sub', v_clin, 'role', 'authenticated')::text, true);
+    perform set_config('role', 'authenticated', true);
+    perform public.amend_medication(v_med, 'Refusal probe', p_allergies_confirmed => true, p_dose => '5mg');
+  exception when others then
+    v_raised := sqlerrm;
+  end;
+  perform set_config('role', 'postgres', true);
+  perform set_config('request.jwt.claims', '', true);
+  insert into test_result values (9, 'taper amended with a new dose is refused, nothing superseded',
+    case when v_raised like '%sets the dose per step%' and (select superseded_at from public.medications where id = v_med) is null
+         then 'PASS' else 'FAIL' end, coalesce(v_raised, 'no error raised'));
+
+  ---------------------------------------------------------------- case 10
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, source, is_active, quantity, duration_days, schedule_spec, schedule_times)
+  values (v_org, v_pat, 'Spec Probe EndDate', '5mg', 'every 3 days', 'clinician', true, '10 tablets', 30,
+          v_everyn || '{"endDate":"2026-10-31"}'::jsonb, '["09:00"]')
+  returning id into v_med;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_clin, 'role', 'authenticated')::text, true);
+  perform set_config('role', 'authenticated', true);
+  select public.amend_medication(v_med, 'Longer supply', p_allergies_confirmed => true, p_duration_days => 60) into v_new;
+  perform set_config('role', 'postgres', true);
+  perform set_config('request.jwt.claims', '', true);
+  select schedule_spec into v_spec from public.medications where id = v_new;
+  insert into test_result values (10, 'a changed duration moves a dated endDate with it',
+    case when v_spec ->> 'endDate' = to_char(current_date + 59, 'YYYY-MM-DD')
+          and v_spec - 'endDate' = v_everyn then 'PASS' else 'FAIL' end, coalesce(v_spec::text, 'null'));
+
+  ---------------------------------------------------------------- case 11
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, source, is_active, quantity, duration_days, schedule_spec)
+  values (v_org, v_pat, 'Spec Probe TaperDur', '20mg', 'x', 'clinician', true, '20 tablets', 10, v_taper)
+  returning id into v_med;
+  v_raised := null;
+  begin
+    perform set_config('request.jwt.claims', json_build_object('sub', v_clin, 'role', 'authenticated')::text, true);
+    perform set_config('role', 'authenticated', true);
+    perform public.amend_medication(v_med, 'Refusal probe', p_allergies_confirmed => true, p_duration_days => 40);
+  exception when others then
+    v_raised := sqlerrm;
+  end;
+  perform set_config('role', 'postgres', true);
+  perform set_config('request.jwt.claims', '', true);
+  insert into test_result values (11, 'taper amended with a new duration is refused, nothing superseded',
+    case when v_raised like '%sets its length from its steps%' and (select superseded_at from public.medications where id = v_med) is null
+         then 'PASS' else 'FAIL' end, coalesce(v_raised, 'no error raised'));
+
+  ---------------------------------------------------------------- case 12
+  insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, source, is_active, quantity, duration_days, schedule_spec)
+  values (v_org, v_pat, 'Spec Probe PrnTimes', '20mg', 'x', 'clinician', true, '20 tablets', 10, v_asneeded)
+  returning id into v_med;
+  v_raised := null;
+  begin
+    perform set_config('request.jwt.claims', json_build_object('sub', v_clin, 'role', 'authenticated')::text, true);
+    perform set_config('role', 'authenticated', true);
+    perform public.amend_medication(v_med, 'Refusal probe', p_allergies_confirmed => true, p_schedule_times => v_times);
+  exception when others then
+    v_raised := sqlerrm;
+  end;
+  perform set_config('role', 'postgres', true);
+  perform set_config('request.jwt.claims', '', true);
+  insert into test_result values (12, 'as_needed amended with plain times is refused, nothing superseded',
+    case when v_raised like '%no fixed times%' and (select superseded_at from public.medications where id = v_med) is null
          then 'PASS' else 'FAIL' end, coalesce(v_raised, 'no error raised'));
 
   if exists (select 1 from test_result where outcome = 'FAIL') then

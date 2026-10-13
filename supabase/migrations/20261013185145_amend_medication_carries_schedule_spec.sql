@@ -9,8 +9,10 @@
 -- Rule now: the new row keeps the old row's schedule_spec (kind, food note, window, dates, steps).
 -- If the amendment supplies new p_schedule_times and the spec has a single times list
 -- (daily / every_n_days / weekdays) those times replace spec.times, so the spec and the plain list
--- agree; if the result is not a valid schedule (say a window longer than the new gap) it is refused up front with a clear message. As-needed has no times and is kept as is. A taper carries its times per step, so new plain
--- times cannot be mapped onto it: that is refused with a clear message instead of guessed.
+-- agree; if the result is not a valid schedule (say a window longer than the new gap) it is refused up front with a clear message. A taper carries dose, times and length per step, so a new plain
+-- dose, times or duration cannot be mapped onto it: refused with a clear message instead of guessed.
+-- As-needed has no times, so plain times are refused (they would silently create no reminders).
+-- A changed duration_days moves a dated spec.endDate to current_date (or startDate if later) + duration - 1.
 -- schedule_effective_from is stamped by the existing insert trigger (created_at of the new version).
 --
 -- Signature, grants and every other behaviour are unchanged (create or replace keeps the ACL).
@@ -36,6 +38,7 @@ declare
   v_drug text;
   v_dose text; v_freq text; v_route text; v_dur integer; v_qty text; v_rep integer; v_ind text; v_ins text;
   v_spec jsonb;
+  v_kind text;
 begin
   if coalesce(btrim(p_amendment_reason), '') = '' then
     raise exception 'A reason for the amendment is required' using errcode = '22023';
@@ -75,16 +78,41 @@ begin
     raise exception 'A duration in days is required: how many days this supply covers' using errcode = '22023';
   end if;
 
-  -- Carry the structured schedule. Explicit new times replace spec.times where the kind has one list.
+  -- Carry the structured schedule, and refuse any amendment that would leave it contradicting the new prescription.
   v_spec := v_old.schedule_spec;
-  if v_spec is not null and p_schedule_times is not null then
-    if v_spec ->> 'kind' in ('daily', 'every_n_days', 'weekdays') then
-      v_spec := jsonb_set(v_spec, '{times}', p_schedule_times, true);
-    elsif v_spec ->> 'kind' = 'taper' then
-      raise exception 'A tapering schedule keeps its times per step: amend the schedule itself, not the plain times list' using errcode = '22023';
+  if v_spec is not null then
+    v_kind := v_spec ->> 'kind';
+    if v_kind = 'taper' then
+      -- A taper sets dose and times per step and its length from the steps: a plain dose, times or
+      -- duration cannot be mapped onto it without guessing.
+      if p_schedule_times is not null then
+        raise exception 'A tapering schedule keeps its times per step: amend the schedule itself, not the plain times list' using errcode = '22023';
+      end if;
+      if p_dose is not null and p_dose is distinct from v_old.dose then
+        raise exception 'A tapering schedule sets the dose per step: amend the schedule itself, not the plain dose' using errcode = '22023';
+      end if;
+      if p_duration_days is not null and p_duration_days is distinct from v_old.duration_days then
+        raise exception 'A tapering schedule sets its length from its steps: amend the schedule itself, not the duration' using errcode = '22023';
+      end if;
+    elsif v_kind = 'as_needed' then
+      if p_schedule_times is not null then
+        raise exception 'An as-needed medicine has no fixed times: fixed times would not create reminders' using errcode = '22023';
+      end if;
+    elsif v_kind in ('daily', 'every_n_days', 'weekdays') then
+      if p_schedule_times is not null then
+        v_spec := jsonb_set(v_spec, '{times}', p_schedule_times, true);
+      end if;
     end if;
-    if not private.is_valid_schedule_spec(v_spec) then
-      raise exception 'These times do not fit the existing schedule (for example a dose window that reaches the next dose): adjust the schedule itself' using errcode = '22023';
+    -- A changed supply length moves a dated end with it: the new version covers duration_days from now
+    -- (or from its start date, if that is later). Without this, reminders stop or carry on at the old end.
+    if v_kind <> 'taper' and p_duration_days is not null and p_duration_days is distinct from v_old.duration_days
+       and coalesce(v_spec ->> 'endDate', '') <> '' then
+      v_spec := jsonb_set(v_spec, '{endDate}', to_jsonb(to_char(
+        greatest(current_date, coalesce(nullif(v_spec ->> 'startDate', '')::date, current_date)) + p_duration_days - 1,
+        'YYYY-MM-DD')), true);
+    end if;
+    if v_spec is distinct from v_old.schedule_spec and not private.is_valid_schedule_spec(v_spec) then
+      raise exception 'These changes do not fit the existing schedule (for example a dose window that reaches the next dose): adjust the schedule itself' using errcode = '22023';
     end if;
   end if;
 
