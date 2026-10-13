@@ -2,7 +2,7 @@ import { describe, expect, it } from "@jest/globals";
 import { aggregateChallenge } from "./community-aggregate";
 import { getProposedConfig } from "./proposed-config";
 
-const rules = getProposedConfig("community.rules").value as {
+const rules = getProposedConfig("cohorts.rules").value as {
   min_contributors: number; max_single_share_pct: number; round_total_to: number; progress_step_pct: number;
 };
 

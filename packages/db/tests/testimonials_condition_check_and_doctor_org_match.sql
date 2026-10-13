@@ -72,13 +72,13 @@ begin
   insert into public.clinical_staff
     (organisation_id, profile_id, doctor_tier, full_name, active, license_verified_at)
   values
-    (v_org_a, v_staff_a_profile, 'medical_officer', 'Dr. TCC A', true, now())
+    (v_org_a, v_staff_a_profile, 'senior_medical_officer', 'Dr. TCC A', true, now())
   returning id into v_staff_a;
 
   insert into public.clinical_staff
     (organisation_id, profile_id, doctor_tier, full_name, active, license_verified_at)
   values
-    (v_org_b, v_staff_b_profile, 'medical_officer', 'Dr. TCC B', true, now())
+    (v_org_b, v_staff_b_profile, 'senior_medical_officer', 'Dr. TCC B', true, now())
   returning id into v_staff_b;
 
   insert into tcc_fixture values

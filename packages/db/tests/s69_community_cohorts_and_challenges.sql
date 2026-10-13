@@ -246,7 +246,7 @@ begin
   perform pg_temp.ck('5 the moderator reads none of a member''s health rows', '0', pg_temp.q_as(v_ma, $q$select count(*)::text from public.nutrition_log_entries$q$));
   perform pg_temp.ck('5 the moderator reads only their own membership row', '1', pg_temp.q_as(v_ma, $q$select count(*)::text from public.cohort_members$q$));
   perform pg_temp.ck('5 the moderator cannot read invites, reports or group sessions', '42501|42501|42501',
-    (select string_agg(x, '|') from (select split_part(pg_temp.q_as(v_ma, 'select count(*)::text from public.' || tn.tname), ':', 2) x from unnest(array['cohort_invites', 'community_reports', 'group_sessions']) as tn(tname)) z));
+    (select string_agg(x, '|') from (select split_part(pg_temp.q_as(v_ma, 'select count(*)::text from public.' || tn.tname), ':', 2) x from unnest(array['cohort_invites', 'cohort_reports', 'group_sessions']) as tn(tname)) z));
 
   ---------------------------------------------------------------------------------------------------------------- 6. templates and challenges
   perform pg_temp.ck('6 a template not yet signed cannot start a challenge', 'ERR:P0001:template_not_approved',
@@ -426,7 +426,7 @@ begin
   v_member_row := (select id from public.cohort_members where patient_id = v_reported and cohort_id = v_ca);
   perform pg_temp.ck('13 a member can report another (no free text)', 'true', pg_temp.q_as(v_first, format('select (public.community_report(%L::uuid, %L::uuid, %L) ->> %L)', v_ca, v_member_row, 'unwanted_contact', 'ok')));
   perform pg_temp.q_as(v_first, format('select public.community_report(%L::uuid, %L::uuid, %L)::text', v_ca, v_member_row, 'unwanted_contact'));
-  perform pg_temp.ck('13 a repeat report does not double', '1', (select count(*)::text from public.community_reports where reported_member_id = v_member_row and state = 'open'));
+  perform pg_temp.ck('13 a repeat report does not double', '1', (select count(*)::text from public.cohort_reports where reported_member_id = v_member_row and state = 'open'));
   perform pg_temp.ck('13 the moderator sees the report without the reporter', 'reason,member_id,report_id,created_on',
     (select string_agg(k, ',' order by length(k), k) from (select distinct jsonb_object_keys(e) k from jsonb_array_elements(pg_temp.j(v_ma, format('select public.community_moderator_reports(%L::uuid)::text', v_ca))) e) z));
   perform pg_temp.ck('13 the report text never carries the reporter id', 'false', (pg_temp.j(v_ma, format('select public.community_moderator_reports(%L::uuid)::text', v_ca))::text like '%' || v_first::text || '%')::text);
@@ -434,12 +434,12 @@ begin
   perform pg_temp.ck('13 a non-admin cannot read the admin queue', 'ERR:42501', substr(pg_temp.q_as(v_first, $q$select public.admin_community_reports()::text$q$), 1, 9));
   perform pg_temp.ck('13 the moderator removes the member', 'true', pg_temp.q_as(v_ma, format('select (public.community_remove_member(%L::uuid, %L::uuid) ->> %L)', v_ca, v_member_row, 'ok')));
   perform pg_temp.ck('13 removal closes the report and erases the effort', 'actioned|0',
-    (select state from public.community_reports where reported_member_id = v_member_row) || '|' || (select count(*)::text from public.challenge_participation where patient_id = v_reported));
+    (select state from public.cohort_reports where reported_member_id = v_member_row) || '|' || (select count(*)::text from public.challenge_participation where patient_id = v_reported));
   perform pg_temp.ck('13 a moderator cannot remove a moderator', '{"ok": false}', pg_temp.q_as(v_ma, format('select public.community_remove_member(%L::uuid, %L::uuid)::text', v_ca, (select id from public.cohort_members where patient_id = v_ma and cohort_id = v_ca))));
   -- an admin removal can bar the person from rejoining
   v_member_row := (select id from public.cohort_members where patient_id = v_bad and cohort_id = v_ca);
-  insert into public.community_reports (organisation_id, cohort_id, reporter_id, reported_member_id, reason, is_test) values (v_org, v_ca, v_first, v_member_row, 'concerning_behaviour', true);
-  perform pg_temp.q_as(v_admin, format('select public.admin_community_resolve_report(%L::uuid, %L, true)::text', (select id from public.community_reports where reported_member_id = v_member_row), 'remove_member'));
+  insert into public.cohort_reports (organisation_id, cohort_id, reporter_id, reported_member_id, reason, is_test) values (v_org, v_ca, v_first, v_member_row, 'concerning_behaviour', true);
+  perform pg_temp.q_as(v_admin, format('select public.admin_community_resolve_report(%L::uuid, %L, true)::text', (select id from public.cohort_reports where reported_member_id = v_member_row), 'remove_member'));
   v_tok := pg_temp.q_as(v_ma, format('select (public.community_create_invite(%L::uuid) ->> %L)', v_ca, 'token'));
   perform pg_temp.ck('13 a barred member cannot rejoin with a fresh invite', '{"ok": false}', pg_temp.q_as(v_bad, format('select public.community_join(%L, true)::text', v_tok)));
   perform pg_temp.ck('13 a removed (not barred) member can be invited again and starts with no consent', 'true|false',
@@ -533,11 +533,11 @@ begin
   perform private.challenge_aggregate(v_chC, false);
   perform pg_temp.ck('S1 real: a 4-contributor cohort is hidden', 'too_few', (select suppression_reason from public.challenge_totals where challenge_id = v_chC order by as_of desc limit 1));
   create or replace function private.community_rules() returns jsonb language sql stable security definer set search_path = ''
-    as $f$ select (rules || '{"min_contributors": 2}'::jsonb) from public.community_config where is_active $f$;
+    as $f$ select (rules || '{"min_contributors": 2}'::jsonb) from public.cohort_config where is_active $f$;
   perform private.challenge_aggregate(v_chC, false);
   perform pg_temp.sab('S1 a floor of 2 hides a 4-contributor cohort', 'too_few', coalesce((select suppression_reason from public.challenge_totals where challenge_id = v_chC order by as_of desc limit 1), 'shown'));
   create or replace function private.community_rules() returns jsonb language sql stable security definer set search_path = ''
-    as $f$ select rules from public.community_config where is_active $f$;
+    as $f$ select rules from public.cohort_config where is_active $f$;
 end $$;
 
 -- (S2) leave-one-out disabled (a share cap of 100): a cohort of 11 contributors with one dominant would show its total
@@ -555,11 +555,11 @@ begin
   perform private.challenge_aggregate(v_ch, false);
   perform pg_temp.ck('S2 real: a dominant contributor hides the total', 'dominant_contributor', (select suppression_reason from public.challenge_totals where challenge_id = v_ch order by as_of desc limit 1));
   create or replace function private.community_rules() returns jsonb language sql stable security definer set search_path = ''
-    as $f$ select (rules || '{"max_single_share_pct": 100}'::jsonb) from public.community_config where is_active $f$;
+    as $f$ select (rules || '{"max_single_share_pct": 100}'::jsonb) from public.cohort_config where is_active $f$;
   perform private.challenge_aggregate(v_ch, false);
   perform pg_temp.sab('S2 with leave-one-out off the dominant total is hidden', 'dominant_contributor', coalesce((select suppression_reason from public.challenge_totals where challenge_id = v_ch order by as_of desc limit 1), 'shown'));
   create or replace function private.community_rules() returns jsonb language sql stable security definer set search_path = ''
-    as $f$ select rules from public.community_config where is_active $f$;
+    as $f$ select rules from public.cohort_config where is_active $f$;
 end $$;
 
 -- (S3) the effort-only rule disabled: the insulin user could join an activity challenge
@@ -596,12 +596,12 @@ do $$
 declare v_u uuid := pg_temp.f('first');
 begin
   delete from public.notifications where template = 'community_update';
-  create or replace function private.community_notify(p_recipient uuid, p_org uuid, p_source_table text, p_source uuid) returns void language plpgsql security definer set search_path = '' as $f$
+  create or replace function private.cohort_notify(p_recipient uuid, p_org uuid, p_source_table text, p_source uuid) returns void language plpgsql security definer set search_path = '' as $f$
   begin
     insert into public.notifications (recipient_id, organisation_id, channel, template, payload, status, content_class, priority, source_table, source_id)
     values (p_recipient, p_org, 'in_app', 'community_update', jsonb_build_object('cohort', 'Grace Fellowship Group'), 'pending', 'non_clinical', 'routine'::public.notification_priority, p_source_table, p_source);
   end $f$;
-  perform private.community_notify(v_u, pg_temp.f('org'), 'challenges', gen_random_uuid());
+  perform private.cohort_notify(v_u, pg_temp.f('org'), 'challenges', gen_random_uuid());
   perform pg_temp.sab('S6 a notice carrying the cohort name', '0', (select count(*)::text from public.notifications where template = 'community_update' and payload <> '{}'::jsonb));
 end $$;
 

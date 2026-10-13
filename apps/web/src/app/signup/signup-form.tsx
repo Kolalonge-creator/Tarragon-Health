@@ -16,6 +16,7 @@ import { PASSWORD_MIN_LENGTH, PASSWORD_RULE_HINT } from "@/lib/validation/passwo
 import { t, type Locale } from "@tarragon/i18n";
 import { cn } from "@/lib/utils";
 import { PhoneSignupForm } from "./phone-signup-form";
+import { AdultDobField } from "./adult-dob-field";
 
 const FIELD_CLASS = "h-11 rounded-xl";
 
@@ -212,6 +213,14 @@ function EmailSignupForm({
           Helps us show what&apos;s available near you. You can add or change this at any time.
         </p>
       </div>
+      <AdultDobField
+        key={state?.values?.dateOfBirth ?? "dob"}
+        idPrefix="signup"
+        errorId={errorId}
+        invalid={invalid("dateOfBirth")}
+        disabled={pending}
+        defaultValue={state?.values?.dateOfBirth}
+      />
       <div className="space-y-1.5">
         <Label htmlFor="password" className="text-charcoal-ink/70">
           Password

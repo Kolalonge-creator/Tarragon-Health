@@ -32,6 +32,7 @@ function formDataFor(overrides: Record<string, string> = {}) {
   fd.set("countryCode", "+234");
   fd.set("phone", "8012345678");
   fd.set("state", "");
+  fd.set("dateOfBirth", "1990-04-02");
   fd.set("password", "a-strong-password-123");
   for (const [k, v] of Object.entries(overrides)) fd.set(k, v);
   return fd;
@@ -51,6 +52,20 @@ describe("signUp — redirect threading", () => {
         options: expect.objectContaining({
           emailRedirectTo: "https://app.tarragonhealth.ng/auth/callback?redirect=%2Fclaim%2Ftok_abc123",
         }),
+      })
+    );
+  });
+
+  it("email sign-up refuses an under-18 date of birth and never calls Auth (S04b-1), and carries an adult one", async () => {
+    const year = new Date().getUTCFullYear() - 15;
+    const refused = await signUp(undefined, formDataFor({ dateOfBirth: `${year}-01-10` }));
+    expect(refused).toMatchObject({ field: "dateOfBirth" });
+    expect(signUpMock).not.toHaveBeenCalled();
+
+    await signUp(undefined, formDataFor());
+    expect(signUpMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({ data: expect.objectContaining({ date_of_birth: "1990-04-02" }) }),
       })
     );
   });

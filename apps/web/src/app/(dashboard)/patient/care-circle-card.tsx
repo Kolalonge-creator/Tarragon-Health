@@ -32,7 +32,7 @@ export function CareCircleCard({ showCommunity = false }: { showCommunity?: bool
           </Button>
           {showCommunity ? (
             <Button asChild size="sm" variant="outline">
-              <Link href="/patient/community">Community groups</Link>
+              <Link href="/patient/cohorts">Community groups</Link>
             </Button>
           ) : null}
         </div>

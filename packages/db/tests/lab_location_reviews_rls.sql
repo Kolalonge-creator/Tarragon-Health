@@ -126,7 +126,7 @@ begin
 
   insert into public.clinical_staff
     (profile_id, organisation_id, active, doctor_tier, full_name, license_verified_at)
-  values (v_staff, v_org, true, 'medical_officer', 'LLR Clinician', now())
+  values (v_staff, v_org, true, 'senior_medical_officer', 'LLR Clinician', now())
   returning id into v_staff_row;
 
   -- v_caregiver_ok genuinely may act for patient A on booking/logistics
