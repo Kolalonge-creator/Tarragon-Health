@@ -181,6 +181,7 @@ begin
   v_parent := pg_temp.mkuser(v_org, 'parent', 'patient'); v_stranger := pg_temp.mkuser(v_org, 'stranger', 'patient');
   v_clin := pg_temp.mkuser(v_org, 'clin_test', 'clinician'); v_clin_real := pg_temp.mkuser(v_org, 'clin_real', 'clinician', null, null, false);
   v_boy := pg_temp.mkchild(v_org, v_parent, 'boy', v_dob, 'male'); v_girl := pg_temp.mkchild(v_org, v_parent, 'girl', v_dob, 'female');
+  insert into public.care_team_assignment (organisation_id, patient_id, clinician_id) values (v_org, v_boy, v_clin) on conflict (patient_id) do update set clinician_id = excluded.clinician_id;  -- main-dev S39g: clinician writes need a care tie
   perform pg_temp.setf('org', v_org); perform pg_temp.setf('parent', v_parent); perform pg_temp.setf('stranger', v_stranger);
   perform pg_temp.setf('clin', v_clin); perform pg_temp.setf('clin_real', v_clin_real); perform pg_temp.setf('boy', v_boy); perform pg_temp.setf('girl', v_girl);
 
@@ -277,7 +278,9 @@ declare
   v_t uuid; v_r uuid; v_dob date := (current_date - 400); m public.child_growth_measurements%rowtype; v_al public.clinician_alerts%rowtype; c uuid;
 begin
   v_t := pg_temp.mkchild(v_org, v_parent, 'sam_test_child', v_dob, 'female', true);
+  insert into public.care_team_assignment (organisation_id, patient_id, clinician_id) values (v_org, v_t, v_clin) on conflict (patient_id) do update set clinician_id = excluded.clinician_id;  -- main-dev S39g: clinician writes need a care tie
   v_r := pg_temp.mkchild(v_org, v_parent, 'sam_real_child', v_dob, 'female', false);
+  insert into public.care_team_assignment (organisation_id, patient_id, clinician_id) values (v_org, v_r, v_clin) on conflict (patient_id) do update set clinician_id = excluded.clinician_id;  -- main-dev S39g: clinician writes need a care tie
   perform pg_temp.setf('t_child', v_t); perform pg_temp.setf('r_child', v_r);
 
   insert into public.child_growth_measurements (organisation_id, patient_id, measured_at, weight_kg, height_cm, muac_mm)

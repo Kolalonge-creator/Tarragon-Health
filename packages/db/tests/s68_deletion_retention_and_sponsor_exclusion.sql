@@ -160,6 +160,7 @@ declare
   v_org uuid := pg_temp.f('org'); v_mum uuid := pg_temp.f('mum'); v_clin uuid := pg_temp.f('clin'); v_stranger uuid := pg_temp.f('stranger'); v_child uuid := pg_temp.f('child');
   v_req uuid; v_req2 uuid; r jsonb; m1 uuid; m2 uuid; m3 uuid; v_al uuid; v_kid2 uuid;
 begin
+  insert into public.care_team_assignment (organisation_id, patient_id, clinician_id) values (v_org, v_child, v_clin) on conflict (patient_id) do update set clinician_id = excluded.clinician_id;  -- main-dev S39g: clinician writes need a care tie
   delete from public.breastfeeding_feed_log where patient_id = v_mum;
   insert into public.breastfeeding_feed_log (organisation_id, patient_id, feed_type) select v_org, v_mum, 'formula' from generate_series(1, 3);
   -- a clinician-recorded feed row
