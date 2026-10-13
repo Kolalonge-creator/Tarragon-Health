@@ -476,6 +476,13 @@ create policy account_recovery_contacts_own on public.account_recovery_contacts 
 create policy account_recovery_contact_requests_own on public.account_recovery_contact_requests for select to authenticated
   using (patient_id = (select auth.uid()) or contact_id = (select auth.uid()));
 
+-- S39d data registry: every patient-keyed table is classified. The contact arrangement is a consent-like record; a recovery request is
+-- security process data (not exported, deleted at end of retention). PROPOSED until the CMO and DPO confirm (reviewed = false).
+insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, notes) values
+  ('account_recovery_contacts', 'patient_id', 'consent', 'review', true, 'S03b: who the patient named as recovery contact'),
+  ('account_recovery_contact_requests', 'patient_id', 'operational', 'delete', false, 'S03b: a recovery request and its wait; security process data')
+on conflict (table_name) do nothing;
+
 -- Is this circle membership still real right now?
 create function private.circle_member_is_live(p_member uuid) returns boolean
 language sql stable security definer set search_path = ''
