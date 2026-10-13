@@ -820,7 +820,8 @@ Deno.serve(async () => {
   const routineByRecipient = new Map<string, NotificationRow[]>();
   for (const row of rows) {
     // Safety messages are never folded away, and neither is a reminder quiet hours already held: it is sent once.
-    if (row.priority !== "routine" || isSafetyCritical(row.template) || previouslyHeldIds.has(row.id)) continue;
+    // If the held-row lookup failed nothing is folded this pass, so a released reminder cannot be folded away for good.
+    if (heldError || row.priority !== "routine" || isSafetyCritical(row.template) || previouslyHeldIds.has(row.id)) continue;
     const list = routineByRecipient.get(row.recipient_id) ?? [];
     list.push(row);
     routineByRecipient.set(row.recipient_id, list);

@@ -22,9 +22,19 @@ begin
 end $rules$;
 
 -- One new delivery event: a discreet patient's email carried no document; it is open in the app.
-alter table public.notification_delivery_events drop constraint if exists notification_delivery_events_event_check;
-alter table public.notification_delivery_events add constraint notification_delivery_events_event_check
-  check (event in ('accepted','receipt_pending','delivered','opened','failed','bounced','complained','deferred_quiet','suppressed_cap','blocked_inv07','token_dead','email_fallback_queued','discreet_document_in_app'));
+-- Built from the live constraint definition (not a copy of an older list), so no other event value is lost.
+do $evt$
+declare v_def text;
+begin
+  select pg_get_constraintdef(oid) into v_def from pg_constraint where conname = 'notification_delivery_events_event_check' and conrelid = 'public.notification_delivery_events'::regclass;
+  if v_def is null then raise exception 'S04b-3: notification_delivery_events_event_check not found'; end if;
+  if v_def not like '%discreet_document_in_app%' then
+    v_def := replace(v_def, '::text])', '::text, ''discreet_document_in_app''::text])');
+    if v_def not like '%discreet_document_in_app%' then raise exception 'S04b-3: could not extend the event check: %', v_def; end if;
+    alter table public.notification_delivery_events drop constraint notification_delivery_events_event_check;
+    execute 'alter table public.notification_delivery_events add constraint notification_delivery_events_event_check ' || v_def;
+  end if;
+end $evt$;
 
 alter table public.notification_settings alter column quiet_enabled set default false;
 
