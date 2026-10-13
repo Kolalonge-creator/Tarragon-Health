@@ -87,7 +87,7 @@ export default async function AdminPartnerQualityPage() {
           {overview?.success && (
             <details><summary className="cursor-pointer text-brand-green">Record a complaint</summary>
               <div className="mt-2 max-w-md">
-                <p className="mb-2 text-xs text-charcoal-ink/60">Never write a patient's name or a result here. Use the category and a short note about the partner.</p>
+                <p className="mb-2 text-xs text-charcoal-ink/60">Never write a patient&apos;s name or a result here. Use the category and a short note about the partner.</p>
                 <ActionForm action={recordComplaintAction} fields={[
                   { name: "kind", label: "Kind of partner", kind: "select", options: [{ value: "lab", label: "Laboratory" }, { value: "pharmacy", label: "Pharmacy" }, { value: "clinic", label: "Clinic" }] },
                   { name: "partner", label: "Partner", kind: "select", options: overview.data.map((r) => ({ value: r.partner_id, label: `${r.partner_name ?? "Unnamed"} (${PARTNER_KIND_LABEL[r.partner_kind]})` })) },
