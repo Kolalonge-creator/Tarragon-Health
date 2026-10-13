@@ -227,7 +227,8 @@ function DeletionRequestRow({ request }: { request: AdminDataDeletionRequest }) 
   const isOpen = request.status === "pending" || request.status === "under_review";
   const isApproved = request.status === "approved_full" || request.status === "approved_partial";
   // The patient's waiting period (S04b-2): nothing can be approved or completed until it ends, and the patient can cancel until then.
-  const inGrace = !!request.grace_ends_at && Date.now() < Date.parse(request.grace_ends_at);
+  const [renderedAt] = useState(() => Date.now());
+  const inGrace = !!request.grace_ends_at && renderedAt < Date.parse(request.grace_ends_at);
   const reviewError = review.isError
     ? review.error instanceof Error
       ? review.error.message
