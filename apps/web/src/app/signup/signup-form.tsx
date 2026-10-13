@@ -6,6 +6,7 @@ import { COUNTRY_CALLING_CODES } from "@tarragon/shared";
 import { NIGERIAN_STATES } from "@/lib/nigeria-states";
 import { signUp } from "./actions";
 import { Button } from "@/components/ui/button";
+import { CohortCodeField } from "./cohort-code-field";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
@@ -242,6 +243,7 @@ function EmailSignupForm({
           {PASSWORD_RULE_HINT}
         </p>
       </div>
+      <CohortCodeField idPrefix="signup" className={FIELD_CLASS} />
       <FormError id={errorId} message={state?.error} />
       <Button type="submit" size="lg" className="w-full rounded-xl" disabled={pending}>
         {pending ? "Creating account…" : "Create account"}
