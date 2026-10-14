@@ -447,6 +447,15 @@ comment on table public.medication_side_effect_notes is
 create index medication_side_effect_notes_patient_idx on public.medication_side_effect_notes (patient_id, noted_at desc);
 create index medication_side_effect_notes_med_idx on public.medication_side_effect_notes (medication_id);
 
+-- S39d registry: every table holding a person's rows is listed, with its retention class (PROPOSED until the CMO and DPO confirm, like the seeded
+-- rows). Not live yet, so there are no rows to classify. Without this the two-tier registry check (A1) fails on a fresh replay.
+insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, notes)
+values ('medication_side_effect_notes', 'patient_id', private.retention_class_for('medication_side_effect_notes'),
+        case when private.retention_class_for('medication_side_effect_notes') = 'operational' then 'delete' else 'review' end,
+        private.retention_class_for('medication_side_effect_notes') <> 'audit',
+        'S53 2026-10-15: PROPOSED, to be confirmed by the CMO and DPO.')
+on conflict (table_name) do nothing;
+
 -- Forbids UPDATE for everyone; the review stamp needs one narrow exception, set only inside mark_side_effect_notes_reviewed().
 create or replace function private.medication_side_effect_note_guard() returns trigger
 language plpgsql security definer set search_path = '' as $$
