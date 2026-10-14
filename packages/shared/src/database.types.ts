@@ -43801,6 +43801,8 @@ export type Database = {
         }
         Returns: Json
       }
+      // S05b-c: spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
+      clinical_value_history: { Args: { p_table: string; p_id: string }; Returns: Json }
       // S27 (lab results and release rules): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       bp_control_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       // S38c (monthly report and risk stratification): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
