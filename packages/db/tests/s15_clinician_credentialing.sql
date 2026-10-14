@@ -427,6 +427,8 @@ begin
   perform public.reinstate_clinician(v_staff, 'renewed licence checked');
   perform pg_temp.back();
   perform pg_temp.rec('reinstated: active again with the role back', 'active,true,clinician', (select status::text || ',' || active::text || ',' || (select role::text from public.profiles where id = v_p1) from public.clinical_staff where id = v_staff));
+  perform pg_temp.rec('a renewal records its evidence: source, checker and time (S20 v2)', 'document_sighted/true/true',
+    (select evidence_source || '/' || (checked_by = v_admin)::text || '/' || (checked_at > now() - interval '1 minute')::text from public.credential_verifications where clinical_staff_id = v_staff and kind = 'licence' order by checked_at desc limit 1));
   perform pg_temp.rec('reinstatement is audited', 'true', ((select count(*) from public.audit_log where action = 'clinical_staff.reinstated' and entity_id = v_staff) = 1)::text);
 
   -- grace period: a licence expired yesterday is held for 5 audited days, then suspended
