@@ -247,6 +247,17 @@ begin
   insert into public.care_message_threads (organisation_id, patient_id, subject) values (pg_temp.f('org'), v_pat, 'proof thread') returning id into th;
   v_msg := pg_temp.try_as(v_pat, format('insert into public.care_messages (organisation_id, patient_id, thread_id, author_profile_id, author_role, body) values (%L, %L, %L, %L, %L, %L)', pg_temp.f('org'), v_pat, th, v_pat, 'patient', 'quartzmango my chest feels tight again'));
   perform pg_temp.ck('fixture: a patient message is written', 'ok', v_msg);
+  -- the audited clinician answers in the same conversation (the case file shows only conversations the clinician took part in)
+  alter table public.care_messages disable trigger user;
+  insert into public.care_messages (organisation_id, patient_id, thread_id, author_profile_id, author_role, body)
+    values (pg_temp.f('org'), v_pat, th, v_fin, (select e from unnest(enum_range(null::public.care_message_author)) e where e::text <> 'patient' limit 1), 'please recheck tomorrow and tell us how it is');
+  alter table public.care_messages enable trigger user;
+  -- a second conversation the clinician never wrote in must not appear
+  insert into public.care_message_threads (organisation_id, patient_id, subject) values (pg_temp.f('org'), v_pat, 'unrelated thread') returning id into th;
+  alter table public.care_messages disable trigger user;
+  insert into public.care_messages (organisation_id, patient_id, thread_id, author_profile_id, author_role, body)
+    values (pg_temp.f('org'), v_pat, th, v_pat, 'patient', 'zucchini unrelated question about something else');
+  alter table public.care_messages enable trigger user;
   -- the gate: no submit before opening
   perform pg_temp.ck('Q1: a score cannot be submitted before the case file was opened', 'ERR:open the case file before you submit the audit', pg_temp.sub(v_rev, v_a, v_safe, v_q4, ''));
   perform pg_temp.ck('...and the other lead cannot open it either', 'ERR:this audit is assigned to another reviewer', pg_temp.opn(v_other_cmo, v_a));
@@ -255,7 +266,8 @@ begin
   v_j := v_res::jsonb;
   perform pg_temp.ck('Q1: the case file carries the clinician''s recorded note', 'done', v_j -> 'task' -> 'outcome' ->> 'note');
   perform pg_temp.ck('...the patient message in the work window', 'true', (v_j -> 'messages' @> '[{"from":"patient"}]' and v_j::text like '%quartzmango%')::text);
-  perform pg_temp.ck('...the patient is a pseudonymous reference and an age', 'true', ((v_j -> 'patient' ->> 'ref') ~ '^P-[0-9A-F]{6}$' and (v_j -> 'patient' ->> 'age') ~ '^[0-9]+$')::text);
+  perform pg_temp.ck('...an unrelated conversation is left out', 'true', (v_res not like '%zucchini%')::text);
+  perform pg_temp.ck('...the patient is a pseudonymous reference and an age band', 'true', ((v_j -> 'patient' ->> 'ref') ~ '^P-[0-9A-F]{6}$' and (v_j -> 'patient' ->> 'age_band') ~ '^[0-9]+ to [0-9]+$')::text);
   perform pg_temp.ck('...and nowhere in it is the patient''s id, name or phone', '0',
     (select (position(v_pat::text in v_res) + position('S20 pat' in v_res) + position((select phone from public.profiles where id = v_pat) in v_res))::text));
   perform pg_temp.ck('INV-10: the opening is an audit_log row with the patient as the subject', '1',
@@ -302,12 +314,12 @@ begin
   perform pg_temp.ck('...the open is recorded as the second reader', '1', (select count(*)::text from public.clinical_audit_case_opens where audit_id = v_a and reader_id = v_sec and role = 'second'));
   perform pg_temp.ck('a second review always needs a written reason', 'ERR:a second review always needs a written reason of at least 20 characters', pg_temp.sub2(v_sec, v_a, v_safe, v_q4, 'ok'));
   v_res := pg_temp.sub2(v_sec, v_a, v_safe, v_q4, 'On my reading the escalation was reasonable on the record.');
-  perform pg_temp.ck('a disagreeing second review is recorded; the more severe reading stands', 'unsafe/false', (v_res::jsonb ->> 'final_outcome') || '/' || (v_res::jsonb ->> 'agrees'));
-  perform pg_temp.ck('...the audit is now final', 'true', (select (final_at is not null and final_outcome = 'unsafe' and second_review_agrees = false)::text from public.clinical_audits where id = v_a));
-  perform pg_temp.ck('...one reliability event, from the final outcome (good = 0)', '1/0', (select count(*)::text || '/' || min(good)::text from public.clinician_reliability_events where task_id = v_t and kind = 'audit_result'));
+  perform pg_temp.ck('a disagreeing second review is recorded and is the final reading', 'satisfactory/false', (v_res::jsonb ->> 'final_outcome') || '/' || (v_res::jsonb ->> 'agrees'));
+  perform pg_temp.ck('...the audit is now final', 'true', (select (final_at is not null and final_outcome = 'satisfactory' and second_review_agrees = false and outcome = 'unsafe')::text from public.clinical_audits where id = v_a));
+  perform pg_temp.ck('...one reliability event, from the final outcome (good = 1)', '1/1', (select count(*)::text || '/' || min(good)::text from public.clinician_reliability_events where task_id = v_t and kind = 'audit_result'));
   perform pg_temp.ck('...the second review row exists once and cannot change', '1/23514', (select count(*)::text from public.clinical_audit_second_reviews where audit_id = v_a) || '/' || pg_temp.try_sql(format('update public.clinical_audit_second_reviews set outcome = %L where audit_id = %L', 'satisfactory', v_a)));
   perform pg_temp.ck('...it cannot be given twice', 'ERR:this audit does not need a second review', pg_temp.sub2(v_sec, v_a, v_safe, v_q4, 'On my reading the escalation was reasonable on the record.'));
-  perform pg_temp.ck('...and a final outcome cannot be rewritten', '23514', pg_temp.try_sql(format('update public.clinical_audits set final_outcome = %L where id = %L', 'satisfactory', v_a)));
+  perform pg_temp.ck('...and a final outcome cannot be rewritten', '23514', pg_temp.try_sql(format('update public.clinical_audits set final_outcome = %L where id = %L', 'unsafe', v_a)));
   perform pg_temp.ck('the audited clinician now sees the audit', '1', pg_temp.q_as(v_fin, format('select count(*) from public.clinical_audits where id = %L', v_a)));
   perform pg_temp.ck('a colleague and an admin account do not', '0/0', pg_temp.q_as(v_oth, format('select count(*) from public.clinical_audits where id = %L', v_a)) || '/' || pg_temp.q_as(v_adm, format('select count(*) from public.clinical_audits where id = %L', v_a)));
 
@@ -406,6 +418,8 @@ begin
   perform pg_temp.ck('a signed version cannot be edited', '23514', pg_temp.try_sql($q$update public.quality_config set rules = jsonb_set(rules, '{sampling,random_rate_percent}', '99') where version = 2$q$));
   perform pg_temp.ck('...nor its signature removed', '23514', pg_temp.try_sql($q$update public.quality_config set approved_at = null where version = 2$q$));
   perform pg_temp.ck('the activation guard: the older version 1 can no longer be switched back on', '23514', pg_temp.try_sql($q$update public.quality_config set is_active = true where version = 1$q$));
+  -- the signed v2 samples 10 percent at random; the checks below choose which tasks are audited, so the random part is switched off (test-only edit through cfg)
+  perform pg_temp.cfg('{sampling,random_rate_percent}', '0'::jsonb);
   perform pg_temp.ck('version 1 rules are exactly as they were (never edited)', 'true', (select (rules -> 'form' ->> 'version' = '1' and not rules ? 'second_review')::text from public.quality_config where version = 1));
   -- the catch-up now fills last month later in the month (day pinned to 31 above)
   perform private.quality_audit_sweep();
@@ -525,11 +539,15 @@ declare
   v_text text := 'zebrafish quartz handover problem on the night shift for the whole team';
   v_text2 text := 'marmalade lantern conduct issue involving the clinical lead this month';
   v_text3 text := 'pineapple harbour anonymous worry about a repeated shortcut on nights';
+  v_fin_ops uuid := pg_temp.mkuser(pg_temp.f('org'), 'financeops', 'finance');
 begin
   -- 8a. no admin reader
   perform pg_temp.ck('a named backup reader cannot be an admin account (clinician kind)', 'ERR:that person was not found', pg_temp.q_as(v_cmo, format('select public.add_safety_concern_backup_reader(%L)', v_adm)));
   perform pg_temp.ck('...nor an independent one', 'ERR:an admin account cannot be a safety concern reader', pg_temp.q_as(v_cmo, format('select public.add_safety_concern_backup_reader(%L, null, %L)', v_adm, 'independent')));
   perform pg_temp.ck('...nor by a direct row (trigger)', '23514', pg_temp.try_sql(format('insert into public.safety_concern_readers (organisation_id, profile_id, is_test) values (%L, %L, true)', v_org, v_adm2)));
+  perform pg_temp.ck('an operations-type account cannot be an independent reader either (allow-list, not "not admin")', 'ERR:only an ordinary clinician or outside-person account can be a safety concern reader',
+    pg_temp.q_as(v_cmo, format('select public.add_safety_concern_backup_reader(%L, null, %L)', v_fin_ops, 'independent')));
+  perform pg_temp.ck('...nor by a direct row', '23514', pg_temp.try_sql(format('insert into public.safety_concern_readers (organisation_id, profile_id, kind, is_test) values (%L, %L, %L, true)', v_org, v_fin_ops, 'independent')));
   perform pg_temp.ck('a clinician reader can be named by the lead', 'ok', pg_temp.try_as(v_cmo, format('select public.add_safety_concern_backup_reader(%L, %L)', v_rdr, 'the named senior colleague')));
   perform pg_temp.ck('...a clinician cannot name one', 'ERR:only the clinical lead can name a backup reader', pg_temp.q_as(v_oth, format('select public.add_safety_concern_backup_reader(%L)', v_oth)));
   perform pg_temp.ck('...a lead cannot name themselves or the other lead', 'ERR:the clinical lead cannot name themselves or another lead as a reader', pg_temp.q_as(v_cmo, format('select public.add_safety_concern_backup_reader(%L, null, %L)', v_cmo2, 'independent')));
@@ -672,13 +690,57 @@ begin
 
   -- the board report: counts only
   v_msg := pg_temp.q_as(v_cmo, 'select public.safety_concern_board_report()');
-  perform pg_temp.ck('the board report counts every concern in the organisation', (select count(*)::text from public.safety_concerns where organisation_id = v_org and is_test), (v_msg::jsonb ->> 'total'));
+  perform pg_temp.ck('the lead''s board report counts the concerns the lead may know of', (select count(*)::text from public.safety_concerns where organisation_id = v_org and is_test and routing = 'standard'), (v_msg::jsonb ->> 'total'));
   perform pg_temp.ck('...by state, adding up to the total', 'true', (select (((v_msg::jsonb -> 'by_state' ->> 'new')::int + (v_msg::jsonb -> 'by_state' ->> 'acknowledged')::int + (v_msg::jsonb -> 'by_state' ->> 'responded')::int + (v_msg::jsonb -> 'by_state' ->> 'closed')::int) = (v_msg::jsonb ->> 'total')::int)::text));
   perform pg_temp.ck('...and by age bucket', 'true', (v_msg::jsonb -> 'open_by_age_days' ? 'over_90')::text);
   perform pg_temp.ck('...with no concern words, names or ids in it', '0', (select count(*)::text from (values ('zebrafish'), ('marmalade'), ('pineapple'), (v_std::text), (v_fin::text), ('night'), ('handover')) w(x) where v_msg ilike '%' || x || '%'));
   perform pg_temp.ck('a clinician and an admin account are refused the report', 'ERR:not available/ERR:not available', pg_temp.q_as(v_oth, 'select public.safety_concern_board_report()') || '/' || pg_temp.q_as(v_adm, 'select public.safety_concern_board_report()'));
   perform pg_temp.ck('an independent reader may read it', 'true', (pg_temp.q_as(v_ind2, 'select public.safety_concern_board_report()') !~ '^ERR')::text);
   perform pg_temp.ck('anon cannot', 'false', has_function_privilege('anon', 'public.safety_concern_board_report()', 'EXECUTE')::text);
+end $$;
+
+
+-- 9b. Q2 follow-ups from review: reader validity, the board report and the lead, the last independent reader, reminders ----------------
+do $$
+declare
+  v_cmo uuid := pg_temp.f('cmo'); v_fin uuid := pg_temp.f('fin'); v_rdr uuid := pg_temp.mkdoc(pg_temp.f('org'), 'rdr3', 'senior_medical_officer', 'contracted', '{}', pg_temp.f('admin')); v_ind2 uuid := pg_temp.f('indep2'); v_c1 uuid := pg_temp.f('c1');
+  v_org uuid := pg_temp.f('org'); v_std uuid := pg_temp.f('c_std'); v_x uuid; v_n_ind integer; v_lead_total text; v_ind_total text;
+  v_text4 text := 'kumquat signal about the clinical lead handling of a rota change last week';
+begin
+  -- a clinician reader who stops working stops reading
+  perform pg_temp.ck('a clinician reader is named', 'ok', pg_temp.try_as(v_cmo, format('select public.add_safety_concern_backup_reader(%L, %L)', v_rdr, 'senior colleague')));
+  update public.safety_concerns set escalated_at = now() where id = v_std;
+  perform pg_temp.ck('...and reads an escalated concern while working', '1', pg_temp.q_as(v_rdr, format('select count(*) from public.safety_concerns where id = %L', v_std)));
+  perform private.suspend_clinician_internal(pg_temp.staff_of(v_rdr), 'proof suspension of a reader', null);
+  perform pg_temp.ck('...but not once suspended (even though the row is still active)', '0', pg_temp.q_as(v_rdr, format('select count(*) from public.safety_concerns where id = %L', v_std)));
+  perform pg_temp.ck('...and is no longer a reader by status', 'false', (pg_temp.q_as(v_rdr, 'select public.my_reader_status()')::jsonb ->> 'is_reader'));
+
+  -- the board report leaves independent-only concerns out for the lead and counts them for the independent reader
+  v_lead_total := (pg_temp.q_as(v_cmo, 'select public.safety_concern_board_report()')::jsonb ->> 'total');
+  v_ind_total := (pg_temp.q_as(v_ind2, 'select public.safety_concern_board_report()')::jsonb ->> 'total');
+  perform pg_temp.ck('the lead''s board report does not count concerns by or about the lead', (select count(*)::text from public.safety_concerns where organisation_id = v_org and is_test and routing = 'independent_only'),
+    (v_ind_total::int - v_lead_total::int)::text);
+
+  -- the last independent reader cannot be turned into a clinician reader while an independent-only concern is open
+  perform pg_temp.ck('a second independent reader is named', 'ok', pg_temp.try_as(v_cmo, format('select public.add_safety_concern_backup_reader(%L, null, %L)', v_c1, 'independent')));
+  perform pg_temp.ck('...so the first can be removed', 'ok', pg_temp.try_as(v_cmo, format('select public.remove_safety_concern_backup_reader(%L)', v_ind2)));
+  perform pg_temp.ck('...but the last cannot be re-named as a clinician reader', 'ERR:an open concern needs this independent reader; name another independent reader first',
+    pg_temp.q_as(v_cmo, format('select public.add_safety_concern_backup_reader(%L, null, %L)', v_c1, 'clinician')));
+
+  -- a reminder for an independent-only concern does not hide the later "needs a response" notice
+  v_x := (pg_temp.q_as(v_fin, format('select public.raise_safety_concern(%L, %L, %L, null, null, true)', 'colleague_conduct', 'medium', v_text4)))::uuid;
+  update public.safety_concerns set acknowledge_due_at = now() - interval '1 hour' where id = v_x;
+  perform private.safety_concern_sweep();
+  perform pg_temp.ck('the overdue reminder is recorded on its own marker', 'true/true', (select (independent_reminded_at is not null)::text || '/' || (respond_overdue_notified_at is null)::text from public.safety_concerns where id = v_x));
+  update public.safety_concerns set respond_due_at = now() - interval '1 hour' where id = v_x;
+  perform private.safety_concern_sweep();
+  perform pg_temp.ck('...so the later response notice still goes out', 'true', (select (respond_overdue_notified_at is not null)::text from public.safety_concerns where id = v_x));
+
+  -- no independent reader at all: raising an independent-only concern makes the gap visible at once, without its words
+  update public.safety_concern_readers set active = false where kind = 'independent';
+  update public.ops_incidents set status = 'resolved' where external_reference = 'clinical_safety_overdue' and status not in ('resolved', 'closed');
+  perform pg_temp.q_as(v_fin, format('select public.raise_safety_concern(%L, %L, %L, null, null, true)', 'colleague_conduct', 'medium', v_text4 || ' again'));
+  perform pg_temp.ck('a neutral incident is opened at once when nobody may read it', '1/true', (select count(*)::text || '/' || bool_and(summary not ilike '%kumquat%')::text from public.ops_incidents where external_reference = 'clinical_safety_overdue' and status not in ('resolved', 'closed')));
 end $$;
 
 -- 10. Q2: leaks. Operations and admin accounts read nothing; no view, export function, event, log or incident names a concern ----
@@ -705,10 +767,10 @@ begin
                            'safety_concern_board_report', 'my_reader_status');
   perform pg_temp.ck('no other public function reads or exports concerns', '', coalesce(v_list, ''));
   perform pg_temp.ck('no domain event, audit_log row, notice or incident carries a concern''s words or ids', '0/0/0/0',
-    (select count(*)::text from public.domain_events where payload::text ~* 'zebrafish|marmalade|pineapple' or event_type like 'safety_concern%')
-    || '/' || (select count(*)::text from public.audit_log where event::text ~* 'zebrafish|marmalade|pineapple' or action like 'safety_concern%')
-    || '/' || (select count(*)::text from public.notifications where payload::text ~* 'zebrafish|marmalade|pineapple|quartz|lantern')
-    || '/' || (select count(*)::text from public.ops_incidents where (title || ' ' || summary) ~* 'zebrafish|marmalade|pineapple'));
+    (select count(*)::text from public.domain_events where payload::text ~* 'zebrafish|marmalade|pineapple|kumquat' or event_type like 'safety_concern%')
+    || '/' || (select count(*)::text from public.audit_log where event::text ~* 'zebrafish|marmalade|pineapple|kumquat' or action like 'safety_concern%')
+    || '/' || (select count(*)::text from public.notifications where payload::text ~* 'zebrafish|marmalade|pineapple|quartz|lantern|kumquat')
+    || '/' || (select count(*)::text from public.ops_incidents where (title || ' ' || summary) ~* 'zebrafish|marmalade|pineapple|kumquat'));
   perform pg_temp.ck('every anonymous-concern function is closed to anon and the concern tables to direct writes', 'false/false',
     (has_table_privilege('authenticated', 'public.safety_concerns', 'INSERT') or has_table_privilege('authenticated', 'public.safety_concern_checkins', 'UPDATE'))::text || '/' || has_table_privilege('anon', 'public.safety_concern_checkins', 'SELECT')::text);
 end $$;

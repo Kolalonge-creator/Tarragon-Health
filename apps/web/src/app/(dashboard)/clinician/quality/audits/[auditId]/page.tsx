@@ -45,7 +45,7 @@ function ClinicalContent({ file, locale }: { file: CaseFile; locale: "en" }) {
         <dl className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
           {([
             [t("leadquality.patient.ref", locale), patient?.ref ?? null],
-            [t("leadquality.patient.age", locale), patient?.age === null || patient?.age === undefined ? null : String(patient.age)],
+            [t("leadquality.patient.age", locale), patient?.age_band ?? null],
             [t("leadquality.task.type", locale), task.type ? itemLabel(task.type) : null],
             [t("leadquality.task.priority", locale), task.priority_class === null ? null : String(task.priority_class)],
             [t("leadquality.task.created", locale), lagos(task.created_at)],

@@ -23,16 +23,25 @@
 alter table public.safety_concern_readers
   add column kind text not null default 'clinician' check (kind in ('clinician', 'independent'));
 
--- an admin account is "ops": it cannot be a reader. Any existing one is switched off here.
-update public.safety_concern_readers r set active = false
- where r.active and exists (select 1 from public.profiles p where p.id = r.profile_id and p.role = 'admin');
+-- Who can be a reader: an ordinary login (a clinician, or an outside person with a patient-type account) and, for a clinician reader, one who is
+-- still working. Any operations-type role (admin, finance, analyst, pharmacist, lab and payer roles ...) is not allowed: an allow-list, not "not admin".
+create function private.reader_row_ok(p_profile uuid, p_kind text) returns boolean
+language sql stable security definer set search_path = ''
+as $$
+  select exists (select 1 from public.profiles p where p.id = p_profile and p.is_active and p.role in ('clinician', 'patient'))
+     and (p_kind = 'independent' or exists (select 1 from public.clinical_staff cs where cs.profile_id = p_profile and cs.active and cs.status = 'active'));
+$$;
+revoke all on function private.reader_row_ok(uuid, text) from public, anon, authenticated;
+
+-- any existing reader who fails the rule is switched off here (an admin account, or a clinician who is no longer working)
+update public.safety_concern_readers r set active = false where r.active and not private.reader_row_ok(r.profile_id, r.kind);
 
 create function private.guard_concern_reader() returns trigger
 language plpgsql security definer set search_path = ''
 as $$
 begin
-  if new.active and exists (select 1 from public.profiles p where p.id = new.profile_id and p.role = 'admin') then
-    raise exception 'an admin account cannot be a safety concern reader' using errcode = '23514';
+  if new.active and not exists (select 1 from public.profiles p where p.id = new.profile_id and p.role in ('clinician', 'patient')) then
+    raise exception 'only an ordinary clinician or outside-person account can be a safety concern reader' using errcode = '23514';
   end if;
   return new;
 end;
@@ -51,7 +60,7 @@ end;
 $$;
 revoke all on function private.profile_role_reader_sync() from public, anon, authenticated;
 create trigger profiles_role_admin_drops_reader after update of role on public.profiles
-  for each row when (new.role = 'admin' and old.role is distinct from new.role)
+  for each row when (new.role not in ('clinician', 'patient') and old.role is distinct from new.role)
   execute function private.profile_role_reader_sync();
 
 -- a reader check that also refuses an admin account (belt and braces) and an inactive login
@@ -59,14 +68,14 @@ create or replace function private.backup_reader(p_org uuid) returns boolean
 language sql stable security definer set search_path = ''
 as $$
   select exists (select 1 from public.safety_concern_readers r join public.profiles p on p.id = r.profile_id
-                  where r.profile_id = (select auth.uid()) and r.active and r.organisation_id = p_org and p.role <> 'admin' and p.is_active);
+                  where r.profile_id = (select auth.uid()) and r.active and r.organisation_id = p_org and private.reader_row_ok(r.profile_id, r.kind));
 $$;
 
 create function private.independent_reader(p_org uuid) returns boolean
 language sql stable security definer set search_path = ''
 as $$
   select exists (select 1 from public.safety_concern_readers r join public.profiles p on p.id = r.profile_id
-                  where r.profile_id = (select auth.uid()) and r.active and r.kind = 'independent' and r.organisation_id = p_org and p.role <> 'admin' and p.is_active);
+                  where r.profile_id = (select auth.uid()) and r.active and r.kind = 'independent' and r.organisation_id = p_org and private.reader_row_ok(r.profile_id, r.kind));
 $$;
 revoke all on function private.independent_reader(uuid) from public, anon;
 grant execute on function private.independent_reader(uuid) to authenticated;
@@ -75,6 +84,7 @@ grant execute on function private.independent_reader(uuid) to authenticated;
 -- 2. Concerns: routing, anonymity, check-ins
 -- ---------------------------------------------------------------------------
 alter table public.safety_concerns
+  add column independent_reminded_at timestamptz,
   add column routing              text not null default 'standard' check (routing in ('standard', 'independent_only')),
   add column anonymous            boolean not null default false,
   add column follow_up_code_hash  text;
@@ -148,8 +158,8 @@ as $$
 declare r record; n integer := 0;
 begin
   for r in select rd.profile_id from public.safety_concern_readers rd join public.profiles p on p.id = rd.profile_id
-            where rd.active and rd.kind = 'independent' and rd.organisation_id = p_org and rd.is_test = p_is_test and p.role <> 'admin' and p.is_active loop
-    perform private.credential_notify(r.profile_id, p_org, p_subject, p_message, coalesce(p_payload, '{}'::jsonb), true);
+            where rd.active and rd.kind = 'independent' and rd.organisation_id = p_org and rd.is_test = p_is_test and private.reader_row_ok(rd.profile_id, rd.kind) loop
+    perform private.credential_notify(r.profile_id, p_org, p_subject, p_message, coalesce(p_payload, '{}'::jsonb) || jsonb_build_object('audience', 'concern_reader'), true);
     n := n + 1;
   end loop;
   return n;
@@ -164,8 +174,8 @@ as $$
 declare r record; n integer := 0;
 begin
   for r in select rd.profile_id from public.safety_concern_readers rd join public.profiles p on p.id = rd.profile_id
-            where rd.active and rd.organisation_id = p_org and rd.is_test = p_is_test and p.role <> 'admin' and p.is_active loop
-    perform private.credential_notify(r.profile_id, p_org, p_subject, p_message, coalesce(p_payload, '{}'::jsonb), true);
+            where rd.active and rd.organisation_id = p_org and rd.is_test = p_is_test and private.reader_row_ok(rd.profile_id, rd.kind) loop
+    perform private.credential_notify(r.profile_id, p_org, p_subject, p_message, coalesce(p_payload, '{}'::jsonb) || jsonb_build_object('audience', 'concern_reader'), true);
     n := n + 1;
   end loop;
   return n;
@@ -202,6 +212,12 @@ begin
           now() + make_interval(days => (c ->> 'respond_days')::integer), case when v_route = 'independent_only' then now() end, v_route, s.is_test)
   returning id into v_id;
   insert into public.safety_concern_messages (concern_id, author_id, kind, body) values (v_id, v_uid, 'raised', null);
+  if v_route = 'independent_only' and not exists (select 1 from public.safety_concern_readers rd where rd.active and rd.kind = 'independent' and rd.organisation_id = s.organisation_id and private.reader_row_ok(rd.profile_id, rd.kind))
+     and not exists (select 1 from public.ops_incidents where external_reference = 'clinical_safety_overdue' and status not in ('resolved', 'closed')) then
+    insert into public.ops_incidents (organisation_id, category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
+    values (s.organisation_id, 'clinical', 'sev2', 'A clinical safety item is overdue',
+            'An item held by the clinical lead area has no reader who may open it. Details are not available to operations.', 'clinical_safety_overdue', now(), now());
+  end if;
   if v_route = 'independent_only' then
     perform private.notify_independent_readers(s.organisation_id, s.is_test, 'A new item needs your attention', 'A new item needs your attention in the clinical lead area.',
       jsonb_build_object('i18n_key', 'quality.concern_new'));
@@ -237,6 +253,12 @@ begin
           case when v_route = 'independent_only' then now() end, v_route, true, encode(extensions.digest(v_code, 'sha256'), 'hex'), s.is_test)
   returning id into v_id;
   insert into public.safety_concern_messages (concern_id, author_id, kind, body) values (v_id, null, 'raised', null);
+  if v_route = 'independent_only' and not exists (select 1 from public.safety_concern_readers rd where rd.active and rd.kind = 'independent' and rd.organisation_id = s.organisation_id and private.reader_row_ok(rd.profile_id, rd.kind))
+     and not exists (select 1 from public.ops_incidents where external_reference = 'clinical_safety_overdue' and status not in ('resolved', 'closed')) then
+    insert into public.ops_incidents (organisation_id, category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
+    values (s.organisation_id, 'clinical', 'sev2', 'A clinical safety item is overdue',
+            'An item held by the clinical lead area has no reader who may open it. Details are not available to operations.', 'clinical_safety_overdue', now(), now());
+  end if;
   if v_route = 'independent_only' then
     perform private.notify_independent_readers(s.organisation_id, s.is_test, 'A new item needs your attention', 'A new item needs your attention in the clinical lead area.',
       jsonb_build_object('i18n_key', 'quality.concern_new'));
@@ -432,13 +454,20 @@ begin
   if p_kind not in ('clinician', 'independent') then raise exception 'unknown reader kind' using errcode = '22023'; end if;
   select p.organisation_id, p.is_test, p.role into v_org, v_test, v_role from public.profiles p
    where p.id = p_profile and p.is_active and p.organisation_id = private.caller_org();
-  if v_org is null or v_role not in ('clinician', 'patient') and p_kind = 'clinician' then raise exception 'that person was not found' using errcode = 'P0002'; end if;
+  if v_org is null or (v_role not in ('clinician', 'patient') and p_kind = 'clinician') then raise exception 'that person was not found' using errcode = 'P0002'; end if;
   if v_role = 'admin' then raise exception 'an admin account cannot be a safety concern reader' using errcode = '23514'; end if;
+  if v_role not in ('clinician', 'patient') then raise exception 'only an ordinary clinician or outside-person account can be a safety concern reader' using errcode = '23514'; end if;
   if p_kind = 'clinician' and (v_role <> 'clinician' or not exists (select 1 from public.clinical_staff cs where cs.profile_id = p_profile and cs.active and cs.status = 'active')) then
     raise exception 'that person was not found' using errcode = 'P0002';
   end if;
   if p_profile = v_uid or exists (select 1 from public.clinical_staff cs where cs.profile_id = p_profile and cs.doctor_tier = 'chief_medical_officer' and cs.active) then
     raise exception 'the clinical lead cannot name themselves or another lead as a reader' using errcode = '23514';
+  end if;
+  -- turning the last independent reader into a clinician reader would orphan the concerns only they may read
+  if p_kind = 'clinician' and exists (select 1 from public.safety_concern_readers x where x.profile_id = p_profile and x.kind = 'independent' and x.active)
+     and not exists (select 1 from public.safety_concern_readers o where o.kind = 'independent' and o.active and o.organisation_id = v_org and o.profile_id <> p_profile)
+     and exists (select 1 from public.safety_concerns c where c.organisation_id = v_org and c.routing = 'independent_only' and c.state <> 'closed') then
+    raise exception 'an open concern needs this independent reader; name another independent reader first' using errcode = '23514';
   end if;
   insert into public.safety_concern_readers (organisation_id, profile_id, note, added_by, is_test, kind) values (v_org, p_profile, p_note, v_uid, v_test, p_kind)
   on conflict (profile_id) do update set active = true, note = excluded.note, kind = excluded.kind;
@@ -471,8 +500,8 @@ as $$
 declare v_uid uuid := private.uid_or_deny();
 begin
   return jsonb_build_object(
-    'is_reader', exists (select 1 from public.safety_concern_readers r join public.profiles p on p.id = r.profile_id where r.profile_id = v_uid and r.active and p.role <> 'admin' and p.is_active),
-    'is_independent', exists (select 1 from public.safety_concern_readers r join public.profiles p on p.id = r.profile_id where r.profile_id = v_uid and r.active and r.kind = 'independent' and p.role <> 'admin' and p.is_active));
+    'is_reader', exists (select 1 from public.safety_concern_readers r join public.profiles p on p.id = r.profile_id where r.profile_id = v_uid and r.active and private.reader_row_ok(r.profile_id, r.kind)),
+    'is_independent', exists (select 1 from public.safety_concern_readers r join public.profiles p on p.id = r.profile_id where r.profile_id = v_uid and r.active and r.kind = 'independent' and private.reader_row_ok(r.profile_id, r.kind)));
 end;
 $$;
 
@@ -574,10 +603,12 @@ $$;
 create function public.safety_concern_board_report() returns jsonb
 language plpgsql stable security definer set search_path = ''
 as $$
-declare v_org uuid := private.caller_org();
+declare v_org uuid := private.caller_org(); v_all boolean;
 begin
   perform private.uid_or_deny();
   if not (private.cmo_of(v_org) or private.backup_reader(v_org)) then raise exception 'not available' using errcode = '42501'; end if;
+  -- concerns by or about the lead are counted only for an independent reader; for anyone else they are left out entirely
+  v_all := private.independent_reader(v_org);
   return (select jsonb_build_object(
       'total', count(*),
       'by_state', jsonb_build_object('new', count(*) filter (where state = 'new'), 'acknowledged', count(*) filter (where state = 'acknowledged'),
@@ -590,8 +621,8 @@ begin
         'over_90', count(*) filter (where state <> 'closed' and now() - created_at > interval '90 days')),
       'acknowledge_overdue', count(*) filter (where state = 'new' and acknowledge_due_at < now()),
       'response_overdue', count(*) filter (where state in ('new', 'acknowledged') and responded_at is null and respond_due_at < now()),
-      'open_retaliation_reviews', (select count(*) from public.retaliation_reviews rr where rr.organisation_id = v_org and rr.state = 'open' and rr.is_test = private.caller_is_test()))
-    from public.safety_concerns where organisation_id = v_org and is_test = private.caller_is_test());
+      'open_retaliation_reviews', (select count(*) from public.retaliation_reviews rr where rr.organisation_id = v_org and rr.state = 'open' and rr.is_test = private.caller_is_test() and (v_all or rr.routing = 'standard')))
+    from public.safety_concerns where organisation_id = v_org and is_test = private.caller_is_test() and (v_all or routing = 'standard'));
 end;
 $$;
 
@@ -618,9 +649,9 @@ begin
     end;
   end loop;
   -- an overdue independent-only concern: remind its readers once more through the same neutral notice
-  for r in select * from public.safety_concerns where state = 'new' and routing = 'independent_only' and acknowledge_due_at < now() and respond_overdue_notified_at is null loop
+  for r in select * from public.safety_concerns where state = 'new' and routing = 'independent_only' and acknowledge_due_at < now() and independent_reminded_at is null loop
     begin
-      update public.safety_concerns set respond_overdue_notified_at = now() where id = r.id;
+      update public.safety_concerns set independent_reminded_at = now() where id = r.id;
       perform private.notify_independent_readers(r.organisation_id, r.is_test, 'An item needs your attention', 'An item is overdue in the clinical lead area.', jsonb_build_object('i18n_key', 'quality.concern_overdue'));
     exception when others then
       v_errors := v_errors + 1;
@@ -631,7 +662,7 @@ begin
   for r in select distinct organisation_id, is_test, routing from public.safety_concerns sc
             where state = 'new' and acknowledge_due_at < now()
               and not exists (select 1 from public.safety_concern_readers rd join public.profiles p on p.id = rd.profile_id
-                               where rd.active and p.role <> 'admin' and rd.organisation_id = sc.organisation_id and rd.is_test = sc.is_test
+                               where rd.active and private.reader_row_ok(rd.profile_id, rd.kind) and rd.organisation_id = sc.organisation_id and rd.is_test = sc.is_test
                                  and (sc.routing = 'standard' or rd.kind = 'independent')) loop
     begin
       v_noreader := v_noreader + 1;
@@ -721,8 +752,8 @@ grant execute on function public.my_safety_concerns(), public.safety_concern_inb
 
 do $$
 begin
-  if exists (select 1 from public.safety_concern_readers r join public.profiles p on p.id = r.profile_id where r.active and p.role = 'admin') then
-    raise exception 'S20 v2: an admin account is still an active safety concern reader';
+  if exists (select 1 from public.safety_concern_readers r join public.profiles p on p.id = r.profile_id where r.active and not private.reader_row_ok(r.profile_id, r.kind)) then
+    raise exception 'S20 v2: a reader who may not read is still active';
   end if;
   if has_function_privilege('anon', 'public.raise_anonymous_safety_concern(text, text, text, boolean)', 'EXECUTE')
      or has_function_privilege('anon', 'public.anonymous_concern_status(text)', 'EXECUTE')

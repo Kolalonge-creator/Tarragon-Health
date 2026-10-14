@@ -79,7 +79,7 @@ export const caseFileSchema = z.object({
     scribe_assisted: z.boolean().optional(),
   }),
   form: formSchema,
-  patient: z.object({ ref: z.string(), age: z.number().nullable() }).optional(),
+  patient: z.object({ ref: z.string(), age_band: z.string().nullable() }).optional(),
   task: z.object({
     id: z.string().uuid(),
     type: z.string().nullable(),

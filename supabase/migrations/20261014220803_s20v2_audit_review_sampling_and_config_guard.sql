@@ -169,13 +169,6 @@ alter table public.clinical_audits
   add column second_review_agrees   boolean,
   add constraint clinical_audits_second_not_first check (second_reviewer_id is null or (second_reviewer_id <> clinician_id and second_reviewer_id is distinct from reviewer_id));
 
--- audits already submitted before this migration never had a second review: they are final as they stand
-do $$
-begin
-  perform set_config('tarragon.audit_backfill', 'on', true);
-  update public.clinical_audits set final_at = submitted_at, final_outcome = outcome where state = 'submitted' and final_at is null;
-end $$;
-
 -- the frozen columns after submit or cancel: everything except the bookkeeping below. The follow-up fields are set once.
 create or replace function private.clinical_audit_guard() returns trigger
 language plpgsql set search_path = ''
@@ -196,6 +189,12 @@ begin
   return coalesce(new, old);
 end;
 $$;
+
+-- audits already submitted before this migration never had a second review: they are final as they stand
+do $$
+begin
+  update public.clinical_audits set final_at = submitted_at, final_outcome = outcome where state = 'submitted' and final_at is null;
+end $$;
 
 create table public.clinical_audit_case_opens (
   id              uuid primary key default gen_random_uuid(),
@@ -540,7 +539,7 @@ begin
 
   -- pseudonymised patient: a reference that is stable within this audit, and an age band. No id, name, phone or address.
   v_ref := 'P-' || upper(substr(encode(extensions.digest(a.id::text || ':' || t.patient_id::text, 'sha256'), 'hex'), 1, 6));
-  select extract(year from age(date_of_birth))::integer into v_age from public.profiles where id = t.patient_id;
+  select (floor(extract(year from age(date_of_birth)) / 5) * 5)::integer into v_age from public.profiles where id = t.patient_id;
 
   select * into v_te from public.triage_events where id = t.triage_event_id;
   if found then
@@ -557,7 +556,10 @@ begin
   select coalesce(jsonb_agg(jsonb_build_object('from', case when m.author_role::text = 'patient' then 'patient' else 'care_team' end,
                                                'by_audited_clinician', m.author_profile_id = a.clinician_id, 'body', m.body, 'at', m.created_at) order by m.created_at), '[]'::jsonb)
     into v_msgs from public.care_messages m
-   where m.patient_id = t.patient_id and m.created_at between t.created_at and coalesce(t.completed_at, now()) + interval '1 day';
+   where m.patient_id = t.patient_id and m.created_at between t.created_at and coalesce(t.completed_at, now()) + interval '1 day'
+     -- only conversations the audited clinician wrote in during the work, not every thread the patient has open
+     and exists (select 1 from public.care_messages mine where mine.thread_id = m.thread_id and mine.author_profile_id = a.clinician_id
+                    and mine.created_at between coalesce(t.claimed_at, t.created_at) and coalesce(t.completed_at, now()) + interval '1 day');
 
   v_note_id := private.task_scribe_note(t.id);
   if v_note_id is not null then
@@ -570,7 +572,7 @@ begin
     'audit', jsonb_build_object('id', a.id, 'reason', a.reason, 'state', a.state, 'due_at', a.due_at, 'form_version', a.form_version,
                                 'opened_as', v_role, 'scribe_assisted', a.scribe_assisted),
     'form', (select rules -> 'form' from public.quality_config where version = a.config_version),
-    'patient', jsonb_build_object('ref', v_ref, 'age', v_age),
+    'patient', jsonb_build_object('ref', v_ref, 'age_band', case when v_age is null then null else v_age || ' to ' || (v_age + 4) end),
     'task', jsonb_build_object('id', t.id, 'type', t.type, 'priority_class', t.priority_class_original, 'created_at', t.created_at, 'due_at', t.due_at,
                                'completed_at', t.completed_at, 'handback_count', t.handback_count, 'outcome', t.outcome),
     'trigger', v_trig, 'reading', v_reading, 'messages', v_msgs, 'scribe_note', v_note);
@@ -600,7 +602,7 @@ begin
   end if;
   if a.counts_toward_tier1 and s.id is not null then
     t1 := private.quality_setting('tier1');
-    select count(*), coalesce(avg(total_score), 0), count(*) filter (where critical_miss or final_outcome = 'unsafe')
+    select count(*), coalesce(avg(total_score), 0), count(*) filter (where final_outcome = 'unsafe')
       into v_done, v_avg, v_miss from public.clinical_audits where clinician_id = a.clinician_id and counts_toward_tier1 and state = 'submitted' and final_at is not null;
     if v_done >= private.tier1_target(s.id) and v_avg >= (t1 ->> 'graduation_min_score')::numeric and v_miss <= (t1 ->> 'max_critical_misses')::integer
        and coalesce(s.credentialing_level, 2) = 1 then
@@ -701,8 +703,8 @@ begin
   insert into public.clinical_audit_second_reviews (organisation_id, audit_id, reviewer_id, safety_results, quality_scores, total_score, critical_miss, outcome, rationale, phase_comments, is_test)
   values (a.organisation_id, a.id, v_uid, p_safety, p_quality, (v_res ->> 'score')::numeric, (v_res ->> 'critical')::boolean, v_outcome, btrim(p_rationale),
           private.clean_phase_comments(a.config_version, p_phase_comments), a.is_test);
-  -- the more severe of the two readings stands (the conservative choice, an open question for the lead); disagreement is recorded
-  v_final := case when private.outcome_rank(v_outcome) > private.outcome_rank(a.outcome) then v_outcome else a.outcome end;
+  -- the independent second reading is the final one (it can clear or confirm the first); both readings stay on record and disagreement is recorded
+  v_final := v_outcome;
   v_agrees := v_outcome = a.outcome;
   update public.clinical_audits set final_at = now(), final_outcome = v_final, second_review_agrees = v_agrees where id = a.id;
   perform private.finalise_audit(a.id);
@@ -801,6 +803,7 @@ begin
     'id', a.id, 'state', a.state, 'outcome', a.outcome, 'final_outcome', a.final_outcome, 'total_score', a.total_score, 'rationale', a.rationale,
     'phase_comments', a.phase_comments, 'avoidability', a.avoidability, 'scribe_results', a.scribe_results, 'second_review_required', a.second_review_required,
     'second_review_agrees', a.second_review_agrees,
+    'second_review', (select jsonb_build_object('outcome', r.outcome, 'total_score', r.total_score, 'rationale', r.rationale) from public.clinical_audit_second_reviews r where r.audit_id = a.id),
     'replies', coalesce((select jsonb_agg(jsonb_build_object('body', r.body, 'at', r.created_at) order by r.created_at) from public.clinical_audit_replies r where r.audit_id = a.id), '[]'::jsonb),
     'followups', coalesce((select jsonb_agg(jsonb_build_object('kind', f.kind, 'note', f.note, 'at', f.created_at) order by f.created_at) from public.clinical_audit_followups f where f.audit_id = a.id), '[]'::jsonb));
 end;
@@ -818,11 +821,13 @@ begin
     'reliability_score', s.reliability_score, 'level', coalesce(s.credentialing_level, 2),
     'tier1', case when coalesce(s.credentialing_level, 2) = 1 then public.tier1_audit_progress(null) else null end,
     'audits', coalesce((select jsonb_agg(jsonb_build_object(
-        'id', a.id, 'reason', a.reason, 'outcome', a.final_outcome, 'total_score', a.total_score, 'rationale', a.rationale, 'phase_comments', a.phase_comments,
+        'id', a.id, 'reason', a.reason, 'outcome', a.final_outcome, 'total_score', coalesce(sr.total_score, a.total_score), 'rationale', coalesce(sr.rationale, a.rationale),
+        'phase_comments', coalesce(sr.phase_comments, a.phase_comments),
         'avoidability', a.avoidability, 'submitted_at', a.submitted_at, 'final_at', a.final_at,
         'replies', coalesce((select jsonb_agg(jsonb_build_object('body', r.body, 'at', r.created_at) order by r.created_at) from public.clinical_audit_replies r where r.audit_id = a.id), '[]'::jsonb))
         order by a.final_at desc)
-      from public.clinical_audits a where a.clinician_id = v_uid and a.state = 'submitted' and a.final_at is not null), '[]'::jsonb));
+      from public.clinical_audits a left join public.clinical_audit_second_reviews sr on sr.audit_id = a.id
+     where a.clinician_id = v_uid and a.state = 'submitted' and a.final_at is not null), '[]'::jsonb));
 end;
 $$;
 
@@ -864,9 +869,12 @@ begin
     end;
   end loop;
   -- a critical miss still waiting for its second, independent reviewer
-  for r in select * from public.clinical_audits where state = 'submitted' and second_review_required and final_at is null and second_reviewer_id is null loop
+  -- (also one whose chosen second reviewer has since become ineligible: that person is replaced, or the slot is freed)
+  for r in select * from public.clinical_audits where state = 'submitted' and second_review_required and final_at is null
+                and (second_reviewer_id is null or not private.clinician_is_eligible(second_reviewer_id)) loop
     begin
       v_rev := private.audit_second_reviewer_for(r.id);
+      if v_rev is null and r.second_reviewer_id is not null then update public.clinical_audits set second_reviewer_id = null where id = r.id; end if;
       if v_rev is not null then
         update public.clinical_audits set second_reviewer_id = v_rev where id = r.id;
         perform private.credential_notify(v_rev, r.organisation_id, 'A clinical audit is waiting for you',

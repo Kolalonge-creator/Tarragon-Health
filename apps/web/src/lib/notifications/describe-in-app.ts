@@ -739,6 +739,7 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
         : audience === "reviewer" ? "/credentialing"
         : audience === "rota_review" ? "/rota"
         : audience === "rota" ? "/clinician/rota"
+        : audience === "concern_reader" ? "/reader/concerns"
         : audience === "lead" ? "/clinician/patients"
         : "/clinician/credentials",
     };
