@@ -84,6 +84,7 @@ export async function getHealthPassportData(
       .from("vitals_readings")
       .select("*")
       .eq("patient_id", patientId)
+      .is("correction_status", null)
       .gte("taken_at", periodStartIso)
       .order("taken_at", { ascending: false }),
     supabase
@@ -95,6 +96,7 @@ export async function getHealthPassportData(
       .from("lab_analyte_readings")
       .select("code, value, unit, taken_at")
       .eq("patient_id", patientId)
+      .is("correction_status", null)
       .gte("taken_at", periodStartIso)
       .order("taken_at", { ascending: false }),
     supabase
