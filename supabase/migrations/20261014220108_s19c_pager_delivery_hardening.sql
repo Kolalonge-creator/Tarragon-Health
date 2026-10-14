@@ -3,9 +3,9 @@
 -- Defects closed here: P1 (page email never delivers: the sender change ships with this migration, see the edge function),
 -- P2 (a page now nudges the sender at once; the first bus hop of a blood pressure reading is urgent), P3 (the older critical
 -- alert engine can no longer climb a page to SMS or re-notify after an acknowledgement; a trigger makes SMS and voice
--- impossible for page notifications), P4 and P7 (no page, acknowledgement or chart access for a conflicted clinician, the
--- patient themself, or a clinician who is no longer eligible), P6 (repeat red events for one patient merge into one open
--- page family), P8 (a reconciler creates any missing page within 60 seconds), P9 (on-call needs a working push subscription,
+-- impossible for page notifications), P4 and P7 (no page, acknowledgement or chart access for a conflicted clinician or the
+-- patient themself; no acknowledgement or chart access for a clinician who is no longer eligible), P6 (repeat red events for one
+-- patient merge into one UNACKNOWLEDGED page family; an acknowledged family is never joined, so a new event rings again), P8 (a reconciler creates any missing page within 60 seconds), P9 (on-call needs a working push subscription,
 -- a verified email and a test page acknowledged in the last N days, not only the self-attested checklist).
 -- Also: delivered acknowledgement per channel with an early advance of the ladder, a terminal 'expired' state with its own
 -- alarm, heartbeats for the paging engine and for on-call devices, and an incident when the engine is stale or nobody
@@ -15,7 +15,7 @@
 -- INV-06 (nothing here turns a page off), INV-07 (every notice is the fixed neutral template), INV-12 (chart access still only
 -- after acknowledgement of an open page, and now never for a conflicted clinician), INV-13 (is_test everywhere).
 -- Values are PROPOSED (CMO) and live in paging_delivery_config, mirrored in packages/shared proposed-config as
--- paging.delivery_rules. Live counts before this change: pages = 0 (no red event has paged in production yet).
+-- paging.delivery_rules. Live counts before this change: no real (non-test) page has ever been sent in production.
 
 -- ---------------------------------------------------------------------------
 -- 1. Config (PROPOSED values, CMO owner)
@@ -37,7 +37,7 @@ declare k text;
 begin
   foreach k in array array['delivered_ack_seconds', 'reconcile_after_seconds', 'reconcile_lookback_hours', 'merge_window_minutes',
                            'engine_heartbeat_stale_seconds', 'device_seen_stale_minutes', 'readiness_test_page_days',
-                           'test_page_min_interval_seconds', 'first_hop_safe_systolic_min', 'first_hop_safe_systolic_max',
+                           'test_page_min_interval_seconds', 'page_notification_stuck_seconds', 'first_hop_safe_systolic_min', 'first_hop_safe_systolic_max',
                            'first_hop_safe_diastolic_min', 'first_hop_safe_diastolic_max'] loop
     if not coalesce((r ->> k) ~ '^[0-9]+$' and (r ->> k)::integer > 0, false) then return false; end if;
   end loop;
@@ -61,6 +61,7 @@ insert into public.paging_delivery_config (version, is_active, effective_from, r
   "device_seen_stale_minutes": 10,
   "readiness_test_page_days": 7,
   "test_page_min_interval_seconds": 120,
+  "page_notification_stuck_seconds": 120,
   "first_hop_safe_systolic_min": 100,
   "first_hop_safe_systolic_max": 139,
   "first_hop_safe_diastolic_min": 60,
@@ -306,12 +307,17 @@ $$;
 -- the live definitions (the symptom function reads private.vitals_readings_current, S05b) plus the priority.
 create or replace function private.emit_bp_observation_recorded()
 returns trigger language plpgsql security definer set search_path = '' as $$
-declare v_inside boolean;
+declare v_inside boolean; v_symptom boolean;
 begin
   if new.vital_type::text = 'blood_pressure' and new.systolic is not null and new.diastolic is not null then
     begin
       -- null (a missing band) is not inside: fail towards urgent
-      v_inside := coalesce(new.systolic between private.paging_delivery_rule('first_hop_safe_systolic_min') and private.paging_delivery_rule('first_hop_safe_systolic_max')
+      -- a red-flag symptom logged in the last 10 minutes can make an in-band reading red (the symptom regrade only fires when the
+      -- symptom arrives AFTER the reading), so that reading is urgent too
+      v_symptom := exists (select 1 from public.symptoms sy where sy.patient_id = new.patient_id and sy.created_at > now() - interval '10 minutes'
+                             and sy.symptom_type::text in ('severe_headache', 'chest_pain', 'breathlessness', 'weakness_or_numbness',
+                                                           'difficulty_speaking', 'back_pain', 'confusion', 'visual_disturbance'));
+      v_inside := not v_symptom and coalesce(new.systolic between private.paging_delivery_rule('first_hop_safe_systolic_min') and private.paging_delivery_rule('first_hop_safe_systolic_max')
                       and new.diastolic between private.paging_delivery_rule('first_hop_safe_diastolic_min') and private.paging_delivery_rule('first_hop_safe_diastolic_max'), false);
       perform private.emit_domain_event(
         'observation.recorded', new.organisation_id,
@@ -400,12 +406,13 @@ begin
     return null;
   end if;
 
-  -- P6: one open page family per patient. A repeat red event inside the window joins it (and tells the clinician who already
-  -- took it); a family that expired or closed is not joined, so a new event rings again.
+  -- P6: one open UNACKNOWLEDGED page family per patient. A repeat red event inside the window joins it (that family is already
+  -- ringing and escalating, so a second ring adds nothing). An acknowledged, expired or closed family is never joined: someone who
+  -- has stepped away after acknowledging must not be the only thing standing between a new red event and a page (INV-05).
   perform pg_advisory_xact_lock(hashtext('pagefam:' || te.patient_id));
   select * into v_family from public.pages
    where patient_id = te.patient_id and is_test = te.is_test and parent_page_id is null and closed_at is null and expired_at is null
-     and sent_at > now() - make_interval(mins => private.paging_delivery_rule('merge_window_minutes'))
+     and acknowledged_at is null and sent_at > now() - make_interval(mins => private.paging_delivery_rule('merge_window_minutes'))
    order by sent_at desc limit 1;
   if found then
     perform set_config('tarragon.paging_write', 'on', true);
@@ -414,9 +421,6 @@ begin
     perform set_config('tarragon.paging_write', 'off', true);
     insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
       values (te.organisation_id, null, 'page.merged', 'page', v_family.id, jsonb_build_object('triage_event_id', te.id));
-    if v_family.acknowledged_by is not null then
-      perform private.page_notify(v_family.acknowledged_by, te.organisation_id, 'on_call_page_update', v_family.id, array['push', 'in_app']);
-    end if;
     return v_family.id;
   end if;
 
@@ -570,15 +574,17 @@ as $function$
            )
       )
       -- an open red event page I have ACKNOWLEDGED (S19, INV-12): being paged is not enough, taking responsibility is; closed
-      -- pages and pages past the access window do not count. S19c (P4): never for a conflicted clinician, never for the patient.
+      -- pages and pages past the access window do not count. S19c (P4, P7): never for a conflicted clinician, never for the patient, and not for a
+      -- clinician who is no longer eligible (suspended, licence or indemnity lapsed) even if they acknowledged earlier.
       or (
-        (select auth.uid()) <> p_patient
-        and not private.has_conflict((select auth.uid()), p_patient)
-        and exists (
+        exists (
           select 1 from public.pages pg
            where pg.patient_id = p_patient and pg.closed_at is null
              and pg.acknowledged_by = (select auth.uid())
         )
+        and (select auth.uid()) <> p_patient
+        and not private.has_conflict((select auth.uid()), p_patient)
+        and private.clinician_is_eligible((select auth.uid()))
       )
       -- an open specialist referral assigned to me
       or exists (
@@ -799,6 +805,8 @@ declare
   v_primary uuid;
   v_backup uuid;
   v_ok boolean;
+  v_stuck bigint;
+  v_old bigint;
   v_org_for_incident uuid := null;   -- an engine fault is platform wide (ops_incidents: null organisation)
 begin
   begin
@@ -819,6 +827,33 @@ begin
      and not exists (select 1 from public.paging_heartbeats where component = 'process_events') then
     perform private.page_incident(v_org_for_incident, 'paging_engine_stale:process_events', 'The paging engine is not running: process_events',
       'process-events has never recorded a heartbeat although the paging sweep is running. Check that the edge function is deployed and PROCESS_EVENTS_SECRET is set.');
+    v_n := v_n + 1;
+  end if;
+
+  -- the nudge that sends a page is best effort (pg_net) and the 5 minute sender cron is its backstop: a page notification still pending
+  -- after page_notification_stuck_seconds means the sender is down or failing, which no engine heartbeat shows
+  select count(*) into v_stuck from public.notifications n
+   where n.source_table in ('pages', 'page_tests') and n.status = 'pending' and n.channel::text in ('push', 'email')
+     and n.created_at < now() - make_interval(secs => private.paging_delivery_rule('page_notification_stuck_seconds'))
+     and n.created_at > now() - interval '1 day';
+  if v_stuck > 0 then
+    perform private.page_incident(v_org_for_incident, 'page_notifications_stuck', 'Page notifications are not being sent',
+      v_stuck || ' page notification(s) have been waiting to send for longer than ' || private.paging_delivery_rule('page_notification_stuck_seconds') ||
+      ' seconds. The notification sender (send-pending-notifications) may be down, mis-deployed or missing its secrets. Phone any on-call clinician with an open case now.');
+    v_n := v_n + 1;
+  end if;
+  -- red events too old for the reconciler's look-back that still have no page, merge record or Free record: never dropped silently
+  select count(*) into v_old from public.triage_events t
+   where t.grade = 'red' and not t.shadow and t.patient_id is not null
+     and t.created_at < now() - make_interval(hours => private.paging_delivery_rule('reconcile_lookback_hours'))
+     and t.created_at > now() - interval '7 days'
+     and t.actions @> '[{"kind":"page_on_call"}]'::jsonb
+     and not exists (select 1 from public.pages p where p.triage_event_id = t.id and p.parent_page_id is null)
+     and not exists (select 1 from public.page_merged_events m where m.triage_event_id = t.id)
+     and not exists (select 1 from public.free_red_events f where f.triage_event_id = t.id);
+  if v_old > 0 then
+    perform private.page_incident(v_org_for_incident, 'page_unreconciled_old', 'Red events from days ago have no page',
+      v_old || ' red triage event(s) older than the reconciler''s look-back have no page. Review them now: they were never paged.');
     v_n := v_n + 1;
   end if;
 

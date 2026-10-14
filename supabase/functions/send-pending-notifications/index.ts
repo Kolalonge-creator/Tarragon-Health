@@ -37,7 +37,7 @@ import type { TemplateRender } from "./templates.ts";
 import { describeViolations, lintRenderFn, lintText } from "../_shared/notifications/neutral.ts";
 import { decide, DISCREET_DOCUMENT_TEMPLATES, discreetEmail, FALLBACK_QUIET, isSafetyCritical, PATIENT_AUDIENCES, privacyFor, pushEnvelope } from "../_shared/notifications/delivery.ts";
 import type { QuietSettings } from "../_shared/notifications/delivery.ts";
-import { resolveEmailAddress, verifiedAddressOf } from "../_shared/notifications/recipient-address.ts";
+import { audienceFor, resolveEmailAddress, verifiedAddressOf } from "../_shared/notifications/recipient-address.ts";
 import { withSentry } from "../_shared/observability/sentry.ts";
 
 const BATCH_SIZE = 50;
@@ -1045,9 +1045,9 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
       discreetFlag: discreetById.get(row.recipient_id),
       known: !settingsDegraded,
       channel: row.channel,
-      audience: audienceError || !row.template ? null : audienceByTemplate.get(row.template),
+      audience: audienceError || !row.template ? null : audienceFor(row.template, audienceByTemplate.get(row.template)),
       // Only worth an Auth lookup when the template's audience is a patient one; otherwise privacy is off anyway.
-      toEmailIsOwn: row.channel === "email" && !audienceError && PATIENT_AUDIENCES.has(String(audienceByTemplate.get(row.template ?? "") ?? ""))
+      toEmailIsOwn: row.channel === "email" && !audienceError && PATIENT_AUDIENCES.has(String(audienceFor(row.template, audienceByTemplate.get(row.template ?? "")) ?? ""))
         ? (resolvedEmail?.source === "auth" ? true : await emailIsOwn(row.recipient_id, (row.payload ?? {}).to_email))
         : null,
     });

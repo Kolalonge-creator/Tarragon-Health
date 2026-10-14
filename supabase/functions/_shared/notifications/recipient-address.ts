@@ -12,7 +12,6 @@
 /** Templates whose address is always the recipient's own verified sign-in address, whatever the payload says. */
 export const OWN_ADDRESS_ONLY_TEMPLATES: ReadonlySet<string> = new Set([
   "on_call_page",
-  "on_call_page_update",
   "on_call_test_page",
   "on_call_escalation",
   "on_call_unfinished",
@@ -20,6 +19,17 @@ export const OWN_ADDRESS_ONLY_TEMPLATES: ReadonlySet<string> = new Set([
   "credential_notice",
   "care_team_notice",
 ]);
+
+/**
+ * Templates that are patient notices but have no row in notification_templates (so the sender cannot read their audience there).
+ * Without this their email would skip the patient's quiet hours and discreet wording; with it they are treated as patient mail.
+ */
+export const AUDIENCE_OVERRIDES: Readonly<Record<string, string>> = { care_team_notice: "patient" };
+
+export function audienceFor(template: string | null | undefined, fromDatabase: string | null | undefined): string | null | undefined {
+  if (fromDatabase) return fromDatabase;
+  return template != null ? AUDIENCE_OVERRIDES[template] ?? fromDatabase : fromDatabase;
+}
 
 export type AddressRule = "own_only" | "payload_then_own" | "payload_only";
 

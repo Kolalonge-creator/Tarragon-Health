@@ -922,7 +922,8 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // for a patient with an open page family joins it instead of ringing again. engine_heartbeat_stale_seconds: older than this a
     // paging engine heartbeat is stale and opens an incident. device_seen_stale_minutes: an on-call console not seen for this long
     // is shown as silent. readiness_test_page_days: on-call needs a test page acknowledged within this many days.
-    // test_page_min_interval_seconds: the least time between two test pages to one clinician. objective_readiness_required:
+    // test_page_min_interval_seconds: the least time between two test pages to one clinician. page_notification_stuck_seconds: a page
+    // notification still waiting to send after this long opens an incident (the sender may be down). objective_readiness_required:
     // 1 = on-call also needs a working push subscription, a verified email and a recent test page; 0 = checklist only.
     // first_hop_safe_*: a blood pressure reading inside this band is queued on the normal 15 second cron; outside it (or with no band)
     // the event is urgent and nudges process-events at once. It only chooses speed: every reading is graded either way.
@@ -935,6 +936,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       device_seen_stale_minutes: 10,
       readiness_test_page_days: 7,
       test_page_min_interval_seconds: 120,
+      page_notification_stuck_seconds: 120,
       first_hop_safe_systolic_min: 100,
       first_hop_safe_systolic_max: 139,
       first_hop_safe_diastolic_min: 60,

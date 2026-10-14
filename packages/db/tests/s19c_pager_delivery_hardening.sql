@@ -237,6 +237,12 @@ begin
     values (v_org, p3, 'blood_pressure', 85, 50, 'manual', now()) returning id into v_id;
   perform pg_temp.rec('P2: a low reading is outside the band too', 'urgent',
     (select priority from public.domain_events where event_type = 'observation.recorded' and aggregate_id = v_id));
+  insert into public.symptoms (organisation_id, patient_id, symptom_type, severity)
+    values (v_org, p10, 'chest_pain', 3);
+  insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, source, taken_at)
+    values (v_org, p10, 'blood_pressure', 120, 80, 'manual', now()) returning id into v_id;
+  perform pg_temp.rec('P2: an in-band reading right after a red-flag symptom is urgent too (the symptom came first)', 'urgent',
+    (select priority from public.domain_events where event_type = 'observation.recorded' and aggregate_id = v_id));
   perform pg_temp.set_rule('first_hop_safe_systolic_min', 1);
   perform pg_temp.set_rule('first_hop_safe_systolic_max', 400);
   perform pg_temp.set_rule('first_hop_safe_diastolic_min', 1);
@@ -353,6 +359,12 @@ begin
     perform pg_temp.sab('P4 / INV-12: with has_conflict blinded the access is back', 'false', private.clinician_has_patient_access(v_p11)::text);
     perform pg_temp.back();
     execute v_def;
+    -- P7 / INV-12: a clinician who acknowledged and then stops being eligible (licence lapsed, role unchanged) loses the chart access
+    update public.clinical_staff set license_expires_at = current_date - 5 where profile_id = v_p;
+    perform pg_temp.act(v_p);
+    perform pg_temp.rec('P7 / INV-12: a lapsed licence ends the chart access an earlier acknowledgement gave', 'false', private.clinician_has_patient_access(v_p11)::text);
+    perform pg_temp.back();
+    update public.clinical_staff set license_expires_at = null where profile_id = v_p;
     -- a conflicted clinician cannot acknowledge either
     perform pg_temp.act(v_p);
     perform pg_temp.rec('P4: a conflicted clinician cannot acknowledge a page for that patient', '42501', pg_temp.try(format('select public.acknowledge_page(%L)', v_pg)));
@@ -381,41 +393,42 @@ begin
     perform pg_temp.set_rota(v_cmo, v_p, v_b);
   end;
 
-  -- P6. Repeat red events merge into one open family --------------------------------------------------------------------------
-  declare v_pm uuid; v_pg uuid; v_ev1 uuid; v_ev2 uuid; v_ev3 uuid;
+  -- P6. Repeat red events merge into one open, UNACKNOWLEDGED family ----------------------------------------------------------
+  declare v_pm uuid; v_pg uuid; v_ev1 uuid; v_ev2 uuid; v_ev3 uuid; v_ev4 uuid; v_ev5 uuid; v_new uuid; v_j uuid; v_last uuid;
   begin
     v_pm := pg_temp.mkuser(v_org, 'merge', 'patient');
     v_ev1 := pg_temp.red(v_pm, v_rs, 'red', false);
     v_pg := public.create_red_page(v_ev1);
     v_ev2 := pg_temp.red(v_pm, v_rs, 'red', false);
-    perform pg_temp.rec('P6: a second red event for the same patient joins the open family', v_pg::text, public.create_red_page(v_ev2)::text);
+    perform pg_temp.rec('P6: a second red event for the same patient joins the open, unacknowledged family', v_pg::text, public.create_red_page(v_ev2)::text);
     perform pg_temp.rec('P6: no second root page, one merged record, the count is kept', '1,1,1',
       (select count(*)::text from public.pages where patient_id = v_pm and parent_page_id is null) || ',' || (select count(*)::text from public.page_merged_events where page_id = v_pg) ||
       ',' || (select merged_count::text from public.pages where id = v_pg));
     perform pg_temp.rec('P6: the merge is idempotent', v_pg::text, public.create_red_page(v_ev2)::text);
     perform private.reconcile_red_pages();
-    perform pg_temp.rec('P6: the reconciler leaves a merged event alone', '0', (select count(*)::text from public.pages where triage_event_id = v_ev2));
-    perform pg_temp.rec('P6: and it did not make a root for it', '0', (select count(*)::text from public.pages where triage_event_id = v_ev2));
-    -- once acknowledged, a third event tells the clinician who took it
-    perform pg_temp.act(v_p); perform public.acknowledge_page(v_pg); perform pg_temp.back();
-    v_ev3 := pg_temp.red(v_pm, v_rs, 'red', false);
-    perform public.create_red_page(v_ev3);
-    perform pg_temp.rec('P6: the acknowledging clinician is told of the new event', '2',
-      (select count(*)::text from public.notifications where recipient_id = v_p and template = 'on_call_page_update' and channel in ('push', 'in_app') and source_id = v_pg));
-    -- sabotage: the merge window shrunk to one minute and the family older than that: the next event makes a new root
+    perform pg_temp.rec('P6: the reconciler leaves a merged event alone, and it has no root of its own', '0', (select count(*)::text from public.pages where triage_event_id = v_ev2));
+    -- sabotage: the window shrunk to one minute and the family older than that: the next event no longer joins it
     perform pg_temp.age(v_pg, 600);
     perform pg_temp.set_rule('merge_window_minutes', 1);
-    declare v_ev4 uuid; v_new uuid;
-    begin
-      v_ev4 := pg_temp.red(v_pm, v_rs, 'red', false);
-      v_new := public.create_red_page(v_ev4);
-      perform pg_temp.sab('P6: with the window shrunk the repeat event joins the old family (it should, so this flips)', 'true', (v_new = v_pg)::text);
-      perform pg_temp.rec('P6: a family older than the window is not joined', 'false', (v_new = v_pg)::text);
-      perform pg_temp.set_rule('merge_window_minutes', 30);
-      perform pg_temp.act(v_p);
-      perform public.acknowledge_page(v_new); perform public.close_page(v_new, 'proof: settled merge page'); perform public.close_page(v_pg, 'proof: settled merge family');
-      perform pg_temp.back();
-    end;
+    v_ev3 := pg_temp.red(v_pm, v_rs, 'red', false);
+    v_new := public.create_red_page(v_ev3);
+    perform pg_temp.sab('P6: with the window shrunk the repeat event is no longer merged into the family', 'true', (v_new = v_pg)::text);
+    perform pg_temp.rec('P6: a family older than the window is not joined (it is a new root that rings)', 'true', (v_new <> v_pg)::text);
+    perform pg_temp.set_rule('merge_window_minutes', 30);
+    -- both families are open and unacknowledged: the most recent one is joined
+    v_ev4 := pg_temp.red(v_pm, v_rs, 'red', false);
+    v_j := public.create_red_page(v_ev4);
+    perform pg_temp.rec('P6: with several open families the most recent one is joined', 'true', (v_j = v_new)::text);
+    -- INV-05: once the family is acknowledged it is NEVER joined: a new red event rings again
+    perform pg_temp.act(v_p); perform public.acknowledge_page(v_new); perform public.acknowledge_page(v_pg); perform pg_temp.back();
+    v_ev5 := pg_temp.red(v_pm, v_rs, 'red', false);
+    v_last := public.create_red_page(v_ev5);
+    perform pg_temp.rec('P6 / INV-05: an acknowledged family is not joined: a new red event pages again', 'true,true',
+      (v_last not in (v_pg, v_new))::text || ',' || exists (select 1 from public.notifications where source_id = v_last and template = 'on_call_page' and channel = 'push')::text);
+    perform pg_temp.act(v_p);
+    perform public.close_page(v_pg, 'proof: settled merge family'); perform public.close_page(v_new, 'proof: settled merge family');
+    perform public.acknowledge_page(v_last); perform public.close_page(v_last, 'proof: settled merge family');
+    perform pg_temp.back();
   end;
 
   -- 9. Delivered acknowledgement and the early advance ----------------------------------------------------------------------
@@ -557,6 +570,24 @@ begin
     (select count(*)::text from public.ops_incidents where external_reference = 'paging_engine_stale:process_events' and status not in ('resolved', 'closed')));
   perform pg_temp.rec('hb: ...and the fresh sweep_pages one does not', '0',
     (select count(*)::text from public.ops_incidents where external_reference = 'paging_engine_stale:sweep_pages' and status not in ('resolved', 'closed')));
+  -- the sender is down: a page notification waiting too long opens an incident (the best-effort nudge is not otherwise monitored)
+  delete from public.ops_incidents where external_reference in ('page_notifications_stuck', 'page_unreconciled_old');
+  update public.notifications set status = 'sent', sent_at = now() where source_table = 'pages' and status = 'pending';
+  perform private.sweep_paging_health();
+  perform pg_temp.rec('hb: with no page notification waiting there is no "sender down" incident', '0',
+    (select count(*)::text from public.ops_incidents where external_reference = 'page_notifications_stuck' and status not in ('resolved', 'closed')));
+  insert into public.notifications (recipient_id, organisation_id, channel, template, payload, status, content_class, priority, source_table, source_id, created_at)
+    values (v_p, v_org, 'push', 'on_call_page', '{}', 'pending', 'non_clinical', 'critical', 'pages', gen_random_uuid(), now() - interval '10 minutes');
+  perform private.sweep_paging_health();
+  perform pg_temp.rec('hb: a page notification stuck pending opens a "sender down" incident', '1',
+    (select count(*)::text from public.ops_incidents where external_reference = 'page_notifications_stuck' and status not in ('resolved', 'closed')));
+  -- a red event older than the reconciler's look-back with no page is reported, not dropped
+  perform pg_temp.rec('hb: control: no old unpaged red event, no incident', '0',
+    (select count(*)::text from public.ops_incidents where external_reference = 'page_unreconciled_old' and status not in ('resolved', 'closed')));
+  perform pg_temp.red(p7, v_rs, 'red', false, 3 * 86400);
+  perform private.sweep_paging_health();
+  perform pg_temp.rec('hb: a red event from days ago with no page opens an incident the reconciler cannot fix', '1',
+    (select count(*)::text from public.ops_incidents where external_reference = 'page_unreconciled_old' and status not in ('resolved', 'closed')));
   -- nobody reachable on a real rota
   select count(*) into v_n0 from public.ops_incidents where external_reference like 'page_nobody_reachable:%';
   perform pg_temp.cancel_rota();

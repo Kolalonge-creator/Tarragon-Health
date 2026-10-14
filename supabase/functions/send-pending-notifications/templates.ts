@@ -1646,23 +1646,9 @@ export const TEMPLATE_MAP: Record<
       text: "A priority case has not been acknowledged by the clinicians on call.\n\nOpen Tarragon Health to see where it stands.\n\nTarragon Health",
     },
   }),
-  // S19c: a repeat red event joined a case the clinician already took (on_call_page_update), the test page that proves a phone and
+  // S19c: the test page that proves a phone and
   // inbox work (on_call_test_page), and the alarm when the whole ladder ran out with nobody answering (on_call_expired). Fixed,
   // neutral wording (INV-07): nothing from the payload is echoed.
-  on_call_page_update: () => ({
-    smsText: "There is an update on a priority case you took. Open your Tarragon Health worklist. Tarragon Health",
-    pushUrl: "/clinician/on-call",
-    email: {
-      subject: "Update on a priority case",
-      html:
-        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
-        `<p>There is an update on a priority case you took.</p>` +
-        `<p>Open Tarragon Health and look at the On call page.</p>` +
-        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
-        `</div>`,
-      text: "There is an update on a priority case you took.\n\nOpen Tarragon Health and look at the On call page.\n\nTarragon Health",
-    },
-  }),
   on_call_test_page: () => ({
     smsText: "This is a test page. Open Tarragon Health and acknowledge it on the On call page. Tarragon Health",
     pushUrl: "/clinician/on-call",

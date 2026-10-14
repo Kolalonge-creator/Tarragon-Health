@@ -707,9 +707,6 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "ops_all_clear") {
     return { text: "An operations alert has cleared", href: "/admin/ops/wall" };
   }
-  if (n.template === "on_call_page_update") {
-    return { text: "There is an update on a priority case you took", href: "/clinician/on-call" };
-  }
   if (n.template === "on_call_test_page") {
     return { text: "Test page: open On call and acknowledge it", href: "/clinician/on-call" };
   }

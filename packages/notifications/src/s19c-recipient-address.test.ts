@@ -8,7 +8,7 @@ import "./support/deno.ts";
 import { describe, expect, it } from "@jest/globals";
 import { readFileSync } from "node:fs";
 import {
-  addressRuleFor, isSafetyCritical, OWN_ADDRESS_ONLY_TEMPLATES, resolveEmailAddress, verifiedAddressOf, type AuthEmailUser,
+  addressRuleFor, audienceFor, AUDIENCE_OVERRIDES, isSafetyCritical, OWN_ADDRESS_ONLY_TEMPLATES, resolveEmailAddress, verifiedAddressOf, type AuthEmailUser,
 } from "./index.ts";
 import { TEMPLATE_MAP } from "../../../supabase/functions/send-pending-notifications/templates.ts";
 
@@ -22,7 +22,7 @@ function fakeAuth(users: Record<string, AuthEmailUser>) {
   return { calls, lookupFor };
 }
 
-const PAGE_TEMPLATES = ["on_call_page", "on_call_page_update", "on_call_test_page", "on_call_escalation", "on_call_unfinished", "on_call_expired"];
+const PAGE_TEMPLATES = ["on_call_page", "on_call_test_page", "on_call_escalation", "on_call_unfinished", "on_call_expired"];
 
 describe("which rule applies", () => {
   it("page, on-call, credential and care-team notices use the recipient's own address only", () => {
@@ -41,6 +41,18 @@ describe("which rule applies", () => {
       expect(render?.email?.subject).toBeTruthy();
       expect(isSafetyCritical(t)).toBe(true);
     }
+  });
+});
+
+describe("audienceFor", () => {
+  it("keeps what the database says, and treats care_team_notice as patient mail when the database has no row", () => {
+    expect(audienceFor("care_team_notice", undefined)).toBe("patient");
+    expect(audienceFor("care_team_notice", null)).toBe("patient");
+    expect(audienceFor("care_team_notice", "lead")).toBe("lead");
+    expect(audienceFor("booking_reminder", undefined)).toBeUndefined();
+    expect(audienceFor("booking_reminder", "patient")).toBe("patient");
+    expect(audienceFor(null, null)).toBeNull();
+    expect(Object.keys(AUDIENCE_OVERRIDES)).toEqual(["care_team_notice"]);
   });
 });
 
