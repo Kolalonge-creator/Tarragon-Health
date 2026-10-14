@@ -82,8 +82,12 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: node scripts/release-integrity/check-migration-drift.mjs
 
+  # The three database jobs run one after another: each `supabase db query --linked` creates the same temporary
+  # login role, and starting together made them kill each other's connections (login role status 544).
   check-anon-security-definer-execute:
     name: Anon EXECUTE on SECURITY DEFINER functions
+    needs: check-migration-drift
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -97,14 +101,16 @@ jobs:
 
   check-minor-guard-gaps:
     name: Under-18 dependant scope guard covers every patient table
+    needs: check-anon-security-definer-execute
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Unit test the check (a false OK here would silently disable the guard)
-        run: node --test scripts/release-integrity/check-minor-guard-gaps.test.mjs
+      - name: Unit test the checks and their helpers (a false OK here would silently disable a guard)
+        run: node --test scripts/release-integrity/*.test.mjs
       - name: Check private.minor_guard_gaps() is empty in production
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}

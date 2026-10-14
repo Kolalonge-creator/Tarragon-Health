@@ -1222,8 +1222,8 @@ export const TEMPLATE_MAP: Record<
     const orderNumber = String(payload.order_number ?? "your order");
     const selfBooked = payload.self_booked === true;
     const lead = selfBooked
-      ? `Your order is confirmed. A printable PDF is attached: take it with you, or show order ${orderNumber}.`
-      : "Your care team has made a request for you. A printable PDF is attached.";
+      ? `Your order is confirmed. Sign in to open your printable request: take it with you, or show order ${orderNumber}.`
+      : "Your care team has made a request for you. Sign in to open it.";
     const smsText = selfBooked
       ? `Hi ${patientName}, your order ${orderNumber} is confirmed. Show it when you arrive. Tarragon Health`
       : `Hi ${patientName}, your care team made a request for you (order ${orderNumber}). See the details in the Tarragon Health app. Tarragon Health`;
@@ -1237,7 +1237,7 @@ export const TEMPLATE_MAP: Record<
     const smsText = `Hi ${patientName}, your care plan has been updated. See the Tarragon Health app for what is due. Tarragon Health`;
     return {
       smsText,
-      email: neutralMail("Your care plan has been updated", [`Hi ${patientName},`, "Your care plan has been updated. A copy is attached as a PDF."]),
+      email: neutralMail("Your care plan has been updated", [`Hi ${patientName},`, "Your care plan has been updated. Sign in to open it."]),
     };
   },
   vaccination_verified: (payload) => {
@@ -1618,6 +1618,52 @@ export const TEMPLATE_MAP: Record<
         `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
         `</div>`,
       text: "We are checking in on you.\n\nOpen Tarragon Health to tell us how you are.\n\nTarragon Health",
+    },
+  }),
+  // S13 R4 (CMO Q11, Q12): the red alert notice a Member gets, and the call-the-patient alert the clinician on call gets. Fixed
+  // generic wording (INV-07): no condition, reading, name or result, and nothing from the payload is echoed. The guidance
+  // itself is shown only after the app is opened.
+  red_event_guidance_waiting: () => ({
+    smsText: "A safety message is waiting for you. Open the Tarragon Health app now. Tarragon Health",
+    pushUrl: "/patient",
+    email: {
+      subject: "A message is waiting for you",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>A safety message is waiting for you in the app.</p>` +
+        `<p>Please open Tarragon Health now.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "A safety message is waiting for you in the app.\n\nPlease open Tarragon Health now.\n\nTarragon Health",
+    },
+  }),
+  red_event_outreach_task: () => ({
+    smsText: "A priority call is waiting. Open your Tarragon Health worklist. Tarragon Health",
+    pushUrl: "/clinician/queue",
+    email: {
+      subject: "A priority call is waiting",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>A priority call needs you now.</p>` +
+        `<p>Open Tarragon Health and take it from your worklist.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "A priority call needs you now.\n\nOpen Tarragon Health and take it from your worklist.\n\nTarragon Health",
+    },
+  }),
+  // S13b/S13 R4: "send me a test alert" on the notifications-not-arriving card. It travels like a safety message so the person
+  // learns whether those reach this phone.
+  test_alert: () => ({
+    smsText: "This is a test alert from Tarragon Health. Nothing is wrong. If you can see this, alerts reach this phone.",
+    pushUrl: "/patient",
+    email: {
+      subject: "Test alert",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>This is a test alert from Tarragon Health. Nothing is wrong.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "This is a test alert from Tarragon Health. Nothing is wrong.\n\nTarragon Health",
     },
   }),
   // S19: a red event page to the clinician on call (on_call_page) and the alert to the clinical lead and ops when nobody

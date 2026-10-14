@@ -7,7 +7,7 @@
 --   G. A patient session cannot clear or change validated_by / logged_by_profile_id (control: she can still add a note, a privileged
 --      role can still set the review columns). The patient path of correct_clinical_value refuses a reading that has a clinician alert or
 --      a triage event (control: a plain reading is still corrected).
---   H. correct_clinical_value is still NOT executable by authenticated (the grant waits for a replay proof); no definer function reads a
+--   H. correct_clinical_value is executable by authenticated and never by anon (S05b-d grant); no definer function reads a
 --      corrected table directly except the listed writers.
 --   I. SABOTAGE (each must flip): restrictive policy dropped, review-column guard dropped, safety-event check removed, _current view
 --      pointed back at the base table.
@@ -97,15 +97,15 @@ begin
   -- ======================================================================== F. reads
   select n into v_n_before from private.bp_window_stats(v_p, current_date - 2, current_date + 1);
 
-  -- the tied clinician corrects b1; the patient marks her allergy entered in error
+  -- the tied clinician corrects b1 and marks the allergy entered in error
   perform set_config('request.jwt.claims', json_build_object('sub', v_c, 'role', 'authenticated')::text, true);
   execute 'set local role service_role';
   v_res := public.correct_clinical_value('vitals_readings', v_b1, 'corrected', 'Cuff was on the wrong arm', '{"systolic": 118, "diastolic": 78}'::jsonb);
   execute 'reset role';
   v_rep := (v_res ->> 'replacement_id')::uuid;
-  perform set_config('request.jwt.claims', json_build_object('sub', v_p, 'role', 'authenticated')::text, true);
+  -- (S05b-d: a patient's own allergy void is only a request; the tied clinician's void takes effect at once, which is what this proof needs)
   execute 'set local role service_role';
-  perform public.correct_clinical_value('patient_allergies', v_al, 'entered_in_error', 'I do not have this allergy', null);
+  perform public.correct_clinical_value('patient_allergies', v_al, 'entered_in_error', 'Patient does not have this allergy', null);
   execute 'reset role';
 
   -- F1 patient session: the original and the voided allergy are invisible, the replacement and untouched rows show
@@ -232,16 +232,16 @@ begin
   raise notice 'PASS G: review-column guard and safety-event guard';
 
   -- ======================================================================== H. the gate stays closed, no stray readers
-  if has_function_privilege('authenticated', 'public.correct_clinical_value(text, uuid, public.correction_status, text, jsonb)', 'EXECUTE')
+  if not has_function_privilege('authenticated', 'public.correct_clinical_value(text, uuid, public.correction_status, text, jsonb)', 'EXECUTE')
      or has_function_privilege('anon', 'public.correct_clinical_value(text, uuid, public.correction_status, text, jsonb)', 'EXECUTE') then
-    raise exception 'FAIL H1: correct_clinical_value is executable by a client role before the replay proof';
+    raise exception 'FAIL H1: correct_clinical_value must be executable by authenticated (S05b-d grant) and never by anon';
   end if;
   for r in
     select n.nspname || '.' || p.proname as fn
       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname in ('public', 'private') and p.prokind = 'f' and p.prosecdef
        and p.proname not in ('correct_clinical_value', 'delete_wearable_connection_data', 'execute_wearable_data_deletion',
-                             'clear_vitals_validation_flag', 'record_triage_result', 'record_poc_measurements',
+                             'clear_vitals_validation_flag', 'record_triage_result', 'record_glucose_triage_result', 'record_poc_measurements',
                              'confirm_lab_report_extraction', 'enforce_fhir_import_resource_attribution', 'capture_record_correction', 'handle_bp_reading_red_flag', 'handle_pulse_reading_red_flag', 'handle_spo2_reading_red_flag', 'handle_temperature_reading_red_flag', 'enforce_htn_alert_attestation')
        and p.prosrc ~* '(from|join)\s+public\.(vitals_readings|patient_allergies|patient_conditions|lab_analyte_readings)\M'
   loop

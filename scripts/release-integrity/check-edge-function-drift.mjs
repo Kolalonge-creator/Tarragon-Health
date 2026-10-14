@@ -18,6 +18,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { importedPaths, isBundlerEmptiedTypesModule, isExpectedUndeployed, isTypesOnlyModule } from "./edge-drift-rules.mjs";
 
 const PROJECT_REF = process.env.SUPABASE_PROJECT_REF || "koiplnmbgnqnbywhpjlf";
 const GIT_REF = process.argv[2] || process.env.COMPARE_GIT_REF || "origin/main-dev";
@@ -64,6 +65,9 @@ function main() {
     const deployedFiles = new Set(walk(deployedFnDir).filter((f) => !f.includes(".temp")));
     const sourceFiles = new Set(walk(sourceFnDir));
 
+    const deployedText = Object.fromEntries([...deployedFiles].map((f) => [f, readFileSync(join(deployedFnDir, f), "utf8")]));
+    const imported = importedPaths(deployedText);
+
     let drifted = false;
     const allFiles = new Set([...deployedFiles, ...sourceFiles]);
     for (const rel of [...allFiles].sort()) {
@@ -75,12 +79,15 @@ function main() {
         continue;
       }
       if (inSource && !inDeployed) {
+        if (isExpectedUndeployed(rel, imported)) continue;
+        if (isTypesOnlyModule(readFileSync(join(sourceFnDir, rel), "utf8"))) continue; // the API bundler drops a types-only module entirely // test file, or a module no deployed function imports (edge-drift-rules.mjs)
         console.error(`ONLY IN ${GIT_REF} (never deployed): ${rel}`);
         drifted = true;
         continue;
       }
-      const a = readFileSync(join(deployedFnDir, rel), "utf8");
+      const a = deployedText[rel];
       const b = readFileSync(join(sourceFnDir, rel), "utf8");
+      if (a !== b && isBundlerEmptiedTypesModule(a, b)) continue; // types-only module emptied by the API bundler: not drift (edge-drift-rules.mjs)
       if (a !== b) {
         console.error(`DRIFTED: ${rel} (deployed source differs from ${GIT_REF})`);
         drifted = true;

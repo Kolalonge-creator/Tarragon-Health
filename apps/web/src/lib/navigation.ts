@@ -255,6 +255,8 @@ export function getNavSections(
             { label: "My services", href: "/patient/subscription", icon: "billing" },
             // Buy the Membership or a care pack, see what is included and the price, and see your payments (S25).
             { label: "Membership", href: "/patient/membership", icon: "billing" },
+            // Send a link to someone who offered to help pay for the yearly Membership (S72).
+            { label: "Ask someone to pay", href: "/patient/payment-requests", icon: "billing" },
             { label: "Family", href: "/patient/family", icon: "family" },
             ...(options?.communityOpen ? [{ label: t("community.nav.title"), href: "/patient/community", icon: "family" as const }] : []),
             // Real feature a single-persona mock doesn't happen to show (that
@@ -522,6 +524,12 @@ export function getNavSections(
                   icon: "inbox",
                   countKey: "fhirProposedResourcesPending",
                 },
+                {
+                  label: "Record changes",
+                  href: "/clinician/record-changes",
+                  icon: "review",
+                  countKey: "recordChangeRequestsWaiting",
+                },
               ],
             },
             {
@@ -593,6 +601,8 @@ export function getNavSections(
                 // Say whether the automatic grade was right for a task you completed; off until the CMO approves (S38e).
                 { label: "Review automatic grades", href: "/clinician/triage-review", icon: "review" },
                 { label: "Team caseload", href: "/clinician/team-caseload", icon: "analytics" },
+                // Chief Medical Officer only: is the chain from a reading to a grade, task, page and notice working, and how fast (P1).
+                { label: "Chain health", href: "/clinician/chain-health", icon: "operations" },
                 // Chief Medical Officer only: how AI scribe drafts are used, and a random sample to check (S35c).
                 { label: "Scribe quality", href: "/clinician/scribe-quality", icon: "analytics" },
               ],
@@ -654,6 +664,7 @@ export function getNavSections(
                 { label: "Titration protocols", href: "/clinician/titration-protocols", icon: "review" },
                 { label: "Symptom triage protocols", href: "/clinician/triage-protocols", icon: "review" },
                 { label: "Blood pressure triage rules", href: "/clinician/triage-rules", icon: "bp" },
+                { label: "Glucose triage rules", href: "/clinician/glucose-triage-rules", icon: "bp" },
                 { label: "Task types and priorities", href: "/clinician/task-types", icon: "review" },
                 { label: "Clinical rules engine", href: "/clinician/clinical-rules", icon: "governance" },
                 { label: "Alert rules", href: "/clinician/alert-rules", icon: "siren" },
@@ -735,6 +746,8 @@ export function getNavSections(
             { label: "Memberships", href: "/admin/memberships", icon: "members" },
             // What can be bought, its price and its history; switch an item on or off (S25).
             { label: "Catalogue and prices", href: "/admin/catalogue", icon: "billing" },
+            // Gifts to the Community Access Fund and the grants that pay for a named item for a named person (S72).
+            { label: "Community Access Fund", href: "/admin/access-fund", icon: "billing" },
             // What each organisation pays per Membership seat: the flat default, per-organisation prices, history (two-tier, C10).
             { label: "Organisation prices", href: "/admin/organisation-prices", icon: "billing" },
             // Blood pressure control 90 days after joining: aggregate only, small numbers withheld (S38).
@@ -754,6 +767,9 @@ export function getNavSections(
             { label: "Partner settlements", href: "/admin/partner-settlements", icon: "billing" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
             { label: "Event bus", href: "/admin/ops/event-bus", icon: "operations" },
+            // Is the chain from a reading to a grade, task, page and notice working, and how fast (P1).
+            { label: "Chain health", href: "/admin/ops/chain-health", icon: "operations" },
+            { label: "Providers", href: "/admin/ops/providers", icon: "operations" },
             { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
                 { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
             { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },

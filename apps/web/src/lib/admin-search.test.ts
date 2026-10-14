@@ -74,6 +74,12 @@ describe("the real admin menus", () => {
     expect(top("per member")).toContain("/admin/organisation-prices");
   });
 
+  it("finds the Community Access Fund page (every console page needs a search entry)", () => {
+    expect(top("access fund")).toContain("/admin/access-fund");
+    expect(top("donation")).toContain("/admin/access-fund");
+    expect(top("grant")).toContain("/admin/access-fund");
+  });
+
   it("finds the fees and earnings page (every console page needs a search entry)", () => {
     expect(top("fee schedule")).toContain("/admin/earnings");
     expect(top("payout")).toContain("/admin/earnings");
@@ -113,6 +119,15 @@ describe("the Chief Medical Officer index for testing-day results", () => {
     const cmo = buildAdminSearchIndex([], [], CMO_EXTRA_PAGES);
     expect(searchAdminEntries(cmo, "ecg").map((e) => e.href)).toContain("/clinician/poc-results");
     expect(searchAdminEntries(cmo, "hba1c").map((e) => e.href)).toContain("/clinician/poc-results");
+  });
+});
+
+describe("the Chief Medical Officer index for record changes (S05b-e)", () => {
+  it("finds the record changes queue by the words a person would type", () => {
+    const cmo = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+    for (const query of ["record changes", "allergy request", "entered by mistake", "void"]) {
+      expect(searchAdminEntries(cmo, query).map((e) => e.href)).toContain("/clinician/record-changes");
+    }
   });
 });
 

@@ -49,7 +49,8 @@ export function PaidStatus({ reference, locale }: { reference: string | null; lo
     };
   }, [reference, round, mutateAsync]);
 
-  const title = view === "paid" ? t("shop.return.paid.title", locale) : t("shop.title", locale);
+  // A bank transfer or USSD payment that has not landed yet is "waiting for your bank", never "failed" (S71, 19.2)
+  const title = view === "paid" ? t("shop.return.paid.title", locale) : view === "pending" ? t("shop.return.pending.title", locale) : t("shop.title", locale);
   const body =
     view === "checking" ? t("shop.return.checking", locale)
     : view === "paid" ? t("shop.return.paid.body", locale)

@@ -37194,17 +37194,14 @@ export type Database = {
       wellness_points_config: {
         Row: {
           id: boolean
-          points_to_kobo_rate: number
           updated_at: string
         }
         Insert: {
           id?: boolean
-          points_to_kobo_rate?: number
           updated_at?: string
         }
         Update: {
           id?: boolean
-          points_to_kobo_rate?: number
           updated_at?: string
         }
         Relationships: []
@@ -37256,58 +37253,6 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      wellness_points_redemptions: {
-        Row: {
-          created_at: string
-          id: string
-          kobo_credited: number
-          organisation_id: string
-          patient_id: string
-          points_redeemed: number
-          voucher_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          kobo_credited: number
-          organisation_id: string
-          patient_id: string
-          points_redeemed: number
-          voucher_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          kobo_credited?: number
-          organisation_id?: string
-          patient_id?: string
-          points_redeemed?: number
-          voucher_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "wellness_points_redemptions_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wellness_points_redemptions_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wellness_points_redemptions_voucher_id_fkey"
-            columns: ["voucher_id"]
-            isOneToOne: false
-            referencedRelation: "care_vouchers"
             referencedColumns: ["id"]
           },
         ]
@@ -38117,6 +38062,10 @@ export type Database = {
     }
     Functions: {
       clinical_value_history: { Args: { p_table: string; p_id: string }; Returns: Json }
+      confirm_patient_allergy_correction: { Args: { p_request_id: string; p_note?: string }; Returns: Json }
+      reject_patient_allergy_correction: { Args: { p_request_id: string; p_note?: string }; Returns: Json }
+      my_corrected_record_entries: { Args: { p_patient?: string }; Returns: Json }
+      withdraw_patient_allergy_correction: { Args: { p_request_id: string }; Returns: Json }
       correct_clinical_value: {
         Args: {
           p_id: string
@@ -41251,7 +41200,6 @@ export type Database = {
         Returns: Json
       }
       redeem_referral_code: { Args: { p_code: string }; Returns: Json }
-      redeem_wellness_points: { Args: { p_points: number }; Returns: Json }
       refer_patient_to_specialist: {
         Args: {
           p_patient_id: string

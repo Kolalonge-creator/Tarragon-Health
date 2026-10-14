@@ -374,6 +374,11 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
       href: "/patient/care",
     };
   }
+  // S05b-d: a clinician looked at a change the patient asked for in her record and left it as it was. Neutral by design (INV-07, INV-08):
+  // never the entry, its name or the clinician's note; in-app only.
+  if (n.template === "record_change_not_confirmed") {
+    return { text: "Your care team looked at the change you asked for and left your record as it was. You can message them about it", href: "/patient/messages" };
+  }
   // S22 written questions and clinical notes. Neutral by design (INV-07): never the question, a condition or a reading.
   if (n.template === "written_question_received") {
     return { text: "Your care team has your message", href: "/patient/care" };
@@ -690,6 +695,16 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   }
   if (n.template === "free_red_checkin") {
     return { text: t("freered.notice.checkin", "en"), href: "/patient" };
+  }
+  // S13 R4: fixed neutral lines (INV-07). The guidance is on the dashboard, never in the message.
+  if (n.template === "red_event_guidance_waiting") {
+    return { text: "A safety message is waiting for you. Open it now", href: "/patient" };
+  }
+  if (n.template === "red_event_outreach_task") {
+    return { text: "A priority call is waiting for you", href: "/clinician/queue" };
+  }
+  if (n.template === "test_alert") {
+    return { text: "This is a test alert. Nothing is wrong", href: "/patient" };
   }
   if (n.template === "on_call_page") {
     // From private.page_notify (S19): fixed neutral line, never the patient or the reading (INV-07).

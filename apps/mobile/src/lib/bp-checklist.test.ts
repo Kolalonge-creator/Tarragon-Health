@@ -2,6 +2,7 @@ import {
   BP_CHECKLIST_SYMPTOMS,
   redFlagsAmong,
   RED_FLAG_CHECKLIST_SYMPTOMS,
+  PREGNANCY_CHECKLIST_SYMPTOMS,
   TICKED_ON_BP_FORM_NOTE,
   planBpLog,
   type BpLogInput,
@@ -76,7 +77,8 @@ describe("planBpLog", () => {
   });
 
   it("keeps the red-flag set inside the checklist", () => {
-    for (const s of RED_FLAG_CHECKLIST_SYMPTOMS) expect(BP_CHECKLIST_SYMPTOMS).toContain(s);
+    // the pregnancy emergencies (convulsion, loss of consciousness) are red flags too, offered with the pregnancy ticks
+    for (const s of RED_FLAG_CHECKLIST_SYMPTOMS) expect([...BP_CHECKLIST_SYMPTOMS, ...PREGNANCY_CHECKLIST_SYMPTOMS]).toContain(s);
   });
 
   it("never records a tick as a patient-rated severity", () => {

@@ -280,6 +280,15 @@ Recorded as CMO decisions (not a database signature). Pack: `docs/plans/S11-S15-
 - Q19: no speech-to-text vendor until a 20 to 30 clip consented real-consult gold set is scored; thresholds set after seeing results; every drug name and number in a draft is highlighted for the signing clinician.
 - Next steps: new DRAFT versions only. Nothing is signed. `glucose_care_triage` v1 is drafted and shown to the CMO in full; BP v3 is unchanged. Open conflict to resolve with the founder: OQ-97 (2026-10-06) set the Paystack transfer OTP off with compensating limits, while the review plan suggested keeping it on until reconciliation and reversal handling exist.
 
+**What was built per decision (integration, 2026-10-13; all DRAFT or flagged OFF, nothing signed):**
+- Q1: `triage_engine_parity()` and the chain health parity table (P1), glucose divergence report (P2). Legacy alerts are NOT retired.
+- Q2, Q3, Q5: no change (BP v3). Q4: upper-arm advice beside the repeat prompt on the phone, red never downgraded (P2).
+- Q6 to Q9: `glucose_care_triage` v1 draft, hub panel with guideline basis and full wording (P2). Not signed.
+- Q10 to Q13: patient ladder, 30 minute unconfirmed sweep, generic wording, patient answer recorded (P3). The `red_patient_outreach` task type awaits confirmation on the hub.
+- Q14 to Q17: verification gate with grandfathering, six-month spot re-check, first-20 review, "Licence verified on" with no folio (P5). Folio still readable through `clinical_staff_directory` (OQ-358).
+- Q18, Q19: scribe consent enforced in the database, drug and number highlight, ASR gold-set harness, no vendor (P4).
+- Tooling not tied to one decision: chain canary and health page (P1), coverage sweep for silence and adherence (P6), provider inbox and payout controls (P4).
+
 ### Two-tier answers, 2026-10-08
 Founder decisions in chat after the process-map review. Full per-session effect: `docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md`.
 - Member price 120,000 naira a year individual, 100,000 naira per organisation member (volume tiers dropped, confirm flat). Code still seeds 100,000; not changed.
@@ -348,3 +357,15 @@ Full text, options and guideline basis: `docs/plans/S06-S10-decisions-and-cmo-si
 | Decision | Chosen |
 |---|---|
 | OQ-S09x-1 (extends OQ-281): may a patient see that staff opened their record | Yes, name and role plus time only. No reason, no basis, no category detail (reproductive_health included), no contact details, no IP or device. Break-glass and emergency access stay shown, with the role. |
+
+## S04b counsel position on adult-only registration and dependants (2026-10-13)
+
+| Decision | Chosen |
+|---|---|
+| Counsel brief `docs/plans/S01-S05-counsel-brief.md` (guardian consent, child age, hand-over at 18, DPIA, consent receipts, EU hosting, under-18 refusal) | Founder reports counsel has signed off on the plan as built: adults 18 and over only; guardian consent for a dependant under 18 limited to immunisation and preventive tracking; hand-over at 18 only with the young person's own agreement after a 30 day notice; consent receipts as evidence; refusal of under-18 sign-up. Recorded from the founder in chat. The written opinion is not in the repo yet; file it under `docs/legal/` when received. No code change follows, because the build already matches the brief. |
+
+## S05b-d a patient's own allergy correction waits for a clinician (2026-10-14)
+
+| Decision | Chosen |
+|---|---|
+| When a patient voids or corrects an allergy she entered herself and no clinician verified (S05b-c open risk: it would leave prescription safety and the emergency card at once) | Her request is saved, but the ORIGINAL allergy stays active in prescription safety, the emergency card and every reader until a tied clinician (not a care coordinator) confirms. A clinician-tied user's correction takes effect immediately, as before. A rejected request leaves the original untouched and tells the patient by one in-app notice with no clinical words. Every other table keeps its current rule (a patient still corrects her own manual reading at once). Chosen by the founder in chat. Built in `20261014162552_s05b_d_patient_allergy_correction_requests_and_grant.sql`. |
