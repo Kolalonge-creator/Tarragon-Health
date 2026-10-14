@@ -59,6 +59,8 @@ export function RefundRequestDialog({
         setErrorMsg(t("refund.request.already_requested", locale));
       } else if (result?.result === "order_not_paid") {
         setErrorMsg(t("refund.request.order_not_paid", locale));
+      } else if (result?.result === "outside_refund_window") {
+        setErrorMsg(t("refund.request.outside_window", locale));
       } else if (result?.result === "reason_too_short") {
         setErrorMsg(t("refund.request.reason_too_short", locale));
       } else {

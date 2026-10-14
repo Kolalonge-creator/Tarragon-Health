@@ -1,5 +1,6 @@
 "use client";
 
+import { t } from "@tarragon/i18n";
 import {
   useAdminWellnessBadges,
   useSetWellnessBadgeActive,
@@ -14,18 +15,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-/** F1 / OQ-08: points are non-monetary. There is no conversion rate to edit; this card says so,
- * so an admin looking for the old control is not left guessing. The capped checkout discount
- * (S71/S72) will read its cap from PROPOSED config, not from this screen. */
+/** S72 (decision S72-1): points no longer convert to money or vouchers, so there is no rate to set. This card only says how they are used now. */
 function PointsConfigCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Points are not money</CardTitle>
-        <CardDescription>
-          Wellness points do not convert to naira or to a voucher, and there is no rate to set.
-          Redemption stays switched off until a capped checkout discount is built and the founder sets its cap.
-        </CardDescription>
+        <CardTitle>{t("points.admin.title", "en")}</CardTitle>
+        <CardDescription>{t("points.admin.body", "en")}</CardDescription>
       </CardHeader>
     </Card>
   );

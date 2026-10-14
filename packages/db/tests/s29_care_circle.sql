@@ -8,6 +8,10 @@
 -- SABOTAGE (each must flip a check): the weekly_bp_trend gate removed, the red_alerts filter removed, the pay_for_care gate removed.
 begin;
 
+-- Two-tier: only the Membership may be on sale (catalog_items_only_membership_sellable). The order machinery under test is generic and
+-- uses care-pack and consultation fixtures, so the constraint is dropped here on purpose, inside this rolled-back transaction.
+alter table public.catalog_items drop constraint catalog_items_only_membership_sellable;
+
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
 grant all on results to public;
 create temp table fx(k text primary key, v uuid) on commit drop;
@@ -428,9 +432,9 @@ begin
     (pg_temp.q_as(v_b, format($q$select public.create_order('s29_year', gen_random_uuid(), %L)::text$q$, v_pat)) like '%order_beneficiary_not_allowed%')::text);
   perform pg_temp.ck('a stranger cannot pay for the patient', 'true',
     (pg_temp.q_as(v_other, format($q$select public.create_order('s29_year', gen_random_uuid(), %L)::text$q$, v_pat)) like '%order_beneficiary_not_allowed%')::text);
-  -- the older family grant (profile_access, S26's rule) still lets its grantee pay, exactly as it did live; removing it ends that
-  insert into public.profile_access (profile_id, grantee_user_id, granted_by, permission_level) values (v_pat, v_other, v_pat, 'view');
-  perform pg_temp.ck('an older family grant still lets its grantee pay for the patient', 'true',
+  -- the older family grant (profile_access) lets its grantee pay only at manage level WITH manage_payments (S71 / OQ-192; a bare view grant no longer pays)
+  insert into public.profile_access (profile_id, grantee_user_id, granted_by, permission_level, permissions) values (v_pat, v_other, v_pat, 'manage', array['manage_payments']::public.caregiver_permission[]);
+  perform pg_temp.ck('an older manage grant holding manage_payments still lets its grantee pay for the patient', 'true',
     (pg_temp.q_as(v_other, format($q$select public.create_order('s29_year', gen_random_uuid(), %L)::text$q$, v_pat)) like '%"reference"%')::text);
   delete from public.profile_access where profile_id = v_pat and grantee_user_id = v_other;
   perform pg_temp.ck('and once the grant is gone the same person is refused again', 'true',

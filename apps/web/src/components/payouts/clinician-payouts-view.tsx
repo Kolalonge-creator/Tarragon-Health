@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatKobo } from "@/lib/format-money";
 import { KIND_LABEL } from "@/lib/earnings/earnings";
-import { STATE_LABEL, banksSchema, overviewSchema, stateVariant } from "@/lib/payouts/payouts";
+import { STATE_LABEL, banksSchema, overviewSchema, returnedNote, stateVariant } from "@/lib/payouts/payouts";
 import { BankForm, TaxForm } from "./payout-forms";
 
 const day = (value: string): string => new Date(value).toLocaleDateString("en-GB", { dateStyle: "medium", timeZone: "Africa/Lagos" });
@@ -80,6 +80,7 @@ export async function ClinicianPayoutsView() {
                     </li>
                   ))}
                 </ul>
+                {returnedNote(p) && <p role="status" className="mt-2 text-sm text-red-700">{returnedNote(p)}{p.reversed_at ? ` Returned on ${day(p.reversed_at)}.` : ""}</p>}
                 {p.reference && <p className="mt-2 text-xs text-charcoal-ink/60">Transfer reference {p.reference}</p>}
               </details>
             ))

@@ -1,6 +1,7 @@
 import { ageFromDateOfBirth } from "@tarragon/shared";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { getCurrentClinicalStaff } from "@/lib/auth/current-profile";
+import { openPatientRecord } from "@/lib/clinical/open-patient-record";
 import {
   canConfirmMedicationRefill,
   hasPrescribingAuthority,
@@ -25,6 +26,7 @@ import { ImagingOrdersSection } from "./imaging-orders-section";
 import { MedicationSafetyPanel } from "./medication-safety-panel";
 import { CdsPanel } from "./cds-panel";
 import { MedicationAdherenceHistory } from "./medication-adherence-history";
+import { PrnLimitsPanel } from "./prn-limits-panel";
 import { MedicationReconciliationPanel } from "./medication-reconciliation-panel";
 import { MedicationEffectivenessCard } from "@/components/medication-effectiveness-card";
 import { MedicationRepeatRequestsPanel } from "./medication-repeat-requests-panel";
@@ -43,6 +45,7 @@ import { loadCvRiskAssessment } from "@/lib/cv-risk/assess";
 import { FootAssessmentForm } from "./foot-assessment-form";
 import { ComplicationCheckForm } from "./complication-check-form";
 import { GlucoseTargetForm } from "./glucose-target-form";
+import { ClinicBpForm } from "./clinic-bp-form";
 import { DiabetesTypeForm } from "./diabetes-type-form";
 import { TreatmentLadder } from "./treatment-ladder";
 import { ObesityAssessmentPanel } from "./obesity-assessment-panel";
@@ -111,6 +114,25 @@ export default async function ClinicianPatientPage({
         <CardContent>
           <p className="text-sm text-charcoal-ink/60">
             This patient doesn&apos;t exist or isn&apos;t in your organisation.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // S39c: opening the chart writes the append-only access log and grants the window in which an untied clinician can read the tied
+  // tables below. It must run before those reads. If it fails the page says so instead of showing empty sections.
+  const opened = await openPatientRecord(supabase, patient.id);
+  if (opened.status === "failed") {
+    console.error("Failed to open the patient record", opened.message);
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>This record could not be opened</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-charcoal-ink/60">
+            The opening could not be recorded, so the record is not shown. Try again in a moment. Nothing was changed.
           </p>
         </CardContent>
       </Card>
@@ -287,6 +309,7 @@ export default async function ClinicianPatientPage({
                   isClinicianView
                 />
                 <MedicationAdherenceHistory patientId={patient.id} />
+                {isClinicalTier(callerStaff) && <PrnLimitsPanel patientId={patient.id} canSet={canPrescribe} />}
                 {/* Pharmacy-authority-by-tier (master plan §4/§8): Tier 1 confirms/
                     continues existing prescriptions but has no new-prescribing
                     authority — the DB RLS policy is the real gate
@@ -348,6 +371,7 @@ export default async function ClinicianPatientPage({
                     (doctor_tier = 'care_coordinator'), so `callerStaff &&` alone
                     no longer excludes them. */}
                 {isClinicalTier(callerStaff) && <GlucoseTargetForm patientId={patient.id} />}
+                {isClinicalTier(callerStaff) && <ClinicBpForm patientId={patient.id} />}
                 {isClinicalTier(callerStaff) && (
                   <DiabetesTypeForm
                     patientId={patient.id}

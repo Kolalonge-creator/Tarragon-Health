@@ -37,6 +37,7 @@ export async function loadEmergencyDatasetForPatient(
         .from("patient_allergies")
         .select("allergen, reaction, severity")
         .eq("patient_id", patientId)
+        .is("correction_status", null)
         .order("severity", { ascending: false, nullsFirst: false })
         .order("allergen"),
       supabase

@@ -135,6 +135,36 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: `${SPEC.replace("Section 17", "Section 8.2")} (Verify: six-digit code, resend after 60 seconds, max 5 attempts per hour)`,
   },
   {
+    key: "auth.recovery_rules",
+    // S03b (founder decisions 2026-10-13). Live values are the active row of `account_recovery_config`; this entry mirrors it and a
+    // test fails if the migration seed and this value drift. backup_code_count: codes per set (the founder said ten).
+    // backup_code_regenerations_per_day: sets one person can make in 24 hours. backup_code_attempts_per_hour: wrong tries on one
+    // account before redeeming is refused for an hour. contact_delay_hours: the wait between the recovery contact confirming and
+    // the one-time link being allowed. contact_request_hours: how long a request waits for the contact to answer.
+    // contact_release_hours: how long the link can be asked for once the wait is over. contact_requests_per_week: requests one
+    // person can start in a week (each one disturbs the contact). number_change_hold_hours: how long recovery by a text code is
+    // paused after the sign-in number moved (OQ-43). number_change_confirm_minutes: how long a confirmation from the old number or
+    // the verified email stays good for starting a number change. step_up_minutes: how long a password re-entry stays good for making
+    // backup codes or naming a recovery contact. All are PROPOSED; none is spec-fixed except the count of ten.
+    value: {
+      backup_code_count: 10,
+      backup_code_regenerations_per_day: 3,
+      backup_code_attempts_per_hour: 10,
+      contact_delay_hours: 24,
+      contact_request_hours: 48,
+      contact_release_hours: 48,
+      contact_requests_per_week: 2,
+      number_change_hold_hours: 72,
+      number_change_confirm_minutes: 15,
+      step_up_minutes: 10,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/design/S03b.md; docs/research/S01-S05-competitor-gap-and-build-plan.md section 10; OQ-41, OQ-43",
+  },
+  {
     key: "proxy.setup",
     // Spec 8.2 "Set up for my parent": the setup expires after 72 hours. The per-day cap on how many setups one person
     // may start is not in the spec; it is a PROPOSED abuse limit (each setup costs a verification code SMS). Mirrored
@@ -406,6 +436,31 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S10.md; docs/research/S10.md",
   },
   {
+    key: "events.bus_rules",
+    // S10x adds the operations values. Same live source (the active row of `event_bus_config`, now version 3; a test fails if the
+    // migrations and this entry drift apart). lagAlertSeconds: when the oldest due, unclaimed, non-urgent delivery of a subscriber is
+    // older than this, one incident opens for that subscriber (none while one is open). lagAlertFloorSeconds: the database refuses a
+    // lower value, so a typo cannot turn the alert into noise. partnerDisableAfterFailures: consecutive failed attempts after which a
+    // partner webhook endpoint is switched off and an incident opens; partnerDisableFloor is the lowest the database allows.
+    value: {
+      batchSize: 50,
+      leaseSeconds: 60,
+      maxAttempts: 8,
+      backoffBaseSeconds: 15,
+      backoffMaxSeconds: 900,
+      jitterPercent: 20,
+      lagAlertSeconds: 600,
+      lagAlertFloorSeconds: 120,
+      partnerDisableAfterFailures: 20,
+      partnerDisableFloor: 5,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-13",
+    source: "docs/design/S10x.md",
+  },
+  {
     key: "credentialing.rules",
     // Clinician credentialing (S15). The live values are the active row of `credentialing_config` (versioned in the
     // database); this entry mirrors it, and a test fails if the migration seed and this value drift apart. Keys are the
@@ -467,6 +522,43 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 2,
     effectiveFrom: "2026-10-06",
     source: "docs/design/S15.md; OQ-104; OQ-108",
+  },
+  {
+    key: "credentialing.rules",
+    // Version 3 (Q14, Q15) adds the primary-source and re-check keys to version 2 (OQ-104, OQ-108): the same rules plus three. Both switches start off: no real account has a confirmed
+    // phone yet and SMS is not live, so requiring one would stop every applicant, and the purge stays off until counsel
+    // confirms the periods (the rejected-application period is a proposal).
+    value: {
+      min_practice_years: 2,
+      pass_percent: 80,
+      all_red_correct: true,
+      audited_task_count: 20,
+      referees_required: 2,
+      referee_independent_contact: true,
+      test_max_attempts: 3,
+      test_retake_cooldown_hours: 24,
+      test_scenarios_per_attempt: 10,
+      notice_windows_days: [90, 30, 0],
+      grace_max_days: 14,
+      separate_verifier_and_approver: true,
+      document_max_bytes: 8388608,
+      document_retention_years_after_offboarding: 7,
+      require_verified_phone: false,
+      document_purge_enabled: false,
+      rejected_application_document_retention_months: 24,
+      primary_source_required: true,
+      primary_source_routes: ["mdcn_dataflow", "mdcn_written_confirmation", "mdcn_register_check"],
+      primary_source_max_age_days: 365,
+      recheck_months: 6,
+      recheck_overdue_days: 14,
+      credential_date_max_days: 1100,
+      grandfather_ends_on: null,
+    },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 3,
+    effectiveFrom: "2026-10-13",
+    source: "docs/design/S11-S15-credentialing.md; CMO answers Q14 and Q15 (MDCN verification before first independent contact; six-month spot re-check). grandfather_ends_on is null until the CMO sets it.",
   },
   {
     key: "lab.release_policy",
@@ -858,6 +950,19 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S19.md; spec 7.9",
   },
   {
+    key: "free_red_event.rules",
+    // Two-tier (CMO decision 2026-10-08, C2): the Free red-event path. Live values are the active row of `free_red_config`; this
+    // entry mirrors it and a test fails if the migration seed and this value drift. recheck_minutes: when the Free patient is
+    // nudged to rest and take the reading again. checkin_minutes: when they are asked whether they got care (the answer is kept
+    // for them and never shown to a doctor). The CMO confirms both numbers.
+    value: { recheck_minutes: 30, checkin_minutes: 360 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "docs/OPEN-QUESTIONS.md two-tier Free red events; docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md C2",
+  },
+  {
     key: "queue.claims",
     // Claim, hand-back and reliability rules (S17, spec 7.6 and 7.8). Live values are the active row of
     // `queue_claim_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
@@ -897,6 +1002,63 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S28.md; spec 9.6 and 8.9",
+  },
+  {
+    key: "partner.quality",
+    // Partner quality rules (S74, spec 21.7): the turnaround target for a laboratory, how many upheld complaints are too many, the licence warning
+    // window, the score weights and floors, and which breaches take a partner out of NEW work. Live values are the active row of
+    // `partner_quality_config`; this entry mirrors it and a test fails if the migration seed and this value drift. PROPOSED: the CMO owns the
+    // numbers (OQ-360). Nothing here moves money; laboratories are paid by the patient directly (D-06).
+    value: {
+      window_days: 90,
+      turnaround: { lab_target_hours: 72, min_orders: 10, min_within_target_percent: 80 },
+      complaints: { category_codes: ["late_result", "wrong_result", "communication", "charge_dispute", "safety", "licence", "other"], upheld_limit: 3 },
+      licence: { expiring_days: 30 },
+      weights: { turnaround: 40, complaints: 30, licence: 30 },
+      score: { warn_below: 70, suspend_below: 50 },
+      removal: {
+        auto_suspend: true,
+        suspend_on: ["licence_expired", "complaints_upheld_limit", "turnaround_below_target", "score_below_floor"],
+        override_days: 30,
+        reason_min_chars: 20,
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S74.md; docs/research/S74.md; spec 21.7 and B.21 safety rules",
+  },
+  {
+    key: "partner.settlement",
+    // Partner settlement rules (S74, spec 21.6, decision S74-2). Live values are the active row of `partner_settlement_config`. PROPOSED, owned by the
+    // founder (OQ-326): the statement period, the day after month end the run may build drafts, whether a second person must approve terms, and the
+    // kinds of partner and source that can ever accrue. Laboratories are not in `partner_kinds`: they are owed nothing (D-06).
+    value: {
+      period: "calendar_month_lagos",
+      close_after_days: 5,
+      four_eyes: true,
+      source_kinds: ["sponsor_paid_item", "pharmacy_margin"],
+      partner_kinds: ["pharmacy", "clinic"],
+      basis_points_max: 10000,
+      reason_min_chars: 20,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S74.md; docs/DECISIONS.md S74-2; spec 21.6",
+  },
+  {
+    key: "pharmacy.chat",
+    // The in-app pharmacist and patient conversation (S74, spec 21.2): longest message, messages per sender per day, and how many days it stays open
+    // after the medicine is collected. Live values are the active row of `pharmacy_chat_config`. PROPOSED, owned by the CMO with the pharmacy lead.
+    value: { max_body_chars: 1000, max_per_sender_per_day: 20, open_days_after_supply: 14 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S74.md; spec 21.2",
   },
   {
     key: "queue.sla_warning",
@@ -954,6 +1116,88 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S38.md; spec 4.10 and Module 22; docs/research/S38.md",
   },
   {
+    key: "security.rules",
+    // Security thresholds (S39). Live values are the active row of `security_config`; this entry mirrors it and a test fails if the
+    // migration seed and this value drift. PROPOSED, owned by the security owner (CMO until one is named): how many failed lookups on a
+    // public token door in one hour open a security incident. The answer to guessing is to see it, never to lock the door, because the
+    // emergency card must open for a stranger in an emergency.
+    value: { lookup_failure_alert_per_hour: 50 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S39.md; spec section 13",
+  },
+  {
+    key: "security.rules",
+    // Security thresholds (S39, S39c). Live values are the active row of `security_config`; this entry mirrors it and a test fails if the
+    // migration seed and this value drift. PROPOSED, owned by the security owner (CMO until one is named). v1 (S39): failed lookups on a public
+    // token door in one hour that open a security incident (the answer to guessing is to see it, never to lock the door). v2 (S39c): how long an
+    // opening of a patient record stays valid for an untied clinician, how many untied openings in an hour raise an incident, the after-hours
+    // band (Lagos hours), and the retention periods (NHS Records Management Code and HIPAA as references, counsel to confirm). Retention is
+    // config only: real_data_auto_delete is false, nothing deletes real patient data (founder, 2026-10-07).
+    value: {
+      lookup_failure_alert_per_hour: 50,
+      record_open_window_hours: 8,
+      untied_open_alert_per_hour: 20,
+      after_hours_start: 22,
+      after_hours_end: 6,
+      retention: {
+        adult_clinical_record_years_after_last_contact: 8,
+        child_record_until_age: 25,
+        child_record_until_age_if_seen_at_17: 26,
+        maternity_record_years: 25,
+        mental_health_years_after_last_contact: 20,
+        access_audit_log_years: 8,
+        consent_years_after_relationship_end: 6,
+        payments_ledger_years: 6,
+        operational_data_days_min: 90,
+        operational_data_days_max: 730,
+        real_data_auto_delete: false,
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S39c.md; spec section 13; founder direction 2026-10-07",
+  },
+  {
+    key: "security.rules",
+    // Security thresholds (S39, S39c, S39d). Live values are the active row of `security_config`; this entry mirrors it and a test fails if the
+    // migration seed and this value drift. PROPOSED, owned by the security owner (CMO until one is named). v1 (S39): failed lookups on a public
+    // token door in one hour that open a security incident (the answer to guessing is to see it, never to lock the door). v2 (S39c): how long an
+    // opening of a patient record stays valid for an untied clinician, how many untied openings in an hour raise an incident, the after-hours
+    // band (Lagos hours), and the retention periods (NHS Records Management Code and HIPAA as references, counsel to confirm). v3 (S39d): the review clock, in days, for a patient data export request. Retention is
+    // config only: real_data_auto_delete is false, nothing deletes real patient data (founder, 2026-10-07).
+    value: {
+      lookup_failure_alert_per_hour: 50,
+      record_open_window_hours: 8,
+      untied_open_alert_per_hour: 20,
+      after_hours_start: 22,
+      after_hours_end: 6,
+      export_review_days: 30,
+      retention: {
+        adult_clinical_record_years_after_last_contact: 8,
+        child_record_until_age: 25,
+        child_record_until_age_if_seen_at_17: 26,
+        maternity_record_years: 25,
+        mental_health_years_after_last_contact: 20,
+        access_audit_log_years: 8,
+        consent_years_after_relationship_end: 6,
+        payments_ledger_years: 6,
+        operational_data_days_min: 90,
+        operational_data_days_max: 730,
+        real_data_auto_delete: false,
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 3,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S39d.md; spec section 13; founder direction 2026-10-07",
+  },
+  {
     key: "quality.audit",
     // Clinical audits, tier 1 count, the audit form, reliability weight and the speak-up clocks (S20, spec 7.8). Live values are the
     // active row of `quality_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
@@ -1008,6 +1252,61 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S20.md; spec 7.8",
   },
   {
+    key: "quality.audit",
+    // Version 2 (Q16): adds sampling.new_clinician_full_review_cases. Clinical audits, tier 1 count, the audit form, reliability weight and the speak-up clocks (S20, spec 7.8). Live values are the
+    // active row of `quality_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
+    // Every number is PROPOSED and owned by the CMO (OQ-140): the sample rate, the tier 1 count and pass mark, the score bands,
+    // and the acknowledge and respond times for a safety concern.
+    value: {
+      sampling: {
+        random_rate_percent: 10,
+        always_reasons: ["red_event", "titration"],
+        floor_min_tasks: 3,
+        floor_per_clinician_per_month: 1,
+        reviewer_monthly_cap: 40,
+        due_days: 14,
+        new_clinician_full_review_cases: 20,
+      },
+      tier1: {
+        audited_task_count: 20,
+        graduation_min_score: 85,
+        max_critical_misses: 0,
+      },
+      form: {
+        version: 1,
+        safety_items: ["identity_and_consent_confirmed", "red_flags_recognised_and_acted_on", "decision_within_competence_and_protocol", "no_unsigned_treatment_change", "safety_netting_and_follow_up_given", "escalated_when_needed"],
+        quality_items: ["history_adequate", "reasoning_documented", "communication_clear", "plan_appropriate", "patient_questions_answered", "documentation_timely"],
+        quality_max: 4,
+      },
+      outcomes: {
+        satisfactory_min: 85,
+        minor_concerns_min: 70,
+        rationale_min_chars: 20,
+      },
+      reliability: {
+        audit_weight: 2,
+        good_by_outcome: {
+          satisfactory: 1,
+          minor_concerns: 0.6,
+          significant_concerns: 0.2,
+          unsafe: 0,
+        },
+      },
+      speak_up: {
+        acknowledge_hours: 48,
+        immediate_acknowledge_hours: 4,
+        respond_days: 14,
+        max_per_day: 10,
+        retaliation_review_months: 12,
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-13",
+    source: "docs/design/S20.md; spec 7.8; docs/design/S11-S15-credentialing.md (CMO answer Q16: 100 percent review of a new clinician's first 20 red or prescribing cases)",
+  },
+  {
     key: "earnings.rules",
     // The rules around fees that are not money (S30, spec 7.7). Live values are the active row of `earnings_config`; this entry
     // mirrors it and a test fails if the migration seed and this value drift. The AMOUNTS are not here on purpose: fee schedule
@@ -1039,6 +1338,45 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S31.md; spec 7.7",
   },
   {
+    key: "payouts.controls",
+    // Payout batch maker-checker limits (S31x, OQ-97). Paystack's transfer OTP stays OFF by founder decision, so these ARE the
+    // compensating controls: a payout is sent only from a batch one approver proposed and a different approver released, and these caps
+    // apply at proposal, at release and at send. Live value is the active row of `payout_controls_config`; a test fails if the migration
+    // seed and this value drift. Kobo. The founder sets the real numbers; these are starting points sized for the first pilot cohort.
+    //  perPayoutMaxKobo: no single weekly payout above this (150,000,000 kobo = 1.5 million naira).
+    //  perClinicianRolling7DaysMaxKobo: one clinician's sent, succeeded and batched-and-approved payouts in any 7 days, plus the new one.
+    //  perBatchMaxKobo / perBatchMaxCount: a batch's total and its number of payouts.
+    value: {
+      perPayoutMaxKobo: 150000000,
+      perClinicianRolling7DaysMaxKobo: 150000000,
+      perBatchMaxKobo: 1000000000,
+      perBatchMaxCount: 20,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/design/S11-S15-p4-providers.md; OQ-97",
+  },
+  {
+    key: "providers.layer",
+    // The provider layer's operating values (S14x): the webhook inbox, the circuit breaker and settlement reconciliation. Live value is
+    // the active row of `provider_layer_config`; a test fails if the migration seed and this value drift.
+    //  inbox: lease and attempt limits and backoff for retrying a webhook that failed; maxBodyBytes caps what is stored per event.
+    //  circuit: this many consecutive outages open the breaker; after openSeconds one probe is let through.
+    //  reconciliation: a paid charge no settlement lists after unsettledAfterHours is a break; breaks are bucketed by age.
+    value: {
+      inbox: { leaseSeconds: 120, maxAttempts: 8, backoffBaseSeconds: 30, backoffMaxSeconds: 3600, maxBodyBytes: 262144 },
+      circuit: { failureThreshold: 5, openSeconds: 60 },
+      reconciliation: { unsettledAfterHours: 72, ageingBucketsHours: [24, 72, 168], lookbackDays: 7 },
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/design/S11-S15-p4-providers.md",
+  },
+  {
     key: "queue.task_types",
     // Task types and priority classes (S16, spec 7.3 and 7.4). Live values are the active `task_types` rows; this entry
     // mirrors them, and a test compares it with the migration seed. Each row: code, priority class (1 is first), default
@@ -1061,6 +1399,31 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-06",
+    source: "docs/design/S16.md; spec 7.3 and 7.4",
+  },
+  {
+    key: "queue.task_types",
+    // Task types and priority classes (S16, spec 7.3 and 7.4). Live values are the active `task_types` rows; this entry
+    // mirrors them, and a test compares it with the migration seed. Each row: code, priority class (1 is first), default
+    // due minutes, minimum doctor tier, required competencies, lead window minutes (0 for none), claim timeout minutes,
+    // pushable (an employed doctor may be pushed it), creatable (false for a class reached only by promotion) and the
+    // triage task keys it answers. adherence_follow_up is not in the spec table (OQ-S16-1). v2 (F-05, 2026-10-07): the Medical Officer tier is retired, so every doctor task type has senior_medical_officer as its minimum; nothing else changed.
+    value: [
+      { code: "red_event_unacknowledged", priority_class: 1, default_due_minutes: 0, min_doctor_tier: "senior_medical_officer", required_competencies: ["on_call"], lead_window_minutes: 0, claim_timeout_minutes: 30, pushable: false, creatable: true, source_task_keys: [] },
+      { code: "critical_result_review", priority_class: 2, default_due_minutes: 120, min_doctor_tier: "senior_medical_officer", required_competencies: ["result_review"], lead_window_minutes: 0, claim_timeout_minutes: 30, pushable: false, creatable: true, source_task_keys: [] },
+      { code: "amber_bp_review_due_soon", priority_class: 3, default_due_minutes: 0, min_doctor_tier: "senior_medical_officer", required_competencies: ["hypertension"], lead_window_minutes: 0, claim_timeout_minutes: 30, pushable: false, creatable: false, source_task_keys: [] },
+      { code: "amber_bp_review", priority_class: 4, default_due_minutes: 1440, min_doctor_tier: "senior_medical_officer", required_competencies: ["hypertension"], lead_window_minutes: 240, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: ["urgent_bp_review", "bp_review", "low_bp_review"] },
+      { code: "symptom_review", priority_class: 5, default_due_minutes: 1440, min_doctor_tier: "senior_medical_officer", required_competencies: ["adult_general"], lead_window_minutes: 1440, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: [] },
+      { code: "titration_signoff", priority_class: 6, default_due_minutes: 2880, min_doctor_tier: "senior_medical_officer", required_competencies: ["prescribing", "hypertension"], lead_window_minutes: 2880, claim_timeout_minutes: 60, pushable: true, creatable: true, source_task_keys: [] },
+      { code: "async_question", priority_class: 7, default_due_minutes: 1440, min_doctor_tier: "senior_medical_officer", required_competencies: ["adult_general"], lead_window_minutes: 1440, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: [] },
+      { code: "routine_result_review", priority_class: 8, default_due_minutes: 2880, min_doctor_tier: "senior_medical_officer", required_competencies: ["result_review"], lead_window_minutes: 1440, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: [] },
+      { code: "admin_clinical", priority_class: 9, default_due_minutes: 4320, min_doctor_tier: "senior_medical_officer", required_competencies: [], lead_window_minutes: 1440, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: ["referral_review"] },
+      { code: "adherence_follow_up", priority_class: 8, default_due_minutes: 2880, min_doctor_tier: "care_coordinator", required_competencies: [], lead_window_minutes: 1440, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: ["adherence_review", "silence_check"] },
+    ],
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-07",
     source: "docs/design/S16.md; spec 7.3 and 7.4",
   },
   {
@@ -1140,6 +1503,57 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 2,
     effectiveFrom: "2026-10-06",
     source: "docs/design/S13.md; docs/research/S13.md",
+  },
+  {
+    key: "notifications.rules",
+    // v3 (S04b-3, founder decision 2026-10-13): quiet hours are OFF until a person turns them on (window 21:00 to 07:00
+    // Africa/Lagos until they change it). Discreet mode and quiet hours are applied by the one sender; safety messages
+    // are never held. Live value: the active row of `notification_rules_config`.
+    value: {
+      quietHours: { enabled: false, start: "21:00", end: "07:00" },
+      routinePushPerDay: 4,
+      receiptCheckMinutes: 15,
+      receiptGiveUpHours: 24,
+      pushFallback: { enabled: true, afterMinutes: 240, maxAgeHours: 24, perRecipientPerDay: 1, batchSize: 200 },
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 3,
+    effectiveFrom: "2026-10-13",
+    source: "docs/design/S13.md; founder decision 2026-10-13",
+  },
+  {
+    key: "notifications.rules",
+    // v4 (S13 R4, CMO answers Q10 to Q13): adds redUnconfirmed. A red alert the patient has not confirmed (opened a notice,
+    // acknowledged the guidance, replied, or a push receipt says delivered) within unconfirmedMinutes (30, CMO Q11, matching the
+    // obstetric treatment window; the plan had recommended 10) opens one clinician outreach task and alerts the on-call
+    // clinician. undeliveredMinutes (5): when every push for the alert ended in a receipt error and no email was delivered, the
+    // call is due that long after the error instead. expireHours (6): an alert older than this opens no task. deliveredCountsAsConfirmed
+    // (true, per the plan): a delivered push receipt counts as confirmation; false needs a human action, which is safer and
+    // sends more calls, CMO to decide. couldNotGetCareOutreachNow (true): the patient's "I could not get care" answer brings the
+    // call forward. criticalReceiptCheckMinutes (2): critical Expo tickets are checked from this age, not 15.
+    // The other keys are v3's, unchanged. Live value: the active row of `notification_rules_config`.
+    value: {
+      quietHours: { enabled: false, start: "21:00", end: "07:00" },
+      routinePushPerDay: 4,
+      receiptCheckMinutes: 15,
+      receiptGiveUpHours: 24,
+      pushFallback: { enabled: true, afterMinutes: 240, maxAgeHours: 24, perRecipientPerDay: 1, batchSize: 200 },
+      redUnconfirmed: {
+        enabled: true,
+        unconfirmedMinutes: 30,
+        undeliveredMinutes: 5,
+        expireHours: 6,
+        deliveredCountsAsConfirmed: true,
+        couldNotGetCareOutreachNow: true,
+        criticalReceiptCheckMinutes: 2,
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 4,
+    effectiveFrom: "2026-10-13",
+    source: "docs/design/S11-S15-p3-critical-notifications.md; CMO decision Q11 (2026-10-07)",
   },
   {
     key: "video.audio_fallback",
@@ -1227,6 +1641,60 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S21.md; docs/research/S21.md",
   },
   {
+    key: "consultations.call_length",
+    // Tiered call length (CMO decision C8, 2026-10-08, docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md). Mirrored by
+    // followup_config kind 'call_length' version 1 (a drift test compares the two). The length and this version are stamped on the
+    // encounter when it is created (INV-16).
+    //  longMinutes: the yearly results call (yearlyResultsMinutes) and any Member with a condition on the problem list or an abnormal
+    //  or held result in the last abnormalLookbackDays. routineMinutes: everyone else (a doctor may shorten a routine call down to routineMinMinutes).
+    //  minMinutes, slotGridMinutes: the shortest bookable call and the grid its start sits on (private.slot_is_open).
+    //  maxExtensionMinutes: the most a doctor can add to one call. conditionStatuses, abnormalFlags, heldReleaseStates: what counts as a need.
+    value: {
+      routineMinutes: 15,
+      routineMinMinutes: 10,
+      longMinutes: 20,
+      yearlyResultsMinutes: 20,
+      abnormalLookbackDays: 90,
+      minMinutes: 10,
+      slotGridMinutes: 5,
+      maxExtensionMinutes: 15,
+      conditionStatuses: ["active", "controlled", "uncontrolled", "suspected", "under_investigation"],
+      abnormalFlags: ["low", "high", "critical", "positive"],
+      heldReleaseStates: ["awaiting_review", "clinician_disclosure_required", "withheld"],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md C8; supabase/migrations/20261013005607_two_tier_followup_data_model_and_config.sql",
+  },
+  {
+    key: "followups.policy",
+    // Monthly follow-up (founder decisions D4 and C5): the doctor offers several times and the Member picks one. Mirrored by
+    // followup_config kind 'offers' version 1 (a drift test compares the two).
+    //  entitlementMonths, carryOverMonths: 12 follow-up months per membership, an unused month lapses (no stockpile).
+    //  minSlots, maxSlots, offerValidHours, minLeadMinutes: how many times a doctor offers, how long an offer lives, the soonest time offered.
+    //  bulkMaxPatients: the most Members one bulk offer can name. lateCancelConsumes, patientNoShowConsumes: what a late cancel and a Member
+    //  no-show do to the month. holdMinutes: the live hold passed to hold_appointment_slot.
+    value: {
+      entitlementMonths: 12,
+      carryOverMonths: 0,
+      minSlots: 2,
+      maxSlots: 6,
+      offerValidHours: 72,
+      minLeadMinutes: 120,
+      bulkMaxPatients: 50,
+      lateCancelConsumes: true,
+      patientNoShowConsumes: false,
+      holdMinutes: 10,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md D4, C5; supabase/migrations/20261013005607_two_tier_followup_data_model_and_config.sql",
+  },
+  {
     key: "scribe.transcript_retention_days",
     value: 90,
     owner: "Founder",
@@ -1301,6 +1769,43 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/design/S29.md; docs/research/S29.md; docs/research/S29-ranked-design-plan.md; spec 4.7, 8.6",
   },
+  // S69: community cohorts and challenges (spec 17.6 to 17.9). Live values are the active row of `community_config` and the rows of
+  // `challenge_templates`; a test (community-mirror.test.ts) fails if either drifts from the migration seed.
+  {
+    key: "cohorts.rules",
+    // min_contributors: the floor below which a cohort total is hidden (never below 10, enforced by the database; the institutional floor of 5
+    // is NOT used here). max_single_share_pct: leave-one-out, a total is hidden when its biggest contributor holds more than this share, so
+    // removing that one person would move the total too far. round_total_to and progress_step_pct: published figures are rounded.
+    // publish_delay_hours and snapshot_every_hours: a snapshot is readable only this long after it is taken, so one entry is never a visible
+    // jump. activity_minutes_week_cap and activity_minutes_day_max: WHO 150 to 300 minutes a week, capped. board_min_cohorts: cohorts needed for
+    // a comparison. participation_keep_days: how long a member's own effort rows survive after a challenge ends. blocked_name_terms: a cohort
+    // name may not start a word with one of these (generic names only).
+    value: { min_contributors: 10, max_single_share_pct: 30, round_total_to: 10, publish_delay_hours: 12, snapshot_every_hours: 6, invite_ttl_hours: 72, max_invites_per_day: 20, max_members_per_cohort: 200, max_cohorts_per_moderator: 3, max_active_challenges: 2, challenge_min_days: 7, challenge_max_days: 60, activity_minutes_week_cap: 300, activity_minutes_day_max: 180, board_min_cohorts: 3, progress_step_pct: 5, participation_keep_days: 30, blocked_name_terms: ["diabet", "sugar", "hypertens", "blood pressure", "bp", "hiv", "aids", "cancer", "kidney", "renal", "dialysis", "heart", "stroke", "asthma", "sickle", "obes", "weight", "slim", "diet", "pregnan", "fertil", "mental", "depress", "anxiety", "addict", "recovery", "cholesterol", "epilep", "tb", "tubercul", "hepatitis", "patient", "sick", "disease"] },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S69.md; docs/research/S69.md; docs/plans/S66-S70-cmo-signoff-pack.md (A16, B1)",
+  },
+  {
+    key: "cohorts.challenge_templates",
+    // The only challenges a moderator can start (CMO sign-off pack A16): effort counts only, never weight, calories, fasting, blood pressure or
+    // glucose. Proposed until the Chief Medical Officer signs each one through `sign_challenge_template`; nothing is approved by this entry.
+    value: [
+      { code: "log_days", label: "Check in with your health log", description: "Days you add something to your own health log.", metric: "log_days", unit: "days", default_days: 14, target_per_member: 8 },
+      { code: "medicine_days", label: "Medicine check-in days", description: "Days you answer your medicine check-in.", metric: "medicine_checkin_days", unit: "days", default_days: 14, target_per_member: 8 },
+      { code: "lessons", label: "Learn together", description: "Short health lessons you finish.", metric: "lessons_completed", unit: "lessons", default_days: 14, target_per_member: 3 },
+      { code: "move_together", label: "Move together", description: "Minutes of activity you do. Up to 300 minutes a week count.", metric: "activity_minutes", unit: "minutes", default_days: 7, target_per_member: 150 },
+      { code: "low_salt_days", label: "Lower-salt days", description: "Days you tell us you chose lower-salt food.", metric: "low_salt_days", unit: "days", default_days: 14, target_per_member: 8 },
+      { code: "regular_sleep", label: "Regular bedtime days", description: "Days you tell us you kept a regular bedtime.", metric: "consistent_sleep_days", unit: "days", default_days: 14, target_per_member: 8 },
+      { code: "water_with_meals", label: "Water with meals", description: "Days you tell us you drank water with meals.", metric: "water_with_meals_days", unit: "days", default_days: 14, target_per_member: 8 },
+    ],
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S69.md; docs/plans/S66-S70-cmo-signoff-pack.md (A16)",
+  },
   // S26: entitlements lifecycle, care pack expiry, refunds
   {
     key: "entitlements.expiry_reminder_days",
@@ -1314,7 +1819,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   },
   {
     key: "refunds.cooling_off_days",
-    // FCCPA consumer-protection cooling-off period: a patient may request a full refund within this window.
+    // Superseded for the Membership by membership.refund (21 days, decision 2026-10-12). Kept for any non-Membership order; none is sold.
     value: 14,
     owner: "Founder",
     status: "proposed",
@@ -1729,6 +2234,204 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/clinical-signoff/STANDARDS-CROSS-CHECK-2026-10-07.md; WHO haemoglobin thresholds 2024; Royal College of Pathologists critical results",
   },
   {
+    key: "lab.panels",
+    // v3 (2026-10-12, CMO C1/C6): HIV screen, HBsAg and anti-HCV are REQUIRED every year, not "only if ordered". Same analytes and limits
+    // as v2 otherwise. Mirrors lab_panel_versions v2, made by 20261013005133_membership_annual_screening_required.sql; a test fails if the
+    // two drift. Stays `proposed` until the CMO signs; nothing auto-releases before that.
+    value: {
+      "panels": {
+        "membership_annual": {
+          "analytes": [
+            {
+              "code": "fasting_glucose",
+              "label": "Fasting glucose",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 70,
+              "refHigh": 99,
+              "criticalLow": 45,
+              "criticalHigh": 360
+            },
+            {
+              "code": "hba1c",
+              "label": "HbA1c",
+              "kind": "numeric",
+              "unit": "%",
+              "refLow": 4,
+              "refHigh": 5.6,
+              "criticalHigh": 14
+            },
+            {
+              "code": "creatinine",
+              "label": "Creatinine",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 0.6,
+              "refHigh": 1.3,
+              "criticalHigh": 4,
+              "bySex": {
+                "male": {
+                  "refLow": 0.7,
+                  "refHigh": 1.3
+                },
+                "female": {
+                  "refLow": 0.6,
+                  "refHigh": 1.1
+                }
+              }
+            },
+            {
+              "code": "potassium",
+              "label": "Potassium",
+              "kind": "numeric",
+              "unit": "mmol/L",
+              "refLow": 3.5,
+              "refHigh": 5.1,
+              "criticalLow": 3,
+              "criticalHigh": 6
+            },
+            {
+              "code": "sodium",
+              "label": "Sodium",
+              "kind": "numeric",
+              "unit": "mmol/L",
+              "refLow": 135,
+              "refHigh": 145,
+              "criticalLow": 121,
+              "criticalHigh": 150
+            },
+            {
+              "code": "total_cholesterol",
+              "label": "Total cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 200
+            },
+            {
+              "code": "ldl_cholesterol",
+              "label": "LDL cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 130
+            },
+            {
+              "code": "hdl_cholesterol",
+              "label": "HDL cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 40,
+              "bySex": {
+                "male": {
+                  "refLow": 40
+                },
+                "female": {
+                  "refLow": 50
+                }
+              }
+            },
+            {
+              "code": "triglycerides",
+              "label": "Triglycerides",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 150
+            },
+            {
+              "code": "alt",
+              "label": "ALT",
+              "kind": "numeric",
+              "unit": "U/L",
+              "refLow": 7,
+              "refHigh": 40
+            },
+            {
+              "code": "ast",
+              "label": "AST",
+              "kind": "numeric",
+              "unit": "U/L",
+              "refLow": 10,
+              "refHigh": 40
+            },
+            {
+              "code": "haemoglobin",
+              "label": "Haemoglobin",
+              "kind": "numeric",
+              "unit": "g/dL",
+              "refLow": 12,
+              "refHigh": 17.5,
+              "criticalLow": 7,
+              "criticalHigh": 20,
+              "bySex": {
+                "male": {
+                  "refLow": 13,
+                  "refHigh": 17.5
+                },
+                "female": {
+                  "refLow": 12,
+                  "refHigh": 15.5
+                }
+              }
+            },
+            {
+              "code": "wbc",
+              "label": "White cell count",
+              "kind": "numeric",
+              "unit": "10^9/L",
+              "refLow": 3,
+              "refHigh": 11,
+              "criticalLow": 1,
+              "criticalHigh": 30
+            },
+            {
+              "code": "platelets",
+              "label": "Platelets",
+              "kind": "numeric",
+              "unit": "10^9/L",
+              "refLow": 150,
+              "refHigh": 450,
+              "criticalLow": 20,
+              "criticalHigh": 1000
+            },
+            {
+              "code": "tsh",
+              "label": "TSH",
+              "kind": "numeric",
+              "unit": "mIU/L",
+              "refLow": 0.4,
+              "refHigh": 4
+            },
+            {
+              "code": "hiv_screen",
+              "label": "HIV screen",
+              "kind": "qualitative",
+              "unit": "",
+              "sensitive": true
+            },
+            {
+              "code": "hbsag",
+              "label": "Hepatitis B surface antigen",
+              "kind": "qualitative",
+              "unit": "",
+              "sensitive": true
+            },
+            {
+              "code": "hcv_ab",
+              "label": "Hepatitis C antibody",
+              "kind": "qualitative",
+              "unit": "",
+              "sensitive": true
+            }
+          ]
+        }
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 3,
+    effectiveFrom: "2026-10-12",
+    source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md (C1, C6); docs/clinical-signoff/STANDARDS-CROSS-CHECK-2026-10-07.md; WHO haemoglobin thresholds 2024; Royal College of Pathologists critical results",
+  },
+  {
     key: "triage.silence_rule_days",
     // v2 (decision S11-1, 2026-10-07): 7 days, not 5. Takes effect when the CMO approves bp_care_triage v3 in the database; the live rule set
     // carries its own copy of this number and stays at the earlier line until then. The rule set, not this entry, is what the engine reads.
@@ -1749,5 +2452,526 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 3,
     effectiveFrom: "2026-10-07",
     source: "docs/DECISIONS.md S11-1; supabase/migrations/20261007152136_s11c_bp_care_triage_v3.sql",
+  },
+  {
+    key: "commerce.membership_prices",
+    // Two-tier decisions D2 (2026-10-08) and C3/C10 (2026-10-12): the individual Membership is 120,000 naira a year and an
+    // organisation pays a flat 100,000 naira per member, adjustable per organisation from the admin dashboard. Both integer kobo
+    // (INV-15). Volume tiers (80k/70k/60k) were dropped. The platform launches at 120,000 (founder, 2026-10-12): the database row takes
+    // effect the moment the migration is applied and the 100,000 row is closed at the same instant, so the old figure is never in
+    // force. The database holds the live rows (prices, organisation_member_prices); this is the code-side mirror and the mirror test
+    // pins both migrations' numbers to these.
+    value: { individual_kobo: 12_000_000, organisation_member_kobo: 10_000_000 },
+    owner: "Founder",
+    status: "confirmed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md (D2, C3, C10); supabase/migrations/20261013003317_two_tier_membership_pricing.sql",
+  },
+  {
+    key: "membership.lapse",
+    // Founder decision 2026-10-12: when a Membership year ENDS NATURALLY the person keeps Member status for a 14 day grace, then is
+    // Free again (state lapsed). A refund is different: it ends Member access at once (membership.refund, decision 2026-10-12). Renewal reminders go 30, 14 and 7 days before the end (in-app, push or email; never SMS). Mirrored by
+    // membership_lapse_config in the database (the migration seed), with a drift test.
+    value: { grace_days: 14, reminder_days_before: [30, 14, 7] },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "Founder decision 2026-10-12 (lapse and grace); supabase/migrations/20261013010732_two_tier_only_free_and_member.sql",
+  },
+  {
+    key: "membership.refund",
+    // Founder/CMO decision 2026-10-12: a Membership is refundable only within 21 days of purchase; an approved refund ends Member access
+    // immediately (no grace). Mirrored by membership_policy_config (kind refund) in the migration seed, with a drift test.
+    value: { window_days: 21 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "Founder/CMO decision 2026-10-12 (review of integration/two-tier); supabase/migrations/20261013012113_two_tier_refund_window_and_immediate_end.sql",
+  },
+  {
+    key: "membership.legacy_conversion",
+    // Founder decision 2026-10-13: every legacy programme or plan holder becomes a real Member. A holder with an end date keeps it; a holder
+    // with an active purchase and no end date gets a full 365 days from conversion. PROPOSED. Mirrored by membership_policy_config
+    // (kind legacy_conversion), with a drift test.
+    value: { no_end_date_days: 365 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "Founder decision 2026-10-13 (legacy holders); supabase/migrations/20261013012113_two_tier_refund_window_and_immediate_end.sql",
+  },
+  {
+    key: "membership.review",
+    // Prescription renewals are discussed at the monthly review, not requested separately (decision 2026-10-13). The pre-call summary
+    // lists the medicines whose prescription expires within this many days of the call. PROPOSED; the CMO confirms the window.
+    value: { renewal_window_days: 30 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "Founder/CMO decision 2026-10-13 (renewals at the monthly review); supabase/migrations/20261013013400_two_tier_renewal_at_monthly_review.sql",
+  },
+  {
+    key: "commerce.second_opinion",
+    // A second opinion is an extra 5,000 naira (500,000 kobo, INV-15), sold to Members only. The price is the service_products row for
+    // second_opinion_credit; this entry is the code-side mirror and a test pins the migration to it.
+    value: { item_code: "second_opinion_credit", price_kobo: 500_000, members_only: true },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "Founder/CMO decision 2026-10-12 (second opinion extra); supabase/migrations/20261013012811_two_tier_renewals_included_second_opinion_member_only.sql",
+  },
+  {
+    key: "commerce.organisation_member_price_limits",
+    // Floor and ceiling an admin can set for one organisation's member price, so a typo cannot set 1 naira: 50,000 to 200,000 naira.
+    // PROPOSED: the founder confirms the band. The default (100,000) and the individual price (120,000) both sit inside it. Mirrored
+    // byte for byte by organisation_price_limits (the migration seed) and enforced by a table trigger as well as the admin RPC.
+    value: { item_code: "membership_annual", min_kobo: 5_000_000, max_kobo: 20_000_000, default_kobo: 10_000_000 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md (C10); supabase/migrations/20261013003317_two_tier_membership_pricing.sql",
+  },
+  {
+    key: "ops.service_targets",
+    // SR1 (docs/plans/SCALE-READINESS-PLAN.md section 2). The numbers the platform is held to at every stage (500, 5,000,
+    // 25,000, 100,000 Members). PROPOSED: the CMO and founder have not signed them, and this entry must not be marked confirmed by an agent.
+    // The page acknowledgement ladder (5 and 10 minutes) is paging.escalation_minutes, not repeated here.
+    value: {
+      redEventPagedWithinSeconds: 60,
+      readingSavedAndGradedWithinSeconds: 5,
+      nextTaskWithinSeconds: 2,
+      chartSummaryOpensWithinSeconds: 3,
+      lostPaymentConfirmationsAllowed: 0,
+      lostLabResultsAllowed: 0,
+      lostNotificationsAllowed: 0,
+      duplicatedTasksAllowed: 0,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "docs/plans/SCALE-READINESS-PLAN.md section 2 (service targets); to be signed by the CMO and founder",
+    guardPatterns: ["redEventPagedWithin\\w*\\s*[=:]\\s*60\\b", "nextTaskWithin\\w*\\s*[=:]\\s*2\\b"],
+  },
+  {
+    key: "ops.health_thresholds",
+    // SR1: where /api/health/deep turns a measure from public.platform_health_snapshot() into ok, degraded or down.
+    // Minutes unless the name says otherwise. PROPOSED by engineering; the founder confirms once the on-call route exists (SR5).
+    // An unacknowledged page going "down" at 10 minutes lines up with the second step of paging.escalation_minutes.
+    value: {
+      dbQueryTimeoutMs: 3000,
+      connectionsDegradedPercent: 70,
+      connectionsDownPercent: 90,
+      overdueTaskDegradedMinutes: 15,
+      overdueTaskDownMinutes: 60,
+      unacknowledgedPageDegradedMinutes: 5,
+      unacknowledgedPageDownMinutes: 10,
+      notificationBacklogDegradedMinutes: 10,
+      notificationBacklogDownMinutes: 30,
+      criticalUnopenedDegradedMinutes: 10,
+      criticalUnopenedDownMinutes: 30,
+      eventBacklogDegradedMinutes: 10,
+      eventBacklogDownMinutes: 30,
+      webhookBacklogDegradedMinutes: 5,
+      webhookBacklogDownMinutes: 30,
+      outboundDeadLetterDegradedCount: 1,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "docs/plans/SCALE-READINESS-PLAN.md section 3 (Phase 3 alert rules); supabase/migrations/20261013010258_sr1_platform_health_snapshot.sql",
+  },
+  {
+    key: "ops.alert_rules",
+    // SR5 operations alert rules (docs/plans/SCALE-READINESS-PLAN.md section 3). Live values are the rows of `ops_alert_rules`; this
+    // entry mirrors the migration seed and a test fails if they drift. Every number is a proposal for the founder and CMO: the
+    // 60 second page target, 70 percent connection and disk lines, 2 percent send failures, 3 percent Zoom join failures and
+    // 10 percent phone fallback come from the plan. disk_limit_bytes is a placeholder until SR1 records the real plan.
+    value: {
+      unacknowledged_page: { severity: "sev1", params: {} },
+      queue_starvation: { severity: "sev2", params: { grace_minutes: 0 } },
+      rota_gap_12h: { severity: "sev1", params: { hours: 12 } },
+      notification_failure_rate: { severity: "sev2", params: { window_minutes: 15, max_failure_percent: 2, min_volume: 20, stuck_pending_minutes: 10 } },
+      payment_webhooks_unprocessed: { severity: "sev2", params: { older_than_minutes: 5, errored_window_minutes: 60 } },
+      zoom_webhooks_unprocessed: { severity: "sev2", params: { older_than_minutes: 5, errored_window_minutes: 60 } },
+      db_connections: { severity: "sev2", params: { max_percent: 70 } },
+      db_disk: { severity: "sev2", params: { max_percent: 70, disk_limit_bytes: 8589934592 } },
+      stale_cron: { severity: "sev2", params: { lookback_hours: 72, factor: 2, min_slack_minutes: 2 } },
+      lab_result_unreviewed: { severity: "sev2", params: { review_target_hours: 24 } },
+      zoom_join_fallback: { severity: "sev2", params: { window_minutes: 60, min_volume: 20, max_failed_percent: 3, max_fallback_percent: 10 } },
+      edge_function_errors: { severity: "sev2", params: { signal: "edge_error_rate_percent", max_value: 1, max_age_minutes: 15 } },
+      edge_function_drift: { severity: "sev2", params: { signal: "edge_drift_count", max_value: 0, max_age_minutes: 480 } },
+      cost_projection: { severity: "sev3", params: { signal: "cost_projection_percent_of_budget", max_value: 100, max_age_minutes: 1440 } },
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-12",
+    source: "docs/plans/SCALE-READINESS-PLAN.md section 3; supabase/migrations/20261013005350_sr5_alert_rules_and_operations_wall.sql",
+  },
+  {
+    key: "community.rules",
+    // Community groups (decisions COM-1 to COM-10, docs/COMMUNITY_SPEC.md). Live values are the active row of `community_config`; this entry mirrors it
+    // and community-mirror.test.ts fails if the migration seed and this value drift. PROPOSED: post length, the first post a new member waits for (lowered from three to one in the Phase 2 review: Mayo Connect posts at once, so we measure first-post drop-off and can raise it again), rate
+    // limits, the cool-down after repeated blocked attempts, the number of reporters that hides a post, how long a removed post's text is kept, and the
+    // limits on the unmask. The retention figure and the consent version are counsel's (OQ-COM-06); the rest are the founder's and the CMO's.
+    // A change is a NEW version here AND a new community_config row; the old one is never edited.
+    value: {
+      post_max_chars: 2000,
+      edit_window_minutes: 15,
+      new_member_premoderated_posts: 1,
+      appeal_window_days: 14,
+      quality_sample_pct: 10,
+      image_max_bytes: 4194304,
+      qa_questions_per_member: 3,
+      qa_answer_grace_minutes: 60,
+      overdue_safety_minutes: 30,
+      overdue_queue_minutes: 60,
+      rate_posts_per_hour: 6,
+      rate_posts_per_day: 30,
+      block_cooldown: {"max_blocks": 3, "window_minutes": 10, "cooldown_minutes": 60},
+      auto_hide_report_threshold: 3,
+      removed_body_retention_days: 90,
+      unmask: {"min_reason_chars": 20, "max_per_day": 5, "signal_window_days": 30},
+      consent_version: "v1-2026-10-12-founder-cmo",
+      feed_page_size: 20,
+      max_page_size: 50,
+      welcome_days: 14,
+      return_nudge_days: 3,
+      avatars: ["leaf", "sun", "river", "hill", "star", "seed", "cloud", "stone", "wave", "bird"],
+      handle_words: {
+        adjectives: ["calm", "brave", "bright", "gentle", "steady", "kind", "warm", "quiet", "bold", "clever", "cheerful", "patient", "sunny", "swift", "wise", "lively", "hopeful", "honest", "mellow", "sturdy", "tender", "vivid", "witty", "zesty", "noble", "merry", "serene", "spry", "plucky", "radiant"],
+        nouns: ["river", "hill", "leaf", "sparrow", "baobab", "palm", "harbour", "lantern", "meadow", "pebble", "breeze", "cedar", "comet", "dune", "ember", "falcon", "garden", "heron", "island", "jasmine", "kestrel", "lagoon", "maple", "orchid", "plateau", "quartz", "reed", "savanna", "thistle", "willow"],
+      },
+    },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-09",
+    source: "docs/COMMUNITY_SPEC.md sections 4.1 to 4.5; supabase/migrations/20261009193728_community_guard_and_seed.sql",
+    guardPatterns: ["post[_ ]?max[_ ]?chars\\w*\\s*[=:]\\s*2000\\b", "premoderated\\w*\\s*[=:]\\s*3\\b", "auto[_ ]?hide\\w*\\s*[=:]\\s*3\\b"],
+  },
+  {
+    key: "privacy.deletion_grace",
+    // S04b-2 (OQ-50): how long a patient has to change their mind after asking to close their account and erase what the law
+    // allows to be erased. Nothing is approved or completed before it ends and the patient can cancel until then. The database
+    // counts it from its own clock and holds it to 7..30 days whatever the app asks for (data_deletion_requests.requested_grace_days). Fourteen days is a PROPOSED
+    // figure, not from the spec; counsel and the founder confirm.
+    value: { days: 14 },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/OPEN-QUESTIONS.md OQ-50; supabase/migrations/20261013181937_s04b2_consent_receipts_withdrawal_rule_deletion_grace.sql",
+  },
+  {
+    key: "bp.home_programme",
+    // S07x: the seven-day home blood pressure check (CMO-approved text C1, C2, C3 of 2026-10-07, NOT signed). Live value is the active, signed row of
+    // `home_bp_programme_signoffs`.config; home-bp-mirror.test.ts fails if the migration seed and this value drift. The phone bundles this value, so a change
+    // reaches installed phones only with the next build or update; the server (which records the result and raises the care-team task) always uses the signed row.
+    // protocol: C1 (2 readings a minute apart, morning and evening, 7 days, minimum 3 days and 12 readings, every reading averaged).
+    // bands: C2 (home mean 135/85 or above is above the home hypertension level; 130-134 / 80-84 is borderline). pattern: C3 (clinic 140/90, 30 days).
+    value: {
+      "protocol": {
+        "readingsPerSession": 2,
+        "minGapMinutes": 1,
+        "targetDays": 7,
+        "minDays": 3,
+        "minReadings": 12,
+        "restMinutes": 5,
+        "avoidBeforeMinutes": 30,
+        "morningHours": [4, 12],
+        "eveningHours": [17, 24]
+      },
+      "bands": {
+        "aboveSystolic": 135,
+        "aboveDiastolic": 85,
+        "borderlineSystolic": 130,
+        "borderlineDiastolic": 80
+      },
+      "pattern": {
+        "clinicSystolic": 140,
+        "clinicDiastolic": 90,
+        "windowDays": 30
+      },
+      "tasks": {
+        "reviewDueMinutes": 2880,
+        "patternDueMinutes": 2880
+      }
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md Part B C1 to C3; Nigeria hypertension guideline 2023-2028 sections 3.1.1, 3.2, 5.4.5, 6.2, 6.3; supabase/migrations/20261013182514_s07x_home_bp_programme.sql",
+  },
+  {
+    key: "offline.trust",
+    // S06x. PROPOSED: how long a phone may go without checking in before its encrypted-store key lease expires and it does its last upload
+    // attempt and wipes (D3 in docs/plans/S06-S10-cmo-decisions-2026-10-07.md says 30 days; the server column
+    // offline_sync_config.device_lease_days mirrors it, offline-trust-mirror.test.ts fails if they drift), the least gap between two reachability
+    // probes while rows wait (a HEAD with no body, so it costs almost no data), how long a probe may take, and how many hours a phone waits after it first sees its own lease as lapsed (offline, so the server cannot confirm) before it wipes, and how many rejection reports one account may file a day (a per-account cap in the database stops a flood).
+    value: {
+      device_lease_days: 30,
+      probe_min_interval_seconds: 60,
+      probe_timeout_seconds: 8,
+      rejection_report_daily_cap: 200,
+      lease_grace_hours: 24,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/plans/S06-S10-cmo-decisions-2026-10-07.md D1 to D3; supabase/migrations/20261013181713_s06x_offline_trust.sql",
+    guardPatterns: ["lease\\w*days?\\s*[=:]\\s*30\\b", "probe\\w*(interval|seconds)\\w*\\s*[=:]\\s*60\\b"],
+  },
+  {
+    key: "my_health.sharing_and_access_log",
+    // My Health completion (S09x). Live values are the active row of `my_health_config`.config (sharing, access_log); my-health-mirror.test.ts fails if the
+    // migration seed and this value drift. PROPOSED: the default share expiry (12 hours, shorter than the 24 the first share screen used; the 30 day cap is
+    // unchanged), the PIN length, how many wrong PINs lock a share, how many from one client in a window, and the one-session window. show_staff_opens is
+    // INERT since S09x2 (founder decision 2026-10-13): my_access_log() no longer reads it and always shows a routine staff opening as name and role only.
+    // It stays false in the signed v1 row because changing it needs a new CMO-signed version, which an agent never produces.
+    value: {
+      sharing: {
+        default_expiry_hours: 12,
+        max_expiry_hours: 720,
+        expiry_options_hours: [1, 6, 12, 24, 72, 168, 720],
+        pin_digits: 6,
+        pin_max_misses: 5,
+        pin_client_max_misses: 3,
+        pin_client_window_minutes: 15,
+        one_session_window_minutes: 30,
+      },
+      access_log: { page_size: 50, max_page_size: 100, show_staff_opens: false },
+    },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/plans/S06-S10-competitor-gap-and-build-plan.md section 5 (S09x); docs/design/S09x.md; supabase/migrations/20261013181946_s09x_my_health_completion.sql",
+    guardPatterns: ["pin\\w*miss\\w*\\s*[=:]\\s*5\\b", "default\\w*expiry\\w*\\s*[=:]\\s*12\\b"],
+  },
+  {
+    key: "my_health.lock_screen_pass",
+    // CMO item C8 (docs/plans/S06-S10-cmo-decisions-2026-10-07.md): APPROVED TEXT, NOT SIGNED. The only things a lock-screen or wallet pass may carry.
+    // Live value is the active row of `my_health_config`.config.lock_screen_pass; the CMO signs it through sign_my_health_config. Off by default (D4).
+    value: {
+      default_enabled: false,
+      fields: ["initials", "blood_group", "genotype", "genotype_provenance", "allergies_on_file", "emergency_contact_phone", "unlock_hint"],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md C8 and D4; supabase/migrations/20261013181946_s09x_my_health_completion.sql",
+  },
+  {
+    key: "medicines.prn_limits",
+    // As-needed (PRN) limits (S08x, decision C7). There are NO default limits: a clinician sets a shortest gap and/or a most doses in a
+    // Lagos day per medicine, and only inside these bounds. A dose outside them is still logged; the patient is shown a notice.
+    // Live values are the active, SIGNED row of `prn_limit_rules`; this entry mirrors the v1 seed and a test fails on drift.
+    //  minGapMinutesBounds / dailyMaxBounds: the range a clinician may enter.
+    //  repeatSignal: that many flagged doses of one medicine inside that many days raises one care-team signal (never an alarm).
+    // PROPOSED, CMO and a pharmacist to confirm; the rule stays inactive until the CMO signs it in the sign-off hub.
+    value: {
+      minGapMinutesBounds: [15, 1440],
+      dailyMaxBounds: [1, 24],
+      repeatSignal: { flaggedDoses: 3, windowDays: 7 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md C7; docs/design/S08x.md",
+  },
+  {
+    key: "medicines.adherence_report",
+    // The patient's printed adherence report (S08x, decision C6): how many completed 7-day weeks it covers. The formula is the app's
+    // (doses you marked taken over doses due, as-needed left out); the minimum doses and missed window come from `medicines.dose_rules`
+    // and `reminders.behaviour`. Display only: it changes no treatment and raises no task.
+    value: { weeks: 8 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md C6; docs/design/S08x.md",
+  },
+  {
+    key: "triage.coverage",
+    // The daily silence (BP-A5) and adherence (BP-A4) sweep (P6, plan item R3). The LINES themselves (7 days of silence, 80 percent) are
+    // in the signed bp_care_triage rule set and are read from it; this entry holds only the switch and who counts as having a blood
+    // pressure interest. Live values are the active row of `triage_coverage_config`; this mirrors the v1 seed and a test fails on drift.
+    //  enabled: born OFF. A human turns it on after the CMO confirms Members should get these tasks (a task is made for a Member only,
+    //    never a Free patient, under the two-tier model).
+    //  bp_interest_days: a Member with no hypertension care plan counts as having a blood pressure interest if they read in this many days.
+    value: { enabled: false, bp_interest_days: 90 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/OPEN-QUESTIONS.md OQ-89; docs/design/S11-S15-p6-coverage.md",
+  },
+  {
+    key: "chain.canary_and_health",
+    // P1 (S11 to S15 end to end): the clinical-chain canary and the chain health page. Live values are the active row of
+    // `chain_canary_config`; this entry mirrors the v1 seed and a test fails on drift.
+    //  intervalMinutes: the cadence the cron job is built for (minutes 11 and 41 of the hour).
+    //  gradedSeconds / taskSeconds / pageSeconds / notificationSeconds / ackSeconds: the time each stage of a canary run has to finish.
+    //  minEvalAgeSeconds: a run is judged only after this long. staleAfterMinutes: no finished run for this long is itself an incident.
+    //  health: thresholds the chain health page turns into ok, attention or down (minSample is the fewest real events before a
+    //  percentile is shown; ungradedReadingMinutes is how long a real BP reading may sit with no grade; deadLetterWindowDays is how far back a dead letter still counts).
+    // PROPOSED, CMO to confirm. The budgets are generous on purpose: the event processor runs every 15 seconds.
+    value: {
+      intervalMinutes: 30,
+      gradedSeconds: 180,
+      taskSeconds: 240,
+      pageSeconds: 240,
+      notificationSeconds: 300,
+      ackSeconds: 600,
+      minEvalAgeSeconds: 660,
+      staleAfterMinutes: 100,
+      rotaHours: 4,
+      retentionDays: 30,
+      health: {
+        minSample: 20,
+        stuckDeliverySeconds: 300,
+        deadLettersMax: 0,
+        readingToGradedP95Seconds: 120,
+        pageToAckP95Seconds: 600,
+        canaryStaleMinutes: 100,
+        ungradedReadingMinutes: 10,
+        deadLetterWindowDays: 14,
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/research/S11-S15-review-and-build-plan.md R1; docs/design/S11-S15-p1-chain.md",
+  },
+  {
+    key: "sponsor.rules",
+    // Sponsor-paid items and HMO eligibility (S71, module 19). Live values are the active row of `sponsor_config`; this entry mirrors it and a test
+    // fails if the migration seed and this value drift. hmo_checks_per_day: eligibility requests one person may make in 24 hours (abuse limit).
+    // member_number_min_length and member_number_max_length: the length a normalised HMO member number must have to be hashed at all (format only).
+    // The per-programme values (share, budget, per-person allowance, how many days an HMO pass stays valid) are DATA on each sponsor programme,
+    // set by an admin with a reason, never code.
+    value: { hmo_checks_per_day: 5, member_number_min_length: 4, member_number_max_length: 40 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S71.md; docs/DECISIONS.md S71-1; OQ-325",
+  },
+  {
+    key: "access_fund.rules",
+    // Community Access Fund (S72, function 19.11). Live values are the `access_fund` object of the active row of `checkout_extras_config`; this entry
+    // mirrors it and a test fails if the migration seed and this value drift. min_donation_kobo: smallest pledge. max_grant_kobo: the most one grant can
+    // cover. grant_valid_days: how long an approved grant can be used. pledge_valid_days: how long a pledge waits for the bank transfer.
+    // max_open_pledges: pledges one donor may have waiting. criteria: the PUBLISHED reasons operations may cite when approving a grant (keys; the words are
+    // in packages/i18n). None of this is signed: the criteria need review and counsel is needed on the legal vehicle (OQ-323) before the guard can open.
+    value: {
+      min_donation_kobo: 100_000,
+      max_grant_kobo: 10_000_000,
+      grant_valid_days: 60,
+      pledge_valid_days: 14,
+      max_open_pledges: 3,
+      criteria: ["care_cost_is_a_barrier", "recent_loss_of_income", "supporting_a_dependant", "referred_by_the_care_team"],
+    },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S72.md; docs/DECISIONS.md S72-3; OQ-323; OQ-420",
+  },
+  {
+    key: "payment_requests.rules",
+    // Payment requests (S72, function 19.13). The `payment_requests` object of the active `checkout_extras_config` row. expiry_days: how long a link works.
+    // max_open_per_person and creates_per_day: how many a person may have open and make in a day. lookups_per_hour: how many times one visitor may open
+    // links in an hour (identified by a hash the website makes, never an address). payments_per_hour: how many times one payer may start paying from a link.
+    value: { expiry_days: 7, max_open_per_person: 5, creates_per_day: 10, lookups_per_hour: 30, payments_per_hour: 10 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S72.md; OQ-424",
+  },
+  {
+    key: "pricing.rules",
+    // Pricing engine (S73, module 20). Live values are the active row of `pricing_config`; this entry mirrors it and a test fails if the
+    // migration seed and this value drift. points: a single-use reduction on Tarragon's own service fee only (S72-1, D2), never a balance,
+    // OFF (enabled false) until the founder signs the values: points_per_step points buy one step, each step takes reduction_per_step_kobo off the
+    // service fee, at most max_steps_per_order steps and at most max_percent_of_service_fee of that fee. third_party_component_keys: the price
+    // components that belong to a clinician or a partner and that no discount may reduce. service_fee_component_key: Tarragon's own fee component.
+    // min_payable_kobo: a buyer is never left paying less than this by a Tarragon discount (sponsor coverage and approved hardship grants are not
+    // Tarragon discounts). code_failed_tries_per_hour: wrong discount code tries a person may make in an hour.
+    value: {
+      points: { enabled: false, points_per_step: 100, reduction_per_step_kobo: 5000, max_steps_per_order: 5, max_percent_of_service_fee: 50 },
+      third_party_component_keys: ["clinician_fee", "partner_fee"],
+      service_fee_component_key: "tarragon_service_fee",
+      min_payable_kobo: 10000,
+      code_failed_tries_per_hour: 10,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S73.md; docs/DECISIONS.md S72-1, S73-1; OQ-321, OQ-324",
+  },
+  {
+    key: "commerce.processing_fee_estimate",
+    // v3 (S71, 19.4 and 19.7): adds the estimate for a card issued outside Nigeria, which a Care Circle supporter abroad will often use. Paystack lists
+    // 3.9 percent + NGN 100, uncapped, for international cards (the 2026-10-06 reading recorded in v2). The local figures are unchanged. Still only an
+    // ESTIMATE on screen, labelled as one: the exact fee is read from the verified payment. PROPOSED until the founder confirms it against the
+    // Paystack dashboard for this account.
+    value: { localBasisPoints: 150, flatKobo: 10_000, flatWaivedBelowKobo: 250_000, capKobo: 200_000, internationalBasisPoints: 390, internationalFlatKobo: 10_000 },
+    owner: "Founder",
+    status: "proposed",
+    version: 3,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S71.md; paystack.com/pricing as read 2026-10-06 (international 3.9% + NGN 100)",
+  },
+  {
+    key: "maternal.rules",
+    // S67 (module 16, pregnancy). Every number is PROPOSED from the CMO selections A3, A4 and A5 recorded 2026-10-07
+    // (docs/plans/S66-S70-cmo-signoff-pack.md); none is signed and maternal_enabled stays off until the CMO signs.
+    // antenatal.contactWeeks: WHO 2016 eight contacts (the first "by" week 12); the national schedule replaces this by a new version.
+    // kicks: awareness from week 28; 10 movements in 120 minutes; a personal normal needs 3 finished sessions (median of the latest 5);
+    //   a session that takes 2 times her normal to reach 10 is a clear drop (the drop factor is this build's proposal, see OQ-341).
+    // contractions: 5-1-1 by default, 7-1-1 for a later birth, a previous fast labour or a long journey; any contraction before week 37 is an instant go sign.
+    value: {
+      antenatal: { contactWeeks: [12, 20, 26, 30, 34, 36, 38, 40] },
+      kicks: { startWeek: 28, windowMinutes: 120, movementsTarget: 10, normalMinSessions: 3, normalLatestSessions: 5, dropFactor: 2 },
+      contractions: {
+        standard: { intervalMinutes: 5, durationSeconds: 60, sustainedMinutes: 60 },
+        earlier: { intervalMinutes: 7, durationSeconds: 60, sustainedMinutes: 60 },
+        preTermBeforeWeek: 37,
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S66-S70-cmo-signoff-pack.md items A3, A4, A5 (basis WHO 2016 ANC [verify], RCOG Green-top 57 [verify])",
+    guardPatterns: ["movementsTarget\\s*[=:]\\s*10\\b", "contactWeeks\\s*[=:]\\s*\\[\\s*12\\b", "preTermBeforeWeek\\s*[=:]\\s*37\\b"],
+  },
+  {
+    key: "maternal.bp_rule_set",
+    // Names the draft rule set that carries the pregnancy rules (bp_care_triage v5 = v4 plus A2). v4 is S07x's decision C5 (low blood pressure on
+    // medicines) and stays exactly as it is; v5 adds only the pregnancy changes on top of it. Not signed; the database row is a draft.
+    value: { code: "bp_care_triage", ruleSetVersion: 5, pregnancyRaisedSystolic: 140, pregnancyRaisedDiastolic: 90, pregnancySevereSystolic: 160, pregnancySevereDiastolic: 110 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S66-S70-cmo-signoff-pack.md items A1, A2; packages/clinical/src/rules/bp-care-v5.ts",
   },
 ];

@@ -38,6 +38,10 @@ describe("setItemActive", () => {
     rpc.mockResolvedValue({ data: null, error: { message: "boom" } });
     expect((await setItemActive(undefined, form({ code: "membership_annual", active: "false", reason: "A proper reason here" })))?.error).toMatch(/did not save/);
   });
+  it("S73: switching the Membership on while its go-live guard is off is explained, not a generic failure", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "go_live_guard_closed" } });
+    expect((await setItemActive(undefined, form({ code: "membership_annual", active: "true", reason: "Founder approved the launch" })))?.error).toMatch(/go-live guard is off/);
+  });
 });
 
 describe("setItemPrice", () => {

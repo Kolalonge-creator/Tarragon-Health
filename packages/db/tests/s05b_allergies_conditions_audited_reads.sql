@@ -50,7 +50,7 @@ begin
   on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
   insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier) values
     (v_org, v_tied,   'S05b Tied Doctor',   true, now(), 'senior_medical_officer'),
-    (v_org, v_untied, 'S05b Untied Doctor', true, now(), 'medical_officer');
+    (v_org, v_untied, 'S05b Untied Doctor', true, now(), 'senior_medical_officer');
   insert into public.organisations (id, name, type) values (v_org2, 'S05b Other Org', 'direct_consumer');
   insert into public.profiles (id, organisation_id, role, full_name, phone) values (v_other_org, v_org2, 'clinician', 'S05b Other Org Doctor', '+2348052220006')
     on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role;

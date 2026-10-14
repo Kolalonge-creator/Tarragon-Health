@@ -31,6 +31,7 @@ import { EmergencyCardScreen } from "@/screens/sections/emergency-card-screen";
 import { SettingsScreen } from "@/screens/sections/settings-screen";
 import { SupportingScreen } from "@/screens/sections/supporting-screen";
 import { ReceiptsScreen } from "@/screens/sections/receipts-screen";
+import { PaymentRequestsScreen } from "@/screens/sections/payment-requests-screen";
 import { NotificationSettingsScreen } from "@/screens/sections/notification-settings-screen";
 import { RemindersScreen } from "@/screens/sections/reminders-screen";
 import { TechnicalSupportScreen } from "@/screens/sections/technical-support-screen";
@@ -39,11 +40,13 @@ import { BpHistoryScreen } from "@/screens/sections/bp-history-screen";
 import { MonthlyReportScreen } from "@/screens/sections/monthly-report-screen";
 import { ProgrammesScreen } from "@/screens/sections/programmes-screen";
 import { TimelineScreen } from "@/screens/sections/timeline-screen";
+import { MyHealthScreen } from "@/screens/sections/my-health-screen";
 import { ExerciseScreen } from "@/screens/sections/exercise-screen";
 import { VideoVisitScreen } from "@/screens/sections/video-visit-screen";
 import { ConsultationRoomScreen } from "@/screens/sections/consultation-room-screen";
 import { FindASpecialistScreen } from "@/screens/sections/find-a-specialist-screen";
 import { ScreeningDaysScreen } from "@/screens/sections/screening-days-screen";
+import { TestingDaysScreen } from "@/screens/sections/testing-days-screen";
 import { FinancialProfileScreen } from "@/screens/sections/financial-profile-screen";
 import { WeightManagementScreen } from "@/screens/sections/weight-management-screen";
 import { WellbeingScreen } from "@/screens/sections/wellbeing-screen";
@@ -52,6 +55,9 @@ import { WellnessScreen } from "@/screens/sections/wellness-screen";
 import { HealthCheckScreen } from "@/screens/sections/health-check-screen";
 import { WomensHealthScreen } from "@/screens/sections/womens-health-screen";
 import { FamilyScreen } from "@/screens/sections/family-screen";
+import { CommunityScreen } from "@/screens/sections/community/community-screen";
+import { CommunityNotOpen } from "@/screens/sections/community/not-open";
+import { useCommunityEntry } from "@/lib/community/use-community-entry";
 import { SexualHealthScreen } from "@/screens/sections/sexual-health-screen";
 import { LifestyleScreen } from "@/screens/sections/lifestyle-screen";
 import {
@@ -235,6 +241,11 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
 
   const subjectId = acting?.profileId ?? userId;
 
+  // Community is the person's own account only, and only while it is open for an adult: the menu entry is hidden for someone with a
+  // supported person's account open, for a supporter-only account, while the go-live guard is off, and for anyone under 18.
+  const communityVisible = useCommunityEntry(userId, acting !== null, actingChecked);
+  const hiddenSections: SectionId[] = communityVisible ? [] : ["community"];
+
   // One renderer per SectionId, keyed by a Record rather than a chain of
   // `section === "x" &&` branches: TypeScript refuses to compile this object
   // unless every value in the SectionId union has an entry, so a new section
@@ -287,6 +298,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     myActions: () => <ActionsScreen patientId={subjectId} onNavigate={handleSelect} />,
     healthSummary: () => <HealthSummaryScreen patientId={subjectId} onNavigate={handleSelect} />,
     timeline: () => <TimelineScreen patientId={subjectId} onNavigate={handleSelect} />,
+    myHealth: () => <MyHealthScreen userId={userId} acting={acting != null} onNavigate={handleSelect} />,
     exercise: () => <ExerciseScreen patientId={subjectId} organisationId={organisationId} />,
     devices: () =>
       openDevice ? (
@@ -312,6 +324,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
       />
     ),
     receipts: () => <ReceiptsScreen />,
+    paymentRequests: () => <PaymentRequestsScreen />,
     reminders: () => <RemindersScreen userId={userId} />,
     notificationSettings: () => (
       <NotificationSettingsScreen patientId={userId} organisationId={organisationId} />
@@ -349,7 +362,10 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
       <WellnessScreen patientId={userId} organisationId={organisationId} onNavigate={handleSelect} />
     ),
     family: () => <FamilyScreen userId={userId} onNavigate={handleSelect} />,
+    // Reached by a notice tap while the entry is hidden: one calm line, nothing else (no group list, no calls).
+    community: () => (communityVisible ? <CommunityScreen onNavigate={handleSelect} /> : <CommunityNotOpen />),
     screeningDays: () => <ScreeningDaysScreen />,
+    testingDays: () => <TestingDaysScreen />,
     financialProfile: () => <FinancialProfileScreen userId={userId} />,
     privacy: () => (
       <PrivacyScreen userId={userId} organisationId={organisationId} onNavigate={handleSelect} />
@@ -400,6 +416,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         patientNumber={patientNumber}
         initials={initials}
         onSelect={handleSelect}
+        hiddenSections={hiddenSections}
         onClose={() => setDrawerOpen(false)}
         onSignOut={() => {
           setDrawerOpen(false);

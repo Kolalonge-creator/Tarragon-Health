@@ -54,8 +54,8 @@
  *    /patient/learn gated on `health_education`, which no free product granted.
  *    If you add a "free" line here, check that the gate is actually gone.
  *
- * Every price below is a fallback string; live prices are read from
- * service_products at request time by lib/marketing/plan-prices.ts.
+ * The platform has two plans: Free and Membership. No other price is shown on the public site (decision 2026-10-13); the one
+ * Membership price is read from versioned config by the pricing page.
  */
 export type PricingLabel =
   | "FREE"
@@ -118,7 +118,7 @@ export const PRICING_LABELS: Record<
   "PAID SERVICE": {
     title: "Paid service",
     description:
-      "A doctor's time, priced per piece of work. You see the price and confirm before anything is charged.",
+      "Part of Membership: a yearly blood test and a video call with your care team every month.",
     className: "bg-sprout-gold/15 text-charcoal-ink",
   },
 };
@@ -137,10 +137,10 @@ export const NAIRA_ONLY_STATEMENT =
 /** The "No-Hidden-Cost Promise", shown as a banner near the top of the pricing page. */
 export const PRICING_PROMISES: string[] = [
   "The app is free. Tracking, reminders, your screening calendar, the whole education library, lifestyle and weight coaching, the AI Health Coach, and your quarterly report cost you nothing, with no time limit and no card required.",
-  "Beyond the free app, we charge by the piece: a doctor's time, plus Continuous Monitoring and one optional AI Coach top-up. You see the exact price and confirm it before anything is taken. No surprise charges, ever.",
-  "Nothing auto-renews. Continuous Monitoring is paid once for a fixed term and then simply stops, and we tell you before it does. There is no subscription, no card kept on file, and no cancellation to remember.",
-  "We do not sell laboratory tests and take no cut of what a laboratory or pharmacy charges you. We work out which tests you need and write the request, free, and you pay the laboratory directly at their price. We tell you roughly what to expect it to cost so you can compare before you go.",
-  "Naira prices are reviewed once a year at most, and we will tell you at least 30 days before any change. Anything you have already paid for is honoured until it runs out.",
+  "There are two plans: Free, and Membership. Membership is one price for a year. You see that price and confirm it before anything is taken. No surprise charges, ever.",
+  "Nothing auto-renews. Membership lasts a year and then simply ends, and we remind you before it does. There is no card kept on file and no cancellation to remember.",
+  "We do not sell laboratory tests and take no cut of what a laboratory or pharmacy charges you. We work out which tests you need and write the request, and you pay the laboratory or pharmacy directly at their price.",
+  "The Membership price is reviewed once a year at most, and we will tell you at least 30 days before any change. A Membership you have already paid for is honoured until it ends.",
   NAIRA_ONLY_STATEMENT,
 ];
 
@@ -218,182 +218,25 @@ export const FREE_FEATURES: FreeFeatureGroup[] = [
 export const FREE_FEATURES_NOTE =
   "All of the above is free, with no time limit, no card required, and nothing that turns into a charge on its own. You pay laboratories and pharmacies directly for tests, medicines and vaccines, at their price. Tarragon takes no cut of what they charge you.";
 
-/**
- * What actually costs money: a doctor's time, priced per piece of work.
- *
- * Every entry maps to a live row in public.service_products. Prices are read
- * from there at request time (lib/marketing/plan-prices.ts) and fall back to
- * the strings here, so a repricing migration does not need a code change.
- * Do NOT list something here that has no active service_products row — that is
- * exactly how the diaspora tab ended up advertising three products nobody
- * could buy.
- */
-export type PaidService = {
-  id: string;
-  /** service_products.code — the row this is sold from. */
-  code: string;
-  name: string;
-  price: string;
-  description: string;
-  availability: string;
-  /** What the price is actually made of, shown as a short breakdown under
-   * the description. Only the programme uses this — the one-off credits are
-   * already a single unit of work, so there is nothing to break down. */
-  breakdown?: string[];
-  /** A "you pay the lab" style note distinct from `breakdown`: something
-   * genuinely optional, that can be paid either straight to a laboratory or,
-   * where a contracted partner offers it, billed by Tarragon instead — see
-   * that field's own comment below for which. Kept separate from the
-   * description so it can be styled and read as its own disclosure rather
-   * than buried in prose. */
-  optionalNote?: string;
-  /** Per-condition detail, used by the lead card only. */
-  conditions?: { condition: string; body: string }[];
-  /** Small caption after the price on the lead card, e.g. "for three months".
-   * Was hardcoded as "for the full twelve weeks" in pricing-services.tsx,
-   * which silently became a lie the moment the lead product changed. */
-  priceCaption?: string;
-  /** Longer terms of the same product, cheapest per month last. */
-  terms?: { code: string; label: string; price: string; perMonth: string }[];
-};
-
-export const PAID_SERVICES: PaidService[] = [
-  {
-    id: "continuous-monitoring",
-    code: "continuous_monitoring_90d",
-    name: "Continuous Monitoring",
-    price: "₦30,000",
-    priceCaption: "for 90 days",
-    description:
-      "Every reading you log is checked against care protocols whatever you pay. What this adds is that a dangerous one is put in front of a doctor on your care team, rather than sitting on your record waiting to be noticed. It also carries entry to the doctor-supported track of the chronic programme if you are managing hypertension or diabetes. Paid once, for 90 days, and then it stops. There is no card kept on file and nothing to cancel. Buy it again if you want to keep the watch going.",
-    breakdown: [
-      "Every blood pressure, glucose, oxygen, temperature and pulse reading checked as you log it",
-      "A dangerous reading raised to a doctor, not just flagged on your record",
-      "Entry to the doctor-supported track if you are managing hypertension or diabetes",
-      "We tell you before it runs out, so you always know where you stand",
-    ],
-    conditions: [
-      {
-        condition: "Hypertension",
-        body: "Your blood pressure trend is tracked against your target, and a reading in the dangerous range reaches a doctor the same day rather than waiting for your next review.",
-      },
-      {
-        condition: "Diabetes",
-        body: "Your glucose readings are checked as you log them, and a dangerous high or low reaches a doctor rather than sitting on your record.",
-      },
-    ],
-    availability:
-      "Buy it again when the term ends. Nothing renews on its own and no card is stored.",
-  },
-  {
-    id: "written-result-interpretation",
-    code: "written_result_interpretation",
-    name: "Written Result Interpretation",
-    price: "₦7,500",
-    description:
-      "Upload any laboratory or imaging result, from any provider anywhere in Nigeria, and a doctor will read it and write back what it means in plain language: which figures are outside the normal range, what that does and does not indicate, and what you should do next. You do not need to have ordered the test through us. The result and the interpretation both stay on your record, so next year's result is a trend rather than another isolated number.",
-    availability: "One-off. No programme needed, and no connection to where you had the test done.",
-  },
-  {
-    id: "chronic-care-review",
-    code: "chronic_care_review_credit",
-    name: "Chronic Care Review",
-    price: "₦7,500",
-    description:
-      "A doctor reviews the readings you have logged since your last review, checks them against your care plan and the protocol for your condition, adjusts the plan where it needs adjusting, and writes back what changed and why. This is the review at the centre of managing hypertension or diabetes well. You buy one when it falls due rather than a block of them in advance.",
-    availability: "One-off. Most people managing a condition buy one every four to six weeks.",
-  },
-  {
-    id: "medication-review",
-    code: "medication_review_credit",
-    name: "Medication Review",
-    price: "₦12,000",
-    description:
-      "A senior doctor reviews everything you are taking together: whether each medicine is still the right one, whether the doses still match your numbers, whether anything interacts, and whether something should start or stop. Priced above a standard review because it requires a doctor with prescribing authority.",
-    availability: "One-off. Worth doing whenever your medicines change or a new condition is added.",
-  },
-  {
-    id: "ask-a-doctor",
-    code: "async_consult_credit",
-    name: "Ask a Doctor (written)",
-    price: "₦2,500",
-    description:
-      "One written question, answered by a doctor on your care team, usually within 72 hours.",
-    availability: "One-off. No programme needed.",
-  },
-  {
-    id: "prescription-renewal",
-    code: "prescription_renewal_credit",
-    name: "Prescription Renewal Review",
-    price: "₦5,000",
-    description:
-      "A doctor reviews and signs off on renewing one of your existing prescriptions.",
-    availability: "One-off. No programme needed.",
-  },
-  {
-    id: "video-visit",
-    code: "video_visit_credit",
-    name: "Video or audio visit",
-    price: "₦10,000",
-    description:
-      "A one-off online consultation with a doctor. Pick an open slot from the next two weeks and it is confirmed on booking, with no waiting for a doctor to accept. Not a substitute for emergency care.",
-    availability: "One-off, per visit.",
-  },
-  {
-    id: "second-opinion",
-    code: "second_opinion_credit",
-    name: "Second Opinion Review",
-    price: "₦12,000",
-    description:
-      "A senior doctor reviews an existing result or diagnosis and writes back their own assessment. No visit needed.",
-    availability: "One-off. No programme needed.",
-  },
-  {
-    id: "result-consultation",
-    code: "result_interpretation_credit",
-    name: "Result Consultation",
-    price: "₦15,000",
-    description:
-      "A fifteen-minute video consultation in which a doctor takes you through a specific laboratory or imaging result: what each figure means, what it does and does not indicate, and what to do next. Choose this over the written interpretation when you would rather ask questions as you go.",
-    availability: "One-off. No programme needed.",
-  },
-  {
-    id: "ai-coach-pass",
-    code: "ai_coach_daily_pass_30d",
-    name: "AI Coach Daily Pass",
-    price: "₦5,000",
-    description:
-      "The AI Health Coach itself is free. This raises your daily message limit for 30 days if you are using it heavily.",
-    availability: "Optional. Buy it again any time; nothing renews on its own.",
-  },
-];
-
 /** Repointed 2026-09-10: a voucher buys any paid service. The 12-week pack it
  * used to point at is retired and unbundled, so the natural thing to sponsor is
  * now Continuous Monitoring, which is both the cheapest way in and the thing
  * that keeps someone watched. */
 export const CARE_VOUCHER_INTRO =
-  "You can buy a paid service up front, for yourself or for someone who has linked you to their care, and pay for it in one go or bit by bit. Whoever it is for uses it when they are ready. It is not an account balance, and it cannot be exchanged for cash. The app itself is free, so a voucher is only ever for a doctor's time. Tests are paid straight to the laboratory you use.";
+  "Someone can pay for a year of Membership for you, from Nigeria or from abroad, and you accept it when you are ready. It is not an account balance, and it cannot be exchanged for cash. The app itself is free, so a gift is only ever for Membership. Tests, medicines and vaccines are paid straight to the laboratory or pharmacy you use.";
 
 export const CARE_VOUCHER_POINTS: { title: string; body: string }[] = [
   {
-    title: "Pay a little at a time",
-    body: "Spread a paid service, such as twelve months of Continuous Monitoring, over as many instalments as you like. It becomes usable once it is fully paid, and nothing runs out while you are still paying towards it.",
+    title: "Someone can give it to you",
+    body: "A family member, in Nigeria or abroad, can give you a year of Membership. They see that they gave it and later that it was used, and nothing about your results. Your tests you pay for at the laboratory, like anyone else.",
   },
   {
-    title: "Someone can buy it for you",
-    body: "A family member, in Nigeria or abroad, can buy one for you. This is what sponsoring someone's care means here: they see that they bought it and later that it was used, and nothing about your results. Your tests you pay for at the laboratory, like anyone else.",
+    title: "You choose to accept it",
+    body: "A gift waits for you to accept it. If you decline, or do not answer in time, the person who gave it is refunded. Nothing about a gift ever bills you, then or later.",
   },
   {
-    // The ₦500 figure is fixed in code, not DB-configured: redeem_referral_code
-    // hardcodes reward_kobo = 50000 (migration 20260724113718). If that function
-    // is ever repriced, update this line (and the FAQ + gift page) with it.
     title: "Refer a friend",
-    body: "Share your referral link from your dashboard. Once your friend completes their first paid order, you both get a ₦500 reward voucher towards your care.",
-  },
-  {
-    title: "It does not quietly disappear",
-    body: "A voucher lasts two years and we remind you 30 days before it runs out. If it lapses unused, ask us and we will normally put it back.",
+    body: "Share your referral link from your dashboard. Once your friend becomes a Member, you both get a reward voucher towards your care.",
   },
 ];
 
@@ -454,37 +297,37 @@ export const ALWAYS_FREE_NOTE =
  * offer here would have described something the platform cannot do.
  */
 export const FREE_TRIAL_INTRO =
-  "There is nothing to try, because there is nothing to commit to. Everything the app does is free and stays free, with no time limit and no card required. You only ever pay when you want a doctor to do a specific piece of work for you, and you see that price and confirm it first.";
+  "There is nothing to try, because there is nothing to commit to. Everything the app does is free and stays free, with no time limit and no card required. If you want a yearly blood test and a video call with your care team every month, that is Membership, one price for a year that you see and confirm first.";
 
 export const FREE_TRIALS: { title: string; body: string }[] = [
   {
     title: "Start with your own numbers",
-    body: "Log your blood pressure, blood sugar or weight and get your trends, your screening calendar, the education library and the AI Health Coach, at no charge. Every reading is checked against care protocols whatever you pay, and a dangerous one gets you immediate guidance and the full emergency safety net.",
+    body: "Log your blood pressure, blood sugar or weight and get your trends, your screening calendar, the education library and the AI Health Coach, at no charge. Every reading is checked against care protocols whatever plan you are on, and a dangerous one gets you immediate guidance.",
   },
   {
-    title: "Buy a doctor's time only when you want it",
-    body: "If you want a doctor to read a result, answer a question, or keep watch on your readings for a few months, buy that one thing. There is no plan to join first, and nothing carries on charging you afterwards.",
+    title: "Join Membership when you want a doctor",
+    body: "If you want your care team to look at your numbers with you every month, and a yearly blood test, join Membership. There is no plan to join first, and nothing carries on charging you afterwards.",
   },
 ];
 
 export const FREE_TRIAL_TERMS: string[] = [
-  "The free app has no time limit, and it stays free unless you choose to buy something.",
+  "The free app has no time limit, and it stays free unless you choose to join Membership.",
   "You will always see the exact price and confirm it before anything is taken from your card.",
-  "Nothing renews automatically. When a paid service runs out, you buy it again only if you want to.",
+  "Nothing renews automatically. When your Membership ends you join again only if you want to.",
 ];
 
 export const BOOKING_STEPS: { title: string; body: string }[] = [
   {
-    title: "Your doctor tells you (or you ask)",
+    title: "Your care team tells you (or you ask)",
     body: "A test, refill, or vaccine is due.",
   },
   {
-    title: "For a paid service, you see the exact price",
-    body: "In the app, before you're ever charged. No estimates, no “roughly.” A test, refill, or vaccine isn't something Tarragon charges for at all, so there's no price of ours to show; see the next step.",
+    title: "For Membership, you see the exact price",
+    body: "In the app, before you are ever charged. No estimates, no “roughly.” A test, refill, or vaccine is not something Tarragon charges for at all, so there is no price of ours to show; see the next step.",
   },
   {
     title: "You confirm and pay, or take a request to the provider",
-    body: "For paid services: by card, bank transfer, or USSD, through Paystack, in naira, from wherever you are paying. For a test, refill, or vaccine: you take our request to whichever laboratory, pharmacy, or provider you choose and pay them directly, at their price. We set no price on it and take no cut.",
+    body: "For Membership: by card, bank transfer, or USSD, through Paystack, in naira, from wherever you are paying. For a test, refill, or vaccine: you take our request to whichever laboratory, pharmacy, or provider you choose and pay them directly, at their price. We set no price on it and take no cut.",
   },
   {
     title: "You get a request to take with you",
@@ -492,7 +335,7 @@ export const BOOKING_STEPS: { title: string; body: string }[] = [
   },
   {
     title: "Your result or delivery comes back in the app",
-    body: "Explained in plain language, with an alert so you don't miss it. If anything needs attention, your doctor calls you; this does not create any new charge.",
+    body: "Explained in plain language, with an alert so you do not miss it. If anything needs attention, your care team calls you; this does not create any new charge.",
   },
 ];
 
@@ -500,133 +343,10 @@ export const OUR_UNDERTAKINGS: string[] = [
   "We show you the price and wait for your confirmation before we charge you anything",
   "A doctor reviews your case before any diagnosis is offered or any medicine is changed",
   "Your health information reaches a family member only with your consent",
-  "There is no contract and no subscription, and your card is charged once for each thing you confirm",
-  "A paid service is always labelled as paid, and anything genuinely free (such as the HPV vaccine for girls 9–14) is always labelled as free",
+  "There is no contract and no subscription, and your card is charged once for the Membership you confirm",
+  "What is Membership is always labelled as Membership, and anything genuinely free (such as the HPV vaccine for girls 9–14) is always labelled as free",
   "The free app stays free, with no expiry date and nothing that turns into a charge on its own",
 ];
-
-/**
- * Live price strings keyed by service_products.code, as produced by
- * lib/marketing/plan-prices.ts's fetchServicePriceOverrides(). Optional
- * everywhere it is accepted: with no map (or a code missing from it) the
- * fallback prices declared on PAID_SERVICES above are used, so this file
- * stays the single source of the default numbers.
- */
-export type ResolvedServicePrices = Record<string, string>;
-
-/** Resolve one service's display price: live override first, then the
- * fallback declared on PAID_SERVICES. The empty-string fallback is
- * unreachable while every code passed below exists in PAID_SERVICES —
- * kept only so a future typo degrades to a missing price, not a crash. */
-export function servicePrice(code: string, overrides?: ResolvedServicePrices): string {
-  return (
-    overrides?.[code] ??
-    PAID_SERVICES.find((s) => s.code === code)?.price ??
-    ""
-  );
-}
-
-/**
- * The pricing FAQ, with every naira figure resolved through the same
- * override map the service cards use, so a DB repricing can never leave the
- * FAQ contradicting the card above it on the same page. Callers with no live
- * prices (or none for a given code) get the defaults from PAID_SERVICES.
- */
-export function getPricingFaq(
-  overrides?: ResolvedServicePrices,
-): { question: string; answer: string }[] {
-  const p = (code: string) => servicePrice(code, overrides);
-  return [
-  {
-    question: "What does it actually cost to use Tarragon?",
-    answer:
-      "Nothing, unless you ask a doctor to do something specific for you. Tracking your blood pressure, blood sugar and weight, medication reminders, your screening and vaccination calendar, the whole education library, lifestyle and weight coaching, the AI Health Coach and your quarterly report are all free, with no time limit and no card required. You pay only for a doctor's time, priced per piece of work, and you see that price and confirm it before anything is charged.",
-  },
-  {
-    question: "What exactly do I pay for, then?",
-    answer: `A doctor's time, priced per piece of work, plus a standing watch on your readings. One-off: a written question to a doctor (${p("async_consult_credit")}), having any laboratory result read and explained in writing (${p("written_result_interpretation")}), a chronic care review (${p("chronic_care_review_credit")}), a prescription renewal review (${p("prescription_renewal_credit")}), a video or audio visit (${p("video_visit_credit")}), a second opinion (${p("second_opinion_credit")}), a medication review (${p("medication_review_credit")}), or a result consultation over video (${p("result_interpretation_credit")}). Ongoing: Continuous Monitoring at ${p("continuous_monitoring_90d")} for 90 days, where a dangerous reading reaches a doctor instead of sitting on your record. The one paid item that isn't a doctor's time is the optional AI Coach Daily Pass (${p("ai_coach_daily_pass_30d")}), which raises the free AI Health Coach's daily message limit for 30 days.`,
-  },
-  {
-    question: "There used to be Prevent, Essential and Complete Care plans. What happened to them?",
-    answer:
-      "They are gone. We looked at what those plans were actually charging for and found most of it cost us nothing to provide: an education library, a screening calendar, weight and activity tracking, an AI coach. Charging a monthly fee for software while calling it healthcare was not honest, so we stopped. Everything that used to sit behind those plans is now free, and we charge only for the part that genuinely costs something, which is a doctor's time. If you are part-way through a plan you already bought, it keeps working exactly as it did until it runs out.",
-  },
-  {
-    question: "Is the free version limited, or does it expire?",
-    answer:
-      "It is not limited and it does not expire. There is no trial, no countdown, and nothing that turns into a charge on its own. This is the whole app.",
-  },
-  {
-    question: "If I log a dangerous reading and I have not paid anything, what happens?",
-    answer:
-      "You get the full emergency safety net, and it has always been yours regardless of payment: immediate, specific guidance to get to a hospital, your emergency contact notified, and a check-in with you afterwards. Your readings are checked against the same care protocols whatever you pay. What Continuous Monitoring adds is that a Tarragon doctor is alerted to it as well, and follows up with you personally.",
-  },
-  {
-    question: "Which conditions does Tarragon manage, and where does weight fit?",
-    answer: `Hypertension and diabetes. Continuous Monitoring (${p("continuous_monitoring_90d")} for 90 days) puts your readings in front of your care team, and a Chronic Care Review (${p("chronic_care_review_credit")}) is where one actually reviews your numbers, adjusts your care plan and writes back. Most people managing a condition buy a review every four to six weeks alongside their monitoring. Weight is different: managing it alongside hypertension or diabetes is part of the same review at no extra charge, and weight and lifestyle coaching on their own stay free.`,
-  },
-  {
-    question: "Will my card ever be charged automatically?",
-    answer:
-      "No. There is no subscription and nothing renews. Your card is not charged for a test, refill or vaccine at all: those go straight to whichever laboratory, pharmacy, or provider you choose, and you pay them directly, at their price. The only things Tarragon ever charges you for are paid services you have explicitly confirmed.",
-  },
-  {
-    question: "My test came back abnormal. Will I be billed extra automatically?",
-    answer:
-      "No. Nothing is ever added to your bill because of a result. If your result suggests you would benefit from a doctor managing your condition with you, we will say so and show you the price, and it is entirely your choice.",
-  },
-  {
-    question: "What do lab tests actually cost?",
-    answer:
-      "We deliberately don't quote a figure: every lab sets its own price, and you pay that laboratory directly with nothing added by us. It's worth asking two or three labs before you go, since prices vary by lab and city. We're partnered with Synlab Nigeria and trust their results, so if you don't already have a lab in mind, they're a solid place to start. Any laboratory works though, and a doctor reads your result either way.",
-  },
-  {
-    question: "What are wellness points, and are they real money?",
-    answer:
-      "You earn points for everyday habits: logging a reading, finishing a lesson, or completing a challenge. Collect badges as you go. Points show your progress; they are not money and cannot be exchanged for money.",
-  },
-  {
-    question: "I'm healthy. Why would I use a health platform at all?",
-    answer:
-      "Because it costs you nothing to find out what you should be checking. Hypertension, diabetes and many cancers are far cheaper and easier to deal with when caught early, or prevented outright. Your screening and vaccination calendar, built around your age, sex and history, is free, as is the reading that explains what your numbers mean. Most people will simply get confirmation that all is well.",
-  },
-  {
-    question: "Are paid services refundable?",
-    answer:
-      "A paid service is non-refundable once the doctor's work has begun. Continuous Monitoring runs to the end of the term you paid for and you keep it for all of it; it just stops afterwards rather than renewing.",
-  },
-  {
-    question: "I already have an HMO. Do I still need Tarragon?",
-    answer:
-      "They do different jobs. Your HMO pays your treatment bills when you're ill; Tarragon watches your numbers between hospital visits, checks them against care protocols, and escalates worrying patterns early. Since the app is free, using it alongside your HMO costs you nothing to try.",
-  },
-  {
-    question: "Can I track my children's vaccinations too?",
-    answer:
-      "Yes, free. Add a child from your dashboard, even one who's too young to have their own login, and their schedule lives on your account: their own vaccination schedule, reminders, and doctor-verified certificates, on the same record as the rest of their care.",
-  },
-  {
-    question: "What if I need a test that isn't listed here?",
-    answer:
-      "Ask in the app. We'll tell you if it's worth doing and write you a request for it, free; you take that to any laboratory you like and pay them directly, exactly like every other test.",
-  },
-  {
-    question: "Is my payment information safe?",
-    answer:
-      "Yes. All payments are processed through Paystack. Tarragon does not store your card details.",
-  },
-  {
-    question: "What is a care voucher?",
-    answer:
-      "It is a paid service bought up front, for you or for someone who has linked you to their care. It is for that service and for the person named on it: it cannot be transferred, and it cannot be exchanged for cash. You can pay for it in instalments, and a family member abroad can buy one for you, which is what sponsoring someone's care means here. Referring a friend earns you both a ₦500 reward voucher once they complete their first paid order.",
-  },
-  {
-    question: "I live abroad. Can I pay for a relative's care in Nigeria?",
-    answer:
-      "Yes, by sponsoring them: you buy a paid service for someone in Nigeria who has linked you to their care, and they use it when they're ready. You see that you bought it, and later that it was used, and nothing about their results. There is no separate diaspora plan to join, and the app they use is free either way.",
-  },
-  ];
-}
 
 export const EMPLOYER_HMO_NOTE =
   "If you're looking to cover staff, members, or a population, corporate wellness plans and HMO partnerships are priced differently, based on the size and needs of your organisation. These aren't self-service plans; speak to our team directly and we'll build a clear, transparent quote for you, with the same no-hidden-cost approach you see above.";

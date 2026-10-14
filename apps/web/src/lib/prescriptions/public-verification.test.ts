@@ -88,3 +88,27 @@ describe("supply wording", () => {
     expect(parseProof([{ ...proof, supplies_dispensed: undefined }])).toBeNull();
   });
 });
+
+describe("OQ-276 controlled medicine at the QR page and phone desk", () => {
+  it("is a known supply outcome with a plain refusal that says nothing was recorded", () => {
+    expect(isSupplyOutcome("controlled_medicine")).toBe(true);
+    const m = SUPPLY_OUTCOME_MESSAGE.controlled_medicine;
+    expect(m.tone).toBe("bad");
+    expect(m.text).toMatch(/nothing was recorded/i);
+    expect(m.text).toMatch(/do not dispense/i);
+  });
+});
+
+describe("OQ-276 controlled medicine on the read-only QR page", () => {
+  it("is a known status that says plainly nothing can be recorded and not to dispense", () => {
+    const s = presentStatus("controlled_medicine");
+    expect(s.tone).toBe("bad");
+    expect(s.headline).toMatch(/not supplied through tarragon/i);
+    expect(s.guidance).toMatch(/do not dispense/i);
+    expect(s.guidance).not.toMatch(/[—–]|warning/i);
+  });
+  it("is accepted as a proof (a controlled prescription must not read as 'not found')", () => {
+    const proof = parseProof([{ status: "controlled_medicine", rx_number: "TRG-RX-1", drug_name: "Tramadol 50mg", supplies_dispensed: 0, supply_available: false }]);
+    expect(proof?.status).toBe("controlled_medicine");
+  });
+});

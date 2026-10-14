@@ -27,6 +27,8 @@ import { useWorklistCounts, type WorklistCountKey } from "@/lib/queries/worklist
 type NavCounts = {
   counts: Partial<Record<WorklistCountKey, number>> | undefined;
   failed: boolean;
+  /** Server-computed badges keyed by a link's href (the Chief Medical Officer's sign-off hub count). Not fetched in the browser. */
+  hrefBadges?: Record<string, { count: number; failed: boolean }>;
 };
 
 function isActive(pathname: string, href: string, exact?: boolean) {
@@ -188,6 +190,9 @@ function NavLinkItem({
         <span className="min-w-0 flex-1 truncate">{tr(item.label)}</span>
         {item.countKey && (
           <NavBadge count={navCounts?.counts?.[item.countKey]} failed={!!navCounts?.failed} />
+        )}
+        {!item.countKey && navCounts?.hrefBadges?.[item.href] && (
+          <NavBadge count={navCounts.hrefBadges[item.href].count} failed={navCounts.hrefBadges[item.href].failed} />
         )}
       </Link>
     </li>
@@ -515,8 +520,11 @@ export function AppShell({
   uiLanguage = DEFAULT_UI_LANGUAGE,
   signOutAction,
   adminSearch,
+  hrefBadges,
   children,
 }: {
+  /** Counts shown beside specific links, computed on the server (href to count). A failed read shows the amber dot, never a hidden zero. */
+  hrefBadges?: Record<string, { count: number; failed: boolean }>;
   /** Pages the admin can reach, for the header search box. Passed for the admin role only; other roles get no box. */
   adminSearch?: AdminSearchEntry[];
   userName: string;
@@ -617,7 +625,7 @@ export function AppShell({
     [allItems]
   );
   const { data: navCountsData, isError: navCountsFailed } = useWorklistCounts(countKeys);
-  const navCounts: NavCounts = { counts: navCountsData, failed: navCountsFailed };
+  const navCounts: NavCounts = { counts: navCountsData, failed: navCountsFailed, hrefBadges };
   // No More button when the tabs already cover every link — a supporter's
   // four-link menu would otherwise get a button opening a drawer that shows
   // them nothing new.
