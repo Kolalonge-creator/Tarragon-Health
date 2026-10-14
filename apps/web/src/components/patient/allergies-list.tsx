@@ -1,7 +1,12 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useAllergies, useAddAllergy } from "@/lib/queries/allergies";
+import {
+  useAllergies,
+  useAddAllergy,
+  usePendingAllergyRequests,
+  useWithdrawAllergyRequest,
+} from "@/lib/queries/allergies";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,6 +52,9 @@ const SOURCE_LABEL: Record<Enums<"allergy_source">, string> = {
 export function AllergiesList({ patientId }: { patientId: string }) {
   const { data, isLoading } = useAllergies(patientId);
   const addAllergy = useAddAllergy();
+  const { data: pendingRequests } = usePendingAllergyRequests(patientId);
+  const withdrawRequest = useWithdrawAllergyRequest();
+  const [withdrawError, setWithdrawError] = useState<string | null>(null);
 
   const [formOpen, setFormOpen] = useState(false);
   const [allergen, setAllergen] = useState("");
@@ -76,6 +84,16 @@ export function AllergiesList({ patientId }: { patientId: string }) {
   }
 
   const allergies = data ?? [];
+  const pendingIdByAllergy = new Map((pendingRequests ?? []).map((request) => [request.allergy_id, request.id]));
+
+  async function handleWithdraw(requestId: string) {
+    setWithdrawError(null);
+    try {
+      await withdrawRequest.mutateAsync({ patientId, requestId });
+    } catch (err) {
+      setWithdrawError(err instanceof Error ? err.message : "We could not take that request back. Please try again.");
+    }
+  }
 
   return (
     <Card>
@@ -87,7 +105,9 @@ export function AllergiesList({ patientId }: { patientId: string }) {
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No allergies on file yet.</p>
         )}
 
-        {allergies.map((allergy) => (
+        {allergies.map((allergy) => {
+          const pendingRequestId = pendingIdByAllergy.get(allergy.id);
+          return (
           <div
             key={allergy.id}
             className="space-y-1 border-b border-charcoal-ink/10 dark:border-night-ink/15 pb-3 last:border-0 last:pb-0"
@@ -102,9 +122,32 @@ export function AllergiesList({ patientId }: { patientId: string }) {
             </div>
             {allergy.reaction && <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">{allergy.reaction}</p>}
             <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">{SOURCE_LABEL[allergy.source]}</p>
+            {pendingRequestId && (
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-xs font-medium text-charcoal-ink/80 dark:text-night-ink/80">
+                  Change requested, waiting for your care team
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={withdrawRequest.isPending}
+                  onClick={() => handleWithdraw(pendingRequestId)}
+                >
+                  Withdraw request
+                </Button>
+              </div>
+            )}
             <ResultExplainer kind="allergy" subjectKey={allergy.id} label={allergy.allergen} />
           </div>
-        ))}
+          );
+        })}
+
+        {withdrawError && (
+          <p role="alert" className="text-sm text-destructive">
+            {withdrawError}
+          </p>
+        )}
 
         {formOpen ? (
           <form

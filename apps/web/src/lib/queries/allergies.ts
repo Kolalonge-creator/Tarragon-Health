@@ -90,3 +90,59 @@ export function useAddAllergy() {
     },
   });
 }
+
+export type PendingAllergyRequest = Pick<
+  Tables<"patient_allergy_correction_requests">,
+  "id" | "allergy_id" | "requested_status" | "created_at"
+>;
+
+const requestsKey = (patientId: string) => ["patient-allergy-requests", patientId] as const;
+
+/**
+ * The patient's own waiting requests to void or correct an allergy (S05b-d). Only the safe
+ * columns are named: the request table is column-granted, and `select *` is refused by design
+ * (the clinician's note and identity never reach a client). RLS shows the patient her own
+ * rows only, so a caregiver looking at her list sees an empty array here.
+ */
+export function usePendingAllergyRequests(patientId: string) {
+  return useQuery({
+    queryKey: requestsKey(patientId),
+    queryFn: async (): Promise<PendingAllergyRequest[]> => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("patient_allergy_correction_requests")
+        .select("id, allergy_id, requested_status, created_at")
+        .eq("patient_id", patientId)
+        .eq("status", "pending");
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!patientId,
+  });
+}
+
+const withdrawInputSchema = z.object({
+  patientId: z.string().uuid(),
+  requestId: z.string().uuid(),
+});
+
+export type WithdrawAllergyRequestInput = z.input<typeof withdrawInputSchema>;
+
+/** Takes a waiting request back. The database checks the request is hers and still waiting. */
+export function useWithdrawAllergyRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (rawInput: WithdrawAllergyRequestInput): Promise<void> => {
+      const input = withdrawInputSchema.parse(rawInput);
+      const supabase = createClient();
+      const { error } = await supabase.rpc("withdraw_patient_allergy_correction", {
+        p_request_id: input.requestId,
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_result, variables) => {
+      queryClient.invalidateQueries({ queryKey: requestsKey(variables.patientId) });
+      queryClient.invalidateQueries({ queryKey: allergiesKey(variables.patientId) });
+    },
+  });
+}
