@@ -18,6 +18,9 @@
 --  11. SABOTAGE: removal turned off; the case 16 check must flip.
 begin;
 
+-- v2: a version used by an audit is frozen (the guard under test in s20_quality_v2.sql); this v1 proof edits the live config between steps
+alter table public.quality_config disable trigger quality_config_guard;
+
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
 grant all on results to public;
 create temp table fx(k text primary key, v uuid) on commit drop;
@@ -36,11 +39,22 @@ $f$ begin
 end $f$;
 create function pg_temp.back() returns void language plpgsql as
 $f$ begin reset role; perform set_config('request.jwt.claims', '', true); perform set_config('request.jwt.claim.role', '', true); end $f$;
+-- S20 v2: submit_clinical_audit refuses until this reviewer opened the case file, so the v1 checks open it first (errors ignored: a check that
+-- expects a refusal before the open gate still gets that refusal). The v2 proof (s20_quality_v2.sql) tests the gate itself.
+create function pg_temp.pre_open(p_sql text) returns void language plpgsql as
+$f$ declare v_id text;
+begin
+  if p_sql like '%submit_clinical_audit%' then
+    v_id := substring(p_sql from '''([0-9a-f-]{36})''');
+    begin perform public.audit_case_file(v_id::uuid); exception when others then null; end;
+  end if;
+end $f$;
 -- run a statement as a user; returns 'ok' or the error message (the message is the stable queue_* code)
 create function pg_temp.try_as(p_uid uuid, p_sql text) returns text language plpgsql as
 $f$ declare r text;
 begin
   perform pg_temp.act(p_uid);
+  perform pg_temp.pre_open(p_sql);
   begin execute p_sql; r := 'ok'; exception when others then r := sqlerrm; end;
   perform pg_temp.back();
   return r;
@@ -50,6 +64,7 @@ create function pg_temp.q_as(p_uid uuid, p_sql text) returns text language plpgs
 $f$ declare r text;
 begin
   perform pg_temp.act(p_uid);
+  perform pg_temp.pre_open(p_sql);
   begin execute p_sql into r; exception when others then r := 'ERR:' || sqlerrm; end;
   perform pg_temp.back();
   return r;
@@ -478,8 +493,8 @@ begin
   perform pg_temp.ck('anon cannot read safety_concerns', 'false', has_table_privilege('anon', 'public.safety_concerns', 'SELECT')::text);
   perform pg_temp.ck('signed-in users cannot write safety_concerns directly', 'false', (has_table_privilege('authenticated', 'public.safety_concerns', 'INSERT') or has_table_privilege('authenticated', 'public.safety_concerns', 'UPDATE'))::text);
   perform pg_temp.ck('signed-in users cannot write clinical_audits directly', 'false', (has_table_privilege('authenticated', 'public.clinical_audits', 'INSERT') or has_table_privilege('authenticated', 'public.clinical_audits', 'UPDATE') or has_table_privilege('authenticated', 'public.clinical_audits', 'DELETE'))::text);
-  perform pg_temp.ck('anon cannot raise a concern', 'false', has_function_privilege('anon', 'public.raise_safety_concern(text, text, text, text, uuid)', 'EXECUTE')::text);
-  perform pg_temp.ck('PUBLIC cannot submit an audit', 'false', has_function_privilege('anon', 'public.submit_clinical_audit(uuid, jsonb, jsonb, text)', 'EXECUTE')::text);
+  perform pg_temp.ck('anon cannot raise a concern', 'false', has_function_privilege('anon', 'public.raise_safety_concern(text, text, text, text, uuid, boolean)', 'EXECUTE')::text);
+  perform pg_temp.ck('PUBLIC cannot submit an audit', 'false', has_function_privilege('anon', 'public.submit_clinical_audit(uuid, jsonb, jsonb, text, jsonb, text, jsonb)', 'EXECUTE')::text);
   perform pg_temp.ck('removal is not callable by signed-in users', 'false', has_function_privilege('authenticated', 'private.remove_clinician_from_work(uuid, text)', 'EXECUTE')::text);
   perform pg_temp.ck('the nightly job is not callable by signed-in users', 'false', has_function_privilege('authenticated', 'private.remove_ineligible_from_work()', 'EXECUTE')::text);
   perform pg_temp.ck('audit creation is not callable by signed-in users', 'false', has_function_privilege('authenticated', 'private.create_audit(uuid, text, numeric)', 'EXECUTE')::text);
@@ -507,13 +522,13 @@ begin
   v_t := pg_temp.finish(pg_temp.f('fin'), 'symptom_review');
   perform pg_temp.ck('rate 100: an ordinary task is audited as a random sample', 'random_sample', (select reason from public.clinical_audits where task_id = v_t));
   perform pg_temp.ck('...and the draw is stored and replayable', 'true',
-    (select (sample_draw is not null and sample_draw = (abs(hashtextextended(v_t::text || ':' || private.lagos_month(now())::text, 0)) % 1000000) / 10000.0)::text from public.clinical_audits where task_id = v_t));
+    (select (sample_draw is not null and sample_draw = private.sampling_draw(v_t, private.lagos_month(now()), 'random'))::text from public.clinical_audits where task_id = v_t));
   -- at the real 10 percent, an audit exists exactly when the draw is under 10
   perform pg_temp.cfg('{sampling,random_rate_percent}', '10'::jsonb);
   v_rows := '';
   for v_i in 1..12 loop
     v_t := pg_temp.finish(pg_temp.f('other'), 'symptom_review');
-    v_draw := (abs(hashtextextended(v_t::text || ':' || private.lagos_month(now())::text, 0)) % 1000000) / 10000.0;
+    v_draw := private.sampling_draw(v_t, private.lagos_month(now()), 'random');
     if (select count(*) from public.clinical_audits where task_id = v_t) <> (case when v_draw < 10 then 1 else 0 end) then v_rows := v_rows || v_t::text || ' '; end if;
   end loop;
   perform pg_temp.ck('at 10 percent an audit exists exactly when the draw is under 10 (12 tasks)', '', v_rows);
@@ -613,7 +628,7 @@ begin
     pg_temp.q_as(case when v_rev = v_cmo then v_cmo2 else v_cmo end, format('select public.audit_case_file(%L)', v_a)));
   v_res := pg_temp.q_as(v_rev, format('select public.audit_case_file(%L)', v_a));
   perform pg_temp.ck('the assigned reviewer reads the case file', 'true', ((v_res::jsonb -> 'task' ->> 'outcome') is not null)::text);
-  perform pg_temp.ck('...and that read is in the audit log with the patient', '1', (select count(*)::text from public.audit_log where action = 'clinical_audit.case_file_read' and entity_id = v_t and event ->> 'patient_id' = pg_temp.f('pat')::text));
+  perform pg_temp.ck('...and that read is in the audit log with the patient', '1', (select count(*)::text from public.audit_log where action = 'clinical_audit.case_file_read' and entity_id = v_t and subject_patient_id = pg_temp.f('pat')));
 
   -- submitting: result, reliability, events, visibility afterwards
   select reliability_score into v_score_before from public.clinical_staff where profile_id = v_fin;
@@ -695,21 +710,25 @@ end $$;
 do $$
 declare v_u uuid := pg_temp.f('other'); v_cmo uuid := pg_temp.f('cmo'); v_i integer; v_t uuid; v_r uuid; v_hb text;
 begin
+  -- keep the 10-minute hand-back cooldown out of the way (it is tested in the S17 proof); the 7-day review window is what is under test
+  update public.queue_claim_config set rules = jsonb_set(jsonb_set(rules, '{handback_cooldown,count}', '99'::jsonb), '{handback_cooldown,hard_count}', '99'::jsonb) where is_active;
   for v_i in 1..4 loop
     perform pg_temp.clear_queue();
     v_t := pg_temp.mktask(pg_temp.f('pat'), 'symptom_review');
     if pg_temp.next_task(v_u) is distinct from v_t then raise exception 'handback fixture: expected the new task, got %', pg_temp.next_outcome(v_u); end if;
-    v_hb := pg_temp.try_as(v_u, format('select public.queue_handback(%L, %L, %L)', v_t, 'technical_problem', null));
+    -- v2: technical_problem and conflict_of_interest are exempt (not counted toward a review, like the cooldown); outside_competence counts
+    v_hb := pg_temp.try_as(v_u, format('select public.queue_handback(%L, %L, %L)', v_t, 'outside_competence', null));
     perform pg_temp.ck('hand-back ' || v_i || ' is accepted', 'ok', v_hb);
+
     perform pg_temp.ck('after hand-back ' || v_i || ', open reviews', case when v_i <= 3 then '0' else '1' end, (select count(*)::text from public.handback_reviews where clinician_id = v_u and state = 'open'));
   end loop;
   perform pg_temp.clear_queue();
   v_t := pg_temp.mktask(pg_temp.f('pat'), 'symptom_review');
   perform pg_temp.next_task(v_u);
-  perform pg_temp.try_as(v_u, format('select public.queue_handback(%L, %L, %L)', v_t, 'technical_problem', null));
+  perform pg_temp.try_as(v_u, format('select public.queue_handback(%L, %L, %L)', v_t, 'outside_competence', null));
   perform pg_temp.ck('a fifth hand-back does not open a second review', '1', (select count(*)::text from public.handback_reviews where clinician_id = v_u and state = 'open'));
   select id into v_r from public.handback_reviews where clinician_id = v_u and state = 'open';
-  perform pg_temp.ck('the review records the reason breakdown', 'true', ((select (reasons ->> 'technical_problem')::integer >= 4 from public.handback_reviews where id = v_r))::text);
+  perform pg_temp.ck('the review records the reason breakdown', 'true', ((select (reasons ->> 'outside_competence')::integer >= 4 from public.handback_reviews where id = v_r))::text);
   perform pg_temp.ck('the lead was told, in neutral words', 'true',
     (select (count(*) >= 1 and bool_and(payload ->> 'message' not ilike '%technical%'))::text from public.notifications where recipient_id = v_cmo and payload ->> 'subject' = 'A hand-back pattern needs review'));
   perform pg_temp.ck('a clinician cannot read the reviews', '0', pg_temp.q_as(v_u, 'select count(*) from public.handback_reviews'));
@@ -783,7 +802,8 @@ begin
   perform pg_temp.ck('...and with no backup reader a neutral incident is opened', 'true',
     (select (count(*) >= 1 and bool_and(summary not ilike '%protocol%' and summary not ilike '%conduct%'))::text from public.ops_incidents where external_reference = 'clinical_safety_overdue'));
   -- a named backup reader sees escalated concerns, and only those
-  v_back := pg_temp.mkuser(pg_temp.f('org'), 'backup', 'admin');
+  -- v2: a backup reader can no longer be an admin account (decision 7), so the named reader is a clinician
+  v_back := pg_temp.mkdoc(pg_temp.f('org'), 'backup', 'senior_medical_officer', 'contracted', '{}', v_adm);
   perform pg_temp.ck('only the lead can name a backup reader', 'ERR:only the clinical lead can name a backup reader', pg_temp.q_as(v_oth, format('select public.add_safety_concern_backup_reader(%L)', v_back)));
   perform pg_temp.ck('an admin account cannot name itself a reader', 'ERR:only the clinical lead can name a backup reader', pg_temp.q_as(v_back, format('select public.add_safety_concern_backup_reader(%L)', v_back)));
   perform pg_temp.ck('before being named, the backup person sees nothing', '0', pg_temp.q_as(v_back, 'select count(*) from public.safety_concerns'));

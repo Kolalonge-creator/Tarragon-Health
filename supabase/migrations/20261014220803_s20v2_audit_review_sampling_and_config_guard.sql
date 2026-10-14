@@ -81,7 +81,7 @@ grant execute on function public.sign_quality_config(integer) to authenticated;
 -- 2. quality_config version 2 (PROPOSED, inactive, unsigned). Version 1 is untouched.
 -- ---------------------------------------------------------------------------
 -- quality-audit-v2-begin
-insert into public.quality_config (version, is_active, effective_from, rules) values (2, false, '2026-10-15', $json$
+insert into public.quality_config (version, is_active, effective_from, rules) values (2, false, '2026-10-14', $json$
 {
   "sampling": {
     "random_rate_percent": 10, "always_reasons": ["red_event", "titration"], "floor_min_tasks": 3, "floor_per_clinician_per_month": 1,

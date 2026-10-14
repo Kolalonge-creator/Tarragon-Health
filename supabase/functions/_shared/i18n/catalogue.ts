@@ -59,4 +59,12 @@ export const EN: Record<string, string> = {
   "quality.concern_needs_response.body": "An item is waiting for a response in the clinical lead area.",
   "quality.audit_overdue.subject": "A clinical audit is overdue",
   "quality.audit_overdue.body": "A clinical audit is overdue. Open the audits page in the clinical lead area.",
+  "credential.renewal_proof_overdue.subject": "Your licence renewal proof is due",
+  "credential.renewal_proof_overdue.body": "The date for proof of your renewed {label} has passed. Please upload it under Training and profile so your access is not paused.",
+  "credential.shifts_removed.subject": "Some future shifts were removed",
+  "credential.shifts_removed.body": "Some of your future shifts were removed because your licence or indemnity ends before they start. Upload your renewed document under Training and profile to be scheduled again.",
+  "quality.audit_reply.subject": "A clinical audit has a reply",
+  "quality.audit_reply.body": "A clinician replied to an audit. Open the audits page in the clinical lead area.",
+  "quality.concern_checkin.subject": "A quick check-in",
+  "quality.concern_checkin.body": "This is a routine check-in. Open the app and tell us how things are going.",
 };

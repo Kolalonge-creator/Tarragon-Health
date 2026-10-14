@@ -434,7 +434,11 @@ begin
       license_verified_at, verified_by, doctor_tier, employment_type, credentialing_level, license_expires_at, is_test)
     values (v_org, v_p5, 'S15 Grace', 'MDCN', 'S15-GRACE-1', true, 'active', now(), v_admin, 'senior_medical_officer', 'employed', 2, v_noon_today - interval '1 day', true)
     returning id into v_p5_staff;
+  -- S20 v2 (decision 8): grace is the chief medical officer's alone; an admin account is refused
   perform pg_temp.act(v_admin);
+  perform pg_temp.rec('an admin account can no longer grant a grace period', '42501', pg_temp.try(format('select public.grant_credential_grace(%L, ''licence'', 5, ''a long enough reason'')', v_p5_staff)));
+  perform pg_temp.back();
+  perform pg_temp.act(v_cmo);
   perform pg_temp.rec('a grace period needs a real reason', '23514', pg_temp.try(format('select public.grant_credential_grace(%L, ''licence'', 5, ''short'')', v_p5_staff)));
   perform pg_temp.rec('a grace period is capped', '23514', pg_temp.try(format('select public.grant_credential_grace(%L, ''licence'', 60, ''a long enough reason'')', v_p5_staff)));
   v_grace := public.grant_credential_grace(v_p5_staff, 'licence', 5, 'MDCN renewal portal outage, evidence on file');
