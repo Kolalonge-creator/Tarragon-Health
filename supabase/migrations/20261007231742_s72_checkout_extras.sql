@@ -129,50 +129,25 @@ begin
 end $$;
 revoke all on function private.go_live_conditions(text, uuid) from public;
 
--- attest_go_live_condition is NOT wrapped: later migrations on main-dev add their own (guard, condition) pairs to its list by patching it in place, and a thin
--- wrapper has no list to patch. So this is the full function with this migration's pairs added to the list.
-create or replace function public.attest_go_live_condition(p_key text, p_code text, p_met boolean, p_note text) returns jsonb
-language plpgsql security definer set search_path = '' as $$
+-- S72: add its (guard, condition) pairs to the list of conditions a person may record. Patched in place from the CURRENT definition, so every pair other migrations
+-- added is kept (re-creating the function whole would discard them). It raises if the anchor is not found. Idempotent.
+do $patch$
 declare
-  v_uid uuid := (select auth.uid());
+  v_def text := pg_get_functiondef('public.attest_go_live_condition(text,text,boolean,text)'::regprocedure);
+  v_anchor text := E'\')) then\n    raise exception \'that condition is read from the data';
 begin
-  if v_uid is null then raise exception 'not signed in' using errcode = '42501'; end if;
-  if private.go_live_actor_role() is null then raise exception 'only an admin or the Chief Medical Officer can record this' using errcode = '42501'; end if;
-  if not exists (select 1 from public.go_live_guards where key = p_key) then raise exception 'no such go-live guard: %', p_key using errcode = '22023'; end if;
-  -- the conditions a person records (the rest are read from the data). A fixed list, so a broken data query cannot block recording one.
-  if (p_key, p_code) not in (
-       ('clinical_operations_enabled', 'clinical_safety_case_current'), ('prescribing_enabled', 'clinical_safety_case_current'),
-       ('scribe_enabled', 'clinical_safety_case_current'), ('prescribing_enabled', 'notification_sender_deployed'),
-       ('lab_booking_enabled', 'results_flow_tested'),
-       ('scribe_enabled', 'con001_legal_review_recorded'), ('scribe_enabled', 'speech_provider_configured'),
-       ('payouts_enabled', 'fee_schedule_approved'), ('payouts_enabled', 'paystack_transfers_configured'),
-       ('public_signup_enabled', 'stage2_exit_criteria_met'),
-       ('membership_billing_enabled', 'paystack_plan_codes_disabled'), ('membership_billing_enabled', 'refund_path_tested'),
-       ('concierge_coordinator_enabled', 'coordinator_staffing_in_place'),
-       ('checkout_enabled', 'paystack_channels_verified'),
-       ('checkout_enabled', 'refund_path_tested'),
-       ('sponsor_payment_enabled', 'counsel_opinion_recorded'),
-       ('sponsor_payment_enabled', 'sponsor_receivable_confirmed'),
-       ('access_fund_enabled', 'counsel_opinion_recorded'),
-       ('access_fund_enabled', 'grant_criteria_signed_off'),
-       ('access_fund_enabled', 'restricted_gift_accounting_decided')) then
-    raise exception 'that condition is read from the data (or does not exist), it cannot be attested' using errcode = '22023';
+  if position('access_fund_enabled' in v_def) > 0 and position('restricted_gift_accounting_decided' in v_def) > 0 then return; end if;
+  if position(v_anchor in v_def) = 0 then
+    raise exception 'attest_go_live_condition: anchor not found, refusing to rewrite';
   end if;
-  if p_met is null or length(btrim(coalesce(p_note, ''))) < 10 then
-    raise exception 'say what was checked and by whom, in a sentence' using errcode = '22023';
-  end if;
-  -- the safety case is the safety officer's: an admin who is not the CMO cannot record it
-  if p_code = 'clinical_safety_case_current' and not private.credential_is_cmo() then
-    raise exception 'only the Chief Medical Officer can record the clinical safety case' using errcode = '42501';
-  end if;
-  if p_code = 'clinical_safety_case_current' and p_met and length(btrim(p_note)) < 25 then
-    raise exception 'name the safety case document, its version and who signed it' using errcode = '22023';
-  end if;
-  insert into public.go_live_attestations (guard_key, condition_code, met, note, attested_by)
-  values (p_key, p_code, p_met, btrim(p_note), v_uid);
-  perform private.log_audit('go_live_guard.condition_attested', 'go_live_guard', null, jsonb_build_object('key', p_key, 'code', p_code, 'met', p_met));
-  return jsonb_build_object('ok', true);
-end $$;
+  execute replace(v_def, v_anchor,
+    E'\'),\n       (\'access_fund_enabled\', \'counsel_opinion_recorded\'),
+       (\'access_fund_enabled\', \'grant_criteria_signed_off\'),
+       (\'access_fund_enabled\', \'restricted_gift_accounting_decided\')) then\n    raise exception \'that condition is read from the data');
+end $patch$;
+revoke all on function public.attest_go_live_condition(text, text, boolean, text) from public, anon;
+grant execute on function public.attest_go_live_condition(text, text, boolean, text) to authenticated;
+
 
 -- ---------------------------------------------------------------------------
 -- 3. Donations: restricted gifts, never a balance (INV-09). Operations confirm a bank transfer; there is no Paystack call.
