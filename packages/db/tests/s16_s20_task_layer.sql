@@ -396,14 +396,15 @@ begin
     perform pg_temp.rec('D4: (red event fixture unavailable on this schema) 3', 'skipped', 'skipped');
   end if;
 
-  -- D10: a lapsed lease cannot be completed
+  -- D10: once the sweep has returned a lapsed claim, it cannot be completed
   perform pg_temp.clear_queue();
   t := private.create_clinical_task(pg_temp.f('p9'), 'amber_bp_review'); perform pg_temp.next_task(v_a);
   update public.task_claims set expires_at = now() - interval '1 minute' where task_id = t and ended_at is null;
-  perform pg_temp.rec('D10: completing after the claim ran out is refused', 'queue_claim_expired', pg_temp.try_as(v_a, format('select public.queue_complete(%L, ''{"code":"completed_no_action_needed"}''::jsonb)', t)));
-  perform pg_temp.rec('D10: ...and the task is still claimed until the sweep returns it', 'claimed', pg_temp.state_of(t));
+  -- (relaxed by the review-fixes migration: a lapsed lease the sweep has not ended can still be completed; once the sweep has ended it, not)
   perform private.expire_task_claims();
-  perform pg_temp.rec('D10: the expiry sweep returns it to the queue', 'open', pg_temp.state_of(t));
+  perform pg_temp.rec('D10: the expiry sweep returns a lapsed claim to the queue', 'open', pg_temp.state_of(t));
+  perform pg_temp.rec('D10: completing after the sweep ended the claim is refused (no longer yours)', 'queue_no_claim',
+    pg_temp.try_as(v_a, format('select public.queue_complete(%L, ''{"code":"completed_no_action_needed"}''::jsonb)', t)));
   perform pg_temp.clear_queue();
 end $$;
 

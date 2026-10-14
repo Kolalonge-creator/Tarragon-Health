@@ -39,9 +39,23 @@ beforeEach(() => {
 describe("ClinicianTaskPage", () => {
   it("reads no patient for a task the clinician does not hold", async () => {
     taskRow.mockReturnValue({ data: null, error: null });
+    rpc.mockResolvedValue({ data: null, error: null });
     await renderPage();
     expect(screen.getByText(/do not hold this task/)).toBeTruthy();
-    expect(rpc).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalledWith("clinician_patient_summary", expect.anything());
+  });
+
+  it.each([
+    ["withdrawn", /withdrawn by the clinical lead/],
+    ["completed", /already been finished/],
+    ["returned", /do not hold this task/],
+  ])("says what became of a task that is no longer held: %s", async (what, words) => {
+    taskRow.mockReturnValue({ data: null, error: null });
+    rpc.mockResolvedValue({ data: what, error: null });
+    await renderPage();
+    expect(screen.getByText(words)).toBeTruthy();
+    expect(rpc).toHaveBeenCalledWith("my_task_outcome", { p_task: id });
+    expect(rpc).not.toHaveBeenCalledWith("clinician_patient_summary", expect.anything());
   });
 
   it("says it could not load, rather than 'not held', when the read failed", async () => {

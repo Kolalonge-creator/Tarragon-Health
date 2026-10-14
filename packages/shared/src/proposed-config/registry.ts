@@ -871,6 +871,9 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // coded outcomes each task type may close with, the contact-attempt sequence a critical result needs when it cannot be released,
     // and the note limit (decision 3; D4). watchdog: how stale a queue job may be, and how long the oldest open task of each class may
     // wait before an alert (D6). Every number is PROPOSED; the CMO signs v2 in the console.
+    // Two further PROPOSED numbers are code constants until that v2 (config v1 cannot be edited in place): a contact attempt may be
+    // dated up to 24 hours before its task existed (CONTACT_ATTEMPT_LOOKBACK_HOURS; private.contact_attempt_lookback()), and further
+    // immediate escalations within 10 minutes of the last alert are folded into one follow-up (private.escalation_coalesce_window()).
     value: {
       lead_window_cap_fraction: 0.5,
       escalated_non_red_any_eligible: true,

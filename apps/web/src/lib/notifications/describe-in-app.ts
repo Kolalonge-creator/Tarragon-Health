@@ -714,6 +714,13 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     // From private.notify_task_escalated (S16-S20 D2): fixed neutral line for the clinical lead, nothing from the payload (INV-07).
     return { text: "A clinical task needs attention now", href: "/clinician/queue" };
   }
+  if (n.template === "task_escalation_more") {
+    return { text: "More clinical tasks need attention", href: "/clinician/queue" };
+  }
+  if (n.template === "task_withdrawn_notice") {
+    // From public.cancel_clinical_task (S16-S20): fixed wording, no reason, no patient, nothing clinical (INV-07).
+    return { text: "A task you were working on was withdrawn by the clinical lead", href: "/clinician/queue" };
+  }
   if (n.template === "queue_backlog_notice") {
     return { text: "A clinical task is waiting longer than planned", href: "/clinician/queue" };
   }

@@ -12,7 +12,7 @@ Branch `s16-s20/task-layer`. Covers plan section 6 Stage 0 (W0.1) and Stage 2 (W
 | D9 | A dedup merge that tightens `due_at` tightens a running offer window by the same share of the task's life. | same, section 2 | section 1 |
 | D2 | Escalation tells the CMO from the database, in the same transaction (trigger on `clinical_task_transitions`): classes 1 and 2 by in-app + push + email at critical priority; 3 to 9 an in-app notice; a daily digest at 07:00 Lagos. No SMS, no WhatsApp. Fixed neutral wording (INV-07 lint passes). A failure to notify is logged and raises a sev1 incident and never undoes the escalation; no CMO to tell raises a sev1 incident. `queue_escalated_overview()` lists escalated tasks with age for the CMO. | same, section 7; `templates.ts`; `describe-in-app.ts` | section 2; `packages/notifications/src/s16-s20-templates.test.ts` |
 | D4 | `queue_complete` needs a code the task type lists, system-checked where a record exists: critical result (released result, or 3 dated contact attempts by a listed method), titration (a change signed or rejected by the caller after the claim), symptom review (a finalized note by the caller), written question (a consult), red event (an acknowledged page). Other types: a coded disposition. Free text is a note only. | same, section 6 | section 3 |
-| D10 | `queue_complete` refuses a lapsed claim (`queue_claim_expired`). | same | section 3 |
+| D10 | `queue_complete` checks the claim is live and the task still the caller's. (First built to refuse a lapsed lease; relaxed in the review-fixes migration so a still-live lapsed claim completes.) | same; third migration | section 3; `s16_s20_review_fixes.sql` |
 | D7 | `needs_information` and `technical_problem` hand-backs bar the same clinician from the same task; if nobody else could take it the task escalates (audited) instead of sitting open. The hand-back reason on the screen is no longer pre-selected. | same, section 4; `forms.tsx` | section 4; `actions.test.ts` |
 | D8 | `queue_next(p_types)` keeps working for the S22b membership filter but is intersected with the caller's declared competencies and tier. | same, section 5 | section 4 |
 | D5 | A dead-lettered, non-shadow `triage.graded` delivery for `queue.create_from_triage` raises a sev2 incident (a shadow grade loses no work, so none). | same, section 8 | section 5 |
@@ -52,6 +52,35 @@ literal binding; `queue_health` still counts all organisations (unchanged from S
 Known limit: contact attempts are the clinician's own record (a typed list), checked for shape, dates, methods and distinctness, not
 against the call or message logs; `in_app_message` attempts could be verified against `care_messages` later.
 
+## Lead review fixes (third migration `20261014232629_s16_s20_task_layer_review_fixes.sql`, proof `s16_s20_review_fixes.sql`)
+
+1. **D10 relaxed.** A claim whose lease lapsed but is still live (the sweep has not ended it, the task is still the clinician's) can be
+   completed; past the due time it counts as `completed_late`. Once the sweep has ended the claim, or another clinician holds the task,
+   `queue_complete` raises `queue_no_claim`. This also makes the written-question answer flow robust: its final `queue_complete` no longer
+   fails because a typing clinician's 30 minutes ran out. (Applied by rewriting the live body, the SR2d pattern.)
+2. **Cron staggered.** `queue-watchdog` is now `14-59/10 * * * *`, `queue-backlog-digest` `27 6 * * *` (07:27 Lagos); neither shares a
+   schedule string with any other job (proved).
+3. **The watchdog is watched.** `queue_stale_jobs` also reports a watchdog with no finished run in 25 minutes, and `queue_health` (CMO and
+   admin) carries it. An external dead-man check is STILL needed: a dead pg_cron kills the watchdog and the console alike.
+4. **Withdrawn tasks.** `cancel_clinical_task` on a claimed task writes a neutral in-app notice to the claimant ("A task you were working on
+   was withdrawn by the clinical lead", id only in the payload); `my_task_outcome()` lets the task page say "withdrawn" (or "already
+   finished") instead of "you do not hold this task".
+5. **Contact attempts** may be dated up to 24 hours before the task existed. A code constant (`private.contact_attempt_lookback()`,
+   `CONTACT_ATTEMPT_LOOKBACK_HOURS`), PROPOSED, named in the registry note, because config v1 is not editable in place.
+6. **Escalation flood.** After the first immediate alert, further immediate escalations within 10 minutes (`private.escalation_coalesce_window()`,
+   PROPOSED constant) still get their own in-app row and stay in `queue_escalated_overview`, but their push and email fold into ONE
+   follow-up per channel ("N more clinical tasks have been escalated", count only) until it has gone out; after the window a full alert
+   resumes. Nothing is dropped.
+
+## Known limitations (left as they are on purpose)
+
+- `private.task_has_other_candidate` ignores availability (leave, declared hours, rota): it asks "could anyone ever take this", so a task
+  can be reported as takeable by a clinician who is off today. It errs towards not escalating.
+- The symptom-review closer (finalizing a note completes the review the clinician holds for that patient) is not tied to a specific task,
+  and no producer for `symptom_review` exists yet; if a clinician somehow holds two for one patient, the older claim is completed.
+- `queue_task_layer_config` v1 is inserted ACTIVE, the same pattern S16 and S17 used for their first seeds. **The CMO has not signed it**;
+  the registry entry `queue.task_layer` is `proposed`. Signing a v2 is the CMO's act in the console, and no part of this branch does it.
+
 ## Skipped, with reason
 
 - **`symptom_review` producer.** `docs/design/S55-S60-build-plan.md` plans a `symptom_reviews` table with its own SLA row for the symptom
@@ -70,9 +99,8 @@ against the call or message logs; `in_app_message` attempts could be verified ag
 - SR2d rewrote `sweep_clinical_tasks` in place after S16; the restated body keeps SR2d's sargable condition (a first draft of this branch
   restated the S16 text and `sr2d_overdue_sweep_sargable_and_hot_indexes.sql` caught it). Every other restated function was checked by md5
   of its source against the live project before and by the same script (`bodymd5`) against the migration text.
-- D10 makes a lapsed claim un-completable. The written-question answer flow calls `queue_complete` as its last step, so a clinician whose
-  30-minute hold ran out loses the submit (the form keeps their text). The screen already shows time left and one extension; if this bites,
-  lengthen the type's `claim_timeout_minutes` in a new `task_types` version rather than weakening the check.
+- D10 as first built refused a lapsed claim, which would have lost a written answer submitted just after the 30-minute hold ran out. The
+  review fixes migration relaxes it (see below): a still-live lapsed claim can be completed; one the sweep has ended cannot.
 
 ## Open questions (for `docs/OPEN-QUESTIONS.md`, which this branch does not edit)
 

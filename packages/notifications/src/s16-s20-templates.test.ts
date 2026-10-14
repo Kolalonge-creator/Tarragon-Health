@@ -13,8 +13,8 @@ import { describe as describeInApp } from "../../../apps/web/src/lib/notificatio
 const ctx = { notificationId: "n", recipientId: "r" };
 const payload = { task_id: "c0ffee", reading: "BP 180/110", condition: "diabetes", drug_name: "metformin", patient_name: "Ada Obi", body: "secret" };
 const LEAK = /180|diabetes|metformin|ada|obi|secret|c0ffee/i;
-const SENDER_KEYS = ["task_escalation_alert", "queue_backlog_digest"] as const;
-const IN_APP_KEYS = ["task_escalation_alert", "queue_backlog_notice", "queue_backlog_digest"] as const;
+const SENDER_KEYS = ["task_escalation_alert", "task_escalation_more", "queue_backlog_digest"] as const;
+const IN_APP_KEYS = ["task_escalation_alert", "task_escalation_more", "task_withdrawn_notice", "queue_backlog_notice", "queue_backlog_digest"] as const;
 
 describe("S16-S20 escalation templates", () => {
   for (const key of SENDER_KEYS) {
@@ -38,8 +38,23 @@ describe("S16-S20 escalation templates", () => {
     });
   }
 
+  it("the folded follow-up says how many, in plain words, and never trusts the count it is given", () => {
+    const fn = TEMPLATE_MAP["task_escalation_more"]!;
+    expect(fn({ count: 4 }, ctx).email?.subject).toBe("More clinical tasks need attention");
+    expect(fn({ count: 4 }, ctx).email?.text).toContain("4 more clinical tasks have been escalated.");
+    expect(fn({ count: 1 }, ctx).email?.text).toContain("One more clinical task has been escalated.");
+    expect(fn({ count: "not a number" }, ctx).email?.text).toContain("One more clinical task");
+    expect(fn({ count: -3 }, ctx).email?.text).toContain("One more clinical task");
+    expect(fn({}, ctx).email?.html).not.toMatch(/NaN|undefined/);
+  });
+
+  it("the withdrawn notice names no reason, patient or task content", () => {
+    expect(describeInApp({ template: "task_withdrawn_notice", payload }).text).toBe("A task you were working on was withdrawn by the clinical lead");
+  });
+
   it("the immediate alert is safety-critical (sent at once, quiet hours do not hold it); the digest and the notice are not", () => {
     expect(isSafetyCritical("task_escalation_alert")).toBe(true);
+    expect(isSafetyCritical("task_escalation_more")).toBe(true);
     expect(isSafetyCritical("queue_backlog_digest")).toBe(false);
     expect(isSafetyCritical("queue_backlog_notice")).toBe(false);
   });

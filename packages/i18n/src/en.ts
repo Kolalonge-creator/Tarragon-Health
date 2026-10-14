@@ -1764,6 +1764,8 @@ export const en = {
   "queue.due_in": "Due in {minutes} minutes",
   "scribe.review.look_for": "Before you confirm, look for what is missing, not only what is wrong: allergies, medicines and doses, things the patient said they do NOT have, and the follow-up plan. Missing items are the most common error in AI notes.",
   "queue.updated": "Updated {time}",
+  "task.withdrawn": "This task was withdrawn by the clinical lead. Nothing more is needed from you on it.",
+  "task.already_finished": "This task has already been finished.",
   "queue.blocked.title": "Why the queue is closed to you",
   "queue.blocked.queue_not_clinician": "Your account is not set up as a clinician, so the queue is closed to you.",
   "queue.blocked.queue_not_eligible": "You are not currently cleared to take tasks. Check your credentials page.",

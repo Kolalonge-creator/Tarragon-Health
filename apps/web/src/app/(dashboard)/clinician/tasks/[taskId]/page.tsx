@@ -40,11 +40,21 @@ export default async function ClinicianTaskPage({ params }: { params: Promise<{ 
 
   const parsed = !error && data ? heldTaskSchema.safeParse(data) : null;
   if (!parsed?.success) {
+    // A task I no longer hold: say what became of it. This reads only my own claim, so it shows nothing about anyone else's work.
+    const outcome = error ? null : await supabase.rpc("my_task_outcome", { p_task: taskId });
+    const what = outcome && !outcome.error && typeof outcome.data === "string" ? outcome.data : null;
+    const message = error
+      ? t("queue.load_error", "en")
+      : what === "withdrawn"
+        ? t("task.withdrawn", "en")
+        : what === "completed"
+          ? t("task.already_finished", "en")
+          : t("task.not_held", "en");
     return (
       <div className="space-y-3">
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">{t("task.title", "en")}</h1>
         <p role={error ? "alert" : "status"} className="text-sm text-charcoal-ink/70">
-          {error ? t("queue.load_error", "en") : t("task.not_held", "en")}
+          {message}
         </p>
         <Link href="/clinician/queue" className="text-sm font-medium text-brand-green underline">{t("queue.title", "en")}</Link>
       </div>

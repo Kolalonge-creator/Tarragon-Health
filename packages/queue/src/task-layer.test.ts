@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "@jest/globals";
 import { PROPOSED_CONFIG } from "../../shared/src/proposed-config/registry";
 import {
-  allowedOutcomeCodes, checkOutcomeShape, classBreaches, coolingOffUntil, escalatedClaimableWithoutOnCall, escalationChannels, escalationTier,
+  allowedOutcomeCodes, checkOutcomeShape, classBreaches, CONTACT_ATTEMPT_LOOKBACK_HOURS, coolingOffUntil, escalatedClaimableWithoutOnCall, escalationChannels, escalationTier,
   offerWindowMinutes, outcomeCode, staleJobs, windowEndAfterMerge, type TaskLayerRules,
 } from "../../../supabase/functions/_shared/queue/task-layer";
 import type { CooldownRule } from "../../../supabase/functions/_shared/queue/claims";
@@ -121,7 +121,7 @@ describe("checkOutcomeShape (D4)", () => {
     ["a date that is not a date", attempt({ at: "yesterday-ish" })],
     ["a keyword, not a time", attempt({ at: "now" })],
     ["a bare date with no time", attempt({ at: "2026-10-14" })],
-    ["dated before the task existed", attempt({ at: new Date(CREATED - MIN).toISOString() })],
+    ["dated more than 24 hours before the task existed", attempt({ at: new Date(CREATED - 25 * 60 * MIN).toISOString() })],
     ["dated in the future", attempt({ at: new Date(NOW + 10 * MIN).toISOString() })],
     ["a method not on the list", attempt({ method: "carrier_pigeon" })],
     ["a method that is not text", attempt({ method: 3 })],
@@ -135,6 +135,12 @@ describe("checkOutcomeShape (D4)", () => {
     expect(check("critical_result_review", critical([same, { ...same }, { ...same }]))).toBe("queue_outcome_attempts");
     const at = new Date(NOW - 6 * MIN).toISOString();
     expect(check("critical_result_review", critical([attempt({ at }), attempt({ at, method: "video_call" }), attempt({ at, method: "in_app_message" })]))).toBeNull();
+  });
+
+  it("accepts an attempt made up to 24 hours before the task existed (the constant mirrors the database)", () => {
+    expect(CONTACT_ATTEMPT_LOOKBACK_HOURS).toBe(24);
+    const early = (hours: number, method: string) => attempt({ method, at: new Date(CREATED - hours * 60 * MIN).toISOString() });
+    expect(check("critical_result_review", critical([early(12, "phone_call"), early(23, "video_call"), early(24, "in_app_message")]))).toBeNull();
   });
 
   it("allows a date up to five minutes ahead (clock skew) and not beyond", () => {

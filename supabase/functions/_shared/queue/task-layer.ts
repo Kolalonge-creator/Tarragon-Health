@@ -114,6 +114,12 @@ export function checkOutcomeShape(
 }
 
 const FIVE_MINUTES_MS = 5 * 60_000;
+/**
+ * How long before a task existed a contact attempt may be dated (a call made before the result reached the queue). PROPOSED, owner CMO;
+ * a constant, not configuration, because queue_task_layer_config v1 cannot be edited in place. Mirrors private.contact_attempt_lookback()
+ * in migration *_s16_s20_task_layer_review_fixes.sql and is named in the `queue.task_layer` registry note; a v2 pack moves it into config.
+ */
+export const CONTACT_ATTEMPT_LOOKBACK_HOURS = 24;
 const ISO_DATE_TIME = /^\d{4}-\d{2}-\d{2}T/;
 
 function isValidAttempt(a: unknown, rules: CompletionRules, taskCreatedAt: number, now: number): boolean {
@@ -123,7 +129,7 @@ function isValidAttempt(a: unknown, rules: CompletionRules, taskCreatedAt: numbe
   const at = typeof attempt.at === "string" && ISO_DATE_TIME.test(attempt.at) ? Date.parse(attempt.at) : Number.NaN;
   return (
     !Number.isNaN(at) &&
-    at >= taskCreatedAt &&
+    at >= taskCreatedAt - CONTACT_ATTEMPT_LOOKBACK_HOURS * 3_600_000 &&
     at <= now + FIVE_MINUTES_MS &&
     typeof attempt.method === "string" &&
     rules.contact_attempts.methods.includes(attempt.method) &&

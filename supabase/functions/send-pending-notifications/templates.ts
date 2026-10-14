@@ -1632,6 +1632,26 @@ export const TEMPLATE_MAP: Record<
       text: "A clinical task has passed its time and is now escalated.\n\nOpen Tarragon Health to see where it stands.\n\nTarragon Health",
     },
   }),
+  // The folded follow-up for further immediate escalations inside the coalescing window: a count and nothing else.
+  task_escalation_more: (payload) => {
+    const raw = Math.floor(Number(payload.count));
+    const n = Number.isFinite(raw) && raw >= 1 ? raw : 1;
+    const line = n === 1 ? "One more clinical task has been escalated." : `${n} more clinical tasks have been escalated.`;
+    return {
+      smsText: "More clinical tasks need attention. Open Tarragon Health. Tarragon Health",
+      pushUrl: "/clinician/queue",
+      email: {
+        subject: "More clinical tasks need attention",
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>${line}</p>` +
+          `<p>Open Tarragon Health to see where they stand.</p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: `${line}\n\nOpen Tarragon Health to see where they stand.\n\nTarragon Health`,
+      },
+    };
+  },
   queue_backlog_digest: () => ({
     smsText: "Escalated clinical tasks are waiting. Open Tarragon Health. Tarragon Health",
     pushUrl: "/clinician/queue",
