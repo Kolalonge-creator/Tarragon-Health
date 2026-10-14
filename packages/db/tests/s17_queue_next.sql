@@ -324,7 +324,7 @@ begin
   perform pg_temp.rec('the claimant completes with documented attempts', 'ok', pg_temp.try_as(v_a, format('select public.queue_complete(%L, %L::jsonb)', t2,
     jsonb_build_object('code', 'contact_attempts_documented', 'attempts', jsonb_build_array(
       jsonb_build_object('at', now(), 'method', 'phone_call', 'reached', false),
-      jsonb_build_object('at', now(), 'method', 'phone_call', 'reached', false),
+      jsonb_build_object('at', now(), 'method', 'video_call', 'reached', false),
       jsonb_build_object('at', now(), 'method', 'in_app_message', 'reached', false)))::text)));
   perform pg_temp.rec('INV-12: completing ends the tie', 'false', pg_temp.q_as(v_a, format('select private.clinician_has_patient_access(%L)::text', pg_temp.f('p4'))));
   perform pg_temp.rec('next is the earlier-due amber review', t4a::text, pg_temp.next_task(v_a)::text);

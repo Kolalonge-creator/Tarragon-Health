@@ -109,7 +109,10 @@ begin
 end $f$;
 create function pg_temp.attempts(p_n integer) returns jsonb language sql as
 $$ select jsonb_build_object('code', 'contact_attempts_documented', 'attempts',
-     (select jsonb_agg(jsonb_build_object('at', now(), 'method', 'phone_call', 'reached', false)) from generate_series(1, p_n))) $$;
+     (select jsonb_agg(jsonb_build_object('at', now(), 'reached', false,
+         'method', (array['phone_call', 'video_call', 'in_app_message', 'emergency_contact'])[1 + (g - 1) % 4])) from generate_series(1, p_n) g)) $$;
+create function pg_temp.live_claims_of(p_task uuid) returns text language sql as
+$$ select count(*)::text from public.task_claims where task_id = p_task and ended_at is null $$;
 create function pg_temp.notes_of(p_task uuid, p_to uuid) returns text language sql as
 $$ select coalesce(string_agg(channel::text || ':' || template || ':' || priority::text, ',' order by channel::text), '')
      from public.notifications where source_id = p_task and recipient_id = p_to $$;
@@ -198,7 +201,7 @@ end $$;
 do $$
 declare
   v_cmo uuid := pg_temp.f('cmo'); v_a uuid := pg_temp.f('A');
-  t2 uuid; t5 uuid; t5b uuid; v_n integer; v_cfg jsonb;
+  t2 uuid; t5 uuid; t5b uuid; v_n integer; v_cfg jsonb; o2 uuid; po uuid; tx uuid; ty uuid;
 begin
   -- class 2 (critical_result_review)
   t2 := private.create_clinical_task(pg_temp.f('p6'), 'critical_result_review');
@@ -229,8 +232,22 @@ begin
   perform pg_temp.rec('D2: a second run on the same day sends nothing', '0', private.send_queue_backlog_digest()::text);
 
   -- the console list
-  perform pg_temp.rec('D2: the CMO sees the escalated tasks with their age', 'true',
-    (pg_temp.q_as(v_cmo, 'select (jsonb_array_length(public.queue_escalated_overview()) >= 0)::text') = 'true')::text);
+  -- (the overview lists real work only, and only the caller's own organisation)
+  insert into public.organisations (name, type) select 'Proof other organisation', type from public.organisations order by created_at limit 1 returning id into o2;
+  po := pg_temp.mkuser(o2, 'other-org-patient', 'patient');
+  tx := private.create_clinical_task(pg_temp.f('p6'), 'critical_result_review', null, 'tl:ov-own');
+  ty := private.create_clinical_task(po, 'critical_result_review', null, 'tl:ov-other');
+  perform pg_temp.backdate(tx, 'due_at = now() - interval ''1 minute'', is_test = false');
+  perform pg_temp.backdate(ty, 'due_at = now() - interval ''1 minute'', is_test = false');
+  perform private.sweep_clinical_tasks();
+  -- (a profile cannot be placed in a second organisation here, so the escalated task is moved there after the escalation)
+  perform pg_temp.backdate(ty, format('organisation_id = %L', o2));
+  perform pg_temp.rec('D2: the CMO sees their own organisation''s escalated task with its age', 'true',
+    pg_temp.q_as(v_cmo, format('select (public.queue_escalated_overview() @> %L::jsonb and (public.queue_escalated_overview() -> 0 ->> ''age_minutes'')::integer >= 0)::text', jsonb_build_array(jsonb_build_object('task_id', tx))::text)));
+  perform pg_temp.rec('D2: ...and not another organisation''s', 'false',
+    pg_temp.q_as(v_cmo, format('select (public.queue_escalated_overview() @> %L::jsonb)::text', jsonb_build_array(jsonb_build_object('task_id', ty))::text)));
+  perform pg_temp.rec('D2: the overview names no patient', 'false', pg_temp.q_as(v_cmo, 'select (public.queue_escalated_overview()::text like ''%patient%'')::text'));
+  perform pg_temp.backdate(ty, format('organisation_id = %L', (select organisation_id from public.profiles where id = po)));   -- back where its patient is
   perform pg_temp.rec('D2: an ordinary clinician cannot read the escalated list', 'ERR:not authorised', pg_temp.q_as(v_a, 'select public.queue_escalated_overview()::text'));
   perform pg_temp.rec('D2: anon cannot', 'false', has_function_privilege('anon', 'public.queue_escalated_overview()', 'execute')::text);
 
@@ -248,11 +265,15 @@ begin
 
   -- nobody to tell
   update public.clinical_staff set active = false where profile_id = v_cmo;
+  delete from public.ops_incidents where external_reference = 'task_escalation_no_cmo';
   t5b := private.create_clinical_task(pg_temp.f('p9'), 'critical_result_review');
   perform pg_temp.backdate(t5b, 'due_at = now() - interval ''1 minute''');
-  delete from public.ops_incidents where external_reference = 'task_escalation_no_cmo';
   perform private.sweep_clinical_tasks();
-  perform pg_temp.rec('D2: with no CMO to tell, an incident is raised', 'sev1', (select severity::text from public.ops_incidents where external_reference = 'task_escalation_no_cmo' and status not in ('resolved', 'closed')));
+  perform pg_temp.rec('D2: a TEST task with no CMO to tell raises no real incident', '0', (select count(*)::text from public.ops_incidents where external_reference = 'task_escalation_no_cmo'));
+  t5b := private.create_clinical_task(pg_temp.f('p9'), 'critical_result_review', null, 'tl:real-nocmo');
+  perform pg_temp.backdate(t5b, 'due_at = now() - interval ''1 minute'', is_test = false');
+  perform private.sweep_clinical_tasks();
+  perform pg_temp.rec('D2: with no CMO to tell, a real task raises a sev1 incident', 'sev1', (select severity::text from public.ops_incidents where external_reference = 'task_escalation_no_cmo' and status not in ('resolved', 'closed')));
   update public.clinical_staff set active = true where profile_id = v_cmo;
   perform pg_temp.clear_queue();
 end $$;
@@ -261,7 +282,7 @@ end $$;
 do $$
 declare
   v_a uuid := pg_temp.f('A'); v_org uuid := pg_temp.f('org'); v_cmo uuid := pg_temp.f('cmo');
-  t uuid; v_lab uuid; v_chg uuid; v_chg2 uuid; v_proto uuid; v_page uuid; v_trig uuid;
+  t uuid; v_lab uuid; v_chg uuid; v_chg2 uuid; v_proto uuid; v_page uuid; v_trig uuid; v_staff uuid; v_note uuid; v_consult uuid;
 begin
   -- default types: a coded disposition, a note is only a note
   t := private.create_clinical_task(pg_temp.f('p1'), 'amber_bp_review'); perform pg_temp.next_task(v_a);
@@ -269,7 +290,7 @@ begin
   perform pg_temp.rec('D4: an outcome code the type does not list is refused', 'queue_outcome_code', pg_temp.try_as(v_a, format('select public.queue_complete(%L, ''{"code":"result_released"}''::jsonb)', t)));
   perform pg_temp.rec('D4: an over-long note is refused', 'queue_outcome_note', pg_temp.try_as(v_a, format('select public.queue_complete(%L, %L::jsonb)', t, jsonb_build_object('code', 'completed_no_action_needed', 'note', repeat('x', 1001))::text)));
   perform pg_temp.rec('D4: a listed code completes', 'ok', pg_temp.try_as(v_a, format('select public.queue_complete(%L, ''{"code":"completed_no_action_needed","note":"within target, repeat in a week"}''::jsonb)', t)));
-  perform pg_temp.rec('D4: the stored outcome carries the code and the system-checked flag', 'completed_no_action_needed,true',
+  perform pg_temp.rec('D4: the stored outcome carries the code, and says it was NOT read against a record (nothing to read)', 'completed_no_action_needed,false',
     (select (outcome ->> 'code') || ',' || (outcome ->> 'system_checked') from public.clinical_tasks where id = t));
   perform pg_temp.rec('D4: the audit row names the code, not the note', 'true',
     (select ((event ->> 'outcome_code') = 'completed_no_action_needed' and not event ? 'note')::text from public.audit_log where action = 'queue.complete' and entity_id = t));
@@ -284,6 +305,15 @@ begin
     pg_temp.try_as(v_a, format('select public.queue_complete(%L, %L::jsonb)', t, jsonb_build_object('code', 'contact_attempts_documented', 'attempts',
       jsonb_build_array(jsonb_build_object('at', now() - interval '2 days', 'method', 'phone_call', 'reached', false),
                         jsonb_build_object('at', now(), 'method', 'phone_call', 'reached', false), jsonb_build_object('at', now(), 'method', 'phone_call', 'reached', false)))::text)));
+  perform pg_temp.rec('D4: three copies of one attempt are one attempt', 'queue_outcome_attempts',
+    pg_temp.try_as(v_a, format('select public.queue_complete(%L, %L::jsonb)', t, jsonb_build_object('code', 'contact_attempts_documented', 'attempts',
+      jsonb_build_array(jsonb_build_object('at', to_char(now(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), 'method', 'phone_call', 'reached', false),
+                        jsonb_build_object('at', to_char(now(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), 'method', 'phone_call', 'reached', false),
+                        jsonb_build_object('at', to_char(now(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), 'method', 'phone_call', 'reached', false)))::text)));
+  perform pg_temp.rec('D4: a time written as a keyword ("now") is not a time', 'queue_outcome_attempts',
+    pg_temp.try_as(v_a, format('select public.queue_complete(%L, %L::jsonb)', t, jsonb_build_object('code', 'contact_attempts_documented', 'attempts',
+      jsonb_build_array(jsonb_build_object('at', 'now', 'method', 'phone_call', 'reached', false), jsonb_build_object('at', 'today', 'method', 'video_call', 'reached', false),
+                        jsonb_build_object('at', 'now', 'method', 'in_app_message', 'reached', false)))::text)));
   perform pg_temp.rec('D4: a result_released claim with no released result is refused', 'queue_outcome_result_not_released',
     pg_temp.try_as(v_a, format('select public.queue_complete(%L, ''{"code":"result_released"}''::jsonb)', t)));
   perform pg_temp.rec('D4: three documented attempts complete it', 'ok', pg_temp.try_as(v_a, format('select public.queue_complete(%L, %L::jsonb)', t, pg_temp.attempts(3)::text)));
@@ -307,8 +337,37 @@ begin
   t := private.create_clinical_task(pg_temp.f('p6'), 'symptom_review'); perform pg_temp.next_task(v_a);
   perform pg_temp.rec('D4: a symptom review needs a signed note', 'queue_outcome_note_missing', pg_temp.try_as(v_a, format('select public.queue_complete(%L, ''{"code":"answer_signed","note_id":null}''::jsonb)', t)));
   perform pg_temp.rec('D4: ...a made-up note id does not do', 'queue_outcome_note_missing', pg_temp.try_as(v_a, format('select public.queue_complete(%L, %L::jsonb)', t, jsonb_build_object('code', 'answer_signed', 'note_id', gen_random_uuid())::text)));
+  -- a symptom review is finished by signing the clinician's note: finalizing it completes the task the clinician holds
+  select id into v_staff from public.clinical_staff where profile_id = v_a;
+  alter table public.clinical_encounter_notes disable trigger user;
+  insert into public.clinical_encounter_notes (organisation_id, patient_id, encounter_type, reason_for_encounter, status, authored_by_staff, is_test)
+  values (v_org, pg_temp.f('p6'), 'async_consult', 'proof: symptom review', 'draft', v_staff, true) returning id into v_note;
+  alter table public.clinical_encounter_notes enable trigger user;
+  -- the note's own guards (attribution, hashing, timeline) are not what is under test: only the closer runs
+  alter table public.clinical_encounter_notes disable trigger user;
+  alter table public.clinical_encounter_notes enable trigger clinical_encounter_notes_close_symptom_review;
+  update public.clinical_encounter_notes set status = 'finalized', finalized_by_staff = v_staff, finalized_at = now() - interval '1 hour',
+         identity_confirmed = true, identity_confirmed_by = v_staff, identity_confirmed_at = now(), outcome = 'reassurance' where id = v_note;
+  perform pg_temp.rec('D4: signing the note completed the symptom review the clinician held', 'completed,answer_signed',
+    (select state::text || ',' || (outcome ->> 'code') from public.clinical_tasks where id = t));
+  perform pg_temp.rec('D4: ...and ended the claim', '0', pg_temp.live_claims_of(t));
+  perform pg_temp.rec('D4: ...flagged as read against a record', 'true', (select (outcome ->> 'system_checked') from public.clinical_tasks where id = t));
+  -- and the queue_complete route accepts that same note for a second review of the same patient
+  t := private.create_clinical_task(pg_temp.f('p6'), 'symptom_review', null, 'tl:sym2'); perform pg_temp.next_task(v_a);
+  perform pg_temp.rec('D4: a note finalized BEFORE the claim does not close a later review', 'queue_outcome_note_missing',
+    pg_temp.try_as(v_a, format('select public.queue_complete(%L, %L::jsonb)', t, jsonb_build_object('code', 'answer_signed', 'note_id', v_note)::text)));
   perform private.apply_task_transition(t, 'cancelled', 'lead', null, 'proof cleanup of a fixture task');
   t := private.create_clinical_task(pg_temp.f('p7'), 'async_question'); perform pg_temp.next_task(v_a);
+  alter table public.async_consults disable trigger user;   -- the entitlement and credit guards are not under test
+  insert into public.async_consults (organisation_id, patient_id, category, question, status, is_test)
+  values (v_org, pg_temp.f('p7'), 'general', 'proof question', 'in_review', true) returning id into v_consult;
+  alter table public.async_consults enable trigger user;
+  perform pg_temp.rec('D4: a consult that belongs to a different task does not close this one', 'queue_outcome_consult',
+    pg_temp.try_as(v_a, format('select public.queue_complete(%L, %L::jsonb)', t, jsonb_build_object('kind', 'guidance', 'consult_id', v_consult)::text)));
+  update public.async_consults set task_id = t where id = v_consult;
+  perform pg_temp.rec('D4: ...but the consult made for this task does', 'ok',
+    pg_temp.try_as(v_a, format('select public.queue_complete(%L, %L::jsonb)', t, jsonb_build_object('kind', 'guidance', 'consult_id', v_consult)::text)));
+  t := private.create_clinical_task(pg_temp.f('p7'), 'async_question', null, 'tl:async2'); perform pg_temp.next_task(v_a);
   perform pg_temp.rec('D4: a written question closes only against a consult', 'queue_outcome_consult', pg_temp.try_as(v_a, format('select public.queue_complete(%L, ''{"kind":"guidance"}''::jsonb)', t)));
   perform pg_temp.rec('D4: ...a free-text code is refused', 'queue_outcome_code', pg_temp.try_as(v_a, format('select public.queue_complete(%L, ''{"code":"completed_action_taken"}''::jsonb)', t)));
   perform private.apply_task_transition(t, 'cancelled', 'lead', null, 'proof cleanup of a fixture task');
@@ -405,6 +464,14 @@ begin
   perform pg_temp.rec('D5: a dead non-shadow grade raises a sev2 incident', 'sev2', (select severity::text from public.ops_incidents where external_reference = 'event_bus:queue.create_from_triage:non_urgent' and status not in ('resolved', 'closed')));
   perform pg_temp.rec('D5: ...naming no patient and no reading', 'true',
     (select (summary !~* 'patient|blood|pressure|systolic' )::text from public.ops_incidents where external_reference = 'event_bus:queue.create_from_triage:non_urgent' and status not in ('resolved', 'closed') limit 1));
+
+  -- an urgent (red) grade that dies already raises the S10 incident; the new trigger adds no second one
+  delete from public.ops_incidents where external_reference like 'event_bus:queue.create_from_triage%';
+  e2 := private.emit_domain_event('triage.graded', v_org, jsonb_build_object('triage_event_id', gen_random_uuid(), 'grade', 'red', 'shadow', false), 'tl-urgent-' || gen_random_uuid(), pg_temp.f('p1'), null, null, 'urgent');
+  select id into d2 from public.domain_event_deliveries where event_id = e2 and subscriber_key = 'queue.create_from_triage';
+  update public.domain_event_deliveries set status = 'dead' where id = d2;
+  perform pg_temp.rec('D5: a dead urgent grade adds no second incident (S10 already raises one)', '0',
+    (select count(*)::text from public.ops_incidents where external_reference = 'event_bus:queue.create_from_triage:non_urgent'));
 
   -- D6: heartbeats
   perform pg_temp.rec('D6: the three jobs have a heartbeat row', '3', (select count(*)::text from public.queue_job_heartbeats where job_name in ('sweep-clinical-tasks', 'expire-task-claims', 'queue-watchdog')));

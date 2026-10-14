@@ -106,16 +106,21 @@ export function checkOutcomeShape(
     if (!Array.isArray(attempts)) return "queue_outcome_attempts";
     const valid = attempts.filter((a) => isValidAttempt(a, rules, taskCreatedAt, now)).length;
     if (valid < rules.contact_attempts.min_attempts || valid !== attempts.length) return "queue_outcome_attempts";
+    // three copies of one attempt are one attempt
+    const distinct = new Set(attempts.map((a: ContactAttempt) => `${a.at}|${a.method}`)).size;
+    if (distinct < rules.contact_attempts.min_attempts) return "queue_outcome_attempts";
   }
   return null;
 }
 
 const FIVE_MINUTES_MS = 5 * 60_000;
+const ISO_DATE_TIME = /^\d{4}-\d{2}-\d{2}T/;
 
 function isValidAttempt(a: unknown, rules: CompletionRules, taskCreatedAt: number, now: number): boolean {
   if (typeof a !== "object" || a === null) return false;
   const attempt = a as Partial<ContactAttempt>;
-  const at = typeof attempt.at === "string" ? Date.parse(attempt.at) : Number.NaN;
+  // an ISO date-time only: a bare keyword or date is not a time an attempt was made
+  const at = typeof attempt.at === "string" && ISO_DATE_TIME.test(attempt.at) ? Date.parse(attempt.at) : Number.NaN;
   return (
     !Number.isNaN(at) &&
     at >= taskCreatedAt &&

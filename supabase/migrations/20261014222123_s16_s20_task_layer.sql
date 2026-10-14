@@ -327,9 +327,16 @@ as $$
            coalesce((select array_agg(cc.competency_code) from public.clinician_competencies cc
                       where cc.clinical_staff_id = cs.id and cc.revoked_at is null), '{}'::text[]) as comps
       from public.clinical_staff cs where cs.profile_id = p_uid
+  ),
+  -- the settings are read once per call, not once per candidate row
+  cfg as (
+    select coalesce((private.task_layer_setting('escalated_non_red_any_eligible'))::boolean, false) as escalated_any,
+           coalesce((private.claim_setting('escalated_requires_on_call'))::boolean, true) as requires_on_call,
+           private.claim_setting('handback_excludes_task_for') as excl_claims,
+           private.task_layer_setting('handback_also_excludes_task_for') as excl_layer
   )
   select ct.id, ct.priority_class, ct.due_at, ct.created_at, ct.state
-    from public.clinical_tasks ct, me
+    from public.clinical_tasks ct, me, cfg
    where ct.organisation_id = me.organisation_id
      and ct.is_test = me.is_test
      and ct.patient_id <> p_uid
@@ -341,10 +348,9 @@ as $$
        or (not p_only_offered and ct.state = 'escalated'
            and (
                 -- D1: an escalated task that is not red is claimable by any eligible clinician
-                (ct.priority_class > 1 and ct.priority_class_original > 1
-                 and coalesce((private.task_layer_setting('escalated_non_red_any_eligible'))::boolean, false))
+                (ct.priority_class > 1 and ct.priority_class_original > 1 and cfg.escalated_any)
                 -- red (INV-05) and everything else keeps the on-call rule
-                or not coalesce((private.claim_setting('escalated_requires_on_call'))::boolean, true)
+                or not cfg.requires_on_call
                 or 'on_call' = any (me.comps)))
      )
      and not exists (select 1 from public.clinician_conflicts c
@@ -352,8 +358,7 @@ as $$
      -- D7: the reasons that bar the same clinician from this task again: the S17 list plus the task-layer list
      and not exists (select 1 from public.task_handbacks h
                       where h.task_id = ct.id and h.clinician_id = p_uid
-                        and ((private.claim_setting('handback_excludes_task_for')) ? h.reason_code
-                          or (private.task_layer_setting('handback_also_excludes_task_for')) ? h.reason_code));
+                        and (cfg.excl_claims ? h.reason_code or cfg.excl_layer ? h.reason_code));
 $$;
 revoke all on function private.queue_candidates(uuid, boolean) from public, anon, authenticated;
 
@@ -613,7 +618,8 @@ begin
       if jsonb_typeof(p_outcome -> 'attempts') is distinct from 'array' then return 'queue_outcome_attempts'; end if;
       v_valid := 0;
       for a in select x from jsonb_array_elements(p_outcome -> 'attempts') x loop
-        v_at := case when jsonb_typeof(a) = 'object' then private.try_timestamptz(a ->> 'at') end;
+        -- an ISO date-time only: Postgres would also read 'now' or 'today' as a time
+        v_at := case when jsonb_typeof(a) = 'object' and (a ->> 'at') ~ '^\d{4}-\d{2}-\d{2}T' then private.try_timestamptz(a ->> 'at') end;
         if v_at is not null and v_at >= t.created_at and v_at <= now() + interval '5 minutes'
            and (cfg #> '{contact_attempts,methods}') ? coalesce(a ->> 'method', '')
            and jsonb_typeof(a -> 'reached') = 'boolean' then
@@ -621,6 +627,10 @@ begin
         end if;
       end loop;
       if v_valid < v_min or v_valid <> jsonb_array_length(p_outcome -> 'attempts') then return 'queue_outcome_attempts'; end if;
+      -- three copies of one attempt are one attempt
+      if (select count(distinct (x ->> 'at') || '|' || (x ->> 'method')) from jsonb_array_elements(p_outcome -> 'attempts') x) < v_min then
+        return 'queue_outcome_attempts';
+      end if;
     end if;
 
   elsif t.type = 'titration_signoff' then
@@ -655,7 +665,9 @@ begin
   elsif t.type = 'async_question' then
     if not exists (select 1 from public.async_consults ac
                     where ac.id = private.try_uuid(p_outcome ->> 'consult_id') and ac.patient_id = t.patient_id
-                      and ac.status in ('answered', 'in_review')) then
+                      and ac.status in ('answered', 'in_review')
+                      -- the consult this task is about: its own task, or the follow-up task made for it (dedup async:<consult>:reply)
+                      and (ac.task_id = t.id or t.dedup_key like 'async:' || ac.id::text || '%')) then
       return 'queue_outcome_consult';
     end if;
 
@@ -694,7 +706,10 @@ begin
   select * into t from public.clinical_tasks where id = p_task;
   v_err := private.task_outcome_error(t, v_uid, p_outcome);
   if v_err is not null then raise exception '%', v_err using errcode = '22023'; end if;
-  v_outcome := p_outcome || jsonb_build_object('code', private.task_outcome_code(t.type, p_outcome), 'system_checked', true);
+  -- system_checked is true only for the types whose outcome was read against a record (see task_outcome_error)
+  v_outcome := p_outcome || jsonb_build_object('code', private.task_outcome_code(t.type, p_outcome),
+    'system_checked', t.type in ('critical_result_review', 'titration_signoff', 'symptom_review', 'async_question', 'red_event_unacknowledged')
+                      and private.task_outcome_code(t.type, p_outcome) is distinct from 'contact_attempts_documented');
   update public.task_claims set ended_at = now(), end_reason = 'completed' where id = c.id;
   perform private.apply_task_transition(t.id, 'completed', 'clinician', v_uid, 'completed', null, null, v_outcome);
   perform private.reliability_event(v_uid, t.id, case when now() <= t.due_at then 'completed_on_time' else 'completed_late' end);
@@ -750,8 +765,8 @@ begin
               'clinical_tasks', t.id);
     end loop;
   end loop;
-  if v_n = 0 then
-    -- nobody to tell is itself a problem, not a quiet success
+  if v_n = 0 and not t.is_test then
+    -- nobody to tell is itself a problem, not a quiet success (a test task never raises a real incident)
     if not exists (select 1 from public.ops_incidents where external_reference = 'task_escalation_no_cmo' and status not in ('resolved', 'closed')) then
       insert into public.ops_incidents (organisation_id, category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
       values (t.organisation_id, 'clinical', 'sev1', 'A clinical task escalated and nobody could be told',
@@ -845,7 +860,8 @@ begin
       from public.clinical_tasks ct
       join lateral (select max(tr.created_at) as at from public.clinical_task_transitions tr
                      where tr.task_id = ct.id and tr.to_state = 'escalated') e on true
-     where ct.state = 'escalated' and not ct.is_test), '[]'::jsonb);
+     -- the caller's own organisation only: the role check says who may read, not whose
+     where ct.state = 'escalated' and not ct.is_test and ct.organisation_id = private.current_org_id()), '[]'::jsonb);
 end;
 $$;
 revoke all on function public.queue_escalated_overview() from public, anon;
@@ -860,8 +876,8 @@ as $$
 declare e public.domain_events%rowtype;
 begin
   select * into e from public.domain_events where id = new.event_id;
-  -- a shadow grade creates no work, so losing it loses nothing
-  if coalesce((e.payload ->> 'shadow')::boolean, false) then return new; end if;
+  -- a shadow grade creates no work, so losing it loses nothing; an urgent event already raises its own incident (S10)
+  if coalesce((e.payload ->> 'shadow')::boolean, false) or e.priority = 'urgent' then return new; end if;
   if not exists (select 1 from public.ops_incidents where external_reference = 'event_bus:' || new.subscriber_key || ':non_urgent' and status not in ('resolved', 'closed')) then
     insert into public.ops_incidents (organisation_id, category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
     values (new.organisation_id, 'clinical', 'sev2', 'A triage grade could not be turned into a task',
@@ -1095,6 +1111,37 @@ create trigger care_plan_changes_titration_task_close after update of state on p
   for each row when (old.state = 'proposed' and new.state in ('signed', 'rejected'))
   execute function private.close_titration_task();
 
+-- A symptom review is finished by signing the clinician's note for it. The screen tells the clinician so, so something has to do it:
+-- finalizing a note completes the symptom review that clinician holds for that patient. (There is no producer for the type yet,
+-- see the design note; this closes any such task that exists, however it was made.) Never blocks the signing.
+create function private.close_symptom_review_on_note() returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  v_profile uuid;
+  t public.clinical_tasks%rowtype;
+begin
+  select cs.profile_id into v_profile from public.clinical_staff cs where cs.id = new.finalized_by_staff;
+  if v_profile is null then return new; end if;
+  select * into t from public.clinical_tasks
+   where type = 'symptom_review' and state = 'claimed' and patient_id = new.patient_id and claimed_by = v_profile
+   order by claimed_at limit 1 for update;
+  if not found then return new; end if;
+  perform private.apply_task_transition(t.id, 'completed', 'clinician', v_profile, 'completed', null, null,
+    jsonb_build_object('code', 'answer_signed', 'note_id', new.id, 'system_checked', true));
+  perform private.reliability_event(v_profile, t.id, case when now() <= t.due_at then 'completed_on_time' else 'completed_late' end);
+  return new;
+exception when others then
+  insert into public.audit_log (organisation_id, action, entity_type, entity_id, event, subject_patient_id)
+  values (new.organisation_id, 'symptom_review_task.close_failed', 'clinical_encounter_note', new.id, jsonb_build_object('error', sqlerrm), new.patient_id);
+  return new;
+end;
+$$;
+revoke all on function private.close_symptom_review_on_note() from public, anon, authenticated;
+create trigger clinical_encounter_notes_close_symptom_review after update of status on public.clinical_encounter_notes
+  for each row when (old.status is distinct from 'finalized' and new.status = 'finalized' and new.amends_note_id is null)
+  execute function private.close_symptom_review_on_note();
+
 -- ---------------------------------------------------------------------------
 -- 12. Self-check
 -- ---------------------------------------------------------------------------
@@ -1106,7 +1153,7 @@ begin
     'private.task_layer_setting(text)', 'private.queue_heartbeat(text,jsonb)', 'private.task_has_other_candidate(uuid)', 'private.task_outcome_code(text,jsonb)',
     'private.task_outcome_error(public.clinical_tasks,uuid,jsonb)', 'private.notify_task_escalated(uuid,uuid)', 'private.send_queue_backlog_digest()',
     'private.queue_watchdog()', 'private.queue_class_breaches()', 'private.queue_stale_jobs()', 'private.queue_cooling_off_until(uuid)',
-    'private.create_titration_task()', 'private.close_titration_task()', 'private.raise_dead_task_creation_incident()', 'private.try_uuid(text)', 'private.try_timestamptz(text)'
+    'private.create_titration_task()', 'private.close_titration_task()', 'private.close_symptom_review_on_note()', 'private.raise_dead_task_creation_incident()', 'private.try_uuid(text)', 'private.try_timestamptz(text)'
   ] loop
     if has_function_privilege('anon', f::regprocedure, 'EXECUTE') or has_function_privilege('authenticated', f::regprocedure, 'EXECUTE') then
       raise exception 'S16-S20 task layer: % is callable by anon or authenticated', f;

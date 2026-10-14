@@ -1,4 +1,4 @@
-import { describe, expect, it } from "@jest/globals";
+import { beforeEach, describe, expect, it } from "@jest/globals";
 import { PROPOSED_CONFIG } from "../../shared/src/proposed-config/registry";
 import {
   allowedOutcomeCodes, checkOutcomeShape, classBreaches, coolingOffUntil, escalatedClaimableWithoutOnCall, escalationChannels, escalationTier,
@@ -11,7 +11,10 @@ const completion = rules.completion;
 const MIN = 60_000;
 const NOW = Date.parse("2026-10-14T12:00:00Z");
 const CREATED = NOW - 30 * MIN;
-const attempt = (over: Record<string, unknown> = {}) => ({ at: new Date(NOW - 5 * MIN).toISOString(), method: "phone_call", reached: false, ...over });
+let n = 0;
+beforeEach(() => { n = 0; });
+// each default attempt is a minute apart, so a list of them is a list of different attempts
+const attempt = (over: Record<string, unknown> = {}) => ({ at: new Date(NOW - (5 + n++) * MIN).toISOString(), method: "phone_call", reached: false, ...over });
 const critical = (attempts: unknown, code = "contact_attempts_documented") => ({ code, attempts });
 
 describe("offerWindowMinutes (D1)", () => {
@@ -116,6 +119,8 @@ describe("checkOutcomeShape (D4)", () => {
     ["null", null],
     ["no date", attempt({ at: undefined })],
     ["a date that is not a date", attempt({ at: "yesterday-ish" })],
+    ["a keyword, not a time", attempt({ at: "now" })],
+    ["a bare date with no time", attempt({ at: "2026-10-14" })],
     ["dated before the task existed", attempt({ at: new Date(CREATED - MIN).toISOString() })],
     ["dated in the future", attempt({ at: new Date(NOW + 10 * MIN).toISOString() })],
     ["a method not on the list", attempt({ method: "carrier_pigeon" })],
@@ -123,6 +128,13 @@ describe("checkOutcomeShape (D4)", () => {
     ["reached not true or false", attempt({ reached: "no" })],
   ])("refuses an attempt that is %s", (_name, bad) => {
     expect(check("critical_result_review", critical([attempt(), attempt(), bad]))).toBe("queue_outcome_attempts");
+  });
+
+  it("three copies of one attempt are one attempt", () => {
+    const same = attempt();
+    expect(check("critical_result_review", critical([same, { ...same }, { ...same }]))).toBe("queue_outcome_attempts");
+    const at = new Date(NOW - 6 * MIN).toISOString();
+    expect(check("critical_result_review", critical([attempt({ at }), attempt({ at, method: "video_call" }), attempt({ at, method: "in_app_message" })]))).toBeNull();
   });
 
   it("allows a date up to five minutes ahead (clock skew) and not beyond", () => {

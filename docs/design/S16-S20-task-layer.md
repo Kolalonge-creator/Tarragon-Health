@@ -40,6 +40,18 @@ this branch signs or confirms anything.
 5. **Contact attempts**: at least 3, each dated after the task was created, by phone call, video call, in-app message or emergency contact.
    PROPOSED numbers, the CMO should confirm. The NPSG.02.03.01 reading is "organisation sets the timeframe and measures it".
 
+## Review findings applied (`/code-review high`, run before the PR)
+
+Fixed: a test task escalating with no test CMO no longer raises a real sev1; an `async_question` outcome must name the consult made for
+that task; `system_checked` is true only where a record was actually read; finalizing a clinician's note now completes the symptom review
+they hold (the screen already said so); the D5 incident no longer duplicates S10's for urgent events; contact attempts must be distinct,
+ISO-dated and in the past; `queue_candidates` reads its settings once per call instead of once per row; `queue_escalated_overview` is
+limited to the caller's own organisation.
+Kept, with reasons: the `queue_next` competency intersection (D8) is redundant with `queue_candidates` by design, as the plan asked for
+literal binding; `queue_health` still counts all organisations (unchanged from S16, and the ops wall reads it as a platform-wide figure).
+Known limit: contact attempts are the clinician's own record (a typed list), checked for shape, dates, methods and distinctness, not
+against the call or message logs; `in_app_message` attempts could be verified against `care_messages` later.
+
 ## Skipped, with reason
 
 - **`symptom_review` producer.** `docs/design/S55-S60-build-plan.md` plans a `symptom_reviews` table with its own SLA row for the symptom
