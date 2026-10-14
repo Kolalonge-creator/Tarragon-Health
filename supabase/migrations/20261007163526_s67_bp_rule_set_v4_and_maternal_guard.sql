@@ -11,7 +11,6 @@
 -- 3. `private.go_live_conditions` gets one new branch the same way. Conditions for `maternal_enabled`: an approved obstetric protocol
 --    (data), an approved bp_care_triage carrying rule BP-P6 (data), the NAFDAC and MDCN replies recorded (attestation, decision B2)
 --    and the CMO pressing the switch.
-begin;
 
 -- (The bp_care_triage rule-set row moved to 20261013190000_s67_bp_rule_set_v5_pregnancy.sql: main-dev's S07x already owns version 4, decision C5.)
 
@@ -101,4 +100,3 @@ begin
   end if;
 end $$;
 
-commit;

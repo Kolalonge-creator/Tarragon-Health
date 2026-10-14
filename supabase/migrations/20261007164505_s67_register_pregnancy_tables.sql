@@ -5,7 +5,6 @@
 -- The default S39d classification is used and the row says so in `notes`: it has NOT been reviewed. The retention class and the end-of-retention action for
 -- pregnancy data are a decision for the CMO and the data protection officer, not for an agent, and the s39f proof checks that no such row claims to be reviewed.
 -- Idempotent: an existing row (for example one a reviewer has already set) is never overwritten.
-begin;
 
 insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, notes)
 select t.table_name, 'patient_id', private.retention_class_for(t.table_name),
@@ -16,4 +15,3 @@ select t.table_name, 'patient_id', private.retention_class_for(t.table_name),
  where to_regclass('public.' || t.table_name) is not null
 on conflict (table_name) do nothing;
 
-commit;

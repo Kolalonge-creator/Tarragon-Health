@@ -13,7 +13,6 @@
 --   2. A new group `obstetricEmergency` (convulsion, loss_of_consciousness) and a new rule BP-P6, placed just before BP-P3: in pregnancy or the first weeks after
 --      a birth, either symptom is RED and pages the on-call clinician, whatever the reading.
 -- packages/clinical/src/rules/bp-care-v5.ts is the same object; a Jest test compares the two.
-begin;
 
 do $$
 begin
@@ -64,4 +63,3 @@ begin
   end if;
 end $$;
 
-commit;
