@@ -152,9 +152,11 @@ begin
   perform pg_temp.vit(v_pat, v_org, 'weight', 'device', 1, null, null, null, 12);
   perform pg_temp.rec('glucose 60, temperature 45, SpO2 40, pulse 300 and an adult weight of 12 kg are all held', '5', (select count(*)::text from public.vitals_readings_held where patient_id = v_pat and vital_type in ('glucose', 'temperature', 'spo2', 'pulse', 'weight')));
   perform pg_temp.rec('...and none reached the record', '0', (select count(*)::text from public.vitals_readings where patient_id = v_pat and vital_type::text in ('glucose', 'temperature', 'spo2', 'pulse', 'weight')));
-  update public.profiles set date_of_birth = (current_date - interval '3 years')::date where id = v_pat5;
+  update public.profiles set date_of_birth = (current_date - interval '3 years')::date, is_dependent_account = true, dependent_kind = 'minor_child' where id = v_pat5;  -- a child is only allowed as a registered dependant (main-dev adult-only rule)
   perform pg_temp.vit(v_pat5, v_org, 'weight', 'device', 1, null, null, null, 12);
-  perform pg_temp.rec('a child''s weight of 12 kg is saved, never held', '1/0', pg_temp.n_vitals(v_pat5, 'weight') || '/' || (select count(*) from public.vitals_readings_held where patient_id = v_pat5));
+  perform pg_temp.rec('a child holds no weight reading at all (main-dev''s under-18 dependant rule), and the plausibility rule never puts a child''s 12 kg on hold', '0/0', pg_temp.n_vitals(v_pat5, 'weight') || '/' || (select count(*) from public.vitals_readings_held where patient_id = v_pat5));
+  -- the rest of this proof uses the same person as an adult (main-dev's adult-only and under-18 dependant rules would otherwise refuse the device tables for a child)
+  update public.profiles set date_of_birth = (current_date - interval '45 years')::date, is_dependent_account = false, dependent_kind = null where id = v_pat5;
   select count(*) into v_before from public.emergency_events where patient_id = v_pat2;
   select count(*) into v_after from public.clinician_alerts where patient_id = v_pat2;
   select count(*) into v_n from public.notifications where recipient_id = v_pat2;
