@@ -8,8 +8,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SlaBadge } from "@/components/clinician/sla-badge";
 import { PatientSummaryView } from "@/components/clinician/patient-summary";
+import { TriageExplainer } from "@/components/clinician/triage-explainer";
+import { explainerSchema } from "@/lib/triage/explainer";
 import { DEDICATED_FLOW_TASK_TYPES, heldTaskSchema, minutesLeft, patientSummarySchema, TASK_SUMMARY_READ_REASON, uuidSchema } from "@/lib/clinician/queue-console";
 import { CompleteForm, ExtendForm, HandBackForm } from "../../queue/forms";
+import { getRedPatientResponse } from "@/lib/paging/queries";
+import { RedPatientAnswer } from "@/components/paging/red-patient-answer";
 
 export const metadata = { title: "Task" };
 export const dynamic = "force-dynamic";
@@ -54,6 +58,13 @@ export default async function ClinicianTaskPage({ params }: { params: Promise<{ 
 
   const summaryRes = await supabase.rpc("clinician_patient_summary", { p_patient: task.patient_id, p_reason: TASK_SUMMARY_READ_REASON });
   const summary = summaryRes.error ? null : patientSummarySchema.safeParse(summaryRes.data);
+  // P6: why the engine raised this task. One more audited read, after the task row proved the clinician holds it (INV-12). A failure
+  // here shows a line of its own and never hides the task or the summary.
+  const explainerRes = await supabase.rpc("clinician_task_triage_explainer", { p_task: task.id });
+  const explainerParsed = explainerRes.error ? null : explainerSchema.safeParse(explainerRes.data);
+  const explainer = explainerParsed?.success ? explainerParsed.data : null;
+  // CMO Q13: for a red alert task, what the patient said about seeking care (information; it never closes the task)
+  const redAnswer = task.type === "red_patient_outreach" || task.type === "red_event_unacknowledged" ? await getRedPatientResponse({ task: task.id }) : null;
   const left = minutesLeft(task.claim_expires_at, new Date());
   const dedicatedFlow = DEDICATED_FLOW_TASK_TYPES[task.type];
 
@@ -71,7 +82,10 @@ export default async function ClinicianTaskPage({ params }: { params: Promise<{ 
         {task.due_at && <>{t("task.due", "en")} {dateTime(task.due_at)}. </>}
         {left !== null && (left === 0 ? t("queue.expired", "en") : t("queue.time_left", "en", { minutes: left }))}
       </p>
+      <RedPatientAnswer answer={redAnswer} />
       <ExtendForm taskId={task.id} />
+
+      <TriageExplainer explainer={explainer} />
 
       {!summary?.success && <p role="alert" className="text-sm text-red-600">{t("summary.load_error", "en")}</p>}
       {summary?.success && summary.data.status === "denied" && (

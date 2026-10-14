@@ -215,19 +215,19 @@ end $$;
 do $$
 declare v_cmo uuid := pg_temp.f('cmo'); v_oth uuid := pg_temp.f('other'); v_t uuid; v_a uuid;
 begin
-  perform pg_temp.ck('quality_config v2 exists, inactive and unsigned', 'false/false/2', (select is_active || '/' || (approved_at is not null) || '/' || version from public.quality_config where version = 2));
-  perform pg_temp.ck('v1 is the one active version', '1', (select version::text from public.quality_config where is_active));
+  perform pg_temp.ck('quality_config v3 exists, inactive and unsigned', 'false/false/3', (select is_active || '/' || (approved_at is not null) || '/' || version from public.quality_config where version = 3));
+  perform pg_temp.ck('v2 (main-dev) is the one active version', '2', (select version::text from public.quality_config where is_active));
   -- no audit uses v1 yet: a draft can still be edited (only drafts nobody used)
-  perform pg_temp.ck('an unused, unsigned draft can still be edited', 'ok', pg_temp.try_sql($q$update public.quality_config set rules = jsonb_set(rules, '{sampling,due_days}', '14') where version = 2$q$));
+  perform pg_temp.ck('an unused, unsigned draft can still be edited', 'ok', pg_temp.try_sql($q$update public.quality_config set rules = jsonb_set(rules, '{sampling,due_days}', '14') where version = 3$q$));
   v_t := pg_temp.finish(pg_temp.f('fin'), 'red_event_unacknowledged');
   v_a := pg_temp.audit_of(v_t);
   perform pg_temp.setf('a_red', v_a);
-  perform pg_temp.ck('a red event audit was created under v1', '1', (select config_version::text from public.clinical_audits where id = v_a));
-  perform pg_temp.ck('v1 is now used by an audit: its rules cannot be edited', '23514', pg_temp.try_sql($q$update public.quality_config set rules = jsonb_set(rules, '{sampling,random_rate_percent}', '50') where version = 1$q$));
-  perform pg_temp.ck('...nor its effective date', '23514', pg_temp.try_sql($q$update public.quality_config set effective_from = '2020-01-01' where version = 1$q$));
-  perform pg_temp.ck('...nor can it be deleted', '23514', pg_temp.try_sql($q$delete from public.quality_config where version = 1$q$));
-  perform pg_temp.ck('...but switching it on or off is not an edit of its rules', 'ok', pg_temp.try_sql($q$update public.quality_config set is_active = is_active where version = 1$q$));
-  perform pg_temp.ck('only the chief medical officer can sign a version', 'ERR:only the chief medical officer can sign the quality configuration', pg_temp.q_as(v_oth, 'select public.sign_quality_config(2)'));
+  perform pg_temp.ck('a red event audit was created under v2', '2', (select config_version::text from public.clinical_audits where id = v_a));
+  perform pg_temp.ck('v1 is now used by an audit: its rules cannot be edited', '23514', pg_temp.try_sql($q$update public.quality_config set rules = jsonb_set(rules, '{sampling,random_rate_percent}', '50') where version = 2$q$));
+  perform pg_temp.ck('...nor its effective date', '23514', pg_temp.try_sql($q$update public.quality_config set effective_from = '2020-01-01' where version = 2$q$));
+  perform pg_temp.ck('...nor can it be deleted', '23514', pg_temp.try_sql($q$delete from public.quality_config where version = 2$q$));
+  perform pg_temp.ck('...but switching it on or off is not an edit of its rules', 'ok', pg_temp.try_sql($q$update public.quality_config set is_active = is_active where version = 2$q$));
+  perform pg_temp.ck('only the chief medical officer can sign a version', 'ERR:only the chief medical officer can sign the quality configuration', pg_temp.q_as(v_oth, 'select public.sign_quality_config(3)'));
   perform pg_temp.ck('anon cannot sign', 'false', has_function_privilege('anon', 'public.sign_quality_config(integer)', 'EXECUTE')::text);
   perform pg_temp.ck('the sampling seed table is unreadable by signed-in users', 'true', (pg_temp.q_as(v_cmo, 'select count(*) from public.quality_sampling_seeds') like 'ERR:%')::text);
   perform pg_temp.ck('...and by anon', 'false', has_table_privilege('anon', 'public.quality_sampling_seeds', 'SELECT')::text);
@@ -421,16 +421,16 @@ do $$
 declare v_cmo uuid := pg_temp.f('cmo'); v_oth uuid := pg_temp.f('other');
 begin
   -- a draft nobody used can still be tuned: the proof pins the days so the catch-up does not depend on today's date
-  update public.quality_config set rules = jsonb_set(jsonb_set(jsonb_set(rules, '{sampling,floor_catchup_until_day}', '31'), '{sampling,floor_current_month_from_day}', '1'), '{sampling,scribe_assisted_rate_percent}', '100') where version = 2;
-  perform pg_temp.ck('the CMO signs version 2', 'ok', pg_temp.try_as(v_cmo, 'select public.sign_quality_config(2)'));
-  perform pg_temp.ck('...it is active, signed and v1 is off', '2/true/false', (select (select version from public.quality_config where is_active)::text || '/' || (select (approved_at is not null)::text from public.quality_config where version = 2) || '/' || (select is_active::text from public.quality_config where version = 1)));
-  perform pg_temp.ck('...signing again is refused', 'ERR:that version is already signed', pg_temp.q_as(v_cmo, 'select public.sign_quality_config(2)'));
-  perform pg_temp.ck('a signed version cannot be edited', '23514', pg_temp.try_sql($q$update public.quality_config set rules = jsonb_set(rules, '{sampling,random_rate_percent}', '99') where version = 2$q$));
-  perform pg_temp.ck('...nor its signature removed', '23514', pg_temp.try_sql($q$update public.quality_config set approved_at = null where version = 2$q$));
-  perform pg_temp.ck('the activation guard: the older version 1 can no longer be switched back on', '23514', pg_temp.try_sql($q$update public.quality_config set is_active = true where version = 1$q$));
+  update public.quality_config set rules = jsonb_set(jsonb_set(jsonb_set(rules, '{sampling,floor_catchup_until_day}', '31'), '{sampling,floor_current_month_from_day}', '1'), '{sampling,scribe_assisted_rate_percent}', '100') where version = 3;
+  perform pg_temp.ck('the CMO signs version 2', 'ok', pg_temp.try_as(v_cmo, 'select public.sign_quality_config(3)'));
+  perform pg_temp.ck('...it is active, signed and v1 is off', '3/true/false', (select (select version from public.quality_config where is_active)::text || '/' || (select (approved_at is not null)::text from public.quality_config where version = 3) || '/' || (select is_active::text from public.quality_config where version = 2)));
+  perform pg_temp.ck('...signing again is refused', 'ERR:that version is already signed', pg_temp.q_as(v_cmo, 'select public.sign_quality_config(3)'));
+  perform pg_temp.ck('a signed version cannot be edited', '23514', pg_temp.try_sql($q$update public.quality_config set rules = jsonb_set(rules, '{sampling,random_rate_percent}', '99') where version = 3$q$));
+  perform pg_temp.ck('...nor its signature removed', '23514', pg_temp.try_sql($q$update public.quality_config set approved_at = null where version = 3$q$));
+  perform pg_temp.ck('the activation guard: the older version 1 can no longer be switched back on', '23514', pg_temp.try_sql($q$update public.quality_config set is_active = true where version = 2$q$));
   -- the signed v2 samples 10 percent at random; the checks below choose which tasks are audited, so the random part is switched off (test-only edit through cfg)
   perform pg_temp.cfg('{sampling,random_rate_percent}', '0'::jsonb);
-  perform pg_temp.ck('version 1 rules are exactly as they were (never edited)', 'true', (select (rules -> 'form' ->> 'version' = '1' and not rules ? 'second_review')::text from public.quality_config where version = 1));
+  perform pg_temp.ck('version 1 rules are exactly as they were (never edited)', 'true', (select (rules -> 'form' ->> 'version' = '1' and not rules ? 'second_review')::text from public.quality_config where version = 2));
   -- the catch-up now fills last month later in the month (day pinned to 31 above)
   perform private.quality_audit_sweep();
   perform pg_temp.ck('version 2: the sweep fills last month''s floor later in the month', '1/floor_top_up', (select count(*)::text || '/' || min(reason) from public.clinical_audits where clinician_id = v_oth and audit_month = private.lagos_month(now() - interval '1 month')));
@@ -448,7 +448,7 @@ declare
 begin
   v_t := pg_temp.finish(v_fin, 'symptom_review');
   v_a := (pg_temp.q_as(v_cmo, format('select public.request_clinical_audit(%L)', v_t)))::uuid;
-  perform pg_temp.ck('a new audit is under version 2 of the config and form', '2/2', (select config_version || '/' || form_version from public.clinical_audits where id = v_a));
+  perform pg_temp.ck('a new audit is under version 2 of the config and form', '3/2', (select config_version || '/' || form_version from public.clinical_audits where id = v_a));
   select reviewer_id into v_rev from public.clinical_audits where id = v_a;
   perform pg_temp.opn(v_rev, v_a);
   perform pg_temp.ck('a concern without an avoidability rating is refused', 'ERR:rate how avoidable the problem was', pg_temp.sub(v_rev, v_a, v_safe, v_q1, 'Reasoning was not recorded and the plan was thin.'));
@@ -811,15 +811,19 @@ declare
   v_today date := (now() at time zone 'Africa/Lagos')::date; v_dead date; v_end date; v_res text; v_blk integer;
 begin
   -- 11a. the guard: version 3 turns "a missing date is ineligible" on; it cannot be activated while an active clinician has no date
-  perform pg_temp.ck('credentialing_config v3 exists inactive', 'false', (select is_active::text from public.credentialing_config where version = 3));
-  perform pg_temp.ck('...v3 carries the 90/30/7/0 notices and the 15 December proof deadline', '[90, 30, 7, 0]/12-15',
-    (select (rules -> 'notice_windows_days')::text || '/' || (rules -> 'renewal_cycle' ->> 'proof_deadline_month') || '-' || (rules -> 'renewal_cycle' ->> 'proof_deadline_day') from public.credentialing_config where version = 3));
+  perform pg_temp.ck('credentialing_config v4 exists inactive', 'false', (select is_active::text from public.credentialing_config where version = 4));
+  perform pg_temp.ck('...v4 carries the 90/30/7/0 notices and the 15 December proof deadline', '[90, 30, 7, 0]/12-15',
+    (select (rules -> 'notice_windows_days')::text || '/' || (rules -> 'renewal_cycle' ->> 'proof_deadline_month') || '-' || (rules -> 'renewal_cycle' ->> 'proof_deadline_day') from public.credentialing_config where version = 4));
   perform pg_temp.ck('the legacy no-date rows block the switch (nobody is stranded)', '23514',
-    pg_temp.try_sql($q$update public.credentialing_config set is_active = false where is_active; update public.credentialing_config set is_active = true where version = 3$q$));
+    pg_temp.try_sql($q$update public.credentialing_config set is_active = false where is_active; update public.credentialing_config set is_active = true where version = 4$q$));
+  perform pg_temp.ck('signing is refused while an active clinician has no licence date', 'true', (pg_temp.q_as(v_cmo, 'select public.sign_credentialing_config(4)') like 'ERR:record the licence expiry date%')::text);
   update public.clinical_staff set license_expires_at = now() + interval '400 days' where is_test and license_expires_at is null;
-  update public.credentialing_config set is_active = false where is_active;
-  update public.credentialing_config set is_active = true where version = 3;
-  perform pg_temp.ck('with dates recorded, version 3 can be switched on (in this proof only)', '3', (select version::text from public.credentialing_config where is_active));
+  perform pg_temp.ck('only the chief medical officer can sign a credentialing version', 'ERR:only the chief medical officer can sign the credentialing rules', pg_temp.q_as(v_oth, 'select public.sign_credentialing_config(4)'));
+  perform pg_temp.ck('...and anon cannot', 'false', has_function_privilege('anon', 'public.sign_credentialing_config(integer)', 'EXECUTE')::text);
+  perform pg_temp.ck('the CMO signs version 4 once dates are recorded', 'ok', pg_temp.try_as(v_cmo, 'select public.sign_credentialing_config(4)'));
+  perform pg_temp.ck('...it is signed and in force, the older version off', 'true/true/false', (select (approved_at is not null)::text || '/' || is_active::text from public.credentialing_config where version = 4) || '/' || (select is_active::text from public.credentialing_config where version = 3));
+  perform pg_temp.ck('...signing it again is refused', 'ERR:that version is already signed', pg_temp.q_as(v_cmo, 'select public.sign_credentialing_config(4)'));
+  perform pg_temp.ck('with dates recorded, version 4 can be switched on (in this proof only)', '4', (select version::text from public.credentialing_config where is_active));
 
   -- 11b. a missing licence date is ineligible, shows as a blocker, and the nightly net removes the clinician
   v_s1 := pg_temp.staff_of(v_oth);
@@ -849,7 +853,7 @@ begin
   v_dead := v_today - 1; v_end := least(v_today + 30, make_date(extract(year from v_today)::int, 12, 31));
   if extract(doy from v_today) > 2 and v_end > v_today then
     update public.credentialing_config set rules = jsonb_set(rules, '{renewal_cycle}', jsonb_build_object('cycle_end_month', extract(month from v_end)::int, 'cycle_end_day', extract(day from v_end)::int,
-        'proof_deadline_month', extract(month from v_dead)::int, 'proof_deadline_day', extract(day from v_dead)::int)) where version = 3;
+        'proof_deadline_month', extract(month from v_dead)::int, 'proof_deadline_day', extract(day from v_dead)::int)) where version = 4;
     update public.clinical_staff set license_expires_at = (v_today + 3)::timestamptz + interval '12 hours' where id = v_s2;
     perform private.credential_expiry_sweep();
     perform pg_temp.ck('past the proof deadline, a licence still ending with the cycle is flagged once (clinician and reviewers)', '1',
@@ -939,7 +943,7 @@ begin
   -- (c) the config guard switched off: a used version could be edited
   alter table public.quality_config disable trigger quality_config_guard;
   insert into results values ('sabotaged', 'a used or signed quality_config version cannot be edited', '23514',
-    pg_temp.try_sql($q$update public.quality_config set rules = jsonb_set(rules, '{sampling,random_rate_percent}', '77') where version = 2$q$));
+    pg_temp.try_sql($q$update public.quality_config set rules = jsonb_set(rules, '{sampling,random_rate_percent}', '77') where version = 3$q$));
   -- (d) eligibility ignoring dates: a block after expiry would be accepted
   update public.clinical_staff set license_expires_at = now() + interval '2 days' where profile_id = v_c1;
   create or replace function private.clinician_is_eligible(p_profile uuid, p_at timestamptz default now()) returns boolean language sql stable security definer set search_path = '' as 'select true';

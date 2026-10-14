@@ -73,6 +73,7 @@ export const LAUNCH_WORKLIST_BUCKET: Record<WorklistCountKey, LaunchWorklistBuck
   careThreadsAwaitingReply: "followUp",
   labOrdersAwaitingHomeVisitAssignment: "followUp",
   fhirProposedResourcesPending: "followUp",
+  recordChangeRequestsWaiting: "followUp",
 };
 
 export const LAUNCH_WORKLIST_BUCKET_LABEL: Record<LaunchWorklistBucket, string> = {
@@ -121,6 +122,7 @@ export const WORKLIST_HREF: Record<WorklistCountKey, string> = {
   careThreadsAwaitingReply: "/clinician/messages",
   labOrdersAwaitingHomeVisitAssignment: "/clinician/orders",
   fhirProposedResourcesPending: "/clinician/fhir-review",
+  recordChangeRequestsWaiting: "/clinician/record-changes",
 };
 
 /** Human label for each worklist item, for the summary's breakdown list —
@@ -161,6 +163,7 @@ export const WORKLIST_LABEL: Record<WorklistCountKey, string> = {
   careThreadsAwaitingReply: "Patient messages",
   labOrdersAwaitingHomeVisitAssignment: "Home visit orders",
   fhirProposedResourcesPending: "FHIR imports",
+  recordChangeRequestsWaiting: "Record changes",
 };
 
 const ALL_KEYS = Object.keys(LAUNCH_WORKLIST_BUCKET) as WorklistCountKey[];

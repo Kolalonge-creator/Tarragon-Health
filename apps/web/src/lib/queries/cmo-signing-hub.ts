@@ -4,7 +4,12 @@ import type { Database } from "@tarragon/shared";
 import { readSignoffQueue, SEVERITY_RANK, type SettledConfig, type SignoffQueueItem } from "@/lib/queries/signoff-queue";
 import { readPendingAiGovernanceSignoff } from "@/lib/queries/pending-ai-governance-signoff";
 import { readPendingCommunitySignoff } from "@/lib/queries/pending-community-signoff";
+import { readCredentialAttention, credentialAttentionItem } from "@/lib/queries/credential-attention";
+import { GLUCOSE_TRIAGE_ITEM_KEY, readPendingGlucoseTriageSignoff } from "@/lib/queries/pending-glucose-triage-signoff";
 import { readS06S10Signoffs, EMPTY_S06S10, type S06S10Snapshot } from "@/lib/queries/s06-s10-signoffs";
+import { readPendingQualityConfigSignoff } from "@/lib/queries/pending-quality-config-signoff";
+import { readPendingGlucoseTaskTypeSignoff } from "@/lib/queries/pending-glucose-task-type-signoff";
+import { readPendingRedOutreachSignoff } from "@/lib/queries/pending-red-outreach-signoff";
 
 export type CmoSigningHub = {
   /** One line per thing that needs the Chief Medical Officer's signature, most urgent first. */
@@ -17,6 +22,11 @@ export type CmoSigningHub = {
   settledConfigs: SettledConfig[];
   /** The S06 to S10 clinical items (C1 to C8) with their live state; its lines are already merged into `items`. */
   s06s10: S06S10Snapshot;
+  /**
+   * Things that need the CMO's attention but are not a signature (P5: overdue MDCN spot re-checks, clinicians with no verification
+   * on record). Kept apart from `items` on purpose: the banner counts `items` as "areas that need your signature".
+   */
+  attention: SignoffQueueItem[];
 };
 
 /** The key the merged clinical-rules line carries, so the page can attach the guided signing forms to it. */
@@ -25,6 +35,13 @@ export const CLINICAL_RULES_ITEM_KEY = "clinical_rules";
 export const PROTOCOL_DRAFTS_ITEM_KEY = "protocol_drafts";
 /** The key the Community line carries (safety rules, group rules and the three statements), so the page can attach the signing checklist. */
 export const COMMUNITY_ITEM_KEY = "community";
+/** The key the red-alert outreach line carries (the call-the-patient task type, CMO Q11), so the page can attach the confirm panel. */
+export const RED_OUTREACH_ITEM_KEY = "red_outreach";
+/** The key the urgent glucose review task type line carries (R2, CMO Q7 and Q8), so the page can attach the confirm panel. */
+export const GLUCOSE_TASK_TYPE_ITEM_KEY = "glucose_task_type";
+/** The line for the S20 v2 quality and credentialing configuration drafts (audit sampling, second review, speak-up check-ins, licence notices). */
+export const QUALITY_CONFIG_ITEM_KEY = "quality_configs";
+export { GLUCOSE_TRIAGE_ITEM_KEY };
 
 /**
  * Everything that needs the Chief Medical Officer's signature, in one list.
@@ -46,7 +63,7 @@ export const COMMUNITY_ITEM_KEY = "community";
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, qualityConfigs] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -55,6 +72,11 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingAiGovernanceSignoff(supabase),
     readPendingCommunitySignoff(supabase),
     readS06S10Signoffs(supabase).catch(() => ({ ...EMPTY_S06S10, failed: true, failedSources: ["the S06 to S10 items"] })),
+    readCredentialAttention(supabase),
+    readPendingRedOutreachSignoff(supabase),
+    readPendingGlucoseTriageSignoff(supabase),
+    readPendingGlucoseTaskTypeSignoff(supabase),
+    readPendingQualityConfigSignoff(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -128,18 +150,72 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  const credentialItem = credentialAttentionItem(credentials);
+  const attention = credentialItem ? [credentialItem] : [];
+  if (redOutreach.waiting) {
+    items.push({
+      key: RED_OUTREACH_ITEM_KEY,
+      title: "Red alert outreach (call the patient)",
+      detail: "A Member's red alert that is not confirmed within the time you chose opens a call-the-patient task for the clinician on call. The task type needs your confirmation before any task is created.",
+      href: "/clinician/task-types",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
   items.push(...s06s10.items);
+
+  if (glucoseTaskType.waiting) {
+    items.push({
+      key: GLUCOSE_TASK_TYPE_ITEM_KEY,
+      title: "Urgent glucose review (task type)",
+      detail: "The task a doctor gets for an urgent same-day glucose reading needs your confirmation. Until you confirm it, the glucose rules cannot be signed.",
+      href: "/clinician/task-types",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
+  if (glucose.pending) {
+    items.push({
+      key: GLUCOSE_TRIAGE_ITEM_KEY,
+      title: `Glucose triage rules, version ${glucose.version}`,
+      detail: `Version ${glucose.version} is a draft waiting for your signature, with the guideline basis of every rule and the patient wording in full.${glucose.approvedVersion !== null ? ` Version ${glucose.approvedVersion} stays in force until you sign.` : " Until you sign, glucose readings are graded in shadow only and the older glucose alerts keep running."}`,
+      href: "/clinician/glucose-triage-rules",
+      severity: "draft_pending",
+    });
+  }
+
+  if (qualityConfigs.qualityVersion !== null || qualityConfigs.credentialingVersion !== null) {
+    const parts = [
+      qualityConfigs.qualityVersion !== null && `quality configuration version ${qualityConfigs.qualityVersion} (audit sampling, second review, speak-up check-ins)`,
+      qualityConfigs.credentialingVersion !== null && `credentialing configuration version ${qualityConfigs.credentialingVersion} (licence notices, shifts after expiry)`,
+    ].filter(Boolean);
+    items.push({
+      key: QUALITY_CONFIG_ITEM_KEY,
+      title: "Quality and licence rules",
+      detail: `${parts.join(" and ")} waiting for your signature. They stay off until you sign.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: (qualityConfigs.qualityVersion !== null ? 1 : 0) + (qualityConfigs.credentialingVersion !== null ? 1 : 0),
+    });
+  }
 
   const failedSources = [
     ...queue.failedSources,
     ...s06s10.failedSources,
     ...(ai.failed ? ["AI governance"] : []),
     ...(community.failed ? ["Community"] : []),
+    ...(credentials.failed ? ["Clinician registration checks"] : []),
+    ...(redOutreach.failed ? ["Red alert outreach"] : []),
+    ...(glucose.failed ? ["the glucose triage rules"] : []),
+    ...(glucoseTaskType.failed ? ["the urgent glucose review task type"] : []),
+    ...(qualityConfigs.failed ? ["the quality and credentialing configurations"] : []),
   ];
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
   // A banner row may only link to a hub line that exists. The banner reads its own copy of the state, so if the two ever disagree (a row it
   // thinks is waiting that the queue does not list) the link falls back to the item's own page rather than pointing at a missing anchor.
   const lineKeys = new Set(items.map((i) => i.key));
   const banner: S06S10Snapshot = { ...s06s10, rows: s06s10.rows.map((r) => (r.panelKey && !lineKeys.has(r.panelKey) ? { ...r, panelKey: null } : r)) };
-  return { items, failed: failedSources.length > 0, failedSources, settledConfigs: queue.settledConfigs, s06s10: banner };
+  return { items, failed: failedSources.length > 0, failedSources, settledConfigs: queue.settledConfigs, s06s10: banner, attention };
 }

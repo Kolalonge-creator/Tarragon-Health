@@ -90,6 +90,81 @@ export function decide(i: DecideInput): Decision {
 }
 
 /**
+ * Templates whose SMS goes to a third party's number (a patient's emergency contact), not to the recipient. They are the one
+ * SMS the S13 R4 ladder change (CMO Q10) did not decide: whether that SMS stays is an open question, so it keeps its old
+ * behaviour here and is named so nobody has to infer it.
+ */
+export const THIRD_PARTY_SMS_TEMPLATES: ReadonlySet<string> = new Set(["emergency_contact_alert"]);
+
+/**
+ * CMO Q10 / OQ-92: the one allowed non-code SMS is a clinician page. It is decided by WHO the recipient is, never by the
+ * row's priority alone (before this, any critical row passed, including a patient's). A clinician may be texted for any row (as
+ * before); the paging roles admin and care_coordinator only for a critical row (the clinical lead and ops are paged when nobody
+ * answers); every other role (finance, analyst, pharmacist, lab and payer staff, patients) never. An unknown role is not a
+ * clinician: the caller defers the row instead (a failed profile lookup must not drop a page).
+ */
+export const SMS_PAGING_ROLES: ReadonlySet<string> = new Set(["admin", "care_coordinator"]);
+export function isClinicianPageRow(role: string | null | undefined, template: string | null | undefined, priority: Priority = "routine"): boolean {
+  if (template != null && THIRD_PARTY_SMS_TEMPLATES.has(template)) return true;
+  if (role === "clinician") return true;
+  return priority === "critical" && role != null && SMS_PAGING_ROLES.has(role);
+}
+
+/**
+ * Extra Expo push fields for delivery reliability (S13 R4). Safety rows go high priority on Android through the `urgent`
+ * channel (which the app creates; a channel that does not exist on the phone means the message is not shown, so the id
+ * must match `apps/mobile/src/lib/notification-channels.ts`), live for a day if the phone is asleep, and on iPhone are
+ * "time-sensitive" (needs only a capability). "critical" (breaks through silent and Focus) is sent only when the server
+ * is told the app has Apple's entitlement (IOS_CRITICAL_ALERTS_ENABLED), because without it iOS ignores it and a build
+ * that claimed it would be rejected. Full-screen intents are deliberately never used (Play restricts them to calls and alarms).
+ */
+export const URGENT_CHANNEL_ID = "urgent";
+export const URGENT_TTL_SECONDS = 86_400;
+export interface ExpoUrgencyFields {
+  readonly priority?: "high";
+  readonly channelId?: string;
+  readonly ttl?: number;
+  readonly interruptionLevel?: "time-sensitive" | "critical";
+  readonly sound?: "default";
+}
+export function expoUrgencyFields(urgent: boolean, criticalAlertsEnabled: boolean, channelReady = true): ExpoUrgencyFields {
+  if (!urgent) return {};
+  return {
+    priority: "high",
+    // Only a phone that has created the channel (push_subscriptions.urgent_channel_ready) is sent to it; otherwise the push would
+    // be accepted and reported delivered but never shown.
+    ...(channelReady ? { channelId: URGENT_CHANNEL_ID } : {}),
+    ttl: URGENT_TTL_SECONDS,
+    interruptionLevel: criticalAlertsEnabled ? "critical" : "time-sensitive",
+    sound: "default",
+  };
+}
+
+/**
+ * A signed link for a document that used to ride along as an attachment (OQ-91). The link carries a random-looking id and a
+ * signature, never a name or a test; it opens nothing until the person signs in and owns the document. HMAC-SHA256, hex,
+ * over `kind.id.expiry`.
+ */
+export type DocumentLinkKind = "lab-request" | "care-plan";
+export async function signDocumentLink(secret: string, kind: DocumentLinkKind, id: string, expiresAtMs: number): Promise<string> {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${kind}.${id}.${expiresAtMs}`));
+  const sig = [...new Uint8Array(mac)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  return `${kind}/${id}?e=${expiresAtMs}&s=${sig}`;
+}
+
+/** Adds the signed-link sentence to a rendered email (subject unchanged). Returns subject, html, text for sendEmail. */
+export function withDocumentLink(
+  email: { subject: string; html: string; text?: string },
+  fallbackText: string,
+  url: string,
+): [string, string, string] {
+  const html = email.html.replace(/<\/div>\s*$/, `<p><a href="${url}">Sign in to open it</a></p></div>`);
+  const linked = html === email.html ? `${email.html}<p><a href="${url}">Sign in to open it</a></p>` : html;
+  return [email.subject, linked, `${email.text ?? fallbackText}\n\nSign in to open it: ${url}`];
+}
+
+/**
  * The envelope for a push. Discreet mode sends fixed words with no brand and no topic. A safety message keeps the
  * generic wording but says it is urgent, so it is not mistaken for something that can wait.
  */

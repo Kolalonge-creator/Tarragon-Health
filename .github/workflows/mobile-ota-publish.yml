@@ -13,7 +13,7 @@ name: Mobile OTA Publish
 # the app always has the latest bundle with no manual step. It deliberately does NOT auto-publish
 # to `production` — shipping OTA straight to a channel that could reach real patient devices isn't
 # something to do unattended on every push — and it deliberately skips publishing at all when the
-# push touches anything that changes native code (package.json, app.json, eas.json, ios/, plugins/)
+# push touches anything that changes native code (package.json, app.json, app.config.js, eas.json, ios/, plugins/)
 # rather than guessing: per 88a3674's commit message, runtimeVersion here is a manually-pinned
 # literal, not an auto-computed policy, so a native-code change needs a matching runtimeVersion bump
 # and a fresh `eas build` — publishing JS-only against an unbumped runtimeVersion could serve a
@@ -82,7 +82,7 @@ jobs:
           CHANGED=$(git diff --name-only "$BEFORE" "$AFTER" -- apps/mobile)
           echo "Changed files under apps/mobile:"
           echo "$CHANGED"
-          if echo "$CHANGED" | grep -Eq '^apps/mobile/(package\.json|app\.json|eas\.json|ios/|android/|modules/|plugins/)'; then
+          if echo "$CHANGED" | grep -Eq '^apps/mobile/(package\.json|app\.json|app\.config\.js|eas\.json|ios/|android/|modules/|plugins/)'; then
             echo "Native-affecting file changed — this needs a fresh 'eas build', not just an OTA update. Skipping auto-publish."
             echo "publish=false" >> "$GITHUB_OUTPUT"
           else

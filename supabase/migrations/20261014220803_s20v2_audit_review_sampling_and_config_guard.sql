@@ -16,7 +16,7 @@
 --   Q7  The hand-back review check is a function the daily sweep retries (hand-backs with the queue.claims exempt reasons are not
 --       counted); the sweep also assigns second reviewers and tops up the floor.
 --
--- The new quality_config version 2 is INSERTED INACTIVE and unsigned. Nothing here signs or activates a configuration.
+-- The new quality_config version 3 (on top of main-dev's active version 2) is INSERTED INACTIVE and unsigned. Nothing here signs or activates a configuration.
 -- Counts before this migration (live 2026-10-14): checked by list_migrations only; the S20 tables hold fixture-free rows, so there
 -- is no data conversion except marking already submitted audits final (no second review ever applied to them).
 -- Replay note: public.submit_clinical_audit(uuid, jsonb, jsonb, text) is DROPPED and replaced by one function with defaulted
@@ -80,13 +80,13 @@ grant execute on function public.sign_quality_config(integer) to authenticated;
 -- ---------------------------------------------------------------------------
 -- 2. quality_config version 2 (PROPOSED, inactive, unsigned). Version 1 is untouched.
 -- ---------------------------------------------------------------------------
--- quality-audit-v2-begin
-insert into public.quality_config (version, is_active, effective_from, rules) values (2, false, '2026-10-14', $json$
+-- quality-audit-v3-begin
+insert into public.quality_config (version, is_active, effective_from, rules) values (3, false, '2026-10-14', $json$
 {
   "sampling": {
     "random_rate_percent": 10, "always_reasons": ["red_event", "titration"], "floor_min_tasks": 3, "floor_per_clinician_per_month": 1,
     "reviewer_monthly_cap": 40, "due_days": 14,
-    "seed": { "rotation": "monthly" }, "stratified": true, "floor_catchup_until_day": 21, "floor_current_month_from_day": 20,
+    "new_clinician_full_review_cases": 20, "seed": { "rotation": "monthly" }, "stratified": true, "floor_catchup_until_day": 21, "floor_current_month_from_day": 20,
     "scribe_assisted_rate_percent": 20
   },
   "tier1": { "audited_task_count": 20, "graduation_min_score": 85, "max_critical_misses": 0 },
@@ -110,7 +110,7 @@ insert into public.quality_config (version, is_active, effective_from, rules) va
   }
 }
 $json$::jsonb);
--- quality-audit-v2-end
+-- quality-audit-v3-end
 
 -- ---------------------------------------------------------------------------
 -- 3. Secret sampling seed (Q3). Row level security on, no policy, no grant: only the definer functions below read it.
@@ -153,7 +153,7 @@ revoke all on function private.sampling_draw(uuid, date, text) from public, anon
 -- ---------------------------------------------------------------------------
 alter table public.clinical_audits drop constraint if exists clinical_audits_reason_check;
 alter table public.clinical_audits add constraint clinical_audits_reason_check
-  check (reason in ('random_sample', 'floor_top_up', 'red_event', 'titration', 'first_tasks', 'lead_request', 'scribe_sample'));
+  check (reason in ('random_sample', 'floor_top_up', 'red_event', 'titration', 'first_tasks', 'lead_request', 'new_clinician_review', 'scribe_sample'));
 
 alter table public.clinical_audits
   add column case_opened_at         timestamptz,
@@ -416,6 +416,7 @@ as $$
 declare
   t public.clinical_tasks%rowtype; s public.clinical_staff%rowtype; sm jsonb := private.quality_setting('sampling');
   v_reason text; v_draw numeric; v_rate numeric := (sm ->> 'random_rate_percent')::numeric; v_month date; v_scribe_rate numeric;
+  v_full integer := coalesce((sm ->> 'new_clinician_full_review_cases')::integer, 0); v_ord integer;
 begin
   select * into t from public.clinical_tasks where id = p_task;
   if not found or t.state <> 'completed' or t.claimed_by is null then return null; end if;
@@ -428,9 +429,14 @@ begin
   if t.priority_class_original = 1 or t.type = 'red_event_unacknowledged' then v_reason := 'red_event';
   elsif t.type = 'titration_signoff' then v_reason := 'titration';
   elsif coalesce(s.credentialing_level, 2) = 1 and private.tier1_count(t.claimed_by) < private.tier1_target(s.id) then v_reason := 'first_tasks';
-  elsif v_scribe_rate is not null and private.task_scribe_note(t.id) is not null and private.sampling_draw(t.id, v_month, 'scribe') < v_scribe_rate then v_reason := 'scribe_sample';
-  elsif v_draw < v_rate then v_reason := 'random_sample';
-  else return null;
+  else
+    -- P5/Q16 (main-dev): a new clinician's first N red or prescribing cases are all audited
+    if v_full > 0 then v_ord := private.new_clinician_case_ordinal(p_task, v_full + 1); end if;
+    if v_ord is not null and v_ord <= v_full then v_reason := 'new_clinician_review';
+    elsif v_scribe_rate is not null and private.task_scribe_note(t.id) is not null and private.sampling_draw(t.id, v_month, 'scribe') < v_scribe_rate then v_reason := 'scribe_sample';
+    elsif v_draw < v_rate then v_reason := 'random_sample';
+    else return null;
+    end if;
   end if;
   return private.create_audit(p_task, v_reason, v_draw);
 end;
@@ -1007,7 +1013,7 @@ begin
      or has_function_privilege('authenticated', 'private.sampling_draw(uuid, date, text)', 'EXECUTE') then
     raise exception 'S20 v2 grants are wrong';
   end if;
-  if exists (select 1 from public.quality_config where version = 2 and (is_active or approved_at is not null)) then
-    raise exception 'S20 v2: quality_config version 2 must be created inactive and unsigned';
+  if exists (select 1 from public.quality_config where version = 3 and (is_active or approved_at is not null)) then
+    raise exception 'S20 v2: quality_config version 3 must be created inactive and unsigned';
   end if;
 end $$;

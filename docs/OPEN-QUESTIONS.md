@@ -1860,6 +1860,45 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Still owed: (e) Android: not run (no Java or emulator image on this machine); `SCHEDULE_EXACT_ALARM` is not declared (OQ-73), so a reminder can arrive minutes late in Doze and the server backup push covers it. The native Pidgin review itself.
 - Decision: pending (item e, and the Pidgin sign-off).
 
+### OQ-340 BP-P1 routes every pregnant reading, wider than the wording of decision A1 (raised by S67)
+- CMO selection A1 says "any BP at or above 140/90 in pregnancy: amber, clinician same day". Rule BP-P1 (unchanged since S11) grades EVERY pregnant reading amber and opens a `referral_review` task (de-duplicated to one a week, due in 24 hours), so 118/76 is also amber and a 24 hour task is not "same day". Rule set v4 keeps this as it is and the tests record it (139/89 is amber by BP-P1).
+- Options: (a) keep, one weekly review task for every pregnant patient (recommended until the CMO signs, it never under-calls); (b) make BP-P1 fire only at 140/90 or more and make normal pregnant readings green with advice; (c) also shorten the task to "same day" (for example 8 hours). Needs the CMO.
+- Decision: open.
+
+### OQ-341 Kick counter: "normal not reached" and the drop factor are this build's reading of A3 (raised by S67)
+- A3 says: if normal is not reached, 10 movements are not felt in 2 hours, or there is a clear drop, show the card. Built: 10 in 120 minutes fixed; her personal normal is the median minutes-to-10 of her latest 5 finished sessions once she has 3; a clear drop is taking 2 times her normal (also applied while still counting); a "less movement than usual" button always shows the card. The 2 times factor and the 3 and 5 session counts are PROPOSED in `maternal.rules` and are this session's proposal, not a published figure.
+- Options: (a) CMO confirms or replaces the three numbers (recommended); (b) drop the personal-normal rule and keep only the fixed 10 in 2 hours plus the button.
+- Decision: open.
+
+### OQ-342 Risk flag vocabulary and who may set it (raised by S67)
+- `pregnancies.risk_flags` accepts any snake_case code (shape check only) and only staff can set it. The old `patient_pregnancy.high_risk` was writable by the patient; a patient write that sets it now fails because the history trigger refuses a patient-set flag. The CMO owns the list of codes (previous pre-eclampsia, chronic hypertension, and so on) and which ones prompt an earlier contact.
+- Options: (a) CMO supplies the list and it becomes a CHECK or lookup table (recommended); (b) keep free codes.
+- Decision: open.
+
+### OQ-343 Pregnancy content is empty and gated until the CMO reviews it (raised by S67)
+- `pregnancy_content` (week cards, nutrition, medicine safety, danger signs) has no rows and patients read only `cmo_reviewed` rows. No clinical text was written. The fixed default "Ask your care team before you take any medicine, including herbal ones" and the offline danger-sign labels are shipped as app strings (draft, flagged `draft_pending_cmo`). There is no write path yet: a content tool and the review action belong in the CMO sign-off hub.
+- Options: (a) CMO or a clinical writer drafts 40 week cards, nutrition and medicine pages, then reviews them (recommended); (b) ship the danger-sign guide only and leave week cards for a later release.
+- Decision: open.
+
+### OQ-344 S67 migrations and the proof script were NOT run (raised by S67)
+- The four migrations and `s67_pregnancy.sql` were written but not executed anywhere: the isolated local stack would not start ("all predefined address pools have been fully subnetted" from Docker), a use of another session's running stack was judged out of scope, and nothing may be applied to `koiplnmbgnqnbywhpjlf`. They were desk-checked only. Expect small fixes on the first real run.
+- Also not deployed: the engine change in `supabase/functions/_shared/clinical` (a fit or loss of consciousness shows the emergency guidance on a rejected reading) reaches the server only when the functions that import it are redeployed.
+- Options: (a) run the four migrations and the proof in a rolled-back transaction on a fresh local stack once Docker has room, then fix (recommended); (b) CI replay will do it on the PR.
+- Decision: open.
+
+### OQ-345 New pregnancy tables use `is_org_staff`, not the S39b tied-staff rule (raised by S67)
+- INV-12 says a clinician sees only patients they hold a task, lead or page for. S39b (#997) ties 128 tables to that rule but is not on this branch's base, so the new tables read staff access through one helper (`private.pregnancy_staff_may_read`). After S39b merges, retarget that one function and add the new tables to its list and to the S39b proof.
+- Options: (a) retarget the helper after S39b merges (recommended); (b) copy the S39b predicate into each policy now.
+- Decision: open.
+
+### OQ-346 Patient screens for the counter, timer, birth plan, week card and schedule are not built (raised by S67)
+- Built and tested: rules, storage, RLS, the offline outbox path, the phone's cached facts, the cards' wording, the offline danger guide and the PIN-lock seam. Not built: the web and mobile screens, the clinician view of sessions, the antenatal reminder notification template and cron, retiring the old `antenatal_booking` route, and wiring `maternal_enabled` into the screens. Nothing was run in a simulator or browser.
+- Options: (a) a short follow-up session builds the screens on top of the finished logic (recommended); (b) fold it into S68.
+- Decision: open.
+
+### OQ-347 Kick and contraction results are decided on the phone and trusted by the server (raised by S67)
+- The server stores the result the phone reached (same pure code as the tests) and turns a "go today" result into an emergency event. A tampered client could raise a false alert (a nuisance, limited to one an hour) or hide a real one (no worse than not using the counter). Re-deriving the result on the server from the stored movements and config version is possible with the same package.
+- Options: (a) accept for now (recommended); (b) add a server recheck that flags a mismatch for review.
 ## S69 (community cohorts and challenges): questions from OQ-360
 
 ### OQ-360 Who may start a cohort? (raised by S69)
@@ -2321,3 +2360,143 @@ following are recorded in the system:
 
 ### OQ-S07X-5 The home check configuration ships inside the app (raised by S07x)
 - The phone reads `bp.home_programme` from the code registry (as the other S07 values do); the server reads the signed row. If the CMO signs a changed version, installed phones keep the old protocol until the next build or update, while the server records the result against the new bands. Today the two are identical (a test fails on drift). Moving the phone's read to a synced config is the same follow-up already noted for the other S07 values.
+
+
+## S11 to S15 end-to-end build: questions raised by the six packages (2026-10-13)
+
+From the six package closeouts (`docs/design/S11-S15-*-closeout.md`), de-duplicated by the integration pass. P2's item 9b (a patient without a date of birth rejected on the BP path) is not listed: it was real and is fixed (P6, `withKnownAge`).
+
+### OQ-314 Confirm the canary budgets and chain health thresholds (raised by P1)
+- CMO: confirm the values in `chain.canary_and_health` (publish a new version to change; no hub signature needed).
+
+### OQ-315 Synthetic canary organisation in production (raised by P1)
+- Founder: the canary adds a synthetic organisation (`metadata.canary`) and three synthetic profiles. Accepted because the legacy BP and symptom triggers notify every clinician in the patient's organisation and ignore `is_test`; a fixture anywhere else would page real doctors.
+
+### OQ-316 External heartbeat for the canary (raised by P1)
+- Founder: add an outside monitor that alerts when `chain_canary_runs` stops moving? Today the only independent watcher is the in-database `stale_cron` rule.
+
+### OQ-317 Retiring the legacy BP alerts (D1) (raised by P1)
+- Retire nothing until the parity table has run over real readings. The legacy trigger also pages every clinician in the organisation, which the engine's on-call paging does not, so parity is a behavioural difference to decide, not only a grade difference.
+
+### OQ-318 Retention of canary triage events (raised by P1)
+- `triage_events` is append-only, so canary events (about 96 a day) cannot be pruned. Hand to the SR3 retention work.
+
+### OQ-319 Signs ticked on the phone are not all stored on the server (raised by P2)
+- Nine signs grade on the phone but only four map onto the server symptom log, so server paging for GL-R2, GL-R3, GL-R5 and GL-R7 from phone entries is incomplete. Proposed: add the five missing symptom types (separate enum migration) and send signs through the offline outbox. Decide whether to sign before that.
+
+### OQ-320 Monitor and wearable glucose is not graded by v1 (raised by P2)
+- Manual and Bluetooth meter readings only, to protect the connection budget and avoid paging stale lows from bulk syncs. A later version could grade them with a freshness window and dedupe interval from config.
+
+### OQ-321 Both glucose pipelines page after signing (raised by P2)
+- A severe low or suspected DKA is paged by the engine and by the older backstop until parity is shown. Proposed: run the divergence report for a stated period, then a count-first retirement migration of the SQL backstop and the two `glucose-red-flags` files.
+
+### OQ-322 Unknown diabetes type is graded as an adult (raised by P2)
+- Confirm.
+
+### OQ-323 Ketone cases the decisions did not state (raised by P2)
+- Urine moderate or large counts as raised ketones; ketones of 3.0 or more with warning signs are red even under glucose 11.0; nothing between 11.0 and 20.0 without ketones. Confirm or strike.
+
+### OQ-324 Due time of the urgent glucose review and level 1 lows (raised by P2)
+- 480 minutes is PROPOSED. A level 1 low opens no task (recurrent level 1 was not chosen).
+
+### OQ-325 Nigerian diabetes guideline check before signing (raised by P2)
+- Only the August 2020 draft of the FMoH guideline could be opened (4 mmol/L low line; 13.3 with urine ketones for DKA). The rules use ADA 3.9 and the CMO's 11.0. Check the final 2021 text and the treatment wording.
+
+### OQ-326 Fast-sugar wording needs its own signature (raised by P2)
+- Local examples (sweet drink, sugar, honey), 15 g and a 15 minute recheck (the draft says 10 to 15). Sign as wording, separately from the rules.
+
+### OQ-327 Older glucose alerts compare the unrounded value (raised by P2)
+- They call 70 mg/dL (3.88 mmol/L) a low; the new rules do not. Expect this as a divergence once the report covers the urgent tier. A bug of the older pipeline.
+
+### OQ-328 Third BP band list in the clinical decision support engine (raised by P2)
+- `apps/web/src/lib/cds/engine.ts` carries its own BP bands (200/120, 160/100, 135/85). Allowlisted with a reason; move it onto the rule set.
+
+### OQ-329 Does a delivered push receipt end the unconfirmed wait? (raised by P3)
+- `deliveredCountsAsConfirmed` is true per the plan. A silent phone can receive a push nobody sees. Recommend false once real data exists. CMO.
+
+### OQ-330 "I could not get care" opens the call at once (raised by P3)
+- `couldNotGetCareOutreachNow` is true. It adds work, never removes any. CMO to confirm.
+
+### OQ-331 Invented timing numbers (raised by P3)
+- `undeliveredMinutes` (5) and `expireHours` (6) are invented; confirm.
+
+### OQ-332 Clinician SMS paging cannot send (raised by P3)
+- The INV-08 trigger `notifications_suppress_sms_voice` fails every sms/voice insert including clinician pages, so the clinician ladder's last hop can never send. Decide whether to allow clinician SMS once a Termii sender ID exists.
+
+### OQ-333 Emergency contact SMS keeps its old behaviour (raised by P3)
+- `emergency_contact_alert` SMS is a named exception in `delivery.ts`. Decide with the open emergency-contact question.
+
+### OQ-334 An unconfirmed task type blocks every triage rule set approval (raised by P3)
+- `approve_triage_rule_set` refuses while ANY task type awaits confirmation, so the CMO must confirm both `red_patient_outreach` and `amber_glucose_review` before approving `bp_care_triage` v4 or the glucose rules. Accept, or change the function to look only at task types the rule set uses.
+
+### OQ-335 DPIA for the red-alert channel and answers (raised by P3)
+- Add the notification channel and `red_care_responses` (health data about seeking care, retention class proposed `review`).
+
+### OQ-336 Signed document link lands on the home screen after login (raised by P3)
+- Login only honours role-home redirects; a deep link after login needs a login change.
+
+### OQ-337 Owner of `notifications.rules` v4 (raised by P3)
+- v1 to v3 were owned by the founder, v4 by the CMO. Confirm.
+
+### OQ-338 Second payout approver (raised by P4)
+- Who approves when the founder is the only admin? Today the CMO. If neither is available nothing can be released (deliberate).
+
+### OQ-339 Real payout limits (raised by P4)
+- Set the `payouts.controls` numbers (per payout, per clinician per 7 days, per batch). Starting values are sized for a small pilot.
+
+### OQ-340 Finance treatment of payouts (raised by P4)
+- Account 5200 Clinician fees, expense and cash treatment, and withholding tax (D-09) need sign-off before `payout_gl_posting` is switched on.
+
+### OQ-341 Retention of webhook inbox rows (raised by P4)
+- Rejected rows (default 30 days) and verified raw bodies (customer emails): counsel and DPO.
+
+### OQ-342 Audio-fallback table values (raised by P4)
+- Real handset readings (3G, throttled, power saving) are needed before the CMO or founder choose the final `video.audio_fallback` values.
+
+### OQ-343 Drug-name list and speech vendor pass mark (raised by P4)
+- The CMO corrects `drug-names.json` (it drives the scribe highlight and the ASR scoring) and sets any pass mark (Q19).
+
+### OQ-344 End date for grandfathering the two existing clinicians (raised by P5)
+- `grandfather_ends_on` is null (open ended). A date makes them ineligible the day after unless evidence is recorded. CMO.
+
+### OQ-345 Exempting `is_test` clinicians from the verification gate (raised by P5)
+- Needed so QA fixtures work; an admin can set the flag. Acceptable?
+
+### OQ-346 Retention and DPIA for credential evidence (raised by P5)
+- Verification evidence files (FK RESTRICT; the document purge, still off, must skip them) and ID files. DPO and counsel. A DPIA before any identity vendor pilot.
+
+### OQ-347 Doctors trained locally and DataFlow (raised by P5)
+- DataFlow may not cover them; is a written MDCN confirmation or in-person register check acceptable? Three routes are allowed today.
+
+### OQ-348 Fold the two credential ladders (raised by P5)
+- Plan in the design note; the CMO signs the revised policy first.
+
+### OQ-349 Does the 20-case early review cover Care Coordinators? (raised by P5)
+- Built as no (they take no prescribing or red work). Confirm.
+
+### OQ-350 Lead ineligibility is labelled licence_expired (raised by P5)
+- `private.lead_ineligibility_reason` (S18) labels any ineligibility of a clinician with a licence date as licence_expired, so a clinician failing the new gate is recorded under the wrong reason. Needs a new `lead_end_reason` value.
+
+### OQ-351 Licence and cover dates are typed by one reviewer (raised by P5)
+- `record_clinician_credential_dates` has no second person and no attached file (a bound and an audit row only). Add maker-checker?
+
+### OQ-352 First caller of the identity adapter must check consent (raised by P5)
+- The adapter says the caller proves the consent row exists; no caller exists yet.
+
+### OQ-353 Turn the daily silence and adherence sweep on? (raised by P6)
+- It creates `adherence_follow_up` tasks for Members. Born off (`triage_coverage_config`). CMO and founder.
+
+### OQ-354 BP-A4 task beside the existing adherence alert (raised by P6)
+- `medicine-adherence-signals-daily` already raises a clinical-rule alert for low adherence; BP-A4 adds a task for the same Member. Keep both or let BP-A4 replace the alert for Members with a BP interest?
+
+### OQ-355 A symptom alone has no engine rule (raised by P6)
+- The CMO must sign a rule (a new rule set version, not made here) before the symptom bridge can page.
+
+### OQ-356 Adherence window naming (raised by P6)
+- The window comes from `medicine_config.adherence_window_days`; the engine field is named `percent7d`. Confirm they stay 7.
+
+### OQ-357 Stored triage context is re-read when the result is written (raised by P6)
+- Not the exact engine input; a symptom landing in that second could differ. Acceptable?
+
+### OQ-358 `clinical_staff_directory` exposes the MDCN folio (raised by the integration pass)
+- The view returns `credential_number` to every signed-in user in the organisation, including patients. CMO decision Q17 says the folio is never shown. NOT changed in the integration pass because many screens read it by design: referral letters, lab result PDFs and verified-document PDFs print the issuing doctor's registration number, and the admin search matches on it. Decide per document whether the folio should print, then narrow the view (a column-level change plus a clinician-only function for the places that must keep it).

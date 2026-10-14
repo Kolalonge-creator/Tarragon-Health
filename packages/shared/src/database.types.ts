@@ -45648,6 +45648,25 @@ export type Database = {
         Returns: undefined
       }
       event_bus_health: { Args: never; Returns: Json }
+      chain_health: { Args: never; Returns: Json }
+      chain_reliability_report: { Args: { p_days?: number }; Returns: Json }
+      chain_canary_run_now: { Args: never; Returns: string }
+      triage_engine_parity: {
+        Args: { p_days?: number }
+        Returns: { engine_grade: string; engine_status: string; legacy_class: string; readings: number }[]
+      }
+      triage_engine_parity_cases: {
+        Args: { p_days?: number; p_limit?: number }
+        Returns: {
+          concern: string
+          created_at: string
+          engine_grade: string
+          engine_status: string
+          legacy_class: string
+          observation_id: string
+          triage_event_id: string
+        }[]
+      }
       replay_event_delivery: { Args: { p_delivery_id: string; p_redo_effects?: boolean }; Returns: boolean }
       event_bus_lag_sweep: { Args: { p_include_test?: boolean }; Returns: number }
       event_bus_explorer: {
@@ -51186,6 +51205,9 @@ export type Database = {
         | "weakness_or_numbness"
         | "difficulty_speaking"
         | "back_pain"
+        | "convulsion"
+        | "loss_of_consciousness"
+        | "sudden_face_hand_swelling"
       therapy_modality: "video" | "audio" | "in_person"
       therapy_session_status: "requested" | "awaiting_clinician_approval" | "confirmed" | "completed" | "cancelled" | "no_show"
       timeline_event_type:
@@ -51318,6 +51340,7 @@ export type Database = {
         | "dexcom"
         | "libre"
         | "android_health_connect"
+        | "withings"
       wellness_challenge_metric:
         | "vitals_logs"
         | "meal_logs"
@@ -53685,6 +53708,9 @@ export const Constants = {
         "weakness_or_numbness",
         "difficulty_speaking",
         "back_pain",
+        "convulsion",
+        "loss_of_consciousness",
+        "sudden_face_hand_swelling",
       ],
       therapy_modality: ["video", "audio", "in_person"],
       therapy_session_status: ["requested", "awaiting_clinician_approval", "confirmed", "completed", "cancelled", "no_show"],
@@ -53837,6 +53863,7 @@ export const Constants = {
         "dexcom",
         "libre",
         "android_health_connect",
+        "withings",
       ],
       wellness_challenge_metric: [
         "vitals_logs",

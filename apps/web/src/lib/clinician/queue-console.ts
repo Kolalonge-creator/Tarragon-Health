@@ -60,6 +60,8 @@ const reading = z.object({
   unit: z.string().nullable(),
   measured_at: z.string(),
   source: z.string().nullable(),
+  /** P6: what the patient measured with (S12b). Absent on older summaries and when not recorded. */
+  cuff_type: z.enum(["upper_arm", "wrist", "not_sure"]).nullable().optional(),
 });
 
 /** Every section is optional: a section the clinician may not read is simply absent (and named in `denied`). */
@@ -75,7 +77,20 @@ export const patientSummarySchema = z.object({
     })
     .optional(),
   triage_events: z
-    .array(z.object({ grade: z.string(), trigger_type: z.string(), explanation_key: z.string().nullable(), created_at: z.string() }))
+    .array(
+      z.object({
+        grade: z.string(),
+        trigger_type: z.string(),
+        explanation_key: z.string().nullable(),
+        created_at: z.string(),
+        /** P6: why the engine graded it - the rule, the rule set version and the facts it was given. */
+        rule_id: z.string().nullable().optional(),
+        rule_set_code: z.string().nullable().optional(),
+        rule_set_version: z.number().nullable().optional(),
+        matched_rule_ids: z.array(z.string()).optional(),
+        context: z.unknown().nullable().optional(),
+      }),
+    )
     .optional(),
   medications: z
     .object({

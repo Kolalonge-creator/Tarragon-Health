@@ -1,25 +1,25 @@
 -- S20 v2 licences (plan Stage 4, defect Q6, CMO decision 8 recorded 2026-10-07).
 --
 --   * Notices at 90/30/7/0 days and the proof-of-renewal deadline (15 December for the 31 December cycle): credentialing_config
---     version 3 (INACTIVE, unsigned), read by the existing sweep, which now also sends the "proof overdue" notice once per cycle.
+--     version 4 (INACTIVE, unsigned), read by the existing sweep, which now also sends the "proof overdue" notice once per cycle.
 --   * Availability and rota exclude anyone whose licence or indemnity ends before the shift starts: a new availability block that
 --     starts after expiry is refused, and the nightly net cancels future blocks and strips future rota slots that start after expiry.
 --   * Rota-only clinicians (on the rota, no claim and no block) and clinicians who still lead patients are now inside the nightly
 --     removal net (they were outside it).
---   * A missing licence date counts as ineligible once credentialing_config says so (v3). The two legacy rows without a date must be
+--   * A missing licence date counts as ineligible once credentialing_config says so (v4). The two legacy rows without a date must be
 --     given one first: activating a version that turns this on is REFUSED while any active clinician has no licence date, so nobody is
 --     stranded. A clinician still in onboarding has no active clinical_staff row and a licence date is already required to approve.
 --   * Each verification records its evidence source, the checker and the time (credential_verifications, append only); renewals write
 --     one automatically.
 --   * Grace stays 1 to 14 days, now the chief medical officer ONLY (it was any reviewer), never self-granted, enforced again by a trigger.
 --
--- Nothing here activates credentialing_config version 3. Replay note: the functions restated below keep their exact signatures.
+-- Nothing here activates credentialing_config version 4. Replay note: the functions restated below keep their exact signatures.
 
 -- ---------------------------------------------------------------------------
--- 1. Configuration: version 3 (PROPOSED, inactive). Versions 1 and 2 are untouched.
+-- 1. Configuration: version 4 (PROPOSED, inactive). Versions 1 to 3 are untouched.
 -- ---------------------------------------------------------------------------
 -- credentialing-rules-begin
-insert into public.credentialing_config (version, is_active, effective_from, rules) values (3, false, '2026-10-14', $json$
+insert into public.credentialing_config (version, is_active, effective_from, rules) values (4, false, '2026-10-14', $json$
 {
   "min_practice_years": 2,
   "pass_percent": 80,
@@ -38,6 +38,13 @@ insert into public.credentialing_config (version, is_active, effective_from, rul
   "require_verified_phone": false,
   "document_purge_enabled": false,
   "rejected_application_document_retention_months": 24,
+  "primary_source_required": true,
+  "primary_source_routes": ["mdcn_dataflow", "mdcn_written_confirmation", "mdcn_register_check"],
+  "primary_source_max_age_days": 365,
+  "recheck_months": 6,
+  "recheck_overdue_days": 14,
+  "credential_date_max_days": 1100,
+  "grandfather_ends_on": null,
   "renewal_cycle": { "cycle_end_month": 12, "cycle_end_day": 31, "proof_deadline_month": 12, "proof_deadline_day": 15 },
   "missing_licence_date_ineligible": true,
   "verification_sources": ["mdcn_register_lookup", "document_sighted", "insurer_confirmation", "other"]
@@ -85,6 +92,8 @@ as $$
       and (not coalesce(private.indemnity_required(cs.id), false)
            or (cs.indemnity_expires_at is not null and cs.indemnity_expires_at > p_at)
            or private.credential_in_grace(cs.id, 'indemnity', p_at))
+      -- P5/Q14 (main-dev): a recorded MDCN / DataFlow primary-source verification (or the grandfathering flag, until evidence is recorded)
+      and private.psv_satisfied(cs.id, p_at)
   );
 $$;
 
@@ -100,6 +109,7 @@ begin
   if s.license_expires_at is not null and not (private.credential_valid_on(s.license_expires_at) or private.credential_in_grace(s.id, 'licence')) then v_blockers := array_append(v_blockers, 'licence_expired'::text); end if;
   if s.license_expires_at is null and private.credential_missing_date_ineligible() then v_blockers := array_append(v_blockers, 'licence_date_missing'::text); end if;
   if coalesce(private.indemnity_required(s.id), false) and not ((s.indemnity_expires_at is not null and s.indemnity_expires_at > now()) or private.credential_in_grace(s.id, 'indemnity')) then v_blockers := array_append(v_blockers, 'indemnity_expired'::text); end if;
+  if not private.psv_satisfied(s.id) then v_blockers := array_append(v_blockers, 'primary_source_missing'::text); end if;
   return jsonb_build_object(
     'clinical_staff_id', s.id, 'status', s.status, 'active', s.active, 'level', s.credentialing_level,
     'licence_expires_at', s.license_expires_at, 'indemnity_expires_at', s.indemnity_expires_at,
@@ -471,6 +481,35 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
+-- 7b. The CMO's own act: sign (and so switch on) a credentialing configuration version. Called only from the sign-off hub when the CMO presses
+--     the button; nothing here or in the sweeps calls it. Activating a version that makes a missing licence date ineligible is still refused by
+--     private.guard_credentialing_activation() while any active clinician has no date.
+-- ---------------------------------------------------------------------------
+alter table public.credentialing_config
+  add column if not exists approved_at timestamptz,
+  add column if not exists approved_by uuid references public.profiles (id) on delete set null;
+
+create function public.sign_credentialing_config(p_version integer) returns void
+language plpgsql security definer set search_path = ''
+as $$
+declare c public.credentialing_config%rowtype;
+begin
+  perform private.uid_or_deny();
+  if not private.credential_is_cmo() then raise exception 'only the chief medical officer can sign the credentialing rules' using errcode = '42501'; end if;
+  select * into c from public.credentialing_config where version = p_version for update;
+  if not found then raise exception 'no such credentialing configuration version' using errcode = 'P0002'; end if;
+  if c.approved_at is not null then raise exception 'that version is already signed' using errcode = '23514'; end if;
+  if c.version < (select coalesce(max(version), 0) from public.credentialing_config where is_active) then
+    raise exception 'that version is older than the one in force' using errcode = '23514';
+  end if;
+  update public.credentialing_config set is_active = false where is_active and version <> p_version;
+  update public.credentialing_config set approved_at = now(), approved_by = (select auth.uid()), is_active = true where version = p_version;
+end;
+$$;
+revoke all on function public.sign_credentialing_config(integer) from public, anon, authenticated;
+grant execute on function public.sign_credentialing_config(integer) to authenticated;
+
+-- ---------------------------------------------------------------------------
 -- 8. Grants
 -- ---------------------------------------------------------------------------
 revoke all on function public.record_credential_verification(uuid, text, text, text, timestamptz) from public, anon, authenticated;
@@ -480,8 +519,8 @@ grant execute on function public.grant_credential_grace(uuid, text, integer, tex
 
 do $$
 begin
-  if exists (select 1 from public.credentialing_config where version = 3 and is_active) then
-    raise exception 'S20 v2: credentialing_config version 3 must be created inactive';
+  if exists (select 1 from public.credentialing_config where version = 4 and is_active) then
+    raise exception 'S20 v2: credentialing_config version 4 must be created inactive';
   end if;
   if has_function_privilege('anon', 'public.record_credential_verification(uuid, text, text, text, timestamptz)', 'EXECUTE')
      or has_function_privilege('authenticated', 'private.trim_future_shifts_after_expiry()', 'EXECUTE')
