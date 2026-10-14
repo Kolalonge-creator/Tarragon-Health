@@ -137,7 +137,7 @@ create temp table cases_json on commit drop as select $cases$
 {
   "defaults": {
     "clinician": { "tier": "senior_medical_officer", "competencies": ["hypertension"], "employed": false, "hasBlock": true, "isTest": true, "conflicted": false, "handedBack": false, "ownPatient": false },
-    "task": { "state": "open", "minTier": "senior_medical_officer", "requiredCompetencies": ["hypertension"], "offeredTo": "none", "isTest": true }
+    "task": { "state": "open", "minTier": "senior_medical_officer", "requiredCompetencies": ["hypertension"], "offeredTo": "none", "isTest": true, "isRed": false }
   },
   "cases": [
     { "name": "base: an open pool task for a matching clinician", "expect": true },
@@ -158,9 +158,12 @@ create temp table cases_json on commit drop as select $cases$
     { "name": "a task offered to another clinician stays hidden", "task": { "state": "offered_to_lead", "offeredTo": "other" }, "expect": false },
     { "name": "a task offered to me, with a block", "task": { "state": "offered_to_lead", "offeredTo": "me" }, "expect": true },
     { "name": "an offered task still needs the competency", "task": { "state": "offered_to_lead", "offeredTo": "me" }, "clinician": { "competencies": [] }, "expect": false },
-    { "name": "an escalated task needs the on_call competency", "task": { "state": "escalated" }, "expect": false },
-    { "name": "an escalated task for an on-call clinician", "task": { "state": "escalated" }, "clinician": { "competencies": ["hypertension", "on_call"] }, "expect": true },
-    { "name": "an escalated task still needs the tier", "task": { "state": "escalated", "minTier": "chief_medical_officer" }, "clinician": { "competencies": ["hypertension", "on_call"] }, "expect": false }
+    { "name": "an escalated task that is not red is claimable without on_call (D1)", "task": { "state": "escalated" }, "expect": true },
+    { "name": "an escalated red task needs the on_call competency (INV-05)", "task": { "state": "escalated", "isRed": true }, "expect": false },
+    { "name": "an escalated red task for an on-call clinician", "task": { "state": "escalated", "isRed": true }, "clinician": { "competencies": ["hypertension", "on_call"] }, "expect": true },
+    { "name": "an escalated task still needs the tier", "task": { "state": "escalated", "minTier": "chief_medical_officer" }, "clinician": { "competencies": ["hypertension", "on_call"] }, "expect": false },
+    { "name": "an escalated task still needs the competency", "task": { "state": "escalated" }, "clinician": { "competencies": [] }, "expect": false },
+    { "name": "an escalated task is never offered to a clinician barred by a hand-back", "task": { "state": "escalated" }, "clinician": { "handedBack": true }, "expect": false }
   ]
 }
 $cases$::jsonb as j;
@@ -204,7 +207,7 @@ begin
     perform set_config('tarragon.task_transition', 'on', true);
     insert into public.clinical_tasks (organisation_id, type, task_type_version, priority_class, priority_class_original, patient_id,
         required_competencies, min_tier, due_at, delivery_path, pushed_to, lead_window_ends_at, state, is_test)
-    values (v_org, 'amber_bp_review', 1, 4, 4, v_pat, array(select jsonb_array_elements_text(tk -> 'requiredCompetencies')),
+    values (v_org, 'amber_bp_review', 1, case when (tk ->> 'isRed')::boolean then 1 else 4 end, case when (tk ->> 'isRed')::boolean then 1 else 4 end, v_pat, array(select jsonb_array_elements_text(tk -> 'requiredCompetencies')),
         (tk ->> 'minTier')::public.doctor_tier, now() + interval '1 day', case when v_other is null then 'pull' else 'push' end, v_other,
         case when v_other is null then null else now() + interval '1 hour' end, (tk ->> 'state')::public.clinical_task_state, (tk ->> 'isTest')::boolean)
     returning id into v_task;
@@ -315,15 +318,22 @@ begin
   perform pg_temp.rec('INV-12: nobody else is', 'false', pg_temp.q_as(v_b, format('select private.clinician_has_patient_access(%L)::text', pg_temp.f('p4'))));
   perform pg_temp.rec('the task is held by A and no one else', v_a::text, (select claimed_by::text from public.clinical_tasks where id = t2));
   perform pg_temp.rec('completing needs an outcome', 'queue_outcome_needed', pg_temp.try_as(v_a, format('select public.queue_complete(%L, ''{}''::jsonb)', t2)));
-  perform pg_temp.rec('only the claimant can complete', 'queue_no_claim', pg_temp.try_as(v_b, format('select public.queue_complete(%L, ''{"done":true}''::jsonb)', t2)));
-  perform pg_temp.rec('the claimant completes', 'ok', pg_temp.try_as(v_a, format('select public.queue_complete(%L, ''{"done":true}''::jsonb)', t2)));
+  perform pg_temp.rec('only the claimant can complete', 'queue_no_claim', pg_temp.try_as(v_b, format('select public.queue_complete(%L, ''{"code":"completed_action_taken"}''::jsonb)', t2)));
+  -- D4: a critical result review closes with a documented contact-attempt sequence (or a released result), not a free note
+  perform pg_temp.rec('a free-text note does not close a critical result review (D4)', 'queue_outcome_code', pg_temp.try_as(v_a, format('select public.queue_complete(%L, ''{"code":"completed_action_taken"}''::jsonb)', t2)));
+  perform pg_temp.rec('the claimant completes with documented attempts', 'ok', pg_temp.try_as(v_a, format('select public.queue_complete(%L, %L::jsonb)', t2,
+    jsonb_build_object('code', 'contact_attempts_documented', 'attempts', jsonb_build_array(
+      jsonb_build_object('at', now(), 'method', 'phone_call', 'reached', false),
+      jsonb_build_object('at', now(), 'method', 'phone_call', 'reached', false),
+      jsonb_build_object('at', now(), 'method', 'in_app_message', 'reached', false)))::text)));
   perform pg_temp.rec('INV-12: completing ends the tie', 'false', pg_temp.q_as(v_a, format('select private.clinician_has_patient_access(%L)::text', pg_temp.f('p4'))));
   perform pg_temp.rec('next is the earlier-due amber review', t4a::text, pg_temp.next_task(v_a)::text);
-  perform pg_temp.try_as(v_a, format('select public.queue_complete(%L, ''{"done":true}''::jsonb)', t4a));
+  perform pg_temp.try_as(v_a, format('select public.queue_complete(%L, ''{"code":"completed_action_taken"}''::jsonb)', t4a));
   perform pg_temp.rec('then the later-due amber review', t4b::text, pg_temp.next_task(v_a)::text);
-  perform pg_temp.try_as(v_a, format('select public.queue_complete(%L, ''{"done":true}''::jsonb)', t4b));
+  perform pg_temp.try_as(v_a, format('select public.queue_complete(%L, ''{"code":"completed_action_taken"}''::jsonb)', t4b));
   perform pg_temp.rec('then the class 5 task', t5::text, pg_temp.next_task(v_a)::text);
-  perform pg_temp.try_as(v_a, format('select public.queue_complete(%L, ''{"done":true}''::jsonb)', t5));
+  -- a symptom review closes only with a signed note (D4, covered in the task-layer proof); this section tests order, so close it directly
+  perform private.apply_task_transition(t5, 'completed', 'clinician', v_a, null, null, null, '{"code":"answer_signed"}'::jsonb);
   perform pg_temp.rec('an empty queue says so', 'none_eligible', pg_temp.next_outcome(v_a));
   perform pg_temp.rec('the claim was audited (INV-10) four times', '4', (select count(*)::text from public.audit_log where actor_id = v_a and action = 'queue.claim'));
   perform pg_temp.rec('the audit note holds no clinical content', 'true',
@@ -340,10 +350,10 @@ begin
   t2 := pg_temp.mktask(pg_temp.f('p5'), 'critical_result_review');
   perform pg_temp.rec('a medical officer is not offered a senior-tier task', 'none_eligible', pg_temp.next_outcome(v_mo));
   perform pg_temp.rec('a senior with the competency is', t2::text, pg_temp.next_task(v_b)::text);
-  perform pg_temp.try_as(v_b, format('select public.queue_complete(%L, ''{"done":true}''::jsonb)', t2));
+  perform pg_temp.try_as(v_b, format('select public.queue_complete(%L, ''{"code":"completed_action_taken"}''::jsonb)', t2));
   t4 := pg_temp.mktask(pg_temp.f('p6'), 'amber_bp_review');
   perform pg_temp.rec('a medical officer takes an amber review', t4::text, pg_temp.next_task(v_mo)::text);
-  perform pg_temp.try_as(v_mo, format('select public.queue_complete(%L, ''{"done":true}''::jsonb)', t4));
+  perform pg_temp.try_as(v_mo, format('select public.queue_complete(%L, ''{"code":"completed_action_taken"}''::jsonb)', t4));
   perform pg_temp.clear_queue();
 end $$;
 
@@ -367,8 +377,10 @@ begin
   perform pg_temp.rec('the claim ended as handed back', 'handed_back', (select end_reason from public.task_claims where task_id = t));
   perform pg_temp.rec('INV-12: the tie ended with the hand-back', 'false', pg_temp.q_as(v_a, format('select private.clinician_has_patient_access(%L)::text',
     (select patient_id from public.clinical_tasks where id = t))));
-  -- a dropped connection is not a reason to bar the clinician from the task, but "outside my competence" is
-  perform pg_temp.rec('a technical_problem hand-back does not bar the clinician from the task', t::text, pg_temp.next_task(v_a)::text);
+  -- D7 (S16-S20): technical_problem and needs_information now bar the same clinician from the same task, like "outside my competence"
+  perform pg_temp.setf('t_first', t);
+  t := pg_temp.next_task(v_a);
+  perform pg_temp.rec('a technical_problem hand-back bars the same clinician from that task (D7)', 'true', (t is distinct from pg_temp.f('t_first'))::text);
   perform pg_temp.try_as(v_a, format('select public.queue_handback(%L, ''outside_competence'', null)', t));
   perform pg_temp.rec('an outside_competence hand-back bars the clinician from that task', 'true', (pg_temp.next_task(v_a) is distinct from t)::text);
   perform pg_temp.rec('another clinician can take the handed-back task', 'true', (pg_temp.next_task(v_b) is not null)::text);
@@ -382,6 +394,7 @@ begin
   end loop;
   perform pg_temp.rec('four hand-backs raised exactly one review flag', '1', (select count(*)::text from public.audit_log where actor_id = v_h and action = 'queue.handback_review_flagged'));
   perform pg_temp.rec('...and one event', '1', (select count(*)::text from public.domain_events where event_type = 'clinician.handback_review_flagged' and payload ->> 'clinician_id' = v_h::text));
+  perform pg_temp.mktask(pg_temp.f('p6'), 'amber_bp_review', 506);   -- a sixth task: D7 bars H from each task H handed back
   t := pg_temp.next_task(v_h);
   perform pg_temp.try_as(v_h, format('select public.queue_handback(%L, ''needs_information'', null)', t));
   perform pg_temp.rec('a fifth hand-back does not flag again', '1', (select count(*)::text from public.audit_log where actor_id = v_h and action = 'queue.handback_review_flagged'));
@@ -417,7 +430,7 @@ begin
   perform pg_temp.rec('the CMO records one', 'ok', pg_temp.try_as(v_cmo, format('select public.record_conflict(%L, %L, ''family member'')', v_b, pg_temp.f('p7'))));
   perform pg_temp.rec('CASE 17: the conflicted clinician is never offered the patient', 'none_eligible', pg_temp.next_outcome(v_b));
   perform pg_temp.rec('another clinician is', t::text, pg_temp.next_task(v_a)::text);
-  perform pg_temp.try_as(v_a, format('select public.queue_complete(%L, ''{"done":true}''::jsonb)', t));
+  perform pg_temp.try_as(v_a, format('select public.queue_complete(%L, ''{"code":"completed_action_taken"}''::jsonb)', t));
 
   t := pg_temp.mktask(pg_temp.f('p8'), 'amber_bp_review');
   perform pg_temp.rec('a clinician declares their own conflict', 'ok', pg_temp.try_as(v_b, format('select public.declare_conflict(%L, ''my neighbour'')', pg_temp.f('p8'))));
@@ -433,7 +446,7 @@ begin
   end loop;
   perform pg_temp.rec('self-declared conflicts are capped (5 pending), the sixth is refused', 'queue_too_many_conflicts', v_q);
   perform pg_temp.rec('the lift was audited', '1', (select count(*)::text from public.audit_log where action = 'queue.conflict_lifted' and entity_id = v_conf));
-  perform pg_temp.try_as(v_b, format('select public.queue_complete(%L, ''{"done":true}''::jsonb)', t));
+  perform pg_temp.try_as(v_b, format('select public.queue_complete(%L, ''{"code":"completed_action_taken"}''::jsonb)', t));
 
   -- a conflict_of_interest hand-back records the conflict and the patient never comes back to that clinician
   t := pg_temp.mktask(pg_temp.f('p3'), 'amber_bp_review');
@@ -480,7 +493,7 @@ begin
   perform pg_temp.rec('...by the type timeout (30 minutes)', '30', (round(extract(epoch from (v_new - v_old)) / 60))::text);
   perform pg_temp.rec('the task row matches the claim', 'true', (select (claim_expires_at = v_new)::text from public.clinical_tasks where id = t));
   perform pg_temp.rec('a second extension is refused', 'queue_extension_used', pg_temp.try_as(v_a, format('select public.queue_extend_claim(%L)', t)));
-  perform pg_temp.try_as(v_a, format('select public.queue_complete(%L, ''{"done":true}''::jsonb)', t));
+  perform pg_temp.try_as(v_a, format('select public.queue_complete(%L, ''{"code":"completed_action_taken"}''::jsonb)', t));
 
   -- a task already past due goes straight to escalated when its claim times out
   t := pg_temp.mktask(pg_temp.f('p2'), 'amber_bp_review');
@@ -517,7 +530,7 @@ begin
   perform pg_temp.rec('a freelancer with a block does not see it', 'none_eligible', pg_temp.next_outcome(v_a));
   perform pg_temp.rec('the employed doctor takes it with no queue block', t::text, pg_temp.next_task(v_e)::text);
   perform pg_temp.rec('...and a retry returns the same claim', 'true', (pg_temp.next_as(v_e) ->> 'already_claimed'));
-  perform pg_temp.try_as(v_e, format('select public.queue_complete(%L, ''{"done":true}''::jsonb)', t));
+  perform pg_temp.try_as(v_e, format('select public.queue_complete(%L, ''{"code":"completed_action_taken"}''::jsonb)', t));
   -- a pool task (not pushable) is not theirs to pull without a block
   t2 := pg_temp.mktask(pg_temp.f('p5'), 'critical_result_review');
   perform pg_temp.rec('an employed doctor with no block cannot pull from the pool', 'none_eligible', pg_temp.next_outcome(v_e));
@@ -531,7 +544,7 @@ begin
   perform private.apply_task_transition(t3, 'escalated', 'system', null, 'proof escalation');
   perform pg_temp.rec('a senior without on_call is not offered an escalated task', 'none_eligible', pg_temp.next_outcome(v_b));
   perform pg_temp.rec('a senior with on_call is', t3::text, pg_temp.next_task(v_a)::text);
-  perform pg_temp.try_as(v_a, format('select public.queue_complete(%L, ''{"done":true}''::jsonb)', t3));
+  perform pg_temp.try_as(v_a, format('select public.queue_complete(%L, ''{"code":"completed_action_taken"}''::jsonb)', t3));
   perform pg_temp.clear_queue();
 end $$;
 
@@ -543,7 +556,7 @@ begin
   perform pg_temp.rec('a clinician with no events has no score yet', 'null', coalesce(pg_temp.score_of(v_r), 'null'));
   t := pg_temp.mktask(pg_temp.f('p1'), 'amber_bp_review');
   perform pg_temp.next_task(v_r);
-  perform pg_temp.try_as(v_r, format('select public.queue_complete(%L, ''{"done":true}''::jsonb)', t));
+  perform pg_temp.try_as(v_r, format('select public.queue_complete(%L, ''{"code":"completed_action_taken"}''::jsonb)', t));
   perform pg_temp.rec('one on-time completion: 100 x (5 x 0.8 + 1) / (5 + 1)', '83.33', pg_temp.score_of(v_r));
   t := pg_temp.mktask(pg_temp.f('p2'), 'amber_bp_review');
   perform pg_temp.next_task(v_r);
