@@ -142,6 +142,7 @@ export async function buildWeeklyReflection(
         .from("vitals_readings")
         .select("id", { count: "exact", head: true })
         .eq("patient_id", patientId)
+        .is("correction_status", null)
         .gte("taken_at", from)
         .lt("taken_at", to)
     );
@@ -179,6 +180,7 @@ export async function buildDailyNudge(
       .from("vitals_readings")
       .select("id", { count: "exact", head: true })
       .eq("patient_id", patientId)
+      .is("correction_status", null)
       .gte("taken_at", startOfLagosDay);
     readingToday = !error && (count ?? 0) > 0;
   } catch {
