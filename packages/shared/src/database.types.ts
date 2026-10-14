@@ -49019,6 +49019,31 @@ export type Database = {
       update_care_circle_member: { Args: { p_expires_at?: string; p_member: string; p_permissions: string[] }; Returns: boolean };
       my_pending_gifts: { Args: never; Returns: Json };
       respond_to_gifted_pack: { Args: { p_accept: boolean; p_entitlement: string }; Returns: Json };
+      cohort_status: { Args: never; Returns: Json };
+      cohort_create: { Args: { p_consent_join: boolean; p_kind: string; p_name: string }; Returns: Json };
+      cohort_create_invite: { Args: { p_cohort: string }; Returns: Json };
+      cohort_preview_invite: { Args: { p_token: string }; Returns: Json };
+      cohort_join: { Args: { p_consent_join: boolean; p_token: string }; Returns: Json };
+      cohort_my_cohorts: { Args: never; Returns: Json };
+      cohort_roster: { Args: { p_cohort: string }; Returns: Json };
+      cohort_leave: { Args: { p_cohort: string }; Returns: Json };
+      cohort_set_muted: { Args: { p_cohort: string; p_muted: boolean }; Returns: Json };
+      cohort_set_totals_consent: { Args: { p_cohort: string; p_on: boolean }; Returns: Json };
+      set_community_off: { Args: { p_off: boolean }; Returns: Json };
+      cohort_report: { Args: { p_cohort: string; p_member?: string; p_reason: string }; Returns: Json };
+      cohort_moderator_reports: { Args: { p_cohort: string }; Returns: Json };
+      cohort_remove_member: { Args: { p_cohort: string; p_member: string }; Returns: Json };
+      cohort_close: { Args: { p_cohort: string }; Returns: Json };
+      list_challenge_templates: { Args: never; Returns: Json };
+      cohort_start_challenge: { Args: { p_cohort: string; p_days: number; p_starts_on: string; p_template: string }; Returns: Json };
+      cohort_challenges: { Args: { p_cohort: string }; Returns: Json };
+      contribute_to_challenge: { Args: { p_challenge: string; p_day?: string; p_minutes?: number }; Returns: Json };
+      my_challenge_status: { Args: { p_challenge: string }; Returns: Json };
+      cohort_board: { Args: { p_challenge: string }; Returns: Json };
+      admin_community_freeze: { Args: { p_cohort: string; p_frozen: boolean; p_note: string }; Returns: Json };
+      admin_community_reports: { Args: never; Returns: Json };
+      admin_community_resolve_report: { Args: { p_action: string; p_bar?: boolean; p_report: string }; Returns: Json };
+      sign_challenge_template: { Args: { p_approve: boolean; p_code: string; p_note: string }; Returns: Json };
     }
     Enums: {
       correction_status: "corrected" | "amended" | "entered_in_error" | "cancelled"
