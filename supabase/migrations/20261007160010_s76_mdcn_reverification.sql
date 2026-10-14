@@ -1,7 +1,8 @@
 -- S76 B2 (decision S-18): MDCN licence re-verification at onboarding and every 12 months, by a staff check of the register.
 -- No MDCN API is claimed or used: a person looks the clinician up on the register and records what they saw.
 --
---   * credentialing_config version 3 (PROPOSED, NOT ACTIVE): the v2 rules plus reverify_months and reverify_notice_days.
+--   * credentialing_config version 4 (PROPOSED, NOT ACTIVE): the version 3 rules (P5: primary-source verification and the six-month spot re-check, active)
+--     plus reverify_months and reverify_notice_days. (It was version 3 before P5 took that number; renumbered when the two were merged.)
 --     It is inserted inactive so nothing changes until the chief medical officer's sign-off activates it. Until then
 --     private.credential_rule('reverify_months') is null and the sweep below does nothing (inert by design).
 --   * clinician_licence_verifications: append only; who checked, when, the folio seen, the register result, the evidence
@@ -16,7 +17,7 @@
 -- Counts before: clinician_licence_verifications did not exist; live clinical staff are untouched by this migration.
 
 -- credentialing-rules-begin
-insert into public.credentialing_config (version, is_active, effective_from, rules) values (3, false, '2026-10-07', $json$
+insert into public.credentialing_config (version, is_active, effective_from, rules) values (4, false, '2026-10-15', $json$
 {
   "min_practice_years": 2,
   "pass_percent": 80,
@@ -35,6 +36,13 @@ insert into public.credentialing_config (version, is_active, effective_from, rul
   "require_verified_phone": false,
   "document_purge_enabled": false,
   "rejected_application_document_retention_months": 24,
+  "primary_source_required": true,
+  "primary_source_routes": ["mdcn_dataflow", "mdcn_written_confirmation", "mdcn_register_check"],
+  "primary_source_max_age_days": 365,
+  "recheck_months": 6,
+  "recheck_overdue_days": 14,
+  "credential_date_max_days": 1100,
+  "grandfather_ends_on": null,
   "reverify_months": 12,
   "reverify_notice_days": 30
 }
@@ -202,7 +210,7 @@ begin
     if has_table_privilege('authenticated', 'public.' || t, 'INSERT') or has_table_privilege('authenticated', 'public.' || t, 'UPDATE') then raise exception 'S76 B2: direct write on %', t; end if;
   end loop;
   if has_function_privilege('anon', 'public.record_licence_verification(uuid, text, text, uuid, date, date, text)', 'EXECUTE') then raise exception 'S76 B2: anon can record'; end if;
-  if (select is_active from public.credentialing_config where version = 3) then raise exception 'S76 B2: the proposed config must not be active'; end if;
+  if (select is_active from public.credentialing_config where version = 4) then raise exception 'S76 B2: the proposed config must not be active'; end if;
   if private.credential_rule('reverify_months') is not null then raise exception 'S76 B2: the cadence must be inert until a signed version is activated'; end if;
   if not exists (select 1 from cron.job where jobname = 'licence-reverification-sweep') then raise exception 'S76 B2: sweep not scheduled'; end if;
 end $$;
