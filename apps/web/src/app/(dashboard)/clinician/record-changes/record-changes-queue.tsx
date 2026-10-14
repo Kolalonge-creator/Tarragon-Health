@@ -30,7 +30,10 @@ export interface RecordChangeRequest {
   } | null;
   created_at: string;
   patient: { full_name: string | null; patient_number: string | null } | null;
+  /** The allergy as recorded now, or null. */
   allergy: RecordChangeAllergy | null;
+  /** True when the current record could not be loaded (the audited read was refused or failed), so null does not mean "gone". */
+  allergyUnavailable: boolean;
 }
 
 const SEVERITY_LABEL: Record<string, string> = {
@@ -99,13 +102,7 @@ function Fields({
   );
 }
 
-function RequestCard({
-  request,
-  canDecide,
-}: {
-  request: RecordChangeRequest;
-  canDecide: boolean;
-}) {
+function RequestCard({ request }: { request: RecordChangeRequest }) {
   const [open, setOpen] = useState(false);
   const [confirmState, confirmAction, confirming] = useActionState<
     RecordChangeDecisionState,
@@ -138,7 +135,10 @@ function RequestCard({
         <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
           On record:{" "}
           <span className="font-medium">
-            {current?.allergen ?? "(entry no longer current)"}
+            {current?.allergen ??
+              (request.allergyUnavailable
+                ? "(could not be loaded)"
+                : "(entry no longer current)")}
           </span>
           {current?.severity ? `, ${SEVERITY_LABEL[current.severity]}` : ""}
         </p>
@@ -162,6 +162,11 @@ function RequestCard({
 
         {open && (
           <div className="space-y-4">
+            {request.allergyUnavailable && (
+              <p role="alert" className="text-sm text-destructive">
+                The current record could not be loaded. Check the patient&apos;s record before you decide.
+              </p>
+            )}
             <div className="grid gap-3 sm:grid-cols-2">
               <Fields
                 title="Current record"
@@ -220,8 +225,7 @@ function RequestCard({
               </p>
             </div>
 
-            {canDecide ? (
-              <div className="space-y-3 border-t border-charcoal-ink/10 pt-3 dark:border-night-ink/15">
+            <div className="space-y-3 border-t border-charcoal-ink/10 pt-3 dark:border-night-ink/15">
                 <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                   Until you confirm, the allergy stays active for prescribing
                   and on the emergency card.
@@ -275,12 +279,7 @@ function RequestCard({
                     {rejectState.message}
                   </p>
                 )}
-              </div>
-            ) : (
-              <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-                Only a doctor can decide this request.
-              </p>
-            )}
+            </div>
           </div>
         )}
       </CardContent>
@@ -288,13 +287,7 @@ function RequestCard({
   );
 }
 
-export function RecordChangesQueue({
-  requests,
-  canDecide,
-}: {
-  requests: RecordChangeRequest[];
-  canDecide: boolean;
-}) {
+export function RecordChangesQueue({ requests }: { requests: RecordChangeRequest[] }) {
   if (requests.length === 0) {
     return (
       <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
@@ -305,7 +298,7 @@ export function RecordChangesQueue({
   return (
     <div className="space-y-3">
       {requests.map((request) => (
-        <RequestCard key={request.id} request={request} canDecide={canDecide} />
+        <RequestCard key={request.id} request={request} />
       ))}
     </div>
   );

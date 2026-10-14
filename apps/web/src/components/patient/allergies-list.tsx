@@ -55,6 +55,7 @@ export function AllergiesList({ patientId }: { patientId: string }) {
   const { data: pendingRequests } = usePendingAllergyRequests(patientId);
   const withdrawRequest = useWithdrawAllergyRequest();
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
+  const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
 
   const [formOpen, setFormOpen] = useState(false);
   const [allergen, setAllergen] = useState("");
@@ -88,10 +89,13 @@ export function AllergiesList({ patientId }: { patientId: string }) {
 
   async function handleWithdraw(requestId: string) {
     setWithdrawError(null);
+    setWithdrawingId(requestId);
     try {
       await withdrawRequest.mutateAsync({ patientId, requestId });
     } catch (err) {
       setWithdrawError(err instanceof Error ? err.message : "We could not take that request back. Please try again.");
+    } finally {
+      setWithdrawingId(null);
     }
   }
 
@@ -131,7 +135,7 @@ export function AllergiesList({ patientId }: { patientId: string }) {
                   type="button"
                   size="sm"
                   variant="outline"
-                  disabled={withdrawRequest.isPending}
+                  disabled={withdrawingId === pendingRequestId}
                   onClick={() => handleWithdraw(pendingRequestId)}
                 >
                   Withdraw request

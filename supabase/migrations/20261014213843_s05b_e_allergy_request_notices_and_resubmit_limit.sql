@@ -3,23 +3,24 @@
 --      and no clinical term (INV-07); there is no SMS (INV-08). Who counts as tied: the people private.clinician_has_patient_access accepts
 --      by care team, open escalation or open alert, filtered to an active non-coordinator clinical_staff row. (That function reads
 --      auth.uid(), so it cannot be asked about somebody else, and the other ways it ties a clinician (a booked visit, a task, a page, a
---      referral) are not notified. The queue screen still shows a request to every clinician the real test admits, because it reads under
+--      referral) are not notified, and if that function's ties change this list will not follow by itself. The queue screen still shows a request to every clinician the real test admits, because it reads under
 --      row level security, and the sidebar count is the signal for those.)
 --   2. The patient gets one in-app notice when a request is confirmed (a rejection already sends one). Same plain wording rule.
 --   3. A patient may raise at most 3 requests per allergy in any rolling 7 days (any outcome counts, so withdrawing and asking again cannot
---      be used to flood the queue). Enforced here, by a trigger on the request table, whatever path inserts the row.
+--      be used to flood the queue; a request the system itself closed as void does not count, the patient did nothing to cause it).
+--      Enforced here, by a trigger on the request table, whatever path inserts the row. The limit is per allergy, not per patient.
 -- Nothing here changes who can decide a request, what a decision does, or any grant.
 
 -- 1. Recipients and the clinician notice --------------------------------------------------------------------------------------------
 insert into public.notification_templates (key, category, business_priority, audience, default_channels, timing, description) values
   ('record_change_request_waiting', 'operational', 'routine', 'clinician', array['in_app']::public.notification_channel[], 'immediate',
-   'S05b-e: a patient asked for a change in her record and it waits for a clinician. Names no entry, value or reason (INV-07), in-app only (INV-08).'),
+   'S05b-e: a patient asked for a change in their record and it waits for a clinician. Names no entry, value or reason (INV-07), in-app only (INV-08).'),
   ('record_change_confirmed', 'operational', 'routine', 'patient', array['in_app']::public.notification_channel[], 'immediate',
-   'S05b-e: a clinician made the change the patient asked for in her record. Names no entry or value (INV-07), in-app only (INV-08).')
+   'S05b-e: a clinician made the change the patient asked for in their record. Names no entry or value (INV-07), in-app only (INV-08).')
 on conflict (key) do nothing;
 insert into public.notification_template_locales (template_key, locale, channel, subject, body) values
   ('record_change_request_waiting', 'en', 'in_app', 'A record change is waiting',
-   'A patient has asked for a change in her record. Open your record changes queue to look at it.'),
+   'A patient has asked for a change in their record. Open your record changes queue to look at it.'),
   ('record_change_confirmed', 'en', 'in_app', 'Your record was updated',
    'Your care team made the change you asked for in your record. Open the app to see it.')
 on conflict (template_key, locale, channel) do nothing;
@@ -49,9 +50,15 @@ declare
   r record;
 begin
   for r in select profile_id from private.allergy_request_recipients(new.patient_id) loop
-    insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class)
-    values (new.organisation_id, r.profile_id, 'in_app', 'pending', 'record_change_request_waiting',
-            jsonb_build_object('request_id', new.id), 'non_clinical');
+    -- A notice is never allowed to undo the patient's request: if one cannot be written, say so in the database log and carry on. The
+    -- request still shows in the clinician's queue and in the sidebar count, which do not depend on a notice.
+    begin
+      insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class)
+      values (new.organisation_id, r.profile_id, 'in_app', 'pending', 'record_change_request_waiting',
+              jsonb_build_object('request_id', new.id), 'non_clinical');
+    exception when others then
+      raise warning 'S05b-e: the arrival notice for request % could not be written: %', new.id, sqlerrm;
+    end;
   end loop;
   return null;
 end;
@@ -65,9 +72,14 @@ create function private.notify_allergy_request_confirmed() returns trigger
 language plpgsql security definer set search_path = '' as
 $$
 begin
-  insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class)
-  values (new.organisation_id, new.patient_id, 'in_app', 'pending', 'record_change_confirmed',
-          jsonb_build_object('request_id', new.id), 'non_clinical');
+  -- A notice is never allowed to undo the clinician's confirmation (which has already changed the record): log and carry on.
+  begin
+    insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class)
+    values (new.organisation_id, new.patient_id, 'in_app', 'pending', 'record_change_confirmed',
+            jsonb_build_object('request_id', new.id), 'non_clinical');
+  exception when others then
+    raise warning 'S05b-e: the confirmation notice for request % could not be written: %', new.id, sqlerrm;
+  end;
   return null;
 end;
 $$;
@@ -84,7 +96,7 @@ begin
   -- one request at a time per allergy while counting, so two quick taps cannot both slip under the limit
   perform pg_advisory_xact_lock(hashtextextended('allergy_request_rate:' || new.allergy_id::text, 0));
   if (select count(*) from public.patient_allergy_correction_requests r
-       where r.allergy_id = new.allergy_id and r.created_at > now() - interval '7 days') >= 3 then
+       where r.allergy_id = new.allergy_id and r.status <> 'void' and r.created_at > now() - interval '7 days') >= 3 then
     raise exception 'You have asked about this entry a few times this week. Please message your care team about it instead, and they will help.'
       using errcode = '22023';
   end if;

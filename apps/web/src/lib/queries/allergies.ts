@@ -140,7 +140,8 @@ export function useWithdrawAllergyRequest() {
       });
       if (error) throw error;
     },
-    onSuccess: (_result, variables) => {
+    // On success AND on failure: a refusal such as "already decided" means the list on screen is stale, so refresh it either way.
+    onSettled: (_result, _error, variables) => {
       queryClient.invalidateQueries({ queryKey: requestsKey(variables.patientId) });
       queryClient.invalidateQueries({ queryKey: allergiesKey(variables.patientId) });
     },
