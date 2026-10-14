@@ -20,6 +20,7 @@
 begin;
 
 create temporary table s67_result(check_name text, observed text, expected text, verdict text) on commit drop;
+grant all on s67_result to public;   -- some checks run while acting as a fixture user
 create or replace function pg_temp.check_eq(p_name text, p_observed text, p_expected text) returns void language plpgsql as $$
 begin
   insert into s67_result values (p_name, p_observed, p_expected, case when p_observed is not distinct from p_expected then 'PASS' else 'FAIL' end);
@@ -130,6 +131,8 @@ begin
   reset role;
   perform pg_temp.check_eq('A9 a patient cannot reopen an ended pregnancy', v_ok::text, 'true');
 
+  -- the steps above leave a fixture user's session claims in place; the next fixture writes as the system (profiles.is_test can only be set by an admin or a service context)
+  perform set_config('request.jwt.claims', '', true);
   -- direct write by an older writer (patient_pregnancy) reaches the history; a new patient
   declare v_p2 uuid := gen_random_uuid();
   begin
