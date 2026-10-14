@@ -11,12 +11,20 @@ import type { ProviderResult } from "./result.ts";
 export type Kobo = number;
 export type PaymentMetadata = Readonly<Record<string, string | number | boolean>>;
 
+/** The channels Paystack's initialize call accepts (its documented `channels` values). We send an explicit list so the hosted page never follows dashboard defaults. */
+export const PAYMENT_CHANNELS = ["card", "bank", "ussd", "qr", "mobile_money", "bank_transfer", "eft"] as const;
+export type PaymentChannel = (typeof PAYMENT_CHANNELS)[number];
+export const isPaymentChannelList = (v: unknown): v is readonly PaymentChannel[] =>
+  Array.isArray(v) && v.length > 0 && v.length <= PAYMENT_CHANNELS.length && new Set(v).size === v.length && v.every((c) => (PAYMENT_CHANNELS as readonly unknown[]).includes(c));
+
 export interface InitializeTransactionInput {
   /** Our own unique reference for this checkout (one per order attempt). */
   readonly reference: string;
   readonly email: string;
   readonly amountKobo: Kobo;
   readonly callbackUrl?: string;
+  /** Which payment methods the hosted page offers (S71, 19.2). Omitted means the provider's dashboard defaults, which a checkout should not rely on. */
+  readonly channels?: readonly PaymentChannel[];
   /** Opaque ids only (order id). Never a condition, reading or result: Paystack shows metadata in its dashboard. */
   readonly metadata?: PaymentMetadata;
 }

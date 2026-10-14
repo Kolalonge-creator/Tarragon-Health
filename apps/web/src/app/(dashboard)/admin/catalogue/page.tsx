@@ -17,10 +17,10 @@ const clockMs = (): number => Date.now();
 
 const priceRow = z.object({ amount_kobo: z.number().int(), valid_from: z.string(), valid_to: z.string().nullable(), reason: z.string().nullable() });
 const itemRow = z.object({
-  code: z.string(), kind: z.string(), active: z.boolean(), note: z.string().nullable(), paid_orders: z.number().int(),
+  code: z.string(), kind: z.string(), audience: z.string().default("patient"), active: z.boolean(), note: z.string().nullable(), paid_orders: z.number().int(),
   duration_days: z.number().int().nullable(), uses: z.number().int().nullable(), grants_lead: z.boolean(), prices: z.array(priceRow),
 });
-const view = z.object({ checkout_open: z.boolean(), items: z.array(itemRow) });
+const view = z.object({ checkout_open: z.boolean(), membership_guard_on: z.boolean().default(false), items: z.array(itemRow) });
 
 export default async function AdminCataloguePage() {
   const profile = await getCurrentProfile();
@@ -41,6 +41,9 @@ export default async function AdminCataloguePage() {
           <p role="status">
             Checkout is <strong>{parsed.data.checkout_open ? "open" : "closed"}</strong>. It is a platform module (<code>v5_checkout</code>) that only a superadmin switches on, once prices are confirmed and clinicians are ready.
           </p>
+          <p role="status">
+            The Membership can be switched on only while its go-live guard (<code>membership_billing_enabled</code>) is <strong>{parsed.data.membership_guard_on ? "on" : "off"}</strong>. It is a one-off yearly purchase with an end date: nothing renews or charges again by itself, and every change here is written to the audit log with your reason.
+          </p>
           {parsed.data.items.map((i) => {
             // The price in force today, not the open-ended row: a parked price (starts far in the future) is not the current one.
             const now = clockMs();
@@ -49,7 +52,7 @@ export default async function AdminCataloguePage() {
               <Card key={i.code}>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    {i.code} <Badge>{i.kind}</Badge> <Badge>{i.active ? "on" : "off"}</Badge>
+                    {i.code} <Badge>{i.kind}</Badge> {i.audience === "institution" ? <Badge>institution</Badge> : null} <Badge>{i.active ? "on" : "off"}</Badge>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -69,7 +72,7 @@ export default async function AdminCataloguePage() {
                     </ul>
                   </details>
                   <ActiveForm code={i.code} active={i.active} />
-                  <PriceForm code={i.code} />
+                  {i.audience === "institution" ? <p>Priced by a price book rate for each covered person, never by a list price.</p> : <PriceForm code={i.code} />}
                 </CardContent>
               </Card>
             );
