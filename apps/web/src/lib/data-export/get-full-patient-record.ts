@@ -31,9 +31,9 @@ import type { Database } from "@tarragon/shared";
  *
  * ACCESS: every query below is scoped to `patientId` and run on the
  * CALLER's own RLS-scoped session client — this must only ever be called
- * with a client authenticated as that same patient (or an org-staff/admin
- * session with legitimate access), never a service-role client on someone
- * else's behalf. The API route enforces the "own record only" half of
+ * with a client authenticated as that same patient (S05b-d: the corrected-entries
+ * function enforces it and raises for any other id), never a service-role
+ * client or a staff client on someone else's behalf. The API route enforces the "own record only" half of
  * that; RLS enforces the rest.
  */
 

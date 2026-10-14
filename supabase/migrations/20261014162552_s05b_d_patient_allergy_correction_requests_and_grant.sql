@@ -30,8 +30,9 @@
 --       code reads the column, the foreign key stays valid, repointing is not done (care_plans carries signed-change triggers);
 --       (4) alerts raised for an original reading: no reader joins an alert to its reading (they only test that the id is set), an alert
 --       stays open for the clinician who made the correction to resolve, and a patient cannot correct a reading that has one;
---       (5) the export: my_corrected_record_entries below; (6) a `select *` view freezes its column list: the self-check at the end fails
---       if a _current view no longer has exactly the columns of its table, so the next added column fails the replay instead of hiding.
+--       (5) the export: my_corrected_record_entries below; (6) a `select *` view freezes its column list: the end of this migration asserts
+--       each _current view has exactly its table's columns today, and the standing check for a column added LATER is the proof
+--       s05b_d_patient_allergy_correction_requests.sql (section F, registered in ci.manifest), which fails CI until the view is rebuilt.
 -- The S05b-a and S05b-c self-checks in their own (already applied) files still say "authenticated must not execute": they were true at the
 -- time they ran in the replay and stay as history; the assertion that holds from here on is the one at the end of THIS migration and in
 -- the proofs.
