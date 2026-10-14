@@ -31,6 +31,7 @@ import { EmergencyCardScreen } from "@/screens/sections/emergency-card-screen";
 import { SettingsScreen } from "@/screens/sections/settings-screen";
 import { SupportingScreen } from "@/screens/sections/supporting-screen";
 import { ReceiptsScreen } from "@/screens/sections/receipts-screen";
+import { PaymentRequestsScreen } from "@/screens/sections/payment-requests-screen";
 import { NotificationSettingsScreen } from "@/screens/sections/notification-settings-screen";
 import { RemindersScreen } from "@/screens/sections/reminders-screen";
 import { TechnicalSupportScreen } from "@/screens/sections/technical-support-screen";
@@ -323,6 +324,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
       />
     ),
     receipts: () => <ReceiptsScreen />,
+    paymentRequests: () => <PaymentRequestsScreen />,
     reminders: () => <RemindersScreen userId={userId} />,
     notificationSettings: () => (
       <NotificationSettingsScreen patientId={userId} organisationId={organisationId} />

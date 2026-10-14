@@ -27225,6 +27225,125 @@ export type Database = {
           },
         ]
       }
+      // S05b-d: spliced by hand, see CLAUDE.md on why the generator is not used wholesale. Read only for clients (the functions write).
+      patient_allergy_correction_events: {
+        Row: {
+          actor_id: string | null
+          actor_role: string
+          at: string
+          event: string
+          id: string
+          note: string | null
+          organisation_id: string
+          request_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_role: string
+          at?: string
+          event: string
+          id?: string
+          note?: string | null
+          organisation_id: string
+          request_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          actor_role?: string
+          at?: string
+          event?: string
+          id?: string
+          note?: string | null
+          organisation_id?: string
+          request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_allergy_correction_events_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_allergy_correction_events_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "patient_allergy_correction_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_allergy_correction_requests: {
+        Row: {
+          allergy_id: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          id: string
+          organisation_id: string
+          patient_id: string
+          reason: string
+          replacement: Json | null
+          replacement_id: string | null
+          requested_status: Database["public"]["Enums"]["correction_status"]
+          status: string
+        }
+        Insert: {
+          allergy_id: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          organisation_id: string
+          patient_id: string
+          reason: string
+          replacement?: Json | null
+          replacement_id?: string | null
+          requested_status: Database["public"]["Enums"]["correction_status"]
+          status?: string
+        }
+        Update: {
+          allergy_id?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          reason?: string
+          replacement?: Json | null
+          replacement_id?: string | null
+          requested_status?: Database["public"]["Enums"]["correction_status"]
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_allergy_correction_requests_allergy_id_fkey"
+            columns: ["allergy_id"]
+            isOneToOne: false
+            referencedRelation: "patient_allergies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_allergy_correction_requests_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_allergy_correction_requests_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_blood_profile: {
         Row: {
           attestation_version: string | null
@@ -42262,17 +42381,14 @@ export type Database = {
       wellness_points_config: {
         Row: {
           id: boolean
-          points_to_kobo_rate: number
           updated_at: string
         }
         Insert: {
           id?: boolean
-          points_to_kobo_rate?: number
           updated_at?: string
         }
         Update: {
           id?: boolean
-          points_to_kobo_rate?: number
           updated_at?: string
         }
         Relationships: []
@@ -42324,58 +42440,6 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      wellness_points_redemptions: {
-        Row: {
-          created_at: string
-          id: string
-          kobo_credited: number
-          organisation_id: string
-          patient_id: string
-          points_redeemed: number
-          voucher_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          kobo_credited: number
-          organisation_id: string
-          patient_id: string
-          points_redeemed: number
-          voucher_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          kobo_credited?: number
-          organisation_id?: string
-          patient_id?: string
-          points_redeemed?: number
-          voucher_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "wellness_points_redemptions_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wellness_points_redemptions_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wellness_points_redemptions_voucher_id_fkey"
-            columns: ["voucher_id"]
-            isOneToOne: false
-            referencedRelation: "care_vouchers"
             referencedColumns: ["id"]
           },
         ]
@@ -44019,6 +44083,11 @@ export type Database = {
       }
       // S05b-c: spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       clinical_value_history: { Args: { p_table: string; p_id: string }; Returns: Json }
+      // S05b-d: spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
+      confirm_patient_allergy_correction: { Args: { p_request_id: string; p_note?: string }; Returns: Json }
+      reject_patient_allergy_correction: { Args: { p_request_id: string; p_note?: string }; Returns: Json }
+      my_corrected_record_entries: { Args: { p_patient?: string }; Returns: Json }
+      withdraw_patient_allergy_correction: { Args: { p_request_id: string }; Returns: Json }
       // S27 (lab results and release rules): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       bp_control_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       // S38c (monthly report and risk stratification): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
@@ -44692,6 +44761,62 @@ export type Database = {
       cancel_order: { Args: { p_order: string }; Returns: boolean };
       care_message_scope: { Args: { p_message: string }; Returns: Json };
       catalogue: { Args: never; Returns: Json };
+      catalogue_item: { Args: { p_code: string }; Returns: Json };
+      price_quote: {
+        Args: { p_beneficiary?: string; p_code: string; p_discount_code?: string; p_use_points?: boolean }
+        Returns: Json
+      };
+      admin_pricing_overview: { Args: never; Returns: Json };
+      // S72: Community Access Fund, payment requests, entitlements (19.8 to 19.13)
+      pledge_donation: { Args: { p_amount_kobo: number; p_item_code?: string }; Returns: Json };
+      cancel_my_donation: { Args: { p_id: string }; Returns: Json };
+      my_donations: { Args: never; Returns: Json };
+      my_access_fund_support: { Args: never; Returns: Json };
+      ops_confirm_donation_received: { Args: { p_bank_reference: string; p_id: string; p_note: string }; Returns: Json };
+      ops_approve_access_fund_grant: { Args: { p_ceiling_kobo: number; p_criterion: string; p_item_code: string; p_note: string; p_patient: string }; Returns: Json };
+      ops_cancel_access_fund_grant: { Args: { p_id: string; p_reason: string }; Returns: Json };
+      admin_access_fund_overview: { Args: never; Returns: Json };
+      expire_access_fund: { Args: never; Returns: Json };
+      access_fund_public_report: { Args: never; Returns: Json };
+      create_payment_request: { Args: { p_beneficiary?: string; p_item_code: string }; Returns: Json };
+      cancel_payment_request: { Args: { p_id: string }; Returns: Json };
+      my_payment_requests: { Args: never; Returns: Json };
+      payment_request_preview: { Args: { p_code: string; p_visitor: string }; Returns: Json };
+      create_request_order: { Args: { p_client_key?: string; p_code: string }; Returns: Json };
+      expire_payment_requests: { Args: never; Returns: number };
+      my_entitlements: { Args: never; Returns: Json };
+      // S71: sponsor programmes, HMO eligibility, sponsor cover
+      available_hmos: { Args: never; Returns: Json };
+      my_hmo_eligibility: { Args: never; Returns: Json };
+      admin_hmo_checks_pending: { Args: never; Returns: Json };
+      request_hmo_eligibility: { Args: { p_hmo: string; p_member_number: string }; Returns: Json };
+      record_hmo_eligibility_result: { Args: { p_adapter: string; p_check: string; p_result: string }; Returns: Json };
+      ops_verify_hmo_eligibility: { Args: { p_check: string; p_eligible: boolean; p_member_number: string; p_note?: string }; Returns: Json };
+      admin_sponsor_programmes: { Args: never; Returns: Json };
+      admin_create_sponsor_programme: {
+        Args: {
+          p_budget_kobo: number; p_cohort_id: string; p_eligibility: string; p_hmo_check_valid_days: number; p_is_test?: boolean; p_item_codes: string[]
+          p_name: string; p_per_person_cap_kobo: number; p_reason: string; p_share_percent: number; p_sponsor_org: string; p_valid_from: string; p_valid_to: string
+        }
+        Returns: string
+      };
+      admin_set_sponsor_programme_status: { Args: { p_id: string; p_reason: string; p_status: string }; Returns: undefined };
+      admin_set_sponsor_programme_budget: { Args: { p_budget_kobo: number; p_id: string; p_reason: string }; Returns: undefined };
+      cancel_sponsor_entitlement: { Args: { p_order: string; p_reason: string }; Returns: Json };
+      admin_create_price_book: { Args: { p_name: string; p_sponsor_org: string }; Returns: string };
+      admin_set_price_book_status: { Args: { p_book: string; p_reason: string; p_status: string }; Returns: undefined };
+      admin_set_price_book_entry: {
+        Args: { p_book: string; p_item_code: string; p_rate_kobo: number; p_reason: string; p_sponsor_share_percent: number; p_valid_from?: string }
+        Returns: string
+      };
+      admin_set_discount_code_status: { Args: { p_id: string; p_reason: string; p_status: string }; Returns: undefined };
+      admin_create_discount_code: {
+        Args: {
+          p_code: string; p_cohort_id: string; p_fixed_kobo: number; p_item_codes: string[]; p_kind: string; p_max_discount_kobo: number
+          p_max_per_person: number; p_max_total_uses: number; p_note: string; p_percent: number; p_valid_from: string; p_valid_to: string
+        }
+        Returns: Json
+      };
       close_referral: {
         Args: { p_care_plan_update_note: string; p_referral: string }
         Returns: undefined
@@ -44717,7 +44842,14 @@ export type Database = {
         Returns: string;
       };
       create_order: {
-        Args: { p_beneficiary?: string; p_client_key?: string; p_code: string };
+        Args: {
+          p_beneficiary?: string
+          p_client_key?: string
+          p_code: string
+          p_discount_code?: string
+          p_expected_amount_kobo?: number
+          p_use_points?: boolean
+        };
         Returns: Json;
       };
       create_specialist_referral: {
@@ -48111,7 +48243,6 @@ export type Database = {
         Returns: Json
       }
       redeem_referral_code: { Args: { p_code: string }; Returns: Json }
-      redeem_wellness_points: { Args: { p_points: number }; Returns: Json }
       refer_patient_to_specialist: {
         Args: {
           p_patient_id: string

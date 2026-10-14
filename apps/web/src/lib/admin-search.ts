@@ -35,6 +35,7 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/clinician/triage-review", "review automatic grades triage agreement right higher lower completed tasks checker"],
   ["/admin/risk-fairness", "risk fairness bias distribution tiers sex age state groups worklist ordering check"],
   ["/admin/outcomes", "outcomes blood pressure control 90 day report bp snapshot day 30 180 hypertension programme results adherence cohort"],
+  ["/admin/access-fund", "community access fund donation donations gift pledge bank transfer grant grants hardship cannot afford restricted gift criteria approve donor"],
   ["/admin/organisation-prices", "organisation prices employer price per member seat 100000 flat default override employer pays discount negotiated invoice floor ceiling company corporate hmo"],
   ["/admin/catalogue", "catalogue prices price list items membership care pack consultation checkout paystack switch on off sell buy"],
   ["/clinician/lab-results", "lab result review held abnormal critical release disclosure disclose positive hiv hepatitis screening withhold"],

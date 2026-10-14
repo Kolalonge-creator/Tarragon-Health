@@ -258,6 +258,9 @@ end $$;
 do $$
 declare v_p3 uuid := pg_temp.f('pat3'); v_admin uuid := pg_temp.f('admin'); ref text; o uuid; v_doc uuid;
 begin
+  -- S73: the Membership is switched on only behind its go-live guard; open it the way the guard allows (a log row in this transaction, then the switch)
+  insert into public.go_live_guard_log (guard_key, action, actor_id, actor_role, note, conditions) values ('membership_billing_enabled', 'switched_on', v_admin, 'admin', 'proof run', '[]'::jsonb);
+  update public.go_live_guards set is_on = true, changed_at = now(), changed_by = v_admin, change_note = 'proof run' where key = 'membership_billing_enabled';
   perform pg_temp.ck('staff switch the membership on', 'ok',
     pg_temp.try_as(v_admin, $q$select public.set_catalog_item_active('membership_annual', true, 'Proof run, membership on for testing')$q$));
   perform pg_temp.ck('a membership needs a free lead slot', 'true',

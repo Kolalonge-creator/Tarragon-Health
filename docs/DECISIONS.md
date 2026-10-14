@@ -354,3 +354,9 @@ Full text, options and guideline basis: `docs/plans/S06-S10-decisions-and-cmo-si
 | Decision | Chosen |
 |---|---|
 | Counsel brief `docs/plans/S01-S05-counsel-brief.md` (guardian consent, child age, hand-over at 18, DPIA, consent receipts, EU hosting, under-18 refusal) | Founder reports counsel has signed off on the plan as built: adults 18 and over only; guardian consent for a dependant under 18 limited to immunisation and preventive tracking; hand-over at 18 only with the young person's own agreement after a 30 day notice; consent receipts as evidence; refusal of under-18 sign-up. Recorded from the founder in chat. The written opinion is not in the repo yet; file it under `docs/legal/` when received. No code change follows, because the build already matches the brief. |
+
+## S05b-d a patient's own allergy correction waits for a clinician (2026-10-14)
+
+| Decision | Chosen |
+|---|---|
+| When a patient voids or corrects an allergy she entered herself and no clinician verified (S05b-c open risk: it would leave prescription safety and the emergency card at once) | Her request is saved, but the ORIGINAL allergy stays active in prescription safety, the emergency card and every reader until a tied clinician (not a care coordinator) confirms. A clinician-tied user's correction takes effect immediately, as before. A rejected request leaves the original untouched and tells the patient by one in-app notice with no clinical words. Every other table keeps its current rule (a patient still corrects her own manual reading at once). Chosen by the founder in chat. Built in `20261014162552_s05b_d_patient_allergy_correction_requests_and_grant.sql`. |
