@@ -49,13 +49,13 @@ begin
   select count(*) into v_notif_before from public.notifications;
   update public.ops_alerts set state = 'resolved', resolved_at = now() where rule_code = 'rota_gap_12h' and state = 'open';
   update public.ops_incidents
-     set status = 'resolved', resolved_at = now(), root_cause = 'Alert de-duplication key moved on every evaluation (fixed by this migration)',
+     set status = 'resolved', resolved_at = now(), acknowledged_at = coalesce(acknowledged_at, now()), mitigated_at = coalesce(mitigated_at, now()), root_cause = 'Alert de-duplication key moved on every evaluation (fixed by this migration)',
          corrective_action = 'x', preventive_action = 'y'
    where title = 'Nobody is on call for part of the next 12 hours' and external_reference like 'ops_alert:rota_gap_12h:%' and status not in ('resolved', 'closed');
   select count(*) into v_notif_after from public.notifications;
   if v_notif_after <> v_notif_before then raise exception 'C: clean-up sent notifications'; end if;
   if not exists (select 1 from public.ops_alerts where id = v_old_alert and state = 'resolved') then raise exception 'C: old alert not resolved'; end if;
-  if not exists (select 1 from public.ops_incidents where id = v_old_inc and status = 'resolved') then raise exception 'C: old incident not resolved'; end if;
+  if not exists (select 1 from public.ops_incidents where id = v_old_inc and status = 'resolved' and acknowledged_at is not null and mitigated_at is not null and resolved_at is not null) then raise exception 'C: old incident not resolved with all timestamps'; end if;
   -- other titles untouched
   insert into public.ops_incidents (organisation_id, category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
     values (null, 'technical', 'sev2', 'Some other incident', 'x', 'ops_alert:other:1', now(), now());
