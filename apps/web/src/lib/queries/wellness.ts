@@ -84,25 +84,6 @@ export function useWellnessPointsLedger(patientId: string, limit = 20) {
   });
 }
 
-export function useRedeemWellnessPoints(patientId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (points: number) => {
-      const supabase = createClient();
-      const { data, error } = await supabase.rpc("redeem_wellness_points", { p_points: points });
-      if (error) throw error;
-      const result = data as { ok: boolean; error?: string; balance?: number; kobo_credited?: number };
-      if (!result.ok) throw new Error(result.error ?? "Could not redeem points.");
-      return result;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: pointsBalanceKey(patientId) });
-      queryClient.invalidateQueries({ queryKey: pointsLedgerKey(patientId) });
-      queryClient.invalidateQueries({ queryKey: ["care-vouchers", patientId] });
-    },
-  });
-}
-
 // ---------------------------------------------------------------------------
 // Badges
 // ---------------------------------------------------------------------------
@@ -295,7 +276,6 @@ const adminBadgesKey = ["wellness-admin-badges"] as const;
 const adminChallengesKey = ["wellness-admin-challenges"] as const;
 const adminProvidersKey = ["wellness-admin-class-providers"] as const;
 const adminClassesKey = ["wellness-admin-classes"] as const;
-const pointsConfigKey = ["wellness-points-config"] as const;
 
 export function useAdminWellnessBadges() {
   return useQuery({
@@ -425,39 +405,6 @@ export function useSetWellnessClassActive() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: adminClassesKey });
       queryClient.invalidateQueries({ queryKey: upcomingClassesKey });
-    },
-  });
-}
-
-export function useWellnessPointsConfig() {
-  return useQuery({
-    queryKey: pointsConfigKey,
-    queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("wellness_points_config")
-        .select("*")
-        .eq("id", true)
-        .single();
-      if (error) throw error;
-      return data as Tables<"wellness_points_config">;
-    },
-  });
-}
-
-export function useSetWellnessPointsRate() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (rate: number) => {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("wellness_points_config")
-        .update({ points_to_kobo_rate: rate })
-        .eq("id", true);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: pointsConfigKey });
     },
   });
 }

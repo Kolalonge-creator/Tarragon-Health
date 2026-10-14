@@ -19,6 +19,8 @@ export type ProviderErrorCode =
   | "suppressed"
   | "unsupported"
   | "invalid_signature"
+  /** The provider-health breaker is open: the call was not made. Retryable later, but not by this caller straight away. */
+  | "circuit_open"
   /** A genuine, correctly signed event that arrived outside the replay window. Its signature held, so it is not an attack: callers acknowledge it. */
   | "stale_event";
 

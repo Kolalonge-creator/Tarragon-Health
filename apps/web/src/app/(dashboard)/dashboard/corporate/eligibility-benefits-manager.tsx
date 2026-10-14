@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { formatNaira } from "@tarragon/commerce";
 import {
   useEmployerAccount,
   useEmployerLocations,
@@ -12,6 +13,7 @@ import {
 import {
   useBenefitPackages,
   useServiceProductCatalog,
+  useOrganisationSeatSummary,
   useCreateBenefitPackage,
   useBenefitAllowances,
   useSetBenefitAllowance,
@@ -165,9 +167,12 @@ function AllowancesEditor({ packageId }: { packageId: string }) {
   );
 }
 
+const MEMBERSHIP_OPTION = "__membership__";
+
 function BenefitPackagesCard({ organisationId }: { organisationId: string }) {
   const packages = useBenefitPackages(organisationId);
   const plans = useServiceProductCatalog();
+  const seats = useOrganisationSeatSummary(organisationId);
   const createPackage = useCreateBenefitPackage(organisationId);
   const [name, setName] = useState("");
   const [planId, setPlanId] = useState("");
@@ -177,8 +182,14 @@ function BenefitPackagesCard({ organisationId }: { organisationId: string }) {
   function handleCreate(e: FormEvent) {
     e.preventDefault();
     if (!name.trim() || !planId) return;
+    const membershipItem = planId === MEMBERSHIP_OPTION ? seats.data?.catalog_item_id : null;
+    if (planId === MEMBERSHIP_OPTION && !membershipItem) return;
     createPackage.mutate(
-      { name: name.trim(), service_product_id: planId, lab_discount_percent: Number(discount) || 0 },
+      {
+        name: name.trim(),
+        ...(membershipItem ? { catalog_item_id: membershipItem } : { service_product_id: planId }),
+        lab_discount_percent: Number(discount) || 0,
+      },
       { onSuccess: () => setName("") }
     );
   }
@@ -193,6 +204,16 @@ function BenefitPackagesCard({ organisationId }: { organisationId: string }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {seats.data?.price_kobo ? (
+          <p className="text-sm text-charcoal-ink/80" role="status">
+            A Membership seat costs your organisation ₦{formatNaira(seats.data.price_kobo)} a year, invoiced to you. You have {seats.data.active_seats}{" "}
+            active {seats.data.active_seats === 1 ? "seat" : "seats"}.{" "}
+            {seats.data.module_open ? "" : "Organisation-paid Membership is not open yet, so a package cannot grant it."}
+            {seats.data.already_member_count > 0
+              ? ` ${seats.data.already_member_count} ${seats.data.already_member_count === 1 ? "employee already has" : "employees already have"} their own Membership, so you are not billed for them until it ends.`
+              : ""}
+          </p>
+        ) : null}
         <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-2">
           <div className="space-y-1.5">
             <Label htmlFor="package_name">Package name</Label>
@@ -202,6 +223,11 @@ function BenefitPackagesCard({ organisationId }: { organisationId: string }) {
             <Label htmlFor="package_plan">Plan tier</Label>
             <Select id="package_plan" value={planId} onChange={(e) => setPlanId(e.target.value)}>
               <option value="">Select…</option>
+              {seats.data?.module_open && seats.data.price_kobo ? (
+                <option value={MEMBERSHIP_OPTION}>
+                  Tarragon Membership (₦{formatNaira(seats.data.price_kobo)} per member per year, billed to your organisation)
+                </option>
+              ) : null}
               {(plans.data ?? []).map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}

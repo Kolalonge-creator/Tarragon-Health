@@ -7,6 +7,8 @@ import {
   myApplicationSchema,
   myCredentialStatusSchema,
   queueSchema,
+  workListSchema,
+  type WorkList,
   startTestSchema,
   type ApplicationDetail,
   type CredentialingContent,
@@ -48,4 +50,8 @@ export async function getContent(): Promise<CredentialingContent> {
 /** The scenarios of the applicant's open attempt (no answer key). Resumes the attempt; never creates one. */
 export async function getOpenTest(applicationId: string): Promise<z.infer<typeof startTestSchema>> {
   return rpcParsed(await createClient(), "start_credential_test", { p_application: applicationId }, startTestSchema);
+}
+
+export async function getWorkList(): Promise<WorkList> {
+  return rpcParsed(await createClient(), "credentialing_work_list", {}, workListSchema);
 }

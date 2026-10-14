@@ -64,6 +64,16 @@ begin
       p_tier::public.doctor_tier, p_emp::public.staff_employment_type, 2, p_langs, p_rel,
       (p_emp = 'contracted' or p_tier = 'chief_medical_officer'), case when p_emp = 'contracted' or p_tier = 'chief_medical_officer' then p_admin end, p_test)
   returning id into v_staff;
+  -- P5/Q14: a non-test clinician needs a recorded primary-source verification to be eligible (test clinicians are exempt)
+  if not p_test then
+    declare v_doc uuid;
+    begin
+      insert into public.clinician_documents (organisation_id, owner_profile_id, clinical_staff_id, kind, storage_path, mime_type, size_bytes, sha256, is_test)
+        values (p_org, v, v_staff, 'mdcn_confirmation', p_org || '/' || v || '/psv.pdf', 'application/pdf', 1000, repeat('c', 64), true) returning id into v_doc;
+      insert into public.clinician_primary_source_verifications (organisation_id, clinical_staff_id, kind, route, reference, verified_on, verified_by, evidence_document_id, is_test)
+        values (p_org, v_staff, 'initial', 'mdcn_dataflow', 'S18-' || p_label || '-' || substr(v::text, 1, 8), (now() at time zone 'Africa/Lagos')::date, p_admin, v_doc, false);
+    end;
+  end if;
   foreach c in array p_comps loop
     insert into public.clinician_competencies (organisation_id, clinical_staff_id, competency_code, granted_by, is_test) values (p_org, v_staff, c, p_admin, true);
   end loop;
@@ -95,7 +105,7 @@ begin
   v_b  := pg_temp.mkdoc(v_org, v_admin, 'lead-b', 'senior_medical_officer', 'contracted', '{fr,en}',  80, '{lead_clinician,hypertension,on_call}');
   v_c  := pg_temp.mkdoc(v_org, v_admin, 'lead-c', 'senior_medical_officer', 'employed',   '{en}',     70, '{lead_clinician,hypertension,on_call}');
   v_d  := pg_temp.mkdoc(v_org, v_admin, 'oncall-d', 'senior_medical_officer', 'employed', '{en}',     60, '{hypertension,on_call}');
-  v_mo := pg_temp.mkdoc(v_org, v_admin, 'mo', 'medical_officer', 'employed', '{en}',                   99, '{lead_clinician,hypertension}');
+  v_mo := pg_temp.mkdoc(v_org, v_admin, 'mo', 'care_coordinator', 'employed', '{en}',                   99, '{lead_clinician,hypertension}');
   v_nc := pg_temp.mkdoc(v_org, v_admin, 'no-comp', 'senior_medical_officer', 'employed', '{en}',       99, '{hypertension}');
   v_e := pg_temp.mkdoc(v_org, v_admin, 'oncall-e', 'senior_medical_officer', 'employed', '{en}', 50, '{on_call}');
   -- real (not test) clinicians for the real patients: test and real never mix (INV-13)

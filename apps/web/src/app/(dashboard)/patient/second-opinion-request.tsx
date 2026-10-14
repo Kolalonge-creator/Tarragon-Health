@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
+import { useMyMembership } from "@/lib/queries/commerce";
 import {
   useMySecondOpinionRequests,
   useSubmitSecondOpinionRequest,
@@ -80,6 +82,8 @@ export function SecondOpinionRequestCard({
   const { data: requests } = useMySecondOpinionRequests(patientId);
   const { data: hasCredit, isLoading: isCheckingCredit } =
     useHasAvailableServicePurchase(patientId, SECOND_OPINION_CREDIT_CODE);
+  const membership = useMyMembership();
+  const isMember = membership.data?.is_member === true;
   const submit = useSubmitSecondOpinionRequest();
   const [existingDiagnosisOrResult, setExistingDiagnosisOrResult] =
     useState("");
@@ -120,7 +124,7 @@ export function SecondOpinionRequestCard({
         onError: (error) => {
           setFormError(
             (error as Error).message?.includes("second opinion credit")
-              ? "Buy a second opinion credit first."
+              ? "A second opinion is an extra for Members. Buy one first."
               : (error as Error).message || "Could not send this request.",
           );
         },
@@ -140,16 +144,26 @@ export function SecondOpinionRequestCard({
           visit needed.
         </p>
 
-        {!isCheckingCredit && !hasCredit && (
+        {!isCheckingCredit && !hasCredit && isMember && (
           <div className="space-y-2 rounded-md border border-brand-green/30 dark:border-brand-green-bright/30 bg-brand-green/5 dark:bg-brand-green/15 p-3">
             <p className="text-sm text-charcoal-ink dark:text-night-ink">
-              Buy a second opinion credit to send a request.
+              A second opinion is an extra for Members. Buy one to send a request.
             </p>
             <PayByCard
               serviceProductCode={SECOND_OPINION_CREDIT_CODE}
               callbackPath="/patient/care"
               onError={setFormError}
             />
+          </div>
+        )}
+        {!isCheckingCredit && !hasCredit && !isMember && !membership.isLoading && (
+          <div className="space-y-2 rounded-md border border-brand-green/30 dark:border-brand-green-bright/30 bg-brand-green/5 dark:bg-brand-green/15 p-3">
+            <p className="text-sm text-charcoal-ink dark:text-night-ink">
+              A second opinion is part of Membership.{" "}
+              <Link href="/patient/membership" className="font-medium underline">
+                Join Membership
+              </Link>
+            </p>
           </div>
         )}
 

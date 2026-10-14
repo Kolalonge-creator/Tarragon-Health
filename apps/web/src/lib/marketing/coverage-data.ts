@@ -36,7 +36,6 @@ function toStateCoverage(raw: unknown): StateCoverage | null {
       pharmacy: services.pharmacy === true,
       specialist: services.specialist === true,
       home_visit: services.home_visit === true,
-      delivery: services.delivery === true,
     },
   };
 }

@@ -33,6 +33,7 @@
 // anon-executable.
 
 import { execFileSync } from "node:child_process";
+import { execWithRetry } from "./retry-sync.mjs";
 import { writeFileSync, rmSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -72,6 +73,16 @@ const ALLOWLIST = new Set([
   // prescription records a supply, bounded by active status, the clinician-approved repeats and a 10 minute
   // duplicate window; self-declared pharmacy and pharmacist names, no patient data returned.
   "public.record_prescription_supply_public(p_token text, p_pharmacy_name text, p_pharmacist_name text, p_pharmacist_registration text, p_quantity_supplied text)",
+  // 20261013181946_s09x_my_health_completion.sql -- the public record-share page (/share/[token]). A holder of the
+  // link (and its PIN, if one was set) reads only the sections the patient chose. Revoked from public then granted to
+  // anon on purpose; the migration's own self-check asserts both functions are anon-executable and every other new
+  // function is not. Wrong PINs lock the share after 5, are rate limited per client, and every attempt is audited.
+  "public.record_share_by_token(p_token text, p_pin text, p_client_key text)",
+  // Same migration: the landing page only PEEKS (is this link usable?) so a link preview or prefetch is never counted as an open.
+  "public.record_share_peek(p_token text)",
+  // 20261005222628_platform_switches_pidgin_kill_switch.sql -- revokes from public, then grants anon on purpose;
+  // the row-level opt-in (readable_by_anon) limits what anon can learn, and an unknown key is false.
+  "public.platform_switch_is_on(p_key text)",
 ]);
 
 const QUERY = `
@@ -98,12 +109,7 @@ function sh(cmd, args, opts = {}) {
 // role..." (seen in CI 2026-09-03 while the identical call succeeded in a sibling job of the
 // same run) — transient management-API/CLI flake, not a config problem. One retry absorbs it.
 function shRetry(cmd, args, opts = {}) {
-  try {
-    return sh(cmd, args, opts);
-  } catch (err) {
-    console.log(`retrying once after transient failure: ${err instanceof Error ? err.message.split("\n")[0] : err}`);
-    return sh(cmd, args, opts);
-  }
+  return execWithRetry(cmd, args, opts); // see retry-sync.mjs
 }
 
 function parseRows(raw) {

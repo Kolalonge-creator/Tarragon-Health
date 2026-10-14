@@ -368,6 +368,18 @@ async function countFhirProposedResourcesPending(supabase: Client) {
   return count ?? 0;
 }
 
+/** Patient requests to void or correct an allergy she entered herself, still waiting for a tied
+ * doctor (S05b-d/e) -- see clinician/record-changes. RLS on the request table already limits the
+ * count to the requests this clinician may decide, so a Care Coordinator always sees 0. */
+async function countRecordChangeRequestsWaiting(supabase: Client) {
+  const { count, error } = await supabase
+    .from("patient_allergy_correction_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending");
+  if (error) throw error;
+  return count ?? 0;
+}
+
 /**
  * Threads waiting on a care-team reply -- exact same predicate as
  * isAwaitingCareTeam (lib/worklist/message-triage.ts), which compares
@@ -452,7 +464,8 @@ export type WorklistCountKey =
   | "labResultConsultsWaiting"
   | "fhirProposedResourcesPending"
   | "preventiveHealthCheckReviewsWaiting"
-  | "curbsideConsultsAwaitingReply";
+  | "curbsideConsultsAwaitingReply"
+  | "recordChangeRequestsWaiting";
 
 /**
  * Exported so the "a broken query must never render as 0" invariant above is
@@ -495,6 +508,7 @@ export const COUNTERS: Record<WorklistCountKey, (supabase: Client) => Promise<nu
   fhirProposedResourcesPending: countFhirProposedResourcesPending,
   preventiveHealthCheckReviewsWaiting: countPreventiveHealthCheckReviewsWaiting,
   curbsideConsultsAwaitingReply: countCurbsideConsultsAwaitingReply,
+  recordChangeRequestsWaiting: countRecordChangeRequestsWaiting,
 };
 
 /**

@@ -59,6 +59,7 @@ function formDataFor(overrides: Record<string, string> = {}) {
   fd.set("countryCode", "+234");
   fd.set("phone", "8012345678");
   fd.set("state", "");
+  fd.set("dateOfBirth", "1990-04-02");
   fd.set("password", "a-strong-password-123");
   for (const [k, v] of Object.entries(overrides)) fd.set(k, v);
   return fd;
