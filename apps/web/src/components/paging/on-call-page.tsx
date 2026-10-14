@@ -2,8 +2,8 @@ import Link from "next/link";
 import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Field, fieldClass, Flash, Hidden, Muted, Section, SubmitButton } from "@/components/credentialing/shared";
-import { acknowledgePage, closePage, confirmReadiness } from "@/lib/paging/actions";
-import { READINESS_ITEMS, type ReadinessKey } from "@/lib/paging/schemas";
+import { acknowledgePage, acknowledgeTestPage, closePage, confirmReadiness, sendTestPage } from "@/lib/paging/actions";
+import { GAP_LABELS, READINESS_ITEMS, type ReadinessKey } from "@/lib/paging/schemas";
 import { formatWaiting, pageHeadline } from "@/lib/paging/alarm";
 import { getMyActivePages, getMyReadiness } from "@/lib/paging/queries";
 import { formatLagos } from "@/lib/rota/time";
@@ -44,6 +44,34 @@ export async function OnCallPage({ searchParams }: { searchParams: SearchParams 
           <SubmitButton>{readiness.confirmed_at ? "Confirm again" : "I have done these"}</SubmitButton>
         </form>
       </Section>
+      <Section
+        title="Prove it works"
+        hint={`Being put on the on-call rota also needs a working notification set-up, a confirmed email address and a test page you have acknowledged in the last ${readiness.test_page_days} days. This checks the real route, not just your word.`}
+      >
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <Badge variant={readiness.gaps.length === 0 ? "green" : "amber"}>{readiness.gaps.length === 0 ? "All set" : `${readiness.gaps.length} to do`}</Badge>
+          {readiness.last_test_page_acknowledged_at ? <span className="text-muted-foreground">Last test page acknowledged {formatLagos(readiness.last_test_page_acknowledged_at)}</span> : null}
+        </div>
+        {readiness.gaps.length > 0 ? (
+          <ul className="list-disc space-y-1 pl-5 text-sm">
+            {readiness.gaps.map((g) => (
+              <li key={g}>{GAP_LABELS[g]}</li>
+            ))}
+          </ul>
+        ) : null}
+        {readiness.pending_test_page_id ? (
+          <form action={acknowledgeTestPage}>
+            <Hidden name="returnTo" value={RETURN_TO} />
+            <Hidden name="testId" value={readiness.pending_test_page_id} />
+            <SubmitButton>Acknowledge the test page</SubmitButton>
+          </form>
+        ) : (
+          <form action={sendTestPage}>
+            <Hidden name="returnTo" value={RETURN_TO} />
+            <SubmitButton tone="outline">Send me a test page</SubmitButton>
+          </form>
+        )}
+      </Section>
       {roots.length === 0 ? (
         <Section title="Nothing waiting">
           <Muted>No priority case is waiting for you. This page checks again every few seconds.</Muted>
@@ -56,6 +84,7 @@ export async function OnCallPage({ searchParams }: { searchParams: SearchParams 
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 <Badge variant={acknowledged ? "green" : "red"}>{acknowledged ? "Acknowledged" : "Needs you now"}</Badge>
                 {p.escalation_level > 0 ? <Badge variant="amber">Escalated, level {p.escalation_level}</Badge> : null}
+                {p.expired_at !== null && !acknowledged ? <Badge variant="red">Nobody has answered: phone the clinician on call</Badge> : null}
               </div>
               {!acknowledged ? (
                 <form action={acknowledgePage}>
