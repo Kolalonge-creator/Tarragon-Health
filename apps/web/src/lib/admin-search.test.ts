@@ -74,6 +74,12 @@ describe("the real admin menus", () => {
     expect(top("per member")).toContain("/admin/organisation-prices");
   });
 
+  it("finds the Community Access Fund page (every console page needs a search entry)", () => {
+    expect(top("access fund")).toContain("/admin/access-fund");
+    expect(top("donation")).toContain("/admin/access-fund");
+    expect(top("grant")).toContain("/admin/access-fund");
+  });
+
   it("finds the fees and earnings page (every console page needs a search entry)", () => {
     expect(top("fee schedule")).toContain("/admin/earnings");
     expect(top("payout")).toContain("/admin/earnings");

@@ -1126,6 +1126,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - S29 does not touch them: Care Circle members are stored in a separate table that none of these policies read, so the Circle is not affected. There are 0 `profile_access` rows live today.
 - Options: (a) leave until `profile_access` has real rows and the family flow is next reviewed; (b) tighten each to the matching category or permission now (a change to the RLS surface of several tables, to be proved with a simulated session and a control).
 - Recommendation: (b) in its own small session, before any real caregiver grant is created.
+- **Fixed by S71 (2026-10-07), except the profile row (OQ-404):** paying needs a Care Circle `pay_for_care` or a `manage` grant with `manage_payments`; `booking_requests`, `vaccination_adverse_events` and `vaccination_card_extractions` reads need the matching permission or category; `profiles_select` refuses expired and empty grants.
 
 ### OQ-220 Supporters abroad: organisation, signup and the join link (raised by S29)
 - The Care Circle, like the older care-access guard, requires the supporter and the patient to share an `organisation_id`. A supporter signing up from the diaspora lands in the default organisation today, so it works, but only because there is one. Signing up from an invite link loses the link across the email-verification redirect (the user reopens it).
@@ -2013,6 +2014,7 @@ Raised by the S70 to S75 review (`docs/research/S70-S75-review-and-build-plan.md
 ### OQ-321 Health Points at checkout and the leftover kobo conversion (raised by S72, function 19.9; finishes OQ-08)
 - Decided (S72-1): a single-use, order-bound reduction on Tarragon's own fee only. The kobo conversion (`wellness_points_redemptions.kobo_credited`, `points_to_kobo_rate`, `lib/queries/wellness.ts`, `patient/wellness/points-card.tsx`) is still on main-dev and is removed in the same session. Open: the points cost and cap per order (PROPOSED config).
 - Decision: decided; values pending.
+- Update (S72): the kobo conversion was removed (migration `20261007231742`); the checkout now offers the points choice on web and mobile. Values still pending (OQ-331); production count to re-verify (OQ-428).
 
 ### OQ-322 Instalments (raised by S72, function 19.10)
 - Decided (S72-2): not built. Reopen only on an explicit ask.
@@ -2038,6 +2040,139 @@ Raised by the S70 to S75 review (`docs/research/S70-S75-review-and-build-plan.md
 - OQ-192 (any `profile_access` grantee can read and pay) is still open and must be fixed before any real caregiver grant. OQ-39 (56 older `analytics_*` RPCs ignore `is_test`) is still open. `device.synced` and `device.alert` are not in the S10 event catalogue. Withings, Samsung, inhaler sensors and `LabResultsSource` are not built. `partner_quality`, `partner.quality_breach`, `partner.settlement_due` and `settlement-run` are not built. Price quoting (`price-quote`, `price.changed`, `discount_codes`, `price_books`) is not built.
 - Decision: open; each is in the build plan.
 
+## S73 pricing engine (2026-10-07)
+
+### OQ-328 Sponsor coverage cannot be charged yet (raised by S73)
+- The quote computes a sponsor's share from the price book entry, but `create_order` refuses any order with a sponsor share (`sponsor_billing_not_open`): without S71's sponsor entitlement the share would never be collected or posted. S71 lifts this.
+- Decision: resolved by S71 (2026-10-07): a sponsor share is accepted only when a `sponsor_programmes` budget covers it, reserved atomically and released on cancel, failure or refund; the guard `sponsor_payment_enabled` is OFF. Collecting from the sponsor is OQ-403.
+
+### OQ-329 Hardship pricing is a seam (raised by S73, extends OQ-323)
+- `private.hardship_reduction()` returns 0. It must be replaced by Access Fund grants (S72); never by a self-declared discount.
+- Decision: waits for S72 and counsel.
+- Update (S72): answered differently, see OQ-423 (a grant uses the sponsor slot; this seam stays 0 on purpose).
+
+### OQ-330 Kobo conversion for wellness points still present (raised by S73; extends OQ-08 and OQ-321)
+- `redeem_wellness_points`, `wellness_points_config.points_to_kobo_rate`, `wellness_points_redemptions.kobo_credited` and the web, mobile and admin screens that use them were NOT removed: it touches three apps and the voucher path, and S72 owns it. The new fee-only points reduction is separate and OFF.
+- Decision: remove in S72.
+- Update (S72): removed, count-first and fail-safe (OQ-428).
+
+### OQ-331 Values in `pricing.rules` are unsigned guesses (raised by S73)
+- Points (100 points per step, 5,000 kobo per step, 5 steps, 50 percent of the service fee), minimum payable 10,000 kobo and 10 failed code tries an hour are PROPOSED, owner Founder. Points stay OFF until signed. Also decide whether a refund returns spent points (today it does not).
+- Decision: open.
+
+### OQ-332 Screens not built (raised by S73)
+- No mobile what-is-included screen and no admin screens for price books and discount codes (the audited functions and an overview exist and are tested). Mobile `loadQuote` is not wired.
+- Decision: open.
+
+### OQ-333 What-is-included page needs a login (raised by S73)
+- The page is behind patient sign-in, so a shared link asks the reader to sign in. A public version needs an anon-readable function, which conflicts with the no-anon rule for catalogue data.
+- Decision: open.
+
+### OQ-334 Migration stamp ahead of the clock (raised by S73)
+- main-dev holds migration stamps later than the real clock; the S73 file is stamped 20261007164447 (real time plus 4 hours) so it sorts after them. Pin the version to the filename when applying.
+- Decision: informational.
+
+## S71 checkout and payments, part 1 (2026-10-07)
+
+### OQ-400 Placeholders for consultation, lab package and home kit are unpriced; the Membership pivot said no one-off consults (raised by S71, function 19.1)
+- Three catalogue items exist OFF with no price row: `consultation_single`, `lab_panel_standard`, `home_kit_sample` (new kind `home_kit`). They cannot be switched on until the founder prices them with `set_item_price`. The 2026-10-05 Membership pivot ("Free + 100k/year; no one-off consults") conflicts with `consultation_single`; it exists only because the module spec lists a consultation item and a sponsor programme needs something to cover. No `device` kind was added (no hardware sales, CLAUDE.md 2026-08-02).
+- Decision needed: keep, rename or delete the consultation placeholder; give the lab package and home kit prices and the `clinician_fee`, `partner_fee` and `tarragon_service_fee` split, or leave them off.
+- Decision: open.
+
+### OQ-401 Paystack channel strings are not proved against Paystack (raised by S71, function 19.2)
+- The checkout now sends `channels: ["card","bank_transfer","ussd"]`. The strings come from Paystack's published API reference and were proved only against the test double (the docs site returned HTTP 403 to the fetch tool in this session). `bank_transfer` ("Pay with Transfer") may also need enabling on the Paystack account. A wrong value would be rejected at initialise (a visible failure, not a silent one).
+- Founder action: try card, transfer and USSD once with the test key and record it as the attestation `paystack_channels_verified` on the `checkout_enabled` guard.
+- Decision: open.
+
+### OQ-402 International card estimate is PROPOSED (raised by S71, functions 19.4 and 19.7)
+- `commerce.processing_fee_estimate` v3 adds 3.9 percent + NGN 100 for cards issued outside Nigeria (from the 2026-10-06 reading of Paystack pricing). The checkout cannot know the card's country before payment, so it shows the local estimate and, separately, the international one. Confirm the figures against the account's own Paystack pricing.
+- Decision: open (Founder).
+
+### OQ-403 Sponsor receivable accounting is a guess (raised by S71, function 19.5)
+- A sponsor-covered order posts Dr 1210 Sponsor receivable (new account) and Cr deferred revenue or revenue for the sponsor's share, and reverses it on refund or cancel. Whether a sponsor share is revenue when the sponsor has not yet been invoiced, VAT, and the recognition schedule on the sponsor part are finance decisions. Sponsor invoicing and collection are not built, so a receivable is posted and nothing collects it.
+- Decision: open (finance). Attestation `sponsor_receivable_confirmed` on `sponsor_payment_enabled`.
+
+### OQ-404 The profile row stays readable to any unexpired grantee with at least one permission (raised by S71, extends OQ-192)
+- OQ-192 is fixed for paying (needs `pay_for_care` or `manage_payments`) and for booking requests and the two vaccination reads. `profiles_select` now refuses expired grants and grants with an empty permission list, but still shows the whole profile row to a grantee with, say, only `view_appointments`: every caregiver feature needs the person's name, and narrowing columns needs a view and app changes (a larger change to the RLS surface).
+- Options: (a) leave as is (recommended for now); (b) give caregivers a narrow view (name, photo, date of birth only) and remove them from `profiles_select`.
+- Decision: open.
+
+### OQ-405 Counsel opinion and NDPA basis for sponsor payment and member numbers (raised by S71, extends OQ-07)
+- Sponsor-paid items are the order-linked rebuild OQ-07 asked for (a sponsor ceiling, not a stored balance). Counsel is still needed before live use (guard `sponsor_payment_enabled`). Separately: an HMO member number is personal data even when only a keyed hash is stored (the HMO can link it); confirm the NDPA basis and the privacy notice wording for the check.
+- Decision: open (counsel).
+
+### OQ-406 Who verifies HMO checks, and for which HMO first (raised by S71, extends OQ-325)
+- Built: an adapter interface and a stub that always answers "unavailable", so every check waits for operations; `ops_verify_hmo_eligibility` (admin; types the number again) and `admin_hmo_checks_pending`. Not built: an admin screen for the manual queue and for sponsor programmes (the audited functions are tested), a response-time target, and any real HMO adapter. No HMO has a public eligibility API that was found.
+- Decision needed: first HMO, who in operations verifies, and the target time to answer.
+- Decision: open.
+
+### OQ-407 Merge order and the two wrapped go-live functions (raised by S71)
+- The migration wraps `private.go_live_conditions` and `public.attest_go_live_condition` (rename to `*_base`) instead of replacing them. It must sort after the S70, S73 and S74 migrations; applied before them, their create-or-replace would drop the S71 guards' conditions. The S36b and S37 proofs now count 11 guards; another branch adding guards changes that number. After all branches merge, consider folding the wrappers into one dispatcher.
+- Decision: informational.
+
+### OQ-408 Sponsor cover applies only to the person themselves (raised by S71)
+- A supporter paying for someone through the Care Circle does not get the sponsor cover and is not told the person has one (a payer must not learn a cohort or HMO status, OQ-223). The price-book path of S73 still applies to the beneficiary's cohort as built.
+- Confirm that this is wanted, or decide that a sponsor-covered item should reach a beneficiary regardless of who opens it.
+- Decision: open.
+
+### OQ-409 Mobile has no quote, itemised or health plan screens (raised by S71; extends OQ-332)
+- Mobile handles a covered reply (nothing opened, a plain notice), shows "Covered by" in the order list and the honest pending title, and maps the new errors, but its Membership screen still shows the catalogue price and the old fee lines (no `loadQuote`) and has no "check my health plan" card. Web has all of it.
+- Decision: open (S71 follow-up or a mobile session).
+
+### OQ-410 Two real sessions racing for the last of a budget were not exercised (raised by S71)
+- `sponsor_reserve` locks the programme row (`for update`) before checking the budget, and the proof shows the check, the per-person allowance and the release paths in one transaction. A true two-connection race (as `scripts/run-db-proofs.sh` allows with a `.sh` proof) was not written.
+- Decision: open (small follow-up).
+
+### OQ-420 Community Access Fund: the published reasons, limits and who approves are unsigned (raised by S72, function 19.11; extends OQ-323)
+- Built as PROPOSED, owner Founder and counsel (`access_fund.rules` v1, active row of `checkout_extras_config`): four published reasons (the cost is the main barrier, recent loss of income, supporting a dependant, referred by the care team), most one grant can cover 100,000 naira, a grant works for 60 days, smallest gift 1,000 naira, a pledge waits 14 days, at most 3 open pledges. Operations (admin) approve with a written reason; a second approver is not required (S72-3).
+- Needed: review of the wording of the reasons, and the numbers; whether the CMO or only admins approve; and the guard condition `grant_criteria_signed_off`. Nothing opens until these and counsel (OQ-323) are done.
+- Decision: open.
+
+### OQ-421 How restricted gifts and Fund-paid orders are accounted for (raised by S72, function 19.11)
+- No ledger entry is made for a donation or a grant. A donation is not revenue; it is a restricted gift held for a purpose, which needs a finance and counsel decision (a restricted-funds liability, who holds the money, tax and charity status). A Fund-paid order is booked by S71's path to account 1210 "Sponsor receivable", which is the wrong name for the Fund (the Fund owes nothing; it is Tarragon's own restricted money) and needs the same decision.
+- Guard condition `restricted_gift_accounting_decided` keeps this closed. Test orders are never posted (INV-13), so nothing wrong can post before the decision.
+- Decision: open (finance and counsel).
+
+### OQ-422 Swap the Fund's minimum-cell function when S75 merges (raised by S72)
+- S75 (`private.suppress_cell`) is not on this branch. The public report uses `private.fund_min_cell()`, which reads the same platform value (`outcome_config` min_cell, 20, S38b) and never lets it be below 2. When S75 lands, replace that one function's body with a call to the shared rule and keep the proof `s72_checkout_extras.sql` (it flips if the rule is weakened).
+- Decision: informational (follow-up at merge).
+
+### OQ-423 Hardship pricing is realised through the sponsor slot, not `hardship_reduction()` (raised by S72; answers OQ-329)
+- The S73 seam `private.hardship_reduction()` still returns 0 on purpose. A Fund grant covers part or all of one item through an `access_grant` sponsor programme (a ceiling, a reservation per order, the S71 ledger, refund and event paths). A reduction in the hardship slot could not be tied to one order, reserved against the grant or reversed on a refund, and the same money in two slots would be counted twice.
+- Consequence: the quote's line is the sponsor line ("Covered by Community Access Fund"), and a person who also has a price book gets the book, not the grant (the S71 rule that a price-book path wins). Confirm, or ask for a separate hardship line.
+- Decision: open (founder).
+
+### OQ-424 Payment request limits are unsigned (raised by S72, function 19.13)
+- `payment_requests.rules` v1 (PROPOSED, owner Founder): a link works 7 days, 5 open per person, 10 made a day, 30 link lookups an hour per visitor, 10 payment starts an hour per payer. The link page shows no name of the person who asked; showing a first name would tell a stranger holding a leaked link that a named person uses Tarragon, so it was left out. Confirm the numbers and that no name is wanted.
+- Decision: open.
+
+### OQ-425 Payment requests can only ask for the yearly Membership (raised by S72; extends decision S29c)
+- Founder decision S29c (2026-10-06) says nothing smaller than the full yearly Membership can be paid for someone else, so `create_payment_request` accepts only what `private.gift_item_allowed` allows. If one-off items ever return, the request follows with no change here. The request also cannot be paid when the person already has a Membership.
+- Decision: informational.
+
+### OQ-426 Donations are bank-transfer pledges; no Paystack, no bank details, no receipt (raised by S72, function 19.11)
+- By instruction no live Paystack call exists. A pledge gives a reference; the page says the team will email the bank account details. Not built: where those details come from, the email, a donor receipt or tax acknowledgement, and an online card donation. All wait for the counsel opinion (what the fund holder is) and a bank account in the right name.
+- Decision: open.
+
+### OQ-427 No patient self-application for the Fund; web-only donation screen (raised by S72, function 19.11)
+- Grants are approved by operations for a person (usually after the care team or a conversation). A screen where a person asks for help (and how that stays private and un-gameable) was not designed. The donation page and the operations screen are web only; mobile shows the person's support state through entitlements but has no donation screen.
+- Decision: open.
+
+### OQ-428 Re-verify the kobo-conversion counts before applying (raised by S72; finishes OQ-08, OQ-321, OQ-330)
+- The migration removes `redeem_wellness_points`, `wellness_points_redemptions` and `points_to_kobo_rate` after counting; it aborts with a message if any redemption belongs to a non-test patient. The expected real count is zero (S73 recorded none) but production was not queried. Reward vouchers already issued from earlier redemptions are not touched. Also still open from OQ-331: whether a refund returns the points an order spent (today it does not).
+- Decision: open (re-count before apply).
+
+### OQ-429 Memberships paid by a sponsor or the Fund are recorded with source `employer` (raised by S72)
+- `settle_sponsor_order` (S71) writes `patient_memberships.source = 'employer'` for any sponsor-covered Membership, including a Fund grant. The source is not shown to the person today (the entitlement card uses the order, not this field), but reports by source would mislabel it. Adding `sponsor` and `access_fund` values needs a constraint change.
+- Decision: open (small follow-up).
+
+### OQ-430 Other `{{...}}` strings never fill in (raised by S72)
+- The i18n helper fills `{name}` only. Four entitlement strings used `{{count}}` and printed "{3} use left"; S72 fixed those. `admin.refunds.confirm_approve` (`{{amount}}`) has the same fault and was left alone. A scan test for double braces would stop it recurring.
+- Decision: open (small follow-up).
+
+### OQ-431 Nothing schedules the two expiry functions; the new pages were not walked in a browser (raised by S72)
+- `expire_access_fund()` and `expire_payment_requests()` are safe to call often (admin or service role). Reads already treat an old pledge as lapsed and an old link as expired, and a grant past its date matches nothing, but the stored status changes only when one of these runs (a daily call from an existing cron route would do). Separately, the web and mobile screens were type-checked, linted and unit tested, and the new database functions proved, but no browser or phone walk-through, no Paystack test-key payment from a link, and no sign-up of a brand-new payer through `/login?redirect=` was run.
+- Decision: open (follow-up).
 ### OQ-360 Partner quality numbers (raised by S74, function 21.7)
 - The turnaround target (72 hours for a laboratory), the 80 percent on-time floor with at least 10 orders, three upheld complaints, the score weights (40/30/30) and floors (warn 70, suspend 50), the 30-day override and which breaches suspend are PROPOSED in `partner_quality_config` (mirrored as `partner.quality`). Nothing is signed. A wrong number can pause a real laboratory from new work.
 - Decision: open; CMO to confirm before the nightly job is trusted on real partners. Partner rows are a shared directory with no `organisation_id` (like go-live guards); reads are admin and CMO only.

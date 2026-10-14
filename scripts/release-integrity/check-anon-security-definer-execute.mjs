@@ -33,6 +33,7 @@
 // anon-executable.
 
 import { execFileSync } from "node:child_process";
+import { execWithRetry } from "./retry-sync.mjs";
 import { writeFileSync, rmSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -108,12 +109,7 @@ function sh(cmd, args, opts = {}) {
 // role..." (seen in CI 2026-09-03 while the identical call succeeded in a sibling job of the
 // same run) — transient management-API/CLI flake, not a config problem. One retry absorbs it.
 function shRetry(cmd, args, opts = {}) {
-  try {
-    return sh(cmd, args, opts);
-  } catch (err) {
-    console.log(`retrying once after transient failure: ${err instanceof Error ? err.message.split("\n")[0] : err}`);
-    return sh(cmd, args, opts);
-  }
+  return execWithRetry(cmd, args, opts); // see retry-sync.mjs
 }
 
 function parseRows(raw) {
