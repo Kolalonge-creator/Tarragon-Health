@@ -350,13 +350,65 @@ begin
   if v_state is distinct from '22023' then raise exception 'FAIL E6: a late name collision was not refused with a clear error (state %)', v_state; end if;
   raise notice 'PASS E: stale request voids; clinician correction stays immediate';
 
+  -- the patient takes a pending request back; nobody else may; a withdrawn request is final and no longer blocks a new one
+  perform set_config('request.jwt.claims', json_build_object('sub', v_p, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  v_res := public.correct_clinical_value('patient_allergies', v_a4, 'entered_in_error', 'I typed sesame by mistake', null);
+  execute 'reset role';
+  v_req3 := (v_res ->> 'request_id')::uuid;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_p2, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  v_state := null;
+  begin perform public.withdraw_patient_allergy_correction(v_req3);
+  exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
+  execute 'reset role';
+  if v_state is distinct from '42501' then raise exception 'FAIL E7: another patient withdrew a request (state %)', v_state; end if;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_c, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  v_state := null;
+  begin perform public.withdraw_patient_allergy_correction(v_req3);
+  exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
+  execute 'reset role';
+  if v_state is distinct from '42501' then raise exception 'FAIL E8: a clinician used the patient withdrawal (state %)', v_state; end if;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_p, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  v_res := public.withdraw_patient_allergy_correction(v_req3);
+  execute 'reset role';
+  if v_res ->> 'status' is distinct from 'withdrawn' or (select status from public.patient_allergy_correction_requests where id = v_req3) <> 'withdrawn'
+     or not exists (select 1 from public.patient_allergy_correction_events where request_id = v_req3 and event = 'withdrawn' and actor_role = 'patient') then
+    raise exception 'FAIL E9: the withdrawal is not recorded';
+  end if;
+  if (select correction_status from public.patient_allergies where id = v_a4) is not null then raise exception 'FAIL E10: a withdrawal changed the allergy'; end if;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_p, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  v_state := null;
+  begin perform public.withdraw_patient_allergy_correction(v_req3);
+  exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
+  v_res := public.correct_clinical_value('patient_allergies', v_a4, 'amended', 'Sesame is a mild allergy after all', '{"severity": "mild"}'::jsonb);
+  execute 'reset role';
+  if v_state is distinct from '22023' then raise exception 'FAIL E11: a withdrawn request could be withdrawn again (state %)', v_state; end if;
+  if v_res ->> 'status' is distinct from 'pending' then raise exception 'FAIL E12: a new request after a withdrawal was refused'; end if;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_p, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  perform public.withdraw_patient_allergy_correction((v_res ->> 'request_id')::uuid);   -- leave the entry clean for the sabotage steps
+  execute 'reset role';
+  -- the export function refuses to be asked for somebody else
+  perform set_config('request.jwt.claims', json_build_object('sub', v_p, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  v_state := null;
+  begin perform public.my_corrected_record_entries(v_p2);
+  exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
+  execute 'reset role';
+  if v_state is distinct from '42501' then raise exception 'FAIL E13: the history export answered for another patient (state %)', v_state; end if;
+
   -- ======================================================================== F. grant, export, views
   if not has_function_privilege('authenticated', c, 'EXECUTE') or has_function_privilege('anon', c, 'EXECUTE') then
     raise exception 'FAIL F1: correct_clinical_value must be executable by authenticated and never by anon';
   end if;
   if has_function_privilege('anon', 'public.confirm_patient_allergy_correction(uuid, text)', 'EXECUTE')
      or has_function_privilege('anon', 'public.reject_patient_allergy_correction(uuid, text)', 'EXECUTE')
-     or has_function_privilege('anon', 'public.my_corrected_record_entries()', 'EXECUTE')
+     or has_function_privilege('anon', 'public.my_corrected_record_entries(uuid)', 'EXECUTE')
+     or has_function_privilege('anon', 'public.withdraw_patient_allergy_correction(uuid)', 'EXECUTE')
      or has_function_privilege('authenticated', 'private.request_patient_allergy_correction(uuid, public.correction_status, text, jsonb)', 'EXECUTE') then
     raise exception 'FAIL F2: a new function is callable by the wrong role';
   end if;

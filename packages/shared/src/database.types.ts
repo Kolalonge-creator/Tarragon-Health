@@ -43870,7 +43870,8 @@ export type Database = {
       // S05b-d: spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       confirm_patient_allergy_correction: { Args: { p_request_id: string; p_note?: string }; Returns: Json }
       reject_patient_allergy_correction: { Args: { p_request_id: string; p_note?: string }; Returns: Json }
-      my_corrected_record_entries: { Args: never; Returns: Json }
+      my_corrected_record_entries: { Args: { p_patient?: string }; Returns: Json }
+      withdraw_patient_allergy_correction: { Args: { p_request_id: string }; Returns: Json }
       // S27 (lab results and release rules): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       bp_control_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       // S38c (monthly report and risk stratification): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.

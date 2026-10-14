@@ -120,7 +120,7 @@ export async function getFullPatientRecordExport(
       .select("status, due_date, screen_types(name), screening_results(result_status, result_summary, created_at)")
       .eq("patient_id", patientId),
     supabase.from("care_plans").select("*").eq("patient_id", patientId).order("created_at", { ascending: false }),
-    supabase.rpc("my_corrected_record_entries"),
+    supabase.rpc("my_corrected_record_entries", { p_patient: patientId }),
   ]);
 
   if (profileRes.error) throw profileRes.error;

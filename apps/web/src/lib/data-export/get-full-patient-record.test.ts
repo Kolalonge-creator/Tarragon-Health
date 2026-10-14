@@ -18,8 +18,9 @@ function fakeClient(rpc: Result): SupabaseClient<Database> {
   };
   return {
     from: (table: string) => chain(table === "profiles"),
-    rpc: async (name: string) => {
+    rpc: async (name: string, args: unknown) => {
       expect(name).toBe("my_corrected_record_entries");
+      expect(args).toEqual({ p_patient: "p1" });   // asked for the patient the rest of the export is about, never implicitly the caller
       return rpc;
     },
   } as unknown as SupabaseClient<Database>;
