@@ -19,21 +19,36 @@ export interface RecordChangeAllergy {
   noted_at: string | null;
 }
 
+export interface RecordChangeCondition {
+  condition_name: string;
+  icd10_code: string | null;
+  status: string;
+  source: string;
+  date_identified: string | null;
+}
+
 export interface RecordChangeRequest {
   id: string;
+  /** Which record the patient asked to change (S05b-f: conditions follow the same hold rule as allergies). */
+  kind: "allergy" | "condition";
   requested_status: "corrected" | "amended" | "entered_in_error";
   reason: string;
   replacement: {
     allergen?: string;
     reaction?: string | null;
     severity?: string | null;
+    condition_name?: string;
+    icd10_code?: string | null;
+    date_identified?: string | null;
   } | null;
   created_at: string;
   patient: { full_name: string | null; patient_number: string | null } | null;
-  /** The allergy as recorded now, or null. */
+  /** The allergy as recorded now (kind "allergy"), or null. */
   allergy: RecordChangeAllergy | null;
+  /** The condition as recorded now (kind "condition"), or null. */
+  condition: RecordChangeCondition | null;
   /** True when the current record could not be loaded (the audited read was refused or failed), so null does not mean "gone". */
-  allergyUnavailable: boolean;
+  currentUnavailable: boolean;
 }
 
 const SEVERITY_LABEL: Record<string, string> = {
@@ -47,6 +62,14 @@ const SOURCE_LABEL: Record<string, string> = {
   fhir_import: "Imported from an external record",
 };
 
+/** A date-only value (a condition's date identified) for the screen; the stored value is YYYY-MM-DD. */
+function formatDay(day: string): string {
+  const parsed = new Date(`${day}T00:00:00`);
+  return Number.isNaN(parsed.getTime())
+    ? day
+    : parsed.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+}
+
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
     day: "numeric",
@@ -59,19 +82,23 @@ function formatDate(iso: string): string {
 
 /** What the patient asks for, in one line, for the queue row. */
 export function describeRequest(
-  request: Pick<RecordChangeRequest, "requested_status" | "replacement">,
+  request: Pick<RecordChangeRequest, "kind" | "requested_status" | "replacement">,
 ): string {
   if (request.requested_status === "entered_in_error" || !request.replacement) {
-    return "Remove this allergy (entered by mistake)";
+    return request.kind === "condition"
+      ? "Remove this condition (entered by mistake)"
+      : "Remove this allergy (entered by mistake)";
   }
-  const parts = [
-    request.replacement.allergen,
-    request.replacement.severity
-      ? (SEVERITY_LABEL[request.replacement.severity] ??
-        request.replacement.severity)
-      : null,
-  ].filter((part): part is string => Boolean(part));
-  return `Change to: ${parts.join(", ") || "new details"}`;
+  const parts =
+    request.kind === "condition"
+      ? [request.replacement.condition_name, request.replacement.date_identified ? `identified ${formatDay(request.replacement.date_identified)}` : null]
+      : [
+          request.replacement.allergen,
+          request.replacement.severity
+            ? (SEVERITY_LABEL[request.replacement.severity] ?? request.replacement.severity)
+            : null,
+        ];
+  return `Change to: ${parts.filter((part): part is string => Boolean(part)).join(", ") || "new details"}`;
 }
 
 function Fields({
@@ -102,6 +129,71 @@ function Fields({
   );
 }
 
+function statusLabel(status: string): string {
+  const text = status.replace(/_/g, " ");
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** The name of the record as it stands now, for the row header. */
+function currentName(request: RecordChangeRequest): string | null {
+  return request.kind === "condition" ? (request.condition?.condition_name ?? null) : (request.allergy?.allergen ?? null);
+}
+
+/** The "Current record" panel, per kind. */
+function currentRows(request: RecordChangeRequest): Array<[string, string | null | undefined]> {
+  if (request.kind === "condition") {
+    const current = request.condition;
+    return [
+      ["Condition", current?.condition_name],
+      ["Code", current?.icd10_code],
+      ["Identified", current?.date_identified ? formatDay(current.date_identified) : null],
+      ["Status", current ? statusLabel(current.status) : null],
+      ["Source", current ? (SOURCE_LABEL[current.source] ?? current.source) : null],
+    ];
+  }
+  const current = request.allergy;
+  return [
+    ["Allergen", current?.allergen],
+    ["Reaction", current?.reaction],
+    ["Severity", current?.severity ? SEVERITY_LABEL[current.severity] : null],
+    ["Source", current ? (SOURCE_LABEL[current.source] ?? current.source) : null],
+  ];
+}
+
+/** The "What the patient asks" panel for a change (not a removal): her values, with the current ones where she named none. */
+function askedRows(request: RecordChangeRequest): Array<[string, string | null | undefined]> {
+  const replacement = request.replacement;
+  if (request.kind === "condition") {
+    const current = request.condition;
+    return [
+      ["Condition", replacement?.condition_name ?? current?.condition_name],
+      ["Code", replacement && "icd10_code" in replacement ? replacement.icd10_code : current?.icd10_code],
+      [
+        "Identified",
+        (() => {
+          const day = replacement && "date_identified" in replacement ? replacement.date_identified : current?.date_identified;
+          return day ? formatDay(day) : null;
+        })(),
+      ],
+    ];
+  }
+  const current = request.allergy;
+  return [
+    ["Allergen", replacement?.allergen ?? current?.allergen],
+    ["Reaction", replacement && "reaction" in replacement ? replacement.reaction : current?.reaction],
+    [
+      "Severity",
+      replacement && "severity" in replacement
+        ? replacement.severity
+          ? (SEVERITY_LABEL[replacement.severity] ?? replacement.severity)
+          : null
+        : current?.severity
+          ? SEVERITY_LABEL[current.severity]
+          : null,
+    ],
+  ];
+}
+
 function RequestCard({ request }: { request: RecordChangeRequest }) {
   const [open, setOpen] = useState(false);
   const [confirmState, confirmAction, confirming] = useActionState<
@@ -113,10 +205,11 @@ function RequestCard({ request }: { request: RecordChangeRequest }) {
     FormData
   >(rejectRecordChange, undefined);
   const busy = confirming || rejecting;
-  const current = request.allergy;
   const replacement = request.replacement;
   const removing =
     request.requested_status === "entered_in_error" || !replacement;
+  const name = currentName(request);
+  const severity = request.kind === "allergy" ? request.allergy?.severity : null;
 
   return (
     <Card>
@@ -135,12 +228,12 @@ function RequestCard({ request }: { request: RecordChangeRequest }) {
         <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
           On record:{" "}
           <span className="font-medium">
-            {current?.allergen ??
-              (request.allergyUnavailable
+            {name ??
+              (request.currentUnavailable
                 ? "(could not be loaded)"
                 : "(entry no longer current)")}
           </span>
-          {current?.severity ? `, ${SEVERITY_LABEL[current.severity]}` : ""}
+          {severity ? `, ${SEVERITY_LABEL[severity]}` : ""}
         </p>
         <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
           Asks: <span className="font-medium">{describeRequest(request)}</span>
@@ -162,58 +255,20 @@ function RequestCard({ request }: { request: RecordChangeRequest }) {
 
         {open && (
           <div className="space-y-4">
-            {request.allergyUnavailable && (
+            {request.currentUnavailable && (
               <p role="alert" className="text-sm text-destructive">
                 The current record could not be loaded. Check the patient&apos;s record before you decide.
               </p>
             )}
             <div className="grid gap-3 sm:grid-cols-2">
-              <Fields
-                title="Current record"
-                rows={[
-                  ["Allergen", current?.allergen],
-                  ["Reaction", current?.reaction],
-                  [
-                    "Severity",
-                    current?.severity ? SEVERITY_LABEL[current.severity] : null,
-                  ],
-                  [
-                    "Source",
-                    current
-                      ? (SOURCE_LABEL[current.source] ?? current.source)
-                      : null,
-                  ],
-                ]}
-              />
+              <Fields title="Current record" rows={currentRows(request)} />
               {removing ? (
                 <Fields
                   title="What the patient asks"
                   rows={[["Change", "Remove this entry"]]}
                 />
               ) : (
-                <Fields
-                  title="What the patient asks"
-                  rows={[
-                    ["Allergen", replacement?.allergen ?? current?.allergen],
-                    [
-                      "Reaction",
-                      replacement && "reaction" in replacement
-                        ? replacement.reaction
-                        : current?.reaction,
-                    ],
-                    [
-                      "Severity",
-                      replacement && "severity" in replacement
-                        ? replacement.severity
-                          ? (SEVERITY_LABEL[replacement.severity] ??
-                            replacement.severity)
-                          : null
-                        : current?.severity
-                          ? SEVERITY_LABEL[current.severity]
-                          : null,
-                    ],
-                  ]}
-                />
+                <Fields title="What the patient asks" rows={askedRows(request)} />
               )}
             </div>
             <div className="space-y-1">
@@ -227,8 +282,9 @@ function RequestCard({ request }: { request: RecordChangeRequest }) {
 
             <div className="space-y-3 border-t border-charcoal-ink/10 pt-3 dark:border-night-ink/15">
                 <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-                  Until you confirm, the allergy stays active for prescribing
-                  and on the emergency card.
+                  {request.kind === "condition"
+                    ? "Until you confirm, the condition stays on the patient's record and in every reader."
+                    : "Until you confirm, the allergy stays active for prescribing and on the emergency card."}
                 </p>
                 <div className="flex flex-wrap items-start gap-3">
                   <form action={confirmAction}>
