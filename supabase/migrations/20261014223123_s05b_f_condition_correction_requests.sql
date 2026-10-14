@@ -15,8 +15,8 @@
 --      per-table rule (which columns a replacement may name, the name rule, the duplicate-name rule that only allergies have). The old
 --      function is dropped once correct_clinical_value no longer calls it.
 --   3. correct_clinical_value is patched in place from its live definition (two anchors, each asserted exactly once): the patient branch now
---      covers both tables, and a patient can no longer touch a condition with a diagnosing clinician (the condition equivalent of an allergy
---      a clinician verified). Nothing else in the function changes.
+--      covers both tables, and a patient can no longer touch a condition with a diagnosing clinician or a clinician review (the condition equivalent of an
+--      allergy a clinician verified). Nothing else in the function changes.
 --   4. confirm_patient_allergy_correction works for either table (it still calls correct_clinical_value itself, so the original is marked and
 --      the replacement inserted by the one supersede path, stored as a clinician entry). Reject and withdraw were already table-agnostic.
 --   5. The stale-request voiding trigger is one function for both tables (private.void_pending_record_requests) and is installed on both.
@@ -73,6 +73,7 @@ declare
   v_allowed text[];
   v_name_key text;
   v_name text;
+  v_repl jsonb := p_replacement;
   v_req uuid;
 begin
   if v_uid is null then raise exception 'sign in to correct a record' using errcode = '42501'; end if;
@@ -109,6 +110,11 @@ begin
        and exists (select 1 from private.patient_allergies_current c where c.patient_id = v_uid and c.allergen = v_name and c.id <> p_id) then
       raise exception 'you already have an allergy with that name' using errcode = '22023';
     end if;
+    -- a condition renamed without a new code must not keep the OLD code (correct_clinical_value copies every column she did not name):
+    -- the replacement states "no code" explicitly, which the clinician sees in the queue and can complete
+    if p_table = 'patient_conditions' and p_replacement ? 'condition_name' and not (p_replacement ? 'icd10_code') then
+      v_repl := p_replacement || jsonb_build_object('icd10_code', null);
+    end if;
   end if;
   if exists (select 1 from public.patient_allergy_correction_requests r
               where coalesce(r.allergy_id, r.condition_id) = p_id and r.status = 'pending') then
@@ -118,7 +124,7 @@ begin
   insert into public.patient_allergy_correction_requests (organisation_id, patient_id, record_table, allergy_id, condition_id, requested_status, reason, replacement)
   values ((v_row ->> 'organisation_id')::uuid, v_uid, p_table,
           case when p_table = 'patient_allergies' then p_id end, case when p_table = 'patient_conditions' then p_id end,
-          p_status, btrim(p_reason), case when p_status = 'entered_in_error' then null else p_replacement end)
+          p_status, btrim(p_reason), case when p_status = 'entered_in_error' then null else v_repl end)
   returning id into v_req;
   insert into public.patient_allergy_correction_events (request_id, organisation_id, event, actor_id, actor_role)
   values (v_req, (v_row ->> 'organisation_id')::uuid, 'requested', v_uid, 'patient');
@@ -145,7 +151,7 @@ $a$;
   v_b_old constant text := $b$or (p_table = 'patient_allergies' and v_old ->> 'verified_by' is not null) then$b$;
   v_b_new constant text :=
 $b$or (p_table = 'patient_allergies' and v_old ->> 'verified_by' is not null)
-       or (p_table = 'patient_conditions' and v_old ->> 'diagnosing_clinician_id' is not null) then$b$;
+       or (p_table = 'patient_conditions' and (v_old ->> 'diagnosing_clinician_id' is not null or v_old ->> 'last_reviewed_at' is not null)) then$b$;
 begin
   select pg_get_functiondef(p.oid) into v_def from pg_proc p
    where p.proname = 'correct_clinical_value' and p.pronamespace = 'public'::regnamespace;

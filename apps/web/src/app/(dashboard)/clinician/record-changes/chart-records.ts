@@ -40,48 +40,42 @@ const chartResponseSchema = z.object({
 });
 
 /**
- * The patient's allergies keyed by id, or null when the reader refused (status "denied"), answered in a shape
- * we do not know, or did not return the allergies section. Null means "could not load", never "none".
+ * One rule for every section: null when the reader refused (status "denied"), answered in a shape we do not know, or did not
+ * return the section; otherwise the rows keyed by id. Null means "could not load", never "none"; an empty map means "really gone".
  */
-export function parseChartAllergies(payload: unknown): Map<string, RecordChangeAllergy> | null {
+function parseSection<Row extends { id: string }, Out>(
+  payload: unknown,
+  section: "allergies" | "conditions",
+  toOut: (row: Row) => Out,
+): Map<string, Out> | null {
   const parsed = chartResponseSchema.safeParse(payload);
   if (!parsed.success) return null;
   if (parsed.data.status === "denied") return null;
-  const rows = parsed.data.sections?.allergies;
+  const rows = parsed.data.sections?.[section] as Row[] | undefined;
   if (!rows) return null;
-  return new Map(
-    rows.map((row) => [
-      row.id,
-      {
-        allergen: row.substance,
-        reaction: row.reaction ?? null,
-        severity: row.severity ?? null,
-        source: row.source,
-        noted_at: row.noted_at ?? null,
-      },
-    ]),
-  );
+  return new Map(rows.map((row) => [row.id, toOut(row)]));
 }
 
-/** Same rule for conditions: null means "could not load", an empty map means "the entry really is gone". */
+/** The patient's allergies keyed by id (the chart view renames allergen to substance). */
+export function parseChartAllergies(payload: unknown): Map<string, RecordChangeAllergy> | null {
+  return parseSection(payload, "allergies", (row: z.infer<typeof chartAllergySchema>) => ({
+    allergen: row.substance,
+    reaction: row.reaction ?? null,
+    severity: row.severity ?? null,
+    source: row.source,
+    noted_at: row.noted_at ?? null,
+  }));
+}
+
+/** The patient's conditions keyed by id (the chart view renames condition_name to display and icd10_code to code). */
 export function parseChartConditions(payload: unknown): Map<string, RecordChangeCondition> | null {
-  const parsed = chartResponseSchema.safeParse(payload);
-  if (!parsed.success) return null;
-  if (parsed.data.status === "denied") return null;
-  const rows = parsed.data.sections?.conditions;
-  if (!rows) return null;
-  return new Map(
-    rows.map((row) => [
-      row.id,
-      {
-        condition_name: row.display,
-        icd10_code: row.code ?? null,
-        status: row.status,
-        source: row.source,
-        date_identified: row.date_identified ?? null,
-      },
-    ]),
-  );
+  return parseSection(payload, "conditions", (row: z.infer<typeof chartConditionSchema>) => ({
+    condition_name: row.display,
+    icd10_code: row.code ?? null,
+    status: row.status,
+    source: row.source,
+    date_identified: row.date_identified ?? null,
+  }));
 }
 
 type ChartReader = {

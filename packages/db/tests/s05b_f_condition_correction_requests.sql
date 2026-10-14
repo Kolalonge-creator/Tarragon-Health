@@ -30,7 +30,7 @@ declare
   v_c   uuid := gen_random_uuid();   -- tied clinician (senior)
   v_u   uuid := gen_random_uuid();   -- untied clinician
   v_cc  uuid := gen_random_uuid();   -- care coordinator on the care team
-  c1 uuid; c2 uuid; c3 uuid; c4 uuid; c5 uuid; c6 uuid; c7 uuid; c8 uuid; c9 uuid; c10 uuid; c_clin uuid; c_diag uuid; c_ctrl uuid;
+  c1 uuid; c2 uuid; c3 uuid; c4 uuid; c5 uuid; c6 uuid; c7 uuid; c8 uuid; c9 uuid; c10 uuid; c_clin uuid; c_diag uuid; c_rev uuid; c_ctrl uuid;
   v_al uuid; v_w uuid;
   v_res jsonb;
   v_req uuid; v_req2 uuid; v_req3 uuid;
@@ -68,7 +68,7 @@ begin
   values (v_org, v_p, v_c, v_cc, now()) on conflict (patient_id) do update set clinician_id = v_c, care_coordinator_id = v_cc;
 
   -- conditions the patient typed herself (one per case), one a clinician recorded, one a clinician diagnosed
-  insert into public.patient_conditions (organisation_id, patient_id, condition_name, source) values (v_org, v_p, 'Gout',     'patient') returning id into c1;
+  insert into public.patient_conditions (organisation_id, patient_id, condition_name, icd10_code, source) values (v_org, v_p, 'Gout', 'M10', 'patient') returning id into c1;
   insert into public.patient_conditions (organisation_id, patient_id, condition_name, source) values (v_org, v_p, 'Migraine', 'patient') returning id into c2;
   insert into public.patient_conditions (organisation_id, patient_id, condition_name, source) values (v_org, v_p, 'Asthma',   'patient') returning id into c3;
   insert into public.patient_conditions (organisation_id, patient_id, condition_name, source) values (v_org, v_p, 'Eczema',   'patient') returning id into c4;
@@ -81,6 +81,7 @@ begin
   insert into public.patient_conditions (organisation_id, patient_id, condition_name, source) values (v_org, v_p, 'Hypertension', 'clinician') returning id into c_clin;
   insert into public.patient_conditions (organisation_id, patient_id, condition_name, source, diagnosing_clinician_id) values (v_org, v_p, 'Anaemia', 'patient', v_c) returning id into c_diag;
   insert into public.patient_conditions (organisation_id, patient_id, condition_name, source) values (v_org, v_p, 'Reflux', 'patient') returning id into c_ctrl;
+  insert into public.patient_conditions (organisation_id, patient_id, condition_name, source, last_reviewed_at) values (v_org, v_p, 'Psoriasis', 'patient', now() - interval '1 day') returning id into c_rev;
   insert into public.patient_allergies (organisation_id, patient_id, allergen, severity, source) values (v_org, v_p, 'Peanut', 'moderate', 'patient') returning id into v_al;
   insert into public.vitals_readings (organisation_id, patient_id, vital_type, weight_kg, taken_at, source)
   values (v_org, v_p, 'weight', 70, now() - interval '2 hours', 'manual') returning id into v_w;
@@ -174,6 +175,10 @@ begin
   begin perform public.correct_clinical_value('patient_conditions', c_diag, 'entered_in_error', 'patient voids a condition a clinician diagnosed', null);
   exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
   if v_state is distinct from '42501' then raise exception 'FAIL A14: a patient could request a change of a condition a clinician diagnosed (state %)', v_state; end if;
+  v_state := null;
+  begin perform public.correct_clinical_value('patient_conditions', c_rev, 'entered_in_error', 'patient voids a condition a clinician reviewed', null);
+  exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
+  if v_state is distinct from '42501' then raise exception 'FAIL A14b: a patient could request a change of a condition a clinician reviewed (state %)', v_state; end if;
   -- controls: the allergy rule is unchanged (pending), and her own manual reading is still corrected at once
   v_res := public.correct_clinical_value('patient_allergies', v_al, 'entered_in_error', 'I typed this allergy by mistake', null);
   if v_res ->> 'status' is distinct from 'pending' or v_res ->> 'table' is distinct from 'patient_allergies' then raise exception 'FAIL A15: the allergy request path changed (%)', v_res; end if;
@@ -302,6 +307,9 @@ begin
   execute 'reset role';
   v_req2 := (v_res ->> 'request_id')::uuid;
   if v_res ->> 'status' is distinct from 'pending' or v_req2 = v_req then raise exception 'FAIL C7: the second request was not created'; end if;
+  -- renamed without a code: the request says "no code" itself, so the old code (M10) is not silently kept
+  select replacement into v_json from public.patient_allergy_correction_requests where id = v_req2;
+  if not (v_json ? 'icd10_code') or v_json -> 'icd10_code' <> 'null'::jsonb then raise exception 'FAIL C8: a rename without a code kept the old code in the request (%)', v_json; end if;
   raise notice 'PASS C: reject leaves the original, notifies in-app without clinical words, is final';
 
   -- ======================================================================== D. confirm
@@ -317,6 +325,7 @@ begin
     raise exception 'FAIL D2: the original was not marked by the clinician through the supersede path';
   end if;
   select * into v_row from public.patient_conditions where id = (v_res ->> 'replacement_id')::uuid;
+  if v_row.icd10_code is not null then raise exception 'FAIL D3b: the replacement kept the old code %', v_row.icd10_code; end if;
   if v_row.condition_name <> 'Gouty arthritis' or v_row.date_identified is distinct from date '2024-05-01' or v_row.supersedes_id <> c1
      or v_row.source <> 'clinician' or v_row.patient_id <> v_p then
     raise exception 'FAIL D3: the replacement condition is wrong (%)', row_to_json(v_row);
@@ -566,8 +575,8 @@ begin
   v_flipped := false;
   begin
     select pg_get_functiondef(p.oid) into v_def from pg_proc p where p.proname = 'correct_clinical_value' and p.pronamespace = 'public'::regnamespace;
-    if position('or (p_table = ''patient_conditions'' and v_old ->> ''diagnosing_clinician_id'' is not null)' in v_def) = 0 then raise exception 'sabotage anchor missing'; end if;
-    execute replace(v_def, 'or (p_table = ''patient_conditions'' and v_old ->> ''diagnosing_clinician_id'' is not null)', 'or false');
+    if position('or (p_table = ''patient_conditions'' and (v_old ->> ''diagnosing_clinician_id'' is not null or v_old ->> ''last_reviewed_at'' is not null))' in v_def) = 0 then raise exception 'sabotage anchor missing'; end if;
+    execute replace(v_def, 'or (p_table = ''patient_conditions'' and (v_old ->> ''diagnosing_clinician_id'' is not null or v_old ->> ''last_reviewed_at'' is not null))', 'or false');
     select id into v_req from public.patient_conditions where patient_id = v_p and diagnosing_clinician_id is not null and correction_status is null limit 1;
     if v_req is null then raise exception 'sabotage fixture missing'; end if;
     perform set_config('request.jwt.claims', json_build_object('sub', v_p, 'role', 'authenticated')::text, true);

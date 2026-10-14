@@ -62,6 +62,14 @@ const SOURCE_LABEL: Record<string, string> = {
   fhir_import: "Imported from an external record",
 };
 
+/** A date-only value (a condition's date identified) for the screen; the stored value is YYYY-MM-DD. */
+function formatDay(day: string): string {
+  const parsed = new Date(`${day}T00:00:00`);
+  return Number.isNaN(parsed.getTime())
+    ? day
+    : parsed.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+}
+
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
     day: "numeric",
@@ -83,7 +91,7 @@ export function describeRequest(
   }
   const parts =
     request.kind === "condition"
-      ? [request.replacement.condition_name, request.replacement.date_identified ? `identified ${request.replacement.date_identified}` : null]
+      ? [request.replacement.condition_name, request.replacement.date_identified ? `identified ${formatDay(request.replacement.date_identified)}` : null]
       : [
           request.replacement.allergen,
           request.replacement.severity
@@ -138,7 +146,7 @@ function currentRows(request: RecordChangeRequest): Array<[string, string | null
     return [
       ["Condition", current?.condition_name],
       ["Code", current?.icd10_code],
-      ["Identified", current?.date_identified],
+      ["Identified", current?.date_identified ? formatDay(current.date_identified) : null],
       ["Status", current ? statusLabel(current.status) : null],
       ["Source", current ? (SOURCE_LABEL[current.source] ?? current.source) : null],
     ];
@@ -160,7 +168,13 @@ function askedRows(request: RecordChangeRequest): Array<[string, string | null |
     return [
       ["Condition", replacement?.condition_name ?? current?.condition_name],
       ["Code", replacement && "icd10_code" in replacement ? replacement.icd10_code : current?.icd10_code],
-      ["Identified", replacement && "date_identified" in replacement ? replacement.date_identified : current?.date_identified],
+      [
+        "Identified",
+        (() => {
+          const day = replacement && "date_identified" in replacement ? replacement.date_identified : current?.date_identified;
+          return day ? formatDay(day) : null;
+        })(),
+      ],
     ];
   }
   const current = request.allergy;
