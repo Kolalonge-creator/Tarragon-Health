@@ -37,6 +37,7 @@ import type { TemplateRender } from "./templates.ts";
 import { describeViolations, lintRenderFn, lintText } from "../_shared/notifications/neutral.ts";
 import { decide, DISCREET_DOCUMENT_TEMPLATES, discreetEmail, FALLBACK_QUIET, isSafetyCritical, PATIENT_AUDIENCES, privacyFor, pushEnvelope } from "../_shared/notifications/delivery.ts";
 import type { QuietSettings } from "../_shared/notifications/delivery.ts";
+import { resolveEmailAddress, verifiedAddressOf } from "../_shared/notifications/recipient-address.ts";
 import { withSentry } from "../_shared/observability/sentry.ts";
 
 const BATCH_SIZE = 50;
@@ -579,16 +580,32 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
   // from profiles.preferred_reminder_hour) holds a non-urgent reminder back
   // until the patient's preferred local hour — null means "send on next tick"
   // as before. Never set on critical/escalation rows, so this can never delay one.
-  const { data: pending, error: fetchError } = await supabase
-    .from("notifications")
-    .select("id, recipient_id, organisation_id, channel, template, payload, attempts, priority")
-    .eq("status", "pending")
-    .in("channel", ["sms", "email", "voice", "push"])
-    .lt("attempts", MAX_ATTEMPTS)
-    .or(`send_after.is.null,send_after.lte.${new Date().toISOString()}`)
+  // S19c (P2): critical rows (red event pages above all) are read first, so a backlog of routine reminders can never sit in front
+  // of a page inside the batch. Routine rows then fill whatever room is left.
+  const dueNow = new Date().toISOString();
+  const pendingBase = () =>
+    supabase
+      .from("notifications")
+      .select("id, recipient_id, organisation_id, channel, template, payload, attempts, priority")
+      .eq("status", "pending")
+      .in("channel", ["sms", "email", "voice", "push"])
+      .lt("attempts", MAX_ATTEMPTS)
+      .or(`send_after.is.null,send_after.lte.${dueNow}`);
+  const { data: criticalPending, error: criticalError } = await pendingBase()
+    .eq("priority", "critical")
     .order("created_at", { ascending: true })
     .limit(BATCH_SIZE)
     .returns<NotificationRow[]>();
+  const routineRoom = BATCH_SIZE - (criticalPending?.length ?? 0);
+  const { data: routinePending, error: routineError } = routineRoom > 0
+    ? await pendingBase()
+      .neq("priority", "critical")
+      .order("created_at", { ascending: true })
+      .limit(routineRoom)
+      .returns<NotificationRow[]>()
+    : { data: [] as NotificationRow[], error: null };
+  const pending = [...(criticalPending ?? []), ...(routinePending ?? [])];
+  const fetchError = criticalError ?? routineError;
 
   if (fetchError) {
     return Response.json(
@@ -940,7 +957,10 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
         sent++;
         return;
       }
-      if (isCritical || row.attempts + 1 >= MAX_ATTEMPTS) {
+      // A page row is retried like any other (up to the attempt limit): since S19c pages have their own ladder and nothing
+      // downstream turns a failed page row into the next channel, failing it on the first error would lose that leg for good.
+      const isPageRow = typeof row.template === "string" && row.template.startsWith("on_call_");
+      if ((isCritical && !isPageRow) || row.attempts + 1 >= MAX_ATTEMPTS) {
         await markFailed(result.error ?? "unknown error");
         failed++;
       } else {
@@ -1004,6 +1024,21 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
       continue;
     }
 
+    // S19c (P1): which address an email goes to, decided by the pure rule in _shared/notifications/recipient-address.ts. Page,
+    // on-call, credential and care-team notices always use the recipient's own VERIFIED sign-in address from Auth and ignore any
+    // payload address; security.* notices keep payload-first. Resolved before the privacy decision so a patient notice whose
+    // address came from Auth counts as their own address.
+    const resolvedEmail = row.channel === "email"
+      ? await resolveEmailAddress(row.template, (row.payload ?? {}).to_email, async () => {
+        const { data: authUser, error } = await supabase.auth.admin.getUserById(row.recipient_id);
+        if (error) {
+          console.error("send-pending-notifications: auth lookup failed for an email row", row.id, error.message);
+          throw error;
+        }
+        return verifiedAddressOf(authUser?.user);
+      })
+      : undefined;
+
     // S13: INV-07 guard, quiet hours, daily cap and the SMS rule, decided by one pure function.
     const privacy = privacyFor({
       role: roleById.get(row.recipient_id),
@@ -1013,7 +1048,7 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
       audience: audienceError || !row.template ? null : audienceByTemplate.get(row.template),
       // Only worth an Auth lookup when the template's audience is a patient one; otherwise privacy is off anyway.
       toEmailIsOwn: row.channel === "email" && !audienceError && PATIENT_AUDIENCES.has(String(audienceByTemplate.get(row.template ?? "") ?? ""))
-        ? await emailIsOwn(row.recipient_id, (row.payload ?? {}).to_email)
+        ? (resolvedEmail?.source === "auth" ? true : await emailIsOwn(row.recipient_id, (row.payload ?? {}).to_email))
         : null,
     });
     const decision = decide({
@@ -1059,15 +1094,15 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
     // Destination resolution. Rows queued for a non-profile recipient (e.g. a
     // no-login partner pharmacy) carry an explicit `to_phone`/`to_email` in the
     // payload; recipient-profile reminder rows fall back to profiles.phone.
-    let toEmail = typeof payload.to_email === "string" ? payload.to_email : undefined;
-    // security.* notices (new sign-in, recovery, the sign-in number) go to the account's own VERIFIED address. The older producers
-    // (record_login_device, queue_recovery_notice) queue the email row without payload.to_email, so the address is looked up here,
-    // from Auth by the recipient id, never from the payload; an unverified address is not used. Scoped to security.* templates.
-    if (
-      !toEmail && row.channel === "email" && typeof row.template === "string" && row.template.startsWith("security.")
-    ) {
-      const { data: authUser } = await supabase.auth.admin.getUserById(row.recipient_id);
-      if (authUser?.user?.email && authUser.user.email_confirmed_at) toEmail = authUser.user.email;
+    // Email: the address was resolved above by resolveEmailAddress (own verified Auth address for page, on-call, credential,
+    // care-team and security.* notices; the payload address for the rest). A page is never addressed from a payload.
+    const toEmail = resolvedEmail?.address;
+    // Defence in depth for P3: a page notification is never sent by SMS or voice, whatever queued it.
+    if ((row.channel === "sms" || row.channel === "voice") && typeof row.template === "string" && row.template.startsWith("on_call_")) {
+      await suppress(row.id, "pages never use sms or voice");
+      await recordEvent(row.id, "suppressed_cap", "system", null, { reason: "page_no_sms" });
+      suppressed++;
+      continue;
     }
     const toPhone = typeof payload.to_phone === "string"
       ? payload.to_phone
@@ -1080,6 +1115,12 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
         continue;
       }
       if (!toEmail) {
+        // A lookup that could not be made is not a missing address: try again on the next pass (until the attempt limit).
+        if (resolvedEmail?.source === "lookup_failed" && row.attempts + 1 < MAX_ATTEMPTS) {
+          await markRetry("auth lookup failed; will retry");
+          retried++;
+          continue;
+        }
         await markFailed("recipient has no email address");
         failed++;
         continue;
