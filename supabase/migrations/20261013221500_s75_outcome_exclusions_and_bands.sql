@@ -10,7 +10,7 @@
 --   2. private.s75_in_scope() applies them. The two aggregates (HbA1c / weight and mental health) also apply them at report time, so a person who BECOMES excluded
 --      after a snapshot was written drops out of the figures.
 --   3. mental_health_outcome_report gains `baseline_severity`: how many started in each severity band, withheld as a whole unless every band clears the minimum.
---   4. private.outcome_measure_cohort (the sponsor pack's per-cohort figure) for HbA1c and weight only. Mental health is never shown to a sponsor.
+--   4. private.outcome_measure_cohort (the sponsor pack's per-cohort figure): HbA1c and weight, and PHQ-9 and GAD-7 as SUPPRESSED GROUP figures (CMO decision 2026-10-14).
 --   5. private.outcome_measures_signed() = "the CMO has activated a config that lists the measures".
 --   6. Every function that still read the platform minimum directly now reads it through private.min_cell_floor() (the s75a rule, proof check 3d):
 --      the two reports above, bp_control_aggregate_180, clinical_response_report, and main-dev's suppress_small and employer_visit_summary. Same value; an unconfigured
@@ -264,8 +264,8 @@ begin
     'goal', case when p_measure = 'hba1c' then 'under 7.0 percent, or at the care-plan target' else 'a fall of 5 percent or more' end,
     'cohort_all_due', private.s75_cohort_json(a.n::integer, a.yes_n::integer, a.no_n::integer, a.ins::integer, v_min),
     'change_among_measured', v_chg,
-    'data_quality', case when a.n >= v_min then jsonb_build_object('baseline_missing_pct', round(100.0 * a.base_missing / a.n, 1),
-                         'care_plan_target_used_pct', case when p_measure = 'hba1c' then round(100.0 * a.n_target / a.n, 1) end)
+    'data_quality', case when a.n >= v_min then jsonb_build_object('baseline_missing_pct', round(100.0 * a.base_missing / nullif(a.n, 0), 1),
+                         'care_plan_target_used_pct', case when p_measure = 'hba1c' then round(100.0 * a.n_target / nullif(a.n, 0), 1) end)
                     else jsonb_build_object('suppressed', true, 'reason', 'under_minimum', 'minimum', v_min) end,
     'range', jsonb_build_object('from', p_from, 'to', p_to),
     'definition', v_rule ->> 'definition',
@@ -345,8 +345,10 @@ end $$;
 revoke all on function public.mental_health_outcome_report(text, integer, date, date) from public, anon;
 grant execute on function public.mental_health_outcome_report(text, integer, date, date) to authenticated;
 
--- The per-cohort figure the sponsor pack carries (S75c). HbA1c and weight ONLY: mental-health outcomes are never shown to a sponsor (CMO S-3 and S-5), so for
--- PHQ-9 and GAD-7 this says so and returns no figure. A person who is excluded (config v4) is not counted. Cells under the minimum are withheld with the rest.
+-- The per-cohort figure the sponsor pack carries (S75c): HbA1c and weight from outcome_measure_snapshots, PHQ-9 and GAD-7 from outcome_mh_snapshots. The CMO decided on 2026-10-14
+-- that the pack carries PHQ-9 and GAD-7 as SUPPRESSED GROUP figures (response and remission rates, never a person, never below the minimum cohort size, withheld as a whole when any
+-- cell is small). This is the only sponsor-side path to the mental-health table, and it is a private function nobody but the system can run. A person who is excluded (config v4)
+-- is not counted.
 create or replace function private.outcome_measure_cohort(p_measure text, p_day integer, p_from date, p_to date, p_patients uuid[]) returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
@@ -356,11 +358,26 @@ declare
   v_min integer := private.min_cell_floor();
   a record;
 begin
-  if p_measure in ('phq9', 'gad7') then return jsonb_build_object('not_shared', true, 'reason', 'mental_health_never_shown_to_a_sponsor'); end if;
   if v_ver is null then return jsonb_build_object('withheld', true, 'reason', 'measures_not_active'); end if;
   v_rule := private.s75_measure_rule(v_ver, p_measure);
-  if p_measure not in ('hba1c', 'weight') or v_rule is null or not (v_rule -> 'days') @> to_jsonb(p_day) then
+  if p_measure not in ('hba1c', 'weight', 'phq9', 'gad7') or v_rule is null or not (v_rule -> 'days') @> to_jsonb(p_day) or (p_measure in ('phq9', 'gad7') and p_day = 0) then
     return jsonb_build_object('withheld', true, 'reason', 'measure_not_enabled');
+  end if;
+  if p_measure in ('phq9', 'gad7') then
+    select count(*) as n,
+           count(*) filter (where s.response_status = 'response') as r_yes,
+           count(*) filter (where s.response_status = 'no_response') as r_no,
+           count(*) filter (where s.response_status = 'insufficient_data') as ins,
+           count(*) filter (where s.remission_status = 'remitted') as m_yes,
+           count(*) filter (where s.remission_status = 'not_remitted') as m_no
+      into a
+      from public.outcome_mh_snapshots s join public.profiles pr on pr.id = s.patient_id
+     where s.patient_id = any (p_patients) and s.instrument = p_measure and s.day = p_day and s.response_status <> 'not_applicable'
+       and not s.is_test and not coalesce(pr.is_test, false)
+       and (p_from is null or s.anchor_date >= p_from) and (p_to is null or s.anchor_date <= p_to)
+       and (not (v_rule ? 'exclusions') or private.s75_in_scope(s.patient_id, s.instrument, v_rule, s.anchor_date));
+    return jsonb_build_object('response', private.s75_cohort_json(a.n::integer, a.r_yes::integer, a.r_no::integer, a.ins::integer, v_min),
+                              'remission', private.s75_cohort_json(a.n::integer, a.m_yes::integer, a.m_no::integer, a.ins::integer, v_min));
   end if;
   select count(*) as n,
          count(*) filter (where s.goal_status = 'reached') as yes_n,
@@ -421,8 +438,8 @@ begin
     'change_among_measured', case when a.n_both >= v_min then jsonb_build_object('n', a.n_both, 'mean_systolic_change', round(a.mean_d_sys, 1), 'mean_diastolic_change', round(a.mean_d_dia, 1))
                                   else jsonb_build_object('suppressed', true, 'reason', 'under_minimum', 'minimum', v_min) end,
     'data_quality', case when a.n >= v_min then jsonb_build_object('enrolled_total', v_enrolled, 'not_yet_due', v_notdue,
-        'baseline_missing_pct', round(100.0 * a.base_missing / a.n, 1), 'day_no_reading_pct', round(100.0 * a.i / a.n, 1),
-        'default_target_used_pct', round(100.0 * a.n_def / a.n, 1))
+        'baseline_missing_pct', round(100.0 * a.base_missing / nullif(a.n, 0), 1), 'day_no_reading_pct', round(100.0 * a.i / nullif(a.n, 0), 1),
+        'default_target_used_pct', round(100.0 * a.n_def / nullif(a.n, 0), 1))
       else jsonb_build_object('suppressed', true, 'reason', 'under_minimum', 'minimum', v_min, 'enrolled_total', v_enrolled, 'not_yet_due', v_notdue) end,
     'definition', 'People whose 7-day average home blood pressure in the window ending on day 180 is under their own target (or under 140/90 when none is set), from at least the minimum number of valid readings. Denominator: every person who joined and whose day-180 window has closed, including people with too few or no readings.',
     'limitations', 'Home readings on shared or unvalidated devices; readings that sync after the grace period are not added to a past snapshot; a before and after view without a comparison group says nothing about cause; small numbers are withheld; not a ranking of clinicians and never a reason to deny care.',

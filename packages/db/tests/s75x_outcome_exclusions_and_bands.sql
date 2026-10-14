@@ -230,8 +230,15 @@ declare r jsonb;
 begin
   r := private.outcome_measure_cohort('hba1c', 90, null, null, array[pg_temp.f('a1'), pg_temp.f('a2'), pg_temp.f('a3'), pg_temp.f('u1'), pg_temp.f('g1'), pg_temp.f('n1')]);
   perform pg_temp.chk('6a HbA1c for a cohort of six counts the three adults only (child, pregnant and no date of birth left out)', '3', r ->> 'n');
-  r := private.outcome_measure_cohort('phq9', 90, null, null, array[pg_temp.f('q1'), pg_temp.f('q2'), pg_temp.f('q3')]);
-  perform pg_temp.chk('6b PHQ-9 is never given to a sponsor', 'true|mental_health_never_shown_to_a_sponsor', (r ->> 'not_shared') || '|' || (r ->> 'reason'));
+  -- CMO decision 2026-10-14 (S75-7): PHQ-9 and GAD-7 reach a sponsor as SUPPRESSED GROUP figures. With the minimum at 2, q1 to q4 (q5 later excluded) are a cohort of four.
+  r := private.outcome_measure_cohort('phq9', 90, null, null, array[pg_temp.f('q1'), pg_temp.f('q3'), pg_temp.f('q4')]);
+  perform pg_temp.chk('6b PHQ-9 for three people who all responded is a shown group figure (no person, only rates)', '3/false',
+    (r #>> '{response,n}') || '/' || (r #>> '{response,suppressed}'));
+  r := private.outcome_measure_cohort('phq9', 90, null, null, array[pg_temp.f('q1'), pg_temp.f('q2'), pg_temp.f('q3'), pg_temp.f('q4'), pg_temp.f('q5')]);
+  perform pg_temp.chk('6b1 four counted (q5 is excluded) with one person who did not respond is a small cell: withheld as a whole', '4/true', (r #>> '{response,n}') || '/' || (r #>> '{response,suppressed}'));
+  r := private.outcome_measure_cohort('phq9', 90, null, null, array[pg_temp.f('q1')]);
+  perform pg_temp.chk('6b2 a cohort of one is withheld, never shown', 'true', (r #>> '{response,suppressed}'));
+  perform pg_temp.chk('6b3 the group figure carries no person identifier', 'false', (r::text ~* '(patient_id|full_name|[0-9a-f]{8}-[0-9a-f]{4})')::text);
   perform pg_temp.chk('6c the pack is a function nobody but the system can run', 'false/false',
     has_function_privilege('authenticated', 'private.outcome_measure_cohort(text,integer,date,date,uuid[])', 'EXECUTE')::text || '/' ||
     has_function_privilege('anon', 'private.outcome_measure_cohort(text,integer,date,date,uuid[])', 'EXECUTE')::text);
@@ -247,7 +254,7 @@ create function pg_temp.item_readers() returns integer language sql as $$
 do $$
 begin
   perform pg_temp.chk('7a no function on the outcomes path reads item answers or the crisis flag (the scope check included)', '0', pg_temp.item_readers()::text);
-  perform pg_temp.chk('7b no sponsor-named function names a mental-health outcome object', '0',
+  perform pg_temp.chk('7b no sponsor-NAMED function names a mental-health outcome object (the pack reaches it only through the private cohort function)', '0',
     (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
       where n.nspname in ('public', 'private') and p.proname ~* '(sponsor|corporate|payer|hmo|ngo|employer|provider_org|wellbeing_cohort)'
         and p.prosrc ~* '(outcome_mh_snapshots|mental_health_outcome|clinician_mental_health|s75_mh_nearest|outcome_mh_compute)')::text);

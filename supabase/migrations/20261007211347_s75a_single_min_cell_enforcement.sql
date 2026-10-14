@@ -223,12 +223,12 @@ begin
     'range', jsonb_build_object('from', p_from, 'to', p_to),
     'data_quality', case when private.suppress_cell(a.n, null, v_min) is null then jsonb_build_object(
         'enrolled_total', case when v_show_enrolled then v_enrolled end, 'not_yet_due', case when v_show_notdue then v_notdue end,
-        'baseline_missing_pct', round(100.0 * a.base_missing / a.n, 1),
-        'due_day_no_reading_pct', round(100.0 * a.i / a.n, 1),
-        'day90_no_reading_pct', case when p_day = 90 then round(100.0 * a.i / a.n, 1) end,
-        'default_target_used_pct', round(100.0 * a.n_def / a.n, 1),
-        'adherence_unavailable_pct', round(100.0 * a.n_adh_unavail / a.n, 1),
-        'readings_arriving_after_snapshot_pct', round(100.0 * a.n_late / a.n, 1))
+        'baseline_missing_pct', round(100.0 * a.base_missing / nullif(a.n, 0), 1),
+        'due_day_no_reading_pct', round(100.0 * a.i / nullif(a.n, 0), 1),
+        'day90_no_reading_pct', case when p_day = 90 then round(100.0 * a.i / nullif(a.n, 0), 1) end,
+        'default_target_used_pct', round(100.0 * a.n_def / nullif(a.n, 0), 1),
+        'adherence_unavailable_pct', round(100.0 * a.n_adh_unavail / nullif(a.n, 0), 1),
+        'readings_arriving_after_snapshot_pct', round(100.0 * a.n_late / nullif(a.n, 0), 1))
       else jsonb_build_object('suppressed', true, 'reason', 'under_minimum', 'minimum', v_min,
                               'enrolled_total', case when v_show_enrolled then v_enrolled end, 'not_yet_due', case when v_show_notdue then v_notdue end) end,
     'bp_basis', 'Each person is judged against their own home target when they have one, otherwise 140/90 (decision S75-1). Home readings usually run lower than clinic readings, so control may be overstated. Revisit before any sponsor-facing use.',

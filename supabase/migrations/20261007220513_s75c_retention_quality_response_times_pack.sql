@@ -407,8 +407,9 @@ begin
   v_members := private.sponsor_agreed_members(p_cohort);
   v_fig := private.sponsor_report_aggregate(p_cohort, p_from, p_to);
   v_min := (v_fig ->> 'minimum_cell')::integer;
-  -- HbA1c and weight only: mental-health outcomes are never shown to a sponsor (CMO S-3 and S-5), so PHQ-9 and GAD-7 are not in the pack at all.
-  foreach m in array array['hba1c', 'weight'] loop
+  -- All four measures. PHQ-9 and GAD-7 reach a sponsor ONLY as suppressed group figures, through private.outcome_measure_cohort (CMO decision 2026-10-14, S75-7): never a person,
+  -- never below the minimum cohort size.
+  foreach m in array array['hba1c', 'weight', 'phq9', 'gad7'] loop
     if not v_signed then
       v_meas := v_meas || jsonb_build_object(m, jsonb_build_object('withheld', true, 'reason', 'awaiting_cmo_signature'));
     elsif private.suppress_cell(cardinality(v_members), null, v_min) is not null then
@@ -428,7 +429,6 @@ begin
     'retention_and_engagement', case when private.suppress_cell(cardinality(v_members), null, v_min) is null then private.retention_aggregate(p_from, p_to, v_members)
                                      else jsonb_build_object('suppressed', true, 'reason', 'under_minimum', 'minimum', v_min) end,
     'clinical_measures', v_meas,
-    'mental_health_outcomes', jsonb_build_object('included', false, 'reason', 'never_shown_to_a_sponsor'),
     'not_a_causal_claim', true);
   v_hits := private.causal_wording_hits(private.json_text(v_pack));
   if cardinality(v_hits) > 0 then return jsonb_build_object('ok', false, 'reason', 'causal_wording', 'hits', to_jsonb(v_hits)); end if;
