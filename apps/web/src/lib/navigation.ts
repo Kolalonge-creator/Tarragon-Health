@@ -524,6 +524,12 @@ export function getNavSections(
                   icon: "inbox",
                   countKey: "fhirProposedResourcesPending",
                 },
+                {
+                  label: "Record changes",
+                  href: "/clinician/record-changes",
+                  icon: "review",
+                  countKey: "recordChangeRequestsWaiting",
+                },
               ],
             },
             {
