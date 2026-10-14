@@ -17,7 +17,11 @@ export type SymptomCode =
   | "visual_disturbance"
   | "fainting"
   | "dizziness"
-  | "palpitations";
+  | "palpitations"
+  // S67 (pregnancy danger signs, CMO selection A2 of 2026-10-07, PROPOSED): rule set version 4 only.
+  | "convulsion"
+  | "loss_of_consciousness"
+  | "sudden_face_hand_swelling";
 
 export type PathwayState = "self_guided" | "care_pack_active" | "paused" | "discharged" | "referred_out";
 
