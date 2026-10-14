@@ -1912,6 +1912,120 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-371 The solo wellness challenge still shows its title in the app (raised by S69)
 - Fixed: the ending notice no longer names the challenge or progress (INV-07). The titles ("5-Day Vitals Streak") remain inside the app's own wellness screen, where they are not a notification. The template still carries a legacy `smsText` field; `private.patient_reminder_channel` never picks SMS, so INV-08 holds, but the field could be removed.
 - Decision: open (low).
+## S70 to S75 planning (2026-10-07)
+
+Raised by the S70 to S75 review (`docs/research/S70-S75-review-and-build-plan.md`). Numbers start at 309 because earlier sessions reused OQ-180 to OQ-185, OQ-213, OQ-214 and OQ-173 for different topics; do not renumber those, check for a clash before adding new ones. Decisions are in `docs/DECISIONS.md` under "S70 to S75 planning". Clinical thresholds named here are PROPOSED values and need the CMO's signature on the built draft.
+
+### OQ-309 Cross-source duplicate readings (raised by S70, function 18.9)
+- No cross-source dedup exists; only per-source unique indexes. The module's acceptance test ("duplicate readings from two sources are de-duplicated") has no implementation.
+- Decided (S70-1): link and count once, clinical device or manual outranks wearable. Open: the exact value tolerance and time windows (proposed BP 10 minutes, glucose 5 minutes) need the CMO's signature.
+- Decision: decided; windows pending signature.
+
+### OQ-310 CGM glucose and the red-flag engine (raised by S70)
+- `ingest.ts` deliberately skips glucose assessment for CGM. A prolonged low produces no clinician signal.
+- Decided (S70-2): sustained-event rules. Proposed: low below 3.0 mmol/L for 15 minutes or below 3.9 for 60 minutes; high above 13.9 for 120 minutes. Basis is the International Consensus on Time in Range and ADA 2026 [secondary, primary text not read].
+- Decision: decided; thresholds, durations, patient wording and who is paged pending the CMO's signature.
+
+### OQ-311 Personal ECG devices and irregular rhythm (raised by S70, function 18.6)
+- Existing path is PDF or photo upload with extraction, linked to `clinician_alerts`. No typed `device.alert`, no HealthKit ECG read, no device connector.
+- Decided (S70-3): routine clinician task within one working day, device's own result shown, no diagnosis wording. Open: the review window and patient wording for signature.
+- Decision: decided; wording pending signature.
+
+### OQ-312 Photo capture of device screens (raised by S70, function 18.3)
+- Not built. Decided (S70-4): on-device text recognition first, patient confirms every number, any device accepted, wrist cuffs get a "less reliable" note.
+- Open: whether to ever allow server-side vision. If so it must go through `runGovernedAi()` with a registered `ai_systems` row.
+- Decision: decided for on-device; server vision not approved.
+
+### OQ-313 Recommended devices list and real-device test (raised by S70, functions 18.1 and 18.2)
+- Criteria decided (S70-5). Open: the actual models and distributors are founder-supplied; seed nothing invented. The existing rule stands that one A&D UA-651BLE and one Accu-Chek Guide are paired on a real EAS build before a supported list is published.
+- Decision: criteria decided; list pending.
+
+### OQ-314 BP control basis: home vs clinic (raised by S38 design, decided by S75-1)
+- CMO pack recommended home below 135/85 and clinic below 140/90, reported separately. The founder and CMO chose to keep the 140/90 default (own target overrides).
+- Risk: home readings are judged on the clinic threshold and control may be overstated. Revisit before any sponsor-facing report or the 180-day report.
+- Decision: decided (keep 140/90); revisit flagged.
+
+### OQ-315 Outcome definitions for HbA1c, weight, PHQ-9 and GAD-7 (raised by S75, function 22.1)
+- Decided (S75-2): severity-banded with a caveat. Proposed: HbA1c change and share under 7%, weight loss of 5% or more (not in pregnancy or under 18), PHQ-9 and GAD-7 by baseline severity band. The meaningful-change figures vary with baseline severity [secondary].
+- Open: exact bands and thresholds for CMO signature; PHQ-9 item 9 and score 20+ handling must reuse the existing mental-health follow-up.
+- Decision: decided; values pending signature.
+
+### OQ-316 Triage dashboard naming (raised by S75, extends OQ-255)
+- Decided (S75-3): rename to "agreement"; no accuracy figure until an outcome-linked study with a written design exists. Open: the study design.
+- Decision: decided.
+
+### OQ-317 Risk stratification fairness review (raised by S75, function 22.3)
+- Decided (S75-4): stay deterministic; monthly CMO review by age band, sex, region and language; no ML model before 90 days of real snapshots. Open: who prepares the monthly report and where it is signed.
+- Decision: decided; owner of the monthly report pending.
+
+### OQ-318 Paid two-week CGM programme (raised by S70, function 18.5)
+- Decided (S70-6): the CMO drafts the protocol. Not sold until sensor supply, a legal import route and a naira price exist. Open: who supplies sensors without Tarragon importing them (the 2026-08-02 no-import decision stands), the price, and the review of OQ-310 first.
+- Decision: protocol approved in principle; launch blocked.
+
+### OQ-319 One minimum-cell function (raised by S75, extends OQ-233)
+- Suppression is enforced separately in the BP report, the sponsor report, the S38f held-back rule, risk distribution and older corporate dashboards (`organisations.min_cohort_size`, a different threshold). The acceptance test needs one enforcement point.
+- Decided (S75-5): keep 20 and 30, one database function. Open: counsel or the DPO confirms the number; reconcile `organisations.min_cohort_size`.
+- Decision: decided; counsel pending.
+
+### OQ-320 Device shop and the Tarragon band (raised by S74, function 21.5)
+- Decided (S74-1): no device shop, no `shop_orders`; the catalogue stays guidance. D-22 (band purchasing paused) is now recorded in `docs/DECISIONS.md`. The spec's 21.5 is not built by decision.
+- Decision: decided.
+
+### OQ-321 Health Points at checkout and the leftover kobo conversion (raised by S72, function 19.9; finishes OQ-08)
+- Decided (S72-1): a single-use, order-bound reduction on Tarragon's own fee only. The kobo conversion (`wellness_points_redemptions.kobo_credited`, `points_to_kobo_rate`, `lib/queries/wellness.ts`, `patient/wellness/points-card.tsx`) is still on main-dev and is removed in the same session. Open: the points cost and cap per order (PROPOSED config).
+- Decision: decided; values pending.
+
+### OQ-322 Instalments (raised by S72, function 19.10)
+- Decided (S72-2): not built. Reopen only on an explicit ask.
+- Decision: decided.
+
+### OQ-323 Community Access Fund legal vehicle (raised by S72, function 19.11; extends OQ-07)
+- Decided (S72-3): Nigerian counsel opinion first (fund holder, tax and charity status). A donation is a restricted gift tied to a named grant, never a balance. Built with the switch off. Open: the published grant criteria and who approves a grant.
+- Decision: decided; counsel pending.
+
+### OQ-324 Subscription toggle and leftover Paystack plan codes (raised by S73, function 20.2)
+- Decided (S73-1): an admin-only, audited enable toggle with a go-live guard on Membership; no `subscription_plans` rebuild. The six Paystack Plan codes recorded in migration `20260905060410` still need disabling in the Paystack dashboard (founder action).
+- Decision: decided; dashboard action pending.
+
+### OQ-325 HMO eligibility adapter (raised by S71, function 19.6)
+- Decided (S71-1): adapter per HMO, manual operations verification as fallback, hashed member number (the HMAC pattern of OQ-223), no capitation. Open: which HMO first, and who in operations verifies.
+- Decision: decided; first HMO pending.
+
+### OQ-326 Partner settlement scope (raised by S74, function 21.6)
+- Decided (S74-2): only where Tarragon collects and owes a partner; labs owe nothing (D-06); separate from S31 clinician payouts with a test that nothing is paid twice. Open: whether any pharmacy margin exists at all (OQ-283 hides prices).
+- Decision: decided; scope may be empty at launch.
+
+### OQ-327 Gaps found in the S70 to S75 review that need an owner
+- OQ-192 (any `profile_access` grantee can read and pay) is still open and must be fixed before any real caregiver grant. OQ-39 (56 older `analytics_*` RPCs ignore `is_test`) is still open. `device.synced` and `device.alert` are not in the S10 event catalogue. Withings, Samsung, inhaler sensors and `LabResultsSource` are not built. `partner_quality`, `partner.quality_breach`, `partner.settlement_due` and `settlement-run` are not built. Price quoting (`price-quote`, `price.changed`, `discount_codes`, `price_books`) is not built.
+- Decision: open; each is in the build plan.
+
+### OQ-360 Partner quality numbers (raised by S74, function 21.7)
+- The turnaround target (72 hours for a laboratory), the 80 percent on-time floor with at least 10 orders, three upheld complaints, the score weights (40/30/30) and floors (warn 70, suspend 50), the 30-day override and which breaches suspend are PROPOSED in `partner_quality_config` (mirrored as `partner.quality`). Nothing is signed. A wrong number can pause a real laboratory from new work.
+- Decision: open; CMO to confirm before the nightly job is trusted on real partners. Partner rows are a shared directory with no `organisation_id` (like go-live guards); reads are admin and CMO only.
+
+### OQ-361 Home test kits (raised by S74, function 21.1)
+- Not built. A kit needs a named partner, a D-06 treatment (who is paid for the kit and the lab work) and a result path through `LabResultsSource`. The seam is documented in `apps/web/src/lib/lab-results/results-source.ts`. `ApiLabResultsSource` is a stub that connects to nothing.
+- Decision: open; needs a partner.
+
+### OQ-362 Settlement four eyes with one founder (raised by S74, function 21.6)
+- `partner.settlement.four_eyes` is true: the person who drafts terms cannot approve them. A solo founder cannot satisfy it. Settlement ships guard-off and is empty at launch (no sponsor checkout, pharmacy prices hidden, OQ-283), so this does not block anything today.
+- Decision: open; founder to say whether a second approver (accountant, CMO) exists. Also open: a refund after a statement is issued is only reported (`partner_double_payment_findings`), not clawed back.
+
+### OQ-363 Pharmacy sourcing claim and batch record (raised by S74, function 21.2)
+- A pharmacy declares its NAFDAC-registered suppliers and an admin records a check. The pharmacist may record the product NAFDAC number and supplier per supply, once. It is NOT required at dispense (S28c says Tarragon does not verify batches), and the patient directory view does not yet show the badge (`pharmacy_sourcing_verified()` exists).
+- Decision: open; pharmacy lead and counsel to confirm wording before any patient-facing claim.
+
+### OQ-364 Pharmacist chat scope (raised by S74, function 21.2)
+- In app only, patient starts, 1,000 characters, 20 a day, open until collection plus 14 days, the pharmacy loses access when the patient changes pharmacy or takes the prescription back. No Tarragon staff read path. Caregivers (S28c pharmacy permission) are not included. The static emergency notice is the only safety text: no keyword triage (INV-01 spirit).
+- Decision: open; CMO and DPO to confirm that no staff read path is acceptable for complaints, and whether caregivers may use it.
+
+### OQ-365 go_live_conditions wrapper (raised by S74)
+- S74 renames the live `private.go_live_conditions` to `go_live_conditions_s74_base` and puts a thin wrapper in front, to avoid copying another session's body. A later migration that replaces `go_live_conditions` whole removes the wrapper and the settlement guard then fails closed. The S37 and S36b proofs now expect eight guards.
+- Decision: open; fold into S37 on the next rebase.
+
+### OQ-366 Clinic calendar and migration timestamps (raised by S74, function 21.3)
+- Clinic slots and reservations exist as schema and functions only, dormant under module 28; the proof for them and for the pharmacy chat and sourcing is NOT written or run (see BUILD-PROGRESS S74). The three S74 migrations are named 20261007161247 to 20261007161321 because the machine clock (12:34 UTC) sorted before existing files; whoever applies them must pin the version to the filename.
+- Decision: open.
 ### OQ-309 Free red events are guidance-only (CMO decision 2026-10-08): the INV-05 consequence
 - INV-05 says a red event never waits for a clinician to pull work and always pages the on-call clinician. By CMO decision (a sustainability decision, amendments C2) a red event on a **Free** patient now pages nobody, creates no clinical task and no clinician alert. A **Member** red event pages exactly as before. INV-05 therefore reads, from this change: "a red event on a Member never waits for a pull; on a Free patient it is guidance only." The spec text and `docs/design/S19.md` still carry the old wording until the CMO signs this.
 - Built (`two-tier/free-red-path`, NOT applied): `private.patient_may_page_doctor()` is the one gate, fail closed toward paging (a missing patient or any error while working out membership counts as Member and pages). `public.create_red_page`, `public.create_tasks_from_triage_event` and the legacy trigger feature check (`vitals_red_flag_doctor_escalation`, now also true for a Member) all use it. The glucose app-layer check now also fails toward paging.

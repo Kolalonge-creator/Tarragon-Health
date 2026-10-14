@@ -967,6 +967,63 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S28.md; spec 9.6 and 8.9",
   },
   {
+    key: "partner.quality",
+    // Partner quality rules (S74, spec 21.7): the turnaround target for a laboratory, how many upheld complaints are too many, the licence warning
+    // window, the score weights and floors, and which breaches take a partner out of NEW work. Live values are the active row of
+    // `partner_quality_config`; this entry mirrors it and a test fails if the migration seed and this value drift. PROPOSED: the CMO owns the
+    // numbers (OQ-360). Nothing here moves money; laboratories are paid by the patient directly (D-06).
+    value: {
+      window_days: 90,
+      turnaround: { lab_target_hours: 72, min_orders: 10, min_within_target_percent: 80 },
+      complaints: { category_codes: ["late_result", "wrong_result", "communication", "charge_dispute", "safety", "licence", "other"], upheld_limit: 3 },
+      licence: { expiring_days: 30 },
+      weights: { turnaround: 40, complaints: 30, licence: 30 },
+      score: { warn_below: 70, suspend_below: 50 },
+      removal: {
+        auto_suspend: true,
+        suspend_on: ["licence_expired", "complaints_upheld_limit", "turnaround_below_target", "score_below_floor"],
+        override_days: 30,
+        reason_min_chars: 20,
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S74.md; docs/research/S74.md; spec 21.7 and B.21 safety rules",
+  },
+  {
+    key: "partner.settlement",
+    // Partner settlement rules (S74, spec 21.6, decision S74-2). Live values are the active row of `partner_settlement_config`. PROPOSED, owned by the
+    // founder (OQ-326): the statement period, the day after month end the run may build drafts, whether a second person must approve terms, and the
+    // kinds of partner and source that can ever accrue. Laboratories are not in `partner_kinds`: they are owed nothing (D-06).
+    value: {
+      period: "calendar_month_lagos",
+      close_after_days: 5,
+      four_eyes: true,
+      source_kinds: ["sponsor_paid_item", "pharmacy_margin"],
+      partner_kinds: ["pharmacy", "clinic"],
+      basis_points_max: 10000,
+      reason_min_chars: 20,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S74.md; docs/DECISIONS.md S74-2; spec 21.6",
+  },
+  {
+    key: "pharmacy.chat",
+    // The in-app pharmacist and patient conversation (S74, spec 21.2): longest message, messages per sender per day, and how many days it stays open
+    // after the medicine is collected. Live values are the active row of `pharmacy_chat_config`. PROPOSED, owned by the CMO with the pharmacy lead.
+    value: { max_body_chars: 1000, max_per_sender_per_day: 20, open_days_after_supply: 14 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S74.md; spec 21.2",
+  },
+  {
     key: "queue.sla_warning",
     // When a held task's due time turns from blue to amber on the clinician queue and task screens (S35): this many minutes
     // before it is due. Display only: it changes no deadline, routing or fee. PROPOSED, CMO to confirm; the value on the
