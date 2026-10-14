@@ -97,6 +97,23 @@ as $$
   );
 $$;
 
+-- Only the DATES of the licence and indemnity (and a grace period), at a given moment. Shift rules use this, not full eligibility: a shift that
+-- starts after cover ends is refused or trimmed, but a clinician who is merely waiting for a primary-source check can still declare hours.
+create function private.credential_dates_ok(p_profile uuid, p_at timestamptz) returns boolean
+language sql stable security definer set search_path = ''
+as $$
+  select exists (
+    select 1 from public.clinical_staff cs
+    where cs.profile_id = p_profile
+      and (cs.license_expires_at is null or private.credential_valid_on(cs.license_expires_at, p_at) or private.credential_in_grace(cs.id, 'licence', p_at))
+      and (cs.license_expires_at is not null or not private.credential_missing_date_ineligible())
+      and (not coalesce(private.indemnity_required(cs.id), false)
+           or (cs.indemnity_expires_at is not null and cs.indemnity_expires_at > p_at)
+           or private.credential_in_grace(cs.id, 'indemnity', p_at))
+  );
+$$;
+revoke all on function private.credential_dates_ok(uuid, timestamptz) from public, anon, authenticated;
+
 create or replace function public.my_credential_status()
 returns jsonb language plpgsql stable security definer set search_path = ''
 as $$
@@ -374,7 +391,7 @@ begin
       raise exception 'availability_during_leave' using errcode = '22023';
     end if;
     -- decision 8: no hours on a day the licence or indemnity no longer covers (grace periods still count)
-    if new.state <> 'cancelled' and cs.id is not null and not private.clinician_is_eligible(new.clinician_id, new.starts_at) then
+    if new.state <> 'cancelled' and cs.id is not null and not private.credential_dates_ok(new.clinician_id, new.starts_at) then
       raise exception 'availability_after_credential_expiry' using errcode = '22023';
     end if;
     new.minimum_guarantee_eligible := coalesce(cs.employment_type = 'contracted', false)
@@ -405,17 +422,17 @@ begin
       v_changed := false;
       perform set_config('tarragon.lead_write', 'on', true);
       update public.availability_blocks set state = 'cancelled'
-       where clinician_id = c.profile_id and state <> 'cancelled' and starts_at > now() and not private.clinician_is_eligible(c.profile_id, starts_at);
+       where clinician_id = c.profile_id and state <> 'cancelled' and starts_at > now() and not private.credential_dates_ok(c.profile_id, starts_at);
       get diagnostics v_n = row_count;
       v_blocks := v_blocks + v_n; v_changed := v_changed or v_n > 0;
       for rr in select * from public.on_call_rota where cancelled_at is null and starts_at > now()
                  and (primary_clinician_id = c.profile_id or backup_clinician_id = c.profile_id)
-                 and not private.clinician_is_eligible(c.profile_id, starts_at) for update loop
+                 and not private.credential_dates_ok(c.profile_id, starts_at) for update loop
         update public.rota_swaps set state = 'cancelled' where rota_id = rr.id and state in ('requested', 'accepted');
         if rr.backup_clinician_id = c.profile_id then
           update public.on_call_rota set backup_clinician_id = null where id = rr.id;
-        elsif rr.backup_clinician_id is not null and private.clinician_is_eligible(rr.backup_clinician_id, rr.starts_at)
-              and private.clinician_is_eligible(rr.backup_clinician_id, rr.ends_at) then
+        elsif rr.backup_clinician_id is not null and private.credential_dates_ok(rr.backup_clinician_id, rr.starts_at)
+              and private.credential_dates_ok(rr.backup_clinician_id, rr.ends_at) then
           update public.on_call_rota set primary_clinician_id = rr.backup_clinician_id, backup_clinician_id = null where id = rr.id;
         else
           update public.on_call_rota set cancelled_at = now(), cancelled_reason = 'licence or indemnity ends before the shift' where id = rr.id;

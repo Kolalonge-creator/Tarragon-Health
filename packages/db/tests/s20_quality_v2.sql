@@ -944,9 +944,9 @@ begin
   alter table public.quality_config disable trigger quality_config_guard;
   insert into results values ('sabotaged', 'a used or signed quality_config version cannot be edited', '23514',
     pg_temp.try_sql($q$update public.quality_config set rules = jsonb_set(rules, '{sampling,random_rate_percent}', '77') where version = 3$q$));
-  -- (d) eligibility ignoring dates: a block after expiry would be accepted
+  -- (d) the date check ignoring dates: a block after expiry would be accepted
   update public.clinical_staff set license_expires_at = now() + interval '2 days' where profile_id = v_c1;
-  create or replace function private.clinician_is_eligible(p_profile uuid, p_at timestamptz default now()) returns boolean language sql stable security definer set search_path = '' as 'select true';
+  create or replace function private.credential_dates_ok(p_profile uuid, p_at timestamptz) returns boolean language sql stable security definer set search_path = '' as 'select true';
   insert into results values ('sabotaged', 'a block that starts after the licence ends is refused', '22023',
     pg_temp.try_sql(format('insert into public.availability_blocks (organisation_id, clinician_id, starts_at, ends_at, kind, is_test) values (%L, %L, now() + interval ''9 days'', now() + interval ''9 days 4 hours'', ''queue'', true)', v_org, v_c1)));
   -- (e) the open gate bypassed by a fabricated opening row
