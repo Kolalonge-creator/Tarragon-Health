@@ -27165,7 +27165,8 @@ export type Database = {
       }
       patient_allergy_correction_requests: {
         Row: {
-          allergy_id: string
+          allergy_id: string | null
+          condition_id: string | null
           created_at: string
           decided_at: string | null
           decided_by: string | null
@@ -27174,13 +27175,15 @@ export type Database = {
           organisation_id: string
           patient_id: string
           reason: string
+          record_table: string
           replacement: Json | null
           replacement_id: string | null
           requested_status: Database["public"]["Enums"]["correction_status"]
           status: string
         }
         Insert: {
-          allergy_id: string
+          allergy_id?: string | null
+          condition_id?: string | null
           created_at?: string
           decided_at?: string | null
           decided_by?: string | null
@@ -27189,13 +27192,15 @@ export type Database = {
           organisation_id: string
           patient_id: string
           reason: string
+          record_table?: string
           replacement?: Json | null
           replacement_id?: string | null
           requested_status: Database["public"]["Enums"]["correction_status"]
           status?: string
         }
         Update: {
-          allergy_id?: string
+          allergy_id?: string | null
+          condition_id?: string | null
           created_at?: string
           decided_at?: string | null
           decided_by?: string | null
@@ -27204,6 +27209,7 @@ export type Database = {
           organisation_id?: string
           patient_id?: string
           reason?: string
+          record_table?: string
           replacement?: Json | null
           replacement_id?: string | null
           requested_status?: Database["public"]["Enums"]["correction_status"]
@@ -27215,6 +27221,13 @@ export type Database = {
             columns: ["allergy_id"]
             isOneToOne: false
             referencedRelation: "patient_allergies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_allergy_correction_requests_condition_id_fkey"
+            columns: ["condition_id"]
+            isOneToOne: false
+            referencedRelation: "patient_conditions"
             referencedColumns: ["id"]
           },
           {
