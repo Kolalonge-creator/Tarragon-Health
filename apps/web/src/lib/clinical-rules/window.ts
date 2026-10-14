@@ -44,6 +44,7 @@ export async function evaluateWindow(
         .select("id", { count: "exact", head: true })
         .eq("patient_id", patientId)
         .eq("vital_type", window.vital_type)
+        .is("correction_status", null)
         .gte("taken_at", since);
 
       const filtered =

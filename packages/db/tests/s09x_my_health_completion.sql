@@ -444,8 +444,8 @@ begin
   insert into results values ('sabotaged', 'SABOTAGE: with the PIN check removed a wrong PIN opens the record', 'pin_required', coalesce(r ->> 'status', 'null'));
   -- (3) minimiser broken: allergies named in the payload
   v_def := pg_get_functiondef('public.my_lock_screen_facts()'::regprocedure);
-  v_def := replace(v_def, $s$'allergies_on_file', case when exists (select 1 from public.patient_allergies a where a.patient_id = v_uid) then true else null end,$s$,
-                          $s$'allergies_on_file', (select string_agg(a.allergen, ',') from public.patient_allergies a where a.patient_id = v_uid),$s$);
+  v_def := replace(v_def, $s$'allergies_on_file', case when exists (select 1 from private.patient_allergies_current a where a.patient_id = v_uid) then true else null end,$s$,
+                          $s$'allergies_on_file', (select string_agg(a.allergen, ',') from private.patient_allergies_current a where a.patient_id = v_uid),$s$);
   execute v_def;
   perform pg_temp.q_as(v_p, 'select public.set_lock_screen_pass(true)::text');
   v_txt := pg_temp.q_as(v_p, 'select public.my_lock_screen_facts()::text');

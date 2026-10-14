@@ -38061,6 +38061,7 @@ export type Database = {
       }
     }
     Functions: {
+      clinical_value_history: { Args: { p_table: string; p_id: string }; Returns: Json }
       correct_clinical_value: {
         Args: {
           p_id: string
