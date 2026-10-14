@@ -348,3 +348,9 @@ Full text, options and guideline basis: `docs/plans/S06-S10-decisions-and-cmo-si
 | Decision | Chosen |
 |---|---|
 | OQ-S09x-1 (extends OQ-281): may a patient see that staff opened their record | Yes, name and role plus time only. No reason, no basis, no category detail (reproductive_health included), no contact details, no IP or device. Break-glass and emergency access stay shown, with the role. |
+
+## S04b counsel position on adult-only registration and dependants (2026-10-13)
+
+| Decision | Chosen |
+|---|---|
+| Counsel brief `docs/plans/S01-S05-counsel-brief.md` (guardian consent, child age, hand-over at 18, DPIA, consent receipts, EU hosting, under-18 refusal) | Founder reports counsel has signed off on the plan as built: adults 18 and over only; guardian consent for a dependant under 18 limited to immunisation and preventive tracking; hand-over at 18 only with the young person's own agreement after a 30 day notice; consent receipts as evidence; refusal of under-18 sign-up. Recorded from the founder in chat. The written opinion is not in the repo yet; file it under `docs/legal/` when received. No code change follows, because the build already matches the brief. |
