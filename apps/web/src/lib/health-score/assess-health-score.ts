@@ -18,6 +18,7 @@ async function fetchBpControlPercent(
     .select("systolic, diastolic")
     .eq("patient_id", patientId)
     .eq("vital_type", "blood_pressure")
+    .is("correction_status", null)
     .gte("taken_at", since);
 
   const readings = (data ?? []).filter((r) => r.systolic !== null && r.diastolic !== null);
@@ -38,6 +39,7 @@ async function fetchLatestHba1c(
     .select("value")
     .eq("patient_id", patientId)
     .eq("code", "hba1c")
+    .is("correction_status", null)
     .order("taken_at", { ascending: false })
     .limit(1)
     .maybeSingle();

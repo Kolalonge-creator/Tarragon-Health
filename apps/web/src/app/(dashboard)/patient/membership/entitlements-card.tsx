@@ -1,10 +1,11 @@
 "use client";
 
-import { t, type Locale } from "@tarragon/i18n";
+import { en, t, type Locale, type MessageKey } from "@tarragon/i18n";
+import { entitlementLines, entitlementSource, type EntitlementView } from "@tarragon/commerce";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatPatientDate } from "@/lib/format-date";
 import { itemLabel } from "@/lib/commerce/item-label";
-import { useMyEntitlements, type EntitlementRow } from "@/lib/queries/commerce";
+import { isMessageKey } from "@/lib/commerce/model";
+import { useMyEntitlements } from "@/lib/queries/commerce";
 
 const MUTED = "text-charcoal-ink/70 dark:text-night-ink/70";
 
@@ -26,40 +27,34 @@ const STATE_KEYS = {
   revoked: "entitlement.state.revoked",
 } as const;
 
-/** The states the database allows; anything else shows the active label's neighbour, never a raw key. */
-function stateKey(state: string): (typeof STATE_KEYS)[keyof typeof STATE_KEYS] {
-  return state === "expired" || state === "used" || state === "revoked" ? STATE_KEYS[state] : STATE_KEYS.active;
+/** The words come from the shared wording (S72, 19.12) as keys; a key this build does not know shows nothing, never a raw key. */
+function say(line: { key: string; params: Readonly<Record<string, string | number>> }, locale: Locale): string {
+  return isMessageKey(line.key, en) ? t(line.key as MessageKey, locale, { ...line.params }) : "";
 }
 
-function EntitlementItem({ row, locale }: { row: EntitlementRow; locale: Locale }) {
-  const name = itemLabel(row.order?.catalog_item?.name_key, row.kind, locale);
+function EntitlementItem({ row, locale }: { row: EntitlementView; locale: Locale }) {
+  const name = itemLabel(row.nameKey, row.kind, locale);
+  const lines = entitlementLines(row).filter((l) => !l.key.startsWith("entitlement.state."));
+  const source = entitlementSource(row);
 
   return (
     <li className="flex items-center justify-between gap-3 py-3">
       <div>
         <p className="font-medium">{name}</p>
-        {row.ends_at ? (
-          <p className={`text-sm ${MUTED}`}>
-            {t("entitlement.expires_on", locale, { date: formatPatientDate(row.ends_at) })}
-          </p>
-        ) : null}
-        {row.remaining_uses !== null ? (
-          <p className={`text-sm ${MUTED}`}>
-            {row.remaining_uses === 1
-              ? t("entitlement.remaining_uses", locale, { count: String(row.remaining_uses) })
-              : t("entitlement.remaining_uses_plural", locale, { count: String(row.remaining_uses) })}
-          </p>
-        ) : null}
+        {lines.map((l) => (
+          <p key={l.key} className={`text-sm ${MUTED}`}>{say(l, locale)}</p>
+        ))}
+        <p className={`text-sm ${MUTED}`}>{say(source, locale)}</p>
+        {row.partCovered ? <p className={`text-sm ${MUTED}`}>{t("entitlement.part_covered", locale)}</p> : null}
       </div>
-      <span
-        className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${stateBadge(row.state)}`}
-      >
-        {t(stateKey(row.state), locale)}
+      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${stateBadge(row.state)}`}>
+        {t(STATE_KEYS[row.state], locale)}
       </span>
     </li>
   );
 }
 
+/** What the person has paid for, been given by a supporter, had covered by a sponsor, or received from the Community Access Fund. Never money (INV-09). */
 export function EntitlementsCard({ locale }: { locale: Locale }) {
   const { data } = useMyEntitlements();
   const rows = data ?? [];

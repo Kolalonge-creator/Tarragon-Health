@@ -255,6 +255,8 @@ export function getNavSections(
             { label: "My services", href: "/patient/subscription", icon: "billing" },
             // Buy the Membership or a care pack, see what is included and the price, and see your payments (S25).
             { label: "Membership", href: "/patient/membership", icon: "billing" },
+            // Send a link to someone who offered to help pay for the yearly Membership (S72).
+            { label: "Ask someone to pay", href: "/patient/payment-requests", icon: "billing" },
             { label: "Family", href: "/patient/family", icon: "family" },
             ...(options?.communityOpen ? [{ label: t("community.nav.title"), href: "/patient/community", icon: "family" as const }] : []),
             // Real feature a single-persona mock doesn't happen to show (that
@@ -731,6 +733,8 @@ export function getNavSections(
             { label: "Memberships", href: "/admin/memberships", icon: "members" },
             // What can be bought, its price and its history; switch an item on or off (S25).
             { label: "Catalogue and prices", href: "/admin/catalogue", icon: "billing" },
+            // Gifts to the Community Access Fund and the grants that pay for a named item for a named person (S72).
+            { label: "Community Access Fund", href: "/admin/access-fund", icon: "billing" },
             // What each organisation pays per Membership seat: the flat default, per-organisation prices, history (two-tier, C10).
             { label: "Organisation prices", href: "/admin/organisation-prices", icon: "billing" },
             // Blood pressure control 90 days after joining: aggregate only, small numbers withheld (S38).
@@ -743,6 +747,10 @@ export function getNavSections(
             // Fee schedules, what contracted clinicians have earned, adjustments (S30).
             { label: "Fees and earnings", href: "/admin/earnings", icon: "analytics" },
             { label: "Payouts", href: "/admin/payouts", icon: "analytics" },
+            // How each laboratory, pharmacy and clinic is doing; pause or reinstate from new work (S74).
+            { label: "Partner quality", href: "/admin/partner-quality", icon: "governance" },
+            // What Tarragon owes a pharmacy or clinic from money it collected; labs are never on it (S74).
+            { label: "Partner settlements", href: "/admin/partner-settlements", icon: "billing" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
             { label: "Event bus", href: "/admin/ops/event-bus", icon: "operations" },
             { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
@@ -781,6 +789,10 @@ export function getNavSections(
             { label: "Prescriptions sent to you", href: "/pharmacist/prescriptions", icon: "medication" },
             { label: "Verify a prescription", href: "/pharmacist/verify", icon: "approvals" },
             { label: "Dispensing history", href: "/pharmacist/history", icon: "audit" },
+            // S74: patient messages, partner statements, and the quality and sourcing check (module 21).
+            { label: "Patient messages", href: "/pharmacist/messages", icon: "messages" },
+            { label: "Statements", href: "/pharmacist/statements", icon: "billing" },
+            { label: "Quality and sourcing", href: "/pharmacist/quality", icon: "governance" },
             { label: "Pharmacy profile", href: "/pharmacist/profile", icon: "settings" },
           ],
         },
@@ -792,6 +804,8 @@ export function getNavSections(
             { label: "Dashboard", href: "/lab-partner", icon: "dashboard", exact: true },
             // S27: structured result entry (spec 9.6).
             { label: "Enter results", href: "/lab-partner/results", icon: "labs" },
+            // S74: the laboratory's own quality check (turnaround, complaints, licence).
+            { label: "Your quality check", href: "/lab-partner/quality", icon: "governance" },
           ],
         },
       ];

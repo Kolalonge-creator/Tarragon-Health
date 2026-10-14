@@ -412,11 +412,11 @@ jobs:
         working-directory: supabase/functions/paystack-webhook
         run: deno lint --no-config .
 
-      # S25: catalogue checkout (order-checkout, order-verify, order-reconcile) and the webhook's order branch.
+      # S25: catalogue checkout (order-checkout, order-verify, order-reconcile) and the webhook's order branch; S73: price-quote.
       - name: Test order functions
         if: github.event_name != 'pull_request' || steps.changes.outputs.edge == 'true'
         run: |
-          for d in order-checkout order-verify order-reconcile; do
+          for d in order-checkout order-verify order-reconcile price-quote; do
             (cd supabase/functions/$d && deno test --no-config . && deno lint --no-config .)
           done
 

@@ -967,6 +967,63 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S28.md; spec 9.6 and 8.9",
   },
   {
+    key: "partner.quality",
+    // Partner quality rules (S74, spec 21.7): the turnaround target for a laboratory, how many upheld complaints are too many, the licence warning
+    // window, the score weights and floors, and which breaches take a partner out of NEW work. Live values are the active row of
+    // `partner_quality_config`; this entry mirrors it and a test fails if the migration seed and this value drift. PROPOSED: the CMO owns the
+    // numbers (OQ-360). Nothing here moves money; laboratories are paid by the patient directly (D-06).
+    value: {
+      window_days: 90,
+      turnaround: { lab_target_hours: 72, min_orders: 10, min_within_target_percent: 80 },
+      complaints: { category_codes: ["late_result", "wrong_result", "communication", "charge_dispute", "safety", "licence", "other"], upheld_limit: 3 },
+      licence: { expiring_days: 30 },
+      weights: { turnaround: 40, complaints: 30, licence: 30 },
+      score: { warn_below: 70, suspend_below: 50 },
+      removal: {
+        auto_suspend: true,
+        suspend_on: ["licence_expired", "complaints_upheld_limit", "turnaround_below_target", "score_below_floor"],
+        override_days: 30,
+        reason_min_chars: 20,
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S74.md; docs/research/S74.md; spec 21.7 and B.21 safety rules",
+  },
+  {
+    key: "partner.settlement",
+    // Partner settlement rules (S74, spec 21.6, decision S74-2). Live values are the active row of `partner_settlement_config`. PROPOSED, owned by the
+    // founder (OQ-326): the statement period, the day after month end the run may build drafts, whether a second person must approve terms, and the
+    // kinds of partner and source that can ever accrue. Laboratories are not in `partner_kinds`: they are owed nothing (D-06).
+    value: {
+      period: "calendar_month_lagos",
+      close_after_days: 5,
+      four_eyes: true,
+      source_kinds: ["sponsor_paid_item", "pharmacy_margin"],
+      partner_kinds: ["pharmacy", "clinic"],
+      basis_points_max: 10000,
+      reason_min_chars: 20,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S74.md; docs/DECISIONS.md S74-2; spec 21.6",
+  },
+  {
+    key: "pharmacy.chat",
+    // The in-app pharmacist and patient conversation (S74, spec 21.2): longest message, messages per sender per day, and how many days it stays open
+    // after the medicine is collected. Live values are the active row of `pharmacy_chat_config`. PROPOSED, owned by the CMO with the pharmacy lead.
+    value: { max_body_chars: 1000, max_per_sender_per_day: 20, open_days_after_supply: 14 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S74.md; spec 21.2",
+  },
+  {
     key: "queue.sla_warning",
     // When a held task's due time turns from blue to amber on the clinician queue and task screens (S35): this many minutes
     // before it is due. Display only: it changes no deadline, routing or fee. PROPOSED, CMO to confirm; the value on the
@@ -1103,7 +1160,6 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/design/S39d.md; spec section 13; founder direction 2026-10-07",
   },
-
   {
     key: "quality.audit",
     // Clinical audits, tier 1 count, the audit form, reliability weight and the speak-up clocks (S20, spec 7.8). Live values are the
@@ -1548,6 +1604,43 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 3,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S29.md; docs/research/S29.md; docs/research/S29-ranked-design-plan.md; spec 4.7, 8.6",
+  },
+  // S69: community cohorts and challenges (spec 17.6 to 17.9). Live values are the active row of `community_config` and the rows of
+  // `challenge_templates`; a test (community-mirror.test.ts) fails if either drifts from the migration seed.
+  {
+    key: "cohorts.rules",
+    // min_contributors: the floor below which a cohort total is hidden (never below 10, enforced by the database; the institutional floor of 5
+    // is NOT used here). max_single_share_pct: leave-one-out, a total is hidden when its biggest contributor holds more than this share, so
+    // removing that one person would move the total too far. round_total_to and progress_step_pct: published figures are rounded.
+    // publish_delay_hours and snapshot_every_hours: a snapshot is readable only this long after it is taken, so one entry is never a visible
+    // jump. activity_minutes_week_cap and activity_minutes_day_max: WHO 150 to 300 minutes a week, capped. board_min_cohorts: cohorts needed for
+    // a comparison. participation_keep_days: how long a member's own effort rows survive after a challenge ends. blocked_name_terms: a cohort
+    // name may not start a word with one of these (generic names only).
+    value: { min_contributors: 10, max_single_share_pct: 30, round_total_to: 10, publish_delay_hours: 12, snapshot_every_hours: 6, invite_ttl_hours: 72, max_invites_per_day: 20, max_members_per_cohort: 200, max_cohorts_per_moderator: 3, max_active_challenges: 2, challenge_min_days: 7, challenge_max_days: 60, activity_minutes_week_cap: 300, activity_minutes_day_max: 180, board_min_cohorts: 3, progress_step_pct: 5, participation_keep_days: 30, blocked_name_terms: ["diabet", "sugar", "hypertens", "blood pressure", "bp", "hiv", "aids", "cancer", "kidney", "renal", "dialysis", "heart", "stroke", "asthma", "sickle", "obes", "weight", "slim", "diet", "pregnan", "fertil", "mental", "depress", "anxiety", "addict", "recovery", "cholesterol", "epilep", "tb", "tubercul", "hepatitis", "patient", "sick", "disease"] },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S69.md; docs/research/S69.md; docs/plans/S66-S70-cmo-signoff-pack.md (A16, B1)",
+  },
+  {
+    key: "cohorts.challenge_templates",
+    // The only challenges a moderator can start (CMO sign-off pack A16): effort counts only, never weight, calories, fasting, blood pressure or
+    // glucose. Proposed until the Chief Medical Officer signs each one through `sign_challenge_template`; nothing is approved by this entry.
+    value: [
+      { code: "log_days", label: "Check in with your health log", description: "Days you add something to your own health log.", metric: "log_days", unit: "days", default_days: 14, target_per_member: 8 },
+      { code: "medicine_days", label: "Medicine check-in days", description: "Days you answer your medicine check-in.", metric: "medicine_checkin_days", unit: "days", default_days: 14, target_per_member: 8 },
+      { code: "lessons", label: "Learn together", description: "Short health lessons you finish.", metric: "lessons_completed", unit: "lessons", default_days: 14, target_per_member: 3 },
+      { code: "move_together", label: "Move together", description: "Minutes of activity you do. Up to 300 minutes a week count.", metric: "activity_minutes", unit: "minutes", default_days: 7, target_per_member: 150 },
+      { code: "low_salt_days", label: "Lower-salt days", description: "Days you tell us you chose lower-salt food.", metric: "low_salt_days", unit: "days", default_days: 14, target_per_member: 8 },
+      { code: "regular_sleep", label: "Regular bedtime days", description: "Days you tell us you kept a regular bedtime.", metric: "consistent_sleep_days", unit: "days", default_days: 14, target_per_member: 8 },
+      { code: "water_with_meals", label: "Water with meals", description: "Days you tell us you drank water with meals.", metric: "water_with_meals_days", unit: "days", default_days: 14, target_per_member: 8 },
+    ],
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S69.md; docs/plans/S66-S70-cmo-signoff-pack.md (A16)",
   },
   // S26: entitlements lifecycle, care pack expiry, refunds
   {
@@ -2532,5 +2625,87 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-13",
     source: "docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md C6; docs/design/S08x.md",
+  },
+  {
+    key: "sponsor.rules",
+    // Sponsor-paid items and HMO eligibility (S71, module 19). Live values are the active row of `sponsor_config`; this entry mirrors it and a test
+    // fails if the migration seed and this value drift. hmo_checks_per_day: eligibility requests one person may make in 24 hours (abuse limit).
+    // member_number_min_length and member_number_max_length: the length a normalised HMO member number must have to be hashed at all (format only).
+    // The per-programme values (share, budget, per-person allowance, how many days an HMO pass stays valid) are DATA on each sponsor programme,
+    // set by an admin with a reason, never code.
+    value: { hmo_checks_per_day: 5, member_number_min_length: 4, member_number_max_length: 40 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S71.md; docs/DECISIONS.md S71-1; OQ-325",
+  },
+  {
+    key: "access_fund.rules",
+    // Community Access Fund (S72, function 19.11). Live values are the `access_fund` object of the active row of `checkout_extras_config`; this entry
+    // mirrors it and a test fails if the migration seed and this value drift. min_donation_kobo: smallest pledge. max_grant_kobo: the most one grant can
+    // cover. grant_valid_days: how long an approved grant can be used. pledge_valid_days: how long a pledge waits for the bank transfer.
+    // max_open_pledges: pledges one donor may have waiting. criteria: the PUBLISHED reasons operations may cite when approving a grant (keys; the words are
+    // in packages/i18n). None of this is signed: the criteria need review and counsel is needed on the legal vehicle (OQ-323) before the guard can open.
+    value: {
+      min_donation_kobo: 100_000,
+      max_grant_kobo: 10_000_000,
+      grant_valid_days: 60,
+      pledge_valid_days: 14,
+      max_open_pledges: 3,
+      criteria: ["care_cost_is_a_barrier", "recent_loss_of_income", "supporting_a_dependant", "referred_by_the_care_team"],
+    },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S72.md; docs/DECISIONS.md S72-3; OQ-323; OQ-420",
+  },
+  {
+    key: "payment_requests.rules",
+    // Payment requests (S72, function 19.13). The `payment_requests` object of the active `checkout_extras_config` row. expiry_days: how long a link works.
+    // max_open_per_person and creates_per_day: how many a person may have open and make in a day. lookups_per_hour: how many times one visitor may open
+    // links in an hour (identified by a hash the website makes, never an address). payments_per_hour: how many times one payer may start paying from a link.
+    value: { expiry_days: 7, max_open_per_person: 5, creates_per_day: 10, lookups_per_hour: 30, payments_per_hour: 10 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S72.md; OQ-424",
+  },
+  {
+    key: "pricing.rules",
+    // Pricing engine (S73, module 20). Live values are the active row of `pricing_config`; this entry mirrors it and a test fails if the
+    // migration seed and this value drift. points: a single-use reduction on Tarragon's own service fee only (S72-1, D2), never a balance,
+    // OFF (enabled false) until the founder signs the values: points_per_step points buy one step, each step takes reduction_per_step_kobo off the
+    // service fee, at most max_steps_per_order steps and at most max_percent_of_service_fee of that fee. third_party_component_keys: the price
+    // components that belong to a clinician or a partner and that no discount may reduce. service_fee_component_key: Tarragon's own fee component.
+    // min_payable_kobo: a buyer is never left paying less than this by a Tarragon discount (sponsor coverage and approved hardship grants are not
+    // Tarragon discounts). code_failed_tries_per_hour: wrong discount code tries a person may make in an hour.
+    value: {
+      points: { enabled: false, points_per_step: 100, reduction_per_step_kobo: 5000, max_steps_per_order: 5, max_percent_of_service_fee: 50 },
+      third_party_component_keys: ["clinician_fee", "partner_fee"],
+      service_fee_component_key: "tarragon_service_fee",
+      min_payable_kobo: 10000,
+      code_failed_tries_per_hour: 10,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S73.md; docs/DECISIONS.md S72-1, S73-1; OQ-321, OQ-324",
+  },
+  {
+    key: "commerce.processing_fee_estimate",
+    // v3 (S71, 19.4 and 19.7): adds the estimate for a card issued outside Nigeria, which a Care Circle supporter abroad will often use. Paystack lists
+    // 3.9 percent + NGN 100, uncapped, for international cards (the 2026-10-06 reading recorded in v2). The local figures are unchanged. Still only an
+    // ESTIMATE on screen, labelled as one: the exact fee is read from the verified payment. PROPOSED until the founder confirms it against the
+    // Paystack dashboard for this account.
+    value: { localBasisPoints: 150, flatKobo: 10_000, flatWaivedBelowKobo: 250_000, capKobo: 200_000, internationalBasisPoints: 390, internationalFlatKobo: 10_000 },
+    owner: "Founder",
+    status: "proposed",
+    version: 3,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S71.md; paystack.com/pricing as read 2026-10-06 (international 3.9% + NGN 100)",
   },
 ];
