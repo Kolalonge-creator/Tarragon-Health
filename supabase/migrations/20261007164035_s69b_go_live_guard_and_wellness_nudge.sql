@@ -43,34 +43,28 @@ end $patch$;
 revoke all on function public.attest_go_live_condition(text, text, boolean, text) from public, anon;
 grant execute on function public.attest_go_live_condition(text, text, boolean, text) to authenticated;
 
-do $$
+-- The guard's conditions: patched into private.go_live_conditions in place, from the CURRENT definition, by the same anchor main-dev's own migrations use (re-creating the
+-- function whole would discard other migrations' branches). It raises if the anchor is not found. Idempotent. (The attestable pairs were added above.)
+do $patch$
 declare
-  v_def text; v_new text;
-  v_branch constant text := $branch$elsif p_key = 'cohorts_enabled' then
+  v_def text := pg_get_functiondef('private.go_live_conditions(text,uuid)'::regprocedure);
+  v_anchor constant text := E'\n  end if;\n  -- An unknown key has no conditions';
+  v_branch constant text := $branch$
+  elsif p_key = 'cohorts_enabled' then
     return jsonb_build_array(
       private.go_live_cond('challenge_templates_approved', 'At least one challenge template signed by the Chief Medical Officer',
         exists (select 1 from public.challenge_templates where status = 'approved'), 'data',
         (select count(*) from public.challenge_templates where status = 'approved') || ' approved'),
       private.go_live_cond('dpia_recorded', 'A data protection impact assessment for cohort membership is recorded', private.go_live_attested(p_key, 'dpia_recorded'), 'attestation', null),
       private.go_live_cond('counsel_ndpa_confirmed', 'Counsel has confirmed the NDPA 2023 section references for cohort consent', private.go_live_attested(p_key, 'counsel_ndpa_confirmed'), 'attestation', null),
-      private.go_live_cond('admin_confirmation', 'Admin confirmation', true, 'switch', 'Given by an admin pressing the switch'));
-  $branch$;
+      private.go_live_cond('admin_confirmation', 'Admin confirmation', true, 'switch', 'Given by an admin pressing the switch'));$branch$;
 begin
-  v_def := pg_get_functiondef('private.go_live_conditions(text,uuid)'::regprocedure);
-  if position('cohorts_enabled' in v_def) = 0 then
-    if position('elsif p_key = ''public_signup_enabled'' then' in v_def) = 0 then raise exception 'S69b: anchor not found in go_live_conditions, rebase this migration'; end if;
-    v_new := replace(v_def, 'elsif p_key = ''public_signup_enabled'' then', v_branch || 'elsif p_key = ''public_signup_enabled'' then');
-    execute v_new;
+  if v_def like '%cohorts_enabled%' then return; end if;
+  if position(v_anchor in v_def) = 0 then
+    raise exception 'private.go_live_conditions no longer ends with the expected fall-through; add the cohorts branch by hand' using errcode = '55000';
   end if;
-
-  v_def := pg_get_functiondef('public.attest_go_live_condition(text,text,boolean,text)'::regprocedure);
-  if position('cohorts_enabled' in v_def) = 0 then
-    if position('(''public_signup_enabled'', ''stage2_exit_criteria_met''))' in v_def) = 0 then raise exception 'S69b: anchor not found in attest_go_live_condition, rebase this migration'; end if;
-    v_new := replace(v_def, '(''public_signup_enabled'', ''stage2_exit_criteria_met''))',
-                     '(''public_signup_enabled'', ''stage2_exit_criteria_met''), (''cohorts_enabled'', ''dpia_recorded''), (''cohorts_enabled'', ''counsel_ndpa_confirmed''))');
-    execute v_new;
-  end if;
-end $$;
+  execute replace(v_def, v_anchor, v_branch || v_anchor);
+end $patch$;
 
 revoke all on function private.go_live_conditions(text, uuid) from public;
 revoke all on function public.attest_go_live_condition(text, text, boolean, text) from public, anon;
