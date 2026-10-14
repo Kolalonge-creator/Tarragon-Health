@@ -45,6 +45,10 @@ begin
   insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test, language)
   values (v, p_org, p_role::public.user_role, 'S78a ' || p_label, '+23480' || lpad((random() * 99999999)::int::text, 8, '0'), (current_date - interval '45 years')::date, p_test, 'en')
   on conflict (id) do update set role = excluded.role, is_test = p_test, is_active = true, phone = excluded.phone;
+  -- two-tier (CMO 2026-10-08): a red event pages only for a Member, so every fixture patient here is one
+  if p_role = 'patient' then
+    insert into public.patient_memberships (organisation_id, patient_id, source, state, is_test) values (p_org, v, 'purchase', 'active', p_test);
+  end if;
   return v;
 end $f$;
 create function pg_temp.mkdoc(p_org uuid, p_admin uuid, p_label text, p_tier text, p_test boolean) returns uuid

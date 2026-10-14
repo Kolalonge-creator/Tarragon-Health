@@ -1,5 +1,5 @@
 -- S09x proof: My Health completion (migration *_s09x_my_health_completion.sql).
---   a. the patient's access log: one function, scoped to the caller, newest first, no clinical content, routine staff opens hidden by config.
+--   a. the patient's access log: one function, scoped to the caller, newest first, no clinical content; routine staff opens show name and role only (S09x2).
 --   b. safer sharing: PIN (hashed, salted, shown once), lockout, per-client rate limit, one-session, revoke, expiry, default expiry from config,
 --      no direct writes, no staff read of a share credential, no pin_hash to any client, the anon door answers null for every dead link alike.
 --   c. lock-screen presence: off by default, minimal facts (no allergen, condition or medicine name), the governed field list (CMO signs),
@@ -315,7 +315,16 @@ begin
     v_prev := (e ->> 'at')::timestamptz;
   end loop;
   perform pg_temp.ck('newest first', 'true', v_ok::text);
-  perform pg_temp.ck('routine staff openings are NOT shown by default (OQ-281, founder direction)', 'false', (v_j @> '[{"kind":"staff_record_opened"}]'::jsonb)::text);
+  -- S09x2 (founder decision 2026-10-13): a routine staff open IS shown, with name and role only
+  perform pg_temp.ck('a routine staff opening is shown with the staff name and role', 'true',
+    (v_j @> '[{"kind":"staff_record_opened","actor_label":"Senior Medical Officer","actor_name":"S09x senior"}]'::jsonb)::text);
+  perform pg_temp.ck('the staff row carries no basis, window, category detail or id', 'true',
+    (select bool_and(x ->> 'status' is null and x ->> 'ends_at' is null and x -> 'categories' = '["record_opened"]'::jsonb
+                     and (x - 'at' - 'rid' - 'kind' - 'actor_label' - 'actor_name' - 'categories' - 'status' - 'ends_at') = '{}'::jsonb
+                     and strpos(x::text, pg_temp.f('senior')::text) = 0 and strpos(x::text, 'tied') = 0 and strpos(x::text, '"open"') = 0)
+       from jsonb_array_elements(v_j) x where x ->> 'kind' = 'staff_record_opened')::text);
+  perform pg_temp.ck('break-glass by staff names the role too, still no reason', 'true',
+    (v_j @> '[{"kind":"emergency_record_access","actor_label":"Senior Medical Officer using emergency access"}]'::jsonb)::text);
   perform pg_temp.ck('no reason text, allergen, condition, phone or blood group in the log', 'false',
     (v_log ilike '%SECRET-REASON%' or v_log ilike '%penicillin%' or v_log ilike '%hypertension%' or v_log ilike '%2348012345678%' or strpos(v_log, 'O+') > 0)::text);
   perform pg_temp.ck('reproductive_health appears nowhere in the log', 'false', (v_log ilike '%reproductive%')::text);
@@ -325,12 +334,52 @@ begin
   update public.record_share_lookups set looked_up_at = now() - interval '2 minutes' where id in (select id from public.record_share_lookups order by id limit 3);
   perform pg_temp.ck('keyset paging one entry at a time loses and repeats nothing, even across tied timestamps', 'true',
     (pg_temp.walk(v_p) = (select count(*) from jsonb_array_elements(pg_temp.q_as(v_p, 'select public.my_access_log(100)::text')::jsonb)))::text);
-  -- the gate opens: flip the staff-opens flag
-  update public.my_health_config set config = jsonb_set(config, '{access_log,show_staff_opens}', 'true') where is_active;
-  v_j := pg_temp.q_as(v_p, 'select public.my_access_log()::text')::jsonb;
-  perform pg_temp.ck('with the flag on, staff openings appear (who, when, no content)', 'true',
-    (v_j @> '[{"kind":"staff_record_opened"}]'::jsonb)::text);
-  update public.my_health_config set config = jsonb_set(config, '{access_log,show_staff_opens}', 'false') where is_active;
+  -- null gates: no clinical_staff row -> generic label, name from the profile; no name at all -> role only; another patient never sees this row
+  insert into public.staff_record_opens (expires_at, staff_id, patient_id, organisation_id, basis) values (now() + interval '8 hours', pg_temp.f('admin'), v_p, v_org, 'tied');
+  update public.clinical_staff set full_name = '   ' where profile_id = pg_temp.f('cmo');
+  insert into public.staff_record_opens (expires_at, staff_id, patient_id, organisation_id, basis) values (now() + interval '8 hours', pg_temp.f('cmo'), v_p, v_org, 'tied');
+  v_j := pg_temp.q_as(v_p, 'select public.my_access_log(100)::text')::jsonb;
+  perform pg_temp.ck('an opening by an account with no clinical_staff row is not shown at all (admin, support, investigation reads are never told)', 'false',
+    (v_j::text ilike '%S09x admin Person%' or exists (select 1 from jsonb_array_elements(v_j) x where x ->> 'actor_label' = 'Tarragon staff member'))::text);
+  -- (1) history from before the release moment stays hidden: an opening an hour before 'since' is not shown, one after it is
+  insert into public.staff_record_opens (opened_at, expires_at, staff_id, patient_id, organisation_id, basis)
+  values ((select since from public.access_log_staff_identity_since) - interval '1 hour', now() - interval '30 minutes', pg_temp.f('senior'), v_p, v_org, 'tied');
+  v_j := pg_temp.q_as(v_p, 'select public.my_access_log(100)::text')::jsonb;
+  perform pg_temp.ck('an opening logged before the release moment is hidden', '2',
+    (select count(*) from jsonb_array_elements(v_j) x where x ->> 'kind' = 'staff_record_opened')::text);
+  perform pg_temp.ck('...and the since row cannot be read or written by a client', 'true',
+    (pg_temp.q_as(v_p, 'select count(*)::text from public.access_log_staff_identity_since') like 'ERR:%' and pg_temp.q_as(v_p, 'update public.access_log_staff_identity_since set since = ''2000-01-01''') like 'ERR:%')::text);
+  -- (4) break-glass by a clinician whose clinical_staff name is blank: role only, organisation stays, profile name never used, no reason
+  insert into public.emergency_record_access_grants (requester_id, requester_org_id, patient_id, patient_org_id, reason, expires_at)
+  values (pg_temp.f('cmo'), v_org, v_p, v_org, 'SECRET-REASON-blankname', now() + interval '8 hours');
+  v_j := pg_temp.q_as(v_p, 'select public.my_access_log(100)::text')::jsonb;
+  perform pg_temp.ck('break-glass names only the clinical_staff name, never the profile name, never the reason', 'false',
+    (v_j::text ilike '%S09x cmo Person%' or v_j::text ilike '%SECRET-REASON%')::text);
+  perform pg_temp.ck('...and still shows the role of that break-glass actor', 'true',
+    (v_j @> '[{"kind":"emergency_record_access","actor_label":"Chief Medical Officer using emergency access"}]'::jsonb)::text);
+  perform pg_temp.ck('a staff member with a blank clinical_staff name shows the role only', 'true',
+    (v_j @> '[{"kind":"staff_record_opened","actor_label":"Chief Medical Officer"}]'::jsonb)::text);
+  perform pg_temp.ck('no admin account name or CMO profile name reaches the patient on a staff row', 'false',
+    (v_j::text ilike '%S09x admin Person%' or v_j::text ilike '%S09x cmo Person%')::text);
+  -- the governed kill switch: show_staff_identity=false hides the staff rows (absent = shown); restored right after
+  update public.my_health_config set config = jsonb_set(config, '{access_log,show_staff_identity}', 'false') where is_active;
+  perform pg_temp.ck('the kill switch hides staff openings but keeps break-glass', 'true',
+    (select (not (x @> '[{"kind":"staff_record_opened"}]'::jsonb)) and x @> '[{"kind":"emergency_record_access"}]'::jsonb
+       from (select pg_temp.q_as(v_p, 'select public.my_access_log(100)::text')::jsonb as x) y)::text);
+  -- (3) the switch value is parsed as text and can never throw: junk reads as shown, the string "false" and a 0 read as hidden
+  update public.my_health_config set config = jsonb_set(config, '{access_log,show_staff_identity}', '"maybe"') where is_active;
+  perform pg_temp.ck('a junk kill-switch value does not break the log and reads as shown', 'true',
+    (pg_temp.q_as(v_p, 'select public.my_access_log(100)::text') !~ '^ERR:' and pg_temp.q_as(v_p, 'select public.my_access_log(100)::text')::jsonb @> '[{"kind":"staff_record_opened"}]'::jsonb)::text);
+  update public.my_health_config set config = jsonb_set(config, '{access_log,show_staff_identity}', '"false"') where is_active;
+  perform pg_temp.ck('the string false hides staff openings', 'false', (pg_temp.q_as(v_p, 'select public.my_access_log(100)::text')::jsonb @> '[{"kind":"staff_record_opened"}]'::jsonb)::text);
+  update public.my_health_config set config = jsonb_set(config, '{access_log,show_staff_identity}', '{"a":1}') where is_active;
+  perform pg_temp.ck('an object as the switch value does not throw', 'true', (pg_temp.q_as(v_p, 'select public.my_access_log(100)::text') !~ '^ERR:')::text);
+  update public.my_health_config set config = config #- '{access_log,show_staff_identity}' where is_active;
+  perform pg_temp.ck('the staff-profile helper is callable by no client role', 'false',
+    (has_function_privilege('anon', 'private.staff_public_profile(uuid)', 'EXECUTE') or has_function_privilege('authenticated', 'private.staff_public_profile(uuid)', 'EXECUTE'))::text);
+  perform pg_temp.ck('another patient sees no staff opens of this patient', '[]', pg_temp.q_as(v_q, 'select public.my_access_log()::text'));
+  perform pg_temp.ck('no phone, email, credential number or organisation internals on staff rows', 'false',
+    (select coalesce(bool_or(x::text ilike '%@example.invalid%' or x::text ilike '%S09X-%' or x::text ilike '%+234%'), false) from jsonb_array_elements(v_j) x where x ->> 'kind' = 'staff_record_opened')::text);
 end $$;
 
 -- 6. Lock-screen presence -------------------------------------------------------------------------------------------------------------
@@ -395,12 +444,31 @@ begin
   insert into results values ('sabotaged', 'SABOTAGE: with the PIN check removed a wrong PIN opens the record', 'pin_required', coalesce(r ->> 'status', 'null'));
   -- (3) minimiser broken: allergies named in the payload
   v_def := pg_get_functiondef('public.my_lock_screen_facts()'::regprocedure);
-  v_def := replace(v_def, $s$'allergies_on_file', case when exists (select 1 from public.patient_allergies a where a.patient_id = v_uid) then true else null end,$s$,
-                          $s$'allergies_on_file', (select string_agg(a.allergen, ',') from public.patient_allergies a where a.patient_id = v_uid),$s$);
+  v_def := replace(v_def, $s$'allergies_on_file', case when exists (select 1 from private.patient_allergies_current a where a.patient_id = v_uid) then true else null end,$s$,
+                          $s$'allergies_on_file', (select string_agg(a.allergen, ',') from private.patient_allergies_current a where a.patient_id = v_uid),$s$);
   execute v_def;
   perform pg_temp.q_as(v_p, 'select public.set_lock_screen_pass(true)::text');
   v_txt := pg_temp.q_as(v_p, 'select public.my_lock_screen_facts()::text');
   insert into results values ('sabotaged', 'SABOTAGE: a leaky payload names the allergen', 'false', (v_txt ilike '%penicillin%')::text);
+  -- (4) access log leaks the basis as the status of a staff row: the no-basis check must flip
+  v_def := pg_get_functiondef('public.my_access_log(integer,timestamptz,text)'::regprocedure);
+  v_def := replace(v_def, $s$array['record_opened']::text[], null, null$s$, $s$array['record_opened']::text[], o2.basis, null$s$);
+  execute v_def;
+  v_txt := pg_temp.q_as(v_p, 'select public.my_access_log(100)::text');
+  insert into results values ('sabotaged', 'SABOTAGE: a staff row that leaks the basis (tied/open) is caught', 'true',
+    (select bool_and(e ->> 'status' is null) from jsonb_array_elements(v_txt::jsonb) e where e ->> 'kind' = 'staff_record_opened')::text);
+  -- (5) the release cutoff removed: the pre-release opening must then show (the 'hidden' count would flip from 2 to 3)
+  v_def := pg_get_functiondef('public.my_access_log(integer,timestamptz,text)'::regprocedure);
+  v_def := replace(v_def, 'and o2.opened_at >= (select c.since from public.access_log_staff_identity_since c)', 'and true');
+  execute v_def;
+  insert into results values ('sabotaged', 'SABOTAGE: without the release cutoff old history shows', '2',
+    (select count(*) from jsonb_array_elements(pg_temp.q_as(v_p, 'select public.my_access_log(100)::text')::jsonb) x where x ->> 'kind' = 'staff_record_opened')::text);
+  -- (6) the clinical_staff requirement removed: the admin account's opening must then show
+  v_def := pg_get_functiondef('public.my_access_log(integer,timestamptz,text)'::regprocedure);
+  v_def := replace(v_def, 'and exists (select 1 from public.clinical_staff cs where cs.profile_id = o2.staff_id)', 'and true');
+  execute v_def;
+  insert into results values ('sabotaged', 'SABOTAGE: without the clinical-staff requirement a non-clinical open shows', 'false',
+    (pg_temp.q_as(v_p, 'select public.my_access_log(100)::text') ilike '%Tarragon staff member%')::text);
 end $$;
 
 do $$
@@ -412,7 +480,7 @@ begin
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and check_name like 'SABOTAGE%' and expected <> actual;
-  if v_caught < 3 then raise exception 'VACUOUS TEST: the sabotage flipped % of 3 checks', v_caught; end if;
+  if v_caught < 6 then raise exception 'VACUOUS TEST: the sabotage flipped % of 6 checks', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result

@@ -135,6 +135,7 @@ const TEMPLATE_CATEGORY: Partial<Record<string, PreferenceCategory>> = {
   lifestyle_nudge: "education_wellness",
   lifestyle_review_due: "education_wellness",
   wellness_challenge_ending: "education_wellness",
+  community_update: "education_wellness",
   region_now_available: "education_wellness",
   // Patient Engagement Engine (see private.queue_engagement_interventions) —
   // same bucket as the other keep-up-with-your-care nudges above, rather than
@@ -824,6 +825,10 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
   // below by construction (only priority === "routine" rows are grouped).
   const routineByRecipient = new Map<string, NotificationRow[]>();
   for (const row of rows) {
+    // S03b: a security notice (sign-in recovery, the sign-in number) is never folded into a digest. They are queued 'routine' on
+    // purpose (a 'critical' row is re-sent by SMS), but folding would drop the EMAIL half exactly when several steps happen quickly,
+    // which is when the owner most needs it.
+    if (typeof row.template === "string" && row.template.startsWith("security.")) continue;
     // Safety messages are never folded away, and neither is a reminder quiet hours already held: it is sent once.
     // If the held-row lookup failed nothing is folded this pass, so a released reminder cannot be folded away for good.
     if (heldError || row.priority !== "routine" || isSafetyCritical(row.template) || previouslyHeldIds.has(row.id)) continue;
@@ -1054,7 +1059,16 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
     // Destination resolution. Rows queued for a non-profile recipient (e.g. a
     // no-login partner pharmacy) carry an explicit `to_phone`/`to_email` in the
     // payload; recipient-profile reminder rows fall back to profiles.phone.
-    const toEmail = typeof payload.to_email === "string" ? payload.to_email : undefined;
+    let toEmail = typeof payload.to_email === "string" ? payload.to_email : undefined;
+    // security.* notices (new sign-in, recovery, the sign-in number) go to the account's own VERIFIED address. The older producers
+    // (record_login_device, queue_recovery_notice) queue the email row without payload.to_email, so the address is looked up here,
+    // from Auth by the recipient id, never from the payload; an unverified address is not used. Scoped to security.* templates.
+    if (
+      !toEmail && row.channel === "email" && typeof row.template === "string" && row.template.startsWith("security.")
+    ) {
+      const { data: authUser } = await supabase.auth.admin.getUserById(row.recipient_id);
+      if (authUser?.user?.email && authUser.user.email_confirmed_at) toEmail = authUser.user.email;
+    }
     const toPhone = typeof payload.to_phone === "string"
       ? payload.to_phone
       : phoneById.get(row.recipient_id) ?? undefined;

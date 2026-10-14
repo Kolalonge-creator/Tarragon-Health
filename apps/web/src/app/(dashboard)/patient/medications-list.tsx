@@ -151,6 +151,13 @@ export function MedicationsList({
       <CardContent>
         <CabinetSummary patientId={patientId} />
         {!isClinicianView && <MedicationInteractionNote medications={data ?? []} />}
+        {!isClinicianView && (
+          <p className="mb-3 text-xs">
+            <Link href="/patient/medicine-report" className="underline">
+              Your weekly record of doses marked taken (print or share)
+            </Link>
+          </p>
+        )}
         {!isClinicianView && (data ?? []).filter((m) => m.source === "clinician" && m.rx_number && !m.superseded_at).length > 1 && (
           <p className="mb-3 text-xs">
             <a

@@ -310,7 +310,8 @@ begin
   insert into results values ('real', 'the task row holds no clinical detail (INV-07)', 'true',
     (select (bool_and(outcome is null and cancel_reason is null))::text from public.clinical_tasks where type in ('follow_up_overdue', 'follow_up_overdue_abnormal') and patient_id = pg_temp.f('pat3')));
   insert into results values ('real', 'the sweep is scheduled every 15 minutes', '*/15 * * * *',
-    (select schedule from cron.job where jobname = 'sweep-clinical-follow-ups'));
+    -- main-dev staggers jobs that share a start time (20261012211349_sr2_stagger_cron_start_times.sql), so '*/15' may read as 'N-59/15': same every-15-minutes cadence
+    (select regexp_replace(schedule, '^[0-9]+-59/15 ', '*/15 ') from cron.job where jobname = 'sweep-clinical-follow-ups'));
   insert into results values ('real', 'the sweep is not callable by a signed-in role', 'false',
     has_function_privilege('authenticated', 'private.sweep_clinical_follow_ups()', 'EXECUTE')::text);
 end $$;

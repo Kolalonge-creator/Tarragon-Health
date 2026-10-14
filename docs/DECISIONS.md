@@ -28,6 +28,15 @@ Source: `docs/plans/S70-S75-cmo-signoff-pack.md` and `docs/research/S70-S75-revi
 - **S75-5: minimum cell size stays 20 (30 for two attributes), enforced by one database function** on every aggregate surface. Counsel or the DPO still confirms the number (OQ-233).
 - **S75-6 (founder and CMO, 2026-10-07): the raised minimum-cell floors are accepted.** Corporate, payer and reproductive dashboards now suppress below 20 (previously 5 to 10), via the single `private.suppress_cell` rule. Counsel or the DPO still confirms the number (OQ-233, OQ-388).
 - **S75-7 (founder and CMO, 2026-10-07): programme completion = the entitlement was fully used.** Every consultation and test item in the Membership or care pack is used, or the term ended with the clinical items used. It is an engagement measure, labelled exactly that, kept apart from clinical outcomes; refunded or cancelled entitlements are not counted (OQ-383).
+## S03b decisions, 2026-10-13
+
+Founder, for sign-in resilience (`docs/research/S01-S05-competitor-gap-and-build-plan.md` section 10; design in `docs/design/S03b.md`).
+
+| ID | Decision |
+|---|---|
+| S03B-1 | **People sign in with a working email or phone number; keep it simple.** Not built: voice-call OTP or any delivery-status table, a per-profile PIN, a restricted new-device state. SMS stays code-only (INV-08) and nothing new requires an SMS for core access. |
+| S03B-2 | **Built:** ten single-use backup codes, a Care Circle recovery contact, a self-serve change-number flow with a database-enforced confirmation (answers OQ-43 in our apps; the Auth-level gap is OQ-S03B-06), and eligibility-first cohort and sponsor codes (closes OQ-41, delivers spec 1.8). |
+| S03B-3 | **PROPOSED values** (not yet confirmed by the founder): 24 hour wait after a recovery contact confirms, 72 hour pause of text-code recovery after a number change, 15 minute confirmation window, three backup-code sets a day, two contact requests a week. Versioned as `auth.recovery_rules`. |
 ## CMO decision, 2026-10-08: Free red events are guidance-only (built 2026-10-12, not applied)
 
 | ID | Decision |
@@ -337,3 +346,8 @@ Full text, options and guideline basis: `docs/plans/S06-S10-decisions-and-cmo-si
 | D9 counsel on NDPA basis for emergency card and access logs | Instruct now |
 
 - **S75-6: the S75 outcome measures are ONE design (founder, 2026-10-13).** Two builds of the same measures existed (S75 track D, #1094, and S75b, #1087). #1094 ships: `outcome_measure_snapshots` (HbA1c, weight) and `outcome_mh_snapshots` (PHQ-9, GAD-7) with the config in `outcome_config`. From #1087 are kept the single minimum-cell enforcement (S75a), retention, response times, data quality, fairness history and the sponsor pack (S75c), plus the exclusions (under 18, age unknown, pregnant, a PHQ-9 total of 20 or more) and the PHQ-9 / GAD-7 severity bands, added as `outcome_config` v4. Dropped: #1087's second snapshot table, compute job, report, CMO-signature gate on the pack, and the item-9 read (OQ-S75X-1). The sponsor pack no longer carries mental-health outcomes (OQ-S75X-2).
+## S09x2 access log shows staff identity (2026-10-13)
+
+| Decision | Chosen |
+|---|---|
+| OQ-S09x-1 (extends OQ-281): may a patient see that staff opened their record | Yes, name and role plus time only. No reason, no basis, no category detail (reproductive_health included), no contact details, no IP or device. Break-glass and emergency access stay shown, with the role. |

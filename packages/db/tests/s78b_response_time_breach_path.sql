@@ -141,14 +141,15 @@ begin
   perform pg_temp.act(v_cmo);
   v_counts := public.response_time_breach_summary(30);
   perform pg_temp.rec('the lead sees counts by kind', '2,1,1', (v_counts -> 'by_kind' ->> 'written_question') || ',' || (v_counts -> 'by_kind' ->> 'amber_review') || ',' || (v_counts -> 'by_kind' ->> 'appointment_start'));
-  perform pg_temp.rec('the lead reads breach rows', '4', (select count(*)::text from public.response_time_breaches));
+  perform pg_temp.rec('the lead gets all four breaches through the summary and cannot read the rows directly (review fix 4: the summary function is the only door)', '4/42501',
+    ((v_counts -> 'by_kind' ->> 'written_question')::int + (v_counts -> 'by_kind' ->> 'amber_review')::int + (v_counts -> 'by_kind' ->> 'appointment_start')::int)::text || '/' || pg_temp.try('select count(*) from public.response_time_breaches'));
   perform pg_temp.back();
   perform pg_temp.act(v_admin);
   perform pg_temp.rec('admin may read the summary', 'ok', pg_temp.try('select public.response_time_breach_summary(30)'));
   perform pg_temp.back();
   perform pg_temp.act(v_pt_late);
   perform pg_temp.rec('a patient is refused the summary', '42501', pg_temp.try('select public.response_time_breach_summary(30)'));
-  perform pg_temp.rec('a patient reads no breach row', '0', (select count(*)::text from public.response_time_breaches));
+  perform pg_temp.rec('a patient cannot read a breach row directly', '42501', pg_temp.try('select count(*) from public.response_time_breaches'));
   perform pg_temp.rec('a patient cannot write a breach row', '42501', pg_temp.try(format('insert into public.response_time_breaches (organisation_id, kind, subject_id, target_minutes, config_version) values (%L, ''written_question'', gen_random_uuid(), 1, 1)', v_org)));
   perform pg_temp.back();
   perform pg_temp.act(v_doc);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { diffNotifications, planDoseNotifications, reminderIssues, type ReminderHealthInput, type ReminderMedicine } from "./reminders";
+import { diffNotifications, keepRemindersGroup, planDoseNotifications, reminderIssues, type ReminderHealthInput, type ReminderMedicine } from "./reminders";
 import type { ScheduleSpec } from "./types";
 
 const base = { startDate: null, endDate: null, foodNote: null } as const;
@@ -166,5 +166,17 @@ describe("reminderIssues", () => {
     expect(reminderIssues({ ...ok, manufacturer: "Infinix mobility", lastPlannedAtMs: null })).toEqual(["plan_out_of_date", "maker_may_stop_reminders"]);
     expect(reminderIssues({ ...ok, manufacturer: "google", pendingCount: 0 })).toEqual(["nothing_scheduled"]);
     expect(reminderIssues({ ...ok, manufacturer: null, pendingCount: 0 })).toEqual(["nothing_scheduled"]);
+  });
+});
+
+describe("keepRemindersGroup", () => {
+  it("picks the checklist for the phone maker, in any letter case, and the generic one when it is unknown", () => {
+    expect(keepRemindersGroup("TECNO")).toBe("transsion");
+    expect(keepRemindersGroup("Infinix")).toBe("transsion");
+    expect(keepRemindersGroup("itel")).toBe("transsion");
+    expect(keepRemindersGroup("samsung")).toBe("samsung");
+    expect(keepRemindersGroup("Xiaomi")).toBe("other_aggressive");
+    expect(keepRemindersGroup("Google")).toBe("generic");
+    expect(keepRemindersGroup(null)).toBe("generic");
   });
 });

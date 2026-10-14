@@ -265,6 +265,54 @@ function neutralMail(
 
 const REMINDER_WAITING = (): string => "Hi, a reminder is waiting for you. Open the Tarragon Health app. Tarragon Health";
 
+// S03b: security notices about sign-in recovery (backup codes, the recovery contact, the sign-in number). Each producer is a
+// database function (private.recovery_notice) that queues an in_app row and, to a VERIFIED address only, an email row whose
+// payload carries the fully worded `message` and `to_email`. They are plain pass-throughs like security.new_device_signin, never
+// SMS (INV-08: SMS is for verification codes and clinician paging only), and never category-gated: a security notice must reach
+// the owner whatever their reminder preferences say. Without an entry here an email row would fail as "unknown template".
+const SECURITY_NOTICE_SUBJECTS: Readonly<Record<string, string>> = {
+  "security.backup_codes_generated": "New backup codes for your Tarragon Health account",
+  "security.backup_code_used": "A backup code was used on your Tarragon Health account",
+  "security.recovery_contact_asked": "You were asked to be a recovery contact",
+  "security.recovery_contact_changed": "Your recovery contact changed",
+  "security.recovery_contact_request": "A member of your Care Circle needs your help",
+  "security.recovery_contact_request_patient": "A recovery request was started on your account",
+  "security.recovery_contact_confirmed": "Your recovery contact confirmed",
+  "security.recovery_contact_declined": "Your recovery contact did not confirm",
+  "security.recovery_contact_released": "A recovery link or code was sent",
+  "security.phone_change_started": "The phone number on your account is being changed",
+  "security.phone_changed": "The phone number on your account was changed",
+  "security.programme_code_not_applied": "Your programme code could not be used",
+  // S03 assisted recovery (private.queue_recovery_notice): queued since 2026-09-30 with no entry here, so the email rows failed as unknown.
+  "security.assisted_recovery_requested": "Account recovery was started on your account",
+  "security.assisted_recovery_executed": "An account recovery step was completed on your account",
+};
+
+// The message can contain a person's display name, which they chose, so it is escaped before it goes into HTML.
+function securityNoticeRender(subject: string): (payload: Record<string, unknown>) => TemplateRender {
+  return (payload) => {
+    const message = String(payload.message ?? "There is a security update on your Tarragon Health account.");
+    return {
+      smsText: message,
+      pushUrl: "/patient/settings/security",
+      email: {
+        subject,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>${escapeHtmlForBroadcast(message)}</p>` +
+          `<p style="color:#5b6b78;font-size:13px">If this was you, there is nothing else to do. If it was not, change your password right away and reach out to your care team from the app.</p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: message,
+      },
+    };
+  };
+}
+
+const SECURITY_NOTICE_ENTRIES: Record<string, (payload: Record<string, unknown>) => TemplateRender> = Object.fromEntries(
+  Object.entries(SECURITY_NOTICE_SUBJECTS).map(([key, subject]) => [key, securityNoticeRender(subject)]),
+);
+
 // Unknown template keys are never guessed at — see the caller below.
 export const TEMPLATE_MAP: Record<
   string,
@@ -474,15 +522,11 @@ export const TEMPLATE_MAP: Record<
   // challenge_ending_nudges) — private.evaluate_wellness_challenges silently
   // expires it with no warning otherwise. Reminder only; logging progress and
   // claiming the reward always happen in-app.
-  wellness_challenge_ending: (payload) => {
-    const title = String(payload.challenge_title ?? "your challenge");
-    const progress = String(payload.progress ?? "0");
-    const target = String(payload.target ?? "0");
+  wellness_challenge_ending: () => {
+    // INV-07 (S69b): neutral. The payload is empty and nothing from it is echoed: no challenge title, no progress figure.
     const path = "/patient/wellness";
     return {
-      smsText:
-        `Hi, your "${title}" challenge ends in 24 hours and you're at ${progress}/${target}. ` +
-        `Finish it in the Tarragon Health app. Tarragon Health`,
+      smsText: `Hi, a challenge of yours ends soon. Finish it in the Tarragon Health app. Tarragon Health`,
       pushUrl: path,
     };
   },
@@ -1416,6 +1460,21 @@ export const TEMPLATE_MAP: Record<
       text: "Someone has left your Care Circle.\n\nOpen Tarragon Health to see your Care Circle.\n\nTarragon Health",
     },
   }),
+  community_update: () => ({
+    // S69 (INV-07): one generic notice for every community milestone. It names no cohort, metric, figure or condition.
+    smsText: "Your group has an update. Tarragon Health",
+    pushUrl: "/patient/community",
+    email: {
+      subject: "Your group has an update",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Your group has an update.</p>` +
+        `<p>Open Tarragon Health to see it. You can mute your group at any time.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Your group has an update.\n\nOpen Tarragon Health to see it. You can mute your group at any time.\n\nTarragon Health",
+    },
+  }),
   circle_expiring: () => ({
     smsText: "Someone's access to your Care Circle ends soon. Tarragon Health",
     pushUrl: "/patient/care-circle",
@@ -1835,6 +1894,7 @@ export const TEMPLATE_MAP: Record<
   // above, so this stays a plain pass-through. Never gated by
   // TEMPLATE_CATEGORY, matching every other critical-only security/safety
   // template in this map.
+  ...SECURITY_NOTICE_ENTRIES,
   "security.new_device_signin": (payload) => {
     const message = String(
       payload.message ?? "New sign-in to your Tarragon Health account from a device we haven't seen before.",

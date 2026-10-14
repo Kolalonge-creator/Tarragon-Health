@@ -135,6 +135,36 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: `${SPEC.replace("Section 17", "Section 8.2")} (Verify: six-digit code, resend after 60 seconds, max 5 attempts per hour)`,
   },
   {
+    key: "auth.recovery_rules",
+    // S03b (founder decisions 2026-10-13). Live values are the active row of `account_recovery_config`; this entry mirrors it and a
+    // test fails if the migration seed and this value drift. backup_code_count: codes per set (the founder said ten).
+    // backup_code_regenerations_per_day: sets one person can make in 24 hours. backup_code_attempts_per_hour: wrong tries on one
+    // account before redeeming is refused for an hour. contact_delay_hours: the wait between the recovery contact confirming and
+    // the one-time link being allowed. contact_request_hours: how long a request waits for the contact to answer.
+    // contact_release_hours: how long the link can be asked for once the wait is over. contact_requests_per_week: requests one
+    // person can start in a week (each one disturbs the contact). number_change_hold_hours: how long recovery by a text code is
+    // paused after the sign-in number moved (OQ-43). number_change_confirm_minutes: how long a confirmation from the old number or
+    // the verified email stays good for starting a number change. step_up_minutes: how long a password re-entry stays good for making
+    // backup codes or naming a recovery contact. All are PROPOSED; none is spec-fixed except the count of ten.
+    value: {
+      backup_code_count: 10,
+      backup_code_regenerations_per_day: 3,
+      backup_code_attempts_per_hour: 10,
+      contact_delay_hours: 24,
+      contact_request_hours: 48,
+      contact_release_hours: 48,
+      contact_requests_per_week: 2,
+      number_change_hold_hours: 72,
+      number_change_confirm_minutes: 15,
+      step_up_minutes: 10,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/design/S03b.md; docs/research/S01-S05-competitor-gap-and-build-plan.md section 10; OQ-41, OQ-43",
+  },
+  {
     key: "proxy.setup",
     // Spec 8.2 "Set up for my parent": the setup expires after 72 hours. The per-day cap on how many setups one person
     // may start is not in the spec; it is a PROPOSED abuse limit (each setup costs a verification code SMS). Mirrored
@@ -937,6 +967,63 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S28.md; spec 9.6 and 8.9",
   },
   {
+    key: "partner.quality",
+    // Partner quality rules (S74, spec 21.7): the turnaround target for a laboratory, how many upheld complaints are too many, the licence warning
+    // window, the score weights and floors, and which breaches take a partner out of NEW work. Live values are the active row of
+    // `partner_quality_config`; this entry mirrors it and a test fails if the migration seed and this value drift. PROPOSED: the CMO owns the
+    // numbers (OQ-360). Nothing here moves money; laboratories are paid by the patient directly (D-06).
+    value: {
+      window_days: 90,
+      turnaround: { lab_target_hours: 72, min_orders: 10, min_within_target_percent: 80 },
+      complaints: { category_codes: ["late_result", "wrong_result", "communication", "charge_dispute", "safety", "licence", "other"], upheld_limit: 3 },
+      licence: { expiring_days: 30 },
+      weights: { turnaround: 40, complaints: 30, licence: 30 },
+      score: { warn_below: 70, suspend_below: 50 },
+      removal: {
+        auto_suspend: true,
+        suspend_on: ["licence_expired", "complaints_upheld_limit", "turnaround_below_target", "score_below_floor"],
+        override_days: 30,
+        reason_min_chars: 20,
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S74.md; docs/research/S74.md; spec 21.7 and B.21 safety rules",
+  },
+  {
+    key: "partner.settlement",
+    // Partner settlement rules (S74, spec 21.6, decision S74-2). Live values are the active row of `partner_settlement_config`. PROPOSED, owned by the
+    // founder (OQ-326): the statement period, the day after month end the run may build drafts, whether a second person must approve terms, and the
+    // kinds of partner and source that can ever accrue. Laboratories are not in `partner_kinds`: they are owed nothing (D-06).
+    value: {
+      period: "calendar_month_lagos",
+      close_after_days: 5,
+      four_eyes: true,
+      source_kinds: ["sponsor_paid_item", "pharmacy_margin"],
+      partner_kinds: ["pharmacy", "clinic"],
+      basis_points_max: 10000,
+      reason_min_chars: 20,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S74.md; docs/DECISIONS.md S74-2; spec 21.6",
+  },
+  {
+    key: "pharmacy.chat",
+    // The in-app pharmacist and patient conversation (S74, spec 21.2): longest message, messages per sender per day, and how many days it stays open
+    // after the medicine is collected. Live values are the active row of `pharmacy_chat_config`. PROPOSED, owned by the CMO with the pharmacy lead.
+    value: { max_body_chars: 1000, max_per_sender_per_day: 20, open_days_after_supply: 14 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S74.md; spec 21.2",
+  },
+  {
     key: "queue.sla_warning",
     // When a held task's due time turns from blue to amber on the clinician queue and task screens (S35): this many minutes
     // before it is due. Display only: it changes no deadline, routing or fee. PROPOSED, CMO to confirm; the value on the
@@ -1073,7 +1160,6 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/design/S39d.md; spec section 13; founder direction 2026-10-07",
   },
-
   {
     key: "quality.audit",
     // Clinical audits, tier 1 count, the audit form, reliability weight and the speak-up clocks (S20, spec 7.8). Live values are the
@@ -1518,6 +1604,43 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 3,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S29.md; docs/research/S29.md; docs/research/S29-ranked-design-plan.md; spec 4.7, 8.6",
+  },
+  // S69: community cohorts and challenges (spec 17.6 to 17.9). Live values are the active row of `community_config` and the rows of
+  // `challenge_templates`; a test (community-mirror.test.ts) fails if either drifts from the migration seed.
+  {
+    key: "cohorts.rules",
+    // min_contributors: the floor below which a cohort total is hidden (never below 10, enforced by the database; the institutional floor of 5
+    // is NOT used here). max_single_share_pct: leave-one-out, a total is hidden when its biggest contributor holds more than this share, so
+    // removing that one person would move the total too far. round_total_to and progress_step_pct: published figures are rounded.
+    // publish_delay_hours and snapshot_every_hours: a snapshot is readable only this long after it is taken, so one entry is never a visible
+    // jump. activity_minutes_week_cap and activity_minutes_day_max: WHO 150 to 300 minutes a week, capped. board_min_cohorts: cohorts needed for
+    // a comparison. participation_keep_days: how long a member's own effort rows survive after a challenge ends. blocked_name_terms: a cohort
+    // name may not start a word with one of these (generic names only).
+    value: { min_contributors: 10, max_single_share_pct: 30, round_total_to: 10, publish_delay_hours: 12, snapshot_every_hours: 6, invite_ttl_hours: 72, max_invites_per_day: 20, max_members_per_cohort: 200, max_cohorts_per_moderator: 3, max_active_challenges: 2, challenge_min_days: 7, challenge_max_days: 60, activity_minutes_week_cap: 300, activity_minutes_day_max: 180, board_min_cohorts: 3, progress_step_pct: 5, participation_keep_days: 30, blocked_name_terms: ["diabet", "sugar", "hypertens", "blood pressure", "bp", "hiv", "aids", "cancer", "kidney", "renal", "dialysis", "heart", "stroke", "asthma", "sickle", "obes", "weight", "slim", "diet", "pregnan", "fertil", "mental", "depress", "anxiety", "addict", "recovery", "cholesterol", "epilep", "tb", "tubercul", "hepatitis", "patient", "sick", "disease"] },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S69.md; docs/research/S69.md; docs/plans/S66-S70-cmo-signoff-pack.md (A16, B1)",
+  },
+  {
+    key: "cohorts.challenge_templates",
+    // The only challenges a moderator can start (CMO sign-off pack A16): effort counts only, never weight, calories, fasting, blood pressure or
+    // glucose. Proposed until the Chief Medical Officer signs each one through `sign_challenge_template`; nothing is approved by this entry.
+    value: [
+      { code: "log_days", label: "Check in with your health log", description: "Days you add something to your own health log.", metric: "log_days", unit: "days", default_days: 14, target_per_member: 8 },
+      { code: "medicine_days", label: "Medicine check-in days", description: "Days you answer your medicine check-in.", metric: "medicine_checkin_days", unit: "days", default_days: 14, target_per_member: 8 },
+      { code: "lessons", label: "Learn together", description: "Short health lessons you finish.", metric: "lessons_completed", unit: "lessons", default_days: 14, target_per_member: 3 },
+      { code: "move_together", label: "Move together", description: "Minutes of activity you do. Up to 300 minutes a week count.", metric: "activity_minutes", unit: "minutes", default_days: 7, target_per_member: 150 },
+      { code: "low_salt_days", label: "Lower-salt days", description: "Days you tell us you chose lower-salt food.", metric: "low_salt_days", unit: "days", default_days: 14, target_per_member: 8 },
+      { code: "regular_sleep", label: "Regular bedtime days", description: "Days you tell us you kept a regular bedtime.", metric: "consistent_sleep_days", unit: "days", default_days: 14, target_per_member: 8 },
+      { code: "water_with_meals", label: "Water with meals", description: "Days you tell us you drank water with meals.", metric: "water_with_meals_days", unit: "days", default_days: 14, target_per_member: 8 },
+    ],
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S69.md; docs/plans/S66-S70-cmo-signoff-pack.md (A16)",
   },
   // S26: entitlements lifecycle, care pack expiry, refunds
   {
@@ -2358,6 +2481,19 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     guardPatterns: ["post[_ ]?max[_ ]?chars\\w*\\s*[=:]\\s*2000\\b", "premoderated\\w*\\s*[=:]\\s*3\\b", "auto[_ ]?hide\\w*\\s*[=:]\\s*3\\b"],
   },
   {
+    key: "privacy.deletion_grace",
+    // S04b-2 (OQ-50): how long a patient has to change their mind after asking to close their account and erase what the law
+    // allows to be erased. Nothing is approved or completed before it ends and the patient can cancel until then. The database
+    // counts it from its own clock and holds it to 7..30 days whatever the app asks for (data_deletion_requests.requested_grace_days). Fourteen days is a PROPOSED
+    // figure, not from the spec; counsel and the founder confirm.
+    value: { days: 14 },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/OPEN-QUESTIONS.md OQ-50; supabase/migrations/20261013181937_s04b2_consent_receipts_withdrawal_rule_deletion_grace.sql",
+  },
+  {
     key: "bp.home_programme",
     // S07x: the seven-day home blood pressure check (CMO-approved text C1, C2, C3 of 2026-10-07, NOT signed). Live value is the active, signed row of
     // `home_bp_programme_signoffs`.config; home-bp-mirror.test.ts fails if the migration seed and this value drift. The phone bundles this value, so a change
@@ -2423,7 +2559,8 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // My Health completion (S09x). Live values are the active row of `my_health_config`.config (sharing, access_log); my-health-mirror.test.ts fails if the
     // migration seed and this value drift. PROPOSED: the default share expiry (12 hours, shorter than the 24 the first share screen used; the 30 day cap is
     // unchanged), the PIN length, how many wrong PINs lock a share, how many from one client in a window, and the one-session window. show_staff_opens is
-    // held at false on purpose: founder direction 2026-10-07 is that a patient is not told about routine staff openings, pending counsel (OQ-281).
+    // INERT since S09x2 (founder decision 2026-10-13): my_access_log() no longer reads it and always shows a routine staff opening as name and role only.
+    // It stays false in the signed v1 row because changing it needs a new CMO-signed version, which an agent never produces.
     value: {
       sharing: {
         default_expiry_hours: 12,
@@ -2457,6 +2594,37 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-13",
     source: "docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md C8 and D4; supabase/migrations/20261013181946_s09x_my_health_completion.sql",
+  },
+  {
+    key: "medicines.prn_limits",
+    // As-needed (PRN) limits (S08x, decision C7). There are NO default limits: a clinician sets a shortest gap and/or a most doses in a
+    // Lagos day per medicine, and only inside these bounds. A dose outside them is still logged; the patient is shown a notice.
+    // Live values are the active, SIGNED row of `prn_limit_rules`; this entry mirrors the v1 seed and a test fails on drift.
+    //  minGapMinutesBounds / dailyMaxBounds: the range a clinician may enter.
+    //  repeatSignal: that many flagged doses of one medicine inside that many days raises one care-team signal (never an alarm).
+    // PROPOSED, CMO and a pharmacist to confirm; the rule stays inactive until the CMO signs it in the sign-off hub.
+    value: {
+      minGapMinutesBounds: [15, 1440],
+      dailyMaxBounds: [1, 24],
+      repeatSignal: { flaggedDoses: 3, windowDays: 7 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md C7; docs/design/S08x.md",
+  },
+  {
+    key: "medicines.adherence_report",
+    // The patient's printed adherence report (S08x, decision C6): how many completed 7-day weeks it covers. The formula is the app's
+    // (doses you marked taken over doses due, as-needed left out); the minimum doses and missed window come from `medicines.dose_rules`
+    // and `reminders.behaviour`. Display only: it changes no treatment and raises no task.
+    value: { weeks: 8 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-13",
+    source: "docs/plans/S06-S10-decisions-and-cmo-signoff-pack.md C6; docs/design/S08x.md",
   },
   {
     key: "credentialing.rules",

@@ -25,4 +25,16 @@ describe("sign-off hub inline panels", () => {
       expect(source).toContain(`../_signoff-panels/${slug}-panel`);
     }
   });
+
+  it("opens an inline panel for each S06 to S10 line that has no governed table (triage draft, both attestations, registry values)", () => {
+    expect(source).toContain("inlinePanels[TRIAGE_DRAFT_ITEM_KEY] = <TriageRulesPanel");
+    expect(source).toContain('<WordingAttestationPanel kind="c4" />');
+    expect(source).toContain('<WordingAttestationPanel kind="pattern" />');
+    expect(source).toContain("inlinePanels[PROPOSED_VALUES_ITEM_KEY] = <ProposedValuesPanel");
+  });
+
+  it("shows the S06 to S10 banner and opens the line a link points at", () => {
+    expect(source).toContain("<S06S10Banner");
+    expect(source).toContain("<OpenOnHash");
+  });
 });

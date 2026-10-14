@@ -11,6 +11,12 @@ jest.mock("@/lib/queries/signoff-queue", () => ({
   readSignoffQueue: (...args: unknown[]) => readSignoffQueue(...args),
   SEVERITY_RANK: { live_unsigned: 0, draft_pending: 1, setup_needed: 2 },
 }));
+const readS06S10Signoffs = jest.fn<(...args: unknown[]) => Promise<unknown>>();
+const emptyS06S10 = { rows: [], openProposed: [], founderReview: [], items: [] as SignoffQueueItem[], failed: false, failedSources: [] as string[] };
+jest.mock("@/lib/queries/s06-s10-signoffs", () => ({
+  readS06S10Signoffs: (...args: unknown[]) => readS06S10Signoffs(...args),
+  EMPTY_S06S10: { rows: [], openProposed: [], founderReview: [], items: [], failed: false, failedSources: [] },
+}));
 const readPendingCommunitySignoff = jest.fn<(...args: unknown[]) => Promise<{ rulesUnsigned: boolean; groupsWaiting: number; statementsWaiting: number; attentionCount: number; failed: boolean }>>();
 jest.mock("@/lib/queries/pending-community-signoff", () => ({
   readPendingCommunitySignoff: (...args: unknown[]) => readPendingCommunitySignoff(...args),
@@ -41,6 +47,38 @@ beforeEach(() => {
   readPendingAiGovernanceSignoff.mockResolvedValue(noAi);
   readPendingCommunitySignoff.mockReset();
   readPendingCommunitySignoff.mockResolvedValue(noCommunity);
+  readS06S10Signoffs.mockReset();
+  readS06S10Signoffs.mockResolvedValue(emptyS06S10);
+});
+
+describe("readCmoSigningHub: S06 to S10 items", () => {
+  it("merges the S06 to S10 lines into the list and counts them", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readS06S10Signoffs.mockResolvedValue({ ...emptyS06S10, items: [item("triage_rule_set_draft", "draft_pending"), item("proposed_values_s06_s10", "draft_pending", 2)] });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.items.map((i) => i.key)).toEqual(["triage_rule_set_draft", "proposed_values_s06_s10"]);
+  });
+  it("names an unreadable S06 to S10 source instead of going quiet", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readS06S10Signoffs.mockResolvedValue({ ...emptyS06S10, failed: true, failedSources: ["the go-live conditions"] });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub).toMatchObject({ failed: true, failedSources: ["the go-live conditions"] });
+  });
+  it("never lets a banner row link to a hub line that does not exist", async () => {
+    const row = (id: string, panelKey: string) => ({ id, status: "pending", panelKey, fallbackHref: "/x" });
+    readSignoffQueue.mockResolvedValue({ items: [item("versioned_draft:prn_limit_rules", "draft_pending")], failedSources: [], settledConfigs: [] });
+    readS06S10Signoffs.mockResolvedValue({ ...emptyS06S10, rows: [row("C7", "versioned_draft:prn_limit_rules"), row("C1", "versioned_draft:home_bp_programme_signoffs")] });
+    const hub = await readCmoSigningHub(supabase);
+    const rows = hub.s06s10.rows as unknown as Array<{ id: string; panelKey: string | null }>;
+    expect(rows.find((r) => r.id === "C7")?.panelKey).toBe("versioned_draft:prn_limit_rules");
+    expect(rows.find((r) => r.id === "C1")?.panelKey).toBeNull();
+  });
+  it("treats a thrown S06 to S10 read as a failure, not an all-clear", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readS06S10Signoffs.mockRejectedValue(new Error("boom"));
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.failed).toBe(true);
+  });
 });
 
 describe("readCmoSigningHub: Community", () => {
@@ -68,7 +106,7 @@ describe("readCmoSigningHub", () => {
 
   it("is an all-clear only when everything was read and nothing is outstanding", async () => {
     readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
-    expect(await readCmoSigningHub(supabase)).toEqual({ items: [], failed: false, failedSources: [], settledConfigs: [] });
+    expect(await readCmoSigningHub(supabase)).toEqual({ items: [], failed: false, failedSources: [], settledConfigs: [], s06s10: emptyS06S10 });
   });
 
   it("merges rules needing setup and rules ready to sign into one line with the summed count", async () => {
