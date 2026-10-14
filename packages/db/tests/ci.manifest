@@ -1060,10 +1060,7 @@ s05b_c_read_filters_and_guards.sql
 s05b_d_patient_allergy_correction_requests.sql
 # S05b-e: a patient's allergy request sends one in-app notice to the tied non-coordinator clinician only (no coordinator, untied clinician or patient; no allergen or clinical word, no sms or email); a confirmation sends the patient one in-app notice, a reject or withdraw does not; at most 3 requests per allergy in a rolling 7 days with a calm refusal (other allergies unaffected, the window rolls). Sabotage: limit trigger dropped, arrival trigger dropped, confirmation trigger dropped, recipient list made permissive; each must flip.
 s05b_e_allergy_request_notices_and_limit.sql
-<<<<<<< HEAD
 # Rota gap alert dedup fix: the rota_gap_12h check returns one row per organisation with the stable key '<org_id>:rota_gap' (no timestamp); two forced evaluations leave one open alert and one incident; the migration clean-up resolves old duplicate alerts and incidents of that title without any notification and leaves other titles alone. Sabotage: the old timestamped key is reinstalled; the key assertion must flip.
 ops_rota_gap_alert_dedup.sql
-=======
 # S05b-f: the S05b-d hold rule extended to conditions a patient entered herself: her void or correction is a request, the original stays in the current view, the arrival notice and the confirmed notice are in-app with no clinical word, 3 requests per condition per rolling 7 days (per record, void excluded), only a tied non-coordinator clinician decides, a clinician's own correction stays immediate, a clinician-diagnosed condition is refused, the patient's export lists the requests. Sabotage: condition branch removed, permissive clinician test, voiding trigger dropped, diagnosing rule removed, limit trigger dropped, confirm pointed at the wrong table; each must flip.
 s05b_f_condition_correction_requests.sql
->>>>>>> 4206682e8aebe299b49a8510b075ba880dc41c9d
