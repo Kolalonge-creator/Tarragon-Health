@@ -324,6 +324,7 @@ export async function prepareForAppointment(
         .from("vitals_readings")
         .select("id", { count: "exact", head: true })
         .eq("patient_id", patientId)
+        .is("correction_status", null)
         .gt("taken_at", lastReviewAt);
       readingsLogged = error ? null : (count ?? 0);
     } catch {
