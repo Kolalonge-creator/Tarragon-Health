@@ -60,7 +60,7 @@ export default async function FollowUpsPage() {
       </div>
       {!parsed?.success && (
         <p role="alert" className="text-sm text-red-600">
-          {t("followups.load_error", "en")}
+          {t("followups.err.close_load", "en")}
         </p>
       )}
       {parsed?.success && parsed.data.length === 0 && <p className="text-sm text-charcoal-ink/60">{t("followups.empty", "en")}</p>}

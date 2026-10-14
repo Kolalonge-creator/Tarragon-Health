@@ -1828,6 +1828,8 @@ export const en = {
   "followups.close": "Close with this outcome",
   "followups.err.not_found": "That follow-up could not be found.",
   "followups.err.check_form": "Check the outcome and the reason, then try again.",
+  "followups.err.close_load": "Your follow-ups could not be loaded. That is not the same as having none. Try again.",
+  "followups.err.close_generic": "The follow-up could not be saved. Nothing was changed. Try again.",
   "liveprompt.title": "Red-flag phrase heard",
   "liveprompt.hint": "A phrase from the red-flag list was in the text. Check with the patient. This is a prompt only; you decide what to do.",
   "liveprompt.dismiss": "Dismiss",
