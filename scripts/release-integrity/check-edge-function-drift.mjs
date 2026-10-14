@@ -18,7 +18,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { importedPaths, isBundlerEmptiedTypesModule, isExpectedUndeployed } from "./edge-drift-rules.mjs";
+import { importedPaths, isBundlerEmptiedTypesModule, isExpectedUndeployed, isTypesOnlyModule } from "./edge-drift-rules.mjs";
 
 const PROJECT_REF = process.env.SUPABASE_PROJECT_REF || "koiplnmbgnqnbywhpjlf";
 const GIT_REF = process.argv[2] || process.env.COMPARE_GIT_REF || "origin/main-dev";
@@ -79,7 +79,8 @@ function main() {
         continue;
       }
       if (inSource && !inDeployed) {
-        if (isExpectedUndeployed(rel, imported)) continue; // test file, or a module no deployed function imports (edge-drift-rules.mjs)
+        if (isExpectedUndeployed(rel, imported)) continue;
+        if (isTypesOnlyModule(readFileSync(join(sourceFnDir, rel), "utf8"))) continue; // the API bundler drops a types-only module entirely // test file, or a module no deployed function imports (edge-drift-rules.mjs)
         console.error(`ONLY IN ${GIT_REF} (never deployed): ${rel}`);
         drifted = true;
         continue;
