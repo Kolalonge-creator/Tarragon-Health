@@ -12,13 +12,19 @@ test("returns the first success without retrying", () => {
 
 test("retries transient failures and then succeeds", () => {
   let n = 0;
-  const out = runWithRetry(() => { if (++n < 4) throw new Error("login role status 544"); return "ok"; }, quiet);
+  const out = runWithRetry(() => { if (++n < 4) throw new Error("unexpected login role status 544"); return "ok"; }, quiet);
   assert.equal(out, "ok");
   assert.equal(n, 4);
 });
 
 test("throws the last error after the attempts are used", () => {
   let n = 0;
-  assert.throws(() => runWithRetry(() => { throw new Error(`fail ${++n}`); }, { ...quiet, attempts: 3 }), /fail 3/);
+  assert.throws(() => runWithRetry(() => { throw new Error(`Connection terminated ${++n}`); }, { ...quiet, attempts: 3 }), /terminated 3/);
   assert.equal(n, 3);
+});
+
+test("a non-transient error fails at once", () => {
+  let n = 0;
+  assert.throws(() => runWithRetry(() => { ++n; throw new Error("syntax error at or near select"); }, quiet), /syntax error/);
+  assert.equal(n, 1);
 });
