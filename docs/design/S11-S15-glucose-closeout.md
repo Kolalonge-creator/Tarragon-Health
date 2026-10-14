@@ -49,6 +49,6 @@ No migration applied, no function deployed, no rule set, wording or task type si
 ## Order to apply and deploy
 1. Merge the PR into `main-dev` after CI is green. NOTE: merge auto-applies migrations, so do step 2 FIRST.
 2. Deploy `process-events` from this branch BEFORE the migrations land (its glucose branch is inert until a glucose event exists, but an old handler would consume a glucose event as "not blood pressure" and drop it, losing that shadow evidence).
-3. Migrations in file order: `20261013223643_r2_glucose_care_triage_v1_draft.sql`, `20261013223731_r2_glucose_triage_wiring.sql`, `20261013225326_r2_glucose_shadow_divergence.sql`. (Re-check `list_migrations` for anything new from other sessions first; the timestamps are real UTC times from 2026-10-13 22:36 to 22:53.)
+3. Migrations in file order: `20261013223643_r2_glucose_care_triage_v1_draft.sql`, `20261014162443_r2_glucose_triage_wiring.sql`, `20261014162445_r2_glucose_shadow_divergence.sql`. (Re-check `list_migrations` for anything new from other sessions first; the timestamps are real UTC times from 2026-10-13 22:36 to 22:53.)
 4. Web deploy (hub page, route ketones) and an OTA of the mobile JS (JS only, no native change, `runtimeVersion` unchanged).
 5. CMO: confirm task type `amber_glucose_review`, read the hub panel, sign the rules and, separately, the wording. Run the glucose divergence report (`triage_glucose_shadow_divergence`) over a window of real readings first.

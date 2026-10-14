@@ -19,28 +19,28 @@
 
 -- 1. Timings, from facts that already exist ----------------------------------------------------------------------------------
 create function private.chain_timing_rows(p_days integer, p_test boolean)
-returns table (metric text, day date, seconds numeric)
+returns table (metric text, day date, seconds numeric, is_test boolean)
 language sql stable security definer set search_path = ''
 as $$
   with win as (select now() - make_interval(days => greatest(1, least(p_days, 365))) as since)
-  select 'reading_to_graded', (te.created_at at time zone 'Africa/Lagos')::date, extract(epoch from te.created_at - vr.created_at)
+  select 'reading_to_graded', (te.created_at at time zone 'Africa/Lagos')::date, extract(epoch from te.created_at - vr.created_at), p_test
     from public.triage_events te join public.vitals_readings vr on vr.id = te.trigger_id, win
    where te.trigger_type = 'observation' and not te.shadow and te.is_test = p_test and te.created_at >= win.since
   union all
-  select 'graded_to_task', (te.created_at at time zone 'Africa/Lagos')::date, extract(epoch from t.first_task - te.created_at)
+  select 'graded_to_task', (te.created_at at time zone 'Africa/Lagos')::date, extract(epoch from t.first_task - te.created_at), p_test
     from public.triage_events te
     join lateral (select min(ct.created_at) as first_task from public.clinical_tasks ct where ct.triage_event_id = te.id) t on t.first_task is not null, win
    where not te.shadow and te.is_test = p_test and te.created_at >= win.since
   union all
-  select 'graded_to_page', (te.created_at at time zone 'Africa/Lagos')::date, extract(epoch from p.sent_at - te.created_at)
+  select 'graded_to_page', (te.created_at at time zone 'Africa/Lagos')::date, extract(epoch from p.sent_at - te.created_at), p_test
     from public.pages p join public.triage_events te on te.id = p.triage_event_id, win
    where p.parent_page_id is null and p.is_test = p_test and p.sent_at >= win.since
   union all
-  select 'page_to_ack', (p.sent_at at time zone 'Africa/Lagos')::date, extract(epoch from p.acknowledged_at - p.sent_at)
+  select 'page_to_ack', (p.sent_at at time zone 'Africa/Lagos')::date, extract(epoch from p.acknowledged_at - p.sent_at), p_test
     from public.pages p, win
    where p.parent_page_id is null and p.is_test = p_test and p.acknowledged_at is not null and p.sent_at >= win.since
   union all
-  select 'task_to_claim', (ct.created_at at time zone 'Africa/Lagos')::date, extract(epoch from ct.claimed_at - ct.created_at)
+  select 'task_to_claim', (ct.created_at at time zone 'Africa/Lagos')::date, extract(epoch from ct.claimed_at - ct.created_at), p_test
     from public.clinical_tasks ct, win
    where ct.is_test = p_test and ct.claimed_at is not null and ct.created_at >= win.since;
 $$;
@@ -48,7 +48,7 @@ revoke all on function private.chain_timing_rows(integer, boolean) from public, 
 
 -- BI view: metric, day and seconds only. No patient, no task, no clinician, no test row.
 create view analytics.v_chain_timings with (security_invoker = off) as
-  select metric, day, seconds from private.chain_timing_rows(365, false);
+  select t.metric, t.day, t.seconds from private.chain_timing_rows(365, false) t where not t.is_test;
 revoke all on analytics.v_chain_timings from public, anon, authenticated;
 grant select on analytics.v_chain_timings to service_role;
 comment on view analytics.v_chain_timings is 'P1/R9: timings of the clinical chain for real (non-test) events over the last year. Metric, day, seconds. No identifier of any kind.';

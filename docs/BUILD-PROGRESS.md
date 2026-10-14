@@ -1326,6 +1326,13 @@ Not done: not applied to production, not pushed.
 
 ## S11 to S15 end-to-end build: integration (2026-10-13)
 
+### Replay fixes after merging main-dev (2026-10-14)
+- The two glucose migrations were re-timestamped to 20261014162443 (wiring) and 20261014162445 (shadow divergence) so they sort AFTER S05b-c (20261013235037): `record_glucose_triage_result` writes a corrected table and S05b-c's rewrite refuses an unlisted writer. Apply order is therefore unchanged except these two come last. Their pure readers read `private.vitals_readings_current`.
+- New `20261014173212_s05b_c_reapply_current_view_rewrite_after_s11_s15.sql` repeats the S05b-c definer-reader rewrite (idempotent, patches nothing on a fresh replay) so S11 to S15 functions redefined after S05b-c on production still read the `_current` views.
+- `analytics.v_chain_timings` now filters `is_test` itself (the timing function returns the flag).
+- The `chain-canary` cron job only ticks once a real (non-test) patient exists: on a fresh replay its first tick created a synthetic organisation in the middle of the proof run and broke proofs that pick "the organisation with most profiles".
+- Proof fixtures only (no assertion weakened): approved `bp_care_triage` fixture with a CMO inside the transaction (p1, p6), P5-exempt test clinicians or a recorded verification (specialist availability, s18), consents bound to a note and patient (s21g, scribe RLS), new task types excluded by name (s16, s16b), `reconcile_settlement_report` excluded from the S74 "no payment provider" scan (processor settlement report, no transfer), glucose writer listed in the S05b-c proof, p6 prints only real rows.
+
 Six reviewed package branches were merged into one branch, `s11-s15/integration`, in this order: P6, P1, P5, P3, P2, P4. Nothing was applied, deployed, signed or switched on. Each package's own closeout is `docs/design/S11-S15-*-closeout.md`; the entries below summarise them. Go-live sequence across all six: `docs/runbooks/S11-S15-go-live-order.md`.
 
 ### P6: triage coverage (silence, adherence, symptom bridge, explainers)
@@ -1347,7 +1354,7 @@ Six reviewed package branches were merged into one branch, `s11-s15/integration`
 - **Tests**: `s13r4_critical_ladder_red_outreach.sql` (75 + 4 sabotage). **Unproven**: anything on a handset (runbook `docs/runbooks/red-alert-handset-matrix.md`, every row NOT RUN).
 
 ### P2: glucose triage engine (Q6 to Q9)
-- **Built**: `glucose_care_triage` v1 (15 rules, DRAFT, unsigned) and its engine twin; shadow wiring on the same bus; phone grading with ketone entry and signs; Q4 upper-arm advice; shadow divergence report; CMO hub line, page `/clinician/glucose-triage-rules` and inline panel; task type `amber_glucose_review` (awaiting confirmation). Migrations `20261013223643_r2_glucose_care_triage_v1_draft.sql`, `20261013223731_r2_glucose_triage_wiring.sql`, `20261013225326_r2_glucose_shadow_divergence.sql`.
+- **Built**: `glucose_care_triage` v1 (15 rules, DRAFT, unsigned) and its engine twin; shadow wiring on the same bus; phone grading with ketone entry and signs; Q4 upper-arm advice; shadow divergence report; CMO hub line, page `/clinician/glucose-triage-rules` and inline panel; task type `amber_glucose_review` (awaiting confirmation). Migrations `20261013223643_r2_glucose_care_triage_v1_draft.sql`, `20261014162443_r2_glucose_triage_wiring.sql`, `20261014162445_r2_glucose_shadow_divergence.sql`.
 - **Integration fix**: the CMO hub now also lists the urgent glucose review task type as its own confirm line with an inline panel (before: only a link inside the rule set panel).
 - **Tests**: `r2_glucose_triage_wiring.sql` (61), `r2_glucose_shadow_divergence.sql` (16); 100 percent branch coverage held in packages/clinical.
 

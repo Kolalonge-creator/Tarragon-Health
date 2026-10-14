@@ -645,7 +645,10 @@ revoke all on function public.chain_canary_run_now() from public, anon;
 grant execute on function public.chain_canary_run_now() to authenticated;
 
 -- 8. One cron job, staggered (minutes 11 and 41) ---------------------------------------------------------------------------
-select cron.schedule('chain-canary', '11,41 * * * *', $$select private.chain_canary_tick();$$);
+-- The tick runs only once the platform holds a real (non-test) patient. A canary that checks a chain with nobody on it proves nothing, and on a
+-- fresh replay (CI, a new local stack) its first tick would create the synthetic organisation and three profiles in the middle of the SQL proof
+-- run, which several older proofs read as "the organisation with the most profiles" or "any other organisation".
+select cron.schedule('chain-canary', '11,41 * * * *', $$select private.chain_canary_tick() where exists (select 1 from public.profiles where role = 'patient' and not is_test);$$);
 
 do $$
 begin

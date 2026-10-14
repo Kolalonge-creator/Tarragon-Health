@@ -26,7 +26,7 @@ language sql stable security definer set search_path = '' as $$
       else 'neither_urgent'
     end
   from public.triage_events e
-  join public.vitals_readings v on v.id = e.trigger_id
+  join private.vitals_readings_current v on v.id = e.trigger_id
   where e.trigger_type = 'observation' and e.shadow and not e.is_test
     and e.rule_set_code = 'bp_care_triage'
     and e.created_at >= now() - make_interval(days => greatest(1, least(p_days, 365)));
@@ -41,7 +41,7 @@ language sql stable security definer set search_path = '' as $$
                     where m.patient_id = e.patient_id and m.source::text = 'glucose_red_flag'
                       and m.created_at between v.created_at - interval '3 hours' and v.created_at + interval '3 hours') as live_emergency
       from public.triage_events e
-      join public.vitals_readings v on v.id = e.trigger_id
+      join private.vitals_readings_current v on v.id = e.trigger_id
      where e.trigger_type = 'observation' and e.shadow and not e.is_test
        and e.rule_set_code = 'glucose_care_triage'
        and e.created_at >= now() - make_interval(days => greatest(1, least(p_days, 365)))

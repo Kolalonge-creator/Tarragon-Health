@@ -20,6 +20,35 @@ begin;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
 grant all on results to public;
+
+-- Fixture (rolled back with the rest): a fresh database has bp_care_triage only as drafts, because a human approves it in production
+-- (v3 is approved there). This proof exercises the approved path, so approve the newest signed-off-in-production version here, inside
+-- this transaction only. Nothing is approved by a migration.
+do $$
+declare v_p uuid := gen_random_uuid(); v_adm uuid := gen_random_uuid(); v_org uuid;
+begin
+  if not exists (select 1 from public.triage_rule_sets where code = 'bp_care_triage' and status = 'approved') then
+    select id into v_org from public.organisations order by created_at limit 1;
+    insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+      values (v_p, 'rule-set-fixture-' || v_p::text || '@example.invalid', 'x', now(), '{}', '{}');
+    insert into public.profiles (id, organisation_id, role, full_name, date_of_birth, is_test)
+      values (v_p, v_org, 'clinician', 'Rule set fixture approver', (current_date - interval '45 years')::date, true)
+      on conflict (id) do update set is_test = true;
+    -- approval needs an active Chief Medical Officer; activation needs indemnity cover or an exemption granted by someone else
+    insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+      values (v_adm, 'rule-set-fixture-admin-' || v_adm::text || '@example.invalid', 'x', now(), '{}', '{}');
+    insert into public.profiles (id, organisation_id, role, full_name, date_of_birth, is_test)
+      values (v_adm, v_org, 'admin', 'Rule set fixture admin', (current_date - interval '45 years')::date, true)
+      on conflict (id) do update set is_test = true;
+    insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, active, license_verified_at, employment_type, indemnity_exempt, indemnity_exempt_by, is_test)
+      values (v_p, v_org, 'Rule set fixture approver', 'chief_medical_officer', true, now(), 'employed', true, v_adm, true);
+    update public.triage_rule_sets set status = 'approved', approved_by = v_p, approved_at = now()
+     where code = 'bp_care_triage' and version = 3;
+    if not exists (select 1 from public.triage_rule_sets where code = 'bp_care_triage' and status = 'approved') then
+      raise exception 'fixture could not approve bp_care_triage v3';
+    end if;
+  end if;
+end $$;
 create temp table notif_before on commit drop as select id from public.notifications;
 
 create function pg_temp.res(p_check text, p_expected text, p_actual text) returns void language sql as

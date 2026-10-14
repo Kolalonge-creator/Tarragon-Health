@@ -63,7 +63,7 @@ begin
     return null;
   end if;
   begin
-    select * into v_obs from public.vitals_readings v
+    select * into v_obs from private.vitals_readings_current v
     where v.patient_id = new.patient_id and v.vital_type::text = 'glucose' and v.glucose_mmol_l is not null
       and v.source::text in ('manual', 'device') and v.correction_status is null
       and v.created_at <= new.created_at and v.created_at >= new.created_at - interval '10 minutes'
@@ -94,7 +94,7 @@ begin
     return null;
   end if;
   begin
-    select * into v_obs from public.vitals_readings v
+    select * into v_obs from private.vitals_readings_current v
     where v.patient_id = new.patient_id and v.vital_type::text = 'glucose' and v.glucose_mmol_l is not null and v.id <> new.id
       and v.source::text in ('manual', 'device') and v.correction_status is null
       and v.taken_at between new.taken_at - interval '30 minutes' and new.taken_at + interval '30 minutes'
@@ -132,7 +132,7 @@ declare
   v_type text;
   v_ketones jsonb := '{}'::jsonb;
 begin
-  select * into v from public.vitals_readings where id = p_observation_id;
+  select * into v from private.vitals_readings_current where id = p_observation_id;
   -- A reading marked entered in error, cancelled or superseded is not graded (S05b: reads do not hide those rows, each reader filters them).
   if not found or v.vital_type::text <> 'glucose' or v.glucose_mmol_l is null or v.correction_status is not null then
     return jsonb_build_object('found', false);
@@ -143,7 +143,7 @@ begin
   v_urine := v.ketone_urine;
   if v_blood is null and v_urine is null then
     select k.ketones_mmol_l, k.ketone_urine into v_k
-    from public.vitals_readings k
+    from private.vitals_readings_current k
     where k.patient_id = v.patient_id and k.vital_type::text = 'ketones' and k.id <> v.id and k.correction_status is null
       and k.taken_at between v.taken_at - interval '30 minutes' and v.taken_at + interval '30 minutes'
     order by abs(extract(epoch from (k.taken_at - v.taken_at))) limit 1;
@@ -268,7 +268,7 @@ declare
   v_n integer := 0;
 begin
   for r in
-    select v.id, v.organisation_id, v.patient_id from public.vitals_readings v
+    select v.id, v.organisation_id, v.patient_id from private.vitals_readings_current v
     where v.vital_type::text = 'glucose' and v.glucose_mmol_l is not null and v.source::text in ('manual', 'device') and v.correction_status is null
       and v.created_at > now() - interval '24 hours' and v.created_at < now() - interval '1 minute'
       and not exists (select 1 from public.domain_events e
