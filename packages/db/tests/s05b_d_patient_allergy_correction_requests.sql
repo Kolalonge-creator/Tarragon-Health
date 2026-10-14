@@ -273,7 +273,7 @@ begin
   execute 'set local role authenticated';
   v_res := public.confirm_patient_allergy_correction(v_req2, 'Checked with the patient');
   execute 'reset role';
-  if v_res ->> 'status' is distinct from 'amended' or (v_res ->> 'replacement_id') is null then raise exception 'FAIL D1: confirm returned %', v_res; end if;
+  if v_res ->> 'status' is distinct from 'confirmed' or v_res ->> 'correction_status' is distinct from 'amended' or (v_res ->> 'replacement_id') is null then raise exception 'FAIL D1: confirm returned %', v_res; end if;
   select * into v_row from public.patient_allergies where id = v_a1;
   if v_row.correction_status is distinct from 'amended' or v_row.superseded_by_id is distinct from (v_res ->> 'replacement_id')::uuid
      or v_row.corrected_by is distinct from v_c or length(btrim(v_row.correction_reason)) < 5 then

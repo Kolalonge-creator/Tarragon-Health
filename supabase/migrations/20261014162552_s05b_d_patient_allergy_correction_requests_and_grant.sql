@@ -242,8 +242,9 @@ declare
 begin
   select pg_get_functiondef(p.oid) into v_def from pg_proc p
    where p.proname = 'correct_clinical_value' and p.pronamespace = 'public'::regnamespace;
-  if v_def is null or position(v_anchor in v_def) = 0 or position(v_old in v_def) = 0 then
-    raise exception 'correct_clinical_value: an expected statement was not found, refusing to guess';
+  if v_def is null or (length(v_def) - length(replace(v_def, v_anchor, ''))) <> length(v_anchor)
+     or (length(v_def) - length(replace(v_def, v_old, ''))) <> length(v_old) then
+    raise exception 'correct_clinical_value: each expected statement must occur exactly once, refusing to guess';
   end if;
   v_def := replace(v_def, v_anchor, v_anchor || v_add);
   v_def := replace(v_def, v_old, v_new);
@@ -290,7 +291,8 @@ begin
    where id = p_request_id;
   insert into public.patient_allergy_correction_events (request_id, organisation_id, event, actor_id, actor_role, note)
   values (p_request_id, v_req.organisation_id, 'confirmed', v_uid, 'clinician', nullif(btrim(p_note), ''));
-  return v_res || jsonb_build_object('request_id', p_request_id, 'status', v_req.requested_status);
+  -- 'status' is the request's state, like the other three functions; the kind of correction applied is 'correction_status'
+  return v_res || jsonb_build_object('request_id', p_request_id, 'status', 'confirmed', 'correction_status', v_req.requested_status);
 end;
 $$;
 
