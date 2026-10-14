@@ -228,6 +228,20 @@ begin
   end;
   if not v_flipped then raise exception 'FAIL B9: removing a request did not take its audit rows with it'; end if;
   if not exists (select 1 from public.patient_allergy_correction_events where request_id = v_req) then raise exception 'FAIL B9b: the removal was not undone'; end if;
+  -- a request goes with its allergy when that allergy is hard-deleted by a privileged path (a purge, the wearable erasure flag), never blocking it
+  v_flipped := false;
+  begin
+    perform set_config('app.allow_clinical_value_delete', 'on', true);
+    perform set_config('app.change_reason', 'proof: privileged removal', true);
+    delete from public.patient_allergies where id = (select allergy_id from public.patient_allergy_correction_requests where id = v_req);
+    perform set_config('app.allow_clinical_value_delete', 'off', true);
+    perform set_config('app.change_reason', '', true);
+    if not exists (select 1 from public.patient_allergy_correction_requests where id = v_req)
+       and not exists (select 1 from public.patient_allergy_correction_events where request_id = v_req) then v_flipped := true; end if;
+    raise exception 'undo' using errcode = 'P0099';
+  exception when sqlstate 'P0099' then null;
+  end;
+  if not v_flipped then raise exception 'FAIL B10: deleting an allergy was blocked by, or left behind, its correction request'; end if;
   raise notice 'PASS B: only a tied, non-coordinator clinician resolves; tables are not client-writable';
 
   -- ======================================================================== C. reject

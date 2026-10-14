@@ -78,8 +78,9 @@ export interface FullPatientRecordExport {
   correctedEntriesAvailable: boolean;
 }
 
+/** PostgREST's "could not find the function" only. Postgres' own 42883 can also come from INSIDE an existing function, which is a real failure. */
 function isMissingFunction(error: { code?: string }): boolean {
-  return error.code === "PGRST202" || error.code === "42883";
+  return error.code === "PGRST202";
 }
 
 /** The database function returns an object keyed by table name; anything else is an empty history, never a failed export. */
@@ -135,8 +136,7 @@ export async function getFullPatientRecordExport(
   if (labRes.error) throw labRes.error;
   if (screeningRes.error) throw screeningRes.error;
   if (carePlansRes.error) throw carePlansRes.error;
-  // Code ships before the schema change (CLAUDE.md): until the S05b-d migration is applied the function does not exist (PostgREST PGRST202,
-  // Postgres 42883), and the rest of the export must still work. Any other error is a real failure and stops the export.
+  // Code ships before the schema change (CLAUDE.md): until the S05b-d migration is applied the function does not exist (PostgREST PGRST202), and the rest of the export must still work. Any other error is a real failure and stops the export.
   if (correctedRes.error && !isMissingFunction(correctedRes.error)) throw correctedRes.error;
 
   const profile = profileRes.data;

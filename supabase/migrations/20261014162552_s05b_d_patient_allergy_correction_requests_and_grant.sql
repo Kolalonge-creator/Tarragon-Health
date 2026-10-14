@@ -54,7 +54,7 @@ create table public.patient_allergy_correction_requests (
   id uuid primary key default gen_random_uuid(),
   organisation_id uuid not null references public.organisations (id),
   patient_id uuid not null references public.profiles (id) on delete cascade,
-  allergy_id uuid not null references public.patient_allergies (id),
+  allergy_id uuid not null references public.patient_allergies (id) on delete cascade,   -- a request is meaningless once its allergy is gone (a purge or the wearable erasure)
   requested_status public.correction_status not null check (requested_status in ('corrected', 'amended', 'entered_in_error')),
   reason text not null check (length(btrim(reason)) >= 5),
   replacement jsonb check (replacement is null or jsonb_typeof(replacement) = 'object'),
@@ -352,7 +352,7 @@ grant execute on function public.confirm_patient_allergy_correction(uuid, text),
 -- id column added later is excluded without anyone remembering to list it (the proof asserts every such column of the four tables matches).
 create function private.is_staff_identifier_column(p_col text) returns boolean language sql immutable set search_path = '' as
 $$
-  select p_col in ('search_vector', 'validation_flags') or (p_col <> 'superseded_by_id' and p_col ~ '(_by|_by_id|clinician_id|staff_id|doctor_id|profile_id)$')
+  select p_col in ('search_vector', 'validation_flags', 'validation_status', 'triage_event_id') or (p_col <> 'superseded_by_id' and p_col ~ '(_by|_by_id|clinician_id|staff_id|doctor_id|profile_id)$')
 $$;
 revoke all on function private.is_staff_identifier_column(text) from public, anon;
 grant execute on function private.is_staff_identifier_column(text) to authenticated, service_role;
