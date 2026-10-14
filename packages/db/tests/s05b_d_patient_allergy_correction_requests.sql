@@ -434,7 +434,7 @@ begin
      or has_function_privilege('anon', 'public.reject_patient_allergy_correction(uuid, text)', 'EXECUTE')
      or has_function_privilege('anon', 'public.my_corrected_record_entries(uuid)', 'EXECUTE')
      or has_function_privilege('anon', 'public.withdraw_patient_allergy_correction(uuid)', 'EXECUTE')
-     or has_function_privilege('authenticated', 'private.request_patient_allergy_correction(uuid, public.correction_status, text, jsonb)', 'EXECUTE') then
+     or has_function_privilege('authenticated', 'private.request_patient_record_correction(text, uuid, public.correction_status, text, jsonb)', 'EXECUTE') then
     raise exception 'FAIL F2: a new function is callable by the wrong role';
   end if;
   perform set_config('request.jwt.claims', json_build_object('sub', v_p, 'role', 'authenticated')::text, true);
@@ -527,8 +527,8 @@ begin
   v_flipped := false;
   begin
     select pg_get_functiondef(p.oid) into v_def from pg_proc p where p.proname = 'correct_clinical_value' and p.pronamespace = 'public'::regnamespace;
-    if position('if not v_is_staff and p_table = ''patient_allergies'' then' in v_def) = 0 then raise exception 'sabotage anchor missing'; end if;
-    execute replace(v_def, 'if not v_is_staff and p_table = ''patient_allergies'' then', 'if false and p_table = ''patient_allergies'' then');
+    if position('if not v_is_staff and p_table in (''patient_allergies'', ''patient_conditions'') then' in v_def) = 0 then raise exception 'sabotage anchor missing'; end if;
+    execute replace(v_def, 'if not v_is_staff and p_table in (''patient_allergies'', ''patient_conditions'') then', 'if false and p_table in (''patient_allergies'', ''patient_conditions'') then');
     perform set_config('request.jwt.claims', json_build_object('sub', v_p, 'role', 'authenticated')::text, true);
     execute 'set local role authenticated';
     perform public.correct_clinical_value('patient_allergies', v_a4, 'entered_in_error', 'Sesame is not an allergy of mine', null);

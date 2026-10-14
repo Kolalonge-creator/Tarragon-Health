@@ -369,3 +369,9 @@ Full text, options and guideline basis: `docs/plans/S06-S10-decisions-and-cmo-si
 | Decision | Chosen |
 |---|---|
 | When a patient voids or corrects an allergy she entered herself and no clinician verified (S05b-c open risk: it would leave prescription safety and the emergency card at once) | Her request is saved, but the ORIGINAL allergy stays active in prescription safety, the emergency card and every reader until a tied clinician (not a care coordinator) confirms. A clinician-tied user's correction takes effect immediately, as before. A rejected request leaves the original untouched and tells the patient by one in-app notice with no clinical words. Every other table keeps its current rule (a patient still corrects her own manual reading at once). Chosen by the founder in chat. Built in `20261014162552_s05b_d_patient_allergy_correction_requests_and_grant.sql`. |
+
+## S05b-f the same hold rule for conditions a patient entered herself (2026-10-14)
+
+| Decision | Chosen |
+|---|---|
+| S05b-d open question: should the allergy hold rule extend to conditions (`patient_conditions`, source patient)? | Yes, the same rule. When a PATIENT voids or corrects a condition she entered herself that no clinician verified, her request is saved and the ORIGINAL stays active in every reader until a tied clinician (not a care coordinator) confirms or rejects. A clinician-tied user's own correction stays immediate. A condition a clinician recorded, diagnosed or reviewed cannot be changed by the patient at all (she is told to ask her care team). Other tables (vitals and the rest) are unchanged. The same resubmit limit (3 per record in a rolling 7 days) and the same neutral in-app notices apply. Chosen by the founder in chat. Built as one mechanism with a record table column (not a copy) in `20261014223123_s05b_f_condition_correction_requests.sql`. |

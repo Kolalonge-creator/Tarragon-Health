@@ -368,8 +368,8 @@ async function countFhirProposedResourcesPending(supabase: Client) {
   return count ?? 0;
 }
 
-/** Patient requests to void or correct an allergy she entered herself, still waiting for a tied
- * doctor (S05b-d/e) -- see clinician/record-changes. RLS on the request table already limits the
+/** Patient requests to void or correct an allergy or a condition she entered herself, still waiting
+ * for a tied doctor (S05b-d/e/f; one table, both record kinds) -- see clinician/record-changes. RLS on the request table already limits the
  * count to the requests this clinician may decide, so a Care Coordinator always sees 0. */
 async function countRecordChangeRequestsWaiting(supabase: Client) {
   const { count, error } = await supabase
