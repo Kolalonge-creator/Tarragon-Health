@@ -701,6 +701,7 @@ begin
     for r in select c.id, c.organisation_id, c.raised_by, c.is_test, c.created_at, d.value::integer as window_days
                from public.safety_concerns c cross join lateral jsonb_array_elements_text(v_days) as d(value)
               where c.created_at + make_interval(days => d.value::integer) <= now()
+                and c.created_at >= (select effective_from::timestamptz from public.quality_config where is_active)
                 and not exists (select 1 from public.safety_concern_checkins k where k.concern_id = c.id and k.window_days = d.value::integer) loop
       begin
         v_id := null;

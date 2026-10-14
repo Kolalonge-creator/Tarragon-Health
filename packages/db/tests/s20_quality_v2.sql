@@ -334,6 +334,16 @@ begin
     pg_temp.q_as(v_oth, 'select count(*) from public.clinical_audit_replies') || '/' || pg_temp.q_as(v_adm, 'select count(*) from public.clinical_audit_replies'));
   perform pg_temp.ck('...replies cannot be edited or deleted', '23514/23514', pg_temp.try_sql(format('update public.clinical_audit_replies set body = %L', 'x')) || '/' || pg_temp.try_sql('delete from public.clinical_audit_replies'));
 
+  -- the second reading cleared the first: no follow-up is owed on that audit any more
+  perform pg_temp.ck('a follow-up is no longer owed once the second reading cleared the first', 'false/ERR:there is no open follow-up on this audit',
+    (select followup_needed::text from public.clinical_audits where id = v_a) || '/' || pg_temp.q_as(v_cmo, format('select public.add_audit_followup_note(%L, %L)', v_a, 'A note on an audit that no longer needs one.')));
+  -- a different audit with a real finding carries the follow-up history checks
+  v_t := pg_temp.finish(v_fin, 'symptom_review');
+  v_a := (pg_temp.q_as(v_cmo, format('select public.request_clinical_audit(%L)', v_t)))::uuid;
+  select reviewer_id into v_rev from public.clinical_audits where id = v_a;
+  perform pg_temp.opn(v_rev, v_a);
+  v_res := pg_temp.sub(v_rev, v_a, v_safe, '{"history_adequate":1,"reasoning_documented":1,"communication_clear":1,"plan_appropriate":1,"patient_questions_answered":1,"documentation_timely":1}', 'Reasoning was not recorded and the plan was thin.');
+  perform pg_temp.ck('fixture: a significant finding with a follow-up owed', 'significant_concerns/true', (v_res::jsonb ->> 'outcome') || '/' || (select followup_needed::text from public.clinical_audits where id = v_a));
   -- follow-up history: append-only, closed once
   perform pg_temp.ck('a follow-up note needs real words', 'ERR:say what was done, in at least 20 characters', pg_temp.q_as(v_cmo, format('select public.add_audit_followup_note(%L, %L)', v_a, 'short')));
   perform pg_temp.ck('the lead adds a follow-up note', 'ok', pg_temp.try_as(v_cmo, format('select public.add_audit_followup_note(%L, %L)', v_a, 'Met the clinician and went through the page timeline.')));
@@ -528,6 +538,9 @@ begin
   perform pg_temp.ck('...reporting how many it opened', 'true', ((v_sw ->> 'handback_reviews_opened')::integer >= 1)::text);
   perform private.quality_audit_sweep();
   perform pg_temp.ck('...and the retry is idempotent (still one open review)', '1', (select count(*)::text from public.handback_reviews where clinician_id = v_c2 and state = 'open'));
+  perform pg_temp.try_as(pg_temp.f('cmo'), format('select public.close_handback_review(%L, %L, %L)', (select id from public.handback_reviews where clinician_id = v_c2 and state = 'open'), 'no_action', 'looked at it, nothing to do'));
+  perform private.quality_audit_sweep();
+  perform pg_temp.ck('a review the lead closed is not reopened by the daily retry', '0', (select count(*)::text from public.handback_reviews where clinician_id = v_c2 and state = 'open'));
 end $$;
 
 -- 8. Q2: speak-up v2 ---------------------------------------------------------------------------------------------------
@@ -657,6 +670,12 @@ begin
   update public.safety_concerns set created_at = now() - interval '31 days' where id = v_std;
   update public.safety_concerns set created_at = now() - interval '31 days' where id = v_anon;
   select count(*) into v_notes_before from public.notifications where recipient_id = v_fin and payload ->> 'subject' = 'A quick check-in';
+  v_sw := private.safety_concern_sweep();
+  perform pg_temp.ck('no check-in is sent for a concern raised before the configuration took effect (no burst on signing)', '0', (select count(*)::text from public.safety_concern_checkins where concern_id = v_std));
+  -- move the effective date back (test-only edit, guard off for the one update) so the proof can exercise the windows
+  alter table public.quality_config disable trigger quality_config_guard;
+  update public.quality_config set effective_from = '2026-01-01' where is_active;
+  alter table public.quality_config enable trigger quality_config_guard;
   v_sw := private.safety_concern_sweep();
   perform pg_temp.ck('a 30-day check-in is created for a concern 31 days old', '1', (select count(*)::text from public.safety_concern_checkins where concern_id = v_std and window_days = 30));
   perform pg_temp.ck('...not yet the 90-day one', '0', (select count(*)::text from public.safety_concern_checkins where concern_id = v_std and window_days = 90));

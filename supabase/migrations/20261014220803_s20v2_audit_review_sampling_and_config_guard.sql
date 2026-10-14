@@ -173,7 +173,7 @@ alter table public.clinical_audits
 create or replace function private.clinical_audit_guard() returns trigger
 language plpgsql set search_path = ''
 as $$
-declare v_loose text[] := array['followup_closed_at', 'followup_note', 'overdue_notified_at', 'second_reviewer_id', 'second_notified_at', 'final_at', 'final_outcome', 'second_review_agrees'];
+declare v_loose text[] := array['followup_needed', 'followup_closed_at', 'followup_note', 'overdue_notified_at', 'second_reviewer_id', 'second_notified_at', 'final_at', 'final_outcome', 'second_review_agrees'];
 begin
   if tg_op = 'DELETE' then raise exception 'clinical audits are never deleted' using errcode = '23514'; end if;
   if old.state in ('submitted', 'cancelled')
@@ -474,6 +474,11 @@ begin
     from (select reason_code, count(*) c from public.task_handbacks
            where clinician_id = p_clinician and created_at > now() - make_interval(days => v_days) and not (v_ex ? reason_code::text) group by reason_code) x;
   if v_n <= v_more then return false; end if;
+  -- the lead already looked at this pattern: only a hand-back newer than the last closed review can open another
+  if exists (select 1 from public.handback_reviews h where h.clinician_id = p_clinician and h.state = 'closed'
+               and h.closed_at >= coalesce((select max(b.created_at) from public.task_handbacks b where b.clinician_id = p_clinician and not (v_ex ? b.reason_code::text)), '-infinity'::timestamptz)) then
+    return false;
+  end if;
   select organisation_id, is_test into v_org, v_test from public.clinical_staff where profile_id = p_clinician;
   if v_org is null then return false; end if;
   insert into public.handback_reviews (organisation_id, clinician_id, window_days, handbacks, reasons, is_test)
@@ -706,7 +711,8 @@ begin
   -- the independent second reading is the final one (it can clear or confirm the first); both readings stay on record and disagreement is recorded
   v_final := v_outcome;
   v_agrees := v_outcome = a.outcome;
-  update public.clinical_audits set final_at = now(), final_outcome = v_final, second_review_agrees = v_agrees where id = a.id;
+  update public.clinical_audits set final_at = now(), final_outcome = v_final, second_review_agrees = v_agrees,
+         followup_needed = (v_final in ('significant_concerns', 'unsafe')) where id = a.id;
   perform private.finalise_audit(a.id);
   return jsonb_build_object('final_outcome', v_final, 'agrees', v_agrees);
 end;
@@ -741,7 +747,7 @@ begin
   if not private.credential_is_cmo() then raise exception 'only the clinical lead can close a follow-up' using errcode = '42501'; end if;
   if char_length(btrim(coalesce(p_note, ''))) < 20 then raise exception 'say what was done, in at least 20 characters' using errcode = '22023'; end if;
   select * into a from public.clinical_audits where id = p_audit for update;
-  if not found or not private.cmo_of(a.organisation_id) or a.state <> 'submitted' or not a.followup_needed or a.followup_closed_at is not null then
+  if not found or not private.cmo_of(a.organisation_id) or a.state <> 'submitted' or a.final_at is null or not a.followup_needed or a.followup_closed_at is not null then
     raise exception 'there is no open follow-up on this audit' using errcode = '23514';
   end if;
   if a.clinician_id = v_uid then raise exception 'you cannot close a follow-up on your own work' using errcode = '42501'; end if;
@@ -758,7 +764,7 @@ begin
   if not private.credential_is_cmo() then raise exception 'only the clinical lead can add a follow-up note' using errcode = '42501'; end if;
   if char_length(btrim(coalesce(p_note, ''))) < 20 then raise exception 'say what was done, in at least 20 characters' using errcode = '22023'; end if;
   select * into a from public.clinical_audits where id = p_audit for update;
-  if not found or not private.cmo_of(a.organisation_id) or a.state <> 'submitted' or not a.followup_needed or a.followup_closed_at is not null then
+  if not found or not private.cmo_of(a.organisation_id) or a.state <> 'submitted' or a.final_at is null or not a.followup_needed or a.followup_closed_at is not null then
     raise exception 'there is no open follow-up on this audit' using errcode = '23514';
   end if;
   if a.clinician_id = v_uid then raise exception 'you cannot add to a follow-up on your own work' using errcode = '42501'; end if;
@@ -831,6 +837,26 @@ begin
 end;
 $$;
 
+
+-- tier 1 progress: only finished audits count, and a miss is the final outcome (a first reading a second reader cleared is not a miss)
+create or replace function public.tier1_audit_progress(p_staff uuid default null) returns jsonb
+language plpgsql stable security definer set search_path = ''
+as $$
+declare v_uid uuid := private.uid_or_deny(); s public.clinical_staff%rowtype; t1 jsonb := private.quality_setting('tier1');
+begin
+  if p_staff is null then select * into s from public.clinical_staff where profile_id = v_uid;
+  else select * into s from public.clinical_staff where id = p_staff; end if;
+  if not found then raise exception 'clinician not found' using errcode = 'P0002'; end if;
+  if s.profile_id <> v_uid and not private.cmo_of(s.organisation_id) then raise exception 'you can only see your own progress' using errcode = '42501'; end if;
+  return jsonb_build_object('clinical_staff_id', s.id, 'level', coalesce(s.credentialing_level, 2), 'target', private.tier1_target(s.id),
+    'audited', private.tier1_count(s.profile_id),
+    'submitted', (select count(*) from public.clinical_audits where clinician_id = s.profile_id and counts_toward_tier1 and state = 'submitted' and final_at is not null),
+    'average_score', (select round(avg(total_score), 1) from public.clinical_audits where clinician_id = s.profile_id and counts_toward_tier1 and state = 'submitted' and final_at is not null),
+    'critical_misses', (select count(*) from public.clinical_audits where clinician_id = s.profile_id and counts_toward_tier1 and state = 'submitted' and final_outcome = 'unsafe'),
+    'graduation_min_score', (t1 ->> 'graduation_min_score')::numeric);
+end;
+$$;
+
 -- scribe quality for the lead: omission and invented-content findings, counts only
 create function public.scribe_audit_summary(p_months integer default 3) returns jsonb
 language plpgsql stable security definer set search_path = ''
@@ -880,7 +906,7 @@ begin
         perform private.credential_notify(v_rev, r.organisation_id, 'A clinical audit is waiting for you',
           'A clinical audit has been assigned to you. Open the audits page in the clinical lead area.', jsonb_build_object('audit_id', r.id, 'i18n_key', 'quality.audit_assigned'), false);
         v_second := v_second + 1;
-      elsif r.second_notified_at is null and r.due_at < now() then
+      elsif r.second_notified_at is null and r.submitted_at + make_interval(days => (sm ->> 'due_days')::integer) < now() then
         update public.clinical_audits set second_notified_at = now() where id = r.id;
         perform private.notify_clinical_leads(r.organisation_id, r.is_test, 'A clinical audit has no reviewer',
           'A clinical audit could not be assigned to a reviewer. Open the audits page in the clinical lead area.', jsonb_build_object('audit_id', r.id, 'i18n_key', 'quality.audit_no_reviewer'), r.clinician_id, false);
