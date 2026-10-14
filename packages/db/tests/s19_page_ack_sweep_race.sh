@@ -138,6 +138,10 @@ do \$\$
 declare v_ev uuid; v_root uuid; v_rs public.triage_rule_sets%rowtype;
 begin
   select * into v_rs from public.triage_rule_sets where code = '$TAG';
+  -- S19c (P6): a repeat red event for the same patient joins an OPEN page family, so each round starts from a closed one
+  perform set_config('tarragon.paging_write', 'on', true);
+  update public.pages set closed_at = now(), close_note = 'race harness: next round' where patient_id = '$PATIENT' and closed_at is null;
+  perform set_config('tarragon.paging_write', 'off', true);
   insert into public.triage_events (organisation_id, patient_id, trigger_type, trigger_id, grade, rule_id, rule_set_id, rule_set_code, rule_set_version, rule_set_status, actions, shadow, is_test, basis)
     select organisation_id, id, 'observation', gen_random_uuid(), 'red', 'R1', v_rs.id, v_rs.code, v_rs.version, v_rs.status, '[{"kind":"page_on_call"}]'::jsonb, false, true, gen_random_uuid()::text
       from public.profiles where id = '$PATIENT' returning id into v_ev;

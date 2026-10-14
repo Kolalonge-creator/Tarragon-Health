@@ -211,121 +211,25 @@ create trigger notifications_no_sms_for_pages before insert on public.notificati
   for each row execute function private.no_sms_for_pages();
 
 -- The older critical alert engine hops an unopened critical notification push, email, sms and re-notifies after an
--- acknowledgement. Pages have their own ladder, so its rows are not eligible for the legacy one. Everything else is unchanged
--- from the current definition (20260930094618_remove_whatsapp.sql).
-create or replace function private.escalate_unconfirmed_critical_notifications()
-returns void
-language plpgsql
-security definer
-set search_path to ''
-as $function$
+-- acknowledgement. Pages have their own ladder, so its rows are not eligible for the legacy one.
+-- The engine is PATCHED, not replaced: this reads whatever definition is current (the live one carries changes that are in no
+-- migration file yet: a patient ladder, test_alert and red_alert_watch exclusions) and adds exactly one clause after the
+-- existing "its own admin alarm" exclusion, so a later or concurrent change to the engine is never overwritten. If the anchor is
+-- not found the migration stops rather than guess.
+do $patch$
 declare
-  r record;
-  v_channels public.notification_channel[];
-  v_total_channels int;
-  v_sla_minutes int;
-  v_hop_minutes numeric;
-  v_next_channel public.notification_channel;
-
-  c_default_channels constant public.notification_channel[] :=
-    array['push', 'email', 'sms']::public.notification_channel[];
-  c_default_sla_minutes constant int := 120;
-  c_lookback constant interval := interval '7 days';
+  v_def text := pg_get_functiondef('private.escalate_unconfirmed_critical_notifications()'::regprocedure);
+  v_new text;
+  v_anchor constant text := 'and n.template is distinct from ''critical_notification_escalation_exhausted''';
 begin
-  for r in
-    select n.*
-    from public.notifications n
-    where n.priority = 'critical'
-      and n.opened_at is null
-      and n.created_at > now() - c_lookback
-      and n.template is distinct from 'critical_notification_escalation_exhausted'
-      -- S19c (P3): a page has its own closed-loop ladder with no SMS rung; the legacy engine must never touch it
-      and coalesce(n.source_table, '') not in ('pages', 'page_tests')
-      and (n.status = 'failed' or (n.status in ('sent', 'delivered') and n.sent_at is not null))
-      and not exists (select 1 from public.notifications nxt where nxt.escalated_from_id = n.id)
-      and not exists (select 1 from public.notification_escalation_failures f where f.notification_id = n.id)
-  loop
-    if r.escalation_pathway is null then
-      v_channels    := c_default_channels;
-      v_sla_minutes := c_default_sla_minutes;
-    else
-      begin
-        v_channels := private.normalize_escalation_channels(
-          private.escalation_channel_sequence(r.escalation_pathway, r.escalation_alert_tier)
-        );
-        v_sla_minutes := private.escalation_sla_minutes(r.escalation_pathway, r.escalation_alert_tier);
-      exception when others then
-        v_channels    := null;
-        v_sla_minutes := null;
-      end;
-    end if;
-
-    if array_length(v_channels, 1) is null then
-      v_channels := c_default_channels;
-    end if;
-    v_sla_minutes := coalesce(v_sla_minutes, c_default_sla_minutes);
-    v_total_channels := array_length(v_channels, 1);
-
-    if r.status <> 'failed' then
-      v_hop_minutes := greatest(2, floor(v_sla_minutes::numeric / v_total_channels));
-      if now() - r.sent_at < (v_hop_minutes || ' minutes')::interval then
-        continue;
-      end if;
-    end if;
-
-    if r.escalation_hop >= v_total_channels then
-      insert into public.notification_escalation_failures
-        (organisation_id, notification_id, source_table, source_id,
-         escalation_pathway, escalation_alert_tier, channel_sequence_exhausted)
-      values
-        (r.organisation_id, r.id, r.source_table, r.source_id,
-         r.escalation_pathway, r.escalation_alert_tier, v_channels)
-      on conflict (notification_id) do nothing;
-
-      insert into public.notifications (organisation_id, recipient_id, channel, template, payload, priority)
-      select
-        r.organisation_id,
-        p.id,
-        'in_app',
-        'critical_notification_escalation_exhausted',
-        jsonb_build_object(
-          'notification_id', r.id,
-          'source_table', r.source_table,
-          'source_id', r.source_id,
-          'pathway', r.escalation_pathway
-        ),
-        'critical'
-      from public.profiles p
-      where p.role = 'admin';
-
-      continue;
-    end if;
-
-    v_next_channel := v_channels[r.escalation_hop + 1];
-
-    insert into public.notifications
-      (organisation_id, recipient_id, channel, template, payload, priority,
-       escalation_pathway, escalation_alert_tier, escalation_hop, escalated_from_id, source_table, source_id)
-    values
-      (r.organisation_id, r.recipient_id, v_next_channel, r.template, r.payload, 'critical',
-       r.escalation_pathway, r.escalation_alert_tier, r.escalation_hop + 1, r.id, r.source_table, r.source_id);
-
-    begin
-      perform net.http_post(
-        url := (select decrypted_secret from vault.decrypted_secrets where name = 'project_url')
-          || '/functions/v1/send-pending-notifications',
-        headers := jsonb_build_object(
-          'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'edge_function_publishable_key'),
-          'Content-Type', 'application/json'
-        ),
-        timeout_milliseconds := 8000
-      );
-    exception when others then
-      null;
-    end;
-  end loop;
-end;
-$function$;
+  if v_def like '%''page_tests''%' then return; end if;   -- already patched
+  if position(v_anchor in v_def) = 0 then
+    raise exception 'S19c: the legacy critical alert engine no longer has the expected exclusion line; patch it by hand';
+  end if;
+  v_new := replace(v_def, v_anchor, v_anchor || E'\n      -- S19c (P3): a page has its own closed-loop ladder with no SMS rung; the legacy engine must never touch it\n      and coalesce(n.source_table, '''') not in (''pages'', ''page_tests'')');
+  execute v_new;
+end
+$patch$;
 
 -- ---------------------------------------------------------------------------
 -- 4. P2: the page rows go out at once
@@ -397,8 +301,9 @@ $$;
 -- First hop: a blood pressure reading OUTSIDE the safe band in paging_delivery_config can be red, so its event is urgent and
 -- nudges process-events at once. A reading inside the band, a missing or unreadable band, and every recovery re-emit stay on the
 -- 15 second cron, so a bulk upload or a backlog cannot flood the edge function ahead of a real red event. The grade, not this
--- priority, decides what happens: nothing is ever skipped. A red-flag symptom regrade is always urgent (below). Same body as
--- 20261005220819 plus the priority.
+-- priority, decides what happens: nothing is ever skipped. A red-flag symptom regrade is always urgent (below). The recheck
+-- timeout and missing-event re-emit in private.sweep_triage_rechecks stay normal priority and are NOT touched here. The bodies are
+-- the live definitions (the symptom function reads private.vitals_readings_current, S05b) plus the priority.
 create or replace function private.emit_bp_observation_recorded()
 returns trigger language plpgsql security definer set search_path = '' as $$
 declare v_inside boolean;
@@ -430,7 +335,7 @@ begin
     return null;
   end if;
   begin
-    select * into v_obs from public.vitals_readings v
+    select * into v_obs from private.vitals_readings_current v
     where v.patient_id = new.patient_id and v.vital_type::text = 'blood_pressure' and v.systolic is not null
       and v.created_at <= new.created_at and v.created_at >= new.created_at - interval '10 minutes'
     order by v.created_at desc, v.taken_at desc limit 1;
@@ -445,48 +350,6 @@ begin
     raise warning 'S12: could not emit a symptom regrade for %: %', new.id, sqlerrm;
   end;
   return null;
-end $$;
-
--- Unchanged from 20261005220819 (recheck timeouts and the missed-event re-emit stay normal priority: they are recovery paths and
--- must not be able to flood the urgent lane). Restated only so the file reads as one piece with the first-hop change above.
-create or replace function private.sweep_triage_rechecks()
-returns integer language plpgsql security definer set search_path = '' as $$
-declare
-  r record;
-  v_n integer := 0;
-begin
-  for r in
-    select p.observation_id, p.organisation_id, p.patient_id from public.triage_pending_rechecks p
-    where p.state = 'pending' and p.due_at <= now() and p.timeout_emitted_at is null
-    for update skip locked
-  loop
-    perform private.emit_domain_event(
-      'observation.recorded', r.organisation_id,
-      jsonb_build_object('observation_id', r.observation_id, 'recheck', 'timed_out'),
-      'bp:' || r.observation_id::text || ':timeout',
-      r.patient_id, 'observation', r.observation_id);
-    update public.triage_pending_rechecks set timeout_emitted_at = now() where observation_id = r.observation_id;
-    v_n := v_n + 1;
-  end loop;
-
-  for r in
-    select v.id, v.organisation_id, v.patient_id from public.vitals_readings v
-    where v.vital_type::text = 'blood_pressure' and v.systolic is not null and v.diastolic is not null
-      and v.created_at > now() - interval '24 hours' and v.created_at < now() - interval '1 minute'
-      and not exists (select 1 from public.domain_events e
-                      where e.event_type = 'observation.recorded' and e.idempotency_key = 'bp:' || v.id::text)
-  loop
-    perform private.emit_domain_event(
-      'observation.recorded', r.organisation_id,
-      jsonb_build_object('observation_id', r.id),
-      'bp:' || r.id::text, r.patient_id, 'observation', r.id);
-    v_n := v_n + 1;
-  end loop;
-
-  update public.care_tasks t set status = 'expired'
-  where t.source = 'triage_recheck' and t.status in ('not_started', 'scheduled', 'in_progress')
-    and not exists (select 1 from public.triage_pending_rechecks p where p.patient_id = t.patient_id and p.state = 'pending');
-  return v_n;
 end $$;
 
 -- ---------------------------------------------------------------------------
