@@ -22,7 +22,8 @@ declare
   v_p   uuid := gen_random_uuid();
   v_p2  uuid := gen_random_uuid();
   v_c   uuid := gen_random_uuid();   -- tied clinician
-  v_u   uuid := gen_random_uuid();   -- untied clinician
+  v_u   uuid := gen_random_uuid();   -- untied clinician (the fixture alert may auto-route to any doctor, so v_u is not asserted as refused)
+  v_cc  uuid := gen_random_uuid();   -- care coordinator on the care team: tier refuses
   v_b1 uuid; v_b2 uuid; v_b3 uuid;
   v_rs uuid; v_rs_status text; v_rs_ver int; v_te uuid;
   v_w1 uuid; v_w2 uuid; v_w3 uuid; v_w4 uuid; v_wrev uuid;
@@ -46,16 +47,19 @@ begin
     (v_p,  's05bc-p@example.invalid',  'x', now(), '{}', '{}'),
     (v_p2, 's05bc-p2@example.invalid', 'x', now(), '{}', '{}'),
     (v_c,  's05bc-c@example.invalid',  'x', now(), '{}', '{}'),
-    (v_u,  's05bc-u@example.invalid',  'x', now(), '{}', '{}');
+    (v_u,  's05bc-u@example.invalid',  'x', now(), '{}', '{}'),
+    (v_cc, 's05bc-cc@example.invalid', 'x', now(), '{}', '{}');
   insert into public.profiles (id, organisation_id, role, full_name, phone) values
     (v_p,  v_org, 'patient',   'S05bc Patient One',  '+2348055560001'),
     (v_p2, v_org, 'patient',   'S05bc Patient Two',  '+2348055560002'),
     (v_c,  v_org, 'clinician', 'S05bc Tied Doctor',  '+2348055560004'),
-    (v_u,  v_org, 'clinician', 'S05bc Untied Doctor','+2348055560005')
+    (v_u,  v_org, 'clinician', 'S05bc Untied Doctor','+2348055560005'),
+    (v_cc, v_org, 'clinician', 'S05bc Coordinator','+2348055560006')
   on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
   insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier) values
     (v_org, v_c, 'S05bc Tied Doctor',   true, now(), 'senior_medical_officer'),
-    (v_org, v_u, 'S05bc Untied Doctor', true, now(), 'senior_medical_officer');
+    (v_org, v_u, 'S05bc Untied Doctor', true, now(), 'senior_medical_officer'),
+    (v_org, v_cc, 'S05bc Coordinator', true, now(), 'care_coordinator');
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, assigned_at)
   values (v_org, v_p, v_c, now()) on conflict (patient_id) do update set clinician_id = v_c;
 
@@ -149,7 +153,7 @@ begin
   v_hist := public.clinical_value_history('vitals_readings', v_b1);   -- asking from the original end walks the chain too
   execute 'reset role';
   if jsonb_array_length(v_hist) <> 2 then raise exception 'FAIL F4b: the patient did not get her own chain'; end if;
-  foreach v_state in array array[v_u::text, v_p2::text] loop
+  foreach v_state in array array[v_cc::text, v_p2::text] loop
     perform set_config('request.jwt.claims', json_build_object('sub', v_state::uuid, 'role', 'authenticated')::text, true);
     execute 'set local role authenticated';
     declare v_s text := null;
