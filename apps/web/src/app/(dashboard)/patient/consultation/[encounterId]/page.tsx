@@ -6,6 +6,7 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 import { ConsultationRoom, type RoomView } from "@/components/consultation/consultation-room";
 import { t } from "@tarragon/i18n";
 import { callPolicyFor } from "@/lib/consultations/call-config";
+import { LicenceVerifiedBadge } from "@/components/licence-verified-badge";
 
 /**
  * S21: the patient's consultation room. consultation_room_view() answers null for anyone who is not the patient or the
@@ -20,10 +21,13 @@ export default async function PatientConsultationPage({ params }: { params: Prom
   if (!view || view.role !== "patient") notFound();
   // null unless the Meeting SDK is configured; then the room joins inside the page and falls back to the link on any failure.
   const callPolicy = callPolicyFor(view.reconnect_grace_seconds);
+  // Q17: a date only when a stored verification record exists for this consultation's clinician; otherwise nothing is shown.
+  const { data: verifiedOn } = await supabase.rpc("consultation_clinician_licence_verified_on" as never, { p_encounter: encounterId } as never);
 
   return (
     <div className="space-y-6">
       <PageHeader title={t("consult.room.title", uiLanguage)} icon={SEMANTIC_ICON.clinicianFollowUp} backTo={{ href: "/patient/care", label: "Care" }} />
+      <LicenceVerifiedBadge verifiedOn={typeof verifiedOn === "string" ? verifiedOn : null} />
       <ConsultationRoom view={view} locale={uiLanguage} call={callPolicy ? { policy: callPolicy } : null} />
     </div>
   );

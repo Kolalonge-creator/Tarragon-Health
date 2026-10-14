@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { getCurrentClinicalStaff } from "@/lib/auth/current-profile";
@@ -6,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { Card, CardContent } from "@/components/ui/card";
 import { readClinicalSignoffChecklist } from "@/lib/clinical/read-clinical-signoff-checklist";
-import { CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
+import { CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, GLUCOSE_TASK_TYPE_ITEM_KEY, GLUCOSE_TRIAGE_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, RED_OUTREACH_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
 import { getCmoSigningHubForRequest } from "@/lib/queries/cmo-signing-hub-request";
 import { ProtocolDraftsManager } from "@/app/(dashboard)/admin/settings/protocols/protocol-drafts-manager";
 import { RefreshOnMutationSuccess } from "../_signoff-panels/refresh-on-mutation-success";
@@ -25,6 +26,9 @@ import { HomeBpProgrammePanel } from "../_signoff-panels/home-bp-programme-panel
 import { MyHealthConfigPanel } from "../_signoff-panels/my-health-config-panel";
 import { CommunitySignoffPanel } from "../_signoff-panels/community-panel";
 import { TriageRulesPanel } from "../_signoff-panels/triage-rules-panel";
+import { GlucoseTaskTypePanel } from "../_signoff-panels/glucose-task-type-panel";
+import { RedOutreachPanel } from "../_signoff-panels/red-outreach-panel";
+import { GlucoseTriageRulesPanel } from "../_signoff-panels/glucose-triage-rules-panel";
 import { WordingAttestationPanel } from "../_signoff-panels/wording-attestation-panel";
 import { ProposedValuesPanel } from "../_signoff-panels/proposed-values-panel";
 import { S06S10Banner } from "./s06-s10-banner";
@@ -188,6 +192,11 @@ export default async function ClinicianClinicalSignoffPage({
 
   if (keys.has(COMMUNITY_ITEM_KEY)) inlinePanels[COMMUNITY_ITEM_KEY] = <CommunitySignoffPanel />;
 
+  if (keys.has(GLUCOSE_TASK_TYPE_ITEM_KEY)) inlinePanels[GLUCOSE_TASK_TYPE_ITEM_KEY] = <GlucoseTaskTypePanel />;
+  if (keys.has(RED_OUTREACH_ITEM_KEY)) inlinePanels[RED_OUTREACH_ITEM_KEY] = <RedOutreachPanel />;
+  // Glucose triage rules (plan item R2): the numbers, the guideline basis of every rule, the patient wording in full, then the Sign control.
+  if (keys.has(GLUCOSE_TRIAGE_ITEM_KEY)) inlinePanels[GLUCOSE_TRIAGE_ITEM_KEY] = <GlucoseTriageRulesPanel back="hub" />;
+
   if (keys.has(PROTOCOL_DRAFTS_ITEM_KEY)) {
     inlinePanels[PROTOCOL_DRAFTS_ITEM_KEY] = (
       <>
@@ -253,6 +262,23 @@ export default async function ClinicianClinicalSignoffPage({
         </Card>
       ) : (
         <SignoffQueueList items={hub.items} inlinePanels={inlinePanels} />
+      )}
+
+      {hub.attention.length > 0 && (
+        <section aria-label="Needs your attention" className="space-y-2">
+          <h2 className="text-base font-semibold text-charcoal-ink">Needs your attention (not a signature)</h2>
+          <ul className="space-y-2">
+            {hub.attention.map((a) => (
+              <li key={a.key} className="rounded-xl border border-mist-grey/40 p-4 text-sm">
+                <p className="font-medium text-charcoal-ink">{a.title}</p>
+                <p className="mt-1 text-charcoal-ink/70">{a.detail}</p>
+                <Link href={a.href} className="mt-2 inline-block font-medium text-brand-green underline underline-offset-4">
+                  Open the credentialing page
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {hasSigned && (

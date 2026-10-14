@@ -307,7 +307,7 @@ begin
   perform pg_temp.r('7.12 no payout or earnings column points at a settlement or payable', '0',
     (select count(*)::text from information_schema.columns where table_schema = 'public' and table_name in ('payouts', 'payout_transfers', 'earnings_ledger') and column_name ~* '(settlement|payable)'));
   perform pg_temp.r('7.13 settlement code calls no payment provider (no transfer function is referenced)', '0',
-    (select count(*)::text from pg_proc p where p.pronamespace in ('public'::regnamespace, 'private'::regnamespace) and (p.proname ~ 'settlement|payable') and p.proname !~ '^finance_' /* finance_* imports Paystack's own bank settlements, a different thing */ and pg_get_functiondef(p.oid) ~* '(paystack|transfer_code|payout_prepare_send|payout_record_send|payout_transfers)'));
+    (select count(*)::text from pg_proc p where p.pronamespace in ('public'::regnamespace, 'private'::regnamespace) and (p.proname ~ 'settlement|payable') and p.proname !~ '^(finance_|reconcile_settlement_report$)' /* finance_* imports Paystack's own bank settlements, and reconcile_settlement_report (S14x) compares the processor's settlement report with our ledger: different things, neither moves money */ and pg_get_functiondef(p.oid) ~* '(paystack|transfer_code|payout_prepare_send|payout_record_send|payout_transfers)'));
 end $$;
 
 -- terms end; a voided statement is final

@@ -16,6 +16,7 @@
 --  10. SAFETY CASE 16: an expired licence leaves the queue and the rota overnight (claims released, rota cleared, offers
 --      returned, an event for S18's lead reassignment); a missing date or a grace period removes nobody.
 --  11. SABOTAGE: removal turned off; the case 16 check must flip.
+--  2b. (P5, Q16) a new clinician's first N red or prescribing cases are all audited, then the sample applies; 11b sabotages it.
 begin;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
@@ -501,7 +502,7 @@ begin
   v_a := pg_temp.audit_of(v_t);
   perform pg_temp.ck('a red event is audited', 'red_event', (select reason from public.clinical_audits where id = v_a));
   perform pg_temp.ck('...and assigned to the clinical lead, not the clinician', v_cmo::text, (select reviewer_id::text from public.clinical_audits where id = v_a));
-  perform pg_temp.ck('...with the config and form version recorded (INV-16)', '1/1', (select config_version || '/' || form_version from public.clinical_audits where id = v_a));
+  perform pg_temp.ck('...with the config and form version recorded (INV-16)', (select version::text from public.quality_config where is_active) || '/1', (select config_version || '/' || form_version from public.clinical_audits where id = v_a));
   perform pg_temp.ck('...and an audit assigned event with ids only', 'true',
     (select (count(*) = 1 and bool_and(payload ? 'audit_id' and not payload ? 'description'))::text from public.domain_events where event_type = 'clinical_audit.assigned' and payload ->> 'audit_id' = v_a::text));
   -- every titration
@@ -536,6 +537,64 @@ begin
   perform pg_temp.ck('three unaudited tasks, so the floor adds exactly one audit for t1', '1', (select count(*)::text from public.clinical_audits where clinician_id = pg_temp.f('t1') and state <> 'cancelled'));
   perform pg_temp.ck('...and running it again adds nothing', '0', private.audit_floor_top_up(private.lagos_month(now()))::text);
   perform pg_temp.ck('...marked as a floor top-up', 'floor_top_up', (select reason from public.clinical_audits where clinician_id = pg_temp.f('t1') and state <> 'cancelled' order by created_at desc limit 1));
+end $$;
+
+-- 2b. P5 / CMO answer Q16: a new clinician's first N red or prescribing cases are all audited, then the sample applies --------
+create function pg_temp.finish_rx(p_uid uuid) returns uuid language plpgsql as
+$f$
+declare v_t uuid; v_got uuid; v_r text;
+begin
+  perform pg_temp.clear_queue();
+  -- every task in this proof completes inside one transaction, so now() is the same for all of them; move this clinician's earlier
+  -- completions back a minute so "the n-th case" is decided by time, as it is in real life (the id is only a tie-breaker)
+  perform set_config('tarragon.task_transition', 'on', true);
+  update public.clinical_tasks set completed_at = completed_at - interval '1 minute' where claimed_by = p_uid and state = 'completed';
+  perform set_config('tarragon.task_transition', 'off', true);
+  v_t := private.create_clinical_task(pg_temp.f('pat'), 'admin_clinical', null, null, null, null, null, array['prescribing']);
+  v_got := pg_temp.next_task(p_uid);
+  if v_got is distinct from v_t then raise exception 'finish_rx: expected the new task, got % (%); state=% tier=% comps=% test=% due=%', v_got, pg_temp.next_outcome(p_uid), (select state from public.clinical_tasks where id = v_t), (select min_tier from public.clinical_tasks where id = v_t), (select required_competencies from public.clinical_tasks where id = v_t), (select is_test from public.clinical_tasks where id = v_t), (select due_at from public.clinical_tasks where id = v_t); end if;
+  v_r := pg_temp.try_as(p_uid, format('select public.queue_complete(%L, %L::jsonb)', v_t, '{"note":"done"}'));
+  if v_r <> 'ok' then raise exception 'finish_rx: queue_complete failed: %', v_r; end if;
+  return v_t;
+end $f$;
+
+do $$
+declare v_t uuid; v_new uuid; v_org uuid := pg_temp.f('org'); v_adm uuid := pg_temp.f('admin'); v_rows text := ''; v_i integer;
+begin
+  v_new := pg_temp.mkdoc(v_org, 'newc', 'senior_medical_officer', 'contracted', '{adult_general,prescribing}', v_adm);
+  perform pg_temp.setf('newc', v_new);
+  perform pg_temp.mkblock(v_org, v_new);
+  perform pg_temp.ck('the live config carries the Q16 number', '20', (private.quality_setting('sampling') ->> 'new_clinician_full_review_cases'));
+  perform pg_temp.cfg('{sampling,random_rate_percent}', '0'::jsonb);
+  perform pg_temp.cfg('{sampling,new_clinician_full_review_cases}', '3'::jsonb);
+  -- a task that is neither red nor prescribing does not use up one of the N
+  v_t := pg_temp.finish(v_new, 'async_question');
+  perform pg_temp.ck('a plain task by a new clinician is not pulled in', '0', (select count(*)::text from public.clinical_audits where task_id = v_t));
+  perform pg_temp.ck('...and is not a qualifying case', '', coalesce(private.new_clinician_case_ordinal(v_t)::text, ''));
+  for v_i in 1..3 loop
+    v_t := pg_temp.finish_rx(v_new);
+    perform pg_temp.ck('prescribing case ' || v_i || ' is its own ordinal', v_i::text, private.new_clinician_case_ordinal(v_t)::text);
+    perform pg_temp.ck('prescribing case ' || v_i || ' is audited as a new clinician review', 'new_clinician_review', coalesce((select reason from public.clinical_audits where task_id = v_t and state <> 'cancelled'), 'none'));
+  end loop;
+  perform pg_temp.ck('...assigned to the clinical lead, with the stored draw', 'true',
+    (select (reviewer_id = pg_temp.f('cmo') and sample_draw is not null)::text from public.clinical_audits where task_id = v_t));
+  v_t := pg_temp.finish_rx(v_new);
+  perform pg_temp.ck('case 4 tapers to the normal sample (rate 0: not audited)', '0', (select count(*)::text from public.clinical_audits where task_id = v_t));
+  perform pg_temp.setf('rx4', v_t);
+  -- the number is data: off means off
+  perform pg_temp.cfg('{sampling,new_clinician_full_review_cases}', '0'::jsonb);
+  perform pg_temp.setf('newc2', pg_temp.mkdoc(v_org, 'newc2', 'senior_medical_officer', 'contracted', '{adult_general,prescribing}', v_adm));
+  perform pg_temp.mkblock(v_org, pg_temp.f('newc2'));
+  v_t := pg_temp.finish_rx(pg_temp.f('newc2'));
+  perform pg_temp.ck('with 0 the rule is off', '0', (select count(*)::text from public.clinical_audits where task_id = v_t));
+  perform pg_temp.cfg('{sampling,new_clinician_full_review_cases}', '20'::jsonb);
+  -- a red event still carries its own reason and counts as a case
+  v_t := pg_temp.finish(pg_temp.f('fin'), 'red_event_unacknowledged');
+  perform pg_temp.ck('a red event keeps the red_event reason', 'red_event', (select reason from public.clinical_audits where task_id = v_t));
+  perform pg_temp.ck('...and is a qualifying case', 'true', (private.new_clinician_case_ordinal(v_t) is not null)::text);
+  perform pg_temp.cfg('{sampling,new_clinician_full_review_cases}', '3'::jsonb);
+  perform pg_temp.ck('a legacy-style clinician already past N is not swept in (the other clinician''s 3rd and later cases are not full-reviewed)', '0',
+    (select count(*)::text from public.clinical_audits where reason = 'new_clinician_review' and clinician_id = pg_temp.f('fin')));
 end $$;
 
 -- 3. Scheduling can never block a completion ---------------------------------------------------------------------------
@@ -991,6 +1050,19 @@ begin
   insert into results values ('sabotaged', 'an expired clinician''s rota is cleared overnight', '0', pg_temp.live_blocks(v));
 end $$;
 
+-- 11b. SABOTAGE: the new-clinician branch removed; the Q16 check must flip
+create or replace function private.new_clinician_case_ordinal(p_task uuid, p_cap integer default 1000) returns integer
+language sql stable security definer set search_path = '' as $$ select null::integer $$;
+do $$
+declare v_t uuid;
+begin
+  perform pg_temp.cfg('{sampling,new_clinician_full_review_cases}', '3'::jsonb);
+  perform pg_temp.cfg('{sampling,random_rate_percent}', '0'::jsonb);
+  v_t := pg_temp.finish_rx(pg_temp.f('newc'));
+  insert into results values ('sabotaged', 'prescribing case 1 is audited as a new clinician review', 'new_clinician_review',
+    coalesce((select reason from public.clinical_audits where task_id = v_t and state <> 'cancelled'), 'none'));
+end $$;
+
 do $$
 declare v_bad integer; v_caught integer;
 begin
@@ -1003,6 +1075,9 @@ begin
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
   if v_caught = 0 then
     raise exception 'VACUOUS TEST: turning removal off did not change the case 16 check';
+  end if;
+  if not exists (select 1 from results where phase = 'sabotaged' and check_name like 'prescribing case 1%' and expected <> actual) then
+    raise exception 'VACUOUS TEST: removing the new-clinician branch did not change the Q16 check';
   end if;
 end $$;
 

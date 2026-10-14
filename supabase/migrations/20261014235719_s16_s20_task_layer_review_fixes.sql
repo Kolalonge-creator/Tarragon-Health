@@ -1,4 +1,4 @@
--- S16-S20 task layer, review fixes (lead review of 20261014222123). A third, small migration rather than an edit of the second.
+-- S16-S20 task layer, review fixes (lead review of 20261014235641). A third, small migration rather than an edit of the second.
 --
 --   1. D10 relaxed. A claim whose lease ran out but is STILL LIVE (the sweep has not ended it; the task is still claimed by this
 --      clinician) can be completed: the work is real, and refusing it lost a written answer. Completion after the due time already
@@ -121,7 +121,7 @@ grant execute on function public.my_task_outcome(uuid) to authenticated;
 -- ---------------------------------------------------------------------------
 -- 6. Escalation flood: one follow-up instead of a push and an email per task
 -- ---------------------------------------------------------------------------
--- Restates 20261014222123's body. Every escalation still writes its own in-app row for the clinical lead (and the task still shows in
+-- Restates 20261014235641's body. Every escalation still writes its own in-app row for the clinical lead (and the task still shows in
 -- queue_escalated_overview); only the push and email beyond the first, inside the window, are folded into a count.
 create or replace function private.notify_task_escalated(p_task uuid, p_transition uuid) returns void
 language plpgsql security definer set search_path = ''

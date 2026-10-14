@@ -10,9 +10,18 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  typescript:
-    name: TypeScript (web + shared)
+  # Stability note (2026-10-14): this used to be ONE job that ran typecheck, lint, every package's Jest suite at once and the build.
+  # Twice on PR #1123 (and once on #1068) the hosted runner was killed ("The runner has received a shutdown signal") in the middle of the
+  # web suite (about 5,300 tests) while every earlier step had passed: the signature of memory pressure from many Jest worker pools running
+  # side by side. The work is now split so no runner carries more than a bounded load, and the check name branch protection requires,
+  # "TypeScript (web + shared)", is kept by the aggregate job at the bottom of this block.
+  typescript-core:
+    name: Typecheck, lint, package tests and build
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # A runaway worker fails with a clear out-of-memory message instead of a silent runner kill.
+      NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - uses: actions/checkout@v4
 
@@ -34,15 +43,71 @@ jobs:
       - name: Lint
         run: pnpm lint
 
-      - name: Test
-        run: pnpm test
+      # Every package except the web app (it runs in sharded jobs below). Two packages at a time, and each package's Jest is capped
+      # (see jest.config files / --maxWorkers) so the pools do not multiply.
+      - name: Test (packages and console)
+        run: pnpm test:ci
+
+      - name: Speech evaluation harness (node:test, synthetic data only)
+        run: node --test scripts/asr-eval/score.test.mjs
 
       - name: Build
         run: pnpm build
 
+  web-tests:
+    name: Web tests (shard ${{ matrix.shard }} of 3)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # `test` depends on the workspace packages being built (turbo ^build); build only what the web app imports, not the web app itself.
+      - name: Build workspace packages the web app imports
+        run: pnpm exec turbo run build --filter='@tarragon/web^...'
+
+      - name: Test (web, shard ${{ matrix.shard }} of 3)
+        run: pnpm --filter @tarragon/web exec jest --shard=${{ matrix.shard }}/3 --maxWorkers=2 --workerIdleMemoryLimit=1GB
+
+  # The check branch protection requires. It only reports green when both halves above are green (a skipped or cancelled half is a failure,
+  # so a runner loss can never read as success).
+  typescript:
+    name: TypeScript (web + shared)
+    runs-on: ubuntu-latest
+    needs: [typescript-core, web-tests]
+    # Not always(): when a newer push cancels this run the aggregate is skipped (a skipped required check does not block the superseded commit),
+    # while a part that failed or was cancelled by a lost runner (workflow not cancelled) still runs this and fails it.
+    if: ${{ !cancelled() }}
+    steps:
+      - name: All parts must have succeeded
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "part results: $RESULTS"
+          for r in $RESULTS; do
+            if [ "$r" != "success" ]; then echo "a part did not succeed ($r)"; exit 1; fi
+          done
+
   # Dedicated, individually-nameable mobile gate. Strictly speaking apps/mobile is
-  # already typechecked/linted on every PR: the "TypeScript (web + shared)" job's
-  # unfiltered `pnpm typecheck` / `pnpm lint` run through turbo, whose task graph
+  # already typechecked/linted on every PR: the "Typecheck, lint, package tests and build"
+  # job (typescript-core, summarised by the required "TypeScript (web + shared)" check) runs unfiltered `pnpm typecheck` / `pnpm lint` through turbo, whose task graph
   # includes @tarragon/mobile#typecheck and #lint (verified with
   # `turbo run typecheck --dry=json`) — that job's name is just stale. This job
   # exists so a mobile TS/lint failure is attributed to a check named for it, and
@@ -395,9 +460,10 @@ jobs:
       # variable.
       #
       # Scoped to paystack-webhook/, not the whole supabase/functions tree:
-      # the other 5 functions (abnormal-result-handler, integration-outbound-
-      # drain, send-pending-notifications, send-support-reply, whatsapp-
-      # webhook, zoom-webhook) have never been `deno lint`ed either and carry
+      # the other functions (abnormal-result-handler, integration-outbound-
+      # drain, send-pending-notifications, zoom-webhook, and the rest) have
+      # never been `deno lint`ed either (send-support-reply and whatsapp-webhook
+      # were removed from the repo with WhatsApp, F-02) and carry
       # 6 pre-existing require-await findings unrelated to this change
       # (checked 2026-09-23) — widen this glob directory-by-directory once
       # each is verified clean, rather than landing a job that's red on day
@@ -417,6 +483,14 @@ jobs:
         if: github.event_name != 'pull_request' || steps.changes.outputs.edge == 'true'
         run: |
           for d in order-checkout order-verify order-reconcile price-quote; do
+            (cd supabase/functions/$d && deno test --no-config . && deno lint --no-config .)
+          done
+
+      # S14x: the provider event inbox adopters (Resend, Zoom), the settlement reconciliation function and the inbox drain.
+      - name: Test provider-layer functions
+        if: github.event_name != 'pull_request' || steps.changes.outputs.edge == 'true'
+        run: |
+          for d in resend-webhook zoom-webhook settlement-reconcile provider-event-drain; do
             (cd supabase/functions/$d && deno test --no-config . && deno lint --no-config .)
           done
 

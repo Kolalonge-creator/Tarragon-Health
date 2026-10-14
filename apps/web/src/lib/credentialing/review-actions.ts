@@ -44,14 +44,18 @@ export async function verifyDocument(fd: FormData): Promise<void> {
   });
 }
 
-const checkKind = z.enum(["licence", "qualifications", "identity", "practice_years", "referee_1", "referee_2"]);
+const checkKind = z.enum(["licence", "qualifications", "identity", "practice_years", "referee_1", "referee_2", "primary_source"]);
+const psvRoute = z.enum(["mdcn_dataflow", "mdcn_written_confirmation", "mdcn_register_check"]);
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 export async function recordCheck(fd: FormData): Promise<void> {
   await run(back(fd), async () => {
     const kind = checkKind.parse(text(fd, "kind"));
     const result = z.enum(["passed", "failed"]).parse(text(fd, "result"));
     const isReferee = kind === "referee_1" || kind === "referee_2";
-    const details = isReferee
+    const details = kind === "primary_source" && result === "passed"
+      ? { route: psvRoute.parse(text(fd, "route")), reference: text(fd, "reference").slice(0, 80), verified_on: isoDate.parse(text(fd, "verified_on")) }
+      : isReferee
       ? {
           contact_source: text(fd, "contact_source"),
           confirmed_back: fd.get("confirmed_back") === "on",
@@ -244,5 +248,41 @@ export async function approveContent(fd: FormData): Promise<void> {
   await run(back(fd), async () => {
     await call("approve_credential_content", { p_kind: z.enum(["test_case", "training_module"]).parse(text(fd, "kind")), p_id: uuid.parse(text(fd, "id")) });
     return "Approved. It is now in use.";
+  });
+}
+
+/** Q14 and Q15: record the MDCN or DataFlow verification (or the mid-year re-check) for a clinician who is already working. */
+export async function recordPrimarySource(fd: FormData): Promise<void> {
+  await run(back(fd), async () => {
+    await rpcParsed(
+      await createClient(),
+      "record_primary_source_verification",
+      {
+        p_staff: uuid.parse(text(fd, "staffId")),
+        p_route: psvRoute.parse(text(fd, "route")),
+        p_reference: text(fd, "reference").slice(0, 80),
+        p_verified_on: isoDate.parse(text(fd, "verified_on")),
+        p_evidence_document: uuid.parse(text(fd, "documentId")),
+        p_notes: text(fd, "notes").slice(0, 1000) || null,
+      },
+      z.string(),
+    );
+    return "Verification recorded.";
+  });
+}
+
+/** OQ-109: fill a licence or cover date that is not on file. The database refuses to overwrite one that is. */
+export async function recordCredentialDates(fd: FormData): Promise<void> {
+  await run(back(fd), async () => {
+    const licence = endOfLagosDay(text(fd, "licence_expires_on"));
+    const indemnity = endOfLagosDay(text(fd, "indemnity_expires_on"));
+    if (!licence && !indemnity) throw new CredentialingError("Enter at least one date.", "23514");
+    await call("record_clinician_credential_dates", {
+      p_staff: uuid.parse(text(fd, "staffId")),
+      p_licence_expires_at: licence,
+      p_indemnity_expires_at: indemnity,
+      p_note: text(fd, "note").slice(0, 500),
+    });
+    return "Dates recorded.";
   });
 }

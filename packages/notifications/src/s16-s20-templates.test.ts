@@ -60,7 +60,7 @@ describe("S16-S20 escalation templates", () => {
   });
 
   it("the migration writes only ids and the clinical lead's own address into the payload, and never an sms or whatsapp row", () => {
-    const sql = readFileSync(new URL("../../../supabase/migrations/20261014222123_s16_s20_task_layer.sql", import.meta.url), "utf8");
+    const sql = readFileSync(new URL("../../../supabase/migrations/20261014235641_s16_s20_task_layer.sql", import.meta.url), "utf8");
     expect(sql).toContain("jsonb_strip_nulls(jsonb_build_object('task_id', t.id, 'to_email', v_email))");
     expect(sql).not.toMatch(/'sms'|'whatsapp'/);
   });

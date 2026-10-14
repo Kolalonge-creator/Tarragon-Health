@@ -1,6 +1,7 @@
 import { createResendEmail } from "./email-resend.ts";
 import type { EmailProvider } from "./email.ts";
 import type { FetchLike } from "./http.ts";
+import type { IdentityVerificationProvider } from "./identity.ts";
 import { createPaystackPayment } from "./payment-paystack.ts";
 import type { PaymentProvider } from "./payment.ts";
 import { createZoomVideo } from "./video-zoom.ts";
@@ -34,4 +35,13 @@ export function videoFromEnv(env: Env, fetch: FetchLike): VideoProvider | null {
   const sdkKey = has(env["ZOOM_SDK_KEY"]) ? env["ZOOM_SDK_KEY"] : undefined;
   const sdkSecret = has(env["ZOOM_SDK_SECRET"]) ? env["ZOOM_SDK_SECRET"] : undefined;
   return createZoomVideo({ accountId, clientId, clientSecret, sdkKey, sdkSecret, webhookSecretToken: has(env["ZOOM_WEBHOOK_SECRET_TOKEN"]) ? env["ZOOM_WEBHOOK_SECRET_TOKEN"] : undefined, hostUserId: has(env["ZOOM_HOST_USER_ID"]) ? env["ZOOM_HOST_USER_ID"] : undefined, fetch });
+}
+
+/**
+ * Identity verification (P5). No vendor is chosen, so this is always `null` and production answers `not_configured`. Piloting
+ * Dojah, Smile ID, Prembly or Youverify after the DPO and counsel decide is a one-line change here: read the vendor's key from
+ * `env` and return its adapter (a new `identity-<vendor>.ts` that passes the contract in packages/integrations).
+ */
+export function identityFromEnv(_env: Env, _fetch: FetchLike): IdentityVerificationProvider | null {
+  return null;
 }

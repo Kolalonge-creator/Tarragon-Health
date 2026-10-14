@@ -24,7 +24,7 @@
 --
 -- Restated bodies (each is the live body with only the changes above): create_clinical_task and sweep_clinical_tasks
 -- (20261006014107, 20261006024602), queue_candidates, queue_handback, queue_complete, queue_health (20261006020013),
--- queue_next (20261014221545), queue_summary (20261006183417). Checked by md5 against the live project on 2026-10-14.
+-- queue_next (20261014235603), queue_summary (20261006183417). Checked by md5 against the live project on 2026-10-14.
 --
 -- Live counts: task_types and the queue configs are read, never changed (a new config table holds the new values).
 
@@ -471,7 +471,7 @@ grant execute on function public.queue_handback(uuid, text, text) to authenticat
 -- ---------------------------------------------------------------------------
 -- 5. D8: queue_next(p_types) is bound to what the caller is declared competent in
 -- ---------------------------------------------------------------------------
--- Restates 20261014221545 with the p_types intersection. The S22b membership claim filter keeps working: a page that asks
+-- Restates 20261014235603 with the p_types intersection. The S22b membership claim filter keeps working: a page that asks
 -- for its own types still gets them, if the clinician is competent in them. A type the clinician is not competent in is
 -- dropped; if nothing is left, nothing is offered.
 create or replace function public.queue_next(p_types text[] default null) returns jsonb
