@@ -33,6 +33,11 @@
 -- Merge order: after S71, S73, S70, S74. It replaces ONLY private.sponsor_match (the S71 body plus one branch), public.my_orders and public.admin_sponsor_programmes,
 -- and WRAPS (renames, never replaces) private.go_live_conditions and public.attest_go_live_condition as S71 did, so every older guard keeps its conditions.
 
+-- Production apply: the wrapper runs this whole file as one transaction. Allow it more time than the session default (120 s) but never let it queue
+-- behind other traffic for long: if a lock cannot be taken within 30 s it fails and rolls back, and can simply be re-run. Both settings end with the transaction.
+set local statement_timeout = '10min';
+set local lock_timeout = '30s';
+
 -- ---------------------------------------------------------------------------
 -- 0. Count first, then remove the kobo conversion (19.9)
 -- ---------------------------------------------------------------------------
