@@ -4,7 +4,6 @@ import { Section, SectionHeading } from "../_components/section";
 import { ActivityIntensityCalculator } from "../_components/activity-intensity-calculator";
 import { CtaBand } from "../_components/cta-band";
 import { EmergencyNotice } from "../_components/emergency-notice";
-import { fetchServicePriceOverrides } from "@/lib/marketing/plan-prices";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 
@@ -34,8 +33,7 @@ const FAQS = [
   },
 ];
 
-export default async function ActivityCalculatorPage() {
-  const priceOverrides = await fetchServicePriceOverrides();
+export default function ActivityCalculatorPage() {
   return (
     <>
       <Section className="pt-20">
@@ -45,7 +43,7 @@ export default async function ActivityCalculatorPage() {
           title="Physical Activity Intensity Calculator"
           description="Estimate the calories burned and intensity of what you just did, and see how it stacks up against WHO's weekly activity guideline. No account, no email required."
         />
-        <ActivityIntensityCalculator priceOverrides={priceOverrides} />
+        <ActivityIntensityCalculator />
       </Section>
 
       <Section variant="sage">

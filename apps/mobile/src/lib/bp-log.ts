@@ -29,6 +29,8 @@ export interface TriageInput {
   symptoms?: readonly BpChecklistSymptom[];
   /** Whose readings these are, for the on-device history; without it the engine still grades every red rule. */
   subjectId?: string;
+  /** What the patient measured with. Only the upper-arm advice beside a repeat prompt depends on it (Q4); grading never does. */
+  cuffType?: "upper_arm" | "wrist" | "not_sure" | null;
 }
 
 export interface TriageOutcome {
@@ -59,6 +61,7 @@ export const evaluateOnDevice: TriageEvaluator = async (input) => {
       systolic: input.systolic,
       diastolic: input.diastolic,
       symptoms: (input.symptoms ?? input.redFlagTicked) as readonly SymptomCode[],
+      cuffType: input.cuffType ?? null,
       // Not answered here: a reading of 200/130 or more asks the emergency-symptom question first (symptom-question.ts).
       // Ticking a symptom on the form answers it, which the engine reads from the symptoms themselves.
     }).catch(() => null),
@@ -144,6 +147,7 @@ export async function logBpWithExtras(
     diastolic: plan.diastolic,
     redFlagTicked: plan.redFlagTicked,
     symptoms: plan.symptoms.map((x) => x.symptom_type),
+    cuffType: plan.cuffType ?? null,
     ...(subjectId ? { subjectId } : {}),
   };
   const outcome = await evaluate(triageInput).catch(() => fallbackOutcome(triageInput));

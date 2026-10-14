@@ -64,7 +64,7 @@ export async function loadActivationFunnel(
 
   const [{ data: recentVitals }, { data: recentScreenings }, { data: riskScores }, { data: completions }] =
     await Promise.all([
-      supabase.from("vitals_readings").select("patient_id").in("patient_id", activatedIds).gte("created_at", since),
+      supabase.from("vitals_readings").select("patient_id").in("patient_id", activatedIds).is("correction_status", null).gte("created_at", since),
       supabase
         .from("screening_results")
         .select("patient_id")

@@ -67,8 +67,6 @@ export function usePharmacistRecordDispense() {
       batchNumber,
       substitutedFor,
       substitutionReason,
-      controlledTier,
-      enhancedVerificationConfirmed,
     }: {
       orderId: string;
       drugName: string;
@@ -82,12 +80,9 @@ export function usePharmacistRecordDispense() {
       /** Set when dispensing a substitute for the originally prescribed drug (spec §63.13). */
       substitutedFor?: string;
       substitutionReason?: string;
-      /** Advisory classification from controlled-substances.ts, snapshotted for audit (spec §63.12). */
-      controlledTier?: "narcotic" | "restricted" | null;
-      enhancedVerificationConfirmed?: boolean;
     }) => {
       const supabase = createClient();
-      const { error } = await supabase.rpc("pharmacist_record_dispense", {
+      const { data, error } = await supabase.rpc("pharmacist_record_dispense", {
         p_order_id: orderId,
         p_drug_name: drugName,
         p_quantity: quantity,
@@ -98,10 +93,10 @@ export function usePharmacistRecordDispense() {
         p_batch_number: batchNumber || undefined,
         p_substituted_for: substitutedFor || undefined,
         p_substitution_reason: substitutionReason || undefined,
-        p_controlled_tier: controlledTier || undefined,
-        p_enhanced_verification_confirmed: enhancedVerificationConfirmed ?? false,
       });
       if (error) throw error;
+      // OQ-276: the database refuses a controlled medicine with this outcome (and audits it). The pages before the change returned nothing.
+      return data === "controlled_medicine" ? ("controlled_medicine" as const) : ("recorded" as const);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pharmacist-orders"] });

@@ -47,6 +47,7 @@
 // a recorded audit_log failure, never a crash and never a silent drop.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { withSentry } from "../_shared/observability/sentry.ts";
 
 const EXTERNAL_TIMEOUT_MS = 5_000;
 
@@ -215,7 +216,7 @@ function sendClinicianPageSms(toPhone: string, smsText: string): Promise<SendRes
   return sendTermiiSms(toPhone, smsText);
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry("abnormal-result-handler", async (req) => {
   let body: RequestBody;
   try {
     body = await req.json();
@@ -512,4 +513,4 @@ Deno.serve(async (req) => {
     patient_in_app_queued: patientInAppQueued,
     patient_notification_suppressed_sensitive: Boolean(sensitive),
   });
-});
+}));

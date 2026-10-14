@@ -7,6 +7,7 @@ import { HeightForm } from "@/app/(dashboard)/patient/height-form";
 import { AvatarUploadForm } from "@/app/(dashboard)/patient/avatar-upload-form";
 import { ChangePasswordForm } from "@/components/account/change-password-form";
 import { ChangePhoneCard } from "@/components/account/change-phone-card";
+import { BackupCodesCard } from "@/components/account/backup-codes-card";
 import { CommunicationPreferencesForm } from "@/app/(dashboard)/patient/communication-preferences-form";
 import { GlucoseUnitForm } from "@/app/(dashboard)/patient/glucose-unit-form";
 import { CommunicationHistoryCard } from "@/app/(dashboard)/patient/communication-history-card";
@@ -61,6 +62,7 @@ export default async function PatientProfilePage() {
           />
           <ChangePasswordForm />
           <ChangePhoneCard />
+          <BackupCodesCard />
         </div>
       </div>
       <CommunicationHistoryCard />

@@ -60,6 +60,7 @@ export function CredentialStatus({ status, returnTo, now }: { status: MyCredenti
         <div className="space-y-4">
           <DocumentUploadForm kind="mdcn_practising_licence" applicationId={null} returnTo={returnTo} withExpiry buttonLabel="Upload new licence" />
           <DocumentUploadForm kind="mdcn_portal_screenshot" applicationId={null} returnTo={returnTo} buttonLabel="Upload portal screenshot" />
+          <DocumentUploadForm kind="mdcn_confirmation" applicationId={null} returnTo={returnTo} buttonLabel="Upload DataFlow or MDCN verification" />
           {status.indemnity_required ? (
             <DocumentUploadForm kind="indemnity_certificate" applicationId={null} returnTo={returnTo} withExpiry buttonLabel="Upload new certificate" />
           ) : null}

@@ -5,6 +5,9 @@ import { SecondaryButton } from "@/ui/components";
 import type { EmergencyContact } from "@/lib/emergency";
 import { ListenButton } from "@/ui/kit";
 import { t, type MessageKey } from "@tarragon/i18n";
+import { redGuidanceStatus } from "@/lib/red-guidance-copy";
+import { PLATFORM_URL } from "@/lib/platform-url";
+import { RedCareAnswer } from "./red-care-answer";
 
 /**
  * Native, zero-network "go to the nearest hospital now" safety net for a
@@ -31,6 +34,8 @@ export interface EmergencyGuidanceModalProps {
   emergencyContact: EmergencyContact | null;
   /** EMG-001 or EMG-001L: show those words (the same ones the voice says) and a Listen button. Null keeps the generic text. */
   wordingCode?: string | null;
+  /** Two-tier (CMO 2026-10-08): whether a red event reaches a doctor for this patient (a Member). True says the care team was told, false says in plain words that no doctor was alerted on the Free plan, null (unknown) makes no claim. */
+  doctorReview?: boolean | null;
   onDismiss: () => void;
 }
 
@@ -40,8 +45,10 @@ export function EmergencyGuidanceModal({
   synced,
   emergencyContact,
   wordingCode = null,
+  doctorReview = null,
   onDismiss,
 }: EmergencyGuidanceModalProps) {
+  const status = redGuidanceStatus(doctorReview, synced, !!emergencyContact?.phone);
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onDismiss}>
       <View
@@ -116,17 +123,45 @@ export function EmergencyGuidanceModal({
 
             <View
               style={{
-                backgroundColor: synced ? "#DCFCE7" : colors.status.warnBg,
+                backgroundColor: status.tone === "ok" ? "#DCFCE7" : status.tone === "warn" ? colors.status.warnBg : "#F1F5F9",
                 borderRadius: radius.control,
                 padding: 12,
+                gap: 6,
               }}
             >
-              <Text style={{ fontSize: 13, color: synced ? "#15803D" : colors.status.warn, lineHeight: 19 }}>
-                {synced
-                  ? "Your care team has been notified and will follow up."
-                  : "We'll notify your care team as soon as you're back online. Call now if you need help sooner. Your reading is saved and won't be lost."}
-              </Text>
+              {status.lines.map((line) => (
+                <Text
+                  key={line}
+                  style={{ fontSize: 13, color: status.tone === "ok" ? "#15803D" : status.tone === "warn" ? colors.status.warn : colors.ink, lineHeight: 19 }}
+                >
+                  {line}
+                </Text>
+              ))}
             </View>
+
+            {status.showJoin ? (
+              <View style={{ gap: 6 }}>
+                <Pressable
+                  accessibilityRole="link"
+                  accessibilityLabel={t("freered.join", "en")}
+                  onPress={() => Linking.openURL(`${PLATFORM_URL}/patient/membership`)}
+                  style={{ minHeight: 44, borderRadius: radius.control, backgroundColor: colors.brand, paddingVertical: 11, paddingHorizontal: 14, justifyContent: "center" }}
+                >
+                  <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 14 }}>{t("freered.join", "en")}</Text>
+                </Pressable>
+                <Text style={{ fontSize: 12, color: colors.subtle }}>{t("freered.join_hint", "en")}</Text>
+                <Pressable
+                  accessibilityRole="link"
+                  onPress={() => Linking.openURL("https://www.google.com/maps/search/hospital+near+me")}
+                  style={{ minHeight: 44, justifyContent: "center" }}
+                >
+                  <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>{t("freered.facility", "en")}</Text>
+                </Pressable>
+              </View>
+            ) : null}
+
+            {/* CMO Q13: only where a doctor was (or may have been) alerted; Free has its own check-in. Never stops the care team's call. */}
+            {doctorReview !== false ? <RedCareAnswer /> : null}
 
             <SecondaryButton title="I'm getting help" onPress={onDismiss} />
           </ScrollView>

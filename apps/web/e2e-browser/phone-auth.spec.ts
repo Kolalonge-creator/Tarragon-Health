@@ -114,6 +114,7 @@ test.describe("phone sign-up", () => {
     await page.locator("#lastName").fill("Phone");
     // Typed the way people actually type it, with the domestic leading zero and spaces.
     await page.locator("#phone").fill("0803 123 0001");
+    await page.locator("#phone-signup-dateOfBirth").fill("1990-01-01");
     await page.locator("#password").fill(PASSWORD);
     await page.getByRole("button", { name: /create account/i }).click();
 
@@ -151,6 +152,7 @@ test.describe("phone sign-up", () => {
     await page.locator("#firstName").fill("E2e");
     await page.locator("#lastName").fill("Bad");
     await page.locator("#phone").fill("0603123456");
+    await page.locator("#phone-signup-dateOfBirth").fill("1990-01-01");
     await page.locator("#password").fill(PASSWORD);
     await page.getByRole("button", { name: /create account/i }).click();
     await expect(page.getByRole("alert").filter({ hasText: /\S/ }).first()).toBeVisible();

@@ -8,7 +8,7 @@ import type { Tables } from "@tarragon/shared";
  * patient-facing half of apps/web/src/lib/queries/wellness.ts (the admin
  * catalogue functions there are staff-only and not ported). No table/RPC
  * here needs a service-role client, and none is a real financial
- * transaction — redeem_wellness_points mints a care_vouchers row from the
+ * transaction — (removed, S72) redeem_wellness_points minted a care_vouchers row from the
  * patient's own points, it never moves money or calls Paystack.
  */
 
@@ -40,7 +40,8 @@ export const REASON_LABEL: Record<string, string> = {
   lpe_goal_achieved: "Achieved a lifestyle goal",
   challenge_completed: "Completed a challenge",
   wellness_class_attended: "Attended a class",
-  redeemed_to_voucher: "Redeemed for a voucher",
+  redeemed_to_voucher: "Redeemed for a voucher (no longer offered)",
+  applied_to_order: "Used at checkout",
 };
 
 export function reasonLabel(reason: string): string {
@@ -70,24 +71,6 @@ export async function loadWellnessPointsLedger(patientId: string, limit = 8): Pr
     .order("created_at", { ascending: false })
     .limit(limit);
   return data ?? [];
-}
-
-export interface RedeemWellnessPointsResult {
-  balance?: number;
-  koboCredited?: number;
-  voucherId?: string;
-}
-
-/** Not a payment/checkout flow — an internal points-ledger debit that mints
- * a care_vouchers row via private.issue_reward_voucher. Safe as a plain
- * direct RPC call, unlike a real Paystack transaction. */
-export async function redeemWellnessPoints(points: number): Promise<QueryResult<RedeemWellnessPointsResult>> {
-  if (!points || points <= 0) return { ok: false, error: "Enter a positive number of points." };
-  const { data, error } = await supabase.rpc("redeem_wellness_points", { p_points: points });
-  if (error) return { ok: false, error: error.message };
-  const result = data as { ok: boolean; error?: string; balance?: number; kobo_credited?: number; voucher_id?: string };
-  if (!result.ok) return { ok: false, error: result.error ?? "Could not redeem points." };
-  return { ok: true, data: { balance: result.balance, koboCredited: result.kobo_credited, voucherId: result.voucher_id } };
 }
 
 // ---------------------------------------------------------------------------

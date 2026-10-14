@@ -9,6 +9,10 @@
 begin;
 
 
+-- Two-tier: only the Membership may be on sale (catalog_items_only_membership_sellable). The order machinery under test is generic and
+-- uses care-pack and consultation fixtures, so the constraint is dropped here on purpose, inside this rolled-back transaction.
+alter table public.catalog_items drop constraint catalog_items_only_membership_sellable;
+
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
 grant all on results to public;
 create temp table fx(k text primary key, v uuid) on commit drop;
@@ -373,7 +377,7 @@ begin
     (pg_temp.q_as(v_sc, format($q$select public.create_order('s29c_short', gen_random_uuid(), %L)::text$q$, v_pat)) like '%gift_item_not_allowed%')::text);
   perform pg_temp.ck('C can pay for the full yearly Membership', 'true',
     (pg_temp.q_as(v_sc, format($q$select public.create_order('s29c_year', gen_random_uuid(), %L)::text$q$, v_pat)) like '%"reference"%')::text);
-  insert into public.profile_access (profile_id, grantee_user_id, granted_by, permission_level) values (v_pat, v_other, v_pat, 'view');
+  insert into public.profile_access (profile_id, grantee_user_id, granted_by, permission_level, permissions) values (v_pat, v_other, v_pat, 'manage', array['manage_payments']::public.caregiver_permission[]);
   perform pg_temp.ck('the older family grant is held to the same rule', 'true',
     (pg_temp.q_as(v_other, format($q$select public.create_order('s29c_consult', gen_random_uuid(), %L)::text$q$, v_pat)) like '%gift_item_not_allowed%')::text);
   delete from public.profile_access where profile_id = v_pat and grantee_user_id = v_other;
@@ -413,9 +417,9 @@ begin
   insert into results values ('sabotaged', 'a paused circle gets no check-in request', '0', n::text);
 
   -- (c) the gift rule removed from create_order
-  select pg_get_functiondef('public.create_order(text, uuid, uuid)'::regprocedure) into d;
+  select pg_get_functiondef('public.create_order(text, uuid, uuid, text, boolean, bigint)'::regprocedure) into d;
   d := replace(d, 'not private.gift_item_allowed(it.kind::text, it.duration_days)', 'false');
-  if d = pg_get_functiondef('public.create_order(text, uuid, uuid)'::regprocedure) then raise exception 'sabotage (c) did not change the function'; end if;
+  if d = pg_get_functiondef('public.create_order(text, uuid, uuid, text, boolean, bigint)'::regprocedure) then raise exception 'sabotage (c) did not change the function'; end if;
   execute d;
   r := pg_temp.q_as(v_sc, format($q$select public.create_order('s29c_consult', gen_random_uuid(), %L)::text$q$, v_pat));
   insert into results values ('sabotaged', 'only the yearly Membership can be paid for someone else', 'true', (r like '%gift_item_not_allowed%')::text);

@@ -229,3 +229,26 @@ export const submitTestSchema = z.looseObject({
   safety_critical_missed: z.number(),
   attempts_left: z.number(),
 });
+
+const workDocSchema = z.looseObject({ id: z.string(), kind: z.string(), created_at: z.string() });
+
+/** The reviewer work list (P5): clinicians with no MDCN verification, re-checks that are due, and licence or cover dates not on file. */
+export const workListSchema = z.looseObject({
+  unverified: z.array(
+    z.looseObject({ staff_id: z.string(), full_name: z.string(), status: z.string(), grandfathered: z.boolean(), documents: z.array(workDocSchema) }),
+  ),
+  rechecks: z.array(
+    z.looseObject({
+      staff_id: z.string(),
+      full_name: z.string(),
+      last_verified_on: z.string(),
+      due_on: z.string(),
+      overdue: z.boolean(),
+      documents: z.array(workDocSchema),
+    }),
+  ),
+  missing_dates: z.array(
+    z.looseObject({ staff_id: z.string(), full_name: z.string(), status: z.string(), licence_missing: z.boolean(), indemnity_missing: z.boolean() }),
+  ),
+});
+export type WorkList = z.infer<typeof workListSchema>;

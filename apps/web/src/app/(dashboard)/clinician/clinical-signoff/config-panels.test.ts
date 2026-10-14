@@ -25,4 +25,30 @@ describe("sign-off hub inline panels", () => {
       expect(source).toContain(`../_signoff-panels/${slug}-panel`);
     }
   });
+
+  it("opens an inline panel for each S06 to S10 line that has no governed table (triage draft, both attestations, registry values)", () => {
+    expect(source).toContain("inlinePanels[TRIAGE_DRAFT_ITEM_KEY] = <TriageRulesPanel");
+    expect(source).toContain('<WordingAttestationPanel kind="c4" />');
+    expect(source).toContain('<WordingAttestationPanel kind="pattern" />');
+    expect(source).toContain("inlinePanels[PROPOSED_VALUES_ITEM_KEY] = <ProposedValuesPanel");
+  });
+
+  it("opens the glucose triage rules inline on the hub, with the guideline basis, so they are never signed unseen (plan item R2)", () => {
+    expect(source).toContain("inlinePanels[GLUCOSE_TRIAGE_ITEM_KEY] = <GlucoseTriageRulesPanel");
+    const panel = readFileSync(join(__dirname, "../_signoff-panels/glucose-triage-rules-panel.tsx"), "utf8");
+    expect(panel).toContain("GLUCOSE_RULE_BASIS");
+    expect(panel).toContain("GLUCOSE_CITATIONS");
+    expect(panel).toContain("GLUCOSE_WORDING_DATA");
+    expect(panel).toContain('code="glucose_care_triage"');
+  });
+
+  it("renders an inline confirm panel for each task type that needs the CMO (call the patient, urgent glucose review), integration of P2 and P3", () => {
+    expect(source).toContain("inlinePanels[RED_OUTREACH_ITEM_KEY] = <RedOutreachPanel");
+    expect(source).toContain("inlinePanels[GLUCOSE_TASK_TYPE_ITEM_KEY] = <GlucoseTaskTypePanel");
+  });
+
+  it("shows the S06 to S10 banner and opens the line a link points at", () => {
+    expect(source).toContain("<S06S10Banner");
+    expect(source).toContain("<OpenOnHash");
+  });
 });

@@ -30,6 +30,9 @@ export const CREDENTIAL_MESSAGE_KEYS = {
   "credential.expiry_soon": keys("credential.expiry_soon"),
   "credential.expiry_plan": keys("credential.expiry_plan"),
   "credential.expiry_reviewers": keys("credential.expiry_reviewers"),
+  "credential.recheck_due": keys("credential.recheck_due"),
+  "credential.recheck_overdue": keys("credential.recheck_overdue"),
+  "credential.primary_source_missing": keys("credential.primary_source_missing"),
 } as const satisfies Readonly<Record<string, MessageKeys>>;
 
 // ---------------------------------------------------------------------------
