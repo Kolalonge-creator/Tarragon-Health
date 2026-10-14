@@ -82,11 +82,12 @@ create table public.patient_allergy_correction_events (
 );
 create index patient_allergy_correction_events_request_idx on public.patient_allergy_correction_events (request_id);
 
--- Append only. A cascade from the parent request (a removed test account) is the one delete that may pass: it fires at depth 2.
+-- Append only. A cascade from the parent request (a removed test account) is the one delete that may pass: it fires inside the RI trigger
+-- (depth 2) and only once the parent row is gone.
 create function private.patient_allergy_correction_events_append_only() returns trigger language plpgsql set search_path = '' as
 $$
 begin
-  if tg_op = 'DELETE' and pg_trigger_depth() > 1 then return old; end if;
+  if tg_op = 'DELETE' and pg_trigger_depth() > 1 and not exists (select 1 from public.patient_allergy_correction_requests r where r.id = old.request_id) then return old; end if;
   raise exception 'the correction audit trail is append only' using errcode = '42501';
 end $$;
 revoke all on function private.patient_allergy_correction_events_append_only() from public, anon, authenticated;
@@ -164,12 +165,17 @@ declare
   v_req uuid;
 begin
   if v_uid is null then raise exception 'sign in to correct a record' using errcode = '42501'; end if;
+  -- (only ever called from correct_clinical_value, which has already locked this row FOR UPDATE and checked it is not superseded, so a
+  -- clinician's direct correction cannot slip in between this read and the insert below)
   select * into v_al from private.patient_allergies_current where id = p_id;   -- a definer reader: the current entries only (S05b-c rule)
   if v_al.id is null or v_al.patient_id <> v_uid then raise exception 'you cannot correct this record' using errcode = '42501'; end if;
   if p_status not in ('corrected', 'amended', 'entered_in_error') then
     raise exception 'a patient cannot request status %', p_status using errcode = '42501';
   end if;
   if p_status in ('corrected', 'amended') then
+    if p_replacement is null or jsonb_typeof(p_replacement) <> 'object' or p_replacement = '{}'::jsonb then
+      raise exception 'a correction needs the new values' using errcode = '22023';
+    end if;
     for v_key in select jsonb_object_keys(p_replacement) loop
       if v_key not in ('allergen', 'reaction', 'severity') then
         raise exception 'column % cannot be part of a correction', v_key using errcode = '22023';
@@ -296,10 +302,11 @@ declare
   v_req public.patient_allergy_correction_requests;
 begin
   if v_uid is null then raise exception 'sign in first' using errcode = '42501'; end if;
-  select * into v_req from public.patient_allergy_correction_requests where id = p_request_id for update;
+  select * into v_req from public.patient_allergy_correction_requests where id = p_request_id;   -- authorise before locking
   if v_req.id is null or not private.is_correcting_clinician(v_req.patient_id) then
     raise exception 'you cannot resolve this request' using errcode = '42501';
   end if;
+  select * into v_req from public.patient_allergy_correction_requests where id = p_request_id for update;
   if v_req.status <> 'pending' then raise exception 'this request was already decided' using errcode = '22023'; end if;
 
   update public.patient_allergy_correction_requests
@@ -323,8 +330,9 @@ declare
   v_req public.patient_allergy_correction_requests;
 begin
   if v_uid is null then raise exception 'sign in first' using errcode = '42501'; end if;
-  select * into v_req from public.patient_allergy_correction_requests where id = p_request_id for update;
+  select * into v_req from public.patient_allergy_correction_requests where id = p_request_id;   -- authorise before locking
   if v_req.id is null or v_req.patient_id <> v_uid then raise exception 'you cannot withdraw this request' using errcode = '42501'; end if;
+  select * into v_req from public.patient_allergy_correction_requests where id = p_request_id for update;
   if v_req.status <> 'pending' then raise exception 'this request was already decided' using errcode = '22023'; end if;
   update public.patient_allergy_correction_requests set status = 'withdrawn', decided_at = now() where id = p_request_id;   -- decided_by stays for clinicians only
   insert into public.patient_allergy_correction_events (request_id, organisation_id, event, actor_id, actor_role)

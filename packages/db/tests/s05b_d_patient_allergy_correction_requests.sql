@@ -218,6 +218,16 @@ begin
   begin update public.patient_allergy_correction_events set note = 'tampered' where request_id = v_req;
   exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
   if v_state is distinct from '42501' then raise exception 'FAIL B8: the audit trail was edited (state %)', v_state; end if;
+  -- the audit trail leaves with its request when the request is removed (a removed account), and only then
+  v_flipped := false;
+  begin
+    delete from public.patient_allergy_correction_requests where id = v_req;
+    if not exists (select 1 from public.patient_allergy_correction_events where request_id = v_req) then v_flipped := true; end if;
+    raise exception 'undo' using errcode = 'P0099';
+  exception when sqlstate 'P0099' then null;
+  end;
+  if not v_flipped then raise exception 'FAIL B9: removing a request did not take its audit rows with it'; end if;
+  if not exists (select 1 from public.patient_allergy_correction_events where request_id = v_req) then raise exception 'FAIL B9b: the removal was not undone'; end if;
   raise notice 'PASS B: only a tied, non-coordinator clinician resolves; tables are not client-writable';
 
   -- ======================================================================== C. reject

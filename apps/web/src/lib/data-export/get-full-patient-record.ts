@@ -25,6 +25,10 @@ import type { Database } from "@tarragon/shared";
  * labs, screenings, care plans, identity), not internal ops rows
  * (subscription billing, wellness points, referral commissions, ...).
  *
+ * The `correctedEntries` section comes from a database function that only answers for the signed-in patient's own record (it raises for any
+ * other id), so this export is for the patient's own session. A staff-run export of someone else's record would need its own access-checked
+ * function; it would fail loudly here rather than mix in the wrong person's history.
+ *
  * ACCESS: every query below is scoped to `patientId` and run on the
  * CALLER's own RLS-scoped session client — this must only ever be called
  * with a client authenticated as that same patient (or an org-staff/admin
