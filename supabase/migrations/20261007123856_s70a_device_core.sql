@@ -364,6 +364,24 @@ language sql immutable set search_path = '' as $$
     else false end
 $$;
 
+-- S70a x S05b-c: the in-place replacement is its own small definer function. S05b-c rewrites every definer function that READS a corrected table onto its
+-- *_current view and refuses one that also WRITES it; keeping the write here lets the trigger below read only live (not superseded) rows, which is what a
+-- de-duplication should compare against, while the one in-place write stays exactly as designed.
+create or replace function private.dedupe_replace_in_place(p_target uuid, p_new public.vitals_readings) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+  update public.vitals_readings r set
+    source = p_new.source, device_id = p_new.device_id, external_reading_id = p_new.external_reading_id,
+    wearable_connection_id = p_new.wearable_connection_id, cgm_connection_id = p_new.cgm_connection_id, taken_at = p_new.taken_at,
+    systolic = coalesce(p_new.systolic, r.systolic), diastolic = coalesce(p_new.diastolic, r.diastolic),
+    pulse_bpm = coalesce(p_new.pulse_bpm, r.pulse_bpm), glucose_mmol_l = coalesce(p_new.glucose_mmol_l, r.glucose_mmol_l),
+    glucose_context = coalesce(p_new.glucose_context, r.glucose_context), weight_kg = coalesce(p_new.weight_kg, r.weight_kg),
+    spo2_pct = coalesce(p_new.spo2_pct, r.spo2_pct), position = coalesce(p_new.position, r.position), arm = coalesce(p_new.arm, r.arm),
+    cuff_type = coalesce(p_new.cuff_type, r.cuff_type)
+    where r.id = p_target;
+end $$;
+revoke all on function private.dedupe_replace_in_place(uuid, public.vitals_readings) from public, anon;
+
 create or replace function private.dedupe_cross_source_vitals() returns trigger
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -425,15 +443,7 @@ begin
     begin
       v_payload := jsonb_strip_nulls(to_jsonb(v_hit) - 'id' - 'created_at' - 'received_at');
       perform set_config('tarragon.vitals_dedupe', 'on', true);
-      update public.vitals_readings r set
-        source = new.source, device_id = new.device_id, external_reading_id = new.external_reading_id,
-        wearable_connection_id = new.wearable_connection_id, cgm_connection_id = new.cgm_connection_id, taken_at = new.taken_at,
-        systolic = coalesce(new.systolic, r.systolic), diastolic = coalesce(new.diastolic, r.diastolic),
-        pulse_bpm = coalesce(new.pulse_bpm, r.pulse_bpm), glucose_mmol_l = coalesce(new.glucose_mmol_l, r.glucose_mmol_l),
-        glucose_context = coalesce(new.glucose_context, r.glucose_context), weight_kg = coalesce(new.weight_kg, r.weight_kg),
-        spo2_pct = coalesce(new.spo2_pct, r.spo2_pct), position = coalesce(new.position, r.position), arm = coalesce(new.arm, r.arm),
-        cuff_type = coalesce(new.cuff_type, r.cuff_type)
-       where r.id = v_hit.id;
+      perform private.dedupe_replace_in_place(v_hit.id, new);
       perform set_config('tarragon.vitals_dedupe', 'off', true);
       insert into public.vitals_reading_links
         (organisation_id, patient_id, canonical_reading_id, vital_type, link_kind, superseded_source, superseded_class, canonical_class,
