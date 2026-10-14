@@ -41,6 +41,7 @@ describe("getFullPatientRecordExport (S05b-d)", () => {
     const record = await getFullPatientRecordExport(fakeClient({ data: { patient_allergies: [{ id: "old", correction_status: "corrected" }] }, error: null }), "p1");
     expect(record.correctedEntries.patient_allergies).toEqual([{ id: "old", correction_status: "corrected" }]);
     expect(record.allergies).toEqual([]);
+    expect(record.correctedEntriesAvailable).toBe(true);
   });
   it("fails the export when the history cannot be read, never silently omits it", async () => {
     await expect(getFullPatientRecordExport(fakeClient({ data: null, error: { message: "boom", code: "XX000" } }), "p1")).rejects.toEqual({ message: "boom", code: "XX000" });
@@ -49,6 +50,7 @@ describe("getFullPatientRecordExport (S05b-d)", () => {
     for (const code of ["PGRST202", "42883"]) {
       const record = await getFullPatientRecordExport(fakeClient({ data: null, error: { message: "no function", code } }), "p1");
       expect(record.correctedEntries).toEqual({});
+      expect(record.correctedEntriesAvailable).toBe(false);
       expect(record.patient.id).toBe("p1");
     }
   });

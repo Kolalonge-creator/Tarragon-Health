@@ -70,6 +70,8 @@ export interface FullPatientRecordExport {
    * row marked with correction_status, correction_reason and corrected_at; staff identifiers are left out by the database function.
    */
   correctedEntries: Record<string, unknown[]>;
+  /** False only while the database function does not exist yet (code ships before schema): the copy then lacks the history and says so. */
+  correctedEntriesAvailable: boolean;
 }
 
 function isMissingFunction(error: { code?: string }): boolean {
@@ -174,5 +176,6 @@ export async function getFullPatientRecordExport(
     }),
     carePlans: carePlansRes.data ?? [],
     correctedEntries: readCorrectedEntries(correctedRes.data),
+    correctedEntriesAvailable: !correctedRes.error,
   };
 }

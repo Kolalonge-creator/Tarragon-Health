@@ -137,8 +137,8 @@ select private.guard_minor_dependant_table('patient_allergy_correction_requests'
 insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, notes)
 select t, 'patient_id', private.retention_class_for(t),
        case when private.retention_class_for(t) = 'operational' then 'delete' else 'review' end,
-       private.retention_class_for(t) <> 'audit',
-       'Registered with the default S39d classification when the allergy correction requests were added (S05b-d); awaiting review.'
+       false,   -- not in the registry export: it dumps whole rows (decided_by, decision_note); the patient's own requests, safe columns only, are in my_corrected_record_entries
+       'Registered when the allergy correction requests were added (S05b-d); in_export is false on purpose (clinician note and identity); awaiting review.'
   from unnest(array['patient_allergy_correction_requests']) as t
 on conflict (table_name) do nothing;
 
@@ -272,6 +272,11 @@ begin
   if v_req.status <> 'pending' then raise exception 'this request was already decided' using errcode = '22023'; end if;
 
   -- the same supersede path as any clinician correction (original marked, replacement inserted, one transaction)
+  if v_req.requested_status in ('corrected', 'amended') and v_req.replacement ? 'allergen'
+     and exists (select 1 from private.patient_allergies_current c
+                  where c.patient_id = v_req.patient_id and c.allergen = v_req.replacement ->> 'allergen' and c.id <> v_req.allergy_id) then
+    raise exception 'another current allergy already has that name: reject this request, or correct the entry yourself' using errcode = '22023';
+  end if;
   -- (the flag keeps the voiding trigger from closing this very request while its allergy is being marked)
   perform set_config('app.allergy_request_confirming', 'on', true);
   v_res := public.correct_clinical_value('patient_allergies', v_req.allergy_id, v_req.requested_status,
@@ -317,6 +322,15 @@ revoke all on function public.confirm_patient_allergy_correction(uuid, text), pu
 grant execute on function public.confirm_patient_allergy_correction(uuid, text), public.reject_patient_allergy_correction(uuid, text) to authenticated;
 
 -- 5. The patient's own superseded values (for her data export) ------------------------------------------------------------------------
+-- Which columns of the four tables identify staff or hold clinical review internals: never returned to the patient. By NAME PATTERN, so a staff
+-- id column added later is excluded without anyone remembering to list it (the proof asserts every such column of the four tables matches).
+create function private.is_staff_identifier_column(p_col text) returns boolean language sql immutable set search_path = '' as
+$$
+  select p_col in ('search_vector', 'validation_flags') or (p_col <> 'superseded_by_id' and p_col ~ '(_by|_by_id|clinician_id|staff_id|doctor_id|profile_id)$')
+$$;
+revoke all on function private.is_staff_identifier_column(text) from public, anon;
+grant execute on function private.is_staff_identifier_column(text) to authenticated, service_role;
+
 create function public.my_corrected_record_entries() returns jsonb
 language plpgsql stable security definer set search_path = '' as
 $$
@@ -329,7 +343,7 @@ begin
   if v_uid is null then raise exception 'sign in first' using errcode = '42501'; end if;
   foreach t in array array['vitals_readings', 'patient_conditions', 'patient_allergies', 'lab_analyte_readings'] loop
     execute format(
-      $q$select coalesce(jsonb_agg(to_jsonb(x) - 'search_vector' - 'validated_by' - 'logged_by_profile_id' - 'validation_flags' - 'corrected_by' - 'recorded_by' - 'verified_by' order by x.corrected_at), '[]'::jsonb)
+      $q$select coalesce(jsonb_agg((select jsonb_object_agg(e.key, e.value) from jsonb_each(to_jsonb(x)) e where not private.is_staff_identifier_column(e.key)) order by x.corrected_at), '[]'::jsonb)
            from public.%I x where x.patient_id = $1 and x.correction_status is not null$q$, t) into v_rows using v_uid;
     v_out := v_out || jsonb_build_object(t, v_rows);
   end loop;

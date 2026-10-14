@@ -29,7 +29,7 @@ declare
   v_c   uuid := gen_random_uuid();   -- tied clinician (senior)
   v_u   uuid := gen_random_uuid();   -- untied clinician
   v_cc  uuid := gen_random_uuid();   -- care coordinator on the care team
-  v_a1 uuid; v_a2 uuid; v_a3 uuid; v_a4 uuid; v_acl uuid;
+  v_a1 uuid; v_a2 uuid; v_a3 uuid; v_a4 uuid; v_a5 uuid; v_acl uuid; v_cond uuid;
   v_w uuid;
   v_res jsonb;
   v_req uuid; v_req2 uuid; v_req3 uuid;
@@ -72,6 +72,8 @@ begin
   insert into public.patient_allergies (organisation_id, patient_id, allergen, severity, source) values (v_org, v_p, 'Latex',   'mild',     'patient') returning id into v_a3;
   insert into public.patient_allergies (organisation_id, patient_id, allergen, severity, source) values (v_org, v_p, 'Sesame',  'mild',     'patient') returning id into v_a4;
   insert into public.patient_allergies (organisation_id, patient_id, allergen, severity, source) values (v_org, v_p, 'Penicillin', 'severe', 'clinician') returning id into v_acl;
+  insert into public.patient_allergies (organisation_id, patient_id, allergen, severity, source) values (v_org, v_p, 'Dust', 'mild', 'patient') returning id into v_a5;
+  insert into public.patient_conditions (organisation_id, patient_id, condition_name, source, diagnosing_clinician_id) values (v_org, v_p, 'Hypertension', 'clinician', v_c) returning id into v_cond;
   insert into public.vitals_readings (organisation_id, patient_id, vital_type, weight_kg, taken_at, source)
   values (v_org, v_p, 'weight', 70, now() - interval '2 hours', 'manual') returning id into v_w;
 
@@ -331,6 +333,21 @@ begin
   exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
   execute 'reset role';
   if v_state is distinct from '22023' then raise exception 'FAIL E5: a request colliding with another current allergy was accepted (state %)', v_state; end if;
+  -- a collision that appears AFTER the request was made is refused at confirmation with a clear message, and the request stays for a decision
+  perform set_config('request.jwt.claims', json_build_object('sub', v_p, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  v_res := public.correct_clinical_value('patient_allergies', v_a5, 'corrected', 'Dust should be recorded as mold', '{"allergen": "Mold"}'::jsonb);
+  execute 'reset role';
+  v_req2 := (v_res ->> 'request_id')::uuid;
+  insert into public.patient_allergies (organisation_id, patient_id, allergen, severity, source) values (v_org, v_p, 'Mold', 'mild', 'patient');
+  perform set_config('request.jwt.claims', json_build_object('sub', v_c, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  v_state := null;
+  begin perform public.confirm_patient_allergy_correction(v_req2, null);
+  exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
+  v_res := public.reject_patient_allergy_correction(v_req2, null);
+  execute 'reset role';
+  if v_state is distinct from '22023' then raise exception 'FAIL E6: a late name collision was not refused with a clear error (state %)', v_state; end if;
   raise notice 'PASS E: stale request voids; clinician correction stays immediate';
 
   -- ======================================================================== F. grant, export, views
@@ -358,6 +375,25 @@ begin
   if jsonb_array_length(v_json -> 'patient_allergies') <> 0 or jsonb_array_length(v_json -> 'vitals_readings') <> 0 then
     raise exception 'FAIL F5: another patient received superseded values (%)', v_json;
   end if;
+  -- the patient's superseded values never carry a staff identifier, whichever column holds it (a name pattern, not a list)
+  perform set_config('request.jwt.claims', json_build_object('sub', v_c, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  perform public.correct_clinical_value('patient_conditions', v_cond, 'corrected', 'Name recorded in full', '{"condition_name": "Essential hypertension"}'::jsonb);
+  execute 'reset role';
+  perform set_config('request.jwt.claims', json_build_object('sub', v_p, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  v_json := public.my_corrected_record_entries();
+  execute 'reset role';
+  if jsonb_array_length(v_json -> 'patient_conditions') <> 1 or (v_json -> 'patient_conditions' -> 0) ? 'diagnosing_clinician_id'
+     or (v_json -> 'patient_conditions' -> 0) ? 'corrected_by' or (v_json -> 'patient_conditions' -> 0) ? 'recorded_by'
+     or not ((v_json -> 'patient_conditions' -> 0) ? 'superseded_by_id') or not ((v_json -> 'patient_conditions' -> 0) ? 'correction_reason') then
+    raise exception 'FAIL F11: the corrected condition leaks a staff identifier or lost its link and reason (%)', v_json -> 'patient_conditions';
+  end if;
+  for v_text in select c.column_name from information_schema.columns c
+                 where c.table_schema = 'public' and c.table_name in ('vitals_readings', 'patient_conditions', 'patient_allergies', 'lab_analyte_readings')
+                   and (c.column_name ~ '(clinician|staff|doctor|_by$)' or c.column_name = 'logged_by_profile_id') and c.column_name <> 'superseded_by_id' loop
+    if not private.is_staff_identifier_column(v_text) then raise exception 'FAIL F12: staff-like column % is not excluded from the patient export', v_text; end if;
+  end loop;
   -- a client never reads the clinician's note or identity, on either table (column grants), but reads the safe columns
   perform set_config('request.jwt.claims', json_build_object('sub', v_p, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
@@ -391,6 +427,10 @@ begin
   -- decided_by has no foreign key (its SET NULL update would hit the decided-request guard when a profile is removed)
   if exists (select 1 from pg_constraint where conrelid = 'public.patient_allergy_correction_requests'::regclass and contype = 'f' and conkey = array[(select attnum from pg_attribute where attrelid = 'public.patient_allergy_correction_requests'::regclass and attname = 'decided_by')]) then
     raise exception 'FAIL F9: decided_by has a foreign key again';
+  end if;
+  -- the registry export dumps whole rows, so the request table (clinician note and identity) is registered as not exported
+  if not exists (select 1 from public.data_registry where table_name = 'patient_allergy_correction_requests' and in_export = false) then
+    raise exception 'FAIL F13: the request table is exported whole by the registry export';
   end if;
   -- the template is registered like every other in-app notice
   if not exists (select 1 from public.notification_templates where key = 'record_change_not_confirmed' and default_channels = array['in_app']::public.notification_channel[])
