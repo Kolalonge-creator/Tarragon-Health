@@ -139,7 +139,8 @@ begin
   perform pg_temp.rec('crisis, Member: the Priority 1 alert is raised', '1,0', (select count(*)::text from public.clinician_alerts where patient_id = mc and level = 'emergency') || ',' || (select count(*)::text from public.free_red_events where patient_id = mc));
 
   -- the live-only follow-up function: a stand-in with its live opening lines, then the migration's own patch step
-  create function private.raise_crisis_follow_up(p_screen uuid) returns boolean
+  -- create or replace: F1 (fix 4) defines the real function earlier in the chain; the stand-in replaces it inside this rolled-back transaction
+  create or replace function private.raise_crisis_follow_up(p_screen uuid) returns boolean
   language plpgsql security definer set search_path = '' as $f$
   declare
     s public.mental_health_screens%rowtype;
