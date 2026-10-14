@@ -31,6 +31,7 @@
 // Exits non-zero on any FAIL-class finding above.
 
 import { execFileSync } from "node:child_process";
+import { execWithRetry } from "./retry-sync.mjs";
 import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -45,12 +46,7 @@ function sh(cmd, args, opts = {}) {
 // `supabase db query --linked` occasionally dies after printing only "Initialising login
 // role..." (transient management-API/CLI flake — see check-anon-security-definer-execute.mjs).
 function shRetry(cmd, args, opts = {}) {
-  try {
-    return sh(cmd, args, opts);
-  } catch (err) {
-    console.log(`retrying once after transient failure: ${err instanceof Error ? err.message.split("\n")[0] : err}`);
-    return sh(cmd, args, opts);
-  }
+  return execWithRetry(cmd, args, opts); // see retry-sync.mjs
 }
 
 // Same output-shape-tolerant parser as check-anon-security-definer-execute.mjs — `supabase db
