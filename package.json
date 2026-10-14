@@ -12,6 +12,7 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test --concurrency=4",
+    "test:ci": "turbo run test --concurrency=2 --filter=!@tarragon/web -- --maxWorkers=2",
     "db:test": "./scripts/run-db-proofs.sh",
     "clean": "turbo run clean"
   },
