@@ -91,7 +91,7 @@ jobs:
 
       - name: Install pnpm
         if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.publish == 'true'
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Set up Node
         if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.publish == 'true'
