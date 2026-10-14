@@ -711,10 +711,6 @@ grant execute on function public.queue_complete(uuid, jsonb) to authenticated;
 -- ---------------------------------------------------------------------------
 -- 7. D2 + decision 2: an escalation tells the Chief Medical Officer
 -- ---------------------------------------------------------------------------
-insert into public.event_types (event_type, description, owner_section, is_urgent) values
-  ('clinical_task.escalation_notified', 'The clinical lead was told that a clinical task escalated', 'S16', false)
-on conflict (event_type) do nothing;
-
 create function private.notify_task_escalated(p_task uuid, p_transition uuid) returns void
 language plpgsql security definer set search_path = ''
 as $$

@@ -74,6 +74,24 @@ describe("ClinicianTaskPage", () => {
     expect(rpc).toHaveBeenCalledWith("clinician_patient_summary", expect.objectContaining({ p_patient: "22222222-2222-4222-8222-222222222222" }));
   });
 
+  it("sends a titration task to the proposed changes, which finish it by themselves (S16-S20 D4)", async () => {
+    taskRow.mockReturnValue(held("titration_signoff"));
+    rpc.mockResolvedValue({ data: { status: "ok", care_circle: { active_members: 0 } }, error: null });
+    await renderPage();
+    expect(screen.queryByText("complete-form")).toBeNull();
+    expect(screen.getByRole("link", { name: /proposed changes/ }).getAttribute("href")).toBe(
+      "/clinician/patients/22222222-2222-4222-8222-222222222222/care-plan-changes",
+    );
+  });
+
+  it("offers the form for a critical result, whose outcome is coded", async () => {
+    taskRow.mockReturnValue(held("critical_result_review"));
+    rpc.mockResolvedValue({ data: { status: "ok", care_circle: { active_members: 0 } }, error: null });
+    await renderPage();
+    expect(screen.getByText("complete-form")).toBeTruthy();
+    expect(screen.getByText(/closes its task by itself/)).toBeTruthy();
+  });
+
   it("sends a written question to its own page instead of the generic form", async () => {
     taskRow.mockReturnValue(held("async_question"));
     rpc.mockResolvedValue({ data: { status: "ok", care_circle: { active_members: 0 } }, error: null });

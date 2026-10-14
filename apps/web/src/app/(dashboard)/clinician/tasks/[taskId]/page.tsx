@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SlaBadge } from "@/components/clinician/sla-badge";
 import { PatientSummaryView } from "@/components/clinician/patient-summary";
-import { DEDICATED_FLOW_TASK_TYPES, heldTaskSchema, minutesLeft, patientSummarySchema, TASK_SUMMARY_READ_REASON, uuidSchema } from "@/lib/clinician/queue-console";
+import { completionOptions, DEDICATED_FLOW_TASK_TYPES, SYSTEM_CLOSED_TASK_TYPES, heldTaskSchema, minutesLeft, patientSummarySchema, TASK_SUMMARY_READ_REASON, uuidSchema } from "@/lib/clinician/queue-console";
 import { CompleteForm, ExtendForm, HandBackForm } from "../../queue/forms";
 
 export const metadata = { title: "Task" };
@@ -56,6 +56,8 @@ export default async function ClinicianTaskPage({ params }: { params: Promise<{ 
   const summary = summaryRes.error ? null : patientSummarySchema.safeParse(summaryRes.data);
   const left = minutesLeft(task.claim_expires_at, new Date());
   const dedicatedFlow = DEDICATED_FLOW_TASK_TYPES[task.type];
+  const systemClosed = SYSTEM_CLOSED_TASK_TYPES[task.type];
+  const completion = completionOptions(task.type);
 
   return (
     <div className="space-y-6">
@@ -87,8 +89,16 @@ export default async function ClinicianTaskPage({ params }: { params: Promise<{ 
               {t("task.dedicated_flow", "en")}{" "}
               <Link href={dedicatedFlow} className="font-medium text-brand-green underline">{t("task.dedicated_link", "en")}</Link>
             </p>
+          ) : systemClosed ? (
+            <p className="text-sm text-charcoal-ink">
+              {t(systemClosed.messageKey, "en")}{" "}
+              <Link href={systemClosed.href(task.patient_id)} className="font-medium text-brand-green underline">{t(systemClosed.linkKey, "en")}</Link>
+            </p>
           ) : (
-            <CompleteForm taskId={task.id} />
+            <>
+              {completion.attemptsCode !== null && <p className="mb-2 text-xs text-charcoal-ink/60">{t("task.system_closed.results_hint", "en")}</p>}
+              <CompleteForm taskId={task.id} options={completion} />
+            </>
           )}
         </CardContent>
       </Card>

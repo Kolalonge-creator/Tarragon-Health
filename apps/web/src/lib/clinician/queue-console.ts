@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { t } from "@tarragon/i18n";
+import { en, t, type MessageKey } from "@tarragon/i18n";
+import { getProposedConfig } from "@tarragon/shared";
 
 /**
  * S35: the shapes the clinician queue, task view, patient summary and lead list read, parsed with Zod because the
@@ -19,13 +20,58 @@ export const DEDICATED_FLOW_TASK_TYPES: Record<string, string> = {
   written_question_call: "/clinician/async-consults",
 };
 
+export const offeredTaskSchema = z.object({
+  task_id: z.string().uuid(),
+  type: z.string(),
+  priority_class: z.number().nullable(),
+  due_at: z.string().nullable(),
+  window_ends_at: z.string().nullable(),
+});
+export type OfferedTask = z.infer<typeof offeredTaskSchema>;
+
 export const queueSummarySchema = z.object({
   open: z.boolean(),
   blocked: z.string().nullable().optional(),
   next_fee_kobo: z.number().nullable().optional(),
   by_class: z.record(z.string(), z.number()),
+  // S16-S20: why the queue is closed and until when, work offered to me first, escalated work I can take, my own score
+  cooling_off_until: z.string().nullable().optional(),
+  offered: z.array(offeredTaskSchema).optional(),
+  escalated_claimable: z.number().optional(),
+  reliability_score: z.number().nullable().optional(),
 });
 export type QueueSummary = z.infer<typeof queueSummarySchema>;
+
+/** One escalated task as the clinical lead sees it (public.queue_escalated_overview): ids and neutral facts, never a patient. */
+export const escalatedTaskSchema = z.object({
+  task_id: z.string().uuid(),
+  type: z.string(),
+  priority_class: z.number(),
+  due_at: z.string().nullable(),
+  escalated_at: z.string().nullable(),
+  age_minutes: z.number().nullable(),
+  escalation_level: z.number(),
+  handback_count: z.number(),
+});
+export type EscalatedTask = z.infer<typeof escalatedTaskSchema>;
+
+/** Why the queue is closed, in words. An unknown reason gets the general sentence, never a code. */
+export function blockedReasonKey(blocked: string | null | undefined): MessageKey | null {
+  if (!blocked) return null;
+  const key = `queue.blocked.${blocked}`;
+  return blocked !== "other" && key in en ? (key as MessageKey) : "queue.blocked.other";
+}
+
+/** The label for an outcome code; a code the catalogue does not know is shown with the generic label, never as a raw code. */
+export function outcomeLabelKey(code: string): MessageKey {
+  const key = `task.outcome.${code}`;
+  return key in en ? (key as MessageKey) : "task.outcome_code";
+}
+
+export function attemptMethodLabelKey(method: string): MessageKey {
+  const key = `task.attempt_method.${method}`;
+  return key in en ? (key as MessageKey) : "task.attempt_method";
+}
 
 export const heldTaskSchema = z.object({
   id: z.string().uuid(),
@@ -120,9 +166,104 @@ export function classCounts(byClass: Record<string, number>): { rows: { key: str
   return { rows, total: rows.reduce((sum, r) => sum + r.count, 0) };
 }
 
+// ----- how a task is finished (S16-S20 D4) -------------------------------------------------------------------------------
+// The outcome codes, the contact-attempt rule and the note limit are the PROPOSED `queue.task_layer` configuration, the same
+// values the database reads (queue_task_layer_config); nothing here is a literal. The database is the enforcer and also checks
+// the system record (a released result, a signed change, an acknowledged page); this only decides what the screen offers.
+
+interface CompletionConfig {
+  default_codes: readonly string[];
+  codes_by_type: Readonly<Record<string, readonly string[]>>;
+  contact_attempts: { min_attempts: number; methods: readonly string[] };
+  note_max_chars: number;
+}
+
+function completionConfig(): CompletionConfig {
+  return (getProposedConfig("queue.task_layer").value as unknown as { completion: CompletionConfig }).completion;
+}
+
+export interface CompletionOptions {
+  codes: readonly string[];
+  /** The code that asks for a documented sequence of contact attempts, if this task type has one. */
+  attemptsCode: string | null;
+  minAttempts: number;
+  methods: readonly string[];
+  noteMaxChars: number;
+}
+
+export const CONTACT_ATTEMPTS_CODE = "contact_attempts_documented";
+
+export function completionOptions(type: string): CompletionOptions {
+  const c = completionConfig();
+  const codes = c.codes_by_type[type] ?? c.default_codes;
+  return {
+    codes,
+    attemptsCode: codes.includes(CONTACT_ATTEMPTS_CODE) ? CONTACT_ATTEMPTS_CODE : null,
+    minAttempts: c.contact_attempts.min_attempts,
+    methods: c.contact_attempts.methods,
+    noteMaxChars: c.note_max_chars,
+  };
+}
+
+/**
+ * Task types that are finished by the work itself, on another screen, against a record the database checks: signing the proposed
+ * change closes a titration task, acknowledging the page closes a red event task. The generic form is not offered for them (and the
+ * server action refuses it), because it could only offer a code the record would then refuse.
+ */
+export const SYSTEM_CLOSED_TASK_TYPES: Record<string, { href: (patientId: string) => string; messageKey: MessageKey; linkKey: MessageKey }> = {
+  titration_signoff: {
+    href: (patientId) => `/clinician/patients/${patientId}/care-plan-changes`,
+    messageKey: "task.system_closed.titration_signoff",
+    linkKey: "task.system_closed.titration_signoff_link",
+  },
+  red_event_unacknowledged: {
+    href: () => "/clinician/on-call",
+    messageKey: "task.system_closed.red_event_unacknowledged",
+    linkKey: "task.system_closed.red_event_unacknowledged_link",
+  },
+  symptom_review: {
+    href: () => "/clinician/consultations",
+    messageKey: "task.system_closed.symptom_review",
+    linkKey: "task.system_closed.symptom_review_link",
+  },
+};
+
+export const attemptSchema = z.object({
+  at: z.string().datetime({ offset: true }),
+  method: z.string().min(1),
+  reached: z.boolean(),
+});
+export type ContactAttemptInput = z.infer<typeof attemptSchema>;
+
+/** A datetime-local value ("2026-10-14T13:05") is Lagos time; Lagos has no daylight saving, so the offset is fixed. */
+export function lagosLocalToIso(local: string): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(local)) return null;
+  const date = new Date(`${local}:00+01:00`);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+export interface AttemptRow {
+  method: string;
+  reached: boolean;
+  at: string;
+}
+
+/** Rows left blank are skipped; a row with a method but no readable time is dropped so the count check catches it. */
+export function attemptsFromRows(rows: readonly AttemptRow[]): ContactAttemptInput[] {
+  const out: ContactAttemptInput[] = [];
+  for (const row of rows) {
+    if (row.method === "") continue;
+    const at = lagosLocalToIso(row.at);
+    if (at !== null) out.push({ at, method: row.method, reached: row.reached });
+  }
+  return out;
+}
+
 export const completeTaskSchema = z.object({
   taskId: z.string().uuid(),
-  note: z.string().trim().min(10, t("task.err.note_short", "en")).max(1000, t("task.err.note_long", "en")),
+  code: z.string().trim().min(1, t("task.err.outcome_needed", "en")),
+  note: z.string().trim().max(1000, t("task.err.note_long", "en")).optional(),
+  attempts: z.array(attemptSchema).optional(),
 });
 
 export const SAFETY_CONCERN_CATEGORIES = [
