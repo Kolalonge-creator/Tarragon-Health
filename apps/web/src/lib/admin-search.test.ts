@@ -122,6 +122,15 @@ describe("the Chief Medical Officer index for testing-day results", () => {
   });
 });
 
+describe("the Chief Medical Officer index for record changes (S05b-e)", () => {
+  it("finds the record changes queue by the words a person would type", () => {
+    const cmo = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+    for (const query of ["record changes", "allergy request", "entered by mistake", "void"]) {
+      expect(searchAdminEntries(cmo, query).map((e) => e.href)).toContain("/clinician/record-changes");
+    }
+  });
+});
+
 describe("searchAdminEntries", () => {
   it("finds the credentialing pages by the words a person would use", () => {
     expect(labels("credentialing")[0]).toBe("Clinician credentialing");

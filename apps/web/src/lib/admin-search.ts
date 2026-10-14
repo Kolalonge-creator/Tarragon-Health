@@ -89,6 +89,7 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/promo-codes", "discount coupon voucher"],
   ["/admin/leads", "enquiries prospects contact form"],
   ["/admin/settings/testing-days", "testing day testing days venue venues location city lga capacity waitlist waiting list lab laboratory team station registration check in specimen tube employer visit on site onsite headcount ecg urine urinalysis point of care poc"],
+  ["/clinician/record-changes", "record changes patient asked correct change remove void allergy allergies entered by mistake wrong request confirm leave as it was waiting queue"],
   ["/clinician/poc-results", "point of care poc ecg trace interpret interpretation read urine urinalysis dipstick hba1c testing day employer visit release withhold held"],
   ["/admin/refund-requests", "refund refunds money back guarantee claim order payment paystack reverse"],
 ];

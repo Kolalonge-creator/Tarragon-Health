@@ -27114,6 +27114,125 @@ export type Database = {
           },
         ]
       }
+      // S05b-d: spliced by hand, see CLAUDE.md on why the generator is not used wholesale. Read only for clients (the functions write).
+      patient_allergy_correction_events: {
+        Row: {
+          actor_id: string | null
+          actor_role: string
+          at: string
+          event: string
+          id: string
+          note: string | null
+          organisation_id: string
+          request_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_role: string
+          at?: string
+          event: string
+          id?: string
+          note?: string | null
+          organisation_id: string
+          request_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          actor_role?: string
+          at?: string
+          event?: string
+          id?: string
+          note?: string | null
+          organisation_id?: string
+          request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_allergy_correction_events_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_allergy_correction_events_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "patient_allergy_correction_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_allergy_correction_requests: {
+        Row: {
+          allergy_id: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          id: string
+          organisation_id: string
+          patient_id: string
+          reason: string
+          replacement: Json | null
+          replacement_id: string | null
+          requested_status: Database["public"]["Enums"]["correction_status"]
+          status: string
+        }
+        Insert: {
+          allergy_id: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          organisation_id: string
+          patient_id: string
+          reason: string
+          replacement?: Json | null
+          replacement_id?: string | null
+          requested_status: Database["public"]["Enums"]["correction_status"]
+          status?: string
+        }
+        Update: {
+          allergy_id?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          reason?: string
+          replacement?: Json | null
+          replacement_id?: string | null
+          requested_status?: Database["public"]["Enums"]["correction_status"]
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_allergy_correction_requests_allergy_id_fkey"
+            columns: ["allergy_id"]
+            isOneToOne: false
+            referencedRelation: "patient_allergies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_allergy_correction_requests_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_allergy_correction_requests_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_blood_profile: {
         Row: {
           attestation_version: string | null
@@ -43748,6 +43867,11 @@ export type Database = {
       }
       // S05b-c: spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       clinical_value_history: { Args: { p_table: string; p_id: string }; Returns: Json }
+      // S05b-d: spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
+      confirm_patient_allergy_correction: { Args: { p_request_id: string; p_note?: string }; Returns: Json }
+      reject_patient_allergy_correction: { Args: { p_request_id: string; p_note?: string }; Returns: Json }
+      my_corrected_record_entries: { Args: { p_patient?: string }; Returns: Json }
+      withdraw_patient_allergy_correction: { Args: { p_request_id: string }; Returns: Json }
       // S27 (lab results and release rules): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       bp_control_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       // S38c (monthly report and risk stratification): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
@@ -51081,6 +51205,9 @@ export type Database = {
         | "weakness_or_numbness"
         | "difficulty_speaking"
         | "back_pain"
+        | "convulsion"
+        | "loss_of_consciousness"
+        | "sudden_face_hand_swelling"
       therapy_modality: "video" | "audio" | "in_person"
       therapy_session_status: "requested" | "awaiting_clinician_approval" | "confirmed" | "completed" | "cancelled" | "no_show"
       timeline_event_type:
@@ -53580,6 +53707,9 @@ export const Constants = {
         "weakness_or_numbness",
         "difficulty_speaking",
         "back_pain",
+        "convulsion",
+        "loss_of_consciousness",
+        "sudden_face_hand_swelling",
       ],
       therapy_modality: ["video", "audio", "in_person"],
       therapy_session_status: ["requested", "awaiting_clinician_approval", "confirmed", "completed", "cancelled", "no_show"],

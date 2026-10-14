@@ -374,6 +374,11 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
       href: "/patient/care",
     };
   }
+  // S05b-d: a clinician looked at a change the patient asked for in her record and left it as it was. Neutral by design (INV-07, INV-08):
+  // never the entry, its name or the clinician's note; in-app only.
+  if (n.template === "record_change_not_confirmed") {
+    return { text: "Your care team looked at the change you asked for and left your record as it was. You can message them about it", href: "/patient/messages" };
+  }
   // S22 written questions and clinical notes. Neutral by design (INV-07): never the question, a condition or a reading.
   if (n.template === "written_question_received") {
     return { text: "Your care team has your message", href: "/patient/care" };

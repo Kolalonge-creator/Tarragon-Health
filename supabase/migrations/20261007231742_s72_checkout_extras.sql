@@ -33,6 +33,11 @@
 -- Merge order: after S71, S73, S70, S74. It replaces ONLY private.sponsor_match (the S71 body plus one branch), public.my_orders and public.admin_sponsor_programmes,
 -- and WRAPS (renames, never replaces) private.go_live_conditions and public.attest_go_live_condition as S71 did, so every older guard keeps its conditions.
 
+-- Production apply: the wrapper runs this whole file as one transaction. Allow it more time than the session default (120 s) but never let it queue
+-- behind other traffic for long: if a lock cannot be taken within 30 s it fails and rolls back, and can simply be re-run. Both settings end with the transaction.
+set local statement_timeout = '10min';
+set local lock_timeout = '30s';
+
 -- ---------------------------------------------------------------------------
 -- 0. Count first, then remove the kobo conversion (19.9)
 -- ---------------------------------------------------------------------------
@@ -53,7 +58,7 @@ drop table public.wellness_points_redemptions;
 -- The registries that list patient tables must not keep a row for a table that no longer exists (the patient-data export walks data_registry and would fail on it).
 delete from public.data_registry where table_name = 'wellness_points_redemptions';
 delete from public.staff_read_scope where table_name = 'wellness_points_redemptions';
-alter table public.wellness_points_config drop column points_to_kobo_rate;
+alter table public.wellness_points_config drop column if exists points_to_kobo_rate;
 
 -- ---------------------------------------------------------------------------
 -- 1. Versioned rules (PROPOSED, owner Founder and counsel; mirrored in the code registry as access_fund.rules and payment_requests.rules)

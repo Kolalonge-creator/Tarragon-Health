@@ -38062,6 +38062,10 @@ export type Database = {
     }
     Functions: {
       clinical_value_history: { Args: { p_table: string; p_id: string }; Returns: Json }
+      confirm_patient_allergy_correction: { Args: { p_request_id: string; p_note?: string }; Returns: Json }
+      reject_patient_allergy_correction: { Args: { p_request_id: string; p_note?: string }; Returns: Json }
+      my_corrected_record_entries: { Args: { p_patient?: string }; Returns: Json }
+      withdraw_patient_allergy_correction: { Args: { p_request_id: string }; Returns: Json }
       correct_clinical_value: {
         Args: {
           p_id: string
