@@ -15,7 +15,8 @@
 --   F. The grant: authenticated can execute correct_clinical_value and the new functions, anon cannot; my_corrected_record_entries returns
 --      the patient's own superseded values only; every _current view has exactly its table's columns.
 --   G. SABOTAGE (each must flip): the patient branch removed, the clinician test made permissive, the PUBLIC grant restored, the audit
---      trail's append-only trigger dropped, the stale-request voiding trigger dropped.
+--      trail's append-only trigger dropped, the stale-request voiding trigger dropped, the withdrawal ownership check and the history-export guard
+--      removed.
 -- Wrapped in BEGIN/ROLLBACK; mints its own fixtures.
 -- ===========================================================================
 
@@ -586,7 +587,46 @@ begin
   if not v_flipped then raise exception 'FAIL G5: sabotage did not flip (the stale-request proof is vacuous)'; end if;
   if not exists (select 1 from pg_trigger where tgname = 'z_void_pending_allergy_requests') then raise exception 'FAIL G5b: sabotage was not undone'; end if;
 
-  raise notice 'PASS G: five sabotages each flipped';
+  -- G6: without the ownership check another patient can withdraw somebody else's request
+  v_flipped := false;
+  begin
+    perform set_config('request.jwt.claims', json_build_object('sub', v_p, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated';
+    v_res := public.correct_clinical_value('patient_allergies', v_a4, 'entered_in_error', 'Sesame was typed by mistake', null);
+    execute 'reset role';
+    v_req := (v_res ->> 'request_id')::uuid;
+    select pg_get_functiondef(p.oid) into v_def from pg_proc p where p.proname = 'withdraw_patient_allergy_correction' and p.pronamespace = 'public'::regnamespace;
+    if position('v_req.patient_id <> v_uid' in v_def) = 0 then raise exception 'sabotage anchor missing'; end if;
+    execute replace(v_def, 'v_req.patient_id <> v_uid', 'false');
+    perform set_config('request.jwt.claims', json_build_object('sub', v_p2, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated';
+    perform public.withdraw_patient_allergy_correction(v_req);
+    execute 'reset role';
+    v_flipped := true;
+    raise exception 'undo sabotage' using errcode = 'P0099';
+  exception when sqlstate 'P0099' then null;
+  end;
+  execute 'reset role';
+  if not v_flipped then raise exception 'FAIL G6: sabotage did not flip (the withdrawal ownership proof is vacuous)'; end if;
+
+  -- G7: without the guard the history function answers for another patient
+  v_flipped := false;
+  begin
+    select pg_get_functiondef(p.oid) into v_def from pg_proc p where p.proname = 'my_corrected_record_entries' and p.pronamespace = 'public'::regnamespace;
+    if position('p_patient <> v_uid' in v_def) = 0 then raise exception 'sabotage anchor missing'; end if;
+    execute replace(v_def, 'p_patient <> v_uid', 'false');
+    perform set_config('request.jwt.claims', json_build_object('sub', v_p, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated';
+    perform public.my_corrected_record_entries(v_p2);
+    execute 'reset role';
+    v_flipped := true;
+    raise exception 'undo sabotage' using errcode = 'P0099';
+  exception when sqlstate 'P0099' then null;
+  end;
+  execute 'reset role';
+  if not v_flipped then raise exception 'FAIL G7: sabotage did not flip (the history-export guard proof is vacuous)'; end if;
+
+  raise notice 'PASS G: seven sabotages each flipped';
   raise notice 'S05b-d patient allergy correction requests proof complete';
 end $$;
 

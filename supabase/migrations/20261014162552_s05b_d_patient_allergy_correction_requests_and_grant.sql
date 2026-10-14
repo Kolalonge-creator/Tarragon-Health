@@ -255,15 +255,16 @@ declare
   v_aid uuid;
 begin
   if v_uid is null then raise exception 'sign in first' using errcode = '42501'; end if;
-  -- lock the allergy BEFORE the request, the order the voiding trigger and correct_clinical_value use, so a confirmation racing a direct
-  -- correction cannot deadlock (a no-op when the entry is no longer current: the trigger has then already voided the request)
-  select allergy_id into v_aid from public.patient_allergy_correction_requests where id = p_request_id;
-  if v_aid is not null then perform 1 from private.patient_allergies_current where id = v_aid for update; end if;
-  select * into v_req from public.patient_allergy_correction_requests where id = p_request_id for update;
-  -- one answer for missing and not permitted
+  -- authorise first on an unlocked read, so an unauthorised caller never takes a lock; one answer for missing and not permitted
+  select * into v_req from public.patient_allergy_correction_requests where id = p_request_id;
   if v_req.id is null or not private.is_correcting_clinician(v_req.patient_id) then
     raise exception 'you cannot resolve this request' using errcode = '42501';
   end if;
+  -- then lock the allergy BEFORE the request, the order the voiding trigger and correct_clinical_value use, so a confirmation racing a direct
+  -- correction cannot deadlock (a no-op when the entry is no longer current: the trigger has then already voided the request); re-read after
+  v_aid := v_req.allergy_id;
+  perform 1 from private.patient_allergies_current where id = v_aid for update;
+  select * into v_req from public.patient_allergy_correction_requests where id = p_request_id for update;
   if v_req.status <> 'pending' then raise exception 'this request was already decided' using errcode = '22023'; end if;
 
   -- the same supersede path as any clinician correction (original marked, replacement inserted, one transaction)
@@ -325,7 +326,7 @@ begin
   select * into v_req from public.patient_allergy_correction_requests where id = p_request_id for update;
   if v_req.id is null or v_req.patient_id <> v_uid then raise exception 'you cannot withdraw this request' using errcode = '42501'; end if;
   if v_req.status <> 'pending' then raise exception 'this request was already decided' using errcode = '22023'; end if;
-  update public.patient_allergy_correction_requests set status = 'withdrawn', decided_by = v_uid, decided_at = now() where id = p_request_id;
+  update public.patient_allergy_correction_requests set status = 'withdrawn', decided_at = now() where id = p_request_id;   -- decided_by stays for clinicians only
   insert into public.patient_allergy_correction_events (request_id, organisation_id, event, actor_id, actor_role)
   values (p_request_id, v_req.organisation_id, 'withdrawn', v_uid, 'patient');
   return jsonb_build_object('request_id', p_request_id, 'status', 'withdrawn');
