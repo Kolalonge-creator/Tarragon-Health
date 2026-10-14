@@ -1,5 +1,6 @@
 import "server-only";
 import QRCode from "qrcode";
+import { BLOOD_VERIFICATION_LABEL } from "@tarragon/shared";
 
 /**
  * The emergency card's shared shape and its QR rendering.
@@ -107,12 +108,12 @@ export const BLOOD_PROVENANCE: Record<
   { label: string; tone: "confirmed" | "unconfirmed"; detail: string }
 > = {
   lab_document: {
-    label: "From a lab report on file",
+    label: BLOOD_VERIFICATION_LABEL.lab_verified,
     tone: "confirmed",
     detail: "Recorded by the care team from a laboratory report the patient uploaded.",
   },
   patient_attested: {
-    label: "Patient-reported, not confirmed",
+    label: BLOOD_VERIFICATION_LABEL.self_reported,
     tone: "unconfirmed",
     detail:
       "The patient told us this themselves and no lab report has been seen. Treat it as a starting point, not a result.",

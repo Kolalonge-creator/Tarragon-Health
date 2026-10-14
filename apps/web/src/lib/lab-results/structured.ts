@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { rangeMayBeShownAsClinical, rangeSourceLabel } from "@tarragon/shared";
 import { LAB_UNIT_CONVERSIONS, LabEntryError, toCanonicalUnit } from "@tarragon/clinical/lab-units";
 
 /**
@@ -147,6 +148,9 @@ const myItemSchema = z.object({
   unit: z.string(),
   ref_low: z.number().nullable(),
   ref_high: z.number().nullable(),
+  // S05b: where the range came from. Optional so a payload from before the column existed still parses (it then reads "Range not specified").
+  range_source: z.string().nullish(),
+  range_source_ref: z.string().nullish(),
   flag: z.enum(["normal", "low", "high", "critical", "positive", "negative"]),
   sensitive_positive: z.boolean().optional(),
 });
@@ -219,6 +223,26 @@ export function formatRange(low: number | null, high: number | null, unit: strin
   if (high !== null) return `up to ${high} ${unit}`;
   if (low !== null) return `${low} or more ${unit}`;
   return "";
+}
+
+/**
+ * What to show in a Reference cell (S05b): the range only when its source is known, always with the source line.
+ * A range with no known source is not shown as a number at all; the line says "Range not specified".
+ */
+export function describeRangeWithSource(
+  item: { ref_low: number | null; ref_high: number | null; unit: string; range_source?: string | null; range_source_ref?: string | null },
+  options: { showUnsignedProposed?: boolean } = {},
+): { range: string; sourceLabel: string } {
+  // a qualitative analyte (positive or negative) has no range at all: nothing to label, nothing printed
+  if (item.ref_low === null && item.ref_high === null) return { range: "", sourceLabel: "" };
+  if (rangeMayBeShownAsClinical(item.range_source)) {
+    return { range: formatRange(item.ref_low, item.ref_high, item.unit), sourceLabel: rangeSourceLabel(item.range_source, item.range_source_ref) };
+  }
+  // 'proposed_unsigned' is computed by the read functions (never stored): the reviewing clinician may see it, labelled as exactly that
+  if (options.showUnsignedProposed && item.range_source === "proposed_unsigned") {
+    return { range: formatRange(item.ref_low, item.ref_high, item.unit), sourceLabel: `Range not signed: ${item.range_source_ref ?? "proposed panel range"}` };
+  }
+  return { range: "", sourceLabel: rangeSourceLabel("unspecified") };
 }
 
 /** The audit-safe refusal the review functions return instead of raising (so the denied audit row commits). */

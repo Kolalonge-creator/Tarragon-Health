@@ -12,6 +12,7 @@ export type VersionedGovernedTable =
   | "vaccination_schedule_signoffs"
   | "result_release_policies"
   | "lab_panel_signoffs"
+  | "prn_limit_rules"
   | "my_health_config"
   | "home_bp_programme_signoffs";
 
