@@ -913,6 +913,41 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S19.md; spec 7.9",
   },
   {
+    key: "paging.delivery_rules",
+    // Red event pager delivery (S19c, S16-S20 review Stage 1, CMO decisions 9, 10, 11 and 15). Live values are the active row of
+    // `paging_delivery_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
+    // delivered_ack_seconds: a page never shown on the paged clinician's console or device after this long pages the next person
+    // early (the 5 and 10 minute timers in paging.rules stay). reconcile_after_seconds / reconcile_lookback_hours: a red triage event
+    // with no page after the first is paged by the reconciler; it looks back this many hours. merge_window_minutes: a repeat red event
+    // for a patient with an open page family joins it instead of ringing again. engine_heartbeat_stale_seconds: older than this a
+    // paging engine heartbeat is stale and opens an incident. device_seen_stale_minutes: an on-call console not seen for this long
+    // is shown as silent. readiness_test_page_days: on-call needs a test page acknowledged within this many days.
+    // test_page_min_interval_seconds: the least time between two test pages to one clinician. objective_readiness_required:
+    // 1 = on-call also needs a working push subscription, a verified email and a recent test page; 0 = checklist only.
+    // first_hop_safe_*: a blood pressure reading inside this band is queued on the normal 15 second cron; outside it (or with no band)
+    // the event is urgent and nudges process-events at once. It only chooses speed: every reading is graded either way.
+    value: {
+      delivered_ack_seconds: 90,
+      reconcile_after_seconds: 60,
+      reconcile_lookback_hours: 24,
+      merge_window_minutes: 30,
+      engine_heartbeat_stale_seconds: 120,
+      device_seen_stale_minutes: 10,
+      readiness_test_page_days: 7,
+      test_page_min_interval_seconds: 120,
+      first_hop_safe_systolic_min: 100,
+      first_hop_safe_systolic_max: 139,
+      first_hop_safe_diastolic_min: 60,
+      first_hop_safe_diastolic_max: 89,
+      objective_readiness_required: 1,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-14",
+    source: "docs/design/S16-S20-pager-delivery.md; docs/plans/S16-S20-review-and-build-plan.md section 5, decisions 9, 10, 11, 15",
+  },
+  {
     key: "free_red_event.rules",
     // Two-tier (CMO decision 2026-10-08, C2): the Free red-event path. Live values are the active row of `free_red_config`; this
     // entry mirrors it and a test fails if the migration seed and this value drift. recheck_minutes: when the Free patient is

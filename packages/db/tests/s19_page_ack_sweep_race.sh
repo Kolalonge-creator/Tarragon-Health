@@ -111,6 +111,11 @@ begin
       returning id into v_staff;
     insert into public.clinician_competencies (organisation_id, clinical_staff_id, competency_code, granted_by, is_test) values (v_org, v_staff, 'on_call', v_admin, true);
     insert into public.on_call_readiness (clinician_id, checklist_version, organisation_id, items, is_test) values (r.id, private.readiness_version(), v_org, private.readiness_items(), true);
+    -- S19c (P9): objective readiness too: a working push subscription and an acknowledged test page (the email is already confirmed)
+    insert into public.push_subscriptions (organisation_id, profile_id, endpoint, p256dh_key, auth_key) values (v_org, r.id, 'https://push.example.invalid/' || r.id, 'k', 'a');
+    perform set_config('tarragon.paging_write', 'on', true);
+    insert into public.page_tests (organisation_id, clinician_id, kind, acknowledged_at, delivered_at, is_test) values (v_org, r.id, 'readiness', now(), now(), true);
+    perform set_config('tarragon.paging_write', 'off', true);
   end loop;
   insert into public.triage_rule_sets (code, version, status, rules, approved_by, approved_at, note)
     values ('$TAG', 1, 'approved', jsonb_build_object('code', '$TAG', 'version', 1), v_cmo, now(), 'S19 race proof fixture');

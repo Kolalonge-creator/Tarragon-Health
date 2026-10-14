@@ -68,6 +68,11 @@ begin
     insert into public.clinician_competencies (organisation_id, clinical_staff_id, competency_code, granted_by, is_test) values (p_org, v_staff, c, p_admin, true);
   end loop;
   insert into public.on_call_readiness (clinician_id, checklist_version, organisation_id, items, is_test) values (v, private.readiness_version(), p_org, private.readiness_items(), true);
+  -- S19c (P9): objective readiness too: a working push subscription and an acknowledged test page (the email is already confirmed)
+  insert into public.push_subscriptions (organisation_id, profile_id, endpoint, p256dh_key, auth_key) values (p_org, v, 'https://push.example.invalid/' || v, 'k', 'a');
+  perform set_config('tarragon.paging_write', 'on', true);
+  insert into public.page_tests (organisation_id, clinician_id, kind, acknowledged_at, delivered_at, is_test) values (p_org, v, 'readiness', now(), now(), true);
+  perform set_config('tarragon.paging_write', 'off', true);
   return v;
 end $f$;
 
