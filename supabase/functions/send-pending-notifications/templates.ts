@@ -1615,6 +1615,37 @@ export const TEMPLATE_MAP: Record<
       text: "We are checking in on you.\n\nOpen Tarragon Health to tell us how you are.\n\nTarragon Health",
     },
   }),
+  // S16-S20 D2: a clinical task escalated (task_escalation_alert, classes 1 and 2: in-app, push and email at critical priority, from
+  // private.notify_task_escalated) and the daily digest of the rest (queue_backlog_digest). Fixed neutral wording (INV-07): no
+  // condition, reading, name or result, and nothing from the payload is echoed. Never sent by SMS or WhatsApp.
+  task_escalation_alert: () => ({
+    smsText: "A clinical task needs attention. Open Tarragon Health. Tarragon Health",
+    pushUrl: "/clinician/queue",
+    email: {
+      subject: "A clinical task needs attention",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>A clinical task has passed its time and is now escalated.</p>` +
+        `<p>Open Tarragon Health to see where it stands.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "A clinical task has passed its time and is now escalated.\n\nOpen Tarragon Health to see where it stands.\n\nTarragon Health",
+    },
+  }),
+  queue_backlog_digest: () => ({
+    smsText: "Escalated clinical tasks are waiting. Open Tarragon Health. Tarragon Health",
+    pushUrl: "/clinician/queue",
+    email: {
+      subject: "Escalated clinical tasks are waiting",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Some clinical tasks have been waiting longer than planned.</p>` +
+        `<p>Open Tarragon Health to see them and how long they have waited.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Some clinical tasks have been waiting longer than planned.\n\nOpen Tarragon Health to see them and how long they have waited.\n\nTarragon Health",
+    },
+  }),
   // S19: a red event page to the clinician on call (on_call_page) and the alert to the clinical lead and ops when nobody
   // has acknowledged it (on_call_escalation). Sent as push, in-app and email together at critical priority. The wording
   // is fixed and neutral (INV-07): no condition, reading, name or result, and nothing from the payload is echoed.

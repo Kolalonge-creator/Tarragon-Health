@@ -163,9 +163,12 @@ begin
   perform pg_temp.backdate(t2, 'lead_window_ends_at = now() - interval ''1 minute'', due_at = now() - interval ''1 minute''');
   perform private.sweep_clinical_tasks();
   perform pg_temp.rec('D1: a lapsed offer that is also past due ends escalated', 'escalated', pg_temp.state_of(t2));
-  perform pg_temp.rec('D1: ...having passed through open', 'offered_to_lead>open>escalated',
-    (select string_agg(to_state::text, '>' order by created_at, id) from (
-       select to_state, created_at, id from public.clinical_task_transitions where task_id = t2 and to_state <> 'created' and from_state is not null order by created_at, id) x));
+  -- (one transaction, so created_at ties: the order is proved by the from_state of each move, not by time)
+  perform pg_temp.rec('D1: ...having first been released to the pool (offered_to_lead to open, then open to escalated)', '1,1',
+    (select count(*) filter (where from_state = 'offered_to_lead' and to_state = 'open')::text || ',' || count(*) filter (where from_state = 'open' and to_state = 'escalated')::text
+       from public.clinical_task_transitions where task_id = t2));
+  perform pg_temp.rec('D1: ...and not escalated straight from the offer', '0',
+    (select count(*)::text from public.clinical_task_transitions where task_id = t2 and from_state = 'offered_to_lead' and to_state = 'escalated'));
 
   -- an escalated task that is not red is claimable by any eligible clinician; a red one still needs on_call
   perform private.apply_task_transition(t, 'cancelled', 'lead', null, 'proof: clearing the pool for the next check');

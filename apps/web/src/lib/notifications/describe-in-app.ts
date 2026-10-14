@@ -710,6 +710,16 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "on_call_unfinished") {
     return { text: "A priority case is acknowledged but still open", href: "/rota" };
   }
+  if (n.template === "task_escalation_alert") {
+    // From private.notify_task_escalated (S16-S20 D2): fixed neutral line for the clinical lead, nothing from the payload (INV-07).
+    return { text: "A clinical task needs attention now", href: "/clinician/queue" };
+  }
+  if (n.template === "queue_backlog_notice") {
+    return { text: "A clinical task is waiting longer than planned", href: "/clinician/queue" };
+  }
+  if (n.template === "queue_backlog_digest") {
+    return { text: "Escalated clinical tasks are waiting", href: "/clinician/queue" };
+  }
   if (n.template === "on_call_escalation") {
     return { text: "A priority case has not been picked up", href: "/rota" };
   }
