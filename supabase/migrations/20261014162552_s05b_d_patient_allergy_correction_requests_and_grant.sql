@@ -1,0 +1,332 @@
+-- S05b-d: a patient's own allergy correction waits for a clinician; then the correction function is opened to signed-in users.
+--
+-- FOUNDER DECISION (2026-10-14, chosen in chat, docs/DECISIONS.md): when a PATIENT voids or corrects an allergy she entered herself and
+-- that no clinician verified, her request is saved but the ORIGINAL allergy stays active (prescription safety, the emergency card and every
+-- reader) until a clinician confirms. A clinician tied to the patient (not a care coordinator) corrects immediately, as before. Reason: an
+-- allergy is the one entry where a wrong removal can hurt (a prescription blocked today is allowed tomorrow), and the S05b-c review had
+-- flagged this as an open risk before the grant.
+--
+-- WHAT THIS ADDS
+--   1. private.is_correcting_clinician(patient): the exact "tied, active, not a care coordinator" test that correct_clinical_value uses.
+--   2. public.patient_allergy_correction_requests (the pending request) and public.patient_allergy_correction_events (append only: who
+--      asked, who confirmed or rejected, when). Clients can only read; every write goes through the functions below. The patient sees her
+--      own requests; a tied clinician sees the requests of her patients.
+--   3. The patient path of public.correct_clinical_value on patient_allergies now creates the request (via
+--      private.request_patient_allergy_correction) and returns status 'pending'. Nothing on the allergy row changes. Every other table, and
+--      every clinician call, is unchanged (the vitals patient guards are untouched).
+--   4. public.confirm_patient_allergy_correction: the tied clinician confirms; it calls correct_clinical_value itself, so the original is
+--      marked and the replacement inserted in one transaction by the same supersede path (replacement stored as a clinician entry).
+--      public.reject_patient_allergy_correction: the original is untouched; the patient gets one in-app notice with no clinical words.
+--   5. public.my_corrected_record_entries(): the patient's own superseded values, so her data export is complete (S05b-c checklist item 5).
+--   6. THE GRANT (last step): execute on correct_clinical_value to authenticated, revoked from public and anon.
+--
+-- THE S05b-c GRANT CHECKLIST (docs/design/S05b.md section 6), how each item is met:
+--   (1) proof and full replay on a real database: run on a local stack before this was written (both S05b proofs pass) and again with this
+--       migration; (2) the nine writers that read every row are intended; (3) care_plans.patient_condition_id: no function and no app
+--       code reads the column, the foreign key stays valid, repointing is not done (care_plans carries signed-change triggers);
+--       (4) alerts raised for an original reading: no reader joins an alert to its reading (they only test that the id is set), an alert
+--       stays open for the clinician who made the correction to resolve, and a patient cannot correct a reading that has one;
+--       (5) the export: my_corrected_record_entries below; (6) a `select *` view freezes its column list: the self-check at the end fails
+--       if a _current view no longer has exactly the columns of its table, so the next added column fails the replay instead of hiding.
+-- The S05b-a and S05b-c self-checks in their own (already applied) files still say "authenticated must not execute": they were true at the
+-- time they ran in the replay and stay as history; the assertion that holds from here on is the one at the end of THIS migration and in
+-- the proofs.
+-- Counted first: patient_allergies had 0 rows live when S05b-a was written; no request table exists yet, nothing to convert.
+
+-- 1. The clinician test --------------------------------------------------------------------------------------------------------------
+create function private.is_correcting_clinician(p_patient uuid) returns boolean
+language sql stable security definer set search_path = '' as
+$$
+  select exists (
+    select 1 from public.clinical_staff cs
+     where cs.profile_id = (select auth.uid()) and cs.active and cs.doctor_tier is not null and cs.doctor_tier <> 'care_coordinator'
+  ) and private.clinician_has_patient_access(p_patient)
+$$;
+revoke all on function private.is_correcting_clinician(uuid) from public, anon;
+grant execute on function private.is_correcting_clinician(uuid) to authenticated, service_role;
+
+-- 2. The request and its audit trail -------------------------------------------------------------------------------------------------
+create table public.patient_allergy_correction_requests (
+  id uuid primary key default gen_random_uuid(),
+  organisation_id uuid not null references public.organisations (id),
+  patient_id uuid not null references public.profiles (id) on delete cascade,
+  allergy_id uuid not null references public.patient_allergies (id),
+  requested_status public.correction_status not null check (requested_status in ('corrected', 'amended', 'entered_in_error')),
+  reason text not null check (length(btrim(reason)) >= 5),
+  replacement jsonb check (replacement is null or jsonb_typeof(replacement) = 'object'),
+  status text not null default 'pending' check (status in ('pending', 'confirmed', 'rejected', 'void')),
+  decided_by uuid references public.profiles (id) on delete set null,
+  decided_at timestamptz,
+  decision_note text,
+  replacement_id uuid,
+  created_at timestamptz not null default now(),
+  check ((status = 'pending') = (decided_at is null)),
+  check (requested_status = 'entered_in_error' or replacement is not null)
+);
+create unique index patient_allergy_correction_one_pending on public.patient_allergy_correction_requests (allergy_id) where status = 'pending';
+create index patient_allergy_correction_patient_idx on public.patient_allergy_correction_requests (patient_id, status);
+
+create table public.patient_allergy_correction_events (
+  id uuid primary key default gen_random_uuid(),
+  request_id uuid not null references public.patient_allergy_correction_requests (id) on delete cascade,
+  organisation_id uuid not null references public.organisations (id),
+  event text not null check (event in ('requested', 'confirmed', 'rejected', 'void')),
+  actor_id uuid,
+  actor_role text not null check (actor_role in ('patient', 'clinician', 'system')),
+  note text,
+  at timestamptz not null default now()
+);
+create index patient_allergy_correction_events_request_idx on public.patient_allergy_correction_events (request_id);
+
+-- Append only. A cascade from the parent request (a removed test account) is the one delete that may pass: it fires at depth 2.
+create function private.patient_allergy_correction_events_append_only() returns trigger language plpgsql set search_path = '' as
+$$
+begin
+  if tg_op = 'DELETE' and pg_trigger_depth() > 1 then return old; end if;
+  raise exception 'the correction audit trail is append only' using errcode = '42501';
+end $$;
+revoke all on function private.patient_allergy_correction_events_append_only() from public, anon, authenticated;
+create trigger patient_allergy_correction_events_append_only before update or delete on public.patient_allergy_correction_events
+  for each row execute function private.patient_allergy_correction_events_append_only();
+
+-- A request can only be created or decided by the functions below (they run as postgres); a decided request is final.
+create function private.patient_allergy_correction_requests_guard() returns trigger language plpgsql set search_path = '' as
+$$
+begin
+  if current_user not in ('postgres', 'supabase_admin') then
+    raise exception 'correction requests are created and decided through the correction functions only' using errcode = '42501';
+  end if;
+  if tg_op = 'UPDATE' then
+    if old.status <> 'pending' then raise exception 'this correction request was already decided' using errcode = '42501'; end if;
+    if new.patient_id is distinct from old.patient_id or new.allergy_id is distinct from old.allergy_id
+       or new.organisation_id is distinct from old.organisation_id or new.requested_status is distinct from old.requested_status
+       or new.reason is distinct from old.reason or new.replacement is distinct from old.replacement or new.created_at is distinct from old.created_at then
+      raise exception 'a correction request cannot be edited' using errcode = '42501';
+    end if;
+  end if;
+  return new;
+end $$;
+revoke all on function private.patient_allergy_correction_requests_guard() from public, anon, authenticated;
+create trigger patient_allergy_correction_requests_guard before insert or update on public.patient_allergy_correction_requests
+  for each row execute function private.patient_allergy_correction_requests_guard();
+
+alter table public.patient_allergy_correction_requests enable row level security;
+alter table public.patient_allergy_correction_events enable row level security;
+create policy patient_allergy_correction_requests_select on public.patient_allergy_correction_requests
+  for select to authenticated
+  using (patient_id = (select auth.uid()) or private.is_correcting_clinician(patient_id));
+create policy patient_allergy_correction_events_select on public.patient_allergy_correction_events
+  for select to authenticated
+  using (exists (select 1 from public.patient_allergy_correction_requests r where r.id = request_id));
+-- table privileges: the default grant to authenticated is more than these tables allow (RLS has no write policy, the grant is cut too)
+revoke all on public.patient_allergy_correction_requests, public.patient_allergy_correction_events from public, anon, authenticated;
+grant select on public.patient_allergy_correction_requests, public.patient_allergy_correction_events to authenticated;
+
+-- Under-18 dependant scope (S04b-1): a clinical patient table is guarded like patient_allergies itself (a proof fails for an unclassified one).
+select private.guard_minor_dependant_table('patient_allergy_correction_requests', 'patient_id');
+
+-- S39d data registry: every patient-keyed table is registered (the S39d proof asserts it). Default classification, marked unreviewed.
+insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, notes)
+select t, 'patient_id', private.retention_class_for(t),
+       case when private.retention_class_for(t) = 'operational' then 'delete' else 'review' end,
+       private.retention_class_for(t) <> 'audit',
+       'Registered with the default S39d classification when the allergy correction requests were added (S05b-d); awaiting review.'
+  from unnest(array['patient_allergy_correction_requests']) as t
+on conflict (table_name) do nothing;
+
+-- 3. Patient path: save the request, change nothing -----------------------------------------------------------------------------------
+create function private.request_patient_allergy_correction(p_id uuid, p_status public.correction_status, p_reason text, p_replacement jsonb)
+returns jsonb language plpgsql security definer set search_path = '' as
+$$
+declare
+  v_uid uuid := (select auth.uid());
+  v_al public.patient_allergies;
+  v_key text;
+  v_probe public.patient_allergies;
+  v_req uuid;
+begin
+  if v_uid is null then raise exception 'sign in to correct a record' using errcode = '42501'; end if;
+  select * into v_al from private.patient_allergies_current where id = p_id;   -- a definer reader: the current entries only (S05b-c rule)
+  if v_al.id is null or v_al.patient_id <> v_uid then raise exception 'you cannot correct this record' using errcode = '42501'; end if;
+  if p_status not in ('corrected', 'amended', 'entered_in_error') then
+    raise exception 'a patient cannot request status %', p_status using errcode = '42501';
+  end if;
+  if p_status in ('corrected', 'amended') then
+    for v_key in select jsonb_object_keys(p_replacement) loop
+      if v_key not in ('allergen', 'reaction', 'severity') then
+        raise exception 'column % cannot be part of a correction', v_key using errcode = '22023';
+      end if;
+    end loop;
+    -- the values must be valid now (a bad severity fails here, not weeks later in front of the clinician)
+    v_probe := jsonb_populate_record(v_al, p_replacement);
+    if v_probe.allergen is null or length(btrim(v_probe.allergen)) = 0 then
+      raise exception 'an allergy needs a name' using errcode = '22023';
+    end if;
+  end if;
+  if exists (select 1 from public.patient_allergy_correction_requests where allergy_id = p_id and status = 'pending') then
+    raise exception 'a request for this entry is already waiting for your care team' using errcode = '22023';
+  end if;
+
+  insert into public.patient_allergy_correction_requests (organisation_id, patient_id, allergy_id, requested_status, reason, replacement)
+  values (v_al.organisation_id, v_uid, p_id, p_status, btrim(p_reason), case when p_status = 'entered_in_error' then null else p_replacement end)
+  returning id into v_req;
+  insert into public.patient_allergy_correction_events (request_id, organisation_id, event, actor_id, actor_role) values (v_req, v_al.organisation_id, 'requested', v_uid, 'patient');
+
+  return jsonb_build_object('table', 'patient_allergies', 'original_id', p_id, 'replacement_id', null, 'status', 'pending', 'request_id', v_req);
+end;
+$$;
+revoke all on function private.request_patient_allergy_correction(uuid, public.correction_status, text, jsonb) from public, anon, authenticated;
+
+-- patch correct_clinical_value in place from its live definition: the patient path on an allergy becomes the request
+do $$
+declare
+  v_def text;
+  v_anchor constant text := E'raise exception ''this entry was already superseded'' using errcode = ''22023'';\n  end if;\n';
+  v_add constant text :=
+    E'  -- S05b-d: a patient''s own allergy correction is only a request until a clinician confirms; the original stays active meanwhile\n'
+    || E'  if not v_is_staff and p_table = ''patient_allergies'' then\n'
+    || E'    return private.request_patient_allergy_correction(p_id, p_status, p_reason, p_replacement);\n'
+    || E'  end if;\n';
+begin
+  select pg_get_functiondef(p.oid) into v_def from pg_proc p
+   where p.proname = 'correct_clinical_value' and p.pronamespace = 'public'::regnamespace;
+  if v_def is null or position(v_anchor in v_def) = 0 then
+    raise exception 'correct_clinical_value: expected statement not found, refusing to guess';
+  end if;
+  execute replace(v_def, v_anchor, v_anchor || v_add);
+end $$;
+
+-- 4. The clinician decides -----------------------------------------------------------------------------------------------------------
+create function public.confirm_patient_allergy_correction(p_request_id uuid, p_note text default null) returns jsonb
+language plpgsql security definer set search_path = '' as
+$$
+declare
+  v_uid uuid := (select auth.uid());
+  v_req public.patient_allergy_correction_requests;
+  v_al_status public.correction_status;
+  v_res jsonb;
+begin
+  if v_uid is null then raise exception 'sign in first' using errcode = '42501'; end if;
+  select * into v_req from public.patient_allergy_correction_requests where id = p_request_id for update;
+  -- one answer for missing and not permitted
+  if v_req.id is null or not private.is_correcting_clinician(v_req.patient_id) then
+    raise exception 'you cannot resolve this request' using errcode = '42501';
+  end if;
+  if v_req.status <> 'pending' then raise exception 'this request was already decided' using errcode = '22023'; end if;
+
+  -- reads the base table on purpose: it must see a row that was already marked (the other writers that read every row are listed in S05b-c)
+  select correction_status into v_al_status from public.patient_allergies where id = v_req.allergy_id for update;
+  if v_al_status is not null then
+    -- the entry was changed some other way meanwhile: nothing left to apply
+    update public.patient_allergy_correction_requests set status = 'void', decided_by = v_uid, decided_at = now(), decision_note = 'entry already changed' where id = p_request_id;
+    insert into public.patient_allergy_correction_events (request_id, organisation_id, event, actor_id, actor_role, note) values (p_request_id, v_req.organisation_id, 'void', v_uid, 'clinician', 'entry already changed');
+    return jsonb_build_object('request_id', p_request_id, 'status', 'void');
+  end if;
+
+  -- the same supersede path as any clinician correction (original marked, replacement inserted, one transaction)
+  v_res := public.correct_clinical_value('patient_allergies', v_req.allergy_id, v_req.requested_status,
+                                         v_req.reason || ' (requested by the patient, confirmed by a clinician)', v_req.replacement);
+  update public.patient_allergy_correction_requests
+     set status = 'confirmed', decided_by = v_uid, decided_at = now(), decision_note = nullif(btrim(p_note), ''),
+         replacement_id = nullif(v_res ->> 'replacement_id', '')::uuid
+   where id = p_request_id;
+  insert into public.patient_allergy_correction_events (request_id, organisation_id, event, actor_id, actor_role, note)
+  values (p_request_id, v_req.organisation_id, 'confirmed', v_uid, 'clinician', nullif(btrim(p_note), ''));
+  return v_res || jsonb_build_object('request_id', p_request_id, 'status', v_req.requested_status);
+end;
+$$;
+
+create function public.reject_patient_allergy_correction(p_request_id uuid, p_note text default null) returns jsonb
+language plpgsql security definer set search_path = '' as
+$$
+declare
+  v_uid uuid := (select auth.uid());
+  v_req public.patient_allergy_correction_requests;
+begin
+  if v_uid is null then raise exception 'sign in first' using errcode = '42501'; end if;
+  select * into v_req from public.patient_allergy_correction_requests where id = p_request_id for update;
+  if v_req.id is null or not private.is_correcting_clinician(v_req.patient_id) then
+    raise exception 'you cannot resolve this request' using errcode = '42501';
+  end if;
+  if v_req.status <> 'pending' then raise exception 'this request was already decided' using errcode = '22023'; end if;
+
+  update public.patient_allergy_correction_requests
+     set status = 'rejected', decided_by = v_uid, decided_at = now(), decision_note = nullif(btrim(p_note), '')
+   where id = p_request_id;
+  insert into public.patient_allergy_correction_events (request_id, organisation_id, event, actor_id, actor_role, note)
+  values (p_request_id, v_req.organisation_id, 'rejected', v_uid, 'clinician', nullif(btrim(p_note), ''));
+  -- in-app only, and no clinical word: the entry's name and the clinician's note are never in the notice (INV-07, INV-08)
+  insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class)
+  values (v_req.organisation_id, v_req.patient_id, 'in_app', 'pending', 'record_change_not_confirmed',
+          jsonb_build_object('request_id', p_request_id), 'non_clinical');
+  return jsonb_build_object('request_id', p_request_id, 'status', 'rejected');
+end;
+$$;
+revoke all on function public.confirm_patient_allergy_correction(uuid, text), public.reject_patient_allergy_correction(uuid, text) from public, anon;
+grant execute on function public.confirm_patient_allergy_correction(uuid, text), public.reject_patient_allergy_correction(uuid, text) to authenticated;
+
+-- 5. The patient's own superseded values (for her data export) ------------------------------------------------------------------------
+create function public.my_corrected_record_entries() returns jsonb
+language plpgsql stable security definer set search_path = '' as
+$$
+declare
+  v_uid uuid := (select auth.uid());
+  v_out jsonb := '{}'::jsonb;
+  t text;
+  v_rows jsonb;
+begin
+  if v_uid is null then raise exception 'sign in first' using errcode = '42501'; end if;
+  foreach t in array array['vitals_readings', 'patient_conditions', 'patient_allergies', 'lab_analyte_readings'] loop
+    execute format(
+      $q$select coalesce(jsonb_agg(to_jsonb(x) - 'search_vector' - 'validated_by' - 'logged_by_profile_id' - 'validation_flags' - 'corrected_by' - 'recorded_by' - 'verified_by' order by x.corrected_at), '[]'::jsonb)
+           from public.%I x where x.patient_id = $1 and x.correction_status is not null$q$, t) into v_rows using v_uid;
+    v_out := v_out || jsonb_build_object(t, v_rows);
+  end loop;
+  return v_out;
+end;
+$$;
+revoke all on function public.my_corrected_record_entries() from public, anon;
+grant execute on function public.my_corrected_record_entries() to authenticated;
+
+-- 6. THE GRANT (last step) -------------------------------------------------------------------------------------------------------------
+revoke all on function public.correct_clinical_value(text, uuid, public.correction_status, text, jsonb) from public, anon;
+grant execute on function public.correct_clinical_value(text, uuid, public.correction_status, text, jsonb) to authenticated;
+
+-- 7. Self-check ------------------------------------------------------------------------------------------------------------------------
+do $$
+declare
+  t text;
+  v_cols_table text;
+  v_cols_view text;
+  f text;
+begin
+  if not has_function_privilege('authenticated', 'public.correct_clinical_value(text, uuid, public.correction_status, text, jsonb)', 'EXECUTE') then
+    raise exception 'authenticated cannot execute correct_clinical_value';
+  end if;
+  if has_function_privilege('anon', 'public.correct_clinical_value(text, uuid, public.correction_status, text, jsonb)', 'EXECUTE') then
+    raise exception 'anon can execute correct_clinical_value (it inherits through PUBLIC: revoke from public)';
+  end if;
+  foreach f in array array['public.confirm_patient_allergy_correction(uuid, text)', 'public.reject_patient_allergy_correction(uuid, text)', 'public.my_corrected_record_entries()'] loop
+    if has_function_privilege('anon', f, 'EXECUTE') or not has_function_privilege('authenticated', f, 'EXECUTE') then
+      raise exception 'wrong execute grants on %', f;
+    end if;
+  end loop;
+  if has_function_privilege('authenticated', 'private.request_patient_allergy_correction(uuid, public.correction_status, text, jsonb)', 'EXECUTE') then
+    raise exception 'authenticated can call the request function directly';
+  end if;
+  foreach f in array array['public.patient_allergy_correction_requests', 'public.patient_allergy_correction_events'] loop
+    if has_table_privilege('authenticated', f, 'INSERT') or has_table_privilege('authenticated', f, 'UPDATE')
+       or has_table_privilege('authenticated', f, 'DELETE') or has_table_privilege('authenticated', f, 'TRUNCATE') then
+      raise exception '% is writable by authenticated', f;
+    end if;
+  end loop;
+  -- checklist item 6: a _current view is `select *` frozen at creation, so it must keep exactly the columns of its table
+  foreach t in array array['vitals_readings', 'patient_conditions', 'patient_allergies', 'lab_analyte_readings'] loop
+    select string_agg(column_name, ',' order by column_name) into v_cols_table from information_schema.columns where table_schema = 'public' and table_name = t;
+    select string_agg(a.attname, ',' order by a.attname) into v_cols_view
+      from pg_attribute a where a.attrelid = ('private.' || t || '_current')::regclass and a.attnum > 0 and not a.attisdropped;
+    if v_cols_table is distinct from v_cols_view then
+      raise exception 'private.%_current is out of step with public.%: add the new column to the view', t, t;
+    end if;
+  end loop;
+end $$;

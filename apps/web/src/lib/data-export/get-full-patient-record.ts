@@ -64,6 +64,22 @@ export interface FullPatientRecordExport {
     createdAt: string;
   }[];
   carePlans: Database["public"]["Tables"]["care_plans"]["Row"][];
+  /**
+   * S05b-d: the values that were corrected or voided. The lists above hold the current record only (a superseded or entered-in-error row is
+   * hidden from every read), but the replaced value is still the patient's own data and a complete copy includes it. Keyed by table, each
+   * row marked with correction_status, correction_reason and corrected_at; staff identifiers are left out by the database function.
+   */
+  correctedEntries: Record<string, unknown[]>;
+}
+
+/** The database function returns an object keyed by table name; anything else is an empty history, never a failed export. */
+export function readCorrectedEntries(data: unknown): Record<string, unknown[]> {
+  const out: Record<string, unknown[]> = {};
+  if (data === null || typeof data !== "object" || Array.isArray(data)) return out;
+  for (const [table, rows] of Object.entries(data as Record<string, unknown>)) {
+    out[table] = Array.isArray(rows) ? rows : [];
+  }
+  return out;
 }
 
 export async function getFullPatientRecordExport(
@@ -79,6 +95,7 @@ export async function getFullPatientRecordExport(
     labRes,
     screeningRes,
     carePlansRes,
+    correctedRes,
   ] = await Promise.all([
     supabase
       .from("profiles")
@@ -97,6 +114,7 @@ export async function getFullPatientRecordExport(
       .select("status, due_date, screen_types(name), screening_results(result_status, result_summary, created_at)")
       .eq("patient_id", patientId),
     supabase.from("care_plans").select("*").eq("patient_id", patientId).order("created_at", { ascending: false }),
+    supabase.rpc("my_corrected_record_entries"),
   ]);
 
   if (profileRes.error) throw profileRes.error;
@@ -107,6 +125,7 @@ export async function getFullPatientRecordExport(
   if (labRes.error) throw labRes.error;
   if (screeningRes.error) throw screeningRes.error;
   if (carePlansRes.error) throw carePlansRes.error;
+  if (correctedRes.error) throw correctedRes.error;
 
   const profile = profileRes.data;
 
@@ -148,5 +167,6 @@ export async function getFullPatientRecordExport(
       };
     }),
     carePlans: carePlansRes.data ?? [],
+    correctedEntries: readCorrectedEntries(correctedRes.data),
   };
 }
