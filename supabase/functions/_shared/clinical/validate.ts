@@ -58,7 +58,7 @@ const TRIGGERS = ["observation", "adherence", "silence"];
 const ANCHORS = ["reading", "week", "lastReadingDate"];
 const ACTION_KINDS = ["show_emergency_guidance", "page_on_call", "show_message", "prompt_recheck", "ask_symptoms", "route_referral", "create_task"];
 
-function conditionErrors(cond: unknown, at: string, rs: Record<string, unknown>, known: ReadonlySet<string>): string[] {
+export function conditionErrors(cond: unknown, at: string, rs: Record<string, unknown>, known: ReadonlySet<string>): string[] {
   if (!isObj(cond)) return [`${at}: condition must be an object`];
   if ("all" in cond || "any" in cond) {
     const list = cond.all ?? cond.any;
@@ -82,7 +82,7 @@ function conditionErrors(cond: unknown, at: string, rs: Record<string, unknown>,
   return errors;
 }
 
-function actionErrors(action: unknown, at: string): string[] {
+export function actionErrors(action: unknown, at: string): string[] {
   if (!isObj(action) || typeof action.kind !== "string" || !ACTION_KINDS.includes(action.kind)) return [`${at}: bad action`];
   if (action.kind === "create_task") {
     const ok =

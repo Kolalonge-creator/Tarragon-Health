@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 import { isClinicalTier } from "@/lib/clinical/doctor-tier";
 import { DoctorNameLink } from "@/components/doctor-name-link";
+import { LicenceVerifiedForClient } from "@/components/licence-verified-client";
 import { DraftReplyCard } from "@/components/draft-reply-card";
 import { NAV_ICON } from "@/lib/icons";
 
@@ -48,7 +49,12 @@ function AuthorLabel({ message }: { message: CareMessage }) {
   // 'care_coordinator') must never render as "Dr. <coordinator's name>".
   if (message.author_role === "care_team") {
     if (message.actor?.full_name && isClinicalTier(message.actor)) {
-      return <DoctorNameLink staffId={message.actor.id} fullName={message.actor.full_name} />;
+      return (
+        <>
+          <DoctorNameLink staffId={message.actor.id} fullName={message.actor.full_name} />{" "}
+          <LicenceVerifiedForClient id={message.actor.id} />
+        </>
+      );
     }
     return <>Care team</>;
   }

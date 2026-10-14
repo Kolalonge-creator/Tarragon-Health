@@ -45648,6 +45648,25 @@ export type Database = {
         Returns: undefined
       }
       event_bus_health: { Args: never; Returns: Json }
+      chain_health: { Args: never; Returns: Json }
+      chain_reliability_report: { Args: { p_days?: number }; Returns: Json }
+      chain_canary_run_now: { Args: never; Returns: string }
+      triage_engine_parity: {
+        Args: { p_days?: number }
+        Returns: { engine_grade: string; engine_status: string; legacy_class: string; readings: number }[]
+      }
+      triage_engine_parity_cases: {
+        Args: { p_days?: number; p_limit?: number }
+        Returns: {
+          concern: string
+          created_at: string
+          engine_grade: string
+          engine_status: string
+          legacy_class: string
+          observation_id: string
+          triage_event_id: string
+        }[]
+      }
       replay_event_delivery: { Args: { p_delivery_id: string; p_redo_effects?: boolean }; Returns: boolean }
       event_bus_lag_sweep: { Args: { p_include_test?: boolean }; Returns: number }
       event_bus_explorer: {

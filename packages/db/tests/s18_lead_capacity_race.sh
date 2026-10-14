@@ -55,6 +55,7 @@ delete from public.audit_log where actor_id in (select id from public.profiles w
 delete from public.ops_incidents where (external_reference like 'lead_unassigned:%' or external_reference like 'rota_gap:%') and created_at >= '$START_TS';
 delete from public.clinician_competencies where clinical_staff_id in (select id from public.clinical_staff where full_name like '$TAG%');
 delete from public.clinical_staff where full_name like '$TAG%';
+delete from public.clinician_documents where owner_profile_id in (select id from public.profiles where full_name like '$TAG%');
 delete from auth.users where id in (select id from public.profiles where full_name like '$TAG%');
 delete from public.profiles where full_name like '$TAG%';
 SQL
@@ -70,7 +71,7 @@ pass() { PASS_LINES+=("PASS | $1"); }
 # Real (not test) clinicians for real patients: test and real never mix, and test assignments never count against capacity.
 psql_q <<SQL || fail "could not create fixtures"
 do \$\$
-declare v_org uuid; v_admin uuid := gen_random_uuid(); v_cmo uuid := gen_random_uuid(); v_u uuid; v_s uuid; i integer; c text;
+declare v_org uuid; v_admin uuid := gen_random_uuid(); v_cmo uuid := gen_random_uuid(); v_u uuid; v_s uuid; v_d uuid; i integer; c text;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   update public.clinical_staff set active = false where is_test is not true and full_name not like '$TAG%';
@@ -95,6 +96,12 @@ begin
         doctor_tier, employment_type, credentialing_level, max_lead_patients, languages, is_test)
       values (v_org, v_u, '$TAG doc ' || c, 'MDCN', '$TAG-' || c, true, 'active', now(), v_admin, 'senior_medical_officer', 'employed', 2, $CAP, '{en}', false)
       returning id into v_s;
+    -- P5 (CMO Q14): a real clinician takes lead patients only with a recorded MDCN / DataFlow verification, so each racing doctor has one
+    insert into public.clinician_documents (organisation_id, owner_profile_id, clinical_staff_id, kind, storage_path, mime_type, size_bytes, sha256, is_test)
+      values (v_org, v_u, v_s, 'mdcn_confirmation', v_org || '/' || v_u || '/psv-' || gen_random_uuid() || '.pdf', 'application/pdf', 1000, repeat('c', 64), true)
+      returning id into v_d;
+    insert into public.clinician_primary_source_verifications (organisation_id, clinical_staff_id, kind, route, reference, verified_on, verified_by, evidence_document_id, is_test)
+      values (v_org, v_s, 'initial', 'mdcn_dataflow', '$TAG-' || c, current_date, v_admin, v_d, true);
     insert into public.clinician_competencies (organisation_id, clinical_staff_id, competency_code, granted_by, is_test)
       select v_org, v_s, k, v_admin, false from unnest(array['lead_clinician', 'hypertension', 'on_call']) k;
     insert into public.on_call_readiness (clinician_id, checklist_version, organisation_id, items, is_test) values (v_u, private.readiness_version(), v_org, private.readiness_items(), false);

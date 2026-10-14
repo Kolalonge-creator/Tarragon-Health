@@ -6,9 +6,13 @@ import {
   isValidEmail,
   isValidKobo,
   isPaymentChannelList,
+  isValidSettlementId,
   isValidTransferReference,
+  normalisePage,
   type PaymentChannel,
   type PaymentProvider,
+  type SettlementSummary,
+  type SettlementTransaction,
   type TransactionStatus,
   type TransferReceipt,
   type TransferStatus,
@@ -34,6 +38,8 @@ export interface MockPaymentControl {
   setCustomerFee(reference: string, feeKobo: number): void;
   /** Makes the next call of any kind fail the way a dropped connection does. */
   failNextCall(): void;
+  /** Adds a settlement (what the processor pays out to the bank) with the charges in it. */
+  addSettlement(id: number, totalKobo: number, feesKobo: number, lines: readonly { reference: string; amountKobo: number; feesKobo?: number }[]): void;
   /** The channels the last initialise for this reference asked for (undefined when none were sent). */
   channelsFor(reference: string): readonly PaymentChannel[] | undefined;
   readonly secret: string;
@@ -56,6 +62,7 @@ export function createMockPayment(now: () => number = () => Date.now()): Payment
   const refunded = new Map<string, number>();
   const transfers = new Map<string, TransferReceipt>();
   const recipients = new Set<string>();
+  const settlements = new Map<number, { totalKobo: number; feesKobo: number; lines: SettlementTransaction[] }>();
   let failNext = false;
   let seq = 0;
 
@@ -108,6 +115,13 @@ export function createMockPayment(now: () => number = () => Date.now()): Payment
     },
     failNextCall() {
       failNext = true;
+    },
+    addSettlement(id, totalKobo, feesKobo, lines) {
+      settlements.set(id, {
+        totalKobo,
+        feesKobo,
+        lines: lines.map((l) => ({ reference: l.reference, amountKobo: l.amountKobo, feesKobo: l.feesKobo ?? 0, status: "success", paidAt: new Date(now()).toISOString() })),
+      });
     },
 
     async initializeTransaction(input) {
@@ -216,6 +230,27 @@ export function createMockPayment(now: () => number = () => Date.now()): Payment
       if (!isValidTransferReference(reference)) return fail("invalid_input", "Reference is not a valid transfer reference");
       const t = transfers.get(reference);
       return t ? ok(t) : fail("not_found", "No such transfer", false);
+    },
+
+    async listSettlements(input) {
+      const d = dropped();
+      if (d) return d;
+      const { page, perPage } = normalisePage(input.page, input.perPage);
+      const all = [...settlements.entries()].sort((a, b) => b[0] - a[0]);
+      const items: SettlementSummary[] = all
+        .slice((page - 1) * perPage, page * perPage)
+        .map(([id, v]) => ({ settlementId: String(id), status: "success", totalKobo: v.totalKobo, feesKobo: v.feesKobo, settledAt: new Date(now()).toISOString() }));
+      return ok({ items, hasMore: page * perPage < all.length });
+    },
+
+    async listSettlementTransactions(settlementId, pageInput) {
+      const d = dropped();
+      if (d) return d;
+      if (!isValidSettlementId(settlementId)) return fail("invalid_input", "Settlement id is not valid");
+      const v = settlements.get(Number(settlementId));
+      if (!v) return fail("not_found", "No such settlement", false);
+      const { page, perPage } = normalisePage(pageInput?.page, pageInput?.perPage);
+      return ok({ items: v.lines.slice((page - 1) * perPage, page * perPage), hasMore: page * perPage < v.lines.length });
     },
 
     async parseWebhook(rawBody, signatureHeader) {

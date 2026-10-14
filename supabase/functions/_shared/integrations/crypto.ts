@@ -8,6 +8,11 @@ export async function hmacHex(hash: "SHA-256" | "SHA-512", secret: string, body:
   return toHex(await crypto.subtle.sign("HMAC", key, enc.encode(body)));
 }
 
+/** SHA-256 of text as lower case hex. Used for content hashes (the inbox keys a forged body by its hash). */
+export async function sha256Hex(text: string): Promise<string> {
+  return toHex(await crypto.subtle.digest("SHA-256", enc.encode(text)));
+}
+
 /** Compares without stopping at the first difference, so timing does not reveal how much of a signature matched. */
 export function constantTimeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;

@@ -53,7 +53,9 @@ begin
     (select (config -> 'quietHours' ->> 'enabled') from public.notification_rules_config where is_active));
   insert into results values ('real', 'the new rules row is the previous version plus one and copies every other setting', 'true',
     (select (a.version = p.version + 1 and (a.config - 'quietHours') = (p.config - 'quietHours') and p.is_active = false)::text
-       from public.notification_rules_config a join public.notification_rules_config p on p.version = a.version - 1 where a.is_active));
+       from public.notification_rules_config a join public.notification_rules_config p on p.version = a.version - 1
+      -- the row S04b-3 itself wrote: the first version with quiet hours off (a later version, such as S13 R4's, may be active now)
+      where a.version = (select min(version) from public.notification_rules_config where (config -> 'quietHours' ->> 'enabled') = 'false')));
   insert into results values ('real', 'the discreet-document delivery event is accepted', 'ok',
     pg_temp.try(format($q$insert into public.notification_delivery_events (notification_id, organisation_id, event, provider)
       select id, organisation_id, 'discreet_document_in_app', 'system' from public.notifications where id = %L$q$, pg_temp.held(v_org, v_b))));
