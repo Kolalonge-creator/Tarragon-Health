@@ -7,6 +7,7 @@ import {
   isValidBankCode,
   isValidChargeReference,
   isValidEmail,
+  isPaymentChannelList,
   isValidKobo,
   isValidTransferReference,
   type PaymentEvent,
@@ -118,12 +119,14 @@ export function createPaystackPayment(config: PaystackConfig): PaymentProvider {
       if (!isValidChargeReference(input.reference)) return fail("invalid_input", "Reference is not a valid charge reference");
       if (!isValidEmail(input.email)) return fail("invalid_input", "Email is not valid");
       if (!isValidKobo(input.amountKobo)) return fail("invalid_input", "Amount must be a positive whole number of kobo");
+      if (input.channels !== undefined && !isPaymentChannelList(input.channels)) return fail("invalid_input", "Channels are not a valid list");
       const res = await call("POST", "/transaction/initialize", {
         reference: input.reference,
         email: input.email,
         amount: input.amountKobo,
         currency: "NGN",
         callback_url: input.callbackUrl,
+        ...(input.channels ? { channels: [...input.channels] } : {}),
         metadata: input.metadata,
       });
       if (!res.ok) return res;

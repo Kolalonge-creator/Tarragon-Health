@@ -1126,6 +1126,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - S29 does not touch them: Care Circle members are stored in a separate table that none of these policies read, so the Circle is not affected. There are 0 `profile_access` rows live today.
 - Options: (a) leave until `profile_access` has real rows and the family flow is next reviewed; (b) tighten each to the matching category or permission now (a change to the RLS surface of several tables, to be proved with a simulated session and a control).
 - Recommendation: (b) in its own small session, before any real caregiver grant is created.
+- **Fixed by S71 (2026-10-07), except the profile row (OQ-404):** paying needs a Care Circle `pay_for_care` or a `manage` grant with `manage_payments`; `booking_requests`, `vaccination_adverse_events` and `vaccination_card_extractions` reads need the matching permission or category; `profiles_select` refuses expired and empty grants.
 
 ### OQ-220 Supporters abroad: organisation, signup and the join link (raised by S29)
 - The Care Circle, like the older care-access guard, requires the supporter and the patient to share an `organisation_id`. A supporter signing up from the diaspora lands in the default organisation today, so it works, but only because there is one. Signing up from an invite link loses the link across the email-verification redirect (the user reopens it).
@@ -1859,6 +1860,307 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Still owed: (e) Android: not run (no Java or emulator image on this machine); `SCHEDULE_EXACT_ALARM` is not declared (OQ-73), so a reminder can arrive minutes late in Doze and the server backup push covers it. The native Pidgin review itself.
 - Decision: pending (item e, and the Pidgin sign-off).
 
+## S69 (community cohorts and challenges): questions from OQ-360
+
+### OQ-360 Who may start a cohort? (raised by S69)
+- Built: any signed-in adult patient can start up to 3 cohorts (PROPOSED), name it and become its moderator. Nothing checks that "Grace Fellowship" is a real church or that the organiser speaks for it; a stranger could start a group with a convincing name and invite people.
+- Options: (a) as built plus admin freeze and report-and-remove (recommended while the module is off); (b) organisers are vetted by Tarragon before they can start a cohort; (c) a cohort only goes live after a second member joins and confirms.
+- Decision: open. Recommend (a) for the test period, (b) before real launch.
+
+### OQ-361 Residual re-identification: two published snapshots a few hours apart (raised by S69)
+- Floor of 10, leave-one-out at 30 percent, rounding to 10, a 12 hour delay and a band instead of a count are all PROPOSED. If one person withdraws consent between two published snapshots the total drops by about their share (up to 30 percent when the cap is reached); others who know who withdrew could read their contribution approximately. Cohorts of exactly 10 are the weakest case.
+- Options: raise the floor to 15 or 20; add a floor on cohort size to start a challenge; publish at most once a day; add small noise. The CMO, the DPO and counsel should choose, with the DPIA.
+- Decision: open. Values stay in `community_config` (versioned) so changing them needs no deploy.
+
+### OQ-362 What a member can see of other members (raised by S69)
+- Built: first names and roles, to members and moderator only. A moderator knows who they invited. A "workplace" cohort could be started by a manager; the employer account itself reads nothing, but a manager who is also a patient is a moderator like any other.
+- Options: initials instead of first names; hide names from other members and show only a count; forbid a person who is also an employer admin from moderating a workplace cohort.
+- Decision: open.
+
+### OQ-363 The effort-only rule depends on what is recorded (raised by S69)
+- The rule reads: active conditions whose name or ICD-10 code points to heart failure, kidney disease or an eating disorder, the pregnancy record, active medicines named as insulins, and a positive eating-disorder screen. Someone with an undiagnosed or unrecorded condition, a recent birth (the postnatal record is not read), or a differently worded condition name is not restricted. The CMO should confirm the list, the wording match, and whether the postnatal period and "history of" entries (a resolved condition is currently NOT restricted: `status = resolved` is skipped, which may be wrong for an eating disorder in recovery) should count.
+- Safety default kept: restricted people see "not available for you" and nothing else; the reason is never shown.
+- Decision: open (CMO).
+
+### OQ-364 Activity minutes have no wearable source yet (raised by S69)
+- The wearable tables carry steps but no active-minutes reading, so `activity_minutes` is self-reported (1 to 180 a day, 300 a week, WHO range). The plan says "consented wearables"; that waits for S70 and per-category consent (`consent_activity`).
+- Decision: open (S70).
+
+### OQ-365 Templates, consent text and counsel are all drafts (raised by S69)
+- The seven challenge templates are `proposed`; nothing is approved. The consent text version is `draft-1`. The go-live guard needs the CMO's signature on at least one template, a recorded DPIA and counsel's confirmation of the NDPA 2023 references [verify]. The templates carry no clinical claim beyond effort, but the CMO should read each label and the WHO 150 to 300 minute wording.
+- Decision: pending (CMO, DPO, counsel).
+
+### OQ-366 The go-live guard patches two shared functions (raised by S69)
+- `private.go_live_conditions` and `public.attest_go_live_condition` are redefined by several sessions. Migration s69b reads the current definition and inserts the community branch and two attestable codes, and fails loudly if its anchor text moved. It is stamped after every known redefinition (S28c, 20261007153917). A later session that pastes a whole copy of either function will drop the community branch unless it keeps it.
+- Decision: open (process). Add the community guard to the S37 guard list when S37 is next touched.
+
+### OQ-367 Test accounts open the community even when the module is off (raised by S69)
+- Same as the S37 consultations rule (a test account passes), so the whole flow can be proved before launch. A test account can only be in a test cohort. Say if you would rather have the module switch gate test accounts too.
+- Decision: open (recommend as built).
+
+### OQ-368 Care Circle 17.1 to 17.4: what was not changed (raised by S69)
+- OQ-220: the join link now survives "Create an account" on the sign-in page (not run end to end in a browser). Still open: the same-organisation rule, native app deep links for the join link, and whether Paystack's foreign-card setting is switched on so diaspora supporters can pay (cannot be checked from the repository).
+- Decision: open.
+
+### OQ-369 Moderator succession and co-moderators (raised by S69)
+- Only the person who starts a cohort is a moderator. The plan says lay moderators (a pastor's assistant, an estate chair) invite, remove and close; there is no function yet to make a second moderator. If the only moderator leaves, the cohort closes, so nobody is promoted by accident.
+- Decision: open. Recommend a "make moderator" action by the moderator, with the person's own yes.
+
+### OQ-370 Group audio (17.8) is schema only (raised by S69)
+- Deferred by the founder 2026-10-07. When it is built: S21 real-device testing, the Zoom plan limit (Meeting versus Webinar, about 20 people), a clinician host tied to every attendee (INV-12), no recording and no scribe (the table already forbids both), roster of first names that is audit-logged.
+- Decision: pending (founder, later).
+
+### OQ-371 The solo wellness challenge still shows its title in the app (raised by S69)
+- Fixed: the ending notice no longer names the challenge or progress (INV-07). The titles ("5-Day Vitals Streak") remain inside the app's own wellness screen, where they are not a notification. The template still carries a legacy `smsText` field; `private.patient_reminder_channel` never picks SMS, so INV-08 holds, but the field could be removed.
+- Decision: open (low).
+## S70 to S75 planning (2026-10-07)
+
+Raised by the S70 to S75 review (`docs/research/S70-S75-review-and-build-plan.md`). Numbers start at 309 because earlier sessions reused OQ-180 to OQ-185, OQ-213, OQ-214 and OQ-173 for different topics; do not renumber those, check for a clash before adding new ones. Decisions are in `docs/DECISIONS.md` under "S70 to S75 planning". Clinical thresholds named here are PROPOSED values and need the CMO's signature on the built draft.
+
+### OQ-309 Cross-source duplicate readings (raised by S70, function 18.9)
+- No cross-source dedup exists; only per-source unique indexes. The module's acceptance test ("duplicate readings from two sources are de-duplicated") has no implementation.
+- Decided (S70-1): link and count once, clinical device or manual outranks wearable. Open: the exact value tolerance and time windows (proposed BP 10 minutes, glucose 5 minutes) need the CMO's signature.
+- Decision: decided; windows pending signature.
+
+### OQ-310 CGM glucose and the red-flag engine (raised by S70)
+- `ingest.ts` deliberately skips glucose assessment for CGM. A prolonged low produces no clinician signal.
+- Decided (S70-2): sustained-event rules. Proposed: low below 3.0 mmol/L for 15 minutes or below 3.9 for 60 minutes; high above 13.9 for 120 minutes. Basis is the International Consensus on Time in Range and ADA 2026 [secondary, primary text not read].
+- Decision: decided; thresholds, durations, patient wording and who is paged pending the CMO's signature.
+
+### OQ-311 Personal ECG devices and irregular rhythm (raised by S70, function 18.6)
+- Existing path is PDF or photo upload with extraction, linked to `clinician_alerts`. No typed `device.alert`, no HealthKit ECG read, no device connector.
+- Decided (S70-3): routine clinician task within one working day, device's own result shown, no diagnosis wording. Open: the review window and patient wording for signature.
+- Decision: decided; wording pending signature.
+
+### OQ-312 Photo capture of device screens (raised by S70, function 18.3)
+- Not built. Decided (S70-4): on-device text recognition first, patient confirms every number, any device accepted, wrist cuffs get a "less reliable" note.
+- Open: whether to ever allow server-side vision. If so it must go through `runGovernedAi()` with a registered `ai_systems` row.
+- Decision: decided for on-device; server vision not approved.
+
+### OQ-313 Recommended devices list and real-device test (raised by S70, functions 18.1 and 18.2)
+- Criteria decided (S70-5). Open: the actual models and distributors are founder-supplied; seed nothing invented. The existing rule stands that one A&D UA-651BLE and one Accu-Chek Guide are paired on a real EAS build before a supported list is published.
+- Decision: criteria decided; list pending.
+
+### OQ-314 BP control basis: home vs clinic (raised by S38 design, decided by S75-1)
+- CMO pack recommended home below 135/85 and clinic below 140/90, reported separately. The founder and CMO chose to keep the 140/90 default (own target overrides).
+- Risk: home readings are judged on the clinic threshold and control may be overstated. Revisit before any sponsor-facing report or the 180-day report.
+- Decision: decided (keep 140/90); revisit flagged.
+
+### OQ-315 Outcome definitions for HbA1c, weight, PHQ-9 and GAD-7 (raised by S75, function 22.1)
+- Decided (S75-2): severity-banded with a caveat. Proposed: HbA1c change and share under 7%, weight loss of 5% or more (not in pregnancy or under 18), PHQ-9 and GAD-7 by baseline severity band. The meaningful-change figures vary with baseline severity [secondary].
+- Open: exact bands and thresholds for CMO signature; PHQ-9 item 9 and score 20+ handling must reuse the existing mental-health follow-up.
+- Decision: decided; values pending signature.
+
+### OQ-316 Triage dashboard naming (raised by S75, extends OQ-255)
+- Decided (S75-3): rename to "agreement"; no accuracy figure until an outcome-linked study with a written design exists. Open: the study design.
+- Decision: decided.
+
+### OQ-317 Risk stratification fairness review (raised by S75, function 22.3)
+- Decided (S75-4): stay deterministic; monthly CMO review by age band, sex, region and language; no ML model before 90 days of real snapshots. Open: who prepares the monthly report and where it is signed.
+- Decision: decided; owner of the monthly report pending.
+
+### OQ-318 Paid two-week CGM programme (raised by S70, function 18.5)
+- Decided (S70-6): the CMO drafts the protocol. Not sold until sensor supply, a legal import route and a naira price exist. Open: who supplies sensors without Tarragon importing them (the 2026-08-02 no-import decision stands), the price, and the review of OQ-310 first.
+- Decision: protocol approved in principle; launch blocked.
+
+### OQ-319 One minimum-cell function (raised by S75, extends OQ-233)
+- Suppression is enforced separately in the BP report, the sponsor report, the S38f held-back rule, risk distribution and older corporate dashboards (`organisations.min_cohort_size`, a different threshold). The acceptance test needs one enforcement point.
+- Decided (S75-5): keep 20 and 30, one database function. Open: counsel or the DPO confirms the number; reconcile `organisations.min_cohort_size`.
+- Decision: decided; counsel pending.
+
+### OQ-320 Device shop and the Tarragon band (raised by S74, function 21.5)
+- Decided (S74-1): no device shop, no `shop_orders`; the catalogue stays guidance. D-22 (band purchasing paused) is now recorded in `docs/DECISIONS.md`. The spec's 21.5 is not built by decision.
+- Decision: decided.
+
+### OQ-321 Health Points at checkout and the leftover kobo conversion (raised by S72, function 19.9; finishes OQ-08)
+- Decided (S72-1): a single-use, order-bound reduction on Tarragon's own fee only. The kobo conversion (`wellness_points_redemptions.kobo_credited`, `points_to_kobo_rate`, `lib/queries/wellness.ts`, `patient/wellness/points-card.tsx`) is still on main-dev and is removed in the same session. Open: the points cost and cap per order (PROPOSED config).
+- Decision: decided; values pending.
+- Update (S72): the kobo conversion was removed (migration `20261007231742`); the checkout now offers the points choice on web and mobile. Values still pending (OQ-331); production count to re-verify (OQ-428).
+
+### OQ-322 Instalments (raised by S72, function 19.10)
+- Decided (S72-2): not built. Reopen only on an explicit ask.
+- Decision: decided.
+
+### OQ-323 Community Access Fund legal vehicle (raised by S72, function 19.11; extends OQ-07)
+- Decided (S72-3): Nigerian counsel opinion first (fund holder, tax and charity status). A donation is a restricted gift tied to a named grant, never a balance. Built with the switch off. Open: the published grant criteria and who approves a grant.
+- Decision: decided; counsel pending.
+
+### OQ-324 Subscription toggle and leftover Paystack plan codes (raised by S73, function 20.2)
+- Decided (S73-1): an admin-only, audited enable toggle with a go-live guard on Membership; no `subscription_plans` rebuild. The six Paystack Plan codes recorded in migration `20260905060410` still need disabling in the Paystack dashboard (founder action).
+- Decision: decided; dashboard action pending.
+
+### OQ-325 HMO eligibility adapter (raised by S71, function 19.6)
+- Decided (S71-1): adapter per HMO, manual operations verification as fallback, hashed member number (the HMAC pattern of OQ-223), no capitation. Open: which HMO first, and who in operations verifies.
+- Decision: decided; first HMO pending.
+
+### OQ-326 Partner settlement scope (raised by S74, function 21.6)
+- Decided (S74-2): only where Tarragon collects and owes a partner; labs owe nothing (D-06); separate from S31 clinician payouts with a test that nothing is paid twice. Open: whether any pharmacy margin exists at all (OQ-283 hides prices).
+- Decision: decided; scope may be empty at launch.
+
+### OQ-327 Gaps found in the S70 to S75 review that need an owner
+- OQ-192 (any `profile_access` grantee can read and pay) is still open and must be fixed before any real caregiver grant. OQ-39 (56 older `analytics_*` RPCs ignore `is_test`) is still open. `device.synced` and `device.alert` are not in the S10 event catalogue. Withings, Samsung, inhaler sensors and `LabResultsSource` are not built. `partner_quality`, `partner.quality_breach`, `partner.settlement_due` and `settlement-run` are not built. Price quoting (`price-quote`, `price.changed`, `discount_codes`, `price_books`) is not built.
+- Decision: open; each is in the build plan.
+
+## S73 pricing engine (2026-10-07)
+
+### OQ-328 Sponsor coverage cannot be charged yet (raised by S73)
+- The quote computes a sponsor's share from the price book entry, but `create_order` refuses any order with a sponsor share (`sponsor_billing_not_open`): without S71's sponsor entitlement the share would never be collected or posted. S71 lifts this.
+- Decision: resolved by S71 (2026-10-07): a sponsor share is accepted only when a `sponsor_programmes` budget covers it, reserved atomically and released on cancel, failure or refund; the guard `sponsor_payment_enabled` is OFF. Collecting from the sponsor is OQ-403.
+
+### OQ-329 Hardship pricing is a seam (raised by S73, extends OQ-323)
+- `private.hardship_reduction()` returns 0. It must be replaced by Access Fund grants (S72); never by a self-declared discount.
+- Decision: waits for S72 and counsel.
+- Update (S72): answered differently, see OQ-423 (a grant uses the sponsor slot; this seam stays 0 on purpose).
+
+### OQ-330 Kobo conversion for wellness points still present (raised by S73; extends OQ-08 and OQ-321)
+- `redeem_wellness_points`, `wellness_points_config.points_to_kobo_rate`, `wellness_points_redemptions.kobo_credited` and the web, mobile and admin screens that use them were NOT removed: it touches three apps and the voucher path, and S72 owns it. The new fee-only points reduction is separate and OFF.
+- Decision: remove in S72.
+- Update (S72): removed, count-first and fail-safe (OQ-428).
+
+### OQ-331 Values in `pricing.rules` are unsigned guesses (raised by S73)
+- Points (100 points per step, 5,000 kobo per step, 5 steps, 50 percent of the service fee), minimum payable 10,000 kobo and 10 failed code tries an hour are PROPOSED, owner Founder. Points stay OFF until signed. Also decide whether a refund returns spent points (today it does not).
+- Decision: open.
+
+### OQ-332 Screens not built (raised by S73)
+- No mobile what-is-included screen and no admin screens for price books and discount codes (the audited functions and an overview exist and are tested). Mobile `loadQuote` is not wired.
+- Decision: open.
+
+### OQ-333 What-is-included page needs a login (raised by S73)
+- The page is behind patient sign-in, so a shared link asks the reader to sign in. A public version needs an anon-readable function, which conflicts with the no-anon rule for catalogue data.
+- Decision: open.
+
+### OQ-334 Migration stamp ahead of the clock (raised by S73)
+- main-dev holds migration stamps later than the real clock; the S73 file is stamped 20261007164447 (real time plus 4 hours) so it sorts after them. Pin the version to the filename when applying.
+- Decision: informational.
+
+## S71 checkout and payments, part 1 (2026-10-07)
+
+### OQ-400 Placeholders for consultation, lab package and home kit are unpriced; the Membership pivot said no one-off consults (raised by S71, function 19.1)
+- Three catalogue items exist OFF with no price row: `consultation_single`, `lab_panel_standard`, `home_kit_sample` (new kind `home_kit`). They cannot be switched on until the founder prices them with `set_item_price`. The 2026-10-05 Membership pivot ("Free + 100k/year; no one-off consults") conflicts with `consultation_single`; it exists only because the module spec lists a consultation item and a sponsor programme needs something to cover. No `device` kind was added (no hardware sales, CLAUDE.md 2026-08-02).
+- Decision needed: keep, rename or delete the consultation placeholder; give the lab package and home kit prices and the `clinician_fee`, `partner_fee` and `tarragon_service_fee` split, or leave them off.
+- Decision: open.
+
+### OQ-401 Paystack channel strings are not proved against Paystack (raised by S71, function 19.2)
+- The checkout now sends `channels: ["card","bank_transfer","ussd"]`. The strings come from Paystack's published API reference and were proved only against the test double (the docs site returned HTTP 403 to the fetch tool in this session). `bank_transfer` ("Pay with Transfer") may also need enabling on the Paystack account. A wrong value would be rejected at initialise (a visible failure, not a silent one).
+- Founder action: try card, transfer and USSD once with the test key and record it as the attestation `paystack_channels_verified` on the `checkout_enabled` guard.
+- Decision: open.
+
+### OQ-402 International card estimate is PROPOSED (raised by S71, functions 19.4 and 19.7)
+- `commerce.processing_fee_estimate` v3 adds 3.9 percent + NGN 100 for cards issued outside Nigeria (from the 2026-10-06 reading of Paystack pricing). The checkout cannot know the card's country before payment, so it shows the local estimate and, separately, the international one. Confirm the figures against the account's own Paystack pricing.
+- Decision: open (Founder).
+
+### OQ-403 Sponsor receivable accounting is a guess (raised by S71, function 19.5)
+- A sponsor-covered order posts Dr 1210 Sponsor receivable (new account) and Cr deferred revenue or revenue for the sponsor's share, and reverses it on refund or cancel. Whether a sponsor share is revenue when the sponsor has not yet been invoiced, VAT, and the recognition schedule on the sponsor part are finance decisions. Sponsor invoicing and collection are not built, so a receivable is posted and nothing collects it.
+- Decision: open (finance). Attestation `sponsor_receivable_confirmed` on `sponsor_payment_enabled`.
+
+### OQ-404 The profile row stays readable to any unexpired grantee with at least one permission (raised by S71, extends OQ-192)
+- OQ-192 is fixed for paying (needs `pay_for_care` or `manage_payments`) and for booking requests and the two vaccination reads. `profiles_select` now refuses expired grants and grants with an empty permission list, but still shows the whole profile row to a grantee with, say, only `view_appointments`: every caregiver feature needs the person's name, and narrowing columns needs a view and app changes (a larger change to the RLS surface).
+- Options: (a) leave as is (recommended for now); (b) give caregivers a narrow view (name, photo, date of birth only) and remove them from `profiles_select`.
+- Decision: open.
+
+### OQ-405 Counsel opinion and NDPA basis for sponsor payment and member numbers (raised by S71, extends OQ-07)
+- Sponsor-paid items are the order-linked rebuild OQ-07 asked for (a sponsor ceiling, not a stored balance). Counsel is still needed before live use (guard `sponsor_payment_enabled`). Separately: an HMO member number is personal data even when only a keyed hash is stored (the HMO can link it); confirm the NDPA basis and the privacy notice wording for the check.
+- Decision: open (counsel).
+
+### OQ-406 Who verifies HMO checks, and for which HMO first (raised by S71, extends OQ-325)
+- Built: an adapter interface and a stub that always answers "unavailable", so every check waits for operations; `ops_verify_hmo_eligibility` (admin; types the number again) and `admin_hmo_checks_pending`. Not built: an admin screen for the manual queue and for sponsor programmes (the audited functions are tested), a response-time target, and any real HMO adapter. No HMO has a public eligibility API that was found.
+- Decision needed: first HMO, who in operations verifies, and the target time to answer.
+- Decision: open.
+
+### OQ-407 Merge order and the two wrapped go-live functions (raised by S71)
+- The migration wraps `private.go_live_conditions` and `public.attest_go_live_condition` (rename to `*_base`) instead of replacing them. It must sort after the S70, S73 and S74 migrations; applied before them, their create-or-replace would drop the S71 guards' conditions. The S36b and S37 proofs now count 11 guards; another branch adding guards changes that number. After all branches merge, consider folding the wrappers into one dispatcher.
+- Decision: informational.
+
+### OQ-408 Sponsor cover applies only to the person themselves (raised by S71)
+- A supporter paying for someone through the Care Circle does not get the sponsor cover and is not told the person has one (a payer must not learn a cohort or HMO status, OQ-223). The price-book path of S73 still applies to the beneficiary's cohort as built.
+- Confirm that this is wanted, or decide that a sponsor-covered item should reach a beneficiary regardless of who opens it.
+- Decision: open.
+
+### OQ-409 Mobile has no quote, itemised or health plan screens (raised by S71; extends OQ-332)
+- Mobile handles a covered reply (nothing opened, a plain notice), shows "Covered by" in the order list and the honest pending title, and maps the new errors, but its Membership screen still shows the catalogue price and the old fee lines (no `loadQuote`) and has no "check my health plan" card. Web has all of it.
+- Decision: open (S71 follow-up or a mobile session).
+
+### OQ-410 Two real sessions racing for the last of a budget were not exercised (raised by S71)
+- `sponsor_reserve` locks the programme row (`for update`) before checking the budget, and the proof shows the check, the per-person allowance and the release paths in one transaction. A true two-connection race (as `scripts/run-db-proofs.sh` allows with a `.sh` proof) was not written.
+- Decision: open (small follow-up).
+
+### OQ-420 Community Access Fund: the published reasons, limits and who approves are unsigned (raised by S72, function 19.11; extends OQ-323)
+- Built as PROPOSED, owner Founder and counsel (`access_fund.rules` v1, active row of `checkout_extras_config`): four published reasons (the cost is the main barrier, recent loss of income, supporting a dependant, referred by the care team), most one grant can cover 100,000 naira, a grant works for 60 days, smallest gift 1,000 naira, a pledge waits 14 days, at most 3 open pledges. Operations (admin) approve with a written reason; a second approver is not required (S72-3).
+- Needed: review of the wording of the reasons, and the numbers; whether the CMO or only admins approve; and the guard condition `grant_criteria_signed_off`. Nothing opens until these and counsel (OQ-323) are done.
+- Decision: open.
+
+### OQ-421 How restricted gifts and Fund-paid orders are accounted for (raised by S72, function 19.11)
+- No ledger entry is made for a donation or a grant. A donation is not revenue; it is a restricted gift held for a purpose, which needs a finance and counsel decision (a restricted-funds liability, who holds the money, tax and charity status). A Fund-paid order is booked by S71's path to account 1210 "Sponsor receivable", which is the wrong name for the Fund (the Fund owes nothing; it is Tarragon's own restricted money) and needs the same decision.
+- Guard condition `restricted_gift_accounting_decided` keeps this closed. Test orders are never posted (INV-13), so nothing wrong can post before the decision.
+- Decision: open (finance and counsel).
+
+### OQ-422 Swap the Fund's minimum-cell function when S75 merges (raised by S72)
+- S75 (`private.suppress_cell`) is not on this branch. The public report uses `private.fund_min_cell()`, which reads the same platform value (`outcome_config` min_cell, 20, S38b) and never lets it be below 2. When S75 lands, replace that one function's body with a call to the shared rule and keep the proof `s72_checkout_extras.sql` (it flips if the rule is weakened).
+- Decision: informational (follow-up at merge).
+
+### OQ-423 Hardship pricing is realised through the sponsor slot, not `hardship_reduction()` (raised by S72; answers OQ-329)
+- The S73 seam `private.hardship_reduction()` still returns 0 on purpose. A Fund grant covers part or all of one item through an `access_grant` sponsor programme (a ceiling, a reservation per order, the S71 ledger, refund and event paths). A reduction in the hardship slot could not be tied to one order, reserved against the grant or reversed on a refund, and the same money in two slots would be counted twice.
+- Consequence: the quote's line is the sponsor line ("Covered by Community Access Fund"), and a person who also has a price book gets the book, not the grant (the S71 rule that a price-book path wins). Confirm, or ask for a separate hardship line.
+- Decision: open (founder).
+
+### OQ-424 Payment request limits are unsigned (raised by S72, function 19.13)
+- `payment_requests.rules` v1 (PROPOSED, owner Founder): a link works 7 days, 5 open per person, 10 made a day, 30 link lookups an hour per visitor, 10 payment starts an hour per payer. The link page shows no name of the person who asked; showing a first name would tell a stranger holding a leaked link that a named person uses Tarragon, so it was left out. Confirm the numbers and that no name is wanted.
+- Decision: open.
+
+### OQ-425 Payment requests can only ask for the yearly Membership (raised by S72; extends decision S29c)
+- Founder decision S29c (2026-10-06) says nothing smaller than the full yearly Membership can be paid for someone else, so `create_payment_request` accepts only what `private.gift_item_allowed` allows. If one-off items ever return, the request follows with no change here. The request also cannot be paid when the person already has a Membership.
+- Decision: informational.
+
+### OQ-426 Donations are bank-transfer pledges; no Paystack, no bank details, no receipt (raised by S72, function 19.11)
+- By instruction no live Paystack call exists. A pledge gives a reference; the page says the team will email the bank account details. Not built: where those details come from, the email, a donor receipt or tax acknowledgement, and an online card donation. All wait for the counsel opinion (what the fund holder is) and a bank account in the right name.
+- Decision: open.
+
+### OQ-427 No patient self-application for the Fund; web-only donation screen (raised by S72, function 19.11)
+- Grants are approved by operations for a person (usually after the care team or a conversation). A screen where a person asks for help (and how that stays private and un-gameable) was not designed. The donation page and the operations screen are web only; mobile shows the person's support state through entitlements but has no donation screen.
+- Decision: open.
+
+### OQ-428 Re-verify the kobo-conversion counts before applying (raised by S72; finishes OQ-08, OQ-321, OQ-330)
+- The migration removes `redeem_wellness_points`, `wellness_points_redemptions` and `points_to_kobo_rate` after counting; it aborts with a message if any redemption belongs to a non-test patient. The expected real count is zero (S73 recorded none) but production was not queried. Reward vouchers already issued from earlier redemptions are not touched. Also still open from OQ-331: whether a refund returns the points an order spent (today it does not).
+- Decision: open (re-count before apply).
+
+### OQ-429 Memberships paid by a sponsor or the Fund are recorded with source `employer` (raised by S72)
+- `settle_sponsor_order` (S71) writes `patient_memberships.source = 'employer'` for any sponsor-covered Membership, including a Fund grant. The source is not shown to the person today (the entitlement card uses the order, not this field), but reports by source would mislabel it. Adding `sponsor` and `access_fund` values needs a constraint change.
+- Decision: open (small follow-up).
+
+### OQ-430 Other `{{...}}` strings never fill in (raised by S72)
+- The i18n helper fills `{name}` only. Four entitlement strings used `{{count}}` and printed "{3} use left"; S72 fixed those. `admin.refunds.confirm_approve` (`{{amount}}`) has the same fault and was left alone. A scan test for double braces would stop it recurring.
+- Decision: open (small follow-up).
+
+### OQ-431 Nothing schedules the two expiry functions; the new pages were not walked in a browser (raised by S72)
+- `expire_access_fund()` and `expire_payment_requests()` are safe to call often (admin or service role). Reads already treat an old pledge as lapsed and an old link as expired, and a grant past its date matches nothing, but the stored status changes only when one of these runs (a daily call from an existing cron route would do). Separately, the web and mobile screens were type-checked, linted and unit tested, and the new database functions proved, but no browser or phone walk-through, no Paystack test-key payment from a link, and no sign-up of a brand-new payer through `/login?redirect=` was run.
+- Decision: open (follow-up).
+### OQ-360 Partner quality numbers (raised by S74, function 21.7)
+- The turnaround target (72 hours for a laboratory), the 80 percent on-time floor with at least 10 orders, three upheld complaints, the score weights (40/30/30) and floors (warn 70, suspend 50), the 30-day override and which breaches suspend are PROPOSED in `partner_quality_config` (mirrored as `partner.quality`). Nothing is signed. A wrong number can pause a real laboratory from new work.
+- Decision: open; CMO to confirm before the nightly job is trusted on real partners. Partner rows are a shared directory with no `organisation_id` (like go-live guards); reads are admin and CMO only.
+
+### OQ-361 Home test kits (raised by S74, function 21.1)
+- Not built. A kit needs a named partner, a D-06 treatment (who is paid for the kit and the lab work) and a result path through `LabResultsSource`. The seam is documented in `apps/web/src/lib/lab-results/results-source.ts`. `ApiLabResultsSource` is a stub that connects to nothing.
+- Decision: open; needs a partner.
+
+### OQ-362 Settlement four eyes with one founder (raised by S74, function 21.6)
+- `partner.settlement.four_eyes` is true: the person who drafts terms cannot approve them. A solo founder cannot satisfy it. Settlement ships guard-off and is empty at launch (no sponsor checkout, pharmacy prices hidden, OQ-283), so this does not block anything today.
+- Decision: open; founder to say whether a second approver (accountant, CMO) exists. Also open: a refund after a statement is issued is only reported (`partner_double_payment_findings`), not clawed back.
+
+### OQ-363 Pharmacy sourcing claim and batch record (raised by S74, function 21.2)
+- A pharmacy declares its NAFDAC-registered suppliers and an admin records a check. The pharmacist may record the product NAFDAC number and supplier per supply, once. It is NOT required at dispense (S28c says Tarragon does not verify batches), and the patient directory view does not yet show the badge (`pharmacy_sourcing_verified()` exists).
+- Decision: open; pharmacy lead and counsel to confirm wording before any patient-facing claim.
+
+### OQ-364 Pharmacist chat scope (raised by S74, function 21.2)
+- In app only, patient starts, 1,000 characters, 20 a day, open until collection plus 14 days, the pharmacy loses access when the patient changes pharmacy or takes the prescription back. No Tarragon staff read path. Caregivers (S28c pharmacy permission) are not included. The static emergency notice is the only safety text: no keyword triage (INV-01 spirit).
+- Decision: open; CMO and DPO to confirm that no staff read path is acceptable for complaints, and whether caregivers may use it.
+
+### OQ-365 go_live_conditions wrapper (raised by S74)
+- S74 renames the live `private.go_live_conditions` to `go_live_conditions_s74_base` and puts a thin wrapper in front, to avoid copying another session's body. A later migration that replaces `go_live_conditions` whole removes the wrapper and the settlement guard then fails closed. The S37 and S36b proofs now expect eight guards.
+- Decision: open; fold into S37 on the next rebase.
+
+### OQ-366 Clinic calendar and migration timestamps (raised by S74, function 21.3)
+- Clinic slots and reservations exist as schema and functions only, dormant under module 28; the proof for them and for the pharmacy chat and sourcing is NOT written or run (see BUILD-PROGRESS S74). The three S74 migrations are named 20261007161247 to 20261007161321 because the machine clock (12:34 UTC) sorted before existing files; whoever applies them must pin the version to the filename.
+- Decision: open.
 ### OQ-309 Free red events are guidance-only (CMO decision 2026-10-08): the INV-05 consequence
 - INV-05 says a red event never waits for a clinician to pull work and always pages the on-call clinician. By CMO decision (a sustainability decision, amendments C2) a red event on a **Free** patient now pages nobody, creates no clinical task and no clinician alert. A **Member** red event pages exactly as before. INV-05 therefore reads, from this change: "a red event on a Member never waits for a pull; on a Free patient it is guidance only." The spec text and `docs/design/S19.md` still carry the old wording until the CMO signs this.
 - Built (`two-tier/free-red-path`, NOT applied): `private.patient_may_page_doctor()` is the one gate, fail closed toward paging (a missing patient or any error while working out membership counts as Member and pages). `public.create_red_page`, `public.create_tasks_from_triage_event` and the legacy trigger feature check (`vitals_red_flag_doctor_escalation`, now also true for a Member) all use it. The glucose app-layer check now also fails toward paging.

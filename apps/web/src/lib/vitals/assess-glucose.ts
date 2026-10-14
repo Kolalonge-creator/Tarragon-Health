@@ -64,6 +64,7 @@ export async function assessGlucoseBestEffort(
     .select("glucose_mmol_l, taken_at")
     .eq("patient_id", patientId)
     .eq("vital_type", "glucose")
+    .is("correction_status", null)
     .gte("taken_at", glucoseSince)
     .order("taken_at", { ascending: false });
 
@@ -72,6 +73,7 @@ export async function assessGlucoseBestEffort(
     .select("ketones_mmol_l, ketone_urine, taken_at")
     .eq("patient_id", patientId)
     .eq("vital_type", "ketones")
+    .is("correction_status", null)
     .gte("taken_at", ketoneSince)
     .order("taken_at", { ascending: false });
 

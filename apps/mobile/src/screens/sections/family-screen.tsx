@@ -27,6 +27,7 @@ import {
 import * as WebBrowser from "expo-web-browser";
 import type { SectionId } from "@/lib/sections";
 import { CareCircleSection } from "./care-circle-section";
+import { CohortsSection } from "./cohorts-section";
 import { ProxySetupSection } from "./proxy-setup-section";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { radius, spacing } from "@/ui/theme";
@@ -158,6 +159,8 @@ export function FamilyScreen({ userId, onNavigate }: FamilyScreenProps) {
       </View>
 
       <CareCircleSection />
+
+      <CohortsSection />
 
       {emergencyGrants.length > 0 && (
         <Card style={{ borderColor: colors.status.warn, backgroundColor: colors.status.warnBg, gap: 8 }}>

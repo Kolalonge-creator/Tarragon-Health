@@ -43,6 +43,7 @@ export type SectionId =
   | "financialProfile"
   | "services"
   | "receipts"
+  | "paymentRequests"
   | "notificationSettings"
   | "reminders"
   | "technicalSupport"
@@ -300,6 +301,12 @@ export const SECTIONS: SectionDef[] = [
     id: "receipts",
     label: "Receipts",
     icon: "receipt-outline",
+    group: "Your account",
+  },
+  {
+    id: "paymentRequests",
+    label: "Ask someone to pay",
+    icon: "share-social-outline",
     group: "Your account",
   },
   {

@@ -5,9 +5,11 @@ import {
   isValidChargeReference,
   isValidEmail,
   isValidKobo,
+  isPaymentChannelList,
   isValidSettlementId,
   isValidTransferReference,
   normalisePage,
+  type PaymentChannel,
   type PaymentProvider,
   type SettlementSummary,
   type SettlementTransaction,
@@ -38,6 +40,8 @@ export interface MockPaymentControl {
   failNextCall(): void;
   /** Adds a settlement (what the processor pays out to the bank) with the charges in it. */
   addSettlement(id: number, totalKobo: number, feesKobo: number, lines: readonly { reference: string; amountKobo: number; feesKobo?: number }[]): void;
+  /** The channels the last initialise for this reference asked for (undefined when none were sent). */
+  channelsFor(reference: string): readonly PaymentChannel[] | undefined;
   readonly secret: string;
 }
 
@@ -49,6 +53,7 @@ interface Charge {
   status: TransactionStatus;
   paidAt: string | null;
   metadata: Record<string, unknown>;
+  channels: readonly PaymentChannel[] | undefined;
 }
 
 export function createMockPayment(now: () => number = () => Date.now()): PaymentProvider & MockPaymentControl {
@@ -77,6 +82,9 @@ export function createMockPayment(now: () => number = () => Date.now()): Payment
     isMock: true,
     secret,
 
+    channelsFor(reference) {
+      return charges.get(reference)?.channels;
+    },
     settle(reference, status) {
       const c = charges.get(reference);
       if (!c) throw new Error("unknown reference");
@@ -122,6 +130,7 @@ export function createMockPayment(now: () => number = () => Date.now()): Payment
       if (!isValidChargeReference(input.reference)) return fail("invalid_input", "Reference is not a valid charge reference");
       if (!isValidEmail(input.email)) return fail("invalid_input", "Email is not valid");
       if (!isValidKobo(input.amountKobo)) return fail("invalid_input", "Amount must be a positive whole number of kobo");
+      if (input.channels !== undefined && !isPaymentChannelList(input.channels)) return fail("invalid_input", "Channels are not a valid list");
       if (charges.has(input.reference)) return fail("conflict", "Reference already used", false);
       charges.set(input.reference, {
         reference: input.reference,
@@ -131,6 +140,7 @@ export function createMockPayment(now: () => number = () => Date.now()): Payment
         status: "pending",
         paidAt: null,
         metadata: { ...(input.metadata ?? {}) },
+        channels: input.channels,
       });
       return ok({ reference: input.reference, authorizationUrl: `https://checkout.mock.invalid/${input.reference}`, accessCode: `mock_${input.reference}` });
     },
