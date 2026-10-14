@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import { getFullPatientRecordExport, readCorrectedEntries } from "./get-full-patient-record";
 
-type Result = { data: unknown; error: { message: string } | null };
+type Result = { data: unknown; error: { message: string; code?: string } | null };
 
 /** A client where every table read answers `rows` and the one rpc answers `rpc`; the profile read answers a single object. */
 function fakeClient(rpc: Result): SupabaseClient<Database> {
@@ -43,6 +43,13 @@ describe("getFullPatientRecordExport (S05b-d)", () => {
     expect(record.allergies).toEqual([]);
   });
   it("fails the export when the history cannot be read, never silently omits it", async () => {
-    await expect(getFullPatientRecordExport(fakeClient({ data: null, error: { message: "boom" } }), "p1")).rejects.toEqual({ message: "boom" });
+    await expect(getFullPatientRecordExport(fakeClient({ data: null, error: { message: "boom", code: "XX000" } }), "p1")).rejects.toEqual({ message: "boom", code: "XX000" });
+  });
+  it("still exports the rest of the record before the migration is applied (function missing)", async () => {
+    for (const code of ["PGRST202", "42883"]) {
+      const record = await getFullPatientRecordExport(fakeClient({ data: null, error: { message: "no function", code } }), "p1");
+      expect(record.correctedEntries).toEqual({});
+      expect(record.patient.id).toBe("p1");
+    }
   });
 });

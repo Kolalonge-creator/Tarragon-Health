@@ -10,12 +10,12 @@
 --      final; the patient may ask again.
 --   D. Confirm (corrected): the original is marked and the replacement inserted by the same supersede path (stored as a clinician entry),
 --      prescription safety follows the replacement; the audit trail holds requested then confirmed. Confirm (entered_in_error) hides it.
---   E. Void: the clinician changed the entry first, then confirming the stale request only voids it. A clinician correcting directly stays
---      immediate. A clinician-recorded allergy still cannot be touched by the patient.
+--   E. Void: a clinician correcting the entry directly closes a waiting request as void (and it can no longer be confirmed); a request
+--      colliding with another current allergy is refused up front. A clinician correcting directly stays immediate. A clinician-recorded allergy still cannot be touched by the patient.
 --   F. The grant: authenticated can execute correct_clinical_value and the new functions, anon cannot; my_corrected_record_entries returns
 --      the patient's own superseded values only; every _current view has exactly its table's columns.
 --   G. SABOTAGE (each must flip): the patient branch removed, the clinician test made permissive, the PUBLIC grant restored, the audit
---      trail's append-only trigger dropped.
+--      trail's append-only trigger dropped, the stale-request voiding trigger dropped.
 -- Wrapped in BEGIN/ROLLBACK; mints its own fixtures.
 -- ===========================================================================
 
@@ -309,12 +309,28 @@ begin
   execute 'set local role authenticated';
   v_res := public.correct_clinical_value('patient_allergies', v_a3, 'corrected', 'Clinician confirmed severity at the visit', '{"severity": "severe"}'::jsonb);
   if v_res ->> 'status' is distinct from 'corrected' then raise exception 'FAIL E1: the clinician correction is no longer immediate (%)', v_res; end if;
-  v_res := public.confirm_patient_allergy_correction(v_req, null);
   execute 'reset role';
-  if v_res ->> 'status' is distinct from 'void' or (select status from public.patient_allergy_correction_requests where id = v_req) <> 'void' then
-    raise exception 'FAIL E2: confirming a stale request did not void it (%)', v_res;
+  if (select status from public.patient_allergy_correction_requests where id = v_req) <> 'void'
+     or not exists (select 1 from public.patient_allergy_correction_events where request_id = v_req and event = 'void' and actor_role = 'system') then
+    raise exception 'FAIL E2: a request for an allergy a clinician corrected directly was not closed as void';
   end if;
-  if (select count(*) from public.patient_allergies where supersedes_id = v_a3) <> 1 then raise exception 'FAIL E3: the stale confirmation inserted a second replacement'; end if;
+  v_state := null;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_c, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  begin perform public.confirm_patient_allergy_correction(v_req, null);
+  exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
+  execute 'reset role';
+  if v_state is distinct from '22023' then raise exception 'FAIL E3: a voided request could still be confirmed (state %)', v_state; end if;
+  if (select count(*) from public.patient_allergies where supersedes_id = v_a3) <> 1 then raise exception 'FAIL E4: more than one replacement exists'; end if;
+  -- control: the confirm path itself does not void its own request (D already proved it ends confirmed)
+  -- a request for a name another current allergy already has is refused now, not at the clinician's confirmation
+  perform set_config('request.jwt.claims', json_build_object('sub', v_p, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  v_state := null;
+  begin perform public.correct_clinical_value('patient_allergies', v_a4, 'corrected', 'Sesame is actually a shellfish allergy', '{"allergen": "Penicillin"}'::jsonb);
+  exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
+  execute 'reset role';
+  if v_state is distinct from '22023' then raise exception 'FAIL E5: a request colliding with another current allergy was accepted (state %)', v_state; end if;
   raise notice 'PASS E: stale request voids; clinician correction stays immediate';
 
   -- ======================================================================== F. grant, export, views
@@ -341,6 +357,45 @@ begin
   execute 'reset role';
   if jsonb_array_length(v_json -> 'patient_allergies') <> 0 or jsonb_array_length(v_json -> 'vitals_readings') <> 0 then
     raise exception 'FAIL F5: another patient received superseded values (%)', v_json;
+  end if;
+  -- a client never reads the clinician's note or identity, on either table (column grants), but reads the safe columns
+  perform set_config('request.jwt.claims', json_build_object('sub', v_p, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  v_state := null;
+  begin perform decision_note from public.patient_allergy_correction_requests;
+  exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
+  if v_state is distinct from '42501' then execute 'reset role'; raise exception 'FAIL F7a: a patient can read the clinician note (state %)', v_state; end if;
+  v_state := null;
+  begin perform decided_by from public.patient_allergy_correction_requests;
+  exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
+  if v_state is distinct from '42501' then execute 'reset role'; raise exception 'FAIL F7b: a patient can read the deciding clinician (state %)', v_state; end if;
+  v_state := null;
+  begin perform note from public.patient_allergy_correction_events;
+  exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
+  if v_state is distinct from '42501' then execute 'reset role'; raise exception 'FAIL F7c: a patient can read the audit note (state %)', v_state; end if;
+  v_state := null;
+  begin perform actor_id from public.patient_allergy_correction_events;
+  exception when others then get stacked diagnostics v_state = returned_sqlstate; end;
+  if v_state is distinct from '42501' then execute 'reset role'; raise exception 'FAIL F7d: a patient can read the audit actor (state %)', v_state; end if;
+  select count(*) into v_n from (select id, status, requested_status, reason, decided_at from public.patient_allergy_correction_requests) q;
+  execute 'reset role';
+  if v_n < 3 then raise exception 'FAIL F7e (control): the patient cannot read the safe columns of her own requests (%)', v_n; end if;
+  -- the export carries her own requests, without the clinician's note or identity
+  perform set_config('request.jwt.claims', json_build_object('sub', v_p, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  v_json := public.my_corrected_record_entries();
+  execute 'reset role';
+  if jsonb_array_length(v_json -> 'patient_allergy_correction_requests') < 3 or v_json::text ~ '(decision_note|decided_by|Please discuss at the next visit|Checked with the patient)' then
+    raise exception 'FAIL F8: the export lost her requests or carries the clinician note or identity';
+  end if;
+  -- decided_by has no foreign key (its SET NULL update would hit the decided-request guard when a profile is removed)
+  if exists (select 1 from pg_constraint where conrelid = 'public.patient_allergy_correction_requests'::regclass and contype = 'f' and conkey = array[(select attnum from pg_attribute where attrelid = 'public.patient_allergy_correction_requests'::regclass and attname = 'decided_by')]) then
+    raise exception 'FAIL F9: decided_by has a foreign key again';
+  end if;
+  -- the template is registered like every other in-app notice
+  if not exists (select 1 from public.notification_templates where key = 'record_change_not_confirmed' and default_channels = array['in_app']::public.notification_channel[])
+     or not exists (select 1 from public.notification_template_locales where template_key = 'record_change_not_confirmed' and channel = 'in_app') then
+    raise exception 'FAIL F10: the notice template is not registered';
   end if;
   for v_text in select unnest(array['vitals_readings', 'patient_conditions', 'patient_allergies', 'lab_analyte_readings']) loop
     if (select string_agg(column_name, ',' order by column_name) from information_schema.columns where table_schema = 'public' and table_name = v_text)
@@ -418,7 +473,28 @@ begin
   if not v_flipped then raise exception 'FAIL G4: sabotage did not flip (the append-only proof is vacuous)'; end if;
   if exists (select 1 from public.patient_allergy_correction_events where note = 'tampered') then raise exception 'FAIL G4b: sabotage was not undone'; end if;
 
-  raise notice 'PASS G: four sabotages each flipped';
+  -- G5: with the voiding trigger gone a request for a corrected allergy stays pending for good
+  v_flipped := false;
+  begin
+    drop trigger z_void_pending_allergy_requests on public.patient_allergies;
+    perform set_config('request.jwt.claims', json_build_object('sub', v_p, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated';
+    v_res := public.correct_clinical_value('patient_allergies', v_a4, 'entered_in_error', 'Sesame was typed by mistake', null);
+    execute 'reset role';
+    v_req := (v_res ->> 'request_id')::uuid;
+    perform set_config('request.jwt.claims', json_build_object('sub', v_c, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated';
+    perform public.correct_clinical_value('patient_allergies', v_a4, 'corrected', 'Clinician corrected it directly', '{"severity": "severe"}'::jsonb);
+    execute 'reset role';
+    if (select status from public.patient_allergy_correction_requests where id = v_req) = 'pending' then v_flipped := true; end if;
+    raise exception 'undo sabotage' using errcode = 'P0099';
+  exception when sqlstate 'P0099' then null;
+  end;
+  execute 'reset role';
+  if not v_flipped then raise exception 'FAIL G5: sabotage did not flip (the stale-request proof is vacuous)'; end if;
+  if not exists (select 1 from pg_trigger where tgname = 'z_void_pending_allergy_requests') then raise exception 'FAIL G5b: sabotage was not undone'; end if;
+
+  raise notice 'PASS G: five sabotages each flipped';
   raise notice 'S05b-d patient allergy correction requests proof complete';
 end $$;
 

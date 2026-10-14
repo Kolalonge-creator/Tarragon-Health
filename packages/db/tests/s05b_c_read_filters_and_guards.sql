@@ -242,8 +242,7 @@ begin
      where n.nspname in ('public', 'private') and p.prokind = 'f' and p.prosecdef
        and p.proname not in ('correct_clinical_value', 'delete_wearable_connection_data', 'execute_wearable_data_deletion',
                              'clear_vitals_validation_flag', 'record_triage_result', 'record_poc_measurements',
-                             'confirm_lab_report_extraction', 'enforce_fhir_import_resource_attribution', 'capture_record_correction', 'handle_bp_reading_red_flag', 'handle_pulse_reading_red_flag', 'handle_spo2_reading_red_flag', 'handle_temperature_reading_red_flag', 'enforce_htn_alert_attestation',
-                             'confirm_patient_allergy_correction')
+                             'confirm_lab_report_extraction', 'enforce_fhir_import_resource_attribution', 'capture_record_correction', 'handle_bp_reading_red_flag', 'handle_pulse_reading_red_flag', 'handle_spo2_reading_red_flag', 'handle_temperature_reading_red_flag', 'enforce_htn_alert_attestation')
        and p.prosrc ~* '(from|join)\s+public\.(vitals_readings|patient_allergies|patient_conditions|lab_analyte_readings)\M'
   loop
     raise exception 'FAIL H2: definer function % reads a corrected table directly: read private.<table>_current instead', r.fn;

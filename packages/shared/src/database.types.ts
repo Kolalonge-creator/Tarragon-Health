@@ -27218,13 +27218,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "patient_allergy_correction_requests_decided_by_fkey"
-            columns: ["decided_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "patient_allergy_correction_requests_organisation_id_fkey"
             columns: ["organisation_id"]
             isOneToOne: false
