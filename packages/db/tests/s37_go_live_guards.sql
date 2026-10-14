@@ -133,6 +133,7 @@ begin
   perform pg_temp.rec('anon cannot execute the private reader', 'false', has_function_privilege('anon', 'private.go_live_open(text,uuid,uuid)', 'EXECUTE')::text);
   perform pg_temp.rec('an unknown guard reads closed', 'false', private.go_live_open('no_such_guard')::text);
   perform pg_temp.act(v_pat);
+  perform pg_temp.rec('the partner_settlement_enabled guard exists', '1', (select count(*)::text from public.go_live_guards where key = 'partner_settlement_enabled'));
   perform pg_temp.rec('a signed-in person can read the guards', '7', (select count(*)::text from public.go_live_guards where key in ('clinical_operations_enabled', 'on_call_cover_ok', 'lab_booking_enabled', 'prescribing_enabled', 'scribe_enabled', 'payouts_enabled', 'public_signup_enabled')));
   perform pg_temp.back();
 
@@ -190,7 +191,7 @@ begin
   perform pg_temp.rec('the dashboard now shows payouts all met', 'true',
     (select (g ->> 'all_met')::text from jsonb_array_elements(v_status) g where g ->> 'key' = 'payouts_enabled'));
   -- (the Community guard is a later feature's own guard, so it is not counted among the seven spec guards)
-  perform pg_temp.rec('...and the dashboard lists seven guards', '7', (select count(*)::text from jsonb_array_elements(v_status) g where g ->> 'key' not in ('community', 'wallet_pass', 'home_bp_programme', 'bp_pattern_flag', 'prn_limits', 'maternal_enabled')));
+  perform pg_temp.rec('...and the dashboard lists seven guards', '7', (select count(*)::text from jsonb_array_elements(v_status) g where g ->> 'key' not in ('community', 'wallet_pass', 'home_bp_programme', 'bp_pattern_flag', 'prn_limits', 'partner_settlement_enabled', 'maternal_enabled')));
   perform pg_temp.rec('the real switch works with every condition met', 'true',
     (public.set_go_live_guard('payouts_enabled', true, 'Stage 1 complete, fee schedule approved.') ->> 'changed'));
   perform pg_temp.back();
@@ -480,8 +481,8 @@ begin
   create or replace function private.go_live_conditions(p_key text, p_org uuid) returns jsonb language plpgsql stable security definer set search_path = '' as $f$
     begin raise exception 'simulated broken condition query'; end $f$;
   perform pg_temp.act(v_admin);
-  perform pg_temp.rec('a broken condition query does not blank the dashboard', '7', (select count(*)::text from jsonb_array_elements(public.go_live_guard_status()) g where g ->> 'key' not in ('community', 'wallet_pass', 'home_bp_programme', 'bp_pattern_flag', 'prn_limits', 'maternal_enabled')));
-  perform pg_temp.rec('...every guard then reads as not satisfied', '7', (select count(*)::text from jsonb_array_elements(public.go_live_guard_status()) g where g ->> 'key' not in ('community', 'wallet_pass', 'home_bp_programme', 'bp_pattern_flag', 'prn_limits', 'maternal_enabled') and not (g ->> 'all_met')::boolean));
+  perform pg_temp.rec('a broken condition query does not blank the dashboard', '7', (select count(*)::text from jsonb_array_elements(public.go_live_guard_status()) g where g ->> 'key' not in ('community', 'wallet_pass', 'home_bp_programme', 'bp_pattern_flag', 'prn_limits', 'partner_settlement_enabled', 'maternal_enabled')));
+  perform pg_temp.rec('...every guard then reads as not satisfied', '7', (select count(*)::text from jsonb_array_elements(public.go_live_guard_status()) g where g ->> 'key' not in ('community', 'wallet_pass', 'home_bp_programme', 'bp_pattern_flag', 'prn_limits', 'partner_settlement_enabled', 'maternal_enabled') and not (g ->> 'all_met')::boolean));
   perform pg_temp.rec('...and the stop button still works (scribe_enabled is on here)', 'true', (public.set_go_live_guard('scribe_enabled', false, 'Proof: stop under a broken evaluator.') ->> 'changed'));
   perform pg_temp.rec('...and no scribe consent is left open after the scribe is switched off', '0', (select count(*)::text from public.scribe_consents where granted and revoked_at is null));
   perform pg_temp.rec('...and the patient''s in-app allow on the open consultation went back to unanswered', 'null',
