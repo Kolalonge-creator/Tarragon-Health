@@ -25,11 +25,15 @@ import type { Database } from "@tarragon/shared";
  * labs, screenings, care plans, identity), not internal ops rows
  * (subscription billing, wellness points, referral commissions, ...).
  *
+ * The `correctedEntries` section comes from a database function that only answers for the signed-in patient's own record (it raises for any
+ * other id), so this export is for the patient's own session. A staff-run export of someone else's record would need its own access-checked
+ * function; it would fail loudly here rather than mix in the wrong person's history.
+ *
  * ACCESS: every query below is scoped to `patientId` and run on the
  * CALLER's own RLS-scoped session client — this must only ever be called
- * with a client authenticated as that same patient (or an org-staff/admin
- * session with legitimate access), never a service-role client on someone
- * else's behalf. The API route enforces the "own record only" half of
+ * with a client authenticated as that same patient (S05b-d: the corrected-entries
+ * function enforces it and raises for any other id), never a service-role
+ * client or a staff client on someone else's behalf. The API route enforces the "own record only" half of
  * that; RLS enforces the rest.
  */
 
@@ -64,6 +68,29 @@ export interface FullPatientRecordExport {
     createdAt: string;
   }[];
   carePlans: Database["public"]["Tables"]["care_plans"]["Row"][];
+  /**
+   * S05b-d: the values that were corrected or voided. The lists above hold the current record only (a superseded or entered-in-error row is
+   * hidden from every read), but the replaced value is still the patient's own data and a complete copy includes it. Keyed by table, each
+   * row marked with correction_status, correction_reason and corrected_at; staff identifiers are left out by the database function.
+   */
+  correctedEntries: Record<string, unknown[]>;
+  /** False only while the database function does not exist yet (code ships before schema): the copy then lacks the history and says so. */
+  correctedEntriesAvailable: boolean;
+}
+
+/** PostgREST's "could not find the function" only. Postgres' own 42883 can also come from INSIDE an existing function, which is a real failure. */
+function isMissingFunction(error: { code?: string }): boolean {
+  return error.code === "PGRST202";
+}
+
+/** The database function returns an object keyed by table name; anything else is an empty history, never a failed export. */
+export function readCorrectedEntries(data: unknown): Record<string, unknown[]> {
+  const out: Record<string, unknown[]> = {};
+  if (data === null || typeof data !== "object" || Array.isArray(data)) return out;
+  for (const [table, rows] of Object.entries(data as Record<string, unknown>)) {
+    out[table] = Array.isArray(rows) ? rows : [];
+  }
+  return out;
 }
 
 export async function getFullPatientRecordExport(
@@ -79,6 +106,7 @@ export async function getFullPatientRecordExport(
     labRes,
     screeningRes,
     carePlansRes,
+    correctedRes,
   ] = await Promise.all([
     supabase
       .from("profiles")
@@ -97,6 +125,7 @@ export async function getFullPatientRecordExport(
       .select("status, due_date, screen_types(name), screening_results(result_status, result_summary, created_at)")
       .eq("patient_id", patientId),
     supabase.from("care_plans").select("*").eq("patient_id", patientId).order("created_at", { ascending: false }),
+    supabase.rpc("my_corrected_record_entries", { p_patient: patientId }),
   ]);
 
   if (profileRes.error) throw profileRes.error;
@@ -107,6 +136,8 @@ export async function getFullPatientRecordExport(
   if (labRes.error) throw labRes.error;
   if (screeningRes.error) throw screeningRes.error;
   if (carePlansRes.error) throw carePlansRes.error;
+  // Code ships before the schema change (CLAUDE.md): until the S05b-d migration is applied the function does not exist (PostgREST PGRST202), and the rest of the export must still work. Any other error is a real failure and stops the export.
+  if (correctedRes.error && !isMissingFunction(correctedRes.error)) throw correctedRes.error;
 
   const profile = profileRes.data;
 
@@ -148,5 +179,7 @@ export async function getFullPatientRecordExport(
       };
     }),
     carePlans: carePlansRes.data ?? [],
+    correctedEntries: readCorrectedEntries(correctedRes.data),
+    correctedEntriesAvailable: !correctedRes.error,
   };
 }
