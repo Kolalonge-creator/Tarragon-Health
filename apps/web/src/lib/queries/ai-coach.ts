@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { sendCoachMessage } from "@/app/(dashboard)/patient/ai-coach-actions";
 import { runAiCoachQuickAction } from "@/app/(dashboard)/patient/ai-coach-quick-action";
+import { getAssistantNudgesAction } from "@/lib/ai-coach/nudge-actions";
 import type { CoachChatMessage } from "@tarragon/shared";
 
 export function useAiConversation(patientId: string) {
@@ -46,4 +47,9 @@ export function useAiCoachQuickAction(patientId: string) {
       queryClient.invalidateQueries({ queryKey: ["ai-conversation", patientId] });
     },
   });
+}
+
+/** S51 (7.5): today's one nudge and the weekly reflection. `open: false` while the assistant_enabled guard is closed. */
+export function useAssistantNudges() {
+  return useQuery({ queryKey: ["assistant-nudges"], queryFn: () => getAssistantNudgesAction(), staleTime: 5 * 60 * 1000 });
 }

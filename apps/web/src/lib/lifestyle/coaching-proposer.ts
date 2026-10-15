@@ -3,7 +3,7 @@ import { z } from "zod";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import type { ChatAnthropic } from "@langchain/anthropic";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database, Enums } from "@tarragon/shared";
+import { lintNotificationText, type Database, type Enums } from "@tarragon/shared";
 import {
   proposeNextAction,
   type CoachingAction,
@@ -79,6 +79,9 @@ async function proposeWithModel(
       new SystemMessage(governedPrompt ?? PROPOSER_SYSTEM_PROMPT),
       new HumanMessage(JSON.stringify({ context, referenceMaterial })),
     ]);
+    // INV-07 (closes OQ-94 for this path): a nudge is a notification, so its free text must name no condition, reading, result or
+    // medicine. A hit drops the personalised text; the deterministic action then renders the generic keyed template.
+    if (lintNotificationText(result.message).length > 0) return base;
     return { ...base, message: result.message };
   } catch {
     return base;

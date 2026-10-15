@@ -64,12 +64,14 @@ export default async function PatientVitalsPage() {
         organisationId={profile.organisation_id}
         ageYears={ageYears}
       />
-      <SymptomTriageCheck
-        patientId={subjectId}
-        presentingComplaints={presentingComplaints}
-        degradedConfig={degradedModeConfig()}
-        reviewTime={reviewTime}
-      />
+      <div id="symptom-check" className="scroll-mt-24">
+        <SymptomTriageCheck
+          patientId={subjectId}
+          presentingComplaints={presentingComplaints}
+          degradedConfig={degradedModeConfig()}
+          reviewTime={reviewTime}
+        />
+      </div>
 
       <VitalsHistory patientId={subjectId} />
       <VisitReportCard />

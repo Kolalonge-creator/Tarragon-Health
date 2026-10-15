@@ -35,10 +35,14 @@ export interface TaskFacts {
   requiredCompetencies: readonly string[];
   offeredTo: OfferedTo;
   isTest: boolean;
+  /** Priority class 1 (INV-05). Absent means not red. */
+  isRed?: boolean;
 }
 
 export interface ClaimRules {
   escalatedRequiresOnCall: boolean;
+  /** S16-S20 D1: an escalated task that is not red may be taken by any eligible clinician (queue.task_layer). */
+  escalatedNonRedAnyEligible?: boolean;
 }
 
 /** Whether queue_next could hand this task to this clinician (the gate checks aside: licence, cooling-off, cap). */
@@ -51,7 +55,10 @@ export function mayBeOffered(c: ClinicianFacts, t: TaskFacts, rules: ClaimRules)
   if (!tierAtLeast(c.tier, t.minTier)) return false;
   if (!t.requiredCompetencies.every((k) => c.competencies.includes(k))) return false;
   if (t.state === "offered_to_lead") return t.offeredTo === "me";
-  if (t.state === "escalated") return !rules.escalatedRequiresOnCall || c.competencies.includes("on_call");
+  if (t.state === "escalated") {
+    if (rules.escalatedNonRedAnyEligible === true && t.isRed !== true) return true;
+    return !rules.escalatedRequiresOnCall || c.competencies.includes("on_call");
+  }
   return true;
 }
 
