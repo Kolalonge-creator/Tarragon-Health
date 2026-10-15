@@ -36079,6 +36079,7 @@ export type Database = {
           life_stage: Database["public"]["Enums"]["reproductive_life_stage"]
           organisation_id: string
           patient_id: string
+          planning_pregnancy_mode: boolean
           updated_at: string
         }
         Insert: {
@@ -36090,6 +36091,7 @@ export type Database = {
           life_stage?: Database["public"]["Enums"]["reproductive_life_stage"]
           organisation_id: string
           patient_id: string
+          planning_pregnancy_mode?: boolean
           updated_at?: string
         }
         Update: {
@@ -36101,6 +36103,7 @@ export type Database = {
           life_stage?: Database["public"]["Enums"]["reproductive_life_stage"]
           organisation_id?: string
           patient_id?: string
+          planning_pregnancy_mode?: boolean
           updated_at?: string
         }
         Relationships: [
