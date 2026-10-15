@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@tarragon/shared";
+import { isAiExcludedAnalyte, type Database } from "@tarragon/shared";
 
 /**
  * The anchors a patient can ask "help me understand this" about.
@@ -115,22 +115,27 @@ export async function buildResultSnapshot(
   }
 
   if (kind === "lab_analyte") {
-    const { data } = await supabase
-      .from("lab_analyte_readings")
-      .select("value, unit, taken_at")
+    // INV-04: the explainer reads only the AI-safe view; a screening analyte (HIV, HBsAg, HCV) that is not an explicit
+    // negative returns nothing here, so it can never be explained.
+    const { data: rows } = await supabase
+      .from("ai_readable_lab_readings")
+      .select("value, value_text, unit, taken_at")
       .eq("patient_id", patientId)
       .eq("code", subjectKey)
       .order("taken_at", { ascending: false })
       .limit(2);
-    if (!data || data.length === 0) return null;
+    const data = (rows ?? []).flatMap((r) =>
+      r.taken_at && !isAiExcludedAnalyte(subjectKey, r.value_text) ? [{ ...r, taken_at: r.taken_at }] : []
+    );
+    if (data.length === 0) return null;
     const [latest, previous] = data;
     return {
       kind,
       subjectKey,
       label,
-      latest: { value: String(latest.value), unit: latest.unit, recordedAt: latest.taken_at },
+      latest: { value: String(latest.value ?? latest.value_text ?? ""), unit: latest.unit, recordedAt: latest.taken_at },
       previous: previous
-        ? { value: String(previous.value), unit: previous.unit, recordedAt: previous.taken_at }
+        ? { value: String(previous.value ?? previous.value_text ?? ""), unit: previous.unit, recordedAt: previous.taken_at }
         : null,
     };
   }

@@ -147,7 +147,14 @@ begin
   v_t := pg_temp.mktask(pg_temp.f('pat'), p_type);
   v_got := pg_temp.next_task(p_uid);
   if v_got is distinct from v_t then raise exception 'finish: expected the new task, got % (%); task state=% class=% tier=% comps=% test=%', v_got, pg_temp.next_outcome(p_uid), (select state from public.clinical_tasks where id = v_t), (select priority_class from public.clinical_tasks where id = v_t), (select min_tier from public.clinical_tasks where id = v_t), (select required_competencies from public.clinical_tasks where id = v_t), (select is_test from public.clinical_tasks where id = v_t); end if;
-  v_r := pg_temp.try_as(p_uid, format('select public.queue_complete(%L, %L::jsonb)', v_t, '{"note":"done"}'));
+  if p_type in ('symptom_review', 'async_question', 'critical_result_review', 'titration_signoff', 'red_event_unacknowledged') then
+    -- D4 (S16-S20): these types close only against a system record (a signed note, a released result...), which this proof does not
+    -- build; it tests the audit sampling that follows completion, so it closes through the internal transition the real flows also use
+    perform private.apply_task_transition(v_t, 'completed', 'clinician', p_uid, null, null, null, '{"code":"closed_for_proof"}'::jsonb);
+    v_r := 'ok';
+  else
+    v_r := pg_temp.try_as(p_uid, format('select public.queue_complete(%L, %L::jsonb)', v_t, '{"code":"completed_action_taken","note":"done"}'));
+  end if;
   if v_r <> 'ok' then raise exception 'finish: queue_complete failed: %', v_r; end if;
   return v_t;
 end $f$;
@@ -546,7 +553,7 @@ begin
   v_t := private.create_clinical_task(pg_temp.f('pat'), 'admin_clinical', null, null, null, null, null, array['prescribing']);
   v_got := pg_temp.next_task(p_uid);
   if v_got is distinct from v_t then raise exception 'finish_rx: expected the new task, got % (%); state=% tier=% comps=% test=% due=%', v_got, pg_temp.next_outcome(p_uid), (select state from public.clinical_tasks where id = v_t), (select min_tier from public.clinical_tasks where id = v_t), (select required_competencies from public.clinical_tasks where id = v_t), (select is_test from public.clinical_tasks where id = v_t), (select due_at from public.clinical_tasks where id = v_t); end if;
-  v_r := pg_temp.try_as(p_uid, format('select public.queue_complete(%L, %L::jsonb)', v_t, '{"note":"done"}'));
+  v_r := pg_temp.try_as(p_uid, format('select public.queue_complete(%L, %L::jsonb)', v_t, '{"code":"completed_action_taken","note":"done"}'));
   if v_r <> 'ok' then raise exception 'finish_rx: queue_complete failed: %', v_r; end if;
   return v_t;
 end $f$;
