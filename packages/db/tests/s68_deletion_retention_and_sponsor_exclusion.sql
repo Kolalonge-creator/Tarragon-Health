@@ -90,7 +90,7 @@ create function pg_temp.mkchild(p_org uuid, p_parent uuid, p_label text, p_dob d
 language plpgsql as $f$
 declare v uuid := pg_temp.mkuser(p_org, p_label, 'patient', p_dob, p_sex, p_test);
 begin
-  update public.profiles set is_dependent_account = true where id = v;
+  update public.profiles set is_dependent_account = true, dependent_kind = 'minor_child' where id = v;
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by) values (v, p_parent, 'manage', p_parent);
   return v;
 end $f$;
