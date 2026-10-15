@@ -11,6 +11,7 @@ import { readPendingQualityConfigSignoff } from "@/lib/queries/pending-quality-c
 import { readPendingGlucoseTaskTypeSignoff } from "@/lib/queries/pending-glucose-task-type-signoff";
 import { readPendingRedOutreachSignoff } from "@/lib/queries/pending-red-outreach-signoff";
 import { readPendingSoleCmoException } from "@/lib/queries/pending-sole-cmo-exception";
+import { readUnifiedRedPagingState } from "@/lib/queries/pending-unified-red-paging-signoff";
 
 export type CmoSigningHub = {
   /** One line per thing that needs the Chief Medical Officer's signature, most urgent first. */
@@ -44,6 +45,8 @@ export const GLUCOSE_TASK_TYPE_ITEM_KEY = "glucose_task_type";
 export const QUALITY_CONFIG_ITEM_KEY = "quality_configs";
 /** The key the sole-CMO on-call exception line carries, so the page can attach the signing panel. */
 export const SOLE_CMO_EXCEPTION_ITEM_KEY = "sole_cmo_on_call_exception";
+/** The line for unified red-event paging (S19d): switch the one governed ladder on for SpO2, pulse, temperature, red-flag symptoms and emergency events, or off again. */
+export const UNIFIED_RED_PAGING_ITEM_KEY = "unified_red_paging";
 export { GLUCOSE_TRIAGE_ITEM_KEY };
 
 /**
@@ -66,7 +69,7 @@ export { GLUCOSE_TRIAGE_ITEM_KEY };
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, qualityConfigs, soleCmo] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, qualityConfigs, soleCmo, unifiedRed] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -81,6 +84,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingGlucoseTaskTypeSignoff(supabase),
     readPendingQualityConfigSignoff(supabase),
     readPendingSoleCmoException(supabase),
+    readUnifiedRedPagingState(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -216,6 +220,20 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  if (unifiedRed.liveVersion !== null || unifiedRed.waitingVersion !== null) {
+    const on = unifiedRed.liveVersion !== null;
+    items.push({
+      key: UNIFIED_RED_PAGING_ITEM_KEY,
+      title: on ? "Unified red-event paging is ON (switch off here)" : "Unified red-event paging (off)",
+      detail: on
+        ? `Version ${unifiedRed.liveVersion} is live: low oxygen, dangerous heart rate, high temperature, red-flag symptoms and emergency events page the clinician on call. You can switch it off at any time; open pages are left alone.`
+        : `Version ${unifiedRed.waitingVersion} is ready and OFF. Run the staging test pack, then switch it on here. Until you do, those events notify every clinician as before.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
   const failedSources = [
     ...queue.failedSources,
     ...s06s10.failedSources,
@@ -227,6 +245,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(glucoseTaskType.failed ? ["the urgent glucose review task type"] : []),
     ...(qualityConfigs.failed ? ["the quality and credentialing configurations"] : []),
     ...(soleCmo.failed ? ["the sole-CMO on-call exception"] : []),
+    ...(unifiedRed.failed ? ["unified red-event paging"] : []),
   ];
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
   // A banner row may only link to a hub line that exists. The banner reads its own copy of the state, so if the two ever disagree (a row it
