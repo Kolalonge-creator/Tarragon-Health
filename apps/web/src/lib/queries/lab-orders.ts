@@ -156,7 +156,7 @@ async function fetchLabOrderOrderers(
   if (orderedByIds.length === 0) return ordererById;
   const { data, error } = await supabase
     .from("clinical_staff_directory")
-    .select("id, full_name, credential_type, credential_number")
+    .select("id, full_name, credential_type")
     .in("id", orderedByIds);
   if (error) throw error;
   for (const row of data ?? []) {
@@ -164,7 +164,7 @@ async function fetchLabOrderOrderers(
     ordererById.set(row.id, {
       full_name: row.full_name ?? "",
       credential_type: row.credential_type,
-      credential_number: row.credential_number,
+      credential_number: null, // never from the directory view (CMO Q17, OQ-358)
     });
   }
   return ordererById;

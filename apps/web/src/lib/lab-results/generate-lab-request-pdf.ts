@@ -2,6 +2,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import { LabRequestDocument, type LabRequestData } from "@/lib/lab-results/lab-request-document";
+import { fetchDocumentFolios } from "@/lib/clinical/document-folio";
 
 export type GenerateLabRequestPdfResult =
   | { ok: true; buffer: Buffer; filename: string; orderNumber: string | null }
@@ -72,15 +73,12 @@ export async function generateLabRequestPdf(
   let requestedByCredentialType: string | null = null;
   let requestedByCredentialNumber: string | null = null;
   if (order.ordered_by) {
-    const { data: staff } = await supabase
-      .from("clinical_staff_directory")
-      .select("full_name, credential_type, credential_number")
-      .eq("id", order.ordered_by)
-      .maybeSingle();
-    if (staff?.full_name) {
-      requestedByName = staff.full_name;
-      requestedByCredentialType = staff.credential_type;
-      requestedByCredentialNumber = staff.credential_number;
+    // Folio via the document-scoped function, never the directory view (CMO Q17, OQ-358).
+    const folio = (await fetchDocumentFolios(supabase, "lab_request", [order.id])).get(order.id);
+    if (folio?.fullName) {
+      requestedByName = folio.fullName;
+      requestedByCredentialType = folio.credentialType;
+      requestedByCredentialNumber = folio.credentialNumber;
     }
   }
 

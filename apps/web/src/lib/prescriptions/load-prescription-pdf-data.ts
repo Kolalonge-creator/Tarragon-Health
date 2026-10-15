@@ -28,6 +28,7 @@ type Client = SupabaseClient<Database>;
 
 import { DEFAULT_LETTERHEAD, type Letterhead } from "./letterhead";
 import { loadPrescriberSignature } from "./signature";
+import { fetchDocumentFolios } from "@/lib/clinical/document-folio";
 
 function text(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -77,18 +78,24 @@ async function loadPatient(supabase: Client, patientId: string) {
  * The directory is the safe-column view every patient-facing staff read goes through, and it carries the name, credential and the
  * derived licence flag together.
  */
-async function loadPrescriber(supabase: Client, profileId: string | null): Promise<PrescriptionPrescriber | null> {
+async function loadPrescriber(
+  supabase: Client,
+  profileId: string | null,
+  medicationId: string,
+): Promise<PrescriptionPrescriber | null> {
   if (!profileId) return null;
   const { data: staff } = await supabase
     .from("clinical_staff_directory")
-    .select("full_name, credential_type, credential_number, license_verified")
+    .select("full_name, credential_type, license_verified")
     .eq("profile_id", profileId)
     .maybeSingle();
   if (!staff) return null;
+  // The folio is not in the directory view (CMO Q17, OQ-358); read it for this prescription only.
+  const folio = (await fetchDocumentFolios(supabase, "prescription", [medicationId])).get(medicationId);
   return {
     name: staff.full_name,
     credentialType: staff.credential_type,
-    credentialNumber: staff.credential_number,
+    credentialNumber: folio?.credentialNumber ?? null,
     licenseVerified: staff.license_verified === true,
   };
 }
@@ -133,7 +140,7 @@ export async function loadSinglePrescription(
 
   const [patient, prescriber] = await Promise.all([
     loadPatient(supabase, medication.patient_id),
-    loadPrescriber(supabase, medication.added_by),
+    loadPrescriber(supabase, medication.added_by, medication.id),
   ]);
   if (!patient) return { status: "not_found" };
 
@@ -179,8 +186,8 @@ export async function loadPrescriptionBundle(
   const names: string[] = [];
   for (const row of rows) {
     names.push(row.drug_name);
-    const key = row.added_by ?? "";
-    if (!prescribers.has(key)) prescribers.set(key, await loadPrescriber(supabase, row.added_by));
+    const key = `${row.added_by ?? ""}:${row.id}`;
+    if (!prescribers.has(key)) prescribers.set(key, await loadPrescriber(supabase, row.added_by, row.id));
     results.push(buildPrescriptionPdfData({ medication: row, patient, prescriber: prescribers.get(key) ?? null }));
   }
 
@@ -245,7 +252,7 @@ export async function loadPrescriptionForClinician(
 
   const [patient, prescriber] = await Promise.all([
     loadPatient(supabase, patientId),
-    loadPrescriber(supabase, medication.added_by),
+    loadPrescriber(supabase, medication.added_by, medication.id),
   ]);
   if (!patient) return { status: "not_found" };
 

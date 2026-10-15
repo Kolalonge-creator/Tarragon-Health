@@ -1070,3 +1070,5 @@ s05b_e_allergy_request_notices_and_limit.sql
 ops_rota_gap_alert_dedup.sql
 # S05b-f: the S05b-d hold rule extended to conditions a patient entered herself: her void or correction is a request, the original stays in the current view, the arrival notice and the confirmed notice are in-app with no clinical word, 3 requests per condition per rolling 7 days (per record, void excluded), only a tied non-coordinator clinician decides, a clinician's own correction stays immediate, a clinician-diagnosed condition is refused, the patient's export lists the requests. Sabotage: condition branch removed, permissive clinician test, voiding trigger dropped, diagnosing rule removed, limit trigger dropped, confirm pointed at the wrong table; each must flip.
 s05b_f_condition_correction_requests.sql
+# CMO Q17 / OQ-358: the MDCN folio is not readable through public.clinical_staff_directory; documents get it only through clinician_folio_for_document, which refuses a stranger, a non-owner patient and anon. Sabotage: the view re-exposes credential_number and the column check must fail.
+folio_not_exposed.sql

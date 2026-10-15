@@ -1,4 +1,5 @@
 import { renderToBuffer } from "@react-pdf/renderer";
+import { fetchDocumentFolios } from "@/lib/clinical/document-folio";
 import { createClient } from "@/lib/supabase/server";
 import {
   ReferralLetterDocument,
@@ -67,16 +68,12 @@ export async function GET(
   let referrerCredentialType: string | null = null;
   let referrerCredential: string | null = null;
   if (referral.set_by) {
-    const { data: staff } = await supabase
-      .from("clinical_staff_directory")
-      .select("full_name, credential_type, credential_number")
-      .eq("profile_id", referral.set_by)
-      .eq("active", true)
-      .maybeSingle();
-    if (staff?.full_name) {
-      referrerName = staff.full_name;
-      referrerCredentialType = staff.credential_type;
-      referrerCredential = staff.credential_number;
+    // Folio via the document-scoped function, never the directory view (CMO Q17, OQ-358).
+    const folio = (await fetchDocumentFolios(supabase, "referral_letter", [referral.id])).get(referral.id);
+    if (folio?.fullName) {
+      referrerName = folio.fullName;
+      referrerCredentialType = folio.credentialType;
+      referrerCredential = folio.credentialNumber;
     }
   }
 

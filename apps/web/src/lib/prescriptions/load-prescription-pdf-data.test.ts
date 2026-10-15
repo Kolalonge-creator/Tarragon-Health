@@ -71,7 +71,27 @@ function fakeClient(fixture: Fixture, rpcResult?: { data: unknown; error: { mess
     }
     return chain;
   };
-  const rpc = async () => rpcResult ?? { data: null, error: null };
+  const rpc = async (fn?: string, args?: { p_document_ids?: string[] }) => {
+    // The folio comes from the document-scoped function, not the directory view (CMO Q17, OQ-358).
+    if (fn === "clinician_folio_for_document") {
+      const staff = fixture.staff as { credential_number?: string | null; credential_type?: string | null; full_name?: string } | null;
+      const number = staff?.credential_number ?? null;
+      return {
+        data: staff && number !== null
+          ? (args?.p_document_ids ?? []).map((id) => ({
+              document_id: id,
+              clinician_staff_id: "staff-1",
+              clinician_profile_id: "profile-1",
+              full_name: staff.full_name ?? null,
+              credential_type: staff.credential_type ?? null,
+              credential_number: number,
+            }))
+          : [],
+        error: null,
+      };
+    }
+    return rpcResult ?? { data: null, error: null };
+  };
   return { client: { from, rpc } as unknown as SupabaseClient<Database>, audit };
 }
 

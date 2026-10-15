@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
+import { fetchDocumentFolios } from "@/lib/clinical/document-folio";
 
 export interface VaccinationCertificateData {
   patientName: string;
@@ -49,17 +50,13 @@ export async function getVaccinationCertificateData(
 
   let verifier: VaccinationCertificateData["verifier"] = null;
   if (record.verified_by) {
-    const { data: staff } = await supabase
-      .from("clinical_staff_directory")
-      .select("full_name, credential_type, credential_number")
-      .eq("profile_id", record.verified_by)
-      .eq("active", true)
-      .maybeSingle();
-    if (staff) {
+    // Folio via the document-scoped function, never the directory view (CMO Q17, OQ-358).
+    const folio = (await fetchDocumentFolios(supabase, "vaccination_certificate", [recordId])).get(recordId);
+    if (folio) {
       verifier = {
-        fullName: staff.full_name ?? "",
-        credentialType: staff.credential_type,
-        credentialNumber: staff.credential_number,
+        fullName: folio.fullName ?? "",
+        credentialType: folio.credentialType,
+        credentialNumber: folio.credentialNumber,
       };
     }
   }
