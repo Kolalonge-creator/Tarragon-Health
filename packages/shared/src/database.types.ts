@@ -46119,6 +46119,9 @@ export type Database = {
       }
       pharmacy_medications_admin: {
         Row: {
+          verified_batch: boolean | null
+          verified_batch_at: string | null
+          verified_batch_by: string | null
           commission_flat_kobo: number | null
           commission_rate: number | null
           commission_rate_type: string | null
@@ -46161,8 +46164,8 @@ export type Database = {
       }
     }
     Functions: {
-      attest_pharmacy_nafdac_source: { Args: { p_partner: string; p_note: string }; Returns: Json };
       medication_refill_pharmacy: { Args: { p_medication: string }; Returns: { partner_id: string; partner_name: string | null; location_name: string | null; address: string | null }[] };
+      attest_pharmacy_nafdac_source: { Args: { p_partner: string; p_note: string }; Returns: Json };
       sign_interaction_dataset: { Args: { p_version: number; p_content_hash: string; p_note: string }; Returns: Json };
       care_team_side_effect_notes: {
         Args: { p_patient: string; p_reason: string };
@@ -46187,6 +46190,7 @@ export type Database = {
       my_corrected_record_entries: { Args: { p_patient?: string }; Returns: Json }
       withdraw_patient_allergy_correction: { Args: { p_request_id: string }; Returns: Json }
       // S27 (lab results and release rules): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
+      bp_control_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       // S75 (outcome measures, CMO decision S-5): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       bp_control_report_day: { Args: { p_day: number; p_from?: string; p_to?: string }; Returns: Json };
       clinician_mental_health_outcomes: { Args: { p_patient: string; p_reason: string }; Returns: Json };
@@ -46206,6 +46210,7 @@ export type Database = {
         }[]
       }
       cancel_reproductive_tracker_deletion: { Args: never; Returns: Json }
+      clinician_risk_worklist: { Args: { p_limit?: number }; Returns: Json };
       clinical_response_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       log_institution_aggregate_read: { Args: { p_organisation_id: string; p_surface: string }; Returns: boolean };
       set_circle_monthly_report_share: { Args: { p_member: string; p_on: boolean }; Returns: boolean };
@@ -46221,7 +46226,103 @@ export type Database = {
         Args: { p_patient: string; p_readings: number; p_ref?: string; p_source: string }
         Returns: string
       }
+      community_admin_cancel_qa: { Args: { p_series_id: string }; Returns: Json }
+      community_admin_create_qa: { Args: { p_title: string; p_intro: string; p_opens_at: string; p_closes_at: string; p_doctor_ids: string[]; p_group_ids: string[] }; Returns: Json }
+      community_admin_dpo: { Args: never; Returns: Json }
+      community_admin_end_prompt: { Args: { p_id: string }; Returns: Json }
+      community_admin_grant_staff: { Args: { p_profile_id: string; p_scope: string; p_group_id?: string }; Returns: Json }
+      community_admin_groups: { Args: never; Returns: Json }
+      community_admin_overview: { Args: never; Returns: Json }
+      community_admin_pinned: { Args: { p_group_id: string }; Returns: Json }
+      community_admin_prompts: { Args: { p_group_id: string }; Returns: Json }
+      community_admin_qa_list: { Args: never; Returns: Json }
+      community_admin_remove_answer: { Args: { p_id: string }; Returns: Json }
+      community_admin_revoke_staff: { Args: { p_id: string }; Returns: Json }
+      community_admin_rule_delete: { Args: { p_rule_id: number }; Returns: Json }
+      community_admin_rule_save: { Args: { p_version: number; p_class: string; p_kind: string; p_pattern: string; p_action: string; p_note?: string }; Returns: Json }
+      community_admin_rule_set_activate: { Args: { p_version: number }; Returns: Json }
+      community_admin_rule_set_create: { Args: { p_from_version?: number }; Returns: Json }
+      community_admin_rule_set_params: { Args: { p_version: number; p_allowed_hosts: Json }; Returns: Json }
+      community_admin_rule_sets: { Args: never; Returns: Json }
+      community_admin_rules: { Args: { p_version: number }; Returns: Json }
+      community_admin_save_group: { Args: { p_id: string; p_name: string; p_slug: string; p_description: string; p_topic_code: string; p_rules_text: string; p_join_mode?: string; p_status?: string }; Returns: Json }
+      community_admin_save_prompt: { Args: { p_group_id: string; p_body: string; p_show_from?: string; p_show_until?: string }; Returns: Json }
+      community_admin_save_topic: { Args: { p_code: string; p_label: string; p_description?: string; p_sort_order?: number; p_is_active?: boolean; p_requires_cmo_rules?: boolean }; Returns: Json }
+      community_admin_set_dpo: { Args: { p_profile_id: string; p_on: boolean }; Returns: Json }
+      community_admin_set_group_cap: { Args: { p_id: string; p_cap: number | null }; Returns: Json }
+      community_admin_set_group_images: { Args: { p_id: string; p_on: boolean }; Returns: Json }
+      community_admin_set_shifts: { Args: { p_staff_id: string; p_shifts: Json }; Returns: Json }
+      community_admin_shifts: { Args: never; Returns: Json }
+      community_admin_staff: { Args: never; Returns: Json }
+      community_admin_topics: { Args: never; Returns: Json }
+      community_admin_unmask: { Args: { p_group_id: string; p_handle: string; p_reason: string }; Returns: Json }
+      community_admin_unpin: { Args: { p_id: string }; Returns: Json }
+      community_appeal: { Args: { p_kind: string; p_target_id: string; p_reason: string }; Returns: Json }
+      community_appeal_decide: { Args: { p_id: string; p_decision: string; p_note?: string }; Returns: Json }
+      community_appeal_queue: { Args: never; Returns: Json }
+      community_ask_question: { Args: { p_group_id: string; p_session_id: string; p_body: string; p_client_request_id?: string }; Returns: Json }
+      community_clinician_pin: { Args: { p_group_id: string; p_title: string; p_body: string }; Returns: Json }
+      community_clinician_review_pin: { Args: { p_id: string }; Returns: Json }
+      community_cmo_approve_group_rules: { Args: { p_group_id: string; p_rules_version: number }; Returns: Json }
+      community_cmo_load_starter_safety_rules: { Args: never; Returns: Json }
+      community_coverage: { Args: never; Returns: Json }
+      community_delete_own_post: { Args: { p_post_id: string }; Returns: Json }
+      community_dpo_candidates: { Args: never; Returns: Json }
+      community_edit_post: { Args: { p_post_id: string; p_body: string }; Returns: Json }
+      community_feed: { Args: { p_group_id: string; p_before?: string; p_limit?: number }; Returns: Json }
+      community_get_group: { Args: { p_slug: string }; Returns: Json }
+      community_hidden_authors: { Args: { p_group_id: string }; Returns: Json }
+      community_hide_author: { Args: { p_post_id: string }; Returns: Json }
+      community_image_path: { Args: { p_image_id: string }; Returns: string }
+      community_image_precheck: { Args: { p_group_id: string; p_client_request_id?: string }; Returns: Json }
+      community_image_ref: { Args: { p_image_id: string }; Returns: Json }
+      community_images_due: { Args: never; Returns: Json }
+      community_images_mark_deleted: { Args: { p_ids: string[] }; Returns: number }
+      community_job_heartbeat: { Args: { p_job: string; p_ok: boolean }; Returns: undefined }
+      community_join_group: { Args: { p_group_id: string; p_rules_version: number; p_consent: boolean }; Returns: Json }
+      community_leave_group: { Args: { p_group_id: string; p_delete_posts?: boolean }; Returns: Json }
+      community_list_groups: { Args: never; Returns: Json }
+      community_mark_image_flagged: { Args: { p_post_id: string }; Returns: boolean }
+      community_mod_recent: { Args: { p_group_id?: string; p_before?: string }; Returns: Json }
+      community_mod_split_reply: { Args: { p_post_id: string }; Returns: Json }
+      community_my_actions: { Args: never; Returns: Json }
+      community_note_groups: { Args: never; Returns: Json }
+      community_mod_decide: { Args: { p_post_id: string; p_decision: string; p_reason_code?: string }; Returns: Json }
+      community_mod_queue: { Args: { p_group_id?: string }; Returns: Json }
+      community_mod_sanction: { Args: { p_post_id: string; p_kind: string; p_reason_code: string; p_hours?: number; p_platform_wide?: boolean }; Returns: Json }
+      community_notify_overdue: { Args: never; Returns: number }
+      community_orphan_files: { Args: never; Returns: Json }
+      community_overdue_work: { Args: never; Returns: Json }
+      community_purge_expired: { Args: never; Returns: number }
+      community_qa_answer: { Args: { p_post_id: string; p_body: string }; Returns: Json }
+      community_qa_doctor_questions: { Args: { p_series_id: string }; Returns: Json }
+      community_qa_doctor_sessions: { Args: never; Returns: Json }
+      community_quality_summary: { Args: never; Returns: Json }
+      community_react: { Args: { p_post_id: string; p_on: boolean }; Returns: Json }
+      community_record_tabletop: { Args: { p_passed: boolean; p_notes?: string; p_steps?: Json }; Returns: Json }
+      community_replies: { Args: { p_post_id: string }; Returns: Json }
+      community_report_post: { Args: { p_post_id: string; p_reason_code: string; p_detail?: string }; Returns: Json }
+      community_safety_decide: { Args: { p_signal_id: string; p_decision: string }; Returns: Json }
+      community_safety_queue: { Args: never; Returns: Json }
+      community_sample_queue: { Args: never; Returns: Json }
+      community_sample_review: { Args: { p_id: string; p_agrees: boolean; p_note?: string }; Returns: Json }
+      community_search_groups: { Args: { p_q: string }; Returns: Json }
+      community_search_posts: { Args: { p_query: string; p_group_id?: string; p_before?: string }; Returns: Json }
+      community_send_digests: { Args: never; Returns: number }
+      community_send_return_nudges: { Args: never; Returns: number }
+      community_set_digest: { Args: { p_group_id: string; p_on: boolean }; Returns: Json }
+      community_set_group_muted: { Args: { p_group_id: string; p_muted: boolean }; Returns: Json }
+      community_set_my_display_name: { Args: { p_name: string | null }; Returns: Json }
+      community_staff_context: { Args: never; Returns: Json }
+      community_submit_post: { Args: { p_group_id: string; p_parent_id: string; p_body: string; p_client_request_id?: string }; Returns: Json }
+      community_submit_post_with_image: { Args: { p_group_id: string; p_parent_id: string; p_body: string; p_client_request_id: string; p_storage_path: string; p_mime: string; p_size: number; p_width: number; p_height: number }; Returns: Json }
+      community_tabletop_runs: { Args: never; Returns: Json }
+      community_unhide_author: { Args: { p_id: string }; Returns: Json }
+      community_unmask_candidates: { Args: never; Returns: Json }
+      log_outcome_export: { Args: { p_from?: string; p_to?: string }; Returns: undefined };
+      my_monthly_reports: { Args: { p_limit?: number }; Returns: Json };
       my_reproductive_access_log: { Args: { p_limit?: number }; Returns: Json }
+      override_patient_risk: { Args: { p_days?: number; p_level: string; p_patient: string; p_reason: string }; Returns: Json };
       pair_device_for: {
         Args: { p_ble_device_id: string; p_device_type: Database["public"]["Enums"]["patient_device_type"]; p_model?: string; p_person: string }
         Returns: string
@@ -46253,8 +46354,23 @@ export type Database = {
         Returns: Json
       }
       process_due_reproductive_tracker_deletions: { Args: never; Returns: number }
+      risk_distribution_report: { Args: Record<PropertyKey, never>; Returns: Json };
       // Two-tier review decisions (renewals at the monthly review): spliced by hand.
+      add_review_note: { Args: { p_medication: string | null; p_note: string }; Returns: string };
       // S38e (sponsor cohorts and triage accuracy): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
+      admin_close_sponsor_cohort: { Args: { p_cohort: string }; Returns: boolean };
+      admin_create_sponsor_cohort: { Args: { p_max_uses: number; p_name: string; p_sponsor_org: string; p_valid_from: string; p_valid_to: string }; Returns: Json };
+      admin_list_sponsor_cohorts: { Args: Record<PropertyKey, never>; Returns: Json };
+      clinician_triage_review_list: { Args: Record<PropertyKey, never>; Returns: Json };
+      join_cohort: { Args: { p_code: string }; Returns: Json };
+      leave_cohort: { Args: { p_cohort: string }; Returns: Json };
+      log_sponsor_export: { Args: { p_cohort: string; p_from?: string; p_to?: string }; Returns: undefined };
+      my_cohorts: { Args: Record<PropertyKey, never>; Returns: Json };
+      record_triage_review: { Args: { p_agreement: string; p_task: string }; Returns: Json };
+      set_cohort_reporting_consent: { Args: { p_cohort: string; p_granted: boolean }; Returns: Json };
+      sponsor_outcome_report: { Args: { p_cohort: string; p_from?: string; p_to?: string }; Returns: Json };
+      sponsor_staff_figures: { Args: { p_cohort: string }; Returns: Json };
+      log_sponsor_staff_export: { Args: { p_cohort: string }; Returns: Json };
       // S03b (accounts that survive a lost number; eligibility-first claims): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       authorise_phone_change: { Args: { p_method: string; p_user: string }; Returns: Json };
       cancel_contact_recovery: { Args: Record<PropertyKey, never>; Returns: Json };
@@ -46276,6 +46392,8 @@ export type Database = {
       respond_recovery_contact: { Args: { p_accept: boolean; p_id: string }; Returns: Json };
       revoke_recovery_contact: { Args: { p_id: string }; Returns: Json };
       unrelease_contact_recovery: { Args: { p_request: string }; Returns: boolean };
+      sponsor_staff_programmes: { Args: Record<PropertyKey, never>; Returns: Json };
+      triage_accuracy_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       confirm_sleep_apnoea_screen_config: { Args: { p_version: number }; Returns: undefined }
       read_patient_sleep_screens_audited: { Args: { p_patient: string; p_reason?: string }; Returns: Json }
       submit_sleep_apnoea_screen: { Args: { p_answers: Json }; Returns: Json }
@@ -46291,6 +46409,7 @@ export type Database = {
       media_library_flag_expired: { Args: Record<PropertyKey, never>; Returns: number }
       media_offline_manifest: { Args: Record<PropertyKey, never>; Returns: Json }
       record_media_session: { Args: { p_listened_seconds: number; p_media: string }; Returns: string }
+      lab_panel_definition: { Args: { p_panel: string }; Returns: Json };
       learning_search_gaps_report: {
         Args: never
         Returns: {
@@ -46390,6 +46509,110 @@ export type Database = {
           saved_at: string
           title: string
         }[]
+      }
+      liaison_recent_uploads: {
+        Args: Record<PropertyKey, never>;
+        Returns: { lab_result_id: string; received_at: string; order_number: string | null; patient_number: string | null; file_name: string | null; status: string }[];
+      };
+      patient_released_lab_results: { Args: { p_patient: string; p_reason: string }; Returns: Json };
+      lab_partner_mark_collected: { Args: { p_order: string }; Returns: undefined };
+      lab_partner_portal_orders: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          order_id: string;
+          order_number: string | null;
+          partner_reference: string | null;
+          status: string;
+          panel_code: string | null;
+          patient_name: string | null;
+          patient_number: string | null;
+          ordered_at: string;
+          sample_collected_at: string | null;
+          result_received: boolean;
+          latest_result_id: string | null;
+        }[];
+      };
+      lab_partner_submit_correction: {
+        Args: { p_corrects: string; p_file?: Json; p_items: Json; p_kind: string; p_order: string; p_panel: string; p_reason: string };
+        Returns: Json;
+      };
+      record_lab_disclosure_attempt: { Args: { p_note?: string; p_outcome: string; p_result: string }; Returns: Json };
+      sign_lab_panels: { Args: { p_id: string }; Returns: string };
+      sign_home_bp_programme: { Args: { p_id: string }; Returns: string };
+      complete_home_bp_check: { Args: { p_window_start: string }; Returns: Json };
+      record_clinic_bp_reading: { Args: { p_diastolic: number; p_measured_at: string; p_note?: string; p_patient: string; p_systolic: number }; Returns: string };
+      sign_my_health_config: { Args: { p_id: string }; Returns: string };
+      my_access_log: { Args: { p_limit?: number; p_before?: string; p_before_id?: string }; Returns: Json };
+      my_lock_screen_facts: { Args: Record<PropertyKey, never>; Returns: Json };
+      set_lock_screen_pass: { Args: { p_enabled: boolean }; Returns: boolean };
+      withdraw_lab_result: { Args: { p_reason: string; p_result: string }; Returns: Json };
+      lab_partner_submit_result: { Args: { p_file?: Json; p_items: Json; p_order: string; p_panel: string }; Returns: Json };
+      lab_result_explain_allowed: { Args: { p_result: string }; Returns: boolean };
+      lab_result_file_path: { Args: { p_result: string }; Returns: string };
+      lab_result_for_review: { Args: { p_reason: string; p_result: string }; Returns: Json };
+      lab_results_review_queue: {
+        Args: Record<PropertyKey, never>;
+        Returns: { lab_result_id: string; patient_id: string; release_state: string; release_reason: string | null; received_at: string }[];
+      };
+      my_lab_results: { Args: Record<PropertyKey, never>; Returns: Json };
+      patient_add_lab_result: { Args: { p_file: Json }; Returns: Json };
+      record_lab_disclosure: { Args: { p_attested: boolean; p_method: string; p_note?: string; p_result: string }; Returns: Json };
+      release_lab_result: { Args: { p_note?: string; p_result: string }; Returns: Json };
+      team_submit_lab_result: { Args: { p_file?: Json; p_items: Json; p_order: string; p_panel: string; p_patient: string }; Returns: Json };
+      withhold_lab_result: { Args: { p_reason: string; p_result: string }; Returns: Json };
+      // Testing days, employer visits and point-of-care results (20261013004659_testing_days_employer_visits_point_of_care.sql)
+      create_testing_event: {
+        Args: {
+          p_address: string; p_capacity: number; p_city: string; p_employer_org?: string; p_event_date: string; p_ends_at: string | null;
+          p_headcount?: number; p_kind: string; p_lab_provider: string | null; p_lga: string | null; p_notes?: string; p_starts_at: string | null;
+          p_state: string | null; p_venue_name: string;
+        };
+        Returns: string;
+      };
+      set_testing_event_team: { Args: { p_event: string; p_team: Json }; Returns: undefined };
+      approve_testing_event_venue: { Args: { p_event: string }; Returns: undefined };
+      update_testing_event: {
+        Args: { p_capacity: number; p_ends_at: string | null; p_event: string; p_lab_provider: string | null; p_starts_at: string | null; p_venue_name: string };
+        Returns: undefined;
+      };
+      set_testing_event_status: { Args: { p_event: string; p_status: string }; Returns: undefined };
+      list_testing_days: { Args: { p_city?: string }; Returns: Json };
+      book_testing_day: { Args: { p_event: string }; Returns: Json };
+      cancel_testing_booking: { Args: { p_booking: string; p_reason?: string }; Returns: undefined };
+      reschedule_testing_booking: { Args: { p_booking: string; p_new_event: string }; Returns: Json };
+      my_testing_bookings: { Args: Record<PropertyKey, never>; Returns: Json };
+      send_testing_day_reminders: { Args: Record<PropertyKey, never>; Returns: number };
+      check_in_testing_booking: { Args: { p_booking: string }; Returns: Json };
+      record_testing_blood_draw: { Args: { p_booking: string }; Returns: undefined };
+      record_poc_measurements: { Args: { p_booking: string; p_data: Json }; Returns: Json };
+      record_poc_urinalysis: { Args: { p_booking: string; p_items: Json }; Returns: string };
+      record_poc_hba1c: { Args: { p_booking: string; p_value: number }; Returns: string };
+      record_poc_ecg: {
+        Args: { p_booking: string; p_device_label?: string; p_file_path: string; p_machine_statement?: string; p_mime_type: string; p_size: number };
+        Returns: string;
+      };
+      interpret_poc_ecg: { Args: { p_class: string; p_interpretation: string; p_recording: string }; Returns: undefined };
+      release_poc_result: { Args: { p_note?: string; p_result: string }; Returns: undefined };
+      withhold_poc_result: { Args: { p_reason: string; p_result: string }; Returns: undefined };
+      poc_review_queue: { Args: Record<PropertyKey, never>; Returns: Json };
+      poc_ecg_file_path: { Args: { p_recording: string }; Returns: string };
+      my_poc_results: { Args: Record<PropertyKey, never>; Returns: Json };
+      list_testing_events_for_staff: { Args: Record<PropertyKey, never>; Returns: Json };
+      testing_event_roster: { Args: { p_event: string }; Returns: Json };
+      request_employer_visit: {
+        Args: { p_address: string; p_city: string; p_event_date: string; p_headcount: number; p_lga: string | null; p_notes?: string };
+        Returns: string;
+      };
+      add_employer_visit_attendees: { Args: { p_event: string; p_roster_ids: string[] }; Returns: Json };
+      employer_visit_summary: { Args: Record<PropertyKey, never>; Returns: Json };
+      apply_payout_transfer_event: {
+        Args: {
+          p_event: string
+          p_reason?: string
+          p_reference: string
+          p_transfer_code: string
+        }
+        Returns: Json
       }
       approve_fee_schedule: { Args: { p_id: string; p_note?: string }; Returns: Json }
       approve_payout: { Args: { p_id: string }; Returns: Json }
