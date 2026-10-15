@@ -26,13 +26,13 @@ begin
   select rules into j3 from public.triage_rule_sets where code = 'bp_care_triage' and version = 5;
   select rules into j4 from public.triage_rule_sets where code = 'bp_care_triage' and version = 6;
   if j3 is null or j4 is null then return array['rows missing']; end if;
-  if (j4 #>> '{params,extreme,systolic}')::int <> 180 or (j4 #>> '{params,extreme,diastolic}')::int <> 120 then bad := bad || 'extreme-not-180-120'; end if;
+  if (j4 #>> '{params,extreme,systolic}')::int <> 180 or (j4 #>> '{params,extreme,diastolic}')::int <> 120 then bad := bad || array['extreme-not-180-120']; end if;
   if (j4 #>> '{params,severe,systolic}')::int <> 180 or (j4 #>> '{params,severe,diastolic}')::int <> 120
-     or (j4 #>> '{params,urgent,systolic}')::int <> 180 or (j4 #>> '{params,urgent,diastolic}')::int <> 110 then bad := bad || 'severe-or-urgent-moved'; end if;
+     or (j4 #>> '{params,urgent,systolic}')::int <> 180 or (j4 #>> '{params,urgent,diastolic}')::int <> 110 then bad := bad || array['severe-or-urgent-moved']; end if;
   if (((j4 #- '{params,extreme}') #- '{params,proposedForCmo}') - 'version') #- '{rules}'
-       is distinct from (((j3 #- '{params,extreme}') - 'version') #- '{rules}') then bad := bad || 'params-differ-beyond-extreme'; end if;
+       is distinct from (((j3 #- '{params,extreme}') - 'version') #- '{rules}') then bad := bad || array['params-differ-beyond-extreme']; end if;
   if (select jsonb_agg(r - 'description') from jsonb_array_elements(j4 -> 'rules') r)
-       is distinct from (select jsonb_agg(r - 'description') from jsonb_array_elements(j3 -> 'rules') r) then bad := bad || 'a-rule-differs'; end if;
+       is distinct from (select jsonb_agg(r - 'description') from jsonb_array_elements(j3 -> 'rules') r) then bad := bad || array['a-rule-differs']; end if;
   return bad;
 end $f$;
 
@@ -132,7 +132,7 @@ begin
   update public.triage_rule_sets set status = 'retired' where id = v3row.id;
   update public.triage_rule_sets set status = 'approved', approved_by = v_cmo, approved_at = now() where id = v6row.id;
   g := public.triage_rule_set_for_grading('bp_care_triage');
-  if (g ->> 'version')::int <> 4 then raise exception 'VACUOUS TEST: approving v6 did not change which set grades'; end if;
+  if (g ->> 'version')::int <> 6 then raise exception 'VACUOUS TEST: approving v6 did not change which set grades'; end if;
 
   raise notice 'S85-D1 proof: all checks passed, all three sabotages caught';
 end $$;
