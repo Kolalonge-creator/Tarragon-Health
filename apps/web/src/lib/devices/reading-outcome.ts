@@ -24,7 +24,7 @@ export interface OutcomeProbe {
 
 export async function readOutcome(supabase: SupabaseClient<Database>, probe: OutcomeProbe): Promise<ReadingOutcome> {
   try {
-    let saved = supabase.from("vitals_readings").select("id").eq("patient_id", probe.patientId);
+    let saved = supabase.from("vitals_readings").select("id").eq("patient_id", probe.patientId).is("correction_status", null);
     if (probe.deviceId && probe.externalReadingId) saved = saved.eq("device_id", probe.deviceId).eq("external_reading_id", probe.externalReadingId);
     else if (probe.clientReadingId) saved = saved.eq("client_reading_id", probe.clientReadingId);
     else return { kind: "unknown" };
@@ -62,6 +62,7 @@ export async function readBatchOutcome(
       .from("vitals_readings")
       .select("id", { count: "exact", head: true })
       .eq("patient_id", probe.patientId)
+      .is("correction_status", null)
       .eq(probe.connectionColumn, probe.connectionId)
       .in("external_reading_id", probe.externalIds);
     let held = 0;
