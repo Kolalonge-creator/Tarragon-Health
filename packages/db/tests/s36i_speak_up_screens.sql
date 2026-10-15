@@ -117,9 +117,9 @@ declare
 begin
   -- 1. grants
   foreach v_fn in array array[
-    'public.raise_safety_concern(text, text, text, text, uuid)', 'public.my_safety_concerns()', 'public.safety_concern_inbox(text)', 'public.acknowledge_safety_concern(uuid)',
+    'public.raise_safety_concern(text, text, text, text, uuid, boolean)', 'public.my_safety_concerns()', 'public.safety_concern_inbox(text)', 'public.acknowledge_safety_concern(uuid)',
     'public.respond_to_safety_concern(uuid, text)', 'public.add_to_safety_concern(uuid, text)', 'public.close_safety_concern(uuid, text)', 'public.open_incident_for_concern(uuid, text)',
-    'public.add_safety_concern_backup_reader(uuid, text)', 'public.remove_safety_concern_backup_reader(uuid)', 'public.retaliation_review_queue()', 'public.close_retaliation_review(uuid, text, text)'] loop
+    'public.add_safety_concern_backup_reader(uuid, text, text)', 'public.remove_safety_concern_backup_reader(uuid)', 'public.retaliation_review_queue()', 'public.close_retaliation_review(uuid, text, text)'] loop
     perform pg_temp.ck('anon cannot execute ' || v_fn, 'false', has_function_privilege('anon', v_fn, 'EXECUTE')::text);
   end loop;
 
@@ -173,9 +173,9 @@ begin
          and respond_due_at between created_at + interval '13 days' and created_at + interval '15 days')::text from public.safety_concerns where id = v_id));
   -- the page's Zod schemas need every one of these keys
   v_keys := pg_temp.q_as(v_cmo, 'select string_agg(k, '','' order by k) from jsonb_object_keys(public.safety_concern_inbox() -> 0) k');
-  perform pg_temp.ck('inbox row carries every key the page reads', 'acknowledge_due_at,category,created_at,description,escalated_at,id,incident_id,messages,overdue,raised_by,raised_by_name,respond_due_at,screen,severity,state,task_id', v_keys);
+  perform pg_temp.ck('inbox row carries every key the page reads', 'acknowledge_due_at,anonymous,category,created_at,description,escalated_at,id,incident_id,messages,overdue,raised_by,raised_by_name,respond_due_at,routing,screen,severity,state,task_id', v_keys);
   v_keys := pg_temp.q_as(v_r, 'select string_agg(k, '','' order by k) from jsonb_object_keys(public.my_safety_concerns() -> 0) k');
-  perform pg_temp.ck('my-concerns row carries every key the page reads', 'acknowledge_due_at,acknowledged_at,category,closed_at,created_at,description,id,messages,respond_due_at,responded_at,severity,state', v_keys);
+  perform pg_temp.ck('my-concerns row carries every key the page reads', 'acknowledge_due_at,acknowledged_at,category,checkins,closed_at,created_at,description,id,messages,respond_due_at,responded_at,severity,state', v_keys);
   -- the lead acts; the raiser then reads the reply
   perform pg_temp.ck('the lead acknowledges', 'ok', pg_temp.try_as(v_cmo, format('select public.acknowledge_safety_concern(%L)', v_id)));
   perform pg_temp.ck('the lead replies', 'ok', pg_temp.try_as(v_cmo, format('select public.respond_to_safety_concern(%L, %L)', v_id, 'Thank you, we are changing the handover sheet this week.')));
@@ -189,7 +189,7 @@ begin
 end $$;
 
 -- 6. SABOTAGE: the reader check opened to everyone ------------------------------------------------------------------
-create or replace function private.concern_reader(p_escalated timestamptz, p_org uuid) returns boolean
+create or replace function private.concern_visible(p_routing text, p_escalated timestamptz, p_org uuid) returns boolean
 language sql stable security definer set search_path = '' as $$ select true $$;
 
 do $$

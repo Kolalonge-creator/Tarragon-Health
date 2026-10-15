@@ -30,6 +30,8 @@ export const CREDENTIAL_MESSAGE_KEYS = {
   "credential.expiry_soon": keys("credential.expiry_soon"),
   "credential.expiry_plan": keys("credential.expiry_plan"),
   "credential.expiry_reviewers": keys("credential.expiry_reviewers"),
+  "credential.shifts_removed": keys("credential.shifts_removed"),
+  "credential.renewal_proof_overdue": keys("credential.renewal_proof_overdue"),
   "credential.recheck_due": keys("credential.recheck_due"),
   "credential.recheck_overdue": keys("credential.recheck_overdue"),
   "credential.primary_source_missing": keys("credential.primary_source_missing"),
@@ -51,4 +53,6 @@ export const QUALITY_MESSAGE_KEYS = {
   "quality.concern_overdue": keys("quality.concern_overdue"),
   "quality.concern_needs_response": keys("quality.concern_needs_response"),
   "quality.audit_overdue": keys("quality.audit_overdue"),
+  "quality.concern_checkin": keys("quality.concern_checkin"),
+  "quality.audit_reply": keys("quality.audit_reply"),
 } as const satisfies Readonly<Record<string, MessageKeys>>;
