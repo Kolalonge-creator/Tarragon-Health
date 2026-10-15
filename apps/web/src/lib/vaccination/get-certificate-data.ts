@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
-import { fetchDocumentFolios } from "@/lib/clinical/document-folio";
+import { DocumentFolioRefusedError, fetchDocumentFolios } from "@/lib/clinical/document-folio";
 
 export interface VaccinationCertificateData {
   patientName: string;
@@ -51,7 +51,16 @@ export async function getVaccinationCertificateData(
   let verifier: VaccinationCertificateData["verifier"] = null;
   if (record.verified_by) {
     // Folio via the document-scoped function, never the directory view (CMO Q17, OQ-358).
-    const folio = (await fetchDocumentFolios(supabase, "vaccination_certificate", [recordId])).get(recordId);
+    let folio;
+    try {
+      folio = (
+        await fetchDocumentFolios(supabase, "vaccination_certificate", [recordId], { [recordId]: record.verified_by })
+      ).get(recordId);
+    } catch (e) {
+      // Not entitled: no certificate rather than one without the verifier's registration number.
+      if (e instanceof DocumentFolioRefusedError) return null;
+      throw e;
+    }
     if (folio) {
       verifier = {
         fullName: folio.fullName ?? "",

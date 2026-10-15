@@ -2,6 +2,8 @@
 -- Proof: *_clinician_folio_for_document.sql (CMO decision Q17, OQ-358, step 1 of 2).
 --
 -- public.clinician_folio_for_document returns a clinician's MDCN folio only for an entitled document flow.
+-- Contract: entitled = row (null folio if no staff row); exists but not entitled = 42501; missing = zero rows.
+-- Also proves a forged service_role JWT claim from an authenticated session gets nothing.
 -- Proves, with simulated sessions: the owning patient gets the folio for a referral, prescription, lab request,
 -- lab interpretation, verified document and vaccination certificate; another patient gets zero rows for every
 -- kind; a colleague never gets a referral folio and for prescriptions/vaccinations agrees exactly with
@@ -29,6 +31,7 @@ declare
   v_vd uuid := gen_random_uuid();
   v_vr uuid := gen_random_uuid();
   v_expect boolean;
+  v_med_nostaff uuid := gen_random_uuid();
   v_n integer;
   v_failed boolean;
   v_f text;
@@ -56,6 +59,12 @@ begin
   values (v_ref, v_org, v_pat, (enum_range(null::public.specialist_type))[1], v_docA);
   insert into public.medications (id, organisation_id, patient_id, drug_name, added_by)
   values (v_med, v_org, v_pat, 'FolioDrug', v_docA);
+  -- a prescription whose prescriber has no clinical_staff row
+  insert into public.medications (id, organisation_id, patient_id, drug_name, added_by)
+  values (v_med_nostaff, v_org, v_pat, 'NoStaffDrug', v_pat);
+  alter table public.medications disable trigger user;
+  update public.medications set added_by = null where id = v_med_nostaff;
+  alter table public.medications enable trigger user;
   -- a clinician-originated order: origin is the first enum label other than patient_initiated
   execute format('insert into public.lab_orders (id, organisation_id, patient_id, ordered_by, origin, clinical_indication) values (%L, %L, %L, %L, %L, ''folio proof'')',
     v_lab, v_org, v_pat, v_staffA,
@@ -120,34 +129,60 @@ begin
   if not v_failed then raise exception 'FAIL: unknown document kind was not refused'; end if;
   execute 'reset role';
 
-  -- another patient: zero rows for every kind
+  -- another patient: 42501 for every kind (a refusal must never look like "no folio")
   perform set_config('request.jwt.claims', json_build_object('sub', v_pat2, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
-  select count(*) into v_n from (
-    select 1 from public.clinician_folio_for_document('referral_letter', array[v_ref])
-    union all select 1 from public.clinician_folio_for_document('prescription', array[v_med])
-    union all select 1 from public.clinician_folio_for_document('lab_request', array[v_lab])
-    union all select 1 from public.clinician_folio_for_document('lab_result_interpretation', array[v_lrd])
-    union all select 1 from public.clinician_folio_for_document('verified_document', array[v_vd])
-    union all select 1 from public.clinician_folio_for_document('vaccination_certificate', array[v_vr])) s;
+  foreach v_f in array array['referral_letter:' || v_ref, 'prescription:' || v_med, 'lab_request:' || v_lab,
+                             'lab_result_interpretation:' || v_lrd, 'verified_document:' || v_vd, 'vaccination_certificate:' || v_vr] loop
+    v_failed := false;
+    begin perform 1 from public.clinician_folio_for_document(split_part(v_f, ':', 1), array[split_part(v_f, ':', 2)::uuid]);
+    exception when insufficient_privilege then v_failed := true; end;
+    if not v_failed then execute 'reset role'; raise exception 'FAIL: a stranger patient was not refused for %', v_f; end if;
+  end loop;
+  -- a document id that does not exist yields no row, not a refusal
+  select count(*) into v_n from public.clinician_folio_for_document('prescription', array[gen_random_uuid()]);
   execute 'reset role';
-  if v_n <> 0 then raise exception 'FAIL: a stranger patient got % folio rows', v_n; end if;
+  if v_n <> 0 then raise exception 'FAIL: a nonexistent document returned % rows', v_n; end if;
 
-  -- colleague: never a referral (patient-only policy); for prescriptions the function must agree exactly with the
-  -- tied-read rule (private.staff_may_read), whatever the tied-reads switch says, so it is never looser than the table
+  -- an entitled document whose clinician has no staff row still returns a row, with a null folio
+  perform set_config('request.jwt.claims', json_build_object('sub', v_pat, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  select count(*) into v_n from public.clinician_folio_for_document('prescription', array[v_med_nostaff]) where credential_number is null;
+  execute 'reset role';
+  if v_n <> 1 then raise exception 'FAIL: entitled document with no staff row did not return a null-folio row (%)', v_n; end if;
+
+  -- colleague: never a referral (patient-only policy); for prescriptions/vaccinations the function must agree exactly with
+  -- the tied-read rule (private.staff_may_read): entitled returns the folio, otherwise it is refused
   perform set_config('request.jwt.claims', json_build_object('sub', v_docB, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
-  select count(*) into v_n from public.clinician_folio_for_document('referral_letter', array[v_ref]);
-  if v_n <> 0 then execute 'reset role'; raise exception 'FAIL: colleague got a referral folio (%)', v_n; end if;
+  v_failed := false;
+  begin perform 1 from public.clinician_folio_for_document('referral_letter', array[v_ref]);
+  exception when insufficient_privilege then v_failed := true; end;
+  if not v_failed then execute 'reset role'; raise exception 'FAIL: colleague was not refused a referral folio'; end if;
   v_expect := private.staff_may_read(v_pat, v_org, 'medications'::public.care_access_category);
-  select count(*) into v_n from public.clinician_folio_for_document('prescription', array[v_med]);
-  if (v_n > 0) is distinct from v_expect then execute 'reset role'; raise exception 'FAIL: prescription folio for a colleague (%) disagrees with staff_may_read (%)', v_n, v_expect; end if;
+  v_failed := false;
+  begin perform 1 from public.clinician_folio_for_document('prescription', array[v_med]);
+  exception when insufficient_privilege then v_failed := true; end;
+  if v_failed is distinct from (not v_expect) then execute 'reset role'; raise exception 'FAIL: prescription entitlement for a colleague disagrees with staff_may_read (%)', v_expect; end if;
   v_expect := private.staff_may_read(v_pat, v_org, 'vaccinations'::public.care_access_category);
-  select count(*) into v_n from public.clinician_folio_for_document('vaccination_certificate', array[v_vr]);
+  v_failed := false;
+  begin perform 1 from public.clinician_folio_for_document('vaccination_certificate', array[v_vr]);
+  exception when insufficient_privilege then v_failed := true; end;
   execute 'reset role';
-  if (v_n > 0) is distinct from v_expect then raise exception 'FAIL: vaccination folio for a colleague (%) disagrees with staff_may_read (%)', v_n, v_expect; end if;
+  if v_failed is distinct from (not v_expect) then raise exception 'FAIL: vaccination entitlement for a colleague disagrees with staff_may_read (%)', v_expect; end if;
 
-  -- service role (the internal notification PDF route) still gets the lab request folio
+  -- a FORGED service-role claim from an authenticated session obtains nothing
+  perform set_config('request.jwt.claims', json_build_object('sub', v_pat2, 'role', 'service_role')::text, true);
+  execute 'set local role authenticated';
+  v_failed := false;
+  begin perform 1 from public.clinician_folio_for_document('lab_request', array[v_lab]);
+  exception when insufficient_privilege then v_failed := true; end;
+  if not v_failed then execute 'reset role'; raise exception 'FAIL: a forged service_role JWT claim obtained another patient''s folio'; end if;
+  -- (set_config('role', ...) is not asserted: SET ROLE is checked against the session user, so a session that could
+  -- switch to service_role would already BE the service role. The function trusts only the real role, never a claim.)
+  execute 'reset role';
+
+  -- the REAL service role (the internal notification PDF route) still gets the lab request folio
   perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
   execute 'set local role service_role';
   select string_agg(credential_number, ',') into v_f from public.clinician_folio_for_document('lab_request', array[v_lab]);
@@ -163,9 +198,11 @@ begin
   $f$;
   perform set_config('request.jwt.claims', json_build_object('sub', v_pat2, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
-  select count(*) into v_n from public.clinician_folio_for_document('prescription', array[v_med]);
+  v_failed := false;
+  begin perform 1 from public.clinician_folio_for_document('prescription', array[v_med]);
+  exception when insufficient_privilege then v_failed := true; end;
   execute 'reset role';
-  if v_n = 0 then raise exception 'SABOTAGE FAIL: the check did not detect a function that ignores entitlement'; end if;
+  if v_failed then raise exception 'SABOTAGE FAIL: the check did not detect a function that ignores entitlement'; end if;
   raise notice 'clinician_folio_for_document: all assertions passed; sabotage detected';
 end $$;
 
