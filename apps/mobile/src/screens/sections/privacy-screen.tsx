@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, Text, TextInput, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
+import type { ConsentReceiptRow } from "@tarragon/shared";
 import {
   createCorrectionRequest,
-  createDeletionRequest,
-  createExportRequest,
   loadConnectedDevices,
+  loadConsentReceipts,
   loadConsentStatus,
   loadCorrectionRequests,
   loadDeletionRequests,
@@ -13,7 +13,11 @@ import {
   type ConnectedDevice,
   type ConsentRow,
   type DataRightsRequest,
+  type DeletionRequestRow,
+  type ExportRequestRow,
 } from "@/lib/privacy";
+import { OptionalConsentControls, ConsentReceiptsCard } from "./privacy-consent-controls";
+import { DeletionRequestCard, ExportRequestCard } from "./privacy-data-cards";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import type { SectionId } from "@/lib/sections";
 import { spacing } from "@/ui/theme";
@@ -53,34 +57,50 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
   const [loading, setLoading] = useState(true);
   const [consents, setConsents] = useState<ConsentRow[]>([]);
   const [devices, setDevices] = useState<ConnectedDevice[]>([]);
-  const [exportRequests, setExportRequests] = useState<DataRightsRequest[]>([]);
+  const [receipts, setReceipts] = useState<ConsentReceiptRow[]>([]);
+  const [receiptsError, setReceiptsError] = useState<string | null>(null);
+  const [requestsError, setRequestsError] = useState<string | null>(null);
+  const [exportRequests, setExportRequests] = useState<ExportRequestRow[]>([]);
   const [correctionRequests, setCorrectionRequests] = useState<DataRightsRequest[]>([]);
-  const [deletionRequests, setDeletionRequests] = useState<DataRightsRequest[]>([]);
+  const [deletionRequests, setDeletionRequests] = useState<DeletionRequestRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    const [consentResult, deviceList, exportList, correctionList, deletionList] = await Promise.all([
+    const [consentResult, receiptResult, deviceList, exportList, correctionList, deletionList] = await Promise.all([
       loadConsentStatus(userId),
+      loadConsentReceipts(userId),
       loadConnectedDevices(userId),
-      loadExportRequests(),
-      loadCorrectionRequests(),
-      loadDeletionRequests(),
+      loadExportRequests(userId),
+      loadCorrectionRequests(userId),
+      loadDeletionRequests(userId),
     ]);
-    if (!consentResult.ok) {
-      setLoadError(consentResult.error);
-      return;
-    }
-    setLoadError(null);
-    setConsents(consentResult.data);
-    setDevices(deviceList);
-    setExportRequests(exportList);
-    setCorrectionRequests(correctionList);
-    setDeletionRequests(deletionList);
+    // A failed consent load must not stop the request lists from being set: an unset deletion list reads as "no pending request".
+    setLoadError(consentResult.ok ? null : consentResult.error);
+    setConsents(consentResult.ok ? consentResult.data : []);
+    setReceipts(receiptResult.ok ? receiptResult.data : []);
+    setReceiptsError(receiptResult.ok ? null : "We could not load your consent receipts just now.");
+    // A failed load must never look like "no requests": the deletion card would hide a pending request and its cancel button.
+    setRequestsError(
+      exportList.ok && deletionList.ok ? null : "We could not load your data requests just now. Please close this screen and open it again before starting a new one.",
+    );
+    setDevices(deviceList.ok ? deviceList.data : []);
+    setExportRequests(exportList.ok ? exportList.data : []);
+    setCorrectionRequests(correctionList.ok ? correctionList.data : []);
+    setDeletionRequests(deletionList.ok ? deletionList.data : []);
   }, [userId]);
+
+  // Cards call this after a change. A failed reload must be seen, not left as stale lists (a stale deletion list hides its cancel button).
+  const reload = useCallback(() => {
+    refresh().catch(() => setRequestsError("We could not refresh your data requests just now. Please close this screen and open it again before changing anything."));
+  }, [refresh]);
 
   useEffect(() => {
     refresh()
-      .catch(() => setLoadError("Could not load your privacy settings."))
+      .catch(() => {
+        setLoadError("Could not load your privacy settings.");
+        // The request lists are unknown, so asking for an export or deletion is blocked rather than shown against an empty list.
+        setRequestsError("We could not load your data requests just now. Please close this screen and open it again before starting a new one.");
+      })
       .finally(() => setLoading(false));
   }, [refresh]);
 
@@ -97,8 +117,8 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
       <View>
         <ScreenTitle>Privacy & your data</ScreenTitle>
         <MutedText>
-          What you&apos;ve agreed to, who can see your record, and how to request, correct, or delete
-          your data.
+          What you&apos;ve agreed to, who can see your record, and how to get a copy of your data, correct it, or close
+          your account.
         </MutedText>
       </View>
 
@@ -111,11 +131,14 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
       <Card style={{ gap: 8 }}>
         <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Your consent</Text>
         <MutedText>What you&apos;ve agreed to, by category.</MutedText>
-        {consents.length === 0 ? (
+        {loadError ? (
+          <MutedText>We could not load your consent choices just now, so we are not showing them.</MutedText>
+        ) : consents.length === 0 ? (
           <MutedText>Nothing to show yet.</MutedText>
         ) : (
           consents.map((c) => (
-            <View key={`${c.consentType}-${c.version}`} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}>
+            <View key={`${c.consentType}-${c.version}`} style={{ gap: 8, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 13, color: colors.ink }}>{CONSENT_TYPE_LABEL[c.consentType] ?? c.consentType.replace(/_/g, " ")}</Text>
                 <MutedText>{c.accepted && c.acceptedAt
@@ -129,12 +152,16 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
                           : "Not yet recorded"}</MutedText>
               </View>
               <Badge tone={c.accepted ? "brand" : "neutral"}>
-                {c.accepted ? "Accepted" : c.state === "withdrawn" ? "Withdrawn" : c.isOptional ? "Not shared" : "Outstanding"}
+                {c.accepted ? "Accepted" : c.state === "older_version" ? "Review needed" : c.state === "withdrawn" ? "Withdrawn" : c.isOptional ? "Not shared" : "Outstanding"}
               </Badge>
+            </View>
+            <OptionalConsentControls row={c} organisationId={organisationId} patientId={userId} onChanged={reload} />
             </View>
           ))
         )}
       </Card>
+
+      <ConsentReceiptsCard receipts={receipts} error={receiptsError} />
 
       <Card style={{ gap: 8 }}>
         <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Connected devices</Text>
@@ -166,14 +193,19 @@ export function PrivacyScreen({ userId, organisationId, onNavigate }: PrivacyScr
       <View>
         <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink, marginBottom: 4 }}>Your data rights</Text>
         <MutedText>
-          Under Nigeria&apos;s Data Protection Act, you can ask to see, correct, or delete the data we
+          Under Nigeria&apos;s Data Protection Act, you can ask to see, correct, or erase the data we
           hold about you.
         </MutedText>
       </View>
 
-      <ExportRequestCard userId={userId} organisationId={organisationId} requests={exportRequests} onChanged={refresh} />
-      <CorrectionRequestCard userId={userId} organisationId={organisationId} requests={correctionRequests} onChanged={refresh} />
-      <DeletionRequestCard userId={userId} organisationId={organisationId} requests={deletionRequests} onChanged={refresh} />
+      {requestsError && (
+        <Card>
+          <ErrorText>{requestsError}</ErrorText>
+        </Card>
+      )}
+      <ExportRequestCard userId={userId} organisationId={organisationId} requests={exportRequests} blocked={requestsError !== null} onChanged={reload} />
+      <CorrectionRequestCard userId={userId} organisationId={organisationId} requests={correctionRequests} onChanged={reload} />
+      <DeletionRequestCard userId={userId} organisationId={organisationId} requests={deletionRequests} blocked={requestsError !== null} onChanged={reload} />
     </ScrollView>
   );
 }
@@ -192,70 +224,6 @@ function RequestList({ requests }: { requests: DataRightsRequest[] }) {
         </View>
       ))}
     </View>
-  );
-}
-
-function ExportRequestCard({
-  userId,
-  organisationId,
-  requests,
-  onChanged,
-}: {
-  userId: string;
-  organisationId: string;
-  requests: DataRightsRequest[];
-  onChanged: () => void;
-}) {
-  const colors = useLegacyColors();
-  const textInputStyle = useTextInputStyle();
-  const { scheme } = useTheme();
-  const [open, setOpen] = useState(false);
-  const [note, setNote] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function submit() {
-    setError(null);
-    setSubmitting(true);
-    const result = await createExportRequest(organisationId, userId, note.trim() || undefined);
-    setSubmitting(false);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    setOpen(false);
-    setNote("");
-    onChanged();
-  }
-
-  return (
-    <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Request a copy of your data</Text>
-      <MutedText>
-        Ask us for a copy of the data we hold about you. A member of our team reviews and prepares
-        it, then sends it to you securely — it isn&apos;t a direct download.
-      </MutedText>
-      {error && <ErrorText>{error}</ErrorText>}
-      {open ? (
-        <>
-          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
-            value={note}
-            onChangeText={setNote}
-            placeholder="Anything specific you need? (optional)"
-            multiline
-            numberOfLines={2}
-            style={[textInputStyle, { minHeight: 50, textAlignVertical: "top" }]}
-          />
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <PrimaryButton title="Submit request" onPress={submit} loading={submitting} />
-            <SecondaryButton title="Cancel" onPress={() => setOpen(false)} disabled={submitting} />
-          </View>
-        </>
-      ) : (
-        <SecondaryButton title="Request my data" onPress={() => setOpen(true)} />
-      )}
-      <RequestList requests={requests} />
-    </Card>
   );
 }
 
@@ -335,71 +303,6 @@ function CorrectionRequestCard({
         </>
       ) : (
         <SecondaryButton title="Request a correction" onPress={() => setOpen(true)} />
-      )}
-      <RequestList requests={requests} />
-    </Card>
-  );
-}
-
-function DeletionRequestCard({
-  userId,
-  organisationId,
-  requests,
-  onChanged,
-}: {
-  userId: string;
-  organisationId: string;
-  requests: DataRightsRequest[];
-  onChanged: () => void;
-}) {
-  const colors = useLegacyColors();
-  const textInputStyle = useTextInputStyle();
-  const { scheme } = useTheme();
-  const [open, setOpen] = useState(false);
-  const [reason, setReason] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function submit() {
-    setError(null);
-    setSubmitting(true);
-    const result = await createDeletionRequest(organisationId, userId, reason.trim());
-    setSubmitting(false);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    setOpen(false);
-    setReason("");
-    onChanged();
-  }
-
-  return (
-    <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Request deletion of your data</Text>
-      <MutedText>
-        You can ask us to delete data we hold about you. Some clinical records must be kept for a
-        minimum period under Nigerian healthcare regulation. If that applies, we&apos;ll explain
-        exactly what can and can&apos;t be deleted when we review your request.
-      </MutedText>
-      {error && <ErrorText>{error}</ErrorText>}
-      {open ? (
-        <>
-          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}
-            value={reason}
-            onChangeText={setReason}
-            placeholder="Tell us what you'd like deleted and why (optional)"
-            multiline
-            numberOfLines={3}
-            style={[textInputStyle, { minHeight: 60, textAlignVertical: "top" }]}
-          />
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <PrimaryButton title="Submit request" onPress={submit} loading={submitting} />
-            <SecondaryButton title="Cancel" onPress={() => setOpen(false)} disabled={submitting} />
-          </View>
-        </>
-      ) : (
-        <SecondaryButton title="Request deletion" onPress={() => setOpen(true)} />
       )}
       <RequestList requests={requests} />
     </Card>

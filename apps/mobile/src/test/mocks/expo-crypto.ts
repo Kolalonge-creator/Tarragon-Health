@@ -1,3 +1,5 @@
+import { randomBytes } from "node:crypto";
+
 /**
  * Deterministic randomUUID for offline-vitals-queue.ts — the queue's
  * idempotency key. Sequential rather than random so a test can assert on
@@ -8,6 +10,11 @@ let counter = 0;
 export function randomUUID(): string {
   counter += 1;
   return `00000000-0000-4000-8000-${String(counter).padStart(12, "0")}`;
+}
+
+/** Real random bytes (node) so key generation is exercised for real. */
+export function getRandomBytes(count: number): Uint8Array {
+  return new Uint8Array(randomBytes(count));
 }
 
 export function __reset(): void {

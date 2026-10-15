@@ -1,5 +1,8 @@
 "use client";
 
+import Link from "next/link";
+import { useMyMembership } from "@/lib/queries/commerce";
+import { useHasAvailableServicePurchase } from "@/lib/queries/service-purchases";
 import { stripDoctorTitle } from "@/lib/prescriptions/doctor-name";
 import { useMemo, useState, type FormEvent } from "react";
 import {
@@ -35,10 +38,9 @@ import { usePatientLabMonitoring } from "@/lib/queries/lab-monitoring";
 import { ResultExplainer } from "@/components/result-explainer";
 import {
   useMedicationRenewalRequest,
+  useAddReviewNote,
   useRequestPrescriptionRenewal,
 } from "@/lib/queries/prescription-renewal";
-import { useHasAvailableServicePurchase } from "@/lib/queries/service-purchases";
-import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,7 +49,9 @@ import { Label } from "@/components/ui/label";
 import { FormError, fieldErrorId } from "@/components/ui/form-error";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { isPolypharmacy, POLYPHARMACY_THRESHOLD } from "@/lib/healthy-ageing/types";
-import { assessMedicationSafety, type DrugSafetySeverity, type FindingKind } from "@/lib/rules/drug-safety";
+import { checkMedicineList } from "@tarragon/medicines";
+import { SideEffectNote } from "./side-effect-note";
+import { t } from "@tarragon/i18n";
 
 import { formatPatientDate } from "@/lib/format-date";
 const SOURCE_BADGE: Record<
@@ -57,20 +61,6 @@ const SOURCE_BADGE: Record<
   clinician: { variant: "blue", label: "Prescribed" },
   specialist: { variant: "amber", label: "Specialist" },
   patient: { variant: "grey", label: "Self-added" },
-};
-
-const SAFETY_SEVERITY_BADGE: Record<DrugSafetySeverity, { label: string; variant: "red" | "amber" | "grey" }> = {
-  contraindicated: { label: "Avoid together", variant: "red" },
-  caution: { label: "Caution", variant: "amber" },
-  info: { label: "Note", variant: "grey" },
-};
-
-const SAFETY_KIND_LABEL: Record<FindingKind, string> = {
-  interaction: "Interaction",
-  duplicate_therapy: "Duplicate therapy",
-  renal_dosing: "Kidney function",
-  drug_specific: "Drug note",
-  allergy: "Allergy",
 };
 
 export function MedicationsList({
@@ -149,6 +139,13 @@ export function MedicationsList({
       <CardContent>
         <CabinetSummary patientId={patientId} />
         {!isClinicianView && <MedicationInteractionNote medications={data ?? []} />}
+        {!isClinicianView && (
+          <p className="mb-3 text-xs">
+            <Link href="/patient/medicine-report" className="underline">
+              Your weekly record of doses marked taken (print or share)
+            </Link>
+          </p>
+        )}
         {!isClinicianView && (data ?? []).filter((m) => m.source === "clinician" && m.rx_number && !m.superseded_at).length > 1 && (
           <p className="mb-3 text-xs">
             <a
@@ -310,6 +307,7 @@ export function MedicationsList({
                       drugName={medication.drug_name}
                     />
                   )}
+                  {!isClinicianView && <SideEffectNote patientId={patientId} medicationId={medication.id} />}
                   {!isClinicianView && (
                     <AccessBarrierButton medicationId={medication.id} drugName={medication.drug_name} />
                   )}
@@ -355,20 +353,18 @@ function RefillGapNote({
 }
 
 /**
- * Read-only, patient-facing surfacing of assessMedicationSafety's interaction/
- * duplicate-therapy/drug-specific findings across the patient's own active
- * list — the same rule engine MedicationSafetyPanel already runs for
- * clinicians (@/lib/rules/drug-safety.ts), just without the eGFR/allergy
- * context a clinician's chart has loaded, so renal-dosing and allergy
- * findings are left out here rather than shown as checked when they were
- * not. Advisory only: it never blocks adding a medication and writes
- * nothing anywhere — see checkMedicationSafetyAfterAdd in actions.ts for why
- * the gated, alert-writing version of this check stays clinician-only.
+ * Read-only, patient-facing note about how the medicines on the list can affect each other (interactions and duplicate therapy).
+ *
+ * S53 (spec 8.7): this used to print the clinician-facing rule text to patients ("stop one of them"). It now shows the fixed
+ * patient wording from @tarragon/medicines (it says "your care team" and never tells anyone to stop a medicine). It was live before
+ * S53 and stays visible: removing a shipped safety note was judged worse than changing its words (OQ-295 asks the founder to confirm).
+ * Only the NEW add-time check is behind the go-live guard `interaction_check_enabled`. Advisory only: it never blocks anything and
+ * writes nothing. The clinician medication safety panel is unchanged.
  */
 function MedicationInteractionNote({ medications }: { medications: MedicationWithCarePlan[] }) {
-  const report = useMemo(
+  const findings = useMemo(
     () =>
-      assessMedicationSafety(
+      checkMedicineList(
         medications.map((m) => ({
           id: m.id,
           drugName: m.drug_name,
@@ -380,44 +376,24 @@ function MedicationInteractionNote({ medications }: { medications: MedicationWit
     [medications],
   );
 
-  const findings = report.findings.filter(
-    (f) => f.kind === "interaction" || f.kind === "duplicate_therapy" || f.kind === "drug_specific",
-  );
-
   if (medications.length < 2 || findings.length === 0) return null;
 
   return (
     <div className="mb-3 space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-500/40 dark:bg-amber-500/10">
-      <p className="text-sm font-medium text-amber-900 dark:text-amber-300">
-        Something worth knowing about how these work together
-      </p>
+      <p className="text-sm font-medium text-amber-900 dark:text-amber-300">{t("medicines.addcheck.title")}</p>
       <ul className="space-y-2">
-        {findings.map((finding, index) => {
-          const badge = SAFETY_SEVERITY_BADGE[finding.severity];
-          return (
-            <li key={`${finding.kind}-${finding.title}-${index}`} className="rounded-md bg-white/70 p-2 dark:bg-night-ink/20">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant={badge.variant}>{badge.label}</Badge>
-                <span className="text-[0.65rem] uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">
-                  {SAFETY_KIND_LABEL[finding.kind]}
-                </span>
-                <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{finding.title}</p>
-              </div>
-              <p className="mt-1 text-sm text-charcoal-ink/80 dark:text-night-ink/80">{finding.message}</p>
-              <p className="mt-1 text-xs text-charcoal-ink/55 dark:text-night-ink/55">
-                {[...new Set(finding.drugNames)].join(" · ")}
-              </p>
-            </li>
-          );
-        })}
+        {findings.map((finding, index) => (
+          <li key={`${finding.kind}-${finding.adviceKey}-${index}`} className="rounded-md bg-white/70 p-2 dark:bg-night-ink/20">
+            <p className="text-xs text-charcoal-ink/55 dark:text-night-ink/55">{[...new Set(finding.drugNames)].join(" · ")}</p>
+            <p className="mt-1 text-sm text-charcoal-ink/80 dark:text-night-ink/80">{t(finding.adviceKey)}</p>
+          </li>
+        ))}
       </ul>
       <p className="text-xs text-amber-900/80 dark:text-amber-300/80">
-        This is a curated check, not a complete interaction database, and it does not replace a
-        clinician&apos;s judgement. Do not stop or change a dose on your own,{" "}
+        {t("medicines.addcheck.limits")}{" "}
         <a href="/patient/messages" className="font-medium underline">
-          message your care team
-        </a>{" "}
-        about this instead.
+          {t("medicines.addcheck.contact")}
+        </a>
       </p>
     </div>
   );
@@ -915,16 +891,11 @@ function RequestChangeButton({
   );
 }
 
-const RENEWAL_CREDIT_CODE = "prescription_renewal_credit";
-
 /**
- * Pay-per-service item: request a doctor's review to renew this
- * prescription. Server-side, prescription_renewal_requests_enforce_credit
- * accepts either plan access (medication_refills) or a redeemed
- * prescription_renewal_credit — this button doesn't pre-check plan access
- * itself (has_available_service_purchase only tells us about a credit), so
- * a plan-covered patient's request just succeeds on submit without ever
- * needing to buy anything.
+ * Renewals (two-tier decision, 2026-10-13): a prescription renewal is NOT a separate request. A Member's doctor reviews renewals at the
+ * monthly call and prescribes there; the Member can add an optional note to the next review (it shows in the doctor's pre-call summary
+ * and notifies nobody). A Free person is told renewal is part of Membership, with a link to join. A renewal credit someone already
+ * holds still works for a non-Member. The server is the authority (trigger and add_review_note); this never decides who is a Member.
  */
 function RequestRenewalButton({
   medication,
@@ -936,10 +907,14 @@ function RequestRenewalButton({
   organisationId: string;
 }) {
   const { data: openRequest } = useMedicationRenewalRequest(medication.id);
-  const { data: hasCredit } = useHasAvailableServicePurchase(patientId, RENEWAL_CREDIT_CODE);
+  const { data: hasCredit } = useHasAvailableServicePurchase(patientId, "prescription_renewal_credit");
+  const membership = useMyMembership();
   const requestRenewal = useRequestPrescriptionRenewal();
-  const [isBuying, setIsBuying] = useState(false);
+  const addNote = useAddReviewNote();
   const [error, setError] = useState<string | null>(null);
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [note, setNote] = useState("");
+  const [noteSent, setNoteSent] = useState(false);
 
   if (openRequest && (openRequest.status === "submitted" || openRequest.status === "in_review")) {
     return (
@@ -953,49 +928,102 @@ function RequestRenewalButton({
     return <p className="mt-1 text-xs text-brand-green dark:text-brand-green-bright">Renewal approved by your care team.</p>;
   }
 
-  async function onRequest() {
-    setError(null);
-    requestRenewal.mutate(
-      { patientId, organisationId, medicationId: medication.id },
-      {
-        onError: async (err) => {
-          const message = (err as Error).message ?? "";
-          if (!message.includes("renewal credit")) {
-            setError(message || "Could not send this request.");
-            return;
-          }
-          // No plan access and no credit — start checkout, then retry on return.
-          setIsBuying(true);
-          const result = await purchaseServiceProduct({
-            serviceProductCode: RENEWAL_CREDIT_CODE,
-            callbackPath: "/patient",
-          });
-          setIsBuying(false);
-          if (result?.error) setError(result.error);
-          else if (result?.checkoutUrl) window.location.href = result.checkoutUrl;
-        },
-      }
+  const isMember = membership.data?.is_member === true;
+
+  if (isMember) {
+    return (
+      <div className="mt-1 text-xs text-charcoal-ink/70 dark:text-night-ink/70">
+        <p>Your care team reviews renewals at your monthly call. There is nothing to request.</p>
+        {noteSent ? (
+          <p className="mt-1 text-brand-green dark:text-brand-green-bright">Added. Your care team will see it before your next monthly call.</p>
+        ) : noteOpen ? (
+          <div className="mt-2 space-y-2">
+            <label htmlFor={`review-note-${medication.id}`} className="sr-only">
+              Note for your next review
+            </label>
+            <textarea
+              id={`review-note-${medication.id}`}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              maxLength={500}
+              rows={3}
+              className="w-full rounded-md border border-charcoal-ink/20 bg-white p-2 text-sm dark:bg-night-surface"
+              placeholder="For example: I am nearly out, or I have had side effects."
+            />
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={addNote.isPending || note.trim().length === 0}
+                onClick={() => {
+                  setError(null);
+                  addNote.mutate(
+                    { medicationId: medication.id, note: note.trim() },
+                    {
+                      onSuccess: () => {
+                        setNoteSent(true);
+                        setNote("");
+                      },
+                      onError: (err) => setError((err as Error).message || "Could not add this note."),
+                    },
+                  );
+                }}
+              >
+                {addNote.isPending ? "Adding…" : "Add to my next review"}
+              </Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setNoteOpen(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="min-h-11 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
+            onClick={() => setNoteOpen(true)}
+          >
+            Add to my next review
+          </Button>
+        )}
+        <FormError id={fieldErrorId(`medication-renewal-${medication.id}`)} message={error} />
+      </div>
+    );
+  }
+
+  if (hasCredit) {
+    return (
+      <div className="mt-1">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="min-h-11 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
+          disabled={requestRenewal.isPending}
+          onClick={() => {
+            setError(null);
+            requestRenewal.mutate(
+              { patientId, organisationId, medicationId: medication.id },
+              { onError: (err) => setError((err as Error).message || "Could not send this request.") },
+            );
+          }}
+        >
+          {requestRenewal.isPending ? "Requesting…" : "Request renewal (credit ready)"}
+        </Button>
+        <FormError id={fieldErrorId(`medication-renewal-${medication.id}`)} message={error} />
+      </div>
     );
   }
 
   return (
-    <div className="mt-1">
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="min-h-11 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
-        disabled={requestRenewal.isPending || isBuying}
-        onClick={onRequest}
-      >
-        {requestRenewal.isPending || isBuying
-          ? "Requesting…"
-          : hasCredit
-            ? "Request renewal (credit ready)"
-            : "Request renewal"}
-      </Button>
-      <FormError id={fieldErrorId(`medication-renewal-${medication.id}`)} message={error} />
-    </div>
+    <p className="mt-1 text-xs text-charcoal-ink/70 dark:text-night-ink/70">
+      Prescription renewals are part of Membership.{" "}
+      <Link href="/patient/membership" className="font-medium underline">
+        Join Membership
+      </Link>
+    </p>
   );
 }
 

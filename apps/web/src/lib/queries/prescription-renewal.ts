@@ -73,6 +73,20 @@ export function useRequestPrescriptionRenewal() {
   });
 }
 
+/**
+ * A Member's optional note for their next monthly review ("add to my next review"). Renewals are decided at that call, not requested
+ * separately; the note appears only in the doctor's audited pre-call summary and notifies nobody. Server: public.add_review_note.
+ */
+export function useAddReviewNote() {
+  return useMutation({
+    mutationFn: async ({ medicationId, note }: { medicationId: string; note: string }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("add_review_note", { p_medication: medicationId, p_note: note });
+      if (error) throw error;
+    },
+  });
+}
+
 /** Doctor-side worklist. */
 export function useOrgPrescriptionRenewalRequests() {
   return useQuery({

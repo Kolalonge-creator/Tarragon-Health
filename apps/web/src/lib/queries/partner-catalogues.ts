@@ -286,12 +286,15 @@ export function useAllPanelBundles() {
     queryKey: ["panel-bundles", "admin", "all"],
     queryFn: async () => {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("panel_bundles")
-        .select("*")
-        .order("name");
+      // Owner-run admin view (Track E 8.16): the only read path that carries the commission columns.
+      const viaView = await supabase.from("panel_bundles_admin").select("*").order("name");
+      if (!viaView.error) return viaView.data as unknown as PanelBundle[];
+      // Ship-code-first: until migration 20261007105817 is applied the view does not exist (42P01 / PGRST205), and the table
+      // still carries every column for an admin. Any other error is real. Remove this fallback once the migration is live.
+      if (viaView.error.code !== "42P01" && viaView.error.code !== "PGRST205") throw viaView.error;
+      const { data, error } = await supabase.from("panel_bundles").select("*").order("name");
       if (error) throw error;
-      return data as PanelBundle[];
+      return data as unknown as PanelBundle[];
     },
   });
 }
@@ -458,19 +461,15 @@ export function useAllPharmacyMedications() {
     queryFn: async () => {
       const supabase = createClient();
       const { data, error } = await supabase
-        .from("pharmacy_medications")
-        .select("*, pharmacy_partners(name)")
+        .from("pharmacy_medications_admin")
+        .select("*")
         .order("drug_name");
       if (error) throw error;
-      return (data ?? []).map((row) => {
-        const { pharmacy_partners, ...rest } = row as typeof row & {
-          pharmacy_partners: { name: string } | null;
-        };
-        return {
-          ...rest,
-          pharmacy_partner_name: pharmacy_partners?.name ?? null,
-        };
-      }) as PharmacyMedication[];
+      // Owner-run admin view (S53 pre-fix 8.16): the only read path that carries the commission columns.
+      return (data ?? []).map((row) => ({
+        ...row,
+        pharmacy_partner_name: row.pharmacy_partner_name ?? null,
+      })) as PharmacyMedication[];
     },
   });
 }

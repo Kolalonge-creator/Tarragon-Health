@@ -26,6 +26,10 @@ begin
   insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test)
   values (v, p_org, p_role::public.user_role, 'S16b ' || p_label, '+23480' || lpad((random() * 99999999)::int::text, 8, '0'), (current_date - interval '45 years')::date, true)
   on conflict (id) do update set role = excluded.role, is_test = true, is_active = true, phone = excluded.phone;
+  -- two-tier (founder 2026-10-12): a doctor task is made only for a Member, so every fixture patient here is one
+  if p_role = 'patient' then
+    insert into public.patient_memberships (organisation_id, patient_id, source, state, is_test) values (p_org, v, 'purchase', 'active', true);
+  end if;
   return v;
 end $f$;
 
@@ -52,7 +56,10 @@ begin
 
   perform pg_temp.rec('adherence_follow_up awaits confirmation', 'true,null',
     (select needs_confirmation::text || ',' || coalesce(confirmed_at::text, 'null') from public.task_types where code = 'adherence_follow_up' and is_active));
-  perform pg_temp.rec('only that type needs confirming', '1', (select count(*)::text from public.task_types where is_active and needs_confirmation));
+  perform pg_temp.rec('only that type needs confirming', '1', (select count(*)::text from public.task_types where is_active and needs_confirmation and code not in ('red_patient_outreach', 'amber_glucose_review', 'crisis_follow_up')));
+  -- S13 R4 added red_patient_outreach, which also awaits the CMO; this proof is about the adherence type, so take that one out of the way
+  -- R2 likewise added amber_glucose_review; same treatment (its own confirmation is covered by the glucose proofs)
+  update public.task_types set needs_confirmation = false where code in ('red_patient_outreach', 'amber_glucose_review');
 
   -- who can act
   perform pg_temp.act(v_doc);
@@ -71,10 +78,14 @@ begin
   perform pg_temp.rec('approval is refused while a task type awaits confirmation', '22023', pg_temp.try(format('select public.approve_triage_rule_set(%L)', v_draft)));
   perform pg_temp.rec('confirming something that needs no confirmation is refused', '22023', pg_temp.try($q$select public.confirm_task_type('symptom_review')$q$));
   perform public.confirm_task_type('adherence_follow_up', 'class 8 and coordinator tier are right');
+  perform pg_temp.rec('approval is still refused while crisis_follow_up (S57b) awaits confirmation', 'true',
+    ((select count(*) from public.task_types where is_active and needs_confirmation and confirmed_at is null and code = 'crisis_follow_up') = 1
+     and pg_temp.try(format('select public.approve_triage_rule_set(%L)', v_draft)) = '22023')::text);
+  perform public.confirm_task_type('crisis_follow_up', 'same class and tier as the red event task');
   perform pg_temp.back();
   perform pg_temp.rec('confirmed: who, when and note recorded', 'true,true,class 8 and coordinator tier are right',
     (select (confirmed_by = v_cmo)::text || ',' || (confirmed_at is not null)::text || ',' || confirmation_note from public.task_types where code = 'adherence_follow_up' and is_active));
-  perform pg_temp.rec('the confirmation is audited', '1', (select count(*)::text from public.audit_log where action = 'task_type.confirmed' and actor_id = v_cmo));
+  perform pg_temp.rec('the confirmations are audited (adherence_follow_up and crisis_follow_up)', '2', (select count(*)::text from public.audit_log where action = 'task_type.confirmed' and actor_id = v_cmo));
   perform pg_temp.act(v_cmo);
   perform pg_temp.rec('a second confirmation is refused', '22023', pg_temp.try($q$select public.confirm_task_type('adherence_follow_up')$q$));
 

@@ -10,29 +10,44 @@ import { Select } from "@/components/ui/select";
 import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 import { PHONE_HINT_ID, PhoneNumberHint, phoneInputProps } from "@/components/ui/phone-field";
 import { cn } from "@/lib/utils";
+import { t } from "@tarragon/i18n";
+import { BackupCodeForm } from "./backup-code-form";
+import { ContactRecoveryForm } from "./contact-recovery-form";
+
+type RecoveryTab = "email" | "phone" | "backup" | "contact";
+
+const TAB_LABELS: Record<RecoveryTab, string> = {
+  email: "Email",
+  phone: "Phone",
+  backup: t("auth.recovery.method_backup"),
+  contact: t("auth.recovery.method_contact"),
+};
 
 export function ForgotPasswordForm() {
-  const [tab, setTab] = useState<"email" | "phone">("email");
+  const [tab, setTab] = useState<RecoveryTab>("email");
 
   return (
     <div className="rounded-xl border border-charcoal-ink/10 bg-white p-6 shadow-sm">
-      <div className="mb-6 grid grid-cols-2 rounded-lg bg-charcoal-ink/5 p-1 text-sm font-medium">
-        {(["email", "phone"] as const).map((value) => (
+      <div className="mb-6 grid grid-cols-2 gap-1 rounded-lg bg-charcoal-ink/5 p-1 text-sm font-medium sm:grid-cols-4">
+        {(["email", "phone", "backup", "contact"] as const).map((value) => (
           <button
             key={value}
             type="button"
             onClick={() => setTab(value)}
             className={cn(
-              "rounded-md py-1.5 capitalize transition-colors",
+              "rounded-md px-1 py-1.5 transition-colors",
               tab === value ? "bg-white text-brand-green shadow-sm" : "text-charcoal-ink/60"
             )}
           >
-            {value}
+            {TAB_LABELS[value]}
           </button>
         ))}
       </div>
 
-      {tab === "email" ? <EmailResetForm /> : <PhoneResetForm />}
+      {tab === "email" ? <EmailResetForm /> : null}
+      {tab === "phone" ? <PhoneResetForm /> : null}
+      {tab === "backup" ? <BackupCodeForm /> : null}
+      {tab === "contact" ? <ContactRecoveryForm /> : null}
     </div>
   );
 }

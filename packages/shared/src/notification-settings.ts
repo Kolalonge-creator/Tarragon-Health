@@ -6,8 +6,8 @@ export interface NotificationSettingsValue {
   readonly discreet: boolean;
 }
 
-/** The values used when a person has no saved row. Mirrors `notification_rules_config` v1 (notifications.rules). */
-export const DEFAULT_SETTINGS: NotificationSettingsValue = { quietEnabled: true, quietStart: "21:00", quietEnd: "07:00", discreet: false };
+/** The values used when a person has no saved row. Mirrors `notification_rules_config` v3 (notifications.rules): quiet hours are off until turned on. */
+export const DEFAULT_SETTINGS: NotificationSettingsValue = { quietEnabled: false, quietStart: "21:00", quietEnd: "07:00", discreet: false };
 
 /** "7:5", "07:05:00" and "07:05" all become "07:05"; anything else is null. */
 export function normaliseTime(input: string): string | null {

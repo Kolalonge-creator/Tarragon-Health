@@ -62,11 +62,12 @@ begin
     end loop;
   end loop;
 
-  insert into public.care_circle_members (organisation_id, patient_id, supporter_id, relationship, permissions, expires_at) values
-    (v_org, h, s1, 'daughter', array['weekly_bp_trend'], now() + interval '30 days'),
-    (v_org, h, s2, 'son',      array['adherence_summary'], now() + interval '30 days'),
-    (v_org, h, s3, 'friend',   array['appointments'], now() + interval '30 days'),
-    (v_org, h, s4, 'spouse',   array['weekly_bp_trend', 'adherence_summary'], now() + interval '30 days');
+  -- S75 A5: the monthly block now also needs the patient's explicit per-supporter share flag (off by default), so these four opt in
+  insert into public.care_circle_members (organisation_id, patient_id, supporter_id, relationship, permissions, expires_at, monthly_report_shared) values
+    (v_org, h, s1, 'daughter', array['weekly_bp_trend'], now() + interval '30 days', true),
+    (v_org, h, s2, 'son',      array['adherence_summary'], now() + interval '30 days', true),
+    (v_org, h, s3, 'friend',   array['appointments'], now() + interval '30 days', true),
+    (v_org, h, s4, 'spouse',   array['weekly_bp_trend', 'adherence_summary'], now() + interval '30 days', true);
   -- these four were added long ago, so they may see all three months; s5 (below) was added just now
   update public.care_circle_members set created_at = now() - interval '200 days' where patient_id = h;
   select id into v_mem4 from public.care_circle_members where patient_id = h and supporter_id = s4;
@@ -132,8 +133,8 @@ begin
 
   -- a supporter added just now sees no history from before they were added
   s5 := pg_temp.mkuser('patient', 'S38d Supporter New');
-  insert into public.care_circle_members (organisation_id, patient_id, supporter_id, relationship, permissions, expires_at)
-  values (v_org, h, s5, 'neighbour', array['weekly_bp_trend', 'adherence_summary'], now() + interval '30 days');
+  insert into public.care_circle_members (organisation_id, patient_id, supporter_id, relationship, permissions, expires_at, monthly_report_shared)
+  values (v_org, h, s5, 'neighbour', array['weekly_bp_trend', 'adherence_summary'], now() + interval '30 days', true);
   perform set_config('request.jwt.claims', json_build_object('sub', s5, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
   v_rep := public.circle_supporter_view(h);

@@ -119,12 +119,12 @@ begin
   select id into v_org from public.organisations order by created_at limit 1;
   perform pg_temp.setf('org', v_org);
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');                       perform pg_temp.setf('admin', v_admin);
-  v_a := pg_temp.mkdoc(v_org, 'docA', 'medical_officer', 'contracted', '{}', v_admin);  perform pg_temp.go_real(v_a, 'Ada Chinwe Okafor'); perform pg_temp.setf('a', v_a);
-  v_b := pg_temp.mkdoc(v_org, 'docB', 'medical_officer', 'contracted', '{}', v_admin);  perform pg_temp.go_real(v_b, 'Bola Tunde Adeyemi'); perform pg_temp.setf('b', v_b);
-  v_c := pg_temp.mkdoc(v_org, 'docC', 'medical_officer', 'contracted', '{}', v_admin);  perform pg_temp.go_real(v_c, 'Chika Obi Nwosu'); perform pg_temp.setf('c', v_c);
-  v_t := pg_temp.mkdoc(v_org, 'docT', 'medical_officer', 'contracted', '{}', v_admin);  perform pg_temp.setf('t', v_t);   -- stays a test account
+  v_a := pg_temp.mkdoc(v_org, 'docA', 'senior_medical_officer', 'contracted', '{}', v_admin);  perform pg_temp.go_real(v_a, 'Ada Chinwe Okafor'); perform pg_temp.setf('a', v_a);
+  v_b := pg_temp.mkdoc(v_org, 'docB', 'senior_medical_officer', 'contracted', '{}', v_admin);  perform pg_temp.go_real(v_b, 'Bola Tunde Adeyemi'); perform pg_temp.setf('b', v_b);
+  v_c := pg_temp.mkdoc(v_org, 'docC', 'senior_medical_officer', 'contracted', '{}', v_admin);  perform pg_temp.go_real(v_c, 'Chika Obi Nwosu'); perform pg_temp.setf('c', v_c);
+  v_t := pg_temp.mkdoc(v_org, 'docT', 'senior_medical_officer', 'contracted', '{}', v_admin);  perform pg_temp.setf('t', v_t);   -- stays a test account
   perform pg_temp.setf('p_gate', pg_temp.mkuser(v_org, 'patientgate', 'patient'));
-  v_emp := pg_temp.mkdoc(v_org, 'emp', 'medical_officer', 'employed', '{}', v_admin);   perform pg_temp.go_real(v_emp, 'Emeka Paul Eze'); perform pg_temp.setf('emp', v_emp);
+  v_emp := pg_temp.mkdoc(v_org, 'emp', 'senior_medical_officer', 'employed', '{}', v_admin);   perform pg_temp.go_real(v_emp, 'Emeka Paul Eze'); perform pg_temp.setf('emp', v_emp);
 
   -- Lagos week maths
   perform pg_temp.ck('a Wednesday maps to the Sunday before it', '2026-10-04', private.payout_last_period_end('2026-10-07 10:00+01')::text);

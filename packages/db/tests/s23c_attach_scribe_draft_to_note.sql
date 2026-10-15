@@ -40,7 +40,7 @@ begin
   on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name, is_test = true;
   insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier) values
     (v_org, v_tied,   'S23c Tied Doctor',   true, now(), 'senior_medical_officer'),
-    (v_org, v_untied, 'S23c Untied Doctor', true, now(), 'medical_officer');
+    (v_org, v_untied, 'S23c Untied Doctor', true, now(), 'senior_medical_officer');
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, assigned_at)
   values (v_org, v_pat, v_tied, now()) on conflict (patient_id) do update set clinician_id = v_tied;
 
@@ -105,6 +105,7 @@ begin
   -- ===== 3. finalize with the existing path, then attaching is refused =====
   perform set_config('request.jwt.claims', json_build_object('sub', v_tied, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
+  perform public.confirm_scribe_safety_lines(v_note);  -- S64: an AI-drafted note is signed only after the allergy and medicine lines are confirmed
   perform public.finalize_encounter_note(v_note, 'reassurance', true);
   v_failed := false;
   begin perform public.attach_scribe_draft_to_note(v_note, v_ok, 'changed', 'en-NG');

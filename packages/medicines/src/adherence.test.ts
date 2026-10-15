@@ -15,6 +15,10 @@ function med(logs: Record<string, DoseLog[]>, spec: ScheduleSpec = daily, active
 }
 
 describe("computeWeeklyAdherence", () => {
+  it("can end the window on an earlier day while judging dueness at now", () => {
+    const r = computeWeeklyAdherence([med({})], now, cfg, { windowEnd: "2026-10-05" });
+    expect(r).toMatchObject({ windowStart: "2026-09-29", windowEnd: "2026-10-05", due: 7, missed: 7 });
+  });
   it("counts a full week of taken doses as 100 and not below threshold", () => {
     const logs: Record<string, DoseLog[]> = {};
     for (const d of ["01", "02", "03", "04", "05", "06", "07"]) logs[`2026-10-${d}|08:00`] = [taken(`2026-10-${d}`)];

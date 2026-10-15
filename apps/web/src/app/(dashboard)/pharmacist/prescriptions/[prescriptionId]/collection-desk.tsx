@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { useAskPrescriber, useDispensePrescription, usePrescriptionQuestions, useReportOutOfStock, useVerifyCollection } from "@/lib/pharmacy-collection/desk-queries";
-import { answerText, dispenseProblem, NOTE_MAX, NOTE_MIN, QUESTION_REASONS, questionText, type DeskVerification, type DispenseResult } from "@/lib/pharmacy-collection/model";
+import { answerText, CONTROLLED_AT_COUNTER_TEXT, dispenseProblem, NOTE_MAX, NOTE_MIN, QUESTION_REASONS, questionText, type DeskVerification, type DispenseResult } from "@/lib/pharmacy-collection/model";
 import { itemLine } from "@/lib/pharmacy-flags/model";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ const VERIFY_TEXT: Record<string, string> = {
   locked: "The code is locked after too many wrong tries. The patient must get a new code in the app.",
   expired: "The code has expired. The patient must get a new code in the app.",
   already_collected: "This was already collected.",
+  controlled_medicine: CONTROLLED_AT_COUNTER_TEXT,
 };
 const PROBLEM_TEXT = {
   registration: "Check the PCN registration number: 3 to 40 letters, numbers, spaces, slashes, dots or hyphens.",
@@ -37,6 +38,7 @@ const DISPENSE_TEXT: Record<string, string> = {
   no_medication: "This prescription cannot be supplied from here. Ask the prescriber.",
   batch_required: "Enter the batch number and the expiry date of the pack. They are your record of what was handed over.",
   batch_expired: "That pack has already expired, so it cannot be recorded as supplied.",
+  controlled_medicine: CONTROLLED_AT_COUNTER_TEXT,
 };
 VERIFY_TEXT.no_medication = DISPENSE_TEXT.no_medication;
 

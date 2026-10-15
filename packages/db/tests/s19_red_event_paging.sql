@@ -46,6 +46,10 @@ begin
   insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test, language)
   values (v, p_org, p_role::public.user_role, 'S19 ' || p_label, '+23480' || lpad((random() * 99999999)::int::text, 8, '0'), (current_date - interval '45 years')::date, true, 'en')
   on conflict (id) do update set role = excluded.role, is_test = true, is_active = true, phone = excluded.phone;
+  -- two-tier (CMO 2026-10-08): a red event pages only for a Member, so every fixture patient here is one
+  if p_role = 'patient' then
+    insert into public.patient_memberships (organisation_id, patient_id, source, state, is_test) values (p_org, v, 'purchase', 'active', true);
+  end if;
   return v;
 end $f$;
 create function pg_temp.mkdoc(p_org uuid, p_admin uuid, p_label text, p_tier text) returns uuid
@@ -60,6 +64,11 @@ begin
   returning id into v_staff;
   insert into public.clinician_competencies (organisation_id, clinical_staff_id, competency_code, granted_by, is_test) values (p_org, v_staff, 'on_call', p_admin, true);
   insert into public.on_call_readiness (clinician_id, checklist_version, organisation_id, items, is_test) values (v, private.readiness_version(), p_org, private.readiness_items(), true);
+  -- S19c (P9): objective readiness too: a working push subscription and an acknowledged test page (the email is already confirmed)
+  insert into public.push_subscriptions (organisation_id, profile_id, endpoint, p256dh_key, auth_key) values (p_org, v, 'https://push.example.invalid/' || v, 'k', 'a');
+  perform set_config('tarragon.paging_write', 'on', true);
+  insert into public.page_tests (organisation_id, clinician_id, kind, acknowledged_at, delivered_at, is_test) values (p_org, v, 'readiness', now(), now(), true);
+  perform set_config('tarragon.paging_write', 'off', true);
   return v;
 end $f$;
 create function pg_temp.red(p_patient uuid, p_set uuid, p_grade text, p_shadow boolean) returns uuid language plpgsql as
@@ -350,6 +359,9 @@ begin
     if new.role = 'backup' and exists (select 1 from pg_temp.fx where label = 'poison' and id = new.patient_id) then raise exception 'poisoned page'; end if;
     return new;
   end $f$;
+  -- Take the strongest lock on pages FIRST. create trigger takes SHARE ROW EXCLUSIVE and drop trigger needs ACCESS EXCLUSIVE, so a background cron
+  -- sweep writing to pages in between could deadlock the upgrade (seen once on CI). Locking up front makes the sweep wait instead.
+  lock table public.pages in access exclusive mode;
   create trigger s19_poison before insert on public.pages for each row execute function public.s19_poison();
   e9 := pg_temp.red(pt9, v_rs_ok, 'red', false); v_root9 := public.create_red_page(e9);
   e10 := pg_temp.red(pt10, v_rs_ok, 'red', false); v_root10 := public.create_red_page(e10);
@@ -388,6 +400,8 @@ begin
     pg_temp.try(format('insert into public.pages (organisation_id, patient_id, triage_event_id, role, to_clinician_id, escalation_level, config_version, is_test) values (%L, %L, %L, ''primary'', %L, 0, 1, true)', v_org, v_pt, v_e, v_p)));
   -- sabotage 2: every account looks like the chief medical officer; ops could then silence a page
   create or replace function private.credential_is_cmo() returns boolean language sql as $f$ select true $f$;
+  -- S19c: acknowledging now also needs an eligible clinician (an admin is not one), a second layer; sabotage both layers
+  create or replace function private.clinician_is_eligible(p_profile uuid, p_at timestamptz default now()) returns boolean language sql as $f$ select true $f$;
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
   set local role authenticated;
   insert into results values ('sabotaged', 'ops cannot silence a page', '42501', pg_temp.try(format('select public.acknowledge_page(%L)', v_root)));

@@ -60,7 +60,7 @@ begin
   -- with a foreign-key violation unrelated to what this test proves.
   insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier)
   values
-    (v_org, v_doc,   'Telemedicine Test: Medical Officer Doctor', true, now(), 'medical_officer'),
+    (v_org, v_doc,   'Telemedicine Test: Medical Officer Doctor', true, now(), 'senior_medical_officer'),
     (v_org, v_coord, 'Telemedicine Test: Care Coordinator', true, now(), 'care_coordinator')
   on conflict (profile_id) do update
     set organisation_id = excluded.organisation_id, full_name = excluded.full_name,
@@ -91,11 +91,13 @@ begin
     (v_org, v_pat, v_doc, 'gp', 'telemedicine', now() + interval '3 hours', now() + interval '3 hours 15 minutes', 'confirmed')
   returning id into v_appt_badreason;
 
+  perform set_config('app.allow_clinical_value_delete', 'on', true);   -- S05b: fixture cleanup is a superuser maintenance delete
   delete from public.patient_allergies where patient_id = v_pat and allergen = 'Telemedicine Test Allergen';
   insert into public.patient_allergies (organisation_id, patient_id, allergen, reaction, severity, source)
   values (v_org, v_pat, 'Telemedicine Test Allergen', 'Rash', 'moderate', 'clinician');
 
   delete from public.patient_conditions where patient_id = v_pat and condition_name = 'Telemedicine Test Condition';
+  perform set_config('app.allow_clinical_value_delete', 'off', true);
   insert into public.patient_conditions (organisation_id, patient_id, condition_name, status)
   values (v_org, v_pat, 'Telemedicine Test Condition', 'active');
 

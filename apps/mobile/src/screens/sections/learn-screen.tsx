@@ -27,6 +27,7 @@ import {
   type HealthEducationReadingLevel,
   type KnowledgeCheckQuestion,
 } from "@/lib/health-education";
+import { WeeklyLessonCard, DownloadsCard, LearnSearchCard, LessonFooter, LessonViewer, useMembersOnly } from "@/screens/sections/learning-sections";
 import { asLocale, t } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
 import { AppText } from "@/ui/kit";
@@ -80,6 +81,7 @@ export function LearnScreen({ userId, organisationId }: LearnScreenProps) {
   const [query, setQuery] = useState("");
   const [readingLevel, setReadingLevel] = useState<HealthEducationReadingLevel | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [openCode, setOpenCode] = useState<string | null>(null);
 
   const refreshTop = useCallback(async () => {
     const [feedData, locked, counts, recs, condition] = await Promise.all([
@@ -158,6 +160,11 @@ export function LearnScreen({ userId, organisationId }: LearnScreenProps) {
           <ErrorText>{loadError}</ErrorText>
         </Card>
       )}
+
+      <WeeklyLessonCard patientId={userId} organisationId={organisationId} />
+      <LearnSearchCard userId={userId} onOpen={setOpenCode} />
+      {openCode ? <LessonViewer code={openCode} userId={userId} onClose={() => setOpenCode(null)} /> : null}
+      <DownloadsCard userId={userId} onOpen={setOpenCode} />
 
       {recommendations.length > 0 && (
         <View style={{ gap: 8 }}>
@@ -372,6 +379,7 @@ function EducationItemRow({
   const [marking, setMarking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const questions = useMemo(() => parseKnowledgeCheck(item.knowledge_check), [item.knowledge_check]);
+  const membersOnly = useMembersOnly(item.code, open, !item.body && !item.video_url && !item.audio_url);
 
   async function toggle() {
     const next = !open;
@@ -419,7 +427,12 @@ function EducationItemRow({
       {item.summary && <MutedText>{item.summary}</MutedText>}
       {item.estimated_minutes ? <MutedText>{item.estimated_minutes} min read</MutedText> : null}
 
-      {open && (
+      {open && membersOnly && (
+        <View style={{ gap: 10, paddingTop: 4 }}>
+          <LessonFooter code={item.code} title={item.title} />
+        </View>
+      )}
+      {open && !membersOnly && (
         <View style={{ gap: 10, paddingTop: 4 }}>
           <Text style={{ fontSize: 13, color: colors.ink, lineHeight: 19 }}>{item.body}</Text>
 
@@ -433,6 +446,7 @@ function EducationItemRow({
           {error && <ErrorText>{error}</ErrorText>}
 
           <ContentFeedbackRow contentId={item.content_id} userId={userId} organisationId={organisationId} />
+          <LessonFooter code={item.code} title={item.title} />
         </View>
       )}
     </View>

@@ -1,3 +1,7 @@
+import { HELD_READING_COPY } from "@tarragon/shared";
+import { readDeviceFlags } from "@/lib/devices/flags";
+import { readOutcome } from "@/lib/devices/reading-outcome";
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { runBestEffort } from "@/lib/sentry/run-best-effort";
@@ -73,6 +77,12 @@ const mobileVitalsSchema = z
       }
     }
   });
+
+/** A stable UUID for a second reading made from one queued entry (RFC 4122 shape, derived from the entry's own id and a label). */
+function derivedClientId(clientReadingId: string, label: string): string {
+  const h = createHash("sha256").update(`${clientReadingId}:${label}`).digest("hex");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
 
 export async function POST(request: Request): Promise<NextResponse> {
   const authHeader = request.headers.get("authorization");
@@ -173,6 +183,28 @@ export async function POST(request: Request): Promise<NextResponse> {
   row.client_recorded_at = taken_at ? new Date(taken_at).toISOString() : null;
   row.client_reading_id = clientReadingId ?? null;
 
+  // R2: ketones typed with a glucose are stored the way the platform already stores ketones, as their own reading, so BOTH the older DKA pager (which
+  // reads ketone readings, not columns on a glucose row) and the glucose triage see them. Inserted BEFORE the glucose so the glucose insert's own checks find
+  // them. Its client id is derived from the glucose one, so a blind retry of the same queued entry is a no-op (23505) rather than a second ketone reading.
+  if (reading.vital_type === "glucose" && (reading.ketones_mmol_l !== undefined || reading.ketone_urine !== undefined)) {
+    const ketoneRow: TablesInsert<"vitals_readings"> = {
+      patient_id: subjectId,
+      organisation_id: profile.organisation_id,
+      source: "manual",
+      vital_type: "ketones",
+      ketones_mmol_l: reading.ketones_mmol_l ?? null,
+      ketone_urine: reading.ketone_urine ?? null,
+      taken_at: row.taken_at ?? new Date().toISOString(),
+      client_recorded_at: taken_at ? new Date(taken_at).toISOString() : null,
+      client_reading_id: clientReadingId ? derivedClientId(clientReadingId, "ketones") : null,
+    };
+    const { error: ketoneError } = await supabase.from("vitals_readings").insert(ketoneRow);
+    if (ketoneError && !(clientReadingId && ketoneError.code === "23505")) {
+      // Nothing is saved yet, so a retry from the phone's queue is safe and nothing is lost.
+      return NextResponse.json({ error: ketoneError.message }, { status: 500 });
+    }
+  }
+
   const { error: insertError } = await supabase.from("vitals_readings").insert(row);
   if (insertError) {
     // A queued offline reading may retry blind after a dropped connection —
@@ -184,6 +216,19 @@ export async function POST(request: Request): Promise<NextResponse> {
       return NextResponse.json({ success: true });
     }
     return NextResponse.json({ error: insertError.message }, { status: 500 });
+  }
+
+  // S70a (18.9): with the plausibility hold on, the database can accept a typed value without storing it (a number that cannot be real is
+  // held for the person to check). That must never be reported as saved. The phone's outbox reads a 4xx as "not accepted", which is the
+  // honest answer here. Only checked when the phone sent its idempotency key, which is how the row is found again.
+  if (clientReadingId) {
+    const flags = await readDeviceFlags(supabase);
+    if (flags.device_plausibility_hold) {
+      const outcome = await readOutcome(supabase, { patientId: subjectId, clientReadingId });
+      if (outcome.kind === "held") {
+        return NextResponse.json({ error: HELD_READING_COPY.body, held: true, held_id: outcome.heldId, reasons: outcome.reasons }, { status: 422 });
+      }
+    }
   }
 
   // From here on the reading is durably saved — every failure below is

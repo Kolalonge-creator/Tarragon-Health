@@ -1,10 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { CoachChatMessage, CoachSuggestedAction, CoachTier, Database } from "@tarragon/shared";
+import type { CoachChatMessage, CoachSource, CoachSuggestedAction, CoachTier, Database } from "@tarragon/shared";
 import { buildCoachGraph, type CoachGraphDeps } from "./graph";
 import { COACH_ACCESS_DENIED_REPLY, hasCoachAccess } from "./entitlement";
+import { ASSISTANT_NOT_OPEN_REPLY, isAssistantOpen } from "./guard";
 import { COACH_LIMIT_REACHED_REPLY, countMessagesToday, getCoachDailyLimit } from "./rate-limit";
-import { detectEmergencyKeywords } from "./keyword-guardrail";
-import { COACH_UNAVAILABLE_REPLY, EMERGENCY_SAFETY_REPLY, COACH_PROMPT_VERSION } from "./prompts";
+import { detectEmergencyKeywords, isSelfHarmMessage } from "./keyword-guardrail";
+import { classifyDoseRequest, screenSensitiveResultQuestion } from "./reply-screen";
+import { emitAssistantEvent } from "./events";
+import { buildEmergencyReply } from "./emergency-reply";
+import { COACH_UNAVAILABLE_REPLY, COACH_PROMPT_VERSION } from "./prompts";
 import { logAiCoachEscalation } from "./escalate";
 import { AI_SYSTEMS, governedSystemPrompt, runGovernedAi } from "@/lib/ai-governance";
 import { logAssistantTurn } from "./audit";
@@ -31,6 +35,12 @@ export interface RunCoachTurnResult {
    * patient's "this was wrong" report (40.12) to the exact turn they mean.
    */
   aiInteractionId: string | null;
+  /** S51 (7.2, 7.9): the sources the reply drew on (reviewed content with owner, version and review date, the patient's own record). */
+  sources: CoachSource[];
+  /** The in-chat hand-off the reply offers (symptom checker, medicine education, ...). Absent for most turns. */
+  suggestedAction?: CoachSuggestedAction;
+  /** True only when the assistant_enabled guard is closed and nothing was run. */
+  notOpen?: boolean;
 }
 
 /** What the coach turn resolved to, before it is persisted to the thread. */
@@ -52,6 +62,8 @@ interface CoachTurnOutcome {
    * graph.ts's CoachState doc comment for why this is separate from
    * retrievedSourceIds. */
   readonly knowledgeSourceUsed?: string[];
+  /** S51: structured sources (graph.ts CoachState.sources). */
+  readonly sources?: CoachSource[];
   /** §78.2 in-chat suggestion the model classified for this reply, or
    * "none"/absent on the kill-switch fallback path. */
   readonly suggestedAction?: CoachSuggestedAction;
@@ -70,6 +82,72 @@ interface CoachTurnOutcome {
  * silently dropped everything older than the window on every single turn. */
 const CONTEXT_HISTORY_LIMIT = 20;
 
+/** True when code, not a model, produced this turn's answer (the graph never reached a model and did not degrade). */
+function answeredByCode(result: { modelId: string | null; degraded?: boolean }): boolean {
+  return result.modelId == null && result.degraded !== true;
+}
+
+/** Which deterministic screen answered, for the audit trail (a short fixed name, never the message). */
+function codeScreenName(message: string, result: { inputSnapshotForAudit?: Record<string, unknown> }): string {
+  if (result.inputSnapshotForAudit && "clarification" in result.inputSnapshotForAudit) return "clarifying_question";
+  if (detectEmergencyKeywords(message)) return "emergency_screen";
+  if (screenSensitiveResultQuestion(message)) return "inv04_sensitive_result_question";
+  if (classifyDoseRequest(message) !== "none") return "dose_request_refusal";
+  return "deterministic_screen";
+}
+
+/**
+ * An emergency message that reaches the assistant while the assistant_enabled guard is closed (a stale screen, a direct call). No model,
+ * no assistant: the fixed emergency copy, the clinician alert and escalation, the saved turn and the audit row, exactly what the
+ * kill-switch fallback does. Best effort on the writes, never on the copy.
+ */
+async function emergencyWhileClosed(params: RunCoachTurnParams): Promise<RunCoachTurnResult> {
+  const { supabase, getServiceRoleSupabase, profileId, organisationId, message } = params;
+  const { conversationId, fullMessages } = await resolveOrCreateConversation(supabase, organisationId, profileId, params.conversationId);
+  let escalationId: string | null = null;
+  // Started together with the escalation, never after it: the on-call queue row and page do not wait behind a slow escalation write.
+  const builtReply = buildEmergencyReply(
+    { supabase, service: getServiceRoleSupabase() },
+    { profileId, conversationId, message },
+  );
+  try {
+    const escalation = await logAiCoachEscalation(supabase, getServiceRoleSupabase(), {
+      organisationId,
+      patientId: profileId,
+      conversationId,
+      triggerMessage: message,
+      recentMessages: [],
+      aiAction: "Escalated immediately via deterministic safety-keyword match while the assistant was not open",
+    });
+    escalationId = escalation.escalationId;
+  } catch (error) {
+    console.error("ai-coach: emergency escalation failed while the assistant was closed", error);
+  }
+  const { reply: emergencyReply, selfHarm } = await builtReply;
+  const now = new Date().toISOString();
+  const userMessage: CoachChatMessage = { id: crypto.randomUUID(), role: "user", content: message, created_at: now };
+  const assistantMessage: CoachChatMessage = { id: crypto.randomUUID(), role: "assistant", content: emergencyReply, tier: "emergency", created_at: now };
+  await appendMessages(supabase, conversationId, fullMessages, [userMessage, assistantMessage]);
+  await logAssistantTurn(getServiceRoleSupabase(), {
+    organisationId,
+    patientId: profileId,
+    conversationId,
+    interactionType: "chat_turn",
+    safetyClassification: "emergency",
+    escalationId,
+    finalAction: "escalation_created",
+    status: "completed",
+    inputSnapshot: { assistantGuard: "closed", guardrail: "emergency_keyword_escalation" },
+  });
+  await emitAssistantEvent(getServiceRoleSupabase(), organisationId, profileId, {
+    type: "assistant.red_flag_detected",
+    conversationId,
+    trigger: selfHarm ? "self_harm" : "keyword",
+    turnKey: assistantMessage.id,
+  });
+  return { conversationId, reply: emergencyReply, tier: "emergency", aiInteractionId: null, sources: [] };
+}
+
 /** Transport-agnostic AI Coach turn — takes a profile + message, runs the
  * LangGraph flow, and returns the reply. Callable from a server action
  * today and assumes nothing about how it was invoked.
@@ -83,6 +161,22 @@ const CONTEXT_HISTORY_LIMIT = 20;
  */
 export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoachTurnResult> {
   const { supabase, getServiceRoleSupabase, profileId, organisationId, message } = params;
+
+  // INV-14: the assistant_enabled go-live guard. Checked first, before anything is read or written, and it fails closed (an error
+  // reading the guard is a closed guard). While it is off no model is reached, no conversation row is created and nothing is logged.
+  if (!(await isAssistantOpen(supabase))) {
+    // The deterministic red-flag screen is a safety net, not a feature: it does not wait for the go-live guard. A message that matches it
+    // gets the fixed emergency guidance and the same escalation as ever, never "not open yet".
+    if (detectEmergencyKeywords(message)) return await emergencyWhileClosed(params);
+    return {
+      conversationId: params.conversationId ?? "",
+      reply: ASSISTANT_NOT_OPEN_REPLY,
+      tier: "routine",
+      aiInteractionId: null,
+      sources: [],
+      notOpen: true,
+    };
+  }
 
   const { conversationId, fullMessages } = await resolveOrCreateConversation(
     supabase,
@@ -99,6 +193,8 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
   // block below: append a canned reply, return normally, no thrown error.
   const hasAccess = await hasCoachAccess(supabase);
   if (!hasAccess) {
+    // A safety net, not a feature: a plan without the assistant still gets the emergency guidance and the escalation (INV-05, INV-06).
+    if (detectEmergencyKeywords(message)) return await emergencyWhileClosed({ ...params, conversationId });
     const now = new Date().toISOString();
     const userMessage: CoachChatMessage = { id: crypto.randomUUID(), role: "user", content: message, created_at: now };
     const assistantMessage: CoachChatMessage = {
@@ -117,7 +213,7 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
       finalAction: "declined",
       status: "access_denied",
     });
-    return { conversationId, reply: COACH_ACCESS_DENIED_REPLY, tier: "routine", aiInteractionId: null };
+    return { conversationId, reply: COACH_ACCESS_DENIED_REPLY, tier: "routine", aiInteractionId: null, sources: [] };
   }
 
   const [messagesToday, dailyLimit] = await Promise.all([
@@ -125,6 +221,8 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
     getCoachDailyLimit(supabase),
   ]);
   if (messagesToday >= dailyLimit) {
+    // The same: running out of messages for the day never stands between a patient and the emergency guidance.
+    if (detectEmergencyKeywords(message)) return await emergencyWhileClosed({ ...params, conversationId });
     // Skip the graph entirely — the whole point is to avoid the Claude call,
     // not just decline to show its result.
     const now = new Date().toISOString();
@@ -145,7 +243,7 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
       finalAction: "declined",
       status: "rate_limited",
     });
-    return { conversationId, reply: COACH_LIMIT_REACHED_REPLY, tier: "routine", aiInteractionId: null };
+    return { conversationId, reply: COACH_LIMIT_REACHED_REPLY, tier: "routine", aiInteractionId: null, sources: [] };
   }
 
   // Neither of the two short-circuits above is recorded in ai_interaction_log,
@@ -192,6 +290,7 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
           modelId: result.modelId,
           retrievedSourceIds: result.retrievedSourceIds,
           knowledgeSourceUsed: result.knowledgeSourceUsed,
+          sources: result.sources,
           suggestedAction: result.suggestedAction,
           clinicianAlertId: result.clinicianAlertId,
           referralRequestClinicianAlertId: result.referralRequestClinicianAlertId,
@@ -207,7 +306,14 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
         modelIdentifier: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5",
         outputSummary: result.reply,
         safetyClassification: tier,
-        guardrailsTriggered: keywordEmergency ? ["emergency_keyword_escalation"] : [],
+        guardrailsTriggered: [
+          ...(keywordEmergency ? ["emergency_keyword_escalation"] : []),
+          ...(answeredByCode(result) ? [`answered_by_code:${codeScreenName(message, result)}`] : []),
+        ],
+        // No model was reached: a fixed refusal, a clarifying question or the emergency copy. Recorded as `none:code`, with no tokens or cost.
+        answeredByCode: answeredByCode(result),
+        inputTokenCount: answeredByCode(result) ? null : undefined,
+        outputTokenCount: answeredByCode(result) ? null : undefined,
         // A keyword-matched emergency never reaches the model at all: the
         // canned safety reply is substituted for whatever it would have said.
         // That is a guardrail suppressing output, which the audit trail
@@ -246,6 +352,11 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
       }
 
       let escalationId: string | null = null;
+      // Started together with the escalation, never after it (queue row, on-call page and hospitals do not wait behind it).
+      const builtReply = buildEmergencyReply(
+        { supabase, service: getServiceRoleSupabase() },
+        { profileId, conversationId: threadId, message },
+      );
       try {
         const escalation = await logAiCoachEscalation(supabase, getServiceRoleSupabase(), {
           organisationId,
@@ -266,7 +377,9 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
         // would be far worse.
         console.error("ai-coach: emergency escalation failed on the fallback path", error);
       }
-      return { tier: "emergency", reply: EMERGENCY_SAFETY_REPLY, escalationId };
+      // S52: the same self-harm copy, nearest hospitals and on-call page as the live path, because none of it ever needed the model.
+      const built = await builtReply;
+      return { tier: "emergency", reply: built.reply, escalationId };
     },
   });
 
@@ -278,6 +391,8 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
     role: "assistant",
     content: reply,
     tier,
+    // the id of the answer, so a patient can report exactly this answer later (also after the app is reopened)
+    interactionId: governed.interactionId ?? undefined,
     suggestedAction:
       governed.value.suggestedAction && governed.value.suggestedAction !== "none"
         ? governed.value.suggestedAction
@@ -290,6 +405,7 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
       governed.value.knowledgeSourceUsed && governed.value.knowledgeSourceUsed.length > 0
         ? governed.value.knowledgeSourceUsed
         : undefined,
+    sources: governed.value.sources && governed.value.sources.length > 0 ? governed.value.sources : undefined,
     created_at: now,
   };
   await appendMessages(supabase, conversationId, fullMessages, [userMessage, assistantMessage]);
@@ -324,6 +440,7 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
     retrievedSourceIds: governed.value.retrievedSourceIds,
     clinicianAlertId: governed.value.clinicianAlertId ?? governed.value.referralRequestClinicianAlertId,
     escalationId: governed.value.escalationId,
+    interactionId: governed.interactionId,
     finalAction,
     status: governed.value.degraded ? "degraded" : "completed",
     errorMessage: governed.value.errorMessage,
@@ -334,5 +451,26 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
     },
   });
 
-  return { conversationId, reply, tier, aiInteractionId: governed.interactionId };
+  // S51 events through the outbox. Best effort: the patient's turn never waits on, or fails because of, an event.
+  const svc = getServiceRoleSupabase();
+  const turnKey = assistantMessage.id;
+  const redFlagTrigger = keywordEmergency ? (isSelfHarmMessage(message) ? "self_harm" : "keyword") : tier === "emergency" ? "model" : null;
+  await Promise.all([
+    emitAssistantEvent(svc, organisationId, profileId, { type: "assistant.message", conversationId, tier, turnKey }),
+    redFlagTrigger
+      ? emitAssistantEvent(svc, organisationId, profileId, { type: "assistant.red_flag_detected", conversationId, trigger: redFlagTrigger, turnKey })
+      : Promise.resolve(true),
+    governed.value.suggestedAction === "symptom_check"
+      ? emitAssistantEvent(svc, organisationId, profileId, { type: "assistant.handoff", conversationId, target: "symptom_checker", turnKey })
+      : Promise.resolve(true),
+  ]);
+
+  return {
+    conversationId,
+    reply,
+    tier,
+    aiInteractionId: governed.interactionId,
+    sources: governed.value.sources ?? [],
+    suggestedAction: assistantMessage.suggestedAction,
+  };
 }

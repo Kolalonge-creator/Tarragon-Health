@@ -51,6 +51,15 @@ export function scrubPiiBeforeSend(event: ErrorEvent): ErrorEvent {
   // profile update) — drop rather than scrub, since structure varies too
   // much to trust a regex pass alone.
   if (event.request?.data) delete event.request.data;
+  // Cookies carry the session; query strings and URLs can carry tokens, emails or phone numbers (magic links, OTP flows).
+  if (event.request?.cookies) delete event.request.cookies;
+  if (event.request?.headers) {
+    for (const h of Object.keys(event.request.headers)) {
+      if (/^(cookie|authorization|x-.*(key|secret|token).*)$/i.test(h)) delete event.request.headers[h];
+    }
+  }
+  if (typeof event.request?.query_string === "string") event.request.query_string = "[redacted-query]";
+  if (event.request?.url) event.request.url = scrubString(event.request.url.split("?")[0] ?? "");
 
   if (event.breadcrumbs) {
     for (const crumb of event.breadcrumbs) {

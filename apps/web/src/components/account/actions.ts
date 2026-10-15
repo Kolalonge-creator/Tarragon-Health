@@ -10,6 +10,9 @@ import * as Sentry from "@sentry/nextjs";
 import { t } from "@tarragon/i18n";
 import { getAuthLocale } from "@/lib/auth/auth-locale";
 import { checkNewPassword } from "@/lib/auth/check-new-password";
+import { isPhoneChangeNeedsConfirmationError } from "@/lib/auth/otp-errors";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { e164FromAuthPhone, phoneChangeOptions } from "@/lib/account/phone-change-options";
 
 export type UpdateOwnPasswordState =
   | { error?: string; field?: string; success?: boolean }
@@ -54,7 +57,7 @@ export async function updateOwnPassword(
 }
 
 export type ChangePhoneState =
-  | { error?: string; field?: string; step?: "verify"; phone?: string; success?: boolean }
+  | { error?: string; field?: string; step?: "verify"; phone?: string; success?: boolean; at?: number }
   | undefined;
 
 /**
@@ -94,9 +97,25 @@ export async function requestPhoneChange(
     return { error: t("auth.error.rate_limited", locale) };
   }
 
+  // An account with something to confirm with must have confirmed it a few minutes ago (S03b). Ask the database BEFORE asking Auth,
+  // so "confirm it is you first" never depends on how Auth words a wrapped trigger error. The trigger on auth.users is what
+  // actually enforces it; this check is the friendly way to find out.
+  // A resend of the SAME pending number is not gated by the trigger (the code is just sent again), so it is not asked here either.
+  const pending = user.new_phone ? e164FromAuthPhone(user.new_phone) : null;
+  if (phoneChangeOptions(user).needsConfirmation && pending !== parsed.data.phone) {
+    const { data: fresh, error: freshError } = await createServiceRoleClient().rpc("has_fresh_phone_change_authorisation", { p_user: user.id });
+    if (freshError) return { error: t("auth.error.generic", locale) };
+    if (fresh !== true) return { error: t("auth.phone_change.confirm_expired", locale), field: "confirm", at: Date.now() };
+  }
+
   const supabase = await createClient();
   const { error } = await supabase.auth.updateUser({ phone: parsed.data.phone });
   if (error) {
+    // The database refuses a number change that was not confirmed in the last few minutes (S03b). The card goes back to the
+    // "confirm it is you" step rather than showing a provider error.
+    if (isPhoneChangeNeedsConfirmationError(error)) {
+      return { error: t("auth.phone_change.confirm_expired", locale), field: "confirm", at: Date.now() };
+    }
     return { error: t(authErrorKey(error, "otp_send"), locale), field: "phone" };
   }
   return { step: "verify", phone: parsed.data.phone };
