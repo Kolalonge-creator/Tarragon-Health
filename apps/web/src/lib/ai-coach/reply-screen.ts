@@ -14,7 +14,7 @@
 export const SENSITIVE_RESULT_REPLY =
   "I can't go through this kind of test result in chat. It is something your care team talks through with you privately, in person or on a call. Please send them a message in the app and they will arrange it. If you feel unwell or unsafe right now, go to the nearest hospital.";
 
-const SENSITIVE_TERM = /\b(?:hiv|aids|hbsag|hbs\s*ag|hcv|hbv|hepatitis\s*[bc]|hep\s*[bc]|anti[\s-]?hcv|surface antigen)\b/i;
+const SENSITIVE_TERM = /\b(?:hiv|(?<!hearing\s)(?<!band[-\s])aids|hbsag|hbs\s*ag|hcv|hbv|hepatitis\s*[bc]|hep\s*[bc]|anti[\s-]?hcv|surface antigen)\b/i;
 const RESULT_WORD = /\b(?:result|results|test|tests|tested|positive|reactive|status|screen|screening|came back|report|reading|detected|viral load|cd4)\b/i;
 const POSITIVE_WORD = /\b(?:positive|reactive|detected|infected|have|has|living with)\b/i;
 
