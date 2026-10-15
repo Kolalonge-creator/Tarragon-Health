@@ -75,7 +75,7 @@ begin
   v_child := pg_temp.mkuser(v_org, 'child', 'patient', true, (current_date - interval '10 years')::date);
   v_nodob := pg_temp.mkuser(v_org, 'nodob', 'patient');
   update public.profiles set date_of_birth = null where id = v_nodob;
-  v_tied := pg_temp.mkstaff(v_org, v_admin, 'tied', 'medical_officer');
+  v_tied := pg_temp.mkstaff(v_org, v_admin, 'tied', 'senior_medical_officer');
   v_untied := pg_temp.mkstaff(v_org, v_admin, 'untied', 'senior_medical_officer');
   v_cc := pg_temp.mkstaff(v_org, v_admin, 'coordinator', 'care_coordinator');
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id) values (v_org, v_p, v_tied);
