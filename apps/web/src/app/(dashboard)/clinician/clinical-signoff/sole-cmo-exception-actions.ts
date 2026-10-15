@@ -31,7 +31,7 @@ export async function signSoleCmoExceptionAction(formData: FormData): Promise<vo
   if (!reason.success) return finish(false, `${reason.error.issues[0]?.message ?? "Write a reason."} Nothing was signed.`);
   const supabase = await createClient();
   const { error } = await (supabase as unknown as { rpc(fn: string, args: Record<string, unknown>): PromiseLike<{ error: { message: string; code?: string } | null }> })
-    .rpc("sign_sole_cmo_exception", { p_competency: SOLE_CMO_EXCEPTION_COMPETENCY, p_reason: reason.data });
+    .rpc("sign_sole_cmo_exception", { p_competency: SOLE_CMO_EXCEPTION_COMPETENCY, p_reason: reason.data, p_confirm: "SIGN" });
   if (error) return finish(false, ["22023", "23514", "42501"].includes(error.code ?? "") ? error.message : "Something went wrong. Nothing was signed. Please try again.");
   revalidatePath(path);
   return finish(true);

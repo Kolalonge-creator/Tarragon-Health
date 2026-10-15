@@ -23,22 +23,25 @@ const past = new Date(Date.now() - 86_400_000).toISOString();
 
 describe("readPendingSoleCmoException", () => {
   it("waits when there is one CMO and no exception", async () => {
-    expect(await readPendingSoleCmoException(client([{ id: "a", is_test: false }], []))).toEqual({ waiting: true, failed: false });
+    expect(await readPendingSoleCmoException(client([{ id: "a", profile_id: "pa", is_test: false }], []))).toEqual({ waiting: true, failed: false });
   });
   it("does not wait while an unexpired exception is in force", async () => {
-    expect(await readPendingSoleCmoException(client([{ id: "a", is_test: false }], [{ id: "e", expires_at: future }]))).toEqual({ waiting: false, failed: false });
+    expect(await readPendingSoleCmoException(client([{ id: "a", profile_id: "pa", is_test: false }], [{ id: "e", expires_at: future, signed_by: "pa" }]))).toEqual({ waiting: false, failed: false });
   });
   it("waits again when the only exception has expired", async () => {
-    expect(await readPendingSoleCmoException(client([{ id: "a", is_test: false }], [{ id: "e", expires_at: past }]))).toEqual({ waiting: true, failed: false });
+    expect(await readPendingSoleCmoException(client([{ id: "a", profile_id: "pa", is_test: false }], [{ id: "e", expires_at: past, signed_by: "pa" }]))).toEqual({ waiting: true, failed: false });
+  });
+  it("still waits when the only unexpired exception was signed by someone who is no longer an active CMO", async () => {
+    expect(await readPendingSoleCmoException(client([{ id: "a", profile_id: "pa", is_test: false }], [{ id: "e", expires_at: future, signed_by: "gone" }]))).toEqual({ waiting: true, failed: false });
   });
   it("never shows the line once a second CMO exists", async () => {
-    expect(await readPendingSoleCmoException(client([{ id: "a", is_test: false }, { id: "b", is_test: false }], []))).toEqual({ waiting: false, failed: false });
+    expect(await readPendingSoleCmoException(client([{ id: "a", profile_id: "pa", is_test: false }, { id: "b", profile_id: "pb", is_test: false }], []))).toEqual({ waiting: false, failed: false });
   });
   it("ignores a test CMO next to the one real CMO", async () => {
-    expect(await readPendingSoleCmoException(client([{ id: "a", is_test: false }, { id: "t", is_test: true }], []))).toEqual({ waiting: true, failed: false });
+    expect(await readPendingSoleCmoException(client([{ id: "a", profile_id: "pa", is_test: false }, { id: "t", profile_id: "pt", is_test: true }], []))).toEqual({ waiting: true, failed: false });
   });
   it("reports a failed read instead of an all-clear", async () => {
     expect(await readPendingSoleCmoException(client(null, [], { cmos: true }))).toEqual({ waiting: false, failed: true });
-    expect(await readPendingSoleCmoException(client([{ id: "a", is_test: false }], null, { ex: true }))).toEqual({ waiting: false, failed: true });
+    expect(await readPendingSoleCmoException(client([{ id: "a", profile_id: "pa", is_test: false }], null, { ex: true }))).toEqual({ waiting: false, failed: true });
   });
 });

@@ -24,7 +24,7 @@ beforeEach(() => { rpc.mockReset(); flashes.length = 0; staff = { doctor_tier: "
 describe("signSoleCmoExceptionAction", () => {
   it("signs on_call only, with the written reason, as the CMO, and returns to the hub", async () => {
     expect(await run(form({ understood: "on", typed: " sign ", reason: `  ${REASON}  ` }))).toBe("REDIRECT /clinician/clinical-signoff?n=n1");
-    expect(rpc).toHaveBeenCalledWith("sign_sole_cmo_exception", { p_competency: "on_call", p_reason: REASON });
+    expect(rpc).toHaveBeenCalledWith("sign_sole_cmo_exception", { p_competency: "on_call", p_reason: REASON, p_confirm: "SIGN" });
     expect(flashes[0]).toMatchObject({ ok: true });
   });
   it("does nothing without the tick, the typed word, or a long enough reason", async () => {

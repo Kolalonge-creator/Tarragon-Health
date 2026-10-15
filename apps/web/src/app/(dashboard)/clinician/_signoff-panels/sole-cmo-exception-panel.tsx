@@ -28,7 +28,8 @@ export function SoleCmoExceptionPanel() {
         <ul className="list-disc space-y-1 pl-5 text-sm text-charcoal-ink/80">
           <li>It expires 12 months after you sign. After that you would need to sign again.</li>
           <li>You or an admin can revoke it at any time, with a written reason.</li>
-          <li>The moment a second Chief Medical Officer is active it stops working, and the normal rule that someone else grants your competencies applies again.</li>
+          <li>The moment a second Chief Medical Officer is active it ends for good, and the normal rule that someone else grants your competencies applies again. If you were ever the only one again, you would sign afresh.</li>
+          <li>Ending or revoking it stops new self grants. A competency you already granted yourself stays until it is removed separately.</li>
         </ul>
       </section>
       <form action={signSoleCmoExceptionAction} className="space-y-3">
