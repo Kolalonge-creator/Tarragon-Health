@@ -108,6 +108,7 @@ do $$
 declare
   v_def text;
   v_new text;
+  v_target regprocedure;
 begin
   -- 1. attest_go_live_condition: the two attestations that have a record behind them cannot be ticked without it
   v_def := pg_get_functiondef('public.attest_go_live_condition(text, text, boolean, text)'::regprocedure);
@@ -129,7 +130,14 @@ begin
   execute v_new;
 
   -- 2. go_live_conditions: the two conditions read as met only with the record, and show what the record says
-  v_def := pg_get_functiondef('private.go_live_conditions(text, uuid)'::regprocedure);
+  -- The two conditions live in whichever function currently holds them: private.go_live_conditions on a fresh replay, but later
+  -- migrations (S71/S74) wrap it and move the body to private.go_live_conditions_s74_base, which is what production has now.
+  v_target := 'private.go_live_conditions(text, uuid)'::regprocedure;
+  if to_regprocedure('private.go_live_conditions_s74_base(text, uuid)') is not null
+     and position('nafdac_position_recorded' in pg_get_functiondef('private.go_live_conditions_s74_base(text, uuid)'::regprocedure)) > 0 then
+    v_target := 'private.go_live_conditions_s74_base(text, uuid)'::regprocedure;
+  end if;
+  v_def := pg_get_functiondef(v_target);
   v_new := replace(v_def,
     'private.go_live_attested(p_key, ''nafdac_position_recorded''), ''attestation'', null)',
     '(private.go_live_attested(p_key, ''nafdac_position_recorded'') and coalesce((select rp.classification in (''decision_support_not_a_device'', ''regulated_medical_device_registered'') and rp.document_ref is not null from public.regulatory_positions rp where rp.topic = ''symptom_checker'' and (p_org is null or rp.organisation_id = p_org) order by rp.attached_at desc, rp.id desc limit 1), false)), ''attestation'',' ||
