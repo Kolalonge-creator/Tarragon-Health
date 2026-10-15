@@ -91,7 +91,6 @@ begin
   insert into public.patient_memberships (organisation_id, patient_id, source, is_test, granted_by, grant_reason) values (v_org, v_p1, 'granted', true, v_p1, 'S59b: reviews are a Membership benefit');
   insert into public.patient_memberships (organisation_id, patient_id, source, is_test, granted_by, grant_reason) values (v_org, v_p2, 'granted', true, v_p2, 'S59b: reviews are a Membership benefit');
   v_c1 := pg_temp.mkstaff(v_org, v_admin, 'tied', 'senior_medical_officer');
-  v_c2 := pg_temp.mkstaff(v_org, v_admin, 'untied', 'senior_medical_officer');
   v_cc := pg_temp.mkstaff(v_org, v_admin, 'coordinator', 'care_coordinator');
   -- the tie (INV-12): c1 is on p1's care team. c2 and the coordinator are not tied to anyone.
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id) values (v_org, v_p1, v_c1);
@@ -119,6 +118,8 @@ begin
   v_rev := public.request_symptom_review(v_a1);
   v_rev2 := public.request_symptom_review(v_a1);
   perform pg_temp.back();
+  -- created AFTER the review is requested: a Member's review raises an auto-assigned task, and this clinician must be one it could not have been given
+  v_c2 := pg_temp.mkstaff(v_org, v_admin, 'untied', 'senior_medical_officer');
   v_rid := (v_rev ->> 'review_id')::uuid;
   if (v_rev2 ->> 'review_id')::uuid <> v_rid then raise exception 'FAIL 3a: a second request made a second review'; end if;
   if (select count(*) from public.symptom_reviews where assessment_id = v_a1) <> 1 then raise exception 'FAIL 3b: more than one review for one assessment'; end if;

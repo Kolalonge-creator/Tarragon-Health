@@ -34,9 +34,11 @@ declare v uuid := gen_random_uuid();
 begin
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
   values (v, 's59b-' || p_label || '-' || v || '@example.invalid', 'x', now(), '{}', '{}');
-  insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test, language, sex, state)
-  values (v, p_org, p_role::public.user_role, 'S59b ' || p_label, '+23480' || lpad((random() * 99999999)::int::text, 8, '0'), p_dob, p_test, 'en', 'female', 'Lagos')
-  on conflict (id) do update set role = excluded.role, is_test = excluded.is_test, is_active = true, phone = excluded.phone, date_of_birth = excluded.date_of_birth, full_name = excluded.full_name, sex = excluded.sex, state = excluded.state;
+  -- S04b-1: registration is for adults; a person under 18 exists only as a minor dependant record.
+  insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test, language, sex, state, is_dependent_account, dependent_kind)
+  values (v, p_org, p_role::public.user_role, 'S59b ' || p_label, '+23480' || lpad((random() * 99999999)::int::text, 8, '0'), p_dob, p_test, 'en', 'female', 'Lagos',
+          p_dob > current_date - interval '18 years', case when p_dob > current_date - interval '18 years' then 'minor_child'::public.dependent_kind end)
+  on conflict (id) do update set is_dependent_account = excluded.is_dependent_account, dependent_kind = excluded.dependent_kind, role = excluded.role, is_test = excluded.is_test, is_active = true, phone = excluded.phone, date_of_birth = excluded.date_of_birth, full_name = excluded.full_name, sex = excluded.sex, state = excluded.state;
   return v;
 end $f$;
 create function pg_temp.mkstaff(p_org uuid, p_admin uuid, p_label text, p_tier text) returns uuid
@@ -68,6 +70,8 @@ declare
 begin
   select organisation_id into v_org from public.profiles where organisation_id is not null group by organisation_id order by count(*) desc limit 1;
   if v_org is null then raise exception 'need an organisation to run this proof'; end if;
+  -- the minor-scope trigger (S04b-1) would refuse a child's rows before the S59b gate under test is reached
+  alter table public.symptom_triage_assessments disable trigger "00_minor_dependant_scope";
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
   v_p := pg_temp.mkuser(v_org, 'patient', 'patient');
   v_other := pg_temp.mkuser(v_org, 'outsider', 'patient');
