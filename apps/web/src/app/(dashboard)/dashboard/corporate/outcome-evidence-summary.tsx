@@ -4,9 +4,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { StatTile } from "@/components/ui/stat-tile";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { useOutcomeReports } from "@/lib/queries/outcome-reports";
-import { koboToNaira, CURRENCY_SYMBOL } from "@tarragon/shared";
-import type { CostAvoidedEstimate } from "@/lib/care-gaps/estimate-cost-avoided";
-import { CARE_GAP_ESTIMATE_DISCLAIMER } from "@/lib/care-gaps/estimate-cost-avoided";
 
 type ReportSnapshot = {
   analytics?: {
@@ -17,17 +14,14 @@ type ReportSnapshot = {
 
 /**
  * Renewal-facing "outcome evidence" — screening-compliance trend +
- * abnormal-catch-rate + estimated cost avoided, feeding off outcome_reports
+ * abnormal-catch-rate (measured counts only; S-14 hides the modelled saving), feeding off outcome_reports
  * history (docs/Tarragon_Health_Master_Operating_Plan_v4.md §13's "reporting
- * for renewal conversations", mirrored here for corporate the same way the
- * HMO dashboard's ClaimsImpactCard covers it).
+ * for renewal conversations", mirrored here for corporate).
  */
 export function OutcomeEvidenceSummary({
   organisationId,
-  costAvoided,
 }: {
   organisationId: string;
-  costAvoided: CostAvoidedEstimate | null;
 }) {
   const reports = useOutcomeReports(organisationId);
 
@@ -65,16 +59,6 @@ export function OutcomeEvidenceSummary({
           <p className="text-sm text-charcoal-ink/60">
             Not enough report history yet. Generate at least 2 outcome reports to see a compliance trend.
           </p>
-        )}
-        {costAvoided && (
-          <div className="space-y-1">
-            <StatTile
-              icon={SEMANTIC_ICON.labs}
-              label="Estimated cost avoided"
-              value={`${CURRENCY_SYMBOL.NGN}${koboToNaira(costAvoided.estimatedKobo).toLocaleString()}`}
-            />
-            <p className="text-xs text-charcoal-ink/50">{CARE_GAP_ESTIMATE_DISCLAIMER}</p>
-          </div>
         )}
       </CardContent>
     </Card>

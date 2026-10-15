@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
 import { t, type MessageKey } from "@tarragon/i18n";
+import { sponsorMinimumGroupSize } from "@tarragon/shared";
 import { joinProgrammeAction, leaveProgrammeAction, setSharingAction } from "./actions";
 
 export const metadata = { title: "Programmes" };
@@ -38,6 +39,10 @@ export default async function ProgrammesPage({ searchParams }: { searchParams: P
     <div className="space-y-6">
       <PageHeader backTo={{ href: "/patient", label: "Dashboard" }} title={t("programme.title", uiLanguage)} description={t("programme.subtitle", uiLanguage)} />
       {key ? <p role="status">{t(key, uiLanguage)}</p> : null}
+      <section aria-labelledby="sponsor-sees" className="space-y-1 rounded border p-3">
+        <h2 id="sponsor-sees" className="font-medium">{t("programme.sponsor_sees_title", uiLanguage)}</h2>
+        <p className="text-sm">{t("programme.sponsor_sees_body", uiLanguage, { minimum: sponsorMinimumGroupSize() })}</p>
+      </section>
       <form action={joinProgrammeAction} className="flex flex-wrap items-end gap-3">
         <label className="space-y-1">
           <span className="block text-sm">{t("programme.code_label", uiLanguage)}</span>
