@@ -37,21 +37,6 @@ export class DocumentFolioRefusedError extends Error {
   }
 }
 
-/** Which directory column identifies the clinician for each document kind (profile id or staff id). */
-const CLINICIAN_KEY: Record<DocumentFolioKind, "profile_id" | "id"> = {
-  referral_letter: "profile_id",
-  lab_result_interpretation: "profile_id",
-  verified_document: "id",
-  prescription: "profile_id",
-  lab_request: "id",
-  vaccination_certificate: "profile_id",
-};
-const ACTIVE_ONLY: ReadonlySet<DocumentFolioKind> = new Set([
-  "referral_letter",
-  "lab_result_interpretation",
-  "vaccination_certificate",
-]);
-
 // The generated types may lag the migration on a branch; keep the call typed locally.
 type RpcClient = {
   rpc: (
@@ -72,74 +57,10 @@ type RpcClient = {
   }>;
 };
 
-function isMissingFunction(error: { message: string; code?: string }): boolean {
-  return (
-    error.code === "PGRST202" ||
-    error.code === "42883" ||
-    error.message.includes("Could not find the function")
-  );
-}
-
-type DirectoryReader = {
-  from: (table: "clinical_staff_directory") => {
-    select: (cols: string) => {
-      in: (col: string, values: string[]) => PromiseLike<{
-        data: Record<string, string | boolean | null>[] | null;
-        error: { message: string } | null;
-      }>;
-    };
-  };
-};
-
-/**
- * REMOVE IN STEP 2. Deploy-window fallback: the app can reach production before the migration that creates
- * clinician_folio_for_document. While the directory view still carries credential_number (step 1 only), read
- * the clinician's folio from it so no document breaks. Step 2 removes that column, and this function with it.
- */
-async function foliosFromDirectoryView(
-  supabase: unknown,
-  kind: DocumentFolioKind,
-  clinicianByDocument: Record<string, string | null | undefined>,
-): Promise<Map<string, DocumentFolio>> {
-  const out = new Map<string, DocumentFolio>();
-  const ids = Array.from(new Set(Object.values(clinicianByDocument).filter((v): v is string => !!v)));
-  if (ids.length === 0) return out;
-  const key = CLINICIAN_KEY[kind];
-  const { data, error } = await (supabase as DirectoryReader)
-    .from("clinical_staff_directory")
-    .select("id, profile_id, full_name, credential_type, credential_number, active")
-    .in(key, ids);
-  if (error) throw new Error(`clinician folio fallback failed: ${error.message}`);
-  const byClinician = new Map<string, Record<string, string | boolean | null>>();
-  for (const row of data ?? []) {
-    if (ACTIVE_ONLY.has(kind) && row.active !== true) continue;
-    const k = row[key];
-    if (typeof k === "string") byClinician.set(k, row);
-  }
-  for (const [documentId, clinicianId] of Object.entries(clinicianByDocument)) {
-    const row = clinicianId ? byClinician.get(clinicianId) : undefined;
-    if (!row) continue;
-    out.set(documentId, {
-      documentId,
-      clinicianStaffId: String(row.id),
-      clinicianProfileId: (row.profile_id as string | null) ?? null,
-      fullName: (row.full_name as string | null) ?? null,
-      credentialType: (row.credential_type as string | null) ?? null,
-      credentialNumber: (row.credential_number as string | null) ?? null,
-    });
-  }
-  return out;
-}
-
-/**
- * @param clinicianByDocument document id -> the clinician id the generator already holds (profile id or staff id per
- *   kind). Used only by the step-1 deploy-window fallback (REMOVE IN STEP 2).
- */
 export async function fetchDocumentFolios(
   supabase: Pick<SupabaseClient, "rpc"> | RpcClient,
   kind: DocumentFolioKind,
   documentIds: string[],
-  clinicianByDocument: Record<string, string | null | undefined> = {},
 ): Promise<Map<string, DocumentFolio>> {
   const out = new Map<string, DocumentFolio>();
   if (documentIds.length === 0) return out;
@@ -148,11 +69,6 @@ export async function fetchDocumentFolios(
     p_document_ids: documentIds,
   });
   if (error) {
-    if (isMissingFunction(error)) {
-      // REMOVE IN STEP 2
-      console.warn("clinician_folio_for_document is not deployed yet; reading the folio from the directory view");
-      return foliosFromDirectoryView(supabase, kind, clinicianByDocument);
-    }
     if ((error as { code?: string }).code === "42501") {
       throw new DocumentFolioRefusedError("not entitled to the clinician folio for this document");
     }

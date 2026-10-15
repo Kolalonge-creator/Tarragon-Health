@@ -10,6 +10,7 @@ export * from "./ml-client";
 export * from "./ai-coach-types";
 export * from "./device-readings";
 export * from "./health-record";
+export * from "./clinical-config";
 export * from "./mental-health";
 export * from "./record-integrity";
 export * from "./adult-registration";
@@ -258,6 +259,10 @@ export * from "./consent-state";
 export * from "./data-rights";
 export * from "./notification-settings";
 export * from "./notification-diagnosis";
+export * from "./directory-links";
+export * from "./proposed-config/emergency-pack";
+
+export * from "./maternal-child";
 export { sponsorMinimumGroupSize } from "./sponsor-min-group";
 
 // S70a (Module 18): device plausibility, cross-source de-duplication, photo capture, CGM sustained events, DeviceSource interface.

@@ -58,7 +58,7 @@ export async function GET(
     let folio;
     try {
       folio = (
-        await fetchDocumentFolios(supabase, "lab_result_interpretation", [doc.id], { [doc.id]: doc.reviewed_by })
+        await fetchDocumentFolios(supabase, "lab_result_interpretation", [doc.id])
       ).get(doc.id);
     } catch (e) {
       if (e instanceof DocumentFolioRefusedError) {

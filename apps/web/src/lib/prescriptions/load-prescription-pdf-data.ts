@@ -112,7 +112,6 @@ async function loadFolios(
         supabase,
         "prescription",
         medications.map((m) => m.id),
-        Object.fromEntries(medications.map((m) => [m.id, m.added_by])),
       ),
       error: null,
     };

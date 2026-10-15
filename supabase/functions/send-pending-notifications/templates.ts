@@ -2,6 +2,7 @@
 // template and prove none puts a condition, reading, drug or result in the text (INV-07). Behaviour is unchanged.
 import { createHmac } from "node:crypto";
 import { resolveI18n } from "../_shared/i18n/resolve.ts";
+import { emergencyContactName, emergencyContactText } from "../_shared/notifications/emergency-contact.ts";
 
 // Patient-experience review 2026-07-31: several reminder templates only ever
 // said "open the app" with no actual link — real friction for a patient
@@ -1249,17 +1250,17 @@ export const TEMPLATE_MAP: Record<
       email: neutralMail("Your care team has reviewed a document you uploaded", [`Hi ${patientName},`, "Your care team has reviewed a document you uploaded. Open the Tarragon Health app to see it."], [["Reference", serial]]),
     };
   },
+  // S85-D3: the one named SMS exception. The text is signed and content-free; it lives in _shared/notifications/emergency-contact.ts.
   emergency_contact_alert: (payload) => {
-    const contactName = String(payload.contact_name ?? "there");
-    const patientName = String(
-      payload.patient_name ?? "someone who lists you as their emergency contact",
-    );
-    const smsText =
-      `${contactName}, this is an urgent alert from Tarragon Health. ${patientName} reported a ` +
-      `possible medical emergency and may need your help. Please try to reach them now. If you ` +
-      `cannot and it is an emergency, help them get to the nearest hospital. Tarragon Health`;
+    const smsText = emergencyContactText(payload.patient_name);
+    const name = emergencyContactName(payload.patient_name);
     return {
       smsText,
+      email: {
+        subject: `Please call ${name} now`,
+        html: `<p>${escapeHtmlForBroadcast(smsText)}</p>`,
+        text: smsText,
+      },
     };
   },
   // Sent to org clinicians when an abnormal/critical screening result lands
@@ -1430,6 +1431,36 @@ export const TEMPLATE_MAP: Record<
         `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
         `</div>`,
       text: "Someone in your Care Circle may need you now.\n\nPlease call them, then open Tarragon Health to see what you can do.\n\nTarragon Health",
+    },
+  }),
+  // S65 (INV-07): the patient's own one-tap "I need you". Fixed wording, nothing from the payload, no location, no name, no condition.
+  circle_help_tap: () => ({
+    smsText: "Someone in your Care Circle has asked for you. Open Tarragon Health. Tarragon Health",
+    pushUrl: "/patient/supporting",
+    email: {
+      subject: "Someone in your Care Circle is asking for you",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Someone in your Care Circle has asked for you.</p>` +
+        `<p>Please call them, then open Tarragon Health to see what you can do.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Someone in your Care Circle has asked for you.\n\nPlease call them, then open Tarragon Health to see what you can do.\n\nTarragon Health",
+    },
+  }),
+  // S65: a reminder for a booked visit. Names no facility, service, condition or time; the app shows the details and the I come / I cancel buttons.
+  facility_booking_reminder: () => ({
+    smsText: "You have a visit coming up. Open Tarragon Health. Tarragon Health",
+    pushUrl: "/patient/directory/bookings",
+    email: {
+      subject: "You have a visit coming up",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>You have a visit coming up.</p>` +
+        `<p>Open Tarragon Health to see the details and tell us whether you are coming.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "You have a visit coming up.\n\nOpen Tarragon Health to see the details and tell us whether you are coming.\n\nTarragon Health",
     },
   }),
   circle_joined: () => ({

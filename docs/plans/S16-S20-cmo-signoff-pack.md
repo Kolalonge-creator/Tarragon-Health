@@ -76,6 +76,13 @@ Seven keys were named in decision S16-S20-16. Read-only state of `proposed_confi
 
 - **Console path**: `/clinician/go-live` (the Chief Medical Officer's go-live screen; the hub `/clinician/clinical-signoff` also confirms a proposed value when a form passes `back=hub`). A signature is a row in `proposed_config_signoffs` with the value hash.
 
+## 2b. Pending CMO action: sev1 `red_outreach_task_type_unconfirmed`
+
+Live (read-only, 2026-10-15): a sev1 incident `red_outreach_task_type_unconfirmed`, "A red alert needs a call and the call task is switched off", opened 19:14:05 UTC and still open. It comes from S13r4 (`20261013223633_s13r4_critical_ladder_and_red_outreach.sql`): a red alert watch ran past the time chosen, but the **Call the patient task type (`red_patient_outreach`) is not confirmed by the Chief Medical Officer**, so no call task was created and no one was told to call. In the same window there were no real-patient pages or emergencies (only canary and test events), so this is believed to be a test or canary watch, which I did not verify.
+
+- **What to do**: confirm the task type on the sign-off hub, line "Red alert outreach (call the patient)" (key `red_outreach`, `/clinician/clinical-signoff`; the line links to `/clinician/task-types`). Until it is confirmed, every unconfirmed red alert opens this incident and creates no task.
+- **Then**: resolve the incident, and have someone call the patient if the watch was real.
+
 ## 3. Pre-sign checklist
 
 Do these in order. Nothing here is done by the agent.
@@ -83,7 +90,7 @@ Do these in order. Nothing here is done by the agent.
 1. **Licence dates.** Enter the licence expiry date for every active clinician who lacks one (live: EMP-000011 and EMP-010492; the second is a test account, retire or date it). Without this `sign_credentialing_config(4)` is refused.
 2. **MDCN checks.** Confirm the annual cycle, the 31 December end, the 15 December proof date and how the register is looked up (the plan could not reach mdcn.gov.ng).
 3. **Deploy state.** Confirm `send-pending-notifications` and `process-events` are deployed from `main-dev` and that the sev1 incident `paging_engine_stale:process_events` (opened 2026-10-15 07:39 UTC at the merge) is closed after confirming the `process_events` heartbeat. The deployed entrypoints recorded on 2026-10-15 point at worktrees; the edge drift job should compare them with `origin/main-dev`.
-4. **Named ops person.** Name the person (and a deputy) who phones the on-call clinician and the CMO when a page expires (OQ-441, decision 10). The incident currently goes to the ops incident queue and to every admin account.
+4. **Named ops person and an external monitor.** Set `HEALTH_CHECK_SECRET` and point an outside monitor at `/api/health/deep` (OQ-452); two pg_cron outages (14 and 15 October) were first flagged by the in-database watchers only after 38 minutes to about five hours. Also name the person (and a deputy) who phones the on-call clinician and the CMO when a page expires (OQ-441, decision 10). The incident currently goes to the ops incident queue and to every admin account.
 5. **Test pages before readiness goes on.** Every clinician on the rota sends themselves a test page from the On call screen, sees it on their phone (push) and in the console, and acknowledges it. Keep a note of who and when. Only then activate `paging_delivery_config` v2. A clinician reachable only through the mobile app cannot pass this gate yet because the app records no delivered receipt (see the pager design note, known limits).
 6. **Battery and phone settings** on each on-call phone (Tecno and Infinix handsets can block push with the screen off).
 7. **A second reviewer.** With one CMO, a critical audit miss waits for a second CMO-tier reviewer. Decide who that is before signing `quality_config` v3.

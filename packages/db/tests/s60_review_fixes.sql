@@ -6,6 +6,14 @@
 -- Wrapped in BEGIN/ROLLBACK; fails loudly with raise exception.
 begin;
 
+-- Members can now request a review, which looks up the symptom_triage urgent SLA; the replay's active config is not the signed live one, so
+-- activate the draft that carries it for this rolled-back transaction only (same as symptom_triage_assessment_engine.sql).
+alter table public.escalation_slas disable trigger refuse_superseded_activation;
+update public.escalation_slas set is_active = false where is_active;
+update public.escalation_slas set is_active = true
+  where id = (select c.id from public.escalation_slas c, jsonb_array_elements(c.config) e
+              where e->>'pathway' = 'symptom_triage' and e->>'tier' = 'urgent_escalation' order by c.version desc limit 1);
+
 create function pg_temp.act(p_uid uuid) returns void language plpgsql as
 $f$ begin
   perform set_config('request.jwt.claims', json_build_object('sub', p_uid, 'role', 'authenticated')::text, true);
@@ -69,6 +77,7 @@ begin
   if v_org is null then raise exception 'need an organisation to run this proof'; end if;
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
   v_p1 := pg_temp.mkuser(v_org, 'patient', 'patient');
+  insert into public.patient_memberships (organisation_id, patient_id, source, is_test, granted_by, grant_reason) values (v_org, v_p1, 'granted', true, v_p1, 'S59b: reviews are a Membership benefit');
   v_cg := pg_temp.mkuser(v_org, 'caregiver', 'patient');
   v_c1 := pg_temp.mkstaff(v_org, v_admin, 'tied', 'senior_medical_officer');
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id) values (v_org, v_p1, v_c1);

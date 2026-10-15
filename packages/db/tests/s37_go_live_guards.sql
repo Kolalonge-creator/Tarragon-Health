@@ -20,6 +20,11 @@
 --   7. SABOTAGE: with the reader forced open a real patient gets through; with the guard trigger dropped the owner can
 --      switch a guard on directly. Both matching checks must flip.
 begin;
+-- S62: the ten pathway guards (seeded off) are proved in s61_s62_pathway_engine.sql; this proof is about the seven it was written for.
+delete from public.pathway_definitions;
+alter table public.go_live_guards disable trigger go_live_guards_guard;
+delete from public.go_live_guards where key like 'pathway\_%';
+alter table public.go_live_guards enable trigger go_live_guards_guard;
 
 -- Two-tier: the paid per-item products are not sellable (service_products_doctor_time_not_sellable). The consultation machinery under test
 -- still prices from video_visit_credit, so the constraint is dropped and the product switched on here, inside this rolled-back transaction.
@@ -134,6 +139,7 @@ begin
   perform pg_temp.rec('an unknown guard reads closed', 'false', private.go_live_open('no_such_guard')::text);
   perform pg_temp.act(v_pat);
   perform pg_temp.rec('the partner_settlement_enabled guard exists', '1', (select count(*)::text from public.go_live_guards where key = 'partner_settlement_enabled'));
+
   perform pg_temp.rec('a signed-in person can read the guards', '7', (select count(*)::text from public.go_live_guards where key in ('clinical_operations_enabled', 'on_call_cover_ok', 'lab_booking_enabled', 'prescribing_enabled', 'scribe_enabled', 'payouts_enabled', 'public_signup_enabled')));
   perform pg_temp.back();
 
@@ -191,7 +197,7 @@ begin
   perform pg_temp.rec('the dashboard now shows payouts all met', 'true',
     (select (g ->> 'all_met')::text from jsonb_array_elements(v_status) g where g ->> 'key' = 'payouts_enabled'));
   -- (the Community guard is a later feature's own guard, so it is not counted among the seven spec guards)
-  perform pg_temp.rec('...and the dashboard lists seven guards', '7', (select count(*)::text from jsonb_array_elements(v_status) g where g ->> 'key' not in ('community', 'wallet_pass', 'home_bp_programme', 'bp_pattern_flag', 'prn_limits', 'partner_settlement_enabled', 'cohorts_enabled', 'membership_billing_enabled', 'concierge_coordinator_enabled', 'checkout_enabled', 'sponsor_payment_enabled', 'access_fund_enabled', 'maternal_enabled', 'symptom_checker_enabled', 'assistant_enabled', 'mental_health_follow_up_enabled', 'interaction_check_enabled', 'live_redflag_prompts_enabled', 'wellbeing_library_clinical_scripts', 'sleep_apnoea_screen_enabled')));
+  perform pg_temp.rec('...and the dashboard lists seven guards', '7', (select count(*)::text from jsonb_array_elements(v_status) g where g ->> 'key' not in ('community', 'wallet_pass', 'home_bp_programme', 'bp_pattern_flag', 'directory_enabled', 'care_circle_help_alert_enabled', 'prn_limits', 'partner_settlement_enabled', 'cohorts_enabled', 'membership_billing_enabled', 'concierge_coordinator_enabled', 'checkout_enabled', 'sponsor_payment_enabled', 'access_fund_enabled', 'maternal_enabled', 'symptom_checker_enabled', 'assistant_enabled', 'mental_health_follow_up_enabled', 'interaction_check_enabled', 'live_redflag_prompts_enabled', 'wellbeing_library_clinical_scripts', 'sleep_apnoea_screen_enabled', 'sms_emergency_contact_enabled')));
 
   perform pg_temp.rec('the real switch works with every condition met', 'true',
     (public.set_go_live_guard('payouts_enabled', true, 'Stage 1 complete, fee schedule approved.') ->> 'changed'));
@@ -487,8 +493,8 @@ begin
   create or replace function private.go_live_conditions(p_key text, p_org uuid) returns jsonb language plpgsql stable security definer set search_path = '' as $f$
     begin raise exception 'simulated broken condition query'; end $f$;
   perform pg_temp.act(v_admin);
-  perform pg_temp.rec('a broken condition query does not blank the dashboard', '7', (select count(*)::text from jsonb_array_elements(public.go_live_guard_status()) g where g ->> 'key' not in ('community', 'wallet_pass', 'home_bp_programme', 'bp_pattern_flag', 'prn_limits', 'partner_settlement_enabled', 'cohorts_enabled', 'membership_billing_enabled', 'concierge_coordinator_enabled', 'checkout_enabled', 'sponsor_payment_enabled', 'access_fund_enabled', 'maternal_enabled', 'symptom_checker_enabled', 'assistant_enabled', 'mental_health_follow_up_enabled', 'interaction_check_enabled', 'live_redflag_prompts_enabled', 'wellbeing_library_clinical_scripts', 'sleep_apnoea_screen_enabled')));
-  perform pg_temp.rec('...every guard then reads as not satisfied', '7', (select count(*)::text from jsonb_array_elements(public.go_live_guard_status()) g where g ->> 'key' not in ('community', 'wallet_pass', 'home_bp_programme', 'bp_pattern_flag', 'prn_limits', 'partner_settlement_enabled', 'cohorts_enabled', 'membership_billing_enabled', 'concierge_coordinator_enabled', 'checkout_enabled', 'sponsor_payment_enabled', 'access_fund_enabled', 'maternal_enabled', 'symptom_checker_enabled', 'assistant_enabled', 'mental_health_follow_up_enabled', 'interaction_check_enabled', 'live_redflag_prompts_enabled', 'wellbeing_library_clinical_scripts', 'sleep_apnoea_screen_enabled') and not (g ->> 'all_met')::boolean));
+  perform pg_temp.rec('a broken condition query does not blank the dashboard', '7', (select count(*)::text from jsonb_array_elements(public.go_live_guard_status()) g where g ->> 'key' not in ('community', 'wallet_pass', 'home_bp_programme', 'bp_pattern_flag', 'directory_enabled', 'care_circle_help_alert_enabled', 'prn_limits', 'partner_settlement_enabled', 'cohorts_enabled', 'membership_billing_enabled', 'concierge_coordinator_enabled', 'checkout_enabled', 'sponsor_payment_enabled', 'access_fund_enabled', 'maternal_enabled', 'symptom_checker_enabled', 'assistant_enabled', 'mental_health_follow_up_enabled', 'interaction_check_enabled', 'live_redflag_prompts_enabled', 'wellbeing_library_clinical_scripts', 'sleep_apnoea_screen_enabled', 'sms_emergency_contact_enabled')));
+  perform pg_temp.rec('...every guard then reads as not satisfied', '7', (select count(*)::text from jsonb_array_elements(public.go_live_guard_status()) g where g ->> 'key' not in ('community', 'wallet_pass', 'home_bp_programme', 'bp_pattern_flag', 'directory_enabled', 'care_circle_help_alert_enabled', 'prn_limits', 'partner_settlement_enabled', 'cohorts_enabled', 'membership_billing_enabled', 'concierge_coordinator_enabled', 'checkout_enabled', 'sponsor_payment_enabled', 'access_fund_enabled', 'maternal_enabled', 'symptom_checker_enabled', 'assistant_enabled', 'mental_health_follow_up_enabled', 'interaction_check_enabled', 'live_redflag_prompts_enabled', 'wellbeing_library_clinical_scripts', 'sleep_apnoea_screen_enabled', 'sms_emergency_contact_enabled') and not (g ->> 'all_met')::boolean));
 
   perform pg_temp.rec('...and the stop button still works (scribe_enabled is on here)', 'true', (public.set_go_live_guard('scribe_enabled', false, 'Proof: stop under a broken evaluator.') ->> 'changed'));
   perform pg_temp.rec('...and no scribe consent is left open after the scribe is switched off', '0', (select count(*)::text from public.scribe_consents where granted and revoked_at is null));

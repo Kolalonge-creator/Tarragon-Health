@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { addDays, type CyclePrediction } from "@/lib/rules/cycle-prediction";
 import type { MenstrualCycle, MenstrualDailyLog } from "@/lib/queries/menstrual-cycle";
+import { applyPlanningMode } from "@/lib/rules/cycle-fertile-mode";
+import { FertileWindowNotice } from "./fertile-window-notice";
 
 import { formatPatientDate } from "@/lib/format-date";
 /**
@@ -58,7 +60,8 @@ function withinInclusive(date: string, from: string | null, to: string | null) {
 export function CycleCalendar({
   cycles,
   dailyLogs,
-  prediction,
+  prediction: rawPrediction,
+  planningMode,
   today,
   selectedDate,
   onSelectDate,
@@ -66,10 +69,14 @@ export function CycleCalendar({
   cycles: MenstrualCycle[];
   dailyLogs: MenstrualDailyLog[];
   prediction: CyclePrediction;
+  /** "Planning a pregnancy" (S85 D2). Off shades no fertile band and marks no ovulation day; there is no default. */
+  planningMode: boolean;
   today: string;
   selectedDate: string;
   onSelectDate: (date: string) => void;
 }) {
+  // Idempotent: the tracker already filtered it, and the calendar filters again so it can never shade what the mode hides.
+  const prediction = applyPlanningMode(rawPrediction, planningMode);
   const [cursor, setCursor] = useState(() => ({
     year: Number(today.slice(0, 4)),
     month: Number(today.slice(5, 7)) - 1,
@@ -238,10 +245,11 @@ export function CycleCalendar({
       </div>
 
       <p className="mt-3 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-        Solid days are what you logged. The dashed outline is when your next period is expected,
-        and the shaded band is your estimated fertile window. A dot means you added notes or
-        symptoms that day.
+        {planningMode
+          ? "Solid days are what you logged. The dashed outline is when your next period is expected, and the shaded band is your estimated fertile window. A dot means you added notes or symptoms that day."
+          : "Solid days are what you logged. The dashed outline is when your next period is expected. A dot means you added notes or symptoms that day."}
       </p>
+      {planningMode && <FertileWindowNotice className="mt-3" />}
     </div>
   );
 }

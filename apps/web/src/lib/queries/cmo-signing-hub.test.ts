@@ -48,6 +48,10 @@ jest.mock("@/lib/queries/pending-quality-config-signoff", () => ({
 }));
 const noQualityConfig: QualityPending = { qualityVersion: null, credentialingVersion: null, failed: false };
 const readPendingSoleCmoException = jest.fn<(...args: unknown[]) => Promise<{ waiting: boolean; failed: boolean }>>();
+const readUnifiedRedPagingState = jest.fn<(...args: unknown[]) => Promise<{ waitingVersion: number | null; liveVersion: number | null; failed: boolean }>>();
+jest.mock("@/lib/queries/pending-unified-red-paging-signoff", () => ({
+  readUnifiedRedPagingState: (...args: unknown[]) => readUnifiedRedPagingState(...args),
+}));
 jest.mock("@/lib/queries/pending-sole-cmo-exception", () => ({
   readPendingSoleCmoException: (...args: unknown[]) => readPendingSoleCmoException(...args),
 }));
@@ -85,6 +89,8 @@ beforeEach(() => {
   readPendingRedOutreachSignoff.mockResolvedValue({ waiting: false, failed: false });
   readPendingSoleCmoException.mockReset();
   readPendingSoleCmoException.mockResolvedValue({ waiting: false, failed: false });
+  readUnifiedRedPagingState.mockReset();
+  readUnifiedRedPagingState.mockResolvedValue({ waitingVersion: null, liveVersion: null, failed: false });
   readPendingGlucoseTaskTypeSignoff.mockReset();
   readPendingGlucoseTaskTypeSignoff.mockResolvedValue({ waiting: false, failed: false });
   readPendingGlucoseTriageSignoff.mockReset();
@@ -365,5 +371,28 @@ describe("readCmoSigningHub: sole-CMO on-call exception", () => {
     readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
     readPendingSoleCmoException.mockResolvedValue({ waiting: false, failed: true });
     expect(await readCmoSigningHub(supabase)).toMatchObject({ failed: true, failedSources: ["the sole-CMO on-call exception"] });
+  });
+});
+
+describe("unified red-event paging line (S19d)", () => {
+  it("lists the switch-on line while a version is waiting and says it is off", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readUnifiedRedPagingState.mockResolvedValue({ waitingVersion: 1, liveVersion: null, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    const line = hub.items.find((i) => i.key === "unified_red_paging");
+    expect(line?.title).toMatch(/off/i);
+    expect(line?.detail).toMatch(/test pack/i);
+  });
+  it("keeps a switch-off line while it is on", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readUnifiedRedPagingState.mockResolvedValue({ waitingVersion: null, liveVersion: 1, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.items.find((i) => i.key === "unified_red_paging")?.title).toMatch(/ON/);
+  });
+  it("shows no line when there is nothing, and reports a failed read instead of an all-clear", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === "unified_red_paging")).toBeUndefined();
+    readUnifiedRedPagingState.mockResolvedValue({ waitingVersion: null, liveVersion: null, failed: true });
+    expect(await readCmoSigningHub(supabase)).toMatchObject({ failed: true, failedSources: ["unified red-event paging"] });
   });
 });
