@@ -4,7 +4,8 @@ import { DEFAULT_UI_LANGUAGE } from "@tarragon/shared";
 import { getCurrentClinicalStaff, getCurrentProfile } from "@/lib/auth/current-profile";
 import { loadMyConcerns } from "@/lib/concerns/load";
 import { asConcernNotice, deadlines, labelKey } from "@/lib/concerns/model";
-import { addToMyConcernAction } from "@/lib/concerns/actions";
+import { addToMyConcernAction, answerCheckinAction } from "@/lib/concerns/actions";
+import { AnonymousFollowUp } from "@/components/clinician/anonymous-follow-up";
 import { FlashClean } from "@/components/go-live/flash-clean";
 
 export const metadata = { title: "My concerns", robots: { index: false, follow: false } };
@@ -69,6 +70,20 @@ export default async function MyConcernsPage({ searchParams }: { searchParams: P
                     ))}
                   </ul>
                 )}
+                {(c.checkins ?? []).filter((k) => k.answered_at === null).map((k) => (
+                  <form key={k.id} action={answerCheckinAction} className="space-y-2 rounded-lg bg-charcoal-ink/5 p-3">
+                    <input type="hidden" name="checkin" value={k.id} />
+                    <p className="font-medium text-charcoal-ink">{t("speakup.checkin.question", locale)}</p>
+                    <label className="block text-xs text-charcoal-ink">
+                      {t("speakup.checkin.note", locale)}
+                      <textarea name="note" maxLength={2000} rows={2} className={field} />
+                    </label>
+                    <div className="flex gap-2">
+                      <button type="submit" name="answer" value="fine" className="rounded-lg border border-charcoal-ink/20 px-3 py-1.5 text-sm font-semibold text-charcoal-ink">{t("speakup.checkin.fine", locale)}</button>
+                      <button type="submit" name="answer" value="problem" className="rounded-lg border border-charcoal-ink/20 px-3 py-1.5 text-sm font-semibold text-charcoal-ink">{t("speakup.checkin.problem", locale)}</button>
+                    </div>
+                  </form>
+                ))}
                 {c.state === "closed" ? (
                   <p className="text-xs text-charcoal-ink/60">{t("speakup.mine.closed_note", locale)}</p>
                 ) : (
@@ -87,6 +102,7 @@ export default async function MyConcernsPage({ searchParams }: { searchParams: P
           })}
         </ul>
       )}
+      <AnonymousFollowUp />
     </div>
   );
 }

@@ -41,6 +41,12 @@ const readPendingGlucoseTaskTypeSignoff = jest.fn<(...args: unknown[]) => Promis
 jest.mock("@/lib/queries/pending-glucose-task-type-signoff", () => ({
   readPendingGlucoseTaskTypeSignoff: (...args: unknown[]) => readPendingGlucoseTaskTypeSignoff(...args),
 }));
+type QualityPending = { qualityVersion: number | null; credentialingVersion: number | null; failed: boolean };
+const readPendingQualityConfigSignoff = jest.fn<(...args: unknown[]) => Promise<QualityPending>>();
+jest.mock("@/lib/queries/pending-quality-config-signoff", () => ({
+  readPendingQualityConfigSignoff: (...args: unknown[]) => readPendingQualityConfigSignoff(...args),
+}));
+const noQualityConfig: QualityPending = { qualityVersion: null, credentialingVersion: null, failed: false };
 const readPendingSoleCmoException = jest.fn<(...args: unknown[]) => Promise<{ waiting: boolean; failed: boolean }>>();
 jest.mock("@/lib/queries/pending-sole-cmo-exception", () => ({
   readPendingSoleCmoException: (...args: unknown[]) => readPendingSoleCmoException(...args),
@@ -50,7 +56,7 @@ jest.mock("@/lib/queries/pending-ai-governance-signoff", () => ({
   readPendingAiGovernanceSignoff: (...args: unknown[]) => readPendingAiGovernanceSignoff(...args),
 }));
 
-import { CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, RED_OUTREACH_ITEM_KEY, SOLE_CMO_EXCEPTION_ITEM_KEY, readCmoSigningHub } from "./cmo-signing-hub";
+import { CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, readCmoSigningHub, SOLE_CMO_EXCEPTION_ITEM_KEY } from "./cmo-signing-hub";
 
 const supabase = {} as SupabaseClient<Database>;
 
@@ -83,6 +89,29 @@ beforeEach(() => {
   readPendingGlucoseTaskTypeSignoff.mockResolvedValue({ waiting: false, failed: false });
   readPendingGlucoseTriageSignoff.mockReset();
   readPendingGlucoseTriageSignoff.mockResolvedValue(noGlucose);
+  readPendingQualityConfigSignoff.mockReset();
+  readPendingQualityConfigSignoff.mockResolvedValue(noQualityConfig);
+});
+
+describe("readCmoSigningHub: S20 v2 quality and credentialing configurations", () => {
+  const empty = { items: [] as SignoffQueueItem[], failedSources: [] as string[], settledConfigs: [] as SettledConfig[] };
+  it("adds one line, under /clinician, that counts both drafts and signs nothing", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingQualityConfigSignoff.mockResolvedValue({ qualityVersion: 3, credentialingVersion: 4, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    const line = hub.items.find((i) => i.key === QUALITY_CONFIG_ITEM_KEY);
+    expect(line?.count).toBe(2);
+    expect(line?.href.startsWith("/clinician/")).toBe(true);
+    expect(line?.detail).toMatch(/stay off until you sign/);
+  });
+  it("adds no line when nothing waits, and names a failed read", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === QUALITY_CONFIG_ITEM_KEY)).toBeUndefined();
+    readPendingQualityConfigSignoff.mockResolvedValue({ qualityVersion: null, credentialingVersion: null, failed: true });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.failed).toBe(true);
+    expect(hub.failedSources).toContain("the quality and credentialing configurations");
+  });
 });
 
 describe("readCmoSigningHub: glucose triage rules (plan item R2)", () => {

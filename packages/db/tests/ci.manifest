@@ -857,6 +857,7 @@ s19_page_ack_sweep_race.sh
 s18_lead_capacity_race.sh
 # S20: quality and safety. Safety case 16 (expired licence removed from queue and rota), audit sampling and scoring (shared cases with Jest), tier 1 counts, hand-back review, the protected speak-up route (admin accounts see nothing), retaliation review. Sabotage: removal turned off must flip the case 16 check.
 s20_quality_and_safety.sql
+s20_quality_v2.sql
 # S23 AI Scribe: consent immutability, transcript patient-invisible (safety case 15),
 # patient cannot insert consent, no deletes, revocation works, staff can read transcripts.
 scribe_consent_and_transcript_rls.sql
@@ -955,6 +956,10 @@ s38f_sponsor_staff_monthly_figures.sql
 remove_pidgin_english_only.sql
 # The platform switch mechanism on a throwaway key: an admin turns it off in one call (no note) and it reads false for a signed-in patient and a signed-out (anon) caller, back on restores it; a patient and anon cannot change it; each change is audited once; an unknown key reads false and cannot be written; sabotage clears the anon opt-in and the anon read must flip false.
 platform_switch_acl_and_audit.sql
+# S53 pre-fix 8.16: commission columns on pharmacy_medications and the commissions ledger are refused to patient, clinician, pharmacist, anon and finance without commissions.view; price and stock stay readable; admin view works; sabotage restores the old grant and policies and the leak must reappear.
+s53_commission_columns_not_readable_by_patient_or_clinician.sql
+# S53: catalogue (patient read, no patient write, no seeded NAFDAC number), dataset v1 draft/sign gate (wrong hash, tamper, frozen, CMO only), side-effect notes (own, stranger, clinician direct, audited tied read, untied denied), supporter notice (consent, one a day, neutral, never blocks a dose log); sabotage removes the trigger.
+s53_catalogue_interactions_notes_supporter_notice.sql
 # INV-04 (S51): the AI read path never returns a positive HIV / HBsAg / HCV result: trigger flags screening analytes that are not an explicit negative, ai_readable_lab_readings and ai_readable_lab_result_items exclude them (released results only for items), a negative and HbA1c still pass, anon is refused, another patient sees nothing of the first, sabotage with unfiltered views flips the checks.
 s51_inv04_ai_never_reads_sensitive_results.sql
 # S51: the assistant_enabled go-live guard is born off, closed for a real patient, open for an is_test patient, unknown key and signed-out closed, a bare UPDATE cannot switch it on; its three conditions are read from data (approved KB rows need an owner and a FUTURE review date, a passing run only counts once a person reviewed it); assistant_knowledge_sources marks lapsed, ownerless, dateless and unreviewed rows not retrievable; protocol limits never return the step table; assistant event types, service-role-only emit, required keys; the two generic templates pass the INV-07 lint and a clinical word is refused; the existing guard conditions are intact; sabotage makes everything retrievable and the checks flip.
@@ -1092,3 +1097,7 @@ clinician_folio_for_document.sql
 sole_cmo_on_call_exception.sql
 # S55 follow-up: weekly micro-lesson (one per programme week from the drip engine, capped minutes, done-this-week sticks, over-cap never offered, anon refused, daily function gone) and creator series as a members-only perk (Member reads body/audio/check; non-member, lapsed member and anon see title, credit and teaser only through detail, library, feed, trust, weekly lesson, shared link, offline pack, pack status and direct select; progress write refused; non-creator content unaffected; admin switch audited; missing switch fails closed; AI search never returns creator content). Sabotage: lock neutered, progress gate dropped.
 s55_weekly_lesson_and_members_creator_perk.sql
+# S19c pager delivery hardening (S16-S20 review Stage 1): no sms or voice row can exist for a page and the legacy critical engine skips pages and never re-notifies (P3); the page nudges the sender and a BP reading is an urgent event (P2); the reconciler pages an old red event, ignores a young one and a Free patient, is idempotent (P8); conflicted and self exclusion, falls to the backup or to level 2, chart access ends on a conflict (P4); a suspended clinician cannot acknowledge (P7); repeat red events merge into one family, an expired or old family is not joined (P6); delivered-ack early advance for backup and lead, receipts only by the clinician paged (decision 9); the expired state with its own alarm and ops incident; heartbeats, stale-engine and nobody-reachable incidents; objective readiness and the test page (P9). Sabotage: the exclusion, reconciler, has_conflict, merge window, early window, expire_page and the readiness switch each flipped.
+s19c_pager_delivery_hardening.sql
+# S19c guard: the live legacy critical alert engine still excludes page notifications (definition and behaviour: a failed page notification gets no next hop, an ordinary critical one does), so a later create-or-replace of the engine cannot silently bring the SMS rung back for pages. Sabotage: the clause stripped from a copy must flip the behavioural check.
+s19c_legacy_engine_excludes_pages.sql
