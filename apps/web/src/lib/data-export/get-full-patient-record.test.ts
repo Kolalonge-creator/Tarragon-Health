@@ -44,6 +44,14 @@ describe("getFullPatientRecordExport (S05b-d)", () => {
     expect(record.allergies).toEqual([]);
     expect(record.correctedEntriesAvailable).toBe(true);
   });
+  it("carries her condition requests too (S05b-f): same key, record_table says which record", async () => {
+    const requests = [
+      { id: "r1", record_table: "patient_allergies", allergy_id: "a1", condition_id: null, status: "pending" },
+      { id: "r2", record_table: "patient_conditions", allergy_id: null, condition_id: "c1", status: "pending" },
+    ];
+    const record = await getFullPatientRecordExport(fakeClient({ data: { patient_allergy_correction_requests: requests }, error: null }), "p1");
+    expect(record.correctedEntries.patient_allergy_correction_requests).toEqual(requests);
+  });
   it("fails the export when the history cannot be read, never silently omits it", async () => {
     await expect(getFullPatientRecordExport(fakeClient({ data: null, error: { message: "boom", code: "XX000" } }), "p1")).rejects.toEqual({ message: "boom", code: "XX000" });
   });
