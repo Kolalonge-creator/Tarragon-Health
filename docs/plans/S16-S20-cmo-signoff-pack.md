@@ -102,9 +102,23 @@ Do these in order. Nothing here is done by the agent.
 
 CLAUDE.md says anything the CMO must sign belongs on the hub. The two missing lines are therefore a standing gap, not a choice.
 
+## 4b. Configs from the two open PRs (state at the time of writing, 2026-10-15)
+
+Neither PR is merged: `gh pr view` shows #1155 (capacity, cover, surge, fatigue, drills; all gates off) and #1156 (unified red-event paging, flag off) both OPEN. Read-only SELECTs on the live project show **no `capacity_cover_config` table and no `unified_red_paging_config` table yet**, so both items below are what the PRs say they will add, not live state.
+
+| Item | From | State when merged (per the PR) | Hub panel in the PR | What signing does |
+|---|---|---|---|---|
+| `capacity_cover_config` v2 (registry `capacity.cover_rules`, `capacity.cover_rules_v2`) | #1155 | v2 unsigned; every new gate ships OFF | Yes: `capacity-config-panel.tsx`, signs through `sign_capacity_cover_config`; signing is refused while the `on_call_cover_ok` guard is off | Turns on the intake gate, surge and pause scope, hard rest rule and cover offers as configured; decisions 12, 13, 14 and the rest of 15 |
+| `lead_config` v2, pilot lead cap 40 | #1155 | inserts "version 2, inactive, cap 40" | Yes, same panel, `sign_lead_config` | Makes the cap of 40 the lead cap |
+| `unified_red_paging_config` v1 (registry `paging.unified_red_rules`) | #1156 | v1 inactive and unsigned; no row, unsigned, malformed or unreadable all read OFF | Yes: `unified-red-paging-panel.tsx` with its own actions | Switches on pages for SpO2, pulse, temperature, red-flag symptoms and emergency events (decision 11 step 3); the CMO test pack and rollback are `docs/plans/S16-S20-unified-red-paging-test-pack.md` |
+
+**Conflict to resolve before #1155 merges:** the live `lead_config` already has version 2 (active, effective 2026-10-07, cap 60; v1 inactive, cap 60). #1155's migration inserts `lead_config` version 2 as the cap-40 draft, so as written it collides with the live row. It needs the next free version (3) and the panel/test text updated, or the apply will fail. Verified by `SELECT` on `lead_config` and by reading the PR diff.
+
+#1156 also carries one change that is live as soon as it merges, with the flag still off: `20261015080432_s19d_paging_watchdog_ignores_merged_and_free_events.sql`, which stops the watchdog treating a merged or Free red event as unpaged.
+
 ## 5. What each decision still needs built (so signing does not imply it)
 
-Merged and applied: S16-S20-1, 2, 3 (task layer), 5 to 8 (quality v2), 9, 10, 11 steps 1 and 2, and the readiness gate of 15 (pager delivery). Not built, or built in a stream that had not merged on 2026-10-15: 11 step 3 (retire older paging, extend pages to SpO2, pulse, temperature, glucose and symptom red flags, behind a flag, with a CMO-signed test and rollback), 12 (intake gate, cap 40, surge mode), 13 (pause guard scope), 14 (hard rest), the fire drills and p50/p95 report of 15, the Android reliability kit and iOS Critical Alerts of 10. Signing any config above does not enable these.
+Merged and applied: S16-S20-1, 2, 3 (task layer), 5 to 8 (quality v2), 9, 10, 11 steps 1 and 2, and the readiness gate of 15 (pager delivery). In PRs still open on 2026-10-15 (section 4b): 11 step 3 (#1156), and 12, 13, 14 and the fire drills and p50/p95 report of 15 (#1155). Not built: the Android reliability kit and the iOS Critical Alerts entitlement of 10 as native work. Signing any config above does not enable anything that has not merged.
 
 ## 6. Sign-off
 

@@ -3718,4 +3718,105 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-15",
     source: "docs/plans/S75-S80-cmo-decisions.md S-18 (S76 B2); builds on version 4 (S20 v2)",
   },
+  {
+    key: "assistant.emergency",
+    // S52 (7.8, INV-06). Nigeria has no usable national crisis helpline, so `phoneNumbers` is EMPTY on purpose: the CMO adds a number
+    // (a hospital line, a clinic desk) here and nowhere else, and it is shown only once set. `nearestHospitalsShown` is how many hospitals
+    // the emergency reply lists. The self-harm and emergency WORDING in packages/shared/src/assistant-emergency.ts is PROPOSED (OQ-293).
+    value: { nearestHospitalsShown: 3, phoneNumbers: [], selfHarmCopyStatus: "proposed_awaiting_cmo_signoff" },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S52.md; docs/BUILD-SPEC-v5.md B.7 7.8; founder decision 2026-10-07 (no crisis helpline in Nigeria, nearest hospital)",
+  },
+  {
+    key: "assistant.silence",
+    // S52 (7.10): silence_days of no message from a programme member write an assistant.silence_detected event (a signal, never a treatment
+    // change); reengage_after_days later one generic note, at most one per reengage_cooldown_days. Mirrored by assistant_config (key silence)
+    // in migration *_s52_assistant_safety_memory_review.sql; assistant-safety-mirror.test.ts pins them together.
+    value: { silence_days: 7, reengage_after_days: 10, reengage_cooldown_days: 30 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S52.md; docs/BUILD-SPEC-v5.md B.7 7.10",
+  },
+  {
+    key: "assistant.paging",
+    // S52 (INV-05): a self-harm page repeats for the same conversation no sooner than repeat_hours, or no_cover_repeat_minutes when nobody was
+    // on call. Mirrored by assistant_config (key paging).
+    value: { repeat_hours: 6, no_cover_repeat_minutes: 30, page_wait_ms: 4000, hospital_lookup_ms: 2500 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S52.md; docs/BUILD-SPEC-v5.md INV-05",
+  },
+  {
+    key: "assistant.review",
+    // S52 (7.13): how many randomly chosen conversations the Chief Medical Officer reviews each month, on top of every reported one.
+    value: { monthly_sample_size: 20 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S52.md; docs/BUILD-SPEC-v5.md B.7 7.13",
+  },
+  {
+    key: "assistant.memory",
+    // S52 (7.12): at most max_items goals and preferences, each at most max_chars characters; consent_text_version names the wording the
+    // patient agreed to. Mirrored by assistant_config (key memory).
+    value: { max_items: 30, max_chars: 200, consent_text_version: "mem-v1" },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S52.md; docs/BUILD-SPEC-v5.md B.7 7.12",
+  },
+  {
+    key: "media_library.config",
+    // S57 (functions 10.7, 10.9, 10.10). Identical to the active row of `media_library_config` v1 (a test fails on drift). UNSIGNED.
+    // download: Wi-Fi only, 5 MB a track (plan 4.2) and a 50 MB pack (the build's proposal). breathing: 3 to 5 minutes (spec 10.7) and the
+    // longest single phase. sleep_feedback: the smallest weekly change in percentage points worth mentioning. session: the shortest listen
+    // that counts as a session.
+    value: {
+      download: { wifi_only: true, max_track_bytes: 5242880, max_pack_bytes: 52428800 },
+      breathing: { min_seconds: 180, max_seconds: 300, max_phase_seconds: 10 },
+      sleep_feedback: { change_epsilon_pct: 2 },
+      session: { min_listened_seconds: 30 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S57.md; spec 10.7, 10.9, 10.10; docs/OPEN-QUESTIONS.md OQ-S57-03",
+  },
+  {
+    key: "sleep.apnoea_screen",
+    // S57 (function 10.11), redrafted S57b. Identical to `sleep_apnoea_screen_config` v1 (a test fails on drift). DRAFT, UNSIGNED: eight items
+    // following the published STOP-Bang tool (Chung et al.) in the build's own wording; docs/research/S57b.md lists what is and is not verified.
+    // BMI is computed from height and weight (above 35); neck is a number in cm (40 or more); "not sure" scores unsure_points. Cut-off 3 of 8.
+    // The CMO must read, amend and confirm (public.confirm_sleep_apnoea_screen_config). Until then the questionnaire saves answers and
+    // does nothing else: no result, no task.
+    value: {
+      cut_off: 3,
+      unsure_points: 1,
+      items: [
+        { id: "snoring", kind: "yes_no", points: 1 },
+        { id: "tired", kind: "yes_no", points: 1 },
+        { id: "observed_pauses", kind: "yes_no", points: 1 },
+        { id: "high_blood_pressure", kind: "yes_no", points: 1 },
+        { id: "bmi", kind: "bmi", points: 1, above: 35 },
+        { id: "age_over_50", kind: "yes_no", points: 1 },
+        { id: "neck", kind: "neck_cm", points: 1, at_least: 40 },
+        { id: "sex_male", kind: "yes_no", points: 1 },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S57.md; spec 10.11; docs/OPEN-QUESTIONS.md OQ-S57-02",
+  },
 ];
