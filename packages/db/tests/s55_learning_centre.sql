@@ -149,7 +149,8 @@ begin
 
   -- ================= 2. placeholders =================
   select count(*) into v_n from public.health_education_content where is_placeholder and content_status = 'draft' and not is_active;
-  perform pg_temp.ck('2a six draft placeholders exist and none is active', v_n = 6);
+  -- S58b later seeds 20 more closed draft placeholders (myth-0x/10 and bp-lesson-xx), so the count is a floor; the rule that matters is that none is active.
+  perform pg_temp.ck('2a at least the six draft placeholders exist and no placeholder is active', v_n >= 6 and not exists (select 1 from public.health_education_content where is_placeholder and is_active));
   perform pg_temp.ck('2b the myth series programme is inactive', (select not is_active and kind = 'series' from public.health_education_programmes where code = 'myth_busting'));
   perform pg_temp.ck('2c a patient reads none of the placeholders',
     pg_temp.as_count(v_pa, 'select count(*) from public.health_education_content where is_placeholder') = 0);
