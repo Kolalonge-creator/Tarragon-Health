@@ -215,6 +215,7 @@ export async function loadCycleTracker(
       lifeStage,
       selfReportedCycleLengthDays,
       heavyFlowDates,
+      conceptionPlanning: planningMode,
     }),
     planningMode
   );
