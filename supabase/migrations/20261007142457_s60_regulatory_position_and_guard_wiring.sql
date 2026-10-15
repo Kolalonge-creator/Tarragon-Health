@@ -109,6 +109,7 @@ declare
   v_def text;
   v_new text;
   v_target regprocedure;
+  v_base regprocedure;
 begin
   -- 1. attest_go_live_condition: the two attestations that have a record behind them cannot be ticked without it
   v_def := pg_get_functiondef('public.attest_go_live_condition(text, text, boolean, text)'::regprocedure);
@@ -133,9 +134,9 @@ begin
   -- The two conditions live in whichever function currently holds them: private.go_live_conditions on a fresh replay, but later
   -- migrations (S71/S74) wrap it and move the body to private.go_live_conditions_s74_base, which is what production has now.
   v_target := 'private.go_live_conditions(text, uuid)'::regprocedure;
-  if to_regprocedure('private.go_live_conditions_s74_base(text, uuid)') is not null
-     and position('nafdac_position_recorded' in pg_get_functiondef('private.go_live_conditions_s74_base(text, uuid)'::regprocedure)) > 0 then
-    v_target := 'private.go_live_conditions_s74_base(text, uuid)'::regprocedure;
+  v_base := to_regprocedure('private.go_live_conditions_s74_base(text, uuid)');
+  if v_base is not null and position('nafdac_position_recorded' in pg_get_functiondef(v_base)) > 0 then
+    v_target := v_base;
   end if;
   v_def := pg_get_functiondef(v_target);
   v_new := replace(v_def,
