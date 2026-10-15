@@ -269,11 +269,10 @@ begin
   perform pg_temp.ck('...and the worklist count is 1 for them', '1', pg_temp.q_as(pg_temp.f('doctied'), 'select public.count_therapy_approvals_waiting()::text'));
   perform pg_temp.ck('...and 0 for a clinician without a tie', '0', pg_temp.q_as(pg_temp.f('docuntied'), 'select public.count_therapy_approvals_waiting()::text'));
   perform pg_temp.ck('a coordinator cannot list the queue', 'true', (pg_temp.q_as(pg_temp.f('coord'), 'select public.list_therapy_approvals_audited()::text') like 'ERR:not authorised%')::text);
-  perform pg_temp.ck('a tied medical officer without prescribing authority cannot approve', 'true',
-    (pg_temp.q_as(pg_temp.f('doctied'), format('select public.approve_therapy_session(%L, true, now() + interval ''1 day'')::text', v_sess)) is null)::text);
+  -- (F-05 retired the medical-officer tier, so the case 'a tied doctor without prescribing authority' is now the coordinator case below: the one tier that cannot prescribe.)
   perform pg_temp.ck('a tied coordinator cannot approve', 'true', (pg_temp.q_as(pg_temp.f('coord'), format('select public.approve_therapy_session(%L, true, now() + interval ''1 day'')::text', v_sess)) is null)::text);
   perform pg_temp.ck('an admin cannot approve', 'true', (pg_temp.q_as(pg_temp.f('admin'), format('select public.approve_therapy_session(%L, true, now() + interval ''1 day'')::text', v_sess)) is null)::text);
-  perform pg_temp.ck('...and every refusal of an approval is audited (it returns an empty row instead of raising, so the audit row survives)', '3',
+  perform pg_temp.ck('...and every refusal of an approval is audited (it returns an empty row instead of raising, so the audit row survives)', '2',
     (select count(*)::text from public.audit_log where action = 'staff.mental_health_read' and result = 'denied' and reason = 'attempted therapy approval' and subject_patient_id = v_pat));
   perform pg_temp.ck('a confirm without a time is refused', 'true',
     (pg_temp.q_as(pg_temp.f('smotied'), format('select public.approve_therapy_session(%L, true)::text', v_sess)) like 'ERR:Choose a time in the future%')::text);
