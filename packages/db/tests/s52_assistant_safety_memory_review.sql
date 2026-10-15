@@ -97,7 +97,7 @@ begin
   insert into public.clinical_staff (organisation_id, profile_id, full_name, credential_type, credential_number, active, status, license_verified_at, verified_by,
       doctor_tier, employment_type, credentialing_level, indemnity_exempt, indemnity_exempt_by, is_test)
   values (v_org, v_cmo, 'S52 cmo', 'MDCN', 'S52-cmo', true, 'active', now(), v_admin, 'chief_medical_officer', 'employed', 2, true, v_admin, true),
-         (v_org, v_doc, 'S52 doc', 'MDCN', 'S52-doc', true, 'active', now(), v_admin, 'medical_officer', 'employed', 1, true, v_admin, true);
+         (v_org, v_doc, 'S52 doc', 'MDCN', 'S52-doc', true, 'active', now(), v_admin, 'senior_medical_officer', 'employed', 1, true, v_admin, true);
   set local session_replication_role = origin;
 
   -- conversations in the previous Lagos month, with turns, one of them reported
