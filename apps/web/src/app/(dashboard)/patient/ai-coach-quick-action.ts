@@ -6,7 +6,7 @@ import { runQuickAction, type QuickActionKind } from "@/lib/ai-coach/quick-actio
 import { quickActionSchema, type QuickActionInput } from "@/lib/validation/ai-coach";
 
 export type RunQuickActionResult =
-  | { success: true; conversationId: string; reply: string }
+  | { success: true; conversationId: string; reply: string; draft?: string }
   | { success: false; error: string };
 
 /**
@@ -47,6 +47,8 @@ export async function runAiCoachQuickAction(input: QuickActionInput): Promise<Ru
       conversationId: parsed.data.conversationId,
       kind: parsed.data.kind as QuickActionKind,
     });
+    // INV-14: a closed assistant_enabled guard returns no conversation; show it as an error line, not as a saved chat message.
+    if (result.notOpen) return { success: false, error: result.reply };
     return { success: true, ...result };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : "Something went wrong" };
