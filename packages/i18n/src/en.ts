@@ -193,6 +193,7 @@ export const en = {
   "vitals.technique.step_still": "Stay still and do not talk while it measures.",
   "vitals.technique.step_repeat": "Use the same arm each time. If you can, measure twice, at least {gap} minute apart, morning and evening.",
   "vitals.glucose.signs.title": "Do any of these apply to you right now?",
+  "vitals.glucose.signs_not_saved": "Your reading is saved, but we could not save the signs you ticked on this phone. Please tell your care team how you feel.",
   "vitals.glucose.sign.confusion": "Confused",
   "vitals.glucose.sign.seizure": "Had a seizure or fit",
   "vitals.glucose.sign.unconscious": "Not awake or not responding",
