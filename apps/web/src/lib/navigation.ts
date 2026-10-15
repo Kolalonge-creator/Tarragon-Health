@@ -383,6 +383,8 @@ export function getNavSections(
                 { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
                 { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
                 { label: "Operations wall", href: "/admin/ops/wall", icon: "operations" },
+                { label: "Capacity and cover", href: "/admin/capacity", icon: "caseload" },
+                { label: "Fire drills", href: "/admin/fire-drills", icon: "siren" },
                 { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
                 { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
                 { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },
@@ -590,6 +592,10 @@ export function getNavSections(
                 // Two-tier model: offer each Member several times for the monthly check-in, see who is due or missed a month.
                 { label: "Monthly check-ins", href: "/clinician/followups", icon: "booking" },
                 { label: "On call", href: "/clinician/on-call", icon: "siren" },
+                // Make this phone reliable for urgent pages, with a one-tap test page (S16-S20 Stage 5).
+                { label: "Device check", href: "/clinician/device-check", icon: "siren" },
+                // Cover offers after a busy night and the 11 hour rest rule (S16-S20 Stage 5).
+                { label: "Rest and cover", href: "/clinician/rest-and-cover", icon: "booking" },
                 { label: "Hours and rota", href: "/clinician/rota", icon: "booking" },
                 // What a contracted clinician has earned, line by line, and the fee schedule that applies (S30).
                 { label: "Earnings", href: "/clinician/earnings", icon: "analytics" },
@@ -644,6 +650,9 @@ export function getNavSections(
                 { label: "Clinician credentialing", href: "/clinician/credentialing", icon: "review" },
                 // The on-call rota, declared on-call hours and lead clinicians (S18). Chief Medical Officer only; the page redirects anyone below that tier.
                 { label: "Rota and lead clinicians", href: "/clinician/team-rota", icon: "caseload" },
+                // Intake gate, surge mode, pause, rest-rule override and cover offers; and the monthly fire drills (S16-S20 Stage 5). CMO only; the pages redirect others.
+                { label: "Capacity and cover", href: "/clinician/capacity", icon: "caseload" },
+                { label: "Fire drills", href: "/clinician/fire-drills", icon: "siren" },
                 // The go-live guards and the proposed values the CMO owns (S37). CMO only; the page redirects anyone below that tier.
                 { label: "Go-live guards", href: "/clinician/go-live", icon: "governance" },
                 // The symptom checker's regulatory position, accuracy audit and safety settings (S60). CMO only; the page redirects others.
@@ -716,6 +725,8 @@ export function getNavSections(
                 { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
                 { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
                 { label: "Operations wall", href: "/admin/ops/wall", icon: "operations" },
+                { label: "Capacity and cover", href: "/admin/capacity", icon: "caseload" },
+                { label: "Fire drills", href: "/admin/fire-drills", icon: "siren" },
                 { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
               ],
             },
@@ -786,6 +797,8 @@ export function getNavSections(
                 { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
             { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
             { label: "Operations wall", href: "/admin/ops/wall", icon: "operations" },
+            { label: "Capacity and cover", href: "/admin/capacity", icon: "caseload" },
+            { label: "Fire drills", href: "/admin/fire-drills", icon: "siren" },
             { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
             { label: "Automations", href: "/admin/ops/automations", icon: "settings" },
             { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
@@ -885,6 +898,8 @@ export function getNavSections(
                 { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
             { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
             { label: "Operations wall", href: "/admin/ops/wall", icon: "operations" },
+            { label: "Capacity and cover", href: "/admin/capacity", icon: "caseload" },
+            { label: "Fire drills", href: "/admin/fire-drills", icon: "siren" },
             { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
             { label: "Feature flags", href: "/admin/settings/feature-flags", icon: "flag" },
           ],
@@ -932,6 +947,8 @@ export function getNavSections(
                 { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
             { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
             { label: "Operations wall", href: "/admin/ops/wall", icon: "operations" },
+            { label: "Capacity and cover", href: "/admin/capacity", icon: "caseload" },
+            { label: "Fire drills", href: "/admin/fire-drills", icon: "siren" },
             { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
           ],
         },

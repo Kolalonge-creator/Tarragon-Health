@@ -10,6 +10,8 @@ const redirect = jest.fn((path: string) => {
 
 jest.mock("next/navigation", () => ({ redirect: (p: string) => redirect(p), usePathname: () => "/clinician/queue" }));
 jest.mock("next/link", () => ({ __esModule: true, default: ({ href, children }: { href: string; children: React.ReactNode }) => <a href={href}>{children}</a> }));
+// the surge and pause banner is an async server component with its own tests; the queue page is proved without it
+jest.mock("@/components/capacity/ops-mode-banner", () => ({ OpsModeBanner: () => null }));
 jest.mock("@/lib/auth/current-profile", () => ({
   getCurrentProfile: jest.fn().mockResolvedValue({ id: "me" }),
   getCurrentClinicalStaff: () => Promise.resolve(staff()),

@@ -107,6 +107,8 @@ const ERROR_KEYS: Readonly<Record<string, MessageKey>> = {
   item_not_available: "shop.error.item_not_available",
   already_member: "shop.error.already_member",
   no_capacity: "shop.error.no_capacity",
+  // the S16-S20 intake gate: new sales are paused automatically or by the clinical lead; the same calm words as no capacity
+  intake_paused: "shop.error.no_capacity",
   too_many_open_orders: "shop.error.too_many_open_orders",
   email_needed: "shop.error.email_needed",
   payment_unavailable: "shop.error.payment_unavailable",

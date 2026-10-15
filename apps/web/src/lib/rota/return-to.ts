@@ -2,7 +2,17 @@
  * Every rota and paging form posts a hidden `returnTo`. It is honoured only when it is one of the rota or on-call pages, so a form
  * cannot be turned into an open redirect. The outcome travels back as ?ok= or ?error= and the page shows it.
  */
-export const ROTA_PAGES = ["/clinician/rota", "/admin/rota", "/clinician/team-rota", "/clinician/on-call"] as const;
+export const ROTA_PAGES = [
+  "/clinician/rota",
+  "/admin/rota",
+  "/clinician/team-rota",
+  "/clinician/on-call",
+  // S16-S20 capacity, cover, fatigue and drills
+  "/clinician/capacity",
+  "/admin/capacity",
+  "/clinician/rest-and-cover",
+  "/clinician/device-check",
+] as const;
 
 const PATIENT_PAGE = /^\/clinician\/patients\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

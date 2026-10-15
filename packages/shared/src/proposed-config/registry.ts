@@ -4631,4 +4631,118 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/design/S66.md; docs/plans/S66-S70-cmo-signoff-pack.md B3 and C",
   },
+  {
+    key: "capacity.cover_rules",
+    // Capacity, cover, surge, fatigue and fire drills (S16-S20 Stage 5, CMO decisions 12 to 15). Live values are the active row of
+    // `capacity_cover_config`; this entry mirrors it and a test fails if the migration seed and this value drift. SHIPS WITH THE THREE
+    // SWITCHES OFF: gate_enforce (new care pack sales close when lead headroom, 72 hours of rota cover or the oldest open task cross a
+    // limit), hard_rest_enforce (11 hours rest after a shift with overnight pages, only the CMO overrides) and drill_enabled (a monthly
+    // unannounced test page). Version 2 is the same config with all three ON, inactive and unsigned. min_lead_headroom: fewest free lead
+    // places before sales close. rota_horizon_hours / rota_gap_tolerance_hours: hours of the rota that must have a primary and a backup.
+    // oldest_task_max_class: task classes up to this one count when the oldest open task passes its watchdog warning time. surge_*: the
+    // CMO's surge mode (max hours, first routine class it widens to any eligible clinician, multiplier on routine warning times).
+    // pause_*: the CMO's pause (max hours; an admin request lapses after pause_confirm_minutes; routine classes from pause_hold_min_class
+    // are not offered while paused). overnight_*: the Lagos hours that count as overnight. cover_offer_pages: overnight pages in one shift
+    // that trigger the offer of the next shift. drill_*: the monthly drill (drill_roster_lookahead_days: who counts as on the rota;
+    // drill_min_gap_minutes: no drill within this many minutes of another test page; drill_busy_hours: nobody holding a page opened within
+    // this many hours is drilled), the target (90 percent within 300 seconds, PROPOSED) and the time after which an unanswered drill is a
+    // miss. A drill result is informational only: weight 0, never pay or removal.
+    value: {
+      gate_enforce: 0,
+      min_lead_headroom: 3,
+      rota_horizon_hours: 72,
+      rota_gap_tolerance_hours: 0,
+      oldest_task_max_class: 5,
+      override_max_hours: 24,
+      override_reason_min_chars: 20,
+      reason_min_chars: 20,
+      surge_max_hours: 12,
+      surge_widen_min_class: 4,
+      surge_routine_window_multiplier: 2,
+      pause_max_hours: 24,
+      pause_confirm_minutes: 240,
+      pause_hold_min_class: 6,
+      hard_rest_enforce: 0,
+      rest_hours: 11,
+      overnight_start_hour: 22,
+      overnight_end_hour: 7,
+      rest_min_overnight_pages: 1,
+      rest_override_max_days: 3,
+      cover_offer_pages: 2,
+      cover_offer_lookahead_hours: 36,
+      drill_enabled: 0,
+      drill_interval_days: 30,
+      drill_roster_lookahead_days: 30,
+      drill_min_gap_minutes: 10,
+      drill_busy_hours: 6,
+      drill_ack_target_seconds: 300,
+      drill_ack_target_pct: 90,
+      drill_missed_after_minutes: 60,
+      drill_hour_start: 8,
+      drill_hour_end: 20,
+      drill_max_per_run: 2,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-15",
+    source: "docs/design/S16-S20-capacity-cover.md; docs/plans/S16-S20-review-and-build-plan.md section 5, decisions 12 to 15",
+  },
+  {
+    key: "capacity.cover_rules_v2",
+    // Version 2 of capacity.cover_rules: the same rules with gate_enforce, hard_rest_enforce and drill_enabled SWITCHED ON. Shipped as an
+    // INACTIVE, unsigned row (capacity_cover_config version 2). The CMO signs it in the sign-off hub to switch the three on; signing a
+    // version with gate_enforce on is refused while the on_call_cover_ok go-live guard is off.
+    value: {
+      gate_enforce: 1,
+      min_lead_headroom: 3,
+      rota_horizon_hours: 72,
+      rota_gap_tolerance_hours: 0,
+      oldest_task_max_class: 5,
+      override_max_hours: 24,
+      override_reason_min_chars: 20,
+      reason_min_chars: 20,
+      surge_max_hours: 12,
+      surge_widen_min_class: 4,
+      surge_routine_window_multiplier: 2,
+      pause_max_hours: 24,
+      pause_confirm_minutes: 240,
+      pause_hold_min_class: 6,
+      hard_rest_enforce: 1,
+      rest_hours: 11,
+      overnight_start_hour: 22,
+      overnight_end_hour: 7,
+      rest_min_overnight_pages: 1,
+      rest_override_max_days: 3,
+      cover_offer_pages: 2,
+      cover_offer_lookahead_hours: 36,
+      drill_enabled: 1,
+      drill_interval_days: 30,
+      drill_roster_lookahead_days: 30,
+      drill_min_gap_minutes: 10,
+      drill_busy_hours: 6,
+      drill_ack_target_seconds: 300,
+      drill_ack_target_pct: 90,
+      drill_missed_after_minutes: 60,
+      drill_hour_start: 8,
+      drill_hour_end: 20,
+      drill_max_per_run: 2,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-15",
+    source: "docs/design/S16-S20-capacity-cover.md; capacity_cover_config version 2 (inactive)",
+  },
+  {
+    key: "capacity.pilot_lead_cap",
+    // Pilot lead cap (decision 12): 40 patients per lead clinician for the pilot, a conservative guess (panel evidence is unverified).
+    // Shipped as a NEW lead_config draft (next version number, copied from the row in force; existing rows untouched), inactive and unsigned; the CMO signs it in the sign-off hub.
+    value: 40,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-15",
+    source: "docs/design/S16-S20-capacity-cover.md; lead_config draft (inactive); decision 12",
+  },
 ];
