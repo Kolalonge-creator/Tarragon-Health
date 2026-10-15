@@ -7,7 +7,7 @@
 // already wrote the screening_upgrades audit row and the clinician_alerts
 // row with its two-tier contact SLA (both tiers live in the escalation_slas
 // config row and are editable by an admin — never restate a number for them
-// here) in the same
+// here, read it, see tightestSlaMinutes below) in the same
 // transaction — that DB-level safety
 // net is unconditional and does not depend on this function running at all.
 // This function owns the rest of the flow: draft a care_plan or
@@ -42,11 +42,14 @@
 // interpretation is optional/advisory only — the rule-based condition
 // inference the trigger already did is sufficient for the upgrade to fire.
 //
-// INV-08: this function makes no external call at all; every alert is a queued notification, and a failure to queue one is written to
-// audit_log, never a crash and never a silent drop.
+// Mirrors send-pending-notifications/index.ts: every external call has a
+// timeout and never throws past its boundary; missing credentials degrade to
+// a recorded audit_log failure, never a crash and never a silent drop.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { withSentry } from "../_shared/observability/sentry.ts";
+
+const EXTERNAL_TIMEOUT_MS = 5_000;
 
 type UpgradeCondition = "hypertension" | "diabetes" | "cancer_referral" | "other";
 
@@ -81,12 +84,57 @@ function inferSpecialistType(flags: string[]): string {
   return "oncologist";
 }
 
+interface SendResult {
+  ok: boolean;
+  error?: string;
+}
+
+/** Never throws — resolves { ok: false } on timeout, network error, or non-2xx. */
+async function withExternalCall(
+  fn: (signal: AbortSignal) => Promise<Response>,
+): Promise<SendResult> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), EXTERNAL_TIMEOUT_MS);
+  try {
+    const res = await fn(controller.signal);
+    if (!res.ok) {
+      return { ok: false, error: `HTTP ${res.status}` };
+    }
+    return { ok: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "unknown error";
+    return { ok: false, error: message };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function sendTermiiSms(toPhone: string, text: string): Promise<SendResult> {
+  const apiKey = Deno.env.get("TERMII_API_KEY");
+  if (!apiKey) {
+    return { ok: false, error: "TERMII_API_KEY not configured" };
+  }
+
+  return withExternalCall((signal) =>
+    fetch("https://api.ng.termii.com/api/sms/send", {
+      method: "POST",
+      signal,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: apiKey,
+        to: toPhone,
+        from: "Tarragon",
+        sms: text,
+        type: "plain",
+        channel: "generic",
+      }),
+    })
+  );
+}
+
 /** The service-role client this function runs everything through. */
 type ServiceClient = ReturnType<typeof createClient>;
 
-<<<<<<< HEAD
-Deno.serve(async (req) => {
-=======
 type AlertTier = "clinician_review" | "urgent_escalation" | "emergency" | "routine";
 
 /** The two tiers `handle_abnormal_screening_result` can raise for this
@@ -169,7 +217,6 @@ function sendClinicianPageSms(toPhone: string, smsText: string): Promise<SendRes
 }
 
 Deno.serve(withSentry("abnormal-result-handler", async (req) => {
->>>>>>> origin/main-dev
   let body: RequestBody;
   try {
     body = await req.json();
@@ -334,33 +381,52 @@ Deno.serve(withSentry("abnormal-result-handler", async (req) => {
       organisation_id: organisationId,
     });
   } else if (!alert) {
-    // Should be structurally impossible: the trigger inserts this row in the same transaction that invokes this function. Never silently
-    // drop a Priority 1 alert on an unexpected gap, and never fall back to SMS (INV-08, decision D-12: push, console and email only).
-    // Queue the same tracked notification the normal path uses, sourced from the screening result itself, so it travels the same push then
-    // email ladder and is recorded; and write an audit event so the gap is visible.
-    const results = await Promise.all(
-      clinicianList.map((clinician) =>
-        supabase.rpc("enqueue_critical_notification", {
-          p_organisation_id: organisationId,
-          p_recipient_id: clinician.id,
-          p_template: "abnormal_result_clinician_alert",
-          p_payload: { patient_name: patientName, condition_label: conditionLabel },
-          p_pathway: "screening_abnormal_result",
-          // The payload does not carry result_status, so use the TIGHTER ladder (emergency, a critical result): early contact on a
-          // non-critical result costs nothing, the reverse breaches the SLA (the same rule the old fallback followed).
-          p_alert_tier: "emergency",
-          p_source_table: "screening_results",
-          p_source_id: screeningResultId,
-        })
-      ),
+    // Should be structurally impossible — the trigger inserts this row in
+    // the same transaction that invokes this function — but never silently
+    // drop a Priority 1 alert on an unexpected gap; fall back to the direct
+    // send this pathway used before the tracked pipeline existed. This is
+    // the ONE leg that genuinely needs a phone number, so it filters for
+    // itself rather than narrowing the recipient query for everyone.
+    const reachable = clinicianList.filter(
+      (c): c is { id: string; phone: string } => typeof c.phone === "string" && c.phone.length > 0,
     );
-    clinicianAlertsQueued = results.filter((r) => !r.error).length;
-    clinicianAlertsFailed = results.length - clinicianAlertsQueued;
-    await auditEvent("abnormal_result.clinician_alert_row_missing_fallback_queued", "screening_results", screeningResultId, {
-      queued: clinicianAlertsQueued,
-      failed: clinicianAlertsFailed,
-      recipients: clinicianList.length,
-    });
+    if (reachable.length === 0) {
+      await auditEvent(
+        "abnormal_result.clinician_alert_row_missing_no_reachable_phone",
+        "screening_results",
+        screeningResultId,
+        { recipients: clinicianList.length, with_phone: 0 },
+      );
+    } else {
+      // The payload does not carry result_status, so this fallback cannot
+      // tell a critical result from a non-critical abnormal one. State the
+      // tighter of the two configured bounds — early contact on a
+      // non-critical result costs nothing; the reverse breaches the SLA —
+      // and read it from escalation_slas rather than hardcoding a number
+      // that a founder config change can silently invalidate.
+      const slaMinutes = await tightestSlaMinutes(supabase, SCREENING_PATHWAY, SCREENING_TIERS);
+      const contactSentence = slaMinutes === null
+        ? ""
+        : `Contact ${formatContactWindow(slaMinutes)}. `;
+      const results = await Promise.all(
+        reachable.map((clinician) =>
+          sendClinicianPageSms(
+            clinician.phone,
+            `New Priority 1 alert: ${patientName}'s screening result needs review (${conditionLabel}). ` +
+              `${contactSentence}See your Tarragon Health worklist. Tarragon Health`,
+          )
+        ),
+      );
+      clinicianAlertsQueued = results.filter((r) => r.ok).length;
+      clinicianAlertsFailed = results.length - clinicianAlertsQueued;
+      await auditEvent("abnormal_result.clinician_alert_row_missing_fallback_direct_send", "screening_results", screeningResultId, {
+        sent: clinicianAlertsQueued,
+        failed: clinicianAlertsFailed,
+        recipients: reachable.length,
+        recipients_without_phone: clinicianList.length - reachable.length,
+        sla_minutes: slaMinutes,
+      });
+    }
   } else {
     const results = await Promise.all(
       clinicianList.map((clinician) =>
