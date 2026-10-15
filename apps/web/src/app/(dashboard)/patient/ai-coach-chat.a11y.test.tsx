@@ -27,6 +27,20 @@ jest.mock("@/lib/queries/ai-coach", () => ({
   useAiConversation: () => ({ data: conversation }),
   useSendCoachMessage: () => ({ mutate: jest.fn(), isPending: false, data: undefined }),
   useAiCoachQuickAction: () => ({ mutate: jest.fn(), isPending: false, data: undefined }),
+  useAssistantNudges: () => ({ data: undefined }),
+}));
+// S52: the memory card and the emergency button call server actions; none of them runs in this DOM test.
+jest.mock("@/lib/ai-coach/memory-actions", () => ({
+  getMemoryStateAction: async () => null,
+  setMemoryConsentAction: async () => ({ ok: true }),
+  addMemoryItemAction: async () => ({ ok: true }),
+  updateMemoryItemAction: async () => ({ ok: true }),
+  deleteMemoryItemAction: async () => ({ ok: true }),
+  deleteAllMemoryAction: async () => ({ ok: true }),
+  exportMemoryAction: async () => ({ ok: true, json: "{}" }),
+}));
+jest.mock("@/lib/ai-coach/emergency-actions", () => ({
+  getEmergencyContextAction: async () => ({ hospitals: [], contactName: null, contactPhone: null }),
 }));
 jest.mock("@/lib/ai-coach/handoff-actions", () => ({
   requestCareTeamHandoffAction: jest.fn(async () => ({ success: true })),

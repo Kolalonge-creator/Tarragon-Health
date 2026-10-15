@@ -69,7 +69,10 @@ begin
 
   -- Behavioural, not has_table_privilege: a fresh local replay gives anon a default table ACL the live project never had.
   perform pg_temp.act_anon();
-  select count(*) into v_n from public.lpe_content_blocks where id = v_blk;
+  begin
+    select count(*) into v_n from public.lpe_content_blocks where id = v_blk;
+  exception when insufficient_privilege then v_n := 0;   -- S39 removed anon's table grants (as in production): refused outright is the same as seeing nothing
+  end;
   perform pg_temp.back();
   perform pg_temp.rec('anon sees no block', '0', v_n::text);
 

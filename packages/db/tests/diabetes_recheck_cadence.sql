@@ -34,7 +34,9 @@ begin
 
   -- Clean slate for this patient inside the transaction.
   delete from public.screening_schedules where patient_id = v_patient and screen_type_id = v_hba1c;
+  perform set_config('app.allow_clinical_value_delete', 'on', true);   -- S05b: fixture cleanup is a superuser maintenance delete
   delete from public.lab_analyte_readings where patient_id = v_patient and code = 'hba1c';
+  perform set_config('app.allow_clinical_value_delete', 'off', true);
   delete from public.screening_results where patient_id = v_patient and screen_type_code = 'hba1c';
   delete from public.patient_glucose_targets where patient_id = v_patient;
   delete from public.care_plans where patient_id = v_patient and condition = 'diabetes';

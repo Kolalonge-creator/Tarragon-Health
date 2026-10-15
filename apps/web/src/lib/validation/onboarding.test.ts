@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { consentSchema, identityVerificationSchema } from "./onboarding";
+import { consentSchema, demographicsSchema, identityVerificationSchema } from "./onboarding";
 
 describe("consentSchema", () => {
   it("accepts a plain acceptance with no onlyTypes restriction", () => {
@@ -77,5 +77,23 @@ describe("identityVerificationSchema", () => {
   it("does not require a document type for nin/bvn", () => {
     const result = identityVerificationSchema.safeParse({ method: "nin", idNumber: "12345678901" });
     expect(result.success).toBe(true);
+  });
+});
+
+describe("demographicsSchema (S04b-1 adult-only registration)", () => {
+  const yearsAgo = (n: number) => {
+    const d = new Date();
+    d.setUTCFullYear(d.getUTCFullYear() - n);
+    return d.toISOString().slice(0, 10);
+  };
+
+  it("accepts an adult", () => {
+    expect(demographicsSchema.safeParse({ dateOfBirth: yearsAgo(30), sex: "female" }).success).toBe(true);
+  });
+
+  it("refuses someone under 18 with the calm message", () => {
+    const result = demographicsSchema.safeParse({ dateOfBirth: yearsAgo(16), sex: "male" });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues[0]?.message).toMatch(/adults aged 18 and over/);
   });
 });

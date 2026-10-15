@@ -3,6 +3,8 @@ import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
 import { ClinicalStaffSetupWarning } from "@/components/clinical/clinical-staff-setup-warning";
 import { CareCoordinatorNav } from "./care-coordinator-nav";
 import { CareCoordinatorPageHeader } from "./care-coordinator-page-header";
+import { getCommunityStaffContext } from "@/components/community/staff-rpc";
+import { showsCommunityEntry } from "@/components/community/community-nav";
 
 /** Same reasoning as dashboard/hmo/layout.tsx and dashboard/corporate/layout.tsx
  * — every degraded state renders exactly as the old single-page placeholder
@@ -25,10 +27,12 @@ export default async function CareCoordinatorLayout({
     );
   }
 
+  const showCommunity = showsCommunityEntry("care_coordinator", await getCommunityStaffContext());
+
   return (
     <div className="space-y-6">
       <CareCoordinatorPageHeader />
-      <CareCoordinatorNav />
+      <CareCoordinatorNav showCommunity={showCommunity} />
       {children}
     </div>
   );

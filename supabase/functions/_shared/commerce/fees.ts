@@ -13,6 +13,9 @@ export interface FeeEstimateSchedule {
   readonly flatWaivedBelowKobo: number;
   /** The most the fee can be, in kobo. */
   readonly capKobo: number;
+  /** S71: the estimate for a card issued outside Nigeria (basis points, plus a flat part, no cap). Absent in older configuration. */
+  readonly internationalBasisPoints?: number;
+  readonly internationalFlatKobo?: number;
 }
 
 export interface CheckoutBreakdown {
@@ -31,6 +34,13 @@ export function estimateProcessingFeeKobo(priceKobo: number, schedule: FeeEstima
   const percent = Math.ceil((priceKobo * schedule.localBasisPoints) / 10_000);
   const flat = priceKobo >= schedule.flatWaivedBelowKobo ? schedule.flatKobo : 0;
   return Math.min(percent + flat, schedule.capKobo);
+}
+
+/** Estimated fee for a card issued outside Nigeria (S71, 19.4): a percentage plus a flat part, no cap, rounded up. null when the schedule has no figure. */
+export function estimateInternationalFeeKobo(priceKobo: number, schedule: FeeEstimateSchedule): number | null {
+  if (schedule.internationalBasisPoints === undefined || schedule.internationalFlatKobo === undefined) return null;
+  if (!isKobo(priceKobo) || priceKobo === 0) return 0;
+  return Math.ceil((priceKobo * schedule.internationalBasisPoints) / 10_000) + schedule.internationalFlatKobo;
 }
 
 export function estimatedBreakdown(priceKobo: number, schedule: FeeEstimateSchedule): CheckoutBreakdown {

@@ -44,7 +44,7 @@ begin
     where id = v_director_profile;
 
   insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, active, credential_type, credential_number, indemnity_exempt, indemnity_exempt_by, verified_by, license_verified_at)
-  values (v_nondirector_profile, v_org, 'Sig Test Nondirector', 'medical_officer', true, 'MDCN', 'SIGTEST-001', true, v_verifier, v_verifier, now())
+  values (v_nondirector_profile, v_org, 'Sig Test Nondirector', 'senior_medical_officer', true, 'MDCN', 'SIGTEST-001', true, v_verifier, v_verifier, now())
   returning id into v_nondirector_staff;
 
   insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, active, credential_type, credential_number, indemnity_exempt, indemnity_exempt_by, verified_by, license_verified_at)

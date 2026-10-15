@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import { createRateLimiter, type RateLimitResult } from "./rate-limit-core";
 
 /**
  * Rate limiting for auth endpoints (login, signup, password reset, MFA
@@ -46,59 +47,23 @@ function getUpstashLimiter(limit: number, windowSeconds: number): Ratelimit {
   return created;
 }
 
-type MemoryEntry = { count: number; resetAt: number };
-const memoryStore = new Map<string, MemoryEntry>();
-let lastSweep = Date.now();
+// The decision logic (Upstash when configured, in-process window otherwise or when Upstash errors) lives in
+// rate-limit-core.ts so it can be tested without Next.js or the Upstash SDK.
+const limiter = createRateLimiter({
+  store: redis
+    ? {
+        async limit(key, { limit, windowSeconds }) {
+          const r = await getUpstashLimiter(limit, windowSeconds).limit(key);
+          return { success: r.success, reset: r.reset };
+        },
+      }
+    : null,
+});
 
-/** Drops expired entries so a long-lived warm instance's memoryStore can't
- * grow without bound. Runs at most once a minute, on the calling path —
- * no background timer, which would keep a serverless instance alive. */
-function sweepMemoryStore() {
-  const now = Date.now();
-  if (now - lastSweep < 60_000) return;
-  lastSweep = now;
-  for (const [key, entry] of memoryStore) {
-    if (entry.resetAt <= now) memoryStore.delete(key);
-  }
-}
+export type { RateLimitResult } from "./rate-limit-core";
 
-function checkMemory(
-  key: string,
-  limit: number,
-  windowSeconds: number
-): { success: boolean; retryAfterSeconds: number } {
-  sweepMemoryStore();
-  const now = Date.now();
-  const entry = memoryStore.get(key);
-
-  if (!entry || entry.resetAt <= now) {
-    memoryStore.set(key, { count: 1, resetAt: now + windowSeconds * 1000 });
-    return { success: true, retryAfterSeconds: 0 };
-  }
-  if (entry.count >= limit) {
-    return { success: false, retryAfterSeconds: Math.ceil((entry.resetAt - now) / 1000) };
-  }
-  entry.count += 1;
-  return { success: true, retryAfterSeconds: 0 };
-}
-
-export type RateLimitResult = { success: boolean; retryAfterSeconds: number };
-
-export async function rateLimit(
-  key: string,
-  { limit, windowSeconds }: { limit: number; windowSeconds: number }
-): Promise<RateLimitResult> {
-  if (redis) {
-    const limiter = getUpstashLimiter(limit, windowSeconds);
-    const result = await limiter.limit(key);
-    return {
-      success: result.success,
-      retryAfterSeconds: result.success
-        ? 0
-        : Math.max(1, Math.ceil((result.reset - Date.now()) / 1000)),
-    };
-  }
-  return checkMemory(key, limit, windowSeconds);
+export function rateLimit(key: string, rule: { limit: number; windowSeconds: number }): Promise<RateLimitResult> {
+  return limiter.rateLimit(key, rule);
 }
 
 /**

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "@jest/globals";
-import { isAlreadyRegisteredError, isRateLimitOtpError, isUnknownUserOtpError } from "./otp-errors";
+import {
+  isAlreadyRegisteredError,
+  isPhoneChangeNeedsConfirmationError,
+  isRateLimitOtpError,
+  isUnknownUserOtpError,
+} from "./otp-errors";
 
 describe("isUnknownUserOtpError", () => {
   it("recognises GoTrue's 'no such user' answers to a code request", () => {
@@ -21,6 +26,18 @@ describe("isRateLimitOtpError", () => {
     expect(isRateLimitOtpError({ code: "over_sms_send_rate_limit", message: "x" })).toBe(true);
     expect(isRateLimitOtpError({ message: "Error sending sms" })).toBe(false);
     expect(isRateLimitOtpError(null)).toBe(false);
+  });
+});
+
+describe("isPhoneChangeNeedsConfirmationError", () => {
+  it("recognises the database refusing an unconfirmed number change by its own wording", () => {
+    expect(isPhoneChangeNeedsConfirmationError({ message: "phone_change_needs_confirmation" })).toBe(true);
+  });
+  it("does not mistake a generic database error, an SMS failure or a rate limit for it", () => {
+    expect(isPhoneChangeNeedsConfirmationError({ message: "Database error updating user", status: 500 })).toBe(false);
+    expect(isPhoneChangeNeedsConfirmationError({ message: "Error sending sms OTP", status: 500 })).toBe(false);
+    expect(isPhoneChangeNeedsConfirmationError({ code: "over_sms_send_rate_limit", message: "x" })).toBe(false);
+    expect(isPhoneChangeNeedsConfirmationError(null)).toBe(false);
   });
 });
 

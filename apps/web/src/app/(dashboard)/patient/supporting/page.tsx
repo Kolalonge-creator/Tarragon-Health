@@ -9,6 +9,7 @@ import { CircleSupporting } from "./circle-supporting";
 import { ReservationsSent } from "./reservations-sent";
 import { SponsorSharingControl } from "@/components/sponsor-care-report";
 import { joinAsPatientToo } from "./actions";
+import { RecoveryDutiesCard } from "@/components/account/recovery-duties-card";
 
 /**
  * The sponsor's home screen.
@@ -45,6 +46,8 @@ export default async function SupportingPage() {
           </Link>
         }
       />
+
+      <RecoveryDutiesCard />
 
       <CircleSupporting locale={uiLanguage} />
 

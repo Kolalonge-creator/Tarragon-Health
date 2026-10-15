@@ -2,12 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { TriangleAlert, Phone, Hospital } from "lucide-react";
+import Link from "next/link";
+import { TriangleAlert, Phone, Hospital, MapPin } from "lucide-react";
+import { t } from "@tarragon/i18n";
 import { useActiveEmergency, activeEmergencyKey } from "@/lib/queries/emergency";
 import { acknowledgeEmergency, alertEmergencyContactNow } from "./actions";
+import { recordRedCareResponse } from "./red-care-actions";
 import { Button } from "@/components/ui/button";
 import { FormError, fieldErrorId } from "@/components/ui/form-error";
-import { emergencyHospitalGuidance } from "./emergency-guidance";
+import { emergencyHospitalGuidance, freeRedNoDoctorSentence } from "./emergency-guidance";
 
 /**
  * Site-wide emergency alert. Whenever the patient has an active, un-acknowledged
@@ -30,6 +33,10 @@ export function EmergencyAlert({
   const queryClient = useQueryClient();
   const [pending, setPending] = useState<"ack" | "contact" | null>(null);
   const [contactAlerted, setContactAlerted] = useState(false);
+  // CMO Q13: the patient's answer about seeking care. One client id per answer so a retry never stores it twice.
+  const [careAnswer, setCareAnswer] = useState<"sought_care" | "could_not_get_care" | null>(null);
+  const [careError, setCareError] = useState<string | null>(null);
+  const careClientId = useRef<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const open = Boolean(event);
@@ -82,6 +89,19 @@ export function EmergencyAlert({
       return;
     }
     queryClient.invalidateQueries({ queryKey: activeEmergencyKey(patientId) });
+  }
+
+  async function handleCareAnswer(response: "sought_care" | "could_not_get_care") {
+    if (!event) return;
+    setCareError(null);
+    const result = await recordRedCareResponse({ eventId: event.id, response, clientId: careClientId.current ?? undefined });
+    careClientId.current = result.clientId;
+    if (!result.ok) {
+      setCareError(result.error);
+      return;
+    }
+    careClientId.current = null;
+    setCareAnswer(response);
   }
 
   async function handleAlertContact() {
@@ -150,10 +170,60 @@ export function EmergencyAlert({
             <p>{emergencyHospitalGuidance(event.clinician_alert_id)}</p>
           </div>
 
+          {/* Two-tier (CMO 2026-10-08): on the Free plan no doctor is alerted, and the screen says so in plain words, then keeps
+              the guidance complete without one. Joining is one tap and never blocks the acknowledge button below. */}
+          {freeRedNoDoctorSentence(event.clinician_alert_id) && (
+            <div className="space-y-3 rounded-lg border border-charcoal-ink/10 p-4 text-sm text-charcoal-ink dark:border-night-ink/15 dark:text-night-ink" data-testid="free-red-block">
+              <p className="font-medium">{freeRedNoDoctorSentence(event.clinician_alert_id)}</p>
+              <p>{t("freered.recheck", "en")}</p>
+              {hasEmergencyContact && <p>{t("freered.contact", "en")}</p>}
+              <div className="flex flex-wrap gap-3">
+                <a
+                  href="https://www.google.com/maps/search/hospital+near+me"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-md border border-charcoal-ink/20 px-3 py-2 font-medium dark:border-night-ink/25"
+                >
+                  <MapPin className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+                  {t("freered.facility", "en")}
+                </a>
+                <Link
+                  href="/patient/membership"
+                  className="inline-flex min-h-11 items-center rounded-md bg-brand-green px-3 py-2 font-medium text-white"
+                >
+                  {t("freered.join", "en")}
+                </Link>
+              </div>
+              <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{t("freered.join_hint", "en")}</p>
+            </div>
+          )}
+
           {event.trigger_detail && (
             <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
               Reported: {event.trigger_detail}
             </p>
+          )}
+
+          {/* CMO Q13: only where a doctor was alerted (a Member); the Free plan has its own check-in. It never stops the care team calling. */}
+          {event.clinician_alert_id && (
+            <div className="space-y-2 rounded-lg border border-charcoal-ink/10 p-4 text-sm dark:border-night-ink/15" data-testid="red-care-answer">
+              <p className="font-medium text-charcoal-ink dark:text-night-ink">{t("redcare.question", "en")}</p>
+              {careAnswer ? (
+                <p role="status" className="text-charcoal-ink dark:text-night-ink">
+                  {careAnswer === "could_not_get_care" ? t("redcare.saved_could_not", "en") : t("redcare.saved", "en")}
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-3">
+                  <Button type="button" variant="outline" onClick={() => void handleCareAnswer("sought_care")}>
+                    {t("redcare.sought", "en")}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => void handleCareAnswer("could_not_get_care")}>
+                    {t("redcare.could_not", "en")}
+                  </Button>
+                </div>
+              )}
+              <FormError id={fieldErrorId("red-care-answer")} message={careError} />
+            </div>
           )}
 
           <FormError id={fieldErrorId("emergency-alert")} message={error} />

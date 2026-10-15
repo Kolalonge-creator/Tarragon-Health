@@ -64,8 +64,8 @@ export const DOCUMENT_KINDS: ReadonlyArray<{ kind: string; label: string; hint: 
   },
   {
     kind: "mdcn_confirmation",
-    label: "Written confirmation from MDCN",
-    hint: "If MDCN wrote to confirm your registration, add it here. This is optional.",
+    label: "MDCN or DataFlow verification report",
+    hint: "The report from DataFlow (MDCN's verification partner) or a written confirmation from MDCN that your registration is genuine. A reviewer needs it before you can be approved. You can add it after you submit.",
     optional: true,
   },
 ];
@@ -79,6 +79,14 @@ export const CHECK_KIND_LABEL: Record<string, string> = {
   practice_years: "Practice after house job",
   referee_1: "Referee 1",
   referee_2: "Referee 2",
+  primary_source: "MDCN or DataFlow verification",
+};
+
+/** How a registration was verified at the source (credentialing_config.primary_source_routes). */
+export const PRIMARY_SOURCE_ROUTE_LABEL: Record<string, string> = {
+  mdcn_dataflow: "DataFlow report",
+  mdcn_written_confirmation: "Written confirmation from MDCN",
+  mdcn_register_check: "Checked on the MDCN register or portal",
 };
 
 /** What the reviewer is expected to have done, shown beside each check. */
@@ -90,6 +98,8 @@ export const CHECK_KIND_HINT: Record<string, string> = {
   practice_years: "Confirm the years of practice after house job meet the minimum.",
   referee_1: "Reach the referee through an independently sourced institutional contact, then have them confirm back.",
   referee_2: "Reach the referee through an independently sourced institutional contact, then have them confirm back.",
+  primary_source:
+    "Confirm the registration with the source: the DataFlow report or MDCN's own confirmation. Enter how it was verified, the reference number and the date, and attach the file. A reference cannot be used for two people.",
 };
 
 export const MISSING_LABEL: Record<string, string> = {
@@ -127,6 +137,7 @@ export const BLOCKER_LABEL: Record<string, string> = {
   not_yet_activated: "Not switched on yet",
   licence_expired: "Your MDCN licence has expired",
   indemnity_expired: "Your indemnity cover has expired",
+  primary_source_missing: "Your MDCN or DataFlow verification has not been recorded yet",
   "status:suspended": "Your access is paused",
   "status:offboarded": "You have left the network",
 };

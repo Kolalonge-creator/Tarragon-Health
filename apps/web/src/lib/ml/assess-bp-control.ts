@@ -64,6 +64,7 @@ export async function assessBpControlBestEffort(
     .select("taken_at, systolic, diastolic")
     .eq("patient_id", patientId)
     .eq("vital_type", "blood_pressure")
+    .is("correction_status", null)
     .gte("taken_at", since)
     .order("taken_at", { ascending: true });
 

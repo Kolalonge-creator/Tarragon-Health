@@ -4,7 +4,7 @@ import { confirmPayment, handleOrderWebhook, reconcileOpenOrders } from "../../.
 import { MemoryStore } from "./support/memory-store.ts";
 
 const REF = "tho_0123456789abcdef0123456789abcdef";
-const PRICE = 10_000_000;
+const PRICE = 12_000_000;
 
 async function setup(opts: { fee?: number } = {}) {
   const payments = createMockPayment();

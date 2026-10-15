@@ -149,6 +149,28 @@ describe("runGovernedAi", () => {
     expect(audit?.p_safety_classification).toBe("emergency");
   });
 
+  it("records a turn answered by code as none:code with no token attribution (S52)", async () => {
+    const supabase = client(registered());
+    await runGovernedAi({
+      supabase,
+      systemCode: "AI-001",
+      inputCategory: "patient_coach_message",
+      run: async () => ({
+        value: "fixed refusal",
+        modelIdentifier: "claude-sonnet-5",
+        answeredByCode: true,
+        guardrailsTriggered: ["answered_by_code:dose_request_refusal"],
+        inputTokenCount: null,
+        outputTokenCount: null,
+      }),
+      fallback: () => "fallback",
+    });
+    const audit = auditFor(supabase.rpcCalls);
+    expect(audit?.p_model_identifier).toBe("none:code");
+    expect(audit?.p_input_token_count ?? null).toBeNull();
+    expect(audit?.p_guardrails_triggered).toEqual(["answered_by_code:dose_request_refusal"]);
+  });
+
   it("records an internally-degraded AI path as fallback, not completed", async () => {
     // The regression this exists for: a call site that catches its own model
     // failure and returns a degraded answer (the coach graph does exactly

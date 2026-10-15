@@ -1,18 +1,23 @@
 // S25: deployed entrypoint for order-checkout. Wiring only; the logic and its header are in handler.ts.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { supabaseOrderStore } from "../_shared/commerce/index.ts";
-import { paymentFromEnv } from "../_shared/integrations/index.ts";
+import { featureFlagOn, paymentFromEnv, supabaseHealthStore, withPaymentBreaker, type FlagReader } from "../_shared/integrations/index.ts";
 import { handleCheckout } from "./handler.ts";
 
-Deno.serve((req) => {
+Deno.serve(async (req) => {
   const url = Deno.env.get("SUPABASE_URL")!;
   const service = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
   const asUser = (authorization: string) =>
     createClient(url, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: authorization } }, auth: { persistSession: false } });
-  const payments = paymentFromEnv(
+  const configured = paymentFromEnv(
     { PAYSTACK_SECRET_KEY: Deno.env.get("PAYSTACK_SECRET_KEY"), PAYSTACK_WEBHOOK_SECRET: Deno.env.get("PAYSTACK_WEBHOOK_SECRET") },
     (input, init) => fetch(input, init),
   );
+  // S14x: with the flag `provider_circuit_breaker` ON (default OFF) checkout initialisation consults provider_health and stops calling
+  // Paystack after repeated outages. Only initialisation is guarded; verification, refunds and transfers always go through.
+  const payments = configured && (await featureFlagOn(service as unknown as FlagReader, "provider_circuit_breaker"))
+    ? withPaymentBreaker(configured, supabaseHealthStore(service))
+    : configured;
   return handleCheckout(req, {
     payments,
     store: supabaseOrderStore(service),

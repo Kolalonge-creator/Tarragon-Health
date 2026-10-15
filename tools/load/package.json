@@ -1,0 +1,14 @@
+{
+  "name": "tarragon-load-harness",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "SR4 load-test harness. Standalone on purpose: not a pnpm workspace member, no change to the root lockfile. Local, disposable databases only.",
+  "scripts": {
+    "generate": "node generate.mjs",
+    "run": "node run.mjs"
+  },
+  "dependencies": {
+    "pg": "8.13.1"
+  }
+}

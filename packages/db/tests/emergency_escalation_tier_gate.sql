@@ -102,7 +102,7 @@ begin
     (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier, employment_type,
      indemnity_exempt, indemnity_exempt_by)
   values
-    (v_org, v_t1,  'Medical Officer Gate Fixture',       true, now(), 'medical_officer',        'employed', false, null),
+    (v_org, v_t1,  'Medical Officer Gate Fixture',       true, now(), 'senior_medical_officer',        'employed', false, null),
     (v_org, v_t2,  'Senior Medical Officer Gate Fixture', true, now(), 'senior_medical_officer', 'employed', false, null),
     (v_org, v_dir, 'Director Gate Fixture',              true, now(), 'chief_medical_officer',  'employed', true,  v_t1)
   on conflict (profile_id) do update

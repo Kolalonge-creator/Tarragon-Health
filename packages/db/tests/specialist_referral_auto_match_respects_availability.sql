@@ -69,7 +69,7 @@ begin
   -- specialist_onlyblocked (endocrinology): case 2b.
   -- specialist_expiredrule / specialist_norules (nephrology): case 3.
   for r in select * from (values
-      ('doctor_referrer', 'medical_officer', null),
+      ('doctor_referrer', 'senior_medical_officer', null),
       ('specialist_onleave', 'senior_medical_officer', 'cardiology'),
       ('specialist_loaded', 'senior_medical_officer', 'cardiology'),
       ('specialist_blocked', 'senior_medical_officer', 'oncologist'),
@@ -88,12 +88,12 @@ begin
       set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
 
     insert into public.clinical_staff (
-      organisation_id, profile_id, full_name, active, license_verified_at,
+      organisation_id, profile_id, full_name, active, license_verified_at, is_test,
       doctor_tier, employment_type, specialist_type,
       indemnity_insurer, indemnity_policy_number, indemnity_expires_at
     )
     values (
-      v_org, v_id, format('Dr Specialist Availability %s', r.key_name), true, now(),
+      v_org, v_id, format('Dr Specialist Availability %s', r.key_name), true, now(), true,
       r.tier::public.doctor_tier, 'employed', r.spec_type::public.specialist_type,
       'Probe Indemnity Ltd', format('PROBE-SPECAVAIL-%s', r.key_name), now() + interval '1 year'
     )

@@ -308,17 +308,14 @@ async function countOpenComplaints(supabase: Client) {
   return count ?? 0;
 }
 
-/** Exact same filter as therapy-approvals/queue.tsx's own psychiatry-request
- * query. Approving needs prescribing authority (a Senior Medical Officer+),
- * but the queue is visible to every tier -- see that page's own header
- * comment -- so the count is safe to show to every tier too. */
+/** The same set as therapy-approvals/queue.tsx: requests for patients this
+ * clinician holds a task for (S56, INV-12). A care coordinator gets 0 (the
+ * function returns 0 for them). */
 async function countTherapyApprovalsWaiting(supabase: Client) {
-  const { count, error } = await supabase
-    .from("therapy_sessions")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "awaiting_clinician_approval");
+  // S56: therapy bookings are per-patient (INV-12); the count is the requests this clinician holds a task for.
+  const { data, error } = await supabase.rpc("count_therapy_approvals_waiting");
   if (error) throw error;
-  return count ?? 0;
+  return typeof data === "number" ? data : 0;
 }
 
 /**
@@ -364,6 +361,18 @@ async function countFhirProposedResourcesPending(supabase: Client) {
     .from("fhir_import_proposed_resources")
     .select("id", { count: "exact", head: true })
     .eq("status", "proposed");
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Patient requests to void or correct an allergy or a condition she entered herself, still waiting
+ * for a tied doctor (S05b-d/e/f; one table, both record kinds) -- see clinician/record-changes. RLS on the request table already limits the
+ * count to the requests this clinician may decide, so a Care Coordinator always sees 0. */
+async function countRecordChangeRequestsWaiting(supabase: Client) {
+  const { count, error } = await supabase
+    .from("patient_allergy_correction_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending");
   if (error) throw error;
   return count ?? 0;
 }
@@ -452,7 +461,8 @@ export type WorklistCountKey =
   | "labResultConsultsWaiting"
   | "fhirProposedResourcesPending"
   | "preventiveHealthCheckReviewsWaiting"
-  | "curbsideConsultsAwaitingReply";
+  | "curbsideConsultsAwaitingReply"
+  | "recordChangeRequestsWaiting";
 
 /**
  * Exported so the "a broken query must never render as 0" invariant above is
@@ -495,6 +505,7 @@ export const COUNTERS: Record<WorklistCountKey, (supabase: Client) => Promise<nu
   fhirProposedResourcesPending: countFhirProposedResourcesPending,
   preventiveHealthCheckReviewsWaiting: countPreventiveHealthCheckReviewsWaiting,
   curbsideConsultsAwaitingReply: countCurbsideConsultsAwaitingReply,
+  recordChangeRequestsWaiting: countRecordChangeRequestsWaiting,
 };
 
 /**
