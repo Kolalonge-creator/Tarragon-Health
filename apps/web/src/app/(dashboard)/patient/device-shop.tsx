@@ -64,6 +64,10 @@ export function DeviceShop() {
         </Card>
       )}
 
+      <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
+        Any other device: type it in. A reading you type in reaches your care team in exactly the same way.
+      </p>
+
       {CATEGORY_ORDER.map((category) => {
         const devices = byCategory.get(category);
         if (!devices || devices.length === 0) return null;
@@ -85,6 +89,19 @@ export function DeviceShop() {
                     <span className="inline-flex items-center rounded-full bg-brand-green px-3 py-1 text-xs font-medium text-white">
                       ✅ Works with Tarragon
                     </span>
+                    {/* S70a, 18.2: a device is only listed with its evidence. Both lines come from the row the Chief Medical Officer reviewed. */}
+                    <ul className="space-y-1 text-xs text-charcoal-ink/70 dark:text-night-ink/70">
+                      {device.validated_source_url && (
+                        <li>
+                          Accuracy evidence:{" "}
+                          <a className="underline" href={device.validated_source_url} target="_blank" rel="noreferrer noopener">
+                            {device.validation_basis === "validatebp" ? "ValidateBP listing" : "published validation study"}
+                          </a>
+                        </li>
+                      )}
+                      {device.nafdac_number && <li>NAFDAC number {device.nafdac_number}</li>}
+                      {device.authorised_distributor && <li>Sold by {device.authorised_distributor}</li>}
+                    </ul>
                     {device.description && (
                       <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{device.description}</p>
                     )}

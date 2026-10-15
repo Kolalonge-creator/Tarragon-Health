@@ -1,5 +1,7 @@
 import { supabase } from "./supabase";
 import type { QueryResult } from "./medications";
+import { en, t, type MessageKey } from "@tarragon/i18n";
+import { mergeMoodBpSleep, type MoodTrendDay, type WellbeingTag } from "@tarragon/shared";
 
 // --- Wellbeing self check-in (mood/stress/sleep/activity, 1-5) -----------
 // Mirrors apps/web/.../patient/wellbeing-actions.ts and lib/queries/
@@ -124,6 +126,8 @@ export async function submitWellbeingCheckin(input: {
   sleepQuality: number;
   activityLevel: number;
   note?: string;
+  /** Optional context from the fixed list (S56, 10.1). Already cleaned by the caller with cleanWellbeingTags. */
+  tags?: WellbeingTag[];
 }): Promise<QueryResult<null>> {
   const { error } = await supabase.from("wellbeing_checkins").insert({
     patient_id: input.patientId,
@@ -133,6 +137,7 @@ export async function submitWellbeingCheckin(input: {
     sleep_quality: input.sleepQuality,
     activity_level: input.activityLevel,
     note: input.note ?? null,
+    tags: input.tags ?? [],
   });
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: null };
@@ -151,4 +156,33 @@ export async function updateWellbeingCheckinFrequency(
   });
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: null };
+}
+
+/** Display copy for a check-in tag (catalogue namespace mood). */
+export function wellbeingTagLabel(tag: string): string {
+  const key = `mood.tag.${tag}` as MessageKey;
+  return key in en ? t(key) : tag;
+}
+
+/**
+ * Mood beside blood pressure and sleep for the last 30 days (function 10.1): the patient's own check-ins, blood pressure readings and
+ * sleep log merged per Lagos day. All three are the patient's own rows under their own session. A failed read throws, so the screen can
+ * say it could not load rather than show an empty week.
+ */
+export async function loadMoodBesideReadings(patientId: string): Promise<MoodTrendDay[]> {
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const sinceIso = since.toISOString();
+  const [checkins, bp, sleep] = await Promise.all([
+    supabase.from("wellbeing_checkins").select("checked_in_at, mood_score, stress_score, tags").eq("patient_id", patientId).gte("checked_in_at", sinceIso).order("checked_in_at", { ascending: true }),
+    supabase.from("vitals_readings").select("taken_at, systolic, diastolic").eq("patient_id", patientId).eq("vital_type", "blood_pressure").gte("taken_at", sinceIso).order("taken_at", { ascending: true }).limit(200),
+    supabase.from("sleep_log_entries").select("logged_on, duration_hours").eq("patient_id", patientId).gte("logged_on", sinceIso.slice(0, 10)).order("logged_on", { ascending: true }),
+  ]);
+  if (checkins.error) throw checkins.error;
+  if (bp.error) throw bp.error;
+  if (sleep.error) throw sleep.error;
+  return mergeMoodBpSleep(
+    checkins.data ?? [],
+    (bp.data ?? []).map((r) => ({ taken_at: r.taken_at, systolic: r.systolic, diastolic: r.diastolic })),
+    (sleep.data ?? []).map((r) => ({ day: r.logged_on, minutes: Math.round(Number(r.duration_hours) * 60) })),
+  );
 }
