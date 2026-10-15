@@ -127,8 +127,8 @@ begin
   perform pg_temp.setf('labBu', pg_temp.mkuser(v_org, 'labBu', 'lab_partner'));
   update public.profiles set lab_provider_id = v_lab where id = pg_temp.f('labAu');
   update public.profiles set lab_provider_id = v_lab2 where id = pg_temp.f('labBu');
-  insert into public.pharmacy_partners (name, is_active, approved_at, license_verified_at, onboarding_status, license_expires_at) values ('S74 Pharmacy A', true, now(), now(), 'activated', now() + interval '200 days') returning id into v_ph;
-  insert into public.pharmacy_partners (name, is_active, approved_at, license_verified_at, onboarding_status, license_expires_at) values ('S74 Pharmacy B', true, now(), now(), 'activated', now() + interval '200 days') returning id into v_ph2;
+  insert into public.pharmacy_partners (name, is_active, approved_at, license_verified_at, onboarding_status, license_expires_at, nafdac_source_attested_at) values ('S74 Pharmacy A', true, now(), now(), 'activated', now() + interval '200 days', now()) returning id into v_ph;
+  insert into public.pharmacy_partners (name, is_active, approved_at, license_verified_at, onboarding_status, license_expires_at, nafdac_source_attested_at) values ('S74 Pharmacy B', true, now(), now(), 'activated', now() + interval '200 days', now()) returning id into v_ph2;
   insert into public.pharmacy_partner_locations (pharmacy_partner_id, name, state, address, is_active, verified_at) values (v_ph, 'S74 A Lekki', 'Lagos', '1 Test Road', true, now()) returning id into v_loc;
   perform pg_temp.setf('phA', v_ph); perform pg_temp.setf('phB', v_ph2); perform pg_temp.setf('locA', v_loc);
   perform pg_temp.setf('phAu', pg_temp.mkuser(v_org, 'phAu', 'pharmacist'));

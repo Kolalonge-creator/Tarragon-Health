@@ -48,9 +48,9 @@ begin
   insert into public.clinical_staff (organisation_id, profile_id, full_name, credential_type, credential_number, active, status, license_verified_at, verified_by, doctor_tier, employment_type, credentialing_level, is_test)
     values (v_org, v_doc, 'S16b Doctor', 'MDCN', 'S16B-DOC-1', true, 'active', now(), v_admin, 'senior_medical_officer', 'employed', 2, true);
 
-  -- a fresh draft rule set (the live draft is left alone) that asks for a task key the types answer
+  -- a fresh draft rule set (the live draft is left alone) that asks for a task key the adherence type answers (approval only looks at the types a set uses, OQ-334)
   insert into public.triage_rule_sets (code, version, status, rules) values ('s16b_set', 1, 'draft',
-    '{"code":"s16b_set","version":1,"rules":[{"id":"R1","actions":[{"kind":"create_task","task":"bp_review","dueMinutes":60}]}]}'::jsonb) returning id into v_draft;
+    '{"code":"s16b_set","version":1,"rules":[{"id":"R1","actions":[{"kind":"create_task","task":"adherence_review","dueMinutes":60}]}]}'::jsonb) returning id into v_draft;
   insert into public.triage_rule_sets (code, version, status, rules) values ('s16b_set', 2, 'draft',
     '{"code":"s16b_set","version":2,"rules":[{"id":"R1","actions":[{"kind":"create_task","task":"no_such_key"}]}]}'::jsonb) returning id into v_bad;
 
@@ -78,9 +78,11 @@ begin
   perform pg_temp.rec('approval is refused while a task type awaits confirmation', '22023', pg_temp.try(format('select public.approve_triage_rule_set(%L)', v_draft)));
   perform pg_temp.rec('confirming something that needs no confirmation is refused', '22023', pg_temp.try($q$select public.confirm_task_type('symptom_review')$q$));
   perform public.confirm_task_type('adherence_follow_up', 'class 8 and coordinator tier are right');
-  perform pg_temp.rec('approval is still refused while crisis_follow_up (S57b) awaits confirmation', 'true',
+  perform pg_temp.rec('an unconfirmed type this rule set does not use (crisis_follow_up, S57b) does not block it (OQ-334)', 'true',
     ((select count(*) from public.task_types where is_active and needs_confirmation and confirmed_at is null and code = 'crisis_follow_up') = 1
-     and pg_temp.try(format('select public.approve_triage_rule_set(%L)', v_draft)) = '22023')::text);
+     and not exists (select 1 from public.task_types t, public.triage_rule_sets rs,
+            lateral jsonb_path_query(rs.rules, '$.rules[*].actions[*] ? (@.kind == "create_task")') x
+          where rs.id = v_draft and t.code = 'crisis_follow_up' and t.source_task_keys @> array[x ->> 'task']))::text);
   perform public.confirm_task_type('crisis_follow_up', 'same class and tier as the red event task');
   perform pg_temp.back();
   perform pg_temp.rec('confirmed: who, when and note recorded', 'true,true,class 8 and coordinator tier are right',

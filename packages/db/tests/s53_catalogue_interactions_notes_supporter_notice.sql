@@ -263,12 +263,14 @@ begin
   reset role;
   update public.profile_access set expires_at = now() - interval '1 minute', created_at = now() - interval '1 day' where grantee_user_id = v_sup_exp and profile_id = v_pat;
 
+  -- The trigger compares scheduled_for_date with TODAY IN LAGOS, so these rows use the Lagos date, not the database's UTC current_date: between
+  -- 23:00 and 24:00 UTC the two differ by a day and a UTC date made a fresh missed dose look stale (the proof failed for that hour every night).
   insert into public.medication_logs (organisation_id, patient_id, medication_id, status, scheduled_time, scheduled_for_date, source, client_id)
-    values (v_org, v_pat, v_med, 'missed', '08:00', current_date - 1, 'system', gen_random_uuid());
+    values (v_org, v_pat, v_med, 'missed', '08:00', (now() at time zone 'Africa/Lagos')::date - 1, 'system', gen_random_uuid());
   insert into results values ('D', 'a supporter with view_medication and receive_alerts gets one notice', '1',
     (select count(*)::text from public.notifications where recipient_id = v_sup and template = 'supporter_missed_dose_notice'));
   insert into public.medication_logs (organisation_id, patient_id, medication_id, status, scheduled_time, scheduled_for_date, source, client_id)
-    values (v_org, v_pat, v_med, 'missed', '20:00', current_date - 1, 'system', gen_random_uuid());
+    values (v_org, v_pat, v_med, 'missed', '20:00', (now() at time zone 'Africa/Lagos')::date - 1, 'system', gen_random_uuid());
   insert into results values ('D', 'a second missed dose the same day adds no second notice', '1',
     (select count(*)::text from public.notifications where recipient_id = v_sup and template = 'supporter_missed_dose_notice'));
   insert into results values ('D', 'a supporter without receive_alerts gets none', '0',
@@ -291,7 +293,7 @@ begin
   delete from public.supporter_missed_dose_notices;
   delete from public.notifications where recipient_id = v_sup and template = 'supporter_missed_dose_notice';
   insert into public.medication_logs (organisation_id, patient_id, medication_id, status, scheduled_time, scheduled_for_date, source, client_id)
-    values (v_org, v_pat, v_med, 'missed', '07:00', current_date - 5, 'system', gen_random_uuid());
+    values (v_org, v_pat, v_med, 'missed', '07:00', (now() at time zone 'Africa/Lagos')::date - 5, 'system', gen_random_uuid());
   insert into results values ('D', 'an old missed dose synced late sends no notice', '0',
     (select count(*)::text from public.notifications where recipient_id = v_sup and template = 'supporter_missed_dose_notice'));
 
@@ -300,7 +302,7 @@ begin
   alter table public.notifications add constraint s53_break_notice check (template <> 'supporter_missed_dose_notice') not valid;
   begin
     insert into public.medication_logs (organisation_id, patient_id, medication_id, status, scheduled_time, scheduled_for_date, source, client_id)
-      values (v_org, v_pat, v_med, 'missed', '08:00', current_date, 'system', gen_random_uuid());
+      values (v_org, v_pat, v_med, 'missed', '08:00', (now() at time zone 'Africa/Lagos')::date, 'system', gen_random_uuid());
     v_err := 'logged';
   exception when others then v_err := 'blocked'; end;
   alter table public.notifications drop constraint s53_break_notice;
@@ -311,7 +313,7 @@ begin
   delete from public.supporter_missed_dose_notices;
   delete from public.notifications where recipient_id = v_sup and template = 'supporter_missed_dose_notice';
   insert into public.medication_logs (organisation_id, patient_id, medication_id, status, scheduled_time, scheduled_for_date, source, client_id)
-    values (v_org, v_pat, v_med, 'missed', '09:00', current_date, 'system', gen_random_uuid());
+    values (v_org, v_pat, v_med, 'missed', '09:00', (now() at time zone 'Africa/Lagos')::date, 'system', gen_random_uuid());
   insert into results values ('E', 'SABOTAGE: with the trigger removed the supporter gets nothing (the positive case would FAIL)', '0',
     (select count(*)::text from public.notifications where recipient_id = v_sup and template = 'supporter_missed_dose_notice'));
 end $$;

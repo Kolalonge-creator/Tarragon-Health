@@ -101,8 +101,8 @@ do $$
 declare v_org uuid; v_pA uuid; v_pB uuid; v_pC uuid; v_lA uuid; v_lB uuid; v_lU uuid; v_lC uuid; v_doc uuid; v_pat uuid; v_pat2 uuid;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
-  insert into public.pharmacy_partners (name, is_active, approved_at, license_verified_at, onboarding_status) values ('S28 Pharmacy A', true, now(), now(), 'activated') returning id into v_pA;
-  insert into public.pharmacy_partners (name, is_active, approved_at, license_verified_at, onboarding_status) values ('S28 Pharmacy B', true, now(), now(), 'activated') returning id into v_pB;
+  insert into public.pharmacy_partners (name, is_active, approved_at, license_verified_at, onboarding_status, nafdac_source_attested_at) values ('S28 Pharmacy A', true, now(), now(), 'activated', now()) returning id into v_pA;
+  insert into public.pharmacy_partners (name, is_active, approved_at, license_verified_at, onboarding_status, nafdac_source_attested_at) values ('S28 Pharmacy B', true, now(), now(), 'activated', now()) returning id into v_pB;
   insert into public.pharmacy_partners (name, is_active, approved_at, license_verified_at, onboarding_status) values ('S28 Pharmacy C inactive', false, now(), now(), 'activated') returning id into v_pC;
   insert into public.pharmacy_partner_locations (pharmacy_partner_id, name, state, address, is_active, verified_at) values (v_pA, 'S28 A Lekki', 'Lagos', '1 Test Road', true, now()) returning id into v_lA;
   insert into public.pharmacy_partner_locations (pharmacy_partner_id, name, state, address, is_active, verified_at) values (v_pB, 'S28 B Ikeja', 'Lagos', '2 Test Road', true, now()) returning id into v_lB;

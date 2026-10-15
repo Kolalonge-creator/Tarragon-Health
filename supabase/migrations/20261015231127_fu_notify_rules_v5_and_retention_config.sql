@@ -189,7 +189,7 @@ insert into public.credentialing_config (version, is_active, effective_from, rul
   "recheck_months": 6,
   "recheck_overdue_days": 14,
   "credential_date_max_days": 1100,
-  "grandfather_ends_on": null,
+  "grandfather_ends_on": "2027-01-13",
   "renewal_cycle": { "cycle_end_month": 12, "cycle_end_day": 31, "proof_deadline_month": 12, "proof_deadline_day": 15 },
   "missing_licence_date_ineligible": true,
   "verification_sources": ["mdcn_register_lookup", "document_sighted", "insurer_confirmation", "other"],

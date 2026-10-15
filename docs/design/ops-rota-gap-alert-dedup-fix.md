@@ -11,3 +11,5 @@
 **Proof.** `packages/db/tests/ops_rota_gap_alert_dedup.sql` (registered in `ci.manifest`): one row with a stable timestamp-free key for a fixture org; two forced evaluations (`ops_evaluate_alerts(true, true)`, include test data and force) leave one open alert and one incident; the clean-up resolves seeded old-style duplicates with no notification and leaves other titles alone; sabotage reinstalls the old timestamped key and the assertion flips.
 
 **Not changed.** The evaluator itself is correct; its dedup relies on a key that is stable per condition. Other checks use stable keys already.
+
+**Superseded 2026-10-15.** The two rota gap alerts (this SR5 rule and S18's `rota_gap:<org>` incident) were merged into one, S18 kept: see `docs/design/FU-db-closeout.md`. The SR5 check now returns no rows and its proof was replaced by `fu_rota_gap_and_credential_followups.sql`.
