@@ -48,7 +48,7 @@ begin
           coalesce(p_dob, (current_date - interval '45 years')::date), true, 'en', p_sex::public.sex, p_state,
           coalesce(p_dob, current_date - interval '45 years') > current_date - interval '18 years',
           case when coalesce(p_dob, current_date - interval '45 years') > current_date - interval '18 years' then 'minor_child'::public.dependent_kind end)
-  on conflict (id) do update set role = excluded.role, is_test = true, is_active = true, phone = excluded.phone, date_of_birth = excluded.date_of_birth, full_name = excluded.full_name, sex = excluded.sex, state = excluded.state;
+  on conflict (id) do update set role = excluded.role, is_test = true, is_active = true, phone = excluded.phone, is_dependent_account = excluded.is_dependent_account, dependent_kind = excluded.dependent_kind, date_of_birth = excluded.date_of_birth, full_name = excluded.full_name, sex = excluded.sex, state = excluded.state;
   return v;
 end $f$;
 create function pg_temp.mkstaff(p_org uuid, p_admin uuid, p_label text, p_tier text) returns uuid
@@ -107,6 +107,10 @@ begin
   v_lagos := pg_temp.mkuser(v_org, 'lagos', 'patient', (current_date - interval '30 years')::date, 'female', 'Lagos');
   v_edo   := pg_temp.mkuser(v_org, 'edo', 'patient', (current_date - interval '70 years')::date, 'male', 'Edo');
   v_kano  := pg_temp.mkuser(v_org, 'kano', 'patient', (current_date - interval '8 years')::date, 'male', 'Kano');
+  -- S04b-1: a minor dependant cannot hold symptom-check rows through the app. This proof measures the audit's 5-17 age band on a
+  -- fixture, so the minor-scope guard is off for this rolled-back transaction only.
+  alter table public.symptom_triage_assessments disable trigger "00_minor_dependant_scope";
+  alter table public.symptom_reviews disable trigger "00_minor_dependant_scope";
   v_testp := pg_temp.mkuser(v_org, 'testacct', 'patient', null, 'female', 'Lagos');
 
   -- month 1: lagos 12 (9 match, 2 under, 1 over), edo 11 (10 match, 0 under, 1 over), kano 7 (4 match, 3 under); one test-account review as well
