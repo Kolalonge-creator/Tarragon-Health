@@ -400,13 +400,11 @@ end $$;
 
 -- 6b. The organisation-wide emergency page carries no wellbeing label and no patient name (INV-07, INV-12) -------------------------
 do $$
-declare v_pat uuid := pg_temp.f('pat'); v_org uuid := pg_temp.f('org'); v_product uuid; v_doc uuid := pg_temp.f('doctied'); v_ctl uuid;
+declare v_pat uuid := pg_temp.f('pat'); v_org uuid := pg_temp.f('org'); v_doc uuid := pg_temp.f('doctied'); v_ctl uuid;
 begin
-  select id into v_product from public.service_products where is_active and 'vitals_red_flag_doctor_escalation' = any(features) order by code limit 1;
-  if v_product is null then raise exception 'VACUOUS: no active service product carries the doctor-escalation feature'; end if;
+  -- Two-tier (2026-10-13): the doctor is paged for a Member; subscription plans and feature products are gone.
   update public.profiles set full_name = 'Probe Name Pat' where id = v_pat;   -- mkuser leaves full_name null (the auth trigger made the row first)
-  insert into public.service_purchases (organisation_id, patient_id, purchaser_profile_id, service_product_id, status, amount_kobo, currency, purchased_at, expires_at)
-    values (v_org, v_pat, v_pat, v_product, 'active', 1000000, 'NGN', now(), now() + interval '30 days');
+  insert into public.patient_memberships (organisation_id, patient_id, source, state, is_test) values (v_org, v_pat, 'purchase', 'active', true);
   insert into public.emergency_events (organisation_id, patient_id, source, trigger_detail, status)
     values (v_org, v_pat, 'mental_health_screen', 'A check-in needs urgent follow-up', 'active');
   perform pg_temp.ck('a clinician was paged for the mental-health emergency (the safety net still fires)', '1',
@@ -418,8 +416,7 @@ begin
   -- control, on a second entitled patient (the first already owns an open alert, which a second event would be attached to)
   v_ctl := pg_temp.mkuser(v_org, 'ctl', 'patient');
   update public.profiles set full_name = 'Probe Name Ctl' where id = v_ctl;
-  insert into public.service_purchases (organisation_id, patient_id, purchaser_profile_id, service_product_id, status, amount_kobo, currency, purchased_at, expires_at)
-    values (v_org, v_ctl, v_ctl, v_product, 'active', 1000000, 'NGN', now(), now() + interval '30 days');
+  insert into public.patient_memberships (organisation_id, patient_id, source, state, is_test) values (v_org, v_ctl, 'purchase', 'active', true);
   insert into public.emergency_events (organisation_id, patient_id, source, trigger_detail, status)
     values (v_org, v_ctl, 'bp_reading', 'proof control', 'active');
   perform pg_temp.ck('control: a blood pressure emergency page still names its source and the patient', '1',
