@@ -102,7 +102,10 @@ begin
 
   -- 4. activate the cadence (what the CMO sign-off will do) and sweep
   update public.credentialing_config set is_active = false where is_active;
-  update public.credentialing_config set is_active = false where is_active; update public.credentialing_config set is_active = true where version = 5;
+  -- v5 carries S20 v2's rule that a missing licence date is ineligible, and its activation guard refuses while any active clinician has no date.
+  -- This proof is about the re-check cadence, not expiry, so every active clinician gets a date well in the future first.
+  update public.clinical_staff set license_expires_at = current_date + 365 where active and status = 'active' and profile_id is not null and license_expires_at is null;
+  update public.credentialing_config set is_active = true where version = 5;
   insert into public.credential_grace_periods (organisation_id, clinical_staff_id, kind, starts_at, ends_at, reason, granted_by, is_test)
     values (v_org, v_b_s, 'licence', now() - interval '1 day', now() + interval '5 days', 'S76B2 grace for the proof', v_cmo, true);
   v_res := private.licence_reverification_sweep();
