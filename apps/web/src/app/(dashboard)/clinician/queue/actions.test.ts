@@ -55,41 +55,108 @@ describe("takeNextTask", () => {
   });
 });
 
-describe("completeTask", () => {
-  it("refuses a short note before calling the database", async () => {
-    const result = await completeTask(undefined, form({ task_id: id, note: "ok" }));
-    expect(result?.error).toMatch(/10 characters/);
+describe("completeTask (S16-S20 D4: a coded outcome)", () => {
+  it("refuses a missing outcome before calling the database", async () => {
+    const result = await completeTask(undefined, form({ task_id: id, note: "Called the patient and agreed a recheck." }));
+    expect(result?.error).toMatch(/how this task was finished/);
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it("completes with an outcome object and returns to the queue", async () => {
+  it("completes with the code and returns to the queue; a note is optional", async () => {
     rpc.mockResolvedValue({ data: null, error: null });
-    await expect(completeTask(undefined, form({ task_id: id, note: "Called the patient and agreed a recheck." }))).rejects.toThrow("REDIRECT:/clinician/queue?done=1");
-    expect(rpc).toHaveBeenCalledWith("queue_complete", { p_task: id, p_outcome: { kind: "completed", note: "Called the patient and agreed a recheck." } });
+    await expect(completeTask(undefined, form({ task_id: id, code: "completed_no_action_needed" }))).rejects.toThrow("REDIRECT:/clinician/queue?done=1");
+    expect(rpc).toHaveBeenCalledWith("queue_complete", { p_task: id, p_outcome: { code: "completed_no_action_needed" } });
   });
 
-  it.each(["async_question", "written_question_call"])("will not close a %s task with a free-text note", async (type) => {
+  it("carries the note as a note beside the code", async () => {
+    rpc.mockResolvedValue({ data: null, error: null });
+    await expect(completeTask(undefined, form({ task_id: id, code: "referred_on", note: "Sent to the heart clinic." }))).rejects.toThrow("REDIRECT:/clinician/queue?done=1");
+    expect(rpc).toHaveBeenCalledWith("queue_complete", { p_task: id, p_outcome: { code: "referred_on", note: "Sent to the heart clinic." } });
+  });
+
+  it("refuses a code the task type does not list", async () => {
+    const result = await completeTask(undefined, form({ task_id: id, code: "result_released" }));
+    expect(result?.error).toMatch(/how this task was finished/);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it.each(["async_question", "written_question_call", "titration_signoff", "red_event_unacknowledged", "symptom_review"])("will not close a %s task from this form", async (type) => {
     heldType.mockReturnValue({ data: { type }, error: null });
-    const result = await completeTask(undefined, form({ task_id: id, note: "Called the patient and agreed a recheck." }));
+    const result = await completeTask(undefined, form({ task_id: id, code: "completed_action_taken" }));
     expect(result?.error).toMatch(/own page/);
     expect(rpc).not.toHaveBeenCalled();
   });
 
+  describe("a critical result closed by contact attempts", () => {
+    const attempt = (i: number, method = "phone_call") => ({ [`attempt_method_${i}`]: method, [`attempt_at_${i}`]: "2026-10-14T13:05" });
+    const base = { task_id: id, code: "contact_attempts_documented" };
+
+    beforeEach(() => heldType.mockReturnValue({ data: { type: "critical_result_review" }, error: null }));
+
+    it("sends the attempts, with Lagos time turned into a precise time", async () => {
+      rpc.mockResolvedValue({ data: null, error: null });
+      await expect(completeTask(undefined, form({ ...base, ...attempt(0), ...attempt(1), ...attempt(2, "in_app_message") }))).rejects.toThrow("REDIRECT:/clinician/queue?done=1");
+      const outcome = (rpc.mock.calls[0]?.[1] as { p_outcome: { code: string; attempts: { at: string; method: string; reached: boolean }[] } }).p_outcome;
+      expect(outcome.code).toBe("contact_attempts_documented");
+      expect(outcome.attempts).toHaveLength(3);
+      expect(outcome.attempts[0]).toEqual({ at: "2026-10-14T12:05:00.000Z", method: "phone_call", reached: false });
+    });
+
+    it("records whether the patient was reached", async () => {
+      rpc.mockResolvedValue({ data: null, error: null });
+      await expect(
+        completeTask(undefined, form({ ...base, ...attempt(0), ...attempt(1), ...attempt(2), attempt_reached_2: "on" })),
+      ).rejects.toThrow("REDIRECT:/clinician/queue?done=1");
+      const outcome = (rpc.mock.calls[0]?.[1] as { p_outcome: { attempts: { reached: boolean }[] } }).p_outcome;
+      expect(outcome.attempts.map((a) => a.reached)).toEqual([false, false, true]);
+    });
+
+    it("asks for more when there are too few, or a method is not on the list, or a time is unreadable", async () => {
+      for (const fields of [
+        { ...base, ...attempt(0), ...attempt(1) },
+        { ...base, ...attempt(0), ...attempt(1), ...attempt(2, "carrier_pigeon") },
+        { ...base, ...attempt(0), ...attempt(1), attempt_method_2: "phone_call", attempt_at_2: "yesterday" },
+      ]) {
+        const result = await completeTask(undefined, form(fields));
+        expect(result?.error).toMatch(/at least 3 contact attempts/);
+      }
+      expect(rpc).not.toHaveBeenCalled();
+    });
+
+    it("a result that has been released needs no attempts", async () => {
+      rpc.mockResolvedValue({ data: null, error: null });
+      await expect(completeTask(undefined, form({ task_id: id, code: "result_released" }))).rejects.toThrow("REDIRECT:/clinician/queue?done=1");
+      expect(rpc).toHaveBeenCalledWith("queue_complete", { p_task: id, p_outcome: { code: "result_released" } });
+    });
+
+    it("tells the clinician when the record does not back the claim", async () => {
+      rpc.mockResolvedValue({ data: null, error: { message: "queue_outcome_result_not_released" } });
+      const result = await completeTask(undefined, form({ task_id: id, code: "result_released" }));
+      expect(result?.error).toMatch(/not been released/);
+    });
+  });
+
   it("does not complete when the task type cannot be read", async () => {
     heldType.mockReturnValue({ data: null, error: { message: "boom" } });
-    const result = await completeTask(undefined, form({ task_id: id, note: "Called the patient and agreed a recheck." }));
+    const result = await completeTask(undefined, form({ task_id: id, code: "completed_action_taken" }));
     expect(result?.error).toBeDefined();
     expect(rpc).not.toHaveBeenCalled();
   });
 
   it("says so when the hold has lapsed", async () => {
     rpc.mockResolvedValue({ data: null, error: { message: "queue_claim_expired" } });
-    const result = await completeTask(undefined, form({ task_id: id, note: "Called the patient and agreed a recheck." }));
+    const result = await completeTask(undefined, form({ task_id: id, code: "completed_action_taken" }));
     expect(result?.error).toMatch(/run out/);
   });
 });
 
 describe("handBack", () => {
+  it("needs a reason: none is pre-selected (D7)", async () => {
+    const result = await handBack(undefined, form({ task_id: id, reason: "" }));
+    expect(result?.error).toMatch(/choose a reason/);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
   it("needs a note for 'other'", async () => {
     const result = await handBack(undefined, form({ task_id: id, reason: "other" }));
     expect(result?.error).toBeDefined();
