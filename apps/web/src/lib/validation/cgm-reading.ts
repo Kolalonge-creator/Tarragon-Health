@@ -32,3 +32,23 @@ export const cgmReadingBatchSchema = z
   });
 
 export type CgmReadingBatchInput = z.infer<typeof cgmReadingBatchSchema>;
+
+/**
+ * The batch with only a sanity check on each number, used while the plausibility hold is switched on (S70a, 18.9): a value no one can
+ * have is held for the person to check by the database instead of failing the whole batch with a 400, and an extreme but possible one is
+ * saved and triaged. See deviceReadingHoldSchema.
+ */
+export const cgmReadingBatchHoldSchema = z.object({
+  cgm_connection_id: z.string().uuid(),
+  readings: z
+    .array(
+      z.object({
+        external_reading_id: z.string().trim().min(1).max(200),
+        glucose_value: z.number().finite().positive().max(100000),
+        glucose_unit: z.enum(GLUCOSE_UNITS),
+        taken_at: z.string().datetime(),
+      }),
+    )
+    .min(1)
+    .max(500),
+});
