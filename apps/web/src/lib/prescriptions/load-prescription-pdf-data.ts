@@ -104,10 +104,18 @@ async function loadPrescriber(
 /** A failed folio lookup becomes a structured error, never a thrown 500 or a silently unnumbered prescription. */
 async function loadFolios(
   supabase: Client,
-  medicationIds: string[],
+  medications: { id: string; added_by: string | null }[],
 ): Promise<{ folios: Map<string, DocumentFolio>; error: string | null }> {
   try {
-    return { folios: await fetchDocumentFolios(supabase, "prescription", medicationIds), error: null };
+    return {
+      folios: await fetchDocumentFolios(
+        supabase,
+        "prescription",
+        medications.map((m) => m.id),
+        Object.fromEntries(medications.map((m) => [m.id, m.added_by])),
+      ),
+      error: null,
+    };
   } catch (e) {
     return { folios: new Map(), error: e instanceof Error ? e.message : "prescriber lookup failed" };
   }
@@ -151,7 +159,7 @@ export async function loadSinglePrescription(
   const medication = data as MedicationRow | null;
   if (!medication) return { status: "not_found" };
 
-  const { folios, error: folioError } = await loadFolios(supabase, [medication.id]);
+  const { folios, error: folioError } = await loadFolios(supabase, [medication]);
   if (folioError) return { status: "error", message: folioError };
   const [patient, prescriber] = await Promise.all([
     loadPatient(supabase, medication.patient_id),
@@ -196,7 +204,7 @@ export async function loadPrescriptionBundle(
   const patient = await loadPatient(supabase, patientId);
   if (!patient) return { status: "not_found" };
 
-  const { folios, error: folioError } = await loadFolios(supabase, rows.map((r) => r.id));
+  const { folios, error: folioError } = await loadFolios(supabase, rows);
   if (folioError) return { status: "error", message: folioError };
   const prescribers = new Map<string, PrescriptionPrescriber | null>();
   const results: PrescriptionPdfResult[] = [];
@@ -268,7 +276,7 @@ export async function loadPrescriptionForClinician(
   if (!row) return { status: "not_found" };
   const medication = row as unknown as MedicationRow;
 
-  const { folios, error: folioError } = await loadFolios(supabase, [medication.id]);
+  const { folios, error: folioError } = await loadFolios(supabase, [medication]);
   if (folioError) return { status: "error", message: folioError };
   const [patient, prescriber] = await Promise.all([
     loadPatient(supabase, patientId),

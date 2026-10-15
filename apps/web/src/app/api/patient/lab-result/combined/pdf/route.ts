@@ -1,5 +1,5 @@
 import { renderToBuffer } from "@react-pdf/renderer";
-import { fetchDocumentFolios } from "@/lib/clinical/document-folio";
+import { DocumentFolioRefusedError, fetchDocumentFolios } from "@/lib/clinical/document-folio";
 import { createClient } from "@/lib/supabase/server";
 import {
   CombinedInterpretationDocument,
@@ -54,11 +54,20 @@ export async function GET(request: Request): Promise<Response> {
 
   // One batched, document-scoped folio lookup (CMO Q17, OQ-358): the directory view
   // no longer carries the folio.
-  const folioByDocId = await fetchDocumentFolios(
-    supabase,
-    "lab_result_interpretation",
-    docs.filter((d) => d.reviewed_by).map((d) => d.id),
-  );
+  let folioByDocId;
+  try {
+    folioByDocId = await fetchDocumentFolios(
+      supabase,
+      "lab_result_interpretation",
+      docs.filter((d) => d.reviewed_by).map((d) => d.id),
+      Object.fromEntries(docs.map((d) => [d.id, d.reviewed_by])),
+    );
+  } catch (e) {
+    if (e instanceof DocumentFolioRefusedError) {
+      return new Response("You are not permitted to produce this document", { status: 403 });
+    }
+    throw e;
+  }
 
   const items: InterpretationData[] = docs.map((doc) => {
     const staff = doc.reviewed_by ? folioByDocId.get(doc.id) : undefined;

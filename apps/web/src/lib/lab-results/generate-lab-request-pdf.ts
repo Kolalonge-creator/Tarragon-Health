@@ -2,7 +2,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import { LabRequestDocument, type LabRequestData } from "@/lib/lab-results/lab-request-document";
-import { fetchDocumentFolios } from "@/lib/clinical/document-folio";
+import { DocumentFolioRefusedError, fetchDocumentFolios } from "@/lib/clinical/document-folio";
 
 export type GenerateLabRequestPdfResult =
   | { ok: true; buffer: Buffer; filename: string; orderNumber: string | null }
@@ -74,7 +74,16 @@ export async function generateLabRequestPdf(
   let requestedByCredentialNumber: string | null = null;
   if (order.ordered_by) {
     // Folio via the document-scoped function, never the directory view (CMO Q17, OQ-358).
-    const folio = (await fetchDocumentFolios(supabase, "lab_request", [order.id])).get(order.id);
+    let folio;
+    try {
+      folio = (
+        await fetchDocumentFolios(supabase, "lab_request", [order.id], { [order.id]: order.ordered_by })
+      ).get(order.id);
+    } catch (e) {
+      // Not entitled to the clinician's registration number: do not produce an unnumbered request.
+      if (e instanceof DocumentFolioRefusedError) return { ok: false, error: "not_found" };
+      throw e;
+    }
     if (folio?.fullName) {
       requestedByName = folio.fullName;
       requestedByCredentialType = folio.credentialType;
