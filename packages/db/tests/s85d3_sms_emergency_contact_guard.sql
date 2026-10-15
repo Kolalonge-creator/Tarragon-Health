@@ -82,7 +82,9 @@ begin
   perform pg_temp.rec('two conditions', '2', jsonb_array_length(v_conds)::text);
   perform pg_temp.rec('...both unmet at birth', '2', v_unmet::text);
   perform pg_temp.rec('...and both are attestations', '2', (select count(*)::text from jsonb_array_elements(v_conds) c where c ->> 'source' = 'attestation'));
+  perform pg_temp.act(v_admin);
   perform pg_temp.rec('switching on is refused while they are unmet', '22023', pg_temp.try('select public.set_go_live_guard(''sms_emergency_contact_enabled'', true, ''go'')'));
+  perform pg_temp.back();
 
   -- 3. who can attest and switch
   perform pg_temp.act(v_pat);
