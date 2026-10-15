@@ -2167,6 +2167,26 @@ Built on top of F1; nothing applied to production; `symptom_checker_enabled` sta
 - Still owed: (e) Android: not run (no Java or emulator image on this machine); `SCHEDULE_EXACT_ALARM` is not declared (OQ-73), so a reminder can arrive minutes late in Doze and the server backup push covers it. The native Pidgin review itself.
 - Decision: pending (item e, and the Pidgin sign-off).
 
+### OQ-309 The Paystack webhook still has a refund branch for a retired Platform Credit charge (raised by S87)
+- Blocks: nothing. `supabase/functions/paystack-webhook/handler.ts` (around line 756) handles `metadata.kind = "platform_credit_topup"` by refunding and reconciling. Platform Credit was removed from the schema on 2026-09-30 (0 balances, 0 ledger entries, 0 top-ups), so the branch can only fire for a charge started before removal.
+- Options: (a) keep the branch for 30 days as a safety net, then delete it; (b) delete it now.
+- Recommend (a), then delete and remove the Part C allowlist entry. Deploy order: code first, nothing in the schema depends on it.
+- Decision: pending.
+
+### OQ-310 Employer roster invitations can be sent by SMS (raised by S87)
+- Blocks: nothing. `dashboard/corporate/roster-manager.tsx` offers an "SMS" invitation channel for roster members. It is not a verification code or clinician paging, so it is outside the SMS rule (OQ-05, D3 draft of 2026-10-07).
+- Options: (a) remove the SMS channel and invite by email or a link the employer shares; (b) keep as a named exception.
+- Recommend (a). Decision: pending, with D3.
+
+### OQ-311 Part C.2 says clinicians are freelance only; the platform allows employed doctors (raised by S87)
+- Blocks: nothing. The code models `employment_type` (employed or contracted) and four earnings screens say "paid by salary". The founder decision of 2026-09-30 allows employed doctors (pushed tasks) next to freelancers (pull from the pool).
+- Decision (founder, 2026-10-07): update the spec row to match; keep the code. The spec file itself is never edited, so the change is recorded here and in `docs/DECISIONS.md` (S87-1) and the Part C audit treats this row as resolved.
+
+### OQ-312 Dormant schema that Part C mentions, found live on 2026-10-07 (raised by S87)
+- Counted live: `subscription_plans` 13 rows, `subscriptions` 0, `subscription_add_ons` 0, `logistics_partners` 1, `wellness_points_balances` 2 (points, not money). The `payment_provider` enum still holds `wallet` and `stripe` labels. `commission_type.delivery`, `pharmacy_refund_reason.delivery_failed` and `medication_access_barrier_reason.delivery_unavailable` remain after OQ-261.
+- Options: (a) leave as dormant history; (b) one removal migration per removal-pattern in CLAUDE.md (count rows, delete enum values, assertion block, proof, then code first).
+- Recommend (b) for the enum labels (zero rows) and the subscription tables, after OQ-97's code removal. Decision: pending.
+- Not yet verified in S87: employer or institution reporting never exposes reproductive, pregnancy or mental health data (C.1); the scribe patient summary is never patient-visible without a clinician signature (INV-11); `escalation_slas` v8 still names a WhatsApp hop (OQ-198's ladder, normalised to email at read time).
 ### OQ-320 Partner cost and refund margin columns are still readable by the patient and org staff (raised by Track E)
 - `lab_orders.partner_cost_kobo/_provider_id/_breakdown`, `pharmacy_orders.partner_cost_*`, `lab_order_refunds.margin_portion_kobo` and `pharmacy_order_refunds.margin_portion_kobo` are readable by the ordering patient and by any org staff (`is_org_staff`, which admits the clinician role). Live row counts today: 0 in all four tables, so nothing has leaked. Not fixed in the Track E migration because these tables are read with `select("*")` and embeds in many places.
 - Options: (a) same column-grant plus owner-run view treatment as Track E, after a client sweep (recommended, as the next track, before the first partner order); (b) move the cost columns to a finance-only side table.
