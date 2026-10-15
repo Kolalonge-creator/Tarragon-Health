@@ -97,6 +97,8 @@ test.describe("clinician queue (S16-S20)", () => {
   test.beforeAll(async () => {
     test.setTimeout(180_000);
     patient = await createTestPatient(runId);
+    // The queue only offers a test task to a test clinician (ct.is_test = me.is_test) and a task takes the patient's flag, so the patient is a test row too.
+    psqlValue(`update public.profiles set is_test = true where id = '${patient.userId}'`);
     doctor = await makeClinician("doctor", "senior_medical_officer", ["hypertension", "adult_general"]);
     lead = await makeClinician("lead", "chief_medical_officer", []);
   });
