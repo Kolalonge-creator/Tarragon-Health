@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { resolveSubjectId } from "@/lib/acting/acting-for";
-import { getActivePathway, getActiveTriageProtocolConfig } from "@/lib/symptom-triage/protocol";
+import { getActivePathway, getActiveTriageProtocolConfig, isSymptomCheckerOpen } from "@/lib/symptom-triage/protocol";
 import { symptomTriageStepSchema, type SymptomTriageStepInput } from "@/lib/validation/symptom-triage";
 import { nextTriageStep, runTriage } from "@tarragon/symptom-triage-engine";
 import type { QuestionNode } from "@tarragon/symptom-triage-engine";
@@ -28,6 +28,7 @@ export type PresentingComplaintOption = { key: string; label: string };
 
 /** For the complaint-picker step — only pathways in the currently SIGNED config. */
 export async function listAvailablePresentingComplaints(): Promise<PresentingComplaintOption[]> {
+  if (!(await isSymptomCheckerOpen())) return [];
   const active = await getActiveTriageProtocolConfig();
   if (!active) return [];
   return active.config.pathways.map((p) => ({ key: p.key, label: p.label }));
@@ -62,6 +63,9 @@ export async function stepSymptomTriage(input: SymptomTriageStepInput): Promise<
     return { status: "error", error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
   const { capture, answers, questionLog } = parsed.data;
+
+  // F1 (INV-14): closed means closed, whatever the client sent. The database refuses the insert as well.
+  if (!(await isSymptomCheckerOpen())) return { status: "unavailable" };
 
   const active = await getActivePathway(capture.presentingComplaintKey);
   if (!active) return { status: "unavailable" };
@@ -119,6 +123,9 @@ export async function stepSymptomTriage(input: SymptomTriageStepInput): Promise<
     })
     .select("id")
     .single();
+
+  // 42501: the database closed the door (the guard, for the person being acted for). Same calm state as the screen.
+  if (insertError?.code === "42501") return { status: "unavailable" };
 
   if (insertError || !inserted) {
     return { status: "error", error: insertError?.message ?? "Could not record the assessment" };
