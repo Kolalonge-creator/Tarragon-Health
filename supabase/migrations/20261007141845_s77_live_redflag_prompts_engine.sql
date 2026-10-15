@@ -117,9 +117,9 @@ begin
        ('lab_booking_enabled', 'results_flow_tested'),
        ('scribe_enabled', 'con001_legal_review_recorded'), ('scribe_enabled', 'speech_provider_configured'),
        ('payouts_enabled', 'fee_schedule_approved'), ('payouts_enabled', 'paystack_transfers_configured'),
-       ('public_signup_enabled', 'stage2_exit_criteria_met'),
        ('live_redflag_prompts_enabled', 'speech_validated_nigerian_english'), ('live_redflag_prompts_enabled', 'consent_tables_settled'),
-       ('live_redflag_prompts_enabled', 'redflag_phrase_list_signed'), ('live_redflag_prompts_enabled', 'clinical_safety_case_current')) then
+       ('live_redflag_prompts_enabled', 'redflag_phrase_list_signed'), ('live_redflag_prompts_enabled', 'clinical_safety_case_current'),
+       ('public_signup_enabled', 'stage2_exit_criteria_met')) then
     raise exception 'that condition is read from the data (or does not exist), it cannot be attested' using errcode = '22023';
   end if;
   if p_met is null or length(btrim(coalesce(p_note, ''))) < 10 then
