@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { createBearerClient } from "@/lib/supabase/bearer";
-import { cgmReadingBatchSchema } from "@/lib/validation/cgm-reading";
+import { cgmReadingBatchHoldSchema, cgmReadingBatchSchema } from "@/lib/validation/cgm-reading";
+import { readDeviceFlags } from "@/lib/devices/flags";
+import { readBatchOutcome } from "@/lib/devices/reading-outcome";
+import { runBestEffort } from "@/lib/sentry/run-best-effort";
 import { mgDlToMmolL, type TablesInsert } from "@tarragon/shared";
 
 /**
@@ -42,7 +45,9 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const parsed = cgmReadingBatchSchema.safeParse(body);
+  // S70a (18.9): with the plausibility hold on, the database holds an impossible value instead of the whole batch failing with a 400.
+  const flags = await readDeviceFlags(supabase);
+  const parsed = (flags.device_plausibility_hold ? cgmReadingBatchHoldSchema : cgmReadingBatchSchema).safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       { error: parsed.error.issues[0]?.message ?? "Invalid input" },
@@ -110,6 +115,20 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
   } else {
     return NextResponse.json({ error: batchError.message }, { status: 500 });
+  }
+
+  // S70a: with a switch on, "inserted" must mean landed in the record. Held values wait for the person; merged ones are linked to a better source.
+  if (flags.device_plausibility_hold || flags.device_cross_source_dedupe) {
+    const outcome = await readBatchOutcome(supabase, {
+      patientId: user.id,
+      connectionColumn: "cgm_connection_id",
+      connectionId: cgm_connection_id,
+      externalIds: readings.map((r) => r.external_reading_id),
+    });
+    await runBestEffort(async () => {
+      await supabase.rpc("report_device_synced", { p_source: "cgm", p_readings: outcome.saved, p_ref: cgm_connection_id });
+    }, { route: "api/mobile/cgm-readings", stage: "device_synced_event", patientId: user.id, organisationId });
+    return NextResponse.json({ success: true, inserted: outcome.saved, held: outcome.held, merged: outcome.merged });
   }
 
   return NextResponse.json({ success: true, inserted });

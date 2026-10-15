@@ -62,7 +62,7 @@ export const LEGACY_ALLOWLIST: Record<string, { count: number; reason: string }>
   "apps/web/scripts/eval-ai004-case-brief.ts": { count: 3, reason: "Fixture data for an AI evaluation script, not a band." },
   "apps/web/src/app/(dashboard)/admin/settings/vitals-reminders/rules-manager.tsx": { count: 1, reason: "Default reminder days, not a band." },
   "apps/mobile/src/lib/healthkit.ts": { count: 1, reason: "A unit string for HealthKit (mmol per litre), not a band." },
-  "packages/shared/src/proposed-config/registry.ts": { count: 11, reason: "Versioned PROPOSED config values (home BP targets, trend gaps, and the S67 pregnancy BP lines that mirror bp_care_triage v5); governed by the registry and its CMO confirmation, not hard-coded logic." },
+  "packages/shared/src/proposed-config/registry.ts": { count: 13, reason: "Versioned PROPOSED config values (home BP targets, trend gaps, the S67 pregnancy BP lines that mirror bp_care_triage v5, and the S70a device plausibility and CGM / ECG alert values); governed by the registry and its CMO confirmation, not hard-coded logic." },
   "packages/lifestyle-engine/src/adapters/diabetes.ts": { count: 1, reason: "SEVERE_HYPO_MMOL in the lifestyle safety adapter (spec 8.2): a stop-the-plan guard, not patient triage. Follow-up: read it from glucose_care_triage params." },
 };
 
