@@ -897,6 +897,57 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S16.md; spec 7.3 and 7.4",
   },
   {
+    key: "queue.task_layer",
+    // The task layer's rules (S16-S20 hardening, CMO decisions 1 to 3 of 2026-10-07). Live values are the active row of
+    // `queue_task_layer_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
+    // lead_window_cap_fraction: an offer window is the task type's window or this share of the task's own due time, whichever is
+    // shorter (decision 1; defect D1). escalated_non_red_any_eligible: an escalated task that is not red is claimable by any eligible
+    // clinician; red (class 1) is unchanged (INV-05). handback_also_excludes_task_for: reasons that bar the same clinician from the
+    // same task again, on top of queue.claims (D7). escalation_alert: classes up to immediate_max_class alert the clinical lead at once
+    // on the listed channels (never SMS or WhatsApp), the rest an in-app notice plus a daily digest (decision 2; D2). completion: the
+    // coded outcomes each task type may close with, the contact-attempt sequence a critical result needs when it cannot be released,
+    // and the note limit (decision 3; D4). watchdog: how stale a queue job may be, and how long the oldest open task of each class may
+    // wait before an alert (D6). Every number is PROPOSED; the CMO signs v2 in the console.
+    // Two further PROPOSED numbers are code constants until that v2 (config v1 cannot be edited in place): a contact attempt may be
+    // dated up to 24 hours before its task existed (CONTACT_ATTEMPT_LOOKBACK_HOURS; private.contact_attempt_lookback()), and further
+    // immediate escalations within 10 minutes of the last alert are folded into one follow-up (private.escalation_coalesce_window()).
+    value: {
+      lead_window_cap_fraction: 0.5,
+      escalated_non_red_any_eligible: true,
+      handback_also_excludes_task_for: ["needs_information", "technical_problem"],
+      escalation_alert: {
+        immediate_max_class: 2,
+        immediate_channels: ["in_app", "push", "email"],
+        notice_channels: ["in_app"],
+        digest_channels: ["in_app", "email"],
+      },
+      completion: {
+        default_codes: ["completed_action_taken", "completed_no_action_needed", "referred_on", "patient_unreachable_documented"],
+        codes_by_type: {
+          critical_result_review: ["result_released", "contact_attempts_documented"],
+          titration_signoff: ["signed", "amended", "rejected"],
+          pharmacy_flag_review: ["prescription_confirmed", "prescription_amended", "pharmacy_contacted", "prescription_withdrawn"],
+          symptom_review: ["answer_signed"],
+          async_question: ["guidance", "needs_call", "needs_more_information", "answer_signed"],
+          written_question_call: ["call_done"],
+          red_event_unacknowledged: ["acknowledged", "dispositioned"],
+        },
+        legacy_kind_types: ["async_question", "written_question_call"],
+        contact_attempts: { min_attempts: 3, methods: ["phone_call", "video_call", "in_app_message", "emergency_contact"] },
+        note_max_chars: 1000,
+      },
+      watchdog: {
+        job_max_age_minutes: { "sweep-clinical-tasks": 5, "expire-task-claims": 5 },
+        class_warning_minutes: { "2": 60, "3": 120, "4": 720, "5": 720, "6": 1440, "7": 720, "8": 1440, "9": 2160 },
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-14",
+    source: "docs/plans/S16-S20-review-and-build-plan.md section 5 (decisions 1 to 3); docs/design/S16-S20-task-layer.md",
+  },
+  {
     key: "lead.rules",
     // Lead clinician, declared availability and on-call rota rules (S18, spec 7.2 and 7.5). Live values are the active row
     // of `lead_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
@@ -2973,5 +3024,40 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/plans/S66-S70-cmo-signoff-pack.md items A1, A2; packages/clinical/src/rules/bp-care-v5.ts",
+  },
+  {
+    key: "assistant.excluded_analytes",
+    // INV-04 (S51 pre-fix). Analyte-code tokens for screening analytes the assistant and the explainer must never read unless the
+    // result is an explicit negative. Mirrored by public.ai_excluded_analyte_tokens in migration
+    // *_s51_inv04_ai_never_reads_sensitive_results.sql; assistant-safety-mirror.test.ts pins the two together. The CMO confirms the list.
+    value: ["hiv", "hbsag", "hbs_ag", "hcv", "hepatitis", "hep_b", "hep_c", "hepb", "hepc", "hbv", "hbeag", "hbe_ag", "anti_hbc", "anti_hbs", "cd4", "viral_load", "p24", "aids", "retroviral"],
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/BUILD-SPEC-v5.md INV-04; docs/design/S51.md",
+  },
+  {
+    key: "assistant.go_live",
+    // S51: the go-live guard assistant_enabled needs at least this many reviewed, owned knowledge rows with a future review date.
+    // Mirrored by public.assistant_config (key go_live) in migration *_s51_assistant_guard_knowledge_events.sql. The CMO confirms the number.
+    value: { min_approved_kb_rows: 20 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S51.md; docs/BUILD-SPEC-v5.md B.7 (go-live guard assistant_enabled)",
+    guardPatterns: ["min_approved_kb_rows\\s*[=:]\\s*20\\b"],
+  },
+  {
+    key: "assistant.nudges",
+    // S51 (7.5): the daily nudge goes only to a patient with an assistant conversation in the last recent_days, at most max_per_run in a run.
+    // Mirrored by public.assistant_config (key nudges); read by public.assistant_nudge_candidates() with no built-in fallback.
+    value: { recent_days: 30, max_per_run: 2000 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S51.md; docs/BUILD-SPEC-v5.md B.7 (nudges)",
   },
 ];
