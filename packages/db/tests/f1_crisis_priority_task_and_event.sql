@@ -1,6 +1,6 @@
--- Proof (F1 fix 4, retyped to crisis_follow_up by S57b): a crisis-flagged wellbeing screen raises a class 1 clinical task and a crisis.detected event, and reaches a person.
+-- Proof (F1 fix 4): a crisis-flagged wellbeing screen raises a class 1 clinical task and a crisis.detected event, and reaches a person.
 --
---   1. With nobody on the rota: the emergency event still fires (unchanged), ONE class 1 task exists (type crisis_follow_up,
+--   1. With nobody on the rota: the emergency event still fires (unchanged), ONE class 1 task exists (type red_event_unacknowledged,
 --      no lead window), one urgent crisis.detected event whose payload carries only screen_id, the clinical lead and ops are told
 --      with the neutral on_call_escalation notice, and one "nobody on call" incident opens. The screen is marked handled.
 --   2. A non-crisis screen creates no task and no event.
@@ -148,7 +148,7 @@ begin
   -- 7. failure is loud, never silent, never undoes the screen or the emergency event ------------------------------------------------
   update public.task_types set is_active = false where code = 'crisis_follow_up';
   s5 := pg_temp.screen(v_org, pt4, true);
-  update public.task_types set is_active = true where code in ('red_event_unacknowledged', 'crisis_follow_up');
+  update public.task_types set is_active = true where code = 'crisis_follow_up';
   select count(*) into v_notes from public.notifications where recipient_id = v_p and template = 'on_call_page';
   if not exists (select 1 from public.mental_health_screens where id = s5) then raise exception 'FAIL 7a: the patient screen was lost'; end if;
   if not exists (select 1 from public.emergency_events where patient_id = pt4 and source = 'mental_health_screen') then
@@ -171,9 +171,9 @@ begin
   end if;
 
   -- 7b. the retry sweep completes a failed follow-up by itself, and stops after five recorded errors
-  update public.task_types set is_active = false where code = 'red_event_unacknowledged';
+  update public.task_types set is_active = false where code = 'crisis_follow_up';
   s8 := pg_temp.screen(v_org, pt7, true);
-  update public.task_types set is_active = true where code = 'red_event_unacknowledged';
+  update public.task_types set is_active = true where code = 'crisis_follow_up';
   if exists (select 1 from public.audit_log where action = 'crisis.handled' and entity_id = s8) then raise exception 'FAIL 7j: setup, screen already handled'; end if;
   if private.retry_unhandled_crisis_follow_ups() <> 0 then raise exception 'FAIL 7k: the sweep touched a screen younger than two minutes'; end if;
   update public.mental_health_screens set created_at = now() - interval '10 minutes' where id = s8;
@@ -182,9 +182,9 @@ begin
      or (select count(*) from public.clinical_tasks where patient_id = pt7) <> 1 then
     raise exception 'FAIL 7m: after the sweep the screen is not handled or has no task';
   end if;
-  update public.task_types set is_active = false where code = 'red_event_unacknowledged';
+  update public.task_types set is_active = false where code = 'crisis_follow_up';
   s9 := pg_temp.screen(v_org, pt8, true);
-  update public.task_types set is_active = true where code = 'red_event_unacknowledged';
+  update public.task_types set is_active = true where code = 'crisis_follow_up';
   insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
     select v_org, 'crisis_task.error', 'mental_health_screen', s9, '{}'::jsonb from generate_series(1, 4);
   update public.mental_health_screens set created_at = now() - interval '10 minutes' where id = s9;
@@ -199,9 +199,9 @@ begin
   v_def := pg_get_functiondef('private.raise_crisis_follow_up(uuid)'::regprocedure);
   if position('if not v_notify_failed then' in v_def) = 0 then raise exception 'FAIL setup: marker rule text not found'; end if;
   execute replace(v_def, 'if not v_notify_failed then', 'if not v_failed then');
-  update public.task_types set is_active = false where code = 'red_event_unacknowledged';
+  update public.task_types set is_active = false where code = 'crisis_follow_up';
   s10 := pg_temp.screen(v_org, pt9, true);
-  update public.task_types set is_active = true where code = 'red_event_unacknowledged';
+  update public.task_types set is_active = true where code = 'crisis_follow_up';
   select count(*) into v_notes from public.notifications where recipient_id = v_p and template = 'on_call_page';
   perform private.raise_crisis_follow_up(s10);
   if (select count(*) from public.notifications where recipient_id = v_p and template = 'on_call_page') <= v_notes then
