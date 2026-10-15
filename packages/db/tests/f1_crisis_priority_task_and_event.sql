@@ -25,6 +25,10 @@ begin
   insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test, language)
   values (v, p_org, p_role::public.user_role, 'F1C ' || p_label, '+23480' || lpad((random() * 99999999)::int::text, 8, '0'), (current_date - interval '45 years')::date, true, 'en')
   on conflict (id) do update set role = excluded.role, is_test = true, is_active = true, phone = excluded.phone;
+  -- Two-tier (2026-10-13): a Free patient raises no doctor task or page, so these patients are Members.
+  if p_role = 'patient' then
+    insert into public.patient_memberships (organisation_id, patient_id, source, state, is_test) values (p_org, v, 'purchase', 'active', true);
+  end if;
   return v;
 end $f$;
 create function pg_temp.mkdoc(p_org uuid, p_admin uuid, p_label text, p_tier text) returns uuid

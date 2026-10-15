@@ -54,8 +54,12 @@ export function computeWeeklyAdherence(
   medicines: readonly AdherenceMedicine[],
   nowMs: number,
   cfg: AdherenceConfig,
+  opts: { windowEnd?: LocalDate } = {},
 ): AdherenceResult {
-  const windowEnd = lagosLocalDate(nowMs);
+  // Normally the window ends today. The patient's printed report (S08x, decision C6) ends it on the last
+  // completed Lagos day, so a late-evening dose still open at midnight cannot be left out. Whether a dose
+  // is due is still judged at `nowMs`.
+  const windowEnd = opts.windowEnd ?? lagosLocalDate(nowMs);
   const windowStart = addDays(windowEnd, -(cfg.windowDays - 1));
   const r = { due: 0, taken: 0, late: 0, skipped: 0, missed: 0, unavailable: 0 };
 

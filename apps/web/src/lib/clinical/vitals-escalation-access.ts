@@ -25,16 +25,15 @@ import type { Database } from "@tarragon/shared";
  * returning a quiet false, so an unauthorised caller can never be mistaken for
  * an unentitled patient inside the database.
  *
- * This function nevertheless converts that raise — and any other RPC error —
- * into `false`, and that is deliberate: it is a gate, and a gate whose answer
- * is unknown must withhold rather than grant. Returning false here does NOT
- * silence the reading. The patient still gets the deterministic self-care
- * guidance below, and the full, plan-independent emergency safety net
- * (emergency_events, the acknowledge-gated hospital guidance, emergency-contact
- * notify) never depended on this call at all. What the raise buys us over a
- * DB-side quiet false is diagnosability, so the error is logged here rather
- * than dropped: a permissions mistake shows up in the server log as itself
- * instead of looking like a patient who simply has not paid.
+ * This function converts that raise — and any other RPC error — into `true`
+ * (page), per the two-tier CMO rule of 2026-10-08: if membership cannot be
+ * determined, treat the patient as a Member. This used to answer `false` ("a
+ * gate whose answer is unknown must withhold"); that was right for a paid-plan
+ * gate and wrong for a safety gate. The error is logged here rather than
+ * dropped: a permissions mistake shows up in the server log as itself instead
+ * of looking like a patient who simply has not paid. The plan-independent
+ * emergency safety net (emergency_events, the acknowledge-gated hospital
+ * guidance, emergency-contact notify) never depended on this call at all.
  */
 const VITALS_RED_FLAG_DOCTOR_ESCALATION_FEATURE = "vitals_red_flag_doctor_escalation";
 
@@ -47,14 +46,16 @@ export async function patientHasVitalsEscalationAccess(
     p_feature: VITALS_RED_FLAG_DOCTOR_ESCALATION_FEATURE,
   });
   if (error) {
-    // Fail closed, loudly. See the header: the RPC raises so that "not
-    // allowed to ask" is distinguishable from "asked, answer is no" — that
-    // distinction is worth nothing if it is discarded here without a trace.
+    // Two-tier (CMO 2026-10-08): when it cannot be worked out whether this patient is a
+    // Member, the answer is "yes, page". A red reading that quietly stops reaching a
+    // doctor because a lookup failed is the worse mistake; an unneeded page is not.
+    // Still loud: the RPC raises so that "not allowed to ask" is distinguishable from
+    // "asked, answer is no", and that is logged here rather than discarded.
     console.error(
-      "vitals-escalation-access: patient_has_feature_access failed; withholding doctor escalation for this reading",
+      "vitals-escalation-access: patient_has_feature_access failed; escalating to a doctor for this reading (fail closed toward paging)",
       { patientId, feature: VITALS_RED_FLAG_DOCTOR_ESCALATION_FEATURE, error },
     );
-    return false;
+    return true;
   }
   return data === true;
 }

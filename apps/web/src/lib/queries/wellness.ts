@@ -7,9 +7,8 @@ import type { Tables } from "@tarragon/shared";
  * layer, free to every patient regardless of plan — points reward logging
  * habits and never duplicate the real reward vouchers prevention_reward already
  * pays for screening/vaccination/health-check events (see
- * 20260730120000_wellness_points_and_badges.sql). Points are NON-MONETARY
- * (OQ-08, F1): there is no redemption call here, no conversion rate and no
- * voucher path. A capped checkout discount arrives with S71/S72.
+ * 20260730120000_wellness_points_and_badges.sql). Redemption converts points
+ * into a real reward voucher via the redeem_wellness_points RPC.
  */
 
 export type WellnessPointsBalance = Tables<"wellness_points_balances">;
@@ -409,4 +408,3 @@ export function useSetWellnessClassActive() {
     },
   });
 }
-

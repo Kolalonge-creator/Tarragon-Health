@@ -1,5 +1,6 @@
 "use client";
 
+import { t } from "@tarragon/i18n";
 import { useWellnessPointsBalance, useWellnessPointsLedger } from "@/lib/queries/wellness";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { SEMANTIC_ICON } from "@/lib/icons";
@@ -13,7 +14,8 @@ const REASON_LABEL: Record<string, string> = {
   lpe_goal_achieved: "Achieved a lifestyle goal",
   challenge_completed: "Completed a challenge",
   wellness_class_attended: "Attended a class",
-  redeemed_to_voucher: "Redeemed (earlier rewards)",
+  redeemed_to_voucher: "Redeemed for a voucher (no longer offered)",
+  applied_to_order: "Used at checkout",
 };
 
 function reasonLabel(reason: string): string {
@@ -31,12 +33,9 @@ export function WellnessPointsCard({ patientId }: { patientId: string }) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <SEMANTIC_ICON.points className="h-5 w-5 text-sprout-gold" strokeWidth={2} aria-hidden />
-          Wellness points
+          {t("points.card.title", "en")}
         </CardTitle>
-        <CardDescription>
-          Earn points for logging vitals, meals, and check-ins, finishing lessons, and hitting
-          challenges. Points are a way to see your progress; they are not money.
-        </CardDescription>
+        <CardDescription>{t("points.card.body", "en")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
@@ -51,9 +50,7 @@ export function WellnessPointsCard({ patientId }: { patientId: string }) {
           </div>
         )}
 
-        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-          Points cannot be redeemed yet. Your points are safe and keep building.
-        </p>
+        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{t("points.card.how_to_use", "en")}</p>
 
         {ledger && ledger.length > 0 && (
           <div>

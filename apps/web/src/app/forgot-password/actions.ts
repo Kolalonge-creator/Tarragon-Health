@@ -12,6 +12,10 @@ import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { authErrorMessage } from "@/lib/auth/auth-error-message";
 import { firstIssue } from "@/lib/validation/first-issue";
 import { isRateLimitOtpError, isUnknownUserOtpError } from "@/lib/auth/otp-errors";
+import { phoneRecoveryHold } from "@/lib/auth/recovery/phone-recovery-hold";
+import { formatLagosDateTime } from "@tarragon/auth/recovery";
+import { t } from "@tarragon/i18n";
+import { getAuthLocale } from "@/lib/auth/auth-locale";
 
 export type ForgotPasswordActionState =
   | { error?: string; field?: string; success?: boolean; step?: "verify"; phone?: string }
@@ -142,6 +146,22 @@ export async function verifyPhoneReset(
     return {
       error: authErrorMessage(error, "otp_verify"),
       field: "token",
+      step: "verify",
+      phone: parsed.data.phone,
+    };
+  }
+
+  // OQ-43: a code sent to a number that changed in the last few days is the thing a SIM swap defeats. The person has just proved
+  // the code, so telling them why they are paused reveals nothing to anyone else. Fail CLOSED: if the hold cannot be read,
+  // the session is ended and nothing continues.
+  const hold = await phoneRecoveryHold(supabase);
+  if (hold.status !== "clear") {
+    await supabase.auth.signOut();
+    if (hold.status === "unknown") {
+      return { error: authErrorMessage(null, "otp_verify"), step: "verify", phone: parsed.data.phone };
+    }
+    return {
+      error: t("auth.recovery.held", await getAuthLocale(), { until: formatLagosDateTime(hold.until) }),
       step: "verify",
       phone: parsed.data.phone,
     };

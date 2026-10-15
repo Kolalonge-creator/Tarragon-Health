@@ -5,7 +5,7 @@ import { supabaseOrderStore, type RpcClient } from "../../../supabase/functions/
 import { MemoryStore } from "./support/memory-store.ts";
 
 const REF = "tho_0123456789abcdef0123456789abcdef";
-const order = (over: Partial<CreatedOrder> = {}): CreatedOrder => ({ orderId: "order-1", reference: REF, amountKobo: 10_000_000, state: "created", checkoutUrl: null, ...over });
+const order = (over: Partial<CreatedOrder> = {}): CreatedOrder => ({ orderId: "order-1", reference: REF, amountKobo: 12_000_000, state: "created", checkoutUrl: null, ...over });
 const creator = (o: CreatedOrder): OrderCreator => ({ create: async () => ({ ok: true, order: o }) });
 const args = { code: "membership_annual", clientKey: "k", email: "a@example.com", callbackUrl: "https://app.example/return" };
 
@@ -21,14 +21,14 @@ describe("startCheckout", () => {
   it("initialises Paystack for the order's own price with the order id as the only metadata, and keeps the link", async () => {
     const payments = createMockPayment();
     const store = new MemoryStore();
-    store.add({ reference: REF, amountKobo: 10_000_000 });
+    store.add({ reference: REF, amountKobo: 12_000_000 });
     const r = await startCheckout({ payments, store, orders: creator(order()) }, args);
-    expect(r).toMatchObject({ ok: true, orderId: "order-1", amountKobo: 10_000_000 });
+    expect(r).toMatchObject({ ok: true, orderId: "order-1", amountKobo: 12_000_000 });
     expect(r.ok && r.checkoutUrl).toContain(REF);
     expect(store.orders.get(REF)!.checkoutUrl).toBe(r.ok ? r.checkoutUrl : null);
     const v = await payments.verifyTransaction(REF);
     expect(v.ok && v.data.metadata).toEqual({ kind: "order", order_id: "order-1" });
-    expect(v.ok && v.data.requestedAmountKobo).toBe(10_000_000);
+    expect(v.ok && v.data.requestedAmountKobo).toBe(12_000_000);
   });
   it("needs an email on file", async () => {
     const r = await startCheckout({ payments: createMockPayment(), store: new MemoryStore(), orders: creator(order()) }, { ...args, email: null });
@@ -102,5 +102,40 @@ describe("supabaseOrderStore", () => {
     expect(await odd.listOpen(1)).toMatchObject({ ok: false, error: { code: "bad_response" } });
     const weird = supabaseOrderStore(client(() => ({ data: { result: "teleported" }, error: null })));
     expect(await weird.record(input)).toMatchObject({ ok: false, error: { code: "bad_response" } });
+  });
+});
+
+describe("startCheckout (S71)", () => {
+  it("asks Paystack for card, bank transfer and USSD explicitly, by default", async () => {
+    const payments = createMockPayment();
+    const store = new MemoryStore();
+    store.add({ reference: REF, amountKobo: 10_000_000 });
+    await startCheckout({ payments, store, orders: creator(order()) }, args);
+    expect(payments.channelsFor(REF)).toEqual(["card", "bank_transfer", "ussd"]);
+  });
+  it("lets a caller narrow the channels, and the mock refuses a malformed list as the real adapter does", async () => {
+    const payments = createMockPayment();
+    const r = await payments.initializeTransaction({ reference: "tho_chan000000000000000000000001", email: "a@example.com", amountKobo: 100_000, channels: ["card"] });
+    expect(r.ok).toBe(true);
+    expect(payments.channelsFor("tho_chan000000000000000000000001")).toEqual(["card"]);
+    const bad = await payments.initializeTransaction({ reference: "tho_chan000000000000000000000002", email: "a@example.com", amountKobo: 100_000, channels: ["card", "card"] });
+    expect(bad.ok).toBe(false);
+    const bad2 = await payments.initializeTransaction({ reference: "tho_chan000000000000000000000003", email: "a@example.com", amountKobo: 100_000, channels: ["crypto" as never] });
+    expect(bad2.ok).toBe(false);
+  });
+  it("a sponsor-covered order has no payment step: Paystack is never called and no email is needed", async () => {
+    const payments = createMockPayment();
+    const covered = order({ reference: "spo_0123456789abcdef0123456789abcdef", amountKobo: 0, state: "paid", covered: true, sponsorName: "Acme Ltd" });
+    const r = await startCheckout({ payments, store: new MemoryStore(), orders: creator(covered) }, { ...args, email: null });
+    expect(r).toEqual({ ok: true, covered: true, orderId: "order-1", reference: "spo_0123456789abcdef0123456789abcdef", sponsorName: "Acme Ltd" });
+    expect((await payments.verifyTransaction("spo_0123456789abcdef0123456789abcdef")).ok).toBe(false);
+  });
+  it("a paid order that is NOT marked covered is still refused as already paid (a replay of an ordinary order)", async () => {
+    const r = await startCheckout({ payments: createMockPayment(), store: new MemoryStore(), orders: creator(order({ state: "paid" })) }, args);
+    expect(r).toEqual({ ok: false, code: "already_paid" });
+  });
+  it("maps the sponsor refusals", () => {
+    expect(mapOrderError("sponsor_budget_exhausted")).toBe("sponsor_budget_exhausted");
+    expect(mapOrderError("ERROR: sponsor_payment_not_open")).toBe("sponsor_payment_not_open");
   });
 });

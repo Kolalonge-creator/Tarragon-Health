@@ -7,8 +7,9 @@ import type { Tables } from "@tarragon/shared";
  * layer, free to every patient regardless of plan — mirrors the
  * patient-facing half of apps/web/src/lib/queries/wellness.ts (the admin
  * catalogue functions there are staff-only and not ported). No table/RPC
- * here needs a service-role client. Points are NON-MONETARY (OQ-08, F1): no
- * redemption call, no conversion rate, no voucher path exists on the client.
+ * here needs a service-role client, and none is a real financial
+ * transaction — (removed, S72) redeem_wellness_points minted a care_vouchers row from the
+ * patient's own points, it never moves money or calls Paystack.
  */
 
 export type WellnessPointsBalance = Tables<"wellness_points_balances">;
@@ -39,7 +40,8 @@ export const REASON_LABEL: Record<string, string> = {
   lpe_goal_achieved: "Achieved a lifestyle goal",
   challenge_completed: "Completed a challenge",
   wellness_class_attended: "Attended a class",
-  redeemed_to_voucher: "Redeemed (earlier rewards)",
+  redeemed_to_voucher: "Redeemed for a voucher (no longer offered)",
+  applied_to_order: "Used at checkout",
 };
 
 export function reasonLabel(reason: string): string {
