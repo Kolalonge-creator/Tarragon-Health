@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database, Enums } from "@tarragon/shared";
+import { isAiExcludedAnalyte, type Database, type Enums } from "@tarragon/shared";
 import { CONDITION_LABEL, getLifestyleState } from "@/lib/lifestyle/service";
 
 /** One patient's lifestyle programme, as far as the coach needs to know.
@@ -240,8 +240,8 @@ export async function loadPatientContext(
     supabase.from("patient_allergies").select("allergen, reaction, severity").eq("patient_id", profileId),
     loadRecentVitals(supabase, profileId),
     supabase
-      .from("lab_analyte_readings")
-      .select("code, value, unit, taken_at")
+      .from("ai_readable_lab_readings")
+      .select("code, value, value_text, unit, taken_at")
       .eq("patient_id", profileId)
       .order("taken_at", { ascending: false })
       .limit(5),
@@ -321,12 +321,11 @@ export async function loadPatientContext(
 
   const recentLabResults: RecentLabResultSummary[] =
     labsResult.status === "fulfilled"
-      ? (labsResult.value.data ?? []).map((row) => ({
-          code: row.code,
-          value: row.value,
-          unit: row.unit,
-          takenAt: row.taken_at,
-        }))
+      ? (labsResult.value.data ?? [])
+          .filter((row) => !isAiExcludedAnalyte(row.code, row.value_text)) // INV-04, defence in depth over the view
+          .flatMap((row) =>
+            row.code && row.taken_at ? [{ code: row.code, value: row.value, unit: row.unit, takenAt: row.taken_at }] : []
+          )
       : [];
 
   const upcomingAppointments: UpcomingAppointmentSummary[] =
