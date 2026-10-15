@@ -7,10 +7,10 @@ import { getProposedConfig } from "./index";
 const MIGRATIONS = join(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..", "..", "supabase", "migrations");
 
 function seededRules(): Record<string, unknown> {
-  const file = readdirSync(MIGRATIONS).find((f) => f.endsWith("_s18_lead_clinician_availability_rota.sql"));
-  if (!file) throw new Error("S18 migration not found");
+  const file = readdirSync(MIGRATIONS).find((f) => f.endsWith("_s18_lead_rules_v2_48_hour_week.sql"));
+  if (!file) throw new Error("S18 lead rules v2 migration not found");
   const sql = readFileSync(join(MIGRATIONS, file), "utf8");
-  const match = /lead-rules-begin[\s\S]*?\$json\$([\s\S]*?)\$json\$/.exec(sql);
+  const match = /lead-rules-v2-begin[\s\S]*?\$json\$([\s\S]*?)\$json\$/.exec(sql);
   if (!match?.[1]) throw new Error("lead rules seed not found in the migration");
   return JSON.parse(match[1]) as Record<string, unknown>;
 }
