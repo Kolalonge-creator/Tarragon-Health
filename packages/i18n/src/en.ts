@@ -2523,7 +2523,6 @@ export const en = {
   "labres.replaced": "Replaced by a newer result",
   "labres.correction": "This is a corrected result. It replaces an earlier one.",
   "labres.screening": "This is a screening result. It is not a diagnosis, and your care team will tell you what happens next.",
-<<<<<<< HEAD
   "learn.weekly.title": "This week's lesson",
   "learn.weekly.minutes": "About {minutes} min",
   "learn.weekly.action_label": "Your one action",
@@ -2536,7 +2535,6 @@ export const en = {
   "learn.members.title": "Part of Membership",
   "learn.members.body": "This series is written by a verified clinician and is part of Membership. You can see who wrote it and what it covers. The full lesson opens with Membership.",
   "learn.members.by": "By {name}",
-=======
   "symptom.not_a_diagnosis.short": "Not a diagnosis. Your care team confirms any diagnosis.",
   "symptom.not_a_diagnosis.full": "This check suggests the safest next step. It is not a diagnosis, and any possible causes it mentions are only possibilities. Your care team confirms any diagnosis.",
   "symptom.redflag.title": "First, a quick safety check",
@@ -2674,7 +2672,6 @@ export const en = {
   "learn.daily.check_label": "Quick check",
   "learn.daily.again": "Worth another read. We will keep this one handy for you.",
   "learn.daily.save_failed": "We could not save your progress. Please try again.",
->>>>>>> origin/main-dev
   "learn.next.title": "What can I do next?",
   "learn.next.self_care": "Try this at home",
   "learn.next.ask": "Ask your care team about this",
