@@ -21,12 +21,32 @@ const readPendingCommunitySignoff = jest.fn<(...args: unknown[]) => Promise<{ ru
 jest.mock("@/lib/queries/pending-community-signoff", () => ({
   readPendingCommunitySignoff: (...args: unknown[]) => readPendingCommunitySignoff(...args),
 }));
+const readCredentialAttention = jest.fn<(...args: unknown[]) => Promise<{ overdueRechecks: number; unverified: number; failed: boolean }>>();
+jest.mock("@/lib/queries/credential-attention", () => {
+  const actual = jest.requireActual<typeof import("./credential-attention")>("./credential-attention");
+  return { ...actual, readCredentialAttention: (...args: unknown[]) => readCredentialAttention(...args) };
+});
+const readPendingRedOutreachSignoff = jest.fn<(...args: unknown[]) => Promise<{ waiting: boolean; failed: boolean }>>();
+jest.mock("@/lib/queries/pending-red-outreach-signoff", () => ({
+  readPendingRedOutreachSignoff: (...args: unknown[]) => readPendingRedOutreachSignoff(...args),
+}));
+type GlucosePending = { pending: boolean; version: number | null; approvedVersion: number | null; note: string | null; failed: boolean };
+const readPendingGlucoseTriageSignoff = jest.fn<(...args: unknown[]) => Promise<GlucosePending>>();
+jest.mock("@/lib/queries/pending-glucose-triage-signoff", () => ({
+  GLUCOSE_TRIAGE_ITEM_KEY: "glucose_triage_rule_set",
+  readPendingGlucoseTriageSignoff: (...args: unknown[]) => readPendingGlucoseTriageSignoff(...args),
+}));
+const noGlucose: GlucosePending = { pending: false, version: null, approvedVersion: null, note: null, failed: false };
+const readPendingGlucoseTaskTypeSignoff = jest.fn<(...args: unknown[]) => Promise<{ waiting: boolean; failed: boolean }>>();
+jest.mock("@/lib/queries/pending-glucose-task-type-signoff", () => ({
+  readPendingGlucoseTaskTypeSignoff: (...args: unknown[]) => readPendingGlucoseTaskTypeSignoff(...args),
+}));
 const noCommunity = { rulesUnsigned: false, groupsWaiting: 0, statementsWaiting: 0, attentionCount: 0, failed: false };
 jest.mock("@/lib/queries/pending-ai-governance-signoff", () => ({
   readPendingAiGovernanceSignoff: (...args: unknown[]) => readPendingAiGovernanceSignoff(...args),
 }));
 
-import { CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, readCmoSigningHub } from "./cmo-signing-hub";
+import { CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, RED_OUTREACH_ITEM_KEY, readCmoSigningHub } from "./cmo-signing-hub";
 
 const supabase = {} as SupabaseClient<Database>;
 
@@ -47,8 +67,39 @@ beforeEach(() => {
   readPendingAiGovernanceSignoff.mockResolvedValue(noAi);
   readPendingCommunitySignoff.mockReset();
   readPendingCommunitySignoff.mockResolvedValue(noCommunity);
+  readCredentialAttention.mockReset();
+  readCredentialAttention.mockResolvedValue({ overdueRechecks: 0, unverified: 0, failed: false });
   readS06S10Signoffs.mockReset();
   readS06S10Signoffs.mockResolvedValue(emptyS06S10);
+  readPendingRedOutreachSignoff.mockReset();
+  readPendingRedOutreachSignoff.mockResolvedValue({ waiting: false, failed: false });
+  readPendingGlucoseTaskTypeSignoff.mockReset();
+  readPendingGlucoseTaskTypeSignoff.mockResolvedValue({ waiting: false, failed: false });
+  readPendingGlucoseTriageSignoff.mockReset();
+  readPendingGlucoseTriageSignoff.mockResolvedValue(noGlucose);
+});
+
+describe("readCmoSigningHub: glucose triage rules (plan item R2)", () => {
+  it("lists a draft glucose rule set as a hub line under /clinician", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingGlucoseTriageSignoff.mockResolvedValue({ pending: true, version: 1, approvedVersion: null, note: null, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.items).toHaveLength(1);
+    expect(hub.items[0]).toMatchObject({ key: "glucose_triage_rule_set", href: "/clinician/glucose-triage-rules", severity: "draft_pending" });
+    expect(hub.items[0]?.detail).toMatch(/shadow only/);
+  });
+  it("says which version stays in force once one is approved", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingGlucoseTriageSignoff.mockResolvedValue({ pending: true, version: 2, approvedVersion: 1, note: null, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.items[0]?.detail).toMatch(/Version 1 stays in force/);
+  });
+  it("shows nothing when there is nothing to sign, and names a failed read instead of going quiet", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    expect((await readCmoSigningHub(supabase)).items).toEqual([]);
+    readPendingGlucoseTriageSignoff.mockResolvedValue({ pending: false, version: null, approvedVersion: null, note: null, failed: true });
+    expect(await readCmoSigningHub(supabase)).toMatchObject({ failed: true, failedSources: ["the glucose triage rules"] });
+  });
 });
 
 describe("readCmoSigningHub: S06 to S10 items", () => {
@@ -106,7 +157,7 @@ describe("readCmoSigningHub", () => {
 
   it("is an all-clear only when everything was read and nothing is outstanding", async () => {
     readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
-    expect(await readCmoSigningHub(supabase)).toEqual({ items: [], failed: false, failedSources: [], settledConfigs: [], s06s10: emptyS06S10 });
+    expect(await readCmoSigningHub(supabase)).toEqual({ items: [], failed: false, failedSources: [], settledConfigs: [], s06s10: emptyS06S10, attention: [] });
   });
 
   it("merges rules needing setup and rules ready to sign into one line with the summed count", async () => {
@@ -194,5 +245,70 @@ describe("readCmoSigningHub", () => {
     const settled = [{ table: "alert_rules", title: "Alert rules", href: "/clinician/alert-rules", version: 6 }];
     readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: settled });
     expect((await readCmoSigningHub(supabase)).settledConfigs).toEqual(settled);
+  });
+
+  it("P5: an overdue MDCN spot re-check and clinicians with no verification show as one attention line that links under /clinician", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readCredentialAttention.mockResolvedValue({ overdueRechecks: 1, unverified: 2, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    // attention, not a signature: it must never be counted by the "areas need your signature" banner
+    expect(hub.items).toHaveLength(0);
+    expect(hub.attention).toHaveLength(1);
+    expect(hub.attention[0]).toMatchObject({ key: "credential_attention", count: 3, href: "/clinician/credentialing" });
+    expect(hub.attention[0]?.detail).toContain("1 MDCN spot re-check is overdue");
+    expect(hub.attention[0]?.detail).toContain("2 clinicians have no MDCN or DataFlow verification on record");
+    expect(hub.attention[0]?.detail).toContain("Nothing is paused");
+  });
+
+  it("P5: nothing outstanding adds no line, and a failed read is named rather than shown as all clear", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    const clear = await readCmoSigningHub(supabase);
+    expect(clear.items).toEqual([]);
+    expect(clear.attention).toEqual([]);
+    readCredentialAttention.mockResolvedValue({ overdueRechecks: 0, unverified: 0, failed: true });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.failed).toBe(true);
+    expect(hub.failedSources).toEqual(["Clinician registration checks"]);
+  });
+});
+
+describe("readCmoSigningHub: red alert outreach (S13 R4)", () => {
+  it("lists the call-the-patient task type while it awaits the CMO, under /clinician", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingRedOutreachSignoff.mockResolvedValue({ waiting: true, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    const line = hub.items.find((i) => i.key === RED_OUTREACH_ITEM_KEY);
+    expect(line).toMatchObject({ severity: "draft_pending", count: 1 });
+    expect(line?.href.startsWith("/clinician/")).toBe(true);
+  });
+  it("lists nothing once it is confirmed", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.items.find((i) => i.key === RED_OUTREACH_ITEM_KEY)).toBeUndefined();
+  });
+  it("names an unreadable source instead of looking like an all-clear", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingRedOutreachSignoff.mockResolvedValue({ waiting: false, failed: true });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub).toMatchObject({ failed: true, failedSources: ["Red alert outreach"] });
+  });
+});
+
+describe("readCmoSigningHub: both new task types and the glucose rules together (S11 to S15 integration)", () => {
+  it("lists the glucose rules, the urgent glucose review task type and the call-the-patient task type as three separate lines, all under /clinician", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingGlucoseTriageSignoff.mockResolvedValue({ pending: true, version: 1, approvedVersion: null, note: null, failed: false });
+    readPendingGlucoseTaskTypeSignoff.mockResolvedValue({ waiting: true, failed: false });
+    readPendingRedOutreachSignoff.mockResolvedValue({ waiting: true, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    const keys = hub.items.map((i) => i.key).sort();
+    expect(keys).toEqual(["glucose_task_type", "glucose_triage_rule_set", "red_outreach"]);
+    expect(hub.items.every((i) => i.href.startsWith("/clinician/"))).toBe(true);
+    expect(hub.failed).toBe(false);
+  });
+  it("names an unreadable glucose task type source instead of going quiet", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingGlucoseTaskTypeSignoff.mockResolvedValue({ waiting: false, failed: true });
+    expect(await readCmoSigningHub(supabase)).toMatchObject({ failed: true, failedSources: ["the urgent glucose review task type"] });
   });
 });

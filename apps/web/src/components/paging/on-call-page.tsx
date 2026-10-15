@@ -3,9 +3,11 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Field, fieldClass, Flash, Hidden, Muted, Section, SubmitButton } from "@/components/credentialing/shared";
 import { acknowledgePage, acknowledgeTestPage, closePage, confirmReadiness, sendTestPage } from "@/lib/paging/actions";
+import { TestPageReceipt } from "./test-page-receipt";
 import { GAP_LABELS, READINESS_ITEMS, type ReadinessKey } from "@/lib/paging/schemas";
 import { formatWaiting, pageHeadline } from "@/lib/paging/alarm";
-import { getMyActivePages, getMyReadiness } from "@/lib/paging/queries";
+import { getMyActivePages, getMyReadiness, getRedPatientResponse } from "@/lib/paging/queries";
+import { RedPatientAnswer } from "./red-patient-answer";
 import { formatLagos } from "@/lib/rota/time";
 import { firstParam, type SearchParams } from "@/lib/credentialing/params";
 
@@ -17,6 +19,8 @@ export async function OnCallPage({ searchParams }: { searchParams: SearchParams 
   const [pages, readiness] = await Promise.all([getMyActivePages(), getMyReadiness()]);
   // one card per event: the family of pages (primary, backup, escalation) is one case
   const roots = [...new Map(pages.map((p) => [p.root_id, p])).values()];
+  // CMO Q13: what each patient said about seeking care, no identity attached
+  const answers = new Map(await Promise.all(roots.map(async (p) => [p.root_id, await getRedPatientResponse({ page: p.page_id })] as const)));
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
@@ -61,6 +65,7 @@ export async function OnCallPage({ searchParams }: { searchParams: SearchParams 
         ) : null}
         {readiness.pending_test_page_id ? (
           <form action={acknowledgeTestPage}>
+            <TestPageReceipt testId={readiness.pending_test_page_id} />
             <Hidden name="returnTo" value={RETURN_TO} />
             <Hidden name="testId" value={readiness.pending_test_page_id} />
             <SubmitButton>Acknowledge the test page</SubmitButton>
@@ -86,6 +91,7 @@ export async function OnCallPage({ searchParams }: { searchParams: SearchParams 
                 {p.escalation_level > 0 ? <Badge variant="amber">Escalated, level {p.escalation_level}</Badge> : null}
                 {p.expired_at !== null && !acknowledged ? <Badge variant="red">Nobody has answered: phone the clinician on call</Badge> : null}
               </div>
+              <RedPatientAnswer answer={answers.get(p.root_id) ?? null} />
               {!acknowledged ? (
                 <form action={acknowledgePage}>
                   <Hidden name="returnTo" value={RETURN_TO} />

@@ -11,9 +11,27 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
  */
 const bodySchema = z.object({ notificationId: z.uuid() });
 
+/**
+ * A light per-user limit (per server instance): a browser that fires this in a loop cannot turn it into database load. A real
+ * clinician needs one call per page notification shown, so a few a second is generous.
+ */
+const WINDOW_MS = 10_000;
+const MAX_PER_WINDOW = 10;
+const recent = new Map<string, number[]>();
+
+function limited(userId: string, now: number): boolean {
+  const hits = (recent.get(userId) ?? []).filter((t) => now - t < WINDOW_MS);
+  hits.push(now);
+  recent.set(userId, hits);
+  if (recent.size > 5000) for (const [k, v] of recent) if (v.every((t) => now - t >= WINDOW_MS)) recent.delete(k);
+  return hits.length > MAX_PER_WINDOW;
+}
+
 export async function POST(request: Request): Promise<NextResponse> {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ ok: false, error: "unauthenticated" }, { status: 401 });
+
+  if (limited(user.id, Date.now())) return NextResponse.json({ ok: false, error: "slow down" }, { status: 429 });
 
   let json: unknown;
   try {

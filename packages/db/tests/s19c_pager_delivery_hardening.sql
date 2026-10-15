@@ -173,6 +173,16 @@ begin
       and has_function_privilege('anon', p.oid, 'EXECUTE')));
   perform pg_temp.rec('the heartbeat writer is service role only', 'false,true',
     has_function_privilege('authenticated', 'public.record_engine_heartbeat(text)', 'EXECUTE')::text || ',' || has_function_privilege('service_role', 'public.record_engine_heartbeat(text)', 'EXECUTE')::text);
+  perform pg_temp.rec('rollout: v1 ships with objective readiness OFF, v2 is inactive with it ON (the CMO activates it later)', '0,false,1',
+    (select rules ->> 'objective_readiness_required' from public.paging_delivery_config where version = 1 and is_active) || ',' ||
+    (select is_active::text from public.paging_delivery_config where version = 2) || ',' ||
+    (select rules ->> 'objective_readiness_required' from public.paging_delivery_config where version = 2));
+  perform pg_temp.act(v_cmo);
+  perform pg_temp.rec('rollout: with it off, a clinician who has only the checklist can be put on call', 'ok',
+    pg_temp.try(format('select public.set_on_call_rota(now() + interval ''20 days'', now() + interval ''20 days 8 hours'', %L, %L)', v_noready, v_noready2)));
+  perform pg_temp.back();
+  perform pg_temp.cancel_rota();
+  perform pg_temp.set_rota(v_cmo, v_p, v_b);
   perform pg_temp.rec('the default delivered-ack window is 90 seconds and the 5 and 10 minute timers are unchanged', '90,5,10',
     private.paging_delivery_rule('delivered_ack_seconds')::text || ',' || (private.paging_rule('escalation_minutes') ->> 0) || ',' || (private.paging_rule('escalation_minutes') ->> 1));
   perform pg_temp.rec('a delivery config with a zero window is refused', '23514',
@@ -489,24 +499,40 @@ begin
     perform pg_temp.act(v_p); perform public.acknowledge_page(v_pg); perform public.close_page(v_pg, 'proof: settled dack3 page'); perform pg_temp.back();
   end;
 
-  -- 9b. A clinician whose route cannot report receipts falls back to the 5 and 10 minute timers
+  -- 9b. A clinician whose route has not shown a page recently gets the longer wait (180 s), never the short one and never none
   perform pg_temp.set_rule('objective_readiness_required', 0);
   perform pg_temp.set_rota(v_cmo, v_noready, v_noready2);
   perform pg_temp.set_rule('objective_readiness_required', 1);
   declare v_pq uuid; v_pg uuid;
   begin
-    perform pg_temp.rec('9: a clinician with no receipt in the window is not receipt-capable', 'false,true',
-      private.clinician_reports_delivery(v_noready)::text || ',' || private.clinician_reports_delivery(v_p)::text);
+    perform pg_temp.rec('9: the route of a clinician with no receipt is unconfirmed (180 s), a confirmed one is 90 s', '180,90',
+      private.early_window_seconds(v_noready)::text || ',' || private.early_window_seconds(v_p)::text);
     v_pq := pg_temp.mkuser(v_org, 'noreceipt', 'patient');
     v_pg := public.create_red_page(pg_temp.red(v_pq, v_rs, 'red', false));
     perform pg_temp.rec('9: control: the page went to the clinician with no receipts', v_noready::text, (select to_clinician_id::text from public.pages where id = v_pg));
     perform pg_temp.age(v_pg, 100);
     perform private.sweep_pages();
-    perform pg_temp.rec('9: silence of a route that cannot report never advances the ladder early', '0', (select count(*)::text from public.pages where parent_page_id = v_pg));
-    perform pg_temp.age(v_pg, 6 * 60);
+    perform pg_temp.rec('9: an unconfirmed route is not advanced at the short 90 s', '0', (select count(*)::text from public.pages where parent_page_id = v_pg));
+    perform pg_temp.age(v_pg, 200);
     perform private.sweep_pages();
-    perform pg_temp.rec('9: ...the 5 minute timer still pages the backup for them', '1', (select count(*)::text from public.pages where parent_page_id = v_pg and role = 'backup'));
+    perform pg_temp.rec('9: ...but it is not skipped either: at 180 s the backup is added (the paged clinician stays paged)', '1,true',
+      (select count(*)::text from public.pages where parent_page_id = v_pg and role = 'backup') || ',' || (select (to_clinician_id = v_noready)::text from public.pages where id = v_pg));
     perform pg_temp.act(v_noready2); perform public.acknowledge_page(v_pg); perform public.close_page(v_pg, 'proof: settled no-receipt page'); perform pg_temp.back();
+    -- a native-only clinician: a web push receipt does not confirm a route they are not reached by
+    perform pg_temp.cancel_rota();
+    perform set_config('tarragon.paging_write', 'on', true);
+    insert into public.page_tests (organisation_id, clinician_id, kind, acknowledged_at, delivered_at, is_test) values (v_org, v_noready, 'readiness', now(), now(), true);
+    insert into public.page_delivered_acks (test_id, clinician_id, channel) select t.id, v_noready, 'push' from public.page_tests t where t.clinician_id = v_noready limit 1;
+    perform set_config('tarragon.paging_write', 'off', true);
+    perform pg_temp.rec('9: a push receipt without a live web push subscription does not confirm the route', 'false',
+      private.clinician_route_confirmed(v_noready)::text);
+    insert into public.push_subscriptions (organisation_id, profile_id, endpoint, p256dh_key, auth_key) values (v_org, v_noready, 'https://push.example.invalid/n/' || v_noready, 'k', 'a');
+    perform pg_temp.rec('9: ...with one it does', 'true', private.clinician_route_confirmed(v_noready)::text);
+    delete from public.push_subscriptions where profile_id = v_noready;
+    delete from public.page_delivered_acks where clinician_id = v_noready;
+    perform set_config('tarragon.paging_write', 'on', true);
+    delete from public.page_tests where clinician_id = v_noready;
+    perform set_config('tarragon.paging_write', 'off', true);
   end;
   perform pg_temp.set_rota(v_cmo, v_p, v_b);
 
@@ -579,8 +605,31 @@ begin
   insert into public.notifications (recipient_id, organisation_id, channel, template, payload, status, content_class, priority, source_table, source_id, created_at)
     values (v_p, v_org, 'push', 'on_call_page', '{}', 'pending', 'non_clinical', 'critical', 'pages', gen_random_uuid(), now() - interval '10 minutes');
   perform private.sweep_paging_health();
-  perform pg_temp.rec('hb: a page notification stuck pending opens a "sender down" incident', '1',
+  perform pg_temp.rec('hb: a page notification never attempted and waiting opens a "sender down" incident', '1',
     (select count(*)::text from public.ops_incidents where external_reference = 'page_notifications_stuck' and status not in ('resolved', 'closed')));
+  -- a row that was attempted and is waiting for the next retry (5 minute cadence) must not trip it
+  delete from public.ops_incidents where external_reference = 'page_notifications_stuck';
+  update public.notifications set status = 'sent', sent_at = now() where source_table = 'pages' and status = 'pending';
+  insert into public.notifications (recipient_id, organisation_id, channel, template, payload, status, content_class, priority, source_table, source_id, created_at, attempts)
+    values (v_p, v_org, 'push', 'on_call_page', '{}', 'pending', 'non_clinical', 'critical', 'pages', gen_random_uuid(), now() - interval '6 minutes', 1);
+  perform private.sweep_paging_health();
+  perform pg_temp.rec('hb: a retry waiting for its next 5 minute pass is not "stuck"', '0',
+    (select count(*)::text from public.ops_incidents where external_reference = 'page_notifications_stuck' and status not in ('resolved', 'closed')));
+  update public.notifications set created_at = now() - interval '15 minutes' where source_table = 'pages' and status = 'pending';
+  perform private.sweep_paging_health();
+  perform pg_temp.rec('hb: ...but one still waiting after more than a full retry cadence is', '1',
+    (select count(*)::text from public.ops_incidents where external_reference = 'page_notifications_stuck' and status not in ('resolved', 'closed')));
+  -- a FAILED page notification is visible too (no subscription, no address, a provider error)
+  update public.notifications set status = 'sent', sent_at = now() where source_table = 'pages' and status = 'pending';
+  delete from public.ops_incidents where external_reference = 'page_notifications_failed';
+  perform private.sweep_paging_health();
+  perform pg_temp.rec('hb: control: no failed page notification, no incident', '0',
+    (select count(*)::text from public.ops_incidents where external_reference = 'page_notifications_failed' and status not in ('resolved', 'closed')));
+  insert into public.notifications (recipient_id, organisation_id, channel, template, payload, status, content_class, priority, source_table, source_id, last_error)
+    values (v_p, v_org, 'push', 'on_call_page', '{}', 'failed', 'non_clinical', 'critical', 'pages', gen_random_uuid(), 'no active push subscription');
+  perform private.sweep_paging_health();
+  perform pg_temp.rec('hb: a failed page notification opens an incident', '1',
+    (select count(*)::text from public.ops_incidents where external_reference = 'page_notifications_failed' and status not in ('resolved', 'closed')));
   -- a red event older than the reconciler's look-back with no page is reported, not dropped
   perform pg_temp.rec('hb: control: no old unpaged red event, no incident', '0',
     (select count(*)::text from public.ops_incidents where external_reference = 'page_unreconciled_old' and status not in ('resolved', 'closed')));
@@ -614,7 +663,8 @@ begin
   perform pg_temp.rec('hb: a short device id is ignored without error', 'ok', pg_temp.try($q$select public.paging_device_ping('x', 'web')$q$));
   perform pg_temp.rec('hb: a clinician cannot read the health view', '42501', pg_temp.try($q$select public.paging_health()$q$));
   perform pg_temp.back();
-  -- P9. Objective readiness and the test page ------------------------------------------------------------------------------
+  -- P9. Objective readiness and the test page (with the requirement switched on, as config v2 would) ----------------------------
+  perform pg_temp.set_rule('objective_readiness_required', 1);
   perform pg_temp.cancel_rota();
   perform pg_temp.act(v_cmo);
   v_txt := pg_temp.msg2b(format('select public.set_on_call_rota(now() + interval ''1 day'', now() + interval ''1 day 8 hours'', %L, %L)', v_noready, v_p));
@@ -642,16 +692,15 @@ begin
     (private.on_call_objective_gaps(v_noready) = array['test_page'])::text);
   perform pg_temp.act(v_noready);
   perform pg_temp.rec('P9: a test page nobody saw cannot be acknowledged (it would only prove a click)', '22023', pg_temp.try(format('select public.acknowledge_test_page(%L)', v_t)));
-  perform public.record_page_delivered(v_t, 'alarm', 'device-s19c-0003');
+  perform pg_temp.rec('P9: the On call screen records its own receipt when it shows the test page', 'true', public.record_page_delivered(v_t, 'in_app', 'device-s19c-0003')::text);
   perform pg_temp.back();
   perform pg_temp.act(v_x);
   perform pg_temp.rec('P9: someone else cannot acknowledge or record a receipt for it', '42501,42501',
     pg_temp.try(format('select public.acknowledge_test_page(%L)', v_t)) || ',' || pg_temp.try(format('select public.record_page_delivered(%L, ''alarm'', null)', v_t)));
   perform pg_temp.back();
   perform pg_temp.act(v_noready);
-  perform pg_temp.rec('P9: an alarm receipt alone still does not let the test page be acknowledged', '22023', pg_temp.try(format('select public.acknowledge_test_page(%L)', v_t)));
-  perform pg_temp.rec('P9: the push receipt is recorded when the notification is shown', 'true', public.record_page_delivered(v_t, 'push', null)::text);
-  perform public.acknowledge_test_page(v_t);
+  perform pg_temp.rec('P9: a receipt from the On call screen (console, not push) lets the test page be acknowledged, so a console-only clinician is not locked out', 'ok',
+    pg_temp.try(format('select public.acknowledge_test_page(%L)', v_t)));
   perform pg_temp.rec('P9: my readiness shows no gaps and the time of the last test page', '0,true',
     jsonb_array_length(public.my_on_call_readiness() -> 'gaps')::text || ',' || ((public.my_on_call_readiness() ->> 'last_test_page_acknowledged_at') is not null)::text);
   perform pg_temp.back();
@@ -690,6 +739,117 @@ begin
   perform pg_temp.rec('hb: the reviewer health view shows the engine, the rota and the on-call people', 'true,true',
     ((public.paging_health() -> 'rota_covered')::text = 'true')::text || ',' || (jsonb_array_length(public.paging_health() -> 'on_call') = 2)::text);
   perform pg_temp.back();
+
+  -- 24 hour backlog: the reconciler pages only recent events, at most 20 a pass; older ones are reported, never paged ------------------
+  declare v_bp uuid; v_old uuid; v_i integer; v_cnt integer;
+  begin
+    perform pg_temp.cancel_rota();
+    perform pg_temp.set_rota(v_cmo, v_p, v_b);
+    delete from public.ops_incidents where external_reference in ('page_unreconciled_old', 'page_reconciled');
+    for v_i in 1..23 loop
+      v_bp := pg_temp.mkuser(v_org, 'backlog' || v_i, 'patient');
+      perform pg_temp.red(v_bp, v_rs, 'red', false, 3600);          -- one hour old: inside the 4 hour window
+    end loop;
+    v_old := pg_temp.mkuser(v_org, 'backlog-old', 'patient');
+    perform pg_temp.red(v_old, v_rs, 'red', false, 23 * 3600);       -- 23 hours old: outside it
+    select count(*) into v_cnt from public.pages where patient_id in (select id from auth.users where email ~ '^s19c-backlog[0-9]');
+    perform pg_temp.rec('backlog: before the reconciler none of the 24 patients has a page', '0', v_cnt::text);
+    perform private.reconcile_red_pages();
+    select count(*) into v_cnt from public.pages where parent_page_id is null and patient_id in (select id from auth.users where email ~ '^s19c-backlog[0-9]');
+    perform pg_temp.rec('backlog: one pass pages at most 20 (a flood would wake the whole rota)', '20', v_cnt::text);
+    perform private.reconcile_red_pages();
+    select count(*) into v_cnt from public.pages where parent_page_id is null and patient_id in (select id from auth.users where email ~ '^s19c-backlog[0-9]');
+    perform pg_temp.rec('backlog: the next pass takes the rest of the recent ones', '23', v_cnt::text);
+    perform pg_temp.rec('backlog: the 23 hour old event is NOT paged by the reconciler', '0',
+      (select count(*)::text from public.pages where patient_id = v_old));
+    perform private.sweep_paging_health();
+    perform pg_temp.rec('backlog: ...it is reported for a human to decide', 'true',
+      (exists (select 1 from public.ops_incidents where external_reference = 'page_unreconciled_old' and status not in ('resolved', 'closed')))::text);
+    -- sabotage: the cap removed (set huge) pages them all in one pass
+    perform pg_temp.set_rule('reconcile_per_pass_max', 1000);
+    perform pg_temp.red(pg_temp.mkuser(v_org, 'backlog-x1', 'patient'), v_rs, 'red', false, 3600);
+    perform pg_temp.red(pg_temp.mkuser(v_org, 'backlog-x2', 'patient'), v_rs, 'red', false, 3600);
+    perform pg_temp.set_rule('reconcile_per_pass_max', 1);
+    perform private.reconcile_red_pages();
+    select count(*) into v_cnt from public.pages where parent_page_id is null and patient_id in (select id from auth.users where email like 's19c-backlog-x%');
+    perform pg_temp.rec('backlog: a cap of 1 pages exactly one of two', '1', v_cnt::text);
+    perform pg_temp.set_rule('reconcile_per_pass_max', 1000);
+    perform private.reconcile_red_pages();
+    select count(*) into v_cnt from public.pages where parent_page_id is null and patient_id in (select id from auth.users where email like 's19c-backlog-x%');
+    perform pg_temp.sab('backlog: with the cap lifted a single pass pages both (so the cap is what limited it)', '1', v_cnt::text);
+    perform pg_temp.set_rule('reconcile_per_pass_max', 20);
+  end;
+
+  -- CMO acknowledgement: conflict and self only, never eligibility -----------------------------------------------------------------
+  declare v_pc uuid; v_pg uuid; v_pn uuid; v_pg2 uuid;
+  begin
+    perform pg_temp.set_rota(v_cmo, v_p, v_b);
+    v_pc := pg_temp.mkuser(v_org, 'cmo-ack', 'patient');
+    v_pg := public.create_red_page(pg_temp.red(v_pc, v_rs, 'red', false));
+    update public.clinical_staff set license_expires_at = current_date - 10 where profile_id = v_cmo;
+    perform pg_temp.rec('CMO: control: the chief medical officer is no longer eligible (lapsed licence)', 'false', private.clinician_is_eligible(v_cmo)::text);
+    perform pg_temp.act(v_cmo);
+    perform pg_temp.rec('CMO: a lapsed credential does not stop the chief medical officer acknowledging', 'ok', pg_temp.try(format('select public.acknowledge_page(%L)', v_pg)));
+    perform public.close_page(v_pg, 'proof: settled cmo page');
+    perform pg_temp.back();
+    -- a conflict still stops them
+    v_pn := pg_temp.mkuser(v_org, 'cmo-conflict', 'patient');
+    v_pg2 := public.create_red_page(pg_temp.red(v_pn, v_rs, 'red', false));
+    insert into public.clinician_conflicts (organisation_id, clinician_id, patient_id, reason, source, status, declared_by, is_test)
+      values (v_org, v_cmo, v_pn, 'proof: conflict for the CMO', 'cmo', 'active', v_cmo, true);
+    perform pg_temp.act(v_cmo);
+    perform pg_temp.rec('CMO: ...but a conflict still does', '42501', pg_temp.try(format('select public.acknowledge_page(%L)', v_pg2)));
+    perform pg_temp.back();
+    -- everyone else still needs to be eligible
+    update public.clinical_staff set license_expires_at = current_date - 10 where profile_id = v_p;
+    perform pg_temp.act(v_p);
+    perform pg_temp.rec('CMO: control: an ordinary clinician with a lapsed licence is still refused', '42501', pg_temp.try(format('select public.acknowledge_page(%L)', v_pg2)));
+    perform pg_temp.back();
+    update public.clinical_staff set license_expires_at = null where profile_id in (v_p, v_cmo);
+    update public.clinician_conflicts set status = 'lifted', lifted_at = now(), lifted_by = v_cmo where clinician_id = v_cmo and patient_id = v_pn;
+    perform pg_temp.act(v_p); perform public.acknowledge_page(v_pg2); perform public.close_page(v_pg2, 'proof: settled cmo conflict page'); perform pg_temp.back();
+  end;
+
+  -- swaps are never blocked by readiness -----------------------------------------------------------------------------------------------------
+  declare v_rota uuid; v_sw text;
+  begin
+    perform pg_temp.set_rule('objective_readiness_required', 1);
+    perform pg_temp.set_rota(v_cmo, v_p, v_b);
+    select id into v_rota from public.on_call_rota where cancelled_at is null and primary_clinician_id = v_p limit 1;
+    perform pg_temp.rec('swap: control: a clinician with a stale test page is not ready (building a shift refuses them)', 'test_page',
+      array_to_string(private.on_call_objective_gaps(v_x), ','));
+    perform pg_temp.act(v_p);
+    v_sw := pg_temp.msg2b(format('select public.request_rota_swap(%L, ''primary'', %L, ''proof: urgent cover'')', v_rota, v_x));
+    perform pg_temp.back();
+    perform pg_temp.rec('swap: a swap to a colleague whose readiness is stale is NOT refused for readiness', 'false',
+      (v_sw like '%not ready for on call%')::text);
+    -- sabotage: the swap door given the building check; the same request is now refused
+    v_def := pg_get_functiondef('private.rota_validate_clinician_swap(uuid,uuid,timestamptz,timestamptz)'::regprocedure);
+    create or replace function private.rota_validate_clinician_swap(p_profile uuid, p_org uuid, p_start timestamptz, p_end timestamptz)
+      returns void language sql stable security definer set search_path = ''
+      as $f$ select private.rota_validate_clinician_core(p_profile, p_org, p_start, p_end, true) $f$;
+    perform pg_temp.act(v_b);
+    v_sw := pg_temp.msg2b(format('select public.request_rota_swap(%L, ''backup'', %L, ''proof: urgent cover'')', v_rota, v_x));
+    perform pg_temp.back();
+    perform pg_temp.sab('swap: with the swap door given the readiness check a swap to that colleague is refused', 'false',
+      (v_sw like '%not ready for on call%')::text);
+    execute v_def;
+  end;
+
+  -- device rows are capped -----------------------------------------------------------------------------------------------------------------------
+  declare v_i integer;
+  begin
+    for v_i in 1..30 loop
+      perform private.touch_on_call_device(v_x, 'device-cap-' || lpad(v_i::text, 4, '0'), 'web', false);
+    end loop;
+    perform pg_temp.rec('devices: a clinician keeps only their newest 20 device records', '20',
+      (select count(*)::text from public.on_call_device_seen where clinician_id = v_x));
+    perform set_config('tarragon.paging_write', 'on', true);
+    update public.on_call_device_seen set last_seen_at = now() - interval '100 days' where clinician_id = v_x and device_id = (select min(device_id) from public.on_call_device_seen where clinician_id = v_x);
+    perform set_config('tarragon.paging_write', 'off', true);
+    perform pg_temp.rec('devices: the daily clean-up removes one not seen for 90 days', '1',
+      private.purge_old_device_rows()::text);
+  end;
 
   -- RLS: each person reads their own receipts, test pages and device records; a colleague and a patient read none; a reviewer of the same organisation reads all
   perform pg_temp.act(v_x);

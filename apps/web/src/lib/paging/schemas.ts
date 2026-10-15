@@ -101,3 +101,12 @@ export const pagingHealthSchema = z.object({
   expired_open: z.number().int(),
 });
 export type PagingHealth = z.infer<typeof pagingHealthSchema>;
+
+/**
+ * The patient's latest answer about seeking care after a red alert (S13 R4, CMO Q13), from public.latest_red_patient_response().
+ * No patient identity travels with it. It is information for the clinician and never stops the paging.
+ */
+export const redPatientResponseSchema = z
+  .object({ response: z.enum(["sought_care", "could_not_get_care"]), responded_at: z.string() })
+  .nullable();
+export type RedPatientResponse = z.infer<typeof redPatientResponseSchema>;

@@ -49,6 +49,15 @@ describe("POST /api/paging/displayed", () => {
     expect(rpcCall).toBeNull();
   });
 
+  it("rate limits one user to a few calls a second and never calls the database for the refused ones", async () => {
+    user = { id: "22222222-2222-4222-8222-222222222222" };
+    let last = 200;
+    for (let i = 0; i < 12; i++) last = (await POST(req({ notificationId: ID }))).status;
+    expect(last).toBe(429);
+    user = { id: "33333333-3333-4333-8333-333333333333" };
+    expect((await POST(req({ notificationId: ID }))).status).toBe(200);
+  });
+
   it("returns ok false with the message when the database errors, without throwing", async () => {
     rpcResult = { data: null, error: { message: "boom" } };
     expect(await (await POST(req({ notificationId: ID }))).json()).toEqual({ ok: false, error: "boom" });

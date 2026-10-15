@@ -12,7 +12,7 @@ const DEVICE_KEY = "tarragon.oncall.device";
 const PING_EVERY_MS = 60_000;
 
 /** A stable random id for this browser, so the server can tell consoles apart. Not an identity: no personal data. */
-function deviceId(): string {
+export function deviceId(): string {
   try {
     const existing = window.localStorage.getItem(DEVICE_KEY);
     if (existing && existing.length >= 8) return existing;

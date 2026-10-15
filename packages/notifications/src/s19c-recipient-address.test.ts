@@ -124,6 +124,11 @@ describe("the sender is wired to the rule", () => {
     expect(sender).toContain("await markRetry(");
     expect(sender).toContain("throw error;");
   });
+  it("fails a page row at once for an error a retry cannot fix, and retries the rest", () => {
+    expect(sender).toContain("PERMANENT_PAGE_ERRORS");
+    expect(sender).toContain("no active push subscription|no email address|address suppressed");
+    expect(sender).toContain("permanentPageFailure");
+  });
   it("lets a page row be retried rather than failed on the first error (pages no longer have the legacy ladder behind them)", () => {
     expect(sender).toContain("isPageRow");
   });

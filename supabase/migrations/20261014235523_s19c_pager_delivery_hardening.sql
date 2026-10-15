@@ -37,7 +37,8 @@ declare k text;
 begin
   foreach k in array array['delivered_ack_seconds', 'reconcile_after_seconds', 'reconcile_lookback_hours', 'merge_window_minutes',
                            'engine_heartbeat_stale_seconds', 'device_seen_stale_minutes', 'readiness_test_page_days',
-                           'test_page_min_interval_seconds', 'page_notification_stuck_seconds', 'first_hop_safe_systolic_min', 'first_hop_safe_systolic_max',
+                           'test_page_min_interval_seconds', 'page_notification_stuck_seconds', 'page_notification_retry_stuck_seconds',
+                           'delivered_ack_seconds_unconfirmed_route', 'reconcile_per_pass_max', 'device_seen_keep', 'first_hop_safe_systolic_min', 'first_hop_safe_systolic_max',
                            'first_hop_safe_diastolic_min', 'first_hop_safe_diastolic_max'] loop
     if not coalesce((r ->> k) ~ '^[0-9]+$' and (r ->> k)::integer > 0, false) then return false; end if;
   end loop;
@@ -51,17 +52,48 @@ revoke all on function private.paging_delivery_rules_valid(jsonb) from public, a
 alter table public.paging_delivery_config add constraint paging_delivery_config_rules_valid check (private.paging_delivery_rules_valid(rules));
 
 -- paging-delivery-rules-begin
+-- v1 is the active config and ships with objective readiness OFF (0): switching on a requirement every clinician must first meet
+-- would stop any rota change on the day this applies. v2 below is the same config with it ON, inactive and unsigned: the CMO
+-- activates it (a new active version, never an edit) once every on-call clinician has passed a test page.
 insert into public.paging_delivery_config (version, is_active, effective_from, rules) values (1, true, '2026-10-14', $json$
 {
   "delivered_ack_seconds": 90,
+  "delivered_ack_seconds_unconfirmed_route": 180,
   "reconcile_after_seconds": 60,
-  "reconcile_lookback_hours": 24,
+  "reconcile_lookback_hours": 4,
+  "reconcile_per_pass_max": 20,
   "merge_window_minutes": 30,
   "engine_heartbeat_stale_seconds": 120,
   "device_seen_stale_minutes": 10,
+  "device_seen_keep": 20,
   "readiness_test_page_days": 7,
   "test_page_min_interval_seconds": 120,
   "page_notification_stuck_seconds": 120,
+  "page_notification_retry_stuck_seconds": 660,
+  "first_hop_safe_systolic_min": 100,
+  "first_hop_safe_systolic_max": 139,
+  "first_hop_safe_diastolic_min": 60,
+  "first_hop_safe_diastolic_max": 89,
+  "objective_readiness_required": 0
+}
+$json$::jsonb);
+-- paging-delivery-rules-end
+-- paging-delivery-rules-v2-begin
+insert into public.paging_delivery_config (version, is_active, effective_from, rules) values (2, false, '2026-10-14', $json$
+{
+  "delivered_ack_seconds": 90,
+  "delivered_ack_seconds_unconfirmed_route": 180,
+  "reconcile_after_seconds": 60,
+  "reconcile_lookback_hours": 4,
+  "reconcile_per_pass_max": 20,
+  "merge_window_minutes": 30,
+  "engine_heartbeat_stale_seconds": 120,
+  "device_seen_stale_minutes": 10,
+  "device_seen_keep": 20,
+  "readiness_test_page_days": 7,
+  "test_page_min_interval_seconds": 120,
+  "page_notification_stuck_seconds": 120,
+  "page_notification_retry_stuck_seconds": 660,
   "first_hop_safe_systolic_min": 100,
   "first_hop_safe_systolic_max": 139,
   "first_hop_safe_diastolic_min": 60,
@@ -69,7 +101,7 @@ insert into public.paging_delivery_config (version, is_active, effective_from, r
   "objective_readiness_required": 1
 }
 $json$::jsonb);
--- paging-delivery-rules-end
+-- paging-delivery-rules-v2-end
 
 alter table public.paging_delivery_config enable row level security;
 create policy paging_delivery_config_read on public.paging_delivery_config for select to authenticated using (true);
@@ -473,7 +505,9 @@ begin
   end if;
   -- S19c (P7, P4): paged earlier is not enough. Suspended, licence or indemnity lapsed, the patient themself, or a declared
   -- conflict all refuse, and the ladder carries on to the next person.
-  if not private.clinician_is_eligible(v_uid) then
+  -- The chief medical officer is the last rung of the ladder: a lapsed credential must never make a family run to 'expired', so
+  -- they are checked for conflict and self only. Everyone else must still be an eligible clinician.
+  if not private.credential_is_cmo() and not private.clinician_is_eligible(v_uid) then
     raise exception 'your clinician access is paused, so you cannot acknowledge this page' using errcode = '42501';
   end if;
   if v_uid = root.patient_id or private.has_conflict(v_uid, root.patient_id) then
@@ -638,6 +672,11 @@ begin
   on conflict (clinician_id, device_id) do update
     set last_seen_at = now(), last_delivered_at = case when p_delivered then now() else public.on_call_device_seen.last_delivered_at end
     where public.on_call_device_seen.last_seen_at < now() - interval '20 seconds' or p_delivered;
+  -- a clinician keeps their newest N devices; a browser that mints a new id every visit cannot grow the table without bound
+  delete from public.on_call_device_seen d
+   where d.clinician_id = p_clinician
+     and d.device_id not in (select x.device_id from public.on_call_device_seen x where x.clinician_id = p_clinician
+                              order by x.last_seen_at desc limit private.paging_delivery_rule('device_seen_keep'));
   perform set_config('tarragon.paging_write', 'off', true);
 end;
 $$;
@@ -720,17 +759,31 @@ $$;
 revoke all on function public.record_notification_displayed(uuid) from public, anon;
 grant execute on function public.record_notification_displayed(uuid) to authenticated;
 
--- Has this clinician ever shown a page on a device or console of theirs recently? The early advance only counts a missing
--- receipt against someone who can report one; a clinician whose route cannot report (for example an app that does not send
--- receipts yet) falls back to the 5 and 10 minute timers, never to a faster escalation caused by silence of the reporting route.
-create function private.clinician_reports_delivery(p_profile uuid) returns boolean
+-- How long to wait before a page that was never shown pages the next person early. It only ever ADDS people (the paged clinician
+-- stays paged and the 5 and 10 minute timers are unchanged); it never skips anyone. The wait is short (delivered_ack_seconds)
+-- when the route this clinician is actually reached by has shown a page recently: the On call console (alarm receipts), or
+-- web push when they have a live web subscription (push receipts). A native-app route reports no receipts yet, so a clinician
+-- reached that way, or with no recent receipt on a matching route, gets the longer wait (delivered_ack_seconds_unconfirmed_route)
+-- instead of being advanced on the silence of a route that cannot speak.
+create function private.clinician_route_confirmed(p_profile uuid) returns boolean
 language sql stable security definer set search_path = ''
 as $$
   select exists (select 1 from public.page_delivered_acks a
                   where a.clinician_id = p_profile
-                    and a.acked_at > now() - make_interval(days => private.paging_delivery_rule('readiness_test_page_days')))
+                    and a.acked_at > now() - make_interval(days => private.paging_delivery_rule('readiness_test_page_days'))
+                    and (a.channel in ('alarm', 'in_app')
+                         or (a.channel = 'push' and exists (select 1 from public.push_subscriptions s
+                                                             where s.profile_id = p_profile and s.platform = 'web' and s.disabled_at is null))))
 $$;
-revoke all on function private.clinician_reports_delivery(uuid) from public, anon, authenticated;
+revoke all on function private.clinician_route_confirmed(uuid) from public, anon, authenticated;
+
+create function private.early_window_seconds(p_profile uuid) returns integer
+language sql stable security definer set search_path = ''
+as $$
+  select case when private.clinician_route_confirmed(p_profile) then private.paging_delivery_rule('delivered_ack_seconds')
+              else private.paging_delivery_rule('delivered_ack_seconds_unconfirmed_route') end
+$$;
+revoke all on function private.early_window_seconds(uuid) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 8. The reconciler (P8) and the health sweep
@@ -754,6 +807,7 @@ begin
        and not exists (select 1 from public.page_merged_events m where m.triage_event_id = t.id)
        and not exists (select 1 from public.free_red_events f where f.triage_event_id = t.id)
      order by t.created_at
+     limit private.paging_delivery_rule('reconcile_per_pass_max')
   loop
     begin
       -- create_red_page decides: a Member is paged; a Free patient gets the guidance record instead (and the event then leaves this
@@ -806,6 +860,7 @@ declare
   v_backup uuid;
   v_ok boolean;
   v_stuck bigint;
+  v_failed bigint;
   v_old bigint;
   v_org_for_incident uuid := null;   -- an engine fault is platform wide (ops_incidents: null organisation)
 begin
@@ -834,12 +889,24 @@ begin
   -- after page_notification_stuck_seconds means the sender is down or failing, which no engine heartbeat shows
   select count(*) into v_stuck from public.notifications n
    where n.source_table in ('pages', 'page_tests') and n.status = 'pending' and n.channel::text in ('push', 'email')
-     and n.created_at < now() - make_interval(secs => private.paging_delivery_rule('page_notification_stuck_seconds'))
+     -- never attempted: the sender is down. Attempted and waiting for a retry: only stuck after more than a full retry cadence
+     and ((n.attempts = 0 and n.created_at < now() - make_interval(secs => private.paging_delivery_rule('page_notification_stuck_seconds')))
+          or (n.attempts > 0 and n.created_at < now() - make_interval(secs => private.paging_delivery_rule('page_notification_retry_stuck_seconds'))))
      and n.created_at > now() - interval '1 day';
   if v_stuck > 0 then
     perform private.page_incident(v_org_for_incident, 'page_notifications_stuck', 'Page notifications are not being sent',
       v_stuck || ' page notification(s) have been waiting to send for longer than ' || private.paging_delivery_rule('page_notification_stuck_seconds') ||
       ' seconds. The notification sender (send-pending-notifications) may be down, mis-deployed or missing its secrets. Phone any on-call clinician with an open case now.');
+    v_n := v_n + 1;
+  end if;
+  -- a page notification that FAILED (no push subscription, no email address, a provider error): visible at once, the other channels
+  -- of the same page have still gone out
+  select count(*) into v_failed from public.notifications n
+   where n.source_table in ('pages', 'page_tests') and n.status = 'failed' and n.channel::text in ('push', 'email')
+     and n.created_at > now() - interval '1 hour';
+  if v_failed > 0 then
+    perform private.page_incident(v_org_for_incident, 'page_notifications_failed', 'Page notifications are failing to send',
+      v_failed || ' page notification(s) failed in the last hour (no push subscription, no email address or a provider error: see notifications.last_error). The page also went by the other channels, but check who is affected now.');
     v_n := v_n + 1;
   end if;
   -- red events too old for the reconciler's look-back that still have no page, merge record or Free record: never dropped silently
@@ -876,6 +943,25 @@ $$;
 revoke all on function private.sweep_paging_health() from public, anon, authenticated;
 select cron.schedule('paging-health', '* * * * *', $$ select private.sweep_paging_health(); $$);
 
+-- The daily clean-up of old device rows (same rule as above, for clinicians who stopped using the console).
+create function private.purge_old_device_rows() returns bigint
+language plpgsql security definer set search_path = ''
+as $$
+declare v_n bigint;
+begin
+  perform set_config('tarragon.paging_write', 'on', true);
+  delete from public.on_call_device_seen d
+   where d.last_seen_at < now() - interval '90 days'
+      or d.device_id not in (select x.device_id from public.on_call_device_seen x where x.clinician_id = d.clinician_id
+                              order by x.last_seen_at desc limit private.paging_delivery_rule('device_seen_keep'));
+  get diagnostics v_n = row_count;
+  perform set_config('tarragon.paging_write', 'off', true);
+  return v_n;
+end;
+$$;
+revoke all on function private.purge_old_device_rows() from public, anon, authenticated;
+select cron.schedule('purge-old-device-rows', '37 3 * * *', $$ select private.purge_old_device_rows(); $$);
+
 -- ---------------------------------------------------------------------------
 -- 9. The escalation timers, now with the early advance, conflict exclusion, merge-safe bookkeeping and the expired state
 -- ---------------------------------------------------------------------------
@@ -887,7 +973,6 @@ declare
   oc record;
   v_m1 integer := (private.paging_rule('escalation_minutes') ->> 0)::integer;
   v_m2 integer := (private.paging_rule('escalation_minutes') ->> 1)::integer;
-  v_dack integer := private.paging_delivery_rule('delivered_ack_seconds');
   v_backup uuid;
   v_no_backup boolean;
   v_child uuid;
@@ -925,8 +1010,8 @@ begin
 
       -- first escalation time, or early when the page was never shown on the paged clinician's device or console in time
       -- (decision 9: delivered receipt; the 5 minute timer stays for a page that was shown but not acknowledged)
-      v_early_backup := r.backup_paged_at is null and r.delivered_at is null and now() >= r.sent_at + make_interval(secs => v_dack)
-                        and private.clinician_reports_delivery(r.to_clinician_id);
+      v_early_backup := r.backup_paged_at is null and r.delivered_at is null
+                        and now() >= r.sent_at + make_interval(secs => private.early_window_seconds(r.to_clinician_id));
       if r.backup_paged_at is null and (now() >= r.sent_at + make_interval(mins => v_m1) or v_early_backup) then
         select * into oc from private.on_call_now(r.organisation_id, r.is_test);
         v_backup := null;
@@ -964,8 +1049,8 @@ begin
       v_early_lead := false;
       if r.lead_alerted_at is null and r.backup_paged_at is not null then
         select * into v_backup_row from public.pages where parent_page_id = r.id and role = 'backup';
-        if found and v_backup_row.delivered_at is null and now() >= v_backup_row.sent_at + make_interval(secs => v_dack)
-           and private.clinician_reports_delivery(v_backup_row.to_clinician_id) then v_early_lead := true; end if;
+        if found and v_backup_row.delivered_at is null
+           and now() >= v_backup_row.sent_at + make_interval(secs => private.early_window_seconds(v_backup_row.to_clinician_id)) then v_early_lead := true; end if;
       end if;
       if r.lead_alerted_at is null and (v_no_backup or now() >= r.sent_at + make_interval(mins => v_m2) or v_early_lead) then
         perform set_config('tarragon.paging_write', 'on', true);
@@ -1076,7 +1161,7 @@ begin
   perform private.page_notify_leadership(r.organisation_id, v_child, r.is_test, 'on_call_expired');
   -- the ops task: a named person phones the on-call clinician and the clinical lead. No automated SMS ever.
   perform private.page_incident(r.organisation_id, 'page_expired:' || r.id, 'Phone the on-call clinician now: a red event page expired',
-    'A red event page ran through every alert and nobody acknowledged it. Phone the on-call clinician and the chief medical officer now, and record who you reached. Open the On call page to see the case reference.');
+    'A red event page ran through every alert and nobody acknowledged it. Phone the on-call clinician and the chief medical officer now, and record who you reached. The chief medical officer can acknowledge it even if their own credentials have lapsed: do not wait for paperwork. Open the On call page to see the case reference.');
   insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
     values (r.organisation_id, null, 'page.expired', 'page', r.id, jsonb_build_object('lead_repeat_count', r.lead_repeat_count));
   perform private.emit_domain_event('page.expired', r.organisation_id, jsonb_build_object('page_id', r.id),
@@ -1182,7 +1267,10 @@ as $$
 $$;
 revoke all on function private.on_call_objective_gaps(uuid) from public, anon, authenticated;
 
-create or replace function private.rota_validate_clinician(p_profile uuid, p_org uuid, p_start timestamptz, p_end timestamptz)
+-- One validator, two doors. Building a shift (set_on_call_rota) keeps the objective readiness check when the config switches it on;
+-- a swap (request, accept, approve) never does: cover for a colleague who is ill must not be blocked because a test page is a day
+-- old. Everything else (checklist, licence and indemnity through the shift, leave, contracted hours) applies to both.
+create or replace function private.rota_validate_clinician_core(p_profile uuid, p_org uuid, p_start timestamptz, p_end timestamptz, p_objective boolean)
 returns void language plpgsql stable security definer set search_path = ''
 as $$
 declare cs public.clinical_staff%rowtype; v_gaps text[];
@@ -1191,7 +1279,7 @@ begin
   if not found then raise exception 'unknown clinician for this organisation' using errcode = '22023'; end if;
   if not private.has_competency(p_profile, 'on_call') then raise exception '% does not have the on-call competency', cs.full_name using errcode = '22023'; end if;
   if not private.on_call_ready(p_profile) then raise exception '% has not confirmed the on-call phone checklist', cs.full_name using errcode = '22023'; end if;
-  if private.paging_delivery_rule('objective_readiness_required') = 1 then
+  if p_objective and private.paging_delivery_rule('objective_readiness_required') = 1 then
     v_gaps := private.on_call_objective_gaps(p_profile);
     if array_length(v_gaps, 1) > 0 then
       raise exception '% is not ready for on call: missing %', cs.full_name, array_to_string(v_gaps, ', ') using errcode = '22023';
@@ -1207,7 +1295,35 @@ begin
   end if;
 end;
 $$;
+revoke all on function private.rota_validate_clinician_core(uuid, uuid, timestamptz, timestamptz, boolean) from public, anon, authenticated;
+
+create or replace function private.rota_validate_clinician(p_profile uuid, p_org uuid, p_start timestamptz, p_end timestamptz)
+returns void language sql stable security definer set search_path = ''
+as $$ select private.rota_validate_clinician_core(p_profile, p_org, p_start, p_end, true) $$;
 revoke all on function private.rota_validate_clinician(uuid, uuid, timestamptz, timestamptz) from public, anon, authenticated;
+
+create function private.rota_validate_clinician_swap(p_profile uuid, p_org uuid, p_start timestamptz, p_end timestamptz)
+returns void language sql stable security definer set search_path = ''
+as $$ select private.rota_validate_clinician_core(p_profile, p_org, p_start, p_end, false) $$;
+revoke all on function private.rota_validate_clinician_swap(uuid, uuid, timestamptz, timestamptz) from public, anon, authenticated;
+
+-- The swap functions call the validator by name. They are patched in place from their CURRENT definitions (not restated), so a change
+-- to them elsewhere is never overwritten; each must contain the call or the migration stops.
+do $swap$
+declare
+  f text;
+  v_def text;
+begin
+  foreach f in array array['public.request_rota_swap(uuid,text,uuid,text)', 'public.respond_rota_swap(uuid,boolean)', 'public.approve_rota_swap(uuid,text)'] loop
+    v_def := pg_get_functiondef(f::regprocedure);
+    if v_def like '%rota_validate_clinician_swap(%' then continue; end if;
+    if position('private.rota_validate_clinician(' in v_def) = 0 then
+      raise exception 'S19c: % no longer calls private.rota_validate_clinician; patch it by hand', f;
+    end if;
+    execute replace(v_def, 'private.rota_validate_clinician(', 'private.rota_validate_clinician_swap(');
+  end loop;
+end
+$swap$;
 
 -- Sends a test page to one clinician: to themself, or (reviewers) to another clinician. A readiness test or an unannounced drill.
 create function public.send_test_page(p_clinician uuid default null, p_kind text default 'readiness') returns uuid
@@ -1254,10 +1370,10 @@ begin
   select * into t from public.page_tests where id = p_test for update;
   if not found or t.clinician_id <> (select auth.uid()) then raise exception 'unknown test page' using errcode = '42501'; end if;
   if t.acknowledged_at is not null then return; end if;
-  -- the point of a test page is to prove the route works: it must have been shown by a push on a device first. Acknowledging a
-  -- page nobody saw would only prove a click.
-  if not exists (select 1 from public.page_delivered_acks a where a.test_id = t.id and a.clinician_id = t.clinician_id and a.channel = 'push') then
-    raise exception 'the test page has not arrived as a notification on your phone or browser yet: wait for it, then acknowledge' using errcode = '22023';
+  -- the point of a test page is to prove the route works: it must have been SHOWN first, by a push on a device or on the On call
+  -- screen (which records its own receipt when it renders the page). Acknowledging a page nobody saw would only prove a click.
+  if not exists (select 1 from public.page_delivered_acks a where a.test_id = t.id and a.clinician_id = t.clinician_id) then
+    raise exception 'the test page has not been shown on your phone, browser or the On call screen yet: wait for it, then acknowledge' using errcode = '22023';
   end if;
   perform set_config('tarragon.paging_write', 'on', true);
   update public.page_tests set acknowledged_at = now(), delivered_at = coalesce(delivered_at, now()) where id = t.id;
