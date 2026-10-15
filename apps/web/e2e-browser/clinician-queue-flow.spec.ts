@@ -89,8 +89,9 @@ test.describe("clinician queue (S16-S20)", () => {
 
   /** A fresh routine task for the test patient; returns its id. Any older open one is closed first so the dedup rule cannot merge into it. */
   function newTask(): string {
-    psqlValue(`update public.clinical_tasks set state = 'cancelled' where patient_id = '${patient.userId}' and state not in ('completed','cancelled');
-      update public.task_claims set ended_at = now(), end_reason = 'cancelled' where ended_at is null and task_id in (select id from public.clinical_tasks where patient_id = '${patient.userId}');`);
+    // A task changes state only through the transition function (a guard trigger refuses a plain UPDATE); cancelling also ends a live claim.
+    psqlValue(`select private.apply_task_transition(id, 'cancelled', 'lead', null, '[e2e-test] cleanup') from public.clinical_tasks
+      where patient_id = '${patient.userId}' and state not in ('completed','cancelled');`);
     return psqlValue(`select private.create_clinical_task('${patient.userId}', 'amber_bp_review');`);
   }
 
@@ -152,7 +153,14 @@ test.describe("clinician queue (S16-S20)", () => {
     await gotoRoute(page, "/clinician/queue");
     await page.getByRole("button", { name: "Next task" }).click();
     await page.waitForURL(`**/clinician/tasks/${taskId}`, { timeout: 30_000 });
-    psqlValue(`update public.task_claims set expires_at = now() - interval '1 minute' where task_id = '${taskId}' and ended_at is null; update public.clinical_tasks set claim_expires_at = now() - interval '1 minute' where id = '${taskId}'; select private.expire_task_claims();`);
+    // back-dated the way the SQL proofs do it: the guard on task rows is lifted for this one transaction only
+    psqlValue(`begin;
+      select set_config('tarragon.task_transition', 'on', true);
+      update public.task_claims set expires_at = now() - interval '1 minute' where task_id = '${taskId}' and ended_at is null;
+      update public.clinical_tasks set claim_expires_at = now() - interval '1 minute' where id = '${taskId}';
+      select set_config('tarragon.task_transition', 'off', true);
+      select private.expire_task_claims();
+      commit;`);
     await page.goto(`/clinician/tasks/${taskId}`);
     await expect(page.getByText("You do not hold this task. It may have timed out and returned to the queue.")).toBeVisible();
   });
