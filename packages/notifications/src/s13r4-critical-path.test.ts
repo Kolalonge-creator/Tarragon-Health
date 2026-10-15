@@ -18,17 +18,17 @@ import { describe as describeInApp } from "../../../apps/web/src/lib/notificatio
 const ctx = { notificationId: "n", recipientId: "r" };
 const base: DecideInput = {
   channel: "sms", priority: "critical", nowMs: Date.UTC(2026, 9, 13, 21, 0), quiet: { enabled: false, start: "21:00", end: "07:00" },
-  routinePushSentToday: 0, routinePushPerDay: 4, wordingViolations: [], isClinicianPage: false,
+  routinePushSentToday: 0, routinePushPerDay: 4, wordingViolations: [], smsPurpose: "none", emergencyContactSmsOpen: false,
 };
 const REDS = ["red_event_guidance_waiting", "red_event_outreach_task", "test_alert"] as const;
 
 describe("Q10 / OQ-92: SMS is decided by who the recipient is", () => {
   it("a critical row to a patient is not sent by SMS", () => {
-    expect(decide({ ...base, isClinicianPage: isClinicianPageRow("patient", "emergency_event_clinician_alert") })).toEqual({ action: "suppress", reason: "sms_not_allowed" });
+    expect(decide({ ...base, smsPurpose: isClinicianPageRow("patient", "emergency_event_clinician_alert") ? "clinician_page" : "none" })).toEqual({ action: "suppress", reason: "sms_not_allowed" });
   });
   it("a clinician may be paged by SMS for any row, as before", () => {
-    expect(decide({ ...base, priority: "routine", isClinicianPage: isClinicianPageRow("clinician", "on_call_page", "routine") })).toEqual({ action: "send" });
-    expect(decide({ ...base, isClinicianPage: isClinicianPageRow("clinician", "on_call_page", "critical") })).toEqual({ action: "send" });
+    expect(decide({ ...base, priority: "routine", smsPurpose: isClinicianPageRow("clinician", "on_call_page", "routine") ? "clinician_page" : "none" })).toEqual({ action: "send" });
+    expect(decide({ ...base, smsPurpose: isClinicianPageRow("clinician", "on_call_page", "critical") ? "clinician_page" : "none" })).toEqual({ action: "send" });
   });
   it("the paging roles (admin, care coordinator) only for a critical row", () => {
     for (const role of ["admin", "care_coordinator"]) {
@@ -39,7 +39,7 @@ describe("Q10 / OQ-92: SMS is decided by who the recipient is", () => {
   it("every other role never gets an SMS, critical or not (finance, analyst, pharmacist, lab, payer staff)", () => {
     for (const role of ["finance", "analyst", "pharmacist", "lab_partner", "lab_liaison", "hmo_admin", "corporate_admin", "payer_admin", "provider_org_staff", "ngo_admin"]) {
       expect(isClinicianPageRow(role, "ops_alert", "critical")).toBe(false);
-      expect(decide({ ...base, isClinicianPage: isClinicianPageRow(role, "ops_alert", "critical") })).toEqual({ action: "suppress", reason: "sms_not_allowed" });
+      expect(decide({ ...base, smsPurpose: isClinicianPageRow(role, "ops_alert", "critical") ? "clinician_page" : "none" })).toEqual({ action: "suppress", reason: "sms_not_allowed" });
     }
   });
   it("an unknown role (a failed lookup) is not a clinician", () => {
@@ -51,15 +51,15 @@ describe("Q10 / OQ-92: SMS is decided by who the recipient is", () => {
     expect(src).toContain('if (row.channel === "sms" && profilesError) continue;');
   });
   it("priority alone no longer opens the door (the old rule did)", () => {
-    expect(decide({ ...base, priority: "critical", isClinicianPage: isClinicianPageRow("patient", "free_red_guidance") }).action).toBe("suppress");
+    expect(decide({ ...base, priority: "critical", smsPurpose: isClinicianPageRow("patient", "free_red_guidance") ? "clinician_page" : "none" }).action).toBe("suppress");
   });
   it("the one named exception is the emergency contact alert, which this change does not decide", () => {
     expect(isClinicianPageRow("patient", "emergency_contact_alert")).toBe(true);
   });
   it("the sender uses the role rule and not the priority", () => {
     const src = readFileSync("../../supabase/functions/send-pending-notifications/index.ts", "utf8");
-    expect(src).toContain("isClinicianPage: isClinicianPageRow(roleById.get(row.recipient_id), row.template, row.priority)");
-    expect(src).not.toMatch(/isClinicianPage:\s*row\.priority === "critical"/);
+    expect(src).toContain("smsPurpose: isClinicianPageRow(roleById.get(row.recipient_id) ? "clinician_page" : "none", row.template, row.priority)");
+    expect(src).not.toMatch(/smsPurpose:\s*row\.priority === "critical"/);
   });
 });
 
