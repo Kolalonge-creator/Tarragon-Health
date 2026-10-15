@@ -137,7 +137,7 @@ export const EVENT_MAP: readonly EventMapRow[] = [
     spec: "D.7.2 pregnancy recorded",
     eventType: "pregnancy.recorded",
     gap: {
-      missing: ["emitter", "subscriber", "effect"],
+      missing: ["subscriber", "effect"],
       owner: "S67",
       note: "pregnancy tables exist from older work; nothing publishes an event or switches thresholds through the bus",
     },
@@ -154,7 +154,7 @@ export const EVENT_MAP: readonly EventMapRow[] = [
     spec: "D.7.2 silence (no activity for a set period)",
     eventType: "silence.detected",
     gap: {
-      missing: ["emitter"],
+      missing: ["effect"],
       owner: "S26",
       note: "the type is seeded and the engine has a silence rule, but no job emits silence.detected and nothing subscribes (assistant re-engagement and the clinician call are not driven from the bus). S26 or an S10 follow-up.",
     },
