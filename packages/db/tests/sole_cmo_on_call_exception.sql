@@ -90,7 +90,7 @@ begin
   perform pg_temp.chk('real', 'an admin cannot sign', 'ERR:42501', pg_temp.sql_as(v_admin, $q$select public.sign_sole_cmo_exception('on_call', repeat('x', 50), 'SIGN')::text$q$));
   perform pg_temp.chk('real', 'anon cannot execute sign', 'ERR:42501', pg_temp.anon_sql($q$select public.sign_sole_cmo_exception('on_call', repeat('x', 50), 'SIGN')::text$q$));
   perform pg_temp.chk('real', 'anon has no execute on sign or revoke', 'false,false',
-    has_function_privilege('anon', 'public.sign_sole_cmo_exception(text,text, 'SIGN')', 'EXECUTE')::text || ',' || has_function_privilege('anon', 'public.revoke_sole_cmo_exception(uuid,text)', 'EXECUTE')::text);
+    has_function_privilege('anon', 'public.sign_sole_cmo_exception(text,text,text)', 'EXECUTE')::text || ',' || has_function_privilege('anon', 'public.revoke_sole_cmo_exception(uuid,text)', 'EXECUTE')::text);
   perform pg_temp.chk('real', 'a short reason is refused', 'ERR:23514', pg_temp.sql_as(v_cmo, $q$select public.sign_sole_cmo_exception('on_call', '   too short   ', 'SIGN')::text$q$));
   perform pg_temp.chk('real', 'another competency is refused', 'ERR:22023', pg_temp.sql_as(v_cmo, format($q$select public.sign_sole_cmo_exception(%L, repeat('x', 50), 'SIGN')::text$q$, v_other)));
   perform pg_temp.chk('real', 'signing without the typed confirmation is refused', 'ERR:22023', pg_temp.sql_as(v_cmo, $q$select public.sign_sole_cmo_exception('on_call', repeat('x', 50), 'sing')::text$q$));
