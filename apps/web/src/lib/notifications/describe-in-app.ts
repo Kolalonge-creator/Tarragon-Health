@@ -712,6 +712,10 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     if (payload.kind === "assistant_crisis") return { text: "A priority case is waiting for you", href: "/clinician/queue" };
     return { text: "A priority case is waiting for you", href: "/clinician/on-call" };
   }
+  if (n.template === "response_slower_notice") {
+    // S78b: fixed plain wording, no number, no condition (INV-07, CMO decision S-9).
+    return { text: "We are slower than usual. If this is urgent, please use emergency care now.", href: "/patient/care" };
+  }
   if (n.template === "assistant_daily_nudge") {
     // S51: generic by design (INV-07): no condition, reading or medicine is ever named.
     return { text: "Your check-in for today is ready", href: "/patient/care" };

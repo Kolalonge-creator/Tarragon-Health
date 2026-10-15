@@ -583,6 +583,8 @@ export function getNavSections(
                 // The Next task queue, the task I hold, and the patients I lead (S35).
                 { label: "Next task", href: "/clinician/queue", icon: "escalation" },
                 { label: "My lead patients", href: "/clinician/lead-patients", icon: "patientActivity" },
+                // Orders, referrals, lab requests and follow-up tasks I own or am tied to; each closes only with an outcome and a reason (S77).
+                { label: "My follow-ups", href: "/clinician/follow-ups", icon: "review" },
                 // Two-tier model: offer each Member several times for the monthly check-in, see who is due or missed a month.
                 { label: "Monthly check-ins", href: "/clinician/followups", icon: "booking" },
                 { label: "On call", href: "/clinician/on-call", icon: "siren" },
@@ -654,6 +656,8 @@ export function getNavSections(
                 { label: "Clinician roster", href: "/clinician/roster", icon: "members" },
                 // Queue and page times against their limits, on-call cover and reliability bands (S36e). CMO only; the page redirects others.
                 { label: "Reliability and SLA", href: "/clinician/reliability", icon: "caseload" },
+                // Claims, completed, hand-backs and time to complete per clinician, advisory only (S78c). CMO only; the page redirects others.
+                { label: "Clinician workload", href: "/clinician/workload", icon: "caseload" },
                 // Private safety concerns raised by clinicians, backup readers and retaliation reviews (S36i). CMO only; the page redirects others.
                 { label: "Safety concerns", href: "/clinician/quality/concerns", icon: "governance" },
                 // Grant or end a Membership by hand until checkout exists (S22b). CMO only; the page redirects others.
@@ -758,6 +762,7 @@ export function getNavSections(
             { label: "Organisation prices", href: "/admin/organisation-prices", icon: "billing" },
             // Blood pressure control 90 days after joining: aggregate only, small numbers withheld (S38).
             { label: "Outcomes", href: "/admin/outcomes", icon: "analytics" },
+            { label: "Response times", href: "/admin/outcomes/response-times", icon: "analytics" },
             { label: "Risk fairness", href: "/admin/risk-fairness", icon: "analytics" },
             { label: "Export outcomes", href: "/admin/outcomes/export", icon: "analytics" },
             // Programme codes for insurers, employers and NGOs, and their aggregate group figures (S38e).
@@ -780,6 +785,7 @@ export function getNavSections(
             { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
             { label: "Operations wall", href: "/admin/ops/wall", icon: "operations" },
             { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
+            { label: "Automations", href: "/admin/ops/automations", icon: "settings" },
             { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
             { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },
             { label: "Employers", href: "/admin/employers", icon: "corporate" },
@@ -789,6 +795,7 @@ export function getNavSections(
             { label: "Vaccination schedule", href: "/admin/settings/vaccination-schedule", icon: "vaccination" },
             { label: "Escalation SLAs", href: "/admin/settings/escalation-slas", icon: "escalation" },
             { label: "AI governance", href: "/admin/settings/ai-governance", icon: "audit" },
+            { label: "AI cost", href: "/admin/settings/ai-governance/cost", icon: "audit" },
             { label: "Symptom triage protocols", href: "/admin/settings/triage-protocols", icon: "escalation" },
             { label: "Result release policies", href: "/admin/settings/result-release-policies", icon: "labs" },
             { label: "CV-risk (cholesterol) config", href: "/admin/settings/cv-risk-config", icon: "bp" },

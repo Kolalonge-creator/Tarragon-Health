@@ -3562,6 +3562,163 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S60.md section 6; spec 12.12; docs/OPEN-QUESTIONS.md OQ-S60-05",
   },
   {
+    key: "paging.watchdog",
+    // S78a (spec 23.15, CMO decision S-8). Mirrors paging_config version 2, which is PROPOSED and INACTIVE: the active row stays version 1 until the CMO signs
+    // a new version. watchdog_grace_seconds: how long a red triage event may exist with no page before the database watchdog creates it itself (INV-05; the
+    // outbox path normally pages in seconds). watchdog_lookback_minutes: how far back the watchdog looks. repage_after_ack_minutes: an acknowledged page still
+    // not closed after this long pages the acknowledging clinician and the backup once more; null = disabled. Until version 2 is active the watchdog uses
+    // 60 seconds and 360 minutes as hard defaults and the re-page is off.
+    // The three S78a keys of that version; the rest of version 2 repeats paging.rules and a test keeps them identical.
+    value: { watchdog_grace_seconds: 60, watchdog_lookback_minutes: 360, repage_after_ack_minutes: null },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S75-S80-cmo-decisions.md S-8; spec 23.15",
+  },
+  {
+    key: "response_time.targets",
+    // S78b (spec 23.16, CMO decision S-9). Mirrors response_time_config version 1, which is PROPOSED, UNSIGNED and INACTIVE: no number is published to
+    // patients and the breach sweep reads nothing until the CMO signs and activates a version. written_question_minutes and amber_review_minutes are how long
+    // a written question or an amber review may wait; appointment_start_late_minutes how long after the booked time a visit may still not have started;
+    // lookback_days how far back the sweep looks; patient_notice_cooldown_hours the shortest gap between two "slower than usual" notices to one patient.
+    value: { written_question_minutes: 1440, amber_review_minutes: 1440, appointment_start_late_minutes: 15, lookback_days: 7, patient_notice_cooldown_hours: 12 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S75-S80-cmo-decisions.md S-9; spec 23.16",
+  },
+  {
+    key: "outcomes.measure_rules",
+    // Outcome measures added to S38's snapshots (S75, CMO decision S-5): HbA1c, weight, PHQ-9 and GAD-7, with the day-180 BP report.
+    // The database holds them as `outcome_config` v3, which is v2 plus this block. v3 is PROPOSED, UNSIGNED and INACTIVE: the live
+    // config stays v2 (`outcomes.snapshot_rules` v2 above stays the one in force) until the CMO activates v3. The migration seed and
+    // this value are checked against each other by a test. Every number is PROPOSED and owned by the CMO: the goals (HbA1c under 7.0
+    // percent or the care-plan target, weight down 5 percent or more, a 50 percent fall for response, below 5 for remission), the
+    // windows around each day within which the nearest result is used, and the lowest baseline for which response and remission
+    // are counted. PHQ-9 and GAD-7 are never shown to a sponsor (S-3, S-5).
+    value: {
+      bp_report_days: [90, 180],
+      measures: {
+        hba1c: {
+          days: [0, 90, 180],
+          goal_below_percent: 7.0,
+          use_care_plan_target: true,
+          valid_min: 3.0,
+          valid_max: 20.0,
+          baseline_before_days: 90,
+          baseline_after_days: 14,
+          followup_tolerance_days: 30,
+          definition: "HbA1c, as a percentage. Change is the value near the day minus the baseline value near joining. A person reached the goal when the value near the day is under 7.0 percent or at their own care-plan HbA1c target. The result nearest the day inside the window is used.",
+          limitations: "Only people with an HbA1c result are counted in the measure; a person with no result near a day is shown as no result, never as not improved. Results come from the lab results recorded on the platform, not from every lab a person may have used. A before and after view without a comparison group says nothing about cause.",
+        },
+        weight: {
+          days: [0, 30, 90, 180],
+          goal_loss_percent: 5.0,
+          valid_min: 20,
+          valid_max: 400,
+          min_age_years: 18,
+          baseline_before_days: 14,
+          baseline_after_days: 7,
+          followup_tolerance_days: 14,
+          definition: "Weight in kilograms. Change is the percent difference between the weight near the day and the baseline weight near joining. A person reached the goal when weight fell by 5 percent or more. The weight nearest the day inside the window is used. Adults only.",
+          limitations: "Only people who logged a weight are counted; a person with no weight near a day is shown as no result, never as not improved. Weight changes for many reasons, including pregnancy, illness and fluid; the measure is not a judgement of any person. A before and after view without a comparison group says nothing about cause.",
+        },
+        phq9: {
+          days: [0, 30, 90, 180],
+          max_score: 27,
+          response_fall_percent: 50,
+          remission_below: 5,
+          min_baseline_for_outcome: 5,
+          baseline_before_days: 14,
+          baseline_after_days: 14,
+          followup_tolerance_days: 21,
+          definition: "PHQ-9 total score only. Response is a fall of 50 percent or more from the baseline total. Remission is a total below 5. Both are counted only for people whose baseline total was 5 or more.",
+          limitations: "Only total scores are used; no answer to any single question is read. A screening score is not a diagnosis. People with no score near a day are shown as no result. Readable only by the person and by a clinician with a written reason; never shown to a sponsor.",
+        },
+        gad7: {
+          days: [0, 30, 90, 180],
+          max_score: 21,
+          response_fall_percent: 50,
+          remission_below: 5,
+          min_baseline_for_outcome: 5,
+          baseline_before_days: 14,
+          baseline_after_days: 14,
+          followup_tolerance_days: 21,
+          definition: "GAD-7 total score only. Response is a fall of 50 percent or more from the baseline total. Remission is a total below 5. Both are counted only for people whose baseline total was 5 or more.",
+          limitations: "A screening score is not a diagnosis. People with no score near a day are shown as no result. Readable only by the person and by a clinician with a written reason; never shown to a sponsor.",
+        },
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S75-outcome-measures.md; docs/plans/S75-S80-cmo-decisions.md S-5; ADA Standards of Care; DPP; Kroenke 2001",
+  },
+  {
+    key: "follow_ups.rules",
+    // Loop closure (S77, spec 23.8, CMO decision S-20): an overdue order, referral, lab request or follow-up task goes to the lead clinician after
+    // 24 hours (routine) or 4 hours (a follow-up waiting on an abnormal result). Live values are the row of `clinical_follow_up_config`, which is born
+    // inactive and unsigned; the sweep escalates only when the CMO has signed it. A test fails if the migration seed and this value drift.
+    value: { routine_escalate_after_hours: 24, abnormal_escalate_after_hours: 4 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S75-S80-cmo-decisions.md S-20; spec 23.8; supabase/migrations/20261007160101_s77_clinical_follow_ups_closure.sql",
+  },
+  {
+    key: "credentialing.rules",
+    // Version 5 (S-18, S76 B2): version 4 plus the MDCN register re-check cadence (reverify_months, reverify_notice_days). Inserted INACTIVE: the sweep
+    // does nothing until the chief medical officer signs and activates it. Version 4 notes follow.
+    // Version 4 (S20 v2, CMO decision 8 recorded 2026-10-07), on top of version 3 (primary-source and re-check keys): notices at 90, 30, 7 and 0 days,
+    // the proof-of-renewal deadline (15 December for the 31 December cycle), a missing licence date counted as ineligible, and the evidence sources
+    // a verification can name. INACTIVE in `credentialing_config` until switched on; the switch is refused while an active clinician has no licence date.
+    value: {
+      min_practice_years: 2,
+      pass_percent: 80,
+      all_red_correct: true,
+      audited_task_count: 20,
+      referees_required: 2,
+      referee_independent_contact: true,
+      test_max_attempts: 3,
+      test_retake_cooldown_hours: 24,
+      test_scenarios_per_attempt: 10,
+      notice_windows_days: [90, 30, 7, 0],
+      grace_max_days: 14,
+      separate_verifier_and_approver: true,
+      document_max_bytes: 8388608,
+      document_retention_years_after_offboarding: 7,
+      require_verified_phone: false,
+      document_purge_enabled: false,
+      rejected_application_document_retention_months: 24,
+      primary_source_required: true,
+      primary_source_routes: ["mdcn_dataflow", "mdcn_written_confirmation", "mdcn_register_check"],
+      primary_source_max_age_days: 365,
+      recheck_months: 6,
+      recheck_overdue_days: 14,
+      credential_date_max_days: 1100,
+      grandfather_ends_on: null,
+      reverify_months: 12,
+      reverify_notice_days: 30,
+      renewal_cycle: {
+        cycle_end_month: 12,
+        cycle_end_day: 31,
+        proof_deadline_month: 12,
+        proof_deadline_day: 15,
+      },
+      missing_licence_date_ineligible: true,
+      verification_sources: ["mdcn_register_lookup", "document_sighted", "insurer_confirmation", "other"],
+    },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 5,
+    effectiveFrom: "2026-10-15",
+    source: "docs/plans/S75-S80-cmo-decisions.md S-18 (S76 B2); builds on version 4 (S20 v2)",
+  },
+  {
     key: "assistant.emergency",
     // S52 (7.8, INV-06). Nigeria has no usable national crisis helpline, so `phoneNumbers` is EMPTY on purpose: the CMO adds a number
     // (a hospital line, a clinic desk) here and nowhere else, and it is shown only once set. `nearestHospitalsShown` is how many hospitals

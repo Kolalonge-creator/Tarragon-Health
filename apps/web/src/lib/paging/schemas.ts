@@ -40,6 +40,20 @@ export const pagingOverviewSchema = z.array(
 );
 export type PagingOverviewRow = z.infer<typeof pagingOverviewSchema>[number];
 
+/** Counts of pages, escalations, overrides, re-pages and watchdog pages for the clinical lead and ops (S78a, public.paging_counts). */
+export const pagingCountsSchema = z.object({
+  days: z.number().int().min(1),
+  pages: z.number().int().min(0),
+  acknowledged: z.number().int().min(0),
+  escalated_to_backup: z.number().int().min(0),
+  escalated_to_lead: z.number().int().min(0),
+  no_cover: z.number().int().min(0),
+  overrides: z.number().int().min(0),
+  repaged: z.number().int().min(0),
+  created_by_watchdog: z.number().int().min(0),
+});
+export type PagingCounts = z.infer<typeof pagingCountsSchema>;
+
 /** The on-call phone checklist (S19b). The keys are the ones the database requires; the wording is what the clinician reads. */
 export const READINESS_ITEMS = {
   notifications_on: "Notifications are on for Tarragon Health and will stay on while I am on call.",

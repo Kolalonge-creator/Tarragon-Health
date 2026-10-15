@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 import { formatWaiting, nextPollMs, pageHeadline, pagesNeedingAction, POLL_QUIET_MS, POLL_RINGING_MS } from "./alarm";
-import { activePagesSchema, GAP_LABELS, pagingHealthSchema, pagingOverviewSchema, READINESS_ITEMS, readinessOverviewSchema, myReadinessSchema, type ActivePage } from "./schemas";
+import { activePagesSchema, GAP_LABELS, pagingCountsSchema, pagingHealthSchema, pagingOverviewSchema, READINESS_ITEMS, readinessOverviewSchema, myReadinessSchema, type ActivePage } from "./schemas";
 
 const id = "11111111-1111-4111-8111-111111111111";
 const page = (over: Partial<ActivePage> = {}): ActivePage => ({
@@ -91,5 +91,16 @@ describe("delivery hardening (S19c)", () => {
   it("a page the console has not yet shown is one the receipt call is for; an expired one is flagged", () => {
     expect(page().delivered_at).toBeNull();
     expect(page({ expired_at: "2026-10-14T11:00:00Z" }).expired_at).not.toBeNull();
+  });
+});
+
+describe("paging counts (S78a)", () => {
+  const good = { days: 30, pages: 4, acknowledged: 3, escalated_to_backup: 1, escalated_to_lead: 1, no_cover: 0, overrides: 1, repaged: 0, created_by_watchdog: 1 };
+  it("parses the database answer", () => {
+    expect(pagingCountsSchema.parse(good)).toEqual(good);
+  });
+  it("refuses a missing or negative count rather than showing zero", () => {
+    expect(pagingCountsSchema.safeParse({ ...good, overrides: undefined }).success).toBe(false);
+    expect(pagingCountsSchema.safeParse({ ...good, pages: -1 }).success).toBe(false);
   });
 });

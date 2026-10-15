@@ -13,6 +13,7 @@ export { screenAssistantMessage, isSelfHarmScreen, ASSISTANT_EXTRA_DANGER_PHRASE
 export { proposeTitration, validateProtocolDefinition, proposalToChangeArgs, ProtocolDefinitionError } from "./titration";
 export { TITRATION_STOP_KEYS, TITRATION_LABEL_KEYS } from "./titration-messages";
 export type * from "./titration-types";
+export { livePromptsForSegment, LIVE_RED_FLAG_RULE_ID, LIVE_RED_FLAG_RULE_VERSION, type LivePrompt } from "./live-redflag";
 export * from "./maternal";
 export {
   assessHomeCheck, bandHomeMean, dedupeReadings, detectBpPattern, homeCheckSchedule, pairSessions, parseHomeBpConfig, sessionPartOf, statusAgainstTarget, addLocalDays,

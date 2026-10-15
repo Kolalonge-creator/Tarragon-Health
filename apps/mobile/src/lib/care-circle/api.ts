@@ -46,6 +46,11 @@ export async function updateMember(memberId: string, permissions: CirclePermissi
   const { data, error } = await supabase.rpc("update_care_circle_member", { p_member: memberId, p_permissions: permissions, ...(expiresAt ? { p_expires_at: expiresAt } : {}) });
   return !error && data === true;
 }
+/** S75 A5: the patient's switch for sharing the monthly report with one supporter. Off by default. */
+export async function setMonthlyReportShare(memberId: string, on: boolean): Promise<boolean> {
+  const { error } = await supabase.rpc("set_circle_monthly_report_share", { p_member: memberId, p_on: on });
+  return !error;
+}
 /** The patient removes a member, or a supporter leaves: the database allows exactly those two people. */
 export async function revokeMember(memberId: string): Promise<boolean> {
   const { data, error } = await supabase.rpc("revoke_care_circle_member", { p_member: memberId });
