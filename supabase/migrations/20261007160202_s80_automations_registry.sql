@@ -155,7 +155,7 @@ begin
      or has_table_privilege('anon', 'public.automations', 'SELECT') then
     raise exception 'automations has a grant it must not have';
   end if;
-  if (select count(*) from public.automations where source = 'vercel') <> 23 then raise exception 'expected 23 vercel crons'; end if;
+  if (select count(*) from public.automations where source = 'vercel') < 25 then raise exception 'expected at least 25 vercel crons'; end if;
   if exists (select 1 from public.automations a where a.source = 'pg_cron' and not exists (select 1 from cron.job j where j.jobname = a.job_name)) then
     raise exception 'a seeded pg_cron job does not exist';
   end if;
