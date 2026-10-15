@@ -4,7 +4,6 @@ import { TITRATION_PLACEHOLDER } from "../titration-fixture";
 import {
   ASTHMA_COPD_V1,
   CKD_V1,
-  DIABETES_CARE_V1,
   HEART_FAILURE_V1,
   HTN_RTSL_NG_DRAFT,
   HTN_STEP_IDS,
@@ -12,7 +11,6 @@ import {
   bpTargetFor,
   buildAsthmaFacts,
   buildCkdFacts,
-  buildGlucoseFacts,
   buildHeartFailureFacts,
   classifyWeight,
   composeCardiometabolic,
@@ -95,7 +93,7 @@ describe("CKD (Q12): refer on eGFR under 30, ACR 300 or more, a fall over 20% or
 });
 
 describe("the other pathway rule sets are drafts, valid, never name a medicine and every red pages", () => {
-  for (const rs of [DIABETES_CARE_V1, ASTHMA_COPD_V1, HEART_FAILURE_V1, CKD_V1]) {
+  for (const rs of [ASTHMA_COPD_V1, HEART_FAILURE_V1, CKD_V1]) {
     it(rs.code, () => {
       expect(rs.status).toBe("draft");
       expect(validatePathwayRuleSet(rs)).toEqual([]);
@@ -110,9 +108,10 @@ describe("cardiometabolic composition (Q9): run each rule set, most urgent wins"
     ({ source, status, grade, ruleId: `${source}-rule`, explanationKey: `${source}-key`, actions });
 
   it("a red diabetes result wins over a green blood pressure result and keeps its page", () => {
-    const d = gradePathway({ facts: buildGlucoseFacts({ latest: { mmol: 2.8, takenAt: NOW, events: ["confusion"] }, history: [], ketoneMmol: null, ketoneUrine: null, insulinOrSulfonylurea: null, now: NOW }), readingAt: NOW, now: NOW }, DIABETES_CARE_V1);
+    // the glucose result comes from the glucose engine (rule set glucose_care_triage); here only its shape matters to the composition
+    const d = comp("diabetes_care", "red", "graded", [{ kind: "page_on_call" }]);
     const bp = gradeBp({ trigger: { type: "observation", reading: { systolic: 124, diastolic: 78, takenAt: NOW }, symptoms: [] }, history: [], target: { systolic: 130, diastolic: 80 }, pathway: { state: "care_pack_active" }, pregnant: false, ageYears: 50, now: NOW }, BP_CARE_V3);
-    const composed = composeCardiometabolic([{ source: "bp", ...bp }, { source: "diabetes_care", ...d }]);
+    const composed = composeCardiometabolic([{ source: "bp", ...bp }, d]);
     expect(composed.grade).toBe("red");
     expect(composed.winnerSource).toBe("diabetes_care");
     expect(composed.actions.some((a) => a.kind === "page_on_call")).toBe(true);

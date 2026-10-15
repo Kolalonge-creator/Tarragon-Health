@@ -3,7 +3,6 @@ export { gradePathway, validatePathwayRuleSet } from "./engine";
 export { evaluateCondition } from "./evaluate";
 export * from "./types";
 export * from "./config";
-export { DIABETES_CARE_V1, buildDiabetesCareRuleSet, buildGlucoseFacts, GLUCOSE_EVENT_CODES, type GlucoseEventCode, type GlucoseFactsInput, type GlucoseReadingFact } from "./rules/diabetes-care";
 export {
   ASTHMA_COPD_V1, CKD_V1, HEART_FAILURE_V1,
   buildAsthmaCopdRuleSet, buildAsthmaFacts, buildCkdFacts, buildCkdRuleSet, buildHeartFailureFacts, buildHeartFailureRuleSet,

@@ -2,7 +2,7 @@ import { describe, expect, it } from "@jest/globals";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { ASTHMA_COPD_V1, CKD_V1, DIABETES_CARE_V1, HEART_FAILURE_V1, HTN_RTSL_NG_DRAFT, PATHWAY_DEFINITIONS, loadCadenceConfig } from "./index";
+import { ASTHMA_COPD_V1, CKD_V1, HEART_FAILURE_V1, HTN_RTSL_NG_DRAFT, PATHWAY_DEFINITIONS, loadCadenceConfig } from "./index";
 
 const MIGRATIONS = join(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..", "..", "supabase", "migrations");
 const FILE = readdirSync(MIGRATIONS).find((f) => f.endsWith("_s61_s62_pathway_engine.sql")) as string;
@@ -16,7 +16,6 @@ function seed(marker: string): unknown {
 
 describe("the S61/S62 migration seeds are identical to the code (a number is never typed twice)", () => {
   it("the migration exists", () => expect(FILE).toBeDefined());
-  it("diabetes_care_triage", () => expect(seed("diabetes-rule-set")).toEqual(DIABETES_CARE_V1));
   it("asthma_copd_care_triage", () => expect(seed("asthma-rule-set")).toEqual(ASTHMA_COPD_V1));
   it("heart_failure_triage", () => expect(seed("hf-rule-set")).toEqual(HEART_FAILURE_V1));
   it("ckd_monitoring_triage", () => expect(seed("ckd-rule-set")).toEqual(CKD_V1));

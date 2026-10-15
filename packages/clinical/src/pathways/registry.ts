@@ -35,7 +35,7 @@ const def = (d: Omit<PathwayDefinition, "guardKey" | "composedOf" | "reportingOn
 
 export const PATHWAY_DEFINITIONS: readonly PathwayDefinition[] = [
   def({ code: "bp", label: "Blood pressure care", kind: "programme", programmeCodes: ["hypertension"], ruleSetCode: "bp_care_triage", stepTableCode: "htn_rtsl_ng" }),
-  def({ code: "diabetes_care", label: "Diabetes care", kind: "programme", programmeCodes: ["diabetes"], ruleSetCode: "diabetes_care_triage", stepTableCode: null }),
+  def({ code: "diabetes_care", label: "Diabetes care", kind: "programme", programmeCodes: ["diabetes"], ruleSetCode: "glucose_care_triage", stepTableCode: null }),
   def({ code: "cardiometabolic_care", label: "Cardiometabolic care", kind: "composite", programmeCodes: [], ruleSetCode: null, stepTableCode: null, composedOf: ["bp", "diabetes_care"] }),
   def({ code: "prediabetes_prevention", label: "Prediabetes prevention", kind: "prevention", programmeCodes: [], ruleSetCode: null, stepTableCode: null, reportingOnly: true }),
   def({ code: "weight_care", label: "Weight management", kind: "programme", programmeCodes: ["obesity"], ruleSetCode: null, stepTableCode: null, reportingOnly: true }),

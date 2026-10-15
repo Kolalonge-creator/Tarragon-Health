@@ -130,7 +130,7 @@ begin
   perform pg_temp.rec('the wrapper still serves an older guard', 'true', (jsonb_array_length(private.go_live_conditions('on_call_cover_ok', v_org)) >= 1)::text);
   v_conds := private.go_live_conditions('pathway_sickle_cell_care', v_org);
   perform pg_temp.rec('a scaffold pathway can never meet its protocol condition', 'false', (v_conds -> 0 ->> 'met'));
-  perform pg_temp.rec('rule sets are drafts', '4', (select count(*)::text from public.triage_rule_sets where code in ('diabetes_care_triage', 'asthma_copd_care_triage', 'heart_failure_triage', 'ckd_monitoring_triage') and status = 'draft' and approved_by is null));
+  perform pg_temp.rec('rule sets are drafts', '4', (select count(*)::text from public.triage_rule_sets where code in ('glucose_care_triage', 'asthma_copd_care_triage', 'heart_failure_triage', 'ckd_monitoring_triage') and status = 'draft' and approved_by is null));
   perform pg_temp.rec('the step table is a draft', '1', (select count(*)::text from public.protocols where code = 'htn_rtsl_ng' and status = 'draft' and approved_by is null));
   perform pg_temp.rec('the two task types this migration seeds exist, PROPOSED, and neither blocks approving another rule set', '2', (select count(*)::text from public.task_types where code in ('hypo_follow_up', 'amber_pathway_review') and not needs_confirmation));
   perform pg_temp.rec('amber_glucose_review exists (seeded by the glucose engine migration, which owns its confirmation)', '1', (select count(*)::text from public.task_types where code = 'amber_glucose_review' and is_active));
@@ -228,12 +228,12 @@ begin
   perform pg_temp.rec('the proposal itself stays unsigned', 'proposed/null', (select state || '/' || coalesce(signed_by::text, 'null') from public.care_plan_changes where id = v_change));
 
   -- 6. INV-05: a draft rule set is shadow and pages nobody; an approved one pages --------------------------------------
-  select id into v_rs from public.triage_rule_sets where code = 'diabetes_care_triage' and version = 1;
+  select id into v_rs from public.triage_rule_sets where code = 'glucose_care_triage' and version = 1;
   insert into public.vitals_readings (organisation_id, patient_id, vital_type, glucose_mmol_l, taken_at, source, glucose_events)
   values (v_org, v_pat, 'glucose', 2.8, now(), 'manual', array['confusion']) returning id into v_obs;
   perform pg_temp.rec('the glucose event is stored with the reading', 'confusion', (select glucose_events[1] from public.vitals_readings where id = v_obs));
   v_res := jsonb_build_object('status', 'graded', 'grade', 'red', 'ruleId', 'DM-R2', 'explanationKey', 'PW-DM-RED', 'taskKey', null,
-    'matchedRuleIds', jsonb_build_array('DM-R1', 'DM-R2'), 'ruleSet', jsonb_build_object('code', 'diabetes_care_triage', 'version', 1),
+    'matchedRuleIds', jsonb_build_array('DM-R1', 'DM-R2'), 'ruleSet', jsonb_build_object('code', 'glucose_care_triage', 'version', 1),
     'actions', jsonb_build_array(jsonb_build_object('kind', 'show_emergency_guidance', 'code', 'PW-DM-RED'), jsonb_build_object('kind', 'page_on_call')));
   perform public.record_triage_result(v_obs, v_res, v_rs, null, 'proof-draft');
   select id into v_te from public.triage_events where trigger_id = v_obs and rule_set_id = v_rs;
