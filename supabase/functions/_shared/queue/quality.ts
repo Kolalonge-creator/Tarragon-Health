@@ -5,7 +5,7 @@
 // (packages/queue/fixtures/audit-scoring-cases.json) runs through this file in Jest and through the SQL in the proof.
 
 export type AuditOutcome = "satisfactory" | "minor_concerns" | "significant_concerns" | "unsafe";
-export type AuditReason = "red_event" | "titration" | "first_tasks" | "random_sample";
+export type AuditReason = "red_event" | "titration" | "first_tasks" | "new_clinician_review" | "random_sample";
 
 export interface AuditForm {
   safety_items: readonly string[];
@@ -81,13 +81,22 @@ export interface AuditSamplingFacts {
   tier1Target: number;
   /** A stable draw in [0, 100) for this task and month. */
   draw: number;
+  /**
+   * Q16: which of this clinician's red or prescribing cases this is (1 for the first), or null when this task is neither red nor
+   * prescribing. The database computes it from completion order (private.new_clinician_case_ordinal).
+   */
+  qualifyingOrdinal?: number | null;
 }
 
-/** Why a completed task is audited, or null when it is not. Red events and titrations are always audited. */
-export function auditReason(facts: AuditSamplingFacts, randomRatePercent: number): AuditReason | null {
+/**
+ * Why a completed task is audited, or null when it is not. Red events and titrations are always audited. Q16: a new clinician's first
+ * `newClinicianFullReviewCases` red or prescribing cases are all audited (0 turns that off), after which the random sample applies.
+ */
+export function auditReason(facts: AuditSamplingFacts, randomRatePercent: number, newClinicianFullReviewCases = 0): AuditReason | null {
   if (facts.priorityClassOriginal === 1 || facts.taskType === "red_event_unacknowledged") return "red_event";
   if (facts.taskType === "titration_signoff") return "titration";
   if (facts.level === 1 && facts.tier1Audited < facts.tier1Target) return "first_tasks";
+  if (facts.qualifyingOrdinal != null && facts.qualifyingOrdinal <= newClinicianFullReviewCases) return "new_clinician_review";
   return facts.draw < randomRatePercent ? "random_sample" : null;
 }
 

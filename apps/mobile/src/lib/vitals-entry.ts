@@ -44,6 +44,9 @@ export const GLUCOSE_BOUNDS: Record<GlucoseUnit, { min: number; max: number }> =
   mg_dl: { min: 18, max: 720 },
 };
 
+/** A ketone value typed on the glucose quick-log: a typo gate, far wider than any band (the bands live only in the glucose_care_triage rule set). Mirrors params.validation.ketoneMaxMmol and the server (vitals_readings_ketones_mmol_l_check: 0 to 20). */
+export const KETONE_ENTRY_BOUNDS = { min: 0, max: 20 } as const;
+
 export type BpEntryError = "numbers" | "range" | "order";
 
 export type BpEntryResult = { ok: true; systolic: number; diastolic: number } | { ok: false; error: BpEntryError };

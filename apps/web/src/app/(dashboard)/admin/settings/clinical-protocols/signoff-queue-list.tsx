@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { NAV_ICON } from "@/lib/icons";
 import type { SignoffQueueItem } from "@/lib/queries/signoff-queue";
+import { signoffAnchorId } from "@/lib/signoff-anchor";
 
 const SEVERITY_BADGE: Record<SignoffQueueItem["severity"], { variant: BadgeProps["variant"]; label: string }> = {
   live_unsigned: { variant: "red", label: "Live, unsigned" },
@@ -63,6 +64,7 @@ export function SignoffQueueList({
             return (
               <details
                 key={item.key}
+                id={signoffAnchorId(item.key)}
                 className="group rounded-md border border-mist-grey/40 p-3 text-sm open:border-brand-green/50 open:bg-brand-green/5"
               >
                 <summary className="flex cursor-pointer list-none items-start justify-between gap-3 [&::-webkit-details-marker]:hidden">
@@ -84,6 +86,7 @@ export function SignoffQueueList({
           return (
             <Link
               key={item.key}
+              id={signoffAnchorId(item.key)}
               href={item.href}
               className="flex items-start justify-between gap-3 rounded-md border border-mist-grey/40 p-3 text-sm transition-colors hover:border-brand-green/50 hover:bg-brand-green/5"
             >

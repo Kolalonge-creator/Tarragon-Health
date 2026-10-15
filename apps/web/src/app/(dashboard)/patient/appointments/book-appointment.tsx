@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import {
   useAvailableAppointmentSlots,
@@ -29,6 +29,19 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 
 import { formatPatientDateTime } from "@/lib/format-date";
+
+// The carer's note lives in session storage only; there is nothing to subscribe to, and a blocked storage just means no note.
+function subscribeToNothing(): () => void {
+  return () => {};
+}
+function readCarerConcern(): string | null {
+  try {
+    const v = window.sessionStorage.getItem("tarragon.booking_reason");
+    return v ? v.slice(0, 500) : null;
+  } catch {
+    return null;
+  }
+}
 function formatSlot(iso: string): string {
   return formatPatientDateTime(iso, {
     weekday: "short",
@@ -95,6 +108,12 @@ export function BookAppointment({
   );
   // S64 (15.7): the terms for the type being paid for. The pay button stays off until they have loaded, so nobody pays unseen.
   const payTerms = useMyBookingTerms(pendingPaymentAppointment?.appointmentType ?? appointmentType);
+  // S59b: a carer who was told the symptom checker is for adults can leave a note about a child's concern. It is kept in this tab's
+  // session storage (never in a URL) and goes on the booking as free text, under the carer's own account. Cleared once used.
+  // Read through useSyncExternalStore (not an effect that sets state): the note is on the device only, so the server render sees none.
+  const storedCarerConcern = useSyncExternalStore(subscribeToNothing, readCarerConcern, () => null);
+  const [carerConcernUsed, setCarerConcernUsed] = useState(false);
+  const carerConcern = carerConcernUsed ? null : storedCarerConcern;
 
   // S37 (INV-14): consultations stay closed until the clinical_operations_enabled guard is on. The database refuses a hold either
   // way; this keeps a patient from filling in a form that cannot work, and says so calmly.
@@ -185,7 +204,16 @@ export function BookAppointment({
         endsAt: slot.slot_end,
         location: slot.location ?? undefined,
         patientId,
+        reason: carerConcern ?? undefined,
       });
+      if (carerConcern) {
+        try {
+          window.sessionStorage.removeItem("tarragon.booking_reason");
+        } catch {
+          // nothing to clear
+        }
+        setCarerConcernUsed(true);
+      }
       const confirmed = await confirm.mutateAsync(held.id);
 
       if (confirmed.status === "confirmed") {

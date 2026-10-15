@@ -1,4 +1,5 @@
-import * as SQLite from "expo-sqlite";
+import type * as SQLite from "expo-sqlite";
+import { getStoreWithSchema } from "../secure-db";
 import type { QueuedItem, QueueStore } from "./queue";
 import { parseOrQuarantine } from "./queue-row";
 
@@ -8,29 +9,25 @@ import { parseOrQuarantine } from "./queue-row";
  * cleaner can delete them. Sign-out does not touch these tables: an item belongs to its patient
  * and is only ever read back for that same patient.
  */
-let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
+async function setupQueue(db: SQLite.SQLiteDatabase): Promise<void> {
+  await db.execAsync(
+    `create table if not exists wq_queue (
+       client_id text primary key,
+       user_id text not null,
+       created_at integer not null,
+       item text not null
+     );
+     create table if not exists wq_queue_photos (
+       client_id text not null,
+       photo_id text not null,
+       bytes blob not null,
+       primary key (client_id, photo_id)
+     );`,
+  );
+}
 
 function getDb(): Promise<SQLite.SQLiteDatabase> {
-  if (!dbPromise) {
-    dbPromise = SQLite.openDatabaseAsync("tarragon-offline.db").then(async (db) => {
-      await db.execAsync(
-        `create table if not exists wq_queue (
-           client_id text primary key,
-           user_id text not null,
-           created_at integer not null,
-           item text not null
-         );
-         create table if not exists wq_queue_photos (
-           client_id text not null,
-           photo_id text not null,
-           bytes blob not null,
-           primary key (client_id, photo_id)
-         );`,
-      );
-      return db;
-    });
-  }
-  return dbPromise;
+  return getStoreWithSchema("written-questions", setupQueue);
 }
 
 export const sqliteQueueStore: QueueStore = {

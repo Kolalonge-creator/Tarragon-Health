@@ -67,7 +67,7 @@ begin
 
   for r in select * from (values
       ('doctor_a', 'clinician', 'org', 'senior_medical_officer'),
-      ('doctor_b', 'clinician', 'org', 'medical_officer'),
+      ('doctor_b', 'clinician', 'org', 'senior_medical_officer'),
       ('doctor_c', 'clinician', 'org2', 'senior_medical_officer'),
       ('coordinator', 'clinician', 'org', 'care_coordinator')
     ) as t(key_name, role_name, org_key, tier_name)

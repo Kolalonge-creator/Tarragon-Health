@@ -60,6 +60,19 @@ $$ select (now() at time zone 'Africa/Lagos')::date $$;
 create function pg_temp.events(p_type text, p_patient uuid) returns text language sql as
 $$ select count(*)::text from public.domain_events where event_type = p_type and patient_id = p_patient $$;
 
+-- S55's publish gate (private.health_education_publish_gate) demands a named reviewer, a source, a self-care action and a FUTURE review
+-- date at the moment a row becomes published. This proof needs published lessons whose date is then today, past or empty, so a fixture is
+-- published properly (through the gate) and only then given the date under test.
+create function pg_temp.pub(p_id uuid, p_due date) returns void language plpgsql as $f$
+begin
+  update public.health_education_content set is_placeholder = false, clinical_author_name = 'Test author',
+    clinician_reviewed = true, reviewed_by_name = 'Test reviewer', reviewed_at = now(), source_reference = 'Test source',
+    self_care_action = 'Test self-care action', next_review_due = ((now() at time zone 'Africa/Lagos')::date + 30)
+  where id = p_id;
+  update public.health_education_content set content_status = 'published' where id = p_id;
+  update public.health_education_content set next_review_due = p_due where id = p_id;
+end $f$;
+
 do $$
 declare
   v_org uuid; v_pat uuid; v_pat2 uuid; v_admin uuid; v_prog uuid;
@@ -100,9 +113,9 @@ begin
   select id into v_l2 from public.health_education_content where code = 'bpc_02_measure_correctly_at_home';
   select id into v_l3 from public.health_education_content where code = 'bpc_03_understanding_numbers_and_target';
   select id into v_l4 from public.health_education_content where code = 'bpc_04_feeling_fine_with_high_pressure';
-  update public.health_education_content set content_status = 'published', next_review_due = v_today + 30 where id = v_l1;     -- served
-  update public.health_education_content set content_status = 'published', next_review_due = null where id = v_l2;              -- no review date
-  update public.health_education_content set content_status = 'published', next_review_due = v_today - 1 where id = v_l3;       -- date passed
+  perform pg_temp.pub(v_l1, v_today + 30);     -- served
+  perform pg_temp.pub(v_l2, null);             -- no review date
+  perform pg_temp.pub(v_l3, v_today - 1);      -- date passed
   -- v_l4 stays draft
   -- The programme row stays inactive for good: learning_course checks every lesson, the older programme functions only check the row.
   perform pg_temp.act(v_pat);
@@ -115,12 +128,13 @@ begin
   perform pg_temp.rec('a lesson with no review date is not served', 'false', (pg_temp.served_codes() like '%bpc_02%')::text);
   perform pg_temp.rec('a lesson whose review date has passed is not served', 'false', (pg_temp.served_codes() like '%bpc_03%')::text);
   perform pg_temp.rec('a draft is not served', 'false', (pg_temp.served_codes() like '%bpc_04%')::text);
-  perform pg_temp.rec('no reviewer credit without a review record', 'null', (select coalesce(reviewed_by_name, 'null') from public.learning_course('bp_care_course') where module_number = 1));
+  -- A published lesson is published with a named reviewer (S55's publish gate) and cannot lose it (S58b), so the state this check used
+  -- to cover (published, no reviewer, so no credit) cannot be built any more; what is checked is that the credit shown is the real name.
+  perform pg_temp.rec('a published lesson shows its named reviewer', 'Test reviewer', (select coalesce(reviewed_by_name, 'null') from public.learning_course('bp_care_course') where module_number = 1));
   perform pg_temp.back();
-  update public.health_education_content set reviewed_by_name = 'Dr Test Reviewer', reviewed_at = now(), clinician_reviewed = false where id = v_l1;
-  perform pg_temp.act(v_pat);
-  perform pg_temp.rec('a name without clinician_reviewed shows no credit', 'null', (select coalesce(reviewed_by_name, 'null') from public.learning_course('bp_care_course') where module_number = 1));
-  perform pg_temp.back();
+  -- (A published lesson cannot be un-marked as clinician-reviewed any more (S58b integrity), so "a name without the mark shows no credit" is no
+  -- longer a reachable state and is not asserted here.)
+  update public.health_education_content set reviewed_by_name = 'Dr Test Reviewer' where id = v_l1;
   update public.health_education_content set clinician_reviewed = true where id = v_l1;
   perform pg_temp.act(v_pat);
   perform pg_temp.rec('a complete review record shows the credit', 'Dr Test Reviewer', (select coalesce(reviewed_by_name, 'null') from public.learning_course('bp_care_course') where module_number = 1));
@@ -156,15 +170,16 @@ begin
   select c.id into v_other from public.health_education_content c
     where c.content_status = 'published' and not exists (select 1 from public.health_education_programme_modules m where m.content_id = c.id) order by c.code limit 1;
   if v_other is null then
-    insert into public.health_education_content (code, title, body, category, content_status) values ('s33_control_published', 'control', 'control body', 'getting_started', 'published') returning id into v_other;
+    insert into public.health_education_content (code, title, body, category) values ('s33_control_published', 'control', 'control body', 'getting_started') returning id into v_other;
+    perform pg_temp.pub(v_other, v_today + 30);
   end if;
   update public.health_education_content set body = body || ' control edit' where id = v_other;
   perform pg_temp.rec('control: editing a non-course row leaves it published', 'published', (select content_status::text from public.health_education_content where id = v_other));
 
   -- 5. Sweep ----------------------------------------------------------------------------------------------------
-  update public.health_education_content set content_status = 'published', clinician_reviewed = true, next_review_due = v_today where id = v_l2;
-  insert into public.health_education_content (code, title, body, category, content_status, next_review_due, clinician_reviewed)
-    values ('s33_control_due', 'control due', 'control body', 'getting_started', 'published', v_today - 5, true) returning id into v_other_due;
+  perform pg_temp.pub(v_l2, v_today);
+  insert into public.health_education_content (code, title, body, category) values ('s33_control_due', 'control due', 'control body', 'getting_started') returning id into v_other_due;
+  perform pg_temp.pub(v_other_due, v_today - 5);
   select count(*) into v_hist from public.health_education_content_status_history where content_id = v_l2;
   v_n := private.learning_hide_overdue_course_lessons();
   perform pg_temp.rec('the sweep hides a course lesson whose review date has come', 'clinical_review', (select content_status::text from public.health_education_content where id = v_l2));
@@ -219,7 +234,7 @@ begin
   insert into results values ('sabotaged', 'finishing the teach-back emits lesson.completed', '1', pg_temp.events('lesson.completed', v_pat2));
   -- (b) the edit trigger dropped: an edited lesson stays published, so the matching check flips
   drop trigger health_education_content_requeue_on_edit on public.health_education_content;
-  update public.health_education_content set content_status = 'published', clinician_reviewed = true, next_review_due = v_today + 30 where id = v_l4;
+  perform pg_temp.pub(v_l4, v_today + 30);
   update public.health_education_content set body = body || ' sabotage edit' where id = v_l4;
   insert into results values ('sabotaged', 'editing a lesson sends it back to clinical review', 'clinical_review', (select content_status::text from public.health_education_content where id = v_l4));
 end $$;

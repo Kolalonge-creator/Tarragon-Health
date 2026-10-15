@@ -115,3 +115,20 @@ export const deviceReadingSchema = z
   });
 
 export type DeviceReadingInput = z.infer<typeof deviceReadingSchema>;
+
+/**
+ * The same readings with only a sanity check on the numbers, for the period the plausibility hold is switched on (S70a, 18.9).
+ *
+ * The strict schema above rejects a value outside the typed-entry band with a 400, which loses a real extreme reading (a cuff showing
+ * 270/130) and also cannot tell the person "please check this". With the hold on, the database decides: a value no living person can have
+ * is held for the person to confirm, and an extreme but possible one is saved and triaged like any other. This schema therefore only
+ * refuses what is not a number at all.
+ */
+const sane = (max: number) => z.number().finite().positive().max(max);
+export const deviceReadingHoldSchema = z.discriminatedUnion("vital_type", [
+  deviceBloodPressureSchema.extend({ systolic: sane(2000), diastolic: sane(2000), pulse_bpm: sane(2000).optional() }),
+  deviceGlucoseSchema.extend({ glucose_value: sane(100000) }),
+  deviceWeightSchema.extend({ weight_kg: sane(2000) }),
+  deviceTemperatureSchema.extend({ temperature_c: sane(200) }),
+  deviceSpo2Schema.extend({ spo2_pct: z.number().int().min(0).max(1000), pulse_bpm: sane(2000).optional() }),
+]);

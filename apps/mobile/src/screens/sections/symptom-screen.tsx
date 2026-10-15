@@ -23,6 +23,7 @@ import { radius, spacing } from "@/ui/theme";
 import { lightPalette, useLegacyColors, useTheme } from "@/ui/design";
 import { Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, SectionLabel } from "@/ui/legacy-kit";
 import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
+import { SymptomCheckerCard } from "@/screens/sections/symptom-checker-card";
 
 interface SymptomScreenProps {
   patientId: string;
@@ -186,6 +187,8 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
         <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>Symptoms</Text>
         <MutedText>Log a symptom and see your recent history.</MutedText>
       </View>
+
+      <SymptomCheckerCard actingForSomeoneElse={beneficiaryProfileId !== undefined} />
 
       <Card style={{ gap: 0, borderColor: "#FECACA", padding: 0, overflow: "hidden" }}>
         <Pressable

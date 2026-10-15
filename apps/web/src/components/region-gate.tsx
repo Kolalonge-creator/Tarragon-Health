@@ -14,7 +14,7 @@ const SERVICE_LABELS: Record<RegionServiceType, string> = {
   lab: "Lab tests",
   pharmacy: "Pharmacy orders",
   home_visit: "Home sample collection",
-  delivery: "Medication delivery",
+  delivery: "Courier delivery",
   specialist: "Specialist referrals",
 };
 

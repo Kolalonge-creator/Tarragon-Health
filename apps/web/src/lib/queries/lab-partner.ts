@@ -180,7 +180,9 @@ export function useLabPartnerRejectSample() {
   });
 }
 
-export type LabTestRow = Tables<"lab_tests">;
+/** Track E 8.16: a lab partner never reads Tarragon's commission on its own tests (column grant); explicit columns only. */
+export type LabTestRow = Omit<Tables<"lab_tests">, "commission_rate" | "commission_rate_type" | "commission_flat_kobo">;
+export const LAB_TEST_SAFE_COLUMNS = "id, provider_id, code, name, price_kobo, turnaround_hours, is_active, created_at";
 
 /**
  * A lab partner's own catalogue rows. is_active is the only column a plain
@@ -196,7 +198,7 @@ export function useLabPartnerOwnTests(providerId: string | null | undefined) {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("lab_tests")
-        .select("*")
+        .select(LAB_TEST_SAFE_COLUMNS)
         .eq("provider_id", providerId as string)
         .order("name");
       if (error) throw error;

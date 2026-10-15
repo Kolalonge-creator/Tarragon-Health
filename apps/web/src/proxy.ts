@@ -83,6 +83,13 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
+  // A supporter's payment request link (S72, 19.13). The code in the path is the whole authorisation to see the generic item and price, the page needs no
+  // role (a signed-in visitor must land on it, not be bounced to a dashboard), and the code must never leave through a Referer header.
+  if (pathname.startsWith("/checkout/pr_")) {
+    response.headers.set("Referrer-Policy", "no-referrer");
+    return response;
+  }
+
   // The mobile app's WebView session bridge (apps/mobile/src/screens/
   // webview-screen.tsx) must run its own client-side setSession() exchange
   // and `next` redirect every time it's hit — authenticated or not. Without
@@ -370,6 +377,9 @@ export const config = {
       // the proxy. If prefetch fan-out ever becomes a measured problem, cut
       // the fan-out (prefetch={false} on the offending nav) — never the gate.
       //
+      // `api/health/` (SR1, the secret-authenticated deep health check) is excluded for the same reason as `api/status` below:
+      // it must answer when Supabase Auth is the thing that is down.
+      //
       // `api/status` is excluded for a different reason: it exists to
       // report whether Supabase Auth itself is degraded (see
       // docs/BUSINESS_CONTINUITY_DR_SPEC.md). updateSession()'s
@@ -377,7 +387,7 @@ export const config = {
       // would let a slow/down Auth service hang the health check instead of
       // letting it report the outage, defeating the one check meant to
       // catch exactly that.
-      source: "/((?!_next/static|_next/image|favicon.ico|api/status|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+      source: "/((?!_next/static|_next/image|favicon.ico|api/status|api/health/|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
     },
   ],
 };

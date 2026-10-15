@@ -66,12 +66,19 @@ export function viewFor(c: Collection): CollectionView {
 }
 
 // ---- the counter desk (pharmacist) ----
-export const DESK_OUTCOMES = ["ok", "not_found", "expired", "locked", "wrong_code", "already_collected"] as const;
+export const DESK_OUTCOMES = ["ok", "not_found", "expired", "locked", "wrong_code", "already_collected", "controlled_medicine"] as const;
 export const DISPENSE_OUTCOMES = [
   "recorded", "partial_recorded", "not_found", "expired", "locked", "wrong_code", "already_collected",
-  "invalid", "not_active", "no_supply_available", "no_medication", "batch_required", "batch_expired",
+  "invalid", "not_active", "no_supply_available", "no_medication", "batch_required", "batch_expired", "controlled_medicine",
 ] as const;
 export type DispenseOutcome = (typeof DISPENSE_OUTCOMES)[number];
+
+/**
+ * OQ-276 (CMO decision 2026-10-07): the counter checks the controlled-medicines list a second time. Tarragon does not prescribe or supply controlled
+ * medicines, so a match is refused here with this plain message and nothing is recorded. One string, used by every counter screen.
+ */
+export const CONTROLLED_AT_COUNTER_TEXT =
+  "This medicine is on the controlled medicines list, and Tarragon does not supply controlled medicines from this screen. Nothing was recorded. If you think this is a mistake, ask the prescriber.";
 
 export const deskVerifySchema = z.object({
   outcome: z.string(),

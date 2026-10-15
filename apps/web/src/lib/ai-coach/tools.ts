@@ -11,7 +11,9 @@ import { tool, type StructuredToolInterface } from "@langchain/core/tools";
 // schema in this file; do not swap this back to the bare "zod" import.
 import { z } from "zod3";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@tarragon/shared";
+import { isAiExcludedAnalyte, type Database } from "@tarragon/shared";
+import { loadKnowledgeSources } from "./knowledge-sources";
+import { mentionsSensitiveScreening } from "./reply-screen";
 
 /**
  * Read-only record tools for the AI Coach — closes the structural gap
@@ -73,6 +75,10 @@ const getRecentLabResultsSchema = z.object({
 
 const getMedicationInformationSchema = z.object({
   drugName: z.string().min(1).describe("The generic or brand name of the medicine to look up, e.g. 'amlodipine'."),
+});
+
+const getCachedExplanationsSchema = z.object({
+  subjectKey: z.string().min(1).max(80).optional().describe("The subject, for example a lab code like 'hba1c'. Omit for the latest few."),
 });
 
 const emptySchema = z.object({});
@@ -217,17 +223,21 @@ export function buildPatientRecordTools(supabase: SupabaseClient<Database>, pati
     async (args: z.infer<typeof getRecentLabResultsSchema>) => {
       try {
         const { limit } = args;
+        // INV-04: read ONLY the ai_readable_lab_readings view (screening analytes such as HIV, HBsAg and HCV that are not an
+        // explicit negative are filtered in the database), then filter again here as defence in depth. Never query the
+        // base table from the AI path: ai-path-sensitive-results.test.ts fails the build if anyone does.
         const { data, error } = await supabase
-          .from("lab_analyte_readings")
-          .select("code, value, unit, taken_at")
+          .from("ai_readable_lab_readings")
+          .select("code, value, value_text, unit, taken_at")
           .eq("patient_id", patientId)
           .order("taken_at", { ascending: false })
           .limit(Math.min(Math.max(limit ?? 10, 1), 30));
         if (error) return toolError("getRecentLabResults", error);
-        if (!data || data.length === 0) {
+        const safe = (data ?? []).filter((r) => !isAiExcludedAnalyte(r.code, r.value_text));
+        if (safe.length === 0) {
           return toJson({ results: [], note: "No lab results on file for this patient." });
         }
-        return toJson({ results: data });
+        return toJson({ results: safe });
       } catch (error) {
         return toolError("getRecentLabResults", error);
       }
@@ -251,23 +261,34 @@ export function buildPatientRecordTools(supabase: SupabaseClient<Database>, pati
     async (args: z.infer<typeof getMedicationInformationSchema>) => {
       try {
         const { drugName } = args;
-        const { data, error } = await supabase
+        const { data: rows, error } = await supabase
           .from("health_education_content")
-          .select("title, summary, body")
+          .select("id, title, summary, body")
           .eq("category", "medicines")
           .eq("clinician_reviewed", true)
           .eq("is_active", true)
           .ilike("title", `%${drugName}%`)
-          .limit(1)
-          .maybeSingle();
+          .limit(5);
         if (error) return toolError("getMedicationInformation", error);
-        if (!data) {
+        // S51 (7.2): a row is only usable when it has an owner, a version and a review date that has not passed. Anything else is
+        // treated as "nothing reviewed", so the model cannot answer from it and cannot fall back to general knowledge. Up to five
+        // matches are checked so a lapsed first row never hides a current second one.
+        const meta = rows && rows.length > 0 ? await loadKnowledgeSources(supabase, rows.map((r) => r.id)) : new Map();
+        const data = (rows ?? []).find((r) => meta.get(r.id)?.retrievable === true);
+        const source = data ? meta.get(data.id) : undefined;
+        if (!data || !source) {
           return toJson({
             found: false,
             note: `No clinician-reviewed information is available yet for "${drugName}".`,
           });
         }
-        return toJson({ found: true, title: data.title, summary: data.summary, body: data.body });
+        return toJson({
+          found: true,
+          title: data.title,
+          summary: data.summary,
+          body: data.body,
+          _source: { kind: "reviewed_content", title: data.title, owner: source.owner, version: source.version, reviewDue: source.reviewDueAt },
+        });
       } catch (error) {
         return toolError("getMedicationInformation", error);
       }
@@ -282,6 +303,71 @@ export function buildPatientRecordTools(supabase: SupabaseClient<Database>, pati
     }
   );
 
+  // S51 (7.3): the explanation the patient may already have been shown in the app (AI-003, cached). Citing it keeps the chat and the
+  // result card saying the same thing. INV-04: a screening analyte is never returned, whatever it holds (the subject key decides, fail safe).
+  const getCachedExplanations = tool(
+    async (args: z.infer<typeof getCachedExplanationsSchema>) => {
+      try {
+        let query = supabase
+          .from("patient_result_explanations")
+          .select("kind, subject_key, explanation_text, generated_at")
+          .eq("patient_id", patientId)
+          .eq("status", "generated")
+          .order("generated_at", { ascending: false })
+          .limit(10);
+        if (args.subjectKey) query = query.eq("subject_key", args.subjectKey);
+        const { data, error } = await query;
+        if (error) return toolError("getCachedExplanations", error);
+        // INV-04: screen the subject AND the text. An explanation keyed by a panel or a result id, or one written before this fix, is
+        // dropped if it names a screening subject anywhere.
+        const safe = (data ?? []).filter(
+          (r) => r.explanation_text && !isAiExcludedAnalyte(r.subject_key, null) && !mentionsSensitiveScreening(`${r.subject_key} ${r.explanation_text}`)
+        );
+        if (safe.length === 0) return toJson({ explanations: [], note: "No explanation has been shown for this yet." });
+        return toJson({
+          explanations: safe.slice(0, 5).map((r) => ({ kind: r.kind, subject: r.subject_key, text: r.explanation_text })),
+          _source: { kind: "explanation", title: "The explanation already shown in your app" },
+        });
+      } catch (error) {
+        return toolError("getCachedExplanations", error);
+      }
+    },
+    {
+      name: "getCachedExplanations",
+      description:
+        "Look up the plain-language explanation of one of the patient's own results, readings or medicines that the app has already shown them. " +
+        "When one exists, say the same thing in your own words and cite it; never contradict it. Optional subjectKey (for example 'hba1c').",
+      schema: getCachedExplanationsSchema,
+    }
+  );
+
+  // S51 (7.4): the care team's protocol LIMITS (plausible reading ranges, review windows) so a reading can be placed against them. The
+  // database function returns the approved protocol's params only, never its step table, so there is nothing here that proposes a change.
+  const getProtocolLimits = tool(
+    async () => {
+      try {
+        const { data, error } = await supabase.rpc("assistant_protocol_limits");
+        if (error) return toolError("getProtocolLimits", error);
+        const rows = Array.isArray(data) ? data : [];
+        if (rows.length === 0) return toJson({ found: false, note: "No approved protocol limits are available." });
+        return toJson({
+          found: true,
+          limits: rows,
+          note: "Use these only to say where a reading sits. Never propose a medicine, a dose or a next step.",
+          _source: { kind: "protocol_limits", title: "Your care team's reading limits" },
+        });
+      } catch (error) {
+        return toolError("getProtocolLimits", error);
+      }
+    },
+    {
+      name: "getProtocolLimits",
+      description:
+        "Look up the care team's approved reading limits so you can say where a reading sits. Returns limits only, never a treatment step.",
+      schema: emptySchema,
+    }
+  );
+
   const tools: StructuredToolInterface[] = [
     getVitals,
     getMedications,
@@ -290,6 +376,8 @@ export function buildPatientRecordTools(supabase: SupabaseClient<Database>, pati
     getConditions,
     getRecentLabResults,
     getMedicationInformation,
+    getCachedExplanations,
+    getProtocolLimits,
   ];
   return tools;
 }

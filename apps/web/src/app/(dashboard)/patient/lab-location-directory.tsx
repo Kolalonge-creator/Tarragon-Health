@@ -15,6 +15,7 @@ import {
   type LabTestLocation,
 } from "@/lib/queries/lab-location-reviews";
 import { formatPatientDate } from "@/lib/format-date";
+import { DirectoryLastChecked } from "./directory-last-checked";
 
 function RatingSummary({ avgRating, reviewCount }: { avgRating: number | null; reviewCount: number }) {
   if (avgRating === null || reviewCount === 0) {
@@ -139,6 +140,7 @@ function LocationRow({ location }: { location: LabTestLocation }) {
             {location.location_address}, {location.location_state}
           </p>
           <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/50">{location.provider_name}</p>
+          <DirectoryLastChecked table="lab_provider_locations" id={location.location_id} />
         </div>
         <Badge variant="grey">{location.location_state}</Badge>
       </div>

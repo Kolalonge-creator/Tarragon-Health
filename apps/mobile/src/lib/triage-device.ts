@@ -1,10 +1,20 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
-  BP_CARE_V1,
+  BP_CARE_V5,
+  GLUCOSE_CARE_V1,
+  GLUCOSE_RULE_SET_CODE,
   recheckWindowMinutes,
   grade,
+  gradeGlucose,
   messageKeyFor,
+  validateGlucoseRuleSet,
   validateRuleSet,
+  type GlucoseContextCode,
+  type GlucoseDiabetesType,
+  type GlucoseInput,
+  type GlucoseRuleSet,
+  type GlucoseSymptomCode,
+  type KetoneUrine,
   type Reading,
   type RuleSet,
   type SymptomCode,
@@ -62,6 +72,11 @@ export interface DeviceTriage {
   message: { title: string; body: string } | null;
   /** The manifest clip id for the message (EMG-001, TRI-003 ...), or null when there is no recording for that code. */
   audioId: string | null;
+  /**
+   * Q4 (CMO 2026-10-07): the upper-arm advice shown WITH a repeat-reading prompt when the cuff is a wrist cuff or the patient is not sure. Words only: it never changes the
+   * grade, the severity or what the server does, and a red result is never downgraded for the cuff type. Null when the result asks for no repeat or the cuff is an upper arm one.
+   */
+  cuffAdvice: { title: string; body: string } | null;
   /** The clock the reading was graded at (ms); the symptom sheet regrades the same reading at the same instant. */
   gradedAtMs: number;
   ruleSet: { code: string; version: number; status: "approved" | "draft" };
@@ -83,6 +98,8 @@ export interface DeviceTriageRequest {
    * 200/130 or more asks it first, so the default is false: the engine then answers `symptom_check_required`.
    */
   symptomsAnswered?: boolean;
+  /** What the patient measured with (S12b). Only the words around a repeat prompt depend on it (Q4); grading never does. */
+  cuffType?: "upper_arm" | "wrist" | "not_sure" | null;
   nowMs?: number;
 }
 
@@ -119,7 +136,7 @@ export async function loadDeviceRuleSet(): Promise<DeviceRuleSet> {
   } catch {
     // fall through to the bundled copy
   }
-  return { ruleSet: BP_CARE_V1, status: "draft" };
+  return { ruleSet: BP_CARE_V5, status: "draft" };
 }
 
 /**
@@ -177,7 +194,12 @@ interface PatientFacts {
   /** YYYY-MM-DD, or null when none is on file. */
   dateOfBirth: string | null;
   pregnant: boolean;
+  /** The recorded diabetes type (the confirmed one, else the one the person reported), for the glucose rules; null when none is recorded. */
+  diabetesType?: GlucoseDiabetesType | null;
 }
+
+const DIABETES_TYPES: readonly string[] = ["type_1", "type_2", "gestational", "other"];
+const asDiabetesType = (v: unknown): GlucoseDiabetesType | null => (typeof v === "string" && DIABETES_TYPES.includes(v) ? (v as GlucoseDiabetesType) : null);
 
 /** Whole years on `nowMs`, or null when the date is missing or not a real date. */
 export function ageYearsOn(dateOfBirth: string | null, nowMs: number): number | null {
@@ -196,12 +218,12 @@ async function readFacts(subjectId: string): Promise<PatientFacts> {
     const raw = await AsyncStorage.getItem(FACTS_KEY(subjectId));
     if (raw) {
       const v = JSON.parse(raw) as Partial<PatientFacts>;
-      return { dateOfBirth: typeof v.dateOfBirth === "string" ? v.dateOfBirth : null, pregnant: v.pregnant === true };
+      return { dateOfBirth: typeof v.dateOfBirth === "string" ? v.dateOfBirth : null, pregnant: v.pregnant === true, diabetesType: asDiabetesType(v.diabetesType) };
     }
   } catch {
     // fall through
   }
-  return { dateOfBirth: null, pregnant: false };
+  return { dateOfBirth: null, pregnant: false, diabetesType: null };
 }
 
 /**
@@ -212,12 +234,17 @@ async function readFacts(subjectId: string): Promise<PatientFacts> {
 export async function refreshPatientFacts(subjectId: string): Promise<"updated" | "failed"> {
   if (!subjectId) return "failed";
   try {
-    const [profile, pregnancy] = await Promise.all([
+    const [profile, pregnancy, diabetes] = await Promise.all([
       supabase.from("profiles").select("date_of_birth").eq("id", subjectId).maybeSingle(),
       supabase.from("patient_pregnancy").select("is_pregnant").eq("patient_id", subjectId).maybeSingle(),
+      supabase.from("patient_diabetes_profile").select("confirmed_type, patient_reported_type").eq("patient_id", subjectId).maybeSingle(),
     ]);
-    if (profile.error || pregnancy.error) return "failed";
-    const facts: PatientFacts = { dateOfBirth: profile.data?.date_of_birth ?? null, pregnant: pregnancy.data?.is_pregnant === true };
+    if (profile.error || pregnancy.error || diabetes.error) return "failed";
+    const facts: PatientFacts = {
+      dateOfBirth: profile.data?.date_of_birth ?? null,
+      pregnant: pregnancy.data?.is_pregnant === true,
+      diabetesType: asDiabetesType(diabetes.data?.confirmed_type) ?? asDiabetesType(diabetes.data?.patient_reported_type),
+    };
     await AsyncStorage.setItem(FACTS_KEY(subjectId), JSON.stringify(facts));
     return "updated";
   } catch {
@@ -246,7 +273,13 @@ export async function clearPendingRecheck(subjectId: string): Promise<void> {
   await cancelRecheckReminder(subjectId);
 }
 
-function summarise(result: TriageResult, rules: DeviceRuleSet, gradedAtMs: number): DeviceTriage {
+/** Q4: whether the upper-arm advice goes with this result: the result asks the patient to measure again, and the cuff is a wrist cuff or unknown. */
+export function wantsUpperArmAdvice(result: TriageResult, cuffType: DeviceTriageRequest["cuffType"]): boolean {
+  const asksRepeat = result.status === "recheck_required" || result.actions.some((a) => a.kind === "prompt_recheck");
+  return asksRepeat && (cuffType === "wrist" || cuffType === "not_sure");
+}
+
+function summarise(result: TriageResult, rules: { status: "approved" | "draft" }, gradedAtMs: number, cuffType: DeviceTriageRequest["cuffType"] = null): DeviceTriage {
   const guidance = result.actions.find((a) => a.kind === "show_emergency_guidance");
   const emergencyCode = guidance && guidance.kind === "show_emergency_guidance" ? guidance.code : null;
   // A rejected reading with a red-flag symptom still shows the guidance (the engine sets the flag, no code), so fall back to the standard code.
@@ -258,6 +291,7 @@ function summarise(result: TriageResult, rules: DeviceRuleSet, gradedAtMs: numbe
     emergencyCode: code,
     message: messageKeyFor(messageCode),
     audioId: triageAudioId(messageCode),
+    cuffAdvice: wantsUpperArmAdvice(result, cuffType) ? messageKeyFor("CUF-001") : null,
     gradedAtMs,
     ruleSet: { code: result.ruleSet.code, version: result.ruleSet.version, status: rules.status },
   };
@@ -310,7 +344,7 @@ export async function gradeOnDevice(req: DeviceTriageRequest): Promise<DeviceTri
   const now = new Date(nowMs).toISOString();
   // Both reads start together so the worst case is one budget, not two: a red result must show in under a second (INV-06).
   const [rules, ctx] = await Promise.all([
-    withBudget(loadDeviceRuleSet(), { ruleSet: BP_CARE_V1, status: "draft" as const }, CONTEXT_BUDGET_MS),
+    withBudget(loadDeviceRuleSet(), { ruleSet: BP_CARE_V5, status: "draft" as const }, CONTEXT_BUDGET_MS),
     withBudget<Omit<Context, "rules">>(
       loadContext(req.subjectId, req.userId ?? req.subjectId, nowMs),
       { history: [], target: { ...FALLBACK_TARGET }, pending: null, facts: { dateOfBirth: null, pregnant: false }, obstetric: null },
@@ -338,7 +372,7 @@ export async function gradeOnDevice(req: DeviceTriageRequest): Promise<DeviceTri
     now,
   };
   const result = grade(input, rules.ruleSet);
-  const triage = summarise(result, rules, nowMs);
+  const triage = summarise(result, rules, nowMs, req.cuffType ?? null);
 
   // With no subject (the session could not be read in time) nothing is stored: a shared empty key would pair unrelated readings.
   if (req.subjectId) {
@@ -385,4 +419,97 @@ export async function resolveExpiredRecheck(subjectId: string, nowMs: number = D
  */
 export function shouldAskSymptomQuestion(d: DeviceTriage | null | undefined): boolean {
   return !!d && d.result.status === "symptom_check_required" && d.ruleSet.status === "approved";
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Glucose (plan item R2, CMO Q6 to Q9). The same shape as blood pressure: the phone grades a glucose reading with the SAME pure engine
+// family over the bundled glucose_care_triage rule set (or the approved one it last cached), with no network, under the same budget.
+// The caller shows the stricter of the older on-device check and this result (see glucose-log.ts); the engine only ADDS guidance while its
+// rule set is a draft. No language model, no network write (INV-01).
+// ---------------------------------------------------------------------------------------------------------------------------------
+export { GLUCOSE_RULE_SET_CODE };
+const GLUCOSE_RULES_KEY = "@tarragon/triage/rules/glucose/v1";
+
+export interface GlucoseDeviceRuleSet {
+  ruleSet: GlucoseRuleSet;
+  status: "approved" | "draft";
+}
+
+export interface GlucoseDeviceRequest {
+  subjectId: string;
+  userId?: string;
+  /** Glucose in mmol/L. A phone holding mg/dL converts first with mgDlToMmolL (@tarragon/shared), the same conversion the older check uses. */
+  mmol: number;
+  context: GlucoseContextCode;
+  ketoneBloodMmol?: number | null;
+  ketoneUrine?: KetoneUrine | null;
+  symptoms: readonly GlucoseSymptomCode[];
+  nowMs?: number;
+}
+
+/** The approved glucose rule set last cached on this phone if it is still valid; otherwise the bundled draft. */
+export async function loadGlucoseDeviceRuleSet(): Promise<GlucoseDeviceRuleSet> {
+  try {
+    const raw = await AsyncStorage.getItem(GLUCOSE_RULES_KEY);
+    if (raw) {
+      const cached = JSON.parse(raw) as unknown;
+      if (validateGlucoseRuleSet(cached).length === 0 && (cached as GlucoseRuleSet).code === GLUCOSE_RULE_SET_CODE) {
+        return { ruleSet: cached as GlucoseRuleSet, status: "approved" };
+      }
+    }
+  } catch {
+    // fall through to the bundled copy
+  }
+  return { ruleSet: GLUCOSE_CARE_V1, status: "draft" };
+}
+
+/** Best effort, online only: keep the phone's glucose rule set in step with the approved one. Same rules as refreshApprovedRuleSet, except that it does NOT touch the blood pressure rules' "last checked" time that drives the stale-rules warning. */
+export async function refreshApprovedGlucoseRuleSet(): Promise<"updated" | "none_approved" | "unchanged" | "failed"> {
+  try {
+    const { data, error } = await supabase.rpc("get_approved_triage_rule_set", { p_code: GLUCOSE_RULE_SET_CODE });
+    if (error) return "failed";
+    const row = data as { rules?: unknown } | null;
+    if (!row || !row.rules) {
+      await AsyncStorage.removeItem(GLUCOSE_RULES_KEY);
+      return "none_approved";
+    }
+    if (validateGlucoseRuleSet(row.rules).length > 0) return "failed";
+    const next = JSON.stringify(row.rules);
+    if ((await AsyncStorage.getItem(GLUCOSE_RULES_KEY)) === next) {
+      return "unchanged";
+    }
+    await AsyncStorage.setItem(GLUCOSE_RULES_KEY, next);
+    return "updated";
+  } catch {
+    return "failed";
+  }
+}
+
+/**
+ * Grade one glucose reading on the phone. Never throws and never waits longer than CONTEXT_BUDGET_MS for context. The fallback context
+ * (no date of birth, not pregnant, no diabetes type) still grades every red rule, which need only the reading, the ketones and the ticked signs.
+ */
+export async function gradeGlucoseOnDevice(req: GlucoseDeviceRequest): Promise<DeviceTriage> {
+  const nowMs = req.nowMs ?? Date.now();
+  const now = new Date(nowMs).toISOString();
+  const noFacts: PatientFacts = { dateOfBirth: null, pregnant: false, diabetesType: null };
+  const [rules, facts, obstetricCache] = await Promise.all([
+    withBudget<GlucoseDeviceRuleSet>(loadGlucoseDeviceRuleSet(), { ruleSet: GLUCOSE_CARE_V1, status: "draft" }, CONTEXT_BUDGET_MS),
+    withBudget<PatientFacts>(readFacts(req.subjectId), noFacts, CONTEXT_BUDGET_MS),
+    withBudget<Awaited<ReturnType<typeof readObstetricCache>>>(readObstetricCache(req.subjectId).catch(() => null), null, CONTEXT_BUDGET_MS),
+  ]);
+  const obstetric = statusFrom(obstetricCache, nowMs, undefined);
+  const ketones =
+    req.ketoneBloodMmol !== undefined || req.ketoneUrine !== undefined
+      ? { ...(req.ketoneBloodMmol != null ? { bloodMmol: req.ketoneBloodMmol } : {}), ...(req.ketoneUrine != null ? { urine: req.ketoneUrine } : {}) }
+      : undefined;
+  const input: GlucoseInput = {
+    trigger: { type: "glucose", reading: { mmol: req.mmol, takenAt: now, context: req.context }, ...(ketones ? { ketones } : {}), symptoms: req.symptoms },
+    diabetesType: facts.diabetesType ?? null,
+    pregnant: facts.pregnant || obstetric.pregnant,
+    ageYears: ageYearsOn(facts.dateOfBirth, nowMs),
+    now,
+  };
+  const result = gradeGlucose(input, rules.ruleSet);
+  return summarise(result, rules, nowMs);
 }

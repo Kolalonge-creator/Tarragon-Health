@@ -13,7 +13,7 @@ import {
   setLevel,
   verifyDocument,
 } from "@/lib/credentialing/review-actions";
-import { APPLICATION_STATE_LABEL, CHECK_KIND_HINT, CHECK_KIND_LABEL, COMPETENCY_CODES, COMPETENCY_LABEL, DOCUMENT_KIND_LABEL, formatDate } from "@/lib/credentialing/labels";
+import { APPLICATION_STATE_LABEL, CHECK_KIND_HINT, PRIMARY_SOURCE_ROUTE_LABEL, CHECK_KIND_LABEL, COMPETENCY_CODES, COMPETENCY_LABEL, DOCUMENT_KIND_LABEL, formatDate } from "@/lib/credentialing/labels";
 import type { ApplicationDetail } from "@/lib/credentialing/schemas";
 import { Field, fieldClass, Hidden, Muted, Section, StateBadge, SubmitButton } from "./shared";
 
@@ -76,6 +76,25 @@ function CheckForm({ detail, kind, returnTo }: { detail: ApplicationDetail; kind
           <Field label="Expiry date printed on the licence">
             <input type="date" name="licence_expires_on" className={fieldClass} />
           </Field>
+        ) : null}
+        {kind === "primary_source" ? (
+          <>
+            <Field label="How it was verified">
+              <select name="route" className={fieldClass} defaultValue="mdcn_dataflow">
+                {Object.entries(PRIMARY_SOURCE_ROUTE_LABEL).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Reference number" hint="From the DataFlow report or MDCN's letter. It cannot be used for anyone else.">
+              <input name="reference" className={fieldClass} maxLength={80} />
+            </Field>
+            <Field label="Date of the verification">
+              <input type="date" name="verified_on" className={fieldClass} />
+            </Field>
+          </>
         ) : null}
         {isReferee ? (
           <>

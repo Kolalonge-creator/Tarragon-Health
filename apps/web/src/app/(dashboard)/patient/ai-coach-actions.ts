@@ -51,6 +51,8 @@ export async function sendCoachMessage(input: CoachMessageInput): Promise<SendCo
       conversationId: parsed.data.conversationId,
       message: parsed.data.message,
     });
+    // INV-14: a closed assistant_enabled guard is shown as an error line, not as a chat message that was never saved.
+    if (result.notOpen) return { success: false, error: result.reply };
     return { success: true, ...result };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : "Something went wrong" };

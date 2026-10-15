@@ -35,4 +35,28 @@ describe("DraftReviewPanel review step", () => {
     expect(useButton().disabled).toBe(true);
     expect(screen.getByText(/please confirm it again/)).toBeTruthy();
   });
+
+  it("marks every drug name and number in a section so the clinician checks them against what was said (Q19)", () => {
+    render(<DraftReviewPanel draft={{ ...draft, plan: "Start amlodipine 5 mg once daily. BP 150/90, review in 2 weeks." }} patientSummary="Summary." onUse={jest.fn()} onDiscard={jest.fn()} />);
+    const box = screen.getByTestId("entity-check");
+    expect(box.textContent).toContain("Check each one against what was said");
+    const marked = Array.from(box.querySelectorAll("mark")).map((m) => `${m.getAttribute("data-kind")}:${m.textContent}`);
+    expect(marked).toEqual(["drug:amlodipine", "number:5 mg", "number:150/90", "number:2 weeks"]);
+  });
+
+  it("shows no check box for a section with no drug names or numbers, and the highlight never changes the text that is used", () => {
+    const onUse = jest.fn();
+    render(<DraftReviewPanel draft={draft} patientSummary="Summary." onUse={onUse} onDiscard={jest.fn()} />);
+    expect(screen.queryByTestId("entity-check")).toBeNull();
+    boxes().forEach((b) => fireEvent.click(b));
+    fireEvent.click(useButton());
+    expect(onUse).toHaveBeenCalledWith(expect.objectContaining({ plan: "Rest and fluids." }), "Summary.");
+  });
+
+  it("updates the marks when the clinician edits the section", () => {
+    render(<DraftReviewPanel draft={draft} patientSummary="Summary." onUse={jest.fn()} onDiscard={jest.fn()} />);
+    fireEvent.change(screen.getAllByRole("textbox")[3], { target: { value: "Paracetamol 1 g three times daily" } });
+    const marked = Array.from(screen.getByTestId("entity-check").querySelectorAll("mark")).map((m) => m.textContent);
+    expect(marked).toEqual(["Paracetamol", "1 g"]);
+  });
 });

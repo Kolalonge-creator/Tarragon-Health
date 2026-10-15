@@ -46,7 +46,6 @@ export type SettledItem = {
 const TIER_LABEL: Record<string, string> = {
   chief_medical_officer: "Chief Medical Officer",
   senior_medical_officer: "Senior Medical Officer",
-  medical_officer: "Medical Officer",
 };
 
 function SignRuleForm({

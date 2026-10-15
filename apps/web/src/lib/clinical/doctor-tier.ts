@@ -10,17 +10,14 @@ type DoctorTier = NonNullable<Tables<"clinical_staff">["doctor_tier"]>;
  */
 export const DOCTOR_TIER_LABEL: Record<DoctorTier, string> = {
   care_coordinator: "Care Coordinator",
-  medical_officer: "Medical Officer",
   senior_medical_officer: "Senior Medical Officer / Specialist",
   chief_medical_officer: "Chief Medical Officer / Clinical Director",
 };
 
 /** Short blurb of each tier's clinical authority — master plan §4's role table, patient/staff-facing tone. */
 export const DOCTOR_TIER_AUTHORITY_BLURB: Partial<Record<DoctorTier, string>> = {
-  medical_officer:
-    "Standard, protocol-driven consultations within their own patient list. Confirms and continues existing stable prescriptions; starting a new medication or handling a complex case goes to Senior Medical Officer.",
   senior_medical_officer:
-    "Everything a Medical Officer does, plus complex and specialist cases, initiating new medications, and referrals a Medical Officer flags on difficulty.",
+    "The one doctor tier (decision F-05): every doctor can take any case, including complex and specialist cases, initiating new medications and handling referrals.",
   chief_medical_officer:
     "Everything the tiers above do, plus assigning cases to other doctors and specialists, visibility into the whole team's caseload, and clinical-governance authority (protocol sign-off, indemnity oversight).",
 };
@@ -31,9 +28,8 @@ const PRESCRIBING_TIERS: DoctorTier[] = ["senior_medical_officer", "chief_medica
 
 /**
  * Mirrors private.has_prescribing_authority() (20260715181500_pharmacy_authority_by_tier.sql,
- * updated by the tier-collapse migration) — Medical Officer confirms/
- * continues existing prescriptions but never initiates or changes one
- * (docs/Tarragon_Health_Master_Operating_Plan_v4.md §4/§8). This copy only
+ * updated by the tier-collapse migration) — a doctor at the one
+ * doctor tier (F-05) may initiate and change prescriptions; the Care Coordinator may not. This copy only
  * gates the UI with a friendly explanation; the DB RLS policy is the real
  * enforcement boundary.
  */

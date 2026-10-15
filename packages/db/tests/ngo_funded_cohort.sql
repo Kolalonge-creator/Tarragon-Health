@@ -106,6 +106,7 @@ declare
   v_token_3      text;
 
   v_n            integer;
+  v_tied_n       integer;
   v_ok           boolean;
   v_voucher_id   uuid;
   v_result       jsonb;
@@ -500,10 +501,20 @@ begin
     );
   $sabotage$;
 
+  -- S39b: patient_timeline now needs a care relationship, so the organisation-wide read is switched back on (the tied-reads switch) for this
+  -- one probe, so that what is being sabotaged is is_org_staff itself.
+  update public.platform_modules set is_enabled = false where key = 'tied_staff_reads';
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', v_ngo_admin_a::text, 'role', 'authenticated')::text, true);
   select count(*) into v_n from public.patient_timeline where organisation_id = v_org_ngo_a;
   reset role;
+  update public.platform_modules set is_enabled = true where key = 'tied_staff_reads';
+  -- ...and with ties ON, even the sabotaged is_org_staff must not let the NGO admin read the clinical row (the tied path shuts it out by itself)
+  set local role authenticated;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_ngo_admin_a::text, 'role', 'authenticated')::text, true);
+  select count(*) into v_tied_n from public.patient_timeline where organisation_id = v_org_ngo_a;
+  reset role;
+  if v_tied_n <> 0 then raise exception 'FAIL: an NGO admin read a clinical row through the tied path'; end if;
 
   if v_n = 0 then
     raise exception 'GAP: sabotaged is_org_staff (no ngo_admin exclusion) still reads zero own-org rows — this test would not have caught a missing exclusion';
