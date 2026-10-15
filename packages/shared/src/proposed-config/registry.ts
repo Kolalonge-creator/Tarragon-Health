@@ -3157,13 +3157,42 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // The two task types S70a adds to `task_types` (S16 pattern). Each row: code, priority class, default due minutes, minimum doctor tier,
     // required competencies, lead window minutes, claim timeout minutes. Flagged for the CMO: nothing here is signed.
     value: [
-      { code: "cgm_glucose_review", priority_class: 4, default_due_minutes: 1440, min_doctor_tier: "medical_officer", required_competencies: ["adult_general"], lead_window_minutes: 240, claim_timeout_minutes: 30 },
-      { code: "device_rhythm_review", priority_class: 5, default_due_minutes: 1440, min_doctor_tier: "medical_officer", required_competencies: ["adult_general"], lead_window_minutes: 1440, claim_timeout_minutes: 30 },
+      { code: "cgm_glucose_review", priority_class: 4, default_due_minutes: 1440, min_doctor_tier: "senior_medical_officer", required_competencies: ["adult_general"], lead_window_minutes: 240, claim_timeout_minutes: 30 },
+      { code: "device_rhythm_review", priority_class: 5, default_due_minutes: 1440, min_doctor_tier: "senior_medical_officer", required_competencies: ["adult_general"], lead_window_minutes: 1440, claim_timeout_minutes: 30 },
     ],
     owner: "CMO",
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S70a.md; queue.task_types pattern (S16)",
+  },
+  {
+    key: "mental_health.follow_up_rules",
+    // Task due times (minutes) for the follow-up after a moderate or high PHQ-9, GAD-7 or EPDS result. Live values are the active row
+    // of `mental_health_follow_up_config`; a test fails if the migration seed and this value drift. The pathway is behind the CMO
+    // switched guard mental_health_follow_up_enabled (off). The build proposed these numbers; they are not a clinical decision.
+    value: {
+      phq9: { moderate_due_minutes: 4320, high_due_minutes: 1440 },
+      gad7: { moderate_due_minutes: 4320, high_due_minutes: 1440 },
+      epds: { moderate_due_minutes: 4320, high_due_minutes: 1440 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S56.md; spec 10.2",
+  },
+  {
+    key: "crisis.card",
+    // The crisis card (function 10.3). Live values are the active row of `crisis_card_config`; a test fails on drift.
+    // emergency_number: the national emergency line (the card always also says go to the nearest hospital now). No helplines: the founder
+    // decided 2026-10-07 that none are usable in Nigeria. callback_sla_minutes: the staffed callback time after a crisis flag; it is
+    // shown to a patient only once this row is confirmed, never while it is a draft.
+    value: { emergency_number: "112", callback_sla_minutes: 30 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S56.md; spec 10.3",
   },
 ];

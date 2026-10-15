@@ -22,7 +22,7 @@ export async function logWellbeingCheckin(
   _prevState: WellbeingActionState,
   formData: FormData
 ): Promise<WellbeingActionState> {
-  const parsed = wellbeingCheckinSchema.safeParse(Object.fromEntries(formData.entries()));
+  const parsed = wellbeingCheckinSchema.safeParse({ ...Object.fromEntries(formData.entries()), tags: formData.getAll("tags") });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Please answer every question" };
   }
