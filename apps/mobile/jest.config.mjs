@@ -25,4 +25,9 @@ export default {
     "^@/(.*)$": "<rootDir>/src/$1",
   },
   clearMocks: true,
+  // @noble/ciphers (the private journal's encryption) ships ES modules only: let the transform reach it. The rest is jest-expo's own list.
+  transformIgnorePatterns: [
+    "/node_modules/(?!(.pnpm|@noble|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@sentry/react-native|native-base))",
+    "/node_modules/react-native-reanimated/plugin/",
+  ],
 };
