@@ -43,8 +43,8 @@ create policy clinical_follow_ups_read on public.clinical_follow_ups for select 
 -- ---------------------------------------------------------------------------
 -- 2. Automations: default-deny pause
 -- ---------------------------------------------------------------------------
-alter table public.automations add column if not exists pausable boolean not null default false;
-comment on column public.automations.pausable is
+alter table public.automation_jobs add column if not exists pausable boolean not null default false;
+comment on column public.automation_jobs.pausable is
   'Default false. A job can be paused from the console only when a person has marked it pausable (a reversible, low-risk job). Safety critical jobs are never pausable.';
 
 do $$
@@ -108,7 +108,7 @@ begin
   if (select qual from pg_policies where tablename = 'clinical_follow_ups' and policyname = 'clinical_follow_ups_read') not like '%follow_up_actor_is_clinician%' then
     raise exception 'FAIL: follow-up read policy does not require a clinician';
   end if;
-  if exists (select 1 from public.automations where pausable) then
+  if exists (select 1 from public.automation_jobs where pausable) then
     raise exception 'FAIL: no automation may be pausable until a person marks it';
   end if;
   if exists (select 1 from pg_policies where tablename = 'response_time_breaches') then
