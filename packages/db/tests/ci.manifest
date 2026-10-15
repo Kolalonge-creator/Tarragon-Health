@@ -1176,3 +1176,5 @@ s57_meditation_sleep_library.sql
 s57b_crisis_follow_up_task_type.sql
 # S57b: a faith_reflection item cannot publish without a named faith leader reviewer (name, role, date) as well as the clinical reviewer; the daily expiry job exists, flags an expired item, audits it, is loud on failure; 24 draft narration scripts are seeded non-servable with ids from the code. Sabotage: the faith check removed, the sweep made a no-op, each flips.
 s57b_media_expiry_faith_gate_and_draft_seed.sql
+# S85-D1: bp_care_triage v6 draft (180/120 question line): unsigned, derived from v5, never graded while an older version is approved.
+s85d1_bp_care_triage_v6_draft.sql

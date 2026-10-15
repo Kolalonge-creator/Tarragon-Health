@@ -4187,6 +4187,18 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S64.md; docs/plans/S61-S65-cmo-signoff-pack.md Q19, Q23",
   },
   {
+    key: "triage.bp_rule_set",
+    // v4 of this registry entry names bp_care_triage v6, a DRAFT (founder decision D1, 2026-10-07): the emergency-symptom question from 180/120 instead of 200/130.
+    // The database row is a draft and the CMO has NOT signed it. The CMO still decides: whether "severe or new headache" is one symptom or two,
+    // whether 180/110 should be the trigger, and the recheck window (params.proposedForCmo in the rule set).
+    value: { code: "bp_care_triage", ruleSetVersion: 6, adultAgeYears: 18 },
+    owner: "CMO",
+    status: "proposed",
+    version: 4,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S85-D1.md; supabase/migrations/20261015150837_s85d1_bp_care_triage_v6_draft_180_120.sql",
+  },
+  {
     key: "diabetes.glucose_thresholds",
     // Moved out of apps/web/src/lib/vitals/glucose-red-flags.ts and apps/mobile/src/lib/glucose-red-flags.ts (same numbers, v1 of the
     // old files was "2026-09-01.1"). Q5: below severeHypo, or any neuro symptom or assisted event below hypoAlert, is red.
