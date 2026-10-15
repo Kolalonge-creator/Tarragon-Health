@@ -1343,6 +1343,13 @@ Not done: not applied to production, not pushed.
 - **Proof**: dry run with a test-only stub language `xx` (never in production config): missing key fails, unsigned string cannot be enabled, fallback to English works, picker hides it, audio hash mismatch fails pairing, plus a sabotage (one edited word makes the signature stale). Ingest script proven on a scratch manifest.
 - **Not built**: any UI (no language picker exists), a CMO screen to sign a registry (OQ-313), language-matched consultation (S64, the recommended path). The Python importer edit was compile checked only (its source document is not in the repo).
 - **Follow-ups**: OQ-313.
+## S87: Part C conformance scan (2026-10-07, branch `s87/part-c-conformance`)
+- **Built**: `packages/shared/src/part-c-scan` (9 rules, a 12-entry allowlist each tied to an open question and a 2026-11-06 expiry, 8 tests including sabotage cases), `docs/audit-partC.md`, design and research notes, OQ-309 to OQ-312, decision S87-1.
+- **Reused**: copy-lint pattern; existing removal proofs not duplicated.
+- **Tests**: part-c-scan 8 pass; a real-tree sabotage (injected "WhatsApp" string) failed the suite and was removed; `tsc --noEmit` and `eslint` clean for packages/shared. Full Jest not run.
+- **Found**: 2 CONFLICT (fertile window unlabelled in 6 files; SMS beyond codes and paging in 5 paths), 5 DORMANT (subscriptions, Platform Credit refund branch, enum labels, logistics partner, therapy schema), 2 NOT VERIFIED (employer category data, scribe summary visibility).
+- **Not done**: live-schema SQL proof; the two unverified checks; removal migrations. **Not committed or pushed.**
+- **Follow-ups**: CMO and founder sign D2 and D3 (`docs/plans/S85-S87-cmo-signoff-pack.md`); before 2026-11-06 fix or renew each allowlist entry with a decision.
 ## S70a: Module 18 core, devices and data connections (2026-10-07)
 
 - **Built (NOT applied to production, nothing pushed)**: migrations `20261007123854_s70a_vital_source_photo_confirmed.sql` and `20261007123856_s70a_device_core.sql` (held readings, cross-source de-duplication, CGM sustained-event tasks, ECG device results, recommended-device evidence and CMO-only review, pairing for a person, wrist SpO2 informational, `device.synced` / `device.alert`, 7 `platform_modules` all off). Shared package: plausibility, de-dup, photo draft/confirm, CGM rules, `DeviceSource`, `devices.*` PROPOSED config. Web: photo, rhythm routes, held/merged handling in device, CGM and typed paths, source badge, held card, device list evidence. Phone: photo screen, held readings, recommended list, whose-device picker, ECG classification sync, CGM safety message, photo offline queue.
