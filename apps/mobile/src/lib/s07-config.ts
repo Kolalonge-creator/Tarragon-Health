@@ -219,11 +219,11 @@ export function loadBpSymptomChecklist(asOf?: string): BpSymptomChecklistConfig 
   return { version, severity };
 }
 
-/** The severity a warning sign ticked on the glucose form is stored at (kept under the older symptom trigger's paging line on purpose). */
+/** The severity a warning sign ticked on the glucose form is stored at (kept under both of the older symptom trigger's paging lines on purpose). */
 export function loadGlucoseSymptomChecklist(asOf?: string): BpSymptomChecklistConfig {
   const key = "glucose.symptom_checklist";
   const { raw, version } = obj(key, asOf);
   const severity = num(raw, "severity", key, 1);
-  if (severity > 4) throw new Error(`Config ${key}.severity must be 1 to 4 (5 or more pages through the older symptom trigger)`);
+  if (severity > 3) throw new Error(`Config ${key}.severity must be 1 to 3 (4 pages a child under 5 through the older symptom trigger, 5 pages anyone)`);
   return { version, severity };
 }

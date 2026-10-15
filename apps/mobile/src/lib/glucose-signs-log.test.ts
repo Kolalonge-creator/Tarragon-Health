@@ -38,9 +38,9 @@ beforeEach(async () => {
 });
 
 describe("the configured severity", () => {
-  it("is under the older symptom trigger's paging line (5), so a glucose tick never pages through it", () => {
+  it("is under both of the older symptom trigger's paging lines (4 for a child under 5, 5 for anyone), so a glucose tick never pages through it", () => {
     expect(SEVERITY).toBeGreaterThanOrEqual(1);
-    expect(SEVERITY).toBeLessThan(5);
+    expect(SEVERITY).toBeLessThan(4);
   });
 });
 
@@ -69,6 +69,8 @@ describe("saveGlucoseSigns", () => {
   it("sends one symptom row per sign with the stored type, organisation and patient", async () => {
     const res = await saveGlucoseSigns(["abdominal_pain", "cannot_swallow"], SEVERITY, WHO);
     expect(res).toEqual({ saved: 2, failed: false });
+    expect(rows).toHaveLength(0); // durable on the phone first; sending is the screen's flush, not this call
+    await flushOutbox();
     expect(rows.map((r) => r.symptom_type)).toEqual(["cannot_swallow", "abdominal_pain"]);
     expect(rows[0]).toMatchObject({ organisation_id: "org-1", patient_id: "user-1", severity: SEVERITY });
     expect(rows.every((r) => typeof r.client_id === "string" && r.client_id !== "")).toBe(true);
@@ -103,6 +105,7 @@ describe("saveGlucoseSigns", () => {
     mockInsertError = { code: "42501", message: "row-level security" };
     const res = await saveGlucoseSigns(["vomiting"], SEVERITY, WHO);
     expect(res).toEqual({ saved: 1, failed: false });
+    await flushOutbox();
     const left = await listOutbox();
     expect(left).toHaveLength(1);
     expect(left[0]?.state).toBe("rejected");
@@ -110,6 +113,7 @@ describe("saveGlucoseSigns", () => {
 
   it("stores for a supported person when acting for them", async () => {
     await saveGlucoseSigns(["confusion"], SEVERITY, { subjectId: "dependant-9", beneficiaryProfileId: "dependant-9" });
+    await flushOutbox();
     expect(rows[0]).toMatchObject({ patient_id: "dependant-9" });
   });
 

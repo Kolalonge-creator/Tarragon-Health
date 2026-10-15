@@ -1,6 +1,6 @@
 import { mgDlToMmolL } from "@tarragon/shared";
 import { GLUCOSE_SIGN_SYMPTOM_TYPE, GLUCOSE_SYMPTOMS, TICKED_ON_GLUCOSE_FORM_NOTE, type GlucoseContextCode, type GlucoseSymptomCode, type KetoneUrine } from "@tarragon/clinical";
-import { enqueueGroup, flushOutbox, type EnqueueInput } from "./outbox";
+import { enqueueGroup, type EnqueueInput } from "./outbox";
 import { gradeGlucoseOnDevice, type DeviceTriage } from "./triage-device";
 import { classifyVitalOffline, type OfflineVitalFlag } from "./vitals";
 import type { GlucoseUnit } from "./vitals-entry";
@@ -113,6 +113,6 @@ export async function saveGlucoseSigns(
   } catch {
     return { saved: 0, failed: true };
   }
-  await flushOutbox().catch(() => undefined);
+  // Sending is the caller's business (the screen flushes after the reading is saved, without waiting): this only makes the rows durable.
   return { saved: plan.length, failed: false };
 }

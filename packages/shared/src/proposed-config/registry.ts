@@ -306,11 +306,12 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     key: "glucose.symptom_checklist",
     // A warning sign ticked on the glucose form is stored as a symptoms row so the server can grade it with the glucose rules (R2 follow-up).
     // The form does not ask the patient to rate it, so it is recorded at this severity, with a description saying it was ticked rather than
-    // rated. 4 is deliberately BELOW the older symptom trigger's paging line (handle_symptom_red_flag pages from severity 5, whatever the type),
-    // so a glucose-form tick never pages through that older path on its own: the governed glucose engine is the one place a glucose sign pages.
+    // rated. 3 is deliberately BELOW both paging lines of the older symptom trigger (handle_symptom_red_flag pages from severity 5 for any type,
+    // and from severity 4 for the paediatric types lethargy and dehydration_signs in a child under 5, which two glucose signs map onto), so a
+    // glucose-form tick never pages through that older path on its own: the governed glucose engine is the one place a glucose sign pages.
     // Unlike blood pressure (bp.symptom_checklist is 6, on purpose, because blood pressure still leans on the older trigger), do not raise this
     // without reading docs/design/glucose-sign-storage-gap.md. The CMO confirms the value.
-    value: { severity: 4 },
+    value: { severity: 3 },
     owner: "CMO",
     status: "proposed",
     version: 1,

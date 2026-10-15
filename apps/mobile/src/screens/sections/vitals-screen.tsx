@@ -21,6 +21,7 @@ import {
   type GlucoseUnit,
   type OtherVitalType,
 } from "@/lib/vitals-entry";
+import { flushOutbox } from "@/lib/outbox";
 import { evaluateGlucoseOnDevice, LEVEL_3_SIGNS, saveGlucoseSigns, type GlucoseOutcome } from "@/lib/glucose-log";
 import { GLUCOSE_SYMPTOMS, KETONE_URINE_BANDS, type GlucoseSymptomCode, type KetoneUrine } from "@tarragon/clinical";
 import {
@@ -671,6 +672,7 @@ function OtherVitalCard({
   const [urgentBanner, setUrgentBanner] = useState<string | null>(null);
   // Glucose triage (plan item R2): the signs the engine reads, and the optional ketone result.
   const [signs, setSigns] = useState<GlucoseSymptomCode[]>([]);
+  const savedSigns = useRef<Set<GlucoseSymptomCode>>(new Set());
   const [ketone, setKetone] = useState("");
   const [urine, setUrine] = useState<KetoneUrine | null>(null);
   const [glucoseCard, setGlucoseCard] = useState<{ message: string; tone: "warn" | "info"; audioId: string | null } | null>(null);
@@ -771,20 +773,33 @@ function OtherVitalCard({
     }
 
     // The ticked signs go to the server's symptom log through the same outbox blood pressure ticks use (idempotent by client id, held offline), so the
-    // server can grade them with the glucose rules. Saved first, so a sign is sent before its reading when the network allows; never blocks the reading.
-    const signsSaved = type === "glucose" ? await saveGlucoseSigns(signs, GLUCOSE_SIGN_CHECKLIST.severity, { subjectId, beneficiaryProfileId }) : null;
+    // server can grade them with the glucose rules. A sign already made durable by an earlier attempt of this same entry (the reading failed to save and
+    // the patient pressed Save again) is not queued twice; the set is cleared once the reading has saved. Never blocks the reading.
+    let signsFailed = false;
+    if (type === "glucose") {
+      const fresh = signs.filter((x) => !savedSigns.current.has(x));
+      const saved = await saveGlucoseSigns(fresh, GLUCOSE_SIGN_CHECKLIST.severity, { subjectId, beneficiaryProfileId });
+      if (saved.failed) signsFailed = true;
+      else fresh.forEach((x) => savedSigns.current.add(x));
+    }
     const result = await logOtherVital(payload, beneficiaryProfileId);
     setSaving(false);
     if (result.error) {
       setSaveError(result.error);
       return;
     }
-    if (signsSaved?.failed) toast.show({ message: tr("vitals.glucose.signs_not_saved"), tone: "warn" });
+    if (type === "glucose") {
+      savedSigns.current.clear();
+      void flushOutbox().catch(() => undefined); // send the signs without making the patient wait on them
+    }
     if (outcome?.severity === "emergency") onEmergency(emergencyDetail, !!result.synced, wordingCode);
+    // One toast only (a second would replace the first): if the ticked signs could not be saved on the phone, that is what the patient must see.
     toast.show(
-      result.synced
-        ? { message: tr("vitals.other.saved", { value, unit }), tone: "success" }
-        : { message: t("outbox.saved_on_phone", locale), tone: "info" }
+      signsFailed
+        ? { message: tr("vitals.glucose.signs_not_saved"), tone: "warn" }
+        : result.synced
+          ? { message: tr("vitals.other.saved", { value, unit }), tone: "success" }
+          : { message: t("outbox.saved_on_phone", locale), tone: "info" }
     );
     setValue("");
     setSigns([]);

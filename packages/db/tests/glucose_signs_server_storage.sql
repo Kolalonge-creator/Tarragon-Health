@@ -9,7 +9,7 @@
 --      recorded in shadow against the DRAFT rule set, as p1_chain_canary.sql does): GL-R3 for cannot_swallow, convulsion, loss_of_consciousness;
 --      GL-R2 for cannot_swallow with a low glucose; GL-R5 for vomiting or stomach pain with raised ketones; GL-R7 for vomiting with glucose 20 or more.
 --   4. NO new paging from the older symptom trigger (private.handle_symptom_red_flag is not touched): a tick stored the way the phone stores it
---      (severity 4) is not a red flag and opens no clinician alert or emergency event; the control row at severity 8 shows the trigger still reads severity.
+--      (severity 3, under both paging lines: 5 for anyone, 4 for lethargy/dehydration_signs in a child under 5) is not a red flag and opens no clinician alert or emergency event; the control row at severity 8 shows the trigger still reads severity.
 --   5. Idempotent by client id: the same sign sent twice is one row.
 --   6. SABOTAGE: with vomiting removed from the context mapping, and with it removed from the regrade list, the matching checks must flip.
 --
@@ -66,7 +66,7 @@ begin
   patient := pg_temp.mkuser(p_org, p_label, 'patient');
   insert into public.vitals_readings (organisation_id, patient_id, vital_type, glucose_mmol_l, glucose_context, ketones_mmol_l, source, taken_at)
     values (p_org, patient, 'glucose', p_mmol, 'random', p_ketone, 'manual', now()) returning id into reading;
-  execute format('insert into public.symptoms (organisation_id, patient_id, symptom_type, severity, description) values (%L, %L, %L::public.symptom_type, 4, %L) returning id',
+  execute format('insert into public.symptoms (organisation_id, patient_id, symptom_type, severity, description) values (%L, %L, %L::public.symptom_type, 3, %L) returning id',
     p_org, patient, p_type, 'Ticked on the glucose form (not rated by the patient).') into v_sym;
   ctx := public.triage_context_for_glucose_observation(reading);
   ctx_symptoms := (select coalesce(string_agg(x, ',' order by x), '') from jsonb_array_elements_text(ctx #> '{input,trigger,symptoms}') x);
@@ -75,7 +75,7 @@ end $f$;
 
 do $$
 declare
-  v_org uuid; v_rs uuid; v_t record; v_r record; v_n integer; v_res jsonb; v_pat uuid; v_cid uuid := gen_random_uuid(); v_err text;
+  v_org uuid; v_rs uuid; v_t record; v_r record; v_n integer; v_res jsonb; v_pat uuid; v_kid uuid; v_cid uuid := gen_random_uuid(); v_err text;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   select id into v_rs from public.triage_rule_sets where code = 'glucose_care_triage' and version = 1;
@@ -128,19 +128,34 @@ begin
   -- 4. No new paging through the older symptom trigger
   v_pat := pg_temp.mkuser(v_org, 'paging', 'patient');
   insert into public.symptoms (organisation_id, patient_id, symptom_type, severity, description)
-    select v_org, v_pat, s::public.symptom_type, 4, 'Ticked on the glucose form (not rated by the patient).'
+    select v_org, v_pat, s::public.symptom_type, 3, 'Ticked on the glucose form (not rated by the patient).'
     from unnest(array['vomiting', 'abdominal_pain', 'cannot_swallow', 'convulsion', 'loss_of_consciousness', 'confusion', 'breathlessness', 'lethargy', 'dehydration_signs']) s;
-  perform pg_temp.res('real', 'nine ticks at severity 4 are not red flags', '0', (select count(*)::text from public.symptoms where patient_id = v_pat and is_red_flag));
+  perform pg_temp.res('real', 'nine ticks at severity 3 are not red flags', '0', (select count(*)::text from public.symptoms where patient_id = v_pat and is_red_flag));
   perform pg_temp.res('real', 'and open no clinician alert and no emergency event', '0|0',
     (select count(*)::text from public.clinician_alerts where patient_id = v_pat) || '|' || (select count(*)::text from public.emergency_events where patient_id = v_pat));
   insert into public.symptoms (organisation_id, patient_id, symptom_type, severity) values (v_org, v_pat, 'vomiting', 8);
   perform pg_temp.res('real', 'control: the older trigger still reads severity (a vomiting row at 8 is a red flag)', 'true',
     (select is_red_flag::text from public.symptoms where patient_id = v_pat and severity = 8));
 
+  -- the same, for a child under 5: the older trigger pages lethargy and dehydration_signs from severity 4 at that age (two glucose signs map onto them)
+  v_kid := pg_temp.mkuser(v_org, 'child', 'patient');
+  -- a child is a dependant account in real life; adult-only registration refuses a direct date of birth like this, so it is lifted for this one update only (rolled back with the rest)
+  alter table public.profiles disable trigger profiles_01_enforce_adult_registration;
+  update public.profiles set date_of_birth = (current_date - interval '3 years')::date where id = v_kid;
+  alter table public.profiles enable trigger profiles_01_enforce_adult_registration;
+  insert into public.symptoms (organisation_id, patient_id, symptom_type, severity, description)
+    select v_org, v_kid, s::public.symptom_type, 3, 'Ticked on the glucose form (not rated by the patient).'
+    from unnest(array['lethargy', 'dehydration_signs', 'confusion', 'vomiting']) s;
+  perform pg_temp.res('real', 'a child under 5: ticks at severity 3 are not red flags and open no clinician alert', '0|0',
+    (select count(*)::text from public.symptoms where patient_id = v_kid and is_red_flag) || '|' || (select count(*)::text from public.clinician_alerts where patient_id = v_kid));
+  insert into public.symptoms (organisation_id, patient_id, symptom_type, severity) values (v_org, v_kid, 'lethargy', 4);
+  perform pg_temp.res('real', 'control: the older trigger pages a child under 5 from severity 4 for lethargy (why the stored severity is 3)', 'true',
+    (select is_red_flag::text from public.symptoms where patient_id = v_kid and severity = 4));
+
   -- 5. Idempotent by client id
-  insert into public.symptoms (organisation_id, patient_id, symptom_type, severity, client_id) values (v_org, v_pat, 'cannot_swallow', 4, v_cid);
+  insert into public.symptoms (organisation_id, patient_id, symptom_type, severity, client_id) values (v_org, v_pat, 'cannot_swallow', 3, v_cid);
   begin
-    insert into public.symptoms (organisation_id, patient_id, symptom_type, severity, client_id) values (v_org, v_pat, 'cannot_swallow', 4, v_cid);
+    insert into public.symptoms (organisation_id, patient_id, symptom_type, severity, client_id) values (v_org, v_pat, 'cannot_swallow', 3, v_cid);
     v_err := 'second row stored';
   exception when unique_violation then v_err := 'duplicate refused'; end;
   perform pg_temp.res('real', 'the same sign sent twice with one client id is one row', 'duplicate refused|1', v_err || '|' ||
