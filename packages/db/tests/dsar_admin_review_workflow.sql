@@ -180,6 +180,11 @@ begin
   returning id into v_req;
   reset role;
 
+  -- S04b-2: a deletion request now has a waiting period the admin cannot skip; back-date it for this fixture only.
+  set local session_replication_role = replica;
+  update public.data_deletion_requests set grace_ends_at = now() - interval '1 second' where id = v_req;
+  set local session_replication_role = origin;
+
   -- Sabotage: requester tries to approve their own deletion.
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_patient::text, 'role', 'authenticated')::text, true);

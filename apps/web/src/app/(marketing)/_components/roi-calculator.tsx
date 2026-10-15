@@ -3,25 +3,19 @@
 import { useState } from "react";
 
 /**
- * Interactive, honest ROI sketch for the B2B pages (the Sword pattern).
- * Every number is an editable assumption and the output carries a persistent
- * "modelled estimate" disclaimer; no footnoted magic. The default cost-per-
- * catch mirrors the platform's own modelled constant (₦150,000/abnormal
- * catch, the same admin-tunable figure behind the B2B dashboards) and the
- * catch rate reflects a conservative screening yield assumption; both are
- * inputs the visitor can change, not claims.
+ * Interactive coverage sketch for the B2B pages. CMO decision S-14: it no
+ * longer shows any modelled money saving, because a cost-avoided figure built
+ * from assumptions reads as a promise. It only shows how many people might be
+ * screened and how many early findings that could mean, from inputs the
+ * visitor controls. They are assumptions, not claims.
  */
 export function RoiCalculator() {
   const [employees, setEmployees] = useState(200);
   const [screenRate, setScreenRate] = useState(70);
   const [catchPer100, setCatchPer100] = useState(6);
-  const [costPerCatch, setCostPerCatch] = useState(150_000);
 
   const screened = Math.round((employees * screenRate) / 100);
   const catches = Math.round((screened * catchPer100) / 100);
-  const avoided = catches * costPerCatch;
-
-  const fmt = (n: number) => `₦${n.toLocaleString()}`;
 
   return (
     <div className="mx-auto max-w-2xl rounded-2xl border border-charcoal-ink/10 bg-white p-8 shadow-sm">
@@ -80,35 +74,16 @@ export function RoiCalculator() {
             className="mt-1 w-full accent-[#0E7C52]"
           />
         </div>
-        <div>
-          <label htmlFor="roi-cost" className="flex justify-between text-sm font-medium text-charcoal-ink">
-            <span>Cost avoided per early catch</span>
-            <span>{fmt(costPerCatch)}</span>
-          </label>
-          <input
-            id="roi-cost"
-            type="range"
-            min={50_000}
-            max={500_000}
-            step={25_000}
-            value={costPerCatch}
-            onChange={(e) => setCostPerCatch(Number(e.target.value))}
-            className="mt-1 w-full accent-[#0E7C52]"
-          />
-        </div>
       </div>
       <div className="mt-6 rounded-xl bg-soft-sage p-5">
         <p className="text-sm text-deep-forest">
           ~{screened.toLocaleString()} people screened → ~{catches.toLocaleString()} early{" "}
           {catches === 1 ? "catch" : "catches"} a year
         </p>
-        <p className="mt-1 font-heading text-3xl font-bold text-deep-forest">
-          {fmt(avoided)} <span className="text-base font-medium">modelled cost avoided / year</span>
-        </p>
       </div>
       <p className="mt-3 text-xs text-charcoal-ink/65">
-        A modelled estimate from your own assumptions, not a claims analysis, a guarantee,
-        or a quote. We&apos;ll build the real business case with your data.
+        These are counts from your own assumptions, not a forecast, a guarantee or a quote.
+        We will look at your real numbers together.
       </p>
     </div>
   );

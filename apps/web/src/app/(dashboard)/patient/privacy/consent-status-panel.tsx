@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { consentStateFor } from "@tarragon/shared";
-import { withdrawConsentAction } from "./consent-actions";
+import { grantConsentAction, withdrawConsentAction } from "./consent-actions";
 import { CONSENT_TYPE_LABEL, useOutstandingConsentTypes } from "@/lib/queries/consent";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -41,7 +41,15 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
   // Two taps: "Withdraw" arms a confirmation for that type, the second tap does it.
   const [confirmingWithdraw, setConfirmingWithdraw] = React.useState<string | null>(null);
   const [withdrawError, setWithdrawError] = React.useState<string | null>(null);
-  const { versions, accepted, outstanding, isLoading } = useOutstandingConsentTypes(patientId);
+  // Giving an optional purpose is one explicit choice per purpose: nothing starts ticked and nothing is bundled.
+  const [agreed, setAgreed] = React.useState<Record<string, boolean>>({});
+  // One choice in flight at a time, so a double tap cannot record two receipts for one decision.
+  const [busy, setBusy] = React.useState(false);
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: ["patient-consents", patientId] });
+    void queryClient.invalidateQueries({ queryKey: ["patient-consent-receipts", patientId] });
+  };
+  const { versions, accepted, outstanding, isLoading, isError } = useOutstandingConsentTypes(patientId);
 
   const outstandingTypes = outstanding.map((v) => v.consent_type);
 
@@ -52,7 +60,13 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
         <CardDescription>What you&apos;ve agreed to, by category.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {versions.length === 0 ? (
+        {isError ? (
+          <p role="alert" className="text-sm text-red-700">
+            We could not load your consent choices just now, so we are not showing them. Please refresh the page.
+          </p>
+        ) : isLoading ? (
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading your choices...</p>
+        ) : versions.length === 0 ? (
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Nothing to show yet.</p>
         ) : (
           <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
@@ -79,7 +93,7 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
                         : "Not yet recorded";
               const badgeVariant = state === "granted" ? "green" : state === "older_version" ? "amber" : "grey";
               const badgeText =
-                state === "granted" ? "Accepted" : state === "withdrawn" ? "Withdrawn" : optional ? "Not shared" : "Outstanding";
+                state === "granted" ? "Accepted" : state === "older_version" ? "Review needed" : state === "withdrawn" ? "Withdrawn" : optional ? "Not shared" : "Outstanding";
               return (
                 <li key={version.id} className="flex items-center justify-between gap-3 py-3">
                   <div>
@@ -89,7 +103,7 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
                     <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">{subtitle}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    {optional && state === "granted" && (
+                    {optional && (state === "granted" || state === "older_version") && (
                       confirmingWithdraw === version.consent_type ? (
                         <Button
                           type="button"
@@ -100,7 +114,7 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
                             const result = await withdrawConsentAction(version.consent_type);
                             setConfirmingWithdraw(null);
                             if (result?.error) setWithdrawError(result.error);
-                            else void queryClient.invalidateQueries({ queryKey: ["patient-consents", patientId] });
+                            else refresh();
                           }}
                         >
                           Yes, withdraw
@@ -110,6 +124,41 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
                           Withdraw
                         </Button>
                       )
+                    )}
+                    {optional && state !== "granted" && (
+                      <details className="max-w-xs text-xs">
+                        <summary className="cursor-pointer font-medium text-brand-green">Read and decide</summary>
+                        <div className="mt-2 space-y-2 rounded-lg border border-charcoal-ink/10 p-2 dark:border-night-ink/15">
+                          <p className="font-medium text-charcoal-ink dark:text-night-ink">{version.title}</p>
+                          <p className="whitespace-pre-wrap text-charcoal-ink/80 dark:text-night-ink/80">{version.body}</p>
+                          <label className="flex items-start gap-2 text-charcoal-ink/80 dark:text-night-ink/80">
+                            <input
+                              type="checkbox"
+                              checked={agreed[version.id] === true}
+                              onChange={(e) => setAgreed((a) => ({ ...a, [version.id]: e.target.checked }))}
+                              className="mt-0.5"
+                            />
+                            <span>I have read this and I choose to agree. I can stop at any time.</span>
+                          </label>
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={agreed[version.id] !== true || busy}
+                            onClick={async () => {
+                              setWithdrawError(null);
+                              setBusy(true);
+                              const result = await grantConsentAction(version.consent_type, version.id).finally(() => setBusy(false));
+                              if (result?.error) setWithdrawError(result.error);
+                              else {
+                                setAgreed((a) => ({ ...a, [version.id]: false }));
+                                refresh();
+                              }
+                            }}
+                          >
+                            Agree
+                          </Button>
+                        </div>
+                      </details>
                     )}
                     <Badge variant={badgeVariant}>{badgeText}</Badge>
                   </div>
@@ -142,7 +191,7 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
           </details>
         )}
 
-        {!isLoading && outstandingTypes.length > 0 && !reviewing && (
+        {!isLoading && !isError && outstandingTypes.length > 0 && !reviewing && (
           <div className="flex flex-col items-start gap-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
               {outstandingTypes.length === 1
@@ -165,7 +214,7 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
                 .join(", ")} consent above.`}
               onComplete={() => {
                 setReviewing(false);
-                void queryClient.invalidateQueries({ queryKey: ["patient-consents", patientId] });
+                refresh();
               }}
             />
             <button

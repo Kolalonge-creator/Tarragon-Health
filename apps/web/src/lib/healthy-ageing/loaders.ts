@@ -204,6 +204,7 @@ export async function loadCoordinatedCareSummary(
       .from("patient_conditions")
       .select("id, condition_name, status, next_review_due_at")
       .eq("patient_id", patientId)
+      .is("correction_status", null)
       .in("status", ["active", "uncontrolled", "under_investigation"]),
     supabase.from("medications").select("id").eq("patient_id", patientId).eq("is_active", true),
     loadOpenFallsRisk(supabase, patientId),

@@ -25,7 +25,7 @@ import {
 export const metadata: Metadata = pageMetadata({
   title: "How pricing works",
   description:
-    "Our No-Hidden-Cost Promise, why there is nothing to trial, care vouchers, how Tarragon compares to your HMO, and booking step-by-step.",
+    "Our No-Hidden-Cost Promise, why there is nothing to trial, giving Membership, how Tarragon compares to your HMO, and booking step-by-step.",
   path: MARKETING_ROUTES.howPricingWorks,
 });
 
@@ -45,7 +45,7 @@ export default function HowPricingWorksPage() {
           as="h1"
           eyebrow="Pricing, in detail"
           title="How pricing works"
-          description="The promise behind every price, why there is nothing to trial, care vouchers, how we compare to your HMO, and exactly what happens each time you book something."
+          description="The promise behind every price, why there is nothing to trial, giving Membership, how we compare to your HMO, and exactly what happens each time you book something."
         />
         <div className="flex flex-wrap justify-center gap-3">
           <Button asChild size="lg">
@@ -99,8 +99,8 @@ export default function HowPricingWorksPage() {
 
       <Section>
         <SectionHeading
-          eyebrow="Flexible payment"
-          title="Care vouchers"
+          eyebrow="Gifts"
+          title="Giving Membership"
           description={CARE_VOUCHER_INTRO}
         />
         <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-3">

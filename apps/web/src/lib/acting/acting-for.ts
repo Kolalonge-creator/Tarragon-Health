@@ -83,6 +83,14 @@ export async function startActingFor(beneficiaryId: string): Promise<boolean> {
   });
   if (allowed !== true) return false;
 
+  // The person this is about can see, in "People who help you", that their record was opened and when (S04b-1).
+  // Best effort and run alongside the cookie work: the log must never be the reason an errand fails or waits, and the
+  // database function only writes a line for a real grant holder and only once per ten minutes.
+  const logged = supabase.rpc("log_proxy_view", { p_patient: beneficiaryId }).then(
+    () => undefined,
+    () => undefined
+  );
+
   const jar = await cookies();
   jar.set(COOKIE, beneficiaryId, {
     httpOnly: true,
@@ -94,6 +102,7 @@ export async function startActingFor(beneficiaryId: string): Promise<boolean> {
     // in a browser for weeks.
     maxAge: 60 * 60 * 2,
   });
+  await logged;
   return true;
 }
 

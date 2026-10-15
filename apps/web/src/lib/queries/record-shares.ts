@@ -30,6 +30,24 @@ export type RecordShare = {
   last_viewed_at: string | null;
   created_at: string;
   revoked_at: string | null;
+  /** True when a PIN is required. The PIN itself is never readable after creation. */
+  pin_protected: boolean | null;
+  one_session: boolean;
+  /** Set when too many wrong PINs locked the share. */
+  locked_at: string | null;
+  first_opened_at: string | null;
+};
+
+export type CreatedRecordShare = {
+  id: string;
+  token: string;
+  sections: string[];
+  expires_at: string;
+  created_at: string;
+  pin_protected: boolean;
+  one_session: boolean;
+  /** Present once, only when a PIN was asked for. Never stored in clear. */
+  pin: string | null;
 };
 
 export function useRecordShares(patientId: string) {
@@ -39,7 +57,9 @@ export function useRecordShares(patientId: string) {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("record_shares")
-        .select("id, token, sections, expires_at, is_active, view_count, last_viewed_at, created_at, revoked_at")
+        .select(
+          "id, token, sections, expires_at, is_active, view_count, last_viewed_at, created_at, revoked_at, pin_protected, one_session, locked_at, first_opened_at",
+        )
         .eq("patient_id", patientId)
         .order("created_at", { ascending: false })
         .limit(20);
@@ -56,17 +76,23 @@ export function useCreateRecordShare() {
     mutationFn: async ({
       sections,
       expiresInHours,
+      usePin,
+      oneSession,
     }: {
       sections: RecordShareSection[];
       expiresInHours: number;
+      usePin: boolean;
+      oneSession: boolean;
     }) => {
       const supabase = createClient();
       const { data, error } = await supabase.rpc("create_record_share", {
         p_sections: sections,
         p_expires_in_hours: expiresInHours,
+        p_use_pin: usePin,
+        p_one_session: oneSession,
       });
       if (error) throw error;
-      return data as { id: string; token: string; sections: string[]; expires_at: string; created_at: string };
+      return data as unknown as CreatedRecordShare;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["record-shares"] });

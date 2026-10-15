@@ -77,10 +77,10 @@ begin
   if v_clin_staff is null then
     insert into public.clinical_staff
       (organisation_id, profile_id, full_name, doctor_tier, active, license_verified_at, verified_by)
-    values (v_org, v_clin, 'VERIFY Imaging Ordering Clinician', 'medical_officer', true, now(), v_pat_a)
+    values (v_org, v_clin, 'VERIFY Imaging Ordering Clinician', 'senior_medical_officer', true, now(), v_pat_a)
     returning id into v_clin_staff;
   else
-    update public.clinical_staff set active = true, organisation_id = v_org, doctor_tier = 'medical_officer'
+    update public.clinical_staff set active = true, organisation_id = v_org, doctor_tier = 'senior_medical_officer'
     where id = v_clin_staff;
   end if;
 

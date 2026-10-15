@@ -1,45 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import {
-  usePatientDeletionRequests,
-  useCreateDeletionRequest,
-  usePatientCorrectionRequests,
-  useCreateCorrectionRequest,
-  usePatientExportRequests,
-  useCreateExportRequest,
-} from "@/lib/queries/data-rights";
+import { usePatientCorrectionRequests, useCreateCorrectionRequest } from "@/lib/queries/data-rights";
+import { DeletionRequestCard } from "./deletion-request-card";
+import { ExportRequestCard } from "./export-request-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
+import { mutationErrorMessage, STATUS_BADGE } from "./data-rights-common";
 import { FormError, fieldErrorId } from "@/components/ui/form-error";
-
-/** mutationFn throws the raw Postgrest error object on failure (see
- * lib/queries/data-rights.ts) — it always carries a `.message`, but the
- * mutation's own `.error` is typed `unknown` by react-query. */
-function mutationErrorMessage(error: unknown): string | null {
-  if (!error) return null;
-  if (error instanceof Error) return error.message;
-  if (typeof error === "object" && error !== null && "message" in error) {
-    const message = (error as { message?: unknown }).message;
-    if (typeof message === "string" && message) return message;
-  }
-  return "Something went wrong sending this request. Please try again.";
-}
-
-const STATUS_BADGE: Record<string, NonNullable<BadgeProps["variant"]>> = {
-  pending: "amber",
-  under_review: "blue",
-  approved: "blue",
-  approved_partial: "blue",
-  approved_full: "blue",
-  applied: "green",
-  completed: "green",
-  fulfilled: "green",
-  denied: "red",
-};
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
@@ -56,97 +27,17 @@ export function DataRightsPanel({
   organisationId: string;
   patientId: string;
 }) {
-  const deletionRequests = usePatientDeletionRequests(patientId);
-  const createDeletionRequest = useCreateDeletionRequest(organisationId, patientId);
   const correctionRequests = usePatientCorrectionRequests(patientId);
   const createCorrectionRequest = useCreateCorrectionRequest(organisationId, patientId);
-  const exportRequests = usePatientExportRequests(patientId);
-  const createExportRequest = useCreateExportRequest(organisationId, patientId);
-
-  const [deletionOpen, setDeletionOpen] = useState(false);
-  const [deletionReason, setDeletionReason] = useState("");
 
   const [correctionOpen, setCorrectionOpen] = useState(false);
   const [recordDescription, setRecordDescription] = useState("");
   const [whatIsWrong, setWhatIsWrong] = useState("");
   const [requestedChange, setRequestedChange] = useState("");
 
-  const [exportOpen, setExportOpen] = useState(false);
-  const [exportNote, setExportNote] = useState("");
-
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      <Card>
-        <CardHeader>
-          <CardTitle>Request a copy of your data</CardTitle>
-          <CardDescription>
-            Ask us for a copy of the data we hold about you. A member of our team reviews and
-            prepares it, then sends it to you securely — it isn&apos;t a direct download.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {exportOpen ? (
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="export-note">Anything specific you need? (optional)</Label>
-                <Textarea
-                  id="export-note"
-                  rows={2}
-                  placeholder="e.g. just my lab results, or everything"
-                  value={exportNote}
-                  onChange={(e) => setExportNote(e.target.value)}
-                />
-              </div>
-              <FormError id={fieldErrorId("export-request")} message={mutationErrorMessage(createExportRequest.error)} />
-              <div className="flex gap-2">
-                <Button
-                  disabled={createExportRequest.isPending}
-                  onClick={() => {
-                    createExportRequest.mutate(
-                      { note: exportNote || undefined },
-                      {
-                        onSuccess: () => {
-                          setExportOpen(false);
-                          setExportNote("");
-                        },
-                      }
-                    );
-                  }}
-                >
-                  {createExportRequest.isPending ? "Submitting…" : "Submit request"}
-                </Button>
-                <Button variant="ghost" onClick={() => setExportOpen(false)}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <Button variant="outline" onClick={() => setExportOpen(true)}>
-              Request my data
-            </Button>
-          )}
-
-          {(exportRequests.data ?? []).length > 0 ? (
-            <ul className="space-y-2 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-3 text-sm">
-              {(exportRequests.data ?? []).map((r) => (
-                <li key={r.id} className="flex items-center justify-between gap-2">
-                  <span className="truncate text-charcoal-ink/80 dark:text-night-ink/80">
-                    {r.note || "Data export request"}
-                  </span>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <span className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
-                      {formatDate(r.requested_at)}
-                    </span>
-                    <Badge variant={STATUS_BADGE[r.status] ?? "grey"}>
-                      {r.status.replace(/_/g, " ")}
-                    </Badge>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </CardContent>
-      </Card>
+      <ExportRequestCard organisationId={organisationId} patientId={patientId} />
 
       <Card>
         <CardHeader>
@@ -249,82 +140,7 @@ export function DataRightsPanel({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Request deletion of your data</CardTitle>
-          <CardDescription>
-            You can ask us to delete data we hold about you. Some clinical records must be kept
-            for a minimum period under Nigerian healthcare regulation. If that applies, we&apos;ll
-            explain exactly what can and can&apos;t be deleted when we review your request.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {deletionOpen ? (
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="deletion-reason">
-                  Tell us what you&apos;d like deleted and why (optional)
-                </Label>
-                <Textarea
-                  id="deletion-reason"
-                  rows={3}
-                  value={deletionReason}
-                  onChange={(e) => setDeletionReason(e.target.value)}
-                />
-              </div>
-              <FormError
-                id={fieldErrorId("deletion-request")}
-                message={mutationErrorMessage(createDeletionRequest.error)}
-              />
-              <div className="flex gap-2">
-                <Button
-                  disabled={createDeletionRequest.isPending}
-                  onClick={() => {
-                    createDeletionRequest.mutate(
-                      { reason: deletionReason, requestedCategories: [] },
-                      {
-                        onSuccess: () => {
-                          setDeletionOpen(false);
-                          setDeletionReason("");
-                        },
-                      }
-                    );
-                  }}
-                >
-                  {createDeletionRequest.isPending ? "Submitting…" : "Submit request"}
-                </Button>
-                <Button variant="ghost" onClick={() => setDeletionOpen(false)}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <Button variant="outline" onClick={() => setDeletionOpen(true)}>
-              Request deletion
-            </Button>
-          )}
-
-          {(deletionRequests.data ?? []).length > 0 ? (
-            <ul className="space-y-2 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-3 text-sm">
-              {(deletionRequests.data ?? []).map((r) => (
-                <li key={r.id} className="flex items-center justify-between gap-2">
-                  <span className="truncate text-charcoal-ink/80 dark:text-night-ink/80">
-                    {r.reason || "Deletion request"}
-                  </span>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <span className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
-                      {formatDate(r.requested_at)}
-                    </span>
-                    <Badge variant={STATUS_BADGE[r.status] ?? "grey"}>
-                      {r.status.replace(/_/g, " ")}
-                    </Badge>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </CardContent>
-      </Card>
+      <DeletionRequestCard organisationId={organisationId} patientId={patientId} />
     </div>
   );
 }

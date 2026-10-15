@@ -4,7 +4,7 @@ import { asLocale, en, t, type MessageKey } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import {
-  answerGift, cancelInvite, createInvite, loadMyCircle, loadPendingGifts, loadPreviewMember, loadPreviewPermissions, loadViewLog, pauseCircle, renewMember, resumeCircle, revokeMember, updateMember,
+  answerGift, cancelInvite, createInvite, loadMyCircle, loadPendingGifts, loadPreviewMember, loadPreviewPermissions, loadViewLog, pauseCircle, renewMember, resumeCircle, revokeMember, setMonthlyReportShare, updateMember,
 } from "@/lib/care-circle/api";
 import {
   CIRCLE_PERMISSIONS, GRANT_DAY_CHOICES, endsSoon, inviteLinkPath, permissionKey,
@@ -181,6 +181,14 @@ function MemberCard({ member, onChanged }: { member: CircleMember; onChanged: ()
       onChanged();
     } else setFailed(true);
   }
+  async function toggleMonthly(on: boolean) {
+    setBusy(true);
+    setFailed(false);
+    const ok = await setMonthlyReportShare(member.memberId, on);
+    setBusy(false);
+    if (ok) onChanged();
+    else setFailed(true);
+  }
   async function renew() {
     setBusy(true);
     setFailed(false);
@@ -208,6 +216,11 @@ function MemberCard({ member, onChanged }: { member: CircleMember; onChanged: ()
       <MutedText>{t("circle.member.until", locale, { date: lagosDate(member.expiresAt) })}</MutedText>
       {endsSoon(member.expiresAt, Date.now()) ? <Text style={{ fontWeight: "600", color: colors.ink }}>{t("circle.member.ends_soon", locale)}</Text> : null}
       <PermissionSwitches value={draft} onChange={(n) => { setDraft(n); setSaved(false); }} />
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 44 }}>
+        <Switch accessibilityLabel={t("circle.monthly.label", locale, { name: member.name })} value={member.monthlyReportShared} disabled={busy} onValueChange={(on) => void toggleMonthly(on)} />
+        <Text style={{ flex: 1, color: colors.ink }}>{t("circle.monthly.label", locale, { name: member.name })}</Text>
+      </View>
+      <MutedText>{t("circle.monthly.help", locale)}</MutedText>
       <PrimaryButton title={t("circle.member.save", locale)} onPress={() => void save()} disabled={!changed || draft.length === 0 || busy} />
       <SecondaryButton title={t("circle.member.renew", locale)} onPress={() => void renew()} disabled={busy} />
       <SecondaryButton title={t("circle.member.remove", locale)} onPress={remove} disabled={busy} />
@@ -346,6 +359,7 @@ export function CareCircleSection() {
       <GiftCards gifts={gifts} onAnswered={() => void refresh()} />
       <Text style={{ fontSize: 18, fontWeight: "700", color: colors.ink }}>{t("circle.title", locale)}</Text>
       <MutedText>{t("circle.intro", locale)}</MutedText>
+      <MutedText>{t("circle.monthly.notice", locale)}</MutedText>
       <Text style={{ fontWeight: "600", color: colors.ink }}>{t("circle.stop.reminder", locale)}</Text>
       <PauseCard pause={circle.pause} days={circle.pauseDays ?? 7} onChanged={() => void refresh()} />
       {circle.members.length === 0 ? <MutedText>{t("circle.members.empty", locale)}</MutedText> : null}

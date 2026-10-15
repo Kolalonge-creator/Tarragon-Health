@@ -6,6 +6,7 @@ import { ClinicalStaffAvatar } from "@/components/clinical-staff-avatar";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatYearsOfExperience } from "@/lib/clinical/format-years-of-experience";
+import { LicenceVerifiedFor } from "@/components/licence-verified-for";
 
 /**
  * The one place speciality, years of experience and bio are shown for a
@@ -71,6 +72,7 @@ export default async function DoctorProfilePage({
             <p className="text-lg font-medium text-charcoal-ink dark:text-night-ink">
               Dr. {doctor.full_name}
             </p>
+            <LicenceVerifiedFor id={staffId} />
             {(doctor.specialty || experience) && (
               <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
                 {[doctor.specialty, experience].filter(Boolean).join(" · ")}
