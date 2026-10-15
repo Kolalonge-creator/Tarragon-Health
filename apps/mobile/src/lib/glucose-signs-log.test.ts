@@ -5,7 +5,8 @@
  */
 import { GLUCOSE_SIGN_SYMPTOM_TYPE, GLUCOSE_SYMPTOMS, type GlucoseSymptomCode } from "@tarragon/clinical";
 import { loadGlucoseSymptomChecklist } from "./s07-config";
-import { LEVEL_3_SIGNS, planGlucoseSigns, saveGlucoseSigns } from "./glucose-log";
+import { LEVEL_3_SIGNS, planGlucoseSigns, resolveGlucoseSignSeverity, saveGlucoseSigns, SAFE_GLUCOSE_SIGN_SEVERITY } from "./glucose-log";
+import { countSyncErrorsSince } from "./sync-diagnostics";
 import { symptomLabel } from "./symptoms";
 import { discardRejectedRow, flushOutbox, listOutbox } from "./outbox";
 
@@ -129,5 +130,30 @@ describe("saveGlucoseSigns", () => {
 describe("history labels", () => {
   it("names the three stored sign types plainly", () => {
     expect(["vomiting", "abdominal_pain", "cannot_swallow"].map((t) => symptomLabel(t as never))).toEqual(["Vomiting", "Stomach pain", "Cannot swallow safely"]);
+  });
+});
+
+describe("a bad configured severity never fails or loses a reading", () => {
+  const cfg = (severity: number) => () => ({ version: 1, severity });
+  it("uses a safe configured value as it is", () => {
+    expect(resolveGlucoseSignSeverity(cfg(2))).toBe(2);
+    expect(resolveGlucoseSignSeverity()).toBe(SEVERITY);
+  });
+  it.each([4, 5, 8])("falls back to 3 and logs it when the config says %i (the loader refuses it), without throwing", async (bad) => {
+    // the real loader throws above 3; model the registry handing it a bad value by letting the loader itself throw
+    const throwing = () => {
+      throw new Error(`Config glucose.symptom_checklist.severity must be 1 to 3 (got ${bad})`);
+    };
+    const since = new Date(Date.now() - 1000).toISOString();
+    const severity = resolveGlucoseSignSeverity(throwing);
+    expect(severity).toBe(SAFE_GLUCOSE_SIGN_SEVERITY);
+    expect(countSyncErrorsSince("offline_outbox", since)).toBeGreaterThan(0);
+    // the signs are still stored, at 3, so the reading that goes with them is never held back
+    expect(await saveGlucoseSigns(["vomiting"], severity, WHO)).toEqual({ saved: 1, failed: false });
+    await flushOutbox();
+    expect(rows[0]).toMatchObject({ symptom_type: "vomiting", severity: 3 });
+  });
+  it.each([4, 5, 0, 2.5, Number.NaN])("also refuses a loader that returns %p instead of throwing", (bad) => {
+    expect(resolveGlucoseSignSeverity(cfg(bad))).toBe(SAFE_GLUCOSE_SIGN_SEVERITY);
   });
 });

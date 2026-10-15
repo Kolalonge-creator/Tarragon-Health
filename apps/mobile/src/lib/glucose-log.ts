@@ -1,6 +1,8 @@
 import { mgDlToMmolL } from "@tarragon/shared";
 import { GLUCOSE_SIGN_SYMPTOM_TYPE, GLUCOSE_SYMPTOMS, TICKED_ON_GLUCOSE_FORM_NOTE, type GlucoseContextCode, type GlucoseSymptomCode, type KetoneUrine } from "@tarragon/clinical";
 import { enqueueGroup, type EnqueueInput } from "./outbox";
+import { loadGlucoseSymptomChecklist } from "./s07-config";
+import { recordSyncError } from "./sync-diagnostics";
 import { gradeGlucoseOnDevice, type DeviceTriage } from "./triage-device";
 import { classifyVitalOffline, type OfflineVitalFlag } from "./vitals";
 import type { GlucoseUnit } from "./vitals-entry";
@@ -115,4 +117,23 @@ export async function saveGlucoseSigns(
   }
   // Sending is the caller's business (the screen flushes after the reading is saved, without waiting): this only makes the rows durable.
   return { saved: plan.length, failed: false };
+}
+
+/** The severity a glucose-form tick is stored at when the configuration cannot be trusted: under both of the older symptom trigger's paging lines. */
+export const SAFE_GLUCOSE_SIGN_SEVERITY = 3;
+
+/**
+ * The severity to store ticked signs at. The configured value is refused above 3 (4 would page a child under 5 through the older symptom trigger,
+ * 5 anyone), and a refusal must never crash the glucose entry or lose a reading, so any failure to read a safe value falls back to the safe default
+ * and is logged for support. Never throws.
+ */
+export function resolveGlucoseSignSeverity(load: typeof loadGlucoseSymptomChecklist = loadGlucoseSymptomChecklist): number {
+  try {
+    const { severity } = load();
+    if (Number.isInteger(severity) && severity >= 1 && severity <= SAFE_GLUCOSE_SIGN_SEVERITY) return severity;
+    throw new Error(`glucose.symptom_checklist severity ${String(severity)} is not 1 to ${SAFE_GLUCOSE_SIGN_SEVERITY}`);
+  } catch (error) {
+    recordSyncError("offline_outbox", "resolveGlucoseSignSeverity", error);
+    return SAFE_GLUCOSE_SIGN_SEVERITY;
+  }
 }

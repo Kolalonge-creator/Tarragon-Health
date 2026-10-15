@@ -11,9 +11,11 @@
 -- Two functions are rewritten, each starting from its LIVE definition (pg_get_functiondef, 2026-10-15), changing only the symptom list:
 --   private.emit_glucose_symptom_regrade  (a sign arriving just after its reading re-grades that reading)
 --   public.triage_context_for_glucose_observation  (the symptom mapping inside the context)
--- NOT touched: private.handle_symptom_red_flag. It pages on severity (5 or more), not on the type, and the phone stores a glucose-form tick at
--- severity 4 (config glucose.symptom_checklist), so a tick written by this path never pages through the older symptom trigger; the governed
--- engine is the one place a glucose sign can page. No threshold, rule or wording changes.
+-- NOT touched: private.handle_symptom_red_flag. It pages on severity, not on the type: from 5 for any type, and from 4 for lethargy and
+-- dehydration_signs in a child under 5 (two glucose signs, drowsiness and very thirsty, are stored as exactly those). So the phone stores a
+-- glucose-form tick at severity 3 (config glucose.symptom_checklist, refused above 3): a tick stored at 4 would page a child under 5 through the
+-- older trigger, and at 5 or more would page anyone, from a sign whose rules are not yet signed. At 3 a tick written by this path never pages
+-- through the older symptom trigger; the governed engine is the one place a glucose sign can page. No threshold, rule or wording changes.
 create or replace function private.emit_glucose_symptom_regrade()
 returns trigger language plpgsql security definer set search_path = '' as $$
 declare

@@ -13,7 +13,7 @@ import { logBpWithExtras } from "@/lib/bp-log";
 import { refreshApprovedGlucoseRuleSet, refreshApprovedRuleSet, refreshPatientFacts, resolveExpiredRecheck, rulesMayBeStale, shouldAskSymptomQuestion, type DeviceTriage } from "@/lib/triage-device";
 import { answerSymptomQuestion, type QuestionSymptom } from "@/lib/symptom-question";
 import { readObstetricStatus, refreshObstetricStatus } from "@/lib/obstetric-status";
-import { loadBpSymptomChecklist, loadGlucoseSymptomChecklist, loadHomeProtocol } from "@/lib/s07-config";
+import { loadBpSymptomChecklist, loadHomeProtocol } from "@/lib/s07-config";
 import {
   KETONE_ENTRY_BOUNDS,
   parseStrictNumber,
@@ -22,7 +22,7 @@ import {
   type OtherVitalType,
 } from "@/lib/vitals-entry";
 import { flushOutbox } from "@/lib/outbox";
-import { evaluateGlucoseOnDevice, LEVEL_3_SIGNS, saveGlucoseSigns, type GlucoseOutcome } from "@/lib/glucose-log";
+import { evaluateGlucoseOnDevice, LEVEL_3_SIGNS, resolveGlucoseSignSeverity, saveGlucoseSigns, type GlucoseOutcome } from "@/lib/glucose-log";
 import { GLUCOSE_SYMPTOMS, KETONE_URINE_BANDS, type GlucoseSymptomCode, type KetoneUrine } from "@tarragon/clinical";
 import {
   computeSevenDayAverage,
@@ -69,7 +69,8 @@ import { SymptomChecklist, TechniqueGuide } from "@/screens/sections/bp-extras";
 // Versioned S07 values (rest time, gap between readings, severity recorded for a ticked symptom).
 const HOME_PROTOCOL = loadHomeProtocol();
 const SYMPTOM_CHECKLIST = loadBpSymptomChecklist();
-const GLUCOSE_SIGN_CHECKLIST = loadGlucoseSymptomChecklist();
+// Never throws: a bad configured value falls back to the safe severity instead of crashing the screen or losing a reading.
+const GLUCOSE_SIGN_SEVERITY = resolveGlucoseSignSeverity();
 
 interface GuidanceState {
   detail: string;
@@ -778,7 +779,7 @@ function OtherVitalCard({
     let signsFailed = false;
     if (type === "glucose") {
       const fresh = signs.filter((x) => !savedSigns.current.has(x));
-      const saved = await saveGlucoseSigns(fresh, GLUCOSE_SIGN_CHECKLIST.severity, { subjectId, beneficiaryProfileId });
+      const saved = await saveGlucoseSigns(fresh, GLUCOSE_SIGN_SEVERITY, { subjectId, beneficiaryProfileId });
       if (saved.failed) signsFailed = true;
       else fresh.forEach((x) => savedSigns.current.add(x));
     }

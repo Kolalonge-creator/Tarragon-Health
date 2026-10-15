@@ -12,6 +12,38 @@ function input(mmol: number, symptoms: GlucoseSymptomCode[], ketones: GlucoseInp
     now: NOW,
   };
 }
+
+const MIGRATIONS = new URL("../../../supabase/migrations/", import.meta.url);
+function mappingMigration(): string {
+  const file = readdirSync(MIGRATIONS).filter((f) => f.endsWith("_glucose_signs_context_mapping.sql"));
+  expect(file).toHaveLength(1);
+  return readFileSync(new URL(file[0], MIGRATIONS), "utf8");
+}
+/** [sign code, stored type] pairs from the context function's values list. */
+function contextPairs(sql: string): string[][] {
+  const fn = sql.slice(sql.indexOf("create or replace function public.triage_context_for_glucose_observation"));
+  const values = fn.slice(fn.indexOf("join (values"), fn.indexOf("as m(symptom, code)"));
+  return [...values.matchAll(/\('([a-z_]+)', '([a-z_]+)'\)/g)].map((m) => [m[2]!, m[1]!]);
+}
+/** The stored types the regrade trigger's `not in (...)` list names. */
+function regradeList(sql: string): string[] {
+  const regrade = sql.slice(sql.indexOf("create or replace function private.emit_glucose_symptom_regrade"), sql.indexOf("create or replace function public.triage"));
+  return [...regrade.slice(regrade.indexOf("not in ("), regrade.indexOf("then")).matchAll(/'([a-z_]+)'/g)].map((m) => m[1]!);
+}
+/** Every disagreement between the TS table, the context function's list and the trigger's list; empty when all three are the same. */
+function mappingDifferences(sql: string): string[] {
+  const out: string[] = [];
+  const ts = GLUCOSE_SIGN_SYMPTOM_TYPE as Record<string, string>;
+  const ctx = Object.fromEntries(contextPairs(sql));
+  for (const code of new Set([...Object.keys(ts), ...Object.keys(ctx)])) {
+    if (ts[code] !== ctx[code]) out.push(`context list: ${code} is ${ctx[code] ?? "missing"}, table says ${ts[code] ?? "missing"}`);
+  }
+  const stored = new Set(Object.values(ts));
+  const listed = new Set(regradeList(sql));
+  for (const t of stored) if (!listed.has(t)) out.push(`trigger list is missing ${t}`);
+  for (const t of listed) if (!stored.has(t)) out.push(`trigger list has ${t}, which no sign maps onto`);
+  return out;
+}
 const rule = (i: GlucoseInput) => gradeGlucose(i, GLUCOSE_CARE_V1);
 
 describe("the sign to symptom_type table", () => {
@@ -20,23 +52,34 @@ describe("the sign to symptom_type table", () => {
     expect(new Set(Object.values(GLUCOSE_SIGN_SYMPTOM_TYPE)).size).toBe(GLUCOSE_SYMPTOMS.length);
   });
 
-  it("is exactly the mapping the server migration applies (file against table, in both directions)", () => {
-    const dir = new URL("../../../supabase/migrations/", import.meta.url);
-    const file = readdirSync(dir).filter((f) => f.endsWith("_glucose_signs_context_mapping.sql"));
-    expect(file).toHaveLength(1);
-    const sql = readFileSync(new URL(file[0], dir), "utf8");
-    const fn = sql.slice(sql.indexOf("create or replace function public.triage_context_for_glucose_observation"));
-    const values = fn.slice(fn.indexOf("join (values"), fn.indexOf("as m(symptom, code)"));
-    const pairs = [...values.matchAll(/\('([a-z_]+)', '([a-z_]+)'\)/g)].map((m) => [m[2], m[1]]);
-    expect(Object.fromEntries(pairs)).toEqual(GLUCOSE_SIGN_SYMPTOM_TYPE);
-    // the regrade trigger listens for exactly these stored types
-    const regrade = sql.slice(sql.indexOf("create or replace function private.emit_glucose_symptom_regrade"), sql.indexOf("create or replace function public.triage"));
-    const listed = [...regrade.slice(regrade.indexOf("not in ("), regrade.indexOf("then")).matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
-    expect(listed.sort()).toEqual(Object.values(GLUCOSE_SIGN_SYMPTOM_TYPE).sort());
+  it("is exactly the mapping the server migration applies, in both places it is written (file against table)", () => {
+    const sql = mappingMigration();
+    expect(Object.fromEntries(contextPairs(sql))).toEqual(GLUCOSE_SIGN_SYMPTOM_TYPE);
+    expect(regradeList(sql).sort()).toEqual(Object.values(GLUCOSE_SIGN_SYMPTOM_TYPE).sort());
+    expect(mappingDifferences(sql)).toEqual([]);
+  });
+
+  it("fails when the three copies differ (negative test: a type dropped from the trigger list, from the context list, or a wrong pair)", () => {
+    const sql = mappingMigration();
+    // the trigger list loses vomiting: the trigger would never re-grade a reading for a sign that arrives after it
+    const noRegradeVomiting = sql.replace("'cannot_swallow', 'vomiting', 'abdominal_pain',", "'cannot_swallow', 'abdominal_pain',");
+    expect(noRegradeVomiting).not.toEqual(sql);
+    expect(mappingDifferences(noRegradeVomiting).join(" ")).toMatch(/vomiting/);
+    // the context list loses a pair
+    const noPair = sql.replace("('vomiting', 'vomiting'), ", "");
+    expect(noPair).not.toEqual(sql);
+    expect(mappingDifferences(noPair).join(" ")).toMatch(/vomiting/);
+    // the context list maps a sign onto the wrong stored type
+    const wrong = sql.replace("('convulsion', 'seizure')", "('pain', 'seizure')");
+    expect(wrong).not.toEqual(sql);
+    expect(mappingDifferences(wrong).join(" ")).toMatch(/seizure/);
+    // a stored type listed in the trigger that no sign maps onto
+    const extra = sql.replace("'cannot_swallow', 'vomiting',", "'cannot_swallow', 'nausea', 'vomiting',");
+    expect(mappingDifferences(extra).join(" ")).toMatch(/nausea/);
   });
 
   it("only adds enum values nothing else uses, each in a file of its own", () => {
-    const dir = new URL("../../../supabase/migrations/", import.meta.url);
+    const dir = MIGRATIONS;
     const files = readdirSync(dir).filter((f) => f.includes("_glucose_signs_symptom_type_"));
     expect(files).toHaveLength(3);
     for (const f of files) {
