@@ -22,8 +22,9 @@ describe("ProxyConfirmationCard", () => {
   it("starts with every category unticked and shows only the requester's first name", () => {
     render(<ProxyConfirmationCard setups={[SETUP]} locale="en" />);
     const boxes = screen.getAllByRole("checkbox");
-    expect(boxes.length).toBe(8);
+    expect(boxes.length).toBe(9); // eight health categories plus mental wellbeing (S56), each its own choice
     for (const box of boxes) expect((box as HTMLInputElement).checked).toBe(false);
+    expect(screen.getByLabelText(/Mental wellbeing/)).toBeTruthy();
     expect(screen.getByText(/Adaeze would like to help look after you/)).toBeTruthy();
     expect(screen.getByText(/Adaeze cannot see anything about you yet/)).toBeTruthy();
     expect(screen.getByText(/If you choose nothing, Adaeze will not see any of your health information/)).toBeTruthy();

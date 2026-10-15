@@ -89,7 +89,7 @@ export type LabOrderWithDetails = Tables<"lab_orders"> & {
   // clinician-generated order; the patient self-service due-screening path
   // never sets ordered_by, so this stays null there by construction, not by
   // omission from the query.
-  ordered_by_staff: { full_name: string; credential_type: string | null; credential_number: string | null } | null;
+  ordered_by_staff: { full_name: string; credential_type: string | null } | null;
 };
 
 /**
@@ -156,7 +156,7 @@ async function fetchLabOrderOrderers(
   if (orderedByIds.length === 0) return ordererById;
   const { data, error } = await supabase
     .from("clinical_staff_directory")
-    .select("id, full_name, credential_type, credential_number")
+    .select("id, full_name, credential_type")
     .in("id", orderedByIds);
   if (error) throw error;
   for (const row of data ?? []) {
@@ -164,7 +164,6 @@ async function fetchLabOrderOrderers(
     ordererById.set(row.id, {
       full_name: row.full_name ?? "",
       credential_type: row.credential_type,
-      credential_number: row.credential_number,
     });
   }
   return ordererById;

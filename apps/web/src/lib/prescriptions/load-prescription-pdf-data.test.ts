@@ -71,7 +71,27 @@ function fakeClient(fixture: Fixture, rpcResult?: { data: unknown; error: { mess
     }
     return chain;
   };
-  const rpc = async () => rpcResult ?? { data: null, error: null };
+  const rpc = async (fn?: string, args?: { p_document_ids?: string[] }) => {
+    // The folio comes from the document-scoped function, not the directory view (CMO Q17, OQ-358).
+    if (fn === "clinician_folio_for_document") {
+      const staff = fixture.staff as { credential_number?: string | null; credential_type?: string | null; full_name?: string } | null;
+      const number = staff?.credential_number ?? null;
+      return {
+        data: staff && number !== null
+          ? (args?.p_document_ids ?? []).map((id) => ({
+              document_id: id,
+              clinician_staff_id: "staff-1",
+              clinician_profile_id: "profile-1",
+              full_name: staff.full_name ?? null,
+              credential_type: staff.credential_type ?? null,
+              credential_number: number,
+            }))
+          : [],
+        error: null,
+      };
+    }
+    return rpcResult ?? { data: null, error: null };
+  };
   return { client: { from, rpc } as unknown as SupabaseClient<Database>, audit };
 }
 
@@ -279,5 +299,19 @@ describe("loadPrescriptionForClinician", () => {
   it("surfaces a read error rather than reading it as none", async () => {
     const { client } = fakeClient({ meds: [], patient: goodPatient, staff: goodStaff, auditError: null }, { data: null, error: { message: "boom" } });
     expect((await loadPrescriptionForClinician(client, ACTOR, PATIENT, MED)).status).toBe("error");
+  });
+});
+
+describe("prescriber folio lookup (CMO Q17, OQ-358)", () => {
+  it("returns a structured error, not a thrown failure, when the folio function fails", async () => {
+    const { client } = fakeClient({ meds: [med()], patient: goodPatient, staff: goodStaff, auditError: null });
+    const failing = { ...(client as unknown as Record<string, unknown>), rpc: async () => ({ data: null, error: { message: "db down" } }) };
+    const result = await loadSinglePrescription(failing as unknown as SupabaseClient<Database>, ACTOR, "11111111-1111-4111-8111-111111111111", "web");
+    expect(result).toMatchObject({ status: "error" });
+  });
+
+  it("refuses as prescriber-unverified when the folio is not returned for this document", async () => {
+    const { client } = fakeClient({ meds: [med()], patient: goodPatient, staff: { ...goodStaff, credential_number: null }, auditError: null });
+    expect(await loadSinglePrescription(client, ACTOR, "11111111-1111-4111-8111-111111111111", "web")).toMatchObject({ reason: "prescriber_unverified" });
   });
 });
