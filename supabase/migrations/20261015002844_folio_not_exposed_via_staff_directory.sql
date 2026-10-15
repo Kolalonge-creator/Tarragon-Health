@@ -125,8 +125,10 @@ begin
       from public.medications m
       join public.clinical_staff cs on cs.profile_id = m.added_by
       where m.id = any (p_document_ids)
-        and (v_service or m.patient_id = v_uid or private.is_org_staff(m.organisation_id)
-             or private.can_read_clinical(m.patient_id, 'medications'::public.care_access_category));
+        and (v_service or m.patient_id = v_uid
+             or private.staff_may_read(m.patient_id, m.organisation_id, 'medications'::public.care_access_category)
+             or private.can_read_clinical(m.patient_id, 'medications'::public.care_access_category)
+             or private.can_read_clinical(m.patient_id, 'view_medication'::public.caregiver_permission));
 
   elsif p_document_kind = 'lab_request' then
     -- lab_orders.ordered_by is a clinical_staff id.
@@ -135,8 +137,11 @@ begin
       from public.lab_orders lo
       join public.clinical_staff cs on cs.id = lo.ordered_by
       where lo.id = any (p_document_ids)
-        and (v_service or lo.patient_id = v_uid or private.is_org_staff(lo.organisation_id)
-             or private.can_read_clinical(lo.patient_id, 'labs_results'::public.care_access_category));
+        and (v_service or lo.patient_id = v_uid
+             or private.staff_may_read(lo.patient_id, lo.organisation_id, 'labs_results'::public.care_access_category)
+             or private.can_read_clinical(lo.patient_id, 'labs_results'::public.care_access_category)
+             or private.has_emergency_access(lo.patient_id, 'labs_results'::public.care_access_category)
+             or private.can_read_clinical(lo.patient_id, 'view_results'::public.caregiver_permission));
 
   elsif p_document_kind = 'vaccination_certificate' then
     return query
@@ -145,8 +150,10 @@ begin
       join public.clinical_staff cs on cs.profile_id = vr.verified_by and cs.active
       where vr.id = any (p_document_ids)
         and vr.verification_status = 'verified'
-        and (v_service or vr.profile_id = v_uid or private.is_org_staff(vr.organisation_id)
-             or private.can_read_clinical(vr.profile_id, 'vaccinations'::public.care_access_category));
+        and (v_service or vr.profile_id = v_uid
+             or private.staff_may_read(vr.profile_id, vr.organisation_id, 'vaccinations'::public.care_access_category)
+             or private.can_read_clinical(vr.profile_id, 'vaccinations'::public.care_access_category)
+             or private.has_emergency_access(vr.profile_id, 'vaccinations'::public.care_access_category));
 
   else
     raise exception 'unknown document kind %', p_document_kind using errcode = '22023';
@@ -158,7 +165,7 @@ comment on function public.clinician_folio_for_document(text, uuid[]) is
   'Returns the issuing clinician''s MDCN folio for documents the caller is entitled to produce/receive (referral_letter, lab_result_interpretation, verified_document, prescription, lab_request, vaccination_certificate). Clinician derived from the document, entitlement mirrors the document table SELECT policy. Zero rows when not entitled. CMO Q17 / OQ-358.';
 
 revoke all on function public.clinician_folio_for_document(text, uuid[]) from public;
-grant execute on function public.clinician_folio_for_document(text, uuid[]) to authenticated;
+grant execute on function public.clinician_folio_for_document(text, uuid[]) to authenticated, service_role;
 
 do $$
 begin

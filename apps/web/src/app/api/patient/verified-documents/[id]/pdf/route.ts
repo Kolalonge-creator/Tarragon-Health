@@ -69,6 +69,9 @@ export async function GET(
           .maybeSingle();
         issuerProfile = profile ?? null;
       }
+      // A patient session cannot read the clinician's profile; fall back to the directory name
+      // the function returns so the issuer is never printed without a name.
+      if (!issuerProfile?.full_name && folio.fullName) issuerProfile = { full_name: folio.fullName };
     }
   }
 

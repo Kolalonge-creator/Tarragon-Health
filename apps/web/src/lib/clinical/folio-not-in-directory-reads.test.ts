@@ -22,7 +22,7 @@ function walk(dir: string, out: string[] = []): string[] {
 describe("the staff directory view never carries the folio", () => {
   it("no source file selects credential_number from clinical_staff_directory", () => {
     const offenders: string[] = [];
-    for (const file of walk(join(__dirname, "..", ".."))) {
+    for (const file of [...walk(join(__dirname, "..", "..")), ...walk(join(__dirname, "..", "..", "..", "..", "mobile", "src"))]) {
       const src = readFileSync(file, "utf8");
       const re = /from\(\s*["']clinical_staff_directory["']\s*\)\s*\.select\(\s*([`"'])([^`"']*)\1/g;
       let m: RegExpExecArray | null;

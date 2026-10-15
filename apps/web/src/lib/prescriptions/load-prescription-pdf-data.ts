@@ -28,7 +28,7 @@ type Client = SupabaseClient<Database>;
 
 import { DEFAULT_LETTERHEAD, type Letterhead } from "./letterhead";
 import { loadPrescriberSignature } from "./signature";
-import { fetchDocumentFolios } from "@/lib/clinical/document-folio";
+import { fetchDocumentFolios, type DocumentFolio } from "@/lib/clinical/document-folio";
 
 function text(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -81,7 +81,7 @@ async function loadPatient(supabase: Client, patientId: string) {
 async function loadPrescriber(
   supabase: Client,
   profileId: string | null,
-  medicationId: string,
+  folio: DocumentFolio | undefined,
 ): Promise<PrescriptionPrescriber | null> {
   if (!profileId) return null;
   const { data: staff } = await supabase
@@ -90,14 +90,27 @@ async function loadPrescriber(
     .eq("profile_id", profileId)
     .maybeSingle();
   if (!staff) return null;
-  // The folio is not in the directory view (CMO Q17, OQ-358); read it for this prescription only.
-  const folio = (await fetchDocumentFolios(supabase, "prescription", [medicationId])).get(medicationId);
   return {
     name: staff.full_name,
     credentialType: staff.credential_type,
+    // The folio is not in the directory view (CMO Q17, OQ-358); it comes from the
+    // document-scoped function. Missing means the builder refuses the prescription
+    // as "prescriber not confirmed" rather than printing it unnumbered.
     credentialNumber: folio?.credentialNumber ?? null,
     licenseVerified: staff.license_verified === true,
   };
+}
+
+/** A failed folio lookup becomes a structured error, never a thrown 500 or a silently unnumbered prescription. */
+async function loadFolios(
+  supabase: Client,
+  medicationIds: string[],
+): Promise<{ folios: Map<string, DocumentFolio>; error: string | null }> {
+  try {
+    return { folios: await fetchDocumentFolios(supabase, "prescription", medicationIds), error: null };
+  } catch (e) {
+    return { folios: new Map(), error: e instanceof Error ? e.message : "prescriber lookup failed" };
+  }
 }
 
 async function recordDownloads(
@@ -138,9 +151,11 @@ export async function loadSinglePrescription(
   const medication = data as MedicationRow | null;
   if (!medication) return { status: "not_found" };
 
+  const { folios, error: folioError } = await loadFolios(supabase, [medication.id]);
+  if (folioError) return { status: "error", message: folioError };
   const [patient, prescriber] = await Promise.all([
     loadPatient(supabase, medication.patient_id),
-    loadPrescriber(supabase, medication.added_by, medication.id),
+    loadPrescriber(supabase, medication.added_by, folios.get(medication.id)),
   ]);
   if (!patient) return { status: "not_found" };
 
@@ -181,13 +196,16 @@ export async function loadPrescriptionBundle(
   const patient = await loadPatient(supabase, patientId);
   if (!patient) return { status: "not_found" };
 
+  const { folios, error: folioError } = await loadFolios(supabase, rows.map((r) => r.id));
+  if (folioError) return { status: "error", message: folioError };
   const prescribers = new Map<string, PrescriptionPrescriber | null>();
   const results: PrescriptionPdfResult[] = [];
   const names: string[] = [];
   for (const row of rows) {
     names.push(row.drug_name);
-    const key = `${row.added_by ?? ""}:${row.id}`;
-    if (!prescribers.has(key)) prescribers.set(key, await loadPrescriber(supabase, row.added_by, row.id));
+    // One folio per prescriber is the same for every row they wrote; cache per prescriber, fed by this row's folio.
+    const key = row.added_by ?? "";
+    if (!prescribers.has(key)) prescribers.set(key, await loadPrescriber(supabase, row.added_by, folios.get(row.id)));
     results.push(buildPrescriptionPdfData({ medication: row, patient, prescriber: prescribers.get(key) ?? null }));
   }
 
@@ -250,9 +268,11 @@ export async function loadPrescriptionForClinician(
   if (!row) return { status: "not_found" };
   const medication = row as unknown as MedicationRow;
 
+  const { folios, error: folioError } = await loadFolios(supabase, [medication.id]);
+  if (folioError) return { status: "error", message: folioError };
   const [patient, prescriber] = await Promise.all([
     loadPatient(supabase, patientId),
-    loadPrescriber(supabase, medication.added_by, medication.id),
+    loadPrescriber(supabase, medication.added_by, folios.get(medication.id)),
   ]);
   if (!patient) return { status: "not_found" };
 

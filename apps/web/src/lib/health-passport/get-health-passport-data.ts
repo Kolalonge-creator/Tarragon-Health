@@ -42,7 +42,6 @@ export interface HealthPassportEscalation {
 export interface HealthPassportProtocolAuthor {
   fullName: string;
   credentialType: string | null;
-  credentialNumber: string | null;
 }
 
 /** `profiles.full_name` isn't guaranteed honorific-free (some accounts store
@@ -168,7 +167,6 @@ export async function getHealthPassportData(
       protocolAuthor = {
         fullName: data.full_name ?? "",
         credentialType: data.credential_type,
-        credentialNumber: null, // folio is not in the directory view (CMO Q17, OQ-358)
       };
     }
   }
@@ -185,7 +183,6 @@ export async function getHealthPassportData(
       protocolAuthor = {
         fullName: data.full_name ?? "",
         credentialType: data.credential_type,
-        credentialNumber: null, // folio is not in the directory view (CMO Q17, OQ-358)
       };
     }
   }

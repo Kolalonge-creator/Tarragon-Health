@@ -301,3 +301,17 @@ describe("loadPrescriptionForClinician", () => {
     expect((await loadPrescriptionForClinician(client, ACTOR, PATIENT, MED)).status).toBe("error");
   });
 });
+
+describe("prescriber folio lookup (CMO Q17, OQ-358)", () => {
+  it("returns a structured error, not a thrown failure, when the folio function fails", async () => {
+    const { client } = fakeClient({ meds: [med()], patient: goodPatient, staff: goodStaff, auditError: null });
+    const failing = { ...(client as unknown as Record<string, unknown>), rpc: async () => ({ data: null, error: { message: "db down" } }) };
+    const result = await loadSinglePrescription(failing as unknown as SupabaseClient<Database>, ACTOR, "11111111-1111-4111-8111-111111111111", "web");
+    expect(result).toMatchObject({ status: "error" });
+  });
+
+  it("refuses as prescriber-unverified when the folio is not returned for this document", async () => {
+    const { client } = fakeClient({ meds: [med()], patient: goodPatient, staff: { ...goodStaff, credential_number: null }, auditError: null });
+    expect(await loadSinglePrescription(client, ACTOR, "11111111-1111-4111-8111-111111111111", "web")).toMatchObject({ reason: "prescriber_unverified" });
+  });
+});

@@ -89,7 +89,7 @@ export type LabOrderWithDetails = Tables<"lab_orders"> & {
   // clinician-generated order; the patient self-service due-screening path
   // never sets ordered_by, so this stays null there by construction, not by
   // omission from the query.
-  ordered_by_staff: { full_name: string; credential_type: string | null; credential_number: string | null } | null;
+  ordered_by_staff: { full_name: string; credential_type: string | null } | null;
 };
 
 /**
@@ -164,7 +164,6 @@ async function fetchLabOrderOrderers(
     ordererById.set(row.id, {
       full_name: row.full_name ?? "",
       credential_type: row.credential_type,
-      credential_number: null, // never from the directory view (CMO Q17, OQ-358)
     });
   }
   return ordererById;
