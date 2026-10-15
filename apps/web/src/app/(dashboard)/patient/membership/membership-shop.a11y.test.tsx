@@ -12,12 +12,14 @@ import { MembershipShop } from "./membership-shop";
 const FEE = { localBasisPoints: 150, flatKobo: 10_000, flatWaivedBelowKobo: 250_000, capKobo: 200_000 };
 const ITEM = {
   code: "membership_annual", kind: "membership", name_key: "catalog.membership_annual.name", description_key: "catalog.membership_annual.description",
-  included_keys: ["catalog.membership_annual.incl.1", "catalog.membership_annual.incl.2"], duration_days: 365, uses: null, amount_kobo: 10_000_000, components: {},
+  included_keys: ["catalog.membership_annual.incl.1", "catalog.membership_annual.incl.2"], duration_days: 365, uses: null, amount_kobo: 12_000_000, components: {},
 };
 
 let catalogue: { data: unknown[]; isSuccess: boolean };
 let membership: { data: { is_member: boolean; ends_at: string | null; source: string | null } };
 let orders: { data: unknown[] };
+let quote: { data: unknown };
+const useQuoteSpy = jest.fn();
 const mutateAsync = jest.fn();
 jest.mock("@/lib/queries/commerce", () => {
   const actual = jest.requireActual("@/lib/queries/commerce");
@@ -27,6 +29,7 @@ jest.mock("@/lib/queries/commerce", () => {
     useMyMembership: () => membership,
     useMyOrders: () => orders,
     useStartCheckout: () => ({ mutateAsync, isPending: false }),
+    useQuote: (input: unknown) => { useQuoteSpy(input); return quote; },
   };
 });
 
@@ -39,6 +42,8 @@ beforeEach(() => {
   catalogue = { data: [ITEM], isSuccess: true };
   membership = { data: { is_member: false, ends_at: null, source: null } };
   orders = { data: [] };
+  quote = { data: null };
+  useQuoteSpy.mockReset();
   mutateAsync.mockReset();
   assign.mockReset();
 });
@@ -48,7 +53,7 @@ describe("MembershipShop", () => {
     render(<MembershipShop locale="en" fee={FEE} go={assign} />);
     expect(screen.getByText("Tarragon Membership")).toBeTruthy();
     expect(screen.getByText(/A video call with your care team every month/)).toBeTruthy();
-    expect(screen.getByText("₦100,000")).toBeTruthy();
+    expect(screen.getByText("₦120,000")).toBeTruthy();
     expect(screen.getAllByText(/about ₦/).length).toBe(2);
     expect(screen.getByText(/estimate/i)).toBeTruthy();
     expect(screen.getByText(/does not renew by itself/)).toBeTruthy();
@@ -57,7 +62,7 @@ describe("MembershipShop", () => {
   });
 
   it("sends only the item code and a retry key, then opens Paystack", async () => {
-    mutateAsync.mockResolvedValue({ order_id: "o1", reference: "tho_x", amount_kobo: 10_000_000, checkout_url: "https://checkout.paystack.com/abc" });
+    mutateAsync.mockResolvedValue({ order_id: "o1", reference: "tho_x", amount_kobo: 12_000_000, checkout_url: "https://checkout.paystack.com/abc" });
     render(<MembershipShop locale="en" fee={FEE} go={assign} />);
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pay with Paystack" })));
     expect(mutateAsync).toHaveBeenCalledTimes(1);
@@ -70,7 +75,7 @@ describe("MembershipShop", () => {
 
   it("lets the patient pay for someone they care for and sends who it is for, only when chosen", async () => {
     lovedOnes = { data: [{ id: "p-mum", full_name: "Mum" }] };
-    mutateAsync.mockResolvedValue({ order_id: "o1", reference: "tho_x", amount_kobo: 10_000_000, checkout_url: "https://checkout.paystack.com/abc" });
+    mutateAsync.mockResolvedValue({ order_id: "o1", reference: "tho_x", amount_kobo: 12_000_000, checkout_url: "https://checkout.paystack.com/abc" });
     render(<MembershipShop locale="en" fee={FEE} go={assign} />);
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "p-mum" } });
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pay with Paystack" })));
@@ -117,6 +122,63 @@ describe("MembershipShop", () => {
     expect(screen.queryByText(/catalog\.future/)).toBeNull();
   });
 
+  // S73: the price shown is the database's quote
+  const line = (rule: string, amountKobo: number, runningKobo: number, extra: Record<string, unknown> = {}) => ({
+    rule, labelKey: `quote.line.${rule}`, amountKobo, runningKobo, applied: true, reasonKey: null, ...extra,
+  });
+  const QUOTE = {
+    itemCode: "membership_annual", listKobo: 10_000_000, amountDueKobo: 9_000_000, sponsorShareKobo: 0, discountKobo: 1_000_000, pointsApplied: 0,
+    pointsReductionKobo: 0, discountCodeOk: true, rateLimited: false,
+    lines: [line("list", 10_000_000, 10_000_000), line("discount_code", -1_000_000, 9_000_000)],
+  };
+
+  it("S73: shows the quote's price and each line of the explanation instead of the catalogue price", () => {
+    quote = { data: QUOTE };
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    // S71 (19.7): the quote is laid out as the itemised checkout: the price, each reduction, the processing estimate, and a total that is their sum
+    const section = screen.getByRole("region", { name: "What you are paying for" });
+    expect(section.textContent).toMatch(/Price₦100,000/);
+    expect(section.textContent).toMatch(/Discount code-₦10,000/);
+    expect(section.textContent).toMatch(/Payment processing \(estimate\)about ₦/);
+  });
+
+  it("S73: sends the total it showed, so a changed price is refused instead of charged", async () => {
+    quote = { data: QUOTE };
+    mutateAsync.mockResolvedValue({ order_id: "o1", reference: "tho_x", amount_kobo: 9_000_000, checkout_url: "https://checkout.paystack.com/abc" });
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pay with Paystack" })));
+    expect(mutateAsync.mock.calls[0]![0]).toMatchObject({ code: "membership_annual", expectedAmountKobo: 9_000_000 });
+  });
+
+  it("S73: applying a code asks for a new quote with it, and sends it with the order", async () => {
+    mutateAsync.mockResolvedValue({ order_id: "o1", reference: "tho_x", amount_kobo: 9_000_000, checkout_url: "https://checkout.paystack.com/abc" });
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    fireEvent.change(screen.getByLabelText("Discount code"), { target: { value: "WELCOME26" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply code" }));
+    expect(useQuoteSpy).toHaveBeenLastCalledWith(expect.objectContaining({ code: "membership_annual", discountCode: "WELCOME26" }));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pay with Paystack" })));
+    expect(mutateAsync.mock.calls[0]![0]).toMatchObject({ discountCode: "WELCOME26" });
+    fireEvent.click(screen.getByRole("button", { name: "Remove code" }));
+    expect(useQuoteSpy).toHaveBeenLastCalledWith(expect.objectContaining({ discountCode: null }));
+  });
+
+  it("S73: a code that cannot be used is said so without saying why, and is not sent", async () => {
+    quote = { data: { ...QUOTE, discountCodeOk: false, discountKobo: 0, amountDueKobo: 10_000_000, lines: [line("list", 10_000_000, 10_000_000), line("discount_code", 0, 10_000_000, { applied: false, reasonKey: "quote.reason.code_unusable" })] } };
+    mutateAsync.mockResolvedValue({ order_id: "o1", reference: "tho_x", amount_kobo: 10_000_000, checkout_url: "https://checkout.paystack.com/abc" });
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    fireEvent.change(screen.getByLabelText("Discount code"), { target: { value: "NOPE1234" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply code" }));
+    expect(screen.getByRole("status").textContent).toBe("This code cannot be used.");
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pay with Paystack" })));
+    const arg = mutateAsync.mock.calls[0]![0] as Record<string, unknown>;
+    expect(arg.discountCode).toBeUndefined();
+  });
+
+  it("S73: links each item to its own what-is-included page", () => {
+    render(<MembershipShop locale="en" fee={FEE} go={assign} />);
+    expect(screen.getByRole("link", { name: "See what is included" }).getAttribute("href")).toBe("/patient/membership/membership_annual");
+  });
+
   // S29: pay for a loved one
   let confirm: jest.SpyInstance;
   beforeEach(() => {
@@ -126,7 +188,7 @@ describe("MembershipShop", () => {
 
   it("when paying for someone, names them, sends their id with the code and key, and ignores the payer's own membership", async () => {
     membership = { data: { is_member: true, ends_at: "2027-01-01T00:00:00Z", source: "purchase" } };
-    mutateAsync.mockResolvedValue({ order_id: "o1", reference: "tho_x", amount_kobo: 10_000_000, checkout_url: "https://checkout.paystack.com/abc" });
+    mutateAsync.mockResolvedValue({ order_id: "o1", reference: "tho_x", amount_kobo: 12_000_000, checkout_url: "https://checkout.paystack.com/abc" });
     render(<MembershipShop locale="en" fee={FEE} go={assign} beneficiary={{ id: "p-9", name: "Mama Eze" }} />);
     expect(screen.getByText("Paying for Mama Eze")).toBeTruthy();
     expect(screen.getByText(/You will not see any health information/)).toBeTruthy();
@@ -149,7 +211,7 @@ describe("MembershipShop", () => {
   });
 
   it("paying for yourself asks for no extra confirmation", async () => {
-    mutateAsync.mockResolvedValue({ order_id: "o1", reference: "tho_x", amount_kobo: 10_000_000, checkout_url: "https://checkout.paystack.com/abc" });
+    mutateAsync.mockResolvedValue({ order_id: "o1", reference: "tho_x", amount_kobo: 12_000_000, checkout_url: "https://checkout.paystack.com/abc" });
     render(<MembershipShop locale="en" fee={FEE} go={assign} />);
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Pay with Paystack" })));
     expect(confirm).not.toHaveBeenCalled();

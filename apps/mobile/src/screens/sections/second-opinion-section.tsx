@@ -4,21 +4,22 @@ import * as WebBrowser from "expo-web-browser";
 import {
   loadMySecondOpinionRequests,
   submitSecondOpinionRequest,
+  loadSecondOpinionPriceKobo,
   SECOND_OPINION_CREDIT_REQUIRED_MARKER,
   type SecondOpinionRequestWithAnswerer,
 } from "@/lib/second-opinion";
 import { formatCareDate } from "@/lib/care";
+import { loadCanAddReviewNote } from "@/lib/review-note";
 import { formatDoctorName } from "@/lib/doctor-name";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/legacy-kit";
 
 /**
- * Native "Second opinion" — mirrors apps/web/src/app/(dashboard)/patient/
- * second-opinion-request.tsx. Submits the request directly; if the DB
- * trigger rejects it for lack of a credit, this points the patient at the
- * system browser to buy one — buying a credit requires Paystack checkout,
- * which stays web-only (App Store 3.1.1).
+ * Native "Second opinion", a Members-only extra (an extra 5,000 naira, read from the product row). Mirrors apps/web/src/app/(dashboard)/
+ * patient/second-opinion-request.tsx. A Member submits the request; if they have no credit yet the DB trigger says so and the app sends
+ * them to the system browser to pay (Paystack checkout stays web-only, App Store 3.1.1). Someone who is not a Member is told, in plain
+ * words, that a second opinion is part of Membership; the server refuses the purchase for them, and no price is shown.
  */
 export function SecondOpinionSection({ patientId, organisationId }: { patientId: string; organisationId: string }) {
   const colors = useLegacyColors();
@@ -33,6 +34,8 @@ export function SecondOpinionSection({ patientId, organisationId }: { patientId:
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [needsCredit, setNeedsCredit] = useState(false);
+  const [isMember, setIsMember] = useState<boolean | null>(null);
+  const [priceKobo, setPriceKobo] = useState<number | null>(null);
 
   const refresh = useCallback(async () => {
     const result = await loadMySecondOpinionRequests(patientId);
@@ -42,6 +45,18 @@ export function SecondOpinionSection({ patientId, organisationId }: { patientId:
   useEffect(() => {
     refresh().finally(() => setLoading(false));
   }, [refresh]);
+
+  useEffect(() => {
+    let alive = true;
+    void loadCanAddReviewNote().then((member) => {
+      if (!alive) return;
+      setIsMember(member);
+      if (member) void loadSecondOpinionPriceKobo().then((kobo) => alive && setPriceKobo(kobo));
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   async function submit() {
     if (existingDiagnosisOrResult.trim().length === 0) {
@@ -86,13 +101,27 @@ export function SecondOpinionSection({ patientId, organisationId }: { patientId:
         it and writes back their own assessment, no visit needed.
       </MutedText>
 
-      {needsCredit && (
+      {isMember === false && (
+        <Card style={{ gap: 8, backgroundColor: colors.brandTint }}>
+          <Text style={{ fontSize: 13, color: colors.brandPressed }}>A second opinion is part of Membership.</Text>
+          <SecondaryButton
+            title="Join Membership"
+            onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/membership`)}
+          />
+        </Card>
+      )}
+
+      {isMember === true && priceKobo !== null && (
+        <MutedText>A second opinion is an extra for Members: ₦{(priceKobo / 100).toLocaleString("en-NG")}.</MutedText>
+      )}
+
+      {needsCredit && isMember === true && (
         <Card style={{ gap: 8, backgroundColor: colors.brandTint }}>
           <Text style={{ fontSize: 13, color: colors.brandPressed }}>
-            Buy a second opinion credit to send this request.
+            Pay for your second opinion to send this request.
           </Text>
           <SecondaryButton
-            title="Buy a credit in the browser"
+            title="Pay in the browser"
             onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/care`)}
           />
         </Card>
@@ -120,7 +149,7 @@ export function SecondOpinionSection({ patientId, organisationId }: { patientId:
       />
       {error && <ErrorText>{error}</ErrorText>}
       {sent && <MutedText>Sent. A doctor will answer here within 72 hours.</MutedText>}
-      <PrimaryButton title="Send for review" onPress={submit} loading={submitting} />
+      {isMember !== false && <PrimaryButton title="Send for review" onPress={submit} loading={submitting} />}
 
       {loading && <ActivityIndicator color={colors.brand} />}
       {requests.length > 0 && (

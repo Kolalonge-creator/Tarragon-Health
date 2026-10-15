@@ -21,17 +21,21 @@ import type { RpcClient } from "./load";
  * one-shot cookie (flash.ts), never in the address.
  */
 const PATHS = { admin: "/admin/go-live", cmo: "/clinician/go-live" } as const;
+/** The sign-off hub, where the Chief Medical Officer can also record an attestation or confirm a value (a form passes back=hub). */
+const HUB_PATH = "/clinician/clinical-signoff";
+const destination = (viewer: Viewer, formData: FormData): string => (viewer === "cmo" && formData.get("back") === "hub" ? HUB_PATH : PATHS[viewer]);
 const noteSchema = z.string().trim().max(1000).optional();
 const keySchema = z.enum(GUARD_KEYS);
 
 type Back = { notice: string; detail?: string; failed: boolean };
 
-async function back(viewer: Viewer, r: Back): Promise<never> {
+async function back(viewer: Viewer, r: Back, path: string = PATHS[viewer]): Promise<never> {
   const n = await setFlash({ notice: r.notice, detail: r.detail?.slice(0, 400), ok: !r.failed });
-  return redirect(`${PATHS[viewer]}?n=${n}`);
+  return redirect(`${path}?n=${n}`);
 }
 
-const fail = (viewer: Viewer, notice = "golive.error.generic", detail?: string): Promise<never> => back(viewer, { notice, detail, failed: true });
+const fail = (viewer: Viewer, notice = "golive.error.generic", detail?: string, path?: string): Promise<never> =>
+  back(viewer, { notice, detail, failed: true }, path);
 
 /** A message the database function wrote for a person (22023, or 42501 from our own functions) is shown as written; a bare permission error never is. */
 function readable(error: { message: string; code?: string }): { notice: string; detail?: string } {
@@ -81,18 +85,20 @@ export async function switchGuardAction(formData: FormData): Promise<void> {
 export async function attestConditionAction(formData: FormData): Promise<void> {
   const viewer = await who(formData.get("viewer"));
   if (!viewer) redirect("/");
+  const path = destination(viewer, formData);
   const key = keySchema.safeParse(formData.get("key"));
   const code = z.string().regex(/^[a-z][a-z0-9_]*$/).safeParse(formData.get("code"));
   const met = formData.get("met") === "1";
   const note = z.string().trim().min(10).max(1000).safeParse(formData.get("note"));
-  if (!key.success || !code.success || !note.success) return fail(viewer, "golive.error.input");
+  if (!key.success || !code.success || !note.success) return fail(viewer, "golive.error.input", undefined, path);
   const { error } = await (await client()).rpc("attest_go_live_condition", { p_key: key.data, p_code: code.data, p_met: met, p_note: note.data });
   if (error) {
     const r = readable(error);
-    return fail(viewer, r.notice, r.detail);
+    return fail(viewer, r.notice, r.detail, path);
   }
   revalidatePath(PATHS[viewer]);
-  return back(viewer, { notice: "golive.done.attested", failed: false });
+  revalidatePath(HUB_PATH);
+  return back(viewer, { notice: "golive.done.attested", failed: false }, path);
 }
 
 /**
@@ -103,13 +109,14 @@ export async function attestConditionAction(formData: FormData): Promise<void> {
 export async function signoffConfigAction(formData: FormData): Promise<void> {
   const viewer = await who(formData.get("viewer"));
   if (!viewer) redirect("/");
+  const path = destination(viewer, formData);
   const key = z.string().regex(/^[a-z][a-z0-9_.]*$/).safeParse(formData.get("key"));
   const version = z.coerce.number().int().min(1).safeParse(formData.get("version"));
   const decision = z.enum(["confirmed", "changes_requested"]).safeParse(formData.get("decision"));
   const note = noteSchema.safeParse(formData.get("note") ?? undefined);
-  if (!key.success || !version.success || !decision.success || !note.success) return fail(viewer, "golive.error.input");
+  if (!key.success || !version.success || !decision.success || !note.success) return fail(viewer, "golive.error.input", undefined, path);
   const entry = findEntry(PROPOSED_CONFIG, key.data, version.data);
-  if (!entry || !viewerOwns(entry.owner, viewer) || !isVersionInForce(entry.key, entry.version)) return fail(viewer, "golive.error.input");
+  if (!entry || !viewerOwns(entry.owner, viewer) || !isVersionInForce(entry.key, entry.version)) return fail(viewer, "golive.error.input", undefined, path);
   const {
     data: { user },
   } = await (await createClient()).auth.getUser();
@@ -125,8 +132,9 @@ export async function signoffConfigAction(formData: FormData): Promise<void> {
   });
   if (error) {
     const r = readable(error);
-    return fail(viewer, r.notice, r.detail);
+    return fail(viewer, r.notice, r.detail, path);
   }
   revalidatePath(PATHS[viewer]);
-  return back(viewer, { notice: "golive.done.signoff", failed: false });
+  revalidatePath(HUB_PATH);
+  return back(viewer, { notice: "golive.done.signoff", failed: false }, path);
 }

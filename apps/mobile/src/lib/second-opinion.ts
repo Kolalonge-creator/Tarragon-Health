@@ -50,6 +50,16 @@ async function fetchAnswerers(answererIds: string[]): Promise<Map<string, Second
  * to send this request.' (second_opinion_requests_enforce_credit). */
 export const SECOND_OPINION_CREDIT_REQUIRED_MARKER = "second opinion credit";
 
+/**
+ * The Members-only second opinion price in kobo, read from the product row (never typed into the app). Shown in this signed-in app only;
+ * a Free person is told it is part of Membership and sees no price.
+ */
+export async function loadSecondOpinionPriceKobo(): Promise<number | null> {
+  const { data, error } = await supabase.from("service_products").select("price_kobo").eq("code", "second_opinion_credit").maybeSingle();
+  if (error || !data || typeof data.price_kobo !== "number") return null;
+  return data.price_kobo;
+}
+
 export async function loadMySecondOpinionRequests(
   patientId: string
 ): Promise<QueryResult<SecondOpinionRequestWithAnswerer[]>> {

@@ -1,0 +1,105 @@
+{
+  "signed": null,
+  "note": "Glucose and ketone triage wording (plan item R2, CMO decisions Q6 to Q9) and the upper-arm cuff advice (Q4). UNSIGNED: until the Chief Medical Officer fills in `signed` as {\"by\": \"name\", \"on\": \"YYYY-MM-DD\", \"version\": n}, the app shows and says `current`, which gives no treatment instruction beyond going for help. `proposed` is the draft the CMO is asked to read in full, including the fast-sugar treatment message (15 grams, recheck in 15 minutes) that must also be checked against the Nigerian diabetes guideline (NG-DM: the 24 August 2020 draft was opened and its examples of fast sugar are used here, half a glass of a sweet drink or 3 to 4 teaspoons of sugar or honey; the final 2021 text was not opened). Nobody but the CMO sets `signed`; a build never does. Numbers in `proposed` are PROPOSED and come from ADA Standards of Care 2026 section 6.",
+  "codes": {
+    "GLU-E01": {
+      "key": "glu_e01",
+      "current": {
+        "title": "Get help now",
+        "body": "Your sugar reading and how you feel mean you need care now. Go to the nearest hospital, or ask someone to take you. Do not drive yourself."
+      },
+      "proposed": {
+        "title": "Get help now",
+        "body": "Your sugar is very low, or you feel very unwell. If you are awake and can swallow safely, take fast sugar now, such as half a glass of a sweet drink, or 3 to 4 teaspoons of sugar or honey. If you cannot swallow, or you are confused, do not give food or drink; ask someone to take you to the nearest hospital now. Do not drive yourself."
+      }
+    },
+    "GLU-E02": {
+      "key": "glu_e02",
+      "current": {
+        "title": "Get help now",
+        "body": "Your sugar reading and how you feel mean you need care now. Go to the nearest hospital, or ask someone to take you. Do not drive yourself."
+      },
+      "proposed": {
+        "title": "Get help now",
+        "body": "Your sugar reading, your ketones or how you feel mean you need care now. Go to the nearest hospital, or ask someone to take you. Do not drive yourself. Tell them your sugar reading, your ketone result if you have one, and your symptoms."
+      }
+    },
+    "GLU-T01": {
+      "key": "glu_t01",
+      "current": {
+        "title": "Your sugar is low",
+        "body": "Your sugar is lower than it should be. Check again soon. If you feel unwell, go to the nearest hospital."
+      },
+      "proposed": {
+        "title": "Your sugar is low",
+        "body": "Treat it now with fast sugar: about 15 grams, for example half a glass of a sweet drink, or 3 to 4 teaspoons of sugar or honey. Check again in 15 minutes. If it is still low, treat again. If you feel worse or cannot swallow, go to the nearest hospital."
+      }
+    },
+    "GLU-T02": {
+      "key": "glu_t02",
+      "current": {
+        "title": "Your ketones are raised",
+        "body": "Your ketone result is higher than it should be. Drink water and rest. Get advice from a doctor or clinic today. If you are sick, have stomach pain, or breathe fast, go to the nearest hospital."
+      },
+      "proposed": {
+        "title": "Your ketones are raised",
+        "body": "Your ketone result is higher than it should be. Drink water and rest, and do not exercise. Get advice from a doctor or clinic today. If you vomit, have stomach pain, breathe fast or feel very sleepy, go to the nearest hospital."
+      }
+    },
+    "GLU-T03": {
+      "key": "glu_t03",
+      "current": {
+        "title": "Your sugar is very high",
+        "body": "Your sugar is very high. Drink water. Get advice from a doctor or clinic today. If you vomit or feel sleepy or confused, go to the nearest hospital."
+      },
+      "proposed": {
+        "title": "Your sugar is very high",
+        "body": "Your sugar is very high. Drink water, and check your ketones if you have a strip. Get advice from a doctor or clinic today. If you vomit, feel sleepy or confused, or cannot keep fluids down, go to the nearest hospital."
+      }
+    },
+    "GLU-T04": {
+      "key": "glu_t04",
+      "current": {
+        "title": "This needs a clinician's view",
+        "body": "Sugar targets are different for you. A clinician should look at this reading. If you feel unwell, go to the nearest hospital."
+      },
+      "proposed": {
+        "title": "This needs a clinician's view",
+        "body": "Sugar targets are different in pregnancy, for children and for some kinds of diabetes. A clinician should look at this reading. If you feel unwell, go to the nearest hospital."
+      }
+    },
+    "GLU-T05": {
+      "key": "glu_t05",
+      "current": {
+        "title": "Reading saved",
+        "body": "This reading is saved. Keep checking at the times you planned."
+      },
+      "proposed": {
+        "title": "Reading saved",
+        "body": "This reading is saved. Keep checking at the times you planned. If you feel unwell at any time, go to the nearest hospital."
+      }
+    },
+    "GLU-T06": {
+      "key": "glu_t06",
+      "current": {
+        "title": "Please check this reading",
+        "body": "This number does not look right. Check your meter and try again. If you feel unwell, get help."
+      },
+      "proposed": {
+        "title": "Please check this reading",
+        "body": "This number does not look right. Check your meter and the strip, then try again. If you feel unwell, get help."
+      }
+    },
+    "CUF-001": {
+      "key": "cuf_001",
+      "current": {
+        "title": "Measure again with an upper arm cuff",
+        "body": "Wrist cuffs can read differently. If you have an upper arm cuff, use it for your repeat reading."
+      },
+      "proposed": {
+        "title": "Measure again with an upper arm cuff",
+        "body": "Wrist cuffs can read differently. If you have an upper arm cuff, use it for your repeat reading. If you do not have one, measure again with the cuff you have, and keep your arm resting at heart height."
+      }
+    }
+  }
+}

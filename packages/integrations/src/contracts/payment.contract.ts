@@ -14,6 +14,8 @@ export interface PaymentFixture {
   signedWebhook(body: unknown): Promise<{ rawBody: string; signature: string }>;
   signedRaw(rawBody: string): Promise<{ rawBody: string; signature: string }>;
   failNextCall?(): void;
+  /** Lets the suite seed a settlement. Absent for a fixture pointed at the live vendor, which is read only. */
+  addSettlement?(id: number, totalKobo: number, feesKobo: number, lines: readonly { reference: string; amountKobo: number; feesKobo?: number }[]): void;
 }
 
 let counter = 0;
@@ -27,6 +29,7 @@ export function runPaymentContract(name: string, make: () => PaymentFixture): vo
   const canFail = probe.failNextCall !== undefined;
   const paid = canSettle ? it : it.skip;
   const dropped = canFail ? it : it.skip;
+  const seeded = probe.addSettlement !== undefined ? it : it.skip;
 
   describe(`PaymentProvider contract: ${name}`, () => {
     it("has no wallet, balance or top-up surface (INV-09)", () => {
@@ -143,6 +146,68 @@ export function runPaymentContract(name: string, make: () => PaymentFixture): vo
       const r = await make().provider.refund({ reference: chargeRef(), amountKobo: 10.5 });
       expect(r.ok).toBe(false);
       if (!r.ok) expect(r.error.code).toBe("invalid_input");
+    });
+
+    seeded("lists settlements newest first and pages them (read only reconciliation, S14x)", async () => {
+      const f = make();
+      f.addSettlement!(1001, 500_000, 7_500, [{ reference: chargeRef(), amountKobo: 500_000, feesKobo: 7_500 }]);
+      f.addSettlement!(1002, 300_000, 4_500, [{ reference: chargeRef(), amountKobo: 300_000 }]);
+      f.addSettlement!(1003, 100_000, 1_500, [{ reference: chargeRef(), amountKobo: 100_000 }]);
+      const first = await f.provider.listSettlements({ perPage: 2 });
+      expect(first.ok).toBe(true);
+      if (!first.ok) return;
+      expect(first.data.items.map((s) => s.settlementId)).toEqual(["1003", "1002"]);
+      expect(first.data.items[0]).toMatchObject({ totalKobo: 100_000, feesKobo: 1_500, status: "success" });
+      expect(first.data.hasMore).toBe(true);
+      const second = await f.provider.listSettlements({ perPage: 2, page: 2 });
+      expect(second.ok && second.data.items.map((s) => s.settlementId)).toEqual(["1001"]);
+      expect(second.ok && second.data.hasMore).toBe(false);
+      const clamped = await f.provider.listSettlements({ page: -4, perPage: 100_000 });
+      expect(clamped.ok).toBe(true);
+    });
+
+    seeded("lists the charges inside a settlement in whole kobo, and pages them", async () => {
+      const f = make();
+      const refs = [chargeRef(), chargeRef(), chargeRef()];
+      f.addSettlement!(2001, 900_000, 13_500, refs.map((reference, i) => ({ reference, amountKobo: 300_000, feesKobo: 4_500 + i })));
+      const p1 = await f.provider.listSettlementTransactions("2001", { perPage: 2 });
+      expect(p1.ok).toBe(true);
+      if (!p1.ok) return;
+      expect(p1.data.items).toHaveLength(2);
+      expect(p1.data.items[0]).toMatchObject({ reference: refs[0], amountKobo: 300_000, feesKobo: 4_500, status: "success" });
+      expect(p1.data.hasMore).toBe(true);
+      const p2 = await f.provider.listSettlementTransactions("2001", { perPage: 2, page: 2 });
+      expect(p2.ok && p2.data.items.map((t) => t.reference)).toEqual([refs[2]]);
+      expect(Number.isInteger(p1.data.items[0]?.amountKobo)).toBe(true);
+    });
+
+    it("refuses a settlement id that is not a plain number, and says not found for one it has never seen", async () => {
+      const f = make();
+      for (const bad of ["", "12ab", "../transfer", "1 2", "99999999999999999999"]) {
+        const r = await f.provider.listSettlementTransactions(bad);
+        expect(r.ok).toBe(false);
+        if (!r.ok) expect(r.error.code).toBe("invalid_input");
+      }
+      const missing = await f.provider.listSettlementTransactions("424242");
+      expect(missing.ok).toBe(false);
+      if (!missing.ok) expect(missing.error.code).toBe("not_found");
+    });
+
+    dropped("a dropped connection while listing settlements is a retryable value, never a throw", async () => {
+      const f = make();
+      f.failNextCall!();
+      const r = await f.provider.listSettlements({});
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error.retryable).toBe(true);
+      f.failNextCall!();
+      const t = await f.provider.listSettlementTransactions("1");
+      expect(t.ok).toBe(false);
+    });
+
+    it("has no write method hidden in the reconciliation surface (read only)", () => {
+      const names = Object.keys(make().provider).filter((n) => /settlement/i.test(n) && !/^(list|add)/.test(n));
+      expect(names).toEqual([]);
+      expect(typeof make().provider.listSettlements).toBe("function");
     });
 
     it("accepts a correctly signed charge webhook and gives the same idempotency key on a redelivery", async () => {

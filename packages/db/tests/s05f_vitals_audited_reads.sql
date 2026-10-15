@@ -212,6 +212,10 @@ begin
   select count(*) into v_n from public.hypertension_quality_metrics where organisation_id = v_org;
   execute 'reset role';
   if v_n <> 0 then raise exception 'FAIL 7b: another organisation''s staff saw this organisation''s quality metrics'; end if;
+  -- a real non-session caller (cron, service role) carries no JWT claims; clear the ones left over from the probe above (S39b: the quality views
+  -- now filter on the caller's staff status, so a leftover identity from another organisation would be read as that identity)
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('request.jwt.claim.sub', '', true);
   select hypertensive_patients, at_target into v_n, v_audits from public.hypertension_quality_metrics where organisation_id = v_org;
   if v_n is distinct from v_hm_before + 1 or v_audits is distinct from v_hm_at_before + 1 then
     raise exception 'FAIL 7c: a non-session caller (cron / service role) lost the aggregate: % / %', v_n, v_audits;

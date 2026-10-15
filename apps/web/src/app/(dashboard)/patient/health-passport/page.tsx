@@ -201,11 +201,7 @@ export default async function HealthPassportPage() {
 
       <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
         {data.protocolAuthor
-          ? `Protocols supervised by Dr. ${stripDoctorHonorific(data.protocolAuthor.fullName)}${
-              data.protocolAuthor.credentialType && data.protocolAuthor.credentialNumber
-                ? ` · ${data.protocolAuthor.credentialType} ${data.protocolAuthor.credentialNumber}`
-                : ""
-            }.`
+          ? `Protocols supervised by Dr. ${stripDoctorHonorific(data.protocolAuthor.fullName)}.`
           : "Protocols supervised by your care team's Clinical Director."}
       </p>
     </div>

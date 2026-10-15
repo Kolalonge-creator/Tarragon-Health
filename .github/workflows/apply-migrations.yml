@@ -1,0 +1,56 @@
+name: Apply new migrations to production
+
+# Founder decision 2026-10-13: a migration that merges to main-dev (after the required "Supabase migration replay" check passed on
+# its PR) is applied to the live project automatically, pinned to its filename version. Before this, CI never touched the live database
+# and each migration was applied by hand after merge.
+#
+# Needs the existing SUPABASE_ACCESS_TOKEN repository secret (already used by release-integrity.yml).
+# To pause auto-apply: disable this workflow in the Actions tab (nothing else depends on it).
+# To re-run after a failure: fix forward or apply by hand, then use "Run workflow" with the same base/head.
+
+on:
+  push:
+    branches: [main-dev]
+    paths:
+      - "supabase/migrations/**"
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "Base commit (exclusive)"
+        required: true
+      head:
+        description: "Head commit (inclusive)"
+        required: true
+      list_only:
+        description: "List what would be applied, change nothing"
+        type: boolean
+        default: true
+
+concurrency:
+  group: apply-migrations
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    name: Apply new migrations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply (push)
+        if: github.event_name == 'push'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: node scripts/release-integrity/apply-new-migrations.mjs "${{ github.event.before }}" "${{ github.sha }}"
+      - name: Apply or list (manual)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: node scripts/release-integrity/apply-new-migrations.mjs "${{ inputs.base }}" "${{ inputs.head }}" ${{ inputs.list_only && '--list' || '' }}
