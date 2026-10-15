@@ -62,7 +62,9 @@ export default async function PatientVitalsPage() {
         organisationId={profile.organisation_id}
         ageYears={ageYears}
       />
-      <SymptomTriageCheck patientId={subjectId} presentingComplaints={presentingComplaints} />
+      <div id="symptom-check" className="scroll-mt-24">
+        <SymptomTriageCheck patientId={subjectId} presentingComplaints={presentingComplaints} />
+      </div>
 
       {/* Renders nothing unless a value that cannot be real is waiting for the person to check it (S70a). */}
       <HeldReadingsCard patientId={subjectId} />
