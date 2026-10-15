@@ -276,20 +276,20 @@ do $patch$
 declare p record;
 begin
   -- 5a. SpO2, pulse, temperature: only the `red` level is red-class. Evaluation order matters (the call has side effects), and AND/OR give no order
-  --     guarantee in Postgres, so the whole condition is one CASE: nothing is evaluated unless an alert was created or raised (paid plan) AND the level is red.
+  --     guarantee in Postgres, so the whole condition is one CASE (in parentheses: PL/pgSQL ends an IF condition at the first THEN it sees): nothing is evaluated unless an alert was created or raised (paid plan) AND the level is red.
   for p in select * from (values
       ('private.handle_spo2_reading_red_flag()'::regprocedure, 'spo2_red'),
       ('private.handle_pulse_reading_red_flag()'::regprocedure, 'pulse_red'),
       ('private.handle_temperature_reading_red_flag()'::regprocedure, 'temperature_red')) as t(fn, src)
   loop
     perform pg_temp.s19d_patch_once(p.fn, E'\n  if v_should_page then\n',
-      E'\n  if case when v_should_page then not (case when v_level = ''red'' then private.unified_red_page_covers(' || quote_literal(p.src)
-      || E', new.organisation_id, new.patient_id, ''vitals_readings'', new.id) else false end) else false end then\n');
+      E'\n  if (case when v_should_page then not (case when v_level = ''red'' then private.unified_red_page_covers(' || quote_literal(p.src)
+      || E', new.organisation_id, new.patient_id, ''vitals_readings'', new.id) else false end) else false end) then\n');
   end loop;
 
   -- 5b. Red-flag symptom: only the red-flag branch (urgent_escalation), not the severity 5-7 review.
   perform pg_temp.s19d_patch_once('private.handle_symptom_red_flag()'::regprocedure, E'\n  if v_should_page then\n',
-    E'\n  if case when v_should_page then not (case when v_is_red_flag then private.unified_red_page_covers(''symptom_red_flag'', new.organisation_id, new.patient_id, ''symptoms'', new.id) else false end) else false end then\n');
+    E'\n  if (case when v_should_page then not (case when v_is_red_flag then private.unified_red_page_covers(''symptom_red_flag'', new.organisation_id, new.patient_id, ''symptoms'', new.id) else false end) else false end) then\n');
 
   -- 5c. Emergency events: three edits, ALLOW-LIST of sources (a new source is old-path until someone adds it here on purpose): the SpO2, temperature and pulse
   --     red flags, symptom_log, symptom_triage and danger_symptom_checklist. Everything else stays on the old path: bp_reading and glucose_red_flag (they have a

@@ -492,8 +492,8 @@ begin
   -- S6: the handler wiring removed. A Member SpO2 red must then wrongly keep the old broadcast beside the page.
   v_d := v_orig_spo2;
   if position('unified_red_page_covers' in v_d) = 0 then raise exception 'VACUOUS TEST: hook text not found'; end if;
-  if regexp_replace(v_d, 'if case when v_should_page then not \(case when v_level = ''red'' then private\.unified_red_page_covers\([^)]*\) else false end\) else false end then', 'if v_should_page then') = v_d then raise exception 'VACUOUS TEST: hook pattern not found'; end if;
-  execute regexp_replace(v_d, 'if case when v_should_page then not \(case when v_level = ''red'' then private\.unified_red_page_covers\([^)]*\) else false end\) else false end then', 'if v_should_page then');
+  if regexp_replace(v_d, 'if \(case when v_should_page then not \(case when v_level = ''red'' then private\.unified_red_page_covers\([^)]*\) else false end\) else false end\) then', 'if v_should_page then') = v_d then raise exception 'VACUOUS TEST: hook pattern not found'; end if;
+  execute regexp_replace(v_d, 'if \(case when v_should_page then not \(case when v_level = ''red'' then private\.unified_red_page_covers\([^)]*\) else false end\) else false end\) then', 'if v_should_page then');
   declare m_s6 uuid := pg_temp.member(v_org, v_admin, 'sab6');
   begin
     perform pg_temp.spo2(m_s6, 91);
