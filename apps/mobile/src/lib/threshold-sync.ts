@@ -1,6 +1,6 @@
 import * as SecureStore from "expo-secure-store";
 import { fetchVitalsThresholds } from "./api";
-import { GLUCOSE_THRESHOLDS, type GlucoseThresholds } from "./glucose-red-flags";
+import { GLUCOSE_THRESHOLDS, GLUCOSE_THRESHOLDS_CONFIG_VERSION, type GlucoseThresholds } from "./glucose-red-flags";
 import { BP_THRESHOLDS, type BpThresholds } from "./bp-classification";
 
 /**
@@ -23,7 +23,7 @@ const CACHE_KEY = "vitals-thresholds-cache-v1";
 /** Bundled snapshot matching the server as of this file's last edit — bump
  * alongside apps/web/src/lib/vitals/mobile-thresholds.ts's
  * MOBILE_THRESHOLDS_VERSION whenever a threshold value changes. */
-export const DEFAULT_VERSION = "glucose:2026-09-01.1|bp:2026-09-01.1";
+export const DEFAULT_VERSION = `glucose:${GLUCOSE_THRESHOLDS_CONFIG_VERSION}|bp:2026-09-01.1`;
 
 interface CachedThresholds {
   version: string;

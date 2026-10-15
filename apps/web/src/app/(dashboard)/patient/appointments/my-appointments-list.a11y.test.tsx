@@ -10,6 +10,9 @@ import { axe } from "jest-axe";
 import { expectNoA11yViolations } from "@/test/a11y";
 import { MyAppointmentsList } from "./my-appointments-list";
 
+// S64: the intake form and the terms card own their data hooks (react-query); they have their own tests, so they are stubbed here
+jest.mock("@/components/consultation/intake-form", () => ({ IntakeForm: () => null }));
+jest.mock("@/components/consultation/booking-terms", () => ({ BookingTermsCard: () => <div data-testid="booking-terms" /> }));
 jest.mock("next/navigation", () => ({
   useRouter: jest.fn(),
 }));

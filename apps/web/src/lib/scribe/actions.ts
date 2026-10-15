@@ -93,6 +93,18 @@ export async function attachScribeDraftToNote(input: z.input<typeof AttachDraftS
   if (error) throw new Error(error.message);
 }
 
+/**
+ * S64 (15.4): the clinician confirms they read the allergy and medicine lines of an AI draft. The database will not sign an
+ * ai_drafted note without this (and clears it on any later edit), so this must run AFTER the final save and BEFORE signing. A
+ * refusal is thrown, never swallowed: if the check cannot be recorded the note is not signed.
+ */
+export async function confirmScribeSafetyLines(noteId: string) {
+  const id = z.string().uuid().parse(noteId);
+  const supabase = loose(await createClient());
+  const { error } = await supabase.rpc("confirm_scribe_safety_lines", { p_note: id });
+  if (error) throw new Error(error.message);
+}
+
 const CallDraftSchema = z.object({
   scribeConsentId: z.string().uuid(),
   encounterNoteId: z.string().uuid(),

@@ -19,7 +19,9 @@ import { Badge } from "@/components/ui/badge";
 import { PatientIdentityConfirm } from "@/components/patient-identity-confirm";
 import { ConsultationFollowUpsPanel } from "./consultation-follow-ups-panel";
 import { ScribePanel, type ScribeDraftResult } from "@/components/scribe";
-import { attachScribeDraftToNote, recordScribeReview } from "@/lib/scribe/actions";
+import { attachScribeDraftToNote, confirmScribeSafetyLines, recordScribeReview } from "@/lib/scribe/actions";
+import { SafetyLinesPanel } from "@/components/scribe/safety-lines-panel";
+import { extractSafetyLines } from "@/lib/scribe/safety-lines";
 import { draftHash, sectionOutcomes } from "@/lib/scribe/review-record";
 import { t } from "@tarragon/i18n";
 import { useScribeAvailable } from "@/lib/scribe/use-scribe-available";
@@ -436,6 +438,19 @@ function DraftNoteCard({
   // Set when the clinician uses an AI scribe draft; recorded on the note (consent, summary, ai_drafted) at the next save or sign.
   const [scribe, setScribe] = useState<(ScribeDraftResult & { persisted: boolean }) | null>(null);
   const [scribeError, setScribeError] = useState<string | null>(null);
+  // S64 (15.4): the allergy and medicine lines are confirmed against the text as it is now; editing any of them un-confirms.
+  const [safetyConfirmedFor, setSafetyConfirmedFor] = useState<string | null>(null);
+  const aiDrafted = scribe !== null || note.ai_drafted === true;
+  const safetyLines = extractSafetyLines({
+    history: fields.history,
+    examination: fields.examinationFindings,
+    assessment: fields.assessment,
+    plan: fields.plan,
+    follow_up: fields.followUpInstructions,
+    patient_summary: scribe?.patientSummary ?? note.patient_summary ?? "",
+  });
+  const safetyKey = JSON.stringify(safetyLines.map((l) => l.text));
+  const safetyConfirmed = safetyConfirmedFor === safetyKey;
 
   function applyScribeDraft(result: ScribeDraftResult) {
     // Applying a second draft replaces the first one's text rather than stacking a duplicate after it.
@@ -553,6 +568,13 @@ function DraftNoteCard({
             {scribe && <p className="text-xs text-charcoal-ink/50">AI-drafted text is in the fields above. It is yours to edit; nothing is saved until you save or sign.</p>}
           </div>
         )}
+        {aiDrafted && (
+          <SafetyLinesPanel
+            lines={safetyLines}
+            confirmed={safetyConfirmed}
+            onConfirmedChange={(c) => setSafetyConfirmedFor(c ? safetyKey : null)}
+          />
+        )}
         {scribeError && (
           <div className="space-y-1">
             <p className="text-sm text-red-600">{scribeError}</p>
@@ -611,6 +633,7 @@ function DraftNoteCard({
                 fields.reasonForEncounter.trim().length === 0 ||
                 outcome === "" ||
                 !identityConfirmed ||
+                (aiDrafted && !safetyConfirmed) ||
                 finalize.isPending
               }
               title="Locks this note permanently, no further edits after signing"
@@ -618,14 +641,24 @@ function DraftNoteCard({
                 if (!(await persistScribe())) return;
                 // The AI text lives only in these fields until saved, and signing locks the note: save it first, so a note
                 // is never locked blank while its patient summary is attached.
-                if (scribe) {
+                if (scribe || aiDrafted) {
                   try {
                     await update.mutateAsync({ noteId: note.id, patientId, fields: noteFieldsPayload() });
                   } catch {
                     return;
                   }
-                  if (!(await recordReviewBeforeSign())) return;
                 }
+                // S64 (15.4): the allergy and medicine check is recorded AFTER the final save (a later edit clears it in the database) and
+                // BEFORE signing. If it cannot be recorded the note is not signed.
+                if (aiDrafted) {
+                  try {
+                    await confirmScribeSafetyLines(note.id);
+                  } catch {
+                    setScribeError(t("scribe.safety.failed", "en"));
+                    return;
+                  }
+                }
+                if (scribe && !(await recordReviewBeforeSign())) return;
                 finalize.mutate({
                   noteId: note.id,
                   patientId,
