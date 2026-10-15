@@ -42422,6 +42422,7 @@ export type Database = {
           device_id: string | null
           diastolic: number | null
           external_reading_id: string | null
+          glucose_events: string[]
           glucose_context: Database["public"]["Enums"]["glucose_context"] | null
           glucose_mmol_l: number | null
           id: string
@@ -42470,6 +42471,7 @@ export type Database = {
           device_id?: string | null
           diastolic?: number | null
           external_reading_id?: string | null
+          glucose_events?: string[]
           glucose_context?:
             | Database["public"]["Enums"]["glucose_context"]
             | null
@@ -42520,6 +42522,7 @@ export type Database = {
           device_id?: string | null
           diastolic?: number | null
           external_reading_id?: string | null
+          glucose_events?: string[]
           glucose_context?:
             | Database["public"]["Enums"]["glucose_context"]
             | null

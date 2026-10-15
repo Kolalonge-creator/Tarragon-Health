@@ -11,7 +11,8 @@
     "./live-redflag": "./src/live-redflag.ts",
     "./assistant-danger-screen": "./src/assistant-danger-screen.ts",
     "./lab-units": "./src/lab-units.ts",
-    "./titration": "./src/titration-entry.ts"
+    "./titration": "./src/titration-entry.ts",
+    "./pathways": "./src/pathways/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

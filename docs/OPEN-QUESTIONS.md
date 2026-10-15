@@ -2167,6 +2167,17 @@ Built on top of F1; nothing applied to production; `symptom_checker_enabled` sta
 - Still owed: (e) Android: not run (no Java or emulator image on this machine); `SCHEDULE_EXACT_ALARM` is not declared (OQ-73), so a reminder can arrive minutes late in Doze and the server backup push covers it. The native Pidgin review itself.
 - Decision: pending (item e, and the Pidgin sign-off).
 
+## S61/S62 open questions (2026-10-07; numbers are duplicated in this file, cite by title)
+- **S61/S62 hypo band tier**: the legacy web and mobile glucose classifiers call 3.0 to 3.9 mmol/L without a danger event "urgent" (writes an urgent clinician alert on paid plans). Decision Q5 says amber with a 15 g message and a `hypo_follow_up` task. The new `diabetes_care_triage` rule set follows Q5; the legacy classifier is unchanged so live behaviour does not move before the CMO signs. Decide when the legacy path is retired in favour of the signed rule set.
+- **S61/S62 Q6 on the live Free-plan path**: the pack recommends a life-threatening reading pages on call for every plan. This PR delivers it through the rule set (a draft grades as shadow; an approved one pages for every plan). It does not change `assess-glucose.ts`'s Free-plan behaviour. Needs the CMO signature on `diabetes_care_triage` and on-call cover (`on_call_cover_ok` blocks nothing today).
+- **S61/S62 start at step 2**: the pack says start at step 2 (amlodipine plus losartan) when baseline is 160/100 to 179/109. The proposal format is one medicine per signed change, so the draft table starts everyone at step 1 and adds losartan next. Needs a multi-item proposal format or a CMO decision to accept the slower start.
+- **S61/S62 pathway guards block real enrolment**: hypertension, diabetes and obesity programmes are active live with 0 enrolments; the new guard refuses real patients (including purchases) until the CMO switches `pathway_<code>` on. Confirm that is intended before applying.
+- **S61/S62 glucose event entry**: `vitals_readings.glucose_events` exists and the classifiers read it, but no log form (web or mobile) lets a patient tick the events yet. Needs wording (CMO) and a screen.
+- **S61/S62 glucose grading handler**: the pathway rule set is not yet run by an edge-function handler on glucose readings (the BP handler is the template). Until it is, the rule set is exercised by tests and the DB proof only.
+- **S61/S62 non-BP outcome snapshots**: `outcome_snapshots` columns are BP-shaped; the check now allows other pathway codes but a writer needs generic metric columns first.
+- **S61/S62 CKD fall rule**: Q12 says a fall over 20% or 5 mL/min "sustained" in a year; the rule fires on either, measured from the highest earlier value in the window, without a repeat-test confirmation. CMO to say whether a confirming second result is required.
+- **S61/S62 scheduling**: `sweep_pathway_reviews` and `sweep_pathway_scheduled_tests` are not scheduled (no cron added). Decide the schedule with the other sweeps.
+- **S61/S62 wrapped S37 functions**: `go_live_conditions` and `attest_go_live_condition` were renamed `_base` and wrapped. Any later migration that re-creates either in full drops the pathway branch; the proof asserts the wrapper.
 ## S64 (consultations gaps, 2026-10-07)
 
 Numbered `OQ-S64-n` because the file already repeats several plain OQ numbers; cite by title as well.
