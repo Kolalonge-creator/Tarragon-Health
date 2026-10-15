@@ -9,7 +9,7 @@ import {
   autoRefreshDue,
   ensurePackOwner,
   type OwnerStorage,
-  pickOfflineDailyLesson,
+  pickOfflineWeeklyLesson,
   purgeExpired,
   readOffline,
   refreshPack,
@@ -132,10 +132,17 @@ describe("refresh on reconnect", () => {
 });
 
 describe("downloads on the phone", () => {
-  it("offers the first in-date micro-lesson as today's lesson when offline", () => {
+  it("offers one in-date micro-lesson as this week's lesson when offline", () => {
     const items = [stored("art"), stored("m-old", { isMicroLesson: true, nextReviewDue: "2026-10-01" }), stored("m-ok", { isMicroLesson: true })];
-    expect(pickOfflineDailyLesson(items, NOW)?.code).toBe("m-ok");
-    expect(pickOfflineDailyLesson([stored("art")], NOW)).toBeNull();
+    expect(pickOfflineWeeklyLesson(items, NOW)?.code).toBe("m-ok");
+    expect(pickOfflineWeeklyLesson([stored("art")], NOW)).toBeNull();
+  });
+  it("keeps showing the lesson the server last chose for the week, while it is still in date", () => {
+    const items = [stored("m-1", { isMicroLesson: true }), stored("m-2", { isMicroLesson: true }), stored("m-old", { isMicroLesson: true, nextReviewDue: "2026-10-01" })];
+    expect(pickOfflineWeeklyLesson(items, NOW, "m-2")?.code).toBe("m-2");
+    // the remembered lesson went out of date or left the downloads: fall back to an in-date one, never the expired one
+    expect(pickOfflineWeeklyLesson(items, NOW, "m-old")?.code).toBe("m-1");
+    expect(pickOfflineWeeklyLesson(items, NOW, "gone")?.code).toBe("m-1");
   });
   it("searches the downloads with the synonym table", () => {
     const items = [stored("a", { title: "Living with hypertension" }), stored("b", { title: "Eating well" })];
