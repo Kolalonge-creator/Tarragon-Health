@@ -5,6 +5,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { BP_CARE_V1 } from "@tarragon/clinical";
 import { gradeOnDevice, clearPendingRecheck } from "./triage-device";
+import { getStore } from "./secure-db";
 import { FALLBACK_POSTPARTUM_DAYS, readObstetricCache, readObstetricStatus, refreshObstetricStatus, statusFrom } from "./obstetric-status";
 
 let mockPregnancy: { data: unknown; error: unknown } = { data: null, error: null };
@@ -66,6 +67,29 @@ describe("the cache", () => {
     await put({ pregnant: false, lastDeliveryDate: "not a date", fetchedAtMs: 1 });
     expect(await readObstetricCache(SUBJECT)).toBeNull();
     expect(await readObstetricStatus(SUBJECT, NOW)).toEqual({ pregnant: false, postpartum: false });
+  });
+});
+
+describe("where the answer is kept (S06x)", () => {
+  it("is written to the encrypted store and never to AsyncStorage", async () => {
+    mockPregnancy = { data: { is_pregnant: true }, error: null };
+    await refreshObstetricStatus(SUBJECT, NOW);
+    expect(await AsyncStorage.getItem(KEY)).toBeNull();
+    const db = await getStore();
+    expect((await db.getFirstAsync<{ n: number }>("select count(*) as n from local_obstetric"))?.n).toBe(1);
+  });
+
+  it("moves a plaintext copy an older build left behind into the store, once, and removes it", async () => {
+    await put({ pregnant: true, lastDeliveryDate: null, fetchedAtMs: 5 });
+    expect(await readObstetricCache(SUBJECT)).toMatchObject({ pregnant: true });
+    expect(await AsyncStorage.getItem(KEY)).toBeNull();
+    expect(await readObstetricCache(SUBJECT)).toMatchObject({ pregnant: true }); // now from the store
+  });
+
+  it("removes a corrupt plaintext copy too", async () => {
+    await AsyncStorage.setItem(KEY, "{not json");
+    expect(await readObstetricCache(SUBJECT)).toBeNull();
+    expect(await AsyncStorage.getItem(KEY)).toBeNull();
   });
 });
 

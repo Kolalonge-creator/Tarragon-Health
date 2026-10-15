@@ -11,12 +11,20 @@ import type { ProviderResult } from "./result.ts";
 export type Kobo = number;
 export type PaymentMetadata = Readonly<Record<string, string | number | boolean>>;
 
+/** The channels Paystack's initialize call accepts (its documented `channels` values). We send an explicit list so the hosted page never follows dashboard defaults. */
+export const PAYMENT_CHANNELS = ["card", "bank", "ussd", "qr", "mobile_money", "bank_transfer", "eft"] as const;
+export type PaymentChannel = (typeof PAYMENT_CHANNELS)[number];
+export const isPaymentChannelList = (v: unknown): v is readonly PaymentChannel[] =>
+  Array.isArray(v) && v.length > 0 && v.length <= PAYMENT_CHANNELS.length && new Set(v).size === v.length && v.every((c) => (PAYMENT_CHANNELS as readonly unknown[]).includes(c));
+
 export interface InitializeTransactionInput {
   /** Our own unique reference for this checkout (one per order attempt). */
   readonly reference: string;
   readonly email: string;
   readonly amountKobo: Kobo;
   readonly callbackUrl?: string;
+  /** Which payment methods the hosted page offers (S71, 19.2). Omitted means the provider's dashboard defaults, which a checkout should not rely on. */
+  readonly channels?: readonly PaymentChannel[];
   /** Opaque ids only (order id). Never a condition, reading or result: Paystack shows metadata in its dashboard. */
   readonly metadata?: PaymentMetadata;
 }
@@ -86,6 +94,36 @@ export interface TransferReceipt {
   readonly amountKobo: Kobo;
 }
 
+/**
+ * Read-only reconciliation types (S14x). A settlement is the batch Paystack pays to our bank; each settlement lists the charges in it.
+ * Amounts are integer kobo. Nothing here changes anything at the provider.
+ */
+export interface SettlementSummary {
+  readonly settlementId: string;
+  readonly status: string;
+  readonly totalKobo: Kobo;
+  readonly feesKobo: Kobo;
+  readonly settledAt: string | null;
+}
+export interface SettlementTransaction {
+  readonly reference: string;
+  readonly amountKobo: Kobo;
+  readonly feesKobo: Kobo;
+  readonly status: string;
+  readonly paidAt: string | null;
+}
+export interface ListPage<T> {
+  readonly items: readonly T[];
+  readonly hasMore: boolean;
+}
+export interface ListSettlementsInput {
+  /** ISO date or datetime, inclusive. */
+  readonly from?: string;
+  readonly to?: string;
+  readonly page?: number;
+  readonly perPage?: number;
+}
+
 /** A webhook after the signature check, in our terms. `key` is stable across redeliveries (the idempotency key). */
 export type PaymentEvent =
   | {
@@ -117,6 +155,10 @@ export interface PaymentProvider {
   createTransferRecipient(input: TransferRecipientInput): Promise<ProviderResult<TransferRecipient>>;
   initiateTransfer(input: InitiateTransferInput): Promise<ProviderResult<TransferReceipt>>;
   verifyTransfer(reference: string): Promise<ProviderResult<TransferReceipt>>;
+  /** Read only. Settlements Paystack has made (or is making) to our bank, newest first. */
+  listSettlements(input: ListSettlementsInput): Promise<ProviderResult<ListPage<SettlementSummary>>>;
+  /** Read only. The charges inside one settlement. */
+  listSettlementTransactions(settlementId: string, page?: { readonly page?: number; readonly perPage?: number }): Promise<ProviderResult<ListPage<SettlementTransaction>>>;
   /** Checks the signature on the RAW body, then normalises. A bad signature is `invalid_signature`; the body is not parsed. */
   parseWebhook(rawBody: string, signatureHeader: string | null): Promise<ProviderResult<PaymentEvent>>;
 }
@@ -158,4 +200,14 @@ export function paymentMatchesOrder(
   const customerFeeKobo = verified.amountKobo - verified.requestedAmountKobo;
   if (customerFeeKobo < 0 || customerFeeKobo > verified.feesKobo) return { ok: false, reason: "fee" };
   return { ok: true, customerFeeKobo };
+}
+
+/** Paystack settlement ids are plain integers. Anything else never reaches a URL. */
+export const isValidSettlementId = (s: unknown): s is string => typeof s === "string" && /^[0-9]{1,18}$/.test(s);
+
+/** Clamp a page request to something the vendor accepts. */
+export function normalisePage(page: number | undefined, perPage: number | undefined): { readonly page: number; readonly perPage: number } {
+  const p = typeof page === "number" && Number.isSafeInteger(page) && page >= 1 ? page : 1;
+  const n = typeof perPage === "number" && Number.isSafeInteger(perPage) && perPage >= 1 ? Math.min(perPage, 100) : 50;
+  return { page: p, perPage: n };
 }

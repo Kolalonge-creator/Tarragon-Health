@@ -7,6 +7,7 @@ import { t, type Locale } from "@tarragon/i18n";
 import { NIGERIAN_STATES } from "@/lib/nigeria-states";
 import { signUpWithPhone, verifySignupPhone } from "./actions";
 import { Button } from "@/components/ui/button";
+import { CohortCodeField } from "./cohort-code-field";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +16,7 @@ import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-e
 import { PHONE_HINT_ID, PhoneNumberHint, phoneInputProps } from "@/components/ui/phone-field";
 import { ResendCode } from "@/components/auth/resend-code";
 import { PASSWORD_MIN_LENGTH } from "@/lib/validation/password";
+import { AdultDobField } from "./adult-dob-field";
 
 const FIELD_CLASS = "h-11 rounded-xl";
 
@@ -160,6 +162,7 @@ export function PhoneSignupForm({
           ))}
         </Select>
       </div>
+      <AdultDobField idPrefix="phone-signup" errorId={errorId} invalid={invalid("dateOfBirth")} />
       <div className="space-y-1.5">
         <Label htmlFor="password" className="text-charcoal-ink/70">
           {t("auth.field.password", locale)}
@@ -177,6 +180,7 @@ export function PhoneSignupForm({
           {t("auth.password.rule", locale, { min: PASSWORD_MIN_LENGTH })}
         </p>
       </div>
+      <CohortCodeField idPrefix="phone-signup" className={FIELD_CLASS} />
       <FormError id={errorId} message={signupState?.error} />
       <Button type="submit" size="lg" className="w-full rounded-xl" disabled={signupPending}>
         {signupPending ? t("auth.signup.submitting", locale) : t("auth.signup.submit", locale)}

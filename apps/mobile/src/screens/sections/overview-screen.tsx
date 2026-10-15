@@ -22,6 +22,7 @@ import { PaymentIssueCard } from "@/screens/sections/payment-issue-card";
 import { HowYoureDoingCard } from "@/screens/sections/how-youre-doing-card";
 import { TodayCard } from "@/screens/sections/today-card";
 import { DailyLessonCard } from "@/screens/sections/learning-sections";
+import { HomeCheckCard } from "@/screens/sections/home-check-card";
 import { todayIsoDate } from "@/lib/medications";
 import { agoLine, dueLine, formatVisitTime, heroMetric, nextBestStep, type Line } from "@/lib/home-model";
 import { lightPalette, radii, space, useTheme } from "@/ui/design";
@@ -243,6 +244,7 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
 
       {/* After the video visit card: a visit that starts soon must stay near the top. */}
       <TodayCard patientId={patientId} onNavigate={onNavigate} reloadToken={scoreReloadToken} />
+      <HomeCheckCard patientId={patientId} reloadToken={scoreReloadToken} />
 
       {/* S55: the daily micro-lesson (spec 9.2); draws nothing when there is no in-date lesson. */}
       {organisationId ? <DailyLessonCard patientId={patientId} organisationId={organisationId} /> : null}

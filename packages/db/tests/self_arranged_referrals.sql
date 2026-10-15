@@ -35,7 +35,7 @@ begin
   select cs.profile_id into v_staff_profile
   from public.clinical_staff cs
   where cs.organisation_id = v_org and cs.active
-    and cs.doctor_tier in ('medical_officer', 'senior_medical_officer', 'chief_medical_officer')
+    and cs.doctor_tier in ('senior_medical_officer', 'senior_medical_officer', 'chief_medical_officer')
   limit 1;
   if v_pt is null or v_spec is null or v_staff_profile is null then
     raise exception 'fixture lookup failed - test would be vacuous';

@@ -10,6 +10,8 @@ export * from "./ml-client";
 export * from "./ai-coach-types";
 export * from "./device-readings";
 export * from "./health-record";
+export * from "./record-integrity";
+export * from "./adult-registration";
 
 // Generated Supabase types: Database, Tables, TablesInsert, TablesUpdate,
 // Enums, Constants, Json. Single source of truth for the DB schema.
@@ -243,5 +245,7 @@ export * from "./proposed-config";
 export * from "./learning";
 export * from "./breathing";
 export * from "./consent-state";
+export * from "./data-rights";
 export * from "./notification-settings";
 export * from "./notification-diagnosis";
+export * from "./lock-screen-pass";

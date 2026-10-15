@@ -1,2 +1,5 @@
 export { BP_CARE_V1 } from "./bp-care-v1";
 export { BP_CARE_V3 } from "./bp-care-v3";
+export { BP_CARE_V4 } from "./bp-care-v4";
+export { GLUCOSE_CARE_V1 } from "./glucose-care-v1";
+export { BP_CARE_V5 } from "./bp-care-v5";

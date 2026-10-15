@@ -15,6 +15,12 @@
 --   7. SABOTAGE: the visibility rule opened, and the allowance removed; both checks must flip.
 begin;
 
+
+-- S04b-1: this proof models an under-18 patient account, which registration no longer allows (adults 18 and over only;
+-- children exist only as dependants limited to immunisation and preventive tracking). The behaviour it proves still
+-- matters as defence in depth, so the registration rule is switched off inside this rolled-back transaction only.
+alter table public.profiles disable trigger profiles_01_enforce_adult_registration;
+
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
 grant all on results to public;
 create temp table fx(k text primary key, v uuid) on commit drop;
@@ -173,8 +179,8 @@ begin
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
   perform pg_temp.setf('admin', v_admin);
   update public.clinical_staff set active = false where is_test is not true;
-  perform pg_temp.setf('doc', pg_temp.mkdoc(v_org, 'doc', 'medical_officer', 'contracted', '{adult_general}', v_admin));
-  perform pg_temp.setf('doc2', pg_temp.mkdoc(v_org, 'doc2', 'medical_officer', 'contracted', '{adult_general}', v_admin));
+  perform pg_temp.setf('doc', pg_temp.mkdoc(v_org, 'doc', 'senior_medical_officer', 'contracted', '{adult_general}', v_admin));
+  perform pg_temp.setf('doc2', pg_temp.mkdoc(v_org, 'doc2', 'senior_medical_officer', 'contracted', '{adult_general}', v_admin));
   perform pg_temp.setf('cmo', pg_temp.mkdoc(v_org, 'cmo', 'chief_medical_officer', 'contracted', '{adult_general,on_call,prescribing,result_review,hypertension}', v_admin));
   perform pg_temp.mkblock(v_org, pg_temp.f('doc'));
   perform pg_temp.mkblock(v_org, pg_temp.f('doc2'));

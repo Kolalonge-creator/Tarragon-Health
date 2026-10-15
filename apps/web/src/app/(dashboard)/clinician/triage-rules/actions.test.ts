@@ -63,4 +63,12 @@ describe("approveRuleSetAction", () => {
     expect(url).toContain("error=");
     expect(decodeURIComponent(url)).toContain("Type the word SIGN");
   });
+
+  it("returns to the glucose page after a glucose rule set, the blood pressure page otherwise, and nowhere else", async () => {
+    const id = "5b2f3c52-6f29-4d1a-8f3e-1a2b3c4d5e6f";
+    expect(await run({ id, understood: "on", typed: "SIGN", page: "glucose" })).toMatch(/^\/clinician\/glucose-triage-rules\?done=/);
+    expect(await run({ id, understood: "on", typed: "SIGN" })).toMatch(/^\/clinician\/triage-rules\?done=/);
+    expect(await run({ id, understood: "on", typed: "SIGN", page: "//evil.example" })).toMatch(/^\/clinician\/triage-rules\?done=/);
+    expect(await run({ id, understood: null, typed: "SIGN", page: "glucose" })).toMatch(/^\/clinician\/glucose-triage-rules\?error=/);
+  });
 });

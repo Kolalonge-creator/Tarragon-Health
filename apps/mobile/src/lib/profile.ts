@@ -5,7 +5,6 @@ import type { Tables } from "@tarragon/shared";
 
 export type ProfileRow = Tables<"profiles">;
 export type IdentityVerificationRow = Tables<"identity_verifications">;
-export type DeletionRequestRow = Tables<"data_deletion_requests">;
 export type CorrectionRequestRow = Tables<"data_correction_requests">;
 
 /** Same E.164 shape enforced server-side by emergencyContactSchema
@@ -43,17 +42,6 @@ export async function loadLatestIdentityVerification(
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (error) throw error;
-  return data;
-}
-
-/** Mirrors usePatientDeletionRequests in apps/web/src/lib/queries/data-rights.ts. */
-export async function loadDeletionRequests(userId: string): Promise<DeletionRequestRow[]> {
-  const { data, error } = await supabase
-    .from("data_deletion_requests")
-    .select("*")
-    .eq("patient_id", userId)
-    .order("requested_at", { ascending: false });
   if (error) throw error;
   return data;
 }
@@ -140,24 +128,6 @@ export async function updateEmergencyContact(userId: string, input: EmergencyCon
       next_of_kin_phone: norm(input.nextOfKinPhone),
     })
     .eq("id", userId);
-  if (error) throw error;
-}
-
-/** Mirrors useCreateDeletionRequest in apps/web/src/lib/queries/data-rights.ts.
- * organisation_id/patient_id/status are re-forced server-side by
- * private.enforce_data_deletion_request_attribution regardless of what's
- * sent here — this is a tracked review workflow, not an auto-delete. */
-export async function createDeletionRequest(
-  organisationId: string,
-  patientId: string,
-  reason: string
-): Promise<void> {
-  const { error } = await supabase.from("data_deletion_requests").insert({
-    organisation_id: organisationId,
-    patient_id: patientId,
-    reason: norm(reason),
-    requested_categories: [],
-  });
   if (error) throw error;
 }
 
