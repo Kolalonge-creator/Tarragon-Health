@@ -50,8 +50,8 @@ describe("the consent check fails closed (OQ-352)", () => {
   it("asks about exactly this subject and this consent, and only then calls the vendor", async () => {
     const seen: string[] = [];
     const c = counting();
-    const r = await withConsentCheck(c.provider, async (s, id) => { seen.push(`${s}|${id}`); return true; }).verify(input);
-    expect(seen).toEqual([`${SUBJECT}|${CONSENT}`]);
+    const r = await withConsentCheck(c.provider, async (s, id, kind) => { seen.push(`${s}|${id}|${kind}`); return true; }).verify(input);
+    expect(seen).toEqual([`${SUBJECT}|${CONSENT}|nin`]);
     expect(r.ok).toBe(true);
     expect(c.calls()).toBe(1);
   });
@@ -62,12 +62,21 @@ describe("the consent check fails closed (OQ-352)", () => {
   it("the rpc lookup is true only for data === true with no error, and calls the service function with both ids", async () => {
     const args: Array<[string, Record<string, string>]> = [];
     const mk = (res: { data: unknown; error: unknown }) => rpcConsentLookup(async (fn, a) => { args.push([fn, a]); return res; });
-    expect(await mk({ data: true, error: null })(SUBJECT, CONSENT)).toBe(true);
-    expect(args[0]).toEqual(["identity_consent_valid", { p_consent: CONSENT, p_subject: SUBJECT }]);
-    expect(await mk({ data: false, error: null })(SUBJECT, CONSENT)).toBe(false);
-    expect(await mk({ data: true, error: { message: "denied" } })(SUBJECT, CONSENT)).toBe(false);
-    expect(await mk({ data: null, error: null })(SUBJECT, CONSENT)).toBe(false);
-    expect(await rpcConsentLookup(async () => { throw new Error("network"); })(SUBJECT, CONSENT)).toBe(false);
+    expect(await mk({ data: true, error: null })(SUBJECT, CONSENT, "nin")).toBe(true);
+    expect(args[0]).toEqual(["identity_consent_valid", { p_consent: CONSENT, p_subject: SUBJECT, p_id_kind: "nin" }]);
+    expect(await mk({ data: false, error: null })(SUBJECT, CONSENT, "nin")).toBe(false);
+    expect(await mk({ data: true, error: { message: "denied" } })(SUBJECT, CONSENT, "nin")).toBe(false);
+    expect(await mk({ data: null, error: null })(SUBJECT, CONSENT, "nin")).toBe(false);
+    expect(await rpcConsentLookup(async () => { throw new Error("network"); })(SUBJECT, CONSENT, "nin")).toBe(false);
+  });
+  it("a broken lookup is reported through onError (without ids) so it does not look like a missing consent", async () => {
+    const reasons: string[] = [];
+    expect(await rpcConsentLookup(async () => ({ data: null, error: { message: "permission denied" } }), (r) => reasons.push(r))(SUBJECT, CONSENT, "bvn")).toBe(false);
+    expect(await rpcConsentLookup(async () => { throw new Error("network"); }, (r) => reasons.push(r))(SUBJECT, CONSENT, "bvn")).toBe(false);
+    expect(reasons).toHaveLength(2);
+    for (const r of reasons) { expect(r).not.toContain(SUBJECT); expect(r).not.toContain(CONSENT); }
+    expect(await rpcConsentLookup(async () => ({ data: false, error: null }), (r) => reasons.push(r))(SUBJECT, CONSENT, "bvn")).toBe(false);
+    expect(reasons).toHaveLength(2);
   });
 });
 

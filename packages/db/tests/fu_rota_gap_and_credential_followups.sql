@@ -158,6 +158,28 @@ begin
   perform pg_temp.rec('A6 cover lost again reopens exactly one incident', '1',
     (select count(*)::text from public.ops_incidents where external_reference = 'rota_gap:' || v_org and status not in ('resolved', 'closed')));
 
+  -- a sev2 incident for a gap that has become live is raised to sev1 (never lowered)
+  update public.ops_incidents set severity = 'sev2' where external_reference = 'rota_gap:' || v_org and status not in ('resolved', 'closed');
+  perform private.rota_gap_alert(v_org);
+  perform pg_temp.rec('A7 a sev2 rota gap incident rises to sev1 once the gap is live', 'sev1',
+    (select severity::text from public.ops_incidents where external_reference = 'rota_gap:' || v_org and status not in ('resolved', 'closed')));
+  -- the minutely SR5 evaluation now keeps the S18 incident fresh (one incident, no SR5 alert, resolved by the evaluator alone when cover is back)
+  perform private.ops_evaluate_alerts(true, true);
+  perform private.ops_evaluate_alerts(true, true);
+  perform pg_temp.rec('A8 two evaluations while the gap lasts leave exactly one open incident and no SR5 alert', '1,0',
+    (select count(*)::text from public.ops_incidents where external_reference = 'rota_gap:' || v_org and status not in ('resolved', 'closed')) || ',' ||
+    (select count(*)::text from public.ops_alerts where rule_code = 'rota_gap_12h' and state = 'open' and dedup_key like v_org::text || '%'));
+  perform set_config('tarragon.lead_write', 'on', true);
+  update public.on_call_rota set cancelled_at = null, cancelled_reason = null where organisation_id = v_org;
+  perform set_config('tarragon.lead_write', 'off', true);
+  perform private.ops_evaluate_alerts(true, true);
+  perform pg_temp.rec('A9 cover restored: the evaluation alone resolves the incident', '0',
+    (select count(*)::text from public.ops_incidents where external_reference = 'rota_gap:' || v_org and status not in ('resolved', 'closed')));
+  perform set_config('tarragon.lead_write', 'on', true);
+  update public.on_call_rota set cancelled_at = now(), cancelled_reason = 'proof' where organisation_id = v_org;
+  perform set_config('tarragon.lead_write', 'off', true);
+  perform private.rota_gap_alert(v_org);
+
   -- SABOTAGE A: the S18 auto-resolve removed; restore cover; the incident must stay open
   v_def := pg_get_functiondef('private.rota_gap_alert(uuid)'::regprocedure);
   execute replace(v_def, 'if v_n = 0 then', 'if v_n = 0 then return 0; end if; if false then');
@@ -244,11 +266,15 @@ begin
   v_res := pg_temp.q_as(v_a, $q$select public.record_identity_check_consent('nin', 'v1')::text$q$);
   v_cons := v_res::uuid;
   perform pg_temp.rec('E1 the subject records a consent', 'true', (v_cons is not null)::text);
-  perform pg_temp.rec('E2 the lookup is true for the right subject', 'true', public.identity_consent_valid(v_cons, v_a)::text);
-  perform pg_temp.rec('E3 false for another subject', 'false', public.identity_consent_valid(v_cons, v_other)::text);
-  perform pg_temp.rec('E4 false for an unknown id', 'false', public.identity_consent_valid(gen_random_uuid(), v_a)::text);
-  perform pg_temp.rec('E5 an authenticated user cannot call the lookup (no oracle)', '42501', pg_temp.try_as(v_a, format('select public.identity_consent_valid(%L, %L)', v_cons, v_a)));
-  perform pg_temp.rec('E5 nor anon', '42501', pg_temp.try_anon(format('select public.identity_consent_valid(%L, %L)', v_cons, v_a)));
+  perform pg_temp.rec('E2 the lookup is true for the right subject', 'true', public.identity_consent_valid(v_cons, v_a, 'nin')::text);
+  perform pg_temp.rec('E3 false for another subject', 'false', public.identity_consent_valid(v_cons, v_other, 'nin')::text);
+  perform pg_temp.rec('E3b false for another ID kind (a NIN consent does not cover a BVN check)', 'false', public.identity_consent_valid(v_cons, v_a, 'bvn')::text);
+  perform pg_temp.rec('E3c recording again returns the same live consent, never a second row', 'true,1',
+    ((pg_temp.q_as(v_a, $q$select public.record_identity_check_consent('nin', 'v2')::text$q$))::uuid = v_cons)::text || ',' ||
+    (select count(*)::text from public.identity_check_consents where subject_profile_id = v_a and id_kind = 'nin' and withdrawn_at is null));
+  perform pg_temp.rec('E4 false for an unknown id', 'false', public.identity_consent_valid(gen_random_uuid(), v_a, 'nin')::text);
+  perform pg_temp.rec('E5 an authenticated user cannot call the lookup (no oracle)', '42501', pg_temp.try_as(v_a, format('select public.identity_consent_valid(%L, %L, ''nin'')', v_cons, v_a)));
+  perform pg_temp.rec('E5 nor anon', '42501', pg_temp.try_anon(format('select public.identity_consent_valid(%L, %L, ''nin'')', v_cons, v_a)));
   perform pg_temp.rec('E6 anon cannot record a consent', '42501', pg_temp.try_anon($q$select public.record_identity_check_consent('nin', 'v1')$q$));
   perform pg_temp.rec('E7 no direct insert', '42501', pg_temp.try_as(v_a, format('insert into public.identity_check_consents (subject_profile_id, id_kind, consent_text_version) values (%L, ''nin'', ''v1'')', v_a)));
   perform pg_temp.rec('E8 another user cannot withdraw it', '22023', pg_temp.try_as(v_other, format('select public.withdraw_identity_check_consent(%L)', v_cons)));
@@ -256,13 +282,15 @@ begin
     pg_temp.q_as(v_a, 'select count(*)::text from public.identity_check_consents') || ',' || pg_temp.q_as(v_other, 'select count(*)::text from public.identity_check_consents'));
   perform pg_temp.rec('E10 a bad id kind is refused', '22023', pg_temp.try_as(v_a, $q$select public.record_identity_check_consent('passport', 'v1')$q$));
   perform pg_temp.rec('E11 the subject withdraws', 'ok', pg_temp.try_as(v_a, format('select public.withdraw_identity_check_consent(%L)', v_cons)));
-  perform pg_temp.rec('E12 a withdrawn consent fails the lookup', 'false', public.identity_consent_valid(v_cons, v_a)::text);
+  perform pg_temp.rec('E11b after withdrawal no live consent remains for that kind', '0',
+    (select count(*)::text from public.identity_check_consents where subject_profile_id = v_a and id_kind = 'nin' and withdrawn_at is null));
+  perform pg_temp.rec('E12 a withdrawn consent fails the lookup', 'false', public.identity_consent_valid(v_cons, v_a, 'nin')::text);
   perform pg_temp.rec('E13 recording is audited', 'true',
     (exists (select 1 from public.audit_log where action = 'identity_check_consents.created' and entity_id = v_cons))::text);
   -- SABOTAGE E: the lookup answers true for anything
-  v_def := pg_get_functiondef('public.identity_consent_valid(uuid, uuid)'::regprocedure);
-  execute 'create or replace function public.identity_consent_valid(p_consent uuid, p_subject uuid) returns boolean language sql stable security definer set search_path = '''' as $f$ select true $f$';
-  perform pg_temp.rec_s('E4 false for an unknown id', 'false', public.identity_consent_valid(gen_random_uuid(), v_a)::text);
+  v_def := pg_get_functiondef('public.identity_consent_valid(uuid, uuid, text)'::regprocedure);
+  execute 'create or replace function public.identity_consent_valid(p_consent uuid, p_subject uuid, p_id_kind text) returns boolean language sql stable security definer set search_path = '''' as $f$ select true $f$';
+  perform pg_temp.rec_s('E4 false for an unknown id', 'false', public.identity_consent_valid(gen_random_uuid(), v_a, 'nin')::text);
   execute v_def;
 
   ---------------------------------------------------------------- F. is_test exemption is audited

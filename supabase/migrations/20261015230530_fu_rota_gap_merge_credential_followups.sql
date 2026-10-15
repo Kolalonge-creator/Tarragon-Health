@@ -3,13 +3,14 @@
 -- A. ONE rota-gap alert per organisation. Two mechanisms raised the same fact: S18's private.rota_gap_alert (incident
 --    'rota_gap:<org>', reviewers told, 'rota.gap_detected' event, run by lead_reconcile and by every rota write) and SR5's
 --    rota_gap_12h rule (ops_alerts row plus a second incident 'ops_alert:rota_gap_12h:<org>:rota_gap', evaluated every
---    minute). S18 is kept. The SR5 check now returns no rows (rule kept so the wall and its history stay; the evaluator
---    resolves any open alert itself), existing open SR5 rows are resolved quietly (no ops_alert_notify, no notice), and S18's
---    incident now resolves itself when the gaps are gone (it never did before).
+--    minute). S18 is kept. The SR5 check now returns no rows but runs S18's function for each organisation every minute (so
+--    the one incident is as fresh as the old alert was and the rule row, its history and ACL stay), existing open SR5 rows are
+--    resolved quietly (no ops_alert_notify, no notice), and S18's incident now resolves itself when the gaps are gone and rises
+--    from sev2 to sev1 when a gap becomes live.
 -- B. OQ-350: private.lead_ineligibility_reason returns 'verification_missing' when a clinician fails the credential
 --    verification gate (private.psv_satisfied) instead of mislabelling it licence_expired.
--- C. OQ-344: credentialing_config.grandfather_ends_on = 2027-01-13 (90 days from 2026-10-15) on every config version that still
---    carries a null end date, only when a grandfathered clinician exists.
+-- C. OQ-344: credentialing_config.grandfather_ends_on = 2027-01-13 (90 days from 2026-10-15) on the active config version and any
+--    later draft that still carries a null end date (older versions are history and are not touched).
 -- D. OQ-334: approve_triage_rule_set refuses only when a task type USED by that rule set awaits confirmation.
 -- E. OQ-352: a stored consent row for the identity check (identity_check_consents) and the service-only lookup the adapter's
 --    fail-closed wrapper calls.
@@ -19,11 +20,21 @@
 -- A. one rota gap alert
 -- ---------------------------------------------------------------------------
 create or replace function private.ops_check_rota_gap_12h(p jsonb, p_test boolean) returns table (dedup_key text, detail jsonb)
-language sql stable security definer set search_path = ''
+language plpgsql volatile security definer set search_path = ''
 as $$
-  -- Retired as a second alert: S18's private.rota_gap_alert owns the rota gap incident (one per organisation, key rota_gap:<org>).
-  -- Kept as a function that returns nothing so the rule row, its history and its ACL stay as they were.
-  select null::text, null::jsonb where false;
+declare o record;
+begin
+  -- No second alert. The minutely evaluator now only keeps S18's single incident (rota_gap:<org>) fresh: it raises it, refreshes
+  -- it, raises its severity and resolves it when cover is back, exactly as after a rota write, so a gap that arrives by a path with
+  -- no rota write (leave, suspension, time off) is seen within a minute and not only at the nightly run. The function returns
+  -- no rows, so the rule never raises an ops_alerts row or a second incident. Errors are not caught: the evaluator turns them
+  -- into its "alert rule could not be evaluated" incident rather than hiding them.
+  for o in select distinct cs.organisation_id from public.clinical_staff cs
+            where cs.active and cs.status = 'active' and (p_test or not cs.is_test) loop
+    perform private.rota_gap_alert(o.organisation_id);
+  end loop;
+  return;
+end;
 $$;
 
 create or replace function private.rota_gap_alert(p_org uuid) returns integer
@@ -52,7 +63,9 @@ begin
     return 0;
   end if;
   if exists (select 1 from public.ops_incidents where external_reference = v_ref and status not in ('resolved', 'closed')) then
-    update public.ops_incidents set summary = 'On-call cover problem in the next ' || v_hours || ' hours: ' || v_summary
+    -- a gap that has become live (an hour already uncovered) raises a sev2 incident to sev1; it never lowers one
+    update public.ops_incidents set summary = 'On-call cover problem in the next ' || v_hours || ' hours: ' || v_summary,
+           severity = case when v_now > 0 then 'sev1'::public.ops_incident_severity else severity end
      where external_reference = v_ref and status not in ('resolved', 'closed');
   else
     insert into public.ops_incidents (organisation_id, category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
@@ -147,18 +160,22 @@ declare
   v_grand integer; v_rows_before integer; v_rows_done integer;
 begin
   select count(*) into v_grand from public.clinical_staff where psv_grandfathered and active and status = 'active';
-  select count(*) into v_rows_before from public.credentialing_config where rules ? 'grandfather_ends_on' and rules -> 'grandfather_ends_on' = 'null'::jsonb;
+  select count(*) into v_rows_before from public.credentialing_config
+   where rules ? 'grandfather_ends_on' and rules -> 'grandfather_ends_on' = 'null'::jsonb
+     and version >= coalesce((select max(version) from public.credentialing_config where is_active), 0);
   raise notice 'grandfather end date: % grandfathered active clinicians, % config versions with a null end date', v_grand, v_rows_before;
+  -- Unconditional (not only when a clinician is grandfathered today) so the database and the code registry always agree; only versions at or
+  -- above the active one are touched (older versions are history), and only ones that still carry a null.
+  with u as (
+    update public.credentialing_config
+       set rules = jsonb_set(rules, '{grandfather_ends_on}', to_jsonb('2027-01-13'::text))
+     where rules ? 'grandfather_ends_on' and rules -> 'grandfather_ends_on' = 'null'::jsonb
+       and version >= coalesce((select max(version) from public.credentialing_config where is_active), 0) returning 1)
+  select count(*) into v_rows_done from u;
+  assert v_rows_done = v_rows_before, 'grandfather end date: updated row count differs from the count taken first (an older version carries a null)';
+  assert not exists (select 1 from public.credentialing_config where is_active and rules ? 'grandfather_ends_on' and (rules ->> 'grandfather_ends_on') is distinct from '2027-01-13'), 'the active config does not carry the end date';
   if v_grand > 0 then
-    with u as (
-      update public.credentialing_config
-         set rules = jsonb_set(rules, '{grandfather_ends_on}', to_jsonb('2027-01-13'::text))
-       where rules ? 'grandfather_ends_on' and rules -> 'grandfather_ends_on' = 'null'::jsonb returning 1)
-    select count(*) into v_rows_done from u;
-    assert v_rows_done = v_rows_before, 'grandfather end date: updated row count differs from the count taken first';
-    assert not exists (select 1 from public.credentialing_config where rules ? 'grandfather_ends_on' and rules -> 'grandfather_ends_on' = 'null'::jsonb), 'a config version still has a null end date';
-    assert not exists (select 1 from public.credentialing_config where is_active and (rules ->> 'grandfather_ends_on') is distinct from '2027-01-13'), 'the active config does not carry the end date';
-    -- the two clinicians stay eligible until the day (Africa/Lagos) the date passes
+    -- the clinicians stay eligible until the day (Africa/Lagos) the date passes
     assert not exists (select 1 from public.clinical_staff cs where cs.psv_grandfathered and cs.active and cs.status = 'active'
                           and not private.psv_satisfied(cs.id, '2027-01-13 12:00:00+01'::timestamptz)), 'a grandfathered clinician is ineligible on 2027-01-13';
     assert not exists (select 1 from public.clinical_staff cs where cs.psv_grandfathered and cs.active and cs.status = 'active'
@@ -218,7 +235,7 @@ $$;
 -- ---------------------------------------------------------------------------
 create table public.identity_check_consents (
   id uuid primary key default gen_random_uuid(),
-  organisation_id uuid references public.organisations (id) on delete restrict,
+  organisation_id uuid not null references public.organisations (id) on delete restrict,
   subject_profile_id uuid not null references public.profiles (id) on delete restrict,
   id_kind text not null check (id_kind in ('nin', 'bvn')),
   consent_text_version text not null check (length(btrim(consent_text_version)) between 1 and 40),
@@ -229,6 +246,8 @@ create table public.identity_check_consents (
 comment on table public.identity_check_consents is
   'OQ-352: the stored consent for an identity (NIN or BVN) check. The identity adapter wrapper refuses any call whose consent id is not a live row here for the same subject. Written only by record_identity_check_consent (the subject, for themself). Holds no ID number.';
 create index identity_check_consents_subject_idx on public.identity_check_consents (subject_profile_id, given_at desc);
+-- one live consent per person and kind: recording again returns it, withdrawing it ends it (no second live row can outlive a withdrawal)
+create unique index identity_check_consents_one_live on public.identity_check_consents (subject_profile_id, id_kind) where withdrawn_at is null;
 alter table public.identity_check_consents enable row level security;
 create policy identity_check_consents_own_read on public.identity_check_consents for select to authenticated
   using (subject_profile_id = (select auth.uid()));
@@ -246,9 +265,16 @@ begin
   if v_uid is null then raise exception 'sign in first' using errcode = '42501'; end if;
   if p_id_kind not in ('nin', 'bvn') then raise exception 'ID kind must be nin or bvn' using errcode = '22023'; end if;
   select * into p from public.profiles where id = v_uid;
-  if not found then raise exception 'no profile' using errcode = '42501'; end if;
+  if not found or p.organisation_id is null then raise exception 'no organisation for this profile' using errcode = '42501'; end if;
+  -- already consented (live row for this kind): return it, never a second live row
+  select id into v_id from public.identity_check_consents where subject_profile_id = v_uid and id_kind = p_id_kind and withdrawn_at is null;
+  if v_id is not null then return v_id; end if;
   insert into public.identity_check_consents (organisation_id, subject_profile_id, id_kind, consent_text_version, is_test)
-  values (p.organisation_id, v_uid, p_id_kind, p_text_version, p.is_test) returning id into v_id;
+  values (p.organisation_id, v_uid, p_id_kind, p_text_version, p.is_test)
+  on conflict (subject_profile_id, id_kind) where withdrawn_at is null do nothing returning id into v_id;
+  if v_id is null then
+    select id into v_id from public.identity_check_consents where subject_profile_id = v_uid and id_kind = p_id_kind and withdrawn_at is null;
+  end if;
   return v_id;
 end;
 $$;
@@ -263,28 +289,29 @@ begin
 end;
 $$;
 
--- The adapter wrapper's lookup (edge functions, service role only): true only for a live, unwithdrawn row for this subject.
-create function public.identity_consent_valid(p_consent uuid, p_subject uuid) returns boolean
+-- The adapter wrapper's lookup (edge functions, service role only): true only for a live, unwithdrawn row for this subject AND this ID kind
+-- (a consent for a NIN check does not cover a BVN check).
+create function public.identity_consent_valid(p_consent uuid, p_subject uuid, p_id_kind text) returns boolean
 language sql stable security definer set search_path = ''
 as $$
   select exists (select 1 from public.identity_check_consents c
-                  where c.id = p_consent and c.subject_profile_id = p_subject and c.withdrawn_at is null);
+                  where c.id = p_consent and c.subject_profile_id = p_subject and c.id_kind = p_id_kind and c.withdrawn_at is null);
 $$;
 
 revoke all on function public.record_identity_check_consent(text, text) from public;
 revoke all on function public.withdraw_identity_check_consent(uuid) from public;
-revoke all on function public.identity_consent_valid(uuid, uuid) from public;
+revoke all on function public.identity_consent_valid(uuid, uuid, text) from public;
 grant execute on function public.record_identity_check_consent(text, text) to authenticated;
 grant execute on function public.withdraw_identity_check_consent(uuid) to authenticated;
-grant execute on function public.identity_consent_valid(uuid, uuid) to service_role;
+grant execute on function public.identity_consent_valid(uuid, uuid, text) to service_role;
 
 do $$
 begin
   assert not has_function_privilege('anon', 'public.record_identity_check_consent(text,text)', 'EXECUTE'), 'anon can record a consent';
   assert not has_function_privilege('anon', 'public.withdraw_identity_check_consent(uuid)', 'EXECUTE'), 'anon can withdraw a consent';
-  assert not has_function_privilege('anon', 'public.identity_consent_valid(uuid,uuid)', 'EXECUTE'), 'anon can look up a consent';
-  assert not has_function_privilege('authenticated', 'public.identity_consent_valid(uuid,uuid)', 'EXECUTE'), 'authenticated can look up a consent (oracle)';
-  assert has_function_privilege('service_role', 'public.identity_consent_valid(uuid,uuid)', 'EXECUTE'), 'service role cannot look up a consent';
+  assert not has_function_privilege('anon', 'public.identity_consent_valid(uuid,uuid,text)', 'EXECUTE'), 'anon can look up a consent';
+  assert not has_function_privilege('authenticated', 'public.identity_consent_valid(uuid,uuid,text)', 'EXECUTE'), 'authenticated can look up a consent (oracle)';
+  assert has_function_privilege('service_role', 'public.identity_consent_valid(uuid,uuid,text)', 'EXECUTE'), 'service role cannot look up a consent';
   assert not has_table_privilege('anon', 'public.identity_check_consents', 'SELECT'), 'anon can read consents';
   assert not has_table_privilege('authenticated', 'public.identity_check_consents', 'INSERT'), 'authenticated can insert a consent directly';
   assert not has_table_privilege('authenticated', 'public.identity_check_consents', 'UPDATE'), 'authenticated can update a consent directly';

@@ -65,8 +65,8 @@ export const isIdNumberShape = (s: unknown): s is string => typeof s === "string
 /** The last four digits of a well-formed number. */
 export const idLast4Of = (idNumber: string): string => idNumber.slice(-4);
 
-/** Answers: is there a live (not withdrawn) stored consent row with this id for this subject? Must never throw; a throw is read as "no". */
-export type ConsentLookup = (subjectRef: string, consentId: string) => Promise<boolean>;
+/** Answers: is there a live (not withdrawn) stored consent row with this id for this subject AND this ID kind? Must never throw; a throw is read as "no". */
+export type ConsentLookup = (subjectRef: string, consentId: string, idKind: IdKind) => Promise<boolean>;
 
 /**
  * Puts the consent check in front of any identity provider. The vendor is not called unless the lookup says yes. A missing lookup
@@ -82,11 +82,11 @@ export function withConsentCheck(inner: IdentityVerificationProvider, lookup: Co
       if (lookup === null) return fail("consent_required", "The consent could not be checked, so no identity check was made", false);
       let allowed = false;
       try {
-        allowed = (await lookup(input.subjectRef, input.consentId)) === true;
+        allowed = (await lookup(input.subjectRef, input.consentId, input.idKind)) === true;
       } catch {
         allowed = false;
       }
-      if (!allowed) return fail("consent_required", "No live consent is stored for this person, so no identity check was made", false);
+      if (!allowed) return fail("consent_required", "No live consent could be confirmed for this person and ID kind, so no identity check was made", false);
       return inner.verify(input);
     },
   };
@@ -95,13 +95,22 @@ export function withConsentCheck(inner: IdentityVerificationProvider, lookup: Co
 /** The shape of a Supabase client's `rpc` that the lookup needs (kept structural so this file imports no client). */
 export type ConsentRpc = (fn: string, args: Record<string, string>) => PromiseLike<{ readonly data: unknown; readonly error: unknown }>;
 
-/** The production lookup: `public.identity_consent_valid(p_consent, p_subject)`, callable by the service role only. Any error answers false. */
-export function rpcConsentLookup(rpc: ConsentRpc): ConsentLookup {
-  return async (subjectRef, consentId) => {
+/**
+ * The production lookup: `public.identity_consent_valid(p_consent, p_subject, p_id_kind)`, callable by the service role only. Any error
+ * answers false (fail closed), but a broken lookup must not look like a missing consent: `onError` (give it a console.error) gets the
+ * reason, which carries no consent id, subject or ID number.
+ */
+export function rpcConsentLookup(rpc: ConsentRpc, onError: (reason: string) => void = () => undefined): ConsentLookup {
+  return async (subjectRef, consentId, idKind) => {
     try {
-      const r = await rpc("identity_consent_valid", { p_consent: consentId, p_subject: subjectRef });
-      return r.error === null || r.error === undefined ? r.data === true : false;
+      const r = await rpc("identity_consent_valid", { p_consent: consentId, p_subject: subjectRef, p_id_kind: idKind });
+      if (r.error !== null && r.error !== undefined) {
+        onError("identity consent lookup failed (the database refused the call)");
+        return false;
+      }
+      return r.data === true;
     } catch {
+      onError("identity consent lookup failed (could not reach the database)");
       return false;
     }
   };
