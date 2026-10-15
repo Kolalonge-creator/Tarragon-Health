@@ -61,6 +61,11 @@ jest.mock("@/lib/queries/pending-unified-red-paging-signoff", () => ({
 jest.mock("@/lib/queries/pending-sole-cmo-exception", () => ({
   readPendingSoleCmoException: (...args: unknown[]) => readPendingSoleCmoException(...args),
 }));
+const readPendingFastSugarWordingSignoff = jest.fn<(...args: unknown[]) => Promise<{ waiting: boolean; failed: boolean }>>();
+jest.mock("@/lib/queries/pending-fast-sugar-wording-signoff", () => ({
+  FAST_SUGAR_ITEM_KEY: "glucose_fast_sugar_wording",
+  readPendingFastSugarWordingSignoff: (...args: unknown[]) => readPendingFastSugarWordingSignoff(...args),
+}));
 const noCommunity = { rulesUnsigned: false, groupsWaiting: 0, statementsWaiting: 0, attentionCount: 0, failed: false };
 jest.mock("@/lib/queries/pending-ai-governance-signoff", () => ({
   readPendingAiGovernanceSignoff: (...args: unknown[]) => readPendingAiGovernanceSignoff(...args),
@@ -105,6 +110,31 @@ beforeEach(() => {
   readPendingQualityConfigSignoff.mockResolvedValue(noQualityConfig);
   readPendingCapacityConfigSignoff.mockReset();
   readPendingCapacityConfigSignoff.mockResolvedValue(noCapacityConfig);
+  readPendingFastSugarWordingSignoff.mockReset();
+  readPendingFastSugarWordingSignoff.mockResolvedValue({ waiting: false, failed: false });
+});
+
+describe("readCmoSigningHub: fast-sugar wording (OQ-326)", () => {
+  const empty = { items: [] as SignoffQueueItem[], failedSources: [] as string[], settledConfigs: [] as SettledConfig[] };
+  it("is its own line, separate from the glucose rules, under /clinician, and says it stays unsigned until signed", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingGlucoseTriageSignoff.mockResolvedValue({ pending: true, version: 1, approvedVersion: null, note: null, failed: false });
+    readPendingFastSugarWordingSignoff.mockResolvedValue({ waiting: true, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    const keys = hub.items.map((i) => i.key).sort();
+    expect(keys).toEqual(["glucose_fast_sugar_wording", "glucose_triage_rule_set"]);
+    const line = hub.items.find((i) => i.key === "glucose_fast_sugar_wording");
+    expect(line?.href.startsWith("/clinician/")).toBe(true);
+    expect(line?.detail).toMatch(/own signature/);
+    expect(line?.detail).toMatch(/stays unsigned/);
+    expect(hub.failed).toBe(false);
+  });
+  it("is absent once signed, and a failed read is named instead of going quiet", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === "glucose_fast_sugar_wording")).toBeUndefined();
+    readPendingFastSugarWordingSignoff.mockResolvedValue({ waiting: false, failed: true });
+    expect(await readCmoSigningHub(supabase)).toMatchObject({ failed: true, failedSources: ["the fast-sugar wording signature"] });
+  });
 });
 
 describe("readCmoSigningHub: capacity, rest and fire drills", () => {
