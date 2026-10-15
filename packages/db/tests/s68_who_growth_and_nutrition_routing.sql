@@ -372,12 +372,13 @@ begin
   perform pg_temp.back();
   perform pg_temp.ck('a parent entry is caregiver_entered whatever the client sent', 'caregiver_entered', m.source);
   perform pg_temp.ck('...with the parent as recorded_by', v_parent::text, m.recorded_by::text);
-  v_teen := pg_temp.mkuser(v_org, 'teen', 'patient', (current_date - interval '16 years')::date, 'female');
-  perform pg_temp.act(v_teen);
+  -- S04b-1: a person under 18 has no login of their own, so a 16 year old is a minor dependant and the parent records the measurement.
+  v_teen := pg_temp.mkchild(v_org, v_parent, 'teen', (current_date - interval '16 years')::date, 'female', true);
+  perform pg_temp.act(v_parent);
   insert into public.child_growth_measurements (organisation_id, patient_id, measured_at, weight_kg, height_cm) values (v_org, v_teen, now(), 55, 160) returning * into m;
   select * into m from public.child_growth_measurements where id = m.id;
   perform pg_temp.back();
-  perform pg_temp.ck('a self entry is patient_entered', 'patient_entered', m.source);
+  perform pg_temp.ck('a parent entry for a teenager is caregiver_entered', 'caregiver_entered', m.source);
   perform pg_temp.ck('a 16 year old is scored on the 2007 reference', 'who-2007-v1', m.reference_version);
   perform pg_temp.act(v_clin);
   insert into public.child_growth_measurements (organisation_id, patient_id, measured_at, weight_kg, height_cm) values (v_org, v_t, now() + interval '4 minutes', 8.4, 70) returning * into m;

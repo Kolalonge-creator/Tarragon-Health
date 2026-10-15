@@ -9,6 +9,17 @@
 --   3. SABOTAGE: (a) the sealed rule removed (everything is deleted), (b) the grace check removed. The matching checks must flip.
 begin;
 
+-- S04b-1: a child exists only as a minor dependant record, and the minor-scope trigger (also on every table that holds a patient_id) refuses most tables to
+-- minors. These proofs are about the maternal and child content, so the trigger is lifted for this rolled-back transaction only.
+do $$
+declare v_t record;
+begin
+  for v_t in select c.relname from pg_trigger g join pg_class c on c.oid = g.tgrelid join pg_namespace n on n.oid = c.relnamespace
+              where g.tgname = '00_minor_dependant_scope' and n.nspname = 'public' loop
+    execute format('alter table public.%I disable trigger "00_minor_dependant_scope"', v_t.relname);
+  end loop;
+end $$;
+
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
 grant all on results to public;
 create temp table fx(k text primary key, v uuid) on commit drop;
@@ -63,10 +74,14 @@ declare v uuid := gen_random_uuid();
 begin
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
   values (v, 's68-' || p_label || '-' || v || '@example.invalid', 'x', now(), '{}', '{}');
-  insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test)
+  -- S04b-1: registration is for adults; a person under 18 exists only as a minor dependant record.
+  insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test, is_dependent_account, dependent_kind)
   values (v, p_org, p_role::public.user_role, 'S68 ' || p_label, '+23480' || lpad((random() * 99999999)::int::text, 8, '0'),
-          coalesce(p_dob, (current_date - interval '30 years')::date), p_test)
-  on conflict (id) do update set role = excluded.role, is_test = excluded.is_test, is_active = true, phone = excluded.phone, date_of_birth = excluded.date_of_birth;
+          coalesce(p_dob, (current_date - interval '30 years')::date), p_test,
+          coalesce(p_dob, current_date - interval '30 years') > current_date - interval '18 years',
+          case when coalesce(p_dob, current_date - interval '30 years') > current_date - interval '18 years' then 'minor_child'::public.dependent_kind end)
+  on conflict (id) do update set role = excluded.role, is_test = excluded.is_test, is_active = true, phone = excluded.phone, date_of_birth = excluded.date_of_birth,
+    is_dependent_account = excluded.is_dependent_account, dependent_kind = excluded.dependent_kind;
   if p_sex is not null then update public.profiles set sex = p_sex::public.sex where id = v; end if;
   return v;
 end $f$;
