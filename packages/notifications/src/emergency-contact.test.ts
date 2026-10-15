@@ -5,7 +5,7 @@
 import "./support/deno.ts";
 import { describe, expect, it } from "@jest/globals";
 import { describeViolations, lintRenderFn } from "./index.ts";
-import { confirmedPhoneMatches, emergencyContactName, emergencyContactText, planContactFanout } from "../../../supabase/functions/_shared/notifications/emergency-contact.ts";
+import { emergencyContactName, emergencyContactText, planContactFanout } from "../../../supabase/functions/_shared/notifications/emergency-contact.ts";
 import { TEMPLATE_MAP } from "../../../supabase/functions/send-pending-notifications/templates.ts";
 
 const ctx = { notificationId: "n", recipientId: "r" };
