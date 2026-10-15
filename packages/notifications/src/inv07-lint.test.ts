@@ -90,15 +90,51 @@ describe("notification wording in the language catalogues (reminders, medicine r
 
 describe("the database term list matches the code list", () => {
   const dir = "../../supabase/migrations";
-  const file = readdirSync(dir).find((f) => f.endsWith("_s13_notifications_framework.sql"));
-  it("has the S13 migration", () => {
-    expect(file).toBeDefined();
+  // Every migration that inserts into notification_forbidden_terms (S13 seeded the list, S66 added the reproductive words).
+  const files = readdirSync(dir).filter((f) => f.endsWith(".sql") && readFileSync(`${dir}/${f}`, "utf8").includes("insert into public.notification_forbidden_terms"));
+  it("has the S13 seed and the S66 addition", () => {
+    expect(files.some((f) => f.endsWith("_s13_notifications_framework.sql"))).toBe(true);
+    expect(files.some((f) => f.endsWith("_s66_notification_terms_cycle_and_reproductive.sql"))).toBe(true);
   });
   it("seeds exactly the code's terms and placeholder names", () => {
-    const sql = readFileSync(`${dir}/${file}`, "utf8");
-    const seed = sql.slice(sql.indexOf("insert into public.notification_forbidden_terms"), sql.indexOf("create function private.notification_text_violations"));
-    const pairs = [...seed.matchAll(/\('([^']+)', '(term|param)'\)/g)].map((m) => `${m[2]}:${m[1]}`).sort();
+    const pairs: string[] = [];
+    for (const f of files) {
+      const sql = readFileSync(`${dir}/${f}`, "utf8");
+      for (const chunk of sql.split("insert into public.notification_forbidden_terms").slice(1)) {
+        const body = chunk.slice(0, chunk.indexOf(";"));
+        for (const m of body.matchAll(/\('([^']+)', '(term|param)'/g)) pairs.push(`${m[2]}:${m[1]}`);
+      }
+    }
     const code = [...FORBIDDEN_TERMS.map((t) => `term:${t}`), ...FORBIDDEN_PARAM_KEYS.map((k) => `param:${k}`)].sort();
-    expect(pairs).toEqual(code);
+    expect([...new Set(pairs)].sort()).toEqual(code);
+  });
+});
+
+describe("S66: nothing about a cycle reaches a push, an email or an inbox preview", () => {
+  const cycleKeys = ["cycle_period_due_soon", "cycle_period_due_today", "cycle_period_late"];
+  it("the three cycle reminders all render the same neutral line, whatever the payload holds", () => {
+    const loud = { days_overdue: 4, days_until: 2, expected_date: "2026-09-01", fertile_window_start: "2026-09-02", phase: "fertile" };
+    for (const template of cycleKeys) {
+      expect(describeInApp({ template, payload: loud }).text).toBe("Your tracker has an update");
+    }
+  });
+  it("the OLD wording is caught by the lint (control: the lint would have failed these strings)", () => {
+    for (const old of [
+      "Your period is expected in a couple of days",
+      "Your period is expected around today",
+      "Your period is 3 days later than expected. Cycles shift for all sorts of reasons.",
+      "Your fertile window starts tomorrow",
+      "Time to log your ovulation test",
+      "Your menopause check-in is due",
+    ]) {
+      expect({ old, violations: lintText(old).length > 0 }).toEqual({ old, violations: true });
+    }
+  });
+  it("no sender template (push, email, sms) is keyed or worded for a cycle", () => {
+    expect(Object.keys(TEMPLATE_MAP).filter((k) => /cycle|period_|fertile|ovulat|menopaus/.test(k))).toEqual([]);
+  });
+  it("the cycle reminders default to the in-app inbox only", () => {
+    const sql = readFileSync("../../supabase/migrations/20260902201443_cycle_reminder_notification_templates.sql", "utf8");
+    expect(sql).toContain("default_channels is `in_app` ONLY");
   });
 });

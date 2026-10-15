@@ -127,11 +127,18 @@ declare
   v_consent   uuid := (select v from sc_fixture where k='consent');
   v_org       uuid := (select v from sc_fixture where k='org');
   v_count     integer;
+  v_note      uuid;
 begin
   -- First, insert a transcript as superuser so there is something to find.
   reset role;
-  insert into public.scribe_transcripts (organisation_id, scribe_consent_id, segments_encrypted, duration_ms, language)
-  values (v_org, v_consent, '\x00'::bytea, 60000, 'en-NG');
+  -- S23x: the transcript's consent must be bound to the same note and patient (one consent per encounter, Q18)
+  perform set_config('app.trusted_clinical_staff_author', (select v::text from sc_fixture where k='staff'), true);
+  insert into public.clinical_encounter_notes (organisation_id, patient_id, encounter_type, reason_for_encounter, status, is_test)
+  values (v_org, v_patient, 'other', 'S23 proof note', 'draft', true) returning id into v_note;
+  perform set_config('app.trusted_clinical_staff_author', '', true);
+  update public.scribe_consents set encounter_note_id = v_note where id = v_consent;
+  insert into public.scribe_transcripts (organisation_id, scribe_consent_id, encounter_note_id, segments_encrypted, duration_ms, language)
+  values (v_org, v_consent, v_note, '\x00'::bytea, 60000, 'en-NG');
 
   -- Now try as patient.
   perform set_config('request.jwt.claims', json_build_object(

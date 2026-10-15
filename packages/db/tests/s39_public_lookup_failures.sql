@@ -114,7 +114,7 @@ declare v_def text; v_msg text := 'no error'; v_tok text;
 begin
   -- sabotage 2: the old bad column put back; opening a share with vitals must fail again
   select token into v_tok from public.record_shares where 'vitals' = any(sections) order by created_at desc limit 1;
-  select pg_get_functiondef('public.record_share_by_token(text)'::regprocedure) into v_def;
+  select pg_get_functiondef('public.record_share_by_token(text, text, text)'::regprocedure) into v_def;
   v_def := replace(v_def, 'vr.glucose_mmol_l,', 'vr.glucose_mmol,');
   execute v_def;
   begin perform public.record_share_by_token(v_tok); exception when others then v_msg := sqlerrm; end;

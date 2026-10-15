@@ -22,8 +22,8 @@ export function StartVirtualReviewButton({ escalationId }: { escalationId: strin
         </a>
         <p className="text-xs text-charcoal-ink/60">
           {result.patientNotified
-            ? "The patient has been sent their own join link by SMS."
-            : "Could not text the patient a join link. Share it with them directly."}
+            ? "The patient has been told in the app that the call is ready."
+            : "Could not notify the patient in the app. Tell them directly that the call is ready."}
         </p>
       </div>
     );

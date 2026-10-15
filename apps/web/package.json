@@ -14,6 +14,7 @@
     "e2e": "playwright test --config=playwright.smoke.config.ts",
     "test:e2e-browser": "playwright test",
     "scribe-wer": "tsx --tsconfig tsconfig.scripts.json scripts/scribe-wer.ts",
+    "audio-fallback-table": "tsx --tsconfig tsconfig.scripts.json scripts/audio-fallback-table.ts",
     "lab-corpus": "tsx --tsconfig tsconfig.scripts.json scripts/run-lab-corpus.ts",
     "ai-coach-eval": "tsx --tsconfig tsconfig.scripts.json --env-file=.env.local scripts/ai-coach-safety-eval.ts",
     "ai-coach-governance-eval": "tsx --tsconfig tsconfig.scripts.json --env-file=.env.local scripts/ai-coach-governance-suites-eval.ts",

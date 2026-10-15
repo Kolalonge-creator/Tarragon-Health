@@ -22,6 +22,7 @@ export const WEARABLE_PROVIDER_LABEL: Record<Enums<"wearable_provider">, string>
   dexcom: "Dexcom (CGM)",
   libre: "FreeStyle Libre",
   android_health_connect: "Health Connect",
+  withings: "Withings",
 };
 
 export const PATIENT_DEVICE_TYPE_LABEL: Record<Enums<"patient_device_type">, string> = {

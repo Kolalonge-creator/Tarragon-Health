@@ -42,7 +42,6 @@ export interface HealthPassportEscalation {
 export interface HealthPassportProtocolAuthor {
   fullName: string;
   credentialType: string | null;
-  credentialNumber: string | null;
 }
 
 /** `profiles.full_name` isn't guaranteed honorific-free (some accounts store
@@ -84,6 +83,7 @@ export async function getHealthPassportData(
       .from("vitals_readings")
       .select("*")
       .eq("patient_id", patientId)
+      .is("correction_status", null)
       .gte("taken_at", periodStartIso)
       .order("taken_at", { ascending: false }),
     supabase
@@ -95,6 +95,7 @@ export async function getHealthPassportData(
       .from("lab_analyte_readings")
       .select("code, value, unit, taken_at")
       .eq("patient_id", patientId)
+      .is("correction_status", null)
       .gte("taken_at", periodStartIso)
       .order("taken_at", { ascending: false }),
     supabase
@@ -158,7 +159,7 @@ export async function getHealthPassportData(
   if (directorId) {
     const { data } = await supabase
       .from("clinical_staff_directory")
-      .select("full_name, credential_type, credential_number")
+      .select("full_name, credential_type")
       .eq("profile_id", directorId)
       .eq("active", true)
       .maybeSingle();
@@ -166,14 +167,13 @@ export async function getHealthPassportData(
       protocolAuthor = {
         fullName: data.full_name ?? "",
         credentialType: data.credential_type,
-        credentialNumber: data.credential_number,
       };
     }
   }
   if (!protocolAuthor) {
     const { data } = await supabase
       .from("clinical_staff_directory")
-      .select("full_name, credential_type, credential_number")
+      .select("full_name, credential_type")
       .eq("organisation_id", organisationId)
       .eq("doctor_tier", "chief_medical_officer")
       .eq("active", true)
@@ -183,7 +183,6 @@ export async function getHealthPassportData(
       protocolAuthor = {
         fullName: data.full_name ?? "",
         credentialType: data.credential_type,
-        credentialNumber: data.credential_number,
       };
     }
   }

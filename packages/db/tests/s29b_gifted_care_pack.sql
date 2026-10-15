@@ -135,6 +135,9 @@ begin
   v_doc1 := pg_temp.mkdoc(v_org, 'lead1', v_admin);
   v_doc2 := pg_temp.mkdoc(v_org, 'lead2', v_admin);
   v_doc3 := pg_temp.mkdoc(v_org, 'lead3', v_admin);
+  -- S73: the Membership is switched on only behind its go-live guard; open it the way the guard allows (a log row in this transaction, then the switch)
+  insert into public.go_live_guard_log (guard_key, action, actor_id, actor_role, note, conditions) values ('membership_billing_enabled', 'switched_on', v_admin, 'admin', 'proof run', '[]'::jsonb);
+  update public.go_live_guards set is_on = true, changed_at = now(), changed_by = v_admin, change_note = 'proof run' where key = 'membership_billing_enabled';
   perform pg_temp.try_as(v_admin, $q$select public.set_catalog_item_active('membership_annual', true, 'Proof run, membership on for testing')$q$);
   update public.platform_modules set is_enabled = true, enabled_at = now(), enabled_by = v_admin, activation_note = 'S29b proof run' where key = 'v5_checkout';
 
@@ -149,7 +152,7 @@ begin
   r1 := pg_temp.gift_order(v_sup, v_pat, 'membership_annual');
   perform pg_temp.ck('a member with pay_for_care orders a Membership for the patient', 'true', (r1 ~ '^tho_[0-9a-f]{32}$')::text);
   o1 := (select id from public.orders where paystack_reference = r1);
-  perform pg_temp.ck('paying it', 'paid', pg_temp.res(pg_temp.pay(r1, 10000000, 15000, 10015000)));
+  perform pg_temp.ck('paying it', 'paid', pg_temp.res(pg_temp.pay(r1, 12000000, 15000, 12015000)));
   e1 := pg_temp.ent_of(r1);
   perform pg_temp.ck('the entitlement is pending acceptance', 'pending', (select acceptance from public.entitlements where id = e1));
   perform pg_temp.ck('order.paid does not ask for a lead', 'false', (select payload ->> 'care_pack' from public.domain_events where event_type = 'order.paid' and aggregate_id = o1 and idempotency_key = 'order:' || o1));
@@ -180,7 +183,7 @@ begin
   -- 3. Accept -------------------------------------------------------------------------------------------------------------------
   r2 := pg_temp.gift_order(v_sup, v_pat, 'membership_annual');
   o2 := (select id from public.orders where paystack_reference = r2);
-  perform pg_temp.pay(r2, 10000000, 15000, 10015000);
+  perform pg_temp.pay(r2, 12000000, 15000, 12015000);
   e2 := pg_temp.ent_of(r2);
   perform pg_temp.ck('a second gift is pending', 'pending', (select acceptance from public.entitlements where id = e2));
   perform pg_temp.ck('the patient accepts', 'accepted', pg_temp.respond(v_pat, e2, true));
@@ -200,7 +203,7 @@ begin
   update public.patient_memberships set state = 'ended', ended_at = now(), end_reason = 'proof step: reset the membership' where patient_id = v_pat and state = 'active';
   r3 := pg_temp.gift_order(v_sup, v_pat, 'membership_annual');
   o3 := (select id from public.orders where paystack_reference = r3);
-  perform pg_temp.pay(r3, 10000000, 15000, 10015000);
+  perform pg_temp.pay(r3, 12000000, 15000, 12015000);
   e3 := pg_temp.ent_of(r3);
   perform pg_temp.ck('a third gift is pending', 'pending', (select acceptance from public.entitlements where id = e3));
   v_n := private.expire_pending_gifts();
@@ -222,7 +225,7 @@ begin
 
   -- 5. Buying for yourself is unchanged ---------------------------------------------------------------------------------------
   r4 := pg_temp.order_ref(v_pat2, 'membership_annual', gen_random_uuid());
-  perform pg_temp.pay(r4, 10000000, 15000, 10015000);
+  perform pg_temp.pay(r4, 12000000, 15000, 12015000);
   perform pg_temp.ck('a self purchase needs no acceptance', 'not_needed', (select acceptance from public.entitlements where id = pg_temp.ent_of(r4)));
   perform pg_temp.ck('a self purchase makes a Member at once', 'true', (select private.patient_is_member(v_pat2)::text));
   perform pg_temp.ck('and asks for a lead at once', 'true',
@@ -239,7 +242,7 @@ begin
   v_pat3 := pg_temp.mkuser(v_org, 'pat3', 'patient');
   perform pg_temp.addmember(v_org, v_pat3, v_sup, array['pay_for_care']);
   r := pg_temp.gift_order(v_sup, v_pat3, 'membership_annual');
-  perform pg_temp.pay(r, 10000000, 15000, 10015000);
+  perform pg_temp.pay(r, 12000000, 15000, 12015000);
   e := pg_temp.ent_of(r);
   select pg_get_functiondef('public.respond_to_gifted_pack(uuid, boolean)'::regprocedure) into d;
   d := replace(d, 'and patient_id = (select auth.uid()) for update', 'for update');
@@ -256,7 +259,7 @@ begin
   v_pat3 := pg_temp.mkuser(v_org, 'pat4', 'patient');
   perform pg_temp.addmember(v_org, v_pat3, v_sup, array['pay_for_care']);
   r := pg_temp.gift_order(v_sup, v_pat3, 'membership_annual');
-  perform pg_temp.pay(r, 10000000, 15000, 10015000);
+  perform pg_temp.pay(r, 12000000, 15000, 12015000);
   insert into results values ('sabotaged', 'a gift waits for the patient (no lead asked for at once)', 'pending', (select acceptance from public.entitlements where id = pg_temp.ent_of(r)));
 end $$;
 

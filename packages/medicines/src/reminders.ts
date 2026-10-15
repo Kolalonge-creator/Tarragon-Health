@@ -187,3 +187,18 @@ export function reminderIssues(input: ReminderHealthInput): ReminderIssue[] {
   if (lookingStopped && AGGRESSIVE_BACKGROUND_MAKERS.some((m) => maker.includes(m))) out.push("maker_may_stop_reminders");
   return out;
 }
+
+export type KeepRemindersGroup = "transsion" | "samsung" | "other_aggressive" | "generic";
+
+/**
+ * Which "Keep reminders working" checklist fits this phone (S08x, closes OQ-73). Tecno, Infinix and itel share one
+ * power manager; Samsung has its own sleeping-apps lists; other makers on the list get the generic battery step; any
+ * other phone gets the generic step too. Only a hint for wording: nothing here can prove a phone will or will not deliver.
+ */
+export function keepRemindersGroup(manufacturer: string | null): KeepRemindersGroup {
+  const maker = manufacturer?.toLowerCase() ?? "";
+  if (["tecno", "infinix", "itel", "transsion"].some((m) => maker.includes(m))) return "transsion";
+  if (maker.includes("samsung")) return "samsung";
+  if (AGGRESSIVE_BACKGROUND_MAKERS.some((m) => maker.includes(m))) return "other_aggressive";
+  return "generic";
+}

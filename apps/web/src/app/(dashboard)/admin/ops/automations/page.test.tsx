@@ -9,38 +9,34 @@ jest.mock("@/lib/supabase/server", () => ({ createClient: jest.fn().mockResolved
 
 import AutomationsPage from "./page";
 
-const base = { kind: "vercel_cron", schedule: "0 5 * * *", enabled: true, owner_role: null, owner_user_name: null, runbook_url: null, last_run_at: null, last_status: null, can_edit: true };
-const rows = [
-  { ...base, id: "11111111-1111-4111-8111-111111111111", name: "cron:broken-job", kind: "pg_cron", last_status: "failed", health: "failed", last_run_at: "2026-10-07T03:00:00Z" },
-  { ...base, id: "22222222-2222-4222-8222-222222222222", name: "vercel:fraud-sweep", health: "unowned" },
-  { ...base, id: "33333333-3333-4333-8333-333333333333", name: "vercel:ok-job", owner_role: "finance", health: "ok" },
-];
+const base = { purpose: null, owner: "unassigned", schedule: "* * * * *", source: "pg_cron", safety_critical: false, is_paused: false, paused_at: null, reason: null, last_run_at: null, last_status: null, registered: true };
 const props = (n?: string) => ({ searchParams: Promise.resolve({ n }) });
 beforeEach(() => rpc.mockReset());
 
 describe("AutomationsPage", () => {
-  it("shows the failed job first and the unowned one, with an owner form for an admin", async () => {
-    rpc.mockResolvedValue({ data: rows, error: null });
+  it("shows a pause control for a routine job and none for a safety-critical job or a Vercel cron", async () => {
+    rpc.mockResolvedValue({ data: [
+      { ...base, job_name: "routine-job" },
+      { ...base, job_name: "sweep-pages", safety_critical: true },
+      { ...base, job_name: "/api/cron/fraud-sweep", source: "vercel" },
+    ], error: null });
     render(await AutomationsPage(props()));
-    const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent ?? "");
-    expect(headings[0]).toMatch(/Last run failed/);
-    expect(screen.getByText("cron:broken-job")).toBeTruthy();
-    expect(screen.getByText("vercel:fraud-sweep")).toBeTruthy();
-    expect(headings.some((h) => /No owner yet/.test(h))).toBe(true);
-    expect(screen.getAllByText("Save owner").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Pause").length).toBe(2);
+    expect(screen.getByText(/safety critical and cannot be paused/)).toBeTruthy();
+    expect(screen.getByText(/scheduled by Vercel/)).toBeTruthy();
+    expect(screen.getAllByText(/Owner: not recorded/).length).toBe(3);
   });
-  it("tells a read-only viewer they cannot set an owner", async () => {
-    rpc.mockResolvedValue({ data: [{ ...rows[1], can_edit: false }], error: null });
+  it("flags a job that is not in the registry", async () => {
+    rpc.mockResolvedValue({ data: [{ ...base, job_name: "new-job", registered: false }], error: null });
     render(await AutomationsPage(props()));
-    expect(screen.queryByText("Save owner")).toBeNull();
-    expect(screen.getByText(/Only an admin can set an owner/)).toBeTruthy();
+    expect(screen.getByText("Not in the registry")).toBeTruthy();
   });
-  it("a failed load is an error, never an empty 'all fine'", async () => {
+  it("a failed load is an error, never an empty list", async () => {
     rpc.mockResolvedValue({ data: null, error: { message: "boom", code: "XX000" } });
     render(await AutomationsPage(props()));
-    expect(screen.getByRole("alert").textContent).toMatch(/could not be loaded/);
+    expect(screen.getByRole("alert")).toBeTruthy();
   });
-  it("sends someone the database refuses back to /admin", async () => {
+  it("a refusal from a non-admin leaves the page", async () => {
     rpc.mockResolvedValue({ data: null, error: { message: "no", code: "42501" } });
     await expect(AutomationsPage(props())).rejects.toThrow("REDIRECT:/admin");
   });

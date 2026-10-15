@@ -96,3 +96,8 @@ apps/mobile/build-reports/
 
 # Rendered audio masters (drafts, not committed; the signed bundled ones are copied into the app by the ingest script)
 audio/masters/
+# Local-only generated audio and stray wheels
+/audio/library/
+/audio/s32/
+/audio/voice/
+*.whl

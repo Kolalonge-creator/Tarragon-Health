@@ -19,16 +19,20 @@ jest.mock("./supabase", () => {
       eq: [string, unknown][];
       neq: [string, unknown][];
       gte: [string, string][];
+      lte: [string, string][];
+      head?: boolean;
       or?: string;
       order: [string, boolean][];
       limit?: number;
-    } = { eq: [], neq: [], gte: [], order: [] };
+    } = { eq: [], neq: [], gte: [], lte: [], order: [] };
     const run = async () => {
       if (mockFail) return { data: null, error: mockFail };
       let rows = [...(mockTables[table] ?? [])];
       for (const [k, v] of state.eq) rows = rows.filter((r) => r[k] === v);
       for (const [k, v] of state.neq) rows = rows.filter((r) => r[k] !== v);
       for (const [k, v] of state.gte) rows = rows.filter((r) => String(r[k]) >= v);
+      for (const [k, v] of state.lte) rows = rows.filter((r) => String(r[k]) <= v);
+      if (state.head) return { data: null, count: rows.length, error: null };
       if (state.or) {
         const m = /created_at\.gt\.(.+?),and\(created_at\.eq\.(.+?),id\.gt\.(.+?)\)/.exec(state.or)!;
         rows = rows.filter((r) => r.created_at > m[1] || (r.created_at === m[2] && r.id > m[3]));
@@ -49,10 +53,11 @@ jest.mock("./supabase", () => {
       return { data: rows, error: null };
     };
     const q: Record<string, unknown> = {
-      select: () => q,
+      select: (_cols?: string, opts?: { head?: boolean }) => ((state.head = opts?.head === true), q),
       eq: (k: string, v: unknown) => (state.eq.push([k, v]), q),
       neq: (k: string, v: unknown) => (state.neq.push([k, v]), q),
       gte: (k: string, v: string) => (state.gte.push([k, v]), mockCalls.push({ table, gte: v }), q),
+      lte: (k: string, v: string) => (state.lte.push([k, v]), q),
       or: (v: string) => ((state.or = v), q),
       order: (k: string, opts?: { ascending?: boolean }) => (state.order.push([k, opts?.ascending !== false]), q),
       limit: (n: number) => ((state.limit = n), q),
@@ -115,12 +120,12 @@ describe("pullChanges", () => {
     expect(ids).toEqual(["v1", "v2", "v3"]);
   });
 
-  it("misses a late row older than the overlap (the documented limit of the window)", async () => {
+  it("a late row older than the overlap is caught by the count check (S06x closed the old documented limit)", async () => {
     mockTables.vitals_readings = [row("v1", 2)];
     await pullChanges("p1");
     mockTables.vitals_readings.push(row("v0", 60));
     await pullChanges("p1");
-    expect((await readLocalRecords<Row>("vital", "p1")).map((v) => v.id)).toEqual(["v1"]);
+    expect((await readLocalRecords<Row>("vital", "p1")).map((v) => v.id).sort()).toEqual(["v0", "v1"]);
   });
 
   it("pages with an id tiebreak when many rows share one created_at", async () => {
@@ -321,5 +326,45 @@ describe("task mirror (S07)", () => {
     mockTables.patient_tasks = [];
     await pullChanges("p1");
     expect(await readLocalTasks("p1")).toEqual([]);
+  });
+});
+
+describe("post-pull count check (S06x)", () => {
+  it("finds a row that committed later than the overlap, re-reads the window, and says so", async () => {
+    mockTables.vitals_readings = [row("v1", 30), row("v3", 2)];
+    await pullChanges("p1");
+    // v2 has a created_at between the two but only became visible now, older than the 10 minute overlap behind the cursor
+    mockTables.vitals_readings.push(row("v2", 20));
+    const result = await pullChanges("p1");
+    expect(result.drifted).toEqual(["vital"]);
+    expect(result.repaired).toEqual(["vital"]);
+    expect((await readLocalRecords<{ id: string }>("vital", "p1")).map((r) => r.id).sort()).toEqual(["v1", "v2", "v3"]);
+  });
+
+  it("does nothing when the counts agree", async () => {
+    mockTables.vitals_readings = [row("v1", 30), row("v3", 2)];
+    const first = await pullChanges("p1");
+    const second = await pullChanges("p1");
+    expect(first.drifted).toEqual([]);
+    expect(second.drifted).toEqual([]);
+    expect(second.repaired).toEqual([]);
+  });
+
+  it("never counts rows the retention purge removes on purpose as drift", async () => {
+    mockTables.vitals_readings = [row("old", 80 * 24 * 60), row("v1", 30)];
+    await pullChanges("p1");
+    // Newest row moves forward 20 days; the old one is now past retention and is purged locally.
+    mockTables.vitals_readings.push(row("v9", 1));
+    const result = await pullChanges("p1");
+    expect(result.drifted).toEqual([]);
+  });
+
+  it("an ordinary new row is not drift", async () => {
+    mockTables.vitals_readings = [row("v1", 30)];
+    await pullChanges("p1");
+    mockTables.vitals_readings.push(row("v2", 1));
+    const result = await pullChanges("p1");
+    expect(result.pulled).toBeGreaterThan(0);
+    expect(result.drifted).toEqual([]);
   });
 });

@@ -46,4 +46,52 @@ describe("PatientSummaryView", () => {
     render(<PatientSummaryView summary={{ ...base, triage_events: [{ grade: "red", trigger_type: "observation", explanation_key: null, created_at: "2026-10-05T09:00:00Z" }] }} />);
     expect(screen.getByText("red")).toBeTruthy();
   });
+
+  it("P6: a triage row shows the rule, the rule set version and the reading it was given", () => {
+    render(
+      <PatientSummaryView
+        summary={{
+          ...base,
+          triage_events: [{
+            grade: "amber", trigger_type: "observation", explanation_key: "TRI-003", created_at: "2026-10-05T09:00:00Z", rule_id: "BP-A2",
+            rule_set_code: "bp_care_triage", rule_set_version: 3, context: { reading: { systolic: 152, diastolic: 96 }, cuffType: "wrist" },
+          }],
+        }}
+      />,
+    );
+    expect(screen.getByText("Rule BP-A2, bp_care_triage version 3")).toBeTruthy();
+    expect(screen.getByText("152/96 mmHg")).toBeTruthy();
+  });
+
+  it("P6: a reading row shows the cuff type when it was recorded, and nothing when it was not", () => {
+    const row = { type: "bp", systolic: 150, diastolic: 95, value_numeric: null, unit: "mmHg", measured_at: "2026-10-05T09:00:00Z", source: "patient" };
+    render(<PatientSummaryView summary={{ ...base, readings: { window_days: 14, targets: [], rows: [{ ...row, cuff_type: "wrist" }, { ...row, measured_at: "2026-10-04T09:00:00Z", cuff_type: null }] } }} />);
+    expect(screen.getAllByText("Wrist cuff")).toHaveLength(1);
+  });
+
+  it("shows a symptom check summary the patient sent once it is tied to a booked consultation (S59)", () => {
+    render(
+      <PatientSummaryView
+        summary={{
+          ...base,
+          symptom_summaries: [
+            {
+              id: "s1",
+              sent_at: "2026-10-07T10:00:00Z",
+              appointment_id: "ap1",
+              payload: { complaint: "headache", complaint_label: "Headache", category: "urgent", onset: "gradual", severity: 6, associated_symptoms: ["fever"], questions: [{ prompt: "Has it lasted long?", answer: true }], red_flags_fired: [] },
+            },
+          ],
+        }}
+      />,
+    );
+    expect(screen.getByText("Symptom check summary")).toBeTruthy();
+    expect(screen.getByText(/Headache/)).toBeTruthy();
+    expect(screen.getByText(/Has it lasted long\?: yes/)).toBeTruthy();
+  });
+
+  it("shows no symptom summary section when there is none", () => {
+    render(<PatientSummaryView summary={{ ...base, symptom_summaries: [] }} />);
+    expect(screen.queryByText("Symptom check summary")).toBeNull();
+  });
 });

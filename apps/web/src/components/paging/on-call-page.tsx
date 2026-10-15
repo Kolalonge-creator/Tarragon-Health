@@ -2,10 +2,12 @@ import Link from "next/link";
 import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Field, fieldClass, Flash, Hidden, Muted, Section, SubmitButton } from "@/components/credentialing/shared";
-import { acknowledgePage, closePage, confirmReadiness } from "@/lib/paging/actions";
-import { READINESS_ITEMS, type ReadinessKey } from "@/lib/paging/schemas";
+import { acknowledgePage, acknowledgeTestPage, closePage, confirmReadiness, sendTestPage } from "@/lib/paging/actions";
+import { TestPageReceipt } from "./test-page-receipt";
+import { GAP_LABELS, READINESS_ITEMS, type ReadinessKey } from "@/lib/paging/schemas";
 import { formatWaiting, pageHeadline } from "@/lib/paging/alarm";
-import { getMyActivePages, getMyReadiness } from "@/lib/paging/queries";
+import { getMyActivePages, getMyReadiness, getRedPatientResponse } from "@/lib/paging/queries";
+import { RedPatientAnswer } from "./red-patient-answer";
 import { formatLagos } from "@/lib/rota/time";
 import { firstParam, type SearchParams } from "@/lib/credentialing/params";
 
@@ -17,6 +19,8 @@ export async function OnCallPage({ searchParams }: { searchParams: SearchParams 
   const [pages, readiness] = await Promise.all([getMyActivePages(), getMyReadiness()]);
   // one card per event: the family of pages (primary, backup, escalation) is one case
   const roots = [...new Map(pages.map((p) => [p.root_id, p])).values()];
+  // CMO Q13: what each patient said about seeking care, no identity attached
+  const answers = new Map(await Promise.all(roots.map(async (p) => [p.root_id, await getRedPatientResponse({ page: p.page_id })] as const)));
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
@@ -44,6 +48,35 @@ export async function OnCallPage({ searchParams }: { searchParams: SearchParams 
           <SubmitButton>{readiness.confirmed_at ? "Confirm again" : "I have done these"}</SubmitButton>
         </form>
       </Section>
+      <Section
+        title="Prove it works"
+        hint={`Being put on the on-call rota also needs a working notification set-up, a confirmed email address and a test page you have acknowledged in the last ${readiness.test_page_days} days. This checks the real route, not just your word.`}
+      >
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <Badge variant={readiness.gaps.length === 0 ? "green" : "amber"}>{readiness.gaps.length === 0 ? "All set" : `${readiness.gaps.length} to do`}</Badge>
+          {readiness.last_test_page_acknowledged_at ? <span className="text-muted-foreground">Last test page acknowledged {formatLagos(readiness.last_test_page_acknowledged_at)}</span> : null}
+        </div>
+        {readiness.gaps.length > 0 ? (
+          <ul className="list-disc space-y-1 pl-5 text-sm">
+            {readiness.gaps.map((g) => (
+              <li key={g}>{GAP_LABELS[g]}</li>
+            ))}
+          </ul>
+        ) : null}
+        {readiness.pending_test_page_id ? (
+          <form action={acknowledgeTestPage}>
+            <TestPageReceipt testId={readiness.pending_test_page_id} />
+            <Hidden name="returnTo" value={RETURN_TO} />
+            <Hidden name="testId" value={readiness.pending_test_page_id} />
+            <SubmitButton>Acknowledge the test page</SubmitButton>
+          </form>
+        ) : (
+          <form action={sendTestPage}>
+            <Hidden name="returnTo" value={RETURN_TO} />
+            <SubmitButton tone="outline">Send me a test page</SubmitButton>
+          </form>
+        )}
+      </Section>
       {roots.length === 0 ? (
         <Section title="Nothing waiting">
           <Muted>No priority case is waiting for you. This page checks again every few seconds.</Muted>
@@ -56,7 +89,9 @@ export async function OnCallPage({ searchParams }: { searchParams: SearchParams 
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 <Badge variant={acknowledged ? "green" : "red"}>{acknowledged ? "Acknowledged" : "Needs you now"}</Badge>
                 {p.escalation_level > 0 ? <Badge variant="amber">Escalated, level {p.escalation_level}</Badge> : null}
+                {p.expired_at !== null && !acknowledged ? <Badge variant="red">Nobody has answered: phone the clinician on call</Badge> : null}
               </div>
+              <RedPatientAnswer answer={answers.get(p.root_id) ?? null} />
               {!acknowledged ? (
                 <form action={acknowledgePage}>
                   <Hidden name="returnTo" value={RETURN_TO} />

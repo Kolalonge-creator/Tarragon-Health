@@ -46,6 +46,7 @@
 // audit_log, never a crash and never a silent drop.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { withSentry } from "../_shared/observability/sentry.ts";
 
 type UpgradeCondition = "hypertension" | "diabetes" | "cancer_referral" | "other";
 
@@ -83,7 +84,92 @@ function inferSpecialistType(flags: string[]): string {
 /** The service-role client this function runs everything through. */
 type ServiceClient = ReturnType<typeof createClient>;
 
+<<<<<<< HEAD
 Deno.serve(async (req) => {
+=======
+type AlertTier = "clinician_review" | "urgent_escalation" | "emergency" | "routine";
+
+/** The two tiers `handle_abnormal_screening_result` can raise for this
+ * pathway: 'emergency' for a critical result, 'urgent_escalation' for a
+ * non-critical abnormal one. */
+const SCREENING_PATHWAY = "screening_abnormal_result";
+const SCREENING_TIERS: AlertTier[] = ["emergency", "urgent_escalation"];
+
+interface EscalationSlaEntry {
+  pathway?: string;
+  tier?: string;
+  sla_minutes?: number;
+}
+
+/**
+ * The contact SLA, read from the same `escalation_slas` config row the
+ * trigger itself uses via private.escalation_sla_minutes — never hardcoded.
+ * The 2-hour literal this replaced was correct when written and silently
+ * wrong from the founder's 2026-09-04 change onward (screening_abnormal_
+ * result/emergency is 720 minutes now, not 120); an SLA that lives in
+ * editable config must be read from config everywhere it is quoted.
+ *
+ * Returns the TIGHTEST of the tiers asked for, because the callers that
+ * quote a number here do not know the result_status: promising early contact
+ * on a non-critical result costs nothing, the reverse breaches the SLA.
+ * Null when the config cannot be read — the caller then omits the sentence
+ * rather than inventing a number.
+ */
+async function tightestSlaMinutes(
+  supabase: ServiceClient,
+  pathway: string,
+  tiers: AlertTier[],
+): Promise<number | null> {
+  try {
+    const { data, error } = await supabase
+      .from("escalation_slas")
+      .select("config")
+      .eq("is_active", true)
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return null;
+    const entries = (data.config ?? []) as EscalationSlaEntry[];
+    const minutes = entries
+      .filter(
+        (e) =>
+          e.pathway === pathway &&
+          typeof e.tier === "string" &&
+          tiers.includes(e.tier as AlertTier) &&
+          typeof e.sla_minutes === "number",
+      )
+      .map((e) => e.sla_minutes as number);
+    if (minutes.length === 0) return null;
+    return Math.min(...minutes);
+  } catch {
+    return null;
+  }
+}
+
+/** "within 90 minutes" / "within 12 hours" / "within 2 days" — plain enough
+ * for an SMS, exact enough not to overstate the window. */
+function formatContactWindow(minutes: number): string {
+  if (minutes < 60) return `within ${minutes} minute${minutes === 1 ? "" : "s"}`;
+  if (minutes < 60 * 24) {
+    const hours = minutes / 60;
+    const rounded = Number.isInteger(hours) ? hours : Math.round(hours * 10) / 10;
+    return `within ${rounded} hour${rounded === 1 ? "" : "s"}`;
+  }
+  const days = minutes / (60 * 24);
+  const rounded = Number.isInteger(days) ? days : Math.round(days * 10) / 10;
+  return `within ${rounded} day${rounded === 1 ? "" : "s"}`;
+}
+
+/**
+ * Termii SMS clinician paging. The only external leg left in this function,
+ * used solely by the "clinician alert row missing" fallback, which pages
+ * CLINICIANS (an allowed SMS use). Never used for patients.
+ */
+function sendClinicianPageSms(toPhone: string, smsText: string): Promise<SendResult> {
+  return sendTermiiSms(toPhone, smsText);
+}
+
+Deno.serve(withSentry("abnormal-result-handler", async (req) => {
+>>>>>>> origin/main-dev
   let body: RequestBody;
   try {
     body = await req.json();
@@ -361,4 +447,4 @@ Deno.serve(async (req) => {
     patient_in_app_queued: patientInAppQueued,
     patient_notification_suppressed_sensitive: Boolean(sensitive),
   });
-});
+}));

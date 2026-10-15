@@ -26,7 +26,8 @@ quietly creating real data there.
 ```bash
 # From the repo root — starts Postgres/Auth/Storage/etc. in Docker
 supabase start
-supabase db reset   # replay all migrations + seed.sql onto the fresh stack
+supabase db reset   # replay all migrations + supabase/seed/seed.sql (global catalogues only) onto the fresh stack
+# S85: the end to end journeys live in e2e-browser/journeys, see journeys/README.md
 
 # Grab that stack's connection details
 supabase status -o env

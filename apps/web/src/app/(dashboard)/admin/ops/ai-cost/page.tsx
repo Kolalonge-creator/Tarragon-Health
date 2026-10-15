@@ -19,13 +19,13 @@ export default async function AiCostPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-heading text-2xl font-semibold tracking-tight text-charcoal-ink sm:text-3xl">{t("aicost.title", locale)}</h1>
-        <p className="mt-1 max-w-3xl text-sm text-charcoal-ink/70">{t("aicost.intro", locale)}</p>
+        <h1 className="font-heading text-2xl font-semibold tracking-tight text-charcoal-ink sm:text-3xl">{t("aicostmonth.title", locale)}</h1>
+        <p className="mt-1 max-w-3xl text-sm text-charcoal-ink/70">{t("aicostmonth.intro", locale)}</p>
       </div>
       {!loaded.ok ? (
-        <p role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">{t("aicost.load_error", locale)}</p>
+        <p role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">{t("aicostmonth.load_error", locale)}</p>
       ) : loaded.data.length === 0 ? (
-        <p className="text-sm text-charcoal-ink/70">{t("aicost.empty", locale)}</p>
+        <p className="text-sm text-charcoal-ink/70">{t("aicostmonth.empty", locale)}</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
@@ -33,10 +33,10 @@ export default async function AiCostPage() {
               <tr className="border-b border-charcoal-ink/15 text-xs text-charcoal-ink/70">
                 <th scope="col" className="py-2 pr-3">AI</th>
                 <th scope="col" className="py-2 pr-3">Month</th>
-                <th scope="col" className="py-2 pr-3">{t("aicost.calls", locale)}</th>
-                <th scope="col" className="py-2 pr-3">{t("aicost.tokens", locale)}</th>
-                <th scope="col" className="py-2 pr-3">{t("aicost.cost", locale)}</th>
-                <th scope="col" className="py-2">{t("aicost.unpriced", locale)}</th>
+                <th scope="col" className="py-2 pr-3">{t("aicostmonth.calls", locale)}</th>
+                <th scope="col" className="py-2 pr-3">{t("aicostmonth.tokens", locale)}</th>
+                <th scope="col" className="py-2 pr-3">{t("aicostmonth.cost", locale)}</th>
+                <th scope="col" className="py-2">{t("aicostmonth.unpriced", locale)}</th>
               </tr>
             </thead>
             <tbody>
@@ -46,7 +46,7 @@ export default async function AiCostPage() {
                   <td className="py-2 pr-3">{r.month.slice(0, 7)}</td>
                   <td className="py-2 pr-3">{r.calls}</td>
                   <td className="py-2 pr-3">{r.input_tokens.toLocaleString("en-NG")} / {r.output_tokens.toLocaleString("en-NG")}</td>
-                  <td className="py-2 pr-3">{r.cost_kobo === null ? t("aicost.price_missing", locale) : nairaFromKobo(r.cost_kobo)}</td>
+                  <td className="py-2 pr-3">{r.cost_kobo === null ? t("aicostmonth.price_missing", locale) : nairaFromKobo(r.cost_kobo)}</td>
                   <td className="py-2">{r.unpriced_calls}</td>
                 </tr>
               ))}

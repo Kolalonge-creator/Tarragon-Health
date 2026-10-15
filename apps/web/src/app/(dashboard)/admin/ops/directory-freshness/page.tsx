@@ -5,7 +5,7 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { FlashClean } from "@/components/go-live/flash-clean";
 import { loadDirectoryFreshness } from "@/lib/directory-freshness/load";
 import { asNotice, groupFreshness, KIND_LABEL, type FreshnessRow } from "@/lib/directory-freshness/model";
-import { recordDirectoryVerificationAction } from "@/lib/directory-freshness/actions";
+import { recordDirectoryVerificationAction, requestDirectoryRecheckAction } from "@/lib/directory-freshness/actions";
 
 export const metadata = { title: "Directory freshness" };
 export const dynamic = "force-dynamic";
@@ -97,6 +97,20 @@ function Section({ id, title, empty, rows, tone, locale }: { id: string; title: 
                 </details>
               ) : (
                 <p className="text-xs text-charcoal-ink/60">{t("dirfresh.no_permission", locale)}</p>
+              )}
+              {r.can_record && r.status !== "never_verified" && r.status !== "overdue" && (
+                <details>
+                  <summary className="cursor-pointer text-sm font-semibold text-charcoal-ink/70">{t("dirfresh.recheck", locale)}</summary>
+                  <form action={requestDirectoryRecheckAction} className="mt-2 space-y-2">
+                    <input type="hidden" name="listing_table" value={r.listing_table} />
+                    <input type="hidden" name="listing_id" value={r.listing_id} />
+                    <label className="block text-xs text-charcoal-ink">
+                      {t("dirfresh.recheck_reason", locale)}
+                      <input name="reason" required minLength={10} maxLength={200} className={field} />
+                    </label>
+                    <button type="submit" className={`${btn} border border-charcoal-ink/20 text-charcoal-ink`}>{t("dirfresh.recheck", locale)}</button>
+                  </form>
+                </details>
               )}
             </li>
           ))}

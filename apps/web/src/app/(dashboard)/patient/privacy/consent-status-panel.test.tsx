@@ -42,6 +42,7 @@ let ACCEPTED: Record<string, unknown>[] = [
   { id: "c2", consent_type: "terms_of_service", version: 1, ...ROW },
 ];
 let EXTRA_VERSIONS: Record<string, unknown>[] = [];
+let LOAD_FAILED = false;
 
 jest.mock("@/lib/queries/consent", () => {
   const actual = jest.requireActual("@/lib/queries/consent");
@@ -53,6 +54,7 @@ jest.mock("@/lib/queries/consent", () => {
       accepted: ACCEPTED,
       outstanding: CURRENT_VERSIONS.filter((v) => v.consent_type === "data_processing"),
       isLoading: false,
+      isError: LOAD_FAILED,
     }),
   };
 });
@@ -79,6 +81,7 @@ describe("ConsentStatusPanel", () => {
     withdrawMock.mockReset().mockResolvedValue({ success: true });
     grantMock.mockReset().mockResolvedValue({ success: true });
     EXTRA_VERSIONS = [];
+    LOAD_FAILED = false;
     ACCEPTED = [
       { id: "c1", consent_type: "data_processing", version: 1, ...ROW },
       { id: "c2", consent_type: "terms_of_service", version: 1, ...ROW },
@@ -170,33 +173,47 @@ describe("ConsentStatusPanel", () => {
     expect(screen.queryByRole("button", { name: "Withdraw" })).toBeNull();
   });
 
-  it("lets the patient read an optional consent and agree to it, once, from the list", async () => {
-    EXTRA_VERSIONS = [
-      { id: "v-res-1", consent_type: "research", version: "2026-10-07", title: "Use my information in approved research", body: "I agree that my information may be used in research.", is_optional: true },
-    ];
+  it("an optional purpose starts unticked: the Agree button is disabled until the person ticks it, and one tick agrees to one purpose", async () => {
+    EXTRA_VERSIONS = [{ id: "v-r-1", consent_type: "research", version: 1, is_optional: true, title: "Use my information in approved research", body: "The exact words." }];
     render(<ConsentStatusPanel patientId="patient-1" />);
-    expect(screen.getByText("I agree that my information may be used in research.")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "I agree" }));
-    await waitFor(() => expect(grantMock).toHaveBeenCalledWith("research"));
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["patient-consents", "patient-1"] });
+    const box = screen.getByRole("checkbox", { name: /I have read this and I choose to agree/ }) as HTMLInputElement;
+    expect(box.checked).toBe(false);
+    const agree = screen.getByRole("button", { name: "Agree" }) as HTMLButtonElement;
+    expect(agree.disabled).toBe(true);
+    fireEvent.click(agree);
+    expect(grantMock).not.toHaveBeenCalled();
+
+    fireEvent.click(box);
+    expect(agree.disabled).toBe(false);
+    fireEvent.click(agree);
+    await waitFor(() => expect(grantMock).toHaveBeenCalledWith("research", "v-r-1"));
+    expect(grantMock).toHaveBeenCalledTimes(1);
   });
 
-  it("offers no 'I agree' on a required consent or one already granted", () => {
-    EXTRA_VERSIONS = [
-      { id: "v-res-1", consent_type: "research", version: "2026-10-07", title: "Research", body: "Body", is_optional: true },
-    ];
-    ACCEPTED = [...ACCEPTED, { id: "c9", consent_type: "research", version: "2026-10-07", ...ROW }];
+  it("shows the exact words before the person decides", () => {
+    EXTRA_VERSIONS = [{ id: "v-r-1", consent_type: "research", version: 1, is_optional: true, title: "Use my information in approved research", body: "The exact words." }];
     render(<ConsentStatusPanel patientId="patient-1" />);
-    expect(screen.queryByRole("button", { name: "I agree" })).toBeNull();
+    expect(screen.getByText("The exact words.")).toBeTruthy();
   });
 
-  it("shows the reason when agreeing fails", async () => {
-    grantMock.mockResolvedValue({ error: "We could not record that just then. Please try again." });
-    EXTRA_VERSIONS = [
-      { id: "v-res-1", consent_type: "research", version: "2026-10-07", title: "Research", body: "Body", is_optional: true },
-    ];
+  it("a failed load shows an error, not a list of 'Not shared' choices with Agree buttons", () => {
+    LOAD_FAILED = true;
+    EXTRA_VERSIONS = [{ id: "v-r-1", consent_type: "research", version: 1, is_optional: true, title: "Research", body: "Words." }];
     render(<ConsentStatusPanel patientId="patient-1" />);
-    fireEvent.click(screen.getByRole("button", { name: "I agree" }));
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/could not record/));
+    expect(screen.getByRole("alert").textContent).toMatch(/could not load your consent choices/i);
+    expect(screen.queryByRole("button", { name: "Agree" })).toBeNull();
+    expect(screen.queryByText("Not shared")).toBeNull();
+  });
+
+  it("an optional purpose still in force under an older version can be withdrawn (not only re-read)", () => {
+    EXTRA_VERSIONS = [{ id: "v-r-2", consent_type: "research", version: 2, is_optional: true, title: "Research", body: "New words." }];
+    ACCEPTED = [...ACCEPTED, { id: "c9", consent_type: "research", version: 1, ...ROW }];
+    render(<ConsentStatusPanel patientId="patient-1" />);
+    expect(screen.getByRole("button", { name: "Withdraw" })).toBeTruthy();
+  });
+
+  it("offers no Agree button for a required purpose", () => {
+    render(<ConsentStatusPanel patientId="patient-1" />);
+    expect(screen.queryByRole("button", { name: "Agree" })).toBeNull();
   });
 });

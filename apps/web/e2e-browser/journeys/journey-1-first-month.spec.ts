@@ -1,127 +1,213 @@
+import { createClient } from "@supabase/supabase-js";
 import { expect, test } from "@playwright/test";
-import { adminClient, deleteTestPatient, type TestPatient } from "../helpers/supabase-admin";
-import { createJourneyPatient, loginAs } from "./journey-helpers";
+import { J1, startJourney } from "../../../../packages/shared/src/journeys/journeys";
+import { drainBus, serviceClient } from "./harness/drain";
+import { journeyEnv, newRunId } from "./harness/env";
+import { finishJourney } from "./harness/report";
+import { seedOnCallTeam } from "./harness/oncall";
+import { createUser, signIn } from "./harness/sessions";
+import { lit, sql, sqlRows, sqlValue } from "./harness/sql";
 
 /**
- * Journey 1 (spec D.7.3): a new user's first month.
+ * Journey 1 (spec D.7.3): a new user's first month, as a SPINE test.
  *
- * LOCAL STACK ONLY (global-setup.ts refuses anything else). All data is is_test. Written, NOT run by the session
- * that wrote it. The signup form, phone code and onboarding steps already have specs of their own
- * (phone-auth.spec.ts, b2c-signup-to-entitlement.spec.ts), so this file starts where those end and covers what
- * the journey adds: the daily home blood pressure habit on the Today/vitals screen, and then names every step
- * that is blocked.
+ * Runs the steps that exist today with real sessions and the real database functions, and declares the rest pending with the
+ * owner session. Nothing is simulated that the platform does not do: Health Points, the risk questionnaire, the screening
+ * calendar, the silence nudge and the care pack offer are PENDING, not faked. Checkout through Paystack is SKIPPED with its
+ * reason unless a test key and a served order-checkout function exist, which the local stack job does not have.
  *
- * Journey text versus the product, found while writing this (see docs/audit-D7-journeys.md, Journey 1):
- *   - Onboarding has three intents ("I'm managing a condition", "stay ahead of problems", "not sure yet"), not a
- *     goal list with "blood pressure" on it. The journey's "selects blood pressure" has no matching screen.
- *   - "Pidgin audio" cannot happen: Nigerian Pidgin was removed on 2026-10-06 (English only). Journey text is stale.
- *   - Health Points (S58) and the screening-calendar-driven booking of the Essential screen are not built.
+ * The phone number below is a Supabase test OTP number (supabase/config.toml [auth.sms.test_otp], fixed code 123456), so the
+ * real GoTrue phone sign-up runs and no SMS is sent. Nothing about the phone number or the code is a secret.
  */
-test.describe.configure({ mode: "serial" });
+const PHONE_LOCAL = "0803 123 0005";
+const PHONE_E164 = "+2348031230005";
+const CODE = "123456";
+const PASSWORD = "S85-first-month-pw-!Aa1";
 
-const runId = Date.now().toString();
+test.describe("Journey 1: a new user's first month", () => {
+  test.setTimeout(900_000);
+  test.use({ actionTimeout: 60_000, navigationTimeout: 120_000 });
 
-test.describe("journey 1: a new user's first month", () => {
-  let patient: TestPatient;
+  test("spine: sign-up to first readings, the INV-03 hold, and the Care Circle", async ({ page }, testInfo) => {
+    const run = startJourney(J1);
+    const runId = newRunId();
+    const { apiUrl, anonKey } = journeyEnv();
+    const admin = serviceClient();
 
-  test.beforeAll(async () => {
-    patient = await createJourneyPatient(runId);
-  });
-
-  test.afterAll(async () => {
-    if (patient) await deleteTestPatient(patient);
-  });
-
-  test("onboarding offers the 'managing a condition' intent that this journey starts from", async ({ page }) => {
-    // Uses a second, never-onboarded account so the intent screen is reachable. Only asserts the choice exists;
-    // the full onboarding run is owned by b2c-signup-to-entitlement.spec.ts.
-    const fresh = await createJourneyPatient(`${runId}b`);
-    try {
-      await adminClient.from("profiles").update({ onboarding_completed_at: null }).eq("id", fresh.userId);
-      await page.goto("/login");
-      await page.locator("#email").fill(fresh.email);
-      await page.locator("#password").fill(fresh.password);
-      await page.getByRole("button", { name: "Sign in" }).click();
-      await page.waitForURL(/\/onboarding/, { timeout: 60_000 });
-      await expect(page.getByRole("button", { name: /managing a condition/i })).toBeVisible();
-    } finally {
-      await deleteTestPatient(fresh);
+    // A leftover from an earlier run of this journey would make sign-up refuse; remove it (this number is this journey's alone).
+    for (let p = 1; p <= 10; p++) {
+      const { data } = await admin.auth.admin.listUsers({ page: p, perPage: 200 });
+      const users = data?.users ?? [];
+      const old = users.find((u) => (u.phone ?? "").replace(/\D/g, "") === PHONE_E164.replace(/\D/g, ""));
+      if (old) {
+        await admin.auth.admin.deleteUser(old.id);
+        break;
+      }
+      if (users.length < 200) break;
     }
-  });
 
-  test("she logs a home reading from the vitals screen and it appears in her history", async ({ page }) => {
-    test.setTimeout(120_000);
-    await loginAs(page, patient);
-    await page.goto("/patient/vitals");
-    await page.locator("#systolic").fill("138");
-    await page.locator("#diastolic").fill("86");
-    await page.getByRole("button", { name: "Save reading" }).click();
+    // ------------------------------------------------------------------ 1 and 2: phone sign-up with a code, then a password sign-in
+    let patientId: string | null = null;
+    await run.step("phone-signup-code", async () => {
+      await page.goto("/signup");
+      await page.waitForLoadState("networkidle");
+      await page.getByRole("tab", { name: /^phone$/i }).click();
+      await page.locator("#firstName").fill("Adebayo");
+      await page.locator("#lastName").fill("Journey");
+      await page.locator("#phone").fill(PHONE_LOCAL);
+      await page.locator("#password").fill(PASSWORD);
+      await page.getByRole("button", { name: /create account/i }).click();
+      await page.locator("#token").waitFor({ timeout: 60_000 });
+      // a wrong code must not sign her in
+      await page.locator("#token").fill("000000");
+      await page.getByRole("button", { name: /confirm/i }).click();
+      await expect(page.getByRole("alert").filter({ hasText: /\S/ })).toBeVisible();
+      await expect(page).toHaveURL(/\/signup/);
+      await page.locator("#token").fill(CODE);
+      await page.getByRole("button", { name: /confirm/i }).click();
+      await page.waitForURL((u) => !u.pathname.startsWith("/signup"), { timeout: 90_000 });
+      patientId = sqlValue<string>(`select id from public.profiles where regexp_replace(phone, '\\D', '', 'g') = ${lit(PHONE_E164.replace(/\D/g, ""))} limit 1`);
+      expect(patientId, "no profile was created for the new phone number").not.toBeNull();
+      sql(`update public.profiles set is_test = true, receives_care = true, date_of_birth = (current_date - interval '54 years')::date where id = ${lit(patientId!)};`);
+    });
 
-    await expect
-      .poll(
-        async () => {
-          const { data } = await adminClient
-            .from("vitals_readings")
-            .select("systolic, diastolic, source")
-            .eq("patient_id", patient.userId)
-            .eq("vital_type", "blood_pressure");
-          return data?.map((r) => `${r.systolic}/${r.diastolic}/${r.source}`) ?? [];
-        },
-        { timeout: 30_000 },
-      )
-      .toContain("138/86/manual");
-  });
+    const anon = createClient(apiUrl, anonKey, { auth: { persistSession: false } });
+    let patient: Awaited<ReturnType<typeof anon.auth.signInWithPassword>>["data"] | null = null;
+    await run.step("password-set", async () => {
+      const r = await anon.auth.signInWithPassword({ phone: PHONE_E164, password: PASSWORD });
+      expect(r.error, JSON.stringify(r.error)).toBeNull();
+      patient = r.data;
+      expect(patient.session?.access_token).toBeTruthy();
+      const wrong = await createClient(apiUrl, anonKey, { auth: { persistSession: false } }).auth.signInWithPassword({ phone: PHONE_E164, password: "not-the-password-0" });
+      expect(wrong.error, "a wrong password signed in").not.toBeNull();
+    });
 
-  test("an elevated first reading asks for a repeat instead of escalating (recheck flow)", async () => {
-    // Server side only: S12 opens a triage_pending_rechecks row and one repeat task for the patient. Needs the
-    // event bus processed, so skip unless PROCESS_EVENTS_SECRET is configured (see journey-helpers.drainEventBus).
-    test.skip(!process.env.PROCESS_EVENTS_SECRET, "Set PROCESS_EVENTS_SECRET and serve process-events locally.");
-    await expect
-      .poll(
-        async () => {
-          const { data } = await adminClient.from("triage_events").select("grade").eq("patient_id", patient.userId);
-          return (data ?? []).length;
-        },
-        { timeout: 45_000 },
-      )
-      .toBeGreaterThan(0);
-  });
+    const org = sqlValue<string>(`select organisation_id::text from public.profiles where id = ${lit(patientId ?? "00000000-0000-0000-0000-000000000000")}`);
+    if (!patientId || !org || !patient) {
+      for (const s of J1.steps) if (!s.pending && !run.isResolved(s.id)) run.blocked(s.id, "sign-up did not produce a usable patient");
+      await finishJourney(run, testInfo);
+      return;
+    }
+    const me = createClient(apiUrl, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    await me.auth.setSession({
+      access_token: (patient as { session: { access_token: string; refresh_token: string } }).session.access_token,
+      refresh_token: (patient as { session: { access_token: string; refresh_token: string } }).session.refresh_token,
+    });
 
-  // ---- Blocked or missing steps, one skip each, blocker named ----------------------------------------------
+    // ------------------------------------------------------------------ 6 and 7: an order for a screen (real RPC), then checkout
+    const item = sqlRows<{ code: string }>(
+      `select ci.code from public.catalog_items ci join public.prices p on p.catalog_item_id = ci.id
+        where ci.active order by ci.code limit 1`,
+    )[0];
+    if (!item) {
+      // Checkout is dormant on a fresh stack: the one catalogue item (membership_annual) ships inactive until its go-live guard is met.
+      run.pending(
+        "order-created-for-screen",
+        "FOUNDER go-live of the membership catalogue",
+        "the catalogue item membership_annual is inactive on a fresh database (checkout is dormant until its go-live guard is satisfied), so there is nothing the patient may order",
+      );
+    } else {
+      await run.step("order-created-for-screen", async () => {
+        const res = await me.rpc("create_order", { p_code: item.code, p_client_key: crypto.randomUUID() });
+        expect(res.error, JSON.stringify(res.error)).toBeNull();
+        const o = res.data as { status?: string };
+        expect(o.status ?? "pending").toMatch(/pending/);
+      });
+    }
+    if (process.env.PAYSTACK_SECRET_KEY) {
+      run.skipped("paystack-test-mode-payment", "a Paystack test key is set, but the order-checkout edge function is not served by the local stack job, so a hosted checkout cannot start");
+    } else {
+      run.skipped("paystack-test-mode-payment", "no PAYSTACK_SECRET_KEY test key in this environment and no served order-checkout function; never use a live key");
+    }
 
-  test.skip("risk questionnaire places her at high cardiovascular risk and the screening calendar shows Essential due", async () => {
-    // BLOCKER (not built as described): web has an on-demand cvd-risk-check.tsx and patient_risk_scores, and the
-    // prevention module has screening_schedules, but there is no named "Essential screen" product tied to the risk
-    // result and no calendar item that books from it. Needs a founder/CMO definition (audit finding F-6).
-  });
+    // ------------------------------------------------------------------ 8 and 9: INV-03, an abnormal result is held until a clinician releases it
+    const team = await seedOnCallTeam(runId, org, { rota: false });
+    sql(`insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, clinical_director_id)
+           values (${lit(org)}, ${lit(patientId)}, ${lit(team.primary.id)}, ${lit(team.cmo.id)})
+           on conflict (patient_id) do update set clinician_id = excluded.clinician_id, clinical_director_id = excluded.clinical_director_id;`);
+    let resultId: string | null = null;
+    const labClinician = await signIn(team.primary);
+    await run.step("result-held-before-clinician-review", async () => {
+      // a tied clinician submits a structured result for the patient with a raised creatinine
+      const sub = await labClinician.rpc("team_submit_lab_result", {
+        p_patient: patientId,
+        p_order: null,
+        p_panel: "membership_annual",
+        p_items: [
+          { analyte_code: "creatinine", value_numeric: 2.6, unit: "mg/dL" },
+          { analyte_code: "potassium", value_numeric: 4.2, unit: "mmol/L" },
+        ],
+      });
+      expect(sub.error, JSON.stringify(sub.error)).toBeNull();
+      resultId = JSON.stringify(sub.data).match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/)?.[0] ?? null;
+      expect(resultId, "no result id came back: " + JSON.stringify(sub.data)).not.toBeNull();
+      const state = sqlValue<string>(`select release_state::text from public.lab_results where id = ${lit(resultId!)}`);
+      expect(state, "an abnormal result must not be released on arrival").not.toBe("released");
+      // the patient's own session: no values, no item rows
+      const mine = await me.rpc("my_lab_results");
+      expect(mine.error, JSON.stringify(mine.error)).toBeNull();
+      // only THIS run's result (an earlier run of this journey may have left a released one for the same phone number)
+      const entry = (mine.data as Array<{ lab_result_id: string; items: unknown[]; status: string }>).find((r) => r.lab_result_id === resultId);
+      expect(entry, "the patient cannot even see that a result is under review").toBeDefined();
+      expect(entry!.items, "values of a held result reached the patient").toEqual([]);
+      expect(entry!.status).toBe("under_review");
+      const items = await me.from("lab_result_items").select("id", { count: "exact", head: true }).eq("lab_result_id", resultId!);
+      // control: the rows exist (owner view), so a zero is the policy and not an empty fixture
+      expect(Number(sqlValue<string>(`select count(*)::text from public.lab_result_items where lab_result_id = ${lit(resultId!)}`))).toBeGreaterThan(0);
+      expect(items.count ?? 0, "the patient could read item rows of a held result").toBe(0);
+    });
+    await run.step("clinician-releases-result", async () => {
+      expect(resultId).not.toBeNull();
+      const rev = await labClinician.rpc("lab_result_for_review", { p_result: resultId, p_reason: "S85 journey review" });
+      expect(rev.error, JSON.stringify(rev.error)).toBeNull();
+      const rel = await labClinician.rpc("release_lab_result", { p_result: resultId, p_note: "S85 journey: reviewed" });
+      expect(rel.error, JSON.stringify(rel.error)).toBeNull();
+      expect(sqlValue<string>(`select release_state::text from public.lab_results where id = ${lit(resultId!)}`)).toBe("released");
+      const mine = await me.rpc("my_lab_results");
+      expect(JSON.stringify(mine.data)).toMatch(/creatinine|2\.6/i);
+      // the clinician's read was audited (INV-10)
+      const audited = Number(sqlValue<string>(`select count(*)::text from public.audit_log where actor_id = ${lit(team.primary.id)}`));
+      expect(audited).toBeGreaterThan(0);
+    });
 
-  test.skip("she books the Essential screen with a SYNLAB collection point and pays at checkout", async () => {
-    // BLOCKER (credentials): checkout needs a Paystack TEST key (PAYSTACK_SECRET_KEY, sk_test only), see the
-    // existing skipped-without-key test in b2c-signup-to-entitlement.spec.ts. Lab order routing is proven at DB
-    // level (s27_lab_results_release.sql, s25_catalogue_orders_payments.sql). Never run with a live key.
-  });
+    // ------------------------------------------------------------------ 11: daily readings graded through the bus
+    await run.step("daily-readings-graded", async () => {
+      for (let d = 1; d <= 5; d++) {
+        const ins = await me.from("vitals_readings").insert({
+          organisation_id: org,
+          patient_id: patientId,
+          vital_type: "blood_pressure",
+          systolic: 138 + d,
+          diastolic: 88,
+          taken_at: new Date(Date.now() - (6 - d) * 3600_000).toISOString(),
+        });
+        expect(ins.error, JSON.stringify(ins.error)).toBeNull();
+      }
+      const drain = await drainBus();
+      expect(drain.summary.dead, "a delivery went to the dead letter").toBe(0);
+      const graded = Number(sqlValue<string>(`select count(*)::text from public.triage_events where patient_id = ${lit(patientId!)}`));
+      expect(graded, "each logged reading should have been graded through the bus").toBeGreaterThanOrEqual(1);
+    });
 
-  test.skip("a raised creatinine is reviewed by a clinician before release; results reach her Passport", async () => {
-    // BLOCKER OQ-212 (no seeded clinician) plus partner-portal session for result entry. INV-03 is proven at DB
-    // level in s27_lab_results_release.sql and s27c/s27d.
-  });
+    // ------------------------------------------------------------------ 15: her son joins her Care Circle (real sessions both sides)
+    await run.step("son-joins-care-circle", async () => {
+      const son = await createUser(runId, "son", { role: "patient", organisationId: org, fullName: "[s85] Son" });
+      sql(`insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action)
+             select ${lit(org)}, ${lit(son.id)}, cv.consent_type, cv.id, cv.version, 'accepted'
+               from public.consent_versions cv where cv.is_current and cv.consent_type = 'terms_of_service';
+           update public.profiles set receives_care = false, onboarding_completed_at = now() where id = ${lit(son.id)};`);
+      sql(`update public.profiles set is_test = true where id = ${lit(patientId!)};`);
+      const invite = await me.rpc("create_care_circle_invite", { p_kind: "email", p_contact: son.email, p_relationship: "Son", p_permissions: ["weekly_bp_trend", "red_alerts"] });
+      expect(invite.error, JSON.stringify(invite.error)).toBeNull();
+      const sonClient = await signIn(son);
+      const ok = await sonClient.rpc("accept_care_circle_invite", { p_token: (invite.data as { token: string }).token });
+      expect(ok.error, JSON.stringify(ok.error)).toBeNull();
+      expect((ok.data as { ok: boolean }).ok).toBe(true);
+      // permission scoping: the son sees the trend block only through the supporter function, never the raw readings
+      const raw = await sonClient.from("vitals_readings").select("id", { count: "exact", head: true });
+      expect(raw.count ?? 0).toBe(0);
+    });
 
-  test.skip("results are explained in audio", async () => {
-    // BLOCKER (spec stale): the journey says Pidgin. Pidgin was removed 2026-10-06; English audio clips exist via
-    // the S32 manifest (apps/mobile/src/lib/audio). Rewrite the journey line before writing the test.
-  });
-
-  test.skip("she earns Health Points for consistent logging", async () => {
-    // BLOCKER S58 (Module 11 rewards and engagement): no health_points table or event subscriber exists.
-  });
-
-  test.skip("her average stays above target and she is offered the hypertension care pack", async () => {
-    // BLOCKER (missing producer): care packs exist (S25/S26) but nothing turns a rolling BP average over target into
-    // an offer. outcomes S38 computes 90-day control but is a daily batch, not an offer trigger (audit F-7).
-  });
-
-  test.skip("her son in London joins her Care Circle and pays for the pack with his card", async () => {
-    // BLOCKER (helper, credentials): invite acceptance runs under the supporter's JWT and the card payment needs a
-    // Paystack test key. The permission and beneficiary rules are proven in s29_care_circle.sql, s29b and s29c.
+    await finishJourney(run, testInfo);
   });
 });

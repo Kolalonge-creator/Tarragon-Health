@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { COUNTRY_CALLING_CODES, E164_GENERIC } from "@tarragon/shared";
+import { COUNTRY_CALLING_CODES, E164_GENERIC, checkAdultDateOfBirth } from "@tarragon/shared";
 import { normalisePhoneWithCountry } from "@tarragon/auth/phone";
 import { supabase } from "@/lib/supabase";
 import { ta } from "@/lib/auth/auth-locale";
@@ -141,6 +141,7 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
   const [localPhone, setLocalPhone] = useState("");
   const [stateValue, setStateValue] = useState<string>("");
   const [statePickerOpen, setStatePickerOpen] = useState(false);
+  const [dateOfBirth, setDateOfBirth] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -192,6 +193,7 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
       phone: phone.e164,
       password,
       fullName: `${firstName.trim()} ${lastName.trim()}`.trim(),
+      dateOfBirth: dateOfBirth.trim(),
       state: stateValue || undefined,
       inviteCode: inviteCode.trim() || undefined,
     });
@@ -207,6 +209,12 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
     setError(null);
     if (!firstName.trim() || !lastName.trim()) {
       setError("Enter your first and last name.");
+      return;
+    }
+    // Registration is for adults (S04b-1): the same check the web form makes, before anything is sent.
+    const ageVerdict = checkAdultDateOfBirth(dateOfBirth.trim());
+    if (ageVerdict !== "adult") {
+      setError(ta(ageVerdict === "under_age" ? "auth.error.adult_only" : "auth.error.invalid_dob", locale));
       return;
     }
     if (method === "phone") {
@@ -244,6 +252,7 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
         data: {
           full_name: `${firstName.trim()} ${lastName.trim()}`.trim(),
           phone: fullPhone,
+          date_of_birth: dateOfBirth.trim(),
           ...(stateValue ? { state: stateValue } : {}),
           ...(inviteCode.trim() ? { invite_code: inviteCode.trim() } : {}),
         },
@@ -444,6 +453,21 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
             <MutedText>{ta("signup.invite_code_hint", locale)}</MutedText>
           </View>
         )}
+
+        <View style={{ gap: 6 }}>
+          <TextInput
+            accessibilityLabel={ta("auth.field.dob", locale)}
+            placeholder={ta("auth.field.dob", locale)}
+            placeholderTextColor={colors.subtle}
+            keyboardType="numbers-and-punctuation"
+            autoComplete="birthdate-full"
+            maxLength={10}
+            value={dateOfBirth}
+            onChangeText={setDateOfBirth}
+            style={inputStyle}
+          />
+          <MutedText>{ta("auth.field.dob_hint", locale)}</MutedText>
+        </View>
 
         <View style={{ gap: 6 }}>
           <View style={{ justifyContent: "center" }}>

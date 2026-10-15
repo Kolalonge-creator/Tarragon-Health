@@ -245,3 +245,74 @@ describe("paystack adapter: input rules", () => {
     for (const r of codes) expect(r).toMatchObject({ ok: false, error: { code: "invalid_input" } });
   });
 });
+
+describe("paystack adapter: settlements (read only reconciliation)", () => {
+  it("asks for a page with the date window and reads kobo amounts, ids given as numbers", async () => {
+    const calls: string[] = [];
+    const p = adapter(async (url) => {
+      calls.push(url);
+      return env([{ id: 38770134, status: "success", total_amount: 1_250_000, total_fees: 18_750, settlement_date: "2026-10-07T00:00:00.000Z" }]);
+    });
+    const r = await p.listSettlements({ from: "2026-10-01", to: "2026-10-07", page: 2, perPage: 20 });
+    expect(r.ok && r.data.items[0]).toEqual({ settlementId: "38770134", status: "success", totalKobo: 1_250_000, feesKobo: 18_750, settledAt: "2026-10-07T00:00:00.000Z" });
+    expect(calls[0]).toContain("/settlement?");
+    expect(calls[0]).toContain("from=2026-10-01");
+    expect(calls[0]).toContain("to=2026-10-07");
+    expect(calls[0]).toContain("page=2");
+    expect(calls[0]).toContain("perPage=20");
+  });
+
+  it("falls back on createdAt, an unknown status and zero fees, and a full page without meta means there may be more", async () => {
+    const p = adapter(async () => env([{ id: "7", total_amount: 5, createdAt: "2026-10-01T00:00:00Z" }, { id: "8", total_amount: 6, createdAt: "2026-10-01T00:00:00Z" }]));
+    const r = await p.listSettlements({ perPage: 2 });
+    expect(r.ok && r.data.items[0]).toMatchObject({ status: "unknown", feesKobo: 0, settledAt: "2026-10-01T00:00:00Z" });
+    expect(r.ok && r.data.hasMore).toBe(true);
+    const short = await adapter(async () => env([{ id: "7", total_amount: 5 }])).listSettlements({ perPage: 2 });
+    expect(short.ok && short.data.hasMore).toBe(false);
+    expect(short.ok && short.data.items[0]?.settledAt).toBeNull();
+  });
+
+  it("uses pageCount from meta when Paystack sends it", async () => {
+    const p = adapter(async () => reply(200, JSON.stringify({ status: true, message: "ok", data: [{ id: 1, total_amount: 1 }], meta: { pageCount: 3 } })));
+    expect((await p.listSettlements({ page: 1 }))).toMatchObject({ ok: true, data: { hasMore: true } });
+    expect((await p.listSettlements({ page: 3 }))).toMatchObject({ ok: true, data: { hasMore: false } });
+  });
+
+  it.each([
+    ["not a list", { nope: true }],
+    ["a row with no total", [{ id: 1 }]],
+    ["a row with a non numeric id", [{ id: "abc", total_amount: 1 }]],
+    ["a row that is not an object", ["x"]],
+    ["a row with no id", [{ total_amount: 1 }]],
+  ])("answers bad_response for %s", async (_name, data) => {
+    const r = await adapter(async () => env(data)).listSettlements({});
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.code).toBe("bad_response");
+  });
+
+  it("passes a vendor failure through and never throws", async () => {
+    const r = await adapter(async () => reply(500, JSON.stringify({ status: false, message: "down" }))).listSettlements({});
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.retryable).toBe(true);
+  });
+
+  it("reads the transactions in a settlement and rejects malformed rows", async () => {
+    const calls: string[] = [];
+    const p = adapter(async (url) => {
+      calls.push(url);
+      return env([{ reference: "chg-abcdefgh1234", amount: 500_000, fees: 7_500, status: "success", paid_at: "2026-10-06T10:00:00.000Z" }, { reference: "chg-bcdefghi2345", amount: 100 }]);
+    });
+    const r = await p.listSettlementTransactions("38770134", { page: 1, perPage: 50 });
+    expect(r.ok && r.data.items).toEqual([
+      { reference: "chg-abcdefgh1234", amountKobo: 500_000, feesKobo: 7_500, status: "success", paidAt: "2026-10-06T10:00:00.000Z" },
+      { reference: "chg-bcdefghi2345", amountKobo: 100, feesKobo: 0, status: "unknown", paidAt: null },
+    ]);
+    expect(calls[0]).toContain("/settlement/38770134/transactions?page=1&perPage=50");
+    for (const data of [{ nope: 1 }, [{ amount: 1 }], [{ reference: "r" }], ["x"]]) {
+      const bad = await adapter(async () => env(data)).listSettlementTransactions("1");
+      expect(bad.ok).toBe(false);
+    }
+    const failed = await adapter(async () => reply(404, JSON.stringify({ status: false, message: "no" }))).listSettlementTransactions("1");
+    expect(failed.ok).toBe(false);
+  });
+});

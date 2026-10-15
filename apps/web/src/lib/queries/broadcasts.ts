@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/client";
 import type { Enums, Json, Tables } from "@tarragon/shared";
 import type { BroadcastEmailContent } from "@/lib/broadcasts/render-email-template";
+import { assertNoSmsChannel } from "@/lib/notifications/sms-policy";
 
 export type NotificationBroadcast = Tables<"notification_broadcasts">;
 export type BroadcastAudience = Enums<"broadcast_audience">;
@@ -118,6 +119,29 @@ export function useBroadcastContentCheck() {
   });
 }
 
+/**
+ * OQ-94: the INV-07 term list (conditions, readings, results, medicines) run over a draft broadcast before it is saved. The
+ * database refuses the same text again when it is written, so this only gives the reason up front. Returns the matches
+ * ("term:sugar", "number:pair"); an empty list means clean.
+ */
+export function useBroadcastTermCheck() {
+  return useMutation({
+    mutationFn: async (text: string) => {
+      const supabase = createClient();
+      const { data, error } = await (supabase as unknown as { rpc(fn: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: Error | null }> })
+        .rpc("check_notification_text", { p_text: text });
+      if (error) throw error;
+      return (data ?? []) as string[];
+    },
+  });
+}
+
+/** Plain words for a match returned by the term check, for the composer to show. */
+export function describeTermHits(hits: readonly string[]): string {
+  const words = hits.map((h) => h.replace(/^(term|param|number):/, "").replace("pair", "a blood pressure style pair of numbers").replace("unit", "a number with a unit"));
+  return `This message names a condition, reading, result or medicine (${[...new Set(words)].join(", ")}). Push, email and the inbox preview never do. Reword it and say the detail in the app instead.`;
+}
+
 export interface SendBroadcastInput {
   title: string;
   body: string;
@@ -154,6 +178,7 @@ export function useSendBroadcast() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: SendBroadcastInput) => {
+      assertNoSmsChannel(input.channels);
       const supabase = createClient();
       const {
         data: { user },

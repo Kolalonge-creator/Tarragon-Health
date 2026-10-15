@@ -13,6 +13,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { runBatches, type BusEvent, type BusPorts } from "../_shared/event-bus/dispatch.ts";
 import { buildHandlers } from "./handlers.ts";
+import { withSentry } from "../_shared/observability/sentry.ts";
 
 // Small batches: a delivery's lease starts at claim time and the batch runs one after another, so a
 // batch must finish well inside event_bus_config.lease_seconds (60).
@@ -48,7 +49,7 @@ function sameSecret(a: string, b: string): boolean {
   return diff === 0;
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry("process-events", async (req) => {
   // The publishable key is public, so on its own it must not be enough to start a pass (OQ-85).
   // Fails closed: no PROCESS_EVENTS_SECRET configured means nothing is processed.
   const expected = Deno.env.get("PROCESS_EVENTS_SECRET");
@@ -131,5 +132,15 @@ Deno.serve(async (req) => {
     maxBatches: MAX_BATCHES,
     budgetMs: BUDGET_MS,
   });
+  // S19c: the paging engine's dead-man signal. Recorded after every pass that got as far as claiming (a pass that cannot claim is
+  // a failing engine and must look stale). A failed heartbeat write never changes the result of the pass.
+  if (!summary.claimFailed) {
+    try {
+      const { error } = await supabase.rpc("record_engine_heartbeat", { p_component: "process_events" });
+      if (error) console.error(JSON.stringify({ fn: "process-events", message: "heartbeat write failed", error: error.message }));
+    } catch (e) {
+      console.error(JSON.stringify({ fn: "process-events", message: "heartbeat write failed", error: String(e) }));
+    }
+  }
   return Response.json(summary, { status: summary.claimFailed ? 500 : 200 });
-});
+}));

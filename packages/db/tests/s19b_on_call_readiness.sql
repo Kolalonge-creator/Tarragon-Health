@@ -56,6 +56,18 @@ end $f$;
 
 create function pg_temp.msg(p_sql text) returns text language plpgsql as
 $f$ begin execute p_sql; return 'ok'; exception when others then return sqlstate || ':' || sqlerrm; end $f$;
+-- S19c (P9): the objective half of readiness, done the real way: a push subscription, then a test page sent, shown and acknowledged
+create function pg_temp.objective(p_org uuid, p_u uuid) returns void language plpgsql as
+$f$
+declare v_t uuid;
+begin
+  insert into public.push_subscriptions (organisation_id, profile_id, endpoint, p256dh_key, auth_key) values (p_org, p_u, 'https://push.example.invalid/' || p_u, 'k', 'a');
+  perform pg_temp.act(p_u);
+  v_t := public.send_test_page();
+  perform public.record_page_delivered(v_t, 'push', null);
+  perform public.acknowledge_test_page(v_t);
+  perform pg_temp.back();
+end $f$;
 
 do $$
 declare
@@ -82,6 +94,7 @@ begin
   perform pg_temp.rec('an unconfirmed primary cannot be put on call', 'true', (v_txt like '22023:%phone checklist%')::text);
   perform pg_temp.back();
   perform pg_temp.act(v_p); perform public.confirm_on_call_readiness(v_all); perform pg_temp.back();
+  perform pg_temp.objective(v_org, v_p);
   perform pg_temp.act(v_cmo);
   v_txt := pg_temp.msg(format('select public.set_on_call_rota(%L, %L, %L, %L)', t1, t1 + interval '12 hours', v_p, v_b));
   perform pg_temp.rec('an unconfirmed backup cannot be put on call either', 'true', (v_txt like '22023:%phone checklist%')::text);
@@ -101,6 +114,7 @@ begin
 
   -- 4. Confirmed clinicians can be rostered
   perform pg_temp.act(v_b); perform public.confirm_on_call_readiness(v_all); perform public.confirm_on_call_readiness(v_all); perform pg_temp.back();
+  perform pg_temp.objective(v_org, v_b);
   perform pg_temp.rec('confirming twice keeps one row', '1', (select count(*)::text from public.on_call_readiness where clinician_id = v_b));
   perform pg_temp.rec('the confirmation is audited', '2', (select count(*)::text from public.audit_log where action = 'rota.readiness_confirmed' and actor_id = v_b));
   perform pg_temp.act(v_cmo);
