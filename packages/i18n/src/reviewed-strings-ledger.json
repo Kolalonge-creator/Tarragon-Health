@@ -25,7 +25,7 @@
       "care_category"
     ]
   },
-  "baselineCeiling": 1047,
+  "baselineCeiling": 1068,
   "entries": {
     "breathing.a11y_phase": {
       "hash": "72354cf0a6f4aa9e",
@@ -6305,6 +6305,132 @@
     },
     "scribe.no_scribe.chosen": {
       "hash": "5671c8c024406960",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "circle.help.title": {
+      "hash": "9fd0752b421d300b",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "circle.help.intro": {
+      "hash": "6e7022f4a2b1c731",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "circle.help.button": {
+      "hash": "44c254ebb65218cf",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "circle.help.sent": {
+      "hash": "e615e684f2e039be",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "circle.help.sent_none": {
+      "hash": "bd51b70bc743b01c",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "circle.help.already": {
+      "hash": "3fadd3e967765fb0",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "circle.help.error": {
+      "hash": "2967d34e09bb8276",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "circle.help.not_open": {
+      "hash": "d2705e826f961c29",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "circle.help.location_on": {
+      "hash": "c14cb7d6423ab175",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "circle.help.location_off": {
+      "hash": "ff65671416c85243",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "circle.help.consent.title": {
+      "hash": "447e8aa67c4d1a02",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "circle.help.consent.text": {
+      "hash": "4ad92d2ffa44229b",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "circle.help.consent.on": {
+      "hash": "566e2302ac17f734",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "circle.help.consent.off": {
+      "hash": "9ea62e5a2da4bb84",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "circle.help.consent.turn_on": {
+      "hash": "5a1f096a0d8d7674",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "circle.help.consent.turn_off": {
+      "hash": "06f0e210b27d4d62",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "circle.help.consent.error": {
+      "hash": "69a3143cab1e08f8",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "circle.help.view.title": {
+      "hash": "d00a26ddaceeb663",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "circle.help.view.location": {
+      "hash": "8f4e3f4484129a0a",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "circle.help.view.open_maps": {
+      "hash": "fee06911badc3c8a",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "circle.help.view.no_location": {
+      "hash": "508a0b6232fb418a",
       "reviewer": "unreviewed (baseline)",
       "reviewedOn": null,
       "baseline": true

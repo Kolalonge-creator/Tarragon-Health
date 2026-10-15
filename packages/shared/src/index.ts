@@ -259,6 +259,8 @@ export * from "./consent-state";
 export * from "./data-rights";
 export * from "./notification-settings";
 export * from "./notification-diagnosis";
+export * from "./directory-links";
+export * from "./proposed-config/emergency-pack";
 
 export * from "./maternal-child";
 export { sponsorMinimumGroupSize } from "./sponsor-min-group";
