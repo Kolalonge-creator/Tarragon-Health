@@ -13,7 +13,7 @@ import { logBpWithExtras } from "@/lib/bp-log";
 import { refreshApprovedGlucoseRuleSet, refreshApprovedRuleSet, refreshPatientFacts, resolveExpiredRecheck, rulesMayBeStale, shouldAskSymptomQuestion, type DeviceTriage } from "@/lib/triage-device";
 import { answerSymptomQuestion, type QuestionSymptom } from "@/lib/symptom-question";
 import { readObstetricStatus, refreshObstetricStatus } from "@/lib/obstetric-status";
-import { loadBpSymptomChecklist, loadHomeProtocol } from "@/lib/s07-config";
+import { loadBpSymptomChecklist, loadGlucoseSymptomChecklist, loadHomeProtocol } from "@/lib/s07-config";
 import {
   KETONE_ENTRY_BOUNDS,
   parseStrictNumber,
@@ -21,7 +21,7 @@ import {
   type GlucoseUnit,
   type OtherVitalType,
 } from "@/lib/vitals-entry";
-import { evaluateGlucoseOnDevice, LEVEL_3_SIGNS, type GlucoseOutcome } from "@/lib/glucose-log";
+import { evaluateGlucoseOnDevice, LEVEL_3_SIGNS, saveGlucoseSigns, type GlucoseOutcome } from "@/lib/glucose-log";
 import { GLUCOSE_SYMPTOMS, KETONE_URINE_BANDS, type GlucoseSymptomCode, type KetoneUrine } from "@tarragon/clinical";
 import {
   computeSevenDayAverage,
@@ -68,6 +68,7 @@ import { SymptomChecklist, TechniqueGuide } from "@/screens/sections/bp-extras";
 // Versioned S07 values (rest time, gap between readings, severity recorded for a ticked symptom).
 const HOME_PROTOCOL = loadHomeProtocol();
 const SYMPTOM_CHECKLIST = loadBpSymptomChecklist();
+const GLUCOSE_SIGN_CHECKLIST = loadGlucoseSymptomChecklist();
 
 interface GuidanceState {
   detail: string;
@@ -769,12 +770,16 @@ function OtherVitalCard({
       });
     }
 
+    // The ticked signs go to the server's symptom log through the same outbox blood pressure ticks use (idempotent by client id, held offline), so the
+    // server can grade them with the glucose rules. Saved first, so a sign is sent before its reading when the network allows; never blocks the reading.
+    const signsSaved = type === "glucose" ? await saveGlucoseSigns(signs, GLUCOSE_SIGN_CHECKLIST.severity, { subjectId, beneficiaryProfileId }) : null;
     const result = await logOtherVital(payload, beneficiaryProfileId);
     setSaving(false);
     if (result.error) {
       setSaveError(result.error);
       return;
     }
+    if (signsSaved?.failed) toast.show({ message: tr("vitals.glucose.signs_not_saved"), tone: "warn" });
     if (outcome?.severity === "emergency") onEmergency(emergencyDetail, !!result.synced, wordingCode);
     toast.show(
       result.synced

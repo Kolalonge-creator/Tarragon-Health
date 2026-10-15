@@ -303,6 +303,21 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S07.md section 3; supabase 20260905011852_symptom_red_flag_handler_pages_a_clinician.sql",
   },
   {
+    key: "glucose.symptom_checklist",
+    // A warning sign ticked on the glucose form is stored as a symptoms row so the server can grade it with the glucose rules (R2 follow-up).
+    // The form does not ask the patient to rate it, so it is recorded at this severity, with a description saying it was ticked rather than
+    // rated. 4 is deliberately BELOW the older symptom trigger's paging line (handle_symptom_red_flag pages from severity 5, whatever the type),
+    // so a glucose-form tick never pages through that older path on its own: the governed glucose engine is the one place a glucose sign pages.
+    // Unlike blood pressure (bp.symptom_checklist is 6, on purpose, because blood pressure still leans on the older trigger), do not raise this
+    // without reading docs/design/glucose-sign-storage-gap.md. The CMO confirms the value.
+    value: { severity: 4 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-15",
+    source: "docs/design/glucose-sign-storage-gap.md; supabase 20260905011852_symptom_red_flag_handler_pages_a_clinician.sql",
+  },
+  {
     key: "reminders.behaviour",
     value: { snoozeMinutes: 30, maxSnoozes: 3, missedAfterMinutes: 120, maxPending: 60, horizonDays: 14 },
     owner: "Founder",

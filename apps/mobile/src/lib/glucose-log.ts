@@ -1,5 +1,6 @@
 import { mgDlToMmolL } from "@tarragon/shared";
-import type { GlucoseContextCode, GlucoseSymptomCode, KetoneUrine } from "@tarragon/clinical";
+import { GLUCOSE_SIGN_SYMPTOM_TYPE, GLUCOSE_SYMPTOMS, TICKED_ON_GLUCOSE_FORM_NOTE, type GlucoseContextCode, type GlucoseSymptomCode, type KetoneUrine } from "@tarragon/clinical";
+import { enqueueGroup, flushOutbox, type EnqueueInput } from "./outbox";
 import { gradeGlucoseOnDevice, type DeviceTriage } from "./triage-device";
 import { classifyVitalOffline, type OfflineVitalFlag } from "./vitals";
 import type { GlucoseUnit } from "./vitals-entry";
@@ -57,3 +58,61 @@ export const evaluateGlucoseOnDevice: GlucoseEvaluator = async (input) => {
     signFlag || legacy?.severity === "emergency" || device?.severity === "emergency" ? "emergency" : (legacy?.severity ?? null);
   return { severity, legacy, signFlag, device };
 };
+
+/** One ticked sign as the server's symptom log stores it (see GLUCOSE_SIGN_SYMPTOM_TYPE for why each sign is the symptom it is). */
+export interface PlannedGlucoseSign {
+  sign: GlucoseSymptomCode;
+  symptom_type: string;
+  severity: number;
+  description: string;
+}
+
+/**
+ * The symptom rows for the signs ticked on one glucose log: each sign once, in the engine's own order, anything that is not one of the nine dropped.
+ * `severity` is the configured value (glucose.symptom_checklist), which is below the older symptom trigger's paging line on purpose, so this stores the
+ * sign for the governed engine to grade and cannot page through the older path on its own. Pure.
+ */
+export function planGlucoseSigns(signs: readonly GlucoseSymptomCode[], severity: number): PlannedGlucoseSign[] {
+  return GLUCOSE_SYMPTOMS.filter((s) => signs.includes(s)).map((sign) => ({
+    sign,
+    symptom_type: GLUCOSE_SIGN_SYMPTOM_TYPE[sign],
+    severity,
+    description: TICKED_ON_GLUCOSE_FORM_NOTE,
+  }));
+}
+
+export interface SaveSignsResult {
+  /** Rows made durable on the phone (all or none). */
+  saved: number;
+  /** True when the signs could not be saved on the phone, so the caller can say so; the reading itself is saved on its own path. */
+  failed: boolean;
+}
+
+/**
+ * Makes the ticked signs durable on the phone as symptom rows in the one offline outbox, the same path blood pressure ticks take (idempotent by the
+ * row's client id; held offline and sent oldest first). A Level 3 sign is a "danger" row, so if it has not reached the server within the hour the
+ * patient gets the usual "not yet reached your care team" notice. Never throws: a failure must not stand between the patient and a saved reading,
+ * and the caller is told, never left to assume.
+ */
+export async function saveGlucoseSigns(
+  signs: readonly GlucoseSymptomCode[],
+  severity: number,
+  who: { subjectId: string; beneficiaryProfileId?: string },
+): Promise<SaveSignsResult> {
+  const plan = planGlucoseSigns(signs, severity);
+  if (plan.length === 0) return { saved: 0, failed: false };
+  const inputs: EnqueueInput[] = plan.map((p) => ({
+    kind: "symptom",
+    subjectId: who.subjectId,
+    beneficiaryProfileId: who.beneficiaryProfileId,
+    payload: { symptom_type: p.symptom_type, severity: p.severity, description: p.description },
+    danger: LEVEL_3_SIGNS.includes(p.sign),
+  }));
+  try {
+    await enqueueGroup(inputs);
+  } catch {
+    return { saved: 0, failed: true };
+  }
+  await flushOutbox().catch(() => undefined);
+  return { saved: plan.length, failed: false };
+}
