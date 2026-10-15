@@ -548,8 +548,8 @@ begin
 
   -- S5: the Free guard removed. A Free patient must then wrongly get a unified event.
   v_d := v_orig_covers;
-  if replace(v_d, 'if not private.patient_may_page_doctor(p_patient) then return false; end if;', '') = v_d then raise exception 'VACUOUS TEST: Free guard text not found'; end if;
-  execute replace(v_d, 'if not private.patient_may_page_doctor(p_patient) then return false; end if;', '');
+  if replace(v_d, 'if not coalesce(v_may, false) then return false; end if;', '') = v_d then raise exception 'VACUOUS TEST: Free guard text not found'; end if;
+  execute replace(v_d, 'if not coalesce(v_may, false) then return false; end if;', '');
   perform private.unified_red_page_covers('spo2_red', v_org, f2, 'vitals_readings', gen_random_uuid());
   perform pg_temp.sab('ON: calling the entry point directly for a Free patient creates nothing', '0', pg_temp.ute(f2)::text);
   execute v_orig_covers;
