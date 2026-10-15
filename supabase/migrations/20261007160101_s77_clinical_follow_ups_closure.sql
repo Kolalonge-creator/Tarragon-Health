@@ -188,9 +188,9 @@ create policy clinical_follow_ups_read on public.clinical_follow_ups for select 
 insert into public.task_types
   (code, version, priority_class, default_due_minutes, min_doctor_tier, required_competencies,
    lead_window_minutes, claim_timeout_minutes, pushable, creatable, source_task_keys, note) values
-  ('follow_up_overdue', 1, 8, 1440, 'medical_officer', '{}', 1440, 30, true, true, '{}',
+  ('follow_up_overdue', 1, 8, 1440, 'senior_medical_officer', '{}', 1440, 30, true, true, '{}',
    'S77 (S-20): an order, referral, lab request or follow-up task is overdue past the signed escalation time. PROPOSED class and window; the CMO may change them.'),
-  ('follow_up_overdue_abnormal', 1, 4, 240, 'medical_officer', '{result_review}', 240, 30, true, true, '{}',
+  ('follow_up_overdue_abnormal', 1, 4, 240, 'senior_medical_officer', '{result_review}', 240, 30, true, true, '{}',
    'S77 (S-20): the same, for a follow-up that waits on an abnormal result. PROPOSED class and window; the CMO may change them.');
 
 -- ---------------------------------------------------------------------------
