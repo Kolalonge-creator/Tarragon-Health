@@ -202,14 +202,16 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   },
   {
     key: "commerce.processing_fee_estimate",
-    // Confirmed against Paystack's published pricing on 2026-10-06 (v2). Still only an ESTIMATE on screen: Paystack has no fee-preview call,
-    // international cards cost more (3.9% + NGN 100, uncapped), and the exact fee is read from the verified payment.
+    // The estimate shown BEFORE payment for Paystack's processing fee on a local card or bank payment (S25, OQ-97): 1.5 percent
+    // plus 100 naira, the 100 waived under 2,500 naira, capped at 2,000 naira. Paystack has no fee-preview call, so this is only an
+    // estimate and is labelled as one; the exact fee comes from the verified payment and is recorded on the order and receipt.
+    // v1 was unverified; v2 below confirms it against paystack.com/pricing.
     value: { localBasisPoints: 150, flatKobo: 10_000, flatWaivedBelowKobo: 250_000, capKobo: 200_000 },
     owner: "Founder",
-    status: "confirmed",
-    version: 2,
+    status: "proposed",
+    version: 1,
     effectiveFrom: "2026-10-06",
-    source: "paystack.com/pricing read 2026-10-06: local card and USSD 1.5% + NGN 100 (NGN 100 waived under NGN 2,500), capped at NGN 2,000; international 3.9% + NGN 100",
+    source: "docs/design/S25.md section 2 item 7; docs/research/S25.md (Paystack pricing, unverified)",
   },
   {
     key: "privacy.transcript_retention",
@@ -329,17 +331,12 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   },
   {
     key: "reminders.behaviour",
-    // v2 (S07 reminders, 2026-10-05): iOS keeps only 64 pending local notifications in total, and
-    // two planners now share them: medicines (S08, `maxPending`) and blood pressure
-    // (S07, `maxPendingBp`). 44 + 18 = 62, two under the limit, so neither can push the other's
-    // soonest reminder out. `maxPending` came down from 60 to make room; everything else is as v1.
-    // 18 covers a once-a-day blood pressure reminder for the whole 14-day horizon, and twice a day for 9 days.
-    value: { snoozeMinutes: 30, maxSnoozes: 3, missedAfterMinutes: 120, maxPending: 44, maxPendingBp: 18, horizonDays: 14 },
+    value: { snoozeMinutes: 30, maxSnoozes: 3, missedAfterMinutes: 120, maxPending: 60, horizonDays: 14 },
     owner: "Founder",
     status: "proposed",
-    version: 2,
-    effectiveFrom: "2026-10-05",
-    source: "docs/research/S07.md section 5 (iOS 64 pending cap); shared between S07 blood pressure and S08 medicine reminders",
+    version: 1,
+    effectiveFrom: "2026-10-03",
+    source: "docs/research/S07.md section 5 (MyTherapy snooze default; iOS 64 pending cap)",
   },
   {
     key: "streaks.rules",
@@ -402,8 +399,6 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     //  serverMissedAfterMinutes: the server marks an unanswered dose missed after this long. Longer than the
     //  on-device two hours so a phone that was offline has time to sync a "taken" first (mirrors medicine_config).
     //  followUpMinWindowMinutes: a flexible window at least this long gets one gentle follow-up at its middle.
-    //  maxFollowUps (v2, S08g): the most follow-ups held at once, earliest first. The rest of the notification cap is
-    //  always due reminders, so follow-ups cannot shorten the days of due reminders by more than this. 8 of 44 leaves 36.
     //  catchUpRetrySeconds: when the catch-up read fails, try again after each of these delays (then stop until the next app open).
     //  catchUpMinGapMinutes: the catch-up sheet is offered at most this often, so it never nags on every app open.
     //  catchUpMaxItems: the most doses the catch-up sheet asks about at once.
@@ -422,12 +417,11 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       serverMissedAfterMinutes: 720,
       backdateWindowHours: 72,
       futureSkewMinutes: 5,
-      maxFollowUps: 8,
     },
     owner: "CMO",
     status: "proposed",
-    version: 2,
-    effectiveFrom: "2026-10-05",
+    version: 1,
+    effectiveFrom: "2026-10-04",
     source: "docs/research/S08.md sections 2 and 5 (decision table rows 4, 5, 9, 15)",
   },
   {
@@ -453,11 +447,11 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   },
   {
     key: "events.bus_rules",
-    // S10x adds the operations values. Same live source (the active row of `event_bus_config`, now version 3; a test fails if the
-    // migrations and this entry drift apart). lagAlertSeconds: when the oldest due, unclaimed, non-urgent delivery of a subscriber is
-    // older than this, one incident opens for that subscriber (none while one is open). lagAlertFloorSeconds: the database refuses a
-    // lower value, so a typo cannot turn the alert into noise. partnerDisableAfterFailures: consecutive failed attempts after which a
-    // partner webhook endpoint is switched off and an incident opens; partnerDisableFloor is the lowest the database allows.
+    // Event bus (S10). The live values are the active row of `event_bus_config` (versioned in the database);
+    // this entry mirrors it so the owner and the version are recorded with the other PROPOSED values.
+    //  batchSize: deliveries claimed per pass. leaseSeconds: how long a claimed delivery belongs to one worker before another may take it.
+    //  maxAttempts: tries before a delivery goes to the dead letter. backoffBaseSeconds doubles each try up to backoffMaxSeconds,
+    //  plus up to jitterPercent extra, so retries from many deliveries do not arrive together.
     value: {
       batchSize: 50,
       leaseSeconds: 60,
@@ -465,16 +459,12 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       backoffBaseSeconds: 15,
       backoffMaxSeconds: 900,
       jitterPercent: 20,
-      lagAlertSeconds: 600,
-      lagAlertFloorSeconds: 120,
-      partnerDisableAfterFailures: 20,
-      partnerDisableFloor: 5,
     },
     owner: "Founder",
     status: "proposed",
-    version: 2,
-    effectiveFrom: "2026-10-13",
-    source: "docs/design/S10x.md",
+    version: 1,
+    effectiveFrom: "2026-10-05",
+    source: "docs/design/S10.md; docs/research/S10.md",
   },
   {
     key: "credentialing.rules",
@@ -511,9 +501,15 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   },
   {
     key: "credentialing.rules",
-    // Version 2 (OQ-104, OQ-108): the same rules plus three. Both switches start off: no real account has a confirmed
-    // phone yet and SMS is not live, so requiring one would stop every applicant, and the purge stays off until counsel
-    // confirms the periods (the rejected-application period is a proposal).
+    // Clinician credentialing (S15). The live values are the active row of `credentialing_config` (versioned in the
+    // database); this entry mirrors it, and a test fails if the migration seed and this value drift apart. Keys are the
+    // database's own snake_case names so the two can be compared directly.
+    //  min_practice_years / pass_percent / all_red_correct / audited_task_count repeat the clinician.* spec values
+    //  (confirmed together here as one decision record). referees_required and referee_independent_contact: two referees,
+    //  reached through an independently sourced institutional contact. test_*: attempt cap, cooldown, scenarios per attempt.
+    //  notice_windows_days: licence and indemnity notices at 90 days, 30 days and on the day (founder, 2026-10-06).
+    //  grace_max_days: the longest audited grace period a reviewer can record. separate_verifier_and_approver: the person who
+    //  verified a check cannot approve. document_*: upload size cap and how long documents are kept after offboarding.
     value: {
       min_practice_years: 2,
       pass_percent: 80,
@@ -529,21 +525,24 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       separate_verifier_and_approver: true,
       document_max_bytes: 8388608,
       document_retention_years_after_offboarding: 7,
-      require_verified_phone: false,
-      document_purge_enabled: false,
-      rejected_application_document_retention_months: 24,
     },
     owner: "Founder and counsel",
     status: "proposed",
-    version: 2,
+    version: 1,
     effectiveFrom: "2026-10-06",
-    source: "docs/design/S15.md; OQ-104; OQ-108",
+    source: "docs/design/S15.md; docs/research/S15.md; spec 7.1 and 17",
   },
   {
     key: "credentialing.rules",
-    // Version 3 (Q14, Q15) adds the primary-source and re-check keys to version 2 (OQ-104, OQ-108): the same rules plus three. Both switches start off: no real account has a confirmed
-    // phone yet and SMS is not live, so requiring one would stop every applicant, and the purge stays off until counsel
-    // confirms the periods (the rejected-application period is a proposal).
+    // Clinician credentialing (S15). The live values are the active row of `credentialing_config` (versioned in the
+    // database); this entry mirrors it, and a test fails if the migration seed and this value drift apart. Keys are the
+    // database's own snake_case names so the two can be compared directly.
+    //  min_practice_years / pass_percent / all_red_correct / audited_task_count repeat the clinician.* spec values
+    //  (confirmed together here as one decision record). referees_required and referee_independent_contact: two referees,
+    //  reached through an independently sourced institutional contact. test_*: attempt cap, cooldown, scenarios per attempt.
+    //  notice_windows_days: licence and indemnity notices at 90 days, 30 days and on the day (founder, 2026-10-06).
+    //  grace_max_days: the longest audited grace period a reviewer can record. separate_verifier_and_approver: the person who
+    //  verified a check cannot approve. document_*: upload size cap and how long documents are kept after offboarding.
     value: {
       min_practice_years: 2,
       pass_percent: 80,
@@ -559,28 +558,24 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       separate_verifier_and_approver: true,
       document_max_bytes: 8388608,
       document_retention_years_after_offboarding: 7,
-      require_verified_phone: false,
-      document_purge_enabled: false,
-      rejected_application_document_retention_months: 24,
-      primary_source_required: true,
-      primary_source_routes: ["mdcn_dataflow", "mdcn_written_confirmation", "mdcn_register_check"],
-      primary_source_max_age_days: 365,
-      recheck_months: 6,
-      recheck_overdue_days: 14,
-      credential_date_max_days: 1100,
-      grandfather_ends_on: null,
     },
     owner: "Founder and counsel",
     status: "proposed",
-    version: 3,
-    effectiveFrom: "2026-10-13",
-    source: "docs/design/S11-S15-credentialing.md; CMO answers Q14 and Q15 (MDCN verification before first independent contact; six-month spot re-check). grandfather_ends_on is null until the CMO sets it.",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S15.md; docs/research/S15.md; spec 7.1 and 17",
   },
   {
     key: "credentialing.rules",
-    // Version 4 (S20 v2, CMO decision 8 recorded 2026-10-07), on top of version 3 (primary-source and re-check keys): notices at 90, 30, 7 and 0 days,
-    // the proof-of-renewal deadline (15 December for the 31 December cycle), a missing licence date counted as ineligible, and the evidence sources
-    // a verification can name. INACTIVE in `credentialing_config` until switched on; the switch is refused while an active clinician has no licence date.
+    // Clinician credentialing (S15). The live values are the active row of `credentialing_config` (versioned in the
+    // database); this entry mirrors it, and a test fails if the migration seed and this value drift apart. Keys are the
+    // database's own snake_case names so the two can be compared directly.
+    //  min_practice_years / pass_percent / all_red_correct / audited_task_count repeat the clinician.* spec values
+    //  (confirmed together here as one decision record). referees_required and referee_independent_contact: two referees,
+    //  reached through an independently sourced institutional contact. test_*: attempt cap, cooldown, scenarios per attempt.
+    //  notice_windows_days: licence and indemnity notices at 90 days, 30 days and on the day (founder, 2026-10-06).
+    //  grace_max_days: the longest audited grace period a reviewer can record. separate_verifier_and_approver: the person who
+    //  verified a check cannot approve. document_*: upload size cap and how long documents are kept after offboarding.
     value: {
       min_practice_years: 2,
       pass_percent: 80,
@@ -591,35 +586,17 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       test_max_attempts: 3,
       test_retake_cooldown_hours: 24,
       test_scenarios_per_attempt: 10,
-      notice_windows_days: [90, 30, 7, 0],
+      notice_windows_days: [90, 30, 0],
       grace_max_days: 14,
       separate_verifier_and_approver: true,
       document_max_bytes: 8388608,
       document_retention_years_after_offboarding: 7,
-      require_verified_phone: false,
-      document_purge_enabled: false,
-      rejected_application_document_retention_months: 24,
-      primary_source_required: true,
-      primary_source_routes: ["mdcn_dataflow", "mdcn_written_confirmation", "mdcn_register_check"],
-      primary_source_max_age_days: 365,
-      recheck_months: 6,
-      recheck_overdue_days: 14,
-      credential_date_max_days: 1100,
-      grandfather_ends_on: null,
-      renewal_cycle: {
-        cycle_end_month: 12,
-        cycle_end_day: 31,
-        proof_deadline_month: 12,
-        proof_deadline_day: 15,
-      },
-      missing_licence_date_ineligible: true,
-      verification_sources: ["mdcn_register_lookup", "document_sighted", "insurer_confirmation", "other"],
     },
     owner: "Founder and counsel",
     status: "proposed",
-    version: 4,
-    effectiveFrom: "2026-10-14",
-    source: "docs/plans/S16-S20-review-and-build-plan.md section 5; docs/design/S16-S20-quality-v2.md",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S15.md; docs/research/S15.md; spec 7.1 and 17",
   },
   {
     key: "lab.release_policy",
@@ -1281,22 +1258,25 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   },
   {
     key: "outcomes.snapshot_rules",
-    // v2 (2026-10-07): the smallest group shown raised from 11 to 20 by founder decision (OQ-233), 30 for a cut by two attributes,
-    // until counsel confirms a figure. Same rules as v1 otherwise; v1 is kept so past snapshots can name the version they used.
+    // Outcome snapshots and the 90-day BP control report (S38, spec 4.10 and Module 22). Live values are the active row of
+    // `outcome_config`; this entry mirrors it and a test fails if the migration seed and this value drift. Every number is PROPOSED
+    // and owned by the CMO: the snapshot days, the 7-day window, the days allowed for offline readings to arrive, the readings needed
+    // for a verdict, the default target when a person has none, and the smallest cell ever shown. v1: 11, the usual health-reporting
+    // rule, and 20 when a cut uses two attributes.
     value: {
       days: [0, 30, 90, 180],
       window_days: 7,
       grace_days: 3,
       min_readings: 3,
       default_target: { systolic: 140, diastolic: 90 },
-      min_cell: 20,
-      min_cell_cross: 30,
+      min_cell: 11,
+      min_cell_cross: 20,
       report_spec: "bp_control_90d",
     },
     owner: "CMO",
     status: "proposed",
-    version: 2,
-    effectiveFrom: "2026-10-07",
+    version: 1,
+    effectiveFrom: "2026-10-06",
     source: "docs/design/S38.md; spec 4.10 and Module 22; docs/research/S38.md",
   },
   {
@@ -1314,72 +1294,29 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   },
   {
     key: "security.rules",
-    // Security thresholds (S39, S39c). Live values are the active row of `security_config`; this entry mirrors it and a test fails if the
-    // migration seed and this value drift. PROPOSED, owned by the security owner (CMO until one is named). v1 (S39): failed lookups on a public
-    // token door in one hour that open a security incident (the answer to guessing is to see it, never to lock the door). v2 (S39c): how long an
-    // opening of a patient record stays valid for an untied clinician, how many untied openings in an hour raise an incident, the after-hours
-    // band (Lagos hours), and the retention periods (NHS Records Management Code and HIPAA as references, counsel to confirm). Retention is
-    // config only: real_data_auto_delete is false, nothing deletes real patient data (founder, 2026-10-07).
-    value: {
-      lookup_failure_alert_per_hour: 50,
-      record_open_window_hours: 8,
-      untied_open_alert_per_hour: 20,
-      after_hours_start: 22,
-      after_hours_end: 6,
-      retention: {
-        adult_clinical_record_years_after_last_contact: 8,
-        child_record_until_age: 25,
-        child_record_until_age_if_seen_at_17: 26,
-        maternity_record_years: 25,
-        mental_health_years_after_last_contact: 20,
-        access_audit_log_years: 8,
-        consent_years_after_relationship_end: 6,
-        payments_ledger_years: 6,
-        operational_data_days_min: 90,
-        operational_data_days_max: 730,
-        real_data_auto_delete: false,
-      },
-    },
+    // Security thresholds (S39). Live values are the active row of `security_config`; this entry mirrors it and a test fails if the
+    // migration seed and this value drift. PROPOSED, owned by the security owner (CMO until one is named): how many failed lookups on a
+    // public token door in one hour open a security incident. The answer to guessing is to see it, never to lock the door, because the
+    // emergency card must open for a stranger in an emergency.
+    value: { lookup_failure_alert_per_hour: 50 },
     owner: "CMO",
     status: "proposed",
-    version: 2,
+    version: 1,
     effectiveFrom: "2026-10-07",
-    source: "docs/design/S39c.md; spec section 13; founder direction 2026-10-07",
+    source: "docs/design/S39.md; spec section 13",
   },
   {
     key: "security.rules",
-    // Security thresholds (S39, S39c, S39d). Live values are the active row of `security_config`; this entry mirrors it and a test fails if the
-    // migration seed and this value drift. PROPOSED, owned by the security owner (CMO until one is named). v1 (S39): failed lookups on a public
-    // token door in one hour that open a security incident (the answer to guessing is to see it, never to lock the door). v2 (S39c): how long an
-    // opening of a patient record stays valid for an untied clinician, how many untied openings in an hour raise an incident, the after-hours
-    // band (Lagos hours), and the retention periods (NHS Records Management Code and HIPAA as references, counsel to confirm). v3 (S39d): the review clock, in days, for a patient data export request. Retention is
-    // config only: real_data_auto_delete is false, nothing deletes real patient data (founder, 2026-10-07).
-    value: {
-      lookup_failure_alert_per_hour: 50,
-      record_open_window_hours: 8,
-      untied_open_alert_per_hour: 20,
-      after_hours_start: 22,
-      after_hours_end: 6,
-      export_review_days: 30,
-      retention: {
-        adult_clinical_record_years_after_last_contact: 8,
-        child_record_until_age: 25,
-        child_record_until_age_if_seen_at_17: 26,
-        maternity_record_years: 25,
-        mental_health_years_after_last_contact: 20,
-        access_audit_log_years: 8,
-        consent_years_after_relationship_end: 6,
-        payments_ledger_years: 6,
-        operational_data_days_min: 90,
-        operational_data_days_max: 730,
-        real_data_auto_delete: false,
-      },
-    },
+    // Security thresholds (S39). Live values are the active row of `security_config`; this entry mirrors it and a test fails if the
+    // migration seed and this value drift. PROPOSED, owned by the security owner (CMO until one is named): how many failed lookups on a
+    // public token door in one hour open a security incident. The answer to guessing is to see it, never to lock the door, because the
+    // emergency card must open for a stranger in an emergency.
+    value: { lookup_failure_alert_per_hour: 50 },
     owner: "CMO",
     status: "proposed",
-    version: 3,
+    version: 1,
     effectiveFrom: "2026-10-07",
-    source: "docs/design/S39d.md; spec section 13; founder direction 2026-10-07",
+    source: "docs/design/S39.md; spec section 13",
   },
   {
     key: "quality.audit",
@@ -1437,7 +1374,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   },
   {
     key: "quality.audit",
-    // Version 2 (Q16): adds sampling.new_clinician_full_review_cases. Clinical audits, tier 1 count, the audit form, reliability weight and the speak-up clocks (S20, spec 7.8). Live values are the
+    // Clinical audits, tier 1 count, the audit form, reliability weight and the speak-up clocks (S20, spec 7.8). Live values are the
     // active row of `quality_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
     // Every number is PROPOSED and owned by the CMO (OQ-140): the sample rate, the tier 1 count and pass mark, the score bands,
     // and the acknowledge and respond times for a safety concern.
@@ -1449,7 +1386,6 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
         floor_per_clinician_per_month: 1,
         reviewer_monthly_cap: 40,
         due_days: 14,
-        new_clinician_full_review_cases: 20,
       },
       tier1: {
         audited_task_count: 20,
@@ -1486,16 +1422,16 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     },
     owner: "CMO",
     status: "proposed",
-    version: 2,
-    effectiveFrom: "2026-10-13",
-    source: "docs/design/S20.md; spec 7.8; docs/design/S11-S15-credentialing.md (CMO answer Q16: 100 percent review of a new clinician's first 20 red or prescribing cases)",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S20.md; spec 7.8",
   },
   {
     key: "quality.audit",
-    // Version 3 (S20 v2, CMO decisions 5, 6 and 7 recorded 2026-10-07), on top of version 2 (new clinicians' first 20 cases): the secret-seeded
-    // stratified sample (a floor that catches up later in the month, AI-scribe notes at 20 percent), the audit form's phase comments,
-    // avoidability rating and scribe items, the second review on a critical miss, and the speak-up check-ins at 30 and 90 days. INACTIVE and
-    // unsigned in `quality_config` until the Chief Medical Officer signs it (public.sign_quality_config); versions 1 and 2 stay as they were.
+    // Clinical audits, tier 1 count, the audit form, reliability weight and the speak-up clocks (S20, spec 7.8). Live values are the
+    // active row of `quality_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
+    // Every number is PROPOSED and owned by the CMO (OQ-140): the sample rate, the tier 1 count and pass mark, the score bands,
+    // and the acknowledge and respond times for a safety concern.
     value: {
       sampling: {
         random_rate_percent: 10,
@@ -1504,14 +1440,6 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
         floor_per_clinician_per_month: 1,
         reviewer_monthly_cap: 40,
         due_days: 14,
-        new_clinician_full_review_cases: 20,
-        seed: {
-          rotation: "monthly",
-        },
-        stratified: true,
-        floor_catchup_until_day: 21,
-        floor_current_month_from_day: 20,
-        scribe_assisted_rate_percent: 20,
       },
       tier1: {
         audited_task_count: 20,
@@ -1519,28 +1447,15 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
         max_critical_misses: 0,
       },
       form: {
-        version: 2,
+        version: 1,
         safety_items: ["identity_and_consent_confirmed", "red_flags_recognised_and_acted_on", "decision_within_competence_and_protocol", "no_unsigned_treatment_change", "safety_netting_and_follow_up_given", "escalated_when_needed"],
         quality_items: ["history_adequate", "reasoning_documented", "communication_clear", "plan_appropriate", "patient_questions_answered", "documentation_timely"],
         quality_max: 4,
-        phases: ["assessment", "decision", "action", "documentation"],
-        phase_comment_max_chars: 2000,
-        avoidability: {
-          required_unless_outcome: "satisfactory",
-          scale: ["not_applicable", "not_avoidable", "slightly_avoidable", "possibly_avoidable", "probably_avoidable", "definitely_avoidable"],
-        },
-        scribe_items: ["no_clinically_relevant_omission", "no_invented_content"],
-        scribe_critical_items: ["no_invented_content"],
       },
       outcomes: {
         satisfactory_min: 85,
         minor_concerns_min: 70,
         rationale_min_chars: 20,
-      },
-      second_review: {
-        required_on: ["critical_miss"],
-        reply_max_per_audit: 5,
-        reply_min_chars: 20,
       },
       reliability: {
         audit_weight: 2,
@@ -1557,16 +1472,13 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
         respond_days: 14,
         max_per_day: 10,
         retaliation_review_months: 12,
-        checkin_days: [30, 90],
-        anonymous_max_per_day_per_org: 10,
-        about_lead_routes_to: "independent_reader",
       },
     },
     owner: "CMO",
     status: "proposed",
-    version: 3,
-    effectiveFrom: "2026-10-14",
-    source: "docs/plans/S16-S20-review-and-build-plan.md section 5; docs/design/S16-S20-quality-v2.md",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S20.md; spec 7.8",
   },
   {
     key: "earnings.rules",
@@ -1669,23 +1581,23 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // mirrors them, and a test compares it with the migration seed. Each row: code, priority class (1 is first), default
     // due minutes, minimum doctor tier, required competencies, lead window minutes (0 for none), claim timeout minutes,
     // pushable (an employed doctor may be pushed it), creatable (false for a class reached only by promotion) and the
-    // triage task keys it answers. adherence_follow_up is not in the spec table (OQ-S16-1). v2 (F-05, 2026-10-07): the Medical Officer tier is retired, so every doctor task type has senior_medical_officer as its minimum; nothing else changed.
+    // triage task keys it answers. adherence_follow_up is not in the spec table (OQ-S16-1).
     value: [
       { code: "red_event_unacknowledged", priority_class: 1, default_due_minutes: 0, min_doctor_tier: "senior_medical_officer", required_competencies: ["on_call"], lead_window_minutes: 0, claim_timeout_minutes: 30, pushable: false, creatable: true, source_task_keys: [] },
       { code: "critical_result_review", priority_class: 2, default_due_minutes: 120, min_doctor_tier: "senior_medical_officer", required_competencies: ["result_review"], lead_window_minutes: 0, claim_timeout_minutes: 30, pushable: false, creatable: true, source_task_keys: [] },
-      { code: "amber_bp_review_due_soon", priority_class: 3, default_due_minutes: 0, min_doctor_tier: "senior_medical_officer", required_competencies: ["hypertension"], lead_window_minutes: 0, claim_timeout_minutes: 30, pushable: false, creatable: false, source_task_keys: [] },
-      { code: "amber_bp_review", priority_class: 4, default_due_minutes: 1440, min_doctor_tier: "senior_medical_officer", required_competencies: ["hypertension"], lead_window_minutes: 240, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: ["urgent_bp_review", "bp_review", "low_bp_review"] },
-      { code: "symptom_review", priority_class: 5, default_due_minutes: 1440, min_doctor_tier: "senior_medical_officer", required_competencies: ["adult_general"], lead_window_minutes: 1440, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: [] },
+      { code: "amber_bp_review_due_soon", priority_class: 3, default_due_minutes: 0, min_doctor_tier: "medical_officer", required_competencies: ["hypertension"], lead_window_minutes: 0, claim_timeout_minutes: 30, pushable: false, creatable: false, source_task_keys: [] },
+      { code: "amber_bp_review", priority_class: 4, default_due_minutes: 1440, min_doctor_tier: "medical_officer", required_competencies: ["hypertension"], lead_window_minutes: 240, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: ["urgent_bp_review", "bp_review", "low_bp_review"] },
+      { code: "symptom_review", priority_class: 5, default_due_minutes: 1440, min_doctor_tier: "medical_officer", required_competencies: ["adult_general"], lead_window_minutes: 1440, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: [] },
       { code: "titration_signoff", priority_class: 6, default_due_minutes: 2880, min_doctor_tier: "senior_medical_officer", required_competencies: ["prescribing", "hypertension"], lead_window_minutes: 2880, claim_timeout_minutes: 60, pushable: true, creatable: true, source_task_keys: [] },
-      { code: "async_question", priority_class: 7, default_due_minutes: 1440, min_doctor_tier: "senior_medical_officer", required_competencies: ["adult_general"], lead_window_minutes: 1440, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: [] },
-      { code: "routine_result_review", priority_class: 8, default_due_minutes: 2880, min_doctor_tier: "senior_medical_officer", required_competencies: ["result_review"], lead_window_minutes: 1440, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: [] },
-      { code: "admin_clinical", priority_class: 9, default_due_minutes: 4320, min_doctor_tier: "senior_medical_officer", required_competencies: [], lead_window_minutes: 1440, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: ["referral_review"] },
+      { code: "async_question", priority_class: 7, default_due_minutes: 1440, min_doctor_tier: "medical_officer", required_competencies: ["adult_general"], lead_window_minutes: 1440, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: [] },
+      { code: "routine_result_review", priority_class: 8, default_due_minutes: 2880, min_doctor_tier: "medical_officer", required_competencies: ["result_review"], lead_window_minutes: 1440, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: [] },
+      { code: "admin_clinical", priority_class: 9, default_due_minutes: 4320, min_doctor_tier: "medical_officer", required_competencies: [], lead_window_minutes: 1440, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: ["referral_review"] },
       { code: "adherence_follow_up", priority_class: 8, default_due_minutes: 2880, min_doctor_tier: "care_coordinator", required_competencies: [], lead_window_minutes: 1440, claim_timeout_minutes: 30, pushable: true, creatable: true, source_task_keys: ["adherence_review", "silence_check"] },
     ],
     owner: "CMO",
     status: "proposed",
-    version: 2,
-    effectiveFrom: "2026-10-07",
+    version: 1,
+    effectiveFrom: "2026-10-06",
     source: "docs/design/S16.md; spec 7.3 and 7.4",
   },
   {
@@ -1703,14 +1615,16 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   },
   {
     key: "triage.bp_rule_set",
-    // Version 2 (CMO decisions 2026-10-05): at 200/130 the system asks the symptom question, then medicine, rest and a
-    // 2 hour recheck (BP-R2 is retired); under 90 systolic is flagged; pregnancy and the 6 weeks after birth have their own lines.
-    value: { code: "bp_care_triage", ruleSetVersion: 2, adultAgeYears: 18 },
+    // Blood pressure triage rules (S11). The thresholds themselves live in the rule set, `packages/clinical`
+    // (`BP_CARE_V1`) and the `triage_rule_sets` row of the same code and version; this entry records the owner and
+    // the sign-off state so the go-live guards dashboard lists it. The rule set stays a draft (the database row is
+    // never `approved`) until the CMO signs it. Rules BP-P1, BP-P2 and BP-A6 are additions beyond the spec table.
+    value: { code: "bp_care_triage", ruleSetVersion: 1, adultAgeYears: 18 },
     owner: "CMO",
     status: "proposed",
-    version: 2,
+    version: 1,
     effectiveFrom: "2026-10-05",
-    source: "docs/DECISIONS.md S11 CMO decisions; docs/research/S11-guidelines.md",
+    source: "docs/design/S11.md; docs/BUILD-SPEC-v5.md Section 6.2; OQ-86, OQ-87",
   },
   {
     key: "triage.wiring_rules",
@@ -1750,72 +1664,63 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   },
   {
     key: "notifications.rules",
-    // v2 (S13b): adds pushFallback. One generic email when a routine push was accepted but not opened within afterMinutes
-    // (240), for pushes no older than maxAgeHours (24), at most perRecipientPerDay (1) a day, batchSize (200) per 15 minute pass.
-    // Live value: the active row of `notification_rules_config`.
+    // Notification framework (S13). The live values are the active row of `notification_rules_config` (versioned in the
+    // database); this entry mirrors it so the owner and the version are recorded with the other PROPOSED values.
+    //  quietHours: routine push and email wait until quiet hours end (21:00 to 07:00 Africa/Lagos); critical rows and the
+    //  in-app inbox are never held. routinePushPerDay: the most routine pushes one person gets in 24 hours; the rest stay in
+    //  the inbox. receiptCheckMinutes: when an Expo ticket's receipt is first checked. receiptGiveUpHours: after this a ticket
+    //  with no receipt is left alone.
     value: {
       quietHours: { enabled: true, start: "21:00", end: "07:00" },
       routinePushPerDay: 4,
       receiptCheckMinutes: 15,
       receiptGiveUpHours: 24,
-      pushFallback: { enabled: true, afterMinutes: 240, maxAgeHours: 24, perRecipientPerDay: 1, batchSize: 200 },
     },
     owner: "Founder",
     status: "proposed",
-    version: 2,
-    effectiveFrom: "2026-10-06",
+    version: 1,
+    effectiveFrom: "2026-10-05",
     source: "docs/design/S13.md; docs/research/S13.md",
   },
   {
     key: "notifications.rules",
-    // v3 (S04b-3, founder decision 2026-10-13): quiet hours are OFF until a person turns them on (window 21:00 to 07:00
-    // Africa/Lagos until they change it). Discreet mode and quiet hours are applied by the one sender; safety messages
-    // are never held. Live value: the active row of `notification_rules_config`.
+    // Notification framework (S13). The live values are the active row of `notification_rules_config` (versioned in the
+    // database); this entry mirrors it so the owner and the version are recorded with the other PROPOSED values.
+    //  quietHours: routine push and email wait until quiet hours end (21:00 to 07:00 Africa/Lagos); critical rows and the
+    //  in-app inbox are never held. routinePushPerDay: the most routine pushes one person gets in 24 hours; the rest stay in
+    //  the inbox. receiptCheckMinutes: when an Expo ticket's receipt is first checked. receiptGiveUpHours: after this a ticket
+    //  with no receipt is left alone.
     value: {
-      quietHours: { enabled: false, start: "21:00", end: "07:00" },
+      quietHours: { enabled: true, start: "21:00", end: "07:00" },
       routinePushPerDay: 4,
       receiptCheckMinutes: 15,
       receiptGiveUpHours: 24,
-      pushFallback: { enabled: true, afterMinutes: 240, maxAgeHours: 24, perRecipientPerDay: 1, batchSize: 200 },
     },
     owner: "Founder",
     status: "proposed",
-    version: 3,
-    effectiveFrom: "2026-10-13",
-    source: "docs/design/S13.md; founder decision 2026-10-13",
+    version: 1,
+    effectiveFrom: "2026-10-05",
+    source: "docs/design/S13.md; docs/research/S13.md",
   },
   {
     key: "notifications.rules",
-    // v4 (S13 R4, CMO answers Q10 to Q13): adds redUnconfirmed. A red alert the patient has not confirmed (opened a notice,
-    // acknowledged the guidance, replied, or a push receipt says delivered) within unconfirmedMinutes (30, CMO Q11, matching the
-    // obstetric treatment window; the plan had recommended 10) opens one clinician outreach task and alerts the on-call
-    // clinician. undeliveredMinutes (5): when every push for the alert ended in a receipt error and no email was delivered, the
-    // call is due that long after the error instead. expireHours (6): an alert older than this opens no task. deliveredCountsAsConfirmed
-    // (true, per the plan): a delivered push receipt counts as confirmation; false needs a human action, which is safer and
-    // sends more calls, CMO to decide. couldNotGetCareOutreachNow (true): the patient's "I could not get care" answer brings the
-    // call forward. criticalReceiptCheckMinutes (2): critical Expo tickets are checked from this age, not 15.
-    // The other keys are v3's, unchanged. Live value: the active row of `notification_rules_config`.
+    // Notification framework (S13). The live values are the active row of `notification_rules_config` (versioned in the
+    // database); this entry mirrors it so the owner and the version are recorded with the other PROPOSED values.
+    //  quietHours: routine push and email wait until quiet hours end (21:00 to 07:00 Africa/Lagos); critical rows and the
+    //  in-app inbox are never held. routinePushPerDay: the most routine pushes one person gets in 24 hours; the rest stay in
+    //  the inbox. receiptCheckMinutes: when an Expo ticket's receipt is first checked. receiptGiveUpHours: after this a ticket
+    //  with no receipt is left alone.
     value: {
-      quietHours: { enabled: false, start: "21:00", end: "07:00" },
+      quietHours: { enabled: true, start: "21:00", end: "07:00" },
       routinePushPerDay: 4,
       receiptCheckMinutes: 15,
       receiptGiveUpHours: 24,
-      pushFallback: { enabled: true, afterMinutes: 240, maxAgeHours: 24, perRecipientPerDay: 1, batchSize: 200 },
-      redUnconfirmed: {
-        enabled: true,
-        unconfirmedMinutes: 30,
-        undeliveredMinutes: 5,
-        expireHours: 6,
-        deliveredCountsAsConfirmed: true,
-        couldNotGetCareOutreachNow: true,
-        criticalReceiptCheckMinutes: 2,
-      },
     },
-    owner: "CMO",
+    owner: "Founder",
     status: "proposed",
-    version: 4,
-    effectiveFrom: "2026-10-13",
-    source: "docs/design/S11-S15-p3-critical-notifications.md; CMO decision Q11 (2026-10-07)",
+    version: 1,
+    effectiveFrom: "2026-10-05",
+    source: "docs/design/S13.md; docs/research/S13.md",
   },
   {
     key: "video.audio_fallback",
@@ -1833,21 +1738,17 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   },
   {
     key: "video.audio_fallback",
-    // Version 2 (S21 follow-up, in-app Zoom Meeting SDK, OQ-136): the same three values plus what the SDK actually reports.
-    // The SDK gives a network level (0 to 5, which the code reads on the vendor's own scale) while the camera is on, and audio
-    // statistics (packet loss, round trip time) all the time. Audio statistics are what lets the ladder see a link recover
-    // while the camera is off.
-    //  poorAudioLossPercent: average audio packet loss at or above this counts as a poor sample (unit unconfirmed against a live
-    //  call; see OQ-136).
-    //  poorAudioRttMs: audio round trip time at or above this, in milliseconds, counts as a poor sample.
-    //  sampleIntervalSeconds: statistics arrive about every second; they are thinned to one sample per this many seconds, so
-    //  "3 poor samples in a row" means a few seconds of bad link, not a few packets.
-    value: { poorSamplesToDowngrade: 3, goodSamplesToOfferVideo: 6, poorBelowKbps: 100, poorAudioLossPercent: 10, poorAudioRttMs: 600, sampleIntervalSeconds: 3 },
+    // Video consultations (S14 interface, wired in S21). Connection quality arrives as a sample every few seconds.
+    //  poorSamplesToDowngrade: that many poor samples in a row drop the call to audio only (one bad sample never does).
+    //  goodSamplesToOfferVideo: that many good samples in a row, while audio only, let the app OFFER video again; the
+    //  patient taps, it never switches back by itself because that spends their data.
+    //  poorBelowKbps: a bitrate under this counts as poor even if the vendor labels it fair.
+    value: { poorSamplesToDowngrade: 3, goodSamplesToOfferVideo: 6, poorBelowKbps: 100 },
     owner: "Founder",
     status: "proposed",
-    version: 2,
+    version: 1,
     effectiveFrom: "2026-10-06",
-    source: "docs/design/S21.md; docs/research/S21.md",
+    source: "docs/design/S14.md; docs/research/S14.md",
   },
   {
     key: "consultations.host_key",
@@ -2005,31 +1906,25 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   },
   {
     key: "care_circle.rules",
-    // Care Circle (S29, spec 4.7). Live values are the active row of `care_circle_config`; this entry mirrors it and a test fails
-    // if the migration seed and this value drift. invite_ttl_hours: how long an invite link works. default_grant_days: how long a
-    // supporter's access lasts unless the patient chooses otherwise (the patient can renew or end it any time). max_invites_per_day:
-    // per patient, counting cancelled ones. max_members: active supporters per patient. max_attempts: wrong-contact tries before an
-    // invite is dead. view_weeks: how many weekly blood pressure averages a supporter sees. alert_visible_hours: how long a check-in request stays on a supporter's screen. expiry_notice_days: how many days before a member's access ends the patient gets the first notice, and expiry_final_notice_days the second (each is sent once per expiry date, so a renewal starts them again). pause_days: how long \"pause all sharing\" lasts (the patient can end it sooner). gift_decide_days: how long a patient has to accept a care pack or Membership someone else paid for before it is treated as declined and the payer is refunded.
-    value: { invite_ttl_hours: 72, default_grant_days: 365, max_invites_per_day: 5, max_members: 8, max_attempts: 5, view_weeks: 8, alert_visible_hours: 3, expiry_notice_days: 14, expiry_final_notice_days: 3, pause_days: 7, gift_decide_days: 30 },
+    // Version 1 (S29, spec 4.7): the rules the Care Circle shipped with. Kept as history; version 2 (S29c) adds the 14 and 3 day
+    // expiry notices, the pause length and what a supporter can do about a check-in request, and is the one in force.
+    value: { invite_ttl_hours: 72, default_grant_days: 365, max_invites_per_day: 5, max_members: 8, max_attempts: 5, view_weeks: 8, alert_visible_hours: 3, expiry_notice_days: 7, gift_decide_days: 30 },
     owner: "Founder",
     status: "proposed",
-    version: 2,
+    version: 1,
     effectiveFrom: "2026-10-06",
-    source: "docs/design/S29.md; docs/research/S29.md; docs/research/S29-ranked-design-plan.md; spec 4.7, 8.6",
+    source: "docs/design/S29.md; docs/research/S29.md; spec 4.7, 8.6",
   },
   {
     key: "care_circle.rules",
-    // Care Circle (S29, spec 4.7). Live values are the active row of `care_circle_config`; this entry mirrors it and a test fails
-    // if the migration seed and this value drift. invite_ttl_hours: how long an invite link works. default_grant_days: how long a
-    // supporter's access lasts unless the patient chooses otherwise (the patient can renew or end it any time). max_invites_per_day:
-    // per patient, counting cancelled ones. max_members: active supporters per patient. max_attempts: wrong-contact tries before an
-    // invite is dead. view_weeks: how many weekly blood pressure averages a supporter sees. alert_visible_hours: how long a check-in request stays on a supporter's screen. expiry_notice_days: how many days before a member's access ends the patient gets the first notice, and expiry_final_notice_days the second (each is sent once per expiry date, so a renewal starts them again). pause_days: how long \"pause all sharing\" lasts (the patient can end it sooner). gift_remind_days: the day on which a patient with a gift still waiting is reminded, once. gift_decide_days (14 from version 3, founder 2026-10-07): how long a patient has to accept a care pack or Membership someone else paid for before it is treated as declined and the payer is refunded.
-    value: { invite_ttl_hours: 72, default_grant_days: 365, max_invites_per_day: 5, max_members: 8, max_attempts: 5, view_weeks: 8, alert_visible_hours: 3, expiry_notice_days: 14, expiry_final_notice_days: 3, pause_days: 7, gift_decide_days: 14, gift_remind_days: 7 },
+    // Version 1 (S29, spec 4.7): the rules the Care Circle shipped with. Kept as history; version 2 (S29c) adds the 14 and 3 day
+    // expiry notices, the pause length and what a supporter can do about a check-in request, and is the one in force.
+    value: { invite_ttl_hours: 72, default_grant_days: 365, max_invites_per_day: 5, max_members: 8, max_attempts: 5, view_weeks: 8, alert_visible_hours: 3, expiry_notice_days: 7, gift_decide_days: 30 },
     owner: "Founder",
     status: "proposed",
-    version: 3,
-    effectiveFrom: "2026-10-07",
-    source: "docs/design/S29.md; docs/research/S29.md; docs/research/S29-ranked-design-plan.md; spec 4.7, 8.6",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S29.md; docs/research/S29.md; spec 4.7, 8.6",
   },
   // S69: community cohorts and challenges (spec 17.6 to 17.9). Live values are the active row of `community_config` and the rows of
   // `challenge_templates`; a test (community-mirror.test.ts) fails if either drifts from the migration seed.
@@ -2271,37 +2166,112 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   },
   {
     key: "bp.starting_suggestion_target",
-    // v2 (CMO, 2026-10-07): aligned to NICE NG136 home (HBPM) averages, which is the only band the device can apply
-    // on its own: under 80 years below 135/85; 80 years or more below 145/85. Tighter targets (type 2 diabetes with kidney,
-    // eye or cerebrovascular damage: clinic below 130/80; CKD with ACR 70 mg/mmol or more: home below 125/75, NICE NG203)
-    // depend on facts the phone does not hold, so they are set by the care team as the personal target, never inferred here.
+    // Home target shown as a "starting suggestion, not yet confirmed" until a
+    // clinician has set a personal target (who and when). Home guidelines differ
+    // (135/85 ISH, 135/75 ESH, 130/80 AHA/ACC), so this is a pair to confirm, not a rule.
+    value: { systolicBelow: 135, diastolicBelow: 85 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-03",
+    source: "docs/research/S07.md section 3 (home thresholds differ by guideline)",
+  },
+  {
+    key: "lab.panels",
+    // Lab panels and release thresholds (S27). Live values are the active row of `lab_panel_versions`; a test fails if the
+    // migration seed and this value drift. Adult reference and critical limits only, NOT signed: the CMO sets them (OQ-176).
+    // Any value outside the range holds the result for a clinician, so a wrong range makes more reviews, never an early release.
     value: {
-      systolicBelow: 135,
-      diastolicBelow: 85,
-      ageBands: [{ fromAgeYears: 80, systolicBelow: 145, diastolicBelow: 85 }],
-      careTeamSetTargets: [
-        {
-          when: "type 2 diabetes with kidney, eye or cerebrovascular damage, or chronic kidney disease with ACR 70 mg/mmol or more",
-          clinicBelow: "130/80",
-          homeBelow: "125/75",
+      "panels": {
+        "essential": {
+          "analytes": [
+            {
+              "code": "fasting_glucose",
+              "label": "Fasting glucose",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 70,
+              "refHigh": 99,
+              "criticalLow": 40,
+              "criticalHigh": 400
+            },
+            {
+              "code": "hba1c",
+              "label": "HbA1c",
+              "kind": "numeric",
+              "unit": "%",
+              "refLow": 4.0,
+              "refHigh": 5.6,
+              "criticalHigh": 14
+            },
+            {
+              "code": "creatinine",
+              "label": "Creatinine",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 0.6,
+              "refHigh": 1.3,
+              "criticalHigh": 4.0
+            },
+            {
+              "code": "potassium",
+              "label": "Potassium",
+              "kind": "numeric",
+              "unit": "mmol/L",
+              "refLow": 3.5,
+              "refHigh": 5.1,
+              "criticalLow": 2.5,
+              "criticalHigh": 6.5
+            },
+            {
+              "code": "sodium",
+              "label": "Sodium",
+              "kind": "numeric",
+              "unit": "mmol/L",
+              "refLow": 135,
+              "refHigh": 145,
+              "criticalLow": 120,
+              "criticalHigh": 160
+            },
+            {
+              "code": "total_cholesterol",
+              "label": "Total cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 200
+            },
+            {
+              "code": "ldl_cholesterol",
+              "label": "LDL cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 130
+            },
+            {
+              "code": "hdl_cholesterol",
+              "label": "HDL cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 40
+            },
+            {
+              "code": "triglycerides",
+              "label": "Triglycerides",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 150
+            },
+            {
+              "code": "alt",
+              "label": "ALT",
+              "kind": "numeric",
+              "unit": "U/L",
+              "refLow": 7,
+              "refHigh": 56
+            }
+          ]
         },
-      ],
-    },
-    owner: "CMO",
-    status: "proposed",
-    version: 2,
-    effectiveFrom: "2026-10-07",
-    source: "NICE NG136 (home average 135/85; 145/85 from age 80); NICE NG28 and NG203 (130/80 clinic, 125/75 home for ACR 70 or more); docs/clinical-signoff/STANDARDS-CROSS-CHECK-2026-10-07.md",
-  },
-  {
-    key: "lab.panels",
-    // v2 (2026-10-07): one Membership panel, sex-specific haemoglobin, creatinine and HDL ranges, limits re-checked against published
-    // standards (docs/clinical-signoff/STANDARDS-CROSS-CHECK-2026-10-07.md). Mirrors the lab_panel_versions seed in
-    // 20261007121842_s27g_lab_panel_membership_sex_ranges.sql; a test fails if the two drift. Stays `proposed` until the CMO signs
-    // lab_panel_signoffs v2 with sign_lab_panels(); it is the signed sign-off row, not this entry, that releases results.
-    value: {
-      "panels": {
-        "membership_annual": {
+        "annual_health_check": {
           "analytes": [
             {
               "code": "fasting_glucose",
@@ -2310,15 +2280,15 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
               "unit": "mg/dL",
               "refLow": 70,
               "refHigh": 99,
-              "criticalLow": 45,
-              "criticalHigh": 360
+              "criticalLow": 40,
+              "criticalHigh": 400
             },
             {
               "code": "hba1c",
               "label": "HbA1c",
               "kind": "numeric",
               "unit": "%",
-              "refLow": 4,
+              "refLow": 4.0,
               "refHigh": 5.6,
               "criticalHigh": 14
             },
@@ -2329,17 +2299,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
               "unit": "mg/dL",
               "refLow": 0.6,
               "refHigh": 1.3,
-              "criticalHigh": 4,
-              "bySex": {
-                "male": {
-                  "refLow": 0.7,
-                  "refHigh": 1.3
-                },
-                "female": {
-                  "refLow": 0.6,
-                  "refHigh": 1.1
-                }
-              }
+              "criticalHigh": 4.0
             },
             {
               "code": "potassium",
@@ -2348,8 +2308,8 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
               "unit": "mmol/L",
               "refLow": 3.5,
               "refHigh": 5.1,
-              "criticalLow": 3,
-              "criticalHigh": 6
+              "criticalLow": 2.5,
+              "criticalHigh": 6.5
             },
             {
               "code": "sodium",
@@ -2358,8 +2318,8 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
               "unit": "mmol/L",
               "refLow": 135,
               "refHigh": 145,
-              "criticalLow": 121,
-              "criticalHigh": 150
+              "criticalLow": 120,
+              "criticalHigh": 160
             },
             {
               "code": "total_cholesterol",
@@ -2380,15 +2340,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
               "label": "HDL cholesterol",
               "kind": "numeric",
               "unit": "mg/dL",
-              "refLow": 40,
-              "bySex": {
-                "male": {
-                  "refLow": 40
-                },
-                "female": {
-                  "refLow": 50
-                }
-              }
+              "refLow": 40
             },
             {
               "code": "triglycerides",
@@ -2403,7 +2355,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
               "kind": "numeric",
               "unit": "U/L",
               "refLow": 7,
-              "refHigh": 40
+              "refHigh": 56
             },
             {
               "code": "ast",
@@ -2418,30 +2370,20 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
               "label": "Haemoglobin",
               "kind": "numeric",
               "unit": "g/dL",
-              "refLow": 12,
+              "refLow": 12.0,
               "refHigh": 17.5,
-              "criticalLow": 7,
-              "criticalHigh": 20,
-              "bySex": {
-                "male": {
-                  "refLow": 13,
-                  "refHigh": 17.5
-                },
-                "female": {
-                  "refLow": 12,
-                  "refHigh": 15.5
-                }
-              }
+              "criticalLow": 7.0,
+              "criticalHigh": 20.0
             },
             {
               "code": "wbc",
               "label": "White cell count",
               "kind": "numeric",
               "unit": "10^9/L",
-              "refLow": 3,
-              "refHigh": 11,
-              "criticalLow": 1,
-              "criticalHigh": 30
+              "refLow": 4.0,
+              "refHigh": 11.0,
+              "criticalLow": 1.0,
+              "criticalHigh": 30.0
             },
             {
               "code": "platelets",
@@ -2459,7 +2401,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
               "kind": "numeric",
               "unit": "mIU/L",
               "refLow": 0.4,
-              "refHigh": 4
+              "refHigh": 4.0
             },
             {
               "code": "hiv_screen",
@@ -2491,18 +2433,18 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     },
     owner: "CMO",
     status: "proposed",
-    version: 2,
-    effectiveFrom: "2026-10-07",
-    source: "docs/clinical-signoff/STANDARDS-CROSS-CHECK-2026-10-07.md; WHO haemoglobin thresholds 2024; Royal College of Pathologists critical results",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S27.md; docs/research/S27.md; spec 4.4",
   },
   {
     key: "lab.panels",
-    // v3 (2026-10-12, CMO C1/C6): HIV screen, HBsAg and anti-HCV are REQUIRED every year, not "only if ordered". Same analytes and limits
-    // as v2 otherwise. Mirrors lab_panel_versions v2, made by 20261013005133_membership_annual_screening_required.sql; a test fails if the
-    // two drift. Stays `proposed` until the CMO signs; nothing auto-releases before that.
+    // Lab panels and release thresholds (S27). Live values are the active row of `lab_panel_versions`; a test fails if the
+    // migration seed and this value drift. Adult reference and critical limits only, NOT signed: the CMO sets them (OQ-176).
+    // Any value outside the range holds the result for a clinician, so a wrong range makes more reviews, never an early release.
     value: {
       "panels": {
-        "membership_annual": {
+        "essential": {
           "analytes": [
             {
               "code": "fasting_glucose",
@@ -2511,15 +2453,15 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
               "unit": "mg/dL",
               "refLow": 70,
               "refHigh": 99,
-              "criticalLow": 45,
-              "criticalHigh": 360
+              "criticalLow": 40,
+              "criticalHigh": 400
             },
             {
               "code": "hba1c",
               "label": "HbA1c",
               "kind": "numeric",
               "unit": "%",
-              "refLow": 4,
+              "refLow": 4.0,
               "refHigh": 5.6,
               "criticalHigh": 14
             },
@@ -2530,17 +2472,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
               "unit": "mg/dL",
               "refLow": 0.6,
               "refHigh": 1.3,
-              "criticalHigh": 4,
-              "bySex": {
-                "male": {
-                  "refLow": 0.7,
-                  "refHigh": 1.3
-                },
-                "female": {
-                  "refLow": 0.6,
-                  "refHigh": 1.1
-                }
-              }
+              "criticalHigh": 4.0
             },
             {
               "code": "potassium",
@@ -2549,8 +2481,8 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
               "unit": "mmol/L",
               "refLow": 3.5,
               "refHigh": 5.1,
-              "criticalLow": 3,
-              "criticalHigh": 6
+              "criticalLow": 2.5,
+              "criticalHigh": 6.5
             },
             {
               "code": "sodium",
@@ -2559,8 +2491,8 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
               "unit": "mmol/L",
               "refLow": 135,
               "refHigh": 145,
-              "criticalLow": 121,
-              "criticalHigh": 150
+              "criticalLow": 120,
+              "criticalHigh": 160
             },
             {
               "code": "total_cholesterol",
@@ -2581,15 +2513,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
               "label": "HDL cholesterol",
               "kind": "numeric",
               "unit": "mg/dL",
-              "refLow": 40,
-              "bySex": {
-                "male": {
-                  "refLow": 40
-                },
-                "female": {
-                  "refLow": 50
-                }
-              }
+              "refLow": 40
             },
             {
               "code": "triglycerides",
@@ -2604,7 +2528,95 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
               "kind": "numeric",
               "unit": "U/L",
               "refLow": 7,
-              "refHigh": 40
+              "refHigh": 56
+            }
+          ]
+        },
+        "annual_health_check": {
+          "analytes": [
+            {
+              "code": "fasting_glucose",
+              "label": "Fasting glucose",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 70,
+              "refHigh": 99,
+              "criticalLow": 40,
+              "criticalHigh": 400
+            },
+            {
+              "code": "hba1c",
+              "label": "HbA1c",
+              "kind": "numeric",
+              "unit": "%",
+              "refLow": 4.0,
+              "refHigh": 5.6,
+              "criticalHigh": 14
+            },
+            {
+              "code": "creatinine",
+              "label": "Creatinine",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 0.6,
+              "refHigh": 1.3,
+              "criticalHigh": 4.0
+            },
+            {
+              "code": "potassium",
+              "label": "Potassium",
+              "kind": "numeric",
+              "unit": "mmol/L",
+              "refLow": 3.5,
+              "refHigh": 5.1,
+              "criticalLow": 2.5,
+              "criticalHigh": 6.5
+            },
+            {
+              "code": "sodium",
+              "label": "Sodium",
+              "kind": "numeric",
+              "unit": "mmol/L",
+              "refLow": 135,
+              "refHigh": 145,
+              "criticalLow": 120,
+              "criticalHigh": 160
+            },
+            {
+              "code": "total_cholesterol",
+              "label": "Total cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 200
+            },
+            {
+              "code": "ldl_cholesterol",
+              "label": "LDL cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 130
+            },
+            {
+              "code": "hdl_cholesterol",
+              "label": "HDL cholesterol",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refLow": 40
+            },
+            {
+              "code": "triglycerides",
+              "label": "Triglycerides",
+              "kind": "numeric",
+              "unit": "mg/dL",
+              "refHigh": 150
+            },
+            {
+              "code": "alt",
+              "label": "ALT",
+              "kind": "numeric",
+              "unit": "U/L",
+              "refLow": 7,
+              "refHigh": 56
             },
             {
               "code": "ast",
@@ -2619,30 +2631,20 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
               "label": "Haemoglobin",
               "kind": "numeric",
               "unit": "g/dL",
-              "refLow": 12,
+              "refLow": 12.0,
               "refHigh": 17.5,
-              "criticalLow": 7,
-              "criticalHigh": 20,
-              "bySex": {
-                "male": {
-                  "refLow": 13,
-                  "refHigh": 17.5
-                },
-                "female": {
-                  "refLow": 12,
-                  "refHigh": 15.5
-                }
-              }
+              "criticalLow": 7.0,
+              "criticalHigh": 20.0
             },
             {
               "code": "wbc",
               "label": "White cell count",
               "kind": "numeric",
               "unit": "10^9/L",
-              "refLow": 3,
-              "refHigh": 11,
-              "criticalLow": 1,
-              "criticalHigh": 30
+              "refLow": 4.0,
+              "refHigh": 11.0,
+              "criticalLow": 1.0,
+              "criticalHigh": 30.0
             },
             {
               "code": "platelets",
@@ -2660,28 +2662,31 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
               "kind": "numeric",
               "unit": "mIU/L",
               "refLow": 0.4,
-              "refHigh": 4
+              "refHigh": 4.0
             },
             {
               "code": "hiv_screen",
               "label": "HIV screen",
               "kind": "qualitative",
               "unit": "",
-              "sensitive": true
+              "sensitive": true,
+              "optional": true
             },
             {
               "code": "hbsag",
               "label": "Hepatitis B surface antigen",
               "kind": "qualitative",
               "unit": "",
-              "sensitive": true
+              "sensitive": true,
+              "optional": true
             },
             {
               "code": "hcv_ab",
               "label": "Hepatitis C antibody",
               "kind": "qualitative",
               "unit": "",
-              "sensitive": true
+              "sensitive": true,
+              "optional": true
             }
           ]
         }
@@ -2689,31 +2694,32 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     },
     owner: "CMO",
     status: "proposed",
-    version: 3,
-    effectiveFrom: "2026-10-12",
-    source: "docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md (C1, C6); docs/clinical-signoff/STANDARDS-CROSS-CHECK-2026-10-07.md; WHO haemoglobin thresholds 2024; Royal College of Pathologists critical results",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S27.md; docs/research/S27.md; spec 4.4",
   },
   {
     key: "triage.silence_rule_days",
-    // v2 (decision S11-1, 2026-10-07): 7 days, not 5. Takes effect when the CMO approves bp_care_triage v3 in the database; the live rule set
-    // carries its own copy of this number and stays at the earlier line until then. The rule set, not this entry, is what the engine reads.
-    value: 7,
+    value: 5,
     owner: "CMO",
     status: "proposed",
-    version: 2,
-    effectiveFrom: "2026-10-07",
-    source: "docs/DECISIONS.md S11-1; OQ-273 (spec safety case 7 said 5 days)",
-    guardPatterns: ["silence\\w*\\s*[=:]\\s*7\\b"],
+    version: 1,
+    effectiveFrom: FROM,
+    source: `${SPEC} (Silence rule days)`,
+    guardPatterns: ["silence\\w*\\s*[=:]\\s*5\\b"],
   },
   {
     key: "triage.bp_rule_set",
-    // v3 names bp_care_triage v3: the CMO's version 2 decisions plus the 7 day silence line. The database row is a draft until the CMO approves it.
-    value: { code: "bp_care_triage", ruleSetVersion: 3, adultAgeYears: 18 },
+    // Blood pressure triage rules (S11). The thresholds themselves live in the rule set, `packages/clinical`
+    // (`BP_CARE_V1`) and the `triage_rule_sets` row of the same code and version; this entry records the owner and
+    // the sign-off state so the go-live guards dashboard lists it. The rule set stays a draft (the database row is
+    // never `approved`) until the CMO signs it. Rules BP-P1, BP-P2 and BP-A6 are additions beyond the spec table.
+    value: { code: "bp_care_triage", ruleSetVersion: 1, adultAgeYears: 18 },
     owner: "CMO",
     status: "proposed",
-    version: 3,
-    effectiveFrom: "2026-10-07",
-    source: "docs/DECISIONS.md S11-1; supabase/migrations/20261007152136_s11c_bp_care_triage_v3.sql",
+    version: 1,
+    effectiveFrom: "2026-10-05",
+    source: "docs/design/S11.md; docs/BUILD-SPEC-v5.md Section 6.2; OQ-86, OQ-87",
   },
   {
     key: "commerce.membership_prices",
@@ -3190,16 +3196,16 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   },
   {
     key: "commerce.processing_fee_estimate",
-    // v3 (S71, 19.4 and 19.7): adds the estimate for a card issued outside Nigeria, which a Care Circle supporter abroad will often use. Paystack lists
-    // 3.9 percent + NGN 100, uncapped, for international cards (the 2026-10-06 reading recorded in v2). The local figures are unchanged. Still only an
-    // ESTIMATE on screen, labelled as one: the exact fee is read from the verified payment. PROPOSED until the founder confirms it against the
-    // Paystack dashboard for this account.
-    value: { localBasisPoints: 150, flatKobo: 10_000, flatWaivedBelowKobo: 250_000, capKobo: 200_000, internationalBasisPoints: 390, internationalFlatKobo: 10_000 },
+    // The estimate shown BEFORE payment for Paystack's processing fee on a local card or bank payment (S25, OQ-97): 1.5 percent
+    // plus 100 naira, the 100 waived under 2,500 naira, capped at 2,000 naira. Paystack has no fee-preview call, so this is only an
+    // estimate and is labelled as one; the exact fee comes from the verified payment and is recorded on the order and receipt.
+    // v1 was unverified; v2 below confirms it against paystack.com/pricing.
+    value: { localBasisPoints: 150, flatKobo: 10_000, flatWaivedBelowKobo: 250_000, capKobo: 200_000 },
     owner: "Founder",
     status: "proposed",
-    version: 3,
-    effectiveFrom: "2026-10-07",
-    source: "docs/design/S71.md; paystack.com/pricing as read 2026-10-06 (international 3.9% + NGN 100)",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S25.md section 2 item 7; docs/research/S25.md (Paystack pricing, unverified)",
   },
   {
     key: "maternal.rules",
@@ -3467,6 +3473,86 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S55.md; spec 9.3; OQ-S55-01",
+  },
+  {
+    key: "symptom.degraded_mode",
+    // S60 (spec 12.8, INV-06): what the symptom checker does when its engine errors, times out or has no protocol to run. The
+    // bundled red-flag floor runs first either way. In degraded mode the severity floors on the signed red-flag rules may be
+    // ignored (a strictly more sensitive screen), and a run that fired no flag is never reassurance: it is routed to at least
+    // this category with a human review. The CMO confirms or changes it.
+    value: { ignore_severity_floors: true, unclassifiable_category: "urgent", engine_timeout_ms: 3000 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S60.md section 3; spec 12.8; docs/OPEN-QUESTIONS.md OQ-S60-02",
+  },
+  {
+    key: "symptom.risk_tightening",
+    // S60 (spec 12.2 and 12.11): Nigerian prevalence and seasonal risk, as a layer that can only RAISE an urgency (a minimum
+    // category), never lower or replace one. Every entry below is a DRAFT: status "draft", no clinical sign-off, a placeholder
+    // provenance that says so. The engine ignores an entry until it is "signed_off" with a named signer and date, so shipping
+    // this changes nothing for any patient. The CMO decides which entries exist, their wording, seasons, regions and minimums;
+    // none of the months, states or symptom keys below is clinical advice. `applies_when` keys that no signed pathway asks yet
+    // (for example sickle_cell_disease history) will simply not match until a signed pathway collects them.
+    value: {
+      entries: [
+        {
+          id: "malaria_season_fever",
+          label: "Fever during the rainy season",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder. The CMO must confirm the season and the source (for example national malaria programme guidance) before this is signed." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { months: [4, 5, 6, 7, 8, 9, 10], any_associated_symptom: ["fever"] },
+          minimum_category: "routine",
+        },
+        {
+          id: "typhoid_fever_with_abdominal_pain",
+          label: "Fever with abdominal pain",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder. Needs a sourced definition and a signed abdominal pain pathway that collects these symptoms." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { any_associated_symptom: ["fever"], complaint_keys: ["abdominal_pain"] },
+          minimum_category: "routine",
+        },
+        {
+          id: "lassa_season_fever",
+          label: "Fever in the dry season in a high-risk state",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder. The CMO must name the season, the STATES (this draft names none, so it would apply nationwide if signed as written) and the source (for example national disease control centre guidance) before this is signed." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { months: [11, 12, 1, 2, 3, 4], any_associated_symptom: ["fever"] },
+          minimum_category: "urgent",
+        },
+        {
+          id: "sickle_cell_history_with_symptom",
+          label: "Sickle cell history with fever or pain",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder. Needs a signed pathway that records sickle cell history, and the CMO's minimum category." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { any_history: ["sickle_cell_disease"], any_associated_symptom: ["fever", "breathlessness"] },
+          minimum_category: "urgent",
+        },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S60.md section 4; spec 12.2 and 12.11; docs/OPEN-QUESTIONS.md OQ-S60-03",
+  },
+  {
+    key: "symptom.accuracy_audit",
+    // S60 (spec 12.12): the monthly accuracy audit. Cells with fewer reviewed cases than min_cell_size are suppressed (a
+    // group of a few people is a person, and a rate over a handful of cases is noise). Intervals are Wilson score intervals at
+    // this confidence. The live value is the active row of `symptom_accuracy_config`; a test fails if the migration seed and
+    // this value drift. The first report is a baseline, not a claim: nothing here lets a figure be published.
+    value: { min_cell_size: 10, confidence_level: 0.95, age_bands: [[0, 4], [5, 17], [18, 39], [40, 59], [60, 150]] },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S60.md section 6; spec 12.12; docs/OPEN-QUESTIONS.md OQ-S60-05",
   },
   {
     key: "assistant.emergency",
