@@ -122,7 +122,10 @@ begin
   t_amber := pg_temp.mktask(v_p2, 'amber_bp_review', 300, 'red');
   t_c2 := pg_temp.mktask(v_p5, 'critical_result_review', null, null);
   perform pg_temp.rec('a lower priority class beats a higher severity', t_c2::text, pg_temp.next_task(v_a)::text);
-  perform pg_temp.finish(v_a, t_c2);
+  -- (a critical_result_review now completes only with a released result or documented contact attempts (task layer D4); this proof is about
+  -- the order, so the task is cancelled by the lead path instead of completed)
+  update public.task_claims set ended_at = now(), end_reason = 'cancelled' where task_id = t_c2 and ended_at is null;
+  perform private.apply_task_transition(t_c2, 'cancelled', 'lead', v_a, 'proof cleanup');
   perform pg_temp.finish(v_a, pg_temp.next_task(v_a));
 
   -- 5. risk is not consulted

@@ -27,26 +27,11 @@ revoke all on function private.set_task_trigger_severity() from public, anon, au
 create trigger clinical_tasks_set_trigger_severity before insert on public.clinical_tasks
   for each row execute function private.set_task_trigger_severity();
 
-do $$
-declare v_def text; v_new text;
-begin
-  select pg_get_functiondef('public.queue_next(text[])'::regprocedure) into v_def;
-  v_new := replace(v_def,
-    'order by c.priority_class, (c.state <> ''offered_to_lead''), c.due_at, c.created_at',
-    'order by c.priority_class, (c.state <> ''offered_to_lead''), ct.trigger_severity desc, c.due_at, c.created_at');
-  if v_new = v_def or position('ct.trigger_severity desc' in v_new) = 0 then
-    raise exception 'queue_next did not have the expected ordering to replace';
-  end if;
-  execute v_new;
-end $$;
+-- (The queue_next ordering change is in 20261015034113_s76_queue_second_key_order.sql: the S16-S20 task layer, dated later,
+-- replaced queue_next whole, so the patch has to be applied after it.)
 
--- Assertions: grants unchanged, ordering key present, the column defaults to 0.
+-- Assertions: the column defaults to 0.
 do $$
 begin
-  if has_function_privilege('anon', 'public.queue_next(text[])', 'EXECUTE') then raise exception 'S76 B3: anon can execute queue_next'; end if;
-  if not has_function_privilege('authenticated', 'public.queue_next(text[])', 'EXECUTE') then raise exception 'S76 B3: authenticated lost queue_next'; end if;
-  if position('ct.trigger_severity desc' in pg_get_functiondef('public.queue_next(text[])'::regprocedure)) = 0 then raise exception 'S76 B3: ordering not applied'; end if;
-  if position('skip locked' in pg_get_functiondef('public.queue_next(text[])'::regprocedure)) = 0 then raise exception 'S76 B3: claim lock lost'; end if;
   if exists (select 1 from public.clinical_tasks where trigger_severity <> 0) then raise exception 'S76 B3: an existing task was given a severity'; end if;
-  if position('risk' in lower(pg_get_functiondef('public.queue_next(text[])'::regprocedure))) > 0 then raise exception 'S76 B3: queue_next must not consult risk'; end if;
 end $$;
