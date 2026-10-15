@@ -7,13 +7,16 @@ import { getProposedConfig } from "./index";
 const MIGRATIONS = join(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..", "..", "supabase", "migrations");
 
 function seededRules(): unknown {
-  // The newest migration that seeds a rules row is the live one (each new version adds a row and retires the last).
+  // The seed with the highest credentialing_config VERSION is the newest set of rules (each new version adds a row). File order is not
+  // used: a later-dated migration can seed a lower version (version 4, S76 re-verification, was written before version 3, P5, merged).
   const sqls = readdirSync(MIGRATIONS)
     .filter((f) => f.endsWith(".sql"))
     .sort()
     .map((f) => readFileSync(join(MIGRATIONS, f), "utf8"))
-    .filter((sql) => sql.includes("credentialing-rules-begin"));
-  const sql = sqls[sqls.length - 1];
+    .filter((sql) => sql.includes("credentialing-rules-begin"))
+    .map((sql) => ({ sql, version: Number(/credentialing_config \(version[^)]*\)\s*values\s*\((\d+)/.exec(sql)?.[1] ?? 0) }))
+    .sort((a, b) => a.version - b.version);
+  const sql = sqls[sqls.length - 1]?.sql;
   if (!sql) throw new Error("S15 migration not found");
   const match = /credentialing-rules-begin[\s\S]*?\$json\$([\s\S]*?)\$json\$/.exec(sql);
   if (!match?.[1]) throw new Error("credentialing rules seed not found in the migration");
