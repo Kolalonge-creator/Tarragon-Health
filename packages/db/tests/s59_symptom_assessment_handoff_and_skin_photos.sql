@@ -71,8 +71,8 @@ begin
   v_p2 := pg_temp.mkuser(v_org, 'patient2', 'patient');
   v_kid := pg_temp.mkuser(v_org, 'child', 'patient');
   v_mgr := pg_temp.mkuser(v_org, 'carer', 'patient');
-  v_c1 := pg_temp.mkstaff(v_org, v_admin, 'tied', 'medical_officer');
-  v_c2 := pg_temp.mkstaff(v_org, v_admin, 'untied', 'medical_officer');
+  v_c1 := pg_temp.mkstaff(v_org, v_admin, 'tied', 'senior_medical_officer');
+  v_c2 := pg_temp.mkstaff(v_org, v_admin, 'untied', 'senior_medical_officer');
   v_cc := pg_temp.mkstaff(v_org, v_admin, 'coordinator', 'care_coordinator');
   update public.profiles set date_of_birth = (current_date - interval '6 years')::date, is_dependent_account = true where id = v_kid;
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by) values (v_kid, v_mgr, 'manage', v_mgr);
