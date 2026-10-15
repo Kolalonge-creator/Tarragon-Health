@@ -2758,3 +2758,127 @@ From the six package closeouts (`docs/design/S11-S15-*-closeout.md`), de-duplica
 
 ### OQ-358 `clinical_staff_directory` exposes the MDCN folio (raised by the integration pass)
 - The view returns `credential_number` to every signed-in user in the organisation, including patients. CMO decision Q17 says the folio is never shown. NOT changed in the integration pass because many screens read it by design: referral letters, lab result PDFs and verified-document PDFs print the issuing doctor's registration number, and the admin search matches on it. Decide per document whether the folio should print, then narrow the view (a column-level change plus a clinician-only function for the places that must keep it).
+
+## S16-S20 hardening: questions raised by the merged task layer (#1139), pager delivery (#1137) and quality v2 (#1135)
+
+All undecided on 2026-10-15. Each has options and a recommendation; the recommendation is the agent's, not a decision. Source notes: `docs/design/S16-S20-task-layer.md`, `S16-S20-pager-delivery.md`, `S16-S20-quality-v2.md`. The CMO's 16 selections these build on are in `docs/DECISIONS.md` (S16-S20-1 to 16).
+
+### OQ-432 Which queue wins for a symptom review that needs a doctor (raised by the task layer)
+- The existing symptom triage already raises a `clinician_alerts` review alert; `docs/design/S55-S60-build-plan.md` plans a `symptom_reviews` task with its own SLA. A `symptom_review` task now would put the same review in two queues (the P5 parallel-paging problem). The completion check is ready; no producer exists.
+- Options: (a) the alert stays the only queue and the task type is retired; (b) the task replaces the alert for Members and the alert is suppressed; (c) both, with the alert closing the task.
+- Recommendation: (b), decided together with Stage 3 (retire parallel older paging). Owner: CMO and founder.
+- Decision: open.
+
+### OQ-433 Should `pharmacy_flag_review` and `admin_clinical` require `prescribing` (raised by the task layer)
+- Only the titration producer passes `prescribing` today. A pharmacy-flag task is created by two functions in other sessions' files; whether it needs prescribing authority changes who may take it, so it is a clinical call.
+- Options: (a) require `prescribing` for pharmacy_flag_review, leave admin_clinical; (b) require it for both; (c) leave both as they are.
+- Recommendation: (a). Owner: CMO.
+- Decision: open.
+
+### OQ-434 Is 50% the right offer-window fraction, and are the class warning thresholds right (raised by the task layer)
+- `queue_task_layer_config` v1: the offer window is the shorter of the type's window and 0.5 x the task's own due time; class warning minutes 60 to 2160; a 5 minute job allowance. All PROPOSED, never signed. There is no real claim data yet to tune them against.
+- Options: (a) sign the v1 numbers for the pilot and review after 30 days of claims; (b) change now.
+- Recommendation: (a). Owner: CMO.
+- Decision: open.
+
+### OQ-435 Skip a lead who lacks a task's required competency at offer time (raised by the task layer)
+- `create_clinical_task` offers a task to the patient's lead without checking the lead holds the required competencies; the lead cannot claim it and the offer lapses after at most half the due time. Fixing it changes who is offered what.
+- Options: (a) skip the lead at offer time and go straight to the pool; (b) keep the offer and let it lapse.
+- Recommendation: (a), because (b) wastes up to half the due time on a task that cannot be claimed. Owner: CMO.
+- Decision: open.
+
+### OQ-436 An external dead-man check on the queue and paging heartbeats (raised by the task layer and pager delivery)
+- `queue_watchdog`, `sweep_pages`, `reconcile_red_pages` and `sweep_paging_health` all run under the same pg_cron they monitor; a dead pg_cron kills the watchers and the console together. The SR1 external monitor (`/api/health/deep`) covers unacknowledged page age and cron freshness but not `queue_job_heartbeats`.
+- Options: (a) add `queue_job_heartbeats` ages to `/api/health/deep` and the SR5 ops wall rules; (b) accept the current coverage.
+- Recommendation: (a). Owner: founder.
+- Decision: open.
+
+### OQ-437 Are the delivered-ack numbers right (raised by pager delivery)
+- PROPOSED in `paging_delivery_config`: 90 seconds early advance (180 seconds for a route not confirmed), a 30 minute merge window, a 7 day test page, 120 seconds before a heartbeat is stale, a safe band of 100-139 / 60-89 for the urgent first hop.
+- Options: (a) sign as shipped; (b) change before signing. The 5 and 10 minute timers are unchanged either way.
+- Recommendation: (a), review after the first drill. Owner: CMO.
+- Decision: open.
+
+### OQ-438 Staged roll-out of the objective on-call readiness gate (raised by pager delivery)
+- `paging_delivery_config` v1 is active with readiness OFF; v2 (same rules, readiness ON) is inactive and unsigned. Turning it on means each on-call clinician needs a working push subscription, a verified email and a test page acknowledged in 7 days before being added or swapped in; existing shifts are not cancelled. Urgent swap acceptance is also covered.
+- Options: (a) activate v2 once everyone on the rota has passed a test page; (b) activate for new shifts only; (c) leave off.
+- Recommendation: (a), with the pre-sign checklist in `docs/plans/S16-S20-cmo-signoff-pack.md`. Owner: CMO.
+- Decision: open.
+
+### OQ-439 Should the "expired" alarm come sooner than the lead's 12th repeat (raised by pager delivery)
+- `expired` is reached after the lead's 12th repeat, about 70 minutes after the first page with today's `paging.rules`. The level 2 alerts and the `page_unanswered` incident already fire at 10 minutes.
+- Options: (a) keep; (b) expire after the second timer plus one repeat (about 25 minutes).
+- Recommendation: (b) for red events. Owner: CMO.
+- Decision: open.
+
+### OQ-440 Up to 15 seconds for a red grade that arises from a normal-looking reading (raised by pager delivery)
+- Inside the safe band a blood pressure event waits for the 15 second cron; outside it, or for any red-flag symptom regrade, it is urgent. A red grade that comes from an in-band reading plus a symptom logged earlier waits up to 15 seconds.
+- Options: (a) accept; (b) make every event urgent (risks flooding the edge function on a bulk upload); (c) look up open symptoms in the first-hop decision.
+- Recommendation: (a) for the pilot. Owner: CMO and engineering.
+- Decision: open.
+
+### OQ-441 Who is the named ops person who phones when a page expires (raised by pager delivery; decision S16-S20-10)
+- The incident `page_expired:<id>` ("Phone the on-call clinician now") currently goes to the ops incident queue and to every admin account. Decision 10 makes a named person the final fallback and no such person is named.
+- Options: name a person and a deputy in config; or the founder until a hire.
+- Recommendation: name both before the readiness gate is switched on. Owner: founder.
+- Decision: open.
+
+### OQ-442 A repeat red event is silent while a page family is unacknowledged (raised by pager delivery)
+- A merged repeat is recorded and counted but sends nothing new to the on-call clinician, who is already being alerted. The alternative is one re-send per merge window.
+- Options: (a) keep silent; (b) one re-send per window.
+- Recommendation: (a). Owner: CMO.
+- Decision: open.
+
+### OQ-443 Patient care-team notices now reach the patient's email (raised by pager delivery)
+- `care_team_notice` used to fail with "no email address"; with the address resolver it now sends, treated as patient mail for quiet hours and discreet wording.
+- Options: (a) keep email on; (b) in-app and push only for these notices.
+- Recommendation: (a), if the wording is signed as neutral. Owner: CMO and founder.
+- Decision: open.
+
+### OQ-444 What a second audit reading means when the two differ (raised by quality v2)
+- The second reviewer's reading is final when the two differ; both stay on record and the disagreement is flagged.
+- Options: (a) as built; (b) a third reader on disagreement.
+- Recommendation: (a) while there is only one CMO and a second reviewer is scarce (OQ-138). Owner: CMO.
+- Decision: open.
+
+### OQ-445 Who appoints the independent speak-up reader, and how they log in (raised by quality v2)
+- The lead names the independent reader, so the lead chooses who hears concerns about the lead. An outside person needs an account (role `patient` with no clinician record works).
+- Options: (a) the founder adds the first independent reader once through SQL and the lead cannot remove the last one; (b) CMO plus founder confirmation; (c) an outside body.
+- Recommendation: (b). Needs a name first (decision 7 [verify]: who the independent guardian is). Owner: founder and CMO.
+- Decision: open.
+
+### OQ-446 Is invented scribe content a critical miss (raised by quality v2)
+- Built as a critical miss, which triggers the second reviewer and, with a critical outcome, the reliability event.
+- Options: (a) critical miss; (b) a quality deduction only.
+- Recommendation: (a) until the first AI-017 evaluations are in. Owner: CMO.
+- Decision: open.
+
+### OQ-447 Scribe note link by time window or by task id (raised by quality v2)
+- The audit finds the scribe note by author, patient, consent and a time window around the claim, not a foreign key. A key needs S23 to store the task id on the note.
+- Options: (a) accept the window; (b) add the task id in S23.
+- Recommendation: (b) when S23 is next touched. Owner: engineering.
+- Decision: open.
+
+### OQ-448 Speak-up check-ins after a concern is closed (raised by quality v2)
+- Check-ins go out 30 and 90 days after raising whether or not the concern is closed (config is inert until signed).
+- Options: (a) continue after closure; (b) stop at closure.
+- Recommendation: (a), because detriment often follows closure. Owner: CMO.
+- Decision: open.
+
+### OQ-449 Licence dates for active clinicians and the 15 December deadline (raised by quality v2)
+- `credentialing_config` v4 makes a missing licence date ineligible and cannot be activated while any active clinician lacks a date. Read-only check on 2026-10-15: two active clinician records have no date, one of them a test account. The 15 December proof notice is sent once per clinician per cycle; the expiry sweep suspends at 31 December without grace.
+- Options: (a) enter the real dates (and retire or date the test account) then sign v4; (b) sign v4 later.
+- Recommendation: (a). Owner: CMO. Also confirm the MDCN licence cycle [verify].
+- Decision: open.
+
+### OQ-450 Should the audit case file hide reproductive-health content from the reviewer (raised by quality v2)
+- The case file shows only conversations the audited clinician wrote in during the work, with an age band, and applies no access-category gate, so a reviewer could read reproductive-health content.
+- Options: (a) governance review of the clinician's own conversations is enough; (b) apply the category model and redact.
+- Recommendation: (b), because CLAUDE.md warns against reproductive-health access that skips the category check. Owner: CMO and DPO.
+- Decision: open.
+
+### OQ-451 The sign-off hub has no panel for the paging and task layer configs (raised by the evidence pass)
+- `quality_config` and `credentialing_config` have hub panels and signing functions. `paging_delivery_config` (activate v2) and `queue_task_layer_config` (a new version) have neither a hub line nor a signing function, so activating the readiness gate today needs SQL, and CLAUDE.md says anything the CMO signs belongs on the hub. The registry values (`queue.*`, `paging.*`, `lead.*`) are signed as proposed values in `/clinician/go-live`.
+- Options: (a) add hub lines and signing functions for both tables; (b) keep SQL activation by a database owner.
+- Recommendation: (a), before the readiness gate is switched on. Owner: engineering.
+- Decision: open.
