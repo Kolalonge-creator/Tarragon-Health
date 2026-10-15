@@ -109,7 +109,7 @@ export default async function SupportViewAsSessionPage({
             .limit(20),
           supabase
             .from("clinical_staff")
-            .select("id, doctor_tier, active, credential_type, credential_number, license_verified_at")
+            .select("id, doctor_tier, active, credential_type, license_verified_at")
             .eq("profile_id", session.subject_id)
             .maybeSingle(),
         ]);
@@ -236,7 +236,7 @@ export default async function SupportViewAsSessionPage({
             </p>
             <p>
               <span className="text-charcoal-ink/50">Credential:</span>{" "}
-              {clinicalStaff.credential_type ?? "—"} {clinicalStaff.credential_number ?? ""}
+              {clinicalStaff.credential_type ?? "—"}
             </p>
             <p>
               <span className="text-charcoal-ink/50">Licence verified:</span>{" "}

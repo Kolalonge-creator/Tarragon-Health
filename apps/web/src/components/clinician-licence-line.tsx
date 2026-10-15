@@ -14,7 +14,7 @@ export function ClinicianLicenceLine({ profileId, locale }: { profileId: string 
   if (!l) return null;
   return (
     <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-      {t("licence.line", locale, { type: l.credential_type, number: l.credential_number, date: formatPatientDate(l.checked_on) })}
+      {t("licence.line", locale, { date: formatPatientDate(l.checked_on) })}
     </p>
   );
 }

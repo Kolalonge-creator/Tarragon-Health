@@ -1,0 +1,66 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+/**
+ * The MDCN folio of clinicians, for the few screens entitled to it: the clinician themself, the Chief Medical Officer and
+ * credentialing staff (private.can_credential_review()). CMO decision OQ-358: colleagues, patients and other staff never read it.
+ *
+ * After step 2 of the base-table lock, `authenticated` cannot select clinical_staff.credential_number at all; the only reader is
+ * public.clinical_staff_folio(), which returns a row only for those entitled callers. DEPLOY-WINDOW FALLBACK: this code ships
+ * before the schema step, so while that function does not exist yet (PostgREST PGRST202 / Postgres 42883) the lookup reads the
+ * column directly, exactly as the old app did. Once the function exists it is always used. Any other failure, including a
+ * permission refusal, yields no folio: a screen then shows no number, it never crashes and never invents one.
+ */
+export type StaffFolioMap = Map<string, string | null>;
+
+type FolioRow = { clinical_staff_id: string; credential_number: string | null };
+type Err = { code?: string; message?: string } | null;
+type Client = {
+  rpc: (fn: "clinical_staff_folio", args: { p_staff_ids: string[] }) => PromiseLike<{ data: FolioRow[] | null; error: Err }>;
+  from: (table: "clinical_staff") => {
+    select: (cols: "id, credential_number") => {
+      in: (col: "id", ids: string[]) => PromiseLike<{ data: { id: string; credential_number: string | null }[] | null; error: Err }>;
+    };
+  };
+};
+
+/** True when the error means "that function is not in the database (yet)". */
+export function isMissingFunctionError(error: Err): boolean {
+  if (!error) return false;
+  return (
+    error.code === "PGRST202" ||
+    error.code === "42883" ||
+    /could not find the function|function .* does not exist/i.test(error.message ?? "")
+  );
+}
+
+export async function fetchStaffFolios(
+  supabase: Pick<SupabaseClient, "rpc" | "from"> | object,
+  staffIds: readonly (string | null | undefined)[],
+): Promise<StaffFolioMap> {
+  const out: StaffFolioMap = new Map();
+  const ids = [...new Set(staffIds.filter((i): i is string => typeof i === "string" && i.length > 0))];
+  if (ids.length === 0) return out;
+  const client = supabase as Client;
+
+  const viaFunction = await client.rpc("clinical_staff_folio", { p_staff_ids: ids });
+  if (!viaFunction.error) {
+    for (const row of viaFunction.data ?? []) out.set(row.clinical_staff_id, row.credential_number);
+    return out;
+  }
+  if (!isMissingFunctionError(viaFunction.error)) return out; // refused or failed: no folio shown
+
+  // Deploy-window fallback: the schema step has not landed, so the column is still readable.
+  const viaTable = await client.from("clinical_staff").select("id, credential_number").in("id", ids);
+  if (viaTable.error) return out;
+  for (const row of viaTable.data ?? []) out.set(row.id, row.credential_number);
+  return out;
+}
+
+/** Fills `credential_number` on rows that no longer carry it (selected without the folio), for screens entitled to show it. */
+export async function withStaffFolios<T extends { id: string }>(
+  supabase: Pick<SupabaseClient, "rpc" | "from"> | object,
+  rows: readonly T[],
+): Promise<(T & { credential_number: string | null })[]> {
+  const folios = await fetchStaffFolios(supabase, rows.map((r) => r.id));
+  return rows.map((r) => ({ ...r, credential_number: folios.get(r.id) ?? null }));
+}

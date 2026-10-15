@@ -1,9 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { SIGNATURE_BUCKET, signatureObjectPath, validateSignatureFile } from "@/lib/clinical/signature-image";
+import { CLINICAL_STAFF_SELECT_NO_FOLIO } from "@/lib/clinical/staff-columns";
+import { withStaffFolios } from "@/lib/clinical/staff-folio";
 import type { Tables } from "@tarragon/shared";
 
 export type ClinicalStaff = Tables<"clinical_staff">;
+/** A staff row read without the MDCN folio (CMO OQ-358): what any screen that is not entitled to the folio receives. */
+export type ClinicalStaffNoFolio = Omit<ClinicalStaff, "credential_number">;
 
 const ALL_STAFF_QUERY_KEY = ["clinical-staff", "all"];
 const CLINICAL_STAFF_PHOTO_BUCKET = "clinical-staff-photos";
@@ -49,11 +53,13 @@ export function useAllClinicalStaff() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("clinical_staff")
-        .select("*")
+        .select(CLINICAL_STAFF_SELECT_NO_FOLIO)
         .order("doctor_tier", { ascending: false })
         .order("full_name", { ascending: true });
       if (error) throw error;
-      return data as ClinicalStaff[];
+      // The admin manager is entitled to the folio (private.can_credential_review()); it comes from the folio function,
+      // never from the table select, so locking the column (OQ-358) cannot break this list.
+      return (await withStaffFolios(supabase, (data ?? []) as unknown as ClinicalStaffNoFolio[])) as ClinicalStaff[];
     },
   });
 }
@@ -559,12 +565,12 @@ export function useOrgClinicians() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("clinical_staff")
-        .select("*")
+        .select(CLINICAL_STAFF_SELECT_NO_FOLIO)
         .in("doctor_tier", ["senior_medical_officer"])
         .eq("active", true)
         .order("full_name", { ascending: true });
       if (error) throw error;
-      return data as ClinicalStaff[];
+      return data as unknown as ClinicalStaffNoFolio[];
     },
   });
 }

@@ -52,9 +52,7 @@ export function CareTeamForm({
                 <option key={c.id} value={c.profile_id!}>
                   {c.full_name}
                   {c.staff_number ? ` (${c.staff_number})` : ""}
-                  {c.credential_type && c.credential_number
-                    ? `: ${c.credential_type} ${c.credential_number}`
-                    : ""}
+                  {c.credential_type ? `: ${c.credential_type}` : ""}
                 </option>
               ))}
             </Select>

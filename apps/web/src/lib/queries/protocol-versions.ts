@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { fetchStaffFolios } from "@/lib/clinical/staff-folio";
 import type { Json, Tables } from "@tarragon/shared";
 
 export type ProtocolVersion = Tables<"protocol_versions"> & {
@@ -58,12 +59,22 @@ export function useProtocolVersions() {
       const { data, error } = await supabase
         .from("protocol_versions")
         .select(
-          "*, approved_by_staff:clinical_staff!protocol_versions_approved_by_fkey(full_name, credential_type, credential_number)"
+          "*, approved_by_staff:clinical_staff!protocol_versions_approved_by_fkey(full_name, credential_type)"
         )
         .order("protocol_id", { ascending: true })
         .order("version_number", { ascending: false });
       if (error) throw error;
-      return data as ProtocolVersion[];
+      const rows = (data ?? []) as unknown as (Tables<"protocol_versions"> & {
+        approved_by_staff: { full_name: string; credential_type: string | null } | null;
+      })[];
+      // The protocols manager is an admin screen (entitled to the folio, OQ-358): the number comes from the folio function.
+      const folios = await fetchStaffFolios(supabase, rows.map((r) => r.approved_by));
+      return rows.map((r) => ({
+        ...r,
+        approved_by_staff: r.approved_by_staff
+          ? { ...r.approved_by_staff, credential_number: (r.approved_by && folios.get(r.approved_by)) || null }
+          : null,
+      })) as ProtocolVersion[];
     },
   });
 }
