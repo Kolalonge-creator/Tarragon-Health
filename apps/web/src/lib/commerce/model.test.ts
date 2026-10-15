@@ -41,6 +41,7 @@ describe("copy keys", () => {
     expect(checkoutErrorKey("surprise")).toBe("shop.error.unknown");
     expect(checkoutErrorKey(undefined)).toBe("shop.error.unknown");
     expect(checkoutErrorKey("no_capacity")).toBe("shop.error.no_capacity");
+    expect(checkoutErrorKey("intake_paused")).toBe("shop.error.no_capacity");
   });
   it("S73: every pricing refusal has its own message, never the generic one", () => {
     for (const code of ["membership_not_open", "quote_changed", "sponsor_billing_not_open", "order_fully_covered", "discount_code_invalid", "discount_code_rate_limited"]) {
