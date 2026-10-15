@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, FlatList, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { Device } from "react-native-ble-plx";
 import type { Tables } from "@tarragon/shared";
@@ -9,6 +9,11 @@ import { flushOfflineQueues, getPendingCount as getOfflineQueuePendingCount } fr
 import { supabase } from "@/lib/supabase";
 import { AppleHealthCard } from "@/screens/apple-health-card";
 import { AndroidHealthConnectCard } from "@/screens/android-health-connect-card";
+import { CgmSafetySection, EcgResultsSection, HeldReadingsSection, RecommendedDevicesSection } from "@/screens/device-s70a-sections";
+import { PhotoReadingScreen } from "@/screens/photo-reading-screen";
+import { loadDeviceFlags, NO_DEVICE_FLAGS, type DeviceFlags } from "@/lib/device-flags";
+import { loadReadingSubjects, type ManagedDevice, type ReadingSubject } from "@/lib/reading-subject";
+import { loadManagedDevices, pairDeviceFor } from "@/lib/managed-devices";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTheme } from "@/ui/design";
 import {
@@ -76,6 +81,12 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
   const [pairError, setPairError] = useState<string | null>(null);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [syncingNow, setSyncingNow] = useState(false);
+  // S70a: the Module 18 switches (all off until an admin turns one on), and the people this phone can pair or log for.
+  const [flags, setFlags] = useState<DeviceFlags>(NO_DEVICE_FLAGS);
+  const [subjects, setSubjects] = useState<ReadingSubject[]>([{ profileId: patientId, label: "Mine", isSelf: true }]);
+  const [pairSubjectId, setPairSubjectId] = useState(patientId);
+  const [managed, setManaged] = useState<ManagedDevice[]>([]);
+  const [showPhoto, setShowPhoto] = useState(false);
 
   const refreshPendingSync = useCallback(async () => {
     setPendingSyncCount(await getOfflineQueuePendingCount());
@@ -121,6 +132,12 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
   }, [loadDevices, refreshPendingSync]);
 
   useEffect(() => {
+    void loadDeviceFlags().then(setFlags);
+    void loadReadingSubjects(patientId).then(setSubjects);
+    void loadManagedDevices().then((r) => setManaged(r.ok ? r.items : []));
+  }, [patientId]);
+
+  useEffect(() => {
     if (!pairing) return;
     setFound([]);
     setScanError(null);
@@ -147,6 +164,18 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
 
   async function handlePair(device: Device, deviceType: SupportedDeviceType) {
     setPairError(null);
+    // S70a (18.1, shared phones): a device paired for someone this person manages belongs to THAT person. The server checks the grant again.
+    const chosen = subjects.find((s) => s.profileId === pairSubjectId);
+    if (chosen && !chosen.isSelf) {
+      const paired = await pairDeviceFor(chosen, { deviceType, bleDeviceId: device.id, model: device.name ?? device.localName ?? null });
+      if (!paired.ok) {
+        setPairError("We couldn't finish pairing that device. Tap it to try again.");
+        return;
+      }
+      setPairing(false);
+      void loadManagedDevices().then((r) => setManaged(r.ok ? r.items : []));
+      return;
+    }
     const { error } = await supabase.from("patient_devices").insert({
       patient_id: patientId,
       organisation_id: organisationId,
@@ -218,6 +247,9 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
           </Pressable>
         </View>
       ) : null}
+
+      {flags.device_plausibility_hold ? <HeldReadingsSection patientId={patientId} onEnterAgain={() => setShowPhoto(flags.device_photo_capture)} /> : null}
+      {flags.device_cgm_sustained_events ? <CgmSafetySection patientId={patientId} /> : null}
 
       <AppleHealthCard />
       <AndroidHealthConnectCard />
@@ -308,7 +340,37 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
         </MutedText>
       </Card>
 
+      {managed.length > 0 ? (
+        <View style={{ gap: 10 }}>
+          <SectionLabel>Devices you manage for others</SectionLabel>
+          <GroupedList>
+            {managed.map((item) => (
+              <GroupedListRow
+                key={item.id}
+                title={`${item.personName}: ${item.nickname ?? item.model ?? deviceLabel(item.deviceType)}`}
+                subtitle={`${deviceLabel(item.deviceType)} · Last synced: ${item.lastSyncedAt ? new Date(item.lastSyncedAt).toLocaleDateString() : "never"}`}
+                onPress={() =>
+                  onOpenDevice({
+                    id: item.id,
+                    patient_id: item.patientId,
+                    organisation_id: organisationId,
+                    device_type: item.deviceType,
+                    ble_device_id: item.bleDeviceId,
+                    model: item.model,
+                    nickname: item.nickname,
+                  } as unknown as PatientDevice)
+                }
+              />
+            ))}
+          </GroupedList>
+        </View>
+      ) : null}
+
       <PrimaryButton title="Pair a new device" onPress={() => setPairing(true)} />
+      {flags.device_photo_capture ? <SecondaryButton title="Photograph a device screen" onPress={() => setShowPhoto(true)} /> : null}
+
+      {Platform.OS === "ios" && flags.device_ecg_rhythm_alerts ? <EcgResultsSection patientId={patientId} /> : null}
+      {flags.device_recommended_list ? <RecommendedDevicesSection /> : null}
 
       <Modal visible={pairing} animationType="slide" onRequestClose={() => setPairing(false)}>
         <View style={{ flex: 1, padding: spacing.screen, gap: 14, backgroundColor: colors.background }}>
@@ -321,6 +383,31 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
           <MutedText>
             Turn on your device (BP cuff, glucometer, scale, thermometer, or pulse oximeter) and put it in pairing mode.
           </MutedText>
+          {subjects.length > 1 ? (
+            <View style={{ gap: 8 }}>
+              <Text style={{ fontWeight: "700", color: colors.ink }}>Whose device is this?</Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                {subjects.map((subject) => (
+                  <Pressable
+                    key={subject.profileId}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: pairSubjectId === subject.profileId }}
+                    onPress={() => setPairSubjectId(subject.profileId)}
+                    style={{
+                      borderRadius: 999,
+                      borderWidth: 1,
+                      borderColor: pairSubjectId === subject.profileId ? colors.brand : colors.border,
+                      backgroundColor: pairSubjectId === subject.profileId ? colors.brandTintAlt : colors.card,
+                      paddingVertical: 8,
+                      paddingHorizontal: 14,
+                    }}
+                  >
+                    <Text style={{ color: colors.ink, fontWeight: pairSubjectId === subject.profileId ? "700" : "500" }}>{subject.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          ) : null}
           {scanError ? <ErrorText>{scanError}</ErrorText> : null}
           {pairError ? <ErrorText>{pairError}</ErrorText> : null}
           <FlatList
@@ -347,6 +434,10 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
           />
           <SecondaryButton title="Cancel" onPress={() => setPairing(false)} />
         </View>
+      </Modal>
+
+      <Modal visible={showPhoto} animationType="slide" onRequestClose={() => setShowPhoto(false)}>
+        <PhotoReadingScreen userId={patientId} onClose={() => setShowPhoto(false)} />
       </Modal>
 
       <Modal visible={faultTarget !== null} animationType="slide" onRequestClose={() => setFaultTarget(null)}>

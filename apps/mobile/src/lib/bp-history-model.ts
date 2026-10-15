@@ -19,7 +19,7 @@ import { lagosLocalDate, weekdayOf, LAGOS_OFFSET_MS, type LocalDate } from "./la
  *   the reviewer find the exact row.
  */
 export type SyncState = "sent" | "on_phone" | "not_accepted";
-export type ReadingSource = "manual" | "device" | "wearable" | "other";
+export type ReadingSource = "manual" | "device" | "wearable" | "photo_confirmed" | "other";
 export type RequestStatus = "pending" | "under_review" | "approved" | "applied" | "denied";
 
 export interface HistoryReading {
@@ -190,7 +190,7 @@ export interface QueuedBp {
 }
 
 const sourceOf = (s: string | null): ReadingSource =>
-  s === "manual" ? "manual" : s === "device" || s === "cgm" ? "device" : s === "wearable" ? "wearable" : "other";
+  s === "manual" ? "manual" : s === "device" || s === "cgm" ? "device" : s === "wearable" ? "wearable" : s === "photo_confirmed" ? "photo_confirmed" : "other";
 
 /**
  * Server readings plus readings still on the phone. A row on the server wins over
