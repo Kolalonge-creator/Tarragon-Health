@@ -17008,6 +17008,7 @@ export type Database = {
       health_education_content: {
         Row: {
           approved_at: string | null
+          audio_clip_id: string | null
           audio_url: string | null
           author_name: string | null
           body: string
@@ -17020,13 +17021,17 @@ export type Database = {
           content_type: Database["public"]["Enums"]["health_education_content_type"]
           content_version: number
           created_at: string
+          creator_id: string | null
           drip_week: number | null
           embedding: string | null
           estimated_minutes: number | null
           evidence_source: string | null
           id: string
           is_active: boolean
+          is_micro_lesson: boolean
+          is_placeholder: boolean
           knowledge_check: Json | null
+          lesson_action: string | null
           max_age: number | null
           min_age: number | null
           min_risk_level: Database["public"]["Enums"]["risk_level"] | null
@@ -17037,6 +17042,8 @@ export type Database = {
           review_due_at: string | null
           reviewed_at: string | null
           reviewed_by_name: string | null
+          self_care_action: string | null
+          share_enabled: boolean
           sort_order: number
           source_reference: string | null
           summary: string | null
@@ -17045,11 +17052,11 @@ export type Database = {
           updated_at: string
           version: number
           video_url: string | null
-          audio_clip_id: string | null
           next_action: string | null
         }
         Insert: {
           approved_at?: string | null
+          audio_clip_id?: string | null
           audio_url?: string | null
           author_name?: string | null
           body: string
@@ -17062,13 +17069,17 @@ export type Database = {
           content_type?: Database["public"]["Enums"]["health_education_content_type"]
           content_version?: number
           created_at?: string
+          creator_id?: string | null
           drip_week?: number | null
           embedding?: string | null
           estimated_minutes?: number | null
           evidence_source?: string | null
           id?: string
           is_active?: boolean
+          is_micro_lesson?: boolean
+          is_placeholder?: boolean
           knowledge_check?: Json | null
+          lesson_action?: string | null
           max_age?: number | null
           min_age?: number | null
           min_risk_level?: Database["public"]["Enums"]["risk_level"] | null
@@ -17079,6 +17090,8 @@ export type Database = {
           review_due_at?: string | null
           reviewed_at?: string | null
           reviewed_by_name?: string | null
+          self_care_action?: string | null
+          share_enabled?: boolean
           sort_order?: number
           source_reference?: string | null
           summary?: string | null
@@ -17087,11 +17100,11 @@ export type Database = {
           updated_at?: string
           version?: number
           video_url?: string | null
-          audio_clip_id?: string | null
           next_action?: string | null
         }
         Update: {
           approved_at?: string | null
+          audio_clip_id?: string | null
           audio_url?: string | null
           author_name?: string | null
           body?: string
@@ -17104,13 +17117,17 @@ export type Database = {
           content_type?: Database["public"]["Enums"]["health_education_content_type"]
           content_version?: number
           created_at?: string
+          creator_id?: string | null
           drip_week?: number | null
           embedding?: string | null
           estimated_minutes?: number | null
           evidence_source?: string | null
           id?: string
           is_active?: boolean
+          is_micro_lesson?: boolean
+          is_placeholder?: boolean
           knowledge_check?: Json | null
+          lesson_action?: string | null
           max_age?: number | null
           min_age?: number | null
           min_risk_level?: Database["public"]["Enums"]["risk_level"] | null
@@ -17121,6 +17138,8 @@ export type Database = {
           review_due_at?: string | null
           reviewed_at?: string | null
           reviewed_by_name?: string | null
+          self_care_action?: string | null
+          share_enabled?: boolean
           sort_order?: number
           source_reference?: string | null
           summary?: string | null
@@ -17129,10 +17148,17 @@ export type Database = {
           updated_at?: string
           version?: number
           video_url?: string | null
-          audio_clip_id?: string | null
           next_action?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "health_education_content_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "learning_creators"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       health_education_content_status_history: {
         Row: {
