@@ -124,7 +124,7 @@ begin
     (select count(*)::text from pg_proc p where p.pronamespace = 'public'::regnamespace
       and p.proname in ('pause_pathway_enrolment', 'resume_pathway_enrolment', 'transfer_pathway_enrolment', 'discharge_pathway_enrolment', 're_enrol_pathway_enrolment', 'clinician_mark_pathway_milestone', 'read_pathway_milestones_audited', 'sweep_pathway_reviews', 'sweep_pathway_scheduled_tests', 'attest_go_live_condition', 'attest_go_live_condition_s61_base')
       and has_function_privilege('anon', p.oid, 'EXECUTE')));
-  perform pg_temp.rec('the wrapped base functions exist', '2', (select count(*)::text from pg_proc where proname in ('go_live_conditions_s61_base', 'attest_go_live_condition_s61_base')));
+  perform pg_temp.rec('both go-live functions carry the pathway branch', '2', (select count(*)::text from pg_proc where oid in ('private.go_live_conditions(text, uuid)'::regprocedure, 'public.attest_go_live_condition(text, text, boolean, text)'::regprocedure) and prosrc like '%pathway%'));
   v_conds := private.go_live_conditions('pathway_bp', v_org);
   perform pg_temp.rec('pathway guard: four conditions, none met', '4/0', jsonb_array_length(v_conds) || '/' || (select count(*) from jsonb_array_elements(v_conds) c where (c ->> 'met')::boolean));
   perform pg_temp.rec('the wrapper still serves an older guard', 'true', (jsonb_array_length(private.go_live_conditions('on_call_cover_ok', v_org)) >= 1)::text);

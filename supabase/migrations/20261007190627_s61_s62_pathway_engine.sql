@@ -19,9 +19,9 @@
 -- engine: none. chronic_condition_programmes hypertension, diabetes and obesity are is_active = true. So the new enrolment guard (off) means a
 -- real patient can no longer enrol in those three programmes until the CMO switches the pathway guard on. No existing patient is affected.
 --
--- THE CONDITIONS FUNCTION IS WRAPPED, NOT REWRITTEN: private.go_live_conditions is renamed to go_live_conditions_s61_base and a thin dispatcher takes
--- its name; public.attest_go_live_condition likewise. The base bodies are kept exactly as they are live, so this cannot drift from them. A later
--- migration that re-creates either function in full would drop the pathway branch: the proof script asserts the wrapper is in place.
+-- THE CONDITIONS FUNCTIONS ARE PATCHED IN PLACE, NOT REWRITTEN OR RENAMED: private.go_live_conditions and public.attest_go_live_condition each get a
+-- pathway_* branch at the top by an anchored replace on the live definition (failing loudly if the anchor moved), so every layer other migrations
+-- have put on them survives. The proof script asserts the branch is present.
 --
 -- NO model call anywhere here (INV-01). No new overload of can_read_clinical (three already exist): policies call the existing ones with explicit casts.
 
@@ -152,38 +152,42 @@ begin
       private.go_live_attested(p_key, 'clinicians_competency_attested'), 'attestation', null));
 end $$;
 
-alter function private.go_live_conditions(text, uuid) rename to go_live_conditions_s61_base;
-create function private.go_live_conditions(p_key text, p_org uuid) returns jsonb language plpgsql stable security definer set search_path = '' as $$
+-- The two go-live functions are patched IN PLACE (an anchored replace on the live definition), not wrapped by a rename: other migrations extend
+-- both of them the same way, and a rename would hide the text those patches look for. A pathway key (pathway_*) is handled first; every other
+-- key falls through to the existing body untouched.
+do $$
+declare v_def text; v_new text;
 begin
-  if p_key like 'pathway\_%' then return private.pathway_go_live_conditions(p_key); end if;
-  return private.go_live_conditions_s61_base(p_key, p_org);
-end $$;
-
-alter function public.attest_go_live_condition(text, text, boolean, text) rename to attest_go_live_condition_s61_base;
-revoke all on function public.attest_go_live_condition_s61_base(text, text, boolean, text) from public, anon, authenticated;
-create function public.attest_go_live_condition(p_key text, p_code text, p_met boolean, p_note text) returns jsonb
-language plpgsql security definer set search_path = '' as $$
-declare v_uid uuid := (select auth.uid());
-begin
-  if p_key like 'pathway\_%' then
-    if v_uid is null then raise exception 'not signed in' using errcode = '42501'; end if;
-    if not private.credential_is_cmo() then raise exception 'only the Chief Medical Officer can record a pathway safety case or competency' using errcode = '42501'; end if;
-    if not exists (select 1 from public.go_live_guards where key = p_key) then raise exception 'no such go-live guard: %', p_key using errcode = '22023'; end if;
-    if p_code not in ('clinical_safety_case_current', 'clinicians_competency_attested') then
-      raise exception 'that condition is read from the data (or does not exist), it cannot be attested' using errcode = '22023';
-    end if;
-    if p_met is null or length(btrim(coalesce(p_note, ''))) < 10 then raise exception 'say what was checked and by whom, in a sentence' using errcode = '22023'; end if;
-    if p_code = 'clinical_safety_case_current' and p_met and length(btrim(p_note)) < 25 then
-      raise exception 'name the safety case document, its version and who signed it' using errcode = '22023';
-    end if;
-    insert into public.go_live_attestations (guard_key, condition_code, met, note, attested_by) values (p_key, p_code, p_met, btrim(p_note), v_uid);
-    perform private.log_audit('go_live_guard.condition_attested', 'go_live_guard', null, jsonb_build_object('key', p_key, 'code', p_code, 'met', p_met));
-    return jsonb_build_object('ok', true);
+  v_def := pg_get_functiondef('private.go_live_conditions(text, uuid)'::regprocedure);
+  if v_def not like '%pathway_go_live_conditions%' then
+    v_new := replace(v_def, E'\nbegin\n', E'\nbegin\n  if p_key like ''pathway\\_%'' then return private.pathway_go_live_conditions(p_key); end if;\n');
+    if v_new = v_def then raise exception 'S61: go_live_conditions marker not found (definition drifted)'; end if;
+    execute v_new;
   end if;
-  return public.attest_go_live_condition_s61_base(p_key, p_code, p_met, p_note);
+
+  v_def := pg_get_functiondef('public.attest_go_live_condition(text, text, boolean, text)'::regprocedure);
+  if v_def not like '%pathway safety case or competency%' then
+    v_new := replace(v_def, E'\nbegin\n',
+      E'\nbegin\n' ||
+      E'  if p_key like ''pathway\\_%'' then\n' ||
+      E'    if v_uid is null then raise exception ''not signed in'' using errcode = ''42501''; end if;\n' ||
+      E'    if not private.credential_is_cmo() then raise exception ''only the Chief Medical Officer can record a pathway safety case or competency'' using errcode = ''42501''; end if;\n' ||
+      E'    if not exists (select 1 from public.go_live_guards where key = p_key) then raise exception ''no such go-live guard: %'', p_key using errcode = ''22023''; end if;\n' ||
+      E'    if p_code not in (''clinical_safety_case_current'', ''clinicians_competency_attested'') then\n' ||
+      E'      raise exception ''that condition is read from the data (or does not exist), it cannot be attested'' using errcode = ''22023'';\n' ||
+      E'    end if;\n' ||
+      E'    if p_met is null or length(btrim(coalesce(p_note, ''''))) < 10 then raise exception ''say what was checked and by whom, in a sentence'' using errcode = ''22023''; end if;\n' ||
+      E'    if p_code = ''clinical_safety_case_current'' and p_met and length(btrim(p_note)) < 25 then\n' ||
+      E'      raise exception ''name the safety case document, its version and who signed it'' using errcode = ''22023'';\n' ||
+      E'    end if;\n' ||
+      E'    insert into public.go_live_attestations (guard_key, condition_code, met, note, attested_by) values (p_key, p_code, p_met, btrim(p_note), v_uid);\n' ||
+      E'    perform private.log_audit(''go_live_guard.condition_attested'', ''go_live_guard'', null, jsonb_build_object(''key'', p_key, ''code'', p_code, ''met'', p_met));\n' ||
+      E'    return jsonb_build_object(''ok'', true);\n' ||
+      E'  end if;\n');
+    if v_new = v_def then raise exception 'S61: attest_go_live_condition marker not found (definition drifted)'; end if;
+    execute v_new;
+  end if;
 end $$;
-revoke all on function public.attest_go_live_condition(text, text, boolean, text) from public, anon;
-grant execute on function public.attest_go_live_condition(text, text, boolean, text) to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 4. Enrolment guard (INV-14)
@@ -633,8 +637,7 @@ begin
   end if;
   if has_table_privilege('anon', 'public.pathway_milestones', 'SELECT') or has_table_privilege('anon', 'public.pathway_baselines', 'SELECT') then raise exception 'S62: anon can read a pathway table'; end if;
   if has_function_privilege('anon', 'public.pause_pathway_enrolment(uuid,text)', 'EXECUTE') or has_function_privilege('anon', 'public.attest_go_live_condition(text,text,boolean,text)', 'EXECUTE')
-     or has_function_privilege('anon', 'public.sweep_pathway_reviews()', 'EXECUTE') or has_function_privilege('authenticated', 'public.sweep_pathway_reviews()', 'EXECUTE')
-     or has_function_privilege('authenticated', 'public.attest_go_live_condition_s61_base(text,text,boolean,text)', 'EXECUTE') then
+     or has_function_privilege('anon', 'public.sweep_pathway_reviews()', 'EXECUTE') or has_function_privilege('authenticated', 'public.sweep_pathway_reviews()', 'EXECUTE') then
     raise exception 'S62: a pathway function has the wrong execute privilege';
   end if;
 end $$;
