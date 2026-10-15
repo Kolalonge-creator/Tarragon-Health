@@ -37,6 +37,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Turbo local cache persisted through the GitHub Actions cache (no Vercel remote-cache token exists). Each run saves under a unique sha key
+      # and restores the newest entry for this job, so unchanged packages replay from cache. Turbo hashes task inputs itself; a stale entry can
+      # only be reused when the hash matches, so this cannot hide a real change.
+      - name: Restore turbo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-core-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-core-${{ hashFiles('pnpm-lock.yaml') }}-
+            turbo-${{ runner.os }}-core-
+
       - name: Typecheck
         run: pnpm typecheck
 
@@ -78,6 +90,18 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      # Turbo local cache persisted through the GitHub Actions cache (no Vercel remote-cache token exists). Each run saves under a unique sha key
+      # and restores the newest entry for this job, so unchanged packages replay from cache. Turbo hashes task inputs itself; a stale entry can
+      # only be reused when the hash matches, so this cannot hide a real change.
+      - name: Restore turbo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-web-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-web-${{ hashFiles('pnpm-lock.yaml') }}-
+            turbo-${{ runner.os }}-web-
 
       # `test` depends on the workspace packages being built (turbo ^build); build only what the web app imports, not the web app itself.
       - name: Build workspace packages the web app imports
