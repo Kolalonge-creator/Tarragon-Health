@@ -1,6 +1,6 @@
 # S16-S20 Stage 5: capacity, cover, surge, fatigue and fire drills
 
-Branch `s16-s20/capacity-cover`. Plan: `docs/plans/S16-S20-review-and-build-plan.md` Stage 5 (W5.1 to W5.5), CMO decisions 12, 13, 14, 15 (remainder). Migration `20261015103005_s16_s20_capacity_cover.sql`, proof `packages/db/tests/s16_s20_capacity_cover.sql`. English only. Nothing here signs, activates or switches anything on; the migration is applied by the merge.
+Branch `s16-s20/capacity-cover`. Plan: `docs/plans/S16-S20-review-and-build-plan.md` Stage 5 (W5.1 to W5.5), CMO decisions 12, 13, 14, 15 (remainder). Migration `20261015162552_s16_s20_capacity_cover.sql`, proof `packages/db/tests/s16_s20_capacity_cover.sql`. English only. Nothing here signs, activates or switches anything on; the migration is applied by the merge.
 
 ## Rollout: every new gate ships OFF
 

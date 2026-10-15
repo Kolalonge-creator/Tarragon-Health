@@ -2167,6 +2167,41 @@ Built on top of F1; nothing applied to production; `symptom_checker_enabled` sta
 - Still owed: (e) Android: not run (no Java or emulator image on this machine); `SCHEDULE_EXACT_ALARM` is not declared (OQ-73), so a reminder can arrive minutes late in Doze and the server backup push covers it. The native Pidgin review itself.
 - Decision: pending (item e, and the Pidgin sign-off).
 
+### OQ-313 Where the CMO signs a language registry change (raised by S86)
+The S86 gate refuses to enable a language unless the registry (`i18n.language_registry`) carries a native review and, for clinical features, a CMO signature fingerprinting the exact text. No screen or RPC exists for the CMO to produce or publish that, and none is needed while English is the only language (D-14). Before any language returns, decide: add it to `/clinician/clinical-signoff` (the hub that already signs triage and risk sets) or keep it a reviewed pull request. Also decide who the native reviewer is per language. Not built; recommended: the sign-off hub, with the hash computed server side.
+### OQ-309 The Paystack webhook still has a refund branch for a retired Platform Credit charge (raised by S87)
+- Blocks: nothing. `supabase/functions/paystack-webhook/handler.ts` (around line 756) handles `metadata.kind = "platform_credit_topup"` by refunding and reconciling. Platform Credit was removed from the schema on 2026-09-30 (0 balances, 0 ledger entries, 0 top-ups), so the branch can only fire for a charge started before removal.
+- Options: (a) keep the branch for 30 days as a safety net, then delete it; (b) delete it now.
+- Recommend (a), then delete and remove the Part C allowlist entry. Deploy order: code first, nothing in the schema depends on it.
+- Decision: pending.
+
+### OQ-310 Employer roster invitations can be sent by SMS (raised by S87)
+- Blocks: nothing. `dashboard/corporate/roster-manager.tsx` offers an "SMS" invitation channel for roster members. It is not a verification code or clinician paging, so it is outside the SMS rule (OQ-05, D3 draft of 2026-10-07).
+- Options: (a) remove the SMS channel and invite by email or a link the employer shares; (b) keep as a named exception.
+- Recommend (a). Decision: pending, with D3.
+
+### OQ-311 Part C.2 says clinicians are freelance only; the platform allows employed doctors (raised by S87)
+- Blocks: nothing. The code models `employment_type` (employed or contracted) and four earnings screens say "paid by salary". The founder decision of 2026-09-30 allows employed doctors (pushed tasks) next to freelancers (pull from the pool).
+- Decision (founder, 2026-10-07): update the spec row to match; keep the code. The spec file itself is never edited, so the change is recorded here and in `docs/DECISIONS.md` (S87-1) and the Part C audit treats this row as resolved.
+
+### OQ-312 Dormant schema that Part C mentions, found live on 2026-10-07 (raised by S87)
+- Counted live: `subscription_plans` 13 rows, `subscriptions` 0, `subscription_add_ons` 0, `logistics_partners` 1, `wellness_points_balances` 2 (points, not money). The `payment_provider` enum still holds `wallet` and `stripe` labels. `commission_type.delivery`, `pharmacy_refund_reason.delivery_failed` and `medication_access_barrier_reason.delivery_unavailable` remain after OQ-261.
+- Options: (a) leave as dormant history; (b) one removal migration per removal-pattern in CLAUDE.md (count rows, delete enum values, assertion block, proof, then code first).
+- Recommend (b) for the enum labels (zero rows) and the subscription tables, after OQ-97's code removal. Decision: pending.
+- Not yet verified in S87: employer or institution reporting never exposes reproductive, pregnancy or mental health data (C.1); the scribe patient summary is never patient-visible without a clinician signature (INV-11); `escalation_slas` v8 still names a WhatsApp hop (OQ-198's ladder, normalised to email at read time).
+### OQ-320 Partner cost and refund margin columns are still readable by the patient and org staff (raised by Track E)
+- `lab_orders.partner_cost_kobo/_provider_id/_breakdown`, `pharmacy_orders.partner_cost_*`, `lab_order_refunds.margin_portion_kobo` and `pharmacy_order_refunds.margin_portion_kobo` are readable by the ordering patient and by any org staff (`is_org_staff`, which admits the clinician role). Live row counts today: 0 in all four tables, so nothing has leaked. Not fixed in the Track E migration because these tables are read with `select("*")` and embeds in many places.
+- Options: (a) same column-grant plus owner-run view treatment as Track E, after a client sweep (recommended, as the next track, before the first partner order); (b) move the cost columns to a finance-only side table.
+- Decision: open.
+
+### OQ-321 Old installed mobile builds break on two reads when the Track E migration is applied (raised by Track E)
+- Builds that predate this PR call `select("*")` on `panel_bundles` (lab booking lists) and `therapy_sessions` (therapy list); after the migration those two reads return a permission error until the app receives the JS update (OTA, no native change).
+- Options: (a) publish the OTA first and apply the migration after adoption (recommended); (b) apply now and accept a short gap; both are the lead's call.
+- Decision: open.
+
+### OQ-322 Track E ships on top of the unapplied S53 pre-fix (raised by Track E)
+- The same exposure on `pharmacy_medications` and the `commissions` ledger is fixed by migration `20261007002834` on branch `s53/medicines-schedule-adherence`, not yet applied live. Track E does not depend on it, but until both are live a patient can still read pharmacy commissions and a clinician can read the ledger.
+- Decision: open (apply order is the lead's).
 ### OQ-340 Partner invoice totals are readable by care-team staff, clinicians included (raised by Track G)
 - `partner_statements`, `partner_statement_lines`, `pharmacy_partner_statements` and `pharmacy_partner_statement_lines` carry what a laboratory or pharmacy invoices Tarragon (`invoiced_total_kobo`, `expected_total_kobo`, per-line `expected_kobo`, the partner's cost per test). Their only policy is `private.is_org_staff`, so any clinician or care coordinator in the org can read and write them, and `match_partner_statement` / `match_pharmacy_partner_statement` / `approve_*_statement` are open to the same people. This is how the 2026-08-21 migration and `apps/web/src/lib/finance/partner-statement-access.ts` were designed (recording what a lab delivered is a care-team operations job, the finance role is deliberately excluded). No patient or caregiver path; 0 rows live. Track G did NOT change it because it would break that designed workflow.
 - Options: (a) leave it (care-team operations own partner invoices); (b) restrict read and write to admin plus a permission (for example `finance.vendors.manage`, which `approve_partner_statement` already requires on the write side) and move the recording screen to finance; (c) keep read for operations but hide the cost columns from clinicians with a column grant plus a view for finance.

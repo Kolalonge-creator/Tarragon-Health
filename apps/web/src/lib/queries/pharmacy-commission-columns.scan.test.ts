@@ -20,6 +20,11 @@ const ALLOWED = [
   `${sep}queries${sep}commissions.ts`,
   `${sep}queries${sep}pharmacy-orders.ts`, // names the columns only to Omit them from the patient type
   "pharmacy-commission-columns.scan.test.ts",
+  // Track E (lab, panel, screening commission): these name the columns only to Omit them from the patient type, and the lab scan test names them to ban them
+  "lab-commission-columns.scan.test.ts",
+  `${sep}queries${sep}lab-orders.ts`,
+  `${sep}queries${sep}lab-partner.ts`,
+  `${sep}mobile${sep}src${sep}lib${sep}labs.ts`,
   "packages/shared/src/index.ts",
 ];
 

@@ -1305,6 +1305,12 @@ Not done: not applied to production, not pushed.
 - **Tests**: DB proof `s11g_legacy_bp_alert_follows_approved_rule.sql` (12 checks, with a sabotage that is caught), plus the older BP, S05f, S11e, S12 and S11f proofs re-run clean; mobile 8 new (`s11h-notification-tap.test.ts`); i18n 6, clinical 205. Correction: the earlier note that the S11f proof was registered in `ci.manifest` was wrong; `s11f` and `s11g` are registered now.
 - **Open**: OQ-91 (Android, the 160/100 band, the native Pidgin review).
 
+## Track E: lab, screening and therapy commission columns off the signed-in surface (2026-10-07)
+
+- **Built**: migration `20261007105817` revokes table SELECT and grants safe-column SELECT on `lab_tests`, `panel_bundles`, `screen_types` and `therapy_sessions`; owner-run admin views `lab_tests_admin`, `panel_bundles_admin`, `screen_types_admin` for admin, `partners.labs.manage` and `commissions.view`; assertion block that also fails on any ungranted non-commission column. Web and mobile reads switched to explicit columns (`PANEL_BUNDLE_SAFE_COLUMNS`, `LAB_TEST_SAFE_COLUMNS`, `THERAPY_SESSION_SAFE_COLUMNS`), admin screen reads `panel_bundles_admin`; `PanelBundle`, `LabTestRow`, `TherapySession` types omit the commission columns. Live counts: 60/10, 42/6, 38/21, 0/0 (rows / carrying a commission). Design note `docs/design/E-lab-commission-exposure.md`.
+- **Reused**: the S53 pre-fix pattern (`cbbbf4a64`), the `pharmacy-commission-columns.scan.test.ts` shape.
+- **Tests**: DB proof `e_lab_screen_therapy_commission_columns_not_readable.sql` (137 checks across 12 roles plus anon, 5 sabotage checks, registered in `ci.manifest`); web scan test `lab-commission-columns.scan.test.ts`.
+- **Open**: OQ-320 (partner cost and refund margin columns), OQ-321 (old mobile builds), OQ-322 (apply order with the S53 pre-fix).
 
 
 ## S38g: email and push notice to sponsor staff that a figure is ready (2026-10-07)
@@ -1330,6 +1336,20 @@ Not done: not applied to production, not pushed.
 - **Applied to production 2026-10-07**: app code (#1017) deployed first, then `oq261a` (additive overload, version 20261007105824) and `oq261_remove_home_delivery` (version pinned to 20261007153917); guard counts were zero, in-transaction assertions passed, live state re-verified afterwards (7-value status enum, delivery columns/table/functions gone, `logistics_partners` and the courier and cold-chain columns kept, anon cannot execute). Generated types spliced by hand in `packages/shared` and `packages/db` (production types include other branches' schema, so no wholesale regeneration); the `Partial<Record>` status maps went back to exhaustive `Record`.
 - **Left**: the deployed `send-pending-notifications` edge function still carries the three removed delivery templates until it is redeployed (harmless, nothing queues them); `docs/PHARMACY_ENGINE_SPEC.md` and the archive still describe the delivery columns; old mobile builds that still select `fulfilment_method` would fail on the orders screen (OTA publishes the new code to `preview`; no production iOS distribution exists yet).
 
+## S86: adding languages framework, dormant (2026-10-07)
+- **Founder decision applied**: D-14 stands, English only. No language ships, no `LOCALES` change, no database constraint widened, no migration, no table. Spec D.8 marked superseded (`docs/DECISIONS.md` S86-1).
+- **Built**: `packages/i18n/src/language-readiness.ts` (pure: key parity, string set fingerprint, audio pairing, coverage report, gate, picker rule, fallback, registry parser); registry config `i18n.language_registry` v1 (English only) in the PROPOSED-config registry; `pnpm --filter @tarragon/i18n language-report`; `AudioScript` generalised; `import-production-list.py --languages` and `ingest-recordings.mjs --languages` (default `en`, production output unchanged).
+- **Reused**: the clinical-wording signed pattern, the audio manifest approvals and script hash, the PROPOSED-config registry. No third review mechanism.
+- **Proof**: dry run with a test-only stub language `xx` (never in production config): missing key fails, unsigned string cannot be enabled, fallback to English works, picker hides it, audio hash mismatch fails pairing, plus a sabotage (one edited word makes the signature stale). Ingest script proven on a scratch manifest.
+- **Not built**: any UI (no language picker exists), a CMO screen to sign a registry (OQ-313), language-matched consultation (S64, the recommended path). The Python importer edit was compile checked only (its source document is not in the repo).
+- **Follow-ups**: OQ-313.
+## S87: Part C conformance scan (2026-10-07, branch `s87/part-c-conformance`)
+- **Built**: `packages/shared/src/part-c-scan` (9 rules, a 12-entry allowlist each tied to an open question and a 2026-11-06 expiry, 8 tests including sabotage cases), `docs/audit-partC.md`, design and research notes, OQ-309 to OQ-312, decision S87-1.
+- **Reused**: copy-lint pattern; existing removal proofs not duplicated.
+- **Tests**: part-c-scan 8 pass; a real-tree sabotage (injected "WhatsApp" string) failed the suite and was removed; `tsc --noEmit` and `eslint` clean for packages/shared. Full Jest not run.
+- **Found**: 2 CONFLICT (fertile window unlabelled in 6 files; SMS beyond codes and paging in 5 paths), 5 DORMANT (subscriptions, Platform Credit refund branch, enum labels, logistics partner, therapy schema), 2 NOT VERIFIED (employer category data, scribe summary visibility).
+- **Not done**: live-schema SQL proof; the two unverified checks; removal migrations. **Not committed or pushed.**
+- **Follow-ups**: CMO and founder sign D2 and D3 (`docs/plans/S85-S87-cmo-signoff-pack.md`); before 2026-11-06 fix or renew each allowlist entry with a decision.
 ## S70a: Module 18 core, devices and data connections (2026-10-07)
 
 - **Built (NOT applied to production, nothing pushed)**: migrations `20261007123854_s70a_vital_source_photo_confirmed.sql` and `20261007123856_s70a_device_core.sql` (held readings, cross-source de-duplication, CGM sustained-event tasks, ECG device results, recommended-device evidence and CMO-only review, pairing for a person, wrist SpO2 informational, `device.synced` / `device.alert`, 7 `platform_modules` all off). Shared package: plausibility, de-dup, photo draft/confirm, CGM rules, `DeviceSource`, `devices.*` PROPOSED config. Web: photo, rhythm routes, held/merged handling in device, CGM and typed paths, source badge, held card, device list evidence. Phone: photo screen, held readings, recommended list, whose-device picker, ECG classification sync, CGM safety message, photo offline queue.
