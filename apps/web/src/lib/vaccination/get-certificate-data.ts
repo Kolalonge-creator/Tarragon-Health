@@ -54,7 +54,7 @@ export async function getVaccinationCertificateData(
     let folio;
     try {
       folio = (
-        await fetchDocumentFolios(supabase, "vaccination_certificate", [recordId], { [recordId]: record.verified_by })
+        await fetchDocumentFolios(supabase, "vaccination_certificate", [recordId])
       ).get(recordId);
     } catch (e) {
       // Not entitled: no certificate rather than one without the verifier's registration number.

@@ -23,8 +23,6 @@ describe("the staff directory view never carries the folio", () => {
   it("no source file selects credential_number from clinical_staff_directory", () => {
     const offenders: string[] = [];
     for (const file of [...walk(join(__dirname, "..", "..")), ...walk(join(__dirname, "..", "..", "..", "..", "mobile", "src"))]) {
-      // REMOVE IN STEP 2: the deploy-window fallback is the one allowed reader while the column still exists.
-      if (file.endsWith("lib/clinical/document-folio.ts")) continue;
       const src = readFileSync(file, "utf8");
       const re = /from\(\s*["']clinical_staff_directory["']\s*\)\s*\.select\(\s*([`"'])([^`"']*)\1/g;
       let m: RegExpExecArray | null;
