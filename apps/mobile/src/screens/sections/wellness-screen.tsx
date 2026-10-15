@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import { t } from "@tarragon/i18n";
 import {
   enrolInWellnessChallenge,
   loadMyChallengeEnrolments,
@@ -126,7 +127,7 @@ export function WellnessScreen({ patientId, organisationId }: WellnessScreenProp
         <ScreenTitle>Wellness rewards</ScreenTitle>
         <MutedText>
           Small, everyday habits add up. Earn points for logging, learning, and finishing challenges,
-          and collect badges along the way. Points show your progress; they are not money.
+          collect badges along the way, and use points at checkout to lower Tarragon's own fee on a payment.
         </MutedText>
       </View>
 
@@ -144,23 +145,15 @@ export function WellnessScreen({ patientId, organisationId }: WellnessScreenProp
   );
 }
 
-function PointsCard({
-  balance,
-  ledger,
-}: {
-  balance: WellnessPointsBalance | null;
-  ledger: WellnessPointsLedgerEntry[];
-}) {
+function PointsCard({ balance, ledger }: { balance: WellnessPointsBalance | null; ledger: WellnessPointsLedgerEntry[] }) {
   const colors = useLegacyColors();
+
   const currentBalance = balance?.balance ?? 0;
 
   return (
     <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Wellness points</Text>
-      <MutedText>
-        Earn points for logging vitals, meals, and check-ins, finishing lessons, and hitting challenges.
-        Points are a way to see your progress; they are not money.
-      </MutedText>
+      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>{t("points.card.title", "en")}</Text>
+      <MutedText>{t("points.card.body", "en")}</MutedText>
 
       <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6 }}>
         <Text style={{ fontSize: 28, fontWeight: "700", color: colors.ink }}>{currentBalance.toLocaleString()}</Text>
@@ -169,7 +162,7 @@ function PointsCard({
         </MutedText>
       </View>
 
-      <MutedText>Points cannot be redeemed yet. Your points are safe and keep building.</MutedText>
+      <MutedText>{t("points.card.how_to_use", "en")}</MutedText>
 
       {ledger.length > 0 && (
         <View style={{ gap: 4 }}>

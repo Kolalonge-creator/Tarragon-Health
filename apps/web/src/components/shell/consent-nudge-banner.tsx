@@ -23,7 +23,7 @@ const DISMISSED_KEY = "th_consent_nudge_dismissed";
  */
 export function ConsentNudgeBanner({ patientId }: { patientId: string }) {
   const [dismissed, setDismissed] = React.useState(true);
-  const { outstanding, isLoading } = useOutstandingConsentTypes(patientId);
+  const { outstanding, isLoading, isError } = useOutstandingConsentTypes(patientId);
 
   React.useEffect(() => {
     // setDismissed is called from inside this callback, not synchronously in
@@ -47,7 +47,8 @@ export function ConsentNudgeBanner({ patientId }: { patientId: string }) {
     }
   };
 
-  if (isLoading || dismissed || outstanding.length === 0) return null;
+  // A failed load reads as "nothing agreed", so it must not raise a nag about consents the patient may already have given.
+  if (isLoading || isError || dismissed || outstanding.length === 0) return null;
 
   return (
     <div

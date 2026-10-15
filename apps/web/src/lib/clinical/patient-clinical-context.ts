@@ -56,6 +56,7 @@ export async function loadPatientClinicalContext(
       .from("lab_analyte_readings")
       .select("code, value, taken_at")
       .eq("patient_id", patientId)
+      .is("correction_status", null)
       .gte("taken_at", since.toISOString())
       .order("taken_at", { ascending: true }),
   ]);

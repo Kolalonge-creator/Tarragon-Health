@@ -8,7 +8,7 @@ import type { MessageKey } from "@tarragon/i18n";
  */
 const kobo = z.number().int().nonnegative();
 
-export const CATALOGUE_KINDS = ["consultation", "care_pack", "lab_panel", "membership"] as const;
+export const CATALOGUE_KINDS = ["consultation", "care_pack", "lab_panel", "membership", "home_kit"] as const;
 export type CatalogueKind = (typeof CATALOGUE_KINDS)[number];
 
 export const catalogueItemSchema = z.object({
@@ -35,13 +35,46 @@ export const orderRowSchema = z.object({
   name_key: z.string(),
   created_at: z.string(),
   paid_at: z.string().nullable(),
+  // S71: what a sponsor covered, and who. A fully covered order has amount 0 and no payment.
+  sponsor_share_kobo: kobo.optional().default(0),
+  sponsor_name: z.string().nullable().optional().default(null),
+  // S72: whether the signed-in person is the buyer (only the buyer can ask for a refund), and the state of any refund asked for
+  is_buyer: z.boolean().optional().default(true),
+  refund_state: z.string().nullable().optional().default(null),
 });
 export type OrderRow = z.infer<typeof orderRowSchema>;
 
-export const membershipSchema = z.object({ is_member: z.boolean(), ends_at: z.string().nullable(), source: z.string().nullable() });
+export const membershipSchema = z.object({
+  is_member: z.boolean(),
+  ends_at: z.string().nullable(),
+  source: z.string().nullable(),
+  /** The year has ended but the 14 day grace has not: still a Member, and may renew. */
+  in_grace: z.boolean().optional(),
+  grace_ends_at: z.string().nullable().optional(),
+});
 export type MembershipState = z.infer<typeof membershipSchema>;
 
-export const checkoutReplySchema = z.object({ order_id: z.string(), reference: z.string(), amount_kobo: kobo, checkout_url: z.string().url() });
+export const payReplySchema = z.object({ order_id: z.string(), reference: z.string(), amount_kobo: kobo, checkout_url: z.string().url() });
+/** S71: a sponsor pays the whole order. There is no checkout link and no payment step; the order is already paid. */
+export const coveredReplySchema = z.object({ covered: z.literal(true), order_id: z.string(), reference: z.string(), sponsor_name: z.string().nullable().optional().default(null) });
+export const checkoutReplySchema = z.union([coveredReplySchema, payReplySchema]);
+export type CheckoutReply = z.infer<typeof checkoutReplySchema>;
+export const isCoveredReply = (r: CheckoutReply): r is z.infer<typeof coveredReplySchema> => "covered" in r;
+
+export const HMO_RESULTS = ["pending_manual", "eligible", "not_eligible"] as const;
+export const hmoReplySchema = z.object({ check_id: z.string(), result: z.enum(HMO_RESULTS) });
+export const hmoPlanSchema = z.object({ hmo_id: z.string(), name: z.string() });
+export const hmoCheckRowSchema = z.object({ check_id: z.string(), hmo_name: z.string(), result: z.enum(HMO_RESULTS), checked_at: z.string(), decided_at: z.string().nullable() });
+export type HmoCheckRow = z.infer<typeof hmoCheckRowSchema>;
+export type HmoPlan = z.infer<typeof hmoPlanSchema>;
+export function parseHmoPlans(data: unknown): HmoPlan[] {
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((row) => { const r = hmoPlanSchema.safeParse(row); return r.success ? [r.data] : []; });
+}
+export function parseHmoChecks(data: unknown): HmoCheckRow[] {
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((row) => { const r = hmoCheckRowSchema.safeParse(row); return r.success ? [r.data] : []; });
+}
 export const verifyReplySchema = z.object({ state: z.enum(ORDER_STATES), outcome: z.string() });
 
 /** Items that are bad rows are dropped one by one; the rest still show. */
@@ -82,7 +115,35 @@ const ERROR_KEYS: Readonly<Record<string, MessageKey>> = {
   order_closed: "shop.error.order_closed",
   order_beneficiary_not_allowed: "shop.error.order_beneficiary_not_allowed",
   gift_item_not_allowed: "shop.error.gift_item_not_allowed",
+  membership_not_open: "shop.error.membership_not_open",
+  quote_changed: "shop.error.quote_changed",
+  sponsor_billing_not_open: "shop.error.sponsor_billing_not_open",
+  order_fully_covered: "shop.error.order_fully_covered",
+  discount_code_invalid: "shop.error.discount_code_invalid",
+  discount_code_rate_limited: "shop.error.discount_code_rate_limited",
+  sponsor_budget_exhausted: "shop.error.sponsor_budget_exhausted",
+  sponsor_payment_not_open: "shop.error.sponsor_payment_not_open",
+  // S72: paying from a supporter's link
+  request_not_found: "request.error.unknown",
+  request_expired: "request.error.expired",
+  request_cancelled: "request.error.cancelled",
+  request_used: "request.error.used",
+  request_in_use: "request.error.in_use",
+  request_own: "request.error.own",
+  request_not_payable: "request.error.not_payable",
+  request_order_mismatch: "request.error.not_payable",
 };
+
+const HMO_ERROR_KEYS: Readonly<Record<string, MessageKey>> = {
+  hmo_not_available: "hmo.error.hmo_not_available",
+  hmo_check_rate_limited: "hmo.error.hmo_check_rate_limited",
+  sponsor_payment_not_open: "hmo.error.sponsor_payment_not_open",
+  member_number_invalid: "hmo.error.member_number_invalid",
+  hmo_not_configured: "hmo.error.hmo_not_configured",
+};
+export function hmoErrorKey(code: unknown): MessageKey {
+  return (typeof code === "string" ? HMO_ERROR_KEYS[code] : undefined) ?? "hmo.error.unknown";
+}
 /** The i18n key for a checkout error code from order-checkout. Anything unrecognised is the generic message. */
 export function checkoutErrorKey(code: unknown): MessageKey {
   return (typeof code === "string" ? ERROR_KEYS[code] : undefined) ?? "shop.error.unknown";

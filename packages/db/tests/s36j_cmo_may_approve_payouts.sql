@@ -118,10 +118,10 @@ declare
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin'); perform pg_temp.setf('admin', v_admin);
-  v_a := pg_temp.mkdoc(v_org, 'docA', 'medical_officer', 'contracted', '{}', v_admin); perform pg_temp.go_real(v_a, 'Ada Chinwe Okafor');
-  v_e := pg_temp.mkdoc(v_org, 'docE', 'medical_officer', 'contracted', '{}', v_admin); perform pg_temp.go_real(v_e, 'Emeka Paul Eze');
-  v_f := pg_temp.mkdoc(v_org, 'docF', 'medical_officer', 'contracted', '{}', v_admin); perform pg_temp.go_real(v_f, 'Funke Ola Bello');
-  v_t := pg_temp.mkdoc(v_org, 'docT', 'medical_officer', 'contracted', '{}', v_admin); perform pg_temp.go_real(v_t, 'Tunde Kay Ade');
+  v_a := pg_temp.mkdoc(v_org, 'docA', 'senior_medical_officer', 'contracted', '{}', v_admin); perform pg_temp.go_real(v_a, 'Ada Chinwe Okafor');
+  v_e := pg_temp.mkdoc(v_org, 'docE', 'senior_medical_officer', 'contracted', '{}', v_admin); perform pg_temp.go_real(v_e, 'Emeka Paul Eze');
+  v_f := pg_temp.mkdoc(v_org, 'docF', 'senior_medical_officer', 'contracted', '{}', v_admin); perform pg_temp.go_real(v_f, 'Funke Ola Bello');
+  v_t := pg_temp.mkdoc(v_org, 'docT', 'senior_medical_officer', 'contracted', '{}', v_admin); perform pg_temp.go_real(v_t, 'Tunde Kay Ade');
   v_cmo := pg_temp.mkdoc(v_org, 'cmo', 'chief_medical_officer', 'contracted', '{}', v_admin); perform pg_temp.go_real(v_cmo, 'Chioma Ngozi Cole');
   v_cmo2 := pg_temp.mkdoc(v_org, 'cmo2', 'chief_medical_officer', 'contracted', '{}', v_admin);
   update public.clinical_staff set active = false where profile_id = v_cmo2;

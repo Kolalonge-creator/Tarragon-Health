@@ -39,7 +39,7 @@ begin
     where id = v_director_profile;
 
   insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, active, credential_type, credential_number, indemnity_exempt, indemnity_exempt_by, verified_by, license_verified_at)
-  values (v_plain_profile, v_org, 'CR Gate Test Plain Clinician', 'medical_officer', true, 'MDCN', 'CRGATETEST-001', true, v_verifier, v_verifier, now())
+  values (v_plain_profile, v_org, 'CR Gate Test Plain Clinician', 'senior_medical_officer', true, 'MDCN', 'CRGATETEST-001', true, v_verifier, v_verifier, now())
   returning id into v_plain_staff;
 
   insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, active, credential_type, credential_number, indemnity_exempt, indemnity_exempt_by, verified_by, license_verified_at)

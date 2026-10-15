@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ADULT_ONLY_MESSAGE, checkAdultDateOfBirth } from "@tarragon/shared";
 
 /**
  * Demographics collected during onboarding. DOB + sex are required before a
@@ -15,7 +16,9 @@ export const demographicsSchema = z.object({
     .refine(
       (value) => new Date(value) >= new Date("1900-01-01"),
       "Enter a valid date of birth",
-    ),
+    )
+    // Registration is for adults (S04b-1); the database refuses an under-18 profile as well.
+    .refine((value) => checkAdultDateOfBirth(value.slice(0, 10)) !== "under_age", ADULT_ONLY_MESSAGE),
   sex: z.enum(["male", "female"], { message: "Select your sex" }),
 });
 

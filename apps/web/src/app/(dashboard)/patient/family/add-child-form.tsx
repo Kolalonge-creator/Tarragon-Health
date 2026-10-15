@@ -62,9 +62,10 @@ export function AddChildForm() {
       <CardHeader>
         <CardTitle>Add a child</CardTitle>
         <CardDescription>
-          Keep your child&apos;s vaccination card here: the same schedule, reminders, and
-          Tarragon-verified certificates as your own, since they&apos;re too young to have their
-          own account.
+          Keep your child&apos;s vaccination card and growth checks here: the same schedule,
+          reminders, and Tarragon-verified certificates as your own. A child&apos;s record is for
+          immunisation and preventive tracking only, and only you can see it. At 18 they sign up
+          with their own number and agree before it is handed over.
         </CardDescription>
       </CardHeader>
       <CardContent>

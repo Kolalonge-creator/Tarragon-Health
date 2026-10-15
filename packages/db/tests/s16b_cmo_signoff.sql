@@ -26,6 +26,10 @@ begin
   insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test)
   values (v, p_org, p_role::public.user_role, 'S16b ' || p_label, '+23480' || lpad((random() * 99999999)::int::text, 8, '0'), (current_date - interval '45 years')::date, true)
   on conflict (id) do update set role = excluded.role, is_test = true, is_active = true, phone = excluded.phone;
+  -- two-tier (founder 2026-10-12): a doctor task is made only for a Member, so every fixture patient here is one
+  if p_role = 'patient' then
+    insert into public.patient_memberships (organisation_id, patient_id, source, state, is_test) values (p_org, v, 'purchase', 'active', true);
+  end if;
   return v;
 end $f$;
 
@@ -52,7 +56,10 @@ begin
 
   perform pg_temp.rec('adherence_follow_up awaits confirmation', 'true,null',
     (select needs_confirmation::text || ',' || coalesce(confirmed_at::text, 'null') from public.task_types where code = 'adherence_follow_up' and is_active));
-  perform pg_temp.rec('only that type needs confirming', '1', (select count(*)::text from public.task_types where is_active and needs_confirmation));
+  perform pg_temp.rec('only that type needs confirming', '1', (select count(*)::text from public.task_types where is_active and needs_confirmation and code not in ('red_patient_outreach', 'amber_glucose_review')));
+  -- S13 R4 added red_patient_outreach, which also awaits the CMO; this proof is about the adherence type, so take that one out of the way
+  -- R2 likewise added amber_glucose_review; same treatment (its own confirmation is covered by the glucose proofs)
+  update public.task_types set needs_confirmation = false where code in ('red_patient_outreach', 'amber_glucose_review');
 
   -- who can act
   perform pg_temp.act(v_doc);
