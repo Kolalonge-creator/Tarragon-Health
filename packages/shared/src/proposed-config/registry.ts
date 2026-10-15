@@ -897,6 +897,57 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S16.md; spec 7.3 and 7.4",
   },
   {
+    key: "queue.task_layer",
+    // The task layer's rules (S16-S20 hardening, CMO decisions 1 to 3 of 2026-10-07). Live values are the active row of
+    // `queue_task_layer_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
+    // lead_window_cap_fraction: an offer window is the task type's window or this share of the task's own due time, whichever is
+    // shorter (decision 1; defect D1). escalated_non_red_any_eligible: an escalated task that is not red is claimable by any eligible
+    // clinician; red (class 1) is unchanged (INV-05). handback_also_excludes_task_for: reasons that bar the same clinician from the
+    // same task again, on top of queue.claims (D7). escalation_alert: classes up to immediate_max_class alert the clinical lead at once
+    // on the listed channels (never SMS or WhatsApp), the rest an in-app notice plus a daily digest (decision 2; D2). completion: the
+    // coded outcomes each task type may close with, the contact-attempt sequence a critical result needs when it cannot be released,
+    // and the note limit (decision 3; D4). watchdog: how stale a queue job may be, and how long the oldest open task of each class may
+    // wait before an alert (D6). Every number is PROPOSED; the CMO signs v2 in the console.
+    // Two further PROPOSED numbers are code constants until that v2 (config v1 cannot be edited in place): a contact attempt may be
+    // dated up to 24 hours before its task existed (CONTACT_ATTEMPT_LOOKBACK_HOURS; private.contact_attempt_lookback()), and further
+    // immediate escalations within 10 minutes of the last alert are folded into one follow-up (private.escalation_coalesce_window()).
+    value: {
+      lead_window_cap_fraction: 0.5,
+      escalated_non_red_any_eligible: true,
+      handback_also_excludes_task_for: ["needs_information", "technical_problem"],
+      escalation_alert: {
+        immediate_max_class: 2,
+        immediate_channels: ["in_app", "push", "email"],
+        notice_channels: ["in_app"],
+        digest_channels: ["in_app", "email"],
+      },
+      completion: {
+        default_codes: ["completed_action_taken", "completed_no_action_needed", "referred_on", "patient_unreachable_documented"],
+        codes_by_type: {
+          critical_result_review: ["result_released", "contact_attempts_documented"],
+          titration_signoff: ["signed", "amended", "rejected"],
+          pharmacy_flag_review: ["prescription_confirmed", "prescription_amended", "pharmacy_contacted", "prescription_withdrawn"],
+          symptom_review: ["answer_signed"],
+          async_question: ["guidance", "needs_call", "needs_more_information", "answer_signed"],
+          written_question_call: ["call_done"],
+          red_event_unacknowledged: ["acknowledged", "dispositioned"],
+        },
+        legacy_kind_types: ["async_question", "written_question_call"],
+        contact_attempts: { min_attempts: 3, methods: ["phone_call", "video_call", "in_app_message", "emergency_contact"] },
+        note_max_chars: 1000,
+      },
+      watchdog: {
+        job_max_age_minutes: { "sweep-clinical-tasks": 5, "expire-task-claims": 5 },
+        class_warning_minutes: { "2": 60, "3": 120, "4": 720, "5": 720, "6": 1440, "7": 720, "8": 1440, "9": 2160 },
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-14",
+    source: "docs/plans/S16-S20-review-and-build-plan.md section 5 (decisions 1 to 3); docs/design/S16-S20-task-layer.md",
+  },
+  {
     key: "lead.rules",
     // Lead clinician, declared availability and on-call rota rules (S18, spec 7.2 and 7.5). Live values are the active row
     // of `lead_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
