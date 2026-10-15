@@ -17,6 +17,12 @@ describe("parsing", () => {
     }
   });
 
+  it("S75 A5: the monthly report share flag is off unless the database says true", () => {
+    const m = { member_id: "m", name: "Ada", relationship: "Daughter", permissions: ["red_alerts"], expires_at: "t" };
+    const out = parseMyCircle({ members: [m, { ...m, member_id: "m2", monthly_report_shared: true }, { ...m, member_id: "m3", monthly_report_shared: "yes" }], invites: [] });
+    expect(out.members.map((x) => x.monthlyReportShared)).toEqual([false, true, false]);
+  });
+
   it("keeps good members and invites, drops a row with an unknown permission, and survives garbage", () => {
     const m = { member_id: "m", name: "Ada", relationship: "Daughter", permissions: ["red_alerts"], expires_at: "t" };
     const out = parseMyCircle({ members: [m, { ...m, permissions: ["view_results"] }, 3], invites: [{ invite_id: "i", hint: "+234•••4567", relationship: "Son", expires_at: "t" }, { x: 1 }] });

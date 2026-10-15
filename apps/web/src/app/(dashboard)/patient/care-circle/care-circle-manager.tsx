@@ -23,6 +23,7 @@ import {
   useRenewMember,
   useResumeCircle,
   useRevokeMember,
+  useSetMonthlyShare,
   useUpdateMember,
 } from "@/lib/queries/care-circle";
 
@@ -83,6 +84,7 @@ function MemberRow({ member, locale }: { member: CircleMember; locale: Locale })
   const update = useUpdateMember();
   const renewMember = useRenewMember();
   const revoke = useRevokeMember();
+  const setShare = useSetMonthlyShare();
   const [draft, setDraft] = useState<CirclePermission[]>(member.permissions);
   const [saved, setSaved] = useState(false);
   // the moment the screen opened: "ends soon" needs a clock, and reading it once keeps the render pure
@@ -120,6 +122,21 @@ function MemberRow({ member, locale }: { member: CircleMember; locale: Locale })
       </div>
       {endsSoon(member.expires_at, openedAt) ? <p role="status" className="text-sm font-medium">{t("circle.member.ends_soon", locale)}</p> : null}
       <PermissionBoxes id={`m-${member.member_id}`} value={draft} onChange={(n) => { setDraft(n); setSaved(false); }} locale={locale} />
+      <div className={`flex items-start gap-3 ${TOUCH}`}>
+        <input
+          id={`monthly-${member.member_id}`}
+          type="checkbox"
+          className="mt-1 h-5 w-5"
+          checked={member.monthly_report_shared}
+          disabled={setShare.isPending}
+          aria-describedby={`monthly-help-${member.member_id}`}
+          onChange={() => setShare.mutate({ memberId: member.member_id, on: !member.monthly_report_shared })}
+        />
+        <div>
+          <Label htmlFor={`monthly-${member.member_id}`} className="font-normal leading-snug">{t("circle.monthly.label", locale, { name: member.name })}</Label>
+          <p id={`monthly-help-${member.member_id}`} className={`text-sm ${MUTED}`}>{t("circle.monthly.help", locale)}</p>
+        </div>
+      </div>
       <div className="flex flex-wrap gap-3">
         <Button type="button" className={TOUCH} onClick={save} disabled={!changed || draft.length === 0 || update.isPending}>
           {t("circle.member.save", locale)}
@@ -339,6 +356,7 @@ export function CareCircleManager({ locale, origin }: { locale: Locale; origin?:
     <div className="space-y-6">
       <PendingGifts locale={locale} />
       <p className={MUTED}>{t("circle.intro", locale)}</p>
+      <p className={MUTED}>{t("circle.monthly.notice", locale)}</p>
       <p className={`text-sm font-medium`}>{t("circle.stop.reminder", locale)}</p>
       <PausePanel pause={circle.data?.pause} pauseDays={circle.data?.pause_days ?? 7} locale={locale} />
 

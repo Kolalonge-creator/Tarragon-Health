@@ -3408,7 +3408,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   },
   {
     key: "learning.micro_lesson",
-    // S55 (spec 9.2): a daily lesson takes under five minutes, asks for one action and ends in one check question. Live value is the
+    // S55 (spec 9.2): a weekly lesson (one per programme week) takes under five minutes, asks for one action and ends in one check question. Live value is the
     // active `micro_lesson` row of `learning_config`; a test fails if the migration seed and this value drift. UNSIGNED.
     value: { max_minutes: 5, check_questions: 1 },
     owner: "CMO",
@@ -3427,6 +3427,19 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S55.md; spec 9.6; OQ-S55-04",
+  },
+  {
+    key: "learning.creator_perk",
+    // S55 follow-up (founder decision): creator series are a Membership perk. true = a person who is not a Member sees the title, the
+    // creator credit and the teaser of a creator lesson but not its body or audio; false = creator content is open to everyone. No
+    // payment logic. Live value is the active `creator_perk` row of `learning_config`; an admin changes it with
+    // set_learning_creator_perk() (a new version row, audited), no deploy. A missing value fails closed (locked). UNSIGNED.
+    value: { members_only: true },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S55.md section 8; founder decision 2026-10-07",
   },
   {
     key: "learning.search_gap_log",
@@ -3469,6 +3482,243 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S55.md; spec 9.3; OQ-S55-01",
   },
   {
+    key: "symptom.degraded_mode",
+    // S60 (spec 12.8, INV-06): what the symptom checker does when its engine errors, times out or has no protocol to run. The
+    // bundled red-flag floor runs first either way. In degraded mode the severity floors on the signed red-flag rules may be
+    // ignored (a strictly more sensitive screen), and a run that fired no flag is never reassurance: it is routed to at least
+    // this category with a human review. The CMO confirms or changes it.
+    value: { ignore_severity_floors: true, unclassifiable_category: "urgent", engine_timeout_ms: 3000 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S60.md section 3; spec 12.8; docs/OPEN-QUESTIONS.md OQ-S60-02",
+  },
+  {
+    key: "symptom.risk_tightening",
+    // S60 (spec 12.2 and 12.11): Nigerian prevalence and seasonal risk, as a layer that can only RAISE an urgency (a minimum
+    // category), never lower or replace one. Every entry below is a DRAFT: status "draft", no clinical sign-off, a placeholder
+    // provenance that says so. The engine ignores an entry until it is "signed_off" with a named signer and date, so shipping
+    // this changes nothing for any patient. The CMO decides which entries exist, their wording, seasons, regions and minimums;
+    // none of the months, states or symptom keys below is clinical advice. `applies_when` keys that no signed pathway asks yet
+    // (for example sickle_cell_disease history) will simply not match until a signed pathway collects them.
+    value: {
+      entries: [
+        {
+          id: "malaria_season_fever",
+          label: "Fever during the rainy season",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder. The CMO must confirm the season and the source (for example national malaria programme guidance) before this is signed." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { months: [4, 5, 6, 7, 8, 9, 10], any_associated_symptom: ["fever"] },
+          minimum_category: "routine",
+        },
+        {
+          id: "typhoid_fever_with_abdominal_pain",
+          label: "Fever with abdominal pain",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder. Needs a sourced definition and a signed abdominal pain pathway that collects these symptoms." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { any_associated_symptom: ["fever"], complaint_keys: ["abdominal_pain"] },
+          minimum_category: "routine",
+        },
+        {
+          id: "lassa_season_fever",
+          label: "Fever in the dry season in a high-risk state",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder. The CMO must name the season, the STATES (this draft names none, so it would apply nationwide if signed as written) and the source (for example national disease control centre guidance) before this is signed." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { months: [11, 12, 1, 2, 3, 4], any_associated_symptom: ["fever"] },
+          minimum_category: "urgent",
+        },
+        {
+          id: "sickle_cell_history_with_symptom",
+          label: "Sickle cell history with fever or pain",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder. Needs a signed pathway that records sickle cell history, and the CMO's minimum category." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { any_history: ["sickle_cell_disease"], any_associated_symptom: ["fever", "breathlessness"] },
+          minimum_category: "urgent",
+        },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S60.md section 4; spec 12.2 and 12.11; docs/OPEN-QUESTIONS.md OQ-S60-03",
+  },
+  {
+    key: "symptom.accuracy_audit",
+    // S60 (spec 12.12): the monthly accuracy audit. Cells with fewer reviewed cases than min_cell_size are suppressed (a
+    // group of a few people is a person, and a rate over a handful of cases is noise). Intervals are Wilson score intervals at
+    // this confidence. The live value is the active row of `symptom_accuracy_config`; a test fails if the migration seed and
+    // this value drift. The first report is a baseline, not a claim: nothing here lets a figure be published.
+    value: { min_cell_size: 10, confidence_level: 0.95, age_bands: [[0, 4], [5, 17], [18, 39], [40, 59], [60, 150]] },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S60.md section 6; spec 12.12; docs/OPEN-QUESTIONS.md OQ-S60-05",
+  },
+  {
+    key: "paging.watchdog",
+    // S78a (spec 23.15, CMO decision S-8). Mirrors paging_config version 2, which is PROPOSED and INACTIVE: the active row stays version 1 until the CMO signs
+    // a new version. watchdog_grace_seconds: how long a red triage event may exist with no page before the database watchdog creates it itself (INV-05; the
+    // outbox path normally pages in seconds). watchdog_lookback_minutes: how far back the watchdog looks. repage_after_ack_minutes: an acknowledged page still
+    // not closed after this long pages the acknowledging clinician and the backup once more; null = disabled. Until version 2 is active the watchdog uses
+    // 60 seconds and 360 minutes as hard defaults and the re-page is off.
+    // The three S78a keys of that version; the rest of version 2 repeats paging.rules and a test keeps them identical.
+    value: { watchdog_grace_seconds: 60, watchdog_lookback_minutes: 360, repage_after_ack_minutes: null },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S75-S80-cmo-decisions.md S-8; spec 23.15",
+  },
+  {
+    key: "response_time.targets",
+    // S78b (spec 23.16, CMO decision S-9). Mirrors response_time_config version 1, which is PROPOSED, UNSIGNED and INACTIVE: no number is published to
+    // patients and the breach sweep reads nothing until the CMO signs and activates a version. written_question_minutes and amber_review_minutes are how long
+    // a written question or an amber review may wait; appointment_start_late_minutes how long after the booked time a visit may still not have started;
+    // lookback_days how far back the sweep looks; patient_notice_cooldown_hours the shortest gap between two "slower than usual" notices to one patient.
+    value: { written_question_minutes: 1440, amber_review_minutes: 1440, appointment_start_late_minutes: 15, lookback_days: 7, patient_notice_cooldown_hours: 12 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S75-S80-cmo-decisions.md S-9; spec 23.16",
+  },
+  {
+    key: "outcomes.measure_rules",
+    // Outcome measures added to S38's snapshots (S75, CMO decision S-5): HbA1c, weight, PHQ-9 and GAD-7, with the day-180 BP report.
+    // The database holds them as `outcome_config` v3, which is v2 plus this block. v3 is PROPOSED, UNSIGNED and INACTIVE: the live
+    // config stays v2 (`outcomes.snapshot_rules` v2 above stays the one in force) until the CMO activates v3. The migration seed and
+    // this value are checked against each other by a test. Every number is PROPOSED and owned by the CMO: the goals (HbA1c under 7.0
+    // percent or the care-plan target, weight down 5 percent or more, a 50 percent fall for response, below 5 for remission), the
+    // windows around each day within which the nearest result is used, and the lowest baseline for which response and remission
+    // are counted. PHQ-9 and GAD-7 are never shown to a sponsor (S-3, S-5).
+    value: {
+      bp_report_days: [90, 180],
+      measures: {
+        hba1c: {
+          days: [0, 90, 180],
+          goal_below_percent: 7.0,
+          use_care_plan_target: true,
+          valid_min: 3.0,
+          valid_max: 20.0,
+          baseline_before_days: 90,
+          baseline_after_days: 14,
+          followup_tolerance_days: 30,
+          definition: "HbA1c, as a percentage. Change is the value near the day minus the baseline value near joining. A person reached the goal when the value near the day is under 7.0 percent or at their own care-plan HbA1c target. The result nearest the day inside the window is used.",
+          limitations: "Only people with an HbA1c result are counted in the measure; a person with no result near a day is shown as no result, never as not improved. Results come from the lab results recorded on the platform, not from every lab a person may have used. A before and after view without a comparison group says nothing about cause.",
+        },
+        weight: {
+          days: [0, 30, 90, 180],
+          goal_loss_percent: 5.0,
+          valid_min: 20,
+          valid_max: 400,
+          min_age_years: 18,
+          baseline_before_days: 14,
+          baseline_after_days: 7,
+          followup_tolerance_days: 14,
+          definition: "Weight in kilograms. Change is the percent difference between the weight near the day and the baseline weight near joining. A person reached the goal when weight fell by 5 percent or more. The weight nearest the day inside the window is used. Adults only.",
+          limitations: "Only people who logged a weight are counted; a person with no weight near a day is shown as no result, never as not improved. Weight changes for many reasons, including pregnancy, illness and fluid; the measure is not a judgement of any person. A before and after view without a comparison group says nothing about cause.",
+        },
+        phq9: {
+          days: [0, 30, 90, 180],
+          max_score: 27,
+          response_fall_percent: 50,
+          remission_below: 5,
+          min_baseline_for_outcome: 5,
+          baseline_before_days: 14,
+          baseline_after_days: 14,
+          followup_tolerance_days: 21,
+          definition: "PHQ-9 total score only. Response is a fall of 50 percent or more from the baseline total. Remission is a total below 5. Both are counted only for people whose baseline total was 5 or more.",
+          limitations: "Only total scores are used; no answer to any single question is read. A screening score is not a diagnosis. People with no score near a day are shown as no result. Readable only by the person and by a clinician with a written reason; never shown to a sponsor.",
+        },
+        gad7: {
+          days: [0, 30, 90, 180],
+          max_score: 21,
+          response_fall_percent: 50,
+          remission_below: 5,
+          min_baseline_for_outcome: 5,
+          baseline_before_days: 14,
+          baseline_after_days: 14,
+          followup_tolerance_days: 21,
+          definition: "GAD-7 total score only. Response is a fall of 50 percent or more from the baseline total. Remission is a total below 5. Both are counted only for people whose baseline total was 5 or more.",
+          limitations: "A screening score is not a diagnosis. People with no score near a day are shown as no result. Readable only by the person and by a clinician with a written reason; never shown to a sponsor.",
+        },
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S75-outcome-measures.md; docs/plans/S75-S80-cmo-decisions.md S-5; ADA Standards of Care; DPP; Kroenke 2001",
+  },
+  {
+    key: "follow_ups.rules",
+    // Loop closure (S77, spec 23.8, CMO decision S-20): an overdue order, referral, lab request or follow-up task goes to the lead clinician after
+    // 24 hours (routine) or 4 hours (a follow-up waiting on an abnormal result). Live values are the row of `clinical_follow_up_config`, which is born
+    // inactive and unsigned; the sweep escalates only when the CMO has signed it. A test fails if the migration seed and this value drift.
+    value: { routine_escalate_after_hours: 24, abnormal_escalate_after_hours: 4 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S75-S80-cmo-decisions.md S-20; spec 23.8; supabase/migrations/20261007160101_s77_clinical_follow_ups_closure.sql",
+  },
+  {
+    key: "credentialing.rules",
+    // Version 5 (S-18, S76 B2): version 4 plus the MDCN register re-check cadence (reverify_months, reverify_notice_days). Inserted INACTIVE: the sweep
+    // does nothing until the chief medical officer signs and activates it. Version 4 notes follow.
+    // Version 4 (S20 v2, CMO decision 8 recorded 2026-10-07), on top of version 3 (primary-source and re-check keys): notices at 90, 30, 7 and 0 days,
+    // the proof-of-renewal deadline (15 December for the 31 December cycle), a missing licence date counted as ineligible, and the evidence sources
+    // a verification can name. INACTIVE in `credentialing_config` until switched on; the switch is refused while an active clinician has no licence date.
+    value: {
+      min_practice_years: 2,
+      pass_percent: 80,
+      all_red_correct: true,
+      audited_task_count: 20,
+      referees_required: 2,
+      referee_independent_contact: true,
+      test_max_attempts: 3,
+      test_retake_cooldown_hours: 24,
+      test_scenarios_per_attempt: 10,
+      notice_windows_days: [90, 30, 7, 0],
+      grace_max_days: 14,
+      separate_verifier_and_approver: true,
+      document_max_bytes: 8388608,
+      document_retention_years_after_offboarding: 7,
+      require_verified_phone: false,
+      document_purge_enabled: false,
+      rejected_application_document_retention_months: 24,
+      primary_source_required: true,
+      primary_source_routes: ["mdcn_dataflow", "mdcn_written_confirmation", "mdcn_register_check"],
+      primary_source_max_age_days: 365,
+      recheck_months: 6,
+      recheck_overdue_days: 14,
+      credential_date_max_days: 1100,
+      grandfather_ends_on: null,
+      reverify_months: 12,
+      reverify_notice_days: 30,
+      renewal_cycle: {
+        cycle_end_month: 12,
+        cycle_end_day: 31,
+        proof_deadline_month: 12,
+        proof_deadline_day: 15,
+      },
+      missing_licence_date_ineligible: true,
+      verification_sources: ["mdcn_register_lookup", "document_sighted", "insurer_confirmation", "other"],
+    },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 5,
+    effectiveFrom: "2026-10-15",
+    source: "docs/plans/S75-S80-cmo-decisions.md S-18 (S76 B2); builds on version 4 (S20 v2)",
+  },
+  {
     key: "capacity.cover_rules",
     // Capacity, cover, surge, fatigue and fire drills (S16-S20 Stage 5, CMO decisions 12 to 15). Live values are the active row of
     // `capacity_cover_config`; this entry mirrors it and a test fails if the migration seed and this value drift. SHIPS WITH THE THREE
@@ -3480,8 +3730,10 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // CMO's surge mode (max hours, first routine class it widens to any eligible clinician, multiplier on routine warning times).
     // pause_*: the CMO's pause (max hours; an admin request lapses after pause_confirm_minutes; routine classes from pause_hold_min_class
     // are not offered while paused). overnight_*: the Lagos hours that count as overnight. cover_offer_pages: overnight pages in one shift
-    // that trigger the offer of the next shift. drill_*: the monthly drill (drill_roster_lookahead_days: who counts as on the rota; drill_min_gap_minutes: no drill within this many minutes of another test page; drill_busy_hours: nobody holding a page opened within this many hours is drilled), the target (90 percent within 300 seconds, PROPOSED) and the
-    // time after which an unanswered drill is a miss. A drill result is informational only: weight 0, never pay or removal.
+    // that trigger the offer of the next shift. drill_*: the monthly drill (drill_roster_lookahead_days: who counts as on the rota;
+    // drill_min_gap_minutes: no drill within this many minutes of another test page; drill_busy_hours: nobody holding a page opened within
+    // this many hours is drilled), the target (90 percent within 300 seconds, PROPOSED) and the time after which an unanswered drill is a
+    // miss. A drill result is informational only: weight 0, never pay or removal.
     value: {
       gate_enforce: 0,
       min_lead_headroom: 3,
@@ -3526,7 +3778,8 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   {
     key: "capacity.cover_rules_v2",
     // Version 2 of capacity.cover_rules: the same rules with gate_enforce, hard_rest_enforce and drill_enabled SWITCHED ON. Shipped as an
-    // INACTIVE, unsigned row (capacity_cover_config version 2). The CMO signs it in the sign-off hub to switch the three on.
+    // INACTIVE, unsigned row (capacity_cover_config version 2). The CMO signs it in the sign-off hub to switch the three on; signing a
+    // version with gate_enforce on is refused while the on_call_cover_ok go-live guard is off.
     value: {
       gate_enforce: 1,
       min_lead_headroom: 3,

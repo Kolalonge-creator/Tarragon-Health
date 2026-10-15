@@ -14574,6 +14574,7 @@ export type Database = {
           organisation_id: string
           patient_id: string
           status: Database["public"]["Enums"]["health_education_status"]
+          understood_at: string | null
           updated_at: string
         }
         Insert: {
@@ -14586,6 +14587,7 @@ export type Database = {
           organisation_id: string
           patient_id: string
           status?: Database["public"]["Enums"]["health_education_status"]
+          understood_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -14598,6 +14600,7 @@ export type Database = {
           organisation_id?: string
           patient_id?: string
           status?: Database["public"]["Enums"]["health_education_status"]
+          understood_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -37603,6 +37606,54 @@ export type Database = {
         }
         Relationships: []
       }
+      regulatory_positions: {
+        Row: {
+          attached_at: string
+          attached_by: string
+          classification: string
+          counsel_firm: string | null
+          counsel_name: string
+          document_ref: string | null
+          id: string
+          is_test: boolean
+          organisation_id: string
+          position_date: string
+          position_text: string
+          supersedes_id: string | null
+          topic: string
+        }
+        Insert: {
+          attached_at?: string
+          attached_by: string
+          classification: string
+          counsel_firm?: string | null
+          counsel_name: string
+          document_ref?: string | null
+          id?: string
+          is_test?: boolean
+          organisation_id: string
+          position_date: string
+          position_text: string
+          supersedes_id?: string | null
+          topic: string
+        }
+        Update: {
+          attached_at?: string
+          attached_by?: string
+          classification?: string
+          counsel_firm?: string | null
+          counsel_name?: string
+          document_ref?: string | null
+          id?: string
+          is_test?: boolean
+          organisation_id?: string
+          position_date?: string
+          position_text?: string
+          supersedes_id?: string | null
+          topic?: string
+        }
+        Relationships: []
+      }
       service_delivery_cost_model: {
         Row: {
           component: string
@@ -37668,6 +37719,156 @@ export type Database = {
           organisation_id?: string
           patient_id?: string
           sponsor_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      symptom_accuracy_config: {
+        Row: {
+          config: Json
+          created_at: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          config: Json
+          created_at?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      symptom_accuracy_reports: {
+        Row: {
+          cells: Json
+          config_version: number
+          generated_at: string
+          generated_by: string | null
+          id: string
+          includes_test_accounts: boolean
+          is_baseline: boolean
+          organisation_id: string
+          period_end: string
+          period_start: string
+          publishable: boolean
+          reviewed_total: number
+        }
+        Insert: {
+          cells: Json
+          config_version: number
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          includes_test_accounts?: boolean
+          is_baseline: boolean
+          organisation_id: string
+          period_end: string
+          period_start: string
+          publishable?: boolean
+          reviewed_total: number
+        }
+        Update: {
+          cells?: Json
+          config_version?: number
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          includes_test_accounts?: boolean
+          is_baseline?: boolean
+          organisation_id?: string
+          period_end?: string
+          period_start?: string
+          publishable?: boolean
+          reviewed_total?: number
+        }
+        Relationships: []
+      }
+      symptom_reviews: {
+        Row: {
+          agrees: boolean | null
+          assessment_id: string
+          clinician_category: Database["public"]["Enums"]["triage_category"] | null
+          clinician_id: string | null
+          created_at: string
+          due_at: string | null
+          final_diagnosis_code: string | null
+          final_diagnosis_label: string | null
+          id: string
+          internal_note: string | null
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+          patient_message: string | null
+          protocol_version: number
+          recorded_by: string
+          requested_at: string
+          reviewed_at: string | null
+          sla_version: number | null
+          source: string
+          stated_minutes: number | null
+          status: string
+          task_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          agrees?: boolean | null
+          assessment_id: string
+          clinician_category?: Database["public"]["Enums"]["triage_category"] | null
+          clinician_id?: string | null
+          created_at?: string
+          due_at?: string | null
+          final_diagnosis_code?: string | null
+          final_diagnosis_label?: string | null
+          id?: string
+          internal_note?: string | null
+          is_test?: boolean
+          organisation_id: string
+          patient_id: string
+          patient_message?: string | null
+          protocol_version: number
+          recorded_by: string
+          requested_at?: string
+          reviewed_at?: string | null
+          sla_version?: number | null
+          source?: string
+          stated_minutes?: number | null
+          status?: string
+          task_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agrees?: boolean | null
+          assessment_id?: string
+          clinician_category?: Database["public"]["Enums"]["triage_category"] | null
+          clinician_id?: string | null
+          created_at?: string
+          due_at?: string | null
+          final_diagnosis_code?: string | null
+          final_diagnosis_label?: string | null
+          id?: string
+          internal_note?: string | null
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+          patient_message?: string | null
+          protocol_version?: number
+          recorded_by?: string
+          requested_at?: string
+          reviewed_at?: string | null
+          sla_version?: number | null
+          source?: string
+          stated_minutes?: number | null
+          status?: string
+          task_id?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -39521,27 +39722,6 @@ export type Database = {
         }
         Returns: Json
       }
-      daily_micro_lesson: {
-        Args: never
-        Returns: {
-          audio_clip_id: string
-          body: string
-          check_question: Json
-          code: string
-          completed_today: boolean
-          content_id: string
-          estimated_minutes: number
-          lesson_action: string
-          next_review_due: string
-          reviewed_at: string
-          reviewed_by_name: string
-          self_care_action: string
-          source_reference: string
-          status: Database["public"]["Enums"]["health_education_status"]
-          summary: string
-          title: string
-        }[]
-      }
       data_retention_policy_summary: {
         Args: never
         Returns: {
@@ -40346,6 +40526,7 @@ export type Database = {
           is_micro_lesson: boolean
           is_shareable: boolean
           lesson_action: string
+          members_only: boolean
           next_review_due: string
           reviewed_at: string
           reviewed_by_name: string
@@ -40628,11 +40809,12 @@ export type Database = {
       learn_shared_article: {
         Args: { p_code: string }
         Returns: {
-          body: string
+          body: string | null
           code: string
           creator_name: string
           estimated_minutes: number
           evidence_source: string
+          members_only: boolean
           next_review_due: string
           reviewed_at: string
           reviewed_by_name: string
@@ -41633,6 +41815,7 @@ export type Database = {
         }
         Returns: string
       }
+      report_unrecorded_symptom_check: { Args: { p_category: string; p_patient: string }; Returns: Json }
       request_assisted_recovery: {
         Args: {
           p_identity_checks: Json
@@ -42182,6 +42365,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_learning_creator_perk: {
+        Args: { p_members_only: boolean; p_reason: string }
+        Returns: number
+      }
       set_monitoring_baseline: {
         Args: { p_baseline: Json; p_item_id: string }
         Returns: undefined
@@ -42520,6 +42707,30 @@ export type Database = {
         Args: { p_interim_management_plan: string; p_referral: string }
         Returns: undefined
       }
+      weekly_micro_lesson: {
+        Args: never
+        Returns: {
+          audio_clip_id: string
+          body: string
+          check_question: Json
+          code: string
+          completed_this_week: boolean
+          content_id: string
+          creator_name: string
+          drip_week: number
+          estimated_minutes: number
+          lesson_action: string
+          members_only: boolean
+          next_review_due: string
+          reviewed_at: string
+          reviewed_by_name: string
+          self_care_action: string
+          source_reference: string
+          status: Database["public"]["Enums"]["health_education_status"]
+          summary: string
+          title: string
+        }[]
+      }
       wellness_challenge_progress: {
         Args: { p_enrolment_id: string }
         Returns: Json
@@ -42546,6 +42757,41 @@ export type Database = {
         Args: { p_confirm?: boolean; p_session_id: string }
         Returns: Database["public"]["Tables"]["therapy_sessions"]["Row"]
       }
+      complete_symptom_review: {
+        Args: {
+          p_agrees: boolean
+          p_clinician_category: Database["public"]["Enums"]["triage_category"]
+          p_final_code: string
+          p_final_label: string
+          p_internal_note?: string
+          p_patient_message: string
+          p_review: string
+        }
+        Returns: Json
+      }
+      list_my_symptom_reviews: { Args: Record<PropertyKey, never>; Returns: Json }
+      read_symptom_review_audited: {
+        Args: { p_reason: string; p_review: string }
+        Returns: Json
+      }
+      record_regulatory_position: {
+        Args: {
+          p_classification: string
+          p_counsel_firm: string
+          p_counsel_name: string
+          p_document_ref: string
+          p_position_date: string
+          p_position_text: string
+          p_topic: string
+        }
+        Returns: string
+      }
+      request_symptom_review: { Args: { p_assessment: string }; Returns: Json }
+      run_symptom_accuracy_audit_now: {
+        Args: { p_include_test?: boolean; p_month: string }
+        Returns: string
+      }
+      symptom_review_stated_time: { Args: Record<PropertyKey, never>; Returns: Json }
     }
     Enums: {
       correction_status: "corrected" | "amended" | "entered_in_error" | "cancelled"
