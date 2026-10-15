@@ -12,8 +12,8 @@
 -- and every legacy handler runs exactly the code path it ran before (the only edit to a handler is an extra boolean that is false).
 --
 -- WHAT IT ADDS, for the sources that today notify every `role = clinician` account in parallel and never create a `pages` row (P5):
--- SpO2 red, pulse red, temperature red, a red-flag symptom, and every emergency_events row except blood pressure (blood pressure already
--- has the triage-engine page) and the Free-record source. With the flag ON for a source, the event creates a page through the SAME ladder as
+-- SpO2 red, pulse red, temperature red, a red-flag symptom, and emergency_events rows from an allow-list of sources (the SpO2, temperature and pulse
+-- red flags, symptom_log, symptom_triage, danger_symptom_checklist; see 5c for what is deliberately left out and why). With the flag ON for a source, the event creates a page through the SAME ladder as
 -- the blood pressure page (create_red_page: Free-patient rule, merge window, conflict and self exclusion, no-cover handling, timers,
 -- delivered-ack, expiry), and the legacy handler stops pushing and emailing every clinician FOR THAT EVENT, but only when a page with a
 -- named clinician was actually created or joined. A page that could not be made, or one that found nobody on cover, leaves the old
@@ -43,7 +43,8 @@ create table public.unified_red_paging_config (
   switched_off_by  uuid references public.profiles (id) on delete set null,
   created_at       timestamptz not null default now(),
   -- A version can only be live once the CMO has signed it.
-  constraint unified_red_paging_config_live_needs_signature check (not is_active or (approved_at is not null and approved_by is not null))
+  -- (approved_by is not required here: it is ON DELETE SET NULL, and erasing a profile must never be blocked by a live flag)
+  constraint unified_red_paging_config_live_needs_signature check (not is_active or approved_at is not null)
 );
 create unique index unified_red_paging_config_one_active on public.unified_red_paging_config (is_active) where is_active;
 
@@ -95,7 +96,9 @@ $json$::jsonb);
 -- unified-red-paging-rules-end
 
 alter table public.unified_red_paging_config enable row level security;
-create policy unified_red_paging_config_read on public.unified_red_paging_config for select to authenticated using (true);
+-- staff who manage it only: a patient has no use for the clinical-safety settings or for who switched them
+create policy unified_red_paging_config_read on public.unified_red_paging_config for select to authenticated
+  using (private.credential_is_cmo() or private.is_admin());
 revoke all on public.unified_red_paging_config from public, anon;
 revoke insert, update, delete, truncate, references, trigger on public.unified_red_paging_config from authenticated;
 grant select on public.unified_red_paging_config to authenticated;
@@ -181,7 +184,9 @@ alter table public.triage_events add constraint triage_events_no_rule_set_means_
   check (rule_set_id is not null
          or (shadow and rule_set_code = 'live_symptom_gate')
          or (not shadow and rule_set_code = 'unified_red_paging' and rule_set_status = 'approved' and grade = 'red'));
-create unique index triage_events_unified_red_once on public.triage_events (trigger_type, trigger_id, basis) where rule_set_code = 'unified_red_paging';
+-- (once per source event is already enforced by triage_events_bridge_once on (trigger_type, trigger_id) where rule_set_id is null. A unified row therefore
+-- never uses ('symptom_report', symptom id): that slot belongs to the P6 shadow bridge written by AFTER INSERT on symptoms. Symptoms and emergency events use
+-- trigger_type 'result' with their own ids.)
 
 -- The red-alert watch is the patient-outreach net and is already opened by the emergency event itself. A unified paging row must not open a
 -- second one (the patient would be told twice): skip it. Everything else is the live definition.
@@ -277,14 +282,17 @@ begin
     v_count := (length(v_def) - length(replace(v_def, E'\n  if v_should_page then\n', ''))) / length(E'\n  if v_should_page then\n');
     if v_count <> 1 then raise exception 'S19d: anchor for handle_symptom_red_flag found % times, expected 1', v_count; end if;
     v_new := replace(v_def, E'\n  if v_should_page then\n',
-      E'\n  if v_should_page and not (v_is_red_flag and private.unified_red_page_covers(''symptom_red_flag'', new.organisation_id, new.patient_id, ''symptom_report'', ''symptoms'', new.id)) then\n');
+      E'\n  if v_should_page and not (v_is_red_flag and private.unified_red_page_covers(''symptom_red_flag'', new.organisation_id, new.patient_id, ''result'', ''symptoms'', new.id)) then\n');
     if v_new = v_def then raise exception 'S19d: patch of handle_symptom_red_flag changed nothing'; end if;
     execute v_new;
   end if;
 
-  -- 5c. Emergency events: three edits. Blood pressure keeps its triage-engine page, 'triage_red' is the Free record, and the mental health screen and
-  --     intake screen (a crisis) already have their own on-call pager and priority task (private.raise_crisis_follow_up): a page would ring the
-  --     primary twice. All four stay on the old path.
+  -- 5c. Emergency events: three edits, ALLOW-LIST of sources (a new source is old-path until someone adds it here on purpose): the SpO2, temperature and pulse
+  --     red flags, symptom_log, symptom_triage and danger_symptom_checklist. Everything else stays on the old path: bp_reading and glucose_red_flag (they have a
+  --     triage-engine page, or will once glucose_care_triage is signed: a second page would ring twice), triage_red (the Free record), mental_health_screen and
+  --     intake_screen (a crisis already has its own pager and task in private.raise_crisis_follow_up), and pregnancy_symptom_checklist, exposure_report,
+  --     support_ticket_intake, ai_coach, symptom_to_test_checker (reproductive and other sensitive or free-text sources: a page would also tell the Care
+  --     Circle and widen who learns of it; the CMO and DPO decide that, not this change).
   select pr.oid into v_oid from pg_proc pr join pg_namespace n on n.oid = pr.pronamespace where n.nspname = 'private' and pr.proname = 'handle_emergency_event';
   v_def := pg_get_functiondef(v_oid);
   if position('unified_red_page_covers' in v_def) = 0 then
@@ -297,7 +305,7 @@ begin
     v_count := (length(v_new) - length(replace(v_new, E'      new.clinician_alert_id := v_alert_id;\n', ''))) / length(E'      new.clinician_alert_id := v_alert_id;\n');
     if v_count <> 1 then raise exception 'S19d: emergency alert anchor found % times', v_count; end if;
     v_new := replace(v_new, E'      new.clinician_alert_id := v_alert_id;\n',
-      E'      new.clinician_alert_id := v_alert_id;\n      v_unified_paged := new.source::text not in (''bp_reading'', ''triage_red'', ''mental_health_screen'', ''intake_screen'')\n'
+      E'      new.clinician_alert_id := v_alert_id;\n      v_unified_paged := new.source::text in (''spo2_red_flag'', ''temperature_red_flag'', ''pulse_red_flag'', ''symptom_log'', ''symptom_triage'', ''danger_symptom_checklist'')\n'
       || E'        and private.unified_red_page_covers(''emergency_event'', new.organisation_id, new.patient_id, ''result'', ''emergency_events'', new.id);\n');
     -- skip the broadcast loop only when a page covers the event
     v_count := (length(v_new) - length(replace(v_new, E'where organisation_id = new.organisation_id and role = ''clinician''\n      loop', ''))) / length(E'where organisation_id = new.organisation_id and role = ''clinician''\n      loop');
@@ -307,6 +315,28 @@ begin
     if v_new = v_def then raise exception 'S19d: patch of handle_emergency_event changed nothing'; end if;
     execute v_new;
   end if;
+
+  -- 5d. Everything else that reads triage_events or pages and would otherwise count or mishandle a unified row. Same method: current definition, counted anchor.
+  --     (1) the patient's "could not get care" answer must attach to the emergency event (which has the red-alert watch), never to a unified row (which has
+  --     none); (2) the chain-health timings, the parity measure and the risk score were built on the blood pressure engine and must not be moved by another source;
+  --     (3) a unified page does not tell the Care Circle: that reach is for the CMO and DPO to decide (a blood pressure page still does).
+  for p in select * from (values
+      ('private.chain_timing_rows(integer,boolean)'::regprocedure, $a$where te.trigger_type = 'observation' and not te.shadow and te.is_test = p_test$a$, $b$where te.trigger_type = 'observation' and not te.shadow and te.rule_set_code is distinct from 'unified_red_paging' and te.is_test = p_test$b$),
+      ('private.chain_timing_rows(integer,boolean)'::regprocedure, $a$where not te.shadow and te.is_test = p_test$a$, $b$where not te.shadow and te.rule_set_code is distinct from 'unified_red_paging' and te.is_test = p_test$b$),
+      ('private.chain_timing_rows(integer,boolean)'::regprocedure, $a$join public.triage_events te on te.id = p.triage_event_id, win$a$, $b$join public.triage_events te on te.id = p.triage_event_id and te.rule_set_code is distinct from 'unified_red_paging', win$b$),
+      ('private.risk_compute(uuid,date)'::regprocedure, $a$where patient_id = p_patient and not shadow and (created_at at time zone$a$, $b$where patient_id = p_patient and not shadow and rule_set_code is distinct from 'unified_red_paging' and (created_at at time zone$b$),
+      ('private.triage_parity_rows(integer)'::regprocedure, $a$where te.trigger_type = 'observation' and not te.is_test$a$, $b$where te.trigger_type = 'observation' and not te.is_test and te.rule_set_code is distinct from 'unified_red_paging'$b$),
+      ('public.record_red_care_response(uuid,text,uuid,uuid,timestamptz)'::regprocedure, $a$where patient_id = v_uid and grade = 'red' and not shadow and created_at$a$, $b$where patient_id = v_uid and grade = 'red' and not shadow and rule_set_code is distinct from 'unified_red_paging' and created_at$b$),
+      ('private.notify_circle_red_alert()'::regprocedure, E'  if new.parent_page_id is not null then return new; end if;\n', E'  if new.parent_page_id is not null then return new; end if;\n  if exists (select 1 from public.triage_events ut where ut.id = new.triage_event_id and ut.rule_set_code = ''unified_red_paging'') then return new; end if;\n')
+    ) as t(fn, from_text, to_text)
+  loop
+    v_def := pg_get_functiondef(p.fn);
+    if position('unified_red_paging' in v_def) > 0 and position(p.to_text in v_def) > 0 then continue; end if;
+    v_count := (length(v_def) - length(replace(v_def, p.from_text, ''))) / length(p.from_text);
+    if v_count <> 1 then raise exception 'S19d: anchor for % found % times, expected 1: %', p.fn, v_count, p.from_text; end if;
+    v_new := replace(v_def, p.from_text, p.to_text);
+    execute v_new;
+  end loop;
 end
 $patch$;
 
@@ -321,6 +351,13 @@ begin
       raise exception 'S19d: % was not patched', fn;
     end if;
   end loop;
+  if position('unified_red_paging' in pg_get_functiondef('private.risk_compute(uuid,date)'::regprocedure)) = 0
+     or position('unified_red_paging' in pg_get_functiondef('private.chain_timing_rows(integer,boolean)'::regprocedure)) = 0
+     or position('unified_red_paging' in pg_get_functiondef('private.triage_parity_rows(integer)'::regprocedure)) = 0
+     or position('unified_red_paging' in pg_get_functiondef('public.record_red_care_response(uuid,text,uuid,uuid,timestamptz)'::regprocedure)) = 0
+     or position('unified_red_paging' in pg_get_functiondef('private.notify_circle_red_alert()'::regprocedure)) = 0 then
+    raise exception 'S19d: a dependent function was not patched';
+  end if;
   if exists (select 1 from public.unified_red_paging_config where is_active or approved_at is not null) then raise exception 'S19d: the config must ship inactive and unsigned'; end if;
   if private.unified_red_paging_on('spo2_red') or private.unified_red_paging_on('emergency_event') then raise exception 'S19d: the flag must read OFF on arrival'; end if;
   if has_function_privilege('anon', 'private.unified_red_page_covers(text,uuid,uuid,text,text,uuid)', 'EXECUTE')
