@@ -227,6 +227,8 @@ begin
   perform pg_temp.rec('the proposal itself stays unsigned', 'proposed/null', (select state || '/' || coalesce(signed_by::text, 'null') from public.care_plan_changes where id = v_change));
 
   -- 6. INV-05: a draft rule set is shadow and pages nobody; an approved one pages --------------------------------------
+  -- Two-tier (2026-10-13): a Free patient raises no doctor page, so the patient in this INV-05 case is a Member.
+  insert into public.patient_memberships (organisation_id, patient_id, source, state, is_test) values (v_org, v_pat, 'purchase', 'active', true) on conflict do nothing;
   select id into v_rs from public.triage_rule_sets where code = 'glucose_care_triage' and version = 1;
   insert into public.vitals_readings (organisation_id, patient_id, vital_type, glucose_mmol_l, taken_at, source, glucose_events)
   values (v_org, v_pat, 'glucose', 2.8, now(), 'manual', array['confusion']) returning id into v_obs;
