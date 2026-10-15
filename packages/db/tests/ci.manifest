@@ -1194,3 +1194,5 @@ s85d3_sms_emergency_contact_guard.sql
 s85d1_bp_care_triage_v6_draft.sql
 # S58b (reduced): creator fixed fee, published-item integrity, draft content seed.
 s58b_creator_fee_and_integrity.sql
+# S39h: a registry row whose table has been dropped must not break the export or the retention report; the registry names no missing table; config v4 is CMO confirmed with unchanged values. Sabotage: guard removed from the export; flips.
+s39h_registry_survives_dropped_tables.sql
