@@ -259,6 +259,8 @@ export * from "./consent-state";
 export * from "./data-rights";
 export * from "./notification-settings";
 export * from "./notification-diagnosis";
+export * from "./directory-links";
+export * from "./proposed-config/emergency-pack";
 
 // S66: the single cycle prediction engine, thermal shift, pattern report and planning copy (web and mobile both read it from here).
 export * from "./cycle";
