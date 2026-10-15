@@ -1825,6 +1825,7 @@ Four defects from `docs/design/S55-S60-build-plan.md` section 5, fixed ahead of 
 - Options: (a) as built; (b) a dedicated task type `crisis_follow_up` (CMO confirms it, like `adherence_follow_up`) and a dedicated notice that links to the queue; (c) let `pages` be created from a task or a crisis event (changes S19 and needs its proof re-run).
 - Recommend (b) then (c) with the S56 crisis card work.
 - Also open (already in the plan): the staffed callback time for a crisis flag. (The helpline list question is closed: founder decision 2026-10-07, no helplines are shown; see OQ-S56-03.)
+- Also open (already in the plan): who verifies the helpline list and the staffed callback time for a crisis flag.
 - Decision: open.
 
 ### OQ-F1-04 Learning content past its review date is hidden; a protocol bump flags for review but never takes content offline
