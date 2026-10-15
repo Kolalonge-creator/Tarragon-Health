@@ -8,7 +8,7 @@
  * FINDING comments below.
  */
 import { NETWORK_ERROR_MESSAGE, postVitalReading, type VitalReadingPayload } from "./api";
-import { openDatabaseAsync } from "../test/mocks/expo-sqlite";
+import { getStore } from "./secure-db";
 import {
   enqueueVitalReading,
   flushPendingVitals,
@@ -34,7 +34,7 @@ const WEIGHT: VitalReadingPayload = { vital_type: "weight", weight_kg: 74 };
 async function rawRows(): Promise<
   { client_id: string; attempts: number; last_error: string | null; state: string }[]
 > {
-  const db = await openDatabaseAsync("tarragon-offline.db");
+  const db = await getStore();
   return db.getAllAsync("select client_id, attempts, last_error, state from outbox order by created_at asc");
 }
 

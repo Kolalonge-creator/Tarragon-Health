@@ -4,8 +4,9 @@
 // same claim. The reply carries ids and neutral facts only (INV-07); clinical facts open through the audited chart read.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { mapQueueError } from "../_shared/queue/claims.ts";
+import { withSentry } from "../_shared/observability/sentry.ts";
 
-Deno.serve(async (req) => {
+Deno.serve(withSentry("queue-next", async (req) => {
   if (req.method !== "POST") return Response.json({ error: "method_not_allowed" }, { status: 405 });
   const auth = req.headers.get("Authorization");
   if (!auth?.startsWith("Bearer ")) return Response.json({ error: "unauthorised" }, { status: 401 });
@@ -19,4 +20,4 @@ Deno.serve(async (req) => {
     return Response.json({ error: code }, { status });
   }
   return Response.json(data);
-});
+}));

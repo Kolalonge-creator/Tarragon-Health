@@ -48,7 +48,7 @@ create function pg_temp.mktask(p_patient uuid, p_grade text, p_shadow boolean, p
             case when p_grade = 'red' then '[{"kind":"page_on_call"}]'::jsonb else '[]'::jsonb end, p_shadow, p_test, gen_random_uuid()::text) returning id into v_ev;
     perform set_config('tarragon.task_transition', 'on', true);   -- the proof stands in for the queue functions that create tasks
     insert into public.clinical_tasks (organisation_id, type, task_type_version, priority_class, priority_class_original, patient_id, min_tier, due_at, state, completed_at, outcome, triage_event_id, is_test)
-    values ((select id from public.organisations order by created_at limit 1), 'amber_bp_review', 1, 4, 4, p_patient, 'medical_officer', now(), 'completed', now(), '{"done":true}'::jsonb, v_ev, p_test) returning id into v_t;
+    values ((select id from public.organisations order by created_at limit 1), 'amber_bp_review', 1, 4, 4, p_patient, 'senior_medical_officer', now(), 'completed', now(), '{"done":true}'::jsonb, v_ev, p_test) returning id into v_t;
     perform set_config('tarragon.task_transition', 'off', true);
     insert into public.task_claims (organisation_id, task_id, clinician_id, expires_at, ended_at, end_reason, is_test)
     values ((select id from public.organisations order by created_at limit 1), v_t, p_clin, now() + interval '1 hour', now(), 'completed', p_test);

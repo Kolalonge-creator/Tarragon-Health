@@ -10,7 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 
 /**
  * Shared between /dashboard/hmo and /dashboard/corporate — lets an org's own
- * hmo_admin/corporate_admin propose fee-at-risk terms. This never writes
+ * hmo_admin/corporate_admin propose contract terms. New fee-at-risk terms are
+ * paused (CMO decision S-14), so only a flat fee is offered. This never writes
  * outcomes_contracts directly: it submits an
  * outcomes_contract_change_requests row via propose_outcomes_contract_change(),
  * which only a superadmin can approve (see 20260901180020_outcomes_contracts_self_service.sql).
@@ -39,10 +40,9 @@ export function ProposeContractCard({ organisationId }: { organisationId: string
             <select
               id="contractType"
               name="contractType"
-              defaultValue="fee_at_risk"
+              defaultValue="flat"
               className="h-9 w-full rounded-md border border-charcoal-ink/20 bg-white px-3 text-sm"
             >
-              <option value="fee_at_risk">Fee-at-risk (outcomes-based)</option>
               <option value="flat">Flat fee</option>
             </select>
           </div>
@@ -84,7 +84,7 @@ export function ProposeContractCard({ organisationId }: { organisationId: string
               id="payoutTerms"
               name="payoutTerms"
               rows={3}
-              placeholder="Describe the fee-at-risk arrangement in plain terms"
+              placeholder="Describe the arrangement in plain terms"
             />
           </div>
 

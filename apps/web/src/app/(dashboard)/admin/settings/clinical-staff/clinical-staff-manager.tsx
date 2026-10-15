@@ -596,7 +596,7 @@ export function ClinicalStaffManager() {
   const setEmploymentType = useSetClinicalStaffEmploymentType();
   const setSpecialistType = useSetClinicalStaffSpecialistType();
 
-  const [doctorTier, setDoctorTier] = useState<ClinicalStaff["doctor_tier"]>("medical_officer");
+  const [doctorTier, setDoctorTier] = useState<ClinicalStaff["doctor_tier"]>("senior_medical_officer");
   const [employmentType, setEmploymentTypeField] = useState<ClinicalStaff["employment_type"]>("employed");
   const [specialistType, setSpecialistTypeField] = useState<ClinicalStaff["specialist_type"]>(null);
   const [fullName, setFullName] = useState("");

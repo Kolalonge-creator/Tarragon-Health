@@ -140,6 +140,15 @@ select 'a patient cannot progress her own request''s status', 'requested', statu
 ------------------------------------------------------------------
 -- Case 4: org staff CAN progress the request's status
 ------------------------------------------------------------------
+-- S39b (INV-12): a fertility request is a reproductive_health record, tied to the care team, so the clinician is on patient A's care team.
+insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, assigned_at)
+select organisation_id, id, (select v from ids where k='clinician'), now() from public.profiles where id = (select v from ids where k='patient_a')
+on conflict (patient_id) do update set clinician_id = excluded.clinician_id;
+-- S39g: a tied write also needs the clinician to be an active, licensed clinical_staff member
+insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier)
+select organisation_id, id, 'Fertility gate clinician', true, now(), 'senior_medical_officer' from public.profiles where id = (select v from ids where k='clinician')
+on conflict do nothing;
+
 select set_config('request.jwt.claims',
   json_build_object('sub', (select v from ids where k='clinician'), 'role','authenticated')::text, true);
 set local role authenticated;

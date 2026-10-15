@@ -28,6 +28,7 @@ const FILES = [
   "screens/sections/lifestyle-tracker-screen.tsx",
   "screens/sections/lifestyle-shared.tsx",
   "screens/sections/screening-days-screen.tsx",
+  "screens/sections/testing-days-screen.tsx",
   "screens/sections/family-screen.tsx",
   "screens/sections/learn-screen.tsx",
   "screens/sections/wellbeing-screen.tsx",

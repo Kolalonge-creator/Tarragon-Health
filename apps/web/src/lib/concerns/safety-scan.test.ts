@@ -12,8 +12,16 @@ const lib = join(root, "lib", "concerns");
 const pages = [
   join(root, "app", "(dashboard)", "clinician", "quality", "concerns", "page.tsx"),
   join(root, "app", "(dashboard)", "clinician", "my-concerns", "page.tsx"),
+  join(root, "app", "(dashboard)", "reader", "concerns", "page.tsx"),
 ];
-const sources = [...readdirSync(lib).filter((f) => /\.(ts|tsx)$/.test(f) && !f.endsWith(".test.ts")).map((f) => join(lib, f)), ...pages];
+// the components the concern pages are built from are held to the same rules (S20 v2)
+const components = [
+  join(root, "components", "concerns", "concern-card.tsx"),
+  join(root, "components", "concerns", "board-report.tsx"),
+  join(root, "components", "clinician", "anonymous-follow-up.tsx"),
+  join(root, "components", "clinician", "safety-concern.tsx"),
+];
+const sources = [...readdirSync(lib).filter((f) => /\.(ts|tsx)$/.test(f) && !f.endsWith(".test.ts")).map((f) => join(lib, f)), ...pages, ...components];
 const text = (f: string) => readFileSync(f, "utf8");
 
 describe("the concern screens", () => {
@@ -52,7 +60,7 @@ describe("the concern screens", () => {
 });
 
 describe("no admin door and no admin search entry", () => {
-  const concernPaths = ["/clinician/quality/concerns", "/clinician/my-concerns"];
+  const concernPaths = ["/clinician/quality/concerns", "/clinician/my-concerns", "/reader/concerns"];
   it("the admin and operations menus and search never list the concern pages", () => {
     for (const role of ["admin", "superadmin", "ops", "finance", "patient"]) {
       const hrefs = getNavSections(role, null).flatMap((s) => s.items.map((i) => i.href));

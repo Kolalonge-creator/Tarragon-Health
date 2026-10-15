@@ -6,6 +6,8 @@ import {
   useBroadcastHistory,
   useBroadcastAudienceCount,
   useBroadcastContentCheck,
+  useBroadcastTermCheck,
+  describeTermHits,
   useBroadcastEmailTemplates,
   useBroadcastStats,
   useCancelScheduledBroadcast,
@@ -168,6 +170,7 @@ export function BroadcastComposer() {
   const send = useSendBroadcast();
   const history = useBroadcastHistory();
   const contentCheck = useBroadcastContentCheck();
+  const termCheck = useBroadcastTermCheck();
 
   const filter = useMemo<BroadcastAudienceFilter>(() => {
     const f: BroadcastAudienceFilter = {};
@@ -375,6 +378,20 @@ export function BroadcastComposer() {
       return;
     }
     setValidationError(null);
+
+    // OQ-94: the INV-07 term list at write time. Fails open only on a read error, because the database refuses the same
+    // text again when the broadcast is saved (a trigger on notification_broadcasts).
+    try {
+      const hits = await termCheck.mutateAsync(
+        [title, body, emailHeadline, emailFooterNote, emailButtonText, abEnabled ? emailHeadlineB : "", abEnabled ? emailFooterNoteB : "", abEnabled ? emailButtonTextB : ""].join(" ")
+      );
+      if (hits.length > 0) {
+        setValidationError(describeTermHits(hits));
+        return;
+      }
+    } catch {
+      // the saved row is checked by the database as well
+    }
 
     // Best-effort server-side check up front — admin_send_broadcast enforces
     // this itself too, but checking here avoids creating a blocked draft

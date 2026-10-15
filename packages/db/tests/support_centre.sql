@@ -62,7 +62,7 @@ begin
   select id into v_patient1 from public.profiles where organisation_id = v_org and role = 'patient' order by id limit 1;
   select id into v_patient2 from public.profiles where organisation_id = v_org and role = 'patient' and id <> v_patient1 order by id limit 1;
   select profile_id into v_coordinator from public.clinical_staff where organisation_id = v_org and doctor_tier = 'care_coordinator' and active limit 1;
-  select profile_id into v_clinical from public.clinical_staff where organisation_id = v_org and doctor_tier in ('medical_officer', 'senior_medical_officer') and active limit 1;
+  select profile_id into v_clinical from public.clinical_staff where organisation_id = v_org and doctor_tier in ('senior_medical_officer', 'senior_medical_officer') and active limit 1;
   if v_clinical is null then
     select profile_id into v_clinical from public.clinical_staff where organisation_id = v_org and doctor_tier is not null and doctor_tier <> 'care_coordinator' and active limit 1;
   end if;

@@ -24,6 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FormError, fieldErrorId } from "@/components/ui/form-error";
+import { LicenceVerifiedForClient } from "@/components/licence-verified-client";
 import { koboToNaira, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
 
 import { formatPatientDateTime } from "@/lib/format-date";
@@ -315,6 +316,7 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
                 </Button>
               ))}
             </div>
+            {selectedSlot ? <LicenceVerifiedForClient id={(slots ?? []).find((slot) => slot.id === selectedSlot)?.clinician_profile_id} /> : null}
             <input type="hidden" name="slot_id" value={selectedSlot} />
             <Button type="submit" disabled={!selectedSlot || isPending}>
               {isPending
