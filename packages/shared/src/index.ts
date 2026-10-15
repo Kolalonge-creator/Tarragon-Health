@@ -259,6 +259,8 @@ export * from "./consent-state";
 export * from "./data-rights";
 export * from "./notification-settings";
 export * from "./notification-diagnosis";
+
+export * from "./maternal-child";
 export { sponsorMinimumGroupSize } from "./sponsor-min-group";
 
 // S70a (Module 18): device plausibility, cross-source de-duplication, photo capture, CGM sustained events, DeviceSource interface.

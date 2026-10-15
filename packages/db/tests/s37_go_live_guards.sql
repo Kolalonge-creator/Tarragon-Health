@@ -139,6 +139,7 @@ begin
   perform pg_temp.rec('an unknown guard reads closed', 'false', private.go_live_open('no_such_guard')::text);
   perform pg_temp.act(v_pat);
   perform pg_temp.rec('the partner_settlement_enabled guard exists', '1', (select count(*)::text from public.go_live_guards where key = 'partner_settlement_enabled'));
+
   perform pg_temp.rec('a signed-in person can read the guards', '7', (select count(*)::text from public.go_live_guards where key in ('clinical_operations_enabled', 'on_call_cover_ok', 'lab_booking_enabled', 'prescribing_enabled', 'scribe_enabled', 'payouts_enabled', 'public_signup_enabled')));
   perform pg_temp.back();
 

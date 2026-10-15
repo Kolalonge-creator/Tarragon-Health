@@ -45,6 +45,7 @@ begin
   perform pg_temp.back();
   -- the Community guard is a later feature's own guard, so the seven spec guards are counted without it
   return (select count(*)::text from jsonb_array_elements(r) g where g ->> 'key' not in ('community', 'wallet_pass', 'home_bp_programme', 'bp_pattern_flag', 'prn_limits', 'partner_settlement_enabled', 'cohorts_enabled', 'membership_billing_enabled', 'concierge_coordinator_enabled', 'checkout_enabled', 'sponsor_payment_enabled', 'access_fund_enabled', 'maternal_enabled', 'assistant_enabled', 'mental_health_follow_up_enabled', 'interaction_check_enabled', 'live_redflag_prompts_enabled', 'wellbeing_library_clinical_scripts', 'sleep_apnoea_screen_enabled', 'sms_emergency_contact_enabled'));
+
 end $f$;
 create function pg_temp.sql_as(p_uid uuid, p_sql text) returns text language plpgsql as $f$
 begin
@@ -65,6 +66,7 @@ begin
   insert into public.user_permission_grants (profile_id, permission_key, granted_by) values (v_ops, 'ops.console.view', v_admin);
   perform pg_temp.setf('ops', v_ops); perform pg_temp.setf('admin', v_admin); perform pg_temp.setf('doc', v_doc); perform pg_temp.setf('pat', v_pat);
   select count(*) into v_n from public.go_live_guards where key not in ('community', 'wallet_pass', 'home_bp_programme', 'bp_pattern_flag', 'prn_limits', 'partner_settlement_enabled', 'cohorts_enabled', 'membership_billing_enabled', 'concierge_coordinator_enabled', 'checkout_enabled', 'sponsor_payment_enabled', 'access_fund_enabled', 'maternal_enabled', 'assistant_enabled', 'mental_health_follow_up_enabled', 'interaction_check_enabled', 'live_redflag_prompts_enabled', 'wellbeing_library_clinical_scripts', 'sleep_apnoea_screen_enabled', 'sms_emergency_contact_enabled');
+
   perform pg_temp.setf('n', gen_random_uuid());
   insert into results values ('real', 'guards exist to be read', '8', v_n::text);
 end $$;
