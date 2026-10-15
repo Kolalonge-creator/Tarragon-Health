@@ -243,6 +243,7 @@ export * from "./ui-language";
 export * from "./clinical-tier";
 export * from "./specialist-type-options";
 export * from "./proposed-config";
+export * from "./learning";
 export * from "./assistant-safety";
 export {
   lintText as lintNotificationText,

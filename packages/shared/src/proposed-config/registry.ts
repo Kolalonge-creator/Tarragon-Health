@@ -303,6 +303,22 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S07.md section 3; supabase 20260905011852_symptom_red_flag_handler_pages_a_clinician.sql",
   },
   {
+    key: "glucose.symptom_checklist",
+    // A warning sign ticked on the glucose form is stored as a symptoms row so the server can grade it with the glucose rules (R2 follow-up).
+    // The form does not ask the patient to rate it, so it is recorded at this severity, with a description saying it was ticked rather than
+    // rated. 3 is deliberately BELOW both paging lines of the older symptom trigger (handle_symptom_red_flag pages from severity 5 for any type,
+    // and from severity 4 for the paediatric types lethargy and dehydration_signs in a child under 5, which two glucose signs map onto), so a
+    // glucose-form tick never pages through that older path on its own: the governed glucose engine is the one place a glucose sign pages.
+    // Unlike blood pressure (bp.symptom_checklist is 6, on purpose, because blood pressure still leans on the older trigger), do not raise this
+    // without reading docs/design/glucose-sign-storage-gap.md. The CMO confirms the value.
+    value: { severity: 3 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-15",
+    source: "docs/design/glucose-sign-storage-gap.md; supabase 20260905011852_symptom_red_flag_handler_pages_a_clinician.sql",
+  },
+  {
     key: "reminders.behaviour",
     value: { snoozeMinutes: 30, maxSnoozes: 3, missedAfterMinutes: 120, maxPending: 60, horizonDays: 14 },
     owner: "Founder",
@@ -3194,5 +3210,67 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S56.md; spec 10.3",
+  },
+  {
+    key: "learning.micro_lesson",
+    // S55 (spec 9.2): a daily lesson takes under five minutes, asks for one action and ends in one check question. Live value is the
+    // active `micro_lesson` row of `learning_config`; a test fails if the migration seed and this value drift. UNSIGNED.
+    value: { max_minutes: 5, check_questions: 1 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S55.md; spec 9.2",
+  },
+  {
+    key: "learning.offline_pack",
+    // S55 (spec 9.6): the size cap for lessons kept on a phone, counted over text and audio together, and the item cap. Expired and
+    // unpublished items are never included. Live value is the `offline_pack` row of `learning_config`. UNSIGNED.
+    value: { max_total_bytes: 25000000, max_items: 150, audio_wifi_only: true },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S55.md; spec 9.6; OQ-S55-04",
+  },
+  {
+    key: "learning.search_gap_log",
+    // S55 (spec 9.3): rules for the zero-result search log (no patient reference): longest phrase kept, most words, how many searches
+    // before an admin sees a phrase, and retention. Live value is the `search_gap_log` row of `learning_config`. UNSIGNED.
+    value: { enabled: false, max_query_chars: 60, max_words: 6, min_count_to_show: 3, retention_days: 180, max_rows: 5000 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S55.md; spec 9.3; OQ-S55-05",
+  },
+  {
+    key: "learning.search_synonyms",
+    // S55 (spec 9.3): everyday and local words grouped so that any one finds the others. Search expansion only. Live value is the
+    // `search_synonyms` row of `learning_config`; web, mobile and the database search all read it. UNSIGNED: the CMO confirms the groups,
+    // and the founder confirms whether the Nigerian everyday words stay (OQ-S55-01).
+    value: {
+      groups: [
+        { terms: ["bp", "blood pressure", "pressure", "high blood", "hypertension", "bp reading"] },
+        { terms: ["sugar", "diabetes", "blood sugar", "glucose", "sugar level", "high sugar"] },
+        { terms: ["belle", "pregnancy", "pregnant", "antenatal", "expecting"] },
+        { terms: ["heart", "cardiac"] },
+        { terms: ["drug", "drugs", "medicine", "medicines", "medication", "tablets", "pills"] },
+        { terms: ["kidney", "kidneys", "kidney disease", "ckd"] },
+        { terms: ["hot body", "fever", "high temperature"] },
+        { terms: ["weight", "overweight", "belly fat", "obesity"] },
+        { terms: ["sleep", "insomnia", "cannot sleep", "sleeping"] },
+        { terms: ["salt", "sodium"] },
+        { terms: ["exercise", "workout", "walking", "physical activity"] },
+        { terms: ["vaccine", "vaccines", "vaccination", "immunisation", "immunization"] },
+        { terms: ["tired", "fatigue", "weak body"] },
+        { terms: ["herb", "herbs", "herbal", "local medicine", "agbo"] },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S55.md; spec 9.3; OQ-S55-01",
   },
 ];

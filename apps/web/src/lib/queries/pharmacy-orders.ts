@@ -2,7 +2,17 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@tarragon/shared";
 
-export type PharmacyMedication = Tables<"pharmacy_medications">;
+/**
+ * S53 pre-fix 8.16: the commission columns are not readable by a patient, clinician or pharmacist (column grant), so this type and
+ * every client read of pharmacy_medications leave them out. The explicit column list below is the contract; `select("*")` on this
+ * table now fails with a permission error by design, and a scan test (pharmacy-commission-columns.scan.test.ts) holds the line.
+ */
+export type PharmacyMedication = Omit<
+  Tables<"pharmacy_medications">,
+  "commission_rate" | "commission_rate_type" | "commission_flat_kobo"
+>;
+export const PHARMACY_MEDICATION_SAFE_COLUMNS =
+  "id, pharmacy_partner_id, drug_name, pack_size, price_kobo, is_active, created_at, strength, is_generic, generic_equivalent_of, stock_status, expected_restock_at, stock_updated_at, requires_cold_chain";
 export type PharmacyPartner = Tables<"pharmacy_partners">;
 
 type PharmacyPartnerSummary = Pick<
@@ -100,7 +110,7 @@ export function usePharmacyCatalogue() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("pharmacy_medications")
-        .select("*")
+        .select(PHARMACY_MEDICATION_SAFE_COLUMNS)
         .eq("is_active", true)
         .order("drug_name", { ascending: true });
       if (error) throw error;
