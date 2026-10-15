@@ -62,7 +62,7 @@ do $$
 declare
   v_org uuid; v_admin uuid; v_p1 uuid; v_p2 uuid; v_kid uuid; v_mgr uuid; v_c1 uuid; v_c2 uuid; v_cc uuid;
   v_a1 uuid; v_a_kid uuid; v_r text; v_n integer; v_j jsonb; v_sum uuid; v_appt uuid; v_appt2 uuid; v_photo uuid; v_photo2 uuid;
-  v_path text; v_path2 text; v_task uuid; v_pa uuid;
+  v_path text; v_path2 text; v_task uuid; v_pa uuid; v_t record;
 begin
   select organisation_id into v_org from public.profiles where organisation_id is not null group by organisation_id order by count(*) desc limit 1;
   if v_org is null then raise exception 'need an organisation to run this proof'; end if;
@@ -77,8 +77,11 @@ begin
   update public.profiles set date_of_birth = (current_date - interval '6 years')::date, is_dependent_account = true, dependent_kind = 'minor_child'::public.dependent_kind where id = v_kid;
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by) values (v_kid, v_mgr, 'manage', v_mgr);
   -- the minor-scope trigger (S04b-1) stops a child holding a pregnancy row; this proof needs one to show the context is read, not that it is allowed
-  alter table public.patient_pregnancy disable trigger "00_minor_dependant_scope";
-  if to_regclass('public.pregnancies') is not null then execute 'alter table public.pregnancies disable trigger "00_minor_dependant_scope"'; end if;
+  execute 'alter table public.patient_pregnancy disable trigger "00_minor_dependant_scope"';
+  -- this proof gives a child assessments, sessions, summaries and photos to show who may read them, so the minor-scope trigger is lifted on every table that has it
+  for v_t in select c.relname from pg_trigger g join pg_class c on c.oid = g.tgrelid join pg_namespace n on n.oid = c.relnamespace where g.tgname = '00_minor_dependant_scope' and n.nspname = 'public' loop
+    execute format('alter table public.%I disable trigger "00_minor_dependant_scope"', v_t.relname);
+  end loop;
   insert into public.patient_pregnancy (organisation_id, patient_id, is_pregnant) values (v_org, v_p1, true), (v_org, v_kid, true);
   insert into public.patient_conditions (organisation_id, patient_id, condition_name, status) values (v_org, v_p1, 'Hypertension', 'active');
   insert into public.medications (organisation_id, patient_id, drug_name, is_active) values (v_org, v_p1, 'Warfarin', true);
