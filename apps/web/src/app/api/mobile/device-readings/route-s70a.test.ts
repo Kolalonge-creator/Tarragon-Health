@@ -54,6 +54,7 @@ jest.mock("@/lib/supabase/bearer", () => ({
           select: () => {
             const b: Record<string, unknown> = {};
             b.eq = () => b;
+            b.is = () => b;
             b.limit = () => b;
             b.maybeSingle = async () => ({ data: world.savedRow });
             return b;
