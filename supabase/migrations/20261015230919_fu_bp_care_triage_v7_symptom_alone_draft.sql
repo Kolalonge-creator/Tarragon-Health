@@ -24,7 +24,7 @@ select code, 7, 'draft',
              '{params,symptomGroups,symptomAloneEmergency}', '["chest_pain", "weakness_or_numbness", "difficulty_speaking"]'::jsonb),
            '{params,proposedForCmo}',
            (rules #> '{params,proposedForCmo}') || jsonb_build_object(
-             'symptomAlone', 'Version 7 adds three rules for a symptom reported with no reading (BP-S1, BP-S2, BP-S3). The CMO decides which symptoms page at once (params.symptomGroups.symptomAloneEmergency: chest pain, weakness or numbness, difficulty speaking), whether the other red-flag symptoms should be a same-day review (amber) or also page, and the 4 hour due time.')),
+             'symptomAlone', 'Version 7 adds three rules for a symptom reported with no reading (BP-S1, BP-S2, BP-S3). The CMO decides which symptoms page at once (params.symptomGroups.symptomAloneEmergency: chest pain, weakness or numbness, difficulty speaking), whether the other red-flag symptoms should be a same-day review (amber) or also page, and the 4 hour due time. Not covered by these rules, so the live danger-sign path still decides them: a convulsion or loss of consciousness outside pregnancy, epigastric pain, and pre-eclampsia symptoms in pregnancy beyond the amber review.')),
          '{rules}',
          (rules -> 'rules') || $json$
 [
@@ -93,7 +93,8 @@ begin
        is distinct from (((v6.rules #- '{params,proposedForCmo}') - 'version') #- '{rules}') then
     raise exception 'OQ-355 self-check: v7 differs from v6 outside the version, the new group, the note and the rules';
   end if;
-  if (select count(*) from public.triage_rule_sets where code = 'bp_care_triage' and status in ('approved')) <> 1 then
-    raise exception 'OQ-355 self-check: exactly one bp_care_triage version must stay approved';
+  -- approval is done live by the CMO, never by a migration: one approved version on the live project, none on a fresh replay
+  if (select count(*) from public.triage_rule_sets where code = 'bp_care_triage' and status in ('approved')) > 1 then
+    raise exception 'OQ-355 self-check: at most one bp_care_triage version may be approved';
   end if;
 end $$;

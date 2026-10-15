@@ -12,6 +12,7 @@ import { readPendingCapacityConfigSignoff } from "@/lib/queries/pending-capacity
 import { readPendingGlucoseTaskTypeSignoff } from "@/lib/queries/pending-glucose-task-type-signoff";
 import { readPendingRedOutreachSignoff } from "@/lib/queries/pending-red-outreach-signoff";
 import { readPendingSoleCmoException } from "@/lib/queries/pending-sole-cmo-exception";
+import { GLUCOSE_WORDING_SIGNED } from "@tarragon/i18n";
 import { FAST_SUGAR_ITEM_KEY, readPendingFastSugarWordingSignoff } from "@/lib/queries/pending-fast-sugar-wording-signoff";
 import { readUnifiedRedPagingState } from "@/lib/queries/pending-unified-red-paging-signoff";
 
@@ -166,6 +167,16 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
 
   const credentialItem = credentialAttentionItem(credentials);
   const attention = credentialItem ? [credentialItem] : [];
+  // Signed on the hub but not yet in the app: the proposed fast-sugar text reaches patients only when the build marks the wording signed (a code change).
+  if (fastSugar.signed && GLUCOSE_WORDING_SIGNED === null) {
+    attention.push({
+      key: `${FAST_SUGAR_ITEM_KEY}_not_shipped`,
+      title: "Fast-sugar wording is signed but not yet in the app",
+      detail: "Your signature is recorded. Patients still see the plain text until the app build marks the wording signed (a code change). Ask the build owner to ship it.",
+      href: "/clinician/go-live#glucose_fast_sugar_wording",
+      severity: "draft_pending",
+    });
+  }
   if (redOutreach.waiting) {
     items.push({
       key: RED_OUTREACH_ITEM_KEY,

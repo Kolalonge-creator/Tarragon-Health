@@ -37,19 +37,17 @@ describe("readPendingFastSugarWordingSignoff", () => {
   });
   it("waits while the condition is not met", async () => {
     const r = await readPendingFastSugarWordingSignoff(client({ data: [guard(FAST_SUGAR_GUARD, [{ code: FAST_SUGAR_CONDITION, met: false }])], error: null }));
-    expect(r).toEqual({ waiting: true, failed: false });
+    expect(r).toEqual({ waiting: true, signed: false, failed: false });
   });
   it("does not wait once signed", async () => {
     const r = await readPendingFastSugarWordingSignoff(client({ data: [guard(FAST_SUGAR_GUARD, [{ code: FAST_SUGAR_CONDITION, met: true }])], error: null }));
-    expect(r).toEqual({ waiting: false, failed: false });
+    expect(r).toEqual({ waiting: false, signed: true, failed: false });
   });
-  it("a guard that does not exist yet is neither a line nor a failure", async () => {
-    expect(await readPendingFastSugarWordingSignoff(client({ data: [guard("other", [])], error: null }))).toEqual({ waiting: false, failed: false });
-  });
-  it("a guard with no such condition, an error, a malformed answer or a throw is a failure, never an all-clear", async () => {
-    expect(await readPendingFastSugarWordingSignoff(client({ data: [guard(FAST_SUGAR_GUARD, [])], error: null }))).toEqual({ waiting: false, failed: true });
-    expect(await readPendingFastSugarWordingSignoff(client({ data: null, error: { message: "denied" } }))).toEqual({ waiting: false, failed: true });
-    expect(await readPendingFastSugarWordingSignoff(client({ data: "nope", error: null }))).toEqual({ waiting: false, failed: true });
-    expect(await readPendingFastSugarWordingSignoff(client("throw"))).toEqual({ waiting: false, failed: true });
+  it("a missing guard (the migration is not applied), a guard with no such condition, an error, a malformed answer or a throw is a failure, never an all-clear", async () => {
+    expect(await readPendingFastSugarWordingSignoff(client({ data: [guard("other", [])], error: null }))).toEqual({ waiting: false, signed: false, failed: true });
+    expect(await readPendingFastSugarWordingSignoff(client({ data: [guard(FAST_SUGAR_GUARD, [])], error: null }))).toEqual({ waiting: false, signed: false, failed: true });
+    expect(await readPendingFastSugarWordingSignoff(client({ data: null, error: { message: "denied" } }))).toEqual({ waiting: false, signed: false, failed: true });
+    expect(await readPendingFastSugarWordingSignoff(client({ data: "nope", error: null }))).toEqual({ waiting: false, signed: false, failed: true });
+    expect(await readPendingFastSugarWordingSignoff(client("throw"))).toEqual({ waiting: false, signed: false, failed: true });
   });
 });

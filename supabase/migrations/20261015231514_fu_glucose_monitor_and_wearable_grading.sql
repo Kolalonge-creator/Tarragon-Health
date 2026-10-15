@@ -6,7 +6,8 @@
 --
 -- The three guards a stream of monitor readings needs (all PROPOSED, in versioned configuration, never in code; mirrors registry key triage.glucose_monitor):
 --   freshMinutes   a reading older than this when it reaches the server is NOT graded (a bulk sync of old values must not page a stale low). 30.
---   dedupeMinutes  the same level (grade and rule) for the same patient is not graded again within this long, for monitor readings. 60.
+--   dedupeMinutes  the same level (grade and rule) for the same patient is not graded again within this long, for monitor readings. 60. "Same level" means the patient's
+--                  MOST RECENT glucose result is that level: a recovery in between (a different grade or rule) restarts it, so a second low after a normal reading is graded.
 --   bulk syncs     a statement that inserts many monitor readings grades only the LATEST reading of each patient in that statement.
 -- The production connection budget is tight, so there is no new cron job: a statement-level trigger (one cheap check per insert statement) is the only new work,
 -- and the streaming volume is cut at the source (one event per patient per batch, and none for a stale one).
@@ -15,10 +16,14 @@
 --  1. triage_glucose_monitor_config (versioned, one active row) and private.glucose_monitor_config().
 --  2. A statement-level AFTER INSERT trigger on vitals_readings that emits one observation.recorded (kind glucose, ids only, idempotency key glu:<id>, the same key shape
 --     as the row trigger) for the latest fresh monitor glucose reading of each patient in the statement.
---  3. public.record_glucose_triage_result rewritten from its LIVE definition with one asserted replace: a monitor-sourced reading whose level was already graded for that
---     patient inside the dedupe window stores nothing (returns created=false, deduped=true). A manual or Bluetooth reading is never deduped.
---  The R2 sweep, the symptom regrade and the ketone regrade stay manual and device only on purpose: a lost emit for a stream is replaced by the next reading minutes later,
---  and a sweep would re-emit stale values.
+--  3. public.record_glucose_triage_result rewritten from its LIVE definition with one asserted replace: a monitor-sourced reading whose level is the patient's most recent
+--     glucose result, inside the dedupe window, stores nothing (returns created=false, deduped=true; helper private.glucose_monitor_is_duplicate reads the config once).
+--     A manual or Bluetooth reading is never deduped.
+--  4. Nothing is dropped silently: a stale batch and a failed emit each write an audit_log row (glucose_monitor.stale_dropped, glucose_monitor.emit_failed), and the existing
+--     10-minute R2 sweep now also re-emits the LATEST monitor reading of a patient inside the freshness window if it lost its event (bounded: one lookup per patient).
+--  The symptom regrade and the ketone regrade stay manual and device only on purpose.
+--  KNOWN LIMIT (founder decision: a bulk sync grades only the latest reading): a fresh low earlier in the same batch as a normal latest reading is not graded by this engine;
+--  the older glucose pipeline (glucose_emergency_backstop) still sees every row. Raised as an open question in docs/design/FU-engine-closeout.md.
 
 -- 1. Config ----------------------------------------------------------------------------------------------------------------------------
 create table public.triage_glucose_monitor_config (
@@ -79,16 +84,28 @@ begin
        order by n.patient_id, n.taken_at desc, n.created_at desc, n.id
     loop
       if r.taken_at >= now() - v_fresh then
-        perform private.emit_domain_event(
-          'observation.recorded', r.organisation_id,
-          jsonb_build_object('observation_id', r.id, 'kind', 'glucose'),
-          'glu:' || r.id::text,
-          r.patient_id, 'observation', r.id);
+        begin
+          perform private.emit_domain_event(
+            'observation.recorded', r.organisation_id,
+            jsonb_build_object('observation_id', r.id, 'kind', 'glucose'),
+            'glu:' || r.id::text,
+            r.patient_id, 'observation', r.id);
+        exception when others then
+          -- One patient's failed emit never stops the next patient's, and it is not silent: a warning, an audit row, and the sweep below re-emits it.
+          raise warning 'OQ-320: could not emit observation.recorded for monitor glucose reading %: %', r.id, sqlerrm;
+          insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+            values (r.organisation_id, 'glucose_monitor.emit_failed', 'vitals_reading', r.id, jsonb_build_object('error', sqlerrm));
+        end;
+      else
+        -- Too old to grade as new (an offline phone catching up). Recorded, not graded: the freshness window is the founder's guard against a stale low paging.
+        insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
+          values (r.organisation_id, 'glucose_monitor.stale_dropped', 'vitals_reading', r.id,
+                  jsonb_build_object('taken_at', r.taken_at, 'fresh_minutes', (v_cfg ->> 'freshMinutes')::integer));
       end if;
     end loop;
   exception when others then
-    -- A reading is never refused because the bus is unhappy. Not silent: logged here, and the next monitor reading arrives minutes later.
-    raise warning 'OQ-320: could not emit observation.recorded for a monitor glucose batch: %', sqlerrm;
+    -- Even the config read or the loop itself failing never refuses a reading.
+    raise warning 'OQ-320: monitor glucose batch not graded: %', sqlerrm;
   end;
   return null;
 end $$;
@@ -100,19 +117,34 @@ create trigger vitals_readings_emit_glucose_monitor_observations
   for each statement execute function private.emit_glucose_monitor_observations();
 
 -- 3. Dedupe in the result writer -----------------------------------------------------------------------------------------------------
+create or replace function private.glucose_monitor_is_duplicate(p_patient uuid, p_rule_set uuid, p_grade text, p_rule text, p_reading uuid, p_source text)
+returns boolean
+language plpgsql stable security definer set search_path = ''
+as $$
+declare
+  v_cfg jsonb := private.glucose_monitor_config();
+begin
+  if not coalesce((v_cfg ->> 'enabled')::boolean, false) or not (p_source = any (select jsonb_array_elements_text(coalesce(v_cfg -> 'sources', '[]'::jsonb)))) then
+    return false;
+  end if;
+  -- The patient's most recent glucose result for this rule set (another reading, any source) must be the same level, inside the window. A different level in between
+  -- (a recovery, or a worse reading) therefore ends the duplicate run, and the next one is graded.
+  return coalesce((select e.grade = p_grade and e.rule_id is not distinct from p_rule
+                     from public.triage_events e
+                    where e.patient_id = p_patient and e.rule_set_id = p_rule_set and e.trigger_type = 'observation' and e.trigger_id <> p_reading
+                      and e.created_at > now() - make_interval(mins => (v_cfg ->> 'dedupeMinutes')::integer)
+                    order by e.created_at desc, e.id desc limit 1), false);
+end $$;
+revoke all on function private.glucose_monitor_is_duplicate(uuid, uuid, text, text, uuid, text) from public, anon, authenticated;
+
 do $mig$
 declare
   d text := pg_get_functiondef('public.record_glucose_triage_result(uuid, jsonb, uuid, uuid, text)'::regprocedure);
   anchor constant text := E'  insert into public.triage_events (organisation_id, patient_id, trigger_type, trigger_id, grade, rule_id, rule_set_id,\n      rule_set_code, rule_set_version, rule_set_status, explanation_key, actions, matched_rule_ids, task_key, basis, shadow, is_test)';
-  extra constant text := $q$  -- OQ-320: a monitor or wearable reading whose LEVEL (grade and rule) was already graded for this patient inside the dedupe window stores nothing,
-  -- so a stream of 5-minute readings in one low cannot page or open a task again every five minutes. A manual or Bluetooth reading is never deduped, and a
-  -- redelivery or regrade of the SAME reading (trigger_id = this reading) is left to the unique key below.
-  if v.source::text = any (select jsonb_array_elements_text(coalesce(private.glucose_monitor_config() -> 'sources', '[]'::jsonb)))
-     and coalesce((private.glucose_monitor_config() ->> 'enabled')::boolean, false)
-     and exists (select 1 from public.triage_events e
-                  where e.patient_id = v.patient_id and e.rule_set_id = v_rs.id and e.trigger_type = 'observation' and e.trigger_id <> v.id
-                    and e.grade = v_grade and e.rule_id is not distinct from (p_result ->> 'ruleId')
-                    and e.created_at > now() - make_interval(mins => (private.glucose_monitor_config() ->> 'dedupeMinutes')::integer)) then
+  extra constant text := $q$  -- OQ-320: a monitor or wearable reading whose LEVEL (grade and rule) is the patient's most recent glucose result, inside the dedupe window, stores nothing,
+  -- so a stream of 5-minute readings in one low cannot page or open a task again every five minutes, while a second low after a recovery is graded. A manual or Bluetooth
+  -- reading is never deduped, and a redelivery or regrade of the SAME reading (trigger_id = this reading) is left to the unique key below. The caller sees deduped = true.
+  if private.glucose_monitor_is_duplicate(v.patient_id, v_rs.id, v_grade, p_result ->> 'ruleId', v.id, v.source::text) then
     return jsonb_build_object('status', 'graded', 'created', false, 'deduped', true);
   end if;
 
@@ -124,14 +156,53 @@ begin
   execute replace(d, anchor, extra || anchor);
 end $mig$;
 
+-- 4. Sweep: also the latest monitor reading of each patient inside the freshness window ------------------------------------------------
+do $mig$
+declare
+  d text := pg_get_functiondef('private.sweep_glucose_observation_events()'::regprocedure);
+  anchor constant text := E'  return v_n;\nend';
+  extra constant text := $q$  -- OQ-320: the latest monitor or wearable reading of each patient, only while it is still fresh, if it lost its event (a failed emit). Bounded: one reading per patient.
+  if coalesce((private.glucose_monitor_config() ->> 'enabled')::boolean, false) then
+    for r in
+      select distinct on (v.patient_id) v.id, v.organisation_id, v.patient_id
+        from private.vitals_readings_current v
+       where v.vital_type::text = 'glucose' and v.glucose_mmol_l is not null and v.correction_status is null
+         and v.source::text in ('wearable', 'cgm')
+         and v.taken_at > now() - make_interval(mins => (private.glucose_monitor_config() ->> 'freshMinutes')::integer)
+         and v.created_at < now() - interval '1 minute'
+       order by v.patient_id, v.taken_at desc, v.created_at desc, v.id
+    loop
+      if not exists (select 1 from public.domain_events e where e.event_type = 'observation.recorded' and e.idempotency_key = 'glu:' || r.id::text) then
+        begin
+          perform private.emit_domain_event(
+            'observation.recorded', r.organisation_id,
+            jsonb_build_object('observation_id', r.id, 'kind', 'glucose'),
+            'glu:' || r.id::text, r.patient_id, 'observation', r.id);
+          v_n := v_n + 1;
+        exception when others then
+          raise warning 'OQ-320: sweep could not emit monitor glucose reading %: %', r.id, sqlerrm;
+        end;
+      end if;
+    end loop;
+  end if;
+$q$;
+begin
+  if (length(d) - length(replace(d, anchor, ''))) / length(anchor) <> 1 then
+    raise exception 'OQ-320: sweep_glucose_observation_events live body no longer ends as expected; review before changing it';
+  end if;
+  execute replace(d, anchor, extra || anchor);
+end $mig$;
+
 do $$
 begin
-  if pg_get_functiondef('public.record_glucose_triage_result(uuid, jsonb, uuid, uuid, text)'::regprocedure) not like '%glucose_monitor_config%' then
+  if pg_get_functiondef('public.record_glucose_triage_result(uuid, jsonb, uuid, uuid, text)'::regprocedure) not like '%glucose_monitor_is_duplicate%'
+     or pg_get_functiondef('private.sweep_glucose_observation_events()'::regprocedure) not like '%freshMinutes%' then
     raise exception 'OQ-320 self-check: the writer does not dedupe';
   end if;
   if has_function_privilege('anon', 'private.emit_glucose_monitor_observations()', 'EXECUTE')
      or has_function_privilege('authenticated', 'private.emit_glucose_monitor_observations()', 'EXECUTE')
      or has_function_privilege('anon', 'private.glucose_monitor_config()', 'EXECUTE')
+     or has_function_privilege('authenticated', 'private.glucose_monitor_is_duplicate(uuid, uuid, text, text, uuid, text)', 'EXECUTE')
      or has_function_privilege('anon', 'public.record_glucose_triage_result(uuid, jsonb, uuid, uuid, text)', 'EXECUTE')
      or has_function_privilege('authenticated', 'public.record_glucose_triage_result(uuid, jsonb, uuid, uuid, text)', 'EXECUTE') then
     raise exception 'OQ-320 self-check: a function became callable by a client';

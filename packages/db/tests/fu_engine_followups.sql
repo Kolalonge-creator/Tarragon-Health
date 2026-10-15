@@ -2,9 +2,10 @@
 -- *_fu_glucose_monitor_and_wearable_grading.sql, *_fu_glucose_fast_sugar_wording_signing_line.sql).
 --
 --   OQ-320  Glucose from a monitor or wearable: a fresh reading emits one observation.recorded, a stale one none, a bulk insert statement emits only the LATEST
---           reading of each patient, manual and Bluetooth readings still emit exactly once through their own trigger, the result writer stores nothing for the same
---           level (grade and rule) inside the dedupe window for a monitor reading but never dedupes a manual one, a different level or an old event; with the config
---           off nothing is emitted or deduped. Nothing pages (the glucose rule set is a draft, so every result is shadow).
+--           reading of each patient, a stale batch leaves an audit row, manual and Bluetooth readings still emit exactly once through their own trigger, the result writer
+--           stores nothing when the patient's MOST RECENT result is the same level (grade and rule) inside the dedupe window for a monitor reading, but never dedupes a manual
+--           one, a different level, a second low after a recovery, or an old event; the sweep re-emits a fresh monitor reading that lost its event; with the config off
+--           nothing is emitted or deduped. Nothing pages (the glucose rule set is a draft, so every result is shadow).
 --   OQ-354  The BP-A4 task replaces the older medication_adherence_low alert only for a Member with a blood pressure interest while the sweep is on and BP-A4 is in an
 --           approved rule set; a Free patient and a Member with no blood pressure interest keep the alert; with the sweep off the alert stays for everyone.
 --   OQ-356  The coverage context sends percentWindow and no longer percent7d.
@@ -105,6 +106,13 @@ begin
   values (p_org, p_patient, 'glucose', p_mmol, 'random', p_source::public.vital_source, now() - make_interval(mins => p_minutes_ago)) returning id into v;
   return v;
 end $f$;
+-- triage_events is append only and every row of this transaction would share one created_at: shift a patient's existing rows back so "most recent" is deterministic.
+create function pg_temp.age_events(p_patient uuid, p_minutes integer) returns void language plpgsql as
+$f$ begin
+  set local session_replication_role = replica;
+  update public.triage_events set created_at = created_at - make_interval(mins => p_minutes) where patient_id = p_patient;
+  set local session_replication_role = origin;
+end $f$;
 create function pg_temp.graded(p_rule text, p_grade text) returns jsonb language sql as
 $$ select jsonb_build_object('status', 'graded', 'grade', p_grade, 'ruleId', p_rule, 'explanationKey', 'GLU-T05',
      'actions', case when p_grade = 'red' then '[{"kind":"show_emergency_guidance","code":"GLU-E01"},{"kind":"page_on_call"}]'::jsonb else '[{"kind":"show_message","code":"GLU-T05"}]'::jsonb end,
@@ -138,6 +146,8 @@ begin
     (select count(*)::text || '|' || min(payload ->> 'kind') from public.domain_events where idempotency_key = 'glu:' || a));
   b := pg_temp.ins_glu(v_org, v_g, 'cgm', 6.0, 120);
   perform pg_temp.res('real', 'a cgm reading older than 30 minutes emits nothing', '0', (select count(*)::text from public.domain_events where idempotency_key = 'glu:' || b));
+  perform pg_temp.res('real', 'and the drop is not silent: one audit row says it was too old', '1',
+    (select count(*)::text from public.audit_log where action = 'glucose_monitor.stale_dropped' and entity_id = b));
   c := pg_temp.ins_glu(v_org, v_g, 'wearable', 6.2, 1);
   perform pg_temp.res('real', 'a fresh wearable reading emits one event', '1', (select count(*)::text from public.domain_events where idempotency_key = 'glu:' || c));
   a := pg_temp.ins_glu(v_org, v_g2, 'cgm', 6.0, 29);
@@ -181,41 +191,66 @@ begin
     values (v_org, v_pat, 'blood_pressure', 120, 78, 'device', now());
   perform pg_temp.res('real', 'a blood pressure reading emits no glucose event', '0', pg_temp.glu_events(v_pat)::text);
 
-  -- Dedupe in the writer ------------------------------------------------------------------------------------------------------
+  -- Dedupe in the writer (the patient's MOST RECENT result decides) ----------------------------------------------------------------
   c := pg_temp.ins_glu(v_org, v_pat, 'cgm', 2.8, 1);
   v_out := public.record_glucose_triage_result(c, pg_temp.graded('GL-R1', 'red'), v_rs);
   perform pg_temp.res('real', 'the first cgm result of a level is stored (shadow, the rule set is a draft)', 'true|true', (v_out ->> 'created') || '|' || (v_out ->> 'shadow'));
-  perform pg_temp.setf('first_event', (v_out ->> 'triage_event_id')::uuid);
+  perform pg_temp.age_events(v_pat, 1);
   a := pg_temp.ins_glu(v_org, v_pat, 'cgm', 2.7, 0);
   v_out := public.record_glucose_triage_result(a, pg_temp.graded('GL-R1', 'red'), v_rs);
-  perform pg_temp.res('real', 'the same level for the same patient inside 60 minutes stores nothing (deduped)', 'false|true', (v_out ->> 'created') || '|' || coalesce(v_out ->> 'deduped', 'null'));
+  perform pg_temp.res('real', 'the same level for the same patient inside 60 minutes stores nothing (deduped, and the caller is told)', 'false|true', (v_out ->> 'created') || '|' || coalesce(v_out ->> 'deduped', 'null'));
+  perform pg_temp.res('real', 'a deduped reading leaves no result row', '0', (select count(*)::text from public.triage_events where trigger_id = a));
   v_out := public.record_glucose_triage_result(a, pg_temp.graded('GL-R6', 'red'), v_rs, null, 'other');
   perform pg_temp.res('real', 'a different rule of the same grade is a different level and is stored', 'true', v_out ->> 'created');
+  perform pg_temp.age_events(v_pat, 1);
   v_out := public.record_glucose_triage_result(a, pg_temp.graded('GL-A1', 'amber'), v_rs, null, 'amber');
   perform pg_temp.res('real', 'a different grade is stored', 'true', v_out ->> 'created');
+  perform pg_temp.age_events(v_pat, 1);
   b := pg_temp.ins_glu(v_org, v_pat, 'manual', 2.6, 0);
   v_out := public.record_glucose_triage_result(b, pg_temp.graded('GL-R1', 'red'), v_rs);
   perform pg_temp.res('real', 'a manual reading of the same level is NEVER deduped', 'true', v_out ->> 'created');
+  perform pg_temp.age_events(v_pat, 1);
   v_out := public.record_glucose_triage_result(c, pg_temp.graded('GL-R1', 'red'), v_rs);
   perform pg_temp.res('real', 'a redelivery of the very first reading stores nothing new', 'false', v_out ->> 'created');
-  -- triage_events is append only; age the rows with triggers off, as a fixture (rolled back)
-  set local session_replication_role = replica;
-  update public.triage_events set created_at = now() - interval '2 hours' where patient_id = v_pat;
-  set local session_replication_role = origin;
+  -- a recovery in between restarts the run: red, green, red again grades the second red
+  e := pg_temp.mkuser(v_org, 'recover', 'patient');
+  a := pg_temp.ins_glu(v_org, e, 'cgm', 2.8, 3);
+  perform public.record_glucose_triage_result(a, pg_temp.graded('GL-R1', 'red'), v_rs);
+  perform pg_temp.age_events(e, 1);
+  b := pg_temp.ins_glu(v_org, e, 'cgm', 5.5, 2);
+  v_out := public.record_glucose_triage_result(b, pg_temp.graded('GL-G1', 'green'), v_rs);
+  perform pg_temp.res('real', 'a normal reading after a low is its own level and is stored', 'true', v_out ->> 'created');
+  perform pg_temp.age_events(e, 1);
+  d := pg_temp.ins_glu(v_org, e, 'cgm', 2.6, 1);
+  v_out := public.record_glucose_triage_result(d, pg_temp.graded('GL-R1', 'red'), v_rs);
+  perform pg_temp.res('real', 'a second low after a recovery inside the window is graded again (not deduped)', 'true', v_out ->> 'created');
+  perform pg_temp.age_events(v_pat, 120);
   d := pg_temp.ins_glu(v_org, v_pat, 'cgm', 2.4, 0);
   v_out := public.record_glucose_triage_result(d, pg_temp.graded('GL-R1', 'red'), v_rs);
   perform pg_temp.res('real', 'once the earlier result is older than 60 minutes the level is graded again', 'true', v_out ->> 'created');
+  -- sweep: a fresh monitor reading that lost its event is re-emitted once; an old one is not
+  e := pg_temp.mkuser(v_org, 'sweep', 'patient');
+  set local session_replication_role = replica;
+  insert into public.vitals_readings (organisation_id, patient_id, vital_type, glucose_mmol_l, glucose_context, source, taken_at, created_at)
+    values (v_org, e, 'glucose', 6.0, 'random', 'cgm', now() - interval '10 minutes', now() - interval '9 minutes') returning id into a;
+  insert into public.vitals_readings (organisation_id, patient_id, vital_type, glucose_mmol_l, glucose_context, source, taken_at, created_at)
+    values (v_org, v_pat, 'glucose', 6.0, 'random', 'cgm', now() - interval '300 minutes', now() - interval '299 minutes') returning id into b;
+  set local session_replication_role = origin;
+  perform private.sweep_glucose_observation_events();
+  perform private.sweep_glucose_observation_events();
+  perform pg_temp.res('real', 'the sweep re-emits a fresh monitor reading that lost its event, once, and not an old one', '1|0',
+    (select count(*)::text from public.domain_events where idempotency_key = 'glu:' || a) || '|' || (select count(*)::text from public.domain_events where idempotency_key = 'glu:' || b));
   -- config off: no dedupe, no producer
   update public.triage_glucose_monitor_config set rules = jsonb_set(rules, '{enabled}', 'false') where is_active;
-  e := pg_temp.ins_glu(v_org, v_pat, 'cgm', 2.3, 0);
-  perform pg_temp.res('real', 'with the config off a fresh cgm reading emits no event', '0', (select count(*)::text from public.domain_events where idempotency_key = 'glu:' || e));
-  v_out := public.record_glucose_triage_result(e, pg_temp.graded('GL-R1', 'red'), v_rs);
+  d := pg_temp.ins_glu(v_org, v_pat, 'cgm', 2.3, 0);
+  perform pg_temp.res('real', 'with the config off a fresh cgm reading emits no event', '0', (select count(*)::text from public.domain_events where idempotency_key = 'glu:' || d));
+  v_out := public.record_glucose_triage_result(d, pg_temp.graded('GL-R1', 'red'), v_rs);
   perform pg_temp.res('real', 'with the config off the writer does not dedupe', 'true', v_out ->> 'created');
   update public.triage_glucose_monitor_config set rules = jsonb_set(rules, '{enabled}', 'true') where is_active;
   perform pg_temp.res('real', 'no page and no task came from any of it (every result is shadow)', '0|0',
-    (select count(*)::text from public.triage_events where patient_id = v_pat and not shadow) || '|' ||
-    (select count(*)::text from public.clinical_tasks where patient_id = v_pat));
-  perform pg_temp.res('real', 'the sweep, the symptom regrade and the ketone regrade still ignore monitor readings (a swept reading would be stale)', '0',
+    (select count(*)::text from public.triage_events where patient_id in (v_pat, v_g, v_g2) and not shadow) || '|' ||
+    (select count(*)::text from public.clinical_tasks where patient_id in (v_pat, v_g, v_g2)));
+  perform pg_temp.res('real', 'the symptom regrade still ignores monitor readings', '0',
     (select count(*)::text from public.domain_events where patient_id = v_g and idempotency_key like 'glu:%:sym:%'));
 
   -- Grants ------------------------------------------------------------------------------------------------------------------------

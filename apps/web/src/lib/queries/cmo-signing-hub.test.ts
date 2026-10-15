@@ -61,7 +61,7 @@ jest.mock("@/lib/queries/pending-unified-red-paging-signoff", () => ({
 jest.mock("@/lib/queries/pending-sole-cmo-exception", () => ({
   readPendingSoleCmoException: (...args: unknown[]) => readPendingSoleCmoException(...args),
 }));
-const readPendingFastSugarWordingSignoff = jest.fn<(...args: unknown[]) => Promise<{ waiting: boolean; failed: boolean }>>();
+const readPendingFastSugarWordingSignoff = jest.fn<(...args: unknown[]) => Promise<{ waiting: boolean; signed: boolean; failed: boolean }>>();
 jest.mock("@/lib/queries/pending-fast-sugar-wording-signoff", () => ({
   FAST_SUGAR_ITEM_KEY: "glucose_fast_sugar_wording",
   readPendingFastSugarWordingSignoff: (...args: unknown[]) => readPendingFastSugarWordingSignoff(...args),
@@ -111,7 +111,7 @@ beforeEach(() => {
   readPendingCapacityConfigSignoff.mockReset();
   readPendingCapacityConfigSignoff.mockResolvedValue(noCapacityConfig);
   readPendingFastSugarWordingSignoff.mockReset();
-  readPendingFastSugarWordingSignoff.mockResolvedValue({ waiting: false, failed: false });
+  readPendingFastSugarWordingSignoff.mockResolvedValue({ waiting: false, signed: false, failed: false });
 });
 
 describe("readCmoSigningHub: fast-sugar wording (OQ-326)", () => {
@@ -119,7 +119,7 @@ describe("readCmoSigningHub: fast-sugar wording (OQ-326)", () => {
   it("is its own line, separate from the glucose rules, under /clinician, and says it stays unsigned until signed", async () => {
     readSignoffQueue.mockResolvedValue(empty);
     readPendingGlucoseTriageSignoff.mockResolvedValue({ pending: true, version: 1, approvedVersion: null, note: null, failed: false });
-    readPendingFastSugarWordingSignoff.mockResolvedValue({ waiting: true, failed: false });
+    readPendingFastSugarWordingSignoff.mockResolvedValue({ waiting: true, signed: false, failed: false });
     const hub = await readCmoSigningHub(supabase);
     const keys = hub.items.map((i) => i.key).sort();
     expect(keys).toEqual(["glucose_fast_sugar_wording", "glucose_triage_rule_set"]);
@@ -129,10 +129,18 @@ describe("readCmoSigningHub: fast-sugar wording (OQ-326)", () => {
     expect(line?.detail).toMatch(/stays unsigned/);
     expect(hub.failed).toBe(false);
   });
+  it("once signed the signing line goes, and an attention line says it is not yet in the app build", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingFastSugarWordingSignoff.mockResolvedValue({ waiting: false, signed: true, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.items.find((i) => i.key === "glucose_fast_sugar_wording")).toBeUndefined();
+    expect(hub.attention.map((i) => i.key)).toContain("glucose_fast_sugar_wording_not_shipped");
+    expect(hub.attention.find((i) => i.key === "glucose_fast_sugar_wording_not_shipped")?.href.startsWith("/clinician/")).toBe(true);
+  });
   it("is absent once signed, and a failed read is named instead of going quiet", async () => {
     readSignoffQueue.mockResolvedValue(empty);
     expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === "glucose_fast_sugar_wording")).toBeUndefined();
-    readPendingFastSugarWordingSignoff.mockResolvedValue({ waiting: false, failed: true });
+    readPendingFastSugarWordingSignoff.mockResolvedValue({ waiting: false, signed: false, failed: true });
     expect(await readCmoSigningHub(supabase)).toMatchObject({ failed: true, failedSources: ["the fast-sugar wording signature"] });
   });
 });

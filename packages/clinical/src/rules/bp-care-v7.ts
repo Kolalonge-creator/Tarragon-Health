@@ -72,7 +72,7 @@ export const BP_CARE_V7: RuleSet = {
     proposedForCmo: {
       ...(BP_CARE_V6.params.proposedForCmo as Record<string, string>),
       symptomAlone:
-        "Version 7 adds three rules for a symptom reported with no reading (BP-S1, BP-S2, BP-S3). The CMO decides which symptoms page at once (params.symptomGroups.symptomAloneEmergency: chest pain, weakness or numbness, difficulty speaking), whether the other red-flag symptoms should be a same-day review (amber) or also page, and the 4 hour due time.",
+        "Version 7 adds three rules for a symptom reported with no reading (BP-S1, BP-S2, BP-S3). The CMO decides which symptoms page at once (params.symptomGroups.symptomAloneEmergency: chest pain, weakness or numbness, difficulty speaking), whether the other red-flag symptoms should be a same-day review (amber) or also page, and the 4 hour due time. Not covered by these rules, so the live danger-sign path still decides them: a convulsion or loss of consciousness outside pregnancy, epigastric pain, and pre-eclampsia symptoms in pregnancy beyond the amber review.",
     },
   },
   rules: [...BP_CARE_V6.rules, S1, S3, S2],
