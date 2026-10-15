@@ -466,19 +466,8 @@ create function public.discharge_pathway_enrolment(p_enrolment uuid, p_reason te
 create function public.re_enrol_pathway_enrolment(p_enrolment uuid, p_reason text) returns jsonb language sql security definer set search_path = '' as $$
   select private.pathway_lifecycle(p_enrolment, 're_enrol', p_reason, false) $$;
 
--- ---------------------------------------------------------------------------
--- 7. The clinician review task for engine titration proposals (OQ-172)
--- ---------------------------------------------------------------------------
--- Before this, an engine proposal sat in care_plan_changes with no task, so no clinician was ever asked to sign it. Deliberately NO exception
--- handler: if the task cannot be created the proposal fails with it, rather than existing unseen (a silent loss is the bug being fixed).
-create function private.engine_proposal_review_task() returns trigger language plpgsql security definer set search_path = '' as $$
-begin
-  perform private.create_clinical_task(new.patient_id, 'titration_signoff', null, 'titration_signoff:' || new.id, null, null, null);
-  return null;
-end $$;
-create trigger care_plan_changes_engine_review_task after insert on public.care_plan_changes
-  for each row when (new.proposed_by = 'engine' and new.state = 'proposed') execute function private.engine_proposal_review_task();
-
+-- 7. (removed) The clinician review task for engine titration proposals (OQ-172) is produced by the S16-S20 task layer
+--    (20261014235641, section 11, dedup key titration:<change id>), so no second trigger is added here: two producers would raise two tasks.
 -- ---------------------------------------------------------------------------
 -- 8. Task types (PROPOSED) and the draft rule sets. needs_confirmation is FALSE on purpose: approve_triage_rule_set refuses ANY approval while ANY active
 --    type awaits confirmation, so a true here would block the CMO signing bp_care_triage v3. Same precedent as pharmacy_flag_review (PROPOSED, false).

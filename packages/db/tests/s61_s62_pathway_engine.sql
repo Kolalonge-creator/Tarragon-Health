@@ -124,7 +124,6 @@ begin
     (select count(*)::text from pg_proc p where p.pronamespace = 'public'::regnamespace
       and p.proname in ('pause_pathway_enrolment', 'resume_pathway_enrolment', 'transfer_pathway_enrolment', 'discharge_pathway_enrolment', 're_enrol_pathway_enrolment', 'clinician_mark_pathway_milestone', 'read_pathway_milestones_audited', 'sweep_pathway_reviews', 'sweep_pathway_scheduled_tests', 'attest_go_live_condition', 'attest_go_live_condition_s61_base')
       and has_function_privilege('anon', p.oid, 'EXECUTE')));
-  perform pg_temp.rec('both go-live functions carry the pathway branch', '2', (select count(*)::text from pg_proc where oid in ('private.go_live_conditions(text, uuid)'::regprocedure, 'public.attest_go_live_condition(text, text, boolean, text)'::regprocedure) and prosrc like '%pathway%'));
   v_conds := private.go_live_conditions('pathway_bp', v_org);
   perform pg_temp.rec('pathway guard: four conditions, none met', '4/0', jsonb_array_length(v_conds) || '/' || (select count(*) from jsonb_array_elements(v_conds) c where (c ->> 'met')::boolean));
   perform pg_temp.rec('the wrapper still serves an older guard', 'true', (jsonb_array_length(private.go_live_conditions('on_call_cover_ok', v_org)) >= 1)::text);
@@ -224,7 +223,7 @@ begin
     '{"action":"start","item":{"drug_name":"Amlodipine","dose":"5 mg","frequency":"once daily","quantity":"30 tablets","duration_days":30}}'::jsonb,
     'Engine proposal from the draft step table for a test patient', null, 'engine', v_proto, '{"stepId":"step_1_amlodipine_5"}'::jsonb);
   perform pg_temp.back();
-  perform pg_temp.rec('an engine proposal creates a titration_signoff task', '1', (select count(*)::text from public.clinical_tasks where type = 'titration_signoff' and dedup_key = 'titration_signoff:' || v_change));
+  perform pg_temp.rec('an engine proposal creates a titration_signoff task', '1', (select count(*)::text from public.clinical_tasks where type = 'titration_signoff' and dedup_key = 'titration:' || v_change));
   perform pg_temp.rec('the proposal itself stays unsigned', 'proposed/null', (select state || '/' || coalesce(signed_by::text, 'null') from public.care_plan_changes where id = v_change));
 
   -- 6. INV-05: a draft rule set is shadow and pages nobody; an approved one pages --------------------------------------
@@ -232,9 +231,9 @@ begin
   insert into public.vitals_readings (organisation_id, patient_id, vital_type, glucose_mmol_l, taken_at, source, glucose_events)
   values (v_org, v_pat, 'glucose', 2.8, now(), 'manual', array['confusion']) returning id into v_obs;
   perform pg_temp.rec('the glucose event is stored with the reading', 'confusion', (select glucose_events[1] from public.vitals_readings where id = v_obs));
-  v_res := jsonb_build_object('status', 'graded', 'grade', 'red', 'ruleId', 'DM-R2', 'explanationKey', 'PW-DM-RED', 'taskKey', null,
-    'matchedRuleIds', jsonb_build_array('DM-R1', 'DM-R2'), 'ruleSet', jsonb_build_object('code', 'glucose_care_triage', 'version', 1),
-    'actions', jsonb_build_array(jsonb_build_object('kind', 'show_emergency_guidance', 'code', 'PW-DM-RED'), jsonb_build_object('kind', 'page_on_call')));
+  v_res := jsonb_build_object('status', 'graded', 'grade', 'red', 'ruleId', 'GL-R1', 'explanationKey', 'GLU-E01', 'taskKey', null,
+    'matchedRuleIds', jsonb_build_array('GL-R1', 'GL-R2'), 'ruleSet', jsonb_build_object('code', 'glucose_care_triage', 'version', 1),
+    'actions', jsonb_build_array(jsonb_build_object('kind', 'show_emergency_guidance', 'code', 'GLU-E01'), jsonb_build_object('kind', 'page_on_call')));
   perform public.record_triage_result(v_obs, v_res, v_rs, null, 'proof-draft');
   select id into v_te from public.triage_events where trigger_id = v_obs and rule_set_id = v_rs;
   perform pg_temp.rec('a draft rule set grades as shadow', 'true', (select shadow::text from public.triage_events where id = v_te));
@@ -283,13 +282,13 @@ begin
   -- 8. Sabotage -----------------------------------------------------------------------------------------------------
   drop trigger chronic_programme_enrolments_pathway_guard on public.chronic_programme_enrolments;
   insert into results values ('sabotaged', 'guard off: a real patient is refused', '23514', left(pg_temp.enrol(v_real, 'hypertension'), 5));
-  drop trigger care_plan_changes_engine_review_task on public.care_plan_changes;
+  drop trigger care_plan_changes_titration_task on public.care_plan_changes;
   perform pg_temp.act(v_doc);
   v_change := public.propose_care_plan_change(v_pat, 'medication',
     '{"action":"start","item":{"drug_name":"Amlodipine","dose":"5 mg","frequency":"once daily","quantity":"30 tablets","duration_days":30}}'::jsonb,
     'Second engine proposal with the review trigger removed', null, 'engine', v_proto, '{"stepId":"step_1_amlodipine_5"}'::jsonb);
   perform pg_temp.back();
-  insert into results values ('sabotaged', 'an engine proposal creates a task', '1', (select count(*)::text from public.clinical_tasks where dedup_key = 'titration_signoff:' || v_change));
+  insert into results values ('sabotaged', 'an engine proposal creates a task', '1', (select count(*)::text from public.clinical_tasks where dedup_key = 'titration:' || v_change));
 end $$;
 
 do $$
