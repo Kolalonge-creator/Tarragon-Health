@@ -8,6 +8,7 @@ import { readCredentialAttention, credentialAttentionItem } from "@/lib/queries/
 import { GLUCOSE_TRIAGE_ITEM_KEY, readPendingGlucoseTriageSignoff } from "@/lib/queries/pending-glucose-triage-signoff";
 import { readS06S10Signoffs, EMPTY_S06S10, type S06S10Snapshot } from "@/lib/queries/s06-s10-signoffs";
 import { readPendingQualityConfigSignoff } from "@/lib/queries/pending-quality-config-signoff";
+import { readPendingCapacityConfigSignoff } from "@/lib/queries/pending-capacity-config-signoff";
 import { readPendingGlucoseTaskTypeSignoff } from "@/lib/queries/pending-glucose-task-type-signoff";
 import { readPendingRedOutreachSignoff } from "@/lib/queries/pending-red-outreach-signoff";
 import { readPendingSoleCmoException } from "@/lib/queries/pending-sole-cmo-exception";
@@ -42,6 +43,8 @@ export const RED_OUTREACH_ITEM_KEY = "red_outreach";
 export const GLUCOSE_TASK_TYPE_ITEM_KEY = "glucose_task_type";
 /** The line for the S20 v2 quality and credentialing configuration drafts (audit sampling, second review, speak-up check-ins, licence notices). */
 export const QUALITY_CONFIG_ITEM_KEY = "quality_configs";
+/** The line for the capacity and cover configuration drafts (intake gate, hard rest rule, fire drills) and the pilot lead cap. */
+export const CAPACITY_CONFIG_ITEM_KEY = "capacity_configs";
 /** The key the sole-CMO on-call exception line carries, so the page can attach the signing panel. */
 export const SOLE_CMO_EXCEPTION_ITEM_KEY = "sole_cmo_on_call_exception";
 export { GLUCOSE_TRIAGE_ITEM_KEY };
@@ -66,7 +69,7 @@ export { GLUCOSE_TRIAGE_ITEM_KEY };
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, qualityConfigs, soleCmo] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, qualityConfigs, soleCmo, capacityConfigs] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -81,6 +84,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingGlucoseTaskTypeSignoff(supabase),
     readPendingQualityConfigSignoff(supabase),
     readPendingSoleCmoException(supabase),
+    readPendingCapacityConfigSignoff(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -216,6 +220,21 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  if (capacityConfigs.capacityVersion !== null || capacityConfigs.leadVersion !== null) {
+    const parts = [
+      capacityConfigs.capacityVersion !== null && `capacity configuration version ${capacityConfigs.capacityVersion} (intake gate, 11 hour rest rule, fire drills)`,
+      capacityConfigs.leadVersion !== null && `lead configuration version ${capacityConfigs.leadVersion} (pilot cap of 40 patients per lead)`,
+    ].filter(Boolean);
+    items.push({
+      key: CAPACITY_CONFIG_ITEM_KEY,
+      title: "Capacity, rest and fire drills",
+      detail: `${parts.join(" and ")} waiting for your signature. They stay off until you sign.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: (capacityConfigs.capacityVersion !== null ? 1 : 0) + (capacityConfigs.leadVersion !== null ? 1 : 0),
+    });
+  }
+
   const failedSources = [
     ...queue.failedSources,
     ...s06s10.failedSources,
@@ -227,6 +246,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(glucoseTaskType.failed ? ["the urgent glucose review task type"] : []),
     ...(qualityConfigs.failed ? ["the quality and credentialing configurations"] : []),
     ...(soleCmo.failed ? ["the sole-CMO on-call exception"] : []),
+    ...(capacityConfigs.failed ? ["the capacity and lead configurations"] : []),
   ];
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
   // A banner row may only link to a hub line that exists. The banner reads its own copy of the state, so if the two ever disagree (a row it
