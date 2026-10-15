@@ -1,3 +1,4 @@
+import { DocumentFolioRefusedError, fetchDocumentFolios } from "@/lib/clinical/document-folio";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { VerifiedDocumentPdf } from "@/lib/verified-documents/verified-document";
@@ -83,21 +84,31 @@ export async function GET(
   let issuer: { credential_type: string | null; credential_number: string | null } | null = null;
   let issuerProfile: { full_name: string | null } | null = null;
   if (doc.issued_by) {
-    const { data: issuerStaff } = await supabase
-      .from("clinical_staff_directory")
-      .select("credential_type, credential_number, profile_id")
-      .eq("id", doc.issued_by)
-      .maybeSingle();
-    if (issuerStaff) {
-      issuer = { credential_type: issuerStaff.credential_type, credential_number: issuerStaff.credential_number };
-      if (issuerStaff.profile_id) {
+    // Folio via the document-scoped function, never the directory view (CMO Q17, OQ-358).
+    let folio;
+    try {
+      folio = (
+        await fetchDocumentFolios(supabase, "verified_document", [doc.id], { [doc.id]: doc.issued_by })
+      ).get(doc.id);
+    } catch (e) {
+      if (e instanceof DocumentFolioRefusedError) {
+        return new Response("You are not permitted to produce this document", { status: 403 });
+      }
+      throw e;
+    }
+    if (folio) {
+      issuer = { credential_type: folio.credentialType, credential_number: folio.credentialNumber };
+      if (folio.clinicianProfileId) {
         const { data: profile } = await supabase
           .from("profiles")
           .select("full_name")
-          .eq("id", issuerStaff.profile_id)
+          .eq("id", folio.clinicianProfileId)
           .maybeSingle();
         issuerProfile = profile ?? null;
       }
+      // A patient session cannot read the clinician's profile; fall back to the directory name
+      // the function returns so the issuer is never printed without a name.
+      if (!issuerProfile?.full_name && folio.fullName) issuerProfile = { full_name: folio.fullName };
     }
   }
 

@@ -31,9 +31,13 @@ export async function loadTherapyDirectory(filters?: {
 }
 
 export async function loadMyTherapySessions(): Promise<QueryResult<TherapySession[]>> {
+  // Explicit own-rows filter: since S56 a Care Circle supporter holding the mental_health consent can also read the patient's rows.
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) return { ok: false, error: "Not signed in" };
   const { data, error } = await supabase
     .from("therapy_sessions")
     .select("*, provider:therapy_directory!inner(name, specialist_type)")
+    .eq("patient_id", userData.user.id)
     .order("requested_at", { ascending: false });
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: (data ?? []) as TherapySession[] };

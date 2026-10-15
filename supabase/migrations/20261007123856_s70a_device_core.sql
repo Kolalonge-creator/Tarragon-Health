@@ -528,9 +528,9 @@ $function$;
 insert into public.task_types
   (code, version, priority_class, default_due_minutes, min_doctor_tier, required_competencies,
    lead_window_minutes, claim_timeout_minutes, pushable, creatable, source_task_keys, note) values
-  ('cgm_glucose_review', 1, 4, 1440, 'medical_officer', '{adult_general}', 240, 30, true, true, '{}',
+  ('cgm_glucose_review', 1, 4, 1440, 'senior_medical_officer', '{adult_general}', 240, 30, true, true, '{}',
    'S70a: a glucose sensor stream stayed low or high long enough to need a person to look (devices.cgm_events). Never an instant red page. PROPOSED class, due time and tier: the CMO signs them.'),
-  ('device_rhythm_review', 1, 5, 1440, 'medical_officer', '{adult_general}', 1440, 30, true, true, '{}',
+  ('device_rhythm_review', 1, 5, 1440, 'senior_medical_officer', '{adult_general}', 1440, 30, true, true, '{}',
    'S70a: a personal ECG device gave an irregular, inconclusive or unrecognised result (devices.ecg_alert). Routine, due within one working day. Never a patient-facing diagnosis. PROPOSED: the CMO signs it.');
 -- device-task-types-end
 

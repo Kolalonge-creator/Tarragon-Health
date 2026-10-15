@@ -11603,6 +11603,36 @@ export type Database = {
           },
         ]
       }
+      crisis_card_config: {
+        Row: {
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          status: string
+          version: number
+        }
+        Insert: {
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          status?: string
+          version: number
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          status?: string
+          version?: number
+        }
+        Relationships: []
+      }
       cv_risk_config: {
         Row: {
           approved_at: string | null
@@ -24543,6 +24573,81 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      mental_health_follow_up_config: {
+        Row: {
+          config: Json
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          status: string
+          version: number
+        }
+        Insert: {
+          config: Json
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          status?: string
+          version: number
+        }
+        Update: {
+          config?: Json
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          status?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      mental_health_handoffs: {
+        Row: {
+          created_at: string
+          id: string
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+          patient_note: string | null
+          screen_id: string | null
+          state: string
+          summary: Json
+          task_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          organisation_id: string
+          patient_id: string
+          patient_note?: string | null
+          screen_id?: string | null
+          state?: string
+          summary?: Json
+          task_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+          patient_note?: string | null
+          screen_id?: string | null
+          state?: string
+          summary?: Json
+          task_id?: string | null
+        }
+        Relationships: []
       }
       mental_health_screening_cadences: {
         Row: {
@@ -42301,6 +42406,7 @@ export type Database = {
           patient_id: string
           sleep_quality: number
           stress_score: number
+          tags: string[]
         }
         Insert: {
           activity_level: number
@@ -42314,6 +42420,7 @@ export type Database = {
           patient_id: string
           sleep_quality: number
           stress_score: number
+          tags?: string[]
         }
         Update: {
           activity_level?: number
@@ -42327,6 +42434,7 @@ export type Database = {
           patient_id?: string
           sleep_quality?: number
           stress_score?: number
+          tags?: string[]
         }
         Relationships: [
           {
@@ -44348,6 +44456,17 @@ export type Database = {
       // S27 (lab results and release rules): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       bp_control_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       // S38c (monthly report and risk stratification): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
+      clinician_folio_for_document: {
+        Args: { p_document_kind: string; p_document_ids: string[] }
+        Returns: {
+          document_id: string
+          clinician_staff_id: string
+          clinician_profile_id: string
+          full_name: string
+          credential_type: string
+          credential_number: string
+        }[]
+      }
       clinician_risk_worklist: { Args: { p_limit?: number }; Returns: Json };
       device_target_for_reading: {
         Args: { p_device_id: string }
@@ -49778,9 +49897,18 @@ export type Database = {
         }[]
       }
       approve_therapy_session: {
-        Args: { p_confirm?: boolean; p_session_id: string }
+        Args: { p_confirm?: boolean; p_scheduled_for?: string; p_session_id: string }
         Returns: Database["public"]["Tables"]["therapy_sessions"]["Row"]
       }
+      corporate_wellbeing_cohort: { Args: { p_org: string }; Returns: Json }
+      count_therapy_approvals_waiting: { Args: Record<PropertyKey, never>; Returns: number }
+      get_crisis_card: { Args: Record<PropertyKey, never>; Returns: Json }
+      list_therapy_approvals_audited: { Args: Record<PropertyKey, never>; Returns: Json }
+      read_patient_mental_health_audited: {
+        Args: { p_limit?: number; p_patient: string; p_reason?: string; p_sections?: string[] }
+        Returns: Json
+      }
+      request_mental_health_handoff: { Args: { p_note?: string; p_screen?: string }; Returns: string }
       count_care_threads_awaiting_reply: {
         Args: Record<PropertyKey, never>
         Returns: number
@@ -50150,6 +50278,7 @@ export type Database = {
         | "messaging"
         | "reproductive_health"
         | "medical_history"
+        | "mental_health"
       care_access_event_kind:
         | "granted"
         | "permission_changed"
@@ -52433,6 +52562,7 @@ export const Constants = {
         "messaging",
         "reproductive_health",
         "medical_history",
+        "mental_health",
       ],
       care_access_event_kind: [
         "granted",
