@@ -240,7 +240,7 @@ begin
   reset role;
   insert into results values ('C', 'the guardian of a dependant reads the medicine and the notes alike', '1/2', v_rows || '/' || v_n);
   delete from public.profile_access where grantee_user_id = v_stranger and profile_id = v_pat;
-  update public.profiles set is_dependent_account = false where id = v_pat;
+  update public.profiles set is_dependent_account = false, dependent_kind = null where id = v_pat;
   insert into results values ('C', 'a note by a test patient is marked is_test', 'true', (select bool_and(is_test)::text from public.medication_side_effect_notes where patient_id = v_pat));
 
   set local role anon;
