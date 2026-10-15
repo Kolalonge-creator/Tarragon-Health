@@ -66,9 +66,11 @@ test.describe("clinician queue (S16-S20)", () => {
     });
     const { error: updateError } = await adminClient
       .from("profiles")
-      .update({ role: "clinician", organisation_id: patient.organisationId, is_active: true, onboarding_completed_at: new Date().toISOString(), is_test: true })
+      .update({ role: "clinician", organisation_id: patient.organisationId, is_active: true, onboarding_completed_at: new Date().toISOString() })
       .eq("id", user.user.id);
     if (updateError) throw updateError;
+    // is_test is written as the table owner: the service-role REST client has no access to the private schema a profile write reaches for it
+    psqlValue(`update public.profiles set is_test = true where id = '${user.user.id}'`);
     const comps = competencies.map((c) => `('${patient.organisationId}', (select id from s), '${c}', (select id from public.profiles order by created_at limit 1), true)`).join(",");
     psqlValue(`with s as (
         insert into public.clinical_staff (organisation_id, profile_id, full_name, credential_type, credential_number, active, status, license_verified_at,
