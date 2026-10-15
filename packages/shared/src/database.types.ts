@@ -212,6 +212,123 @@ export type Database = {
           },
         ]
       }
+      device_config: {
+        Row: {
+          created_at: string
+          effective_from: string
+          is_active: boolean
+          key: string
+          owner: string
+          source: string
+          status: string
+          value: Json
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          effective_from: string
+          is_active?: boolean
+          key: string
+          owner?: string
+          source: string
+          status?: string
+          value: Json
+          version: number
+        }
+        Update: {
+          created_at?: string
+          effective_from?: string
+          is_active?: boolean
+          key?: string
+          owner?: string
+          source?: string
+          status?: string
+          value?: Json
+          version?: number
+        }
+        Relationships: []
+      }
+      maternal_child_config: {
+        Row: {
+          config_key: string
+          created_at: string
+          effective_from: string
+          id: string
+          is_active: boolean
+          rules: Json
+          source_note: string
+          status: string
+          version: number
+        }
+        Insert: {
+          config_key: string
+          created_at?: string
+          effective_from: string
+          id?: string
+          is_active?: boolean
+          rules: Json
+          source_note: string
+          status?: string
+          version: number
+        }
+        Update: {
+          config_key?: string
+          created_at?: string
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          rules?: Json
+          source_note?: string
+          status?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      lifecycle_states: {
+        Row: {
+          baby_content_hold_until: string | null
+          last_event_id: string | null
+          organisation_id: string
+          patient_id: string
+          stage: string
+          stage_since: string
+          updated_at: string
+        }
+        Insert: {
+          baby_content_hold_until?: string | null
+          last_event_id?: string | null
+          organisation_id: string
+          patient_id: string
+          stage?: string
+          stage_since?: string
+          updated_at?: string
+        }
+        Update: {
+          baby_content_hold_until?: string | null
+          last_event_id?: string | null
+          organisation_id?: string
+          patient_id?: string
+          stage?: string
+          stage_since?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lifecycle_states_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lifecycle_states_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lifecycle_events: {
         Row: {
           cause: string
@@ -276,119 +393,6 @@ export type Database = {
           },
         ]
       }
-      lifecycle_states: {
-        Row: {
-          baby_content_hold_until: string | null
-          last_event_id: string | null
-          organisation_id: string
-          patient_id: string
-          stage: string
-          stage_since: string
-          updated_at: string
-        }
-        Insert: {
-          baby_content_hold_until?: string | null
-          last_event_id?: string | null
-          organisation_id: string
-          patient_id: string
-          stage?: string
-          stage_since?: string
-          updated_at?: string
-        }
-        Update: {
-          baby_content_hold_until?: string | null
-          last_event_id?: string | null
-          organisation_id?: string
-          patient_id?: string
-          stage?: string
-          stage_since?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "lifecycle_states_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "lifecycle_states_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      maternal_child_config: {
-        Row: {
-          config_key: string
-          created_at: string
-          effective_from: string
-          id: string
-          is_active: boolean
-          rules: Json
-          source_note: string
-          status: string
-          version: number
-        }
-        Insert: {
-          config_key: string
-          created_at?: string
-          effective_from: string
-          id?: string
-          is_active?: boolean
-          rules: Json
-          source_note: string
-          status?: string
-          version: number
-        }
-        Update: {
-          config_key?: string
-          created_at?: string
-          effective_from?: string
-          id?: string
-          is_active?: boolean
-          rules?: Json
-          source_note?: string
-          status?: string
-      device_config: {
-        Row: {
-          created_at: string
-          effective_from: string
-          is_active: boolean
-          key: string
-          owner: string
-          source: string
-          status: string
-          value: Json
-          version: number
-        }
-        Insert: {
-          created_at?: string
-          effective_from: string
-          is_active?: boolean
-          key: string
-          owner?: string
-          source: string
-          status?: string
-          value: Json
-          version: number
-        }
-        Update: {
-          created_at?: string
-          effective_from?: string
-          is_active?: boolean
-          key?: string
-          owner?: string
-          source?: string
-          status?: string
-          value?: Json
-          version?: number
-        }
-        Relationships: []
-      }
       my_health_config: {
         Row: {
           approved_at: string | null
@@ -422,46 +426,6 @@ export type Database = {
         }
         Relationships: []
       }
-      maternal_child_content: {
-        Row: {
-          body: string
-          created_at: string
-          key: string
-          review_status: string
-          reviewed_at: string | null
-          reviewed_by: string | null
-          title: string
-          topic: string
-        }
-        Insert: {
-          body: string
-          created_at?: string
-          key: string
-          review_status?: string
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          title: string
-          topic: string
-        }
-        Update: {
-          body?: string
-          created_at?: string
-          key?: string
-          review_status?: string
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          title?: string
-          topic?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "maternal_child_content_reviewed_by_fkey"
-            columns: ["reviewed_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
       device_rhythm_results: {
         Row: {
           category: string
@@ -515,6 +479,47 @@ export type Database = {
           task_id?: string | null
         }
         Relationships: []
+      }
+      maternal_child_content: {
+        Row: {
+          body: string
+          created_at: string
+          key: string
+          review_status: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          title: string
+          topic: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          key: string
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          title: string
+          topic: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          key?: string
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          title?: string
+          topic?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maternal_child_content_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       patient_lock_screen_pass: {
         Row: {
@@ -934,6 +939,64 @@ export type Database = {
         }
         Relationships: []
       }
+      pregnancy_loss_records: {
+        Row: {
+          created_at: string
+          gestation_weeks: number | null
+          id: string
+          note: string | null
+          occurred_on: string
+          organisation_id: string
+          patient_id: string
+          recorded_by: string | null
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          gestation_weeks?: number | null
+          id?: string
+          note?: string | null
+          occurred_on: string
+          organisation_id: string
+          patient_id: string
+          recorded_by?: string | null
+          source: string
+        }
+        Update: {
+          created_at?: string
+          gestation_weeks?: number | null
+          id?: string
+          note?: string | null
+          occurred_on?: string
+          organisation_id?: string
+          patient_id?: string
+          recorded_by?: string | null
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pregnancy_loss_records_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pregnancy_loss_records_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pregnancy_loss_records_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       postnatal_baby_checks: {
         Row: {
           appointment_id: string | null
@@ -1033,64 +1096,6 @@ export type Database = {
           },
           {
             foreignKeyName: "postnatal_baby_checks_recorded_by_fkey"
-            columns: ["recorded_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      pregnancy_loss_records: {
-        Row: {
-          created_at: string
-          gestation_weeks: number | null
-          id: string
-          note: string | null
-          occurred_on: string
-          organisation_id: string
-          patient_id: string
-          recorded_by: string | null
-          source: string
-        }
-        Insert: {
-          created_at?: string
-          gestation_weeks?: number | null
-          id?: string
-          note?: string | null
-          occurred_on: string
-          organisation_id: string
-          patient_id: string
-          recorded_by?: string | null
-          source: string
-        }
-        Update: {
-          created_at?: string
-          gestation_weeks?: number | null
-          id?: string
-          note?: string | null
-          occurred_on?: string
-          organisation_id?: string
-          patient_id?: string
-          recorded_by?: string | null
-          source?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pregnancy_loss_records_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pregnancy_loss_records_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pregnancy_loss_records_recorded_by_fkey"
             columns: ["recorded_by"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -46491,6 +46496,15 @@ export type Database = {
       assistant_knowledge_sources: { Args: { p_ids: string[] }; Returns: Json }
       assistant_protocol_limits: { Args: Record<PropertyKey, never>; Returns: Json }
       go_live_guard_is_open: { Args: { p_key: string }; Returns: boolean }
+      sms_emergency_contact_open: { Args: never; Returns: boolean }
+      sweep_due_tracker_deletions: { Args: Record<PropertyKey, never>; Returns: number }
+      complete_tracker_deletion: { Args: { p_id: string }; Returns: Json }
+      cancel_tracker_deletion: { Args: { p_id: string }; Returns: undefined }
+      request_tracker_deletion: { Args: { p_scope: string; p_patient?: string }; Returns: string }
+      record_lifecycle_event: {
+        Args: { p_kind: string; p_occurred_on?: string; p_patient?: string; p_gestation_weeks?: number; p_note?: string; p_delivery_mode?: string }
+        Returns: Json
+      }
       my_lifecycle: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -46501,15 +46515,6 @@ export type Database = {
           baby_content_hidden: boolean
         }[]
       }
-      record_lifecycle_event: {
-        Args: { p_kind: string; p_occurred_on?: string; p_patient?: string; p_gestation_weeks?: number; p_note?: string; p_delivery_mode?: string }
-        Returns: Json
-      }
-      request_tracker_deletion: { Args: { p_scope: string; p_patient?: string }; Returns: string }
-      cancel_tracker_deletion: { Args: { p_id: string }; Returns: undefined }
-      complete_tracker_deletion: { Args: { p_id: string }; Returns: Json }
-      sweep_due_tracker_deletions: { Args: Record<PropertyKey, never>; Returns: number }
-      sms_emergency_contact_open: { Args: never; Returns: boolean }
       learning_course: {
         Args: { p_programme_code: string }
         Returns: {
@@ -52469,9 +52474,6 @@ export type Database = {
         | "height_for_age"
         | "bmi_for_age"
         | "head_circumference_for_age"
-        | "weight_for_length"
-        | "weight_for_height"
-        | "muac_for_age"
       haemoglobin_genotype: "AA" | "AS" | "AC" | "SS" | "SC" | "CC" | "other"
       hbv_status:
         | "unknown"
