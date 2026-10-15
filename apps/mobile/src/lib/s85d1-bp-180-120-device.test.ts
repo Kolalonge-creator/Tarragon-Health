@@ -4,7 +4,7 @@
  * the "approved" status is set on a cached copy inside the test, the way the phone caches a set the server approved.
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { BP_CARE_V1, BP_CARE_V5, BP_CARE_V6 } from "@tarragon/clinical";
+import { BP_CARE_V5, BP_CARE_V6 } from "@tarragon/clinical";
 import { discardRejectedRow, flushOutbox, listOutbox } from "./outbox";
 import { clearPendingRecheck, gradeOnDevice, loadDeviceRuleSet, shouldAskSymptomQuestion } from "./triage-device";
 
@@ -71,10 +71,10 @@ describe("the question line comes from the cached approved rule set", () => {
 });
 
 describe("what a phone with no approved copy does", () => {
-  it("falls back to the bundled draft (v2, 200/130), never to the unsigned v6", async () => {
+  it("falls back to the bundled draft (v5, 200/130), never to the unsigned v6", async () => {
     const { ruleSet, status } = await loadDeviceRuleSet();
     expect(status).toBe("draft");
-    expect(ruleSet.version).toBe(BP_CARE_V1.version);
+    expect(ruleSet.version).toBe(BP_CARE_V5.version);
     expect(ruleSet.version).not.toBe(BP_CARE_V6.version);
     expect(ruleSet.params.extreme).toEqual({ systolic: 200, diastolic: 130 });
     // a draft never shows the question, so the older on-device check keeps deciding the band until a set is approved
