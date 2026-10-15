@@ -99,19 +99,19 @@ insert into results values ('real', 'a clinician cannot pause', 'ERR:42501', pg_
 insert into results values ('real', 'a patient cannot pause', 'ERR:42501', pg_temp.pause_as(pg_temp.f('pat'), 'care-circle-expiry', true, 'patient tries to pause'));
 insert into results values ('real', 'anon cannot pause', 'ERR:42501', pg_temp.sql_anon($q$select public.set_automation_paused('care-circle-expiry', true, 'anon tries to pause')$q$));
 insert into results values ('real', 'authenticated cannot write the table directly', 'ERR:42501',
-  pg_temp.sql_as(pg_temp.f('admin'), $q$update public.automations set is_paused = true where job_name = 'care-circle-expiry'$q$));
+  pg_temp.sql_as(pg_temp.f('admin'), $q$update public.automation_jobs set is_paused = true where job_name = 'care-circle-expiry'$q$));
 insert into results values ('real', 'refusals left the job running', 'true', pg_temp.active_of('care-circle-expiry'));
 
 -- 2. a real pause and resume
 -- review fix 2 (20261007160301): default-deny. A job nobody has marked pausable cannot be paused; a person marks it. The proof marks the two routine jobs it pauses.
 insert into results values ('real', 'a job nobody has marked pausable is refused (default-deny)', 'ERR:23514', pg_temp.pause_as(pg_temp.f('admin'), 'care-circle-expiry', true, 'paused while the circle copy is reviewed'));
-update public.automations set pausable = true where job_name in ('care-circle-expiry', 'care-circle-gift-expiry', '/api/cron/fraud-sweep');
+update public.automation_jobs set pausable = true where job_name in ('care-circle-expiry', 'care-circle-gift-expiry', '/api/cron/fraud-sweep');
 insert into results values ('real', 'a short reason is refused', 'ERR:22023', pg_temp.pause_as(pg_temp.f('admin'), 'care-circle-expiry', true, 'short'));
 insert into results values ('real', 'admin pauses a routine job', 'ok', pg_temp.pause_as(pg_temp.f('admin'), 'care-circle-expiry', true, 'paused while the circle copy is reviewed'));
 insert into results values ('real', 'the cron job is really inactive', 'false', pg_temp.active_of('care-circle-expiry'));
 insert into results values ('real', 'the list shows it paused', 'paused/registered', pg_temp.list_as(pg_temp.f('admin'), 'care-circle-expiry'));
 insert into results values ('real', 'who, when and why are recorded', 'true',
-  (select (paused_by = pg_temp.f('admin') and paused_at is not null and reason like 'paused while%')::text from public.automations where job_name = 'care-circle-expiry'));
+  (select (paused_by = pg_temp.f('admin') and paused_at is not null and reason like 'paused while%')::text from public.automation_jobs where job_name = 'care-circle-expiry'));
 insert into results values ('real', 'the pause is audited', '1', (select count(*)::text from public.audit_log where action = 'automation.paused' and event ->> 'job_name' = 'care-circle-expiry'));
 insert into results values ('real', 'admin resumes it', 'ok', pg_temp.pause_as(pg_temp.f('admin'), 'care-circle-expiry', false, ''));
 insert into results values ('real', 'the cron job is active again', 'true', pg_temp.active_of('care-circle-expiry'));
@@ -119,13 +119,13 @@ insert into results values ('real', 'the resume is audited', '1', (select count(
 
 -- 3. refusals
 insert into results values ('real', 'every one of the eight mandated safety jobs is flagged', '8',
-  (select count(*)::text from public.automations where safety_critical and job_name in ('sweep-pages', 'process-events', 'sweep-clinical-tasks', 'expire-task-claims',
+  (select count(*)::text from public.automation_jobs where safety_critical and job_name in ('sweep-pages', 'process-events', 'sweep-clinical-tasks', 'expire-task-claims',
      'send-pending-notifications', 'credential-expiry-sweep', 'quality-audit-sweep', 'data-breach-deadline-alerts-daily')));
 insert into results values ('real', 'the safety-critical jobs cannot be paused', '0',
-  (select count(*)::text from public.automations a where a.safety_critical and a.source = 'pg_cron'
+  (select count(*)::text from public.automation_jobs a where a.safety_critical and a.source = 'pg_cron'
      and pg_temp.pause_as(pg_temp.f('admin'), a.job_name, true, 'trying to pause a safety job') = 'ok'));
 insert into results values ('real', 'safety-critical refusal is a check violation', 'ERR:23514', pg_temp.pause_as(pg_temp.f('admin'), 'sweep-pages', true, 'trying to pause paging'));
-insert into results values ('real', 'safety-critical jobs are all still active', '0', (select count(*)::text from public.automations a join cron.job j on j.jobname = a.job_name where a.safety_critical and not j.active));
+insert into results values ('real', 'safety-critical jobs are all still active', '0', (select count(*)::text from public.automation_jobs a join cron.job j on j.jobname = a.job_name where a.safety_critical and not j.active));
 insert into results values ('real', 'a Vercel cron cannot be paused here', 'ERR:0A000', pg_temp.pause_as(pg_temp.f('admin'), '/api/cron/fraud-sweep', true, 'trying to pause a vercel job'));
 insert into results values ('real', 'an unknown job is refused', 'ERR:22023', pg_temp.pause_as(pg_temp.f('admin'), 'no-such-job', true, 'trying to pause nothing at all'));
 
@@ -133,7 +133,7 @@ insert into results values ('real', 'an unknown job is refused', 'ERR:22023', pg
 do $$ begin perform cron.schedule('s80c5-unregistered', '0 0 1 1 *', 'select 1'); end $$;
 insert into results values ('real', 'a cron job outside the registry shows as unregistered', 'running/unregistered', pg_temp.list_as(pg_temp.f('admin'), 's80c5-unregistered'));
 insert into results values ('real', 'an unregistered job cannot be paused until it is registered', 'ERR:22023', pg_temp.pause_as(pg_temp.f('admin'), 's80c5-unregistered', true, 'trying to pause an unregistered job'));
-insert into results values ('real', 'no owner or purpose was invented', '0', (select count(*)::text from public.automations where owner <> 'unassigned' or purpose is not null));
+insert into results values ('real', 'no owner or purpose was invented', '0', (select count(*)::text from public.automation_jobs where owner <> 'unassigned' or purpose is not null));
 
 -- SABOTAGE (a): the safety_critical refusal removed (both the function guard and the table CHECK behind it)
 do $$
@@ -144,8 +144,8 @@ begin
   if v_def = v_orig then raise exception 'SABOTAGE (a) not applied'; end if;
   execute v_def;
   -- the table CHECK is a second layer; remove it too so the sabotage tests the function guard on its own merits
-  for v_c in select conname from pg_constraint where conrelid = 'public.automations'::regclass and contype = 'c' and pg_get_constraintdef(oid) like '%safety_critical%is_paused%' loop
-    execute format('alter table public.automations drop constraint %I', v_c);
+  for v_c in select conname from pg_constraint where conrelid = 'public.automation_jobs'::regclass and contype = 'c' and pg_get_constraintdef(oid) like '%safety_critical%is_paused%' loop
+    execute format('alter table public.automation_jobs drop constraint %I', v_c);
   end loop;
   insert into results values ('sabotaged', 'the safety-critical jobs cannot be paused', 'ERR:23514', pg_temp.pause_as(pg_temp.f('admin'), 'sweep-pages', true, 'sabotaged: pausing paging'));
   execute v_orig;

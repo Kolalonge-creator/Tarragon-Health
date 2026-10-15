@@ -47,6 +47,21 @@ export default async function PatientWellbeingPage() {
         <WellbeingTrendChart patientId={subjectId} />
         <MoodBesideReadings patientId={subjectId} />
 
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{t("library.title")}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <p className="text-charcoal-ink/70 dark:text-night-ink/70">{t("library.intro")}</p>
+            <div className="flex flex-wrap gap-4">
+              <Link className="underline" href="/patient/wellbeing/library">{t("library.title")}</Link>
+              <Link className="underline" href="/patient/wellbeing/breathing">{t("breathing.title")}</Link>
+              <Link className="underline" href="/patient/wellbeing/journal">{t("journal.title")}</Link>
+              <Link className="underline" href="/patient/sleep">Sleep</Link>
+            </div>
+          </CardContent>
+        </Card>
+
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <WellbeingCheckinForm patientId={subjectId} />
           <div className="space-y-4">

@@ -1,11 +1,13 @@
 -- S80 (25.8): the automations registry and a guarded pause.
+-- The table is public.automation_jobs, not public.automations: production already has an unrelated public.automations (the S80b inventory built
+-- on the content-approval branch, #1046), so this registry takes its own name. Functions and the screen keep their names.
 --
 -- Reconciled first. Scheduled work already runs: pg_cron jobs defined across the migrations (each `cron.schedule`, net of every
 -- `cron.unschedule`; read from the live `cron.job` at the moment this migration runs, so only jobs that exist are seeded) and the
 -- Vercel crons in apps/web/vercel.json (listed below; a Jest test compares this list with that file). Nothing recorded who owns a job, what
 -- it is for, or let an admin stop one.
 --
---   public.automations              one row per scheduled job. Owner is 'unassigned' and purpose is empty everywhere: nobody has
+--   public.automation_jobs              one row per scheduled job. Owner is 'unassigned' and purpose is empty everywhere: nobody has
 --                                   recorded them, and inventing either would be worse than saying so.
 --   public.set_automation_paused()  admin only. For a pg_cron job it calls cron.alter_job(active := not paused). A job flagged
 --                                   safety_critical (paging, triage, escalation, emergency, clinical task claims, notification delivery,
@@ -15,7 +17,7 @@
 --                                   with the last run read from cron.job_run_details (SECURITY DEFINER, so the screen never sees the cron schema).
 -- No organisation_id: these are platform-wide settings like platform_modules. Counts at write time: no existing data is changed.
 
-create table public.automations (
+create table public.automation_jobs (
   id              uuid primary key default gen_random_uuid(),
   job_name        text not null unique check (char_length(btrim(job_name)) > 0),
   purpose         text,
@@ -34,14 +36,14 @@ create table public.automations (
   check (not (safety_critical and is_paused)),
   check (not (is_paused and source <> 'pg_cron'))
 );
-alter table public.automations enable row level security;
-create policy automations_read on public.automations for select to authenticated using (private.is_admin() or private.has_permission('ops.console.view'));
-revoke all on public.automations from anon, authenticated;
-grant select on public.automations to authenticated;
+alter table public.automation_jobs enable row level security;
+create policy automation_jobs_read on public.automation_jobs for select to authenticated using (private.is_admin() or private.has_permission('ops.console.view'));
+revoke all on public.automation_jobs from anon, authenticated;
+grant select on public.automation_jobs to authenticated;
 -- No write grant: set_automation_paused is the only door.
 
 -- pg_cron jobs as they exist now
-insert into public.automations (job_name, schedule, source, safety_critical)
+insert into public.automation_jobs (job_name, schedule, source, safety_critical)
 select j.jobname, j.schedule, 'pg_cron',
        j.jobname = any (array[
          'sweep-pages', 'sweep-page-followups', 'sweep-unpaged-red-events', 'process-events', 'sweep-clinical-tasks', 'expire-task-claims',
@@ -55,7 +57,7 @@ from cron.job j where j.jobname is not null
 on conflict (job_name) do nothing;
 
 -- Vercel crons (apps/web/vercel.json). Not pausable from the database.
-insert into public.automations (job_name, schedule, source)
+insert into public.automation_jobs (job_name, schedule, source)
 select v.job_name, v.schedule, 'vercel' from (values
   ('/api/cron/fraud-sweep', '10 5 * * *'), ('/api/cron/ai-coach-embed-content', '20 8 * * *'), ('/api/cron/data-quality-scan', '0 2 * * *'),
   ('/api/cron/generate-quarterly-reports', '0 3 * * *'), ('/api/cron/device-connectivity-check', '0 6 * * *'),
@@ -81,14 +83,14 @@ create function public.set_automation_paused(p_job_name text, p_paused boolean, 
 language plpgsql security definer set search_path = ''
 as $$
 declare
-  v_row   public.automations%rowtype;
+  v_row   public.automation_jobs%rowtype;
   v_jobid bigint;
   v_why   text := btrim(coalesce(p_reason, ''));
 begin
   if (select auth.uid()) is null or not private.is_admin() then
     raise exception 'only an admin can pause or resume an automation' using errcode = '42501';
   end if;
-  select * into v_row from public.automations where job_name = p_job_name for update;
+  select * into v_row from public.automation_jobs where job_name = p_job_name for update;
   if not found then raise exception 'that job is not in the automations registry' using errcode = '22023'; end if;
   if p_paused and char_length(v_why) < 10 then
     raise exception 'say why you are pausing it (10 characters or more)' using errcode = '22023';
@@ -106,7 +108,7 @@ begin
     perform cron.alter_job(v_jobid, active := not p_paused);
   end if;
 
-  update public.automations
+  update public.automation_jobs
      set is_paused = p_paused,
          paused_by = case when p_paused then (select auth.uid()) else null end,
          paused_at = case when p_paused then now() else null end,
@@ -136,14 +138,14 @@ begin
            case when a.source = 'pg_cron' and j.jobid is not null then not j.active else a.is_paused end,
            a.paused_at, a.reason,
            coalesce(r.start_time, a.last_run_at), coalesce(r.status, a.last_status), true
-      from public.automations a
+      from public.automation_jobs a
       left join cron.job j on a.source = 'pg_cron' and j.jobname = a.job_name
       left join lateral (select d.start_time, d.status from cron.job_run_details d where d.jobid = j.jobid order by d.start_time desc limit 1) r on true
     union all
     select j.jobname, null, 'unassigned', j.schedule, 'pg_cron', false, not j.active, null, null, r.start_time, r.status, false
       from cron.job j
       left join lateral (select d.start_time, d.status from cron.job_run_details d where d.jobid = j.jobid order by d.start_time desc limit 1) r on true
-     where j.jobname is not null and not exists (select 1 from public.automations a where a.job_name = j.jobname)
+     where j.jobname is not null and not exists (select 1 from public.automation_jobs a where a.job_name = j.jobname)
     order by 12 desc, 6 desc, 1;
 end $$;
 revoke all on function public.automations_list() from public, anon;
@@ -155,14 +157,14 @@ begin
      or has_function_privilege('anon', 'public.automations_list()', 'EXECUTE') then
     raise exception 'automation functions are executable by anon';
   end if;
-  if has_table_privilege('authenticated', 'public.automations', 'INSERT') or has_table_privilege('authenticated', 'public.automations', 'UPDATE')
-     or has_table_privilege('anon', 'public.automations', 'SELECT') then
+  if has_table_privilege('authenticated', 'public.automation_jobs', 'INSERT') or has_table_privilege('authenticated', 'public.automation_jobs', 'UPDATE')
+     or has_table_privilege('anon', 'public.automation_jobs', 'SELECT') then
     raise exception 'automations has a grant it must not have';
   end if;
-  if (select count(*) from public.automations where source = 'vercel') < 25 then raise exception 'expected at least 25 vercel crons'; end if;
-  if exists (select 1 from public.automations a where a.source = 'pg_cron' and not exists (select 1 from cron.job j where j.jobname = a.job_name)) then
+  if (select count(*) from public.automation_jobs where source = 'vercel') < 25 then raise exception 'expected at least 25 vercel crons'; end if;
+  if exists (select 1 from public.automation_jobs a where a.source = 'pg_cron' and not exists (select 1 from cron.job j where j.jobname = a.job_name)) then
     raise exception 'a seeded pg_cron job does not exist';
   end if;
-  if (select count(*) from public.automations where safety_critical) < 8 then raise exception 'safety_critical flags missing'; end if;
-  if exists (select 1 from public.automations where owner <> 'unassigned' or purpose is not null) then raise exception 'owners and purposes must not be invented'; end if;
+  if (select count(*) from public.automation_jobs where safety_critical) < 8 then raise exception 'safety_critical flags missing'; end if;
+  if exists (select 1 from public.automation_jobs where owner <> 'unassigned' or purpose is not null) then raise exception 'owners and purposes must not be invented'; end if;
 end $$;

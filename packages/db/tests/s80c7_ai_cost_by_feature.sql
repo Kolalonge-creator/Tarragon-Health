@@ -96,7 +96,7 @@ begin
 end $f$;
 
 -- 1. no prices at all
-insert into results values ('real', 'the price table ships empty', '0', (select count(*)::text from public.ai_model_prices));
+insert into results values ('real', 'the price table ships empty', '0', (select count(*)::text from public.ai_model_price_versions));
 insert into results values ('real', 'with no price the cost is NULL, not zero, and the calls are counted (admin sees both organisations)', 'none:4:0:null',
   pg_temp.cost_as(pg_temp.f('admin'), 's80c7-model'));
 insert into results values ('real', 'a call with no token counts is unpriced even with no price', 'none:1:0:null', pg_temp.cost_as(pg_temp.f('admin'), 's80c7-nocount'));
@@ -110,7 +110,7 @@ insert into results values ('real', 'a clinician cannot add a price', 'ERR:42501
 insert into results values ('real', 'anon cannot add a price', 'ERR:42501',
   pg_temp.sql_anon($q$select public.add_ai_model_price('s80c7-model', 300, 1500, 'USD', '2026-01-01', 'price page checked on the vendor site')$q$));
 insert into results values ('real', 'direct insert into the table is refused', 'ERR:42501',
-  pg_temp.sql_as(pg_temp.f('admin'), $q$insert into public.ai_model_prices (model_identifier, input_per_million_minor, output_per_million_minor, currency, valid_from, source_note) values ('x', 1, 1, 'USD', now(), 'a long enough note')$q$));
+  pg_temp.sql_as(pg_temp.f('admin'), $q$insert into public.ai_model_price_versions (model_identifier, input_per_million_minor, output_per_million_minor, currency, valid_from, source_note) values ('x', 1, 1, 'USD', now(), 'a long enough note')$q$));
 insert into results values ('real', 'a bad range is refused', 'ERR:22023', pg_temp.sql_as(pg_temp.f('mgr'), $q$select * from public.ai_cost_by_feature('2026-02-01', '2026-01-01')$q$));
 
 -- 3. prices
@@ -125,7 +125,7 @@ insert into results values ('real', 'a short source note is refused', 'ERR:22023
 insert into results values ('real', 'the same model and date twice is refused', 'ERR:23505',
   pg_temp.sql_as(pg_temp.f('mgr'), $q$select public.add_ai_model_price('s80c7-model', 1, 1, 'USD', '2026-06-01', 'vendor price page read on 7 Oct 2026')$q$));
 insert into results values ('real', 'prices are PROPOSED and unsigned', 'PROPOSED/true',
-  (select min(config_status) || '/' || bool_and(signed_by is null and signed_at is null)::text from public.ai_model_prices));
+  (select min(config_status) || '/' || bool_and(signed_by is null and signed_at is null)::text from public.ai_model_price_versions));
 insert into results values ('real', 'each price is audited', '2', (select count(*)::text from public.audit_log where action = 'ai.model_price_added'));
 -- the cost: older call before the first price is unpriced; 1000x300 + 500x1500 = 1,050,000; 2000x600 + 1000x3000 = 4,200,000
 insert into results values ('real', 'the price valid at the time is used (admin, both orgs: one unpriced, 1050000 + 4200000 + 5000x600 + 5000x3000)', 'USD:3:3:23250000 | none:1:0:null',
@@ -136,9 +136,9 @@ insert into results values ('real', 'the reads were audited', 'true', (select (c
 
 -- 5. append only
 insert into results values ('real', 'a price cannot be changed', 'ERR:42501',
-  pg_temp.sql_as(pg_temp.f('admin'), $q$update public.ai_model_prices set input_per_million_minor = 1$q$));
+  pg_temp.sql_as(pg_temp.f('admin'), $q$update public.ai_model_price_versions set input_per_million_minor = 1$q$));
 do $$ begin
-  begin delete from public.ai_model_prices; insert into results values ('real', 'a price cannot be deleted even by the owner', 'ERR:42501', 'deleted');
+  begin delete from public.ai_model_price_versions; insert into results values ('real', 'a price cannot be deleted even by the owner', 'ERR:42501', 'deleted');
   exception when others then insert into results values ('real', 'a price cannot be deleted even by the owner', 'ERR:42501', 'ERR:' || sqlstate); end;
 end $$;
 
