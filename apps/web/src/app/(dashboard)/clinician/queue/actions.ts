@@ -2,11 +2,14 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import type { Json } from "@tarragon/shared";
 import { createClient } from "@/lib/supabase/server";
 import { describeRpcError, handbackSchema, queueNextResultSchema } from "@/lib/clinician/written-questions";
 import { t } from "@tarragon/i18n";
 import { loose } from "@/lib/clinician/loose-client";
-import { completeTaskSchema, DEDICATED_FLOW_TASK_TYPES, uuidSchema } from "@/lib/clinician/queue-console";
+import {
+  attemptsFromRows, completeTaskSchema, completionOptions, DEDICATED_FLOW_TASK_TYPES, SYSTEM_CLOSED_TASK_TYPES, uuidSchema, type AttemptRow,
+} from "@/lib/clinician/queue-console";
 
 export type QueueActionState = { error?: string; message?: string; expiresAt?: string } | undefined;
 
@@ -45,24 +48,49 @@ export async function extendClaim(_prev: QueueActionState, formData: FormData): 
   return { message: "extended", expiresAt: typeof data === "string" ? data : undefined };
 }
 
-/** Finish a held task. The outcome is a note of what was done; the database refuses it if the hold has lapsed. */
+/** The rows of the contact-attempt part of the form, in the order they appear (the form draws the required number plus one). */
+function attemptRowsFromForm(formData: FormData, count: number): AttemptRow[] {
+  const rows: AttemptRow[] = [];
+  for (let i = 0; i < count; i++) {
+    rows.push({
+      method: String(formData.get(`attempt_method_${i}`) ?? ""),
+      at: String(formData.get(`attempt_at_${i}`) ?? ""),
+      reached: formData.get(`attempt_reached_${i}`) === "on",
+    });
+  }
+  return rows;
+}
+
+/**
+ * Finish a held task with a coded outcome (S16-S20 D4). The code must be one this task type lists; a note is only a note; a
+ * critical result closed by contact attempts carries the attempts. The database checks the same things against the system record
+ * and refuses a lapsed hold.
+ */
 export async function completeTask(_prev: QueueActionState, formData: FormData): Promise<QueueActionState> {
+  const note = String(formData.get("note") ?? "");
   const parsed = completeTaskSchema.safeParse({
     taskId: String(formData.get("task_id") ?? ""),
-    note: String(formData.get("note") ?? ""),
+    code: String(formData.get("code") ?? ""),
+    note: note === "" ? undefined : note,
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? t("queue.err.check_form", "en") };
   const supabase = await createClient();
-  // A task with its own completion flow is never closed with a free-text note (it would pay the fee with no answer given).
-  // Row security returns only a task I hold, so a missing row is "not yours", not "no such type".
+  // A task with its own completion flow is never closed here (it would pay the fee with no answer given). Row security returns
+  // only a task I hold, so a missing row is "not yours", not "no such type".
   const held = await loose(supabase).from("clinical_tasks").select("type").eq("id", parsed.data.taskId).maybeSingle();
   if (held.error) return { error: t("queue.err.check_form", "en") };
   const type = (held.data as { type?: string } | null)?.type;
-  if (type && DEDICATED_FLOW_TASK_TYPES[type]) return { error: t("task.err.dedicated_flow", "en") };
-  const { error } = await supabase.rpc("queue_complete", {
-    p_task: parsed.data.taskId,
-    p_outcome: { kind: "completed", note: parsed.data.note },
-  });
+  if (type && (DEDICATED_FLOW_TASK_TYPES[type] || SYSTEM_CLOSED_TASK_TYPES[type])) return { error: t("task.err.dedicated_flow", "en") };
+  const options = completionOptions(type ?? "");
+  if (!options.codes.includes(parsed.data.code)) return { error: t("task.err.outcome_needed", "en") };
+  const outcome: { [key: string]: Json } = { code: parsed.data.code };
+  if (parsed.data.note) outcome["note"] = parsed.data.note;
+  if (parsed.data.code === options.attemptsCode) {
+    const attempts = attemptsFromRows(attemptRowsFromForm(formData, options.minAttempts + 1)).filter((a) => options.methods.includes(a.method));
+    if (attempts.length < options.minAttempts) return { error: t("task.err.attempts_needed", "en", { count: options.minAttempts }) };
+    outcome["attempts"] = attempts;
+  }
+  const { error } = await supabase.rpc("queue_complete", { p_task: parsed.data.taskId, p_outcome: outcome });
   if (error) return { error: describeRpcError(error) };
   revalidatePath(QUEUE);
   redirect(`${QUEUE}?done=1`);

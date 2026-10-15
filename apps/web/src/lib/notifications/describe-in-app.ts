@@ -714,6 +714,16 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     // S78b: fixed plain wording, no number, no condition (INV-07, CMO decision S-9).
     return { text: "We are slower than usual. If this is urgent, please use emergency care now.", href: "/patient/care" };
   }
+  if (n.template === "assistant_daily_nudge") {
+    // S51: generic by design (INV-07): no condition, reading or medicine is ever named.
+    return { text: "Your check-in for today is ready", href: "/patient/care" };
+  }
+  if (n.template === "assistant_weekly_reflection") {
+    return { text: "Your look back at this week is ready", href: "/patient/care" };
+  }
+  if (n.template === "assistant_reengage") {
+    return { text: "It has been a little while. Your assistant is here whenever you have a question", href: "/patient/care" };
+  }
   if (n.template === "ops_alert") {
     // From private.ops_alert_notify (SR5): fixed wording, no detail, no patient reference.
     return { text: "An operations alert needs attention", href: "/admin/ops/wall" };
@@ -723,6 +733,23 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   }
   if (n.template === "on_call_unfinished") {
     return { text: "A priority case is acknowledged but still open", href: "/rota" };
+  }
+  if (n.template === "task_escalation_alert") {
+    // From private.notify_task_escalated (S16-S20 D2): fixed neutral line for the clinical lead, nothing from the payload (INV-07).
+    return { text: "A clinical task needs attention now", href: "/clinician/queue" };
+  }
+  if (n.template === "task_escalation_more") {
+    return { text: "More clinical tasks need attention", href: "/clinician/queue" };
+  }
+  if (n.template === "task_withdrawn_notice") {
+    // From public.cancel_clinical_task (S16-S20): fixed wording, no reason, no patient, nothing clinical (INV-07).
+    return { text: "A task you were working on was withdrawn by the clinical lead", href: "/clinician/queue" };
+  }
+  if (n.template === "queue_backlog_notice") {
+    return { text: "A clinical task is waiting longer than planned", href: "/clinician/queue" };
+  }
+  if (n.template === "queue_backlog_digest") {
+    return { text: "Escalated clinical tasks are waiting", href: "/clinician/queue" };
   }
   if (n.template === "on_call_escalation") {
     return { text: "A priority case has not been picked up", href: "/rota" };
