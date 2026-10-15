@@ -62,7 +62,7 @@ describe("switchGuardAction", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it("refuses a key that is not one of the seven guards before calling the database", async () => {
+  it("refuses a key that is not one of the eight guards before calling the database", async () => {
     const msg = await run(switchGuardAction(form({ viewer: "admin", key: "made_up", on: "1", note: "x" })));
     expect(msg).toBe("REDIRECT:/admin/go-live?n=n-1");
     expect(flash).toHaveBeenCalledWith(expect.objectContaining({ notice: "golive.error.input", ok: false }));

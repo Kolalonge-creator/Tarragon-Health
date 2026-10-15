@@ -25,7 +25,7 @@
       "care_category"
     ]
   },
-  "baselineCeiling": 839,
+  "baselineCeiling": 962,
   "entries": {
     "breathing.a11y_phase": {
       "hash": "72354cf0a6f4aa9e",
@@ -1671,6 +1671,144 @@
       "reviewedOn": null,
       "baseline": true
     },
+    "medicines.prn.action": {
+      "hash": "8e725e84a38dd67a",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.prn.limit_gap": {
+      "hash": "9fb0adb2d620c574",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.prn.limit_max": {
+      "hash": "25a90460619a5b43",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.prn.limits_unknown": {
+      "hash": "d5c0c5c7a6afb953",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.prn.over_limit_notice": {
+      "hash": "aae5e99fda6a0e27",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.prn.save_failed": {
+      "hash": "6266359e9cc03838",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.prn.saved": {
+      "hash": "b04d3a9a157e16e7",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.prn.saved_offline": {
+      "hash": "3de8dd4d10ab7727",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.prn.section_title": {
+      "hash": "3e5b1666e9c31596",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.report.col_could_not_get": {
+      "hash": "0021ba18061efc87",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.report.col_no_record": {
+      "hash": "f09ebb7b68b88a7d",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.report.col_percent": {
+      "hash": "40c130343786da84",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.report.col_skipped": {
+      "hash": "12698ce1ea5cd4ab",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.report.col_taken": {
+      "hash": "9aab194bd36f0634",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.report.col_week": {
+      "hash": "94e365a8704beead",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.report.download": {
+      "hash": "b005053587bf32ef",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.report.footnote_definition": {
+      "hash": "cd01e8428b9f21cd",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.report.footnote_self_report": {
+      "hash": "284e3805f4bfe7a6",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.report.none": {
+      "hash": "bce40715612937de",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.report.not_enough": {
+      "hash": "b063dc7e012f1693",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.report.page_intro": {
+      "hash": "f5d371b706582d52",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.report.subtitle": {
+      "hash": "01a28cbd9a60639b",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "medicines.report.title": {
+      "hash": "9aab194bd36f0634",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
     "meds.action.change": {
       "hash": "c0bf75bd78bf9572",
       "reviewer": "unreviewed (baseline)",
@@ -1881,6 +2019,36 @@
       "reviewedOn": null,
       "baseline": true
     },
+    "meds.exact_alarm.allow": {
+      "hash": "89b3912c0e7e93a6",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.exact_alarm.body": {
+      "hash": "c0c50768b13db3f3",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.exact_alarm.late_notice": {
+      "hash": "a66bfb93ebe416de",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.exact_alarm.on": {
+      "hash": "4fe8b50c7d8614a7",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.exact_alarm.title": {
+      "hash": "494784b6f2fd887b",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
     "meds.food.after_food": {
       "hash": "2e7397185b7be495",
       "reviewer": "unreviewed (baseline)",
@@ -1907,6 +2075,66 @@
     },
     "meds.food.with_food": {
       "hash": "9feeb5392e2fa3f3",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.keep.generic_1": {
+      "hash": "d4d530374bb08448",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.keep.intro": {
+      "hash": "daf1d32374e342be",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.keep.open_app": {
+      "hash": "df2cdb48632f95ee",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.keep.open_battery": {
+      "hash": "3163b5ddd02cd435",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.keep.opening_failed": {
+      "hash": "0a9cce20892bdea5",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.keep.samsung_1": {
+      "hash": "057b55961605a857",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.keep.samsung_2": {
+      "hash": "782be26c0f9b9c24",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.keep.tecno_1": {
+      "hash": "f7ae73fc94e2bc95",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.keep.tecno_2": {
+      "hash": "4a069b4853615662",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.keep.title": {
+      "hash": "d3387055de6abe38",
       "reviewer": "unreviewed (baseline)",
       "reviewedOn": null,
       "baseline": true
@@ -2015,6 +2243,60 @@
     },
     "meds.reminder_health.title": {
       "hash": "57abc958c2467a31",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.review.add_note": {
+      "hash": "996944a7eef3090c",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.review.error": {
+      "hash": "192d0e5f2d993d76",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.review.free": {
+      "hash": "acbca7384e5365fe",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.review.join": {
+      "hash": "30552f877539e4c1",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.review.member_info": {
+      "hash": "b2f6ee7632f4c8d3",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.review.note_hint": {
+      "hash": "d7cc5fba4af73de4",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.review.note_label": {
+      "hash": "5ff8ae5f9b91aa1b",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.review.send": {
+      "hash": "63565c0485fec4f7",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "meds.review.sent": {
+      "hash": "9c2d131adf42ce64",
       "reviewer": "unreviewed (baseline)",
       "reviewedOn": null,
       "baseline": true
@@ -2626,7 +2908,7 @@
       "baseline": true
     },
     "proxy.setup.intro": {
-      "hash": "8338343c69bda988",
+      "hash": "f7abafa36e75fff1",
       "reviewer": "unreviewed (baseline)",
       "reviewedOn": null,
       "baseline": true
@@ -2650,7 +2932,7 @@
       "baseline": true
     },
     "proxy.setup.sent": {
-      "hash": "dda06d92d9c68f61",
+      "hash": "5835afe4bf23ff41",
       "reviewer": "unreviewed (baseline)",
       "reviewedOn": null,
       "baseline": true
@@ -3165,6 +3447,12 @@
       "reviewedOn": null,
       "baseline": true
     },
+    "scribe.review.check_these": {
+      "hash": "7e412e656c49c628",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
     "scribe.review.confirm_empty": {
       "hash": "9e07907744353f91",
       "reviewer": "unreviewed (baseline)",
@@ -3261,6 +3549,18 @@
       "reviewedOn": null,
       "baseline": true
     },
+    "share.badge.pin": {
+      "hash": "709e58acb65ef4a5",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.badge.session": {
+      "hash": "8495e046b22384e0",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
     "share.consent_notice": {
       "hash": "83f48022709461d0",
       "reviewer": "unreviewed (baseline)",
@@ -3273,8 +3573,44 @@
       "reviewedOn": null,
       "baseline": true
     },
+    "share.copy_pin": {
+      "hash": "b23c1db455d56d8a",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
     "share.create": {
       "hash": "5abb036285496e58",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.create_failed": {
+      "hash": "002367f727403d2c",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.created.done": {
+      "hash": "11a6767d5674c7e4",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.created.pin_title": {
+      "hash": "f700e3e77836f29c",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.created.pin_warning": {
+      "hash": "3081b52e1bf8ee7c",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.created.title": {
+      "hash": "397bde2e68dc5a3d",
       "reviewer": "unreviewed (baseline)",
       "reviewedOn": null,
       "baseline": true
@@ -3321,6 +3657,30 @@
       "reviewedOn": null,
       "baseline": true
     },
+    "share.expiry.days_one": {
+      "hash": "fa665d95d29e83bc",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.expiry.days_other": {
+      "hash": "e9f0a85930cc6fa6",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.expiry.hours_one": {
+      "hash": "f8b8883f0c9d8d82",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.expiry.hours_other": {
+      "hash": "843c54a6f7f92aad",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
     "share.expiry.label": {
       "hash": "5a55f779d97587da",
       "reviewer": "unreviewed (baseline)",
@@ -3333,8 +3693,32 @@
       "reviewedOn": null,
       "baseline": true
     },
+    "share.locked": {
+      "hash": "7c3f233d9cd4d57b",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
     "share.no_active_shares": {
       "hash": "c935a3bca519768c",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.pin.hint": {
+      "hash": "c064d25f144340da",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.pin.label": {
+      "hash": "316c5e334ead787e",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.pin_copied": {
+      "hash": "a037d688a2827e97",
       "reviewer": "unreviewed (baseline)",
       "reviewedOn": null,
       "baseline": true
@@ -3357,6 +3741,66 @@
       "reviewedOn": null,
       "baseline": true
     },
+    "share.public.open_help": {
+      "hash": "7e1044533f9ca859",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.open_title": {
+      "hash": "a48d476723ba10b1",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.pin_checking": {
+      "hash": "2e5f79bb94a8c40b",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.pin_format": {
+      "hash": "11cfc93e9d389ac6",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.pin_help": {
+      "hash": "4c366ecf4a2198e5",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.pin_label": {
+      "hash": "709e58acb65ef4a5",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.pin_submit": {
+      "hash": "7c035f7a130bcea5",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.pin_title": {
+      "hash": "91b968403cca7c14",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.pin_wrong": {
+      "hash": "3d26bdf4518663d1",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.session_ends": {
+      "hash": "d472096b88cfa8f1",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
     "share.public.shared_by": {
       "hash": "1675e69d02c6755b",
       "reviewer": "unreviewed (baseline)",
@@ -3365,6 +3809,12 @@
     },
     "share.public.title": {
       "hash": "c6d29b91242030c4",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.public.try_later": {
+      "hash": "7c5b379a4ef9861e",
       "reviewer": "unreviewed (baseline)",
       "reviewedOn": null,
       "baseline": true
@@ -3425,6 +3875,18 @@
     },
     "share.sections.vitals": {
       "hash": "85ff45d0c4780fe5",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.session.hint": {
+      "hash": "5b62938b2ef07b0b",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "share.session.label": {
+      "hash": "87fc2f2e3f739504",
       "reviewer": "unreviewed (baseline)",
       "reviewedOn": null,
       "baseline": true
@@ -4125,6 +4587,18 @@
       "reviewedOn": null,
       "baseline": true
     },
+    "triage.cuf_001.body": {
+      "hash": "166806e9b22dbe7e",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "triage.cuf_001.title": {
+      "hash": "991c1765b0a67b68",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
     "triage.emg_001.body": {
       "hash": "9148b90038f19b24",
       "reviewer": "unreviewed (baseline)",
@@ -4145,6 +4619,138 @@
     },
     "triage.emg_001l.title": {
       "hash": "30ae7ab75194cd46",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "triage.glu_e01.body": {
+      "hash": "a1cdd65e29b95064",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "triage.glu_e01.title": {
+      "hash": "704b7be9e3fc2cd1",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "triage.glu_e02.body": {
+      "hash": "a1cdd65e29b95064",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "triage.glu_e02.title": {
+      "hash": "704b7be9e3fc2cd1",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "triage.glu_t01.body": {
+      "hash": "6ee75b54e1ea7397",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "triage.glu_t01.title": {
+      "hash": "661bb89e92713ff9",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "triage.glu_t02.body": {
+      "hash": "c24b8fd4f09aa455",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "triage.glu_t02.title": {
+      "hash": "c9b0792cbde469b0",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "triage.glu_t03.body": {
+      "hash": "6fb5e3033c5b3bd9",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "triage.glu_t03.title": {
+      "hash": "ed4dd2de195d97ea",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "triage.glu_t04.body": {
+      "hash": "36888bf799bb3667",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "triage.glu_t04.title": {
+      "hash": "2cabc1611c2585db",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "triage.glu_t05.body": {
+      "hash": "3a6876f66e938ee3",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "triage.glu_t05.title": {
+      "hash": "40f77952a223a1f0",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "triage.glu_t06.body": {
+      "hash": "7ef6492a0a6e8579",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "triage.glu_t06.title": {
+      "hash": "94d64e5724ee31e4",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "triage.grade.amber": {
+      "hash": "0e159c5b722efaf1",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "triage.grade.green": {
+      "hash": "6a6527dda190a006",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "triage.grade.red": {
+      "hash": "3ced5cca8627def0",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "triage.history.note": {
+      "hash": "ea43f30a2a455ab5",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "triage.history.shown": {
+      "hash": "fdf560d7eb7b7752",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "triage.history.title": {
+      "hash": "5a46e1f645c2da45",
       "reviewer": "unreviewed (baseline)",
       "reviewedOn": null,
       "baseline": true
@@ -4389,6 +4995,60 @@
       "reviewedOn": null,
       "baseline": true
     },
+    "vitals.glucose.guidance_detail": {
+      "hash": "c123eb5fd584f530",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "vitals.glucose.ketone.error": {
+      "hash": "eac3ff85b62b8404",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "vitals.glucose.ketone.label": {
+      "hash": "40e1f8ad163f3ef6",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "vitals.glucose.ketone.urine.large": {
+      "hash": "ab80540d98d27456",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "vitals.glucose.ketone.urine.moderate": {
+      "hash": "5c42afc7a23018d3",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "vitals.glucose.ketone.urine.negative": {
+      "hash": "dc937b59892604f5",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "vitals.glucose.ketone.urine.small": {
+      "hash": "5263293fc202649b",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "vitals.glucose.ketone.urine.trace": {
+      "hash": "7e14c3d7dd12bbd0",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "vitals.glucose.ketone.urine_label": {
+      "hash": "c40502144f5c072f",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
     "vitals.glucose.mgdl_name": {
       "hash": "94dd79627f89d268",
       "reviewer": "unreviewed (baseline)",
@@ -4397,6 +5057,66 @@
     },
     "vitals.glucose.mmol_name": {
       "hash": "bb2b382259946fab",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "vitals.glucose.sign.abdominal_pain": {
+      "hash": "1c74221ce974c8fa",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "vitals.glucose.sign.cannot_swallow": {
+      "hash": "6ebd0e9b4f6349b8",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "vitals.glucose.sign.confusion": {
+      "hash": "ea41abe045db190f",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "vitals.glucose.sign.drowsiness": {
+      "hash": "370c63ab7a837821",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "vitals.glucose.sign.fast_breathing": {
+      "hash": "2a048c5c0e5dd2c1",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "vitals.glucose.sign.seizure": {
+      "hash": "b0af4747c894f689",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "vitals.glucose.sign.unconscious": {
+      "hash": "525fb15326cfa1d3",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "vitals.glucose.sign.very_thirsty_cannot_keep_fluids": {
+      "hash": "f37092a27deb6429",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "vitals.glucose.sign.vomiting": {
+      "hash": "f44c378074238a35",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "vitals.glucose.signs.title": {
+      "hash": "41e176ae5e9ec485",
       "reviewer": "unreviewed (baseline)",
       "reviewedOn": null,
       "baseline": true
@@ -4659,6 +5379,12 @@
       "reviewedOn": null,
       "baseline": true
     },
+    "vitals.symptom.convulsion": {
+      "hash": "c9fc7604041bd469",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
     "vitals.symptom.cta": {
       "hash": "b21e8cfaf56a92d6",
       "reviewer": "unreviewed (baseline)",
@@ -4677,6 +5403,12 @@
       "reviewedOn": null,
       "baseline": true
     },
+    "vitals.symptom.loss_of_consciousness": {
+      "hash": "2433e0f331f58f1f",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
     "vitals.symptom.palpitations": {
       "hash": "5e280ac988d35dd7",
       "reviewer": "unreviewed (baseline)",
@@ -4685,6 +5417,12 @@
     },
     "vitals.symptom.severe_headache": {
       "hash": "18f125a66ef14025",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "vitals.symptom.sudden_face_hand_swelling": {
+      "hash": "0883adc1b77ec1d2",
       "reviewer": "unreviewed (baseline)",
       "reviewedOn": null,
       "baseline": true
