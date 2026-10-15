@@ -154,7 +154,14 @@ begin
   v_t := pg_temp.mktask(pg_temp.f('pat'), p_type);
   v_got := pg_temp.next_task(p_uid);
   if v_got is distinct from v_t then raise exception 'finish: expected the new task, got % (%); task state=% class=% tier=% comps=% test=%', v_got, pg_temp.next_outcome(p_uid), (select state from public.clinical_tasks where id = v_t), (select priority_class from public.clinical_tasks where id = v_t), (select min_tier from public.clinical_tasks where id = v_t), (select required_competencies from public.clinical_tasks where id = v_t), (select is_test from public.clinical_tasks where id = v_t); end if;
-  v_r := pg_temp.try_as(p_uid, format('select public.queue_complete(%L, %L::jsonb)', v_t, '{"note":"done"}'));
+  if p_type in ('symptom_review', 'async_question', 'critical_result_review', 'titration_signoff', 'red_event_unacknowledged') then
+    -- D4 (S16-S20): these types close only against a system record (a signed note, a released result...), which this proof does not
+    -- build; it tests the audit sampling that follows completion, so it closes through the internal transition the real flows also use
+    perform private.apply_task_transition(v_t, 'completed', 'clinician', p_uid, null, null, null, '{"code":"closed_for_proof","note":"done"}'::jsonb);
+    v_r := 'ok';
+  else
+    v_r := pg_temp.try_as(p_uid, format('select public.queue_complete(%L, %L::jsonb)', v_t, '{"code":"completed_action_taken","note":"done"}'));
+  end if;
   if v_r <> 'ok' then raise exception 'finish: queue_complete failed: %', v_r; end if;
   return v_t;
 end $f$;
@@ -478,7 +485,8 @@ begin
     values (v_org, v_pat, v_staff, v_fin, true, 'en-NG') returning id into v_consent;
   insert into public.clinical_encounter_notes (organisation_id, patient_id, encounter_type, authored_by_staff, authored_by_profile, reason_for_encounter, history, assessment, plan, scribe_consent_id)
     values (v_org, v_pat, 'async_consult', v_staff, v_fin, 'Headache for three days', 'No vomiting, no vision change.', 'Likely tension headache', 'Fluids and review in a week', v_consent);
-  v_r := pg_temp.try_as(v_fin, format('select public.queue_complete(%L, %L::jsonb)', v_t, '{"note":"done"}'));
+  perform private.apply_task_transition(v_t, 'completed', 'clinician', v_fin, null, null, null, '{"code":"closed_for_proof","note":"done"}'::jsonb);
+  v_r := 'ok';
   perform pg_temp.ck('fixture: the scribe task completes', 'ok', v_r);
   perform pg_temp.ck('the scribe link finds the note by patient, author and time', 'true', (private.task_scribe_note(v_t) is not null)::text);
   v_a := pg_temp.audit_of(v_t);
@@ -502,7 +510,7 @@ begin
     values (v_org, v_pat, 'async_consult', v_staff, v_fin, 'Cough for a week', v_consent);
   alter table public.scribe_consents enable trigger user;
   alter table public.clinical_encounter_notes enable trigger user;
-  perform pg_temp.try_as(v_fin, format('select public.queue_complete(%L, %L::jsonb)', v_t, '{"note":"done"}'));
+  perform private.apply_task_transition(v_t, 'completed', 'clinician', v_fin, null, null, null, '{"code":"closed_for_proof","note":"done"}'::jsonb);
   v_a := pg_temp.audit_of(v_t);
   select reviewer_id into v_rev from public.clinical_audits where id = v_a;
   perform pg_temp.opn(v_rev, v_a);
