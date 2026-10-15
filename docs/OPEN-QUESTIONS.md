@@ -2167,6 +2167,19 @@ Built on top of F1; nothing applied to production; `symptom_checker_enabled` sta
 - Still owed: (e) Android: not run (no Java or emulator image on this machine); `SCHEDULE_EXACT_ALARM` is not declared (OQ-73), so a reminder can arrive minutes late in Doze and the server backup push covers it. The native Pidgin review itself.
 - Decision: pending (item e, and the Pidgin sign-off).
 
+### OQ-320 Partner cost and refund margin columns are still readable by the patient and org staff (raised by Track E)
+- `lab_orders.partner_cost_kobo/_provider_id/_breakdown`, `pharmacy_orders.partner_cost_*`, `lab_order_refunds.margin_portion_kobo` and `pharmacy_order_refunds.margin_portion_kobo` are readable by the ordering patient and by any org staff (`is_org_staff`, which admits the clinician role). Live row counts today: 0 in all four tables, so nothing has leaked. Not fixed in the Track E migration because these tables are read with `select("*")` and embeds in many places.
+- Options: (a) same column-grant plus owner-run view treatment as Track E, after a client sweep (recommended, as the next track, before the first partner order); (b) move the cost columns to a finance-only side table.
+- Decision: open.
+
+### OQ-321 Old installed mobile builds break on two reads when the Track E migration is applied (raised by Track E)
+- Builds that predate this PR call `select("*")` on `panel_bundles` (lab booking lists) and `therapy_sessions` (therapy list); after the migration those two reads return a permission error until the app receives the JS update (OTA, no native change).
+- Options: (a) publish the OTA first and apply the migration after adoption (recommended); (b) apply now and accept a short gap; both are the lead's call.
+- Decision: open.
+
+### OQ-322 Track E ships on top of the unapplied S53 pre-fix (raised by Track E)
+- The same exposure on `pharmacy_medications` and the `commissions` ledger is fixed by migration `20261007002834` on branch `s53/medicines-schedule-adherence`, not yet applied live. Track E does not depend on it, but until both are live a patient can still read pharmacy commissions and a clinician can read the ledger.
+- Decision: open (apply order is the lead's).
 ### OQ-340 Partner invoice totals are readable by care-team staff, clinicians included (raised by Track G)
 - `partner_statements`, `partner_statement_lines`, `pharmacy_partner_statements` and `pharmacy_partner_statement_lines` carry what a laboratory or pharmacy invoices Tarragon (`invoiced_total_kobo`, `expected_total_kobo`, per-line `expected_kobo`, the partner's cost per test). Their only policy is `private.is_org_staff`, so any clinician or care coordinator in the org can read and write them, and `match_partner_statement` / `match_pharmacy_partner_statement` / `approve_*_statement` are open to the same people. This is how the 2026-08-21 migration and `apps/web/src/lib/finance/partner-statement-access.ts` were designed (recording what a lab delivered is a care-team operations job, the finance role is deliberately excluded). No patient or caregiver path; 0 rows live. Track G did NOT change it because it would break that designed workflow.
 - Options: (a) leave it (care-team operations own partner invoices); (b) restrict read and write to admin plus a permission (for example `finance.vendors.manage`, which `approve_partner_statement` already requires on the write side) and move the recording screen to finance; (c) keep read for operations but hide the cost columns from clinicians with a column grant plus a view for finance.
