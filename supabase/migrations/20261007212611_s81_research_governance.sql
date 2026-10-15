@@ -22,80 +22,39 @@ insert into public.go_live_guards (key, label, blocks, condition_text, switch_ro
    array['run_research_export'], 'Nothing else reads research data.')
 on conflict (key) do nothing;
 
-CREATE OR REPLACE FUNCTION private.go_live_conditions(p_key text, p_org uuid)
- RETURNS jsonb
- LANGUAGE plpgsql
- STABLE SECURITY DEFINER
- SET search_path TO ''
-AS $function$
+-- The conditions function is PATCHED IN PLACE, not re-created: a wholesale copy of an older body would drop every condition added by a layer that
+-- already sits on top (the S74 base/S71 wrapper chain). The new branch goes just before the "unknown key" fallback of whichever function in the chain
+-- holds that fallback. Idempotent: skipped once the branch is there.
+do $do$
 declare
-  v_n integer;
-  v_gaps integer;
+  v_fn regprocedure;
+  v_def text;
+  v_anchor text := E'  end if;\n  -- An unknown key has no conditions';
+  v_done boolean := false;
 begin
-  if p_key = 'clinical_operations_enabled' then
-    -- the approved hypertension protocol is a public.protocols row (S24) whose code starts htn or hypertension (the S24 placeholder is htn_hearts_ng)
-    select count(*) into v_n from public.protocols where status = 'approved' and code ~ '^(htn|hypertension)';
+  if exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+              where n.nspname = 'private' and p.proname like 'go_live_conditions%' and pg_get_functiondef(p.oid) like '%research_export_enabled%') then
+    return;
+  end if;
+  foreach v_fn in array array[to_regprocedure('private.go_live_conditions_s74_base(text, uuid)'),
+                              to_regprocedure('private.go_live_conditions_s71(text, uuid)'),
+                              to_regprocedure('private.go_live_conditions(text, uuid)')] loop
+    continue when v_fn is null;
+    v_def := pg_get_functiondef(v_fn);
+    if position(v_anchor in v_def) > 0 then
+      execute replace(v_def, v_anchor, $br$  elsif p_key = 'research_export_enabled' then
     return jsonb_build_array(
-      private.go_live_cond('hypertension_protocol_approved', 'An approved hypertension protocol', v_n > 0, 'data', v_n || ' approved'),
-      private.go_live_cond('triage_rule_set_approved', 'An approved blood pressure triage rule set',
-        exists (select 1 from public.triage_rule_sets where status = 'approved' and code = 'bp_care_triage'), 'data',
-        (select count(*) from public.triage_rule_sets where status = 'approved' and code = 'bp_care_triage') || ' approved'),
-      private.go_live_cond('tier2_clinician_active', 'At least one active tier 2 clinician',
-        (select count(*) from public.clinical_staff where active and status = 'active' and credentialing_level >= 2 and is_test is not true) > 0, 'data',
-        (select count(*) from public.clinical_staff where active and status = 'active' and credentialing_level >= 2 and is_test is not true) || ' active'),
-      private.go_live_cond('clinical_safety_case_current', 'A current clinical safety case and hazard log, signed off', private.go_live_attested(p_key, 'clinical_safety_case_current'), 'attestation', null),
-      private.go_live_cond('admin_confirmation', 'Admin confirmation', true, 'switch', 'Given by an admin pressing the switch'));
-  elsif p_key = 'on_call_cover_ok' then
-    select count(*) into v_gaps from private.rota_gaps(p_org, now(), now() + interval '7 days');
-    return jsonb_build_array(
-      private.go_live_cond('rota_covers_next_7_days', 'The rota covers the next 7 days with a primary and an eligible backup', v_gaps = 0, 'data', v_gaps || ' gaps'));
-  elsif p_key = 'lab_booking_enabled' then
-    return jsonb_build_array(
-      private.go_live_cond('synlab_active', 'SYNLAB is an active laboratory partner',
-        exists (select 1 from public.lab_providers where is_active and name ilike 'synlab%'), 'data', null),
-      private.go_live_cond('collection_sites', 'SYNLAB has at least one active collection site',
-        exists (select 1 from public.lab_provider_locations l join public.lab_providers p on p.id = l.lab_provider_id where l.is_active and p.is_active and p.name ilike 'synlab%'), 'data', null),
-      private.go_live_cond('results_flow_tested', 'The results flow has been tested end to end', private.go_live_attested(p_key, 'results_flow_tested'), 'attestation', null));
-  elsif p_key = 'prescribing_enabled' then
-    select count(*) into v_n from public.pharmacy_partners where is_active and onboarding_status = 'activated';
-    -- S28c: sending a prescription to a pharmacy also needs a pharmacy people can actually choose today (active, approved, licence verified and
-    -- unexpired, with a verified location), the collection rules confirmed by their owner, and the notification sender deployed.
-    return jsonb_build_array(
-      private.go_live_cond('pharmacy_partner_active', 'At least one active pharmacy partner', v_n > 0, 'data', v_n || ' active'),
-      private.go_live_cond('pharmacy_licence_current', 'At least one approved pharmacy with a current, verified licence and a verified location',
-        exists (select 1 from public.pharmacy_partners pp join public.pharmacy_partner_locations l on l.pharmacy_partner_id = pp.id where private.pharmacy_location_choosable(pp.id, l.id)), 'data',
-        (select count(distinct pp.id) from public.pharmacy_partners pp join public.pharmacy_partner_locations l on l.pharmacy_partner_id = pp.id where private.pharmacy_location_choosable(pp.id, l.id)) || ' can be chosen'),
-      private.go_live_cond('pharmacy_rules_confirmed', 'The pharmacy collection rules are confirmed',
-        coalesce((select s.decision = 'confirmed' from public.proposed_config_signoffs s
-                   where s.config_key = 'pharmacy.collection_rules'
-                     and s.config_version = (select c.version from public.pharmacy_config c where c.is_active)
-                   order by s.id desc limit 1), false), 'data', null),
-      private.go_live_cond('notification_sender_deployed', 'The notification sender with the pharmacy messages is deployed',
-        private.go_live_attested(p_key, 'notification_sender_deployed'), 'attestation', null),
-      private.go_live_cond('clinical_safety_case_current', 'A current clinical safety case and hazard log, signed off', private.go_live_attested(p_key, 'clinical_safety_case_current'), 'attestation', null),
-      private.go_live_cond('clinical_lead_signoff', 'Clinical lead sign-off', true, 'switch', 'Given by the Chief Medical Officer pressing the switch'));
-  elsif p_key = 'research_export_enabled' then
-    select count(*) into v_n from public.research_protocols where status = 'approved';
-    return jsonb_build_array(
-      private.go_live_cond('approved_protocol_exists', 'At least one approved research protocol (ethics approval, data-sharing agreement, CMO and data protection officer approval)', v_n > 0, 'data', v_n || ' approved'),
+      private.go_live_cond('approved_protocol_exists', 'At least one approved research protocol (ethics approval, data-sharing agreement, CMO and data protection officer approval)',
+        (select count(*) from public.research_protocols where status = 'approved') > 0, 'data', (select count(*) from public.research_protocols where status = 'approved') || ' approved'),
       private.go_live_cond('counsel_cross_border_cleared', 'Counsel has cleared the legal basis for the recipient and any transfer abroad', private.go_live_attested(p_key, 'counsel_cross_border_cleared'), 'attestation', null),
       private.go_live_cond('dpo_registered', 'The data protection officer appointment is on record with NDPC', private.go_live_attested(p_key, 'dpo_registered'), 'attestation', null));
-  elsif p_key = 'scribe_enabled' then
-    return jsonb_build_array(
-      private.go_live_cond('clinical_safety_case_current', 'A current clinical safety case and hazard log, signed off', private.go_live_attested(p_key, 'clinical_safety_case_current'), 'attestation', null),
-      private.go_live_cond('con001_legal_review_recorded', 'Legal review of consent text CON-001 recorded', private.go_live_attested(p_key, 'con001_legal_review_recorded'), 'attestation', null),
-      private.go_live_cond('speech_provider_configured', 'A speech-to-text provider is configured', private.go_live_attested(p_key, 'speech_provider_configured'), 'attestation', null));
-  elsif p_key = 'payouts_enabled' then
-    return jsonb_build_array(
-      private.go_live_cond('fee_schedule_approved', 'A fee schedule is approved', private.go_live_attested(p_key, 'fee_schedule_approved'), 'attestation', null),
-      private.go_live_cond('paystack_transfers_configured', 'Paystack transfers are configured', private.go_live_attested(p_key, 'paystack_transfers_configured'), 'attestation', null));
-  elsif p_key = 'public_signup_enabled' then
-    return jsonb_build_array(
-      private.go_live_cond('stage2_exit_criteria_met', 'The Stage 2 exit criteria are met', private.go_live_attested(p_key, 'stage2_exit_criteria_met'), 'attestation', null));
-  end if;
-  -- An unknown key has no conditions, and a guard with no conditions is never satisfied (fail closed).
-  return jsonb_build_array(private.go_live_cond('unknown_guard', 'This guard has no defined condition', false, 'data', null));
-end $function$;
+$br$ || v_anchor);
+      v_done := true;
+      exit;
+    end if;
+  end loop;
+  if not v_done then raise exception 'S81: no go_live_conditions function holds the unknown-key fallback (definition drifted)'; end if;
+end $do$;
 
 -- 2. Tables
 create type public.research_protocol_status as enum ('draft', 'approved', 'closed');
