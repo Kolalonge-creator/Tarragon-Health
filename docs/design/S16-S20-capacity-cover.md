@@ -88,3 +88,12 @@ Every other write this migration makes was checked against live:
 - Triggers added on existing tables (`orders_intake_gate`, `availability_blocks_hard_rest`, `page_tests_drill_ack`, `refuse_superseded_activation` on `lead_config`): none exist live.
 - `lead_config` gets `approved_at`/`approved_by` (absent live; `add column if not exists`).
 - Functions patched in place (`queue_candidates`, `apply_task_transition`, `reliability_dashboard`, `create_followup_offer`, the video request trigger) are read with `pg_get_functiondef` at apply time and stop with an error if the expected text is missing, so a live-only difference fails loudly rather than being overwritten. `queue_class_breaches` and the wrapped `rota_validate_clinician_core` were diffed against live earlier in this work (same text as the repo).
+
+## pg_cron load: the four new jobs
+
+On 2026-10-15 from about 15:00 to 21:25 UTC pg_cron had roughly 90 percent "job startup timeout" failures for six hours (cause unknown; healthy before and after). The four jobs this change adds join pg_cron's concurrency, so each is on its own schedule string that no other live job uses (checked against live `cron.job` and every migration): `ops-mode-sweep` `19-59/10 * * * *`, `intake-gate-watch` `9-59/10 * * * *`, `fatigue-cover-sweep` `12,42 * * * *`, `fire-drills` minute 43 hourly. None is a minute-job or shares `:00`/`:30`. Each is cheap and idempotent, so a missed or failed run is simply retried by the next one and nothing is lost or doubled:
+- `ops-mode-sweep` only closes rows already past their time, and every mode also expires by the clock at read time, so a skipped run changes nothing a person or a patient sees.
+- `intake-gate-watch` returns at once unless the gate is enforced, and opens at most one incident per cause (deduplicated by reference).
+- `fatigue-cover-sweep` is guarded by a unique (shift, clinician) row, so it can run twice without a second offer.
+- `fire-drills` skips anyone drilled within the interval or tested in the last 10 minutes, so a retry does not double-page, and is OFF until the CMO signs capacity configuration v2.
+No external dead-man check covers these jobs (the same gap as in the task-layer note); a failed run shows up in `record-cron-failures`.
