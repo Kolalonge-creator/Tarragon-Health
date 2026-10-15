@@ -1,20 +1,14 @@
 -- ===========================================================================
--- Proof: *_folio_not_exposed_via_staff_directory.sql (CMO decision Q17, OQ-358).
+-- Proof: *_clinician_folio_for_document.sql (CMO decision Q17, OQ-358, step 1 of 2).
 --
--- A clinician's MDCN folio is never shown publicly. Proves, with simulated sessions:
---   1. public.clinical_staff_directory has no credential_number column: a patient and a clinician colleague
---      both fail with undefined_column when they ask for it, and still read the name.
---   2. A patient cannot read clinical_staff (the base table) at all; the clinician can read their own row.
---   3. authenticated holds no INSERT/UPDATE/DELETE on the directory view (it was auto-updatable and owner-run).
---   4. anon can neither read the view nor execute public.clinician_folio_for_document.
---   5. clinician_folio_for_document returns the folio only for an entitled document flow: the patient who owns
---      a referral / prescription / lab request / lab interpretation gets it; another patient gets zero rows;
---      a colleague gets it for the staff-readable kinds (prescription, lab_request) but not for a referral
---      (patient-only policy); an unknown kind is refused; no ids returns nothing.
--- SABOTAGE (last block): the view is redefined to expose credential_number again and assertion 1 is run
--- again; it MUST fail, proving the check can fail.
--- Not asserted (documented open follow-up, docs/design/folio-exposure-fix.md): a clinician colleague can
--- still read the folio from the base table clinical_staff, because org staff are admitted by its policy.
+-- public.clinician_folio_for_document returns a clinician's MDCN folio only for an entitled document flow.
+-- Proves, with simulated sessions: the owning patient gets the folio for a referral, prescription, lab request,
+-- lab interpretation, verified document and vaccination certificate; another patient gets zero rows for every
+-- kind; a colleague never gets a referral folio and for prescriptions/vaccinations agrees exactly with
+-- private.staff_may_read; service role gets the lab request folio; an unknown kind is refused; an empty id list
+-- returns nothing; anon cannot execute it; a patient cannot read clinical_staff. Does NOT assert anything about
+-- the directory view (step 2 hides the column). SABOTAGE (last block): the function is redefined to ignore
+-- entitlement; the stranger-patient assertion MUST then fail.
 -- Wrapped in BEGIN/ROLLBACK; mints its own fixtures.
 -- ===========================================================================
 
@@ -83,19 +77,6 @@ begin
                                           tarragon_certificate_serial, tarragon_certificate_issued_at)
   values (v_vr, v_org, v_pat, (select id from public.vaccination_catalog limit 1), current_date, 'verified', v_docA, now(), 'FOLIO-SERIAL', now());
 
-  -- 1. no folio column in the directory view, for a patient and for a colleague
-  foreach v_f in array array[v_pat::text, v_docB::text] loop
-    perform set_config('request.jwt.claims', json_build_object('sub', v_f, 'role', 'authenticated')::text, true);
-    execute 'set local role authenticated';
-    v_failed := false;
-    begin execute 'select credential_number from public.clinical_staff_directory limit 1';
-    exception when undefined_column then v_failed := true; end;
-    select count(*) into v_n from public.clinical_staff_directory where full_name = 'Folio Doctor A';
-    execute 'reset role';
-    if not v_failed then raise exception 'FAIL: session % could select credential_number from the directory view', v_f; end if;
-    if v_n <> 1 then raise exception 'FAIL: session % could no longer read the staff name from the directory (%)', v_f, v_n; end if;
-  end loop;
-
   -- 2. a patient cannot read the base table; the clinician reads their own row
   perform set_config('request.jwt.claims', json_build_object('sub', v_pat, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
@@ -108,19 +89,8 @@ begin
   execute 'reset role';
   if v_f is distinct from 'FOLIO-A' then raise exception 'FAIL: the clinician could not read their own folio (%)', v_f; end if;
 
-  -- 3. no write grants on the view
-  if has_table_privilege('authenticated', 'public.clinical_staff_directory', 'UPDATE')
-     or has_table_privilege('authenticated', 'public.clinical_staff_directory', 'INSERT')
-     or has_table_privilege('authenticated', 'public.clinical_staff_directory', 'DELETE') then
-    raise exception 'FAIL: authenticated has write privileges on the directory view';
-  end if;
-
   -- 4. anon
   execute 'set local role anon';
-  v_failed := false;
-  begin perform 1 from public.clinical_staff_directory limit 1;
-  exception when insufficient_privilege then v_failed := true; end;
-  if not v_failed then execute 'reset role'; raise exception 'FAIL: anon read the directory view'; end if;
   v_failed := false;
   begin perform 1 from public.clinician_folio_for_document('prescription', array[v_med]);
   exception when insufficient_privilege then v_failed := true; end;
@@ -184,19 +154,19 @@ begin
   execute 'reset role';
   if v_f is distinct from 'FOLIO-A' then raise exception 'FAIL: service role did not get the lab request folio (%)', v_f; end if;
 
-  -- SABOTAGE: re-expose the folio in the view; assertion 1 must now fail
-  drop view public.clinical_staff_directory;
-  create view public.clinical_staff_directory with (security_invoker = false) as
-    select id, organisation_id, profile_id, full_name, credential_number from public.clinical_staff;
-  grant select on public.clinical_staff_directory to authenticated;
-  perform set_config('request.jwt.claims', json_build_object('sub', v_pat, 'role', 'authenticated')::text, true);
+  -- SABOTAGE: a function that ignores entitlement; the stranger assertion must now see rows
+  create or replace function public.clinician_folio_for_document(p_document_kind text, p_document_ids uuid[])
+  returns table (document_id uuid, clinician_staff_id uuid, clinician_profile_id uuid, full_name text, credential_type text, credential_number text)
+  language sql security definer set search_path = '' as $f$
+    select m.id, cs.id, cs.profile_id, cs.full_name, cs.credential_type, cs.credential_number
+    from public.medications m join public.clinical_staff cs on cs.profile_id = m.added_by where m.id = any (p_document_ids)
+  $f$;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_pat2, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
-  v_failed := false;
-  begin execute 'select credential_number from public.clinical_staff_directory limit 1';
-  exception when undefined_column then v_failed := true; end;
+  select count(*) into v_n from public.clinician_folio_for_document('prescription', array[v_med]);
   execute 'reset role';
-  if v_failed then raise exception 'SABOTAGE FAIL: the check did not detect a re-exposed folio'; end if;
-  raise notice 'folio_not_exposed: all assertions passed; sabotage detected';
+  if v_n = 0 then raise exception 'SABOTAGE FAIL: the check did not detect a function that ignores entitlement'; end if;
+  raise notice 'clinician_folio_for_document: all assertions passed; sabotage detected';
 end $$;
 
 rollback;

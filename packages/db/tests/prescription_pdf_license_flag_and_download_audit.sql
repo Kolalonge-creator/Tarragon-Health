@@ -99,7 +99,7 @@ begin
 
   -- SABOTAGE: a constant-true flag makes the never-verified licence read as verified; the step 1 assertion must catch it
   create or replace view public.clinical_staff_directory with (security_invoker = false) as
-  select cs.id, cs.organisation_id, cs.profile_id, cs.full_name, cs.photo_url, cs.credential_type, cs.specialty, cs.bio,
+  select cs.id, cs.organisation_id, cs.profile_id, cs.full_name, cs.photo_url, cs.credential_type, cs.credential_number, cs.specialty, cs.bio,
          cs.active, cs.doctor_tier, cs.employment_type, cs.offers_therapy_sessions, true as license_verified
     from public.clinical_staff cs where cs.organisation_id = private.current_org_id();
   perform set_config('request.jwt.claims', json_build_object('sub', v_pat, 'role', 'authenticated')::text, true);

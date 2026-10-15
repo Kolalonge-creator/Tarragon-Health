@@ -87,7 +87,7 @@ begin
   -- ======================================================================
   select count(*) into v_count
   from public.clinical_staff_directory
-  where id = v_staff_id and full_name = 'Scoping Test Doctor';
+  where id = v_staff_id and full_name = 'Scoping Test Doctor' and credential_number = 'SCOPE-TEST-0001';
   if v_count <> 1 then
     raise exception 'FAIL 2: a patient could not see the doctor''s safe columns via clinical_staff_directory — trust display is broken';
   end if;
@@ -191,7 +191,7 @@ begin
     as
     select
       id, organisation_id, profile_id, full_name, photo_url, credential_type,
-      specialty, bio, active, doctor_tier, employment_type,
+      credential_number, specialty, bio, active, doctor_tier, employment_type,
       offers_therapy_sessions,
       (license_verified_at is not null and (license_expires_at is null or license_expires_at > now())) as license_verified
     from public.clinical_staff
