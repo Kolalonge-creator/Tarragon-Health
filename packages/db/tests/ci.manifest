@@ -21,6 +21,7 @@ payment_activation_amount_and_reference.sql
 
 # S04b-1b: late patient tables guarded; private.minor_guard_gaps() empty (sabotage: crippled function, dropped guard).
 s04b1b_minor_guard_gaps.sql
+s04b1e_guard_new_patient_tables.sql
 
 # --- Added 2026-09-05 -------------------------------------------------------
 # Nineteen more, each confirmed to build every fixture it needs. Where a script
@@ -964,6 +965,8 @@ f1_learning_content_expiry_gate.sql
 f1_symptom_checker_go_live_guard.sql
 # F1 fix 4: a crisis-flagged wellbeing screen raises one class 1 task, an urgent crisis.detected event (ids only), a neutral notice to the clinician on call or the lead and ops with an incident, idempotent on replay, loud on failure. Sabotage: the trigger dropped, no task.
 f1_crisis_priority_task_and_event.sql
+# S56: every mental-health table is per-patient (INV-12) with audited reads (INV-10): no staff direct read (tied, untied, coordinator, CMO, admin, finance, analyst, corporate, sponsor), caregiver consent hook (owner-only, revocable, no dependent bypass), neutral alert text, sponsor report, corporate aggregate with minimum cohort, therapy approval, follow-up guard, hand-off, crisis card helplines unverified by default. Sabotage: four protections removed, each flips.
+s56_mental_health_access.sql
 # S36j: the CMO may approve payouts. An active CMO approves a draft that is not theirs (audit row says approver_role cmo) while an admin still can; a CMO cannot approve their own payout; guard off refuses both; doctor, finance, analyst, care coordinator, suspended CMO, patient and anon are refused; the CMO still cannot build, discard, prepare a send, retry or list; the queue lists drafts only, never a test clinician, and no bank data. Extended by S36k: payout_events.source is cmo for a CMO approval and admin for an admin one, the queue marks the caller's own draft is_mine and total_waiting equals the real count, the source check allows cmo. Sabotage: approver check put back to admin only (both CMO checks flip) and the event source hard-coded to admin (the source check flips).
 s36j_cmo_may_approve_payouts.sql
 # S28c: the founder's additions to S28 on top of the live collection-code migration: the S37 go-live guard (closed, conditions read from the data), six fixed questions and three fixed answers (no free text) with a clinical-queue task, batch and expiry required, a caregiver with the pharmacy permission chooses and withdraws for the patient (stranger, wrong permission and expired grant refused), a repeat supply is a new send (new code, old code dies, supplied elsewhere not offered), withdrawal, and S28d: no delivery column for patients, is_test stamped, the older pharmacist reads audited, the neutral order alert. Sabotage: the caregiver gate opened, the go-live gate removed, the is_test stamp dropped; every check must flip.
@@ -1121,5 +1124,7 @@ s05b_e_allergy_request_notices_and_limit.sql
 ops_rota_gap_alert_dedup.sql
 # S05b-f: the S05b-d hold rule extended to conditions a patient entered herself: her void or correction is a request, the original stays in the current view, the arrival notice and the confirmed notice are in-app with no clinical word, 3 requests per condition per rolling 7 days (per record, void excluded), only a tied non-coordinator clinician decides, a clinician's own correction stays immediate, a clinician-diagnosed condition is refused, the patient's export lists the requests. Sabotage: condition branch removed, permissive clinician test, voiding trigger dropped, diagnosing rule removed, limit trigger dropped, confirm pointed at the wrong table; each must flip.
 s05b_f_condition_correction_requests.sql
+# CMO Q17 / OQ-358 step 1: clinician_folio_for_document returns the folio only for an entitled document flow and refuses a stranger patient, an untied colleague and anon. Sabotage: a function that ignores entitlement must be detected.
+clinician_folio_for_document.sql
 # Sole-CMO on-call exception: a self grant is refused without a signed exception; signing needs the CMO, the on_call competency, a 40 character reason and exactly one active CMO; with it the CMO self-grants on_call (audited under its own action with the exception id, reviewers told) and nothing else; expiry, revocation and a second active CMO each stop it; no client writes, read for admin and CMO only, anon cannot execute. Sabotage: sole-CMO condition removed, expiry check removed; each must flip.
 sole_cmo_on_call_exception.sql
