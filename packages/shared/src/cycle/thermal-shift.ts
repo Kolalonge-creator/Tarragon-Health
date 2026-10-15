@@ -1,5 +1,3 @@
-import { FERTILE_WINDOW_LABEL } from "@tarragon/i18n";
-
 /**
  * Detects the post-ovulation temperature rise in a run of basal body
  * temperatures.
@@ -17,7 +15,7 @@ import { FERTILE_WINDOW_LABEL } from "@tarragon/i18n";
  * useful for one thing — telling a patient that she did appear to ovulate
  * this cycle — and dangerous for another: it must never be rendered as a
  * fertile-window prediction, and it is not a contraceptive method. See
- * THERMAL_SHIFT_DISCLAIMER.
+ * THERMAL_SHIFT_EXPLAINER plus the fertile-window label (composed by the app).
  *
  * Pure, no clock reads, no DB.
  */
@@ -38,7 +36,8 @@ const REQUIRED_RISE_C = 0.2;
 export const THERMAL_SHIFT_EXPLAINER =
   "A temperature rise suggests ovulation has already happened, so it confirms rather than predicts.";
 
-export const THERMAL_SHIFT_DISCLAIMER = `${THERMAL_SHIFT_EXPLAINER} ${FERTILE_WINDOW_LABEL}`;
+// The label that follows it comes from the one wording source in @tarragon/i18n; apps compose THERMAL_SHIFT_DISCLAIMER from the two
+// (this package does not depend on i18n).
 
 export interface BasalTemperatureReading {
   date: string;

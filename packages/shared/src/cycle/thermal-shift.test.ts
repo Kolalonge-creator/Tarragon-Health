@@ -1,8 +1,7 @@
-import { FERTILE_WINDOW_LABEL } from "@tarragon/i18n";
 import {
   describeThermalShift,
   detectThermalShift,
-  THERMAL_SHIFT_DISCLAIMER,
+  THERMAL_SHIFT_EXPLAINER,
   type BasalTemperatureReading,
 } from "./thermal-shift";
 
@@ -107,8 +106,7 @@ describe("temperature-based ovulation confirmation sits behind Planning a pregna
     expect(describeThermalShift(detected(), true)).toMatch(/follows ovulation/);
   });
 
-  it("the disclaimer carries the exact label and never calls it a contraceptive method", () => {
-    expect(THERMAL_SHIFT_DISCLAIMER).toContain(FERTILE_WINDOW_LABEL);
-    expect(THERMAL_SHIFT_DISCLAIMER).toContain("Not contraception. This cannot prevent pregnancy.");
+  it("the explainer says it confirms rather than predicts", () => {
+    expect(THERMAL_SHIFT_EXPLAINER).toMatch(/confirms rather than predicts/);
   });
 });
