@@ -341,10 +341,11 @@ begin
   end if;
   v_def := pg_get_functiondef('public.attest_go_live_condition(text, text, boolean, text)'::regprocedure);
   if v_def not like '%wellbeing_library_clinical_scripts%' then
-    v_new := replace(v_def, '(''mental_health_follow_up_enabled'', ''follow_up_cover_confirmed'')) then',
-      '(''mental_health_follow_up_enabled'', ''follow_up_cover_confirmed''),' || E'\n' ||
+    -- Anchor on a tuple that is stable wherever later migrations add their own (the end of the list moves), and put ours right after it.
+    v_new := replace(v_def, '(''public_signup_enabled'', ''stage2_exit_criteria_met'')',
+      '(''public_signup_enabled'', ''stage2_exit_criteria_met''),' || E'\n' ||
       '       (''wellbeing_library_clinical_scripts'', ''scripts_reviewed''), (''wellbeing_library_clinical_scripts'', ''care_team_note_confirmed''),' || E'\n' ||
-      '       (''sleep_apnoea_screen_enabled'', ''referral_cover_confirmed'')) then');
+      '       (''sleep_apnoea_screen_enabled'', ''referral_cover_confirmed'')');
     if v_new = v_def then raise exception 'S57: attest_go_live_condition marker not found (definition drifted)'; end if;
     execute v_new;
   end if;
