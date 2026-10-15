@@ -44731,7 +44731,6 @@ export type Database = {
         Row: {
           active: boolean | null
           bio: string | null
-          credential_number: string | null
           credential_type: string | null
           doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
           employment_type:
@@ -51220,6 +51219,7 @@ export type Database = {
         | "procedure"
         | "therapy"
         | "result_interpretation"
+        | "pharmacist"
       appointment_waiting_list_status:
         | "waiting"
         | "offered"
@@ -53500,6 +53500,7 @@ export const Constants = {
         "procedure",
         "therapy",
         "result_interpretation",
+        "pharmacist",
       ],
       appointment_waiting_list_status: [
         "waiting",

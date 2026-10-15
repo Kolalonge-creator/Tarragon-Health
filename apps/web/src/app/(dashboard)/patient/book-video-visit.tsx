@@ -28,6 +28,7 @@ import { LicenceVerifiedForClient } from "@/components/licence-verified-client";
 import { koboToNaira, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
 
 import { formatPatientDateTime } from "@/lib/format-date";
+import { BookingTermsCard } from "@/components/consultation/booking-terms";
 function formatSlot(iso: string): string {
   return formatPatientDateTime(iso, {
     weekday: "short",
@@ -316,6 +317,8 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
                 </Button>
               ))}
             </div>
+            {/* S64 (15.7): the same price and cancel rule every other booking path shows before payment */}
+            <BookingTermsCard appointmentType="telemedicine" />
             {selectedSlot ? <LicenceVerifiedForClient id={(slots ?? []).find((slot) => slot.id === selectedSlot)?.clinician_profile_id} /> : null}
             <input type="hidden" name="slot_id" value={selectedSlot} />
             <Button type="submit" disabled={!selectedSlot || isPending}>
