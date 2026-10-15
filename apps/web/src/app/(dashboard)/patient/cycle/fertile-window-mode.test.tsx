@@ -70,6 +70,7 @@ const rawPrediction = (): CyclePrediction =>
     lifeStage: "menstruating",
     selfReportedCycleLengthDays: null,
     heavyFlowDates: [],
+    conceptionPlanning: true, // the full prediction, so the planning-mode filter has something to strip
   });
 
 const mockedAction = setPlanningPregnancyMode as jest.MockedFunction<typeof setPlanningPregnancyMode>;

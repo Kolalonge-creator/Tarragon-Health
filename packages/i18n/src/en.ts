@@ -1,4 +1,5 @@
 import { activeWording } from "./clinical-wording";
+import { cycleCopy } from "./cycle-copy";
 import { maternalChild } from "./maternal-child";
 import { activeGlucoseWording } from "./glucose-wording";
 
@@ -3055,6 +3056,8 @@ export const en = {
   "payapprove.unnamed": "A clinician",
   "payapprove.truncated": "Showing {shown} of {total} drafts waiting. Approve some to see the rest.",
   "payapprove.mine": "This payout is yours, so someone else needs to approve it.",
+  // S66: private cycle section, planning mode, contraception education, menopause (proposed copy, CMO review pending: see cycle-copy.ts)
+  ...cycleCopy,
   "directory.title": "Find care near you",
   "directory.intro": "Hospitals, clinics, labs, pharmacies and specialists. Every listing shows when a person last checked it.",
   "directory.not_open": "The directory is not open yet. We will tell you when it is.",

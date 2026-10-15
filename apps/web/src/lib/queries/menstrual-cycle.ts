@@ -270,6 +270,7 @@ export function useCycleTracker(
         lifeStage,
         selfReportedCycleLengthDays,
         heavyFlowDates,
+        conceptionPlanning: planningMode,
       }),
       planningMode
     );

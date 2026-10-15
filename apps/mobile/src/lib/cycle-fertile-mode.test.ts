@@ -19,6 +19,7 @@ function predictionAt(daysIntoCycle: number): CyclePrediction {
     lifeStage: "menstruating",
     selfReportedCycleLengthDays: null,
     heavyFlowDates: [],
+    conceptionPlanning: true, // the full prediction, so the planning-mode filter has something to strip
   });
 }
 

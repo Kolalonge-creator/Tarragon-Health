@@ -25152,7 +25152,9 @@ export type Database = {
           organisation_id: string
           patient_id: string
           postmenopausal_bleeding: boolean
+          recorded_by: string | null
           severity: number | null
+          source: string
           symptom_types: Database["public"]["Enums"]["menopause_symptom_type"][]
           updated_at: string
         }
@@ -25165,7 +25167,9 @@ export type Database = {
           organisation_id: string
           patient_id: string
           postmenopausal_bleeding?: boolean
+          recorded_by?: string | null
           severity?: number | null
+          source?: string
           symptom_types?: Database["public"]["Enums"]["menopause_symptom_type"][]
           updated_at?: string
         }
@@ -25178,7 +25182,9 @@ export type Database = {
           organisation_id?: string
           patient_id?: string
           postmenopausal_bleeding?: boolean
+          recorded_by?: string | null
           severity?: number | null
+          source?: string
           symptom_types?: Database["public"]["Enums"]["menopause_symptom_type"][]
           updated_at?: string
         }
@@ -25200,6 +25206,13 @@ export type Database = {
           {
             foreignKeyName: "menopause_symptom_logs_patient_id_fkey"
             columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menopause_symptom_logs_recorded_by_fkey"
+            columns: ["recorded_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -36571,9 +36584,64 @@ export type Database = {
           },
         ]
       }
+      reproductive_deletion_requests: {
+        Row: {
+          cancelled_at: string | null
+          completed_at: string | null
+          execute_after: string
+          id: string
+          is_test: boolean
+          organisation_id: string
+          patient_id: string
+          receipt: Json | null
+          requested_at: string
+          status: string
+        }
+        Insert: {
+          cancelled_at?: string | null
+          completed_at?: string | null
+          execute_after: string
+          id?: string
+          is_test?: boolean
+          organisation_id: string
+          patient_id: string
+          receipt?: Json | null
+          requested_at?: string
+          status?: string
+        }
+        Update: {
+          cancelled_at?: string | null
+          completed_at?: string | null
+          execute_after?: string
+          id?: string
+          is_test?: boolean
+          organisation_id?: string
+          patient_id?: string
+          receipt?: Json | null
+          requested_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reproductive_deletion_requests_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reproductive_deletion_requests_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reproductive_health_profiles: {
         Row: {
           average_cycle_length_days: number | null
+          planning_pregnancy_mode: boolean
           created_at: string
           current_contraception_method: string | null
           id: string
@@ -36581,11 +36649,11 @@ export type Database = {
           life_stage: Database["public"]["Enums"]["reproductive_life_stage"]
           organisation_id: string
           patient_id: string
-          planning_pregnancy_mode: boolean
           updated_at: string
         }
         Insert: {
           average_cycle_length_days?: number | null
+          planning_pregnancy_mode?: boolean
           created_at?: string
           current_contraception_method?: string | null
           id?: string
@@ -36593,11 +36661,11 @@ export type Database = {
           life_stage?: Database["public"]["Enums"]["reproductive_life_stage"]
           organisation_id: string
           patient_id: string
-          planning_pregnancy_mode?: boolean
           updated_at?: string
         }
         Update: {
           average_cycle_length_days?: number | null
+          planning_pregnancy_mode?: boolean
           created_at?: string
           current_contraception_method?: string | null
           id?: string
@@ -36605,7 +36673,6 @@ export type Database = {
           life_stage?: Database["public"]["Enums"]["reproductive_life_stage"]
           organisation_id?: string
           patient_id?: string
-          planning_pregnancy_mode?: boolean
           updated_at?: string
         }
         Relationships: [
@@ -36624,6 +36691,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      reproductive_privacy_config: {
+        Row: {
+          config: Json
+          created_at: string
+          is_active: boolean
+          version: number
+        }
+        Insert: {
+          config: Json
+          created_at?: string
+          is_active?: boolean
+          version: number
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          is_active?: boolean
+          version?: number
+        }
+        Relationships: []
       }
       reputation_review_prompts: {
         Row: {
@@ -46098,6 +46186,7 @@ export type Database = {
           credential_number: string
         }[]
       }
+      cancel_reproductive_tracker_deletion: { Args: never; Returns: Json }
       clinician_risk_worklist: { Args: { p_limit?: number }; Returns: Json };
       clinical_response_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       log_institution_aggregate_read: { Args: { p_organisation_id: string; p_surface: string }; Returns: boolean };
@@ -46209,6 +46298,7 @@ export type Database = {
       community_unmask_candidates: { Args: never; Returns: Json }
       log_outcome_export: { Args: { p_from?: string; p_to?: string }; Returns: undefined };
       my_monthly_reports: { Args: { p_limit?: number }; Returns: Json };
+      my_reproductive_access_log: { Args: { p_limit?: number }; Returns: Json }
       override_patient_risk: { Args: { p_days?: number; p_level: string; p_patient: string; p_reason: string }; Returns: Json };
       pair_device_for: {
         Args: { p_ble_device_id: string; p_device_type: Database["public"]["Enums"]["patient_device_type"]; p_model?: string; p_person: string }
@@ -46234,6 +46324,13 @@ export type Database = {
         Args: { p_id: string; p_note?: string; p_reviewed: boolean }
         Returns: Json
       }
+      request_reproductive_tracker_deletion: { Args: never; Returns: Json }
+      reproductive_tracker_deletion_status: { Args: never; Returns: Json }
+      read_reproductive_pattern_report_audited: {
+        Args: { p_patient: string; p_reason: string }
+        Returns: Json
+      }
+      process_due_reproductive_tracker_deletions: { Args: never; Returns: number }
       risk_distribution_report: { Args: Record<PropertyKey, never>; Returns: Json };
       // Two-tier review decisions (renewals at the monthly review): spliced by hand.
       add_review_note: { Args: { p_medication: string | null; p_note: string }; Returns: string };
@@ -52959,6 +53056,8 @@ export type Database = {
         | "joint_aches"
         | "brain_fog"
         | "other"
+        | "irregular_bleeding"
+        | "vaginal_discomfort"
       menstrual_flow_level:
         | "none"
         | "spotting"
@@ -55373,6 +55472,8 @@ export const Constants = {
         "joint_aches",
         "brain_fog",
         "other",
+        "irregular_bleeding",
+        "vaginal_discomfort",
       ],
       menstrual_flow_level: [
         "none",

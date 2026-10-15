@@ -17,6 +17,9 @@ export const FORBIDDEN_TERMS: readonly string[] = [
   // readings and results
   "reading*", "result*", "lab", "labs", "laboratory", "scan", "scans", "x-ray", "ecg", "biopsy", "screening*", "positive",
   "negative", "abnormal", "elevated", "diagnos*", "symptom*", "treatment*",
+  // S66 (decision A14): reproductive and cycle words. A cycle, a period, a fertile day or the menopause is never named in a push, an
+  // email or an in-app preview (a phone is read over shoulders and shared); the copy is "Your tracker has an update".
+  "period", "periods", "cycle*", "fertil*", "ovulat*", "menopaus*", "perimenopaus*", "menstru*", "luteal", "follicular", "conceiv*",
   // medicines
   "medicine*", "medication*", "drug*", "tablet*", "pill*", "dose*", "dosage*", "prescri*", "refill*", "insulin",
   "metformin", "amlodipine", "lisinopril", "losartan", "statin*", "antibiotic*", "vaccin*", "inhaler*",

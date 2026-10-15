@@ -28,6 +28,9 @@ import type { SectionId } from "@/lib/sections";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
+import { PrivateSection } from "@/ui/private-section";
+import { CycleDangerSigns } from "@/ui/cycle-danger-signs";
+import { CyclePrivacyControls } from "@/ui/cycle-privacy-controls";
 
 /**
  * The cycle tracker's native screen (spec §44's large sub-feature —
@@ -152,7 +155,33 @@ function toggle<T>(list: T[], value: T): T[] {
   return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
 }
 
-export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScreenProps) {
+/**
+ * S66: the whole tracker sits behind the section PIN (optional, on by default, re-asked after backgrounding). The danger signs are the one
+ * thing that stays outside it: they hold no personal data and must be readable on a locked screen. The lock is keyed to the SIGNED-IN
+ * account, so a phone shared by two people keeps two PINs.
+ */
+export function CycleScreen(props: CycleScreenProps) {
+  const colors = useLegacyColors();
+  const [accountId, setAccountId] = useState(props.patientId);
+  useEffect(() => {
+    void supabase.auth.getUser().then(({ data }) => {
+      if (data.user?.id) setAccountId(data.user.id);
+    });
+  }, []);
+  return (
+    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
+      <View>
+        <ScreenTitle>Your cycle</ScreenTitle>
+      </View>
+      <PrivateSection accountId={accountId} title="Your tracker" outside={<CycleDangerSigns />}>
+        <CycleScreenBody {...props} />
+        {accountId === props.patientId && <CyclePrivacyControls />}
+      </PrivateSection>
+    </ScrollView>
+  );
+}
+
+function CycleScreenBody({ patientId, organisationId, onNavigate }: CycleScreenProps) {
   const colors = useLegacyColors();
   const textInputStyle = useTextInputStyle();
   const { scheme } = useTheme();
@@ -227,7 +256,7 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
 
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
+      <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 40 }}>
         <ActivityIndicator color={colors.brand} />
       </View>
     );
@@ -235,13 +264,12 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
 
   if (error || !tracker) {
     return (
-      <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
-        <ScreenTitle>Your cycle</ScreenTitle>
+      <View style={{ gap: 16 }}>
         <Card style={{ gap: 8 }}>
           <ErrorText>{error ?? "We could not load your cycle just now."}</ErrorText>
           <SecondaryButton title="Try again" onPress={() => { setLoading(true); refresh().finally(() => setLoading(false)); }} />
         </Card>
-      </ScrollView>
+      </View>
     );
   }
 
@@ -263,9 +291,8 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 16 }}>
+    <View style={{ gap: 16 }}>
       <View>
-        <ScreenTitle>Your cycle</ScreenTitle>
         <MutedText>
           Log your period and how you feel, and see what to expect next. Everything here is an
           estimate from your own history, not a diagnosis.
@@ -482,7 +509,7 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
         Your cycle information is part of your health record. Your care team can see it; nobody
         else can. It plays no part in scoring your health risk.
       </Text>
-    </ScrollView>
+    </View>
   );
 }
 

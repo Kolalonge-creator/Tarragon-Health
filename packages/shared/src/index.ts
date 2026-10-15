@@ -262,6 +262,11 @@ export * from "./notification-diagnosis";
 export * from "./directory-links";
 export * from "./proposed-config/emergency-pack";
 
+// S66: the single cycle prediction engine, thermal shift, pattern report and planning copy (web and mobile both read it from here).
+export * from "./cycle";
+
+// S66: the reusable private-section lock (PIN or biometric, device-held), used by cycle now and by pregnancy and other private sections later.
+export * from "./private-section";
 export * from "./maternal-child";
 export { sponsorMinimumGroupSize } from "./sponsor-min-group";
 
