@@ -1,4 +1,5 @@
-import type { ProviderResult } from "./result.ts";
+import { isUuid } from "./ids.ts";
+import { fail, type ProviderResult } from "./result.ts";
 
 /**
  * Identity verification for clinician onboarding (P5, plan item R8, decision D6): NIN or BVN lookup plus a face match against the
@@ -7,8 +8,10 @@ import type { ProviderResult } from "./result.ts";
  * `identityFromEnv` once they decide. Rules every adapter must keep:
  * - The raw ID number and the selfie exist for the length of one call. They are NEVER returned, logged, put in an error or
  *   stored by the caller; what is kept is the outcome, the last four digits and the vendor's reference (`IdentityOutcome`).
- * - A call needs a recorded consent id (an opaque uuid). The adapter checks the id is well formed; the caller proves the consent
- *   row exists before it asks.
+ * - A call needs a recorded consent id (an opaque uuid). FAIL CLOSED (OQ-352): `selectIdentity` always returns the provider behind
+ *   `withConsentCheck`, which asks a `ConsentLookup` whether a live stored consent row exists for THIS subject and THIS consent id,
+ *   and refuses (`consent_required`, never retried) when the answer is no, when the lookup is missing, or when it throws.
+ *   The lookup in production is `rpcConsentLookup` over `public.identity_consent_valid` (service role only).
  * - The subject is an opaque uuid (a profile id), never a name, so a vendor log cannot identify a person on its own.
  * - Nothing here suspends, approves or activates anyone. A failed or inconclusive outcome is information for a human reviewer
  *   (a verification can fail because the national database is down), never an automatic rejection.
@@ -61,3 +64,45 @@ export const isIdNumberShape = (s: unknown): s is string => typeof s === "string
 
 /** The last four digits of a well-formed number. */
 export const idLast4Of = (idNumber: string): string => idNumber.slice(-4);
+
+/** Answers: is there a live (not withdrawn) stored consent row with this id for this subject? Must never throw; a throw is read as "no". */
+export type ConsentLookup = (subjectRef: string, consentId: string) => Promise<boolean>;
+
+/**
+ * Puts the consent check in front of any identity provider. The vendor is not called unless the lookup says yes. A missing lookup
+ * (`null`), a lookup that throws and a lookup that says no all refuse the same way, so a caller that forgets to wire the check
+ * gets a refusal, never an unchecked vendor call.
+ */
+export function withConsentCheck(inner: IdentityVerificationProvider, lookup: ConsentLookup | null): IdentityVerificationProvider {
+  return {
+    name: inner.name,
+    isMock: inner.isMock,
+    async verify(input: VerifyIdentityInput): Promise<ProviderResult<IdentityOutcome>> {
+      if (!isUuid(input.consentId) || !isUuid(input.subjectRef)) return fail("consent_required", "A recorded consent is required before an identity check", false);
+      if (lookup === null) return fail("consent_required", "The consent could not be checked, so no identity check was made", false);
+      let allowed = false;
+      try {
+        allowed = (await lookup(input.subjectRef, input.consentId)) === true;
+      } catch {
+        allowed = false;
+      }
+      if (!allowed) return fail("consent_required", "No live consent is stored for this person, so no identity check was made", false);
+      return inner.verify(input);
+    },
+  };
+}
+
+/** The shape of a Supabase client's `rpc` that the lookup needs (kept structural so this file imports no client). */
+export type ConsentRpc = (fn: string, args: Record<string, string>) => PromiseLike<{ readonly data: unknown; readonly error: unknown }>;
+
+/** The production lookup: `public.identity_consent_valid(p_consent, p_subject)`, callable by the service role only. Any error answers false. */
+export function rpcConsentLookup(rpc: ConsentRpc): ConsentLookup {
+  return async (subjectRef, consentId) => {
+    try {
+      const r = await rpc("identity_consent_valid", { p_consent: consentId, p_subject: subjectRef });
+      return r.error === null || r.error === undefined ? r.data === true : false;
+    } catch {
+      return false;
+    }
+  };
+}

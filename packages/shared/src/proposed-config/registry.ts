@@ -570,13 +570,13 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       recheck_months: 6,
       recheck_overdue_days: 14,
       credential_date_max_days: 1100,
-      grandfather_ends_on: null,
+      grandfather_ends_on: "2027-01-13",
     },
     owner: "Founder and counsel",
     status: "proposed",
     version: 3,
     effectiveFrom: "2026-10-13",
-    source: "docs/design/S11-S15-credentialing.md; CMO answers Q14 and Q15 (MDCN verification before first independent contact; six-month spot re-check). grandfather_ends_on is null until the CMO sets it.",
+    source: "docs/design/S11-S15-credentialing.md; CMO answers Q14 and Q15 (MDCN verification before first independent contact; six-month spot re-check). grandfather_ends_on is 2027-01-13 (90 days from 2026-10-15; follow-up OQ-344, set by migration, also carried to versions 4 and 5).",
   },
   {
     key: "credentialing.rules",
@@ -607,7 +607,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       recheck_months: 6,
       recheck_overdue_days: 14,
       credential_date_max_days: 1100,
-      grandfather_ends_on: null,
+      grandfather_ends_on: "2027-01-13",
       renewal_cycle: {
         cycle_end_month: 12,
         cycle_end_day: 31,
@@ -3768,7 +3768,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       recheck_months: 6,
       recheck_overdue_days: 14,
       credential_date_max_days: 1100,
-      grandfather_ends_on: null,
+      grandfather_ends_on: "2027-01-13",
       reverify_months: 12,
       reverify_notice_days: 30,
       renewal_cycle: {
