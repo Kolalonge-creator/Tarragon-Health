@@ -18,7 +18,7 @@ const PERMISSION_KEYS: Readonly<Record<CirclePermission, MessageKey>> = {
 };
 export const permissionKey = (p: CirclePermission): MessageKey => PERMISSION_KEYS[p];
 
-export interface CircleMember { memberId: string; name: string; relationship: string; permissions: CirclePermission[]; expiresAt: string }
+export interface CircleMember { memberId: string; name: string; relationship: string; permissions: CirclePermission[]; expiresAt: string; monthlyReportShared: boolean }
 export interface PendingInvite { inviteId: string; hint: string; relationship: string; expiresAt: string }
 export interface CirclePause { pausedUntil: string; pauseAlerts: boolean }
 export interface MyCircle { members: CircleMember[]; invites: PendingInvite[]; pause?: CirclePause; pauseDays?: number }
@@ -59,7 +59,7 @@ export function parseMyCircle(data: unknown): MyCircle {
       if (!isObj(m)) continue;
       const perms = permissions(m["permissions"]);
       if (str(m["member_id"]) && str(m["name"]) && str(m["relationship"]) && perms && str(m["expires_at"])) {
-        out.members.push({ memberId: m["member_id"], name: m["name"], relationship: m["relationship"], permissions: perms, expiresAt: m["expires_at"] });
+        out.members.push({ memberId: m["member_id"], name: m["name"], relationship: m["relationship"], permissions: perms, expiresAt: m["expires_at"], monthlyReportShared: m["monthly_report_shared"] === true });
       }
     }
   }
