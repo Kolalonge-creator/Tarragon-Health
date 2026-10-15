@@ -103,6 +103,9 @@ begin
       '(''public_signup_enabled'', ''stage2_exit_criteria_met''),' || E'\n' ||
       '       (''mental_health_follow_up_enabled'', ''follow_up_timings_confirmed''), (''mental_health_follow_up_enabled'', ''follow_up_cover_confirmed'')');
     if v_new = v_def then raise exception 'S56: attest_go_live_condition marker not found (definition drifted)'; end if;
+    if (length(v_def) - length(replace(v_def, '(''public_signup_enabled'', ''stage2_exit_criteria_met'')', ''))) <> length('(''public_signup_enabled'', ''stage2_exit_criteria_met'')') then
+      raise exception 'S56: attest_go_live_condition anchor is not unique (definition drifted)';
+    end if;
     execute v_new;
   end if;
 end $$;
