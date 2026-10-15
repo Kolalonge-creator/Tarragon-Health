@@ -37,7 +37,7 @@ export async function CapacityPage({ basePath, isCmo, searchParams }: { basePath
 
       <Section
         title="New sales and enrolments"
-        hint={o.enforced ? "The intake gate is on: new care pack sales stop by themselves when a limit below is crossed." : "The intake gate is NOT switched on yet. The limits below are shown so you can see what it would do. The clinical lead switches it on by signing capacity configuration version 2 in the sign-off hub."}
+        hint={o.enforced ? "The intake gate is on: new care pack sales stop by themselves when a limit below is crossed." : "The intake gate is NOT switched on yet. The limits below are shown so you can see what it would do. The clinical lead switches it on by signing capacity configuration version 2 in the sign-off hub, after the on-call cover guard has been switched on."}
       >
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <Badge variant={g.open ? "green" : "red"}>{g.open ? "Within limits" : "A limit is crossed"}</Badge>

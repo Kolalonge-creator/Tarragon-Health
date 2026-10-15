@@ -108,7 +108,7 @@ end $f$;
 create function pg_temp.guard_on(p_key text, p_on boolean) returns void language plpgsql as
 $f$ begin
   alter table public.go_live_guards disable trigger go_live_guards_guard;
-  update public.go_live_guards set is_on = p_on where key = p_key;
+  update public.go_live_guards set is_on = p_on, changed_at = case when p_on then now() end, changed_by = case when p_on then pg_temp.f('admin') end, change_note = case when p_on then 'proof fixture' end where key = p_key;
   alter table public.go_live_guards enable trigger go_live_guards_guard;
 end $f$;
 create function pg_temp.real_mode(p_org uuid, p_mode text, p_hours integer) returns uuid language sql as
@@ -128,6 +128,14 @@ $f$ begin
   perform set_config('tarragon.task_transition', 'on', true);
   execute format('update public.clinical_tasks set %s where id = %L', p_set, p_task);
   perform set_config('tarragon.task_transition', 'off', true);
+end $f$;
+-- a task whose offer window has ended is open (the same call the sweep makes); a no-op for a task that is not offered
+create function pg_temp.release(p_task uuid) returns uuid language plpgsql as
+$f$ begin
+  if (select state::text from public.clinical_tasks where id = p_task) = 'offered_to_lead' then
+    perform private.apply_task_transition(p_task, 'open', 'system', null, 'offer window ended');
+  end if;
+  return p_task;
 end $f$;
 create function pg_temp.clear_queue() returns void language plpgsql as
 $f$ declare r record;
@@ -198,9 +206,9 @@ begin
   for i in 1..8 loop perform pg_temp.setf('real' || i, pg_temp.mkuser(v_org, 'real-' || i, 'patient', false)); end loop;
   for i in 1..6 loop perform pg_temp.setf('tp' || i, pg_temp.mkuser(v_org, 'test-' || i, 'patient', true)); end loop;
   insert into public.catalog_items (organisation_id, code, kind, name_key, description_key, duration_days, grants_lead, active)
-    values (v_org, 's20c_pack', 'care_pack', 's20c.name', 's20c.desc', 30, true, true) returning id into v_item;
+    values (v_org, 's20c_pack', 'membership', 's20c.name', 's20c.desc', 365, true, true) returning id into v_item;
   insert into public.catalog_items (organisation_id, code, kind, name_key, description_key, uses, grants_lead, active)
-    values (v_org, 's20c_consult', 'consultation', 's20c.name', 's20c.desc', 1, false, true) returning id into v_cons;
+    values (v_org, 's20c_consult', 'consultation', 's20c.name', 's20c.desc', 1, false, false) returning id into v_cons;
   insert into public.prices (organisation_id, catalog_item_id, amount_kobo) values (v_org, v_item, 100000) returning id into v_price;
   perform pg_temp.setf('item', v_item); perform pg_temp.setf('cons', v_cons); perform pg_temp.setf('price', v_price);
   insert into public.prices (organisation_id, catalog_item_id, amount_kobo) values (v_org, v_cons, 100000) returning id into v_price;
@@ -306,12 +314,13 @@ begin
     values (v_org, 'proof override of the signals', now() + interval '2 hours', 1, false) returning id into v_ov;
   update public.clinical_staff set max_lead_patients = 1 where profile_id in (v_a, v_b);
   perform pg_temp.rec('gate: a CMO override reopens a closed gate', 'ok', pg_temp.order_try(v_org, r3, v_item, v_price));
-  update public.intake_overrides set expires_at = now() - interval '1 minute' where id = v_ov;
+  update public.intake_overrides set created_at = now() - interval '2 hours', expires_at = now() - interval '1 minute' where id = v_ov;
   perform pg_temp.rec('gate: an expired override reopens nothing (it ends by the clock)', 'P0001:intake_paused', pg_temp.order_try(v_org, pg_temp.f('real5'), v_item, v_price));
   update public.intake_overrides set expires_at = now() + interval '2 hours' where id = v_ov;
   v_pause := pg_temp.real_mode(v_org, 'pause', 2);
   perform pg_temp.rec('gate: a pause closes the gate even with an override and even when the gate is not enforced', 'P0001:intake_paused', pg_temp.order_try(v_org, pg_temp.f('real5'), v_item, v_price));
   perform pg_temp.end_mode(v_pause);
+  update public.intake_overrides set ended_at = now() where id = v_ov;
   perform pg_temp.use_rules('{"gate_enforce":0}');
   v_pause := pg_temp.real_mode(v_org, 'surge', 2);
   perform pg_temp.rec('gate: a surge closes new intake too, with the gate not enforced', 'P0001:intake_paused', pg_temp.order_try(v_org, pg_temp.f('real5'), v_item, v_price));
@@ -328,7 +337,7 @@ begin
   perform pg_temp.rec('gate: ...and a new sale is refused', 'P0001:intake_paused', pg_temp.order_try(v_org, pg_temp.f('real7'), v_item, v_price));
   -- a routine class 5 task at 800 minutes breaches (warn 720) until a surge multiplies the routine warning time
   perform pg_temp.clear_queue();
-  t := private.create_clinical_task(pg_temp.f('real6'), 'symptom_review');
+  t := pg_temp.release(private.create_clinical_task(pg_temp.f('real6'), 'symptom_review'));
   perform pg_temp.backdate(t, 'created_at = now() - interval ''800 minutes''');
   perform pg_temp.rec('surge: a routine task at 800 minutes (warning 720) is a breach without surge', 'true',
     ((private.intake_gate_status(v_org) -> 'reasons') ? 'oldest_task')::text);
@@ -340,6 +349,10 @@ begin
   perform pg_temp.rec('gate: queue clear, everything fine: open again', 'true', (private.intake_gate_status(v_org) ->> 'open'));
   perform pg_temp.guard_on('on_call_cover_ok', false);
   perform pg_temp.rec('gate: guard switched off again: closed (fail closed)', 'P0001:intake_paused', pg_temp.order_try(v_org, pg_temp.f('real7'), v_item, v_price));
+  insert into public.intake_overrides (organisation_id, reason, expires_at, config_version, is_test)
+    values (v_org, 'proof override of the guard', now() + interval '2 hours', 1, false) returning id into v_ov;
+  perform pg_temp.rec('gate: a CMO override also reopens a closed guard', 'ok', pg_temp.order_try(v_org, pg_temp.f('real7'), v_item, v_price));
+  update public.intake_overrides set ended_at = now() where id = v_ov;
   perform pg_temp.guard_on('on_call_cover_ok', true);
   update public.clinical_staff set max_lead_patients = 1 where profile_id = v_a;
   update public.clinical_staff set max_lead_patients = null where profile_id = v_b;
@@ -380,7 +393,7 @@ begin
     (select count(*)::text from public.notifications where recipient_id = v_b and channel = 'in_app' and payload ->> 'audience' = 'surge') || ',' ||
     (select (payload ->> 'message' !~* '(patient|blood|pressure|diagnos|emergenc)')::text from public.notifications where recipient_id = v_b and payload ->> 'audience' = 'surge' limit 1));
   perform pg_temp.rec('surge: the mode status reaches a clinician without reasons', 'true,false',
-    (pg_temp.q_as(v_a, 'select (public.ops_mode_status() ->> ''surge'') is not null') ) || ',' || (pg_temp.q_as(v_a, 'select (public.ops_mode_status() ->> ''pause'') is not null'));
+    (pg_temp.q_as(v_a, 'select (public.ops_mode_status() ->> ''surge'') is not null') ) || ',' || (pg_temp.q_as(v_a, 'select (public.ops_mode_status() ->> ''pause'') is not null')));
   -- expiry by the clock, with the sweep job dead
   update public.ops_modes set expires_at = now() - interval '1 second' where id = v_surge;
   perform pg_temp.rec('modes: a surge past its time is OFF at once, even if the sweep has not run', 'false', private.ops_mode_active('surge', v_org, true)::text);
@@ -474,7 +487,7 @@ begin
   -- A leads tp3; tp1 and tp2 have no lead
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id) values (v_org, tp3, v_a);
   t_crit := private.create_clinical_task(tp1, 'critical_result_review');                 -- class 2, open
-  t_routine := private.create_clinical_task(tp2, 'routine_result_review');              -- class 8, open (no lead)
+  t_routine := pg_temp.release(private.create_clinical_task(tp2, 'routine_result_review'));   -- class 8, open (its offer window ended)
   t_amber := private.create_clinical_task(tp3, 'amber_bp_review');                       -- class 4, offered to its lead A
   perform pg_temp.rec('queue: baseline: B sees the open routine and critical tasks, not the offer held for A', 'true,true,false',
     pg_temp.sees(v_b, t_routine) || ',' || pg_temp.sees(v_b, t_crit) || ',' || pg_temp.sees(v_b, t_amber));
@@ -490,7 +503,7 @@ begin
   perform pg_temp.rec('surge: ended, the offer goes back to its lead only', 'false', pg_temp.sees(v_b, t_amber));
 
   -- an already-claimed task
-  t_claimed := private.create_clinical_task(pg_temp.f('tp4'), 'routine_result_review');
+  t_claimed := pg_temp.release(private.create_clinical_task(pg_temp.f('tp4'), 'routine_result_review'));
   perform pg_temp.act(v_b);
   perform public.queue_next(array['routine_result_review']);
   perform pg_temp.back();
@@ -516,16 +529,31 @@ begin
     (v_page is not null)::text || ',' || (select count(*)::text from public.pages where id = v_page and to_clinician_id = v_a));
   perform pg_temp.act(v_a); perform public.acknowledge_page(v_page); perform pg_temp.back();
   perform pg_temp.rec('pause: and it can be acknowledged during a pause', 'true', ((select acknowledged_at from public.pages where id = v_page) is not null)::text);
+  perform pg_temp.act(v_a); perform public.close_page(v_page, 'proof: closing the settled page'); perform pg_temp.back();
   perform pg_temp.rec('pause: the page notifications went out on push, in app and email, never sms', 'false',
     (exists (select 1 from public.notifications where source_id = v_page and channel::text in ('sms', 'voice')))::text);
-  -- bookings: the guard is closed by a REAL pause only
+  -- bookings: a pause closes NEW bookings and NEW consultation requests only; care already paid or booked is not touched
   perform pg_temp.guard_on('clinical_operations_enabled', true);
-  perform pg_temp.rec('pause: a TEST pause does not close the bookings guard for the real world', 'true', private.go_live_guard_on('clinical_operations_enabled')::text);
+  perform pg_temp.rec('pause: with a (test) pause on, a NEW booking for a test patient with a test clinician is refused', 'false',
+    private.go_live_open_intake('clinical_operations_enabled', tp2, v_a)::text);
+  perform pg_temp.rec('pause: ...and a NEW video visit request, and the guard itself and the existing-care check stay open', 'false,true,true',
+    private.go_live_open_patient_intake('clinical_operations_enabled', tp2)::text || ',' || private.go_live_guard_on('clinical_operations_enabled')::text || ',' ||
+    private.go_live_open('clinical_operations_enabled', tp2, v_a)::text);
+  perform pg_temp.rec('pause: only the three entry points that start NEW work ask the intake question', 'true,true,true,false,false,false,false',
+    (pg_get_functiondef('public.hold_appointment_slot(uuid,uuid,appointment_type,appointment_consultation_method,timestamptz,timestamptz,text,text,text,uuid,uuid,uuid,integer)'::regprocedure) like '%go_live_open_intake%')::text || ',' ||
+    (pg_get_functiondef('private.create_followup_offer(uuid,uuid,timestamptz[],text,integer)'::regprocedure) like '%go_live_open_intake%')::text || ',' ||
+    (pg_get_functiondef('private.video_visit_requests_go_live_guard()'::regprocedure) like '%go_live_open_patient_intake%')::text || ',' ||
+    (pg_get_functiondef('public.accept_video_visit_request(uuid)'::regprocedure) like '%_intake%')::text || ',' ||
+    (pg_get_functiondef('public.select_video_visit_alternate_slot(uuid,uuid)'::regprocedure) like '%_intake%')::text || ',' ||
+    (pg_get_functiondef('public.confirm_appointment_booking(uuid)'::regprocedure) like '%_intake%')::text || ',' ||
+    (pg_get_functiondef('public.service_get_encounter_room(uuid)'::regprocedure) like '%_intake%')::text);
   v_text := pg_temp.real_mode(v_org, 'pause', 1)::text;
-  perform pg_temp.rec('pause: a real pause closes clinical_operations_enabled (bookings, consultations)', 'false', private.go_live_guard_on('clinical_operations_enabled')::text);
-  perform pg_temp.rec('pause: and no other guard is touched (on_call_cover_ok is a different key)', 'true', private.go_live_guard_on('on_call_cover_ok')::text);
+  perform pg_temp.rec('pause: a REAL pause closes a NEW booking for a real patient', 'false', private.go_live_open_intake('clinical_operations_enabled', pg_temp.f('real8'), v_a)::text);
+  perform pg_temp.rec('pause: ...and still not the guard, the existing-care check, or any other guard', 'true,true,true',
+    private.go_live_guard_on('clinical_operations_enabled')::text || ',' || private.go_live_open('clinical_operations_enabled', pg_temp.f('real8'), v_a)::text || ',' || private.go_live_guard_on('on_call_cover_ok')::text);
   perform pg_temp.end_mode(v_text::uuid);
-  perform pg_temp.rec('pause: ended, bookings reopen', 'true', private.go_live_guard_on('clinical_operations_enabled')::text);
+  perform pg_temp.rec('pause: ended, new bookings reopen', 'true', private.go_live_open_intake('clinical_operations_enabled', pg_temp.f('real8'), v_a)::text);
+  perform pg_temp.rec('pause: any other guard key is never closed by a pause', 'true', private.go_live_open_intake('on_call_cover_ok', tp2, v_a)::text);
   perform pg_temp.guard_on('clinical_operations_enabled', false);
   perform pg_temp.act(v_cmo); perform public.cmo_end_ops_mode(v_pause, 'proof'); perform pg_temp.back();
   perform pg_temp.rec('pause: ended, the routine task is offered again', 'true', pg_temp.sees(v_a, (select id from public.clinical_tasks where state = 'open' and priority_class = 8 limit 1)));
@@ -599,8 +627,10 @@ begin
 
   -- cover offers
   perform pg_temp.rec('cover: before the sweep there is no offer', '0', (select count(*)::text from public.fatigue_cover_offers)::text);
-  perform pg_temp.rec('cover: the sweep offers the next shift to A (2 overnight pages) and not to B (none)', '1,1',
-    private.fatigue_cover_sweep()::text || ',' || (select count(*)::text from public.fatigue_cover_offers where clinician_id = v_a and next_rota_id = r_next));
+  v_n := private.fatigue_cover_sweep();   -- the write is its own statement: a subquery in the same expression can be evaluated first
+  perform pg_temp.rec('cover: the sweep offers the next shift to A (2 overnight pages) and not to B (none)', '1,1,0',
+    v_n::text || ',' || (select count(*)::text from public.fatigue_cover_offers where clinician_id = v_a and next_rota_id = r_next) || ',' ||
+    (select count(*)::text from public.fatigue_cover_offers where clinician_id = v_b));
   perform pg_temp.rec('cover: A and the reviewers get a neutral in-app notice, no names, no clinical words', '1,true',
     (select count(*)::text from public.notifications where recipient_id = v_a and payload ->> 'audience' = 'cover_offer' and channel = 'in_app') || ',' ||
     (select bool_and(payload ->> 'message' !~* '(patient|blood|pressure|red event|diagnos|dr |doctor [a-z])') from public.notifications where payload ->> 'audience' = 'cover_offer'));
@@ -645,10 +675,25 @@ begin
   perform pg_temp.use_rules('{"drill_enabled":0}');
   perform pg_temp.rec('drills: OFF by default: nothing is sent', '0,0', private.run_fire_drills()::text || ',' || (select count(*)::text from public.page_tests where kind = 'drill'));
   perform pg_temp.use_rules('{"drill_enabled":1,"drill_hour_start":0,"drill_hour_end":24}');
+  v_n := private.run_fire_drills();
   perform pg_temp.rec('drills: ON: both rostered clinicians get a drill; C (not on the rota) does not', '2,1,1,0',
-    private.run_fire_drills()::text || ',' || (select count(*)::text from public.page_tests where kind = 'drill' and clinician_id = v_a) || ',' ||
+    v_n::text || ',' || (select count(*)::text from public.page_tests where kind = 'drill' and clinician_id = v_a) || ',' ||
     (select count(*)::text from public.page_tests where kind = 'drill' and clinician_id = v_b) || ',' || (select count(*)::text from public.page_tests where kind = 'drill' and clinician_id = v_c));
   perform pg_temp.rec('drills: a second run the same day sends no more (once per interval)', '0', private.run_fire_drills()::text);
+  -- a clinician on leave, and one holding an open page, are never drilled
+  declare v_d uuid; v_e uuid; v_ev uuid;
+  begin
+    v_d := pg_temp.mkdoc(v_org, v_admin, 'D', 'senior_medical_officer', '{on_call}');
+    v_e := pg_temp.mkdoc(v_org, v_admin, 'E', 'senior_medical_officer', '{on_call}');
+    perform pg_temp.rota_row(v_org, now() + interval '20 hours', now() + interval '40 hours', v_d, v_e);
+    insert into public.provider_time_off (organisation_id, clinician_id, kind, starts_at, ends_at, reason) values (v_org, v_d, 'leave', now() - interval '1 hour', now() + interval '2 days', 'proof');
+    v_ev := pg_temp.mkevent(pg_temp.f('tp6'), pg_temp.f('rs'));
+    perform pg_temp.mkpage(v_org, pg_temp.f('tp6'), v_ev, v_e, now() - interval '3 minutes');
+    v_n := private.run_fire_drills();
+    perform pg_temp.rec('drills: a clinician on leave and one holding an open page are not drilled', '0,0,0',
+      v_n::text || ',' || (select count(*)::text from public.page_tests where kind = 'drill' and clinician_id = v_d) || ',' ||
+      (select count(*)::text from public.page_tests where kind = 'drill' and clinician_id = v_e));
+  end;
   perform pg_temp.rec('drills: the drill is a test page with no sms, sent by the system, and says nothing clinical', 'true,false,null',
     (select (count(*) = 2)::text from public.notifications where template = 'on_call_test_page' and source_table = 'page_tests' and channel::text = 'push') || ',' ||
     (exists (select 1 from public.notifications where template = 'on_call_test_page' and channel::text in ('sms', 'voice')))::text || ',' ||
@@ -662,7 +707,9 @@ begin
   perform set_config('tarragon.paging_write', 'off', true);
   select reliability_score into v_score_before from public.clinical_staff where profile_id = v_a;
   -- A acknowledges after 120 seconds (within the 300 second target), by push, on an android device
+  perform set_config('tarragon.paging_write', 'on', true);
   insert into public.on_call_device_seen (clinician_id, device_id, kind) values (v_a, 'device-s20c-0001', 'android');
+  perform set_config('tarragon.paging_write', 'off', true);
   perform set_config('tarragon.paging_write', 'on', true);
   update public.page_tests set sent_at = now() - interval '120 seconds' where id = t_a;
   update public.page_tests set sent_at = now() - interval '400 seconds' where id = t_b;
@@ -683,6 +730,9 @@ begin
   -- the unanswered drill is a miss after 60 minutes
   perform pg_temp.rec('drills: an unanswered drill is recorded as a miss after the window, once', '1,0',
     private.settle_drill_results()::text || ',' || private.settle_drill_results()::text);
+  perform pg_temp.rec('drills: the lead''s reliability dashboard leaves drill results out of its event counts (as it does audit results)', 'true,false',
+    (pg_get_functiondef('public.reliability_dashboard(integer,integer)'::regprocedure) like '%''audit_result'', ''drill_result''%')::text || ',' ||
+    (pg_get_functiondef('public.reliability_dashboard(integer,integer)'::regprocedure) like '%kind <> ''audit_result''%')::text);
   perform pg_temp.rec('drills: the miss is informational too (good 0, weight 0)', '0,0',
     (select good::text from public.clinician_reliability_events where clinician_id = v_c and kind = 'drill_result') || ',' || (select weight::text from public.clinician_reliability_events where clinician_id = v_c and kind = 'drill_result'));
   -- the interval
@@ -733,7 +783,7 @@ declare
   v_org uuid := pg_temp.f('org'); v_a uuid := pg_temp.f('A'); v_b uuid := pg_temp.f('B'); v_cmo uuid := pg_temp.f('cmo');
   v_item uuid := pg_temp.f('item'); v_price uuid := pg_temp.f('price');
   t0 timestamptz := date_trunc('hour', now()); s1 timestamptz := date_trunc('hour', now()) - interval '2 hours' + interval '6 hours';
-  v_t uuid; v_before text;
+  v_t uuid; v_before integer; v_pause2 uuid;
 begin
   perform pg_temp.use_rules('{"gate_enforce":1,"hard_rest_enforce":1}');
   perform pg_temp.guard_on('on_call_cover_ok', true);
@@ -745,32 +795,34 @@ begin
   perform pg_temp.sab('sabotage: with the intake trigger off the sale goes through', 'P0001:intake_paused', pg_temp.order_try(v_org, pg_temp.f('real8'), v_item, v_price));
   alter table public.orders enable trigger orders_intake_gate;
   -- 2. the mode clock removed (expires_at ignored)
-  v_t := pg_temp.real_mode(v_org, 'pause', 1);
-  update public.ops_modes set expires_at = now() - interval '1 minute' where id = v_t;
+  v_pause2 := pg_temp.real_mode(v_org, 'pause', 1);
+  update public.ops_modes set expires_at = now() - interval '1 minute' where id = v_pause2;
   perform pg_temp.rec('sabotage control: an expired mode is not active', 'false', private.ops_mode_active('pause', v_org, false)::text);
   create or replace function private.ops_mode_active(p_mode text, p_org uuid default null, p_test boolean default false) returns boolean
     language sql stable security definer set search_path = '' as $f$ select exists (select 1 from public.ops_modes m where m.mode = p_mode and m.state = 'active' and m.is_test = coalesce(p_test, false)) $f$;
   perform pg_temp.sab('sabotage: with the clock removed an expired mode stays on', 'false', private.ops_mode_active('pause', v_org, false)::text);
+  perform pg_temp.end_mode(v_pause2);
   -- 3. the rest rule neutralised
   create or replace function private.rest_rule_check(p_clinician uuid, p_start timestamptz) returns void language plpgsql stable security definer set search_path = '' as $f$ begin return; end $f$;
   perform pg_temp.sab('sabotage: with the rest rule neutralised a 6 hour turnaround is accepted', '23514',
     pg_temp.try(format('select private.rest_rule_check(%L, %L)', v_a, s1)));
   -- 4. the drill result trigger dropped
   drop trigger page_tests_drill_ack on public.page_tests;
+  select count(*) into v_before from public.clinician_reliability_events where clinician_id = v_b and kind = 'drill_result';
   perform set_config('tarragon.paging_write', 'on', true);
   insert into public.page_tests (organisation_id, clinician_id, kind, sent_at, delivered_at, is_test) values (v_org, v_b, 'drill', now() - interval '30 seconds', now(), true) returning id into v_t;
   insert into public.page_delivered_acks (test_id, clinician_id, channel) values (v_t, v_b, 'push');
   update public.page_tests set acknowledged_at = now() where id = v_t;
   perform set_config('tarragon.paging_write', 'off', true);
-  perform pg_temp.sab('sabotage: with the drill trigger dropped an acknowledged drill leaves no record', '1',
-    (select count(*)::text from public.clinician_reliability_events where clinician_id = v_b and kind = 'drill_result' and occurred_at > now() - interval '5 seconds'));
-  -- 5. the pause term removed from the bookings guard
+  perform pg_temp.sab('sabotage: with the drill trigger dropped an acknowledged drill leaves no record', (v_before + 1)::text,
+    (select count(*)::text from public.clinician_reliability_events where clinician_id = v_b and kind = 'drill_result'));
+  -- 5. the pause term removed from the intake question
   perform pg_temp.guard_on('clinical_operations_enabled', true);
-  v_t := pg_temp.real_mode(v_org, 'pause', 1);
-  perform pg_temp.rec('sabotage control: a real pause closes the bookings guard', 'false', private.go_live_guard_on('clinical_operations_enabled')::text);
-  create or replace function private.go_live_guard_on(p_key text) returns boolean language sql stable security definer set search_path = ''
-    as $f$ select coalesce((select g.is_on from public.go_live_guards g where g.key = p_key), false) $f$;
-  perform pg_temp.sab('sabotage: with the pause term removed the bookings guard stays open', 'false', private.go_live_guard_on('clinical_operations_enabled')::text);
+  v_pause2 := pg_temp.real_mode(v_org, 'pause', 1);
+  perform pg_temp.rec('sabotage control: a real pause closes a NEW booking', 'false', private.go_live_open_intake('clinical_operations_enabled', pg_temp.f('real8'), v_a)::text);
+  create or replace function private.go_live_open_intake(p_key text, p_patient uuid default null, p_clinician uuid default null) returns boolean language sql stable security definer set search_path = ''
+    as $f$ select private.go_live_open(p_key, p_patient, p_clinician) $f$;
+  perform pg_temp.sab('sabotage: with the pause term removed a new booking goes through during a pause', 'false', private.go_live_open_intake('clinical_operations_enabled', pg_temp.f('real8'), v_a)::text);
   -- 6. the rota wrapper replaced by the base: the validator no longer holds
   create or replace function private.rota_validate_clinician_core(p_profile uuid, p_org uuid, p_start timestamptz, p_end timestamptz, p_objective boolean)
     returns void language sql stable security definer set search_path = '' as $f$ select private.rota_validate_clinician_core_base(p_profile, p_org, p_start, p_end, p_objective) $f$;
@@ -782,6 +834,10 @@ end $$;
 do $$
 declare v_cmo uuid := pg_temp.f('cmo'); v_a uuid := pg_temp.f('A');
 begin
+  perform pg_temp.guard_on('on_call_cover_ok', false);
+  perform pg_temp.rec('sign: capacity v2 turns the gate on, so it cannot be signed while the on-call cover guard is off', '23514',
+    pg_temp.try_as(v_cmo, 'select public.sign_capacity_cover_config(2)'));
+  perform pg_temp.guard_on('on_call_cover_ok', true);
   perform pg_temp.act(v_cmo);
   perform public.sign_lead_config(2);
   perform public.sign_capacity_cover_config(2);

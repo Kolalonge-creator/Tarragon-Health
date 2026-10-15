@@ -20,7 +20,7 @@ export function CapacityConfigPanel({ capacityVersion, leadVersion }: { capacity
           </ul>
           <label className="flex items-start gap-2 text-sm text-charcoal-ink">
             <input type="checkbox" name="understood" className="mt-1" required />
-            <span>I have read this and I sign capacity configuration version {capacityVersion} for use. It replaces the version in force, which stays on record. The intake gate also needs the on-call cover guard switched on.</span>
+            <span>I have read this and I sign capacity configuration version {capacityVersion} for use. It replaces the version in force, which stays on record. Signing is refused until the on-call cover guard is switched on (it needs a rota covering the next 7 days); otherwise every new care pack sale would be refused.</span>
           </label>
           <button type="submit" className={btn}>Sign capacity configuration version {capacityVersion}</button>
         </form>

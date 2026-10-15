@@ -3480,7 +3480,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // CMO's surge mode (max hours, first routine class it widens to any eligible clinician, multiplier on routine warning times).
     // pause_*: the CMO's pause (max hours; an admin request lapses after pause_confirm_minutes; routine classes from pause_hold_min_class
     // are not offered while paused). overnight_*: the Lagos hours that count as overnight. cover_offer_pages: overnight pages in one shift
-    // that trigger the offer of the next shift. drill_*: the monthly drill, the target (90 percent within 300 seconds, PROPOSED) and the
+    // that trigger the offer of the next shift. drill_*: the monthly drill (drill_roster_lookahead_days: who counts as on the rota; drill_min_gap_minutes: no drill within this many minutes of another test page; drill_busy_hours: nobody holding a page opened within this many hours is drilled), the target (90 percent within 300 seconds, PROPOSED) and the
     // time after which an unanswered drill is a miss. A drill result is informational only: weight 0, never pay or removal.
     value: {
       gate_enforce: 0,
@@ -3507,6 +3507,9 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       cover_offer_lookahead_hours: 36,
       drill_enabled: 0,
       drill_interval_days: 30,
+      drill_roster_lookahead_days: 30,
+      drill_min_gap_minutes: 10,
+      drill_busy_hours: 6,
       drill_ack_target_seconds: 300,
       drill_ack_target_pct: 90,
       drill_missed_after_minutes: 60,
@@ -3549,6 +3552,9 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       cover_offer_lookahead_hours: 36,
       drill_enabled: 1,
       drill_interval_days: 30,
+      drill_roster_lookahead_days: 30,
+      drill_min_gap_minutes: 10,
+      drill_busy_hours: 6,
       drill_ack_target_seconds: 300,
       drill_ack_target_pct: 90,
       drill_missed_after_minutes: 60,
