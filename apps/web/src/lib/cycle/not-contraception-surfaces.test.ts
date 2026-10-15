@@ -10,10 +10,12 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const ROOTS = [join(__dirname, "..", ".."), join(__dirname, "..", "..", "..", "..", "mobile", "src")];
-const SKIP = /(\.test\.|\.d\.ts$|database\.types|\/lib\/rules\/cycle-prediction\.ts$|\/lib\/rules\/cycle-thermal-shift\.ts$|\/lib\/cycle-prediction\.ts$|cycle-reading\.ts$|cycle-insights\.ts$|cycle-ring\.tsx$)/;
+// S85 D2's own surface test (patient/cycle/fertile-window-mode.test.tsx) renders the calendar caption and checks the label on screen; the two cycle-fertile-mode helpers hold
+// the planning-mode filter and phase wording, not a rendered window. They are skipped here so this source scan and that rendered check do not both own the same files.
+const SKIP = /(\/patient\/cycle\/cycle-calendar\.tsx$|\/lib\/rules\/cycle-fertile-mode\.ts$|\/lib\/cycle-fertile-mode\.ts$|\.test\.|\.d\.ts$|database\.types|\/lib\/rules\/cycle-prediction\.ts$|\/lib\/rules\/cycle-thermal-shift\.ts$|\/lib\/cycle-prediction\.ts$|cycle-reading\.ts$|cycle-insights\.ts$|cycle-ring\.tsx$)/;
 // Something that SHOWS a window or an estimated ovulation to a person.
 const RENDERS_WINDOW = /fertileWindow(Start|End)|[Ff]ertile window|Estimated ovulation|describeFertileWindow/;
-const HAS_LABEL = /NOT_CONTRACEPTION_LABEL|FERTILE_WINDOW_DISCLAIMER|describeFertileWindow|cycle\.not_contraception|cycle\.planning\.(disclaimer|estimate_line)/;
+const HAS_LABEL = /NOT_CONTRACEPTION_LABEL|FERTILE_WINDOW_LABEL|FERTILE_WINDOW_DISCLAIMER|describeFertileWindow|cycle\.not_contraception|cycle\.planning\.(disclaimer|estimate_line)/;
 
 /** Source without comments, so a sentence in a comment about a fertile window does not count as a surface that shows one. */
 function code(file: string): string {

@@ -53013,6 +53013,8 @@ export type Database = {
         | "joint_aches"
         | "brain_fog"
         | "other"
+        | "irregular_bleeding"
+        | "vaginal_discomfort"
       menstrual_flow_level:
         | "none"
         | "spotting"
