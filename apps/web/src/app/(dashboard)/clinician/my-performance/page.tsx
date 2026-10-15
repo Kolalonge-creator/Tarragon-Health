@@ -1,4 +1,5 @@
 import { MyPerformanceView } from "./my-performance-view";
+import { ReliabilitySignalCard } from "@/components/reliability/reliability-signal-card";
 
 /**
  * Care Team / Provider Workspace §5.21 — a clinician's own performance,
@@ -7,7 +8,7 @@ import { MyPerformanceView } from "./my-performance-view";
  * (20260827203759), called client-side by MyPerformanceView — no server
  * fetch needed here.
  */
-export default function ClinicianMyPerformancePage() {
+export default async function ClinicianMyPerformancePage() {
   return (
     <div className="space-y-6">
       <div>
@@ -17,6 +18,7 @@ export default function ClinicianMyPerformancePage() {
           no substitute for clinical judgement.
         </p>
       </div>
+      <ReliabilitySignalCard />
       <MyPerformanceView />
     </div>
   );

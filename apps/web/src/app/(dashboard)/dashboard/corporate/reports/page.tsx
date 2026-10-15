@@ -5,7 +5,6 @@ import { OutcomeEvidenceSummary } from "../outcome-evidence-summary";
 import { MedicationOutcomesCard } from "@/components/medication-outcomes-card";
 import { EngagementOutcomesCard } from "@/components/engagement-outcomes-card";
 import { LifestyleOutcomesCard } from "@/components/lifestyle-outcomes-card";
-import { WellbeingCohortSummary } from "../wellbeing-cohort-summary";
 import { OutcomeReportsPanel } from "../outcome-reports-panel";
 import { SubsidySpendSummary } from "@/components/institution/subsidy-spend-summary";
 import { loadCorporateDashboardData } from "../dashboard-data";
@@ -52,11 +51,10 @@ export default async function CorporateReportsPage() {
   return (
     <div className="space-y-6">
       <AgeBandSummary distribution={data.ageBands} />
-      <OutcomeEvidenceSummary organisationId={data.organisationId} costAvoided={data.costAvoided} />
+      <OutcomeEvidenceSummary organisationId={data.organisationId} />
       <MedicationOutcomesCard outcomes={data.medicationOutcomes} />
       <EngagementOutcomesCard buckets={data.engagementOutcomes} />
       <LifestyleOutcomesCard supabase={data.access.client} organisationId={data.access.organisationId} />
-      <WellbeingCohortSummary metric={data.wellbeingCohortMetric} />
       <OutcomeReportsPanel organisationId={data.organisationId} />
       <SubsidySpendSummary organisationId={data.organisationId} />
     </div>

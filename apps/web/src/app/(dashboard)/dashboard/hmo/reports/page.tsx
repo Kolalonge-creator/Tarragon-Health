@@ -1,4 +1,3 @@
-import { ClaimsImpactCard } from "../claims-impact-card";
 import { MedicationOutcomesCard } from "@/components/medication-outcomes-card";
 import { EngagementOutcomesCard } from "@/components/engagement-outcomes-card";
 import { LifestyleOutcomesCard } from "@/components/lifestyle-outcomes-card";
@@ -16,7 +15,6 @@ export default async function HmoReportsPage() {
 
   return (
     <div className="space-y-6">
-      <ClaimsImpactCard estimate={data.costAvoided} />
       <MedicationOutcomesCard outcomes={data.medicationOutcomes} entityLabel="member" />
       <EngagementOutcomesCard buckets={data.engagementOutcomes} entityLabel="member" />
       <LifestyleOutcomesCard

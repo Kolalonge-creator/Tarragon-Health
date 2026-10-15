@@ -43920,6 +43920,8 @@ export type Database = {
           id: string
           invite_id: string | null
           is_test: boolean
+          monthly_report_shared: boolean
+          monthly_report_shared_at: string | null
           notice_final_for: string | null
           notice_first_for: string | null
           organisation_id: string
@@ -43939,6 +43941,8 @@ export type Database = {
           id?: string
           invite_id?: string | null
           is_test?: boolean
+          monthly_report_shared?: boolean
+          monthly_report_shared_at?: string | null
           notice_final_for?: string | null
           notice_first_for?: string | null
           organisation_id: string
@@ -43958,6 +43962,8 @@ export type Database = {
           id?: string
           invite_id?: string | null
           is_test?: boolean
+          monthly_report_shared?: boolean
+          monthly_report_shared_at?: string | null
           notice_final_for?: string | null
           notice_first_for?: string | null
           organisation_id?: string
@@ -44951,6 +44957,12 @@ export type Database = {
       withdraw_patient_allergy_correction: { Args: { p_request_id: string }; Returns: Json }
       // S27 (lab results and release rules): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       bp_control_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
+      // S75 (outcome measures, CMO decision S-5): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
+      bp_control_report_day: { Args: { p_day: number; p_from?: string; p_to?: string }; Returns: Json };
+      clinician_mental_health_outcomes: { Args: { p_patient: string; p_reason: string }; Returns: Json };
+      mental_health_outcome_report: { Args: { p_day: number; p_from?: string; p_instrument: string; p_to?: string }; Returns: Json };
+      my_mental_health_outcomes: { Args: Record<PropertyKey, never>; Returns: Json };
+      outcome_measures_report: { Args: { p_day: number; p_from?: string; p_measure: string; p_to?: string }; Returns: Json };
       // S38c (monthly report and risk stratification): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       clinician_folio_for_document: {
         Args: { p_document_kind: string; p_document_ids: string[] }
@@ -44964,6 +44976,9 @@ export type Database = {
         }[]
       }
       clinician_risk_worklist: { Args: { p_limit?: number }; Returns: Json };
+      clinical_response_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
+      log_institution_aggregate_read: { Args: { p_organisation_id: string; p_surface: string }; Returns: boolean };
+      set_circle_monthly_report_share: { Args: { p_member: string; p_on: boolean }; Returns: boolean };
       device_target_for_reading: {
         Args: { p_device_id: string }
         Returns: { is_supporter: boolean; organisation_id: string; patient_id: string }[]
