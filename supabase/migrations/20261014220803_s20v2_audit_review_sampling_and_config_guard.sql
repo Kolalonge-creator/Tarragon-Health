@@ -559,7 +559,7 @@ begin
     if v_te.trigger_type = 'observation' then
       select jsonb_build_object('vital_type', vr.vital_type, 'systolic', vr.systolic, 'diastolic', vr.diastolic, 'pulse_bpm', vr.pulse_bpm, 'glucose_mmol_l', vr.glucose_mmol_l,
                                 'temperature_c', vr.temperature_c, 'spo2_pct', vr.spo2_pct, 'taken_at', vr.taken_at, 'patient_note', vr.note)
-        into v_reading from public.vitals_readings vr where vr.id = v_te.trigger_id and vr.patient_id = t.patient_id;
+        into v_reading from private.vitals_readings_current vr where vr.id = v_te.trigger_id and vr.patient_id = t.patient_id;
     end if;
   end if;
 
