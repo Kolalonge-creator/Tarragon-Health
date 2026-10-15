@@ -68,7 +68,8 @@ select v.job_name, v.schedule, 'vercel' from (values
   ('/api/cron/wearable-sync', '15 4 * * *'), ('/api/cron/clinical-rules', '0 5 * * *'), ('/api/cron/entitlement-expiry', '5 4 * * *'),
   ('/api/cron/entitlement-reminders', '15 6 * * *'), ('/api/cron/order-refunds', '25 5 * * *'),
   ('/api/cron/community-housekeeping', '50 3 * * *'),
-  ('/api/cron/testing-day-reminders', '35 6 * * *')
+  ('/api/cron/testing-day-reminders', '35 6 * * *'),
+  ('/api/cron/assistant-nudges', '30 7 * * *')
 ) v (job_name, schedule)
 on conflict (job_name) do nothing;
 -- vercel-crons-end
