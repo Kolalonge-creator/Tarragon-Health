@@ -1437,7 +1437,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   },
   {
     key: "quality.audit",
-    // Version 2 (Q16): adds sampling.new_clinician_full_review_cases. Clinical audits, tier 1 count, the audit form, reliability weight and the speak-up clocks (S20, spec 7.8). Live values are the
+    // Clinical audits, tier 1 count, the audit form, reliability weight and the speak-up clocks (S20, spec 7.8). Live values are the
     // active row of `quality_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
     // Every number is PROPOSED and owned by the CMO (OQ-140): the sample rate, the tier 1 count and pass mark, the score bands,
     // and the acknowledge and respond times for a safety concern.
@@ -1449,7 +1449,6 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
         floor_per_clinician_per_month: 1,
         reviewer_monthly_cap: 40,
         due_days: 14,
-        new_clinician_full_review_cases: 20,
       },
       tier1: {
         audited_task_count: 20,
@@ -1486,9 +1485,9 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     },
     owner: "CMO",
     status: "proposed",
-    version: 2,
-    effectiveFrom: "2026-10-13",
-    source: "docs/design/S20.md; spec 7.8; docs/design/S11-S15-credentialing.md (CMO answer Q16: 100 percent review of a new clinician's first 20 red or prescribing cases)",
+    version: 1,
+    effectiveFrom: "2026-10-06",
+    source: "docs/design/S20.md; spec 7.8",
   },
   {
     key: "quality.audit",
@@ -3467,6 +3466,86 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S55.md; spec 9.3; OQ-S55-01",
+  },
+  {
+    key: "symptom.degraded_mode",
+    // S60 (spec 12.8, INV-06): what the symptom checker does when its engine errors, times out or has no protocol to run. The
+    // bundled red-flag floor runs first either way. In degraded mode the severity floors on the signed red-flag rules may be
+    // ignored (a strictly more sensitive screen), and a run that fired no flag is never reassurance: it is routed to at least
+    // this category with a human review. The CMO confirms or changes it.
+    value: { ignore_severity_floors: true, unclassifiable_category: "urgent", engine_timeout_ms: 3000 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S60.md section 3; spec 12.8; docs/OPEN-QUESTIONS.md OQ-S60-02",
+  },
+  {
+    key: "symptom.risk_tightening",
+    // S60 (spec 12.2 and 12.11): Nigerian prevalence and seasonal risk, as a layer that can only RAISE an urgency (a minimum
+    // category), never lower or replace one. Every entry below is a DRAFT: status "draft", no clinical sign-off, a placeholder
+    // provenance that says so. The engine ignores an entry until it is "signed_off" with a named signer and date, so shipping
+    // this changes nothing for any patient. The CMO decides which entries exist, their wording, seasons, regions and minimums;
+    // none of the months, states or symptom keys below is clinical advice. `applies_when` keys that no signed pathway asks yet
+    // (for example sickle_cell_disease history) will simply not match until a signed pathway collects them.
+    value: {
+      entries: [
+        {
+          id: "malaria_season_fever",
+          label: "Fever during the rainy season",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder. The CMO must confirm the season and the source (for example national malaria programme guidance) before this is signed." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { months: [4, 5, 6, 7, 8, 9, 10], any_associated_symptom: ["fever"] },
+          minimum_category: "routine",
+        },
+        {
+          id: "typhoid_fever_with_abdominal_pain",
+          label: "Fever with abdominal pain",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder. Needs a sourced definition and a signed abdominal pain pathway that collects these symptoms." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { any_associated_symptom: ["fever"], complaint_keys: ["abdominal_pain"] },
+          minimum_category: "routine",
+        },
+        {
+          id: "lassa_season_fever",
+          label: "Fever in the dry season in a high-risk state",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder. The CMO must name the season, the STATES (this draft names none, so it would apply nationwide if signed as written) and the source (for example national disease control centre guidance) before this is signed." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { months: [11, 12, 1, 2, 3, 4], any_associated_symptom: ["fever"] },
+          minimum_category: "urgent",
+        },
+        {
+          id: "sickle_cell_history_with_symptom",
+          label: "Sickle cell history with fever or pain",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder. Needs a signed pathway that records sickle cell history, and the CMO's minimum category." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { any_history: ["sickle_cell_disease"], any_associated_symptom: ["fever", "breathlessness"] },
+          minimum_category: "urgent",
+        },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S60.md section 4; spec 12.2 and 12.11; docs/OPEN-QUESTIONS.md OQ-S60-03",
+  },
+  {
+    key: "symptom.accuracy_audit",
+    // S60 (spec 12.12): the monthly accuracy audit. Cells with fewer reviewed cases than min_cell_size are suppressed (a
+    // group of a few people is a person, and a rate over a handful of cases is noise). Intervals are Wilson score intervals at
+    // this confidence. The live value is the active row of `symptom_accuracy_config`; a test fails if the migration seed and
+    // this value drift. The first report is a baseline, not a claim: nothing here lets a figure be published.
+    value: { min_cell_size: 10, confidence_level: 0.95, age_bands: [[0, 4], [5, 17], [18, 39], [40, 59], [60, 150]] },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S60.md section 6; spec 12.12; docs/OPEN-QUESTIONS.md OQ-S60-05",
   },
   {
     key: "media_library.config",
