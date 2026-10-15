@@ -182,5 +182,9 @@ begin
   if v_caught < 2 then raise exception 'VACUOUS TEST: only % of 2 sabotage steps changed a result', v_caught; end if;
 end $$;
 
-select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result from results order by phase, check_name;
+-- A sabotage row reads 'PASS (caught)' when the sabotage changed the result (the check can fail) and 'FAIL' when it was NOT caught.
+select phase, check_name, expected, actual,
+  case when phase = 'sabotaged' then case when expected is distinct from actual then 'PASS (caught)' else 'FAIL' end
+       else case when expected is not distinct from actual then 'PASS' else 'FAIL' end end as result
+from results order by phase, check_name;
 rollback;
