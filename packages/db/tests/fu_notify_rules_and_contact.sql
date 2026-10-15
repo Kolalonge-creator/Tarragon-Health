@@ -281,6 +281,39 @@ begin
   v_n := public.alert_emergency_contact(ev2, pat);
   perform pg_temp.back();
   perform pg_temp.rec('E11 the service-role button path queues the copies and stamps the event', '3,true', v_n::text || ',' || (select (contact_notified_at is not null)::text from public.emergency_events where id = ev2));
+  -- an unreachable contact is not re-scanned every tick (30 minute guard); a reachable one is unaffected
+  declare pat2 uuid := pg_temp.mkuser(v_org, 'ec-patient-2', 'patient'); ev3 uuid; v_cnt text;
+  begin
+    update public.profiles set emergency_contact_phone = '+2348055507777', emergency_contact_consent = true, full_name = 'EC Patient 2' where id = pat2;
+    insert into public.emergency_events (organisation_id, patient_id, source, trigger_detail, status, created_at)
+      values (v_org, pat2, 'bp_reading', 'x', 'active', now() - interval '20 minutes') returning id into ev3;
+    perform private.notify_unacknowledged_emergencies();
+    perform pg_temp.rec('E13 an unreachable contact is stamped checked and not marked notified', 'true,true',
+      (select (contact_unreachable_checked_at is not null)::text || ',' || (contact_notified_at is null)::text from public.emergency_events where id = ev3));
+    -- the contact joins Tarragon: still skipped inside 30 minutes, found after
+    declare c3 uuid := pg_temp.mkuser(v_org, 'ec-contact-3', 'patient');
+    begin
+      update public.profiles set phone = '+2348055507777' where id = c3;
+      update auth.users set phone = '2348055507777', phone_confirmed_at = now() where id = c3;
+      perform private.notify_unacknowledged_emergencies();
+      select count(*)::text into v_cnt from public.notifications where recipient_id = c3 and template = 'emergency_contact_alert';
+      perform pg_temp.rec('E14 inside the 30 minutes the event is not scanned again', '0', v_cnt);
+      update public.emergency_events set contact_unreachable_checked_at = now() - interval '31 minutes' where id = ev3;
+      perform private.notify_unacknowledged_emergencies();
+      select count(*)::text into v_cnt from public.notifications where recipient_id = c3 and template = 'emergency_contact_alert';
+      perform pg_temp.rec('E15 after 30 minutes it is scanned again and the contact is reached', '3', v_cnt);
+      -- sabotage: the guard removed re-scans at once
+      v_def := pg_get_functiondef('private.notify_unacknowledged_emergencies()'::regprocedure);
+      if replace(v_def, E'      and (e.contact_unreachable_checked_at is null or e.contact_unreachable_checked_at < now() - interval ''30 minutes'')\n', '') = v_def then raise exception 'VACUOUS TEST: unreachable guard text not found'; end if;
+      execute replace(v_def, E'      and (e.contact_unreachable_checked_at is null or e.contact_unreachable_checked_at < now() - interval ''30 minutes'')\n', '');
+      update public.emergency_events set contact_notified_at = null, contact_unreachable_checked_at = now() where id = ev3;
+      delete from public.notifications where recipient_id = c3 and template = 'emergency_contact_alert';
+      perform private.notify_unacknowledged_emergencies();
+      select count(*)::text into v_cnt from public.notifications where recipient_id = c3 and template = 'emergency_contact_alert';
+      execute v_def;
+      insert into results values ('sabotaged', 'a just-checked event is not scanned again', '0', v_cnt);
+    end;
+  end;
   perform pg_temp.rec('E12 the SMS question function is gone and its guard row stays, born off', 'true,false',
     (to_regprocedure('public.sms_emergency_contact_open()') is null)::text || ',' ||
     coalesce((select is_on::text from public.go_live_guards where key = 'sms_emergency_contact_enabled'), 'missing'));
@@ -387,14 +420,21 @@ end $$;
 
 do $$
 declare
+  v_real uuid;
   v_anon text; v_auth text; v_hb jsonb; v_ok text;
 begin
   -- H. canary heartbeat (OQ-316). The runs table is append only; the prune switch lets this rolled-back proof clear it. -------
   perform set_config('tarragon.canary_prune', 'on', true);
   delete from public.chain_canary_runs;
   perform set_config('tarragon.canary_prune', 'off', true);
+  -- gated: no real (non-test) patient exists, so the canary is expected to be quiet and the heartbeat is ok
+  update public.profiles set is_test = true where role = 'patient' and not is_test and id <> pg_temp.f('org');
   perform pg_temp.act_service(); v_hb := public.canary_heartbeat(); perform pg_temp.back();
-  perform pg_temp.rec('H1 no run yet: not ok, bucket never', 'false,never', (v_hb ->> 'ok') || ',' || (v_hb ->> 'age_bucket'));
+  perform pg_temp.rec('H0 with no real patient the canary is gated: ok and bucket gated', 'true,gated', (v_hb ->> 'ok') || ',' || (v_hb ->> 'age_bucket'));
+  v_real := pg_temp.mkuser(pg_temp.f('org'), 'real-patient', 'patient');
+  update public.profiles set is_test = false where id = v_real;
+  perform pg_temp.act_service(); v_hb := public.canary_heartbeat(); perform pg_temp.back();
+  perform pg_temp.rec('H1 no run yet, with a real patient present: not ok, bucket never (a real patient is made first)', 'false,never', (v_hb ->> 'ok') || ',' || (v_hb ->> 'age_bucket'));
   insert into public.chain_canary_runs (run_id, kind, at, config_version, passed) values (gen_random_uuid(), 'result', now() - interval '10 minutes', 1, true);
   perform pg_temp.act_service(); v_hb := public.canary_heartbeat(); perform pg_temp.back();
   perform pg_temp.rec('H2 a run 10 minutes ago: ok, bucket under_1h', 'true,under_1h', (v_hb ->> 'ok') || ',' || (v_hb ->> 'age_bucket'));
@@ -429,8 +469,8 @@ begin
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected is distinct from actual;
-  if v_caught < 7 then
-    raise exception 'VACUOUS TEST: only % of 7 sabotage steps changed the matching check', v_caught;
+  if v_caught < 8 then
+    raise exception 'VACUOUS TEST: only % of 8 sabotage steps changed the matching check', v_caught;
   end if;
 end $$;
 

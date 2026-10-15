@@ -30,7 +30,7 @@ export async function alertEmergencyContact(
     .select("full_name, emergency_contact_name, emergency_contact_phone, emergency_contact_relationship, emergency_contact_consent")
     .eq("id", args.subjectId)
     .single();
-  if (!profile?.emergency_contact_phone) return { error: "Add an emergency contact number first so we can alert them." };
+  if (!profile?.emergency_contact_phone) return { error: "Add an emergency contact number first. We can only alert a contact who uses Tarragon, so please call them yourself too." };
   if (!profile.emergency_contact_consent) return { error: "Confirm your emergency contact has agreed to be contacted before we alert them." };
 
   // No SMS (founder decision OQ-333). The contact is told by push, in-app and email only when they are also a Tarragon account with a

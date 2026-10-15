@@ -8,10 +8,11 @@ itself stops, that watcher stops with it. An outside monitor that polls one publ
 **What it returns.** Only two fields, no patient data, no timestamp, no secret:
 
 - Fresh: HTTP 200 and `{"ok":true,"age_bucket":"under_1h"}`
+- Gated off: HTTP 200 and `{"ok":true,"age_bucket":"gated"}`. The canary only runs once a real (non-test) patient exists, so before launch it is quiet on purpose and the monitor stays green.
 - Quiet or unreadable: HTTP 503 and `{"ok":false,"age_bucket":"3h_to_24h"}` (or `never`, `1h_to_3h`, `over_24h`, `unknown`)
 - Too many requests from one address: HTTP 429 (rate limit 30 a minute; a monitor polling every 5 minutes never reaches it)
 
-"Quiet" means no finished canary run for the `staleAfterMinutes` line in the active `chain_canary_config` (100 minutes today).
+"Quiet" (only once a real patient exists) means no finished canary run for the `staleAfterMinutes` line in the active `chain_canary_config` (100 minutes today).
 
 ## Register it (about 5 minutes, free plan is enough)
 

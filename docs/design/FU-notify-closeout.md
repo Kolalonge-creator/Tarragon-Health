@@ -13,7 +13,7 @@ Branch `fu/notification-followups`. Nothing applied, deployed, merged, signed or
 - **OQ-346** `credentialing_config` v6 (inactive, unsigned) records `verification_evidence_retention_years_after_employment` 6, config only. The document purge stays off and now skips every evidence document (primary source, licence verification, check evidence).
 
 ## Tests
-- DB proof `packages/db/tests/fu_notify_rules_and_contact.sql` (registered in `ci.manifest`): 54 checks, 7 sabotage rows all `PASS (caught)`. Run live inside `begin ... rollback` with the three migrations applied in the same transaction; live state checked afterwards (rules max version 4, no new table or function, no leftovers).
+- DB proof `packages/db/tests/fu_notify_rules_and_contact.sql` (registered in `ci.manifest`): 66 checks (58 plus 8 sabotage rows, all `PASS (caught)`). Run live inside `begin ... rollback` with the three migrations applied in the same transaction; live state checked afterwards (rules max version 4, no new table or function, no leftovers).
 - Existing proofs updated and re-run the same way: `s13r4_critical_ladder_red_outreach.sql` (pins the two switches to the old values to keep covering the mechanisms; clinician hop 3 now ends in the exhausted alarm; 76 pass), `notification_delivery_fallback.sql`, `remove_whatsapp.sql`, `s85d3_sms_emergency_contact_guard.sql`: pass. `exposure_reopens_serology.sql` updated for contact-recipient rows but could not run live (its fixture patient exists only in the seed).
 - Jest: `packages/notifications` 22 suites (608 tests) pass; `packages/shared` proposed-config 59 suites (262) pass including `fu-notify-mirror.test.ts`; part-C scan 8; `packages/auth` redirect 8; web `/d` route 3 and `/api/status/canary` 4.
 
@@ -30,3 +30,9 @@ Branch `fu/notification-followups`. Nothing applied, deployed, merged, signed or
 - MFA: the challenge page carries `redirect`, but the proxy dropped the query of a signed link. Fixed (proxy keeps `pathname + search`, test added).
 - Proofs s19d, p1_chain_health, p1_chain_canary, vitals_red_flag_notification_wiring fail live the same way with and without these migrations (live data); two_tier_free_red_event_path passes both ways (56). sr5 comparison was not finished.
 - The code-review skill was NOT run on this diff.
+
+
+## Review fixes (code-review high)
+- Heartbeat: while the canary is gated off (no real non-test patient, the same condition the cron job uses) `canary_heartbeat()` returns ok true with bucket `gated`; the route, tests and runbook know it.
+- `emergency_events.contact_unreachable_checked_at`: the sweep skips an unreachable contact for 30 minutes instead of re-scanning every tick; reachable contacts behave as before (proof E13 to E15 with a sabotage row).
+- Patient copy says up front that the alert reaches contacts who use Tarragon, and to call the contact too.

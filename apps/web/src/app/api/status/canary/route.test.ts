@@ -18,6 +18,12 @@ describe("GET /api/status/canary", () => {
     expect(res.headers.get("cache-control")).toBe("no-store");
     expect(rpc).toHaveBeenCalledWith("canary_heartbeat");
   });
+  it("gated (no real patient yet): 200 and ok, so a quiet pre-launch system is not reported down", async () => {
+    rpc.mockResolvedValue({ data: { ok: true, age_bucket: "gated" }, error: null });
+    const res = await GET();
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, age_bucket: "gated" });
+  });
   it("stale: 503 with the bucket so the monitor alerts", async () => {
     rpc.mockResolvedValue({ data: { ok: false, age_bucket: "3h_to_24h" }, error: null });
     const res = await GET();

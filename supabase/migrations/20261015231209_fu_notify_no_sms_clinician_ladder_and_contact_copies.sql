@@ -89,6 +89,9 @@ end;
 $$;
 revoke all on function private.alert_emergency_contact_copies(uuid) from public, anon, authenticated;
 
+alter table public.emergency_events add column contact_unreachable_checked_at timestamptz;
+comment on column public.emergency_events.contact_unreachable_checked_at is 'Last time the emergency-contact alert found nobody it could reach (contact not a Tarragon account). The sweep skips the event for 30 minutes after this, so an unreachable contact is not re-scanned every tick for a day.';
+
 -- LIVE body, the sms insert replaced by the copies above. contact_notified_at is stamped only when a copy was queued, so an
 -- unreachable contact is not recorded as "notified" (the loop looks again until the event is a day old).
 create or replace function private.notify_unacknowledged_emergencies()
@@ -108,9 +111,12 @@ begin
       and e.suppress_contact_notify = false
       and e.created_at < now() - interval '10 minutes'
       and e.created_at > now() - interval '1 day'
+      and (e.contact_unreachable_checked_at is null or e.contact_unreachable_checked_at < now() - interval '30 minutes')
   loop
     if private.alert_emergency_contact_copies(v_event.id) > 0 then
       update public.emergency_events set contact_notified_at = now() where id = v_event.id;
+    else
+      update public.emergency_events set contact_unreachable_checked_at = now() where id = v_event.id;
     end if;
   end loop;
 end;

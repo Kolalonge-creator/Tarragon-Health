@@ -2,6 +2,8 @@
 -- chain_canary_runs stops moving (today the only watcher is the in-database stale_cron rule, which dies with the database).
 --
 -- Returns ONLY {ok, age_bucket}: no timestamps, no ids, no pass or fail detail, no configuration, nothing about any patient.
+-- While the canary is gated off ok is true with bucket 'gated': its cron job only ticks once a real (non-test) patient exists, so a quiet
+-- table before launch is expected, not an outage. The gate is the same condition the cron job uses.
 -- ok is false when no run has finished for staleAfterMinutes (chain_canary_config, 100 minutes today), the same line the in-database
 -- incident uses. Service role only; the web route /api/status/canary is the one caller.
 -- LIVE COUNTS BEFORE (2026-10-16, read only): chain_canary_runs is read-only history; this migration writes nothing to it.
@@ -16,6 +18,9 @@ declare
   v_bucket text;
 begin
   if coalesce((select auth.role()), '') <> 'service_role' then raise exception 'not allowed' using errcode = '42501'; end if;
+  if not exists (select 1 from public.profiles where role = 'patient' and not is_test) then
+    return jsonb_build_object('ok', true, 'age_bucket', 'gated');
+  end if;
   select max(at) into v_last from public.chain_canary_runs where kind = 'result';
   if v_last is null then return jsonb_build_object('ok', false, 'age_bucket', 'never'); end if;
   v_age := now() - v_last;
