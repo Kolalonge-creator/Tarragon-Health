@@ -2,6 +2,7 @@
 // template and prove none puts a condition, reading, drug or result in the text (INV-07). Behaviour is unchanged.
 import { createHmac } from "node:crypto";
 import { resolveI18n } from "../_shared/i18n/resolve.ts";
+import { emergencyContactName, emergencyContactText } from "../_shared/notifications/emergency-contact.ts";
 
 // Patient-experience review 2026-07-31: several reminder templates only ever
 // said "open the app" with no actual link — real friction for a patient
@@ -628,6 +629,11 @@ export const TEMPLATE_MAP: Record<
     smsText: "Sorry for the wait. Your message is still with the team. Open the Tarragon Health app.",
     pushUrl: "/patient/care",
   }),
+  // S78b: a reply or visit is running later than the target. In-app only; plain, no number, no condition, no name (INV-07, S-9).
+  response_slower_notice: () => ({
+    smsText: "We are taking longer than usual to get back to you. If this is urgent, please use emergency care now.",
+    pushUrl: "/patient/care",
+  }),
   written_question_call_planned: () => ({
     smsText: "Your care team will call you. Keep your phone close.",
     pushUrl: "/patient/care",
@@ -1244,17 +1250,17 @@ export const TEMPLATE_MAP: Record<
       email: neutralMail("Your care team has reviewed a document you uploaded", [`Hi ${patientName},`, "Your care team has reviewed a document you uploaded. Open the Tarragon Health app to see it."], [["Reference", serial]]),
     };
   },
+  // S85-D3: the one named SMS exception. The text is signed and content-free; it lives in _shared/notifications/emergency-contact.ts.
   emergency_contact_alert: (payload) => {
-    const contactName = String(payload.contact_name ?? "there");
-    const patientName = String(
-      payload.patient_name ?? "someone who lists you as their emergency contact",
-    );
-    const smsText =
-      `${contactName}, this is an urgent alert from Tarragon Health. ${patientName} reported a ` +
-      `possible medical emergency and may need your help. Please try to reach them now. If you ` +
-      `cannot and it is an emergency, help them get to the nearest hospital. Tarragon Health`;
+    const smsText = emergencyContactText(payload.patient_name);
+    const name = emergencyContactName(payload.patient_name);
     return {
       smsText,
+      email: {
+        subject: `Please call ${name} now`,
+        html: `<p>${escapeHtmlForBroadcast(smsText)}</p>`,
+        text: smsText,
+      },
     };
   },
   // Sent to org clinicians when an abnormal/critical screening result lands
@@ -1661,6 +1667,57 @@ export const TEMPLATE_MAP: Record<
       text: "This is a test alert from Tarragon Health. Nothing is wrong.\n\nTarragon Health",
     },
   }),
+  // S16-S20 D2: a clinical task escalated (task_escalation_alert, classes 1 and 2: in-app, push and email at critical priority, from
+  // private.notify_task_escalated) and the daily digest of the rest (queue_backlog_digest). Fixed neutral wording (INV-07): no
+  // condition, reading, name or result, and nothing from the payload is echoed. Never sent by SMS or WhatsApp.
+  task_escalation_alert: () => ({
+    smsText: "A clinical task needs attention. Open Tarragon Health. Tarragon Health",
+    pushUrl: "/clinician/queue",
+    email: {
+      subject: "A clinical task needs attention",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>A clinical task has passed its time and is now escalated.</p>` +
+        `<p>Open Tarragon Health to see where it stands.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "A clinical task has passed its time and is now escalated.\n\nOpen Tarragon Health to see where it stands.\n\nTarragon Health",
+    },
+  }),
+  // The folded follow-up for further immediate escalations inside the coalescing window: a count and nothing else.
+  task_escalation_more: (payload) => {
+    const raw = Math.floor(Number(payload.count));
+    const n = Number.isFinite(raw) && raw >= 1 ? raw : 1;
+    const line = n === 1 ? "One more clinical task has been escalated." : `${n} more clinical tasks have been escalated.`;
+    return {
+      smsText: "More clinical tasks need attention. Open Tarragon Health. Tarragon Health",
+      pushUrl: "/clinician/queue",
+      email: {
+        subject: "More clinical tasks need attention",
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>${line}</p>` +
+          `<p>Open Tarragon Health to see where they stand.</p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: `${line}\n\nOpen Tarragon Health to see where they stand.\n\nTarragon Health`,
+      },
+    };
+  },
+  queue_backlog_digest: () => ({
+    smsText: "Escalated clinical tasks are waiting. Open Tarragon Health. Tarragon Health",
+    pushUrl: "/clinician/queue",
+    email: {
+      subject: "Escalated clinical tasks are waiting",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Some clinical tasks have been waiting longer than planned.</p>` +
+        `<p>Open Tarragon Health to see them and how long they have waited.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Some clinical tasks have been waiting longer than planned.\n\nOpen Tarragon Health to see them and how long they have waited.\n\nTarragon Health",
+    },
+  }),
   // S19: a red event page to the clinician on call (on_call_page) and the alert to the clinical lead and ops when nobody
   // has acknowledged it (on_call_escalation). Sent as push, in-app and email together at critical priority. The wording
   // is fixed and neutral (INV-07): no condition, reading, name or result, and nothing from the payload is echoed.
@@ -1690,6 +1747,37 @@ export const TEMPLATE_MAP: Record<
         `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
         `</div>`,
       text: "A priority case has not been acknowledged by the clinicians on call.\n\nOpen Tarragon Health to see where it stands.\n\nTarragon Health",
+    },
+  }),
+  // S19c: the test page that proves a phone and
+  // inbox work (on_call_test_page), and the alarm when the whole ladder ran out with nobody answering (on_call_expired). Fixed,
+  // neutral wording (INV-07): nothing from the payload is echoed.
+  on_call_test_page: () => ({
+    smsText: "This is a test page. Open Tarragon Health and acknowledge it on the On call page. Tarragon Health",
+    pushUrl: "/clinician/on-call",
+    email: {
+      subject: "Test page: please acknowledge",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>This is a test page. Nothing is wrong.</p>` +
+        `<p>Open Tarragon Health and acknowledge it on the On call page.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "This is a test page. Nothing is wrong.\n\nOpen Tarragon Health and acknowledge it on the On call page.\n\nTarragon Health",
+    },
+  }),
+  on_call_expired: () => ({
+    smsText: "Nobody has answered a priority case. Phone the clinician on call now. Tarragon Health",
+    pushUrl: "/rota",
+    email: {
+      subject: "Nobody has answered a priority case",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Every alert for a priority case has gone out and nobody has acknowledged it.</p>` +
+        `<p>Phone the clinician on call now, then open Tarragon Health to see where it stands.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Every alert for a priority case has gone out and nobody has acknowledged it.\n\nPhone the clinician on call now, then open Tarragon Health to see where it stands.\n\nTarragon Health",
     },
   }),
   on_call_unfinished: () => ({

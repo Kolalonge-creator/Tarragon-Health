@@ -7,7 +7,6 @@ import { loadCohortAnalytics } from "@/lib/corporate/load-cohort-analytics";
 import { getContractPerformance } from "@/lib/outcomes-contracts/get-contract-performance";
 import { loadCareGaps } from "@/lib/care-gaps/load-care-gaps";
 import { requireInstitutionAggregateAccess } from "@/lib/institutions/aggregate-access";
-import { estimateCostAvoided } from "@/lib/care-gaps/estimate-cost-avoided";
 import { loadMedicationOutcomes } from "@/lib/outcomes/medication-outcomes";
 import type { Json } from "@tarragon/shared";
 
@@ -51,7 +50,7 @@ export async function generateOutcomeReport(
   // their own session. Either way the suppression threshold is the same — the
   // report is an institution-facing artifact regardless of who pressed the
   // button, so it must not contain a figure the dashboard would withhold.
-  const access = await requireInstitutionAggregateAccess(organisationId);
+  const access = await requireInstitutionAggregateAccess(organisationId, "outcome_report_generate");
   const reader = access?.client ?? supabase;
 
   let minCohortSize = access?.minCohortSize;
@@ -75,9 +74,8 @@ export async function generateOutcomeReport(
     };
   }
 
-  const [careGaps, costAvoided, medicationOutcomes] = await Promise.all([
+  const [careGaps, medicationOutcomes] = await Promise.all([
     loadCareGaps(reader, organisationId, minCohortSize),
-    estimateCostAvoided(reader, organisationId, analytics.abnormal_findings_count),
     // INV-10: medications are closed to direct staff reads, so a care-team session would silently count zero stops and the saved report
     // would record "no de-prescribing". The caller is already authorised for this organisation above (admin, or a non-patient of this
     // organisation); the loader returns counts only, filtered by that organisation, the same aggregate the institution dashboards use.
@@ -94,7 +92,6 @@ export async function generateOutcomeReport(
       careGaps: careGaps
         ? { totalOpen: careGaps.totalOpen, byType: careGaps.byType, closedLast90Days: careGaps.closedLast90Days }
         : null,
-      costAvoided,
       medicationOutcomes,
     } as unknown as Json,
     generated_by: profile.id,

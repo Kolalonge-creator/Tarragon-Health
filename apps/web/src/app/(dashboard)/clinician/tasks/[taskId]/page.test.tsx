@@ -44,9 +44,23 @@ beforeEach(() => {
 describe("ClinicianTaskPage", () => {
   it("reads no patient for a task the clinician does not hold", async () => {
     taskRow.mockReturnValue({ data: null, error: null });
+    rpc.mockResolvedValue({ data: null, error: null });
     await renderPage();
     expect(screen.getByText(/do not hold this task/)).toBeTruthy();
-    expect(rpc).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalledWith("clinician_patient_summary", expect.anything());
+  });
+
+  it.each([
+    ["withdrawn", /withdrawn by the clinical lead/],
+    ["completed", /already been finished/],
+    ["returned", /do not hold this task/],
+  ])("says what became of a task that is no longer held: %s", async (what, words) => {
+    taskRow.mockReturnValue({ data: null, error: null });
+    rpc.mockResolvedValue({ data: what, error: null });
+    await renderPage();
+    expect(screen.getByText(words)).toBeTruthy();
+    expect(rpc).toHaveBeenCalledWith("my_task_outcome", { p_task: id });
+    expect(rpc).not.toHaveBeenCalledWith("clinician_patient_summary", expect.anything());
   });
 
   it("says it could not load, rather than 'not held', when the read failed", async () => {
@@ -77,6 +91,24 @@ describe("ClinicianTaskPage", () => {
     await renderPage();
     expect(screen.getByText("complete-form")).toBeTruthy();
     expect(rpc).toHaveBeenCalledWith("clinician_patient_summary", expect.objectContaining({ p_patient: "22222222-2222-4222-8222-222222222222" }));
+  });
+
+  it("sends a titration task to the proposed changes, which finish it by themselves (S16-S20 D4)", async () => {
+    taskRow.mockReturnValue(held("titration_signoff"));
+    rpc.mockResolvedValue({ data: { status: "ok", care_circle: { active_members: 0 } }, error: null });
+    await renderPage();
+    expect(screen.queryByText("complete-form")).toBeNull();
+    expect(screen.getByRole("link", { name: /proposed changes/ }).getAttribute("href")).toBe(
+      "/clinician/patients/22222222-2222-4222-8222-222222222222/care-plan-changes",
+    );
+  });
+
+  it("offers the form for a critical result, whose outcome is coded", async () => {
+    taskRow.mockReturnValue(held("critical_result_review"));
+    rpc.mockResolvedValue({ data: { status: "ok", care_circle: { active_members: 0 } }, error: null });
+    await renderPage();
+    expect(screen.getByText("complete-form")).toBeTruthy();
+    expect(screen.getByText(/closes its task by itself/)).toBeTruthy();
   });
 
   it("sends a written question to its own page instead of the generic form", async () => {

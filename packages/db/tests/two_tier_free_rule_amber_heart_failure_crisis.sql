@@ -130,6 +130,8 @@ begin
   execute v_orig;
 
   -- 3. CRISIS ----------------------------------------------------------------------------------------------------
+  -- F1 fix 4 (earlier in the chain) hangs the real follow-up on this table; this proof drives the function by hand through a stand-in, so the trigger is off here (rolled back).
+  drop trigger if exists mental_health_screens_crisis_task on public.mental_health_screens;
   insert into public.mental_health_screens (organisation_id, patient_id, instrument, total_score, severity_band, crisis_flagged) values (v_org, fc, 'phq9', 20, 'severe', true);
   perform pg_temp.rec('crisis, Free: the emergency event (the crisis guidance screen) is still raised', '1,mental_health_screen',
     (select count(*)::text || ',' || min(source::text) from public.emergency_events where patient_id = fc));
@@ -139,7 +141,8 @@ begin
   perform pg_temp.rec('crisis, Member: the Priority 1 alert is raised', '1,0', (select count(*)::text from public.clinician_alerts where patient_id = mc and level = 'emergency') || ',' || (select count(*)::text from public.free_red_events where patient_id = mc));
 
   -- the live-only follow-up function: a stand-in with its live opening lines, then the migration's own patch step
-  create function private.raise_crisis_follow_up(p_screen uuid) returns boolean
+  -- create or replace: F1 (fix 4) defines the real function earlier in the chain; the stand-in replaces it inside this rolled-back transaction
+  create or replace function private.raise_crisis_follow_up(p_screen uuid) returns boolean
   language plpgsql security definer set search_path = '' as $f$
   declare
     s public.mental_health_screens%rowtype;

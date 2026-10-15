@@ -1,6 +1,6 @@
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { createClient } from "@/lib/supabase/server";
-import { hasCoachAccess } from "@/lib/ai-coach/entitlement";
+import { isAssistantOffered } from "@/lib/ai-coach/offered";
 import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { RequiresEntitlement } from "@/components/requires-entitlement";
@@ -21,6 +21,7 @@ import { LifestyleProgressSummary } from "@/app/(dashboard)/patient/lifestyle-pr
 import { YourReferrals } from "@/components/your-referrals";
 import { NavigationRequests } from "@/app/(dashboard)/patient/navigation-requests";
 import { AiCoachChat } from "@/app/(dashboard)/patient/ai-coach-chat";
+import { AssistantEmergencyButton } from "@/components/ai/assistant-emergency-button";
 import { ServiceNavigationAssistant } from "@/app/(dashboard)/patient/service-navigation-assistant";
 import { CareCircleCard } from "@/app/(dashboard)/patient/care-circle-card";
 import { CareVouchersCard } from "@/components/care-vouchers-card";
@@ -31,7 +32,7 @@ import { TestimonialForm } from "@/components/testimonial-form";
 export default async function PatientCarePage() {
   const { profile, subjectId, uiLanguage } = await getPatientDashboardContext();
   const supabase = await createClient();
-  const coachAccess = await hasCoachAccess(supabase);
+  const coachAccess = await isAssistantOffered(supabase);
   // S69: the community link shows only when community is open for this person (module and go-live guard, or a test account); a failed read hides it.
   const { data: communityStatus } = await supabase.rpc("cohort_status");
   const showCommunity = typeof communityStatus === "object" && communityStatus !== null && !Array.isArray(communityStatus) && communityStatus.open === true;
@@ -92,7 +93,7 @@ export default async function PatientCarePage() {
               none of its own. */}
           <VerifiedDocumentsCard patientId={subjectId} />
           <SeniorCaseReviewCard patientId={subjectId} />
-          {coachAccess && <AiCoachChat patientId={subjectId} />}
+          {coachAccess ? <AiCoachChat patientId={subjectId} /> : <AssistantEmergencyButton />}
           <ServiceNavigationAssistant />
           <CareCircleCard showCommunity={showCommunity} />
           <YourReferrals patientId={subjectId} />

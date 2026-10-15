@@ -1,4 +1,5 @@
 import { renderToBuffer } from "@react-pdf/renderer";
+import { DocumentFolioRefusedError, fetchDocumentFolios } from "@/lib/clinical/document-folio";
 import { createClient } from "@/lib/supabase/server";
 import {
   ReferralLetterDocument,
@@ -38,6 +39,19 @@ export async function GET(
     .maybeSingle();
   if (!referral) return new Response("Not found", { status: 404 });
 
+  // S64 (15.6): a directory entry is preferred; the typed name is the fallback. Both come from the caller's own RLS-scoped session.
+  const { data: facilityRaw } = await supabase
+    .from("specialist_referrals" as never)
+    .select("facility_id, facility_name_text")
+    .eq("id" as never, referralId as never)
+    .maybeSingle();
+  const facilityRow = (facilityRaw ?? {}) as unknown as { facility_id?: string | null; facility_name_text?: string | null };
+  let facilityName: string | null = facilityRow.facility_name_text ?? null;
+  if (facilityRow.facility_id) {
+    const { data: facility } = await supabase.from("facilities").select("name").eq("id", facilityRow.facility_id).maybeSingle();
+    facilityName = facility?.name ?? facilityName;
+  }
+
   const { data: patient } = await supabase
     .from("profiles")
     .select("full_name, patient_number, date_of_birth, sex")
@@ -67,16 +81,22 @@ export async function GET(
   let referrerCredentialType: string | null = null;
   let referrerCredential: string | null = null;
   if (referral.set_by) {
-    const { data: staff } = await supabase
-      .from("clinical_staff_directory")
-      .select("full_name, credential_type, credential_number")
-      .eq("profile_id", referral.set_by)
-      .eq("active", true)
-      .maybeSingle();
-    if (staff?.full_name) {
-      referrerName = staff.full_name;
-      referrerCredentialType = staff.credential_type;
-      referrerCredential = staff.credential_number;
+    // Folio via the document-scoped function, never the directory view (CMO Q17, OQ-358).
+    let folio;
+    try {
+      folio = (
+        await fetchDocumentFolios(supabase, "referral_letter", [referral.id])
+      ).get(referral.id);
+    } catch (e) {
+      if (e instanceof DocumentFolioRefusedError) {
+        return new Response("You are not permitted to produce this document", { status: 403 });
+      }
+      throw e;
+    }
+    if (folio?.fullName) {
+      referrerName = folio.fullName;
+      referrerCredentialType = folio.credentialType;
+      referrerCredential = folio.credentialNumber;
     }
   }
 
@@ -89,6 +109,7 @@ export async function GET(
     createdAt: referral.created_at,
     specialistType: referral.specialist_type,
     urgency: referral.urgency,
+    facilityName,
     reason: referral.referral_reason ?? summary.clinical_question ?? null,
     requestedService: referral.requested_service,
     interimPlan: referral.interim_management_plan,

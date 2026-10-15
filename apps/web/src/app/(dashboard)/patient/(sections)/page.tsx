@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { LazyVitalsTrendChart } from "@/components/vitals-trend-chart-lazy";
 import { createClient } from "@/lib/supabase/server";
-import { hasCoachAccess } from "@/lib/ai-coach/entitlement";
+import { isAssistantOffered } from "@/lib/ai-coach/offered";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { shouldOfferCycleTracking } from "@/lib/patient/cycle-relevance";
 import { getPatientSummaryStats, getPatientPreventionStats } from "@/app/(dashboard)/patient/summary";
@@ -22,6 +22,7 @@ import { SinceYouWereLastHere } from "@/app/(dashboard)/patient/since-you-were-l
 import { PaymentFailureBanner } from "@/app/(dashboard)/patient/payment-failure-banner";
 import { QuickActions } from "@/app/(dashboard)/patient/quick-actions";
 import { AskTarragonCard } from "@/app/(dashboard)/patient/ask-tarragon-card";
+import { WeeklyLessonCard } from "@/components/learning/weekly-lesson-card";
 import { TodaysDoses } from "@/app/(dashboard)/patient/todays-doses";
 import { HealthResetCard } from "@/app/(dashboard)/patient/health-reset-card";
 import { WeeklyPlanCard } from "@/app/(dashboard)/patient/weekly-plan-card";
@@ -76,7 +77,7 @@ function CardSkeleton({ className = "h-40" }: { className?: string }) {
 }
 
 export default async function PatientOverviewPage() {
-  const { subjectId, acting, subjectSex, glucoseUnit } =
+  const { subjectId, acting, subjectSex, glucoseUnit, profile } =
     await getPatientDashboardContext();
   const stats = await getPatientSummaryStats(subjectId);
   const prevention = await getPatientPreventionStats(subjectId);
@@ -86,7 +87,7 @@ export default async function PatientOverviewPage() {
   // answer (it would render with the doctor/booking CTAs and a "report this
   // answer" control, same as any other reply).
   const supabase = await createClient();
-  const coachAccess = await hasCoachAccess(supabase);
+  const coachAccess = await isAssistantOffered(supabase);
 
   const greetingWord = getLagosGreetingWord();
   const actingSubject = acting ? (acting.fullName ? `${acting.fullName}'s` : "their") : null;
@@ -178,6 +179,11 @@ export default async function PatientOverviewPage() {
           exactly who most needs a fast way to ask a question or hand over a
           result, and neither path depends on any existing record data. */}
       <AskTarragonCard patientId={subjectId} coachAccess={coachAccess} />
+
+      {/* S55: this week's micro-lesson (spec 9.2). Renders nothing when there is no in-date lesson. */}
+      {profile.organisation_id && !acting && (
+        <WeeklyLessonCard patientId={subjectId} organisationId={profile.organisation_id} />
+      )}
 
       {/* On a genuinely empty account everything below this point can only
           report an absence, so it is not rendered at all until there is

@@ -56,6 +56,8 @@ begin
 end $$;
 
 -- SABOTAGE 1: a new patient table nobody classified must be caught
+-- S04b-1e guards a new patient_id table the moment it is created; this proof needs an UNCLASSIFIED one to test the check itself, so it turns the event trigger off (rolled back with the rest).
+alter event trigger guard_new_patient_tables_trigger disable;
 create table public.zz_s04b1_unclassified (id uuid primary key default gen_random_uuid(), patient_id uuid);
 do $$
 begin

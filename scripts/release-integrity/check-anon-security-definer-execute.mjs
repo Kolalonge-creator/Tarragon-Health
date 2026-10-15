@@ -83,6 +83,9 @@ const ALLOWLIST = new Set([
   // 20261005222628_platform_switches_pidgin_kill_switch.sql -- revokes from public, then grants anon on purpose;
   // the row-level opt-in (readable_by_anon) limits what anon can learn, and an unknown key is false.
   "public.platform_switch_is_on(p_key text)",
+  // 20261007153127_s55_review_fixes_shared_article_and_creator_writes.sql -- a shared learning article opens signed out by its code. It serves
+  // only an item with a named reviewer, a review date and a future next-review date, and the migration asserts anon EXECUTE must stay on.
+  "public.learn_shared_article(p_code text)",
 ]);
 
 const QUERY = `

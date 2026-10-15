@@ -1,3 +1,5 @@
+import { FERTILE_WINDOW_LABEL } from "@tarragon/i18n";
+
 /**
  * Detects the post-ovulation temperature rise in a run of basal body
  * temperatures.
@@ -29,8 +31,14 @@ const BASELINE_WINDOW = 6;
 /** How far above baseline the third high reading must sit, in Celsius. */
 const REQUIRED_RISE_C = 0.2;
 
-export const THERMAL_SHIFT_DISCLAIMER =
-  "A temperature rise suggests ovulation has already happened, so it confirms rather than predicts. It is not a contraceptive method.";
+/**
+ * S85 D2 / OQ-12: a temperature-based ovulation confirmation sits behind the "Planning a pregnancy" mode, and wherever
+ * it is shown it carries the label. The label text comes from the one wording source, never typed here.
+ */
+export const THERMAL_SHIFT_EXPLAINER =
+  "A temperature rise suggests ovulation has already happened, so it confirms rather than predicts.";
+
+export const THERMAL_SHIFT_DISCLAIMER = `${THERMAL_SHIFT_EXPLAINER} ${FERTILE_WINDOW_LABEL}`;
 
 export interface TemperatureReading {
   date: string;
@@ -113,7 +121,12 @@ export function detectThermalShift(readings: TemperatureReading[]): ThermalShift
   return notDetected("no_sustained_rise");
 }
 
-export function describeThermalShift(result: ThermalShiftResult): string {
+/**
+ * The wording for the temperature card. Returns null while "Planning a pregnancy" is off, so a caller cannot show an
+ * ovulation confirmation to somebody who has not switched the mode on (S85 D2).
+ */
+export function describeThermalShift(result: ThermalShiftResult, planningMode: boolean): string | null {
+  if (!planningMode) return null;
   switch (result.reason) {
     case "detected":
       return `Your temperature rose ${result.riseC?.toFixed(2)} C and stayed up, which usually follows ovulation. Best estimate: around ${new Date(

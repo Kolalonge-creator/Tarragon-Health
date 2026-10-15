@@ -41,12 +41,26 @@ const readPendingGlucoseTaskTypeSignoff = jest.fn<(...args: unknown[]) => Promis
 jest.mock("@/lib/queries/pending-glucose-task-type-signoff", () => ({
   readPendingGlucoseTaskTypeSignoff: (...args: unknown[]) => readPendingGlucoseTaskTypeSignoff(...args),
 }));
+type QualityPending = { qualityVersion: number | null; credentialingVersion: number | null; failed: boolean };
+const readPendingQualityConfigSignoff = jest.fn<(...args: unknown[]) => Promise<QualityPending>>();
+jest.mock("@/lib/queries/pending-quality-config-signoff", () => ({
+  readPendingQualityConfigSignoff: (...args: unknown[]) => readPendingQualityConfigSignoff(...args),
+}));
+const noQualityConfig: QualityPending = { qualityVersion: null, credentialingVersion: null, failed: false };
+const readPendingSoleCmoException = jest.fn<(...args: unknown[]) => Promise<{ waiting: boolean; failed: boolean }>>();
+const readUnifiedRedPagingState = jest.fn<(...args: unknown[]) => Promise<{ waitingVersion: number | null; liveVersion: number | null; failed: boolean }>>();
+jest.mock("@/lib/queries/pending-unified-red-paging-signoff", () => ({
+  readUnifiedRedPagingState: (...args: unknown[]) => readUnifiedRedPagingState(...args),
+}));
+jest.mock("@/lib/queries/pending-sole-cmo-exception", () => ({
+  readPendingSoleCmoException: (...args: unknown[]) => readPendingSoleCmoException(...args),
+}));
 const noCommunity = { rulesUnsigned: false, groupsWaiting: 0, statementsWaiting: 0, attentionCount: 0, failed: false };
 jest.mock("@/lib/queries/pending-ai-governance-signoff", () => ({
   readPendingAiGovernanceSignoff: (...args: unknown[]) => readPendingAiGovernanceSignoff(...args),
 }));
 
-import { CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, RED_OUTREACH_ITEM_KEY, readCmoSigningHub } from "./cmo-signing-hub";
+import { CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, readCmoSigningHub, SOLE_CMO_EXCEPTION_ITEM_KEY } from "./cmo-signing-hub";
 
 const supabase = {} as SupabaseClient<Database>;
 
@@ -73,10 +87,37 @@ beforeEach(() => {
   readS06S10Signoffs.mockResolvedValue(emptyS06S10);
   readPendingRedOutreachSignoff.mockReset();
   readPendingRedOutreachSignoff.mockResolvedValue({ waiting: false, failed: false });
+  readPendingSoleCmoException.mockReset();
+  readPendingSoleCmoException.mockResolvedValue({ waiting: false, failed: false });
+  readUnifiedRedPagingState.mockReset();
+  readUnifiedRedPagingState.mockResolvedValue({ waitingVersion: null, liveVersion: null, failed: false });
   readPendingGlucoseTaskTypeSignoff.mockReset();
   readPendingGlucoseTaskTypeSignoff.mockResolvedValue({ waiting: false, failed: false });
   readPendingGlucoseTriageSignoff.mockReset();
   readPendingGlucoseTriageSignoff.mockResolvedValue(noGlucose);
+  readPendingQualityConfigSignoff.mockReset();
+  readPendingQualityConfigSignoff.mockResolvedValue(noQualityConfig);
+});
+
+describe("readCmoSigningHub: S20 v2 quality and credentialing configurations", () => {
+  const empty = { items: [] as SignoffQueueItem[], failedSources: [] as string[], settledConfigs: [] as SettledConfig[] };
+  it("adds one line, under /clinician, that counts both drafts and signs nothing", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    readPendingQualityConfigSignoff.mockResolvedValue({ qualityVersion: 3, credentialingVersion: 4, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    const line = hub.items.find((i) => i.key === QUALITY_CONFIG_ITEM_KEY);
+    expect(line?.count).toBe(2);
+    expect(line?.href.startsWith("/clinician/")).toBe(true);
+    expect(line?.detail).toMatch(/stay off until you sign/);
+  });
+  it("adds no line when nothing waits, and names a failed read", async () => {
+    readSignoffQueue.mockResolvedValue(empty);
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === QUALITY_CONFIG_ITEM_KEY)).toBeUndefined();
+    readPendingQualityConfigSignoff.mockResolvedValue({ qualityVersion: null, credentialingVersion: null, failed: true });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.failed).toBe(true);
+    expect(hub.failedSources).toContain("the quality and credentialing configurations");
+  });
 });
 
 describe("readCmoSigningHub: glucose triage rules (plan item R2)", () => {
@@ -310,5 +351,48 @@ describe("readCmoSigningHub: both new task types and the glucose rules together 
     readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
     readPendingGlucoseTaskTypeSignoff.mockResolvedValue({ waiting: false, failed: true });
     expect(await readCmoSigningHub(supabase)).toMatchObject({ failed: true, failedSources: ["the urgent glucose review task type"] });
+  });
+});
+
+describe("readCmoSigningHub: sole-CMO on-call exception", () => {
+  it("lists the exception line under /clinician only while it is waiting", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingSoleCmoException.mockResolvedValue({ waiting: true, failed: false });
+    const line = (await readCmoSigningHub(supabase)).items.find((i) => i.key === SOLE_CMO_EXCEPTION_ITEM_KEY);
+    expect(line).toMatchObject({ severity: "draft_pending", count: 1 });
+    expect(line?.href.startsWith("/clinician/")).toBe(true);
+    expect(line?.title).toMatch(/on-call rota/);
+  });
+  it("shows nothing once an exception is in force or a second CMO exists", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === SOLE_CMO_EXCEPTION_ITEM_KEY)).toBeUndefined();
+  });
+  it("names an unreadable source instead of looking like an all-clear", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readPendingSoleCmoException.mockResolvedValue({ waiting: false, failed: true });
+    expect(await readCmoSigningHub(supabase)).toMatchObject({ failed: true, failedSources: ["the sole-CMO on-call exception"] });
+  });
+});
+
+describe("unified red-event paging line (S19d)", () => {
+  it("lists the switch-on line while a version is waiting and says it is off", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readUnifiedRedPagingState.mockResolvedValue({ waitingVersion: 1, liveVersion: null, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    const line = hub.items.find((i) => i.key === "unified_red_paging");
+    expect(line?.title).toMatch(/off/i);
+    expect(line?.detail).toMatch(/test pack/i);
+  });
+  it("keeps a switch-off line while it is on", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    readUnifiedRedPagingState.mockResolvedValue({ waitingVersion: null, liveVersion: 1, failed: false });
+    const hub = await readCmoSigningHub(supabase);
+    expect(hub.items.find((i) => i.key === "unified_red_paging")?.title).toMatch(/ON/);
+  });
+  it("shows no line when there is nothing, and reports a failed read instead of an all-clear", async () => {
+    readSignoffQueue.mockResolvedValue({ items: [], failedSources: [], settledConfigs: [] });
+    expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === "unified_red_paging")).toBeUndefined();
+    readUnifiedRedPagingState.mockResolvedValue({ waitingVersion: null, liveVersion: null, failed: true });
+    expect(await readCmoSigningHub(supabase)).toMatchObject({ failed: true, failedSources: ["unified red-event paging"] });
   });
 });

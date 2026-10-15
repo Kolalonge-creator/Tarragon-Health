@@ -47,6 +47,17 @@ describe("sign-off hub inline panels", () => {
     expect(source).toContain("inlinePanels[GLUCOSE_TASK_TYPE_ITEM_KEY] = <GlucoseTaskTypePanel");
   });
 
+  it("opens the unified red-event paging switch inline on the hub, with the test-pack confirmation and a switch-off (S19d)", () => {
+    expect(source).toContain("inlinePanels[UNIFIED_RED_PAGING_ITEM_KEY] = <UnifiedRedPagingPanel");
+    const panel = readFileSync(join(__dirname, "../_signoff-panels/unified-red-paging-panel.tsx"), "utf8");
+    expect(panel).toContain("switchOnUnifiedRedPagingAction");
+    expect(panel).toContain("switchOffUnifiedRedPagingAction");
+    expect(panel).toContain('name="test_pack_run"');
+    // nothing activates automatically: the only caller of the switch-on RPC is the CMO-gated server action
+    const actions = readFileSync(join(__dirname, "unified-red-paging-actions.ts"), "utf8");
+    expect(actions).toContain("canAssignCases");
+  });
+
   it("shows the S06 to S10 banner and opens the line a link points at", () => {
     expect(source).toContain("<S06S10Banner");
     expect(source).toContain("<OpenOnHash");

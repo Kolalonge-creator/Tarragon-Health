@@ -305,6 +305,10 @@ Founder decisions in chat after the process-map review. Full per-session effect:
 - **If another language ever returns:** it needs a native reviewer and a clinician-signed translation process before any string ships.
 - OQ-19 (Pidgin part), 61, 63, 74, 82 (Pidgin part), 93, 96 (Pidgin part), 134 and 156 are marked moot in `docs/OPEN-QUESTIONS.md`. No open question concerned Yoruba, Hausa or Igbo review.
 
+### S86 languages framework, 2026-10-07
+- **S86-1: spec D.8 ("add yo, ha, ig") is superseded by D-14.** The product stays English only. S86 builds the process and checks for adding a language in dormant form (versioned registry config `i18n.language_registry`, coverage report, a gate, a picker rule) and proves them with a test-only stub language. No language ships, no database constraint is widened, no migration. The shared rules text "(en, pcm)" in the session prompts is stale for the same reason.
+- **Return conditions (from D-14), as a checklist:** native reviewer; forward translation; independent back translation; reconciliation; native clinical review of each string set; CMO signature per string set; audio recorded only after signature; then enablement per feature by a new signed registry version. Nothing is switched on by a build.
+
 ### S46 to S50 planning, 2026-10-07 (founder)
 - **S46-1: hepatitis B immunity uses anti-HBs as a clinician add-on to the annual blood draw.** HBsAg stays part of the annual check. When HBsAg is negative and immunity is unknown, the lab adds anti-HBs once to that same draw, set by the clinician and never chosen by the patient (there are no packages any more: the Membership includes an annual blood test and review). A result at or above the CMO-signed threshold marks the patient immune and retires the annual HBsAg. HIV and hepatitis C stay annual. The threshold and wording go in the CMO-signed lab-panel and screening-rule configuration. Built in S46a.
 - **S46-2: the yearly Health Report is assembled without any AI model in version 1.**
@@ -321,6 +325,15 @@ Founder decisions in chat after the process-map review. Full per-session effect:
 - **Postpartum:** the engine takes a `postpartum` input (first 6 weeks after a birth). It uses the pregnancy red lines (160/110, and 140/90 with a pre-eclampsia symptom) and an amber review at 150/100 (BP-P5).
 - These are rule set version 2 (draft, in `triage_rule_sets` next to the unused draft v1). Still a draft until the CMO signs it in the console (S37).
 
+### S85 to S87 planning, 2026-10-07 (founder selections, UNSIGNED)
+Source: `docs/plans/S85-S87-build-plan.md` and `docs/plans/S85-S87-cmo-signoff-pack.md` (exact wording and the list of guideline statements still to verify). Nothing below is signed. The CMO signs each item by name in chat after its draft row exists.
+- **S85-1 (D1): blood pressure of 180/120 or higher asks the emergency-symptom question** (today it is 200/130). A reported emergency symptom is RED; no symptom is AMBER with same-day clinician contact and a 2 hour recheck. Needs a new draft version of `bp_care_triage`; v1 and v2 are not edited.
+- **S85-2 (D2): the fertile window is hidden by default**, shown only in an opt-in "Planning a pregnancy" mode, always with "Not contraception. This cannot prevent pregnancy." (implements OQ-12).
+- **S85-3 (D3): SMS has one named exception** beyond verification codes and clinician paging: a content-free alert to the patient's own consented emergency contact when the patient triggers an emergency. Other patient SMS paths (push-failure fallback, dependent claim, broadcast channel, routine critical-result rung) are removed. Reverses part of C.2 and D-12, so it also needs the founder's explicit approval; the exception is not relied on until live delivery is proven.
+- **S86-1 (D4): languages stay English only (D-14).** Build a dormant, test-only-proven readiness framework; no language ships; spec D.8 is superseded. Future review standard: forward translation, back translation, reconciliation, native clinical review, CMO signature.
+- **S87-1: salaried clinicians.** Part C.2's last row is updated to match the 2026-09-30 decision (employed doctors are allowed). The code stays.
+- **S85-4: journey tests are built now**, with steps for unbuilt modules marked pending and counted. No journey is reported passing until none are pending and S40 has passed.
+- **Order:** S87 first, then S86, then S85.
 ## 2026-10-07 CMO decision sheet (all items selected in chat; see docs/clinical-signoff/CMO-DECISION-SHEET-2026-10-07.md)
 | Question | Decision |
 |---|---|

@@ -303,6 +303,22 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S07.md section 3; supabase 20260905011852_symptom_red_flag_handler_pages_a_clinician.sql",
   },
   {
+    key: "glucose.symptom_checklist",
+    // A warning sign ticked on the glucose form is stored as a symptoms row so the server can grade it with the glucose rules (R2 follow-up).
+    // The form does not ask the patient to rate it, so it is recorded at this severity, with a description saying it was ticked rather than
+    // rated. 3 is deliberately BELOW both paging lines of the older symptom trigger (handle_symptom_red_flag pages from severity 5 for any type,
+    // and from severity 4 for the paediatric types lethargy and dehydration_signs in a child under 5, which two glucose signs map onto), so a
+    // glucose-form tick never pages through that older path on its own: the governed glucose engine is the one place a glucose sign pages.
+    // Unlike blood pressure (bp.symptom_checklist is 6, on purpose, because blood pressure still leans on the older trigger), do not raise this
+    // without reading docs/design/glucose-sign-storage-gap.md. The CMO confirms the value.
+    value: { severity: 3 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-15",
+    source: "docs/design/glucose-sign-storage-gap.md; supabase 20260905011852_symptom_red_flag_handler_pages_a_clinician.sql",
+  },
+  {
     key: "reminders.behaviour",
     value: { snoozeMinutes: 30, maxSnoozes: 3, missedAfterMinutes: 120, maxPending: 60, horizonDays: 14 },
     owner: "Founder",
@@ -559,6 +575,51 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 3,
     effectiveFrom: "2026-10-13",
     source: "docs/design/S11-S15-credentialing.md; CMO answers Q14 and Q15 (MDCN verification before first independent contact; six-month spot re-check). grandfather_ends_on is null until the CMO sets it.",
+  },
+  {
+    key: "credentialing.rules",
+    // Version 4 (S20 v2, CMO decision 8 recorded 2026-10-07), on top of version 3 (primary-source and re-check keys): notices at 90, 30, 7 and 0 days,
+    // the proof-of-renewal deadline (15 December for the 31 December cycle), a missing licence date counted as ineligible, and the evidence sources
+    // a verification can name. INACTIVE in `credentialing_config` until switched on; the switch is refused while an active clinician has no licence date.
+    value: {
+      min_practice_years: 2,
+      pass_percent: 80,
+      all_red_correct: true,
+      audited_task_count: 20,
+      referees_required: 2,
+      referee_independent_contact: true,
+      test_max_attempts: 3,
+      test_retake_cooldown_hours: 24,
+      test_scenarios_per_attempt: 10,
+      notice_windows_days: [90, 30, 7, 0],
+      grace_max_days: 14,
+      separate_verifier_and_approver: true,
+      document_max_bytes: 8388608,
+      document_retention_years_after_offboarding: 7,
+      require_verified_phone: false,
+      document_purge_enabled: false,
+      rejected_application_document_retention_months: 24,
+      primary_source_required: true,
+      primary_source_routes: ["mdcn_dataflow", "mdcn_written_confirmation", "mdcn_register_check"],
+      primary_source_max_age_days: 365,
+      recheck_months: 6,
+      recheck_overdue_days: 14,
+      credential_date_max_days: 1100,
+      grandfather_ends_on: null,
+      renewal_cycle: {
+        cycle_end_month: 12,
+        cycle_end_day: 31,
+        proof_deadline_month: 12,
+        proof_deadline_day: 15,
+      },
+      missing_licence_date_ineligible: true,
+      verification_sources: ["mdcn_register_lookup", "document_sighted", "insurer_confirmation", "other"],
+    },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 4,
+    effectiveFrom: "2026-10-14",
+    source: "docs/plans/S16-S20-review-and-build-plan.md section 5; docs/design/S16-S20-quality-v2.md",
   },
   {
     key: "lab.release_policy",
@@ -897,6 +958,57 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S16.md; spec 7.3 and 7.4",
   },
   {
+    key: "queue.task_layer",
+    // The task layer's rules (S16-S20 hardening, CMO decisions 1 to 3 of 2026-10-07). Live values are the active row of
+    // `queue_task_layer_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
+    // lead_window_cap_fraction: an offer window is the task type's window or this share of the task's own due time, whichever is
+    // shorter (decision 1; defect D1). escalated_non_red_any_eligible: an escalated task that is not red is claimable by any eligible
+    // clinician; red (class 1) is unchanged (INV-05). handback_also_excludes_task_for: reasons that bar the same clinician from the
+    // same task again, on top of queue.claims (D7). escalation_alert: classes up to immediate_max_class alert the clinical lead at once
+    // on the listed channels (never SMS or WhatsApp), the rest an in-app notice plus a daily digest (decision 2; D2). completion: the
+    // coded outcomes each task type may close with, the contact-attempt sequence a critical result needs when it cannot be released,
+    // and the note limit (decision 3; D4). watchdog: how stale a queue job may be, and how long the oldest open task of each class may
+    // wait before an alert (D6). Every number is PROPOSED; the CMO signs v2 in the console.
+    // Two further PROPOSED numbers are code constants until that v2 (config v1 cannot be edited in place): a contact attempt may be
+    // dated up to 24 hours before its task existed (CONTACT_ATTEMPT_LOOKBACK_HOURS; private.contact_attempt_lookback()), and further
+    // immediate escalations within 10 minutes of the last alert are folded into one follow-up (private.escalation_coalesce_window()).
+    value: {
+      lead_window_cap_fraction: 0.5,
+      escalated_non_red_any_eligible: true,
+      handback_also_excludes_task_for: ["needs_information", "technical_problem"],
+      escalation_alert: {
+        immediate_max_class: 2,
+        immediate_channels: ["in_app", "push", "email"],
+        notice_channels: ["in_app"],
+        digest_channels: ["in_app", "email"],
+      },
+      completion: {
+        default_codes: ["completed_action_taken", "completed_no_action_needed", "referred_on", "patient_unreachable_documented"],
+        codes_by_type: {
+          critical_result_review: ["result_released", "contact_attempts_documented"],
+          titration_signoff: ["signed", "amended", "rejected"],
+          pharmacy_flag_review: ["prescription_confirmed", "prescription_amended", "pharmacy_contacted", "prescription_withdrawn"],
+          symptom_review: ["answer_signed"],
+          async_question: ["guidance", "needs_call", "needs_more_information", "answer_signed"],
+          written_question_call: ["call_done"],
+          red_event_unacknowledged: ["acknowledged", "dispositioned"],
+        },
+        legacy_kind_types: ["async_question", "written_question_call"],
+        contact_attempts: { min_attempts: 3, methods: ["phone_call", "video_call", "in_app_message", "emergency_contact"] },
+        note_max_chars: 1000,
+      },
+      watchdog: {
+        job_max_age_minutes: { "sweep-clinical-tasks": 5, "expire-task-claims": 5 },
+        class_warning_minutes: { "2": 60, "3": 120, "4": 720, "5": 720, "6": 1440, "7": 720, "8": 1440, "9": 2160 },
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-14",
+    source: "docs/plans/S16-S20-review-and-build-plan.md section 5 (decisions 1 to 3); docs/design/S16-S20-task-layer.md",
+  },
+  {
     key: "lead.rules",
     // Lead clinician, declared availability and on-call rota rules (S18, spec 7.2 and 7.5). Live values are the active row
     // of `lead_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
@@ -935,6 +1047,44 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S18.md; docs/research/S18.md; spec 7.2, 7.5, 7.9",
   },
   {
+    key: "lead.rules",
+    // Lead clinician, declared availability and on-call rota rules (S18, spec 7.2 and 7.5). Live values are the active row
+    // of `lead_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
+    // max_lead_patients repeats clinician.max_lead_patients. lead_min_doctor_tier and required_competencies: who may lead
+    // (founder decision F-05: doctor tier is the gate; OQ-125). block_min_hours: the shortest declared block. rota_*, gap_alert_hours,
+    // min_eligible_on_call: the rota and when uncovered hours raise an incident. fatigue_* and post_call_*: NHS-derived warnings
+    // and rest (the 2016 doctors in training contract FAQ: 11 hours rest, 72 hours in 168, at most 3 rostered on-calls and 4 long shifts in 7 days), PROPOSED and not Nigerian norms, CMO to set (OQ-128); v2 (CMO, 2026-10-07) lowers the weekly hours warning from 72 to 48, the EU Working Time Directive average; a rota override needs a written reason of
+    // override_reason_min_chars. contracted_needs_declared_hours: a contracted clinician is offered work only inside declared hours. contracted_min_declared_hours_per_week: the pilot floor shown to a contracted clinician (a pilot value in the published Amwell programme is 10 hours; displayed, not enforced). swap_urgent_hours: a swap on a shift starting within this many hours applies on acceptance and is audited, so urgent cover never waits for a reviewer.
+    value: {
+      max_lead_patients: 60,
+      lead_min_doctor_tier: "senior_medical_officer",
+      required_competencies: ["lead_clinician", "hypertension"],
+      block_min_hours: 2,
+      minimum_guarantee_kinds: ["queue", "on_call"],
+      rota_max_shift_hours: 24,
+      rota_horizon_days: 14,
+      gap_alert_hours: 48,
+      min_eligible_on_call: 2,
+      fatigue_min_rest_hours: 11,
+      fatigue_max_consecutive_days: 7,
+      fatigue_max_shifts_per_7_days: 3,
+      fatigue_max_hours_per_7_days: 48,
+      fatigue_long_shift_hours: 10,
+      fatigue_max_long_shifts_per_7_days: 4,
+      post_call_rest_hours: 8,
+      post_call_rest_min_shift_hours: 8,
+      contracted_needs_declared_hours: true,
+      contracted_min_declared_hours_per_week: 10,
+      swap_urgent_hours: 4,
+      override_reason_min_chars: 10,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S18.md; docs/research/S18.md; spec 7.2, 7.5, 7.9",
+  },
+  {
     key: "paging.rules",
     // Red event paging (S19, spec 7.9). Live values are the active row of `paging_config`; this entry mirrors it and a test
     // fails if the migration seed and this value drift. escalation_minutes repeats paging.escalation_minutes: the backup is
@@ -948,6 +1098,106 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-06",
     source: "docs/design/S19.md; spec 7.9",
+  },
+  {
+    key: "paging.delivery_rules",
+    // Red event pager delivery (S19c, S16-S20 review Stage 1, CMO decisions 9, 10, 11 and 15). Live values are the active row of
+    // `paging_delivery_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
+    // delivered_ack_seconds: a page never shown on the paged clinician's console or device after this long pages the next person
+    // early (the 5 and 10 minute timers in paging.rules stay). reconcile_after_seconds / reconcile_lookback_hours: a red triage event
+    // with no page after the first is paged by the reconciler; it looks back this many hours. merge_window_minutes: a repeat red event
+    // for a patient with an open page family joins it instead of ringing again. engine_heartbeat_stale_seconds: older than this a
+    // paging engine heartbeat is stale and opens an incident. device_seen_stale_minutes: an on-call console not seen for this long
+    // is shown as silent. readiness_test_page_days: on-call needs a test page acknowledged within this many days.
+    // test_page_min_interval_seconds: the least time between two test pages to one clinician. page_notification_stuck_seconds: a page
+    // notification still waiting to send after this long opens an incident (the sender may be down). objective_readiness_required:
+    // 1 = on-call also needs a working push subscription, a verified email and a recent test page; 0 = checklist only.
+    // first_hop_safe_*: a blood pressure reading inside this band is queued on the normal 15 second cron; outside it (or with no band)
+    // the event is urgent and nudges process-events at once. It only chooses speed: every reading is graded either way.
+    value: {
+      delivered_ack_seconds: 90,
+      delivered_ack_seconds_unconfirmed_route: 180,
+      reconcile_after_seconds: 60,
+      reconcile_lookback_hours: 4,
+      reconcile_per_pass_max: 20,
+      merge_window_minutes: 30,
+      engine_heartbeat_stale_seconds: 120,
+      device_seen_stale_minutes: 10,
+      device_seen_keep: 20,
+      readiness_test_page_days: 7,
+      test_page_min_interval_seconds: 120,
+      page_notification_stuck_seconds: 120,
+      page_notification_retry_stuck_seconds: 660,
+      first_hop_safe_systolic_min: 100, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
+      first_hop_safe_systolic_max: 139, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
+      first_hop_safe_diastolic_min: 60, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
+      first_hop_safe_diastolic_max: 89, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
+      objective_readiness_required: 0,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-14",
+    source: "docs/design/S16-S20-pager-delivery.md; docs/plans/S16-S20-review-and-build-plan.md section 5, decisions 9, 10, 11, 15",
+  },
+  {
+    key: "paging.delivery_rules_v2",
+    // The same delivery rules with objective on-call readiness SWITCHED ON (a working push subscription, a verified email and a recent
+    // acknowledged test page to be put on the rota; swaps are never blocked). Shipped as an INACTIVE, unsigned row (paging_delivery_config
+    // version 2): the CMO activates it once every on-call clinician has passed a test page. Not active until then.
+    value: {
+      delivered_ack_seconds: 90,
+      delivered_ack_seconds_unconfirmed_route: 180,
+      reconcile_after_seconds: 60,
+      reconcile_lookback_hours: 4,
+      reconcile_per_pass_max: 20,
+      merge_window_minutes: 30,
+      engine_heartbeat_stale_seconds: 120,
+      device_seen_stale_minutes: 10,
+      device_seen_keep: 20,
+      readiness_test_page_days: 7,
+      test_page_min_interval_seconds: 120,
+      page_notification_stuck_seconds: 120,
+      page_notification_retry_stuck_seconds: 660,
+      first_hop_safe_systolic_min: 100, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
+      first_hop_safe_systolic_max: 139, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
+      first_hop_safe_diastolic_min: 60, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
+      first_hop_safe_diastolic_max: 89, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
+      objective_readiness_required: 1,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-14",
+    source: "docs/design/S16-S20-pager-delivery.md; paging_delivery_config version 2 (inactive)",
+  },
+  {
+    key: "paging.unified_red_rules",
+    // Unified red-event paging (S19d, S16-S20 review Stage 3, CMO decision 11 part 3, defect P5). Live values are the active row of
+    // `unified_red_paging_config`; this entry mirrors version 1 and a test fails if the migration seed and this value drift. The row ships
+    // INACTIVE and UNSIGNED: no active row means every flag reads OFF and the older notification paths run exactly as before. The CMO
+    // switches it on from the sign-off hub after running the staging test pack, and can switch it off at any time.
+    // Each source key: 1 = that red-class event (SpO2 red, pulse red, temperature red, a red-flag symptom, any emergency event except
+    // blood pressure, which already has the triage-engine page) creates a page through the same ladder as the blood pressure page.
+    // suppress_legacy_clinician_notice: 1 = for the RED levels (SpO2, pulse, temperature, red-flag symptom) the older "notify every clinician"
+    // step is skipped, but only when a page with a named, reachable clinician was created or joined; a failed page, a no-cover page or a
+    // primary with no push subscription and no verified email leaves the older notice running.
+    // suppress_legacy_emergency_notice: the same for EMERGENCY events. 0 in v1: the page and the older broadcast run side by side until the
+    // CMO has seen delivery proven and signs a later version with 1. An emergency never merges into an open page; it makes its own.
+    value: {
+      spo2_red: 1,
+      pulse_red: 1,
+      temperature_red: 1,
+      symptom_red_flag: 1,
+      emergency_event: 1,
+      suppress_legacy_clinician_notice: 1,
+      suppress_legacy_emergency_notice: 0,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-15",
+    source: "docs/design/S16-S20-unified-red-paging.md; docs/plans/S16-S20-review-and-build-plan.md section 5, decision 11",
   },
   {
     key: "free_red_event.rules",
@@ -1305,6 +1555,84 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 2,
     effectiveFrom: "2026-10-13",
     source: "docs/design/S20.md; spec 7.8; docs/design/S11-S15-credentialing.md (CMO answer Q16: 100 percent review of a new clinician's first 20 red or prescribing cases)",
+  },
+  {
+    key: "quality.audit",
+    // Version 3 (S20 v2, CMO decisions 5, 6 and 7 recorded 2026-10-07), on top of version 2 (new clinicians' first 20 cases): the secret-seeded
+    // stratified sample (a floor that catches up later in the month, AI-scribe notes at 20 percent), the audit form's phase comments,
+    // avoidability rating and scribe items, the second review on a critical miss, and the speak-up check-ins at 30 and 90 days. INACTIVE and
+    // unsigned in `quality_config` until the Chief Medical Officer signs it (public.sign_quality_config); versions 1 and 2 stay as they were.
+    value: {
+      sampling: {
+        random_rate_percent: 10,
+        always_reasons: ["red_event", "titration"],
+        floor_min_tasks: 3,
+        floor_per_clinician_per_month: 1,
+        reviewer_monthly_cap: 40,
+        due_days: 14,
+        new_clinician_full_review_cases: 20,
+        seed: {
+          rotation: "monthly",
+        },
+        stratified: true,
+        floor_catchup_until_day: 21,
+        floor_current_month_from_day: 20,
+        scribe_assisted_rate_percent: 20,
+      },
+      tier1: {
+        audited_task_count: 20,
+        graduation_min_score: 85,
+        max_critical_misses: 0,
+      },
+      form: {
+        version: 2,
+        safety_items: ["identity_and_consent_confirmed", "red_flags_recognised_and_acted_on", "decision_within_competence_and_protocol", "no_unsigned_treatment_change", "safety_netting_and_follow_up_given", "escalated_when_needed"],
+        quality_items: ["history_adequate", "reasoning_documented", "communication_clear", "plan_appropriate", "patient_questions_answered", "documentation_timely"],
+        quality_max: 4,
+        phases: ["assessment", "decision", "action", "documentation"],
+        phase_comment_max_chars: 2000,
+        avoidability: {
+          required_unless_outcome: "satisfactory",
+          scale: ["not_applicable", "not_avoidable", "slightly_avoidable", "possibly_avoidable", "probably_avoidable", "definitely_avoidable"],
+        },
+        scribe_items: ["no_clinically_relevant_omission", "no_invented_content"],
+        scribe_critical_items: ["no_invented_content"],
+      },
+      outcomes: {
+        satisfactory_min: 85,
+        minor_concerns_min: 70,
+        rationale_min_chars: 20,
+      },
+      second_review: {
+        required_on: ["critical_miss"],
+        reply_max_per_audit: 5,
+        reply_min_chars: 20,
+      },
+      reliability: {
+        audit_weight: 2,
+        good_by_outcome: {
+          satisfactory: 1,
+          minor_concerns: 0.6,
+          significant_concerns: 0.2,
+          unsafe: 0,
+        },
+      },
+      speak_up: {
+        acknowledge_hours: 48,
+        immediate_acknowledge_hours: 4,
+        respond_days: 14,
+        max_per_day: 10,
+        retaliation_review_months: 12,
+        checkin_days: [30, 90],
+        anonymous_max_per_day_per_org: 10,
+        about_lead_routes_to: "independent_reader",
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 3,
+    effectiveFrom: "2026-10-14",
+    source: "docs/plans/S16-S20-review-and-build-plan.md section 5; docs/design/S16-S20-quality-v2.md",
   },
   {
     key: "earnings.rules",
@@ -1967,6 +2295,20 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-06",
     source: "docs/design/S36e.md; docs/design/S17.md (reliability is a tie-break only)",
+  },
+  {
+    key: "rewards.points_redemption_cap_kobo",
+    // F1 (OQ-08, founder decision 2026-09-30): wellness points are non-monetary and never convert to money or a
+    // voucher. The only future use of a point is a capped discount at checkout (S71/S72). This is the largest
+    // discount, in integer kobo, that one redemption may take off a single order. 0 means redemption is switched
+    // off, which is the state until the founder sets a cap and S71/S72 build the checkout path. Nothing may read
+    // this as a points-to-kobo rate.
+    value: 0,
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/OPEN-QUESTIONS.md OQ-08 and OQ-F1-01; docs/design/S55-S60-build-plan.md section 4.3",
   },
   {
     key: "breathing.bre01",
@@ -2959,5 +3301,1138 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/plans/S66-S70-cmo-signoff-pack.md items A1, A2; packages/clinical/src/rules/bp-care-v5.ts",
+  },
+  {
+    key: "assistant.excluded_analytes",
+    // INV-04 (S51 pre-fix). Analyte-code tokens for screening analytes the assistant and the explainer must never read unless the
+    // result is an explicit negative. Mirrored by public.ai_excluded_analyte_tokens in migration
+    // *_s51_inv04_ai_never_reads_sensitive_results.sql; assistant-safety-mirror.test.ts pins the two together. The CMO confirms the list.
+    value: ["hiv", "hbsag", "hbs_ag", "hcv", "hepatitis", "hep_b", "hep_c", "hepb", "hepc", "hbv", "hbeag", "hbe_ag", "anti_hbc", "anti_hbs", "cd4", "viral_load", "p24", "aids", "retroviral"],
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/BUILD-SPEC-v5.md INV-04; docs/design/S51.md",
+  },
+  {
+    key: "assistant.go_live",
+    // S51: the go-live guard assistant_enabled needs at least this many reviewed, owned knowledge rows with a future review date.
+    // Mirrored by public.assistant_config (key go_live) in migration *_s51_assistant_guard_knowledge_events.sql. The CMO confirms the number.
+    value: { min_approved_kb_rows: 20 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S51.md; docs/BUILD-SPEC-v5.md B.7 (go-live guard assistant_enabled)",
+    guardPatterns: ["min_approved_kb_rows\\s*[=:]\\s*20\\b"],
+  },
+  {
+    key: "assistant.nudges",
+    // S51 (7.5): the daily nudge goes only to a patient with an assistant conversation in the last recent_days, at most max_per_run in a run.
+    // Mirrored by public.assistant_config (key nudges); read by public.assistant_nudge_candidates() with no built-in fallback.
+    value: { recent_days: 30, max_per_run: 2000 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S51.md; docs/BUILD-SPEC-v5.md B.7 (nudges)",
+  },
+  {
+    key: "devices.plausibility",
+    // S70a (18.9). Two classes. IMPOSSIBLE values are held as "please confirm" and never triaged or saved to the record until the
+    // person re-checks. EXTREME BUT POSSIBLE values are saved and triaged as normal (a real crisis is never blocked). The typed-entry
+    // limits for MANUAL entry stay as the pathway-signed ones (OQ-66); these bounds are wider and only decide what is held.
+    // Mirrored in the migration seed (device-plausibility-begin) with a test that fails on drift. Provisional, review after 3 months of real data (A9).
+    value: {
+      impossible: {
+        systolic_mmhg: { min: 40, max: 300 },
+        diastolic_mmhg: { min: 20, max: 200 },
+        systolic_must_exceed_diastolic: true,
+        pulse_bpm: { min: 20, max: 250 },
+        spo2_pct: { min: 50, max: 100 },
+        temperature_c: { min: 30, max: 44 },
+        weight_kg_adult: { min: 20, max: 400 },
+        glucose_mmol_l: { min: 1.1, max: 55 },
+      },
+      adult_age_years: 18,
+      wrist_ppg_spo2_informational: true,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S66-S70-cmo-signoff-pack.md A9, A12; docs/design/S70a.md",
+  },
+  {
+    key: "devices.dedupe",
+    // S70a (18.9, acceptance test). Same patient and vital type, from DIFFERENT sources, values within tolerance, inside the window:
+    // one canonical row, the other linked and never deleted. Windows follow the recorded decision S70-1 / OQ-309 (BP 10 minutes,
+    // glucose 5 minutes), which replaces the pack's 10 minutes for everything. Temperature has no tolerance in the pack, so it is not merged.
+    // glucose_band_edges_mmol_l is not a clinical threshold: two values that fall either side of one are never merged, so a merge
+    // can never hide the worse of two readings. BP, pulse and SpO2 use the existing live classifiers for the same purpose.
+    value: {
+      tolerance: { systolic_mmhg: 3, diastolic_mmhg: 3, glucose_mmol_l: 0.3, weight_kg: 0.2, pulse_bpm: 3, spo2_pct: 1 },
+      window_minutes: { blood_pressure: 10, glucose: 5, weight: 10, pulse: 10, spo2: 10 },
+      precedence: ["ble_device", "vendor_cloud", "phone_mirror", "photo_confirmed", "manual"],
+      mirror_providers: ["apple_health", "android_health_connect"],
+      glucose_band_edges_mmol_l: [3.0, 3.9, 11.0, 13.9],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/DECISIONS.md S70-1 (branch docs/s70-s75-decisions), OQ-309; docs/plans/S66-S70-cmo-signoff-pack.md A10",
+  },
+  {
+    key: "devices.cgm_events",
+    // S70a (18.5, decision S70-2, OQ-310). Sustained-event rules for continuous glucose monitor streams. They create a clinician TASK
+    // (never an instant red page; the live single-reading emergency backstop for a reading under 3.0 is unchanged) and show the severe-low
+    // safety copy at once. Thresholds, durations and wording are PROPOSED: the CMO signs them. Basis: International Consensus on Time in Range
+    // and ADA Standards of Care (secondary sources, primary text not read; OQ-310). cooldown_minutes stops a stream flooding the queue.
+    value: {
+      rules: [
+        { code: "low_severe", kind: "low", below_mmol_l: 3.0, minutes: 15, due_minutes: 240, cooldown_minutes: 120 },
+        { code: "low", kind: "low", below_mmol_l: 3.9, minutes: 60, due_minutes: 1440, cooldown_minutes: 240 },
+        { code: "high", kind: "high", above_mmol_l: 13.9, minutes: 120, due_minutes: 1440, cooldown_minutes: 480 },
+      ],
+      max_gap_minutes: 20,
+      task_type: "cgm_glucose_review",
+      severe_low_copy:
+        "Your sensor shows a very low sugar level. If you feel shaky, sweaty, confused or faint, take a fast sugar now, such as juice or glucose tablets, and check again soon. If you cannot swallow, or someone cannot wake you, call emergency services now. Your care team has been told.",
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/DECISIONS.md S70-2 (branch docs/s70-s75-decisions), OQ-310; docs/plans/S66-S70-cmo-signoff-pack.md A12",
+  },
+  {
+    key: "devices.ecg_alert",
+    // S70a (18.6, decision S70-3, OQ-311). A personal ECG device's OWN result label is stored verbatim. An irregular, inconclusive or
+    // unrecognised label creates a routine clinician task due within one working day (1440 minutes is the proposed stand-in for it).
+    // The patient sees only the fixed sentence below, never a diagnosis, and no notification names a condition (INV-07). Chest pain,
+    // fainting or breathlessness goes through the existing red triage, not this path. The label map is a lookup of words, not a diagnosis.
+    value: {
+      task_type: "device_rhythm_review",
+      due_minutes: 1440,
+      patient_copy: "Your device flagged something for your care team to look at.",
+      label_map: {
+        inconclusive: ["inconclusive", "poor recording", "poor reading", "unclassified", "unrecognized", "unrecognised"],
+        irregular: ["atrial fibrillation", "afib", "irregular", "arrhythm", "bradycardia", "tachycardia", "high heart rate", "low heart rate"],
+        normal: ["sinus rhythm", "normal"],
+      },
+      red_symptoms: ["chest_pain", "fainting", "breathlessness"],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/DECISIONS.md S70-3 (branch docs/s70-s75-decisions), OQ-311; docs/plans/S66-S70-cmo-signoff-pack.md A11",
+  },
+  {
+    key: "devices.task_types",
+    // The two task types S70a adds to `task_types` (S16 pattern). Each row: code, priority class, default due minutes, minimum doctor tier,
+    // required competencies, lead window minutes, claim timeout minutes. Flagged for the CMO: nothing here is signed.
+    value: [
+      { code: "cgm_glucose_review", priority_class: 4, default_due_minutes: 1440, min_doctor_tier: "senior_medical_officer", required_competencies: ["adult_general"], lead_window_minutes: 240, claim_timeout_minutes: 30 },
+      { code: "device_rhythm_review", priority_class: 5, default_due_minutes: 1440, min_doctor_tier: "senior_medical_officer", required_competencies: ["adult_general"], lead_window_minutes: 1440, claim_timeout_minutes: 30 },
+    ],
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S70a.md; queue.task_types pattern (S16)",
+  },
+  {
+    key: "mental_health.follow_up_rules",
+    // Task due times (minutes) for the follow-up after a moderate or high PHQ-9, GAD-7 or EPDS result. Live values are the active row
+    // of `mental_health_follow_up_config`; a test fails if the migration seed and this value drift. The pathway is behind the CMO
+    // switched guard mental_health_follow_up_enabled (off). The build proposed these numbers; they are not a clinical decision.
+    value: {
+      phq9: { moderate_due_minutes: 4320, high_due_minutes: 1440 },
+      gad7: { moderate_due_minutes: 4320, high_due_minutes: 1440 },
+      epds: { moderate_due_minutes: 4320, high_due_minutes: 1440 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S56.md; spec 10.2",
+  },
+  {
+    key: "crisis.card",
+    // The crisis card (function 10.3). Live values are the active row of `crisis_card_config`; a test fails on drift.
+    // emergency_number: the national emergency line (the card always also says go to the nearest hospital now). No helplines: the founder
+    // decided 2026-10-07 that none are usable in Nigeria. callback_sla_minutes: the staffed callback time after a crisis flag; it is
+    // shown to a patient only once this row is confirmed, never while it is a draft.
+    value: { emergency_number: "112", callback_sla_minutes: 30 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S56.md; spec 10.3",
+  },
+  {
+    key: "learning.micro_lesson",
+    // S55 (spec 9.2): a weekly lesson (one per programme week) takes under five minutes, asks for one action and ends in one check question. Live value is the
+    // active `micro_lesson` row of `learning_config`; a test fails if the migration seed and this value drift. UNSIGNED.
+    value: { max_minutes: 5, check_questions: 1 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S55.md; spec 9.2",
+  },
+  {
+    key: "learning.offline_pack",
+    // S55 (spec 9.6): the size cap for lessons kept on a phone, counted over text and audio together, and the item cap. Expired and
+    // unpublished items are never included. Live value is the `offline_pack` row of `learning_config`. UNSIGNED.
+    value: { max_total_bytes: 25000000, max_items: 150, audio_wifi_only: true },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S55.md; spec 9.6; OQ-S55-04",
+  },
+  {
+    key: "learning.creator_perk",
+    // S55 follow-up (founder decision): creator series are a Membership perk. true = a person who is not a Member sees the title, the
+    // creator credit and the teaser of a creator lesson but not its body or audio; false = creator content is open to everyone. No
+    // payment logic. Live value is the active `creator_perk` row of `learning_config`; an admin changes it with
+    // set_learning_creator_perk() (a new version row, audited), no deploy. A missing value fails closed (locked). UNSIGNED.
+    value: { members_only: true },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S55.md section 8; founder decision 2026-10-07",
+  },
+  {
+    key: "learning.search_gap_log",
+    // S55 (spec 9.3): rules for the zero-result search log (no patient reference): longest phrase kept, most words, how many searches
+    // before an admin sees a phrase, and retention. Live value is the `search_gap_log` row of `learning_config`. UNSIGNED.
+    value: { enabled: false, max_query_chars: 60, max_words: 6, min_count_to_show: 3, retention_days: 180, max_rows: 5000 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S55.md; spec 9.3; OQ-S55-05",
+  },
+  {
+    key: "learning.search_synonyms",
+    // S55 (spec 9.3): everyday and local words grouped so that any one finds the others. Search expansion only. Live value is the
+    // `search_synonyms` row of `learning_config`; web, mobile and the database search all read it. UNSIGNED: the CMO confirms the groups,
+    // and the founder confirms whether the Nigerian everyday words stay (OQ-S55-01).
+    value: {
+      groups: [
+        { terms: ["bp", "blood pressure", "pressure", "high blood", "hypertension", "bp reading"] },
+        { terms: ["sugar", "diabetes", "blood sugar", "glucose", "sugar level", "high sugar"] },
+        { terms: ["belle", "pregnancy", "pregnant", "antenatal", "expecting"] },
+        { terms: ["heart", "cardiac"] },
+        { terms: ["drug", "drugs", "medicine", "medicines", "medication", "tablets", "pills"] },
+        { terms: ["kidney", "kidneys", "kidney disease", "ckd"] },
+        { terms: ["hot body", "fever", "high temperature"] },
+        { terms: ["weight", "overweight", "belly fat", "obesity"] },
+        { terms: ["sleep", "insomnia", "cannot sleep", "sleeping"] },
+        { terms: ["salt", "sodium"] },
+        { terms: ["exercise", "workout", "walking", "physical activity"] },
+        { terms: ["vaccine", "vaccines", "vaccination", "immunisation", "immunization"] },
+        { terms: ["tired", "fatigue", "weak body"] },
+        { terms: ["herb", "herbs", "herbal", "local medicine", "agbo"] },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S55.md; spec 9.3; OQ-S55-01",
+  },
+  {
+    key: "symptom.degraded_mode",
+    // S60 (spec 12.8, INV-06): what the symptom checker does when its engine errors, times out or has no protocol to run. The
+    // bundled red-flag floor runs first either way. In degraded mode the severity floors on the signed red-flag rules may be
+    // ignored (a strictly more sensitive screen), and a run that fired no flag is never reassurance: it is routed to at least
+    // this category with a human review. The CMO confirms or changes it.
+    value: { ignore_severity_floors: true, unclassifiable_category: "urgent", engine_timeout_ms: 3000 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S60.md section 3; spec 12.8; docs/OPEN-QUESTIONS.md OQ-S60-02",
+  },
+  {
+    key: "symptom.risk_tightening",
+    // S60 (spec 12.2 and 12.11): Nigerian prevalence and seasonal risk, as a layer that can only RAISE an urgency (a minimum
+    // category), never lower or replace one. Every entry below is a DRAFT: status "draft", no clinical sign-off, a placeholder
+    // provenance that says so. The engine ignores an entry until it is "signed_off" with a named signer and date, so shipping
+    // this changes nothing for any patient. The CMO decides which entries exist, their wording, seasons, regions and minimums;
+    // none of the months, states or symptom keys below is clinical advice. `applies_when` keys that no signed pathway asks yet
+    // (for example sickle_cell_disease history) will simply not match until a signed pathway collects them.
+    value: {
+      entries: [
+        {
+          id: "malaria_season_fever",
+          label: "Fever during the rainy season",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder. The CMO must confirm the season and the source (for example national malaria programme guidance) before this is signed." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { months: [4, 5, 6, 7, 8, 9, 10], any_associated_symptom: ["fever"] },
+          minimum_category: "routine",
+        },
+        {
+          id: "typhoid_fever_with_abdominal_pain",
+          label: "Fever with abdominal pain",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder. Needs a sourced definition and a signed abdominal pain pathway that collects these symptoms." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { any_associated_symptom: ["fever"], complaint_keys: ["abdominal_pain"] },
+          minimum_category: "routine",
+        },
+        {
+          id: "lassa_season_fever",
+          label: "Fever in the dry season in a high-risk state",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder. The CMO must name the season, the STATES (this draft names none, so it would apply nationwide if signed as written) and the source (for example national disease control centre guidance) before this is signed." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { months: [11, 12, 1, 2, 3, 4], any_associated_symptom: ["fever"] },
+          minimum_category: "urgent",
+        },
+        {
+          id: "sickle_cell_history_with_symptom",
+          label: "Sickle cell history with fever or pain",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder. Needs a signed pathway that records sickle cell history, and the CMO's minimum category." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { any_history: ["sickle_cell_disease"], any_associated_symptom: ["fever", "breathlessness"] },
+          minimum_category: "urgent",
+        },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S60.md section 4; spec 12.2 and 12.11; docs/OPEN-QUESTIONS.md OQ-S60-03",
+  },
+  {
+    key: "symptom.accuracy_audit",
+    // S60 (spec 12.12): the monthly accuracy audit. Cells with fewer reviewed cases than min_cell_size are suppressed (a
+    // group of a few people is a person, and a rate over a handful of cases is noise). Intervals are Wilson score intervals at
+    // this confidence. The live value is the active row of `symptom_accuracy_config`; a test fails if the migration seed and
+    // this value drift. The first report is a baseline, not a claim: nothing here lets a figure be published.
+    value: { min_cell_size: 10, confidence_level: 0.95, age_bands: [[0, 4], [5, 17], [18, 39], [40, 59], [60, 150]] },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S60.md section 6; spec 12.12; docs/OPEN-QUESTIONS.md OQ-S60-05",
+  },
+  {
+    key: "paging.watchdog",
+    // S78a (spec 23.15, CMO decision S-8). Mirrors paging_config version 2, which is PROPOSED and INACTIVE: the active row stays version 1 until the CMO signs
+    // a new version. watchdog_grace_seconds: how long a red triage event may exist with no page before the database watchdog creates it itself (INV-05; the
+    // outbox path normally pages in seconds). watchdog_lookback_minutes: how far back the watchdog looks. repage_after_ack_minutes: an acknowledged page still
+    // not closed after this long pages the acknowledging clinician and the backup once more; null = disabled. Until version 2 is active the watchdog uses
+    // 60 seconds and 360 minutes as hard defaults and the re-page is off.
+    // The three S78a keys of that version; the rest of version 2 repeats paging.rules and a test keeps them identical.
+    value: { watchdog_grace_seconds: 60, watchdog_lookback_minutes: 360, repage_after_ack_minutes: null },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S75-S80-cmo-decisions.md S-8; spec 23.15",
+  },
+  {
+    key: "response_time.targets",
+    // S78b (spec 23.16, CMO decision S-9). Mirrors response_time_config version 1, which is PROPOSED, UNSIGNED and INACTIVE: no number is published to
+    // patients and the breach sweep reads nothing until the CMO signs and activates a version. written_question_minutes and amber_review_minutes are how long
+    // a written question or an amber review may wait; appointment_start_late_minutes how long after the booked time a visit may still not have started;
+    // lookback_days how far back the sweep looks; patient_notice_cooldown_hours the shortest gap between two "slower than usual" notices to one patient.
+    value: { written_question_minutes: 1440, amber_review_minutes: 1440, appointment_start_late_minutes: 15, lookback_days: 7, patient_notice_cooldown_hours: 12 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S75-S80-cmo-decisions.md S-9; spec 23.16",
+  },
+  {
+    key: "outcomes.measure_rules",
+    // Outcome measures added to S38's snapshots (S75, CMO decision S-5): HbA1c, weight, PHQ-9 and GAD-7, with the day-180 BP report.
+    // The database holds them as `outcome_config` v3, which is v2 plus this block. v3 is PROPOSED, UNSIGNED and INACTIVE: the live
+    // config stays v2 (`outcomes.snapshot_rules` v2 above stays the one in force) until the CMO activates v3. The migration seed and
+    // this value are checked against each other by a test. Every number is PROPOSED and owned by the CMO: the goals (HbA1c under 7.0
+    // percent or the care-plan target, weight down 5 percent or more, a 50 percent fall for response, below 5 for remission), the
+    // windows around each day within which the nearest result is used, and the lowest baseline for which response and remission
+    // are counted. PHQ-9 and GAD-7 are never shown to a sponsor (S-3, S-5).
+    value: {
+      bp_report_days: [90, 180],
+      measures: {
+        hba1c: {
+          days: [0, 90, 180],
+          goal_below_percent: 7.0,
+          use_care_plan_target: true,
+          valid_min: 3.0,
+          valid_max: 20.0,
+          baseline_before_days: 90,
+          baseline_after_days: 14,
+          followup_tolerance_days: 30,
+          definition: "HbA1c, as a percentage. Change is the value near the day minus the baseline value near joining. A person reached the goal when the value near the day is under 7.0 percent or at their own care-plan HbA1c target. The result nearest the day inside the window is used.",
+          limitations: "Only people with an HbA1c result are counted in the measure; a person with no result near a day is shown as no result, never as not improved. Results come from the lab results recorded on the platform, not from every lab a person may have used. A before and after view without a comparison group says nothing about cause.",
+        },
+        weight: {
+          days: [0, 30, 90, 180],
+          goal_loss_percent: 5.0,
+          valid_min: 20,
+          valid_max: 400,
+          min_age_years: 18,
+          baseline_before_days: 14,
+          baseline_after_days: 7,
+          followup_tolerance_days: 14,
+          definition: "Weight in kilograms. Change is the percent difference between the weight near the day and the baseline weight near joining. A person reached the goal when weight fell by 5 percent or more. The weight nearest the day inside the window is used. Adults only.",
+          limitations: "Only people who logged a weight are counted; a person with no weight near a day is shown as no result, never as not improved. Weight changes for many reasons, including pregnancy, illness and fluid; the measure is not a judgement of any person. A before and after view without a comparison group says nothing about cause.",
+        },
+        phq9: {
+          days: [0, 30, 90, 180],
+          max_score: 27,
+          response_fall_percent: 50,
+          remission_below: 5,
+          min_baseline_for_outcome: 5,
+          baseline_before_days: 14,
+          baseline_after_days: 14,
+          followup_tolerance_days: 21,
+          definition: "PHQ-9 total score only. Response is a fall of 50 percent or more from the baseline total. Remission is a total below 5. Both are counted only for people whose baseline total was 5 or more.",
+          limitations: "Only total scores are used; no answer to any single question is read. A screening score is not a diagnosis. People with no score near a day are shown as no result. Readable only by the person and by a clinician with a written reason; never shown to a sponsor.",
+        },
+        gad7: {
+          days: [0, 30, 90, 180],
+          max_score: 21,
+          response_fall_percent: 50,
+          remission_below: 5,
+          min_baseline_for_outcome: 5,
+          baseline_before_days: 14,
+          baseline_after_days: 14,
+          followup_tolerance_days: 21,
+          definition: "GAD-7 total score only. Response is a fall of 50 percent or more from the baseline total. Remission is a total below 5. Both are counted only for people whose baseline total was 5 or more.",
+          limitations: "A screening score is not a diagnosis. People with no score near a day are shown as no result. Readable only by the person and by a clinician with a written reason; never shown to a sponsor.",
+        },
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S75-outcome-measures.md; docs/plans/S75-S80-cmo-decisions.md S-5; ADA Standards of Care; DPP; Kroenke 2001",
+  },
+  {
+    key: "follow_ups.rules",
+    // Loop closure (S77, spec 23.8, CMO decision S-20): an overdue order, referral, lab request or follow-up task goes to the lead clinician after
+    // 24 hours (routine) or 4 hours (a follow-up waiting on an abnormal result). Live values are the row of `clinical_follow_up_config`, which is born
+    // inactive and unsigned; the sweep escalates only when the CMO has signed it. A test fails if the migration seed and this value drift.
+    value: { routine_escalate_after_hours: 24, abnormal_escalate_after_hours: 4 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S75-S80-cmo-decisions.md S-20; spec 23.8; supabase/migrations/20261007160101_s77_clinical_follow_ups_closure.sql",
+  },
+  {
+    key: "credentialing.rules",
+    // Version 5 (S-18, S76 B2): version 4 plus the MDCN register re-check cadence (reverify_months, reverify_notice_days). Inserted INACTIVE: the sweep
+    // does nothing until the chief medical officer signs and activates it. Version 4 notes follow.
+    // Version 4 (S20 v2, CMO decision 8 recorded 2026-10-07), on top of version 3 (primary-source and re-check keys): notices at 90, 30, 7 and 0 days,
+    // the proof-of-renewal deadline (15 December for the 31 December cycle), a missing licence date counted as ineligible, and the evidence sources
+    // a verification can name. INACTIVE in `credentialing_config` until switched on; the switch is refused while an active clinician has no licence date.
+    value: {
+      min_practice_years: 2,
+      pass_percent: 80,
+      all_red_correct: true,
+      audited_task_count: 20,
+      referees_required: 2,
+      referee_independent_contact: true,
+      test_max_attempts: 3,
+      test_retake_cooldown_hours: 24,
+      test_scenarios_per_attempt: 10,
+      notice_windows_days: [90, 30, 7, 0],
+      grace_max_days: 14,
+      separate_verifier_and_approver: true,
+      document_max_bytes: 8388608,
+      document_retention_years_after_offboarding: 7,
+      require_verified_phone: false,
+      document_purge_enabled: false,
+      rejected_application_document_retention_months: 24,
+      primary_source_required: true,
+      primary_source_routes: ["mdcn_dataflow", "mdcn_written_confirmation", "mdcn_register_check"],
+      primary_source_max_age_days: 365,
+      recheck_months: 6,
+      recheck_overdue_days: 14,
+      credential_date_max_days: 1100,
+      grandfather_ends_on: null,
+      reverify_months: 12,
+      reverify_notice_days: 30,
+      renewal_cycle: {
+        cycle_end_month: 12,
+        cycle_end_day: 31,
+        proof_deadline_month: 12,
+        proof_deadline_day: 15,
+      },
+      missing_licence_date_ineligible: true,
+      verification_sources: ["mdcn_register_lookup", "document_sighted", "insurer_confirmation", "other"],
+    },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 5,
+    effectiveFrom: "2026-10-15",
+    source: "docs/plans/S75-S80-cmo-decisions.md S-18 (S76 B2); builds on version 4 (S20 v2)",
+  },
+  {
+    key: "assistant.emergency",
+    // S52 (7.8, INV-06). Nigeria has no usable national crisis helpline, so `phoneNumbers` is EMPTY on purpose: the CMO adds a number
+    // (a hospital line, a clinic desk) here and nowhere else, and it is shown only once set. `nearestHospitalsShown` is how many hospitals
+    // the emergency reply lists. The self-harm and emergency WORDING in packages/shared/src/assistant-emergency.ts is PROPOSED (OQ-293).
+    value: { nearestHospitalsShown: 3, phoneNumbers: [], selfHarmCopyStatus: "proposed_awaiting_cmo_signoff" },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S52.md; docs/BUILD-SPEC-v5.md B.7 7.8; founder decision 2026-10-07 (no crisis helpline in Nigeria, nearest hospital)",
+  },
+  {
+    key: "assistant.silence",
+    // S52 (7.10): silence_days of no message from a programme member write an assistant.silence_detected event (a signal, never a treatment
+    // change); reengage_after_days later one generic note, at most one per reengage_cooldown_days. Mirrored by assistant_config (key silence)
+    // in migration *_s52_assistant_safety_memory_review.sql; assistant-safety-mirror.test.ts pins them together.
+    value: { silence_days: 7, reengage_after_days: 10, reengage_cooldown_days: 30 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S52.md; docs/BUILD-SPEC-v5.md B.7 7.10",
+  },
+  {
+    key: "assistant.paging",
+    // S52 (INV-05): a self-harm page repeats for the same conversation no sooner than repeat_hours, or no_cover_repeat_minutes when nobody was
+    // on call. Mirrored by assistant_config (key paging).
+    value: { repeat_hours: 6, no_cover_repeat_minutes: 30, page_wait_ms: 4000, hospital_lookup_ms: 2500 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S52.md; docs/BUILD-SPEC-v5.md INV-05",
+  },
+  {
+    key: "assistant.review",
+    // S52 (7.13): how many randomly chosen conversations the Chief Medical Officer reviews each month, on top of every reported one.
+    value: { monthly_sample_size: 20 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S52.md; docs/BUILD-SPEC-v5.md B.7 7.13",
+  },
+  {
+    key: "assistant.memory",
+    // S52 (7.12): at most max_items goals and preferences, each at most max_chars characters; consent_text_version names the wording the
+    // patient agreed to. Mirrored by assistant_config (key memory).
+    value: { max_items: 30, max_chars: 200, consent_text_version: "mem-v1" },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S52.md; docs/BUILD-SPEC-v5.md B.7 7.12",
+  },
+  {
+    key: "media_library.config",
+    // S57 (functions 10.7, 10.9, 10.10). Identical to the active row of `media_library_config` v1 (a test fails on drift). UNSIGNED.
+    // download: Wi-Fi only, 5 MB a track (plan 4.2) and a 50 MB pack (the build's proposal). breathing: 3 to 5 minutes (spec 10.7) and the
+    // longest single phase. sleep_feedback: the smallest weekly change in percentage points worth mentioning. session: the shortest listen
+    // that counts as a session.
+    value: {
+      download: { wifi_only: true, max_track_bytes: 5242880, max_pack_bytes: 52428800 },
+      breathing: { min_seconds: 180, max_seconds: 300, max_phase_seconds: 10 },
+      sleep_feedback: { change_epsilon_pct: 2 },
+      session: { min_listened_seconds: 30 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S57.md; spec 10.7, 10.9, 10.10; docs/OPEN-QUESTIONS.md OQ-S57-03",
+  },
+  {
+    key: "sleep.apnoea_screen",
+    // S57 (function 10.11), redrafted S57b. Identical to `sleep_apnoea_screen_config` v1 (a test fails on drift). DRAFT, UNSIGNED: eight items
+    // following the published STOP-Bang tool (Chung et al.) in the build's own wording; docs/research/S57b.md lists what is and is not verified.
+    // BMI is computed from height and weight (above 35); neck is a number in cm (40 or more); "not sure" scores unsure_points. Cut-off 3 of 8.
+    // The CMO must read, amend and confirm (public.confirm_sleep_apnoea_screen_config). Until then the questionnaire saves answers and
+    // does nothing else: no result, no task.
+    value: {
+      cut_off: 3,
+      unsure_points: 1,
+      items: [
+        { id: "snoring", kind: "yes_no", points: 1 },
+        { id: "tired", kind: "yes_no", points: 1 },
+        { id: "observed_pauses", kind: "yes_no", points: 1 },
+        { id: "high_blood_pressure", kind: "yes_no", points: 1 },
+        { id: "bmi", kind: "bmi", points: 1, above: 35 },
+        { id: "age_over_50", kind: "yes_no", points: 1 },
+        { id: "neck", kind: "neck_cm", points: 1, at_least: 40 },
+        { id: "sex_male", kind: "yes_no", points: 1 },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S57.md; spec 10.11; docs/OPEN-QUESTIONS.md OQ-S57-02",
+  },
+  {
+    key: "symptom.urgency_map",
+    // S59 (spec 12.4): the six urgency levels, DERIVED from the four triage categories. The four-category result stays the source
+    // of truth and what every escalation keys off; this table only decides what extra wording a screen may show. It is an UNSIGNED
+    // DRAFT: while status is "draft" (or the map fails its validity check: total, monotone, emergency maps to the top level) no
+    // level is derived and the screen shows only the four-category result. The CMO decides every row. `review_required` rows apply
+    // when a clinician has been asked to look at the result.
+    value: {
+      status: "draft",
+      clinical_sign_off: null,
+      rows: [
+        { category: "emergency", qualifier: "any", level: "emergency_now" },
+        { category: "urgent", qualifier: "any", level: "doctor_within_24_hours" },
+        { category: "urgent", qualifier: "review_required", level: "doctor_today" },
+        { category: "routine", qualifier: "any", level: "doctor_within_days" },
+        { category: "self_management", qualifier: "any", level: "self_care" },
+        { category: "self_management", qualifier: "review_required", level: "see_pharmacist" },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S59.md section 3; spec 12.4; docs/OPEN-QUESTIONS.md OQ-S59-02",
+  },
+  {
+    key: "symptom.context_tightening",
+    // S59 (spec 12.2 and 12.6): what the health record already says (age, sex, pregnancy, known conditions, medicines, recent
+    // readings) can only RAISE an urgency, as a minimum category, never lower or replace one. Every entry is an UNSIGNED DRAFT
+    // (status "draft", no sign-off): the engine ignores an entry until it is "signed_off" with a named signer and date, so shipping
+    // this changes nothing for any patient. The drug names, thresholds, ages and categories below are placeholders for the CMO to
+    // confirm or replace, not clinical advice. Reading thresholds live HERE, never in code.
+    value: {
+      entries: [
+        {
+          id: "pregnancy_severe_symptom",
+          label: "Pregnant and a severe symptom",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder pregnancy branch (spec 12.6). The CMO chooses the complaints, the severity and the category." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { pregnant: true, min_severity: 6, complaint_keys: ["headache", "chest_pain", "breathlessness", "abdominal_pain"] },
+          minimum_category: "urgent",
+        },
+        {
+          id: "pregnancy_headache_with_vision_change",
+          label: "Pregnant with a headache and a change in vision",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder. The CMO confirms the symptom keys and the category." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { pregnant: true, complaint_keys: ["headache"], any_associated_symptom: ["visual_disturbance", "vision_loss"] },
+          minimum_category: "emergency",
+        },
+        {
+          id: "young_child_danger_sign",
+          label: "A young child with a general danger sign",
+          provenance: { source: "UNVERIFIED DRAFT", note: "IMCI-style general danger signs. The CMO sets the age band (the 4 here is a placeholder) and confirms the category." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { age_max: 4, any_associated_symptom: ["convulsions", "unable_to_drink_or_feed", "vomits_everything", "lethargic_or_unconscious"] },
+          minimum_category: "emergency",
+        },
+        {
+          id: "blood_thinner_with_headache",
+          label: "Taking a blood thinner and a headache",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder drug names and severity. The CMO confirms which medicines count and the category." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { any_medicine: ["warfarin", "rivaroxaban", "apixaban", "dabigatran"], complaint_keys: ["headache"], min_severity: 4 },
+          minimum_category: "urgent",
+        },
+        {
+          id: "high_bp_reading_with_symptom",
+          label: "A recent very high blood pressure reading and a symptom",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder threshold (systolic). The CMO confirms the threshold, the look-back window and the category." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { reading_at_least: { key: "systolic", value: 180 }, complaint_keys: ["headache", "chest_pain", "breathlessness"] },
+          minimum_category: "urgent",
+        },
+        {
+          id: "low_oxygen_reading",
+          label: "A recent low oxygen reading",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder threshold. The CMO confirms the threshold, the look-back window and the category." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { reading_at_most: { key: "spo2_pct", value: 92 } },
+          minimum_category: "urgent",
+        },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S59.md section 3; spec 12.2 and 12.6; docs/OPEN-QUESTIONS.md OQ-S59-03",
+  },
+  {
+    key: "symptom.dependant_policy",
+    // S59 (spec 12.6): a check answered by a parent or carer for a child. Until the CMO signs paediatric pathways, a child is run
+    // through the signed adult pathways, so a result for a known child is never lower than this category and always asks a clinician
+    // to look. It can only raise. A person whose age is unknown is not matched (an extra input never lowers a result). Live now
+    // (proposed, not yet confirmed by the CMO).
+    value: { max_age_years: 17, minimum_category: "routine", clinician_review_required: true },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S59.md section 4; spec 12.6; docs/OPEN-QUESTIONS.md OQ-S59-04",
+  },
+  {
+    key: "symptom.skin_photo_policy",
+    // S59 (spec 12.7): photos of a visible problem for a clinician to look at. Never scored or classified. Limits and retention. The
+    // live value is the active row of `skin_photo_policy_config` (the storage bucket limits are set from it too); a test fails if
+    // the migration seed and this value drift. Retention counts from submission while unreviewed and from the review once reviewed.
+    // The deletion job is not built (OQ-S59-07): until it runs, `retention_until` records when a photo is due to go.
+    value: {
+      max_bytes: 4000000,
+      allowed_types: ["image/jpeg", "image/png"],
+      max_open_per_patient: 5,
+      retention_days_unreviewed: 30,
+      retention_days_after_review: 90,
+      signed_url_seconds: 60,
+    },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S59.md section 6; spec 12.7; docs/OPEN-QUESTIONS.md OQ-S59-07",
+  },
+  {
+    key: "symptom.context_window_days",
+    // S59 (spec 12.2): how far back a reading from the health record counts as "recent" for the context layer. Whole days, 1 to 90
+    // (the database clamps it). The CMO confirms it alongside the context entries.
+    value: 14,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S59.md section 3; spec 12.2; docs/OPEN-QUESTIONS.md OQ-S59-03",
+  },
+  {
+    key: "symptom.adult_age_years",
+    // S59b (founder decision 2026-10-07): the symptom checker refuses anyone under this age until a paediatric protocol is in the
+    // signed config, and refuses anyone with no date of birth. A policy age, not a clinical threshold. The database holds the same
+    // number in private.symptom_checker_adult_age(); a Jest test fails if the two differ.
+    value: 18,
+    owner: "Founder",
+    status: "confirmed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S55-S60-build-plan.md section 10; docs/OPEN-QUESTIONS.md OQ-S59b-01",
+  },
+  {
+    key: "symptom.risk_tightening",
+    // S59b REDRAFT for the CMO (hold item C4, 2026-10-07). Still ALL DRAFT, unsigned, inert. Changes from version 1: the typhoid and
+    // sickle cell entries are dropped (no signed pathway asks abdominal_pain or sickle_cell_disease, so they could never match); the
+    // Lassa entry now names states and has sources; the malaria entry has sources. Raise-only, as before. Sources and what could not
+    // be verified: docs/research/S59b.md.
+    value: {
+      entries: [
+        {
+          id: "malaria_season_fever",
+          label: "Fever during the rainy season",
+          provenance: {
+            source: "https://www.doctorswithoutborders.org/latest/nigeria-preventing-long-and-deadly-malaria-season-claiming-more-lives-borno",
+            note: "Nigeria's rainy season runs about April to October and malaria transmission peaks in it (MSF and WHO-recommended seasonal chemoprevention material). The season is shorter in the north, longer in the south: the CMO may split it by state. Minimum category is the CMO's call.",
+          },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { months: [4, 5, 6, 7, 8, 9, 10], any_associated_symptom: ["fever"] },
+          minimum_category: "routine",
+        },
+        {
+          id: "lassa_season_fever",
+          label: "Fever in the dry season in a high-burden state",
+          provenance: {
+            source: "https://www.who.int/emergencies/disease-outbreak-news/item/Lassa-fever---Nigeria",
+            note: "NCDC situation reports (as relayed in the press, see docs/research/S59b.md) name Edo, Ondo, Bauchi and Taraba as the main burden states and a dry season peak from December to April. Other states report cases (for example Ebonyi and Nasarawa in 2026): the CMO decides whether to widen the list. A person whose state is unknown still matches (the safe direction).",
+          },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { months: [12, 1, 2, 3, 4], states: ["Edo", "Ondo", "Bauchi", "Taraba"], any_associated_symptom: ["fever"] },
+          minimum_category: "urgent",
+        },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-07",
+    source: "docs/research/S59b.md section C4; docs/OPEN-QUESTIONS.md OQ-S59b-05",
+  },
+  {
+    key: "symptom.context_tightening",
+    // S59b REDRAFT for the CMO (hold item C5, 2026-10-07). Still ALL DRAFT, unsigned, inert, raise-only. Dropped: the young-child
+    // entry (children are refused by the checker until a paediatric protocol is signed) and abdominal_pain (not in any signed
+    // pathway). Thresholds are checked against the sources named in each provenance; see docs/research/S59b.md for what could not be
+    // verified. Reading thresholds live HERE, never in code.
+    value: {
+      entries: [
+        {
+          id: "pregnancy_severe_symptom",
+          label: "Pregnant and a severe symptom",
+          provenance: { source: "UNVERIFIED THRESHOLD", note: "No source found for severity 6 as a pregnancy cut-off; it is the CMO's number. The complaints are those of the signed pathways only." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { pregnant: true, min_severity: 6, complaint_keys: ["headache", "chest_pain", "breathlessness"] },
+          minimum_category: "urgent",
+        },
+        {
+          id: "pregnancy_headache_with_vision_change",
+          label: "Pregnant with a headache and a change in vision",
+          provenance: { source: "NICE NG133 (hypertension in pregnancy), via secondary summaries", note: "Severe headache with visual disturbance is a listed feature of pre-eclampsia. The guideline text itself was not opened; confirm against it. Emergency is the CMO's call (it is a possible severe pre-eclampsia pattern)." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { pregnant: true, complaint_keys: ["headache"], any_associated_symptom: ["visual_disturbance", "vision_loss"] },
+          minimum_category: "emergency",
+        },
+        {
+          id: "blood_thinner_with_headache",
+          label: "Taking a blood thinner and a headache",
+          provenance: { source: "UNVERIFIED", note: "The bleeding-risk logic is general; no guideline cut-off found for a non-injury headache on an anticoagulant. Drug names and severity are the CMO's call." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { any_medicine: ["warfarin", "rivaroxaban", "apixaban", "dabigatran"], complaint_keys: ["headache"], min_severity: 4 },
+          minimum_category: "urgent",
+        },
+        {
+          id: "high_systolic_reading_with_symptom",
+          label: "A recent very high top blood pressure number and a symptom",
+          provenance: { source: "ESC/ESH and ACC/AHA definitions of hypertensive emergency (180 over 120 or higher with symptoms), via secondary summaries", note: "Threshold 180 matches the commonly cited line. The guideline documents were not opened. A home reading is not proof of organ damage, so this only raises the minimum." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { reading_at_least: { key: "systolic", value: 180 }, complaint_keys: ["headache", "chest_pain", "breathlessness"] },
+          minimum_category: "urgent",
+        },
+        {
+          id: "high_diastolic_reading_with_symptom",
+          label: "A recent very high bottom blood pressure number and a symptom",
+          provenance: { source: "Same as the systolic entry", note: "Diastolic 120 is the other half of the same commonly cited line." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { reading_at_least: { key: "diastolic", value: 120 }, complaint_keys: ["headache", "chest_pain", "breathlessness"] },
+          minimum_category: "urgent",
+        },
+        {
+          id: "low_oxygen_reading",
+          label: "A recent low oxygen reading",
+          provenance: { source: "NEWS2 SpO2 scale 1 (Royal College of Physicians), via secondary summaries", note: "NEWS2 scores 91 or below the highest (3 points) on scale 1. Version 1 used 92. Home pulse oximeters are less reliable, so this only raises the minimum. The CMO confirms the number and the look-back window." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { reading_at_most: { key: "spo2_pct", value: 91 } },
+          minimum_category: "urgent",
+        },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-07",
+    source: "docs/research/S59b.md section C5; docs/OPEN-QUESTIONS.md OQ-S59b-06",
+  },
+  {
+    key: "i18n.language_registry",
+    // Language readiness (S86, decision D-14). DORMANT: English is the only language and the only entry. A language can appear
+    // here only after a forward translation, an independent back translation, a reconciliation and a native clinical review, with
+    // the CMO's signature per string set recorded as `set_hash` in `native_review` and `clinician_signoff` (the fingerprint of the
+    // English and translated text signed). `enabled_for` lists the features a language is switched on for; the gate in
+    // packages/i18n/src/language-readiness.ts refuses any entry whose keys, signatures or audio clips are not complete. Adding
+    // a language is a new version of this entry, published by the CMO (the sign-off route is OQ-313; until it exists, a reviewed
+    // pull request, and a build must never type a signature or a hash). The source
+    // language needs no review or recording (a missing clip shows its text, spec 8.8) and `status` is not used for it.
+    value: {
+      source_language: "en",
+      features: {
+        emergency_triage: { message_prefixes: ["triage."], audio_groups: ["EMG", "TRI", "SYM", "NUM"], clinical: true },
+        course: { message_prefixes: ["course.", "lesson.", "breathing."], audio_groups: ["BPC", "BRE"], clinical: true },
+        results_consult: { message_prefixes: ["labres.", "labs.", "consult.", "summary."], audio_groups: ["RES", "CON"], clinical: true },
+        // Everything not claimed above (medicines, vitals, titration, scribe, reminders and any key added later) falls to this
+        // CLINICAL catch-all on purpose: new wording needs the CMO's signature unless someone names it non-clinical below.
+        health_and_care: { message_prefixes: [""], audio_groups: ["HLP", "REM"], clinical: true },
+        general_ui: {
+          message_prefixes: ["app.", "common.", "auth.", "drawer.", "appearance.", "greeting.", "kit.", "audio."],
+          audio_groups: ["ONB", "NAV", "SYS"],
+          clinical: false,
+        },
+      },
+      languages: {
+        en: {
+          status: "draft",
+          source: true,
+          enabled_for: ["emergency_triage", "course", "results_consult", "health_and_care", "general_ui"],
+          native_review: {},
+          clinician_signoff: {},
+        },
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S86.md; docs/DECISIONS.md D-14 and S86-1; docs/research/S86.md",
+  },
+  {
+    key: "consultations.access",
+    // Who can be booked and when patients are reminded (S64, spec 15.1, 15.3, 15.9; CMO decisions Q19 and Q23, 2026-10-07).
+    //  perItemRoles: roles priced per visit (Q23). A role is offered only while its service_products row is active and priced.
+    //  perItemPriceKobo: null on purpose. No price has been set for either role (OQ-S64-1); the products are seeded inactive at 0 and the
+    //  database refuses to hold a slot for them until a price is set, so no price can be assumed from here.
+    //  reminderHoursBefore: the milestones the reminder job sends, mirrored by queue_appointment_reminders (a drift test compares them).
+    //  These are the three every visit can get (7 days only when booked 7 or more days ahead, inside a 160 to 168 hour window). A 72 hour
+    //  reminder for high-priority visits and a 15 minute one exist in the job and are older than S64.
+    //  The 24 hour reminder is the "one to two days" one. longLeadMilestone is sent only for a visit booked at least that far ahead.
+    //  intake: the limits on the patient's manual intake (mirrored by the table checks).
+    //  licenceRecheck: Q19, the registration number and checked-on date are shown only when a check is on record.
+    value: {
+      perItemRoles: ["dietitian", "pharmacist"],
+      perItemPriceKobo: null,
+      reminderHoursBefore: [168, 24, 2],
+      longLeadMilestone: "7d",
+      intake: { maxReasonChars: 500, maxAnswerChars: 400, maxAnswers: 5 },
+      licenceRecheck: { atOnboarding: true, annualRenewal: true, onComplaint: true },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S64.md; docs/plans/S61-S65-cmo-signoff-pack.md Q19, Q23",
+  },
+  {
+    key: "triage.bp_rule_set",
+    // v4 of this registry entry names bp_care_triage v6, a DRAFT (founder decision D1, 2026-10-07): the emergency-symptom question from 180/120 instead of 200/130.
+    // The database row is a draft and the CMO has NOT signed it. The CMO still decides: whether "severe or new headache" is one symptom or two,
+    // whether 180/110 should be the trigger, and the recheck window (params.proposedForCmo in the rule set).
+    value: { code: "bp_care_triage", ruleSetVersion: 6, adultAgeYears: 18 },
+    owner: "CMO",
+    status: "proposed",
+    version: 4,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S85-D1.md; supabase/migrations/20261015150837_s85d1_bp_care_triage_v6_draft_180_120.sql",
+  },
+  {
+    key: "diabetes.glucose_thresholds",
+    // Moved out of apps/web/src/lib/vitals/glucose-red-flags.ts and apps/mobile/src/lib/glucose-red-flags.ts (same numbers, v1 of the
+    // old files was "2026-09-01.1"). Q5: below severeHypo, or any neuro symptom or assisted event below hypoAlert, is red.
+    // hypoAlert is ADA Level 1 (3.9), severeHypo is ADA Level 2 (3.0). Counts and windowDays are the old pattern-flag constants.
+    // level2MedReviewCount: Q5 option A says two or more Level 2 or 3 events raise a medication review task.
+    value: {
+      severeHypo: 3.0,
+      hypoAlert: 3.9,
+      highForDka: 11.0,
+      veryHigh: 20.0,
+      persistentHigh: 14.0,
+      ketoneHigh: 3.0,
+      ketoneModerate: 1.5,
+      persistentHighMinCount: 3,
+      recurrentHypoMinCount: 2,
+      windowDays: 14,
+      treatCarbGrams: 15,
+      recheckMinutes: 15,
+      level2MedReviewCount: 2,
+      level2MedReviewWindowDays: 30,
+      insulinOrSulfonylureaDueMinutes: 240,
+      otherHypoFollowUpDueMinutes: 1440,
+      urgentReviewDueMinutes: 240,
+      routineReviewDueMinutes: 4320,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S61-S65-cmo-signoff-pack.md Q5, Q6; ADA hypoglycaemia levels (secondary summary, CMO to read the full Standards)",
+    guardPatterns: ["severeHypo\\s*[:=]\\s*3(\\.0)?\\b", "hypoAlert\\s*[:=]\\s*3\\.9\\b"],
+  },
+  {
+    key: "diabetes.reporting",
+    // Q7 option A. Reporting only: nothing here triggers a medicine change. Prediabetes uses the ADA lower fasting bound (WHO says 6.1)
+    // and is labelled as screening, not a diagnosis. Diagnosis cut-offs are shown for context and never graded by the engine.
+    value: {
+      hba1cIndividualisedTargetPct: 7,
+      hba1cReviewPct: 8,
+      timeInRangeTargetPct: 70,
+      rangeLowMmol: 3.9,
+      rangeHighMmol: 10.0,
+      timeBelowRangeMaxPct: 4,
+      timeBelowLowRangeMaxPct: 1,
+      timeBelowLowRangeMmol: 3.0,
+      prediabetesFastingMinMmol: 5.6,
+      prediabetesFastingMaxMmol: 6.9,
+      prediabetesHba1cMinPct: 5.7,
+      prediabetesHba1cMaxPct: 6.4,
+      diagnosisFastingMmol: 7.0,
+      diagnosisTwoHourMmol: 11.1,
+      diagnosisHba1cPct: 6.5,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S61-S65-cmo-signoff-pack.md Q7 option A",
+  },
+  {
+    key: "bp.pathway_rules",
+    // Q2 targets, Q3 severe tiering, Q4 home validation. Targets are set per patient by a clinician; these are the defaults.
+    // 180/110 with no symptom is amber (same-day contact); with any symptom in `severeSymptoms` it is red and pages on-call.
+    // The 200/130 phone question and the BP-R rules stay in bp_care_triage (a separate draft awaiting signature).
+    value: {
+      targetStandard: { systolic: 140, diastolic: 90 },
+      targetWithCvdDiabetesCkd: { systolic: 130, diastolic: 80 },
+      severe: { systolic: 180, diastolic: 110 },
+      severeSymptoms: ["chest_pain", "confusion", "breathlessness", "severe_headache", "visual_disturbance", "weakness_or_numbness", "difficulty_speaking", "seizure"],
+      amberContactDueMinutes: 1440,
+      homeValidation: { days: 7, readingsPerSession: 2, minGapMinutes: 1, sessions: ["morning", "evening"], discardFirstDays: 1, meanSystolic: 135, meanDiastolic: 85 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S61-S65-cmo-signoff-pack.md Q2, Q3, Q4 option A",
+  },
+  {
+    key: "pathways.weight",
+    // Q10 option A: WHO BMI cut-offs plus waist-to-height 0.5. Rewards consistency, never body size.
+    value: { bmiOverweight: 25, bmiObese: 30, waistToHeightRaised: 0.5, waistToHeightHigh: 0.6 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S61-S65-cmo-signoff-pack.md Q10 option A",
+  },
+  {
+    key: "pathways.asthma_copd",
+    // Q11 option A (the SpO2 line is the only part option B drops). Manual reliever log, no sensor.
+    value: { relieverUsesPerWeekFlag: 2, relieversPerYearFlag: 3, peakFlowRedBelowPctOfBest: 50, spo2RedBelowPct: 92, reviewDueMinutes: 1440 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S61-S65-cmo-signoff-pack.md Q11 option A; GINA 2025 control questions (not a GINA number for SpO2)",
+  },
+  {
+    key: "pathways.heart_failure",
+    // Q12 option A: weight up by more than weightGainKg in weightGainDays. Patient-facing guidance, not the primary guideline.
+    value: { weightGainKg: 2, weightGainDays: 3, reviewDueMinutes: 1440 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S61-S65-cmo-signoff-pack.md Q12 option A",
+  },
+  {
+    key: "pathways.ckd",
+    // Q12 option A (KDIGO 2024, secondary summary): refer on any one of these.
+    value: { referEgfrBelow: 30, referAcrMgPerG: 300, sustainedFallPct: 20, sustainedFallMlPerMin: 5, fallWindowDays: 365, reviewDueMinutes: 4320 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S61-S65-cmo-signoff-pack.md Q12 option A",
+  },
+  {
+    key: "pathways.cadence",
+    // 13.18: a weekly automated review, and a clinician review monthly while uncontrolled, quarterly once controlled. 13.16: complication
+    // check intervals (eye, foot, kidney) used to generate due dates; the live diabetes_complication_checks recheck cadence is untouched.
+    value: {
+      automatedReviewDays: 7,
+      clinicianReviewUncontrolledDays: 30,
+      clinicianReviewControlledDays: 90,
+      milestoneDueDays: { baseline: 0, first_review: 30, three_month_review: 90, six_month_review: 180 },
+      scheduledTestIntervalDays: { eye: 365, foot: 365, kidney: 365 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S62.md; spec 13.16, 13.18; Q1 (review monthly until controlled)",
+  },
+  {
+    key: "pathways.hypertension_step_table",
+    // DRAFT step table from CMO decision pack Q1 option A (Resolve to Save Lives, Nigeria protocol, May 2023; Nigeria national guideline
+    // 2023-2028). NEVER approved by an agent: it is seeded as a `protocols` row with status draft, and the evaluator only lets a draft
+    // drive a TEST patient's proposal. Drug names, doses and the supply list are for the CMO to confirm against the primary PDFs.
+    // One medicine per signed change, so "amlodipine 10 + losartan 100" is two signed steps (raise amlodipine, then raise losartan).
+    // The pack's "start at step 2 when 160/100 to 179/109" is NOT expressible in the one-item proposal format: see OQ in docs/OPEN-QUESTIONS.md.
+    // Women who could be pregnant: the evaluator already stops every proposal unless pregnancy is recorded as "no".
+    // Telmisartan 40/80 or amiloride-HCTZ may substitute where stocked: a clinician choice, named in the step rationale only.
+    value: {
+      code: "htn_rtsl_ng",
+      version: 1,
+      status: "draft",
+      params: {
+        minReadings: 4,
+        windowDays: 7,
+        minAdherencePercent: 80,
+        reviewWindowDays: 28,
+        staleAfterDays: 3,
+        requireValidated: true,
+        validation: { systolicMin: 60, systolicMax: 260, diastolicMin: 30, diastolicMax: 160 },
+      },
+      steps: [
+        {
+          id: "step_1_amlodipine_5",
+          label: "Start amlodipine 5 mg",
+          requires: [],
+          propose: { action: "start", item: { drugName: "Amlodipine", dose: "5 mg", frequency: "once daily", route: "oral", durationDays: 30, quantity: "30 tablets", repeatsAllowed: 0, indication: "Hypertension" } },
+          rationale: "Step 1 of the draft ladder. A clinician may substitute telmisartan or amiloride-hydrochlorothiazide where stocked.",
+        },
+        {
+          id: "step_2_add_losartan_50",
+          label: "Add losartan 50 mg",
+          requires: [{ drugName: "Amlodipine", dose: "5 mg" }],
+          propose: { action: "start", item: { drugName: "Losartan", dose: "50 mg", frequency: "once daily", route: "oral", durationDays: 30, quantity: "30 tablets", repeatsAllowed: 0, indication: "Hypertension" } },
+          rationale: "Step 2 of the draft ladder. Not for anyone who could be pregnant.",
+        },
+        {
+          id: "step_3a_raise_amlodipine_10",
+          label: "Raise amlodipine to 10 mg",
+          requires: [{ drugName: "Amlodipine", dose: "5 mg" }, { drugName: "Losartan", dose: "50 mg" }],
+          propose: { action: "change", changes: "Amlodipine", item: { drugName: "Amlodipine", dose: "10 mg", frequency: "once daily", route: "oral", durationDays: 30, quantity: "30 tablets", repeatsAllowed: 0, indication: "Hypertension" } },
+          rationale: "First half of step 3 of the draft ladder (amlodipine 10 mg with losartan 100 mg).",
+        },
+        {
+          id: "step_3b_raise_losartan_100",
+          label: "Raise losartan to 100 mg",
+          requires: [{ drugName: "Amlodipine", dose: "10 mg" }, { drugName: "Losartan", dose: "50 mg" }],
+          propose: { action: "change", changes: "Losartan", item: { drugName: "Losartan", dose: "100 mg", frequency: "once daily", route: "oral", durationDays: 30, quantity: "30 tablets", repeatsAllowed: 0, indication: "Hypertension" } },
+          rationale: "Second half of step 3 of the draft ladder.",
+        },
+        {
+          id: "step_4_add_hctz_25",
+          label: "Add hydrochlorothiazide 25 mg",
+          requires: [{ drugName: "Amlodipine", dose: "10 mg" }, { drugName: "Losartan", dose: "100 mg" }],
+          propose: { action: "start", item: { drugName: "Hydrochlorothiazide", dose: "25 mg", frequency: "once daily", route: "oral", durationDays: 30, quantity: "30 tablets", repeatsAllowed: 0, indication: "Hypertension" } },
+          rationale: "Step 4 of the draft ladder.",
+        },
+        {
+          id: "step_5_refer",
+          label: "Refer: not controlled on three medicines",
+          requires: [{ drugName: "Amlodipine", dose: "10 mg" }, { drugName: "Losartan", dose: "100 mg" }, { drugName: "Hydrochlorothiazide", dose: "25 mg" }],
+          propose: null,
+          rationale: "End of the draft ladder: refer.",
+        },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/plans/S61-S65-cmo-signoff-pack.md Q1 option A (RTSL Nigeria protocol May 2023); OQ-171",
   },
 ];

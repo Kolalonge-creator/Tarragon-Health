@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, ScrollView, Switch, Text, TextInput, View } from "react-native";
 import { supabase } from "@/lib/supabase";
+import { en, FERTILE_WINDOW_LABEL, FERTILE_WINDOW_LINK_TEXT } from "@tarragon/i18n";
+import { phaseDescription, phaseLabel, THERMAL_SHIFT_EXPLAINER } from "@/lib/cycle-fertile-mode";
 import {
   deletePeriod,
   endPeriod,
   loadCycleTracker,
+  loadPlanningMode,
   logPeriod,
+  savePlanningMode,
   saveDailyLog,
   type CycleTrackerData,
   type MenstrualFlowLevel,
@@ -15,8 +19,6 @@ import {
 } from "@/lib/cycle";
 import {
   FERTILE_WINDOW_DISCLAIMER,
-  PHASE_DESCRIPTION,
-  PHASE_LABEL,
   nextPeriodSummary,
   type CycleClinicalFlag,
   type CycleConfidence,
@@ -161,8 +163,33 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
   const [dateDraft, setDateDraft] = useState("");
   const [actionPending, setActionPending] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  // "Planning a pregnancy" (S85 D2): the fertile window and temperature-based ovulation confirmation show only while on.
+  const [planningMode, setPlanningMode] = useState(false);
+  const [modePending, setModePending] = useState(false);
+  const [modeError, setModeError] = useState(false);
 
-  const refresh = useCallback(async () => {
+  // Turning it ON waits for the save and shows the window only once the prediction is rebuilt with it. Turning it OFF
+  // hides everything at once and stays hidden even if the save fails (with a message): hidden is the safe state.
+  async function changePlanningMode(next: boolean) {
+    setModeError(false);
+    setModePending(true);
+    if (!next) setPlanningMode(false);
+    let saved = false;
+    try {
+      saved = (await savePlanningMode({ patientId, organisationId, enabled: next })).ok;
+    } catch {
+      saved = false;
+    }
+    setModePending(false);
+    if (!saved) {
+      setModeError(true);
+      return;
+    }
+    // Rebuild from the choice just saved (not a fresh read, which would turn a read hiccup into a silent switch-off).
+    await refresh(next);
+  }
+
+  const refresh = useCallback(async (modeOverride?: boolean) => {
     setActionError(null);
     // Same query shape as web's CyclePage: read the patient's self-reported
     // life stage + average cycle length to seed the prediction, defaulting
@@ -174,13 +201,17 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
       .eq("patient_id", patientId)
       .maybeSingle();
     const stage: ReproductiveLifeStage = (profile?.life_stage as ReproductiveLifeStage | null) ?? "menstruating";
+    // Off unless the person switched on "Planning a pregnancy" (S85 D2); any read problem also means off.
+    const mode = modeOverride ?? (await loadPlanningMode(patientId));
 
-    const result = await loadCycleTracker(patientId, stage, profile?.average_cycle_length_days ?? null);
+    const result = await loadCycleTracker(patientId, stage, profile?.average_cycle_length_days ?? null, mode);
     if (!result.ok) {
       setError(result.error);
       return;
     }
     setError(null);
+    // The mode and the prediction built with it change together, so a screen never pairs one with the other's.
+    setPlanningMode(mode);
     setTracker(result.data);
     setSelectedDate((prev) => prev || result.data.today);
   }, [patientId]);
@@ -256,12 +287,15 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
         {prediction.currentPhase !== "unknown" && (
           <View style={{ backgroundColor: colors.brandTint, borderRadius: radius.control, padding: 10, gap: 2 }}>
             <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>
-              {PHASE_LABEL[prediction.currentPhase]}
+              {phaseLabel(prediction.currentPhase, planningMode)}
               {prediction.currentCycleDay ? ` · Day ${prediction.currentCycleDay}` : ""}
             </Text>
-            <Text style={{ fontSize: 12.5, color: colors.muted }}>{PHASE_DESCRIPTION[prediction.currentPhase]}</Text>
+            <Text style={{ fontSize: 12.5, color: colors.muted }}>{phaseDescription(prediction.currentPhase, planningMode)}</Text>
           </View>
         )}
+
+        <PlanningModeSwitch enabled={planningMode} pending={modePending} error={modeError} onChange={changePlanningMode} />
+        {planningMode && <FertileWindowNotice onNavigate={onNavigate} />}
 
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
           {openCycle ? (
@@ -303,19 +337,26 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
               )}
               <MutedText>{nextPeriodSummary(prediction)}</MutedText>
             </View>
-            <View style={{ flexBasis: "45%", flexGrow: 1 }}>
-              <MutedText>Estimated ovulation</MutedText>
-              <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>
-                {longDate(prediction.predictedOvulationDate)}
-              </Text>
-              {prediction.fertileWindowStart && (
-                <MutedText>
-                  Fertile window {shortDate(prediction.fertileWindowStart)} to {shortDate(prediction.fertileWindowEnd)}
-                </MutedText>
-              )}
-            </View>
+            {planningMode && (
+              <View style={{ flexBasis: "45%", flexGrow: 1 }}>
+                <MutedText>Estimated ovulation</MutedText>
+                <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>
+                  {longDate(prediction.predictedOvulationDate)}
+                </Text>
+                {prediction.fertileWindowStart && (
+                  <MutedText>
+                    Fertile window {shortDate(prediction.fertileWindowStart)} to {shortDate(prediction.fertileWindowEnd)}
+                  </MutedText>
+                )}
+              </View>
+            )}
           </View>
-          <Text style={{ fontSize: 11.5, color: colors.subtle }}>{FERTILE_WINDOW_DISCLAIMER}</Text>
+          {planningMode && (
+            <>
+              <Text style={{ fontSize: 11.5, color: colors.subtle }}>{FERTILE_WINDOW_DISCLAIMER}</Text>
+              <FertileWindowNotice onNavigate={onNavigate} />
+            </>
+          )}
         </Card>
       )}
 
@@ -355,6 +396,8 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
           existing={selectedLog}
           dateLabel={longDate(selectedDate)}
           onSaved={refresh}
+          planningMode={planningMode}
+          onNavigate={onNavigate}
         />
       </Card>
 
@@ -443,6 +486,58 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
   );
 }
 
+/**
+ * S85 D2 / OQ-12: the words every screen that shows the fertile window or a temperature-based ovulation confirmation
+ * must carry. The text comes from the one wording source in `@tarragon/i18n` (CMO signature pending), never typed here.
+ * A missing label is the unsafe state, so there is no prop that hides it.
+ */
+function FertileWindowNotice({ onNavigate }: { onNavigate: (section: SectionId) => void }) {
+  const colors = useLegacyColors();
+  return (
+    <View
+      testID="fertile-window-notice"
+      style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.control, padding: 10, gap: 4 }}
+    >
+      <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink }}>{FERTILE_WINDOW_LABEL}</Text>
+      <Text onPress={() => onNavigate("womensHealth")} style={{ fontSize: 12.5, fontWeight: "700", color: colors.brandPressed }}>
+        {FERTILE_WINDOW_LINK_TEXT}
+      </Text>
+    </View>
+  );
+}
+
+function PlanningModeSwitch({
+  enabled,
+  pending,
+  error,
+  onChange,
+}: {
+  enabled: boolean;
+  pending: boolean;
+  error: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  const colors = useLegacyColors();
+  return (
+    <View style={{ gap: 4 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>{en["cycle.planning_mode.title"]}</Text>
+          <MutedText>{en["cycle.planning_mode.description"]}</MutedText>
+          {enabled && <MutedText>{en["cycle.planning_mode.on_note"]}</MutedText>}
+        </View>
+        <Switch
+          value={enabled}
+          disabled={pending}
+          onValueChange={onChange}
+          accessibilityLabel={en["cycle.planning_mode.title"]}
+        />
+      </View>
+      {error && <ErrorText>{en["cycle.planning_mode.error"]}</ErrorText>}
+    </View>
+  );
+}
+
 function FlagsCard({ flags, onNavigate }: { flags: CycleClinicalFlag[]; onNavigate: (section: SectionId) => void }) {
   const colors = useLegacyColors();
   if (flags.length === 0) return null;
@@ -486,6 +581,8 @@ function DayLogForm({
   existing,
   dateLabel,
   onSaved,
+  planningMode,
+  onNavigate,
 }: {
   patientId: string;
   organisationId: string;
@@ -493,6 +590,9 @@ function DayLogForm({
   existing: import("@/lib/cycle").MenstrualDailyLog | null;
   dateLabel: string;
   onSaved: () => Promise<void>;
+  /** "Planning a pregnancy" (S85 D2). Off hides the sentence that reads a temperature rise as ovulation. */
+  planningMode: boolean;
+  onNavigate: (section: SectionId) => void;
 }) {
   const colors = useLegacyColors();
   const textInputStyle = useTextInputStyle();
@@ -575,27 +675,31 @@ function DayLogForm({
         ))}
       </View>
 
-      <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Tracking ovulation? (optional)</Text>
-      <View style={{ flexDirection: "row", gap: 10 }}>
-        <View style={{ flex: 1, gap: 4 }}>
-          <MutedText>Waking temperature (°C)</MutedText>
-          <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={bbt} onChangeText={setBbt} placeholder="36.50" keyboardType="decimal-pad" style={textInputStyle} />
-        </View>
-      </View>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-        {OVULATION_TEST_OPTIONS.map((option) => (
-          <Chip
-            key={option.value}
-            label={option.label}
-            active={ovulationTest === option.value}
-            onPress={() => setOvulationTest(ovulationTest === option.value ? null : option.value)}
-          />
-        ))}
-      </View>
-      <MutedText>
-        Take your temperature before getting out of bed. A sustained rise suggests ovulation has
-        already happened, so it confirms rather than predicts.
-      </MutedText>
+      {/* S85 D2: temperature and ovulation-test logging is fertility tracking, so it appears only while "Planning a
+          pregnancy" is on. Values already saved for the day are kept (the state above is seeded from them). */}
+      {planningMode && (
+        <>
+          <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Tracking ovulation? (optional)</Text>
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <View style={{ flex: 1, gap: 4 }}>
+              <MutedText>Waking temperature (°C)</MutedText>
+              <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)} value={bbt} onChangeText={setBbt} placeholder="36.50" keyboardType="decimal-pad" style={textInputStyle} />
+            </View>
+          </View>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+            {OVULATION_TEST_OPTIONS.map((option) => (
+              <Chip
+                key={option.value}
+                label={option.label}
+                active={ovulationTest === option.value}
+                onPress={() => setOvulationTest(ovulationTest === option.value ? null : option.value)}
+              />
+            ))}
+          </View>
+          <MutedText>Take your temperature before getting out of bed. {THERMAL_SHIFT_EXPLAINER}</MutedText>
+          <FertileWindowNotice onNavigate={onNavigate} />
+        </>
+      )}
 
       <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Anything else (optional)</Text>
       <TextInput keyboardAppearance={scheme} placeholderTextColor={placeholderColorFor(scheme)}

@@ -35,7 +35,7 @@ You are working on Tarragon Health. This session is **only** section S78: Module
 
 **Always (from CLAUDE.md and the spec, do not skip):**
 - The invariants in spec lines 83–105 override everything, including this prompt.
-- Values marked PROPOSED go in versioned configuration, never in code. Money is integer kobo. All user-facing strings go through `packages/i18n` (en, pcm). No em dashes in copy. Say "your care team", never "your doctor", "cure", "instant doctor" or "free healthcare".
+- Values marked PROPOSED go in versioned configuration, never in code. Money is integer kobo. All user-facing strings go through `packages/i18n` (en). No em dashes in copy. Say "your care team", never "your doctor", "cure", "instant doctor" or "free healthcare".
 - Never call a language model in the triage path. Never write AI output to the patient record without a clinician signature.
 - Reference platforms are for studying behaviour, functionality and design. Do not copy their code, text, content or visual design; build something similar but original. (CLAUDE.md rule 11 wins over the looser wording in spec line 20.)
 - If anything is unclear or conflicts with an invariant, write it in `docs/OPEN-QUESTIONS.md` and stop that piece of work.

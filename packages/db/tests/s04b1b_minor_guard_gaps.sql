@@ -51,6 +51,7 @@ begin
   end loop;
 
   -- 3
+  alter event trigger guard_new_patient_tables_trigger disable;  -- S04b-1e would guard it on creation; this proof needs it unclassified
   create table public.zz_s04b1b_gap (id uuid primary key default gen_random_uuid(), patient_id uuid);
   if not exists (select 1 from private.minor_guard_gaps() where table_name = 'zz_s04b1b_gap') then
     raise exception 'FAIL 3a: an unclassified patient table was not reported';
@@ -81,6 +82,7 @@ end $$;
 do $$
 declare src text;
 begin
+  alter event trigger guard_new_patient_tables_trigger disable;
   create table public.zz_s04b1b_gap2 (id uuid primary key default gen_random_uuid(), patient_id uuid);
   select def into src from s04b1b_orig;
   src := replace(src, 'where p.table_name is null', 'where false');

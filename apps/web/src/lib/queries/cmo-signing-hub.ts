@@ -7,8 +7,11 @@ import { readPendingCommunitySignoff } from "@/lib/queries/pending-community-sig
 import { readCredentialAttention, credentialAttentionItem } from "@/lib/queries/credential-attention";
 import { GLUCOSE_TRIAGE_ITEM_KEY, readPendingGlucoseTriageSignoff } from "@/lib/queries/pending-glucose-triage-signoff";
 import { readS06S10Signoffs, EMPTY_S06S10, type S06S10Snapshot } from "@/lib/queries/s06-s10-signoffs";
+import { readPendingQualityConfigSignoff } from "@/lib/queries/pending-quality-config-signoff";
 import { readPendingGlucoseTaskTypeSignoff } from "@/lib/queries/pending-glucose-task-type-signoff";
 import { readPendingRedOutreachSignoff } from "@/lib/queries/pending-red-outreach-signoff";
+import { readPendingSoleCmoException } from "@/lib/queries/pending-sole-cmo-exception";
+import { readUnifiedRedPagingState } from "@/lib/queries/pending-unified-red-paging-signoff";
 
 export type CmoSigningHub = {
   /** One line per thing that needs the Chief Medical Officer's signature, most urgent first. */
@@ -38,6 +41,12 @@ export const COMMUNITY_ITEM_KEY = "community";
 export const RED_OUTREACH_ITEM_KEY = "red_outreach";
 /** The key the urgent glucose review task type line carries (R2, CMO Q7 and Q8), so the page can attach the confirm panel. */
 export const GLUCOSE_TASK_TYPE_ITEM_KEY = "glucose_task_type";
+/** The line for the S20 v2 quality and credentialing configuration drafts (audit sampling, second review, speak-up check-ins, licence notices). */
+export const QUALITY_CONFIG_ITEM_KEY = "quality_configs";
+/** The key the sole-CMO on-call exception line carries, so the page can attach the signing panel. */
+export const SOLE_CMO_EXCEPTION_ITEM_KEY = "sole_cmo_on_call_exception";
+/** The line for unified red-event paging (S19d): switch the one governed ladder on for SpO2, pulse, temperature, red-flag symptoms and emergency events, or off again. */
+export const UNIFIED_RED_PAGING_ITEM_KEY = "unified_red_paging";
 export { GLUCOSE_TRIAGE_ITEM_KEY };
 
 /**
@@ -60,7 +69,7 @@ export { GLUCOSE_TRIAGE_ITEM_KEY };
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, qualityConfigs, soleCmo, unifiedRed] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -73,6 +82,9 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingRedOutreachSignoff(supabase),
     readPendingGlucoseTriageSignoff(supabase),
     readPendingGlucoseTaskTypeSignoff(supabase),
+    readPendingQualityConfigSignoff(supabase),
+    readPendingSoleCmoException(supabase),
+    readUnifiedRedPagingState(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -159,6 +171,17 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  if (soleCmo.waiting) {
+    items.push({
+      key: SOLE_CMO_EXCEPTION_ITEM_KEY,
+      title: "Sole-CMO on-call exception: sign to be allowed on the on-call rota",
+      detail: "You are the only Chief Medical Officer, and the rule that nobody grants their own competencies keeps you off the on-call rota. A documented exception, signed by you, lets you grant yourself the on-call competency and nothing else.",
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
   items.push(...s06s10.items);
 
   if (glucoseTaskType.waiting) {
@@ -182,6 +205,35 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  if (qualityConfigs.qualityVersion !== null || qualityConfigs.credentialingVersion !== null) {
+    const parts = [
+      qualityConfigs.qualityVersion !== null && `quality configuration version ${qualityConfigs.qualityVersion} (audit sampling, second review, speak-up check-ins)`,
+      qualityConfigs.credentialingVersion !== null && `credentialing configuration version ${qualityConfigs.credentialingVersion} (licence notices, shifts after expiry)`,
+    ].filter(Boolean);
+    items.push({
+      key: QUALITY_CONFIG_ITEM_KEY,
+      title: "Quality and licence rules",
+      detail: `${parts.join(" and ")} waiting for your signature. They stay off until you sign.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: (qualityConfigs.qualityVersion !== null ? 1 : 0) + (qualityConfigs.credentialingVersion !== null ? 1 : 0),
+    });
+  }
+
+  if (unifiedRed.liveVersion !== null || unifiedRed.waitingVersion !== null) {
+    const on = unifiedRed.liveVersion !== null;
+    items.push({
+      key: UNIFIED_RED_PAGING_ITEM_KEY,
+      title: on ? "Unified red-event paging is ON (switch off here)" : "Unified red-event paging (off)",
+      detail: on
+        ? `Version ${unifiedRed.liveVersion} is live: low oxygen, dangerous heart rate, high temperature, red-flag symptoms and emergency events page the clinician on call. You can switch it off at any time; open pages are left alone.`
+        : `Version ${unifiedRed.waitingVersion} is ready and OFF. Run the staging test pack, then switch it on here. Until you do, those events notify every clinician as before.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
   const failedSources = [
     ...queue.failedSources,
     ...s06s10.failedSources,
@@ -191,6 +243,9 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(redOutreach.failed ? ["Red alert outreach"] : []),
     ...(glucose.failed ? ["the glucose triage rules"] : []),
     ...(glucoseTaskType.failed ? ["the urgent glucose review task type"] : []),
+    ...(qualityConfigs.failed ? ["the quality and credentialing configurations"] : []),
+    ...(soleCmo.failed ? ["the sole-CMO on-call exception"] : []),
+    ...(unifiedRed.failed ? ["unified red-event paging"] : []),
   ];
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
   // A banner row may only link to a hub line that exists. The banner reads its own copy of the state, so if the two ever disagree (a row it
