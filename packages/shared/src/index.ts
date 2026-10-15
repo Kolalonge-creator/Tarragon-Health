@@ -11,6 +11,10 @@ export * from "./ai-coach-types";
 export * from "./device-readings";
 export * from "./health-record";
 export * from "./clinical-config";
+export * from "./mental-health";
+export * from "./record-integrity";
+export * from "./adult-registration";
+export * from "./wellbeing-library";
 
 // Generated Supabase types: Database, Tables, TablesInsert, TablesUpdate,
 // Enums, Constants, Json. Single source of truth for the DB schema.
@@ -241,8 +245,26 @@ export * from "./ui-language";
 export * from "./clinical-tier";
 export * from "./specialist-type-options";
 export * from "./proposed-config";
+export * from "./learning";
+export * from "./assistant-safety";
+export * from "./assistant-emergency";
+export {
+  lintText as lintNotificationText,
+  FORBIDDEN_TERMS as NOTIFICATION_FORBIDDEN_TERMS,
+  FORBIDDEN_PARAM_KEYS as NOTIFICATION_FORBIDDEN_PARAM_KEYS,
+  type Violation as NotificationViolation,
+} from "./notification-neutral";
 export * from "./breathing";
 export * from "./consent-state";
+export * from "./data-rights";
 export * from "./notification-settings";
 export * from "./notification-diagnosis";
+export { sponsorMinimumGroupSize } from "./sponsor-min-group";
+
+// S70a (Module 18): device plausibility, cross-source de-duplication, photo capture, CGM sustained events, DeviceSource interface.
+export * from "./device-plausibility";
+export * from "./device-dedupe";
+export * from "./photo-reading";
+export * from "./cgm-events";
+export * from "./device-source";
 export * from "./lock-screen-pass";

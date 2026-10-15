@@ -5,6 +5,7 @@ import { loadCollection, loadHasControlledItem, loadPharmacies } from "@/lib/pha
 import { choosePharmacyAction, newCodeAction, withdrawAction } from "@/lib/pharmacy-collection/actions";
 import { asNotice, viewFor, type PharmacyOption } from "@/lib/pharmacy-collection/model";
 import { FlashClean } from "@/components/go-live/flash-clean";
+import { PharmacyChatCard } from "@/components/partner-portal/pharmacy-chat-card";
 
 export const metadata = { title: "Collect your medicine" };
 export const dynamic = "force-dynamic";
@@ -130,6 +131,10 @@ export default async function CollectPage({ params, searchParams }: { params: Pr
         <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-900">{t("pharmcollect.collected", locale)}</p>
       ) : (
         <p className="text-sm text-charcoal-ink/70">{t("pharmcollect.not_open", locale)}</p>
+      )}
+      {/* S74 (21.2): the in-app conversation with the pharmacy, once the prescription is with one. The patient only; a caregiver acting for the patient does not see it. */}
+      {!off && !forWhom && collection.ok && collection.data && (view === "code" || view === "collected" || view === "repeat") && (
+        <PharmacyChatCard prescriptionId={prescriptionId} locale={locale} />
       )}
     </div>
   );

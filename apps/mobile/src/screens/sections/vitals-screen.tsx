@@ -10,17 +10,21 @@ import { summariseTrend, windowReadings, type TrendWindowDays } from "@/lib/bp-t
 import { loadActiveThresholds } from "@/lib/threshold-sync";
 import { BP_CHECKLIST_SYMPTOMS, CUFF_TYPES, planBpLog, redFlagsAmong, type BpChecklistSymptom, type CuffType } from "@/lib/bp-checklist";
 import { logBpWithExtras } from "@/lib/bp-log";
-import { refreshApprovedRuleSet, refreshPatientFacts, resolveExpiredRecheck, rulesMayBeStale, shouldAskSymptomQuestion, type DeviceTriage } from "@/lib/triage-device";
+import { refreshApprovedGlucoseRuleSet, refreshApprovedRuleSet, refreshPatientFacts, resolveExpiredRecheck, rulesMayBeStale, shouldAskSymptomQuestion, type DeviceTriage } from "@/lib/triage-device";
 import { answerSymptomQuestion, type QuestionSymptom } from "@/lib/symptom-question";
-import { refreshObstetricStatus } from "@/lib/obstetric-status";
+import { readObstetricStatus, refreshObstetricStatus } from "@/lib/obstetric-status";
 import { loadBpSymptomChecklist, loadHomeProtocol } from "@/lib/s07-config";
 import {
+  KETONE_ENTRY_BOUNDS,
+  parseStrictNumber,
   validateOtherEntry,
   type GlucoseUnit,
   type OtherVitalType,
 } from "@/lib/vitals-entry";
+import { flushOutbox } from "@/lib/outbox";
+import { evaluateGlucoseOnDevice, LEVEL_3_SIGNS, resolveGlucoseSignSeverity, saveGlucoseSigns, type GlucoseOutcome } from "@/lib/glucose-log";
+import { GLUCOSE_SYMPTOMS, KETONE_URINE_BANDS, type GlucoseSymptomCode, type KetoneUrine } from "@tarragon/clinical";
 import {
-  classifyVitalOffline,
   computeSevenDayAverage,
   loadRecentBpReadings,
   logOtherVital,
@@ -51,11 +55,13 @@ import {
   type BadgeTone,
 } from "@/ui/kit";
 import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
+import { loadDoctorReviewIncluded } from "@/lib/doctor-review";
 import { SymptomQuestionSheet } from "@/screens/symptom-question-sheet";
 import { MIN_READINGS_FOR_CHART, useTrendInsights } from "@/lib/use-trend-insights";
 import { TrendInsightsCard } from "@/screens/sections/trend-insights-card";
 import { HomeCheckCard } from "@/screens/sections/home-check-card";
 import { SyncBanner } from "@/screens/sync-banner";
+import { FreeFollowUpCard } from "@/screens/sections/free-follow-up-card";
 import { SymptomScreen } from "@/screens/sections/symptom-screen";
 import { MonitoringCoverCard } from "@/screens/sections/monitoring-cover-card";
 import { SymptomChecklist, TechniqueGuide } from "@/screens/sections/bp-extras";
@@ -63,6 +69,8 @@ import { SymptomChecklist, TechniqueGuide } from "@/screens/sections/bp-extras";
 // Versioned S07 values (rest time, gap between readings, severity recorded for a ticked symptom).
 const HOME_PROTOCOL = loadHomeProtocol();
 const SYMPTOM_CHECKLIST = loadBpSymptomChecklist();
+// Never throws: a bad configured value falls back to the safe severity instead of crashing the screen or losing a reading.
+const GLUCOSE_SIGN_SEVERITY = resolveGlucoseSignSeverity();
 
 interface GuidanceState {
   detail: string;
@@ -141,8 +149,11 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   const [triageCard, setTriageCard] = useState<{ message: string; tone: "warn" | "info"; audioId: string | null } | null>(null);
   const [cuffType, setCuffType] = useState<CuffType | null>(null);
   const [rulesStale, setRulesStale] = useState(false);
+  const [obstetric, setObstetric] = useState(false);
   const [symptomOpen, setSymptomOpen] = useState(false);
   const [guidance, setGuidance] = useState<GuidanceState | null>(null);
+  // Two-tier: whether a red event reaches a doctor for this patient (null until known, or when it cannot be worked out).
+  const [doctorReview, setDoctorReview] = useState<boolean | null>(null);
   // The emergency-symptom question for a reading of 200/130 or more (TRI-008): the reading it is about, until answered.
   const [question, setQuestion] = useState<{ systolic: number; diastolic: number; gradedAtMs: number } | null>(null);
   const [questionBusy, setQuestionBusy] = useState(false);
@@ -158,7 +169,9 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         return;
       }
       const tone = d.result.status === "recheck_required" || d.result.grade === "amber" ? "warn" : "info";
-      setTriageCard({ message: `${t(d.message.title as MessageKey, locale)}. ${t(d.message.body as MessageKey, locale)}`, tone, audioId: d.audioId });
+      // Q4: beside a repeat prompt, a wrist or unknown cuff gets the upper-arm advice. Words only; the grade and the guidance are unchanged.
+      const advice = d.cuffAdvice ? ` ${t(d.cuffAdvice.title as MessageKey, locale)}. ${t(d.cuffAdvice.body as MessageKey, locale)}` : "";
+      setTriageCard({ message: `${t(d.message.title as MessageKey, locale)}. ${t(d.message.body as MessageKey, locale)}${advice}`, tone, audioId: d.audioId });
     },
     [locale],
   );
@@ -168,9 +181,18 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
       .then(() => rulesMayBeStale())
       .then(setRulesStale)
       .catch(() => {});
+    void refreshApprovedGlucoseRuleSet();
     void refreshPatientFacts(patientId);
     // Pregnant or just delivered changes which lines grade a reading; kept on the phone for offline readings.
-    void refreshObstetricStatus(beneficiaryProfileId ?? patientId);
+    const obstetricSubject = beneficiaryProfileId ?? patientId;
+    // Read the saved answer first (works with no signal), then refresh it; the pregnancy danger-sign ticks follow the answer (S67).
+    void readObstetricStatus(obstetricSubject, Date.now())
+      .then((o) => setObstetric(o.pregnant || o.postpartum))
+      .catch(() => {})
+      .then(() => refreshObstetricStatus(obstetricSubject))
+      .then(() => readObstetricStatus(obstetricSubject, Date.now()))
+      .then((o) => setObstetric(o.pregnant || o.postpartum))
+      .catch(() => {});
     void resolveExpiredRecheck(patientId)
       .then((d) => d && showTriage(d))
       .catch(() => {});
@@ -225,6 +247,9 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
       .catch(() => {});
     loadCachedEmergencyFacts()
       .then((facts) => setEmergencyContact(facts?.emergencyContact ?? null))
+      .catch(() => {});
+    loadDoctorReviewIncluded(patientId)
+      .then(setDoctorReview)
       .catch(() => {});
   }, [load, patientId]);
 
@@ -371,6 +396,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
       </View>
 
       <SyncBanner />
+      <FreeFollowUpCard />
 
       {/* Latest reading: the one number that matters most, then the 7 day average. */}
       <Card level={2} style={{ gap: space.sm }}>
@@ -514,6 +540,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         <SymptomChecklist
           tr={tr}
           selected={ticked}
+          obstetric={obstetric}
           onToggle={(sym) => setTicked((cur) => (cur.includes(sym) ? cur.filter((x) => x !== sym) : [...cur, sym]))}
         />
         {errorKey ? <InlineAlert tone="danger" message={tr(errorKey)} /> : null}
@@ -529,7 +556,11 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         <Button title={tr("vitals.log.save")} onPress={handleSave} loading={saving} />
       </Card>
 
-      <OtherVitalCard beneficiaryProfileId={beneficiaryProfileId} onEmergency={(detail, synced) => setGuidance({ detail, synced })} />
+      <OtherVitalCard
+        subjectId={beneficiaryProfileId ?? patientId}
+        beneficiaryProfileId={beneficiaryProfileId}
+        onEmergency={(detail, synced, wordingCode) => setGuidance({ detail, synced, wordingCode: wordingCode ?? null })}
+      />
 
       {/* Recent readings */}
       <View style={{ gap: space.sm }}>
@@ -601,6 +632,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         synced={guidance?.synced ?? false}
         wordingCode={guidance?.wordingCode ?? null}
         emergencyContact={emergencyContact}
+        doctorReview={doctorReview}
         onDismiss={() => setGuidance(null)}
       />
     </Screen>
@@ -611,11 +643,13 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
  * alongside the always-visible BP card above (BP stays its own card since it is the
  * highest-frequency write). */
 function OtherVitalCard({
+  subjectId,
   beneficiaryProfileId,
   onEmergency,
 }: {
+  subjectId: string;
   beneficiaryProfileId?: string;
-  onEmergency: (detail: string, synced: boolean) => void;
+  onEmergency: (detail: string, synced: boolean, wordingCode?: string | null) => void;
 }) {
   const locale = asLocale(useUiLanguage());
   const tr = (key: MessageKey, params?: Record<string, string | number>) => t(key, locale, params);
@@ -637,6 +671,12 @@ function OtherVitalCard({
   const [errorKey, setErrorKey] = useState<MessageKey | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [urgentBanner, setUrgentBanner] = useState<string | null>(null);
+  // Glucose triage (plan item R2): the signs the engine reads, and the optional ketone result.
+  const [signs, setSigns] = useState<GlucoseSymptomCode[]>([]);
+  const savedSigns = useRef<Set<GlucoseSymptomCode>>(new Set());
+  const [ketone, setKetone] = useState("");
+  const [urine, setUrine] = useState<KetoneUrine | null>(null);
+  const [glucoseCard, setGlucoseCard] = useState<{ message: string; tone: "warn" | "info"; audioId: string | null } | null>(null);
 
   const unit = type === "glucose" ? GLUCOSE_UNIT_LABEL[glucoseUnit] : OTHER_VITAL_TYPES.find((v) => v.id === type)!.unit;
 
@@ -646,25 +686,45 @@ function OtherVitalCard({
     setErrorKey(null);
     setSaveError(null);
     setUrgentBanner(null);
+    setGlucoseCard(null);
   }
 
   async function handleSave() {
     const entry = validateOtherEntry(type, value, glucoseUnit);
     if (!entry.ok) {
+      // Guidance for a ticked level 3 sign never waits for a valid number (a meter that says LO, a mistyped value, a carer who has no number): nothing was saved, so it says so.
+      const level3 = signs.filter((x) => LEVEL_3_SIGNS.includes(x));
+      if (type === "glucose" && level3.length > 0) {
+        onEmergency(tr("vitals.guidance.symptom_detail", { symptoms: level3.map((x) => tr(`vitals.glucose.sign.${x}` as MessageKey)).join(", ") }), false, "GLU-E02");
+      }
       setSaveError(null);
       setErrorKey(`vitals.other.error.${entry.error}` as MessageKey);
       return;
     }
     const numeric = entry.value;
+    const ketoneNumber = type === "glucose" && ketone.trim() !== "" ? parseStrictNumber(ketone) : null;
+    if (type === "glucose" && ketone.trim() !== "" && (ketoneNumber === null || ketoneNumber < KETONE_ENTRY_BOUNDS.min || ketoneNumber > KETONE_ENTRY_BOUNDS.max)) {
+      setSaveError(null);
+      setErrorKey("vitals.glucose.ketone.error");
+      return;
+    }
     setSaving(true);
     setErrorKey(null);
     setSaveError(null);
     setUrgentBanner(null);
+    setGlucoseCard(null);
 
     let payload: Exclude<VitalReadingPayload, { vital_type: "blood_pressure" }>;
     switch (type) {
       case "glucose":
-        payload = { vital_type: "glucose", glucose_value: numeric, glucose_unit: glucoseUnit, glucose_context: glucoseContext };
+        payload = {
+          vital_type: "glucose",
+          glucose_value: numeric,
+          glucose_unit: glucoseUnit,
+          glucose_context: glucoseContext,
+          ...(ketoneNumber !== null ? { ketones_mmol_l: ketoneNumber } : {}),
+          ...(urine !== null ? { ketone_urine: urine } : {}),
+        };
         break;
       case "weight":
         payload = { vital_type: "weight", weight_kg: numeric };
@@ -680,26 +740,72 @@ function OtherVitalCard({
         break;
     }
 
-    // Only glucose has an offline red-flag path today (see classifyVitalOffline):
-    // weight, temperature, SpO2 and pulse still get the offline write queue below,
-    // just no on-device guidance or banner.
-    const flag = type === "glucose" ? await classifyVitalOffline(payload) : null;
-    if (flag?.severity === "emergency") onEmergency(flag.detail, false);
-    if (flag?.severity === "urgent") setUrgentBanner(flag.detail);
+    // Only glucose has an offline red-flag path today: weight, temperature, SpO2 and pulse still get the offline write queue below, just no
+    // on-device guidance or banner. Glucose shows the stricter of the older single-reading check and the governed engine (glucose-log.ts),
+    // before anything is saved or sent, so the guidance never waits on the network.
+    let outcome: GlucoseOutcome | null = null;
+    if (type === "glucose") {
+      outcome = await evaluateGlucoseOnDevice({
+        value: numeric,
+        unit: glucoseUnit,
+        context: glucoseContext,
+        ketoneBloodMmol: ketoneNumber,
+        ketoneUrine: urine,
+        symptoms: signs,
+        subjectId,
+      }).catch(() => null);
+    }
+    const emergencyDetail = outcome
+      ? outcome.signFlag
+        ? tr("vitals.guidance.symptom_detail", { symptoms: signs.filter((x) => LEVEL_3_SIGNS.includes(x)).map((x) => tr(`vitals.glucose.sign.${x}` as MessageKey)).join(", ") })
+        : (outcome.legacy?.detail ?? tr("vitals.glucose.guidance_detail", { value, unit }))
+      : "";
+    const wordingCode = outcome?.device?.emergencyCode ?? null;
+    if (outcome?.severity === "emergency") onEmergency(emergencyDetail, false, wordingCode);
+    if (outcome?.severity === "urgent" && outcome.legacy) setUrgentBanner(outcome.legacy.detail);
+    // The engine's softer card never sits beside emergency guidance.
+    const d = outcome?.device;
+    if (d && d.severity !== "emergency" && outcome?.severity !== "emergency" && d.message) {
+      setGlucoseCard({
+        message: `${t(d.message.title as MessageKey, locale)}. ${t(d.message.body as MessageKey, locale)}`,
+        tone: d.result.grade === "amber" ? "warn" : "info",
+        audioId: d.audioId,
+      });
+    }
 
+    // The ticked signs go to the server's symptom log through the same outbox blood pressure ticks use (idempotent by client id, held offline), so the
+    // server can grade them with the glucose rules. A sign already made durable by an earlier attempt of this same entry (the reading failed to save and
+    // the patient pressed Save again) is not queued twice; the set is cleared once the reading has saved. Never blocks the reading.
+    let signsFailed = false;
+    if (type === "glucose") {
+      const fresh = signs.filter((x) => !savedSigns.current.has(x));
+      const saved = await saveGlucoseSigns(fresh, GLUCOSE_SIGN_SEVERITY, { subjectId, beneficiaryProfileId });
+      if (saved.failed) signsFailed = true;
+      else fresh.forEach((x) => savedSigns.current.add(x));
+    }
     const result = await logOtherVital(payload, beneficiaryProfileId);
     setSaving(false);
     if (result.error) {
       setSaveError(result.error);
       return;
     }
-    if (flag?.severity === "emergency") onEmergency(flag.detail, !!result.synced);
+    if (type === "glucose") {
+      savedSigns.current.clear();
+      void flushOutbox().catch(() => undefined); // send the signs without making the patient wait on them
+    }
+    if (outcome?.severity === "emergency") onEmergency(emergencyDetail, !!result.synced, wordingCode);
+    // One toast only (a second would replace the first): if the ticked signs could not be saved on the phone, that is what the patient must see.
     toast.show(
-      result.synced
-        ? { message: tr("vitals.other.saved", { value, unit }), tone: "success" }
-        : { message: t("outbox.saved_on_phone", locale), tone: "info" }
+      signsFailed
+        ? { message: tr("vitals.glucose.signs_not_saved"), tone: "warn" }
+        : result.synced
+          ? { message: tr("vitals.other.saved", { value, unit }), tone: "success" }
+          : { message: t("outbox.saved_on_phone", locale), tone: "info" }
     );
     setValue("");
+    setSigns([]);
+    setKetone("");
+    setUrine(null);
   }
 
   return (
@@ -747,12 +853,35 @@ function OtherVitalCard({
               );
             })}
           </View>
+          <Field label={tr("vitals.glucose.ketone.label")} keyboardType="decimal-pad" value={ketone} onChangeText={setKetone} />
+          <View accessibilityRole="radiogroup" accessibilityLabel={tr("vitals.glucose.ketone.urine_label")} style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+            {KETONE_URINE_BANDS.map((b) => (
+              <Chip key={b} label={tr(`vitals.glucose.ketone.urine.${b}` as MessageKey)} selected={urine === b} onPress={() => setUrine((cur) => (cur === b ? null : b))} />
+            ))}
+          </View>
+          <AppText variant="body">{tr("vitals.glucose.signs.title")}</AppText>
+          <View accessibilityRole="menu" style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+            {GLUCOSE_SYMPTOMS.map((sg) => (
+              <Chip
+                key={sg}
+                label={tr(`vitals.glucose.sign.${sg}` as MessageKey)}
+                selected={signs.includes(sg)}
+                onPress={() => setSigns((cur) => (cur.includes(sg) ? cur.filter((x) => x !== sg) : [...cur, sg]))}
+              />
+            ))}
+          </View>
         </>
       ) : null}
 
       {errorKey ? <InlineAlert tone="danger" message={tr(errorKey)} /> : null}
       {saveError ? <InlineAlert tone="danger" message={saveError} /> : null}
       {urgentBanner ? <InlineAlert tone="warn" message={urgentBanner} /> : null}
+      {glucoseCard ? (
+        <>
+          <InlineAlert tone={glucoseCard.tone} message={glucoseCard.message} />
+          {glucoseCard.audioId ? <ListenButton clipIds={[glucoseCard.audioId]} lang={locale} /> : null}
+        </>
+      ) : null}
       <Button title={tr("vitals.other.save")} onPress={handleSave} loading={saving} />
     </Card>
   );

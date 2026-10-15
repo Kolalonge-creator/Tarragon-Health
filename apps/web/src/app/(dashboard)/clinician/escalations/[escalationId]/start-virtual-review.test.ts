@@ -1,14 +1,14 @@
 import { describe, expect, it, jest, beforeEach } from "@jest/globals";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 
 // Regression for the 2026-10-06 reconciliation (S21): the escalation call used to put the patient's full name in the Zoom
 // meeting topic (INV-07) and to text the raw join link (INV-08). It now sends a neutral topic and an in-app notice only.
 const createMeeting = jest.fn<(input: { topic: string }) => Promise<unknown>>();
 const queueNotice = jest.fn<(p: Record<string, unknown>) => Promise<boolean>>();
-const sendSms = jest.fn();
 
 jest.mock("@/lib/zoom/meetings", () => ({ createMeeting: (i: { topic: string }) => createMeeting(i) }));
 jest.mock("@/lib/zoom/client", () => ({ isZoomConfigured: () => true }));
-jest.mock("@/lib/notifications/send-patient-link", () => ({ sendPatientLinkSms: (...a: unknown[]) => sendSms(...a) }));
 jest.mock("@/lib/notifications/video-call-requested", () => ({ queueVideoCallRequestedNotice: (p: Record<string, unknown>) => queueNotice(p) }));
 jest.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => ({}) }));
 
@@ -41,7 +41,6 @@ describe("startVirtualReview (S21 regression)", () => {
   beforeEach(() => {
     createMeeting.mockReset();
     queueNotice.mockReset();
-    sendSms.mockReset();
     selectedColumns.length = 0;
     createMeeting.mockResolvedValue({ ok: true, data: { meetingId: "81000000001", joinUrl: "https://zoom.example/j/1?pwd=x", hostStartUrl: "https://zoom.example/s/1?zak=y" } });
     queueNotice.mockResolvedValue(true);
@@ -58,9 +57,10 @@ describe("startVirtualReview (S21 regression)", () => {
     expect(cols).not.toMatch(/full_name|phone/);
   });
 
-  it("never sends an SMS and never puts the join link in a notification", async () => {
+  it("has no SMS sender to call (S85-D3 removed it) and never puts the join link in a notification", async () => {
+    // The patient-link SMS helper is deleted; if it comes back, this fails before any send can be wired to it.
+    expect(existsSync(join(process.cwd(), "src/lib/notifications/send-patient-link.ts"))).toBe(false);
     const result = await startVirtualReview(ESCALATION);
-    expect(sendSms).not.toHaveBeenCalled();
     expect(queueNotice).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(queueNotice.mock.calls[0])).not.toContain("zoom.example");
     expect(result).toMatchObject({ success: true, hostStartUrl: "https://zoom.example/s/1?zak=y", patientNotified: true });

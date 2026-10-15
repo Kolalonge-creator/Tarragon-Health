@@ -3,6 +3,55 @@
 Append-only log of decisions that shape the v5 build. Newest section first. A change to a
 spec invariant (INV-01 to INV-16) needs a written founder decision here.
 
+## S70 to S75 planning, 2026-10-07 (founder and CMO, chosen in a chat prompt)
+
+Source: `docs/plans/S70-S75-cmo-signoff-pack.md` and `docs/research/S70-S75-review-and-build-plan.md`. These are decisions, **not clinical signatures**: no platform draft existed, so nothing was signed in the database. Each clinical item becomes a PROPOSED config draft when its session is built, and the CMO signs that draft in the sign-off screen after reading the primary guideline text (the pack's evidence is search summaries and recall, tagged accordingly). Open questions OQ-309 to OQ-327 hold the follow-ups.
+
+- **D-22 (recorded here for the first time; it existed only in the spec): the Tarragon wearable band is not purchasable until the pilot proves the care journey.** Nothing is built for it.
+- **S70-1: duplicate readings from two sources are linked and counted once.** A clinical device or manual entry outranks a wearable estimate. Both rows are kept.
+- **S70-2: CGM glucose gets sustained-event rules** (clinician task; severe-low safety copy at once). Thresholds are drafted later and signed by the CMO.
+- **S70-3: an irregular or inconclusive result from a personal ECG device creates a routine clinician task within one working day.** No diagnosis wording to the patient. Chest pain, fainting or breathlessness goes through existing red triage. The route is the existing report upload plus a HealthKit ECG classification read; no vendor API.
+- **S70-4: photo capture of any device screen is built, on-device text recognition first.** The patient confirms every number; saved as a patient-confirmed device reading and triaged like a manual one.
+- **S70-5: the recommended device list admits only validated models** (ValidateBP or published standard validation) that are NAFDAC-registered or sold by an authorised local distributor. The CMO owns the list. Tarragon sells nothing.
+- **S70-6: the paid two-week CGM programme: the CMO drafts the protocol; nothing is sold until sensor supply, a legal import route and a naira price exist.** Proposed eligibility: adults 18+, type 2 or prediabetes, not on insulin or a sulfonylurea, not pregnant.
+- **S71-1: HMO eligibility is an adapter per HMO with a manual operations check as the fallback;** only a hashed member number is stored. No capitation, no HMO billing (I8 stands).
+- **S72-1: Health Points may give a single-use reduction on Tarragon's own service fee only,** never a clinician or partner fee, never a balance, tied to one order. The kobo conversion is removed in the same session (finishes OQ-08).
+- **S72-2: no instalments (19.10).** Recorded as not built by decision. Reopen only on an explicit ask.
+- **S72-3: the Community Access Fund waits for a Nigerian counsel opinion;** a donation is a restricted gift tied to a named grant, never a user balance. Built with its switch off.
+- **S73-1: no `subscription_plans` rebuild.** The spec's acceptance test is met by an admin-only, audited enable toggle with a go-live guard on Membership. The six leftover Paystack Plan codes are disabled by the founder in the Paystack dashboard.
+- **S74-1: no device shop (21.5) and no `shop_orders`.** The device catalogue stays guidance, not commerce (founder decision of 2026-08-02 and migration `20260910011846` stand).
+- **S74-2: partner settlement runs only where Tarragon collects money and owes a partner** (sponsor-paid items, any pharmacy margin). Labs are owed nothing (D-06). Kept separate from S31 clinician payouts.
+- **S75-1: BP control keeps the 140/90 default** (own target overrides). This differs from the CMO pack's recommendation (home below 135/85, clinic below 140/90). Consequence: home readings, which run lower than clinic readings, are judged on the clinic threshold, so control may be overstated. Revisit before any sponsor-facing report.
+- **S75-2: outcome definitions for HbA1c, weight, PHQ-9 and GAD-7 are severity-banded with a caveat** and anyone scoring 20+ or with PHQ-9 item 9 above zero goes to existing mental-health follow-up, not a report.
+- **S75-3: the triage dashboard is named "agreement", and no accuracy figure is published** until an outcome-linked study with a written design exists.
+- **S75-4: risk stratification stays deterministic,** with a monthly CMO fairness review (age band, sex, region, language). No ML model before 90 days of real snapshots.
+- **S75-5: minimum cell size stays 20 (30 for two attributes), enforced by one database function** on every aggregate surface. Counsel or the DPO still confirms the number (OQ-233).
+## S03b decisions, 2026-10-13
+
+Founder, for sign-in resilience (`docs/research/S01-S05-competitor-gap-and-build-plan.md` section 10; design in `docs/design/S03b.md`).
+
+| ID | Decision |
+|---|---|
+| S03B-1 | **People sign in with a working email or phone number; keep it simple.** Not built: voice-call OTP or any delivery-status table, a per-profile PIN, a restricted new-device state. SMS stays code-only (INV-08) and nothing new requires an SMS for core access. |
+| S03B-2 | **Built:** ten single-use backup codes, a Care Circle recovery contact, a self-serve change-number flow with a database-enforced confirmation (answers OQ-43 in our apps; the Auth-level gap is OQ-S03B-06), and eligibility-first cohort and sponsor codes (closes OQ-41, delivers spec 1.8). |
+| S03B-3 | **PROPOSED values** (not yet confirmed by the founder): 24 hour wait after a recovery contact confirms, 72 hour pause of text-code recovery after a number change, 15 minute confirmation window, three backup-code sets a day, two contact requests a week. Versioned as `auth.recovery_rules`. |
+## CMO decision, 2026-10-08: Free red events are guidance-only (built 2026-10-12, not applied)
+
+| ID | Decision |
+|---|---|
+| TT-1 | **A red event on a Free patient does not page a doctor, create a clinical task or create a clinician alert.** A Member red event pages as before. Source: `docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md` D3 and C2. Recorded as a change to INV-05 for Free patients in OQ-309 (needs a written founder decision here, and the DPO and legal told). |
+| TT-2 | **Fail closed toward paging:** if membership cannot be determined, the patient is treated as a Member and the red event pages. |
+| TT-3 | **The Free patient is told in plain words** that no doctor has been alerted because they are on the Free plan and that doctor review is part of Membership; the guidance stays complete without a doctor (hospital now, recheck, emergency contact, check-in, one-tap Membership). The check-in answer is never shown to a doctor. |
+| TT-5 | **Founder, 2026-10-12: "Member" means exactly one thing, an active Membership** (including an organisation-paid seat and the 14-day grace after a year ends or is refunded). The Free rule also covers amber triage tasks, heart-failure weight gain and mental-health crisis follow-up; abnormal screening results and the lab critical-result path still reach a doctor on every plan. The gate uses the S22 helper `private.patient_is_member`; the grace helper from `two-tier/pricing` is not in yet. Existing programme or service purchase holders keep doctor access (1 live service purchase holder on 2026-10-12). |
+| TT-4 | **Item 8: the legacy screening bundles that duplicate the Membership annual test are not sellable** (`screen_core`, `screen_essential`, `screen_advanced`, `screen_comprehensive`, `annual_health_check`, `health_check_basic`, `health_check_comprehensive`); not repriced; a CHECK constraint keeps them off. `screen_essential` and the three older bundles were added by this build on the same reasoning, and the CMO should confirm them. |
+| TT-6 | **Founder/CMO, 2026-10-12: refund window 21 days, and a refund ends Member access at once.** A Membership is refundable only within 21 days of purchase (`membership.refund`, PROPOSED, versioned); `request_order_refund` answers `outside_refund_window` after that. An approved refund sets the membership to `ended` (no grace), revokes the entitlement, withdraws open follow-up offers, cancels booked follow-ups, closes the monthly rows and raises the existing `membership_handoff` task when work is open. The 14 day grace (reminders 30/14/7, lapse job) applies ONLY to a year that ends naturally. An organisation seat is not touched by a personal refund. Replaces the earlier "a refund starts the grace" behaviour. |
+| TT-7 | **Founder/CMO, 2026-10-12: legacy programme holders become real Memberships; Member has one meaning.** `private.convert_legacy_programme_holders()` (idempotent) creates a `legacy_conversion` Membership ending on each holder's own legacy end date (no free year; a holder with no end date at all gets a full 365 days from conversion, `membership.legacy_conversion`, PROPOSED). Live counts before: programme purchases 0, plan-feature service purchases 1. The `async_doctor_visit` OR-clause is removed from `patient_is_member` / `patient_is_member_at`; only a profile with role `patient` can be a Member, so an admin never is. Supersedes the last sentence of TT-5 (legacy holders keeping doctor access). |
+| TT-8 | **Founder/CMO, 2026-10-12: a Member in the 14 day grace can book.** Exactly one extra follow-up (month 13, covering the grace) is created on demand, offered and picked by the existing functions, consumed normally. A lapsed person and a refunded (ended) person cannot. |
+| TT-9 | **Founder/CMO, 2026-10-13 (replaces the 2026-10-12 renewal rule): a renewal is not a separate request; it is discussed and prescribed at the Member's monthly review.** The standalone renewal request is closed for a Member (the trigger says the doctor reviews renewals at the monthly call) and the 28 day frequency limit and `membership.renewal` config are removed. The medicines screen (web and mobile) tells a Member so and offers an optional "add to my next review" note (`add_review_note`, Members only, 500 characters, 10 a month, nothing notified, INV-07 neutral); the doctor's audited pre-call summary lists the medicines due for renewal (prescription expiring within `membership.review` renewal_window_days, 30, PROPOSED, or asked about) and the Member's notes; the doctor prescribes in the monthly encounter through existing prescribing. A Free person sees "Prescription renewals are part of Membership" with a Join link; a held renewal credit still works for a non-Member. Second opinion stays a Members-only extra: `second_opinion_credit` at 500,000 kobo (`commerce.second_opinion`), enforced in `record_service_purchase_intent` and by a table trigger, absent from the anonymous price list and from the marketing site, shown in the signed-in Member app only; every other doctor-time product stays closed by the CHECK. |
+| TT-11 | **Founder/CMO, 2026-10-13: the platform has only Free and Membership, so no other price is public.** The marketing site quotes one naira figure, the Membership price read from `commerce.membership_prices` (120,000 naira a year), and the refund rule read from `membership.refund`. Per-service price cards, `PAID_SERVICES`, the per-service price loaders, the public per-product guest checkout (`/checkout/*`), the old second-opinion price and every per-product FAQ price are deleted. A Jest test scans the marketing routes and library and fails on any other naira amount. Organisation membership pricing stays off public pages (quote request only). |
+| TT-12 | **Founder/CMO, 2026-10-13: only the CMO's signature is needed to go live** with the Free red-event wording (OQ-309). DPO and legal review are recommended and optional; nothing in the apply runbook is blocked on them. |
+| TT-10 | **Review findings, 2026-10-12:** the ECG file path must be the booking's own folder (server check plus table CHECK); `record_free_red_event` opens the Free record explicitly if membership flipped between the emergency insert and the look-up; migration timestamps stay as hand-spaced future stamps with a mandatory pre-apply re-check (`scripts/release-integrity/check-two-tier-apply-order.mjs`). |
+
 ## Community decisions, 2026-10-09
 
 Founder, in chat, answering OQ-COM-01 to OQ-COM-10 (`docs/OPEN-QUESTIONS.md` section E, design in `docs/COMMUNITY_SPEC.md`). These do not sign the CMO's in-system acts (filter rule set v1 with the self-harm and emergency lists, the weight-loss template, the `community` guard switch), which are still owed.
@@ -231,6 +280,15 @@ Recorded as CMO decisions (not a database signature). Pack: `docs/plans/S11-S15-
 - Q19: no speech-to-text vendor until a 20 to 30 clip consented real-consult gold set is scored; thresholds set after seeing results; every drug name and number in a draft is highlighted for the signing clinician.
 - Next steps: new DRAFT versions only. Nothing is signed. `glucose_care_triage` v1 is drafted and shown to the CMO in full; BP v3 is unchanged. Open conflict to resolve with the founder: OQ-97 (2026-10-06) set the Paystack transfer OTP off with compensating limits, while the review plan suggested keeping it on until reconciliation and reversal handling exist.
 
+**What was built per decision (integration, 2026-10-13; all DRAFT or flagged OFF, nothing signed):**
+- Q1: `triage_engine_parity()` and the chain health parity table (P1), glucose divergence report (P2). Legacy alerts are NOT retired.
+- Q2, Q3, Q5: no change (BP v3). Q4: upper-arm advice beside the repeat prompt on the phone, red never downgraded (P2).
+- Q6 to Q9: `glucose_care_triage` v1 draft, hub panel with guideline basis and full wording (P2). Not signed.
+- Q10 to Q13: patient ladder, 30 minute unconfirmed sweep, generic wording, patient answer recorded (P3). The `red_patient_outreach` task type awaits confirmation on the hub.
+- Q14 to Q17: verification gate with grandfathering, six-month spot re-check, first-20 review, "Licence verified on" with no folio (P5). Folio still readable through `clinical_staff_directory` (OQ-358).
+- Q18, Q19: scribe consent enforced in the database, drug and number highlight, ASR gold-set harness, no vendor (P4).
+- Tooling not tied to one decision: chain canary and health page (P1), coverage sweep for silence and adherence (P6), provider inbox and payout controls (P4).
+
 ### Two-tier answers, 2026-10-08
 Founder decisions in chat after the process-map review. Full per-session effect: `docs/v5-sessions/00-AMENDMENTS-2026-10-08-two-tier.md`.
 - Member price 120,000 naira a year individual, 100,000 naira per organisation member (volume tiers dropped, confirm flat). Code still seeds 100,000; not changed.
@@ -246,6 +304,10 @@ Founder decisions in chat after the process-map review. Full per-session effect:
 - **What stays:** the `Locale`/`UiLanguage` types and `t()` helpers (one language, so call sites compile unchanged), the `platform_switches` table and its functions (a general mechanism; only the `pidgin_language` row is deleted), `en-NG` as the language stored by the scribe, and free-text `languages` fields describing what a clinician speaks (not an app language). The empty `health_education_translations` table stays because four SQL functions still join it; its admin UI and queries are removed.
 - **If another language ever returns:** it needs a native reviewer and a clinician-signed translation process before any string ships.
 - OQ-19 (Pidgin part), 61, 63, 74, 82 (Pidgin part), 93, 96 (Pidgin part), 134 and 156 are marked moot in `docs/OPEN-QUESTIONS.md`. No open question concerned Yoruba, Hausa or Igbo review.
+
+### S86 languages framework, 2026-10-07
+- **S86-1: spec D.8 ("add yo, ha, ig") is superseded by D-14.** The product stays English only. S86 builds the process and checks for adding a language in dormant form (versioned registry config `i18n.language_registry`, coverage report, a gate, a picker rule) and proves them with a test-only stub language. No language ships, no database constraint is widened, no migration. The shared rules text "(en, pcm)" in the session prompts is stale for the same reason.
+- **Return conditions (from D-14), as a checklist:** native reviewer; forward translation; independent back translation; reconciliation; native clinical review of each string set; CMO signature per string set; audio recorded only after signature; then enablement per feature by a new signed registry version. Nothing is switched on by a build.
 
 ### S46 to S50 planning, 2026-10-07 (founder)
 - **S46-1: hepatitis B immunity uses anti-HBs as a clinician add-on to the annual blood draw.** HBsAg stays part of the annual check. When HBsAg is negative and immunity is unknown, the lab adds anti-HBs once to that same draw, set by the clinician and never chosen by the patient (there are no packages any more: the Membership includes an annual blood test and review). A result at or above the CMO-signed threshold marks the patient immune and retires the annual HBsAg. HIV and hepatitis C stay annual. The threshold and wording go in the CMO-signed lab-panel and screening-rule configuration. Built in S46a.
@@ -263,6 +325,15 @@ Founder decisions in chat after the process-map review. Full per-session effect:
 - **Postpartum:** the engine takes a `postpartum` input (first 6 weeks after a birth). It uses the pregnancy red lines (160/110, and 140/90 with a pre-eclampsia symptom) and an amber review at 150/100 (BP-P5).
 - These are rule set version 2 (draft, in `triage_rule_sets` next to the unused draft v1). Still a draft until the CMO signs it in the console (S37).
 
+### S85 to S87 planning, 2026-10-07 (founder selections, UNSIGNED)
+Source: `docs/plans/S85-S87-build-plan.md` and `docs/plans/S85-S87-cmo-signoff-pack.md` (exact wording and the list of guideline statements still to verify). Nothing below is signed. The CMO signs each item by name in chat after its draft row exists.
+- **S85-1 (D1): blood pressure of 180/120 or higher asks the emergency-symptom question** (today it is 200/130). A reported emergency symptom is RED; no symptom is AMBER with same-day clinician contact and a 2 hour recheck. Needs a new draft version of `bp_care_triage`; v1 and v2 are not edited.
+- **S85-2 (D2): the fertile window is hidden by default**, shown only in an opt-in "Planning a pregnancy" mode, always with "Not contraception. This cannot prevent pregnancy." (implements OQ-12).
+- **S85-3 (D3): SMS has one named exception** beyond verification codes and clinician paging: a content-free alert to the patient's own consented emergency contact when the patient triggers an emergency. Other patient SMS paths (push-failure fallback, dependent claim, broadcast channel, routine critical-result rung) are removed. Reverses part of C.2 and D-12, so it also needs the founder's explicit approval; the exception is not relied on until live delivery is proven.
+- **S86-1 (D4): languages stay English only (D-14).** Build a dormant, test-only-proven readiness framework; no language ships; spec D.8 is superseded. Future review standard: forward translation, back translation, reconciliation, native clinical review, CMO signature.
+- **S87-1: salaried clinicians.** Part C.2's last row is updated to match the 2026-09-30 decision (employed doctors are allowed). The code stays.
+- **S85-4: journey tests are built now**, with steps for unbuilt modules marked pending and counted. No journey is reported passing until none are pending and S40 has passed.
+- **Order:** S87 first, then S86, then S85.
 ## 2026-10-07 CMO decision sheet (all items selected in chat; see docs/clinical-signoff/CMO-DECISION-SHEET-2026-10-07.md)
 | Question | Decision |
 |---|---|
@@ -293,3 +364,27 @@ Full text, options and guideline basis: `docs/plans/S06-S10-decisions-and-cmo-si
 | D7 white-coat / masked flag | Yes, clinician-only, behind a guard |
 | D8 test devices | Founder supplies two Android floor phones and one iPhone |
 | D9 counsel on NDPA basis for emergency card and access logs | Instruct now |
+
+## S09x2 access log shows staff identity (2026-10-13)
+
+| Decision | Chosen |
+|---|---|
+| OQ-S09x-1 (extends OQ-281): may a patient see that staff opened their record | Yes, name and role plus time only. No reason, no basis, no category detail (reproductive_health included), no contact details, no IP or device. Break-glass and emergency access stay shown, with the role. |
+
+## S04b counsel position on adult-only registration and dependants (2026-10-13)
+
+| Decision | Chosen |
+|---|---|
+| Counsel brief `docs/plans/S01-S05-counsel-brief.md` (guardian consent, child age, hand-over at 18, DPIA, consent receipts, EU hosting, under-18 refusal) | Founder reports counsel has signed off on the plan as built: adults 18 and over only; guardian consent for a dependant under 18 limited to immunisation and preventive tracking; hand-over at 18 only with the young person's own agreement after a 30 day notice; consent receipts as evidence; refusal of under-18 sign-up. Recorded from the founder in chat. The written opinion is not in the repo yet; file it under `docs/legal/` when received. No code change follows, because the build already matches the brief. |
+
+## S05b-d a patient's own allergy correction waits for a clinician (2026-10-14)
+
+| Decision | Chosen |
+|---|---|
+| When a patient voids or corrects an allergy she entered herself and no clinician verified (S05b-c open risk: it would leave prescription safety and the emergency card at once) | Her request is saved, but the ORIGINAL allergy stays active in prescription safety, the emergency card and every reader until a tied clinician (not a care coordinator) confirms. A clinician-tied user's correction takes effect immediately, as before. A rejected request leaves the original untouched and tells the patient by one in-app notice with no clinical words. Every other table keeps its current rule (a patient still corrects her own manual reading at once). Chosen by the founder in chat. Built in `20261014162552_s05b_d_patient_allergy_correction_requests_and_grant.sql`. |
+
+## S05b-f the same hold rule for conditions a patient entered herself (2026-10-14)
+
+| Decision | Chosen |
+|---|---|
+| S05b-d open question: should the allergy hold rule extend to conditions (`patient_conditions`, source patient)? | Yes, the same rule. When a PATIENT voids or corrects a condition she entered herself that no clinician verified, her request is saved and the ORIGINAL stays active in every reader until a tied clinician (not a care coordinator) confirms or rejects. A clinician-tied user's own correction stays immediate. A condition a clinician recorded, diagnosed or reviewed cannot be changed by the patient at all (she is told to ask her care team). Other tables (vitals and the rest) are unchanged. The same resubmit limit (3 per record in a rolling 7 days) and the same neutral in-app notices apply. Chosen by the founder in chat. Built as one mechanism with a record table column (not a copy) in `20261014223123_s05b_f_condition_correction_requests.sql`. |

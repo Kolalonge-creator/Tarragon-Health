@@ -69,6 +69,15 @@ describe("the real admin menus", () => {
     expect(top("grant")).toContain("/admin/memberships");
     expect(top("catalogue")).toContain("/admin/catalogue");
     expect(top("price list")).toContain("/admin/catalogue");
+    expect(top("organisation prices")).toContain("/admin/organisation-prices");
+    expect(top("employer price")).toContain("/admin/organisation-prices");
+    expect(top("per member")).toContain("/admin/organisation-prices");
+  });
+
+  it("finds the Community Access Fund page (every console page needs a search entry)", () => {
+    expect(top("access fund")).toContain("/admin/access-fund");
+    expect(top("donation")).toContain("/admin/access-fund");
+    expect(top("grant")).toContain("/admin/access-fund");
   });
 
   it("finds the fees and earnings page (every console page needs a search entry)", () => {
@@ -76,6 +85,13 @@ describe("the real admin menus", () => {
     expect(top("payout")).toContain("/admin/earnings");
     expect(top("adjustment")).toContain("/admin/earnings");
     expect(top("weekly payout")).toContain("/admin/payouts");
+  });
+
+  it("finds the testing days and employer visits page (every console page needs a search entry)", () => {
+    expect(top("testing day")).toContain("/admin/settings/testing-days");
+    expect(top("employer visit")).toContain("/admin/settings/testing-days");
+    expect(top("venue")).toContain("/admin/settings/testing-days");
+    expect(top("waitlist")).toContain("/admin/settings/testing-days");
   });
 
   it("indexes a useful number of pages with no path twice", () => {
@@ -95,6 +111,23 @@ describe("the Chief Medical Officer index", () => {
     expect(cmo.every((e) => e.href.startsWith("/clinician"))).toBe(true);
     expect(searchAdminEntries(cmo, "test content").map((e) => e.href)).toContain("/clinician/credentialing/content");
     expect(searchAdminEntries(cmo, "licence").map((e) => e.href)).toContain("/clinician/credentialing/expiry");
+  });
+});
+
+describe("the Chief Medical Officer index for testing-day results", () => {
+  it("finds the point-of-care results page by ECG, urine and HbA1c", () => {
+    const cmo = buildAdminSearchIndex([], [], CMO_EXTRA_PAGES);
+    expect(searchAdminEntries(cmo, "ecg").map((e) => e.href)).toContain("/clinician/poc-results");
+    expect(searchAdminEntries(cmo, "hba1c").map((e) => e.href)).toContain("/clinician/poc-results");
+  });
+});
+
+describe("the Chief Medical Officer index for record changes (S05b-e)", () => {
+  it("finds the record changes queue by the words a person would type", () => {
+    const cmo = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+    for (const query of ["record changes", "allergy request", "entered by mistake", "void"]) {
+      expect(searchAdminEntries(cmo, query).map((e) => e.href)).toContain("/clinician/record-changes");
+    }
   });
 });
 
@@ -205,6 +238,24 @@ describe("the event bus explorer (S10x)", () => {
   });
 });
 
+describe("the symptom checker safety pages are searchable (S60)", () => {
+  const adminIndex = buildAdminSearchIndex(getNavSections("admin", null), []);
+  const cmoIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+  const hit = (idx: AdminSearchEntry[], q: string) => searchAdminEntries(idx, q, 8).map((e) => e.href);
+
+  it("finds the safety page by its words, for the admin and for the CMO", () => {
+    for (const q of ["symptom checker safety", "nafdac", "regulatory position", "accuracy audit", "counsel"]) {
+      expect(hit(adminIndex, q)).toContain("/admin/symptom-safety");
+      expect(hit(cmoIndex, q)).toContain("/clinician/symptom-safety");
+    }
+  });
+
+  it("finds the clinician review queue", () => {
+    const clinicianIndex = buildAdminSearchIndex(getNavSections("clinician", null), []);
+    expect(hit(clinicianIndex, "symptom check reviews")).toContain("/clinician/symptom-reviews");
+  });
+});
+
 describe("the real Chief Medical Officer menu", () => {
   const real = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
 
@@ -217,5 +268,30 @@ describe("the real Chief Medical Officer menu", () => {
     const hits = searchAdminEntries(real, "membership").map((e) => e.href);
     expect(hits).toContain("/clinician/memberships");
     expect(hits).not.toContain("/admin/memberships");
+  });
+});
+
+describe("Learning Centre admin pages (S55) are searchable", () => {
+  const idx = buildAdminSearchIndex([], []);
+  const top = (q: string) => searchAdminEntries(idx, q, 3).map((e) => e.href);
+
+  it("finds the creators page by what an admin would type", () => {
+    expect(top("creators")[0]).toBe("/admin/settings/health-education/creators");
+    expect(top("verify mdcn")[0]).toBe("/admin/settings/health-education/creators");
+  });
+  it("finds the readiness page", () => {
+    expect(top("placeholder")[0]).toBe("/admin/settings/health-education/readiness");
+    expect(top("review date")[0]).toBe("/admin/settings/health-education/readiness");
+  });
+  it("finds the zero-result search page", () => {
+    expect(top("no result")[0]).toBe("/admin/settings/health-education/search-gaps");
+    expect(top("synonyms")[0]).toBe("/admin/settings/health-education/search-gaps");
+  });
+});
+
+describe("Learning creator credentials page for clinicians (S55)", () => {
+  it("is findable by the Chief Medical Officer", () => {
+    const cmoIdx = buildAdminSearchIndex([], [], CMO_EXTRA_PAGES);
+    expect(searchAdminEntries(cmoIdx, "mdcn creator", 3).map((e) => e.href)[0]).toBe("/clinician/learning-creator");
   });
 });

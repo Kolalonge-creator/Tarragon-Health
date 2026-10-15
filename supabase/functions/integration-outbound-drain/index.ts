@@ -29,6 +29,7 @@
 // row (and the next minute's invocation) still needs to run.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { withSentry } from "../_shared/observability/sentry.ts";
 import { signedHeaders } from "../_shared/integrations/webhook-signature.ts";
 
 const BATCH_SIZE = 25;
@@ -102,7 +103,7 @@ async function deliverOne(
   return { ok, deadLettered: status === "dead_letter" };
 }
 
-Deno.serve(async () => {
+Deno.serve(withSentry("integration-outbound-drain", async () => {
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -143,4 +144,4 @@ Deno.serve(async () => {
   }
 
   return Response.json({ delivered, failed, deadLettered, batches });
-});
+}));

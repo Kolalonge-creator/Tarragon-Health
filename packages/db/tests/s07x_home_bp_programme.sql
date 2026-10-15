@@ -187,7 +187,9 @@ select pg_temp.ck('real', 'H1b the not-enough answer says how many readings and 
   (select (x ->> 'readings') || '|' || (x ->> 'days') from (select pg_temp.as_user(pg_temp.f('p'), format('select public.complete_home_bp_check(%L)::text', (now() at time zone 'Africa/Lagos')::date - 9))::jsonb x) y));
 
 -- replace the three with a full protocol: 12 readings, 3 days, mean 138/86
+select set_config('app.allow_clinical_value_delete', 'on', true);   -- S05b: fixture cleanup is a superuser maintenance delete
 delete from public.vitals_readings where patient_id = pg_temp.f('p');
+select set_config('app.allow_clinical_value_delete', 'off', true);
 select pg_temp.seed12(pg_temp.f('p'), pg_temp.f('org'), (now() at time zone 'Africa/Lagos')::date - 9, 138, 86);
 create temp table snap on commit drop as
 select 'alerts' k, count(*) n from public.clinician_alerts where patient_id = pg_temp.f('p')
@@ -304,7 +306,7 @@ select pg_temp.ck('real', 'P3 the clinic readings fired nothing a home reading f
   ((select count(*) from public.notifications where recipient_id = pg_temp.f('p')) - (select n from snap2 where k = 'notifications')));
 select pg_temp.ck('real', 'P4 vital_source has no clinic value and no vitals_readings trigger mentions one', '0|0',
   (select count(*) from pg_enum e join pg_type t on t.oid = e.enumtypid where t.typname = 'vital_source' and e.enumlabel ilike '%clinic%') || '|' ||
-  (select count(*) from pg_trigger g where g.tgrelid = 'public.vitals_readings'::regclass and not g.tgisinternal and pg_get_triggerdef(g.oid) ilike '%clinic%'));
+  (select count(*) from pg_trigger g where g.tgrelid = 'public.vitals_readings'::regclass and not g.tgisinternal and g.tgname <> 'a_clinical_value_supersession' and pg_get_triggerdef(g.oid) ilike '%clinic%'));
 select pg_temp.ck('real', 'P5 p2 (treated, home 138/86, clinic 126/78) gets masked_uncontrolled', 'true|masked_uncontrolled:true',
   (pg_temp.rec(pg_temp.f('c1'), pg_temp.f('p2'), 126, 78, 2) !~ '^ERR')::text || '|' || pg_temp.flags(pg_temp.f('p2')));
 select pg_temp.ck('real', 'P6 p3 (untreated, home 126/78, clinic 152/96) gets white_coat', 'true|white_coat:false',

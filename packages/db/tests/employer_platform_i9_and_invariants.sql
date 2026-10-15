@@ -60,7 +60,7 @@ declare
   v_orig_p_phone text;
 begin
   select id into v_admin from public.profiles where role = 'admin' limit 1;
-  select id into v_plan from public.subscription_plans where code = 'essential' limit 1;
+  select id into v_plan from public.service_products where is_active order by created_at limit 1;
 
   select role, organisation_id into v_orig_a_role, v_orig_a_org from public.profiles where id = v_corp_a;
   select role, organisation_id into v_orig_b_role, v_orig_b_org from public.profiles where id = v_corp_b;
@@ -83,7 +83,7 @@ begin
     (organisation_id, name, status, billing_model, billing_rate_kobo, billing_interval, signed_at, signed_by)
   values (v_org_a, 'I9 A contract', 'active', 'per_employee', 100000, 'monthly', now(), v_admin);
 
-  insert into public.employer_benefit_packages (organisation_id, name, subscription_plan_id)
+  insert into public.employer_benefit_packages (organisation_id, name, service_product_id)
   values (v_org_a, 'Standard', v_plan) returning id into v_package;
 
   insert into public.employer_roster_members (organisation_id, phone, full_name, benefit_package_id)

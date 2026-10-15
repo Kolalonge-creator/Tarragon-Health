@@ -21,26 +21,36 @@
  *    patient, confirm symptoms, and guide them on ketone testing / management.
  */
 
+import { getProposedConfig } from "@tarragon/shared";
+
 /**
- * Bump whenever a value in GLUCOSE_THRESHOLDS below changes — served to the
- * mobile app by /api/mobile/vitals-thresholds (see mobile-thresholds.ts) so
- * its bundled offline classifier can detect drift from this source of truth.
+ * S61: the thresholds are no longer typed here. They are the versioned PROPOSED config entry `diabetes.glucose_thresholds`
+ * (packages/shared/src/proposed-config), the same entry the diabetes pathway rule set is built from and the phone reads. The version
+ * served to the mobile app by /api/mobile/vitals-thresholds (see mobile-thresholds.ts) is the config version, so a change of any
+ * number moves it and the bundled offline classifier can detect drift.
  */
-export const GLUCOSE_THRESHOLDS_VERSION = "2026-09-01.1";
+const GLUCOSE_CONFIG = getProposedConfig<Record<string, number>>("diabetes.glucose_thresholds");
+const cfg = (k: string): number => {
+  const v = GLUCOSE_CONFIG.value[k];
+  if (typeof v !== "number") throw new Error(`diabetes.glucose_thresholds.${k} is not a number`);
+  return v;
+};
+
+export const GLUCOSE_THRESHOLDS_VERSION = `cfg-v${GLUCOSE_CONFIG.version}`;
 
 /** mmol/L thresholds (WHO / FMOH, §15.1, §9). */
 export const GLUCOSE_THRESHOLDS = {
-  severeHypo: 3.0, // < 3.0 → emergency
-  hypoAlert: 3.9, // 3.0–3.8 → same-day
-  highForDka: 11.0, // glucose this high + ketones → DKA
-  veryHigh: 20.0, // ≥ 20 → urgent, screen for DKA/HHS
-  persistentHigh: 14.0, // repeated > 14 → uncontrolled
-  ketoneHigh: 3.0, // blood ketones ≥ 3.0 → DKA workflow
-  ketoneModerate: 1.5, // blood ketones 1.5–2.9 → review
+  severeHypo: cfg("severeHypo"), // below this → emergency
+  hypoAlert: cfg("hypoAlert"), // severeHypo up to this → same-day
+  highForDka: cfg("highForDka"), // glucose this high + ketones → DKA
+  veryHigh: cfg("veryHigh"), // at or above → urgent, screen for DKA/HHS
+  persistentHigh: cfg("persistentHigh"), // repeated above this → uncontrolled
+  ketoneHigh: cfg("ketoneHigh"), // blood ketones at or above → DKA workflow
+  ketoneModerate: cfg("ketoneModerate"), // blood ketones from this up to ketoneHigh → review
 } as const;
 
-export const PERSISTENT_HIGH_MIN_COUNT = 3;
-export const RECURRENT_HYPO_MIN_COUNT = 2;
+export const PERSISTENT_HIGH_MIN_COUNT = cfg("persistentHighMinCount");
+export const RECURRENT_HYPO_MIN_COUNT = cfg("recurrentHypoMinCount");
 
 export type KetoneUrineBand = "negative" | "trace" | "small" | "moderate" | "large";
 
@@ -77,6 +87,11 @@ export interface GlucoseAssessmentInput {
   latestKetoneUrine: KetoneUrineBand | null;
   /** Glucose values (mmol/L) over the trailing pattern window (newest-first ok). */
   recentGlucose: number[];
+  /**
+   * Danger events recorded with the latest reading (decision Q5): confusion, a seizure, unresponsiveness or "needed another person's
+   * help". Any of them at a reading below `hypoAlert` is an emergency, whatever the number. Absent means none were recorded.
+   */
+  glucoseEvents?: readonly ("confusion" | "seizure" | "unresponsive" | "needed_help")[];
 }
 
 const NONE: GlucoseFlag = { tier: "none", kind: "none", detail: "" };
@@ -128,7 +143,7 @@ export function classifyGlucose(
   input: GlucoseAssessmentInput,
   opts: GlucoseClassifyOptions = {},
 ): GlucoseFlag {
-  const { latestGlucose, latestKetoneMmol, latestKetoneUrine, recentGlucose } = input;
+  const { latestGlucose, latestKetoneMmol, latestKetoneUrine, recentGlucose, glucoseEvents } = input;
   const g = latestGlucose;
   const ketHigh = ketonesHigh(latestKetoneMmol, latestKetoneUrine);
   const ketMod = ketonesModerate(latestKetoneMmol, latestKetoneUrine);
@@ -141,6 +156,13 @@ export function classifyGlucose(
       detail: `Severe hypoglycaemia: glucose ${g} mmol/L (< ${GLUCOSE_THRESHOLDS.severeHypo}). Treat as an emergency (§17.1): if the patient is confused or cannot swallow, nothing by mouth, emergency care now.`,
     };
   }
+  if (g !== null && g < GLUCOSE_THRESHOLDS.hypoAlert && (glucoseEvents ?? []).length > 0) {
+    return {
+      tier: "emergency",
+      kind: "severe_hypo",
+      detail: `Severe hypoglycaemia event: glucose ${g} mmol/L with ${(glucoseEvents ?? []).join(", ").replace("needed_help", "help needed from another person")}. Level 3 is defined by the event, not the number. Emergency (§17.1): if the patient cannot swallow, nothing by mouth, emergency care now.`,
+    };
+  }
   if (g !== null && g >= GLUCOSE_THRESHOLDS.highForDka && ketHigh) {
     return {
       tier: "emergency",
@@ -150,7 +172,7 @@ export function classifyGlucose(
   }
 
   // ── URGENT (same-day) ────────────────────────────────────────────────────
-  if (g !== null && g >= 3.0 && g < GLUCOSE_THRESHOLDS.hypoAlert) {
+  if (g !== null && g >= GLUCOSE_THRESHOLDS.severeHypo && g < GLUCOSE_THRESHOLDS.hypoAlert) {
     return {
       tier: "urgent",
       kind: "hypo_alert",

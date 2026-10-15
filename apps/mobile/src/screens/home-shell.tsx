@@ -31,6 +31,7 @@ import { EmergencyCardScreen } from "@/screens/sections/emergency-card-screen";
 import { SettingsScreen } from "@/screens/sections/settings-screen";
 import { SupportingScreen } from "@/screens/sections/supporting-screen";
 import { ReceiptsScreen } from "@/screens/sections/receipts-screen";
+import { PaymentRequestsScreen } from "@/screens/sections/payment-requests-screen";
 import { NotificationSettingsScreen } from "@/screens/sections/notification-settings-screen";
 import { RemindersScreen } from "@/screens/sections/reminders-screen";
 import { TechnicalSupportScreen } from "@/screens/sections/technical-support-screen";
@@ -45,6 +46,7 @@ import { VideoVisitScreen } from "@/screens/sections/video-visit-screen";
 import { ConsultationRoomScreen } from "@/screens/sections/consultation-room-screen";
 import { FindASpecialistScreen } from "@/screens/sections/find-a-specialist-screen";
 import { ScreeningDaysScreen } from "@/screens/sections/screening-days-screen";
+import { TestingDaysScreen } from "@/screens/sections/testing-days-screen";
 import { FinancialProfileScreen } from "@/screens/sections/financial-profile-screen";
 import { WeightManagementScreen } from "@/screens/sections/weight-management-screen";
 import { WellbeingScreen } from "@/screens/sections/wellbeing-screen";
@@ -262,6 +264,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
           patientName={acting?.fullName ?? patientName}
           onNavigate={handleSelect}
           onOpenVideoVisit={setOpenVideoVisitId}
+          organisationId={acting ? undefined : organisationId}
         />
       ),
     vitals: () => <VitalsScreen patientId={subjectId} beneficiaryProfileId={acting?.profileId} />,
@@ -322,6 +325,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
       />
     ),
     receipts: () => <ReceiptsScreen />,
+    paymentRequests: () => <PaymentRequestsScreen />,
     reminders: () => <RemindersScreen userId={userId} />,
     notificationSettings: () => (
       <NotificationSettingsScreen patientId={userId} organisationId={organisationId} />
@@ -362,6 +366,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     // Reached by a notice tap while the entry is hidden: one calm line, nothing else (no group list, no calls).
     community: () => (communityVisible ? <CommunityScreen onNavigate={handleSelect} /> : <CommunityNotOpen />),
     screeningDays: () => <ScreeningDaysScreen />,
+    testingDays: () => <TestingDaysScreen />,
     financialProfile: () => <FinancialProfileScreen userId={userId} />,
     privacy: () => (
       <PrivacyScreen userId={userId} organisationId={organisationId} onNavigate={handleSelect} />

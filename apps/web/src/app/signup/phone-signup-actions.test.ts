@@ -59,6 +59,7 @@ function signupForm(overrides: Record<string, string> = {}) {
   fd.set("countryCode", "+234");
   fd.set("phone", "0803 123 4567");
   fd.set("state", "");
+  fd.set("dateOfBirth", "1990-04-02");
   fd.set("password", "a-strong-password-123");
   for (const [k, v] of Object.entries(overrides)) fd.set(k, v);
   return fd;
@@ -82,9 +83,28 @@ describe("signUpWithPhone", () => {
     expect(args.phone).toBe(NG);
     expect(args.email).toBeUndefined();
     expect(args.options.data.full_name).toBe("Amaka Okoro");
+    expect(args.options.data.date_of_birth).toBe("1990-04-02");
     // Unverified: nothing signs in, nothing redirects, nothing backfills yet.
     expect(redirectAfterLoginMock).not.toHaveBeenCalled();
     expect(backfillMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses anyone under 18 with a calm message, before any account, code or rate-limit slot is used (S04b-1)", async () => {
+    const year = new Date().getUTCFullYear() - 16;
+    const result = await signUpWithPhone(undefined, signupForm({ dateOfBirth: `${year}-06-15` }));
+    expect(result?.field).toBe("dateOfBirth");
+    expect(result?.error).toMatch(/adults aged 18 and over/);
+    expect(result?.step).toBeUndefined();
+    expect(signUpMock).not.toHaveBeenCalled();
+    expect(rateLimitMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses a missing or impossible date of birth", async () => {
+    for (const dateOfBirth of ["", "1990-02-31", "not a date"]) {
+      const result = await signUpWithPhone(undefined, signupForm({ dateOfBirth }));
+      expect(result?.field).toBe("dateOfBirth");
+    }
+    expect(signUpMock).not.toHaveBeenCalled();
   });
 
   it("an already-registered number gets the same code step as a new one (no enumeration)", async () => {
