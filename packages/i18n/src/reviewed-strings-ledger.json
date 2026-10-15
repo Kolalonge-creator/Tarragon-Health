@@ -25,7 +25,7 @@
       "care_category"
     ]
   },
-  "baselineCeiling": 1030,
+  "baselineCeiling": 1038,
   "entries": {
     "breathing.a11y_phase": {
       "hash": "72354cf0a6f4aa9e",
@@ -6203,6 +6203,54 @@
     },
     "wording:TRI-006:proposed:title": {
       "hash": "1bda14962ba4e03f",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "breathing.safety": {
+      "hash": "bc7338fd6f1ee944",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "breathing.phase.inhale": {
+      "hash": "75b77795763129ec",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "breathing.phase.hold": {
+      "hash": "618c936a830e58a2",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "breathing.phase.exhale": {
+      "hash": "2be379864e7df303",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "breathing.text_mode": {
+      "hash": "1fe78157a9456a11",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "breathing.time_left": {
+      "hash": "656fd1ffa8495380",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "breathing.choose": {
+      "hash": "26d07e54904a26cf",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "breathing.start_in_app": {
+      "hash": "e36b04533bf50086",
       "reviewer": "unreviewed (baseline)",
       "reviewedOn": null,
       "baseline": true

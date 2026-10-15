@@ -220,6 +220,20 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         visible: adminOnly,
       },
       {
+        href: "/admin/settings/media-library",
+        label: "Calm and sleep library",
+        blurb: "Manage meditations, sleep stories, soundscapes, breathing and exercises. Each needs a named reviewer and review dates before patients see it.",
+        icon: SEMANTIC_ICON.mood,
+        visible: adminOnly,
+      },
+      {
+        href: "/admin/settings/crisis-helplines",
+        label: "Crisis helplines",
+        blurb: "Verify the helplines the crisis card may show. Until a line is phoned and verified, the card shows only the emergency number and the nearest hospital.",
+        icon: NAV_ICON.siren,
+        visible: adminOnly,
+      },
+      {
         href: "/admin/settings/provider-quality-policy",
         label: "Provider quality policy",
         blurb: "Metric targets, the credential expiry ladder, and intervention triggers behind provider quality.",
