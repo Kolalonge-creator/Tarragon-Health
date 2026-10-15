@@ -70,7 +70,7 @@ begin
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
   v_p1 := pg_temp.mkuser(v_org, 'patient', 'patient');
   v_cg := pg_temp.mkuser(v_org, 'caregiver', 'patient');
-  v_c1 := pg_temp.mkstaff(v_org, v_admin, 'tied', 'medical_officer');
+  v_c1 := pg_temp.mkstaff(v_org, v_admin, 'tied', 'senior_medical_officer');
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id) values (v_org, v_p1, v_c1);
   v_a1 := pg_temp.assess(v_org, v_p1, 'urgent');
   -- the caregiver logged the check for the patient, holding a medical_history grant (set up with triggers off: the fixture is the grant)

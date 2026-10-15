@@ -228,7 +228,7 @@ language sql stable security definer set search_path = ''
 as $$
   select exists (select 1 from public.clinical_staff cs
                   where cs.profile_id = (select auth.uid()) and cs.active and cs.status = 'active' and cs.doctor_tier is not null
-                    and private.doctor_tier_rank(cs.doctor_tier) >= private.doctor_tier_rank('medical_officer'))
+                    and private.doctor_tier_rank(cs.doctor_tier) >= private.doctor_tier_rank('senior_medical_officer'))
 $$;
 revoke all on function private.is_reviewing_clinician() from public, anon, authenticated;
 

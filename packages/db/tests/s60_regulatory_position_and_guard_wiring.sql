@@ -64,7 +64,7 @@ begin
   if v_org is null then raise exception 'need an organisation to run this proof'; end if;
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
   v_cmo := pg_temp.mkstaff(v_org, v_admin, 'cmo', 'chief_medical_officer');
-  v_doc := pg_temp.mkstaff(v_org, v_admin, 'doctor', 'medical_officer');
+  v_doc := pg_temp.mkstaff(v_org, v_admin, 'doctor', 'senior_medical_officer');
   v_pat := pg_temp.mkuser(v_org, 'patient', 'patient');
 
   -- 1. who may record

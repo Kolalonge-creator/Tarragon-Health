@@ -80,8 +80,8 @@ begin
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
   v_p1 := pg_temp.mkuser(v_org, 'patient1', 'patient');
   v_p2 := pg_temp.mkuser(v_org, 'patient2', 'patient');
-  v_c1 := pg_temp.mkstaff(v_org, v_admin, 'tied', 'medical_officer');
-  v_c2 := pg_temp.mkstaff(v_org, v_admin, 'untied', 'medical_officer');
+  v_c1 := pg_temp.mkstaff(v_org, v_admin, 'tied', 'senior_medical_officer');
+  v_c2 := pg_temp.mkstaff(v_org, v_admin, 'untied', 'senior_medical_officer');
   v_cc := pg_temp.mkstaff(v_org, v_admin, 'coordinator', 'care_coordinator');
   -- the tie (INV-12): c1 is on p1's care team. c2 and the coordinator are not tied to anyone.
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id) values (v_org, v_p1, v_c1);

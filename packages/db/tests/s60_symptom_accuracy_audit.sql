@@ -99,7 +99,7 @@ begin
   end if;
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
   v_cmo := pg_temp.mkstaff(v_org, v_admin, 'cmo', 'chief_medical_officer');
-  v_doc := pg_temp.mkstaff(v_org, v_admin, 'doctor', 'medical_officer');
+  v_doc := pg_temp.mkstaff(v_org, v_admin, 'doctor', 'senior_medical_officer');
   -- three groups of patients: Lagos adult female (12 reviews), Edo older male (11), Kano child male (7: below the minimum of 10)
   v_lagos := pg_temp.mkuser(v_org, 'lagos', 'patient', (current_date - interval '30 years')::date, 'female', 'Lagos');
   v_edo   := pg_temp.mkuser(v_org, 'edo', 'patient', (current_date - interval '70 years')::date, 'male', 'Edo');
