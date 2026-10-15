@@ -11,7 +11,7 @@ export const STATE_LABEL: Record<string, string> = {
   sent: "Sent, waiting for the bank",
   succeeded: "Paid",
   failed: "Failed",
-  reversed: "Returned by the bank",
+  reversed: "Returned by the bank, being sent again",
   cancelled: "Cancelled",
 };
 
@@ -37,6 +37,18 @@ const ERROR_WORDS: Record<string, string> = {
   payout_not_retryable: "Only a failed or returned payout can be tried again.",
   payout_not_a_contracted_clinician: "Payouts are for contracted clinicians. Employed doctors are paid by salary.",
   payout_bank_too_many_lookups: "You have checked bank accounts several times today. Please try again tomorrow.",
+  payout_batch_required: "With the batch control on, a payout can be sent only from a released batch. Ask a second approver to release it.",
+  payout_batch_control_off: "The batch control is not switched on.",
+  payout_limit_payout: "This payout is over the per-payout limit. It cannot be sent until the limit is changed or the payout is split.",
+  payout_limit_clinician: "Sending this would take this clinician over their limit for the last seven days.",
+  payout_limit_batch_total: "The batch total is over the limit for one batch. Split it into two batches.",
+  payout_limit_batch_count: "That is too many payouts for one batch. Split it into two batches.",
+  payout_batch_self_release: "A batch must be released by a different person from the one who made it.",
+  payout_batch_pays_the_checker: "A batch that pays the person releasing it must be released by someone else.",
+  payout_batch_changed: "A payout in this batch has changed since it was made. Reject it and make a new batch.",
+  payout_already_in_a_batch: "A payout in this list is already in a batch.",
+  payout_batch_empty: "Choose at least one payout.",
+  payout_batch_needs_reason: "Please give a reason of at least ten characters.",
   send_failed: "Paystack did not take the transfer. Nothing was paid. You can send it again.",
   not_configured: "Paystack is not set up for this environment.",
   account_not_resolved: "The bank could not find that account. Please check the bank and the number.",
@@ -110,6 +122,9 @@ export const overviewSchema = z.object({
       line_count: z.number().int(),
       state: z.string(),
       approved_at: z.string().nullable(),
+      /** S31x: when the bank last returned this payout, and whether it had been paid before that. Absent on an older reply. */
+      reversed_at: z.string().nullable().optional(),
+      paid_then_returned: z.boolean().optional(),
       reference: z.string().nullable(),
       lines: z.array(z.object({ id: z.string().uuid(), kind: z.string(), earned_at: z.string(), amount_kobo: kobo, task_type: z.string().nullable() })),
     }),
@@ -135,3 +150,14 @@ export function adminActionsFor(row: Pick<AdminPayoutRow, "state" | "bank_ready"
 }
 
 export const banksSchema = z.object({ banks: z.array(z.object({ code: z.string(), name: z.string() })) });
+
+/**
+ * The line shown under a clinician's payout when the bank returned it. Plain words, no blame, nothing for the clinician to do.
+ * `paid_then_returned` is the case that matters most: they saw "Paid" and the money has since come back.
+ */
+export function returnedNote(p: { state: string; paid_then_returned?: boolean | undefined }): string | null {
+  if (p.state !== "reversed") return null;
+  return p.paid_then_returned
+    ? "This payout was paid and then returned by your bank. The finance team has been told and will send it again. There is nothing for you to do."
+    : "Your bank returned this payout before it reached you. The finance team has been told and will send it again. There is nothing for you to do.";
+}

@@ -104,3 +104,38 @@ describe("supabaseOrderStore", () => {
     expect(await weird.record(input)).toMatchObject({ ok: false, error: { code: "bad_response" } });
   });
 });
+
+describe("startCheckout (S71)", () => {
+  it("asks Paystack for card, bank transfer and USSD explicitly, by default", async () => {
+    const payments = createMockPayment();
+    const store = new MemoryStore();
+    store.add({ reference: REF, amountKobo: 10_000_000 });
+    await startCheckout({ payments, store, orders: creator(order()) }, args);
+    expect(payments.channelsFor(REF)).toEqual(["card", "bank_transfer", "ussd"]);
+  });
+  it("lets a caller narrow the channels, and the mock refuses a malformed list as the real adapter does", async () => {
+    const payments = createMockPayment();
+    const r = await payments.initializeTransaction({ reference: "tho_chan000000000000000000000001", email: "a@example.com", amountKobo: 100_000, channels: ["card"] });
+    expect(r.ok).toBe(true);
+    expect(payments.channelsFor("tho_chan000000000000000000000001")).toEqual(["card"]);
+    const bad = await payments.initializeTransaction({ reference: "tho_chan000000000000000000000002", email: "a@example.com", amountKobo: 100_000, channels: ["card", "card"] });
+    expect(bad.ok).toBe(false);
+    const bad2 = await payments.initializeTransaction({ reference: "tho_chan000000000000000000000003", email: "a@example.com", amountKobo: 100_000, channels: ["crypto" as never] });
+    expect(bad2.ok).toBe(false);
+  });
+  it("a sponsor-covered order has no payment step: Paystack is never called and no email is needed", async () => {
+    const payments = createMockPayment();
+    const covered = order({ reference: "spo_0123456789abcdef0123456789abcdef", amountKobo: 0, state: "paid", covered: true, sponsorName: "Acme Ltd" });
+    const r = await startCheckout({ payments, store: new MemoryStore(), orders: creator(covered) }, { ...args, email: null });
+    expect(r).toEqual({ ok: true, covered: true, orderId: "order-1", reference: "spo_0123456789abcdef0123456789abcdef", sponsorName: "Acme Ltd" });
+    expect((await payments.verifyTransaction("spo_0123456789abcdef0123456789abcdef")).ok).toBe(false);
+  });
+  it("a paid order that is NOT marked covered is still refused as already paid (a replay of an ordinary order)", async () => {
+    const r = await startCheckout({ payments: createMockPayment(), store: new MemoryStore(), orders: creator(order({ state: "paid" })) }, args);
+    expect(r).toEqual({ ok: false, code: "already_paid" });
+  });
+  it("maps the sponsor refusals", () => {
+    expect(mapOrderError("sponsor_budget_exhausted")).toBe("sponsor_budget_exhausted");
+    expect(mapOrderError("ERROR: sponsor_payment_not_open")).toBe("sponsor_payment_not_open");
+  });
+});

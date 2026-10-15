@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Enums, Tables } from "@tarragon/shared";
 import { lagosDateString } from "@/lib/ai-coach/lagos-day";
 import { computeCycleInsights, type CycleInsight } from "@/lib/rules/cycle-insights";
+import { applyPlanningMode } from "@/lib/rules/cycle-fertile-mode";
 import {
   detectThermalShift,
   type ThermalShiftResult,
@@ -241,8 +242,11 @@ export function useCycleTracker(
   patientId: string,
   lifeStage: ReproductiveLifeStage,
   selfReportedCycleLengthDays: number | null,
-  /** S66 (A14): the patient's explicit "planning a pregnancy" switch. Off unless she turned it on. */
-  conceptionPlanning = false
+  /**
+   * "Planning a pregnancy" (S85 D2). No default on purpose: a caller must say. Off, the returned prediction has no
+   * ovulation date or window and the temperature confirmation is not computed, so no consumer can show what the mode hides.
+   */
+  planningMode: boolean
 ): UseCycleTrackerResult {
   const cyclesQuery = useMenstrualCycles(patientId);
   const logsQuery = useMenstrualDailyLogs(patientId);
@@ -259,15 +263,17 @@ export function useCycleTracker(
     const heavyFlowDates = dailyLogs
       .filter((log) => log.flow === "flooding")
       .map((log) => log.log_date);
-    return predictCycle({
-      periods,
-      today,
-      lifeStage,
-      selfReportedCycleLengthDays,
-      heavyFlowDates,
-      conceptionPlanning,
-    });
-  }, [cycles, dailyLogs, today, lifeStage, selfReportedCycleLengthDays, conceptionPlanning]);
+    return applyPlanningMode(
+      predictCycle({
+        periods,
+        today,
+        lifeStage,
+        selfReportedCycleLengthDays,
+        heavyFlowDates,
+      }),
+      planningMode
+    );
+  }, [cycles, dailyLogs, today, lifeStage, selfReportedCycleLengthDays, planningMode]);
 
   // The most recent period counts as "open" only while it has no end date
   // AND started recently enough to still plausibly be running — otherwise a
@@ -298,15 +304,16 @@ export function useCycleTracker(
         today,
         expectedCycleLengthDays: prediction.expectedCycleLengthDays,
         averagePeriodDurationDays: prediction.stats.averagePeriodDurationDays,
-        conceptionPlanning,
       }),
-    [cycles, dailyLogs, today, prediction, conceptionPlanning]
+    [cycles, dailyLogs, today, prediction]
   );
 
   // Scoped to the current cycle on purpose: the previous cycle's luteal
   // temperatures would otherwise sit in the baseline window and mask this
   // cycle's rise entirely.
   const thermalShift = useMemo(() => {
+    // Off: nothing is detected, so no estimated ovulation date can reach a screen (S85 D2).
+    if (!planningMode) return detectThermalShift([]);
     const cycleStart = prediction.lastPeriodStartDate;
     return detectThermalShift(
       dailyLogs
@@ -320,7 +327,7 @@ export function useCycleTracker(
           temperature: Number(log.basal_body_temperature_c),
         }))
     );
-  }, [dailyLogs, prediction.lastPeriodStartDate]);
+  }, [dailyLogs, prediction.lastPeriodStartDate, planningMode]);
 
   return {
     cycles,

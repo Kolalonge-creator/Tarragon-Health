@@ -29,6 +29,8 @@ export const memberSchema = z.object({
   permissions: z.array(permissionSchema),
   expires_at: z.string(),
   since: z.string(),
+  /** S75 A5: the patient chose to share the monthly report with this supporter. Absent means off. */
+  monthly_report_shared: z.boolean().optional().default(false),
 });
 export type CircleMember = z.infer<typeof memberSchema>;
 

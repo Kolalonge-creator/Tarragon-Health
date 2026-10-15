@@ -2,7 +2,17 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@tarragon/shared";
 
-export type PharmacyMedication = Tables<"pharmacy_medications">;
+/**
+ * S53 pre-fix 8.16: the commission columns are not readable by a patient, clinician or pharmacist (column grant), so this type and
+ * every client read of pharmacy_medications leave them out. The explicit column list below is the contract; `select("*")` on this
+ * table now fails with a permission error by design, and a scan test (pharmacy-commission-columns.scan.test.ts) holds the line.
+ */
+export type PharmacyMedication = Omit<
+  Tables<"pharmacy_medications">,
+  "commission_rate" | "commission_rate_type" | "commission_flat_kobo"
+>;
+export const PHARMACY_MEDICATION_SAFE_COLUMNS =
+  "id, pharmacy_partner_id, drug_name, pack_size, price_kobo, is_active, created_at, strength, is_generic, generic_equivalent_of, stock_status, expected_restock_at, stock_updated_at, requires_cold_chain";
 export type PharmacyPartner = Tables<"pharmacy_partners">;
 
 type PharmacyPartnerSummary = Pick<
@@ -100,7 +110,7 @@ export function usePharmacyCatalogue() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("pharmacy_medications")
-        .select("*")
+        .select(PHARMACY_MEDICATION_SAFE_COLUMNS)
         .eq("is_active", true)
         .order("drug_name", { ascending: true });
       if (error) throw error;
@@ -119,7 +129,15 @@ export type PharmacyOrderItem = {
   requires_cold_chain?: boolean;
 };
 
-export type PharmacyOrder = Tables<"pharmacy_orders">;
+/**
+ * Track G (spec 8.16, OQ-320): pharmacy_orders.partner_cost_kobo / partner_cost_breakdown are what Tarragon owes the pharmacy.
+ * Since migration 20261007190500 they are not readable by a patient or clinician session, so `select *` is a permission error.
+ * Every client read names its columns (every column except the two withheld); the standing scan test keeps `*` out.
+ */
+export const PHARMACY_ORDER_SAFE_COLUMNS =
+  "id, organisation_id, patient_id, pharmacy_partner_id, status, total_kobo, items, requested_at, created_at, updated_at, origin, payment_provider, payment_provider_ref, pending_payment_provider_ref, order_number, ordered_by, courier_reference, voucher_covered_kobo, applied_voucher_id, payable_kobo, confirmed_quantity, confirmed_price_kobo, estimated_fulfilment_at, accepted_at, accepted_by, cancellation_reason, declined_at, declined_by, refund_status, refund_amount_kobo, refund_ref, partner_cost_provider_id, unavailable_reason, unavailable_at, requires_cold_chain, courier_assigned_at";
+
+export type PharmacyOrder = Omit<Tables<"pharmacy_orders">, "partner_cost_kobo" | "partner_cost_breakdown">;
 
 /** Patient's own pharmacy_orders, newest first. Client hook from the start — Build 4's lab-orders-list bug (server component missed cache invalidation) taught this. */
 export function usePatientPharmacyOrders(patientId: string) {
@@ -129,7 +147,7 @@ export function usePatientPharmacyOrders(patientId: string) {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("pharmacy_orders")
-        .select("*")
+        .select(PHARMACY_ORDER_SAFE_COLUMNS)
         .eq("patient_id", patientId)
         .order("requested_at", { ascending: false });
       if (error) throw error;
@@ -151,7 +169,7 @@ export function useOrgPharmacyOrders() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("pharmacy_orders")
-        .select("*")
+        .select(PHARMACY_ORDER_SAFE_COLUMNS)
         .order("requested_at", { ascending: false });
       if (error) throw error;
       return data as PharmacyOrder[];

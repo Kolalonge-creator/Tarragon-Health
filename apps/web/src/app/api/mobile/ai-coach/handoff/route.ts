@@ -5,6 +5,7 @@ import { createBearerClient } from "@/lib/supabase/bearer";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { buildCoachHandoffSummary } from "@/lib/ai-coach/handoff-summary";
 import { loadHandoffSnapshot } from "@/lib/ai-coach/escalate";
+import { isAssistantOpen } from "@/lib/ai-coach/guard";
 
 const bodySchema = z.object({ conversationId: z.string().uuid().optional() });
 
@@ -32,6 +33,11 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid or expired session" }, { status: 401 });
   }
 
+  // INV-14: behind the assistant_enabled guard like every other assistant door (is_test accounts can exercise it).
+  if (!(await isAssistantOpen(supabase))) {
+    return NextResponse.json({ error: "This is not open yet. You can message your care team directly in the app." }, { status: 403 });
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -50,6 +56,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       .from("ai_conversations")
       .select("messages")
       .eq("id", parsed.data.conversationId)
+      .eq("profile_id", user.id)
       .maybeSingle();
     recentMessages = ((conversation?.messages as CoachChatMessage[] | null) ?? []).slice(-10);
   }

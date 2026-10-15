@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { t } from "@tarragon/i18n";
-import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { getCurrentClinicalStaff, getCurrentProfile } from "@/lib/auth/current-profile";
+import { canAssignCases } from "@/lib/clinical/doctor-tier";
 import { createClient } from "@/lib/supabase/server";
 import { loose } from "@/lib/clinician/loose-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SlaBadge } from "@/components/clinician/sla-badge";
 import { formatKobo } from "@/lib/format-money";
-import { classCounts, heldTaskSchema, minutesLeft, queueSummarySchema } from "@/lib/clinician/queue-console";
+import { blockedReasonKey, classCounts, escalatedTaskSchema, heldTaskSchema, minutesLeft, queueSummarySchema } from "@/lib/clinician/queue-console";
 import { ExtendForm, NextTaskForm } from "./forms";
 
 export const metadata = { title: "Queue" };
@@ -32,8 +33,11 @@ export default async function ClinicianQueuePage({ searchParams }: { searchParam
   const raw = await searchParams;
   const supabase = loose(await createClient());
 
-  const [summaryRes, heldRes] = await Promise.all([
+  // the clinical lead also sees every escalated task with its age (the database refuses anyone else)
+  const isLead = canAssignCases(await getCurrentClinicalStaff());
+  const [summaryRes, escalatedRes, heldRes] = await Promise.all([
     supabase.rpc("queue_summary"),
+    isLead ? supabase.rpc("queue_escalated_overview") : Promise.resolve(null),
     supabase
       .from("clinical_tasks")
       .select("id, type, priority_class, due_at, claim_expires_at, task_type_version, rule_set_version, patient_id, state")
@@ -43,8 +47,10 @@ export default async function ClinicianQueuePage({ searchParams }: { searchParam
   ]);
   const summary = summaryRes.error ? null : queueSummarySchema.safeParse(summaryRes.data);
   const held = heldRes.error ? null : heldTaskSchema.array().safeParse(heldRes.data);
+  const escalated = escalatedRes ? (escalatedRes.error ? null : escalatedTaskSchema.array().safeParse(escalatedRes.data)) : null;
   const now = new Date();
   const counts = summary?.success ? classCounts(summary.data.by_class) : null;
+  const blockedKey = summary?.success && !summary.data.open ? blockedReasonKey(summary.data.blocked) : null;
 
   return (
     <div className="space-y-6">
@@ -78,7 +84,19 @@ export default async function ClinicianQueuePage({ searchParams }: { searchParam
                 ))}
               </div>
               <p className="text-sm text-charcoal-ink/70">{t("queue.total_waiting", "en", { count: counts.total })}</p>
-              <p className="text-sm text-charcoal-ink">{summary.data.open ? t("queue.open_yes", "en") : t("queue.open_no", "en")}</p>
+              {summary.data.open ? (
+                <p className="text-sm text-charcoal-ink">{t("queue.open_yes", "en")}</p>
+              ) : (
+                <div role="status" className="space-y-1 rounded-md border border-charcoal-ink/10 p-3">
+                  <p className="text-sm font-medium text-charcoal-ink">{t("queue.blocked.title", "en")}</p>
+                  <p className="text-sm text-charcoal-ink">{t(blockedKey ?? "queue.blocked.other", "en")}</p>
+                  {summary.data.cooling_off_until && (
+                    <p className="text-sm text-charcoal-ink/70">
+                      {t("queue.cooling_off_until", "en", { time: new Date(summary.data.cooling_off_until).toLocaleTimeString("en-GB", { timeStyle: "short", timeZone: "Africa/Lagos" }) })}
+                    </p>
+                  )}
+                </div>
+              )}
               {typeof summary.data.next_fee_kobo === "number" && (
                 <p className="text-sm text-charcoal-ink">{t("queue.fee_next", "en", { amount: formatKobo(summary.data.next_fee_kobo) })}</p>
               )}
@@ -129,6 +147,73 @@ export default async function ClinicianQueuePage({ searchParams }: { searchParam
           )}
         </CardContent>
       </Card>
+
+      {summary?.success && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("queue.offered_title", "en")}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-sm text-charcoal-ink/70">{t("queue.offered_hint", "en")}</p>
+            {(summary.data.offered ?? []).length === 0 && <p className="text-sm text-charcoal-ink/60">{t("queue.offered_none", "en")}</p>}
+            {(summary.data.offered ?? []).length > 0 && (
+              <ul className="divide-y divide-charcoal-ink/10">
+                {(summary.data.offered ?? []).map((task) => (
+                  <li key={task.task_id} className="flex flex-wrap items-center gap-3 py-2">
+                    <Badge variant="blue">{t("queue.class", "en", { n: task.priority_class ?? "?" })}</Badge>
+                    <span className="text-sm font-medium text-charcoal-ink">{task.type.replace(/_/g, " ")}</span>
+                    {task.window_ends_at && (
+                      <span className="text-xs text-charcoal-ink/60">{t("queue.offered_window", "en", { time: dateTime(task.window_ends_at) })}</span>
+                    )}
+                    <SlaBadge dueAt={task.due_at} now={now} />
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="text-sm text-charcoal-ink/70">
+              {(summary.data.escalated_claimable ?? 0) > 0
+                ? t("queue.escalated_claimable", "en", { count: summary.data.escalated_claimable ?? 0 })
+                : t("queue.escalated_none", "en")}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {summary?.success && typeof summary.data.reliability_score === "number" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("queue.reliability_title", "en")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-charcoal-ink">{t("queue.reliability_body", "en", { score: Math.round(summary.data.reliability_score) })}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {isLead && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("queue.escalated_lead_title", "en")}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-sm text-charcoal-ink/70">{t("queue.escalated_lead_hint", "en")}</p>
+            {!escalated?.success && <p role="alert" className="text-sm text-red-600">{t("queue.load_error", "en")}</p>}
+            {escalated?.success && escalated.data.length === 0 && <p className="text-sm text-charcoal-ink/60">{t("queue.escalated_lead_none", "en")}</p>}
+            {escalated?.success && escalated.data.length > 0 && (
+              <ul className="divide-y divide-charcoal-ink/10">
+                {escalated.data.map((task) => (
+                  <li key={task.task_id} className="flex flex-wrap items-center gap-3 py-2">
+                    <Badge variant={task.priority_class === 1 ? "red" : "blue"}>{t("queue.class", "en", { n: task.priority_class })}</Badge>
+                    <span className="text-sm font-medium text-charcoal-ink">{task.type.replace(/_/g, " ")}</span>
+                    {task.age_minutes !== null && <span className="text-xs text-charcoal-ink/60">{t("queue.escalated_age", "en", { minutes: task.age_minutes })}</span>}
+                    <SlaBadge dueAt={task.due_at} now={now} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

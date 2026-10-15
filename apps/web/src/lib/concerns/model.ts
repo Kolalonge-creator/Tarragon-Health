@@ -12,6 +12,12 @@ import type { MessageKey } from "@tarragon/i18n";
 export const CONCERN_STATES = ["new", "acknowledged", "responded", "closed"] as const;
 export type ConcernState = (typeof CONCERN_STATES)[number];
 
+export const CONCERN_ROUTINGS = ["standard", "independent_only"] as const;
+
+/** A detriment check-in: a neutral question sent to the raiser at 30 and 90 days. `answered_at` is null until they answer. */
+export const checkinSchema = z.object({ id: z.string().uuid(), window_days: z.number().int(), sent_at: z.string(), answered_at: z.string().nullable() });
+export type Checkin = z.infer<typeof checkinSchema>;
+
 const message = z.object({
   kind: z.string(),
   body: z.string().nullable(),
@@ -24,8 +30,12 @@ export type ConcernMessage = z.infer<typeof message>;
 /** One row of `safety_concern_inbox` (the lead). Identity (`raised_by_name`) is shown to the lead and named backup readers only. */
 export const inboxRowSchema = z.object({
   id: z.string().uuid(),
-  raised_by: z.string().uuid(),
+  raised_by: z.string().uuid().nullable(),
   raised_by_name: z.string().nullable(),
+  /** True when no raiser id is stored at all (anonymous intake). */
+  anonymous: z.boolean().optional(),
+  /** `independent_only` concerns (by or about the lead) are readable only by an independent reader. */
+  routing: z.enum(CONCERN_ROUTINGS).optional(),
   category: z.string(),
   severity: z.string(),
   description: z.string(),
@@ -57,6 +67,7 @@ export const myConcernSchema = z.object({
   responded_at: z.string().nullable(),
   closed_at: z.string().nullable(),
   messages: z.array(message),
+  checkins: z.array(checkinSchema).optional(),
 });
 export type MyConcern = z.infer<typeof myConcernSchema>;
 export const myConcernsSchema = z.array(myConcernSchema);
@@ -70,14 +81,45 @@ export const retaliationRowSchema = z.object({
   state: z.enum(["open", "closed"]),
   outcome: z.string().nullable(),
   created_at: z.string(),
+  routing: z.enum(CONCERN_ROUTINGS).optional(),
 });
 export type RetaliationRow = z.infer<typeof retaliationRowSchema>;
 export const retaliationRowsSchema = z.array(retaliationRowSchema);
 
-export const readerRowsSchema = z.array(z.object({ profile_id: z.string().uuid(), note: z.string().nullable(), created_at: z.string().nullable().optional() }));
+export const READER_KINDS = ["clinician", "independent"] as const;
+export const readerRowsSchema = z.array(z.object({ profile_id: z.string().uuid(), note: z.string().nullable(), created_at: z.string().nullable().optional(), kind: z.enum(READER_KINDS).optional() }));
 export type ReaderRow = z.infer<typeof readerRowsSchema>[number];
 export const staffRowsSchema = z.array(z.object({ profile_id: z.string().uuid(), full_name: z.string().nullable() }));
 export type StaffRow = z.infer<typeof staffRowsSchema>[number];
+
+/** Which speak-up screen a signed-in person gets: the readers' inbox, or nothing. An admin account is never a reader. */
+export const readerStatusSchema = z.object({ is_reader: z.boolean(), is_independent: z.boolean() });
+export type ReaderStatus = z.infer<typeof readerStatusSchema>;
+
+/** The board report is counts only: by state, by age of what is open, and what is overdue. It carries no text, category or name. */
+export const boardReportSchema = z.object({
+  total: z.number().int(),
+  by_state: z.object({ new: z.number().int(), acknowledged: z.number().int(), responded: z.number().int(), closed: z.number().int() }),
+  open_by_age_days: z.object({ up_to_7: z.number().int(), from_8_to_14: z.number().int(), from_15_to_30: z.number().int(), from_31_to_90: z.number().int(), over_90: z.number().int() }),
+  acknowledge_overdue: z.number().int(),
+  response_overdue: z.number().int(),
+  open_retaliation_reviews: z.number().int(),
+});
+export type BoardReport = z.infer<typeof boardReportSchema>;
+
+/** The follow-up status an anonymous raiser reads with their code. */
+export const anonymousStatusSchema = z.object({
+  state: z.enum(CONCERN_STATES),
+  created_at: z.string(),
+  acknowledge_due_at: z.string(),
+  respond_due_at: z.string(),
+  acknowledged_at: z.string().nullable(),
+  responded_at: z.string().nullable(),
+  closed_at: z.string().nullable(),
+  messages: z.array(message),
+  checkins: z.array(checkinSchema),
+});
+export type AnonymousStatus = z.infer<typeof anonymousStatusSchema>;
 
 export const INCIDENT_SEVERITIES = ["sev1", "sev2", "sev3", "sev4"] as const;
 
@@ -128,6 +170,7 @@ export const CONCERN_NOTICES = [
   "reader_removed",
   "review_closed",
   "added",
+  "checkin_answered",
   "failed",
 ] as const;
 export type ConcernNotice = (typeof CONCERN_NOTICES)[number];

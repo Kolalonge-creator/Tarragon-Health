@@ -10,18 +10,30 @@
  * copy; threshold-sync.ts fetches a version check so drift doesn't go
  * unnoticed silently.
  */
+import { getProposedConfig } from "@tarragon/shared";
 
-/** mmol/L thresholds (WHO / FMOH). Overridable via threshold-sync.ts's
+/** S61: the numbers are the versioned PROPOSED config entry `diabetes.glucose_thresholds`, the same entry the web classifier and the
+ * diabetes pathway rule set are built from (a parity test pins the two copies together). Overridable via threshold-sync.ts's
  * loadActiveThresholds() if the server reports a newer version. */
+const GLUCOSE_CONFIG = getProposedConfig<Record<string, number>>("diabetes.glucose_thresholds");
+const cfg = (k: string): number => {
+  const v = GLUCOSE_CONFIG.value[k];
+  if (typeof v !== "number") throw new Error(`diabetes.glucose_thresholds.${k} is not a number`);
+  return v;
+};
+export const GLUCOSE_THRESHOLDS_CONFIG_VERSION = `cfg-v${GLUCOSE_CONFIG.version}`;
 export const GLUCOSE_THRESHOLDS = {
-  severeHypo: 3.0,
-  hypoAlert: 3.9,
-  highForDka: 11.0,
-  veryHigh: 20.0,
-  persistentHigh: 14.0,
-  ketoneHigh: 3.0,
-  ketoneModerate: 1.5,
+  severeHypo: cfg("severeHypo"),
+  hypoAlert: cfg("hypoAlert"),
+  highForDka: cfg("highForDka"),
+  veryHigh: cfg("veryHigh"),
+  persistentHigh: cfg("persistentHigh"),
+  ketoneHigh: cfg("ketoneHigh"),
+  ketoneModerate: cfg("ketoneModerate"),
 } as const;
+
+/** Danger events a patient can tick with a reading (decision Q5). Any one at a reading below hypoAlert is an emergency. */
+export type GlucoseDangerEvent = "confusion" | "seizure" | "unresponsive" | "needed_help";
 
 /** Structural rather than `typeof GLUCOSE_THRESHOLDS` — see the same note on
  * bp-classification.ts's BpThresholds: the `as const` constant's literal
@@ -57,9 +69,18 @@ const NONE: GlucoseFlag = { tier: "none", kind: "none", detail: "" };
 export function classifyGlucoseOffline(
   glucose: number,
   ketoneMmol: number | null,
-  thresholds: GlucoseThresholds = GLUCOSE_THRESHOLDS
+  thresholds: GlucoseThresholds = GLUCOSE_THRESHOLDS,
+  events: readonly GlucoseDangerEvent[] = [],
 ): GlucoseFlag {
   const ketHigh = ketoneMmol !== null && ketoneMmol >= thresholds.ketoneHigh;
+
+  if (glucose < thresholds.hypoAlert && events.length > 0) {
+    return {
+      tier: "emergency",
+      kind: "severe_hypo",
+      detail: `Severe hypoglycaemia event: glucose ${glucose} mmol/L with a danger symptom.`,
+    };
+  }
 
   if (glucose < thresholds.severeHypo) {
     return {

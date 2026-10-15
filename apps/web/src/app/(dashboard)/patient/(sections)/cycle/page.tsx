@@ -9,6 +9,7 @@ import { CycleDangerSigns } from "@/app/(dashboard)/patient/cycle/cycle-danger-s
 import { CyclePrivacyControls } from "@/app/(dashboard)/patient/cycle/cycle-privacy-controls";
 import { PrivateSection } from "@/components/private-section/private-section";
 import type { ReproductiveLifeStage } from "@/lib/rules/cycle-prediction";
+import { readPlanningMode } from "@/lib/cycle/planning-mode";
 
 export const metadata: Metadata = {
   title: "Your cycle",
@@ -41,11 +42,13 @@ export default async function CyclePage() {
   const supabase = await createClient();
   const { data: reproductiveProfile } = await supabase
     .from("reproductive_health_profiles")
-    .select("life_stage, average_cycle_length_days, conception_planning_mode")
+    .select("life_stage, average_cycle_length_days")
     .eq("patient_id", subjectId)
     .maybeSingle();
 
   const lifeStage: ReproductiveLifeStage = reproductiveProfile?.life_stage ?? "menstruating";
+  // Off unless the person switched on "Planning a pregnancy" (S85 D2); any read problem also means off.
+  const planningMode = await readPlanningMode(supabase, subjectId);
 
   return (
     <DashboardSection
@@ -67,8 +70,7 @@ export default async function CyclePage() {
               organisationId={profile.organisation_id}
               lifeStage={lifeStage}
               selfReportedCycleLengthDays={reproductiveProfile?.average_cycle_length_days ?? null}
-              conceptionPlanning={reproductiveProfile?.conception_planning_mode ?? false}
-              canChangePlanning={subjectId === profile.id}
+              initialPlanningMode={planningMode}
             />
             {subjectId === profile.id && <CyclePrivacyControls />}
           </div>

@@ -13,8 +13,9 @@ import {
 } from "@/lib/queries/menstrual-cycle";
 import { Input } from "@/components/ui/input";
 import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
+import { THERMAL_SHIFT_EXPLAINER } from "@/lib/rules/cycle-thermal-shift";
+import { FertileWindowNotice } from "./fertile-window-notice";
 
-import { NOT_CONTRACEPTION_LABEL } from "@/lib/rules/cycle-prediction";
 import { formatPatientDate } from "@/lib/format-date";
 /**
  * The per-day log: flow, symptoms and mood for one date.
@@ -106,17 +107,14 @@ export function CycleDayLog({
   organisationId,
   date,
   existing,
-  planning = false,
+  planningMode,
 }: {
   patientId: string;
   organisationId: string;
   date: string;
   existing: MenstrualDailyLog | null;
-  /**
-   * S66 (A14): the temperature and ovulation test fields belong to "planning a pregnancy" mode. They are hidden while it is off; a value
-   * already saved is kept as it is (the state below is seeded from the row and re-saved unchanged), never wiped by hiding the field.
-   */
-  planning?: boolean;
+  /** "Planning a pregnancy" (S85 D2). Off hides the sentence that reads a temperature rise as ovulation. */
+  planningMode: boolean;
 }) {
   const save = useSaveDailyLog();
   // One message for the day as a whole: the mutation fails or it does not,
@@ -212,8 +210,11 @@ export function CycleDayLog({
 
       {/* Optional, and only meaningful to somebody actively tracking
           ovulation, so it sits after the everyday fields rather than
-          greeting everyone who opens the form. */}
-      {planning && (
+          greeting everyone who opens the form. S85 D2: temperature and
+          ovulation-test logging is fertility tracking, so it appears only
+          while "Planning a pregnancy" is on. Values already saved for the day
+          are kept (the state below is seeded from them) when it is off. */}
+      {planningMode && (
       <fieldset>
         <legend className="mb-2 text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">
           Tracking ovulation? (optional)
@@ -254,9 +255,9 @@ export function CycleDayLog({
           </div>
         </div>
         <p className="mt-1.5 text-[11px] text-charcoal-ink/50 dark:text-night-ink/55">
-          Take your temperature before getting out of bed. A sustained rise suggests ovulation
-          has already happened, so it confirms rather than predicts. {NOT_CONTRACEPTION_LABEL}
+          Take your temperature before getting out of bed. {THERMAL_SHIFT_EXPLAINER}
         </p>
+        <FertileWindowNotice className="mt-2" />
       </fieldset>
       )}
 

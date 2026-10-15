@@ -1,5 +1,7 @@
 # Counsel brief: adult-only registration and dependants under 18
 
+Status 2026-10-13: the founder reports counsel has signed off on the plan as built (see docs/DECISIONS.md). The written opinion is to be filed under docs/legal/ when received; until then this is a verbal report.
+
 Prepared 2026-10-13 for the founder to send. Not sent by the assistant. Primary text of the NDPA 2023 and the NDPC GAID 2025 has not been read by the author; every legal statement below is a question, not a conclusion.
 
 ## Facts of the product

@@ -93,6 +93,8 @@
         "android.permission.BLUETOOTH_CONNECT",
         "android.permission.BLUETOOTH",
         "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.health.READ_STEPS",
         "android.permission.health.READ_BLOOD_PRESSURE",
         "android.permission.health.READ_BLOOD_GLUCOSE",

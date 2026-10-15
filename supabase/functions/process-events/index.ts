@@ -132,5 +132,15 @@ Deno.serve(withSentry("process-events", async (req) => {
     maxBatches: MAX_BATCHES,
     budgetMs: BUDGET_MS,
   });
+  // S19c: the paging engine's dead-man signal. Recorded after every pass that got as far as claiming (a pass that cannot claim is
+  // a failing engine and must look stale). A failed heartbeat write never changes the result of the pass.
+  if (!summary.claimFailed) {
+    try {
+      const { error } = await supabase.rpc("record_engine_heartbeat", { p_component: "process_events" });
+      if (error) console.error(JSON.stringify({ fn: "process-events", message: "heartbeat write failed", error: error.message }));
+    } catch (e) {
+      console.error(JSON.stringify({ fn: "process-events", message: "heartbeat write failed", error: String(e) }));
+    }
+  }
   return Response.json(summary, { status: summary.claimFailed ? 500 : 200 });
 }));

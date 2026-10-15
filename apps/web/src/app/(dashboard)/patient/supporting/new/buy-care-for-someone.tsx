@@ -319,11 +319,11 @@ function ChooseBeneficiary({ onChosen }: { onChosen: (b: Beneficiary) => void })
               </label>
 
               <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
-                This creates their record and lets you manage it, the same as adding family from
-                Your people. We won&apos;t text or notify them on your behalf: that part is
-                between you and them for now. Whenever they&apos;re ready to sign in for
-                themselves, you can give them their own login from Your people — you&apos;ll keep
-                the same access you have today unless they choose otherwise.
+                This creates their record and lets you pay for their care. You cannot see their
+                health information until they say yes on their own phone and choose what you can
+                see. We won&apos;t text or notify them on your behalf: that part is between you
+                and them for now. Whenever they&apos;re ready to sign in for themselves, you can
+                help them from Your people.
               </p>
 
               <Button type="submit" disabled={isPending}>

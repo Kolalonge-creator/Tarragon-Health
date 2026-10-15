@@ -2,9 +2,7 @@
 --
 -- WHAT THIS ADDS (all structural; live row counts checked 2026-10-07: menstrual_cycles 0, menstrual_daily_logs 0, menopause_symptom_logs 0,
 -- reproductive_health_profiles 0, contraception_plans 0, so there is no data to convert and no backfill step is missing):
---   1. Conception planning mode (A14): reproductive_health_profiles.conception_planning_mode, default FALSE. It is a display switch the
---      patient flips (RPC set_conception_planning_mode); a trigger stops anyone but the patient (a guardian with 'manage' access, a clinician)
---      switching it ON. Nothing is computed or stored on the server about fertility; the app derives a window only while the switch is on.
+--   1. (Planning mode, A14, is not added here: S85 D2's planning_pregnancy_mode is the one switch.)
 --   2. Provenance on the menopause log (CLAUDE.md "source and recorded_by on clinical tables"): source ('patient' or 'clinician') and
 --      recorded_by, both set by a trigger from the session, never trusted from the client. recorded_by is ON DELETE SET NULL, not RESTRICT:
 --      the patient's own rows would otherwise block deleting the profile that also cascades them.
@@ -57,53 +55,7 @@ begin
 end $$;
 revoke all on function private.reproductive_privacy_rule(text) from public, anon;
 
--- ---------------------------------------------------------------------------
--- 2. Conception planning mode (A14)
--- ---------------------------------------------------------------------------
-alter table public.reproductive_health_profiles
-  add column conception_planning_mode boolean not null default false,
-  add column conception_planning_changed_at timestamptz;
-comment on column public.reproductive_health_profiles.conception_planning_mode is
-  'S66 (A14): the patient''s explicit "planning a pregnancy" switch. OFF by default. Only while ON may any surface show a fertile window, an ovulation date or the ovulation test and temperature fields. Never used as contraception.';
-
-create function private.guard_conception_planning_mode() returns trigger
-language plpgsql security definer set search_path = '' as $$
-declare v_uid uuid := (select auth.uid());
-begin
-  -- Switching it ON is the patient's own act. A guardian with 'manage' access, a clinician or an admin cannot do it for her; switching it
-  -- OFF is allowed to anyone who can already write the row (less exposure, never more). The service role (no uid) is trusted.
-  if new.conception_planning_mode
-     and (tg_op = 'INSERT' or old.conception_planning_mode is distinct from new.conception_planning_mode)
-     and v_uid is not null and v_uid <> new.patient_id then
-    raise exception 'only the patient can turn planning mode on' using errcode = '42501';
-  end if;
-  if tg_op = 'INSERT' or old.conception_planning_mode is distinct from new.conception_planning_mode then
-    new.conception_planning_changed_at := now();
-  end if;
-  return new;
-end $$;
-revoke all on function private.guard_conception_planning_mode() from public, anon;
-create trigger reproductive_health_profiles_guard_planning
-  before insert or update on public.reproductive_health_profiles
-  for each row execute function private.guard_conception_planning_mode();
-
-create function public.set_conception_planning_mode(p_on boolean) returns jsonb
-language plpgsql security definer set search_path = '' as $$
-declare
-  v_uid uuid := (select auth.uid());
-  v_org uuid;
-begin
-  if v_uid is null then raise exception 'sign in required' using errcode = '28000'; end if;
-  if p_on is null then raise exception 'say on or off' using errcode = '22023'; end if;
-  select organisation_id into v_org from public.profiles where id = v_uid and role = 'patient';
-  if v_org is null then raise exception 'only a patient can change this' using errcode = '42501'; end if;
-  insert into public.reproductive_health_profiles (organisation_id, patient_id, conception_planning_mode)
-  values (v_org, v_uid, p_on)
-  on conflict (patient_id) do update set conception_planning_mode = excluded.conception_planning_mode;
-  return jsonb_build_object('conception_planning_mode', p_on);
-end $$;
-revoke all on function public.set_conception_planning_mode(boolean) from public, anon;
-grant execute on function public.set_conception_planning_mode(boolean) to authenticated;
+-- (A14 planning mode is S85 D2's reproductive_health_profiles.planning_pregnancy_mode, already live; S66 adds no second column or switch.)
 
 -- ---------------------------------------------------------------------------
 -- 3. Provenance on the menopause log
@@ -257,14 +209,14 @@ begin
   delete from public.notifications where recipient_id = r.patient_id and template like 'cycle\_period\_%' escape '\';
   get diagnostics v_notes = row_count;
   update public.reproductive_health_profiles
-     set last_period_date = null, average_cycle_length_days = null, conception_planning_mode = false
+     set last_period_date = null, average_cycle_length_days = null, planning_pregnancy_mode = false
    where patient_id = r.patient_id;
 
   v_receipt := jsonb_build_object(
     'menstrual_cycles_deleted', v_cycles, 'menstrual_daily_logs_deleted', v_logs, 'menopause_logs_deleted', v_meno,
     'menopause_logs_sealed_kept', v_sealed, 'reminders_deleted', v_notes,
     'sealed_reason', 'recorded or acted on by the care team, kept sealed under the retention rule',
-    'profile_fields_cleared', jsonb_build_array('last_period_date', 'average_cycle_length_days', 'conception_planning_mode'));
+    'profile_fields_cleared', jsonb_build_array('last_period_date', 'average_cycle_length_days', 'planning_pregnancy_mode'));
   update public.reproductive_deletion_requests set status = 'completed', completed_at = now(), receipt = v_receipt where id = r.id;
   -- The receipt carries counts only, never what was deleted.
   insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event, result, subject_patient_id)
@@ -312,8 +264,7 @@ begin
   if has_table_privilege('authenticated', 'public.reproductive_privacy_config', 'SELECT') then
     raise exception 'S66: reproductive_privacy_config must not be readable by clients';
   end if;
-  if has_function_privilege('anon', 'public.set_conception_planning_mode(boolean)', 'EXECUTE')
-     or has_function_privilege('anon', 'public.request_reproductive_tracker_deletion()', 'EXECUTE')
+  if has_function_privilege('anon', 'public.request_reproductive_tracker_deletion()', 'EXECUTE')
      or has_function_privilege('anon', 'public.cancel_reproductive_tracker_deletion()', 'EXECUTE')
      or has_function_privilege('anon', 'public.reproductive_tracker_deletion_status()', 'EXECUTE')
      or has_function_privilege('anon', 'public.process_due_reproductive_tracker_deletions()', 'EXECUTE')

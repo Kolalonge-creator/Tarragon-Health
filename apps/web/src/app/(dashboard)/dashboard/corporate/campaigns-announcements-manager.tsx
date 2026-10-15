@@ -26,10 +26,10 @@ const CAMPAIGN_TYPE_LABEL: Record<string, string> = {
   health_education: "Health education",
 };
 
-const CHANNEL_LABEL: Record<string, string> = {
+// What a new announcement may use. SMS was removed (S85-D3).
+const CHANNEL_CHOICES: Record<string, string> = {
   in_app: "In-app",
   email: "Email",
-  sms: "SMS",
 };
 
 function CampaignsCard({ organisationId }: { organisationId: string }) {
@@ -156,7 +156,7 @@ function AnnouncementsCard({ organisationId }: { organisationId: string }) {
             <Textarea id="announcement_body" value={body} onChange={(e) => setBody(e.target.value)} rows={3} />
           </div>
           <div className="flex flex-wrap items-center gap-4">
-            {Object.entries(CHANNEL_LABEL).map(([value, label]) => (
+            {Object.entries(CHANNEL_CHOICES).map(([value, label]) => (
               <label key={value} className="flex items-center gap-2 text-sm text-charcoal-ink/70">
                 <input
                   type="checkbox"

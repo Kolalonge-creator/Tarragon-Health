@@ -101,6 +101,9 @@ export function hashConfigValue(value: ConfigValue): string {
   return createHash("sha256").update(stable(value)).digest("hex");
 }
 
+/** Today's date in Lagos (UTC+1, no daylight saving) as YYYY-MM-DD: the "as of" day for which proposed value version is in force. */
+export const lagosToday = (): string => new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 10);
+
 export type ConfigRowStatus = "awaiting" | "signed" | "changes_requested" | "stale" | "confirmed_in_registry";
 
 export interface ConfigRow {

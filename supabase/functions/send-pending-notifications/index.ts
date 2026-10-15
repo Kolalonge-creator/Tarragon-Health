@@ -20,11 +20,12 @@
 // Channel priority: push is the default first channel platform-wide
 // (a legacy chat channel was removed, founder decision F-02 — the channels
 // are in-app, push and email; SMS remains for verification codes and
-// clinician paging). The difference between the two priorities is what
-// happens when push fails to SEND (not "goes unopened" — that's the
-// escalation engine's job, not this function's): routine rows fall back
-// inline to sms within this same pass (simple best-effort delivery, no
-// confirmation tracking needed); critical rows do NOT — a critical row's
+// clinician paging, plus ONE named exception, S85-D3: a content-free alert to a
+// patient's own consented emergency contact, behind the go-live guard
+// `sms_emergency_contact_enabled`). A failed push never falls back to sms (S13).
+// What happens when push fails to SEND (not "goes unopened" — that's the
+// escalation engine's job, not this function's): a routine row is retried and
+// then given up on; a critical row does NOT retry — a critical row's
 // failed send is picked up by
 // private.escalate_unconfirmed_critical_notifications() and turned into a
 // new, separately-tracked notification on the next ladder channel, so every
@@ -35,8 +36,11 @@ import webpush from "npm:web-push@3.6.7";
 import { appUrl, substituteTemplatePlaceholders, TEMPLATE_MAP } from "./templates.ts";
 import type { TemplateRender } from "./templates.ts";
 import { describeViolations, lintRenderFn, lintText } from "../_shared/notifications/neutral.ts";
-import { decide, DISCREET_DOCUMENT_TEMPLATES, discreetEmail, FALLBACK_QUIET, isSafetyCritical, PATIENT_AUDIENCES, privacyFor, pushEnvelope } from "../_shared/notifications/delivery.ts";
+import { decide, DISCREET_DOCUMENT_TEMPLATES, discreetEmail, EMERGENCY_CONTACT_SMS_GUARD_KEY, EMERGENCY_CONTACT_TEMPLATE, expoUrgencyFields, FALLBACK_QUIET, isSafetyCritical, PATIENT_AUDIENCES, privacyFor, pushEnvelope, refusedSmsOutcome, signDocumentLink, smsPurpose, withDocumentLink } from "../_shared/notifications/delivery.ts";
+import type { DocumentLinkKind } from "../_shared/notifications/delivery.ts";
+import { checkEmergencyContactRow, checkFanoutRowConsent, confirmedPhoneMatches, guardIsOpen, planContactFanout } from "../_shared/notifications/emergency-contact.ts";
 import type { QuietSettings } from "../_shared/notifications/delivery.ts";
+import { audienceFor, resolveEmailAddress, verifiedAddressOf } from "../_shared/notifications/recipient-address.ts";
 import { withSentry } from "../_shared/observability/sentry.ts";
 
 const BATCH_SIZE = 50;
@@ -45,6 +49,8 @@ const EXTERNAL_TIMEOUT_MS = 5_000;
 // Push notification bodies are shown in a compact OS tray — trim the
 // (often multi-sentence) smsText down to something that reads cleanly there.
 const PUSH_BODY_MAX_CHARS = 160;
+// Errors a retry cannot fix, for a page notification: it fails at once instead of waiting out the attempts (S19c).
+const PERMANENT_PAGE_ERRORS = /no active push subscription|no email address|address suppressed|has no (phone|email)/i;
 
 
 interface NotificationRow {
@@ -135,6 +141,7 @@ const TEMPLATE_CATEGORY: Partial<Record<string, PreferenceCategory>> = {
   lifestyle_nudge: "education_wellness",
   lifestyle_review_due: "education_wellness",
   wellness_challenge_ending: "education_wellness",
+  community_update: "education_wellness",
   region_now_available: "education_wellness",
   // Patient Engagement Engine (see private.queue_engagement_interventions) —
   // same bucket as the other keep-up-with-your-care nudges above, rather than
@@ -174,6 +181,7 @@ interface PushSubscriptionRow {
   p256dh_key: string | null;
   auth_key: string | null;
   expo_push_token: string | null;
+  urgent_channel_ready?: boolean | null;
 }
 
 // Narrowed shapes sendWebPush/sendExpoPush actually operate on, so neither
@@ -189,6 +197,8 @@ interface WebPushSubscription {
 interface NativePushSubscription {
   id: string;
   expo_push_token: string;
+  platform?: "web" | "ios" | "android";
+  urgent_channel_ready?: boolean | null;
 }
 
 function isWebPushSubscription(sub: PushSubscriptionRow): sub is PushSubscriptionRow & WebPushSubscription {
@@ -364,6 +374,7 @@ async function sendWebPush(
 async function sendExpoPush(
   subscriptions: NativePushSubscription[],
   payload: { title: string; body: string; url: string; notificationId: string },
+  urgent = false,
 ): Promise<SendResult & { goneSubscriptionIds: string[]; tickets?: Array<{ id: string; subscriptionId: string }> }> {
   if (subscriptions.length === 0) {
     return { ok: false, error: "no active push subscription", goneSubscriptionIds: [] };
@@ -374,6 +385,9 @@ async function sendExpoPush(
     title: payload.title,
     body: payload.body,
     data: { url: payload.url, notificationId: payload.notificationId },
+    // S13 R4: safety rows are high priority, on the urgent Android channel, time-sensitive on iPhone (critical only once Apple's
+    // entitlement is granted and IOS_CRITICAL_ALERTS_ENABLED is set). Routine rows add nothing here.
+    ...expoUrgencyFields(urgent, Deno.env.get("IOS_CRITICAL_ALERTS_ENABLED") === "true", sub.platform !== "android" || sub.urgent_channel_ready === true),
   }));
 
   const result = await withExternalCall((signal) =>
@@ -483,89 +497,32 @@ async function sendEmail(
 }
 
 /**
- * Fetches the take-anywhere test request PDF for one lab order from the
- * Next.js app, so it can ride along as an email attachment.
- *
- * Deliberately fails soft: any problem here (secret unset, app unreachable,
- * order deleted between enqueue and send, a non-200) returns null rather than
- * throwing, and the caller sends the email WITHOUT the attachment rather than
- * not sending it at all. The confirmation email is the guaranteed thing the
- * founder requirement asks for; the PDF is a genuine enhancement to it, not a
- * precondition — a patient who does not get the attachment can still open the
- * request in the app, exactly as before this existed. Logged either way, so a
- * silent failure here is at least visible in the function's own logs.
+ * OQ-91 (decided option b): the lab request and the care plan used to ride along as PDF attachments that name the request
+ * (test names, plan items), so a mail preview or a forwarded mailbox could show them. The email now carries one sentence and
+ * a signed link. The link holds a document id and an HMAC signature, no name and no test; the web route checks the
+ * signature and the expiry, then makes the person sign in, and the existing in-app PDF route checks ownership.
+ * Without NOTIFICATIONS_LINK_SECRET the email goes without a link (the in-app copy stands), never with an unsigned one.
  */
-async function fetchLabOrderRequestPdf(orderId: string): Promise<EmailAttachment | null> {
-  const serviceKey = Deno.env.get("NOTIFICATIONS_SERVICE_KEY");
-  if (!serviceKey) {
-    console.error("lab-order PDF attachment: NOTIFICATIONS_SERVICE_KEY not configured");
+const DOCUMENT_LINK_TTL_MS = 7 * 24 * 3_600_000;
+async function documentLinkFor(template: string | null, recipientId: string, payload: Record<string, unknown>): Promise<string | null> {
+  const secret = Deno.env.get("NOTIFICATIONS_LINK_SECRET");
+  if (!secret) {
+    console.error("document link: NOTIFICATIONS_LINK_SECRET not configured; the email goes without a link");
+    return null;
+  }
+  let kind: DocumentLinkKind;
+  let id: string;
+  if (template === "lab_order_requested_patient" && typeof payload.order_id === "string") {
+    kind = "lab-request";
+    id = payload.order_id;
+  } else if (template === "preventive_care_plan_updated") {
+    kind = "care-plan";
+    id = recipientId;
+  } else {
     return null;
   }
   const base = Deno.env.get("APP_BASE_URL") ?? "https://app.tarragonhealth.ng";
-
-  try {
-    const response = await fetch(
-      `${base}/api/internal/notifications/lab-order-request-pdf/${orderId}`,
-      { headers: { "X-Service-Key": serviceKey } },
-    );
-    if (!response.ok) {
-      console.error(`lab-order PDF attachment: fetch returned ${response.status} for order ${orderId}`);
-      return null;
-    }
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    // Deno has no Buffer global; btoa needs a binary string, built in chunks
-    // so a large PDF does not blow the call-stack a spread/apply would hit.
-    let binary = "";
-    const CHUNK = 0x8000;
-    for (let i = 0; i < bytes.length; i += CHUNK) {
-      binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
-    }
-    return { filename: `tarragon-test-request-${orderId}.pdf`, content: btoa(binary) };
-  } catch (error) {
-    console.error("lab-order PDF attachment: fetch threw", error);
-    return null;
-  }
-}
-
-/**
- * Fetches the preventive & chronic care plan PDF for one patient, so the
- * "preventive_care_plan_updated" email can carry it as an attachment. Same
- * fail-soft shape as fetchLabOrderRequestPdf and for the same reason: the
- * email itself is the guaranteed thing (queued by
- * private.queue_preventive_care_plan_email_reminders), the PDF is an
- * enhancement to it — a patient who does not get the attachment can still
- * open their plan in the app.
- */
-async function fetchPreventiveCarePlanPdf(patientId: string): Promise<EmailAttachment | null> {
-  const serviceKey = Deno.env.get("NOTIFICATIONS_SERVICE_KEY");
-  if (!serviceKey) {
-    console.error("preventive care plan PDF attachment: NOTIFICATIONS_SERVICE_KEY not configured");
-    return null;
-  }
-  const base = Deno.env.get("APP_BASE_URL") ?? "https://app.tarragonhealth.ng";
-
-  try {
-    const response = await fetch(
-      `${base}/api/internal/notifications/preventive-care-plan-pdf/${patientId}`,
-      { headers: { "X-Service-Key": serviceKey } },
-    );
-    if (!response.ok) {
-      console.error(
-        `preventive care plan PDF attachment: fetch returned ${response.status} for patient ${patientId}`,
-      );
-      return null;
-    }
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    let binary = "";
-    const CHUNK = 0x8000;
-    for (let i = 0; i < bytes.length; i += CHUNK) {
-      binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
-    }
-    return { filename: `tarragon-preventive-care-plan.pdf`, content: btoa(binary) };
-  } catch (error) {
-    console.error("preventive care plan PDF attachment: fetch threw", error);
-    return null;
-  }
+  return `${base}/d/${await signDocumentLink(secret, kind, id, Date.now() + DOCUMENT_LINK_TTL_MS)}`;
 }
 
 Deno.serve(withSentry("send-pending-notifications", async () => {
@@ -578,16 +535,32 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
   // from profiles.preferred_reminder_hour) holds a non-urgent reminder back
   // until the patient's preferred local hour — null means "send on next tick"
   // as before. Never set on critical/escalation rows, so this can never delay one.
-  const { data: pending, error: fetchError } = await supabase
-    .from("notifications")
-    .select("id, recipient_id, organisation_id, channel, template, payload, attempts, priority")
-    .eq("status", "pending")
-    .in("channel", ["sms", "email", "voice", "push"])
-    .lt("attempts", MAX_ATTEMPTS)
-    .or(`send_after.is.null,send_after.lte.${new Date().toISOString()}`)
+  // S19c (P2): critical rows (red event pages above all) are read first, so a backlog of routine reminders can never sit in front
+  // of a page inside the batch. Routine rows then fill whatever room is left.
+  const dueNow = new Date().toISOString();
+  const pendingBase = () =>
+    supabase
+      .from("notifications")
+      .select("id, recipient_id, organisation_id, channel, template, payload, attempts, priority")
+      .eq("status", "pending")
+      .in("channel", ["sms", "email", "voice", "push"])
+      .lt("attempts", MAX_ATTEMPTS)
+      .or(`send_after.is.null,send_after.lte.${dueNow}`);
+  const { data: criticalPending, error: criticalError } = await pendingBase()
+    .eq("priority", "critical")
     .order("created_at", { ascending: true })
     .limit(BATCH_SIZE)
     .returns<NotificationRow[]>();
+  const routineRoom = BATCH_SIZE - (criticalPending?.length ?? 0);
+  const { data: routinePending, error: routineError } = routineRoom > 0
+    ? await pendingBase()
+      .neq("priority", "critical")
+      .order("created_at", { ascending: true })
+      .limit(routineRoom)
+      .returns<NotificationRow[]>()
+    : { data: [] as NotificationRow[], error: null };
+  const pending = [...(criticalPending ?? []), ...(routinePending ?? [])];
+  const fetchError = criticalError ?? routineError;
 
   if (fetchError) {
     return Response.json(
@@ -723,7 +696,7 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
 
   const { data: subscriptions } = await supabase
     .from("push_subscriptions")
-    .select("id, profile_id, platform, endpoint, p256dh_key, auth_key, expo_push_token")
+    .select("id, profile_id, platform, endpoint, p256dh_key, auth_key, expo_push_token, urgent_channel_ready")
     .in("profile_id", recipientIds)
     .is("disabled_at", null)
     .returns<Array<PushSubscriptionRow & { profile_id: string }>>();
@@ -768,20 +741,19 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
     for (const o of originals ?? []) originalTemplateById.set(o.id, o.template);
   }
 
-  // SMS (Termii sender-ID approval) is off the founder's near-term plan
-  // (CLAUDE.md, 2026-09-15) and had a confirmed 0% live success rate as of
-  // 2026-09-18 — every attempt is a guaranteed failure against a real
-  // provider, for no patient benefit, that also pollutes the
-  // failure/reconciliation data with noise indistinguishable from a
-  // genuine outage. Routine rows on this channel are suppressed before
-  // ever reaching the provider call. Critical rows are deliberately
-  // UNAFFECTED — private.escalate_unconfirmed_critical_notifications()
-  // depends on a real, timely `failed` status to advance push -> email
-  // -> sms -> exhausted, and channelAllowed() already never gates a
-  // critical row for any reason; this must stay that way.
-  function platformDisabledChannel(row: NotificationRow): boolean {
-    if (row.priority === "critical") return false;
-    return row.channel === "sms";
+  // SMS policy (INV-08, D-12, S85-D3). Through this queue SMS exists for two things only: a page to a clinician (a critical row for
+  // a clinician) and the content-free emergency-contact alert, which also waits for the go-live guard. Everything else is refused
+  // before any provider call, in the loop below. Live SMS has never delivered (OQ-46), so a refusal costs no one a message.
+  // The guard is read once per run; an unreadable or missing row is OFF (fail closed).
+  let emergencyContactSmsOpen = false;
+  if (rows.some((r) => r.channel === "sms" && r.template === EMERGENCY_CONTACT_TEMPLATE)) {
+    const { data: guardRow, error: guardError } = await supabase
+      .from("go_live_guards")
+      .select("is_on")
+      .eq("key", EMERGENCY_CONTACT_SMS_GUARD_KEY)
+      .maybeSingle<{ is_on: boolean }>();
+    if (guardError) console.error("emergency-contact SMS guard unreadable, treating as off:", guardError.message);
+    emergencyContactSmsOpen = guardIsOpen(guardError, guardRow);
   }
 
   function channelAllowed(row: NotificationRow): boolean {
@@ -824,9 +796,15 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
   // below by construction (only priority === "routine" rows are grouped).
   const routineByRecipient = new Map<string, NotificationRow[]>();
   for (const row of rows) {
+    // S03b: a security notice (sign-in recovery, the sign-in number) is never folded into a digest. They are queued 'routine' on
+    // purpose (a 'critical' row is re-sent by SMS), but folding would drop the EMAIL half exactly when several steps happen quickly,
+    // which is when the owner most needs it.
+    if (typeof row.template === "string" && row.template.startsWith("security.")) continue;
     // Safety messages are never folded away, and neither is a reminder quiet hours already held: it is sent once.
     // If the held-row lookup failed nothing is folded this pass, so a released reminder cannot be folded away for good.
     if (heldError || row.priority !== "routine" || isSafetyCritical(row.template) || previouslyHeldIds.has(row.id)) continue;
+    // An alert the patient raised for their emergency contact is never folded into a digest (nor are its copies for the contact).
+    if (row.template === EMERGENCY_CONTACT_TEMPLATE) continue;
     const list = routineByRecipient.get(row.recipient_id) ?? [];
     list.push(row);
     routineByRecipient.set(row.recipient_id, list);
@@ -861,6 +839,59 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
     }
   }
 
+  // S85-D3: reaches an emergency contact who is also a Tarragon account (matched on a CONFIRMED phone number) by push, email and
+  // in-app, so the alert does not depend on live SMS. Returns a short outcome that is written onto the SMS row's last_error, so a
+  // missing alert is visible and never reported as sent. Idempotent per SMS row: a unique index backs the check-then-insert.
+  async function fanOutToContact(row: NotificationRow, contactPhone: string, patientName: string | null): Promise<string> {
+    try {
+      const { data: already, error: alreadyError } = await supabase
+        .from("notifications")
+        .select("id")
+        .eq("template", EMERGENCY_CONTACT_TEMPLATE)
+        .eq("payload->>source_notification_id", row.id)
+        .limit(1);
+      if (alreadyError) throw new Error(alreadyError.message);
+      if ((already ?? []).length > 0) return "contact copies already queued";
+      const { data: matches, error: matchError } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("phone", contactPhone)
+        .neq("id", row.recipient_id)
+        .limit(5)
+        .returns<Array<{ id: string }>>();
+      if (matchError) throw new Error(matchError.message);
+      // Only a profile whose auth phone is the same number AND confirmed counts. Ambiguity (a shared family number) alerts nobody
+      // by push or email, and says so.
+      const confirmed: Array<{ id: string; email: string | null }> = [];
+      for (const m of matches ?? []) {
+        const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(m.id);
+        if (authError) throw new Error(authError.message);
+        if (confirmedPhoneMatches(authUser?.user, contactPhone)) confirmed.push({ id: m.id, email: authUser?.user?.email ?? null });
+      }
+      if (confirmed.length === 0) return "contact is not a Tarragon account with a confirmed number, no push or email sent";
+      if (confirmed.length > 1) return "more than one account has this confirmed number, no push or email sent";
+      const planned = planContactFanout({
+        sourceNotificationId: row.id,
+        organisationId: row.organisation_id,
+        patientName,
+        patientId: row.recipient_id,
+        contact: confirmed[0],
+      });
+      let queued = 0;
+      for (const p of planned) {
+        const { error } = await supabase.from("notifications").insert({ ...p, status: "pending" });
+        if (!error) queued++;
+        else if (error.code !== "23505") throw new Error(error.message); // 23505: another run already queued this copy
+        else queued++;
+      }
+      return `contact copies queued (${queued} of ${planned.length})`;
+    } catch (e) {
+      console.error("emergency-contact fan-out failed:", e);
+      await recordEvent(row.id, "failed", "system", null, { reason: "contact_fanout_failed", detail: String(e).slice(0, 200) });
+      return "contact push and email could not be queued, see the delivery events";
+    }
+  }
+
   // Only email and push depend on the privacy lookups (SMS, voice and in-app ignore quiet hours and discreet mode).
   // An email also needs the template audience: if that lookup failed, a routine email waits rather than going out unsure.
   // Those rows are pushed back five minutes BEFORE any send, so a crash or timeout later cannot leave them at the front
@@ -885,6 +916,9 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
   for (const row of rows) {
     if (foldedIds.has(row.id) || pushedBackSet.has(row.id)) continue;
 
+    // A failed profile lookup means the recipient's role is unknown, and the SMS rule is decided by role. Leave an SMS row for the next
+    // pass (never settle it as suppressed on a guess): a staff page must not be lost to a one-off read error.
+    if (row.channel === "sms" && profilesError) continue;
     if (platformDisabledChannel(row)) {
       await suppress(row.id, "sms deprioritised platform-wide, no provider approval yet");
       suppressed++;
@@ -935,7 +969,13 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
         sent++;
         return;
       }
-      if (isCritical || row.attempts + 1 >= MAX_ATTEMPTS) {
+      // A page row is retried like any other (up to the attempt limit): since S19c pages have their own ladder and nothing
+      // downstream turns a failed page row into the next channel, failing it on the first error would lose that leg for good.
+      const isPageRow = typeof row.template === "string" && row.template.startsWith("on_call_");
+      // ...except an error a retry cannot fix (no push subscription, no address, a suppressed address): that fails fast and visibly
+      // (the paging health sweep reports failed page notifications) while the page's other channels have already gone out.
+      const permanentPageFailure = isPageRow && PERMANENT_PAGE_ERRORS.test(result.error ?? "");
+      if ((isCritical && !isPageRow) || permanentPageFailure || row.attempts + 1 >= MAX_ATTEMPTS) {
         await markFailed(result.error ?? "unknown error");
         failed++;
       } else {
@@ -943,6 +983,65 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
         retried++;
       }
     };
+
+    // SMS purpose gate. A refused critical row is marked FAILED, not suppressed: private.escalate_unconfirmed_critical_notifications()
+    // advances (or, at the last rung, raises the exhausted-ladder alarm to the admins) only on a failed row, so a quiet suppression
+    // here would end a patient's ladder with nobody told. A refused routine row is suppressed with its reason on the row.
+    let fanoutOutcome = "";
+    if (row.channel === "sms" && profilesError) {
+      // The role lookup failed, so the purpose of this SMS cannot be known. Leave the row pending for the next run rather than
+      // refusing (or sending) a page on a guess.
+      console.error("profiles lookup failed, leaving sms rows pending:", profilesError.message);
+      continue;
+    }
+    if (row.channel === "sms") {
+      const purpose = smsPurpose({ template: row.template, priority: row.priority, recipientRole: roleById.get(row.recipient_id) });
+      if (purpose === "none") {
+        const reason = "sms is for verification codes, clinician paging and the guarded emergency-contact alert only";
+        if (refusedSmsOutcome(row.priority) === "fail") {
+          await markFailed(reason);
+          await recordEvent(row.id, "failed", "system", null, { reason: "sms_not_allowed", template: row.template });
+          failed++;
+        } else {
+          await suppress(row.id, reason);
+          await recordEvent(row.id, "suppressed_cap", "system", null, { reason: "sms_not_allowed", template: row.template });
+          suppressed++;
+        }
+        continue;
+      }
+      if (purpose === "emergency_contact") {
+        // Never message a contact without the patient's recorded consent, re-checked here against the live profile, and only at the
+        // number the patient has on file now (a stale queued row for a changed number must not text the old one).
+        const { data: owner } = await supabase
+          .from("profiles")
+          .select("full_name, emergency_contact_phone, emergency_contact_consent")
+          .eq("id", row.recipient_id)
+          .maybeSingle<{ full_name: string | null; emergency_contact_phone: string | null; emergency_contact_consent: boolean | null }>();
+        const toPhoneOnRow = typeof row.payload?.to_phone === "string" ? row.payload.to_phone : null;
+        if (!toPhoneOnRow || checkEmergencyContactRow(owner ?? null, toPhoneOnRow) !== "ok") {
+          await suppress(row.id, "emergency contact consent or number no longer matches the patient's profile");
+          await recordEvent(row.id, "suppressed_cap", "system", null, { reason: "contact_consent_or_number_mismatch" });
+          suppressed++;
+          continue;
+        }
+        // Push, email and in-app to the contact where they are also a Tarragon account. These never wait for the SMS guard.
+        fanoutOutcome = await fanOutToContact(row, toPhoneOnRow, owner?.full_name ?? null);
+      }
+    }
+    // The copies for the contact (push, email) are re-checked against the patient's consent at their own send time too.
+    if (row.channel !== "sms" && row.template === EMERGENCY_CONTACT_TEMPLATE && typeof row.payload?.patient_id === "string") {
+      const { data: patient } = await supabase
+        .from("profiles")
+        .select("emergency_contact_consent")
+        .eq("id", row.payload.patient_id)
+        .maybeSingle<{ emergency_contact_consent: boolean | null }>();
+      if (checkFanoutRowConsent(patient ?? null) !== "ok") {
+        await suppress(row.id, "the patient withdrew emergency contact consent before this was sent");
+        await recordEvent(row.id, "suppressed_cap", "system", null, { reason: "contact_consent_withdrawn" });
+        suppressed++;
+        continue;
+      }
+    }
 
     // Scoped to exactly one template, same pattern as the PDF-attachment
     // special case below: the Trustpilot business profile doesn't exist yet
@@ -999,16 +1098,31 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
       continue;
     }
 
+    // S19c (P1): which address an email goes to, decided by the pure rule in _shared/notifications/recipient-address.ts. Page,
+    // on-call, credential and care-team notices always use the recipient's own VERIFIED sign-in address from Auth and ignore any
+    // payload address; security.* notices keep payload-first. Resolved before the privacy decision so a patient notice whose
+    // address came from Auth counts as their own address.
+    const resolvedEmail = row.channel === "email"
+      ? await resolveEmailAddress(row.template, (row.payload ?? {}).to_email, async () => {
+        const { data: authUser, error } = await supabase.auth.admin.getUserById(row.recipient_id);
+        if (error) {
+          console.error("send-pending-notifications: auth lookup failed for an email row", row.id, error.message);
+          throw error;
+        }
+        return verifiedAddressOf(authUser?.user);
+      })
+      : undefined;
+
     // S13: INV-07 guard, quiet hours, daily cap and the SMS rule, decided by one pure function.
     const privacy = privacyFor({
       role: roleById.get(row.recipient_id),
       discreetFlag: discreetById.get(row.recipient_id),
       known: !settingsDegraded,
       channel: row.channel,
-      audience: audienceError || !row.template ? null : audienceByTemplate.get(row.template),
+      audience: audienceError || !row.template ? null : audienceFor(row.template, audienceByTemplate.get(row.template)),
       // Only worth an Auth lookup when the template's audience is a patient one; otherwise privacy is off anyway.
-      toEmailIsOwn: row.channel === "email" && !audienceError && PATIENT_AUDIENCES.has(String(audienceByTemplate.get(row.template ?? "") ?? ""))
-        ? await emailIsOwn(row.recipient_id, (row.payload ?? {}).to_email)
+      toEmailIsOwn: row.channel === "email" && !audienceError && PATIENT_AUDIENCES.has(String(audienceFor(row.template, audienceByTemplate.get(row.template ?? "")) ?? ""))
+        ? (resolvedEmail?.source === "auth" ? true : await emailIsOwn(row.recipient_id, (row.payload ?? {}).to_email))
         : null,
     });
     const decision = decide({
@@ -1022,7 +1136,8 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
       routinePushSentToday: pushSentToday.get(row.recipient_id) ?? 0,
       routinePushPerDay,
       wordingViolations: wordingViolationsFor(row.template, row.channel, dbBody),
-      isClinicianPage: row.priority === "critical" || roleById.get(row.recipient_id) === "clinician",
+      smsPurpose: smsPurpose({ template: row.template, priority: row.priority, recipientRole: roleById.get(row.recipient_id) }),
+      emergencyContactSmsOpen,
       safetyCritical: isSafetyCritical(row.template),
       previouslyHeld: previouslyHeldIds.has(row.id),
     });
@@ -1033,7 +1148,14 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
       continue;
     }
     if (decision.action === "suppress") {
-      await suppress(row.id, decision.reason === "daily_cap" ? "daily push cap reached; the in-app copy stands" : "sms is for verification codes and clinician paging only");
+      await suppress(
+        row.id,
+        decision.reason === "daily_cap"
+          ? "daily push cap reached; the in-app copy stands"
+          : decision.reason === "sms_exception_off"
+            ? `emergency-contact SMS is switched off (go-live guard sms_emergency_contact_enabled)${fanoutOutcome ? `; ${fanoutOutcome}` : ""}`
+            : "sms is for verification codes and clinician paging only",
+      );
       await recordEvent(row.id, "suppressed_cap", "system", null, { reason: decision.reason });
       suppressed++;
       continue;
@@ -1054,7 +1176,16 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
     // Destination resolution. Rows queued for a non-profile recipient (e.g. a
     // no-login partner pharmacy) carry an explicit `to_phone`/`to_email` in the
     // payload; recipient-profile reminder rows fall back to profiles.phone.
-    const toEmail = typeof payload.to_email === "string" ? payload.to_email : undefined;
+    // Email: the address was resolved above by resolveEmailAddress (own verified Auth address for page, on-call, credential,
+    // care-team and security.* notices; the payload address for the rest). A page is never addressed from a payload.
+    const toEmail = resolvedEmail?.address;
+    // Defence in depth for P3: a page notification is never sent by SMS or voice, whatever queued it.
+    if ((row.channel === "sms" || row.channel === "voice") && typeof row.template === "string" && row.template.startsWith("on_call_")) {
+      await suppress(row.id, "pages never use sms or voice");
+      await recordEvent(row.id, "suppressed_cap", "system", null, { reason: "page_no_sms" });
+      suppressed++;
+      continue;
+    }
     const toPhone = typeof payload.to_phone === "string"
       ? payload.to_phone
       : phoneById.get(row.recipient_id) ?? undefined;
@@ -1066,17 +1197,17 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
         continue;
       }
       if (!toEmail) {
+        // A lookup that could not be made is not a missing address: try again on the next pass (until the attempt limit).
+        if (resolvedEmail?.source === "lookup_failed" && row.attempts + 1 < MAX_ATTEMPTS) {
+          await markRetry("auth lookup failed; will retry");
+          retried++;
+          continue;
+        }
         await markFailed("recipient has no email address");
         failed++;
         continue;
       }
-      // Scoped to exactly one template, deliberately: this is the founder
-      // requirement that the test-request email carry the PDF, not a general
-      // "attach a PDF" mechanism every template gets for free. A future
-      // template that wants the same treatment should add its own explicit
-      // case here rather than have this condition grown into something
-      // fuzzier.
-      // Discreet mode: a person's own email carries fixed generic words and no attachment (the PDFs name the request).
+      // Discreet mode: a person's own email carries fixed generic words and no link (the documents name the request).
       const discreetMail = privacy.discreet;
       if (discreetMail && row.template === "reputation_review_request_trustpilot") {
         // The ask is only a review link, which a generic email cannot carry. Not sent, and the prompt is not marked sent.
@@ -1084,16 +1215,10 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
         suppressed++;
         continue;
       }
-      let attachments: EmailAttachment[] | undefined;
-      if (discreetMail) {
-        // no attachment is fetched or sent
-      } else if (row.template === "lab_order_requested_patient" && typeof payload.order_id === "string") {
-        const pdf = await fetchLabOrderRequestPdf(payload.order_id);
-        if (pdf) attachments = [pdf];
-      } else if (row.template === "preventive_care_plan_updated") {
-        const pdf = await fetchPreventiveCarePlanPdf(row.recipient_id);
-        if (pdf) attachments = [pdf];
-      }
+      // OQ-91: no PDF is attached any more. The two document emails carry a signed, login-protected link and no content.
+      const docLink = !discreetMail && row.template != null && DISCREET_DOCUMENT_TEMPLATES.has(row.template)
+        ? await documentLinkFor(row.template, row.recipient_id, payload)
+        : null;
       // S13: an address that hard-bounced or reported spam is never mailed again (Resend webhook records it).
       const { data: suppressedRow } = await supabase
         .from("notification_email_suppressions")
@@ -1110,10 +1235,12 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
       const generic = discreetMail ? discreetEmail(isCritical || isSafetyCritical(row.template), isDocument) : null;
       const emailResult = generic
         ? await sendEmail(toEmail, generic.subject, generic.html, generic.text)
-        : await sendEmail(toEmail, render.email.subject, render.email.html, render.email.text ?? render.smsText, attachments);
+        : docLink
+          ? await sendEmail(toEmail, ...withDocumentLink(render.email, render.smsText, docLink))
+          : await sendEmail(toEmail, render.email.subject, render.email.html, render.email.text ?? render.smsText);
       await settle(emailResult);
       if (emailResult.ok) await recordEvent(row.id, "accepted", "resend", emailResult.messageId ?? null);
-      // The PDF was not attached; it is open in the app (lab request: /api/patient/lab-order/<id>/request, care plan:
+      // The document is open in the app (lab request: /api/patient/lab-order/<id>/request, care plan:
       // /api/patient/preventive-care-plan). The event makes that traceable.
       if (emailResult.ok && isDocument) await recordEvent(row.id, "discreet_document_in_app", "system", null, { template: row.template });
       // Scoped to exactly one template, same pattern as the PDF-attachment
@@ -1148,7 +1275,7 @@ Deno.serve(withSentry("send-pending-notifications", async () => {
       // browser subscriptions for one user.
       const [webResult, nativeResult] = await Promise.all([
         sendWebPush(subs.filter(isWebPushSubscription), pushPayload),
-        sendExpoPush(subs.filter(isNativePushSubscription), pushPayload),
+        sendExpoPush(subs.filter(isNativePushSubscription), pushPayload, isCritical || isSafetyCritical(row.template)),
       ]);
       const pushOk = webResult.ok || nativeResult.ok;
       const pushResult = {

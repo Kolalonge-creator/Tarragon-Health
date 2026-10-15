@@ -40,6 +40,7 @@ export async function assessHeartRateBestEffort(
     .select("pulse_bpm")
     .eq("patient_id", patientId)
     .eq("vital_type", "pulse")
+    .is("correction_status", null)
     .gte("taken_at", since);
 
   const values = (readings ?? [])

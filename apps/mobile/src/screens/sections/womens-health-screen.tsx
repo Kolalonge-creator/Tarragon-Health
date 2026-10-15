@@ -56,6 +56,7 @@ import { CycleDangerSigns } from "@/ui/cycle-danger-signs";
 import type { SectionId } from "@/lib/sections";
 import { CycleScreen } from "@/screens/sections/cycle-screen";
 import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
+import { FeedLogCardMobile, LifecycleCardMobile } from "@/screens/sections/maternal-child-card";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors, useTextInputStyle, useTheme, placeholderColorFor } from "@/ui/design";
 import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
@@ -352,6 +353,8 @@ export function WomensHealthScreen({ patientId, organisationId, onNavigate }: Wo
       )}
 
       {showPostnatal && <PostnatalCard patientId={patientId} organisationId={organisationId} onNavigate={onNavigate} />}
+      {showPostnatal && <FeedLogCardMobile patientId={patientId} organisationId={organisationId} />}
+      {!reproUnknown && <LifecycleCardMobile />}
 
       {showContraception && (
         <ContraceptionCard
