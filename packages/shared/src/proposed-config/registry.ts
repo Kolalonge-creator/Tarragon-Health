@@ -1047,6 +1047,44 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S18.md; docs/research/S18.md; spec 7.2, 7.5, 7.9",
   },
   {
+    key: "lead.rules",
+    // Lead clinician, declared availability and on-call rota rules (S18, spec 7.2 and 7.5). Live values are the active row
+    // of `lead_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
+    // max_lead_patients repeats clinician.max_lead_patients. lead_min_doctor_tier and required_competencies: who may lead
+    // (founder decision F-05: doctor tier is the gate; OQ-125). block_min_hours: the shortest declared block. rota_*, gap_alert_hours,
+    // min_eligible_on_call: the rota and when uncovered hours raise an incident. fatigue_* and post_call_*: NHS-derived warnings
+    // and rest (the 2016 doctors in training contract FAQ: 11 hours rest, 72 hours in 168, at most 3 rostered on-calls and 4 long shifts in 7 days), PROPOSED and not Nigerian norms, CMO to set (OQ-128); v2 (CMO, 2026-10-07) lowers the weekly hours warning from 72 to 48, the EU Working Time Directive average; a rota override needs a written reason of
+    // override_reason_min_chars. contracted_needs_declared_hours: a contracted clinician is offered work only inside declared hours. contracted_min_declared_hours_per_week: the pilot floor shown to a contracted clinician (a pilot value in the published Amwell programme is 10 hours; displayed, not enforced). swap_urgent_hours: a swap on a shift starting within this many hours applies on acceptance and is audited, so urgent cover never waits for a reviewer.
+    value: {
+      max_lead_patients: 60,
+      lead_min_doctor_tier: "senior_medical_officer",
+      required_competencies: ["lead_clinician", "hypertension"],
+      block_min_hours: 2,
+      minimum_guarantee_kinds: ["queue", "on_call"],
+      rota_max_shift_hours: 24,
+      rota_horizon_days: 14,
+      gap_alert_hours: 48,
+      min_eligible_on_call: 2,
+      fatigue_min_rest_hours: 11,
+      fatigue_max_consecutive_days: 7,
+      fatigue_max_shifts_per_7_days: 3,
+      fatigue_max_hours_per_7_days: 48,
+      fatigue_long_shift_hours: 10,
+      fatigue_max_long_shifts_per_7_days: 4,
+      post_call_rest_hours: 8,
+      post_call_rest_min_shift_hours: 8,
+      contracted_needs_declared_hours: true,
+      contracted_min_declared_hours_per_week: 10,
+      swap_urgent_hours: 4,
+      override_reason_min_chars: 10,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S18.md; docs/research/S18.md; spec 7.2, 7.5, 7.9",
+  },
+  {
     key: "paging.rules",
     // Red event paging (S19, spec 7.9). Live values are the active row of `paging_config`; this entry mirrors it and a test
     // fails if the migration seed and this value drift. escalation_minutes repeats paging.escalation_minutes: the backup is
@@ -3846,5 +3884,308 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S57.md; spec 10.11; docs/OPEN-QUESTIONS.md OQ-S57-02",
+  },
+  {
+    key: "symptom.urgency_map",
+    // S59 (spec 12.4): the six urgency levels, DERIVED from the four triage categories. The four-category result stays the source
+    // of truth and what every escalation keys off; this table only decides what extra wording a screen may show. It is an UNSIGNED
+    // DRAFT: while status is "draft" (or the map fails its validity check: total, monotone, emergency maps to the top level) no
+    // level is derived and the screen shows only the four-category result. The CMO decides every row. `review_required` rows apply
+    // when a clinician has been asked to look at the result.
+    value: {
+      status: "draft",
+      clinical_sign_off: null,
+      rows: [
+        { category: "emergency", qualifier: "any", level: "emergency_now" },
+        { category: "urgent", qualifier: "any", level: "doctor_within_24_hours" },
+        { category: "urgent", qualifier: "review_required", level: "doctor_today" },
+        { category: "routine", qualifier: "any", level: "doctor_within_days" },
+        { category: "self_management", qualifier: "any", level: "self_care" },
+        { category: "self_management", qualifier: "review_required", level: "see_pharmacist" },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S59.md section 3; spec 12.4; docs/OPEN-QUESTIONS.md OQ-S59-02",
+  },
+  {
+    key: "symptom.context_tightening",
+    // S59 (spec 12.2 and 12.6): what the health record already says (age, sex, pregnancy, known conditions, medicines, recent
+    // readings) can only RAISE an urgency, as a minimum category, never lower or replace one. Every entry is an UNSIGNED DRAFT
+    // (status "draft", no sign-off): the engine ignores an entry until it is "signed_off" with a named signer and date, so shipping
+    // this changes nothing for any patient. The drug names, thresholds, ages and categories below are placeholders for the CMO to
+    // confirm or replace, not clinical advice. Reading thresholds live HERE, never in code.
+    value: {
+      entries: [
+        {
+          id: "pregnancy_severe_symptom",
+          label: "Pregnant and a severe symptom",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder pregnancy branch (spec 12.6). The CMO chooses the complaints, the severity and the category." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { pregnant: true, min_severity: 6, complaint_keys: ["headache", "chest_pain", "breathlessness", "abdominal_pain"] },
+          minimum_category: "urgent",
+        },
+        {
+          id: "pregnancy_headache_with_vision_change",
+          label: "Pregnant with a headache and a change in vision",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder. The CMO confirms the symptom keys and the category." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { pregnant: true, complaint_keys: ["headache"], any_associated_symptom: ["visual_disturbance", "vision_loss"] },
+          minimum_category: "emergency",
+        },
+        {
+          id: "young_child_danger_sign",
+          label: "A young child with a general danger sign",
+          provenance: { source: "UNVERIFIED DRAFT", note: "IMCI-style general danger signs. The CMO sets the age band (the 4 here is a placeholder) and confirms the category." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { age_max: 4, any_associated_symptom: ["convulsions", "unable_to_drink_or_feed", "vomits_everything", "lethargic_or_unconscious"] },
+          minimum_category: "emergency",
+        },
+        {
+          id: "blood_thinner_with_headache",
+          label: "Taking a blood thinner and a headache",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder drug names and severity. The CMO confirms which medicines count and the category." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { any_medicine: ["warfarin", "rivaroxaban", "apixaban", "dabigatran"], complaint_keys: ["headache"], min_severity: 4 },
+          minimum_category: "urgent",
+        },
+        {
+          id: "high_bp_reading_with_symptom",
+          label: "A recent very high blood pressure reading and a symptom",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder threshold (systolic). The CMO confirms the threshold, the look-back window and the category." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { reading_at_least: { key: "systolic", value: 180 }, complaint_keys: ["headache", "chest_pain", "breathlessness"] },
+          minimum_category: "urgent",
+        },
+        {
+          id: "low_oxygen_reading",
+          label: "A recent low oxygen reading",
+          provenance: { source: "UNVERIFIED DRAFT", note: "Placeholder threshold. The CMO confirms the threshold, the look-back window and the category." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { reading_at_most: { key: "spo2_pct", value: 92 } },
+          minimum_category: "urgent",
+        },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S59.md section 3; spec 12.2 and 12.6; docs/OPEN-QUESTIONS.md OQ-S59-03",
+  },
+  {
+    key: "symptom.dependant_policy",
+    // S59 (spec 12.6): a check answered by a parent or carer for a child. Until the CMO signs paediatric pathways, a child is run
+    // through the signed adult pathways, so a result for a known child is never lower than this category and always asks a clinician
+    // to look. It can only raise. A person whose age is unknown is not matched (an extra input never lowers a result). Live now
+    // (proposed, not yet confirmed by the CMO).
+    value: { max_age_years: 17, minimum_category: "routine", clinician_review_required: true },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S59.md section 4; spec 12.6; docs/OPEN-QUESTIONS.md OQ-S59-04",
+  },
+  {
+    key: "symptom.skin_photo_policy",
+    // S59 (spec 12.7): photos of a visible problem for a clinician to look at. Never scored or classified. Limits and retention. The
+    // live value is the active row of `skin_photo_policy_config` (the storage bucket limits are set from it too); a test fails if
+    // the migration seed and this value drift. Retention counts from submission while unreviewed and from the review once reviewed.
+    // The deletion job is not built (OQ-S59-07): until it runs, `retention_until` records when a photo is due to go.
+    value: {
+      max_bytes: 4000000,
+      allowed_types: ["image/jpeg", "image/png"],
+      max_open_per_patient: 5,
+      retention_days_unreviewed: 30,
+      retention_days_after_review: 90,
+      signed_url_seconds: 60,
+    },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S59.md section 6; spec 12.7; docs/OPEN-QUESTIONS.md OQ-S59-07",
+  },
+  {
+    key: "symptom.context_window_days",
+    // S59 (spec 12.2): how far back a reading from the health record counts as "recent" for the context layer. Whole days, 1 to 90
+    // (the database clamps it). The CMO confirms it alongside the context entries.
+    value: 14,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S59.md section 3; spec 12.2; docs/OPEN-QUESTIONS.md OQ-S59-03",
+  },
+  {
+    key: "symptom.adult_age_years",
+    // S59b (founder decision 2026-10-07): the symptom checker refuses anyone under this age until a paediatric protocol is in the
+    // signed config, and refuses anyone with no date of birth. A policy age, not a clinical threshold. The database holds the same
+    // number in private.symptom_checker_adult_age(); a Jest test fails if the two differ.
+    value: 18,
+    owner: "Founder",
+    status: "confirmed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S55-S60-build-plan.md section 10; docs/OPEN-QUESTIONS.md OQ-S59b-01",
+  },
+  {
+    key: "symptom.risk_tightening",
+    // S59b REDRAFT for the CMO (hold item C4, 2026-10-07). Still ALL DRAFT, unsigned, inert. Changes from version 1: the typhoid and
+    // sickle cell entries are dropped (no signed pathway asks abdominal_pain or sickle_cell_disease, so they could never match); the
+    // Lassa entry now names states and has sources; the malaria entry has sources. Raise-only, as before. Sources and what could not
+    // be verified: docs/research/S59b.md.
+    value: {
+      entries: [
+        {
+          id: "malaria_season_fever",
+          label: "Fever during the rainy season",
+          provenance: {
+            source: "https://www.doctorswithoutborders.org/latest/nigeria-preventing-long-and-deadly-malaria-season-claiming-more-lives-borno",
+            note: "Nigeria's rainy season runs about April to October and malaria transmission peaks in it (MSF and WHO-recommended seasonal chemoprevention material). The season is shorter in the north, longer in the south: the CMO may split it by state. Minimum category is the CMO's call.",
+          },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { months: [4, 5, 6, 7, 8, 9, 10], any_associated_symptom: ["fever"] },
+          minimum_category: "routine",
+        },
+        {
+          id: "lassa_season_fever",
+          label: "Fever in the dry season in a high-burden state",
+          provenance: {
+            source: "https://www.who.int/emergencies/disease-outbreak-news/item/Lassa-fever---Nigeria",
+            note: "NCDC situation reports (as relayed in the press, see docs/research/S59b.md) name Edo, Ondo, Bauchi and Taraba as the main burden states and a dry season peak from December to April. Other states report cases (for example Ebonyi and Nasarawa in 2026): the CMO decides whether to widen the list. A person whose state is unknown still matches (the safe direction).",
+          },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { months: [12, 1, 2, 3, 4], states: ["Edo", "Ondo", "Bauchi", "Taraba"], any_associated_symptom: ["fever"] },
+          minimum_category: "urgent",
+        },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-07",
+    source: "docs/research/S59b.md section C4; docs/OPEN-QUESTIONS.md OQ-S59b-05",
+  },
+  {
+    key: "symptom.context_tightening",
+    // S59b REDRAFT for the CMO (hold item C5, 2026-10-07). Still ALL DRAFT, unsigned, inert, raise-only. Dropped: the young-child
+    // entry (children are refused by the checker until a paediatric protocol is signed) and abdominal_pain (not in any signed
+    // pathway). Thresholds are checked against the sources named in each provenance; see docs/research/S59b.md for what could not be
+    // verified. Reading thresholds live HERE, never in code.
+    value: {
+      entries: [
+        {
+          id: "pregnancy_severe_symptom",
+          label: "Pregnant and a severe symptom",
+          provenance: { source: "UNVERIFIED THRESHOLD", note: "No source found for severity 6 as a pregnancy cut-off; it is the CMO's number. The complaints are those of the signed pathways only." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { pregnant: true, min_severity: 6, complaint_keys: ["headache", "chest_pain", "breathlessness"] },
+          minimum_category: "urgent",
+        },
+        {
+          id: "pregnancy_headache_with_vision_change",
+          label: "Pregnant with a headache and a change in vision",
+          provenance: { source: "NICE NG133 (hypertension in pregnancy), via secondary summaries", note: "Severe headache with visual disturbance is a listed feature of pre-eclampsia. The guideline text itself was not opened; confirm against it. Emergency is the CMO's call (it is a possible severe pre-eclampsia pattern)." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { pregnant: true, complaint_keys: ["headache"], any_associated_symptom: ["visual_disturbance", "vision_loss"] },
+          minimum_category: "emergency",
+        },
+        {
+          id: "blood_thinner_with_headache",
+          label: "Taking a blood thinner and a headache",
+          provenance: { source: "UNVERIFIED", note: "The bleeding-risk logic is general; no guideline cut-off found for a non-injury headache on an anticoagulant. Drug names and severity are the CMO's call." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { any_medicine: ["warfarin", "rivaroxaban", "apixaban", "dabigatran"], complaint_keys: ["headache"], min_severity: 4 },
+          minimum_category: "urgent",
+        },
+        {
+          id: "high_systolic_reading_with_symptom",
+          label: "A recent very high top blood pressure number and a symptom",
+          provenance: { source: "ESC/ESH and ACC/AHA definitions of hypertensive emergency (180 over 120 or higher with symptoms), via secondary summaries", note: "Threshold 180 matches the commonly cited line. The guideline documents were not opened. A home reading is not proof of organ damage, so this only raises the minimum." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { reading_at_least: { key: "systolic", value: 180 }, complaint_keys: ["headache", "chest_pain", "breathlessness"] },
+          minimum_category: "urgent",
+        },
+        {
+          id: "high_diastolic_reading_with_symptom",
+          label: "A recent very high bottom blood pressure number and a symptom",
+          provenance: { source: "Same as the systolic entry", note: "Diastolic 120 is the other half of the same commonly cited line." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { reading_at_least: { key: "diastolic", value: 120 }, complaint_keys: ["headache", "chest_pain", "breathlessness"] },
+          minimum_category: "urgent",
+        },
+        {
+          id: "low_oxygen_reading",
+          label: "A recent low oxygen reading",
+          provenance: { source: "NEWS2 SpO2 scale 1 (Royal College of Physicians), via secondary summaries", note: "NEWS2 scores 91 or below the highest (3 points) on scale 1. Version 1 used 92. Home pulse oximeters are less reliable, so this only raises the minimum. The CMO confirms the number and the look-back window." },
+          status: "draft",
+          clinical_sign_off: null,
+          applies_when: { reading_at_most: { key: "spo2_pct", value: 91 } },
+          minimum_category: "urgent",
+        },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-07",
+    source: "docs/research/S59b.md section C5; docs/OPEN-QUESTIONS.md OQ-S59b-06",
+  },
+  {
+    key: "i18n.language_registry",
+    // Language readiness (S86, decision D-14). DORMANT: English is the only language and the only entry. A language can appear
+    // here only after a forward translation, an independent back translation, a reconciliation and a native clinical review, with
+    // the CMO's signature per string set recorded as `set_hash` in `native_review` and `clinician_signoff` (the fingerprint of the
+    // English and translated text signed). `enabled_for` lists the features a language is switched on for; the gate in
+    // packages/i18n/src/language-readiness.ts refuses any entry whose keys, signatures or audio clips are not complete. Adding
+    // a language is a new version of this entry, published by the CMO (the sign-off route is OQ-313; until it exists, a reviewed
+    // pull request, and a build must never type a signature or a hash). The source
+    // language needs no review or recording (a missing clip shows its text, spec 8.8) and `status` is not used for it.
+    value: {
+      source_language: "en",
+      features: {
+        emergency_triage: { message_prefixes: ["triage."], audio_groups: ["EMG", "TRI", "SYM", "NUM"], clinical: true },
+        course: { message_prefixes: ["course.", "lesson.", "breathing."], audio_groups: ["BPC", "BRE"], clinical: true },
+        results_consult: { message_prefixes: ["labres.", "labs.", "consult.", "summary."], audio_groups: ["RES", "CON"], clinical: true },
+        // Everything not claimed above (medicines, vitals, titration, scribe, reminders and any key added later) falls to this
+        // CLINICAL catch-all on purpose: new wording needs the CMO's signature unless someone names it non-clinical below.
+        health_and_care: { message_prefixes: [""], audio_groups: ["HLP", "REM"], clinical: true },
+        general_ui: {
+          message_prefixes: ["app.", "common.", "auth.", "drawer.", "appearance.", "greeting.", "kit.", "audio."],
+          audio_groups: ["ONB", "NAV", "SYS"],
+          clinical: false,
+        },
+      },
+      languages: {
+        en: {
+          status: "draft",
+          source: true,
+          enabled_for: ["emergency_triage", "course", "results_consult", "health_and_care", "general_ui"],
+          native_review: {},
+          clinician_signoff: {},
+        },
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S86.md; docs/DECISIONS.md D-14 and S86-1; docs/research/S86.md",
   },
 ];

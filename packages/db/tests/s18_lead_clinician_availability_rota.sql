@@ -456,10 +456,10 @@ begin
       where n.nspname = 'private' and p.proname in ('lead_candidates', 'choose_lead', 'assign_lead_internal', 'replace_lead_internal', 'lead_reconcile', 'retry_unassigned_leads', 'rota_gap_alert', 'has_conflict')
         and has_function_privilege('authenticated', p.oid, 'EXECUTE')));
   -- weekly hours and long shifts (NHS 2016 contract limits as configurable warnings)
-  perform pg_temp.rec('a 60 hour stretch on top of the primary hours already rostered breaks the 72 hours in 7 days warning', 'true',
-    (select (array_to_string(private.rota_fatigue_warnings(v_d, v_org, t1 + interval '24 hours', t1 + interval '94 hours'), '; ') like '%hours inside 7 days%')::text));
+  perform pg_temp.rec('a 44 hour stretch on top of the primary hours already rostered breaks the 48 hours in 7 days warning (lead.rules v2)', 'true',
+    (select (array_to_string(private.rota_fatigue_warnings(v_d, v_org, t1 + interval '24 hours', t1 + interval '68 hours'), '; ') like '%hours inside 7 days%')::text));
   perform pg_temp.rec('backup-only shifts do not count as hours worked', 'true',
-    (select (array_to_string(private.rota_fatigue_warnings(v_c, v_org, t1 + interval '24 hours', t1 + interval '94 hours'), '; ') not like '%hours inside 7 days%')::text));
+    (select (array_to_string(private.rota_fatigue_warnings(v_c, v_org, t1 + interval '24 hours', t1 + interval '68 hours'), '; ') not like '%hours inside 7 days%')::text));
   perform pg_temp.rec('a short shift well clear of other shifts raises no hours warning', 'true',
     (select (array_to_string(private.rota_fatigue_warnings(v_c, v_org, t1 + interval '30 days', t1 + interval '30 days 8 hours'), '; ') not like '%hours inside 7 days%')::text));
   perform set_config('tarragon.lead_write', 'on', true);

@@ -74,7 +74,10 @@ export function testTypeLabel(code: string | null): string | null {
   );
 }
 
-export type PanelBundle = Tables<"panel_bundles">;
+/** Track E 8.16: commission columns are not readable by a patient (column grant); explicit columns only. */
+export type PanelBundle = Omit<Tables<"panel_bundles">, "commission_rate" | "commission_rate_type" | "commission_flat_kobo">;
+const PANEL_BUNDLE_SAFE_COLUMNS =
+  "id, code, name, description, price_kobo, test_codes, is_active, created_at, self_bookable, review_discount_bp, is_screen_tier, preparation_instructions, category, clinical_protocol_ref, guidance_only, indicative_price_kobo, indicative_price_source, indicative_price_checked_on, where_to_get";
 
 /** Mirrors apps/web/src/lib/queries/lab-orders.ts's useLabCatalogue — a
  * global, admin-editable reference table, readable directly by any
@@ -84,7 +87,7 @@ export type PanelBundle = Tables<"panel_bundles">;
 export async function loadLabPanelBundles(): Promise<PanelBundle[]> {
   const { data } = await supabase
     .from("panel_bundles")
-    .select("*")
+    .select(PANEL_BUNDLE_SAFE_COLUMNS)
     .eq("is_active", true)
     .order("name", { ascending: true });
   return data ?? [];
