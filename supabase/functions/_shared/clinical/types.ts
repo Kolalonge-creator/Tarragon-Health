@@ -17,7 +17,11 @@ export type SymptomCode =
   | "visual_disturbance"
   | "fainting"
   | "dizziness"
-  | "palpitations";
+  | "palpitations"
+  // S67 (pregnancy danger signs, CMO selection A2 of 2026-10-07, PROPOSED): rule set version 4 only.
+  | "convulsion"
+  | "loss_of_consciousness"
+  | "sudden_face_hand_swelling";
 
 export type PathwayState = "self_guided" | "care_pack_active" | "paused" | "discharged" | "referred_out";
 
@@ -79,6 +83,12 @@ export interface TriageInput {
   /** Within 6 weeks after a birth. Optional; absent means false. */
   readonly postpartum?: boolean;
   readonly ageYears: number | null;
+  /**
+   * Taking blood pressure medicines now (S07x, decision C5). Optional; ABSENT MEANS UNKNOWN, which is treated as taking them, so a phone that cannot tell still shows the
+   * amber guidance for a low reading (as version 3 does). Version 4 of the rule set flags a systolic under 90 with no symptom unless this is explicitly false.
+   * The server always sends a definite true or false from the medicines on record.
+   */
+  readonly onBpMedicines?: boolean;
   /** ISO 8601. The engine never reads the clock. */
   readonly now: string;
   /** Task keys that are already open for this patient; a repeat is not created again. */
@@ -136,7 +146,7 @@ export type TaskAnchor = "reading" | "week" | "lastReadingDate";
 export interface Rule {
   readonly id: string;
   readonly description: string;
-  readonly triggers: readonly TriageTrigger["type"][];
+  readonly triggers: readonly (TriageTrigger["type"] | "glucose")[];
   /** `grade` rules grade; a `recheck` rule only asks for a repeat reading. */
   /** `grade` rules grade; `recheck` asks for a repeat reading; `ask` asks the symptom question. The last two never grade. */
   readonly result: "grade" | "recheck" | "ask";

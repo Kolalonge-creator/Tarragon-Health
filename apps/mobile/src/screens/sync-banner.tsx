@@ -11,6 +11,10 @@ import {
   type OutboxSummary,
 } from "@/lib/outbox";
 import { useUiLanguage } from "@/lib/ui-language";
+import { dismissStoreNotice, listStoreNotices, noticesFor, type StoreNotice } from "@/lib/store-notices";
+import { supabase } from "@/lib/supabase";
+import { formatBytes, getMonthlyDataUsage } from "@/lib/data-usage";
+import { loadOfflineTrustConfig } from "@/lib/offline-trust-config";
 import { space } from "@/ui/design";
 import { AppText, Button, Card, Icon } from "@/ui/kit";
 
@@ -27,12 +31,17 @@ export function SyncBanner() {
   const locale = asLocale(useUiLanguage());
   const [summary, setSummary] = useState<OutboxSummary | null>(null);
   const [rejected, setRejected] = useState<OutboxItem[]>([]);
+  const [notices, setNotices] = useState<StoreNotice[]>([]);
+  const [usage, setUsage] = useState(0);
 
   const refresh = useCallback(async () => {
     try {
       const [s, items] = await Promise.all([getOutboxSummary(), listOutbox()]);
       setSummary(s);
       setRejected(items.filter((i) => i.state === "rejected"));
+      const { data: auth } = await supabase.auth.getSession();
+      setNotices(noticesFor(await listStoreNotices(), auth.session?.user.id ?? null));
+      setUsage(await getMonthlyDataUsage());
     } catch {
       // A failed read of the local queue must not blank the screen.
     }
@@ -44,10 +53,11 @@ export function SyncBanner() {
     return () => clearInterval(timer);
   }, [refresh]);
 
-  if (!summary) return null;
-  const stuckWaiting = Math.max(0, summary.stuck - summary.rejected);
-  const quietlyWaiting = Math.max(0, summary.waiting - stuckWaiting);
-  if (summary.waiting + summary.rejected + summary.heldForOtherAccount === 0) return null;
+  if (!summary && notices.length === 0) return null;
+  const stuckWaiting = summary ? Math.max(0, summary.stuck - summary.rejected) : 0;
+  const quietlyWaiting = summary ? Math.max(0, summary.waiting - stuckWaiting) : 0;
+  const nothingHeld = !summary || summary.waiting + summary.rejected + summary.heldForOtherAccount === 0;
+  if (nothingHeld && notices.length === 0) return null;
 
   async function retryOne(item: OutboxItem) {
     await retryRow(item.clientId);
@@ -62,9 +72,37 @@ export function SyncBanner() {
     ]);
   }
 
+  function noticeText(n: StoreNotice): string {
+    switch (n.kind) {
+      case "key_lost":
+        return t("store.key_lost", locale, { code: n.code });
+      case "wiped":
+        return n.reason === "lease_expired"
+          ? t("store.wiped.lease_expired", locale, { count: n.unsent, days: n.days ?? loadOfflineTrustConfig().deviceLeaseDays })
+          : t(`store.wiped.${n.reason}`, locale, { count: n.unsent });
+      case "migration_held":
+        return t("store.migration_held", locale, { code: n.code });
+      case "migration_stuck":
+        return t("store.migration_stuck", locale, { code: n.code });
+      case "not_encrypted":
+        return t("store.not_encrypted", locale);
+    }
+  }
+
   return (
     <View style={{ gap: space.sm }} accessibilityLiveRegion="polite">
-      {quietlyWaiting > 0 ? (
+      {notices.map((n) => (
+        <Card key={n.id} level={0} style={{ gap: space.sm }}>
+          <View style={{ flexDirection: "row", gap: space.sm }}>
+            <Icon name="private" size={18} tone="warnText" />
+            <AppText variant="body" tone="warnText" style={{ flex: 1 }}>
+              {noticeText(n)}
+            </AppText>
+          </View>
+          <Button title={t("store.dismiss", locale)} variant="ghost" onPress={() => void dismissStoreNotice(n.id).then(refresh)} />
+        </Card>
+      ))}
+      {summary && quietlyWaiting > 0 ? (
         <Card level={0} style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
           <Icon name="sending" size={18} tone="textMuted" />
           <AppText variant="caption" tone="textMuted" style={{ flex: 1 }}>
@@ -95,13 +133,18 @@ export function SyncBanner() {
           <Button title={t("outbox.remove", locale)} variant="ghost" onPress={() => confirmRemove(item)} />
         </Card>
       ))}
-      {summary.heldForOtherAccount > 0 ? (
+      {summary && summary.heldForOtherAccount > 0 ? (
         <Card level={0} style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
           <Icon name="private" size={18} tone="textMuted" />
           <AppText variant="caption" tone="textMuted" style={{ flex: 1 }}>
             {t("outbox.held", locale, { count: summary.heldForOtherAccount })}
           </AppText>
         </Card>
+      ) : null}
+      {usage > 0 && !nothingHeld ? (
+        <AppText variant="caption" tone="textMuted">
+          {t("usage.month", locale, { amount: formatBytes(usage) })}
+        </AppText>
       ) : null}
     </View>
   );

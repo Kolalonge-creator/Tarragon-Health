@@ -124,6 +124,8 @@ export async function acceptConsents(
       consent_type: version.consent_type,
       consent_version_id: version.id,
       version: version.version,
+      // S04b-2 receipt: where the choice was made. The database derives who and the exact-text hash.
+      channel: "web" as const,
     })),
   );
   if (error) {

@@ -5,7 +5,8 @@
  */
 import * as Crypto from "expo-crypto";
 import { postVitalReading, type VitalReadingPayload } from "./api";
-import { __failNextExclusiveTransaction, openDatabaseAsync } from "../test/mocks/expo-sqlite";
+import { __failNextExclusiveTransaction } from "../test/mocks/expo-sqlite";
+import { getStore } from "./secure-db";
 import {
   __resetOutboxForTests,
   __setGroupColumnReadyForTests,
@@ -56,7 +57,7 @@ beforeEach(() => {
 describe("a phone whose outbox predates group_id", () => {
   it("gets the column added, keeps its old rows, and can then save a group", async () => {
     __resetOutboxForTests();
-    const db = await openDatabaseAsync("tarragon-offline.db");
+    const db = await getStore();
     await db.execAsync(
       `create table outbox (
         client_id text primary key, kind text not null, owner_user_id text not null, subject_id text not null,
@@ -173,7 +174,7 @@ describe("enqueueGroup", () => {
 
   it("keeps saving, ungrouped, if the group_id column could not be added", async () => {
     await flushOutbox();
-    const db = await openDatabaseAsync("tarragon-offline.db");
+    const db = await getStore();
     await db.execAsync("alter table outbox drop column group_id");
     __setGroupColumnReadyForTests(false);
     try {

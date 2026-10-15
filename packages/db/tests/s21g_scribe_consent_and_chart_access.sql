@@ -160,6 +160,9 @@ begin
       pg_temp.try(format('insert into public.scribe_consents (patient_id, granted, language, encounter_note_id) values (%L, true, ''en-NG'', %L)', v_adult, v_note)));
     perform pg_temp.back();
     delete from public.clinical_encounter_notes where id = v_note;
+    -- S39g: a write needs a tie, so the clinician is tied to this patient (as the owner, before acting as them)
+    insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, assigned_at) values ((select organisation_id from public.profiles where id = v_adult2), v_adult2, v_docA, now())
+      on conflict (patient_id) do update set clinician_id = excluded.clinician_id;
     perform pg_temp.act(v_docA);
     perform pg_temp.rec('a granted consent for a patient who never answered is refused', '42501',
       pg_temp.try(format('insert into public.scribe_consents (patient_id, granted, language) values (%L, true, ''en-NG'')', v_adult2)));
@@ -167,8 +170,14 @@ begin
       pg_temp.try(format('insert into public.scribe_consents (patient_id, granted, language) values (%L, false, ''en-NG'')', v_adult2)));
     perform pg_temp.back();
     select id into v_consent from public.scribe_consents where patient_id = v_adult and granted order by recorded_at desc limit 1;
-    insert into public.scribe_transcripts (organisation_id, scribe_consent_id, segments_encrypted, duration_ms, language)
-    values (v_org, v_consent, '\x00'::bytea, 1000, 'en-NG');
+    -- S23x: a transcript's consent must be bound to the same note and the same patient, so bind this consent to a note of this patient first
+    perform set_config('app.trusted_clinical_staff_author', (select id::text from public.clinical_staff where profile_id = v_docA), true);
+    insert into public.clinical_encounter_notes (organisation_id, patient_id, encounter_type, reason_for_encounter, status, is_test)
+    values (v_org, v_adult, 'other', 'S21 proof transcript note', 'draft', true) returning id into v_note;
+    perform set_config('app.trusted_clinical_staff_author', '', true);
+    update public.scribe_consents set encounter_note_id = v_note where id = v_consent;
+    insert into public.scribe_transcripts (organisation_id, scribe_consent_id, encounter_note_id, segments_encrypted, duration_ms, language)
+    values (v_org, v_consent, v_note, '\x00'::bytea, 1000, 'en-NG');
     perform pg_temp.act(v_adult);
     perform public.record_scribe_consent(v_e1, false);
     perform pg_temp.back();
@@ -216,6 +225,9 @@ begin
 
   -- 4. SABOTAGE -----------------------------------------------------------------------------------------------
   begin
+    -- the clinician is tied to this patient (S39g: a write needs a tie), so the patient-answer trigger is the only thing the sabotage removes
+    insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, assigned_at) values ((select organisation_id from public.profiles where id = v_adult2), v_adult2, v_docA, now())
+      on conflict (patient_id) do update set clinician_id = excluded.clinician_id;
     drop trigger scribe_consents_require_patient_answer on public.scribe_consents;
     perform pg_temp.act(v_docA);
     insert into results values ('sabotaged', 'a clinician cannot create a granted consent when the patient has not answered', '42501',

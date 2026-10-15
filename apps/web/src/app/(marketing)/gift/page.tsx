@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { formatNaira } from "@tarragon/commerce";
+import { getProposedConfig } from "@tarragon/shared";
 import { CtaBand } from "../_components/cta-band";
 import { FaqAccordion, type FaqItem } from "../_components/marketing-faq-accordion";
 import { MarketingMediaFrame } from "../_components/marketing-media-frame";
@@ -8,134 +10,95 @@ import { Section, SectionHeading } from "../_components/section";
 import { MARKETING_MEDIA } from "../_content/media";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
-import { fetchServicePriceOverrides } from "@/lib/marketing/plan-prices";
-import { servicePrice, type ResolvedServicePrices } from "../_content/pricing";
 import { GiftPersonalizer } from "./_components/gift-personalizer";
 
 export const metadata: Metadata = pageMetadata({
   title: "Give the Gift of Health",
   description:
-    "Buy a parent or family member a named health check they can use whenever suits them. Not a balance, not a gift card, a real appointment already paid for.",
+    "Give a parent or family member a year of Membership: a yearly blood test and a monthly video call with their care team, paid for by you and theirs to accept.",
   path: MARKETING_ROUTES.gift,
 });
 
-// Same refresh cadence as /pricing: live prices are read at request time and
-// cached for an hour, so a repricing shows here without a deploy.
 export const revalidate = 3600;
+
+/** The Membership price, read from the versioned config (integer kobo), never typed into a page. */
+function membershipPrice(): string {
+  const v = getProposedConfig("commerce.membership_prices").value as { individual_kobo: number };
+  return formatNaira(v.individual_kobo);
+}
 
 const WAYS_TO_GIVE = [
   {
-    title: "Buy them a named health check",
-    body: "For a parent, spouse, or family member already linked to you on Tarragon: buy one specific check (Core Screen, or whichever they need) at today's real price. Pay for it in one go or bit by bit, in naira, wherever you are paying from. It sits on their account, named to them, until they book it.",
+    title: "Give them a year of Membership",
+    body: "For a parent, spouse or family member: a yearly blood test, a video call with their care team every month, written questions between calls and prescriptions their care team signs. You pay once, in naira, wherever you are paying from. It does not renew by itself.",
   },
   {
-    title: "Cover a doctor's time for them",
-    body: "Anything on our paid list can be bought for someone else at the same real price: a video visit, a result read back to them properly, or Continuous Monitoring on their readings. Nothing renews afterwards, so there is no card of yours left on their account, and their results go to them and their doctor, and to nobody else.",
+    title: "They choose to accept it",
+    body: "The gift waits for them to accept it. If they decline, or do not answer in time, you are refunded. Nothing about a gift ever bills them, then or later.",
   },
   {
-    // The ₦500 figure is fixed in code, not DB-configured: redeem_referral_code
-    // hardcodes reward_kobo = 50000 (migration 20260724113718). Update this
-    // line (and _content/pricing.ts) together if that ever changes.
     title: "Invite them, you both get a reward",
-    body: "If they are not on Tarragon yet, share your personal referral link; signing up is free. Once they complete their first paid order, you both get a ₦500 reward voucher towards your care, a discount, not cash.",
+    body: "If they are not on Tarragon yet, share your personal referral link; signing up is free. Once they become a Member, you both get a reward voucher, a discount, not cash.",
   },
 ];
 
-/**
- * The two priced ideas are real service_products rows from the pay-per-service
- * catalogue (_content/pricing.ts's PAID_SERVICES) — never a plan, which no
- * longer exists to sell. Prices resolve through the same live override map the
- * pricing page uses, falling back to the catalogue's declared defaults.
- */
-function giftIdeas(overrides: ResolvedServicePrices) {
+function giftFaq(price: string): FaqItem[] {
   return [
     {
-      title: "Core Screen",
-      price: "One check, paid for once",
-      body: "Their once-a-year look at the things worth checking every year: liver, kidneys, blood sugar, cholesterol, urine, blood count and HIV status. A doctor reads every result with them, in writing, with a downloadable report. If they'd also like a live video consult to talk it through, that's a separate low-cost booking they can add whenever they want one.",
+      question: "What exactly am I giving?",
+      answer: `A year of Membership, ₦${price}. It is the same Membership anyone can join: a yearly blood test, a video call with their care team every month, written questions between calls and prescriptions their care team signs. Medicines are not included.`,
     },
     {
-      title: "Continuous Monitoring",
-      price: `${servicePrice("continuous_monitoring_90d", overrides)}, for 90 days`,
-      body: "A standing watch on the blood pressure, blood sugar and other readings they log: checked against care protocols, with a dangerous one put in front of a doctor rather than sitting unnoticed. Bought once for a fixed term, then it simply stops; nothing renews on its own.",
+      question: "Who can I give it to?",
+      answer:
+        "A parent, spouse, sibling or child. If they already use Tarragon, link them as family or next of kin first, from your dashboard's Your people page. If they have not used Tarragon before, you can set up a record for them yourself with their name, phone number and your relationship to them. They do not need a smartphone or an account of their own for this to work.",
     },
     {
-      title: "A video visit with a doctor",
-      price: `${servicePrice("video_visit_credit", overrides)}, one visit`,
-      body: "The lighter option: one online consultation with a doctor, theirs to book from their own account whenever suits them. A good way to talk through a result or a worry properly.",
+      question: "Will I see their results?",
+      answer:
+        "No. Results go to them and their care team, and to nobody else. You are only told when the gift has been accepted.",
+    },
+    {
+      question: "What if they say no, or do not answer?",
+      answer: "You are refunded. The gift is theirs to accept, and it waits for their answer.",
+    },
+    {
+      question: "What if I am buying from outside Nigeria?",
+      answer: "That is fine. Checkout is in naira either way, whether you are paying from within Nigeria or from abroad.",
+    },
+    {
+      question: "What if they already have a Membership?",
+      answer: "Then they do not need another one yet. The Membership page tells you before you pay.",
     },
   ];
 }
-
-const GIFT_FAQ: FaqItem[] = [
-  {
-    question: "What exactly am I buying?",
-    answer:
-      "One named service for someone specific, rather than a top-up balance: a health check like the Core Screen, a doctor consultation, or Continuous Monitoring. It sits on their account with their name on it until they choose to use it.",
-  },
-  {
-    question: "Who can I buy this for?",
-    answer:
-      "A parent, spouse, sibling, or child. If they already use Tarragon, link them as family or next of kin first, from your dashboard's Your people page. If they have not used Tarragon before, you do not need to wait for them to sign up: from Buy care for someone, you can set up a record for them yourself with their name, phone number and your relationship to them, and pay straight away. They don't need a smartphone, an app, or an account of their own for this to work.",
-  },
-  {
-    question: "Does a health check gift include a video call with a doctor?",
-    answer:
-      "A doctor reads every result in writing and sends a downloadable report. That part is included in every check. A live video consult is a separate, low-cost booking: your recipient can request one whenever they'd like to talk their results through, and you or they can pay for it at that point.",
-  },
-  {
-    question: "Can I pay for their lab tests too?",
-    answer:
-      "Not directly through Tarragon. Laboratories are paid by whoever is standing in one, at that lab's price, and we add nothing on top. If you want to help with the cost, the practical way is to send them what it costs. We're partnered with Synlab Nigeria and trust their results, so it's a reasonable default if they don't already have a lab in mind, but they're free to use any laboratory they like.",
-  },
-  {
-    question: "Will I see their results?",
-    answer:
-      "No. Results go to them and their doctor, and to nobody else. You will only be told when something you paid for is ready to use, and later that it was used.",
-  },
-  {
-    question: "What if I am buying from outside Nigeria?",
-    answer:
-      "That's fine. Checkout is in naira either way, whether you are paying from within Nigeria or from abroad. The gift still sits on their account until they are ready to use it.",
-  },
-  {
-    question: "What if they are already using Tarragon?",
-    answer:
-      "Even better: the gift simply sits on their account next to everything they already use, named and ready. Nothing about it bills them, then or later.",
-  },
-  {
-    question: "Can I pay in instalments?",
-    answer:
-      "Yes. Pay the whole amount at once or spread it over as many instalments as you like. Nothing expires while you are still paying.",
-  },
-];
 
 const HOW_IT_WORKS = [
   {
     step: 1,
     title: "Tell us who it's for",
-    body: "If they already use Tarragon, link them as family or next of kin first. If they don't, set up their record yourself, with their name, phone number and your relationship to them: they don't sign up or do anything before you can pay.",
+    body: "If they already use Tarragon, link them as family or next of kin first. If they don't, set up their record yourself: they don't sign up or do anything before you can pay.",
   },
   {
     step: 2,
-    title: "Choose the check or service",
-    body: "From Buy care for someone on your dashboard, pick the check or paid service you want them to have. Reserving it is free.",
+    title: "Choose Membership",
+    body: "From Buy care for someone on your dashboard, choose the yearly Membership. The price is shown before you pay.",
   },
   {
     step: 3,
-    title: "Pay for it, all at once or bit by bit",
-    body: "You can pay the whole amount, or spread it over as many instalments as you like. Nothing expires while you are still paying.",
+    title: "Pay once",
+    body: "Pay by card, bank transfer or USSD. There is nothing to cancel and it does not renew by itself.",
   },
   {
     step: 4,
-    title: "They start it whenever suits them",
-    body: "The voucher sits on their account and they choose when to use it. Nothing about a gift ever bills them, then or later.",
+    title: "They accept it",
+    body: "The gift waits on their account for their answer. When they accept, their Membership starts.",
   },
 ];
 
-export default async function GiftPage() {
-  const priceOverrides = await fetchServicePriceOverrides();
-  const ideas = giftIdeas(priceOverrides);
+export default function GiftPage() {
+  const price = membershipPrice();
+  const faq = giftFaq(price);
   return (
     <>
       {/* Rendered outside Section on purpose — full-bleed spans the full
@@ -143,9 +106,9 @@ export default async function GiftPage() {
       <PhotoBannerHero
         eyebrow="Care that stays with them"
         title="Give the Gift of Health"
-        description="Buy someone a real health check, already paid for, waiting on their account until they are ready. Not a balance to manage, not a gift card to lose. A specific appointment with their name on it."
+        description={`Give someone a year of Membership, ₦${price}: a yearly blood test and a video call with their care team every month. Theirs to accept, nothing to renew.`}
         primaryHref="/signup?intent=support"
-        primaryLabel="Buy someone a health check"
+        primaryLabel="Give a year of Membership"
         secondaryHref="/login"
         secondaryLabel="Already a member? Sign in"
         imageSrc={MARKETING_MEDIA.gift.hero.imageSrc ?? ""}
@@ -155,9 +118,7 @@ export default async function GiftPage() {
 
       <Section className="pb-0 pt-10 sm:pt-14">
         <p className="mx-auto max-w-3xl text-center text-sm text-charcoal-ink/60">
-          Already a member? Open Buy care for someone on your dashboard to buy a health check or a
-          doctor&apos;s time for someone, whether or not they use Tarragon yet, or share your
-          referral link.
+          Already a member? Open Buy care for someone on your dashboard to give a year of Membership, whether or not they use Tarragon yet, or share your referral link.
         </p>
       </Section>
 
@@ -168,42 +129,24 @@ export default async function GiftPage() {
       <Section variant="sage">
         <div className="mx-auto mb-10 grid max-w-4xl items-center gap-10 lg:grid-cols-2 lg:gap-14">
           <div className="text-center lg:text-left">
-            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-              Ways to give
-            </p>
-            <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
-              A named check, not a balance
-            </h2>
+            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">Ways to give</p>
+            <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">A year of care, not a balance</h2>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              You are buying a service, not topping up an account, and that difference is what
-              makes the gift worth something.
+              You are giving a Membership, not topping up an account, and that difference is what makes the gift worth something.
             </p>
           </div>
           <MarketingMediaFrame
             media={{
               illustration: "gift-record",
-              imageAlt: "A named health check, given as a gift rather than a balance",
+              imageAlt: "A year of Membership, given as a gift rather than a balance",
             }}
           />
         </div>
-        <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-2">
+        <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-3">
           {WAYS_TO_GIVE.map((item) => (
             <div key={item.title} className="rounded-xl border border-charcoal-ink/10 bg-white p-6">
               <h3 className="font-heading text-lg font-semibold text-charcoal-ink">{item.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">{item.body}</p>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      <Section>
-        <SectionHeading eyebrow="Ideas" title="What to gift" />
-        <div className="mx-auto grid max-w-2xl gap-6 md:grid-cols-2">
-          {ideas.map((item) => (
-            <div key={item.title} className="rounded-xl border border-charcoal-ink/10 bg-white p-6">
-              <h3 className="font-heading text-lg font-semibold text-charcoal-ink">{item.title}</h3>
-              <p className="mt-1 font-heading text-xl font-bold text-brand-green">{item.price}</p>
-              <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">{item.body}</p>
             </div>
           ))}
         </div>
@@ -215,9 +158,7 @@ export default async function GiftPage() {
           {HOW_IT_WORKS.map((item) => (
             <div key={item.step} className="rounded-xl border border-charcoal-ink/10 bg-white p-6">
               <p className="font-heading text-2xl font-bold text-brand-green">{item.step}</p>
-              <h3 className="mt-2 font-heading text-base font-semibold text-charcoal-ink">
-                {item.title}
-              </h3>
+              <h3 className="mt-2 font-heading text-base font-semibold text-charcoal-ink">{item.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">{item.body}</p>
             </div>
           ))}
@@ -225,15 +166,14 @@ export default async function GiftPage() {
       </Section>
 
       <Section>
-        <SectionHeading eyebrow="Before you buy" title="Honest expectations" />
-        <FaqAccordion items={GIFT_FAQ} />
+        <SectionHeading eyebrow="Before you give" title="Honest expectations" />
+        <FaqAccordion items={faq} />
         <p className="mx-auto mt-8 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
           Looking after a parent day to day?{" "}
           <Link href={MARKETING_ROUTES.parentcare} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             Caring for a parent
           </Link>{" "}
-          is the year-round version of this: they keep their own account and name you as next of
-          kin, so you can follow their care and we call you first if something urgent comes up.
+          is the year-round version of this: they keep their own account and name you as next of kin, so you can follow their care and we call you first if something urgent comes up.
         </p>
       </Section>
 
@@ -241,9 +181,9 @@ export default async function GiftPage() {
         <CtaBand
           variant="gradient"
           title="Give someone the gift of being looked after."
-          description="Buy them a health check or a doctor's time, or send them your referral link. Either way it is care, not a card that expires."
+          description="Give a year of Membership, or send them your referral link. Either way it is care, not a card that expires."
           primaryHref="/signup?intent=support"
-          primaryLabel="Buy someone a health check"
+          primaryLabel="Give a year of Membership"
           secondaryHref="/login"
           secondaryLabel="Already a member? Sign in"
         />

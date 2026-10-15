@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMyServicePurchases, isPurchaseCurrentlyActive } from "@/lib/queries/service-purchases";
+import { useMyMembership } from "@/lib/queries/commerce";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SEMANTIC_ICON } from "@/lib/icons";
@@ -38,7 +39,22 @@ function daysUntil(iso: string): number {
 
 export function MonitoringCoverCard() {
   const { data: purchases, isLoading } = useMyServicePurchases();
-  if (isLoading) return null;
+  const membership = useMyMembership();
+  if (isLoading || membership.isLoading) return null;
+
+  // Continuous monitoring is a Membership benefit (two-tier decision): a Member, in the year or in the 14 day grace, has a doctor told.
+  if (membership.data?.is_member) {
+    return (
+      <Card className="border-brand-green/30">
+        <CardContent className="flex flex-col gap-1 py-4">
+          <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">A doctor is watching your readings</p>
+          <p className="text-xs leading-relaxed text-charcoal-ink/65 dark:text-night-ink/65">
+            As a Member, a doctor on your care team is told when one of your readings is dangerous and follows up with you.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const cover = (purchases ?? [])
     .filter(isPurchaseCurrentlyActive)
@@ -54,17 +70,17 @@ export function MonitoringCoverCard() {
         <CardContent className="flex flex-col gap-3 py-4">
           <div className="min-w-0">
             <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
-              Nobody is alerted when one of your readings is dangerous
+              On the free plan a doctor is not told when a reading is dangerous
             </p>
             <p className="mt-1 text-xs leading-relaxed text-charcoal-ink/65 dark:text-night-ink/65">
               Every reading you log is still checked against care protocols, and you still get the
               full emergency safety net: immediate guidance, your emergency contact notified, and a
-              check-in afterwards. Continuous Monitoring adds a doctor on your care team being told
-              as well, for ₦30,000 across 90 days. Nothing renews and no card is kept.
+              check-in afterwards. Membership adds a doctor on your care team being told as well, and following
+              up with you.
             </p>
           </div>
           <Button asChild size="sm" className="self-start">
-            <Link href="/patient/subscription">See Continuous Monitoring</Link>
+            <Link href="/patient/membership">See Membership</Link>
           </Button>
         </CardContent>
       </Card>
@@ -112,11 +128,7 @@ export function MonitoringCoverCard() {
             </p>
           </div>
         </div>
-        {endingSoon ? (
-          <Button asChild size="sm" variant="outline" className="self-start">
-            <Link href="/patient/subscription">Extend it</Link>
-          </Button>
-        ) : null}
+
       </CardContent>
     </Card>
   );

@@ -40,6 +40,7 @@
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { handleOrderCharge, isOrderCharge, type DepsFactory } from "./order-branch.ts";
 import { constantTimeEqual } from "../_shared/integrations/crypto.ts";
+import { handleViaInbox, providerInboxEnabled } from "./inbox-branch.ts";
 
 // Mirrors apps/web/src/lib/billing/checkout-metadata.ts's CheckoutKind
 // (the canonical definition — checkout always writes metadata via that
@@ -141,7 +142,7 @@ const TRIGGER_ACTIVATED_KIND_TABLE: Record<
   },
 };
 
-interface PaystackEvent {
+export interface PaystackEvent {
   event: string;
   data: {
     reference?: string;
@@ -418,11 +419,20 @@ export async function handleWebhookRequest(
   }
 
   const rawBody = await req.text();
+  const signatureHeader = req.headers.get("x-paystack-signature");
   const signatureValid = await verifySignature(
     rawBody,
-    req.headers.get("x-paystack-signature"),
+    signatureHeader,
     Deno.env.get("PAYSTACK_WEBHOOK_SECRET"),
   );
+
+  // S14x: with the flag `provider_inbox_paystack` ON (default OFF) every webhook is first stored in provider_events (raw body,
+  // signature result, idempotency key) and only then handed to processVerifiedEvent below, the same code the old path runs. The flag
+  // is read before the signature verdict is used, so even a forged request is kept (as 'rejected') for forensics. See inbox-branch.ts.
+  if (await providerInboxEnabled(supabase)) {
+    return await handleViaInbox(rawBody, signatureHeader, signatureValid, supabase, (verifiedEvent) =>
+      processVerifiedEvent(rawBody, verifiedEvent as PaystackEvent, signatureHeader, supabase, orderDeps));
+  }
 
   if (!signatureValid) {
     return Response.json({ ok: false, error: "invalid_signature" }, { status: 200 });
@@ -435,9 +445,23 @@ export async function handleWebhookRequest(
     return Response.json({ ok: false, error: "invalid_json" }, { status: 200 });
   }
 
+  return await processVerifiedEvent(rawBody, event, signatureHeader, supabase, orderDeps);
+}
+
+/**
+ * Everything that happens to a Paystack event once its signature has been verified and its JSON parsed. Unchanged from the
+ * pre-inbox handler (it was the second half of handleWebhookRequest); extracted so the inbox path and the old path run the same code.
+ */
+export async function processVerifiedEvent(
+  rawBody: string,
+  event: PaystackEvent,
+  signatureHeader: string | null,
+  supabase: SupabaseClient,
+  orderDeps?: DepsFactory,
+): Promise<Response> {
   // S25: a v5 catalogue order is handled entirely in order-branch.ts, before anything is written to payment_transactions, so no
   // legacy activation or finance trigger can see it. See that file for why this branch answers 500 where the rest answer 200.
-  if (isOrderCharge(event)) return await handleOrderCharge(rawBody, req.headers.get("x-paystack-signature"), supabase, orderDeps);
+  if (isOrderCharge(event)) return await handleOrderCharge(rawBody, signatureHeader, supabase, orderDeps);
 
   const isRefundEvent = typeof event.event === "string" && event.event.startsWith("refund.");
 

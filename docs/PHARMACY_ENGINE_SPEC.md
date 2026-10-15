@@ -55,6 +55,8 @@
 > UPDATEs racing the same invariant) — caught by the dry run before it ever reached production, fixed
 > in the same pass (`fix_pharmacy_partner_onboarding_advance_update_order`).
 
+> **Update 2026-10-07 (OQ-16 / OQ-272 / OQ-281): home delivery has been REMOVED.** Everything below that describes `fulfilment_method`, `delivery_fee_kobo` on `pharmacy_partners`, `delivery_address`, `estimated_delivery_at`, `delivery_confirmed_at`, `delivered_at`, `logistics_partner_id`, `pharmacy_order_delivery_attempts`, the `out_for_delivery`/`delivery_failed`/`delivered` statuses, `AssignLogisticsForm`, `useAssignLogisticsPartner`, `useConfirmPharmacyDelivery` and `DeliveryAddressForm` is **historical**: those objects no longer exist. Orders are collection only (spec Part C.2) and `pharmacy_order_status` is now `pending_payment, payment_confirmed, requested, confirmed, unavailable, dispensed, cancelled`. The prescription PDF is the patient's MVP route to medicine. **Kept dormant** for a future partner: `logistics_partners` (+ permissions, readers, admin screen) and `pharmacy_orders.courier_reference`/`courier_assigned_at`/`requires_cold_chain`. See `docs/OPEN-QUESTIONS.md` OQ-16.
+
 ## 0. What this document is
 
 A "Pharmacy Engine" spec (§12.1–12.18, reproduced in §6) was handed in describing the medication
@@ -210,7 +212,7 @@ before (`is_active`/`pharmacy_medications.is_active` remain the only signals any
 This is the reconciliation the founder's 2026-08-28 ask called for: build the capability, don't make
 it mandatory.
 
-### 12.7 Price visibility — 🟢, built 2026-08-28
+### 12.7 Price visibility — 🟢, built 2026-08-28 (the delivery-fee part was removed 2026-10-07)
 **Corrected 2026-08-28.** `pharmacy_partners.delivery_fee_kobo` (the pharmacy's own flat fee,
 composed into `pharmacy_orders.total_kobo` by `useCreatePharmacyOrder` when
 `fulfilment_method='delivery'` — deliberately not `logistics_partners.delivery_fee_kobo`, which
@@ -259,7 +261,7 @@ deliberately **not** built for pharmacy — the video-visit-refunds shape is the
 here, not Synlab's heavier one, since pharmacy has no equivalent of Synlab's ongoing
 per-lab-network settlement relationship.
 
-### 12.10 Delivery — 🟡, schema-complete, switched off, unchanged 2026-08-28
+### 12.10 Delivery — ⛔ REMOVED 2026-10-07 (the text below is historical; see the update at the top of this file)
 `pharmacy_order_status` already has `requested → confirmed → dispensed → out_for_delivery → delivered
 → cancelled` (plus `pending_payment`/`payment_confirmed` prepended 2026-07-15) — matches the spec's
 diagram almost exactly. `fulfilment_method` (pickup/delivery), `logistics_partner_id`,

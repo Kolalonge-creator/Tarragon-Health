@@ -156,7 +156,7 @@ declare
   v_row_exists boolean;
 begin
   select id into v_other_product from public.service_products
-   where code <> 'preventive_health_check_review' and is_active and price_kobo > 0
+   where code <> 'preventive_health_check_review' and code <> 'second_opinion_credit' and is_active and price_kobo > 0
    order by code limit 1;
   if v_other_product is null then
     raise notice 'SKIP: no other active priced product to test scoping against';

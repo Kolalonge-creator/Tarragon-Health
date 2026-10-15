@@ -31,7 +31,7 @@ export interface DeskLookup {
 
 export type DeskResult = { kind: "found"; lookup: DeskLookup } | { kind: "not_found" } | { kind: "error"; message: string };
 
-const STATUSES = new Set(["active", "superseded", "expired", "cancelled"]);
+const STATUSES = new Set(["active", "superseded", "expired", "cancelled", "controlled_medicine"]);
 
 /** The first row of the function's answer. A malformed answer is an error, never a valid prescription. */
 export function parseDeskResult(data: unknown): DeskResult {
@@ -66,6 +66,9 @@ export function canRecordFromDesk(lookup: Pick<DeskLookup, "status" | "supply_av
 /** The sentence to read back to the pharmacist. */
 export function deskVerdict(lookup: Pick<DeskLookup, "status" | "supply_available" | "name_checked" | "name_matches">): string {
   if (lookup.status !== "active") {
+    if (lookup.status === "controlled_medicine") {
+      return "Do not dispense: this medicine is on the controlled medicines list, and Tarragon does not supply controlled medicines. Nothing can be recorded.";
+    }
     const why = { superseded: "has been replaced by a newer prescription", expired: "has expired", cancelled: "has been stopped by the prescriber" }[lookup.status];
     return `Do not dispense: this prescription ${why}.`;
   }

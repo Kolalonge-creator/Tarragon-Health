@@ -14,6 +14,7 @@
  * console, Sentry, analytics or a URL.
  */
 import type { MessageKey } from "@tarragon/i18n";
+import { checkAdultDateOfBirth } from "@tarragon/shared";
 
 /** The slice of supabase.auth these flows use; lets tests pass a fake. */
 export interface AuthApi {
@@ -112,8 +113,12 @@ export type SignUpOutcome =
  */
 export async function startPhoneSignUp(
   auth: AuthApi,
-  args: { phone: string; password: string; fullName: string; state?: string },
+  args: { phone: string; password: string; fullName: string; dateOfBirth: string; state?: string },
 ): Promise<SignUpOutcome> {
+  // Registration is for adults (S04b-1). The database refuses an under-18 date of birth too; this is the calm first answer.
+  const age = checkAdultDateOfBirth(args.dateOfBirth);
+  if (age === "under_age") return { kind: "error", key: "auth.error.adult_only" };
+  if (age === "invalid") return { kind: "error", key: "auth.error.invalid_dob" };
   const { error } = await auth.signUp({
     phone: args.phone,
     password: args.password,
@@ -121,6 +126,7 @@ export async function startPhoneSignUp(
       data: {
         full_name: args.fullName,
         phone: args.phone,
+        date_of_birth: args.dateOfBirth,
         ...(args.state ? { state: args.state } : {}),
       },
     },

@@ -9,7 +9,7 @@ This is TarragonHealth's Telehealth Consent, Schedule B of our legal documentati
 This is your consent to receive clinical monitoring, classification, and review from TarragonHealth remotely, and to be contacted by phone, message, or in the app as part of that care. It is separate from, and in addition to, our data processing consent and our terms of service.
 
 ## Your care team
-Your care is provided by doctors registered with the Medical and Dental Council of Nigeria (MDCN), whose registration is verified before they can see patients and checked continuously afterwards; a doctor whose registration or indemnity cover lapses is automatically suspended from seeing patients overnight, with no manual step required. TarragonHealth staffs care across five levels of clinical seniority, so a case is handled by whoever's judgement it actually needs: a first-line doctor reviews routine, stable readings under protocol; a more senior doctor initiates new medications or adjusts a dose; and the most senior doctors handle complex cases, set referral urgency, and own the clinical protocols everyone else works under. Non-clinical coordinators may also be involved in your care; they follow up if we haven't heard from you and help with logistics, and can see your progress record, but they cannot read your clinical notes, interpret a result, adjust your medication, or give clinical advice. Anything clinical is always handled by a doctor.
+Your care is provided by doctors registered with the Medical and Dental Council of Nigeria (MDCN), whose registration is verified before they can see patients and checked continuously afterwards; a doctor whose registration or indemnity cover lapses is automatically suspended from seeing patients overnight, with no manual step required. Your care is led by our doctors, who review readings under clinical protocols, start and adjust medications, and refer you on when needed. Our Chief Medical Officer oversees the care team and signs the clinical protocols everyone works under. Non-clinical coordinators may also be involved in your care; they follow up if we haven't heard from you and help with logistics, and can see your progress record, but they cannot read your clinical notes, interpret a result, adjust your medication, or give clinical advice. Anything clinical is always handled by a doctor.
 
 Every clinical note you can read shows the treating doctor's name and MDCN number.
 
@@ -33,11 +33,11 @@ Different channels carry different kinds of information, on purpose:
 
 • The app is your record: your ongoing conversation with your care team, your results, your care plan, and your consent history live here. This in-app conversation is the primary channel for anything clinical.
 
-• A phone or video call is how clinical judgement is delivered: if something in your results needs discussing, a clinician or coordinator calls you. Increasingly, this happens through a masked-number system so neither your number nor theirs is exposed to the other, and the call is logged to your record.
+• A phone or video call is how clinical judgement is delivered: if something in your results needs discussing, a doctor calls you by phone or video. Increasingly, this happens through a masked-number system so neither your number nor theirs is exposed to the other, and the call is logged to your record.
 
-• SMS is used for urgent backup, and as the primary channel if you've told us you don't use a smartphone.
+• Text messages (SMS) are used only for phone verification codes. Care conversations happen in the app and by phone or video.
 
-• WhatsApp is notification-only, a short message telling you a result is ready or a check-in is due, so you open the app. It never contains a specific number, result, diagnosis, or medication name, and this is enforced by our systems, not just our policy. Two-way conversation with your care team happens in the app, not on WhatsApp: send a message any time and a real person on your care team reads it and replies there directly, never an automated system parsing what you send into a platform action.
+• Two-way conversation with your care team happens in the app only: send a message any time and a real person on your care team reads it and replies there directly, never an automated system turning what you send into a platform action. We do not use WhatsApp.
 
 • Email carries documents: receipts, reports, and copies of your consent records.
 
@@ -46,6 +46,8 @@ Remote monitoring lets your care team review your readings and respond between v
 
 ## Emergency care
 TarragonHealth does not provide emergency care. If you are having a medical emergency, do not wait for a message or a call from us. Go to the nearest hospital or call [Nigeria's emergency line, exact number to be confirmed] immediately. No part of this platform is designed to be used in an emergency.
+
+If you are on the Free plan, no doctor is alerted when you record a reading or symptom that looks dangerous. The app shows you what to do straight away (seek emergency care or go to the nearest hospital) and tells you plainly that no doctor was alerted because you are on the Free plan. If you are a Member, a dangerous reading is seen by our care team as part of your care, but that is still not an emergency service: in an emergency, go to the nearest hospital first. [Drafted 2026-10-13 for the two-plan model; counsel and the CMO and DPO to confirm. The care-team and WhatsApp wording in this schedule was also updated the same day: one doctor tier plus the CMO, in-app and phone or video only.]
 
 ## Confidentiality
 Your clinical information is kept confidential. It is shared with your care team on a need-to-know basis, and outside that only with your specific consent (including a family member or sponsor you have separately consented to give view access to), where the law requires disclosure, or where there is a serious threat to your life, health, or public health. See our Data Processing Consent for how we handle your data more broadly.

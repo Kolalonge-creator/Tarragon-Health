@@ -28,6 +28,9 @@ export default async function ClinicianConsultationPage({ params }: { params: Pr
         <Link href="/clinician/consultations" className="text-sm font-medium text-brand-green hover:underline">
           ← Back to consultations
         </Link>
+        <Link href={`/clinician/precall/${encounterId}`} className="text-sm font-medium text-brand-green hover:underline">
+          Before the call →
+        </Link>
         {view.video_consultation_id && (
           <Link href={`/clinician/video-visit/${view.video_consultation_id}`} className="text-sm font-medium text-brand-green hover:underline">
             Notes, scribe and prescribing →

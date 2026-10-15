@@ -6,7 +6,8 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./journal-crypto": "./src/wellbeing-library/journal-crypto.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -22,5 +23,8 @@
     "ts-jest": "^29.4.11",
     "typescript": "^5",
     "typescript-eslint": "^8"
+  },
+  "dependencies": {
+    "@noble/ciphers": "^2.4.0"
   }
 }

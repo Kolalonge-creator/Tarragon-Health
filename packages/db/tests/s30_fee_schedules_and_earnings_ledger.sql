@@ -116,9 +116,15 @@ $f$ declare v_task uuid;
 begin
   v_task := (pg_temp.next_as(p_uid) -> 'task' ->> 'id')::uuid;
   if v_task is null then return null; end if;
-  perform pg_temp.act(p_uid);
-  perform public.queue_complete(v_task, '{"done": true}'::jsonb);
-  perform pg_temp.back();
+  if (select type from public.clinical_tasks where id = v_task) in ('symptom_review', 'async_question', 'critical_result_review', 'titration_signoff', 'red_event_unacknowledged') then
+    -- D4 (S16-S20): these close only against a system record, which this proof does not build; it tests earnings, so it closes
+    -- through the internal transition the real flows also use
+    perform private.apply_task_transition(v_task, 'completed', 'clinician', p_uid, null, null, null, '{"code":"closed_for_proof"}'::jsonb);
+  else
+    perform pg_temp.act(p_uid);
+    perform public.queue_complete(v_task, '{"code": "completed_action_taken"}'::jsonb);
+    perform pg_temp.back();
+  end if;
   return v_task;
 end $f$;
 create function pg_temp.clear_queue() returns void language plpgsql as
@@ -613,9 +619,9 @@ begin
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
   perform pg_temp.setf('admin', v_admin);
   update public.clinical_staff set active = false where is_test is not true;
-  perform pg_temp.setf('doc', pg_temp.mkdoc(v_org, 'doc', 'medical_officer', 'contracted', '{adult_general,hypertension}', v_admin));
-  perform pg_temp.setf('doc2', pg_temp.mkdoc(v_org, 'doc2', 'medical_officer', 'contracted', '{adult_general,hypertension}', v_admin));
-  perform pg_temp.setf('emp', pg_temp.mkdoc(v_org, 'emp', 'medical_officer', 'employed', '{adult_general,hypertension}', v_admin));
+  perform pg_temp.setf('doc', pg_temp.mkdoc(v_org, 'doc', 'senior_medical_officer', 'contracted', '{adult_general,hypertension}', v_admin));
+  perform pg_temp.setf('doc2', pg_temp.mkdoc(v_org, 'doc2', 'senior_medical_officer', 'contracted', '{adult_general,hypertension}', v_admin));
+  perform pg_temp.setf('emp', pg_temp.mkdoc(v_org, 'emp', 'senior_medical_officer', 'employed', '{adult_general,hypertension}', v_admin));
   perform pg_temp.setf('cmo', pg_temp.mkdoc(v_org, 'cmo', 'chief_medical_officer', 'contracted', '{adult_general,on_call,prescribing,result_review,hypertension}', v_admin));
   perform pg_temp.setf('p1', pg_temp.mkuser(v_org, 'p1', 'patient'));
   perform pg_temp.setf('p2', pg_temp.mkuser(v_org, 'p2', 'patient'));
