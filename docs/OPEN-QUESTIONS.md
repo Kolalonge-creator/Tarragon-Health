@@ -2835,7 +2835,7 @@ From the six package closeouts (`docs/design/S11-S15-*-closeout.md`), de-duplica
 All undecided on 2026-10-15. Each has options and a recommendation; the recommendation is the agent's, not a decision. Source notes: `docs/design/S16-S20-task-layer.md`, `S16-S20-pager-delivery.md`, `S16-S20-quality-v2.md`. The CMO's 16 selections these build on are in `docs/DECISIONS.md` (S16-S20-1 to 16).
 
 ### OQ-432 Which queue wins for a symptom review that needs a doctor (raised by the task layer)
-- The existing symptom triage already raises a `clinician_alerts` review alert; `docs/design/S55-S60-build-plan.md` plans a `symptom_reviews` task with its own SLA. A `symptom_review` task now would put the same review in two queues (the P5 parallel-paging problem). The completion check is ready; no producer exists.
+- The existing symptom triage already raises a `clinician_alerts` review alert; `docs/design/S55-S60-build-plan.md` plans a `symptom_reviews` task with its own SLA. A `symptom_review` task now would put the same review in two queues (the P5 parallel-paging problem). The completion check is ready; no producer existed when the task layer merged. Update after merging `origin/main-dev` on 2026-10-15: S60 (`20261015021409_s60_symptom_review_closes_its_task.sql`) now lets a completed `symptom_reviews` record close a `symptom_review` task, so a task path exists; whether the review alert is still raised beside it has not been checked here.
 - Options: (a) the alert stays the only queue and the task type is retired; (b) the task replaces the alert for Members and the alert is suppressed; (c) both, with the alert closing the task.
 - Recommendation: (b), decided together with Stage 3 (retire parallel older paging). Owner: CMO and founder.
 - Decision: open.
