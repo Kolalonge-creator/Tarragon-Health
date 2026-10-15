@@ -19,8 +19,12 @@ export const GUARD_KEYS = [
   "home_bp_programme",
   "bp_pattern_flag",
   "prn_limits",
+  "symptom_checker_enabled",
 ] as const;
 export type GuardKey = (typeof GUARD_KEYS)[number];
+
+/** The guard the symptom checker is wired to (INV-14, F1). */
+export const SYMPTOM_CHECKER_GUARD: GuardKey = "symptom_checker_enabled";
 
 /** The guard the consultation flow is wired to (INV-14). */
 export const CONSULTATIONS_GUARD: GuardKey = "clinical_operations_enabled";

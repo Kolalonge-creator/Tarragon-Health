@@ -207,7 +207,8 @@ export async function loadHealthEducationRecommendations(patientId: string): Pro
     .is("dismissed_at", null)
     .order("triggered_at", { ascending: false });
   if (error) throw error;
-  return (data ?? []) as unknown as EducationRecommendation[];
+  // F1: content past its review date is hidden by RLS, so its embedded row comes back null; drop those cards.
+  return ((data ?? []) as unknown as EducationRecommendation[]).filter((r) => r.content !== null);
 }
 
 export async function dismissRecommendation(id: string): Promise<void> {
