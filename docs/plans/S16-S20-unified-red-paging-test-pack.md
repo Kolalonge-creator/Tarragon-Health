@@ -10,10 +10,13 @@ What it does not change: the emergency guidance the patient sees, the emergency 
 
 You need, in staging:
 
+0. **Pre-switch-on checklist: a rota covers at least the next 7 days, every hour, with a primary and a backup**, each having passed a test page and having a working push subscription and a verified email. Without it, every red event is a no-cover page.
 1. A test **Member** patient for each scenario (or reuse one and wait 30 minutes between scenarios 3 to 7, because repeat events inside 30 minutes join one page by design). Test patients are marked `is_test`, so their pages go to the **test** on-call rota.
 2. A test **Free** patient (no membership).
 3. A test on-call rota with a **primary** and a **backup**, both clinicians who have passed a test page from the On call screen, each with the console open. A third clinician who is not on call, and a second test clinician who is a **relative** of one test patient (conflict declared).
 4. Unified red-event paging **OFF** (the hub shows "Unified red-event paging (off)").
+
+Note on version 1: red-level events (oxygen red, heart rate red, temperature red, red-flag symptom) replace the older notice; emergency-level events do both. The CMO can sign a later version that also turns the older notice off for emergencies.
 
 Expected results use these words: **page** = the on-call clinician's console rings and shows a red event page; **old notice** = every clinician gets the "red flag" notification and nobody is named.
 
@@ -36,7 +39,7 @@ At the hub: open the line, tick that you ran this pack and that you understand, 
 | 4 | Heart rate 130 | The same. |
 | 5 | Temperature 39.5 | The same. |
 | 6 | Chest pain symptom, severity 7 | The same. |
-| 7 | Oxygen reading 85, then heart rate 30 (emergency level) | The primary is paged. The patient still sees the emergency guidance and must acknowledge it. The emergency contact is notified as before. The old "emergency" notice to everyone does **not** go out. |
+| 7 | Oxygen reading 85, then heart rate 30 (emergency level) | The primary is paged. The patient still sees the emergency guidance and must acknowledge it. The emergency contact is notified as before. In version 1 the older "emergency" notice to every clinician **also** still goes out (page and broadcast side by side). |
 | 8 | Log an emergency event of another kind from the app (for example the danger-symptom checklist) | The primary is paged. |
 | 9 | Oxygen reading 93, heart rate 110, temperature 38.0, a symptom at severity 5 (amber levels) | The old notice to every clinician, **no page**. Amber is not red. |
 | 10 | Blood pressure 190 over 120 for a test patient, and a blood pressure emergency event | Behaves exactly as it did before the switch (blood pressure already has its own page). Nothing new. |
@@ -50,9 +53,11 @@ Check on every page above: the page names only a fixed neutral message (no readi
 | 11 | Page a test patient, do not acknowledge for 5 minutes | The **backup** is paged at 5 minutes. At 10 minutes the clinical lead and ops are alerted. |
 | 12 | Log oxygen 91, then heart rate 130, then temperature 39.5 for the **same** patient within a few minutes | **One** page for the primary, not three. The page shows merged events. |
 | 13 | Acknowledge that page, then log a new chest pain symptom at 7 for the same patient | A **new** page rings (a new red event after someone acknowledged is never lost). |
-| 14 | Take the primary and backup off the rota, then log oxygen 91 | A page with "no cover" goes to the clinical lead, a priority task opens, an ops incident is raised, **and** the old notice still goes to every clinician. |
+| 14 | Take the primary and backup off the rota, then log oxygen 91 | A page with "no cover" goes to the clinical lead, a priority task opens, an ops incident is raised, **and** the old notice still goes to every clinician. Alarm fatigue note: in this state, and for every emergency-level event in version 1, the clinical lead is paged and every clinician also gets the older notice. That is deliberate until delivery is proven. |
 | 15 | Make a test clinician a relative of the patient and put them on call | They are **not** paged and cannot acknowledge. The backup is paged instead. |
 | 16 | Log oxygen 91 for the **Free** patient, then oxygen 85 | No page, no clinician alert. The patient sees the guidance and a self-care suggestion. For 85 the emergency guidance and emergency contact notice still happen. |
+| 13b | With an unacknowledged oxygen 91 page open, log a heart rate of 30 (emergency level) for the same patient | A **second, separate** page rings the primary (an emergency is never folded into the open red page) and has its own 5 and 10 minute clock. |
+| 13c | Make the on-call primary unreachable (disable their push subscription and unconfirm their email), then log oxygen 91 | The page is still made, **and** every clinician also gets the older notice (we do not rely on a page nobody can receive). |
 | 17 | A test patient with a Care Circle member who allowed red alerts: log oxygen 91 | The page rings the primary. The Care Circle member gets **nothing** (a unified page does not tell the Care Circle; a blood pressure page still does). |
 | 17b | Log a pregnancy symptom checklist emergency, an exposure report, and an AI coach emergency; log a glucose emergency (glucose below 3.0) | No page for any of them. The old notice to every clinician runs, as before. |
 

@@ -142,9 +142,11 @@ declare
   m1 uuid; m2 uuid; m3 uuid; m4 uuid; m5 uuid; m6 uuid; m7 uuid; m8 uuid; m9 uuid; m10 uuid; m11 uuid; m12 uuid; m13 uuid; m14 uuid;
   f1 uuid; f2 uuid; v_rota jsonb; v_te uuid; v_page uuid; v_root public.pages%rowtype; v_r text; v_x uuid; v_d text; v_cfg uuid;
   v_orig_covers text; v_orig_on text; v_orig_create text; v_orig_spo2 text; v_ev uuid;
+  v_orig_covers_clean text; m_em uuid; m_nr uuid; m_f uuid; m_v2 uuid; v_orig_cr text; v_orig_gate text; v_orig_cov2 text; v_r2 text;
   m_wd uuid; v_wd jsonb; v_orig_rule text; v_orig_wd text; v_wd_audit integer;
   m_rp uuid; m_ex uuid; m_ai uuid; m_gl uuid; m_cc uuid; v_circle uuid; v_resp uuid; v_circle_n integer; v_orig_resp text; v_orig_circle text;
 begin
+  v_orig_covers_clean := pg_get_functiondef('private.unified_red_page_covers(text,uuid,uuid,text,uuid)'::regprocedure);
   select id into v_org from public.organisations order by created_at limit 1;
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
   update public.clinical_staff set active = false where is_test is not true;
@@ -252,9 +254,9 @@ begin
     pg_temp.roots(m3) || '|' || (select to_clinician_id from public.pages where patient_id = m3 and parent_page_id is null) || '|' || pg_temp.legacy_n(m3) || '|' || pg_temp.alerts(m3) || '|' || pg_temp.ute(m3));
   perform pg_temp.rec('ON: red-flag symptom', '1|' || v_p || '|0|1|1',
     pg_temp.roots(m4) || '|' || (select to_clinician_id from public.pages where patient_id = m4 and parent_page_id is null) || '|' || pg_temp.legacy_n(m4) || '|' || pg_temp.alerts(m4) || '|' || pg_temp.ute(m4));
-  perform pg_temp.rec('ON: SpO2 emergency level is paged through its emergency event, legacy broadcast suppressed, guidance event kept', '1|0|1|1',
+  perform pg_temp.rec('ON (v1): SpO2 emergency level is paged through its emergency event AND the legacy broadcast still runs beside it, guidance event kept', '1|' || v_n_clin || '|1|1',
     pg_temp.roots(m5) || '|' || pg_temp.legacy_n(m5) || '|' || (select count(*)::text from public.emergency_events where patient_id = m5 and source = 'spo2_red_flag') || '|' || pg_temp.ute(m5));
-  perform pg_temp.rec('ON: pulse emergency level', '1|0|1|1',
+  perform pg_temp.rec('ON (v1): pulse emergency level pages and keeps the legacy broadcast', '1|' || v_n_clin || '|1|1',
     pg_temp.roots(m6) || '|' || pg_temp.legacy_n(m6) || '|' || (select count(*)::text from public.emergency_events where patient_id = m6 and source = 'pulse_red_flag') || '|' || pg_temp.ute(m6));
   perform pg_temp.rec('ON: a glucose emergency event stays on its own path (the glucose triage page, once signed): no second page, old broadcast kept', '0|' || v_n_clin || '|0', pg_temp.roots(m7) || '|' || pg_temp.legacy_n(m7) || '|' || pg_temp.ute(m7));
   perform pg_temp.rec('ON: a mental health screen crisis keeps its own pager: no second page, old broadcast kept, nothing unified', '0|' || v_n_clin || '|0', pg_temp.roots(m8) || '|' || pg_temp.legacy_n(m8) || '|' || pg_temp.ute(m8));
@@ -303,6 +305,56 @@ begin
   perform pg_temp.act(v_cmo);
   perform pg_temp.rec('the CMO can read the paging config', '1', (select count(*)::text from public.unified_red_paging_config));
   perform pg_temp.back();
+
+
+  -- M1: the emergency legacy-suppression is a config key (v1 = 0); a later signed version can turn it on. Config shape first.
+  perform pg_temp.rec('v1 keeps the emergency broadcast (suppress_legacy_emergency_notice = 0) and suppresses it for the red levels (= 1)', '0,1',
+    (select (rules ->> 'suppress_legacy_emergency_notice') || ',' || (rules ->> 'suppress_legacy_clinician_notice') from public.unified_red_paging_config where version = 1));
+  perform pg_temp.rec('a version without the emergency key is refused', '23514', pg_temp.try($q$insert into public.unified_red_paging_config (version, effective_from, rules) values (96, current_date, '{"spo2_red":1,"pulse_red":1,"temperature_red":1,"symptom_red_flag":1,"emergency_event":1,"suppress_legacy_clinician_notice":1}')$q$));
+
+  -- M2: an emergency-level event must not be swallowed by an open, unacknowledged RED page: it makes its own page and rings the primary again
+  m_em := pg_temp.member(v_org, v_admin, 'emergency-after-red');
+  perform pg_temp.spo2(m_em, 91);
+  perform pg_temp.pulse(m_em, 30);
+  perform pg_temp.rec('ON: an emergency joining an open red page makes its OWN page (two roots, nothing merged), both to the primary', '2|0|' || v_p,
+    pg_temp.roots(m_em) || '|' || (select coalesce(sum(merged_count), 0)::text from public.pages where patient_id = m_em) || '|' || (select string_agg(distinct to_clinician_id::text, ',') from public.pages where patient_id = m_em and parent_page_id is null));
+  perform pg_temp.rec('ON: the emergency page has its own 5 minute clock (backup paged from the emergency page, not from the older red page)', 'true',
+    (select (count(*) = 2)::text from public.pages where patient_id = m_em and parent_page_id is null and role = 'primary' and backup_paged_at is null));
+  perform pg_temp.symptom(m_em, 'chest_pain', 7);
+  perform pg_temp.rec('ON: a later RED event still joins an open family as before (no extra root)', '2', pg_temp.roots(m_em)::text);
+
+  -- M1: the named primary has no way to be told (push token dead, email unverified): the old broadcast runs too
+  update public.push_subscriptions set disabled_at = now() where profile_id = v_p;
+  update auth.users set email_confirmed_at = null where id = v_p;
+  m_nr := pg_temp.member(v_org, v_admin, 'primary-unreachable');
+  perform pg_temp.spo2(m_nr, 91);
+  perform pg_temp.rec('ON, primary with a dead push token and no verified email: the page is made AND the old broadcast runs', '1|' || v_n_clin, pg_temp.roots(m_nr) || '|' || pg_temp.legacy_n(m_nr));
+  v_orig_cov2 := pg_get_functiondef('private.unified_red_page_covers(text,uuid,uuid,text,uuid)'::regprocedure);
+  if replace(v_orig_cov2, 'or not (exists (select 1 from public.push_subscriptions', 'or false and (exists (select 1 from public.push_subscriptions') = v_orig_cov2 then raise exception 'VACUOUS TEST: route check text not found'; end if;
+  execute replace(v_orig_cov2, 'or not (exists (select 1 from public.push_subscriptions', 'or false and (exists (select 1 from public.push_subscriptions');
+  m_f := pg_temp.member(v_org, v_admin, 'sab-route');
+  perform pg_temp.spo2(m_f, 91);
+  perform pg_temp.sab('ON, primary with no route: the old broadcast runs too', v_n_clin::text, pg_temp.legacy_n(m_f)::text);
+  execute v_orig_cov2;
+  update public.push_subscriptions set disabled_at = null where profile_id = v_p;
+  update auth.users set email_confirmed_at = now() where id = v_p;
+
+  -- L1: the Free gate itself errors: fail closed toward the old path (no page, no unified event), the reading still saved
+  v_orig_gate := pg_get_functiondef('private.patient_may_page_doctor(uuid)'::regprocedure);
+  create or replace function private.patient_may_page_doctor(p_patient uuid) returns boolean language plpgsql as $f$ begin raise exception 'membership store unavailable'; end $f$;
+  m_f := pg_temp.member(v_org, v_admin, 'gate-errors');
+  v_r := pg_temp.try(format('select pg_temp.spo2(%L, 91)', m_f));
+  execute v_orig_gate;
+  perform pg_temp.rec('ON, the Free gate errors: the reading is saved, no page, no unified event, the old path applies', 'ok|0|0', v_r || '|' || pg_temp.roots(m_f) || '|' || pg_temp.ute(m_f));
+  v_orig_cov2 := pg_get_functiondef('private.unified_red_page_covers(text,uuid,uuid,text,uuid)'::regprocedure);
+  if replace(v_orig_cov2, E'  exception when others then\n    return false;\n  end;\n  if not coalesce(v_may', E'  exception when no_data_found then\n    return false;\n  end;\n  if not coalesce(v_may') = v_orig_cov2 then raise exception 'VACUOUS TEST: gate handler text not found'; end if;
+  execute replace(v_orig_cov2, E'  exception when others then\n    return false;\n  end;\n  if not coalesce(v_may', E'  exception when no_data_found then\n    return false;\n  end;\n  if not coalesce(v_may');
+  create or replace function private.patient_may_page_doctor(p_patient uuid) returns boolean language plpgsql as $f$ begin raise exception 'membership store unavailable'; end $f$;
+  m_f := pg_temp.member(v_org, v_admin, 'sab-gate');
+  v_r2 := pg_temp.try(format('select pg_temp.spo2(%L, 91)', m_f));
+  execute v_orig_gate;
+  execute v_orig_covers_clean;
+  perform pg_temp.sab('ON, the Free gate errors: the reading is still saved', 'ok', v_r2);
 
   -- 5. Not red-class stays on the old path -----------------------------------------------------------------------------------
   m9 := pg_temp.member(v_org, v_admin, 'amber-spo2'); m10 := pg_temp.member(v_org, v_admin, 'amber-symptom'); m11 := pg_temp.member(v_org, v_admin, 'bp-emergency');
@@ -419,6 +471,19 @@ begin
   perform pg_temp.back();
   perform pg_temp.rec('the CMO can switch it back on', 'true', private.unified_red_paging_on('spo2_red')::text);
 
+  -- M1 (later version): a signed version with suppress_legacy_emergency_notice = 1 suppresses the emergency broadcast once a page covers it
+  insert into public.unified_red_paging_config (version, effective_from, rules)
+    values (2, current_date, '{"spo2_red":1,"pulse_red":1,"temperature_red":1,"symptom_red_flag":1,"emergency_event":1,"suppress_legacy_clinician_notice":1,"suppress_legacy_emergency_notice":1}');
+  perform pg_temp.act(v_cmo);
+  perform public.sign_unified_red_paging_config(2, true);
+  perform pg_temp.back();
+  m_v2 := pg_temp.member(v_org, v_admin, 'v2-emergency');
+  perform pg_temp.spo2(m_v2, 85);
+  perform pg_temp.rec('ON (v2, emergency suppression on): the emergency page is made and the emergency broadcast is suppressed', '1|0', pg_temp.roots(m_v2) || '|' || pg_temp.legacy_n(m_v2));
+  perform pg_temp.act(v_cmo);
+  perform public.sign_unified_red_paging_config(1, true);
+  perform pg_temp.back();
+
   m14 := pg_temp.member(v_org, v_admin, 'no-cover');
   update public.clinical_staff set active = false where profile_id in (v_p, v_b, v_other);
   perform pg_temp.spo2(m14, 91);
@@ -530,6 +595,19 @@ begin
   end;
   execute v_orig_circle;
 
+
+  -- S10: the create_red_page merge exclusion removed. An emergency must then wrongly be swallowed by the open red page.
+  v_orig_cr := pg_get_functiondef('public.create_red_page(uuid)'::regprocedure);
+  if replace(v_orig_cr, ' and not (te.rule_set_code is not distinct from ''unified_red_paging'' and te.basis = ''emergency_event'')', '') = v_orig_cr then raise exception 'VACUOUS TEST: merge exclusion text not found'; end if;
+  execute replace(v_orig_cr, ' and not (te.rule_set_code is not distinct from ''unified_red_paging'' and te.basis = ''emergency_event'')', '');
+  declare m_s10 uuid := pg_temp.member(v_org, v_admin, 'sab10');
+  begin
+    perform pg_temp.spo2(m_s10, 91);
+    perform pg_temp.pulse(m_s10, 30);
+    perform pg_temp.sab('ON: an emergency joining an open red page makes its own page', '2', pg_temp.roots(m_s10)::text);
+  end;
+  execute v_orig_cr;
+
   -- S9: the watchdog exclusion removed. The watchdog must then wrongly treat the merged event as unpaged and raise the audit row.
   if to_regprocedure('private.sweep_unpaged_red_events()') is not null then
     v_orig_wd := pg_get_functiondef('private.sweep_unpaged_red_events()'::regprocedure);
@@ -557,8 +635,8 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 9 then
-    raise exception 'VACUOUS TEST: only % of 9 sabotage steps changed the matching check', v_caught;
+  if v_caught < 12 then
+    raise exception 'VACUOUS TEST: only % of 12 sabotage steps changed the matching check', v_caught;
   end if;
 end $$;
 

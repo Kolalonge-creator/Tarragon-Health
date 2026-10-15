@@ -53,7 +53,7 @@ language plpgsql immutable set search_path = ''
 as $$
 declare k text;
 begin
-  foreach k in array array['spo2_red', 'pulse_red', 'temperature_red', 'symptom_red_flag', 'emergency_event', 'suppress_legacy_clinician_notice'] loop
+  foreach k in array array['spo2_red', 'pulse_red', 'temperature_red', 'symptom_red_flag', 'emergency_event', 'suppress_legacy_clinician_notice', 'suppress_legacy_emergency_notice'] loop
     if not coalesce((r ->> k) in ('0', '1'), false) then return false; end if;
   end loop;
   return true;
@@ -81,7 +81,9 @@ create trigger unified_red_paging_config_guard before update or delete on public
   for each row execute function private.unified_red_paging_config_guard();
 
 -- unified-red-paging-rules-begin
--- Version 1: every source on, and the legacy broadcast suppressed only where a page with a named clinician exists. INACTIVE and UNSIGNED:
+-- Version 1: every source on. The legacy broadcast is suppressed only for the RED LEVELS (SpO2, pulse, temperature, red-flag symptom) and only where a page with a
+-- named, reachable clinician exists. For EMERGENCY EVENTS the page and the legacy broadcast run side by side (suppress_legacy_emergency_notice = 0) until the
+-- CMO has seen delivery proven and signs a later version with it set to 1. INACTIVE and UNSIGNED:
 -- nothing happens until the Chief Medical Officer signs it on the sign-off hub after running the test pack.
 insert into public.unified_red_paging_config (version, is_active, effective_from, rules) values (1, false, '2026-10-15', $json$
 {
@@ -90,7 +92,8 @@ insert into public.unified_red_paging_config (version, is_active, effective_from
   "temperature_red": 1,
   "symptom_red_flag": 1,
   "emergency_event": 1,
-  "suppress_legacy_clinician_notice": 1
+  "suppress_legacy_clinician_notice": 1,
+  "suppress_legacy_emergency_notice": 0
 }
 $json$::jsonb);
 -- unified-red-paging-rules-end
@@ -211,12 +214,18 @@ create function private.unified_red_page_covers(
 language plpgsql security definer set search_path = ''
 as $$
 declare
-  v_te uuid; v_page uuid; v_no_cover boolean; v_test boolean;
+  v_te uuid; v_page uuid; v_no_cover boolean; v_test boolean; v_may boolean; v_to uuid;
 begin
   -- Flag off, unsigned, missing or unreadable: the old path runs untouched.
   if p_patient is null or p_ref_id is null or not private.unified_red_paging_on(p_source) then return false; end if;
   -- Two-tier: a Free patient's red event pages nobody. The legacy handlers already give them the guidance record; nothing is added here.
-  if not private.patient_may_page_doctor(p_patient) then return false; end if;
+  -- If the gate itself errors, fail CLOSED toward the old path (never page a Free patient because of an error); the legacy handler then applies its own rules.
+  begin
+    v_may := private.patient_may_page_doctor(p_patient);
+  exception when others then
+    return false;
+  end;
+  if not coalesce(v_may, false) then return false; end if;
   begin
     select id into v_te from public.triage_events
      where rule_set_code = 'unified_red_paging' and trigger_type = 'unified_red' and trigger_id = p_ref_id and basis = p_source;
@@ -232,10 +241,17 @@ begin
     end if;
     v_page := public.create_red_page(v_te);
     if v_page is null then return false; end if;
-    select no_cover into v_no_cover from public.pages where id = v_page;
+    select no_cover, to_clinician_id into v_no_cover, v_to from public.pages where id = v_page;
     -- Nobody on cover: leadership was alerted by the ladder, and the old broadcast ALSO runs, so a clinician who can see the patient is told.
     if coalesce(v_no_cover, true) then return false; end if;
-    return coalesce(private.unified_red_rule('suppress_legacy_clinician_notice'), 0) = 1;
+    -- The named clinician must have a way to be told: an active push subscription or a verified email. Otherwise the page may never arrive and the old broadcast runs too.
+    if v_to is null
+       or not (exists (select 1 from public.push_subscriptions s where s.profile_id = v_to and s.disabled_at is null)
+               or exists (select 1 from auth.users u where u.id = v_to and u.email is not null and u.email_confirmed_at is not null)) then
+      return false;
+    end if;
+    -- Emergency events keep the old broadcast beside the page until the CMO signs a version that turns this on.
+    return coalesce(private.unified_red_rule(case when p_source = 'emergency_event' then 'suppress_legacy_emergency_notice' else 'suppress_legacy_clinician_notice' end), 0) = 1;
   exception when others then
     -- The sub-block rolled back its own work. The old path runs. Not silent: an audit row and an ops incident.
     begin
@@ -304,6 +320,12 @@ begin
   perform pg_temp.s19d_patch_once('private.handle_emergency_event()'::regprocedure, E'where organisation_id = new.organisation_id and role = ''clinician''\n      loop',
     E'where organisation_id = new.organisation_id and role = ''clinician''\n          and not v_unified_paged\n      loop');
 
+  -- 5c2. An emergency-level event must never be swallowed by an open, unacknowledged, lower-severity page: it is not allowed to join a family, so it makes its
+  --      own page and rings the primary on its own 5 and 10 minute clock. (A red-level event joining a red family stays as in S19c.)
+  perform pg_temp.s19d_patch_once('public.create_red_page(uuid)'::regprocedure,
+    $a$and acknowledged_at is null and sent_at > now() - make_interval($a$,
+    $b$and acknowledged_at is null and not (te.rule_set_code is not distinct from 'unified_red_paging' and te.basis = 'emergency_event') and sent_at > now() - make_interval($b$);
+
   -- 5d. Everything else that reads triage_events or pages and would otherwise count or mishandle a unified row.
   --     (1) the patient's "could not get care" answer must attach to the emergency event (which has the red-alert watch), never to a unified row (which has
   --     none); (2) the chain-health timings, the parity measure and the risk score were built on the blood pressure engine and must not be moved by another
@@ -316,18 +338,6 @@ begin
   perform pg_temp.s19d_patch_once('public.record_red_care_response(uuid,text,uuid,uuid,timestamptz)'::regprocedure, $a$where patient_id = v_uid and grade = 'red' and not shadow and created_at$a$, $b$where patient_id = v_uid and grade = 'red' and not shadow and rule_set_code is distinct from 'unified_red_paging' and created_at$b$);
   perform pg_temp.s19d_patch_once('private.notify_circle_red_alert()'::regprocedure, E'  if new.parent_page_id is not null then return new; end if;\n',
     E'  if new.parent_page_id is not null then return new; end if;\n  if exists (select 1 from public.triage_events ut where ut.id = new.triage_event_id and ut.rule_set_code = ''unified_red_paging'') then return new; end if;\n');
-
-  -- 5e. The S78a watchdog pages any red triage event that has no ROOT page. An event that joined an open page family (page_merged_events) has no root page of
-  --     its own by design, and a Free patient's event has none either, so the watchdog would call create_red_page for each of them every 15 seconds for six hours,
-  --     raise "paging path stalled" on a healthy system, and let those rows fill its 50-row window ahead of a genuinely unpaged event. S19c's own reconciler already
-  --     excludes both; the watchdog now does too. Skipped when the watchdog is not installed (it arrives with S78a).
-  if to_regprocedure('private.sweep_unpaged_red_events()') is not null then
-    perform pg_temp.s19d_patch_once('private.sweep_unpaged_red_events()'::regprocedure,
-      $a$and not exists (select 1 from public.pages p where p.triage_event_id = te.id and p.parent_page_id is null)$a$,
-      $b$and not exists (select 1 from public.pages p where p.triage_event_id = te.id and p.parent_page_id is null)
-       and not exists (select 1 from public.page_merged_events m where m.triage_event_id = te.id)
-       and not exists (select 1 from public.free_red_events f where f.triage_event_id = te.id)$b$);
-  end if;
 end
 $patch$;
 
@@ -349,9 +359,8 @@ begin
      or position('unified_red_paging' in pg_get_functiondef('private.notify_circle_red_alert()'::regprocedure)) = 0 then
     raise exception 'S19d: a dependent function was not patched';
   end if;
-  if to_regprocedure('private.sweep_unpaged_red_events()') is not null
-     and position('page_merged_events' in pg_get_functiondef('private.sweep_unpaged_red_events()'::regprocedure)) = 0 then
-    raise exception 'S19d: the paging watchdog was not patched';
+  if position('unified_red_paging' in pg_get_functiondef('public.create_red_page(uuid)'::regprocedure)) = 0 then
+    raise exception 'S19d: create_red_page was not patched';
   end if;
   if exists (select 1 from public.unified_red_paging_config where is_active or approved_at is not null) then raise exception 'S19d: the config must ship inactive and unsigned'; end if;
   if private.unified_red_paging_on('spo2_red') or private.unified_red_paging_on('emergency_event') then raise exception 'S19d: the flag must read OFF on arrival'; end if;

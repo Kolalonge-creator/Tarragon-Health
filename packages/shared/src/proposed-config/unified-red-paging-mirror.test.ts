@@ -23,6 +23,12 @@ describe("paging.unified_red_rules mirrors the migration seed", () => {
     expect(seededRules()).toEqual(getProposedConfig("paging.unified_red_rules").value);
   });
 
+  it("keeps the emergency broadcast beside the page in v1 and suppresses the old broadcast only for the red levels", () => {
+    const v = getProposedConfig("paging.unified_red_rules").value as Record<string, number>;
+    expect(v.suppress_legacy_emergency_notice).toBe(0);
+    expect(v.suppress_legacy_clinician_notice).toBe(1);
+  });
+
   it("is proposed and owned by the CMO, never confirmed by the agent", () => {
     const e = getProposedConfig("paging.unified_red_rules");
     expect(e.owner).toBe("CMO");

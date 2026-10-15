@@ -1141,8 +1141,11 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // switches it on from the sign-off hub after running the staging test pack, and can switch it off at any time.
     // Each source key: 1 = that red-class event (SpO2 red, pulse red, temperature red, a red-flag symptom, any emergency event except
     // blood pressure, which already has the triage-engine page) creates a page through the same ladder as the blood pressure page.
-    // suppress_legacy_clinician_notice: 1 = the older "notify every clinician" step for that event is skipped, but only when a page
-    // with a named clinician was created or joined; a failed page or a no-cover page leaves the older notice running.
+    // suppress_legacy_clinician_notice: 1 = for the RED levels (SpO2, pulse, temperature, red-flag symptom) the older "notify every clinician"
+    // step is skipped, but only when a page with a named, reachable clinician was created or joined; a failed page, a no-cover page or a
+    // primary with no push subscription and no verified email leaves the older notice running.
+    // suppress_legacy_emergency_notice: the same for EMERGENCY events. 0 in v1: the page and the older broadcast run side by side until the
+    // CMO has seen delivery proven and signs a later version with 1. An emergency never merges into an open page; it makes its own.
     value: {
       spo2_red: 1,
       pulse_red: 1,
@@ -1150,6 +1153,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       symptom_red_flag: 1,
       emergency_event: 1,
       suppress_legacy_clinician_notice: 1,
+      suppress_legacy_emergency_notice: 0,
     },
     owner: "CMO",
     status: "proposed",
