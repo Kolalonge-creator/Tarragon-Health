@@ -26,6 +26,7 @@ import { ImagingOrdersSection } from "./imaging-orders-section";
 import { MedicationSafetyPanel } from "./medication-safety-panel";
 import { CdsPanel } from "./cds-panel";
 import { MedicationAdherenceHistory } from "./medication-adherence-history";
+import { SideEffectNotesPanel } from "./side-effect-notes-panel";
 import { PrnLimitsPanel } from "./prn-limits-panel";
 import { MedicationReconciliationPanel } from "./medication-reconciliation-panel";
 import { MedicationEffectivenessCard } from "@/components/medication-effectiveness-card";
@@ -309,6 +310,7 @@ export default async function ClinicianPatientPage({
                   isClinicianView
                 />
                 <MedicationAdherenceHistory patientId={patient.id} />
+                <SideEffectNotesPanel patientId={patient.id} />
                 {isClinicalTier(callerStaff) && <PrnLimitsPanel patientId={patient.id} canSet={canPrescribe} />}
                 {/* Pharmacy-authority-by-tier (master plan §4/§8): Tier 1 confirms/
                     continues existing prescriptions but has no new-prescribing

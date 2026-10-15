@@ -252,6 +252,18 @@ export type HealthEducationContentInput = {
   next_review_due?: string | null;
   min_age?: number | null;
   max_age?: number | null;
+  // S55: named reviewer, the required "What can I do next?" self-care step, micro-lesson shape, audio clip, sharing, credit
+  reviewed_by_name?: string | null;
+  clinical_author_name?: string | null;
+  evidence_source?: string | null;
+  self_care_action?: string | null;
+  audio_clip_id?: string | null;
+  is_micro_lesson?: boolean;
+  lesson_action?: string | null;
+  share_enabled?: boolean;
+  creator_id?: string | null;
+  /** Set only for a micro-lesson: its one check question, written as the jsonb the readers parse. */
+  knowledge_check?: Database["public"]["Tables"]["health_education_content"]["Insert"]["knowledge_check"];
 };
 
 /** Create a new content item — always lands as content_status='draft' (the
