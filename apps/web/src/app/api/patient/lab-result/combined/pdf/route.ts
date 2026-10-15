@@ -60,7 +60,6 @@ export async function GET(request: Request): Promise<Response> {
       supabase,
       "lab_result_interpretation",
       docs.filter((d) => d.reviewed_by).map((d) => d.id),
-      Object.fromEntries(docs.map((d) => [d.id, d.reviewed_by])),
     );
   } catch (e) {
     if (e instanceof DocumentFolioRefusedError) {
