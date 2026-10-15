@@ -42,14 +42,19 @@ begin
     insert into s85_fixture values (r.key_name, gen_random_uuid());
     insert into auth.users (id, email)
     values ((select v from s85_fixture where k = r.key_name), format('s85d2.%s@example.com', r.key_name));
-    insert into public.profiles (id, organisation_id, role, full_name, date_of_birth)
+    -- S04b-1: registration is for adults; a person under 18 exists only as a minor dependant record.
+    insert into public.profiles (id, organisation_id, role, full_name, date_of_birth, is_dependent_account, dependent_kind)
     values ((select v from s85_fixture where k = r.key_name), v_org, 'patient', format('S85D2 %s', r.key_name),
-            case when r.key_name = 'adolescent' then (current_date - interval '15 years')::date else date '1990-01-01' end)
+            case when r.key_name = 'adolescent' then (current_date - interval '15 years')::date else date '1990-01-01' end,
+            r.key_name = 'adolescent', case when r.key_name = 'adolescent' then 'minor_child'::public.dependent_kind end)
     on conflict (id) do update
       set organisation_id = excluded.organisation_id, role = excluded.role,
-          full_name = excluded.full_name, date_of_birth = excluded.date_of_birth;
+          full_name = excluded.full_name, date_of_birth = excluded.date_of_birth,
+          is_dependent_account = excluded.is_dependent_account, dependent_kind = excluded.dependent_kind;
   end loop;
 
+  -- this proof is about the adolescent privacy rule on reproductive data, so the minor-scope trigger (S04b-1) is lifted for the fixture row
+  alter table public.reproductive_health_profiles disable trigger "00_minor_dependant_scope";
   -- Rows are created by the owner session (postgres), as a migration or seed would.
   insert into public.reproductive_health_profiles (organisation_id, patient_id, life_stage)
   values (v_org, (select v from s85_fixture where k = 'adult'), 'menstruating'),
