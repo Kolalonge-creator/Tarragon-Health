@@ -90,10 +90,14 @@ describe("decide", () => {
 
 describe("smsPurpose", () => {
   const row = { template: "x", priority: "routine" as const, recipientRole: "clinician" };
-  it("allows a page only for a CRITICAL row to a clinician", () => {
+  it("allows a page by who the recipient is (CMO Q10): a clinician for any row, admin and care coordinator only for a critical row", () => {
     expect(smsPurpose({ ...row, priority: "critical" })).toBe("clinician_page");
-    expect(smsPurpose(row)).toBe("none");
-    for (const role of ["patient", "admin", "care_coordinator", "pharmacist", null, undefined]) {
+    expect(smsPurpose(row)).toBe("clinician_page");
+    for (const role of ["admin", "care_coordinator"]) {
+      expect(smsPurpose({ ...row, priority: "critical", recipientRole: role })).toBe("clinician_page");
+      expect(smsPurpose({ ...row, recipientRole: role })).toBe("none");
+    }
+    for (const role of ["patient", "pharmacist", null, undefined]) {
       expect(smsPurpose({ ...row, priority: "critical", recipientRole: role })).toBe("none");
     }
   });
