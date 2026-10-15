@@ -348,7 +348,7 @@ begin
   if r.task_id is not null then
     begin
       if exists (select 1 from public.task_claims c where c.task_id = r.task_id and c.clinician_id = v_uid and c.ended_at is null) then
-        perform public.queue_complete(r.task_id, jsonb_build_object('symptom_review', r.id));
+        perform public.queue_complete(r.task_id, jsonb_build_object('code', 'answer_signed', 'symptom_review', r.id));
       elsif (select t.state::text from public.clinical_tasks t where t.id = r.task_id) in ('created', 'offered_to_lead', 'open', 'claimed', 'escalated') then
         update public.task_claims set ended_at = now(), end_reason = 'cancelled' where task_id = r.task_id and ended_at is null;
         perform private.apply_task_transition(r.task_id, 'cancelled', 'lead', v_uid,
