@@ -1,7 +1,15 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
-const ALERT_TITLE = "AUDIT-C: hazardous alcohol use flagged";
+/**
+ * S56 (INV-07, INV-12): the alert names no instrument, score or alcohol wording. clinician_alerts is readable by every org staff
+ * account and by a Care Circle supporter holding only 'medical_history', so a title like "AUDIT-C: hazardous alcohol use" would tell
+ * them a person's alcohol screen result. The clinician who holds the task reads the screen through the audited path. The title is also
+ * the de-duplication key, so it is distinct from the other neutral wellbeing titles.
+ */
+export const ALCOHOL_ALERT_TITLE = "A wellbeing support conversation is waiting";
+export const ALCOHOL_ALERT_DETAIL = "Open the review from your task list. No score is shown here on purpose.";
+const ALERT_TITLE = ALCOHOL_ALERT_TITLE;
 
 /**
  * Spec §18.10 — "referral to appropriate support when needed". AUDIT-C
@@ -15,7 +23,6 @@ const ALERT_TITLE = "AUDIT-C: hazardous alcohol use flagged";
 export async function flagHazardousAlcoholUse(
   patientId: string,
   organisationId: string,
-  totalScore: number,
 ): Promise<void> {
   const supabase = createServiceRoleClient();
 
@@ -28,15 +35,17 @@ export async function flagHazardousAlcoholUse(
     .maybeSingle();
   if (openAlert) return;
 
-  await supabase.from("clinician_alerts").insert({
+  const { error } = await supabase.from("clinician_alerts").insert({
     organisation_id: organisationId,
     patient_id: patientId,
     level: "clinician_review",
     escalation_level: 2,
     status: "open",
     title: ALERT_TITLE,
-    detail: `AUDIT-C total ${totalScore} crossed the hazardous-use threshold — worth a conversation about support and reduction goals.`,
+    detail: ALCOHOL_ALERT_DETAIL,
     category: "clinical",
     type_code: "symptom_escalation",
   });
+  // Throw rather than discard: the caller reports it (a hazardous result that routed nowhere must be seen).
+  if (error) throw new Error(`hazardous alcohol alert could not be raised: ${error.message}`);
 }
