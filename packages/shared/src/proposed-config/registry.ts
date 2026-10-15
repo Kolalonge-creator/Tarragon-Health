@@ -3925,12 +3925,12 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   {
     key: "capacity.pilot_lead_cap",
     // Pilot lead cap (decision 12): 40 patients per lead clinician for the pilot, a conservative guess (panel evidence is unverified).
-    // Shipped as lead_config version 2 (version 1, 60, untouched), inactive and unsigned; the CMO signs it in the sign-off hub.
+    // Shipped as a NEW lead_config draft (next version number, copied from the row in force; existing rows untouched), inactive and unsigned; the CMO signs it in the sign-off hub.
     value: 40,
     owner: "CMO",
     status: "proposed",
     version: 1,
     effectiveFrom: "2026-10-15",
-    source: "docs/design/S16-S20-capacity-cover.md; lead_config version 2 (inactive); decision 12",
+    source: "docs/design/S16-S20-capacity-cover.md; lead_config draft (inactive); decision 12",
   },
 ];

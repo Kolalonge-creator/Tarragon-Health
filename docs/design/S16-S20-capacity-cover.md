@@ -9,7 +9,7 @@ Branch `s16-s20/capacity-cover`. Plan: `docs/plans/S16-S20-review-and-build-plan
 | Intake gate (`gate_enforce`) | `capacity_cover_config` v1 | 0 | Sign capacity configuration v2 in the sign-off hub, and switch the go-live guard `on_call_cover_ok` on |
 | Hard rest rule (`hard_rest_enforce`) | same | 0 | Same signature (v2) |
 | Fire drills (`drill_enabled`) | same | 0 | Same signature (v2) |
-| Pilot lead cap 40 | `lead_config` v2 | inactive, unsigned (v1 stays 60) | Sign lead configuration v2 in the sign-off hub |
+| Pilot lead cap 40 | a new `lead_config` draft (next version number, copied from the row in force) | inactive, unsigned (the row in force is untouched) | Sign the lead configuration draft in the sign-off hub |
 | Surge mode, pause | `ops_modes` | no row exists = off | The CMO starts one on `/clinician/capacity`; it expires by itself |
 
 v2 of the capacity configuration is the same rules as v1 with the three switches at 1 (a Jest test fails if the two differ in anything else, and if either drifts from the registry key `capacity.cover_rules` / `capacity.cover_rules_v2`). Signing is the CMO's own act (`sign_capacity_cover_config`, `sign_lead_config`, both CMO-only, audited). The sign-off hub has one new line "Capacity, rest and fire drills" with an inline panel. Nothing in this branch signs or activates a configuration.
@@ -75,3 +75,16 @@ Nav: clinician (Device check, Rest and cover; CMO: Capacity and cover, Fire dril
 - Over-cap leads (after the cap drops to 40) are reported by the nightly check as an incident; patients are not moved automatically.
 - No heartbeat covers the three new cron jobs. An external dead-man check is still needed (same gap noted in `S16-S20-task-layer.md`).
 - The iOS app cannot record delivered receipts, so an iOS-only clinician cannot pass the test-page gate; see the device runbook.
+
+## Live-only rows: what was audited, and why replay cannot see them
+
+Production holds rows that no migration file creates. Found by a read-only check against the live project (2026-10-15): `lead_config` has a version 2, ACTIVE, effective 2026-10-07, `max_lead_patients` 60 and `fatigue_max_hours_per_7_days` 48, next to the repo's version 1 (inactive, 72). A fixed `version = 2` insert would pass the CI replay (which only has the files) and fail production on the unique version, stopping every later migration. So the pilot-cap draft is inserted at `max(version) + 1`, computed at apply time, with rules copied from the ACTIVE row (the highest version when none is active, as on a fresh replay) and `max_lead_patients` set to 40; it is inactive and unsigned and no existing row is touched. The hub, `sign_lead_config(version)`, the registry mirror, the proof and this note all say "the draft", never a fixed number; the live row's 48 is preserved in the copy.
+
+Every other write this migration makes was checked against live:
+- New tables (`capacity_cover_config`, `ops_modes`, `intake_overrides`, `rest_rule_overrides`, `fatigue_cover_offers`): none exist live. `capacity_cover_config` versions 1 and 2 are inserted into a new table, so no collision is possible.
+- `go_live_guards`: only an UPDATE of `on_call_cover_ok` (the row exists live, guard off, `enforced_in` empty); no insert. No `platform_modules`, task type, competency or notification template rows are inserted.
+- Cron jobs `ops-mode-sweep`, `fatigue-cover-sweep`, `fire-drills`, `intake-gate-watch`: none exist live (and `cron.schedule` by name replaces rather than collides).
+- `clinician_reliability_events_kind_check`: live has the six-value check named as the repo expects; the migration drops it by that name and adds the seven-value one.
+- Triggers added on existing tables (`orders_intake_gate`, `availability_blocks_hard_rest`, `page_tests_drill_ack`, `refuse_superseded_activation` on `lead_config`): none exist live.
+- `lead_config` gets `approved_at`/`approved_by` (absent live; `add column if not exists`).
+- Functions patched in place (`queue_candidates`, `apply_task_transition`, `reliability_dashboard`, `create_followup_offer`, the video request trigger) are read with `pg_get_functiondef` at apply time and stop with an error if the expected text is missing, so a live-only difference fails loudly rather than being overwritten. `queue_class_breaches` and the wrapped `rota_validate_clinician_core` were diffed against live earlier in this work (same text as the repo).

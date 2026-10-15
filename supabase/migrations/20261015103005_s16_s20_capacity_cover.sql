@@ -4,7 +4,7 @@
 --        configured limit. A CMO override (reason, expiry) reopens the capacity signals but never a surge or a pause. The gate is wired
 --        into the sale path as a BEFORE INSERT trigger on orders (so create_order, which other branches also replace, is not restated) and
 --        it reads the go-live guard on_call_cover_ok. It ships NOT ENFORCED (capacity_cover_config v1, gate_enforce = 0): v2 turns it on
---        and is inactive and unsigned. Pilot lead cap 40 is lead_config v2, inactive and unsigned.
+--        and is inactive and unsigned. Pilot lead cap 40 is a new lead_config draft (the next version number), inactive and unsigned.
 --   W5.2 Surge mode and pause (decisions 12, 13). CMO-set, recorded, auto-expiring. A pause stops new sales, new enrolments, bookings
 --        (through clinical_operations_enabled) and the offering of routine tasks; it NEVER touches red paging, emergency guidance,
 --        on-call or work already claimed. An admin can only REQUEST a pause; it lapses unless the CMO confirms in time.
@@ -209,7 +209,10 @@ $$;
 revoke all on function public.sign_capacity_cover_config(integer) from public, anon, authenticated;
 grant execute on function public.sign_capacity_cover_config(integer) to authenticated;
 
--- Pilot lead cap (decision 12): lead_config version 2 = version 1 with max_lead_patients 40. Inactive and unsigned. Version 1 is untouched.
+-- Pilot lead cap (decision 12): a NEW lead_config draft whose rules are a copy of the row in force with max_lead_patients 40. Inactive and unsigned.
+-- Version-agnostic on purpose: the live table already holds a row that no migration file creates (live-only version 2, active, fatigue_max_hours_per_7_days 48),
+-- so the number is computed at apply time (max(version) + 1) and the rules come from the ACTIVE row, or the highest version when none is active (a fresh
+-- replay). No existing row is touched.
 alter table public.lead_config
   add column if not exists approved_at timestamptz,
   add column if not exists approved_by uuid references public.profiles (id) on delete set null;
@@ -219,7 +222,8 @@ create trigger refuse_superseded_activation before update of is_active on public
   execute function private.refuse_activating_superseded_version();
 -- lead-cap-pilot-begin
 insert into public.lead_config (version, is_active, effective_from, rules)
-select 2, false, '2026-10-15', jsonb_set(rules, '{max_lead_patients}', '40'::jsonb) from public.lead_config where version = 1;
+select (select max(version) + 1 from public.lead_config), false, '2026-10-15', jsonb_set(src.rules, '{max_lead_patients}', '40'::jsonb)
+  from (select rules from public.lead_config order by is_active desc, version desc limit 1) src;
 -- lead-cap-pilot-end
 create function public.sign_lead_config(p_version integer) returns void
 language plpgsql security definer set search_path = ''
@@ -1278,9 +1282,9 @@ begin
     raise exception 'S20c: an enforcing switch is on in the active config';
   end if;
   if exists (select 1 from public.capacity_cover_config where version = 2 and (is_active or approved_at is not null)) then raise exception 'S20c: v2 must be inactive and unsigned'; end if;
-  if (select (rules ->> 'max_lead_patients')::integer from public.lead_config where version = 2) is distinct from 40
-     or exists (select 1 from public.lead_config where version = 2 and (is_active or approved_at is not null))
-     or (select (rules ->> 'max_lead_patients')::integer from public.lead_config where version = 1) is distinct from 60 then
+  if not exists (select 1 from public.lead_config l
+                  where l.version = (select max(version) from public.lead_config) and not l.is_active and l.approved_at is null
+                    and (l.rules ->> 'max_lead_patients')::integer = 40) then
     raise exception 'S20c: lead_config pilot cap version is wrong';
   end if;
   -- no new function is executable by anon or public

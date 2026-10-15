@@ -62,6 +62,10 @@ create function pg_temp.q(p_sql text) returns text language plpgsql as
 $f$ declare r text; begin execute p_sql into r; return coalesce(r, 'null'); end $f$;
 
 -- real (non-test) and test users. A real patient is what the gate asks about; a test patient must always pass it.
+-- the lead_config draft the migration added (the highest version) and the row in force before it (the live table has a live-only row, so no version number is assumed)
+create function pg_temp.lead_draft() returns integer language sql as $$ select max(version) from public.lead_config $$;
+create function pg_temp.lead_prior() returns integer language sql as
+$$ select coalesce((select version from public.lead_config where is_active), (select max(version) from public.lead_config where version < pg_temp.lead_draft())) $$;
 create function pg_temp.mkuser(p_org uuid, p_label text, p_role text, p_test boolean default true) returns uuid
 language plpgsql as $f$
 declare v uuid := gen_random_uuid();
@@ -232,9 +236,9 @@ begin
     (select (rules ->> 'gate_enforce') || ',' || (rules ->> 'hard_rest_enforce') || ',' || (rules ->> 'drill_enabled') from public.capacity_cover_config where version = 1 and is_active));
   perform pg_temp.rec('rollout: v2 is inactive, unsigned, with all three ON', 'false,false,1,1,1',
     (select is_active::text || ',' || (approved_at is not null)::text || ',' || (rules ->> 'gate_enforce') || ',' || (rules ->> 'hard_rest_enforce') || ',' || (rules ->> 'drill_enabled') from public.capacity_cover_config where version = 2));
-  perform pg_temp.rec('rollout: the pilot lead cap is lead_config v2 (40, inactive, unsigned) and v1 (60) is untouched', '40,false,false,60,true',
-    (select (rules ->> 'max_lead_patients') || ',' || is_active::text || ',' || (approved_at is not null)::text from public.lead_config where version = 2) || ',' ||
-    (select (rules ->> 'max_lead_patients') || ',' || is_active::text from public.lead_config where version = 1));
+  perform pg_temp.rec('rollout: the pilot lead cap is a NEW lead_config draft (40, inactive, unsigned); the row before it is untouched (60)', '40,false,false,60,true',
+    (select (rules ->> 'max_lead_patients') || ',' || is_active::text || ',' || (approved_at is not null)::text from public.lead_config where version = pg_temp.lead_draft()) || ',' ||
+    (select (rules ->> 'max_lead_patients') || ',' || (version < pg_temp.lead_draft())::text from public.lead_config where version = pg_temp.lead_prior()));
   perform pg_temp.rec('config: a version with a zero or missing number is refused', '23514,23514',
     pg_temp.try($q$insert into public.capacity_cover_config (version, is_active, effective_from, rules) values (97, false, current_date, '{"gate_enforce":0}')$q$) || ',' ||
     pg_temp.try($q$insert into public.capacity_cover_config (version, is_active, effective_from, rules) select 98, false, current_date, jsonb_set(rules, '{rest_hours}', '0') from public.capacity_cover_config where version = 1$q$));
@@ -243,7 +247,7 @@ begin
   perform pg_temp.rec('config: only the CMO signs (a clinician and an admin are refused)', '42501,42501',
     pg_temp.try_as(v_a, 'select public.sign_capacity_cover_config(2)') || ',' || pg_temp.try_as(v_admin, 'select public.sign_capacity_cover_config(2)'));
   perform pg_temp.rec('config: only the CMO signs the lead configuration', '42501,42501',
-    pg_temp.try_as(v_a, 'select public.sign_lead_config(2)') || ',' || pg_temp.try_as(v_admin, 'select public.sign_lead_config(2)'));
+    pg_temp.try_as(v_a, format('select public.sign_lead_config(%s)', pg_temp.lead_draft())) || ',' || pg_temp.try_as(v_admin, format('select public.sign_lead_config(%s)', pg_temp.lead_draft())));
   perform pg_temp.rec('tables have RLS on and anon holds nothing, authenticated only SELECT', '6,0',
     (select count(*)::text from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relrowsecurity
         and c.relname in ('capacity_cover_config', 'ops_modes', 'intake_overrides', 'rest_rule_overrides', 'fatigue_cover_offers', 'lead_config')) || ',' ||
@@ -901,24 +905,24 @@ end $$;
 
 -- 8. The CMO's signatures (last: they change which version is active) --------------------------------------------------------
 do $$
-declare v_cmo uuid := pg_temp.f('cmo'); v_a uuid := pg_temp.f('A');
+declare v_cmo uuid := pg_temp.f('cmo'); v_a uuid := pg_temp.f('A'); v_lp integer := pg_temp.lead_prior();
 begin
   perform pg_temp.guard_on('on_call_cover_ok', false);
   perform pg_temp.rec('sign: capacity v2 turns the gate on, so it cannot be signed while the on-call cover guard is off', '23514',
     pg_temp.try_as(v_cmo, 'select public.sign_capacity_cover_config(2)'));
   perform pg_temp.guard_on('on_call_cover_ok', true);
   perform pg_temp.act(v_cmo);
-  perform public.sign_lead_config(2);
+  perform public.sign_lead_config(pg_temp.lead_draft());
   perform public.sign_capacity_cover_config(2);
   perform pg_temp.back();
-  perform pg_temp.rec('sign: the CMO signs lead v2: the one active version, signed by the CMO, v1 kept on record', '2,false,true',
-    (select version::text from public.lead_config where is_active) || ',' || (select is_active::text from public.lead_config where version = 1) || ',' ||
-    (select (approved_by = v_cmo)::text from public.lead_config where version = 2));
+  perform pg_temp.rec('sign: the CMO signs the lead draft: it is the one active version, signed by the CMO, the row before it kept on record', 'true,false,true',
+    ((select version from public.lead_config where is_active) = pg_temp.lead_draft())::text || ',' || (select is_active::text from public.lead_config where version = v_lp) || ',' ||
+    (select (approved_by = v_cmo)::text from public.lead_config where version = pg_temp.lead_draft()));
   perform pg_temp.rec('sign: the CMO signs capacity v2: it is the active version with all three switches ON', '2,1,1,1',
     (select version::text from public.capacity_cover_config where is_active) || ',' || private.cap_rule('gate_enforce') || ',' || private.cap_rule('hard_rest_enforce') || ',' || private.cap_rule('drill_enabled'));
   perform pg_temp.rec('sign: a signed version cannot be signed again or edited', '23514,23514',
-    pg_temp.try_as(v_cmo, 'select public.sign_lead_config(2)') || ',' || pg_temp.try($q$update public.capacity_cover_config set rules = jsonb_set(rules, '{rest_hours}', '9') where version = 2$q$));
-  perform pg_temp.rec('sign: an older version can no longer be switched back on', '23514', pg_temp.try('update public.lead_config set is_active = true where version = 1'));
+    pg_temp.try_as(v_cmo, format('select public.sign_lead_config(%s)', pg_temp.lead_draft())) || ',' || pg_temp.try($q$update public.capacity_cover_config set rules = jsonb_set(rules, '{rest_hours}', '9') where version = 2$q$));
+  perform pg_temp.rec('sign: an older version can no longer be switched back on', '23514', pg_temp.try(format('update public.lead_config set is_active = true where version = %s', v_lp)));
   perform pg_temp.rec('sign: both signatures are audited', '1,1',
     (select count(*)::text from public.audit_log where action = 'lead_config.signed' and actor_id = v_cmo) || ',' || (select count(*)::text from public.audit_log where action = 'capacity_cover_config.signed' and actor_id = v_cmo));
 end $$;

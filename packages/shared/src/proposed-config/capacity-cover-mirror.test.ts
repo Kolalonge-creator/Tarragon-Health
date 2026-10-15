@@ -57,13 +57,16 @@ describe("capacity.cover_rules mirrors the migration seed", () => {
   });
 });
 
-describe("capacity.pilot_lead_cap mirrors lead_config version 2", () => {
-  it("is 40, the migration derives version 2 from version 1 with that number, and version 1 stays 60", () => {
+describe("capacity.pilot_lead_cap mirrors the lead_config draft", () => {
+  it("is 40; the migration adds the NEXT version (never a fixed number, the live table has a live-only row) copied from the row in force, and existing rows stay as they are", () => {
     expect(getProposedConfig("capacity.pilot_lead_cap").value).toBe(40);
     const sql = migrationSql();
     const block = /lead-cap-pilot-begin([\s\S]*?)lead-cap-pilot-end/.exec(sql)?.[1] ?? "";
     expect(block).toContain("'{max_lead_patients}', '40'::jsonb");
-    expect(block).toContain("select 2, false");
+    expect(block).toContain("select max(version) + 1 from public.lead_config");
+    expect(block).toContain("order by is_active desc, version desc limit 1");
+    expect(block).not.toMatch(/select 2,|where version = 1/);
+    expect(block).toContain("false,");
     expect(getProposedConfig("lead.rules").value).toMatchObject({ max_lead_patients: 60 });
   });
 });
