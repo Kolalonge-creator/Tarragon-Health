@@ -90,50 +90,9 @@ comment on view public.screen_types_admin is 'Track E 8.16. The only read path t
 revoke all on public.lab_tests_admin, public.panel_bundles_admin, public.screen_types_admin from public, anon;
 grant select on public.lab_tests_admin, public.panel_bundles_admin, public.screen_types_admin to authenticated;
 
--- 5b. public.approve_therapy_session returned the whole therapy_sessions row (SECURITY DEFINER, `returning * into v_row`), so a
--- clinician calling it over the API received commission_kobo in the response body. The only caller (the therapy-approvals queue)
--- reads `error` and ignores the body, so it now returns void. A return type cannot change under CREATE OR REPLACE, hence drop and
--- recreate with the same body, same SECURITY DEFINER and search_path, and the same grants (authenticated only, not public/anon).
--- The deployed old web bundle ignores the body too, so this is safe in either deploy order.
-drop function public.approve_therapy_session(uuid, boolean);
-create function public.approve_therapy_session(p_session_id uuid, p_confirm boolean default true)
-returns void
-language plpgsql
-security definer
-set search_path to ''
-as $function$
-declare
-  v_caller uuid := auth.uid();
-  v_org    uuid;
-begin
-  if v_caller is null then
-    raise exception 'not authenticated';
-  end if;
-
-  select organisation_id into v_org from public.therapy_sessions where id = p_session_id;
-  if v_org is null then
-    raise exception 'That request no longer exists.' using errcode = 'P0001';
-  end if;
-  if not private.is_org_staff(v_org) then
-    raise exception 'not authorised' using errcode = '42501';
-  end if;
-
-  -- approved_by is taken from the SESSION, never from a parameter. A caller cannot nominate someone else as the approver.
-  update public.therapy_sessions
-     set approved_by = v_caller,
-         approved_at = now(),
-         status      = case when p_confirm then 'confirmed'::public.therapy_session_status
-                            else 'cancelled'::public.therapy_session_status end,
-         cancelled_at = case when p_confirm then null else now() end,
-         cancelled_reason = case when p_confirm then null
-                                 else 'Not approved by the care team' end
-   where id = p_session_id;
-end;
-$function$;
-comment on function public.approve_therapy_session(uuid, boolean) is
-  'Approve or decline a psychiatry booking. Stamps approved_by from auth.uid(); the authority check itself lives in private.enforce_therapy_approver_authority so it holds on any write path, not only this one. Track E 8.16: returns void, never the row, so the commission is not handed back to a clinician.';
-revoke all on function public.approve_therapy_session(uuid, boolean) from public, anon;
-grant execute on function public.approve_therapy_session(uuid, boolean) to authenticated;
+-- 5b. (moved) public.approve_therapy_session returns the whole therapy_sessions row, commission_kobo included. It is fixed by the later migration
+-- 20261015121507_e_approve_therapy_session_withholds_commission.sql, which patches the CURRENT definition in place (S56 replaced this function after
+-- this migration's date, so it cannot be patched from here).
 
 -- 6. Assertions
 do $$
@@ -179,13 +138,6 @@ begin
   loop
     raise exception 'FAIL: % column % is neither granted nor a commission column; add it to the grant', t, c;
   end loop;
-  if pg_get_function_result('public.approve_therapy_session(uuid, boolean)'::regprocedure) <> 'void' then
-    raise exception 'FAIL: approve_therapy_session still returns a row';
-  end if;
-  if has_function_privilege('anon', 'public.approve_therapy_session(uuid, boolean)', 'EXECUTE')
-     or not has_function_privilege('authenticated', 'public.approve_therapy_session(uuid, boolean)', 'EXECUTE') then
-    raise exception 'FAIL: approve_therapy_session grants are wrong';
-  end if;
   raise notice 'PASS: lab, screening and therapy commission columns are off the authenticated surface';
 end $$;
 

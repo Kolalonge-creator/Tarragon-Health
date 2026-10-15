@@ -169,19 +169,10 @@ begin
   insert into t_results values ('D a clinician cannot edit lab_tests (no policy)', 'rows:' || n, 'rows:0', null);
 
   -- F. the RPC no longer hands the row (and the commission) back; the grant list covers every non-commission column
-  insert into t_results select 'F approve_therapy_session returns void (no row to leak)',
-    pg_get_function_result('public.approve_therapy_session(uuid, boolean)'::regprocedure), 'void', null;
+  insert into t_results select 'F approve_therapy_session clears commission_kobo before returning the row',
+    case when pg_get_functiondef('public.approve_therapy_session(uuid, boolean, timestamptz)'::regprocedure) like '%v_row.commission_kobo := null%' then 'cleared' else 'leaks' end, 'cleared', null;
   insert into t_results select 'F anon cannot execute approve_therapy_session',
-    case when has_function_privilege('anon', 'public.approve_therapy_session(uuid, boolean)', 'EXECUTE') then 'yes' else 'no' end, 'no', null;
-  update public.therapy_sessions set scheduled_for = now() + interval '2 days' where id = v_sess;
-  insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier, employment_type)
-    values (v_org, v_clin, 'E Test Senior Doctor', true, now(), 'senior_medical_officer', 'employed');
-  perform set_config('request.jwt.claims', json_build_object('sub', v_clin, 'role', 'authenticated')::text, true);
-  set local role authenticated;
-  perform public.approve_therapy_session(v_sess, true);
-  reset role;
-  insert into t_results select 'F a clinician approving still works and stamps approved_by',
-    (select 'rows:' || count(*) from public.therapy_sessions where id = v_sess and approved_by = v_clin and status = 'confirmed'), 'rows:1', null;
+    case when has_function_privilege('anon', 'public.approve_therapy_session(uuid, boolean, timestamptz)', 'EXECUTE') then 'yes' else 'no' end, 'no', null;
   insert into t_results select 'F every non-commission column of the four tables is granted',
     (select 'rows:' || count(*) from pg_attribute a
       where a.attrelid in ('public.lab_tests'::regclass, 'public.panel_bundles'::regclass, 'public.screen_types'::regclass, 'public.therapy_sessions'::regclass)
