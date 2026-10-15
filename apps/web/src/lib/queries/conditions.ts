@@ -1,8 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
+import { usePendingRecordRequests, useWithdrawRecordRequest } from "./record-change-requests";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@tarragon/shared";
 
 export type PatientCondition = Tables<"patient_conditions">;
+
+const conditionsKey = (patientId: string) => ["patient-conditions", patientId] as const;
 
 /**
  * Patient's structured problem list (spec §76.3 / §1.7,
@@ -16,7 +19,7 @@ export type PatientCondition = Tables<"patient_conditions">;
  */
 export function useConditions(patientId: string) {
   return useQuery({
-    queryKey: ["patient-conditions", patientId],
+    queryKey: conditionsKey(patientId),
     queryFn: async (): Promise<PatientCondition[]> => {
       const supabase = createClient();
       const { data, error } = await supabase
@@ -29,4 +32,17 @@ export function useConditions(patientId: string) {
     },
     enabled: !!patientId,
   });
+}
+
+/**
+ * The patient's own waiting requests to void or correct a condition she entered herself (S05b-f). She cannot edit a condition
+ * directly; a request waits for her care team and the condition stays as it is meanwhile. Only she sees her request (a caregiver gets none).
+ */
+export function usePendingConditionRequests(patientId: string) {
+  return usePendingRecordRequests("patient_conditions", patientId);
+}
+
+/** Takes a waiting condition request back. The database checks the request is hers and still waiting. */
+export function useWithdrawConditionRequest() {
+  return useWithdrawRecordRequest("patient_conditions", conditionsKey);
 }
