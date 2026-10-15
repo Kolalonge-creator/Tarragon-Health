@@ -122,7 +122,7 @@ begin
   update public.clinical_staff set active = false where is_test is not true;
   v_pat := pg_temp.mkuser(v_org, 'pat', 'patient'); perform pg_temp.setf('pat', v_pat);
   v_pat2 := pg_temp.mkuser(v_org, 'pat2', 'patient'); perform pg_temp.setf('pat2', v_pat2);
-  v_doc := pg_temp.mkdoc(v_org, 'doctied', 'medical_officer', 'contracted', '{adult_general}', v_admin); perform pg_temp.setf('doctied', v_doc);
+  v_doc := pg_temp.mkdoc(v_org, 'doctied', 'senior_medical_officer', 'contracted', '{adult_general}', v_admin); perform pg_temp.setf('doctied', v_doc);
   v_smo := pg_temp.mkdoc(v_org, 'smotied', 'senior_medical_officer', 'contracted', '{adult_general}', v_admin); perform pg_temp.setf('smotied', v_smo);
   v_coord := pg_temp.mkdoc(v_org, 'coord', 'care_coordinator', 'employed', '{}', v_admin); perform pg_temp.setf('coord', v_coord);
   perform pg_temp.setf('finance', pg_temp.mkuser(v_org, 'finance', 'finance'));
@@ -158,7 +158,7 @@ begin
   insert into public.wellbeing_checkins (organisation_id, patient_id, mood_score, stress_score, sleep_quality, activity_level) values (v_org, v_pat2, 3, 3, 3, 3);
 
   -- created AFTER the data so no alert on it is auto-assigned to them (an alert owner is tied by INV-12, which is correct)
-  v_doc2 := pg_temp.mkdoc(v_org, 'docuntied', 'medical_officer', 'contracted', '{adult_general}', v_admin); perform pg_temp.setf('docuntied', v_doc2);
+  v_doc2 := pg_temp.mkdoc(v_org, 'docuntied', 'senior_medical_officer', 'contracted', '{adult_general}', v_admin); perform pg_temp.setf('docuntied', v_doc2);
   v_cmo := pg_temp.mkdoc(v_org, 'cmo', 'chief_medical_officer', 'contracted', '{adult_general}', v_admin); perform pg_temp.setf('cmo', v_cmo);
   insert into public.specialist_providers (specialist_type, name, consultation_fee_kobo, is_active, supports_telemedicine, license_verified_at, verification_stage)
     values ('psychiatry', 'S56 proof psychiatrist', 1000000, true, true, now(), 'active') returning id into v_prov;
