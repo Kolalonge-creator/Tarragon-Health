@@ -488,11 +488,12 @@ insert into public.task_types (code, version, is_active, priority_class, default
 values
   ('hypo_follow_up', 1, true, 4, 1440, 'senior_medical_officer', array['diabetes'], 240, 30, true, true, array['hypo_follow_up'], current_date,
    'S61: follow-up after a low glucose reading without a danger symptom. PROPOSED class, tier and due time (decision pack Q5).', false),
-  ('amber_glucose_review', 1, true, 4, 1440, 'senior_medical_officer', array['diabetes'], 240, 30, true, true, array['amber_glucose_review'], current_date,
-   'S61: amber glucose review (very high glucose, raised ketones, repeated lows or highs). PROPOSED.', false),
   ('amber_pathway_review', 1, true, 5, 4320, 'senior_medical_officer', array['adult_general'], 1440, 30, true, true, array['amber_pathway_review'], current_date,
    'S61/S62: amber review for asthma, heart failure and CKD rules, and the scheduled clinician review. PROPOSED.', false)
 on conflict (code, version) do nothing;
+
+-- amber_glucose_review is NOT seeded here: the glucose engine's R2 migration (20261013223643) owns that task type and its confirmation, and a copy created
+-- first would make its self-check fail. Production already has it.
 
 -- diabetes-rule-set-begin
 insert into public.triage_rule_sets (code, version, status, rules, note)
