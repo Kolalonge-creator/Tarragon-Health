@@ -4,11 +4,9 @@ import { getContractPerformance } from "@/lib/outcomes-contracts/get-contract-pe
 import { loadCohortAnalytics } from "@/lib/corporate/load-cohort-analytics";
 import { requireInstitutionAggregateAccess } from "@/lib/institutions/aggregate-access";
 import { loadAgeBandDistribution } from "@/lib/corporate/load-age-band-distribution";
-import { estimateCostAvoided } from "@/lib/care-gaps/estimate-cost-avoided";
 import { loadMedicationOutcomes } from "@/lib/outcomes/medication-outcomes";
 import { loadEngagementOutcomeCorrelation } from "@/lib/outcomes/engagement-outcome-correlation";
 import { loadVaccinationCoverage } from "@/lib/vaccination/load-coverage-analytics";
-import { loadWellbeingCohortMetric } from "@/lib/corporate/load-wellbeing-cohort-metric";
 import { loadActivationFunnel, loadDepartmentBreakdown } from "@/lib/corporate/load-activation-funnel";
 
 /**
@@ -32,7 +30,7 @@ async function loadCorporateDashboardDataUncached() {
   // patient-scoped table, so the aggregates come through the one verified
   // server-side doorway instead. Roster management still runs on the
   // caller's own session — that table is the employer's own staff list.
-  const access = await requireInstitutionAggregateAccess(profile.organisation_id);
+  const access = await requireInstitutionAggregateAccess(profile.organisation_id, "corporate_dashboard");
   if (!access) {
     return { state: "no-access" as const, greeting };
   }
@@ -54,20 +52,16 @@ async function loadCorporateDashboardDataUncached() {
 
   const [
     ageBands,
-    costAvoided,
     medicationOutcomes,
     engagementOutcomes,
     vaccinationCoverage,
-    wellbeingCohortMetric,
     activationFunnel,
     departmentBreakdown,
   ] = await Promise.all([
     loadAgeBandDistribution(access.client, access.organisationId),
-    estimateCostAvoided(access.client, access.organisationId, analytics.abnormal_findings_count),
     loadMedicationOutcomes(access.client, access.organisationId),
     loadEngagementOutcomeCorrelation(access.client, access.organisationId, access.minCohortSize),
     loadVaccinationCoverage(access.client, access.organisationId, access.minCohortSize),
-    loadWellbeingCohortMetric(access.client, access.organisationId),
     loadActivationFunnel(access.client, access.organisationId, access.minCohortSize),
     loadDepartmentBreakdown(access.client, access.organisationId, access.minCohortSize),
   ]);
@@ -80,11 +74,9 @@ async function loadCorporateDashboardDataUncached() {
     analytics,
     contractPerformance,
     ageBands,
-    costAvoided,
     medicationOutcomes,
     engagementOutcomes,
     vaccinationCoverage,
-    wellbeingCohortMetric,
     activationFunnel,
     departmentBreakdown,
   };
