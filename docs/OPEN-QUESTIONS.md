@@ -2891,6 +2891,38 @@ From the six package closeouts (`docs/design/S11-S15-*-closeout.md`), de-duplica
 ### OQ-S57b-05 Offline downloads built but inert (S57b)
 - See `docs/design/S57b-offline-downloads.md`. Behind flag `mobile_offline_downloads` (OFF), needs a new EAS native build and a `runtimeVersion` bump (NOT done), never run on a real device. Integrity is size only until `media_library` gains a SHA-256 column (follow-up). Playback still needs a native audio engine (OQ-S57-04). Wind-down reminder left out (item 7): the in-app inbox route would be a notification that exists only to nudge, and OQ-S57-04's point stands that the words should be fixed and name nothing; not trivial enough to add safely here.
 
+## Raised by S52 (AI health assistant 2 of 2)
+
+### OQ-293 The emergency and self-harm wording is PROPOSED, and no hotline exists (raised by S52)
+- The words in `packages/shared/src/assistant-emergency.ts` (the emergency guidance, the self-harm copy, the limits text) are written by a build session and are NOT signed. The self-harm copy is a clinical document. Nigeria has no usable national crisis helpline, so the copy points to the nearest hospital, the patient's emergency contact and the on-call page; `assistant.emergency.phoneNumbers` is empty on purpose and a number is shown only once the CMO adds one.
+- Options: (a) CMO reviews and signs the wording, and adds any hospital desk number to configuration (recommended); (b) counsel review for the self-harm copy.
+- Decision: open (CMO).
+
+### OQ-294 The self-harm on-call page is not an S19 page row (raised by S52)
+- S19 pages hang off a graded triage event, and a shadow grade (unapproved rule set, OQ-88) never pages. So a self-harm message raises the same class 1 task as the wellbeing-crisis fix (key `crisis:<patient>`), the neutral on-call notice, and the existing emergency escalation ladder as the second line, but no `pages` row and no S19 acknowledgement timer.
+- Options: (a) once a crisis rule set is approved, route assistant crisis through `create_red_page` too (recommended); (b) leave.
+- Decision: open.
+
+### OQ-295 Silence signal consumption by the triage engine (raised by S52)
+- `assistant.silence_detected` is written to the outbox. The triage engine's own silence trigger reads readings, not assistant messages, and a rule that reads this event needs the CMO's rule-set sign-off. Nothing consumes the event yet and it changes no treatment.
+- Decision: open (CMO, with the triage rule set).
+
+### OQ-296 Who may review (raised by S52)
+- Only the Chief Medical Officer can open the monthly review, in line with "the clinical lead can audit every conversation". A second reviewer (a senior clinician with a tie) would need a purpose-built grant. The reviewer page lives in `apps/web` under `/clinician`, not in the console (OQ-543).
+- Decision: open (CMO).
+
+### OQ-297 AI-020 needs its governance criteria before it can be switched on (raised by S52)
+- AI-020 is registered disabled and the governance trigger refuses enabling it until evaluation, validation, guardrails and monitoring are in place (all outstanding). Memory therefore reads as "not switched on yet" to patients. No evaluation run, version approval or guardrail was seeded. Code AI-020 was chosen to avoid colliding with codes other sessions may take.
+- Decision: open (CMO).
+
+### OQ-298 How fast a cut-off self-harm page is retried (raised by S52 round 5)
+- The page is now durable: a queue row is committed first, the wait is bounded, a still-running page is kept alive past the response, and `assistant_page_retry_due()` re-attempts any page still pending. The retry runs from the daily `assistant-silence` cron and after every later self-harm page (any patient). Sub-daily crons are not available on the current Vercel plan, so a page cut off with no further message from that patient can wait up to a day for its retry if no other self-harm page happens first.
+- Options: (a) accept, the emergency escalation on its own SLA ladder is the second line (recommended until a Pro plan or a database scheduler is chosen); (b) move the retry to a database scheduler (pg_cron) or a Railway worker.
+- Decision: open (founder, with the Vercel plan decision).
+
+### OQ-299 The daily nudge no longer reaches test accounts (raised by S51 round 5)
+- By coordinator instruction the nudge cron excludes `is_test` patients, so the nudge cannot be exercised end to end with a test account before `assistant_enabled` is on. It can be proved by the database proof (which stands in for the guard) and by calling `assistant_queue_nudge` directly.
+- Decision: open (founder).
 ### OQ-S55-13 Weekly pacing replaces the daily lesson card (founder decision 2026-10-07)
 - The founder prefers weekly lessons. `daily_micro_lesson()` is replaced by `weekly_micro_lesson()`: one lesson per programme week, chosen with the existing drip engine (`drip_week` against `private.health_education_unlock_week(condition)`, per-condition clocks), each at most the `micro_lesson` config minutes (5, PROPOSED). A lesson finished this week stays shown as done until the programme week turns over; an unfinished earlier lesson is offered only when nothing newer is due. Copy says "This week's lesson" on web (dashboard, Learn) and mobile (Home, Learn); the generic Today task label `today.kind.read_lesson` now reads "Read your lesson" (it is not tied to the weekly lesson). Events `lesson.completed` and `course.completed` are unchanged. The `micro_lesson` config key keeps its name (it describes the lesson shape, not the cadence).
 - Offline the phone cannot work out the programme week, so it shows the lesson the server last chose for this person (kept on the phone) while it is still downloaded and in date, else the first in-date micro-lesson.

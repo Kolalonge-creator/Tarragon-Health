@@ -3719,6 +3719,62 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/plans/S75-S80-cmo-decisions.md S-18 (S76 B2); builds on version 4 (S20 v2)",
   },
   {
+    key: "assistant.emergency",
+    // S52 (7.8, INV-06). Nigeria has no usable national crisis helpline, so `phoneNumbers` is EMPTY on purpose: the CMO adds a number
+    // (a hospital line, a clinic desk) here and nowhere else, and it is shown only once set. `nearestHospitalsShown` is how many hospitals
+    // the emergency reply lists. The self-harm and emergency WORDING in packages/shared/src/assistant-emergency.ts is PROPOSED (OQ-293).
+    value: { nearestHospitalsShown: 3, phoneNumbers: [], selfHarmCopyStatus: "proposed_awaiting_cmo_signoff" },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S52.md; docs/BUILD-SPEC-v5.md B.7 7.8; founder decision 2026-10-07 (no crisis helpline in Nigeria, nearest hospital)",
+  },
+  {
+    key: "assistant.silence",
+    // S52 (7.10): silence_days of no message from a programme member write an assistant.silence_detected event (a signal, never a treatment
+    // change); reengage_after_days later one generic note, at most one per reengage_cooldown_days. Mirrored by assistant_config (key silence)
+    // in migration *_s52_assistant_safety_memory_review.sql; assistant-safety-mirror.test.ts pins them together.
+    value: { silence_days: 7, reengage_after_days: 10, reengage_cooldown_days: 30 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S52.md; docs/BUILD-SPEC-v5.md B.7 7.10",
+  },
+  {
+    key: "assistant.paging",
+    // S52 (INV-05): a self-harm page repeats for the same conversation no sooner than repeat_hours, or no_cover_repeat_minutes when nobody was
+    // on call. Mirrored by assistant_config (key paging).
+    value: { repeat_hours: 6, no_cover_repeat_minutes: 30, page_wait_ms: 4000, hospital_lookup_ms: 2500 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S52.md; docs/BUILD-SPEC-v5.md INV-05",
+  },
+  {
+    key: "assistant.review",
+    // S52 (7.13): how many randomly chosen conversations the Chief Medical Officer reviews each month, on top of every reported one.
+    value: { monthly_sample_size: 20 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S52.md; docs/BUILD-SPEC-v5.md B.7 7.13",
+  },
+  {
+    key: "assistant.memory",
+    // S52 (7.12): at most max_items goals and preferences, each at most max_chars characters; consent_text_version names the wording the
+    // patient agreed to. Mirrored by assistant_config (key memory).
+    value: { max_items: 30, max_chars: 200, consent_text_version: "mem-v1" },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S52.md; docs/BUILD-SPEC-v5.md B.7 7.12",
+  },
+  {
     key: "media_library.config",
     // S57 (functions 10.7, 10.9, 10.10). Identical to the active row of `media_library_config` v1 (a test fails on drift). UNSIGNED.
     // download: Wi-Fi only, 5 MB a track (plan 4.2) and a 50 MB pack (the build's proposal). breathing: 3 to 5 minutes (spec 10.7) and the
