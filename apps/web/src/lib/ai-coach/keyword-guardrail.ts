@@ -1,4 +1,4 @@
-import { screenAssistantMessage } from "@tarragon/clinical";
+import { isSelfHarmScreen, screenAssistantMessage } from "@tarragon/clinical";
 
 /**
  * Deterministic first-pass safety net for the AI assistant. Runs before any Claude call, so an unambiguous red-flag message is
@@ -23,13 +23,7 @@ export function emergencyMatches(message: string): readonly string[] {
   return screenAssistantMessage(message).matched;
 }
 
-/** Self-harm and suicide wording, which gets its own copy and routing (S52, INV-05). A subset of the emergency screen. */
-const SELF_HARM_MARKERS: readonly string[] = [
-  "suicid", "kill myself", "end my life", "ending my life", "want to die", "wants to die", "wanted to die", "don't want to live",
-  "do not want to live", "self harm", "self-harm", "cutting myself", "hurting myself", "harming myself", "kill himself", "kill herself",
-];
-
+/** Self-harm and suicide wording, which gets its own copy and routing (S52, INV-05). Read from the SAME screen that fired, never a second list. */
 export function isSelfHarmMessage(message: string): boolean {
-  const h = message.toLowerCase().replace(/[‘’ʼ]/g, "'");
-  return SELF_HARM_MARKERS.some((m) => h.includes(m));
+  return isSelfHarmScreen(screenAssistantMessage(message));
 }

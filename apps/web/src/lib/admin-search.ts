@@ -53,6 +53,8 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/clinician/my-health-config", "lock screen pass wallet card fields sign cmo emergency basics initials blood group genotype allergies on file my health c8"],
   ["/admin/settings/my-health-config", "lock screen pass wallet card fields read only signed my health emergency basics"],
   ["/clinician/clinical-signoff", "sign signature sign off signoff hub approve what needs signing outstanding pending awaiting clinical director cmo s06 s07 s08 s09 s10 c1 c2 c3 c4 c5 c6 c7 c8 cuff wording low blood pressure adherence as needed prn limits lock screen pass"],
+  ["/clinician/assistant-review", "assistant ai coach chat monthly review sample conversations reported answers report an answer unsafe appropriate verdict clinical lead cmo audit read reason safety review ai health assistant"],
+  ["/clinician/clinical-signoff", "sign signature sign off signoff hub approve what needs signing outstanding pending awaiting clinical director cmo"],
   ["/clinician/lpe-content-library", "sign approve review coaching content ai coach lifestyle blocks library reference copy"],
   ["/clinician/result-release-policies", "sign approve result release policy abnormal critical doctor delivered restricted hiv hepatitis cancer screen withhold patient"],
   ["/clinician/titration-protocols", "protocol protocols titration step table steps approve protocol approve sign hypertension blood pressure protocol dose increase medicine draft htn_hearts_ng check validate save draft definition json"],

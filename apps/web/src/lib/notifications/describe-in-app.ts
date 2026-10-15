@@ -707,7 +707,9 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     return { text: "This is a test alert. Nothing is wrong", href: "/patient" };
   }
   if (n.template === "on_call_page") {
-    // From private.page_notify (S19): fixed neutral line, never the patient or the reading (INV-07).
+    // Fixed neutral line, never the patient or the reading (INV-07). A page from the assistant's self-harm path (S52) has no S19 page row,
+    // so /clinician/on-call would be empty: it points to the queue, where the class 1 task is counted and "claim next" hands it out first.
+    if (payload.kind === "assistant_crisis") return { text: "A priority case is waiting for you", href: "/clinician/queue" };
     return { text: "A priority case is waiting for you", href: "/clinician/on-call" };
   }
   if (n.template === "response_slower_notice") {
