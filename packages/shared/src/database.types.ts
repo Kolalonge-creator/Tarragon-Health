@@ -44212,6 +44212,17 @@ export type Database = {
       // S27 (lab results and release rules): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       bp_control_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };
       // S38c (monthly report and risk stratification): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
+      clinician_folio_for_document: {
+        Args: { p_document_kind: string; p_document_ids: string[] }
+        Returns: {
+          document_id: string
+          clinician_staff_id: string
+          clinician_profile_id: string
+          full_name: string
+          credential_type: string
+          credential_number: string
+        }[]
+      }
       clinician_risk_worklist: { Args: { p_limit?: number }; Returns: Json };
       device_target_for_reading: {
         Args: { p_device_id: string }
