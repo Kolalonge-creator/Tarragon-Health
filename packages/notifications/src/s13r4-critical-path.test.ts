@@ -58,7 +58,7 @@ describe("Q10 / OQ-92: SMS is decided by who the recipient is", () => {
   });
   it("the sender uses the role rule and not the priority", () => {
     const src = readFileSync("../../supabase/functions/send-pending-notifications/index.ts", "utf8");
-    expect(src).toContain("smsPurpose: isClinicianPageRow(roleById.get(row.recipient_id) ? "clinician_page" : "none", row.template, row.priority)");
+    expect(src).toContain("smsPurpose: smsPurpose({ template: row.template, priority: row.priority, recipientRole: roleById.get(row.recipient_id) })");
     expect(src).not.toMatch(/smsPurpose:\s*row\.priority === "critical"/);
   });
 });
