@@ -39,6 +39,9 @@ function ports(over: Partial<TriagePorts> = {}) {
     loadContext: jest.fn(async () => ({ found: true, input: input({ trigger: { type: "observation", reading: reading(124, 78), symptoms: [] } }) }) as TriageContext),
     loadRuleSet: jest.fn(async () => draft),
     record: jest.fn(async (a: (typeof recorded)[number]) => void recorded.push(a)),
+    loadGlucoseContext: jest.fn(async () => ({ found: false })),
+    loadGlucoseRuleSet: jest.fn(async () => null),
+    recordGlucose: jest.fn(async () => undefined),
     ...over,
   };
   return { p, recorded };
@@ -183,5 +186,12 @@ describe("the database ports", () => {
   it("turns a database error into a thrown error naming the function", async () => {
     const client = { rpc: async () => ({ data: null, error: { message: "boom" } }) } as unknown as RpcClient;
     await expect(triagePorts(client).loadRuleSet("x")).rejects.toThrow("triage_rule_set_for_grading: boom");
+  });
+
+  it("a reading from a patient with no date of birth (ageYears missing from the JSON) is graded, not rejected", async () => {
+    const { ageYears: _dropped, ...noAge } = input({ trigger: { type: "observation", reading: reading(185, 125), symptoms: ["severe_headache"] } });
+    const { p, recorded } = ports({ loadContext: async () => ({ found: true, input: noAge as unknown as TriageInput }) });
+    await makeObservationHandler(p)(event({ observation_id: "obs1" }), ctx);
+    expect(recorded[0]?.result).toMatchObject({ status: "graded", grade: "red" });
   });
 });

@@ -14,30 +14,60 @@ import { describeRequest, RecordChangesQueue, type RecordChangeRequest } from ".
 
 const VOID_REQUEST: RecordChangeRequest = {
   id: "r1",
+  kind: "allergy",
   requested_status: "entered_in_error",
   reason: "I never had this reaction",
   replacement: null,
   created_at: "2026-10-12T09:30:00Z",
   patient: { full_name: "Ada Obi", patient_number: "TH-0042" },
   allergy: { allergen: "Peanut", reaction: "Hives", severity: "moderate", source: "patient", noted_at: "2026-01-01" },
-  allergyUnavailable: false,
+  currentUnavailable: false,
+  condition: null,
 };
 
 const CORRECT_REQUEST: RecordChangeRequest = {
   id: "r2",
+  kind: "allergy",
   requested_status: "corrected",
   reason: "It is milder than I wrote",
   replacement: { allergen: "Peanut", severity: "mild" },
   created_at: "2026-10-13T09:30:00Z",
   patient: { full_name: "Bayo Ade", patient_number: null },
   allergy: { allergen: "Peanut", reaction: null, severity: "severe", source: "patient", noted_at: null },
-  allergyUnavailable: false,
+  currentUnavailable: false,
+  condition: null,
+};
+
+const CONDITION_VOID: RecordChangeRequest = {
+  id: "r3",
+  kind: "condition",
+  requested_status: "entered_in_error",
+  reason: "I never had gout",
+  replacement: null,
+  created_at: "2026-10-14T09:30:00Z",
+  patient: { full_name: "Chidi Eze", patient_number: "TH-0077" },
+  allergy: null,
+  condition: { condition_name: "Gout", icd10_code: "M10", status: "active", source: "patient", date_identified: "2024-05-01" },
+  currentUnavailable: false,
+};
+
+const CONDITION_CORRECT: RecordChangeRequest = {
+  ...CONDITION_VOID,
+  id: "r4",
+  requested_status: "corrected",
+  reason: "It is gouty arthritis",
+  replacement: { condition_name: "Gouty arthritis" },
 };
 
 describe("describeRequest", () => {
   it("says remove for a void and names the replacement for a correction", () => {
     expect(describeRequest(VOID_REQUEST)).toMatch(/remove/i);
     expect(describeRequest(CORRECT_REQUEST)).toBe("Change to: Peanut, Mild");
+  });
+
+  it("speaks of a condition for a condition request", () => {
+    expect(describeRequest(CONDITION_VOID)).toBe("Remove this condition (entered by mistake)");
+    expect(describeRequest(CONDITION_CORRECT)).toBe("Change to: Gouty arthritis");
   });
 });
 
@@ -77,7 +107,7 @@ describe("RecordChangesQueue", () => {
   });
 
   it("says so, instead of calling the entry gone, when the current record could not be loaded", () => {
-    render(<RecordChangesQueue requests={[{ ...VOID_REQUEST, allergy: null, allergyUnavailable: true }]} />);
+    render(<RecordChangesQueue requests={[{ ...VOID_REQUEST, allergy: null, currentUnavailable: true }]} />);
     expect(screen.getByText(/could not be loaded/)).toBeTruthy();
     expect(screen.queryByText(/no longer current/)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Open request" }));
@@ -85,7 +115,37 @@ describe("RecordChangesQueue", () => {
   });
 
   it("says the entry is no longer current when the record loaded but the entry is gone", () => {
-    render(<RecordChangesQueue requests={[{ ...VOID_REQUEST, allergy: null, allergyUnavailable: false }]} />);
+    render(<RecordChangesQueue requests={[{ ...VOID_REQUEST, allergy: null, currentUnavailable: false }]} />);
     expect(screen.getByText(/no longer current/)).toBeTruthy();
+  });
+
+  it("shows a condition request with the condition as recorded, the ask and the hold wording", () => {
+    render(<RecordChangesQueue requests={[CONDITION_CORRECT]} />);
+    expect(screen.getByText(/Chidi Eze/)).toBeTruthy();
+    expect(screen.getByText("Gout")).toBeTruthy();
+    expect(screen.getByText(/Change to: Gouty arthritis/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Open request" }));
+    expect(screen.getByText("Current record")).toBeTruthy();
+    expect(screen.getAllByText("M10").length).toBeGreaterThan(0);
+    expect(screen.getByText("Active")).toBeTruthy();
+    expect(screen.getAllByText("Gouty arthritis").length).toBeGreaterThan(0);
+    expect(screen.getByText(/the condition stays on the patient's record/)).toBeTruthy();
+    expect(screen.queryByText(/emergency card/)).toBeNull();
+    expect(screen.getByRole("button", { name: /Confirm the change/ })).toBeTruthy();
+  });
+
+  it("says a condition could not be loaded rather than gone, and no longer current when it loaded but is gone", () => {
+    const { unmount } = render(<RecordChangesQueue requests={[{ ...CONDITION_VOID, condition: null, currentUnavailable: true }]} />);
+    expect(screen.getByText(/could not be loaded/)).toBeTruthy();
+    expect(screen.queryByText(/no longer current/)).toBeNull();
+    unmount();
+    render(<RecordChangesQueue requests={[{ ...CONDITION_VOID, condition: null, currentUnavailable: false }]} />);
+    expect(screen.getByText(/no longer current/)).toBeTruthy();
+  });
+
+  it("keeps the allergy wording for an allergy request", () => {
+    render(<RecordChangesQueue requests={[VOID_REQUEST]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Open request" }));
+    expect(screen.getByText(/emergency card/)).toBeTruthy();
   });
 });

@@ -696,6 +696,16 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "free_red_checkin") {
     return { text: t("freered.notice.checkin", "en"), href: "/patient" };
   }
+  // S13 R4: fixed neutral lines (INV-07). The guidance is on the dashboard, never in the message.
+  if (n.template === "red_event_guidance_waiting") {
+    return { text: "A safety message is waiting for you. Open it now", href: "/patient" };
+  }
+  if (n.template === "red_event_outreach_task") {
+    return { text: "A priority call is waiting for you", href: "/clinician/queue" };
+  }
+  if (n.template === "test_alert") {
+    return { text: "This is a test alert. Nothing is wrong", href: "/patient" };
+  }
   if (n.template === "on_call_page") {
     // From private.page_notify (S19): fixed neutral line, never the patient or the reading (INV-07).
     return { text: "A priority case is waiting for you", href: "/clinician/on-call" };

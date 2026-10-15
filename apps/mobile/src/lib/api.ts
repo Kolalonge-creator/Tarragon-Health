@@ -51,6 +51,9 @@ export type VitalReadingPayload =
       glucose_unit: "mmol_l" | "mg_dl";
       glucose_context: "fasting" | "pre_meal" | "post_meal" | "bedtime" | "night" | "random";
       note?: string;
+      /** R2: ketones typed with the glucose, stored on the same reading so the server's shadow grade sees what the phone's grade saw. */
+      ketones_mmol_l?: number;
+      ketone_urine?: "negative" | "trace" | "small" | "moderate" | "large";
     }
   | { vital_type: "weight"; weight_kg: number; note?: string }
   | { vital_type: "pulse"; pulse_bpm: number; note?: string }

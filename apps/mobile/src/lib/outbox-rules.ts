@@ -5,7 +5,7 @@
  * is only the bundled fallback for a phone that has never synced.
  */
 
-export type OutboxKind = "vital" | "symptom" | "dose" | "kick_session" | "contraction_session";
+export type OutboxKind = "vital" | "symptom" | "dose" | "red_care" | "kick_session" | "contraction_session";
 export type OutboxState = "pending" | "rejected";
 
 export interface OfflineSyncConfig {

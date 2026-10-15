@@ -599,6 +599,8 @@ export function getNavSections(
                 // Say whether the automatic grade was right for a task you completed; off until the CMO approves (S38e).
                 { label: "Review automatic grades", href: "/clinician/triage-review", icon: "review" },
                 { label: "Team caseload", href: "/clinician/team-caseload", icon: "analytics" },
+                // Chief Medical Officer only: is the chain from a reading to a grade, task, page and notice working, and how fast (P1).
+                { label: "Chain health", href: "/clinician/chain-health", icon: "operations" },
                 // Chief Medical Officer only: how AI scribe drafts are used, and a random sample to check (S35c).
                 { label: "Scribe quality", href: "/clinician/scribe-quality", icon: "analytics" },
               ],
@@ -658,6 +660,7 @@ export function getNavSections(
                 { label: "Titration protocols", href: "/clinician/titration-protocols", icon: "review" },
                 { label: "Symptom triage protocols", href: "/clinician/triage-protocols", icon: "review" },
                 { label: "Blood pressure triage rules", href: "/clinician/triage-rules", icon: "bp" },
+                { label: "Glucose triage rules", href: "/clinician/glucose-triage-rules", icon: "bp" },
                 { label: "Task types and priorities", href: "/clinician/task-types", icon: "review" },
                 { label: "Clinical rules engine", href: "/clinician/clinical-rules", icon: "governance" },
                 { label: "Alert rules", href: "/clinician/alert-rules", icon: "siren" },
@@ -759,6 +762,9 @@ export function getNavSections(
             { label: "Partner settlements", href: "/admin/partner-settlements", icon: "billing" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
             { label: "Event bus", href: "/admin/ops/event-bus", icon: "operations" },
+            // Is the chain from a reading to a grade, task, page and notice working, and how fast (P1).
+            { label: "Chain health", href: "/admin/ops/chain-health", icon: "operations" },
+            { label: "Providers", href: "/admin/ops/providers", icon: "operations" },
             { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
                 { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
             { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },

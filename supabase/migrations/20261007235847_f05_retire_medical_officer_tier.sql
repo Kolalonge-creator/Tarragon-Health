@@ -169,7 +169,11 @@ end $$;
 do $$
 declare r record; g jsonb; v_kind_order text[] := array['index', 'function', 'view', 'constraint', 'policy'];
 begin
-  for r in select * from f05_swap order by array_position(v_kind_order, kind), (name not like 'private.doctor_tier_rank(%'), ord loop
+  -- Replay order must not depend on catalog heap order (the order the capture loops above happened to scan pg_proc/pg_policy in,
+  -- which varies with where earlier CREATE OR REPLACE statements left each row). Kinds run in dependency order; within functions,
+  -- private.doctor_tier_rank goes first because other SQL-language functions (pick_employed_clinician*) call it and are validated at
+  -- creation; everything else sorts by name, a stable key. `ord` is only a last tie-break and never decides the outcome.
+  for r in select * from f05_swap order by array_position(v_kind_order, kind), (name not like 'private.doctor_tier_rank(%'), name, ord loop
     execute r.ddl;
     if r.kind = 'function' then
       execute format('revoke all on function %s from public, anon, authenticated, service_role', r.name);

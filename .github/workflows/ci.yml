@@ -48,6 +48,9 @@ jobs:
       - name: Test (packages and console)
         run: pnpm test:ci
 
+      - name: Speech evaluation harness (node:test, synthetic data only)
+        run: node --test scripts/asr-eval/score.test.mjs
+
       - name: Build
         run: pnpm build
 
@@ -457,9 +460,10 @@ jobs:
       # variable.
       #
       # Scoped to paystack-webhook/, not the whole supabase/functions tree:
-      # the other 5 functions (abnormal-result-handler, integration-outbound-
-      # drain, send-pending-notifications, send-support-reply, whatsapp-
-      # webhook, zoom-webhook) have never been `deno lint`ed either and carry
+      # the other functions (abnormal-result-handler, integration-outbound-
+      # drain, send-pending-notifications, zoom-webhook, and the rest) have
+      # never been `deno lint`ed either (send-support-reply and whatsapp-webhook
+      # were removed from the repo with WhatsApp, F-02) and carry
       # 6 pre-existing require-await findings unrelated to this change
       # (checked 2026-09-23) — widen this glob directory-by-directory once
       # each is verified clean, rather than landing a job that's red on day
@@ -479,6 +483,14 @@ jobs:
         if: github.event_name != 'pull_request' || steps.changes.outputs.edge == 'true'
         run: |
           for d in order-checkout order-verify order-reconcile price-quote; do
+            (cd supabase/functions/$d && deno test --no-config . && deno lint --no-config .)
+          done
+
+      # S14x: the provider event inbox adopters (Resend, Zoom), the settlement reconciliation function and the inbox drain.
+      - name: Test provider-layer functions
+        if: github.event_name != 'pull_request' || steps.changes.outputs.edge == 'true'
+        run: |
+          for d in resend-webhook zoom-webhook settlement-reconcile provider-event-drain; do
             (cd supabase/functions/$d && deno test --no-config . && deno lint --no-config .)
           done
 

@@ -16956,6 +16956,8 @@ export type Database = {
           min_age: number | null
           min_risk_level: Database["public"]["Enums"]["risk_level"] | null
           next_review_due: string | null
+          review_flag_reason: string | null
+          review_flagged_at: string | null
           reading_level: Database["public"]["Enums"]["health_education_reading_level"]
           review_due_at: string | null
           reviewed_at: string | null
@@ -16996,6 +16998,8 @@ export type Database = {
           min_age?: number | null
           min_risk_level?: Database["public"]["Enums"]["risk_level"] | null
           next_review_due?: string | null
+          review_flag_reason?: string | null
+          review_flagged_at?: string | null
           reading_level?: Database["public"]["Enums"]["health_education_reading_level"]
           review_due_at?: string | null
           reviewed_at?: string | null
@@ -17036,6 +17040,8 @@ export type Database = {
           min_age?: number | null
           min_risk_level?: Database["public"]["Enums"]["risk_level"] | null
           next_review_due?: string | null
+          review_flag_reason?: string | null
+          review_flagged_at?: string | null
           reading_level?: Database["public"]["Enums"]["health_education_reading_level"]
           review_due_at?: string | null
           reviewed_at?: string | null
@@ -27276,7 +27282,8 @@ export type Database = {
       }
       patient_allergy_correction_requests: {
         Row: {
-          allergy_id: string
+          allergy_id: string | null
+          condition_id: string | null
           created_at: string
           decided_at: string | null
           decided_by: string | null
@@ -27285,13 +27292,15 @@ export type Database = {
           organisation_id: string
           patient_id: string
           reason: string
+          record_table: string
           replacement: Json | null
           replacement_id: string | null
           requested_status: Database["public"]["Enums"]["correction_status"]
           status: string
         }
         Insert: {
-          allergy_id: string
+          allergy_id?: string | null
+          condition_id?: string | null
           created_at?: string
           decided_at?: string | null
           decided_by?: string | null
@@ -27300,13 +27309,15 @@ export type Database = {
           organisation_id: string
           patient_id: string
           reason: string
+          record_table?: string
           replacement?: Json | null
           replacement_id?: string | null
           requested_status: Database["public"]["Enums"]["correction_status"]
           status?: string
         }
         Update: {
-          allergy_id?: string
+          allergy_id?: string | null
+          condition_id?: string | null
           created_at?: string
           decided_at?: string | null
           decided_by?: string | null
@@ -27315,6 +27326,7 @@ export type Database = {
           organisation_id?: string
           patient_id?: string
           reason?: string
+          record_table?: string
           replacement?: Json | null
           replacement_id?: string | null
           requested_status?: Database["public"]["Enums"]["correction_status"]
@@ -27326,6 +27338,13 @@ export type Database = {
             columns: ["allergy_id"]
             isOneToOne: false
             referencedRelation: "patient_allergies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_allergy_correction_requests_condition_id_fkey"
+            columns: ["condition_id"]
+            isOneToOne: false
+            referencedRelation: "patient_conditions"
             referencedColumns: ["id"]
           },
           {
@@ -45900,6 +45919,25 @@ export type Database = {
         Returns: undefined
       }
       event_bus_health: { Args: never; Returns: Json }
+      chain_health: { Args: never; Returns: Json }
+      chain_reliability_report: { Args: { p_days?: number }; Returns: Json }
+      chain_canary_run_now: { Args: never; Returns: string }
+      triage_engine_parity: {
+        Args: { p_days?: number }
+        Returns: { engine_grade: string; engine_status: string; legacy_class: string; readings: number }[]
+      }
+      triage_engine_parity_cases: {
+        Args: { p_days?: number; p_limit?: number }
+        Returns: {
+          concern: string
+          created_at: string
+          engine_grade: string
+          engine_status: string
+          legacy_class: string
+          observation_id: string
+          triage_event_id: string
+        }[]
+      }
       replay_event_delivery: { Args: { p_delivery_id: string; p_redo_effects?: boolean }; Returns: boolean }
       event_bus_lag_sweep: { Args: { p_include_test?: boolean }; Returns: number }
       event_bus_explorer: {
@@ -51573,6 +51611,7 @@ export type Database = {
         | "dexcom"
         | "libre"
         | "android_health_connect"
+        | "withings"
       wellness_challenge_metric:
         | "vitals_logs"
         | "meal_logs"
@@ -54095,6 +54134,7 @@ export const Constants = {
         "dexcom",
         "libre",
         "android_health_connect",
+        "withings",
       ],
       wellness_challenge_metric: [
         "vitals_logs",
