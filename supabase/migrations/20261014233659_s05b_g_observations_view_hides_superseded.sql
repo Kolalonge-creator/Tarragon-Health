@@ -25,6 +25,20 @@
 -- untouched (create or replace keeps them). A regular user session was already filtered by RLS; this changes nothing for it.
 -- Counted first: view columns are compared before and after in the self-check; no data is changed.
 
+-- Found by the self-check below on the S51 branch of main-dev: public.ai_readable_lab_readings (S51, INV-04: the only lab surface the AI path may read)
+-- read lab_analyte_readings without hiding superseded rows, so the assistant could be handed a lab value the lab has since corrected. It stays a
+-- security_invoker view (RLS keeps applying; the owner-rights private.*_current views are not usable from here), the same columns in the same order,
+-- plus the same "never marked" predicate every other reader uses.
+create or replace view public.ai_readable_lab_readings with (security_invoker = true) as
+select r.id, r.patient_id, r.organisation_id, r.code, r.value, r.value_text, r.unit, r.taken_at,
+       r.reference_range_low, r.reference_range_high, r.abnormal_flag, r.report_status
+  from public.lab_analyte_readings r
+ where not r.sensitive_positive
+   -- a preliminary report is not yet a result anyone has stood behind; corrected and amended rows are the labs' own later word
+   and r.report_status <> 'preliminary'
+   and r.correction_status is null
+   and not private.is_ai_excluded_analyte(r.code, r.value_text);
+
 do $$
 declare
   v_def text;
