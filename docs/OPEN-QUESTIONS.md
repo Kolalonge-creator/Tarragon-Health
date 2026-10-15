@@ -2837,7 +2837,6 @@ From the six package closeouts (`docs/design/S11-S15-*-closeout.md`), de-duplica
 
 ### OQ-358 `clinical_staff_directory` exposes the MDCN folio (raised by the integration pass)
 - The view returns `credential_number` to every signed-in user in the organisation, including patients. CMO decision Q17 says the folio is never shown. NOT changed in the integration pass because many screens read it by design: referral letters, lab result PDFs and verified-document PDFs print the issuing doctor's registration number, and the admin search matches on it. Decide per document whether the folio should print, then narrow the view (a column-level change plus a clinician-only function for the places that must keep it).
-<<<<<<< HEAD
 
 ### OQ-S57-01 Library content, creators and what the build could not create (S57, 2026-10-07)
 - Built: the structure for the meditation and sleep library (`media_library`, publish gate, expiry read rule, series: intro, stress, grief, work, exams, faith-compatible reflection, sleep), 12 DRAFT placeholders (none servable), admin page `/admin/settings/media-library`. NO audio, script, prompt, spiritual text or clinical wording was written. Every real item needs an author, a named reviewer, a review date and, for audio, a recorded file with length and size.
@@ -2892,7 +2891,6 @@ From the six package closeouts (`docs/design/S11-S15-*-closeout.md`), de-duplica
 ### OQ-S57b-05 Offline downloads built but inert (S57b)
 - See `docs/design/S57b-offline-downloads.md`. Behind flag `mobile_offline_downloads` (OFF), needs a new EAS native build and a `runtimeVersion` bump (NOT done), never run on a real device. Integrity is size only until `media_library` gains a SHA-256 column (follow-up). Playback still needs a native audio engine (OQ-S57-04). Wind-down reminder left out (item 7): the in-app inbox route would be a notification that exists only to nudge, and OQ-S57-04's point stands that the words should be fixed and name nothing; not trivial enough to add safely here.
 
-=======
 ### OQ-S55-13 Weekly pacing replaces the daily lesson card (founder decision 2026-10-07)
 - The founder prefers weekly lessons. `daily_micro_lesson()` is replaced by `weekly_micro_lesson()`: one lesson per programme week, chosen with the existing drip engine (`drip_week` against `private.health_education_unlock_week(condition)`, per-condition clocks), each at most the `micro_lesson` config minutes (5, PROPOSED). A lesson finished this week stays shown as done until the programme week turns over; an unfinished earlier lesson is offered only when nothing newer is due. Copy says "This week's lesson" on web (dashboard, Learn) and mobile (Home, Learn); the generic Today task label `today.kind.read_lesson` now reads "Read your lesson" (it is not tied to the weekly lesson). Events `lesson.completed` and `course.completed` are unchanged. The `micro_lesson` config key keeps its name (it describes the lesson shape, not the cadence).
 - Offline the phone cannot work out the programme week, so it shows the lesson the server last chose for this person (kept on the phone) while it is still downloaded and in date, else the first in-date micro-lesson.
@@ -2908,4 +2906,3 @@ From the six package closeouts (`docs/design/S11-S15-*-closeout.md`), de-duplica
 - The weekly clock: a condition track counts from its active care plan; the general track counts from the earlier of onboarding and first engagement, so finishing a first lesson never resets it. The feed's own unlock week (`private.health_education_unlock_week`) still falls back to first engagement only, so for a person who onboarded long before their first lesson the feed can unlock fewer lessons than the weekly card offers; decide whether the feed should use the same anchor.
 - Decision: founder decided the perk; (a), (b) and (c) open.
 - Recorded in review, not changed: re-taking an old lesson (fail then pass) restamps its finish time and counts as done this week; the mobile single-lesson viewer shows only the title if the lock lookup fails; the perk switch is not sign-off gated beyond an admin and a reason.
->>>>>>> origin/main-dev

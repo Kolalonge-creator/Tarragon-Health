@@ -1517,7 +1517,6 @@ Six reviewed package branches were merged into one branch, `s11-s15/integration`
 - **Found while proving**: `read_patient_chart_audited` (definer, BYPASSRLS) returned superseded entries through `public.allergies` and `public.conditions`; both views now filter `correction_status is null` (in this migration). `public.observations` (vitals) has the same gap and is not changed here.
 - **Review fixes** (from `/code-review high`): a condition renamed without a code stores `icd10_code: null` instead of keeping the old code; a clinician review (`last_reviewed_at`) counts as verification like a diagnosing clinician; one parser for both chart sections; dates formatted on the queue.
 - **Limits**: as S05b-e (the arrival notice covers care team, escalation and alert ties only). No patient screen creates a request yet; a condition request comes from `correct_clinical_value`, called by the app or the API. A request cannot be filed for a condition a clinician recorded, diagnosed or reviewed. Merge the app and the migration together (an old queue page shows a condition request as "entry no longer current").
-<<<<<<< HEAD
   - Who signs what: nobody has signed anything. CMO: follow-up timings and the two guard attestations (the guard stays OFF), the callback figure, the 112 wording. Admin or CMO: verify each helpline after phoning it. Founder: OQ-S56-01 break-glass and support-view decisions.
 
 ### S57: Module 10 (2 of 2), meditation and sleep library (2026-10-07), on `s55-60/s57-meditation-sleep` (stacked on S56)
@@ -1549,7 +1548,6 @@ Six reviewed package branches were merged into one branch, `s11-s15/integration`
   4. `20261007203712_s57b_mobile_offline_downloads_flag.sql` (one feature_flags row, OFF).
   - Functions to deploy: none. Mobile: do NOT publish an OTA; needs a native build (see `docs/design/S57b-offline-downloads.md`). `pnpm-lock.yaml` gained 17 lines for `expo-file-system` and `expo-network`.
   - Who signs what: nothing was signed by the build. CMO: questionnaire, `crisis_follow_up` confirmation, the library scripts, faith content. Faith leader: reviews faith content. Founder or counsel: the instrument's licence. Release owner: runtimeVersion bump and native build.
-=======
 
 ## S55 follow-up: weekly pacing and the members-only creator perk (stacked on #1005)
 - **Source**: two founder decisions (2026-10-07) patched on top of PR #1005 (branch `s55-60/s55-learning-centre`). Design `docs/design/S55.md` section 8. Open questions OQ-S55-13 and OQ-S55-14. Founder waived the S40 gate; nothing is switched on; nothing applied live.
@@ -1557,4 +1555,3 @@ Six reviewed package branches were merged into one branch, `s11-s15/integration`
 - **Tests**: `packages/db/tests/s55_weekly_lesson_and_members_creator_perk.sql` (49 checks, registered in `ci.manifest`, two sabotage steps); `f1_learning_content_expiry_gate.sql` updated to the weekly function (still passes); Jest: footer, weekly card, share page, share loader, mobile offline pick, config mirror.
 - **Apply to production**: after #1005's three migrations, `list_migrations` first, explicit transaction with version pinned to the filename. Ship web and mobile with it. No function deploy. Nothing signed.
 
->>>>>>> origin/main-dev
