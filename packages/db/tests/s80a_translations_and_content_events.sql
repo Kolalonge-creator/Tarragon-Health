@@ -72,7 +72,7 @@ begin
   end if;
 
   -- content.published emitted on publish, not on other transitions
-  insert into public.health_education_content (code, title, body, category) values ('s80a-proof-1','S80a proof','body',v_cat) returning id into v_c;
+  insert into public.health_education_content (code, title, body, category, reviewed_by_name, source_reference, next_review_due, self_care_action) values ('s80a-proof-1','S80a proof','body',v_cat, 'Dr Proof Reviewer', 'S80 proof source', ((now() at time zone 'Africa/Lagos')::date + 40), 'Take one proof step today.') returning id into v_c;
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role','authenticated')::text, true);
   set local role authenticated;
   perform public.set_health_education_content_status(v_c, 'clinical_review');

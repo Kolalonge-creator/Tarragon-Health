@@ -6,15 +6,17 @@ begin;
 do $$
 declare
   v_org uuid; v_admin uuid := gen_random_uuid(); v_cmo uuid := gen_random_uuid(); v_pat uuid;
-  v_ver uuid; v_bp text; v_ts text;
+  v_ver uuid; v_ver_dp uuid; v_bp text; v_ts text;
   v_good uuid[] := '{}'; v_withdrawn uuid; v_noresearch uuid; v_test uuid; v_nodp uuid; v_u uuid; v_future uuid; v_rare uuid; v_future_hash text; v_res2 jsonb;
   v_p uuid; v_p2 uuid; v_ok boolean; v_res jsonb; v_n int; v_status public.research_protocol_status; v_i int;
   v_fields text[] := array['pathway_code','day','bp_status','adherence_pct','enrolment_month','computed_month'];
 begin
   select id into v_org from public.organisations limit 1;
   select id into v_pat from public.profiles where role = 'patient' limit 1;
-  select id into v_ver from public.consent_versions limit 1;
-  if v_org is null or v_pat is null or v_ver is null then raise exception 'fixture missing: organisation, patient or consent version'; end if;
+  -- S04b-2: a consent row's version must belong to its own consent type, so each purpose gets a version of its own type.
+  select id into v_ver from public.consent_versions where consent_type = 'research' order by is_current desc, created_at desc limit 1;
+  select id into v_ver_dp from public.consent_versions where consent_type = 'data_processing' order by is_current desc, created_at desc limit 1;
+  if v_org is null or v_pat is null or v_ver is null or v_ver_dp is null then raise exception 'fixture missing: organisation, patient or consent version'; end if;
   v_bp := 'uncontrolled';
   v_ts := 'default';
 
@@ -43,7 +45,7 @@ begin
     if v_i = 30 then v_future := v_u; end if;
     if v_i = 31 then v_rare := v_u; end if;
     -- consents: data_processing for all but v_nodp; research for all but v_noresearch and v_nodp
-    if v_i <> 29 then insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action, created_at) values (v_org, v_u, 'data_processing', v_ver, '1', 'accepted', now() - interval '2 days'); end if;
+    if v_i <> 29 then insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action, created_at) values (v_org, v_u, 'data_processing', v_ver_dp, '1', 'accepted', now() - interval '2 days'); end if;
     if v_i not in (27, 29) then insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action, created_at) values (v_org, v_u, 'research', v_ver, '1', 'accepted', case when v_i = 30 then now() + interval '1 day' else now() - interval '2 days' end); end if;
     if v_i = 26 then insert into public.patient_consents (organisation_id, patient_id, consent_type, consent_version_id, version, action, created_at) values (v_org, v_u, 'research', v_ver, '1', 'withdrawn', now() - interval '1 day'); end if;
   end loop;

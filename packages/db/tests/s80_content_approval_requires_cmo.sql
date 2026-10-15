@@ -33,8 +33,9 @@ begin
   values (v_cmo, v_org, 'S80 CMO', 'chief_medical_officer', true, 'MDCN', 'S80-CMO-1', true, v_verifier, v_verifier, now()),
          (v_mo,  v_org, 'S80 MO', 'senior_medical_officer', true, 'MDCN', 'S80-MO-1', true, v_verifier, v_verifier, now());
 
-  insert into public.health_education_content (code, title, body, category)
-  values ('s80-proof-1','S80 proof','body',v_cat) returning id into v_c;
+  -- (S55: the publish gate needs a named reviewer, a source, a future review date and a self-care action, so the fixture carries them.)
+  insert into public.health_education_content (code, title, body, category, reviewed_by_name, source_reference, next_review_due, self_care_action)
+  values ('s80-proof-1','S80 proof','body',v_cat, 'Dr Proof Reviewer', 'S80 proof source', ((now() at time zone 'Africa/Lagos')::date + 40), 'Take one proof step today.') returning id into v_c;
   update public.health_education_content set content_status = 'draft' where id = v_c;
 
   -- helper: run the RPC as a session, return true if it succeeded
@@ -114,7 +115,7 @@ begin
   -- BYPASS (code review finding): an admin cannot skip the RPC with a direct table write
   declare v_c2 uuid; v_dir boolean;
   begin
-    insert into public.health_education_content (code, title, body, category) values ('s80-proof-2','S80 proof 2','body',v_cat) returning id into v_c2;
+    insert into public.health_education_content (code, title, body, category, reviewed_by_name, source_reference, next_review_due, self_care_action) values ('s80-proof-2','S80 proof 2','body',v_cat, 'Dr Proof Reviewer', 'S80 proof source', ((now() at time zone 'Africa/Lagos')::date + 40), 'Take one proof step today.') returning id into v_c2;
     perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role','authenticated')::text, true);
     set local role authenticated;
     begin update public.health_education_content set content_status = 'published' where id = v_c2; v_dir := true; exception when others then v_dir := false; end;
