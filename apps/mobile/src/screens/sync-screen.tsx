@@ -29,7 +29,7 @@ interface PendingReading {
    * than lost — see save() below. "error" is reserved for the queue write
    * itself failing too, which would mean the reading genuinely isn't stored
    * anywhere yet. */
-  status: "pending" | "saving" | "saved" | "queued" | "error";
+  status: "pending" | "saving" | "saved" | "queued" | "held" | "merged" | "error";
   error?: string;
   /** Remembered from the save attempt so a retry after "error" doesn't have
    * to re-ask the fasting/random/after-a-meal question. */
@@ -207,7 +207,10 @@ export function SyncScreen({ device, onBack }: SyncScreenProps) {
 
     const result = await postDeviceReading(payload);
     if (result.success) {
-      setPending((prev) => prev.map((p) => (p.id === item.id ? { ...p, status: "saved" } : p)));
+      // S70a: accepted does not always mean "in the record". A number that cannot be real is held for the person to check, and a reading
+      // that was already there from a better source is linked, not stored twice. Neither is shown as "Saved".
+      const status = result.held ? "held" : result.merged ? "merged" : "saved";
+      setPending((prev) => prev.map((p) => (p.id === item.id ? { ...p, status } : p)));
       return;
     }
 
@@ -283,6 +286,20 @@ export function SyncScreen({ device, onBack }: SyncScreenProps) {
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                 <Ionicons name="checkmark-circle" size={18} color={colors.success} />
                 <Text style={{ color: colors.success, fontWeight: "600" }}>Saved</Text>
+              </View>
+            )}
+            {item.status === "held" && (
+              <View style={{ gap: 6 }}>
+                <Text style={{ color: colors.ink, fontWeight: "700" }}>Please check this reading</Text>
+                <MutedText>
+                  This number does not look possible, so we have not added it to your record. Check your device and take the reading again. If you feel unwell, do not wait. Get care now.
+                </MutedText>
+              </View>
+            )}
+            {item.status === "merged" && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Ionicons name="checkmark-circle-outline" size={18} color={colors.muted} />
+                <MutedText>This reading was already in your record from another source, so it was not added twice.</MutedText>
               </View>
             )}
             {item.status === "queued" && (

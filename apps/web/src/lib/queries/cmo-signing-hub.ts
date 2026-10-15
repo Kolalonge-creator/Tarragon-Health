@@ -10,6 +10,7 @@ import { readS06S10Signoffs, EMPTY_S06S10, type S06S10Snapshot } from "@/lib/que
 import { readPendingQualityConfigSignoff } from "@/lib/queries/pending-quality-config-signoff";
 import { readPendingGlucoseTaskTypeSignoff } from "@/lib/queries/pending-glucose-task-type-signoff";
 import { readPendingRedOutreachSignoff } from "@/lib/queries/pending-red-outreach-signoff";
+import { readPendingSoleCmoException } from "@/lib/queries/pending-sole-cmo-exception";
 
 export type CmoSigningHub = {
   /** One line per thing that needs the Chief Medical Officer's signature, most urgent first. */
@@ -41,6 +42,8 @@ export const RED_OUTREACH_ITEM_KEY = "red_outreach";
 export const GLUCOSE_TASK_TYPE_ITEM_KEY = "glucose_task_type";
 /** The line for the S20 v2 quality and credentialing configuration drafts (audit sampling, second review, speak-up check-ins, licence notices). */
 export const QUALITY_CONFIG_ITEM_KEY = "quality_configs";
+/** The key the sole-CMO on-call exception line carries, so the page can attach the signing panel. */
+export const SOLE_CMO_EXCEPTION_ITEM_KEY = "sole_cmo_on_call_exception";
 export { GLUCOSE_TRIAGE_ITEM_KEY };
 
 /**
@@ -63,7 +66,7 @@ export { GLUCOSE_TRIAGE_ITEM_KEY };
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, qualityConfigs] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, qualityConfigs, soleCmo] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -77,6 +80,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingGlucoseTriageSignoff(supabase),
     readPendingGlucoseTaskTypeSignoff(supabase),
     readPendingQualityConfigSignoff(supabase),
+    readPendingSoleCmoException(supabase),
   ]);
 
   const items: SignoffQueueItem[] = [];
@@ -163,6 +167,17 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  if (soleCmo.waiting) {
+    items.push({
+      key: SOLE_CMO_EXCEPTION_ITEM_KEY,
+      title: "Sole-CMO on-call exception: sign to be allowed on the on-call rota",
+      detail: "You are the only Chief Medical Officer, and the rule that nobody grants their own competencies keeps you off the on-call rota. A documented exception, signed by you, lets you grant yourself the on-call competency and nothing else.",
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: 1,
+    });
+  }
+
   items.push(...s06s10.items);
 
   if (glucoseTaskType.waiting) {
@@ -211,6 +226,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(glucose.failed ? ["the glucose triage rules"] : []),
     ...(glucoseTaskType.failed ? ["the urgent glucose review task type"] : []),
     ...(qualityConfigs.failed ? ["the quality and credentialing configurations"] : []),
+    ...(soleCmo.failed ? ["the sole-CMO on-call exception"] : []),
   ];
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
   // A banner row may only link to a hub line that exists. The banner reads its own copy of the state, so if the two ever disagree (a row it
