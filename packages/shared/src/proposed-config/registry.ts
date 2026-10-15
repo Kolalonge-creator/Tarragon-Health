@@ -577,6 +577,51 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S11-S15-credentialing.md; CMO answers Q14 and Q15 (MDCN verification before first independent contact; six-month spot re-check). grandfather_ends_on is null until the CMO sets it.",
   },
   {
+    key: "credentialing.rules",
+    // Version 4 (S20 v2, CMO decision 8 recorded 2026-10-07), on top of version 3 (primary-source and re-check keys): notices at 90, 30, 7 and 0 days,
+    // the proof-of-renewal deadline (15 December for the 31 December cycle), a missing licence date counted as ineligible, and the evidence sources
+    // a verification can name. INACTIVE in `credentialing_config` until switched on; the switch is refused while an active clinician has no licence date.
+    value: {
+      min_practice_years: 2,
+      pass_percent: 80,
+      all_red_correct: true,
+      audited_task_count: 20,
+      referees_required: 2,
+      referee_independent_contact: true,
+      test_max_attempts: 3,
+      test_retake_cooldown_hours: 24,
+      test_scenarios_per_attempt: 10,
+      notice_windows_days: [90, 30, 7, 0],
+      grace_max_days: 14,
+      separate_verifier_and_approver: true,
+      document_max_bytes: 8388608,
+      document_retention_years_after_offboarding: 7,
+      require_verified_phone: false,
+      document_purge_enabled: false,
+      rejected_application_document_retention_months: 24,
+      primary_source_required: true,
+      primary_source_routes: ["mdcn_dataflow", "mdcn_written_confirmation", "mdcn_register_check"],
+      primary_source_max_age_days: 365,
+      recheck_months: 6,
+      recheck_overdue_days: 14,
+      credential_date_max_days: 1100,
+      grandfather_ends_on: null,
+      renewal_cycle: {
+        cycle_end_month: 12,
+        cycle_end_day: 31,
+        proof_deadline_month: 12,
+        proof_deadline_day: 15,
+      },
+      missing_licence_date_ineligible: true,
+      verification_sources: ["mdcn_register_lookup", "document_sighted", "insurer_confirmation", "other"],
+    },
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 4,
+    effectiveFrom: "2026-10-14",
+    source: "docs/plans/S16-S20-review-and-build-plan.md section 5; docs/design/S16-S20-quality-v2.md",
+  },
+  {
     key: "lab.release_policy",
     // Lab release policy (S27d). Live value is the active row of `lab_panel_signoffs`.config; a test fails if the migration seed and this
     // value drift. maxAttempts and escalateAfterHours are the founder's competitor-research follow-up: a held sensitive result that
@@ -1017,6 +1062,78 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S19.md; spec 7.9",
   },
   {
+    key: "paging.delivery_rules",
+    // Red event pager delivery (S19c, S16-S20 review Stage 1, CMO decisions 9, 10, 11 and 15). Live values are the active row of
+    // `paging_delivery_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
+    // delivered_ack_seconds: a page never shown on the paged clinician's console or device after this long pages the next person
+    // early (the 5 and 10 minute timers in paging.rules stay). reconcile_after_seconds / reconcile_lookback_hours: a red triage event
+    // with no page after the first is paged by the reconciler; it looks back this many hours. merge_window_minutes: a repeat red event
+    // for a patient with an open page family joins it instead of ringing again. engine_heartbeat_stale_seconds: older than this a
+    // paging engine heartbeat is stale and opens an incident. device_seen_stale_minutes: an on-call console not seen for this long
+    // is shown as silent. readiness_test_page_days: on-call needs a test page acknowledged within this many days.
+    // test_page_min_interval_seconds: the least time between two test pages to one clinician. page_notification_stuck_seconds: a page
+    // notification still waiting to send after this long opens an incident (the sender may be down). objective_readiness_required:
+    // 1 = on-call also needs a working push subscription, a verified email and a recent test page; 0 = checklist only.
+    // first_hop_safe_*: a blood pressure reading inside this band is queued on the normal 15 second cron; outside it (or with no band)
+    // the event is urgent and nudges process-events at once. It only chooses speed: every reading is graded either way.
+    value: {
+      delivered_ack_seconds: 90,
+      delivered_ack_seconds_unconfirmed_route: 180,
+      reconcile_after_seconds: 60,
+      reconcile_lookback_hours: 4,
+      reconcile_per_pass_max: 20,
+      merge_window_minutes: 30,
+      engine_heartbeat_stale_seconds: 120,
+      device_seen_stale_minutes: 10,
+      device_seen_keep: 20,
+      readiness_test_page_days: 7,
+      test_page_min_interval_seconds: 120,
+      page_notification_stuck_seconds: 120,
+      page_notification_retry_stuck_seconds: 660,
+      first_hop_safe_systolic_min: 100, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
+      first_hop_safe_systolic_max: 139, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
+      first_hop_safe_diastolic_min: 60, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
+      first_hop_safe_diastolic_max: 89, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
+      objective_readiness_required: 0,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-14",
+    source: "docs/design/S16-S20-pager-delivery.md; docs/plans/S16-S20-review-and-build-plan.md section 5, decisions 9, 10, 11, 15",
+  },
+  {
+    key: "paging.delivery_rules_v2",
+    // The same delivery rules with objective on-call readiness SWITCHED ON (a working push subscription, a verified email and a recent
+    // acknowledged test page to be put on the rota; swaps are never blocked). Shipped as an INACTIVE, unsigned row (paging_delivery_config
+    // version 2): the CMO activates it once every on-call clinician has passed a test page. Not active until then.
+    value: {
+      delivered_ack_seconds: 90,
+      delivered_ack_seconds_unconfirmed_route: 180,
+      reconcile_after_seconds: 60,
+      reconcile_lookback_hours: 4,
+      reconcile_per_pass_max: 20,
+      merge_window_minutes: 30,
+      engine_heartbeat_stale_seconds: 120,
+      device_seen_stale_minutes: 10,
+      device_seen_keep: 20,
+      readiness_test_page_days: 7,
+      test_page_min_interval_seconds: 120,
+      page_notification_stuck_seconds: 120,
+      page_notification_retry_stuck_seconds: 660,
+      first_hop_safe_systolic_min: 100, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
+      first_hop_safe_systolic_max: 139, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
+      first_hop_safe_diastolic_min: 60, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
+      first_hop_safe_diastolic_max: 89, // band-ok: speed pre-screen for the urgent lane, not a triage band (every reading is still graded)
+      objective_readiness_required: 1,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-14",
+    source: "docs/design/S16-S20-pager-delivery.md; paging_delivery_config version 2 (inactive)",
+  },
+  {
     key: "free_red_event.rules",
     // Two-tier (CMO decision 2026-10-08, C2): the Free red-event path. Live values are the active row of `free_red_config`; this
     // entry mirrors it and a test fails if the migration seed and this value drift. recheck_minutes: when the Free patient is
@@ -1372,6 +1489,84 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 2,
     effectiveFrom: "2026-10-13",
     source: "docs/design/S20.md; spec 7.8; docs/design/S11-S15-credentialing.md (CMO answer Q16: 100 percent review of a new clinician's first 20 red or prescribing cases)",
+  },
+  {
+    key: "quality.audit",
+    // Version 3 (S20 v2, CMO decisions 5, 6 and 7 recorded 2026-10-07), on top of version 2 (new clinicians' first 20 cases): the secret-seeded
+    // stratified sample (a floor that catches up later in the month, AI-scribe notes at 20 percent), the audit form's phase comments,
+    // avoidability rating and scribe items, the second review on a critical miss, and the speak-up check-ins at 30 and 90 days. INACTIVE and
+    // unsigned in `quality_config` until the Chief Medical Officer signs it (public.sign_quality_config); versions 1 and 2 stay as they were.
+    value: {
+      sampling: {
+        random_rate_percent: 10,
+        always_reasons: ["red_event", "titration"],
+        floor_min_tasks: 3,
+        floor_per_clinician_per_month: 1,
+        reviewer_monthly_cap: 40,
+        due_days: 14,
+        new_clinician_full_review_cases: 20,
+        seed: {
+          rotation: "monthly",
+        },
+        stratified: true,
+        floor_catchup_until_day: 21,
+        floor_current_month_from_day: 20,
+        scribe_assisted_rate_percent: 20,
+      },
+      tier1: {
+        audited_task_count: 20,
+        graduation_min_score: 85,
+        max_critical_misses: 0,
+      },
+      form: {
+        version: 2,
+        safety_items: ["identity_and_consent_confirmed", "red_flags_recognised_and_acted_on", "decision_within_competence_and_protocol", "no_unsigned_treatment_change", "safety_netting_and_follow_up_given", "escalated_when_needed"],
+        quality_items: ["history_adequate", "reasoning_documented", "communication_clear", "plan_appropriate", "patient_questions_answered", "documentation_timely"],
+        quality_max: 4,
+        phases: ["assessment", "decision", "action", "documentation"],
+        phase_comment_max_chars: 2000,
+        avoidability: {
+          required_unless_outcome: "satisfactory",
+          scale: ["not_applicable", "not_avoidable", "slightly_avoidable", "possibly_avoidable", "probably_avoidable", "definitely_avoidable"],
+        },
+        scribe_items: ["no_clinically_relevant_omission", "no_invented_content"],
+        scribe_critical_items: ["no_invented_content"],
+      },
+      outcomes: {
+        satisfactory_min: 85,
+        minor_concerns_min: 70,
+        rationale_min_chars: 20,
+      },
+      second_review: {
+        required_on: ["critical_miss"],
+        reply_max_per_audit: 5,
+        reply_min_chars: 20,
+      },
+      reliability: {
+        audit_weight: 2,
+        good_by_outcome: {
+          satisfactory: 1,
+          minor_concerns: 0.6,
+          significant_concerns: 0.2,
+          unsafe: 0,
+        },
+      },
+      speak_up: {
+        acknowledge_hours: 48,
+        immediate_acknowledge_hours: 4,
+        respond_days: 14,
+        max_per_day: 10,
+        retaliation_review_months: 12,
+        checkin_days: [30, 90],
+        anonymous_max_per_day_per_org: 10,
+        about_lead_routes_to: "independent_reader",
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 3,
+    effectiveFrom: "2026-10-14",
+    source: "docs/plans/S16-S20-review-and-build-plan.md section 5; docs/design/S16-S20-quality-v2.md",
   },
   {
     key: "earnings.rules",
@@ -3212,6 +3407,68 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S56.md; spec 10.3",
   },
   {
+    key: "learning.micro_lesson",
+    // S55 (spec 9.2): a daily lesson takes under five minutes, asks for one action and ends in one check question. Live value is the
+    // active `micro_lesson` row of `learning_config`; a test fails if the migration seed and this value drift. UNSIGNED.
+    value: { max_minutes: 5, check_questions: 1 },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S55.md; spec 9.2",
+  },
+  {
+    key: "learning.offline_pack",
+    // S55 (spec 9.6): the size cap for lessons kept on a phone, counted over text and audio together, and the item cap. Expired and
+    // unpublished items are never included. Live value is the `offline_pack` row of `learning_config`. UNSIGNED.
+    value: { max_total_bytes: 25000000, max_items: 150, audio_wifi_only: true },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S55.md; spec 9.6; OQ-S55-04",
+  },
+  {
+    key: "learning.search_gap_log",
+    // S55 (spec 9.3): rules for the zero-result search log (no patient reference): longest phrase kept, most words, how many searches
+    // before an admin sees a phrase, and retention. Live value is the `search_gap_log` row of `learning_config`. UNSIGNED.
+    value: { enabled: false, max_query_chars: 60, max_words: 6, min_count_to_show: 3, retention_days: 180, max_rows: 5000 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S55.md; spec 9.3; OQ-S55-05",
+  },
+  {
+    key: "learning.search_synonyms",
+    // S55 (spec 9.3): everyday and local words grouped so that any one finds the others. Search expansion only. Live value is the
+    // `search_synonyms` row of `learning_config`; web, mobile and the database search all read it. UNSIGNED: the CMO confirms the groups,
+    // and the founder confirms whether the Nigerian everyday words stay (OQ-S55-01).
+    value: {
+      groups: [
+        { terms: ["bp", "blood pressure", "pressure", "high blood", "hypertension", "bp reading"] },
+        { terms: ["sugar", "diabetes", "blood sugar", "glucose", "sugar level", "high sugar"] },
+        { terms: ["belle", "pregnancy", "pregnant", "antenatal", "expecting"] },
+        { terms: ["heart", "cardiac"] },
+        { terms: ["drug", "drugs", "medicine", "medicines", "medication", "tablets", "pills"] },
+        { terms: ["kidney", "kidneys", "kidney disease", "ckd"] },
+        { terms: ["hot body", "fever", "high temperature"] },
+        { terms: ["weight", "overweight", "belly fat", "obesity"] },
+        { terms: ["sleep", "insomnia", "cannot sleep", "sleeping"] },
+        { terms: ["salt", "sodium"] },
+        { terms: ["exercise", "workout", "walking", "physical activity"] },
+        { terms: ["vaccine", "vaccines", "vaccination", "immunisation", "immunization"] },
+        { terms: ["tired", "fatigue", "weak body"] },
+        { terms: ["herb", "herbs", "herbal", "local medicine", "agbo"] },
+      ],
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S55.md; spec 9.3; OQ-S55-01",
+  },
+  {
     key: "paging.watchdog",
     // S78a (spec 23.15, CMO decision S-8). Mirrors paging_config version 2, which is PROPOSED and INACTIVE: the active row stays version 1 until the CMO signs
     // a new version. watchdog_grace_seconds: how long a red triage event may exist with no page before the database watchdog creates it itself (INV-05; the
@@ -3321,11 +3578,11 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   },
   {
     key: "credentialing.rules",
-    // Version 4 (S-18, S76 B2): version 3 plus the MDCN register re-check cadence (reverify_months, reverify_notice_days). Inserted INACTIVE: the sweep does
-    // nothing until the chief medical officer signs and activates it. Version 3 notes follow.
-    // Version 3 (Q14, Q15) adds the primary-source and re-check keys to version 2 (OQ-104, OQ-108): the same rules plus three. Both switches start off: no real account has a confirmed
-    // phone yet and SMS is not live, so requiring one would stop every applicant, and the purge stays off until counsel
-    // confirms the periods (the rejected-application period is a proposal).
+    // Version 5 (S-18, S76 B2): version 4 plus the MDCN register re-check cadence (reverify_months, reverify_notice_days). Inserted INACTIVE: the sweep
+    // does nothing until the chief medical officer signs and activates it. Version 4 notes follow.
+    // Version 4 (S20 v2, CMO decision 8 recorded 2026-10-07), on top of version 3 (primary-source and re-check keys): notices at 90, 30, 7 and 0 days,
+    // the proof-of-renewal deadline (15 December for the 31 December cycle), a missing licence date counted as ineligible, and the evidence sources
+    // a verification can name. INACTIVE in `credentialing_config` until switched on; the switch is refused while an active clinician has no licence date.
     value: {
       min_practice_years: 2,
       pass_percent: 80,
@@ -3336,7 +3593,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       test_max_attempts: 3,
       test_retake_cooldown_hours: 24,
       test_scenarios_per_attempt: 10,
-      notice_windows_days: [90, 30, 0],
+      notice_windows_days: [90, 30, 7, 0],
       grace_max_days: 14,
       separate_verifier_and_approver: true,
       document_max_bytes: 8388608,
@@ -3353,11 +3610,19 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       grandfather_ends_on: null,
       reverify_months: 12,
       reverify_notice_days: 30,
+      renewal_cycle: {
+        cycle_end_month: 12,
+        cycle_end_day: 31,
+        proof_deadline_month: 12,
+        proof_deadline_day: 15,
+      },
+      missing_licence_date_ineligible: true,
+      verification_sources: ["mdcn_register_lookup", "document_sighted", "insurer_confirmation", "other"],
     },
     owner: "Founder and counsel",
     status: "proposed",
-    version: 4,
+    version: 5,
     effectiveFrom: "2026-10-15",
-    source: "docs/plans/S75-S80-cmo-decisions.md S-18 (S76 B2); builds on version 3 (P5)",
+    source: "docs/plans/S75-S80-cmo-decisions.md S-18 (S76 B2); builds on version 4 (S20 v2)",
   },
 ];

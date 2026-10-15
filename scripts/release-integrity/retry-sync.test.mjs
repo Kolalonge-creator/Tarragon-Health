@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { runWithRetry } from "./retry-sync.mjs";
+import { runWithRetry, isLoginRoleFailure } from "./retry-sync.mjs";
 
 const quiet = { sleep: () => {}, log: () => {} };
 
@@ -27,4 +27,14 @@ test("a non-transient error fails at once", () => {
   let n = 0;
   assert.throws(() => runWithRetry(() => { ++n; throw new Error("syntax error at or near select"); }, quiet), /syntax error/);
   assert.equal(n, 1);
+});
+
+test("a write-style retry repeats only the login-role failure", () => {
+  let n = 0;
+  const out = runWithRetry(() => { if (++n < 3) throw new Error("Failed to create login role: Connection terminated"); return "ok"; }, { ...quiet, isRetryable: isLoginRoleFailure });
+  assert.equal(out, "ok");
+  assert.equal(n, 3);
+  let m = 0;
+  assert.throws(() => runWithRetry(() => { ++m; throw new Error("Connection terminated unexpectedly"); }, { ...quiet, isRetryable: isLoginRoleFailure }), /Connection terminated/);
+  assert.equal(m, 1);
 });

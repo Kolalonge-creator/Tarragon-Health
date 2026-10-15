@@ -34,6 +34,8 @@ insert into allow values
   ('anon_fn', 'public.emergency_card_by_token'), ('anon_fn', 'public.health_passport_by_serial'), ('anon_fn', 'public.verify_payer_board_report'),
   ('anon_fn', 'public.public_price_list'), ('anon_fn', 'public.record_share_by_token'), ('anon_fn', 'public.record_share_peek'), ('anon_fn', 'public.platform_switch_is_on'),
   ('anon_fn', 'public.verify_prescription_public'), ('anon_fn', 'public.record_prescription_supply_public'),
+  -- S55: a learning item whose sharing is switched on opens by its code without signing in; it returns the article text only, no personal data
+  ('anon_fn', 'public.learn_shared_article'),
   -- views that run with their owner's rights on purpose (each carries its own caller predicate, or is a public directory, or is not granted)
   ('owner_view', 'public.care_message_communication_log'), ('owner_view', 'public.clinical_staff_directory'),
   ('owner_view', 'public.lab_provider_directory'), ('owner_view', 'public.pharmacy_partner_directory'),
@@ -43,6 +45,9 @@ insert into allow values
   ('owner_view', 'public.diabetes_quality_metrics'), ('owner_view', 'public.hypertension_quality_metrics'), ('owner_view', 'public.lpe_programme_outcomes'),
   ('owner_view', 'public.obesity_quality_metrics'), ('owner_view', 'public.risk_model_drift_signal'), ('owner_view', 'public.risk_model_performance'),
   ('owner_view', 'public.risk_model_performance_by_subgroup'), ('owner_view', 'public.triage_safety_monitoring'),
+  -- S53 pre-fix 8.16: the admin-gated read of pharmacy medicines including commission columns; the view carries its own caller predicate
+  -- (admin, partner manager, owning pharmacist) and is revoked from anon and public, so owner rights are the point of it
+  ('owner_view', 'public.pharmacy_medications_admin'),
   -- public storage buckets (staff photos are shown on the public directory)
   ('public_bucket', 'clinical-staff-photos'),
   -- patient avatars: a random-named file under the person's own folder, shown by its stored public address; private bucket plus signed

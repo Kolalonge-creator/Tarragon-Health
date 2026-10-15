@@ -429,6 +429,8 @@ begin
   perform public.reinstate_clinician(v_staff, 'renewed licence checked');
   perform pg_temp.back();
   perform pg_temp.rec('reinstated: active again with the role back', 'active,true,clinician', (select status::text || ',' || active::text || ',' || (select role::text from public.profiles where id = v_p1) from public.clinical_staff where id = v_staff));
+  perform pg_temp.rec('a renewal records its evidence: source, checker and time (S20 v2)', 'document_sighted/true/true',
+    (select evidence_source || '/' || (checked_by = v_admin)::text || '/' || (checked_at > now() - interval '1 minute')::text from public.credential_verifications where clinical_staff_id = v_staff and kind = 'licence' order by checked_at desc limit 1));
   perform pg_temp.rec('reinstatement is audited', 'true', ((select count(*) from public.audit_log where action = 'clinical_staff.reinstated' and entity_id = v_staff) = 1)::text);
 
   -- grace period: a licence expired yesterday is held for 5 audited days, then suspended
@@ -436,7 +438,11 @@ begin
       license_verified_at, verified_by, doctor_tier, employment_type, credentialing_level, license_expires_at, is_test)
     values (v_org, v_p5, 'S15 Grace', 'MDCN', 'S15-GRACE-1', true, 'active', now(), v_admin, 'senior_medical_officer', 'employed', 2, v_noon_today - interval '1 day', true)
     returning id into v_p5_staff;
+  -- S20 v2 (decision 8): grace is the chief medical officer's alone; an admin account is refused
   perform pg_temp.act(v_admin);
+  perform pg_temp.rec('an admin account can no longer grant a grace period', '42501', pg_temp.try(format('select public.grant_credential_grace(%L, ''licence'', 5, ''a long enough reason'')', v_p5_staff)));
+  perform pg_temp.back();
+  perform pg_temp.act(v_cmo);
   perform pg_temp.rec('a grace period needs a real reason', '23514', pg_temp.try(format('select public.grant_credential_grace(%L, ''licence'', 5, ''short'')', v_p5_staff)));
   perform pg_temp.rec('a grace period is capped', '23514', pg_temp.try(format('select public.grant_credential_grace(%L, ''licence'', 60, ''a long enough reason'')', v_p5_staff)));
   v_grace := public.grant_credential_grace(v_p5_staff, 'licence', 5, 'MDCN renewal portal outage, evidence on file');

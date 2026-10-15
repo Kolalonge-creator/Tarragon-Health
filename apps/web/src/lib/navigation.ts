@@ -591,6 +591,8 @@ export function getNavSections(
                 { label: "Earnings", href: "/clinician/earnings", icon: "analytics" },
                 // The concerns this clinician raised and the replies to them (S36i). Their own only.
                 { label: "My concerns", href: "/clinician/my-concerns", icon: "review" },
+                // Finished audits of this clinician's own work, the first-20 count and the advisory reliability score, with a reply box (S20 v2). Their own only.
+                { label: "My quality", href: "/clinician/my-quality", icon: "review" },
                 { label: "Payouts", href: "/clinician/payouts", icon: "analytics" },
                 // Chief Medical Officer only (canAssignCases in
                 // lib/clinical/doctor-tier.ts) — shown to every clinician tier

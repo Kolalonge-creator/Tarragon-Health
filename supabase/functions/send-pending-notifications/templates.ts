@@ -1748,6 +1748,37 @@ export const TEMPLATE_MAP: Record<
       text: "A priority case has not been acknowledged by the clinicians on call.\n\nOpen Tarragon Health to see where it stands.\n\nTarragon Health",
     },
   }),
+  // S19c: the test page that proves a phone and
+  // inbox work (on_call_test_page), and the alarm when the whole ladder ran out with nobody answering (on_call_expired). Fixed,
+  // neutral wording (INV-07): nothing from the payload is echoed.
+  on_call_test_page: () => ({
+    smsText: "This is a test page. Open Tarragon Health and acknowledge it on the On call page. Tarragon Health",
+    pushUrl: "/clinician/on-call",
+    email: {
+      subject: "Test page: please acknowledge",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>This is a test page. Nothing is wrong.</p>` +
+        `<p>Open Tarragon Health and acknowledge it on the On call page.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "This is a test page. Nothing is wrong.\n\nOpen Tarragon Health and acknowledge it on the On call page.\n\nTarragon Health",
+    },
+  }),
+  on_call_expired: () => ({
+    smsText: "Nobody has answered a priority case. Phone the clinician on call now. Tarragon Health",
+    pushUrl: "/rota",
+    email: {
+      subject: "Nobody has answered a priority case",
+      html:
+        `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+        `<p>Every alert for a priority case has gone out and nobody has acknowledged it.</p>` +
+        `<p>Phone the clinician on call now, then open Tarragon Health to see where it stands.</p>` +
+        `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+        `</div>`,
+      text: "Every alert for a priority case has gone out and nobody has acknowledged it.\n\nPhone the clinician on call now, then open Tarragon Health to see where it stands.\n\nTarragon Health",
+    },
+  }),
   on_call_unfinished: () => ({
     smsText: "A priority case was acknowledged but is not closed yet. Open Tarragon Health. Tarragon Health",
     pushUrl: "/rota",
