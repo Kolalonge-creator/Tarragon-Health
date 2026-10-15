@@ -1,0 +1,75 @@
+name: Auto-rerun lost runner
+
+# Re-runs the failed jobs of a CI run ONCE when (and only when) every failed job failed for an infrastructure reason: a hosted runner that was
+# shut down or lost contact, or a Supabase CLI / Docker rate limit during setup. A real test, lint, typecheck or build failure never matches and
+# is never re-run, so this cannot paper over a genuine red check.
+#
+# Loop guard (three independent layers):
+#   1. Only run_attempt == 1 is considered. The re-run it triggers is attempt 2, which this workflow ignores, so there is at most one automatic
+#      re-run per CI run.
+#   2. The workflow_run trigger only fires for the workflow named "CI" on completion, never for this workflow itself.
+#   3. Same-repository runs only (a fork PR could print a signature string on purpose to force a re-run).
+#   4. If any failed job's evidence does not match an infrastructure signature, nothing is re-run.
+# Security: workflow_run runs with the default-branch workflow and a write-capable token, so this file checks out nothing and runs no code from
+# the PR; it only reads job metadata/annotations/logs through the GitHub API and calls the re-run endpoint.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  actions: write
+  contents: read
+  checks: read
+
+jobs:
+  rerun:
+    name: Re-run once on infrastructure failure
+    if: ${{ github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.run_attempt == 1 && github.event.workflow_run.head_repository.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      RUN_ID: ${{ github.event.workflow_run.id }}
+    steps:
+      - name: Classify failures and re-run if infrastructure
+        shell: bash
+        run: |
+          set -uo pipefail
+          # Case-insensitive extended regexes. Runner loss is unambiguous. Rate-limit text is only accepted next to a Docker/registry/Supabase
+          # word, because the app's own tests legitimately print "rate limit exceeded" and must never look like infrastructure.
+          INFRA='received a shutdown signal|lost communication with the server|toomanyrequests|(docker|registry|supabase|setup-cli).{0,200}rate limit exceeded|rate limit exceeded.{0,200}(docker|registry|supabase|setup-cli)'
+          jobs_json=$(gh api --paginate "repos/$REPO/actions/runs/$RUN_ID/jobs?filter=latest&per_page=100" --jq '.jobs[] | select(.conclusion=="failure" or .conclusion=="cancelled") | select(.name != "TypeScript (web + shared)") | {id, name, conclusion}' | jq -s '.')
+          count=$(echo "$jobs_json" | jq 'length')
+          # The aggregate "TypeScript (web + shared)" job fails whenever one of its parts failed, with no signature of its own, so it is excluded and
+          # only the leaf jobs are classified.
+          echo "failed or cancelled leaf jobs: $count"
+          if [ "$count" -eq 0 ]; then echo "nothing to classify"; exit 0; fi
+
+          all_infra=true
+          for id in $(echo "$jobs_json" | jq -r '.[].id'); do
+            name=$(echo "$jobs_json" | jq -r --argjson id "$id" '.[] | select(.id==$id) | .name')
+            conclusion=$(echo "$jobs_json" | jq -r --argjson id "$id" '.[] | select(.id==$id) | .conclusion')
+            evidence=$(gh api "repos/$REPO/check-runs/$id/annotations" --jq '.[].message' 2>/dev/null || true)
+            if echo "$evidence" | grep -Eiq "$INFRA"; then
+              echo "job '$name' ($conclusion): infrastructure signature in annotations"
+              continue
+            fi
+            # Annotations missed it; fall back to the job log. Rate-limit text only ever appears there.
+            log=$(gh api "repos/$REPO/actions/jobs/$id/logs" 2>/dev/null | tail -n 400 || true)
+            if echo "$log" | grep -Eiq "$INFRA"; then
+              echo "job '$name' ($conclusion): infrastructure signature in log tail"
+              continue
+            fi
+            echo "job '$name' ($conclusion): no infrastructure signature, treating as a real failure"
+            all_infra=false
+          done
+
+          if [ "$all_infra" != "true" ]; then
+            echo "At least one failure is not infrastructure; not re-running."
+            exit 0
+          fi
+          echo "All failures are infrastructure; re-running failed jobs once."
+          gh api -X POST "repos/$REPO/actions/runs/$RUN_ID/rerun-failed-jobs"
