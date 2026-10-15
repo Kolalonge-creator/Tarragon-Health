@@ -4,9 +4,13 @@ import type { Database } from "@tarragon/shared";
 import { buildPatientRecordTools } from "./tools";
 import { chainable } from "./test-support";
 
-function fakeSupabase(result: unknown): { client: SupabaseClient<Database>; from: jest.Mock } {
+function fakeSupabase(
+  result: unknown,
+  rpcResult?: unknown
+): { client: SupabaseClient<Database>; from: jest.Mock; rpc: jest.Mock } {
   const from = jest.fn(() => chainable(result));
-  return { client: { from } as unknown as SupabaseClient<Database>, from };
+  const rpc = jest.fn(async () => rpcResult ?? result);
+  return { client: { from, rpc } as unknown as SupabaseClient<Database>, from, rpc };
 }
 
 function toolByName(tools: ReturnType<typeof buildPatientRecordTools>, name: string) {
@@ -87,7 +91,7 @@ describe("buildPatientRecordTools", () => {
     expect(JSON.parse(withPast as string)).toEqual({ appointments: [], note: "No appointments found." });
   });
 
-  it("exposes exactly the seven read-only tools and no write-shaped tool", () => {
+  it("exposes exactly the nine read-only tools and no write-shaped tool", () => {
     const { client } = fakeSupabase({ data: [], error: null });
     const tools = buildPatientRecordTools(client, "patient-1");
 
@@ -95,9 +99,11 @@ describe("buildPatientRecordTools", () => {
     expect(names).toEqual([
       "getAllergies",
       "getAppointments",
+      "getCachedExplanations",
       "getConditions",
       "getMedicationInformation",
       "getMedications",
+      "getProtocolLimits",
       "getRecentLabResults",
       "getVitals",
     ]);
@@ -118,14 +124,74 @@ describe("buildPatientRecordTools", () => {
       expect(parsed.note).toContain("amlodipine");
     });
 
-    it("returns the reviewed content on a match", async () => {
-      const row = { title: "Amlodipine", summary: "Lowers blood pressure.", body: "Full body text." };
-      const { client } = fakeSupabase({ data: row, error: null });
+    const meta = (retrievable: boolean) => ({
+      data: [
+        {
+          id: "row-1",
+          source_table: "health_education_content",
+          title: "Amlodipine",
+          owner: "Dr A. Obi",
+          version: 2,
+          review_due_at: "2027-03-01T00:00:00Z",
+          retrievable,
+        },
+      ],
+      error: null,
+    });
+
+    it("returns the reviewed content on a match, with its owner, version and review date as the source", async () => {
+      const row = { id: "row-1", title: "Amlodipine", summary: "Lowers blood pressure.", body: "Full body text." };
+      const { client } = fakeSupabase({ data: [row], error: null }, meta(true));
       const tools = buildPatientRecordTools(client, "patient-1");
 
       const output = await toolByName(tools, "getMedicationInformation").invoke({ drugName: "amlodipine" });
 
-      expect(JSON.parse(output as string)).toEqual({ found: true, ...row });
+      expect(JSON.parse(output as string)).toEqual({
+        found: true,
+        title: row.title,
+        summary: row.summary,
+        body: row.body,
+        _source: { kind: "reviewed_content", title: "Amlodipine", owner: "Dr A. Obi", version: 2, reviewDue: "2027-03-01T00:00:00Z" },
+      });
+    });
+
+    it("treats a row with no owner or a lapsed review date as nothing reviewed (never answered from it)", async () => {
+      const row = { id: "row-1", title: "Amlodipine", summary: "x", body: "y" };
+      const { client } = fakeSupabase({ data: [row], error: null }, meta(false));
+      const tools = buildPatientRecordTools(client, "patient-1");
+
+      const output = await toolByName(tools, "getMedicationInformation").invoke({ drugName: "amlodipine" });
+
+      expect(JSON.parse(output as string).found).toBe(false);
+    });
+
+    it("a lapsed first match never hides a current second match", async () => {
+      const first = { id: "row-0", title: "Amlodipine old", summary: "x", body: "y" };
+      const second = { id: "row-1", title: "Amlodipine", summary: "Lowers blood pressure.", body: "z" };
+      const { client } = fakeSupabase(
+        { data: [first, second], error: null },
+        {
+          data: [
+            { id: "row-0", source_table: "health_education_content", title: "Amlodipine old", owner: "Dr A. Obi", version: 1, review_due_at: "2020-01-01T00:00:00Z", retrievable: false },
+            { id: "row-1", source_table: "health_education_content", title: "Amlodipine", owner: "Dr A. Obi", version: 2, review_due_at: "2027-03-01T00:00:00Z", retrievable: true },
+          ],
+          error: null,
+        }
+      );
+      const tools = buildPatientRecordTools(client, "patient-1");
+      const out = JSON.parse((await toolByName(tools, "getMedicationInformation").invoke({ drugName: "amlodipine" })) as string);
+      expect(out.found).toBe(true);
+      expect(out.title).toBe("Amlodipine");
+    });
+
+    it("fails closed when the metadata lookup itself fails", async () => {
+      const row = { id: "row-1", title: "Amlodipine", summary: "x", body: "y" };
+      const { client } = fakeSupabase({ data: [row], error: null }, { data: null, error: { message: "boom" } });
+      const tools = buildPatientRecordTools(client, "patient-1");
+
+      const output = await toolByName(tools, "getMedicationInformation").invoke({ drugName: "amlodipine" });
+
+      expect(JSON.parse(output as string).found).toBe(false);
     });
 
     it("only reads the shared health_education_content library, not any per-patient table", async () => {
@@ -136,5 +202,37 @@ describe("buildPatientRecordTools", () => {
 
       expect(from).toHaveBeenCalledWith("health_education_content");
     });
+  });
+});
+
+describe("S51 tools: cached explanations and protocol limits", () => {
+  it("getCachedExplanations never returns an explanation for a screening analyte (INV-04)", async () => {
+    const rows = [
+      { kind: "lab_analyte", subject_key: "hiv_screen", explanation_text: "should never be seen", generated_at: "2026-10-01" },
+      { kind: "lab_analyte", subject_key: "hba1c", explanation_text: "Your HbA1c is the three month average.", generated_at: "2026-10-01" },
+    ];
+    const { client } = fakeSupabase({ data: rows, error: null });
+    const tools = buildPatientRecordTools(client, "patient-1");
+    const out = JSON.parse((await toolByName(tools, "getCachedExplanations").invoke({})) as string);
+    expect(JSON.stringify(out)).not.toContain("should never be seen");
+    expect(out.explanations).toHaveLength(1);
+    expect(out._source.kind).toBe("explanation");
+  });
+
+  it("getProtocolLimits returns limits only and says so", async () => {
+    const { client, rpc } = fakeSupabase({ data: [], error: null }, { data: [{ code: "htn_hearts_ng", version: 1, limits: { staleAfterDays: 14 } }], error: null });
+    const tools = buildPatientRecordTools(client, "patient-1");
+    const out = JSON.parse((await toolByName(tools, "getProtocolLimits").invoke({})) as string);
+    expect(rpc).toHaveBeenCalledWith("assistant_protocol_limits");
+    expect(out.found).toBe(true);
+    expect(out.note).toMatch(/never propose/i);
+    expect(JSON.stringify(out)).not.toMatch(/steps/);
+  });
+
+  it("getProtocolLimits reports found=false when no protocol is approved", async () => {
+    const { client } = fakeSupabase({ data: [], error: null }, { data: [], error: null });
+    const tools = buildPatientRecordTools(client, "patient-1");
+    const out = JSON.parse((await toolByName(tools, "getProtocolLimits").invoke({})) as string);
+    expect(out.found).toBe(false);
   });
 });

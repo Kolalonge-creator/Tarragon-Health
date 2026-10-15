@@ -1,5 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
-import { detectEmergencyKeywords } from "./keyword-guardrail";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { detectEmergencyKeywords, emergencyMatches, isSelfHarmMessage } from "./keyword-guardrail";
 
 describe("detectEmergencyKeywords", () => {
   it("flags unambiguous emergency phrasing", () => {
@@ -41,5 +43,25 @@ describe("detectEmergencyKeywords", () => {
     expect(detectEmergencyKeywords("I've had a mild headache since this morning, nothing too bad")).toBe(false);
     expect(detectEmergencyKeywords("I forgot to log my blood pressure yesterday, is that a problem?")).toBe(false);
     expect(detectEmergencyKeywords("My knee has been sore since I went for a run yesterday")).toBe(false);
+  });
+});
+
+describe("one rule source (S51, INV-01)", () => {
+  it("flags the spec acceptance sentence and the wordings the old private list missed", () => {
+    expect(detectEmergencyKeywords("Chest pain and my arm is numb")).toBe(true);
+    expect(detectEmergencyKeywords("my arm is numb")).toBe(true);
+    expect(detectEmergencyKeywords("I feel weak on one side")).toBe(true);
+    expect(emergencyMatches("Chest pain and my arm is numb")).toContain("chest pain");
+  });
+
+  it("keeps no private regex list of its own: it delegates to @tarragon/clinical", () => {
+    const src = readFileSync(join(__dirname, "keyword-guardrail.ts"), "utf8");
+    expect(src).toContain('from "@tarragon/clinical"');
+    expect(src).not.toMatch(/EMERGENCY_PATTERNS|new RegExp|\/i,\s*$/m);
+  });
+
+  it("tells self-harm wording apart for its own copy", () => {
+    expect(isSelfHarmMessage("I want to kill myself")).toBe(true);
+    expect(isSelfHarmMessage("chest pain")).toBe(false);
   });
 });
