@@ -83,6 +83,10 @@ begin
   on conflict (id) do update set role = excluded.role, is_test = excluded.is_test, is_active = true, phone = excluded.phone, date_of_birth = excluded.date_of_birth,
     is_dependent_account = excluded.is_dependent_account, dependent_kind = excluded.dependent_kind;
   if p_sex is not null then update public.profiles set sex = p_sex::public.sex where id = v; end if;
+  if p_role = 'clinician' then
+    insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier)
+    values (p_org, v, 'S68 ' || p_label, true, now(), 'senior_medical_officer') on conflict do nothing;  -- S39g: a clinician's write needs an active staff row and a care tie
+  end if;
   return v;
 end $f$;
 -- a dependent child managed by a parent
