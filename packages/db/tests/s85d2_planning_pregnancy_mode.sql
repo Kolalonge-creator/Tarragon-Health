@@ -272,6 +272,9 @@ declare
 begin
   create policy s85_sabotage_open_update on public.reproductive_health_profiles
     for update to authenticated using (true) with check (true);
+  -- an UPDATE ... WHERE reads the row, so the (since tightened) select policy must be opened as well for the sabotage to reach the update policy
+  create policy s85_sabotage_open_select on public.reproductive_health_profiles
+    for select to authenticated using (true);
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_g::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
