@@ -105,6 +105,10 @@
       "schedule": "50 3 * * *"
     },
     {
+      "path": "/api/cron/skin-photo-purge",
+      "schedule": "35 3 * * *"
+    },
+    {
       "path": "/api/cron/assistant-silence",
       "schedule": "40 7 * * *"
     },

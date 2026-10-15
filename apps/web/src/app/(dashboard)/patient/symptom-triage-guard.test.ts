@@ -76,6 +76,6 @@ describe("symptom checker go-live guard (server side)", () => {
 
   it("control: with the guard open the picker lists the signed pathways (the gate is what hid them)", async () => {
     rpc.mockResolvedValue({ data: true, error: null });
-    expect(await listAvailablePresentingComplaints()).toEqual([{ key: "headache", label: "Headache" }]);
+    expect(await listAvailablePresentingComplaints()).toEqual([{ key: "headache", label: "Headache", bundledCurrent: false }]);
   });
 });
