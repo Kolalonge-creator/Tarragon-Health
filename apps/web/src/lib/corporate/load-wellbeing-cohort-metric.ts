@@ -9,67 +9,33 @@ export type WellbeingCohortMetric = {
   gad7: Record<string, number>;
 } | null;
 
+/** Parses the aggregate function's answer. Anything unexpected, and anything suppressed, is null: never a partial figure. */
+export function parseWellbeingCohort(raw: unknown): WellbeingCohortMetric {
+  const r = raw as { suppressed?: unknown; responded?: unknown; total?: unknown; phq9?: unknown; gad7?: unknown } | null;
+  if (!r || typeof r !== "object" || r.suppressed !== false) return null;
+  if (typeof r.responded !== "number" || typeof r.total !== "number") return null;
+  const dist = (v: unknown): Record<string, number> => {
+    const out: Record<string, number> = {};
+    if (v && typeof v === "object") {
+      for (const [band, pct] of Object.entries(v as Record<string, unknown>)) if (typeof pct === "number") out[band] = pct;
+    }
+    return out;
+  };
+  return { respondedCount: r.responded, totalCount: r.total, phq9: dist(r.phq9), gad7: dist(r.gad7) };
+}
+
 /**
- * Module 46 §46.14 workplace wellbeing: an aggregate-only, cohort-level
- * distribution of the most recent PHQ-9/GAD-7 severity band across the
- * organisation's patients — percentages only, never a raw score, never
- * attributable to an individual. Only ever called from
- * dashboard-data.ts's "ready" branch, i.e. after loadCohortAnalytics has
- * already confirmed the cohort clears organisations.min_cohort_size (I9) —
- * same suppression-already-happened-upstream pattern as
- * loadAgeBandDistribution/estimateCostAvoided/loadMedicationOutcomes, not a
- * second independent gate.
+ * Module 46 §46.14 workplace wellbeing: an aggregate-only, cohort-level distribution of the most recent PHQ-9/GAD-7 severity band
+ * across the organisation's patients. Since S56 the aggregate is computed by `public.corporate_wellbeing_cohort` (service role only),
+ * which applies the organisation's own minimum cohort size to the number of respondents (not only to the cohort), excludes test
+ * accounts (INV-13), and returns percentages only: no score, no id. Below the minimum the answer is "suppressed" and this returns
+ * null. The caller is the verified institution doorway (requireInstitutionAggregateAccess), whose client is the service role.
  */
 export async function loadWellbeingCohortMetric(
   supabase: SupabaseClient<Database>,
   organisationId: string
 ): Promise<WellbeingCohortMetric> {
-  const { data: patients } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("organisation_id", organisationId)
-    .eq("role", "patient");
-  if (!patients || patients.length === 0) return null;
-  const patientIds = patients.map((p) => p.id);
-
-  const { data: screens } = await supabase
-    .from("mental_health_screens")
-    .select("patient_id, instrument, severity_band, created_at")
-    .in("patient_id", patientIds)
-    .in("instrument", ["phq9", "gad7"])
-    .order("created_at", { ascending: false });
-  if (!screens || screens.length === 0) return null;
-
-  const latestBandByKey = new Map<string, string>();
-  for (const row of screens) {
-    const key = `${row.patient_id}:${row.instrument}`;
-    if (!latestBandByKey.has(key)) {
-      latestBandByKey.set(key, row.severity_band);
-    }
-  }
-
-  function distribution(instrument: "phq9" | "gad7"): Record<string, number> {
-    const counts: Record<string, number> = {};
-    let total = 0;
-    for (const [key, band] of latestBandByKey) {
-      if (!key.endsWith(`:${instrument}`)) continue;
-      counts[band] = (counts[band] ?? 0) + 1;
-      total += 1;
-    }
-    if (total === 0) return {};
-    const percentages: Record<string, number> = {};
-    for (const [band, count] of Object.entries(counts)) {
-      percentages[band] = Math.round((count / total) * 100);
-    }
-    return percentages;
-  }
-
-  const respondedCount = new Set([...latestBandByKey.keys()].map((key) => key.split(":")[0])).size;
-
-  return {
-    respondedCount,
-    totalCount: patients.length,
-    phq9: distribution("phq9"),
-    gad7: distribution("gad7"),
-  };
+  const { data, error } = await supabase.rpc("corporate_wellbeing_cohort", { p_org: organisationId });
+  if (error) return null;
+  return parseWellbeingCohort(data);
 }

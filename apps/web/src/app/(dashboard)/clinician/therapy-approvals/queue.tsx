@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { koboToNaira } from "@tarragon/shared";
 import { createClient } from "@/lib/supabase/client";
@@ -44,20 +45,20 @@ type Session = {
   provider: { name: string | null; specialist_type: string | null } | null;
 };
 
+/** Read through the audited queue function (S56): only requests for patients this clinician holds a task for (or has an emergency grant on). */
 function useAwaitingApproval() {
   return useQuery({
     queryKey: ["therapy", "awaiting-approval"],
     queryFn: async () => {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("therapy_sessions")
-        .select(
-          "*, patient:profiles!therapy_sessions_patient_id_fkey(full_name, patient_number), provider:therapy_directory(name, specialist_type)"
-        )
-        .eq("status", "awaiting_clinician_approval")
-        .order("requested_at", { ascending: true });
+      const { data, error } = await supabase.rpc("list_therapy_approvals_audited");
       if (error) throw error;
-      return data as unknown as Session[];
+      const payload = data as { status?: string; rows?: unknown; not_yet_yours?: unknown } | null;
+      if (!payload || payload.status !== "ok" || !Array.isArray(payload.rows)) throw new Error("unexpected queue response");
+      return {
+        rows: payload.rows as unknown as Session[],
+        notYetYours: typeof payload.not_yet_yours === "number" ? payload.not_yet_yours : 0,
+      };
     },
   });
 }
@@ -65,13 +66,16 @@ function useAwaitingApproval() {
 function useDecide() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, confirm }: { id: string; confirm: boolean }) => {
+    mutationFn: async ({ id, confirm, scheduledFor }: { id: string; confirm: boolean; scheduledFor?: string }) => {
       const supabase = createClient();
-      const { error } = await supabase.rpc("approve_therapy_session", {
+      const { data, error } = await supabase.rpc("approve_therapy_session", {
         p_session_id: id,
         p_confirm: confirm,
+        ...(confirm && scheduledFor ? { p_scheduled_for: scheduledFor } : {}),
       });
       if (error) throw error;
+      // A refusal for lack of authority comes back as an empty row (so the attempt is audited), never as success.
+      if (!data || !(data as { id?: string | null }).id) throw new Error("You cannot decide this request.");
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["therapy", "awaiting-approval"] });
@@ -81,6 +85,9 @@ function useDecide() {
 
 function SessionRow({ session }: { session: Session }) {
   const decide = useDecide();
+  // The approving doctor proposes the time (the booking cannot be confirmed without one). datetime-local is in the doctor's own clock.
+  const [when, setWhen] = useState("");
+  const scheduledFor = when ? new Date(when).toISOString() : undefined;
 
   return (
     <li className="py-4">
@@ -120,7 +127,16 @@ function SessionRow({ session }: { session: Session }) {
           ) : null}
         </div>
 
-        <div className="flex shrink-0 gap-2">
+        <div className="flex shrink-0 flex-wrap items-end gap-2">
+          <label className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
+            Session time
+            <input
+              type="datetime-local"
+              value={when}
+              onChange={(e) => setWhen(e.target.value)}
+              className="mt-0.5 block rounded border border-charcoal-ink/20 bg-transparent px-2 py-1 text-sm dark:border-night-ink/30"
+            />
+          </label>
           <Button
             size="sm"
             variant="outline"
@@ -131,8 +147,8 @@ function SessionRow({ session }: { session: Session }) {
           </Button>
           <Button
             size="sm"
-            disabled={decide.isPending}
-            onClick={() => decide.mutate({ id: session.id, confirm: true })}
+            disabled={decide.isPending || !scheduledFor}
+            onClick={() => decide.mutate({ id: session.id, confirm: true, scheduledFor })}
           >
             {decide.isPending ? "Saving…" : "Approve"}
           </Button>
@@ -165,13 +181,18 @@ export function TherapyApprovalQueue() {
         {isError && (
           <p className="text-sm text-red-600 dark:text-red-400">Could not load the queue.</p>
         )}
-        {!isLoading && !isError && (data ?? []).length === 0 && (
+        {!isLoading && !isError && (data?.rows ?? []).length === 0 && (
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
             Nothing waiting on a decision.
           </p>
         )}
+        {!isLoading && !isError && (data?.notYetYours ?? 0) > 0 && (
+          <p className="mb-2 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+            {data?.notYetYours} more {data?.notYetYours === 1 ? "request is" : "requests are"} waiting in the task list. Claim the task to open it.
+          </p>
+        )}
         <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
-          {(data ?? []).map((session) => (
+          {(data?.rows ?? []).map((session) => (
             <SessionRow key={session.id} session={session} />
           ))}
         </ul>
