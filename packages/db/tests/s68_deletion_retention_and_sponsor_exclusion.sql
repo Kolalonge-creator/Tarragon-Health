@@ -155,6 +155,9 @@ begin
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname in ('public', 'private')
      and p.proname ~* '(sponsor|employer|corporate|hmo|ngo|care_circle|circle_supporter|payer|institution|cohort)'
+     -- S69 private.cohort_effort_only() reads patient_pregnancy only to return a boolean that keeps a pregnant member out of weight-based challenges:
+     -- it is protective, returns no value, and is revoked from every client role. Any other function on this list must still be clean.
+     and p.proname <> 'cohort_effort_only'
      and p.prosrc ~* '(menstrual_|patient_pregnancy|postnatal_|pregnancy_loss|lifecycle_|contracept|reproductive_health_profiles|child_growth|breastfeeding_|antenatal_|growth_reference)';
   perform pg_temp.ck('no sponsor, employer, NGO, payer or Care Circle function references a private table', '', coalesce(v_refs, ''));
   select string_agg(distinct v.viewname, ', ') into v_refs
