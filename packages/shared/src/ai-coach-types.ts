@@ -23,8 +23,31 @@ export const COACH_SUGGESTED_ACTIONS = [
   "care_plan_explanation",
   "appointment_prep",
   "service_navigation",
+  // S51 (7.6): the patient describes new symptoms -> the symptom checker. Opens the symptom screen; never answered by the model.
+  "symptom_check",
 ] as const;
 export type CoachSuggestedAction = (typeof COACH_SUGGESTED_ACTIONS)[number];
+
+/** S51 (7.2, 7.9): one source a reply used, shown to the patient. Never a model-supplied link: built from the rows the code read. */
+export const COACH_SOURCE_KINDS = ["reviewed_content", "record", "explanation", "protocol_limits"] as const;
+export type CoachSourceKind = (typeof COACH_SOURCE_KINDS)[number];
+export interface CoachSource {
+  kind: CoachSourceKind;
+  /** Patient-facing label, e.g. the content title or "Your Tarragon record". */
+  title: string;
+  /** Reviewed content only: the clinician who owns it, its version and when it is next due for review. */
+  owner?: string;
+  version?: number;
+  reviewDue?: string;
+}
+
+/** The one-line, patient-facing description of a source. Reviewed content names its owner and review date; the record is just its title. */
+export function describeCoachSource(source: CoachSource): string {
+  if (source.kind !== "reviewed_content") return source.title;
+  const owner = source.owner ? `, reviewed by ${source.owner}` : "";
+  const due = source.reviewDue ? `, next review ${source.reviewDue}` : "";
+  return `${source.title}${owner}${due}`;
+}
 
 export interface CoachChatMessage {
   id: string;
@@ -42,5 +65,7 @@ export interface CoachChatMessage {
    * (find-relevant-content.ts) -- empty/absent when none was retrieved.
    * §78.18 auditability "knowledge source" coverage. */
   knowledgeSourceUsed?: string[];
+  /** S51: the structured sources behind this reply (reviewed content with owner, version and review date; the patient's own record). */
+  sources?: CoachSource[];
   created_at: string;
 }

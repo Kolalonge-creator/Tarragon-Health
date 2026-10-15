@@ -50,7 +50,7 @@ export const answerWrittenQuestionSchema = z.object({
 export const handbackSchema = z
   .object({
     taskId: z.string().uuid(),
-    reason: z.enum(HANDBACK_REASONS),
+    reason: z.enum(HANDBACK_REASONS, { message: "Please choose a reason for handing the task back." }),
     note: z.string().trim().max(1000, "Please keep the note under 1,000 characters.").optional(),
   })
   .refine((v) => v.reason !== "other" || (v.note?.length ?? 0) >= 10, {
@@ -81,6 +81,14 @@ const ERROR_WORDS: Record<string, string> = {
   queue_no_claim: "You no longer hold this task. It may have timed out and returned to the queue.",
   queue_claim_expired: "Your hold on this task has run out. It has gone back to the queue.",
   queue_note_needed: "Please add a short note explaining the hand-back.",
+  queue_outcome_code: "Please choose one of the listed outcomes for this task.",
+  queue_outcome_note: "That note is too long. Please shorten it.",
+  queue_outcome_attempts: "Record at least the required number of contact attempts, each with a time, a method and whether you reached the patient.",
+  queue_outcome_result_not_released: "That result has not been released to the patient yet.",
+  queue_outcome_change: "The signed or rejected change for this task could not be found under your name.",
+  queue_outcome_note_missing: "Sign your note for this review first.",
+  queue_outcome_consult: "The written question has not been answered yet.",
+  queue_outcome_page: "The page for this case has not been acknowledged yet.",
   written_question_attest_no_diagnosis: "Please confirm that you have not made a diagnosis.",
   note_release_cmo_only: "This note is protected. Only the Chief Medical Officer can release it.",
   note_withdrawn_cannot_release: "This note was withdrawn as entered in error, so it cannot be released.",
