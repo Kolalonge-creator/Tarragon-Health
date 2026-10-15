@@ -69,7 +69,9 @@ describe("unifiedRedPagingState", () => {
   it("reads OFF when no version is live and ON when one is", () => {
     expect(unifiedRedPagingState([{ version: 1, is_active: false, approved_at: null }])).toEqual({ waitingVersion: 1, liveVersion: null });
     expect(unifiedRedPagingState([{ version: 1, is_active: true, approved_at: "x" }])).toEqual({ waitingVersion: null, liveVersion: 1 });
-    expect(unifiedRedPagingState([{ version: 1, is_active: false, approved_at: "x" }, { version: 2, is_active: true, approved_at: "x" }])).toEqual({ waitingVersion: 1, liveVersion: 2 });
+    // an older version never waits behind a newer live one; a newer unsigned one can replace the live one in a single step
+    expect(unifiedRedPagingState([{ version: 1, is_active: false, approved_at: "x" }, { version: 2, is_active: true, approved_at: "x" }])).toEqual({ waitingVersion: null, liveVersion: 2 });
+    expect(unifiedRedPagingState([{ version: 1, is_active: true, approved_at: "x" }, { version: 2, is_active: false, approved_at: null }])).toEqual({ waitingVersion: 2, liveVersion: 1 });
     expect(unifiedRedPagingState([])).toEqual({ waitingVersion: null, liveVersion: null });
   });
 });

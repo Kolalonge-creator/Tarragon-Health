@@ -20,14 +20,18 @@ export function UnifiedRedPagingPanel({ waitingVersion, liveVersion }: { waiting
           <button type="submit" className={stop}>Switch unified red-event paging OFF</button>
         </form>
       )}
-      {liveVersion === null && waitingVersion !== null && (
+      {waitingVersion !== null && (
         <form action={switchOnUnifiedRedPagingAction} className="space-y-3">
           <input type="hidden" name="version" value={waitingVersion} />
-          <h3 className="font-medium text-charcoal-ink">Unified red-event paging, version {waitingVersion} (off)</h3>
+          <h3 className="font-medium text-charcoal-ink">
+            Unified red-event paging, version {waitingVersion} {liveVersion === null ? "(off)" : `(replaces version ${liveVersion}, which stays on record)`}
+          </h3>
           <ul className="list-disc space-y-1 pl-5 text-sm text-charcoal-ink/80">
             <li>Today only a blood pressure red event pages the clinician on call. Low oxygen, a dangerous heart rate, a high temperature, a red-flag symptom and emergency events instead notify every clinician at once, with no one named as responsible and no acknowledgement.</li>
             <li>Switched on, those events page the clinician on call, with the backup after 5 minutes and the clinical lead after 10, and the older notify-everyone step is skipped for that event.</li>
             <li>If a page cannot be made, or nobody is on cover, the older notification still runs. A red event is never left without a notification to a clinician.</li>
+            <li>For an event a page covers, the older notification does not exist, so it can no longer climb to a text message (pages never use SMS). If the paged clinician cannot be reached by push, email or the console, the backup is paged at 5 minutes and the clinical lead at 10, and an ops person is asked to phone.</li>
+            <li>The Care Circle is not told about these pages in this version. Reproductive-health, exposure, AI coach and support-ticket emergencies, glucose emergencies and mental health crises are left on their existing paths.</li>
             <li>A patient on the Free plan is not paged. They still get the emergency guidance and their emergency contact is notified as before. Amber levels and blood pressure are unchanged.</li>
             <li>You can switch it off at any time. Pages already open are left alone.</li>
           </ul>

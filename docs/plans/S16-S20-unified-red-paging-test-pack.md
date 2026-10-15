@@ -4,7 +4,7 @@ For the Chief Medical Officer. Run this in staging with **test patients** before
 
 What the switch does, in one paragraph: today only a blood pressure red event pages the clinician on call. A very low oxygen reading, a dangerous heart rate, a high temperature, a red-flag symptom and an emergency event for a Member instead notify every clinician at once, with no one named, no acknowledgement and no backup. Switched on, those events page the clinician on call through the same ladder as blood pressure (backup at 5 minutes, clinical lead at 10), and the notify-everyone step is skipped for that event. If a page cannot be made, or nobody is on cover, the old notification still runs.
 
-What it does not change: the emergency guidance the patient sees, the emergency contact notice, amber ("review needed") levels, blood pressure, mental health crisis follow-up, the abnormal screening result pathway, and what a Free patient gets.
+What it does not change: the emergency guidance the patient sees, the emergency contact notice, amber ("review needed") levels, blood pressure, glucose emergencies, mental health crisis follow-up, reproductive and exposure emergencies, the abnormal screening result pathway, the Care Circle, and what a Free patient gets.
 
 ## Before you start
 
@@ -53,7 +53,8 @@ Check on every page above: the page names only a fixed neutral message (no readi
 | 14 | Take the primary and backup off the rota, then log oxygen 91 | A page with "no cover" goes to the clinical lead, a priority task opens, an ops incident is raised, **and** the old notice still goes to every clinician. |
 | 15 | Make a test clinician a relative of the patient and put them on call | They are **not** paged and cannot acknowledge. The backup is paged instead. |
 | 16 | Log oxygen 91 for the **Free** patient, then oxygen 85 | No page, no clinician alert. The patient sees the guidance and a self-care suggestion. For 85 the emergency guidance and emergency contact notice still happen. |
-| 17 | A test patient with a Care Circle member who allowed red alerts: log oxygen 91 | The Care Circle member gets their check-in notice, as they do for a blood pressure page. **Confirm with the DPO that this is within what the patient consented to under "red alerts".** If not, do not switch on. |
+| 17 | A test patient with a Care Circle member who allowed red alerts: log oxygen 91 | The page rings the primary. The Care Circle member gets **nothing** (a unified page does not tell the Care Circle; a blood pressure page still does). |
+| 17b | Log a pregnancy symptom checklist emergency, an exposure report, and an AI coach emergency; log a glucose emergency (glucose below 3.0) | No page for any of them. The old notice to every clinician runs, as before. |
 
 ## Part 5: roll back mid-stream
 

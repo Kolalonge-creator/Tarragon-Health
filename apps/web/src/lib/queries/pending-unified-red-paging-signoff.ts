@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 
 export type UnifiedRedPagingState = {
-  /** The newest version that is not live (never signed, or switched off earlier). Null when there is nothing to switch on. */
+  /** The newest version that is not live and newer than the live one (never switched on, or switched off earlier). Null when there is nothing to switch on. */
   waitingVersion: number | null;
   /** The live version, when unified red-event paging is ON. Null when it is OFF. */
   liveVersion: number | null;
@@ -18,7 +18,8 @@ type Loose = { from(table: string): { select(columns: string): PromiseLike<{ dat
 export function unifiedRedPagingState(rows: Row[]): { waitingVersion: number | null; liveVersion: number | null } {
   const live = rows.filter((r) => r.is_active).map((r) => r.version);
   const liveVersion = live.length === 0 ? null : Math.max(...live);
-  const waiting = rows.filter((r) => !r.is_active).map((r) => r.version);
+  // A version waits when it is not live and is newer than the live one (a newer version can replace the live one in one step); with nothing live, any inactive version waits.
+  const waiting = rows.filter((r) => !r.is_active && (liveVersion === null || r.version > liveVersion)).map((r) => r.version);
   return { waitingVersion: waiting.length === 0 ? null : Math.max(...waiting), liveVersion };
 }
 

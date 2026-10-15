@@ -142,6 +142,7 @@ declare
   m1 uuid; m2 uuid; m3 uuid; m4 uuid; m5 uuid; m6 uuid; m7 uuid; m8 uuid; m9 uuid; m10 uuid; m11 uuid; m12 uuid; m13 uuid; m14 uuid;
   f1 uuid; f2 uuid; v_rota jsonb; v_te uuid; v_page uuid; v_root public.pages%rowtype; v_r text; v_x uuid; v_d text; v_cfg uuid;
   v_orig_covers text; v_orig_on text; v_orig_create text; v_orig_spo2 text; v_ev uuid;
+  m_rp uuid; m_ex uuid; m_ai uuid; m_gl uuid; m_cc uuid; v_circle uuid; v_resp uuid; v_circle_n integer; v_orig_resp text; v_orig_circle text;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
@@ -254,7 +255,7 @@ begin
     pg_temp.roots(m5) || '|' || pg_temp.legacy_n(m5) || '|' || (select count(*)::text from public.emergency_events where patient_id = m5 and source = 'spo2_red_flag') || '|' || pg_temp.ute(m5));
   perform pg_temp.rec('ON: pulse emergency level', '1|0|1|1',
     pg_temp.roots(m6) || '|' || pg_temp.legacy_n(m6) || '|' || (select count(*)::text from public.emergency_events where patient_id = m6 and source = 'pulse_red_flag') || '|' || pg_temp.ute(m6));
-  perform pg_temp.rec('ON: glucose red flag emergency event', '1|0|1', pg_temp.roots(m7) || '|' || pg_temp.legacy_n(m7) || '|' || pg_temp.ute(m7));
+  perform pg_temp.rec('ON: a glucose emergency event stays on its own path (the glucose triage page, once signed): no second page, old broadcast kept', '0|' || v_n_clin || '|0', pg_temp.roots(m7) || '|' || pg_temp.legacy_n(m7) || '|' || pg_temp.ute(m7));
   perform pg_temp.rec('ON: a mental health screen crisis keeps its own pager: no second page, old broadcast kept, nothing unified', '0|' || v_n_clin || '|0', pg_temp.roots(m8) || '|' || pg_temp.legacy_n(m8) || '|' || pg_temp.ute(m8));
   perform pg_temp.rec('ON: the emergency event still opens its own red-alert watch (guidance independent of paging)', '1',
     (select count(*)::text from public.red_alert_watch where patient_id = m5 and source_kind = 'emergency_event'));
@@ -269,6 +270,38 @@ begin
     (select count(distinct source_id)::text from public.notifications where recipient_id = v_p and template = 'on_call_page' and source_table = 'pages' and source_id = v_root.id));
   perform pg_temp.rec('ON: no sms or voice row exists for the pages (no SMS for pages)', '0',
     (select count(*)::text from public.notifications where source_table = 'pages' and channel::text in ('sms', 'voice')));
+
+  -- reproductive, exposure and free-text sources are left on the old path on purpose (a page would also tell the Care Circle and widen who learns of it)
+  m_rp := pg_temp.member(v_org, v_admin, 'on-pregnancy'); m_ex := pg_temp.member(v_org, v_admin, 'on-exposure'); m_ai := pg_temp.member(v_org, v_admin, 'on-ai-coach');
+  perform pg_temp.ee(m_rp, 'pregnancy_symptom_checklist'); perform pg_temp.ee(m_ex, 'exposure_report'); perform pg_temp.ee(m_ai, 'ai_coach');
+  perform pg_temp.rec('ON: pregnancy checklist, exposure report and AI coach emergency events stay on the old path (no page, no unified event, old broadcast)', '0,0,0|0,0,0|' || v_n_clin || ',' || v_n_clin || ',' || v_n_clin,
+    pg_temp.roots(m_rp) || ',' || pg_temp.roots(m_ex) || ',' || pg_temp.roots(m_ai) || '|' || pg_temp.ute(m_rp) || ',' || pg_temp.ute(m_ex) || ',' || pg_temp.ute(m_ai) || '|' ||
+    pg_temp.legacy_n(m_rp) || ',' || pg_temp.legacy_n(m_ex) || ',' || pg_temp.legacy_n(m_ai));
+
+  -- a unified page does NOT tell the Care Circle (a blood pressure page still does); the patient's "could not get care" answer attaches to the emergency event
+  m_cc := pg_temp.member(v_org, v_admin, 'circle');
+  v_circle := pg_temp.mkuser(v_org, 'circle-supporter', 'patient');
+  insert into public.care_circle_members (organisation_id, patient_id, supporter_id, relationship, permissions, expires_at)
+    values (v_org, m_cc, v_circle, 'Sister', array['red_alerts'], now() + interval '300 days');
+  perform pg_temp.spo2(m_cc, 85);
+  perform pg_temp.rec('ON: a unified page makes a page but sends the Care Circle nothing', '1|0',
+    pg_temp.roots(m_cc) || '|' || (select count(*)::text from public.notifications where recipient_id = v_circle and template = 'circle_check_in'));
+  perform pg_temp.act(m_cc);
+  v_resp := public.record_red_care_response(gen_random_uuid(), 'could_not_get_care');
+  perform pg_temp.back();
+  perform pg_temp.rec('ON: the patient answer attaches to the emergency event, never to the unified row (which has no red-alert watch)', 'true|false',
+    (select (emergency_event_id is not null)::text || '|' || (triage_event_id is not null)::text from public.red_care_responses where id = v_resp));
+  perform pg_temp.rec('the chain-health timings do not count unified events (graded_to_page, reading_to_graded)', '0',
+    (select count(*)::text from private.chain_timing_rows(30, true) where metric in ('graded_to_page', 'reading_to_graded')));
+  perform pg_temp.rec('the parity measure and the risk score ignore unified rows (structural)', 'true',
+    (position('unified_red_paging' in pg_get_functiondef('private.triage_parity_rows(integer)'::regprocedure)) > 0
+     and position('unified_red_paging' in pg_get_functiondef('private.risk_compute(uuid,date)'::regprocedure)) > 0)::text);
+  perform pg_temp.act(m_cc);
+  perform pg_temp.rec('a patient cannot read the paging config', '0', (select count(*)::text from public.unified_red_paging_config));
+  perform pg_temp.back();
+  perform pg_temp.act(v_cmo);
+  perform pg_temp.rec('the CMO can read the paging config', '1', (select count(*)::text from public.unified_red_paging_config));
+  perform pg_temp.back();
 
   -- 5. Not red-class stays on the old path -----------------------------------------------------------------------------------
   m9 := pg_temp.member(v_org, v_admin, 'amber-spo2'); m10 := pg_temp.member(v_org, v_admin, 'amber-symptom'); m11 := pg_temp.member(v_org, v_admin, 'bp-emergency');
@@ -447,6 +480,35 @@ begin
     perform pg_temp.sab('ON: the old broadcast is suppressed when a page covers the event', '0', pg_temp.legacy_n(m_s6)::text);
   end;
   execute v_orig_spo2;
+
+  -- S7: the care-response guard removed. The answer must then wrongly attach to the unified row when it is the newest red event.
+  v_orig_resp := pg_get_functiondef('public.record_red_care_response(uuid,text,uuid,uuid,timestamptz)'::regprocedure);
+  if replace(v_orig_resp, ' and rule_set_code is distinct from ''unified_red_paging''', '') = v_orig_resp then raise exception 'VACUOUS TEST: care response guard text not found'; end if;
+  execute replace(v_orig_resp, ' and rule_set_code is distinct from ''unified_red_paging''', '');
+  declare m_s7 uuid := pg_temp.member(v_org, v_admin, 'sab7'); v_r7 uuid;
+  begin
+    perform set_config('tarragon.paging_write', 'off', true);
+    perform pg_temp.pulse(m_s7, 130);   -- a unified red row, no emergency event
+    perform pg_temp.act(m_s7);
+    v_r7 := public.record_red_care_response(gen_random_uuid(), 'sought_care');
+    perform pg_temp.back();
+    perform pg_temp.sab('the patient answer never attaches to a unified row', 'false', (select (triage_event_id is not null)::text from public.red_care_responses where id = v_r7));
+  end;
+  execute v_orig_resp;
+
+  -- S8: the Care Circle guard removed. A unified page must then wrongly tell the Care Circle.
+  v_orig_circle := pg_get_functiondef('private.notify_circle_red_alert()'::regprocedure);
+  if replace(v_orig_circle, 'ut.rule_set_code = ''unified_red_paging''', 'false') = v_orig_circle then raise exception 'VACUOUS TEST: circle guard text not found'; end if;
+  execute replace(v_orig_circle, 'ut.rule_set_code = ''unified_red_paging''', 'false');
+  declare m_s8 uuid := pg_temp.member(v_org, v_admin, 'sab8');
+  begin
+    insert into public.care_circle_members (organisation_id, patient_id, supporter_id, relationship, permissions, expires_at)
+      values (v_org, m_s8, v_circle, 'Sister', array['red_alerts'], now() + interval '300 days');
+    perform pg_temp.spo2(m_s8, 85);
+    perform pg_temp.sab('a unified page sends the Care Circle nothing', '0',
+      (select count(*)::text from public.notifications where recipient_id = v_circle and template = 'circle_check_in' and source_id in (select id from public.pages where patient_id = m_s8)));
+  end;
+  execute v_orig_circle;
 end $$;
 
 do $$
@@ -459,8 +521,8 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 6 then
-    raise exception 'VACUOUS TEST: only % of 6 sabotage steps changed the matching check', v_caught;
+  if v_caught < 8 then
+    raise exception 'VACUOUS TEST: only % of 8 sabotage steps changed the matching check', v_caught;
   end if;
 end $$;
 
