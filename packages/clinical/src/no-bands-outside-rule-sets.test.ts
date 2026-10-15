@@ -52,8 +52,6 @@ const RULE_SET_DIRS = ["packages/clinical/src/rules/"];
 export const LEGACY_ALLOWLIST: Record<string, { count: number; reason: string }> = {
   "apps/mobile/src/lib/bp-classification.ts": { count: 3, reason: "Legacy on-device BP bands (synced thresholds). Runs beside bp_care_triage until parity is shown (CMO Q1); retired with the legacy BP triggers." },
   "apps/web/src/lib/rules/bp-classification.ts": { count: 3, reason: "Legacy server BP bands, the web twin of the file above. Same retirement (CMO Q1)." },
-  "apps/mobile/src/lib/glucose-red-flags.ts": { count: 7, reason: "Legacy on-device glucose bands. Runs beside glucose_care_triage until parity is shown (Q1 applied to glucose); retired with the SQL glucose backstop." },
-  "apps/web/src/lib/vitals/glucose-red-flags.ts": { count: 7, reason: "Legacy server glucose bands, the web twin of the file above. Same retirement." },
   "apps/web/src/lib/cds/engine.ts": { count: 3, reason: "Clinical decision support BP bands (200/120, 160/100, 135/85) used by the clinician console. A third BP list that can disagree with the engine; follow-up in the R2 closeout to move it onto bp_care_triage." },
   "apps/web/src/lib/vitals/plausibility.ts": { count: 4, reason: "Plausibility gates for typed values (is this number humanly possible), not clinical bands." },
   "apps/web/src/lib/testing-days/model.ts": { count: 1, reason: "Plausibility gate for a point-of-care BP entry at a testing day, not a band." },
@@ -62,7 +60,7 @@ export const LEGACY_ALLOWLIST: Record<string, { count: number; reason: string }>
   "apps/web/scripts/eval-ai004-case-brief.ts": { count: 3, reason: "Fixture data for an AI evaluation script, not a band." },
   "apps/web/src/app/(dashboard)/admin/settings/vitals-reminders/rules-manager.tsx": { count: 1, reason: "Default reminder days, not a band." },
   "apps/mobile/src/lib/healthkit.ts": { count: 1, reason: "A unit string for HealthKit (mmol per litre), not a band." },
-  "packages/shared/src/proposed-config/registry.ts": { count: 13, reason: "Versioned PROPOSED config values (home BP targets, trend gaps, the S67 pregnancy BP lines that mirror bp_care_triage v5, and the S70a device plausibility and CGM / ECG alert values); governed by the registry and its CMO confirmation, not hard-coded logic." },
+  "packages/shared/src/proposed-config/registry.ts": { count: 25, reason: "Versioned PROPOSED config values (the diabetes glucose thresholds that S61 moved out of the legacy glucose files, home BP targets, trend gaps, the S67 pregnancy BP lines that mirror bp_care_triage v5, and the S70a device plausibility and CGM / ECG alert values); governed by the registry and its CMO confirmation, not hard-coded logic." },
   "packages/lifestyle-engine/src/adapters/diabetes.ts": { count: 1, reason: "SEVERE_HYPO_MMOL in the lifestyle safety adapter (spec 8.2): a stop-the-plan guard, not patient triage. Follow-up: read it from glucose_care_triage params." },
 };
 
