@@ -1,3 +1,5 @@
+import { randomInt } from "node:crypto";
+
 // S85 journey harness: environment and the local-only guard.
 //
 // Every journey writes real rows (users, readings, pages, notifications). It must only ever run against a disposable
@@ -48,5 +50,5 @@ export function journeyEnv(): JourneyEnv {
 
 /** A short unique run id so rows from two runs never collide and can be told apart. */
 export function newRunId(): string {
-  return `${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36).padStart(2, "0")}`;
+  return `${Date.now().toString(36)}${randomInt(1296).toString(36).padStart(2, "0")}`;
 }
