@@ -35,6 +35,8 @@ declare
   v_n integer;
   v_failed boolean;
   v_f text;
+  v_org2 uuid := gen_random_uuid();
+  v_total integer;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   if v_org is null then raise exception 'fixture FAIL: no organisation'; end if;
@@ -123,6 +125,24 @@ begin
   exception when insufficient_privilege then v_failed := true; end;
   execute 'reset role';
   if not v_failed then raise exception 'FAIL: anon executed clinician_folio_for_document'; end if;
+
+  -- 4b. service-role detection: a FORGED service_role claim from an authenticated session sees only its own
+  -- organisation (the view trusts the real database role, not request.jwt.claims); the real service role sees all
+  insert into public.organisations (id, name, type) values (v_org2, 'Folio Other Org', 'direct_consumer');
+  insert into public.clinical_staff (organisation_id, full_name, active, doctor_tier, credential_type, credential_number)
+  values (v_org2, 'Folio Other Org Doctor', false, 'senior_medical_officer', 'MDCN', 'FOLIO-OTHER');
+  select count(*) into v_total from public.clinical_staff_directory where organisation_id = v_org2;
+  if v_total <> 0 then raise exception 'fixture: unexpected visibility before the forged-claim check'; end if;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_pat, 'role', 'service_role')::text, true);
+  execute 'set local role authenticated';
+  select count(*) into v_n from public.clinical_staff_directory where organisation_id = v_org2;
+  execute 'reset role';
+  if v_n <> 0 then raise exception 'FAIL: a forged service_role claim read another organisation''s staff (%)', v_n; end if;
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+  execute 'set local role service_role';
+  select count(*) into v_n from public.clinical_staff_directory where organisation_id = v_org2;
+  execute 'reset role';
+  if v_n <> 1 then raise exception 'FAIL: the real service role did not see the other organisation (%)', v_n; end if;
 
   -- SABOTAGE: re-expose the folio in the view; assertion 1 must now fail
   drop view public.clinical_staff_directory;
