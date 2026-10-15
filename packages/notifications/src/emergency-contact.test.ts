@@ -5,7 +5,7 @@
 import "./support/deno.ts";
 import { describe, expect, it } from "@jest/globals";
 import { describeViolations, lintRenderFn } from "./index.ts";
-import { emergencyContactName, emergencyContactText, planContactFanout } from "../../../supabase/functions/_shared/notifications/emergency-contact.ts";
+import { confirmedPhoneMatches, emergencyContactName, emergencyContactText, planContactFanout } from "../../../supabase/functions/_shared/notifications/emergency-contact.ts";
 import { TEMPLATE_MAP } from "../../../supabase/functions/send-pending-notifications/templates.ts";
 
 const ctx = { notificationId: "n", recipientId: "r" };
@@ -82,5 +82,23 @@ describe("send-time gates", () => {
   it("fan-out copies carry the patient id so consent can be re-checked at their own send time", () => {
     const rows = planContactFanout({ sourceNotificationId: "s", organisationId: null, patientName: "Ada", patientId: "p1", contact: { id: "c1", email: null } });
     expect(rows.every((r) => r.payload.patient_id === "p1")).toBe(true);
+  });
+});
+
+describe("emergency-contact name length and confirmed phone match (branch coverage the proof relies on)", () => {
+  it("cuts a very long name to 59 characters plus an ellipsis, and leaves a 60 character name alone", () => {
+    const long = "A".repeat(61);
+    expect(emergencyContactName(long)).toBe(`${"A".repeat(59)}…`);
+    expect(emergencyContactName("B".repeat(60))).toBe("B".repeat(60));
+  });
+  it("matches a contact only through a CONFIRMED phone, ignoring a leading +", () => {
+    const confirmed = { phone: "2348012345678", phone_confirmed_at: "2026-10-01T00:00:00Z" };
+    expect(confirmedPhoneMatches(confirmed, "+2348012345678")).toBe(true);
+    expect(confirmedPhoneMatches(null, "+2348012345678")).toBe(false);
+    expect(confirmedPhoneMatches(undefined, "+2348012345678")).toBe(false);
+    expect(confirmedPhoneMatches({ phone: "2348012345678", phone_confirmed_at: null }, "+2348012345678")).toBe(false);
+    expect(confirmedPhoneMatches({ phone: null, phone_confirmed_at: "2026-10-01T00:00:00Z" }, "+2348012345678")).toBe(false);
+    expect(confirmedPhoneMatches({ phone_confirmed_at: "2026-10-01T00:00:00Z" }, "+2348012345678")).toBe(false);
+    expect(confirmedPhoneMatches(confirmed, "+2348099999999")).toBe(false);
   });
 });
