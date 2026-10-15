@@ -727,6 +727,12 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   if (n.template === "ops_all_clear") {
     return { text: "An operations alert has cleared", href: "/admin/ops/wall" };
   }
+  if (n.template === "on_call_test_page") {
+    return { text: "Test page: open On call and acknowledge it", href: "/clinician/on-call" };
+  }
+  if (n.template === "on_call_expired") {
+    return { text: "Nobody has answered a priority case. Phone the clinician on call now", href: "/rota" };
+  }
   if (n.template === "on_call_unfinished") {
     return { text: "A priority case is acknowledged but still open", href: "/rota" };
   }
