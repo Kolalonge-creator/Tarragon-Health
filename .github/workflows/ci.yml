@@ -43,7 +43,7 @@ jobs:
       # only be reused when the hash matches, so this cannot hide a real change.
       - name: Restore turbo cache
         id: turbo-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: .turbo/cache
           key: turbo-${{ runner.os }}-core-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
@@ -70,7 +70,7 @@ jobs:
 
       - name: Save turbo cache
         if: ${{ always() && steps.turbo-cache.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: .turbo/cache
           key: turbo-${{ runner.os }}-core-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
@@ -105,7 +105,7 @@ jobs:
       # only be reused when the hash matches, so this cannot hide a real change.
       - name: Restore turbo cache
         id: turbo-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: .turbo/cache
           key: turbo-${{ runner.os }}-web-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
@@ -122,7 +122,7 @@ jobs:
 
       - name: Save turbo cache
         if: ${{ always() && matrix.shard == 1 && steps.turbo-cache.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: .turbo/cache
           key: turbo-${{ runner.os }}-web-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
