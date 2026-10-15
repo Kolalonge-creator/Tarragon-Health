@@ -6,6 +6,7 @@ import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { CycleTracker } from "@/app/(dashboard)/patient/cycle/cycle-tracker";
 import type { ReproductiveLifeStage } from "@/lib/rules/cycle-prediction";
+import { readPlanningMode } from "@/lib/cycle/planning-mode";
 
 export const metadata: Metadata = {
   title: "Your cycle",
@@ -43,6 +44,8 @@ export default async function CyclePage() {
     .maybeSingle();
 
   const lifeStage: ReproductiveLifeStage = reproductiveProfile?.life_stage ?? "menstruating";
+  // Off unless the person switched on "Planning a pregnancy" (S85 D2); any read problem also means off.
+  const planningMode = await readPlanningMode(supabase, subjectId);
 
   return (
     <DashboardSection
@@ -60,6 +63,7 @@ export default async function CyclePage() {
           organisationId={profile.organisation_id}
           lifeStage={lifeStage}
           selfReportedCycleLengthDays={reproductiveProfile?.average_cycle_length_days ?? null}
+          initialPlanningMode={planningMode}
         />
       ) : (
         <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
