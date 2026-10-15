@@ -251,15 +251,15 @@ do $$
 declare v_admin uuid := pg_temp.f('admin'); a uuid := pg_temp.f('orgA'); v_inv uuid; r text;
 begin
   perform pg_temp.ck('the employer admin cannot generate an invoice', 'true',
-    (pg_temp.q_as(pg_temp.f('corpA'), format($q$select public.generate_organisation_membership_invoice(%L, current_date - 30, current_date)::text$q$, a)) like '%not authorised%')::text);
-  r := pg_temp.q_as(v_admin, format($q$select public.generate_organisation_membership_invoice(%L, current_date - 30, current_date)::text$q$, a));
+    (pg_temp.q_as(pg_temp.f('corpA'), format($q$select public.generate_organisation_membership_invoice(%L, (now() at time zone 'Africa/Lagos')::date - 30, (now() at time zone 'Africa/Lagos')::date)::text$q$, a)) like '%not authorised%')::text);
+  r := pg_temp.q_as(v_admin, format($q$select public.generate_organisation_membership_invoice(%L, (now() at time zone 'Africa/Lagos')::date - 30, (now() at time zone 'Africa/Lagos')::date)::text$q$, a));
   perform pg_temp.ck('the invoice call itself succeeds', 'true', (r !~ '^ERR:')::text);
   perform pg_temp.ck('finance generates one invoice for the two seats', '2/19500000/per_active_member',
     (select headcount_basis::text || '/' || amount_kobo::text || '/' || billing_model::text from public.employer_invoices where organisation_id = a));
   select id into v_inv from public.employer_invoices where organisation_id = a;
   perform pg_temp.ck('a mixed-price invoice records no single rate', 'null', coalesce((select rate_kobo::text from public.employer_invoices where id = v_inv), 'null'));
   perform pg_temp.ck('both seats are tied to the invoice', '2', (select count(*)::text from public.entitlements where invoice_id = v_inv));
-  perform pg_temp.ck('invoicing twice bills nothing again', 'true', (pg_temp.q_as(v_admin, format($q$select public.generate_organisation_membership_invoice(%L, current_date - 30, current_date)::text$q$, a)) like '%no_uninvoiced_seats%')::text);
+  perform pg_temp.ck('invoicing twice bills nothing again', 'true', (pg_temp.q_as(v_admin, format($q$select public.generate_organisation_membership_invoice(%L, (now() at time zone 'Africa/Lagos')::date - 30, (now() at time zone 'Africa/Lagos')::date)::text$q$, a)) like '%no_uninvoiced_seats%')::text);
   update public.employer_invoices set status = 'void', void_reason = 'proof run' where id = v_inv;
   perform pg_temp.ck('voiding the invoice frees the seats to be billed again', '2/0',
     (select count(*) filter (where invoice_id is null)::text || '/' || count(*) filter (where invoice_id is not null)::text from public.entitlements where billed_to_organisation_id = a));

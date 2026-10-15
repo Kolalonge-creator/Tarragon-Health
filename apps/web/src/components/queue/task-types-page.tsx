@@ -2,6 +2,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { formatMinutes, taskTypeSchema, TASK_TYPE_LABEL, TIER_LABEL, type TaskTypeRow } from "@/lib/queue/task-types";
 import { confirmTaskTypeAction } from "@/app/(dashboard)/clinician/triage-rules/actions";
+import { createTaskTypeProposalAction } from "@/lib/queue/task-type-actions";
 
 type TableReader = { from(table: string): { select(columns: string): { eq(column: string, value: boolean): PromiseLike<{ data: unknown; error: { message: string } | null }> } } };
 
@@ -18,7 +19,7 @@ async function loadTaskTypes(): Promise<{ rows: TaskTypeRow[]; failed: boolean }
 }
 
 /** Read-only list of the kinds of clinician work, shared by the admin and the Chief Medical Officer pages. */
-export async function TaskTypesPage({ canConfirm = false, done, error }: { canConfirm?: boolean; done?: string; error?: string }) {
+export async function TaskTypesPage({ canConfirm = false, done, error, returnTo = "/clinician/task-types" }: { canConfirm?: boolean; done?: string; error?: string; returnTo?: string }) {
   const { rows, failed } = await loadTaskTypes();
   return (
     <div className="space-y-5">
@@ -31,6 +32,66 @@ export async function TaskTypesPage({ canConfirm = false, done, error }: { canCo
       </div>
       {done && <p role="status" className="rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900">{done}</p>}
       {error && <p role="alert" className="rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-900">{error}</p>}
+      <details className="rounded-xl border border-charcoal-ink/10 bg-white p-4 shadow-sm dark:border-night-ink/15 dark:bg-night-card">
+        <summary className="cursor-pointer font-heading text-base font-semibold text-charcoal-ink">Propose a new task type</summary>
+        <p className="mt-2 max-w-3xl text-xs text-charcoal-ink/60">
+          A new kind of clinical work is added here, not in code. It appears in the queue with the class you set and waits for the Chief Medical Officer to confirm it.
+          Nothing is confirmed by proposing.
+        </p>
+        <form action={createTaskTypeProposalAction} className="mt-3 grid gap-3 sm:grid-cols-2">
+          <input type="hidden" name="returnTo" value={returnTo} />
+          <label className="block text-xs">
+            Code (lower case, underscores)
+            <input name="code" required pattern="[a-z][a-z0-9_]{2,60}" className="mt-1 w-full rounded-lg border border-charcoal-ink/20 bg-white px-3 py-2 text-sm text-charcoal-ink" />
+          </label>
+          <label className="block text-xs">
+            Priority class (1 is first, 9 is last)
+            <input name="priorityClass" type="number" min={1} max={9} required className="mt-1 w-full rounded-lg border border-charcoal-ink/20 bg-white px-3 py-2 text-sm text-charcoal-ink" />
+          </label>
+          <label className="block text-xs">
+            Expected within (minutes)
+            <input name="defaultDueMinutes" type="number" min={0} required className="mt-1 w-full rounded-lg border border-charcoal-ink/20 bg-white px-3 py-2 text-sm text-charcoal-ink" />
+          </label>
+          <label className="block text-xs">
+            Who may take it
+            <select name="minTier" defaultValue="medical_officer" className="mt-1 w-full rounded-lg border border-charcoal-ink/20 bg-white px-3 py-2 text-sm text-charcoal-ink">
+              {(Object.keys(TIER_LABEL) as Array<keyof typeof TIER_LABEL>).map((k) => (
+                <option key={k} value={k}>
+                  {TIER_LABEL[k]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-xs">
+            Skills needed (comma separated)
+            <input name="requiredCompetencies" className="mt-1 w-full rounded-lg border border-charcoal-ink/20 bg-white px-3 py-2 text-sm text-charcoal-ink" />
+          </label>
+          <label className="block text-xs">
+            Named clinician first for (minutes)
+            <input name="leadWindowMinutes" type="number" min={0} defaultValue={0} className="mt-1 w-full rounded-lg border border-charcoal-ink/20 bg-white px-3 py-2 text-sm text-charcoal-ink" />
+          </label>
+          <label className="block text-xs">
+            Claim held for (minutes)
+            <input name="claimTimeoutMinutes" type="number" min={1} defaultValue={30} className="mt-1 w-full rounded-lg border border-charcoal-ink/20 bg-white px-3 py-2 text-sm text-charcoal-ink" />
+          </label>
+          <label className="block text-xs">
+            Created from triage keys (comma separated, optional)
+            <input name="sourceTaskKeys" className="mt-1 w-full rounded-lg border border-charcoal-ink/20 bg-white px-3 py-2 text-sm text-charcoal-ink" />
+          </label>
+          <label className="flex items-center gap-2 text-xs sm:col-span-2">
+            <input name="pushable" type="checkbox" /> Can be offered to an employed doctor
+          </label>
+          <label className="block text-xs sm:col-span-2">
+            Note (optional)
+            <input name="note" maxLength={500} className="mt-1 w-full rounded-lg border border-charcoal-ink/20 bg-white px-3 py-2 text-sm text-charcoal-ink" />
+          </label>
+          <div className="sm:col-span-2">
+            <button type="submit" className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green">
+              Propose task type
+            </button>
+          </div>
+        </form>
+      </details>
       {failed ? (
         <p role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
           The task types could not be loaded just now. Try again in a moment; nothing has been changed.

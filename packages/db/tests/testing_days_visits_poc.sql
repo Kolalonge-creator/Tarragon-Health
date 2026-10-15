@@ -470,6 +470,30 @@ begin
     pg_temp.try_sql(format($q$update public.poc_ecg_recordings set release_state = 'released', interpreted_by = %L, interpreted_at = now(), interpretation_class = 'normal', interpretation = 'fine' where id = %L$q$, pg_temp.f('admin'), pg_temp.f('ecg'))));
 end $$;
 
+-- 10. Signing the point-of-care panels (migration *_sign_poc_panels.sql): CMO only, active version only, once ----------------------
+do $$
+declare v_org uuid := pg_temp.f('org'); v_admin uuid := pg_temp.f('admin'); v_cmo uuid; v_ur uuid; v_hb uuid;
+begin
+  v_cmo := pg_temp.mkdoc(v_org, 'cmo', 'chief_medical_officer', v_admin);
+  select id into v_ur from public.poc_panel_versions where panel_code = 'poc_urinalysis' and is_active;
+  select id into v_hb from public.poc_panel_versions where panel_code = 'poc_hba1c' and is_active;
+  perform pg_temp.ck('a senior doctor cannot sign the point-of-care panels', 'not authorised',
+    (select case when pg_temp.err(pg_temp.rpc(pg_temp.f('doc'), format('public.sign_poc_panels(%L::uuid)', v_ur))) like 'not authorised%' then 'not authorised' else 'other' end));
+  perform pg_temp.ck('anon cannot call the signing function', '42501', pg_temp.try_anon(format('select public.sign_poc_panels(%L::uuid)', v_ur)));
+  perform pg_temp.ck('the CMO signs the urinalysis panel', 'true',
+    (select (pg_temp.err(pg_temp.rpc(v_cmo, format('public.sign_poc_panels(%L::uuid)', v_ur))) = 'ok')::text));
+  perform pg_temp.ck('...and it is stamped with the CMO''s staff row', 'true',
+    (select (approved_at is not null and approved_by = (select id from public.clinical_staff where profile_id = v_cmo))::text from public.poc_panel_versions where id = v_ur));
+  perform pg_temp.ck('...and the other panel is still unsigned', 'true', (select (approved_at is null)::text from public.poc_panel_versions where id = v_hb));
+  perform pg_temp.ck('a signed version cannot be signed again', 'true',
+    (select (pg_temp.err(pg_temp.rpc(v_cmo, format('public.sign_poc_panels(%L::uuid)', v_ur))) like '%already signed%')::text));
+  -- SABOTAGE (own phase): remove the CMO check; a senior doctor can then sign the HbA1c panel, so the first check above would flip
+  create or replace function public.sign_poc_panels(p_id uuid) returns uuid language plpgsql security definer set search_path = '' as
+    $f$ begin update public.poc_panel_versions set approved_by = (select id from public.clinical_staff limit 1), approved_at = now() where id = p_id; return p_id; end $f$;
+  insert into results values ('sabotaged', 'with the CMO check removed a senior doctor can sign', 'not authorised',
+    case when pg_temp.err(pg_temp.rpc(pg_temp.f('doc'), format('public.sign_poc_panels(%L::uuid)', v_hb))) = 'ok' then 'signed' else 'refused' end);
+end $$;
+
 do $$
 declare v_bad integer; v_caught integer;
 begin
@@ -480,7 +504,7 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 4 then raise exception 'VACUOUS TEST: the sabotage flipped % of the checks that should flip', v_caught; end if;
+  if v_caught < 5 then raise exception 'VACUOUS TEST: the sabotage flipped % of the checks that should flip', v_caught; end if;
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result

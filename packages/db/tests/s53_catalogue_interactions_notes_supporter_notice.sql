@@ -233,14 +233,14 @@ begin
   reset role;
   insert into results values ('C', 'a manage-level helper whose grant lacks view_medication cannot add a note', 'refused', v_err);
   -- a dependant's guardian reads the medicine and so the notes
-  update public.profiles set is_dependent_account = true where id = v_pat;
+  update public.profiles set is_dependent_account = true, dependent_kind = 'minor_child' where id = v_pat;
   perform pg_temp.as_user(v_stranger);
   select count(*) into v_n from public.medication_side_effect_notes;
   select count(*) into v_rows from public.medications where id = v_med;
   reset role;
   insert into results values ('C', 'the guardian of a dependant reads the medicine and the notes alike', '1/2', v_rows || '/' || v_n);
   delete from public.profile_access where grantee_user_id = v_stranger and profile_id = v_pat;
-  update public.profiles set is_dependent_account = false where id = v_pat;
+  update public.profiles set is_dependent_account = false, dependent_kind = null where id = v_pat;
   insert into results values ('C', 'a note by a test patient is marked is_test', 'true', (select bool_and(is_test)::text from public.medication_side_effect_notes where patient_id = v_pat));
 
   set local role anon;

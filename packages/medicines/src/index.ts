@@ -11,3 +11,5 @@ export { INTERACTION_DATASET_HASH } from "./safety/interaction-dataset";
 export * from "./catalogue";
 export * from "./pack-prefill";
 export * from "./add-check";
+export * from "./prn";
+export * from "./adherence-report";

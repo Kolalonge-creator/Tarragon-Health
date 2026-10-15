@@ -59,6 +59,24 @@ describe("auditReason", () => {
     expect(auditReason({ ...base, draw: 9.99 }, 10)).toBe("random_sample");
     expect(auditReason({ ...base, draw: 10 }, 10)).toBeNull();
   });
+  it("Q16: audits all of a new clinician's first N red or prescribing cases, then tapers to the sample", () => {
+    expect(auditReason({ ...base, qualifyingOrdinal: 1 }, 10, 20)).toBe("new_clinician_review");
+    expect(auditReason({ ...base, qualifyingOrdinal: 20 }, 10, 20)).toBe("new_clinician_review");
+    expect(auditReason({ ...base, qualifyingOrdinal: 21 }, 10, 20)).toBeNull();
+    expect(auditReason({ ...base, qualifyingOrdinal: 21, draw: 9.99 }, 10, 20)).toBe("random_sample");
+  });
+  it("Q16: a task that is neither red nor prescribing is not pulled in, and 0 turns the rule off", () => {
+    expect(auditReason({ ...base, qualifyingOrdinal: null }, 10, 20)).toBeNull();
+    expect(auditReason({ ...base }, 10, 20)).toBeNull();
+    expect(auditReason({ ...base, qualifyingOrdinal: 1 }, 10, 0)).toBeNull();
+    expect(auditReason({ ...base, qualifyingOrdinal: 1 }, 10)).toBeNull();
+  });
+  it("Q16: red, titration and the level 1 count keep their own reason and come first", () => {
+    expect(auditReason({ ...base, priorityClassOriginal: 1, qualifyingOrdinal: 1 }, 10, 20)).toBe("red_event");
+    expect(auditReason({ ...base, taskType: "titration_signoff", qualifyingOrdinal: 1 }, 10, 20)).toBe("titration");
+    expect(auditReason({ ...base, level: 1, tier1Audited: 3, qualifyingOrdinal: 1 }, 10, 20)).toBe("first_tasks");
+    expect(auditReason({ ...base, level: 1, tier1Audited: 20, qualifyingOrdinal: 1 }, 10, 20)).toBe("new_clinician_review");
+  });
   it("red events beat the tier 1 count", () => expect(auditReason({ ...base, level: 1, priorityClassOriginal: 1 }, 10)).toBe("red_event"));
 });
 

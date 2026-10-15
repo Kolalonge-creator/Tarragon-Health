@@ -432,9 +432,9 @@ begin
     (pg_temp.q_as(v_b, format($q$select public.create_order('s29_year', gen_random_uuid(), %L)::text$q$, v_pat)) like '%order_beneficiary_not_allowed%')::text);
   perform pg_temp.ck('a stranger cannot pay for the patient', 'true',
     (pg_temp.q_as(v_other, format($q$select public.create_order('s29_year', gen_random_uuid(), %L)::text$q$, v_pat)) like '%order_beneficiary_not_allowed%')::text);
-  -- the older family grant (profile_access, S26's rule) still lets its grantee pay, exactly as it did live; removing it ends that
-  insert into public.profile_access (profile_id, grantee_user_id, granted_by, permission_level) values (v_pat, v_other, v_pat, 'view');
-  perform pg_temp.ck('an older family grant still lets its grantee pay for the patient', 'true',
+  -- the older family grant (profile_access) lets its grantee pay only at manage level WITH manage_payments (S71 / OQ-192; a bare view grant no longer pays)
+  insert into public.profile_access (profile_id, grantee_user_id, granted_by, permission_level, permissions) values (v_pat, v_other, v_pat, 'manage', array['manage_payments']::public.caregiver_permission[]);
+  perform pg_temp.ck('an older manage grant holding manage_payments still lets its grantee pay for the patient', 'true',
     (pg_temp.q_as(v_other, format($q$select public.create_order('s29_year', gen_random_uuid(), %L)::text$q$, v_pat)) like '%"reference"%')::text);
   delete from public.profile_access where profile_id = v_pat and grantee_user_id = v_other;
   perform pg_temp.ck('and once the grant is gone the same person is refused again', 'true',

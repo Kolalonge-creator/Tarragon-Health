@@ -52,13 +52,13 @@ describe("no mock in application code", () => {
     return out;
   };
 
-  it("only the adapter package and tests may name createMockPayment, Video, Speech or Email", () => {
+  it("only the adapter package and tests may name createMockPayment, Video, Speech, Email or Identity", () => {
     const hits: string[] = [];
     for (const top of ["apps", "packages", "supabase"]) {
       for (const file of walk(join(root, top), [])) {
         const rel = relative(root, file);
         if (allowed(rel)) continue;
-        if (/createMock(Payment|Video|Speech|Email)\b/.test(readFileSync(file, "utf8"))) hits.push(rel);
+        if (/createMock(Payment|Video|Speech|Email|Identity)\b/.test(readFileSync(file, "utf8"))) hits.push(rel);
       }
     }
     expect(hits).toEqual([]);

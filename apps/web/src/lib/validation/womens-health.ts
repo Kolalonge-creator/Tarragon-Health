@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { t } from "@tarragon/i18n";
 
 /**
  * Zod schemas for the Women's Health platform (spec §44). Grouped in one
@@ -32,6 +33,9 @@ export const PREGNANCY_DANGER_SIGNS = [
   "swelling_of_face_hands_with_headache",
   "waters_broken",
   "severe_vomiting",
+  // S67 (CMO selection A2, PROPOSED): immediate emergency, no reading needed.
+  "convulsion_or_fit",
+  "loss_of_consciousness",
 ] as const;
 export type PregnancyDangerSign = (typeof PREGNANCY_DANGER_SIGNS)[number];
 
@@ -44,6 +48,8 @@ export const PREGNANCY_DANGER_SIGN_LABEL: Record<PregnancyDangerSign, string> = 
   swelling_of_face_hands_with_headache: "Sudden swelling of face/hands with headache",
   waters_broken: "Waters broken",
   severe_vomiting: "Severe, persistent vomiting",
+  convulsion_or_fit: "A fit (convulsion)",
+  loss_of_consciousness: "Passing out",
 };
 
 export const pregnancyDangerReportSchema = z.object({
@@ -97,18 +103,24 @@ export const MENOPAUSE_SYMPTOM_TYPES = [
   "joint_aches",
   "brain_fog",
   "other",
+  // S66 (A15): the bleeding pattern and vaginal symptoms the CMO pack lists.
+  "irregular_bleeding",
+  "vaginal_discomfort",
 ] as const;
 export type MenopauseSymptomType = (typeof MENOPAUSE_SYMPTOM_TYPES)[number];
 
+// Words come from the English catalogue (packages/i18n cycle-copy.ts, CMO review pending).
 export const MENOPAUSE_SYMPTOM_LABEL: Record<MenopauseSymptomType, string> = {
-  hot_flashes: "Hot flashes",
-  night_sweats: "Night sweats",
-  sleep_disturbance: "Sleep disturbance",
-  mood_changes: "Mood changes",
-  vaginal_dryness: "Vaginal dryness",
-  joint_aches: "Joint aches",
-  brain_fog: "Brain fog / concentration",
-  other: "Other",
+  hot_flashes: t("menopause.symptom.hot_flashes"),
+  night_sweats: t("menopause.symptom.night_sweats"),
+  sleep_disturbance: t("menopause.symptom.sleep_disturbance"),
+  mood_changes: t("menopause.symptom.mood_changes"),
+  vaginal_dryness: t("menopause.symptom.vaginal_dryness"),
+  joint_aches: t("menopause.symptom.joint_aches"),
+  brain_fog: t("menopause.symptom.brain_fog"),
+  other: t("menopause.symptom.other"),
+  irregular_bleeding: t("menopause.symptom.irregular_bleeding"),
+  vaginal_discomfort: t("menopause.symptom.vaginal_discomfort"),
 };
 
 export const menopauseSymptomLogSchema = z.object({

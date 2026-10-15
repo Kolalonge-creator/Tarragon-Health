@@ -55,7 +55,7 @@ export function describeEntry(entry: AccessLogEntry, locale: Locale = "en"): Des
   return {
     title: Object.hasOwn(en, `my_health.log.kind.${entry.kind}`) ? t(`my_health.log.kind.${entry.kind}` as MessageKey, locale) : t("my_health.log.kind.other", locale),
     who: entry.actor_name ? `${entry.actor_name} (${entry.actor_label})` : entry.actor_label,
-    what: t("my_health.log.what", locale, { what: entry.categories.map(categoryName).join(", ") }),
+    what: entry.kind === "staff_record_opened" ? "" : t("my_health.log.what", locale, { what: entry.categories.map(categoryName).join(", ") }),
     status,
   };
 }

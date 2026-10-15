@@ -7,6 +7,7 @@ import { ListenButton } from "@/ui/kit";
 import { t, type MessageKey } from "@tarragon/i18n";
 import { redGuidanceStatus } from "@/lib/red-guidance-copy";
 import { PLATFORM_URL } from "@/lib/platform-url";
+import { RedCareAnswer } from "./red-care-answer";
 
 /**
  * Native, zero-network "go to the nearest hospital now" safety net for a
@@ -78,6 +79,9 @@ export function EmergencyGuidanceModal({
           </View>
 
           <ScrollView contentContainerStyle={{ padding: spacing.screen, gap: 14 }}>
+            <Text accessibilityRole="header" style={{ fontSize: 18, fontWeight: "700", color: colors.ink }}>
+              {t("emergency.first_line", "en")}
+            </Text>
             {wordingCode ? (
               <>
                 <Text style={{ fontSize: 15, lineHeight: 22, color: colors.ink, fontWeight: "700" }}>
@@ -158,6 +162,9 @@ export function EmergencyGuidanceModal({
                 </Pressable>
               </View>
             ) : null}
+
+            {/* CMO Q13: only where a doctor was (or may have been) alerted; Free has its own check-in. Never stops the care team's call. */}
+            {doctorReview !== false ? <RedCareAnswer /> : null}
 
             <SecondaryButton title="I'm getting help" onPress={onDismiss} />
           </ScrollView>

@@ -9,6 +9,6 @@ select t.table_name,
        case when private.retention_class_for(t.table_name) = 'operational' then 'delete' else 'review' end,
        private.retention_class_for(t.table_name) <> 'audit',
        'Registered with the default S39d classification when S53/S54c medicines and pharmacy was added; awaiting review.'
-  from unnest(array['medication_side_effect_notes', 'pharmacist_chat_threads', 'pharmacist_chat_messages', 'prescription_pharmacy_suggestions']) as t(table_name)
+  from unnest(array['medication_side_effect_notes', 'prescription_pharmacy_suggestions']) as t(table_name)
  where to_regclass('public.' || t.table_name) is not null
 on conflict (table_name) do nothing;

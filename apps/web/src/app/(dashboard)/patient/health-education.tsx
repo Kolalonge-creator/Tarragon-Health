@@ -43,6 +43,11 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { obesityLabelTitleCase } from "@/lib/copy/condition-language";
 
+import { LearningItemFooter } from "@/components/learning/learning-item-footer";
+import { useHealthEducationItemTrust } from "@/lib/queries/learning-centre";
+import { WeeklyLessonCard } from "@/components/learning/weekly-lesson-card";
+import { LearningSearch } from "@/components/learning/learning-search";
+
 const CONDITION_LABEL: Record<string, string> = {
   hypertension: "Blood pressure",
   diabetes: "Diabetes",
@@ -303,6 +308,18 @@ function ContentDetailBody({
   const mark = useMarkContentProgress(patientId, organisationId);
   const questions = useMemo(() => parseKnowledgeCheck(item.knowledge_check), [item.knowledge_check]);
   const audioUrl = "audio_url" in item ? item.audio_url : null;
+  // A creator series lesson for someone who is not a Member: the server has already withheld the body, the video, the audio and the
+  // check. Show only the footer (credit and the calm Membership note) and none of the lesson controls.
+  // An item whose body came back empty is treated as locked (core lessons always have a body) until the server says otherwise, so
+  // the lesson controls never show for a lesson the person cannot open, whether the answer is slow, failed or missing.
+  const { data: trust } = useHealthEducationItemTrust(item.code);
+  if (trust?.members_only === true || (!item.body && !item.video_url && !audioUrl && trust?.members_only !== false)) {
+    return (
+      <div className="space-y-4 pt-1">
+        <LearningItemFooter code={item.code} title={item.title} showNextStep={false} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 pt-1">
@@ -357,6 +374,7 @@ function ContentDetailBody({
 
       <SetGoalFromLesson item={item} patientId={patientId} organisationId={organisationId} />
       <ContentFeedback contentId={item.content_id} patientId={patientId} organisationId={organisationId} />
+      <LearningItemFooter code={item.code} title={item.title} />
     </div>
   );
 }
@@ -858,6 +876,8 @@ export function HealthEducationLibrary({
 
   return (
     <div className={cn("space-y-6")}>
+      <WeeklyLessonCard patientId={patientId} organisationId={organisationId} />
+      <LearningSearch />
       <RecommendationsBanner patientId={patientId} />
 
       {firstCondition && (

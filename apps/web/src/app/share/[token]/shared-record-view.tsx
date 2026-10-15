@@ -1,4 +1,5 @@
 import { t } from "@tarragon/i18n";
+import { rangeMayBeShownAsClinical, rangeSourceLabel } from "@tarragon/shared";
 
 /** What `record_share_by_token` returns on success. No directive: rendered by the server page and by the PIN gate on the client. */
 export type SharedData = {
@@ -39,6 +40,8 @@ export type SharedData = {
     value_text: string | null;
     unit: string | null;
     reference_range_text: string | null;
+    range_source?: string | null;
+    range_source_ref?: string | null;
     abnormal_flag: string | null;
     taken_at: string;
     laboratory: string | null;
@@ -258,11 +261,13 @@ export function SharedRecordView({ record }: { record: SharedData }) {
                 </div>
                 <p className="text-sm text-charcoal-ink/70">
                   {lr.value_text ?? lr.value ?? "-"} {lr.unit ?? ""}
-                  {lr.reference_range_text && (
+                  {lr.reference_range_text ? (
                     <span className="ml-2 text-xs text-charcoal-ink/50">
-                      (ref: {lr.reference_range_text})
+                      {rangeMayBeShownAsClinical(lr.range_source)
+                        ? `(ref: ${lr.reference_range_text}. ${rangeSourceLabel(lr.range_source, lr.range_source_ref)})`
+                        : `(${rangeSourceLabel(null)})`}
                     </span>
-                  )}
+                  ) : null}
                   {lr.abnormal_flag && (
                     <span className="ml-2 text-xs font-semibold text-red-600">
                       {lr.abnormal_flag}

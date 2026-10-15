@@ -17,7 +17,11 @@ export type SymptomCode =
   | "visual_disturbance"
   | "fainting"
   | "dizziness"
-  | "palpitations";
+  | "palpitations"
+  // S67 (pregnancy danger signs, CMO selection A2 of 2026-10-07, PROPOSED): rule set version 4 only.
+  | "convulsion"
+  | "loss_of_consciousness"
+  | "sudden_face_hand_swelling";
 
 export type PathwayState = "self_guided" | "care_pack_active" | "paused" | "discharged" | "referred_out";
 
@@ -142,7 +146,7 @@ export type TaskAnchor = "reading" | "week" | "lastReadingDate";
 export interface Rule {
   readonly id: string;
   readonly description: string;
-  readonly triggers: readonly TriageTrigger["type"][];
+  readonly triggers: readonly (TriageTrigger["type"] | "glucose")[];
   /** `grade` rules grade; a `recheck` rule only asks for a repeat reading. */
   /** `grade` rules grade; `recheck` asks for a repeat reading; `ask` asks the symptom question. The last two never grade. */
   readonly result: "grade" | "recheck" | "ask";

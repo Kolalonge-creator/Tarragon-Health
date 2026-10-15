@@ -2,6 +2,7 @@ import type * as SQLite from "expo-sqlite";
 import * as Crypto from "expo-crypto";
 import { NETWORK_ERROR_MESSAGE, postVitalReading, type VitalReadingPayload } from "./api";
 import { supabase } from "./supabase";
+import type { ContractionSessionPayload, KickSessionPayload } from "./pregnancy-payloads";
 import { getStoreWithSchema } from "./secure-db";
 import { applyReportOutcome, reportOnHold, reportRejection } from "./rejection-report";
 import { addDataUsage } from "./data-usage";
@@ -45,7 +46,22 @@ export interface DosePayload {
   reason?: string | null;
 }
 
-export type OutboxPayload = VitalReadingPayload | SymptomPayload | DosePayload;
+/**
+ * S13 R4 (CMO Q13): what the patient said about seeking care after a red alert. Sent with the database function
+ * record_red_care_response, which is idempotent by the outbox client id. It is information for the on-call clinician and
+ * never stops paging. The phone does not know the server's event id, so the server links it to the latest red alert of the day.
+ */
+export interface RedCarePayload {
+  response: "sought_care" | "could_not_get_care";
+}
+
+export type OutboxPayload =
+  | VitalReadingPayload
+  | SymptomPayload
+  | DosePayload
+  | RedCarePayload
+  | KickSessionPayload
+  | ContractionSessionPayload;
 
 interface OutboxRow {
   client_id: string;
@@ -540,6 +556,21 @@ async function send(item: OutboxItem): Promise<SendOutcome> {
       return error ? asFailure(error) : { ok: true };
     }
 
+    if (item.kind === "red_care") {
+      const p = item.payload as RedCarePayload;
+      const { error } = await supabase.rpc("record_red_care_response" as never, {
+        p_client_id: item.clientId,
+        p_response: p.response,
+        p_client_recorded_at: item.clientRecordedAt,
+      } as never);
+      return error ? asFailure(error) : { ok: true };
+    }
+
+    if (item.kind === "kick_session" || item.kind === "contraction_session") {
+      // S67: a finished session is one idempotent row (unique per person and client id), so a replay after a lost reply is a duplicate, not a second card.
+      return sendPregnancySession(item);
+    }
+
     const p = item.payload as DosePayload;
     const { error } = await supabase.from("medication_logs").insert({
       medication_id: p.medication_id,
@@ -557,6 +588,53 @@ async function send(item: OutboxItem): Promise<SendOutcome> {
     // fetch threw before any response: an outage, not a refusal.
     return { ok: false, message: error instanceof Error ? error.message : NETWORK_ERROR_MESSAGE };
   }
+}
+
+/**
+ * The pregnancy tables are not in the generated client types yet (the types are spliced from the live project, which holds
+ * other branches' schema, see CLAUDE.md), so the insert goes through this narrow shape instead of `any`.
+ */
+interface UntypedInsert {
+  from(table: string): { insert(row: Record<string, unknown>): PromiseLike<{ error: { code?: string; message?: string } | null }> };
+}
+
+async function sendPregnancySession(item: OutboxItem): Promise<SendOutcome> {
+  const client = supabase as unknown as UntypedInsert;
+  if (item.kind === "kick_session") {
+    const p = item.payload as KickSessionPayload;
+    const { error } = await client.from("kick_counts").insert({
+      organisation_id: p.organisation_id,
+      patient_id: item.subjectId,
+      client_id: item.clientId,
+      started_at: p.started_at,
+      ended_at: p.ended_at,
+      movement_offsets_s: p.movement_offsets_s,
+      reported_less: p.reported_less,
+      result: p.result,
+      result_reason: p.result_reason,
+      minutes_to_target: p.minutes_to_target,
+      week_at_start: p.week_at_start,
+      config_version: p.config_version,
+      source: "patient",
+    });
+    return error ? asFailure(error) : { ok: true };
+  }
+  const p = item.payload as ContractionSessionPayload;
+  const { error } = await client.from("contractions").insert({
+    organisation_id: p.organisation_id,
+    patient_id: item.subjectId,
+    client_id: item.clientId,
+    started_at: p.started_at,
+    timings: p.timings,
+    instant_signs: p.instant_signs,
+    pattern: p.pattern,
+    result: p.result,
+    result_reason: p.result_reason,
+    week_at_start: p.week_at_start,
+    config_version: p.config_version,
+    source: "patient",
+  });
+  return error ? asFailure(error) : { ok: true };
 }
 
 /**

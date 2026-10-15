@@ -120,3 +120,109 @@ Deno.test("S29c: paying for someone else with anything but the full yearly Membe
   const res = await handleCheckout(req({ code: "consult_single", client_key: KEY, beneficiary: PATIENT }), d);
   assertEquals([res.status, (await res.json()).error], [403, "gift_item_not_allowed"]);
 });
+
+// S73: the pricing engine. A discount code, a points wish and the total the person was shown are passed on; an amount never is.
+Deno.test("S73: a discount code, a points wish and the shown total go to create_order as parameters", async () => {
+  const { d, seen } = deps();
+  const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, discount_code: " welcome-26 ", use_points: true, expected_amount_kobo: 9_000_000 }), d);
+  assertEquals(res.status, 200);
+  assertEquals(seen.args, { p_code: "membership_annual", p_client_key: KEY, p_discount_code: "welcome-26", p_use_points: true, p_expected_amount_kobo: 9_000_000 });
+});
+
+Deno.test("S73: without them nothing extra is sent (the older call is unchanged)", async () => {
+  const { d, seen } = deps();
+  await handleCheckout(req({ code: "membership_annual", client_key: KEY, discount_code: null, use_points: false, expected_amount_kobo: null }), d);
+  assertEquals(seen.args, { p_code: "membership_annual", p_client_key: KEY });
+});
+
+Deno.test("S73: malformed extras are refused before anything is created", async () => {
+  const { d, seen } = deps();
+  for (const bad of [{ discount_code: 5 }, { discount_code: "x" }, { discount_code: "a".repeat(40) }, { use_points: "yes" }, { expected_amount_kobo: -1 }, { expected_amount_kobo: 1.5 }, { expected_amount_kobo: "9" }]) {
+    const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, ...bad }), d);
+    assertEquals(res.status, 400);
+  }
+  assertEquals(seen.args, undefined);
+});
+
+Deno.test("S73: the new refusals have stable codes, and a code that cannot be used comes back as a result, not an error", async () => {
+  for (const [msg, status, code] of [["quote_changed", 409, "quote_changed"], ["order_fully_covered", 409, "order_fully_covered"], ["sponsor_billing_not_open", 409, "sponsor_billing_not_open"], ["membership_not_open", 409, "membership_not_open"]] as const) {
+    const { d } = deps({ rpc: () => ({ data: null, error: { message: msg } }) });
+    const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY }), d);
+    assertEquals([res.status, (await res.json()).error], [status, code]);
+  }
+  for (const [msg, status] of [["discount_code_invalid", 422], ["discount_code_rate_limited", 429]] as const) {
+    const { d } = deps({ rpc: () => ({ data: { order_id: null, error: msg }, error: null }) });
+    const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY, discount_code: "WELCOME26" }), d);
+    assertEquals([res.status, (await res.json()).error], [status, msg]);
+  }
+});
+
+// ---- S71 -------------------------------------------------------------------------------------------------------------------
+Deno.test("S71 19.2: the hosted page is asked for card, bank transfer and USSD explicitly, never the dashboard defaults", async () => {
+  const { d, payments } = deps();
+  const res = await handleCheckout(req({ code: "membership_annual", client_key: KEY }), d);
+  assertEquals(res.status, 200);
+  assertEquals(payments.channelsFor(REF), ["card", "bank_transfer", "ussd"]);
+});
+
+Deno.test("S71 19.5: a fully sponsor-covered order has no payment step: no link, no Paystack call, the sponsor named", async () => {
+  const { d, payments } = deps({
+    rpc: () => ({ data: { order_id: "o2", reference: "spo_0123456789abcdef0123456789abcdef", amount_kobo: 0, state: "paid", checkout_url: null, covered: true, sponsor_name: "Acme Ltd" }, error: null }),
+  });
+  const res = await handleCheckout(req({ code: "consultation_single", client_key: KEY, expected_amount_kobo: 0 }), d);
+  assertEquals(res.status, 200);
+  const j = await res.json();
+  assertEquals(j, { covered: true, order_id: "o2", reference: "spo_0123456789abcdef0123456789abcdef", sponsor_name: "Acme Ltd" });
+  assertEquals("checkout_url" in j, false);
+  // Paystack was never asked for anything
+  assertEquals((await payments.verifyTransaction("spo_0123456789abcdef0123456789abcdef")).ok, false);
+});
+
+Deno.test("S71: a covered order needs no email on file", async () => {
+  const { d } = deps({
+    whoami: () => Promise.resolve({ id: "u1", email: null }),
+    rpc: () => ({ data: { order_id: "o2", reference: "spo_0123456789abcdef0123456789abcdef", amount_kobo: 0, state: "paid", checkout_url: null, covered: true, sponsor_name: null }, error: null }),
+  });
+  const res = await handleCheckout(req({ code: "consultation_single", client_key: KEY }), d);
+  assertEquals(res.status, 200);
+  assertEquals((await res.json()).covered, true);
+});
+
+Deno.test("S71: the sponsor refusals have stable codes", async () => {
+  for (const code of ["sponsor_budget_exhausted", "sponsor_payment_not_open"]) {
+    const { d } = deps({ rpc: () => ({ data: null, error: { message: code } }) });
+    const res = await handleCheckout(req({ code: "consultation_single", client_key: KEY }), d);
+    assertEquals(res.status, 409);
+    assertEquals((await res.json()).error, code);
+  }
+});
+
+// S72 (19.13): paying from a payment request
+const PR = "pr_abcdefghijklmnopqrstuvwx";
+
+Deno.test("a payment request calls create_request_order with ONLY the request code and the retry key", async () => {
+  let called = "";
+  const { d, seen } = deps({ rpc: (fn) => { called = fn; return { data: { order_id: "o1", reference: REF, amount_kobo: 10_000_000, state: "created", checkout_url: null }, error: null }; } });
+  const res = await handleCheckout(req({ payment_request: PR, client_key: KEY, amount_kobo: 1, code: "consultation_single" }), d);
+  assertEquals(res.status, 200);
+  assertEquals(called, "create_request_order");
+  assertEquals(seen.args, { p_code: PR, p_client_key: KEY });
+});
+
+Deno.test("a payment request refuses a beneficiary, a discount code and points, and a malformed code", async () => {
+  const { d } = deps();
+  assertEquals((await handleCheckout(req({ payment_request: PR, client_key: KEY, beneficiary: "11111111-2222-4333-8444-555555555555" }), d)).status, 400);
+  assertEquals((await handleCheckout(req({ payment_request: PR, client_key: KEY, discount_code: "SPRING26" }), d)).status, 400);
+  assertEquals((await handleCheckout(req({ payment_request: PR, client_key: KEY, use_points: true }), d)).status, 400);
+  assertEquals((await handleCheckout(req({ payment_request: "pr_short", client_key: KEY }), d)).status, 400);
+  assertEquals((await handleCheckout(req({ payment_request: "../x", client_key: KEY }), d)).status, 400);
+});
+
+Deno.test("the request refusals map to stable codes and statuses", async () => {
+  for (const [msg, status, code] of [["request_expired", 410, "request_expired"], ["request_used", 410, "request_used"], ["request_cancelled", 410, "request_cancelled"],
+                                      ["request_not_found", 404, "request_not_found"], ["request_in_use", 409, "request_in_use"], ["request_own", 403, "request_own"]] as const) {
+    const { d } = deps({ rpc: () => ({ data: null, error: { message: msg } }) });
+    const res = await handleCheckout(req({ payment_request: PR, client_key: KEY }), d);
+    assertEquals([res.status, (await res.json()).error], [status, code]);
+  }
+});
