@@ -3053,6 +3053,17 @@ export const en = {
   "payapprove.unnamed": "A clinician",
   "payapprove.truncated": "Showing {shown} of {total} drafts waiting. Approve some to see the rest.",
   "payapprove.mine": "This payout is yours, so someone else needs to approve it.",
+
+  // S85 D2 (OQ-12): fertile window is hidden by default; opt-in "Planning a pregnancy" mode
+  "cycle.fertile_window.label": "Not contraception. This cannot prevent pregnancy.",
+  "cycle.fertile_window.link": "Learn about contraception and talk to your care team.",
+  "cycle.planning_mode.title": "Planning a pregnancy",
+  "cycle.planning_mode.description": "Off by default. Turn it on if you are trying to conceive and want estimates of when you are most likely to. Your period prediction is always shown.",
+  "cycle.planning_mode.on_note": "These are estimates and they can be wrong.",
+  "cycle.planning_mode.saving": "Saving...",
+  "cycle.planning_mode.error": "Could not save that just now. Please try again.",
+  "cycle.between_periods.label": "Between periods",
+  "cycle.between_periods.description": "Your next period estimate is shown above. Log how you feel each day and it gets sharper.",
   // S67 (module 16, pregnancy). Fixed wording for the cards. Nothing here tells anyone to wait; nothing names a condition in a notification.
   "preg.card.contact_today.title": "Please get in touch today",
   "preg.card.contact_today.body": "Contact your care team or go to a health facility today.",
