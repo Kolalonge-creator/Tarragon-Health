@@ -15,6 +15,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, basename } from "node:path";
+import { execWithRetry, isLoginRoleFailure } from "./retry-sync.mjs";
 
 const PROJECT_REF = process.env.SUPABASE_PROJECT_REF || "koiplnmbgnqnbywhpjlf";
 const [base, head, ...flags] = process.argv.slice(2);
@@ -58,13 +59,11 @@ function query(sqlText) {
   const file = join(dir, "q.sql");
   writeFileSync(file, sqlText);
   const args = ["supabase", "db", "query", "--linked", "--project-ref", PROJECT_REF, "-f", file, "--output-format", "json"];
-  try {
-    return sh("npx", ["--yes", ...args]);
-  } catch (err) {
-    // the CLI occasionally dies after "Initialising login role..." (see check-migration-drift.mjs); retry once, reads only
-    if (!/^\s*select /i.test(sqlText)) throw err;
-    return sh("npx", ["--yes", ...args]);
-  }
+  // The CLI creates a login role per call and can fail to ("Failed to create login role", status 544) before any SQL is sent, e.g. when another
+  // workflow is starting at the same time. Reads retry on any transient error; a write retries only on that login-role failure, which is safe
+  // because nothing has run yet. A write that fails any other way is never repeated.
+  const isRead = /^\s*select /i.test(sqlText);
+  return execWithRetry("npx", ["--yes", ...args], {}, isRead ? {} : { isRetryable: isLoginRoleFailure });
 }
 
 let applied = 0;
