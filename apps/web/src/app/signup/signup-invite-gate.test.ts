@@ -31,6 +31,7 @@ function phoneForm(extra: Record<string, string> = {}) {
   fd.set("phone", "0803 123 4567");
   fd.set("state", "");
   fd.set("password", "a-strong-password-123");
+  fd.set("dateOfBirth", "1990-04-02"); // the adult gate runs before the invite gate
   for (const [k, v] of Object.entries(extra)) fd.set(k, v);
   return fd;
 }
