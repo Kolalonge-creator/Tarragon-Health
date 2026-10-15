@@ -11,6 +11,7 @@ import { ingestReadings, WearableIngestError, type IngestResult } from "./ingest
 import type { NormalisedReading } from "./normalise";
 import type { CloudOAuthWearableProvider } from "./oauth-providers";
 import { PROVIDER_ADAPTERS } from "./providers";
+import { cloudDeviceSource } from "./device-sources";
 import { isGarminPingPullPayload } from "./providers/garmin";
 
 /**
@@ -238,12 +239,9 @@ export async function pullConnection(
   connection: WearableConnectionCredentials,
   cursor: string | null
 ): Promise<SyncOutcome> {
-  const adapter = PROVIDER_ADAPTERS[connection.provider];
   const outcome = emptyOutcome();
-  if (!adapter.fetchSince) return outcome;
-
-  const token = await getValidAccessToken(svc, connection);
-  if (!token.ok) return outcome;
+  // S70a: the read now goes through the DeviceSource wrapper around the same adapter. Same order, same quiet returns, same exception.
+  const source = cloudDeviceSource(connection.provider, svc);
 
   const until = new Date();
   // Re-cover a short overlap on every run: a provider can backfill a reading
@@ -252,7 +250,13 @@ export async function pullConnection(
     ? new Date(Date.parse(cursor) - 60 * 60 * 1000)
     : new Date(until.getTime() - 7 * 24 * 3600_000);
 
-  const readings = await adapter.fetchSince(token.accessToken, since, until);
+  const synced = await source.sync(connection, { since, until });
+  if (!synced.ok) {
+    // not pulled (a push-only provider) and no usable token are quiet returns, as they always were; a provider failure is rethrown unchanged.
+    if (synced.code === "not_pullable" || synced.code === "no_token") return outcome;
+    throw synced.cause ?? new Error(synced.error);
+  }
+  const readings = synced.readings as NormalisedReading[];
   outcome.connectionsTouched = 1;
   try {
     accumulate(outcome, await ingestFor(svc, connection, readings, until.toISOString()));
