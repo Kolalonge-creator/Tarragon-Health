@@ -72,7 +72,7 @@ export async function GET(
     let folio;
     try {
       folio = (
-        await fetchDocumentFolios(supabase, "referral_letter", [referral.id], { [referral.id]: referral.set_by })
+        await fetchDocumentFolios(supabase, "referral_letter", [referral.id])
       ).get(referral.id);
     } catch (e) {
       if (e instanceof DocumentFolioRefusedError) {
