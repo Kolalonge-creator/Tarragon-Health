@@ -88,7 +88,7 @@ export async function GET(
     let folio;
     try {
       folio = (
-        await fetchDocumentFolios(supabase, "verified_document", [doc.id], { [doc.id]: doc.issued_by })
+        await fetchDocumentFolios(supabase, "verified_document", [doc.id])
       ).get(doc.id);
     } catch (e) {
       if (e instanceof DocumentFolioRefusedError) {

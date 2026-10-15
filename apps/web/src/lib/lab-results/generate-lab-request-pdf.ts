@@ -77,7 +77,7 @@ export async function generateLabRequestPdf(
     let folio;
     try {
       folio = (
-        await fetchDocumentFolios(supabase, "lab_request", [order.id], { [order.id]: order.ordered_by })
+        await fetchDocumentFolios(supabase, "lab_request", [order.id])
       ).get(order.id);
     } catch (e) {
       // Not entitled to the clinician's registration number: do not produce an unnumbered request.

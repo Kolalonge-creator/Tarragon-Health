@@ -7,10 +7,7 @@
 --   2. A patient cannot read clinical_staff (the base table) at all; the clinician can read their own row.
 --   3. authenticated holds no INSERT/UPDATE/DELETE on the directory view (it was auto-updatable and owner-run).
 --   4. anon can neither read the view nor execute public.clinician_folio_for_document.
---   5. clinician_folio_for_document returns the folio only for an entitled document flow: the patient who owns
---      a referral / prescription / lab request / lab interpretation gets it; another patient gets zero rows;
---      a colleague gets it for the staff-readable kinds (prescription, lab_request) but not for a referral
---      (patient-only policy); an unknown kind is refused; no ids returns nothing.
+--   (The document function's entitlement is proved in clinician_folio_for_document.sql.)
 -- SABOTAGE (last block): the view is redefined to expose credential_number again and assertion 1 is run
 -- again; it MUST fail, proving the check can fail.
 -- Not asserted (documented open follow-up, docs/design/folio-exposure-fix.md): a clinician colleague can
@@ -126,63 +123,6 @@ begin
   exception when insufficient_privilege then v_failed := true; end;
   execute 'reset role';
   if not v_failed then raise exception 'FAIL: anon executed clinician_folio_for_document'; end if;
-
-  -- 5. the narrow function
-  perform set_config('request.jwt.claims', json_build_object('sub', v_pat, 'role', 'authenticated')::text, true);
-  execute 'set local role authenticated';
-  select string_agg(credential_number, ',') into v_f from public.clinician_folio_for_document('referral_letter', array[v_ref]);
-  if v_f is distinct from 'FOLIO-A' then raise exception 'FAIL: patient did not get the referral folio (%)', v_f; end if;
-  select string_agg(credential_number, ',') into v_f from public.clinician_folio_for_document('prescription', array[v_med]);
-  if v_f is distinct from 'FOLIO-A' then raise exception 'FAIL: patient did not get the prescription folio (%)', v_f; end if;
-  select string_agg(credential_number, ',') into v_f from public.clinician_folio_for_document('lab_request', array[v_lab]);
-  if v_f is distinct from 'FOLIO-A' then raise exception 'FAIL: patient did not get the lab request folio (%)', v_f; end if;
-  select string_agg(credential_number, ',') into v_f from public.clinician_folio_for_document('lab_result_interpretation', array[v_lrd]);
-  if v_f is distinct from 'FOLIO-A' then raise exception 'FAIL: patient did not get the lab interpretation folio (%)', v_f; end if;
-  select string_agg(credential_number, ',') into v_f from public.clinician_folio_for_document('verified_document', array[v_vd]);
-  if v_f is distinct from 'FOLIO-A' then raise exception 'FAIL: patient did not get the verified document folio (%)', v_f; end if;
-  select string_agg(credential_number, ',') into v_f from public.clinician_folio_for_document('vaccination_certificate', array[v_vr]);
-  if v_f is distinct from 'FOLIO-A' then raise exception 'FAIL: patient did not get the vaccination certificate folio (%)', v_f; end if;
-  select count(*) into v_n from public.clinician_folio_for_document('prescription', array[]::uuid[]);
-  if v_n <> 0 then raise exception 'FAIL: empty id list returned rows'; end if;
-  v_failed := false;
-  begin perform 1 from public.clinician_folio_for_document('nonsense', array[v_med]);
-  exception when invalid_parameter_value then v_failed := true; end;
-  if not v_failed then raise exception 'FAIL: unknown document kind was not refused'; end if;
-  execute 'reset role';
-
-  -- another patient: zero rows for every kind
-  perform set_config('request.jwt.claims', json_build_object('sub', v_pat2, 'role', 'authenticated')::text, true);
-  execute 'set local role authenticated';
-  select count(*) into v_n from (
-    select 1 from public.clinician_folio_for_document('referral_letter', array[v_ref])
-    union all select 1 from public.clinician_folio_for_document('prescription', array[v_med])
-    union all select 1 from public.clinician_folio_for_document('lab_request', array[v_lab])
-    union all select 1 from public.clinician_folio_for_document('lab_result_interpretation', array[v_lrd])
-    union all select 1 from public.clinician_folio_for_document('verified_document', array[v_vd])
-    union all select 1 from public.clinician_folio_for_document('vaccination_certificate', array[v_vr])) s;
-  execute 'reset role';
-  if v_n <> 0 then raise exception 'FAIL: a stranger patient got % folio rows', v_n; end if;
-
-  -- colleague: never a referral (patient-only policy); for prescriptions the function must agree exactly with the
-  -- tied-read rule (private.staff_may_read), whatever the tied-reads switch says, so it is never looser than the table
-  perform set_config('request.jwt.claims', json_build_object('sub', v_docB, 'role', 'authenticated')::text, true);
-  execute 'set local role authenticated';
-  select count(*) into v_n from public.clinician_folio_for_document('referral_letter', array[v_ref]);
-  if v_n <> 0 then execute 'reset role'; raise exception 'FAIL: colleague got a referral folio (%)', v_n; end if;
-  v_expect := private.staff_may_read(v_pat, v_org, 'medications'::public.care_access_category);
-  select count(*) into v_n from public.clinician_folio_for_document('prescription', array[v_med]);
-  if (v_n > 0) is distinct from v_expect then execute 'reset role'; raise exception 'FAIL: prescription folio for a colleague (%) disagrees with staff_may_read (%)', v_n, v_expect; end if;
-  v_expect := private.staff_may_read(v_pat, v_org, 'vaccinations'::public.care_access_category);
-  select count(*) into v_n from public.clinician_folio_for_document('vaccination_certificate', array[v_vr]);
-  execute 'reset role';
-  if (v_n > 0) is distinct from v_expect then raise exception 'FAIL: vaccination folio for a colleague (%) disagrees with staff_may_read (%)', v_n, v_expect; end if;
-
-  -- service role (the internal notification PDF route) still gets the lab request folio
-  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
-  execute 'set local role service_role';
-  select string_agg(credential_number, ',') into v_f from public.clinician_folio_for_document('lab_request', array[v_lab]);
-  execute 'reset role';
-  if v_f is distinct from 'FOLIO-A' then raise exception 'FAIL: service role did not get the lab request folio (%)', v_f; end if;
 
   -- SABOTAGE: re-expose the folio in the view; assertion 1 must now fail
   drop view public.clinical_staff_directory;
