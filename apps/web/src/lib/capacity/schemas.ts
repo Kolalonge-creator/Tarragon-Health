@@ -5,6 +5,8 @@ const iso = z.string().min(10);
 /** public.intake_gate_overview(): the gate, the modes and the override, for the clinical lead and ops. */
 export const gateStatusSchema = z.object({
   open: z.boolean(),
+  /** true when the database could not read one of the signals; the numbers below are then zero and mean nothing. */
+  unavailable: z.boolean().default(false),
   reasons: z.array(z.string()),
   lead_capacity: z.number(),
   lead_in_use: z.number(),
@@ -71,18 +73,20 @@ export const coverOverviewSchema = z.object({
 });
 export type CoverOverview = z.infer<typeof coverOverviewSchema>;
 
-export const myCoverOffersSchema = z.array(
-  z.object({
-    id: z.uuid(),
-    state: z.enum(["offered", "fit_confirmed", "cover_requested"]),
-    offered_at: iso,
-    responded_at: iso.nullable(),
-    overnight_pages: z.number(),
-    next_shift_starts_at: iso,
-    next_shift_ends_at: iso,
-  }),
-);
-export type MyCoverOffer = z.infer<typeof myCoverOffersSchema>[number];
+const myCoverOffer = z.object({
+  id: z.uuid(),
+  state: z.enum(["offered", "fit_confirmed", "cover_requested"]),
+  offered_at: iso,
+  responded_at: iso.nullable(),
+  overnight_pages: z.number(),
+  next_shift_starts_at: iso,
+  next_shift_ends_at: iso,
+});
+export type MyCoverOffer = z.infer<typeof myCoverOffer>;
+
+/** public.my_cover_offers(): the caller's offers and the rest period in force (so the page never states a number the configuration does not hold). */
+export const myCoverOffersSchema = z.object({ rest_hours: z.number(), rest_enforced: z.boolean(), offers: z.array(myCoverOffer) });
+export type MyCoverOffers = z.infer<typeof myCoverOffersSchema>;
 
 const groupRow = z.object({
   group: z.enum(["overall", "clinician", "hour", "route", "device"]),
@@ -111,6 +115,7 @@ export type FireDrillReport = z.infer<typeof fireDrillReportSchema>;
 
 export const GATE_REASON_LABEL: Record<string, string> = {
   lead_headroom: "Few places left with lead clinicians",
-  rota_coverage: "The on-call rota has a gap in the next 72 hours",
+  rota_coverage: "The on-call rota has a gap inside the cover window",
   oldest_task: "Clinical work has been waiting longer than its limit",
+  unavailable: "The gate could not read one of its signals, so new sales are being refused until it can",
 };

@@ -312,10 +312,11 @@ $$;
 revoke all on function private.ops_mode_active(text, uuid, boolean) from public, anon, authenticated;
 
 -- A pause closes NEW bookings and NEW consultation requests, never care that is already paid or booked. The guard
--- clinical_operations_enabled also gates accept_video_visit_request, select_video_visit_alternate_slot, confirm_appointment_booking and
--- service_get_encounter_room, which serve a patient who has already asked, paid or booked: those are left exactly as they are. Only the three
--- entry points that start NEW work ask the intake variants below (live: hold_appointment_slot, create_followup_offer and the video visit request
--- insert trigger). go_live_guard_on itself is not touched, so a pause cannot reach anything else that reads it.
+-- clinical_operations_enabled also gates accept_video_visit_request, select_video_visit_alternate_slot, confirm_appointment_booking,
+-- service_get_encounter_room and hold_appointment_slot (which a paid service purchase, a caregiver booking and a patient picking a slot a doctor
+-- already offered all call): those serve a patient who has already asked, paid or been offered, so they are left exactly as they are. Only the two
+-- entry points that start NEW work ask the intake variants below (live: create_followup_offer and the video visit request insert trigger). New
+-- sales are held by the orders trigger below. go_live_guard_on itself is not touched, so a pause cannot reach anything else that reads it.
 create function private.go_live_open_intake(p_key text, p_patient uuid default null, p_clinician uuid default null) returns boolean
 language sql stable security definer set search_path = ''
 as $$
@@ -341,7 +342,6 @@ declare
   r record; v_def text; v_new text;
 begin
   for r in select * from (values
-      ('public.hold_appointment_slot(uuid,uuid,appointment_type,appointment_consultation_method,timestamptz,timestamptz,text,text,text,uuid,uuid,uuid,integer)', 'private.go_live_open(''clinical_operations_enabled''', 'private.go_live_open_intake(''clinical_operations_enabled'''),
       ('private.create_followup_offer(uuid,uuid,timestamptz[],text,integer)', 'private.go_live_open(''clinical_operations_enabled''', 'private.go_live_open_intake(''clinical_operations_enabled'''),
       ('private.video_visit_requests_go_live_guard()', 'private.go_live_open_patient(''clinical_operations_enabled''', 'private.go_live_open_patient_intake(''clinical_operations_enabled''')
     ) as t(fn, a, b) loop
@@ -353,6 +353,23 @@ begin
   end loop;
 end
 $intake$;
+
+-- Surge widens who may TAKE a routine task offered to a lead. queue_candidates shows it; the claim itself is checked in apply_task_transition,
+-- which still refused anyone but the named clinician, so a non-lead who picked the task would have failed on every retry. Patched from the
+-- CURRENT definition: the refusal stands except while a surge is on for a routine (class widen_class or lower urgency, never red) task.
+do $claim$
+declare v_def text; v_new text;
+begin
+  v_def := pg_get_functiondef('private.apply_task_transition(uuid,public.clinical_task_state,text,uuid,text,uuid,timestamptz,jsonb)'::regprocedure);
+  if v_def like '%ops_mode_active%' then return; end if;
+  v_new := replace(v_def, 'if t.state = ''offered_to_lead'' and p_claimed_by is distinct from t.pushed_to and p_claimed_by is distinct from t.lead_clinician_id then',
+    'if t.state = ''offered_to_lead'' and p_claimed_by is distinct from t.pushed_to and p_claimed_by is distinct from t.lead_clinician_id
+       and not (t.priority_class >= coalesce(private.cap_rule(''surge_widen_min_class''), 4) and t.priority_class_original > 1
+                and private.ops_mode_active(''surge'', t.organisation_id, t.is_test)) then');
+  if v_new = v_def then raise exception 'S20c: apply_task_transition no longer has the offered_to_lead refusal in the expected form; patch by hand'; end if;
+  execute v_new;
+end
+$claim$;
 
 -- ---------------------------------------------------------------------------
 -- 3. The intake gate (W5.1)
@@ -439,8 +456,16 @@ revoke all on function private.intake_open(uuid) from public, anon, authenticate
 create function private.orders_intake_gate() returns trigger
 language plpgsql security definer set search_path = ''
 as $$
+declare
+  v_org uuid;
+  v_test boolean;
 begin
   if new.beneficiary_patient_id is null then return new; end if;
+  -- a pause (an explicit CMO act) holds EVERY new sale; an order already created and in payment is never undone
+  select organisation_id, coalesce(is_test, false) into v_org, v_test from public.profiles where id = new.beneficiary_patient_id;
+  if found and private.ops_mode_active('pause', v_org, v_test) then
+    raise exception 'intake_paused' using errcode = 'P0001', hint = 'intake_gate';
+  end if;
   if not exists (select 1 from public.catalog_items ci where ci.id = new.catalog_item_id and ci.grants_lead) then return new; end if;
   if exists (select 1 from public.lead_assignments la where la.patient_id = new.beneficiary_patient_id and la.state = 'active') then return new; end if;
   if not private.intake_open(new.beneficiary_patient_id) then
@@ -502,7 +527,16 @@ as $$
 declare r record; v_status jsonb; v_n integer := 0;
 begin
   if coalesce(private.cap_rule('gate_enforce'), 0) <> 1 then return 0; end if;
-  for r in select o.id as org from public.organisations o loop
+  for r in select o.id as org from public.organisations o
+            where exists (select 1 from public.clinical_staff cs where cs.organisation_id = o.id and cs.active and cs.status = 'active' and not cs.is_test) loop
+    if not private.go_live_guard_on('on_call_cover_ok')
+       and not exists (select 1 from public.ops_incidents i where i.external_reference = 'intake_gate_guard:' || r.org and i.status not in ('resolved', 'closed')) then
+      insert into public.ops_incidents (organisation_id, category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
+      values (r.org, 'clinical', 'sev3', 'New care pack sales are refused: the on-call cover guard is off',
+              'The intake gate is on, but the go-live guard on_call_cover_ok is off, so every new care pack sale and enrolment is refused. Existing patients are not affected. Switch the guard on (it needs a rota covering the next 7 days) or ask the clinical lead for an override.',
+              'intake_gate_guard:' || r.org, now(), now());
+      v_n := v_n + 1;
+    end if;
     begin
       v_status := private.intake_gate_status(r.org);
     exception when others then
@@ -558,7 +592,7 @@ begin
   perform pg_advisory_xact_lock(hashtext('ops_mode:' || c.organisation_id));
   perform private.sweep_ops_modes();
   if exists (select 1 from public.ops_modes m where m.organisation_id = c.organisation_id and m.mode = p_mode and m.is_test = c.is_test and m.state = 'active') then
-    raise exception 'that mode is already on' using errcode = '23505';
+    raise exception 'that mode is already on' using errcode = '22023';
   end if;
   select version into v_ver from public.capacity_cover_config where is_active;
   -- a request waiting for this very decision is closed by the CMO acting directly
@@ -600,7 +634,7 @@ begin
   perform pg_advisory_xact_lock(hashtext('ops_mode:' || c.organisation_id));
   perform private.sweep_ops_modes();
   if exists (select 1 from public.ops_modes m where m.organisation_id = c.organisation_id and m.mode = 'pause' and m.is_test = c.is_test and m.state in ('active', 'requested')) then
-    raise exception 'a pause is already on or waiting for the chief medical officer' using errcode = '23505';
+    raise exception 'a pause is already on or waiting for the chief medical officer' using errcode = '22023';
   end if;
   select version into v_ver from public.capacity_cover_config where is_active;
   insert into public.ops_modes (organisation_id, mode, state, reason, requested_by, confirm_by, config_version, is_test)
@@ -626,9 +660,8 @@ begin
   if not found or m.mode <> 'pause' then raise exception 'unknown pause request' using errcode = 'P0002'; end if;
   if m.state <> 'requested' then raise exception 'that request is no longer waiting' using errcode = '22023'; end if;
   if m.confirm_by <= now() then
-    update public.ops_modes set state = 'lapsed', ended_at = now(), end_kind = 'unconfirmed' where id = m.id;
-    perform private.ops_audit(c.organisation_id, c.id, 'ops_mode.lapsed_unconfirmed', 'ops_mode', m.id, '{}'::jsonb);
-    return;   -- committed as lapsed: confirming after the time has no effect
+    -- the request has lapsed (the sweep records it within ten minutes); the CMO is told so, never that a pause is on
+    raise exception 'that request has lapsed and nothing was paused; start a pause yourself if it is still needed' using errcode = '22023';
   end if;
   if p_confirm then
     v_hours := coalesce(p_hours, private.cap_rule('pause_max_hours'));
@@ -677,7 +710,7 @@ begin
   perform pg_advisory_xact_lock(hashtext('intake_override:' || c.organisation_id));
   update public.intake_overrides set ended_at = now(), ended_by = c.id where organisation_id = c.organisation_id and is_test = c.is_test and ended_at is null and expires_at <= now();
   if exists (select 1 from public.intake_overrides where organisation_id = c.organisation_id and is_test = c.is_test and ended_at is null) then
-    raise exception 'an override is already in force' using errcode = '23505';
+    raise exception 'an override is already in force' using errcode = '22023';
   end if;
   select version into v_ver from public.capacity_cover_config where is_active;
   insert into public.intake_overrides (organisation_id, reason, created_by, expires_at, config_version, is_test)
@@ -709,15 +742,23 @@ grant execute on function public.cmo_end_intake_override(uuid) to authenticated;
 create function public.intake_gate_overview() returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
-declare c record;
+declare c record; v_gate jsonb;
 begin
   select * into c from private.cap_caller();
   if not private.can_credential_review() then raise exception 'not authorised' using errcode = '42501'; end if;
+  -- the page that holds the CMO's controls must load even when a signal cannot be read
+  begin
+    v_gate := private.intake_gate_status(c.organisation_id);
+  exception when others then
+    v_gate := jsonb_build_object('open', false, 'unavailable', true, 'reasons', jsonb_build_array('unavailable'), 'lead_capacity', 0, 'lead_in_use', 0, 'lead_free', 0,
+                                 'min_lead_headroom', coalesce(private.cap_rule('min_lead_headroom'), 3), 'rota_gap_hours', 0, 'rota_horizon_hours', coalesce(private.cap_rule('rota_horizon_hours'), 72),
+                                 'class_breaches', '[]'::jsonb);
+  end;
   return jsonb_build_object(
     'enforced', coalesce(private.cap_rule('gate_enforce'), 0) = 1,
     'config_version', (select version from public.capacity_cover_config where is_active),
     'guard_on', private.go_live_guard_on('on_call_cover_ok'),
-    'gate', private.intake_gate_status(c.organisation_id),
+    'gate', v_gate,
     'surge_active', private.ops_mode_active('surge', c.organisation_id, c.is_test),
     'pause_active', private.ops_mode_active('pause', c.organisation_id, c.is_test),
     'override', (select jsonb_build_object('id', o.id, 'reason', o.reason, 'expires_at', o.expires_at, 'created_at', o.created_at)
@@ -993,10 +1034,13 @@ select cron.schedule('fatigue-cover-sweep', '12,42 * * * *', $$ select private.f
 create function public.my_cover_offers() returns jsonb
 language sql stable security definer set search_path = ''
 as $$
-  select coalesce(jsonb_agg(jsonb_build_object('id', f.id, 'state', f.state, 'offered_at', f.offered_at, 'responded_at', f.responded_at, 'overnight_pages', f.overnight_pages,
-           'next_shift_starts_at', n.starts_at, 'next_shift_ends_at', n.ends_at) order by f.offered_at desc), '[]'::jsonb)
-    from (select * from public.fatigue_cover_offers where clinician_id = (select auth.uid()) order by offered_at desc limit 10) f
-    join public.on_call_rota n on n.id = f.next_rota_id
+  select jsonb_build_object(
+    'rest_hours', coalesce(private.cap_rule('rest_hours'), 11),
+    'rest_enforced', coalesce(private.cap_rule('hard_rest_enforce'), 0) = 1,
+    'offers', coalesce((select jsonb_agg(jsonb_build_object('id', f.id, 'state', f.state, 'offered_at', f.offered_at, 'responded_at', f.responded_at, 'overnight_pages', f.overnight_pages,
+           'next_shift_starts_at', n.starts_at, 'next_shift_ends_at', n.ends_at) order by f.offered_at desc)
+      from (select * from public.fatigue_cover_offers where clinician_id = (select auth.uid()) order by offered_at desc limit 10) f
+      join public.on_call_rota n on n.id = f.next_rota_id), '[]'::jsonb))
 $$;
 revoke all on function public.my_cover_offers() from public, anon;
 grant execute on function public.my_cover_offers() to authenticated;
@@ -1179,7 +1223,8 @@ begin
   if not private.can_credential_review() then raise exception 'not authorised' using errcode = '42501'; end if;
   with d as (
     select t.id, t.clinician_id, t.sent_at, t.acknowledged_at, t.drill_result_at,
-           case when t.acknowledged_at is not null then extract(epoch from (t.acknowledged_at - t.sent_at)) end as secs,
+           case when t.acknowledged_at is not null and (t.drill_result_at is null or t.acknowledged_at <= t.drill_result_at)
+                then extract(epoch from (t.acknowledged_at - t.sent_at)) end as secs,
            (select a.channel from public.page_delivered_acks a where a.test_id = t.id order by a.acked_at limit 1) as route,
            (select s.kind from public.page_delivered_acks a join public.on_call_device_seen s on s.clinician_id = a.clinician_id and s.device_id = a.device_id
              where a.test_id = t.id order by a.acked_at limit 1) as device,

@@ -9,7 +9,7 @@ import {
   type CoverOverview,
   type FireDrillReport,
   type IntakeOverview,
-  type MyCoverOffer,
+  type MyCoverOffers,
   type OpsModeStatus,
 } from "./schemas";
 
@@ -25,7 +25,7 @@ export async function getFireDrillReport(days: number): Promise<FireDrillReport>
   return rpcParsed(await createClient(), "fire_drill_report", { p_days: days }, fireDrillReportSchema);
 }
 
-export async function getMyCoverOffers(): Promise<MyCoverOffer[]> {
+export async function getMyCoverOffers(): Promise<MyCoverOffers> {
   return rpcParsed(await createClient(), "my_cover_offers", {}, myCoverOffersSchema);
 }
 

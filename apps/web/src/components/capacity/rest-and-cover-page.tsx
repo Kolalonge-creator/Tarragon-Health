@@ -9,7 +9,7 @@ import { firstParam, type SearchParams } from "@/lib/credentialing/params";
 /** A clinician's own cover offers after a busy night, and the rest rule in plain words. */
 export async function RestAndCoverPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
-  const offers = await getMyCoverOffers();
+  const { offers, rest_hours: restHours, rest_enforced: restEnforced } = await getMyCoverOffers();
   return (
     <div className="mx-auto max-w-3xl space-y-5">
       <PageHeader
@@ -19,7 +19,9 @@ export async function RestAndCoverPage({ searchParams }: { searchParams: SearchP
       <Flash ok={firstParam(sp.ok)} error={firstParam(sp.error)} />
       <Section title="The rest rule">
         <p className="text-sm">
-          After a shift with overnight pages you cannot be put on call, or declare queue time, until you have had at least 11 hours of rest. Only the clinical lead can make an exception, and they must write down why.
+          {restEnforced
+            ? `After a shift with overnight pages you cannot be put on call, or declare queue time, until you have had at least ${restHours} hours of rest. Only the clinical lead can make an exception, and they must write down why.`
+            : `This rule is not switched on yet. When it is, after a shift with overnight pages you will not be put on call, or able to declare queue time, until you have had at least ${restHours} hours of rest. Only the clinical lead can make an exception, and they must write down why.`}
         </p>
       </Section>
       <Section title="Your offers">

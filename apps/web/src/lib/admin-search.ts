@@ -34,7 +34,7 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/fire-drills", "fire drill drills test page unannounced acknowledge time p50 p95 median on call reachable route device hour monthly report"],
   ["/clinician/device-check", "device check phone battery tecno infinix samsung xiaomi notifications auto-start service worker test page on call alerts"],
   ["/clinician/rest-and-cover", "rest cover offer fatigue overnight pages 11 hours fit to work next shift"],
-  ["/clinician/risk-worklist","risk worklist who to call first outreach deterioration dropout priority tier override patients ordered"],
+  ["/clinician/risk-worklist", "risk worklist who to call first outreach deterioration dropout priority tier override patients ordered"],
   ["/admin/outcomes/export", "export outcomes csv download pilot report renewal sponsor file blood pressure control aggregate"],
   ["/admin/outcomes/response-times", "response times care team claim time complete overdue pages acknowledge follow up median slowest tasks priority class data quality"],
   ["/admin/sponsors", "sponsors programme code cohort insurer hmo employer corporate ngo members join group figures sponsor report aggregate consent share"],

@@ -144,6 +144,15 @@ begin
     perform private.apply_task_transition(r.id, 'cancelled', 'lead', null, 'proof cleanup of a fixture task');
   end loop;
 end $f$;
+-- the task id queue_next hands this clinician, or null when none
+create function pg_temp.next_try(p_uid uuid, p_types text[]) returns uuid language plpgsql as
+$f$ declare r jsonb;
+begin
+  perform pg_temp.act(p_uid);
+  begin r := public.queue_next(p_types); exception when others then r := null; end;
+  perform pg_temp.back();
+  return (r -> 'task' ->> 'id')::uuid;
+end $f$;
 create function pg_temp.sees(p_uid uuid, p_task uuid) returns text language plpgsql as
 $f$ declare r text;
 begin
@@ -245,9 +254,9 @@ begin
     pg_temp.try_as(v_cmo, format('insert into public.ops_modes (organisation_id, mode, state, reason, config_version) values (%L, ''pause'', ''active'', ''x'', 1)', pg_temp.f('org'))) || ',' ||
     pg_temp.try_as(v_cmo, format('insert into public.intake_overrides (organisation_id, reason, expires_at, config_version) values (%L, ''x'', now() + interval ''1 hour'', 1)', pg_temp.f('org'))) || ',' ||
     pg_temp.try_as(v_cmo, format('insert into public.rest_rule_overrides (organisation_id, clinician_id, valid_from, valid_to, reason) values (%L, %L, now(), now() + interval ''1 hour'', ''x'')', pg_temp.f('org'), v_a)));
-  perform pg_temp.rec('the three jobs exist, each on a schedule no other job shares', '3,0',
-    (select count(*)::text from cron.job where jobname in ('ops-mode-sweep', 'fatigue-cover-sweep', 'fire-drills')) || ',' ||
-    (select count(*)::text from cron.job j where j.jobname in ('ops-mode-sweep', 'fatigue-cover-sweep', 'fire-drills')
+  perform pg_temp.rec('the four jobs exist, each on a schedule no other job shares', '4,0',
+    (select count(*)::text from cron.job where jobname in ('ops-mode-sweep', 'fatigue-cover-sweep', 'fire-drills', 'intake-gate-watch')) || ',' ||
+    (select count(*)::text from cron.job j where j.jobname in ('ops-mode-sweep', 'fatigue-cover-sweep', 'fire-drills', 'intake-gate-watch')
         and exists (select 1 from cron.job k where k.schedule = j.schedule and k.jobid <> j.jobid)));
   perform pg_temp.rec('the public RPCs are callable by signed-in users and never by anon', 'true,false',
     has_function_privilege('authenticated', 'public.fire_drill_report(integer)', 'EXECUTE')::text || ',' || has_function_privilege('anon', 'public.cmo_start_ops_mode(text,text,integer)', 'EXECUTE')::text);
@@ -319,7 +328,10 @@ begin
   update public.intake_overrides set expires_at = now() + interval '2 hours' where id = v_ov;
   v_pause := pg_temp.real_mode(v_org, 'pause', 2);
   perform pg_temp.rec('gate: a pause closes the gate even with an override and even when the gate is not enforced', 'P0001:intake_paused', pg_temp.order_try(v_org, pg_temp.f('real5'), v_item, v_price));
+  perform pg_temp.rec('gate: a pause holds EVERY new sale, even a consultation for an enrolled patient (existing orders in payment are never undone)', 'P0001:intake_paused',
+    pg_temp.order_try(v_org, r4, v_cons, v_cprice));
   perform pg_temp.end_mode(v_pause);
+  perform pg_temp.rec('gate: the same consultation sale goes through once the pause has ended', 'ok', pg_temp.order_try(v_org, r4, v_cons, v_cprice));
   update public.intake_overrides set ended_at = now() where id = v_ov;
   perform pg_temp.use_rules('{"gate_enforce":0}');
   v_pause := pg_temp.real_mode(v_org, 'surge', 2);
@@ -388,7 +400,7 @@ begin
   perform pg_temp.rec('modes: the CMO starts a surge; it is recorded, expires in 6 hours and is audited', 'active,6,1',
     (select state from public.ops_modes where id = v_surge) || ',' || (select round(extract(epoch from (expires_at - started_at)) / 3600)::text from public.ops_modes where id = v_surge) || ',' ||
     (select count(*)::text from public.audit_log where entity_id = v_surge and action = 'ops_mode.started'));
-  perform pg_temp.rec('modes: a second surge while one is on is refused', '23505', pg_temp.try_as(v_cmo, $q$select public.cmo_start_ops_mode('surge', 'a long enough written reason', 2)$q$));
+  perform pg_temp.rec('modes: a second surge while one is on is refused', '22023', pg_temp.try_as(v_cmo, $q$select public.cmo_start_ops_mode('surge', 'a long enough written reason', 2)$q$));
   perform pg_temp.rec('surge: the on-call BACKUP is told, in app, with neutral wording', '1,true',
     (select count(*)::text from public.notifications where recipient_id = v_b and channel = 'in_app' and payload ->> 'audience' = 'surge') || ',' ||
     (select (payload ->> 'message' !~* '(patient|blood|pressure|diagnos|emergenc)')::text from public.notifications where recipient_id = v_b and payload ->> 'audience' = 'surge' limit 1));
@@ -415,14 +427,14 @@ begin
   perform pg_temp.rec('pause: the CMO is told (in app) to confirm', 'true',
     ((select count(*) from public.notifications where recipient_id = v_cmo and payload ->> 'audience' = 'ops_mode' and payload ->> 'subject' = 'Pause request waiting') >= 1)::text);
   perform pg_temp.rec('pause: an administrator cannot confirm their own request', '42501', pg_temp.try_as(v_admin, format('select public.cmo_decide_ops_pause(%L, true)', v_req)));
-  perform pg_temp.rec('pause: a second request while one is waiting is refused', '23505', pg_temp.try_as(v_admin, $q$select public.request_ops_pause('another long enough written reason')$q$));
+  perform pg_temp.rec('pause: a second request while one is waiting is refused', '22023', pg_temp.try_as(v_admin, $q$select public.request_ops_pause('another long enough written reason')$q$));
   -- the request lapses unconfirmed
   update public.ops_modes set confirm_by = now() - interval '1 minute' where id = v_req;
-  perform pg_temp.act(v_cmo);
-  perform public.cmo_decide_ops_pause(v_req, true, 2);   -- too late: confirming after the time has no effect
-  perform pg_temp.back();
-  perform pg_temp.rec('pause: confirming AFTER the time has no effect: it is lapsed, nothing is paused', 'lapsed,unconfirmed,false',
-    (select state || ',' || end_kind from public.ops_modes where id = v_req) || ',' || private.ops_mode_active('pause', v_org, true)::text);
+  perform pg_temp.rec('pause: confirming AFTER the time is refused in plain words, and nothing is paused', '22023,false',
+    pg_temp.try_as(v_cmo, format('select public.cmo_decide_ops_pause(%L, true, 2)', v_req)) || ',' || private.ops_mode_active('pause', v_org, true)::text);
+  perform private.sweep_ops_modes();
+  perform pg_temp.rec('pause: the sweep records the unconfirmed request as lapsed', 'lapsed,unconfirmed',
+    (select state || ',' || end_kind from public.ops_modes where id = v_req));
   -- a request confirmed in time
   perform pg_temp.act(v_admin);
   v_req := public.request_ops_pause('Second request, confirmed in time by the clinical lead');
@@ -461,7 +473,7 @@ begin
   perform pg_temp.act(v_cmo);
   v_ov := public.cmo_set_intake_override('Pilot launch week: one clinician is training a colleague', 4);
   perform pg_temp.back();
-  perform pg_temp.rec('override: recorded with reason, expiry and an audit row; a second one while open is refused', 'true,1,23505',
+  perform pg_temp.rec('override: recorded with reason, expiry and an audit row; a second one while open is refused', 'true,1,22023',
     ((select expires_at - created_at from public.intake_overrides where id = v_ov) = interval '4 hours')::text || ',' ||
     (select count(*)::text from public.audit_log where entity_id = v_ov and action = 'intake_override.set') || ',' ||
     pg_temp.try_as(v_cmo, $q$select public.cmo_set_intake_override('another long enough written reason', 2)$q$));
@@ -480,7 +492,7 @@ do $$
 declare
   v_org uuid := pg_temp.f('org'); v_cmo uuid := pg_temp.f('cmo'); v_a uuid := pg_temp.f('A'); v_b uuid := pg_temp.f('B'); v_c uuid := pg_temp.f('C');
   tp1 uuid := pg_temp.f('tp1'); tp2 uuid := pg_temp.f('tp2'); tp3 uuid := pg_temp.f('tp3'); tp4 uuid := pg_temp.f('tp4'); tp5 uuid := pg_temp.f('tp5');
-  t_red uuid; t_crit uuid; t_routine uuid; t_amber uuid; t_claimed uuid; v_pause uuid; v_surge uuid; v_page uuid; v_ev uuid; v_open boolean; v_text text;
+  t_red uuid; t_crit uuid; t_routine uuid; t_amber uuid; t_claimed uuid; v_pause uuid; v_surge uuid; v_page uuid; v_ev uuid; v_open boolean; v_text text; v_cid uuid;
 begin
   perform pg_temp.use_rules('{"gate_enforce":0}');
   perform pg_temp.clear_queue();
@@ -501,6 +513,13 @@ begin
   perform pg_temp.rec('surge: ...and still visible to its lead', 'true', pg_temp.sees(v_a, t_amber));
   perform pg_temp.act(v_cmo); perform public.cmo_end_ops_mode(v_surge, 'proof'); perform pg_temp.back();
   perform pg_temp.rec('surge: ended, the offer goes back to its lead only', 'false', pg_temp.sees(v_b, t_amber));
+  perform pg_temp.rec('surge: with no surge a non-lead cannot claim an offered routine task', 'null', coalesce(pg_temp.next_try(v_b, array['amber_bp_review'])::text, 'null'));
+  perform pg_temp.act(v_cmo); v_surge := public.cmo_start_ops_mode('surge', 'Surge for the proof: second part, the claim itself', 2); perform pg_temp.back();
+  v_cid := pg_temp.next_try(v_b, array['amber_bp_review']);
+  perform pg_temp.rec('surge: another eligible clinician can actually CLAIM it (the claim path agrees with the list)', 'true,claimed',
+    (v_cid = t_amber)::text || ',' || coalesce((select state::text from public.clinical_tasks where id = t_amber), 'none'));
+  perform private.apply_task_transition(t_amber, 'cancelled', 'lead', null, 'proof: release the surge claim');
+  perform pg_temp.act(v_cmo); perform public.cmo_end_ops_mode(v_surge, 'proof'); perform pg_temp.back();
 
   -- an already-claimed task
   t_claimed := pg_temp.release(private.create_clinical_task(pg_temp.f('tp4'), 'routine_result_review'));
@@ -539,10 +558,10 @@ begin
   perform pg_temp.rec('pause: ...and a NEW video visit request, and the guard itself and the existing-care check stay open', 'false,true,true',
     private.go_live_open_patient_intake('clinical_operations_enabled', tp2)::text || ',' || private.go_live_guard_on('clinical_operations_enabled')::text || ',' ||
     private.go_live_open('clinical_operations_enabled', tp2, v_a)::text);
-  perform pg_temp.rec('pause: only the three entry points that start NEW work ask the intake question', 'true,true,true,false,false,false,false',
-    (pg_get_functiondef('public.hold_appointment_slot(uuid,uuid,appointment_type,appointment_consultation_method,timestamptz,timestamptz,text,text,text,uuid,uuid,uuid,integer)'::regprocedure) like '%go_live_open_intake%')::text || ',' ||
+  perform pg_temp.rec('pause: only the two entry points that start NEW work ask the intake question (the hold used by a paid, booked or already offered slot does not)', 'true,true,false,false,false,false,false',
     (pg_get_functiondef('private.create_followup_offer(uuid,uuid,timestamptz[],text,integer)'::regprocedure) like '%go_live_open_intake%')::text || ',' ||
     (pg_get_functiondef('private.video_visit_requests_go_live_guard()'::regprocedure) like '%go_live_open_patient_intake%')::text || ',' ||
+    (pg_get_functiondef('public.hold_appointment_slot(uuid,uuid,appointment_type,appointment_consultation_method,timestamptz,timestamptz,text,text,text,uuid,uuid,uuid,integer)'::regprocedure) like '%_intake%')::text || ',' ||
     (pg_get_functiondef('public.accept_video_visit_request(uuid)'::regprocedure) like '%_intake%')::text || ',' ||
     (pg_get_functiondef('public.select_video_visit_alternate_slot(uuid,uuid)'::regprocedure) like '%_intake%')::text || ',' ||
     (pg_get_functiondef('public.confirm_appointment_booking(uuid)'::regprocedure) like '%_intake%')::text || ',' ||
@@ -637,8 +656,8 @@ begin
   perform pg_temp.rec('cover: the reviewers were told as well', 'true',
     ((select count(*) from public.notifications where recipient_id = v_cmo and payload ->> 'audience' = 'cover_offer') >= 1)::text);
   perform pg_temp.rec('cover: running the sweep again creates nothing more', '0', private.fatigue_cover_sweep()::text);
-  perform pg_temp.rec('cover: A sees the offer and the next shift', '1', (pg_temp.q_as(v_a, $q$select jsonb_array_length(public.my_cover_offers())::text$q$)));
-  perform pg_temp.rec('cover: B sees no offer', '0', (pg_temp.q_as(v_b, $q$select jsonb_array_length(public.my_cover_offers())::text$q$)));
+  perform pg_temp.rec('cover: A sees the offer and the next shift', '1', (pg_temp.q_as(v_a, $q$select jsonb_array_length(public.my_cover_offers() -> 'offers')::text$q$)));
+  perform pg_temp.rec('cover: B sees no offer', '0', (pg_temp.q_as(v_b, $q$select jsonb_array_length(public.my_cover_offers() -> 'offers')::text$q$)));
   select id into v_off from public.fatigue_cover_offers where clinician_id = v_a;
   perform pg_temp.rec('cover: another clinician cannot answer A''s offer', 'P0002', pg_temp.try_as(v_b, format('select public.respond_cover_offer(%L, true)', v_off)));
   perform pg_temp.act(v_a); perform public.respond_cover_offer(v_off, false, 'I would like cover please'); perform pg_temp.back();
@@ -733,6 +752,15 @@ begin
   perform pg_temp.rec('drills: the lead''s reliability dashboard leaves drill results out of its event counts (as it does audit results)', 'true,false',
     (pg_get_functiondef('public.reliability_dashboard(integer,integer)'::regprocedure) like '%''audit_result'', ''drill_result''%')::text || ',' ||
     (pg_get_functiondef('public.reliability_dashboard(integer,integer)'::regprocedure) like '%kind <> ''audit_result''%')::text);
+  -- C answers the same drill 2 hours late: the record already says missed, and the report must say the same
+  perform set_config('tarragon.paging_write', 'on', true);
+  update public.page_tests set drill_result_at = now() - interval '1 hour' where id = t_c;   -- settled as missed an hour ago
+  insert into public.page_delivered_acks (test_id, clinician_id, channel) values (t_c, v_c, 'in_app');
+  perform set_config('tarragon.paging_write', 'off', true);
+  perform pg_temp.act(v_c); perform public.acknowledge_test_page(t_c); perform pg_temp.back();
+  perform pg_temp.rec('drills: a drill answered after it was recorded as missed stays missed (one event, still good 0)', '1,0',
+    (select count(*)::text from public.clinician_reliability_events where clinician_id = v_c and kind = 'drill_result') || ',' ||
+    (select good::text from public.clinician_reliability_events where clinician_id = v_c and kind = 'drill_result'));
   perform pg_temp.rec('drills: the miss is informational too (good 0, weight 0)', '0,0',
     (select good::text from public.clinician_reliability_events where clinician_id = v_c and kind = 'drill_result') || ',' || (select weight::text from public.clinician_reliability_events where clinician_id = v_c and kind = 'drill_result'));
   -- the interval
@@ -762,7 +790,7 @@ begin
   perform pg_temp.rec('report: by clinician: A answered 1 of 1 within target (100 percent)', '1,1,100.0', (g ->> 'sent') || ',' || (g ->> 'within_target') || ',' || (g ->> 'pct_within_target'));
   perform pg_temp.rec('report: by clinician: C missed (0 percent, no time)', '1,0,0.0,null',
     (select (x ->> 'sent') || ',' || (x ->> 'within_target') || ',' || (x ->> 'pct_within_target') || ',' || coalesce(x ->> 'p50_seconds', 'null') from jsonb_array_elements(rep -> 'groups') x where x ->> 'group' = 'clinician' and x ->> 'key' = v_c::text));
-  perform pg_temp.rec('report: by route: push, in_app and none', '3',
+  perform pg_temp.rec('report: by route: push and in_app', '2',
     (select count(*)::text from jsonb_array_elements(rep -> 'groups') x where x ->> 'group' = 'route' and x ->> 'key' in ('push', 'in_app', 'none')));
   perform pg_temp.rec('report: by device: android for A''s push, unknown for the rest', 'true,true',
     (exists (select 1 from jsonb_array_elements(rep -> 'groups') x where x ->> 'group' = 'device' and x ->> 'key' = 'android'))::text || ',' ||
@@ -775,6 +803,47 @@ begin
   perform pg_temp.act(v_cmo); rep := public.fire_drill_report(90); perform pg_temp.back();
   select x into g from jsonb_array_elements(rep -> 'groups') x where x ->> 'group' = 'overall';
   perform pg_temp.rec('report: a drill still waiting is shown as pending and not counted yet', '1,3', (rep ->> 'pending') || ',' || (g ->> 'sent'));
+end $$;
+
+-- 6b. The controls survive a fault, and the watcher tells a person -----------------------------------------------------------------
+do $$
+declare
+  v_org uuid := pg_temp.f('org'); v_cmo uuid := pg_temp.f('cmo'); v_a uuid := pg_temp.f('A');
+  v_unavail text; v_page_ok text; v_inc_error integer; v_inc_guard integer; v_inc_again integer; v_inc_none integer;
+begin
+  -- a signal that raises: the overview still loads (it says unavailable), so the CMO can still start a pause
+  begin
+    create or replace function private.queue_class_breaches() returns jsonb language plpgsql stable security definer set search_path = ''
+      as $f$ begin raise exception 'proof: the queue view is broken'; end $f$;
+    perform pg_temp.use_rules('{"gate_enforce":1}');
+    perform pg_temp.act(v_cmo);
+    v_unavail := (public.intake_gate_overview() -> 'gate' ->> 'unavailable');
+    v_page_ok := (public.cmo_start_ops_mode('pause', 'Pause started while the gate could not be read', 1) is not null)::text;
+    perform pg_temp.back();
+    -- the watcher needs an organisation with a real (non-test) active clinician; make A one for this block only
+    update public.clinical_staff set is_test = false where profile_id = v_a;
+    perform pg_temp.guard_on('on_call_cover_ok', true);
+    perform private.raise_intake_gate_incident();
+    select count(*) into v_inc_error from public.ops_incidents where external_reference = 'intake_gate_error:' || v_org;
+    perform private.raise_intake_gate_incident();
+    select count(*) into v_inc_again from public.ops_incidents where external_reference = 'intake_gate_error:' || v_org;
+    perform pg_temp.guard_on('on_call_cover_ok', false);
+    perform private.raise_intake_gate_incident();
+    select count(*) into v_inc_guard from public.ops_incidents where external_reference = 'intake_gate_guard:' || v_org;
+    update public.clinical_staff set is_test = true where profile_id = v_a;
+    delete from public.ops_incidents where external_reference like 'intake_gate%';
+    perform private.raise_intake_gate_incident();
+    select count(*) into v_inc_none from public.ops_incidents where external_reference like 'intake_gate%' and external_reference like '%' || v_org;
+    raise exception 'proof: undo the broken function';
+  exception when others then
+    if sqlerrm <> 'proof: undo the broken function' then raise; end if;
+  end;
+  perform pg_temp.back();
+  perform pg_temp.rec('controls: with a signal broken, the CMO''s overview still loads and says the gate is unavailable', 'true', v_unavail);
+  perform pg_temp.rec('controls: ...and the CMO can still start a pause', 'true', v_page_ok);
+  perform pg_temp.rec('watcher: an unreadable enforced gate opens ONE incident (not one per pass)', '1,1', v_inc_error::text || ',' || v_inc_again::text);
+  perform pg_temp.rec('watcher: an enforced gate with the guard off opens an incident, since every sale is being refused', '1', v_inc_guard::text);
+  perform pg_temp.rec('watcher: an organisation with no real clinical staff is not watched', '0', v_inc_none::text);
 end $$;
 
 -- 7. SABOTAGE: each removal must flip its check ------------------------------------------------------------------------------------

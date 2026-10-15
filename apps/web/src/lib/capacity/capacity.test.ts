@@ -62,7 +62,8 @@ describe("answers from the database are parsed, not trusted", () => {
 
   it("parses the smaller reads", () => {
     expect(opsModeStatusSchema.parse({ surge: null, pause: "2026-10-15T10:00:00Z" })).toEqual({ surge: null, pause: "2026-10-15T10:00:00Z" });
-    expect(myCoverOffersSchema.safeParse([{ id: ID, state: "offered", offered_at: "2026-10-15T01:00:00Z", responded_at: null, overnight_pages: 2, next_shift_starts_at: "2026-10-15T20:00:00Z", next_shift_ends_at: "2026-10-16T06:00:00Z" }]).success).toBe(true);
+    expect(myCoverOffersSchema.safeParse({ rest_hours: 11, rest_enforced: false, offers: [{ id: ID, state: "offered", offered_at: "2026-10-15T01:00:00Z", responded_at: null, overnight_pages: 2, next_shift_starts_at: "2026-10-15T20:00:00Z", next_shift_ends_at: "2026-10-16T06:00:00Z" }] }).success).toBe(true);
+    expect(myCoverOffersSchema.safeParse([]).success).toBe(false);
     expect(coverOverviewSchema.safeParse({ offers: [], rest_overrides: [], rest_enforced: true, rest_hours: 11 }).success).toBe(true);
   });
 

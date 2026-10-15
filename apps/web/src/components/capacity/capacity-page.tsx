@@ -40,7 +40,7 @@ export async function CapacityPage({ basePath, isCmo, searchParams }: { basePath
         hint={o.enforced ? "The intake gate is on: new care pack sales stop by themselves when a limit below is crossed." : "The intake gate is NOT switched on yet. The limits below are shown so you can see what it would do. The clinical lead switches it on by signing capacity configuration version 2 in the sign-off hub, after the on-call cover guard has been switched on."}
       >
         <div className="flex flex-wrap items-center gap-2 text-sm">
-          <Badge variant={g.open ? "green" : "red"}>{g.open ? "Within limits" : "A limit is crossed"}</Badge>
+          <Badge variant={g.unavailable ? "red" : g.open ? "green" : "red"}>{g.unavailable ? "Cannot be read" : g.open ? "Within limits" : "A limit is crossed"}</Badge>
           <Badge variant={o.enforced ? "green" : "grey"}>{o.enforced ? "Gate on" : "Gate off"}</Badge>
           <Badge variant={o.guard_on ? "green" : "grey"}>{o.guard_on ? "On-call cover guard on" : "On-call cover guard off"}</Badge>
           {o.surge_active ? <Badge variant="amber">Surge mode on</Badge> : null}

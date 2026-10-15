@@ -222,8 +222,8 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
 
   if (capacityConfigs.capacityVersion !== null || capacityConfigs.leadVersion !== null) {
     const parts = [
-      capacityConfigs.capacityVersion !== null && `capacity configuration version ${capacityConfigs.capacityVersion} (intake gate, 11 hour rest rule, fire drills)`,
-      capacityConfigs.leadVersion !== null && `lead configuration version ${capacityConfigs.leadVersion} (pilot cap of 40 patients per lead)`,
+      capacityConfigs.capacityVersion !== null && `capacity configuration version ${capacityConfigs.capacityVersion} (intake gate, rest rule, fire drills)`,
+      capacityConfigs.leadVersion !== null && `lead configuration version ${capacityConfigs.leadVersion} (patient cap per lead)`,
     ].filter(Boolean);
     items.push({
       key: CAPACITY_CONFIG_ITEM_KEY,

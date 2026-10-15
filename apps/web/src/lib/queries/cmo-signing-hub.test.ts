@@ -47,12 +47,12 @@ jest.mock("@/lib/queries/pending-quality-config-signoff", () => ({
   readPendingQualityConfigSignoff: (...args: unknown[]) => readPendingQualityConfigSignoff(...args),
 }));
 const noQualityConfig: QualityPending = { qualityVersion: null, credentialingVersion: null, failed: false };
-type CapacityPending = { capacityVersion: number | null; leadVersion: number | null; failed: boolean };
+type CapacityPending = { capacityVersion: number | null; capacityRules: unknown; leadVersion: number | null; leadCapDraft: number | null; leadCapInForce: number | null; failed: boolean };
 const readPendingCapacityConfigSignoff = jest.fn<(...args: unknown[]) => Promise<CapacityPending>>();
 jest.mock("@/lib/queries/pending-capacity-config-signoff", () => ({
   readPendingCapacityConfigSignoff: (...args: unknown[]) => readPendingCapacityConfigSignoff(...args),
 }));
-const noCapacityConfig: CapacityPending = { capacityVersion: null, leadVersion: null, failed: false };
+const noCapacityConfig: CapacityPending = { capacityVersion: null, capacityRules: null, leadVersion: null, leadCapDraft: null, leadCapInForce: null, failed: false };
 const readPendingSoleCmoException = jest.fn<(...args: unknown[]) => Promise<{ waiting: boolean; failed: boolean }>>();
 jest.mock("@/lib/queries/pending-sole-cmo-exception", () => ({
   readPendingSoleCmoException: (...args: unknown[]) => readPendingSoleCmoException(...args),
@@ -105,7 +105,7 @@ describe("readCmoSigningHub: capacity, rest and fire drills", () => {
   const empty = { items: [] as SignoffQueueItem[], failedSources: [] as string[], settledConfigs: [] as SettledConfig[] };
   it("adds one line, under /clinician, that counts both drafts and signs nothing", async () => {
     readSignoffQueue.mockResolvedValue(empty);
-    readPendingCapacityConfigSignoff.mockResolvedValue({ capacityVersion: 2, leadVersion: 2, failed: false });
+    readPendingCapacityConfigSignoff.mockResolvedValue({ capacityVersion: 2, capacityRules: null, leadVersion: 2, leadCapDraft: 40, leadCapInForce: 60, failed: false });
     const hub = await readCmoSigningHub(supabase);
     const line = hub.items.find((i) => i.key === CAPACITY_CONFIG_ITEM_KEY);
     expect(line?.count).toBe(2);
@@ -115,7 +115,7 @@ describe("readCmoSigningHub: capacity, rest and fire drills", () => {
   it("adds no line when nothing waits, and names a failed read", async () => {
     readSignoffQueue.mockResolvedValue(empty);
     expect((await readCmoSigningHub(supabase)).items.find((i) => i.key === CAPACITY_CONFIG_ITEM_KEY)).toBeUndefined();
-    readPendingCapacityConfigSignoff.mockResolvedValue({ capacityVersion: null, leadVersion: null, failed: true });
+    readPendingCapacityConfigSignoff.mockResolvedValue({ capacityVersion: null, capacityRules: null, leadVersion: null, leadCapDraft: null, leadCapInForce: null, failed: true });
     const hub = await readCmoSigningHub(supabase);
     expect(hub.failed).toBe(true);
     expect(hub.failedSources).toContain("the capacity and lead configurations");

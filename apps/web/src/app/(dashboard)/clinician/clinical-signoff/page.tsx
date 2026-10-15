@@ -204,7 +204,7 @@ export default async function ClinicianClinicalSignoffPage({
   }
   if (keys.has(CAPACITY_CONFIG_ITEM_KEY)) {
     const pendingCapacity = await readPendingCapacityConfigSignoff(supabase);
-    inlinePanels[CAPACITY_CONFIG_ITEM_KEY] = <CapacityConfigPanel capacityVersion={pendingCapacity.capacityVersion} leadVersion={pendingCapacity.leadVersion} />;
+    inlinePanels[CAPACITY_CONFIG_ITEM_KEY] = <CapacityConfigPanel capacityVersion={pendingCapacity.capacityVersion} capacityRules={pendingCapacity.capacityRules} leadVersion={pendingCapacity.leadVersion} leadCapDraft={pendingCapacity.leadCapDraft} leadCapInForce={pendingCapacity.leadCapInForce} />;
   }
   if (keys.has(RED_OUTREACH_ITEM_KEY)) inlinePanels[RED_OUTREACH_ITEM_KEY] = <RedOutreachPanel />;
   if (keys.has(SOLE_CMO_EXCEPTION_ITEM_KEY)) inlinePanels[SOLE_CMO_EXCEPTION_ITEM_KEY] = <SoleCmoExceptionPanel />;

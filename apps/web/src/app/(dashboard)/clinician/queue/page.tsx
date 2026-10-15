@@ -11,6 +11,7 @@ import { SlaBadge } from "@/components/clinician/sla-badge";
 import { formatKobo } from "@/lib/format-money";
 import { blockedReasonKey, classCounts, escalatedTaskSchema, heldTaskSchema, minutesLeft, queueSummarySchema } from "@/lib/clinician/queue-console";
 import { ExtendForm, NextTaskForm } from "./forms";
+import { OpsModeBanner } from "@/components/capacity/ops-mode-banner";
 
 export const metadata = { title: "Queue" };
 export const dynamic = "force-dynamic";
@@ -54,6 +55,7 @@ export default async function ClinicianQueuePage({ searchParams }: { searchParam
 
   return (
     <div className="space-y-6">
+      <OpsModeBanner />
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">{t("queue.title", "en")}</h1>
         <p className="text-sm text-charcoal-ink/60">{t("queue.subtitle", "en")}</p>
