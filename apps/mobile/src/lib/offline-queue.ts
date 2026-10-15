@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { postDeviceReading, postHealthSamples } from "./api";
+import { postDeviceReading, postHealthSamples, postPhotoReading, type PhotoReadingRequest } from "./api";
 import type { HealthProvider } from "./health-sync";
 import type { HealthReadingType, HealthSample } from "./healthkit";
 import { recordSyncError, type SyncSource } from "./sync-diagnostics";
@@ -293,6 +293,56 @@ export async function flushDeviceReadingsQueue(): Promise<FlushResult> {
 }
 
 // ---------------------------------------------------------------------------
+// Photo-readings queue (S70a, 18.3)
+// ---------------------------------------------------------------------------
+
+const PHOTO_READINGS_QUEUE_KEY = "@tarragon/offline-queue/photo-readings/v1";
+const PHOTO_SOURCE: SyncSource = "ble";
+
+/**
+ * A reading the person photographed and confirmed digit by digit, waiting for a connection. The entry holds the confirmed NUMBERS only, never
+ * the photo. Replaying is safe: the server dedupes on `client_reading_id` (an already-saved reading answers {deduped:true}).
+ */
+export async function enqueuePhotoReading(payload: PhotoReadingRequest): Promise<boolean> {
+  return appendToQueue(PHOTO_READINGS_QUEUE_KEY, payload, PHOTO_SOURCE);
+}
+
+export async function listPendingPhotoReadings(): Promise<QueuedEntry<PhotoReadingRequest>[]> {
+  return readQueue<PhotoReadingRequest>(PHOTO_READINGS_QUEUE_KEY, PHOTO_SOURCE);
+}
+
+export async function getPhotoReadingsQueueCount(): Promise<number> {
+  return (await listPendingPhotoReadings()).length;
+}
+
+/**
+ * Stops at the first outage (every later entry would fail the same way). A reading the server REFUSES (400 invalid, 422 too old) is dropped
+ * from the queue and recorded, because retrying a refusal forever would block every reading behind it; every other failure keeps the entry,
+ * including 404 (the switch is off for now and may be switched on) and 5xx.
+ */
+export async function flushPhotoReadingsQueue(): Promise<FlushResult> {
+  const entries = await listPendingPhotoReadings();
+  let flushed = 0;
+
+  for (const entry of entries) {
+    const result = await postPhotoReading(entry.item);
+    if (!result.ok) {
+      recordSyncError(PHOTO_SOURCE, "offline_queue:flush", result.error);
+      if (result.status === 400 || result.status === 422) {
+        await removeFromQueue<PhotoReadingRequest>(PHOTO_READINGS_QUEUE_KEY, entry.id, PHOTO_SOURCE);
+        continue;
+      }
+      break;
+    }
+    await removeFromQueue<PhotoReadingRequest>(PHOTO_READINGS_QUEUE_KEY, entry.id, PHOTO_SOURCE);
+    flushed++;
+  }
+
+  const remaining = (await listPendingPhotoReadings()).length;
+  return { flushed, remaining };
+}
+
+// ---------------------------------------------------------------------------
 // Combined helpers
 // ---------------------------------------------------------------------------
 
@@ -309,12 +359,14 @@ export async function flushDeviceReadingsQueue(): Promise<FlushResult> {
 export async function flushOfflineQueues(): Promise<{
   healthSamples: HealthSamplesFlushResult;
   deviceReadings: FlushResult;
+  photoReadings: FlushResult;
 }> {
-  const [healthSamples, deviceReadings] = await Promise.all([
+  const [healthSamples, deviceReadings, photoReadings] = await Promise.all([
     flushHealthSamplesQueue(),
     flushDeviceReadingsQueue(),
+    flushPhotoReadingsQueue(),
   ]);
-  return { healthSamples, deviceReadings };
+  return { healthSamples, deviceReadings, photoReadings };
 }
 
 /**
@@ -323,9 +375,10 @@ export async function flushOfflineQueues(): Promise<{
  * pattern VitalsScreen already gives its own offline queue.
  */
 export async function getPendingCount(): Promise<number> {
-  const [healthSamples, deviceReadings] = await Promise.all([
+  const [healthSamples, deviceReadings, photoReadings] = await Promise.all([
     getHealthSamplesQueueCount(),
     getDeviceReadingsQueueCount(),
+    getPhotoReadingsQueueCount(),
   ]);
-  return healthSamples + deviceReadings;
+  return healthSamples + deviceReadings + photoReadings;
 }
