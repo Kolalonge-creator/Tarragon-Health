@@ -1,4 +1,5 @@
 import "server-only";
+import { SYMPTOM_CHECKER_GUARD } from "@/lib/go-live/constants";
 import { createClient } from "@/lib/supabase/server";
 import {
   parseTriageProtocolConfig,
@@ -33,6 +34,19 @@ export async function getActiveTriageProtocolConfig(): Promise<{
   if (!config) return null;
 
   return { config, protocolVersion: data.version };
+}
+
+/**
+ * F1 (INV-14, server side): whether the symptom checker is open for the signed-in person. The go-live guard
+ * `symptom_checker_enabled` is seeded OFF; symptom_triage_assessments refuses the insert in the database too
+ * (trigger symptom_triage_assessments_00_go_live_guard), so this only decides what the screen and the action do.
+ * Fails closed: an error, no answer or no session is "not open".
+ */
+export async function isSymptomCheckerOpen(): Promise<boolean> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("go_live_guard_is_open", { p_key: SYMPTOM_CHECKER_GUARD });
+  if (error) return false;
+  return data === true;
 }
 
 export async function getActivePathway(

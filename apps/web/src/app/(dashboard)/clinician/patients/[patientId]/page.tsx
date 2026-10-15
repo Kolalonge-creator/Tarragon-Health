@@ -26,6 +26,8 @@ import { ImagingOrdersSection } from "./imaging-orders-section";
 import { MedicationSafetyPanel } from "./medication-safety-panel";
 import { CdsPanel } from "./cds-panel";
 import { MedicationAdherenceHistory } from "./medication-adherence-history";
+import { SideEffectNotesPanel } from "./side-effect-notes-panel";
+import { PrnLimitsPanel } from "./prn-limits-panel";
 import { MedicationReconciliationPanel } from "./medication-reconciliation-panel";
 import { MedicationEffectivenessCard } from "@/components/medication-effectiveness-card";
 import { MedicationRepeatRequestsPanel } from "./medication-repeat-requests-panel";
@@ -44,6 +46,7 @@ import { loadCvRiskAssessment } from "@/lib/cv-risk/assess";
 import { FootAssessmentForm } from "./foot-assessment-form";
 import { ComplicationCheckForm } from "./complication-check-form";
 import { GlucoseTargetForm } from "./glucose-target-form";
+import { ClinicBpForm } from "./clinic-bp-form";
 import { DiabetesTypeForm } from "./diabetes-type-form";
 import { TreatmentLadder } from "./treatment-ladder";
 import { ObesityAssessmentPanel } from "./obesity-assessment-panel";
@@ -307,6 +310,8 @@ export default async function ClinicianPatientPage({
                   isClinicianView
                 />
                 <MedicationAdherenceHistory patientId={patient.id} />
+                <SideEffectNotesPanel patientId={patient.id} />
+                {isClinicalTier(callerStaff) && <PrnLimitsPanel patientId={patient.id} canSet={canPrescribe} />}
                 {/* Pharmacy-authority-by-tier (master plan §4/§8): Tier 1 confirms/
                     continues existing prescriptions but has no new-prescribing
                     authority — the DB RLS policy is the real gate
@@ -368,6 +373,7 @@ export default async function ClinicianPatientPage({
                     (doctor_tier = 'care_coordinator'), so `callerStaff &&` alone
                     no longer excludes them. */}
                 {isClinicalTier(callerStaff) && <GlucoseTargetForm patientId={patient.id} />}
+                {isClinicalTier(callerStaff) && <ClinicBpForm patientId={patient.id} />}
                 {isClinicalTier(callerStaff) && (
                   <DiabetesTypeForm
                     patientId={patient.id}

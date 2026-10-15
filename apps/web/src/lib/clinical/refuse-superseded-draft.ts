@@ -11,7 +11,10 @@ export type VersionedGovernedTable =
   | "risk_questionnaire_configs"
   | "vaccination_schedule_signoffs"
   | "result_release_policies"
-  | "lab_panel_signoffs";
+  | "lab_panel_signoffs"
+  | "prn_limit_rules"
+  | "my_health_config"
+  | "home_bp_programme_signoffs";
 
 /**
  * Tables whose versions are numbered per partition, not globally: one live row per

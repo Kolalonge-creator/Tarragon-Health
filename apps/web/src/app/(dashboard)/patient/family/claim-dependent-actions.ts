@@ -7,49 +7,29 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { claimDependentAccountSchema } from "@/lib/validation/elder-proxy-dependent";
 
 /**
- * Converts a login-less dependent into their own, self-owned account. Two
- * kinds reach this, with different eligibility gates but the same mechanism:
+ * Starts the hand-over of a dependant's record to the person it is about (S04b-1, founder decision R3: at 18 a young
+ * person registers their own account and agrees before anything is handed over; nothing transfers silently).
  *
- * - minor_child, once private.sweep_dependent_majority_review (20260829082711)
- *   has flagged majority_review_at: the sweep only flags it, this is what a
- *   parent actually does about it. Gated on majority_review_at because a
- *   child's account cannot become theirs to claim before they exist as an
- *   adult in the eyes of the platform.
- * - elder_proxy (added 2026-09-13, for the diaspora-sponsor "buy care for
- *   someone not yet a patient" flow, /patient/supporting/new), claimable any
- *   time the sponsor is ready — there is no age threshold to wait for, since
- *   an elder_proxy dependant already gave real informed consent up front at
- *   creation (addElderProxyDependentAction requires confirmed_consent), unlike
- *   a minor who never consented to anything. Requiring a majority-review-style
- *   gate here would just reintroduce a meaningless age check on an
- *   already-adult record, so this kind skips that check entirely and relies
- *   on the grant check plus the phone-dedup check below.
+ * Two kinds reach this, with different eligibility gates but the same agreement-gated mechanism:
  *
- * Accepts a 'view' grant here too, not only 'manage' (reconciled 2026-09-02):
- * a separately-shipped migration, 20260830103331_dependent_transition_to_adult_care.sql,
- * independently steps every 'manage' grant on a minor_child dependent down to
- * 'view' the same day they turn 18 (its own daily cron runs at 03:30, ahead of
- * this sweep's 07:00) — so by the time majority_review_at is set and this
- * action becomes reachable, the calling parent's grant has very often already
- * been downgraded. Requiring 'manage' here would silently break the claim flow
- * for most families; the original grantee relationship is what should gate
- * this action, not whichever level it happens to sit at today. elder_proxy
- * grants are always 'manage' (provision_dependent_profile_basics never grants
- * anything weaker), so this is a no-op widening for that kind, not a real gap.
+ * - minor_child, once private.sweep_dependent_majority_review (20260829082711) has flagged majority_review_at, which
+ *   only happens once they are 18 or older.
+ * - elder_proxy (added 2026-09-13 for the sponsor "buy care for someone not yet a patient" flow), any time the person is
+ *   ready to take their record over.
  *
- * Attaches the now-independent person's real phone number to their existing
- * auth user (unconfirmed — they still complete their own verification, exactly
- * like any other login) and flips is_dependent_account to false. That flip
- * matters beyond bookkeeping: private.can_read_clinical's is_dependent_account
- * carve-out (20260731185243 — "a dependant with no login cannot be asked,
- * their guardian's manage grant stands in for the consent") stops applying the
- * instant this runs, so the sponsor/parent's clinical visibility lapses until
- * the now-independent person logs in and turns clinical_access on themselves
- * through the ordinary consent switch. That contraction is the intended
- * behaviour, not a bug. The sponsor/parent's 'manage' profile_access grant
- * itself is left in place rather than deleted — still useful for logistics —
- * and the now-independent person can revoke it themselves, like any other
- * grant, the moment they can log in.
+ * What this action does, and what it deliberately does NOT do any more:
+ *
+ *   1. It records a pending hand-over (public.start_dependant_handover, run as the guardian, so the database checks the
+ *      guardian's grant and that the person is 18 or over).
+ *   2. It attaches the person's phone number to their existing auth user, UNCONFIRMED, so they can sign in by entering
+ *      the code Auth texts them on their own phone. That code is the only SMS involved (INV-08): the old flow also
+ *      queued a "your record is now yours" SMS, which was not a verification code (OQ-48) and is gone.
+ *   3. It does NOT flip is_dependent_account and does NOT change who can see the record. That only happens in
+ *      public.accept_dependant_handover, which only the person themselves can call, signed in on the verified number.
+ *      Until then the record stays with the guardian.
+ *
+ * Nothing is sent to the person from here. The guardian is told, on screen, to ask them to sign in at
+ * app.tarragonhealth.ng with that number; the person then sees a card asking them to agree or decline.
  */
 export async function claimDependentAccountAction(
   input: unknown
@@ -70,6 +50,9 @@ export async function claimDependentAccountAction(
     .select("id")
     .eq("profile_id", dependent_id)
     .eq("grantee_user_id", parent.id)
+    // Only the person who created the record (granted themselves access) can hand it over; the level may already have
+    // stepped down from manage to view at 18, so it is not checked here.
+    .eq("granted_by", parent.id)
     .in("permission_level", ["manage", "view"])
     .maybeSingle();
   if (!grant) return { error: "You don't have access to this record" };
@@ -85,8 +68,7 @@ export async function claimDependentAccountAction(
   ) {
     return { error: "This isn't a claimable dependent record" };
   }
-  // Only minor_child has an age threshold to wait for; elder_proxy already
-  // gave consent up front at creation and is claimable immediately.
+  // Only minor_child has an age threshold to wait for; the database re-checks the age itself.
   if (dependent.dependent_kind === "minor_child" && !dependent.majority_review_at) {
     return { error: "This record hasn't been flagged for majority review yet" };
   }
@@ -98,46 +80,29 @@ export async function claimDependentAccountAction(
     return { error: "That phone number is already on a different Tarragon account" };
   }
 
-  const svc = createServiceRoleClient();
+  const { error: startError } = await supabase.rpc("start_dependant_handover", {
+    p_dependent: dependent_id,
+    p_phone: phone,
+  });
+  if (startError) {
+    return { error: "This record can't be handed over yet. They need to be 18 or over." };
+  }
 
+  const svc = createServiceRoleClient();
   const { error: authError } = await svc.auth.admin.updateUserById(dependent_id, {
     phone,
     phone_confirm: false,
   });
-  if (authError) return { error: authError.message };
-
-  const { error: profileError } = await svc
-    .from("profiles")
-    .update({ phone, is_dependent_account: false, dependent_kind: null })
-    .eq("id", dependent_id);
-  if (profileError) return { error: profileError.message };
-
-  await svc.from("notifications").insert({
-    recipient_id: dependent_id,
-    organisation_id: parent.organisation_id,
-    channel: "sms",
-    template: "dependent_account_claimed",
-    status: "pending",
-    content_class: "non_clinical",
-    payload: {
-      // Deliberately not "download the app" — there is no app-store listing
-      // yet (apps/mobile/eas.json has an empty production submit config), and
-      // pointing a patient at "download the app" instead sent them to the
-      // browser PWA (Add to Home Screen), a second, differently-styled icon
-      // alongside the real native app once one exists. app.tarragonhealth.ng
-      // is the one real place to log in today, on any phone, no install
-      // required.
-      message:
-        dependent.dependent_kind === "minor_child"
-          ? "You're 18. Your Tarragon record is now your own. Go to app.tarragonhealth.ng and use this number to set up your own login."
-          : "Someone has set up a Tarragon record for you and given you your own login. Go to app.tarragonhealth.ng and use this number to sign in.",
-    },
-  });
+  if (authError) {
+    // Do not leave a pending hand-over for a number that could not be attached.
+    await supabase.rpc("cancel_dependant_handover", { p_dependent: dependent_id });
+    return { error: authError.message };
+  }
 
   await svc.from("audit_log").insert({
     organisation_id: parent.organisation_id,
     actor_id: parent.id,
-    action: "profile.dependent_account_claimed",
+    action: "profile.dependent_handover_started",
     entity_type: "profiles",
     entity_id: dependent_id,
   });
@@ -145,6 +110,6 @@ export async function claimDependentAccountAction(
   revalidatePath("/patient/family");
   revalidatePath("/patient");
   return {
-    message: `${dependent.full_name ?? "They"} can now claim their own account with that number. You'll keep the same access you have today until they decide otherwise.`,
+    message: `${dependent.full_name ?? "They"} can now sign in with that number at app.tarragonhealth.ng. We will ask them to agree before anything changes. Until they do, their record stays with you.`,
   };
 }

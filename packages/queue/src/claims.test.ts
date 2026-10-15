@@ -12,7 +12,8 @@ const HERE = fileURLToPath(new URL(".", import.meta.url));
 interface Case { name: string; clinician?: Partial<ClinicianFacts>; task?: Partial<TaskFacts>; expect: boolean }
 interface Fixture { defaults: { clinician: ClinicianFacts; task: TaskFacts }; cases: Case[] }
 const fixture = JSON.parse(readFileSync(join(HERE, "..", "fixtures", "eligibility-cases.json"), "utf8")) as Fixture;
-const RULES = { escalatedRequiresOnCall: true };
+// the rules as the database reads them: claim config v1 plus queue.task_layer (escalated_non_red_any_eligible)
+const RULES = { escalatedRequiresOnCall: true, escalatedNonRedAnyEligible: true };
 
 describe("mayBeOffered: the shared eligibility cases (the database proof runs the same file)", () => {
   for (const c of fixture.cases) {
@@ -29,6 +30,13 @@ describe("mayBeOffered: the shared eligibility cases (the database proof runs th
     expect(mayBeOffered(c, t, { escalatedRequiresOnCall: false })).toBe(true);
   });
 
+  it("before the task layer (rule off) an escalated non-red task still needs on_call", () => {
+    const c = { ...fixture.defaults.clinician };
+    const t = { ...fixture.defaults.task, state: "escalated" as const };
+    expect(mayBeOffered(c, t, { escalatedRequiresOnCall: true })).toBe(false);
+    expect(mayBeOffered(c, t, { escalatedRequiresOnCall: true, escalatedNonRedAnyEligible: false })).toBe(false);
+  });
+
   it("the proof embeds exactly the same cases (drift test)", () => {
     const proof = readFileSync(join(HERE, "..", "..", "db", "tests", "s17_queue_next.sql"), "utf8");
     const m = /cases-begin[\s\S]*?\$cases\$([\s\S]*?)\$cases\$/.exec(proof);
@@ -39,8 +47,8 @@ describe("mayBeOffered: the shared eligibility cases (the database proof runs th
 
 describe("tierAtLeast", () => {
   it("follows the ladder", () => {
-    expect(tierAtLeast("medical_officer", "care_coordinator")).toBe(true);
-    expect(tierAtLeast("care_coordinator", "medical_officer")).toBe(false);
+    expect(tierAtLeast("senior_medical_officer", "care_coordinator")).toBe(true);
+    expect(tierAtLeast("care_coordinator", "senior_medical_officer")).toBe(false);
     expect(tierAtLeast("chief_medical_officer", "senior_medical_officer")).toBe(true);
   });
 });

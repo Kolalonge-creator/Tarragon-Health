@@ -28,6 +28,7 @@ type Client = SupabaseClient<Database>;
 
 import { DEFAULT_LETTERHEAD, type Letterhead } from "./letterhead";
 import { loadPrescriberSignature } from "./signature";
+import { fetchDocumentFolios, type DocumentFolio } from "@/lib/clinical/document-folio";
 
 function text(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -77,20 +78,47 @@ async function loadPatient(supabase: Client, patientId: string) {
  * The directory is the safe-column view every patient-facing staff read goes through, and it carries the name, credential and the
  * derived licence flag together.
  */
-async function loadPrescriber(supabase: Client, profileId: string | null): Promise<PrescriptionPrescriber | null> {
+async function loadPrescriber(
+  supabase: Client,
+  profileId: string | null,
+  folio: DocumentFolio | undefined,
+): Promise<PrescriptionPrescriber | null> {
   if (!profileId) return null;
   const { data: staff } = await supabase
     .from("clinical_staff_directory")
-    .select("full_name, credential_type, credential_number, license_verified")
+    .select("full_name, credential_type, license_verified")
     .eq("profile_id", profileId)
     .maybeSingle();
   if (!staff) return null;
   return {
     name: staff.full_name,
     credentialType: staff.credential_type,
-    credentialNumber: staff.credential_number,
+    // The folio is not in the directory view (CMO Q17, OQ-358); it comes from the
+    // document-scoped function. Missing means the builder refuses the prescription
+    // as "prescriber not confirmed" rather than printing it unnumbered.
+    credentialNumber: folio?.credentialNumber ?? null,
     licenseVerified: staff.license_verified === true,
   };
+}
+
+/** A failed folio lookup becomes a structured error, never a thrown 500 or a silently unnumbered prescription. */
+async function loadFolios(
+  supabase: Client,
+  medications: { id: string; added_by: string | null }[],
+): Promise<{ folios: Map<string, DocumentFolio>; error: string | null }> {
+  try {
+    return {
+      folios: await fetchDocumentFolios(
+        supabase,
+        "prescription",
+        medications.map((m) => m.id),
+        Object.fromEntries(medications.map((m) => [m.id, m.added_by])),
+      ),
+      error: null,
+    };
+  } catch (e) {
+    return { folios: new Map(), error: e instanceof Error ? e.message : "prescriber lookup failed" };
+  }
 }
 
 async function recordDownloads(
@@ -131,9 +159,11 @@ export async function loadSinglePrescription(
   const medication = data as MedicationRow | null;
   if (!medication) return { status: "not_found" };
 
+  const { folios, error: folioError } = await loadFolios(supabase, [medication]);
+  if (folioError) return { status: "error", message: folioError };
   const [patient, prescriber] = await Promise.all([
     loadPatient(supabase, medication.patient_id),
-    loadPrescriber(supabase, medication.added_by),
+    loadPrescriber(supabase, medication.added_by, folios.get(medication.id)),
   ]);
   if (!patient) return { status: "not_found" };
 
@@ -174,13 +204,16 @@ export async function loadPrescriptionBundle(
   const patient = await loadPatient(supabase, patientId);
   if (!patient) return { status: "not_found" };
 
+  const { folios, error: folioError } = await loadFolios(supabase, rows);
+  if (folioError) return { status: "error", message: folioError };
   const prescribers = new Map<string, PrescriptionPrescriber | null>();
   const results: PrescriptionPdfResult[] = [];
   const names: string[] = [];
   for (const row of rows) {
     names.push(row.drug_name);
+    // One folio per prescriber is the same for every row they wrote; cache per prescriber, fed by this row's folio.
     const key = row.added_by ?? "";
-    if (!prescribers.has(key)) prescribers.set(key, await loadPrescriber(supabase, row.added_by));
+    if (!prescribers.has(key)) prescribers.set(key, await loadPrescriber(supabase, row.added_by, folios.get(row.id)));
     results.push(buildPrescriptionPdfData({ medication: row, patient, prescriber: prescribers.get(key) ?? null }));
   }
 
@@ -243,9 +276,11 @@ export async function loadPrescriptionForClinician(
   if (!row) return { status: "not_found" };
   const medication = row as unknown as MedicationRow;
 
+  const { folios, error: folioError } = await loadFolios(supabase, [medication]);
+  if (folioError) return { status: "error", message: folioError };
   const [patient, prescriber] = await Promise.all([
     loadPatient(supabase, patientId),
-    loadPrescriber(supabase, medication.added_by),
+    loadPrescriber(supabase, medication.added_by, folios.get(medication.id)),
   ]);
   if (!patient) return { status: "not_found" };
 

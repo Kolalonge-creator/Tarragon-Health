@@ -5,11 +5,13 @@ import type { ExpiryRow } from "@/lib/credentialing/schemas";
 import {
   grantGrace,
   offboardClinician,
+  recordLicenceVerification,
   reinstateClinician,
   renewCredential,
   revokeGrace,
   suspendClinician,
 } from "@/lib/credentialing/review-actions";
+import { REGISTER_RESULT_LABEL, REGISTER_RESULTS } from "@/lib/credentialing/licence-verification";
 import { getProposedConfig } from "@tarragon/shared";
 import { Field, fieldClass, Hidden, Muted, SubmitButton } from "./shared";
 
@@ -61,6 +63,40 @@ function Actions({ row, returnTo }: { row: ExpiryRow; returnTo: string }) {
           <SubmitButton tone="outline">End grace</SubmitButton>
         </form>
       ))}
+
+      <details>
+        <summary className="cursor-pointer font-medium">MDCN register check</summary>
+        <form action={recordLicenceVerification} className="mt-2 flex flex-wrap items-end gap-2">
+          <Hidden name="staffId" value={row.id} />
+          <Hidden name="returnTo" value={returnTo} />
+          <Field label="Folio seen on the register">
+            <input name="folio" required minLength={2} className={fieldClass} />
+          </Field>
+          <Field label="What the register showed">
+            <select name="result" className={fieldClass} defaultValue="good_standing">
+              {REGISTER_RESULTS.map((r) => (
+                <option key={r} value={r}>
+                  {REGISTER_RESULT_LABEL[r]}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Evidence document (optional)">
+            <select name="documentId" className={fieldClass} defaultValue="">
+              <option value="">None attached</option>
+              {row.renewal_documents.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {DOCUMENT_KIND_LABEL[d.kind] ?? d.kind}, {formatDate(d.created_at)}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Notes (needed when no document is attached)">
+            <input name="notes" className={fieldClass} />
+          </Field>
+          <SubmitButton tone="outline">Record register check</SubmitButton>
+        </form>
+      </details>
 
       <details>
         <summary className="cursor-pointer font-medium">Grace period</summary>

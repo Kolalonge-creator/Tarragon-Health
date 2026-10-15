@@ -2,6 +2,7 @@ import { t, type Locale } from "@tarragon/i18n";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { PatientSummary } from "@/lib/clinician/queue-console";
+import { CUFF_KEY, parseContext, readingLine } from "@/lib/triage/explainer";
 
 const dateTime = (value: string): string =>
   new Date(value).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Africa/Lagos" });
@@ -69,6 +70,14 @@ export function PatientSummaryView({ summary, locale = "en" }: { summary: Patien
                   <li key={`${e.created_at}-${i}`} className="flex items-center gap-2">
                     <Badge variant={e.grade === "red" ? "red" : e.grade === "amber" ? "amber" : "green"}>{e.grade}</Badge>
                     <span>{e.trigger_type.replace(/_/g, " ")}</span>
+                    {e.rule_id && e.rule_set_code && e.rule_set_version != null && (
+                      <span className="text-xs text-charcoal-ink/60">{t("summary.rule_line", locale, { rule: e.rule_id, code: e.rule_set_code, version: e.rule_set_version })}</span>
+                    )}
+                    {(() => {
+                      const line = parseContext(e.context ?? null);
+                      const text = line ? readingLine(line) : null;
+                      return text ? <span className="text-xs text-charcoal-ink/60">{text}</span> : null;
+                    })()}
                     <span className="ml-auto text-xs text-charcoal-ink/60">{dateTime(e.created_at)}</span>
                   </li>
                 ))}
@@ -93,7 +102,10 @@ export function PatientSummaryView({ summary, locale = "en" }: { summary: Patien
               <ul className="divide-y divide-charcoal-ink/10 text-sm">
                 {s.readings.rows.slice(0, 30).map((r, i) => (
                   <li key={`${r.measured_at}-${i}`} className="flex justify-between py-1">
-                    <span>{r.type.replace(/_/g, " ")} {readingText(r)}</span>
+                    <span>
+                      {r.type.replace(/_/g, " ")} {readingText(r)}
+                      {r.cuff_type && <span className="ml-2 text-xs text-charcoal-ink/60">{t(CUFF_KEY[r.cuff_type], locale)}</span>}
+                    </span>
                     <span className="text-xs text-charcoal-ink/60">{dateTime(r.measured_at)}</span>
                   </li>
                 ))}

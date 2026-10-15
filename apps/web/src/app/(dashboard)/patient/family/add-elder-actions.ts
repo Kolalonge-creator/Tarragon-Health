@@ -88,11 +88,16 @@ export async function addElderProxyDependentAction(
     return { error: updateError.message };
   }
 
+  // OQ-47 (S04b-1): the person added here has not agreed to anything yet, so the grant carries payments only. It cannot
+  // carry a clinical permission until they verify their own number (private.guard_elder_proxy_grant refuses it), and the
+  // blanket dependant read no longer applies to an adult (private.can_read_clinical). What the proxy may see is
+  // whatever the person chooses once they sign in: that is the "Set up for my parent" flow.
   const { error: accessError } = await svc.from("profile_access").insert({
     profile_id: elderId,
     grantee_user_id: proxy.id,
     permission_level: "manage",
     granted_by: proxy.id,
+    permissions: ["manage_payments"],
   });
   if (accessError) {
     return { error: accessError.message };
@@ -132,7 +137,7 @@ export async function addElderProxyDependentAction(
   revalidatePath("/patient");
   revalidatePath("/patient/supporting");
   return {
-    message: `Added ${full_name} (${age}) to your family. You can book appointments, log care and manage reminders for them from here.`,
+    message: `Added ${full_name} (${age}) to your family. You can pay for their care from here. To see or manage their health information they need to say yes on their own phone first: use "Set up for my parent" so they choose what you can see.`,
     // Additive: the sponsor purchase flow (/patient/supporting/new) needs the
     // newly created profile's id immediately, to chain straight into product
     // selection without a refetch-and-match-by-name round trip. Existing

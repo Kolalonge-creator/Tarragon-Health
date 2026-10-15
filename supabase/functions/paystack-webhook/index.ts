@@ -13,11 +13,12 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { handleWebhookRequest } from "./handler.ts";
+import { withSentry } from "../_shared/observability/sentry.ts";
 
-Deno.serve((req) => {
+Deno.serve(withSentry("paystack-webhook", (req) => {
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
   return handleWebhookRequest(req, supabase);
-});
+}));

@@ -83,7 +83,7 @@ describe("loadThreadMessages", () => {
         { id: "msg-2", thread_id: "t1", actor_clinical_staff_id: "staff-b", attachments: [], created_at: "2026-09-02T00:00:00Z" },
       ],
       [
-        { id: "staff-a", full_name: "Dr. A", credential_type: "MDCN", credential_number: "AAA", doctor_tier: "medical_officer" },
+        { id: "staff-a", full_name: "Dr. A", credential_type: "MDCN", credential_number: "AAA", doctor_tier: "senior_medical_officer" },
         { id: "staff-b", full_name: "Dr. B", credential_type: "MDCN", credential_number: "BBB", doctor_tier: "care_coordinator" },
       ]
     );
@@ -118,7 +118,7 @@ describe("loadThreadMessages", () => {
         },
         { id: "msg-2", thread_id: "t1", actor_clinical_staff_id: null, attachments: [], created_at: "2026-09-02T00:00:00Z" },
       ],
-      [{ id: "staff-a", full_name: "Dr. A", credential_type: null, credential_number: null, doctor_tier: "medical_officer" }],
+      [{ id: "staff-a", full_name: "Dr. A", credential_type: null, credential_number: null, doctor_tier: "senior_medical_officer" }],
       undefined,
       calls
     );

@@ -23,6 +23,10 @@ const TITLES: Record<string, { title: string; subtitle: string }> = {
     title: "Programme tasks",
     subtitle: "Chase-ups and bookings due on the 12-week chronic-care programme.",
   },
+  "/dashboard/care-coordinator/community": {
+    title: "Community",
+    subtitle: "Check posts held for review and handle safety signals. You see handles, never names.",
+  },
   "/dashboard/care-coordinator/contact-log": {
     title: "Contact log",
     subtitle: "A record of call outreach attempts, patient by patient.",

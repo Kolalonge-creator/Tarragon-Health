@@ -22,7 +22,6 @@ type ClinicalTierCheckInput = { doctor_tier: DoctorTier | null } | null;
  * remains the real enforcement boundary.
  */
 export const CLINICAL_TIERS: DoctorTier[] = [
-  "medical_officer",
   "senior_medical_officer",
   "chief_medical_officer",
 ];

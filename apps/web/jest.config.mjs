@@ -10,6 +10,10 @@
 /** @type {import('jest').Config} */
 const config = {
   testEnvironment: "node",
+  // CI stability (2026-10-14): the default is one worker per core with no memory ceiling, and the hosted runner was killed mid-suite
+  // (about 5,300 tests). Cap the pool on CI and recycle any worker that grows past 1 GB. Locally the pool stays at half the cores.
+  maxWorkers: process.env.CI ? 2 : "50%",
+  workerIdleMemoryLimit: "1GB",
   transform: {
     "^.+\\.tsx?$": [
       "ts-jest",

@@ -97,7 +97,7 @@ begin
   insert into public.clinical_staff
     (organisation_id, profile_id, full_name, doctor_tier, active, license_verified_at)
   values
-    (v_org, (select v from wpc_fixture where k = 'tier1'), 'WPC Test Medical Officer', 'medical_officer'::public.doctor_tier, true, now()),
+    (v_org, (select v from wpc_fixture where k = 'tier1'), 'WPC Test Medical Officer', 'senior_medical_officer'::public.doctor_tier, true, now()),
     (v_org, (select v from wpc_fixture where k = 'tier3'), 'WPC Test Senior Medical Officer', 'senior_medical_officer'::public.doctor_tier, true, now())
   on conflict do nothing;
 end $$;

@@ -95,7 +95,18 @@ describe("startProxySetupAction", () => {
       p_max_per_day: 5,
     });
     expect(signInWithOtpMock).toHaveBeenCalledTimes(1);
-    expect(signInWithOtpMock).toHaveBeenCalledWith({ phone: PARENT, options: { shouldCreateUser: true } });
+    // OQ-52: starting a setup must never create an account for a number nobody has verified.
+    expect(signInWithOtpMock).toHaveBeenCalledWith({ phone: PARENT, options: { shouldCreateUser: false } });
+  });
+
+  it("answers the same when the number has no account, and never creates one (OQ-52)", async () => {
+    signInWithOtpMock.mockResolvedValue({ error: { code: "otp_disabled", message: "Signups not allowed for otp", status: 422 } });
+    const result = await startProxySetupAction(undefined, startForm());
+    expect(result).toEqual({ sent: true, hours: 72 });
+    expect(captureMessageMock).not.toHaveBeenCalled();
+    for (const call of signInWithOtpMock.mock.calls) {
+      expect((call[0] as { options: { shouldCreateUser: boolean } }).options.shouldCreateUser).toBe(false);
+    }
   });
 
   it("ignores any ttl, cap or identity smuggled into the form", async () => {
