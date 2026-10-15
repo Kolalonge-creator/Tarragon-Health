@@ -1209,3 +1209,5 @@ s16_s20_capacity_cover.sql
 s58b_creator_fee_and_integrity.sql
 # S39h: a registry row whose table has been dropped must not break the export or the retention report; the registry names no missing table; config v4 is CMO confirmed with unchanged values. Sabotage: guard removed from the export; flips.
 s39h_registry_survives_dropped_tables.sql
+# FU-notify (OQ-316, OQ-329 to OQ-333, OQ-341, OQ-346): rules v5, no sms ladders, emergency contact by push/email/in-app, webhook inbox retention, evidence retention, canary heartbeat. Seven sabotage rows read PASS (caught).
+fu_notify_rules_and_contact.sql

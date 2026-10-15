@@ -2,18 +2,18 @@ import Link from "next/link";
 import { LoginForm } from "./login-form";
 import { GuardLeafMark } from "@/components/brand/guard-leaf-mark";
 import { getAuthLocale } from "@/lib/auth/auth-locale";
-import { sanitizeRedirect } from "@/lib/auth/redirect";
+import { pickRedirectTarget } from "@/lib/auth/redirect";
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ redirect?: string }>;
+  searchParams: Promise<{ redirect?: string; next?: string }>;
 }) {
-  const { redirect } = await searchParams;
+  const { redirect, next } = await searchParams;
   const locale = await getAuthLocale();
   // S69 (OQ-220): a join link opened while signed out must survive "Create an account" and the email-verification round trip, so the
   // sanitised destination rides along to /signup, which already threads it into emailRedirectTo.
-  const safe = sanitizeRedirect(redirect);
+  const safe = pickRedirectTarget({ redirect, next });
   const signupHref = safe ? `/signup?redirect=${encodeURIComponent(safe)}` : "/signup";
 
   return (
@@ -36,7 +36,7 @@ export default async function LoginPage({
           </p>
         </div>
 
-        <LoginForm redirectTo={redirect} locale={locale} />
+        <LoginForm redirectTo={safe ?? undefined} locale={locale} />
 
         <p className="text-center text-sm text-charcoal-ink/60">
           New here?{" "}

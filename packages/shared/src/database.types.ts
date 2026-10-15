@@ -46649,7 +46649,6 @@ export type Database = {
       assistant_knowledge_sources: { Args: { p_ids: string[] }; Returns: Json }
       assistant_protocol_limits: { Args: Record<PropertyKey, never>; Returns: Json }
       go_live_guard_is_open: { Args: { p_key: string }; Returns: boolean }
-      sms_emergency_contact_open: { Args: never; Returns: boolean }
       sweep_due_tracker_deletions: { Args: Record<PropertyKey, never>; Returns: number }
       complete_tracker_deletion: { Args: { p_id: string }; Returns: Json }
       cancel_tracker_deletion: { Args: { p_id: string }; Returns: undefined }
@@ -49907,6 +49906,13 @@ export type Database = {
         Args: { p_thread_id: string }
         Returns: undefined
       }
+      alert_emergency_contact: {
+        Args: { p_actor_id: string; p_event_id: string }
+        Returns: number
+      }
+      provider_event_retention_plan: { Args: never; Returns: Json }
+      run_provider_event_retention: { Args: { p_dry_run?: boolean }; Returns: Json }
+      canary_heartbeat: { Args: never; Returns: Json }
       mark_consultation_follow_up_not_needed: {
         Args: { p_followup_id: string; p_reason: string }
         Returns: undefined

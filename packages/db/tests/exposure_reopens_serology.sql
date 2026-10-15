@@ -31,6 +31,7 @@ declare
   v_ev    uuid;
   v_before int;
   v_res   jsonb;
+  v_c     uuid := gen_random_uuid();
 begin
   delete from public.screening_results where patient_id = v_p and screen_type_code = any(v_basics);
   delete from public.patient_exposure_reports where patient_id = v_p;
@@ -119,13 +120,21 @@ begin
   values (v_org, v_p, 'exposure_report', 'reported exposure', true, now() - interval '20 minutes')
   returning id into v_ev;
 
+  -- OQ-333: there is no SMS to a contact any more. The contact is told by push, in-app and email only when they are also a Tarragon
+  -- account with a confirmed phone, so this test makes one (the notices are queued for the CONTACT, not the patient).
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, phone, phone_confirmed_at)
+  values (v_c, 'e10-contact-' || v_c || '@example.invalid', 'x', now(), '{}', '{}', '2348030000999', now());
+  insert into public.profiles (id, organisation_id, role, full_name, phone, date_of_birth, is_test, language)
+  values (v_c, v_org, 'patient', 'E10 Contact', '+2348030000999', (current_date - interval '40 years')::date, true, 'en')
+  on conflict (id) do update set phone = excluded.phone, is_test = true;
+
   select count(*) into v_before
-    from public.notifications where recipient_id = v_p and template = 'emergency_contact_alert';
+    from public.notifications where recipient_id = v_c and template = 'emergency_contact_alert';
   perform private.notify_unacknowledged_emergencies();
 
   insert into test_results select 'e10_an_exposure_emergency_never_messages_the_family',
     (select count(*) from public.notifications
-      where recipient_id = v_p and template = 'emergency_contact_alert') = v_before
+      where recipient_id = v_c and template = 'emergency_contact_alert') = v_before
     and (select contact_notified_at is null from public.emergency_events where id = v_ev),
     null;
 
@@ -136,7 +145,7 @@ begin
 
   insert into test_results select 'e10_control_an_ordinary_emergency_still_does',
     (select count(*) from public.notifications
-      where recipient_id = v_p and template = 'emergency_contact_alert') > v_before, null;
+      where recipient_id = v_c and template = 'emergency_contact_alert') > v_before, null;
 end $$;
 
 select case_name, passed, detail from test_results order by case_name;

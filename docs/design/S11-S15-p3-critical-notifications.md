@@ -1,5 +1,8 @@
 # S11-S15 P3 design: critical path for red alerts (plan R3 part, R4)
 
+> **Superseded 2026-10-16 (OQ-332, OQ-333, founder answers).** There is no SMS exception any more: no emergency-contact SMS and no clinician SMS paging. The contact is told by push, in-app and email only, when they are a Tarragon account. See `docs/design/FU-notify-closeout.md`. The text below is kept as the record of the earlier design.
+
+
 CMO answers Q10 to Q13 (2026-10-07), OQ-91, OQ-92, OQ-94. Research: `docs/research/S11-S15-p3-critical-notifications.md`. Invariants: INV-05, INV-07, INV-08, INV-12, INV-13, INV-16; nothing here is required for any patient-side function.
 
 ## Reconciled with what is live (2026-10-13, read only)

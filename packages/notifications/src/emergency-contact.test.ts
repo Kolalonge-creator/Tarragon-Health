@@ -1,104 +1,72 @@
 /**
- * S85-D3: the one named SMS exception. The text is signed word for word, carries nothing clinical, and the push and email
- * copies for a reachable contact say the same thing and never route through SMS.
+ * The notice to a patient's own consented emergency contact. Since founder decision OQ-333 (2026-10-16) there is NO SMS exception: the
+ * text is content-free, goes only by push, in-app and email, and the sender and the delivery rules refuse every SMS.
  */
 import "./support/deno.ts";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "@jest/globals";
-import { describeViolations, lintRenderFn } from "./index.ts";
-import { emergencyContactName, emergencyContactText, planContactFanout } from "../../../supabase/functions/_shared/notifications/emergency-contact.ts";
+import { decide, describeViolations, lintRenderFn, refusedSmsOutcome, type DecideInput } from "./index.ts";
+import { checkFanoutRowConsent, emergencyContactName, emergencyContactText } from "../../../supabase/functions/_shared/notifications/emergency-contact.ts";
 import { TEMPLATE_MAP } from "../../../supabase/functions/send-pending-notifications/templates.ts";
 
 const ctx = { notificationId: "n", recipientId: "r" };
+const base: DecideInput = {
+  channel: "push", priority: "routine", nowMs: Date.UTC(2026, 9, 13, 21, 0), quiet: { enabled: true, start: "21:00", end: "07:00" },
+  routinePushSentToday: 0, routinePushPerDay: 4, wordingViolations: [],
+};
 
 describe("emergency-contact text", () => {
-  it("is exactly the signed words", () => {
-    expect(emergencyContactText("Ada Obi")).toBe("Tarragon: please call Ada Obi now.");
+  it("is exactly the agreed words and carries nothing else", () => {
+    expect(emergencyContactText("Ada Obi")).toBe("Please call Ada Obi now.");
   });
-  it("falls back to a neutral word when there is no usable name (including the trigger's own placeholder)", () => {
-    expect(emergencyContactText(undefined)).toBe("Tarragon: please call them now.");
-    expect(emergencyContactText("   ")).toBe("Tarragon: please call them now.");
+  it("falls back to a neutral word when there is no usable name (including the database function's own placeholder)", () => {
+    expect(emergencyContactText(undefined)).toBe("Please call them now.");
+    expect(emergencyContactText("   ")).toBe("Please call them now.");
     expect(emergencyContactName("someone who lists you as their emergency contact")).toBe("them");
   });
-  it("the template renders that text for SMS and push and passes the INV-07 lint", () => {
+  it("the template renders that text for push and email and passes the INV-07 lint", () => {
     const fn = TEMPLATE_MAP.emergency_contact_alert!;
     expect(describeViolations(lintRenderFn((p) => fn(p, ctx)))).toEqual([]);
     const out = fn({ patient_name: "Ada Obi", condition: "hypertension", reading: "182/112", contact_name: "Chidi" }, ctx);
-    expect(out.smsText).toBe("Tarragon: please call Ada Obi now.");
+    expect(out.smsText).toBe("Please call Ada Obi now.");
     expect(out.email?.text).toBe(out.smsText);
-    expect(JSON.stringify(out)).not.toMatch(/hypertension|182|112|Chidi|emergency|hospital/i);
+    expect(JSON.stringify(out)).not.toMatch(/hypertension|182|112|Chidi|emergency|hospital|Tarragon: please/i);
+  });
+  it("cuts a very long name to 59 characters plus an ellipsis, and leaves a 60 character name alone", () => {
+    expect(emergencyContactName("A".repeat(61))).toBe(`${"A".repeat(59)}\u2026`);
+    expect(emergencyContactName("B".repeat(60))).toBe("B".repeat(60));
   });
 });
 
-describe("planContactFanout", () => {
-  const input = { sourceNotificationId: "src-1", organisationId: "org-1", patientName: "Ada Obi", patientId: "pat-1" };
-  it("makes push and in-app, plus email when the contact has an address, and never an sms row", () => {
-    const rows = planContactFanout({ ...input, contact: { id: "c-1", email: "c@example.com" } });
-    expect(rows.map((r) => r.channel).sort()).toEqual(["email", "in_app", "push"]);
-    expect(rows.every((r) => r.recipient_id === "c-1" && r.priority === "routine")).toBe(true);
-    expect(rows.find((r) => r.channel === "email")?.payload.to_email).toBe("c@example.com");
-    expect(rows.every((r) => r.payload.source_notification_id === "src-1")).toBe(true);
+describe("no SMS exception remains (OQ-333)", () => {
+  it("every sms or voice row is refused by the delivery rules, the emergency-contact template included", () => {
+    for (const channel of ["sms", "voice"] as const) {
+      expect(decide({ ...base, channel, template: "emergency_contact_alert" })).toEqual({ action: "suppress", reason: "sms_not_allowed" });
+      expect(decide({ ...base, channel, priority: "critical", template: "on_call_page" })).toEqual({ action: "suppress", reason: "sms_not_allowed" });
+    }
   });
-  it("omits email when there is no address, and does nothing for no contact or for the patient themselves", () => {
-    expect(planContactFanout({ ...input, contact: { id: "c-1", email: null } }).map((r) => r.channel).sort()).toEqual(["in_app", "push"]);
-    expect(planContactFanout({ ...input, contact: null })).toEqual([]);
-    expect(planContactFanout({ ...input, contact: { id: "pat-1", email: "a@b.c" } })).toEqual([]);
+  it("the contact's push is still never held overnight or capped", () => {
+    expect(decide({ ...base, template: "emergency_contact_alert", routinePushSentToday: 99 })).toEqual({ action: "send" });
+    expect(decide({ ...base, template: "some_routine_notice", routinePushSentToday: 99 }).action).not.toBe("send");
   });
-});
-
-import { checkEmergencyContactRow, checkFanoutRowConsent, confirmedPhoneMatches, guardIsOpen } from "../../../supabase/functions/_shared/notifications/emergency-contact.ts";
-import { refusedSmsOutcome } from "./index.ts";
-
-describe("send-time gates", () => {
-  it("the guard is open only on a clean read of is_on true (an error or a missing row is closed)", () => {
-    expect(guardIsOpen(null, { is_on: true })).toBe(true);
-    expect(guardIsOpen(null, { is_on: false })).toBe(false);
-    expect(guardIsOpen(null, null)).toBe(false);
-    expect(guardIsOpen(new Error("boom"), { is_on: true })).toBe(false);
-  });
-  it("consent and the number on file are re-checked; an unreadable profile refuses", () => {
-    const owner = { emergency_contact_consent: true, emergency_contact_phone: "+2348011111111" };
-    expect(checkEmergencyContactRow(owner, "+2348011111111")).toBe("ok");
-    expect(checkEmergencyContactRow({ ...owner, emergency_contact_consent: false }, "+2348011111111")).not.toBe("ok");
-    expect(checkEmergencyContactRow({ ...owner, emergency_contact_consent: null }, "+2348011111111")).not.toBe("ok");
-    expect(checkEmergencyContactRow(owner, "+2348022222222")).not.toBe("ok");
-    expect(checkEmergencyContactRow(owner, null)).not.toBe("ok");
-    expect(checkEmergencyContactRow(null, "+2348011111111")).not.toBe("ok");
+  it("a refused critical row fails (so the ladder alarms), a refused routine row is suppressed", () => {
+    expect(refusedSmsOutcome("critical")).toBe("fail");
+    expect(refusedSmsOutcome("routine")).toBe("suppress");
   });
   it("the copies for the contact stop if consent was withdrawn", () => {
     expect(checkFanoutRowConsent({ emergency_contact_consent: true })).toBe("ok");
     expect(checkFanoutRowConsent({ emergency_contact_consent: false })).toBe("consent_withdrawn");
     expect(checkFanoutRowConsent(null)).toBe("consent_withdrawn");
   });
-  it("only a confirmed phone matches a contact to an account", () => {
-    expect(confirmedPhoneMatches({ phone: "2348011111111", phone_confirmed_at: "2026-10-01T00:00:00Z" }, "+2348011111111")).toBe(true);
-    expect(confirmedPhoneMatches({ phone: "+2348011111111", phone_confirmed_at: null }, "+2348011111111")).toBe(false);
-    expect(confirmedPhoneMatches({ phone: "2348022222222", phone_confirmed_at: "2026-10-01T00:00:00Z" }, "+2348011111111")).toBe(false);
-    expect(confirmedPhoneMatches(null, "+2348011111111")).toBe(false);
-  });
-  it("a refused critical row fails (so the ladder alarms), a refused routine row is suppressed", () => {
-    expect(refusedSmsOutcome("critical")).toBe("fail");
-    expect(refusedSmsOutcome("routine")).toBe("suppress");
-  });
-  it("fan-out copies carry the patient id so consent can be re-checked at their own send time", () => {
-    const rows = planContactFanout({ sourceNotificationId: "s", organisationId: null, patientName: "Ada", patientId: "p1", contact: { id: "c1", email: null } });
-    expect(rows.every((r) => r.payload.patient_id === "p1")).toBe(true);
-  });
-});
-
-describe("emergency-contact name length and confirmed phone match (branch coverage the proof relies on)", () => {
-  it("cuts a very long name to 59 characters plus an ellipsis, and leaves a 60 character name alone", () => {
-    const long = "A".repeat(61);
-    expect(emergencyContactName(long)).toBe(`${"A".repeat(59)}…`);
-    expect(emergencyContactName("B".repeat(60))).toBe("B".repeat(60));
-  });
-  it("matches a contact only through a CONFIRMED phone, ignoring a leading +", () => {
-    const confirmed = { phone: "2348012345678", phone_confirmed_at: "2026-10-01T00:00:00Z" };
-    expect(confirmedPhoneMatches(confirmed, "+2348012345678")).toBe(true);
-    expect(confirmedPhoneMatches(null, "+2348012345678")).toBe(false);
-    expect(confirmedPhoneMatches(undefined, "+2348012345678")).toBe(false);
-    expect(confirmedPhoneMatches({ phone: "2348012345678", phone_confirmed_at: null }, "+2348012345678")).toBe(false);
-    expect(confirmedPhoneMatches({ phone: null, phone_confirmed_at: "2026-10-01T00:00:00Z" }, "+2348012345678")).toBe(false);
-    expect(confirmedPhoneMatches({ phone_confirmed_at: "2026-10-01T00:00:00Z" }, "+2348012345678")).toBe(false);
-    expect(confirmedPhoneMatches(confirmed, "+2348099999999")).toBe(false);
+  it("the sender and the delivery rules no longer name the exception, its guard, its fan-out or its text", () => {
+    for (const f of [
+      "../../supabase/functions/send-pending-notifications/index.ts",
+      "../../supabase/functions/_shared/notifications/delivery.ts",
+      "../../supabase/functions/_shared/notifications/emergency-contact.ts",
+      "../../apps/web/src/lib/emergency/alert-contact.ts",
+    ]) {
+      const src = readFileSync(f, "utf8");
+      expect(src).not.toMatch(/sms_emergency_contact_enabled|emergencyContactSmsOpen|fanOutToContact|planContactFanout|Tarragon: please call|isClinicianPageRow|smsPurpose/);
+    }
   });
 });

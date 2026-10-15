@@ -50,7 +50,7 @@ export function quietUntil(nowMs: number, q: QuietSettings): number | null {
 export type Decision =
   | { readonly action: "send" }
   | { readonly action: "defer"; readonly until: number; readonly reason: "quiet_hours" }
-  | { readonly action: "suppress"; readonly reason: "daily_cap" | "sms_not_allowed" | "sms_exception_off" }
+  | { readonly action: "suppress"; readonly reason: "daily_cap" | "sms_not_allowed" }
   | { readonly action: "block"; readonly reason: "inv07"; readonly violations: readonly string[] };
 
 export interface DecideInput {
@@ -65,10 +65,8 @@ export interface DecideInput {
    * body. Never the rendered text: a patient called Sugar or a pharmacy called Heartland must not block a send.
    */
   readonly wordingViolations: readonly string[];
-  /** Why this row may use SMS at all (see `smsPurpose`). Anything but `clinician_page` or `emergency_contact` is refused. */
-  readonly smsPurpose: SmsPurpose;
-  /** The go-live guard `sms_emergency_contact_enabled`. Closed unless the sender positively read it as on. */
-  readonly emergencyContactSmsOpen: boolean;
+  /** The row's template, when known. Only the emergency-contact notice is told apart (never held overnight or capped). */
+  readonly template?: string | null;
   /** `isSafetyCritical(template)`: skips quiet hours and the cap like a critical row does. */
   readonly safetyCritical?: boolean;
   /** The row has a `deferred_quiet` event: it was held by quiet hours and is now due, so the daily cap does not apply. */
@@ -76,65 +74,30 @@ export interface DecideInput {
 }
 
 /**
- * SMS is allowed for exactly three things (D-12 plus the S85-D3 named exception): phone verification codes (sent by Supabase
- * phone auth, never through this queue), clinician paging, and one content-free alert to a patient's own consented emergency contact.
- * Through this queue only the last two exist.
+ * Through this queue SMS and voice are never sent (INV-08; founder decisions OQ-332 and OQ-333, 2026-10-16). Phone verification
+ * codes go through Supabase phone auth, never this queue. A clinician is reached by push (Critical Alerts) and by a clinician
+ * phone-call task; the emergency contact is reached by push, email and in-app when they are a Tarragon account.
+ * A refused critical row is FAILED so the escalation ladder still moves and alarms; a refused routine row is suppressed.
  */
-export type SmsPurpose = "clinician_page" | "emergency_contact" | "none";
-/** A refused critical row is FAILED so the escalation ladder still moves and alarms; a refused routine row is suppressed. */
 export const refusedSmsOutcome = (priority: Priority): "fail" | "suppress" => (priority === "critical" ? "fail" : "suppress");
+/** The content-free notice to a patient's own consented emergency contact (push, email and in-app copies only; never SMS). */
 export const EMERGENCY_CONTACT_TEMPLATE = "emergency_contact_alert";
-export const EMERGENCY_CONTACT_SMS_GUARD_KEY = "sms_emergency_contact_enabled";
-
-/**
- * The emergency-contact template is its own purpose whoever the recipient is. Otherwise a page is decided by who the recipient is
- * (`isClinicianPageRow`: CMO Q10 / OQ-92); a critical row for a patient, a routine row for anyone and an unknown role are `none`.
- */
-export function smsPurpose(i: { readonly template: string | null; readonly priority: Priority; readonly recipientRole: string | null | undefined }): SmsPurpose {
-  if (i.template === EMERGENCY_CONTACT_TEMPLATE) return "emergency_contact";
-  if (isClinicianPageRow(i.recipientRole, i.template, i.priority)) return "clinician_page";
-  return "none";
-}
 
 /**
  * Order matters: a clinical word blocks everything, including a critical row (it is a wording bug, and the
- * escalation ladder still moves on a failed row); then critical rows skip quiet hours and the cap; then SMS that
- * is not a clinician page or the guarded emergency-contact alert is refused (INV-08, D3); then quiet hours; then the cap. In-app is never deferred or capped.
+ * escalation ladder still moves on a failed row); then any SMS or voice row is refused (INV-08); then critical rows skip quiet hours
+ * and the cap; then quiet hours; then the cap. In-app is never deferred or capped.
  */
 export function decide(i: DecideInput): Decision {
   if (i.wordingViolations.length > 0) return { action: "block", reason: "inv07", violations: i.wordingViolations };
-  if (i.channel === "sms") {
-    if (i.smsPurpose === "none") return { action: "suppress", reason: "sms_not_allowed" };
-    if (i.smsPurpose === "emergency_contact" && !i.emergencyContactSmsOpen) return { action: "suppress", reason: "sms_exception_off" };
-  }
-  // An alert the patient raised themselves is never held overnight or counted against the daily cap, same as a critical row.
-  if (i.priority === "critical" || i.safetyCritical === true || i.smsPurpose === "emergency_contact" || i.channel === "in_app" || i.channel === "sms" || i.channel === "voice") return { action: "send" };
+  if (i.channel === "sms" || i.channel === "voice") return { action: "suppress", reason: "sms_not_allowed" };
+  // The notice to an emergency contact is something the patient raised themselves: never held overnight or counted against the daily cap.
+  if (i.priority === "critical" || i.safetyCritical === true || i.template === EMERGENCY_CONTACT_TEMPLATE || i.channel === "in_app") return { action: "send" };
   const until = quietUntil(i.nowMs, i.quiet);
   if (until !== null) return { action: "defer", until, reason: "quiet_hours" };
   // A row that quiet hours already held is sent once the window ends: the cap never turns a hold into a drop.
   if (i.channel === "push" && i.previouslyHeld !== true && i.routinePushSentToday >= i.routinePushPerDay) return { action: "suppress", reason: "daily_cap" };
   return { action: "send" };
-}
-
-/**
- * Templates whose SMS goes to a third party's number (a patient's emergency contact), not to the recipient. They are the one
- * SMS the S13 R4 ladder change (CMO Q10) did not decide: whether that SMS stays is an open question, so it keeps its old
- * behaviour here and is named so nobody has to infer it.
- */
-export const THIRD_PARTY_SMS_TEMPLATES: ReadonlySet<string> = new Set(["emergency_contact_alert"]);
-
-/**
- * CMO Q10 / OQ-92: the one allowed non-code SMS is a clinician page. It is decided by WHO the recipient is, never by the
- * row's priority alone (before this, any critical row passed, including a patient's). A clinician may be texted for any row (as
- * before); the paging roles admin and care_coordinator only for a critical row (the clinical lead and ops are paged when nobody
- * answers); every other role (finance, analyst, pharmacist, lab and payer staff, patients) never. An unknown role is not a
- * clinician: the caller defers the row instead (a failed profile lookup must not drop a page).
- */
-export const SMS_PAGING_ROLES: ReadonlySet<string> = new Set(["admin", "care_coordinator"]);
-export function isClinicianPageRow(role: string | null | undefined, template: string | null | undefined, priority: Priority = "routine"): boolean {
-  if (template != null && THIRD_PARTY_SMS_TEMPLATES.has(template)) return true;
-  if (role === "clinician") return true;
-  return priority === "critical" && role != null && SMS_PAGING_ROLES.has(role);
 }
 
 /**

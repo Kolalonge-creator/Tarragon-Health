@@ -119,7 +119,8 @@ export async function proxy(request: NextRequest) {
     const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
     if (aal?.nextLevel === "aal2" && aal.currentLevel !== aal.nextLevel) {
       const challengeUrl = new URL("/login/mfa-challenge", request.url);
-      challengeUrl.searchParams.set("redirect", pathname);
+      // Keep the query: a signed document link (/d/<kind>/<id>?e=..&s=..) is useless without it (OQ-336). The challenge page sanitises it.
+      challengeUrl.searchParams.set("redirect", `${pathname}${request.nextUrl.search}`);
       return NextResponse.redirect(challengeUrl);
     }
   }
