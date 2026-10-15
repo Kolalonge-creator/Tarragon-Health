@@ -426,6 +426,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - The phone holds its own local notification at the dose time. The existing cron `medication-dose-reminders-every-15-min` also queues a push and an in-app notice for the same dose, up to 15 minutes later if nothing has been logged. The server copy is useful when a phone maker has stopped the local one (docs/research/S08.md section 3), but a phone where both work shows the patient two reminders for one dose. S08 only removed the medicine name from the server text (INV-07).
 - Options: (a) keep both: the server one is the backup for a killed local reminder (recommended until the real-device check shows how often local reminders are lost); (b) send the server one only to a patient whose phone has not reported a recent reminder plan (needs a new report from the phone); (c) drop the server dose reminder.
 - Blocks nothing in S08. Related: OQ-05, OQ-21.
+- Update 2026-10-07 (S53): kept as option (a). No change; still waiting for the real-device check.
 
 ### OQ-70 Local reminders are planned only for the device owner's own medicines (raised by S08)
 - A guardian who manages a dependant can view and log that person's doses, and the dependant's schedule is their own (8.15), but `replanDoseReminders` plans for the signed-in account only. Planning for dependants on the guardian's phone needs a neutral way to tell the doses apart without naming a medicine (a first name is not a condition, so INV-07 allows it) and a rule for which phone reminds, since the dependant may have their own.
@@ -434,6 +435,7 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 ### OQ-71 Other server notification templates still name a medicine (raised by S08)
 - S08 made `medication_dose_reminder` and `medication_refill_reminder` neutral and added a test (`packages/medicines/src/notification-wording.test.ts`). These still put `drug_name` in wording that reaches a push, an email or the in-app inbox: `medication_adherence_checkin`, `medication_review_due`, `medication_prescribed_patient`, `prescription_updated_patient`, `pharmacy_order_patient_confirmation`, `missed_dose_behavioural_nudge` (written by `private.route_missed_dose_reason`, whose wording is also a behavioural nudge the research would reject if it shames), and the `send-pending-notifications` lines that build text from `payload.drug_name`.
 - Options: (a) S13 (notifications framework with the INV-07 lint) owns all of them (recommended); (b) fix them now in S08 (touches the prescription flow, which S24 changes).
+- Resolved 2026-10-07 (checked by S53): S13 rewrote them. Live read-only check: no active `notification_template_locales` body or subject for `medication_adherence_checkin`, `medication_review_due`, `medication_prescribed_patient`, `prescription_updated_patient`, `pharmacy_order_patient_confirmation`, `medication_dose_reminder` or `medication_refill_reminder` carries a drug placeholder; `missed_dose_behavioural_nudge` has no active locale row. The database lint trigger now refuses a clinical placeholder.
 
 ### OQ-72 A skipped dose with a reason does not reach the care team as its own signal (raised by S08)
 - The phone records a skip with a short key in `medication_logs.reason` (`side_effect`, `felt_well`, `other`; "I do not have it" is logged as `not_available`). `private.route_missed_dose_reason` only reads `status = 'missed'` with `missed_reason`, so a skip because of a side effect is stored and visible in the dose log but does not raise a review task. `not_available` already counts toward the 3 and 6 missed-dose alerts.
@@ -1801,6 +1803,48 @@ Format: id, blocks (which sessions), options, recommendation, decision.
 - Decision: open (CMO for the version; founder for outside assets).
 - **Decided 2026-10-07 (CMO, in chat, from docs/clinical-signoff/CMO-DECISION-SHEET-2026-10-07.md): the record turned out to be an unapproved draft, not an approved one, so its intended-population wording was corrected in place to Nigerian English only. Approval remains blocked until the two evaluation suites are run.**
 
+### OQ-290 S53 and S54 were built before the Stage 1 gate (S40) closed (raised by S53, recorded 2026-10-07)
+- The founder said on 2026-10-07: proceed anyway, build everything, switch nothing on. S53 and S54 follow that. Every go-live guard they add (`interaction_check_enabled`) is OFF; no dataset, review or sign-off is seeded as approved; the pharmacy and chat features stay behind existing guards and dormant modules.
+- Blocks: nothing. Reversal is simply leaving the guards off.
+- Decision (founder, 2026-10-07): build, do not switch on.
+
+### OQ-291 Partner commission columns were readable by every signed-in user, on pharmacy and on laboratory tables (raised by S53)
+- Found live 2026-10-07 (read-only): `pharmacy_medications` commission columns and the `commissions` ledger were readable by patients and clinicians. Fixed in the S53 pre-fix migration `20261007210001_*` (0 rows existed in both, so nothing had leaked). The same shape is still live on tables that DO hold rows: `lab_tests` (60 rows), `panel_bundles` (41), `screen_types` (38) expose `commission_rate` (and `commission_flat_kobo`, `commission_rate_type`) to every authenticated user, and `therapy_sessions.commission_kobo` is readable by the patient on their own sessions. This is the 8.16 rule ("clinicians never see which partner earns Tarragon more") applied to labs and therapy.
+- Options: (a) repeat the pharmacy pattern for these four tables (column grants plus an admin-only view), with the client reads switched to explicit columns (recommended, before any patient is let in); (b) leave labs and accept that partner margins are visible (conflicts with the same founder rule).
+- Blocks: nothing built. Not fixed in S53 because it touches the lab booking reads, outside this session.
+
+### OQ-292 Where the Nigerian medicine catalogue's real data comes from (raised by S53)
+- The seed is about 60 generic names with standard strengths and 29 brand names whose generic is beyond doubt. No NAFDAC number is present on any row and none was guessed; every row is `needs_pharmacist_review`. A real catalogue needs a licensed source or a pharmacist copying numbers from NAFDAC's register.
+- Options: (a) a pharmacist reviews and fills numbers from NAFDAC's register, row by row, through the admin screen (recommended, small); (b) license a dataset (cost and licence terms unknown); (c) keep the small seed.
+- Blocks: nothing. Search works on the seed.
+
+### OQ-293 A photo of a prescription is not read or stored (raised by S53)
+- The prescription photo was meant to be kept as reference only. No OCR was built (a wrong read of a dose is dangerous) and no photo upload for a medicine exists; the existing "consultation document link" for a specialist-started medicine is the only reference attachment.
+- Options: (a) a private storage bucket where the patient attaches a reference photo to a medicine, never read by a model and never copied into the medicine's fields (recommended); (b) leave the link field.
+
+### OQ-294 NAFDAC MAS short code and coverage need a human check before store publication (raised by S53)
+- Copy uses short code 38353 and "if your pack has a scratch panel". Public pages from 2010 to 2012 (safemedicines.org, outsourcing-pharma, Daily Trust, Dubawa) agree on 38353 and the scratch panel, and say coverage began with antimalarials and antibiotics. The 2026 state was not confirmed from a NAFDAC page. The wording is hedged and says the reply is NAFDAC's, not Tarragon's. NAFDAC also runs the Greenbook app; not used.
+- Decision: open (a person to confirm with NAFDAC; change the three `medicines.mas.*` strings if it differs).
+
+### OQ-295 The patient's interaction note on the medicines list changed wording, and the add-time check is bound to the signed rules (raised by S53)
+- Before S53 the patient list showed clinician-written rule text (including "stop one of them") to patients, live, with no signed dataset. S53 kept that note visible (removing a shipped safety note was judged worse than changing its words) but replaced the text with the four fixed patient sentences that say "your care team" and never tell anyone to stop a medicine. Only the NEW add-time check is behind `interaction_check_enabled`, and it opens only when the database holds a signed dataset whose `content_hash` equals `INTERACTION_DATASET_HASH` in the app build, so a rule edited after the sign-off closes the check until it is re-signed.
+- Options: (a) as built (recommended); (b) also gate the list note behind the guard (patients then see no interaction note until a human signs; matches D6 literally, removes a live safety note).
+- Decision: open (founder to confirm (a) or (b)).
+
+### OQ-296 The phone has no pack-photo reader (raised by S53)
+- The pack reader is a web server action holding the model vendor key. The phone keeps its typed "check my pack" and the catalogue search; "fill from a photo" is web only.
+- Options: (a) a bearer-authenticated `/api/mobile/pack-read` route like `/api/mobile/health-samples`, governed the same way (recommended later); (b) leave.
+
+### OQ-297 Missed-dose and silence signals still do not reach the triage engine (OQ-89, restated by S53)
+- S53 did not duplicate S26. The signals (`medication_dose_missed`, `medication_adherence_low`, `medication_refill_due`) are emitted since S08; the engine grades them only for a care-pack patient, and no care-pack patient state exists yet. Nothing automatic changes a medicine.
+
+### OQ-298 The supporter missed-dose notice uses the older profile-access grant, not the Care Circle (raised by S53)
+- Consent is a `profile_access` grant with `clinical_access`, `view_medication` and `receive_alerts` named in the permission list (a grant with no list does not count). The newer Care Circle (S29) has five permissions and none for missed doses. One notice a day, in-app only, generic wording.
+- Options: (a) as built (recommended for now); (b) add a `missed_dose_notice` permission to the Care Circle and move the trigger there (touches S29's permission check and screens).
+
+### OQ-299 Side-effect notes: reviewed button is on the chart only, and a note creates no task (raised by S53)
+- The clinician chart lists notes (audited read) with a "Mark these as discussed" button that stamps exactly the notes on screen (by id). A note does not create a task or an alert (a person who is unwell uses the existing side-effect report and emergency steps).
+- Options: (a) as built, plus a place for it inside the consultation room (recommended, later); (b) leave as is.
 
 ## Raised by S51 (AI health assistant 1 of 2). Track B uses OQ-350 to OQ-368 so parallel sessions do not collide.
 
@@ -1952,6 +1996,59 @@ Built on top of F1; nothing applied to production; `symptom_checker_enabled` sta
 - `20261007142457_s60_regulatory_position_and_guard_wiring.sql` patches two live function bodies (`public.attest_go_live_condition`, `private.go_live_conditions`) with `replace()` on a marker, as F1 did, and raises if a marker is missing. That fails loudly rather than silently, but it is brittle: a later edit to either function can break a replay, and each new record-backed condition adds another patch.
 - Proper fix: a small data-driven table (`go_live_condition_evidence`: guard key, condition code, a SQL-free evidence kind such as `exists_row:regulatory_positions:clearing`) read by one generic check inside the two functions, so a new record-backed condition is a row, not a function rewrite. Not done here because it rewrites both functions wholesale and re-proves every S37 and F1 guard proof; that is its own PR.
 - Decision: open (engineering follow-up, no founder input).
+### OQ-S55-01 The spec says en and pcm; the product is English only (D-14)
+- Blocks: nothing built; the `learn` namespace is English only and `LOCALES` is `["en"]`.
+- Conflict: S55 asks for `learn` strings in en and pcm. Founder decision D-14 (2026-10-07, reverses D-13) removed Pidgin and every other language because unreviewed clinical translation is a safety risk.
+- Built: English only. The search synonym table still holds everyday Nigerian words people type ("belle", "agbo", "hot body", "high blood") because search expansion maps what patients type to clinical words; it is not a translation of any content.
+- Needed: the founder confirms the everyday words may stay in the PROPOSED synonym table (a new config version removes any). The CMO confirms each group.
+- Decision: open.
+
+### OQ-S55-02 Creator revenue share is not built
+- Blocks: paying any creator; the creator programme itself (invite, verify, credit, suspend) is built.
+- Needs: payment model (per item, per use, flat fee, none), who bears indemnity, whether creators contract with Tarragon, tax treatment (S30/S31 fee schedules and payouts exist for clinicians and may be the route). Credentialing evidence standard is also open: today an admin records what they sighted as free text next to the MDCN number.
+- Decision: open (founder, with counsel).
+
+### OQ-S55-03 Offline audio files are not downloaded on the phone
+- The pack stores text, counts each lesson's recording size (from the bundled S32 manifest) against the cap and records whether it fits (`withAudio`). The app has no file-download module and the S32 `post_signup` downloader is not built, so recordings are only played when bundled; otherwise the lesson shows its text. Adding a download module is a native change (new build and `runtimeVersion` bump, as for OQ-201). Web has no manifest audio playback (it plays an existing `audio_url`).
+- Decision: open (founder: when to ship the native module).
+
+### OQ-S55-04 Offline pack size cap
+- PROPOSED `learning.offline_pack`: 25 MB and 150 items per phone, audio on Wi-Fi only. Founder confirms (data cost, storage on 4 GB phones).
+- Decision: open.
+
+### OQ-S55-05 Zero-result search log and personal data
+- The log is built and **OFF** (`learning.search_gap_log` has `enabled: false`; a patient's search never writes a row). It also only ever records a search the person submitted (Enter or the Search button), never the half-typed words of a type-ahead. To switch it on, a new `search_gap_log` config version with `enabled: true` is needed, after the founder and the DPO confirm it.
+- PROPOSED rules once on: 60 characters, 6 words, shown to admins at 3 or more searches, deleted after 180 days, at most 5,000 rows (the lowest-count, oldest row makes room); phrases with an at-sign or five or more digits (however spaced) are never kept; no user, organisation, device or time of day is stored.
+- Known limits: the count is searches, not distinct people, so one person repeating a phrase reaches the threshold alone; a name or a health phrase typed into the box (for example "i have ...") is not detectable and would be stored. A fixed-vocabulary log would remove these, at the cost of losing unknown words, which is the point of the log. The DPO should decide whether free-text phrases are acceptable as anonymous aggregate data at all.
+- Decision: open (founder with the DPO).
+
+### OQ-S55-06 235 seeded items have no review date, reviewer, source or self-care step
+- The publish gate protects every new publication. The existing published items are grandfathered and listed in `/admin/settings/health-education/readiness`; none expires until a review date is set. This is clinical content work (the CMO or content owner), not an engineering fix. Until each item has a self-care step the template shows only the fixed actions for it.
+- The publish gate fires on the move INTO published. It cannot stop an admin clearing the reviewer, source or self-care step on an item that is already published, and the reviewer name is typed free text (not tied to the person who approved). A republish from review due passes once the date is moved forward; no new review is forced. These are design choices to confirm with the CMO.
+- Decision: open (CMO).
+
+### OQ-S55-07 Myth-busting series and daily lessons need clinical authors
+- Six DRAFT placeholders (titles and "needs a clinical author" only) sit in an inactive series. The topic list is a proposal. No micro-lesson exists yet (S33 BP course is not built), so the daily card draws nothing until clinicians author lessons. Nothing here can be published without a named clinical author and approval.
+- Decision: open (CMO).
+
+### OQ-S55-08 Saved lessons reach the clinician on the video visit screen only
+- "Ask your care team about this" saves the lesson; a clinician tied to the patient sees it on `/clinician/video-visit/<id>` (audited). The S21 consultation room and the in-app message thread do not show it yet.
+- Decision: open (product).
+
+### OQ-S55-09 A course completes only when every module is understood, including a module that has since expired
+- An expired module blocks `course.completed` until it is reviewed and republished. The alternative (complete over the in-date modules) could fire a completion event for a half-finished course. Chosen the strict reading; the founder can reverse it.
+- Decision: open.
+
+### OQ-S55-10 No consumer of lesson events yet; S47 Today screen not built
+- `lesson.completed` and `course.completed` are on the outbox for S58 (rewards). The daily card is a reusable component mounted on the patient dashboard, the Learn page and mobile Home; S47 can mount it on Today.
+- Decision: informational.
+
+### OQ-S55-11 Creators: no earnings, authoring or reinstatement beyond re-verification
+- A creator submits credentials at `/clinician/learning-creator` (no notice is sent to an invited clinician automatically; the admin screen tells the admin to pass the page on, and an invitation can be withdrawn); an admin verifies, suspends (their published items go back to review) or reinstates (back to invited with the old MDCN number and evidence cleared, so they must send credentials again, never straight to verified). Items written by a creator are still entered through the admin content form until the Module 25 CMS exists (S80).
+- Decision: informational.
+
+### OQ-S55-12 A failed lesson-event write opens one shared incident
+- If `lesson.completed` or `course.completed` cannot be written, the patient's progress is still saved, an `audit_log` row is written for each failure and one open sev1 incident covers all of them. A systematic failure therefore pages once, not once per patient. Confirm sev1 is the right class for a rewards-event failure (S58 is the only consumer, not built).
 ### OQ-S56-01 Mental-health data is now per-patient: decisions and gaps for the founder and CMO (S56, 2026-10-07)
 - Built (migrations 20261007150213 to 20261007152231, not applied to production): five tables (`mental_health_screens`, `mental_health_screening_schedules`, `wellbeing_checkins`, `wellbeing_checkin_preferences`, `therapy_sessions`) readable only by the patient and a Care Circle supporter holding the explicit `mental_health` category; staff read through `read_patient_mental_health_audited` (tie or break-glass, audited, refusals audited). Closes the INV-12 and INV-10 exposure for mental health (OQ-02 option b, mental health first). The other ~100 tables are unchanged.
 - Decision needed (founder): break-glass grants are NOT category scoped. `private.has_emergency_access` ignores the category for everything except `reproductive_health`, so any active break-glass grant opens mental health. Options: (a) accept, since break-glass already needs a reason and alerts the CMO; (b) add `mental_health` to the categories break-glass never reaches, like reproductive health; (c) a per-category grant. Recommendation: (a) for now, because a person in a mental-health emergency is the case break-glass exists for.
@@ -2062,6 +2159,11 @@ Built on top of F1; nothing applied to production; `symptom_checker_enabled` sta
 - Still owed: (e) Android: not run (no Java or emulator image on this machine); `SCHEDULE_EXACT_ALARM` is not declared (OQ-73), so a reminder can arrive minutes late in Doze and the server backup push covers it. The native Pidgin review itself.
 - Decision: pending (item e, and the Pidgin sign-off).
 
+### OQ-INT-01 One emitter for lesson.completed and course.completed (found while stacking S55 on main-dev, 2026-10-07)
+- S33 (on main-dev) registers `lesson.completed` and `course.completed` with required keys `course_code`, `lesson_code`, `lesson_count` and emits them from `health_education_progress` for course lessons (completed means the teach-back was answered: `understood` or `needs_review`). S55 had registered the same two event types with other keys (`content_id`, `content_code`, `programme_id`, `programme_code`) and its own trigger, so every lesson would have failed the registered required-keys check, and S55's payload carried a content code that names a topic, which S33 deliberately avoids.
+- Resolved in the stack: S55 relies on S33's emitter and carries no second one (its unapplied migrations no longer register or emit the events); the S55 proof asserts S33's payload contract. S58 rewards award from the same event, and S58b's `bp_ten_day_micro` drafts no longer share the code `bp_care_course` with S33's 14-lesson course.
+- Not carried over, for a decision: S55's version wrote an audit row and opened ONE incident when an event write failed and never lost the patient's progress. S33's trigger has no such wrapper, so a failed event write raises and the progress insert fails. Decide whether S33's emitter should become best-effort with an incident (sev2 through `private.page_incident_sev`, added in S58b).
+- Decision: pending.
 ### OQ-370 Device capabilities need the CMO and an admin before anything switches on (raised by S70a)
 - Everything S70a built is off. Unsigned and PROPOSED: all numbers in `devices.plausibility`, `devices.dedupe`, `devices.cgm_events`, `devices.ecg_alert`, the two task types (class, due time, tier), the patient and safety wording, and "one working day" approximated as 1440 minutes.
 - Decision: pending the CMO (read the primary guideline text; the pack's evidence is secondary).

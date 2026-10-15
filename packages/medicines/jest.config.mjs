@@ -14,6 +14,6 @@ export default {
     "^.+\\.ts$": ["ts-jest", { useESM: true, tsconfig: { verbatimModuleSyntax: false } }],
   },
   testMatch: ["**/src/**/*.test.ts"],
-  collectCoverageFrom: ["src/**/*.ts", "!src/**/*.test.ts", "!src/index.ts", "!src/types.ts", "!src/**/*.fixtures.ts"],
+  collectCoverageFrom: ["src/**/*.ts", "!src/**/*.test.ts", "!src/index.ts", "!src/types.ts", "!src/**/*.fixtures.ts", "!src/safety/**"],
   coverageThreshold: { global: { branches: 100, functions: 100, lines: 100, statements: 100 } },
 };

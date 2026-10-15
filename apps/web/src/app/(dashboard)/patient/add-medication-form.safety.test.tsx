@@ -11,7 +11,13 @@ let mutationState: { error: unknown; isError: boolean; isPending: boolean } = { 
 
 jest.mock("@/lib/queries/medications", () => ({
   useAddMedication: () => ({ mutate, reset, ...mutationState }),
+  useMedications: () => ({ data: undefined }),
 }));
+jest.mock("@/lib/queries/medicine-catalogue", () => ({
+  useInteractionCheckOpen: () => ({ data: false, isPending: false, isError: false }),
+  useMedicineCatalogue: () => ({ data: [], isPending: false, isError: false }),
+}));
+jest.mock("@/lib/medications/pack-actions", () => ({ checkMedicationPack: jest.fn() }));
 jest.mock("./actions", () => ({ checkMedicationSafetyAfterAdd: jest.fn().mockResolvedValue({ allergyCheckSkipped: false }) }));
 
 import { AddMedicationForm } from "./add-medication-form";

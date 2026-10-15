@@ -67,6 +67,9 @@ begin
   on conflict (id) do update set is_test = excluded.is_test, is_active = true, phone = excluded.phone, full_name = excluded.full_name;
   return v;
 end $f$;
+-- S55's publish gate refuses to publish an item with no named reviewer or review date. This proof needs exactly such rows to show the
+-- assistant's own knowledge gate refuses them as well (defence in depth), so the table gate is off for this rolled-back transaction only.
+alter table public.health_education_content disable trigger health_education_publish_gate;
 create function pg_temp.kb(p_code text, p_owner text, p_due timestamptz, p_reviewed boolean) returns uuid language plpgsql as $f$
 declare v uuid;
 begin

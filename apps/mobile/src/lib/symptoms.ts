@@ -72,6 +72,13 @@ const PAEDIATRIC_SYMPTOM_LABEL: Record<
   dehydration_signs: "Fewer wet nappies, dry mouth, or no tears when crying",
 };
 
+/** Signs ticked on the glucose entry that the symptom list itself never offers; a history row can still be one of them. Mirrors the glucose sign wording. */
+const GLUCOSE_SIGN_LABEL: Record<"vomiting" | "abdominal_pain" | "cannot_swallow", string> = {
+  vomiting: "Vomiting",
+  abdominal_pain: "Stomach pain",
+  cannot_swallow: "Cannot swallow safely",
+};
+
 /** Label lookup covering every symptom_type value, including the paediatric
  * ones this screen's form never writes — used for rendering history, which
  * can contain either. */
@@ -79,6 +86,7 @@ export function symptomLabel(type: SymptomType): string {
   return (
     (SYMPTOM_LABEL as Record<string, string>)[type] ??
     PAEDIATRIC_SYMPTOM_LABEL[type as keyof typeof PAEDIATRIC_SYMPTOM_LABEL] ??
+    GLUCOSE_SIGN_LABEL[type as keyof typeof GLUCOSE_SIGN_LABEL] ??
     type.replace(/_/g, " ")
   );
 }
