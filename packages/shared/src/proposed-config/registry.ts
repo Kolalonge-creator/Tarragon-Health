@@ -3157,8 +3157,8 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     // The two task types S70a adds to `task_types` (S16 pattern). Each row: code, priority class, default due minutes, minimum doctor tier,
     // required competencies, lead window minutes, claim timeout minutes. Flagged for the CMO: nothing here is signed.
     value: [
-      { code: "cgm_glucose_review", priority_class: 4, default_due_minutes: 1440, min_doctor_tier: "medical_officer", required_competencies: ["adult_general"], lead_window_minutes: 240, claim_timeout_minutes: 30 },
-      { code: "device_rhythm_review", priority_class: 5, default_due_minutes: 1440, min_doctor_tier: "medical_officer", required_competencies: ["adult_general"], lead_window_minutes: 1440, claim_timeout_minutes: 30 },
+      { code: "cgm_glucose_review", priority_class: 4, default_due_minutes: 1440, min_doctor_tier: "senior_medical_officer", required_competencies: ["adult_general"], lead_window_minutes: 240, claim_timeout_minutes: 30 },
+      { code: "device_rhythm_review", priority_class: 5, default_due_minutes: 1440, min_doctor_tier: "senior_medical_officer", required_competencies: ["adult_general"], lead_window_minutes: 1440, claim_timeout_minutes: 30 },
     ],
     owner: "CMO",
     status: "proposed",
