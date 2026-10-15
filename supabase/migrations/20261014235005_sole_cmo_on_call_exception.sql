@@ -14,7 +14,7 @@ create table public.sole_cmo_exceptions (
   reason text not null check (char_length(btrim(reason)) >= 40),
   signed_by uuid not null references public.profiles(id) on delete restrict,
   signed_at timestamptz not null default now(),
-  expires_at timestamptz not null,
+  expires_at timestamptz not null default (now() + interval '12 months'),
   revoked_at timestamptz,
   revoked_by uuid references public.profiles(id) on delete restrict,
   revoke_reason text,
@@ -22,7 +22,6 @@ create table public.sole_cmo_exceptions (
   constraint sole_cmo_exceptions_expiry_after_signing check (expires_at > signed_at),
   constraint sole_cmo_exceptions_revoke_complete check ((revoked_at is null) = (revoked_by is null) and (revoked_at is null) = (revoke_reason is null))
 );
-alter table public.sole_cmo_exceptions alter column expires_at set default (now() + interval '12 months');
 create unique index sole_cmo_exceptions_one_unrevoked on public.sole_cmo_exceptions (organisation_id, competency_code) where revoked_at is null;
 
 alter table public.sole_cmo_exceptions enable row level security;
@@ -123,7 +122,7 @@ begin
      and private.sole_cmo_count(new.organisation_id, new.is_test) > 1 then
     for r in
       with u as (
-        update public.sole_cmo_exceptions set revoked_at = now(), revoked_by = signed_by,
+        update public.sole_cmo_exceptions set revoked_at = now(), revoked_by = coalesce(new.profile_id, signed_by),
           revoke_reason = 'a second chief medical officer became active, so the exception ended'
         where organisation_id = new.organisation_id and revoked_at is null and is_test is not distinct from new.is_test
         returning id, organisation_id)

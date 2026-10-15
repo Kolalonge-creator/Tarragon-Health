@@ -29,7 +29,7 @@ CMO sign-off hub line "Sole-CMO on-call exception: sign to be allowed on the on-
 
 ## Closeout
 Built: migration `20261014235005_sole_cmo_on_call_exception.sql`, hub reader + line, signing panel and action, proof `packages/db/tests/sole_cmo_on_call_exception.sql` (registered in ci.manifest).
-Tests: DB proof 54 checks pass, 2 of 2 sabotages flip, run live in a rolled-back transaction with the migration applied inside it (nothing left behind, verified). Jest: reader 7, hub 3 added, action 4; tsc and ESLint clean.
+Tests: DB proof 55 checks pass, 2 of 2 sabotages flip, run live in a rolled-back transaction with the migration applied inside it (nothing left behind, verified). Jest: reader 7, hub 3 added, action 4; tsc and ESLint clean.
 Not proven: the page rendering in a browser; the exception through the real web login.
 Apply order: merge applies the migration (code first is safe: the reader queries a table that does not exist yet and shows a failed-read warning on the hub until it is applied, so apply the migration promptly after merge).
 Code-review (high) findings fixed: resume after a second CMO, stale-signer lockout, reader/DB definition mismatch, DB-side SIGN confirmation, audit noise, helper EXECUTE grants. Not done: typed `database.types.ts` entries (the RPCs are called through the same loose casts the neighbouring hub readers use; the types file does not carry grant_clinician_competency either); auto-removal of an already-granted competency on revoke (deliberately left, it could drop the CMO off a live rota).

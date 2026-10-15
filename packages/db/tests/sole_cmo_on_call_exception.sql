@@ -179,6 +179,7 @@ begin
     values (v_org, v_cmo2, 'SCMO CMO Two', 'MDCN', 'SCMO-CMO-2', true, 'active', now(), v_admin, 'chief_medical_officer', 'contracted', 2, true, v_admin, true);
   perform pg_temp.chk('real', 'with a second active CMO the self grant is refused', 'ERR:42501', pg_temp.sql_as(v_cmo, format($q$select public.grant_clinician_competency(%L, 'on_call')::text$q$, v_cs)));
   perform pg_temp.chk('real', 'the second CMO REVOKED the exception, not just paused it', 'true', (select (revoked_at is not null and revoke_reason like 'a second chief medical officer%')::text from public.sole_cmo_exceptions where id = v_ex));
+  perform pg_temp.chk('real', 'an automatic ending is attributed to the triggering CMO, not the signer', 'true', (select (revoked_by = v_cmo2 and revoked_by <> signed_by)::text from public.sole_cmo_exceptions where id = v_ex));
   perform pg_temp.chk('real', 'the ending is audited once and reviewers are told', '1,1', pg_temp.audits('sole_cmo_exception.ended_second_cmo', v_ex)::text || ',' ||
     (select count(*)::text from public.notifications where recipient_id = v_admin and payload->>'kind' = 'sole_cmo_exception_ended'));
   perform pg_temp.chk('real', 'signing is refused while two CMOs are active', 'ERR:23514', pg_temp.sql_as(v_cmo, $q$select public.sign_sole_cmo_exception('on_call', repeat('x', 50), 'SIGN')::text$q$));
