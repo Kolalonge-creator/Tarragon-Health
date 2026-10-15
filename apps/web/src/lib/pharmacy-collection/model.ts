@@ -5,10 +5,10 @@ import { z } from "zod";
  * The database is the protection (only the owner chooses, only verified pharmacies, the code is checked and locked there); these checks
  * only give a clear message first.
  */
-export const CHOOSE_ERRORS = ["pharmacy_not_available", "collection_already_started", "collection_not_open", "pharmacy_collection_off", "not_permitted_for_this_person"] as const;
+export const CHOOSE_ERRORS = ["pharmacy_not_available", "collection_already_started", "collection_not_open", "pharmacy_collection_off", "not_permitted_for_this_person", "suggestion_not_open"] as const;
 export type ChooseError = (typeof CHOOSE_ERRORS)[number];
 
-export const NOTICES = ["chosen", "new_code", "withdrawn", "failed", ...CHOOSE_ERRORS] as const;
+export const NOTICES = ["chosen", "new_code", "withdrawn", "failed", "suggestion_declined", ...CHOOSE_ERRORS] as const;
 export type Notice = (typeof NOTICES)[number];
 export const asNotice = (v: unknown): Notice | null => ((NOTICES as readonly unknown[]).includes(v) ? (v as Notice) : null);
 
@@ -26,6 +26,21 @@ export const chooseFormSchema = z.object({
   for: z.string().uuid().optional(),
 });
 export const prescriptionOnlySchema = z.object({ prescription: z.string().uuid(), for: z.string().uuid().optional() });
+export const suggestionFormSchema = z.object({ prescription: z.string().uuid(), suggestion: z.string().uuid() });
+
+// ---- S54c: a pharmacy the care team suggested; nothing is sent until the patient accepts ----
+export const suggestionSchema = z.object({
+  suggestion_id: z.string().uuid(),
+  partner_id: z.string().uuid(),
+  partner_name: z.string(),
+  location_id: z.string().uuid(),
+  location_name: z.string(),
+  address: z.string().nullable(),
+  state: z.string().nullable(),
+  suggested_at: z.string(),
+});
+export type Suggestion = z.infer<typeof suggestionSchema>;
+export const suggestionRowsSchema = z.array(suggestionSchema);
 
 export const pharmacyOptionSchema = z.object({
   partner_id: z.string().uuid(),
@@ -63,6 +78,49 @@ export function viewFor(c: Collection): CollectionView {
   if (c.state === "sent") return "code";
   if (c.state === "signed") return "choose";
   return "closed";
+}
+
+// ---- S54 8.9: the price and stock comparison the patient sees before choosing ----
+export const priceLineSchema = z.object({
+  item: z.number(),
+  drug: z.string(),
+  pack: z.string().nullable(),
+  price_kobo: z.number(),
+  stock: z.string(),
+  verified_batch: z.boolean(),
+  strength_confirmed: z.boolean(),
+});
+export const priceRowSchema = z.object({
+  partner_id: z.string().uuid(),
+  partner_name: z.string(),
+  location_id: z.string().uuid(),
+  location_name: z.string(),
+  state: z.string().nullable(),
+  address: z.string().nullable(),
+  items_total: z.number(),
+  items_matched: z.number(),
+  total_kobo: z.number(),
+  all_in_stock: z.boolean(),
+  any_low_stock: z.boolean(),
+  all_verified_batch: z.boolean(),
+  prices_updated_at: z.string().nullable(),
+  lines: z.array(priceLineSchema),
+});
+export type PriceRow = z.infer<typeof priceRowSchema>;
+export const priceRowsSchema = z.array(priceRowSchema);
+
+/** Money is integer kobo everywhere; this is only for showing it. */
+export function nairaFromKobo(kobo: number): string {
+  const naira = Math.round(kobo) / 100;
+  return `\u20A6${naira.toLocaleString("en-NG", { minimumFractionDigits: naira % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 })}`;
+}
+
+export type StockLabelKey = "pharmprice.in_stock" | "pharmprice.low_stock" | "pharmprice.unavailable" | "pharmprice.unknown_stock";
+export function stockKey(stock: string): StockLabelKey {
+  if (stock === "in_stock") return "pharmprice.in_stock";
+  if (stock === "low_stock") return "pharmprice.low_stock";
+  if (stock === "unavailable") return "pharmprice.unavailable";
+  return "pharmprice.unknown_stock";
 }
 
 // ---- the counter desk (pharmacist) ----

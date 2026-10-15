@@ -31656,6 +31656,9 @@ export type Database = {
       }
       pharmacy_medications: {
         Row: {
+          verified_batch: boolean
+          verified_batch_at: string | null
+          verified_batch_by: string | null
           commission_flat_kobo: number | null
           commission_rate: number | null
           commission_rate_type: Database["public"]["Enums"]["commission_rate_type"]
@@ -31677,6 +31680,9 @@ export type Database = {
           strength: string | null
         }
         Insert: {
+          verified_batch?: boolean
+          verified_batch_at?: string | null
+          verified_batch_by?: string | null
           commission_flat_kobo?: number | null
           commission_rate?: number | null
           commission_rate_type?: Database["public"]["Enums"]["commission_rate_type"]
@@ -31698,6 +31704,9 @@ export type Database = {
           strength?: string | null
         }
         Update: {
+          verified_batch?: boolean
+          verified_batch_at?: string | null
+          verified_batch_by?: string | null
           commission_flat_kobo?: number | null
           commission_rate?: number | null
           commission_rate_type?: Database["public"]["Enums"]["commission_rate_type"]
@@ -32376,6 +32385,9 @@ export type Database = {
       }
       pharmacy_partners: {
         Row: {
+          nafdac_source_attested_at: string | null
+          nafdac_source_attested_by: string | null
+          nafdac_source_note: string | null
           address: string | null
           approved_at: string | null
           approved_by: string | null
@@ -32412,6 +32424,9 @@ export type Database = {
           uses_platform_login: boolean
         }
         Insert: {
+          nafdac_source_attested_at?: string | null
+          nafdac_source_attested_by?: string | null
+          nafdac_source_note?: string | null
           address?: string | null
           approved_at?: string | null
           approved_by?: string | null
@@ -32448,6 +32463,9 @@ export type Database = {
           uses_platform_login?: boolean
         }
         Update: {
+          nafdac_source_attested_at?: string | null
+          nafdac_source_attested_by?: string | null
+          nafdac_source_note?: string | null
           address?: string | null
           approved_at?: string | null
           approved_by?: string | null
@@ -46101,6 +46119,9 @@ export type Database = {
       }
       pharmacy_medications_admin: {
         Row: {
+          verified_batch: boolean | null
+          verified_batch_at: string | null
+          verified_batch_by: string | null
           commission_flat_kobo: number | null
           commission_rate: number | null
           commission_rate_type: string | null
@@ -46143,6 +46164,8 @@ export type Database = {
       }
     }
     Functions: {
+      medication_refill_pharmacy: { Args: { p_medication: string }; Returns: { partner_id: string; partner_name: string | null; location_name: string | null; address: string | null }[] };
+      attest_pharmacy_nafdac_source: { Args: { p_partner: string; p_note: string }; Returns: Json };
       sign_interaction_dataset: { Args: { p_version: number; p_content_hash: string; p_note: string }; Returns: Json };
       care_team_side_effect_notes: {
         Args: { p_patient: string; p_reason: string };
