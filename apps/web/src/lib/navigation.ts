@@ -818,7 +818,6 @@ export function getNavSections(
             { label: "Overview", href: "/pharmacist", icon: "dashboard", exact: true },
             { label: "Orders", href: "/pharmacist/orders", icon: "pharmacy" },
             { label: "Prescriptions sent to you", href: "/pharmacist/prescriptions", icon: "medication" },
-            { label: "Patient questions", href: "/pharmacist/messages", icon: "messages" },
             { label: "Verify a prescription", href: "/pharmacist/verify", icon: "approvals" },
             { label: "Dispensing history", href: "/pharmacist/history", icon: "audit" },
             // S74: patient messages, partner statements, and the quality and sourcing check (module 21).
