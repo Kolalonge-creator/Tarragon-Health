@@ -36,10 +36,11 @@ const files = ROOTS.flatMap((r) => walk(r)).filter((f) => !SKIP.test(f));
 const surfaces = files.filter((f) => RENDERS_WINDOW.test(code(f)));
 
 describe("every surface that shows a fertile window carries the not-contraception label", () => {
-  it("finds the known surfaces (web tracker, calendar, mobile screen) so it cannot pass by finding nothing", () => {
+  it("finds the known surfaces (web tracker, mobile screen) so it cannot pass by finding nothing", () => {
     const names = surfaces.map((f) => relative(join(__dirname, "..", "..", ".."), f));
     expect(names.some((n) => n.endsWith("cycle/cycle-tracker.tsx"))).toBe(true);
-    expect(names.some((n) => n.endsWith("cycle/cycle-calendar.tsx"))).toBe(true);
+    // The calendar caption is covered by S85 D2's rendered-surface test (see SKIP above), so the second known surface is the mobile screen.
+    expect(names.some((n) => n.endsWith("sections/cycle-screen.tsx"))).toBe(true);
   });
 
   for (const f of surfaces) {
