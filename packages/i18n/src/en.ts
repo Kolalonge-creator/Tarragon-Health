@@ -3056,6 +3056,7 @@ export const en = {
   "terms.title": "Before you pay",
   "terms.price": "This visit costs {price}.",
   "terms.unpriced": "This kind of visit cannot be booked yet.",
+  "terms.included": "Your doctor visit is included in your Membership.",
   "terms.cancel": "Cancel {hours} hours or more before and your visit credit comes back to you.",
   "terms.late": "Cancel later than that and the credit is used.",
   "terms.care_team_cancels": "If your care team cancels or does not come, your credit always comes back and you can rebook for free.",

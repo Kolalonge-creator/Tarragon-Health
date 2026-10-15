@@ -9,12 +9,12 @@ import { useMyBookingTerms, type BookingTerms } from "@/lib/queries/appointments
  * from the live policy and the live product (my_booking_terms), never from this file. What comes back on a cancelled visit is the visit
  * credit, not cash: whether money is returned is still undecided (OQ-133), so this screen never promises it.
  */
-export function BookingTermsView({ terms, locale = "en" }: { terms: BookingTerms; locale?: Locale }) {
+export function BookingTermsView({ terms, locale = "en", included = false }: { terms: BookingTerms; locale?: Locale; included?: boolean }) {
   const price = terms.price_kobo === null ? null : `₦${koboToNaira(terms.price_kobo).toLocaleString("en-NG")}`;
   return (
     <div className="space-y-1 rounded-md border border-charcoal-ink/10 p-3 text-sm dark:border-night-ink/15" data-testid="booking-terms">
       <p className="font-medium">{t("terms.title", locale)}</p>
-      {price ? <p>{t("terms.price", locale, { price })}</p> : <p>{t("terms.unpriced", locale)}</p>}
+      {price ? <p>{t("terms.price", locale, { price })}</p> : included ? <p>{t("terms.included", locale)}</p> : <p>{t("terms.unpriced", locale)}</p>}
       <p>{t("terms.cancel", locale, { hours: terms.cancel_window_hours })}</p>
       {!terms.late_cancel_credit_returned && <p>{t("terms.late", locale)}</p>}
       <p>{t("terms.care_team_cancels", locale)}</p>
@@ -28,5 +28,6 @@ export function BookingTermsCard({ appointmentType, locale = "en" }: { appointme
   const { data, isError } = useMyBookingTerms(appointmentType);
   if (isError) return <p role="alert" className="text-sm text-red-600 dark:text-red-400">{t("terms.load_failed", locale)}</p>;
   if (!data) return null;
-  return <BookingTermsView terms={data} locale={locale} />;
+  // A doctor visit is part of Membership (two-tier), never priced per item; only the dietitian and pharmacist visits are sold one by one.
+  return <BookingTermsView terms={data} locale={locale} included={appointmentType !== "dietitian" && appointmentType !== "pharmacist"} />;
 }
