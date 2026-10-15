@@ -34,6 +34,8 @@ insert into allow values
   ('anon_fn', 'public.emergency_card_by_token'), ('anon_fn', 'public.health_passport_by_serial'), ('anon_fn', 'public.verify_payer_board_report'),
   ('anon_fn', 'public.public_price_list'), ('anon_fn', 'public.record_share_by_token'), ('anon_fn', 'public.record_share_peek'), ('anon_fn', 'public.platform_switch_is_on'),
   ('anon_fn', 'public.verify_prescription_public'), ('anon_fn', 'public.record_prescription_supply_public'),
+  -- S55: a learning item whose sharing is switched on opens by its code without signing in; it returns the article text only, no personal data
+  ('anon_fn', 'public.learn_shared_article'),
   -- views that run with their owner's rights on purpose (each carries its own caller predicate, or is a public directory, or is not granted)
   ('owner_view', 'public.care_message_communication_log'), ('owner_view', 'public.clinical_staff_directory'),
   ('owner_view', 'public.lab_provider_directory'), ('owner_view', 'public.pharmacy_partner_directory'),
