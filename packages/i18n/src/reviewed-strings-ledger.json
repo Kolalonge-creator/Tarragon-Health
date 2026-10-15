@@ -25,7 +25,7 @@
       "care_category"
     ]
   },
-  "baselineCeiling": 962,
+  "baselineCeiling": 964,
   "entries": {
     "breathing.a11y_phase": {
       "hash": "72354cf0a6f4aa9e",
@@ -173,6 +173,12 @@
     },
     "care_category.medications": {
       "hash": "42dce2871e4800b7",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "care_category.mental_health": {
+      "hash": "05d249eec43f42d8",
       "reviewer": "unreviewed (baseline)",
       "reviewedOn": null,
       "baseline": true
@@ -5117,6 +5123,12 @@
     },
     "vitals.glucose.signs.title": {
       "hash": "41e176ae5e9ec485",
+      "reviewer": "unreviewed (baseline)",
+      "reviewedOn": null,
+      "baseline": true
+    },
+    "vitals.glucose.signs_not_saved": {
+      "hash": "3141f0cb2885a395",
       "reviewer": "unreviewed (baseline)",
       "reviewedOn": null,
       "baseline": true
