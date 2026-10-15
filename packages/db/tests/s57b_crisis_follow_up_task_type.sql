@@ -122,6 +122,8 @@ begin
   insert into public.triage_rule_sets (code, version, status, rules) values ('s57b_set', 1, 'draft',
     '{"code":"s57b_set","version":1,"rules":[{"id":"R1","actions":[{"kind":"create_task","task":"bp_review","dueMinutes":60}]}]}'::jsonb) returning id into v_set;
   update public.task_types set confirmed_by = v_cmo, confirmed_at = now() where code = 'adherence_follow_up' and is_active and needs_confirmation;
+  -- other task types that also await the CMO (S13 R4, R2) are out of the way: this proof is about crisis_follow_up
+  update public.task_types set needs_confirmation = false where code in ('red_patient_outreach', 'amber_glucose_review');
   perform set_config('request.jwt.claim.sub', v_cmo::text, true); perform set_config('request.jwt.claims', json_build_object('sub', v_cmo, 'role', 'authenticated')::text, true);
   set local role authenticated;
   begin
