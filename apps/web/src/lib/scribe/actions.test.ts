@@ -20,7 +20,7 @@ jest.mock("@/lib/supabase/server", () => ({
   }),
 }));
 
-import { attachScribeDraftToNote, draftScribeFromText } from "./actions";
+import { attachScribeDraftToNote, confirmScribeSafetyLines, draftScribeFromText } from "./actions";
 
 describe("attachScribeDraftToNote", () => {
   beforeEach(() => {
@@ -92,5 +92,31 @@ describe("draftScribeFromText", () => {
       draftScribeFromText({ scribeConsentId: CONSENT, encounterNoteId: NOTE, text: "short" })
     ).rejects.toThrow();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * S64 (15.4): an AI draft cannot be signed until the clinician confirms its allergy and medicine lines. The database enforces it; this
+ * action must call the audited function and must NOT swallow a refusal (a swallowed refusal would let the screen sign over it).
+ * Sabotage check: catch and ignore the RPC error in confirmScribeSafetyLines and the "refusal" case fails.
+ */
+describe("confirmScribeSafetyLines", () => {
+  beforeEach(() => {
+    rpcMock.mockReset().mockResolvedValue({ error: null });
+  });
+
+  it("calls confirm_scribe_safety_lines for the note", async () => {
+    await confirmScribeSafetyLines(NOTE);
+    expect(rpcMock).toHaveBeenCalledWith("confirm_scribe_safety_lines", { p_note: NOTE });
+  });
+
+  it("surfaces the database's refusal instead of swallowing it", async () => {
+    rpcMock.mockResolvedValue({ error: { message: "This note has no AI draft to review." } });
+    await expect(confirmScribeSafetyLines(NOTE)).rejects.toThrow("no AI draft");
+  });
+
+  it("rejects a malformed id before any call", async () => {
+    await expect(confirmScribeSafetyLines("nope")).rejects.toThrow();
+    expect(rpcMock).not.toHaveBeenCalled();
   });
 });

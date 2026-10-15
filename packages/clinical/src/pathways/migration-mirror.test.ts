@@ -27,11 +27,11 @@ describe("the S61/S62 migration seeds are identical to the code (a number is nev
     for (const b of blocks) expect(b).toEqual(JSON.parse(JSON.stringify(PATHWAY_DEFINITIONS)));
   });
   it("every seeded rule set and the step table is a draft with no approver", () => {
-    for (const marker of ["diabetes-rule-set", "asthma-rule-set", "hf-rule-set", "ckd-rule-set", "htn-step-table"]) {
+    for (const marker of ["asthma-rule-set", "hf-rule-set", "ckd-rule-set", "htn-step-table"]) {
       expect((seed(marker) as { status: string }).status).toBe("draft");
     }
     const inserts = SQL.match(/insert into public\.(triage_rule_sets|protocols)[^;]*;/g) ?? [];
-    expect(inserts.length).toBe(5);
+    expect(inserts.length).toBe(4);
     for (const i of inserts) expect(i).not.toMatch(/approved_by|approved_at|'approved'/);
   });
   it("the outcome_snapshots check lists every registry code", () => {

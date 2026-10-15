@@ -42885,6 +42885,7 @@ export type Database = {
         | "procedure"
         | "therapy"
         | "result_interpretation"
+        | "pharmacist"
       appointment_waiting_list_status:
         | "waiting"
         | "offered"
@@ -45019,6 +45020,7 @@ export const Constants = {
         "procedure",
         "therapy",
         "result_interpretation",
+        "pharmacist",
       ],
       appointment_waiting_list_status: [
         "waiting",
