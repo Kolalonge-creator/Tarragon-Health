@@ -142,6 +142,7 @@ declare
   m1 uuid; m2 uuid; m3 uuid; m4 uuid; m5 uuid; m6 uuid; m7 uuid; m8 uuid; m9 uuid; m10 uuid; m11 uuid; m12 uuid; m13 uuid; m14 uuid;
   f1 uuid; f2 uuid; v_rota jsonb; v_te uuid; v_page uuid; v_root public.pages%rowtype; v_r text; v_x uuid; v_d text; v_cfg uuid;
   v_orig_covers text; v_orig_on text; v_orig_create text; v_orig_spo2 text; v_ev uuid;
+  m_wd uuid; v_wd jsonb; v_orig_rule text; v_orig_wd text; v_wd_audit integer;
   m_rp uuid; m_ex uuid; m_ai uuid; m_gl uuid; m_cc uuid; v_circle uuid; v_resp uuid; v_circle_n integer; v_orig_resp text; v_orig_circle text;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
@@ -170,7 +171,7 @@ begin
     has_table_privilege('anon', 'public.unified_red_paging_config', 'SELECT')::text || ',' ||
     has_function_privilege('anon', 'public.sign_unified_red_paging_config(integer,boolean)', 'EXECUTE')::text || ',' ||
     has_function_privilege('anon', 'public.switch_off_unified_red_paging()', 'EXECUTE')::text || ',' ||
-    has_function_privilege('authenticated', 'private.unified_red_page_covers(text,uuid,uuid,text,text,uuid)', 'EXECUTE')::text);
+    has_function_privilege('authenticated', 'private.unified_red_page_covers(text,uuid,uuid,text,uuid)', 'EXECUTE')::text);
   perform pg_temp.rec('authenticated cannot write the config table', '0',
     (select count(*)::text from information_schema.role_table_grants where table_schema = 'public' and table_name = 'unified_red_paging_config' and grantee = 'authenticated' and privilege_type <> 'SELECT'));
   perform pg_temp.rec('every patched handler carries the hook', '5',
@@ -329,6 +330,24 @@ begin
   perform pg_temp.symptom(m12, 'chest_pain', 7);
   perform pg_temp.rec('ON: after the family was acknowledged a new red event makes a NEW page (INV-05)', '2', pg_temp.roots(m12)::text);
 
+
+  -- the S78a watchdog must not treat a MERGED event (no root page of its own by design) as unpaged
+  if to_regprocedure('private.sweep_unpaged_red_events()') is not null then
+    v_orig_rule := pg_get_functiondef('private.paging_rule(text)'::regprocedure);
+    m_wd := pg_temp.member(v_org, v_admin, 'watchdog');
+    update public.profiles set is_test = false where id = m_wd;
+    perform pg_temp.spo2(m_wd, 91);
+    perform pg_temp.pulse(m_wd, 130);
+    create or replace function private.paging_rule(p_key text) returns jsonb language sql stable security definer set search_path = ''
+      as $f$ select case when p_key = 'watchdog_grace_seconds' then to_jsonb(0) else (select rules -> p_key from public.paging_config where is_active order by version desc limit 1) end $f$;
+    v_wd := private.sweep_unpaged_red_events();
+    execute v_orig_rule;
+    perform pg_temp.rec('ON: two unified events in one family: one root page, one merged event', '1|1',
+      pg_temp.roots(m_wd) || '|' || (select count(*)::text from public.page_merged_events where page_id in (select id from public.pages where patient_id = m_wd)));
+    perform pg_temp.rec('the paging watchdog leaves a merged event alone (no page created, no false "paging stalled" audit row)', '0|0',
+      (v_wd ->> 'created') || '|' || (select count(*)::text from public.audit_log where action = 'page.watchdog_created' and entity_id in (select id from public.pages where patient_id = m_wd)));
+  end if;
+
   -- 7. A FREE patient: guidance only -----------------------------------------------------------------------------------------
   f1 := pg_temp.mkuser(v_org, 'free-1', 'patient'); f2 := pg_temp.mkuser(v_org, 'free-2', 'patient');
   perform pg_temp.spo2(f1, 91);
@@ -338,7 +357,7 @@ begin
   perform pg_temp.rec('ON: a Free patient emergency still gets the emergency event (guidance) and nothing for a doctor', '1|0|0|0',
     (select count(*)::text from public.emergency_events where patient_id = f2 and source = 'spo2_red_flag') || '|' || pg_temp.roots(f2) || '|' || pg_temp.alerts(f2) || '|' || pg_temp.ute(f2));
   perform pg_temp.rec('ON: calling the entry point directly for a Free patient creates nothing', 'false|0',
-    private.unified_red_page_covers('spo2_red', v_org, f1, 'observation', 'vitals_readings', gen_random_uuid())::text || '|' || pg_temp.ute(f1));
+    private.unified_red_page_covers('spo2_red', v_org, f1, 'vitals_readings', gen_random_uuid())::text || '|' || pg_temp.ute(f1));
 
   -- 8. Shadow ----------------------------------------------------------------------------------------------------------------
   perform pg_temp.rec('a shadow row carrying the unified code cannot exist', '23514', pg_temp.try(format($q$
@@ -409,12 +428,12 @@ begin
 
 
   -- 12. SABOTAGE ----------------------------------------------------------------------------------------------------------------------
-  v_orig_covers := pg_get_functiondef('private.unified_red_page_covers(text,uuid,uuid,text,text,uuid)'::regprocedure);
+  v_orig_covers := pg_get_functiondef('private.unified_red_page_covers(text,uuid,uuid,text,uuid)'::regprocedure);
   v_orig_on := pg_get_functiondef('private.unified_red_paging_on(text)'::regprocedure);
   v_orig_spo2 := pg_get_functiondef('private.handle_spo2_reading_red_flag()'::regprocedure);
 
   -- S1: the entry point never pages. A Member SpO2 red must then wrongly make no page.
-  create or replace function private.unified_red_page_covers(p_source text, p_org uuid, p_patient uuid, p_trigger_type text, p_ref_table text, p_ref_id uuid)
+  create or replace function private.unified_red_page_covers(p_source text, p_org uuid, p_patient uuid, p_ref_table text, p_ref_id uuid)
     returns boolean language sql as $f$ select false $f$;
   declare m_s1 uuid := pg_temp.member(v_org, v_admin, 'sab1');
   begin
@@ -424,7 +443,7 @@ begin
   execute v_orig_covers;
 
   -- S2: the no-cover guard removed (always report "covered"). The no-cover event must then wrongly lose its old broadcast.
-  create or replace function private.unified_red_page_covers(p_source text, p_org uuid, p_patient uuid, p_trigger_type text, p_ref_table text, p_ref_id uuid)
+  create or replace function private.unified_red_page_covers(p_source text, p_org uuid, p_patient uuid, p_ref_table text, p_ref_id uuid)
     returns boolean language sql as $f$ select true $f$;
   declare m_s2 uuid := pg_temp.member(v_org, v_admin, 'sab2');
   begin
@@ -466,14 +485,15 @@ begin
   v_d := v_orig_covers;
   if replace(v_d, 'if not private.patient_may_page_doctor(p_patient) then return false; end if;', '') = v_d then raise exception 'VACUOUS TEST: Free guard text not found'; end if;
   execute replace(v_d, 'if not private.patient_may_page_doctor(p_patient) then return false; end if;', '');
-  perform private.unified_red_page_covers('spo2_red', v_org, f2, 'observation', 'vitals_readings', gen_random_uuid());
+  perform private.unified_red_page_covers('spo2_red', v_org, f2, 'vitals_readings', gen_random_uuid());
   perform pg_temp.sab('ON: calling the entry point directly for a Free patient creates nothing', '0', pg_temp.ute(f2)::text);
   execute v_orig_covers;
 
   -- S6: the handler wiring removed. A Member SpO2 red must then wrongly keep the old broadcast beside the page.
   v_d := v_orig_spo2;
   if position('unified_red_page_covers' in v_d) = 0 then raise exception 'VACUOUS TEST: hook text not found'; end if;
-  execute regexp_replace(v_d, 'if v_should_page and not \(v_level = ''red'' and private\.unified_red_page_covers\([^)]*\)\) then', 'if v_should_page then');
+  if regexp_replace(v_d, 'if case when v_should_page then not \(case when v_level = ''red'' then private\.unified_red_page_covers\([^)]*\) else false end\) else false end then', 'if v_should_page then') = v_d then raise exception 'VACUOUS TEST: hook pattern not found'; end if;
+  execute regexp_replace(v_d, 'if case when v_should_page then not \(case when v_level = ''red'' then private\.unified_red_page_covers\([^)]*\) else false end\) else false end then', 'if v_should_page then');
   declare m_s6 uuid := pg_temp.member(v_org, v_admin, 'sab6');
   begin
     perform pg_temp.spo2(m_s6, 91);
@@ -509,6 +529,22 @@ begin
       (select count(*)::text from public.notifications where recipient_id = v_circle and template = 'circle_check_in' and source_id in (select id from public.pages where patient_id = m_s8)));
   end;
   execute v_orig_circle;
+
+  -- S9: the watchdog exclusion removed. The watchdog must then wrongly treat the merged event as unpaged and raise the audit row.
+  if to_regprocedure('private.sweep_unpaged_red_events()') is not null then
+    v_orig_wd := pg_get_functiondef('private.sweep_unpaged_red_events()'::regprocedure);
+    if replace(v_orig_wd, 'and not exists (select 1 from public.page_merged_events m where m.triage_event_id = te.id)', '') = v_orig_wd then raise exception 'VACUOUS TEST: watchdog exclusion text not found'; end if;
+    execute replace(v_orig_wd, 'and not exists (select 1 from public.page_merged_events m where m.triage_event_id = te.id)', '');
+    create or replace function private.paging_rule(p_key text) returns jsonb language sql stable security definer set search_path = ''
+      as $f$ select case when p_key = 'watchdog_grace_seconds' then to_jsonb(0) else (select rules -> p_key from public.paging_config where is_active order by version desc limit 1) end $f$;
+    perform private.sweep_unpaged_red_events();
+    execute v_orig_rule;
+    execute v_orig_wd;
+    perform pg_temp.sab('the paging watchdog leaves a merged event alone (no false audit row)', '0',
+      (select count(*)::text from public.audit_log where action = 'page.watchdog_created' and entity_id in (select id from public.pages where patient_id = m_wd)));
+  else
+    perform pg_temp.sab('the paging watchdog leaves a merged event alone (no false audit row)', '0', '1');
+  end if;
 end $$;
 
 do $$
@@ -521,8 +557,8 @@ begin
          from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 8 then
-    raise exception 'VACUOUS TEST: only % of 8 sabotage steps changed the matching check', v_caught;
+  if v_caught < 9 then
+    raise exception 'VACUOUS TEST: only % of 9 sabotage steps changed the matching check', v_caught;
   end if;
 end $$;
 

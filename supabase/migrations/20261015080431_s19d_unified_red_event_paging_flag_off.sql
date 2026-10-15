@@ -179,17 +179,21 @@ grant execute on function public.switch_off_unified_red_paging() to authenticate
 --    config above is the approval. These rows are never shadow, so create_red_page treats them like any red grade (and the reconciler
 --    can page one if the direct call ever failed after the row was saved).
 -- ---------------------------------------------------------------------------
+-- A unified row has its own trigger type. 'observation', 'symptom_report' and 'result' each have readers with their own rules (a lab result is
+-- shown only with the labs category; the P6 shadow bridge owns ('symptom_report', symptom id)), and a unified row must be none of those.
+alter table public.triage_events drop constraint triage_events_trigger_type_check;
+alter table public.triage_events add constraint triage_events_trigger_type_check
+  check (trigger_type in ('observation', 'symptom_report', 'silence', 'adherence', 'result', 'unified_red'));
 alter table public.triage_events drop constraint triage_events_no_rule_set_means_shadow;
 alter table public.triage_events add constraint triage_events_no_rule_set_means_shadow
   check (rule_set_id is not null
          or (shadow and rule_set_code = 'live_symptom_gate')
          or (not shadow and rule_set_code = 'unified_red_paging' and rule_set_status = 'approved' and grade = 'red'));
--- (once per source event is already enforced by triage_events_bridge_once on (trigger_type, trigger_id) where rule_set_id is null. A unified row therefore
--- never uses ('symptom_report', symptom id): that slot belongs to the P6 shadow bridge written by AFTER INSERT on symptoms. Symptoms and emergency events use
--- trigger_type 'result' with their own ids.)
+-- (once per source event is already enforced by triage_events_bridge_once on (trigger_type, trigger_id) where rule_set_id is null.)
 
--- The red-alert watch is the patient-outreach net and is already opened by the emergency event itself. A unified paging row must not open a
--- second one (the patient would be told twice): skip it. Everything else is the live definition.
+-- The red-alert watch is the patient-outreach net. For an emergency event the event itself opens it, so a unified row must not open a second one (the
+-- patient would be told twice). For the other sources (SpO2, pulse, temperature, symptom red) there never was a watch before this change and there is none
+-- now: adding a patient-facing notice is not part of this change (design doc, point 2b). Everything else is the live definition.
 create or replace function private.red_watch_triage_trigger()
 returns trigger language plpgsql security definer set search_path = ''
 as $function$ begin
@@ -202,7 +206,7 @@ end $function$;
 -- 4. The one entry point every red source calls. Returns true ONLY when the legacy "notify every clinician" step can be skipped.
 -- ---------------------------------------------------------------------------
 create function private.unified_red_page_covers(
-  p_source text, p_org uuid, p_patient uuid, p_trigger_type text, p_ref_table text, p_ref_id uuid
+  p_source text, p_org uuid, p_patient uuid, p_ref_table text, p_ref_id uuid
 ) returns boolean
 language plpgsql security definer set search_path = ''
 as $$
@@ -215,13 +219,13 @@ begin
   if not private.patient_may_page_doctor(p_patient) then return false; end if;
   begin
     select id into v_te from public.triage_events
-     where rule_set_code = 'unified_red_paging' and trigger_type = p_trigger_type and trigger_id = p_ref_id and basis = p_source;
+     where rule_set_code = 'unified_red_paging' and trigger_type = 'unified_red' and trigger_id = p_ref_id and basis = p_source;
     if v_te is null then
       select coalesce(is_test, false) into v_test from public.profiles where id = p_patient;
       -- ids only, no reading values (INV-07): a clinician reaches the facts through the page and the chart, after acknowledging.
       insert into public.triage_events (organisation_id, patient_id, trigger_type, trigger_id, grade, rule_id, rule_set_id, rule_set_code,
           rule_set_version, rule_set_status, explanation_key, actions, matched_rule_ids, task_key, basis, shadow, is_test, context)
-      values (p_org, p_patient, p_trigger_type, p_ref_id, 'red', 'UNIFIED-' || upper(p_source), null, 'unified_red_paging',
+      values (p_org, p_patient, 'unified_red', p_ref_id, 'red', 'UNIFIED-' || upper(p_source), null, 'unified_red_paging',
           1, 'approved', null, '[{"kind":"page_on_call"}]'::jsonb, '{}', null, p_source, false, coalesce(v_test, false),
           jsonb_build_object('source', p_source, 'ref_table', p_ref_table, 'ref_id', p_ref_id))
       returning id into v_te;
@@ -246,97 +250,84 @@ begin
   end;
 end;
 $$;
-revoke all on function private.unified_red_page_covers(text, uuid, uuid, text, text, uuid) from public, anon, authenticated;
+revoke all on function private.unified_red_page_covers(text, uuid, uuid, text, uuid) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
--- 5. Patch the legacy handlers in place from their CURRENT definitions, each anchor asserted.
+-- 5. Patch the legacy handlers (and everything that would miscount a unified row) in place from their CURRENT definitions.
+--    One helper holds the rule for every patch: the anchor must occur exactly once, the patch is skipped when it is already in, and a patch that
+--    changes nothing is an error. A function that does not exist is skipped only where said so (the S78a watchdog may not be installed yet).
 -- ---------------------------------------------------------------------------
-do $patch$
-declare
-  v_def text; v_new text; v_oid oid; v_count integer;
-  p record;
+create function pg_temp.s19d_patch_once(p_fn regprocedure, p_from text, p_to text) returns void
+language plpgsql as
+$h$
+declare v_def text; v_new text; v_count integer;
 begin
-  -- 5a. SpO2, pulse, temperature: only the `red` level is red-class. The call sits inside `v_should_page`, so it only runs on a paid-plan
-  --     escalation (a Free patient never reaches it) and never for amber.
+  v_def := pg_get_functiondef(p_fn);
+  if position(p_to in v_def) > 0 then return; end if;
+  v_count := (length(v_def) - length(replace(v_def, p_from, ''))) / length(p_from);
+  if v_count <> 1 then raise exception 'S19d: anchor for % found % times, expected 1: %', p_fn, v_count, p_from; end if;
+  v_new := replace(v_def, p_from, p_to);
+  if v_new = v_def then raise exception 'S19d: patch of % changed nothing', p_fn; end if;
+  execute v_new;
+end
+$h$;
+
+do $patch$
+declare p record;
+begin
+  -- 5a. SpO2, pulse, temperature: only the `red` level is red-class. Evaluation order matters (the call has side effects), and AND/OR give no order
+  --     guarantee in Postgres, so the whole condition is one CASE: nothing is evaluated unless an alert was created or raised (paid plan) AND the level is red.
   for p in select * from (values
-      ('handle_spo2_reading_red_flag', 'spo2_red'),
-      ('handle_pulse_reading_red_flag', 'pulse_red'),
-      ('handle_temperature_reading_red_flag', 'temperature_red')) as t(fn, src)
+      ('private.handle_spo2_reading_red_flag()'::regprocedure, 'spo2_red'),
+      ('private.handle_pulse_reading_red_flag()'::regprocedure, 'pulse_red'),
+      ('private.handle_temperature_reading_red_flag()'::regprocedure, 'temperature_red')) as t(fn, src)
   loop
-    select pr.oid into v_oid from pg_proc pr join pg_namespace n on n.oid = pr.pronamespace where n.nspname = 'private' and pr.proname = p.fn;
-    v_def := pg_get_functiondef(v_oid);
-    if position('unified_red_page_covers' in v_def) > 0 then continue; end if;
-    v_count := (length(v_def) - length(replace(v_def, E'\n  if v_should_page then\n', ''))) / length(E'\n  if v_should_page then\n');
-    if v_count <> 1 then raise exception 'S19d: anchor for % found % times, expected 1', p.fn, v_count; end if;
-    v_new := replace(v_def, E'\n  if v_should_page then\n',
-      E'\n  if v_should_page and not (v_level = ''red'' and private.unified_red_page_covers(' || quote_literal(p.src)
-      || E', new.organisation_id, new.patient_id, ''observation'', ''vitals_readings'', new.id)) then\n');
-    if v_new = v_def then raise exception 'S19d: patch of % changed nothing', p.fn; end if;
-    execute v_new;
+    perform pg_temp.s19d_patch_once(p.fn, E'\n  if v_should_page then\n',
+      E'\n  if case when v_should_page then not (case when v_level = ''red'' then private.unified_red_page_covers(' || quote_literal(p.src)
+      || E', new.organisation_id, new.patient_id, ''vitals_readings'', new.id) else false end) else false end then\n');
   end loop;
 
   -- 5b. Red-flag symptom: only the red-flag branch (urgent_escalation), not the severity 5-7 review.
-  select pr.oid into v_oid from pg_proc pr join pg_namespace n on n.oid = pr.pronamespace where n.nspname = 'private' and pr.proname = 'handle_symptom_red_flag';
-  v_def := pg_get_functiondef(v_oid);
-  if position('unified_red_page_covers' in v_def) = 0 then
-    v_count := (length(v_def) - length(replace(v_def, E'\n  if v_should_page then\n', ''))) / length(E'\n  if v_should_page then\n');
-    if v_count <> 1 then raise exception 'S19d: anchor for handle_symptom_red_flag found % times, expected 1', v_count; end if;
-    v_new := replace(v_def, E'\n  if v_should_page then\n',
-      E'\n  if v_should_page and not (v_is_red_flag and private.unified_red_page_covers(''symptom_red_flag'', new.organisation_id, new.patient_id, ''result'', ''symptoms'', new.id)) then\n');
-    if v_new = v_def then raise exception 'S19d: patch of handle_symptom_red_flag changed nothing'; end if;
-    execute v_new;
-  end if;
+  perform pg_temp.s19d_patch_once('private.handle_symptom_red_flag()'::regprocedure, E'\n  if v_should_page then\n',
+    E'\n  if case when v_should_page then not (case when v_is_red_flag then private.unified_red_page_covers(''symptom_red_flag'', new.organisation_id, new.patient_id, ''symptoms'', new.id) else false end) else false end then\n');
 
   -- 5c. Emergency events: three edits, ALLOW-LIST of sources (a new source is old-path until someone adds it here on purpose): the SpO2, temperature and pulse
   --     red flags, symptom_log, symptom_triage and danger_symptom_checklist. Everything else stays on the old path: bp_reading and glucose_red_flag (they have a
   --     triage-engine page, or will once glucose_care_triage is signed: a second page would ring twice), triage_red (the Free record), mental_health_screen and
   --     intake_screen (a crisis already has its own pager and task in private.raise_crisis_follow_up), and pregnancy_symptom_checklist, exposure_report,
-  --     support_ticket_intake, ai_coach, symptom_to_test_checker (reproductive and other sensitive or free-text sources: a page would also tell the Care
-  --     Circle and widen who learns of it; the CMO and DPO decide that, not this change).
-  select pr.oid into v_oid from pg_proc pr join pg_namespace n on n.oid = pr.pronamespace where n.nspname = 'private' and pr.proname = 'handle_emergency_event';
-  v_def := pg_get_functiondef(v_oid);
-  if position('unified_red_page_covers' in v_def) = 0 then
-    v_new := v_def;
-    -- declare
-    v_count := (length(v_new) - length(replace(v_new, E'  v_source_label text;\nbegin\n', ''))) / length(E'  v_source_label text;\nbegin\n');
-    if v_count <> 1 then raise exception 'S19d: emergency declare anchor found % times', v_count; end if;
-    v_new := replace(v_new, E'  v_source_label text;\nbegin\n', E'  v_source_label text;\n  v_unified_paged boolean := false;\nbegin\n');
-    -- decide, right after the alert row exists
-    v_count := (length(v_new) - length(replace(v_new, E'      new.clinician_alert_id := v_alert_id;\n', ''))) / length(E'      new.clinician_alert_id := v_alert_id;\n');
-    if v_count <> 1 then raise exception 'S19d: emergency alert anchor found % times', v_count; end if;
-    v_new := replace(v_new, E'      new.clinician_alert_id := v_alert_id;\n',
-      E'      new.clinician_alert_id := v_alert_id;\n      v_unified_paged := new.source::text in (''spo2_red_flag'', ''temperature_red_flag'', ''pulse_red_flag'', ''symptom_log'', ''symptom_triage'', ''danger_symptom_checklist'')\n'
-      || E'        and private.unified_red_page_covers(''emergency_event'', new.organisation_id, new.patient_id, ''result'', ''emergency_events'', new.id);\n');
-    -- skip the broadcast loop only when a page covers the event
-    v_count := (length(v_new) - length(replace(v_new, E'where organisation_id = new.organisation_id and role = ''clinician''\n      loop', ''))) / length(E'where organisation_id = new.organisation_id and role = ''clinician''\n      loop');
-    if v_count <> 1 then raise exception 'S19d: emergency loop anchor found % times', v_count; end if;
-    v_new := replace(v_new, E'where organisation_id = new.organisation_id and role = ''clinician''\n      loop',
-      E'where organisation_id = new.organisation_id and role = ''clinician''\n          and not v_unified_paged\n      loop');
-    if v_new = v_def then raise exception 'S19d: patch of handle_emergency_event changed nothing'; end if;
-    execute v_new;
-  end if;
+  --     support_ticket_intake, ai_coach, symptom_to_test_checker (reproductive and other sensitive or free-text sources: a page would widen who learns of it;
+  --     the CMO and DPO decide that, not this change). The allow-list test is a CASE so the paging function is never called for any other source.
+  perform pg_temp.s19d_patch_once('private.handle_emergency_event()'::regprocedure, E'  v_source_label text;\nbegin\n', E'  v_source_label text;\n  v_unified_paged boolean := false;\nbegin\n');
+  perform pg_temp.s19d_patch_once('private.handle_emergency_event()'::regprocedure, E'      new.clinician_alert_id := v_alert_id;\n',
+    E'      new.clinician_alert_id := v_alert_id;\n      v_unified_paged := case when new.source::text in (''spo2_red_flag'', ''temperature_red_flag'', ''pulse_red_flag'', ''symptom_log'', ''symptom_triage'', ''danger_symptom_checklist'')\n'
+    || E'        then private.unified_red_page_covers(''emergency_event'', new.organisation_id, new.patient_id, ''emergency_events'', new.id) else false end;\n');
+  perform pg_temp.s19d_patch_once('private.handle_emergency_event()'::regprocedure, E'where organisation_id = new.organisation_id and role = ''clinician''\n      loop',
+    E'where organisation_id = new.organisation_id and role = ''clinician''\n          and not v_unified_paged\n      loop');
 
-  -- 5d. Everything else that reads triage_events or pages and would otherwise count or mishandle a unified row. Same method: current definition, counted anchor.
+  -- 5d. Everything else that reads triage_events or pages and would otherwise count or mishandle a unified row.
   --     (1) the patient's "could not get care" answer must attach to the emergency event (which has the red-alert watch), never to a unified row (which has
-  --     none); (2) the chain-health timings, the parity measure and the risk score were built on the blood pressure engine and must not be moved by another source;
-  --     (3) a unified page does not tell the Care Circle: that reach is for the CMO and DPO to decide (a blood pressure page still does).
-  for p in select * from (values
-      ('private.chain_timing_rows(integer,boolean)'::regprocedure, $a$where te.trigger_type = 'observation' and not te.shadow and te.is_test = p_test$a$, $b$where te.trigger_type = 'observation' and not te.shadow and te.rule_set_code is distinct from 'unified_red_paging' and te.is_test = p_test$b$),
-      ('private.chain_timing_rows(integer,boolean)'::regprocedure, $a$where not te.shadow and te.is_test = p_test$a$, $b$where not te.shadow and te.rule_set_code is distinct from 'unified_red_paging' and te.is_test = p_test$b$),
-      ('private.chain_timing_rows(integer,boolean)'::regprocedure, $a$join public.triage_events te on te.id = p.triage_event_id, win$a$, $b$join public.triage_events te on te.id = p.triage_event_id and te.rule_set_code is distinct from 'unified_red_paging', win$b$),
-      ('private.risk_compute(uuid,date)'::regprocedure, $a$where patient_id = p_patient and not shadow and (created_at at time zone$a$, $b$where patient_id = p_patient and not shadow and rule_set_code is distinct from 'unified_red_paging' and (created_at at time zone$b$),
-      ('private.triage_parity_rows(integer)'::regprocedure, $a$where te.trigger_type = 'observation' and not te.is_test$a$, $b$where te.trigger_type = 'observation' and not te.is_test and te.rule_set_code is distinct from 'unified_red_paging'$b$),
-      ('public.record_red_care_response(uuid,text,uuid,uuid,timestamptz)'::regprocedure, $a$where patient_id = v_uid and grade = 'red' and not shadow and created_at$a$, $b$where patient_id = v_uid and grade = 'red' and not shadow and rule_set_code is distinct from 'unified_red_paging' and created_at$b$),
-      ('private.notify_circle_red_alert()'::regprocedure, E'  if new.parent_page_id is not null then return new; end if;\n', E'  if new.parent_page_id is not null then return new; end if;\n  if exists (select 1 from public.triage_events ut where ut.id = new.triage_event_id and ut.rule_set_code = ''unified_red_paging'') then return new; end if;\n')
-    ) as t(fn, from_text, to_text)
-  loop
-    v_def := pg_get_functiondef(p.fn);
-    if position('unified_red_paging' in v_def) > 0 and position(p.to_text in v_def) > 0 then continue; end if;
-    v_count := (length(v_def) - length(replace(v_def, p.from_text, ''))) / length(p.from_text);
-    if v_count <> 1 then raise exception 'S19d: anchor for % found % times, expected 1: %', p.fn, v_count, p.from_text; end if;
-    v_new := replace(v_def, p.from_text, p.to_text);
-    execute v_new;
-  end loop;
+  --     none); (2) the chain-health timings, the parity measure and the risk score were built on the blood pressure engine and must not be moved by another
+  --     source; (3) a unified page does not tell the Care Circle: that reach is for the CMO and DPO to decide (a blood pressure page still does).
+  perform pg_temp.s19d_patch_once('private.chain_timing_rows(integer,boolean)'::regprocedure, $a$where te.trigger_type = 'observation' and not te.shadow and te.is_test = p_test$a$, $b$where te.trigger_type = 'observation' and not te.shadow and te.rule_set_code is distinct from 'unified_red_paging' and te.is_test = p_test$b$);
+  perform pg_temp.s19d_patch_once('private.chain_timing_rows(integer,boolean)'::regprocedure, $a$where not te.shadow and te.is_test = p_test$a$, $b$where not te.shadow and te.rule_set_code is distinct from 'unified_red_paging' and te.is_test = p_test$b$);
+  perform pg_temp.s19d_patch_once('private.chain_timing_rows(integer,boolean)'::regprocedure, $a$join public.triage_events te on te.id = p.triage_event_id, win$a$, $b$join public.triage_events te on te.id = p.triage_event_id and te.rule_set_code is distinct from 'unified_red_paging', win$b$);
+  perform pg_temp.s19d_patch_once('private.risk_compute(uuid,date)'::regprocedure, $a$where patient_id = p_patient and not shadow and (created_at at time zone$a$, $b$where patient_id = p_patient and not shadow and rule_set_code is distinct from 'unified_red_paging' and (created_at at time zone$b$);
+  perform pg_temp.s19d_patch_once('private.triage_parity_rows(integer)'::regprocedure, $a$where te.trigger_type = 'observation' and not te.is_test$a$, $b$where te.trigger_type = 'observation' and not te.is_test and te.rule_set_code is distinct from 'unified_red_paging'$b$);
+  perform pg_temp.s19d_patch_once('public.record_red_care_response(uuid,text,uuid,uuid,timestamptz)'::regprocedure, $a$where patient_id = v_uid and grade = 'red' and not shadow and created_at$a$, $b$where patient_id = v_uid and grade = 'red' and not shadow and rule_set_code is distinct from 'unified_red_paging' and created_at$b$);
+  perform pg_temp.s19d_patch_once('private.notify_circle_red_alert()'::regprocedure, E'  if new.parent_page_id is not null then return new; end if;\n',
+    E'  if new.parent_page_id is not null then return new; end if;\n  if exists (select 1 from public.triage_events ut where ut.id = new.triage_event_id and ut.rule_set_code = ''unified_red_paging'') then return new; end if;\n');
+
+  -- 5e. The S78a watchdog pages any red triage event that has no ROOT page. An event that joined an open page family (page_merged_events) has no root page of
+  --     its own by design, and a Free patient's event has none either, so the watchdog would call create_red_page for each of them every 15 seconds for six hours,
+  --     raise "paging path stalled" on a healthy system, and let those rows fill its 50-row window ahead of a genuinely unpaged event. S19c's own reconciler already
+  --     excludes both; the watchdog now does too. Skipped when the watchdog is not installed (it arrives with S78a).
+  if to_regprocedure('private.sweep_unpaged_red_events()') is not null then
+    perform pg_temp.s19d_patch_once('private.sweep_unpaged_red_events()'::regprocedure,
+      $a$and not exists (select 1 from public.pages p where p.triage_event_id = te.id and p.parent_page_id is null)$a$,
+      $b$and not exists (select 1 from public.pages p where p.triage_event_id = te.id and p.parent_page_id is null)
+       and not exists (select 1 from public.page_merged_events m where m.triage_event_id = te.id)
+       and not exists (select 1 from public.free_red_events f where f.triage_event_id = te.id)$b$);
+  end if;
 end
 $patch$;
 
@@ -358,10 +349,14 @@ begin
      or position('unified_red_paging' in pg_get_functiondef('private.notify_circle_red_alert()'::regprocedure)) = 0 then
     raise exception 'S19d: a dependent function was not patched';
   end if;
+  if to_regprocedure('private.sweep_unpaged_red_events()') is not null
+     and position('page_merged_events' in pg_get_functiondef('private.sweep_unpaged_red_events()'::regprocedure)) = 0 then
+    raise exception 'S19d: the paging watchdog was not patched';
+  end if;
   if exists (select 1 from public.unified_red_paging_config where is_active or approved_at is not null) then raise exception 'S19d: the config must ship inactive and unsigned'; end if;
   if private.unified_red_paging_on('spo2_red') or private.unified_red_paging_on('emergency_event') then raise exception 'S19d: the flag must read OFF on arrival'; end if;
-  if has_function_privilege('anon', 'private.unified_red_page_covers(text,uuid,uuid,text,text,uuid)', 'EXECUTE')
-     or has_function_privilege('authenticated', 'private.unified_red_page_covers(text,uuid,uuid,text,text,uuid)', 'EXECUTE')
+  if has_function_privilege('anon', 'private.unified_red_page_covers(text,uuid,uuid,text,uuid)', 'EXECUTE')
+     or has_function_privilege('authenticated', 'private.unified_red_page_covers(text,uuid,uuid,text,uuid)', 'EXECUTE')
      or has_function_privilege('anon', 'private.unified_red_paging_on(text)', 'EXECUTE')
      or has_function_privilege('anon', 'public.sign_unified_red_paging_config(integer,boolean)', 'EXECUTE')
      or has_function_privilege('anon', 'public.switch_off_unified_red_paging()', 'EXECUTE')
