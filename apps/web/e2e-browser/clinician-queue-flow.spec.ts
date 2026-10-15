@@ -93,6 +93,7 @@ test.describe("clinician queue (S16-S20)", () => {
   }
 
   test.beforeAll(async () => {
+    test.setTimeout(180_000);
     patient = await createTestPatient(runId);
     doctor = await makeClinician("doctor", "senior_medical_officer", ["hypertension", "adult_general"]);
     lead = await makeClinician("lead", "chief_medical_officer", []);

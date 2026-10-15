@@ -128,6 +128,7 @@ export const CMO_EXTRA_PAGES: AdminSearchEntry[] = [
   { label: "Testing-day results", href: "/clinician/poc-results", group: "Clinical queue", hint: "Read ECG traces and release urine and HbA1c results from testing days and employer visits." },
   { label: "Record access review", href: "/clinician/access-review", group: "Security and privacy", hint: "Who opened which patient record, untied and after-hours openings, and the retention review." },
   { label: "Chain health", href: "/clinician/chain-health", group: "Clinical governance", hint: "Whether readings become grades, tasks, pages and notices, the test run, timings, and the new grading against the old alerts." },
+  { label: "Care funnel", href: "/clinician/funnel", group: "Clinical governance", hint: "Alerts, red-event pages, doctor reviews and emergencies over 30 days as a ratio per alert, and how often a patient's own lead handled the task." },
   { label: "Home blood pressure programme", href: "/clinician/home-bp-programme", group: "Clinical sign-off", hint: "Sign the seven-day home check protocol, the bands and the white-coat or masked pattern rule (C1 to C3)." },
   { label: "My Health lock-screen pass fields", href: "/clinician/my-health-config", group: "Clinical sign-off", hint: "Sign what a lock-screen or wallet pass may show (C8)." },
 ];

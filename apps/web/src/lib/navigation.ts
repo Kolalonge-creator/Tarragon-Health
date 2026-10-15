@@ -603,6 +603,8 @@ export function getNavSections(
                 { label: "Team caseload", href: "/clinician/team-caseload", icon: "analytics" },
                 // Chief Medical Officer only: is the chain from a reading to a grade, task, page and notice working, and how fast (P1).
                 { label: "Chain health", href: "/clinician/chain-health", icon: "operations" },
+                // Chief Medical Officer only: alerts, pages, doctor reviews and emergencies as a ratio, and how often the lead handled the task (S16-S20 W6.3).
+                { label: "Care funnel", href: "/clinician/funnel", icon: "analytics" },
                 // Chief Medical Officer only: how AI scribe drafts are used, and a random sample to check (S35c).
                 { label: "Scribe quality", href: "/clinician/scribe-quality", icon: "analytics" },
               ],
