@@ -23,42 +23,51 @@ type Client = {
   };
 };
 
-/** True when the error means "that function is not in the database (yet)". */
+/**
+ * True only when the error means "public.clinical_staff_folio itself is not in the database (yet)". A missing function that
+ * clinical_staff_folio CALLS (42883 naming something else) is a real failure and must not trigger the table fallback.
+ */
 export function isMissingFunctionError(error: Err): boolean {
   if (!error) return false;
-  return (
-    error.code === "PGRST202" ||
-    error.code === "42883" ||
-    /could not find the function|function .* does not exist/i.test(error.message ?? "")
-  );
+  if (error.code === "PGRST202") return true;
+  return error.code === "42883" && /clinical_staff_folio/.test(error.message ?? "");
 }
 
 export async function fetchStaffFolios(
-  supabase: Pick<SupabaseClient, "rpc" | "from"> | object,
+  supabase: Pick<SupabaseClient, "rpc" | "from">,
   staffIds: readonly (string | null | undefined)[],
 ): Promise<StaffFolioMap> {
   const out: StaffFolioMap = new Map();
   const ids = [...new Set(staffIds.filter((i): i is string => typeof i === "string" && i.length > 0))];
   if (ids.length === 0) return out;
-  const client = supabase as Client;
+  const client = supabase as unknown as Client;
 
   const viaFunction = await client.rpc("clinical_staff_folio", { p_staff_ids: ids });
   if (!viaFunction.error) {
     for (const row of viaFunction.data ?? []) out.set(row.clinical_staff_id, row.credential_number);
     return out;
   }
-  if (!isMissingFunctionError(viaFunction.error)) return out; // refused or failed: no folio shown
+  if (!isMissingFunctionError(viaFunction.error)) {
+    // refused or failed: no folio shown, but never silently (a broken grant would otherwise look like "this clinician has no folio")
+    console.error("clinical_staff_folio lookup failed", viaFunction.error.code);
+    return out;
+  }
 
-  // Deploy-window fallback: the schema step has not landed, so the column is still readable.
+  // Deploy-window fallback (REMOVE once the folio lock migration is applied everywhere): the schema step has not landed, so the
+  // column is still readable. It fires only when the function itself is absent, and it says so.
+  console.warn("clinical_staff_folio is not in the database yet: reading the column directly (deploy window)");
   const viaTable = await client.from("clinical_staff").select("id, credential_number").in("id", ids);
-  if (viaTable.error) return out;
+  if (viaTable.error) {
+    console.error("clinical_staff folio fallback read failed", viaTable.error.code);
+    return out;
+  }
   for (const row of viaTable.data ?? []) out.set(row.id, row.credential_number);
   return out;
 }
 
 /** Fills `credential_number` on rows that no longer carry it (selected without the folio), for screens entitled to show it. */
 export async function withStaffFolios<T extends { id: string }>(
-  supabase: Pick<SupabaseClient, "rpc" | "from"> | object,
+  supabase: Pick<SupabaseClient, "rpc" | "from">,
   rows: readonly T[],
 ): Promise<(T & { credential_number: string | null })[]> {
   const folios = await fetchStaffFolios(supabase, rows.map((r) => r.id));

@@ -7,7 +7,10 @@ import { join, relative } from "node:path";
  */
 const WEB_SRC = join(__dirname, "..", "..");
 const MOBILE_SRC = join(__dirname, "..", "..", "..", "..", "mobile", "src");
-const AUTH_SRC = join(__dirname, "..", "..", "..", "..", "..", "packages", "auth", "src");
+const PACKAGES = join(__dirname, "..", "..", "..", "..", "..", "packages");
+const CONSOLE_SRC = join(__dirname, "..", "..", "..", "..", "console", "src");
+const EDGE_FUNCTIONS = join(__dirname, "..", "..", "..", "..", "..", "supabase", "functions");
+const exists = (d: string) => { try { return statSync(d).isDirectory(); } catch { return false; } };
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -19,10 +22,13 @@ function walk(dir: string, out: string[] = []): string[] {
   }
   return out;
 }
-const files = [...walk(WEB_SRC), ...walk(MOBILE_SRC), ...walk(AUTH_SRC)];
+const packageSrcs = readdirSync(PACKAGES).map((p) => join(PACKAGES, p, "src")).filter(exists);
+const files = [...walk(WEB_SRC), ...walk(MOBILE_SRC), ...(exists(CONSOLE_SRC) ? walk(CONSOLE_SRC) : []), ...packageSrcs.flatMap((d) => walk(d)), ...(exists(EDGE_FUNCTIONS) ? walk(EDGE_FUNCTIONS) : [])];
 
 /** Only the folio reader itself may name the column in a select on the table. */
 const ALLOWED_COLUMN_READERS = ["lib/clinical/staff-folio.ts"];
+/** A column list that fails once the table grant is column-scoped: names the folio, or is "*" (alone or leading), or is empty (= "*"). */
+const asksForFolio = (cols: string) => cols.includes("credential_number") || /^\s*\*/.test(cols) || cols.trim() === "";
 
 describe("no screen reads the folio from the clinical_staff base table", () => {
   it("no select on clinical_staff names credential_number, or asks for every column", () => {
@@ -31,14 +37,28 @@ describe("no screen reads the folio from the clinical_staff base table", () => {
       const rel = relative(WEB_SRC, file);
       if (ALLOWED_COLUMN_READERS.includes(rel)) continue;
       const src = readFileSync(file, "utf8");
-      const direct = /from\(\s*["']clinical_staff["']\s*\)\s*\.select\(\s*([`"'])([^`"']*)\1/g;
+      // select("...") with a literal, or select() with nothing, directly after from("clinical_staff")
+      const direct = /from\(\s*["']clinical_staff["']\s*\)\s*\.select\(\s*(?:([`"'])([^`"']*)\1)?\s*[,)]/g;
       let m: RegExpExecArray | null;
       while ((m = direct.exec(src))) {
-        if (m[2]!.includes("credential_number") || m[2]!.trim() === "*") offenders.push(`${rel}: ${m[2]}`);
+        if (asksForFolio(m[2] ?? "")) offenders.push(`${rel}: select(${m[2] ?? ""})`);
       }
-      const embed = /clinical_staff(?:![\w]+)?\(([^)]*)\)/g;
-      while ((m = embed.exec(src))) {
-        if (m[1]!.includes("credential_number") || m[1]!.trim() === "*") offenders.push(`${rel}: embed ${m[1]}`);
+      // a write whose RETURNING needs column SELECT (insert/update/upsert ... .select())
+      const returning = /from\(\s*["']clinical_staff["']\s*\)\s*\.(?:insert|update|upsert)\([\s\S]{0,600}?\)\s*\.select\(/g;
+      while ((m = returning.exec(src))) offenders.push(`${rel}: write with .select()`);
+      // an embed of the table: take its column list up to the matching close, however it nests
+      const embedStart = /clinical_staff(?:![\w]+)?\(/g;
+      while ((m = embedStart.exec(src))) {
+        let depth = 1;
+        let i = m.index + m[0].length;
+        const from = i;
+        while (i < src.length && depth > 0) {
+          if (src[i] === "(") depth++;
+          else if (src[i] === ")") depth--;
+          i++;
+        }
+        const cols = src.slice(from, i - 1);
+        if (/^[^`"']*$/.test(cols) && (cols.includes("credential_number") || /^\s*\*/.test(cols))) offenders.push(`${rel}: embed ${cols}`);
       }
     }
     expect(offenders).toEqual([]);

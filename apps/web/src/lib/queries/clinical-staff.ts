@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { SIGNATURE_BUCKET, signatureObjectPath, validateSignatureFile } from "@/lib/clinical/signature-image";
 import { CLINICAL_STAFF_SELECT_NO_FOLIO } from "@/lib/clinical/staff-columns";
@@ -46,9 +46,12 @@ async function getCallerOrganisationId(): Promise<string> {
 }
 
 /** Every clinical_staff record in the caller's org, any tier/active state — admin management view. */
-export function useAllClinicalStaff() {
+export function useAllClinicalStaff(): UseQueryResult<ClinicalStaff[]>;
+export function useAllClinicalStaff(options: { withFolio: false }): UseQueryResult<ClinicalStaffNoFolio[]>;
+export function useAllClinicalStaff(options: { withFolio?: boolean } = {}): UseQueryResult<ClinicalStaff[] | ClinicalStaffNoFolio[]> {
+  const withFolio = options.withFolio ?? true;
   return useQuery({
-    queryKey: ALL_STAFF_QUERY_KEY,
+    queryKey: withFolio ? ALL_STAFF_QUERY_KEY : [...ALL_STAFF_QUERY_KEY, "no-folio"],
     queryFn: async () => {
       const supabase = createClient();
       const { data, error } = await supabase
@@ -57,9 +60,12 @@ export function useAllClinicalStaff() {
         .order("doctor_tier", { ascending: false })
         .order("full_name", { ascending: true });
       if (error) throw error;
+      const rows = (data ?? []) as unknown as ClinicalStaffNoFolio[];
+      // Screens that only need names (withFolio: false) never fetch a registration number into the browser.
+      if (!withFolio) return rows;
       // The admin manager is entitled to the folio (private.can_credential_review()); it comes from the folio function,
       // never from the table select, so locking the column (OQ-358) cannot break this list.
-      return (await withStaffFolios(supabase, (data ?? []) as unknown as ClinicalStaffNoFolio[])) as ClinicalStaff[];
+      return (await withStaffFolios(supabase, rows)) as unknown as ClinicalStaff[];
     },
   });
 }
@@ -565,12 +571,13 @@ export function useOrgClinicians() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("clinical_staff")
-        .select(CLINICAL_STAFF_SELECT_NO_FOLIO)
+        // only what the care-team picker and hand-over need: colleagues' indemnity, suspension and signature columns stay off the client
+        .select("id, profile_id, full_name, staff_number, credential_type, doctor_tier, specialty")
         .in("doctor_tier", ["senior_medical_officer"])
         .eq("active", true)
         .order("full_name", { ascending: true });
       if (error) throw error;
-      return data as unknown as ClinicalStaffNoFolio[];
+      return data;
     },
   });
 }

@@ -70,8 +70,11 @@ export default async function AccountPage() {
 
   const supabase = await createClient();
   // The clinician's OWN folio only (OQ-358): the folio function returns it to its owner, never to a colleague.
-  const ownFolio = staff ? ((await fetchStaffFolios(supabase, [staff.id])).get(staff.id) ?? null) : null;
-  const { data: factors } = await supabase.auth.mfa.listFactors();
+  const [ownFolioMap, { data: factors }] = await Promise.all([
+    staff ? fetchStaffFolios(supabase, [staff.id]) : Promise.resolve(new Map<string, string | null>()),
+    supabase.auth.mfa.listFactors(),
+  ]);
+  const ownFolio = staff ? (ownFolioMap.get(staff.id) ?? null) : null;
   const verifiedFactorId =
     factors?.totp.find((f) => f.status === "verified")?.id ?? null;
 
