@@ -54,6 +54,9 @@ export interface CoachChatMessage {
   role: "user" | "assistant";
   content: string;
   tier?: CoachTier;
+  /** S52: the audit id (ai_interaction_log) of the model answer, set on an assistant message that came from a governed model call, so a report
+   * is attached to exactly this answer. Absent on a fixed reply (emergency, refusal, closed): nothing to report against. */
+  interactionId?: string;
   /** Absent or "none" for most turns -- see COACH_SUGGESTED_ACTIONS. */
   suggestedAction?: CoachSuggestedAction;
   /** Which model actually answered this turn -- absent for a user message,
