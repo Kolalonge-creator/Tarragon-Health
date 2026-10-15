@@ -267,3 +267,25 @@ describe("readSignoffQueue corrupt state", () => {
     expect(result.failedSources).toContain("result_release_policies");
   });
 });
+
+describe("readSignoffQueue S88 clinical config drafts", () => {
+  const row = (config_kind: string, version: number, status: string, approved_at: string | null = null) => ({ config_kind, version, status, approved_at });
+  const find = async (rows: unknown[], basePath = "/clinician") =>
+    (await readSignoffQueue(client({ clinical_config_versions: { data: rows } }), basePath)).items.find(
+      (i) => i.key === "versioned_draft:clinical_config_versions"
+    );
+
+  it("lists unsigned drafts as one line that opens the hub panel", async () => {
+    const item = await find([row("a", 1, "draft"), row("b", 1, "draft")]);
+    expect(item).toMatchObject({ severity: "draft_pending", count: 2, href: "/clinician/clinical-signoff" });
+  });
+
+  it("a draft older than a signed version is history, not work", async () => {
+    expect(await find([row("a", 1, "draft"), row("a", 2, "active", "2026-10-08T00:00:00Z")])).toBeUndefined();
+  });
+
+  it("an unreadable ledger is reported as a failed source, never an all-clear", async () => {
+    const res = await readSignoffQueue(client({ clinical_config_versions: { error: { message: "denied" } } }));
+    expect(res.failedSources).toContain("clinical_config_versions");
+  });
+});
