@@ -570,13 +570,13 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       recheck_months: 6,
       recheck_overdue_days: 14,
       credential_date_max_days: 1100,
-      grandfather_ends_on: null,
+      grandfather_ends_on: "2027-01-13",
     },
     owner: "Founder and counsel",
     status: "proposed",
     version: 3,
     effectiveFrom: "2026-10-13",
-    source: "docs/design/S11-S15-credentialing.md; CMO answers Q14 and Q15 (MDCN verification before first independent contact; six-month spot re-check). grandfather_ends_on is null until the CMO sets it.",
+    source: "docs/design/S11-S15-credentialing.md; CMO answers Q14 and Q15 (MDCN verification before first independent contact; six-month spot re-check). grandfather_ends_on is 2027-01-13 (90 days from 2026-10-15; follow-up OQ-344, set by migration, also carried to versions 4 and 5).",
   },
   {
     key: "credentialing.rules",
@@ -607,7 +607,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       recheck_months: 6,
       recheck_overdue_days: 14,
       credential_date_max_days: 1100,
-      grandfather_ends_on: null,
+      grandfather_ends_on: "2027-01-13",
       renewal_cycle: {
         cycle_end_month: 12,
         cycle_end_day: 31,
@@ -1448,6 +1448,17 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 3,
     effectiveFrom: "2026-10-07",
     source: "docs/design/S39d.md; spec section 13; founder direction 2026-10-07",
+  },
+  {
+    key: "pharmacy.collection_rules",
+    // Version 2 (S54c): adds suggestion_valid_days, how long a care-team pharmacy suggestion waits for the patient before it expires.
+    // Same code rules as version 1 (S28, spec 9.6); the live values are the active row of `pharmacy_config`.
+    value: { code_length: 8, code_valid_days: 14, max_wrong_attempts: 5, suggestion_valid_days: 14 },
+    owner: "CMO",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S28.md; docs/design/S54.md section 6; spec 9.6 and 8.9",
   },
   {
     key: "quality.audit",
@@ -3784,7 +3795,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
       recheck_months: 6,
       recheck_overdue_days: 14,
       credential_date_max_days: 1100,
-      grandfather_ends_on: null,
+      grandfather_ends_on: "2027-01-13",
       reverify_months: 12,
       reverify_notice_days: 30,
       renewal_cycle: {

@@ -16,7 +16,7 @@ import {
   type FoodNote,
   type ScheduleSpec,
 } from "@tarragon/medicines";
-import { addSideEffectNote, loadInteractionCheckState, loadMedicineCatalogue } from "@/lib/medicine-catalogue";
+import { addSideEffectNote, loadInteractionCheckState, loadMedicineCatalogue, loadRefillPharmacy, type RefillPharmacy } from "@/lib/medicine-catalogue";
 import { useUiLanguage } from "@/lib/ui-language";
 import {
   addMedication,
@@ -301,6 +301,16 @@ function MedicationCard({
 
   const [requestPending, setRequestPending] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
+  const [refillPharmacy, setRefillPharmacy] = useState<RefillPharmacy | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void loadRefillPharmacy(medication.id).then((p) => {
+      if (alive) setRefillPharmacy(p);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [medication.id]);
 
   const scheduleTimes = Array.isArray(medication.schedule_times) ? (medication.schedule_times as string[]) : [];
 
@@ -421,6 +431,9 @@ function MedicationCard({
       ) : null}
       {requestError ? <ErrorText>{requestError}</ErrorText> : null}
 
+      {refillPharmacy ? (
+        <MutedText>{tr("refill.collect_at", { pharmacy: [refillPharmacy.partnerName, refillPharmacy.locationName].filter(Boolean).join(", ") })}</MutedText>
+      ) : null}
       <SideEffectNoteSection medicationId={medication.id} />
 
       {collectOpen ? (

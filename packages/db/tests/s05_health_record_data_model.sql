@@ -97,8 +97,8 @@ begin
   values (v_org, v_pat, v_tied, now())
   on conflict (patient_id) do update set clinician_id = v_tied;
 
-  insert into public.pharmacy_partners (name, is_active) values ('S05 Pharmacy A', false) returning id into v_pp;
-  insert into public.pharmacy_partners (name, is_active) values ('S05 Pharmacy B', false) returning id into v_pp2;
+  insert into public.pharmacy_partners (name, is_active, approved_at, license_verified_at, onboarding_status, nafdac_source_attested_at) values ('S05 Pharmacy A', true, now(), now(), 'activated', now()) returning id into v_pp;
+  insert into public.pharmacy_partners (name, is_active, approved_at, license_verified_at, onboarding_status, nafdac_source_attested_at) values ('S05 Pharmacy B', true, now(), now(), 'activated', now()) returning id into v_pp2;
   update public.profiles set pharmacy_partner_id = v_pp  where id = v_ph;
   update public.profiles set pharmacy_partner_id = v_pp2 where id = v_ph2;
 

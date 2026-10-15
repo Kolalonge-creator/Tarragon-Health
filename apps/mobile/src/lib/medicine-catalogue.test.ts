@@ -1,5 +1,5 @@
 import { INTERACTION_DATASET_HASH } from "@tarragon/medicines";
-import { addSideEffectNote, __resetCatalogueCache, catalogueFromRows, loadInteractionCheckState, loadMedicineCatalogue } from "./medicine-catalogue";
+import { loadRefillPharmacy, addSideEffectNote, __resetCatalogueCache, catalogueFromRows, loadInteractionCheckState, loadMedicineCatalogue } from "./medicine-catalogue";
 import { supabase } from "./supabase";
 
 jest.mock("./supabase", () => ({ supabase: { from: jest.fn(), rpc: jest.fn() } }));
@@ -108,5 +108,21 @@ describe("side-effect notes (8.7)", () => {
       throw new Error("boom");
     });
     await expect(addSideEffectNote("m1", "x")).resolves.toEqual({ error: "boom" });
+  });
+});
+
+describe("refill pharmacy (8.10)", () => {
+  it("returns the chosen pharmacy, or null for none, an error or a malformed answer", async () => {
+    mockRpc.mockResolvedValueOnce({ data: [{ partner_name: "Pharmacy A", location_name: "Lekki", address: "1 Road" }], error: null });
+    await expect(loadRefillPharmacy("m1")).resolves.toEqual({ partnerName: "Pharmacy A", locationName: "Lekki", address: "1 Road" });
+    expect(mockRpc).toHaveBeenCalledWith("medication_refill_pharmacy", { p_medication: "m1" });
+    mockRpc.mockResolvedValueOnce({ data: [], error: null });
+    await expect(loadRefillPharmacy("m1")).resolves.toBeNull();
+    mockRpc.mockResolvedValueOnce({ data: null, error: { message: "x" } });
+    await expect(loadRefillPharmacy("m1")).resolves.toBeNull();
+    mockRpc.mockResolvedValueOnce({ data: [{}], error: null });
+    await expect(loadRefillPharmacy("m1")).resolves.toBeNull();
+    mockRpc.mockRejectedValueOnce(new Error("offline"));
+    await expect(loadRefillPharmacy("m1")).resolves.toBeNull();
   });
 });
