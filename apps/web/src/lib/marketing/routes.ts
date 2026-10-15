@@ -22,6 +22,8 @@ export const MARKETING_ROUTES = {
   mentalWellbeingCheck: "/mental-wellbeing-check",
   symptomChecker: "/symptom-checker",
   healthEducation: "/health-education",
+  /** A shared Learning Centre article, /learn/<code>. Not in the sitemap: each link is shared by a person, never listed. */
+  learn: "/learn",
   bmiCalculator: "/bmi-calculator",
   activityCalculator: "/activity-calculator",
   medication: "/medication",

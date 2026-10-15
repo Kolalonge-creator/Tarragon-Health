@@ -4,10 +4,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { describeInsight, type CycleInsight } from "@/lib/rules/cycle-insights";
 import {
   describeThermalShift,
-  THERMAL_SHIFT_DISCLAIMER,
+  THERMAL_SHIFT_EXPLAINER,
   type ThermalShiftResult,
 } from "@/lib/rules/cycle-thermal-shift";
-import { PHASE_LABEL } from "@/lib/rules/cycle-prediction";
+import { insightPhasePhrase } from "@/lib/rules/cycle-fertile-mode";
+import { FertileWindowNotice } from "./fertile-window-notice";
 
 /**
  * What the logging was for: the app finally saying something back.
@@ -54,12 +55,15 @@ export function CycleInsightsCard({
   insights,
   thermalShift,
   hasAnyLogs,
+  planningMode,
 }: {
   insights: CycleInsight[];
   thermalShift: ThermalShiftResult;
   hasAnyLogs: boolean;
+  /** "Planning a pregnancy" (S85 D2). Off hides the temperature-based ovulation confirmation; there is no default. */
+  planningMode: boolean;
 }) {
-  const showThermal = thermalShift.reason !== "not_enough_readings" || hasAnyLogs;
+  const showThermal = planningMode && (thermalShift.reason !== "not_enough_readings" || hasAnyLogs);
 
   if (insights.length === 0 && !showThermal) return null;
 
@@ -84,7 +88,7 @@ export function CycleInsightsCard({
                 <span className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
                   {describeInsight(insight, labelFor(insight))}{" "}
                   <span className="text-charcoal-ink/50 dark:text-night-ink/55">
-                    Usually in your {PHASE_LABEL[insight.phase].toLowerCase()}.
+                    {insightPhasePhrase(insight.phase, planningMode)}
                   </span>
                 </span>
               </li>
@@ -103,11 +107,12 @@ export function CycleInsightsCard({
               Temperature
             </p>
             <p className="mt-0.5 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
-              {describeThermalShift(thermalShift)}
+              {describeThermalShift(thermalShift, planningMode)}
             </p>
             {thermalShift.detected && (
-              <p className="mt-1 text-xs text-charcoal-ink/55 dark:text-night-ink/60">{THERMAL_SHIFT_DISCLAIMER}</p>
+              <p className="mt-1 text-xs text-charcoal-ink/55 dark:text-night-ink/60">{THERMAL_SHIFT_EXPLAINER}</p>
             )}
+            <FertileWindowNotice className="mt-2" />
           </div>
         )}
       </CardContent>

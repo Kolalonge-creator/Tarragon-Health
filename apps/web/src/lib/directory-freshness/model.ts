@@ -12,6 +12,10 @@ export const LISTING_TABLES = [
   "facilities",
   "home_visit_providers",
   "logistics_partners",
+  "lab_provider_locations",
+  "pharmacy_partner_locations",
+  "specialist_provider_locations",
+  "imaging_provider_locations",
 ] as const;
 export type ListingTable = (typeof LISTING_TABLES)[number];
 
@@ -51,7 +55,7 @@ export function groupFreshness(rows: readonly FreshnessRow[]): FreshnessGroups {
 }
 
 /** Notices carried in the address are fixed tokens, so a link can never put its own words on the page. */
-export const NOTICES = ["recorded", "record_failed", "record_denied", "note_short"] as const;
+export const NOTICES = ["recorded", "record_failed", "record_denied", "note_short", "recheck_requested"] as const;
 export type Notice = (typeof NOTICES)[number];
 export const asNotice = (v: unknown): Notice | null => ((NOTICES as readonly unknown[]).includes(v) ? (v as Notice) : null);
 
@@ -69,4 +73,19 @@ export const KIND_LABEL: Record<ListingTable, string> = {
   facilities: "Facility",
   home_visit_providers: "Home visit provider",
   logistics_partners: "Delivery partner",
+  lab_provider_locations: "Laboratory branch",
+  pharmacy_partner_locations: "Pharmacy branch",
+  specialist_provider_locations: "Specialist branch",
+  imaging_provider_locations: "Imaging branch",
 };
+
+export const recheckFormSchema = z.object({
+  listing_table: z.enum(LISTING_TABLES),
+  listing_id: z.string().uuid(),
+  reason: z.string().trim().min(10).max(200),
+});
+
+/** The patient screens' answer: a date and a flag, nothing else (the database never returns who checked or what they wrote). */
+export const lastCheckedRowSchema = z.object({ listing_id: z.string().uuid(), last_checked: z.string(), is_overdue: z.boolean().nullable() });
+export const lastCheckedRowsSchema = z.array(lastCheckedRowSchema);
+export type LastChecked = z.infer<typeof lastCheckedRowSchema>;

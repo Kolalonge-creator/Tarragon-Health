@@ -67,6 +67,9 @@ begin
   on conflict (id) do update set is_test = excluded.is_test, is_active = true, phone = excluded.phone, full_name = excluded.full_name;
   return v;
 end $f$;
+-- S55's publish gate refuses to publish an item with no named reviewer or review date. This proof needs exactly such rows to show the
+-- assistant's own knowledge gate refuses them as well (defence in depth), so the table gate is off for this rolled-back transaction only.
+alter table public.health_education_content disable trigger health_education_publish_gate;
 create function pg_temp.kb(p_code text, p_owner text, p_due timestamptz, p_reviewed boolean) returns uuid language plpgsql as $f$
 declare v uuid;
 begin
@@ -186,7 +189,7 @@ select pg_temp.ck('real', 'the step table never leaves', 'false',
 select pg_temp.ck('real', 'anon cannot read limits', 'ERR:42501', pg_temp.q_anon($q$select public.assistant_protocol_limits()::text$q$));
 
 -- 5. Events ---------------------------------------------------------------------------------------------------------------------
-select pg_temp.ck('real', 'three assistant event types exist', '3', (select count(*)::text from public.event_types where event_type like 'assistant.%'));
+select pg_temp.ck('real', 'three assistant event types exist', '3', (select count(*)::text from public.event_types where event_type in ('assistant.message', 'assistant.red_flag_detected', 'assistant.handoff')));
 select pg_temp.ck('real', 'the service role can emit assistant.handoff', 'ok',
   case when pg_temp.q_service(format($q$select public.emit_domain_event('assistant.handoff', %L::uuid, '{"conversation_id":"c1","target":"symptom_checker"}'::jsonb, 's51-proof-1', %L::uuid)::text$q$, pg_temp.f('org'), pg_temp.f('real'))) like 'ERR:%' then 'refused' else 'ok' end);
 select pg_temp.ck('real', 'a patient cannot emit an event', 'ERR:42501',

@@ -707,8 +707,14 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     return { text: "This is a test alert. Nothing is wrong", href: "/patient" };
   }
   if (n.template === "on_call_page") {
-    // From private.page_notify (S19): fixed neutral line, never the patient or the reading (INV-07).
+    // Fixed neutral line, never the patient or the reading (INV-07). A page from the assistant's self-harm path (S52) has no S19 page row,
+    // so /clinician/on-call would be empty: it points to the queue, where the class 1 task is counted and "claim next" hands it out first.
+    if (payload.kind === "assistant_crisis") return { text: "A priority case is waiting for you", href: "/clinician/queue" };
     return { text: "A priority case is waiting for you", href: "/clinician/on-call" };
+  }
+  if (n.template === "response_slower_notice") {
+    // S78b: fixed plain wording, no number, no condition (INV-07, CMO decision S-9).
+    return { text: "We are slower than usual. If this is urgent, please use emergency care now.", href: "/patient/care" };
   }
   if (n.template === "assistant_daily_nudge") {
     // S51: generic by design (INV-07): no condition, reading or medicine is ever named.
@@ -726,6 +732,12 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   }
   if (n.template === "ops_all_clear") {
     return { text: "An operations alert has cleared", href: "/admin/ops/wall" };
+  }
+  if (n.template === "on_call_test_page") {
+    return { text: "Test page: open On call and acknowledge it", href: "/clinician/on-call" };
+  }
+  if (n.template === "on_call_expired") {
+    return { text: "Nobody has answered a priority case. Phone the clinician on call now", href: "/rota" };
   }
   if (n.template === "on_call_unfinished") {
     return { text: "A priority case is acknowledged but still open", href: "/rota" };
@@ -776,6 +788,7 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
         : audience === "reviewer" ? "/credentialing"
         : audience === "rota_review" ? "/rota"
         : audience === "rota" ? "/clinician/rota"
+        : audience === "concern_reader" ? "/reader/concerns"
         : audience === "lead" ? "/clinician/patients"
         : "/clinician/credentials",
     };

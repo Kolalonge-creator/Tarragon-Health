@@ -20,3 +20,16 @@ says so. CI proves the guard on a fresh replay (`minor_dependant_table_policy_co
    `allowed` / `exempt` row into `minor_dependant_table_policy`.
 3. Add the same call to the migration that creates any new `patient_id` table, so CI and production agree from the start.
 4. Re-run the check; the release-integrity job should go green.
+
+## Since S04b-1e: a new patient table is guarded for you
+An event trigger (`guard_new_patient_tables_trigger`) guards any `public` table the moment it gains a `patient_id` column and has no row in
+`minor_dependant_table_policy`. A migration no longer has to call `private.guard_minor_dependant_table`, so the gaps above should stop appearing.
+
+What changes for a migration author:
+- A table that must stay writable for a child (system, data-rights or safety) or that holds immunisation or preventive tracking is guarded at creation.
+  Right after `create table`, call `select private.classify_minor_dependant_table('<table>', 'exempt' | 'allowed', '<reason>');`. It records the policy and
+  removes the trigger.
+- `insert into minor_dependant_table_policy ... on conflict do nothing` no longer works for that: the row already says guarded. CI
+  (`minor_dependant_table_policy_complete`) will fail with "listed guarded ..." or "listed allowed but is guarded" until the table is classified with the helper.
+- Proofs that need an unclassified table must `alter event trigger guard_new_patient_tables_trigger disable;` first (inside their rolled-back transaction).
+- The four `profile_id` tables are still named explicitly; the event trigger only looks at `patient_id`.

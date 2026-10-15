@@ -2,7 +2,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Database, Tables } from "@tarragon/shared";
 
-export type PanelBundle = Tables<"panel_bundles">;
+/**
+ * Track E 8.16: the commission columns are not readable by a patient, clinician or partner (column grant, migration
+ * 20261007105817), so this type and every client read of panel_bundles leave them out. `select("*")` on this table fails with a
+ * permission error by design; scan test lab-commission-columns.scan.test.ts holds the line. Admin screens read panel_bundles_admin.
+ */
+export type PanelBundle = Omit<Tables<"panel_bundles">, "commission_rate" | "commission_rate_type" | "commission_flat_kobo">;
+export const PANEL_BUNDLE_SAFE_COLUMNS =
+  "id, code, name, description, price_kobo, test_codes, is_active, created_at, self_bookable, review_discount_bp, is_screen_tier, preparation_instructions, category, clinical_protocol_ref, guidance_only, indicative_price_kobo, indicative_price_source, indicative_price_checked_on, where_to_get";
 
 /**
  * §56.4/§56.6 test-definition fields (specimen/prep/units/reference range/
@@ -51,7 +58,7 @@ export function useLabCatalogue() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("panel_bundles")
-        .select("*")
+        .select(PANEL_BUNDLE_SAFE_COLUMNS)
         .eq("is_active", true)
         .order("name", { ascending: true });
       if (error) throw error;
@@ -72,7 +79,16 @@ export function findSingleTestBundle(bundles: PanelBundle[], screenTypeCode: str
   );
 }
 
-export type LabOrderWithDetails = Tables<"lab_orders"> & {
+/**
+ * Track G (spec 8.16, OQ-320): lab_orders.partner_cost_kobo / partner_cost_breakdown are what Tarragon PAYS the laboratory. Since
+ * migration 20261007190500 they are not readable by a patient, caregiver or clinician session, so `select *` on lab_orders is a
+ * permission error. Every client read names its columns; this is the list (every column except the two withheld). A standing scan
+ * test (partner-cost-columns.scan.test.ts) keeps the list free of the withheld names and `*` out of the code base.
+ */
+export const LAB_ORDER_SAFE_COLUMNS =
+  "id, organisation_id, patient_id, provider_id, screening_schedule_id, panel_bundle_id, status, total_kobo, ordered_at, resulted_at, created_at, updated_at, origin, payment_provider, payment_provider_ref, pending_payment_provider_ref, order_number, ordered_by, investigation_tier, home_visit_provider_id, home_visit_scheduled_at, courier_reference, facility_id, payment_confirmed_at, voucher_covered_kobo, applied_voucher_id, excluded_test_codes, subscriber_discount_kobo, payable_kobo, fulfilment, scheduled_date, preferred_time_of_day, partner_cost_provider_id, transmission, transmitted_at, transmission_ack_at, partner_reference, transmission_note, rejection_reason, rejected_at, rejected_by, sample_collected_at, urgency, clinical_indication, chronic_programme_occurrence_id, phlebotomist_name, phlebotomist_phone, location_id";
+
+export type LabOrderWithDetails = Omit<Tables<"lab_orders">, "partner_cost_kobo" | "partner_cost_breakdown"> & {
   // test_codes drives, e.g., whether this order needs the ECG-specific
   // uploader alongside (not instead of — a bundle can mix ecg_resting with
   // blood tests) the generic PatientResultUpload, since an ECG is a separate
@@ -123,7 +139,7 @@ export type LabOrderWithDetails = Tables<"lab_orders"> & {
  * usePharmacyCatalogue (a picker, not an attribution read).
  */
 const LAB_ORDER_SELECT =
-  "*, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name, test_codes, preparation_instructions), home_visit_provider:home_visit_providers!lab_orders_home_visit_provider_id_fkey(name), facility:facilities!lab_orders_facility_id_fkey(name), location:lab_provider_locations!lab_orders_location_id_fkey(name)";
+  `${LAB_ORDER_SAFE_COLUMNS}, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name, test_codes, preparation_instructions), home_visit_provider:home_visit_providers!lab_orders_home_visit_provider_id_fkey(name), facility:facilities!lab_orders_facility_id_fkey(name), location:lab_provider_locations!lab_orders_location_id_fkey(name)`;
 
 type LabOrderRow = Omit<LabOrderWithDetails, "provider" | "ordered_by_staff"> & {
   provider_id: string | null;

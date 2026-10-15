@@ -18,6 +18,9 @@ const SYMPTOM_LABEL: Record<string, string> = {
   severe_headache: "Severe headache",
   visual_disturbance: "Vision changes",
   confusion: "Confusion or drowsiness",
+  vomiting: "Vomiting",
+  abdominal_pain: "Stomach pain",
+  cannot_swallow: "Cannot swallow safely",
   other: "Other",
 };
 

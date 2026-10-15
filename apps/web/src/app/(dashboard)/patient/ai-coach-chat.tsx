@@ -19,6 +19,9 @@ import { AI_SYSTEMS } from "@/lib/ai-governance/system-codes";
 import { CoachSources } from "@/components/ai/coach-sources";
 import { PrepDraftEditor } from "@/components/ai/prep-draft-editor";
 import { AssistantNudgeCard } from "@/components/ai/assistant-nudge-card";
+import { AssistantEmergencyButton } from "@/components/ai/assistant-emergency-button";
+import { AssistantLimitsPanel } from "@/components/ai/assistant-limits-panel";
+import { AssistantMemoryCard } from "@/components/ai/assistant-memory-card";
 
 import { formatPatientDateTime } from "@/lib/format-date";
 /**
@@ -108,6 +111,8 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        {/* S52 (7.8): the emergency button is on every assistant screen, always visible, never behind a guard */}
+        <AssistantEmergencyButton />
         <AssistantNudgeCard />
         <div className="max-h-80 space-y-2 overflow-y-auto rounded-md bg-charcoal-ink/5 dark:bg-night-ink/10 p-3">
           {messages.length === 0 && !sendMessage.isPending && (
@@ -198,6 +203,9 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
             Send
           </Button>
         </form>
+
+        <AssistantLimitsPanel />
+        <AssistantMemoryCard />
 
         <div className="flex flex-col gap-2">
           <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">

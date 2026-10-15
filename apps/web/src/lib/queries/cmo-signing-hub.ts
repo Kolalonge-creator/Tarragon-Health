@@ -7,6 +7,7 @@ import { readPendingCommunitySignoff } from "@/lib/queries/pending-community-sig
 import { readCredentialAttention, credentialAttentionItem } from "@/lib/queries/credential-attention";
 import { GLUCOSE_TRIAGE_ITEM_KEY, readPendingGlucoseTriageSignoff } from "@/lib/queries/pending-glucose-triage-signoff";
 import { readS06S10Signoffs, EMPTY_S06S10, type S06S10Snapshot } from "@/lib/queries/s06-s10-signoffs";
+import { readPendingQualityConfigSignoff } from "@/lib/queries/pending-quality-config-signoff";
 import { readPendingGlucoseTaskTypeSignoff } from "@/lib/queries/pending-glucose-task-type-signoff";
 import { readPendingRedOutreachSignoff } from "@/lib/queries/pending-red-outreach-signoff";
 import { readPendingSoleCmoException } from "@/lib/queries/pending-sole-cmo-exception";
@@ -39,6 +40,8 @@ export const COMMUNITY_ITEM_KEY = "community";
 export const RED_OUTREACH_ITEM_KEY = "red_outreach";
 /** The key the urgent glucose review task type line carries (R2, CMO Q7 and Q8), so the page can attach the confirm panel. */
 export const GLUCOSE_TASK_TYPE_ITEM_KEY = "glucose_task_type";
+/** The line for the S20 v2 quality and credentialing configuration drafts (audit sampling, second review, speak-up check-ins, licence notices). */
+export const QUALITY_CONFIG_ITEM_KEY = "quality_configs";
 /** The key the sole-CMO on-call exception line carries, so the page can attach the signing panel. */
 export const SOLE_CMO_EXCEPTION_ITEM_KEY = "sole_cmo_on_call_exception";
 export { GLUCOSE_TRIAGE_ITEM_KEY };
@@ -63,7 +66,7 @@ export { GLUCOSE_TRIAGE_ITEM_KEY };
  * list silently — the one wrong thing this page can say is "all clear".
  */
 export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Promise<CmoSigningHub> {
-  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, soleCmo] = await Promise.all([
+  const [queue, ai, community, s06s10, credentials, redOutreach, glucose, glucoseTaskType, qualityConfigs, soleCmo] = await Promise.all([
     readSignoffQueue(supabase, "/clinician").catch(() => ({
       items: [] as SignoffQueueItem[],
       settledConfigs: [] as SettledConfig[],
@@ -76,6 +79,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     readPendingRedOutreachSignoff(supabase),
     readPendingGlucoseTriageSignoff(supabase),
     readPendingGlucoseTaskTypeSignoff(supabase),
+    readPendingQualityConfigSignoff(supabase),
     readPendingSoleCmoException(supabase),
   ]);
 
@@ -197,6 +201,21 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     });
   }
 
+  if (qualityConfigs.qualityVersion !== null || qualityConfigs.credentialingVersion !== null) {
+    const parts = [
+      qualityConfigs.qualityVersion !== null && `quality configuration version ${qualityConfigs.qualityVersion} (audit sampling, second review, speak-up check-ins)`,
+      qualityConfigs.credentialingVersion !== null && `credentialing configuration version ${qualityConfigs.credentialingVersion} (licence notices, shifts after expiry)`,
+    ].filter(Boolean);
+    items.push({
+      key: QUALITY_CONFIG_ITEM_KEY,
+      title: "Quality and licence rules",
+      detail: `${parts.join(" and ")} waiting for your signature. They stay off until you sign.`,
+      href: "/clinician/clinical-signoff",
+      severity: "draft_pending",
+      count: (qualityConfigs.qualityVersion !== null ? 1 : 0) + (qualityConfigs.credentialingVersion !== null ? 1 : 0),
+    });
+  }
+
   const failedSources = [
     ...queue.failedSources,
     ...s06s10.failedSources,
@@ -206,6 +225,7 @@ export async function readCmoSigningHub(supabase: SupabaseClient<Database>): Pro
     ...(redOutreach.failed ? ["Red alert outreach"] : []),
     ...(glucose.failed ? ["the glucose triage rules"] : []),
     ...(glucoseTaskType.failed ? ["the urgent glucose review task type"] : []),
+    ...(qualityConfigs.failed ? ["the quality and credentialing configurations"] : []),
     ...(soleCmo.failed ? ["the sole-CMO on-call exception"] : []),
   ];
   items.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);

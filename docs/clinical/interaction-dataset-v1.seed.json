@@ -1,0 +1,858 @@
+{
+  "version": 1,
+  "status": "draft",
+  "content_hash": "fa9f38ecdfbb970937ba3bfaafb365f2a01f324f57bc4b8ce15a9fb65a296ea5",
+  "rule_count": 85,
+  "rules": [
+    {
+      "rule_code": "ace_inhibitor__arb",
+      "kind": "interaction",
+      "drug_a": "ace_inhibitor",
+      "drug_b": "arb",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.high",
+      "title": "Dual blockade of the renin-angiotensin system",
+      "source": "ONTARGET trial (N Engl J Med 2008;358:1547-59) showed more kidney injury and high potassium with ACE inhibitor plus ARB; BNF Appendix 1. Reviewer to confirm."
+    },
+    {
+      "rule_code": "ace_inhibitor__nsaid",
+      "kind": "interaction",
+      "drug_a": "ace_inhibitor",
+      "drug_b": "nsaid",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Kidney injury risk (NSAID with renin-angiotensin blockade)",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "ace_inhibitor__potassium_sparing_diuretic",
+      "kind": "interaction",
+      "drug_a": "ace_inhibitor",
+      "drug_b": "potassium_sparing_diuretic",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Hyperkalaemia risk",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "ace_inhibitor__potassium_supplement",
+      "kind": "interaction",
+      "drug_a": "ace_inhibitor",
+      "drug_b": "potassium_supplement",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Hyperkalaemia risk",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "allopurinol__colchicine",
+      "kind": "interaction",
+      "drug_a": "allopurinol",
+      "drug_b": "colchicine",
+      "severity": "info",
+      "advice_key": "medicines.addcheck.advice.note",
+      "title": "Expected combination in gout",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "amiodarone__fluoroquinolone",
+      "kind": "interaction",
+      "drug_a": "amiodarone",
+      "drug_b": "fluoroquinolone",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Additive QT prolongation",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "amiodarone__statin",
+      "kind": "interaction",
+      "drug_a": "amiodarone",
+      "drug_b": "statin",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Muscle toxicity risk",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "anticoagulant__antiplatelet",
+      "kind": "interaction",
+      "drug_a": "anticoagulant",
+      "drug_b": "antiplatelet",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Combined bleeding risk",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "anticoagulant__azole_antifungal",
+      "kind": "interaction",
+      "drug_a": "anticoagulant",
+      "drug_b": "azole_antifungal",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Anticoagulant effect increased",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "anticoagulant__fluoroquinolone",
+      "kind": "interaction",
+      "drug_a": "anticoagulant",
+      "drug_b": "fluoroquinolone",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Anticoagulant effect increased",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "anticoagulant__macrolide",
+      "kind": "interaction",
+      "drug_a": "anticoagulant",
+      "drug_b": "macrolide",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Anticoagulant effect increased",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "anticoagulant__nitroimidazole",
+      "kind": "interaction",
+      "drug_a": "anticoagulant",
+      "drug_b": "nitroimidazole",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Anticoagulant effect increased",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "antipsychotic__fluoroquinolone",
+      "kind": "interaction",
+      "drug_a": "antipsychotic",
+      "drug_b": "fluoroquinolone",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Additive QT prolongation",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "antipsychotic__macrolide",
+      "kind": "interaction",
+      "drug_a": "antipsychotic",
+      "drug_b": "macrolide",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Additive QT prolongation",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "arb__nsaid",
+      "kind": "interaction",
+      "drug_a": "arb",
+      "drug_b": "nsaid",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Kidney injury risk (NSAID with renin-angiotensin blockade)",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "arb__potassium_sparing_diuretic",
+      "kind": "interaction",
+      "drug_a": "arb",
+      "drug_b": "potassium_sparing_diuretic",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Hyperkalaemia risk",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "arb__potassium_supplement",
+      "kind": "interaction",
+      "drug_a": "arb",
+      "drug_b": "potassium_supplement",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Hyperkalaemia risk",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "beta_blocker__ccb_non_dihydropyridine",
+      "kind": "interaction",
+      "drug_a": "beta_blocker",
+      "drug_b": "ccb_non_dihydropyridine",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.high",
+      "title": "Bradycardia and heart block risk",
+      "source": "Verapamil and diltiazem product labelling (caution with beta blockers); BNF Appendix 1. Reviewer to confirm."
+    },
+    {
+      "rule_code": "digoxin__amiodarone",
+      "kind": "interaction",
+      "drug_a": "digoxin",
+      "drug_b": "amiodarone",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Digoxin toxicity risk",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "digoxin__ccb_non_dihydropyridine",
+      "kind": "interaction",
+      "drug_a": "digoxin",
+      "drug_b": "ccb_non_dihydropyridine",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Digoxin toxicity risk",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "digoxin__loop_diuretic",
+      "kind": "interaction",
+      "drug_a": "digoxin",
+      "drug_b": "loop_diuretic",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Digoxin toxicity via low potassium",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "duplicate__ace_inhibitor",
+      "kind": "duplicate",
+      "drug_a": "ace_inhibitor",
+      "drug_b": "ace_inhibitor",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two ACE inhibitor medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__allopurinol",
+      "kind": "duplicate",
+      "drug_a": "allopurinol",
+      "drug_b": "allopurinol",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Allopurinol medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__aminoglycoside",
+      "kind": "duplicate",
+      "drug_a": "aminoglycoside",
+      "drug_b": "aminoglycoside",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Aminoglycoside antibiotic medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__amiodarone",
+      "kind": "duplicate",
+      "drug_a": "amiodarone",
+      "drug_b": "amiodarone",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Amiodarone medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__anticoagulant",
+      "kind": "duplicate",
+      "drug_a": "anticoagulant",
+      "drug_b": "anticoagulant",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Anticoagulant medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__antimalarial_act",
+      "kind": "duplicate",
+      "drug_a": "antimalarial_act",
+      "drug_b": "antimalarial_act",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Artemisinin-based antimalarial medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__antiplatelet",
+      "kind": "duplicate",
+      "drug_a": "antiplatelet",
+      "drug_b": "antiplatelet",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Antiplatelet medicines at the same time",
+      "source": "Duplicate-therapy check. Two of this kind are sometimes deliberate, so a warning is raised only when the prescribers differ. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__antipsychotic",
+      "kind": "duplicate",
+      "drug_a": "antipsychotic",
+      "drug_b": "antipsychotic",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Antipsychotic medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__arb",
+      "kind": "duplicate",
+      "drug_a": "arb",
+      "drug_b": "arb",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two ARB (angiotensin receptor blocker) medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__azole_antifungal",
+      "kind": "duplicate",
+      "drug_a": "azole_antifungal",
+      "drug_b": "azole_antifungal",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Azole antifungal medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__beta_blocker",
+      "kind": "duplicate",
+      "drug_a": "beta_blocker",
+      "drug_b": "beta_blocker",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Beta blocker medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__calcium_or_iron_supplement",
+      "kind": "duplicate",
+      "drug_a": "calcium_or_iron_supplement",
+      "drug_b": "calcium_or_iron_supplement",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Calcium / iron supplement medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__ccb_dihydropyridine",
+      "kind": "duplicate",
+      "drug_a": "ccb_dihydropyridine",
+      "drug_b": "ccb_dihydropyridine",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Calcium channel blocker (dihydropyridine) medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__ccb_non_dihydropyridine",
+      "kind": "duplicate",
+      "drug_a": "ccb_non_dihydropyridine",
+      "drug_b": "ccb_non_dihydropyridine",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Calcium channel blocker (rate-limiting) medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__cephalosporin",
+      "kind": "duplicate",
+      "drug_a": "cephalosporin",
+      "drug_b": "cephalosporin",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Cephalosporin medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__colchicine",
+      "kind": "duplicate",
+      "drug_a": "colchicine",
+      "drug_b": "colchicine",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Colchicine medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__cotrimoxazole",
+      "kind": "duplicate",
+      "drug_a": "cotrimoxazole",
+      "drug_b": "cotrimoxazole",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Co-trimoxazole medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__digoxin",
+      "kind": "duplicate",
+      "drug_a": "digoxin",
+      "drug_b": "digoxin",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Digoxin medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__dpp4",
+      "kind": "duplicate",
+      "drug_a": "dpp4",
+      "drug_b": "dpp4",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two DPP-4 inhibitor medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__fibrate",
+      "kind": "duplicate",
+      "drug_a": "fibrate",
+      "drug_b": "fibrate",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Fibrate medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__fluoroquinolone",
+      "kind": "duplicate",
+      "drug_a": "fluoroquinolone",
+      "drug_b": "fluoroquinolone",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Fluoroquinolone antibiotic medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__gabapentinoid",
+      "kind": "duplicate",
+      "drug_a": "gabapentinoid",
+      "drug_b": "gabapentinoid",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Gabapentin / pregabalin medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__insulin",
+      "kind": "duplicate",
+      "drug_a": "insulin",
+      "drug_b": "insulin",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Insulin medicines at the same time",
+      "source": "Duplicate-therapy check. Two of this kind are sometimes deliberate, so a warning is raised only when the prescribers differ. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__levothyroxine",
+      "kind": "duplicate",
+      "drug_a": "levothyroxine",
+      "drug_b": "levothyroxine",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Levothyroxine medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__lithium",
+      "kind": "duplicate",
+      "drug_a": "lithium",
+      "drug_b": "lithium",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Lithium medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__loop_diuretic",
+      "kind": "duplicate",
+      "drug_a": "loop_diuretic",
+      "drug_b": "loop_diuretic",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Loop diuretic medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__macrolide",
+      "kind": "duplicate",
+      "drug_a": "macrolide",
+      "drug_b": "macrolide",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Macrolide antibiotic medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__metformin",
+      "kind": "duplicate",
+      "drug_a": "metformin",
+      "drug_b": "metformin",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Metformin medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__methotrexate",
+      "kind": "duplicate",
+      "drug_a": "methotrexate",
+      "drug_b": "methotrexate",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Methotrexate medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__nitrofurantoin",
+      "kind": "duplicate",
+      "drug_a": "nitrofurantoin",
+      "drug_b": "nitrofurantoin",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Nitrofurantoin medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__nitroimidazole",
+      "kind": "duplicate",
+      "drug_a": "nitroimidazole",
+      "drug_b": "nitroimidazole",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Metronidazole / tinidazole medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__nsaid",
+      "kind": "duplicate",
+      "drug_a": "nsaid",
+      "drug_b": "nsaid",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two NSAID medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__penicillin",
+      "kind": "duplicate",
+      "drug_a": "penicillin",
+      "drug_b": "penicillin",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Penicillin medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__potassium_sparing_diuretic",
+      "kind": "duplicate",
+      "drug_a": "potassium_sparing_diuretic",
+      "drug_b": "potassium_sparing_diuretic",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Potassium-sparing diuretic medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__potassium_supplement",
+      "kind": "duplicate",
+      "drug_a": "potassium_supplement",
+      "drug_b": "potassium_supplement",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Potassium supplement medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__ppi",
+      "kind": "duplicate",
+      "drug_a": "ppi",
+      "drug_b": "ppi",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Proton pump inhibitor medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__sglt2",
+      "kind": "duplicate",
+      "drug_a": "sglt2",
+      "drug_b": "sglt2",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two SGLT2 inhibitor medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__ssri",
+      "kind": "duplicate",
+      "drug_a": "ssri",
+      "drug_b": "ssri",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two SSRI antidepressant medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__statin",
+      "kind": "duplicate",
+      "drug_a": "statin",
+      "drug_b": "statin",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Statin medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__sulfonylurea",
+      "kind": "duplicate",
+      "drug_a": "sulfonylurea",
+      "drug_b": "sulfonylurea",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Sulfonylurea medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__thiazide_diuretic",
+      "kind": "duplicate",
+      "drug_a": "thiazide_diuretic",
+      "drug_b": "thiazide_diuretic",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Thiazide diuretic medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "duplicate__tramadol_opioid",
+      "kind": "duplicate",
+      "drug_a": "tramadol_opioid",
+      "drug_b": "tramadol_opioid",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.duplicate",
+      "title": "Two Tramadol / opioid medicines at the same time",
+      "source": "Duplicate-therapy check: two medicines of one class rarely add benefit and often add side effects. Reviewer to confirm."
+    },
+    {
+      "rule_code": "fluoroquinolone__antimalarial_act",
+      "kind": "interaction",
+      "drug_a": "fluoroquinolone",
+      "drug_b": "antimalarial_act",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Additive QT prolongation",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "levothyroxine__calcium_or_iron_supplement",
+      "kind": "interaction",
+      "drug_a": "levothyroxine",
+      "drug_b": "calcium_or_iron_supplement",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Reduced levothyroxine absorption",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "levothyroxine__ppi",
+      "kind": "interaction",
+      "drug_a": "levothyroxine",
+      "drug_b": "ppi",
+      "severity": "info",
+      "advice_key": "medicines.addcheck.advice.note",
+      "title": "Levothyroxine absorption may fall",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "lithium__ace_inhibitor",
+      "kind": "interaction",
+      "drug_a": "lithium",
+      "drug_b": "ace_inhibitor",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Lithium toxicity risk",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "lithium__nsaid",
+      "kind": "interaction",
+      "drug_a": "lithium",
+      "drug_b": "nsaid",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.high",
+      "title": "Lithium toxicity risk",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "lithium__thiazide_diuretic",
+      "kind": "interaction",
+      "drug_a": "lithium",
+      "drug_b": "thiazide_diuretic",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Lithium toxicity risk",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "macrolide__antimalarial_act",
+      "kind": "interaction",
+      "drug_a": "macrolide",
+      "drug_b": "antimalarial_act",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Additive QT prolongation",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "macrolide__fluoroquinolone",
+      "kind": "interaction",
+      "drug_a": "macrolide",
+      "drug_b": "fluoroquinolone",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Additive QT prolongation",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "methotrexate__cotrimoxazole",
+      "kind": "interaction",
+      "drug_a": "methotrexate",
+      "drug_b": "cotrimoxazole",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.high",
+      "title": "Methotrexate toxicity risk",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "methotrexate__nsaid",
+      "kind": "interaction",
+      "drug_a": "methotrexate",
+      "drug_b": "nsaid",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.high",
+      "title": "Methotrexate toxicity risk",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "nsaid__anticoagulant",
+      "kind": "interaction",
+      "drug_a": "nsaid",
+      "drug_b": "anticoagulant",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.high",
+      "title": "Serious bleeding risk",
+      "source": "BNF Appendix 1 (NSAIDs with anticoagulants); warfarin and DOAC labelling. Reviewer to confirm."
+    },
+    {
+      "rule_code": "nsaid__antiplatelet",
+      "kind": "interaction",
+      "drug_a": "nsaid",
+      "drug_b": "antiplatelet",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Gastrointestinal bleeding risk",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "nsaid__loop_diuretic",
+      "kind": "interaction",
+      "drug_a": "nsaid",
+      "drug_b": "loop_diuretic",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Reduced diuretic effect and kidney injury risk",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "ssri__anticoagulant",
+      "kind": "interaction",
+      "drug_a": "ssri",
+      "drug_b": "anticoagulant",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Bleeding risk",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "ssri__nsaid",
+      "kind": "interaction",
+      "drug_a": "ssri",
+      "drug_b": "nsaid",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Gastrointestinal bleeding risk",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "ssri__tramadol_opioid",
+      "kind": "interaction",
+      "drug_a": "ssri",
+      "drug_b": "tramadol_opioid",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Serotonin syndrome and seizure risk",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "statin__azole_antifungal",
+      "kind": "interaction",
+      "drug_a": "statin",
+      "drug_b": "azole_antifungal",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Muscle toxicity risk (statin with azole antifungal)",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "statin__fibrate",
+      "kind": "interaction",
+      "drug_a": "statin",
+      "drug_b": "fibrate",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Muscle toxicity risk (statin with fibrate)",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "statin__macrolide",
+      "kind": "interaction",
+      "drug_a": "statin",
+      "drug_b": "macrolide",
+      "severity": "contraindicated",
+      "advice_key": "medicines.addcheck.advice.high",
+      "title": "Muscle toxicity risk (statin with macrolide)",
+      "source": "Simvastatin and atorvastatin labelling and MHRA drug safety advice on clarithromycin and erythromycin with statins; BNF Appendix 1. Reviewer to confirm."
+    },
+    {
+      "rule_code": "sulfonylurea__azole_antifungal",
+      "kind": "interaction",
+      "drug_a": "sulfonylurea",
+      "drug_b": "azole_antifungal",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Hypoglycaemia risk",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "sulfonylurea__cotrimoxazole",
+      "kind": "interaction",
+      "drug_a": "sulfonylurea",
+      "drug_b": "cotrimoxazole",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Hypoglycaemia risk",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    },
+    {
+      "rule_code": "sulfonylurea__fluoroquinolone",
+      "kind": "interaction",
+      "drug_a": "sulfonylurea",
+      "drug_b": "fluoroquinolone",
+      "severity": "caution",
+      "advice_key": "medicines.addcheck.advice.review",
+      "title": "Glucose instability",
+      "source": "Standard reference works (BNF Appendix 1 on drug interactions; product labelling such as the SmPC or US prescribing information for the medicines named). Reviewer to confirm the exact entry."
+    }
+  ]
+}
