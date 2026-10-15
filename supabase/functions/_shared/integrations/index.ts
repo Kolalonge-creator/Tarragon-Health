@@ -23,6 +23,7 @@ export * from "./participant-key.ts";
 export * from "./webhook-challenge.ts";
 export * from "./webhook-forward.ts";
 export * from "./runtime.ts";
+export * from "./partner-calendar.ts";
 export * from "./webhook-inbox.ts";
 export * from "./provider-health.ts";
 export * from "./settlement-sync.ts";

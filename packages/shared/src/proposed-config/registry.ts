@@ -14,6 +14,8 @@
  * thresholds 6.2, task due windows 7.3, lead windows and claim timeouts 7.4)
  * are deliberately absent: the sessions that build them add them here.
  */
+import { DEVICE_RED_RULES, EMERGENCY_PACK } from "./emergency-pack";
+
 export type ConfigOwner = "CMO" | "Founder" | "Founder and counsel";
 export type ConfigStatus = "proposed" | "confirmed";
 
@@ -4434,6 +4436,165 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-10-07",
     source: "docs/plans/S61-S65-cmo-signoff-pack.md Q1 option A (RTSL Nigeria protocol May 2023); OQ-171",
+  },
+  {
+    key: "security.rules",
+    // Security thresholds (S39, S39c, S39d, S39h). Live values are the active row of `security_config`; this entry mirrors it and a test fails if the
+    // migration seed and this value drift. CONFIRMED by the CMO on 2026-10-07 (selected in chat, S39h; review against real log data at 90 days), owned by the security owner (CMO until one is named). v1 (S39): failed lookups on a public
+    // token door in one hour that open a security incident (the answer to guessing is to see it, never to lock the door). v2 (S39c): how long an
+    // opening of a patient record stays valid for an untied clinician, how many untied openings in an hour raise an incident, the after-hours
+    // band (Lagos hours), and the retention periods (NHS Records Management Code and HIPAA as references, counsel to confirm). v3 (S39d): the review clock, in days, for a patient data export request. Retention is
+    // config only: real_data_auto_delete is false, nothing deletes real patient data (founder, 2026-10-07).
+    value: {
+      lookup_failure_alert_per_hour: 50,
+      record_open_window_hours: 8,
+      untied_open_alert_per_hour: 20,
+      after_hours_start: 22,
+      after_hours_end: 6,
+      export_review_days: 30,
+      retention: {
+        adult_clinical_record_years_after_last_contact: 8,
+        child_record_until_age: 25,
+        child_record_until_age_if_seen_at_17: 26,
+        maternity_record_years: 25,
+        mental_health_years_after_last_contact: 20,
+        access_audit_log_years: 8,
+        consent_years_after_relationship_end: 6,
+        payments_ledger_years: 6,
+        operational_data_days_min: 90,
+        operational_data_days_max: 730,
+        real_data_auto_delete: false,
+      },
+    },
+    owner: "CMO",
+    status: "confirmed",
+    version: 4,
+    effectiveFrom: "2026-10-07",
+    source: "docs/DECISIONS.md (CMO decisions 2026-10-07); spec section 13; founder direction 2026-10-07",
+  },
+  {
+    key: "maternal_child.growth.reference_versions",
+    value: {"under5_version": "who-2006-v1", "over5_version": "who-2007-v1", "under5_max_age_days": 1856, "wfh_max_age_days": 1826, "recumbent_until_age_days": 730, "length_height_correction_cm": 0.7},
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "S68, WHO 2006 standards to day 1856, WHO 2007 reference from month 61; weight-for-height to 60 months (1826 days); recumbent length to 730 days; 0.7 cm length/height difference (WHO igrowup). CMO pack A7. Mirrored in supabase/migrations (maternal_child_config); see maternal-child-mirror.test.ts.",
+  },
+  {
+    key: "maternal_child.growth.plausibility",
+    value: {"weight_for_age_z": [-6, 5], "height_for_age_z": [-6, 6], "weight_for_height_z": [-5, 5], "bmi_for_age_z": [-5, 5], "head_circumference_for_age_z": [-5, 5], "muac_for_age_z": [-5, 5]},
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "S68, WHO biologically implausible z-score ranges. Weight-for-age, height-for-age, weight-for-height and BMI-for-age follow the WHO Anthro documentation; head circumference and MUAC use +-5 as an assumption for the CMO to confirm (OQ-353). Mirrored in supabase/migrations (maternal_child_config); see maternal-child-mirror.test.ts.",
+  },
+  {
+    key: "maternal_child.growth.nutrition_routing",
+    value: {"sam_muac_mm_lt": 115, "sam_wfh_z_lt": -3, "sam_oedema": true, "sam_review_within_hours": 12, "mam_muac_mm_lt": 125, "mam_wfh_z_lt": -2, "mam_review_within_days": 3, "muac_min_age_months": 6, "muac_max_age_months": 60, "stunting_hfa_z_lt": -2, "underweight_wfa_z_lt": -2},
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "S68, CMO pack A7 (selected, NOT signed): severe = MUAC under 115 mm, or weight-for-height z below -3, or bilateral oedema (red, same-day, 12 hours here); moderate = MUAC 115 to under 125 mm or z -3 to under -2 (amber, within 3 days); stunting and underweight informational. The pack names no MUAC age range: 6 to 59 months is the WHO/UNICEF range for these cut-offs and is a proposal (OQ-351). Mirrored in supabase/migrations (maternal_child_config); see maternal-child-mirror.test.ts.",
+  },
+  {
+    key: "maternal_child.epds.cutoffs",
+    value: {"item_count": 10, "possible_min": 10, "probable_min": 13, "possible_review_within_days": 7, "probable_review_within_hours": 48, "item_10_any_nonzero_is_crisis": true},
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "S68, CMO pack A6 (selected, NOT signed, provisional): 10 to 12 possible, review within the week; 13 or more probable, clinician review within 48 hours; any non-zero item 10 goes to the crisis route whatever the total. Local audit after the first 200 screens. Basis and Nigerian cut-off range 7 to 12 still to be verified (OQ-354). Mirrored in supabase/migrations (maternal_child_config); see maternal-child-mirror.test.ts.",
+  },
+  {
+    key: "maternal_child.postnatal.checks",
+    value: {"windows": [{"code": "week_1", "days": 7}, {"code": "week_6", "days": 42}], "epds_prompt_windows": ["week_6"], "feed_log_grace_days": 7},
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "S68, Mother and baby checks at week 1 and week 6 after delivery (founder scope S68; the existing postnatal_checkins windows). EPDS prompted at week 6 as a proposal for the CMO to place (OQ-355). Windows are generated from this row, never typed in code. Mirrored in supabase/migrations (maternal_child_config); see maternal-child-mirror.test.ts.",
+  },
+  {
+    key: "maternal_child.lifecycle.rules",
+    value: {"transitions": {"start_trying": {"from": ["tracking"], "to": "trying"}, "stop_trying": {"from": ["trying"], "to": "tracking"}, "pregnancy_confirmed": {"from": ["tracking", "trying", "postnatal", "parenting"], "to": "pregnant"}, "delivery_recorded": {"from": ["tracking", "trying", "pregnant"], "to": "postnatal"}, "pregnancy_loss_recorded": {"from": ["pregnant"], "to": "tracking"}, "postnatal_period_ended": {"from": ["postnatal"], "to": "parenting"}, "parenting_ended": {"from": ["parenting"], "to": "tracking"}}, "stage_content": {"tracking": "cycle", "trying": "conception", "pregnant": "pregnancy", "postnatal": "postnatal", "parenting": "child"}, "stage_bp_rule_set": {"pregnant": "pregnancy", "postnatal": "postpartum"}, "loss_baby_content_hold_days": 90, "max_days_back": 400},
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "S68, Founder scope S68 (16.11): transitions only on confirmed events. Stage names, the stage to content map, the rule-set names S67 reads, the 90 day hold on baby content after a loss and the 400 day look-back are proposals for the CMO and founder (OQ-356). Mirrored in supabase/migrations (maternal_child_config); see maternal-child-mirror.test.ts.",
+  },
+  {
+    key: "maternal_child.retention.rules",
+    value: {"grace_days": 7, "sealed_retention_years": 8, "scopes": ["feed_log", "child_growth", "baby_checks", "pregnancy_loss"]},
+    owner: "Founder and counsel",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "S68, CMO/founder pack B3 and C (selected 2026-10-07, not signed): patient-entered tracker and pregnancy-loss notes deleted on request after the grace window; clinician-recorded or acted-on data sealed 8 years (counsel to confirm the period) then destroyed. Grace window length is a proposal. Mirrored in supabase/migrations (maternal_child_config); see maternal-child-mirror.test.ts.",
+  },
+  {
+    key: "directory.access_rules",
+    // S65 (CMO decisions Q21, Q22, Q23, 2026-10-07): how long a listing may go unverified before patient search leaves it out (twice its
+    // cadence), when two reports force re-verification, the ratings moderation target and the booking reminder times. Mirrors the active row of
+    // `directory_verification_config` (version 2); a test fails if the migration seed and this value drift. UNSIGNED: the Q21 intervals are [U].
+    value: {
+      default_months: 12,
+      due_soon_days: 30,
+      by_listing_table: { pharmacy_partners: 6 },
+      visibility: {
+        cadence_days: { emergency_hospital: 90, pharmacy_24h: 90, clinic: 180, lab: 180, other: 365 },
+        hide_multiple: 2,
+        reports_to_reverify: 2,
+        reports_per_person_per_day: 10,
+      },
+      ratings: {
+        moderation_target_hours: 72,
+        min_ratings_to_show_average: 3,
+        hold_terms: ["diagnos", "misdiagnos", "prescri", "wrong medicine", "wrong drug", "treatment plan", "doctor was wrong", "the doctor", "clinical judgement"],
+      },
+      booking: { reminder_minutes_before: [10080, 1440, 120], min_lead_minutes: 60, max_days_ahead: 90 },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S65.md; docs/plans/S61-S65-cmo-signoff-pack.md Q21 to Q23",
+  },
+  {
+    key: "emergency.pack",
+    // The offline emergency content pack (S65, INV-06). DRAFT: `signed` is null and an agent never sets it. No telephone number of any kind
+    // (CMO decision Q18). Mirrors `emergency_pack_config` version 1; a test fails if they drift.
+    value: EMERGENCY_PACK as unknown as ConfigValue,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S65.md; CMO decisions Q17 and Q18",
+  },
+  {
+    key: "vitals.device_red_rules",
+    // Thresholds the phone evaluates itself for pulse, SpO2 and temperature (INV-06). They copy the live SQL classifiers; a parity test
+    // reads the migrations and fails if either side moves. Not new clinical thresholds.
+    value: DEVICE_RED_RULES as unknown as ConfigValue,
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "supabase/migrations/20260829140000_pulse_red_flag_engine.sql; 20260807090139_spo2_red_flag_engine.sql; 20260807090237_temperature_red_flag_engine.sql",
+  },
+  {
+    key: "care_circle.help_alert",
+    // The patient's one-tap "I need you" alert to their Care Circle (S65, Q20). Cooldown stops an accidental double tap from becoming two alerts;
+    // a shared location is deleted after location_keep_hours. Mirrors `care_circle_help_alert_config` version 1.
+    value: { cooldown_minutes: 10, max_per_day: 5, location_keep_hours: 24, consent_text_version: 1 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S65.md; CMO decision Q20",
   },
   {
     key: "capacity.cover_rules",

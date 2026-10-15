@@ -22,4 +22,5 @@ export function asLocale(value: unknown): Locale {
 export * from "./care-change";
 export * from "./audio-scripts";
 export * from "./monthly-report";
+export * from "./maternal-child";
 export { activeGlucoseWording, GLUCOSE_WORDING_CODES, GLUCOSE_WORDING_DATA, GLUCOSE_WORDING_KEYS, GLUCOSE_WORDING_SIGNED, type GlucoseWordingCode } from "./glucose-wording";

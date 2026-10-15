@@ -25,6 +25,7 @@ import { flushOutbox } from "@/lib/outbox";
 import { evaluateGlucoseOnDevice, LEVEL_3_SIGNS, resolveGlucoseSignSeverity, saveGlucoseSigns, type GlucoseOutcome } from "@/lib/glucose-log";
 import { GLUCOSE_SYMPTOMS, KETONE_URINE_BANDS, type GlucoseSymptomCode, type KetoneUrine } from "@tarragon/clinical";
 import {
+  classifyVitalOffline,
   computeSevenDayAverage,
   loadRecentBpReadings,
   logOtherVital,
@@ -740,8 +741,7 @@ function OtherVitalCard({
         break;
     }
 
-    // Only glucose has an offline red-flag path today: weight, temperature, SpO2 and pulse still get the offline write queue below, just no
-    // on-device guidance or banner. Glucose shows the stricter of the older single-reading check and the governed engine (glucose-log.ts),
+    // Glucose shows the stricter of the older single-reading check and the governed engine (glucose-log.ts),
     // before anything is saved or sent, so the guidance never waits on the network.
     let outcome: GlucoseOutcome | null = null;
     if (type === "glucose") {
@@ -772,6 +772,11 @@ function OtherVitalCard({
         audioId: d.audioId,
       });
     }
+    // S65: pulse, SpO2 and temperature also have an on-device red-flag path (classifyVitalOffline). Glucose is graded by the governed engine above
+    // and weight has no red-flag rule, so neither goes through it.
+    const offlineFlag = type === "pulse" || type === "spo2" || type === "temperature" ? await classifyVitalOffline(payload) : null;
+    if (offlineFlag?.severity === "emergency") onEmergency(offlineFlag.detail, false);
+    if (offlineFlag?.severity === "urgent") setUrgentBanner(offlineFlag.detail);
 
     // The ticked signs go to the server's symptom log through the same outbox blood pressure ticks use (idempotent by client id, held offline), so the
     // server can grade them with the glucose rules. A sign already made durable by an earlier attempt of this same entry (the reading failed to save and

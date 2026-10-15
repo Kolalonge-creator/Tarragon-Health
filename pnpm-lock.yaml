@@ -858,6 +858,9 @@ importers:
       '@noble/ciphers':
         specifier: ^2.4.0
         version: 2.4.0
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@jest/globals':
         specifier: ^30.4.1
