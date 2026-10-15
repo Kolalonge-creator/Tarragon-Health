@@ -4119,4 +4119,45 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-10-07",
     source: "docs/research/S59b.md section C5; docs/OPEN-QUESTIONS.md OQ-S59b-06",
   },
+  {
+    key: "i18n.language_registry",
+    // Language readiness (S86, decision D-14). DORMANT: English is the only language and the only entry. A language can appear
+    // here only after a forward translation, an independent back translation, a reconciliation and a native clinical review, with
+    // the CMO's signature per string set recorded as `set_hash` in `native_review` and `clinician_signoff` (the fingerprint of the
+    // English and translated text signed). `enabled_for` lists the features a language is switched on for; the gate in
+    // packages/i18n/src/language-readiness.ts refuses any entry whose keys, signatures or audio clips are not complete. Adding
+    // a language is a new version of this entry, published by the CMO (the sign-off route is OQ-313; until it exists, a reviewed
+    // pull request, and a build must never type a signature or a hash). The source
+    // language needs no review or recording (a missing clip shows its text, spec 8.8) and `status` is not used for it.
+    value: {
+      source_language: "en",
+      features: {
+        emergency_triage: { message_prefixes: ["triage."], audio_groups: ["EMG", "TRI", "SYM", "NUM"], clinical: true },
+        course: { message_prefixes: ["course.", "lesson.", "breathing."], audio_groups: ["BPC", "BRE"], clinical: true },
+        results_consult: { message_prefixes: ["labres.", "labs.", "consult.", "summary."], audio_groups: ["RES", "CON"], clinical: true },
+        // Everything not claimed above (medicines, vitals, titration, scribe, reminders and any key added later) falls to this
+        // CLINICAL catch-all on purpose: new wording needs the CMO's signature unless someone names it non-clinical below.
+        health_and_care: { message_prefixes: [""], audio_groups: ["HLP", "REM"], clinical: true },
+        general_ui: {
+          message_prefixes: ["app.", "common.", "auth.", "drawer.", "appearance.", "greeting.", "kit.", "audio."],
+          audio_groups: ["ONB", "NAV", "SYS"],
+          clinical: false,
+        },
+      },
+      languages: {
+        en: {
+          status: "draft",
+          source: true,
+          enabled_for: ["emergency_triage", "course", "results_consult", "health_and_care", "general_ui"],
+          native_review: {},
+          clinician_signoff: {},
+        },
+      },
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-07",
+    source: "docs/design/S86.md; docs/DECISIONS.md D-14 and S86-1; docs/research/S86.md",
+  },
 ];
