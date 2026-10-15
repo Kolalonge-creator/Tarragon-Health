@@ -1,4 +1,4 @@
-import { adminActionsFor, describePayoutError, overviewSchema, stateVariant } from "./payouts";
+import { adminActionsFor, describePayoutError, overviewSchema, returnedNote, stateVariant } from "./payouts";
 
 describe("adminActionsFor", () => {
   it("a draft with no verified bank can only be discarded", () => {
@@ -38,5 +38,43 @@ describe("overviewSchema", () => {
       minimum_payout_kobo: 100000,
     });
     expect(Object.keys(parsed.payouts[0]!.lines[0]!).sort()).toEqual(["amount_kobo", "earned_at", "id", "kind", "task_type"]);
+  });
+});
+
+describe("returnedNote (S31x: the clinician statement says when the bank returned a payout)", () => {
+  it("says nothing for any state but reversed", () => {
+    for (const state of ["draft", "approved", "sent", "succeeded", "failed", "cancelled"]) expect(returnedNote({ state })).toBeNull();
+  });
+  it("tells a clinician who saw 'Paid' that the money came back, with nothing for them to do", () => {
+    const note = returnedNote({ state: "reversed", paid_then_returned: true });
+    expect(note).toContain("paid and then returned");
+    expect(note).toContain("nothing for you to do");
+  });
+  it("uses the plainer sentence when it was never paid", () => {
+    expect(returnedNote({ state: "reversed", paid_then_returned: false })).toContain("before it reached you");
+    expect(returnedNote({ state: "reversed" })).toContain("before it reached you");
+  });
+  it("accepts an old reply with no reversal fields and a new one with them", () => {
+    const base = { id: "6f1d7a2e-3b44-4c8e-9a51-0c2d1e8f7a10", period_start: "2026-10-05", period_end: "2026-10-11", amount_kobo: 120000, line_count: 1, state: "reversed", approved_at: null, reference: null, lines: [] };
+    const reply = (p: object) => ({ bank: null, tax: null, payouts: [p], next_payout_kobo: 0, minimum_payout_kobo: 100000 });
+    expect(overviewSchema.safeParse(reply(base)).success).toBe(true);
+    expect(overviewSchema.safeParse(reply({ ...base, reversed_at: "2026-10-13T10:00:00Z", paid_then_returned: true })).success).toBe(true);
+  });
+});
+
+describe("describePayoutError for the S31x batch controls", () => {
+  it.each([
+    ["payout_batch_required", "released batch"],
+    ["payout_limit_payout", "per-payout limit"],
+    ["payout_limit_clinician", "this clinician"],
+    ["payout_limit_batch_total", "batch total"],
+    ["payout_limit_batch_count", "too many payouts"],
+    ["payout_batch_self_release", "different person"],
+    ["payout_batch_pays_the_checker", "pays the person"],
+    ["payout_batch_changed", "changed since"],
+    ["payout_already_in_a_batch", "already in a batch"],
+    ["payout_batch_control_off", "not switched on"],
+  ])("%s has plain words", (code, fragment) => {
+    expect(describePayoutError(code)).toContain(fragment);
   });
 });

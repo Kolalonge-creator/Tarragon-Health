@@ -3,6 +3,7 @@ import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-
 import { PageHeader } from "@/components/ui/page-header";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { CareCircleManager } from "./care-circle-manager";
+import { RecoveryContactCard } from "@/components/account/recovery-contact-card";
 
 export const metadata = { title: "Your Care Circle" };
 
@@ -14,6 +15,7 @@ export default async function CareCirclePage() {
     <div className="space-y-6">
       <PageHeader title="Your Care Circle" icon={SEMANTIC_ICON.family} backTo={{ href: "/patient/family", label: "Your people" }} />
       <CareCircleManager locale={uiLanguage} />
+      <RecoveryContactCard />
     </div>
   );
 }

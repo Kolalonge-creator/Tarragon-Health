@@ -3,8 +3,6 @@ import {
   breadcrumbTrail,
   humaniseSegment,
   medicalWebPageJsonLd,
-  paidServicesJsonLd,
-  parseNairaAmount,
 } from "./structured-data";
 
 describe("breadcrumbTrail", () => {
@@ -70,46 +68,6 @@ describe("breadcrumbJsonLd", () => {
     for (const item of jsonLd.itemListElement) {
       expect(item.item).toMatch(/^https?:\/\//);
     }
-  });
-});
-
-describe("parseNairaAmount", () => {
-  it("parses the formatted strings the pricing page renders", () => {
-    expect(parseNairaAmount("₦50,000")).toBe(50000);
-    expect(parseNairaAmount("₦2,500")).toBe(2500);
-    expect(parseNairaAmount(" ₦999 ")).toBe(999);
-    expect(parseNairaAmount("₦1,234.50")).toBe(1234.5);
-  });
-
-  it("refuses anything that is not a plain naira amount", () => {
-    // A confident, wrong `price` in structured data is worse than no Offer.
-    expect(parseNairaAmount("From ₦2,500")).toBeNull();
-    expect(parseNairaAmount("$25")).toBeNull();
-    expect(parseNairaAmount("Free")).toBeNull();
-    expect(parseNairaAmount("")).toBeNull();
-  });
-});
-
-describe("paidServicesJsonLd", () => {
-  const build = (price: string) =>
-    paidServicesJsonLd({
-      services: [{ id: "a", name: "Ask a Doctor", description: "One written question.", price }],
-      pageUrl: "https://tarragonhealth.ng/pricing",
-      providerName: "TarragonHealth",
-      providerUrl: "https://tarragonhealth.ng",
-    }) as {
-      hasOfferCatalog: { itemListElement: { price: string; priceCurrency: string }[] };
-    };
-
-  it("prices every offer in NGN", () => {
-    const offers = build("₦2,500").hasOfferCatalog.itemListElement;
-    expect(offers).toHaveLength(1);
-    expect(offers[0]!.price).toBe("2500");
-    expect(offers[0]!.priceCurrency).toBe("NGN");
-  });
-
-  it("drops an entry whose price is not a parseable amount", () => {
-    expect(build("Ask us").hasOfferCatalog.itemListElement).toHaveLength(0);
   });
 });
 

@@ -92,4 +92,39 @@ describe("POST /api/mobile/vitals: offline device time", () => {
     expect(res.status).toBe(200);
     expect(assessHeartRateBestEffort).not.toHaveBeenCalled();
   });
+
+  it("R2: ketones typed with a glucose reading are stored as their own reading BEFORE the glucose (so the older DKA pager sees them), and a bad ketone value is refused", async () => {
+    const id = "5b1f1b6e-2d6c-4b7e-8d57-1f0e7d0c9a11";
+    const ok = await POST(request({ vital_type: "glucose", glucose_value: 14.2, glucose_unit: "mmol_l", glucose_context: "random", ketones_mmol_l: 2.1, ketone_urine: "moderate", client_reading_id: id }));
+    expect(ok.status).toBe(200);
+    expect(insert).toHaveBeenCalledTimes(2);
+    const first = insert.mock.calls[0][0] as Record<string, unknown>;
+    const second = insert.mock.calls[1][0] as Record<string, unknown>;
+    expect(first).toMatchObject({ vital_type: "ketones", ketones_mmol_l: 2.1, ketone_urine: "moderate", source: "manual" });
+    expect(second).toMatchObject({ vital_type: "glucose", glucose_mmol_l: 14.2 });
+    expect("ketones_mmol_l" in second || "ketone_urine" in second).toBe(false);
+    expect(first.client_reading_id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-a[0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect(first.client_reading_id).not.toBe(id);
+    expect(second.client_reading_id).toBe(id);
+  });
+
+  it("R2: a blind retry of the same queued glucose entry does not store a second ketone reading, and a failed ketone save saves nothing", async () => {
+    const id = "5b1f1b6e-2d6c-4b7e-8d57-1f0e7d0c9a11";
+    insert.mockReset().mockResolvedValueOnce({ error: { code: "23505", message: "dup" } }).mockResolvedValueOnce({ error: { code: "23505", message: "dup" } });
+    const retry = await POST(request({ vital_type: "glucose", glucose_value: 14.2, glucose_unit: "mmol_l", glucose_context: "random", ketones_mmol_l: 2.1, client_reading_id: id }));
+    expect(retry.status).toBe(200);
+    insert.mockReset().mockResolvedValueOnce({ error: { code: "XX000", message: "db down" } });
+    const failed = await POST(request({ vital_type: "glucose", glucose_value: 14.2, glucose_unit: "mmol_l", glucose_context: "random", ketones_mmol_l: 2.1, client_reading_id: id }));
+    expect(failed.status).toBe(500);
+    expect(insert).toHaveBeenCalledTimes(1);
+  });
+
+  it("R2: a glucose without ketones makes one reading only, and out-of-range ketones are refused", async () => {
+    const plain = await POST(request({ vital_type: "glucose", glucose_value: 6.1, glucose_unit: "mmol_l", glucose_context: "fasting" }));
+    expect(plain.status).toBe(200);
+    expect(insert).toHaveBeenCalledTimes(1);
+    expect((await POST(request({ vital_type: "glucose", glucose_value: 6.1, glucose_unit: "mmol_l", glucose_context: "fasting", ketones_mmol_l: 21 }))).status).toBe(400);
+    expect((await POST(request({ vital_type: "glucose", glucose_value: 6.1, glucose_unit: "mmol_l", glucose_context: "fasting", ketone_urine: "huge" }))).status).toBe(400);
+    expect(insert).toHaveBeenCalledTimes(1);
+  });
 });

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { dateParam, isShown, parseReport, pct, withheldText, type Cohort } from "@/lib/outcomes/bp-report";
+import { MeasuresSection } from "./measures-section";
 
 export const metadata = { title: "Outcomes" };
 export const dynamic = "force-dynamic";
@@ -54,6 +55,7 @@ export default async function AdminOutcomesPage({ searchParams }: { searchParams
         backTo={{ href: "/admin", label: "Admin" }}
         description="Blood pressure control 90 days after people join. Everyone whose day-90 window has closed is counted, including people who stopped logging. Small numbers are withheld. This page lists no individual."
       />
+      <p className="text-sm"><a className="underline" href="/admin/outcomes/response-times">Care team response times</a> (tasks and urgent pages, descriptive only).</p>
       <p className="text-sm">Ranges are by whole calendar month of joining, so a figure cannot be narrowed to a few people.{report?.range?.from ? ` Showing ${report.range.from} to ${report.range.to ?? "now"}.` : ""}</p>
       <form method="get" className="flex flex-wrap items-end gap-3">
         <label className="space-y-1">
@@ -136,6 +138,7 @@ export default async function AdminOutcomesPage({ searchParams }: { searchParams
           </section>
         </>
       )}
+      <MeasuresSection supabase={supabase} from={from} to={to} />
     </div>
   );
 }

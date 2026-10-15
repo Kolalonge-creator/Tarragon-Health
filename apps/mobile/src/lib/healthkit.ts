@@ -40,7 +40,7 @@ let cachedModule: typeof HealthkitPackage | null | undefined;
  */
 const IS_EXPO_GO = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
-function loadHealthkit(): typeof HealthkitPackage | null {
+export function loadHealthkit(): typeof HealthkitPackage | null {
   if (cachedModule !== undefined) return cachedModule;
   if (IS_EXPO_GO) {
     cachedModule = null;

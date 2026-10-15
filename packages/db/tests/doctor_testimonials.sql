@@ -82,7 +82,7 @@ begin
 
   insert into public.clinical_staff
     (organisation_id, profile_id, doctor_tier, full_name, active, license_verified_at)
-  values (v_org, v_staff_profile, 'medical_officer', 'Dr. Adaeze Okafor', true, now())
+  values (v_org, v_staff_profile, 'senior_medical_officer', 'Dr. Adaeze Okafor', true, now())
   returning id into v_staff;
 
   insert into dt_fixture values

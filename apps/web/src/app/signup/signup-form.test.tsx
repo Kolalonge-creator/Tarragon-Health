@@ -52,6 +52,7 @@ describe("SignupForm", () => {
       target: { value: "amara@example.com" },
     });
     fireEvent.change(screen.getByLabelText("Phone number"), { target: { value: "123" } });
+    fireEvent.change(screen.getByLabelText("Date of birth"), { target: { value: "1990-04-02" } });
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "TestPass123!" } });
 
     fireEvent.click(screen.getByText("Create account"));

@@ -37,3 +37,18 @@ export async function confirmReadiness(fd: FormData): Promise<void> {
     return "Thank you. You are marked as ready for on-call shifts.";
   });
 }
+
+/** S19c (P9): the clinician sends themself a test page. It arrives like a real one (push, in-app, email); acknowledging it proves the phone and inbox work. */
+export async function sendTestPage(fd: FormData): Promise<void> {
+  await runAndRedirect(fd, "/clinician/on-call", async () => {
+    await rpcVoid(await createClient(), "send_test_page", { p_clinician: null, p_kind: "readiness" });
+    return "A test page is on its way by notification, in the app and by email. Acknowledge it here when it arrives.";
+  });
+}
+
+export async function acknowledgeTestPage(fd: FormData): Promise<void> {
+  await runAndRedirect(fd, "/clinician/on-call", async () => {
+    await rpcVoid(await createClient(), "acknowledge_test_page", { p_test: z.uuid().parse(text(fd, "testId")) });
+    return "Test page acknowledged. It counts towards your on-call readiness.";
+  });
+}

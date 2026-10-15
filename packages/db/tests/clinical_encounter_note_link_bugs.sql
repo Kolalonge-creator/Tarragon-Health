@@ -96,7 +96,7 @@ begin
   select id into v_staff from public.clinical_staff where full_name = 'CENLB Test Doctor' and organisation_id = v_org limit 1;
   if v_staff is null then
     insert into public.clinical_staff (organisation_id, full_name, active, doctor_tier, employment_type, license_verified_at)
-    values (v_org, 'CENLB Test Doctor', true, 'medical_officer', 'employed', now())
+    values (v_org, 'CENLB Test Doctor', true, 'senior_medical_officer', 'employed', now())
     returning id into v_staff;
   end if;
 

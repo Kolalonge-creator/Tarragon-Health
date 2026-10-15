@@ -25,7 +25,7 @@ export async function requestCampaignFromTemplateAction(
   const profile = await getCurrentProfile();
   if (!profile?.organisation_id) return { error: "Not authorised" };
 
-  const access = await requireInstitutionAggregateAccess(profile.organisation_id);
+  const access = await requireInstitutionAggregateAccess(profile.organisation_id, "corporate_programmes");
   if (!access) return { error: "Not authorised" };
 
   const { data: template, error: templateError } = await access.client

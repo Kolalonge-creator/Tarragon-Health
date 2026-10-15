@@ -2,14 +2,19 @@ import { constantTimeEqual, hmacHex } from "./crypto.ts";
 import { asObject, httpJson, type FetchLike } from "./http.ts";
 import {
   isValidAccountNumber,
+  isValidSettlementId,
+  normalisePage,
   isValidBankCode,
   isValidChargeReference,
   isValidEmail,
+  isPaymentChannelList,
   isValidKobo,
   isValidTransferReference,
   type PaymentEvent,
   type PaymentProvider,
   type RefundStatus,
+  type SettlementSummary,
+  type SettlementTransaction,
   type TransactionStatus,
   type TransferReceipt,
   type TransferStatus,
@@ -66,6 +71,12 @@ const toTransactionStatus = (s: string | null): TransactionStatus => (s !== null
 const toRefundStatus = (s: string | null): RefundStatus => (s !== null ? REFUND_STATUS[s] : undefined) ?? "pending";
 const toTransferStatus = (s: string | null): TransferStatus => (s !== null ? TRANSFER_STATUS[s] : undefined) ?? "needs_attention";
 
+/** Paystack's `meta` carries pageCount; without it a full page is taken to mean there may be another. */
+function hasMorePages(meta: Record<string, unknown> | null, page: number, got: number, perPage: number): boolean {
+  const pageCount = int(meta?.["pageCount"]);
+  return pageCount !== null ? page < pageCount : got >= perPage;
+}
+
 export function createPaystackPayment(config: PaystackConfig): PaymentProvider {
   const base = config.baseUrl ?? DEFAULT_BASE_URL;
   const deps = { fetch: config.fetch, timeoutMs: config.timeoutMs ?? DEFAULT_TIMEOUT_MS };
@@ -108,12 +119,14 @@ export function createPaystackPayment(config: PaystackConfig): PaymentProvider {
       if (!isValidChargeReference(input.reference)) return fail("invalid_input", "Reference is not a valid charge reference");
       if (!isValidEmail(input.email)) return fail("invalid_input", "Email is not valid");
       if (!isValidKobo(input.amountKobo)) return fail("invalid_input", "Amount must be a positive whole number of kobo");
+      if (input.channels !== undefined && !isPaymentChannelList(input.channels)) return fail("invalid_input", "Channels are not a valid list");
       const res = await call("POST", "/transaction/initialize", {
         reference: input.reference,
         email: input.email,
         amount: input.amountKobo,
         currency: "NGN",
         callback_url: input.callbackUrl,
+        ...(input.channels ? { channels: [...input.channels] } : {}),
         metadata: input.metadata,
       });
       if (!res.ok) return res;
@@ -232,6 +245,43 @@ export function createPaystackPayment(config: PaystackConfig): PaymentProvider {
       if (!isValidTransferReference(reference)) return fail("invalid_input", "Reference is not a valid transfer reference");
       const res = await call("GET", `/transfer/verify/${encodeURIComponent(reference)}`);
       return res.ok ? readTransfer(res.data) : res;
+    },
+
+    async listSettlements(input) {
+      const { page, perPage } = normalisePage(input.page, input.perPage);
+      const q = new URLSearchParams({ page: String(page), perPage: String(perPage) });
+      if (input.from) q.set("from", input.from);
+      if (input.to) q.set("to", input.to);
+      const res = await callWithMeta("GET", `/settlement?${q.toString()}`);
+      if (!res.ok) return res;
+      if (!Array.isArray(res.data.data)) return bad("settlement list");
+      const items: SettlementSummary[] = [];
+      for (const row of res.data.data) {
+        const d = asObject(row);
+        const id = d?.["id"];
+        const settlementId = typeof id === "number" || typeof id === "string" ? String(id) : null;
+        const totalKobo = int(d?.["total_amount"]);
+        if (!d || !settlementId || !isValidSettlementId(settlementId) || totalKobo === null) return bad("settlement");
+        items.push({ settlementId, status: str(d["status"]) ?? "unknown", totalKobo, feesKobo: int(d["total_fees"]) ?? 0, settledAt: str(d["settlement_date"]) ?? str(d["createdAt"]) });
+      }
+      return ok({ items, hasMore: hasMorePages(res.data.meta, page, items.length, perPage) });
+    },
+
+    async listSettlementTransactions(settlementId, pageInput) {
+      if (!isValidSettlementId(settlementId)) return fail("invalid_input", "Settlement id is not valid");
+      const { page, perPage } = normalisePage(pageInput?.page, pageInput?.perPage);
+      const res = await callWithMeta("GET", `/settlement/${settlementId}/transactions?page=${page}&perPage=${perPage}`);
+      if (!res.ok) return res;
+      if (!Array.isArray(res.data.data)) return bad("settlement transaction list");
+      const items: SettlementTransaction[] = [];
+      for (const row of res.data.data) {
+        const d = asObject(row);
+        const reference = str(d?.["reference"]);
+        const amountKobo = int(d?.["amount"]);
+        if (!d || !reference || amountKobo === null) return bad("settlement transaction");
+        items.push({ reference, amountKobo, feesKobo: int(d["fees"]) ?? 0, status: str(d["status"]) ?? "unknown", paidAt: str(d["paid_at"]) });
+      }
+      return ok({ items, hasMore: hasMorePages(res.data.meta, page, items.length, perPage) });
     },
 
     async parseWebhook(rawBody, signatureHeader) {

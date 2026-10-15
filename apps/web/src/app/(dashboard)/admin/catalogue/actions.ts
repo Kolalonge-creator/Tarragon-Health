@@ -25,6 +25,8 @@ const MESSAGES: Readonly<Record<string, string>> = {
   price_start_before_current: "The new price must start after the current price started.",
   price_components_must_sum: "The itemised split must add up to the price.",
   unknown_item: "That item no longer exists.",
+  go_live_guard_closed: "Its go-live guard is off. Switch the guard on (Go-live guards page) once its conditions are met, then switch the item on.",
+  institutional_item_priced_by_book: "This item is priced by a price book, not a list price.",
 };
 function describe(error: { message: string }): string {
   for (const [k, v] of Object.entries(MESSAGES)) if (error.message.includes(k)) return v;

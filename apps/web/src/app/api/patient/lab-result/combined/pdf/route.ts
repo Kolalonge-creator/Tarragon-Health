@@ -1,4 +1,5 @@
 import { renderToBuffer } from "@react-pdf/renderer";
+import { DocumentFolioRefusedError, fetchDocumentFolios } from "@/lib/clinical/document-folio";
 import { createClient } from "@/lib/supabase/server";
 import {
   CombinedInterpretationDocument,
@@ -51,21 +52,25 @@ export async function GET(request: Request): Promise<Response> {
     .maybeSingle();
   if (!patient) return new Response("Not found", { status: 404 });
 
-  // Batch the doctor lookups rather than one round trip per document.
-  const reviewerIds = Array.from(
-    new Set(docs.map((d) => d.reviewed_by).filter((id): id is string => !!id)),
-  );
-  const { data: staffRows } = reviewerIds.length
-    ? await supabase
-        .from("clinical_staff_directory")
-        .select("profile_id, full_name, credential_type, credential_number")
-        .in("profile_id", reviewerIds)
-        .eq("active", true)
-    : { data: [] };
-  const staffByProfileId = new Map((staffRows ?? []).map((s) => [s.profile_id, s]));
+  // One batched, document-scoped folio lookup (CMO Q17, OQ-358): the directory view
+  // no longer carries the folio.
+  let folioByDocId;
+  try {
+    folioByDocId = await fetchDocumentFolios(
+      supabase,
+      "lab_result_interpretation",
+      docs.filter((d) => d.reviewed_by).map((d) => d.id),
+      Object.fromEntries(docs.map((d) => [d.id, d.reviewed_by])),
+    );
+  } catch (e) {
+    if (e instanceof DocumentFolioRefusedError) {
+      return new Response("You are not permitted to produce this document", { status: 403 });
+    }
+    throw e;
+  }
 
   const items: InterpretationData[] = docs.map((doc) => {
-    const staff = doc.reviewed_by ? staffByProfileId.get(doc.reviewed_by) : undefined;
+    const staff = doc.reviewed_by ? folioByDocId.get(doc.id) : undefined;
     return {
       patientName: patient.full_name ?? "Patient",
       documentTitle: doc.original_filename ?? "Lab result",
@@ -74,9 +79,9 @@ export async function GET(request: Request): Promise<Response> {
       interpretation: doc.patient_interpretation!,
       nextSteps: doc.next_steps,
       interpretationSentAt: doc.interpretation_sent_at!,
-      doctorName: staff?.full_name ?? null,
-      doctorCredentialType: staff?.credential_type ?? null,
-      doctorCredentialNumber: staff?.credential_number ?? null,
+      doctorName: staff?.fullName ?? null,
+      doctorCredentialType: staff?.credentialType ?? null,
+      doctorCredentialNumber: staff?.credentialNumber ?? null,
     };
   });
 

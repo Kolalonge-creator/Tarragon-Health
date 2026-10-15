@@ -1,7 +1,10 @@
-import { flushOutbox } from "@/lib/outbox";
+import { flushOutbox, getPendingCount } from "@/lib/outbox";
+import { runDeviceCheckThrottled } from "@/lib/device-lease";
+import { startReconnectWatcher } from "@/lib/reachability";
 import { syncReminders } from "@/lib/reminder-notifications";
+import { refreshPackIfEnabled } from "@/lib/learning-pack";
 import { clearLocalMirror } from "@/lib/offline-store";
-import { clearAllDrafts } from "@/lib/drafts";
+import { purgeAllDownloads } from "@/lib/offline-downloads";
 import { FONT_ASSETS, ThemeProvider, useTheme } from "@/ui/design";
 import { ToastProvider } from "@/ui/kit";
 import { useEffect, useRef, useState } from "react";
@@ -99,7 +102,10 @@ function AppContent() {
         // shared phone does not keep it readable. The outbox is NOT cleared:
         // unsent logs must survive sign-out and go out when their owner is back.
         void clearLocalMirror().catch(() => {});
-        void clearAllDrafts();
+        // Drafts are NOT cleared (S06x, decision D2): they stay in the encrypted store, tied to their account,
+        // and come back when that account signs in again. Another account cannot read them.
+        // Offline audio downloads (S57b) belong to the previous account's session: delete them all, flag or no flag.
+        void purgeAllDownloads().catch(() => {});
       }
       if (event === "SIGNED_IN" && newSession?.user.id && postSignInFor.current !== newSession.user.id) {
         const userId = newSession.user.id;
@@ -145,16 +151,28 @@ function AppContent() {
   useEffect(() => {
     // Waits for the identity so a sponsor's staff never start the patient outbox and reminder work (it is patient-only).
     if (!session?.user.id || !identity || shellForRole(identity.role) !== "patient") return;
-    const run = () => void flushOutbox().catch(() => {});
+    const run = () => void flushOutbox().then(() => runDeviceCheckThrottled()).catch(() => {});
+    // Honest reconnect trigger (S06x): when the radio says it is back and entries wait, one tiny HEAD proves the
+    // server is reachable before the flush. The foreground flush and the one-minute loop below stay as the fallback.
+    const stopWatcher = startReconnectWatcher({
+      rowsWaiting: getPendingCount,
+      onReachable: () => flushOutbox().then(() => runDeviceCheckThrottled()),
+    });
     // Reminders are a rolling window of notifications, so they are topped up whenever the app
     // opens or returns to the foreground (and never ask for permission here: only the patient's
     // own action does).
     const topUpReminders = () => void syncReminders().catch(() => {});
+    // S55: downloaded lessons are refreshed on return to the app (only if the patient opted in): anything the server
+    // no longer serves is deleted, changed lessons are fetched again.
+    const lessonUserId = session.user.id;
+    const refreshLessons = () => void refreshPackIfEnabled(lessonUserId);
     topUpReminders();
+    refreshLessons();
     const sub = AppState.addEventListener("change", (next) => {
       if (next === "active") {
         run();
         topUpReminders();
+        refreshLessons();
       }
     });
     const timer = setInterval(() => {
@@ -163,6 +181,7 @@ function AppContent() {
     return () => {
       sub.remove();
       clearInterval(timer);
+      stopWatcher();
     };
   }, [session?.user.id, identity]);
 

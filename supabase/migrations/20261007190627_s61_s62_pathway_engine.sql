@@ -19,7 +19,7 @@
 -- engine: none. chronic_condition_programmes hypertension, diabetes and obesity are is_active = true. So the new enrolment guard (off) means a
 -- real patient can no longer enrol in those three programmes until the CMO switches the pathway guard on. No existing patient is affected.
 --
--- THE CONDITIONS FUNCTION IS WRAPPED, NOT REWRITTEN: private.go_live_conditions is renamed to go_live_conditions_base and a thin dispatcher takes
+-- THE CONDITIONS FUNCTION IS WRAPPED, NOT REWRITTEN: private.go_live_conditions is renamed to go_live_conditions_s61_base and a thin dispatcher takes
 -- its name; public.attest_go_live_condition likewise. The base bodies are kept exactly as they are live, so this cannot drift from them. A later
 -- migration that re-creates either function in full would drop the pathway branch: the proof script asserts the wrapper is in place.
 --
@@ -152,15 +152,15 @@ begin
       private.go_live_attested(p_key, 'clinicians_competency_attested'), 'attestation', null));
 end $$;
 
-alter function private.go_live_conditions(text, uuid) rename to go_live_conditions_base;
+alter function private.go_live_conditions(text, uuid) rename to go_live_conditions_s61_base;
 create function private.go_live_conditions(p_key text, p_org uuid) returns jsonb language plpgsql stable security definer set search_path = '' as $$
 begin
   if p_key like 'pathway\_%' then return private.pathway_go_live_conditions(p_key); end if;
-  return private.go_live_conditions_base(p_key, p_org);
+  return private.go_live_conditions_s61_base(p_key, p_org);
 end $$;
 
-alter function public.attest_go_live_condition(text, text, boolean, text) rename to attest_go_live_condition_base;
-revoke all on function public.attest_go_live_condition_base(text, text, boolean, text) from public, anon, authenticated;
+alter function public.attest_go_live_condition(text, text, boolean, text) rename to attest_go_live_condition_s61_base;
+revoke all on function public.attest_go_live_condition_s61_base(text, text, boolean, text) from public, anon, authenticated;
 create function public.attest_go_live_condition(p_key text, p_code text, p_met boolean, p_note text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare v_uid uuid := (select auth.uid());
@@ -180,7 +180,7 @@ begin
     perform private.log_audit('go_live_guard.condition_attested', 'go_live_guard', null, jsonb_build_object('key', p_key, 'code', p_code, 'met', p_met));
     return jsonb_build_object('ok', true);
   end if;
-  return public.attest_go_live_condition_base(p_key, p_code, p_met, p_note);
+  return public.attest_go_live_condition_s61_base(p_key, p_code, p_met, p_note);
 end $$;
 revoke all on function public.attest_go_live_condition(text, text, boolean, text) from public, anon;
 grant execute on function public.attest_go_live_condition(text, text, boolean, text) to authenticated;
@@ -482,11 +482,11 @@ create trigger care_plan_changes_engine_review_task after insert on public.care_
 insert into public.task_types (code, version, is_active, priority_class, default_due_minutes, min_doctor_tier, required_competencies, lead_window_minutes,
                                claim_timeout_minutes, pushable, creatable, source_task_keys, effective_from, note, needs_confirmation)
 values
-  ('hypo_follow_up', 1, true, 4, 1440, 'medical_officer', array['diabetes'], 240, 30, true, true, array['hypo_follow_up'], current_date,
+  ('hypo_follow_up', 1, true, 4, 1440, 'senior_medical_officer', array['diabetes'], 240, 30, true, true, array['hypo_follow_up'], current_date,
    'S61: follow-up after a low glucose reading without a danger symptom. PROPOSED class, tier and due time (decision pack Q5).', false),
-  ('amber_glucose_review', 1, true, 4, 1440, 'medical_officer', array['diabetes'], 240, 30, true, true, array['amber_glucose_review'], current_date,
+  ('amber_glucose_review', 1, true, 4, 1440, 'senior_medical_officer', array['diabetes'], 240, 30, true, true, array['amber_glucose_review'], current_date,
    'S61: amber glucose review (very high glucose, raised ketones, repeated lows or highs). PROPOSED.', false),
-  ('amber_pathway_review', 1, true, 5, 4320, 'medical_officer', array['adult_general'], 1440, 30, true, true, array['amber_pathway_review'], current_date,
+  ('amber_pathway_review', 1, true, 5, 4320, 'senior_medical_officer', array['adult_general'], 1440, 30, true, true, array['amber_pathway_review'], current_date,
    'S61/S62: amber review for asthma, heart failure and CKD rules, and the scheduled clinician review. PROPOSED.', false)
 on conflict (code, version) do nothing;
 
@@ -634,7 +634,7 @@ begin
   if has_table_privilege('anon', 'public.pathway_milestones', 'SELECT') or has_table_privilege('anon', 'public.pathway_baselines', 'SELECT') then raise exception 'S62: anon can read a pathway table'; end if;
   if has_function_privilege('anon', 'public.pause_pathway_enrolment(uuid,text)', 'EXECUTE') or has_function_privilege('anon', 'public.attest_go_live_condition(text,text,boolean,text)', 'EXECUTE')
      or has_function_privilege('anon', 'public.sweep_pathway_reviews()', 'EXECUTE') or has_function_privilege('authenticated', 'public.sweep_pathway_reviews()', 'EXECUTE')
-     or has_function_privilege('authenticated', 'public.attest_go_live_condition_base(text,text,boolean,text)', 'EXECUTE') then
+     or has_function_privilege('authenticated', 'public.attest_go_live_condition_s61_base(text,text,boolean,text)', 'EXECUTE') then
     raise exception 'S62: a pathway function has the wrong execute privilege';
   end if;
 end $$;

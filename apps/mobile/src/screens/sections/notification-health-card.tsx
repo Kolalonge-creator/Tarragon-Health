@@ -5,6 +5,7 @@ import { diagnose, type DeliveryHealth, type DiagnosisFinding, type PermissionLe
 import { useUiLanguage } from "@/lib/ui-language";
 import { loadDeliveryHealth } from "@/lib/notification-settings";
 import { getNotificationPermission } from "@/lib/reminder-notifications";
+import { supabase } from "@/lib/supabase";
 import { useLegacyColors } from "@/ui/design";
 import { Card, MutedText, PrimaryButton } from "@/ui/legacy-kit";
 import { Text } from "react-native";
@@ -34,6 +35,18 @@ export function NotificationHealthCard() {
   const language = asLocale(useUiLanguage());
   const tr = (key: MessageKey) => t(key, language);
   const [state, setState] = useState<{ permission: PermissionLevel; health: DeliveryHealth | null } | null>(null);
+  const [test, setTest] = useState<"idle" | "sending" | "sent" | "failed" | "limit">("idle");
+
+  /** S13 R4: a test alert that travels like a safety message (high priority, urgent channel), so the person learns whether those reach this phone. */
+  const sendTest = useCallback(async () => {
+    setTest("sending");
+    try {
+      const { error } = await supabase.rpc("send_my_test_alert" as never);
+      setTest(!error ? "sent" : error.code === "22023" ? "limit" : "failed");
+    } catch {
+      setTest("failed");
+    }
+  }, []);
 
   const check = useCallback(async () => {
     const [permission, health] = await Promise.all([getNotificationPermission(), loadDeliveryHealth()]);
@@ -73,6 +86,10 @@ export function NotificationHealthCard() {
         </View>
       )}
       <MutedText>{tr("notif.diag.inbox_note")}</MutedText>
+      <PrimaryButton title={tr("notif.diag.send_test")} loading={test === "sending"} onPress={() => void sendTest()} />
+      {test === "sent" ? <MutedText>{tr("notif.diag.test_sent")}</MutedText> : null}
+      {test === "failed" ? <MutedText>{tr("notif.diag.test_failed")}</MutedText> : null}
+      {test === "limit" ? <MutedText>{tr("notif.diag.test_limit")}</MutedText> : null}
       <PrimaryButton title={tr("notif.diag.check_again")} onPress={() => void check()} />
     </Card>
   );

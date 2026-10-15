@@ -18,6 +18,8 @@ export interface FakePaystack {
   /** Pass the processor fee on to the customer for this charge, as Paystack does when pass-through is on. */
   setCustomerFee(reference: string, feeKobo: number): void;
   failNextCall(): void;
+  /** Adds a settlement (what Paystack pays out to the bank) with the charges in it. Read only for the adapter. */
+  addSettlement(id: number, totalKobo: number, feesKobo: number, lines: readonly { reference: string; amountKobo: number; feesKobo?: number }[]): void;
 }
 
 const reply = (status: number, body: unknown) => ({ status, ok: status >= 200 && status < 300, text: async () => (typeof body === "string" ? body : JSON.stringify(body)) });
@@ -29,6 +31,7 @@ export function createFakePaystack(secretKey = "sk_test_fake_key_for_contract_su
   const charges = new Map<string, { amount: number; email: string; status: string; paid_at: string | null; metadata: unknown; refunded: number; fee: number }>();
   const transfers = new Map<string, { amount: number; status: string; code: string }>();
   const recipients = new Set<string>();
+  const settlements = new Map<number, { total: number; fees: number; lines: { reference: string; amount: number; fees: number }[] }>();
   let failNext = false;
   let seq = 0;
 
@@ -96,6 +99,29 @@ export function createFakePaystack(secretKey = "sk_test_fake_key_for_contract_su
       const t = transfers.get(ref);
       return t ? okEnv({ reference: ref, transfer_code: t.code, amount: t.amount, status: t.status }) : errEnv(404, "Transfer not found");
     }
+    if (init.method === "GET" && path === "/settlement") {
+      const perPage = Number(u.searchParams.get("perPage") ?? 50);
+      const page = Number(u.searchParams.get("page") ?? 1);
+      const all = [...settlements.entries()].sort((a, b) => b[0] - a[0]);
+      const slice = all.slice((page - 1) * perPage, page * perPage);
+      return reply(200, {
+        status: true, message: "Settlements retrieved",
+        data: slice.map(([id, v]) => ({ id, status: "success", total_amount: v.total, total_fees: v.fees, settlement_date: "2026-10-07T00:00:00.000Z" })),
+        meta: { total: all.length, page, perPage, pageCount: Math.max(1, Math.ceil(all.length / perPage)) },
+      });
+    }
+    if (init.method === "GET" && /^\/settlement\/\d+\/transactions$/.test(path)) {
+      const v = settlements.get(Number(path.split("/")[2]));
+      if (!v) return errEnv(404, "Settlement not found");
+      const perPage = Number(u.searchParams.get("perPage") ?? 50);
+      const page = Number(u.searchParams.get("page") ?? 1);
+      const slice = v.lines.slice((page - 1) * perPage, page * perPage);
+      return reply(200, {
+        status: true, message: "Transactions retrieved",
+        data: slice.map((l) => ({ reference: l.reference, amount: l.amount, fees: l.fees, status: "success", paid_at: "2026-10-06T10:00:00.000Z" })),
+        meta: { total: v.lines.length, page, perPage, pageCount: Math.max(1, Math.ceil(v.lines.length / perPage)) },
+      });
+    }
     return errEnv(404, "Not found");
   };
 
@@ -128,6 +154,9 @@ export function createFakePaystack(secretKey = "sk_test_fake_key_for_contract_su
     },
     failNextCall() {
       failNext = true;
+    },
+    addSettlement(id, totalKobo, feesKobo, lines) {
+      settlements.set(id, { total: totalKobo, fees: feesKobo, lines: lines.map((l) => ({ reference: l.reference, amount: l.amountKobo, fees: l.feesKobo ?? 0 })) });
     },
   };
 }

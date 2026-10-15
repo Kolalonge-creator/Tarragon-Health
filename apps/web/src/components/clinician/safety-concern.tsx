@@ -25,6 +25,12 @@ export function SafetyConcernButton() {
       {state?.sent ? (
         <div className="space-y-1 p-2 text-sm">
           <p role="status" className="text-brand-green">{t("concern.thanks", "en")}</p>
+          {state.code && (
+            <div className="rounded-md bg-charcoal-ink/5 p-2">
+              <p className="text-xs">{t("concern.anon.code_hint", "en")}</p>
+              <p className="mt-1 font-mono text-base font-semibold tracking-wider" data-testid="anonymous-code">{state.code}</p>
+            </div>
+          )}
           <Link href="/clinician/my-concerns" className="underline">{t("speakup.mine.link", "en")}</Link>
         </div>
       ) : (
@@ -51,6 +57,14 @@ export function SafetyConcernButton() {
             <Label htmlFor="concern-description">{t("concern.description", "en")}</Label>
             <Textarea id="concern-description" name="description" rows={4} minLength={20} maxLength={4000} required />
           </div>
+          <label className="flex items-start gap-2 text-xs text-charcoal-ink">
+            <input type="checkbox" name="about_lead" value="yes" className="mt-0.5" />
+            <span>{t("concern.about_lead", "en")}</span>
+          </label>
+          <label className="flex items-start gap-2 text-xs text-charcoal-ink">
+            <input type="checkbox" name="anonymous" value="yes" className="mt-0.5" />
+            <span>{t("concern.anon.label", "en")}</span>
+          </label>
           {state?.error && <p role="alert" className="text-sm text-red-600">{state.error}</p>}
           <Button type="submit" size="sm" disabled={pending}>{t("concern.submit", "en")}</Button>
           <Link href="/clinician/my-concerns" className="ml-3 text-sm underline">{t("speakup.mine.link", "en")}</Link>

@@ -26,6 +26,11 @@ alter table public.go_live_guards disable trigger go_live_guards_guard;
 delete from public.go_live_guards where key like 'pathway\_%';
 alter table public.go_live_guards enable trigger go_live_guards_guard;
 
+-- Two-tier: the paid per-item products are not sellable (service_products_doctor_time_not_sellable). The consultation machinery under test
+-- still prices from video_visit_credit, so the constraint is dropped and the product switched on here, inside this rolled-back transaction.
+alter table public.service_products drop constraint service_products_doctor_time_not_sellable;
+update public.service_products set is_active = true where code = 'video_visit_credit';
+
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
 grant all on results to public;
 create function pg_temp.rec(p_name text, p_expected text, p_actual text) returns void language sql as
@@ -118,7 +123,7 @@ begin
   update public.consultation_policy_config set config = config || '{"bookingLeadMinutes":5,"bookingHorizonDays":21}'::jsonb where is_active;
 
   -- 1. Shape ----------------------------------------------------------------------------------------------------
-  perform pg_temp.rec('seven guards exist', '7', (select count(*)::text from public.go_live_guards));
+  perform pg_temp.rec('the seven spec guards exist (other features may add guards of their own)', '7', (select count(*)::text from public.go_live_guards where key in ('clinical_operations_enabled', 'on_call_cover_ok', 'lab_booking_enabled', 'prescribing_enabled', 'scribe_enabled', 'payouts_enabled', 'public_signup_enabled')));
   perform pg_temp.rec('every guard ships off', '0', (select count(*)::text from public.go_live_guards where is_on));
   perform pg_temp.rec('RLS is on for all four tables', '4', (select count(*)::text from pg_class where oid in ('public.go_live_guards'::regclass, 'public.go_live_guard_log'::regclass, 'public.go_live_attestations'::regclass, 'public.proposed_config_signoffs'::regclass) and relrowsecurity));
   perform pg_temp.rec('authenticated cannot write any of the four tables', '0',
@@ -133,7 +138,8 @@ begin
   perform pg_temp.rec('anon cannot execute the private reader', 'false', has_function_privilege('anon', 'private.go_live_open(text,uuid,uuid)', 'EXECUTE')::text);
   perform pg_temp.rec('an unknown guard reads closed', 'false', private.go_live_open('no_such_guard')::text);
   perform pg_temp.act(v_pat);
-  perform pg_temp.rec('a signed-in person can read the guards', '7', (select count(*)::text from public.go_live_guards));
+  perform pg_temp.rec('the partner_settlement_enabled guard exists', '1', (select count(*)::text from public.go_live_guards where key = 'partner_settlement_enabled'));
+  perform pg_temp.rec('a signed-in person can read the guards', '7', (select count(*)::text from public.go_live_guards where key in ('clinical_operations_enabled', 'on_call_cover_ok', 'lab_booking_enabled', 'prescribing_enabled', 'scribe_enabled', 'payouts_enabled', 'public_signup_enabled')));
   perform pg_temp.back();
 
   -- 2. No direct change, by anyone ------------------------------------------------------------------------------
@@ -189,7 +195,9 @@ begin
   v_status := public.go_live_guard_status();
   perform pg_temp.rec('the dashboard now shows payouts all met', 'true',
     (select (g ->> 'all_met')::text from jsonb_array_elements(v_status) g where g ->> 'key' = 'payouts_enabled'));
-  perform pg_temp.rec('...and the dashboard lists seven guards', '7', jsonb_array_length(v_status)::text);
+  -- (the Community guard is a later feature's own guard, so it is not counted among the seven spec guards)
+  perform pg_temp.rec('...and the dashboard lists seven guards', '7', (select count(*)::text from jsonb_array_elements(v_status) g where g ->> 'key' not in ('community', 'wallet_pass', 'home_bp_programme', 'bp_pattern_flag', 'prn_limits', 'partner_settlement_enabled', 'cohorts_enabled', 'membership_billing_enabled', 'concierge_coordinator_enabled', 'checkout_enabled', 'sponsor_payment_enabled', 'access_fund_enabled', 'maternal_enabled', 'symptom_checker_enabled', 'assistant_enabled', 'mental_health_follow_up_enabled', 'interaction_check_enabled', 'live_redflag_prompts_enabled', 'wellbeing_library_clinical_scripts', 'sleep_apnoea_screen_enabled')));
+
   perform pg_temp.rec('the real switch works with every condition met', 'true',
     (public.set_go_live_guard('payouts_enabled', true, 'Stage 1 complete, fee schedule approved.') ->> 'changed'));
   perform pg_temp.back();
@@ -469,6 +477,11 @@ begin
     (select count(*)::text from public.proposed_config_signoffs where signed_by not in (v_cmo, v_admin)));
 
   -- every condition the dashboard shows as recorded by a person can actually be recorded (the attestable list matches the conditions)
+  -- S60: two symptom_checker_enabled attestations need a record behind them (a determined regulatory position, a baseline report); fixtures:
+  insert into public.regulatory_positions (organisation_id, topic, position_text, classification, counsel_name, position_date, document_ref, attached_by, is_test)
+  values (v_org, 'symptom_checker', 'Proof fixture: counsel advises the checker is decision support, labelled as such.', 'decision_support_not_a_device', 'S37 proof counsel', current_date, 'PROOF-DOC-REF', v_admin, true);
+  insert into public.symptom_accuracy_reports (organisation_id, period_start, period_end, config_version, is_baseline, includes_test_accounts, reviewed_total, cells)
+  values (v_org, date '2020-01-01', date '2020-02-01', (select version from public.symptom_accuracy_config where is_active), true, true, 12, '[]');
   perform pg_temp.act(v_admin);
   perform pg_temp.rec('every attestation condition the dashboard lists can be attested', '0',
     (select count(*)::text from jsonb_array_elements(public.go_live_guard_status()) g, jsonb_array_elements(g -> 'conditions') c
@@ -479,8 +492,9 @@ begin
   create or replace function private.go_live_conditions(p_key text, p_org uuid) returns jsonb language plpgsql stable security definer set search_path = '' as $f$
     begin raise exception 'simulated broken condition query'; end $f$;
   perform pg_temp.act(v_admin);
-  perform pg_temp.rec('a broken condition query does not blank the dashboard', '7', jsonb_array_length(public.go_live_guard_status())::text);
-  perform pg_temp.rec('...every guard then reads as not satisfied', '7', (select count(*)::text from jsonb_array_elements(public.go_live_guard_status()) g where not (g ->> 'all_met')::boolean));
+  perform pg_temp.rec('a broken condition query does not blank the dashboard', '7', (select count(*)::text from jsonb_array_elements(public.go_live_guard_status()) g where g ->> 'key' not in ('community', 'wallet_pass', 'home_bp_programme', 'bp_pattern_flag', 'prn_limits', 'partner_settlement_enabled', 'cohorts_enabled', 'membership_billing_enabled', 'concierge_coordinator_enabled', 'checkout_enabled', 'sponsor_payment_enabled', 'access_fund_enabled', 'maternal_enabled', 'symptom_checker_enabled', 'assistant_enabled', 'mental_health_follow_up_enabled', 'interaction_check_enabled', 'live_redflag_prompts_enabled', 'wellbeing_library_clinical_scripts', 'sleep_apnoea_screen_enabled')));
+  perform pg_temp.rec('...every guard then reads as not satisfied', '7', (select count(*)::text from jsonb_array_elements(public.go_live_guard_status()) g where g ->> 'key' not in ('community', 'wallet_pass', 'home_bp_programme', 'bp_pattern_flag', 'prn_limits', 'partner_settlement_enabled', 'cohorts_enabled', 'membership_billing_enabled', 'concierge_coordinator_enabled', 'checkout_enabled', 'sponsor_payment_enabled', 'access_fund_enabled', 'maternal_enabled', 'symptom_checker_enabled', 'assistant_enabled', 'mental_health_follow_up_enabled', 'interaction_check_enabled', 'live_redflag_prompts_enabled', 'wellbeing_library_clinical_scripts', 'sleep_apnoea_screen_enabled') and not (g ->> 'all_met')::boolean));
+
   perform pg_temp.rec('...and the stop button still works (scribe_enabled is on here)', 'true', (public.set_go_live_guard('scribe_enabled', false, 'Proof: stop under a broken evaluator.') ->> 'changed'));
   perform pg_temp.rec('...and no scribe consent is left open after the scribe is switched off', '0', (select count(*)::text from public.scribe_consents where granted and revoked_at is null));
   perform pg_temp.rec('...and the patient''s in-app allow on the open consultation went back to unanswered', 'null',
