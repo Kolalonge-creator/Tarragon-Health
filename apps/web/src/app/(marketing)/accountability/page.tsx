@@ -116,6 +116,11 @@ export default async function AccountabilityPage() {
               throughout: a flagged reading still reaches a doctor, and no urgent case can be
               closed without one.
             </p>
+            <p className="mt-3 text-sm text-charcoal-ink/70">
+              We aim to reply as quickly as we can, and if we are running slower than usual we will
+              tell you in the app. If something is urgent, or you feel very unwell, do not wait for a
+              reply: go to your nearest emergency department or call emergency services now.
+            </p>
           </div>
         )}
       </Section>

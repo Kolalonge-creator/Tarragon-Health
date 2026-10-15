@@ -105,6 +105,7 @@ begin
   -- ===== 3. finalize with the existing path, then attaching is refused =====
   perform set_config('request.jwt.claims', json_build_object('sub', v_tied, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
+  perform public.confirm_scribe_safety_lines(v_note);  -- S64: an AI-drafted note is signed only after the allergy and medicine lines are confirmed
   perform public.finalize_encounter_note(v_note, 'reassurance', true);
   v_failed := false;
   begin perform public.attach_scribe_draft_to_note(v_note, v_ok, 'changed', 'en-NG');

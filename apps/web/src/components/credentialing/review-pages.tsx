@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/page-header";
-import { getApplicationDetail, getContent, getExpiryOverview, getReviewQueue } from "@/lib/credentialing/queries";
+import { getApplicationDetail, getContent, getExpiryOverview, getReviewQueue, getWorkList } from "@/lib/credentialing/queries";
 import { firstParam, type SearchParams } from "@/lib/credentialing/params";
 import { ApplicationReview } from "./application-review";
 import { ContentManager } from "./content-manager";
@@ -8,6 +8,7 @@ import { CredentialingNav } from "./credentialing-nav";
 import { ExpiryTable } from "./expiry-table";
 import { QueueTable } from "./queue-table";
 import { Flash } from "./shared";
+import { WorkList } from "./work-list";
 
 /**
  * The reviewer pages, shared by the admin (/admin/credentialing) and the Chief Medical Officer
@@ -16,13 +17,14 @@ import { Flash } from "./shared";
  */
 export async function QueuePage({ basePath, isCmo, searchParams }: { basePath: string; isCmo: boolean; searchParams: SearchParams }) {
   const sp = await searchParams;
-  const rows = await getReviewQueue();
+  const [rows, workList] = await Promise.all([getReviewQueue(), getWorkList()]);
   return (
     <div className="space-y-5">
       <PageHeader title="Clinician applications" description="Check each applicant's licence, qualifications, identity and referees, then the Chief Medical Officer approves and you switch them on." />
       <CredentialingNav basePath={basePath} showContent={isCmo} />
       <Flash ok={firstParam(sp.ok)} error={firstParam(sp.error)} />
       <QueueTable rows={rows} basePath={basePath} />
+      <WorkList list={workList} returnTo={basePath} parts={["unverified", "rechecks", "missing_dates"]} />
     </div>
   );
 }
@@ -55,7 +57,7 @@ export async function DetailPage({
 
 export async function ExpiryPage({ basePath, isCmo, searchParams }: { basePath: string; isCmo: boolean; searchParams: SearchParams }) {
   const sp = await searchParams;
-  const rows = await getExpiryOverview();
+  const [rows, workList] = await Promise.all([getExpiryOverview(), getWorkList()]);
   return (
     <div className="space-y-5">
       <PageHeader
@@ -64,6 +66,7 @@ export async function ExpiryPage({ basePath, isCmo, searchParams }: { basePath: 
       />
       <CredentialingNav basePath={basePath} showContent={isCmo} />
       <Flash ok={firstParam(sp.ok)} error={firstParam(sp.error)} />
+      <WorkList list={workList} returnTo={`${basePath}/expiry`} parts={["missing_dates"]} />
       <ExpiryTable rows={rows} returnTo={`${basePath}/expiry`} now={new Date()} />
     </div>
   );

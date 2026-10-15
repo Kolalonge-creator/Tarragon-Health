@@ -21,12 +21,14 @@ export async function proposeContractChange(
   _prevState: ProposeContractChangeState,
   formData: FormData
 ): Promise<ProposeContractChangeState> {
-  const supabase = await createClient();
-
   const contractType = formData.get("contractType");
-  if (typeof contractType !== "string" || !["fee_at_risk", "flat"].includes(contractType)) {
+  if (contractType === "fee_at_risk") {
+    return { error: "New fee-at-risk contracts are paused. Please propose a flat fee instead." };
+  }
+  if (typeof contractType !== "string" || contractType !== "flat") {
     return { error: "Choose a contract type" };
   }
+  const supabase = await createClient();
   const payoutTerms = formData.get("payoutTerms");
   const effectiveFrom = formData.get("effectiveFrom");
 

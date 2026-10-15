@@ -21,10 +21,8 @@ import { supabase } from "@/lib/supabase";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import {
   createCorrectionRequest,
-  createDeletionRequest,
   isValidE164,
   loadCorrectionRequests,
-  loadDeletionRequests,
   loadLatestIdentityVerification,
   loadProfile,
   updateConditionLanguage,
@@ -32,7 +30,6 @@ import {
   updateEmergencyContact,
   updateLocation,
   type CorrectionRequestRow,
-  type DeletionRequestRow,
   type IdentityVerificationRow,
   type ProfileRow,
 } from "@/lib/profile";
@@ -593,16 +590,12 @@ function RequestStatusBadge({ status }: { status: string }) {
 function DataPrivacySection({
   userId,
   organisationId,
-  deletionRequests,
   correctionRequests,
-  onDeletionCreated,
   onCorrectionCreated,
 }: {
   userId: string;
   organisationId: string | null;
-  deletionRequests: DeletionRequestRow[];
   correctionRequests: CorrectionRequestRow[];
-  onDeletionCreated: (row: DeletionRequestRow) => void;
   onCorrectionCreated: (row: CorrectionRequestRow) => void;
 }) {
   const colors = useLegacyColors();
@@ -612,11 +605,6 @@ function DataPrivacySection({
   const [requestedChange, setRequestedChange] = useState("");
   const [correctionSaving, setCorrectionSaving] = useState(false);
   const [correctionError, setCorrectionError] = useState<string | null>(null);
-
-  const [deletionOpen, setDeletionOpen] = useState(false);
-  const [deletionReason, setDeletionReason] = useState("");
-  const [deletionSaving, setDeletionSaving] = useState(false);
-  const [deletionError, setDeletionError] = useState<string | null>(null);
 
   async function submitCorrection() {
     if (!organisationId) {
@@ -659,42 +647,6 @@ function DataPrivacySection({
       setCorrectionError(e instanceof Error ? e.message : "Couldn't submit that just now. Try again.");
     } finally {
       setCorrectionSaving(false);
-    }
-  }
-
-  async function submitDeletion() {
-    if (!organisationId) {
-      setDeletionError("Your account isn't fully set up yet. Contact support.");
-      return;
-    }
-    setDeletionSaving(true);
-    setDeletionError(null);
-    try {
-      await createDeletionRequest(organisationId, userId, deletionReason);
-      onDeletionCreated({
-        id: `local-${Date.now()}`,
-        organisation_id: organisationId,
-        patient_id: userId,
-        reason: deletionReason || null,
-        requested_categories: [],
-        blocked_categories: [],
-        blocked_reason: null,
-        status: "pending",
-        decision_note: null,
-        completed_at: null,
-        completed_by: null,
-        reviewed_at: null,
-        reviewed_by: null,
-        requested_at: new Date().toISOString(),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
-      setDeletionOpen(false);
-      setDeletionReason("");
-    } catch (e) {
-      setDeletionError(e instanceof Error ? e.message : "Couldn't submit that just now. Try again.");
-    } finally {
-      setDeletionSaving(false);
     }
   }
 
@@ -767,42 +719,9 @@ function DataPrivacySection({
       <Card style={{ gap: 10 }}>
         <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Request deletion of your data</Text>
         <MutedText>
-          You can ask us to delete data we hold about you. Some clinical records must be kept for a
-          minimum period under Nigerian healthcare regulation — we&apos;ll explain what can and can&apos;t
-          be deleted when we review your request.
+          Asking us to close your account and erase your data lives in Privacy &amp; your data (open it from the menu): tap &quot;Request deletion of your data&quot;.
+          It shows the waiting period, lets you cancel during it, and says plainly which records the law requires us to keep.
         </MutedText>
-        {deletionOpen ? (
-          <View style={{ gap: 8 }}>
-            <Input
-              placeholder="What would you like deleted, and why? (optional)"
-              value={deletionReason}
-              onChangeText={setDeletionReason}
-            />
-            {deletionError ? <ErrorText>{deletionError}</ErrorText> : null}
-            <View style={{ flexDirection: "row", gap: 10 }}>
-              <View style={{ flex: 1 }}>
-                <PrimaryButton title="Submit request" onPress={() => void submitDeletion()} loading={deletionSaving} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <SecondaryButton title="Cancel" onPress={() => setDeletionOpen(false)} disabled={deletionSaving} />
-              </View>
-            </View>
-          </View>
-        ) : (
-          <SecondaryButton title="Request deletion" onPress={() => setDeletionOpen(true)} />
-        )}
-        {deletionRequests.length > 0 ? (
-          <GroupedList>
-            {deletionRequests.map((r) => (
-              <GroupedListRow
-                key={r.id}
-                title={r.reason || "Deletion request"}
-                subtitle={formatDate(r.requested_at) ?? undefined}
-                trailing={<RequestStatusBadge status={r.status} />}
-              />
-            ))}
-          </GroupedList>
-        ) : null}
       </Card>
     </View>
   );
@@ -825,7 +744,6 @@ export function ProfileScreen() {
   const [email, setEmail] = useState<string | null>(null);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [verification, setVerification] = useState<IdentityVerificationRow | null>(null);
-  const [deletionRequests, setDeletionRequests] = useState<DeletionRequestRow[]>([]);
   const [correctionRequests, setCorrectionRequests] = useState<CorrectionRequestRow[]>([]);
 
   const load = useCallback(async () => {
@@ -841,15 +759,13 @@ export function ProfileScreen() {
       }
       setUserId(user.id);
       setEmail(user.email ?? null);
-      const [profileRow, latestVerification, deletions, corrections] = await Promise.all([
+      const [profileRow, latestVerification, corrections] = await Promise.all([
         loadProfile(user.id),
         loadLatestIdentityVerification(user.id),
-        loadDeletionRequests(user.id),
         loadCorrectionRequests(user.id),
       ]);
       setProfile(profileRow);
       setVerification(latestVerification);
-      setDeletionRequests(deletions);
       setCorrectionRequests(corrections);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't load your profile. Try again.");
@@ -905,9 +821,7 @@ export function ProfileScreen() {
       <DataPrivacySection
         userId={userId}
         organisationId={profile.organisation_id}
-        deletionRequests={deletionRequests}
         correctionRequests={correctionRequests}
-        onDeletionCreated={(row) => setDeletionRequests((prev) => [row, ...prev])}
         onCorrectionCreated={(row) => setCorrectionRequests((prev) => [row, ...prev])}
       />
     </ScrollView>

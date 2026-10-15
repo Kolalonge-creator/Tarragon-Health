@@ -35,6 +35,7 @@ type ScribeState =
       promptVersion: string;
       warnings: readonly { section: string; kind: string; detail?: string }[];
     }
+  | { step: "self" }
   | { step: "used" }
   | { step: "revoked" }
   | { step: "error"; message: string; consentId?: string };
@@ -165,7 +166,10 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
       return (
         <div className="space-y-2 rounded-md border border-charcoal-ink/15 p-3">
           <p role="status" className="text-sm text-charcoal-ink">{t(state.view.kind === "blocked" ? state.view.messageKey : "scribe.gate.checking", "en")}</p>
-          <Button size="sm" variant="outline" onClick={loadGate}>{t("scribe.gate.refresh", "en")}</Button>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={loadGate}>{t("scribe.gate.refresh", "en")}</Button>
+            <Button size="sm" variant="ghost" onClick={() => setState({ step: "self" })}>{t("scribe.no_scribe.button", "en")}</Button>
+          </div>
         </div>
       );
 
@@ -184,6 +188,20 @@ export function ScribePanel({ patientId, encounterNoteId, patientContext, onUseD
           <Button size="sm" variant="outline" onClick={handleStart}>
             {t("scribe.start", "en")}
           </Button>
+          <Button size="sm" variant="ghost" onClick={() => setState({ step: "self" })}>
+            {t("scribe.no_scribe.button", "en")}
+          </Button>
+          <p className="w-full text-xs text-charcoal-ink/50">{t("scribe.no_scribe.body", "en")}</p>
+        </div>
+      );
+
+    case "self":
+      // S64 (15.4): the visible no-scribe path. It writes nothing and discards nothing: the consent row (if any) stays as it is, and
+      // the clinician simply writes the note in the fields. Choosing the scribe again is one tap away.
+      return (
+        <div className="space-y-2">
+          <p role="status" className="text-sm text-charcoal-ink">{t("scribe.no_scribe.chosen", "en")}</p>
+          <Button size="sm" variant="ghost" onClick={loadGate}>{t("scribe.gate.refresh", "en")}</Button>
         </div>
       );
 

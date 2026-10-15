@@ -3,7 +3,9 @@ import { createBearerClient } from "@/lib/supabase/bearer";
 import { assessBpControlBestEffort } from "@/lib/ml/assess-bp-control";
 import { assessGlucoseBestEffort } from "@/lib/vitals/assess-glucose";
 import { runBestEffort } from "@/lib/sentry/run-best-effort";
-import { deviceReadingSchema } from "@/lib/validation/device-reading";
+import { deviceReadingHoldSchema, deviceReadingSchema } from "@/lib/validation/device-reading";
+import { anyDeviceModuleOn, readDeviceFlags } from "@/lib/devices/flags";
+import { readOutcome } from "@/lib/devices/reading-outcome";
 import { mgDlToMmolL, type TablesInsert } from "@tarragon/shared";
 
 /**
@@ -40,7 +42,10 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const parsed = deviceReadingSchema.safeParse(body);
+  // S70a (18.9): with the plausibility hold switched on, the database decides what is impossible (and holds it for the person to check),
+  // so the strict typed-entry band here would only throw away a real extreme reading. Off (today): exactly the old schema.
+  const flags = await readDeviceFlags(supabase);
+  const parsed = (flags.device_plausibility_hold ? deviceReadingHoldSchema : deviceReadingSchema).safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       { error: parsed.error.issues[0]?.message ?? "Invalid input" },
@@ -57,10 +62,6 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (!profile?.organisation_id) {
     return NextResponse.json({ error: "No organisation on file" }, { status: 400 });
   }
-  // Narrowed into its own const: TS can't carry the null-check above through
-  // the runBestEffort closures further down, which read this via a fresh
-  // arrow function rather than a direct access.
-  const organisationId = profile.organisation_id;
 
   // RLS already scopes this to the caller's own devices; the explicit
   // patient_id/status filter also turns "someone else's device" and "an
@@ -72,14 +73,28 @@ export async function POST(request: Request): Promise<NextResponse> {
     .eq("patient_id", user.id)
     .eq("status", "active")
     .maybeSingle();
+
+  // S70a (18.1, shared phones): a device paired to someone the caller manages (pair_device_for) belongs to THAT person, so the reading is
+  // written for them and logged by the caller. A stranger's device, an unpaired device and a view-only supporter all get the same 404.
+  let patientId = user.id;
+  let organisationId: string = profile.organisation_id;
+  let loggedBy: string | null = null;
   if (!device) {
-    return NextResponse.json({ error: "Device not found or not paired" }, { status: 404 });
+    const { data: target } = await supabase.rpc("device_target_for_reading", { p_device_id: reading.device_id });
+    const row = Array.isArray(target) ? target[0] : null;
+    if (!row) {
+      return NextResponse.json({ error: "Device not found or not paired" }, { status: 404 });
+    }
+    patientId = row.patient_id;
+    organisationId = row.organisation_id;
+    loggedBy = row.is_supporter ? user.id : null;
   }
 
   const { vital_type, device_id, external_reading_id, taken_at } = reading;
   const shared = {
-    patient_id: user.id,
-    organisation_id: profile.organisation_id,
+    patient_id: patientId,
+    organisation_id: organisationId,
+    ...(loggedBy ? { logged_by_profile_id: loggedBy } : {}),
     source: "device" as const,
     device_id,
     external_reading_id,
@@ -125,6 +140,19 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: insertError.message }, { status: 500 });
   }
 
+  // S70a: with either switch on, a successful insert can still have stored nothing in the record. Ask the database which it was.
+  if (flags.device_plausibility_hold || flags.device_cross_source_dedupe) {
+    const outcome = await readOutcome(supabase, { patientId, deviceId: device_id, externalReadingId: external_reading_id });
+    if (outcome.kind === "held") {
+      // Held for the person to check: not in the record, never triaged. Not an error, so the phone's queue moves on.
+      return NextResponse.json({ success: true, held: true, held_id: outcome.heldId, reasons: outcome.reasons });
+    }
+    if (outcome.kind === "merged") {
+      // The same reading was already there from a better source: linked, not stored twice.
+      return NextResponse.json({ success: true, merged: true });
+    }
+  }
+
   // A real reading arriving is the signal that clears a prior "no data"
   // flag from the device-connectivity cron (see
   // /api/cron/device-connectivity-check) — the device is transmitting
@@ -165,19 +193,26 @@ export async function POST(request: Request): Promise<NextResponse> {
     route: "api/mobile/device-readings",
     stage: "safety_assessment",
     vitalType: vital_type,
-    patientId: user.id,
+    patientId,
     organisationId,
   };
   if (vital_type === "blood_pressure") {
     safetyAssessmentFailed = await runBestEffort(
-      () => assessBpControlBestEffort(supabase, user.id, organisationId),
+      () => assessBpControlBestEffort(supabase, patientId, organisationId),
       safetyExtra
     );
   } else if (vital_type === "glucose") {
     safetyAssessmentFailed = await runBestEffort(
-      () => assessGlucoseBestEffort(supabase, user.id, organisationId),
+      () => assessGlucoseBestEffort(supabase, patientId, organisationId),
       safetyExtra
     );
+  }
+
+  // device.synced (S10 outbox): once per source per ten minutes, never a reason to fail a reading that is already saved.
+  if (anyDeviceModuleOn(flags)) {
+    await runBestEffort(async () => {
+      await supabase.rpc("report_device_synced", { p_source: "ble", p_readings: 1, p_ref: device_id });
+    }, { route: "api/mobile/device-readings", stage: "device_synced_event", patientId, organisationId });
   }
 
   return NextResponse.json({

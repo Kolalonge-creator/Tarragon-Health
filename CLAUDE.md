@@ -629,3 +629,11 @@ live page's own copy against `git show origin/main:<file>`, not against the chan
 The v5 build spec lives at `docs/BUILD-SPEC-v5.md` (never edit it; sessions cite its line numbers). Session prompts are in `docs/v5-sessions/` (`00-INDEX.md`, `00-FOUNDER-DECISIONS.md`). Audit of spec vs live platform: `docs/RECONCILIATION.md`. Open conflicts awaiting a decision: `docs/OPEN-QUESTIONS.md`. Decisions: `docs/DECISIONS.md`. Progress log: `docs/BUILD-PROGRESS.md`. This file stays the operating contract; where v5 conflicts with it, write the conflict into `docs/OPEN-QUESTIONS.md` and stop that piece.
 
 Rule: **PROPOSED values live in versioned configuration** (`packages/shared/src/proposed-config`), never hard-coded; a repo scan test enforces it.
+
+## Worktree hygiene (standing rules)
+
+- Keep the main checkout on `main-dev`; do session work only in worktrees.
+- One worktree per PR. Reuse the existing PR's worktree instead of creating another; never start a new session for work an open PR already covers.
+- Never run `git worktree add` by hand outside `.claude/worktrees` (no `../tarragon-sNN` folders in `Documents`).
+- Merge PRs with "Delete branch" on. After merges, run `scripts/worktree-cleanup.sh` (dry run) then `--apply`.
+- Never delete a worktree that is dirty or has unpushed commits; push or open a PR first.

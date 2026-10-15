@@ -41,7 +41,7 @@ export function AccessLogList({ initial, pageSize }: { initial: AccessLogEntry[]
               <p className="font-medium text-charcoal-ink">{d.title}</p>
               <p className="text-charcoal-ink/70">{d.who}</p>
               <p className="text-xs text-charcoal-ink/60">
-                {when(e.at)} · {d.what}
+                {[when(e.at), d.what].filter(Boolean).join(" · ")}
                 {d.status ? ` · ${d.status}` : ""}
               </p>
             </li>

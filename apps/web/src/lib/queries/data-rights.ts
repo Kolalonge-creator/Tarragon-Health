@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import type { Tables } from "@tarragon/shared";
+import { deletionGraceDays, type Tables } from "@tarragon/shared";
 
 export type DataDeletionRequest = Tables<"data_deletion_requests">;
 export type DataCorrectionRequest = Tables<"data_correction_requests">;
@@ -31,6 +31,7 @@ export function usePatientDeletionRequests(patientId: string) {
       const { data, error } = await supabase
         .from("data_deletion_requests")
         .select("*")
+        .eq("patient_id", patientId)
         .order("requested_at", { ascending: false });
       if (error) throw error;
       return data as DataDeletionRequest[];
@@ -59,6 +60,8 @@ export function useCreateDeletionRequest(organisationId: string, patientId: stri
         patient_id: patientId,
         reason: input.reason,
         requested_categories: input.requestedCategories,
+        // S04b-2: the waiting period the patient can cancel within, in days. The database counts it from its own clock and holds it to 7..30.
+        requested_grace_days: deletionGraceDays(),
       });
       if (error) throw error;
     },
@@ -77,6 +80,7 @@ export function usePatientCorrectionRequests(patientId: string) {
       const { data, error } = await supabase
         .from("data_correction_requests")
         .select("*")
+        .eq("patient_id", patientId)
         .order("requested_at", { ascending: false });
       if (error) throw error;
       return data as DataCorrectionRequest[];
@@ -129,6 +133,7 @@ export function usePatientExportRequests(patientId: string) {
       const { data, error } = await supabase
         .from("data_export_requests")
         .select("*")
+        .eq("patient_id", patientId)
         .order("requested_at", { ascending: false });
       if (error) throw error;
       return data as DataExportRequest[];
@@ -158,6 +163,24 @@ export function useCreateExportRequest(organisationId: string, patientId: string
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: exportKey(patientId) });
+    },
+  });
+}
+
+/**
+ * Cancels the caller's own deletion request while its waiting period is still running (S04b-2). Goes through
+ * public.cancel_my_data_deletion_request: the database refuses once the period has ended or the request is closed.
+ */
+export function useCancelDeletionRequest(patientId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (requestId: string) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("cancel_my_data_deletion_request", { p_request: requestId });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: deletionKey(patientId) });
     },
   });
 }

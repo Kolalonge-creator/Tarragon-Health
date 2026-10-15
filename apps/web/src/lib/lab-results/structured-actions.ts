@@ -23,6 +23,8 @@ import {
   validateLabResultFile,
   withholdSchema,
 } from "@/lib/lab-results/structured";
+import { loose } from "@/lib/clinician/loose-client";
+import { getLabResultsSource } from "@/lib/lab-results/results-source";
 
 export type LabActionState = { error?: string; success?: boolean } | undefined;
 
@@ -82,15 +84,16 @@ export async function submitPartnerResult(_prev: LabActionState, formData: FormD
     stored = s;
   }
 
-  const { error } = await supabase.rpc("lab_partner_submit_result", {
-    p_order: parsed.data.orderId,
-    p_panel: parsed.data.panel,
-    p_items: converted.items as unknown as Json,
-    p_file: (stored ?? undefined) as unknown as Json,
+  // S74: results enter through a LabResultsSource (manual entry today; an API source is a stub). The database makes every decision.
+  const outcome = await getLabResultsSource("manual_entry", loose(supabase)).submit({
+    orderId: parsed.data.orderId,
+    panel: parsed.data.panel,
+    items: converted.items,
+    file: stored,
   });
-  if (error) {
+  if (!outcome.ok) {
     if (stored) await removeFile(stored.file_path);
-    return { error: describeLabError(error) };
+    return { error: outcome.message };
   }
   revalidatePath("/lab-partner/results");
   return { success: true };

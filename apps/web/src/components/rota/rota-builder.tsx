@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Field, fieldClass, Flash, Hidden, Muted, Section, SubmitButton } from "@/components/credentialing/shared";
 import { approveSwap, assignLead, cancelShift, changeLead, confirmHours, setShift } from "@/lib/rota/actions";
 import { getLeadCapacity, getLeadOverview, getRotaOverview } from "@/lib/rota/queries";
-import { getPagingOverview, getReadinessOverview } from "@/lib/paging/queries";
+import { getPagingHealth, getPagingOverview, getReadinessOverview } from "@/lib/paging/queries";
 import { formatWaiting } from "@/lib/paging/alarm";
 import { GAP_LABEL } from "@/lib/rota/schemas";
 import { defaultStartInput, formatLagos, formatLagosRange } from "@/lib/rota/time";
@@ -16,7 +16,7 @@ import { firstParam, type SearchParams } from "@/lib/credentialing/params";
  */
 export async function RotaBuilderPage({ returnTo, searchParams }: { returnTo: string; searchParams: SearchParams }) {
   const sp = await searchParams;
-  const [overview, leads, capacity, paging, readiness] = await Promise.all([getRotaOverview(), getLeadOverview(), getLeadCapacity(), getPagingOverview(), getReadinessOverview()]);
+  const [overview, leads, capacity, paging, readiness, health] = await Promise.all([getRotaOverview(), getLeadOverview(), getLeadCapacity(), getPagingOverview(), getReadinessOverview(), getPagingHealth()]);
   const start = defaultStartInput(new Date());
   const { status } = overview;
 
@@ -62,6 +62,37 @@ export async function RotaBuilderPage({ returnTo, searchParams }: { returnTo: st
         )}
       </Section>
 
+      {health ? (
+      <Section title="Paging engine" hint="Heartbeats from the scheduled sweep and the event processor, and whether the people on call right now can actually be reached. A stale heartbeat or nobody reachable also opens an incident.">
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          {health.engine.length === 0 ? <Badge variant="amber">No heartbeat recorded yet</Badge> : null}
+          {health.engine.map((h) => (
+            <Badge key={h.component} variant={h.stale ? "red" : "green"}>
+              {h.component.replace("_", " ")}: {h.stale ? "STALE, " : ""}last seen {formatWaiting(h.age_seconds)} ago
+            </Badge>
+          ))}
+          <Badge variant={health.rota_covered ? "green" : "red"}>{health.rota_covered ? "A shift covers now" : "No shift covers now"}</Badge>
+          {health.expired_open > 0 ? <Badge variant="red">{health.expired_open} expired page(s): phone the clinician on call</Badge> : null}
+        </div>
+        <ul className="divide-y divide-charcoal-ink/10 text-sm">
+          {health.on_call.map((c) => (
+            <li key={c.clinician_id} className="flex flex-wrap items-center gap-2 py-2">
+              <span>
+                {c.name ?? "Clinician"} ({c.role})
+              </span>
+              <Badge variant={c.reachable ? "green" : "red"}>{c.reachable ? "Reachable" : "Not reachable: no push set-up or unverified email"}</Badge>
+              {c.devices.length === 0 ? <Badge variant="grey">No console seen yet</Badge> : null}
+              {c.devices.map((d, i) => (
+                <Badge key={`${d.kind}-${i}`} variant={d.silent ? "amber" : "green"}>
+                  {d.kind} seen {formatLagos(d.last_seen_at)}
+                </Badge>
+              ))}
+            </li>
+          ))}
+        </ul>
+      </Section>
+      ) : null}
+
       <Section title="Priority case pages" hint="The last 7 days. A page nobody acknowledges alerts the backup after the first time and you after the second. Ops are told but cannot silence a page.">
         {paging.length === 0 ? (
           <Muted>No priority case has been paged in the last 7 days.</Muted>
@@ -74,6 +105,9 @@ export async function RotaBuilderPage({ returnTo, searchParams }: { returnTo: st
                   {p.acknowledged_at ? `Acknowledged by ${p.acknowledged_by_name ?? "a clinician"} after ${formatWaiting(p.seconds_waiting)}` : p.closed_at ? "Closed unacknowledged" : `Waiting ${formatWaiting(p.seconds_waiting)}`}
                 </Badge>
                 {p.no_cover ? <Badge variant="red">Nobody was on call</Badge> : null}
+                {p.expired_at && !p.acknowledged_at ? <Badge variant="red">Expired: nobody answered</Badge> : null}
+                {p.delivered_at === null && !p.acknowledged_at ? <Badge variant="amber">Not shown on a device yet</Badge> : null}
+                {p.merged_count > 0 ? <Badge variant="grey">{p.merged_count} repeat event(s) joined</Badge> : null}
                 {p.max_level >= 1 ? <Badge variant="amber">Backup paged</Badge> : null}
                 {p.max_level >= 2 ? <Badge variant="amber">Lead and ops alerted</Badge> : null}
               </li>

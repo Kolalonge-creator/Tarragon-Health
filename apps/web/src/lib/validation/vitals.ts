@@ -77,6 +77,9 @@ export const glucoseSchema = z.object({
   glucose_value: z.coerce.number(),
   glucose_unit: z.enum(GLUCOSE_UNITS),
   glucose_context: z.enum(GLUCOSE_CONTEXTS),
+  /** R2: an optional ketone result typed with the glucose (same ranges as the separate ketones form). Stored on the same reading. */
+  ketones_mmol_l: z.coerce.number().min(0).max(20).optional(),
+  ketone_urine: z.enum(["negative", "trace", "small", "moderate", "large"]).optional(),
   note: noteField,
   taken_at: takenAtField,
 });

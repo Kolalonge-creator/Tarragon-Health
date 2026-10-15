@@ -50,7 +50,7 @@ export function quietUntil(nowMs: number, q: QuietSettings): number | null {
 export type Decision =
   | { readonly action: "send" }
   | { readonly action: "defer"; readonly until: number; readonly reason: "quiet_hours" }
-  | { readonly action: "suppress"; readonly reason: "daily_cap" | "sms_not_allowed" }
+  | { readonly action: "suppress"; readonly reason: "daily_cap" | "sms_not_allowed" | "sms_exception_off" }
   | { readonly action: "block"; readonly reason: "inv07"; readonly violations: readonly string[] };
 
 export interface DecideInput {
@@ -65,8 +65,10 @@ export interface DecideInput {
    * body. Never the rendered text: a patient called Sugar or a pharmacy called Heartland must not block a send.
    */
   readonly wordingViolations: readonly string[];
-  /** Clinician paging by SMS is the one allowed non-code SMS (D-12); the caller says whether this row is that. */
-  readonly isClinicianPage: boolean;
+  /** Why this row may use SMS at all (see `smsPurpose`). Anything but `clinician_page` or `emergency_contact` is refused. */
+  readonly smsPurpose: SmsPurpose;
+  /** The go-live guard `sms_emergency_contact_enabled`. Closed unless the sender positively read it as on. */
+  readonly emergencyContactSmsOpen: boolean;
   /** `isSafetyCritical(template)`: skips quiet hours and the cap like a critical row does. */
   readonly safetyCritical?: boolean;
   /** The row has a `deferred_quiet` event: it was held by quiet hours and is now due, so the daily cap does not apply. */
@@ -74,19 +76,119 @@ export interface DecideInput {
 }
 
 /**
+ * SMS is allowed for exactly three things (D-12 plus the S85-D3 named exception): phone verification codes (sent by Supabase
+ * phone auth, never through this queue), clinician paging, and one content-free alert to a patient's own consented emergency contact.
+ * Through this queue only the last two exist.
+ */
+export type SmsPurpose = "clinician_page" | "emergency_contact" | "none";
+/** A refused critical row is FAILED so the escalation ladder still moves and alarms; a refused routine row is suppressed. */
+export const refusedSmsOutcome = (priority: Priority): "fail" | "suppress" => (priority === "critical" ? "fail" : "suppress");
+export const EMERGENCY_CONTACT_TEMPLATE = "emergency_contact_alert";
+export const EMERGENCY_CONTACT_SMS_GUARD_KEY = "sms_emergency_contact_enabled";
+
+/**
+ * The emergency-contact template is its own purpose whoever the recipient is. Otherwise a page is decided by who the recipient is
+ * (`isClinicianPageRow`: CMO Q10 / OQ-92); a critical row for a patient, a routine row for anyone and an unknown role are `none`.
+ */
+export function smsPurpose(i: { readonly template: string | null; readonly priority: Priority; readonly recipientRole: string | null | undefined }): SmsPurpose {
+  if (i.template === EMERGENCY_CONTACT_TEMPLATE) return "emergency_contact";
+  if (isClinicianPageRow(i.recipientRole, i.template, i.priority)) return "clinician_page";
+  return "none";
+}
+
+/**
  * Order matters: a clinical word blocks everything, including a critical row (it is a wording bug, and the
  * escalation ladder still moves on a failed row); then critical rows skip quiet hours and the cap; then SMS that
- * is not a clinician page is refused (INV-08); then quiet hours; then the cap. In-app is never deferred or capped.
+ * is not a clinician page or the guarded emergency-contact alert is refused (INV-08, D3); then quiet hours; then the cap. In-app is never deferred or capped.
  */
 export function decide(i: DecideInput): Decision {
   if (i.wordingViolations.length > 0) return { action: "block", reason: "inv07", violations: i.wordingViolations };
-  if (i.channel === "sms" && !i.isClinicianPage) return { action: "suppress", reason: "sms_not_allowed" };
-  if (i.priority === "critical" || i.safetyCritical === true || i.channel === "in_app" || i.channel === "sms" || i.channel === "voice") return { action: "send" };
+  if (i.channel === "sms") {
+    if (i.smsPurpose === "none") return { action: "suppress", reason: "sms_not_allowed" };
+    if (i.smsPurpose === "emergency_contact" && !i.emergencyContactSmsOpen) return { action: "suppress", reason: "sms_exception_off" };
+  }
+  // An alert the patient raised themselves is never held overnight or counted against the daily cap, same as a critical row.
+  if (i.priority === "critical" || i.safetyCritical === true || i.smsPurpose === "emergency_contact" || i.channel === "in_app" || i.channel === "sms" || i.channel === "voice") return { action: "send" };
   const until = quietUntil(i.nowMs, i.quiet);
   if (until !== null) return { action: "defer", until, reason: "quiet_hours" };
   // A row that quiet hours already held is sent once the window ends: the cap never turns a hold into a drop.
   if (i.channel === "push" && i.previouslyHeld !== true && i.routinePushSentToday >= i.routinePushPerDay) return { action: "suppress", reason: "daily_cap" };
   return { action: "send" };
+}
+
+/**
+ * Templates whose SMS goes to a third party's number (a patient's emergency contact), not to the recipient. They are the one
+ * SMS the S13 R4 ladder change (CMO Q10) did not decide: whether that SMS stays is an open question, so it keeps its old
+ * behaviour here and is named so nobody has to infer it.
+ */
+export const THIRD_PARTY_SMS_TEMPLATES: ReadonlySet<string> = new Set(["emergency_contact_alert"]);
+
+/**
+ * CMO Q10 / OQ-92: the one allowed non-code SMS is a clinician page. It is decided by WHO the recipient is, never by the
+ * row's priority alone (before this, any critical row passed, including a patient's). A clinician may be texted for any row (as
+ * before); the paging roles admin and care_coordinator only for a critical row (the clinical lead and ops are paged when nobody
+ * answers); every other role (finance, analyst, pharmacist, lab and payer staff, patients) never. An unknown role is not a
+ * clinician: the caller defers the row instead (a failed profile lookup must not drop a page).
+ */
+export const SMS_PAGING_ROLES: ReadonlySet<string> = new Set(["admin", "care_coordinator"]);
+export function isClinicianPageRow(role: string | null | undefined, template: string | null | undefined, priority: Priority = "routine"): boolean {
+  if (template != null && THIRD_PARTY_SMS_TEMPLATES.has(template)) return true;
+  if (role === "clinician") return true;
+  return priority === "critical" && role != null && SMS_PAGING_ROLES.has(role);
+}
+
+/**
+ * Extra Expo push fields for delivery reliability (S13 R4). Safety rows go high priority on Android through the `urgent`
+ * channel (which the app creates; a channel that does not exist on the phone means the message is not shown, so the id
+ * must match `apps/mobile/src/lib/notification-channels.ts`), live for a day if the phone is asleep, and on iPhone are
+ * "time-sensitive" (needs only a capability). "critical" (breaks through silent and Focus) is sent only when the server
+ * is told the app has Apple's entitlement (IOS_CRITICAL_ALERTS_ENABLED), because without it iOS ignores it and a build
+ * that claimed it would be rejected. Full-screen intents are deliberately never used (Play restricts them to calls and alarms).
+ */
+export const URGENT_CHANNEL_ID = "urgent";
+export const URGENT_TTL_SECONDS = 86_400;
+export interface ExpoUrgencyFields {
+  readonly priority?: "high";
+  readonly channelId?: string;
+  readonly ttl?: number;
+  readonly interruptionLevel?: "time-sensitive" | "critical";
+  readonly sound?: "default";
+}
+export function expoUrgencyFields(urgent: boolean, criticalAlertsEnabled: boolean, channelReady = true): ExpoUrgencyFields {
+  if (!urgent) return {};
+  return {
+    priority: "high",
+    // Only a phone that has created the channel (push_subscriptions.urgent_channel_ready) is sent to it; otherwise the push would
+    // be accepted and reported delivered but never shown.
+    ...(channelReady ? { channelId: URGENT_CHANNEL_ID } : {}),
+    ttl: URGENT_TTL_SECONDS,
+    interruptionLevel: criticalAlertsEnabled ? "critical" : "time-sensitive",
+    sound: "default",
+  };
+}
+
+/**
+ * A signed link for a document that used to ride along as an attachment (OQ-91). The link carries a random-looking id and a
+ * signature, never a name or a test; it opens nothing until the person signs in and owns the document. HMAC-SHA256, hex,
+ * over `kind.id.expiry`.
+ */
+export type DocumentLinkKind = "lab-request" | "care-plan";
+export async function signDocumentLink(secret: string, kind: DocumentLinkKind, id: string, expiresAtMs: number): Promise<string> {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${kind}.${id}.${expiresAtMs}`));
+  const sig = [...new Uint8Array(mac)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  return `${kind}/${id}?e=${expiresAtMs}&s=${sig}`;
+}
+
+/** Adds the signed-link sentence to a rendered email (subject unchanged). Returns subject, html, text for sendEmail. */
+export function withDocumentLink(
+  email: { subject: string; html: string; text?: string },
+  fallbackText: string,
+  url: string,
+): [string, string, string] {
+  const html = email.html.replace(/<\/div>\s*$/, `<p><a href="${url}">Sign in to open it</a></p></div>`);
+  const linked = html === email.html ? `${email.html}<p><a href="${url}">Sign in to open it</a></p>` : html;
+  return [email.subject, linked, `${email.text ?? fallbackText}\n\nSign in to open it: ${url}`];
 }
 
 /**

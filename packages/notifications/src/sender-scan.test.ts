@@ -61,7 +61,6 @@ const rules: Rule[] = [
       ["supabase/functions/abnormal-result-handler/index.ts", "clinician paging fallback (D-12)"],
       ["supabase/functions/paystack-webhook/handler.ts", "one invite SMS to a person with no profile row yet; cannot use the queue"],
       ["apps/web/src/lib/status/check-dependencies.ts", "status page: checks the key is configured, sends nothing"],
-      ["apps/web/src/lib/notifications/send-patient-link.ts", "a Zoom join link by SMS from a server action"],
     ]),
   },
 ];
