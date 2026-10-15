@@ -11,7 +11,7 @@
  * ## This confirms, it never predicts
  *
  * The shift is only visible AFTER it has happened, so by the time this
- * returns a date the fertile window has already closed. It is therefore
+ * returns a date the fertile days have already passed. It is therefore
  * useful for one thing — telling a patient that she did appear to ovulate
  * this cycle — and dangerous for another: it must never be rendered as a
  * fertile-window prediction, and it is not a contraceptive method. See

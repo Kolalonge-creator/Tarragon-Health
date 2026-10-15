@@ -208,7 +208,7 @@ export async function runCycleReminders(
       today,
       lifeStage,
       selfReportedCycleLengthDays: profile?.average_cycle_length_days ?? null,
-      // S66 (A14): a reminder never needs, and must never carry, a fertile window.
+      // S66 (A14): a reminder never needs, and must never carry, any fertility estimate.
       conceptionPlanning: false,
     });
 

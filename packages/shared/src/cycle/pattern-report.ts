@@ -14,7 +14,7 @@ import {
  * under a minute. Pure code, no clock, no database. The data arrives from the audited read function
  * `read_reproductive_pattern_report_audited` (INV-10, INV-12); nothing here fetches anything.
  *
- * Deliberately NOT in the report: the fertile window, ovulation date, basal temperature and ovulation test results (conception
+ * Deliberately NOT in the report: any fertility estimate, ovulation date, basal temperature and ovulation test results (conception
  * planning data, decision A14), and the free-text notes (the patient's own words, not needed for a pattern). It never concludes
  * anything: the flags are the same plain prompts the patient sees ("worth discussing"), and every figure is "as logged".
  */
