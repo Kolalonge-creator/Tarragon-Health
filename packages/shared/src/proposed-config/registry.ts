@@ -1134,6 +1134,30 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/design/S16-S20-pager-delivery.md; paging_delivery_config version 2 (inactive)",
   },
   {
+    key: "paging.unified_red_rules",
+    // Unified red-event paging (S19d, S16-S20 review Stage 3, CMO decision 11 part 3, defect P5). Live values are the active row of
+    // `unified_red_paging_config`; this entry mirrors version 1 and a test fails if the migration seed and this value drift. The row ships
+    // INACTIVE and UNSIGNED: no active row means every flag reads OFF and the older notification paths run exactly as before. The CMO
+    // switches it on from the sign-off hub after running the staging test pack, and can switch it off at any time.
+    // Each source key: 1 = that red-class event (SpO2 red, pulse red, temperature red, a red-flag symptom, any emergency event except
+    // blood pressure, which already has the triage-engine page) creates a page through the same ladder as the blood pressure page.
+    // suppress_legacy_clinician_notice: 1 = the older "notify every clinician" step for that event is skipped, but only when a page
+    // with a named clinician was created or joined; a failed page or a no-cover page leaves the older notice running.
+    value: {
+      spo2_red: 1,
+      pulse_red: 1,
+      temperature_red: 1,
+      symptom_red_flag: 1,
+      emergency_event: 1,
+      suppress_legacy_clinician_notice: 1,
+    },
+    owner: "CMO",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-10-15",
+    source: "docs/design/S16-S20-unified-red-paging.md; docs/plans/S16-S20-review-and-build-plan.md section 5, decision 11",
+  },
+  {
     key: "free_red_event.rules",
     // Two-tier (CMO decision 2026-10-08, C2): the Free red-event path. Live values are the active row of `free_red_config`; this
     // entry mirrors it and a test fails if the migration seed and this value drift. recheck_minutes: when the Free patient is

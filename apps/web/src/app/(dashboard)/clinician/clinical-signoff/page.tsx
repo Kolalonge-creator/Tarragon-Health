@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { Card, CardContent } from "@/components/ui/card";
 import { readClinicalSignoffChecklist } from "@/lib/clinical/read-clinical-signoff-checklist";
-import { CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, GLUCOSE_TASK_TYPE_ITEM_KEY, GLUCOSE_TRIAGE_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, SOLE_CMO_EXCEPTION_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
+import { CLINICAL_RULES_ITEM_KEY, COMMUNITY_ITEM_KEY, GLUCOSE_TASK_TYPE_ITEM_KEY, GLUCOSE_TRIAGE_ITEM_KEY, PROTOCOL_DRAFTS_ITEM_KEY, QUALITY_CONFIG_ITEM_KEY, RED_OUTREACH_ITEM_KEY, SOLE_CMO_EXCEPTION_ITEM_KEY, UNIFIED_RED_PAGING_ITEM_KEY } from "@/lib/queries/cmo-signing-hub";
 import { getCmoSigningHubForRequest } from "@/lib/queries/cmo-signing-hub-request";
 import { ProtocolDraftsManager } from "@/app/(dashboard)/admin/settings/protocols/protocol-drafts-manager";
 import { RefreshOnMutationSuccess } from "../_signoff-panels/refresh-on-mutation-success";
@@ -28,6 +28,8 @@ import { CommunitySignoffPanel } from "../_signoff-panels/community-panel";
 import { TriageRulesPanel } from "../_signoff-panels/triage-rules-panel";
 import { QualityConfigPanel } from "../_signoff-panels/quality-config-panel";
 import { readPendingQualityConfigSignoff } from "@/lib/queries/pending-quality-config-signoff";
+import { UnifiedRedPagingPanel } from "../_signoff-panels/unified-red-paging-panel";
+import { readUnifiedRedPagingState } from "@/lib/queries/pending-unified-red-paging-signoff";
 import { GlucoseTaskTypePanel } from "../_signoff-panels/glucose-task-type-panel";
 import { RedOutreachPanel } from "../_signoff-panels/red-outreach-panel";
 import { SoleCmoExceptionPanel } from "../_signoff-panels/sole-cmo-exception-panel";
@@ -199,6 +201,10 @@ export default async function ClinicianClinicalSignoffPage({
   if (keys.has(QUALITY_CONFIG_ITEM_KEY)) {
     const pendingConfigs = await readPendingQualityConfigSignoff(supabase);
     inlinePanels[QUALITY_CONFIG_ITEM_KEY] = <QualityConfigPanel qualityVersion={pendingConfigs.qualityVersion} credentialingVersion={pendingConfigs.credentialingVersion} />;
+  }
+  if (keys.has(UNIFIED_RED_PAGING_ITEM_KEY)) {
+    const unifiedRed = await readUnifiedRedPagingState(supabase);
+    inlinePanels[UNIFIED_RED_PAGING_ITEM_KEY] = <UnifiedRedPagingPanel waitingVersion={unifiedRed.waitingVersion} liveVersion={unifiedRed.liveVersion} />;
   }
   if (keys.has(RED_OUTREACH_ITEM_KEY)) inlinePanels[RED_OUTREACH_ITEM_KEY] = <RedOutreachPanel />;
   if (keys.has(SOLE_CMO_EXCEPTION_ITEM_KEY)) inlinePanels[SOLE_CMO_EXCEPTION_ITEM_KEY] = <SoleCmoExceptionPanel />;
