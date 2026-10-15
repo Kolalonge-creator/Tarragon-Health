@@ -52,11 +52,12 @@ begin
 
   v_def := pg_get_functiondef('public.attest_go_live_condition(text, text, boolean, text)'::regprocedure);
   if v_def not like '%live_redflag_prompts_enabled%' then
-    -- anchor on a tuple that stays put wherever other migrations extend the list, and add ours straight after it
+    -- anchor on a tuple that stays put wherever other migrations extend the list
+    -- our tuples go BEFORE the anchor so the anchor stays the last element of the list, which is what F1's later in-place patch looks for
     v_new := replace(v_def, '(''public_signup_enabled'', ''stage2_exit_criteria_met'')',
-      '(''public_signup_enabled'', ''stage2_exit_criteria_met''),' || E'\n' ||
-      '       (''live_redflag_prompts_enabled'', ''speech_validated_nigerian_english''), (''live_redflag_prompts_enabled'', ''consent_tables_settled''),' || E'\n' ||
-      '       (''live_redflag_prompts_enabled'', ''redflag_phrase_list_signed''), (''live_redflag_prompts_enabled'', ''clinical_safety_case_current'')');
+      '(''live_redflag_prompts_enabled'', ''speech_validated_nigerian_english''), (''live_redflag_prompts_enabled'', ''consent_tables_settled''),' || E'\n' ||
+      '       (''live_redflag_prompts_enabled'', ''redflag_phrase_list_signed''), (''live_redflag_prompts_enabled'', ''clinical_safety_case_current''),' || E'\n' ||
+      '       (''public_signup_enabled'', ''stage2_exit_criteria_met'')');
     if v_new = v_def then raise exception 'S77: attest_go_live_condition marker not found (definition drifted)'; end if;
     execute v_new;
   end if;
