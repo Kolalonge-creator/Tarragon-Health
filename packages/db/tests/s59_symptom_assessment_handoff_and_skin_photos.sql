@@ -78,6 +78,7 @@ begin
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by) values (v_kid, v_mgr, 'manage', v_mgr);
   -- the minor-scope trigger (S04b-1) stops a child holding a pregnancy row; this proof needs one to show the context is read, not that it is allowed
   alter table public.patient_pregnancy disable trigger "00_minor_dependant_scope";
+  if to_regclass('public.pregnancies') is not null then execute 'alter table public.pregnancies disable trigger "00_minor_dependant_scope"'; end if;
   insert into public.patient_pregnancy (organisation_id, patient_id, is_pregnant) values (v_org, v_p1, true), (v_org, v_kid, true);
   insert into public.patient_conditions (organisation_id, patient_id, condition_name, status) values (v_org, v_p1, 'Hypertension', 'active');
   insert into public.medications (organisation_id, patient_id, drug_name, is_active) values (v_org, v_p1, 'Warfarin', true);
