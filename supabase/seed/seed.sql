@@ -195,23 +195,28 @@ values
      2200000, array['lipid_panel', 'hba1c']),
   ('diabetes_panel', 'Diabetes Panel',
      'HbA1c, lipids, eGFR, urine ACR, foot risk baseline.',
-     1850000, array['hba1c', 'lipid_panel']),
-  ('annual_health_check', 'Annual Health Check',
+     1850000, array['hba1c', 'lipid_panel'])
+on conflict (code) do nothing;
+
+-- Two-tier item 8: a retired bundle, inactive and not self-bookable (a CHECK constraint refuses otherwise, even on a row that
+-- ON CONFLICT would skip).
+insert into public.panel_bundles (code, name, description, price_kobo, test_codes, is_active, self_bookable)
+values ('annual_health_check', 'Annual Health Check',
      'Full metabolic panel plus gender-specific cancer screens.',
-     6500000, array['hba1c', 'lipid_panel', 'psa', 'cervical_smear'])
+     6500000, array['hba1c', 'lipid_panel', 'psa', 'cervical_smear'], false, false)
 on conflict (code) do nothing;
 
 -- Health Check tier ladder (migration 20260723164727): Basic (WHO PEN
 -- cardiometabolic) / Standard (annual_health_check) / Comprehensive (adds
 -- HIV + Hep B + Hep C). PLACEHOLDER PRICES — founder to confirm.
-insert into public.panel_bundles (code, name, description, price_kobo, test_codes, self_bookable)
+insert into public.panel_bundles (code, name, description, price_kobo, test_codes, self_bookable, is_active)
 values
   ('health_check_basic', 'Health Check — Basic',
      'Cardiometabolic essentials (WHO PEN): HbA1c and full lipid panel, plus BP and BMI at the lab. Doctor-reviewed.',
-     1500000, array['hba1c', 'lipid_panel'], true),
+     1500000, array['hba1c', 'lipid_panel'], false, false),
   ('health_check_comprehensive', 'Health Check — Comprehensive',
      'Everything in the Annual Health Check plus HIV, Hepatitis B, and Hepatitis C screening. Doctor-reviewed.',
-     7500000, array['hba1c', 'lipid_panel', 'psa', 'cervical_smear', 'hiv', 'hep_b', 'hep_c'], true)
+     7500000, array['hba1c', 'lipid_panel', 'psa', 'cervical_smear', 'hiv', 'hep_b', 'hep_c'], false, false)
 on conflict (code) do nothing;
 
 -- Blood group & genotype combo, and standalone Hepatitis C — migration
@@ -237,6 +242,8 @@ update public.panel_bundles
   where code = 'health_check_comprehensive'
     and not ('hep_c' = any(test_codes));
 
+-- Two-tier item 8 (2026-10-12): annual_health_check, health_check_basic and health_check_comprehensive stay NOT self-bookable
+-- (a CHECK constraint on panel_bundles refuses it); they duplicate the Membership annual test.
 -- Self-bookable set (migrations 20260723150205 + 20260723164727 +
 -- 20260724020715): the three Health Check packages plus the WHO-essential
 -- confidential screenings (cervical smear per the WHO 90-70-90 elimination
@@ -244,7 +251,7 @@ update public.panel_bundles
 -- a general wellness catalogue — PSA stays package-only per WHO guidance;
 -- everything else stays clinician-originated.
 update public.panel_bundles set self_bookable = true
-  where code in ('annual_health_check', 'single_cervical_smear', 'single_hiv', 'single_hep_b', 'single_hep_c', 'single_blood_group_genotype');
+  where code in ('single_cervical_smear', 'single_hiv', 'single_hep_b', 'single_hep_c', 'single_blood_group_genotype');
 
 -- ---------------------------------------------------------------------------
 -- pharmacy_partners

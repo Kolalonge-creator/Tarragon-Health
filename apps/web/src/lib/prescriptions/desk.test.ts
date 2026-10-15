@@ -42,3 +42,13 @@ describe("deskVerdict / canRecordFromDesk", () => {
     expect(canRecordFromDesk({ status: "active", supply_available: false })).toBe(false);
   });
 });
+
+describe("OQ-276 controlled medicine on the phone desk", () => {
+  const controlled = { ...found, status: "controlled_medicine" as const, supply_available: false };
+  it("is a valid lookup, never recordable, and the verdict says why", () => {
+    expect(parseDeskResult([controlled])).toMatchObject({ kind: "found" });
+    expect(canRecordFromDesk(controlled)).toBe(false);
+    expect(deskVerdict(controlled)).toMatch(/controlled medicines list/i);
+    expect(deskVerdict(controlled)).toMatch(/do not dispense/i);
+  });
+});

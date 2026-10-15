@@ -50,6 +50,12 @@
 
 begin;
 
+-- Two-tier: no service product is for sale any more (service_products_doctor_time_not_sellable). This proof uses a purchasable
+-- product as the vehicle for generic machinery, so the constraint is dropped and the two retired add-ons are switched on here,
+-- inside this rolled-back transaction.
+alter table public.service_products drop constraint service_products_doctor_time_not_sellable;
+update public.service_products set is_active = true where code in ('continuous_monitoring_90d', 'ai_coach_daily_pass_30d');
+
 do $$
 declare
   v_org           uuid;
@@ -115,7 +121,7 @@ begin
   insert into public.clinical_staff
     (id, organisation_id, profile_id, full_name, credential_type, active, doctor_tier, license_verified_at)
   values
-    (v_staff_id, v_org, v_doctor, 'DIA Fixture Doctor', 'MDCN', true, 'medical_officer', now());
+    (v_staff_id, v_org, v_doctor, 'DIA Fixture Doctor', 'MDCN', true, 'senior_medical_officer', now());
 
   -- 2. clinical_staff.id vs profile_id genuinely differ — the negative
   -- control that proves a wrong-table join in this fixture would not
@@ -251,7 +257,7 @@ begin
   select organisation_id into v_org
     from public.profiles where role = 'patient' and organisation_id is not null limit 1;
   select id, price_kobo into v_product, v_price
-    from public.service_products where is_active limit 1;
+    from public.service_products where is_active and code <> 'second_opinion_credit' limit 1;
 
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
   values
@@ -267,7 +273,7 @@ begin
     set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
   insert into public.clinical_staff
     (id, organisation_id, profile_id, full_name, credential_type, active, doctor_tier, license_verified_at)
-  values (v_staff_id, v_org, v_doctor, 'DIA Appt Doctor', 'MDCN', true, 'medical_officer', now());
+  values (v_staff_id, v_org, v_doctor, 'DIA Appt Doctor', 'MDCN', true, 'senior_medical_officer', now());
 
   -- A live appointment: attributed to the doctor via appointments.
   -- clinician_id -> profiles, the one redemption path with no

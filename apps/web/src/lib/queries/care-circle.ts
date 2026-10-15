@@ -223,6 +223,19 @@ export function useAckAlert() {
   });
 }
 
+/** S75 A5: the patient's switch for sharing the monthly report with one supporter. Off by default. */
+export function useSetMonthlyShare() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { memberId: string; on: boolean }) => {
+      const { error } = await createClient().rpc("set_circle_monthly_report_share", { p_member: input.memberId, p_on: input.on });
+      if (error) throw new CircleError(error.message);
+    },
+    // the preview shows the monthly block only when this is on, so a cached preview must not be shown as current
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["care-circle"] }),
+  });
+}
+
 export function useUpdateMember() {
   const qc = useQueryClient();
   return useMutation({

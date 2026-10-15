@@ -3,13 +3,9 @@ import Link from "next/link";
 import { Section, SectionHeading } from "../_components/section";
 import { CtaBand } from "../_components/cta-band";
 import { FaqAccordion } from "../_components/marketing-faq-accordion";
-import { PAID_SERVICES } from "../_content/pricing";
-import { fetchPlanPrices } from "@/lib/marketing/plan-prices";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
-import { fromMinorUnits } from "@tarragon/shared";
 
-export const revalidate = 300;
 
 /**
  * Continuous Monitoring.
@@ -27,24 +23,9 @@ export const revalidate = 300;
  * is quieter and better: your reading already gets checked, this is who hears
  * about it.
  *
- * ON "NOTHING RENEWS". The pricing page promises no subscription, no stored
- * card, nothing to cancel. This product is the one most likely to tempt someone
- * into adding auto-renewal later, because a lapse in cover looks like churn.
- * It is not churn, it is the promise working. If renewal is ever added it is a
- * founder decision about a public commitment, not a growth experiment.
+ * FREE OR MEMBER, NOTHING ELSE. Continuous monitoring is no longer a product with its own price: a doctor on the care team being
+ * told, and following up, is part of Membership. This page describes Free and Membership only and states no price.
  */
-
-// Resolved by id with a hard failure rather than a non-null assertion, so a
-// rename breaks the build here instead of rendering an empty price table.
-const MONITORING = (() => {
-  const found = PAID_SERVICES.find((service) => service.id === "continuous-monitoring");
-  if (!found) {
-    throw new Error(
-      "monitoring: no PAID_SERVICES entry with id 'continuous-monitoring'. Update this page if the product is renamed."
-    );
-  }
-  return found;
-})();
 
 export const metadata: Metadata = pageMetadata({
   title: "Continuous monitoring",
@@ -63,8 +44,8 @@ const WHAT_HAPPENS = [
     body: "You get clear guidance immediately, your emergency contact is notified, and we check in with you afterwards. None of that depends on paying us either.",
   },
   {
-    when: "What monitoring adds",
-    body: "A doctor on your care team is told, and follows up with you personally. Without it, a worrying reading sits on your record until someone happens to look.",
+    when: "What Membership adds",
+    body: "A doctor on your care team is told, and follows up with you personally. On the free plan, a worrying reading sits on your record until you or someone else looks.",
   },
   {
     when: "Between the alarms",
@@ -74,41 +55,33 @@ const WHAT_HAPPENS = [
 
 const FAQ = [
   {
-    question: "What happens to my readings if I do not buy this?",
+    question: "What happens to my readings on the free plan?",
     answer:
-      "They are still checked against care protocols, every single one, and you still get the full emergency safety net: immediate guidance, your emergency contact notified, and a check-in afterwards. That has always been yours, whatever you pay. What you do not get is a doctor being told and following up personally.",
+      "They are still checked against care protocols, every single one, and you still get the full emergency safety net: immediate guidance, your emergency contact notified, and a check-in afterwards. On the free plan a doctor is not told, and we say so plainly on the screen. Membership is what puts a doctor on your care team in the loop.",
   },
   {
     question: "Is this insurance?",
     answer:
-      "No, and it does not replace it. An HMO pays your bills the day you are admitted. This watches your numbers in the years before that day, so it comes later or not at all. Most people who buy this keep their HMO, and it costs a fraction of one.",
+      "No, and it does not replace it. An HMO pays your bills the day you are admitted. This watches your numbers in the years before that day, so it comes later or not at all.",
   },
   {
-    question: "Does it renew automatically?",
+    question: "Does Membership renew automatically?",
     answer:
-      "No. You pay once, for 90 days, and it stops at the end. There is no card kept on file and nothing to cancel. We tell you before it runs out, so buy it again then if you want to keep it going.",
+      "No. It lasts a year. We remind you 30, 14 and 7 days before it ends, and you keep your Member access for 14 days after. There is no card kept on file and nothing to cancel.",
   },
   {
     question: "What counts as a dangerous reading?",
     answer:
-      "Blood pressure, blood sugar, oxygen, temperature and pulse each have thresholds set from clinical guidelines and signed off by our clinical director. They are not adjusted for what you paid.",
+      "Blood pressure, blood sugar, oxygen, temperature and pulse each have thresholds set from clinical guidelines and signed off by our clinical director. They are the same on both plans.",
   },
   {
-    question: "Do I need it for hypertension or diabetes?",
+    question: "Do I need Membership for hypertension or diabetes?",
     answer:
-      "You do not need it to use the app, and the self-monitoring track of the chronic programme is free. Monitoring is what carries entry to the doctor-supported track, where a doctor reviews your readings and adjusts your plan alongside the reviews you buy as they fall due.",
+      "You do not need it to use the app, and the self-monitoring track of the chronic programme is free. Membership is what gives you a doctor who reviews your readings and adjusts your plan.",
   },
 ];
 
-export default async function MonitoringPage() {
-  const prices = await fetchPlanPrices();
-  const priceFor = (code: string, fallback: string) => {
-    const kobo = prices.get(code);
-    return kobo === undefined
-      ? fallback
-      : `₦${fromMinorUnits(kobo, "NGN").toLocaleString("en-NG")}`;
-  };
-
+export default function MonitoringPage() {
   return (
     <>
       <Section>
@@ -153,36 +126,28 @@ export default async function MonitoringPage() {
 
       <Section>
         <SectionHeading
-          eyebrow="What it costs"
-          title="Paid once, for 90 days"
-          description="What a watch costs is the exceptions it raises, not how long it runs. Buy it again when the term ends if you want to keep it going."
+          eyebrow="Two plans"
+          title="Free, or Membership"
+          description="Every reading is checked on both. Membership is what adds a doctor who is told and follows up."
         />
-        <div className="mx-auto max-w-sm">
-          <div className="flex flex-col rounded-2xl border border-charcoal-ink/10 bg-white p-6 shadow-sm">
-            <p className="text-sm font-medium uppercase tracking-wide text-charcoal-ink/55">
-              90 days
-            </p>
-            <p className="mt-1 font-heading text-3xl font-bold text-brand-green">
-              {priceFor(MONITORING.code, MONITORING.price)}
-            </p>
+        <div className="mx-auto grid max-w-3xl gap-4 sm:grid-cols-2">
+          <div className="rounded-2xl border border-charcoal-ink/10 bg-white p-6 shadow-sm">
+            <p className="font-heading text-lg font-semibold text-charcoal-ink">Free</p>
             <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">
-              Nothing renews, and there is no card kept on file.
+              Every reading checked, immediate guidance, your emergency contact told, and a check-in afterwards. No time limit and no card.
             </p>
           </div>
-        </div>
-
-        <div className="mx-auto mt-8 max-w-3xl rounded-2xl bg-soft-sage px-6 py-5">
-          <p className="text-base leading-relaxed text-charcoal-ink/80">
-            For comparison, the cheapest individual health insurance in Nigeria runs from about
-            ₦42,000 a year and pays your hospital bills. Monitoring does something different: it
-            watches your numbers so that the day you need the insurance comes later, or not at all.
-            Most people who buy this keep their HMO.
-          </p>
+          <div className="rounded-2xl border border-brand-green/25 bg-white p-6 shadow-sm">
+            <p className="font-heading text-lg font-semibold text-charcoal-ink">Membership</p>
+            <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">
+              Everything in Free, and a doctor on your care team is told about a dangerous reading and follows up with you. Your price is on the pricing page.
+            </p>
+          </div>
         </div>
       </Section>
 
       <Section variant="sage">
-        <SectionHeading eyebrow="Questions people ask" title="Before you buy" />
+        <SectionHeading eyebrow="Questions people ask" title="Before you decide" />
         <div className="mx-auto max-w-3xl">
           <FaqAccordion items={FAQ} />
         </div>
@@ -202,11 +167,11 @@ export default async function MonitoringPage() {
         <div className="mx-auto max-w-4xl">
           <CtaBand
             variant="gradient"
-            title="Start free, add the watch when you want it"
-            description="The app, your readings, your screening calendar and the education library cost nothing and always will. Monitoring is there when you want your care team watching the numbers with you."
+            title="Start free, join when you want a doctor watching with you"
+            description="The app, your readings, your screening calendar and the education library cost nothing and always will. Membership is there when you want your care team watching the numbers with you."
             primaryLabel="Create a free account"
             secondaryHref={MARKETING_ROUTES.pricing}
-            secondaryLabel="See all prices"
+            secondaryLabel="See the two plans"
           />
         </div>
       </Section>

@@ -2,6 +2,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@tarragon/shared";
+import {
+  usePendingRecordRequests,
+  useWithdrawRecordRequest,
+  type PendingRecordRequest,
+  type WithdrawRecordRequestInput,
+} from "./record-change-requests";
 
 export type PatientAllergy = Tables<"patient_allergies">;
 
@@ -89,4 +95,18 @@ export function useAddAllergy() {
       queryClient.invalidateQueries({ queryKey: allergiesKey(variables.patientId) });
     },
   });
+}
+
+export type PendingAllergyRequest = Pick<PendingRecordRequest, "id" | "allergy_id" | "requested_status" | "created_at">;
+
+/** The patient's own waiting requests to void or correct an allergy (S05b-d): see record-change-requests.ts. */
+export function usePendingAllergyRequests(patientId: string) {
+  return usePendingRecordRequests("patient_allergies", patientId);
+}
+
+export type WithdrawAllergyRequestInput = WithdrawRecordRequestInput;
+
+/** Takes a waiting request back. The database checks the request is hers and still waiting. */
+export function useWithdrawAllergyRequest() {
+  return useWithdrawRecordRequest("patient_allergies", allergiesKey);
 }

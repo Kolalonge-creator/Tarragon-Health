@@ -149,7 +149,7 @@ begin
   insert into public.screening_schedules (patient_id, organisation_id, screen_type_id, due_date, status)
   select v_patient, v_org, id, current_date + interval '30 days', 'pending' from public.screen_types limit 1;
   insert into public.clinical_staff (organisation_id, profile_id, full_name, doctor_tier, employment_type, active)
-  values (v_org, v_clinician, 'SVAS Test Clinician', 'medical_officer', 'employed', false);
+  values (v_org, v_clinician, 'SVAS Test Clinician', 'senior_medical_officer', 'employed', false);
 
   insert into svas_fixture(k, v) values
     ('org', v_org), ('agent_org', v_agent_org), ('support_agent', v_support_agent),
