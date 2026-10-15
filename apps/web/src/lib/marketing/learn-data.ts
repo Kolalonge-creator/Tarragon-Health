@@ -11,7 +11,10 @@ export interface SharedArticle {
   code: string;
   title: string;
   summary: string | null;
+  /** Empty for a members-only creator lesson: the database never sends that body to a signed-out visitor. */
   body: string;
+  /** True when the lesson is part of Membership: the page shows the title, the credit and the teaser only. */
+  membersOnly: boolean;
   estimatedMinutes: number | null;
   reviewedByName: string | null;
   reviewedAt: string | null;
@@ -26,7 +29,8 @@ type Row = {
   code: string;
   title: string;
   summary: string | null;
-  body: string;
+  body: string | null;
+  members_only: boolean | null;
   estimated_minutes: number | null;
   reviewed_by_name: string | null;
   reviewed_at: string | null;
@@ -53,14 +57,16 @@ export async function loadSharedArticle(code: string): Promise<SharedArticle | n
     code: r.code,
     title: r.title,
     summary: r.summary,
-    body: r.body,
+    // belt and braces: whatever the row says, a members-only lesson never carries a body to the page
+    body: r.members_only === true ? "" : (r.body ?? ""),
+    membersOnly: r.members_only === true,
     estimatedMinutes: r.estimated_minutes,
     reviewedByName: r.reviewed_by_name,
     reviewedAt: r.reviewed_at,
     nextReviewDue: r.next_review_due,
     sourceReference: r.source_reference,
     evidenceSource: r.evidence_source,
-    selfCareAction: r.self_care_action,
+    selfCareAction: r.members_only === true ? null : r.self_care_action,
     creatorName: r.creator_name,
   };
 }

@@ -17861,6 +17861,7 @@ export type Database = {
           organisation_id: string
           patient_id: string
           status: Database["public"]["Enums"]["health_education_status"]
+          understood_at: string | null
           updated_at: string
         }
         Insert: {
@@ -17873,6 +17874,7 @@ export type Database = {
           organisation_id: string
           patient_id: string
           status?: Database["public"]["Enums"]["health_education_status"]
+          understood_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -17885,6 +17887,7 @@ export type Database = {
           organisation_id?: string
           patient_id?: string
           status?: Database["public"]["Enums"]["health_education_status"]
+          understood_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -45164,11 +45167,12 @@ export type Database = {
       learn_shared_article: {
         Args: { p_code: string }
         Returns: {
-          body: string
+          body: string | null
           code: string
           creator_name: string
           estimated_minutes: number
           evidence_source: string
+          members_only: boolean
           next_review_due: string
           reviewed_at: string
           reviewed_by_name: string
@@ -45194,32 +45198,12 @@ export type Database = {
           is_micro_lesson: boolean
           is_shareable: boolean
           lesson_action: string
+          members_only: boolean
           next_review_due: string
           reviewed_at: string
           reviewed_by_name: string
           self_care_action: string
           source_reference: string
-        }[]
-      }
-      daily_micro_lesson: {
-        Args: never
-        Returns: {
-          audio_clip_id: string
-          body: string
-          check_question: Json
-          code: string
-          completed_today: boolean
-          content_id: string
-          estimated_minutes: number
-          lesson_action: string
-          next_review_due: string
-          reviewed_at: string
-          reviewed_by_name: string
-          self_care_action: string
-          source_reference: string
-          status: Database["public"]["Enums"]["health_education_status"]
-          summary: string
-          title: string
         }[]
       }
       consultation_saved_lessons: {
@@ -49876,6 +49860,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_learning_creator_perk: {
+        Args: { p_members_only: boolean; p_reason: string }
+        Returns: number
+      }
       set_member_active: {
         Args: { p_active: boolean; p_member_id: string }
         Returns: undefined
@@ -50362,6 +50350,30 @@ export type Database = {
       waitlist_referral: {
         Args: { p_interim_management_plan: string; p_referral: string }
         Returns: undefined
+      }
+      weekly_micro_lesson: {
+        Args: never
+        Returns: {
+          audio_clip_id: string
+          body: string
+          check_question: Json
+          code: string
+          completed_this_week: boolean
+          content_id: string
+          creator_name: string
+          drip_week: number
+          estimated_minutes: number
+          lesson_action: string
+          members_only: boolean
+          next_review_due: string
+          reviewed_at: string
+          reviewed_by_name: string
+          self_care_action: string
+          source_reference: string
+          status: Database["public"]["Enums"]["health_education_status"]
+          summary: string
+          title: string
+        }[]
       }
       wellness_challenge_progress: {
         Args: { p_enrolment_id: string }
