@@ -266,9 +266,9 @@ select pg_temp.ck('H', 'H1 no function executable by a signed-in user returns a 
   (select count(*)::text from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and has_function_privilege('authenticated', p.oid, 'EXECUTE')
       and exists (select 1 from unnest(coalesce(p.proargnames, '{}')) a where a ~* 'commission')));
-select pg_temp.ck('H', 'H2 the only view a signed-in user can read with a commission column is the admin-gated one', 'pharmacy_medications_admin.commission_flat_kobo,pharmacy_medications_admin.commission_rate,pharmacy_medications_admin.commission_rate_type',
+select pg_temp.ck('H', 'H2 the only pharmacy view a signed-in user can read with a commission column is the admin-gated one (lab, panel and screening views are proved by Track E)', 'pharmacy_medications_admin.commission_flat_kobo,pharmacy_medications_admin.commission_rate,pharmacy_medications_admin.commission_rate_type',
   (select string_agg(c.relname || '.' || a.attname, ',' order by c.relname, a.attname) from pg_attribute a join pg_class c on c.oid = a.attrelid join pg_namespace n on n.oid = c.relnamespace
-    where n.nspname = 'public' and c.relkind in ('v', 'm') and a.attname ~* 'commission' and a.attnum > 0 and has_table_privilege('authenticated', c.oid, 'SELECT')));
+    where n.nspname = 'public' and c.relkind in ('v', 'm') and c.relname ~ '^pharmacy' and a.attname ~* 'commission' and a.attnum > 0 and has_table_privilege('authenticated', c.oid, 'SELECT')));
 select pg_temp.ck('H', 'H3 a patient, a clinician and a pharmacist read no commission from that view', '0/0/0',
   pg_temp.q_as(pg_temp.f('pat'), 'select count(*)::text from public.pharmacy_medications_admin') || '/' || pg_temp.q_as(pg_temp.f('doc'), 'select count(*)::text from public.pharmacy_medications_admin') || '/' || pg_temp.q_as(pg_temp.f('phA'), 'select count(*)::text from public.pharmacy_medications_admin'));
 -- sabotage of the standing check itself: a leaking view must change what H2 sees
