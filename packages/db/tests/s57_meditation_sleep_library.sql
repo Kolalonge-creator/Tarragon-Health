@@ -126,10 +126,10 @@ begin
   perform pg_temp.setf('pat2', pg_temp.mkuser(v_org, 'pat2', 'patient'));
   perform pg_temp.setf('realpat', pg_temp.mkuser(v_org, 'realpat', 'patient'));
   update public.profiles set is_test = false where id = pg_temp.f('realpat');
-  v_doc := pg_temp.mkdoc(v_org, 'doctied', 'medical_officer', 'contracted', '{adult_general}', v_admin); perform pg_temp.setf('doctied', v_doc);
+  v_doc := pg_temp.mkdoc(v_org, 'doctied', 'senior_medical_officer', 'contracted', '{adult_general}', v_admin); perform pg_temp.setf('doctied', v_doc);
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id) values (v_org, v_pat, v_doc);
   perform pg_temp.setf('coord', pg_temp.mkdoc(v_org, 'coord', 'care_coordinator', 'employed', '{}', v_admin));
-  perform pg_temp.setf('docuntied', pg_temp.mkdoc(v_org, 'docuntied', 'medical_officer', 'contracted', '{adult_general}', v_admin));
+  perform pg_temp.setf('docuntied', pg_temp.mkdoc(v_org, 'docuntied', 'senior_medical_officer', 'contracted', '{adult_general}', v_admin));
   perform pg_temp.setf('cmo', pg_temp.mkdoc(v_org, 'cmo', 'chief_medical_officer', 'contracted', '{adult_general}', v_admin));
   perform pg_temp.setf('spons', pg_temp.mkuser(v_org, 'spons', 'patient'));
   perform pg_temp.setf('cgyes', pg_temp.mkuser(v_org, 'cgyes', 'patient'));

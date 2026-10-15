@@ -31,97 +31,19 @@ values
    'S57b: a wellbeing check-in raised a crisis flag (F1 crisis route). Same class, tier and competency as red_event_unacknowledged, which F1 reused until this type existed (OQ-F1-03). PROPOSED, awaiting the CMO''s confirmation. Never has a lead window (INV-05).')
 on conflict do nothing;
 
--- 2. The idempotent core, now creating the dedicated task type
-create or replace function private.raise_crisis_follow_up(p_screen uuid)
-returns boolean
-language plpgsql security definer set search_path = ''
-as $$
-declare
-  s public.mental_health_screens%rowtype;
-  v_test boolean;
-  v_event uuid;
-  v_task uuid;
-  v_to uuid;
-  v_n integer := 0;
-  v_failed boolean := false;
-  r record;
+-- 2. The idempotent core, now creating the dedicated task type. Patched IN PLACE: only the task type the crisis route asks for changes, so every
+--    later change to the function (F1's review rounds, the two-tier work) is kept instead of being overwritten by a copy of an older body.
+do $$
+declare v_def text; v_new text;
 begin
-  select * into s from public.mental_health_screens where id = p_screen;
-  if not found or not s.crisis_flagged then return false; end if;
-  -- replay of a screen already fully handled: nothing more to do
-  if exists (select 1 from public.audit_log where action = 'crisis.handled' and entity_type = 'mental_health_screen' and entity_id = s.id) then
-    return false;
+  v_def := pg_get_functiondef('private.raise_crisis_follow_up(uuid)'::regprocedure);
+  if v_def like '%create_clinical_task(s.patient_id, ''crisis_follow_up''%' then
+    return; -- already patched (a replay)
   end if;
-  select coalesce(is_test, false) into v_test from public.profiles where id = s.patient_id;
-
-  -- (a) the event: ids only (INV-07), urgent, idempotent per screen
-  begin
-    v_event := private.emit_domain_event('crisis.detected', s.organisation_id, jsonb_build_object('screen_id', s.id),
-      'crisis.detected:' || s.id, s.patient_id, 'mental_health_screen', s.id, 'urgent');
-  exception when others then
-    v_failed := true;
-    insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
-      values (s.organisation_id, 'crisis_task.error', 'mental_health_screen', s.id, jsonb_build_object('step', 'event', 'error', sqlerrm));
-    perform private.page_incident(s.organisation_id, 'crisis_follow_up_failed:' || s.id, 'A priority follow-up could not be completed',
-      'A priority wellbeing follow-up step failed; see audit_log action crisis_task.error. The emergency event itself was still raised.');
-  end;
-
-  -- (b) the class 1 task (the dedicated crisis_follow_up type; no lead window, so it never waits for a pull)
-  begin
-    v_task := private.create_clinical_task(s.patient_id, 'crisis_follow_up', null, 'crisis:' || s.patient_id, null, null, v_event);
-  exception when others then
-    v_failed := true;
-    insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
-      values (s.organisation_id, 'crisis_task.error', 'mental_health_screen', s.id, jsonb_build_object('step', 'task', 'error', sqlerrm));
-    perform private.page_incident(s.organisation_id, 'crisis_follow_up_failed:' || s.id, 'A priority follow-up could not be completed',
-      'A priority wellbeing follow-up step failed; see audit_log action crisis_task.error. The emergency event itself was still raised.');
-  end;
-
-  -- (c) reach a person: the clinician on call, else the clinical lead and ops plus an incident.
-  -- Once per screen: a replay after a partial failure must not page the same person twice.
-  if not exists (select 1 from public.audit_log where action = 'crisis.notified' and entity_type = 'mental_health_screen' and entity_id = s.id) then
-  begin
-    v_to := private.page_recipient(s.organisation_id, v_test);
-    if v_to is not null then
-      perform private.crisis_notify(v_to, s.organisation_id, 'on_call_page', v_task);
-    else
-      for r in
-        select p.id from public.profiles p where p.organisation_id = s.organisation_id and p.is_active and p.role = 'admin' and p.is_test = v_test
-        union
-        select cs.profile_id from public.clinical_staff cs join public.profiles p on p.id = cs.profile_id
-         where cs.organisation_id = s.organisation_id and cs.profile_id is not null and cs.active and cs.status = 'active'
-           and cs.doctor_tier = 'chief_medical_officer' and p.is_test = v_test
-      loop
-        perform private.crisis_notify(r.id, s.organisation_id, 'on_call_escalation', v_task);
-        v_n := v_n + 1;
-      end loop;
-      perform private.page_incident(s.organisation_id, 'crisis_no_cover:' || s.id, 'A priority case with nobody on call',
-        'A priority case arrived while no eligible clinician was on the rota. The clinical lead and ops were alerted' ||
-        case when v_n = 0 then ' (nobody matched: add or activate a chief medical officer or admin account)' else '' end ||
-        ' and a priority task is open.');
-    end if;
-  exception when others then
-    v_failed := true;
-    insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
-      values (s.organisation_id, 'crisis_task.error', 'mental_health_screen', s.id, jsonb_build_object('step', 'notify', 'error', sqlerrm));
-    perform private.page_incident(s.organisation_id, 'crisis_follow_up_failed:' || s.id, 'A priority follow-up could not be completed',
-      'A priority wellbeing follow-up step failed; see audit_log action crisis_task.error. The emergency event itself was still raised.');
-  end;
-  if not v_failed then
-    insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
-      values (s.organisation_id, 'crisis.notified', 'mental_health_screen', s.id, '{}'::jsonb);
-  end if;
-  end if;
-
-  if not v_failed then
-    insert into public.audit_log (organisation_id, action, entity_type, entity_id, event)
-      values (s.organisation_id, 'crisis.handled', 'mental_health_screen', s.id, jsonb_build_object('task_id', v_task, 'event_id', v_event));
-  end if;
-  return not v_failed;
-end;
-$$;
-revoke all on function private.raise_crisis_follow_up(uuid) from public, anon, authenticated;
-grant execute on function private.raise_crisis_follow_up(uuid) to service_role;
+  v_new := replace(v_def, 'create_clinical_task(s.patient_id, ''red_event_unacknowledged''', 'create_clinical_task(s.patient_id, ''crisis_follow_up''');
+  if v_new = v_def then raise exception 'S57b: raise_crisis_follow_up marker not found (definition drifted)'; end if;
+  execute v_new;
+end $$;
 
 
 -- 3. Self-check
