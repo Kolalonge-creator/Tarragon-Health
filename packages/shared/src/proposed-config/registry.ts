@@ -1437,7 +1437,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
   },
   {
     key: "quality.audit",
-    // Clinical audits, tier 1 count, the audit form, reliability weight and the speak-up clocks (S20, spec 7.8). Live values are the
+    // Version 2 (Q16): adds sampling.new_clinician_full_review_cases. Clinical audits, tier 1 count, the audit form, reliability weight and the speak-up clocks (S20, spec 7.8). Live values are the
     // active row of `quality_config`; this entry mirrors it and a test fails if the migration seed and this value drift.
     // Every number is PROPOSED and owned by the CMO (OQ-140): the sample rate, the tier 1 count and pass mark, the score bands,
     // and the acknowledge and respond times for a safety concern.
@@ -1449,6 +1449,7 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
         floor_per_clinician_per_month: 1,
         reviewer_monthly_cap: 40,
         due_days: 14,
+        new_clinician_full_review_cases: 20,
       },
       tier1: {
         audited_task_count: 20,
@@ -1485,9 +1486,9 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     },
     owner: "CMO",
     status: "proposed",
-    version: 1,
-    effectiveFrom: "2026-10-06",
-    source: "docs/design/S20.md; spec 7.8",
+    version: 2,
+    effectiveFrom: "2026-10-13",
+    source: "docs/design/S20.md; spec 7.8; docs/design/S11-S15-credentialing.md (CMO answer Q16: 100 percent review of a new clinician's first 20 red or prescribing cases)",
   },
   {
     key: "quality.audit",
